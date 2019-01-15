@@ -1,0 +1,8 @@
+[package]
+name = "cumulus-consensus"
+description = "Proxy Polkadot's consensus as a consensus engine for Substrate"
+version = "0.1.0"
+authors = ["Parity Technologies"]
+edition = "2018"
+
+[dependencies]
