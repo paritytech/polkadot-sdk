@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use substrate_client::{backend::Backend, Client, BlockchainEvents};
-use substrate_client::error::{Error as ClientError, Result as ClientResult};
+use substrate_client::{backend::Backend, CallExecutor, Client, BlockchainEvents};
+use substrate_client::error::{Error as ClientError, Result as ClientResult, ErrorKind as ClientErrorKind};
+use substrate_primitives::{Blake2Hasher, H256};
+use sr_primitives::generic::BlockId;
 use sr_primitives::traits::{Block as BlockT, Header as HeaderT, ProvideRuntimeApi};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash, parachain::Id as ParaId};
 
@@ -119,4 +121,26 @@ pub fn follow_polkadot<'a, L: 'a, P: 'a>(para_id: ParaId, local: Arc<L>, polkado
 	follow_best.join(follow_finalized)
 		.map_err(|e| warn!("Could not follow relay-chain: {:?}", e))
 		.map(|((), ())| ())
+}
+
+impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
+	B: Backend<Block, Blake2Hasher>,
+	E: CallExecutor<Block, Blake2Hasher>,
+	Block: BlockT<Hash=H256>,
+{
+	type Block = Block;
+
+	fn mark_best(&self, _hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
+		Ok(true) // TODO: https://github.com/paritytech/substrate/pull/1489
+	}
+
+	fn finalize(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
+		match self.finalize_block(BlockId::hash(hash), None, true) {
+			Ok(()) => Ok(true),
+			Err(e) => match e.kind() {
+				ClientErrorKind::UnknownBlock(_) => Ok(false),
+				_ => Err(e),
+			}
+		}
+	}
 }
