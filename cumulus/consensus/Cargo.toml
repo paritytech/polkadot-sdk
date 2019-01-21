@@ -19,3 +19,5 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 # other deps
 futures = "0.1.21"
 tokio = "0.1.8"
+parity-codec = "2.0"
+log = "0.4"
