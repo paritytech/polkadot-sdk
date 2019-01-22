@@ -13,8 +13,9 @@ substrate-primitives = { git = "https://github.com/paritytech/substrate" }
 sr-primitives = { git = "https://github.com/paritytech/substrate" }
 
 # polkadot deps
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "rh-update-substrate" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rh-update-substrate" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot" }
 
 # other deps
 futures = "0.1.21"
