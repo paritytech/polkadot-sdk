@@ -24,7 +24,7 @@ use polkadot_primitives::parachain::{Id as ParaId, ParachainHost};
 
 use futures::prelude::*;
 use futures::stream;
-use parity_codec::Decode;
+use parity_codec::{Encode, Decode};
 use log::warn;
 
 use std::sync::Arc;
@@ -148,8 +148,13 @@ impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
 	}
 }
 
-fn parachain_key(_para_id: ParaId) -> substrate_primitives::storage::StorageKey {
-	unimplemented!()
+fn parachain_key(para_id: ParaId) -> substrate_primitives::storage::StorageKey {
+	const PREFIX: &[u8] = &b"Parachains Heads";
+	para_id.using_encoded(|s| {
+		let mut v = PREFIX.to_vec();
+		v.extend(s);
+		substrate_primitives::storage;:StorageKey(v)
+	})
 }
 
 impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>> where
