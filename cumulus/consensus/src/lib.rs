@@ -94,9 +94,8 @@ pub fn follow_polkadot<'a, L: 'a, P: 'a>(para_id: ParaId, local: Arc<L>, polkado
 
 		head_updates
 			.map_err(Error::Polkadot)
-			.and_then(|update| {
-				Option<<L::Block as BlockT>::Header>::decode(&mut &update.head_data[..])
-					.ok_or_else(|| Error::InvalidHeadData)
+			.and_then(|update| -> Result<Option<<L::Block as BlockT>::Header>, _> {
+				Decode::decode(&mut &update.head_data[..]).ok_or_else(|| Error::InvalidHeadData)
 			})
 			.filter_map(|h| h)
 			.for_each(move |p_head| {
@@ -110,9 +109,8 @@ pub fn follow_polkadot<'a, L: 'a, P: 'a>(para_id: ParaId, local: Arc<L>, polkado
 
 		finalized_heads
 			.map_err(Error::Polkadot)
-			.and_then(|head_data| {
-				Option<<L::Block as BlockT>::Header>::decode(&mut &head_data[..])
-					.ok_or_else(|| Error::InvalidHeadData)
+			.and_then(|head_data| -> Result<Option<<L::Block as BlockT>::Header>, _> {
+				Decode::decode(&mut &head_data[..]).ok_or_else(|| Error::InvalidHeadData)
 			})
 			.filter_map(|h| h)
 			.for_each(move |p_head| {
@@ -133,8 +131,14 @@ impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
 {
 	type Block = Block;
 
-	fn mark_best(&self, _hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
-		Ok(true) // TODO: https://github.com/paritytech/substrate/pull/1489
+	fn mark_best(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
+		match self.set_head(BlockId::hash(hash)) {
+			Ok(()) => Ok(true),
+			Err(e) => match e.kind() {
+				ClientErrorKind::UnknownBlock(_) => Ok(false),
+				_ => Err(e),
+			}
+		}
 	}
 
 	fn finalize(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
@@ -149,11 +153,11 @@ impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
 }
 
 fn parachain_key(para_id: ParaId) -> substrate_primitives::storage::StorageKey {
-	const PREFIX: &[u8] = &b"Parachains Heads";
+	const PREFIX: &[u8] = &*b"Parachains Heads";
 	para_id.using_encoded(|s| {
 		let mut v = PREFIX.to_vec();
 		v.extend(s);
-		substrate_primitives::storage;:StorageKey(v)
+		substrate_primitives::storage::StorageKey(v)
 	})
 }
 

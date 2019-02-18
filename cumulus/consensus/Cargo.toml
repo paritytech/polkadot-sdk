@@ -20,5 +20,5 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot" }
 # other deps
 futures = "0.1.21"
 tokio = "0.1.8"
-parity-codec = "2.0"
+parity-codec = "3.0"
 log = "0.4"
