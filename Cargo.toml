@@ -1,0 +1,11 @@
+[package]
+name = "substrate-bip39"
+version = "0.1.0"
+authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+pbkdf2 = { version = "0.3.0", features=["parallel"], default-features = false }
+sha2 = "0.8.0"
+hmac = "0.7.0"
+schnorrkel = "0.0.0"
