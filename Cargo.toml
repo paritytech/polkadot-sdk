@@ -9,3 +9,7 @@ pbkdf2 = { version = "0.3.0", features=["parallel"], default-features = false }
 sha2 = "0.8.0"
 hmac = "0.7.0"
 schnorrkel = "0.0.0"
+
+[dev-dependencies]
+tiny-bip39 = "0.6.0"
+rustc-hex = "2.0.1"
