@@ -1,8 +1,11 @@
 [package]
 name = "substrate-bip39"
 version = "0.1.0"
-authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
+authors = ["Parity Technologies <admin@parity.io>"]
+license = "GPL-3.0"
 edition = "2018"
+documentation = "https://docs.rs/substrate-bip39"
+repository = "https://github.com/maciejhirsz/substrate-bip39"
 
 [dependencies]
 pbkdf2 = { version = "0.3.0", features=["parallel"], default-features = false }
