@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "GPL-3.0"
 edition = "2018"
+description = "Converting BIP39 entropy to valid Substrate (sr25519) SecretKeys"
 documentation = "https://docs.rs/substrate-bip39"
 repository = "https://github.com/maciejhirsz/substrate-bip39"
 
