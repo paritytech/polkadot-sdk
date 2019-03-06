@@ -1,0 +1,25 @@
+[package]
+name = "cumulus-test-runtime-wasm"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[lib]
+name = "cumulus_test_runtime"
+crate-type = ["cdylib"]
+
+[dependencies]
+cumulus-test-runtime = { path = "..", default-features = false }
+
+[features]
+default = []
+std = [
+	"cumulus-test-runtime/std",
+]
+
+[profile.release]
+panic = "abort"
+lto = true
+
+[workspace]
+members = []

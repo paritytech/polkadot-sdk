@@ -17,8 +17,9 @@
 //! A module that enables a runtime to work as parachain.
 
 #[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub use rstd::slice;
+use runtime_primitives::traits::{Block as BlockT, Header as HeaderT, One};
+#[cfg(not(feature = "std"))]
+use executive::ExecuteBlock;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
@@ -84,12 +85,12 @@ macro_rules! register_validate_block_impl {
 pub fn validate_block<Block: BlockT, E: ExecuteBlock<Block>>(mut block: &[u8], mut prev_head: &[u8]) {
 	use codec::Decode;
 
-	let block = ParachainBlock::<Block>::decode(&mut block).expect("Could not decode parachain block.");
+	let block = crate::ParachainBlock::<Block>::decode(&mut block).expect("Could not decode parachain block.");
 	let parent_header = <<Block as BlockT>::Header as Decode>::decode(&mut prev_head).expect("Could not decode parent header.");
 
 	let _guard = unsafe {
 		use storage_functions as storage;
-		STORAGE = Some(block.witness_data);
+		storage::STORAGE = Some(block.witness_data);
 		(
 			// Replace storage calls with our own implementations
 			rio::ext_get_allocated_storage.replace_implementation(storage::ext_get_allocated_storage),

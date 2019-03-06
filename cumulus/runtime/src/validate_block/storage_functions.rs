@@ -12,15 +12,12 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 //! All storage functions that are replaced by `validate_block` in the Substrate runtime.
 
-use crate::{ParachainBlock, WitnessData};
-use runtime_primitives::traits::{Block as BlockT, One, Header as HeaderT};
+use crate::WitnessData;
 use rstd::{slice, ptr, cmp};
-use codec::Decode;
-use executive::ExecuteBlock;
 
 pub static mut STORAGE: Option<WitnessData> = None;
 const STORAGE_SET_EXPECT: &str = "`STORAGE` needs to be set before calling this function.";

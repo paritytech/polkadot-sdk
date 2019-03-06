@@ -20,6 +20,11 @@ use rstd::{vec::Vec, collections::btree_map::BTreeMap};
 use codec::{Encode, Decode};
 use runtime_primitives::traits::Block as BlockT;
 
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
+pub use rstd::slice;
+
+#[macro_use]
 pub mod validate_block;
 
 type WitnessData = BTreeMap<Vec<u8>, Vec<u8>>;
