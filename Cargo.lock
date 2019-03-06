@@ -545,7 +545,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "substrate-bip39"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hmac 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pbkdf2 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
