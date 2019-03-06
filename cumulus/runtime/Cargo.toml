@@ -1,0 +1,28 @@
+[package]
+name = "runtime"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[dependencies]
+codec = { package = "parity-codec", version = "3.1", default-features = false, features = [ "derive" ] }
+rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-validate_block" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-validate_block" }
+rio = { package = "sr-io", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-validate_block" }
+executive = { package = "srml-executive", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-validate_block" }
+
+[dev-dependencies]
+keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-validate_block" }
+primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-validate_block" }
+executor = { package = "substrate-executor", git = "https://github.com/paritytech/substrate", branch = "bkchr-validate_block" }
+test-runtime = { package = "substrate-test-runtime", git = "https://github.com/paritytech/substrate", branch = "bkchr-validate_block" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"rstd/std",
+	"rio/std",
+	"runtime-primitives/std",
+	"executive/std",
+]

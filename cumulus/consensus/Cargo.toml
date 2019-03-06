@@ -2,7 +2,7 @@
 name = "cumulus-consensus"
 description = "Proxy Polkadot's consensus as a consensus engine for Substrate"
 version = "0.1.0"
-authors = ["Parity Technologies"]
+authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
@@ -20,5 +20,5 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot" }
 # other deps
 futures = "0.1.21"
 tokio = "0.1.8"
-parity-codec = "3.0"
+parity-codec = "3.1"
 log = "0.4"
