@@ -39,7 +39,7 @@ mod tests;
 ///     struct Block;
 ///     struct BlockExecutor;
 ///
-///     srml_parachain::register_validate_block!(Block, BlockExecutor);
+///     cumulus_runtime::register_validate_block!(Block, BlockExecutor);
 ///
 /// # fn main() {}
 /// ```

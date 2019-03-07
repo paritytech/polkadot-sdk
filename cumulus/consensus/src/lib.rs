@@ -57,7 +57,7 @@ pub enum Error<P> {
 /// A parachain head update.
 pub struct HeadUpdate {
 	/// The relay-chain's block hash where the parachain head updated.
-	pub relay_hash: PHash, 
+	pub relay_hash: PHash,
 	/// The parachain head-data.
 	pub head_data: Vec<u8>,
 }
@@ -80,9 +80,9 @@ pub trait PolkadotClient: Clone {
 }
 
 /// Spawns a future that follows the Polkadot relay chain for the given parachain.
-pub fn follow_polkadot<'a, L: 'a, P: 'a>(para_id: ParaId, local: Arc<L>, polkadot: P) 
+pub fn follow_polkadot<'a, L: 'a, P: 'a>(para_id: ParaId, local: Arc<L>, polkadot: P)
 	-> impl Future<Item=(),Error=()> + Send + 'a
-	where 
+	where
 		L: LocalClient + Send + Sync,
 		P: PolkadotClient + Send + Sync,
 {
@@ -169,23 +169,23 @@ impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>> where
 {
 	type Error = ClientError;
 
-	type HeadUpdates = Box<Stream<Item=HeadUpdate,Error=Self::Error> + Send>;
-	type Finalized = Box<Stream<Item=Vec<u8>,Error=Self::Error> + Send>;
+	type HeadUpdates = Box<Stream<Item=HeadUpdate, Error=Self::Error> + Send>;
+	type Finalized = Box<Stream<Item=Vec<u8>, Error=Self::Error> + Send>;
 
 	fn head_updates(&self, para_id: ParaId) -> Self::HeadUpdates {
 		let parachain_key = parachain_key(para_id);
 		let stream = stream::once(self.storage_changes_notification_stream(Some(&[parachain_key.clone()])))
 			.map(|s| s.map_err(|()| panic!("unbounded receivers never yield errors; qed")))
 			.flatten();
-		
+
 		let s = stream.filter_map(move |(hash, changes)| {
 			let head_data = changes.iter()
 				.filter_map(|(k, v)| if k == &parachain_key { Some(v) } else { None })
 				.next();
 
 			match head_data {
-				Some(Some(head_data)) => Some(HeadUpdate { 
-					relay_hash: hash, 
+				Some(Some(head_data)) => Some(HeadUpdate {
+					relay_hash: hash,
 					head_data: head_data.0.clone(),
 				}),
 				Some(None) | None => None,

@@ -13,9 +13,9 @@ substrate-primitives = { git = "https://github.com/paritytech/substrate", branch
 sr-primitives = { git = "https://github.com/paritytech/substrate", branch = "bkchr-validate_block" }
 
 # polkadot deps
-polkadot-service = { git = "https://github.com/paritytech/polkadot" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot" }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-validate_block" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-validate_block" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-validate_block" }
 
 # other deps
 futures = "0.1.21"
