@@ -26,7 +26,8 @@ pub fn mini_secret_from_entropy(entropy: &[u8], password: &str) -> Result<MiniSe
     Ok(MiniSecretKey::from_bytes(&seed[..32]).expect("Length is always correct; qed"))
 }
 
-fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Error> {
+/// Similar to `mini_secret_from_entropy`, except that it provides the 64-byte seed directly.
+pub fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Error> {
     if entropy.len() < 16 || entropy.len() > 32 || entropy.len() % 4 != 0 {
         return Err(Error::InvalidEntropy);
     }
