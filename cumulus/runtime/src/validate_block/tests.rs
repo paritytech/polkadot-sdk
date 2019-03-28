@@ -17,7 +17,7 @@
 use crate::ParachainBlock;
 
 use rio::{twox_128, TestExternalities};
-use keyring::Keyring;
+use keyring::AccountKeyring;
 use primitives::map;
 use runtime_primitives::traits::Block as BlockT;
 use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::{I64, I32}};
@@ -32,7 +32,7 @@ const WASM_CODE: &'static [u8] =
 
 fn create_witness_data() -> BTreeMap<Vec<u8>, Vec<u8>> {
 	map![
-		twox_128(&Keyring::Alice.to_raw_public().to_keyed_vec(b"balance:")).to_vec() => vec![111u8, 0, 0, 0, 0, 0, 0, 0]
+		twox_128(&AccountKeyring::Alice.to_raw_public().to_keyed_vec(b"balance:")).to_vec() => vec![111u8, 0, 0, 0, 0, 0, 0, 0]
 	]
 }
 
@@ -71,8 +71,8 @@ fn call_validate_block(block: ParachainBlock<Block>, prev_header: <Block as Bloc
 fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
 	vec![
 		Transfer {
-			from: Keyring::Alice.to_raw_public().into(),
-			to: Keyring::Bob.to_raw_public().into(),
+			from: AccountKeyring::Alice.into(),
+			to: AccountKeyring::Bob.into(),
 			amount: 69,
 			nonce: 0,
 		}.into_signed_tx()
