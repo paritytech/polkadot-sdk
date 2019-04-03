@@ -12,10 +12,8 @@ crate-type = ["cdylib"]
 cumulus-test-runtime = { path = "..", default-features = false }
 
 [features]
-default = []
-std = [
-	"cumulus-test-runtime/std",
-]
+default = ["wasm"]
+wasm = ["cumulus-test-runtime/wasm"]
 
 [profile.release]
 panic = "abort"

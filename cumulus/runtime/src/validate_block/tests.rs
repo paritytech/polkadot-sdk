@@ -27,7 +27,7 @@ use std::collections::BTreeMap;
 
 use codec::{KeyedVec, Encode};
 
-const WASM_CODE: &'static [u8] =
+const WASM_CODE: &[u8] =
 	include_bytes!("../../test-runtime/wasm/target/wasm32-unknown-unknown/release/cumulus_test_runtime.compact.wasm");
 
 fn create_witness_data() -> BTreeMap<Vec<u8>, Vec<u8>> {

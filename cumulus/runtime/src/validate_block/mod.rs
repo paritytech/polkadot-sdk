@@ -16,16 +16,11 @@
 
 //! A module that enables a runtime to work as parachain.
 
-#[cfg(not(feature = "std"))]
-use runtime_primitives::traits::{Block as BlockT, Header as HeaderT, One};
-#[cfg(not(feature = "std"))]
-use executive::ExecuteBlock;
-
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub mod storage_functions;
 #[cfg(test)]
 mod tests;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
+pub mod implementation;
 
 /// Register the `validate_block` function that is used by parachains to validate blocks on a validator.
 ///
@@ -65,7 +60,7 @@ macro_rules! register_validate_block_impl {
 				let block = $crate::slice::from_raw_parts(block, block_len as usize);
 				let prev_head = $crate::slice::from_raw_parts(prev_head, prev_head_len as usize);
 
-				$crate::validate_block::validate_block::<$block, $block_executor>(block, prev_head);
+				$crate::validate_block::implementation::validate_block::<$block, $block_executor>(block, prev_head);
 			}
 		}
 	};
@@ -77,30 +72,4 @@ macro_rules! register_validate_block_impl {
 #[macro_export]
 macro_rules! register_validate_block_impl {
 	($block:ty, $block_executor:ty) => {};
-}
-
-/// Validate a given parachain block on a validator.
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub fn validate_block<Block: BlockT, E: ExecuteBlock<Block>>(mut block: &[u8], mut prev_head: &[u8]) {
-	use codec::Decode;
-
-	let block = crate::ParachainBlock::<Block>::decode(&mut block).expect("Could not decode parachain block.");
-	let parent_header = <<Block as BlockT>::Header as Decode>::decode(&mut prev_head).expect("Could not decode parent header.");
-
-	let _guard = unsafe {
-		use storage_functions as storage;
-		storage::STORAGE = Some(block.witness_data);
-		(
-			// Replace storage calls with our own implementations
-			rio::ext_get_allocated_storage.replace_implementation(storage::ext_get_allocated_storage),
-			rio::ext_get_storage_into.replace_implementation(storage::ext_get_storage_into),
-			rio::ext_set_storage.replace_implementation(storage::ext_set_storage),
-			rio::ext_exists_storage.replace_implementation(storage::ext_exists_storage),
-			rio::ext_clear_storage.replace_implementation(storage::ext_clear_storage),
-		)
-	};
-
-	let block_number = *parent_header.number() + One::one();
-	E::execute_extrinsics_without_checks(block_number, block.extrinsics);
 }

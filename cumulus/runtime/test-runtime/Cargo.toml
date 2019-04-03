@@ -14,3 +14,4 @@ std = [
 	"runtime/std",
 	"substrate-test-runtime/std",
 ]
+wasm = ["runtime/wasm"]

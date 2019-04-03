@@ -16,7 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use rstd::{vec::Vec, collections::btree_map::BTreeMap};
+use rstd::vec::Vec;
 use codec::{Encode, Decode};
 use runtime_primitives::traits::Block as BlockT;
 
@@ -27,19 +27,23 @@ pub use rstd::slice;
 #[macro_use]
 pub mod validate_block;
 
-type WitnessData = BTreeMap<Vec<u8>, Vec<u8>>;
+/// The type of the witness data.
+type WitnessData = Vec<Vec<u8>>;
 
 /// The parachain block that is created on a collator and validated by a validator.
 #[derive(Encode, Decode)]
-struct ParachainBlock<B: BlockT> {
+struct ParachainBlockData<B: BlockT> {
 	extrinsics: Vec<<B as BlockT>::Extrinsic>,
 	/// The data that is required to emulate the storage accesses executed by all extrinsics.
 	witness_data: WitnessData,
 }
 
-impl<B: BlockT> ParachainBlock<B> {
+impl<B: BlockT> ParachainBlockData<B> {
 	#[cfg(test)]
-	fn new(extrinsics: Vec<<B as BlockT>::Extrinsic>, witness_data: WitnessData) -> Self {
+	fn new(
+		extrinsics: Vec<<B as BlockT>::Extrinsic>,
+		witness_data: WitnessData
+	) -> Self {
 		Self {
 			extrinsics,
 			witness_data,
@@ -47,11 +51,11 @@ impl<B: BlockT> ParachainBlock<B> {
 	}
 }
 
-impl<B: BlockT> Default for ParachainBlock<B> {
+impl<B: BlockT> Default for ParachainBlockData<B> {
 	fn default() -> Self {
 		Self {
 			extrinsics: Vec::default(),
-			witness_data: BTreeMap::default(),
+			witness_data: WitnessData::default(),
 		}
 	}
 }
