@@ -56,11 +56,18 @@ macro_rules! register_validate_block_impl {
 			use super::*;
 
 			#[no_mangle]
-			unsafe fn validate_block(block: *const u8, block_len: u64, prev_head: *const u8, prev_head_len: u64) {
-				let block = $crate::slice::from_raw_parts(block, block_len as usize);
-				let prev_head = $crate::slice::from_raw_parts(prev_head, prev_head_len as usize);
+			unsafe fn validate_block(
+				block_data: *const u8,
+				block_data_len: u64,
+			) {
+				let block_data = $crate::slice::from_raw_parts(
+					block_data,
+					block_data_len as usize,
+				);
 
-				$crate::validate_block::implementation::validate_block::<$block, $block_executor>(block, prev_head);
+				$crate::validate_block::implementation::validate_block::<
+					$block, $block_executor
+				>(block_data);
 			}
 		}
 	};

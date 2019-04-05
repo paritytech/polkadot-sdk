@@ -18,15 +18,21 @@
 
 use crate::WitnessData;
 use runtime_primitives::traits::{
-	Block as BlockT, Header as HeaderT, One, Hash as HashT
+	Block as BlockT, Header as HeaderT, Hash as HashT
 };
 use executive::ExecuteBlock;
 
-use substrate_trie::{MemoryDB, read_trie_value};
+use substrate_trie::{MemoryDB, read_trie_value, delta_trie_root};
 
 use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
 use hash_db::HashDB;
+
+static mut STORAGE: Option<Box<StorageT>> = None;
+/// The message to use as expect message while accessing the `STORAGE`.
+const STORAGE_SET_EXPECT: &str =
+	"`STORAGE` needs to be set before calling this function.";
+const STORAGE_ROOT_LEN: usize = 32;
 
 /// Extract the hashing algorithm type from the given block type.
 type HashingOf<B> = <<B as BlockT>::Header as HeaderT>::Hashing;
@@ -43,30 +49,27 @@ trait StorageT {
 
 	/// Remove key and value.
 	fn remove(&mut self, key: &[u8]);
-}
 
-static mut STORAGE: Option<Box<StorageT>> = None;
-/// The message to use as expect message while accessing the `STORAGE`.
-const STORAGE_SET_EXPECT: &str =
-	"`STORAGE` needs to be set before calling this function.";
+	/// Calculate the storage root.
+	fn storage_root(&mut self) -> [u8; STORAGE_ROOT_LEN];
+}
 
 /// Validate a given parachain block on a validator.
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
-	mut block: &[u8],
-	mut prev_head: &[u8]
+	mut block_data: &[u8],
 ) {
 	use codec::Decode;
 
-	let block = crate::ParachainBlockData::<B>::decode(&mut block)
+	let block_data = crate::ParachainBlockData::<B>::decode(&mut block_data)
 		.expect("Could not decode parachain block.");
-	let parent_header = <<B as BlockT>::Header as Decode>::decode(&mut prev_head)
-		.expect("Could not decode parent header.");
+	// TODO: Add `PolkadotInherent`.
+	let block = B::new(block_data.header, block_data.extrinsics);
 	let storage = Storage::<B>::new(
-		block.witness_data,
-		parent_header.state_root().clone()
-	).expect("Create storage out of witness data.");
+		block_data.witness_data,
+		block_data.witness_data_storage_root,
+	).expect("Witness data and storage root always match; qed");
 
 	let _guard = unsafe {
 		STORAGE = Some(Box::new(storage));
@@ -77,11 +80,11 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
 			rio::ext_set_storage.replace_implementation(ext_set_storage),
 			rio::ext_exists_storage.replace_implementation(ext_exists_storage),
 			rio::ext_clear_storage.replace_implementation(ext_clear_storage),
+			rio::ext_storage_root.replace_implementation(ext_storage_root),
 		)
 	};
 
-	let block_number = *parent_header.number() + One::one();
-	//E::execute_extrinsics_without_checks(block_number, block.extrinsics);
+	E::execute_block(block);
 }
 
 /// The storage implementation used when validating a block.
@@ -131,9 +134,25 @@ impl<B: BlockT> StorageT for Storage<B> {
 	fn remove(&mut self, key: &[u8]) {
 		self.overlay.insert(key.to_vec(), None);
 	}
+
+	fn storage_root(&mut self) -> [u8; STORAGE_ROOT_LEN] {
+		let root = match delta_trie_root(
+			&mut self.witness_data,
+			self.storage_root.clone(),
+			self.overlay.drain()
+		) {
+			Ok(root) => root,
+			Err(_) => return [0; STORAGE_ROOT_LEN],
+		};
+
+		assert!(root.as_ref().len() != STORAGE_ROOT_LEN);
+		let mut res = [0; STORAGE_ROOT_LEN];
+		res.copy_from_slice(root.as_ref());
+		res
+	}
 }
 
-pub unsafe fn ext_get_allocated_storage(
+unsafe fn ext_get_allocated_storage(
 	key_data: *const u8,
 	key_len: u32,
 	written_out: *mut u32,
@@ -153,7 +172,7 @@ pub unsafe fn ext_get_allocated_storage(
 	}
 }
 
-pub unsafe fn ext_set_storage(
+unsafe fn ext_set_storage(
 	key_data: *const u8,
 	key_len: u32,
 	value_data: *const u8,
@@ -165,7 +184,7 @@ pub unsafe fn ext_set_storage(
 	STORAGE.as_mut().expect(STORAGE_SET_EXPECT).insert(key, value);
 }
 
-pub unsafe fn ext_get_storage_into(
+unsafe fn ext_get_storage_into(
 	key_data: *const u8,
 	key_len: u32,
 	value_data: *mut u8,
@@ -188,7 +207,7 @@ pub unsafe fn ext_get_storage_into(
 	}
 }
 
-pub unsafe fn ext_exists_storage(key_data: *const u8, key_len: u32) -> u32 {
+unsafe fn ext_exists_storage(key_data: *const u8, key_len: u32) -> u32 {
 	let key = slice::from_raw_parts(key_data, key_len as usize);
 
 	if STORAGE.as_mut().expect(STORAGE_SET_EXPECT).get(key).is_some() {
@@ -198,8 +217,14 @@ pub unsafe fn ext_exists_storage(key_data: *const u8, key_len: u32) -> u32 {
 	}
 }
 
-pub unsafe fn ext_clear_storage(key_data: *const u8, key_len: u32) {
+unsafe fn ext_clear_storage(key_data: *const u8, key_len: u32) {
 	let key = slice::from_raw_parts(key_data, key_len as usize);
 
 	STORAGE.as_mut().expect(STORAGE_SET_EXPECT).remove(key);
+}
+
+unsafe fn ext_storage_root(result: *mut u8) {
+	let res = STORAGE.as_mut().expect(STORAGE_SET_EXPECT).storage_root();
+	let result = slice::from_raw_parts_mut(result, STORAGE_ROOT_LEN);
+	result.copy_from_slice(&res);
 }

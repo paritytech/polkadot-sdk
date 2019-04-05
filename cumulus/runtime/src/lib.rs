@@ -27,35 +27,33 @@ pub use rstd::slice;
 #[macro_use]
 pub mod validate_block;
 
-/// The type of the witness data.
+/// The witness data type.
 type WitnessData = Vec<Vec<u8>>;
 
 /// The parachain block that is created on a collator and validated by a validator.
 #[derive(Encode, Decode)]
-struct ParachainBlockData<B: BlockT> {
+pub struct ParachainBlockData<B: BlockT> {
+	/// The header of the parachain block.
+	header: <B as BlockT>::Header,
+	/// The extrinsics of the parachain block without the `PolkadotInherent`.
 	extrinsics: Vec<<B as BlockT>::Extrinsic>,
 	/// The data that is required to emulate the storage accesses executed by all extrinsics.
 	witness_data: WitnessData,
+	witness_data_storage_root: <B as BlockT>::Hash,
 }
 
 impl<B: BlockT> ParachainBlockData<B> {
-	#[cfg(test)]
-	fn new(
+	pub fn new(
+		header: <B as BlockT>::Header,
 		extrinsics: Vec<<B as BlockT>::Extrinsic>,
-		witness_data: WitnessData
+		witness_data: WitnessData,
+		witness_data_storage_root: <B as BlockT>::Hash,
 	) -> Self {
 		Self {
+			header,
 			extrinsics,
 			witness_data,
-		}
-	}
-}
-
-impl<B: BlockT> Default for ParachainBlockData<B> {
-	fn default() -> Self {
-		Self {
-			extrinsics: Vec::default(),
-			witness_data: WitnessData::default(),
+			witness_data_storage_root,
 		}
 	}
 }
