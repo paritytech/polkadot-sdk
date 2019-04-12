@@ -18,6 +18,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use substrate_test_runtime::{Block, system::BlockExecutor};
+pub use substrate_test_runtime::*;
 
 runtime::register_validate_block!(Block, BlockExecutor);

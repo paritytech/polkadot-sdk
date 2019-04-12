@@ -68,7 +68,25 @@ fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
 			to: AccountKeyring::Bob.into(),
 			amount: 69,
 			nonce: 0,
-		}.into_signed_tx()
+		}.into_signed_tx(),
+		Transfer {
+			from: AccountKeyring::Alice.into(),
+			to: AccountKeyring::Charlie.into(),
+			amount: 100,
+			nonce: 1,
+		}.into_signed_tx(),
+		Transfer {
+			from: AccountKeyring::Bob.into(),
+			to: AccountKeyring::Charlie.into(),
+			amount: 100,
+			nonce: 0,
+		}.into_signed_tx(),
+		Transfer {
+			from: AccountKeyring::Charlie.into(),
+			to: AccountKeyring::Alice.into(),
+			amount: 500,
+			nonce: 0,
+		}.into_signed_tx(),
 	]
 }
 
@@ -98,7 +116,7 @@ fn build_block_with_proof(
 }
 
 #[test]
-fn validate_block_with_empty_block() {
+fn validate_block_with_no_extrinsics() {
 	let client = create_test_client();
 	let witness_data_storage_root = *client
 		.best_block_header()
@@ -116,18 +134,21 @@ fn validate_block_with_empty_block() {
 	call_validate_block(block_data).expect("Calls `validate_block`");
 }
 
-// #[test]
-// fn validate_block_with_empty_witness_data() {
-// 	let prev_header = create_header();
+#[test]
+fn validate_block_with_extrinsics() {
+	let client = create_test_client();
+	let witness_data_storage_root = *client
+		.best_block_header()
+		.expect("Best block exists")
+		.state_root();
+	let (block, witness_data) = build_block_with_proof(&client, create_extrinsics());
+	let (header, extrinsics) = block.deconstruct();
 
-// 	let block = ParachainBlock::new(create_extrinsics(), Default::default());
-// 	assert!(call_validate_block(block).is_err());
-// }
-
-// #[test]
-// fn validate_block_with_witness_data() {
-// 	let prev_header = create_header();
-
-// 	let block = ParachainBlock::new(create_extrinsics(), create_witness_data());
-// 	call_validate_block(block).expect("`validate_block` succeeds");
-// }
+	let block_data = ParachainBlockData::new(
+		header,
+		extrinsics,
+		witness_data,
+		witness_data_storage_root
+	);
+	call_validate_block(block_data).expect("Calls `validate_block`");
+}
