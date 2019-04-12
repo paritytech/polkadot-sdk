@@ -42,9 +42,7 @@ fn call_validate_block(block_data: ParachainBlockData<Block>) -> Result<()> {
 		"validate_block",
 		|alloc| {
 			let block_data = block_data.encode();
-			println!("ALLOC: {}", block_data.len());
 			let block_data_offset = alloc(&block_data)?;
-			println!("ALLOC");
 
 			Ok(
 				vec![

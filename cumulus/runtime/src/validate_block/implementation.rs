@@ -145,7 +145,7 @@ impl<B: BlockT> StorageT for Storage<B> {
 			Err(_) => return [0; STORAGE_ROOT_LEN],
 		};
 
-		assert!(root.as_ref().len() != STORAGE_ROOT_LEN);
+		assert!(root.as_ref().len() <= STORAGE_ROOT_LEN);
 		let mut res = [0; STORAGE_ROOT_LEN];
 		res.copy_from_slice(root.as_ref());
 		res
