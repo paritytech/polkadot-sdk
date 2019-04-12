@@ -6,22 +6,22 @@ edition = "2018"
 
 [dependencies]
 codec = { package = "parity-codec", version = "3.1", default-features = false, features = [ "derive" ] }
-rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-master" }
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-master" }
-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-master" }
-rio = { package = "sr-io", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-master" }
-executive = { package = "srml-executive", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-master" }
-substrate-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-master" }
+rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+rio = { package = "sr-io", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+executive = { package = "srml-executive", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+substrate-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 memory-db = { version = "0.12.2", default-features = false }
 hash-db = { version = "0.12.2", default-features = false }
 trie-db = { version = "0.12.2", default-features = false }
 hashbrown = "0.1"
 
 [dev-dependencies]
-keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "polkadot-master" }
-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "polkadot-master" }
-executor = { package = "substrate-executor", git = "https://github.com/paritytech/substrate", branch = "polkadot-master" }
-test-runtime = { package = "substrate-test-runtime", git = "https://github.com/paritytech/substrate", branch = "polkadot-master" }
+keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+executor = { package = "substrate-executor", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+test-client = { package = "cumulus-test-client", path = "../test/client" }
 
 [features]
 default = ["std"]
@@ -35,5 +35,10 @@ std = [
 	"memory-db/std",
 	"hash-db/std",
 	"trie-db/std",
+	"test-client/std",
+	"substrate-trie/std",
 ]
-wasm = ["hashbrown/nightly"]
+wasm = [
+	"hashbrown/nightly",
+	"rio/wasm-nice-panic-message",
+]

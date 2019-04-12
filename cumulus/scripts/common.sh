@@ -4,7 +4,7 @@ ROOT=`dirname "$0"`
 
 # A list of directories which contain wasm projects.
 SRCS=(
-	"runtime/test-runtime/wasm"
+	"test/runtime/wasm"
 )
 
 # Make pushd/popd silent.

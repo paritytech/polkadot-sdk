@@ -37,7 +37,7 @@ const STORAGE_ROOT_LEN: usize = 32;
 /// Extract the hashing algorithm type from the given block type.
 type HashingOf<B> = <<B as BlockT>::Header as HeaderT>::Hashing;
 /// Extract the hash type from the given block type.
-type HashOf<B> = <<B as BlockT>::Header as HeaderT>::Hash;
+type HashOf<B> = <B as BlockT>::Hash;
 
 /// Abstract the storage into a trait without `Block` generic.
 trait StorageT {
