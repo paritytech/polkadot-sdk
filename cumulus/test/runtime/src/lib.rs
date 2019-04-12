@@ -20,4 +20,4 @@
 
 pub use substrate_test_runtime::*;
 
-runtime::register_validate_block!(Block, BlockExecutor);
+runtime::register_validate_block!(Block, system::BlockExecutor);
