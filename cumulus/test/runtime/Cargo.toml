@@ -1,0 +1,17 @@
+[package]
+name = "cumulus-test-runtime"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[dependencies]
+runtime = { package = "cumulus-runtime", path = "../../runtime", default-features = false }
+substrate-test-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+
+[features]
+default = ["std"]
+std = [
+	"runtime/std",
+	"substrate-test-runtime/std",
+]
+wasm = ["runtime/wasm"]

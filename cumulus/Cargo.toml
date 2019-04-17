@@ -1,2 +1,7 @@
 [workspace]
-members = [ "consensus" ]
+members = [ 
+  "consensus", 
+  "runtime", 
+  "test/runtime", 
+  "test/client",
+]
