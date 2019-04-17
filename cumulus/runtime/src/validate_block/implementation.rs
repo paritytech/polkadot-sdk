@@ -159,10 +159,11 @@ unsafe fn ext_get_allocated_storage(
 ) -> *mut u8 {
 	let key = slice::from_raw_parts(key_data, key_len as usize);
 	match STORAGE.as_mut().expect(STORAGE_SET_EXPECT).get(key) {
-		Some(mut value) => {
-			*written_out = value.len() as u32;
-			let ptr = value.as_mut_ptr();
-			mem::forget(ptr);
+		Some(value) => {
+			let mut out_value: Vec<_> = value.clone();
+			*written_out = out_value.len() as u32;
+			let ptr = out_value.as_mut_ptr();
+			mem::forget(out_value);
 			ptr
 		},
 		None => {
