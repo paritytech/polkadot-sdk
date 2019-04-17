@@ -28,7 +28,7 @@ use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
 use hash_db::HashDB;
 
-static mut STORAGE: Option<Box<StorageT>> = None;
+static mut STORAGE: Option<Box<Storage>> = None;
 /// The message to use as expect message while accessing the `STORAGE`.
 const STORAGE_SET_EXPECT: &str =
 	"`STORAGE` needs to be set before calling this function.";
@@ -36,11 +36,9 @@ const STORAGE_ROOT_LEN: usize = 32;
 
 /// Extract the hashing algorithm type from the given block type.
 type HashingOf<B> = <<B as BlockT>::Header as HeaderT>::Hashing;
-/// Extract the hash type from the given block type.
-type HashOf<B> = <B as BlockT>::Hash;
 
 /// Abstract the storage into a trait without `Block` generic.
-trait StorageT {
+trait Storage {
 	/// Retrieve the value for the given key.
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>>;
 
@@ -66,7 +64,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
 		.expect("Could not decode parachain block.");
 	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
-	let storage = Storage::<B>::new(
+	let storage = WitnessStorage::<B>::new(
 		block_data.witness_data,
 		block_data.witness_data_storage_root,
 	).expect("Witness data and storage root always match; qed");
@@ -87,20 +85,21 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
 	E::execute_block(block);
 }
 
-/// The storage implementation used when validating a block.
-struct Storage<B: BlockT> {
+/// The storage implementation used when validating a block that is using the
+/// witness data as source.
+struct WitnessStorage<B: BlockT> {
 	witness_data: MemoryDB<<HashingOf<B> as HashT>::Hasher>,
 	overlay: hashbrown::HashMap<Vec<u8>, Option<Vec<u8>>>,
-	storage_root: HashOf<B>,
+	storage_root: B::Hash,
 }
 
-impl<B: BlockT> Storage<B> {
+impl<B: BlockT> WitnessStorage<B> {
 	/// Initialize from the given witness data and storage root.
 	///
 	/// Returns an error if given storage root was not found in the witness data.
 	fn new(
 		data: WitnessData,
-		storage_root: HashOf<B>
+		storage_root: B::Hash,
 	) -> Result<Self, &'static str> {
 		let mut db = MemoryDB::default();
 		data.into_iter().for_each(|i| { db.insert(&[], &i); });
@@ -117,12 +116,13 @@ impl<B: BlockT> Storage<B> {
 	}
 }
 
-impl<B: BlockT> StorageT for Storage<B> {
+impl<B: BlockT> Storage for WitnessStorage<B> {
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
 		self.overlay.get(key).cloned().or_else(|| {
 			read_trie_value(
 				&self.witness_data,
-				&self.storage_root, key
+				&self.storage_root,
+				key,
 			).ok()
 		}).unwrap_or(None)
 	}
