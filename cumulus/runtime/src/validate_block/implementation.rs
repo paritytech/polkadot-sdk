@@ -23,6 +23,7 @@ use runtime_primitives::traits::{
 use executive::ExecuteBlock;
 
 use substrate_trie::{MemoryDB, read_trie_value, delta_trie_root};
+use codec::Decode;
 
 use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
@@ -56,14 +57,14 @@ trait Storage {
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
-	mut block_data: &[u8],
+	mut arguments: &[u8],
 ) {
-	use codec::Decode;
-
-	let block_data = crate::ParachainBlockData::<B>::decode(&mut block_data)
+	let (parent_hash, block_data): (B::Hash, crate::ParachainBlockData::<B>) = Decode::decode(&mut arguments)
 		.expect("Could not decode parachain block.");
 	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
+	assert!(parent_hash == *block.header().parent_hash(), "Invalid parent hash");
+
 	let storage = WitnessStorage::<B>::new(
 		block_data.witness_data,
 		block_data.witness_data_storage_root,
