@@ -23,7 +23,8 @@ use runtime_primitives::traits::{Block as BlockT, Header as HeaderT};
 use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::{I64, I32}};
 use test_client::{
 	TestClientBuilder, TestClient,
-	runtime::{Block, Transfer}, TestClientBuilderExt,
+	runtime::{Block, Transfer, Hash}, TestClientBuilderExt,
+	client_ext::TestClient as _,
 };
 
 use std::collections::HashMap;
@@ -33,7 +34,7 @@ use codec::Encode;
 const WASM_CODE: &[u8] =
 	include_bytes!("../../../test/runtime/wasm/target/wasm32-unknown-unknown/release/cumulus_test_runtime.compact.wasm");
 
-fn call_validate_block(block_data: ParachainBlockData<Block>) -> Result<()> {
+fn call_validate_block(parent_hash: Hash, block_data: ParachainBlockData<Block>) -> Result<()> {
 	let mut ext = TestExternalities::default();
 	WasmExecutor::new().call_with_custom_signature(
 		&mut ext,
@@ -41,13 +42,13 @@ fn call_validate_block(block_data: ParachainBlockData<Block>) -> Result<()> {
 		&WASM_CODE,
 		"validate_block",
 		|alloc| {
-			let block_data = block_data.encode();
-			let block_data_offset = alloc(&block_data)?;
+			let arguments = (parent_hash, block_data).encode();
+			let arguments_offset = alloc(&arguments)?;
 
 			Ok(
 				vec![
-					I32(block_data_offset as i32),
-					I64(block_data.len() as i64),
+					I32(arguments_offset as i32),
+					I64(arguments.len() as i64),
 				]
 			)
 		},
@@ -131,7 +132,7 @@ fn validate_block_with_no_extrinsics() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(block_data).expect("Calls `validate_block`");
+	call_validate_block(client.genesis_hash(), block_data).expect("Calls `validate_block`");
 }
 
 #[test]
@@ -150,5 +151,5 @@ fn validate_block_with_extrinsics() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(block_data).expect("Calls `validate_block`");
+	call_validate_block(client.genesis_hash(), block_data).expect("Calls `validate_block`");
 }
