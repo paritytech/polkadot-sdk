@@ -153,3 +153,24 @@ fn validate_block_with_extrinsics() {
 	);
 	call_validate_block(client.genesis_hash(), block_data).expect("Calls `validate_block`");
 }
+
+#[test]
+#[should_panic]
+fn validate_block_invalid_parent_hash() {
+	let client = create_test_client();
+	let witness_data_storage_root = *client
+		.best_block_header()
+		.expect("Best block exists")
+		.state_root();
+	let (block, witness_data) = build_block_with_proof(&client, Vec::new());
+	let (mut header, extrinsics) = block.deconstruct();
+	header.set_parent_hash(Hash::from_low_u64_be(1));
+
+	let block_data = ParachainBlockData::new(
+		header,
+		extrinsics,
+		witness_data,
+		witness_data_storage_root
+	);
+	call_validate_block(client.genesis_hash(), block_data).expect("Calls `validate_block`");
+}
