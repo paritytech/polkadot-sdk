@@ -57,17 +57,17 @@ macro_rules! register_validate_block_impl {
 
 			#[no_mangle]
 			unsafe fn validate_block(
-				block_data: *const u8,
-				block_data_len: u64,
+				arguments: *const u8,
+				arguments_len: u64,
 			) {
-				let block_data = $crate::slice::from_raw_parts(
-					block_data,
-					block_data_len as usize,
+				let arguments = $crate::slice::from_raw_parts(
+					arguments,
+					arguments_len as usize,
 				);
 
 				$crate::validate_block::implementation::validate_block::<
 					$block, $block_executor
-				>(block_data);
+				>(arguments);
 			}
 		}
 	};
