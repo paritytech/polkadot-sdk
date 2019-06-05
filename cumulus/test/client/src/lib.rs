@@ -44,13 +44,8 @@ pub type TestClient = client::Client<
 	Backend, Executor, runtime::Block, runtime::RuntimeApi
 >;
 
-/// An extension to the `TestClientBuilder` for building a cumulus test-client.
-pub trait TestClientBuilderExt {
-	fn build_cumulus(self) -> TestClient;
-}
+/// Test client builder for Cumulus
+pub type TestClientBuilder = substrate_test_client::TestClientBuilder<LocalExecutor, Backend>;
 
-impl TestClientBuilderExt for TestClientBuilder {
-	fn build_cumulus(self) -> TestClient {
-		self.build_with_native_executor(NativeExecutor::<LocalExecutor>::new(None))
-	}
-}
+/// LongestChain type for the test runtime/client.
+pub type LongestChain = substrate_test_client::client::LongestChain<Backend, runtime::Block>;

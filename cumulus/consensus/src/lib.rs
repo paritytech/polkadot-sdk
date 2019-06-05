@@ -15,15 +15,14 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use substrate_client::{backend::Backend, CallExecutor, Client, BlockchainEvents};
-use substrate_client::error::{Error as ClientError, Result as ClientResult, ErrorKind as ClientErrorKind};
+use substrate_client::error::{Error as ClientError, Result as ClientResult};
 use substrate_primitives::{Blake2Hasher, H256};
 use sr_primitives::generic::BlockId;
 use sr_primitives::traits::{Block as BlockT, Header as HeaderT, ProvideRuntimeApi};
 use polkadot_primitives::{Hash as PHash, Block as PBlock};
 use polkadot_primitives::parachain::{Id as ParaId, ParachainHost};
 
-use futures::prelude::*;
-use futures::stream;
+use futures::{prelude::*, stream};
 use parity_codec::{Encode, Decode};
 use log::warn;
 
@@ -69,9 +68,9 @@ pub trait PolkadotClient: Clone {
 	type Error: std::fmt::Debug + Send;
 
 	/// A stream that yields updates to the parachain head.
-	type HeadUpdates: Stream<Item=HeadUpdate,Error=Self::Error> + Send;
+	type HeadUpdates: Stream<Item=HeadUpdate, Error=Self::Error> + Send;
 	/// A stream that yields finalized head-data for a certain parachain.
-	type Finalized: Stream<Item=Vec<u8>,Error=Self::Error> + Send;
+	type Finalized: Stream<Item=Vec<u8>, Error=Self::Error> + Send;
 
 	/// Get a stream of head updates.
 	fn head_updates(&self, para_id: ParaId) -> Self::HeadUpdates;
@@ -134,8 +133,8 @@ impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
 	fn mark_best(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
 		match self.set_head(BlockId::hash(hash)) {
 			Ok(()) => Ok(true),
-			Err(e) => match e.kind() {
-				ClientErrorKind::UnknownBlock(_) => Ok(false),
+			Err(e) => match e {
+				ClientError::UnknownBlock(_) => Ok(false),
 				_ => Err(e),
 			}
 		}
@@ -144,8 +143,8 @@ impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
 	fn finalize(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
 		match self.finalize_block(BlockId::hash(hash), None, true) {
 			Ok(()) => Ok(true),
-			Err(e) => match e.kind() {
-				ClientErrorKind::UnknownBlock(_) => Ok(false),
+			Err(e) => match e {
+				ClientError::UnknownBlock(_) => Ok(false),
 				_ => Err(e),
 			}
 		}
@@ -169,8 +168,8 @@ impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>> where
 {
 	type Error = ClientError;
 
-	type HeadUpdates = Box<Stream<Item=HeadUpdate, Error=Self::Error> + Send>;
-	type Finalized = Box<Stream<Item=Vec<u8>, Error=Self::Error> + Send>;
+	type HeadUpdates = Box<dyn Stream<Item=HeadUpdate, Error=Self::Error> + Send>;
+	type Finalized = Box<dyn Stream<Item=Vec<u8>, Error=Self::Error> + Send>;
 
 	fn head_updates(&self, para_id: ParaId) -> Self::HeadUpdates {
 		let parachain_key = parachain_key(para_id);
