@@ -19,13 +19,10 @@ use crate::{ParachainBlockData, WitnessData};
 use rio::TestExternalities;
 use keyring::AccountKeyring;
 use primitives::{storage::well_known_keys};
-use runtime_primitives::traits::{Block as BlockT, Header as HeaderT};
+use runtime_primitives::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
 use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::{I64, I32}};
-use test_client::{
-	TestClientBuilder, TestClient,
-	runtime::{Block, Transfer, Hash}, TestClientBuilderExt,
-	client_ext::TestClient as _,
-};
+use test_client::{TestClientBuilder, TestClient, LongestChain, runtime::{Block, Transfer, Hash}};
+use consensus_common::SelectChain;
 
 use std::collections::HashMap;
 
@@ -91,21 +88,24 @@ fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
 	]
 }
 
-fn create_test_client() -> TestClient {
+fn create_test_client() -> (TestClient, LongestChain) {
 	let mut genesis_extension = HashMap::new();
 	genesis_extension.insert(well_known_keys::CODE.to_vec(), WASM_CODE.to_vec());
 
 	TestClientBuilder::new()
 		.set_genesis_extension(genesis_extension)
-		.build_cumulus()
+		.build_with_longest_chain()
 }
 
 fn build_block_with_proof(
 	client: &TestClient,
 	extrinsics: Vec<<Block as BlockT>::Extrinsic>,
 ) -> (Block, WitnessData) {
-	let mut builder = client.new_block().expect("Initializes new block");
-	builder.record_proof();
+	let block_id = BlockId::Hash(client.info().chain.best_hash);
+	let mut builder = client.new_block_at_with_proof_recording(
+		&block_id,
+		Default::default()
+	).expect("Initializes new block");
 
 	extrinsics.into_iter().for_each(|e| builder.push(e).expect("Pushes an extrinsic"));
 
@@ -118,9 +118,9 @@ fn build_block_with_proof(
 
 #[test]
 fn validate_block_with_no_extrinsics() {
-	let client = create_test_client();
-	let witness_data_storage_root = *client
-		.best_block_header()
+	let (client, longest_chain) = create_test_client();
+	let witness_data_storage_root = *longest_chain
+		.best_chain()
 		.expect("Best block exists")
 		.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, Vec::new());
@@ -132,14 +132,14 @@ fn validate_block_with_no_extrinsics() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(client.genesis_hash(), block_data).expect("Calls `validate_block`");
+	call_validate_block(client.info().chain.genesis_hash, block_data).expect("Calls `validate_block`");
 }
 
 #[test]
 fn validate_block_with_extrinsics() {
-	let client = create_test_client();
-	let witness_data_storage_root = *client
-		.best_block_header()
+	let (client, longest_chain) = create_test_client();
+	let witness_data_storage_root = *longest_chain
+		.best_chain()
 		.expect("Best block exists")
 		.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, create_extrinsics());
@@ -151,15 +151,15 @@ fn validate_block_with_extrinsics() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(client.genesis_hash(), block_data).expect("Calls `validate_block`");
+	call_validate_block(client.info().chain.genesis_hash, block_data).expect("Calls `validate_block`");
 }
 
 #[test]
 #[should_panic]
 fn validate_block_invalid_parent_hash() {
-	let client = create_test_client();
-	let witness_data_storage_root = *client
-		.best_block_header()
+	let (client, longest_chain) = create_test_client();
+	let witness_data_storage_root = *longest_chain
+		.best_chain()
 		.expect("Best block exists")
 		.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, Vec::new());
@@ -172,5 +172,5 @@ fn validate_block_invalid_parent_hash() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(client.genesis_hash(), block_data).expect("Calls `validate_block`");
+	call_validate_block(client.info().chain.genesis_hash, block_data).expect("Calls `validate_block`");
 }

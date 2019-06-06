@@ -21,6 +21,7 @@ hashbrown = "0.1"
 keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 executor = { package = "substrate-executor", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+consensus-common = { package = "substrate-consensus-common", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 test-client = { package = "cumulus-test-client", path = "../test/client" }
 
 [features]
