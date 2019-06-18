@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-codec = { package = "parity-codec", version = "3.1", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-codec", version = "3.5.1", default-features = false, features = [ "derive" ] }
 rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
@@ -15,11 +15,10 @@ substrate-trie = { git = "https://github.com/paritytech/substrate", default-feat
 memory-db = { version = "0.12.2", default-features = false }
 hash-db = { version = "0.12.2", default-features = false }
 trie-db = { version = "0.12.2", default-features = false }
-hashbrown = "0.1"
+hashbrown = "0.5.0"
 
 [dev-dependencies]
 keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 executor = { package = "substrate-executor", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 consensus-common = { package = "substrate-consensus-common", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 test-client = { package = "cumulus-test-client", path = "../test/client" }
@@ -36,10 +35,9 @@ std = [
 	"memory-db/std",
 	"hash-db/std",
 	"trie-db/std",
-	"test-client/std",
 	"substrate-trie/std",
 ]
-wasm = [
+no_std = [
 	"hashbrown/nightly",
 	"rio/wasm-nice-panic-message",
 ]

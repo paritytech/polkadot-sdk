@@ -18,25 +18,22 @@ use crate::{ParachainBlockData, WitnessData};
 
 use rio::TestExternalities;
 use keyring::AccountKeyring;
-use primitives::{storage::well_known_keys};
 use runtime_primitives::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
 use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::{I64, I32}};
-use test_client::{TestClientBuilder, TestClient, LongestChain, runtime::{Block, Transfer, Hash}};
+use test_client::{
+	TestClientBuilder, TestClientBuilderExt, DefaultTestClientBuilderExt, Client, LongestChain,
+	runtime::{Block, Transfer, Hash, WASM_BINARY}
+};
 use consensus_common::SelectChain;
 
-use std::collections::HashMap;
-
 use codec::Encode;
-
-const WASM_CODE: &[u8] =
-	include_bytes!("../../../test/runtime/wasm/target/wasm32-unknown-unknown/release/cumulus_test_runtime.compact.wasm");
 
 fn call_validate_block(parent_hash: Hash, block_data: ParachainBlockData<Block>) -> Result<()> {
 	let mut ext = TestExternalities::default();
 	WasmExecutor::new().call_with_custom_signature(
 		&mut ext,
 		1024,
-		&WASM_CODE,
+		&WASM_BINARY,
 		"validate_block",
 		|alloc| {
 			let arguments = (parent_hash, block_data).encode();
@@ -88,17 +85,12 @@ fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
 	]
 }
 
-fn create_test_client() -> (TestClient, LongestChain) {
-	let mut genesis_extension = HashMap::new();
-	genesis_extension.insert(well_known_keys::CODE.to_vec(), WASM_CODE.to_vec());
-
-	TestClientBuilder::new()
-		.set_genesis_extension(genesis_extension)
-		.build_with_longest_chain()
+fn create_test_client() -> (Client, LongestChain) {
+	TestClientBuilder::new().build_with_longest_chain()
 }
 
 fn build_block_with_proof(
-	client: &TestClient,
+	client: &Client,
 	extrinsics: Vec<<Block as BlockT>::Extrinsic>,
 ) -> (Block, WitnessData) {
 	let block_id = BlockId::Hash(client.info().chain.best_hash);

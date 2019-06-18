@@ -1,7 +1,8 @@
 [workspace]
-members = [ 
-  "consensus", 
-  "runtime", 
-  "test/runtime", 
+members = [
+  "collator",
+  "consensus",
+  "runtime",
+  "test/runtime",
   "test/client",
 ]
