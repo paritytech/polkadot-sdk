@@ -528,15 +528,14 @@ dependencies = [
 name = "cumulus-collator"
 version = "0.1.0"
 dependencies = [
+ "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "polkadot-collator 0.1.0 (git+https://github.com/paritytech/polkadot?branch=bkchr-cumulus-branch)",
  "polkadot-primitives 0.1.0 (git+https://github.com/paritytech/polkadot?branch=bkchr-cumulus-branch)",
  "sr-primitives 2.0.0 (git+https://github.com/paritytech/substrate?branch=bkchr-cumulus-branch)",
- "substrate-client 2.0.0 (git+https://github.com/paritytech/substrate?branch=bkchr-cumulus-branch)",
  "substrate-consensus-common 2.0.0 (git+https://github.com/paritytech/substrate?branch=bkchr-cumulus-branch)",
- "substrate-primitives 2.0.0 (git+https://github.com/paritytech/substrate?branch=bkchr-cumulus-branch)",
- "substrate-transaction-pool 2.0.0 (git+https://github.com/paritytech/substrate?branch=bkchr-cumulus-branch)",
+ "substrate-inherents 2.0.0 (git+https://github.com/paritytech/substrate?branch=bkchr-cumulus-branch)",
 ]
 
 [[package]]
