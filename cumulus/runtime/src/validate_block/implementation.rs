@@ -28,7 +28,9 @@ use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
 use hash_db::HashDB;
 
-static mut STORAGE: Option<Box<Storage>> = None;
+use parachain::ValidationParams;
+
+static mut STORAGE: Option<Box<dyn Storage>> = None;
 /// The message to use as expect message while accessing the `STORAGE`.
 const STORAGE_SET_EXPECT: &str =
 	"`STORAGE` needs to be set before calling this function.";
@@ -53,18 +55,20 @@ trait Storage {
 }
 
 /// Validate a given parachain block on a validator.
-#[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
-	mut arguments: &[u8],
+	params: ValidationParams,
 ) {
 	use codec::Decode;
 
-	let (parent_hash, block_data): (B::Hash, crate::ParachainBlockData::<B>) = Decode::decode(&mut arguments)
-		.expect("Could not decode parachain block.");
+	let block_data = crate::ParachainBlockData::<B>::decode(&mut &params.block_data[..])
+		.expect("Invalid parachain block data");
+
+	let parent_head = B::Header::decode(&mut &params.parent_head[..]).expect("Invalid parent head");
+
 	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
-	assert!(parent_hash == *block.header().parent_hash(), "Invalid parent hash");
+	assert!(parent_head.hash() == *block.header().parent_hash(), "Invalid parent hash");
 
 	let storage = WitnessStorage::<B>::new(
 		block_data.witness_data,
