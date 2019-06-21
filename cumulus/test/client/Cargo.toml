@@ -5,10 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-substrate-test-client = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-
-[features]
-default = ["std"]
-std = [
-	"substrate-test-client/std",
-]
+test-client = { package = "substrate-test-client", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+runtime = { package = "cumulus-test-runtime", path = "../runtime" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }

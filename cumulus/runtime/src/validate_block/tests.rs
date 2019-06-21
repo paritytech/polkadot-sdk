@@ -18,34 +18,36 @@ use crate::{ParachainBlockData, WitnessData};
 
 use rio::TestExternalities;
 use keyring::AccountKeyring;
-use primitives::{storage::well_known_keys};
 use runtime_primitives::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
-use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::{I64, I32}};
-use test_client::{TestClientBuilder, TestClient, LongestChain, runtime::{Block, Transfer, Hash}};
+use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::I32};
+use test_client::{
+	TestClientBuilder, TestClientBuilderExt, DefaultTestClientBuilderExt, Client, LongestChain,
+	runtime::{Block, Transfer, Hash, WASM_BINARY, Header}
+};
 use consensus_common::SelectChain;
-
-use std::collections::HashMap;
+use parachain::ValidationParams;
 
 use codec::Encode;
 
-const WASM_CODE: &[u8] =
-	include_bytes!("../../../test/runtime/wasm/target/wasm32-unknown-unknown/release/cumulus_test_runtime.compact.wasm");
-
-fn call_validate_block(parent_hash: Hash, block_data: ParachainBlockData<Block>) -> Result<()> {
+fn call_validate_block(parent_head: Header, block_data: ParachainBlockData<Block>) -> Result<()> {
 	let mut ext = TestExternalities::default();
 	WasmExecutor::new().call_with_custom_signature(
 		&mut ext,
 		1024,
-		&WASM_CODE,
+		&WASM_BINARY,
 		"validate_block",
 		|alloc| {
-			let arguments = (parent_hash, block_data).encode();
-			let arguments_offset = alloc(&arguments)?;
+			let params = ValidationParams {
+				block_data: block_data.encode(),
+				parent_head: parent_head.encode(),
+				ingress: Vec::new(),
+			}.encode();
+			let params_offset = alloc(&params)?;
 
 			Ok(
 				vec![
-					I32(arguments_offset as i32),
-					I64(arguments.len() as i64),
+					I32(params_offset as i32),
+					I32(params.len() as i32),
 				]
 			)
 		},
@@ -88,17 +90,12 @@ fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
 	]
 }
 
-fn create_test_client() -> (TestClient, LongestChain) {
-	let mut genesis_extension = HashMap::new();
-	genesis_extension.insert(well_known_keys::CODE.to_vec(), WASM_CODE.to_vec());
-
-	TestClientBuilder::new()
-		.set_genesis_extension(genesis_extension)
-		.build_with_longest_chain()
+fn create_test_client() -> (Client, LongestChain) {
+	TestClientBuilder::new().build_with_longest_chain()
 }
 
 fn build_block_with_proof(
-	client: &TestClient,
+	client: &Client,
 	extrinsics: Vec<<Block as BlockT>::Extrinsic>,
 ) -> (Block, WitnessData) {
 	let block_id = BlockId::Hash(client.info().chain.best_hash);
@@ -119,10 +116,8 @@ fn build_block_with_proof(
 #[test]
 fn validate_block_with_no_extrinsics() {
 	let (client, longest_chain) = create_test_client();
-	let witness_data_storage_root = *longest_chain
-		.best_chain()
-		.expect("Best block exists")
-		.state_root();
+	let parent_head = longest_chain.best_chain().expect("Best block exists");
+	let witness_data_storage_root = *parent_head.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, Vec::new());
 	let (header, extrinsics) = block.deconstruct();
 
@@ -132,16 +127,14 @@ fn validate_block_with_no_extrinsics() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(client.info().chain.genesis_hash, block_data).expect("Calls `validate_block`");
+	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
 }
 
 #[test]
 fn validate_block_with_extrinsics() {
 	let (client, longest_chain) = create_test_client();
-	let witness_data_storage_root = *longest_chain
-		.best_chain()
-		.expect("Best block exists")
-		.state_root();
+	let parent_head = longest_chain.best_chain().expect("Best block exists");
+	let witness_data_storage_root = *parent_head.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, create_extrinsics());
 	let (header, extrinsics) = block.deconstruct();
 
@@ -151,17 +144,15 @@ fn validate_block_with_extrinsics() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(client.info().chain.genesis_hash, block_data).expect("Calls `validate_block`");
+	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
 }
 
 #[test]
 #[should_panic]
 fn validate_block_invalid_parent_hash() {
 	let (client, longest_chain) = create_test_client();
-	let witness_data_storage_root = *longest_chain
-		.best_chain()
-		.expect("Best block exists")
-		.state_root();
+	let parent_head = longest_chain.best_chain().expect("Best block exists");
+	let witness_data_storage_root = *parent_head.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, Vec::new());
 	let (mut header, extrinsics) = block.deconstruct();
 	header.set_parent_hash(Hash::from_low_u64_be(1));
@@ -172,5 +163,5 @@ fn validate_block_invalid_parent_hash() {
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(client.info().chain.genesis_hash, block_data).expect("Calls `validate_block`");
+	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
 }

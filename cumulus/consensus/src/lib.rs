@@ -173,13 +173,13 @@ impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>> where
 
 	fn head_updates(&self, para_id: ParaId) -> Self::HeadUpdates {
 		let parachain_key = parachain_key(para_id);
-		let stream = stream::once(self.storage_changes_notification_stream(Some(&[parachain_key.clone()])))
+		let stream = stream::once(self.storage_changes_notification_stream(Some(&[parachain_key.clone()]), None))
 			.map(|s| s.map_err(|()| panic!("unbounded receivers never yield errors; qed")))
 			.flatten();
 
 		let s = stream.filter_map(move |(hash, changes)| {
 			let head_data = changes.iter()
-				.filter_map(|(k, v)| if k == &parachain_key { Some(v) } else { None })
+				.filter_map(|(_, k, v)| if k == &parachain_key { Some(v) } else { None })
 				.next();
 
 			match head_data {

@@ -12,10 +12,16 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The Cumulus test runtime reexported for WebAssembly compile.
+use wasm_builder_runner::{build_current_project, WasmBuilderSource};
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-pub use cumulus_test_runtime::*;
+fn main() {
+	build_current_project(
+		"wasm_binary.rs",
+		WasmBuilderSource::Git {
+			repo: "https://github.com/paritytech/substrate",
+			rev: "c7fa536d85df5d6a0fc5cdc3f82b6e5a1a2db640",
+		}
+	);
+}

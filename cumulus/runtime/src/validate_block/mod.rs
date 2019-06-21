@@ -22,6 +22,10 @@ mod tests;
 #[doc(hidden)]
 pub mod implementation;
 
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
+pub use parachain;
+
 /// Register the `validate_block` function that is used by parachains to validate blocks on a validator.
 ///
 /// Does *nothing* when `std` feature is enabled.
@@ -58,16 +62,16 @@ macro_rules! register_validate_block_impl {
 			#[no_mangle]
 			unsafe fn validate_block(
 				arguments: *const u8,
-				arguments_len: u64,
+				arguments_len: usize,
 			) {
-				let arguments = $crate::slice::from_raw_parts(
+				let params = $crate::validate_block::parachain::wasm_api::load_params(
 					arguments,
-					arguments_len as usize,
+					arguments_len,
 				);
 
 				$crate::validate_block::implementation::validate_block::<
 					$block, $block_executor
-				>(arguments);
+				>(params);
 			}
 		}
 	};

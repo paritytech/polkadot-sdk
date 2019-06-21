@@ -3,10 +3,14 @@ name = "cumulus-test-runtime"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
+build = "build.rs"
 
 [dependencies]
 runtime = { package = "cumulus-runtime", path = "../../runtime", default-features = false }
 substrate-test-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+
+[build-dependencies]
+wasm-builder-runner = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 
 [features]
 default = ["std"]
@@ -14,4 +18,7 @@ std = [
 	"runtime/std",
 	"substrate-test-runtime/std",
 ]
-wasm = ["runtime/wasm"]
+no_std = [
+	"runtime/no_std",
+	"substrate-test-runtime/no_std",
+]
