@@ -9,7 +9,7 @@ documentation = "https://docs.rs/substrate-bip39"
 repository = "https://github.com/maciejhirsz/substrate-bip39"
 
 [dependencies]
-pbkdf2 = { version = "0.3.0", features=["parallel"], default-features = false }
+pbkdf2 = { version = "0.3.0", default-features = false }
 sha2 = "0.8.0"
 hmac = "0.7.0"
 schnorrkel = "0.1.0"
