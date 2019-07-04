@@ -20,7 +20,9 @@ use runtime_primitives::traits::Block as BlockT;
 use consensus_common::{Environment, Proposer};
 
 use polkadot_collator::{InvalidHead, ParachainContext};
-use polkadot_primitives::parachain::{self, BlockData, Message, Id as ParaId, Extrinsic};
+use polkadot_primitives::{
+	Hash, parachain::{self, BlockData, Message, Id as ParaId, Extrinsic, Status as ParachainStatus}
+};
 
 use codec::{Decode, Encode};
 use log::error;
@@ -45,7 +47,7 @@ impl<Block: BlockT, PF: Environment<Block>> Collator<Block, PF> {
 	/// Create a new instance.
 	fn new(
 		proposer_factory: Arc<PF>,
-		inherent_data_providers: inherent_data::InherentDataProviders
+		inherent_data_providers: inherents::InherentDataProviders
 	) -> Self {
 		Self {
 			proposer_factory,
@@ -77,13 +79,14 @@ where
 
 	fn produce_candidate<I: IntoIterator<Item=(ParaId, Message)>>(
 		&self,
-		last_head: parachain::HeadData,
+		_relay_chain_parent: Hash,
+		status: ParachainStatus,
 		_: I,
 	) -> Self::ProduceCandidate {
 		let factory = self.proposer_factory.clone();
 		let inherent_providers = self.inherent_data_providers.clone();
 
-		let res = HeadData::<Block>::decode(&mut &last_head.0[..])
+		let res = HeadData::<Block>::decode(&mut &status.head_data.0[..])
 			.ok_or_else(|| InvalidHead).into_future()
 			.and_then(move |last_head|
 				factory.init(&last_head.header).map_err(|e| {
