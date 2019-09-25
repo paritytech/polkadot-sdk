@@ -41,6 +41,15 @@ variables:
 
 #### stage:                        test
 
+cargo-audit:
+  stage:                           test
+  <<:                              *docker-env
+  except:
+    - /^[0-9]+$/
+  script:
+    - cargo audit
+  allow_failure:                   true
+
 test-linux-stable:
   stage:                           test
   <<:                              *docker-env
