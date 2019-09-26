@@ -16,10 +16,13 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use runtime_primitives::traits::Block as BlockT;
+use runtime_primitives::{traits::Block as BlockT, ed25519};
 use consensus_common::{Environment, Proposer};
+use inherents::InherentDataProviders;
 
-use polkadot_collator::{InvalidHead, ParachainContext};
+use polkadot_collator::{
+	InvalidHead, ParachainContext, BuildParachainContext, Network as CollatorNetwork, VersionInfo,
+};
 use polkadot_primitives::{
 	Hash, parachain::{self, BlockData, Message, Id as ParaId, Extrinsic, Status as ParachainStatus}
 };
@@ -40,19 +43,22 @@ struct HeadData<Block: BlockT> {
 pub struct Collator<Block, PF> {
 	proposer_factory: Arc<PF>,
 	_phantom: PhantomData<Block>,
-	inherent_data_providers: inherents::InherentDataProviders,
+	inherent_data_providers: InherentDataProviders,
+	collator_network: Arc<dyn CollatorNetwork>,
 }
 
 impl<Block: BlockT, PF: Environment<Block>> Collator<Block, PF> {
 	/// Create a new instance.
 	fn new(
 		proposer_factory: Arc<PF>,
-		inherent_data_providers: inherents::InherentDataProviders
+		inherent_data_providers: InherentDataProviders,
+		collator_network: Arc<dyn CollatorNetwork>,
 	) -> Self {
 		Self {
 			proposer_factory,
 			inherent_data_providers,
 			_phantom: PhantomData,
+			collator_network,
 		}
 	}
 }
@@ -63,12 +69,12 @@ impl<Block, PF> Clone for Collator<Block, PF> {
 			proposer_factory: self.proposer_factory.clone(),
 			inherent_data_providers: self.inherent_data_providers.clone(),
 			_phantom: PhantomData,
+			collator_network: self.collator_network.clone(),
 		}
 	}
 }
 
-impl<Block, PF> ParachainContext for Collator<Block, PF>
-where
+impl<Block, PF> ParachainContext for Collator<Block, PF> where
 	Block: BlockT,
 	PF: Environment<Block> + 'static,
 	PF::Error: std::fmt::Debug,
@@ -126,4 +132,53 @@ where
 
 		Box::new(res)
 	}
+}
+
+/// Implements `BuildParachainContext` to build a collator instance.
+struct CollatorBuilder<Block, PF> {
+	inherent_data_providers: InherentDataProviders,
+	proposer_factory: Arc<PF>,
+	_phantom: PhantomData<Block>,
+}
+
+impl<Block, PF> CollatorBuilder<Block, PF> {
+	/// Create a new instance of self.
+	fn new(proposer_factory: Arc<PF>, inherent_data_providers: InherentDataProviders) -> Self {
+		Self {
+			inherent_data_providers,
+			proposer_factory,
+			_phantom: Default::default(),
+		}
+	}
+}
+
+impl<Block, PF> BuildParachainContext for CollatorBuilder<Block, PF> where
+	Block: BlockT,
+	PF: Environment<Block> + 'static,
+	PF::Error: std::fmt::Debug,
+{
+	type ParachainContext = Collator<Block, PF>;
+
+	fn build(self, network: Arc<dyn CollatorNetwork>) -> Result<Self::ParachainContext, ()> {
+		Ok(Collator::new(self.proposer_factory, self.inherent_data_providers, network))
+	}
+}
+
+/// Run a collator with the given proposer factory.
+pub fn run_collator<Block, PF, E, I>(
+	proposer_factory: Arc<PF>,
+	inherent_data_providers: InherentDataProviders,
+	para_id: ParaId,
+	exit: E,
+	key: Arc<ed25519::Pair>,
+	args: I,
+	version: VersionInfo,
+) -> Result<(), cli::error::Error>
+where
+	Block: BlockT,
+	PF: Environment<Block> + 'static + Send,
+	PF::Error: std::fmt::Debug
+{
+	let builder = CollatorBuilder::new(proposer_factory, inherent_data_providers);
+	polkadot_collator::run_collator(builder, para_id, exit, key, args, version)
 }

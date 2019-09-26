@@ -17,11 +17,5 @@
 use wasm_builder_runner::{build_current_project, WasmBuilderSource};
 
 fn main() {
-	build_current_project(
-		"wasm_binary.rs",
-		WasmBuilderSource::Git {
-			repo: "https://github.com/paritytech/substrate",
-			rev: "c7fa536d85df5d6a0fc5cdc3f82b6e5a1a2db640",
-		}
-	);
+	build_current_project("wasm_binary.rs", WasmBuilderSource::Crates("1.0.4"));
 }

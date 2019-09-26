@@ -9,6 +9,7 @@ edition = "2018"
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 consensus-common = { package = "substrate-consensus-common", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 inherents = { package = "substrate-inherents", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+cli = { package = "substrate-cli", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 
 # Polkadot dependencies
 polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
@@ -16,5 +17,5 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 
 # other deps
 log = "0.4.6"
-codec = { package = "parity-codec", version = "3.5.1", features = [ "derive" ] }
+codec = { package = "parity-codec", version = "4.1.1", features = [ "derive" ] }
 futures = "0.1.27"

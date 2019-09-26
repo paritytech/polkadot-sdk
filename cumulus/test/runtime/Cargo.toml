@@ -10,7 +10,7 @@ runtime = { package = "cumulus-runtime", path = "../../runtime", default-feature
 substrate-test-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 
 [build-dependencies]
-wasm-builder-runner = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = " 1.0.2" }
 
 [features]
 default = ["std"]

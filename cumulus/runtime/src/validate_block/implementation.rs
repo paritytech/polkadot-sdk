@@ -28,7 +28,7 @@ use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
 use hash_db::HashDB;
 
-static mut STORAGE: Option<Box<Storage>> = None;
+static mut STORAGE: Option<Box<dyn Storage>> = None;
 /// The message to use as expect message while accessing the `STORAGE`.
 const STORAGE_SET_EXPECT: &str =
 	"`STORAGE` needs to be set before calling this function.";
