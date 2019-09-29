@@ -16,6 +16,6 @@ polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 
 # other deps
-log = "0.4.6"
-codec = { package = "parity-codec", version = "4.1.1", features = [ "derive" ] }
-futures = "0.1.27"
+log = "0.4.8"
+codec = { package = "parity-scale-codec", version = "1.0.5", features = [ "derive" ] }
+futures = "0.1.29"
