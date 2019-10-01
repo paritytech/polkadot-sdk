@@ -1,0 +1,89 @@
+# .gitlab-ci.yml
+#
+# cumulus
+#
+# pipelines can be triggered manually in the web
+
+
+stages:
+  - test
+  - build
+
+variables:
+  GIT_STRATEGY:                    fetch
+  CARGO_HOME:                      "/ci-cache/${CI_PROJECT_NAME}/cargo/${CI_JOB_NAME}"
+  SCCACHE_DIR:                     "/ci-cache/${CI_PROJECT_NAME}/sccache"
+  CARGO_INCREMENTAL:               0
+  CI_SERVER_NAME:                  "GitLab CI"
+
+.collect-artifacts:                &collect-artifacts
+  artifacts:
+    name:                          "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
+    when:                          on_success
+    expire_in:                     7 days
+    paths:
+      - artifacts/
+
+.docker-env:                       &docker-env
+  image:                           parity/rust-builder:latest
+  before_script:
+    - rustup show
+    - cargo --version
+    - sccache -s
+  only:
+    - master
+    - /^v[0-9]+\.[0-9]+.*$/        # i.e. v1.0, v2.1rc1
+    - schedules
+    - web
+    - /^[0-9]+$/                   # PRs
+  tags:
+    - linux-docker
+
+#### stage:                        test
+
+cargo-audit:
+  stage:                           test
+  <<:                              *docker-env
+  except:
+    - /^[0-9]+$/
+  script:
+    - cargo audit
+  allow_failure:                   true
+
+test-linux-stable:
+  stage:                           test
+  <<:                              *docker-env
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: -Cdebug-assertions=y
+  script:
+    - time cargo test --all --release --frozen |
+        tee output.log
+    - sccache -s
+  after_script:
+    - echo "___Collecting warnings for check_warnings job___"
+    - awk '/^warning:/,/^$/ { print }' output.log > ${CI_COMMIT_SHORT_SHA}_warnings.log
+  artifacts:
+    name:                          $CI_COMMIT_SHORT_SHA
+    expire_in:                     24 hrs
+    paths:
+      - ${CI_COMMIT_SHORT_SHA}_warnings.log
+
+#### stage:                        build
+
+check_warnings:
+  stage:                           build
+  <<:                              *docker-env
+  variables:
+    GIT_STRATEGY:                  none
+  dependencies:
+    - test-linux-stable
+  script:
+    - if [ -s ${CI_COMMIT_SHORT_SHA}_warnings.log ]; then
+        cat ${CI_COMMIT_SHORT_SHA}_warnings.log;
+        exit 1;
+      else
+        echo "___No warnings___";
+      fi
+  allow_failure:                   true
