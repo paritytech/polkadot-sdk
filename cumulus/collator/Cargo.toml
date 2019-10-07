@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Substrate dependencies
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sr-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 consensus-common = { package = "substrate-consensus-common", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 inherents = { package = "substrate-inherents", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 cli = { package = "substrate-cli", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
@@ -21,3 +21,7 @@ codec = { package = "parity-scale-codec", version = "1.0.6", features = [ "deriv
 futures = "0.1.29"
 futures03 = { package = "futures-preview", version = "0.3.0-alpha.19", features = ["compat"] }
 parking_lot = "0.9"
+
+[dev-dependencies]
+test-runtime = { package = "cumulus-test-runtime", path = "../test/runtime" }
+keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }

@@ -16,7 +16,7 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use runtime_primitives::traits::Block as BlockT;
+use sr_primitives::traits::Block as BlockT;
 use consensus_common::{Environment, Proposer};
 use inherents::InherentDataProviders;
 
@@ -96,7 +96,7 @@ impl<Block, PF> ParachainContext for Collator<Block, PF> where
 	>;
 
 	fn produce_candidate<I: IntoIterator<Item=(ParaId, Message)>>(
-		&mut self,
+		&self,
 		_relay_chain_parent: Hash,
 		status: ParachainStatus,
 		_: I,
@@ -201,4 +201,130 @@ where
 {
 	let builder = CollatorBuilder::new(proposer_factory, inherent_data_providers);
 	polkadot_collator::run_collator(builder, para_id, exit, key, version)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::time::Duration;
+
+	use polkadot_collator::{collate, RelayChainContext, PeerId, CollatorId, SignedStatement};
+	use polkadot_primitives::parachain::{ConsolidatedIngress, HeadData, FeeSchedule};
+
+	use keyring::Sr25519Keyring;
+	use sr_primitives::traits::{DigestFor, Header as HeaderT};
+	use inherents::InherentData;
+
+	use test_runtime::{Block, Header};
+
+	use futures03::future;
+	use futures::Stream;
+
+	#[derive(Debug)]
+	struct Error;
+
+	impl From<consensus_common::Error> for Error {
+		fn from(_: consensus_common::Error) -> Self {
+			unimplemented!("Not required in tests")
+		}
+	}
+
+	struct DummyFactory;
+
+	impl Environment<Block> for DummyFactory {
+		type Proposer = DummyProposer;
+		type Error = Error;
+
+		fn init(&mut self, _: &Header) -> Result<Self::Proposer, Self::Error> {
+			Ok(DummyProposer)
+		}
+	}
+
+	struct DummyProposer;
+
+	impl Proposer<Block> for DummyProposer {
+		type Error = Error;
+		type Create = future::Ready<Result<Block, Error>>;
+
+		fn propose(
+			&mut self,
+			_: InherentData,
+			digest : DigestFor<Block>,
+			_: Duration,
+		) -> Self::Create {
+			let header = Header::new(
+				1337,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				digest,
+			);
+
+			future::ready(Ok(Block::new(header, Vec::new())))
+		}
+	}
+
+	struct DummyCollatorNetwork;
+
+	impl CollatorNetwork for DummyCollatorNetwork {
+		fn collator_id_to_peer_id(&self, _: CollatorId) ->
+			Box<dyn Future<Item=Option<PeerId>, Error=()> + Send>
+		{
+			unimplemented!("Not required in tests")
+		}
+
+		fn checked_statements(&self, _: Hash) ->
+			Box<dyn Stream<Item=SignedStatement, Error=()>>
+		{
+			unimplemented!("Not required in tests")
+		}
+	}
+
+	struct DummyRelayChainContext;
+
+	impl RelayChainContext for DummyRelayChainContext {
+		type Error = Error;
+		type FutureEgress = Result<ConsolidatedIngress, Self::Error>;
+
+		fn unrouted_egress(&self, _id: ParaId) -> Self::FutureEgress {
+			Ok(ConsolidatedIngress(Vec::new()))
+		}
+	}
+
+	#[test]
+	fn collates_produces_a_block() {
+		let builder = CollatorBuilder::new(DummyFactory, InherentDataProviders::new());
+		let context = builder.build(Arc::new(DummyCollatorNetwork)).expect("Creates parachain context");
+
+		let id = ParaId::from(100);
+		let header = Header::new(
+			0,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+
+		let collation = collate(
+			Default::default(),
+			id,
+			ParachainStatus {
+				head_data: HeadData(header.encode()),
+				balance: 10,
+				fee_schedule: FeeSchedule {
+					base: 0,
+					per_byte: 1,
+				},
+			},
+			DummyRelayChainContext,
+			context,
+			Arc::new(Sr25519Keyring::Alice.pair().into()),
+		).wait().unwrap().0;
+
+		let block_data = collation.pov.block_data;
+
+		let block = Block::decode(&mut &block_data.0[..]).expect("Is a valid block");
+
+		assert_eq!(1337, *block.header().number());
+	}
 }
