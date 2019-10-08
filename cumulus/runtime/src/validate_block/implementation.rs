@@ -17,9 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use crate::WitnessData;
-use runtime_primitives::traits::{
-	Block as BlockT, Header as HeaderT, Hash as HashT
-};
+use runtime_primitives::traits::{Block as BlockT, Header as HeaderT};
 use executive::ExecuteBlock;
 use primitives::{Blake2Hasher, H256};
 
@@ -29,14 +27,13 @@ use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
+use parachain::ValidationParams;
+
 static mut STORAGE: Option<Box<dyn Storage>> = None;
 /// The message to use as expect message while accessing the `STORAGE`.
 const STORAGE_SET_EXPECT: &str =
 	"`STORAGE` needs to be set before calling this function.";
 const STORAGE_ROOT_LEN: usize = 32;
-
-/// Extract the hashing algorithm type from the given block type.
-type HashingOf<B> = <<B as BlockT>::Header as HeaderT>::Hashing;
 
 /// Abstract the storage into a trait without `Block` generic.
 trait Storage {
@@ -54,18 +51,20 @@ trait Storage {
 }
 
 /// Validate a given parachain block on a validator.
-#[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub fn validate_block<B: BlockT<Hash = H256>, E: ExecuteBlock<B>>(
-	mut arguments: &[u8],
+	params: ValidationParams,
 ) {
 	use codec::Decode;
 
-	let (parent_hash, block_data): (B::Hash, crate::ParachainBlockData::<B>) = Decode::decode(&mut arguments)
-		.expect("Could not decode parachain block.");
+	let block_data = crate::ParachainBlockData::<B>::decode(&mut &params.block_data[..])
+		.expect("Invalid parachain block data");
+
+	let parent_head = B::Header::decode(&mut &params.parent_head[..]).expect("Invalid parent head");
+
 	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
-	assert!(parent_hash == *block.header().parent_hash(), "Invalid parent hash");
+	assert!(parent_head.hash() == *block.header().parent_hash(), "Invalid parent hash");
 
 	let storage = WitnessStorage::<B>::new(
 		block_data.witness_data,

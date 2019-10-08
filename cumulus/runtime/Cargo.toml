@@ -5,17 +5,23 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
+# Other dependencies
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
+memory-db = { version = "0.15.2", default-features = false }
+hash-db = { version = "0.15.2", default-features = false }
+trie-db = { version = "0.15.2", default-features = false }
+hashbrown = "0.6.1"
+
+# Substrate dependencies
 rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 rio = { package = "sr-io", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 executive = { package = "srml-executive", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 substrate-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-memory-db = { version = "0.15.2", default-features = false }
-hash-db = { version = "0.15.2", default-features = false }
-trie-db = { version = "0.15.2", default-features = false }
-hashbrown = "0.6.0"
+
+# Polkadot dependencies
+parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch", default-features = false, features = [ "wasm-api" ] }
 
 [dev-dependencies]
 keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
@@ -36,4 +42,5 @@ std = [
 	"hash-db/std",
 	"trie-db/std",
 	"substrate-trie/std",
+	"parachain/std",
 ]
