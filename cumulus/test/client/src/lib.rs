@@ -20,7 +20,8 @@ pub use test_client::*;
 pub use runtime;
 use runtime::{Block, genesismap::{GenesisConfig, additional_storage_with_genesis}};
 use runtime_primitives::traits::{Hash as HashT, Header as HeaderT, Block as BlockT};
-use primitives::storage::well_known_keys;
+use primitives::{storage::well_known_keys, sr25519};
+use keyring::{Sr25519Keyring, AccountKeyring};
 
 mod local_executor {
 	use test_client::executor::native_executor_instance;
@@ -28,7 +29,6 @@ mod local_executor {
 		pub LocalExecutor,
 		runtime::api::dispatch,
 		runtime::native_version,
-		runtime::WASM_BINARY
 	);
 }
 
@@ -58,16 +58,23 @@ pub struct GenesisParameters {
 
 impl test_client::GenesisInit for GenesisParameters {
 	fn genesis_storage(&self) -> (StorageOverlay, ChildrenStorageOverlay) {
+		use codec::Encode;
 		let mut storage = genesis_config(self.support_changes_trie).genesis_map();
-		storage.insert(well_known_keys::CODE.to_vec(), runtime::WASM_BINARY.to_vec());
+		storage.0.insert(well_known_keys::CODE.to_vec(), runtime::WASM_BINARY.to_vec());
 
-		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-			storage.clone().into_iter()
+		let child_roots = storage.1.iter().map(|(sk, child_map)| {
+			let state_root = <<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+				child_map.clone().into_iter().collect()
+			);
+			(sk.clone(), state_root.encode())
+		});
+		let state_root = <<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+			storage.0.clone().into_iter().chain(child_roots).collect()
 		);
 		let block: runtime::Block = client::genesis::construct_genesis_block(state_root);
-		storage.extend(additional_storage_with_genesis(&block));
+		storage.0.extend(additional_storage_with_genesis(&block));
 
-		(storage, Default::default())
+		storage
 	}
 }
 
@@ -109,15 +116,21 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 }
 
 fn genesis_config(support_changes_trie: bool) -> GenesisConfig {
-	GenesisConfig::new(support_changes_trie, vec![
-		AuthorityKeyring::Alice.into(),
-		AuthorityKeyring::Bob.into(),
-		AuthorityKeyring::Charlie.into(),
-	], vec![
-		AccountKeyring::Alice.into(),
-		AccountKeyring::Bob.into(),
-		AccountKeyring::Charlie.into(),
-	],
-		1000
+	GenesisConfig::new(
+		support_changes_trie,
+		vec![
+			sr25519::Public::from(Sr25519Keyring::Alice).into(),
+			sr25519::Public::from(Sr25519Keyring::Bob).into(),
+			sr25519::Public::from(Sr25519Keyring::Charlie).into(),
+		],
+		vec![
+			AccountKeyring::Alice.into(),
+			AccountKeyring::Bob.into(),
+			AccountKeyring::Charlie.into(),
+		],
+		1000,
+		None,
+		Default::default(),
+		Default::default(),
 	)
 }

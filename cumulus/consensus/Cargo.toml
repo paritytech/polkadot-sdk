@@ -17,7 +17,7 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 
 # other deps
-futures = "0.1.21"
-tokio = "0.1.8"
-parity-codec = "3.5"
+futures = { package = "futures-preview", version = "0.3.0-alpha.19", features = ["compat"] }
+tokio = "0.1.22"
+codec = { package = "parity-scale-codec", version = "1.0.5", features = [ "derive" ] }
 log = "0.4"

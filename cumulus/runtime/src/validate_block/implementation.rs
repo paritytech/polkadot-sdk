@@ -17,16 +17,15 @@
 //! The actual implementation of the validate block functionality.
 
 use crate::WitnessData;
-use runtime_primitives::traits::{
-	Block as BlockT, Header as HeaderT, Hash as HashT
-};
+use runtime_primitives::traits::{Block as BlockT, Header as HeaderT};
 use executive::ExecuteBlock;
+use primitives::{Blake2Hasher, H256};
 
-use substrate_trie::{MemoryDB, read_trie_value, delta_trie_root};
+use substrate_trie::{MemoryDB, read_trie_value, delta_trie_root, Layout};
 
 use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
-use hash_db::HashDB;
+use hash_db::{HashDB, EMPTY_PREFIX};
 
 use parachain::ValidationParams;
 
@@ -35,9 +34,6 @@ static mut STORAGE: Option<Box<dyn Storage>> = None;
 const STORAGE_SET_EXPECT: &str =
 	"`STORAGE` needs to be set before calling this function.";
 const STORAGE_ROOT_LEN: usize = 32;
-
-/// Extract the hashing algorithm type from the given block type.
-type HashingOf<B> = <<B as BlockT>::Header as HeaderT>::Hashing;
 
 /// Abstract the storage into a trait without `Block` generic.
 trait Storage {
@@ -56,7 +52,7 @@ trait Storage {
 
 /// Validate a given parachain block on a validator.
 #[doc(hidden)]
-pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
+pub fn validate_block<B: BlockT<Hash = H256>, E: ExecuteBlock<B>>(
 	params: ValidationParams,
 ) {
 	use codec::Decode;
@@ -94,12 +90,12 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(
 /// The storage implementation used when validating a block that is using the
 /// witness data as source.
 struct WitnessStorage<B: BlockT> {
-	witness_data: MemoryDB<<HashingOf<B> as HashT>::Hasher>,
+	witness_data: MemoryDB<Blake2Hasher>,
 	overlay: hashbrown::HashMap<Vec<u8>, Option<Vec<u8>>>,
 	storage_root: B::Hash,
 }
 
-impl<B: BlockT> WitnessStorage<B> {
+impl<B: BlockT<Hash = H256>> WitnessStorage<B> {
 	/// Initialize from the given witness data and storage root.
 	///
 	/// Returns an error if given storage root was not found in the witness data.
@@ -108,9 +104,9 @@ impl<B: BlockT> WitnessStorage<B> {
 		storage_root: B::Hash,
 	) -> Result<Self, &'static str> {
 		let mut db = MemoryDB::default();
-		data.into_iter().for_each(|i| { db.insert(&[], &i); });
+		data.into_iter().for_each(|i| { db.insert(EMPTY_PREFIX, &i); });
 
-		if !db.contains(&storage_root, &[]) {
+		if !db.contains(&storage_root, EMPTY_PREFIX) {
 			return Err("Witness data does not contain given storage root.")
 		}
 
@@ -122,10 +118,10 @@ impl<B: BlockT> WitnessStorage<B> {
 	}
 }
 
-impl<B: BlockT> Storage for WitnessStorage<B> {
+impl<B: BlockT<Hash = H256>> Storage for WitnessStorage<B> {
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
 		self.overlay.get(key).cloned().or_else(|| {
-			read_trie_value(
+			read_trie_value::<Layout<Blake2Hasher>, _>(
 				&self.witness_data,
 				&self.storage_root,
 				key,
@@ -142,7 +138,7 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 	}
 
 	fn storage_root(&mut self) -> [u8; STORAGE_ROOT_LEN] {
-		let root = match delta_trie_root(
+		let root = match delta_trie_root::<Layout<Blake2Hasher>, _, _, _, _>(
 			&mut self.witness_data,
 			self.storage_root.clone(),
 			self.overlay.drain()
