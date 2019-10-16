@@ -1,5 +1,5 @@
 // Copyright 2019 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -96,7 +96,7 @@ impl<Block, PF> ParachainContext for Collator<Block, PF> where
 	>;
 
 	fn produce_candidate<I: IntoIterator<Item=(ParaId, Message)>>(
-		&self,
+		&mut self,
 		_relay_chain_parent: Hash,
 		status: ParachainStatus,
 		_: I,

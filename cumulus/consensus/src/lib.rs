@@ -35,6 +35,8 @@ use log::warn;
 
 use std::{sync::Arc, marker::PhantomData};
 
+pub mod import_queue;
+
 /// Helper for the local client.
 pub trait LocalClient {
 	/// The block type of the local client.
