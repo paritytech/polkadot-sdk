@@ -13,6 +13,7 @@ path = 'src/main.rs'
 derive_more = '0.15.0'
 exit-future = '0.1.4'
 futures = '0.1.29'
+futures03 = { package = "futures-preview", version = "0.3.0-alpha.19", features = ["compat"] }
 log = '0.4.8'
 parking_lot = '0.9.0'
 tokio = '0.1.22'
@@ -26,18 +27,24 @@ ctrlc = { version = "3.1.3", features = ["termination"] }
 sr-primitives = { git = "https://github.com/paritytech/substrate", default_features = false, branch = "bkchr-cumulus-branch" }
 sr-io = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 substrate-cli = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+substrate-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 substrate-executor = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 substrate-service = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 inherents = { package = "substrate-inherents", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 network = { package = "substrate-network", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 substrate-client = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+srml-timestamp = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+consensus-common = { package = "substrate-consensus-common", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 
 # Cumulus dependencies
 cumulus-consensus = { path = "../../consensus" }
 cumulus-collator = { path = "../../collator" }
+
+# Polkadot dependencies
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
+polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 
 [build-dependencies]
 vergen = '3.0.4'

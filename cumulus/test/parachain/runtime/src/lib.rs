@@ -1,4 +1,18 @@
-//! The Substrate Node Template runtime. This can be compiled with `#[no_std]`, ready for Wasm.
+// Copyright 2019 Parity Technologies (UK) Ltd.
+// This file is part of Cumulus.
+
+// Cumulus is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Cumulus is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -9,7 +23,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use rstd::prelude::*;
-use primitives::{OpaqueMetadata, crypto::key_types};
+use primitives::OpaqueMetadata;
 use sr_primitives::{
 	ApplyResult, transaction_validity::TransactionValidity, generic, create_runtime_str,
 	impl_opaque_keys, AnySignature

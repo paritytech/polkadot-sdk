@@ -7,6 +7,9 @@ edition = "2018"
 [dependencies]
 # Substrate dependencies
 sr-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+substrate-primitives = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+substrate-client = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+substrate-service = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 consensus-common = { package = "substrate-consensus-common", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 inherents = { package = "substrate-inherents", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 cli = { package = "substrate-cli", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
@@ -14,6 +17,9 @@ cli = { package = "substrate-cli", git = "https://github.com/paritytech/substrat
 # Polkadot dependencies
 polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
+
+# Cumulus dependencies
+cumulus-consensus = { path = "../consensus" }
 
 # other deps
 log = "0.4.8"

@@ -1,19 +1,35 @@
-use crate::{chain_spec, service};
+// Copyright 2019 Parity Technologies (UK) Ltd.
+// This file is part of Cumulus.
+
+// Cumulus is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Cumulus is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
+use crate::chain_spec;
 
 use parachain_runtime::Block;
 
-pub use substrate_cli::{VersionInfo, IntoExit, error};
-use substrate_cli::{informant, parse_and_prepare, ParseAndPrepare, NoCustom};
-use substrate_service::{AbstractService, Roles as ServiceRoles, Configuration};
+pub use substrate_cli::{VersionInfo, IntoExit, error::{self, Result}};
+use substrate_cli::{parse_and_prepare, ParseAndPrepare, NoCustom};
+use substrate_service::{Roles as ServiceRoles, Configuration};
 use sr_primitives::{traits::{Block as BlockT, Header as HeaderT, Hash as HashT}, BuildStorage};
 use substrate_client::genesis;
-use primitives::hexdisplay::HexDisplay;
+use substrate_primitives::hexdisplay::HexDisplay;
 
 use codec::Encode;
 
 use log::info;
 
-use std::{path::PathBuf, cell::RefCell};
+use std::{path::PathBuf, cell::RefCell, sync::Arc};
 
 use structopt::StructOpt;
 
@@ -44,7 +60,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 	where
 		I: IntoIterator<Item = T>,
 		T: Into<std::ffi::OsString> + Clone,
-		E: IntoExit,
+		E: IntoExit + Send + 'static,
 {
 	type Config<T> = Configuration<(), T>;
 	match parse_and_prepare::<SubCommands, NoCustom, _>(
@@ -53,18 +69,26 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 		args,
 	) {
 		ParseAndPrepare::Run(cmd) => cmd.run(load_spec, exit,
-		|exit, _cli_args, _custom_args, config: Config<_>| {
+		|exit, _cli_args, _custom_args, mut config: Config<_>| {
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
 			info!("  by {}, 2019", version.author);
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
-			panic!();
-			// match config.roles {
-			// 	ServiceRoles::LIGHT => unimplemented!("Light client not supported!"),
-			// 	_ => unimplemented!(),
-			// }.map_err(|e| format!("{:?}", e))
+			info!("Parachain id: {:?}", crate::PARA_ID);
+
+			// TODO
+			let key = Arc::new(substrate_primitives::Pair::from_seed(&[10; 32]));
+
+			// TODO
+			config.network.listen_addresses = Vec::new();
+			config.chain_spec = chain_spec::get_chain_spec();
+
+			match config.roles {
+				ServiceRoles::LIGHT => unimplemented!("Light client not supported!"),
+				_ => crate::service::run_collator(config, exit, key, version.clone()),
+			}.map_err(|e| format!("{:?}", e))
 		}),
 		ParseAndPrepare::BuildSpec(cmd) => cmd.run(load_spec),
 		ParseAndPrepare::ExportBlocks(cmd) => cmd.run_with_builder(|config: Config<_>|
@@ -82,7 +106,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 	Ok(())
 }
 
-fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
+fn load_spec(_: &str) -> std::result::Result<Option<chain_spec::ChainSpec>, String> {
 	Ok(Some(chain_spec::get_chain_spec()))
 }
 

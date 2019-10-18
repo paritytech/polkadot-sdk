@@ -1,4 +1,20 @@
-use primitives::{Pair, Public};
+// Copyright 2019 Parity Technologies (UK) Ltd.
+// This file is part of Cumulus.
+
+// Cumulus is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Cumulus is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
+use substrate_primitives::{Pair, Public};
 use parachain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, SudoConfig, IndicesConfig, SystemConfig, WASM_BINARY,
 };
@@ -23,7 +39,7 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId) {
 pub fn get_chain_spec() -> ChainSpec {
 	ChainSpec::from_genesis(
 		"Local Testnet",
-		"local_testnet",
+		"parachain_local_testnet",
 		|| testnet_genesis(
 			vec![
 				get_authority_keys_from_seed("Alice"),
@@ -55,7 +71,7 @@ pub fn get_chain_spec() -> ChainSpec {
 }
 
 fn testnet_genesis(
-	initial_authorities: Vec<(AccountId, AccountId)>,
+	_initial_authorities: Vec<(AccountId, AccountId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
