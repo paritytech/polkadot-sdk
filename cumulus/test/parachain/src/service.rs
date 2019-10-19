@@ -109,8 +109,6 @@ impl<S, PF, E> cumulus_collator::SetupParachain<Block> for SetupParachain<S, PF,
 		S: AbstractService,
 		E: Send + crate::cli::IntoExit,
 		PF: consensus_common::Environment<Block> + Send + 'static,
-		<PF::Proposer as consensus_common::Proposer<Block>>::Create: Send + Unpin,
-		PF::Error: std::fmt::Debug,
 {
 	type ProposerFactory = PF;
 

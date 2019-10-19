@@ -16,7 +16,9 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use sr_primitives::traits::Block as BlockT;
+use cumulus_runtime::ParachainBlockData;
+
+use sr_primitives::traits::{Block as BlockT, Header as HeaderT};
 use consensus_common::{Environment, Proposer};
 use inherents::InherentDataProviders;
 use substrate_primitives::Blake2Hasher;
@@ -37,7 +39,7 @@ use codec::{Decode, Encode};
 
 use log::{error, trace};
 
-use futures03::TryFutureExt;
+use futures03::{TryFutureExt, future};
 use futures::{Future, future::IntoFuture};
 
 use std::{sync::Arc, marker::PhantomData, time::Duration, fmt::Debug};
@@ -85,11 +87,10 @@ impl<Block, PF> Clone for Collator<Block, PF> {
 	}
 }
 
-impl<Block, PF> ParachainContext for Collator<Block, PF> where
-	Block: BlockT,
-	PF: Environment<Block> + 'static + Send,
-	PF::Error: Debug,
-	<PF::Proposer as Proposer<Block>>::Create: Unpin + Send,
+impl<Block, PF> ParachainContext for Collator<Block, PF>
+	where
+		Block: BlockT,
+		PF: Environment<Block> + 'static + Send,
 {
 	type ProduceCandidate = Box<
 		dyn Future<Item=(BlockData, parachain::HeadData, OutgoingMessages), Error=InvalidHead>
@@ -111,6 +112,8 @@ impl<Block, PF> ParachainContext for Collator<Block, PF> where
 			.map_err(|_| InvalidHead)
 			.into_future()
 			.and_then(move |last_head| {
+				let parent_state_root = *last_head.header.state_root();
+
 				factory.lock()
 					.init(&last_head.header)
 					.map_err(|e| {
@@ -119,7 +122,6 @@ impl<Block, PF> ParachainContext for Collator<Block, PF> where
 						InvalidHead
 					})
 					.and_then(|mut proposer| {
-						error!("PROPOSING");
 						let inherent_data = inherent_providers.create_inherent_data()
 							.map_err(|e| {
 								error!("Failed to create inherent data: {:?}", e);
@@ -131,10 +133,34 @@ impl<Block, PF> ParachainContext for Collator<Block, PF> where
 							Default::default(),
 							//TODO: Fix this.
 							Duration::from_secs(6),
+							true,
 						)
 						.map_err(|e| {
 							error!("Proposing failed: {:?}", e);
 							InvalidHead
+						})
+						.and_then(move |(block, proof)| {
+							let res = match proof {
+								Some(proof) => {
+									let (header, extrinsics) = block.deconstruct();
+
+									// Create the parachain block data for the validators.
+									Ok(
+										ParachainBlockData::<Block>::new(
+											header,
+											extrinsics,
+											proof,
+											parent_state_root,
+										)
+									)
+								}
+								None => {
+									error!("Proposer did not return the requested proof.");
+									Err(InvalidHead)
+								}
+							};
+
+							future::ready(res)
 						})
 						.compat();
 
@@ -143,9 +169,8 @@ impl<Block, PF> ParachainContext for Collator<Block, PF> where
 			})
 			.flatten()
 			.map(|b| {
-				error!("BUILDING BLOCKDATA");
 				let block_data = BlockData(b.encode());
-				let head_data = HeadData::<Block> { header: b.deconstruct().0 };
+				let head_data = HeadData::<Block> { header: b.into_header() };
 				let messages = OutgoingMessages { outgoing_messages: Vec::new() };
 
 				(block_data, parachain::HeadData(head_data.encode()), messages)
@@ -175,11 +200,7 @@ impl<Block, SP> CollatorBuilder<Block, SP> {
 	}
 }
 
-impl<Block: BlockT, SP: SetupParachain<Block>> BuildParachainContext for CollatorBuilder<Block, SP>
-	where
-		<<SP::ProposerFactory as Environment<Block>>::Proposer as Proposer<Block>>::Create: Send + Unpin,
-		<SP::ProposerFactory as Environment<Block>>::Error: Debug,
-{
+impl<Block: BlockT, SP: SetupParachain<Block>> BuildParachainContext for CollatorBuilder<Block, SP> {
 	type ParachainContext = Collator<Block, SP::ProposerFactory>;
 
 	fn build<B, E>(
@@ -201,11 +222,7 @@ impl<Block: BlockT, SP: SetupParachain<Block>> BuildParachainContext for Collato
 }
 
 /// Something that can setup a parachain.
-pub trait SetupParachain<Block: BlockT>: Send
-	where
-		<<Self::ProposerFactory as Environment<Block>>::Proposer as Proposer<Block>>::Create: Send + Unpin,
-		<Self::ProposerFactory as Environment<Block>>::Error: Debug,
-{
+pub trait SetupParachain<Block: BlockT>: Send {
 	/// The proposer factory of the parachain to build blocks.
 	type ProposerFactory: Environment<Block> + Send + 'static;
 
@@ -228,8 +245,6 @@ pub fn run_collator<Block, SP, E>(
 where
 	Block: BlockT,
 	SP: SetupParachain<Block> + Send + 'static,
-	<<SP::ProposerFactory as Environment<Block>>::Proposer as Proposer<Block>>::Create: Send + Unpin,
-	<SP::ProposerFactory as Environment<Block>>::Error: Debug,
 	E: IntoFuture<Item=(), Error=()>,
 	E::Future: Send + Clone + Sync + 'static,
 {

@@ -20,6 +20,7 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 
 # Cumulus dependencies
 cumulus-consensus = { path = "../consensus" }
+cumulus-runtime = { path = "../runtime" }
 
 # other deps
 log = "0.4.8"

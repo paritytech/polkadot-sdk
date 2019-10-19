@@ -41,6 +41,7 @@ pub struct ParachainBlockData<B: BlockT> {
 	extrinsics: Vec<<B as BlockT>::Extrinsic>,
 	/// The data that is required to emulate the storage accesses executed by all extrinsics.
 	witness_data: WitnessData,
+	/// The storage root of the witness data.
 	witness_data_storage_root: <B as BlockT>::Hash,
 }
 
@@ -57,5 +58,10 @@ impl<B: BlockT> ParachainBlockData<B> {
 			witness_data,
 			witness_data_storage_root,
 		}
+	}
+
+	/// Convert `self` into the stored header.
+	pub fn into_header(self) -> B::Header {
+		self.header
 	}
 }
