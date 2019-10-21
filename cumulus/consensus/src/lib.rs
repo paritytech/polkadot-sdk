@@ -96,10 +96,9 @@ pub fn follow_polkadot<'a, L: 'a, P: 'a>(para_id: ParaId, local: Arc<L>, polkado
 
 		finalized_heads
 			.map(|head_data| {
-				<Option<<L::Block as BlockT>::Header>>::decode(&mut &head_data[..])
+				<<L::Block as BlockT>::Header>::decode(&mut &head_data[..])
 					.map_err(|_| Error::InvalidHeadData)
 			})
-			.try_filter_map(|h| future::ready(Ok(h)))
 			.try_for_each(move |p_head| {
 				future::ready(local.finalize(p_head.hash()).map_err(Error::Client).map(|_| ()))
 			})
