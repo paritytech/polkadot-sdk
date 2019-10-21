@@ -26,6 +26,7 @@ sudo = { package = "srml-sudo", git = "https://github.com/paritytech/substrate",
 sr-primitives = { git = "https://github.com/paritytech/substrate", default_features = false, branch = "bkchr-cumulus-branch" }
 client = { package = "substrate-client", git = "https://github.com/paritytech/substrate", default_features = false, branch = "bkchr-cumulus-branch" }
 offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+transaction-payment = { package = "srml-transaction-payment", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 
 # Cumulus dependencies
 cumulus-runtime = { path = "../../../runtime", default-features = false }
@@ -56,4 +57,5 @@ std = [
 	'offchain-primitives/std',
 	'substrate-session/std',
 	'cumulus-runtime/std',
+	'transaction-payment/std',
 ]
