@@ -64,4 +64,14 @@ impl<B: BlockT> ParachainBlockData<B> {
 	pub fn into_header(self) -> B::Header {
 		self.header
 	}
+
+	/// Returns the header.
+	pub fn header(&self) -> &B::Header {
+		&self.header
+	}
+
+	/// Returns the extrinsics.
+	pub fn extrinsics(&self) -> &[B::Extrinsic] {
+		&self.extrinsics
+	}
 }

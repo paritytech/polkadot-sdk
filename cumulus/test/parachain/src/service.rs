@@ -91,32 +91,42 @@ pub fn run_collator<C: Send + Default + 'static, E: crate::cli::IntoExit + Send 
 	};
 
 	let on_exit = service.on_exit();
+	let block_import = service.client();
 
-	let setup_parachain = SetupParachain { service, inherent_data_providers, proposer_factory, exit };
+	let setup_parachain = SetupParachain {
+		service,
+		inherent_data_providers,
+		proposer_factory,
+		exit,
+		block_import,
+	};
 
 	cumulus_collator::run_collator(setup_parachain, crate::PARA_ID, on_exit, key, version)
 }
 
-struct SetupParachain<S, PF, E> {
+struct SetupParachain<S, PF, E, BI> {
 	service: S,
 	proposer_factory: PF,
 	exit: E,
 	inherent_data_providers: InherentDataProviders,
+	block_import: BI,
 }
 
-impl<S, PF, E> cumulus_collator::SetupParachain<Block> for SetupParachain<S, PF, E>
+impl<S, PF, E, BI> cumulus_collator::SetupParachain<Block> for SetupParachain<S, PF, E, BI>
 	where
 		S: AbstractService,
 		E: Send + crate::cli::IntoExit,
 		PF: consensus_common::Environment<Block> + Send + 'static,
+		BI: consensus_common::BlockImport<Block, Error=consensus_common::Error> + Send + Sync + 'static,
 {
 	type ProposerFactory = PF;
+	type BlockImport = BI;
 
 	fn setup_parachain<P: cumulus_consensus::PolkadotClient>(
 		self,
 		polkadot_client: P,
 		task_executor: polkadot_collator::TaskExecutor,
-	) -> Result<(Self::ProposerFactory, InherentDataProviders), String> {
+	) -> Result<(Self::ProposerFactory, Self::BlockImport, InherentDataProviders), String> {
 		let client = self.service.client();
 
 		let follow = match cumulus_consensus::follow_polkadot(crate::PARA_ID, client, polkadot_client) {
@@ -139,6 +149,6 @@ impl<S, PF, E> cumulus_collator::SetupParachain<Block> for SetupParachain<S, PF,
 			),
 		).map_err(|_| "Could not spawn parachain server!")?;
 
-		Ok((self.proposer_factory, self.inherent_data_providers))
+		Ok((self.proposer_factory, self.block_import, self.inherent_data_providers))
 	}
 }
