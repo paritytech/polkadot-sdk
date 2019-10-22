@@ -27,7 +27,7 @@ use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
-use parachain::ValidationParams;
+use parachain::{ValidationParams, ValidationResult};
 
 static mut STORAGE: Option<Box<dyn Storage>> = None;
 /// The message to use as expect message while accessing the `STORAGE`.
@@ -54,13 +54,15 @@ trait Storage {
 #[doc(hidden)]
 pub fn validate_block<B: BlockT<Hash = H256>, E: ExecuteBlock<B>>(
 	params: ValidationParams,
-) {
-	use codec::Decode;
+) -> ValidationResult {
+	use codec::{Decode, Encode};
 
 	let block_data = crate::ParachainBlockData::<B>::decode(&mut &params.block_data[..])
 		.expect("Invalid parachain block data");
 
 	let parent_head = B::Header::decode(&mut &params.parent_head[..]).expect("Invalid parent head");
+	// TODO: Use correct head data
+	let head_data = block_data.header.encode();
 
 	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
@@ -85,6 +87,8 @@ pub fn validate_block<B: BlockT<Hash = H256>, E: ExecuteBlock<B>>(
 	};
 
 	E::execute_block(block);
+
+	ValidationResult { head_data }
 }
 
 /// The storage implementation used when validating a block that is using the

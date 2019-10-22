@@ -69,12 +69,11 @@ macro_rules! register_validate_block_impl {
 					arguments_len,
 				);
 
-				$crate::validate_block::implementation::validate_block::<
+				let res = $crate::validate_block::implementation::validate_block::<
 					$block, $block_executor
 				>(params);
 
-				// We don't return anything for now.
-				0
+				$crate::validate_block::parachain::wasm_api::write_result(res)
 			}
 		}
 	};
