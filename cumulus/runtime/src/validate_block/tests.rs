@@ -19,7 +19,7 @@ use crate::{ParachainBlockData, WitnessData};
 use rio::TestExternalities;
 use keyring::AccountKeyring;
 use runtime_primitives::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
-use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::I32};
+use executor::{call_in_wasm, error::Result, WasmExecutionMethod};
 use test_client::{
 	TestClientBuilder, TestClientBuilderExt, DefaultTestClientBuilderExt, Client, LongestChain,
 	runtime::{Block, Transfer, Hash, WASM_BINARY, Header}
@@ -31,34 +31,21 @@ use codec::Encode;
 
 fn call_validate_block(parent_head: Header, block_data: ParachainBlockData<Block>) -> Result<()> {
 	let mut ext = TestExternalities::default();
-	WasmExecutor::new().call_with_custom_signature(
-		&mut ext,
-		1024,
-		&WASM_BINARY,
-		"validate_block",
-		|alloc| {
-			let params = ValidationParams {
-				block_data: block_data.encode(),
-				parent_head: parent_head.encode(),
-				ingress: Vec::new(),
-			}.encode();
-			let params_offset = alloc(&params)?;
+	let mut ext_ext = ext.ext();
+	let params = ValidationParams {
+		block_data: block_data.encode(),
+		parent_head: parent_head.encode(),
+		ingress: Vec::new(),
+	}.encode();
 
-			Ok(
-				vec![
-					I32(params_offset as i32),
-					I32(params.len() as i32),
-				]
-			)
-		},
-		|res, _| {
-			if res.is_none() {
-				Ok(Some(()))
-			} else {
-				Ok(None)
-			}
-		}
-	)
+	call_in_wasm(
+		"validate_block",
+		&params,
+		WasmExecutionMethod::Interpreted,
+		&mut ext_ext,
+		&WASM_BINARY,
+		1024,
+	).map(|v| assert!(v.is_empty(), "`validate_block` does not return anything"))
 }
 
 fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
@@ -99,9 +86,10 @@ fn build_block_with_proof(
 	extrinsics: Vec<<Block as BlockT>::Extrinsic>,
 ) -> (Block, WitnessData) {
 	let block_id = BlockId::Hash(client.info().chain.best_hash);
-	let mut builder = client.new_block_at_with_proof_recording(
+	let mut builder = client.new_block_at(
 		&block_id,
-		Default::default()
+		Default::default(),
+		true,
 	).expect("Initializes new block");
 
 	extrinsics.into_iter().for_each(|e| builder.push(e).expect("Pushes an extrinsic"));

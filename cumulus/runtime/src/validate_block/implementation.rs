@@ -141,16 +141,17 @@ impl<B: BlockT<Hash = H256>> Storage for WitnessStorage<B> {
 		let root = match delta_trie_root::<Layout<Blake2Hasher>, _, _, _, _>(
 			&mut self.witness_data,
 			self.storage_root.clone(),
-			self.overlay.drain()
+			self.overlay.drain(),
 		) {
 			Ok(root) => root,
-			Err(_) => return [0; STORAGE_ROOT_LEN],
+			Err(e) => match *e {
+				trie_db::TrieError::InvalidStateRoot(_) => panic!("Invalid state root"),
+				trie_db::TrieError::IncompleteDatabase(_) => panic!("IncompleteDatabase"),
+				trie_db::TrieError::DecoderError(_, _) => panic!("DecodeError"),
+			}
 		};
 
-		assert!(root.as_ref().len() <= STORAGE_ROOT_LEN);
-		let mut res = [0; STORAGE_ROOT_LEN];
-		res.copy_from_slice(root.as_ref());
-		res
+		root.into()
 	}
 }
 
