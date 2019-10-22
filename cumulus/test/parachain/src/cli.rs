@@ -83,6 +83,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 
 			// TODO
 			config.network.listen_addresses = Vec::new();
+			config.network.boot_nodes = vec![];
 			config.chain_spec = chain_spec::get_chain_spec();
 
 			match config.roles {
