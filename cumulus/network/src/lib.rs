@@ -12,6 +12,10 @@ use codec::{Decode, Encode};
 
 use std::marker::PhantomData;
 
+//! Cumulus-specific network implementation.
+//!
+//! Contains message send between collators and logic to process them.
+
 /// Justification that a parachain block is the parachain block candidate of one of the relay chain
 /// validator.
 #[derive(Encode, Decode)]
