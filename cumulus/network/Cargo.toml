@@ -1,0 +1,21 @@
+[package]
+name = "cumulus-network"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Cumulus-specific networking protocol"
+edition = "2018"
+
+[dependencies]
+# substrate deps
+substrate-client = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+substrate-consensus-common = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sr-primitives = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+
+# polkadot deps
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
+polkadot-statement-table = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
+polkadot-validation = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
+
+# other deps
+tokio = "0.1.22"
+codec = { package = "parity-scale-codec", version = "1.0.5", features = [ "derive" ] }

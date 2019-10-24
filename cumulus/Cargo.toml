@@ -2,6 +2,7 @@
 members = [
   "consensus",
   "runtime",
+  "network",
   "test/runtime",
   "test/client",
 ]
