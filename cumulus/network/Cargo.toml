@@ -17,5 +17,4 @@ polkadot-statement-table = { git = "https://github.com/paritytech/polkadot", bra
 polkadot-validation = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 
 # other deps
-tokio = "0.1.22"
 codec = { package = "parity-scale-codec", version = "1.0.5", features = [ "derive" ] }
