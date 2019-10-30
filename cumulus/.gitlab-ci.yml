@@ -36,6 +36,12 @@ variables:
     - schedules
     - web
     - /^[0-9]+$/                   # PRs
+  retry:
+    max: 2
+    when: 
+      - runner_system_failure
+      - unknown_failure
+      - api_failure
   tags:
     - linux-docker
 
@@ -58,7 +64,7 @@ test-linux-stable:
     # but still want to have debug assertions.
     RUSTFLAGS: -Cdebug-assertions=y
   script:
-    - time cargo test --all --release --locked |
+    - time cargo test --all --release --frozen |
         tee output.log
     - sccache -s
   after_script:
