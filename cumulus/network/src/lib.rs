@@ -35,6 +35,8 @@ use std::marker::PhantomData;
 /// valid parachain-block candidate.
 /// Data encoding is just `GossipMessage`, the relay-chain validator candidate statement message is
 /// the justification.
+///
+/// Note: if no justification is provided the annouce is considered valid.
 pub struct JustifiedBlockAnnounceValidator<B> {
 	authorities: Vec<ValidatorId>,
 	phantom: PhantomData<B>,
@@ -53,6 +55,11 @@ impl<B: BlockT> BlockAnnounceValidator<B> for JustifiedBlockAnnounceValidator<B>
 	fn validate(&mut self, header: &B::Header, mut data: &[u8])
 		-> Result<Validation, Box<dyn std::error::Error + Send>>
 	{
+		// If no data is provided the announce is valid.
+		if data.is_empty() {
+			return Ok(Validation::Success)
+		}
+
 		// Check data is a gossip message.
 		let gossip_message = GossipMessage::decode(&mut data)
 			.map_err(|_| Box::new(ClientError::BadJustification(
