@@ -15,6 +15,7 @@ sr-primitives = { git = "https://github.com/paritytech/substrate", branch = "bkc
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 polkadot-statement-table = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 polkadot-validation = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
+polkadot-network = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 
 # other deps
 codec = { package = "parity-scale-codec", version = "1.0.5", features = [ "derive" ] }
