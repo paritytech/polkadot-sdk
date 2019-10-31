@@ -64,7 +64,7 @@ test-linux-stable:
     # but still want to have debug assertions.
     RUSTFLAGS: -Cdebug-assertions=y
   script:
-    - time cargo test --all --release --frozen |
+    - time cargo test --all --release --locked |
         tee output.log
     - sccache -s
   after_script:
