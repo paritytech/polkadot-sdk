@@ -33,6 +33,8 @@ use std::marker::PhantomData;
 
 /// Validate that data is a valid justification from a relay-chain validator that the block is a
 /// valid parachain-block candidate.
+/// Data encoding is just `GossipMessage`, the relay-chain validator candidate statement message is
+/// the justification.
 pub struct JustifiedBlockAnnounceValidator<B> {
 	authorities: Vec<ValidatorId>,
 	phantom: PhantomData<B>,
