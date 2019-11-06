@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"consensus",
+	"network",
 	"runtime",
 	"test/runtime",
 	"test/client",
