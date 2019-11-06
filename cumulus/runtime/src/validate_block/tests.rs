@@ -19,46 +19,38 @@ use crate::{ParachainBlockData, WitnessData};
 use rio::TestExternalities;
 use keyring::AccountKeyring;
 use runtime_primitives::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
-use executor::{WasmExecutor, error::Result, wasmi::RuntimeValue::I32};
+use executor::{call_in_wasm, error::Result, WasmExecutionMethod};
 use test_client::{
 	TestClientBuilder, TestClientBuilderExt, DefaultTestClientBuilderExt, Client, LongestChain,
 	runtime::{Block, Transfer, Hash, WASM_BINARY, Header}
 };
 use consensus_common::SelectChain;
-use parachain::ValidationParams;
+use parachain::{ValidationParams, ValidationResult};
 
-use codec::Encode;
+use codec::{Encode, Decode};
 
-fn call_validate_block(parent_head: Header, block_data: ParachainBlockData<Block>) -> Result<()> {
+fn call_validate_block(
+	parent_head: Header,
+	block_data: ParachainBlockData<Block>,
+) -> Result<Header> {
 	let mut ext = TestExternalities::default();
-	WasmExecutor::new().call_with_custom_signature(
-		&mut ext,
-		1024,
-		&WASM_BINARY,
-		"validate_block",
-		|alloc| {
-			let params = ValidationParams {
-				block_data: block_data.encode(),
-				parent_head: parent_head.encode(),
-				ingress: Vec::new(),
-			}.encode();
-			let params_offset = alloc(&params)?;
+	let mut ext_ext = ext.ext();
+	let params = ValidationParams {
+		block_data: block_data.encode(),
+		parent_head: parent_head.encode(),
+		ingress: Vec::new(),
+	}.encode();
 
-			Ok(
-				vec![
-					I32(params_offset as i32),
-					I32(params.len() as i32),
-				]
-			)
-		},
-		|res, _| {
-			if res.is_none() {
-				Ok(Some(()))
-			} else {
-				Ok(None)
-			}
-		}
+	call_in_wasm(
+		"validate_block",
+		&params,
+		WasmExecutionMethod::Interpreted,
+		&mut ext_ext,
+		&WASM_BINARY,
+		1024,
 	)
+	.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
+	.map(|v| Header::decode(&mut &v.head_data[..]).expect("Decode `Header`."))
 }
 
 fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
@@ -99,9 +91,10 @@ fn build_block_with_proof(
 	extrinsics: Vec<<Block as BlockT>::Extrinsic>,
 ) -> (Block, WitnessData) {
 	let block_id = BlockId::Hash(client.info().chain.best_hash);
-	let mut builder = client.new_block_at_with_proof_recording(
+	let mut builder = client.new_block_at(
 		&block_id,
-		Default::default()
+		Default::default(),
+		true,
 	).expect("Initializes new block");
 
 	extrinsics.into_iter().for_each(|e| builder.push(e).expect("Pushes an extrinsic"));
@@ -122,12 +115,14 @@ fn validate_block_with_no_extrinsics() {
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(
-		header,
+		header.clone(),
 		extrinsics,
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+
+	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
 }
 
 #[test]
@@ -139,12 +134,14 @@ fn validate_block_with_extrinsics() {
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(
-		header,
+		header.clone(),
 		extrinsics,
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+
+	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
 }
 
 #[test]

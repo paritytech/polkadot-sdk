@@ -1,8 +1,13 @@
 [workspace]
 members = [
-  "consensus",
-  "runtime",
-  "network",
-  "test/runtime",
-  "test/client",
+	"consensus",
+	"network",
+	"runtime",
+	"test/runtime",
+	"test/client",
+	"test/parachain/runtime",
+	"test/parachain/",
 ]
+
+[profile.release]
+panic = 'unwind'
