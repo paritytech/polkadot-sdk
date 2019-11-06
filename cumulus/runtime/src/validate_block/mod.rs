@@ -63,15 +63,17 @@ macro_rules! register_validate_block_impl {
 			unsafe fn validate_block(
 				arguments: *const u8,
 				arguments_len: usize,
-			) {
+			) -> u64 {
 				let params = $crate::validate_block::parachain::wasm_api::load_params(
 					arguments,
 					arguments_len,
 				);
 
-				$crate::validate_block::implementation::validate_block::<
+				let res = $crate::validate_block::implementation::validate_block::<
 					$block, $block_executor
 				>(params);
+
+				$crate::validate_block::parachain::wasm_api::write_result(res)
 			}
 		}
 	};

@@ -35,6 +35,8 @@ use log::warn;
 
 use std::{sync::Arc, marker::PhantomData};
 
+pub mod import_queue;
+
 /// Helper for the local client.
 pub trait LocalClient {
 	/// The block type of the local client.
@@ -64,12 +66,12 @@ pub struct HeadUpdate {
 
 /// Helper for the Polkadot client. This is expected to be a lightweight handle
 /// like an `Arc`.
-pub trait PolkadotClient: Clone {
+pub trait PolkadotClient: Clone + 'static {
 	/// The error type for interacting with the Polkadot client.
 	type Error: std::fmt::Debug + Send;
 
 	/// A stream that yields finalized head-data for a certain parachain.
-	type Finalized: Stream<Item = Vec<u8>> + Send;
+	type Finalized: Stream<Item = Vec<u8>> + Send + Unpin;
 
 	/// Get a stream of finalized heads.
 	fn finalized_heads(&self, para_id: ParaId) -> ClientResult<Self::Finalized>;
@@ -83,11 +85,11 @@ pub trait PolkadotClient: Clone {
 }
 
 /// Spawns a future that follows the Polkadot relay chain for the given parachain.
-pub fn follow_polkadot<'a, L: 'a, P: 'a>(para_id: ParaId, local: Arc<L>, polkadot: P)
-	-> ClientResult<impl Future<Output = ()> + Send + 'a>
+pub fn follow_polkadot<L, P>(para_id: ParaId, local: Arc<L>, polkadot: P)
+	-> ClientResult<impl Future<Output = ()> + Send + Unpin>
 	where
 		L: LocalClient + Send + Sync,
-		P: PolkadotClient + Send + Sync,
+		P: PolkadotClient,
 {
 	let finalized_heads = polkadot.finalized_heads(para_id)?;
 
