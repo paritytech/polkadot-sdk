@@ -319,10 +319,13 @@ mod tests {
 	use polkadot_primitives::parachain::{ConsolidatedIngress, HeadData, FeeSchedule};
 
 	use keyring::Sr25519Keyring;
-	use sr_primitives::traits::{DigestFor, Header as HeaderT};
+	use sr_primitives::{generic::BlockId, traits::{DigestFor, Header as HeaderT}};
 	use inherents::InherentData;
+	use substrate_client::error::Result as ClientResult;
+	use substrate_test_client::{NativeExecutor, WasmExecutionMethod::Interpreted};
 
 	use test_runtime::{Block, Header};
+	use test_client::{Client, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt};
 
 	use futures03::future;
 	use futures::Stream;
@@ -368,7 +371,7 @@ mod tests {
 				digest,
 			);
 
-			future::ready(Ok((Block::new(header, Vec::new()), None)))
+			future::ready(Ok((Block::new(header, Vec::new()), Some(Default::default()))))
 		}
 	}
 
@@ -398,11 +401,72 @@ mod tests {
 			Ok(ConsolidatedIngress(Vec::new()))
 		}
 	}
-/*
+
+	#[derive(Clone)]
+	struct DummyPolkadotClient;
+
+	impl cumulus_consensus::PolkadotClient for DummyPolkadotClient {
+		type Error = Error;
+		type Finalized = Box<dyn futures03::Stream<Item=Vec<u8>> + Send + Unpin>;
+
+		fn finalized_heads(&self, _: ParaId) -> ClientResult<Self::Finalized> {
+			unimplemented!("Not required in tests")
+		}
+
+		fn parachain_head_at(
+			&self,
+			_: &BlockId<PBlock>,
+			_: ParaId,
+		) -> ClientResult<Option<Vec<u8>>>{
+			unimplemented!("Not required in tests")
+		}
+	}
+
+	struct DummySetup;
+
+	impl SetupParachain<Block> for DummySetup {
+		type ProposerFactory = DummyFactory;
+		type BlockImport = Client;
+
+		fn setup_parachain<P: cumulus_consensus::PolkadotClient>(
+			self,
+			_: P,
+			_: TaskExecutor,
+		) -> Result<(Self::ProposerFactory, Self::BlockImport, InherentDataProviders), String> {
+			Ok((DummyFactory, TestClientBuilder::new().build(), InherentDataProviders::default()))
+		}
+	}
+
+	type BoxFuture = Box<dyn Future<Item = (), Error = ()> + Send>;
+
+	struct DummyFutureExecutor;
+
+	impl futures::future::Executor<BoxFuture>
+		for DummyFutureExecutor
+	{
+		fn execute(
+			&self,
+			_: BoxFuture,
+		) -> Result<(), futures::future::ExecuteError<BoxFuture>> {
+			unimplemented!("Not required in tests")
+		}
+	}
+
 	#[test]
 	fn collates_produces_a_block() {
-		let builder = CollatorBuilder::new(DummyFactory);
-		let context = builder.build(Arc::new(DummyCollatorNetwork)).expect("Creates parachain context");
+		let _ = env_logger::try_init();
+
+		let builder = CollatorBuilder::new(DummySetup);
+		let context = builder.build(
+			Arc::new(
+				substrate_test_client::TestClientBuilder::<_, _, ()>::default()
+					.build_with_native_executor(
+						Some(NativeExecutor::<polkadot_executor::Executor>::new(Interpreted, None)),
+					).0
+			),
+			Arc::new(DummyFutureExecutor),
+			Arc::new(DummyCollatorNetwork),
+		).expect("Creates parachain context");
 
 		let id = ParaId::from(100);
 		let header = Header::new(
@@ -435,5 +499,4 @@ mod tests {
 
 		assert_eq!(1337, *block.header().number());
 	}
-	*/
 }

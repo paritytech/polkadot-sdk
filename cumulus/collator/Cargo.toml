@@ -31,4 +31,8 @@ parking_lot = "0.9"
 
 [dev-dependencies]
 test-runtime = { package = "cumulus-test-runtime", path = "../test/runtime" }
+test-client = { package = "cumulus-test-client", path = "../test/client" }
+substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+polkadot-executor = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+env_logger = "0.7.1"

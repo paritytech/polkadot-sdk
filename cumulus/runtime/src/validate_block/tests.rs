@@ -25,11 +25,14 @@ use test_client::{
 	runtime::{Block, Transfer, Hash, WASM_BINARY, Header}
 };
 use consensus_common::SelectChain;
-use parachain::ValidationParams;
+use parachain::{ValidationParams, ValidationResult};
 
-use codec::Encode;
+use codec::{Encode, Decode};
 
-fn call_validate_block(parent_head: Header, block_data: ParachainBlockData<Block>) -> Result<()> {
+fn call_validate_block(
+	parent_head: Header,
+	block_data: ParachainBlockData<Block>,
+) -> Result<Header> {
 	let mut ext = TestExternalities::default();
 	let mut ext_ext = ext.ext();
 	let params = ValidationParams {
@@ -45,7 +48,9 @@ fn call_validate_block(parent_head: Header, block_data: ParachainBlockData<Block
 		&mut ext_ext,
 		&WASM_BINARY,
 		1024,
-	).map(|v| assert!(v.is_empty(), "`validate_block` does not return anything"))
+	)
+	.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
+	.map(|v| Header::decode(&mut &v.head_data[..]).expect("Decode `Header`."))
 }
 
 fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
@@ -110,12 +115,14 @@ fn validate_block_with_no_extrinsics() {
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(
-		header,
+		header.clone(),
 		extrinsics,
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+
+	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
 }
 
 #[test]
@@ -127,12 +134,14 @@ fn validate_block_with_extrinsics() {
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(
-		header,
+		header.clone(),
 		extrinsics,
 		witness_data,
 		witness_data_storage_root
 	);
-	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+
+	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
 }
 
 #[test]
