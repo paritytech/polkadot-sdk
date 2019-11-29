@@ -39,18 +39,20 @@ A planned Polkadot collator for the parachain.
 
 4. Run the collator:
 
-	`cargo run --release -p cumulus-test-parachain-collator -- -d cumulus_collator_path --chain polkadot_chainspec.json --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/PEER_ID`
+	`cargo run --release -p cumulus-test-parachain-collator -- --base-path cumulus_collator_path --chain polkadot_chainspec.json --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/PEER_ID`
 
 	`PEER_ID` needs to be replaced with the peer id of the polkadot validator that uses `Alice`
 	as authority.
 
-5. Open `https://polkadot.js.org/apps/#/sudo` and register the parachain.
+5. Open `https://polkadot.js.org/apps/#/sudo` and register the parachain by calling `Registrar > RegisterPara`
 
 	`id`: `100`
 
-	`initial_head_data`: Use the file you generated in 3. (name: genesis-state)
+	`ParaInfo`: `Always`
 
 	`code`: `CUMULUS_REPO/target/release/wbuild/cumulus-test-parachain-runtime/cumulus_test_parachain_runtime.compact.wasm`
+
+	`initial_head_data`: Use the file you generated in 4. (name: genesis-state)
 
 	Now your parachain should be registered and the collator should start building blocks and sending
 	them to the relay chain.
