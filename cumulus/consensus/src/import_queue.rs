@@ -16,24 +16,22 @@
 
 use std::sync::Arc;
 
-use substrate_primitives::{H256, Blake2Hasher};
-
-use sr_primitives::{
-	traits::{Block as BlockT, ProvideRuntimeApi, Header as HeaderT}, Justification,
+use sc_client::Client;
+use sc_client_api::{Backend, CallExecutor, TransactionFor};
+use sp_api::ProvideRuntimeApi;
+use sp_block_builder::BlockBuilder as BlockBuilderApi;
+use sp_blockchain::Result as ClientResult;
+use sp_consensus::{
+	error::Error as ConsensusError,
+	import_queue::{BasicQueue, CacheKeyId, Verifier as VerifierT},
+	BlockImport, BlockImportParams, BlockOrigin, ForkChoiceStrategy,
+};
+use sp_inherents::InherentDataProviders;
+use sp_runtime::{
 	generic::BlockId,
+	traits::{Block as BlockT, Header as HeaderT},
+	Justification,
 };
-
-use substrate_client::{
-	block_builder::api::BlockBuilder as BlockBuilderApi, backend::Backend, CallExecutor, Client,
-	error::Result as ClientResult,
-};
-
-use substrate_consensus_common::{
-	import_queue::{Verifier as VerifierT, BasicQueue, CacheKeyId}, BlockImportParams,
-	ForkChoiceStrategy, BlockOrigin, error::Error as ConsensusError, BlockImport,
-};
-
-use substrate_inherents::InherentDataProviders;
 
 /// A verifier that just checks the inherents.
 struct Verifier<B, E, Block: BlockT, RA> {
@@ -41,13 +39,14 @@ struct Verifier<B, E, Block: BlockT, RA> {
 	inherent_data_providers: InherentDataProviders,
 }
 
-impl<B, E, Block, RA> VerifierT<Block> for Verifier<B, E, Block, RA> where
-	Block: BlockT<Hash=H256>,
-	B: Backend<Block, Blake2Hasher> + 'static,
-	E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
+impl<B, E, Block, RA> VerifierT<Block> for Verifier<B, E, Block, RA>
+where
+	Block: BlockT,
+	B: Backend<Block> + 'static,
+	E: CallExecutor<Block> + 'static + Clone + Send + Sync,
 	RA: Send + Sync,
-	Client<B, E, Block, RA>: ProvideRuntimeApi + Send + Sync,
-	<Client<B, E, Block, RA> as ProvideRuntimeApi>::Api: BlockBuilderApi<Block>
+	Client<B, E, Block, RA>: ProvideRuntimeApi<Block> + Send + Sync,
+	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
 {
 	fn verify(
 		&mut self,
@@ -55,32 +54,40 @@ impl<B, E, Block, RA> VerifierT<Block> for Verifier<B, E, Block, RA> where
 		header: Block::Header,
 		justification: Option<Justification>,
 		mut body: Option<Vec<Block::Extrinsic>>,
-	) -> Result<(BlockImportParams<Block>, Option<Vec<(CacheKeyId, Vec<u8>)>>), String> {
+	) -> Result<
+		(
+			BlockImportParams<Block, ()>,
+			Option<Vec<(CacheKeyId, Vec<u8>)>>,
+		),
+		String,
+	> {
 		if let Some(inner_body) = body.take() {
-			let inherent_data = self.inherent_data_providers
+			let inherent_data = self
+				.inherent_data_providers
 				.create_inherent_data()
-				.map_err(String::from)?;
+				.map_err(|e| e.into_string())?;
 
 			let block = Block::new(header.clone(), inner_body);
 
-			let inherent_res = self.client.runtime_api().check_inherents(
-				&BlockId::Hash(*header.parent_hash()),
-				block.clone(),
-				inherent_data,
-			).map_err(|e| format!("{:?}", e))?;
+			let inherent_res = self
+				.client
+				.runtime_api()
+				.check_inherents(
+					&BlockId::Hash(*header.parent_hash()),
+					block.clone(),
+					inherent_data,
+				)
+				.map_err(|e| format!("{:?}", e))?;
 
 			if !inherent_res.ok() {
-				inherent_res
-					.into_errors()
-					.try_for_each(|(i, e)| {
-						Err(self.inherent_data_providers.error_to_string(&i, &e))
-					})?;
+				inherent_res.into_errors().try_for_each(|(i, e)| {
+					Err(self.inherent_data_providers.error_to_string(&i, &e))
+				})?;
 			}
 
 			let (_, inner_body) = block.deconstruct();
 			body = Some(inner_body);
 		}
-
 
 		let block_import_params = BlockImportParams {
 			origin,
@@ -91,6 +98,9 @@ impl<B, E, Block, RA> VerifierT<Block> for Verifier<B, E, Block, RA> where
 			justification,
 			auxiliary: Vec::new(),
 			fork_choice: ForkChoiceStrategy::LongestChain,
+			allow_missing_state: false,
+			import_existing: false,
+			storage_changes: None,
 		};
 
 		Ok((block_import_params, None))
@@ -98,22 +108,25 @@ impl<B, E, Block, RA> VerifierT<Block> for Verifier<B, E, Block, RA> where
 }
 
 /// Start an import queue for a Cumulus collator that does not uses any special authoring logic.
-pub fn import_queue<B, E, Block: BlockT<Hash=H256>, I, RA>(
+pub fn import_queue<B, E, Block: BlockT, I, RA>(
 	client: Arc<Client<B, E, Block, RA>>,
 	block_import: I,
 	inherent_data_providers: InherentDataProviders,
-) -> ClientResult<BasicQueue<Block>>
-	where
-		B: Backend<Block, Blake2Hasher> + 'static,
-		I: BlockImport<Block,Error=ConsensusError> + Send + Sync + 'static,
-		E: CallExecutor<Block, Blake2Hasher> + Clone + Send + Sync + 'static,
-		RA: Send + Sync + 'static,
-		Client<B, E, Block, RA>: ProvideRuntimeApi + Send + Sync + 'static,
-		<Client<B, E, Block, RA> as ProvideRuntimeApi>::Api: BlockBuilderApi<Block>,
+) -> ClientResult<BasicQueue<Block, TransactionFor<B, Block>>>
+where
+	B: Backend<Block> + 'static,
+	I: BlockImport<Block, Error = ConsensusError, Transaction = TransactionFor<B, Block>>
+		+ Send
+		+ Sync
+		+ 'static,
+	E: CallExecutor<Block> + Clone + Send + Sync + 'static,
+	RA: Send + Sync + 'static,
+	Client<B, E, Block, RA>: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
 {
 	let verifier = Verifier {
 		client,
-		inherent_data_providers
+		inherent_data_providers,
 	};
 
 	Ok(BasicQueue::new(

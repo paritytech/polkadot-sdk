@@ -17,23 +17,38 @@
 //! The actual implementation of the validate block functionality.
 
 use crate::WitnessData;
-use runtime_primitives::traits::{Block as BlockT, Header as HeaderT};
-use executive::ExecuteBlock;
-use primitives::{Blake2Hasher, H256};
+use frame_executive::ExecuteBlock;
+use sp_runtime::traits::{Block as BlockT, HasherFor, Header as HeaderT};
 
-use substrate_trie::{MemoryDB, read_trie_value, delta_trie_root, Layout};
+use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB};
 
-use rstd::{slice, ptr, cmp, vec::Vec, boxed::Box, mem};
+use sp_std::{boxed::Box, vec::Vec};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
+use trie_db::{Trie, TrieDB};
+
 use parachain::{ValidationParams, ValidationResult};
 
+use codec::{Decode, Encode};
+
+/// Stores the global [`Storage`] instance.
+///
+/// As wasm is always executed with one thread, this global varibale is safe!
 static mut STORAGE: Option<Box<dyn Storage>> = None;
-/// The message to use as expect message while accessing the `STORAGE`.
-const STORAGE_SET_EXPECT: &str =
-	"`STORAGE` needs to be set before calling this function.";
-const STORAGE_ROOT_LEN: usize = 32;
+
+/// Returns a mutable reference to the [`Storage`] implementation.
+///
+/// # Panic
+///
+/// Panics if the [`STORAGE`] is not initialized.
+fn storage() -> &'static mut dyn Storage {
+	unsafe {
+		&mut **STORAGE
+			.as_mut()
+			.expect("`STORAGE` needs to be set before calling this function.")
+	}
+}
 
 /// Abstract the storage into a trait without `Block` generic.
 trait Storage {
@@ -47,16 +62,17 @@ trait Storage {
 	fn remove(&mut self, key: &[u8]);
 
 	/// Calculate the storage root.
-	fn storage_root(&mut self) -> [u8; STORAGE_ROOT_LEN];
+	///
+	/// Returns the SCALE encoded hash.
+	fn storage_root(&mut self) -> Vec<u8>;
+
+	/// Clear all keys that start with the given prefix.
+	fn clear_prefix(&mut self, prefix: &[u8]);
 }
 
 /// Validate a given parachain block on a validator.
 #[doc(hidden)]
-pub fn validate_block<B: BlockT<Hash = H256>, E: ExecuteBlock<B>>(
-	params: ValidationParams,
-) -> ValidationResult {
-	use codec::{Decode, Encode};
-
+pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -> ValidationResult {
 	let block_data = crate::ParachainBlockData::<B>::decode(&mut &params.block_data[..])
 		.expect("Invalid parachain block data");
 
@@ -66,23 +82,28 @@ pub fn validate_block<B: BlockT<Hash = H256>, E: ExecuteBlock<B>>(
 
 	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
-	assert!(parent_head.hash() == *block.header().parent_hash(), "Invalid parent hash");
+	assert!(
+		parent_head.hash() == *block.header().parent_hash(),
+		"Invalid parent hash"
+	);
 
 	let storage = WitnessStorage::<B>::new(
 		block_data.witness_data,
 		block_data.witness_data_storage_root,
-	).expect("Witness data and storage root always match; qed");
+	)
+	.expect("Witness data and storage root always match; qed");
 
 	let _guard = unsafe {
 		STORAGE = Some(Box::new(storage));
 		(
 			// Replace storage calls with our own implementations
-			rio::ext_get_allocated_storage.replace_implementation(ext_get_allocated_storage),
-			rio::ext_get_storage_into.replace_implementation(ext_get_storage_into),
-			rio::ext_set_storage.replace_implementation(ext_set_storage),
-			rio::ext_exists_storage.replace_implementation(ext_exists_storage),
-			rio::ext_clear_storage.replace_implementation(ext_clear_storage),
-			rio::ext_storage_root.replace_implementation(ext_storage_root),
+			sp_io::storage::host_read.replace_implementation(host_storage_read),
+			sp_io::storage::host_set.replace_implementation(host_storage_set),
+			sp_io::storage::host_get.replace_implementation(host_storage_get),
+			sp_io::storage::host_exists.replace_implementation(host_storage_exists),
+			sp_io::storage::host_clear.replace_implementation(host_storage_clear),
+			sp_io::storage::host_root.replace_implementation(host_storage_root),
+			sp_io::storage::host_clear_prefix.replace_implementation(host_clear_prefix),
 		)
 	};
 
@@ -94,24 +115,23 @@ pub fn validate_block<B: BlockT<Hash = H256>, E: ExecuteBlock<B>>(
 /// The storage implementation used when validating a block that is using the
 /// witness data as source.
 struct WitnessStorage<B: BlockT> {
-	witness_data: MemoryDB<Blake2Hasher>,
+	witness_data: MemoryDB<HasherFor<B>>,
 	overlay: hashbrown::HashMap<Vec<u8>, Option<Vec<u8>>>,
 	storage_root: B::Hash,
 }
 
-impl<B: BlockT<Hash = H256>> WitnessStorage<B> {
+impl<B: BlockT> WitnessStorage<B> {
 	/// Initialize from the given witness data and storage root.
 	///
 	/// Returns an error if given storage root was not found in the witness data.
-	fn new(
-		data: WitnessData,
-		storage_root: B::Hash,
-	) -> Result<Self, &'static str> {
+	fn new(data: WitnessData, storage_root: B::Hash) -> Result<Self, &'static str> {
 		let mut db = MemoryDB::default();
-		data.into_iter().for_each(|i| { db.insert(EMPTY_PREFIX, &i); });
+		data.into_iter().for_each(|i| {
+			db.insert(EMPTY_PREFIX, &i);
+		});
 
-		if !db.contains(&storage_root, EMPTY_PREFIX) {
-			return Err("Witness data does not contain given storage root.")
+		if !HashDB::contains(&db, &storage_root, EMPTY_PREFIX) {
+			return Err("Witness data does not contain given storage root.");
 		}
 
 		Ok(Self {
@@ -122,15 +142,36 @@ impl<B: BlockT<Hash = H256>> WitnessStorage<B> {
 	}
 }
 
-impl<B: BlockT<Hash = H256>> Storage for WitnessStorage<B> {
+/// TODO: `TrieError` should implement `Debug` on `no_std`
+fn unwrap_trie_error<R, T, E>(result: Result<R, Box<trie_db::TrieError<T, E>>>) -> R {
+	match result {
+		Ok(r) => r,
+		Err(error) => match *error {
+			trie_db::TrieError::InvalidStateRoot(_) => panic!("trie_db: Invalid state root"),
+			trie_db::TrieError::IncompleteDatabase(_) => panic!("trie_db: IncompleteDatabase"),
+			trie_db::TrieError::DecoderError(_, _) => panic!("trie_db: DecodeError"),
+			trie_db::TrieError::InvalidHash(_, _) => panic!("trie_db: InvalidHash"),
+			trie_db::TrieError::ValueAtIncompleteKey(_, _) => {
+				panic!("trie_db: ValueAtIncompleteKey")
+			}
+		},
+	}
+}
+
+impl<B: BlockT> Storage for WitnessStorage<B> {
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-		self.overlay.get(key).cloned().or_else(|| {
-			read_trie_value::<Layout<Blake2Hasher>, _>(
-				&self.witness_data,
-				&self.storage_root,
-				key,
-			).ok()
-		}).unwrap_or(None)
+		self.overlay
+			.get(key)
+			.cloned()
+			.or_else(|| {
+				read_trie_value::<Layout<HasherFor<B>>, _>(
+					&self.witness_data,
+					&self.storage_root,
+					key,
+				)
+				.ok()
+			})
+			.unwrap_or(None)
 	}
 
 	fn insert(&mut self, key: &[u8], value: &[u8]) {
@@ -141,98 +182,77 @@ impl<B: BlockT<Hash = H256>> Storage for WitnessStorage<B> {
 		self.overlay.insert(key.to_vec(), None);
 	}
 
-	fn storage_root(&mut self) -> [u8; STORAGE_ROOT_LEN] {
-		let root = match delta_trie_root::<Layout<Blake2Hasher>, _, _, _, _>(
+	fn storage_root(&mut self) -> Vec<u8> {
+		let root = unwrap_trie_error(delta_trie_root::<Layout<HasherFor<B>>, _, _, _, _>(
 			&mut self.witness_data,
 			self.storage_root.clone(),
 			self.overlay.drain(),
-		) {
-			Ok(root) => root,
-			Err(e) => match *e {
-				trie_db::TrieError::InvalidStateRoot(_) => panic!("Invalid state root"),
-				trie_db::TrieError::IncompleteDatabase(_) => panic!("IncompleteDatabase"),
-				trie_db::TrieError::DecoderError(_, _) => panic!("DecodeError"),
+		));
+
+		root.encode()
+	}
+
+	fn clear_prefix(&mut self, prefix: &[u8]) {
+		self.overlay.iter_mut().for_each(|(k, v)| {
+			if k.starts_with(prefix) {
+				*v = None;
 			}
+		});
+
+		let trie = match TrieDB::<Layout<HasherFor<B>>>::new(&self.witness_data, &self.storage_root)
+		{
+			Ok(r) => r,
+			Err(_) => panic!(),
 		};
 
-		root.into()
-	}
-}
+		let mut iter = unwrap_trie_error(trie.iter());
+		unwrap_trie_error(iter.seek(prefix));
 
-unsafe fn ext_get_allocated_storage(
-	key_data: *const u8,
-	key_len: u32,
-	written_out: *mut u32,
-) -> *mut u8 {
-	let key = slice::from_raw_parts(key_data, key_len as usize);
-	match STORAGE.as_mut().expect(STORAGE_SET_EXPECT).get(key) {
-		Some(value) => {
-			let mut out_value: Vec<_> = value.clone();
-			*written_out = out_value.len() as u32;
-			let ptr = out_value.as_mut_ptr();
-			mem::forget(out_value);
-			ptr
-		},
-		None => {
-			*written_out = u32::max_value();
-			ptr::null_mut()
+		for x in iter {
+			let (key, _) = unwrap_trie_error(x);
+
+			if !key.starts_with(prefix) {
+				break;
+			}
+
+			self.overlay.insert(key, None);
 		}
 	}
 }
 
-unsafe fn ext_set_storage(
-	key_data: *const u8,
-	key_len: u32,
-	value_data: *const u8,
-	value_len: u32,
-) {
-	let key = slice::from_raw_parts(key_data, key_len as usize);
-	let value = slice::from_raw_parts(value_data, value_len as usize);
-
-	STORAGE.as_mut().expect(STORAGE_SET_EXPECT).insert(key, value);
-}
-
-unsafe fn ext_get_storage_into(
-	key_data: *const u8,
-	key_len: u32,
-	value_data: *mut u8,
-	value_len: u32,
-	value_offset: u32,
-) -> u32 {
-	let key = slice::from_raw_parts(key_data, key_len as usize);
-	let out_value = slice::from_raw_parts_mut(value_data, value_len as usize);
-
-	match STORAGE.as_mut().expect(STORAGE_SET_EXPECT).get(key) {
+fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+	match storage().get(key) {
 		Some(value) => {
-			let value = &value[value_offset as usize..];
-			let len = cmp::min(value_len as usize, value.len());
-			out_value[..len].copy_from_slice(&value[..len]);
-			len as u32
-		},
-		None => {
-			u32::max_value()
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			let written = sp_std::cmp::min(data.len(), value_out.len());
+			value_out[..written].copy_from_slice(&data[..written]);
+			Some(value.len() as u32)
 		}
+		None => None,
 	}
 }
 
-unsafe fn ext_exists_storage(key_data: *const u8, key_len: u32) -> u32 {
-	let key = slice::from_raw_parts(key_data, key_len as usize);
-
-	if STORAGE.as_mut().expect(STORAGE_SET_EXPECT).get(key).is_some() {
-		1
-	} else {
-		0
-	}
+fn host_storage_set(key: &[u8], value: &[u8]) {
+	storage().insert(key, value);
 }
 
-unsafe fn ext_clear_storage(key_data: *const u8, key_len: u32) {
-	let key = slice::from_raw_parts(key_data, key_len as usize);
-
-	STORAGE.as_mut().expect(STORAGE_SET_EXPECT).remove(key);
+fn host_storage_get(key: &[u8]) -> Option<Vec<u8>> {
+	storage().get(key).clone()
 }
 
-unsafe fn ext_storage_root(result: *mut u8) {
-	let res = STORAGE.as_mut().expect(STORAGE_SET_EXPECT).storage_root();
-	let result = slice::from_raw_parts_mut(result, STORAGE_ROOT_LEN);
-	result.copy_from_slice(&res);
+fn host_storage_exists(key: &[u8]) -> bool {
+	storage().get(key).is_some()
+}
+
+fn host_storage_clear(key: &[u8]) {
+	storage().remove(key);
+}
+
+fn host_storage_root() -> Vec<u8> {
+	storage().storage_root()
+}
+
+fn host_clear_prefix(prefix: &[u8]) {
+	storage().clear_prefix(prefix)
 }

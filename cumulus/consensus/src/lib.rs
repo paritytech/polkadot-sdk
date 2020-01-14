@@ -14,26 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use substrate_client::{
-	backend::{Backend, Finalizer}, CallExecutor, Client, BlockchainEvents,
-	error::{Error as ClientError, Result as ClientResult},
+use sc_client::{BlockchainEvents, Client};
+use sc_client_api::{
+	backend::{Backend, Finalizer, StateBackend, StateBackendFor},
+	CallExecutor,
 };
-use substrate_primitives::{Blake2Hasher, H256};
-use sr_primitives::{
+use sp_api::ProvideRuntimeApi;
+use sp_blockchain::{Error as ClientError, Result as ClientResult};
+use sp_consensus::{Error as ConsensusError, SelectChain as SelectChainT};
+use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, ProvideRuntimeApi},
+	traits::{Block as BlockT, Header as HeaderT},
 };
-use substrate_consensus_common::{Error as ConsensusError, SelectChain as SelectChainT};
 
 use polkadot_primitives::{
-	Hash as PHash, Block as PBlock, parachain::{Id as ParaId, ParachainHost},
+	parachain::{Id as ParaId, ParachainHost},
+	Block as PBlock, Hash as PHash,
 };
 
-use futures::{Stream, StreamExt, TryStreamExt, future, Future, TryFutureExt, FutureExt};
 use codec::Decode;
+use futures::{future, Future, FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
 use log::warn;
 
-use std::{sync::Arc, marker::PhantomData};
+use std::{marker::PhantomData, sync::Arc};
 
 pub mod import_queue;
 
@@ -85,11 +88,14 @@ pub trait PolkadotClient: Clone + 'static {
 }
 
 /// Spawns a future that follows the Polkadot relay chain for the given parachain.
-pub fn follow_polkadot<L, P>(para_id: ParaId, local: Arc<L>, polkadot: P)
-	-> ClientResult<impl Future<Output = ()> + Send + Unpin>
-	where
-		L: LocalClient + Send + Sync,
-		P: PolkadotClient,
+pub fn follow_polkadot<L, P>(
+	para_id: ParaId,
+	local: Arc<L>,
+	polkadot: P,
+) -> ClientResult<impl Future<Output = ()> + Send + Unpin>
+where
+	L: LocalClient + Send + Sync,
+	P: PolkadotClient,
 {
 	let finalized_heads = polkadot.finalized_heads(para_id)?;
 
@@ -102,21 +108,25 @@ pub fn follow_polkadot<L, P>(para_id: ParaId, local: Arc<L>, polkadot: P)
 					.map_err(|_| Error::InvalidHeadData)
 			})
 			.try_for_each(move |p_head| {
-				future::ready(local.finalize(p_head.hash()).map_err(Error::Client).map(|_| ()))
+				future::ready(
+					local
+						.finalize(p_head.hash())
+						.map_err(Error::Client)
+						.map(|_| ()),
+				)
 			})
 	};
 
-	Ok(
-		follow_finalized
-			.map_err(|e| warn!("Could not follow relay-chain: {:?}", e))
-			.map(|_| ())
-	)
+	Ok(follow_finalized
+		.map_err(|e| warn!("Could not follow relay-chain: {:?}", e))
+		.map(|_| ()))
 }
 
-impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
-	B: Backend<Block, Blake2Hasher>,
-	E: CallExecutor<Block, Blake2Hasher>,
-	Block: BlockT<Hash=H256>,
+impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA>
+where
+	B: Backend<Block>,
+	E: CallExecutor<Block>,
+	Block: BlockT,
 {
 	type Block = Block;
 
@@ -126,30 +136,36 @@ impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA> where
 			Err(e) => match e {
 				ClientError::UnknownBlock(_) => Ok(false),
 				_ => Err(e),
-			}
+			},
 		}
 	}
 }
 
-impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>> where
-	B: Backend<PBlock, Blake2Hasher> + Send + Sync + 'static,
-	E: CallExecutor<PBlock, Blake2Hasher> + Send + Sync + 'static,
-	Client<B, E, PBlock, RA>: ProvideRuntimeApi + Send + Sync + 'static,
-	<Client<B, E, PBlock, RA> as ProvideRuntimeApi>::Api: ParachainHost<PBlock>,
+impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>>
+where
+	B: Backend<PBlock> + Send + Sync + 'static,
+	E: CallExecutor<PBlock> + Send + Sync + 'static,
+	Client<B, E, PBlock, RA>: ProvideRuntimeApi<PBlock> + Send + Sync + 'static,
+	<Client<B, E, PBlock, RA> as ProvideRuntimeApi<PBlock>>::Api:
+		ParachainHost<PBlock, Error = ClientError>,
+	// Rust bug: https://github.com/rust-lang/rust/issues/24159
+	StateBackendFor<B, PBlock>: StateBackend<sp_core::Blake2Hasher>,
 {
 	type Error = ClientError;
 
-	type Finalized = Box<dyn Stream<Item=Vec<u8>> + Send + Unpin>;
+	type Finalized = Box<dyn Stream<Item = Vec<u8>> + Send + Unpin>;
 
 	fn finalized_heads(&self, para_id: ParaId) -> ClientResult<Self::Finalized> {
 		let polkadot = self.clone();
 
-		let s = self.finality_notification_stream()
-			.filter_map(move |n|
-				future::ready(
-					polkadot.parachain_head_at(&BlockId::hash(n.hash), para_id).ok().and_then(|h| h),
-				),
-			);
+		let s = self.finality_notification_stream().filter_map(move |n| {
+			future::ready(
+				polkadot
+					.parachain_head_at(&BlockId::hash(n.hash), para_id)
+					.ok()
+					.and_then(|h| h),
+			)
+		});
 
 		Ok(Box::new(s))
 	}
@@ -159,7 +175,9 @@ impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>> where
 		at: &BlockId<PBlock>,
 		para_id: ParaId,
 	) -> ClientResult<Option<Vec<u8>>> {
-		self.runtime_api().parachain_status(at, para_id).map(|s| s.map(|s| s.head_data.0))
+		self.runtime_api()
+			.parachain_status(at, para_id)
+			.map(|s| s.map(|s| s.head_data.0))
 	}
 }
 
@@ -201,42 +219,41 @@ impl<Block, PC: Clone, SC: Clone> Clone for SelectChain<Block, PC, SC> {
 	}
 }
 
-impl<Block, PC, SC> SelectChainT<Block> for SelectChain<Block, PC, SC> where
-	Block: BlockT<Hash=H256>,
+impl<Block, PC, SC> SelectChainT<Block> for SelectChain<Block, PC, SC>
+where
+	Block: BlockT,
 	PC: PolkadotClient + Clone + Send + Sync,
 	PC::Error: ToString,
 	SC: SelectChainT<PBlock>,
 {
 	fn leaves(&self) -> Result<Vec<<Block as BlockT>::Hash>, ConsensusError> {
 		let leaves = self.polkadot_select_chain.leaves()?;
-		leaves.into_iter()
-			.filter_map(|l|
+		leaves
+			.into_iter()
+			.filter_map(|l| {
 				self.polkadot_client
 					.parachain_head_at(&BlockId::Hash(l), self.para_id)
 					.map(|h| h.and_then(|d| <<Block as BlockT>::Hash>::decode(&mut &d[..]).ok()))
 					.transpose()
-			)
+			})
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(|e| ConsensusError::ChainLookup(e.to_string()))
 	}
 
 	fn best_chain(&self) -> Result<<Block as BlockT>::Header, ConsensusError> {
 		let best_chain = self.polkadot_select_chain.best_chain()?;
-		let para_best_chain = self.polkadot_client
+		let para_best_chain = self
+			.polkadot_client
 			.parachain_head_at(&BlockId::Hash(best_chain.hash()), self.para_id)
 			.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?;
 
 		match para_best_chain {
-			Some(best) => Decode::decode(&mut &best[..])
-				.map_err(|e|
-					ConsensusError::ChainLookup(
-						format!("Error decoding parachain head: {}", e.what()),
-					),
-				),
-			None => Err(
-				ConsensusError::ChainLookup(
-					"Could not find parachain head for best relay chain!".into()),
-			)
+			Some(best) => Decode::decode(&mut &best[..]).map_err(|e| {
+				ConsensusError::ChainLookup(format!("Error decoding parachain head: {}", e.what()))
+			}),
+			None => Err(ConsensusError::ChainLookup(
+				"Could not find parachain head for best relay chain!".into(),
+			)),
 		}
 	}
 }

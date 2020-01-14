@@ -26,7 +26,7 @@ mod chain_spec;
 mod service;
 mod cli;
 
-pub use substrate_cli::{VersionInfo, IntoExit, error};
+pub use sc_cli::{error, IntoExit, VersionInfo};
 
 /// The parachain id of this parachain.
 pub const PARA_ID: ParaId = ParaId::new(100);

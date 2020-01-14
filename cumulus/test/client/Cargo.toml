@@ -7,8 +7,8 @@ edition = "2018"
 [dependencies]
 test-client = { package = "substrate-test-client", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 runtime = { package = "cumulus-test-runtime", path = "../runtime" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-keyring = { package = "substrate-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
 

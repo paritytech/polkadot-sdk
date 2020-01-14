@@ -16,20 +16,19 @@
 
 use std::sync::Arc;
 
-use parachain_runtime::{self, GenesisConfig, opaque::Block};
+use parachain_runtime::{self, opaque::Block, GenesisConfig};
 
-use inherents::InherentDataProviders;
-use substrate_service::{AbstractService, Configuration};
-use network::construct_simple_protocol;
-use substrate_executor::native_executor_instance;
+use sc_executor::native_executor_instance;
+use sc_network::construct_simple_protocol;
+use sc_service::{AbstractService, Configuration};
+use sp_consensus::{BlockImport, Environment, Proposer};
+use sp_inherents::InherentDataProviders;
 
-use futures::prelude::*;
-
-use futures03::FutureExt;
+use futures::{compat::Future01CompatExt, future, task::Spawn, FutureExt, TryFutureExt};
 
 use log::error;
 
-pub use substrate_executor::NativeExecutor;
+pub use sc_executor::NativeExecutor;
 
 // Our native executor instance.
 native_executor_instance!(
@@ -49,29 +48,35 @@ construct_simple_protocol! {
 /// be able to perform chain operations.
 macro_rules! new_full_start {
 	($config:expr) => {{
-		let inherent_data_providers = inherents::InherentDataProviders::new();
+		let inherent_data_providers = sp_inherents::InherentDataProviders::new();
 
-		let builder = substrate_service::ServiceBuilder::new_full::<
-			parachain_runtime::opaque::Block, parachain_runtime::RuntimeApi, crate::service::Executor,
+		let builder = sc_service::ServiceBuilder::new_full::<
+			parachain_runtime::opaque::Block,
+			parachain_runtime::RuntimeApi,
+			crate::service::Executor,
 		>($config)?
-			.with_select_chain(|_config, backend| {
-				Ok(substrate_client::LongestChain::new(backend.clone()))
-			})?
-			.with_transaction_pool(|config, client|
-				Ok(transaction_pool::txpool::Pool::new(config, transaction_pool::FullChainApi::new(client)))
-			)?
-			.with_import_queue(|_config, client, _, _| {
-				let import_queue = cumulus_consensus::import_queue::import_queue(
-					client.clone(),
-					client,
-					inherent_data_providers.clone(),
-				)?;
+		.with_select_chain(|_config, backend| Ok(sc_client::LongestChain::new(backend.clone())))?
+		.with_transaction_pool(|config, client, _| {
+			let pool_api = sc_transaction_pool::FullChainApi::new(client.clone());
+			let pool = sc_transaction_pool::BasicPool::new(config, pool_api);
+			let maintainer =
+				sc_transaction_pool::FullBasicPoolMaintainer::new(pool.pool().clone(), client);
+			let maintainable_pool =
+				sp_transaction_pool::MaintainableTransactionPool::new(pool, maintainer);
+			Ok(maintainable_pool)
+		})?
+		.with_import_queue(|_config, client, _, _| {
+			let import_queue = cumulus_consensus::import_queue::import_queue(
+				client.clone(),
+				client,
+				inherent_data_providers.clone(),
+			)?;
 
-				Ok(import_queue)
-			})?;
+			Ok(import_queue)
+		})?;
 
 		(builder, inherent_data_providers)
-	}}
+		}};
 }
 
 /// Run the collator with the given `config`.
@@ -79,13 +84,17 @@ pub fn run_collator<C: Send + Default + 'static, E: crate::cli::IntoExit + Send 
 	config: Configuration<C, GenesisConfig>,
 	exit: E,
 	key: Arc<polkadot_primitives::parachain::CollatorPair>,
-	version: crate::cli::VersionInfo,
+	polkadot_config: polkadot_collator::Configuration,
 ) -> crate::cli::Result<()> {
 	let (builder, inherent_data_providers) = new_full_start!(config);
-	inherent_data_providers.register_provider(srml_timestamp::InherentDataProvider).unwrap();
+	inherent_data_providers
+		.register_provider(sp_timestamp::InherentDataProvider)
+		.unwrap();
 
-	let service = builder.with_network_protocol(|_| Ok(NodeProtocol::new()))?.build()?;
-	let proposer_factory = basic_authorship::ProposerFactory {
+	let service = builder
+		.with_network_protocol(|_| Ok(NodeProtocol::new()))?
+		.build()?;
+	let proposer_factory = sc_basic_authority::ProposerFactory {
 		client: service.client(),
 		transaction_pool: service.transaction_pool(),
 	};
@@ -101,7 +110,13 @@ pub fn run_collator<C: Send + Default + 'static, E: crate::cli::IntoExit + Send 
 		block_import,
 	};
 
-	cumulus_collator::run_collator(setup_parachain, crate::PARA_ID, on_exit, key, version)
+	cumulus_collator::run_collator(
+		setup_parachain,
+		crate::PARA_ID,
+		on_exit,
+		key,
+		polkadot_config,
+	)
 }
 
 struct SetupParachain<S, PF, E, BI> {
@@ -112,43 +127,66 @@ struct SetupParachain<S, PF, E, BI> {
 	block_import: BI,
 }
 
+type TransactionFor<E, Block> =
+	<<E as Environment<Block>>::Proposer as Proposer<Block>>::Transaction;
+
 impl<S, PF, E, BI> cumulus_collator::SetupParachain<Block> for SetupParachain<S, PF, E, BI>
-	where
-		S: AbstractService,
-		E: Send + crate::cli::IntoExit,
-		PF: consensus_common::Environment<Block> + Send + 'static,
-		BI: consensus_common::BlockImport<Block, Error=consensus_common::Error> + Send + Sync + 'static,
+where
+	S: AbstractService,
+	E: Send + crate::cli::IntoExit,
+	PF: Environment<Block> + Send + 'static,
+	BI: BlockImport<Block, Error = sp_consensus::Error, Transaction = TransactionFor<PF, Block>>
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	type ProposerFactory = PF;
 	type BlockImport = BI;
 
-	fn setup_parachain<P: cumulus_consensus::PolkadotClient>(
+	fn setup_parachain<P: cumulus_consensus::PolkadotClient, Spawner>(
 		self,
 		polkadot_client: P,
-		task_executor: polkadot_collator::TaskExecutor,
-	) -> Result<(Self::ProposerFactory, Self::BlockImport, InherentDataProviders), String> {
+		spawner: Spawner,
+	) -> Result<
+		(
+			Self::ProposerFactory,
+			Self::BlockImport,
+			InherentDataProviders,
+		),
+		String,
+	>
+	where
+		Spawner: Spawn + Clone + Send + Sync + 'static,
+	{
 		let client = self.service.client();
 
-		let follow = match cumulus_consensus::follow_polkadot(crate::PARA_ID, client, polkadot_client) {
-			Ok(follow) => follow,
-			Err(e) => {
-				return Err(format!("Could not start following polkadot: {:?}", e));
-			}
-		};
+		let follow =
+			match cumulus_consensus::follow_polkadot(crate::PARA_ID, client, polkadot_client) {
+				Ok(follow) => follow,
+				Err(e) => {
+					return Err(format!("Could not start following polkadot: {:?}", e));
+				}
+			};
 
-		task_executor.execute(
-			Box::new(
-				self.service
-					.map_err(|e| error!("Parachain service error: {:?}", e))
-					.select(futures03::compat::Compat::new(follow.map(|_| Ok::<(), ()>(()))))
-					.map(|_| ())
-					.map_err(|_| ())
-					.select(self.exit.into_exit())
-					.map(|_| ())
-					.map_err(|_| ())
-			),
-		).map_err(|_| "Could not spawn parachain server!")?;
+		spawner
+			.spawn_obj(
+				Box::new(
+					future::select(
+						self.service
+							.compat()
+							.map_err(|e| error!("Parachain service error: {:?}", e)),
+						future::select(follow, self.exit.into_exit()),
+					)
+					.map(|_| ()),
+				)
+				.into(),
+			)
+			.map_err(|_| "Could not spawn parachain server!")?;
 
-		Ok((self.proposer_factory, self.block_import, self.inherent_data_providers))
+		Ok((
+			self.proposer_factory,
+			self.block_import,
+			self.inherent_data_providers,
+		))
 	}
 }

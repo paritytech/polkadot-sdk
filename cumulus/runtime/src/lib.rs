@@ -16,15 +16,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
+use sp_runtime::traits::Block as BlockT;
 ///! The Cumulus runtime to make a runtime a parachain.
-
-use rstd::vec::Vec;
-use codec::{Encode, Decode};
-use runtime_primitives::traits::Block as BlockT;
+use sp_std::vec::Vec;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub use rstd::slice;
+pub use sp_std::slice;
 
 #[macro_use]
 pub mod validate_block;
