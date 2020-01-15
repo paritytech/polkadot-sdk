@@ -16,15 +16,18 @@
 
 //! A Cumulus test client.
 
-pub use test_client::*;
 pub use runtime;
-use runtime::{Block, genesismap::{GenesisConfig, additional_storage_with_genesis}};
-use runtime_primitives::traits::{Hash as HashT, Header as HeaderT, Block as BlockT};
-use primitives::{storage::well_known_keys, sr25519};
-use keyring::{Sr25519Keyring, AccountKeyring};
+use runtime::{
+	genesismap::{additional_storage_with_genesis, GenesisConfig},
+	Block,
+};
+use sp_core::{sr25519, storage::Storage};
+use sp_keyring::{AccountKeyring, Sr25519Keyring};
+use sp_runtime::traits::{Block as BlockT, Hash as HashT, Header as HeaderT};
+pub use test_client::*;
 
 mod local_executor {
-	use test_client::executor::native_executor_instance;
+	use test_client::sc_executor::native_executor_instance;
 	native_executor_instance!(
 		pub LocalExecutor,
 		runtime::api::dispatch,
@@ -39,16 +42,17 @@ pub use local_executor::LocalExecutor;
 pub type Backend = test_client::Backend<Block>;
 
 /// Test client executor.
-pub type Executor = client::LocalCallExecutor<Backend, executor::NativeExecutor<LocalExecutor>>;
+pub type Executor =
+	sc_client::LocalCallExecutor<Backend, sc_executor::NativeExecutor<LocalExecutor>>;
 
 /// Test client builder for Cumulus
 pub type TestClientBuilder = test_client::TestClientBuilder<Executor, Backend, GenesisParameters>;
 
 /// LongestChain type for the test runtime/client.
-pub type LongestChain = test_client::client::LongestChain<Backend, Block>;
+pub type LongestChain = test_client::sc_client::LongestChain<Backend, Block>;
 
 /// Test client type with `LocalExecutor` and generic Backend.
-pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
+pub type Client = sc_client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
 
 /// Parameters of test-client builder with test-runtime.
 #[derive(Default)]
@@ -57,22 +61,24 @@ pub struct GenesisParameters {
 }
 
 impl test_client::GenesisInit for GenesisParameters {
-	fn genesis_storage(&self) -> (StorageOverlay, ChildrenStorageOverlay) {
+	fn genesis_storage(&self) -> Storage {
 		use codec::Encode;
-		let mut storage = genesis_config(self.support_changes_trie).genesis_map();
-		storage.0.insert(well_known_keys::CODE.to_vec(), runtime::WASM_BINARY.to_vec());
 
-		let child_roots = storage.1.iter().map(|(sk, child_map)| {
-			let state_root = <<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-				child_map.clone().into_iter().collect()
-			);
+		let mut storage = genesis_config(self.support_changes_trie).genesis_map();
+
+		let child_roots = storage.children.iter().map(|(sk, child_content)| {
+			let state_root =
+				<<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+					child_content.data.clone().into_iter().collect(),
+				);
 			(sk.clone(), state_root.encode())
 		});
-		let state_root = <<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-			storage.0.clone().into_iter().chain(child_roots).collect()
-		);
-		let block: runtime::Block = client::genesis::construct_genesis_block(state_root);
-		storage.0.extend(additional_storage_with_genesis(&block));
+		let state_root =
+			<<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+				storage.top.clone().into_iter().chain(child_roots).collect(),
+			);
+		let block: runtime::Block = sc_client::genesis::construct_genesis_block(state_root);
+		storage.top.extend(additional_storage_with_genesis(&block));
 
 		storage
 	}
@@ -129,7 +135,6 @@ fn genesis_config(support_changes_trie: bool) -> GenesisConfig {
 			AccountKeyring::Charlie.into(),
 		],
 		1000,
-		None,
 		Default::default(),
 		Default::default(),
 	)

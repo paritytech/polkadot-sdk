@@ -18,14 +18,14 @@
 //!
 //! Contains message send between collators and logic to process them.
 
-use substrate_client::error::{Error as ClientError};
-use sr_primitives::traits::{Block as BlockT};
-use substrate_consensus_common::block_validation::{Validation, BlockAnnounceValidator};
+use sp_blockchain::Error as ClientError;
+use sp_consensus::block_validation::{BlockAnnounceValidator, Validation};
+use sp_runtime::traits::Block as BlockT;
 
+use polkadot_network::gossip::{GossipMessage, GossipStatement};
 use polkadot_primitives::parachain::ValidatorId;
 use polkadot_statement_table::{SignedStatement, Statement};
 use polkadot_validation::check_statement;
-use polkadot_network::gossip::{GossipStatement, GossipMessage};
 
 use codec::{Decode, Encode};
 
@@ -52,68 +52,74 @@ impl<B: BlockT> JustifiedBlockAnnounceValidator<B> {
 }
 
 impl<B: BlockT> BlockAnnounceValidator<B> for JustifiedBlockAnnounceValidator<B> {
-	fn validate(&mut self, header: &B::Header, mut data: &[u8])
-		-> Result<Validation, Box<dyn std::error::Error + Send>>
-	{
+	fn validate(
+		&mut self,
+		header: &B::Header,
+		mut data: &[u8],
+	) -> Result<Validation, Box<dyn std::error::Error + Send>> {
 		// If no data is provided the announce is valid.
 		if data.is_empty() {
-			return Ok(Validation::Success)
+			return Ok(Validation::Success);
 		}
 
 		// Check data is a gossip message.
-		let gossip_message = GossipMessage::decode(&mut data)
-			.map_err(|_| Box::new(ClientError::BadJustification(
-				"cannot decode block announced justification, must be a gossip message".to_string()
-			)) as Box<_>)?;
+		let gossip_message = GossipMessage::decode(&mut data).map_err(|_| {
+			Box::new(ClientError::BadJustification(
+				"cannot decode block announced justification, must be a gossip message".to_string(),
+			)) as Box<_>
+		})?;
 
 		// Check message is a gossip statement.
 		let gossip_statement = match gossip_message {
 			GossipMessage::Statement(gossip_statement) => gossip_statement,
-			_ => return Err(Box::new(ClientError::BadJustification(
-				"block announced justification statement must be a gossip statement".to_string()
-			)) as Box<_>)
+			_ => {
+				return Err(Box::new(ClientError::BadJustification(
+					"block announced justification statement must be a gossip statement"
+						.to_string(),
+				)) as Box<_>)
+			}
 		};
 
 		let GossipStatement {
-				relay_chain_leaf,
-				signed_statement: SignedStatement {
-					statement,
-					signature,
-					sender,
-				}
+			relay_chain_leaf,
+			signed_statement: SignedStatement {
+				statement,
+				signature,
+				sender,
+			},
 		} = gossip_statement;
 
 		// Check that the signer is a legit validator.
-		let signer = self.authorities.get(sender as usize)
-			.ok_or_else(|| Box::new(ClientError::BadJustification(
-				"block accounced justification signer is a validator index out of bound".to_string()
-			)) as Box<_>)?;
+		let signer = self.authorities.get(sender as usize).ok_or_else(|| {
+			Box::new(ClientError::BadJustification(
+				"block accounced justification signer is a validator index out of bound"
+					.to_string(),
+			)) as Box<_>
+		})?;
 
 		// Check statement is correctly signed.
-		if !check_statement(
-			&statement,
-			&signature,
-			signer.clone(),
-			&relay_chain_leaf,
-		) {
+		if !check_statement(&statement, &signature, signer.clone(), &relay_chain_leaf) {
 			return Err(Box::new(ClientError::BadJustification(
-				"block announced justification signature is invalid".to_string()
-			)) as Box<_>)
+				"block announced justification signature is invalid".to_string(),
+			)) as Box<_>);
 		}
 
 		// Check statement is a candidate statement.
 		let candidate_receipt = match statement {
 			Statement::Candidate(candidate_receipt) => candidate_receipt,
-			_ => return Err(Box::new(ClientError::BadJustification(
-				"block announced justification statement must be a candidate statement".to_string()
-			)) as Box<_>)
+			_ => {
+				return Err(Box::new(ClientError::BadJustification(
+					"block announced justification statement must be a candidate statement"
+						.to_string(),
+				)) as Box<_>)
+			}
 		};
 
 		// Check the header in the candidate_receipt match header given header.
 		if header.encode() != candidate_receipt.head_data.0 {
 			return Err(Box::new(ClientError::BadJustification(
-				"block announced header does not match the one justified".to_string()
-			)) as Box<_>)
+				"block announced header does not match the one justified".to_string(),
+			)) as Box<_>);
 		}
 
 		Ok(Validation::Success)

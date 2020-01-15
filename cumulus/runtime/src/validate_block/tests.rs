@@ -16,18 +16,22 @@
 
 use crate::{ParachainBlockData, WitnessData};
 
-use rio::TestExternalities;
-use keyring::AccountKeyring;
-use runtime_primitives::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
-use executor::{call_in_wasm, error::Result, WasmExecutionMethod};
-use test_client::{
-	TestClientBuilder, TestClientBuilderExt, DefaultTestClientBuilderExt, Client, LongestChain,
-	runtime::{Block, Transfer, Hash, WASM_BINARY, Header}
-};
-use consensus_common::SelectChain;
 use parachain::{ValidationParams, ValidationResult};
+use sc_executor::{call_in_wasm, error::Result, WasmExecutionMethod};
+use sp_blockchain::HeaderBackend;
+use sp_consensus::SelectChain;
+use sp_io::TestExternalities;
+use sp_keyring::AccountKeyring;
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, Header as HeaderT},
+};
+use test_client::{
+	runtime::{Block, Hash, Header, Transfer, WASM_BINARY},
+	Client, DefaultTestClientBuilderExt, LongestChain, TestClientBuilder, TestClientBuilderExt,
+};
 
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 
 fn call_validate_block(
 	parent_head: Header,
@@ -39,9 +43,16 @@ fn call_validate_block(
 		block_data: block_data.encode(),
 		parent_head: parent_head.encode(),
 		ingress: Vec::new(),
-	}.encode();
+	}
+	.encode();
 
-	call_in_wasm(
+	call_in_wasm::<
+		_,
+		(
+			sp_io::SubstrateHostFunctions,
+			sc_executor::deprecated_host_interface::SubstrateExternals,
+		),
+	>(
 		"validate_block",
 		&params,
 		WasmExecutionMethod::Interpreted,
@@ -60,25 +71,29 @@ fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
 			to: AccountKeyring::Bob.into(),
 			amount: 69,
 			nonce: 0,
-		}.into_signed_tx(),
+		}
+		.into_signed_tx(),
 		Transfer {
 			from: AccountKeyring::Alice.into(),
 			to: AccountKeyring::Charlie.into(),
 			amount: 100,
 			nonce: 1,
-		}.into_signed_tx(),
+		}
+		.into_signed_tx(),
 		Transfer {
 			from: AccountKeyring::Bob.into(),
 			to: AccountKeyring::Charlie.into(),
 			amount: 100,
 			nonce: 0,
-		}.into_signed_tx(),
+		}
+		.into_signed_tx(),
 		Transfer {
 			from: AccountKeyring::Charlie.into(),
 			to: AccountKeyring::Alice.into(),
 			amount: 500,
 			nonce: 0,
-		}.into_signed_tx(),
+		}
+		.into_signed_tx(),
 	]
 }
 
@@ -90,20 +105,25 @@ fn build_block_with_proof(
 	client: &Client,
 	extrinsics: Vec<<Block as BlockT>::Extrinsic>,
 ) -> (Block, WitnessData) {
-	let block_id = BlockId::Hash(client.info().chain.best_hash);
-	let mut builder = client.new_block_at(
-		&block_id,
-		Default::default(),
-		true,
-	).expect("Initializes new block");
+	let block_id = BlockId::Hash(client.info().best_hash);
+	let mut builder = client
+		.new_block_at(&block_id, Default::default(), true)
+		.expect("Initializes new block");
 
-	extrinsics.into_iter().for_each(|e| builder.push(e).expect("Pushes an extrinsic"));
+	extrinsics
+		.into_iter()
+		.for_each(|e| builder.push(e).expect("Pushes an extrinsic"));
 
-	let (block, proof) = builder
-		.bake_and_extract_proof()
-		.expect("Finalizes block");
+	let built_block = builder.build().expect("Creates block");
 
-	(block, proof.expect("We enabled proof recording before."))
+	(
+		built_block.block,
+		built_block
+			.proof
+			.expect("We enabled proof recording before.")
+			.iter_nodes()
+			.collect(),
+	)
 }
 
 #[test]
@@ -118,7 +138,7 @@ fn validate_block_with_no_extrinsics() {
 		header.clone(),
 		extrinsics,
 		witness_data,
-		witness_data_storage_root
+		witness_data_storage_root,
 	);
 
 	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
@@ -137,7 +157,7 @@ fn validate_block_with_extrinsics() {
 		header.clone(),
 		extrinsics,
 		witness_data,
-		witness_data_storage_root
+		witness_data_storage_root,
 	);
 
 	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
@@ -154,11 +174,7 @@ fn validate_block_invalid_parent_hash() {
 	let (mut header, extrinsics) = block.deconstruct();
 	header.set_parent_hash(Hash::from_low_u64_be(1));
 
-	let block_data = ParachainBlockData::new(
-		header,
-		extrinsics,
-		witness_data,
-		witness_data_storage_root
-	);
+	let block_data =
+		ParachainBlockData::new(header, extrinsics, witness_data, witness_data_storage_root);
 	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
 }

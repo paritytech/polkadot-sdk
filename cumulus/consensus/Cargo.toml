@@ -7,18 +7,22 @@ edition = "2018"
 
 [dependencies]
 # substrate deps
-substrate-client = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-substrate-consensus-common = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-substrate-primitives = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-substrate-inherents = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-sr-primitives = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sc-client = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 
 # polkadot deps
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-cumulus-branch" }
 
 # other deps
-futures = { package = "futures-preview", version = "0.3.0-alpha.19", features = ["compat"] }
+futures = { version = "0.3.1", features = ["compat"] }
 tokio = "0.1.22"
 codec = { package = "parity-scale-codec", version = "1.0.5", features = [ "derive" ] }
 log = "0.4"

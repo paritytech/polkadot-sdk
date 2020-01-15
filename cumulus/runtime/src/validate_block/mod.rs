@@ -16,11 +16,11 @@
 
 //! A module that enables a runtime to work as parachain.
 
-#[cfg(test)]
-mod tests;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub mod implementation;
+#[cfg(test)]
+mod tests;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
@@ -60,20 +60,16 @@ macro_rules! register_validate_block_impl {
 			use super::*;
 
 			#[no_mangle]
-			unsafe fn validate_block(
-				arguments: *const u8,
-				arguments_len: usize,
-			) -> u64 {
-				let params = $crate::validate_block::parachain::wasm_api::load_params(
-					arguments,
-					arguments_len,
-				);
+			unsafe fn validate_block(arguments: *const u8, arguments_len: usize) -> u64 {
+				let params =
+					$crate::validate_block::parachain::load_params(arguments, arguments_len);
 
 				let res = $crate::validate_block::implementation::validate_block::<
-					$block, $block_executor
+					$block,
+					$block_executor,
 				>(params);
 
-				$crate::validate_block::parachain::wasm_api::write_result(res)
+				$crate::validate_block::parachain::write_result(&res)
 			}
 		}
 	};

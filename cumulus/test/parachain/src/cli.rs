@@ -18,22 +18,28 @@ use crate::chain_spec;
 
 use parachain_runtime::Block;
 
-pub use substrate_cli::{VersionInfo, IntoExit, error::{self, Result}};
-use substrate_cli::{parse_and_prepare, ParseAndPrepare, NoCustom};
-use substrate_service::{Roles as ServiceRoles, Configuration};
-use sr_primitives::{traits::{Block as BlockT, Header as HeaderT, Hash as HashT}, BuildStorage};
-use substrate_client::genesis;
-use substrate_primitives::hexdisplay::HexDisplay;
+pub use sc_cli::{
+	error::{self, Result},
+	IntoExit, VersionInfo,
+};
+use sc_cli::{parse_and_prepare, NoCustom, ParseAndPrepare};
+use sc_client::genesis;
+use sc_service::{Configuration, Roles as ServiceRoles};
+use sp_core::hexdisplay::HexDisplay;
+use sp_runtime::{
+	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
+	BuildStorage,
+};
+
+use futures::{channel::oneshot, future::Map, FutureExt};
 
 use codec::Encode;
 
 use log::info;
 
-use std::{path::PathBuf, cell::RefCell, sync::Arc};
+use std::{cell::RefCell, path::PathBuf, sync::Arc};
 
 use structopt::StructOpt;
-
-use futures::{sync::oneshot, future, Future};
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, StructOpt, Clone)]
@@ -43,8 +49,10 @@ enum SubCommands {
 	ExportGenesisState(ExportGenesisStateCommand),
 }
 
-impl substrate_cli::GetLogFilter for SubCommands {
-	fn get_log_filter(&self) -> Option<String> { None }
+impl sc_cli::GetSharedParams for SubCommands {
+	fn shared_params(&self) -> Option<&sc_cli::SharedParams> {
+		None
+	}
 }
 
 /// Command for exporting the genesis state of the parachain
@@ -57,10 +65,10 @@ struct ExportGenesisStateCommand {
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
-	where
-		I: IntoIterator<Item = T>,
-		T: Into<std::ffi::OsString> + Clone,
-		E: IntoExit + Send + 'static,
+where
+	I: IntoIterator<Item = T>,
+	T: Into<std::ffi::OsString> + Clone,
+	E: IntoExit + Send + 'static,
 {
 	type Config<T> = Configuration<(), T>;
 	match parse_and_prepare::<SubCommands, NoCustom, _>(
@@ -68,37 +76,68 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 		"cumulus-test-parachain-collator",
 		args,
 	) {
-		ParseAndPrepare::Run(cmd) => cmd.run(load_spec, exit,
-		|exit, _cli_args, _custom_args, mut config: Config<_>| {
-			info!("{}", version.name);
-			info!("  version {}", config.full_version());
-			info!("  by {}, 2019", version.author);
-			info!("Chain specification: {}", config.chain_spec.name());
-			info!("Node name: {}", config.name);
-			info!("Roles: {:?}", config.roles);
-			info!("Parachain id: {:?}", crate::PARA_ID);
+		ParseAndPrepare::Run(cmd) => cmd.run(
+			load_spec,
+			exit,
+			|exit, _cli_args, _custom_args, mut config: Config<_>| {
+				info!("{}", version.name);
+				info!("  version {}", config.full_version());
+				info!("  by {}, 2019", version.author);
+				info!("Chain specification: {}", config.chain_spec.name());
+				info!("Node name: {}", config.name);
+				info!("Roles: {:?}", config.roles);
+				info!("Parachain id: {:?}", crate::PARA_ID);
 
-			// TODO
-			let key = Arc::new(substrate_primitives::Pair::from_seed(&[10; 32]));
+				// TODO
+				let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
 
-			// TODO
-			config.network.listen_addresses = Vec::new();
-			config.network.boot_nodes = vec![];
-			config.chain_spec = chain_spec::get_chain_spec();
+				// TODO
+				config.network.listen_addresses = Vec::new();
 
-			match config.roles {
-				ServiceRoles::LIGHT => unimplemented!("Light client not supported!"),
-				_ => crate::service::run_collator(config, exit, key, version.clone()),
-			}.map_err(|e| format!("{:?}", e))
-		}),
-		ParseAndPrepare::BuildSpec(cmd) => cmd.run(load_spec),
-		ParseAndPrepare::ExportBlocks(cmd) => cmd.run_with_builder(|config: Config<_>|
-			Ok(new_full_start!(config).0), load_spec, exit),
-		ParseAndPrepare::ImportBlocks(cmd) => cmd.run_with_builder(|config: Config<_>|
-			Ok(new_full_start!(config).0), load_spec, exit),
+				// TODO
+				let mut polkadot_config =
+					polkadot_collator::Configuration::default_with_spec_and_base_path(
+						polkadot_service::ChainSpec::from_json_bytes(
+							&include_bytes!("../res/polkadot_chainspec.json")[..],
+						)?,
+						config.in_chain_config_dir("polkadot"),
+					);
+				polkadot_config.network.boot_nodes = config.network.boot_nodes.clone();
+
+				if let Some(ref config_dir) = polkadot_config.config_dir {
+					polkadot_config.database = sc_service::config::DatabaseConfig::Path {
+						cache_size: Default::default(),
+						path: config_dir.join("db"),
+					};
+				}
+
+				match config.roles {
+					ServiceRoles::LIGHT => unimplemented!("Light client not supported!"),
+					_ => crate::service::run_collator(config, exit, key, polkadot_config),
+				}
+				.map_err(|e| format!("{:?}", e))
+			},
+		),
+		ParseAndPrepare::BuildSpec(cmd) => cmd.run::<NoCustom, _, _, _>(load_spec),
+		ParseAndPrepare::ExportBlocks(cmd) => cmd.run_with_builder(
+			|config: Config<_>| Ok(new_full_start!(config).0),
+			load_spec,
+			exit,
+		),
+		ParseAndPrepare::ImportBlocks(cmd) => cmd.run_with_builder(
+			|config: Config<_>| Ok(new_full_start!(config).0),
+			load_spec,
+			exit,
+		),
+		ParseAndPrepare::CheckBlock(cmd) => cmd.run_with_builder(
+			|config: Config<_>| Ok(new_full_start!(config).0),
+			load_spec,
+			exit,
+		),
 		ParseAndPrepare::PurgeChain(cmd) => cmd.run(load_spec),
-		ParseAndPrepare::RevertChain(cmd) => cmd.run_with_builder(|config: Config<_>|
-			Ok(new_full_start!(config).0), load_spec),
+		ParseAndPrepare::RevertChain(cmd) => {
+			cmd.run_with_builder(|config: Config<_>| Ok(new_full_start!(config).0), load_spec)
+		}
 		ParseAndPrepare::CustomCommand(SubCommands::ExportGenesisState(cmd)) => {
 			export_genesis_state(cmd.output)
 		}
@@ -113,16 +152,16 @@ fn load_spec(_: &str) -> std::result::Result<Option<chain_spec::ChainSpec>, Stri
 
 /// Export the genesis state of the parachain.
 fn export_genesis_state(output: Option<PathBuf>) -> error::Result<()> {
-	let storage = chain_spec::get_chain_spec().build_storage()?;
+	let storage = (&chain_spec::get_chain_spec()).build_storage()?;
 
-	let child_roots = storage.1.iter().map(|(sk, child_map)| {
+	let child_roots = storage.children.iter().map(|(sk, child_content)| {
 		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-			child_map.clone().into_iter().collect()
+			child_content.data.clone().into_iter().collect(),
 		);
 		(sk.clone(), state_root.encode())
 	});
 	let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-		storage.0.clone().into_iter().chain(child_roots).collect()
+		storage.top.clone().into_iter().chain(child_roots).collect(),
 	);
 	let block: Block = genesis::construct_genesis_block(state_root);
 
@@ -140,19 +179,23 @@ fn export_genesis_state(output: Option<PathBuf>) -> error::Result<()> {
 // handles ctrl-c
 pub struct Exit;
 impl IntoExit for Exit {
-	type Exit = future::MapErr<oneshot::Receiver<()>, fn(oneshot::Canceled) -> ()>;
+	type Exit = Map<oneshot::Receiver<()>, fn(std::result::Result<(), oneshot::Canceled>) -> ()>;
 	fn into_exit(self) -> Self::Exit {
 		// can't use signal directly here because CtrlC takes only `Fn`.
 		let (exit_send, exit) = oneshot::channel();
 
 		let exit_send_cell = RefCell::new(Some(exit_send));
 		ctrlc::set_handler(move || {
-			let exit_send = exit_send_cell.try_borrow_mut().expect("signal handler not reentrant; qed").take();
+			let exit_send = exit_send_cell
+				.try_borrow_mut()
+				.expect("signal handler not reentrant; qed")
+				.take();
 			if let Some(exit_send) = exit_send {
 				exit_send.send(()).expect("Error sending exit notification");
 			}
-		}).expect("Error setting Ctrl-C handler");
+		})
+		.expect("Error setting Ctrl-C handler");
 
-		exit.map_err(drop)
+		exit.map(drop)
 	}
 }
