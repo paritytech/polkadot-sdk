@@ -103,7 +103,8 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 			sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 			sp_io::storage::host_clear.replace_implementation(host_storage_clear),
 			sp_io::storage::host_root.replace_implementation(host_storage_root),
-			sp_io::storage::host_clear_prefix.replace_implementation(host_clear_prefix),
+			sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
+			sp_io::storage::host_changes_root.replace_implementation(host_storage_changes_root),
 		)
 	};
 
@@ -253,6 +254,11 @@ fn host_storage_root() -> Vec<u8> {
 	storage().storage_root()
 }
 
-fn host_clear_prefix(prefix: &[u8]) {
+fn host_storage_clear_prefix(prefix: &[u8]) {
 	storage().clear_prefix(prefix)
+}
+
+fn host_storage_changes_root(_: &[u8]) -> Option<Vec<u8>> {
+	// TODO implement it properly
+	None
 }
