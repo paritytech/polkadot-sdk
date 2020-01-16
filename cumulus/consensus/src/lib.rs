@@ -131,12 +131,17 @@ where
 	type Block = Block;
 
 	fn finalize(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
-		match self.finalize_block(BlockId::hash(hash), None, true) {
-			Ok(()) => Ok(true),
-			Err(e) => match e {
-				ClientError::UnknownBlock(_) => Ok(false),
-				_ => Err(e),
-			},
+		// don't finalize the same block multiple times.
+		if self.chain_info().finalized_hash != hash {
+			match self.finalize_block(BlockId::hash(hash), None, true) {
+				Ok(()) => Ok(true),
+				Err(e) => match e {
+					ClientError::UnknownBlock(_) => Ok(false),
+					_ => Err(e),
+				},
+			}
+		} else {
+			Ok(true)
 		}
 	}
 }
