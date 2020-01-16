@@ -25,7 +25,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, StaticLookup, Verify,
+	BlakeTwo256, Block as BlockT, ConvertInto, StaticLookup, Verify,
 };
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys, transaction_validity::TransactionValidity,
@@ -216,6 +216,7 @@ impl pallet_balances::Trait for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type TransferFee = TransferFee;
 	type CreationFee = CreationFee;
+	type OnReapAccount = System;
 }
 
 impl pallet_transaction_payment::Trait for Runtime {
@@ -331,8 +332,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(number: NumberFor<Block>) {
-			Executive::offchain_worker(number)
+		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			Executive::offchain_worker(header)
 		}
 	}
 

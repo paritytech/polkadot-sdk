@@ -59,6 +59,7 @@ fn call_validate_block(
 		&mut ext_ext,
 		&WASM_BINARY,
 		1024,
+		false,
 	)
 	.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
 	.map(|v| Header::decode(&mut &v.head_data[..]).expect("Decode `Header`."))
