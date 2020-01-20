@@ -21,17 +21,14 @@ A planned Polkadot collator for the parachain.
 ## Running a collator
 
 1. Checkout polkadot at `bkchr-cumulus-branch`.
-2. Build the polkadot chainspec:
 
-	`cargo run --release -- build-spec --chain=local --raw > polkadot_chainspec.json`
+2. Run `Alice` and `Bob`:
 
-	Open the `polkadot_chainspec.json` and replace the `bootnodes` with: `"bootNodes": [],`
+	`cargo run --release -- --chain=${CUMULUS_REPO}/test/parachain/res/polkadot_chainspec.json --base-path=cumulus_relay_chain_node_0 --alice`
 
-3. Run `Alice` and `Bob`:
+	`cargo run --release -- --chain=${CUMULUS_REPO}/test/parachain/res/polkadot_chainspec.json --base-path=cumulus_relay_chain_node_1 --bob --port 50666`
 
-	`cargo run --release -- --chain=local --base-path=cumulus_relay_chain_node_0 --alice`
-
-	`cargo run --release -- --chain=local --base-path=cumulus_relay_chain_node_1 --bob --port 50666`
+    Where `CUMULUS_REPO` is the path to the checkout of Cumulus.
 
 3. Switch back to this repository and generate the parachain genesis state:
 
@@ -39,9 +36,9 @@ A planned Polkadot collator for the parachain.
 
 4. Run the collator:
 
-	`cargo run --release -p cumulus-test-parachain-collator -- --base-path cumulus_collator_path --chain polkadot_chainspec.json --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/PEER_ID`
+	`cargo run --release -p cumulus-test-parachain-collator -- --base-path cumulus_collator_path --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/PEER_ID --bootnodes /ip4/127.0.0.1/tcp/50666/p2p/PEER_ID`
 
-	`PEER_ID` needs to be replaced with the peer id of the polkadot validator that uses `Alice`
+	`PEER_ID_${NAME}` needs to be replaced with the peer id of the polkadot validator that uses `${NAME}`
 	as authority.
 
 5. Open `https://polkadot.js.org/apps/#/sudo` and register the parachain by calling `Registrar > RegisterPara`
@@ -57,6 +54,4 @@ A planned Polkadot collator for the parachain.
 	Now your parachain should be registered and the collator should start building blocks and sending
 	them to the relay chain.
 
-6. ...
-
-7. PROFIT!
+6. Now the `collator` should build blocks and the relay-chain should include them. You can check that the `parachain-header` for parachain `100` is changing.
