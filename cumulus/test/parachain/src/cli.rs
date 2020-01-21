@@ -109,6 +109,11 @@ where
 						cache_size: Default::default(),
 						path: config_dir.join("db"),
 					};
+
+					polkadot_config.keystore = sc_service::config::KeystoreConfig::Path {
+						path: config_dir.join("keystore"),
+						password: None,
+					};
 				}
 
 				match config.roles {
