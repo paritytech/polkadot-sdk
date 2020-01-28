@@ -30,6 +30,8 @@ use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
 	BuildStorage,
 };
+use polkadot_service::ChainSpec as ChainSpecPolkadot;
+use polkadot_service::CustomConfiguration as CustomConfigurationPolkadot;
 
 use futures::{channel::oneshot, future::Map, FutureExt};
 
@@ -64,17 +66,18 @@ struct ExportGenesisStateCommand {
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
+pub fn run<I, T, E>(args_parachain: I, args_relaychain: I, exit: E, version: VersionInfo) -> error::Result<()>
 where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit + Send + 'static,
 {
 	type Config<T> = Configuration<(), T>;
+
 	match parse_and_prepare::<SubCommands, NoCustom, _>(
 		&version,
 		"cumulus-test-parachain-collator",
-		args,
+		args_parachain,
 	) {
 		ParseAndPrepare::Run(cmd) => cmd.run(
 			load_spec,
@@ -94,14 +97,19 @@ where
 				// TODO
 				config.network.listen_addresses = Vec::new();
 
-				// TODO
-				let mut polkadot_config =
-					polkadot_collator::Configuration::default_with_spec_and_base_path(
-						polkadot_service::ChainSpec::from_json_bytes(
-							&include_bytes!("../res/polkadot_chainspec.json")[..],
-						)?,
-						config.in_chain_config_dir("polkadot"),
-					);
+				let mut polkadot_config = parse_and_prepare::<NoCustom, NoCustom, _>(
+					&version,
+					"cumulus-test-parachain-collator",
+					args_relaychain,
+				).into_configuration::<CustomConfigurationPolkadot, _, _, _>(
+					load_spec_polkadot,
+					config.in_chain_config_dir("polkadot"),
+				)
+				.map_err(|e| e.to_string())?
+				.expect(
+					"can only fail when this is a CustomCommand. Running parse_and_prepare with \
+					NoCustom can never return a CustomCommand; therefore this will never fail; qed"
+				);
 				polkadot_config.network.boot_nodes = config.network.boot_nodes.clone();
 
 				if let Some(ref config_dir) = polkadot_config.config_dir {
@@ -153,6 +161,12 @@ where
 
 fn load_spec(_: &str) -> std::result::Result<Option<chain_spec::ChainSpec>, String> {
 	Ok(Some(chain_spec::get_chain_spec()))
+}
+
+fn load_spec_polkadot(_: &str) -> std::result::Result<Option<ChainSpecPolkadot>, String> {
+	Some(polkadot_service::ChainSpec::from_json_bytes(
+		&include_bytes!("../res/polkadot_chainspec.json")[..],
+	)).transpose()
 }
 
 /// Export the genesis state of the parachain.

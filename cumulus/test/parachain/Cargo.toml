@@ -20,6 +20,7 @@ trie-root = '0.15.2'
 codec = { package = 'parity-scale-codec', version = '1.0.0' }
 structopt = "0.3.3"
 ctrlc = { version = "3.1.3", features = ["termination"] }
+itertools = { version = "0.8.2" }
 
 # Parachain dependencies
 parachain-runtime = { package = "cumulus-test-parachain-runtime", path = "runtime" }
