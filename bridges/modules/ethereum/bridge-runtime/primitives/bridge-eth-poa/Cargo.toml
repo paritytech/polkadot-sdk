@@ -1,0 +1,49 @@
+[package]
+name = "sp-bridge-eth-poa"
+description = "Primitives of Ethereum PoA Bridge module."
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0", optional = true }
+serde-big-array = { version = "0.2", optional = true }
+ethbloom = { version = "0.8", default-features = false }
+parity-bytes = { version = "0.1", default-features = false }
+primitive-types = { version = "0.6", default-features = false, features = ["codec", "rlp"] }
+fixed-hash = { version = "0.5", default-features = false }
+impl-rlp = { version = "0.2", default-features = false }
+impl-serde = { version = "0.2.3", optional = true }
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false }
+rlp = { version = "0.4", default-features = false }
+sp-std = { version = "2.0.0", default-features = false, path = "../std" }
+sp-runtime = { version = "2.0.0", default-features = false, path = "../runtime" }
+sp-api = { version = "2.0.0", path = "../api", default-features = false }
+sp-io = { version = "2.0.0", default-features = false, path = "../io" }
+hash-db = { version = "0.15.2", default-features = false }
+triehash = { version = "0.8.2", default-features = false }
+plain_hasher = { version = "0.2.2", default-features = false }
+
+[features]
+default = ["std"]
+test-helpers = []
+std = [
+	"serde/std",
+	"serde-big-array",
+	"ethbloom/std",
+	"parity-bytes/std",
+	"primitive-types/std",
+	"primitive-types/serde",
+	"fixed-hash/std",
+	"impl-rlp/std",
+	"impl-serde",
+	"codec/std",
+	"rlp/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	"sp-api/std",
+	"sp-io/std",
+	"hash-db/std",
+	"triehash/std",
+	"plain_hasher/std",
+]
