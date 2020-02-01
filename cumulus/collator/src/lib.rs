@@ -41,7 +41,7 @@ use codec::{Decode, Encode};
 
 use log::{error, trace};
 
-use futures::{task::Spawn, Future};
+use futures::{task::Spawn, Future, future};
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration, pin::Pin};
 
@@ -120,20 +120,25 @@ where
 		let inherent_providers = self.inherent_data_providers.clone();
 		let block_import = self.block_import.clone();
 
-		Box::pin(async move {
-			trace!(target: "cumulus-collator", "Producing candidate");
+		trace!(target: "cumulus-collator", "Producing candidate");
 
-			let last_head = HeadData::<Block>::decode(&mut &status.head_data.0[..]).map_err(|e| {
+		let last_head = match HeadData::<Block>::decode(&mut &status.head_data.0[..]) {
+			Ok(x) => x,
+			Err(e) => {
 				error!(target: "cumulus-collator", "Could not decode the head data: {:?}", e);
-				InvalidHead
-			})?;
+				return Box::pin(future::ready(Err(InvalidHead)));
+			}
+		};
 
+		let proposer_future = factory
+			.lock()
+			.init(&last_head.header);
 
+		Box::pin(async move {
 			let parent_state_root = *last_head.header.state_root();
 
-			let mut proposer = factory
-				.lock()
-				.init(&last_head.header)
+			let mut proposer = proposer_future
+				.await
 				.map_err(|e| {
 					error!(
 						target: "cumulus-collator",
@@ -393,9 +398,12 @@ mod tests {
 	impl Environment<Block> for DummyFactory {
 		type Proposer = DummyProposer;
 		type Error = Error;
+		type CreateProposer = Pin<Box<
+			dyn Future<Output = Result<Self::Proposer, Self::Error>> + Send + Unpin + 'static
+		>>;
 
-		fn init(&mut self, _: &Header) -> Result<Self::Proposer, Self::Error> {
-			Ok(DummyProposer)
+		fn init(&mut self, _: &Header) -> Self::CreateProposer {
+			Box::pin(future::ready(Ok(DummyProposer)))
 		}
 	}
 

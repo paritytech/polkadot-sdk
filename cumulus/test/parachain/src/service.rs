@@ -24,7 +24,7 @@ use sc_service::{AbstractService, Configuration};
 use sp_consensus::{BlockImport, Environment, Proposer};
 use sp_inherents::InherentDataProviders;
 
-use futures::{compat::Future01CompatExt, future, task::Spawn, FutureExt, TryFutureExt};
+use futures::{future, task::Spawn, FutureExt, TryFutureExt};
 
 use log::error;
 
@@ -173,7 +173,6 @@ where
 				Box::new(
 					future::select(
 						self.service
-							.compat()
 							.map_err(|e| error!("Parachain service error: {:?}", e)),
 						future::select(follow, self.exit.into_exit()),
 					)
