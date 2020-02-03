@@ -85,7 +85,7 @@ decl_storage! {
 
 		/// Maps a bridge id to a bridge struct. Allows a single
 		/// `bridge` module to manage multiple bridges.
-		pub TrackedBridges get(tracked_bridges): map BridgeId => Option<BridgeInfo<T>>;
+		pub TrackedBridges get(tracked_bridges): map hasher(blake2_256) BridgeId => Option<BridgeInfo<T>>;
 	}
 }
 
