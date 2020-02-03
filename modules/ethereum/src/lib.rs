@@ -16,14 +16,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::{prelude::*, iter::from_fn};
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage};
+use primitives::{Address, Header, Receipt, H256, U256};
 use sp_runtime::RuntimeDebug;
-use primitives::{Address, U256, H256, Header, Receipt};
-use validators::{ValidatorsSource, ValidatorsConfiguration};
+use sp_std::{iter::from_fn, prelude::*};
+use validators::{ValidatorsConfiguration, ValidatorsSource};
 
-pub use import::{import_header, header_import_requires_receipts};
+pub use import::{header_import_requires_receipts, import_header};
 
 mod error;
 mod finality;
@@ -180,11 +180,7 @@ pub trait Storage {
 	/// It is the storage duty to ensure that unfinalized headers that have
 	/// scheduled changes won't be pruned until they or their competitors
 	/// are finalized.
-	fn finalize_headers(
-		&mut self,
-		finalized: Option<(u64, H256)>,
-		prune_end: Option<u64>,
-	);
+	fn finalize_headers(&mut self, finalized: Option<(u64, H256)>, prune_end: Option<u64>);
 }
 
 /// Decides whether the session should be ended.
@@ -304,11 +300,7 @@ impl<T: Trait> Module<T> {
 
 	/// Returns true if the import of given block requires transactions receipts.
 	pub fn is_import_requires_receipts(header: Header) -> bool {
-		import::header_import_requires_receipts(
-			&BridgeStorage,
-			&kovan_validators_config(),
-			&header,
-		)
+		import::header_import_requires_receipts(&BridgeStorage, &kovan_validators_config(), &header)
 	}
 
 	/// Returns true if header is known to the runtime.
@@ -334,18 +326,17 @@ impl Storage for BridgeStorage {
 	}
 
 	fn import_context(&self, parent_hash: &H256) -> Option<ImportContext> {
-		Headers::get(parent_hash)
-			.map(|parent_header| {
-				let (next_validators_set_start, next_validators) =
-					ValidatorsSets::get(parent_header.next_validators_set_id)
+		Headers::get(parent_hash).map(|parent_header| {
+			let (next_validators_set_start, next_validators) =
+				ValidatorsSets::get(parent_header.next_validators_set_id)
 					.expect("validators set is only pruned when last ref is pruned; there is a ref; qed");
-				ImportContext {
-					parent_header: parent_header.header,
-					parent_total_difficulty: parent_header.total_difficulty,
-					next_validators_set_id: parent_header.next_validators_set_id,
-					next_validators_set: (next_validators_set_start, next_validators),
-				}
-			})
+			ImportContext {
+				parent_header: parent_header.header,
+				parent_total_difficulty: parent_header.total_difficulty,
+				next_validators_set_id: parent_header.next_validators_set_id,
+				next_validators_set: (next_validators_set_start, next_validators),
+			}
+		})
 	}
 
 	fn scheduled_change(&self, hash: &H256) -> Option<Vec<Address>> {
@@ -369,34 +360,33 @@ impl Storage for BridgeStorage {
 				ValidatorsSets::insert(next_validators_set_id, (header.hash, enacted_change));
 				ValidatorsSetsRc::insert(next_validators_set_id, 1);
 				next_validators_set_id
-			},
+			}
 			None => {
-				ValidatorsSetsRc::mutate(
-					header.context.next_validators_set_id,
-					|rc| {
-						*rc = Some(rc.map(|rc| rc + 1).unwrap_or(1));
-						*rc
-					},
-				);
+				ValidatorsSetsRc::mutate(header.context.next_validators_set_id, |rc| {
+					*rc = Some(rc.map(|rc| rc + 1).unwrap_or(1));
+					*rc
+				});
 				header.context.next_validators_set_id
-			},
+			}
 		};
 
 		HeadersByNumber::append_or_insert(header.header.number, vec![header.hash]);
-		Headers::insert(&header.hash, StoredHeader {
-			header: header.header,
-			total_difficulty: header.total_difficulty,
-			next_validators_set_id,
-		});
+		Headers::insert(
+			&header.hash,
+			StoredHeader {
+				header: header.header,
+				total_difficulty: header.total_difficulty,
+				next_validators_set_id,
+			},
+		);
 	}
 
-	fn finalize_headers(
-		&mut self,
-		finalized: Option<(u64, H256)>,
-		prune_end: Option<u64>,
-	) {
+	fn finalize_headers(&mut self, finalized: Option<(u64, H256)>, prune_end: Option<u64>) {
 		// remember just finalized block
-		let finalized_number = finalized.as_ref().map(|f| f.0).unwrap_or_else(|| FinalizedBlock::get().0);
+		let finalized_number = finalized
+			.as_ref()
+			.map(|f| f.0)
+			.unwrap_or_else(|| FinalizedBlock::get().0);
 		if let Some(finalized) = finalized {
 			FinalizedBlock::put(finalized);
 		}
@@ -423,13 +413,10 @@ impl Storage for BridgeStorage {
 					let header = Headers::take(&hash);
 					ScheduledChanges::remove(hash);
 					if let Some(header) = header {
-						ValidatorsSetsRc::mutate(
-							header.next_validators_set_id,
-							|rc| match *rc {
-								Some(rc) if rc > 1 => Some(rc - 1),
-								_ => None,
-							},
-						);
+						ValidatorsSetsRc::mutate(header.next_validators_set_id, |rc| match *rc {
+							Some(rc) if rc > 1 => Some(rc - 1),
+							_ => None,
+						});
 					}
 				}
 			}
@@ -456,50 +443,113 @@ pub fn kovan_aura_config() -> AuraConfiguration {
 /// Validators configuration for Kovan chain.
 pub fn kovan_validators_config() -> ValidatorsConfiguration {
 	ValidatorsConfiguration::Multi(vec![
-		(0, ValidatorsSource::List(vec![
-			[0x00, 0xD6, 0xCc, 0x1B, 0xA9, 0xcf, 0x89, 0xBD, 0x2e, 0x58,
-				0x00, 0x97, 0x41, 0xf4, 0xF7, 0x32, 0x5B, 0xAd, 0xc0, 0xED].into(),
-			[0x00, 0x42, 0x7f, 0xea, 0xe2, 0x41, 0x9c, 0x15, 0xb8, 0x9d,
-				0x1c, 0x21, 0xaf, 0x10, 0xd1, 0xb6, 0x65, 0x0a, 0x4d, 0x3d].into(),
-			[0x4E, 0xd9, 0xB0, 0x8e, 0x63, 0x54, 0xC7, 0x0f, 0xE6, 0xF8,
-				0xCB, 0x04, 0x11, 0xb0, 0xd3, 0x24, 0x6b, 0x42, 0x4d, 0x6c].into(),
-			[0x00, 0x20, 0xee, 0x4B, 0xe0, 0xe2, 0x02, 0x7d, 0x76, 0x60,
-				0x3c, 0xB7, 0x51, 0xeE, 0x06, 0x95, 0x19, 0xbA, 0x81, 0xA1].into(),
-			[0x00, 0x10, 0xf9, 0x4b, 0x29, 0x6a, 0x85, 0x2a, 0xaa, 0xc5,
-				0x2e, 0xa6, 0xc5, 0xac, 0x72, 0xe0, 0x3a, 0xfd, 0x03, 0x2d].into(),
-			[0x00, 0x77, 0x33, 0xa1, 0xFE, 0x69, 0xCF, 0x3f, 0x2C, 0xF9,
-				0x89, 0xF8, 0x1C, 0x7b, 0x4c, 0xAc, 0x16, 0x93, 0x38, 0x7A].into(),
-			[0x00, 0xE6, 0xd2, 0xb9, 0x31, 0xF5, 0x5a, 0x3f, 0x17, 0x01,
-				0xc7, 0x38, 0x9d, 0x59, 0x2a, 0x77, 0x78, 0x89, 0x78, 0x79].into(),
-			[0x00, 0xe4, 0xa1, 0x06, 0x50, 0xe5, 0xa6, 0xD6, 0x00, 0x1C,
-				0x38, 0xff, 0x8E, 0x64, 0xF9, 0x70, 0x16, 0xa1, 0x64, 0x5c].into(),
-			[0x00, 0xa0, 0xa2, 0x4b, 0x9f, 0x0e, 0x5e, 0xc7, 0xaa, 0x4c,
-				0x73, 0x89, 0xb8, 0x30, 0x2f, 0xd0, 0x12, 0x31, 0x94, 0xde].into(),
-		])),
-		(10960440, ValidatorsSource::List(vec![
-			[0x00, 0xD6, 0xCc, 0x1B, 0xA9, 0xcf, 0x89, 0xBD, 0x2e, 0x58,
-				0x00, 0x97, 0x41, 0xf4, 0xF7, 0x32, 0x5B, 0xAd, 0xc0, 0xED].into(),
-			[0x00, 0x10, 0xf9, 0x4b, 0x29, 0x6a, 0x85, 0x2a, 0xaa, 0xc5,
-				0x2e, 0xa6, 0xc5, 0xac, 0x72, 0xe0, 0x3a, 0xfd, 0x03, 0x2d].into(),
-			[0x00, 0xa0, 0xa2, 0x4b, 0x9f, 0x0e, 0x5e, 0xc7, 0xaa, 0x4c,
-				0x73, 0x89, 0xb8, 0x30, 0x2f, 0xd0, 0x12, 0x31, 0x94, 0xde].into(),
-		])),
-		(10960500, ValidatorsSource::Contract(
-			[0xaE, 0x71, 0x80, 0x7C, 0x1B, 0x0a, 0x09, 0x3c, 0xB1, 0x54,
-				0x7b, 0x68, 0x2D, 0xC7, 0x83, 0x16, 0xD9, 0x45, 0xc9, 0xB8].into(),
-			vec![
-				[0xd0, 0x5f, 0x74, 0x78, 0xc6, 0xaa, 0x10, 0x78, 0x12, 0x58,
-					0xc5, 0xcc, 0x8b, 0x4f, 0x38, 0x5f, 0xc8, 0xfa, 0x98, 0x9c].into(),
-				[0x03, 0x80, 0x1e, 0xfb, 0x0e, 0xfe, 0x2a, 0x25, 0xed, 0xe5,
-					0xdd, 0x3a, 0x00, 0x3a, 0xe8, 0x80, 0xc0, 0x29, 0x2e, 0x4d].into(),
-				[0xa4, 0xdf, 0x25, 0x5e, 0xcf, 0x08, 0xbb, 0xf2, 0xc2, 0x80,
-					0x55, 0xc6, 0x52, 0x25, 0xc9, 0xa9, 0x84, 0x7a, 0xbd, 0x94].into(),
-				[0x59, 0x6e, 0x82, 0x21, 0xa3, 0x0b, 0xfe, 0x6e, 0x7e, 0xff,
-					0x67, 0xfe, 0xe6, 0x64, 0xa0, 0x1c, 0x73, 0xba, 0x3c, 0x56].into(),
-				[0xfa, 0xad, 0xfa, 0xce, 0x3f, 0xbd, 0x81, 0xce, 0x37, 0xb0,
-					0xe1, 0x9c, 0x0b, 0x65, 0xff, 0x42, 0x34, 0x14, 0x81, 0x32].into(),
-			],
-		)),
+		(
+			0,
+			ValidatorsSource::List(vec![
+				[
+					0x00, 0xD6, 0xCc, 0x1B, 0xA9, 0xcf, 0x89, 0xBD, 0x2e, 0x58, 0x00, 0x97, 0x41, 0xf4, 0xF7, 0x32,
+					0x5B, 0xAd, 0xc0, 0xED,
+				]
+				.into(),
+				[
+					0x00, 0x42, 0x7f, 0xea, 0xe2, 0x41, 0x9c, 0x15, 0xb8, 0x9d, 0x1c, 0x21, 0xaf, 0x10, 0xd1, 0xb6,
+					0x65, 0x0a, 0x4d, 0x3d,
+				]
+				.into(),
+				[
+					0x4E, 0xd9, 0xB0, 0x8e, 0x63, 0x54, 0xC7, 0x0f, 0xE6, 0xF8, 0xCB, 0x04, 0x11, 0xb0, 0xd3, 0x24,
+					0x6b, 0x42, 0x4d, 0x6c,
+				]
+				.into(),
+				[
+					0x00, 0x20, 0xee, 0x4B, 0xe0, 0xe2, 0x02, 0x7d, 0x76, 0x60, 0x3c, 0xB7, 0x51, 0xeE, 0x06, 0x95,
+					0x19, 0xbA, 0x81, 0xA1,
+				]
+				.into(),
+				[
+					0x00, 0x10, 0xf9, 0x4b, 0x29, 0x6a, 0x85, 0x2a, 0xaa, 0xc5, 0x2e, 0xa6, 0xc5, 0xac, 0x72, 0xe0,
+					0x3a, 0xfd, 0x03, 0x2d,
+				]
+				.into(),
+				[
+					0x00, 0x77, 0x33, 0xa1, 0xFE, 0x69, 0xCF, 0x3f, 0x2C, 0xF9, 0x89, 0xF8, 0x1C, 0x7b, 0x4c, 0xAc,
+					0x16, 0x93, 0x38, 0x7A,
+				]
+				.into(),
+				[
+					0x00, 0xE6, 0xd2, 0xb9, 0x31, 0xF5, 0x5a, 0x3f, 0x17, 0x01, 0xc7, 0x38, 0x9d, 0x59, 0x2a, 0x77,
+					0x78, 0x89, 0x78, 0x79,
+				]
+				.into(),
+				[
+					0x00, 0xe4, 0xa1, 0x06, 0x50, 0xe5, 0xa6, 0xD6, 0x00, 0x1C, 0x38, 0xff, 0x8E, 0x64, 0xF9, 0x70,
+					0x16, 0xa1, 0x64, 0x5c,
+				]
+				.into(),
+				[
+					0x00, 0xa0, 0xa2, 0x4b, 0x9f, 0x0e, 0x5e, 0xc7, 0xaa, 0x4c, 0x73, 0x89, 0xb8, 0x30, 0x2f, 0xd0,
+					0x12, 0x31, 0x94, 0xde,
+				]
+				.into(),
+			]),
+		),
+		(
+			10960440,
+			ValidatorsSource::List(vec![
+				[
+					0x00, 0xD6, 0xCc, 0x1B, 0xA9, 0xcf, 0x89, 0xBD, 0x2e, 0x58, 0x00, 0x97, 0x41, 0xf4, 0xF7, 0x32,
+					0x5B, 0xAd, 0xc0, 0xED,
+				]
+				.into(),
+				[
+					0x00, 0x10, 0xf9, 0x4b, 0x29, 0x6a, 0x85, 0x2a, 0xaa, 0xc5, 0x2e, 0xa6, 0xc5, 0xac, 0x72, 0xe0,
+					0x3a, 0xfd, 0x03, 0x2d,
+				]
+				.into(),
+				[
+					0x00, 0xa0, 0xa2, 0x4b, 0x9f, 0x0e, 0x5e, 0xc7, 0xaa, 0x4c, 0x73, 0x89, 0xb8, 0x30, 0x2f, 0xd0,
+					0x12, 0x31, 0x94, 0xde,
+				]
+				.into(),
+			]),
+		),
+		(
+			10960500,
+			ValidatorsSource::Contract(
+				[
+					0xaE, 0x71, 0x80, 0x7C, 0x1B, 0x0a, 0x09, 0x3c, 0xB1, 0x54, 0x7b, 0x68, 0x2D, 0xC7, 0x83, 0x16,
+					0xD9, 0x45, 0xc9, 0xB8,
+				]
+				.into(),
+				vec![
+					[
+						0xd0, 0x5f, 0x74, 0x78, 0xc6, 0xaa, 0x10, 0x78, 0x12, 0x58, 0xc5, 0xcc, 0x8b, 0x4f, 0x38, 0x5f,
+						0xc8, 0xfa, 0x98, 0x9c,
+					]
+					.into(),
+					[
+						0x03, 0x80, 0x1e, 0xfb, 0x0e, 0xfe, 0x2a, 0x25, 0xed, 0xe5, 0xdd, 0x3a, 0x00, 0x3a, 0xe8, 0x80,
+						0xc0, 0x29, 0x2e, 0x4d,
+					]
+					.into(),
+					[
+						0xa4, 0xdf, 0x25, 0x5e, 0xcf, 0x08, 0xbb, 0xf2, 0xc2, 0x80, 0x55, 0xc6, 0x52, 0x25, 0xc9, 0xa9,
+						0x84, 0x7a, 0xbd, 0x94,
+					]
+					.into(),
+					[
+						0x59, 0x6e, 0x82, 0x21, 0xa3, 0x0b, 0xfe, 0x6e, 0x7e, 0xff, 0x67, 0xfe, 0xe6, 0x64, 0xa0, 0x1c,
+						0x73, 0xba, 0x3c, 0x56,
+					]
+					.into(),
+					[
+						0xfa, 0xad, 0xfa, 0xce, 0x3f, 0xbd, 0x81, 0xce, 0x37, 0xb0, 0xe1, 0x9c, 0x0b, 0x65, 0xff, 0x42,
+						0x34, 0x14, 0x81, 0x32,
+					]
+					.into(),
+				],
+			),
+		),
 	])
 }
 
@@ -517,25 +567,22 @@ pub(crate) fn ancestry<'a, S: Storage>(storage: &'a S, header: &Header) -> impl 
 				let hash = parent_hash.clone();
 				parent_hash = header.parent_hash.clone();
 				Some((hash, header))
-			},
-			None => None
+			}
+			None => None,
 		}
 	})
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
-	use std::collections::{HashMap, hash_map::Entry};
-	use parity_crypto::publickey::{KeyPair, Secret, sign};
-	use primitives::{H520, rlp_encode};
 	use super::*;
+	use parity_crypto::publickey::{sign, KeyPair, Secret};
+	use primitives::{rlp_encode, H520};
+	use std::collections::{hash_map::Entry, HashMap};
 
 	pub fn genesis() -> Header {
 		Header {
-			seal: vec![
-				vec![42].into(),
-				vec![].into(),
-			],
+			seal: vec![vec![42].into(), vec![].into()],
 			..Default::default()
 		}
 	}
@@ -556,10 +603,7 @@ pub(crate) mod tests {
 			parent_hash: storage.headers_by_number[&(number - 1)][0].clone(),
 			gas_limit: 0x2000.into(),
 			author: validator(validator_index).address().to_fixed_bytes().into(),
-			seal: vec![
-				vec![number as u8 + 42].into(),
-				vec![].into(),
-			],
+			seal: vec![vec![number as u8 + 42].into(), vec![].into()],
 			difficulty: number.into(),
 			..Default::default()
 		};
@@ -582,7 +626,9 @@ pub(crate) mod tests {
 	}
 
 	pub fn validators_addresses(count: u8) -> Vec<Address> {
-		(0..count as usize).map(|i| validator(i as u8).address().as_fixed_bytes().into()).collect()
+		(0..count as usize)
+			.map(|i| validator(i as u8).address().as_fixed_bytes().into())
+			.collect()
 	}
 
 	pub struct InMemoryStorage {
@@ -612,7 +658,9 @@ pub(crate) mod tests {
 						total_difficulty: 0.into(),
 						next_validators_set_id: 0,
 					},
-				)].into_iter().collect(),
+				)]
+				.into_iter()
+				.collect(),
 				next_validators_set_id: 1,
 				validators_sets: vec![(0, (hash, initial_validators))].into_iter().collect(),
 				validators_sets_rc: vec![(0, 1)].into_iter().collect(),
@@ -643,17 +691,16 @@ pub(crate) mod tests {
 		}
 
 		fn import_context(&self, parent_hash: &H256) -> Option<ImportContext> {
-			self.headers.get(parent_hash)
-				.map(|parent_header| {
-					let (next_validators_set_start, next_validators) =
-						self.validators_sets.get(&parent_header.next_validators_set_id).unwrap();
-					ImportContext {
-						parent_header: parent_header.header.clone(),
-						parent_total_difficulty: parent_header.total_difficulty,
-						next_validators_set_id: parent_header.next_validators_set_id,
-						next_validators_set: (*next_validators_set_start, next_validators.clone()),
-					}
-				})
+			self.headers.get(parent_hash).map(|parent_header| {
+				let (next_validators_set_start, next_validators) =
+					self.validators_sets.get(&parent_header.next_validators_set_id).unwrap();
+				ImportContext {
+					parent_header: parent_header.header.clone(),
+					parent_total_difficulty: parent_header.total_difficulty,
+					next_validators_set_id: parent_header.next_validators_set_id,
+					next_validators_set: (*next_validators_set_start, next_validators.clone()),
+				}
+			})
 		}
 
 		fn scheduled_change(&self, hash: &H256) -> Option<Vec<Address>> {
@@ -671,30 +718,39 @@ pub(crate) mod tests {
 				Some(enacted_change) => {
 					let next_validators_set_id = self.next_validators_set_id;
 					self.next_validators_set_id += 1;
-					self.validators_sets.insert(next_validators_set_id, (header.hash, enacted_change));
+					self.validators_sets
+						.insert(next_validators_set_id, (header.hash, enacted_change));
 					self.validators_sets_rc.insert(next_validators_set_id, 1);
 					next_validators_set_id
-				},
+				}
 				None => {
-					*self.validators_sets_rc.entry(header.context.next_validators_set_id).or_default() += 1;
+					*self
+						.validators_sets_rc
+						.entry(header.context.next_validators_set_id)
+						.or_default() += 1;
 					header.context.next_validators_set_id
-				},
+				}
 			};
 
-			self.headers_by_number.entry(header.header.number).or_default().push(header.hash);
-			self.headers.insert(header.hash, StoredHeader {
-				header: header.header,
-				total_difficulty: header.total_difficulty,
-				next_validators_set_id,
-			});
+			self.headers_by_number
+				.entry(header.header.number)
+				.or_default()
+				.push(header.hash);
+			self.headers.insert(
+				header.hash,
+				StoredHeader {
+					header: header.header,
+					total_difficulty: header.total_difficulty,
+					next_validators_set_id,
+				},
+			);
 		}
 
-		fn finalize_headers(
-			&mut self,
-			finalized: Option<(u64, H256)>,
-			prune_end: Option<u64>,
-		) {
-			let finalized_number = finalized.as_ref().map(|f| f.0).unwrap_or_else(|| self.finalized_block.0);
+		fn finalize_headers(&mut self, finalized: Option<(u64, H256)>, prune_end: Option<u64>) {
+			let finalized_number = finalized
+				.as_ref()
+				.map(|f| f.0)
+				.unwrap_or_else(|| self.finalized_block.0);
 			if let Some(finalized) = finalized {
 				self.finalized_block = finalized;
 			}
@@ -708,7 +764,10 @@ pub(crate) mod tests {
 					// ensure that unfinalized headers we want to prune do not have scheduled changes
 					if number > finalized_number {
 						if let Some(ref blocks_at_number) = blocks_at_number {
-							if blocks_at_number.iter().any(|block| self.scheduled_changes.contains_key(block)) {
+							if blocks_at_number
+								.iter()
+								.any(|block| self.scheduled_changes.contains_key(block))
+							{
 								self.headers_by_number.insert(number, blocks_at_number.clone());
 								self.oldest_unpruned_block = number;
 								return;
@@ -722,12 +781,14 @@ pub(crate) mod tests {
 						self.scheduled_changes.remove(&hash);
 						if let Some(header) = header {
 							match self.validators_sets_rc.entry(header.next_validators_set_id) {
-								Entry::Occupied(mut entry) => if *entry.get() == 1 {
-									entry.remove();
-								} else {
-									*entry.get_mut() -= 1;
-								},
-								Entry::Vacant(_) => unreachable!("there's entry for each header")
+								Entry::Occupied(mut entry) => {
+									if *entry.get() == 1 {
+										entry.remove();
+									} else {
+										*entry.get_mut() -= 1;
+									}
+								}
+								Entry::Vacant(_) => unreachable!("there's entry for each header"),
 							};
 						}
 					}

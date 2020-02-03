@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_io::crypto::secp256k1_ecdsa_recover;
-use primitives::{Address, Header, H256, H520, SealedEmptyStep, U128, U256, public_to_address};
-use crate::{AuraConfiguration, ImportContext, Storage};
 use crate::error::Error;
 use crate::validators::step_validator;
+use crate::{AuraConfiguration, ImportContext, Storage};
+use primitives::{public_to_address, Address, Header, SealedEmptyStep, H256, H520, U128, U256};
+use sp_io::crypto::secp256k1_ecdsa_recover;
 
 /// Verify header by Aura rules.
 pub fn verify_aura_header<S: Storage>(
@@ -30,14 +30,15 @@ pub fn verify_aura_header<S: Storage>(
 	contextless_checks(params, header)?;
 
 	// the rest of checks requires parent
-	let context = storage.import_context(&header.parent_hash).ok_or(Error::MissingParentBlock)?;
+	let context = storage
+		.import_context(&header.parent_hash)
+		.ok_or(Error::MissingParentBlock)?;
 	let validators = context.validators();
 	let header_step = header.step().ok_or(Error::MissingStep)?;
 	let parent_step = context.parent_header().step().ok_or(Error::MissingStep)?;
 
 	// Ensure header is from the step after context.
-	if header_step == parent_step
-		|| (header.number >= params.validate_step_transition && header_step <= parent_step) {
+	if header_step == parent_step || (header.number >= params.validate_step_transition && header_step <= parent_step) {
 		return Err(Error::DoubleVote);
 	}
 
@@ -69,7 +70,7 @@ pub fn verify_aura_header<S: Storage>(
 			}
 
 			empty_steps_len
-		},
+		}
 		false => 0,
 	};
 
@@ -160,20 +161,22 @@ fn verify_signature(expected_validator: &Address, signature: &H520, message: &H2
 
 #[cfg(test)]
 mod tests {
-	use parity_crypto::publickey::{KeyPair, sign};
-	use primitives::{H520, rlp_encode};
-	use crate::kovan_aura_config;
-	use crate::tests::{InMemoryStorage, genesis, signed_header, validator, validators_addresses};
 	use super::*;
+	use crate::kovan_aura_config;
+	use crate::tests::{genesis, signed_header, validator, validators_addresses, InMemoryStorage};
+	use parity_crypto::publickey::{sign, KeyPair};
+	use primitives::{rlp_encode, H520};
 
 	fn sealed_empty_step(validators: &[KeyPair], parent_hash: &H256, step: u64) -> SealedEmptyStep {
-		let mut empty_step = SealedEmptyStep { step, signature: Default::default() };
+		let mut empty_step = SealedEmptyStep {
+			step,
+			signature: Default::default(),
+		};
 		let message = empty_step.message(parent_hash);
 		let validator_index = (step % validators.len() as u64) as usize;
-		let signature: [u8; 65] = sign(
-			validators[validator_index].secret(),
-			&message.as_fixed_bytes().into(),
-		).unwrap().into();
+		let signature: [u8; 65] = sign(validators[validator_index].secret(), &message.as_fixed_bytes().into())
+			.unwrap()
+			.into();
 		empty_step.signature = signature.into();
 		empty_step
 	}
@@ -321,17 +324,11 @@ mod tests {
 		assert_eq!(default_verify(&header), Err(Error::MissingStep));
 
 		// when step is the same as for the parent block
-		header.seal = vec![
-			vec![42].into(),
-			vec![].into(),
-		];
+		header.seal = vec![vec![42].into(), vec![].into()];
 		assert_eq!(default_verify(&header), Err(Error::DoubleVote));
 
 		// when step is OK
-		header.seal = vec![
-			vec![43].into(),
-			vec![].into(),
-		];
+		header.seal = vec![vec![43].into(), vec![].into()];
 		assert_ne!(default_verify(&header), Err(Error::DoubleVote));
 
 		// now check with validate_step check enabled
@@ -339,17 +336,11 @@ mod tests {
 		config.validate_step_transition = 0;
 
 		// when step is lesser that for the parent block
-		header.seal = vec![
-			vec![40].into(),
-			vec![].into(),
-		];
+		header.seal = vec![vec![40].into(), vec![].into()];
 		assert_eq!(verify_with_config(&config, &header), Err(Error::DoubleVote));
 
 		// when step is OK
-		header.seal = vec![
-			vec![44].into(),
-			vec![].into(),
-		];
+		header.seal = vec![vec![44].into(), vec![].into()];
 		assert_ne!(verify_with_config(&config, &header), Err(Error::DoubleVote));
 	}
 
@@ -364,9 +355,7 @@ mod tests {
 			seal: vec![
 				vec![45].into(),
 				vec![142].into(),
-				SealedEmptyStep::rlp_of(&[
-					sealed_empty_step(&validators, &genesis().hash(), 42),
-				]),
+				SealedEmptyStep::rlp_of(&[sealed_empty_step(&validators, &genesis().hash(), 42)]),
 			],
 			gas_limit: kovan_aura_config().min_gas_limit,
 			parent_hash: genesis().hash(),
@@ -403,10 +392,7 @@ mod tests {
 
 		// when chain score is invalid
 		let mut header = Header {
-			seal: vec![
-				vec![43].into(),
-				vec![].into(),
-			],
+			seal: vec![vec![43].into(), vec![].into()],
 			gas_limit: kovan_aura_config().min_gas_limit,
 			parent_hash: genesis().hash(),
 			..Default::default()
@@ -421,16 +407,17 @@ mod tests {
 	#[test]
 	fn verifies_validator() {
 		let validators = vec![validator(0), validator(1), validator(2)];
-		let good_header = signed_header(&validators, Header {
-			author: validators[1].address().as_fixed_bytes().into(),
-			seal: vec![
-				vec![43].into(),
-				vec![].into(),
-			],
-			gas_limit: kovan_aura_config().min_gas_limit,
-			parent_hash: genesis().hash(),
-			..Default::default()
-		}, 43);
+		let good_header = signed_header(
+			&validators,
+			Header {
+				author: validators[1].address().as_fixed_bytes().into(),
+				seal: vec![vec![43].into(), vec![].into()],
+				gas_limit: kovan_aura_config().min_gas_limit,
+				parent_hash: genesis().hash(),
+				..Default::default()
+			},
+			43,
+		);
 
 		// when header author is invalid
 		let mut header = good_header.clone();

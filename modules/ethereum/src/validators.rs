@@ -14,15 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::prelude::*;
-use primitives::{Address, H256, Header, LogEntry, Receipt, U256};
-use crate::Storage;
 use crate::error::Error;
+use crate::Storage;
+use primitives::{Address, Header, LogEntry, Receipt, H256, U256};
+use sp_std::prelude::*;
 
 /// The hash of InitiateChange event of the validators set contract.
-const CHANGE_EVENT_HASH: &'static [u8; 32] = &[0x55, 0x25, 0x2f, 0xa6, 0xee, 0xe4, 0x74, 0x1b,
-	0x4e, 0x24, 0xa7, 0x4a, 0x70, 0xe9, 0xc1, 0x1f, 0xd2, 0xc2, 0x28, 0x1d, 0xf8, 0xd6, 0xea,
-	0x13, 0x12, 0x6f, 0xf8, 0x45, 0xf7, 0x82, 0x5c, 0x89];
+const CHANGE_EVENT_HASH: &'static [u8; 32] = &[
+	0x55, 0x25, 0x2f, 0xa6, 0xee, 0xe4, 0x74, 0x1b, 0x4e, 0x24, 0xa7, 0x4a, 0x70, 0xe9, 0xc1, 0x1f, 0xd2, 0xc2, 0x28,
+	0x1d, 0xf8, 0xd6, 0xea, 0x13, 0x12, 0x6f, 0xf8, 0x45, 0xf7, 0x82, 0x5c, 0x89,
+];
 
 /// Where source of validators addresses come from. This covers the chain lifetime.
 pub enum ValidatorsConfiguration {
@@ -76,12 +77,10 @@ impl<'a> Validators<'a> {
 		// that the contract has (probably) emitted epoch change event
 		let expected_bloom = LogEntry {
 			address: *contract_address,
-			topics: vec![
-				CHANGE_EVENT_HASH.into(),
-				header.parent_hash,
-			],
+			topics: vec![CHANGE_EVENT_HASH.into(), header.parent_hash],
 			data: Vec::new(), // irrelevant for bloom.
-		}.bloom();
+		}
+		.bloom();
 
 		header.log_bloom.contains(&expected_bloom)
 	}
@@ -120,12 +119,10 @@ impl<'a> Validators<'a> {
 		// that the contract has (probably) emitted epoch change event
 		let expected_bloom = LogEntry {
 			address: *contract_address,
-			topics: vec![
-				CHANGE_EVENT_HASH.into(),
-				header.parent_hash,
-			],
+			topics: vec![CHANGE_EVENT_HASH.into(), header.parent_hash],
 			data: Vec::new(), // irrelevant for bloom.
-		}.bloom();
+		}
+		.bloom();
 
 		if !header.log_bloom.contains(&expected_bloom) {
 			return Ok((None, None));
@@ -138,41 +135,47 @@ impl<'a> Validators<'a> {
 
 		// iterate in reverse because only the _last_ change in a given
 		// block actually has any effect
-		Ok((receipts.iter()
-			.rev()
-			.filter(|r| r.log_bloom.contains(&expected_bloom))
-			.flat_map(|r| r.logs.iter())
-			.filter(|l| l.address == *contract_address &&
-				l.topics.len() == 2 &&
-				l.topics[0].as_fixed_bytes() == CHANGE_EVENT_HASH &&
-				l.topics[1] == header.parent_hash
-			)
-			.filter_map(|l| {
-				let data_len = l.data.len();
-				if data_len < 64 {
-					return None;
-				}
+		Ok((
+			receipts
+				.iter()
+				.rev()
+				.filter(|r| r.log_bloom.contains(&expected_bloom))
+				.flat_map(|r| r.logs.iter())
+				.filter(|l| {
+					l.address == *contract_address
+						&& l.topics.len() == 2 && l.topics[0].as_fixed_bytes() == CHANGE_EVENT_HASH
+						&& l.topics[1] == header.parent_hash
+				})
+				.filter_map(|l| {
+					let data_len = l.data.len();
+					if data_len < 64 {
+						return None;
+					}
 
-				let new_validators_len_u256 = U256::from_big_endian(&l.data[32..64]);
-				let new_validators_len = new_validators_len_u256.low_u64();
-				if new_validators_len_u256 != new_validators_len.into() {
-					return None;
-				}
+					let new_validators_len_u256 = U256::from_big_endian(&l.data[32..64]);
+					let new_validators_len = new_validators_len_u256.low_u64();
+					if new_validators_len_u256 != new_validators_len.into() {
+						return None;
+					}
 
-				if (data_len - 64) as u64 != new_validators_len.saturating_mul(32) {
-					return None;
-				}
+					if (data_len - 64) as u64 != new_validators_len.saturating_mul(32) {
+						return None;
+					}
 
-				Some(l.data[64..]
-					.chunks(32)
-					.map(|chunk| {
-						let mut new_validator = Address::default();
-						new_validator.as_mut().copy_from_slice(&chunk[12..32]);
-						new_validator
-					})
-					.collect())
-			})
-			.next(), None))
+					Some(
+						l.data[64..]
+							.chunks(32)
+							.map(|chunk| {
+								let mut new_validator = Address::default();
+								new_validator.as_mut().copy_from_slice(&chunk[12..32]);
+								new_validator
+							})
+							.collect(),
+					)
+				})
+				.next(),
+			None,
+		))
 	}
 
 	/// Finalize changes when blocks are finalized.
@@ -193,12 +196,16 @@ impl<'a> Validators<'a> {
 	fn source_at<'b>(&'b self, header_number: u64) -> (usize, u64, &'b ValidatorsSource) {
 		match self.config {
 			ValidatorsConfiguration::Single(ref source) => (0, 0, source),
-			ValidatorsConfiguration::Multi(ref sources) => sources.iter().rev()
+			ValidatorsConfiguration::Multi(ref sources) => sources
+				.iter()
+				.rev()
 				.enumerate()
 				.find(|(_, &(begin, _))| begin < header_number)
 				.map(|(i, (begin, source))| (sources.len() - 1 - i, *begin, source))
-				.expect("there's always entry for the initial block;\
-					we do not touch any headers with number < initial block number; qed"),
+				.expect(
+					"there's always entry for the initial block;\
+					 we do not touch any headers with number < initial block number; qed",
+				),
 		}
 	}
 
@@ -221,7 +228,7 @@ impl<'a> Validators<'a> {
 
 				let source = &sources[header_source_index];
 				(source.0, &source.1)
-			},
+			}
 		}
 	}
 }
@@ -243,32 +250,24 @@ pub fn step_validator(header_validators: &[Address], header_step: u64) -> Addres
 
 #[cfg(test)]
 pub(crate) mod tests {
-	use primitives::TransactionOutcome;
-	use crate::kovan_validators_config;
 	use super::*;
+	use crate::kovan_validators_config;
+	use primitives::TransactionOutcome;
 
 	pub(crate) fn validators_change_recept(parent_hash: H256) -> Receipt {
 		Receipt {
 			gas_used: 0.into(),
 			log_bloom: (&[0xff; 256]).into(),
 			outcome: TransactionOutcome::Unknown,
-			logs: vec![
-				LogEntry {
-					address: [3; 20].into(),
-					topics: vec![
-						CHANGE_EVENT_HASH.into(),
-						parent_hash,
-					],
-					data: vec![
-						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-						7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-							7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-					],
-				},
-			],
+			logs: vec![LogEntry {
+				address: [3; 20].into(),
+				topics: vec![CHANGE_EVENT_HASH.into(), parent_hash],
+				data: vec![
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 7,
+					7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+				],
+			}],
 		}
 	}
 
@@ -347,10 +346,7 @@ pub(crate) mod tests {
 
 		// when we're inside list range
 		header.number = 150;
-		assert_eq!(
-			validators.extract_validators_change(&header, None),
-			Ok((None, None)),
-		);
+		assert_eq!(validators.extract_validators_change(&header, None), Ok((None, None)),);
 
 		// when we're at the block that switches to contract source
 		header.number = 200;
@@ -370,7 +366,9 @@ pub(crate) mod tests {
 
 		// when we're inside contract range and logs bloom signals change
 		// but there's no change in receipts
-		header.receipts_root = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421".parse().unwrap();
+		header.receipts_root = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+			.parse()
+			.unwrap();
 		assert_eq!(
 			validators.extract_validators_change(&header, Some(Vec::new())),
 			Ok((None, None)),
@@ -379,7 +377,9 @@ pub(crate) mod tests {
 		// when we're inside contract range and logs bloom signals change
 		// and there's change in receipts
 		let receipts = vec![validators_change_recept(Default::default())];
-		header.receipts_root = "81ce88dc524403b796222046bf3daf543978329b87ffd50228f1d3987031dc45".parse().unwrap();
+		header.receipts_root = "81ce88dc524403b796222046bf3daf543978329b87ffd50228f1d3987031dc45"
+			.parse()
+			.unwrap();
 		assert_eq!(
 			validators.extract_validators_change(&header, Some(receipts)),
 			Ok((Some(vec![[7; 20].into()]), None)),
