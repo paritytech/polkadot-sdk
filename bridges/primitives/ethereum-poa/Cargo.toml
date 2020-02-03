@@ -16,10 +16,10 @@ impl-rlp = { version = "0.2", default-features = false }
 impl-serde = { version = "0.2.3", optional = true }
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false }
 rlp = { version = "0.4", default-features = false }
-sp-std = { version = "2.0.0", default-features = false, path = "../std" }
-sp-runtime = { version = "2.0.0", default-features = false, path = "../runtime" }
-sp-api = { version = "2.0.0", path = "../api", default-features = false }
-sp-io = { version = "2.0.0", default-features = false, path = "../io" }
+sp-std = { version = "2.0.0", git = "https://github.com/paritytech/substrate.git", default-features = false }
+sp-runtime = { version = "2.0.0", git = "https://github.com/paritytech/substrate.git", default-features = false }
+sp-api = { version = "2.0.0", git = "https://github.com/paritytech/substrate.git", default-features = false }
+sp-io = { version = "2.0.0", git = "https://github.com/paritytech/substrate.git", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 triehash = { version = "0.8.2", default-features = false }
 plain_hasher = { version = "0.2.2", default-features = false }
