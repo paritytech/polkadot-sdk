@@ -1,0 +1,76 @@
+[package]
+name = "pallet-bridge"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false }
+serde = { version = "1.0", optional = true }
+
+# Substrate Based Dependencies
+[dependencies.frame-support]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+[dependencies.frame-system]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+[dependencies.hash-db]
+version = "0.15.2"
+default-features = false
+
+[dependencies.pallet-session]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+[dependencies.sp-core]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+[dependencies.sp-finality-grandpa]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+[dependencies.sp-runtime]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+[dependencies.sp-trie]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+# Dev Dependencies
+[dev-dependencies.sp-io]
+version = "2.0.0"
+git = "https://github.com/paritytech/substrate.git"
+default-features = false
+
+[dev-dependencies.sp-state-machine]
+version = "0.8.0"
+git = "https://github.com/paritytech/substrate.git"
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-session/std",
+	"sp-core/std",
+	"sp-finality-grandpa/std",
+	"sp-runtime/std",
+	"sp-trie/std",
+	"sp-io/std",
+]
