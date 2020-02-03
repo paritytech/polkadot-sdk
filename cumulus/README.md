@@ -49,7 +49,7 @@ A planned Polkadot collator for the parachain.
 
 	`code`: `CUMULUS_REPO/target/release/wbuild/cumulus-test-parachain-runtime/cumulus_test_parachain_runtime.compact.wasm`
 
-	`initial_head_data`: Use the file you generated in 4. (name: genesis-state)
+	`initial_head_data`: Use the file you generated in step 3. (name: genesis-state)
 
 	Now your parachain should be registered and the collator should start building blocks and sending
 	them to the relay chain.
