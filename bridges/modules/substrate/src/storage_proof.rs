@@ -16,9 +16,9 @@
 
 //! Logic for checking Substrate storage proofs.
 
-use hash_db::{Hasher, HashDB, EMPTY_PREFIX};
-use sp_trie::{MemoryDB, Trie, trie_types::TrieDB};
+use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_runtime::RuntimeDebug;
+use sp_trie::{trie_types::TrieDB, MemoryDB, Trie};
 
 pub(crate) type StorageProof = Vec<Vec<u8>>;
 
@@ -26,14 +26,16 @@ pub(crate) type StorageProof = Vec<Vec<u8>>;
 /// is a subset of the nodes in the Merkle structure of the database, so that it provides
 /// authentication against a known Merkle root as well as the values in the database themselves.
 pub struct StorageProofChecker<H>
-	where H: Hasher
+where
+	H: Hasher,
 {
 	root: H::Out,
 	db: MemoryDB<H>,
 }
 
 impl<H> StorageProofChecker<H>
-	where H: Hasher
+where
+	H: Hasher,
 {
 	/// Constructs a new storage proof checker.
 	///
@@ -43,10 +45,7 @@ impl<H> StorageProofChecker<H>
 		for item in proof {
 			db.insert(EMPTY_PREFIX, &item);
 		}
-		let checker = StorageProofChecker {
-			root,
-			db,
-		};
+		let checker = StorageProofChecker { root, db };
 		// Return error if trie would be invalid.
 		let _ = checker.trie()?;
 		Ok(checker)
@@ -62,8 +61,7 @@ impl<H> StorageProofChecker<H>
 	}
 
 	fn trie(&self) -> Result<TrieDB<H>, Error> {
-		TrieDB::new(&self.db, &self.root)
-			.map_err(|_| Error::StorageRootMismatch)
+		TrieDB::new(&self.db, &self.root).map_err(|_| Error::StorageRootMismatch)
 	}
 }
 
@@ -78,7 +76,7 @@ mod tests {
 	use super::*;
 
 	use sp_core::{Blake2Hasher, H256};
-	use sp_state_machine::{prove_read, backend::Backend, InMemoryBackend};
+	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
 	#[test]
 	fn storage_proof_check() {

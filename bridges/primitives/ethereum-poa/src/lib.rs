@@ -22,21 +22,21 @@ pub use primitive_types::{H160, H256, H512, U128, U256};
 #[cfg(feature = "test-helpers")]
 pub use rlp::encode as rlp_encode;
 
-use sp_std::prelude::*;
-use sp_io::hashing::keccak_256;
 use codec::{Decode, Encode};
 use ethbloom::{Bloom as EthBloom, Input as BloomInput};
-use rlp::{Decodable, DecoderError, Rlp, RlpStream};
-use sp_runtime::RuntimeDebug;
 use fixed_hash::construct_fixed_hash;
+use rlp::{Decodable, DecoderError, Rlp, RlpStream};
+use sp_io::hashing::keccak_256;
+use sp_runtime::RuntimeDebug;
+use sp_std::prelude::*;
 
-#[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
-#[cfg(feature = "std")]
-use serde_big_array::big_array;
 use impl_rlp::impl_fixed_hash_rlp;
 #[cfg(feature = "std")]
 use impl_serde::impl_fixed_hash_serde;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "std")]
+use serde_big_array::big_array;
 
 construct_fixed_hash! { pub struct H520(65); }
 impl_fixed_hash_rlp!(H520, 65);
@@ -121,10 +121,7 @@ pub struct LogEntry {
 /// Logs bloom.
 #[derive(Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Bloom(
-	#[cfg_attr(feature = "std", serde(with = "BigArray"))]
-	[u8; 256]
-);
+pub struct Bloom(#[cfg_attr(feature = "std", serde(with = "BigArray"))] [u8; 256]);
 
 #[cfg(feature = "std")]
 big_array! { BigArray; }
@@ -172,7 +169,7 @@ impl Header {
 				let mut message = self.hash().as_bytes().to_vec();
 				message.extend_from_slice(self.seal.get(2)?);
 				keccak_256(&message).into()
-			},
+			}
 			false => keccak_256(&self.rlp(false)).into(),
 		})
 	}
@@ -189,7 +186,9 @@ impl Header {
 
 	/// Extracts the empty steps from the header seal.
 	pub fn empty_steps(&self) -> Option<Vec<SealedEmptyStep>> {
-		self.seal.get(2).and_then(|x| Rlp::new(x).as_list::<SealedEmptyStep>().ok())
+		self.seal
+			.get(2)
+			.and_then(|x| Rlp::new(x).as_list::<SealedEmptyStep>().ok())
 	}
 
 	/// Returns header RLP with or without seals.
@@ -232,15 +231,15 @@ impl Receipt {
 		match self.outcome {
 			TransactionOutcome::Unknown => {
 				s.begin_list(3);
-			},
+			}
 			TransactionOutcome::StateRoot(ref root) => {
 				s.begin_list(4);
 				s.append(root);
-			},
+			}
 			TransactionOutcome::StatusCode(ref status_code) => {
 				s.begin_list(4);
 				s.append(status_code);
-			},
+			}
 		}
 		s.append(&self.gas_used);
 		s.append(&EthBloom::from(self.log_bloom.0));
@@ -275,9 +274,7 @@ impl SealedEmptyStep {
 		let mut s = RlpStream::new();
 		s.begin_list(empty_steps.len());
 		for empty_step in empty_steps {
-			s.begin_list(2)
-				.append(&empty_step.signature)
-				.append(&empty_step.step);
+			s.begin_list(2).append(&empty_step.signature).append(&empty_step.step);
 		}
 		s.out()
 	}
@@ -295,10 +292,13 @@ impl Decodable for SealedEmptyStep {
 impl LogEntry {
 	/// Calculates the bloom of this log entry.
 	pub fn bloom(&self) -> Bloom {
-		let eth_bloom = self.topics.iter().fold(EthBloom::from(BloomInput::Raw(self.address.as_bytes())), |mut b, t| {
-			b.accrue(BloomInput::Raw(t.as_bytes()));
-			b
-		});
+		let eth_bloom =
+			self.topics
+				.iter()
+				.fold(EthBloom::from(BloomInput::Raw(self.address.as_bytes())), |mut b, t| {
+					b.accrue(BloomInput::Raw(t.as_bytes()));
+					b
+				});
 		Bloom(*eth_bloom.data())
 	}
 }
