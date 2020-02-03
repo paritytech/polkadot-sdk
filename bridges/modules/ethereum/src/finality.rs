@@ -14,16 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::prelude::*;
+use crate::error::Error;
+use crate::{ancestry, Storage};
+use primitives::{public_to_address, Address, Header, SealedEmptyStep, H256};
+use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_std::collections::{
 	btree_map::{BTreeMap, Entry},
 	btree_set::BTreeSet,
 	vec_deque::VecDeque,
 };
-use sp_io::crypto::secp256k1_ecdsa_recover;
-use primitives::{Address, H256, Header, SealedEmptyStep, public_to_address};
-use crate::{Storage, ancestry};
-use crate::error::Error;
+use sp_std::prelude::*;
 
 /// Tries to finalize blocks when given block is imported.
 ///
@@ -68,8 +68,8 @@ fn is_finalized(
 	votes: &BTreeMap<Address, u64>,
 	requires_two_thirds_majority: bool,
 ) -> bool {
-	(!requires_two_thirds_majority && votes.len() * 2 > validators.len()) ||
-		(requires_two_thirds_majority && votes.len() * 3 > validators.len() * 2)
+	(!requires_two_thirds_majority && votes.len() * 2 > validators.len())
+		|| (requires_two_thirds_majority && votes.len() * 3 > validators.len() * 2)
 }
 
 /// Prepare 'votes' of header and its ancestors' signers.
@@ -157,7 +157,7 @@ fn remove_signers_votes(signers_to_remove: &BTreeSet<Address>, votes: &mut BTree
 				} else {
 					*entry.get_mut() -= 1;
 				}
-			},
+			}
 			Entry::Vacant(_) => unreachable!("we only remove signers that have been added; qed"),
 		}
 	}
@@ -165,7 +165,8 @@ fn remove_signers_votes(signers_to_remove: &BTreeSet<Address>, votes: &mut BTree
 
 /// Returns unique set of empty steps signers.
 fn empty_steps_signers(header: &Header) -> BTreeSet<Address> {
-	header.empty_steps()
+	header
+		.empty_steps()
 		.into_iter()
 		.flat_map(|steps| steps)
 		.filter_map(|step| empty_step_signer(&step, &header.parent_hash))
@@ -182,9 +183,9 @@ fn empty_step_signer(empty_step: &SealedEmptyStep, parent_hash: &H256) -> Option
 
 #[cfg(test)]
 mod tests {
-	use crate::HeaderToImport;
-	use crate::tests::{InMemoryStorage, genesis, validator, validators_addresses};
 	use super::*;
+	use crate::tests::{genesis, validator, validators_addresses, InMemoryStorage};
+	use crate::HeaderToImport;
 
 	#[test]
 	fn verifies_header_author() {
