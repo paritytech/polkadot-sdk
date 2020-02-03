@@ -247,19 +247,19 @@ decl_storage! {
 		/// Oldest unpruned block(s) number.
 		OldestUnprunedBlock: u64;
 		/// Map of imported headers by hash.
-		Headers: map H256 => Option<StoredHeader>;
+		Headers: map hasher(blake2_256) H256 => Option<StoredHeader>;
 		/// Map of imported header hashes by number.
-		HeadersByNumber: map u64 => Option<Vec<H256>>;
+		HeadersByNumber: map hasher(blake2_256) u64 => Option<Vec<H256>>;
 		/// The ID of next validator set.
 		NextValidatorsSetId: u64;
 		/// Map of validators sets by their id.
-		ValidatorsSets: map u64 => Option<(H256, Vec<Address>)>;
+		ValidatorsSets: map hasher(blake2_256) u64 => Option<(H256, Vec<Address>)>;
 		/// Validators sets reference count. Each header that is authored by this set increases
 		/// the reference count. When we prune this header, we decrease the reference count.
 		/// When it reaches zero, we are free to prune validator set as well.
-		ValidatorsSetsRc: map u64 => Option<u64>;
+		ValidatorsSetsRc: map hasher(blake2_256) u64 => Option<u64>;
 		/// Map of validators set changes scheduled by given header.
-		ScheduledChanges: map H256 => Option<Vec<Address>>;
+		ScheduledChanges: map hasher(blake2_256) H256 => Option<Vec<Address>>;
 	}
 	add_extra_genesis {
 		config(initial_header): Header;
