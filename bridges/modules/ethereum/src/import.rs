@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::prelude::*;
-use primitives::{H256, Header, Receipt};
-use crate::{AuraConfiguration, Storage};
 use crate::error::Error;
 use crate::finality::finalize_blocks;
 use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::verification::verify_aura_header;
+use crate::{AuraConfiguration, Storage};
+use primitives::{Header, Receipt, H256};
+use sp_std::prelude::*;
 
 /// Maximal number of headers behind best blocks that we are aiming to store. When there
 /// are too many unfinalized headers, it slows down finalization tracking significantly.
@@ -50,14 +50,7 @@ pub fn import_headers<S: Storage>(
 	let mut useful = 0;
 	let mut useless = 0;
 	for (header, receipts) in headers {
-		let import_result = import_header(
-			storage,
-			aura_config,
-			validators_config,
-			prune_depth,
-			header,
-			receipts,
-		);
+		let import_result = import_header(storage, aura_config, validators_config, prune_depth, header, receipts);
 
 		match import_result {
 			Ok(_) => useful += 1,
@@ -85,16 +78,11 @@ pub fn import_header<S: Storage>(
 	let (hash, prev_finalized_hash) = is_importable_header(storage, &header)?;
 
 	// verify header
-	let import_context = verify_aura_header(
-		storage,
-		aura_config,
-		&header,
-	)?;
+	let import_context = verify_aura_header(storage, aura_config, &header)?;
 
 	// check if block schedules new validators
 	let validators = Validators::new(validators_config);
-	let (scheduled_change, enacted_change) =
-		validators.extract_validators_change(&header, receipts)?;
+	let (scheduled_change, enacted_change) = validators.extract_validators_change(&header, receipts)?;
 
 	// check if block finalizes some other blocks and corresponding scheduled validators
 	let finalized_blocks = finalize_blocks(
@@ -105,8 +93,7 @@ pub fn import_header<S: Storage>(
 		&header,
 		aura_config.two_thirds_majority_transition,
 	)?;
-	let enacted_change = enacted_change
-		.or_else(|| validators.finalize_validators_change(storage, &finalized_blocks));
+	let enacted_change = enacted_change.or_else(|| validators.finalize_validators_change(storage, &finalized_blocks));
 
 	// NOTE: we can't return Err() from anywhere below this line
 	// (because otherwise we'll have inconsistent storage if transaction will fail)
@@ -169,14 +156,12 @@ fn is_importable_header<S: Storage>(storage: &S, header: &Header) -> Result<(H25
 
 #[cfg(test)]
 mod tests {
-	use crate::{kovan_aura_config, kovan_validators_config};
+	use super::*;
 	use crate::tests::{
-		InMemoryStorage,
-		block_i, custom_block_i, signed_header, genesis,
-		validator, validators_addresses,
+		block_i, custom_block_i, genesis, signed_header, validator, validators_addresses, InMemoryStorage,
 	};
 	use crate::validators::ValidatorsSource;
-	use super::*;
+	use crate::{kovan_aura_config, kovan_validators_config};
 
 	#[test]
 	fn rejects_finalized_block_competitors() {
@@ -208,7 +193,8 @@ mod tests {
 				PRUNE_DEPTH,
 				block.clone(),
 				None,
-			).map(|_| ()),
+			)
+			.map(|_| ()),
 			Ok(()),
 		);
 		assert_eq!(
@@ -219,7 +205,8 @@ mod tests {
 				PRUNE_DEPTH,
 				block,
 				None,
-			).map(|_| ()),
+			)
+			.map(|_| ()),
 			Err(Error::KnownHeader),
 		);
 	}
@@ -235,8 +222,15 @@ mod tests {
 		let header = block_i(&storage, 1, &validators);
 		let hash = header.hash();
 		assert_eq!(
-			import_header(&mut storage, &kovan_aura_config(), &validators_config, PRUNE_DEPTH, header, None)
-				.map(|_| ()),
+			import_header(
+				&mut storage,
+				&kovan_aura_config(),
+				&validators_config,
+				PRUNE_DEPTH,
+				header,
+				None
+			)
+			.map(|_| ()),
 			Ok(()),
 		);
 
@@ -250,9 +244,8 @@ mod tests {
 
 	#[test]
 	fn headers_are_pruned() {
-		let validators_config = ValidatorsConfiguration::Single(
-			ValidatorsSource::Contract([3; 20].into(), validators_addresses(3)),
-		);
+		let validators_config =
+			ValidatorsConfiguration::Single(ValidatorsSource::Contract([3; 20].into(), validators_addresses(3)));
 		let validators = vec![validator(0), validator(1), validator(2)];
 		let mut storage = InMemoryStorage::new(genesis(), validators_addresses(3));
 
@@ -261,14 +254,8 @@ mod tests {
 		let mut last_block_hash = Default::default();
 		for i in 1..11 {
 			let header = block_i(&storage, i, &validators);
-			last_block_hash = import_header(
-				&mut storage,
-				&kovan_aura_config(),
-				&validators_config,
-				10,
-				header,
-				None,
-			).unwrap();
+			last_block_hash =
+				import_header(&mut storage, &kovan_aura_config(), &validators_config, 10, header, None).unwrap();
 		}
 		assert!(storage.header(&genesis().hash()).is_some());
 
@@ -276,7 +263,9 @@ mod tests {
 		// => we prune header#0
 		let header = custom_block_i(&storage, 11, &validators, |header| {
 			header.log_bloom = (&[0xff; 256]).into();
-			header.receipts_root = "2e60346495092587026484e868a5b3063749032b2ea3843844509a6320d7f951".parse().unwrap();
+			header.receipts_root = "2e60346495092587026484e868a5b3063749032b2ea3843844509a6320d7f951"
+				.parse()
+				.unwrap();
 		});
 		last_block_hash = import_header(
 			&mut storage,
@@ -284,8 +273,11 @@ mod tests {
 			&validators_config,
 			10,
 			header,
-			Some(vec![crate::validators::tests::validators_change_recept(last_block_hash)]),
-		).unwrap();
+			Some(vec![crate::validators::tests::validators_change_recept(
+				last_block_hash,
+			)]),
+		)
+		.unwrap();
 		assert!(storage.header(&genesis().hash()).is_none());
 
 		// and now let's say validators 1 && 2 went offline
@@ -298,22 +290,13 @@ mod tests {
 				parent_hash: last_block_hash,
 				gas_limit: 0x2000.into(),
 				author: validator(2).address().to_fixed_bytes().into(),
-				seal: vec![
-					vec![step].into(),
-					vec![].into(),
-				],
+				seal: vec![vec![step].into(), vec![].into()],
 				difficulty: i.into(),
 				..Default::default()
 			};
 			let header = signed_header(&validators, header, step as _);
-			last_block_hash = import_header(
-				&mut storage,
-				&kovan_aura_config(),
-				&validators_config,
-				10,
-				header,
-				None,
-			).unwrap();
+			last_block_hash =
+				import_header(&mut storage, &kovan_aura_config(), &validators_config, 10, header, None).unwrap();
 			step += 3;
 		}
 		assert_eq!(storage.oldest_unpruned_block(), 11);
@@ -326,22 +309,12 @@ mod tests {
 			parent_hash: last_block_hash,
 			gas_limit: 0x2000.into(),
 			author: validator(0).address().to_fixed_bytes().into(),
-			seal: vec![
-				vec![step].into(),
-				vec![].into(),
-			],
+			seal: vec![vec![step].into(), vec![].into()],
 			difficulty: 25.into(),
 			..Default::default()
 		};
 		let header = signed_header(&validators, header, step as _);
-		import_header(
-			&mut storage,
-			&kovan_aura_config(),
-			&validators_config,
-			10,
-			header,
-			None,
-		).unwrap();
+		import_header(&mut storage, &kovan_aura_config(), &validators_config, 10, header, None).unwrap();
 		assert_eq!(storage.oldest_unpruned_block(), 15);
 	}
 }

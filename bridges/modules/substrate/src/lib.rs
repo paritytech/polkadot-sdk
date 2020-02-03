@@ -37,14 +37,14 @@
 mod storage_proof;
 
 use crate::storage_proof::{StorageProof, StorageProofChecker};
-use codec::{Encode, Decode};
-use sp_finality_grandpa::{AuthorityId, AuthorityWeight, GRANDPA_AUTHORITIES_KEY};
-use sp_runtime::traits::Header;
+use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{DispatchResult, DispatchError},
 	decl_error, decl_module, decl_storage,
+	dispatch::{DispatchError, DispatchResult},
 };
 use frame_system::{self as system, ensure_signed};
+use sp_finality_grandpa::{AuthorityId, AuthorityWeight, GRANDPA_AUTHORITIES_KEY};
+use sp_runtime::traits::Header;
 use storage_proof::Error as StorageError;
 
 #[derive(Encode, Decode, Clone, PartialEq)]
@@ -58,12 +58,11 @@ pub struct BridgeInfo<T: Trait> {
 
 impl<T: Trait> BridgeInfo<T> {
 	pub fn new(
-			block_number: &T::BlockNumber,
-			block_hash: &T::Hash,
-			state_root: &T::Hash,
-			validator_set: Vec<(AuthorityId, AuthorityWeight)>,
-		) -> Self
-	{
+		block_number: &T::BlockNumber,
+		block_hash: &T::Hash,
+		state_root: &T::Hash,
+		validator_set: Vec<(AuthorityId, AuthorityWeight)>,
+	) -> Self {
 		// I don't like how this is done, should come back to...
 		BridgeInfo {
 			last_finalized_block_number: *block_number,
@@ -140,11 +139,8 @@ impl<T: Trait> Module<T> {
 		proof: StorageProof,
 		validator_set: &Vec<(AuthorityId, AuthorityWeight)>,
 	) -> DispatchResult {
-
-		let checker = <StorageProofChecker<<T::Hashing as sp_runtime::traits::Hash>::Hasher>>::new(
-			*state_root,
-			proof.clone()
-		);
+		let checker =
+			<StorageProofChecker<<T::Hashing as sp_runtime::traits::Hash>::Hasher>>::new(*state_root, proof.clone());
 
 		let checker = checker.map_err(Self::map_storage_err)?;
 
@@ -152,7 +148,9 @@ impl<T: Trait> Module<T> {
 		// with the stuff we get out of storage via `read_value`
 		let encoded_validator_set = validator_set.encode();
 
-		let c = checker.read_value(GRANDPA_AUTHORITIES_KEY).map_err(Self::map_storage_err)?;
+		let c = checker
+			.read_value(GRANDPA_AUTHORITIES_KEY)
+			.map_err(Self::map_storage_err)?;
 		let actual_validator_set = c.ok_or(Error::<T>::StorageValueUnavailable)?;
 
 		if encoded_validator_set == actual_validator_set {
@@ -182,7 +180,7 @@ impl<T: Trait> Module<T> {
 
 			parent_hash = header.parent_hash();
 			if *parent_hash == ancestor_hash {
-				return Ok(())
+				return Ok(());
 			}
 		}
 
@@ -193,7 +191,8 @@ impl<T: Trait> Module<T> {
 		match e {
 			StorageError::StorageRootMismatch => Error::<T>::StorageRootMismatch,
 			StorageError::StorageValueUnavailable => Error::<T>::StorageValueUnavailable,
-		}.into()
+		}
+		.into()
 	}
 }
 
@@ -201,11 +200,14 @@ impl<T: Trait> Module<T> {
 mod tests {
 	use super::*;
 
-	use sp_core::{Blake2Hasher, H256, Public};
+	use frame_support::{assert_err, assert_ok, impl_outer_origin, parameter_types};
+	use sp_core::{Blake2Hasher, Public, H256};
 	use sp_runtime::{
-		Perbill, traits::{Header as HeaderT, IdentityLookup}, testing::Header, generic::Digest,
+		generic::Digest,
+		testing::Header,
+		traits::{Header as HeaderT, IdentityLookup},
+		Perbill,
 	};
-	use frame_support::{assert_ok, assert_err, impl_outer_origin, parameter_types};
 
 	impl_outer_origin! {
 		pub enum Origin for Test  where system = frame_system {}
@@ -251,9 +253,7 @@ mod tests {
 
 	fn new_test_ext() -> sp_io::TestExternalities {
 		let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		GenesisConfig {
-			num_bridges: 0,
-		}.assimilate_storage(&mut t).unwrap();
+		GenesisConfig { num_bridges: 0 }.assimilate_storage(&mut t).unwrap();
 		t.into()
 	}
 
@@ -273,14 +273,15 @@ mod tests {
 	}
 
 	fn create_dummy_validator_proof(validator_set: Vec<(AuthorityId, AuthorityWeight)>) -> (H256, StorageProof) {
-		use sp_state_machine::{prove_read, backend::Backend, InMemoryBackend};
+		use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
 		let encoded_set = validator_set.encode();
 
 		// construct storage proof
-		let backend = <InMemoryBackend<Blake2Hasher>>::from(vec![
-			(None, vec![(GRANDPA_AUTHORITIES_KEY.to_vec(), Some(encoded_set))]),
-		]);
+		let backend = <InMemoryBackend<Blake2Hasher>>::from(vec![(
+			None,
+			vec![(GRANDPA_AUTHORITIES_KEY.to_vec(), Some(encoded_set))],
+		)]);
 		let root = backend.storage_root(std::iter::empty()).0;
 
 		// Generates a storage read proof
@@ -332,12 +333,11 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			assert_eq!(MockBridge::num_bridges(), 0);
 			dbg!(&test_header);
-			assert_ok!(
-				MockBridge::initialize_bridge(
-					Origin::signed(1),
-					test_header,
-					authorities.clone(),
-					proof,
+			assert_ok!(MockBridge::initialize_bridge(
+				Origin::signed(1),
+				test_header,
+				authorities.clone(),
+				proof,
 			));
 
 			assert_eq!(
@@ -347,7 +347,8 @@ mod tests {
 					last_finalized_block_hash: test_hash,
 					last_finalized_state_root: root,
 					current_validator_set: authorities.clone(),
-				}));
+				})
+			);
 
 			assert_eq!(MockBridge::num_bridges(), 1);
 		});
