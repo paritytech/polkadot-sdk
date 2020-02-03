@@ -23,6 +23,7 @@ use sc_network::construct_simple_protocol;
 use sc_service::{AbstractService, Configuration};
 use sp_consensus::{BlockImport, Environment, Proposer};
 use sp_inherents::InherentDataProviders;
+use sc_cli;
 
 use futures::{future, task::Spawn, FutureExt, TryFutureExt};
 
@@ -57,13 +58,9 @@ macro_rules! new_full_start {
 		>($config)?
 		.with_select_chain(|_config, backend| Ok(sc_client::LongestChain::new(backend.clone())))?
 		.with_transaction_pool(|config, client, _| {
-			let pool_api = sc_transaction_pool::FullChainApi::new(client.clone());
+			let pool_api = Arc::new(sc_transaction_pool::FullChainApi::new(client.clone()));
 			let pool = sc_transaction_pool::BasicPool::new(config, pool_api);
-			let maintainer =
-				sc_transaction_pool::FullBasicPoolMaintainer::new(pool.pool().clone(), client);
-			let maintainable_pool =
-				sp_transaction_pool::MaintainableTransactionPool::new(pool, maintainer);
-			Ok(maintainable_pool)
+			Ok(pool)
 		})?
 		.with_import_queue(|_config, client, _, _| {
 			let import_queue = cumulus_consensus::import_queue::import_queue(
@@ -80,12 +77,11 @@ macro_rules! new_full_start {
 }
 
 /// Run the collator with the given `config`.
-pub fn run_collator<C: Send + Default + 'static, E: crate::cli::IntoExit + Send + 'static>(
-	config: Configuration<C, GenesisConfig>,
-	exit: E,
+pub fn run_collator<E: sc_service::ChainSpecExtension>(
+	config: Configuration<GenesisConfig, E>,
 	key: Arc<polkadot_primitives::parachain::CollatorPair>,
 	polkadot_config: polkadot_collator::Configuration,
-) -> crate::cli::Result<()> {
+) -> Result<(), sc_cli::error::Error> {
 	let (builder, inherent_data_providers) = new_full_start!(config);
 	inherent_data_providers
 		.register_provider(sp_timestamp::InherentDataProvider)
@@ -94,35 +90,31 @@ pub fn run_collator<C: Send + Default + 'static, E: crate::cli::IntoExit + Send 
 	let service = builder
 		.with_network_protocol(|_| Ok(NodeProtocol::new()))?
 		.build()?;
-	let proposer_factory = sc_basic_authority::ProposerFactory {
+	let proposer_factory = sc_basic_authorship::ProposerFactory {
 		client: service.client(),
 		transaction_pool: service.transaction_pool(),
 	};
 
-	let on_exit = service.on_exit();
 	let block_import = service.client();
 
 	let setup_parachain = SetupParachain {
 		service,
 		inherent_data_providers,
 		proposer_factory,
-		exit,
 		block_import,
 	};
 
 	cumulus_collator::run_collator(
 		setup_parachain,
 		crate::PARA_ID,
-		on_exit,
 		key,
 		polkadot_config,
 	)
 }
 
-struct SetupParachain<S, PF, E, BI> {
+struct SetupParachain<S, PF, BI> {
 	service: S,
 	proposer_factory: PF,
-	exit: E,
 	inherent_data_providers: InherentDataProviders,
 	block_import: BI,
 }
@@ -130,10 +122,9 @@ struct SetupParachain<S, PF, E, BI> {
 type TransactionFor<E, Block> =
 	<<E as Environment<Block>>::Proposer as Proposer<Block>>::Transaction;
 
-impl<S, PF, E, BI> cumulus_collator::SetupParachain<Block> for SetupParachain<S, PF, E, BI>
+impl<S, PF, BI> cumulus_collator::SetupParachain<Block> for SetupParachain<S, PF, BI>
 where
 	S: AbstractService,
-	E: Send + crate::cli::IntoExit,
 	PF: Environment<Block> + Send + 'static,
 	BI: BlockImport<Block, Error = sp_consensus::Error, Transaction = TransactionFor<PF, Block>>
 		+ Send
@@ -174,7 +165,7 @@ where
 					future::select(
 						self.service
 							.map_err(|e| error!("Parachain service error: {:?}", e)),
-						future::select(follow, self.exit.into_exit()),
+						follow,
 					)
 					.map(|_| ()),
 				)

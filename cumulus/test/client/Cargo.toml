@@ -11,4 +11,4 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulu
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
-
+sp-test-primitives = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

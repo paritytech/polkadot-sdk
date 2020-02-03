@@ -15,6 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use sc_client::Client;
 use sc_client_api::{Backend, CallExecutor, TransactionFor};
@@ -95,9 +96,10 @@ where
 			post_digests: Vec::new(),
 			body,
 			finalized: false,
+			intermediates: HashMap::new(),
 			justification,
 			auxiliary: Vec::new(),
-			fork_choice: ForkChoiceStrategy::LongestChain,
+			fork_choice: Some(ForkChoiceStrategy::LongestChain),
 			allow_missing_state: false,
 			import_existing: false,
 			storage_changes: None,

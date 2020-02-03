@@ -47,7 +47,6 @@ fn call_validate_block(
 	.encode();
 
 	call_in_wasm::<
-		_,
 		(
 			sp_io::SubstrateHostFunctions,
 			sc_executor::deprecated_host_interface::SubstrateExternals,

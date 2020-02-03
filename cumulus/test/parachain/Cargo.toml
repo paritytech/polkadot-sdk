@@ -38,7 +38,7 @@ sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-client = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sc-basic-authority = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 
 # Cumulus dependencies
@@ -49,6 +49,7 @@ cumulus-collator = { path = "../../collator" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 
 [build-dependencies]
 vergen = '3.0.4'

@@ -24,6 +24,7 @@ use sp_consensus::{
 };
 use sp_inherents::InherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sc_cli;
 
 use polkadot_collator::{
 	BuildParachainContext, InvalidHead, Network as CollatorNetwork, ParachainContext,
@@ -43,7 +44,9 @@ use log::{error, trace};
 
 use futures::{task::Spawn, Future, future};
 
-use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration, pin::Pin};
+use std::{
+	fmt::Debug, marker::PhantomData, sync::Arc, time::Duration, pin::Pin, collections::HashMap,
+};
 
 use parking_lot::Mutex;
 
@@ -207,11 +210,12 @@ where
 				post_digests: vec![],
 				body: Some(b.extrinsics().to_vec()),
 				finalized: false,
+				intermediates: HashMap::new(),
 				auxiliary: vec![], // block-weight is written in block import.
 				// TODO: block-import handles fork choice and this shouldn't even have the
 				// option to specify one.
 				// https://github.com/paritytech/substrate/issues/3623
-				fork_choice: ForkChoiceStrategy::LongestChain,
+				fork_choice: Some(ForkChoiceStrategy::LongestChain),
 				allow_missing_state: false,
 				import_existing: false,
 				storage_changes: Some(storage_changes),
@@ -342,10 +346,9 @@ pub trait SetupParachain<Block: BlockT>: Send {
 }
 
 /// Run a collator with the given proposer factory.
-pub fn run_collator<Block, SP, E>(
+pub fn run_collator<Block, SP>(
 	setup_parachain: SP,
 	para_id: ParaId,
-	exit: E,
 	key: Arc<CollatorPair>,
 	configuration: polkadot_collator::Configuration,
 ) -> Result<(), sc_cli::error::Error>
@@ -353,9 +356,9 @@ where
 	Block: BlockT,
 	SP: SetupParachain<Block> + Send + 'static,
 	<<SP as SetupParachain<Block>>::ProposerFactory as Environment<Block>>::Proposer: Send,
-	E: Future<Output = ()> + Unpin + Send + Clone + Sync + 'static,
 {
 	let builder = CollatorBuilder::new(setup_parachain);
+	let exit = future::pending(); // TODO to delete
 	polkadot_collator::run_collator(builder, para_id, exit, key, configuration)
 }
 
@@ -518,7 +521,7 @@ mod tests {
 		let context = builder
 			.build::<_, _, polkadot_service::polkadot_runtime::RuntimeApi, _, _>(
 				Arc::new(
-					substrate_test_client::TestClientBuilder::<_, _, ()>::default()
+					substrate_test_client::TestClientBuilder::<_, _, _, ()>::default()
 						.build_with_native_executor(Some(NativeExecutor::<
 							polkadot_service::PolkadotExecutor,
 						>::new(Interpreted, None)))

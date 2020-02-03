@@ -9,7 +9,7 @@ edition = "2018"
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
 memory-db = { version = "0.18.0", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
-trie-db = { version = "0.18.0", default-features = false }
+trie-db = { version = "0.19.2", default-features = false }
 hashbrown = "0.6.1"
 
 # Substrate dependencies
