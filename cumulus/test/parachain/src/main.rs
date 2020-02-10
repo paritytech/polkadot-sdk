@@ -19,7 +19,6 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-use itertools::Itertools;
 use polkadot_primitives::parachain::Id as ParaId;
 
 mod chain_spec;

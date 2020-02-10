@@ -17,12 +17,11 @@
 use crate::chain_spec;
 use crate::cli::{Cli, PolkadotCli, Subcommand};
 
-use std::{path::PathBuf, sync::Arc};
-use futures::{future::Map, FutureExt};
+use std::sync::Arc;
 
 use parachain_runtime::Block;
 
-use sc_cli::{error::{self, Result}, VersionInfo};
+use sc_cli::{error, VersionInfo};
 use sc_client::genesis;
 use sc_service::{Configuration, Roles as ServiceRoles};
 use sp_core::hexdisplay::HexDisplay;
@@ -34,14 +33,17 @@ use polkadot_service::ChainSpec as ChainSpecPolkadot;
 
 use codec::Encode;
 use log::info;
-use structopt::StructOpt;
+
+const DEFAULT_POLKADOT_RPC_HTTP: &'static str = "127.0.0.1:9934";
+const DEFAULT_POLKADOT_RPC_WS: &'static str = "127.0.0.1:9945";
+const DEFAULT_POLKADOT_GRAFANA_PORT: &'static str = "127.0.0.1:9956";
 
 /// Parse command line arguments into service configuration.
 pub fn run(version: VersionInfo) -> error::Result<()> {
 	let opt: Cli = sc_cli::from_args(&version);
 
-	let mut config = sc_service::Configuration::default();
-	config.impl_name = "cumulus-test-parachain-collator";
+	let mut config = sc_service::Configuration::new(&version);
+	let mut polkadot_config = Configuration::new(&version);
 
 	match opt.subcommand {
 		Some(Subcommand::Base(subcommand)) => sc_cli::run_subcommand(
@@ -78,7 +80,13 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 			Ok(())
 		},
 		None => {
-			sc_cli::init(&mut config, load_spec, &opt.run.shared_params, &version)?;
+			sc_cli::init(&opt.run.shared_params, &version)?;
+			sc_cli::load_spec(&mut config, &opt.run.shared_params, load_spec)?;
+			sc_cli::update_config_for_running_node(
+				&mut config,
+				opt.run,
+				&version,
+			)?;
 
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
@@ -91,43 +99,24 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 			// TODO
 			let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
 
-			let mut polkadot_config = Configuration::default();
-			polkadot_config.impl_name = "cumulus-test-parachain-collator";
 			polkadot_config.config_dir = config.in_chain_config_dir("polkadot");
-
-			// TODO: parse_address is private
-			/*
-			let rpc_interface: &str = interface_str(opt.run.rpc_external, opt.run.unsafe_rpc_external, opt.run.validator)?;
-			config.rpc_http = Some(parse_address(&format!("{}:{}", rpc_interface, 9934), opt.run.rpc_port)?);
-			let ws_interface: &str = interface_str(opt.run.ws_external, opt.run.unsafe_ws_external, opt.run.validator)?;
-			config.rpc_ws = Some(parse_address(&format!("{}:{}", ws_interface, 9945), opt.run.ws_port)?);
-			let grafana_interface: &str = if opt.run.grafana_external { "0.0.0.0" } else { "127.0.0.1" };
-			config.grafana_port = Some(
-				parse_address(&format!("{}:{}", grafana_interface, 9956), opt.run.grafana_port)?
-			);
-			*/
 
 			let polkadot_opt: PolkadotCli = sc_cli::from_iter(opt.relaychain_args, &version);
 
-			// TODO
-			polkadot_config.chain_spec = Some(sc_cli::load_spec(&polkadot_opt.run.shared_params, load_spec_polkadot)?);
-			// TODO: base_path is private
-			//polkadot_config.config_dir = Some(sc_cli::base_path(&polkadot_opt.run.shared_params, &version));
-			polkadot_config.impl_commit = version.commit;
-			polkadot_config.impl_version = version.version;
+			polkadot_config.rpc_http = Some(DEFAULT_POLKADOT_RPC_HTTP.parse().unwrap());
+			polkadot_config.rpc_ws = Some(DEFAULT_POLKADOT_RPC_WS.parse().unwrap());
+			polkadot_config.grafana_port = Some(DEFAULT_POLKADOT_GRAFANA_PORT.parse().unwrap());
 
-			// TODO
-			if let Some(ref config_dir) = polkadot_config.config_dir {
-				polkadot_config.database = sc_service::config::DatabaseConfig::Path {
-					cache_size: Default::default(),
-					path: config_dir.join("db"),
-				};
-			}
-			// TODO
-			polkadot_config.network.boot_nodes = polkadot_config.network.boot_nodes.clone();
-			polkadot_config.telemetry_endpoints = polkadot_config.expect_chain_spec().telemetry_endpoints().clone();
-
-			sc_cli::update_config_for_running_node(&mut polkadot_config, polkadot_opt.run);
+			sc_cli::load_spec(
+				&mut polkadot_config,
+				&polkadot_opt.run.shared_params,
+				load_spec_polkadot,
+			)?;
+			sc_cli::update_config_for_running_node(
+				&mut polkadot_config,
+				polkadot_opt.run,
+				&version,
+			)?;
 
 			match config.roles {
 				ServiceRoles::LIGHT => unimplemented!("Light client not supported!"),

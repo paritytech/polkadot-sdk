@@ -23,7 +23,13 @@ use sc_network::construct_simple_protocol;
 use sc_service::{AbstractService, Configuration};
 use sp_consensus::{BlockImport, Environment, Proposer};
 use sp_inherents::InherentDataProviders;
-use sc_cli;
+use sp_core::crypto::Pair;
+
+use polkadot_collator::build_collator_service;
+use polkadot_primitives::parachain::CollatorPair;
+use polkadot_service::IsKusama;
+
+use cumulus_collator::CollatorBuilder;
 
 use futures::{future, task::Spawn, FutureExt, TryFutureExt};
 
@@ -76,40 +82,87 @@ macro_rules! new_full_start {
 		}};
 }
 
-/// Run the collator with the given `config`.
+/// Run a collator node with the given parachain `Configuration` and relaychain `Configuration`
+///
+/// This function blocks until done.
 pub fn run_collator<E: sc_service::ChainSpecExtension>(
-	config: Configuration<GenesisConfig, E>,
-	key: Arc<polkadot_primitives::parachain::CollatorPair>,
+	mut parachain_config: Configuration<GenesisConfig, E>,
+	key: Arc<CollatorPair>,
 	polkadot_config: polkadot_collator::Configuration,
-) -> Result<(), sc_cli::error::Error> {
-	let (builder, inherent_data_providers) = new_full_start!(config);
-	inherent_data_providers
-		.register_provider(sp_timestamp::InherentDataProvider)
-		.unwrap();
+) -> sc_cli::error::Result<()> {
+	let para_id = crate::PARA_ID;
 
-	let service = builder
-		.with_network_protocol(|_| Ok(NodeProtocol::new()))?
-		.build()?;
-	let proposer_factory = sc_basic_authorship::ProposerFactory {
-		client: service.client(),
-		transaction_pool: service.transaction_pool(),
-	};
+	if polkadot_config.expect_chain_spec().is_kusama() {
+		sc_cli::run_service_until_exit(polkadot_config, |polkadot_config| {
+			parachain_config.task_executor = polkadot_config.task_executor.clone();
 
-	let block_import = service.client();
+			let (builder, inherent_data_providers) = new_full_start!(parachain_config);
+			inherent_data_providers
+				.register_provider(sp_timestamp::InherentDataProvider)
+				.unwrap();
 
-	let setup_parachain = SetupParachain {
-		service,
-		inherent_data_providers,
-		proposer_factory,
-		block_import,
-	};
+			let service = builder
+				.with_network_protocol(|_| Ok(NodeProtocol::new()))?
+				.build()?;
+			let proposer_factory = sc_basic_authorship::ProposerFactory {
+				client: service.client(),
+				transaction_pool: service.transaction_pool(),
+			};
 
-	cumulus_collator::run_collator(
-		setup_parachain,
-		crate::PARA_ID,
-		key,
-		polkadot_config,
-	)
+			let block_import = service.client();
+
+			let setup_parachain = SetupParachain {
+				service,
+				inherent_data_providers,
+				proposer_factory,
+				block_import,
+			};
+
+			let builder = CollatorBuilder::new(setup_parachain);
+
+			build_collator_service(
+				polkadot_service::kusama_new_full(polkadot_config, Some((key.public(), para_id)), None, false, 6000)?,
+				para_id,
+				key,
+				builder,
+			)
+		})
+	} else {
+		sc_cli::run_service_until_exit(polkadot_config, |polkadot_config| {
+			parachain_config.task_executor = polkadot_config.task_executor.clone();
+
+			let (builder, inherent_data_providers) = new_full_start!(parachain_config);
+			inherent_data_providers
+				.register_provider(sp_timestamp::InherentDataProvider)
+				.unwrap();
+
+			let service = builder
+				.with_network_protocol(|_| Ok(NodeProtocol::new()))?
+				.build()?;
+			let proposer_factory = sc_basic_authorship::ProposerFactory {
+				client: service.client(),
+				transaction_pool: service.transaction_pool(),
+			};
+
+			let block_import = service.client();
+
+			let setup_parachain = SetupParachain {
+				service,
+				inherent_data_providers,
+				proposer_factory,
+				block_import,
+			};
+
+			let builder = CollatorBuilder::new(setup_parachain);
+
+			build_collator_service(
+				polkadot_service::polkadot_new_full(polkadot_config, Some((key.public(), para_id)), None, false, 6000)?,
+				para_id,
+				key,
+				builder,
+			)
+		})
+	}
 }
 
 struct SetupParachain<S, PF, BI> {

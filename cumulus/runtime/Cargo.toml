@@ -13,21 +13,21 @@ trie-db = { version = "0.19.2", default-features = false }
 hashbrown = "0.6.1"
 
 # Substrate dependencies
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
-frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
-sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cecton-cumulus-branch" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cecton-cumulus-branch" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cecton-cumulus-branch" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cecton-cumulus-branch" }
+frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cecton-cumulus-branch" }
+sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cecton-cumulus-branch" }
 
 # Polkadot dependencies
-parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false, features = [ "wasm-api" ] }
+parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", branch = "cecton-cumulus-branch", default-features = false, features = [ "wasm-api" ] }
 
 [dev-dependencies]
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "cecton-cumulus-branch" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "cecton-cumulus-branch" }
+sc-executor = { git = "https://github.com/paritytech/substrate", branch = "cecton-cumulus-branch" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "cecton-cumulus-branch" }
 test-client = { package = "cumulus-test-client", path = "../test/client" }
 
 [features]
