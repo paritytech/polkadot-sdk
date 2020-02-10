@@ -400,7 +400,7 @@ impl Storage for BridgeStorage {
 				// ensure that unfinalized headers we want to prune do not have scheduled changes
 				if number > finalized_number {
 					if let Some(ref blocks_at_number) = blocks_at_number {
-						if blocks_at_number.iter().any(|block| ScheduledChanges::exists(block)) {
+						if blocks_at_number.iter().any(|block| ScheduledChanges::contains_key(block)) {
 							HeadersByNumber::insert(number, blocks_at_number);
 							OldestUnprunedBlock::put(number);
 							return;
