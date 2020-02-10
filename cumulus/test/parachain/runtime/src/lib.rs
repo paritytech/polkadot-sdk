@@ -205,8 +205,6 @@ parameter_types! {
 impl pallet_balances::Trait for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
-	/// What to do if an account's free balance gets zeroed.
-	type OnFreeBalanceZero = ();
 	/// What to do if a new account is created.
 	type OnNewAccount = Indices;
 	/// The ubiquitous event type.
@@ -214,7 +212,6 @@ impl pallet_balances::Trait for Runtime {
 	type DustRemoval = ();
 	type TransferPayment = ();
 	type ExistentialDeposit = ExistentialDeposit;
-	type TransferFee = TransferFee;
 	type CreationFee = CreationFee;
 	type OnReapAccount = System;
 }

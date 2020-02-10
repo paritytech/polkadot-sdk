@@ -81,12 +81,8 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 		},
 		None => {
 			sc_cli::init(&opt.run.shared_params, &version)?;
-			sc_cli::load_spec(&mut config, &opt.run.shared_params, load_spec)?;
-			sc_cli::update_config_for_running_node(
-				&mut config,
-				opt.run,
-				&version,
-			)?;
+			sc_cli::init_config(&mut config, &opt.run.shared_params, &version, load_spec)?;
+			sc_cli::update_config_for_running_node(&mut config, opt.run)?;
 
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
@@ -107,16 +103,13 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 			polkadot_config.rpc_ws = Some(DEFAULT_POLKADOT_RPC_WS.parse().unwrap());
 			polkadot_config.grafana_port = Some(DEFAULT_POLKADOT_GRAFANA_PORT.parse().unwrap());
 
-			sc_cli::load_spec(
+			sc_cli::init_config(
 				&mut polkadot_config,
 				&polkadot_opt.run.shared_params,
+				&version,
 				load_spec_polkadot,
 			)?;
-			sc_cli::update_config_for_running_node(
-				&mut polkadot_config,
-				polkadot_opt.run,
-				&version,
-			)?;
+			sc_cli::update_config_for_running_node(&mut polkadot_config, polkadot_opt.run)?;
 
 			match config.roles {
 				ServiceRoles::LIGHT => unimplemented!("Light client not supported!"),

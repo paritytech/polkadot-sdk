@@ -95,7 +95,6 @@ fn testnet_genesis(
 				.cloned()
 				.map(|k| (k, 1 << 60))
 				.collect(),
-			vesting: vec![],
 		}),
 		pallet_sudo: Some(SudoConfig { key: root_key }),
 	}
