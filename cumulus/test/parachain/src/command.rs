@@ -29,6 +29,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
 	BuildStorage,
 };
+use sc_network::config::TransportConfig;
 use polkadot_service::ChainSpec as ChainSpecPolkadot;
 
 use codec::Encode;
@@ -98,6 +99,7 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 			polkadot_config.config_dir = config.in_chain_config_dir("polkadot");
 
 			let polkadot_opt: PolkadotCli = sc_cli::from_iter(opt.relaychain_args, &version);
+			let allow_private_ipv4 = !polkadot_opt.run.network_config.no_private_ipv4;
 
 			polkadot_config.rpc_http = Some(DEFAULT_POLKADOT_RPC_HTTP.parse().unwrap());
 			polkadot_config.rpc_ws = Some(DEFAULT_POLKADOT_RPC_WS.parse().unwrap());
@@ -110,6 +112,14 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 				load_spec_polkadot,
 			)?;
 			sc_cli::update_config_for_running_node(&mut polkadot_config, polkadot_opt.run)?;
+
+			// TODO: we disable mdns for the polkadot node because it prevents the process to exit
+			//       properly. See https://github.com/paritytech/cumulus/issues/57
+			polkadot_config.network.transport = TransportConfig::Normal {
+				enable_mdns: false,
+				allow_private_ipv4,
+				wasm_external_transport: None,
+			};
 
 			match config.roles {
 				ServiceRoles::LIGHT => unimplemented!("Light client not supported!"),

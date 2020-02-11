@@ -21,18 +21,18 @@ mod common;
 
 #[test]
 #[cfg(unix)]
-fn running_the_node_works_and_can_be_interrupted() {
+fn interrupt_polkadot_mdns_issue_test() {
 	use nix::sys::signal::{kill, Signal::{self, SIGINT, SIGTERM}};
 	use nix::unistd::Pid;
 
 	fn run_command_and_kill(signal: Signal) {
-		let _ = fs::remove_dir_all("interrupt_test");
+		let _ = fs::remove_dir_all("interrupt_polkadot_mdns_issue_test");
 		let mut cmd = Command::new(cargo_bin("cumulus-test-parachain-collator"))
-			.args(&["--dev", "-d", "interrupt_test"])
+			.args(&["-d", "interrupt_polkadot_mdns_issue_test"])
 			.spawn()
 			.unwrap();
 
-		thread::sleep(Duration::from_secs(30));
+		thread::sleep(Duration::from_secs(20));
 		assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
 		kill(Pid::from_raw(cmd.id().try_into().unwrap()), signal).unwrap();
 		assert_eq!(
