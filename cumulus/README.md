@@ -36,10 +36,11 @@ A planned Polkadot collator for the parachain.
 
 4. Run the collator:
 
-	`cargo run --release -p cumulus-test-parachain-collator -- --base-path cumulus_collator_path --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/PEER_ID --bootnodes /ip4/127.0.0.1/tcp/50666/p2p/PEER_ID`
+	`cargo run --release -p cumulus-test-parachain-collator -- --base-path cumulus_collator_path -- --bootnodes=/ip4/127.0.0.1/tcp/30333/p2p/PEER_ID_${NAME} --bootnodes=/ip4/127.0.0.1/tcp/50666/p2p/PEER_ID_${NAME}`
 
 	`PEER_ID_${NAME}` needs to be replaced with the peer id of the polkadot validator that uses `${NAME}`
-	as authority.
+	as authority. The `--` after `--base-path cumulus_collator_path` is important, it tells the CLI to pass these arguments
+	to the relay chain node that is running inside of the collator.
 
 5. Open `https://polkadot.js.org/apps/#/sudo` and register the parachain by calling `Registrar > RegisterPara`
 
