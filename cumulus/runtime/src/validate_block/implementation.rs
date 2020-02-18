@@ -143,22 +143,6 @@ impl<B: BlockT> WitnessStorage<B> {
 	}
 }
 
-/// TODO: `TrieError` should implement `Debug` on `no_std`
-fn unwrap_trie_error<R, T, E>(result: Result<R, Box<trie_db::TrieError<T, E>>>) -> R {
-	match result {
-		Ok(r) => r,
-		Err(error) => match *error {
-			trie_db::TrieError::InvalidStateRoot(_) => panic!("trie_db: Invalid state root"),
-			trie_db::TrieError::IncompleteDatabase(_) => panic!("trie_db: IncompleteDatabase"),
-			trie_db::TrieError::DecoderError(_, _) => panic!("trie_db: DecodeError"),
-			trie_db::TrieError::InvalidHash(_, _) => panic!("trie_db: InvalidHash"),
-			trie_db::TrieError::ValueAtIncompleteKey(_, _) => {
-				panic!("trie_db: ValueAtIncompleteKey")
-			}
-		},
-	}
-}
-
 impl<B: BlockT> Storage for WitnessStorage<B> {
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
 		self.overlay
@@ -184,11 +168,11 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 	}
 
 	fn storage_root(&mut self) -> Vec<u8> {
-		let root = unwrap_trie_error(delta_trie_root::<Layout<HasherFor<B>>, _, _, _, _>(
+		let root = delta_trie_root::<Layout<HasherFor<B>>, _, _, _, _>(
 			&mut self.witness_data,
 			self.storage_root.clone(),
 			self.overlay.drain(),
-		));
+		).expect("Calculates storage root");
 
 		root.encode()
 	}
@@ -206,11 +190,11 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 			Err(_) => panic!(),
 		};
 
-		let mut iter = unwrap_trie_error(trie.iter());
-		unwrap_trie_error(iter.seek(prefix));
+		let mut iter = trie.iter().expect("Creates trie iterator");
+		iter.seek(prefix).expect("Seek trie iterator");
 
 		for x in iter {
-			let (key, _) = unwrap_trie_error(x);
+			let (key, _) = x.expect("Iterating trie iterator");
 
 			if !key.starts_with(prefix) {
 				break;
