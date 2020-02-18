@@ -98,7 +98,10 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 
 			polkadot_config.config_dir = config.in_chain_config_dir("polkadot");
 
-			let polkadot_opt: PolkadotCli = sc_cli::from_iter(opt.relaychain_args, &version);
+			let polkadot_opt: PolkadotCli = sc_cli::from_iter(
+				[version.executable_name.to_string()].iter().chain(opt.relaychain_args.iter()),
+				&version,
+			);
 			let allow_private_ipv4 = !polkadot_opt.run.network_config.no_private_ipv4;
 
 			polkadot_config.rpc_http = Some(DEFAULT_POLKADOT_RPC_HTTP.parse().unwrap());
