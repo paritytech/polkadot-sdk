@@ -20,7 +20,7 @@ A planned Polkadot collator for the parachain.
 
 ## Running a collator
 
-1. Checkout polkadot at `bkchr-cumulus-branch`.
+1. Checkout polkadot at `cumulus-branch`.
 
 2. Run `Alice` and `Bob`:
 
