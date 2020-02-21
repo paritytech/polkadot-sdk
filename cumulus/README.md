@@ -20,7 +20,7 @@ A planned Polkadot collator for the parachain.
 
 ## Running a collator
 
-1. Checkout polkadot at `cumulus-branch`.
+1. Checkout polkadot at `96f5dc510ef770fd5c5ab57a90565bb5819bbbea`.
 
 2. Run `Alice` and `Bob`:
 
@@ -56,3 +56,39 @@ A planned Polkadot collator for the parachain.
 	them to the relay chain.
 
 6. Now the `collator` should build blocks and the relay-chain should include them. You can check that the `parachain-header` for parachain `100` is changing.
+
+### Running the collator automatically
+
+To simplify the above process, you can run steps 1-5 above automatically:
+
+```sh
+export BRANCH=96f5dc510ef770fd5c5ab57a90565bb5819bbbea
+scripts/build_polkadot.sh
+scripts/run_collator.sh
+```
+
+This will churn for several minutes, but should end with docker reporting that several containers have successfully been brought up.
+
+To run step 6, first set up an alias which gives you quick access to the polkadot-js CLI:
+
+```sh
+docker build -f docker/parachain-registrar.dockerfile --target pjs -t parachain-registrar:pjs .
+alias pjs='docker run --rm --net cumulus_testing_net parachain-registrar:pjs --ws ws://172.28.1.1:9944'
+```
+
+Those steps should complete very quickly. At that point, you can do things like:
+
+```sh
+$ pjs query.parachains.heads 100
+{
+  "heads": "0xe1efbf8cc2e1304da927986f4cd6964ce0888ce3995948bf71fe427b1a9d39b02101d2dac9c5342d7e8c4f4de2f5277ef860b3a518c1cd823b9a8cee175dce11bf7f57c5016e8a60a6cec16244b2cbf81a67a1dc7a825c288fc694997bc70e2d456400"
+}
+```
+
+The collator includes its own health check, which you can inspect with
+
+```sh
+docker inspect --format='{{json .State.Health}}' cumulus_collator_1
+```
+
+The check runs every 5 minutes, and takes about a minute to complete each time. Most of that time is spent sleeping; it remains a very lightweight process.
