@@ -22,7 +22,7 @@ use sp_blockchain::Error as ClientError;
 use sp_consensus::block_validation::{BlockAnnounceValidator, Validation};
 use sp_runtime::traits::Block as BlockT;
 
-use polkadot_network::gossip::{GossipMessage, GossipStatement};
+use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
 use polkadot_primitives::parachain::ValidatorId;
 use polkadot_statement_table::{SignedStatement, Statement};
 use polkadot_validation::check_statement;

@@ -169,18 +169,20 @@ impl frame_system::Trait for Runtime {
 	type Version = Version;
 	/// Converts a module to an index of this module in the runtime.
 	type ModuleToIndex = ModuleToIndex;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type OnNewAccount = ();
+	type OnReapAccount = Balances;
+}
+
+parameter_types! {
+	pub const IndexDeposit: Balance = 1;
 }
 
 impl pallet_indices::Trait for Runtime {
-	/// The type for recording indexing into the account enumeration. If this ever overflows, there
-	/// will be problems!
 	type AccountIndex = u32;
-	/// Use the standard means of resolving an index hint from an id.
-	type ResolveHint = pallet_indices::SimpleResolveHint<Self::AccountId, Self::AccountIndex>;
-	/// Determine whether an account is dead.
-	type IsDeadAccount = Balances;
-	/// The ubiquitous event type.
 	type Event = Event;
+	type Currency = Balances;
+	type Deposit = IndexDeposit;
 }
 
 parameter_types! {
@@ -205,15 +207,11 @@ parameter_types! {
 impl pallet_balances::Trait for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
-	/// What to do if a new account is created.
-	type OnNewAccount = Indices;
 	/// The ubiquitous event type.
 	type Event = Event;
 	type DustRemoval = ();
-	type TransferPayment = ();
 	type ExistentialDeposit = ExistentialDeposit;
-	type CreationFee = CreationFee;
-	type OnReapAccount = System;
+	type AccountStore = System;
 }
 
 impl pallet_transaction_payment::Trait for Runtime {
@@ -226,8 +224,8 @@ impl pallet_transaction_payment::Trait for Runtime {
 }
 
 impl pallet_sudo::Trait for Runtime {
+	type Call = Call;
 	type Event = Event;
-	type Proposal = Call;
 }
 
 construct_runtime! {
@@ -236,11 +234,11 @@ construct_runtime! {
 		NodeBlock = opaque::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
-		System: frame_system::{Module, Call, Storage, Config, Event},
+		System: frame_system::{Module, Call, Storage, Config, Event<T>},
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-		Indices: pallet_indices,
-		Balances: pallet_balances,
-		Sudo: pallet_sudo,
+		Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>},
+		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+		Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 	}
 }
@@ -303,6 +301,10 @@ impl_runtime_apis! {
 			extrinsic: <Block as BlockT>::Extrinsic,
 		) -> ApplyExtrinsicResult {
 			Executive::apply_extrinsic(extrinsic)
+		}
+
+		fn apply_trusted_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
+			Executive::apply_trusted_extrinsic(extrinsic)
 		}
 
 		fn finalize_block() -> <Block as BlockT>::Header {

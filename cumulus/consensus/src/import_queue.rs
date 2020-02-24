@@ -15,7 +15,6 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::sync::Arc;
-use std::collections::HashMap;
 
 use sc_client::Client;
 use sc_client_api::{Backend, CallExecutor, TransactionFor};
@@ -90,20 +89,12 @@ where
 			body = Some(inner_body);
 		}
 
-		let block_import_params = BlockImportParams {
-			origin,
-			header,
-			post_digests: Vec::new(),
-			body,
-			finalized: false,
-			intermediates: HashMap::new(),
-			justification,
-			auxiliary: Vec::new(),
-			fork_choice: Some(ForkChoiceStrategy::LongestChain),
-			allow_missing_state: false,
-			import_existing: false,
-			storage_changes: None,
-		};
+		let post_hash = Some(header.hash());
+		let mut block_import_params = BlockImportParams::new(origin, header);
+		block_import_params.body = body;
+		block_import_params.justification = justification;
+		block_import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		block_import_params.post_hash = post_hash;
 
 		Ok((block_import_params, None))
 	}

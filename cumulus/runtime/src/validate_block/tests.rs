@@ -42,7 +42,6 @@ fn call_validate_block(
 	let params = ValidationParams {
 		block_data: block_data.encode(),
 		parent_head: parent_head.encode(),
-		ingress: Vec::new(),
 	}
 	.encode();
 

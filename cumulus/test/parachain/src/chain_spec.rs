@@ -87,7 +87,7 @@ fn testnet_genesis(
 			changes_trie_config: Default::default(),
 		}),
 		pallet_indices: Some(IndicesConfig {
-			ids: endowed_accounts.clone(),
+			indices: vec![],
 		}),
 		pallet_balances: Some(BalancesConfig {
 			balances: endowed_accounts

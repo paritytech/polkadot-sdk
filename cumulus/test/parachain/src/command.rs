@@ -122,6 +122,7 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 				enable_mdns: false,
 				allow_private_ipv4,
 				wasm_external_transport: None,
+				use_yamux_flow_control: false,
 			};
 
 			match config.roles {
