@@ -18,6 +18,7 @@
 
 use cumulus_runtime::ParachainBlockData;
 
+use sc_client::Client;
 use sp_consensus::{
 	BlockImport, BlockImportParams, BlockOrigin, Environment, Error as ConsensusError,
 	ForkChoiceStrategy, Proposal, Proposer, RecordProof,
@@ -30,14 +31,15 @@ use polkadot_collator::{
 	PolkadotClient,
 };
 use polkadot_primitives::{
-	parachain::{self, BlockData, Status as ParachainStatus}, Block as PBlock, Hash as PHash,
+	parachain::{self, BlockData, Status as ParachainStatus, Id as ParaId}, Block as PBlock,
+	Hash as PHash,
 };
 
 use codec::{Decode, Encode};
 
 use log::{error, trace};
 
-use futures::{task::Spawn, Future, future};
+use futures::{task::Spawn, Future, future, FutureExt};
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration, pin::Pin};
 
@@ -231,30 +233,57 @@ where
 }
 
 /// Implements `BuildParachainContext` to build a collator instance.
-pub struct CollatorBuilder<Block, SP> {
-	setup_parachain: SP,
+pub struct CollatorBuilder<Block: BlockT, PF, BI, Backend, Executor, Runtime> {
+	proposer_factory: PF,
+	inherent_data_providers: InherentDataProviders,
+	block_import: BI,
+	para_id: ParaId,
+	client: Arc<Client<Backend, Executor, Block, Runtime>>,
 	_marker: PhantomData<Block>,
 }
 
-impl<Block, SP> CollatorBuilder<Block, SP> {
+impl<Block: BlockT, PF, BI, Backend, Executor, Runtime>
+	CollatorBuilder<Block, PF, BI, Backend, Executor, Runtime>
+{
 	/// Create a new instance of self.
-	pub fn new(setup_parachain: SP) -> Self {
+	pub fn new(
+		proposer_factory: PF,
+		inherent_data_providers: InherentDataProviders,
+		block_import: BI,
+		para_id: ParaId,
+		client: Arc<Client<Backend, Executor, Block, Runtime>>,
+	) -> Self {
 		Self {
-			setup_parachain,
+			proposer_factory,
+			inherent_data_providers,
+			block_import,
+			para_id,
+			client,
 			_marker: PhantomData,
 		}
 	}
 }
 
-impl<Block: BlockT, SP: SetupParachain<Block>> BuildParachainContext for CollatorBuilder<Block, SP>
+type TransactionFor<E, Block> =
+	<<E as Environment<Block>>::Proposer as Proposer<Block>>::Transaction;
+
+impl<Block: BlockT, PF, BI, Backend, Executor, Runtime> BuildParachainContext
+	for CollatorBuilder<Block, PF, BI, Backend, Executor, Runtime>
 where
-	<SP::ProposerFactory as Environment<Block>>::Proposer: Send,
+	PF: Environment<Block> + Send + 'static,
+	BI: BlockImport<Block, Error = sp_consensus::Error, Transaction = TransactionFor<PF, Block>>
+		+ Send
+		+ Sync
+		+ 'static,
+	Backend: sc_client_api::Backend<Block> + 'static,
+	Executor: sc_client_api::CallExecutor<Block> + Send + Sync + 'static,
+	Runtime: Send + Sync + 'static,
 {
-	type ParachainContext = Collator<Block, SP::ProposerFactory, SP::BlockImport>;
+	type ParachainContext = Collator<Block, PF, BI>;
 
 	fn build<B, E, R, Spawner, Extrinsic>(
 		self,
-		client: Arc<PolkadotClient<B, E, R>>,
+		polkadot_client: Arc<PolkadotClient<B, E, R>>,
 		spawner: Spawner,
 		network: Arc<dyn CollatorNetwork>,
 	) -> Result<Self::ParachainContext, ()>
@@ -273,51 +302,30 @@ where
 		// Rust bug: https://github.com/rust-lang/rust/issues/24159
 		B::State: sp_api::StateBackend<sp_core::Blake2Hasher>,
 	{
-		let (proposer_factory, block_import, inherent_data_providers) = self
-			.setup_parachain
-			.setup_parachain(client, spawner)
-			.map_err(|e| error!("Error setting up the parachain: {}", e))?;
+		let follow =
+			match cumulus_consensus::follow_polkadot(self.para_id, self.client, polkadot_client) {
+				Ok(follow) => follow,
+				Err(e) => {
+					return Err(error!("Could not start following polkadot: {:?}", e));
+				}
+			};
+
+		spawner
+			.spawn_obj(
+				Box::new(
+					follow.map(|_| ()),
+				)
+				.into(),
+			)
+			.map_err(|_| error!("Could not spawn parachain server!"))?;
 
 		Ok(Collator::new(
-			proposer_factory,
-			inherent_data_providers,
+			self.proposer_factory,
+			self.inherent_data_providers,
 			network,
-			block_import,
+			self.block_import,
 		))
 	}
-}
-
-/// Something that can setup a parachain.
-pub trait SetupParachain<Block: BlockT>: Send {
-	/// The proposer factory of the parachain to build blocks.
-	type ProposerFactory: Environment<Block> + Send + 'static;
-	/// The block import for importing the blocks build by the collator.
-	type BlockImport: BlockImport<
-			Block,
-			Error = ConsensusError,
-			Transaction = <<Self::ProposerFactory as Environment<Block>>::Proposer as Proposer<
-				Block,
-			>>::Transaction,
-		> + Send
-		+ Sync
-		+ 'static;
-
-	/// Setup the parachain.
-	fn setup_parachain<P, SP>(
-		self,
-		polkadot_client: P,
-		spawner: SP,
-	) -> Result<
-		(
-			Self::ProposerFactory,
-			Self::BlockImport,
-			InherentDataProviders,
-		),
-		String,
-	>
-	where
-		P: cumulus_consensus::PolkadotClient,
-		SP: Spawn + Clone + Send + Sync + 'static;
 }
 
 #[cfg(test)]
@@ -339,7 +347,7 @@ mod tests {
 	use substrate_test_client::{NativeExecutor, WasmExecutionMethod::Interpreted};
 
 	use test_client::{
-		Client, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+		DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
 	use test_runtime::{Block, Header};
 
@@ -433,38 +441,19 @@ mod tests {
 		}
 	}
 
-	struct DummySetup;
-
-	impl SetupParachain<Block> for DummySetup {
-		type ProposerFactory = DummyFactory;
-		type BlockImport = Client;
-
-		fn setup_parachain<P, SP>(
-			self,
-			_: P,
-			_: SP,
-		) -> Result<
-			(
-				Self::ProposerFactory,
-				Self::BlockImport,
-				InherentDataProviders,
-			),
-			String,
-		> {
-			Ok((
-				DummyFactory,
-				TestClientBuilder::new().build(),
-				InherentDataProviders::default(),
-			))
-		}
-	}
-
 	#[test]
 	fn collates_produces_a_block() {
+		let id = ParaId::from(100);
 		let _ = env_logger::try_init();
 		let spawner = futures::executor::ThreadPool::new().unwrap();
 
-		let builder = CollatorBuilder::new(DummySetup);
+		let builder = CollatorBuilder::new(
+			DummyFactory,
+			InherentDataProviders::default(),
+			TestClientBuilder::new().build(),
+			id,
+			Arc::new(TestClientBuilder::new().build()),
+		);
 		let context = builder
 			.build::<_, _, polkadot_service::polkadot_runtime::RuntimeApi, _, _>(
 				Arc::new(
@@ -479,7 +468,6 @@ mod tests {
 			)
 			.expect("Creates parachain context");
 
-		let id = ParaId::from(100);
 		let header = Header::new(
 			0,
 			Default::default(),
