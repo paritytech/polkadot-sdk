@@ -1,0 +1,108 @@
+[package]
+name = "bridge-node"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+build = "build.rs"
+homepage = "https://substrate.dev"
+repository = "https://github.com/paritytech/parity-bridges-common/"
+
+[[bin]]
+name = "bridge-node"
+
+[dependencies]
+futures = "0.3.1"
+log = "0.4.8"
+structopt = "0.3.8"
+bridge-node-runtime = { version = "0.1.0", path = "../runtime" }
+
+[dependencies.sc-cli]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-core]
+version = "2.0.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sc-executor]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sc-service]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-inherents]
+version = "2.0.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sc-transaction-pool]
+version = "2.0.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-transaction-pool]
+version = "2.0.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sc-network]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sc-consensus-aura]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-consensus-aura]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-consensus]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.grandpa]
+package = "sc-finality-grandpa"
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.grandpa-primitives]
+package = "sp-finality-grandpa"
+version = "2.0.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sc-client]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-runtime]
+version = "2.0.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sc-basic-authorship]
+version = "0.8.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[build-dependencies]
+vergen = "3.0.4"
+
+[build-dependencies.build-script-utils]
+package = "substrate-build-script-utils"
+version = "2.0.0-alpha.2"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
