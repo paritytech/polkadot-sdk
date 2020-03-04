@@ -1,0 +1,187 @@
+[package]
+name = "bridge-node-runtime"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+homepage = "https://substrate.dev"
+repository = "https://github.com/paritytech/parity-bridges-common/"
+
+[dependencies.codec]
+package = "parity-scale-codec"
+version = "1.0.0"
+default-features = false
+features = ["derive"]
+
+[dependencies.serde]
+version = "1.0.101"
+optional = true
+features = ["derive"]
+
+# Substrate Dependencies
+[dependencies.pallet-aura]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.pallet-balances]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.frame-support]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.pallet-grandpa]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.pallet-randomness-collective-flip]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.pallet-sudo]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.frame-system]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.pallet-timestamp]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.pallet-transaction-payment]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.frame-executive]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+# Substrate Primitives
+[dependencies.sp-api]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-block-builder]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-consensus-aura]
+version = "0.8.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-core]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-inherents]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-io]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-offchain]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-runtime]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-session]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-std]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-transaction-pool]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-version]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[build-dependencies.wasm-builder-runner]
+version = "1.0.5"
+package = "substrate-wasm-builder-runner"
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[features]
+default = ["std"]
+std = [
+	"pallet-aura/std",
+	"pallet-balances/std",
+	"codec/std",
+	"frame-executive/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-grandpa/std",
+	"pallet-randomness-collective-flip/std",
+	"serde",
+	"sp-api/std",
+	"sp-block-builder/std",
+	"sp-consensus-aura/std",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-io/std",
+	"sp-offchain/std",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-std/std",
+	"sp-transaction-pool/std",
+	"sp-version/std",
+	"pallet-sudo/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment/std",
+]
