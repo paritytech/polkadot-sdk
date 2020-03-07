@@ -1,20 +1,36 @@
-// Copyright 2017-2019 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Parity Bridges Common is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Parity Bridges Common is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Logic for checking Substrate storage proofs.
+// Copyright 2017-2019 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
+
+// Parity Bridges Common is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Parity Bridges Common is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Logic for checking Parity Bridges Common storage proofs.
 
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_runtime::RuntimeDebug;
