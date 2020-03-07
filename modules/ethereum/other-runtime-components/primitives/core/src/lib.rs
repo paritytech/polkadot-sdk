@@ -1,20 +1,36 @@
-// Copyright 2017-2020 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Parity Bridges Common is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Parity Bridges Common is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Shareable Substrate types.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
+
+// Parity Bridges Common is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Parity Bridges Common is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Shareable Parity Bridges Common types.
 
 #![warn(missing_docs)]
 
@@ -291,7 +307,7 @@ impl From<LogLevel> for log::Level {
 
 /// Encodes the given value into a buffer and returns the pointer and the length as a single `u64`.
 ///
-/// When Substrate calls into Wasm it expects a fixed signature for functions exported
+/// When Parity Bridges Common calls into Wasm it expects a fixed signature for functions exported
 /// from the Wasm blob. The return value of this signature is always a `u64`.
 /// This `u64` stores the pointer to the encoded return value and the length of this encoded value.
 /// The low `32bits` are reserved for the pointer, followed by `32bit` for the length.

@@ -1,20 +1,36 @@
-// Copyright 2017-2020 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Parity Bridges Common is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Parity Bridges Common is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! This is part of the Substrate runtime.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
+
+// Parity Bridges Common is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Parity Bridges Common is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+
+//! This is part of the Parity Bridges Common runtime.
 
 #![warn(missing_docs)]
 
@@ -23,9 +39,9 @@
 #![cfg_attr(not(feature = "std"), feature(core_intrinsics))]
 
 #![cfg_attr(feature = "std",
-   doc = "Substrate runtime standard library as compiled when linked with Rust's standard library.")]
+   doc = "Parity Bridges Common runtime standard library as compiled when linked with Rust's standard library.")]
 #![cfg_attr(not(feature = "std"),
-   doc = "Substrate's runtime standard library as compiled without Rust's standard library.")]
+   doc = "Parity Bridges Common's runtime standard library as compiled without Rust's standard library.")]
 
 use sp_std::vec::Vec;
 
@@ -838,7 +854,7 @@ pub trait Sandbox {
 	}
 }
 
-/// Allocator used by Substrate when executing the Wasm runtime.
+/// Allocator used by Parity Bridges Common when executing the Wasm runtime.
 #[cfg(not(feature = "std"))]
 struct WasmAllocator;
 
@@ -888,11 +904,11 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 #[cfg(feature = "std")]
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher, u64>;
 
-/// The host functions Substrate provides for the Wasm runtime environment.
+/// The host functions Parity Bridges Common provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
 #[cfg(feature = "std")]
-pub type SubstrateHostFunctions = (
+pub type Parity Bridges CommonHostFunctions = (
 	storage::HostFunctions,
 	misc::HostFunctions,
 	offchain::HostFunctions,
