@@ -31,7 +31,7 @@ use polkadot_collator::{
 	PolkadotClient,
 };
 use polkadot_primitives::{
-	parachain::{self, BlockData, Status as ParachainStatus, Id as ParaId}, Block as PBlock,
+	parachain::{self, BlockData, LocalValidationData, Id as ParaId}, Block as PBlock,
 	Hash as PHash,
 };
 
@@ -65,14 +65,14 @@ impl<Block, PF, BI> Collator<Block, PF, BI> {
 	fn new(
 		proposer_factory: PF,
 		inherent_data_providers: InherentDataProviders,
-		collator_network: Arc<dyn CollatorNetwork>,
+		collator_network: impl CollatorNetwork + Clone + 'static,
 		block_import: BI,
 	) -> Self {
 		Self {
 			proposer_factory: Arc::new(Mutex::new(proposer_factory)),
 			inherent_data_providers,
 			_phantom: PhantomData,
-			collator_network,
+			collator_network: Arc::new(collator_network),
 			block_import: Arc::new(Mutex::new(block_import)),
 		}
 	}
@@ -111,7 +111,7 @@ where
 	fn produce_candidate(
 		&mut self,
 		_relay_chain_parent: PHash,
-		status: ParachainStatus,
+		status: LocalValidationData,
 	) -> Self::ProduceCandidate {
 		let factory = self.proposer_factory.clone();
 		let inherent_providers = self.inherent_data_providers.clone();
@@ -119,7 +119,7 @@ where
 
 		trace!(target: "cumulus-collator", "Producing candidate");
 
-		let last_head = match HeadData::<Block>::decode(&mut &status.head_data.0[..]) {
+		let last_head = match HeadData::<Block>::decode(&mut &status.parent_head.0[..]) {
 			Ok(x) => x,
 			Err(e) => {
 				error!(target: "cumulus-collator", "Could not decode the head data: {:?}", e);
@@ -285,7 +285,7 @@ where
 		self,
 		polkadot_client: Arc<PolkadotClient<B, E, R>>,
 		spawner: Spawner,
-		network: Arc<dyn CollatorNetwork>,
+		network: impl CollatorNetwork + Clone + 'static,
 	) -> Result<Self::ParachainContext, ()>
 	where
 		PolkadotClient<B, E, R>: sp_api::ProvideRuntimeApi<PBlock>,
@@ -296,11 +296,11 @@ where
 		Extrinsic: codec::Codec + Send + Sync + 'static,
 		<<PolkadotClient<B, E, R> as sp_api::ProvideRuntimeApi<PBlock>>::Api as sp_api::ApiExt<
 			PBlock,
-		>>::StateBackend: sp_api::StateBackend<sp_core::Blake2Hasher>,
+		>>::StateBackend: sp_api::StateBackend<sp_runtime::traits::BlakeTwo256>,
 		R: Send + Sync + 'static,
 		B: sc_client_api::Backend<PBlock> + 'static,
 		// Rust bug: https://github.com/rust-lang/rust/issues/24159
-		B::State: sp_api::StateBackend<sp_core::Blake2Hasher>,
+		B::State: sp_api::StateBackend<sp_runtime::traits::BlakeTwo256>,
 	{
 		let follow =
 			match cumulus_consensus::follow_polkadot(self.para_id, self.client, polkadot_client) {
@@ -333,8 +333,8 @@ mod tests {
 	use super::*;
 	use std::time::Duration;
 
-	use polkadot_collator::{collate, CollatorId, PeerId, SignedStatement};
-	use polkadot_primitives::parachain::{FeeSchedule, HeadData, Id as ParaId};
+	use polkadot_collator::{collate, SignedStatement};
+	use polkadot_primitives::parachain::{HeadData, Id as ParaId};
 
 	use sp_blockchain::Result as ClientResult;
 	use sp_inherents::InherentData;
@@ -406,17 +406,11 @@ mod tests {
 		}
 	}
 
+	#[derive(Clone)]
 	struct DummyCollatorNetwork;
 
 	impl CollatorNetwork for DummyCollatorNetwork {
-		fn collator_id_to_peer_id(
-			&self,
-			_: CollatorId,
-		) -> Box<dyn Future<Output = Option<PeerId>> + Send> {
-			unimplemented!("Not required in tests")
-		}
-
-		fn checked_statements(&self, _: PHash) -> Box<dyn Stream<Item = SignedStatement>> {
+		fn checked_statements(&self, _: PHash) -> Pin<Box<dyn Stream<Item = SignedStatement>>> {
 			unimplemented!("Not required in tests")
 		}
 	}
@@ -455,16 +449,21 @@ mod tests {
 			Arc::new(TestClientBuilder::new().build()),
 		);
 		let context = builder
-			.build::<_, _, polkadot_service::polkadot_runtime::RuntimeApi, _, _>(
+			.build(
 				Arc::new(
 					substrate_test_client::TestClientBuilder::<_, _, _, ()>::default()
-						.build_with_native_executor(Some(NativeExecutor::<
-							polkadot_service::PolkadotExecutor,
-						>::new(Interpreted, None)))
+						.build_with_native_executor::<polkadot_service::polkadot_runtime::RuntimeApi, _>(
+							Some(
+								NativeExecutor::<polkadot_service::PolkadotExecutor>::new(
+									Interpreted,
+									None,
+								)
+							)
+						)
 						.0,
 				),
 				spawner,
-				Arc::new(DummyCollatorNetwork),
+				DummyCollatorNetwork,
 			)
 			.expect("Creates parachain context");
 
@@ -479,13 +478,9 @@ mod tests {
 		let collation = collate(
 			Default::default(),
 			id,
-			ParachainStatus {
-				head_data: HeadData(header.encode()),
+			LocalValidationData {
+				parent_head: HeadData(header.encode()),
 				balance: 10,
-				fee_schedule: FeeSchedule {
-					base: 0,
-					per_byte: 1,
-				},
 			},
 			context,
 			Arc::new(Sr25519Keyring::Alice.pair().into()),

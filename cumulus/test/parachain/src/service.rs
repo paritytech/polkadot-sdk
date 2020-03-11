@@ -16,11 +16,11 @@
 
 use std::sync::Arc;
 
-use parachain_runtime::{self, opaque::Block, GenesisConfig};
+use parachain_runtime::{self, GenesisConfig};
 
 use sc_executor::native_executor_instance;
-use sc_network::construct_simple_protocol;
 use sc_service::{AbstractService, Configuration};
+use sc_finality_grandpa::{FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider};
 
 use polkadot_primitives::parachain::CollatorPair;
 
@@ -36,11 +36,6 @@ native_executor_instance!(
 	parachain_runtime::api::dispatch,
 	parachain_runtime::native_version,
 );
-
-construct_simple_protocol! {
-	/// Demo protocol attachment for substrate.
-	pub struct NodeProtocol where Block = Block { }
-}
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -82,7 +77,7 @@ pub fn run_collator<E: sc_service::ChainSpecExtension>(
 	parachain_config: Configuration<GenesisConfig, E>,
 	key: Arc<CollatorPair>,
 	mut polkadot_config: polkadot_collator::Configuration,
-) -> sc_cli::error::Result<()> {
+) -> sc_cli::Result<()> {
 	sc_cli::run_service_until_exit(parachain_config, move |parachain_config| {
 		polkadot_config.task_executor = parachain_config.task_executor.clone();
 
@@ -92,13 +87,17 @@ pub fn run_collator<E: sc_service::ChainSpecExtension>(
 			.unwrap();
 
 		let service = builder
-			.with_network_protocol(|_| Ok(NodeProtocol::new()))?
+			.with_finality_proof_provider(|client, backend| {
+				// GenesisAuthoritySetProvider is implemented for StorageAndProofProvider
+				let provider = client as Arc<dyn StorageAndProofProvider<_, _>>;
+				Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, provider)) as _)
+			})?
 			.build()?;
 
-		let proposer_factory = sc_basic_authorship::ProposerFactory {
-			client: service.client(),
-			transaction_pool: service.transaction_pool(),
-		};
+		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
+			service.client(),
+			service.transaction_pool(),
+		);
 
 		let block_import = service.client();
 		let client = service.client();

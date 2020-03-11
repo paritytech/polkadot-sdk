@@ -24,6 +24,7 @@ sp-trie = { git = "https://github.com/paritytech/substrate", default-features = 
 parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false, features = [ "wasm-api" ] }
 
 [dev-dependencies]
+sc-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

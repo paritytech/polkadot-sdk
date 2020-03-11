@@ -18,7 +18,7 @@
 
 use crate::WitnessData;
 use frame_executive::ExecuteBlock;
-use sp_runtime::traits::{Block as BlockT, HasherFor, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 
 use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB};
 
@@ -116,7 +116,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 /// The storage implementation used when validating a block that is using the
 /// witness data as source.
 struct WitnessStorage<B: BlockT> {
-	witness_data: MemoryDB<HasherFor<B>>,
+	witness_data: MemoryDB<HashFor<B>>,
 	overlay: hashbrown::HashMap<Vec<u8>, Option<Vec<u8>>>,
 	storage_root: B::Hash,
 }
@@ -149,7 +149,7 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 			.get(key)
 			.cloned()
 			.or_else(|| {
-				read_trie_value::<Layout<HasherFor<B>>, _>(
+				read_trie_value::<Layout<HashFor<B>>, _>(
 					&self.witness_data,
 					&self.storage_root,
 					key,
@@ -168,7 +168,7 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 	}
 
 	fn storage_root(&mut self) -> Vec<u8> {
-		let root = delta_trie_root::<Layout<HasherFor<B>>, _, _, _, _>(
+		let root = delta_trie_root::<Layout<HashFor<B>>, _, _, _, _>(
 			&mut self.witness_data,
 			self.storage_root.clone(),
 			self.overlay.drain(),
@@ -184,7 +184,7 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 			}
 		});
 
-		let trie = match TrieDB::<Layout<HasherFor<B>>>::new(&self.witness_data, &self.storage_root)
+		let trie = match TrieDB::<Layout<HashFor<B>>>::new(&self.witness_data, &self.storage_root)
 		{
 			Ok(r) => r,
 			Err(_) => panic!(),

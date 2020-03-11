@@ -27,8 +27,6 @@ mod service;
 mod cli;
 mod command;
 
-pub use sc_cli::{error, VersionInfo};
-
 /// The parachain id of this parachain.
 pub const PARA_ID: ParaId = ParaId::new(100);
 const EXECUTABLE_NAME: &'static str = "cumulus-test-parachain-collator";
@@ -38,8 +36,8 @@ const DESCRIPTION: &'static str =
 	to the relaychain node.\n\n\
 	cumulus-test-parachain-collator [parachain-args] -- [relaychain-args]";
 
-fn main() -> Result<(), error::Error> {
-	let version = VersionInfo {
+fn main() -> sc_cli::Result<()> {
+	let version = sc_cli::VersionInfo {
 		name: "Cumulus Test Parachain Collator",
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),

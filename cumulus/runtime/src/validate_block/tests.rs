@@ -17,9 +17,13 @@
 use crate::{ParachainBlockData, WitnessData};
 
 use parachain::{ValidationParams, ValidationResult};
-use sc_executor::{call_in_wasm, error::Result, WasmExecutionMethod};
+use sc_executor::{
+	error::Result, WasmExecutionMethod, WasmExecutor, sp_wasm_interface::HostFunctions,
+};
+use sc_block_builder::BlockBuilderProvider;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SelectChain;
+use sp_core::traits::CallInWasm;
 use sp_io::TestExternalities;
 use sp_keyring::AccountKeyring;
 use sp_runtime::{
@@ -45,22 +49,22 @@ fn call_validate_block(
 	}
 	.encode();
 
-	call_in_wasm::<
-		(
-			sp_io::SubstrateHostFunctions,
-			sc_executor::deprecated_host_interface::SubstrateExternals,
-		),
-	>(
+	let executor = WasmExecutor::new(
+		WasmExecutionMethod::Interpreted,
+		Some(1024),
+		sp_io::SubstrateHostFunctions::host_functions(),
+		false,
+	);
+
+	executor.call_in_wasm(
+		&WASM_BINARY,
 		"validate_block",
 		&params,
-		WasmExecutionMethod::Interpreted,
 		&mut ext_ext,
-		&WASM_BINARY,
-		1024,
-		false,
 	)
 	.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
 	.map(|v| Header::decode(&mut &v.head_data[..]).expect("Decode `Header`."))
+	.map_err(|err| err.into())
 }
 
 fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {

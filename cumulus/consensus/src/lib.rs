@@ -154,7 +154,7 @@ where
 	<Client<B, E, PBlock, RA> as ProvideRuntimeApi<PBlock>>::Api:
 		ParachainHost<PBlock, Error = ClientError>,
 	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	StateBackendFor<B, PBlock>: StateBackend<sp_core::Blake2Hasher>,
+	StateBackendFor<B, PBlock>: StateBackend<sp_runtime::traits::BlakeTwo256>,
 {
 	type Error = ClientError;
 
@@ -181,8 +181,8 @@ where
 		para_id: ParaId,
 	) -> ClientResult<Option<Vec<u8>>> {
 		self.runtime_api()
-			.parachain_status(at, para_id)
-			.map(|s| s.map(|s| s.head_data.0))
+			.local_validation_data(at, para_id)
+			.map(|s| s.map(|s| s.parent_head.0))
 	}
 }
 

@@ -21,9 +21,8 @@ use std::sync::Arc;
 
 use parachain_runtime::Block;
 
-use sc_cli::{error, VersionInfo};
 use sc_client::genesis;
-use sc_service::{Configuration, Roles as ServiceRoles};
+use sc_service::{Configuration, Roles as ServiceRoles, config::PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
@@ -37,23 +36,24 @@ use log::info;
 
 const DEFAULT_POLKADOT_RPC_HTTP: &'static str = "127.0.0.1:9934";
 const DEFAULT_POLKADOT_RPC_WS: &'static str = "127.0.0.1:9945";
-const DEFAULT_POLKADOT_GRAFANA_PORT: &'static str = "127.0.0.1:9956";
+const DEFAULT_POLKADOT_PROMETHEUS_PORT: &'static str = "127.0.0.1:9616";
 
 /// Parse command line arguments into service configuration.
-pub fn run(version: VersionInfo) -> error::Result<()> {
+pub fn run(version: sc_cli::VersionInfo) -> sc_cli::Result<()> {
 	let opt: Cli = sc_cli::from_args(&version);
 
-	let mut config = sc_service::Configuration::new(&version);
-	let mut polkadot_config = Configuration::new(&version);
+	let mut config = sc_service::Configuration::from_version(&version);
+	let mut polkadot_config = Configuration::from_version(&version);
 
 	match opt.subcommand {
-		Some(Subcommand::Base(subcommand)) => sc_cli::run_subcommand(
-			config,
-			subcommand,
-			load_spec,
-			|config: Configuration<_, _>| Ok(new_full_start!(config).0),
-			&version,
-		),
+		Some(Subcommand::Base(subcommand)) => {
+			subcommand.init(&version)?;
+			subcommand.update_config(&mut config, load_spec, &version)?;
+			subcommand.run(
+				config,
+				|config: Configuration<_, _>| Ok(new_full_start!(config).0),
+			)
+		},
 		Some(Subcommand::ExportGenesisState(params)) => {
 			sc_cli::init_logger("");
 
@@ -81,9 +81,8 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 			Ok(())
 		},
 		None => {
-			sc_cli::init(&opt.run.shared_params, &version)?;
-			sc_cli::init_config(&mut config, &opt.run.shared_params, &version, load_spec)?;
-			sc_cli::update_config_for_running_node(&mut config, opt.run)?;
+			opt.run.init(&version)?;
+			opt.run.update_config(&mut config, load_spec, &version)?;
 
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
@@ -106,15 +105,17 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 
 			polkadot_config.rpc_http = Some(DEFAULT_POLKADOT_RPC_HTTP.parse().unwrap());
 			polkadot_config.rpc_ws = Some(DEFAULT_POLKADOT_RPC_WS.parse().unwrap());
-			polkadot_config.grafana_port = Some(DEFAULT_POLKADOT_GRAFANA_PORT.parse().unwrap());
+			polkadot_config.prometheus_config = Some(
+				PrometheusConfig::new_with_default_registry(
+					DEFAULT_POLKADOT_PROMETHEUS_PORT.parse().unwrap(),
+				)
+			);
 
-			sc_cli::init_config(
+			polkadot_opt.run.update_config(
 				&mut polkadot_config,
-				&polkadot_opt.run.shared_params,
-				&version,
 				load_spec_polkadot,
+				&version,
 			)?;
-			sc_cli::update_config_for_running_node(&mut polkadot_config, polkadot_opt.run)?;
 
 			// TODO: we disable mdns for the polkadot node because it prevents the process to exit
 			//       properly. See https://github.com/paritytech/cumulus/issues/57
@@ -133,11 +134,11 @@ pub fn run(version: VersionInfo) -> error::Result<()> {
 	}
 }
 
-fn load_spec(_: &str) -> std::result::Result<Option<chain_spec::ChainSpec>, String> {
+fn load_spec(_: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 	Ok(Some(chain_spec::get_chain_spec()))
 }
 
-fn load_spec_polkadot(_: &str) -> std::result::Result<Option<ChainSpecPolkadot>, String> {
+fn load_spec_polkadot(_: &str) -> Result<Option<ChainSpecPolkadot>, String> {
 	Some(polkadot_service::ChainSpec::from_json_bytes(
 		&include_bytes!("../res/polkadot_chainspec.json")[..],
 	)).transpose()
