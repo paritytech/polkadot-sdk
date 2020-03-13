@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use jsonrpsee::core::client::{RawClient, RawClientError, TransportClient};
+use jsonrpsee::{
+	raw::client::{RawClient, RawClientError},
+	transport::TransportClient,
+};
 use node_primitives::{BlockNumber, Hash, Header};
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;

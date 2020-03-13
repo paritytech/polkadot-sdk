@@ -20,8 +20,11 @@ use crate::params::{RPCUrlParam, Params};
 
 use futures::{prelude::*, channel::{mpsc, oneshot}, future, select};
 use jsonrpsee::{
-	core::client::{RawClientError, RawClientEvent, RawClientRequestId, RawClientSubscription},
-	ws::{WsRawClient, WsConnecError, ws_raw_client},
+	raw::client::{RawClient, RawClientError, RawClientEvent, RawClientRequestId, RawClientSubscription},
+	transport::{
+		TransportClient,
+		ws::{WsTransportClient, WsConnecError},
+	},
 };
 use node_primitives::{Hash, Header};
 use std::cell::RefCell;
@@ -47,7 +50,7 @@ enum Event {
 
 struct Chain {
 	url: String,
-	client: WsRawClient,
+	client: RawClient<WsTransportClient>,
 	sender: mpsc::Sender<Event>,
 	receiver: mpsc::Receiver<Event>,
 	genesis_hash: Hash,
@@ -60,10 +63,11 @@ async fn init_rpc_connection(url: &RPCUrlParam) -> Result<Chain, Error> {
 
 	// Skip the leading "ws://" and trailing "/".
 	let url_without_scheme = &url_str[5..(url_str.len() - 1)];
-	let mut client = ws_raw_client(url_without_scheme)
+	let transport = WsTransportClient::new(url_without_scheme)
 		.await
 		.map_err(|err| Error::WsConnectionError(err.to_string()))?;
 
+	let mut client = RawClient::new(transport);
 	let genesis_hash = rpc::genesis_block_hash(&mut client)
 		.await
 		.map_err(|e| Error::RPCError(e.to_string()))?
@@ -252,7 +256,7 @@ async fn setup_subscriptions(chain: &mut Chain)
 	let new_heads_subscription_id = chain.client
 		.start_subscription(
 			"chain_subscribeNewHeads",
-			jsonrpsee::core::common::Params::None,
+			jsonrpsee::common::Params::None,
 		)
 		.await
 		.map_err(RawClientError::Inner)?;
@@ -260,7 +264,7 @@ async fn setup_subscriptions(chain: &mut Chain)
 	let finalized_heads_subscription_id = chain.client
 		.start_subscription(
 			"chain_subscribeFinalizedHeads",
-			jsonrpsee::core::common::Params::None,
+			jsonrpsee::common::Params::None,
 		)
 		.await
 		.map_err(RawClientError::Inner)?;
@@ -350,9 +354,9 @@ async fn handle_rpc_event(
 }
 
 // Let's say this never sends over a channel (ie. cannot block on another task).
-async fn handle_bridge_event(
+async fn handle_bridge_event<R: TransportClient>(
 	chain_id: ChainId,
-	rpc_client: &mut WsRawClient,
+	rpc_client: &mut RawClient<R>,
 	event: Event,
 ) -> Result<(), Error>
 {
