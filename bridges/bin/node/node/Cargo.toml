@@ -99,7 +99,7 @@ rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
 git = "https://github.com/paritytech/substrate.git"
 
 [build-dependencies]
-vergen = "3.0.4"
+vergen = "3.1.0"
 
 [build-dependencies.build-script-utils]
 package = "substrate-build-script-utils"
