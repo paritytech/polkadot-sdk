@@ -45,7 +45,7 @@ git = "https://github.com/paritytech/substrate/"
 [dev-dependencies]
 # TODO: Stop renaming this on import
 primitives = { package = "sp-bridge-eth-poa", path = "../../primitives/ethereum-poa", features = ["std", "test-helpers"] }
-parity-crypto = { version = "0.4", features = ["publickey"] }
+parity-crypto = { version = "0.6", features = ["publickey"] }
 
 [features]
 default = ["std"]

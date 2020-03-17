@@ -16,15 +16,34 @@ impl-rlp = { version = "0.2", default-features = false }
 impl-serde = { version = "0.2.3", optional = true }
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false }
 rlp = { version = "0.4", default-features = false }
-
-sp-std = { version = "2.0.0-alpha.2", git = "https://github.com/paritytech/substrate.git", default-features = false, rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31" }
-sp-runtime = { version = "2.0.0-alpha.2", git = "https://github.com/paritytech/substrate.git", default-features = false, rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31" }
-sp-api = { version = "2.0.0-alpha.2", git = "https://github.com/paritytech/substrate.git", default-features = false, rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31" }
-sp-io = { version = "2.0.0-alpha.2", git = "https://github.com/paritytech/substrate.git", default-features = false, rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31" }
-
 hash-db = { version = "0.15.2", default-features = false }
 triehash = { version = "0.8.2", default-features = false }
 plain_hasher = { version = "0.2.2", default-features = false }
+
+# Substrate Based Dependencies
+[dependencies.sp-api]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-std]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-runtime]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.sp-io]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate.git"
 
 [features]
 default = ["std"]
