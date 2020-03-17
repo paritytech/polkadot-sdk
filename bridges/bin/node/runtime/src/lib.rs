@@ -52,6 +52,7 @@ pub use frame_support::{
 	traits::Randomness,
 	weights::Weight,
 };
+pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -186,6 +187,10 @@ impl pallet_aura::Trait for Runtime {
 	type AuthorityId = AuraId;
 }
 
+impl pallet_bridge_eth_poa::Trait for Runtime {
+	type OnHeadersSubmitted = ();
+}
+
 impl pallet_grandpa::Trait for Runtime {
 	type Event = Event;
 }
@@ -248,6 +253,7 @@ construct_runtime!(
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
+		BridgeEthPoA: pallet_bridge_eth_poa::{Module, Call, Config, Storage},
 	}
 );
 
@@ -270,6 +276,8 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>
 );
+/// The payload being signed in transactions.
+pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
@@ -324,6 +332,20 @@ impl_runtime_apis! {
 
 		fn random_seed() -> <Block as BlockT>::Hash {
 			RandomnessCollectiveFlip::random_seed()
+		}
+	}
+
+	impl sp_bridge_eth_poa::EthereumHeadersApi<Block> for Runtime {
+		fn best_block() -> (u64, sp_bridge_eth_poa::H256) {
+			BridgeEthPoA::best_block()
+		}
+
+		fn is_import_requires_receipts(header: sp_bridge_eth_poa::Header) -> bool {
+			BridgeEthPoA::is_import_requires_receipts(header)
+		}
+
+		fn is_known_block(hash: sp_bridge_eth_poa::H256) -> bool {
+			BridgeEthPoA::is_known_block(hash)
 		}
 	}
 

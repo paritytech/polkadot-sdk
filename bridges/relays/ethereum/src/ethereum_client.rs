@@ -30,8 +30,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-use jsonrpsee_core::{client::ClientError, common::Params};
-use jsonrpsee_http::{HttpClient, RequestError, http_client};
+use jsonrpsee::common::Params;
+use jsonrpsee::raw::{
+	RawClient,
+	RawClientError,
+};
+use jsonrpsee::transport::http::{
+	HttpTransportClient, RequestError
+};
 use serde::de::DeserializeOwned;
 use serde_json::{from_value, to_value};
 use crate::ethereum_sync_loop::MaybeConnectionError;
@@ -45,7 +51,7 @@ const INT_SERIALIZATION_PROOF: &'static str = "integer serialization never fails
 const BOOL_SERIALIZATION_PROOF: &'static str = "bool serialization never fails; qed";
 
 /// Ethereum client type.
-pub type Client = HttpClient;
+pub type Client = RawClient<HttpTransportClient>;
 
 /// All possible errors that can occur during interacting with Ethereum node.
 #[derive(Debug)]
@@ -55,7 +61,7 @@ pub enum Error {
 	/// Request not found (should never occur?).
 	RequestNotFound,
 	/// Failed to receive response.
-	ResponseRetrievalFailed(ClientError<RequestError>),
+	ResponseRetrievalFailed(RawClientError<RequestError>),
 	/// Failed to parse response.
 	ResponseParseFailed(serde_json::Error),
 	/// We have received header with missing number and hash fields.
@@ -75,7 +81,8 @@ impl MaybeConnectionError for Error {
 
 /// Returns client that is able to call RPCs on Ethereum node.
 pub fn client(uri: &str) -> Client {
-	http_client(uri)
+	let transport = HttpTransportClient::new(uri);
+	RawClient::new(transport)
 }
 
 /// Retrieve best known block number from Ethereum node.
