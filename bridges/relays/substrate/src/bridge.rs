@@ -15,22 +15,27 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::error::Error;
+use crate::params::{Params, RPCUrlParam};
 use crate::rpc::{self, SubstrateRPC};
-use crate::params::{RPCUrlParam, Params};
 
-use futures::{prelude::*, channel::{mpsc, oneshot}, future, select};
+use futures::{
+	channel::{mpsc, oneshot},
+	future,
+	prelude::*,
+	select,
+};
 use jsonrpsee::{
 	raw::client::{RawClient, RawClientError, RawClientEvent, RawClientRequestId, RawClientSubscription},
 	transport::{
+		ws::{WsConnecError, WsTransportClient},
 		TransportClient,
-		ws::{WsTransportClient, WsConnecError},
 	},
 };
 use node_primitives::{Hash, Header};
+use sp_core::Bytes;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::pin::Pin;
-use sp_core::Bytes;
 
 type ChainId = Hash;
 
@@ -71,24 +76,25 @@ async fn init_rpc_connection(url: &RPCUrlParam) -> Result<Chain, Error> {
 	let genesis_hash = rpc::genesis_block_hash(&mut client)
 		.await
 		.map_err(|e| Error::RPCError(e.to_string()))?
-		.ok_or_else(|| Error::InvalidChainState(format!(
-			"chain with RPC URL {} is missing a genesis block hash",
-			url_str,
-		)))?;
+		.ok_or_else(|| {
+			Error::InvalidChainState(format!(
+				"chain with RPC URL {} is missing a genesis block hash",
+				url_str,
+			))
+		})?;
 
 	let latest_finalized_hash = SubstrateRPC::chain_finalized_head(&mut client)
 		.await
 		.map_err(|e| Error::RPCError(e.to_string()))?;
-	let latest_finalized_header = SubstrateRPC::chain_header(
-		&mut client,
-		Some(latest_finalized_hash)
-	)
+	let latest_finalized_header = SubstrateRPC::chain_header(&mut client, Some(latest_finalized_hash))
 		.await
 		.map_err(|e| Error::RPCError(e.to_string()))?
-		.ok_or_else(|| Error::InvalidChainState(format!(
-			"chain {} is missing header for finalized block hash {}",
-			genesis_hash, latest_finalized_hash
-		)))?;
+		.ok_or_else(|| {
+			Error::InvalidChainState(format!(
+				"chain {} is missing header for finalized block hash {}",
+				genesis_hash, latest_finalized_hash
+			))
+		})?;
 
 	let (sender, receiver) = mpsc::channel(0);
 
@@ -101,41 +107,35 @@ async fn init_rpc_connection(url: &RPCUrlParam) -> Result<Chain, Error> {
 		state: ChainState {
 			current_finalized_head: latest_finalized_header,
 			bridges: HashMap::new(),
-		}
+		},
 	})
 }
 
 /// Returns IDs of the bridged chains.
-async fn read_bridges(chain: &mut Chain, chain_ids: &[Hash])
-	-> Result<Vec<Hash>, Error>
-{
+async fn read_bridges(chain: &mut Chain, chain_ids: &[Hash]) -> Result<Vec<Hash>, Error> {
 	// This should make an RPC call to read this information from the bridge pallet state.
 	// For now, just pretend every chain is bridged to every other chain.
 	//
 	// TODO: The correct thing.
-	Ok(
-		chain_ids
-			.iter()
-			.cloned()
-			.filter(|&chain_id| chain_id != chain.genesis_hash)
-			.collect()
-	)
+	Ok(chain_ids
+		.iter()
+		.cloned()
+		.filter(|&chain_id| chain_id != chain.genesis_hash)
+		.collect())
 }
 
-pub async fn run_async(
-	params: Params,
-	exit: Box<dyn Future<Output=()> + Unpin + Send>
-) -> Result<(), Error>
-{
+pub async fn run_async(params: Params, exit: Box<dyn Future<Output = ()> + Unpin + Send>) -> Result<(), Error> {
 	let chains = init_chains(&params).await?;
 
-	let (chain_tasks, exit_signals) = chains.into_iter()
+	let (chain_tasks, exit_signals) = chains
+		.into_iter()
 		.map(|(chain_id, chain_cell)| {
 			let chain = chain_cell.into_inner();
 			let (task_exit_signal, task_exit_receiver) = oneshot::channel();
-			let task_exit = Box::new(task_exit_receiver.map(|result| {
-				result.expect("task_exit_signal is not dropped before send() is called")
-			}));
+			let task_exit = Box::new(
+				task_exit_receiver
+					.map(|result| result.expect("task_exit_signal is not dropped before send() is called")),
+			);
 			let chain_task = async_std::task::spawn(async move {
 				if let Err(err) = chain_task(chain_id, chain, task_exit).await {
 					log::error!("Error in task for chain {}: {}", chain_id, err);
@@ -156,39 +156,43 @@ pub async fn run_async(
 	Ok(())
 }
 
-fn initial_next_events<'a>(chains: &'a HashMap<ChainId, RefCell<Chain>>)
-	-> Vec<Pin<Box<dyn Future<Output=Result<(ChainId, RawClientEvent), Error>> + 'a>>>
-{
-	chains.values()
+fn initial_next_events<'a>(
+	chains: &'a HashMap<ChainId, RefCell<Chain>>,
+) -> Vec<Pin<Box<dyn Future<Output = Result<(ChainId, RawClientEvent), Error>> + 'a>>> {
+	chains
+		.values()
 		.map(|chain_cell| async move {
 			let mut chain = chain_cell.borrow_mut();
-			let event = chain.client.next_event()
+			let event = chain
+				.client
+				.next_event()
 				.await
 				.map_err(|err| Error::RPCError(err.to_string()))?;
 			Ok((chain.genesis_hash, event))
 		})
-		.map(|fut| Box::pin(fut) as Pin<Box<dyn Future<Output=_>>>)
+		.map(|fut| Box::pin(fut) as Pin<Box<dyn Future<Output = _>>>)
 		.collect()
 }
 
 async fn next_event<'a>(
-	next_events: Vec<Pin<Box<dyn Future<Output=Result<(ChainId, RawClientEvent), Error>> + 'a>>>,
+	next_events: Vec<Pin<Box<dyn Future<Output = Result<(ChainId, RawClientEvent), Error>> + 'a>>>,
 	chains: &'a HashMap<ChainId, RefCell<Chain>>,
-)
-	-> (
-		Result<(Hash, RawClientEvent), Error>,
-		Vec<Pin<Box<dyn Future<Output=Result<(ChainId, RawClientEvent), Error>> +'a>>>
-	)
-{
+) -> (
+	Result<(Hash, RawClientEvent), Error>,
+	Vec<Pin<Box<dyn Future<Output = Result<(ChainId, RawClientEvent), Error>> + 'a>>>,
+) {
 	let (result, _, mut rest) = future::select_all(next_events).await;
 
 	match result {
 		Ok((chain_id, _)) => {
 			let fut = async move {
-				let chain_cell = chains.get(&chain_id)
+				let chain_cell = chains
+					.get(&chain_id)
 					.expect("chain must be in the map as a function precondition; qed");
 				let mut chain = chain_cell.borrow_mut();
-				let event = chain.client.next_event()
+				let event = chain
+					.client
+					.next_event()
 					.await
 					.map_err(|err| Error::RPCError(err.to_string()))?;
 				Ok((chain_id, event))
@@ -209,9 +213,7 @@ async fn init_chains(params: &Params) -> Result<HashMap<ChainId, RefCell<Chain>>
 		.collect::<Result<HashMap<_, _>, _>>()?;
 
 	// TODO: Remove when read_bridges is implemented correctly.
-	let chain_ids = chains.keys()
-		.cloned()
-		.collect::<Vec<_>>();
+	let chain_ids = chains.keys().cloned().collect::<Vec<_>>();
 	// let chain_ids_slice = chain_ids.as_slice();
 
 	for (&chain_id, chain_cell) in chains.iter() {
@@ -229,15 +231,18 @@ async fn init_chains(params: &Params) -> Result<HashMap<ChainId, RefCell<Chain>>
 				let genesis_head = SubstrateRPC::chain_header(&mut chain.client, chain_id)
 					.await
 					.map_err(|e| Error::RPCError(e.to_string()))?
-					.ok_or_else(|| Error::InvalidChainState(format!(
-						"chain {} is missing a genesis block header", chain_id
-					)))?;
+					.ok_or_else(|| {
+						Error::InvalidChainState(format!("chain {} is missing a genesis block header", chain_id))
+					})?;
 
 				let channel = chain.sender.clone();
-				chain.state.bridges.insert(bridged_chain_id, BridgeState {
-					channel,
-					locally_finalized_head_on_bridged_chain: genesis_head,
-				});
+				chain.state.bridges.insert(
+					bridged_chain_id,
+					BridgeState {
+						channel,
+						locally_finalized_head_on_bridged_chain: genesis_head,
+					},
+				);
 
 				// The conditional ensures that we don't log twice per pair of chains.
 				if chain_id.as_ref() < bridged_chain_id.as_ref() {
@@ -250,28 +255,25 @@ async fn init_chains(params: &Params) -> Result<HashMap<ChainId, RefCell<Chain>>
 	Ok(chains)
 }
 
-async fn setup_subscriptions(chain: &mut Chain)
-	-> Result<(RawClientRequestId, RawClientRequestId), RawClientError<WsConnecError>>
-{
-	let new_heads_subscription_id = chain.client
-		.start_subscription(
-			"chain_subscribeNewHeads",
-			jsonrpsee::common::Params::None,
-		)
+async fn setup_subscriptions(
+	chain: &mut Chain,
+) -> Result<(RawClientRequestId, RawClientRequestId), RawClientError<WsConnecError>> {
+	let new_heads_subscription_id = chain
+		.client
+		.start_subscription("chain_subscribeNewHeads", jsonrpsee::common::Params::None)
 		.await
 		.map_err(RawClientError::Inner)?;
 
-	let finalized_heads_subscription_id = chain.client
-		.start_subscription(
-			"chain_subscribeFinalizedHeads",
-			jsonrpsee::common::Params::None,
-		)
+	let finalized_heads_subscription_id = chain
+		.client
+		.start_subscription("chain_subscribeFinalizedHeads", jsonrpsee::common::Params::None)
 		.await
 		.map_err(RawClientError::Inner)?;
 
-	let new_heads_subscription =
-		chain.client.subscription_by_id(new_heads_subscription_id)
-			.expect("subscription_id was returned from start_subscription above; qed");
+	let new_heads_subscription = chain
+		.client
+		.subscription_by_id(new_heads_subscription_id)
+		.expect("subscription_id was returned from start_subscription above; qed");
 	let new_heads_subscription = match new_heads_subscription {
 		RawClientSubscription::Active(_) => {}
 		RawClientSubscription::Pending(subscription) => {
@@ -279,9 +281,10 @@ async fn setup_subscriptions(chain: &mut Chain)
 		}
 	};
 
-	let finalized_heads_subscription =
-		chain.client.subscription_by_id(finalized_heads_subscription_id)
-			.expect("subscription_id was returned from start_subscription above; qed");
+	let finalized_heads_subscription = chain
+		.client
+		.subscription_by_id(finalized_heads_subscription_id)
+		.expect("subscription_id was returned from start_subscription above; qed");
 	let finalized_heads_subscription = match finalized_heads_subscription {
 		RawClientSubscription::Active(subscription) => {}
 		RawClientSubscription::Pending(subscription) => {
@@ -298,27 +301,26 @@ async fn handle_rpc_event(
 	event: RawClientEvent,
 	new_heads_subscription_id: RawClientRequestId,
 	finalized_heads_subscription_id: RawClientRequestId,
-) -> Result<(), Error>
-{
+) -> Result<(), Error> {
 	match event {
-		RawClientEvent::SubscriptionNotif { request_id, result } =>
+		RawClientEvent::SubscriptionNotif { request_id, result } => {
 			if request_id == new_heads_subscription_id {
-				let header: Header = serde_json::from_value(result)
-					.map_err(Error::SerializationError)?;
+				let header: Header = serde_json::from_value(result).map_err(Error::SerializationError)?;
 				log::info!("Received new head {:?} on chain {}", header, chain_id);
 			} else if request_id == finalized_heads_subscription_id {
-				let header: Header = serde_json::from_value(result)
-					.map_err(Error::SerializationError)?;
+				let header: Header = serde_json::from_value(result).map_err(Error::SerializationError)?;
 				log::info!("Received finalized head {:?} on chain {}", header, chain_id);
 
 				// let old_finalized_head = chain_state.current_finalized_head;
 				chain.state.current_finalized_head = header;
 				for (bridged_chain_id, bridged_chain) in chain.state.bridges.iter_mut() {
-					if bridged_chain.locally_finalized_head_on_bridged_chain.number <
-						chain.state.current_finalized_head.number {
+					if bridged_chain.locally_finalized_head_on_bridged_chain.number
+						< chain.state.current_finalized_head.number
+					{
 						// Craft and submit an extrinsic over RPC
 						log::info!("Sending command to submit extrinsic to chain {}", chain_id);
-						let mut send_event = bridged_chain.channel
+						let mut send_event = bridged_chain
+							.channel
 							.send(Event::SubmitExtrinsic(Bytes(Vec::new())))
 							.fuse();
 
@@ -343,12 +345,17 @@ async fn handle_rpc_event(
 				}
 			} else {
 				return Err(Error::RPCError(format!(
-					"unexpected subscription response with request ID {:?}", request_id
+					"unexpected subscription response with request ID {:?}",
+					request_id
 				)));
-			},
-		_ => return Err(Error::RPCError(format!(
-			"unexpected RPC event from chain {}: {:?}", chain_id, event
-		))),
+			}
+		}
+		_ => {
+			return Err(Error::RPCError(format!(
+				"unexpected RPC event from chain {}: {:?}",
+				chain_id, event
+			)))
+		}
 	}
 	Ok(())
 }
@@ -358,8 +365,7 @@ async fn handle_bridge_event<R: TransportClient>(
 	chain_id: ChainId,
 	rpc_client: &mut RawClient<R>,
 	event: Event,
-) -> Result<(), Error>
-{
+) -> Result<(), Error> {
 	match event {
 		Event::SubmitExtrinsic(data) => {
 			log::info!("Submitting extrinsic to chain {}", chain_id);
@@ -374,13 +380,11 @@ async fn handle_bridge_event<R: TransportClient>(
 async fn chain_task(
 	chain_id: ChainId,
 	mut chain: Chain,
-	exit: impl Future<Output=()> + Unpin + Send
-) -> Result<(), Error>
-{
-	let (new_heads_subscription_id, finalized_heads_subscription_id) =
-		setup_subscriptions(&mut chain)
-			.await
-			.map_err(|e| Error::RPCError(e.to_string()))?;
+	exit: impl Future<Output = ()> + Unpin + Send,
+) -> Result<(), Error> {
+	let (new_heads_subscription_id, finalized_heads_subscription_id) = setup_subscriptions(&mut chain)
+		.await
+		.map_err(|e| Error::RPCError(e.to_string()))?;
 
 	let mut exit = exit.fuse();
 	loop {

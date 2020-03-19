@@ -198,10 +198,7 @@ mod tests {
 		empty_step
 	}
 
-	fn verify_with_config(
-		config: &AuraConfiguration,
-		header: &Header,
-	) -> Result<ImportContext<AccountId>, Error> {
+	fn verify_with_config(config: &AuraConfiguration, header: &Header) -> Result<ImportContext<AccountId>, Error> {
 		let storage = InMemoryStorage::new(genesis(), validators_addresses(3));
 		verify_aura_header(&storage, &config, None, header)
 	}
