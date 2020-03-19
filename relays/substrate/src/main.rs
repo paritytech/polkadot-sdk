@@ -22,8 +22,8 @@ mod rpc;
 use bridge::run_async;
 use params::{Params, RPCUrlParam};
 
-use clap::{App, Arg, value_t, values_t};
-use futures::{prelude::*, channel};
+use clap::{value_t, values_t, App, Arg};
+use futures::{channel, prelude::*};
 use std::cell::Cell;
 use std::process;
 
@@ -32,9 +32,7 @@ fn main() {
 	env_logger::init();
 	let exit = setup_exit_handler();
 
-	let result = async_std::task::block_on(async move {
-		run_async(params, exit).await
-	});
+	let result = async_std::task::block_on(async move { run_async(params, exit).await });
 	if let Err(err) = result {
 		log::error!("{}", err);
 		process::exit(1);
@@ -60,22 +58,17 @@ fn parse_args() -> Params {
 				.value_name("HOST[:PORT]")
 				.help("The URL of a bridged Substrate node")
 				.takes_value(true)
-				.multiple(true)
+				.multiple(true),
 		)
 		.get_matches();
 
-	let base_path = value_t!(matches, "base-path", String)
-		.unwrap_or_else(|e| e.exit());
-	let rpc_urls = values_t!(matches, "rpc-url", RPCUrlParam)
-		.unwrap_or_else(|e| e.exit());
+	let base_path = value_t!(matches, "base-path", String).unwrap_or_else(|e| e.exit());
+	let rpc_urls = values_t!(matches, "rpc-url", RPCUrlParam).unwrap_or_else(|e| e.exit());
 
-	Params {
-		base_path,
-		rpc_urls,
-	}
+	Params { base_path, rpc_urls }
 }
 
-fn setup_exit_handler() -> Box<dyn Future<Output=()> + Unpin + Send> {
+fn setup_exit_handler() -> Box<dyn Future<Output = ()> + Unpin + Send> {
 	let (exit_sender, exit_receiver) = channel::oneshot::channel();
 	let exit_sender = Cell::new(Some(exit_sender));
 
@@ -86,11 +79,11 @@ fn setup_exit_handler() -> Box<dyn Future<Output=()> + Unpin + Send> {
 			}
 		}
 	})
-		.expect("must be able to set Ctrl-C handler");
+	.expect("must be able to set Ctrl-C handler");
 
-	Box::new(exit_receiver.map(|result| {
-		result.expect(
-			"exit_sender cannot be dropped as it is moved into a globally-referenced closure"
-		)
-	}))
+	Box::new(
+		exit_receiver.map(|result| {
+			result.expect("exit_sender cannot be dropped as it is moved into a globally-referenced closure")
+		}),
+	)
 }

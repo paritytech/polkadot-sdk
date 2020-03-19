@@ -41,8 +41,8 @@ jsonrpsee::rpc_api! {
 	}
 }
 
-pub async fn genesis_block_hash<R: TransportClient>(client: &mut RawClient<R>)
-	-> Result<Option<Hash>, RawClientError<R::Error>>
-{
+pub async fn genesis_block_hash<R: TransportClient>(
+	client: &mut RawClient<R>,
+) -> Result<Option<Hash>, RawClientError<R::Error>> {
 	SubstrateRPC::chain_block_hash(client, Some(NumberOrHex::Number(0))).await
 }

@@ -52,7 +52,10 @@ pub struct HeaderId(pub u64, pub H256);
 
 impl From<&Header> for HeaderId {
 	fn from(header: &Header) -> HeaderId {
-		HeaderId(header.number.expect(HEADER_ID_PROOF).as_u64(), header.hash.expect(HEADER_ID_PROOF))
+		HeaderId(
+			header.number.expect(HEADER_ID_PROOF).as_u64(),
+			header.hash.expect(HEADER_ID_PROOF),
+		)
 	}
 }
 

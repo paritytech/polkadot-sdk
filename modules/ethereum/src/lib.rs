@@ -36,12 +36,7 @@ use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage};
 use primitives::{Address, Header, Receipt, H256, U256};
 use sp_runtime::RuntimeDebug;
-use sp_std::{
-	prelude::*,
-	cmp::Ord,
-	collections::btree_map::BTreeMap,
-	iter::from_fn,
-};
+use sp_std::{cmp::Ord, collections::btree_map::BTreeMap, iter::from_fn, prelude::*};
 use validators::{ValidatorsConfiguration, ValidatorsSource};
 
 pub use import::{header_import_requires_receipts, import_header};
@@ -481,7 +476,10 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 				// ensure that unfinalized headers we want to prune do not have scheduled changes
 				if number > finalized_number {
 					if let Some(ref blocks_at_number) = blocks_at_number {
-						if blocks_at_number.iter().any(|block| ScheduledChanges::contains_key(block)) {
+						if blocks_at_number
+							.iter()
+							.any(|block| ScheduledChanges::contains_key(block))
+						{
 							HeadersByNumber::insert(number, blocks_at_number);
 							OldestUnprunedBlock::put(number);
 							return;
@@ -776,7 +774,9 @@ pub(crate) mod tests {
 		}
 
 		fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)> {
-			self.headers.get(hash).map(|header| (header.header.clone(), header.submitter.clone()))
+			self.headers
+				.get(hash)
+				.map(|header| (header.header.clone(), header.submitter.clone()))
 		}
 
 		fn import_context(

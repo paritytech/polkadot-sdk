@@ -30,10 +30,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-use futures::{future::FutureExt, stream::StreamExt};
 use crate::ethereum_client;
 use crate::ethereum_types::HeaderStatus as EthereumHeaderStatus;
 use crate::substrate_client;
+use futures::{future::FutureExt, stream::StreamExt};
 
 // TODO: when SharedClient will be available, switch to Substrate headers subscription
 // (because we do not need old Substrate headers)
@@ -98,7 +98,10 @@ impl std::fmt::Debug for EthereumSyncParams {
 			.field("max_future_headers_to_download", &self.max_future_headers_to_download)
 			.field("max_headers_in_submitted_status", &self.max_headers_in_submitted_status)
 			.field("max_headers_in_single_submit", &self.max_headers_in_single_submit)
-			.field("max_headers_size_in_single_submit", &self.max_headers_size_in_single_submit)
+			.field(
+				"max_headers_size_in_single_submit",
+				&self.max_headers_size_in_single_submit,
+			)
 			.field("prune_depth", &self.prune_depth)
 			.finish()
 	}
@@ -136,9 +139,7 @@ pub fn run(params: EthereumSyncParams) {
 
 		let mut eth_maybe_client = None;
 		let mut eth_best_block_number_required = false;
-		let eth_best_block_number_future = ethereum_client::best_block_number(
-			ethereum_client::client(&eth_uri)
-		).fuse();
+		let eth_best_block_number_future = ethereum_client::best_block_number(ethereum_client::client(&eth_uri)).fuse();
 		let eth_new_header_future = futures::future::Fuse::terminated();
 		let eth_orphan_header_future = futures::future::Fuse::terminated();
 		let eth_receipts_future = futures::future::Fuse::terminated();
@@ -147,9 +148,8 @@ pub fn run(params: EthereumSyncParams) {
 
 		let mut sub_maybe_client = None;
 		let mut sub_best_block_required = false;
-		let sub_best_block_future = substrate_client::best_ethereum_block(
-			substrate_client::client(&sub_uri, sub_signer),
-		).fuse();
+		let sub_best_block_future =
+			substrate_client::best_ethereum_block(substrate_client::client(&sub_uri, sub_signer)).fuse();
 		let sub_receipts_check_future = futures::future::Fuse::terminated();
 		let sub_existence_status_future = futures::future::Fuse::terminated();
 		let sub_submit_header_future = futures::future::Fuse::terminated();
@@ -326,7 +326,7 @@ pub fn run(params: EthereumSyncParams) {
 				// 2) check transactions receipts - it stops us from downloading/submitting new blocks;
 				// 3) check existence - it stops us from submitting new blocks;
 				// 4) submit header
-				
+
 				if sub_best_block_required {
 					log::debug!(target: "bridge", "Asking Substrate about best block");
 					sub_best_block_future.set(substrate_client::best_ethereum_block(sub_client).fuse());
@@ -338,9 +338,8 @@ pub fn run(params: EthereumSyncParams) {
 					);
 
 					let header = header.clone();
-					sub_receipts_check_future.set(
-						substrate_client::ethereum_receipts_required(sub_client, header).fuse()
-					);
+					sub_receipts_check_future
+						.set(substrate_client::ethereum_receipts_required(sub_client, header).fuse());
 				} else if let Some(header) = eth_sync.headers().header(EthereumHeaderStatus::MaybeOrphan) {
 					// for MaybeOrphan we actually ask for parent' header existence
 					let parent_id = header.parent_id();
@@ -351,9 +350,8 @@ pub fn run(params: EthereumSyncParams) {
 						parent_id,
 					);
 
-					sub_existence_status_future.set(
-						substrate_client::ethereum_header_known(sub_client, parent_id).fuse(),
-					);
+					sub_existence_status_future
+						.set(substrate_client::ethereum_header_known(sub_client, parent_id).fuse());
 				} else if let Some(headers) = eth_sync.select_headers_to_submit() {
 					let ids = match headers.len() {
 						1 => format!("{:?}", headers[0].id()),
@@ -368,9 +366,7 @@ pub fn run(params: EthereumSyncParams) {
 					);
 
 					let headers = headers.into_iter().cloned().collect();
-					sub_submit_header_future.set(
-						substrate_client::submit_ethereum_headers(sub_client, headers).fuse(),
-					);
+					sub_submit_header_future.set(substrate_client::submit_ethereum_headers(sub_client, headers).fuse());
 
 					// remember that we have submitted some headers
 					if stall_countdown.is_none() {
@@ -400,11 +396,8 @@ pub fn run(params: EthereumSyncParams) {
 						id,
 					);
 					eth_receipts_future.set(
-						ethereum_client::transactions_receipts(
-							eth_client,
-							id,
-							header.header().transactions.clone(),
-						).fuse()
+						ethereum_client::transactions_receipts(eth_client, id, header.header().transactions.clone())
+							.fuse(),
 					);
 				} else if let Some(header) = eth_sync.headers().header(EthereumHeaderStatus::Orphan) {
 					// for Orphan we actually ask for parent' header
@@ -416,9 +409,7 @@ pub fn run(params: EthereumSyncParams) {
 						parent_id,
 					);
 
-					eth_orphan_header_future.set(
-						ethereum_client::header_by_hash(eth_client, parent_id.1).fuse(),
-					);
+					eth_orphan_header_future.set(ethereum_client::header_by_hash(eth_client, parent_id.1).fuse());
 				} else if let Some(id) = eth_sync.select_new_header_to_download() {
 					log::debug!(
 						target: "bridge",
@@ -426,9 +417,7 @@ pub fn run(params: EthereumSyncParams) {
 						id,
 					);
 
-					eth_new_header_future.set(
-						ethereum_client::header_by_number(eth_client, id).fuse(),
-					);
+					eth_new_header_future.set(ethereum_client::header_by_number(eth_client, id).fuse());
 				} else {
 					eth_maybe_client = Some(eth_client);
 				}
@@ -469,7 +458,10 @@ async fn delay<T>(timeout_ms: u64, retval: T) -> T {
 }
 
 fn interval(timeout_ms: u64) -> impl futures::Stream<Item = ()> {
-	futures::stream::unfold((), move |_| async move { delay(timeout_ms, ()).await; Some(((), ())) })
+	futures::stream::unfold((), move |_| async move {
+		delay(timeout_ms, ()).await;
+		Some(((), ()))
+	})
 }
 
 fn process_future_result<TClient, TResult, TError, TGoOfflineFuture>(
@@ -488,7 +480,7 @@ fn process_future_result<TClient, TResult, TError, TGoOfflineFuture>(
 		Ok(result) => {
 			*maybe_client = Some(client);
 			on_success(result);
-		},
+		}
 		Err(error) => {
 			if error.is_connection_error() {
 				go_offline_future.set(go_offline(client).fuse());
@@ -497,6 +489,6 @@ fn process_future_result<TClient, TResult, TError, TGoOfflineFuture>(
 			}
 
 			log::error!(target: "bridge", "{}: {:?}", error_pattern, error);
-		},
+		}
 	}
 }

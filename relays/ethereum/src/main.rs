@@ -30,7 +30,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-#![recursion_limit="1024"]
+#![recursion_limit = "1024"]
 
 mod ethereum_client;
 mod ethereum_headers;
@@ -40,8 +40,8 @@ mod ethereum_types;
 mod substrate_client;
 mod substrate_types;
 
-use std::io::Write;
 use sp_core::crypto::Pair;
+use std::io::Write;
 
 fn main() {
 	initialize();
@@ -51,7 +51,7 @@ fn main() {
 		Err(err) => {
 			log::error!(target: "bridge", "Error parsing parameters: {}", err);
 			return;
-		},
+		}
 	});
 }
 
@@ -66,8 +66,8 @@ fn initialize() {
 	builder.parse_filters(&filters);
 	builder.format(move |buf, record| {
 		writeln!(buf, "{}", {
-			let timestamp = time::strftime("%Y-%m-%d %H:%M:%S %Z", &time::now())
-				.expect("Time is incorrectly formatted");
+			let timestamp =
+				time::strftime("%Y-%m-%d %H:%M:%S %Z", &time::now()).expect("Time is incorrectly formatted");
 			if cfg!(windows) {
 				format!("{} {} {} {}", timestamp, record.level(), record.target(), record.args())
 			} else {
@@ -79,11 +79,13 @@ fn initialize() {
 					log::Level::Debug => Color::Fixed(14).paint(record.level().to_string()),
 					log::Level::Trace => Color::Fixed(12).paint(record.level().to_string()),
 				};
-				format!("{} {} {} {}"
-					, Color::Fixed(8).bold().paint(timestamp)
-					, log_level
-					, Color::Fixed(8).paint(record.target())
-					, record.args())
+				format!(
+					"{} {} {} {}",
+					Color::Fixed(8).bold().paint(timestamp),
+					log_level,
+					Color::Fixed(8).paint(record.target()),
+					record.args()
+				)
 			}
 		})
 	});
@@ -110,8 +112,8 @@ fn ethereum_sync_params() -> Result<ethereum_sync_loop::EthereumSyncParams, Stri
 	}
 	if let Some(sub_signer) = matches.value_of("sub-signer") {
 		let sub_signer_password = matches.value_of("sub-signer-password");
-		eth_sync_params.sub_signer = sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password)
-			.map_err(|e| format!("{:?}", e))?;
+		eth_sync_params.sub_signer =
+			sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password).map_err(|e| format!("{:?}", e))?;
 	}
 
 	Ok(eth_sync_params)

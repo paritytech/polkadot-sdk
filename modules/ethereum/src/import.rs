@@ -36,10 +36,7 @@ use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::verification::verify_aura_header;
 use crate::{AuraConfiguration, Storage};
 use primitives::{Header, Receipt, H256};
-use sp_std::{
-	collections::btree_map::BTreeMap,
-	prelude::*,
-};
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Maximal number of headers behind best blocks that we are aiming to store. When there
 /// are too many unfinalized headers, it slows down finalization tracking significantly.
@@ -89,7 +86,7 @@ pub fn import_headers<S: Storage>(
 					}
 				}
 				useful += 1;
-			},
+			}
 			Err(Error::AncientHeader) | Err(Error::KnownHeader) => useless += 1,
 			Err(error) => return Err(error),
 		}
@@ -143,16 +140,14 @@ pub fn import_header<S: Storage>(
 	let total_difficulty = import_context.total_difficulty() + header.difficulty;
 	let is_best = total_difficulty > best_total_difficulty;
 	let header_number = header.number;
-	storage.insert_header(
-		import_context.into_import_header(
-			is_best,
-			hash,
-			header,
-			total_difficulty,
-			enacted_change,
-			scheduled_change,
-		),
-	);
+	storage.insert_header(import_context.into_import_header(
+		is_best,
+		hash,
+		header,
+		total_difficulty,
+		enacted_change,
+		scheduled_change,
+	));
 
 	// now mark finalized headers && prune old headers
 	storage.finalize_headers(
@@ -300,18 +295,18 @@ mod tests {
 		let mut latest_block_hash = Default::default();
 		for i in 1..11 {
 			let header = block_i(&storage, i, &validators);
-			let (rolling_last_block_hash, finalized_blocks) =
-				import_header(
-					&mut storage,
-					&kovan_aura_config(),
-					&validators_config,
-					10,
-					Some(100),
-					header,
-					None,
-				).unwrap();
+			let (rolling_last_block_hash, finalized_blocks) = import_header(
+				&mut storage,
+				&kovan_aura_config(),
+				&validators_config,
+				10,
+				Some(100),
+				header,
+				None,
+			)
+			.unwrap();
 			match i {
-				2 ..= 10 => assert_eq!(
+				2..=10 => assert_eq!(
 					finalized_blocks,
 					vec![(i - 1, block_i(&storage, i - 1, &validators).hash(), Some(100))],
 					"At {}",
@@ -341,7 +336,8 @@ mod tests {
 			Some(vec![crate::validators::tests::validators_change_recept(
 				latest_block_hash,
 			)]),
-		).unwrap();
+		)
+		.unwrap();
 		assert_eq!(
 			finalized_blocks,
 			vec![(10, block_i(&storage, 10, &validators).hash(), Some(100))],
@@ -366,20 +362,17 @@ mod tests {
 			};
 			let header = signed_header(&validators, header, step as _);
 			expected_blocks.push((i, header.hash(), Some(102)));
-			let (rolling_last_block_hash, finalized_blocks) =
-				import_header(
-					&mut storage,
-					&kovan_aura_config(),
-					&validators_config,
-					10,
-					Some(102),
-					header,
-					None,
-				).unwrap();
-			assert_eq!(
-				finalized_blocks,
-				vec![],
-			);
+			let (rolling_last_block_hash, finalized_blocks) = import_header(
+				&mut storage,
+				&kovan_aura_config(),
+				&validators_config,
+				10,
+				Some(102),
+				header,
+				None,
+			)
+			.unwrap();
+			assert_eq!(finalized_blocks, vec![],);
 			latest_block_hash = rolling_last_block_hash;
 			step += 3;
 		}
@@ -406,7 +399,8 @@ mod tests {
 			Some(103),
 			header,
 			None,
-		).unwrap();
+		)
+		.unwrap();
 		assert_eq!(finalized_blocks, expected_blocks);
 		assert_eq!(storage.oldest_unpruned_block(), 15);
 	}
