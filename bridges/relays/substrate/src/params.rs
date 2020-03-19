@@ -16,8 +16,8 @@
 
 use crate::error::Error;
 
-use url::Url;
 use std::str::FromStr;
+use url::Url;
 
 const DEFAULT_WS_PORT: u16 = 9944;
 
@@ -42,8 +42,8 @@ impl FromStr for RPCUrlParam {
 	type Err = Error;
 
 	fn from_str(url_str: &str) -> Result<Self, Self::Err> {
-		let mut url = Url::parse(url_str)
-			.map_err(|e| Error::UrlError(format!("could not parse {}: {}", url_str, e)))?;
+		let mut url =
+			Url::parse(url_str).map_err(|e| Error::UrlError(format!("could not parse {}: {}", url_str, e)))?;
 
 		if url.scheme() != "ws" {
 			return Err(Error::UrlError(format!("must have scheme ws, found {}", url.scheme())));

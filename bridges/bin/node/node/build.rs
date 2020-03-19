@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use vergen::{ConstantsFlags, generate_cargo_keys};
+use vergen::{generate_cargo_keys, ConstantsFlags};
 
 const ERROR_MSG: &str = "Failed to generate metadata files";
 

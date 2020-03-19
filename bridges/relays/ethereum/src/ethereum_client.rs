@@ -30,18 +30,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::ethereum_sync_loop::MaybeConnectionError;
+use crate::ethereum_types::{Header, HeaderId, Receipt, H256, U64};
 use jsonrpsee::common::Params;
-use jsonrpsee::raw::{
-	RawClient,
-	RawClientError,
-};
-use jsonrpsee::transport::http::{
-	HttpTransportClient, RequestError
-};
+use jsonrpsee::raw::{RawClient, RawClientError};
+use jsonrpsee::transport::http::{HttpTransportClient, RequestError};
 use serde::de::DeserializeOwned;
 use serde_json::{from_value, to_value};
-use crate::ethereum_sync_loop::MaybeConnectionError;
-use crate::ethereum_types::{H256, Header, HeaderId, Receipt, U64};
 
 /// Proof of hash serialization success.
 const HASH_SERIALIZATION_PROOF: &'static str = "hash serialization never fails; qed";
@@ -87,11 +82,7 @@ pub fn client(uri: &str) -> Client {
 
 /// Retrieve best known block number from Ethereum node.
 pub async fn best_block_number(client: Client) -> (Client, Result<u64, Error>) {
-	let (client, result) = call_rpc::<U64>(
-		client,
-		"eth_blockNumber",
-		Params::None,
-	).await;
+	let (client, result) = call_rpc::<U64>(client, "eth_blockNumber", Params::None).await;
 	(client, result.map(|x| x.as_u64()))
 }
 
@@ -104,11 +95,17 @@ pub async fn header_by_number(client: Client, number: u64) -> (Client, Result<He
 			to_value(U64::from(number)).expect(INT_SERIALIZATION_PROOF),
 			to_value(false).expect(BOOL_SERIALIZATION_PROOF),
 		]),
-	).await;
-	(client, header.and_then(|header: Header| match header.number.is_some() && header.hash.is_some() {
-		true => Ok(header),
-		false => Err(Error::IncompleteHeader),
-	}))
+	)
+	.await;
+	(
+		client,
+		header.and_then(
+			|header: Header| match header.number.is_some() && header.hash.is_some() {
+				true => Ok(header),
+				false => Err(Error::IncompleteHeader),
+			},
+		),
+	)
 }
 
 /// Retrieve block header by its hash from Ethereum node.
@@ -120,11 +117,17 @@ pub async fn header_by_hash(client: Client, hash: H256) -> (Client, Result<Heade
 			to_value(hash).expect(HASH_SERIALIZATION_PROOF),
 			to_value(false).expect(BOOL_SERIALIZATION_PROOF),
 		]),
-	).await;
-	(client, header.and_then(|header: Header| match header.number.is_none() && header.hash.is_none() {
-		true => Ok(header),
-		false => Err(Error::IncompleteHeader),
-	}))
+	)
+	.await;
+	(
+		client,
+		header.and_then(
+			|header: Header| match header.number.is_none() && header.hash.is_none() {
+				true => Ok(header),
+				false => Err(Error::IncompleteHeader),
+			},
+		),
+	)
 }
 
 /// Retrieve transactions receipts for given block.
@@ -151,16 +154,16 @@ async fn transaction_receipt(client: Client, hash: H256) -> (Client, Result<Rece
 	let (client, receipt) = call_rpc::<Receipt>(
 		client,
 		"eth_getTransactionReceipt",
-		Params::Array(vec![
-			to_value(hash).expect(HASH_SERIALIZATION_PROOF),
-		]),
-	).await;
-	(client, receipt.and_then(|receipt| {
-		match receipt.gas_used.is_some() {
+		Params::Array(vec![to_value(hash).expect(HASH_SERIALIZATION_PROOF)]),
+	)
+	.await;
+	(
+		client,
+		receipt.and_then(|receipt| match receipt.gas_used.is_some() {
 			true => Ok(receipt),
 			false => Err(Error::IncompleteReceipt),
-		}
-	}))
+		}),
+	)
 }
 
 /// Calls RPC on Ethereum node.

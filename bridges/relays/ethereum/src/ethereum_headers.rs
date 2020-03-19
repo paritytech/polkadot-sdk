@@ -30,12 +30,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::ethereum_types::{Header, HeaderId, HeaderStatus, QueuedHeader, Receipt, H256};
 use std::collections::{
-	BTreeMap, HashMap, HashSet,
-	btree_map::Entry as BTreeMapEntry,
-	hash_map::Entry as HashMapEntry,
+	btree_map::Entry as BTreeMapEntry, hash_map::Entry as HashMapEntry, BTreeMap, HashMap, HashSet,
 };
-use crate::ethereum_types::{H256, Header, HeaderId, HeaderStatus, QueuedHeader, Receipt};
 
 type HeadersQueue = BTreeMap<u64, HashMap<H256, QueuedHeader>>;
 type KnownHeaders = BTreeMap<u64, HashMap<H256, HeaderStatus>>;
@@ -79,9 +77,15 @@ impl QueuedHeaders {
 	pub fn headers_in_status(&self, status: HeaderStatus) -> usize {
 		match status {
 			HeaderStatus::Unknown | HeaderStatus::Synced => return 0,
-			HeaderStatus::MaybeOrphan => self.maybe_orphan.values().fold(0, |total, headers| total + headers.len()),
+			HeaderStatus::MaybeOrphan => self
+				.maybe_orphan
+				.values()
+				.fold(0, |total, headers| total + headers.len()),
 			HeaderStatus::Orphan => self.orphan.values().fold(0, |total, headers| total + headers.len()),
-			HeaderStatus::MaybeReceipts => self.maybe_receipts.values().fold(0, |total, headers| total + headers.len()),
+			HeaderStatus::MaybeReceipts => self
+				.maybe_receipts
+				.values()
+				.fold(0, |total, headers| total + headers.len()),
 			HeaderStatus::Receipts => self.receipts.values().fold(0, |total, headers| total + headers.len()),
 			HeaderStatus::Ready => self.ready.values().fold(0, |total, headers| total + headers.len()),
 			HeaderStatus::Submitted => self.submitted.values().fold(0, |total, headers| total + headers.len()),
@@ -90,9 +94,14 @@ impl QueuedHeaders {
 
 	/// Returns number of headers that are currently in the queue.
 	pub fn total_headers(&self) -> usize {
-		self.maybe_orphan.values().fold(0, |total, headers| total + headers.len())
+		self.maybe_orphan
+			.values()
+			.fold(0, |total, headers| total + headers.len())
 			+ self.orphan.values().fold(0, |total, headers| total + headers.len())
-			+ self.maybe_receipts.values().fold(0, |total, headers| total + headers.len())
+			+ self
+				.maybe_receipts
+				.values()
+				.fold(0, |total, headers| total + headers.len())
 			+ self.receipts.values().fold(0, |total, headers| total + headers.len())
 			+ self.ready.values().fold(0, |total, headers| total + headers.len())
 	}
@@ -171,16 +180,19 @@ impl QueuedHeaders {
 			HeaderStatus::Unknown | HeaderStatus::MaybeOrphan => {
 				insert_header(&mut self.maybe_orphan, id, header);
 				HeaderStatus::MaybeOrphan
-			},
+			}
 			HeaderStatus::Orphan => {
 				insert_header(&mut self.orphan, id, header);
 				HeaderStatus::Orphan
 			}
-			HeaderStatus::MaybeReceipts | HeaderStatus::Receipts | HeaderStatus::Ready
-				| HeaderStatus::Submitted | HeaderStatus::Synced => {
+			HeaderStatus::MaybeReceipts
+			| HeaderStatus::Receipts
+			| HeaderStatus::Ready
+			| HeaderStatus::Submitted
+			| HeaderStatus::Synced => {
 				insert_header(&mut self.maybe_receipts, id, header);
 				HeaderStatus::MaybeReceipts
-			},
+			}
 		};
 
 		self.known_headers.entry(id.0).or_default().insert(id.1, status);
@@ -202,10 +214,12 @@ impl QueuedHeaders {
 				HeaderStatus::Ready => remove_header(&mut self.ready, &current),
 				HeaderStatus::Submitted => remove_header(&mut self.submitted, &current),
 				HeaderStatus::Synced => break,
-			}.expect("header has a given status; given queue has the header; qed");
+			}
+			.expect("header has a given status; given queue has the header; qed");
 
 			log::debug!(target: "bridge", "Ethereum header {:?} is now {:?}", current, HeaderStatus::Synced);
-			*self.known_headers
+			*self
+				.known_headers
 				.entry(current.0)
 				.or_default()
 				.entry(current.1)
@@ -215,7 +229,8 @@ impl QueuedHeaders {
 
 		// remember that the header is synced
 		log::debug!(target: "bridge", "Ethereum header {:?} is now {:?}", id, HeaderStatus::Synced);
-		*self.known_headers
+		*self
+			.known_headers
 			.entry(id.0)
 			.or_default()
 			.entry(id.1)
@@ -303,7 +318,7 @@ impl QueuedHeaders {
 		if prune_border <= self.prune_border {
 			return;
 		}
-		
+
 		prune_queue(&mut self.maybe_orphan, prune_border);
 		prune_queue(&mut self.orphan, prune_border);
 		prune_queue(&mut self.maybe_receipts, prune_border);
@@ -402,7 +417,10 @@ fn move_header_descendants(
 				if current_parents.contains(&entry.get().header().parent_hash) {
 					let header_to_move = entry.remove();
 					let header_to_move_id = header_to_move.id();
-					known_headers.entry(header_to_move_id.0).or_default().insert(header_to_move_id.1, destination_status);
+					known_headers
+						.entry(header_to_move_id.0)
+						.or_default()
+						.insert(header_to_move_id.1, destination_status);
 					headers_to_move.push((header_to_move_id, header_to_move));
 
 					log::debug!(
@@ -438,7 +456,8 @@ fn oldest_header(queue: &HeadersQueue) -> Option<&QueuedHeader> {
 
 /// Return oldest headers from the queue until functor will return false.
 fn oldest_headers(queue: &HeadersQueue, mut f: impl FnMut(&QueuedHeader) -> bool) -> Option<Vec<&QueuedHeader>> {
-	let result = queue.values()
+	let result = queue
+		.values()
 		.flat_map(|h| h.values())
 		.take_while(|h| f(h))
 		.collect::<Vec<_>>();
@@ -490,11 +509,27 @@ pub(crate) mod tests {
 	fn total_headers_works() {
 		// total headers just sums up number of headers in every queue
 		let mut queue = QueuedHeaders::default();
-		queue.maybe_orphan.entry(1).or_default().insert(hash(1), Default::default());
-		queue.maybe_orphan.entry(1).or_default().insert(hash(2), Default::default());
-		queue.maybe_orphan.entry(2).or_default().insert(hash(3), Default::default());
+		queue
+			.maybe_orphan
+			.entry(1)
+			.or_default()
+			.insert(hash(1), Default::default());
+		queue
+			.maybe_orphan
+			.entry(1)
+			.or_default()
+			.insert(hash(2), Default::default());
+		queue
+			.maybe_orphan
+			.entry(2)
+			.or_default()
+			.insert(hash(3), Default::default());
 		queue.orphan.entry(3).or_default().insert(hash(4), Default::default());
-		queue.maybe_receipts.entry(4).or_default().insert(hash(5), Default::default());
+		queue
+			.maybe_receipts
+			.entry(4)
+			.or_default()
+			.insert(hash(5), Default::default());
 		queue.ready.entry(5).or_default().insert(hash(6), Default::default());
 		assert_eq!(queue.total_headers(), 6);
 	}
@@ -503,21 +538,41 @@ pub(crate) mod tests {
 	fn best_queued_number_works() {
 		// initially there are headers in MaybeOrphan queue only
 		let mut queue = QueuedHeaders::default();
-		queue.maybe_orphan.entry(1).or_default().insert(hash(1), Default::default());
-		queue.maybe_orphan.entry(1).or_default().insert(hash(2), Default::default());
-		queue.maybe_orphan.entry(3).or_default().insert(hash(3), Default::default());
+		queue
+			.maybe_orphan
+			.entry(1)
+			.or_default()
+			.insert(hash(1), Default::default());
+		queue
+			.maybe_orphan
+			.entry(1)
+			.or_default()
+			.insert(hash(2), Default::default());
+		queue
+			.maybe_orphan
+			.entry(3)
+			.or_default()
+			.insert(hash(3), Default::default());
 		assert_eq!(queue.best_queued_number(), 3);
 		// and then there's better header in Orphan
 		queue.orphan.entry(10).or_default().insert(hash(10), Default::default());
 		assert_eq!(queue.best_queued_number(), 10);
 		// and then there's better header in MaybeReceipts
-		queue.maybe_receipts.entry(20).or_default().insert(hash(20), Default::default());
+		queue
+			.maybe_receipts
+			.entry(20)
+			.or_default()
+			.insert(hash(20), Default::default());
 		assert_eq!(queue.best_queued_number(), 20);
 		// and then there's better header in Ready
 		queue.ready.entry(30).or_default().insert(hash(30), Default::default());
 		assert_eq!(queue.best_queued_number(), 30);
 		// and then there's better header in MaybeOrphan again
-		queue.maybe_orphan.entry(40).or_default().insert(hash(40), Default::default());
+		queue
+			.maybe_orphan
+			.entry(40)
+			.or_default()
+			.insert(hash(40), Default::default());
 		assert_eq!(queue.best_queued_number(), 40);
 	}
 
@@ -527,7 +582,11 @@ pub(crate) mod tests {
 		let mut queue = QueuedHeaders::default();
 		assert_eq!(queue.status(&id(10)), HeaderStatus::Unknown);
 		// and status is read from the KnownHeaders
-		queue.known_headers.entry(10).or_default().insert(hash(10), HeaderStatus::Ready);
+		queue
+			.known_headers
+			.entry(10)
+			.or_default()
+			.insert(hash(10), HeaderStatus::Ready);
 		assert_eq!(queue.status(&id(10)), HeaderStatus::Ready);
 	}
 
@@ -536,50 +595,83 @@ pub(crate) mod tests {
 		// initially we have oldest header #10
 		let mut queue = QueuedHeaders::default();
 		queue.maybe_orphan.entry(10).or_default().insert(hash(1), header(100));
-		assert_eq!(queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(), hash(100));
+		assert_eq!(
+			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(),
+			hash(100)
+		);
 		// inserting #20 changes nothing
 		queue.maybe_orphan.entry(20).or_default().insert(hash(1), header(101));
-		assert_eq!(queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(), hash(100));
+		assert_eq!(
+			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(),
+			hash(100)
+		);
 		// inserting #5 makes it oldest
 		queue.maybe_orphan.entry(5).or_default().insert(hash(1), header(102));
-		assert_eq!(queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(), hash(102));
+		assert_eq!(
+			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(),
+			hash(102)
+		);
 	}
 
 	#[test]
 	fn header_response_works() {
 		// when parent is Synced, we insert to MaybeReceipts
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::Synced);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::Synced);
 		queue.header_response(header(101).header().clone());
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeReceipts);
 
 		// when parent is Ready, we insert to MaybeReceipts
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::Ready);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::Ready);
 		queue.header_response(header(101).header().clone());
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeReceipts);
 
 		// when parent is Receipts, we insert to MaybeReceipts
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::Receipts);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::Receipts);
 		queue.header_response(header(101).header().clone());
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeReceipts);
 
 		// when parent is MaybeReceipts, we insert to MaybeReceipts
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::MaybeReceipts);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::MaybeReceipts);
 		queue.header_response(header(101).header().clone());
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeReceipts);
 
 		// when parent is Orphan, we insert to Orphan
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::Orphan);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::Orphan);
 		queue.header_response(header(101).header().clone());
 		assert_eq!(queue.status(&id(101)), HeaderStatus::Orphan);
 
 		// when parent is MaybeOrphan, we insert to MaybeOrphan
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::MaybeOrphan);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::MaybeOrphan);
 		queue.header_response(header(101).header().clone());
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeOrphan);
 
@@ -599,15 +691,39 @@ pub(crate) mod tests {
 		// #97 in Receipts
 		// #96 in Ready
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::MaybeOrphan);
-		queue.maybe_orphan.entry(100).or_default().insert(hash(100), header(100));
-		queue.known_headers.entry(99).or_default().insert(hash(99), HeaderStatus::Orphan);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::MaybeOrphan);
+		queue
+			.maybe_orphan
+			.entry(100)
+			.or_default()
+			.insert(hash(100), header(100));
+		queue
+			.known_headers
+			.entry(99)
+			.or_default()
+			.insert(hash(99), HeaderStatus::Orphan);
 		queue.orphan.entry(99).or_default().insert(hash(99), header(99));
-		queue.known_headers.entry(98).or_default().insert(hash(98), HeaderStatus::MaybeReceipts);
+		queue
+			.known_headers
+			.entry(98)
+			.or_default()
+			.insert(hash(98), HeaderStatus::MaybeReceipts);
 		queue.maybe_receipts.entry(98).or_default().insert(hash(98), header(98));
-		queue.known_headers.entry(97).or_default().insert(hash(97), HeaderStatus::Receipts);
+		queue
+			.known_headers
+			.entry(97)
+			.or_default()
+			.insert(hash(97), HeaderStatus::Receipts);
 		queue.receipts.entry(97).or_default().insert(hash(97), header(97));
-		queue.known_headers.entry(96).or_default().insert(hash(96), HeaderStatus::Ready);
+		queue
+			.known_headers
+			.entry(96)
+			.or_default()
+			.insert(hash(96), HeaderStatus::Ready);
 		queue.ready.entry(96).or_default().insert(hash(96), header(96));
 		queue.substrate_best_header_response(&id(100));
 
@@ -618,7 +734,10 @@ pub(crate) mod tests {
 		assert!(queue.receipts.is_empty());
 		assert!(queue.ready.is_empty());
 		assert_eq!(queue.known_headers.len(), 5);
-		assert!(queue.known_headers.values().all(|s| s.values().all(|s| *s == HeaderStatus::Synced)));
+		assert!(queue
+			.known_headers
+			.values()
+			.all(|s| s.values().all(|s| *s == HeaderStatus::Synced)));
 	}
 
 	#[test]
@@ -629,11 +748,27 @@ pub(crate) mod tests {
 		// #102 in MaybeOrphan
 		// #103 in Orphan
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(101).or_default().insert(hash(101), HeaderStatus::Orphan);
+		queue
+			.known_headers
+			.entry(101)
+			.or_default()
+			.insert(hash(101), HeaderStatus::Orphan);
 		queue.orphan.entry(101).or_default().insert(hash(101), header(101));
-		queue.known_headers.entry(102).or_default().insert(hash(102), HeaderStatus::MaybeOrphan);
-		queue.maybe_orphan.entry(102).or_default().insert(hash(102), header(102));
-		queue.known_headers.entry(103).or_default().insert(hash(103), HeaderStatus::Orphan);
+		queue
+			.known_headers
+			.entry(102)
+			.or_default()
+			.insert(hash(102), HeaderStatus::MaybeOrphan);
+		queue
+			.maybe_orphan
+			.entry(102)
+			.or_default()
+			.insert(hash(102), header(102));
+		queue
+			.known_headers
+			.entry(103)
+			.or_default()
+			.insert(hash(103), HeaderStatus::Orphan);
 		queue.orphan.entry(103).or_default().insert(hash(103), header(103));
 		queue.substrate_best_header_response(&id(100));
 
@@ -655,12 +790,32 @@ pub(crate) mod tests {
 		// and we have asked for MaybeOrphan status of #100.parent (i.e. #99)
 		// and the response is: YES, #99 is known to the Substrate runtime
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::MaybeOrphan);
-		queue.maybe_orphan.entry(100).or_default().insert(hash(100), header(100));
-		queue.known_headers.entry(101).or_default().insert(hash(101), HeaderStatus::Orphan);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::MaybeOrphan);
+		queue
+			.maybe_orphan
+			.entry(100)
+			.or_default()
+			.insert(hash(100), header(100));
+		queue
+			.known_headers
+			.entry(101)
+			.or_default()
+			.insert(hash(101), HeaderStatus::Orphan);
 		queue.orphan.entry(101).or_default().insert(hash(101), header(101));
-		queue.known_headers.entry(102).or_default().insert(hash(102), HeaderStatus::MaybeOrphan);
-		queue.maybe_orphan.entry(102).or_default().insert(hash(102), header(102));
+		queue
+			.known_headers
+			.entry(102)
+			.or_default()
+			.insert(hash(102), HeaderStatus::MaybeOrphan);
+		queue
+			.maybe_orphan
+			.entry(102)
+			.or_default()
+			.insert(hash(102), header(102));
 		queue.maybe_orphan_response(&id(99), true);
 
 		// then all headers (#100..#103) are moved to the MaybeReceipts queue
@@ -680,10 +835,26 @@ pub(crate) mod tests {
 		// and we have asked for MaybeOrphan status of #100.parent (i.e. #99)
 		// and the response is: NO, #99 is NOT known to the Substrate runtime
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::MaybeOrphan);
-		queue.maybe_orphan.entry(100).or_default().insert(hash(100), header(100));
-		queue.known_headers.entry(101).or_default().insert(hash(101), HeaderStatus::MaybeOrphan);
-		queue.maybe_orphan.entry(101).or_default().insert(hash(101), header(101));
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::MaybeOrphan);
+		queue
+			.maybe_orphan
+			.entry(100)
+			.or_default()
+			.insert(hash(100), header(100));
+		queue
+			.known_headers
+			.entry(101)
+			.or_default()
+			.insert(hash(101), HeaderStatus::MaybeOrphan);
+		queue
+			.maybe_orphan
+			.entry(101)
+			.or_default()
+			.insert(hash(101), header(101));
 		queue.maybe_orphan_response(&id(99), false);
 
 		// then all headers (#100..#101) are moved to the Orphan queue
@@ -696,8 +867,16 @@ pub(crate) mod tests {
 	#[test]
 	fn positive_maybe_receipts_response_works() {
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::MaybeReceipts);
-		queue.maybe_receipts.entry(100).or_default().insert(hash(100), header(100));
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::MaybeReceipts);
+		queue
+			.maybe_receipts
+			.entry(100)
+			.or_default()
+			.insert(hash(100), header(100));
 		queue.maybe_receipts_response(&id(100), true);
 		assert!(queue.maybe_receipts.is_empty());
 		assert_eq!(queue.receipts.len(), 1);
@@ -707,8 +886,16 @@ pub(crate) mod tests {
 	#[test]
 	fn negative_maybe_receipts_response_works() {
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::MaybeReceipts);
-		queue.maybe_receipts.entry(100).or_default().insert(hash(100), header(100));
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::MaybeReceipts);
+		queue
+			.maybe_receipts
+			.entry(100)
+			.or_default()
+			.insert(hash(100), header(100));
 		queue.maybe_receipts_response(&id(100), false);
 		assert!(queue.maybe_receipts.is_empty());
 		assert_eq!(queue.ready.len(), 1);
@@ -718,7 +905,11 @@ pub(crate) mod tests {
 	#[test]
 	fn receipts_response_works() {
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::Receipts);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::Receipts);
 		queue.receipts.entry(100).or_default().insert(hash(100), header(100));
 		queue.receipts_response(&id(100), Vec::new());
 		assert!(queue.receipts.is_empty());
@@ -729,7 +920,11 @@ pub(crate) mod tests {
 	#[test]
 	fn header_submitted_works() {
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::Ready);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::Ready);
 		queue.ready.entry(100).or_default().insert(hash(100), header(100));
 		queue.headers_submitted(vec![id(100)]);
 		assert!(queue.ready.is_empty());
@@ -739,15 +934,43 @@ pub(crate) mod tests {
 	#[test]
 	fn prune_works() {
 		let mut queue = QueuedHeaders::default();
-		queue.known_headers.entry(104).or_default().insert(hash(104), HeaderStatus::MaybeOrphan);
-		queue.maybe_orphan.entry(104).or_default().insert(hash(104), header(104));
-		queue.known_headers.entry(103).or_default().insert(hash(103), HeaderStatus::Orphan);
+		queue
+			.known_headers
+			.entry(104)
+			.or_default()
+			.insert(hash(104), HeaderStatus::MaybeOrphan);
+		queue
+			.maybe_orphan
+			.entry(104)
+			.or_default()
+			.insert(hash(104), header(104));
+		queue
+			.known_headers
+			.entry(103)
+			.or_default()
+			.insert(hash(103), HeaderStatus::Orphan);
 		queue.orphan.entry(103).or_default().insert(hash(103), header(103));
-		queue.known_headers.entry(102).or_default().insert(hash(102), HeaderStatus::MaybeReceipts);
-		queue.maybe_receipts.entry(102).or_default().insert(hash(102), header(102));
-		queue.known_headers.entry(101).or_default().insert(hash(101), HeaderStatus::Receipts);
+		queue
+			.known_headers
+			.entry(102)
+			.or_default()
+			.insert(hash(102), HeaderStatus::MaybeReceipts);
+		queue
+			.maybe_receipts
+			.entry(102)
+			.or_default()
+			.insert(hash(102), header(102));
+		queue
+			.known_headers
+			.entry(101)
+			.or_default()
+			.insert(hash(101), HeaderStatus::Receipts);
 		queue.receipts.entry(101).or_default().insert(hash(101), header(101));
-		queue.known_headers.entry(100).or_default().insert(hash(100), HeaderStatus::Ready);
+		queue
+			.known_headers
+			.entry(100)
+			.or_default()
+			.insert(hash(100), HeaderStatus::Ready);
 		queue.ready.entry(100).or_default().insert(hash(100), header(100));
 
 		queue.prune(102);

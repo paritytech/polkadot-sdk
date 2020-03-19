@@ -30,17 +30,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use sp_bridge_eth_poa::{
-	Address, Bloom, Bytes, H256, Header as SubstrateEthereumHeader,
-	LogEntry as SubstrateEthereumLogEntry, Receipt as SubstrateEthereumReceipt,
-	TransactionOutcome as SubstrateEthereumTransactionOutcome, U256,
-};
 pub use crate::ethereum_types::H256 as TransactionHash;
 use crate::ethereum_types::{
-	HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
+	Header as EthereumHeader, Receipt as EthereumReceipt, HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
 	RECEIPT_GAS_USED_PROOF as ETHEREUM_RECEIPT_GAS_USED_PROOF,
-	Header as EthereumHeader,
-	Receipt as EthereumReceipt,
+};
+pub use sp_bridge_eth_poa::{
+	Address, Bloom, Bytes, Header as SubstrateEthereumHeader, LogEntry as SubstrateEthereumLogEntry,
+	Receipt as SubstrateEthereumReceipt, TransactionOutcome as SubstrateEthereumTransactionOutcome, H256, U256,
 };
 
 /// Convert Ethereum header into Ethereum header for Substrate.
@@ -67,18 +64,27 @@ pub fn into_substrate_ethereum_header(header: &EthereumHeader) -> SubstrateEther
 pub fn into_substrate_ethereum_receipts(
 	receipts: &Option<Vec<EthereumReceipt>>,
 ) -> Option<Vec<SubstrateEthereumReceipt>> {
-	receipts.as_ref().map(|receipts| receipts.iter().map(|receipt| SubstrateEthereumReceipt {
-		gas_used: receipt.gas_used.expect(ETHEREUM_RECEIPT_GAS_USED_PROOF),
-		log_bloom: receipt.logs_bloom.data().into(),
-		logs: receipt.logs.iter().map(|log_entry| SubstrateEthereumLogEntry {
-			address: log_entry.address,
-			topics: log_entry.topics.clone(),
-			data: log_entry.data.0.clone(),
-		}).collect(),
-		outcome: match (receipt.status, receipt.root) {
-			(Some(status), None) => SubstrateEthereumTransactionOutcome::StatusCode(status.as_u64() as u8),
-			(None, Some(root)) => SubstrateEthereumTransactionOutcome::StateRoot(root),
-			_ => SubstrateEthereumTransactionOutcome::Unknown,
-		},
-	}).collect())
+	receipts.as_ref().map(|receipts| {
+		receipts
+			.iter()
+			.map(|receipt| SubstrateEthereumReceipt {
+				gas_used: receipt.gas_used.expect(ETHEREUM_RECEIPT_GAS_USED_PROOF),
+				log_bloom: receipt.logs_bloom.data().into(),
+				logs: receipt
+					.logs
+					.iter()
+					.map(|log_entry| SubstrateEthereumLogEntry {
+						address: log_entry.address,
+						topics: log_entry.topics.clone(),
+						data: log_entry.data.0.clone(),
+					})
+					.collect(),
+				outcome: match (receipt.status, receipt.root) {
+					(Some(status), None) => SubstrateEthereumTransactionOutcome::StatusCode(status.as_u64() as u8),
+					(None, Some(root)) => SubstrateEthereumTransactionOutcome::StateRoot(root),
+					_ => SubstrateEthereumTransactionOutcome::Unknown,
+				},
+			})
+			.collect()
+	})
 }
