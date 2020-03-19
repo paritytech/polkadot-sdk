@@ -30,11 +30,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity-Bridge.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Encode;
 use crate::ethereum_headers::QueuedHeaders;
-use crate::ethereum_types::{HeaderId, HeaderStatus, QueuedHeader};
 use crate::ethereum_sync_loop::EthereumSyncParams;
+use crate::ethereum_types::{HeaderId, HeaderStatus, QueuedHeader};
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
+use codec::Encode;
 
 /// Ethereum headers synchronization context.
 #[derive(Debug)]
@@ -63,7 +63,8 @@ impl HeadersSync {
 	/// Returns true if we have synced almost all known headers.
 	pub fn is_almost_synced(&self) -> bool {
 		match self.target_header_number {
-			Some(target_header_number) => self.best_header
+			Some(target_header_number) => self
+				.best_header
 				.map(|best| target_header_number.saturating_sub(best.0) < 4)
 				.unwrap_or(false),
 			None => true,
@@ -100,10 +101,7 @@ impl HeadersSync {
 		}
 
 		// we assume that there were no reorgs if we have already downloaded best header
-		let best_downloaded_number = std::cmp::max(
-			self.headers.best_queued_number(),
-			best_header.0,
-		);
+		let best_downloaded_number = std::cmp::max(self.headers.best_queued_number(), best_header.0);
 		if best_downloaded_number == target_header_number {
 			return None;
 		}
@@ -115,7 +113,9 @@ impl HeadersSync {
 	/// Select headers that need to be submitted to the Substrate node.
 	pub fn select_headers_to_submit(&self) -> Option<Vec<&QueuedHeader>> {
 		let headers_in_submit_status = self.headers.headers_in_status(HeaderStatus::Submitted);
-		let headers_to_submit_count = self.params.max_headers_in_submitted_status
+		let headers_to_submit_count = self
+			.params
+			.max_headers_in_submitted_status
 			.checked_sub(headers_in_submit_status)?;
 
 		let mut total_size = 0;
@@ -129,7 +129,8 @@ impl HeadersSync {
 			}
 
 			let encoded_size = into_substrate_ethereum_header(header.header()).encode().len()
-				+ into_substrate_ethereum_receipts(header.receipts()).map(|receipts| receipts.encode().len())
+				+ into_substrate_ethereum_receipts(header.receipts())
+					.map(|receipts| receipts.encode().len())
 					.unwrap_or(0);
 			if total_headers != 0 && total_size + encoded_size > self.params.max_headers_size_in_single_submit {
 				return false;
@@ -162,7 +163,8 @@ impl HeadersSync {
 		self.headers.substrate_best_header_response(&best_header);
 
 		// prune ancient headers
-		self.headers.prune(best_header.0.saturating_sub(self.params.prune_depth));
+		self.headers
+			.prune(best_header.0.saturating_sub(self.params.prune_depth));
 
 		// finally remember the best header itself
 		self.best_header = Some(best_header);
@@ -180,9 +182,9 @@ impl HeadersSync {
 
 #[cfg(test)]
 mod tests {
-	use crate::ethereum_headers::tests::{header, id};
-	use crate::ethereum_types::{H256, HeaderStatus};
 	use super::*;
+	use crate::ethereum_headers::tests::{header, id};
+	use crate::ethereum_types::{HeaderStatus, H256};
 
 	fn side_hash(number: u64) -> H256 {
 		H256::from_low_u64_le(1000 + number)
