@@ -198,9 +198,9 @@ impl<'a> Validators<'a> {
 	pub fn finalize_validators_change<S: Storage>(
 		&self,
 		storage: &mut S,
-		finalized_blocks: &[(u64, H256)],
+		finalized_blocks: &[(u64, H256, Option<S::Submitter>)],
 	) -> Option<Vec<Address>> {
-		for (_, finalized_hash) in finalized_blocks.iter().rev() {
+		for (_, finalized_hash, _) in finalized_blocks.iter().rev() {
 			if let Some(changes) = storage.scheduled_change(finalized_hash) {
 				return Some(changes);
 			}

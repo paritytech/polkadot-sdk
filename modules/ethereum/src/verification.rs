@@ -40,14 +40,15 @@ use sp_io::crypto::secp256k1_ecdsa_recover;
 pub fn verify_aura_header<S: Storage>(
 	storage: &S,
 	params: &AuraConfiguration,
+	submitter: Option<S::Submitter>,
 	header: &Header,
-) -> Result<ImportContext, Error> {
+) -> Result<ImportContext<S::Submitter>, Error> {
 	// let's do the lightest check first
 	contextless_checks(params, header)?;
 
 	// the rest of checks requires parent
 	let context = storage
-		.import_context(&header.parent_hash)
+		.import_context(submitter, &header.parent_hash)
 		.ok_or(Error::MissingParentBlock)?;
 	let validators = context.validators();
 	let header_step = header.step().ok_or(Error::MissingStep)?;
@@ -179,7 +180,7 @@ fn verify_signature(expected_validator: &Address, signature: &H520, message: &H2
 mod tests {
 	use super::*;
 	use crate::kovan_aura_config;
-	use crate::tests::{genesis, signed_header, validator, validators_addresses, InMemoryStorage};
+	use crate::tests::{genesis, signed_header, validator, validators_addresses, AccountId, InMemoryStorage};
 	use parity_crypto::publickey::{sign, KeyPair};
 	use primitives::{rlp_encode, H520};
 
@@ -197,12 +198,15 @@ mod tests {
 		empty_step
 	}
 
-	fn verify_with_config(config: &AuraConfiguration, header: &Header) -> Result<ImportContext, Error> {
+	fn verify_with_config(
+		config: &AuraConfiguration,
+		header: &Header,
+	) -> Result<ImportContext<AccountId>, Error> {
 		let storage = InMemoryStorage::new(genesis(), validators_addresses(3));
-		verify_aura_header(&storage, &config, header)
+		verify_aura_header(&storage, &config, None, header)
 	}
 
-	fn default_verify(header: &Header) -> Result<ImportContext, Error> {
+	fn default_verify(header: &Header) -> Result<ImportContext<AccountId>, Error> {
 		verify_with_config(&kovan_aura_config(), header)
 	}
 
