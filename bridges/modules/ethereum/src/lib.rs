@@ -36,7 +36,12 @@ use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage};
 use primitives::{Address, Header, Receipt, H256, U256};
 use sp_runtime::RuntimeDebug;
-use sp_std::{iter::from_fn, prelude::*};
+use sp_std::{
+	prelude::*,
+	cmp::Ord,
+	collections::btree_map::BTreeMap,
+	iter::from_fn,
+};
 use validators::{ValidatorsConfiguration, ValidatorsSource};
 
 pub use import::{header_import_requires_receipts, import_header};
@@ -70,7 +75,10 @@ pub struct AuraConfiguration {
 
 /// Block header as it is stored in the runtime storage.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
-pub struct StoredHeader {
+pub struct StoredHeader<Submitter> {
+	/// Submitter of this header. May be `None` if header has been submitted
+	/// using unsigned transaction.
+	pub submitter: Option<Submitter>,
 	/// The block header itself.
 	pub header: Header,
 	/// Total difficulty of the chain.
@@ -85,9 +93,9 @@ pub struct StoredHeader {
 /// Header that we're importing.
 #[derive(RuntimeDebug)]
 #[cfg_attr(test, derive(Clone, PartialEq))]
-pub struct HeaderToImport {
+pub struct HeaderToImport<Submitter> {
 	/// Header import context,
-	pub context: ImportContext,
+	pub context: ImportContext<Submitter>,
 	/// Should we consider this header as best?
 	pub is_best: bool,
 	/// The hash of the header.
@@ -105,27 +113,35 @@ pub struct HeaderToImport {
 /// Header import context.
 #[derive(RuntimeDebug)]
 #[cfg_attr(test, derive(Clone, PartialEq))]
-pub struct ImportContext {
+pub struct ImportContext<Submitter> {
+	submitter: Option<Submitter>,
 	parent_header: Header,
 	parent_total_difficulty: U256,
 	next_validators_set_id: u64,
 	next_validators_set: (H256, Vec<Address>),
 }
 
-impl ImportContext {
+impl<Submitter> ImportContext<Submitter> {
 	/// Create import context using passing parameters;
 	pub fn new(
+		submitter: Option<Submitter>,
 		parent_header: Header,
 		parent_total_difficulty: U256,
 		next_validators_set_id: u64,
 		next_validators_set: (H256, Vec<Address>),
 	) -> Self {
 		ImportContext {
+			submitter,
 			parent_header,
 			parent_total_difficulty,
 			next_validators_set_id,
 			next_validators_set,
 		}
+	}
+
+	/// Returns reference to header submitter (if known).
+	pub fn submitter(&self) -> Option<&Submitter> {
+		self.submitter.as_ref()
 	}
 
 	/// Returns reference to parent header.
@@ -162,7 +178,7 @@ impl ImportContext {
 		total_difficulty: U256,
 		enacted_change: Option<Vec<Address>>,
 		scheduled_change: Option<Vec<Address>>,
-	) -> HeaderToImport {
+	) -> HeaderToImport<Submitter> {
 		HeaderToImport {
 			context: self,
 			is_best,
@@ -179,18 +195,27 @@ impl ImportContext {
 ///
 /// Storage modification must be discarded if block import has failed.
 pub trait Storage {
+	/// Header submitter identifier.
+	type Submitter: Clone + Ord;
+
 	/// Get best known block.
 	fn best_block(&self) -> (u64, H256, U256);
 	/// Get last finalized block.
 	fn finalized_block(&self) -> (u64, H256);
 	/// Get imported header by its hash.
-	fn header(&self, hash: &H256) -> Option<Header>;
+	///
+	/// Returns header and its submitter (if known).
+	fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)>;
 	/// Get header import context by parent header hash.
-	fn import_context(&self, parent_hash: &H256) -> Option<ImportContext>;
+	fn import_context(
+		&self,
+		submitter: Option<Self::Submitter>,
+		parent_hash: &H256,
+	) -> Option<ImportContext<Self::Submitter>>;
 	/// Get new validators that are scheduled by given header.
 	fn scheduled_change(&self, hash: &H256) -> Option<Vec<Address>>;
 	/// Insert imported header.
-	fn insert_header(&mut self, header: HeaderToImport);
+	fn insert_header(&mut self, header: HeaderToImport<Self::Submitter>);
 	/// Finalize given block and prune all headers with number < prune_end.
 	/// The headers in the pruning range could be either finalized, or not.
 	/// It is the storage duty to ensure that unfinalized headers that have
@@ -202,14 +227,25 @@ pub trait Storage {
 /// Decides whether the session should be ended.
 pub trait OnHeadersSubmitted<AccountId> {
 	/// Called when valid headers have been submitted.
+	///
+	/// The submitter **must not** be rewarded for submitting valid headers, because greedy authority
+	/// could produce and submit multiple valid headers (without relaying them to other peers) and
+	/// get rewarded. Instead, the provider could track submitters and stop rewarding if too many
+	/// headers have been submitted without finalization.
 	fn on_valid_headers_submitted(submitter: AccountId, useful: u64, useless: u64);
 	/// Called when invalid headers have been submitted.
 	fn on_invalid_headers_submitted(submitter: AccountId);
+	/// Called when earlier submitted headers have been finalized.
+	///
+	/// finalized is the number of headers that submitter has submitted and which
+	/// have been finalized.
+	fn on_valid_headers_finalized(submitter: AccountId, finalized: u64);
 }
 
 impl<AccountId> OnHeadersSubmitted<AccountId> for () {
 	fn on_valid_headers_submitted(_submitter: AccountId, _useful: u64, _useless: u64) {}
 	fn on_invalid_headers_submitted(_submitter: AccountId) {}
+	fn on_valid_headers_finalized(_submitter: AccountId, _finalized: u64) {}
 }
 
 /// The module configuration trait
@@ -228,14 +264,27 @@ decl_module! {
 		/// enormous block production/import time.
 		pub fn import_headers(origin, headers_with_receipts: Vec<(Header, Option<Vec<Receipt>>)>) {
 			let submitter = frame_system::ensure_signed(origin)?;
+			let mut finalized_headers = BTreeMap::new();
 			let import_result = import::import_headers(
-				&mut BridgeStorage,
+				&mut BridgeStorage::<T>::new(),
 				&kovan_aura_config(),
 				&kovan_validators_config(),
 				crate::import::PRUNE_DEPTH,
+				Some(submitter.clone()),
 				headers_with_receipts,
+				&mut finalized_headers,
 			);
 
+			// if we have finalized some headers, we will reward their submitters even
+			// if current submitter has provided some invalid headers
+			for (f_submitter, f_count) in finalized_headers {
+				T::OnHeadersSubmitted::on_valid_headers_finalized(
+					f_submitter,
+					f_count,
+				);
+			}
+
+			// now track/penalize current submitter for providing new headers
 			match import_result {
 				Ok((useful, useless)) =>
 					T::OnHeadersSubmitted::on_valid_headers_submitted(submitter, useful, useless),
@@ -259,7 +308,7 @@ decl_storage! {
 		/// Oldest unpruned block(s) number.
 		OldestUnprunedBlock: u64;
 		/// Map of imported headers by hash.
-		Headers: map hasher(blake2_256) H256 => Option<StoredHeader>;
+		Headers: map hasher(blake2_256) H256 => Option<StoredHeader<T::AccountId>>;
 		/// Map of imported header hashes by number.
 		HeadersByNumber: map hasher(blake2_256) u64 => Option<Vec<H256>>;
 		/// The ID of next validator set.
@@ -293,7 +342,8 @@ decl_storage! {
 			FinalizedBlock::put((config.initial_header.number, initial_hash));
 			OldestUnprunedBlock::put(config.initial_header.number);
 			HeadersByNumber::insert(config.initial_header.number, vec![initial_hash]);
-			Headers::insert(initial_hash, StoredHeader {
+			Headers::<T>::insert(initial_hash, StoredHeader {
+				submitter: None,
 				header: config.initial_header.clone(),
 				total_difficulty: config.initial_difficulty,
 				next_validators_set_id: 0,
@@ -310,25 +360,34 @@ impl<T: Trait> Module<T> {
 	/// The caller should only submit `import_header` transaction that makes
 	/// (or leads to making) other header the best one.
 	pub fn best_block() -> (u64, H256) {
-		let (number, hash, _) = BridgeStorage.best_block();
+		let (number, hash, _) = BridgeStorage::<T>::new().best_block();
 		(number, hash)
 	}
 
 	/// Returns true if the import of given block requires transactions receipts.
 	pub fn is_import_requires_receipts(header: Header) -> bool {
-		import::header_import_requires_receipts(&BridgeStorage, &kovan_validators_config(), &header)
+		import::header_import_requires_receipts(&BridgeStorage::<T>::new(), &kovan_validators_config(), &header)
 	}
 
 	/// Returns true if header is known to the runtime.
 	pub fn is_known_block(hash: H256) -> bool {
-		BridgeStorage.header(&hash).is_some()
+		BridgeStorage::<T>::new().header(&hash).is_some()
 	}
 }
 
 /// Runtime bridge storage.
-struct BridgeStorage;
+#[derive(Default)]
+struct BridgeStorage<T>(sp_std::marker::PhantomData<T>);
 
-impl Storage for BridgeStorage {
+impl<T> BridgeStorage<T> {
+	pub fn new() -> Self {
+		BridgeStorage(sp_std::marker::PhantomData::<T>::default())
+	}
+}
+
+impl<T: Trait> Storage for BridgeStorage<T> {
+	type Submitter = T::AccountId;
+
 	fn best_block(&self) -> (u64, H256, U256) {
 		BestBlock::get()
 	}
@@ -337,16 +396,21 @@ impl Storage for BridgeStorage {
 		FinalizedBlock::get()
 	}
 
-	fn header(&self, hash: &H256) -> Option<Header> {
-		Headers::get(hash).map(|header| header.header)
+	fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)> {
+		Headers::<T>::get(hash).map(|header| (header.header, header.submitter))
 	}
 
-	fn import_context(&self, parent_hash: &H256) -> Option<ImportContext> {
-		Headers::get(parent_hash).map(|parent_header| {
+	fn import_context(
+		&self,
+		submitter: Option<Self::Submitter>,
+		parent_hash: &H256,
+	) -> Option<ImportContext<Self::Submitter>> {
+		Headers::<T>::get(parent_hash).map(|parent_header| {
 			let (next_validators_set_start, next_validators) =
 				ValidatorsSets::get(parent_header.next_validators_set_id)
 					.expect("validators set is only pruned when last ref is pruned; there is a ref; qed");
 			ImportContext {
+				submitter,
 				parent_header: parent_header.header,
 				parent_total_difficulty: parent_header.total_difficulty,
 				next_validators_set_id: parent_header.next_validators_set_id,
@@ -359,7 +423,7 @@ impl Storage for BridgeStorage {
 		ScheduledChanges::get(hash)
 	}
 
-	fn insert_header(&mut self, header: HeaderToImport) {
+	fn insert_header(&mut self, header: HeaderToImport<Self::Submitter>) {
 		if header.is_best {
 			BestBlock::put((header.header.number, header.hash, header.total_difficulty));
 		}
@@ -387,9 +451,10 @@ impl Storage for BridgeStorage {
 		};
 
 		HeadersByNumber::append_or_insert(header.header.number, vec![header.hash]);
-		Headers::insert(
+		Headers::<T>::insert(
 			&header.hash,
 			StoredHeader {
+				submitter: header.context.submitter,
 				header: header.header,
 				total_difficulty: header.total_difficulty,
 				next_validators_set_id,
@@ -426,7 +491,7 @@ impl Storage for BridgeStorage {
 
 				// physically remove headers and (probably) obsolete validators sets
 				for hash in blocks_at_number.into_iter().flat_map(|x| x) {
-					let header = Headers::take(&hash);
+					let header = Headers::<T>::take(&hash);
 					ScheduledChanges::remove(hash);
 					if let Some(header) = header {
 						ValidatorsSetsRc::mutate(header.next_validators_set_id, |rc| match *rc {
@@ -570,19 +635,22 @@ pub fn kovan_validators_config() -> ValidatorsConfiguration {
 }
 
 /// Return iterator of given header ancestors.
-pub(crate) fn ancestry<'a, S: Storage>(storage: &'a S, header: &Header) -> impl Iterator<Item = (H256, Header)> + 'a {
+pub(crate) fn ancestry<'a, S: Storage>(
+	storage: &'a S,
+	header: &Header,
+) -> impl Iterator<Item = (H256, Header, Option<S::Submitter>)> + 'a {
 	let mut parent_hash = header.parent_hash.clone();
 	from_fn(move || {
-		let header = storage.header(&parent_hash);
-		match header {
-			Some(header) => {
+		let header_and_submitter = storage.header(&parent_hash);
+		match header_and_submitter {
+			Some((header, submitter)) => {
 				if header.number == 0 {
 					return None;
 				}
 
 				let hash = parent_hash.clone();
 				parent_hash = header.parent_hash.clone();
-				Some((hash, header))
+				Some((hash, header, submitter))
 			}
 			None => None,
 		}
@@ -595,6 +663,8 @@ pub(crate) mod tests {
 	use parity_crypto::publickey::{sign, KeyPair, Secret};
 	use primitives::{rlp_encode, H520};
 	use std::collections::{hash_map::Entry, HashMap};
+
+	pub type AccountId = u64;
 
 	pub fn genesis() -> Header {
 		Header {
@@ -651,7 +721,7 @@ pub(crate) mod tests {
 		best_block: (u64, H256, U256),
 		finalized_block: (u64, H256),
 		oldest_unpruned_block: u64,
-		headers: HashMap<H256, StoredHeader>,
+		headers: HashMap<H256, StoredHeader<AccountId>>,
 		headers_by_number: HashMap<u64, Vec<H256>>,
 		next_validators_set_id: u64,
 		validators_sets: HashMap<u64, (H256, Vec<Address>)>,
@@ -670,6 +740,7 @@ pub(crate) mod tests {
 				headers: vec![(
 					hash,
 					StoredHeader {
+						submitter: None,
 						header: initial_header,
 						total_difficulty: 0.into(),
 						next_validators_set_id: 0,
@@ -688,12 +759,14 @@ pub(crate) mod tests {
 			self.oldest_unpruned_block
 		}
 
-		pub(crate) fn stored_header(&self, hash: &H256) -> Option<&StoredHeader> {
+		pub(crate) fn stored_header(&self, hash: &H256) -> Option<&StoredHeader<AccountId>> {
 			self.headers.get(hash)
 		}
 	}
 
 	impl Storage for InMemoryStorage {
+		type Submitter = AccountId;
+
 		fn best_block(&self) -> (u64, H256, U256) {
 			self.best_block.clone()
 		}
@@ -702,15 +775,20 @@ pub(crate) mod tests {
 			self.finalized_block.clone()
 		}
 
-		fn header(&self, hash: &H256) -> Option<Header> {
-			self.headers.get(hash).map(|header| header.header.clone())
+		fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)> {
+			self.headers.get(hash).map(|header| (header.header.clone(), header.submitter.clone()))
 		}
 
-		fn import_context(&self, parent_hash: &H256) -> Option<ImportContext> {
+		fn import_context(
+			&self,
+			submitter: Option<Self::Submitter>,
+			parent_hash: &H256,
+		) -> Option<ImportContext<Self::Submitter>> {
 			self.headers.get(parent_hash).map(|parent_header| {
 				let (next_validators_set_start, next_validators) =
 					self.validators_sets.get(&parent_header.next_validators_set_id).unwrap();
 				ImportContext {
+					submitter,
 					parent_header: parent_header.header.clone(),
 					parent_total_difficulty: parent_header.total_difficulty,
 					next_validators_set_id: parent_header.next_validators_set_id,
@@ -723,7 +801,7 @@ pub(crate) mod tests {
 			self.scheduled_changes.get(hash).cloned()
 		}
 
-		fn insert_header(&mut self, header: HeaderToImport) {
+		fn insert_header(&mut self, header: HeaderToImport<Self::Submitter>) {
 			if header.is_best {
 				self.best_block = (header.header.number, header.hash, header.total_difficulty);
 			}
@@ -755,6 +833,7 @@ pub(crate) mod tests {
 			self.headers.insert(
 				header.hash,
 				StoredHeader {
+					submitter: header.context.submitter,
 					header: header.header,
 					total_difficulty: header.total_difficulty,
 					next_validators_set_id,
