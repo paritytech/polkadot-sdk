@@ -49,9 +49,10 @@ pub fn finalize_blocks<S: Storage>(
 	best_finalized_hash: &H256,
 	header_validators: (&H256, &[Address]),
 	hash: &H256,
+	submitter: Option<&S::Submitter>,
 	header: &Header,
 	two_thirds_majority_transition: u64,
-) -> Result<Vec<(u64, H256)>, Error> {
+) -> Result<Vec<(u64, H256, Option<S::Submitter>)>, Error> {
 	// compute count of voters for every unfinalized block in ancestry
 	let validators = header_validators.1.iter().collect();
 	let (mut votes, mut headers) = prepare_votes(
@@ -61,18 +62,19 @@ pub fn finalize_blocks<S: Storage>(
 		&validators,
 		hash,
 		header,
+		submitter,
 		two_thirds_majority_transition,
 	)?;
 
 	// now let's iterate in reverse order && find just finalized blocks
 	let mut newly_finalized = Vec::new();
-	while let Some((oldest_hash, oldest_number, signers)) = headers.pop_front() {
+	while let Some((oldest_hash, oldest_number, submitter, signers)) = headers.pop_front() {
 		if !is_finalized(&validators, &votes, oldest_number >= two_thirds_majority_transition) {
 			break;
 		}
 
 		remove_signers_votes(&signers, &mut votes);
-		newly_finalized.push((oldest_number, oldest_hash));
+		newly_finalized.push((oldest_number, oldest_hash, submitter));
 	}
 
 	Ok(newly_finalized)
@@ -96,8 +98,9 @@ fn prepare_votes<S: Storage>(
 	validators: &BTreeSet<&Address>,
 	hash: &H256,
 	header: &Header,
+	submitter: Option<&S::Submitter>,
 	two_thirds_majority_transition: u64,
-) -> Result<(BTreeMap<Address, u64>, VecDeque<(H256, u64, BTreeSet<Address>)>), Error> {
+) -> Result<(BTreeMap<Address, u64>, VecDeque<(H256, u64, Option<S::Submitter>, BTreeSet<Address>)>), Error> {
 	// this fn can only work with single validators set
 	if !validators.contains(&header.author) {
 		return Err(Error::NotValidator);
@@ -108,17 +111,17 @@ fn prepare_votes<S: Storage>(
 	// the same set of validators
 	let mut parent_empty_step_signers = empty_steps_signers(header);
 	let ancestry = ancestry(storage, header)
-		.map(|(hash, header)| {
+		.map(|(hash, header, submitter)| {
 			let mut signers = BTreeSet::new();
 			sp_std::mem::swap(&mut signers, &mut parent_empty_step_signers);
 			signers.insert(header.author);
 
 			let empty_step_signers = empty_steps_signers(&header);
-			let res = (hash, header.number, signers);
+			let res = (hash, header.number, submitter, signers);
 			parent_empty_step_signers = empty_step_signers;
 			res
 		})
-		.take_while(|&(hash, _, _)| hash != *validators_begin && hash != *best_finalized_hash);
+		.take_while(|&(hash, _, _, _)| hash != *validators_begin && hash != *best_finalized_hash);
 
 	// now let's iterate built iterator and compute number of validators
 	// 'voted' for each header
@@ -126,21 +129,21 @@ fn prepare_votes<S: Storage>(
 	// just finalized blocks)
 	let mut votes = BTreeMap::new();
 	let mut headers = VecDeque::new();
-	for (hash, number, signers) in ancestry {
+	for (hash, number, submitter, signers) in ancestry {
 		add_signers_votes(validators, &signers, &mut votes)?;
 		if is_finalized(validators, &votes, number >= two_thirds_majority_transition) {
 			remove_signers_votes(&signers, &mut votes);
 			break;
 		}
 
-		headers.push_front((hash, number, signers));
+		headers.push_front((hash, number, submitter, signers));
 	}
 
 	// update votes with last header vote
 	let mut header_signers = BTreeSet::new();
 	header_signers.insert(header.author);
 	*votes.entry(header.author).or_insert(0) += 1;
-	headers.push_back((*hash, header.number, header_signers));
+	headers.push_back((*hash, header.number, submitter.cloned(), header_signers));
 
 	Ok((votes, headers))
 }
@@ -211,6 +214,7 @@ mod tests {
 				&Default::default(),
 				(&Default::default(), &[]),
 				&Default::default(),
+				None,
 				&Header::default(),
 				0,
 			),
@@ -233,7 +237,7 @@ mod tests {
 		};
 		let hash1 = header1.hash();
 		let mut header_to_import = HeaderToImport {
-			context: storage.import_context(&genesis().hash()).unwrap(),
+			context: storage.import_context(None, &genesis().hash()).unwrap(),
 			is_best: true,
 			hash: hash1,
 			header: header1,
@@ -247,6 +251,7 @@ mod tests {
 				&Default::default(),
 				(&Default::default(), &validators_addresses(5)),
 				&hash1,
+				None,
 				&header_to_import.header,
 				u64::max_value(),
 			),
@@ -269,6 +274,7 @@ mod tests {
 				&Default::default(),
 				(&Default::default(), &validators_addresses(5)),
 				&hash2,
+				None,
 				&header_to_import.header,
 				u64::max_value(),
 			),
@@ -291,10 +297,11 @@ mod tests {
 				&Default::default(),
 				(&Default::default(), &validators_addresses(5)),
 				&hash3,
+				None,
 				&header_to_import.header,
 				u64::max_value(),
 			),
-			Ok(vec![(1, hash1)]),
+			Ok(vec![(1, hash1, None)]),
 		);
 		storage.insert_header(header_to_import);
 	}
