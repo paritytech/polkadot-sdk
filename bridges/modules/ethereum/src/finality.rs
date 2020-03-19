@@ -100,7 +100,13 @@ fn prepare_votes<S: Storage>(
 	header: &Header,
 	submitter: Option<&S::Submitter>,
 	two_thirds_majority_transition: u64,
-) -> Result<(BTreeMap<Address, u64>, VecDeque<(H256, u64, Option<S::Submitter>, BTreeSet<Address>)>), Error> {
+) -> Result<
+	(
+		BTreeMap<Address, u64>,
+		VecDeque<(H256, u64, Option<S::Submitter>, BTreeSet<Address>)>,
+	),
+	Error,
+> {
 	// this fn can only work with single validators set
 	if !validators.contains(&header.author) {
 		return Err(Error::NotValidator);
