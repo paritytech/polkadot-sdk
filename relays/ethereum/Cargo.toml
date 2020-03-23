@@ -20,7 +20,7 @@ rustc-hex = "2.0.1"
 serde = { version = "1.0.105", features = ["derive"] }
 serde_json = "1.0.40"
 sp-bridge-eth-poa = { path = "../../primitives/ethereum-poa" }
-time = "0.1"
+time = "0.2"
 web3 = { git = "https://github.com/svyatonik/rust-web3.git", branch = "fix_receipt" }
 
 # Substrate Based Dependencies

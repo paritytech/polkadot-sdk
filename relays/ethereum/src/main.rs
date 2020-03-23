@@ -66,8 +66,7 @@ fn initialize() {
 	builder.parse_filters(&filters);
 	builder.format(move |buf, record| {
 		writeln!(buf, "{}", {
-			let timestamp =
-				time::strftime("%Y-%m-%d %H:%M:%S %Z", &time::now()).expect("Time is incorrectly formatted");
+			let timestamp = time::OffsetDateTime::now_local().format("%Y-%m-%d %H:%M:%S %Z");
 			if cfg!(windows) {
 				format!("{} {} {} {}", timestamp, record.level(), record.target(), record.args())
 			} else {
