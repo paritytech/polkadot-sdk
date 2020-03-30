@@ -8,7 +8,7 @@ edition = "2018"
 async-std = "1.0.1"
 clap = "2.3.3"
 ctrlc = "3.1.4"
-derive_more = "0.99.3"
+derive_more = "0.99.5"
 env_logger = "0.7.1"
 futures = "0.3.1"
 jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", features = ["ws"] }
