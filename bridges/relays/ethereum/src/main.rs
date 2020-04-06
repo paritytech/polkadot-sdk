@@ -50,7 +50,7 @@ fn initialize() {
 	builder.parse_filters(&filters);
 	builder.format(move |buf, record| {
 		writeln!(buf, "{}", {
-			let timestamp = time::OffsetDateTime::now_local().format("%Y-%m-%d %H:%M:%S %Z");
+			let timestamp = time::OffsetDateTime::now_local().format("%Y-%m-%d %H:%M:%S %z");
 			if cfg!(windows) {
 				format!("{} {} {} {}", timestamp, record.level(), record.target(), record.args())
 			} else {
