@@ -18,18 +18,22 @@
 //!
 //! Contains message send between collators and logic to process them.
 
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Error as ClientError;
 use sp_consensus::block_validation::{BlockAnnounceValidator, Validation};
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
-use polkadot_primitives::parachain::ValidatorId;
+use polkadot_primitives::{
+	parachain::{ParachainHost, ValidatorId},
+	Block as PBlock,
+};
 use polkadot_statement_table::{SignedStatement, Statement};
 use polkadot_validation::check_statement;
 
 use codec::{Decode, Encode};
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 /// Validate that data is a valid justification from a relay-chain validator that the block is a
 /// valid parachain-block candidate.
@@ -37,21 +41,27 @@ use std::marker::PhantomData;
 /// the justification.
 ///
 /// Note: if no justification is provided the annouce is considered valid.
-pub struct JustifiedBlockAnnounceValidator<B> {
+pub struct JustifiedBlockAnnounceValidator<B, P> {
 	authorities: Vec<ValidatorId>,
 	phantom: PhantomData<B>,
+	polkadot_client: Arc<P>,
 }
 
-impl<B: BlockT> JustifiedBlockAnnounceValidator<B> {
-	pub fn new(authorities: Vec<ValidatorId>) -> Self {
+impl<B, P> JustifiedBlockAnnounceValidator<B, P> {
+	pub fn new(authorities: Vec<ValidatorId>, polkadot_client: Arc<P>) -> Self {
 		Self {
 			authorities,
 			phantom: Default::default(),
+			polkadot_client,
 		}
 	}
 }
 
-impl<B: BlockT> BlockAnnounceValidator<B> for JustifiedBlockAnnounceValidator<B> {
+impl<B: BlockT, P> BlockAnnounceValidator<B> for JustifiedBlockAnnounceValidator<B, P>
+where
+	P: ProvideRuntimeApi<PBlock>,
+	P::Api: ParachainHost<PBlock>,
+{
 	fn validate(
 		&mut self,
 		header: &B::Header,
@@ -89,6 +99,12 @@ impl<B: BlockT> BlockAnnounceValidator<B> for JustifiedBlockAnnounceValidator<B>
 			},
 		} = gossip_statement;
 
+		let signing_context = self
+			.polkadot_client
+			.runtime_api()
+			.signing_context(&BlockId::Hash(relay_chain_leaf))
+			.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?;
+
 		// Check that the signer is a legit validator.
 		let signer = self.authorities.get(sender as usize).ok_or_else(|| {
 			Box::new(ClientError::BadJustification(
@@ -98,7 +114,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> for JustifiedBlockAnnounceValidator<B>
 		})?;
 
 		// Check statement is correctly signed.
-		if !check_statement(&statement, &signature, signer.clone(), &relay_chain_leaf) {
+		if !check_statement(&statement, &signature, signer.clone(), &signing_context) {
 			return Err(Box::new(ClientError::BadJustification(
 				"block announced justification signature is invalid".to_string(),
 			)) as Box<_>);

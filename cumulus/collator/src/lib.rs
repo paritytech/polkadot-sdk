@@ -457,6 +457,7 @@ mod tests {
 								NativeExecutor::<polkadot_service::PolkadotExecutor>::new(
 									Interpreted,
 									None,
+									1,
 								)
 							)
 						)

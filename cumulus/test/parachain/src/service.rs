@@ -16,8 +16,6 @@
 
 use std::sync::Arc;
 
-use parachain_runtime::{self, GenesisConfig};
-
 use sc_executor::native_executor_instance;
 use sc_service::{AbstractService, Configuration};
 use sc_finality_grandpa::{FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider};
@@ -73,8 +71,8 @@ macro_rules! new_full_start {
 /// Run a collator node with the given parachain `Configuration` and relaychain `Configuration`
 ///
 /// This function blocks until done.
-pub fn run_collator<E: sc_service::ChainSpecExtension>(
-	parachain_config: Configuration<GenesisConfig, E>,
+pub fn run_collator(
+	parachain_config: Configuration,
 	key: Arc<CollatorPair>,
 	mut polkadot_config: polkadot_collator::Configuration,
 ) -> sc_cli::Result<()> {

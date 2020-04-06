@@ -35,7 +35,7 @@ sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-client = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", version = "0.8.0-alpha.5" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 

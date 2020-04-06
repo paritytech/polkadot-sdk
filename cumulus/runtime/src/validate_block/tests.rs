@@ -54,10 +54,12 @@ fn call_validate_block(
 		Some(1024),
 		sp_io::SubstrateHostFunctions::host_functions(),
 		false,
+		1,
 	);
 
 	executor.call_in_wasm(
 		&WASM_BINARY,
+		None,
 		"validate_block",
 		&params,
 		&mut ext_ext,
