@@ -17,45 +17,49 @@
 use sp_runtime::RuntimeDebug;
 
 /// Header import error.
-#[derive(RuntimeDebug)]
+#[derive(Clone, Copy, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum Error {
-	/// The header is beyound last finalized and can not be imported.
-	AncientHeader,
+	/// The header is beyond last finalized and can not be imported.
+	AncientHeader = 0,
 	/// The header is already imported.
-	KnownHeader,
+	KnownHeader = 1,
 	/// Seal has an incorrect format.
-	InvalidSealArity,
+	InvalidSealArity = 2,
 	/// Block number isn't sensible.
-	RidiculousNumber,
+	RidiculousNumber = 3,
 	/// Block has too much gas used.
-	TooMuchGasUsed,
+	TooMuchGasUsed = 4,
 	/// Gas limit header field is invalid.
-	InvalidGasLimit,
+	InvalidGasLimit = 5,
 	/// Extra data is of an invalid length.
-	ExtraDataOutOfBounds,
+	ExtraDataOutOfBounds = 6,
 	/// Timestamp header overflowed.
-	TimestampOverflow,
+	TimestampOverflow = 7,
 	/// The parent header is missing from the blockchain.
-	MissingParentBlock,
+	MissingParentBlock = 8,
 	/// The header step is missing from the header.
-	MissingStep,
+	MissingStep = 9,
 	/// The header signature is missing from the header.
-	MissingSignature,
+	MissingSignature = 10,
 	/// Empty steps are missing from the header.
-	MissingEmptySteps,
+	MissingEmptySteps = 11,
 	/// The same author issued different votes at the same step.
-	DoubleVote,
+	DoubleVote = 12,
 	/// Validation proof insufficient.
-	InsufficientProof,
+	InsufficientProof = 13,
 	/// Difficulty header field is invalid.
-	InvalidDifficulty,
+	InvalidDifficulty = 14,
 	/// The received block is from an incorrect proposer.
-	NotValidator,
+	NotValidator = 15,
 	/// Missing transaction receipts for the operation.
-	MissingTransactionsReceipts,
+	MissingTransactionsReceipts = 16,
+	/// Redundant transaction receipts are provided.
+	RedundantTransactionsReceipts = 17,
 	/// Provided transactions receipts are not matching the header.
-	TransactionsReceiptsMismatch,
+	TransactionsReceiptsMismatch = 18,
+	/// Can't accept unsigned header from the far future.
+	UnsignedTooFarInTheFuture = 19,
 }
 
 impl Error {
@@ -78,7 +82,14 @@ impl Error {
 			Error::InvalidDifficulty => "Header has invalid difficulty",
 			Error::NotValidator => "Header is sealed by unexpected validator",
 			Error::MissingTransactionsReceipts => "The import operation requires transactions receipts",
+			Error::RedundantTransactionsReceipts => "Redundant transactions receipts are provided",
 			Error::TransactionsReceiptsMismatch => "Invalid transactions receipts provided",
+			Error::UnsignedTooFarInTheFuture => "The unsigned header is too far in future",
 		}
+	}
+
+	/// Return unique error code.
+	pub fn code(&self) -> u8 {
+		*self as u8
 	}
 }
