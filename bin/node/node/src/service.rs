@@ -80,6 +80,16 @@ macro_rules! new_full_start {
 			import_setup = Some((grandpa_block_import, grandpa_link));
 
 			Ok(import_queue)
+		})?
+		.with_rpc_extensions(|builder| -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, _> {
+			use substrate_frame_rpc_system::{FullSystem, SystemApi};
+
+			let mut io = jsonrpc_core::IoHandler::default();
+			io.extend_with(SystemApi::to_delegate(FullSystem::new(
+				builder.client().clone(),
+				builder.pool(),
+			)));
+			Ok(io)
 		})?;
 
 		(builder, import_setup, inherent_data_providers)
