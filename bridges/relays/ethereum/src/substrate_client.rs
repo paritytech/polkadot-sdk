@@ -132,7 +132,19 @@ pub async fn ethereum_header_known(
 pub async fn submit_ethereum_headers(
 	client: Client,
 	headers: Vec<QueuedEthereumHeader>,
-) -> (Client, Result<(TransactionHash, Vec<EthereumHeaderId>), Error>) {
+	sign_transactions: bool,
+) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
+	match sign_transactions {
+		true => submit_signed_ethereum_headers(client, headers).await,
+		false => submit_unsigned_ethereum_headers(client, headers).await,
+	}
+}
+
+/// Submits signed Ethereum header to Substrate runtime.
+pub async fn submit_signed_ethereum_headers(
+	client: Client,
+	headers: Vec<QueuedEthereumHeader>,
+) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
 	let ids = headers.iter().map(|header| header.id()).collect();
 	let (client, genesis_hash) = match client.genesis_hash {
 		Some(genesis_hash) => (client, genesis_hash),
@@ -152,7 +164,9 @@ pub async fn submit_ethereum_headers(
 		Ok(nonce) => nonce,
 		Err(err) => return (client, Err(err)),
 	};
-	let transaction = create_submit_transaction(headers, &client.signer, nonce, genesis_hash);
+
+	let transaction = create_signed_submit_transaction(headers, &client.signer, nonce, genesis_hash);
+
 	let encoded_transaction = transaction.encode();
 	let (client, transaction_hash) = call_rpc(
 		client,
@@ -160,7 +174,39 @@ pub async fn submit_ethereum_headers(
 		Params::Array(vec![to_value(Bytes(encoded_transaction)).unwrap()]),
 	)
 	.await;
-	(client, transaction_hash.map(|transaction_hash| (transaction_hash, ids)))
+
+	(
+		client,
+		transaction_hash.map(|transaction_hash| (vec![transaction_hash], ids)),
+	)
+}
+
+/// Submits unsigned Ethereum header to Substrate runtime.
+pub async fn submit_unsigned_ethereum_headers(
+	mut client: Client,
+	headers: Vec<QueuedEthereumHeader>,
+) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
+	let ids = headers.iter().map(|header| header.id()).collect();
+	let mut transactions_hashes = Vec::new();
+	for header in headers {
+		let transaction = create_unsigned_submit_transaction(header);
+
+		let encoded_transaction = transaction.encode();
+		let (used_client, transaction_hash) = call_rpc(
+			client,
+			"author_submitExtrinsic",
+			Params::Array(vec![to_value(Bytes(encoded_transaction)).unwrap()]),
+		)
+		.await;
+
+		client = used_client;
+		transactions_hashes.push(match transaction_hash {
+			Ok(transaction_hash) => transaction_hash,
+			Err(error) => return (client, Err(error)),
+		});
+	}
+
+	(client, Ok((transactions_hashes, ids)))
 }
 
 /// Get Substrate block hash by its number.
@@ -236,25 +282,26 @@ async fn call_rpc_u64(mut client: Client, method: &'static str, params: Params) 
 	(client, result)
 }
 
-/// Create Substrate transaction for submitting Ethereum header.
-fn create_submit_transaction(
+/// Create signed Substrate transaction for submitting Ethereum headers.
+fn create_signed_submit_transaction(
 	headers: Vec<QueuedEthereumHeader>,
 	signer: &sp_core::sr25519::Pair,
 	index: node_primitives::Index,
 	genesis_hash: H256,
 ) -> bridge_node_runtime::UncheckedExtrinsic {
-	let function = bridge_node_runtime::Call::BridgeEthPoA(bridge_node_runtime::BridgeEthPoACall::import_headers(
-		headers
-			.into_iter()
-			.map(|header| {
-				let (header, receipts) = header.extract();
-				(
-					into_substrate_ethereum_header(&header),
-					into_substrate_ethereum_receipts(&receipts),
-				)
-			})
-			.collect(),
-	));
+	let function =
+		bridge_node_runtime::Call::BridgeEthPoA(bridge_node_runtime::BridgeEthPoACall::import_signed_headers(
+			headers
+				.into_iter()
+				.map(|header| {
+					let (header, receipts) = header.extract();
+					(
+						into_substrate_ethereum_header(&header),
+						into_substrate_ethereum_receipts(&receipts),
+					)
+				})
+				.collect(),
+		));
 
 	let extra = |i: node_primitives::Index, f: node_primitives::Balance| {
 		(
@@ -283,4 +330,16 @@ fn create_submit_transaction(
 	let (function, extra, _) = raw_payload.deconstruct();
 
 	bridge_node_runtime::UncheckedExtrinsic::new_signed(function, signer.into_account().into(), signature.into(), extra)
+}
+
+/// Create unsigned Substrate transaction for submitting Ethereum header.
+fn create_unsigned_submit_transaction(header: QueuedEthereumHeader) -> bridge_node_runtime::UncheckedExtrinsic {
+	let (header, receipts) = header.extract();
+	let function =
+		bridge_node_runtime::Call::BridgeEthPoA(bridge_node_runtime::BridgeEthPoACall::import_unsigned_header(
+			into_substrate_ethereum_header(&header),
+			into_substrate_ethereum_receipts(&receipts),
+		));
+
+	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(function)
 }
