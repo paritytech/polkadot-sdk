@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::error::Error;
-use crate::Storage;
+use crate::{ChangeToEnact, Storage};
 use primitives::{Address, Header, LogEntry, Receipt, H256, U256};
 use sp_std::prelude::*;
 
@@ -183,10 +183,13 @@ impl<'a> Validators<'a> {
 		&self,
 		storage: &mut S,
 		finalized_blocks: &[(u64, H256, Option<S::Submitter>)],
-	) -> Option<Vec<Address>> {
+	) -> Option<ChangeToEnact> {
 		for (_, finalized_hash, _) in finalized_blocks.iter().rev() {
 			if let Some(changes) = storage.scheduled_change(finalized_hash) {
-				return Some(changes);
+				return Some(ChangeToEnact {
+					signal_block: Some(*finalized_hash),
+					validators: changes.validators,
+				});
 			}
 		}
 		None

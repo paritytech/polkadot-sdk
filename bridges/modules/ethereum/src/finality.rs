@@ -15,15 +15,18 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::error::Error;
-use crate::{ancestry, Storage};
+use crate::Storage;
 use primitives::{public_to_address, Address, Header, SealedEmptyStep, H256};
 use sp_io::crypto::secp256k1_ecdsa_recover;
-use sp_std::collections::{
-	btree_map::{BTreeMap, Entry},
-	btree_set::BTreeSet,
-	vec_deque::VecDeque,
-};
 use sp_std::prelude::*;
+use sp_std::{
+	collections::{
+		btree_map::{BTreeMap, Entry},
+		btree_set::BTreeSet,
+		vec_deque::VecDeque,
+	},
+	iter::from_fn,
+};
 
 /// Tries to finalize blocks when given block is imported.
 ///
@@ -188,6 +191,24 @@ fn empty_step_signer(empty_step: &SealedEmptyStep, parent_hash: &H256) -> Option
 	secp256k1_ecdsa_recover(empty_step.signature.as_fixed_bytes(), message.as_fixed_bytes())
 		.ok()
 		.map(|public| public_to_address(&public))
+}
+
+/// Return iterator of given header ancestors.
+pub(crate) fn ancestry<'a, S: Storage>(
+	storage: &'a S,
+	header: &Header,
+) -> impl Iterator<Item = (H256, Header, Option<S::Submitter>)> + 'a {
+	let mut parent_hash = header.parent_hash.clone();
+	from_fn(move || {
+		let (header, submitter) = storage.header(&parent_hash)?;
+		if header.number == 0 {
+			return None;
+		}
+
+		let hash = parent_hash.clone();
+		parent_hash = header.parent_hash.clone();
+		Some((hash, header, submitter))
+	})
 }
 
 #[cfg(test)]

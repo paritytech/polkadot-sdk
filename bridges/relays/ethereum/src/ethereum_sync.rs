@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::ethereum_headers::QueuedHeaders;
-use crate::ethereum_sync_loop::EthereumSyncParams;
+use crate::ethereum_sync_loop::{EthereumSyncParams, SubstrateTransactionMode};
 use crate::ethereum_types::{HeaderId, HeaderStatus, QueuedHeader};
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
 use codec::Encode;
@@ -95,7 +95,12 @@ impl HeadersSync {
 	}
 
 	/// Select headers that need to be submitted to the Substrate node.
-	pub fn select_headers_to_submit(&self) -> Option<Vec<&QueuedHeader>> {
+	pub fn select_headers_to_submit(&self, stalled: bool) -> Option<Vec<&QueuedHeader>> {
+		// if we operate in backup mode, we only submit headers when sync has stalled
+		if self.params.sub_tx_mode == SubstrateTransactionMode::Backup && !stalled {
+			return None;
+		}
+
 		let headers_in_submit_status = self.headers.headers_in_status(HeaderStatus::Submitted);
 		let headers_to_submit_count = self
 			.params
@@ -224,7 +229,7 @@ mod tests {
 		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(101)));
 		eth_sync.headers.maybe_receipts_response(&id(101), false);
 		assert_eq!(eth_sync.headers.header(HeaderStatus::Ready), Some(&header(101)));
-		assert_eq!(eth_sync.select_headers_to_submit(), Some(vec![&header(101)]));
+		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(101)]));
 
 		// and header #102 is ready to be downloaded
 		assert_eq!(eth_sync.select_new_header_to_download(), Some(102));
@@ -238,13 +243,13 @@ mod tests {
 		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(102)));
 		eth_sync.headers.maybe_receipts_response(&id(102), false);
 		assert_eq!(eth_sync.headers.header(HeaderStatus::Ready), Some(&header(102)));
-		assert_eq!(eth_sync.select_headers_to_submit(), None);
+		assert_eq!(eth_sync.select_headers_to_submit(false), None);
 
 		// substrate reports that it has imported block #101
 		eth_sync.substrate_best_header_response(id(101));
 
 		// and we are ready to submit #102
-		assert_eq!(eth_sync.select_headers_to_submit(), Some(vec![&header(102)]));
+		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(102)]));
 		eth_sync.headers.headers_submitted(vec![id(102)]);
 
 		// substrate reports that it has imported block #102
@@ -269,7 +274,7 @@ mod tests {
 		eth_sync.headers.header_response(header(101).header().clone());
 
 		// we can't submit header #101, because its parent status is unknown
-		assert_eq!(eth_sync.select_headers_to_submit(), None);
+		assert_eq!(eth_sync.select_headers_to_submit(false), None);
 
 		// instead we are trying to determine status of its parent (#100)
 		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeOrphan), Some(&header(101)));
@@ -282,7 +287,7 @@ mod tests {
 		eth_sync.headers.header_response(header(100).header().clone());
 
 		// we can't submit header #100, because its parent status is unknown
-		assert_eq!(eth_sync.select_headers_to_submit(), None);
+		assert_eq!(eth_sync.select_headers_to_submit(false), None);
 
 		// instead we are trying to determine status of its parent (#99)
 		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeOrphan), Some(&header(100)));
@@ -293,13 +298,13 @@ mod tests {
 		// and we are ready to submit #100
 		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(100)));
 		eth_sync.headers.maybe_receipts_response(&id(100), false);
-		assert_eq!(eth_sync.select_headers_to_submit(), Some(vec![&header(100)]));
+		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(100)]));
 		eth_sync.headers.headers_submitted(vec![id(100)]);
 
 		// and we are ready to submit #101
 		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(101)));
 		eth_sync.headers.maybe_receipts_response(&id(101), false);
-		assert_eq!(eth_sync.select_headers_to_submit(), Some(vec![&header(101)]));
+		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(101)]));
 		eth_sync.headers.headers_submitted(vec![id(101)]);
 	}
 
@@ -309,5 +314,27 @@ mod tests {
 		eth_sync.params.prune_depth = 50;
 		eth_sync.substrate_best_header_response(id(100));
 		assert_eq!(eth_sync.headers.prune_border(), 50);
+	}
+
+	#[test]
+	fn only_submitting_headers_in_backup_mode_when_stalled() {
+		let mut eth_sync = HeadersSync::new(Default::default());
+		eth_sync.params.sub_tx_mode = SubstrateTransactionMode::Backup;
+
+		// ethereum reports best header #102
+		eth_sync.ethereum_best_header_number_response(102);
+
+		// substrate reports that it is at block #100
+		eth_sync.substrate_best_header_response(id(100));
+
+		// block #101 is downloaded first
+		eth_sync.headers.header_response(header(101).header().clone());
+		eth_sync.headers.maybe_receipts_response(&id(101), false);
+
+		// ensure that headers are not submitted when sync is not stalled
+		assert_eq!(eth_sync.select_headers_to_submit(false), None);
+
+		// ensure that headers are not submitted when sync is stalled
+		assert_eq!(eth_sync.select_headers_to_submit(true), Some(vec![&header(101)]));
 	}
 }
