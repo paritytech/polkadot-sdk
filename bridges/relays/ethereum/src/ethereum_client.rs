@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_sync_loop::MaybeConnectionError;
-use crate::ethereum_types::{Header, HeaderId, Receipt, H256, U64};
+use crate::ethereum_types::{EthereumHeaderId, Header, Receipt, H256, U64};
+use crate::sync_types::MaybeConnectionError;
 use jsonrpsee::common::Params;
 use jsonrpsee::raw::{RawClient, RawClientError};
 use jsonrpsee::transport::http::{HttpTransportClient, RequestError};
@@ -117,9 +117,9 @@ pub async fn header_by_hash(client: Client, hash: H256) -> (Client, Result<Heade
 /// Retrieve transactions receipts for given block.
 pub async fn transactions_receipts(
 	mut client: Client,
-	id: HeaderId,
+	id: EthereumHeaderId,
 	transacactions: Vec<H256>,
-) -> (Client, Result<(HeaderId, Vec<Receipt>), Error>) {
+) -> (Client, Result<(EthereumHeaderId, Vec<Receipt>), Error>) {
 	let mut transactions_receipts = Vec::with_capacity(transacactions.len());
 	for transacaction in transacactions {
 		let (next_client, transaction_receipt) = transaction_receipt(client, transacaction).await;

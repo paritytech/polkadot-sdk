@@ -17,12 +17,14 @@
 #![recursion_limit = "1024"]
 
 mod ethereum_client;
-mod ethereum_headers;
-mod ethereum_sync;
 mod ethereum_sync_loop;
 mod ethereum_types;
+mod headers;
 mod substrate_client;
 mod substrate_types;
+mod sync;
+mod sync_loop;
+mod sync_types;
 
 use sp_core::crypto::Pair;
 use std::io::Write;
@@ -30,13 +32,24 @@ use std::io::Write;
 fn main() {
 	initialize();
 
-	ethereum_sync_loop::run(match ethereum_sync_params() {
-		Ok(ethereum_sync_params) => ethereum_sync_params,
-		Err(err) => {
-			log::error!(target: "bridge", "Error parsing parameters: {}", err);
+	let yaml = clap::load_yaml!("cli.yml");
+	let matches = clap::App::from_yaml(yaml).get_matches();
+	match matches.subcommand() {
+		("eth-to-sub", Some(eth_to_sub_matches)) => {
+			ethereum_sync_loop::run(match ethereum_sync_params(&eth_to_sub_matches) {
+				Ok(ethereum_sync_params) => ethereum_sync_params,
+				Err(err) => {
+					log::error!(target: "bridge", "Error parsing parameters: {}", err);
+					return;
+				}
+			});
+		}
+		("", _) => {
+			log::error!(target: "bridge", "No subcommand specified");
 			return;
 		}
-	});
+		_ => unreachable!("all possible subcommands are checked above; qed"),
+	}
 }
 
 fn initialize() {
@@ -76,10 +89,7 @@ fn initialize() {
 	builder.init();
 }
 
-fn ethereum_sync_params() -> Result<ethereum_sync_loop::EthereumSyncParams, String> {
-	let yaml = clap::load_yaml!("cli.yml");
-	let matches = clap::App::from_yaml(yaml).get_matches();
-
+fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<ethereum_sync_loop::EthereumSyncParams, String> {
 	let mut eth_sync_params = ethereum_sync_loop::EthereumSyncParams::default();
 	if let Some(eth_host) = matches.value_of("eth-host") {
 		eth_sync_params.eth_host = eth_host.into();
@@ -100,16 +110,16 @@ fn ethereum_sync_params() -> Result<ethereum_sync_loop::EthereumSyncParams, Stri
 	}
 
 	match matches.value_of("sub-tx-mode") {
-		Some("signed") => eth_sync_params.sub_tx_mode = ethereum_sync_loop::SubstrateTransactionMode::Signed,
+		Some("signed") => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
 		Some("unsigned") => {
-			eth_sync_params.sub_tx_mode = ethereum_sync_loop::SubstrateTransactionMode::Unsigned;
+			eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Unsigned;
 
 			// tx pool won't accept too much unsigned transactions
-			eth_sync_params.max_headers_in_submitted_status = 10;
+			eth_sync_params.sync_params.max_headers_in_submitted_status = 10;
 		}
-		Some("backup") => eth_sync_params.sub_tx_mode = ethereum_sync_loop::SubstrateTransactionMode::Backup,
+		Some("backup") => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Backup,
 		Some(mode) => return Err(format!("Invalid sub-tx-mode: {}", mode)),
-		None => eth_sync_params.sub_tx_mode = ethereum_sync_loop::SubstrateTransactionMode::Signed,
+		None => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
 	}
 
 	Ok(eth_sync_params)
