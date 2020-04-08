@@ -15,6 +15,7 @@ futures = "0.3.1"
 jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", default-features = false, features = ["http"] }
 linked-hash-map = "0.5.2"
 log = "0.4.8"
+num-traits = "0.2"
 parking_lot = "0.10.0"
 rustc-hex = "2.0.1"
 serde = { version = "1.0.106", features = ["derive"] }

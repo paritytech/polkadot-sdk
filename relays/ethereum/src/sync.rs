@@ -14,69 +14,97 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_headers::QueuedHeaders;
-use crate::ethereum_sync_loop::{EthereumSyncParams, SubstrateTransactionMode};
-use crate::ethereum_types::{HeaderId, HeaderStatus, QueuedHeader};
-use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
-use codec::Encode;
+use crate::headers::QueuedHeaders;
+use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, QueuedHeader};
+use num_traits::{One, Saturating};
 
-/// Ethereum headers synchronization context.
+/// Common sync params.
 #[derive(Debug)]
-pub struct HeadersSync {
-	/// Synchronization parameters.
-	params: EthereumSyncParams,
-	/// Best header number known to Ethereum node.
-	target_header_number: Option<u64>,
-	/// Best header known to Substrate node.
-	best_header: Option<HeaderId>,
-	/// Headers queue.
-	headers: QueuedHeaders,
+pub struct HeadersSyncParams {
+	/// Maximal number of ethereum headers to pre-download.
+	pub max_future_headers_to_download: usize,
+	/// Maximal number of active (we believe) submit header transactions.
+	pub max_headers_in_submitted_status: usize,
+	/// Maximal number of headers in single submit request.
+	pub max_headers_in_single_submit: usize,
+	/// Maximal total headers size in single submit request.
+	pub max_headers_size_in_single_submit: usize,
+	/// We only may store and accept (from Ethereum node) headers that have
+	/// number >= than best_substrate_header.number - prune_depth.
+	pub prune_depth: u32,
+	/// Target transactions mode.
+	pub target_tx_mode: TargetTransactionMode,
 }
 
-impl HeadersSync {
-	/// Creates new Ethereum headers synchronizer.
-	pub fn new(params: EthereumSyncParams) -> Self {
+/// Target transaction mode.
+#[derive(Debug, PartialEq)]
+pub enum TargetTransactionMode {
+	/// Submit new headers using signed transactions.
+	Signed,
+	/// Submit new headers using unsigned transactions.
+	Unsigned,
+	/// Submit new headers using signed transactions, but only when we
+	/// believe that sync has stalled.
+	Backup,
+}
+
+/// Headers synchronization context.
+#[derive(Debug)]
+pub struct HeadersSync<P: HeadersSyncPipeline> {
+	/// Synchronization parameters.
+	params: HeadersSyncParams,
+	/// Best header number known to source node.
+	source_best_number: Option<P::Number>,
+	/// Best header known to target node.
+	target_best_header: Option<HeaderId<P::Hash, P::Number>>,
+	/// Headers queue.
+	headers: QueuedHeaders<P>,
+}
+
+impl<P: HeadersSyncPipeline> HeadersSync<P> {
+	/// Creates new headers synchronizer.
+	pub fn new(params: HeadersSyncParams) -> Self {
 		HeadersSync {
+			headers: QueuedHeaders::new(),
 			params,
-			target_header_number: None,
-			best_header: None,
-			headers: Default::default(),
+			source_best_number: None,
+			target_best_header: None,
 		}
 	}
 
 	/// Returns true if we have synced almost all known headers.
 	pub fn is_almost_synced(&self) -> bool {
-		match self.target_header_number {
-			Some(target_header_number) => self
-				.best_header
-				.map(|best| target_header_number.saturating_sub(best.0) < 4)
+		match self.source_best_number {
+			Some(source_best_number) => self
+				.target_best_header
+				.map(|best| source_best_number.saturating_sub(best.0) < 4.into())
 				.unwrap_or(false),
 			None => true,
 		}
 	}
 
 	/// Returns synchronization status.
-	pub fn status(&self) -> (&Option<HeaderId>, &Option<u64>) {
-		(&self.best_header, &self.target_header_number)
+	pub fn status(&self) -> (&Option<HeaderId<P::Hash, P::Number>>, &Option<P::Number>) {
+		(&self.target_best_header, &self.source_best_number)
 	}
 
 	/// Returns reference to the headers queue.
-	pub fn headers(&self) -> &QueuedHeaders {
+	pub fn headers(&self) -> &QueuedHeaders<P> {
 		&self.headers
 	}
 
 	/// Returns mutable reference to the headers queue.
-	pub fn headers_mut(&mut self) -> &mut QueuedHeaders {
+	pub fn headers_mut(&mut self) -> &mut QueuedHeaders<P> {
 		&mut self.headers
 	}
 
-	/// Select header that needs to be downloaded from the Ethereum node.
-	pub fn select_new_header_to_download(&self) -> Option<u64> {
-		// if we haven't received best header from Ethereum node yet, there's nothing we can download
-		let target_header_number = self.target_header_number.clone()?;
+	/// Select header that needs to be downloaded from the source node.
+	pub fn select_new_header_to_download(&self) -> Option<P::Number> {
+		// if we haven't received best header from source node yet, there's nothing we can download
+		let source_best_number = self.source_best_number.clone()?;
 
-		// if we haven't received known best header from Substrate node yet, there's nothing we can download
-		let best_header = self.best_header.as_ref()?;
+		// if we haven't received known best header from target node yet, there's nothing we can download
+		let target_best_header = self.target_best_header.as_ref()?;
 
 		// if there's too many headers in the queue, stop downloading
 		let in_memory_headers = self.headers.total_headers();
@@ -85,19 +113,19 @@ impl HeadersSync {
 		}
 
 		// we assume that there were no reorgs if we have already downloaded best header
-		let best_downloaded_number = std::cmp::max(self.headers.best_queued_number(), best_header.0);
-		if best_downloaded_number == target_header_number {
+		let best_downloaded_number = std::cmp::max(self.headers.best_queued_number(), target_best_header.0);
+		if best_downloaded_number == source_best_number {
 			return None;
 		}
 
 		// download new header
-		Some(best_downloaded_number + 1)
+		Some(best_downloaded_number + One::one())
 	}
 
-	/// Select headers that need to be submitted to the Substrate node.
-	pub fn select_headers_to_submit(&self, stalled: bool) -> Option<Vec<&QueuedHeader>> {
+	/// Select headers that need to be submitted to the target node.
+	pub fn select_headers_to_submit(&self, stalled: bool) -> Option<Vec<&QueuedHeader<P>>> {
 		// if we operate in backup mode, we only submit headers when sync has stalled
-		if self.params.sub_tx_mode == SubstrateTransactionMode::Backup && !stalled {
+		if self.params.target_tx_mode == TargetTransactionMode::Backup && !stalled {
 			return None;
 		}
 
@@ -117,10 +145,7 @@ impl HeadersSync {
 				return false;
 			}
 
-			let encoded_size = into_substrate_ethereum_header(header.header()).encode().len()
-				+ into_substrate_ethereum_receipts(header.receipts())
-					.map(|receipts| receipts.encode().len())
-					.unwrap_or(0);
+			let encoded_size = P::estimate_size(header);
 			if total_headers != 0 && total_size + encoded_size > self.params.max_headers_size_in_single_submit {
 				return false;
 			}
@@ -132,48 +157,72 @@ impl HeadersSync {
 		})
 	}
 
-	/// Receive new target header number from the Ethereum node.
-	pub fn ethereum_best_header_number_response(&mut self, best_header_number: u64) {
-		log::debug!(target: "bridge", "Received best header number from Ethereum: {}", best_header_number);
-		self.target_header_number = Some(best_header_number);
+	/// Receive new target header number from the source node.
+	pub fn source_best_header_number_response(&mut self, best_header_number: P::Number) {
+		log::debug!(
+			target: "bridge",
+			"Received best header number from {} node: {}",
+			P::SOURCE_NAME,
+			best_header_number,
+		);
+		self.source_best_number = Some(best_header_number);
 	}
 
-	/// Receive new best header from the Substrate node.
+	/// Receive new best header from the target node.
 	/// Returns true if it is different from the previous block known to us.
-	pub fn substrate_best_header_response(&mut self, best_header: HeaderId) -> bool {
-		log::debug!(target: "bridge", "Received best known header from Substrate: {:?}", best_header);
+	pub fn target_best_header_response(&mut self, best_header: HeaderId<P::Hash, P::Number>) -> bool {
+		log::debug!(
+			target: "bridge",
+			"Received best known header from {}: {:?}",
+			P::TARGET_NAME,
+			best_header,
+		);
 
 		// early return if it is still the same
-		if self.best_header == Some(best_header) {
+		if self.target_best_header == Some(best_header) {
 			return false;
 		}
 
 		// remember that this header is now known to the Substrate runtime
-		self.headers.substrate_best_header_response(&best_header);
+		self.headers.target_best_header_response(&best_header);
 
 		// prune ancient headers
 		self.headers
-			.prune(best_header.0.saturating_sub(self.params.prune_depth));
+			.prune(best_header.0.saturating_sub(self.params.prune_depth.into()));
 
 		// finally remember the best header itself
-		self.best_header = Some(best_header);
+		self.target_best_header = Some(best_header);
 
 		true
 	}
 
 	/// Restart synchronization.
 	pub fn restart(&mut self) {
-		self.target_header_number = None;
-		self.best_header = None;
+		self.source_best_number = None;
+		self.target_best_header = None;
 		self.headers.clear();
+	}
+}
+
+impl Default for HeadersSyncParams {
+	fn default() -> Self {
+		HeadersSyncParams {
+			max_future_headers_to_download: 128,
+			max_headers_in_submitted_status: 128,
+			max_headers_in_single_submit: 32,
+			max_headers_size_in_single_submit: 131_072,
+			prune_depth: 4096,
+			target_tx_mode: TargetTransactionMode::Signed,
+		}
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::ethereum_headers::tests::{header, id};
-	use crate::ethereum_types::{HeaderStatus, H256};
+	use crate::ethereum_types::{EthereumHeadersSyncPipeline, H256};
+	use crate::headers::tests::{header, id};
+	use crate::sync_types::HeaderStatus;
 
 	fn side_hash(number: u64) -> H256 {
 		H256::from_low_u64_le(1000 + number)
@@ -181,26 +230,26 @@ mod tests {
 
 	#[test]
 	fn select_new_header_to_download_works() {
-		let mut eth_sync = HeadersSync::new(Default::default());
+		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(Default::default());
 
 		// both best && target headers are unknown
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
 
 		// best header is known, target header is unknown
-		eth_sync.best_header = Some(HeaderId(0, Default::default()));
+		eth_sync.target_best_header = Some(HeaderId(0, Default::default()));
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
 
 		// target header is known, best header is unknown
-		eth_sync.best_header = None;
-		eth_sync.target_header_number = Some(100);
+		eth_sync.target_best_header = None;
+		eth_sync.source_best_number = Some(100);
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
 
 		// when our best block has the same number as the target
-		eth_sync.best_header = Some(HeaderId(100, Default::default()));
+		eth_sync.target_best_header = Some(HeaderId(100, Default::default()));
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
 
 		// when we actually need a new header
-		eth_sync.target_header_number = Some(101);
+		eth_sync.source_best_number = Some(101);
 		assert_eq!(eth_sync.select_new_header_to_download(), Some(101));
 
 		// when there are too many headers scheduled for submitting
@@ -216,18 +265,18 @@ mod tests {
 		eth_sync.params.max_headers_in_submitted_status = 1;
 
 		// ethereum reports best header #102
-		eth_sync.ethereum_best_header_number_response(102);
+		eth_sync.source_best_header_number_response(102);
 
 		// substrate reports that it is at block #100
-		eth_sync.substrate_best_header_response(id(100));
+		eth_sync.target_best_header_response(id(100));
 
 		// block #101 is downloaded first
 		assert_eq!(eth_sync.select_new_header_to_download(), Some(101));
 		eth_sync.headers.header_response(header(101).header().clone());
 
 		// now header #101 is ready to be submitted
-		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(101)));
-		eth_sync.headers.maybe_receipts_response(&id(101), false);
+		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeExtra), Some(&header(101)));
+		eth_sync.headers.maybe_extra_response(&id(101), false);
 		assert_eq!(eth_sync.headers.header(HeaderStatus::Ready), Some(&header(101)));
 		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(101)]));
 
@@ -240,20 +289,20 @@ mod tests {
 
 		// we have nothing to submit because previous header hasn't been confirmed yet
 		// (and we allow max 1 submit transaction in the wild)
-		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(102)));
-		eth_sync.headers.maybe_receipts_response(&id(102), false);
+		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeExtra), Some(&header(102)));
+		eth_sync.headers.maybe_extra_response(&id(102), false);
 		assert_eq!(eth_sync.headers.header(HeaderStatus::Ready), Some(&header(102)));
 		assert_eq!(eth_sync.select_headers_to_submit(false), None);
 
 		// substrate reports that it has imported block #101
-		eth_sync.substrate_best_header_response(id(101));
+		eth_sync.target_best_header_response(id(101));
 
 		// and we are ready to submit #102
 		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(102)]));
 		eth_sync.headers.headers_submitted(vec![id(102)]);
 
 		// substrate reports that it has imported block #102
-		eth_sync.substrate_best_header_response(id(102));
+		eth_sync.target_best_header_response(id(102));
 
 		// and we have nothing to download
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
@@ -264,10 +313,10 @@ mod tests {
 		let mut eth_sync = HeadersSync::new(Default::default());
 
 		// ethereum reports best header #102
-		eth_sync.ethereum_best_header_number_response(102);
+		eth_sync.source_best_header_number_response(102);
 
 		// substrate reports that it is at block #100, but it isn't part of best chain
-		eth_sync.substrate_best_header_response(HeaderId(100, side_hash(100)));
+		eth_sync.target_best_header_response(HeaderId(100, side_hash(100)));
 
 		// block #101 is downloaded first
 		assert_eq!(eth_sync.select_new_header_to_download(), Some(101));
@@ -296,40 +345,40 @@ mod tests {
 		eth_sync.headers.maybe_orphan_response(&id(99), true);
 
 		// and we are ready to submit #100
-		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(100)));
-		eth_sync.headers.maybe_receipts_response(&id(100), false);
+		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeExtra), Some(&header(100)));
+		eth_sync.headers.maybe_extra_response(&id(100), false);
 		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(100)]));
 		eth_sync.headers.headers_submitted(vec![id(100)]);
 
 		// and we are ready to submit #101
-		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeReceipts), Some(&header(101)));
-		eth_sync.headers.maybe_receipts_response(&id(101), false);
+		assert_eq!(eth_sync.headers.header(HeaderStatus::MaybeExtra), Some(&header(101)));
+		eth_sync.headers.maybe_extra_response(&id(101), false);
 		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(101)]));
 		eth_sync.headers.headers_submitted(vec![id(101)]);
 	}
 
 	#[test]
-	fn pruning_happens_on_substrate_best_header_response() {
-		let mut eth_sync = HeadersSync::new(Default::default());
+	fn pruning_happens_on_target_best_header_response() {
+		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(Default::default());
 		eth_sync.params.prune_depth = 50;
-		eth_sync.substrate_best_header_response(id(100));
+		eth_sync.target_best_header_response(id(100));
 		assert_eq!(eth_sync.headers.prune_border(), 50);
 	}
 
 	#[test]
 	fn only_submitting_headers_in_backup_mode_when_stalled() {
 		let mut eth_sync = HeadersSync::new(Default::default());
-		eth_sync.params.sub_tx_mode = SubstrateTransactionMode::Backup;
+		eth_sync.params.target_tx_mode = TargetTransactionMode::Backup;
 
 		// ethereum reports best header #102
-		eth_sync.ethereum_best_header_number_response(102);
+		eth_sync.source_best_header_number_response(102);
 
 		// substrate reports that it is at block #100
-		eth_sync.substrate_best_header_response(id(100));
+		eth_sync.target_best_header_response(id(100));
 
 		// block #101 is downloaded first
 		eth_sync.headers.header_response(header(101).header().clone());
-		eth_sync.headers.maybe_receipts_response(&id(101), false);
+		eth_sync.headers.maybe_extra_response(&id(101), false);
 
 		// ensure that headers are not submitted when sync is not stalled
 		assert_eq!(eth_sync.select_headers_to_submit(false), None);

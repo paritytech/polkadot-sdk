@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_sync_loop::MaybeConnectionError;
-use crate::ethereum_types::{Bytes, HeaderId as EthereumHeaderId, QueuedHeader as QueuedEthereumHeader, H256};
+use crate::ethereum_types::{Bytes, EthereumHeaderId, QueuedEthereumHeader, H256};
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts, TransactionHash};
+use crate::sync_types::{HeaderId, MaybeConnectionError, SourceHeader};
 use codec::{Decode, Encode};
 use jsonrpsee::common::Params;
 use jsonrpsee::raw::{RawClient, RawClientError};
@@ -29,8 +29,6 @@ use sp_runtime::traits::IdentifyAccount;
 pub struct Client {
 	/// Substrate RPC client.
 	rpc_client: RawClient<HttpTransportClient>,
-	/// Transactions signer.
-	signer: sp_core::sr25519::Pair,
 	/// Genesis block hash.
 	genesis_hash: Option<H256>,
 }
@@ -58,11 +56,10 @@ impl MaybeConnectionError for Error {
 }
 
 /// Returns client that is able to call RPCs on Substrate node.
-pub fn client(uri: &str, signer: sp_core::sr25519::Pair) -> Client {
+pub fn client(uri: &str) -> Client {
 	let transport = HttpTransportClient::new(uri);
 	Client {
 		rpc_client: RawClient::new(transport),
-		signer,
 		genesis_hash: None,
 	}
 }
@@ -78,7 +75,7 @@ pub async fn best_ethereum_block(client: Client) -> (Client, Result<EthereumHead
 		]),
 	)
 	.await;
-	(client, result.map(|(num, hash)| EthereumHeaderId(num, hash)))
+	(client, result.map(|(num, hash)| HeaderId(num, hash)))
 }
 
 /// Returns true if transactions receipts are required for Ethereum header submission.
@@ -86,7 +83,7 @@ pub async fn ethereum_receipts_required(
 	client: Client,
 	header: QueuedEthereumHeader,
 ) -> (Client, Result<(EthereumHeaderId, bool), Error>) {
-	let id = header.id();
+	let id = header.header().id();
 	let header = into_substrate_ethereum_header(header.header());
 	let encoded_header = header.encode();
 	let (client, receipts_required) = call_rpc(
@@ -131,11 +128,12 @@ pub async fn ethereum_header_known(
 /// Submits Ethereum header to Substrate runtime.
 pub async fn submit_ethereum_headers(
 	client: Client,
+	signer: sp_core::sr25519::Pair,
 	headers: Vec<QueuedEthereumHeader>,
 	sign_transactions: bool,
 ) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
 	match sign_transactions {
-		true => submit_signed_ethereum_headers(client, headers).await,
+		true => submit_signed_ethereum_headers(client, signer, headers).await,
 		false => submit_unsigned_ethereum_headers(client, headers).await,
 	}
 }
@@ -143,6 +141,7 @@ pub async fn submit_ethereum_headers(
 /// Submits signed Ethereum header to Substrate runtime.
 pub async fn submit_signed_ethereum_headers(
 	client: Client,
+	signer: sp_core::sr25519::Pair,
 	headers: Vec<QueuedEthereumHeader>,
 ) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
 	let ids = headers.iter().map(|header| header.id()).collect();
@@ -158,15 +157,14 @@ pub async fn submit_signed_ethereum_headers(
 			(client, genesis_hash)
 		}
 	};
-	let account_id = client.signer.public().as_array_ref().clone().into();
+	let account_id = signer.public().as_array_ref().clone().into();
 	let (client, nonce) = next_account_index(client, account_id).await;
 	let nonce = match nonce {
 		Ok(nonce) => nonce,
 		Err(err) => return (client, Err(err)),
 	};
 
-	let transaction = create_signed_submit_transaction(headers, &client.signer, nonce, genesis_hash);
-
+	let transaction = create_signed_submit_transaction(headers, &signer, nonce, genesis_hash);
 	let encoded_transaction = transaction.encode();
 	let (client, transaction_hash) = call_rpc(
 		client,

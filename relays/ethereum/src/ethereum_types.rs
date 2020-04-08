@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
+use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use codec::Encode;
+
 pub use web3::types::{Bytes, H256, U128, U64};
 
 /// When header is just received from the Ethereum node, we check that it has
@@ -30,84 +34,43 @@ pub type Header = web3::types::Block<H256>;
 /// Ethereum transaction receipt type.
 pub type Receipt = web3::types::TransactionReceipt;
 
-/// Ethereum header Id.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct HeaderId(pub u64, pub H256);
+/// Ethereum header ID.
+pub type EthereumHeaderId = HeaderId<H256, u64>;
 
-impl From<&Header> for HeaderId {
-	fn from(header: &Header) -> HeaderId {
-		HeaderId(
-			header.number.expect(HEADER_ID_PROOF).as_u64(),
-			header.hash.expect(HEADER_ID_PROOF),
-		)
-	}
-}
+/// Queued ethereum header ID.
+pub type QueuedEthereumHeader = QueuedHeader<EthereumHeadersSyncPipeline>;
 
-/// Ethereum header synchronization status.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum HeaderStatus {
-	/// Header is unknown.
-	Unknown,
-	/// Header is in MaybeOrphan queue.
-	MaybeOrphan,
-	/// Header is in Orphan queue.
-	Orphan,
-	/// Header is in MaybeReceipts queue.
-	MaybeReceipts,
-	/// Header is in Receipts queue.
-	Receipts,
-	/// Header is in Ready queue.
-	Ready,
-	/// Header has been recently submitted to the Substrate runtime.
-	Submitted,
-	/// Header is known to the Substrate runtime.
-	Synced,
-}
-
-#[derive(Clone, Debug, Default)]
+/// Ethereum synchronization pipeline.
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct QueuedHeader {
-	header: Header,
-	receipts: Option<Vec<Receipt>>,
+pub struct EthereumHeadersSyncPipeline;
+
+impl HeadersSyncPipeline for EthereumHeadersSyncPipeline {
+	const SOURCE_NAME: &'static str = "Ethereum";
+	const TARGET_NAME: &'static str = "Substrate";
+
+	type Hash = H256;
+	type Number = u64;
+	type Header = Header;
+	type Extra = Vec<Receipt>;
+
+	fn estimate_size(source: &QueuedHeader<Self>) -> usize {
+		into_substrate_ethereum_header(source.header()).encode().len()
+			+ into_substrate_ethereum_receipts(source.extra())
+				.map(|extra| extra.encode().len())
+				.unwrap_or(0)
+	}
 }
 
-impl QueuedHeader {
-	/// Creates new queued header.
-	pub fn new(header: Header) -> Self {
-		QueuedHeader { header, receipts: None }
-	}
-
-	/// Returns ID of header.
-	pub fn id(&self) -> HeaderId {
-		(&self.header).into()
-	}
-
-	/// Returns ID of parent header.
-	pub fn parent_id(&self) -> HeaderId {
+impl SourceHeader<H256, u64> for Header {
+	fn id(&self) -> EthereumHeaderId {
 		HeaderId(
-			self.header.number.expect(HEADER_ID_PROOF).as_u64() - 1,
-			self.header.parent_hash,
+			self.number.expect(HEADER_ID_PROOF).as_u64(),
+			self.hash.expect(HEADER_ID_PROOF),
 		)
 	}
 
-	/// Returns reference to header.
-	pub fn header(&self) -> &Header {
-		&self.header
-	}
-
-	/// Returns reference to transactions receipts.
-	pub fn receipts(&self) -> &Option<Vec<Receipt>> {
-		&self.receipts
-	}
-
-	/// Extract header and receipts from self.
-	pub fn extract(self) -> (Header, Option<Vec<Receipt>>) {
-		(self.header, self.receipts)
-	}
-
-	/// Set associated transaction receipts.
-	pub fn set_receipts(mut self, receipts: Vec<Receipt>) -> Self {
-		self.receipts = Some(receipts);
-		self
+	fn parent_id(&self) -> EthereumHeaderId {
+		HeaderId(self.number.expect(HEADER_ID_PROOF).as_u64() - 1, self.parent_hash)
 	}
 }
