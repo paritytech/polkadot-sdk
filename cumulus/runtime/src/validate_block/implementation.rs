@@ -28,7 +28,7 @@ use hash_db::{HashDB, EMPTY_PREFIX};
 
 use trie_db::{Trie, TrieDB};
 
-use parachain::{ValidationParams, ValidationResult};
+use parachain::primitives::{HeadData, ValidationParams, ValidationResult};
 
 use codec::{Decode, Encode};
 
@@ -73,12 +73,12 @@ trait Storage {
 /// Validate a given parachain block on a validator.
 #[doc(hidden)]
 pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -> ValidationResult {
-	let block_data = crate::ParachainBlockData::<B>::decode(&mut &params.block_data[..])
+	let block_data = crate::ParachainBlockData::<B>::decode(&mut &params.block_data.0[..])
 		.expect("Invalid parachain block data");
 
-	let parent_head = B::Header::decode(&mut &params.parent_head[..]).expect("Invalid parent head");
+	let parent_head = B::Header::decode(&mut &params.parent_head.0[..]).expect("Invalid parent head");
 	// TODO: Use correct head data
-	let head_data = block_data.header.encode();
+	let head_data = HeadData(block_data.header.encode());
 
 	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
@@ -110,7 +110,10 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	E::execute_block(block);
 
-	ValidationResult { head_data }
+	ValidationResult {
+		head_data,
+		new_validation_code: None,
+	}
 }
 
 /// The storage implementation used when validating a block that is using the

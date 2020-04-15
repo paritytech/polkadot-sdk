@@ -16,52 +16,125 @@
 
 use crate::chain_spec;
 use crate::cli::{Cli, PolkadotCli, Subcommand};
-
-use std::sync::Arc;
-
+use codec::Encode;
+use log::info;
 use parachain_runtime::Block;
-
+use sc_cli::{
+	CliConfiguration, Error, ImportParams, KeystoreParams, NetworkParams, Result, SharedParams,
+	SubstrateCli,
+};
 use sc_client::genesis;
-use sc_service::{Configuration, Role as ServiceRole, config::PrometheusConfig};
+use sc_network::config::TransportConfig;
+use sc_service::{
+	config::{NetworkConfiguration, NodeKeyConfig, PrometheusConfig},
+	Configuration, Role as ServiceRole,
+};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
 	BuildStorage,
 };
-use sc_network::config::TransportConfig;
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use codec::Encode;
-use log::info;
+impl SubstrateCli for Cli {
+	fn impl_name() -> &'static str {
+		"Cumulus Test Parachain Collator"
+	}
 
-const DEFAULT_POLKADOT_RPC_HTTP: &'static str = "127.0.0.1:9934";
-const DEFAULT_POLKADOT_RPC_WS: &'static str = "127.0.0.1:9945";
-const DEFAULT_POLKADOT_PROMETHEUS_PORT: &'static str = "127.0.0.1:9616";
+	fn impl_version() -> &'static str {
+		env!("SUBSTRATE_CLI_IMPL_VERSION")
+	}
+
+	fn description() -> &'static str {
+		"Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
+		passed to the parachain node, while the arguments provided after -- will be passed \
+		to the relaychain node.\n\n\
+		cumulus-test-parachain-collator [parachain-args] -- [relaychain-args]"
+	}
+
+	fn author() -> &'static str {
+		env!("CARGO_PKG_AUTHORS")
+	}
+
+	fn support_url() -> &'static str {
+		"https://github.com/paritytech/cumulus/issues/new"
+	}
+
+	fn copyright_start_year() -> i32 {
+		2017
+	}
+
+	fn executable_name() -> &'static str {
+		"cumulus-test-parachain-collator"
+	}
+
+	fn load_spec(&self, _id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+		Ok(Box::new(chain_spec::get_chain_spec()))
+	}
+}
+
+impl SubstrateCli for PolkadotCli {
+	fn impl_name() -> &'static str {
+		"Cumulus Test Parachain Collator"
+	}
+
+	fn impl_version() -> &'static str {
+		env!("SUBSTRATE_CLI_IMPL_VERSION")
+	}
+
+	fn description() -> &'static str {
+		"Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
+		passed to the parachain node, while the arguments provided after -- will be passed \
+		to the relaychain node.\n\n\
+		cumulus-test-parachain-collator [parachain-args] -- [relaychain-args]"
+	}
+
+	fn author() -> &'static str {
+		env!("CARGO_PKG_AUTHORS")
+	}
+
+	fn support_url() -> &'static str {
+		"https://github.com/paritytech/cumulus/issues/new"
+	}
+
+	fn copyright_start_year() -> i32 {
+		2017
+	}
+
+	fn executable_name() -> &'static str {
+		"cumulus-test-parachain-collator"
+	}
+
+	fn load_spec(&self, _id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+		polkadot_service::PolkadotChainSpec::from_json_bytes(
+			&include_bytes!("../res/polkadot_chainspec.json")[..],
+		)
+		.map(|r| Box::new(r) as Box<_>)
+	}
+}
 
 /// Parse command line arguments into service configuration.
-pub fn run(version: sc_cli::VersionInfo) -> sc_cli::Result<()> {
-	let opt: Cli = sc_cli::from_args(&version);
+pub fn run() -> Result<()> {
+	let cli = Cli::from_args();
 
-	let mut config = sc_service::Configuration::from_version(&version);
-	let mut polkadot_config = Configuration::from_version(&version);
-
-	match opt.subcommand {
+	match &cli.subcommand {
 		Some(Subcommand::Base(subcommand)) => {
-			subcommand.init(&version)?;
-			subcommand.update_config(&mut config, load_spec, &version)?;
-			subcommand.run(
-				config,
-				|config: Configuration| Ok(new_full_start!(config).0),
-			)
-		},
+			let runner = cli.create_runner(subcommand)?;
+
+			runner.run_subcommand(subcommand, |config| Ok(new_full_start!(config).0))
+		}
 		Some(Subcommand::ExportGenesisState(params)) => {
 			sc_cli::init_logger("");
 
 			let storage = (&chain_spec::get_chain_spec()).build_storage()?;
 
 			let child_roots = storage.children.iter().map(|(sk, child_content)| {
-				let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-					child_content.data.clone().into_iter().collect(),
-				);
+				let state_root =
+					<<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+						child_content.data.clone().into_iter().collect(),
+					);
 				(sk.clone(), state_root.encode())
 			});
 			let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
@@ -71,74 +144,211 @@ pub fn run(version: sc_cli::VersionInfo) -> sc_cli::Result<()> {
 
 			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
-			if let Some(output) = params.output {
+			if let Some(output) = &params.output {
 				std::fs::write(output, header_hex)?;
 			} else {
 				println!("{}", header_hex);
 			}
 
 			Ok(())
-		},
+		}
 		None => {
-			opt.run.init(&version)?;
-			opt.run.update_config(&mut config, load_spec, &version)?;
-
-			info!("{}", version.name);
-			info!("  version {}", config.full_version());
-			info!("  by {}, 2019", version.author);
-			info!("Chain specification: {}", config.expect_chain_spec().name());
-			info!("Node name: {}", config.name);
-			info!("Roles: {:?}", config.role);
-			info!("Parachain id: {:?}", crate::PARA_ID);
+			let runner = cli.create_runner(&cli.run)?;
 
 			// TODO
 			let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
+			let key2 = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
 
-			polkadot_config.config_dir = config.in_chain_config_dir("polkadot");
-
-			let polkadot_opt: PolkadotCli = sc_cli::from_iter(
-				[version.executable_name.to_string()].iter().chain(opt.relaychain_args.iter()),
-				&version,
-			);
-			let allow_private_ipv4 = !polkadot_opt.run.base.network_config.no_private_ipv4;
-
-			polkadot_config.rpc_http = Some(DEFAULT_POLKADOT_RPC_HTTP.parse().unwrap());
-			polkadot_config.rpc_ws = Some(DEFAULT_POLKADOT_RPC_WS.parse().unwrap());
-			polkadot_config.prometheus_config = Some(
-				PrometheusConfig::new_with_default_registry(
-					DEFAULT_POLKADOT_PROMETHEUS_PORT.parse().unwrap(),
-				)
+			let mut polkadot_cli = PolkadotCli::from_iter(
+				[PolkadotCli::executable_name().to_string()]
+					.iter()
+					.chain(cli.relaychain_args.iter()),
 			);
 
-			polkadot_opt.run.base.update_config(
-				&mut polkadot_config,
-				load_spec_polkadot,
-				&version,
-			)?;
+			polkadot_cli.base_path = cli.run.base_path()?.map(|x| x.join("polkadot"));
 
-			// TODO: we disable mdns for the polkadot node because it prevents the process to exit
-			//       properly. See https://github.com/paritytech/cumulus/issues/57
-			polkadot_config.network.transport = TransportConfig::Normal {
-				enable_mdns: false,
-				allow_private_ipv4,
-				wasm_external_transport: None,
-				use_yamux_flow_control: false,
-			};
+			runner.run_node(
+				|config| {
+					let task_executor = config.task_executor.clone();
+					let polkadot_config = SubstrateCli::create_configuration(
+						&polkadot_cli,
+						&polkadot_cli,
+						task_executor,
+					)
+					.unwrap();
 
-			match config.role {
-				ServiceRole::Light => unimplemented!("Light client not supported!"),
-				_ => crate::service::run_collator(config, key, polkadot_config),
-			}
-		},
+					info!("Parachain id: {:?}", crate::PARA_ID);
+
+					crate::service::run_collator(config, key2, polkadot_config)
+				},
+				|config| {
+					let task_executor = config.task_executor.clone();
+					let polkadot_config = SubstrateCli::create_configuration(
+						&polkadot_cli,
+						&polkadot_cli,
+						task_executor,
+					)
+					.unwrap();
+
+					info!("Parachain id: {:?}", crate::PARA_ID);
+
+					crate::service::run_collator(config, key, polkadot_config)
+				},
+			)
+		}
 	}
 }
 
-fn load_spec(_: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
-	Ok(Box::new(chain_spec::get_chain_spec()))
+impl CliConfiguration for PolkadotCli {
+	fn shared_params(&self) -> &SharedParams {
+		self.base.base.shared_params()
+	}
+
+	fn import_params(&self) -> Option<&ImportParams> {
+		self.base.base.import_params()
+	}
+
+	fn network_params(&self) -> Option<&NetworkParams> {
+		self.base.base.network_params()
+	}
+
+	fn keystore_params(&self) -> Option<&KeystoreParams> {
+		self.base.base.keystore_params()
+	}
+
+	fn base_path(&self) -> Result<Option<PathBuf>> {
+		Ok(self.shared_params().base_path().or(self.base_path.clone()))
+	}
+
+	fn rpc_http(&self) -> Result<Option<SocketAddr>> {
+		let rpc_external = self.base.base.rpc_external;
+		let unsafe_rpc_external = self.base.base.unsafe_rpc_external;
+		let validator = self.base.base.validator;
+		let rpc_port = self.base.base.rpc_port;
+		// copied directly from substrate
+		let rpc_interface: &str = interface_str(rpc_external, unsafe_rpc_external, validator)?;
+
+		Ok(Some(parse_address(
+			&format!("{}:{}", rpc_interface, 9934),
+			rpc_port,
+		)?))
+	}
+
+	fn rpc_ws(&self) -> Result<Option<SocketAddr>> {
+		let ws_external = self.base.base.ws_external;
+		let unsafe_ws_external = self.base.base.unsafe_ws_external;
+		let validator = self.base.base.validator;
+		let ws_port = self.base.base.ws_port;
+		// copied directly from substrate
+		let ws_interface: &str = interface_str(ws_external, unsafe_ws_external, validator)?;
+
+		Ok(Some(parse_address(
+			&format!("{}:{}", ws_interface, 9945),
+			ws_port,
+		)?))
+	}
+
+	fn prometheus_config(&self) -> Result<Option<PrometheusConfig>> {
+		let no_prometheus = self.base.base.no_prometheus;
+		let prometheus_external = self.base.base.prometheus_external;
+		let prometheus_port = self.base.base.prometheus_port;
+
+		if no_prometheus {
+			Ok(None)
+		} else {
+			let prometheus_interface: &str = if prometheus_external {
+				"0.0.0.0"
+			} else {
+				"127.0.0.1"
+			};
+
+			Ok(Some(PrometheusConfig::new_with_default_registry(
+				parse_address(
+					&format!("{}:{}", prometheus_interface, 9616),
+					prometheus_port,
+				)?,
+			)))
+		}
+	}
+
+	// TODO: we disable mdns for the polkadot node because it prevents the process to exit
+	//       properly. See https://github.com/paritytech/cumulus/issues/57
+	fn network_config(
+		&self,
+		chain_spec: &Box<dyn sc_service::ChainSpec>,
+		is_dev: bool,
+		net_config_dir: &PathBuf,
+		client_id: &str,
+		node_name: &str,
+		node_key: NodeKeyConfig,
+	) -> Result<NetworkConfiguration> {
+		let (mut network, allow_private_ipv4) = self
+			.network_params()
+			.map(|x| {
+				(
+					x.network_config(
+						chain_spec,
+						is_dev,
+						net_config_dir,
+						client_id,
+						node_name,
+						node_key,
+					),
+					!x.no_private_ipv4,
+				)
+			})
+			.expect("NetworkParams is always available on RunCmd; qed");
+
+		network.transport = TransportConfig::Normal {
+			enable_mdns: false,
+			allow_private_ipv4,
+			wasm_external_transport: None,
+			use_yamux_flow_control: false,
+		};
+
+		Ok(network)
+	}
+
+	fn init<C: SubstrateCli>(&self) -> Result<()> {
+		unreachable!("PolkadotCli is never initialized; qed");
+	}
 }
 
-fn load_spec_polkadot(_: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
-	polkadot_service::PolkadotChainSpec::from_json_bytes(
-		&include_bytes!("../res/polkadot_chainspec.json")[..],
-	).map(|r| Box::new(r) as Box<_>)
+// copied directly from substrate
+fn parse_address(address: &str, port: Option<u16>) -> std::result::Result<SocketAddr, String> {
+	let mut address: SocketAddr = address
+		.parse()
+		.map_err(|_| format!("Invalid address: {}", address))?;
+	if let Some(port) = port {
+		address.set_port(port);
+	}
+
+	Ok(address)
+}
+
+// copied directly from substrate
+fn interface_str(
+	is_external: bool,
+	is_unsafe_external: bool,
+	is_validator: bool,
+) -> Result<&'static str> {
+	if is_external && is_validator {
+		return Err(Error::Input(
+			"--rpc-external and --ws-external options shouldn't be \
+		used if the node is running as a validator. Use `--unsafe-rpc-external` if you understand \
+		the risks. See the options description for more information."
+				.to_owned(),
+		));
+	}
+
+	if is_external || is_unsafe_external {
+		log::warn!(
+			"It isn't safe to expose RPC publicly without a proxy server that filters \
+		available set of RPC methods."
+		);
+
+		Ok("0.0.0.0")
+	} else {
+		Ok("127.0.0.1")
+	}
 }

@@ -50,7 +50,7 @@ polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "c
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 
 [build-dependencies]
-vergen = '3.0.4'
+substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 
 [dev-dependencies]
 assert_cmd = "0.12"

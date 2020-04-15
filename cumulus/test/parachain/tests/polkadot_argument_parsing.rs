@@ -32,9 +32,11 @@ fn polkadot_argument_parsing() {
 		let _ = fs::remove_dir_all("polkadot_argument_parsing");
 		let mut cmd = Command::new(cargo_bin("cumulus-test-parachain-collator"))
 			.args(&[
+				"--dev",
 				"-d",
 				"polkadot_argument_parsing",
 				"--",
+				"--dev",
 				"--bootnodes",
 				"/ip4/127.0.0.1/tcp/30333/p2p/Qmbx43psh7LVkrYTRXisUpzCubbgYojkejzAgj5mteDnxy",
 				"--bootnodes",

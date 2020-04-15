@@ -43,6 +43,7 @@ pub fn get_chain_spec() -> ChainSpec {
 	ChainSpec::from_genesis(
 		"Local Testnet",
 		"parachain_local_testnet",
+		sc_service::ChainType::Local,
 		|| {
 			testnet_genesis(
 				vec![

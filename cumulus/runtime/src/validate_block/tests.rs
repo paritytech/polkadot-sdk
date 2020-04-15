@@ -16,7 +16,7 @@
 
 use crate::{ParachainBlockData, WitnessData};
 
-use parachain::{ValidationParams, ValidationResult};
+use parachain::primitives::{BlockData, HeadData, ValidationParams, ValidationResult};
 use sc_executor::{
 	error::Result, WasmExecutionMethod, WasmExecutor, sp_wasm_interface::HostFunctions,
 };
@@ -44,8 +44,12 @@ fn call_validate_block(
 	let mut ext = TestExternalities::default();
 	let mut ext_ext = ext.ext();
 	let params = ValidationParams {
-		block_data: block_data.encode(),
-		parent_head: parent_head.encode(),
+		block_data: BlockData(block_data.encode()),
+		parent_head: HeadData(parent_head.encode()),
+		code_upgrade_allowed: None,
+		max_code_size: 1024,
+		max_head_data_size: 1024,
+		relay_chain_height: 1,
 	}
 	.encode();
 
@@ -65,7 +69,7 @@ fn call_validate_block(
 		&mut ext_ext,
 	)
 	.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
-	.map(|v| Header::decode(&mut &v.head_data[..]).expect("Decode `Header`."))
+	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decode `Header`."))
 	.map_err(|err| err.into())
 }
 

@@ -74,47 +74,43 @@ macro_rules! new_full_start {
 pub fn run_collator(
 	parachain_config: Configuration,
 	key: Arc<CollatorPair>,
-	mut polkadot_config: polkadot_collator::Configuration,
-) -> sc_cli::Result<()> {
-	sc_cli::run_service_until_exit(parachain_config, move |parachain_config| {
-		polkadot_config.task_executor = parachain_config.task_executor.clone();
+	polkadot_config: polkadot_collator::Configuration,
+) -> sc_service::error::Result<impl AbstractService> {
+	let (builder, inherent_data_providers) = new_full_start!(parachain_config);
+	inherent_data_providers
+		.register_provider(sp_timestamp::InherentDataProvider)
+		.unwrap();
 
-		let (builder, inherent_data_providers) = new_full_start!(parachain_config);
-		inherent_data_providers
-			.register_provider(sp_timestamp::InherentDataProvider)
-			.unwrap();
+	let service = builder
+		.with_finality_proof_provider(|client, backend| {
+			// GenesisAuthoritySetProvider is implemented for StorageAndProofProvider
+			let provider = client as Arc<dyn StorageAndProofProvider<_, _>>;
+			Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, provider)) as _)
+		})?
+		.build()?;
 
-		let service = builder
-			.with_finality_proof_provider(|client, backend| {
-				// GenesisAuthoritySetProvider is implemented for StorageAndProofProvider
-				let provider = client as Arc<dyn StorageAndProofProvider<_, _>>;
-				Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, provider)) as _)
-			})?
-			.build()?;
+	let proposer_factory = sc_basic_authorship::ProposerFactory::new(
+		service.client(),
+		service.transaction_pool(),
+	);
 
-		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
-			service.client(),
-			service.transaction_pool(),
-		);
+	let block_import = service.client();
+	let client = service.client();
+	let builder = CollatorBuilder::new(
+		proposer_factory,
+		inherent_data_providers,
+		block_import,
+		crate::PARA_ID,
+		client,
+	);
 
-		let block_import = service.client();
-		let client = service.client();
-		let builder = CollatorBuilder::new(
-			proposer_factory,
-			inherent_data_providers,
-			block_import,
-			crate::PARA_ID,
-			client,
-		);
+	let polkadot_future = polkadot_collator::start_collator(
+		builder,
+		crate::PARA_ID,
+		key,
+		polkadot_config,
+	).map(|_| ());
+	service.spawn_essential_task("polkadot", polkadot_future);
 
-		let polkadot_future = polkadot_collator::start_collator(
-			builder,
-			crate::PARA_ID,
-			key,
-			polkadot_config,
-		).map(|_| ());
-		service.spawn_essential_task("polkadot", polkadot_future);
-
-		Ok(service)
-	})
+	Ok(service)
 }

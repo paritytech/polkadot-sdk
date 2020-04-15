@@ -31,8 +31,8 @@ use polkadot_collator::{
 	PolkadotClient,
 };
 use polkadot_primitives::{
-	parachain::{self, BlockData, LocalValidationData, Id as ParaId}, Block as PBlock,
-	Hash as PHash,
+	parachain::{self, BlockData, GlobalValidationSchedule, LocalValidationData, Id as ParaId},
+	Block as PBlock, Hash as PHash,
 };
 
 use codec::{Decode, Encode};
@@ -111,7 +111,8 @@ where
 	fn produce_candidate(
 		&mut self,
 		_relay_chain_parent: PHash,
-		status: LocalValidationData,
+		_global_validation: GlobalValidationSchedule,
+		local_validation: LocalValidationData,
 	) -> Self::ProduceCandidate {
 		let factory = self.proposer_factory.clone();
 		let inherent_providers = self.inherent_data_providers.clone();
@@ -119,7 +120,7 @@ where
 
 		trace!(target: "cumulus-collator", "Producing candidate");
 
-		let last_head = match HeadData::<Block>::decode(&mut &status.parent_head.0[..]) {
+		let last_head = match HeadData::<Block>::decode(&mut &local_validation.parent_head.0[..]) {
 			Ok(x) => x,
 			Err(e) => {
 				error!(target: "cumulus-collator", "Could not decode the head data: {:?}", e);
@@ -479,9 +480,15 @@ mod tests {
 		let collation = collate(
 			Default::default(),
 			id,
+			GlobalValidationSchedule {
+				block_number: 0,
+				max_code_size: 0,
+				max_head_data_size: 0,
+			},
 			LocalValidationData {
 				parent_head: HeadData(header.encode()),
 				balance: 10,
+				code_upgrade_allowed: None,
 			},
 			context,
 			Arc::new(Sr25519Keyring::Alice.pair().into()),
