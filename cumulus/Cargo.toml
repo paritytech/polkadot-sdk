@@ -1,7 +1,9 @@
 [workspace]
 members = [
 	"consensus",
+	"message-broker",
 	"network",
+	"primitives",
 	"runtime",
 	"test/runtime",
 	"test/client",
