@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Substrate dependencies
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 
 # Other dependencies
 impl-trait-for-tuples = "0.1.3"
