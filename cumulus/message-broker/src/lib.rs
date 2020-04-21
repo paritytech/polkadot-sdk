@@ -26,7 +26,7 @@ use cumulus_primitives::{
 };
 use frame_support::{
 	decl_module, storage,
-	weights::{SimpleDispatchInfo, WeighData, Weight},
+	weights::{MINIMUM_WEIGHT, SimpleDispatchInfo, WeighData, Weight},
 };
 use frame_system::ensure_none;
 use sp_inherents::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent};
@@ -51,7 +51,7 @@ decl_module! {
 		fn on_initialize() -> Weight {
 			storage::unhashed::kill(well_known_keys::UPWARD_MESSAGES);
 
-			SimpleDispatchInfo::default().weigh_data(())
+			SimpleDispatchInfo::FixedNormal(MINIMUM_WEIGHT).weigh_data(())
 		}
 	}
 }

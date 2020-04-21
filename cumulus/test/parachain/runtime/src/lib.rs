@@ -102,6 +102,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_version: 4,
 	impl_version: 4,
 	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
 };
 
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
@@ -171,6 +172,7 @@ impl frame_system::Trait for Runtime {
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = Balances;
+	type DbWeight = ();
 }
 
 parameter_types! {

@@ -411,7 +411,7 @@ mod tests {
 	struct DummyCollatorNetwork;
 
 	impl CollatorNetwork for DummyCollatorNetwork {
-		fn checked_statements(&self, _: PHash) -> Pin<Box<dyn Stream<Item = SignedStatement>>> {
+		fn checked_statements(&self, _: PHash) -> Pin<Box<dyn Stream<Item = SignedStatement> + Send>> {
 			unimplemented!("Not required in tests")
 		}
 	}
