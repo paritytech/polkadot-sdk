@@ -59,6 +59,12 @@ default-features = false
 rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
 git = "https://github.com/paritytech/substrate/"
 
+[dependencies.pallet-session]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
 [dependencies.frame-system]
 version = "2.0.0-alpha.2"
 default-features = false
@@ -144,6 +150,12 @@ rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-session]
+version = "2.0.0-alpha.2"
+default-features = false
+rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-staking]
 version = "2.0.0-alpha.2"
 default-features = false
 rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"

@@ -24,12 +24,15 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::{Decode, Encode};
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::OpaqueMetadata;
-use sp_runtime::traits::{BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, Verify};
+use sp_runtime::traits::{
+	BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, OpaqueKeys, Verify,
+};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys, transaction_validity::TransactionValidity, ApplyExtrinsicResult,
 	MultiSignature,
@@ -89,12 +92,12 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
+}
 
-	impl_opaque_keys! {
-		pub struct SessionKeys {
-			pub aura: Aura,
-			pub grandpa: Grandpa,
-		}
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub aura: Aura,
+		pub grandpa: Grandpa,
 	}
 }
 
@@ -233,6 +236,72 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
+parameter_types! {
+	pub const Period: BlockNumber = 4;
+	pub const Offset: BlockNumber = 0;
+}
+
+impl pallet_session::Trait for Runtime {
+	type Event = Event;
+	type ValidatorId = <Self as frame_system::Trait>::AccountId;
+	type ValidatorIdOf = ();
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = ShiftSessionManager;
+	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = SessionKeys;
+	type DisabledValidatorsThreshold = ();
+}
+
+pub struct ShiftSessionManager;
+
+impl ShiftSessionManager {
+	/// Select validators for session.
+	fn select_validators(
+		session_index: sp_staking::SessionIndex,
+		available_validators: &[AccountId],
+	) -> Vec<AccountId> {
+		let available_validators_count = available_validators.len();
+		let count = sp_std::cmp::max(1, 2 * available_validators_count / 3);
+		let offset = session_index as usize % available_validators_count;
+		let end = offset + count;
+		let session_validators = match end.overflowing_sub(available_validators_count) {
+			(wrapped_end, false) if wrapped_end != 0 => available_validators[offset..]
+				.iter()
+				.chain(available_validators[..wrapped_end].iter())
+				.cloned()
+				.collect(),
+			_ => available_validators[offset..end].to_vec(),
+		};
+
+		session_validators
+	}
+}
+
+impl pallet_session::SessionManager<AccountId> for ShiftSessionManager {
+	fn end_session(_: sp_staking::SessionIndex) {}
+	fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
+		// can't access genesis config here :/
+		if session_index == 0 || session_index == 1 {
+			return None;
+		}
+
+		// the idea that on first call (i.e. when session 1 ends) we're reading current
+		// set of validators from session module (they are initial validators) and save
+		// in our 'local storage'.
+		// then for every session we select (deterministically) 2/3 of these initial
+		// validators to serve validators of new session
+		let available_validators = sp_io::storage::get(b":available_validators")
+			.and_then(|validators| Decode::decode(&mut &validators[..]).ok())
+			.unwrap_or_else(|| {
+				let validators = <pallet_session::Module<Runtime>>::validators();
+				sp_io::storage::set(b":available_validators", &validators.encode());
+				validators
+			});
+
+		Some(Self::select_validators(session_index, &available_validators))
+	}
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -247,6 +316,7 @@ construct_runtime!(
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
+		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
 		BridgeEthPoA: pallet_bridge_eth_poa::{Module, Call, Config, Storage, ValidateUnsigned},
 	}
 );
@@ -374,13 +444,13 @@ impl_runtime_apis! {
 
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			opaque::SessionKeys::generate(seed)
+			SessionKeys::generate(seed)
 		}
 
 		fn decode_session_keys(
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
-			opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
+			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 	}
 
@@ -388,5 +458,50 @@ impl_runtime_apis! {
 		fn grandpa_authorities() -> GrandpaAuthorityList {
 			Grandpa::grandpa_authorities()
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn shift_session_manager_works() {
+		let acc1 = AccountId::from([1u8; 32]);
+		let acc2 = AccountId::from([2u8; 32]);
+		let acc3 = AccountId::from([3u8; 32]);
+		let acc4 = AccountId::from([4u8; 32]);
+		let acc5 = AccountId::from([5u8; 32]);
+		let all_accs = vec![acc1.clone(), acc2.clone(), acc3.clone(), acc4.clone(), acc5.clone()];
+
+		// at least 1 validator is selected
+		assert_eq!(
+			ShiftSessionManager::select_validators(0, &[acc1.clone()]),
+			vec![acc1.clone()],
+		);
+
+		// at session#0, shift is also 0
+		assert_eq!(
+			ShiftSessionManager::select_validators(0, &all_accs),
+			vec![acc1.clone(), acc2.clone(), acc3.clone()],
+		);
+
+		// at session#1, shift is also 1
+		assert_eq!(
+			ShiftSessionManager::select_validators(1, &all_accs),
+			vec![acc2.clone(), acc3.clone(), acc4.clone()],
+		);
+
+		// at session#3, we're wrapping
+		assert_eq!(
+			ShiftSessionManager::select_validators(3, &all_accs),
+			vec![acc4, acc5, acc1.clone()],
+		);
+
+		// at session#5, we're starting from the beginning again
+		assert_eq!(
+			ShiftSessionManager::select_validators(5, &all_accs),
+			vec![acc1, acc2, acc3],
+		);
 	}
 }
