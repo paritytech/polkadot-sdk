@@ -19,15 +19,15 @@ features = ["derive"]
 
 # Substrate Dependencies
 [dependencies.pallet-aura]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-balances]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-bridge-eth-poa]
@@ -36,76 +36,76 @@ default-features = false
 path = "../../../modules/ethereum"
 
 [dependencies.frame-support]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-grandpa]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-randomness-collective-flip]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-sudo]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-session]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system-rpc-runtime-api]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-timestamp]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-executive]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 # Substrate Primitives
 [dependencies.sp-api]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-block-builder]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-bridge-eth-poa]
@@ -114,75 +114,75 @@ default-features = false
 path = "../../../primitives/ethereum-poa"
 
 [dependencies.sp-consensus-aura]
-version = "0.8.0-alpha.2"
+version = "0.8.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-core]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-inherents]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-io]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-offchain]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-runtime]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-session]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-staking]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-std]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-transaction-pool]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-version]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [build-dependencies.wasm-builder-runner]
 version = "1.0.5"
 package = "substrate-wasm-builder-runner"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [features]

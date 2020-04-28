@@ -25,7 +25,7 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// The chain specification option. This is expected to come in from the CLI and
 /// is little more than one of a number of alternatives which can easily be converted
@@ -71,6 +71,7 @@ impl Alternative {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
 				"dev",
+				sc_service::ChainType::Development,
 				|| {
 					testnet_genesis(
 						vec![get_authority_keys_from_seed("Alice")],
@@ -93,6 +94,7 @@ impl Alternative {
 			Alternative::LocalTestnet => ChainSpec::from_genesis(
 				"Local Testnet",
 				"local_testnet",
+				sc_service::ChainType::Local,
 				|| {
 					testnet_genesis(
 						vec![
@@ -127,14 +129,6 @@ impl Alternative {
 				None,
 			),
 		})
-	}
-
-	pub(crate) fn from(s: &str) -> Option<Self> {
-		match s {
-			"" | "dev" => Some(Alternative::Development),
-			"local" => Some(Alternative::LocalTestnet),
-			_ => None,
-		}
 	}
 }
 
@@ -171,13 +165,6 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		}),
 	}
-}
-
-pub fn load_spec(id: &str) -> Result<Option<ChainSpec>, String> {
-	Ok(match Alternative::from(id) {
-		Some(spec) => Some(spec.load()?),
-		None => None,
-	})
 }
 
 fn load_kovan_config() -> Option<BridgeEthPoAConfig> {
