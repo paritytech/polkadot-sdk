@@ -34,8 +34,9 @@ use sp_runtime::traits::{
 	BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, OpaqueKeys, Verify,
 };
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys, transaction_validity::TransactionValidity, ApplyExtrinsicResult,
-	MultiSignature,
+	create_runtime_str, generic, impl_opaque_keys,
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -43,7 +44,12 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
-pub use frame_support::{construct_runtime, parameter_types, traits::Randomness, weights::Weight, StorageValue};
+pub use frame_support::{
+	construct_runtime, parameter_types,
+	traits::Randomness,
+	weights::{RuntimeDbWeight, Weight},
+	StorageValue,
+};
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -109,6 +115,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_version: 1,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
 };
 
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
@@ -131,10 +138,15 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
-	pub const MaximumBlockWeight: Weight = 1_000_000;
+	pub const MaximumBlockWeight: Weight = 2_000_000_000_000;
+	pub const ExtrinsicBaseWeight: Weight = 10_000_000;
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
+	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
+		read: 60_000_000, // ~0.06 ms = ~60 µs
+		write: 200_000_000, // ~0.2 ms = 200 µs
+	};
 }
 
 impl frame_system::Trait for Runtime {
@@ -162,6 +174,14 @@ impl frame_system::Trait for Runtime {
 	type BlockHashCount = BlockHashCount;
 	/// Maximum weight of each block.
 	type MaximumBlockWeight = MaximumBlockWeight;
+	/// The weight of database operations that the runtime can invoke.
+	type DbWeight = DbWeight;
+	/// The weight of the overhead invoked on the block import process, independent of the
+	/// extrinsics included in that block.
+	type BlockExecutionWeight = ();
+	/// The base weight of any extrinsic processed by the runtime, independent of the
+	/// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
+	type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
 	/// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
 	type MaximumBlockLength = MaximumBlockLength;
 	/// Portion of the block weight that is available to all normal transactions.
@@ -225,7 +245,6 @@ parameter_types! {
 impl pallet_transaction_payment::Trait for Runtime {
 	type Currency = pallet_balances::Module<Runtime>;
 	type OnTransactionPayment = ();
-	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = ConvertInto;
 	type FeeMultiplierUpdate = ();
@@ -246,6 +265,7 @@ impl pallet_session::Trait for Runtime {
 	type ValidatorId = <Self as frame_system::Trait>::AccountId;
 	type ValidatorIdOf = ();
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionManager = ShiftSessionManager;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -279,6 +299,7 @@ impl ShiftSessionManager {
 
 impl pallet_session::SessionManager<AccountId> for ShiftSessionManager {
 	fn end_session(_: sp_staking::SessionIndex) {}
+	fn start_session(_: sp_staking::SessionIndex) {}
 	fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
 		// can't access genesis config here :/
 		if session_index == 0 || session_index == 1 {
@@ -376,10 +397,6 @@ impl_runtime_apis! {
 			Executive::apply_extrinsic(extrinsic)
 		}
 
-		fn apply_trusted_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
-			Executive::apply_trusted_extrinsic(extrinsic)
-		}
-
 		fn finalize_block() -> <Block as BlockT>::Header {
 			Executive::finalize_block()
 		}
@@ -421,8 +438,11 @@ impl_runtime_apis! {
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-			Executive::validate_transaction(tx)
+		fn validate_transaction(
+			source: TransactionSource,
+			tx: <Block as BlockT>::Extrinsic,
+		) -> TransactionValidity {
+			Executive::validate_transaction(source, tx)
 		}
 	}
 

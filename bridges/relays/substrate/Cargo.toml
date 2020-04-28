@@ -17,16 +17,16 @@ serde_json = "1.0.51"
 url = "2.1.0"
 
 [dependencies.sp-core]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-rpc]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.node-primitives]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"

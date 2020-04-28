@@ -30,28 +30,64 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec;
 use crate::cli::Cli;
 use crate::service;
-use sc_cli::VersionInfo;
+use sc_cli::SubstrateCli;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 
+impl SubstrateCli for Cli {
+	fn impl_name() -> &'static str {
+		"Bridge Node"
+	}
+
+	fn impl_version() -> &'static str {
+		env!("CARGO_PKG_VERSION")
+	}
+
+	fn description() -> &'static str {
+		"Bridge Node"
+	}
+
+	fn author() -> &'static str {
+		"Parity Technologies"
+	}
+
+	fn support_url() -> &'static str {
+		"https://github.com/paritytech/parity-bridges-common/"
+	}
+
+	fn copyright_start_year() -> i32 {
+		2019
+	}
+
+	fn executable_name() -> &'static str {
+		"bridge-node"
+	}
+
+	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
+		Ok(Box::new(
+			match id {
+				"" | "dev" => crate::chain_spec::Alternative::Development,
+				"local" => crate::chain_spec::Alternative::LocalTestnet,
+				_ => return Err(format!("Unsupported chain specification: {}", id)),
+			}
+			.load()?,
+		))
+	}
+}
+
 /// Parse and run command line arguments
-pub fn run(version: VersionInfo) -> sc_cli::Result<()> {
-	let opt = sc_cli::from_args::<Cli>(&version);
+pub fn run() -> sc_cli::Result<()> {
+	let cli = Cli::from_args();
 
-	let mut config = sc_service::Configuration::from_version(&version);
-
-	match opt.subcommand {
+	match &cli.subcommand {
 		Some(subcommand) => {
-			subcommand.init(&version)?;
-			subcommand.update_config(&mut config, chain_spec::load_spec, &version)?;
-			subcommand.run(config, |config: _| Ok(new_full_start!(config).0))
+			let runner = cli.create_runner(subcommand)?;
+			runner.run_subcommand(subcommand, |config| Ok(new_full_start!(config).0))
 		}
 		None => {
-			opt.run.init(&version)?;
-			opt.run.update_config(&mut config, chain_spec::load_spec, &version)?;
-			opt.run.run(config, service::new_light, service::new_full, &version)
+			let runner = cli.create_runner(&cli.run)?;
+			runner.run_node(service::new_light, service::new_full, bridge_node_runtime::VERSION)
 		}
 	}
 }

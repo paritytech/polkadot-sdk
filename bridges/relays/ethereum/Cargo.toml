@@ -22,40 +22,40 @@ serde = { version = "1.0.106", features = ["derive"] }
 serde_json = "1.0.51"
 sp-bridge-eth-poa = { path = "../../primitives/ethereum-poa" }
 time = "0.2"
-web3 = { git = "https://github.com/svyatonik/rust-web3.git", branch = "fix_receipt" }
+web3 = { git = "https://github.com/svyatonik/rust-web3.git", branch = "add-receipt-root" }
 
 # Substrate Based Dependencies
 [dependencies.frame-system]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 # I think this is used for sr-io and stuff
 [dependencies.node-primitives]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 # Branch used for keccack256 hasher code
 # Could probably move the keccack hasher stuff to our own primitives
 [dependencies.sp-core]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-keyring]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
-version = "2.0.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "2.0.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 # This should get moved to our `bin` folder
