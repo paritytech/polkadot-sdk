@@ -13,57 +13,57 @@ hash-db = { version = "0.15.2", default-features = false }
 
 # Substrate Based Dependencies
 [dependencies.frame-support]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-session]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-core]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-finality-grandpa]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-runtime]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-trie]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 # Dev Dependencies
 [dev-dependencies.sp-io]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [dev-dependencies.sp-state-machine]
-version = "0.8.0-alpha.2"
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+version = "0.8.0-alpha.6"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate/"
 
 [features]
