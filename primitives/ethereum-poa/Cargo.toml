@@ -10,7 +10,7 @@ serde = { version = "1.0", optional = true }
 serde-big-array = { version = "0.2", optional = true }
 ethbloom = { version = "0.8", default-features = false }
 parity-bytes = { version = "0.1", default-features = false }
-primitive-types = { version = "0.6", default-features = false, features = ["codec", "rlp"] }
+primitive-types = { version = "0.7", default-features = false, features = ["codec", "rlp"] }
 fixed-hash = { version = "0.5", default-features = false }
 impl-rlp = { version = "0.2", default-features = false }
 impl-serde = { version = "0.2.3", optional = true }
@@ -22,27 +22,27 @@ plain_hasher = { version = "0.2.2", default-features = false }
 
 # Substrate Based Dependencies
 [dependencies.sp-api]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-std]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-io]
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.6"
 default-features = false
-rev = "2afecf81ee19b8a6edb364b419190ea47c4a4a31"
+rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
 git = "https://github.com/paritytech/substrate.git"
 
 [features]

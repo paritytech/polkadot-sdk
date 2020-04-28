@@ -21,8 +21,8 @@ use frame_support::{decl_module, decl_storage};
 use primitives::{Address, Header, Receipt, H256, U256};
 use sp_runtime::{
 	transaction_validity::{
-		InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionValidity, UnknownTransaction,
-		ValidTransaction,
+		InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource, TransactionValidity,
+		UnknownTransaction, ValidTransaction,
 	},
 	RuntimeDebug,
 };
@@ -293,6 +293,7 @@ pub trait Trait: frame_system::Trait {
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		/// Import single Aura header. Requires transaction to be **UNSIGNED**.
+		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 		pub fn import_unsigned_header(origin, header: Header, receipts: Option<Vec<Receipt>>) {
 			frame_system::ensure_none(origin)?;
 
@@ -313,6 +314,7 @@ decl_module! {
 		///
 		/// This should be used with caution - passing too many headers could lead to
 		/// enormous block production/import time.
+		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 		pub fn import_signed_headers(origin, headers_with_receipts: Vec<(Header, Option<Vec<Receipt>>)>) {
 			let submitter = frame_system::ensure_signed(origin)?;
 			let mut finalized_headers = BTreeMap::new();
@@ -359,19 +361,19 @@ decl_storage! {
 		/// Oldest unpruned block(s) number.
 		OldestUnprunedBlock: u64;
 		/// Map of imported headers by hash.
-		Headers: map hasher(blake2_256) H256 => Option<StoredHeader<T::AccountId>>;
+		Headers: map hasher(identity) H256 => Option<StoredHeader<T::AccountId>>;
 		/// Map of imported header hashes by number.
-		HeadersByNumber: map hasher(blake2_256) u64 => Option<Vec<H256>>;
+		HeadersByNumber: map hasher(blake2_128_concat) u64 => Option<Vec<H256>>;
 		/// The ID of next validator set.
 		NextValidatorsSetId: u64;
 		/// Map of validators sets by their id.
-		ValidatorsSets: map hasher(blake2_256) u64 => Option<ValidatorsSet>;
+		ValidatorsSets: map hasher(twox_64_concat) u64 => Option<ValidatorsSet>;
 		/// Validators sets reference count. Each header that is authored by this set increases
 		/// the reference count. When we prune this header, we decrease the reference count.
 		/// When it reaches zero, we are free to prune validator set as well.
-		ValidatorsSetsRc: map hasher(blake2_256) u64 => Option<u64>;
+		ValidatorsSetsRc: map hasher(twox_64_concat) u64 => Option<u64>;
 		/// Map of validators set changes scheduled by given header.
-		ScheduledChanges: map hasher(blake2_256) H256 => Option<ScheduledChange>;
+		ScheduledChanges: map hasher(identity) H256 => Option<ScheduledChange>;
 	}
 	add_extra_genesis {
 		config(initial_header): Header;
@@ -434,7 +436,7 @@ impl<T: Trait> Module<T> {
 impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	type Call = Call<T>;
 
-	fn validate_unsigned(call: &Self::Call) -> TransactionValidity {
+	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		match *call {
 			Self::Call::import_unsigned_header(ref header, ref receipts) => {
 				let accept_result = verification::accept_aura_header_into_pool(
