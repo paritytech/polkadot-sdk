@@ -117,7 +117,10 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 					self.maybe_extra.keys().next_back().cloned().unwrap_or_else(Zero::zero),
 					std::cmp::max(
 						self.extra.keys().next_back().cloned().unwrap_or_else(Zero::zero),
-						self.ready.keys().next_back().cloned().unwrap_or_else(Zero::zero),
+						std::cmp::max(
+							self.ready.keys().next_back().cloned().unwrap_or_else(Zero::zero),
+							self.submitted.keys().next_back().cloned().unwrap_or_else(Zero::zero),
+						),
 					),
 				),
 			),
@@ -226,6 +229,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		// all ancestors of this header are now synced => let's remove them from
 		// queues
 		let mut current = *id;
+		let mut id_processed = false;
 		loop {
 			let header = match self.status(&current) {
 				HeaderStatus::Unknown => break,
@@ -253,22 +257,26 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 				.entry(current.1)
 				.or_insert(HeaderStatus::Synced) = HeaderStatus::Synced;
 			current = header.parent_id();
+			id_processed = true;
 		}
 
 		// remember that the header is synced
-		log::debug!(
-			target: "bridge",
-			"{} header {:?} is now {:?}",
-			P::SOURCE_NAME,
-			id,
-			HeaderStatus::Synced,
-		);
-		*self
-			.known_headers
-			.entry(id.0)
-			.or_default()
-			.entry(id.1)
-			.or_insert(HeaderStatus::Synced) = HeaderStatus::Synced;
+		if !id_processed {
+			// to avoid duplicate log message
+			log::debug!(
+				target: "bridge",
+				"{} header {:?} is now {:?}",
+				P::SOURCE_NAME,
+				id,
+				HeaderStatus::Synced,
+			);
+			*self
+				.known_headers
+				.entry(id.0)
+				.or_default()
+				.entry(id.1)
+				.or_insert(HeaderStatus::Synced) = HeaderStatus::Synced;
+		}
 
 		// now let's move all descendants from maybe_orphan && orphan queues to
 		// maybe_extra queue
