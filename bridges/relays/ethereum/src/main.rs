@@ -17,17 +17,25 @@
 #![recursion_limit = "1024"]
 
 mod ethereum_client;
+mod ethereum_deploy_contract;
 mod ethereum_sync_loop;
 mod ethereum_types;
 mod headers;
 mod substrate_client;
+mod substrate_sync_loop;
 mod substrate_types;
 mod sync;
 mod sync_loop;
 mod sync_types;
+mod utils;
 
+use ethereum_client::{EthereumConnectionParams, EthereumSigningParams};
+use ethereum_sync_loop::EthereumSyncParams;
+use parity_crypto::publickey::{KeyPair, Secret};
 use sp_core::crypto::Pair;
 use std::io::Write;
+use substrate_client::{SubstrateConnectionParams, SubstrateSigningParams};
+use substrate_sync_loop::SubstrateSyncParams;
 
 fn main() {
 	initialize();
@@ -38,6 +46,24 @@ fn main() {
 		("eth-to-sub", Some(eth_to_sub_matches)) => {
 			ethereum_sync_loop::run(match ethereum_sync_params(&eth_to_sub_matches) {
 				Ok(ethereum_sync_params) => ethereum_sync_params,
+				Err(err) => {
+					log::error!(target: "bridge", "Error parsing parameters: {}", err);
+					return;
+				}
+			});
+		}
+		("sub-to-eth", Some(sub_to_eth_matches)) => {
+			substrate_sync_loop::run(match substrate_sync_params(&sub_to_eth_matches) {
+				Ok(substrate_sync_params) => substrate_sync_params,
+				Err(err) => {
+					log::error!(target: "bridge", "Error parsing parameters: {}", err);
+					return;
+				}
+			});
+		}
+		("eth-deploy-contract", Some(eth_deploy_matches)) => {
+			ethereum_deploy_contract::run(match ethereum_deploy_contract_params(&eth_deploy_matches) {
+				Ok(ethereum_deploy_matches) => ethereum_deploy_matches,
 				Err(err) => {
 					log::error!(target: "bridge", "Error parsing parameters: {}", err);
 					return;
@@ -89,25 +115,58 @@ fn initialize() {
 	builder.init();
 }
 
-fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<ethereum_sync_loop::EthereumSyncParams, String> {
-	let mut eth_sync_params = ethereum_sync_loop::EthereumSyncParams::default();
+fn ethereum_connection_params(matches: &clap::ArgMatches) -> Result<EthereumConnectionParams, String> {
+	let mut params = EthereumConnectionParams::default();
 	if let Some(eth_host) = matches.value_of("eth-host") {
-		eth_sync_params.eth_host = eth_host.into();
+		params.host = eth_host.into();
 	}
 	if let Some(eth_port) = matches.value_of("eth-port") {
-		eth_sync_params.eth_port = eth_port.parse().map_err(|e| format!("{}", e))?;
+		params.port = eth_port
+			.parse()
+			.map_err(|e| format!("Failed to parse eth-port: {}", e))?;
 	}
+	Ok(params)
+}
+
+fn ethereum_signing_params(matches: &clap::ArgMatches) -> Result<EthereumSigningParams, String> {
+	let mut params = EthereumSigningParams::default();
+	if let Some(eth_signer) = matches.value_of("eth-signer") {
+		params.signer = eth_signer
+			.parse::<Secret>()
+			.map_err(|e| format!("Failed to parse eth-signer: {}", e))
+			.and_then(|secret| KeyPair::from_secret(secret).map_err(|e| format!("Invalid eth-signer: {}", e)))?;
+	}
+	Ok(params)
+}
+
+fn substrate_connection_params(matches: &clap::ArgMatches) -> Result<SubstrateConnectionParams, String> {
+	let mut params = SubstrateConnectionParams::default();
 	if let Some(sub_host) = matches.value_of("sub-host") {
-		eth_sync_params.sub_host = sub_host.into();
+		params.host = sub_host.into();
 	}
 	if let Some(sub_port) = matches.value_of("sub-port") {
-		eth_sync_params.sub_port = sub_port.parse().map_err(|e| format!("{}", e))?;
+		params.port = sub_port
+			.parse()
+			.map_err(|e| format!("Failed to parse sub-port: {}", e))?;
 	}
+	Ok(params)
+}
+
+fn substrate_signing_params(matches: &clap::ArgMatches) -> Result<SubstrateSigningParams, String> {
+	let mut params = SubstrateSigningParams::default();
 	if let Some(sub_signer) = matches.value_of("sub-signer") {
 		let sub_signer_password = matches.value_of("sub-signer-password");
-		eth_sync_params.sub_signer =
-			sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password).map_err(|e| format!("{:?}", e))?;
+		params.signer = sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password)
+			.map_err(|e| format!("Failed to parse sub-signer: {:?}", e))?;
 	}
+	Ok(params)
+}
+
+fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams, String> {
+	let mut eth_sync_params = EthereumSyncParams::default();
+	eth_sync_params.eth = ethereum_connection_params(matches)?;
+	eth_sync_params.sub = substrate_connection_params(matches)?;
+	eth_sync_params.sub_sign = substrate_signing_params(matches)?;
 
 	match matches.value_of("sub-tx-mode") {
 		Some("signed") => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
@@ -123,4 +182,33 @@ fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<ethereum_sync_loop
 	}
 
 	Ok(eth_sync_params)
+}
+
+fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncParams, String> {
+	let mut sub_sync_params = SubstrateSyncParams::default();
+	sub_sync_params.eth = ethereum_connection_params(matches)?;
+	sub_sync_params.eth_sign = ethereum_signing_params(matches)?;
+	sub_sync_params.sub = substrate_connection_params(matches)?;
+
+	if let Some(eth_contract) = matches.value_of("eth-contract") {
+		sub_sync_params.eth_contract_address = eth_contract.parse().map_err(|e| format!("{}", e))?;
+	}
+
+	Ok(sub_sync_params)
+}
+
+fn ethereum_deploy_contract_params(
+	matches: &clap::ArgMatches,
+) -> Result<ethereum_deploy_contract::EthereumDeployContractParams, String> {
+	let mut eth_deploy_params = ethereum_deploy_contract::EthereumDeployContractParams::default();
+	eth_deploy_params.eth = ethereum_connection_params(matches)?;
+	eth_deploy_params.eth_sign = ethereum_signing_params(matches)?;
+	eth_deploy_params.sub = substrate_connection_params(matches)?;
+
+	if let Some(eth_contract_code) = matches.value_of("eth-contract-code") {
+		eth_deploy_params.eth_contract_code =
+			hex::decode(&eth_contract_code).map_err(|e| format!("Failed to parse eth-contract-code: {}", e))?;
+	}
+
+	Ok(eth_deploy_params)
 }

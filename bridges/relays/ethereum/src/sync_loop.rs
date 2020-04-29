@@ -17,7 +17,7 @@
 use crate::sync::HeadersSyncParams;
 use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader};
 use futures::{future::FutureExt, stream::StreamExt};
-use num_traits::Saturating;
+use num_traits::{Saturating, Zero};
 use std::future::Future;
 
 /// When we submit headers to target node, but see no updates of best
@@ -364,6 +364,17 @@ pub fn run<P: HeadersSyncPipeline>(
 				} else if let Some(header) = sync.headers().header(HeaderStatus::Orphan) {
 					// for Orphan we actually ask for parent' header
 					let parent_id = header.parent_id();
+
+					// if we have end up with orphan header#0, then we are misconfigured
+					if parent_id.0.is_zero() {
+						log::error!(
+							target: "bridge",
+							"Misconfiguration. Genesis {} header is considered orphan by {} node",
+							P::SOURCE_NAME,
+							P::TARGET_NAME,
+						);
+						return;
+					}
 
 					log::debug!(
 						target: "bridge",
