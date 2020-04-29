@@ -26,7 +26,7 @@ use cumulus_primitives::{
 };
 use frame_support::{
 	decl_module, storage,
-	weights::{MINIMUM_WEIGHT, SimpleDispatchInfo, WeighData, Weight},
+	weights::{DispatchClass, Weight},
 };
 use frame_system::ensure_none;
 use sp_inherents::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent};
@@ -42,7 +42,7 @@ decl_module! {
 		/// Executes the given downward messages by calling the message handlers.
 		///
 		/// The origin of this call needs to be `None` as this is an inherent.
-		#[weight = SimpleDispatchInfo::FixedMandatory(10)]
+		#[weight = (10, DispatchClass::Mandatory)]
 		fn execute_downward_messages(origin, messages: Vec<()>) {
 			ensure_none(origin)?;
 			messages.iter().for_each(T::DownwardMessageHandlers::handle_downward_message);
@@ -51,7 +51,7 @@ decl_module! {
 		fn on_initialize() -> Weight {
 			storage::unhashed::kill(well_known_keys::UPWARD_MESSAGES);
 
-			SimpleDispatchInfo::FixedNormal(MINIMUM_WEIGHT).weigh_data(())
+			0
 		}
 	}
 }

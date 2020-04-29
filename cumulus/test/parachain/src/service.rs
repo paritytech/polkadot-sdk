@@ -48,7 +48,7 @@ macro_rules! new_full_start {
 			parachain_runtime::RuntimeApi,
 			crate::service::Executor,
 		>($config)?
-		.with_select_chain(|_config, backend| Ok(sc_client::LongestChain::new(backend.clone())))?
+		.with_select_chain(|_config, backend| Ok(sc_consensus::LongestChain::new(backend.clone())))?
 		.with_transaction_pool(|config, client, _fetcher, prometheus_registry| {
 			let pool_api = Arc::new(sc_transaction_pool::FullChainApi::new(client.clone()));
 			let pool = sc_transaction_pool::BasicPool::new(config, pool_api, prometheus_registry);

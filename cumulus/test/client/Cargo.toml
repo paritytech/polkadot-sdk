@@ -5,6 +5,8 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 test-client = { package = "substrate-test-client", git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 runtime = { package = "cumulus-test-runtime", path = "../runtime" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

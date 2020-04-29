@@ -23,11 +23,9 @@ use sc_cli::{
 	CliConfiguration, Error, ImportParams, KeystoreParams, NetworkParams, Result, SharedParams,
 	SubstrateCli,
 };
-use sc_client::genesis;
+use sc_service::client::genesis;
 use sc_network::config::TransportConfig;
-use sc_service::{
-	config::{NetworkConfiguration, NodeKeyConfig, PrometheusConfig},
-};
+use sc_service::config::{NetworkConfiguration, NodeKeyConfig, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
@@ -129,7 +127,7 @@ pub fn run() -> Result<()> {
 
 			let storage = (&chain_spec::get_chain_spec()).build_storage()?;
 
-			let child_roots = storage.children.iter().map(|(sk, child_content)| {
+			let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
 				let state_root =
 					<<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
 						child_content.data.clone().into_iter().collect(),

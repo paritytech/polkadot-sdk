@@ -14,10 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
-use sc_client::Client;
-use sc_client_api::{Backend, CallExecutor, TransactionFor};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::Result as ClientResult;
@@ -34,19 +32,17 @@ use sp_runtime::{
 };
 
 /// A verifier that just checks the inherents.
-struct Verifier<B, E, Block: BlockT, RA> {
-	client: Arc<Client<B, E, Block, RA>>,
+struct Verifier<Client, Block> {
+	client: Arc<Client>,
 	inherent_data_providers: InherentDataProviders,
+	_marker: PhantomData<Block>,
 }
 
-impl<B, E, Block, RA> VerifierT<Block> for Verifier<B, E, Block, RA>
+impl<Client, Block> VerifierT<Block> for Verifier<Client, Block>
 where
 	Block: BlockT,
-	B: Backend<Block> + 'static,
-	E: CallExecutor<Block> + 'static + Clone + Send + Sync,
-	RA: Send + Sync,
-	Client<B, E, Block, RA>: ProvideRuntimeApi<Block> + Send + Sync,
-	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
 {
 	fn verify(
 		&mut self,
@@ -101,25 +97,21 @@ where
 }
 
 /// Start an import queue for a Cumulus collator that does not uses any special authoring logic.
-pub fn import_queue<B, E, Block: BlockT, I, RA>(
-	client: Arc<Client<B, E, Block, RA>>,
+pub fn import_queue<Client, Block: BlockT, I>(
+	client: Arc<Client>,
 	block_import: I,
 	inherent_data_providers: InherentDataProviders,
-) -> ClientResult<BasicQueue<Block, TransactionFor<B, Block>>>
+) -> ClientResult<BasicQueue<Block, I::Transaction>>
 where
-	B: Backend<Block> + 'static,
-	I: BlockImport<Block, Error = ConsensusError, Transaction = TransactionFor<B, Block>>
-		+ Send
-		+ Sync
-		+ 'static,
-	E: CallExecutor<Block> + Clone + Send + Sync + 'static,
-	RA: Send + Sync + 'static,
-	Client<B, E, Block, RA>: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
+ 	I::Transaction: Send,
+	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
 {
 	let verifier = Verifier {
 		client,
 		inherent_data_providers,
+		_marker: PhantomData,
 	};
 
 	Ok(BasicQueue::new(

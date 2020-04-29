@@ -21,6 +21,7 @@ use runtime::{
 	genesismap::{additional_storage_with_genesis, GenesisConfig},
 	Block,
 };
+use sc_service::client;
 use sp_core::{sr25519, storage::Storage, ChangesTrieConfiguration};
 use sp_keyring::{AccountKeyring, Sr25519Keyring};
 use sp_runtime::traits::{Block as BlockT, Hash as HashT, Header as HeaderT};
@@ -42,17 +43,17 @@ pub use local_executor::LocalExecutor;
 pub type Backend = test_client::Backend<Block>;
 
 /// Test client executor.
-pub type Executor =
-	sc_client::LocalCallExecutor<Backend, sc_executor::NativeExecutor<LocalExecutor>>;
+pub type Executor = client::LocalCallExecutor<Backend, sc_executor::NativeExecutor<LocalExecutor>>;
 
 /// Test client builder for Cumulus
-pub type TestClientBuilder = test_client::TestClientBuilder<Block, Executor, Backend, GenesisParameters>;
+pub type TestClientBuilder =
+	test_client::TestClientBuilder<Block, Executor, Backend, GenesisParameters>;
 
 /// LongestChain type for the test runtime/client.
-pub type LongestChain = test_client::sc_client::LongestChain<Backend, Block>;
+pub type LongestChain = sc_consensus::LongestChain<Backend, Block>;
 
 /// Test client type with `LocalExecutor` and generic Backend.
-pub type Client = sc_client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
+pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
 
 /// Parameters of test-client builder with test-runtime.
 #[derive(Default)]
@@ -71,7 +72,7 @@ impl test_client::GenesisInit for GenesisParameters {
 		};
 		let mut storage = genesis_config(changes_trie_config).genesis_map();
 
-		let child_roots = storage.children.iter().map(|(sk, child_content)| {
+		let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
 			let state_root =
 				<<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
 					child_content.data.clone().into_iter().collect(),
@@ -82,7 +83,7 @@ impl test_client::GenesisInit for GenesisParameters {
 			<<<runtime::Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
 				storage.top.clone().into_iter().chain(child_roots).collect(),
 			);
-		let block: runtime::Block = sc_client::genesis::construct_genesis_block(state_root);
+		let block: runtime::Block = client::genesis::construct_genesis_block(state_root);
 		storage.top.extend(additional_storage_with_genesis(&block));
 
 		storage

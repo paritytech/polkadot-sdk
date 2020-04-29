@@ -57,7 +57,6 @@ fn call_validate_block(
 		WasmExecutionMethod::Interpreted,
 		Some(1024),
 		sp_io::SubstrateHostFunctions::host_functions(),
-		false,
 		1,
 	);
 
@@ -67,6 +66,7 @@ fn call_validate_block(
 		"validate_block",
 		&params,
 		&mut ext_ext,
+		sp_core::traits::MissingHostFunctions::Disallow,
 	)
 	.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
 	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decode `Header`."))

@@ -7,7 +7,6 @@ edition = "2018"
 
 [dependencies]
 # substrate deps
-sc-client = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

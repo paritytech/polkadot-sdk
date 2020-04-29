@@ -134,6 +134,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
+	pub const ExtrinsicBaseWeight: Weight = 10_000_000;
 }
 
 impl frame_system::Trait for Runtime {
@@ -173,6 +174,8 @@ impl frame_system::Trait for Runtime {
 	type OnNewAccount = ();
 	type OnKilledAccount = Balances;
 	type DbWeight = ();
+	type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
+	type BlockExecutionWeight = ();
 }
 
 parameter_types! {
@@ -201,7 +204,6 @@ parameter_types! {
 	pub const ExistentialDeposit: u128 = 500;
 	pub const TransferFee: u128 = 0;
 	pub const CreationFee: u128 = 0;
-	pub const TransactionBaseFee: u128 = 0;
 	pub const TransactionByteFee: u128 = 1;
 }
 
@@ -218,7 +220,6 @@ impl pallet_balances::Trait for Runtime {
 impl pallet_transaction_payment::Trait for Runtime {
 	type Currency = Balances;
 	type OnTransactionPayment = ();
-	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = ConvertInto;
 	type FeeMultiplierUpdate = ();

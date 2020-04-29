@@ -14,11 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use sc_client::{BlockchainEvents, Client};
-use sc_client_api::{
-	backend::{Backend, Finalizer, StateBackend, StateBackendFor},
-	CallExecutor,
-};
+use sc_client_api::{Backend, Finalizer, UsageProvider};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::{Error as ConsensusError, SelectChain as SelectChainT};
@@ -39,16 +35,6 @@ use log::warn;
 use std::{marker::PhantomData, sync::Arc};
 
 pub mod import_queue;
-
-/// Helper for the local client.
-pub trait LocalClient {
-	/// The block type of the local client.
-	type Block: BlockT;
-
-	/// Finalize the given block.
-	/// Returns `false` if the block is not known.
-	fn finalize(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool>;
-}
 
 /// Errors that can occur while following the polkadot relay-chain.
 #[derive(Debug)]
@@ -87,15 +73,38 @@ pub trait PolkadotClient: Clone + 'static {
 	) -> ClientResult<Option<Vec<u8>>>;
 }
 
+/// Finalize the given block in the Parachain.
+fn finalize_block<T, Block, B>(client: &T, hash: Block::Hash) -> ClientResult<bool>
+where
+	Block: BlockT,
+	T: Finalizer<Block, B> + UsageProvider<Block>,
+	B: Backend<Block>,
+{
+	// don't finalize the same block multiple times.
+	if client.usage_info().chain.finalized_hash != hash {
+		match client.finalize_block(BlockId::hash(hash), None, true) {
+			Ok(()) => Ok(true),
+			Err(e) => match e {
+				ClientError::UnknownBlock(_) => Ok(false),
+				_ => Err(e),
+			},
+		}
+	} else {
+		Ok(true)
+	}
+}
+
 /// Spawns a future that follows the Polkadot relay chain for the given parachain.
-pub fn follow_polkadot<L, P>(
+pub fn follow_polkadot<L, P, Block, B>(
 	para_id: ParaId,
 	local: Arc<L>,
 	polkadot: P,
 ) -> ClientResult<impl Future<Output = ()> + Send + Unpin>
 where
-	L: LocalClient + Send + Sync,
+	Block: BlockT,
+	L: Finalizer<Block, B> + UsageProvider<Block> + Send + Sync,
 	P: PolkadotClient,
+	B: Backend<Block>,
 {
 	let finalized_heads = polkadot.finalized_heads(para_id)?;
 
@@ -104,13 +113,12 @@ where
 
 		finalized_heads
 			.map(|head_data| {
-				<<L::Block as BlockT>::Header>::decode(&mut &head_data[..])
+				<<Block as BlockT>::Header>::decode(&mut &head_data[..])
 					.map_err(|_| Error::InvalidHeadData)
 			})
 			.try_for_each(move |p_head| {
 				future::ready(
-					local
-						.finalize(p_head.hash())
+					finalize_block(&*local, p_head.hash())
 						.map_err(Error::Client)
 						.map(|_| ()),
 				)
@@ -122,39 +130,10 @@ where
 		.map(|_| ()))
 }
 
-impl<B, E, Block, RA> LocalClient for Client<B, E, Block, RA>
+impl<T> PolkadotClient for Arc<T>
 where
-	B: Backend<Block>,
-	E: CallExecutor<Block>,
-	Block: BlockT,
-{
-	type Block = Block;
-
-	fn finalize(&self, hash: <Self::Block as BlockT>::Hash) -> ClientResult<bool> {
-		// don't finalize the same block multiple times.
-		if self.chain_info().finalized_hash != hash {
-			match self.finalize_block(BlockId::hash(hash), None, true) {
-				Ok(()) => Ok(true),
-				Err(e) => match e {
-					ClientError::UnknownBlock(_) => Ok(false),
-					_ => Err(e),
-				},
-			}
-		} else {
-			Ok(true)
-		}
-	}
-}
-
-impl<B, E, RA> PolkadotClient for Arc<Client<B, E, PBlock, RA>>
-where
-	B: Backend<PBlock> + Send + Sync + 'static,
-	E: CallExecutor<PBlock> + Send + Sync + 'static,
-	Client<B, E, PBlock, RA>: ProvideRuntimeApi<PBlock> + Send + Sync + 'static,
-	<Client<B, E, PBlock, RA> as ProvideRuntimeApi<PBlock>>::Api:
-		ParachainHost<PBlock, Error = ClientError>,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	StateBackendFor<B, PBlock>: StateBackend<sp_runtime::traits::BlakeTwo256>,
+	T: sc_client_api::BlockchainEvents<PBlock> + ProvideRuntimeApi<PBlock> + 'static + Send + Sync,
+	<T as ProvideRuntimeApi<PBlock>>::Api: ParachainHost<PBlock, Error = ClientError>,
 {
 	type Error = ClientError;
 
