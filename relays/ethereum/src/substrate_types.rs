@@ -14,15 +14,60 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use crate::ethereum_types::H256 as TransactionHash;
 use crate::ethereum_types::{
 	Header as EthereumHeader, Receipt as EthereumReceipt, HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
 	RECEIPT_GAS_USED_PROOF as ETHEREUM_RECEIPT_GAS_USED_PROOF,
 };
+use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use codec::Encode;
 pub use sp_bridge_eth_poa::{
 	Address, Bloom, Bytes, Header as SubstrateEthereumHeader, LogEntry as SubstrateEthereumLogEntry,
 	Receipt as SubstrateEthereumReceipt, TransactionOutcome as SubstrateEthereumTransactionOutcome, H256, U256,
 };
+
+/// Substrate header hash.
+pub type Hash = bridge_node_runtime::Hash;
+
+/// Substrate header number.
+pub type Number = bridge_node_runtime::BlockNumber;
+
+/// Substrate header type.
+pub type Header = bridge_node_runtime::Header;
+
+/// Substrate header ID.
+pub type SubstrateHeaderId = HeaderId<bridge_node_runtime::Hash, bridge_node_runtime::BlockNumber>;
+
+/// Queued substrate header ID.
+pub type QueuedSubstrateHeader = QueuedHeader<SubstrateHeadersSyncPipeline>;
+
+/// Substrate synchronization pipeline.
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct SubstrateHeadersSyncPipeline;
+
+impl HeadersSyncPipeline for SubstrateHeadersSyncPipeline {
+	const SOURCE_NAME: &'static str = "Substrate";
+	const TARGET_NAME: &'static str = "Ethereum";
+
+	type Hash = bridge_node_runtime::Hash;
+	type Number = bridge_node_runtime::BlockNumber;
+	type Header = Header;
+	type Extra = ();
+
+	fn estimate_size(source: &QueuedHeader<Self>) -> usize {
+		source.header().encode().len()
+	}
+}
+
+impl SourceHeader<bridge_node_runtime::Hash, bridge_node_runtime::BlockNumber> for Header {
+	fn id(&self) -> SubstrateHeaderId {
+		HeaderId(self.number, self.hash())
+	}
+
+	fn parent_id(&self) -> SubstrateHeaderId {
+		HeaderId(self.number - 1, self.parent_hash)
+	}
+}
 
 /// Convert Ethereum header into Ethereum header for Substrate.
 pub fn into_substrate_ethereum_header(header: &EthereumHeader) -> SubstrateEthereumHeader {

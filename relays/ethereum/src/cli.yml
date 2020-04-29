@@ -43,3 +43,82 @@ subcommands:
                 long: sub-signer-password
                 value_name: SUB_SIGNER_PASSWORD
                 help: The password for the SURI of secret key to use when transactions are submitted to the Substrate node.
+    - sub-to-eth:
+        about: Synchronize headers from Substrate node to Ethereum node.
+        args:
+            - eth-host:
+                long: eth-host
+                value_name: ETH_HOST
+                help: Connect to Ethereum node at given host.
+                takes_value: true
+            - eth-port:
+                long: eth-port
+                value_name: ETH_PORT
+                help: Connect to Ethereum node at given port.
+                takes_value: true
+            - eth-contract:
+                long: eth-contract
+                value_name: ETH_CONTRACT
+                help: Address of deployed bridge contract.
+                takes_value: true
+            - eth-signer:
+                long: eth-signer
+                value_name: ETH_SIGNER
+                help: Hex-encoded secret to use when transactions are submitted to the Ethereum node.
+            - sub-host:
+                long: sub-host
+                value_name: SUB_HOST
+                help: Connect to Substrate node at given host.
+                takes_value: true
+            - sub-port:
+                long: sub-port
+                value_name: SUB_PORT
+                help: Connect to Substrate node at given port.
+                takes_value: true
+    - eth-deploy-contract:
+        about: Deploy Bridge contract on Ethereum node.
+        args:
+            - eth-host:
+                long: eth-host
+                value_name: ETH_HOST
+                help: Connect to Ethereum node at given host.
+                takes_value: true
+            - eth-port:
+                long: eth-port
+                value_name: ETH_PORT
+                help: Connect to Ethereum node at given port.
+                takes_value: true
+            - eth-signer:
+                long: eth-signer
+                value_name: ETH_SIGNER
+                help: Hex-encoded secret to use when transactions are submitted to the Ethereum node.
+            - eth-contract-code:
+                long: eth-contract-code
+                value_name: ETH_CONTRACT_CODE
+                help: Bytecode of bridge contract.
+                takes_value: true
+            - sub-host:
+                long: sub-host
+                value_name: SUB_HOST
+                help: Connect to Substrate node at given host.
+                takes_value: true
+            - sub-port:
+                long: sub-port
+                value_name: SUB_PORT
+                help: Connect to Substrate node at given port.
+                takes_value: true
+            - sub-authorities-set-id:
+                long: sub-authorities-set-id
+                value_name: SUB_AUTHORITIES_SET_ID
+                help: ID of initial GRANDPA authorities set.
+                takes_value: true
+            - sub-authorities-set:
+                long: sub-authorities-set
+                value_name: SUB_AUTHORITIES_SET
+                help: Encoded initial GRANDPA authorities set.
+                takes_value: true
+            - sub-initial-header:
+                long: sub-initial-header
+                value_name: SUB_INITIAL_HEADER
+                help: Encoded initial Substrate header.
+                takes_value: true

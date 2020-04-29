@@ -14,57 +14,58 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_client;
+use crate::ethereum_client::{self, EthereumConnectionParams};
 use crate::ethereum_types::{EthereumHeaderId, EthereumHeadersSyncPipeline, Header, QueuedEthereumHeader, Receipt};
-use crate::substrate_client;
+use crate::substrate_client::{self, SubstrateConnectionParams, SubstrateSigningParams};
 use crate::sync::{HeadersSyncParams, TargetTransactionMode};
 use crate::sync_loop::{SourceClient, TargetClient};
 use futures::future::FutureExt;
 use std::{future::Future, pin::Pin};
-pub use web3::types::H256;
+use web3::types::H256;
 
 /// Interval (in ms) at which we check new Ethereum headers when we are synced/almost synced.
 const ETHEREUM_TICK_INTERVAL_MS: u64 = 10_000;
 /// Interval (in ms) at which we check new Substrate blocks.
 const SUBSTRATE_TICK_INTERVAL_MS: u64 = 5_000;
+/// Max number of headers in single submit transaction.
+const MAX_HEADERS_IN_SINGLE_SUBMIT: usize = 32;
+/// Max total size of headers in single submit transaction. This only affects signed
+/// submissions, when several headers are submitted at once. 4096 is the maximal **expected**
+/// size of the Ethereum header + transactions receipts (if they're required).
+const MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT: usize = MAX_HEADERS_IN_SINGLE_SUBMIT * 4096;
+/// Max Ethereum headers we want to have in all 'before-submitted' states.
+const MAX_FUTURE_HEADERS_TO_DOWNLOAD: usize = 128;
+/// Max Ethereum headers count we want to have in 'submitted' state.
+const MAX_SUBMITTED_HEADERS: usize = 128;
+/// Max depth of in-memory headers in all states. Past this depth they will be forgotten (pruned).
+const PRUNE_DEPTH: u32 = 4096;
 
 /// Ethereum synchronization parameters.
 pub struct EthereumSyncParams {
-	/// Ethereum RPC host.
-	pub eth_host: String,
-	/// Ethereum RPC port.
-	pub eth_port: u16,
-	/// Substrate RPC host.
-	pub sub_host: String,
-	/// Substrate RPC port.
-	pub sub_port: u16,
-	/// Substrate transactions signer.
-	pub sub_signer: sp_core::sr25519::Pair,
+	/// Ethereum connection params.
+	pub eth: EthereumConnectionParams,
+	/// Substrate connection params.
+	pub sub: SubstrateConnectionParams,
+	/// Substrate signing params.
+	pub sub_sign: SubstrateSigningParams,
 	/// Synchronization parameters.
 	pub sync_params: HeadersSyncParams,
-}
-
-impl std::fmt::Debug for EthereumSyncParams {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		f.debug_struct("EthereumSyncParams")
-			.field("eth_host", &self.eth_host)
-			.field("eth_port", &self.eth_port)
-			.field("sub_host", &self.sub_port)
-			.field("sub_port", &self.sub_port)
-			.field("sync_params", &self.sync_params)
-			.finish()
-	}
 }
 
 impl Default for EthereumSyncParams {
 	fn default() -> Self {
 		EthereumSyncParams {
-			eth_host: "localhost".into(),
-			eth_port: 8545,
-			sub_host: "localhost".into(),
-			sub_port: 9933,
-			sub_signer: sp_keyring::AccountKeyring::Alice.pair(),
-			sync_params: Default::default(),
+			eth: Default::default(),
+			sub: Default::default(),
+			sub_sign: Default::default(),
+			sync_params: HeadersSyncParams {
+				max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
+				max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
+				max_headers_in_single_submit: MAX_HEADERS_IN_SINGLE_SUBMIT,
+				max_headers_size_in_single_submit: MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT,
+				prune_depth: PRUNE_DEPTH,
+				target_tx_mode: TargetTransactionMode::Signed,
+			},
 		}
 	}
 }
@@ -112,10 +113,10 @@ impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
 struct SubstrateHeadersTarget {
 	/// Substrate node client.
 	client: substrate_client::Client,
-	/// Substrate transactions signer.
-	signer: sp_core::sr25519::Pair,
 	/// Whether we want to submit signed (true), or unsigned (false) transactions.
 	sign_transactions: bool,
+	/// Substrate signing params.
+	sign_params: SubstrateSigningParams,
 }
 
 impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
@@ -126,14 +127,14 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 	type SubmitHeadersFuture = Pin<Box<dyn Future<Output = (Self, Result<Vec<EthereumHeaderId>, Self::Error>)>>>;
 
 	fn best_header_id(self) -> Self::BestHeaderIdFuture {
-		let (signer, sign_transactions) = (self.signer, self.sign_transactions);
+		let (sign_transactions, sign_params) = (self.sign_transactions, self.sign_params);
 		substrate_client::best_ethereum_block(self.client)
 			.map(move |(client, result)| {
 				(
 					SubstrateHeadersTarget {
 						client,
-						signer,
 						sign_transactions,
+						sign_params,
 					},
 					result,
 				)
@@ -142,14 +143,14 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 	}
 
 	fn is_known_header(self, id: EthereumHeaderId) -> Self::IsKnownHeaderFuture {
-		let (signer, sign_transactions) = (self.signer, self.sign_transactions);
+		let (sign_transactions, sign_params) = (self.sign_transactions, self.sign_params);
 		substrate_client::ethereum_header_known(self.client, id)
 			.map(move |(client, result)| {
 				(
 					SubstrateHeadersTarget {
 						client,
-						signer,
 						sign_transactions,
+						sign_params,
 					},
 					result,
 				)
@@ -161,14 +162,14 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 		// we can minimize number of receipts_check calls by checking header
 		// logs bloom here, but it may give us false positives (when authorities
 		// source is contract, we never need any logs)
-		let (signer, sign_transactions) = (self.signer, self.sign_transactions);
+		let (sign_transactions, sign_params) = (self.sign_transactions, self.sign_params);
 		substrate_client::ethereum_receipts_required(self.client, header.clone())
 			.map(move |(client, result)| {
 				(
 					SubstrateHeadersTarget {
 						client,
-						signer,
 						sign_transactions,
+						sign_params,
 					},
 					result,
 				)
@@ -177,16 +178,16 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 	}
 
 	fn submit_headers(self, headers: Vec<QueuedEthereumHeader>) -> Self::SubmitHeadersFuture {
-		let (signer, sign_transactions) = (self.signer, self.sign_transactions);
-		substrate_client::submit_ethereum_headers(self.client, signer.clone(), headers, sign_transactions)
+		let (sign_transactions, sign_params) = (self.sign_transactions, self.sign_params);
+		substrate_client::submit_ethereum_headers(self.client, sign_params.clone(), headers, sign_transactions)
 			.map(move |(client, result)| {
 				(
 					SubstrateHeadersTarget {
 						client,
-						signer,
 						sign_transactions,
+						sign_params,
 					},
-					result.map(|(_, submitted_headers)| submitted_headers),
+					result,
 				)
 			})
 			.boxed()
@@ -195,12 +196,9 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 
 /// Run Ethereum headers synchronization.
 pub fn run(params: EthereumSyncParams) {
-	let eth_uri = format!("http://{}:{}", params.eth_host, params.eth_port);
-	let eth_client = ethereum_client::client(&eth_uri);
+	let eth_client = ethereum_client::client(params.eth);
+	let sub_client = substrate_client::client(params.sub);
 
-	let sub_uri = format!("http://{}:{}", params.sub_host, params.sub_port);
-	let sub_client = substrate_client::client(&sub_uri);
-	let sub_signer = params.sub_signer;
 	let sign_sub_transactions = match params.sync_params.target_tx_mode {
 		TargetTransactionMode::Signed | TargetTransactionMode::Backup => true,
 		TargetTransactionMode::Unsigned => false,
@@ -211,8 +209,8 @@ pub fn run(params: EthereumSyncParams) {
 		ETHEREUM_TICK_INTERVAL_MS,
 		SubstrateHeadersTarget {
 			client: sub_client,
-			signer: sub_signer,
 			sign_transactions: sign_sub_transactions,
+			sign_params: params.sub_sign,
 		},
 		SUBSTRATE_TICK_INTERVAL_MS,
 		params.sync_params,

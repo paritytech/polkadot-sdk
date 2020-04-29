@@ -11,11 +11,17 @@ async-stream = "0.2.0"
 clap = { version = "2.33.0", features = ["yaml"] }
 codec = { package = "parity-scale-codec", version = "1.0.0" }
 env_logger = "0.7.0"
+ethabi = "12.0"
+ethabi-contract = "11.0"
+ethabi-derive = "11.0"
+ethereum-tx-sign = { git = "https://github.com/svyatonik/ethereum-tx-sign.git", branch = "up-ethereum-types" }
 futures = "0.3.1"
+hex = "0.4"
 jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", default-features = false, features = ["http"] }
 linked-hash-map = "0.5.2"
 log = "0.4.8"
 num-traits = "0.2"
+parity-crypto = { version = "0.6", features = ["publickey"] }
 parking_lot = "0.10.2"
 rustc-hex = "2.0.1"
 serde = { version = "1.0.106", features = ["derive"] }

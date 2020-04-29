@@ -15,15 +15,59 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::ethereum_types::{Bytes, EthereumHeaderId, QueuedEthereumHeader, H256};
-use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts, TransactionHash};
+use crate::substrate_types::{
+	into_substrate_ethereum_header, into_substrate_ethereum_receipts, Hash, Header as SubstrateHeader, Number,
+};
 use crate::sync_types::{HeaderId, MaybeConnectionError, SourceHeader};
+use crate::{bail_on_arg_error, bail_on_error};
 use codec::{Decode, Encode};
 use jsonrpsee::common::Params;
 use jsonrpsee::raw::{RawClient, RawClientError};
 use jsonrpsee::transport::http::{HttpTransportClient, RequestError};
-use serde_json::{from_value, to_value};
+use num_traits::Zero;
+use serde::de::DeserializeOwned;
+use serde_json::{from_value, to_value, Value};
 use sp_core::crypto::Pair;
 use sp_runtime::traits::IdentifyAccount;
+
+/// Substrate connection params.
+#[derive(Debug)]
+pub struct SubstrateConnectionParams {
+	/// Substrate RPC host.
+	pub host: String,
+	/// Substrate RPC port.
+	pub port: u16,
+}
+
+impl Default for SubstrateConnectionParams {
+	fn default() -> Self {
+		SubstrateConnectionParams {
+			host: "localhost".into(),
+			port: 9933,
+		}
+	}
+}
+
+/// Substrate signing params.
+#[derive(Clone)]
+pub struct SubstrateSigningParams {
+	/// Substrate transactions signer.
+	pub signer: sp_core::sr25519::Pair,
+}
+
+impl std::fmt::Debug for SubstrateSigningParams {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{}", self.signer.public())
+	}
+}
+
+impl Default for SubstrateSigningParams {
+	fn default() -> Self {
+		SubstrateSigningParams {
+			signer: sp_keyring::AccountKeyring::Alice.pair(),
+		}
+	}
+}
 
 /// Substrate client type.
 pub struct Client {
@@ -38,6 +82,8 @@ pub struct Client {
 pub enum Error {
 	/// Request start failed.
 	StartRequestFailed(RequestError),
+	/// Error serializing request.
+	RequestSerialization(serde_json::Error),
 	/// Request not found (should never occur?).
 	RequestNotFound,
 	/// Failed to receive response.
@@ -56,23 +102,42 @@ impl MaybeConnectionError for Error {
 }
 
 /// Returns client that is able to call RPCs on Substrate node.
-pub fn client(uri: &str) -> Client {
-	let transport = HttpTransportClient::new(uri);
+pub fn client(params: SubstrateConnectionParams) -> Client {
+	let uri = format!("http://{}:{}", params.host, params.port);
+	let transport = HttpTransportClient::new(&uri);
 	Client {
 		rpc_client: RawClient::new(transport),
 		genesis_hash: None,
 	}
 }
 
+/// Returns best Substrate header.
+pub async fn best_header(client: Client) -> (Client, Result<SubstrateHeader, Error>) {
+	call_rpc(client, "chain_getHeader", Params::None, rpc_returns_value).await
+}
+
+/// Returns Substrate header by hash.
+pub async fn header_by_hash(client: Client, hash: Hash) -> (Client, Result<SubstrateHeader, Error>) {
+	let hash = bail_on_arg_error!(to_value(hash).map_err(|e| Error::RequestSerialization(e)), client);
+	call_rpc(client, "chain_getHeader", Params::Array(vec![hash]), rpc_returns_value).await
+}
+
+/// Returns Substrate header by number.
+pub async fn header_by_number(client: Client, number: Number) -> (Client, Result<SubstrateHeader, Error>) {
+	let (client, hash) = bail_on_error!(block_hash_by_number(client, number).await);
+	header_by_hash(client, hash).await
+}
+
 /// Returns best Ethereum block that Substrate runtime knows of.
 pub async fn best_ethereum_block(client: Client) -> (Client, Result<EthereumHeaderId, Error>) {
-	let (client, result) = call_rpc::<(u64, H256)>(
+	let (client, result) = call_rpc(
 		client,
 		"state_call",
 		Params::Array(vec![
-			to_value("EthereumHeadersApi_best_block").unwrap(),
-			to_value("0x").unwrap(),
+			serde_json::Value::String("EthereumHeadersApi_best_block".into()),
+			serde_json::Value::String("0x".into()),
 		]),
+		rpc_returns_encoded_value,
 	)
 	.await;
 	(client, result.map(|(num, hash)| HeaderId(num, hash)))
@@ -85,14 +150,18 @@ pub async fn ethereum_receipts_required(
 ) -> (Client, Result<(EthereumHeaderId, bool), Error>) {
 	let id = header.header().id();
 	let header = into_substrate_ethereum_header(header.header());
-	let encoded_header = header.encode();
+	let encoded_header = bail_on_arg_error!(
+		to_value(Bytes(header.encode())).map_err(|e| Error::RequestSerialization(e)),
+		client
+	);
 	let (client, receipts_required) = call_rpc(
 		client,
 		"state_call",
 		Params::Array(vec![
-			to_value("EthereumHeadersApi_is_import_requires_receipts").unwrap(),
-			to_value(Bytes(encoded_header)).unwrap(),
+			serde_json::Value::String("EthereumHeadersApi_is_import_requires_receipts".into()),
+			encoded_header,
 		]),
+		rpc_returns_encoded_value,
 	)
 	.await;
 	(
@@ -112,14 +181,18 @@ pub async fn ethereum_header_known(
 	// But when we'll read best header from Substrate next time, we will know that
 	// there's a better header => this Orphan will either be marked as synced, or
 	// eventually pruned.
-	let encoded_id = id.1.encode();
+	let encoded_id = bail_on_arg_error!(
+		to_value(Bytes(id.1.encode())).map_err(|e| Error::RequestSerialization(e)),
+		client
+	);
 	let (client, is_known_block) = call_rpc(
 		client,
 		"state_call",
 		Params::Array(vec![
-			to_value("EthereumHeadersApi_is_known_block").unwrap(),
-			to_value(Bytes(encoded_id)).unwrap(),
+			serde_json::Value::String("EthereumHeadersApi_is_known_block".into()),
+			encoded_id,
 		]),
+		rpc_returns_encoded_value,
 	)
 	.await;
 	(client, is_known_block.map(|is_known_block| (id, is_known_block)))
@@ -128,12 +201,12 @@ pub async fn ethereum_header_known(
 /// Submits Ethereum header to Substrate runtime.
 pub async fn submit_ethereum_headers(
 	client: Client,
-	signer: sp_core::sr25519::Pair,
+	params: SubstrateSigningParams,
 	headers: Vec<QueuedEthereumHeader>,
 	sign_transactions: bool,
-) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
+) -> (Client, Result<Vec<EthereumHeaderId>, Error>) {
 	match sign_transactions {
-		true => submit_signed_ethereum_headers(client, signer, headers).await,
+		true => submit_signed_ethereum_headers(client, params, headers).await,
 		false => submit_unsigned_ethereum_headers(client, headers).await,
 	}
 }
@@ -141,78 +214,89 @@ pub async fn submit_ethereum_headers(
 /// Submits signed Ethereum header to Substrate runtime.
 pub async fn submit_signed_ethereum_headers(
 	client: Client,
-	signer: sp_core::sr25519::Pair,
+	params: SubstrateSigningParams,
 	headers: Vec<QueuedEthereumHeader>,
-) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
+) -> (Client, Result<Vec<EthereumHeaderId>, Error>) {
 	let ids = headers.iter().map(|header| header.id()).collect();
 	let (client, genesis_hash) = match client.genesis_hash {
 		Some(genesis_hash) => (client, genesis_hash),
 		None => {
-			let (mut client, genesis_hash) = block_hash_by_number(client, 0).await;
-			let genesis_hash = match genesis_hash {
-				Ok(genesis_hash) => genesis_hash,
-				Err(err) => return (client, Err(err)),
-			};
+			let (mut client, genesis_hash) = bail_on_error!(block_hash_by_number(client, Zero::zero()).await);
 			client.genesis_hash = Some(genesis_hash);
 			(client, genesis_hash)
 		}
 	};
-	let account_id = signer.public().as_array_ref().clone().into();
-	let (client, nonce) = next_account_index(client, account_id).await;
-	let nonce = match nonce {
-		Ok(nonce) => nonce,
-		Err(err) => return (client, Err(err)),
-	};
+	let account_id = params.signer.public().as_array_ref().clone().into();
+	let (client, nonce) = bail_on_error!(next_account_index(client, account_id).await);
 
-	let transaction = create_signed_submit_transaction(headers, &signer, nonce, genesis_hash);
-	let encoded_transaction = transaction.encode();
-	let (client, transaction_hash) = call_rpc(
+	let transaction = create_signed_submit_transaction(headers, &params.signer, nonce, genesis_hash);
+	let encoded_transaction = bail_on_arg_error!(
+		to_value(Bytes(transaction.encode())).map_err(|e| Error::RequestSerialization(e)),
+		client
+	);
+	let (client, _) = call_rpc(
 		client,
 		"author_submitExtrinsic",
-		Params::Array(vec![to_value(Bytes(encoded_transaction)).unwrap()]),
+		Params::Array(vec![encoded_transaction]),
+		|_| Ok(()),
 	)
 	.await;
 
-	(
-		client,
-		transaction_hash.map(|transaction_hash| (vec![transaction_hash], ids)),
-	)
+	(client, Ok(ids))
 }
 
 /// Submits unsigned Ethereum header to Substrate runtime.
 pub async fn submit_unsigned_ethereum_headers(
 	mut client: Client,
 	headers: Vec<QueuedEthereumHeader>,
-) -> (Client, Result<(Vec<TransactionHash>, Vec<EthereumHeaderId>), Error>) {
+) -> (Client, Result<Vec<EthereumHeaderId>, Error>) {
 	let ids = headers.iter().map(|header| header.id()).collect();
-	let mut transactions_hashes = Vec::new();
 	for header in headers {
 		let transaction = create_unsigned_submit_transaction(header);
 
-		let encoded_transaction = transaction.encode();
-		let (used_client, transaction_hash) = call_rpc(
-			client,
-			"author_submitExtrinsic",
-			Params::Array(vec![to_value(Bytes(encoded_transaction)).unwrap()]),
-		)
-		.await;
+		let encoded_transaction = bail_on_arg_error!(
+			to_value(Bytes(transaction.encode())).map_err(|e| Error::RequestSerialization(e)),
+			client
+		);
+		let (used_client, _) = bail_on_error!(
+			call_rpc(
+				client,
+				"author_submitExtrinsic",
+				Params::Array(vec![encoded_transaction]),
+				|_| Ok(()),
+			)
+			.await
+		);
 
 		client = used_client;
-		transactions_hashes.push(match transaction_hash {
-			Ok(transaction_hash) => transaction_hash,
-			Err(error) => return (client, Err(error)),
-		});
 	}
 
-	(client, Ok((transactions_hashes, ids)))
+	(client, Ok(ids))
+}
+
+/// Get GRANDPA authorities set at given block.
+pub async fn grandpa_authorities_set(client: Client, block: Hash) -> (Client, Result<Vec<u8>, Error>) {
+	let block = bail_on_arg_error!(to_value(block).map_err(|e| Error::RequestSerialization(e)), client);
+	call_rpc(
+		client,
+		"state_call",
+		Params::Array(vec![
+			serde_json::Value::String("GrandpaApi_grandpa_authorities".into()),
+			block,
+		]),
+		rpc_returns_bytes,
+	)
+	.await
 }
 
 /// Get Substrate block hash by its number.
-async fn block_hash_by_number(client: Client, number: u64) -> (Client, Result<H256, Error>) {
+async fn block_hash_by_number(client: Client, number: Number) -> (Client, Result<Hash, Error>) {
+	let number = bail_on_arg_error!(to_value(number).map_err(|e| Error::RequestSerialization(e)), client);
 	call_rpc(
 		client,
 		"chain_getBlockHash",
-		Params::Array(vec![to_value(number).unwrap()]),
+		Params::Array(vec![number]),
+		rpc_returns_value,
 	)
 	.await
 }
@@ -224,18 +308,30 @@ async fn next_account_index(
 ) -> (Client, Result<node_primitives::Index, Error>) {
 	use sp_core::crypto::Ss58Codec;
 
-	let (client, index) = call_rpc_u64(
-		client,
-		"system_accountNextIndex",
-		Params::Array(vec![to_value(account.to_ss58check()).unwrap()]),
-	)
+	let account = bail_on_arg_error!(
+		to_value(account.to_ss58check()).map_err(|e| Error::RequestSerialization(e)),
+		client
+	);
+	let (client, index) = call_rpc(client, "system_accountNextIndex", Params::Array(vec![account]), |v| {
+		rpc_returns_value::<u64>(v)
+	})
 	.await;
 	(client, index.map(|index| index as _))
 }
 
 /// Calls RPC on Substrate node that returns Bytes.
-async fn call_rpc<T: Decode>(mut client: Client, method: &'static str, params: Params) -> (Client, Result<T, Error>) {
-	async fn do_call_rpc<T: Decode>(client: &mut Client, method: &'static str, params: Params) -> Result<T, Error> {
+async fn call_rpc<T>(
+	mut client: Client,
+	method: &'static str,
+	params: Params,
+	decode_value: impl Fn(Value) -> Result<T, Error>,
+) -> (Client, Result<T, Error>) {
+	async fn do_call_rpc<T>(
+		client: &mut Client,
+		method: &'static str,
+		params: Params,
+		decode_value: impl Fn(Value) -> Result<T, Error>,
+	) -> Result<T, Error> {
 		let request_id = client
 			.rpc_client
 			.start_request(method, params)
@@ -249,34 +345,10 @@ async fn call_rpc<T: Decode>(mut client: Client, method: &'static str, params: P
 			.ok_or(Error::RequestNotFound)?
 			.await
 			.map_err(Error::ResponseRetrievalFailed)?;
-		let encoded_response: Bytes = from_value(response).map_err(|_| Error::ResponseParseFailed)?;
-		Decode::decode(&mut &encoded_response.0[..]).map_err(|_| Error::ResponseParseFailed)
+		decode_value(response)
 	}
 
-	let result = do_call_rpc(&mut client, method, params).await;
-	(client, result)
-}
-
-/// Calls RPC on Substrate node that returns u64.
-async fn call_rpc_u64(mut client: Client, method: &'static str, params: Params) -> (Client, Result<u64, Error>) {
-	async fn do_call_rpc(client: &mut Client, method: &'static str, params: Params) -> Result<u64, Error> {
-		let request_id = client
-			.rpc_client
-			.start_request(method, params)
-			.await
-			.map_err(Error::StartRequestFailed)?;
-		// WARN: if there'll be need for executing >1 request at a time, we should avoid
-		// calling request_by_id
-		let response = client
-			.rpc_client
-			.request_by_id(request_id)
-			.ok_or(Error::RequestNotFound)?
-			.await
-			.map_err(Error::ResponseRetrievalFailed)?;
-		response.as_u64().ok_or(Error::ResponseParseFailed)
-	}
-
-	let result = do_call_rpc(&mut client, method, params).await;
+	let result = do_call_rpc(&mut client, method, params, decode_value).await;
 	(client, result)
 }
 
@@ -340,4 +412,21 @@ fn create_unsigned_submit_transaction(header: QueuedEthereumHeader) -> bridge_no
 		));
 
 	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(function)
+}
+
+/// When RPC method returns encoded value.
+fn rpc_returns_encoded_value<T: Decode>(value: Value) -> Result<T, Error> {
+	let encoded_response: Bytes = from_value(value).map_err(|_| Error::ResponseParseFailed)?;
+	Decode::decode(&mut &encoded_response.0[..]).map_err(|_| Error::ResponseParseFailed)
+}
+
+/// When RPC method returns value.
+fn rpc_returns_value<T: DeserializeOwned>(value: Value) -> Result<T, Error> {
+	from_value(value).map_err(|_| Error::ResponseParseFailed)
+}
+
+/// When RPC method returns raw bytes.
+fn rpc_returns_bytes(value: Value) -> Result<Vec<u8>, Error> {
+	let encoded_response: Bytes = from_value(value).map_err(|_| Error::ResponseParseFailed)?;
+	Ok(encoded_response.0)
 }
