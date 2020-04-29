@@ -204,19 +204,6 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 	}
 }
 
-impl Default for HeadersSyncParams {
-	fn default() -> Self {
-		HeadersSyncParams {
-			max_future_headers_to_download: 128,
-			max_headers_in_submitted_status: 128,
-			max_headers_in_single_submit: 32,
-			max_headers_size_in_single_submit: 131_072,
-			prune_depth: 4096,
-			target_tx_mode: TargetTransactionMode::Signed,
-		}
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -228,9 +215,20 @@ mod tests {
 		H256::from_low_u64_le(1000 + number)
 	}
 
+	fn default_sync_params() -> HeadersSyncParams {
+		HeadersSyncParams {
+			max_future_headers_to_download: 128,
+			max_headers_in_submitted_status: 128,
+			max_headers_in_single_submit: 32,
+			max_headers_size_in_single_submit: 131_072,
+			prune_depth: 4096,
+			target_tx_mode: TargetTransactionMode::Signed,
+		}
+	}
+
 	#[test]
 	fn select_new_header_to_download_works() {
-		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(Default::default());
+		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(default_sync_params());
 
 		// both best && target headers are unknown
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
@@ -261,7 +259,7 @@ mod tests {
 
 	#[test]
 	fn sync_without_reorgs_works() {
-		let mut eth_sync = HeadersSync::new(Default::default());
+		let mut eth_sync = HeadersSync::new(default_sync_params());
 		eth_sync.params.max_headers_in_submitted_status = 1;
 
 		// ethereum reports best header #102
@@ -310,7 +308,7 @@ mod tests {
 
 	#[test]
 	fn sync_with_orphan_headers_work() {
-		let mut eth_sync = HeadersSync::new(Default::default());
+		let mut eth_sync = HeadersSync::new(default_sync_params());
 
 		// ethereum reports best header #102
 		eth_sync.source_best_header_number_response(102);
@@ -359,7 +357,7 @@ mod tests {
 
 	#[test]
 	fn pruning_happens_on_target_best_header_response() {
-		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(Default::default());
+		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(default_sync_params());
 		eth_sync.params.prune_depth = 50;
 		eth_sync.target_best_header_response(id(100));
 		assert_eq!(eth_sync.headers.prune_border(), 50);
@@ -367,7 +365,7 @@ mod tests {
 
 	#[test]
 	fn only_submitting_headers_in_backup_mode_when_stalled() {
-		let mut eth_sync = HeadersSync::new(Default::default());
+		let mut eth_sync = HeadersSync::new(default_sync_params());
 		eth_sync.params.target_tx_mode = TargetTransactionMode::Backup;
 
 		// ethereum reports best header #102

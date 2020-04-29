@@ -18,7 +18,7 @@ use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethe
 use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
 use codec::Encode;
 
-pub use web3::types::{Bytes, H256, U128, U64};
+pub use web3::types::{Address, Bytes, H256, U128, U256, U64};
 
 /// When header is just received from the Ethereum node, we check that it has
 /// both number and hash fields filled.
@@ -27,6 +27,9 @@ pub const HEADER_ID_PROOF: &'static str = "checked on retrieval; qed";
 /// When receipt is just received from the Ethereum node, we check that it has
 /// gas_used field filled.
 pub const RECEIPT_GAS_USED_PROOF: &'static str = "checked on retrieval; qed";
+
+/// Ethereum transaction hash type.
+pub type TransactionHash = H256;
 
 /// Ethereum header type.
 pub type Header = web3::types::Block<H256>;
