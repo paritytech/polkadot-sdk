@@ -10,7 +10,7 @@ edition = "2018"
 # General dependencies
 
 codec = { package = "parity-scale-codec", version = "1.0.0" }
-finality-grandpa = { version = "0.11.2", features = ["derive-codec"] }
+finality-grandpa = { version = "0.12.1", features = ["derive-codec"] }
 sp-blockchain = "2.0.0-alpha.5"
 sp-finality-grandpa = "2.0.0-alpha.5"
 sp-runtime = "2.0.0-alpha.5"
