@@ -20,17 +20,21 @@ use crate::WitnessData;
 use frame_executive::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 
-use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB};
-
 use sp_std::{boxed::Box, vec::Vec};
+use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
 use trie_db::{Trie, TrieDB};
 
-use parachain::primitives::{HeadData, ValidationParams, ValidationResult};
+use parachain::primitives::{HeadData, ValidationCode, ValidationParams, ValidationResult};
 
 use codec::{Decode, Encode};
+
+use cumulus_primitives::{
+	validation_function_params::ValidationFunctionParams,
+	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_FUNCTION_PARAMS},
+};
 
 /// Stores the global [`Storage`] instance.
 ///
@@ -87,14 +91,18 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		"Invalid parent hash"
 	);
 
-	let storage = WitnessStorage::<B>::new(
+	// make a copy for later use
+	let validation_function_params = (&params).into();
+
+	let storage_inner = WitnessStorage::<B>::new(
 		block_data.witness_data,
 		block_data.witness_data_storage_root,
+		validation_function_params,
 	)
 	.expect("Witness data and storage root always match; qed");
 
 	let _guard = unsafe {
-		STORAGE = Some(Box::new(storage));
+		STORAGE = Some(Box::new(storage_inner));
 		(
 			// Replace storage calls with our own implementations
 			sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -110,9 +118,16 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	E::execute_block(block);
 
+	// if in the course of block execution new validation code was set, insert
+	// its scheduled upgrade so we can validate that block number later
+	let new_validation_code = storage().get(NEW_VALIDATION_CODE).map(ValidationCode);
+	if new_validation_code.is_some() && validation_function_params.code_upgrade_allowed.is_none() {
+		panic!("attempt to upgrade validation function when not permitted");
+	}
+
 	ValidationResult {
 		head_data,
-		new_validation_code: None,
+		new_validation_code,
 	}
 }
 
@@ -122,13 +137,14 @@ struct WitnessStorage<B: BlockT> {
 	witness_data: MemoryDB<HashFor<B>>,
 	overlay: hashbrown::HashMap<Vec<u8>, Option<Vec<u8>>>,
 	storage_root: B::Hash,
+	params: ValidationFunctionParams,
 }
 
 impl<B: BlockT> WitnessStorage<B> {
 	/// Initialize from the given witness data and storage root.
 	///
 	/// Returns an error if given storage root was not found in the witness data.
-	fn new(data: WitnessData, storage_root: B::Hash) -> Result<Self, &'static str> {
+	fn new(data: WitnessData, storage_root: B::Hash, params: ValidationFunctionParams) -> Result<Self, &'static str> {
 		let mut db = MemoryDB::default();
 		data.into_iter().for_each(|i| {
 			db.insert(EMPTY_PREFIX, &i);
@@ -142,24 +158,30 @@ impl<B: BlockT> WitnessStorage<B> {
 			witness_data: db,
 			overlay: Default::default(),
 			storage_root,
+			params,
 		})
 	}
 }
 
 impl<B: BlockT> Storage for WitnessStorage<B> {
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-		self.overlay
-			.get(key)
-			.cloned()
-			.or_else(|| {
-				read_trie_value::<Layout<HashFor<B>>, _>(
-					&self.witness_data,
-					&self.storage_root,
-					key,
-				)
-				.ok()
-			})
-			.unwrap_or(None)
+		match key {
+			VALIDATION_FUNCTION_PARAMS => Some(self.params.encode()),
+			key => {
+				self.overlay
+					.get(key)
+					.cloned()
+					.or_else(|| {
+						read_trie_value::<Layout<HashFor<B>>, _>(
+							&self.witness_data,
+							&self.storage_root,
+							key,
+						)
+						.ok()
+					})
+					.unwrap_or(None)
+			}
+		}
 	}
 
 	fn insert(&mut self, key: &[u8], value: &[u8]) {

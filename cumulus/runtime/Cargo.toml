@@ -12,6 +12,9 @@ hash-db = { version = "0.15.2", default-features = false }
 trie-db = { version = "0.20.1", default-features = false }
 hashbrown = "0.6.1"
 
+# Cumulus dependencies
+cumulus-primitives = { path = "../primitives", default-features = false }
+
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
@@ -19,6 +22,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", default-features = 
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 
 # Polkadot dependencies
 parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false, features = [ "wasm-api" ] }
@@ -35,6 +39,7 @@ test-client = { package = "cumulus-test-client", path = "../test/client" }
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-primitives/std",
 	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",

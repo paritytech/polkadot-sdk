@@ -3,6 +3,7 @@ members = [
 	"consensus",
 	"message-broker",
 	"network",
+	"parachain-upgrade",
 	"primitives",
 	"runtime",
 	"test/runtime",

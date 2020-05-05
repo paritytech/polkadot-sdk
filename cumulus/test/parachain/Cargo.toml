@@ -23,7 +23,7 @@ structopt = "0.3.3"
 parachain-runtime = { package = "cumulus-test-parachain-runtime", path = "runtime" }
 
 # Substrate dependencies
-sp-runtime = { git = "https://github.com/paritytech/substrate", default_features = false, branch = "cumulus-branch" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
