@@ -828,6 +828,7 @@ name = "cumulus-collator"
 version = "0.1.0"
 dependencies = [
  "cumulus-consensus",
+ "cumulus-network",
  "cumulus-primitives",
  "cumulus-runtime",
  "cumulus-test-client",
@@ -891,7 +892,10 @@ dependencies = [
 name = "cumulus-network"
 version = "0.1.0"
 dependencies = [
+ "futures 0.3.4",
+ "log 0.4.8",
  "parity-scale-codec",
+ "polkadot-collator",
  "polkadot-network",
  "polkadot-primitives",
  "polkadot-statement-table",

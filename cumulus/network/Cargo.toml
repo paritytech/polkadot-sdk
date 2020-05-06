@@ -13,6 +13,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulu
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 
 # polkadot deps
+polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-statement-table = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-validation = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
@@ -20,3 +21,5 @@ polkadot-network = { git = "https://github.com/paritytech/polkadot", branch = "c
 
 # other deps
 codec = { package = "parity-scale-codec", version = "1.3.0", features = [ "derive" ] }
+futures = { version = "0.3.1", features = ["compat"] }
+log = "0.4.8"

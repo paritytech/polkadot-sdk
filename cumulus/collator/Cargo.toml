@@ -24,8 +24,9 @@ polkadot-validation = { git = "https://github.com/paritytech/polkadot", branch =
 
 # Cumulus dependencies
 cumulus-consensus = { path = "../consensus" }
-cumulus-runtime = { path = "../runtime" }
+cumulus-network = { path = "../network" }
 cumulus-primitives = { path = "../primitives" }
+cumulus-runtime = { path = "../runtime" }
 
 # Other dependencies
 log = "0.4.8"

@@ -23,15 +23,21 @@ use sp_blockchain::Error as ClientError;
 use sp_consensus::block_validation::{BlockAnnounceValidator, Validation};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
+use polkadot_collator::Network as CollatorNetwork;
 use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
 use polkadot_primitives::{
 	parachain::{ParachainHost, ValidatorId},
-	Block as PBlock,
+	Block as PBlock, Hash as PHash,
 };
 use polkadot_statement_table::{SignedStatement, Statement};
 use polkadot_validation::check_statement;
 
 use codec::{Decode, Encode};
+use futures::{pin_mut, select, StreamExt};
+use futures::channel::oneshot;
+use futures::future::FutureExt;
+use futures::task::Spawn;
+use log::{error, trace};
 
 use std::{marker::PhantomData, sync::Arc};
 
@@ -139,5 +145,115 @@ where
 		}
 
 		Ok(Validation::Success)
+	}
+}
+
+/// Wait before announcing a block that a candidate message has been received for this block, then
+/// add this message as justification for the block announcement.
+///
+/// This object will spawn a new task every time the method `wait_to_announce` is called and cancel
+/// the previous task running.
+pub struct WaitToAnnounce<Block: BlockT> {
+	spawner: Arc<dyn Spawn + Send + Sync>,
+	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+	collator_network: Arc<dyn CollatorNetwork>,
+	current_trigger: oneshot::Sender<()>,
+}
+
+impl<Block: BlockT> WaitToAnnounce<Block> {
+	/// Create the `WaitToAnnounce` object
+	pub fn new(
+		spawner: Arc<dyn Spawn + Send + Sync>,
+		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+		collator_network: Arc<dyn CollatorNetwork>,
+	) -> WaitToAnnounce<Block> {
+		let (tx, _rx) = oneshot::channel();
+
+		WaitToAnnounce {
+			spawner,
+			announce_block,
+			collator_network,
+			current_trigger: tx,
+		}
+	}
+
+	/// Wait for a candidate message for the block, then announce the block. The candidate
+	/// message will be added as justification to the block announcement.
+	pub fn wait_to_announce(
+		&mut self,
+		hash: <Block as BlockT>::Hash,
+		relay_chain_leaf: PHash,
+		head_data: Vec<u8>,
+	) {
+		let (tx, rx) = oneshot::channel();
+		let announce_block = self.announce_block.clone();
+		let collator_network = self.collator_network.clone();
+
+		self.current_trigger = tx;
+
+		if let Err(err) = self.spawner.spawn_obj(Box::pin(async move {
+			let t1 = wait_to_announce::<Block>(
+				hash,
+				relay_chain_leaf,
+				announce_block,
+				collator_network,
+				&head_data,
+			).fuse();
+			let t2 = rx.fuse();
+
+			pin_mut!(t1, t2);
+
+			trace!(
+				target: "cumulus-network",
+				"waiting for announce block in a background task...",
+			);
+
+			select! {
+				_ = t1 => {
+					trace!(
+						target: "cumulus-network",
+						"block announcement finished",
+					);
+				},
+				_ = t2 => {
+					trace!(
+						target: "cumulus-network",
+						"previous task that waits for announce block has been canceled",
+					);
+				}
+			}
+		}).into()) {
+			error!(
+				target: "cumulus-network",
+				"Could not spawn a new task to wait for the announce block: {:?}",
+				err,
+			);
+		}
+	}
+}
+
+async fn wait_to_announce<Block: BlockT>(
+	hash: <Block as BlockT>::Hash,
+	relay_chain_leaf: PHash,
+	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+	collator_network: Arc<dyn CollatorNetwork>,
+	head_data: &Vec<u8>,
+) {
+	let mut checked_statements = collator_network.checked_statements(relay_chain_leaf);
+
+	while let Some(statement) = checked_statements.next().await {
+		match &statement.statement {
+			Statement::Candidate(c) if &c.head_data.0 == head_data => {
+				let gossip_message: GossipMessage = GossipStatement {
+					relay_chain_leaf,
+					signed_statement: statement,
+				}.into();
+
+				announce_block(hash, gossip_message.encode());
+
+				break;
+			},
+			_ => {},
+		}
 	}
 }

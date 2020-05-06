@@ -15,17 +15,12 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::sync::Arc;
-
 use sc_executor::native_executor_instance;
 use sc_service::{AbstractService, Configuration};
 use sc_finality_grandpa::{FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider};
-
 use polkadot_primitives::parachain::CollatorPair;
-
-use cumulus_collator::CollatorBuilder;
-
+use cumulus_collator::{CollatorBuilder, prepare_collator_config};
 use futures::FutureExt;
-
 pub use sc_executor::NativeExecutor;
 
 // Our native executor instance.
@@ -76,6 +71,8 @@ pub fn run_collator(
 	key: Arc<CollatorPair>,
 	polkadot_config: polkadot_collator::Configuration,
 ) -> sc_service::error::Result<impl AbstractService> {
+	let parachain_config = prepare_collator_config(parachain_config);
+
 	let (builder, inherent_data_providers) = new_full_start!(parachain_config);
 	inherent_data_providers
 		.register_provider(sp_timestamp::InherentDataProvider)
@@ -96,12 +93,17 @@ pub fn run_collator(
 
 	let block_import = service.client();
 	let client = service.client();
+	let network = service.network();
+	let announce_block = Arc::new(move |hash, data| {
+		network.announce_block(hash, data)
+	});
 	let builder = CollatorBuilder::new(
 		proposer_factory,
 		inherent_data_providers,
 		block_import,
 		crate::PARA_ID,
 		client,
+		announce_block,
 	);
 
 	let polkadot_future = polkadot_collator::start_collator(
