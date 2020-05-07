@@ -23,12 +23,11 @@ use sc_cli::{
 	CliConfiguration, Error, ImportParams, KeystoreParams, NetworkParams, Result, SharedParams,
 	SubstrateCli,
 };
-use sc_service::client::genesis;
 use sc_network::config::TransportConfig;
 use sc_service::config::{NetworkConfiguration, NodeKeyConfig, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
-	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
+	traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero},
 	BuildStorage,
 };
 use std::net::SocketAddr;
@@ -137,7 +136,22 @@ pub fn run() -> Result<()> {
 			let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
 				storage.top.clone().into_iter().chain(child_roots).collect(),
 			);
-			let block: Block = genesis::construct_genesis_block(state_root);
+			let block = {
+				let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+					Vec::new(),
+				);
+			
+				Block::new(
+					<<Block as BlockT>::Header as HeaderT>::new(
+						Zero::zero(),
+						extrinsics_root,
+						state_root,
+						Default::default(),
+						Default::default(),
+					),
+					Default::default(),
+				)
+			};
 
 			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
