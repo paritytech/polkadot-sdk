@@ -29,7 +29,7 @@ use trie_db::{Trie, TrieDB, TrieDBIterator};
 
 use parachain::primitives::{HeadData, ValidationCode, ValidationParams, ValidationResult};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, EncodeAppend};
 
 use cumulus_primitives::{
 	validation_function_params::ValidationFunctionParams,
@@ -72,6 +72,18 @@ trait Storage {
 
 	/// Clear all keys that start with the given prefix.
 	fn clear_prefix(&mut self, prefix: &[u8]);
+
+	/// Append the value to the given key
+	fn storage_append(&mut self, key: &[u8], value: Vec<u8>);
+}
+
+/// Implement `Encode` by forwarding the stored raw vec.
+struct EncodeOpaqueValue(Vec<u8>);
+
+impl Encode for EncodeOpaqueValue {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		f(&self.0)
+	}
 }
 
 /// Validate a given parachain block on a validator.
@@ -113,6 +125,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 			sp_io::storage::host_root.replace_implementation(host_storage_root),
 			sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
 			sp_io::storage::host_changes_root.replace_implementation(host_storage_changes_root),
+			sp_io::storage::host_append.replace_implementation(host_storage_append),
 		)
 	};
 
@@ -220,6 +233,17 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 			self.overlay.insert(key, None);
 		}
 	}
+
+	fn storage_append(&mut self, key: &[u8], value: Vec<u8>) {
+		let value_vec = sp_std::vec![EncodeOpaqueValue(value)];
+		let current_value = self.overlay.entry(key.to_vec()).or_default();
+
+		let item = current_value.take().unwrap_or_default();
+		*current_value = Some(match Vec::<EncodeOpaqueValue>::append_or_new(item, &value_vec) {
+			Ok(item) => item,
+			Err(_) => value_vec.encode(),
+		});
+	}
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
@@ -262,4 +286,8 @@ fn host_storage_clear_prefix(prefix: &[u8]) {
 fn host_storage_changes_root(_: &[u8]) -> Option<Vec<u8>> {
 	// TODO implement it properly
 	None
+}
+
+fn host_storage_append(key: &[u8], value: Vec<u8>) {
+	storage().storage_append(key, value);
 }
