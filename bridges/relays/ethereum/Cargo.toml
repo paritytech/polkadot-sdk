@@ -18,7 +18,7 @@ ethereum-tx-sign = { git = "https://github.com/svyatonik/ethereum-tx-sign.git", 
 futures = "0.3.1"
 hex = "0.4"
 jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", default-features = false, features = ["http"] }
-linked-hash-map = "0.5.2"
+linked-hash-map = "0.5.3"
 log = "0.4.8"
 num-traits = "0.2"
 parity-crypto = { version = "0.6", features = ["publickey"] }
