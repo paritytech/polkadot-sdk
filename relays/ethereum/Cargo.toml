@@ -15,7 +15,7 @@ ethabi = "12.0"
 ethabi-contract = "11.0"
 ethabi-derive = "12.0"
 ethereum-tx-sign = { git = "https://github.com/svyatonik/ethereum-tx-sign.git", branch = "up-ethereum-types" }
-futures = "0.3.1"
+futures = "0.3.5"
 hex = "0.4"
 jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", default-features = false, features = ["http"] }
 linked-hash-map = "0.5.3"
