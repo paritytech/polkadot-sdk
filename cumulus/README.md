@@ -62,7 +62,6 @@ A planned Polkadot collator for the parachain.
 To simplify the above process, you can run steps 1-5 above automatically:
 
 ```sh
-export BRANCH=96f5dc510ef770fd5c5ab57a90565bb5819bbbea
 scripts/build_polkadot.sh
 scripts/run_collator.sh
 ```
