@@ -18,10 +18,14 @@ use crate::sync::HeadersSyncParams;
 use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader};
 use futures::{future::FutureExt, stream::StreamExt};
 use num_traits::{Saturating, Zero};
-use std::future::Future;
+use std::{
+	collections::HashSet,
+	future::Future,
+	time::{Duration, Instant},
+};
 
 /// When we submit headers to target node, but see no updates of best
-/// source block known to target node during STALL_SYNC_TIMEOUT_MS milliseconds,
+/// source block known to target node during STALL_SYNC_TIMEOUT seconds,
 /// we consider that our headers are rejected because there has been reorg in target chain.
 /// This reorg could invalidate our knowledge about sync process (i.e. we have asked if
 /// HeaderA is known to target, but then reorg happened and the answer is different
@@ -30,26 +34,35 @@ use std::future::Future;
 /// direct child of previous best header. But: (1) subscription doesn't guarantee that
 /// the subscriber will receive every best header (2) reorg won't always lead to sync
 /// stall and restart is a heavy operation (we forget all in-memory headers).
-const STALL_SYNC_TIMEOUT_MS: u64 = 30_000;
-/// Delay (in milliseconds) after we have seen update of best source header at target node,
+const STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+/// Delay after we have seen update of best source header at target node,
 /// for us to treat sync stalled. ONLY when relay operates in backup mode.
-const BACKUP_STALL_SYNC_TIMEOUT_MS: u64 = 5 * 60_000;
-/// Delay (in milliseconds) after connection-related error happened before we'll try
+const BACKUP_STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+/// Delay after connection-related error happened before we'll try
 /// reconnection again.
-const CONNECTION_ERROR_DELAY_MS: u64 = 10_000;
+const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
+
+/// Type alias for all SourceClient futures.
+pub type OwnedSourceFutureOutput<Client, P, T> = (Client, Result<T, <Client as SourceClient<P>>::Error>);
+/// Type alias for all TargetClient futures.
+pub type OwnedTargetFutureOutput<Client, P, T> = (Client, Result<T, <Client as TargetClient<P>>::Error>);
 
 /// Source client trait.
 pub trait SourceClient<P: HeadersSyncPipeline>: Sized {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 	/// Future that returns best block number.
-	type BestBlockNumberFuture: Future<Output = (Self, Result<P::Number, Self::Error>)>;
+	type BestBlockNumberFuture: Future<Output = OwnedSourceFutureOutput<Self, P, P::Number>>;
 	/// Future that returns header by hash.
-	type HeaderByHashFuture: Future<Output = (Self, Result<P::Header, Self::Error>)>;
+	type HeaderByHashFuture: Future<Output = OwnedSourceFutureOutput<Self, P, P::Header>>;
 	/// Future that returns header by number.
-	type HeaderByNumberFuture: Future<Output = (Self, Result<P::Header, Self::Error>)>;
+	type HeaderByNumberFuture: Future<Output = OwnedSourceFutureOutput<Self, P, P::Header>>;
 	/// Future that returns extra data associated with header.
-	type HeaderExtraFuture: Future<Output = (Self, Result<(HeaderId<P::Hash, P::Number>, P::Extra), Self::Error>)>;
+	type HeaderExtraFuture: Future<Output = OwnedSourceFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, P::Extra)>>;
+	/// Future that returns data required to 'complete' header.
+	type HeaderCompletionFuture: Future<
+		Output = OwnedSourceFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, Option<P::Completion>)>,
+	>;
 
 	/// Get best block number.
 	fn best_block_number(self) -> Self::BestBlockNumberFuture;
@@ -59,6 +72,8 @@ pub trait SourceClient<P: HeadersSyncPipeline>: Sized {
 	fn header_by_number(self, number: P::Number) -> Self::HeaderByNumberFuture;
 	/// Get extra data by header hash.
 	fn header_extra(self, id: HeaderId<P::Hash, P::Number>, header: &P::Header) -> Self::HeaderExtraFuture;
+	/// Get completion data by header hash.
+	fn header_completion(self, id: HeaderId<P::Hash, P::Number>) -> Self::HeaderCompletionFuture;
 }
 
 /// Target client trait.
@@ -66,13 +81,19 @@ pub trait TargetClient<P: HeadersSyncPipeline>: Sized {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 	/// Future that returns best header id.
-	type BestHeaderIdFuture: Future<Output = (Self, Result<HeaderId<P::Hash, P::Number>, Self::Error>)>;
+	type BestHeaderIdFuture: Future<Output = OwnedTargetFutureOutput<Self, P, HeaderId<P::Hash, P::Number>>>;
 	/// Future that returns known header check result.
-	type IsKnownHeaderFuture: Future<Output = (Self, Result<(HeaderId<P::Hash, P::Number>, bool), Self::Error>)>;
+	type IsKnownHeaderFuture: Future<Output = OwnedTargetFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, bool)>>;
 	/// Future that returns extra check result.
-	type RequiresExtraFuture: Future<Output = (Self, Result<(HeaderId<P::Hash, P::Number>, bool), Self::Error>)>;
+	type RequiresExtraFuture: Future<Output = OwnedTargetFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, bool)>>;
 	/// Future that returns header submission result.
-	type SubmitHeadersFuture: Future<Output = (Self, Result<Vec<HeaderId<P::Hash, P::Number>>, Self::Error>)>;
+	type SubmitHeadersFuture: Future<Output = OwnedTargetFutureOutput<Self, P, Vec<HeaderId<P::Hash, P::Number>>>>;
+	/// Future that returns incomplete headers ids.
+	type IncompleteHeadersFuture: Future<
+		Output = OwnedTargetFutureOutput<Self, P, HashSet<HeaderId<P::Hash, P::Number>>>,
+	>;
+	/// Future that returns header completion result.
+	type CompleteHeadersFuture: Future<Output = OwnedTargetFutureOutput<Self, P, HeaderId<P::Hash, P::Number>>>;
 
 	/// Returns ID of best header known to the target node.
 	fn best_header_id(self) -> Self::BestHeaderIdFuture;
@@ -82,23 +103,31 @@ pub trait TargetClient<P: HeadersSyncPipeline>: Sized {
 	fn requires_extra(self, header: &QueuedHeader<P>) -> Self::RequiresExtraFuture;
 	/// Submit headers.
 	fn submit_headers(self, headers: Vec<QueuedHeader<P>>) -> Self::SubmitHeadersFuture;
+	/// Returns ID of headers that require to be 'completed' before children can be submitted.
+	fn incomplete_headers_ids(self) -> Self::IncompleteHeadersFuture;
+	/// Submit completion data for header.
+	fn complete_header(
+		self,
+		id: HeaderId<P::Hash, P::Number>,
+		completion: P::Completion,
+	) -> Self::CompleteHeadersFuture;
 }
 
 /// Run headers synchronization.
 pub fn run<P: HeadersSyncPipeline>(
 	source_client: impl SourceClient<P>,
-	source_tick_ms: u64,
+	source_tick: Duration,
 	target_client: impl TargetClient<P>,
-	target_tick_ms: u64,
+	target_tick: Duration,
 	sync_params: HeadersSyncParams,
 ) {
 	let mut local_pool = futures::executor::LocalPool::new();
-	let mut progress_context = (std::time::Instant::now(), None, None);
+	let mut progress_context = (Instant::now(), None, None);
 
 	local_pool.run_until(async move {
 		let mut sync = crate::sync::HeadersSync::<P>::new(sync_params);
 		let mut stall_countdown = None;
-		let mut last_update_time = std::time::Instant::now();
+		let mut last_update_time = Instant::now();
 
 		let mut source_maybe_client = None;
 		let mut source_best_block_number_required = false;
@@ -106,29 +135,36 @@ pub fn run<P: HeadersSyncPipeline>(
 		let source_new_header_future = futures::future::Fuse::terminated();
 		let source_orphan_header_future = futures::future::Fuse::terminated();
 		let source_extra_future = futures::future::Fuse::terminated();
+		let source_completion_future = futures::future::Fuse::terminated();
 		let source_go_offline_future = futures::future::Fuse::terminated();
-		let source_tick_stream = interval(source_tick_ms).fuse();
+		let source_tick_stream = interval(source_tick).fuse();
 
 		let mut target_maybe_client = None;
 		let mut target_best_block_required = false;
+		let mut target_incomplete_headers_required = true;
 		let target_best_block_future = target_client.best_header_id().fuse();
+		let target_incomplete_headers_future = futures::future::Fuse::terminated();
 		let target_extra_check_future = futures::future::Fuse::terminated();
 		let target_existence_status_future = futures::future::Fuse::terminated();
 		let target_submit_header_future = futures::future::Fuse::terminated();
+		let target_complete_header_future = futures::future::Fuse::terminated();
 		let target_go_offline_future = futures::future::Fuse::terminated();
-		let target_tick_stream = interval(target_tick_ms).fuse();
+		let target_tick_stream = interval(target_tick).fuse();
 
 		futures::pin_mut!(
 			source_best_block_number_future,
 			source_new_header_future,
 			source_orphan_header_future,
 			source_extra_future,
+			source_completion_future,
 			source_go_offline_future,
 			source_tick_stream,
 			target_best_block_future,
+			target_incomplete_headers_future,
 			target_extra_check_future,
 			target_existence_status_future,
 			target_submit_header_future,
+			target_complete_header_future,
 			target_go_offline_future,
 			target_tick_stream
 		);
@@ -144,7 +180,7 @@ pub fn run<P: HeadersSyncPipeline>(
 						source_best_block_number,
 						|source_best_block_number| sync.source_best_header_number_response(source_best_block_number),
 						&mut source_go_offline_future,
-						|source_client| delay(CONNECTION_ERROR_DELAY_MS, source_client),
+						|source_client| delay(CONNECTION_ERROR_DELAY, source_client),
 						|| format!("Error retrieving best header number from {}", P::SOURCE_NAME),
 					);
 				},
@@ -155,7 +191,7 @@ pub fn run<P: HeadersSyncPipeline>(
 						source_new_header,
 						|source_new_header| sync.headers_mut().header_response(source_new_header),
 						&mut source_go_offline_future,
-						|source_client| delay(CONNECTION_ERROR_DELAY_MS, source_client),
+						|source_client| delay(CONNECTION_ERROR_DELAY, source_client),
 						|| format!("Error retrieving header from {} node", P::SOURCE_NAME),
 					);
 				},
@@ -166,7 +202,7 @@ pub fn run<P: HeadersSyncPipeline>(
 						source_orphan_header,
 						|source_orphan_header| sync.headers_mut().header_response(source_orphan_header),
 						&mut source_go_offline_future,
-						|source_client| delay(CONNECTION_ERROR_DELAY_MS, source_client),
+						|source_client| delay(CONNECTION_ERROR_DELAY, source_client),
 						|| format!("Error retrieving orphan header from {} node", P::SOURCE_NAME),
 					);
 				},
@@ -177,8 +213,19 @@ pub fn run<P: HeadersSyncPipeline>(
 						source_extra,
 						|(header, extra)| sync.headers_mut().extra_response(&header, extra),
 						&mut source_go_offline_future,
-						|source_client| delay(CONNECTION_ERROR_DELAY_MS, source_client),
+						|source_client| delay(CONNECTION_ERROR_DELAY, source_client),
 						|| format!("Error retrieving extra data from {} node", P::SOURCE_NAME),
+					);
+				},
+				(source_client, source_completion) = source_completion_future => {
+					process_future_result(
+						&mut source_maybe_client,
+						source_client,
+						source_completion,
+						|(header, completion)| sync.headers_mut().completion_response(&header, completion),
+						&mut source_go_offline_future,
+						|source_client| delay(CONNECTION_ERROR_DELAY, source_client),
+						|| format!("Error retrieving completion data from {} node", P::SOURCE_NAME),
 					);
 				},
 				source_client = source_go_offline_future => {
@@ -199,21 +246,20 @@ pub fn run<P: HeadersSyncPipeline>(
 						|target_best_block| {
 							let head_updated = sync.target_best_header_response(target_best_block);
 							if head_updated {
-								last_update_time = std::time::Instant::now();
+								last_update_time = Instant::now();
 							}
 							match head_updated {
 								// IF head is updated AND there are still our transactions:
 								// => restart stall countdown timer
 								true if sync.headers().headers_in_status(HeaderStatus::Submitted) != 0 =>
-									stall_countdown = Some(std::time::Instant::now()),
+									stall_countdown = Some(Instant::now()),
 								// IF head is updated AND there are no our transactions:
 								// => stop stall countdown timer
 								true => stall_countdown = None,
 								// IF head is not updated AND stall countdown is not yet completed
 								// => do nothing
 								false if stall_countdown
-									.map(|stall_countdown| std::time::Instant::now() - stall_countdown <
-										std::time::Duration::from_millis(STALL_SYNC_TIMEOUT_MS))
+									.map(|stall_countdown| stall_countdown.elapsed() < STALL_SYNC_TIMEOUT)
 									.unwrap_or(true)
 									=> (),
 								// IF head is not updated AND stall countdown has completed
@@ -231,8 +277,21 @@ pub fn run<P: HeadersSyncPipeline>(
 							}
 						},
 						&mut target_go_offline_future,
-						|target_client| delay(CONNECTION_ERROR_DELAY_MS, target_client),
+						|target_client| delay(CONNECTION_ERROR_DELAY, target_client),
 						|| format!("Error retrieving best known header from {} node", P::TARGET_NAME),
+					);
+				},
+				(target_client, incomplete_headers_ids) = target_incomplete_headers_future => {
+					target_incomplete_headers_required = false;
+
+					process_future_result(
+						&mut target_maybe_client,
+						target_client,
+						incomplete_headers_ids,
+						|incomplete_headers_ids| sync.headers_mut().incomplete_headers_response(incomplete_headers_ids),
+						&mut target_go_offline_future,
+						|target_client| delay(CONNECTION_ERROR_DELAY, target_client),
+						|| format!("Error retrieving incomplete headers from {} node", P::TARGET_NAME),
 					);
 				},
 				(target_client, target_existence_status) = target_existence_status_future => {
@@ -244,7 +303,7 @@ pub fn run<P: HeadersSyncPipeline>(
 							.headers_mut()
 							.maybe_orphan_response(&target_header, target_existence_status),
 						&mut target_go_offline_future,
-						|target_client| delay(CONNECTION_ERROR_DELAY_MS, target_client),
+						|target_client| delay(CONNECTION_ERROR_DELAY, target_client),
 						|| format!("Error retrieving existence status from {} node", P::TARGET_NAME),
 					);
 				},
@@ -255,8 +314,19 @@ pub fn run<P: HeadersSyncPipeline>(
 						target_submit_header_result,
 						|submitted_headers| sync.headers_mut().headers_submitted(submitted_headers),
 						&mut target_go_offline_future,
-						|target_client| delay(CONNECTION_ERROR_DELAY_MS, target_client),
+						|target_client| delay(CONNECTION_ERROR_DELAY, target_client),
 						|| format!("Error submitting headers to {} node", P::TARGET_NAME),
+					);
+				},
+				(target_client, target_complete_header_result) = target_complete_header_future => {
+					process_future_result(
+						&mut target_maybe_client,
+						target_client,
+						target_complete_header_result,
+						|completed_header| sync.headers_mut().header_completed(&completed_header),
+						&mut target_go_offline_future,
+						|target_client| delay(CONNECTION_ERROR_DELAY, target_client),
+						|| format!("Error completing headers at {}", P::TARGET_NAME),
 					);
 				},
 				(target_client, target_extra_check_result) = target_extra_check_future => {
@@ -268,7 +338,7 @@ pub fn run<P: HeadersSyncPipeline>(
 							.headers_mut()
 							.maybe_extra_response(&header, extra_check_result),
 						&mut target_go_offline_future,
-						|target_client| delay(CONNECTION_ERROR_DELAY_MS, target_client),
+						|target_client| delay(CONNECTION_ERROR_DELAY, target_client),
 						|| format!("Error retrieving receipts requirement from {} node", P::TARGET_NAME),
 					);
 				},
@@ -277,6 +347,7 @@ pub fn run<P: HeadersSyncPipeline>(
 				},
 				_ = target_tick_stream.next() => {
 					target_best_block_required = true;
+					target_incomplete_headers_required = true;
 				},
 			}
 
@@ -287,13 +358,26 @@ pub fn run<P: HeadersSyncPipeline>(
 			if let Some(target_client) = target_maybe_client.take() {
 				// the priority is to:
 				// 1) get best block - it stops us from downloading/submitting new blocks + we call it rarely;
-				// 2) check if we need extra data from source - it stops us from downloading/submitting new blocks;
-				// 3) check existence - it stops us from submitting new blocks;
-				// 4) submit header
+				// 2) get incomplete headers - it stops us from submitting new blocks + we call it rarely;
+				// 3) complete headers - it stops us from submitting new blocks;
+				// 4) check if we need extra data from source - it stops us from downloading/submitting new blocks;
+				// 5) check existence - it stops us from submitting new blocks;
+				// 6) submit header
 
 				if target_best_block_required {
 					log::debug!(target: "bridge", "Asking {} about best block", P::TARGET_NAME);
 					target_best_block_future.set(target_client.best_header_id().fuse());
+				} else if target_incomplete_headers_required {
+					log::debug!(target: "bridge", "Asking {} about incomplete headers", P::TARGET_NAME);
+					target_incomplete_headers_future.set(target_client.incomplete_headers_ids().fuse());
+				} else if let Some((id, completion)) = sync.headers_mut().header_to_complete() {
+					log::debug!(
+						target: "bridge",
+						"Going to complete header: {:?}",
+						id,
+					);
+
+					target_complete_header_future.set(target_client.complete_header(id, completion.clone()).fuse());
 				} else if let Some(header) = sync.headers().header(HeaderStatus::MaybeExtra) {
 					log::debug!(
 						target: "bridge",
@@ -314,9 +398,9 @@ pub fn run<P: HeadersSyncPipeline>(
 					);
 
 					target_existence_status_future.set(target_client.is_known_header(parent_id).fuse());
-				} else if let Some(headers) = sync.select_headers_to_submit(
-					last_update_time.elapsed() > std::time::Duration::from_millis(BACKUP_STALL_SYNC_TIMEOUT_MS),
-				) {
+				} else if let Some(headers) =
+					sync.select_headers_to_submit(last_update_time.elapsed() > BACKUP_STALL_SYNC_TIMEOUT)
+				{
 					let ids = match headers.len() {
 						1 => format!("{:?}", headers[0].id()),
 						2 => format!("[{:?}, {:?}]", headers[0].id(), headers[1].id()),
@@ -335,7 +419,7 @@ pub fn run<P: HeadersSyncPipeline>(
 
 					// remember that we have submitted some headers
 					if stall_countdown.is_none() {
-						stall_countdown = Some(std::time::Instant::now());
+						stall_countdown = Some(Instant::now());
 					}
 				} else {
 					target_maybe_client = Some(target_client);
@@ -346,13 +430,21 @@ pub fn run<P: HeadersSyncPipeline>(
 			if let Some(source_client) = source_maybe_client.take() {
 				// the priority is to:
 				// 1) get best block - it stops us from downloading new blocks + we call it rarely;
-				// 2) download extra data - it stops us from submitting new blocks;
-				// 3) download missing headers - it stops us from downloading/submitting new blocks;
-				// 4) downloading new headers
+				// 2) download completion data - it stops us from submitting new blocks;
+				// 3) download extra data - it stops us from submitting new blocks;
+				// 4) download missing headers - it stops us from downloading/submitting new blocks;
+				// 5) downloading new headers
 
 				if source_best_block_number_required {
 					log::debug!(target: "bridge", "Asking {} node about best block number", P::SOURCE_NAME);
 					source_best_block_number_future.set(source_client.best_block_number().fuse());
+				} else if let Some(id) = sync.headers_mut().incomplete_header() {
+					log::debug!(
+						target: "bridge",
+						"Retrieving completion data for header: {:?}",
+						id,
+					);
+					source_completion_future.set(source_client.header_completion(id).fuse());
 				} else if let Some(header) = sync.headers().header(HeaderStatus::Extra) {
 					let id = header.id();
 					log::debug!(
@@ -402,15 +494,15 @@ pub fn run<P: HeadersSyncPipeline>(
 }
 
 /// Future that resolves into given value after given timeout.
-async fn delay<T>(timeout_ms: u64, retval: T) -> T {
-	async_std::task::sleep(std::time::Duration::from_millis(timeout_ms)).await;
+async fn delay<T>(timeout: Duration, retval: T) -> T {
+	async_std::task::sleep(timeout).await;
 	retval
 }
 
 /// Stream that emits item every `timeout_ms` milliseconds.
-fn interval(timeout_ms: u64) -> impl futures::Stream<Item = ()> {
+fn interval(timeout: Duration) -> impl futures::Stream<Item = ()> {
 	futures::stream::unfold((), move |_| async move {
-		delay(timeout_ms, ()).await;
+		delay(timeout, ()).await;
 		Some(((), ()))
 	})
 }
@@ -447,14 +539,14 @@ fn process_future_result<TClient, TResult, TError, TGoOfflineFuture>(
 
 /// Print synchronization progress.
 fn print_sync_progress<P: HeadersSyncPipeline>(
-	progress_context: (std::time::Instant, Option<P::Number>, Option<P::Number>),
+	progress_context: (Instant, Option<P::Number>, Option<P::Number>),
 	eth_sync: &crate::sync::HeadersSync<P>,
-) -> (std::time::Instant, Option<P::Number>, Option<P::Number>) {
+) -> (Instant, Option<P::Number>, Option<P::Number>) {
 	let (prev_time, prev_best_header, prev_target_header) = progress_context;
-	let now_time = std::time::Instant::now();
+	let now_time = Instant::now();
 	let (now_best_header, now_target_header) = eth_sync.status();
 
-	let need_update = now_time - prev_time > std::time::Duration::from_secs(10)
+	let need_update = now_time - prev_time > Duration::from_secs(10)
 		|| match (prev_best_header, now_best_header) {
 			(Some(prev_best_header), Some(now_best_header)) => {
 				now_best_header.0.saturating_sub(prev_best_header) > 10.into()
