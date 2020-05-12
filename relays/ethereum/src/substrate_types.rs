@@ -34,6 +34,12 @@ pub type Number = bridge_node_runtime::BlockNumber;
 /// Substrate header type.
 pub type Header = bridge_node_runtime::Header;
 
+/// Substrate signed block type.
+pub type SignedBlock = bridge_node_runtime::SignedBlock;
+
+/// GRANDPA justification.
+pub type GrandpaJustification = Vec<u8>;
+
 /// Substrate header ID.
 pub type SubstrateHeaderId = HeaderId<bridge_node_runtime::Hash, bridge_node_runtime::BlockNumber>;
 
@@ -53,6 +59,7 @@ impl HeadersSyncPipeline for SubstrateHeadersSyncPipeline {
 	type Number = bridge_node_runtime::BlockNumber;
 	type Header = Header;
 	type Extra = ();
+	type Completion = GrandpaJustification;
 
 	fn estimate_size(source: &QueuedHeader<Self>) -> usize {
 		source.header().encode().len()

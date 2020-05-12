@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::ethereum_types::{Address, Bytes, EthereumHeaderId, Header, Receipt, TransactionHash, H256, U256, U64};
-use crate::substrate_types::{Hash as SubstrateHash, QueuedSubstrateHeader, SubstrateHeaderId};
+use crate::substrate_types::{GrandpaJustification, Hash as SubstrateHash, QueuedSubstrateHeader, SubstrateHeaderId};
 use crate::sync_types::{HeaderId, MaybeConnectionError};
 use crate::{bail_on_arg_error, bail_on_error};
 use codec::{Decode, Encode};
@@ -26,6 +26,7 @@ use jsonrpsee::transport::http::{HttpTransportClient, RequestError};
 use parity_crypto::publickey::KeyPair;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{from_value, to_value};
+use std::collections::HashSet;
 
 // to encode/decode contract calls
 ethabi_contract::use_contract!(bridge_contract, "res/substrate-bridge-abi.json");
@@ -298,6 +299,64 @@ pub async fn submit_substrate_headers(
 	}
 
 	(client, Ok(ids))
+}
+
+/// Returns ids of incomplete Substrate headers.
+pub async fn incomplete_substrate_headers(
+	client: Client,
+	contract_address: Address,
+) -> (Client, Result<HashSet<SubstrateHeaderId>, Error>) {
+	let (encoded_call, call_decoder) = bridge_contract::functions::incomplete_headers::call();
+	let call_request = bail_on_arg_error!(
+		to_value(CallRequest {
+			to: Some(contract_address),
+			data: Some(encoded_call.into()),
+		})
+		.map_err(|e| Error::RequestSerialization(e)),
+		client
+	);
+	let (client, call_result) =
+		bail_on_error!(call_rpc::<Bytes>(client, "eth_call", Params::Array(vec![call_request]),).await);
+	match call_decoder.decode(&call_result.0) {
+		Ok((incomplete_headers_numbers, incomplete_headers_hashes)) => (
+			client,
+			Ok(incomplete_headers_numbers
+				.into_iter()
+				.zip(incomplete_headers_hashes)
+				.filter_map(|(number, hash)| {
+					if number != number.low_u32().into() {
+						return None;
+					}
+
+					Some(HeaderId(number.low_u32(), hash))
+				})
+				.collect()),
+		),
+		Err(error) => (client, Err(Error::ResponseParseFailed(format!("{}", error)))),
+	}
+}
+
+/// Complete Substrate header.
+pub async fn complete_substrate_header(
+	client: Client,
+	params: EthereumSigningParams,
+	contract_address: Address,
+	id: SubstrateHeaderId,
+	justification: GrandpaJustification,
+) -> (Client, Result<SubstrateHeaderId, Error>) {
+	let (client, _) = bail_on_error!(
+		submit_ethereum_transaction(
+			client,
+			&params,
+			Some(contract_address),
+			None,
+			false,
+			bridge_contract::functions::import_finality_proof::encode_input(id.0, id.1, justification,),
+		)
+		.await
+	);
+
+	(client, Ok(id))
 }
 
 /// Deploy bridge contract.

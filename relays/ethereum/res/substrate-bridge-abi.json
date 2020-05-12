@@ -79,19 +79,18 @@
 		"type": "function"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "headerHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "isFinalityProofRequired",
+		"inputs": [],
+		"name": "incompleteHeaders",
 		"outputs": [
 			{
-				"internalType": "bool",
+				"internalType": "uint256[]",
 				"name": "",
-				"type": "bool"
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "bytes32[]",
+				"name": "",
+				"type": "bytes32[]"
 			}
 		],
 		"stateMutability": "view",

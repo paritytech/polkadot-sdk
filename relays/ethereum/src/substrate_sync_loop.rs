@@ -14,22 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Substrate -> Ethereum synchronization.
+
 use crate::ethereum_client::{self, EthereumConnectionParams, EthereumSigningParams};
 use crate::ethereum_types::Address;
 use crate::substrate_client::{self, SubstrateConnectionParams};
 use crate::substrate_types::{
-	Hash, Header, Number, QueuedSubstrateHeader, SubstrateHeaderId, SubstrateHeadersSyncPipeline,
+	GrandpaJustification, Hash, Header, Number, QueuedSubstrateHeader, SubstrateHeaderId, SubstrateHeadersSyncPipeline,
 };
 use crate::sync::{HeadersSyncParams, TargetTransactionMode};
-use crate::sync_loop::{SourceClient, TargetClient};
+use crate::sync_loop::{OwnedSourceFutureOutput, OwnedTargetFutureOutput, SourceClient, TargetClient};
 use crate::sync_types::SourceHeader;
 use futures::future::{ready, FutureExt, Ready};
-use std::{future::Future, pin::Pin};
+use std::{collections::HashSet, future::Future, pin::Pin, time::Duration};
 
-/// Interval (in ms) at which we check new Substrate headers when we are synced/almost synced.
-const SUBSTRATE_TICK_INTERVAL_MS: u64 = 10_000;
-/// Interval (in ms) at which we check new Ethereum blocks.
-const ETHEREUM_TICK_INTERVAL_MS: u64 = 5_000;
+/// Interval at which we check new Substrate headers when we are synced/almost synced.
+const SUBSTRATE_TICK_INTERVAL: Duration = Duration::from_secs(10);
+/// Interval at which we check new Ethereum blocks.
+const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(5);
 /// Max Ethereum headers we want to have in all 'before-submitted' states.
 const MAX_FUTURE_HEADERS_TO_DOWNLOAD: usize = 8;
 /// Max Ethereum headers count we want to have in 'submitted' state.
@@ -83,12 +85,16 @@ struct SubstrateHeadersSource {
 	client: substrate_client::Client,
 }
 
+type SubstrateFutureOutput<T> = OwnedSourceFutureOutput<SubstrateHeadersSource, SubstrateHeadersSyncPipeline, T>;
+
 impl SourceClient<SubstrateHeadersSyncPipeline> for SubstrateHeadersSource {
 	type Error = substrate_client::Error;
-	type BestBlockNumberFuture = Pin<Box<dyn Future<Output = (Self, Result<Number, Self::Error>)>>>;
-	type HeaderByHashFuture = Pin<Box<dyn Future<Output = (Self, Result<Header, Self::Error>)>>>;
-	type HeaderByNumberFuture = Pin<Box<dyn Future<Output = (Self, Result<Header, Self::Error>)>>>;
-	type HeaderExtraFuture = Ready<(Self, Result<(SubstrateHeaderId, ()), Self::Error>)>;
+	type BestBlockNumberFuture = Pin<Box<dyn Future<Output = SubstrateFutureOutput<Number>>>>;
+	type HeaderByHashFuture = Pin<Box<dyn Future<Output = SubstrateFutureOutput<Header>>>>;
+	type HeaderByNumberFuture = Pin<Box<dyn Future<Output = SubstrateFutureOutput<Header>>>>;
+	type HeaderExtraFuture = Ready<SubstrateFutureOutput<(SubstrateHeaderId, ())>>;
+	type HeaderCompletionFuture =
+		Pin<Box<dyn Future<Output = SubstrateFutureOutput<(SubstrateHeaderId, Option<GrandpaJustification>)>>>>;
 
 	fn best_block_number(self) -> Self::BestBlockNumberFuture {
 		substrate_client::best_header(self.client)
@@ -111,6 +117,12 @@ impl SourceClient<SubstrateHeadersSyncPipeline> for SubstrateHeadersSource {
 	fn header_extra(self, id: SubstrateHeaderId, _header: &Header) -> Self::HeaderExtraFuture {
 		ready((self, Ok((id, ()))))
 	}
+
+	fn header_completion(self, id: SubstrateHeaderId) -> Self::HeaderCompletionFuture {
+		substrate_client::grandpa_justification(self.client, id)
+			.map(|(client, result)| (SubstrateHeadersSource { client }, result))
+			.boxed()
+	}
 }
 
 /// Ethereum client as Substrate headers target.
@@ -123,12 +135,16 @@ struct EthereumHeadersTarget {
 	sign_params: EthereumSigningParams,
 }
 
+type EthereumFutureOutput<T> = OwnedTargetFutureOutput<EthereumHeadersTarget, SubstrateHeadersSyncPipeline, T>;
+
 impl TargetClient<SubstrateHeadersSyncPipeline> for EthereumHeadersTarget {
 	type Error = ethereum_client::Error;
-	type BestHeaderIdFuture = Pin<Box<dyn Future<Output = (Self, Result<SubstrateHeaderId, Self::Error>)>>>;
-	type IsKnownHeaderFuture = Pin<Box<dyn Future<Output = (Self, Result<(SubstrateHeaderId, bool), Self::Error>)>>>;
-	type RequiresExtraFuture = Ready<(Self, Result<(SubstrateHeaderId, bool), Self::Error>)>;
-	type SubmitHeadersFuture = Pin<Box<dyn Future<Output = (Self, Result<Vec<SubstrateHeaderId>, Self::Error>)>>>;
+	type BestHeaderIdFuture = Pin<Box<dyn Future<Output = EthereumFutureOutput<SubstrateHeaderId>>>>;
+	type IsKnownHeaderFuture = Pin<Box<dyn Future<Output = EthereumFutureOutput<(SubstrateHeaderId, bool)>>>>;
+	type RequiresExtraFuture = Ready<EthereumFutureOutput<(SubstrateHeaderId, bool)>>;
+	type SubmitHeadersFuture = Pin<Box<dyn Future<Output = EthereumFutureOutput<Vec<SubstrateHeaderId>>>>>;
+	type IncompleteHeadersFuture = Pin<Box<dyn Future<Output = EthereumFutureOutput<HashSet<SubstrateHeaderId>>>>>;
+	type CompleteHeadersFuture = Pin<Box<dyn Future<Output = EthereumFutureOutput<SubstrateHeaderId>>>>;
 
 	fn best_header_id(self) -> Self::BestHeaderIdFuture {
 		let (contract, sign_params) = (self.contract, self.sign_params);
@@ -181,6 +197,38 @@ impl TargetClient<SubstrateHeadersSyncPipeline> for EthereumHeadersTarget {
 			})
 			.boxed()
 	}
+
+	fn incomplete_headers_ids(self) -> Self::IncompleteHeadersFuture {
+		let (contract, sign_params) = (self.contract, self.sign_params);
+		ethereum_client::incomplete_substrate_headers(self.client, contract)
+			.map(move |(client, result)| {
+				(
+					EthereumHeadersTarget {
+						client,
+						contract,
+						sign_params,
+					},
+					result,
+				)
+			})
+			.boxed()
+	}
+
+	fn complete_header(self, id: SubstrateHeaderId, completion: GrandpaJustification) -> Self::CompleteHeadersFuture {
+		let (contract, sign_params) = (self.contract, self.sign_params);
+		ethereum_client::complete_substrate_header(self.client, sign_params.clone(), contract, id, completion)
+			.map(move |(client, result)| {
+				(
+					EthereumHeadersTarget {
+						client,
+						contract,
+						sign_params,
+					},
+					result,
+				)
+			})
+			.boxed()
+	}
 }
 
 /// Run Substrate headers synchronization.
@@ -190,13 +238,13 @@ pub fn run(params: SubstrateSyncParams) {
 
 	crate::sync_loop::run(
 		SubstrateHeadersSource { client: sub_client },
-		SUBSTRATE_TICK_INTERVAL_MS,
+		SUBSTRATE_TICK_INTERVAL,
 		EthereumHeadersTarget {
 			client: eth_client,
 			contract: params.eth_contract_address,
 			sign_params: params.eth_sign,
 		},
-		ETHEREUM_TICK_INTERVAL_MS,
+		ETHEREUM_TICK_INTERVAL,
 		params.sync_params,
 	);
 }
