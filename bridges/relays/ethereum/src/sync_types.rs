@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 /// Ethereum header Id.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub struct HeaderId<Hash, Number>(pub Number, pub Hash);
 
 /// Ethereum header synchronization status.
@@ -33,6 +33,8 @@ pub enum HeaderStatus {
 	Extra,
 	/// Header is in Ready queue.
 	Ready,
+	/// Header is in Incomplete queue.
+	Incomplete,
 	/// Header has been recently submitted to the target node.
 	Submitted,
 	/// Header is known to the target node.
@@ -61,6 +63,7 @@ pub trait HeadersSyncPipeline: Clone + Copy {
 		+ Copy
 		+ std::fmt::Debug
 		+ std::fmt::Display
+		+ std::hash::Hash
 		+ std::ops::Add<Output = Self::Number>
 		+ std::ops::Sub<Output = Self::Number>
 		+ num_traits::Saturating
@@ -68,10 +71,24 @@ pub trait HeadersSyncPipeline: Clone + Copy {
 		+ num_traits::One;
 	/// Type of header that we're syncing.
 	type Header: Clone + std::fmt::Debug + SourceHeader<Self::Hash, Self::Number>;
-	/// Type of extra data for the header that we're receiving from the source node.
+	/// Type of extra data for the header that we're receiving from the source node:
+	/// 1) extra data is required for some headers;
+	/// 2) target node may answer if it'll require extra data before header is submitted;
+	/// 3) extra data available since the header creation time;
+	/// 4) header and extra data are submitted in single transaction.
+	///
+	/// Example: Ethereum transactions receipts.
 	type Extra: Clone + std::fmt::Debug;
+	/// Type of data required to 'complete' header that we're receiving from the source node:
+	/// 1) completion data is required for some headers;
+	/// 2) target node can't answer if it'll require completion data before header is accepted;
+	/// 3) completion data may be generated after header generation;
+	/// 4) header and completion data are submitted in separate transactions.
+	///
+	/// Example: Substrate GRANDPA justifications.
+	type Completion: Clone + std::fmt::Debug;
 
-	/// Function used to convert from queued header to target header.
+	/// Function used to estimate size of target-encoded header.
 	fn estimate_size(source: &QueuedHeader<Self>) -> usize;
 }
 
