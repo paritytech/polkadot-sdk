@@ -8,6 +8,7 @@ edition = "2018"
 # Substrate dependencies
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
@@ -25,4 +26,5 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-parachain/std",
 	"sp-inherents/std",
+	"sp-runtime/std",
 ]

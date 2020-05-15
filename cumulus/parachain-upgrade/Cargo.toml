@@ -5,21 +5,6 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 description = "pallet to manage parachain upgrades"
 
-[features]
-default = ['std']
-std = [
-	'serde',
-	'codec/std',
-	'frame-support/std',
-	'pallet-balances/std',
-	'cumulus-runtime/std',
-	'sp-core/std',
-	'sp-runtime/std',
-	'sp-io/std',
-	'system/std',
-	'cumulus-primitives/std',
-]
-
 [dependencies]
 # Cumulus dependencies
 cumulus-primitives = { path = "../primitives", default-features = false }
@@ -32,10 +17,10 @@ parachain = { package = "polkadot-parachain", git = "https://github.com/parityte
 frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", version = "2.0.0-dev", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", version = "2.0.0-dev", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-sp-version = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 system = { package = "frame-system", git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 
 # Other Dependencies
@@ -45,3 +30,20 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 [dev-dependencies]
 sp-externalities = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
+sp-version = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
+
+[features]
+default = ['std']
+std = [
+	'serde',
+	'codec/std',
+	'frame-support/std',
+	'pallet-balances/std',
+	'cumulus-runtime/std',
+	'sp-core/std',
+	'sp-runtime/std',
+	'sp-io/std',
+	'sp-std/std',
+	'system/std',
+	'cumulus-primitives/std',
+]

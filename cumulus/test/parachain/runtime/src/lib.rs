@@ -230,6 +230,11 @@ impl pallet_sudo::Trait for Runtime {
 	type Event = Event;
 }
 
+impl cumulus_parachain_upgrade::Trait for Runtime {
+	type Event = Event;
+	type OnValidationFunctionParams = ();
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -242,6 +247,7 @@ construct_runtime! {
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
+		ParachainUpgrade: cumulus_parachain_upgrade::{Module, Call, Storage, Inherent, Event},
 	}
 }
 

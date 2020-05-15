@@ -24,8 +24,7 @@ use polkadot_primitives::parachain::{GlobalValidationSchedule, LocalValidationDa
 ///
 /// This struct is the subset of [`ValidationParams`](polkadot_parachain::ValidationParams)
 /// which is of interest when upgrading parachain validation functions.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Copy, Default)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Copy, Default, sp_runtime::RuntimeDebug)]
 pub struct ValidationFunctionParams {
 	/// The maximum code size permitted, in bytes.
 	pub max_code_size: u32,

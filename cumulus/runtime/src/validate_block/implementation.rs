@@ -25,7 +25,7 @@ use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
-use trie_db::{Trie, TrieDB, TrieDBIterator};
+use trie_db::{TrieDB, TrieDBIterator};
 
 use parachain::primitives::{HeadData, ValidationCode, ValidationParams, ValidationResult};
 

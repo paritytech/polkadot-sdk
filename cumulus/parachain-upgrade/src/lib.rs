@@ -35,13 +35,12 @@ use cumulus_primitives::{
 	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_FUNCTION_PARAMS},
 };
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, storage, traits::Get,
-	weights::DispatchClass,
+	decl_error, decl_event, decl_module, decl_storage, ensure, storage, weights::DispatchClass,
 };
 use parachain::primitives::RelayChainBlockNumber;
 use sp_core::storage::well_known_keys;
 use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
-use sp_version::RuntimeVersion;
+use sp_std::vec::Vec;
 use system::ensure_none;
 
 /// A ValidationFunction is a compiled WASM blob which, on execution, validates parachain blocks.
@@ -52,9 +51,6 @@ type System<T> = system::Module<T>;
 pub trait Trait: system::Trait {
 	/// The overarching event type.
 	type Event: From<Event> + Into<<Self as system::Trait>::Event>;
-
-	/// Get the chain's current version.
-	type Version: Get<RuntimeVersion>;
 
 	/// Something which can be notified when the validation function params are set.
 	///
@@ -67,7 +63,8 @@ decl_storage! {
 	trait Store for Module<T: Trait> as ParachainUpgrade {
 		// we need to store the new validation function for the span between
 		// setting it and applying it.
-		PendingValidationFunction get(fn new_validation_function): Option<(RelayChainBlockNumber, ValidationFunction)>;
+		PendingValidationFunction get(fn new_validation_function):
+			Option<(RelayChainBlockNumber, ValidationFunction)>;
 
 		/// Were the VFPs updated this block?
 		DidUpdateVFPs: bool;
@@ -197,7 +194,10 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 		// If the inherent is not present, this returns None early. This in turn will
 		// cause the on_finalize assertion to fail.
-		let vfp: ValidationFunctionParams = data.get_data(&INHERENT_IDENTIFIER).ok().flatten()
+		let vfp: ValidationFunctionParams = data
+			.get_data(&INHERENT_IDENTIFIER)
+			.ok()
+			.flatten()
 			.expect("validation function params are always injected into inherent data; qed");
 
 		Some(Call::set_validation_function_parameters(vfp))
@@ -243,6 +243,7 @@ mod tests {
 		traits::{BlakeTwo256, Dispatchable, IdentityLookup},
 		Perbill,
 	};
+	use sp_version::RuntimeVersion;
 	use system::{InitKind, RawOrigin};
 
 	impl_outer_origin! {
@@ -306,7 +307,6 @@ mod tests {
 	}
 	impl Trait for Test {
 		type Event = TestEvent;
-		type Version = Version;
 		type OnValidationFunctionParams = ();
 	}
 
@@ -366,7 +366,8 @@ mod tests {
 		tests: Vec<BlockTest>,
 		pending_upgrade: Option<RelayChainBlockNumber>,
 		ran: bool,
-		vfp_maker: Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber) -> ValidationFunctionParams>>,
+		vfp_maker:
+			Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber) -> ValidationFunctionParams>>,
 	}
 
 	impl BlockTests {
