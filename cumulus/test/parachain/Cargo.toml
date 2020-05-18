@@ -55,3 +55,20 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 [dev-dependencies]
 assert_cmd = "0.12"
 nix = "0.17"
+tempfile = "3.1"
+jsonrpsee = "0.1"
+async-std = { version = "1.2.0", features = [ "attributes" ] }
+hex = "0.4"
+serde_json = "1.0"
+
+# Polkadot dependencies
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
+
+# Substrate dependencies
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sp-version = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

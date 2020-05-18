@@ -63,6 +63,8 @@ test-linux-stable:
   script:
     - time cargo test --all --release --locked |
         tee output.log
+    - time cargo test --release -- --ignored integration_test |
+        tee -a output.log
     - sccache -s
   after_script:
     - echo "___Collecting warnings for check_warnings job___"

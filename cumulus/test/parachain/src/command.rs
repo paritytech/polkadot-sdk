@@ -23,6 +23,7 @@ use sc_cli::{
 	CliConfiguration, Error, ImportParams, KeystoreParams, NetworkParams, Result, SharedParams,
 	SubstrateCli,
 };
+use sc_executor::NativeExecutionDispatch;
 use sc_network::config::TransportConfig;
 use sc_service::config::{NetworkConfiguration, NodeKeyConfig, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
@@ -111,6 +112,36 @@ impl SubstrateCli for PolkadotCli {
 	}
 }
 
+fn generate_genesis_state() -> Result<Block> {
+	let storage = (&chain_spec::get_chain_spec()).build_storage()?;
+
+	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
+		let state_root =
+			<<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+				child_content.data.clone().into_iter().collect(),
+			);
+		(sk.clone(), state_root.encode())
+	});
+	let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+		storage.top.clone().into_iter().chain(child_roots).collect(),
+	);
+
+	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+		Vec::new(),
+	);
+
+	Ok(Block::new(
+		<<Block as BlockT>::Header as HeaderT>::new(
+			Zero::zero(),
+			extrinsics_root,
+			state_root,
+			Default::default(),
+			Default::default(),
+		),
+		Default::default(),
+	))
+}
+
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
 	let cli = Cli::from_args();
@@ -124,35 +155,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisState(params)) => {
 			sc_cli::init_logger("");
 
-			let storage = (&chain_spec::get_chain_spec()).build_storage()?;
-
-			let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
-				let state_root =
-					<<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-						child_content.data.clone().into_iter().collect(),
-					);
-				(sk.clone(), state_root.encode())
-			});
-			let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-				storage.top.clone().into_iter().chain(child_roots).collect(),
-			);
-			let block = {
-				let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-					Vec::new(),
-				);
-			
-				Block::new(
-					<<Block as BlockT>::Header as HeaderT>::new(
-						Zero::zero(),
-						extrinsics_root,
-						state_root,
-						Default::default(),
-						Default::default(),
-					),
-					Default::default(),
-				)
-			};
-
+			let block = generate_genesis_state()?;
 			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
 			if let Some(output) = &params.output {
@@ -163,6 +166,38 @@ pub fn run() -> Result<()> {
 
 			Ok(())
 		}
+		Some(Subcommand::Polkadot(polkadot_cli)) => {
+			let runner = polkadot_cli.create_runner(&polkadot_cli.run.base)?;
+			let authority_discovery_enabled = polkadot_cli.run.authority_discovery_enabled;
+			let grandpa_pause = if polkadot_cli.run.grandpa_pause.is_empty() {
+				None
+			} else {
+				Some((polkadot_cli.run.grandpa_pause[0], polkadot_cli.run.grandpa_pause[1]))
+			};
+
+			runner.run_node(
+				|config| {
+					polkadot_service::polkadot_new_light(config)
+				},
+				|config| {
+					polkadot_service::polkadot_new_full(
+						config,
+						None,
+						None,
+						authority_discovery_enabled,
+						6000,
+						grandpa_pause
+					).map(|(s, _, _)| s)
+				},
+				polkadot_service::PolkadotExecutor::native_version().runtime_version
+			)
+		},
+		Some(Subcommand::PolkadotValidationWorker(cmd)) => {
+			sc_cli::init_logger("");
+			polkadot_service::run_validation_worker(&cmd.mem_id)?;
+
+			Ok(())
+		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 
