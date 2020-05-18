@@ -235,13 +235,15 @@ pub async fn submit_signed_ethereum_headers(
 		to_value(Bytes(transaction.encode())).map_err(|e| Error::RequestSerialization(e)),
 		client
 	);
-	let (client, _) = call_rpc(
-		client,
-		"author_submitExtrinsic",
-		Params::Array(vec![encoded_transaction]),
-		|_| Ok(()),
-	)
-	.await;
+	let (client, _) = bail_on_error!(
+		call_rpc(
+			client,
+			"author_submitExtrinsic",
+			Params::Array(vec![encoded_transaction]),
+			|_| Ok(()),
+		)
+		.await
+	);
 
 	(client, Ok(ids))
 }
