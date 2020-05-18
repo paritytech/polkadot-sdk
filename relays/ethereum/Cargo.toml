@@ -8,7 +8,7 @@ edition = "2018"
 ansi_term = "0.12"
 async-std = "1.0.1"
 async-stream = "0.2.0"
-clap = { version = "2.33.0", features = ["yaml"] }
+clap = { version = "2.33.1", features = ["yaml"] }
 codec = { package = "parity-scale-codec", version = "1.0.0" }
 env_logger = "0.7.0"
 ethabi = "12.0"

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 async-std = "1.0.1"
-clap = "2.3.3"
+clap = "2.33.1"
 ctrlc = "3.1.4"
 derive_more = "0.99.7"
 env_logger = "0.7.1"
