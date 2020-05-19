@@ -40,6 +40,7 @@ use futures::task::Spawn;
 use log::{error, trace};
 
 use std::{marker::PhantomData, sync::Arc};
+use parking_lot::Mutex;
 
 /// Validate that data is a valid justification from a relay-chain validator that the block is a
 /// valid parachain-block candidate.
@@ -145,6 +146,38 @@ where
 		}
 
 		Ok(Validation::Success)
+	}
+}
+
+/// A `BlockAnnounceValidator` that will be able to validate data when its internal
+/// `BlockAnnounceValidator` is set.
+pub struct DelayedBlockAnnounceValidator<B: BlockT>(Arc<Mutex<Option<Box<dyn BlockAnnounceValidator<B> + Send>>>>);
+
+impl<B: BlockT> DelayedBlockAnnounceValidator<B> {
+	pub fn new() -> DelayedBlockAnnounceValidator<B> {
+		DelayedBlockAnnounceValidator(Arc::new(Mutex::new(None)))
+	}
+
+	pub fn set(&self, validator: Box<dyn BlockAnnounceValidator<B> + Send>) {
+		*self.0.lock() = Some(validator);
+	}
+}
+
+impl<B: BlockT> Clone for DelayedBlockAnnounceValidator<B> {
+	fn clone(&self) -> DelayedBlockAnnounceValidator<B> {
+		DelayedBlockAnnounceValidator(self.0.clone())
+	}
+}
+
+impl<B: BlockT> BlockAnnounceValidator<B> for DelayedBlockAnnounceValidator<B> {
+	fn validate(
+		&mut self,
+		header: &B::Header,
+		data: &[u8],
+	) -> Result<Validation, Box<dyn std::error::Error + Send>> {
+		self.0.lock().as_mut()
+			.expect("BlockAnnounceValidator is set before validating the first announcement; qed")
+			.validate(header, data)
 	}
 }
 

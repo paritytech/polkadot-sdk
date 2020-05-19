@@ -42,6 +42,7 @@ sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch 
 # Cumulus dependencies
 cumulus-consensus = { path = "../../consensus" }
 cumulus-collator = { path = "../../collator" }
+cumulus-network = { path = "../../network" }
 
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
