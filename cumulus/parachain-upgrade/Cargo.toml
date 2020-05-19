@@ -14,23 +14,23 @@ cumulus-runtime = { path = "../runtime", default-features = false }
 parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
 
 # Substrate dependencies
-frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", version = "2.0.0-dev", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", version = "2.0.0-dev", default-features = false }
-sp-inherents = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-system = { package = "frame-system", git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", version = "2.0.0-dev", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", version = "2.0.0-dev", default-features = false }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+system = { package = "frame-system", git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 
 # Other Dependencies
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"]}
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
 [dev-dependencies]
-sp-externalities = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-sp-version = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
+sp-externalities = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+sp-version = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 
 [features]
 default = ['std']
