@@ -88,7 +88,7 @@ pub fn into_substrate_ethereum_header(header: &EthereumHeader) -> SubstrateEther
 		extra_data: header.extra_data.0.clone(),
 		state_root: header.state_root,
 		receipts_root: header.receipts_root,
-		log_bloom: header.logs_bloom.data().into(),
+		log_bloom: header.logs_bloom.unwrap_or_default().data().into(),
 		gas_used: header.gas_used,
 		gas_limit: header.gas_limit,
 		difficulty: header.difficulty,

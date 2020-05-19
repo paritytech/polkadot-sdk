@@ -152,12 +152,12 @@ pub async fn header_by_number(client: Client, number: u64) -> (Client, Result<He
 	.await;
 	(
 		client,
-		header.and_then(
-			|header: Header| match header.number.is_some() && header.hash.is_some() {
+		header.and_then(|header: Header| {
+			match header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some() {
 				true => Ok(header),
 				false => Err(Error::IncompleteHeader),
-			},
-		),
+			}
+		}),
 	)
 }
 
@@ -174,12 +174,12 @@ pub async fn header_by_hash(client: Client, hash: H256) -> (Client, Result<Heade
 	.await;
 	(
 		client,
-		header.and_then(
-			|header: Header| match header.number.is_none() && header.hash.is_none() {
+		header.and_then(|header: Header| {
+			match header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some() {
 				true => Ok(header),
 				false => Err(Error::IncompleteHeader),
-			},
-		),
+			}
+		}),
 	)
 }
 
