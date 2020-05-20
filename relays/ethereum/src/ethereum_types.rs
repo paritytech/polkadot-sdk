@@ -18,7 +18,7 @@ use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethe
 use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
 use codec::Encode;
 
-pub use web3::types::{Address, Bytes, H256, U128, U256, U64};
+pub use web3::types::{Address, Bytes, CallRequest, H256, U128, U256, U64};
 
 /// When header is just received from the Ethereum node, we check that it has
 /// both number and hash fields filled.
