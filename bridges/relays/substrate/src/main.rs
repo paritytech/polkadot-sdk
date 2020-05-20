@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+// TODO: when (if) this relay will be resurrected, remove this
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
 mod bridge;
 mod error;
 mod params;
