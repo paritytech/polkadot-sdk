@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_types::{Address, Bytes, EthereumHeaderId, Header, Receipt, TransactionHash, H256, U256, U64};
+use crate::ethereum_types::{
+	Address, Bytes, CallRequest, EthereumHeaderId, Header, Receipt, TransactionHash, H256, U256, U64,
+};
 use crate::substrate_types::{GrandpaJustification, Hash as SubstrateHash, QueuedSubstrateHeader, SubstrateHeaderId};
 use crate::sync_types::{HeaderId, MaybeConnectionError};
 use crate::{bail_on_arg_error, bail_on_error};
@@ -24,7 +26,7 @@ use jsonrpsee::common::Params;
 use jsonrpsee::raw::{RawClient, RawClientError};
 use jsonrpsee::transport::http::{HttpTransportClient, RequestError};
 use parity_crypto::publickey::KeyPair;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
 use serde_json::{from_value, to_value};
 use std::collections::HashSet;
 
@@ -86,15 +88,6 @@ impl Default for EthereumSigningParams {
 
 /// Ethereum client type.
 pub type Client = RawClient<HttpTransportClient>;
-
-/// Ethereum contract call request.
-#[derive(Debug, Default, PartialEq, Serialize)]
-pub struct CallRequest {
-	/// Contract address.
-	pub to: Option<Address>,
-	/// Call data.
-	pub data: Option<Bytes>,
-}
 
 /// All possible errors that can occur during interacting with Ethereum node.
 #[derive(Debug)]
@@ -225,6 +218,7 @@ pub async fn best_substrate_block(
 		to_value(CallRequest {
 			to: Some(contract_address),
 			data: Some(encoded_call.into()),
+			..Default::default()
 		})
 		.map_err(|e| Error::RequestSerialization(e)),
 		client
@@ -258,6 +252,7 @@ pub async fn substrate_header_known(
 		to_value(CallRequest {
 			to: Some(contract_address),
 			data: Some(encoded_call.into()),
+			..Default::default()
 		})
 		.map_err(|e| Error::RequestSerialization(e)),
 		client
@@ -311,6 +306,7 @@ pub async fn incomplete_substrate_headers(
 		to_value(CallRequest {
 			to: Some(contract_address),
 			data: Some(encoded_call.into()),
+			..Default::default()
 		})
 		.map_err(|e| Error::RequestSerialization(e)),
 		client
@@ -398,6 +394,7 @@ async fn submit_ethereum_transaction(
 			CallRequest {
 				to: contract_address,
 				data: Some(encoded_call.clone().into()),
+				..Default::default()
 			}
 		)
 		.await
