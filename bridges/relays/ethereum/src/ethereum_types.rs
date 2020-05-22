@@ -43,6 +43,9 @@ pub type EthereumHeaderId = HeaderId<H256, u64>;
 /// Queued ethereum header ID.
 pub type QueuedEthereumHeader = QueuedHeader<EthereumHeadersSyncPipeline>;
 
+/// A raw Ethereum transaction that's been signed.
+pub type SignedRawTx = Vec<u8>;
+
 /// Ethereum synchronization pipeline.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
