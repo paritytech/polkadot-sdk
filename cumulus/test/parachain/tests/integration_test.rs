@@ -362,38 +362,6 @@ async fn integration_test() {
 			jsonrpsee::raw::RawClient::new(transport_client_cumulus_charlie);
 
 		wait_for_blocks(4, &mut client_cumulus_charlie).await;
-
-		// run cumulus dave
-		let cumulus_dave_dir = tempdir().unwrap();
-		let mut cumulus_dave = Command::new(cargo_bin("cumulus-test-parachain-collator"))
-			.stdout(Stdio::piped())
-			.stderr(Stdio::piped())
-			.arg("--base-path")
-			.arg(cumulus_dave_dir.path())
-			.arg("--unsafe-rpc-expose")
-			.arg("--rpc-port=27018")
-			.arg("--port=27118")
-			.arg("--")
-			.arg(format!(
-				"--bootnodes=/ip4/127.0.0.1/tcp/27115/p2p/{}",
-				polkadot_alice_id
-			))
-			.arg(format!(
-				"--bootnodes=/ip4/127.0.0.1/tcp/27116/p2p/{}",
-				polkadot_bob_id
-			))
-			.arg("--dave")
-			.spawn()
-			.unwrap();
-		let cumulus_dave_helper = ChildHelper::new("cumulus-dave", &mut cumulus_dave);
-		wait_for_tcp("127.0.0.1:27018").await;
-
-		// connect rpc client to cumulus
-		let transport_client_cumulus_dave =
-			jsonrpsee::transport::http::HttpTransportClient::new("http://127.0.0.1:27018");
-		let mut client_cumulus_dave = jsonrpsee::raw::RawClient::new(transport_client_cumulus_dave);
-
-		wait_for_blocks(4, &mut client_cumulus_dave).await;
 	}
 	.fuse();
 

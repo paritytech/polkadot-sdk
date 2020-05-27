@@ -18,15 +18,18 @@
 //!
 //! Contains message send between collators and logic to process them.
 
+#[cfg(test)]
+mod tests;
+
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::Error as ClientError;
+use sp_blockchain::{Error as ClientError, HeaderBackend};
 use sp_consensus::block_validation::{BlockAnnounceValidator, Validation};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 use polkadot_collator::Network as CollatorNetwork;
 use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
 use polkadot_primitives::{
-	parachain::{ParachainHost, ValidatorId},
+	parachain::ParachainHost,
 	Block as PBlock, Hash as PHash,
 };
 use polkadot_statement_table::{SignedStatement, Statement};
@@ -49,15 +52,13 @@ use parking_lot::Mutex;
 ///
 /// Note: if no justification is provided the annouce is considered valid.
 pub struct JustifiedBlockAnnounceValidator<B, P> {
-	authorities: Vec<ValidatorId>,
 	phantom: PhantomData<B>,
 	polkadot_client: Arc<P>,
 }
 
 impl<B, P> JustifiedBlockAnnounceValidator<B, P> {
-	pub fn new(authorities: Vec<ValidatorId>, polkadot_client: Arc<P>) -> Self {
+	pub fn new(polkadot_client: Arc<P>) -> Self {
 		Self {
-			authorities,
 			phantom: Default::default(),
 			polkadot_client,
 		}
@@ -66,7 +67,7 @@ impl<B, P> JustifiedBlockAnnounceValidator<B, P> {
 
 impl<B: BlockT, P> BlockAnnounceValidator<B> for JustifiedBlockAnnounceValidator<B, P>
 where
-	P: ProvideRuntimeApi<PBlock>,
+	P: ProvideRuntimeApi<PBlock> + HeaderBackend<PBlock>,
 	P::Api: ParachainHost<PBlock>,
 {
 	fn validate(
@@ -106,14 +107,42 @@ where
 			},
 		} = gossip_statement;
 
-		let signing_context = self
-			.polkadot_client
-			.runtime_api()
-			.signing_context(&BlockId::Hash(relay_chain_leaf))
+		// Check that the relay chain parent of the block is the relay chain head
+		let best_number = self.polkadot_client.info().best_number;
+
+		match self.polkadot_client.number(relay_chain_leaf) {
+			Err(err) => {
+				return Err(Box::new(ClientError::Backend(format!(
+					"could not find block number for {}: {}",
+					relay_chain_leaf, err,
+				))));
+			},
+			Ok(Some(x)) if x == best_number => {},
+			Ok(None) => {
+				return Err(Box::new(ClientError::UnknownBlock(relay_chain_leaf.to_string())));
+			},
+			Ok(Some(_)) => {
+				trace!(
+					target: "cumulus-network",
+					"validation failed because the relay chain parent ({}) is not the relay chain \
+					head ({})",
+					relay_chain_leaf, best_number,
+				);
+
+				return Ok(Validation::Failure);
+			},
+		}
+
+		let runtime_api = self.polkadot_client.runtime_api();
+		let runtime_api_block_id = BlockId::Hash(relay_chain_leaf);
+		let signing_context = runtime_api
+			.signing_context(&runtime_api_block_id)
 			.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?;
 
 		// Check that the signer is a legit validator.
-		let signer = self.authorities.get(sender as usize).ok_or_else(|| {
+		let authorities = runtime_api.validators(&runtime_api_block_id)
+			.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?;
+		let signer = authorities.get(sender as usize).ok_or_else(|| {
 			Box::new(ClientError::BadJustification(
 				"block accounced justification signer is a validator index out of bound"
 					.to_string(),
