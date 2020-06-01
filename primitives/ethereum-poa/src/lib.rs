@@ -322,7 +322,6 @@ impl PartialEq<Bloom> for Bloom {
 	}
 }
 
-#[cfg(feature = "std")]
 impl Default for Bloom {
 	fn default() -> Self {
 		Bloom([0; 256])

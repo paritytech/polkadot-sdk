@@ -6,6 +6,9 @@ edition = "2018"
 homepage = "https://substrate.dev"
 repository = "https://github.com/paritytech/parity-bridges-common/"
 
+[dependencies]
+hex-literal = "0.2"
+
 [dependencies.codec]
 package = "parity-scale-codec"
 version = "1.0.0"
