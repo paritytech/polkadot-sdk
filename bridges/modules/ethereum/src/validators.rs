@@ -254,7 +254,6 @@ pub fn step_validator(header_validators: &[Address], header_step: u64) -> Addres
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::kovan_validators_config;
 	use primitives::TransactionOutcome;
 
 	pub(crate) fn validators_change_recept(parent_hash: H256) -> Receipt {
@@ -314,7 +313,7 @@ pub(crate) mod tests {
 	#[test]
 	fn maybe_signals_validators_change_works() {
 		// when contract is active, but bloom has no required bits set
-		let config = kovan_validators_config();
+		let config = ValidatorsConfiguration::Single(ValidatorsSource::Contract(Default::default(), Vec::new()));
 		let validators = Validators::new(&config);
 		let mut header = Header::default();
 		header.number = u64::max_value();
