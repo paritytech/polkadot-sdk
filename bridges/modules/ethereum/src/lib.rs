@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::{decl_module, decl_storage};
+use frame_support::{decl_module, decl_storage, traits::Get};
 use primitives::{Address, Header, Receipt, H256, U256};
 use sp_runtime::{
 	transaction_validity::{
@@ -27,15 +27,17 @@ use sp_runtime::{
 	RuntimeDebug,
 };
 use sp_std::{cmp::Ord, collections::btree_map::BTreeMap, prelude::*};
-use validators::{ValidatorsConfiguration, ValidatorsSource};
 
-pub use import::{header_import_requires_receipts, import_header};
+pub use validators::{ValidatorsConfiguration, ValidatorsSource};
 
 mod error;
 mod finality;
 mod import;
 mod validators;
 mod verification;
+
+#[cfg(test)]
+mod mock;
 
 /// Authority round engine configuration parameters.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
@@ -286,6 +288,10 @@ impl<AccountId> OnHeadersSubmitted<AccountId> for () {
 
 /// The module configuration trait
 pub trait Trait: frame_system::Trait {
+	/// Aura configuration.
+	type AuraConfiguration: Get<AuraConfiguration>;
+	/// Validators configuration.
+	type ValidatorsConfiguration: Get<validators::ValidatorsConfiguration>;
 	/// Handler for headers submission result.
 	type OnHeadersSubmitted: OnHeadersSubmitted<Self::AccountId>;
 }
@@ -297,10 +303,10 @@ decl_module! {
 		pub fn import_unsigned_header(origin, header: Header, receipts: Option<Vec<Receipt>>) {
 			frame_system::ensure_none(origin)?;
 
-			import_header(
+			import::import_header(
 				&mut BridgeStorage::<T>::new(),
-				&kovan_aura_config(),
-				&kovan_validators_config(),
+				&T::AuraConfiguration::get(),
+				&T::ValidatorsConfiguration::get(),
 				crate::import::PRUNE_DEPTH,
 				None,
 				header,
@@ -320,8 +326,8 @@ decl_module! {
 			let mut finalized_headers = BTreeMap::new();
 			let import_result = import::import_headers(
 				&mut BridgeStorage::<T>::new(),
-				&kovan_aura_config(),
-				&kovan_validators_config(),
+				&T::AuraConfiguration::get(),
+				&T::ValidatorsConfiguration::get(),
 				crate::import::PRUNE_DEPTH,
 				Some(submitter.clone()),
 				headers_with_receipts,
@@ -424,7 +430,7 @@ impl<T: Trait> Module<T> {
 
 	/// Returns true if the import of given block requires transactions receipts.
 	pub fn is_import_requires_receipts(header: Header) -> bool {
-		import::header_import_requires_receipts(&BridgeStorage::<T>::new(), &kovan_validators_config(), &header)
+		import::header_import_requires_receipts(&BridgeStorage::<T>::new(), &T::ValidatorsConfiguration::get(), &header)
 	}
 
 	/// Returns true if header is known to the runtime.
@@ -441,8 +447,8 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 			Self::Call::import_unsigned_header(ref header, ref receipts) => {
 				let accept_result = verification::accept_aura_header_into_pool(
 					&BridgeStorage::<T>::new(),
-					&kovan_aura_config(),
-					&kovan_validators_config(),
+					&T::AuraConfiguration::get(),
+					&T::ValidatorsConfiguration::get(),
 					&pool_configuration(),
 					header,
 					receipts.as_ref(),
@@ -623,462 +629,9 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 	}
 }
 
-/// Aura engine configuration for Kovan chain.
-pub fn kovan_aura_config() -> AuraConfiguration {
-	AuraConfiguration {
-		empty_steps_transition: u64::max_value(),
-		strict_empty_steps_transition: 0,
-		validate_step_transition: 0x16e360,
-		validate_score_transition: 0x41a3c4,
-		two_thirds_majority_transition: u64::max_value(),
-		min_gas_limit: 0x1388.into(),
-		max_gas_limit: U256::max_value(),
-		maximum_extra_data_size: 0x20,
-	}
-}
-
-/// Validators configuration for Kovan chain.
-pub fn kovan_validators_config() -> ValidatorsConfiguration {
-	ValidatorsConfiguration::Multi(vec![
-		(
-			0,
-			ValidatorsSource::List(vec![
-				[
-					0x00, 0xD6, 0xCc, 0x1B, 0xA9, 0xcf, 0x89, 0xBD, 0x2e, 0x58, 0x00, 0x97, 0x41, 0xf4, 0xF7, 0x32,
-					0x5B, 0xAd, 0xc0, 0xED,
-				]
-				.into(),
-				[
-					0x00, 0x42, 0x7f, 0xea, 0xe2, 0x41, 0x9c, 0x15, 0xb8, 0x9d, 0x1c, 0x21, 0xaf, 0x10, 0xd1, 0xb6,
-					0x65, 0x0a, 0x4d, 0x3d,
-				]
-				.into(),
-				[
-					0x4E, 0xd9, 0xB0, 0x8e, 0x63, 0x54, 0xC7, 0x0f, 0xE6, 0xF8, 0xCB, 0x04, 0x11, 0xb0, 0xd3, 0x24,
-					0x6b, 0x42, 0x4d, 0x6c,
-				]
-				.into(),
-				[
-					0x00, 0x20, 0xee, 0x4B, 0xe0, 0xe2, 0x02, 0x7d, 0x76, 0x60, 0x3c, 0xB7, 0x51, 0xeE, 0x06, 0x95,
-					0x19, 0xbA, 0x81, 0xA1,
-				]
-				.into(),
-				[
-					0x00, 0x10, 0xf9, 0x4b, 0x29, 0x6a, 0x85, 0x2a, 0xaa, 0xc5, 0x2e, 0xa6, 0xc5, 0xac, 0x72, 0xe0,
-					0x3a, 0xfd, 0x03, 0x2d,
-				]
-				.into(),
-				[
-					0x00, 0x77, 0x33, 0xa1, 0xFE, 0x69, 0xCF, 0x3f, 0x2C, 0xF9, 0x89, 0xF8, 0x1C, 0x7b, 0x4c, 0xAc,
-					0x16, 0x93, 0x38, 0x7A,
-				]
-				.into(),
-				[
-					0x00, 0xE6, 0xd2, 0xb9, 0x31, 0xF5, 0x5a, 0x3f, 0x17, 0x01, 0xc7, 0x38, 0x9d, 0x59, 0x2a, 0x77,
-					0x78, 0x89, 0x78, 0x79,
-				]
-				.into(),
-				[
-					0x00, 0xe4, 0xa1, 0x06, 0x50, 0xe5, 0xa6, 0xD6, 0x00, 0x1C, 0x38, 0xff, 0x8E, 0x64, 0xF9, 0x70,
-					0x16, 0xa1, 0x64, 0x5c,
-				]
-				.into(),
-				[
-					0x00, 0xa0, 0xa2, 0x4b, 0x9f, 0x0e, 0x5e, 0xc7, 0xaa, 0x4c, 0x73, 0x89, 0xb8, 0x30, 0x2f, 0xd0,
-					0x12, 0x31, 0x94, 0xde,
-				]
-				.into(),
-			]),
-		),
-		(
-			10960440,
-			ValidatorsSource::List(vec![
-				[
-					0x00, 0xD6, 0xCc, 0x1B, 0xA9, 0xcf, 0x89, 0xBD, 0x2e, 0x58, 0x00, 0x97, 0x41, 0xf4, 0xF7, 0x32,
-					0x5B, 0xAd, 0xc0, 0xED,
-				]
-				.into(),
-				[
-					0x00, 0x10, 0xf9, 0x4b, 0x29, 0x6a, 0x85, 0x2a, 0xaa, 0xc5, 0x2e, 0xa6, 0xc5, 0xac, 0x72, 0xe0,
-					0x3a, 0xfd, 0x03, 0x2d,
-				]
-				.into(),
-				[
-					0x00, 0xa0, 0xa2, 0x4b, 0x9f, 0x0e, 0x5e, 0xc7, 0xaa, 0x4c, 0x73, 0x89, 0xb8, 0x30, 0x2f, 0xd0,
-					0x12, 0x31, 0x94, 0xde,
-				]
-				.into(),
-			]),
-		),
-		(
-			10960500,
-			ValidatorsSource::Contract(
-				[
-					0xaE, 0x71, 0x80, 0x7C, 0x1B, 0x0a, 0x09, 0x3c, 0xB1, 0x54, 0x7b, 0x68, 0x2D, 0xC7, 0x83, 0x16,
-					0xD9, 0x45, 0xc9, 0xB8,
-				]
-				.into(),
-				vec![
-					[
-						0xd0, 0x5f, 0x74, 0x78, 0xc6, 0xaa, 0x10, 0x78, 0x12, 0x58, 0xc5, 0xcc, 0x8b, 0x4f, 0x38, 0x5f,
-						0xc8, 0xfa, 0x98, 0x9c,
-					]
-					.into(),
-					[
-						0x03, 0x80, 0x1e, 0xfb, 0x0e, 0xfe, 0x2a, 0x25, 0xed, 0xe5, 0xdd, 0x3a, 0x00, 0x3a, 0xe8, 0x80,
-						0xc0, 0x29, 0x2e, 0x4d,
-					]
-					.into(),
-					[
-						0xa4, 0xdf, 0x25, 0x5e, 0xcf, 0x08, 0xbb, 0xf2, 0xc2, 0x80, 0x55, 0xc6, 0x52, 0x25, 0xc9, 0xa9,
-						0x84, 0x7a, 0xbd, 0x94,
-					]
-					.into(),
-					[
-						0x59, 0x6e, 0x82, 0x21, 0xa3, 0x0b, 0xfe, 0x6e, 0x7e, 0xff, 0x67, 0xfe, 0xe6, 0x64, 0xa0, 0x1c,
-						0x73, 0xba, 0x3c, 0x56,
-					]
-					.into(),
-					[
-						0xfa, 0xad, 0xfa, 0xce, 0x3f, 0xbd, 0x81, 0xce, 0x37, 0xb0, 0xe1, 0x9c, 0x0b, 0x65, 0xff, 0x42,
-						0x34, 0x14, 0x81, 0x32,
-					]
-					.into(),
-				],
-			),
-		),
-	])
-}
-
 /// Transaction pool configuration.
 fn pool_configuration() -> PoolConfiguration {
 	PoolConfiguration {
 		max_future_number_difference: 10,
-	}
-}
-
-#[cfg(test)]
-pub(crate) mod tests {
-	use super::*;
-	use parity_crypto::publickey::{sign, KeyPair, Secret};
-	use primitives::{rlp_encode, H520};
-	use std::collections::{hash_map::Entry, HashMap};
-
-	pub type AccountId = u64;
-
-	pub fn genesis() -> Header {
-		Header {
-			seal: vec![vec![42].into(), vec![].into()],
-			..Default::default()
-		}
-	}
-
-	pub fn block_i(storage: &InMemoryStorage, number: u64, validators: &[KeyPair]) -> Header {
-		custom_block_i(storage, number, validators, |_| {})
-	}
-
-	pub fn custom_block_i(
-		storage: &InMemoryStorage,
-		number: u64,
-		validators: &[KeyPair],
-		customize: impl FnOnce(&mut Header),
-	) -> Header {
-		let validator_index: u8 = (number % (validators.len() as u64)) as _;
-		let mut header = Header {
-			number,
-			parent_hash: storage.headers_by_number[&(number - 1)][0].clone(),
-			gas_limit: 0x2000.into(),
-			author: validator(validator_index).address().to_fixed_bytes().into(),
-			seal: vec![vec![number as u8 + 42].into(), vec![].into()],
-			difficulty: number.into(),
-			..Default::default()
-		};
-		customize(&mut header);
-		signed_header(validators, header, number + 42)
-	}
-
-	pub fn signed_header(validators: &[KeyPair], mut header: Header, step: u64) -> Header {
-		let message = header.seal_hash(false).unwrap();
-		let validator_index = (step % validators.len() as u64) as usize;
-		let signature = sign(validators[validator_index].secret(), &message.as_fixed_bytes().into()).unwrap();
-		let signature: [u8; 65] = signature.into();
-		let signature = H520::from(signature);
-		header.seal[1] = rlp_encode(&signature);
-		header
-	}
-
-	pub fn validator(index: u8) -> KeyPair {
-		KeyPair::from_secret(Secret::from([index + 1; 32])).unwrap()
-	}
-
-	pub fn validators_addresses(count: u8) -> Vec<Address> {
-		(0..count as usize)
-			.map(|i| validator(i as u8).address().as_fixed_bytes().into())
-			.collect()
-	}
-
-	pub struct InMemoryStorage {
-		best_block: (u64, H256, U256),
-		finalized_block: (u64, H256),
-		oldest_unpruned_block: u64,
-		headers: HashMap<H256, StoredHeader<AccountId>>,
-		headers_by_number: HashMap<u64, Vec<H256>>,
-		next_validators_set_id: u64,
-		validators_sets: HashMap<u64, ValidatorsSet>,
-		validators_sets_rc: HashMap<u64, u64>,
-		scheduled_changes: HashMap<H256, ScheduledChange>,
-	}
-
-	impl InMemoryStorage {
-		pub fn new(initial_header: Header, initial_validators: Vec<Address>) -> Self {
-			let hash = initial_header.hash();
-			InMemoryStorage {
-				best_block: (initial_header.number, hash, 0.into()),
-				finalized_block: (initial_header.number, hash),
-				oldest_unpruned_block: initial_header.number,
-				headers_by_number: vec![(initial_header.number, vec![hash])].into_iter().collect(),
-				headers: vec![(
-					hash,
-					StoredHeader {
-						submitter: None,
-						header: initial_header,
-						total_difficulty: 0.into(),
-						next_validators_set_id: 0,
-						last_signal_block: None,
-					},
-				)]
-				.into_iter()
-				.collect(),
-				next_validators_set_id: 1,
-				validators_sets: vec![(
-					0,
-					ValidatorsSet {
-						validators: initial_validators,
-						signal_block: None,
-						enact_block: hash,
-					},
-				)]
-				.into_iter()
-				.collect(),
-				validators_sets_rc: vec![(0, 1)].into_iter().collect(),
-				scheduled_changes: HashMap::new(),
-			}
-		}
-
-		pub(crate) fn insert(&mut self, header: Header) {
-			let hash = header.hash();
-			self.headers_by_number.entry(header.number).or_default().push(hash);
-			self.headers.insert(
-				hash,
-				StoredHeader {
-					submitter: None,
-					header,
-					total_difficulty: 0.into(),
-					next_validators_set_id: 0,
-					last_signal_block: None,
-				},
-			);
-		}
-
-		pub(crate) fn change_validators_set_at(
-			&mut self,
-			number: u64,
-			finalized_set: Vec<Address>,
-			signalled_set: Option<Vec<Address>>,
-		) {
-			let set_id = self.next_validators_set_id;
-			self.next_validators_set_id += 1;
-			self.validators_sets.insert(
-				set_id,
-				ValidatorsSet {
-					validators: finalized_set,
-					signal_block: None,
-					enact_block: self.headers_by_number[&0][0],
-				},
-			);
-
-			let mut header = self.headers.get_mut(&self.headers_by_number[&number][0]).unwrap();
-			header.next_validators_set_id = set_id;
-			if let Some(signalled_set) = signalled_set {
-				header.last_signal_block = Some(self.headers_by_number[&(number - 1)][0]);
-				self.scheduled_changes.insert(
-					self.headers_by_number[&(number - 1)][0],
-					ScheduledChange {
-						validators: signalled_set,
-						prev_signal_block: None,
-					},
-				);
-			}
-		}
-
-		pub(crate) fn set_best_block(&mut self, best_block: (u64, H256)) {
-			self.best_block.0 = best_block.0;
-			self.best_block.1 = best_block.1;
-		}
-
-		pub(crate) fn set_finalized_block(&mut self, finalized_block: (u64, H256)) {
-			self.finalized_block = finalized_block;
-		}
-
-		pub(crate) fn oldest_unpruned_block(&self) -> u64 {
-			self.oldest_unpruned_block
-		}
-
-		pub(crate) fn stored_header(&self, hash: &H256) -> Option<&StoredHeader<AccountId>> {
-			self.headers.get(hash)
-		}
-	}
-
-	impl Storage for InMemoryStorage {
-		type Submitter = AccountId;
-
-		fn best_block(&self) -> (u64, H256, U256) {
-			self.best_block.clone()
-		}
-
-		fn finalized_block(&self) -> (u64, H256) {
-			self.finalized_block.clone()
-		}
-
-		fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)> {
-			self.headers
-				.get(hash)
-				.map(|header| (header.header.clone(), header.submitter.clone()))
-		}
-
-		fn import_context(
-			&self,
-			submitter: Option<Self::Submitter>,
-			parent_hash: &H256,
-		) -> Option<ImportContext<Self::Submitter>> {
-			self.headers.get(parent_hash).map(|parent_header| {
-				let validators_set = self
-					.validators_sets
-					.get(&parent_header.next_validators_set_id)
-					.unwrap()
-					.clone();
-				let parent_scheduled_change = self.scheduled_changes.get(parent_hash).cloned();
-				ImportContext {
-					submitter,
-					parent_hash: *parent_hash,
-					parent_header: parent_header.header.clone(),
-					parent_total_difficulty: parent_header.total_difficulty,
-					parent_scheduled_change,
-					validators_set_id: parent_header.next_validators_set_id,
-					validators_set,
-					last_signal_block: parent_header.last_signal_block,
-				}
-			})
-		}
-
-		fn scheduled_change(&self, hash: &H256) -> Option<ScheduledChange> {
-			self.scheduled_changes.get(hash).cloned()
-		}
-
-		fn insert_header(&mut self, header: HeaderToImport<Self::Submitter>) {
-			if header.is_best {
-				self.best_block = (header.header.number, header.hash, header.total_difficulty);
-			}
-			if let Some(scheduled_change) = header.scheduled_change {
-				self.scheduled_changes.insert(
-					header.hash,
-					ScheduledChange {
-						validators: scheduled_change,
-						prev_signal_block: header.context.last_signal_block,
-					},
-				);
-			}
-			let next_validators_set_id = match header.enacted_change {
-				Some(enacted_change) => {
-					let next_validators_set_id = self.next_validators_set_id;
-					self.next_validators_set_id += 1;
-					self.validators_sets.insert(
-						next_validators_set_id,
-						ValidatorsSet {
-							validators: enacted_change.validators,
-							enact_block: header.hash,
-							signal_block: enacted_change.signal_block,
-						},
-					);
-					self.validators_sets_rc.insert(next_validators_set_id, 1);
-					next_validators_set_id
-				}
-				None => {
-					*self
-						.validators_sets_rc
-						.entry(header.context.validators_set_id)
-						.or_default() += 1;
-					header.context.validators_set_id
-				}
-			};
-
-			let last_signal_block = header.context.last_signal_block().cloned();
-			self.headers_by_number
-				.entry(header.header.number)
-				.or_default()
-				.push(header.hash);
-			self.headers.insert(
-				header.hash,
-				StoredHeader {
-					submitter: header.context.submitter,
-					header: header.header,
-					total_difficulty: header.total_difficulty,
-					next_validators_set_id,
-					last_signal_block,
-				},
-			);
-		}
-
-		fn finalize_headers(&mut self, finalized: Option<(u64, H256)>, prune_end: Option<u64>) {
-			let finalized_number = finalized
-				.as_ref()
-				.map(|f| f.0)
-				.unwrap_or_else(|| self.finalized_block.0);
-			if let Some(finalized) = finalized {
-				self.finalized_block = finalized;
-			}
-
-			if let Some(prune_end) = prune_end {
-				let prune_begin = self.oldest_unpruned_block;
-
-				for number in prune_begin..prune_end {
-					let blocks_at_number = self.headers_by_number.remove(&number);
-
-					// ensure that unfinalized headers we want to prune do not have scheduled changes
-					if number > finalized_number {
-						if let Some(ref blocks_at_number) = blocks_at_number {
-							if blocks_at_number
-								.iter()
-								.any(|block| self.scheduled_changes.contains_key(block))
-							{
-								self.headers_by_number.insert(number, blocks_at_number.clone());
-								self.oldest_unpruned_block = number;
-								return;
-							}
-						}
-					}
-
-					// physically remove headers and (probably) obsolete validators sets
-					for hash in blocks_at_number.into_iter().flat_map(|x| x) {
-						let header = self.headers.remove(&hash);
-						self.scheduled_changes.remove(&hash);
-						if let Some(header) = header {
-							match self.validators_sets_rc.entry(header.next_validators_set_id) {
-								Entry::Occupied(mut entry) => {
-									if *entry.get() == 1 {
-										entry.remove();
-									} else {
-										*entry.get_mut() -= 1;
-									}
-								}
-								Entry::Vacant(_) => unreachable!("there's entry for each header"),
-							};
-						}
-					}
-				}
-
-				self.oldest_unpruned_block = prune_end;
-			}
-		}
 	}
 }
