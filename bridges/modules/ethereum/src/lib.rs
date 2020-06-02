@@ -39,6 +39,9 @@ mod verification;
 #[cfg(test)]
 mod mock;
 
+/// Maximal number of blocks we're pruning in single import call.
+const MAX_BLOCKS_TO_PRUNE_IN_SINGLE_IMPORT: u64 = 8;
+
 /// Authority round engine configuration parameters.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
 pub struct AuraConfiguration {
@@ -145,6 +148,19 @@ pub struct ChangeToEnact {
 	pub signal_block: Option<H256>,
 	/// Validators set that is enacted.
 	pub validators: Vec<Address>,
+}
+
+/// Blocks range that we want to prune.
+#[derive(Encode, Decode, Default, RuntimeDebug, Clone, PartialEq)]
+struct PruningRange {
+	/// Number of the oldest unpruned block(s). This might be the block that we do not
+	/// want to prune now (then it is equal to `oldest_block_to_keep`), or block that we
+	/// were unable to prune for whatever reason (i.e. if it isn't finalized yet and has
+	/// scheduled validators set change).
+	pub oldest_unpruned_block: u64,
+	/// Number of oldest block(s) that we want to keep. We want to prune blocks in range
+	/// [`oldest_unpruned_block`; `oldest_block_to_keep`).
+	pub oldest_block_to_keep: u64,
 }
 
 /// Header import context.
@@ -364,8 +380,8 @@ decl_storage! {
 		BestBlock: (u64, H256, U256);
 		/// Best finalized block.
 		FinalizedBlock: (u64, H256);
-		/// Oldest unpruned block(s) number.
-		OldestUnprunedBlock: u64;
+		/// Range of blocks that we want to prune.
+		BlocksToPrune: PruningRange;
 		/// Map of imported headers by hash.
 		Headers: map hasher(identity) H256 => Option<StoredHeader<T::AccountId>>;
 		/// Map of imported header hashes by number.
@@ -399,7 +415,10 @@ decl_storage! {
 			let initial_hash = config.initial_header.hash();
 			BestBlock::put((config.initial_header.number, initial_hash, config.initial_difficulty));
 			FinalizedBlock::put((config.initial_header.number, initial_hash));
-			OldestUnprunedBlock::put(config.initial_header.number);
+			BlocksToPrune::put(PruningRange {
+				oldest_unpruned_block: config.initial_header.number,
+				oldest_block_to_keep: config.initial_header.number,
+			});
 			HeadersByNumber::insert(config.initial_header.number, vec![initial_hash]);
 			Headers::<T>::insert(initial_hash, StoredHeader {
 				submitter: None,
@@ -480,9 +499,95 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 #[derive(Default)]
 struct BridgeStorage<T>(sp_std::marker::PhantomData<T>);
 
-impl<T> BridgeStorage<T> {
+impl<T: Trait> BridgeStorage<T> {
+	/// Create new BridgeStorage.
 	pub fn new() -> Self {
 		BridgeStorage(sp_std::marker::PhantomData::<T>::default())
+	}
+
+	/// Prune old blocks.
+	fn prune_blocks(&self, mut max_blocks_to_prune: u64, finalized_number: u64, prune_end: Option<u64>) {
+		let pruning_range = BlocksToPrune::get();
+		let mut new_pruning_range = pruning_range.clone();
+
+		// update oldest block we want to keep
+		if let Some(prune_end) = prune_end {
+			if prune_end > new_pruning_range.oldest_block_to_keep {
+				new_pruning_range.oldest_block_to_keep = prune_end;
+			}
+		}
+
+		// start pruning blocks
+		let begin = new_pruning_range.oldest_unpruned_block;
+		let end = new_pruning_range.oldest_block_to_keep;
+		for number in begin..end {
+			// if we can't prune anything => break
+			if max_blocks_to_prune == 0 {
+				break;
+			}
+
+			// read hashes of blocks with given number and try to prune these blocks
+			let blocks_at_number = HeadersByNumber::take(number);
+			if let Some(mut blocks_at_number) = blocks_at_number {
+				self.prune_blocks_by_hashes(
+					&mut max_blocks_to_prune,
+					finalized_number,
+					number,
+					&mut blocks_at_number,
+				);
+
+				// if we haven't pruned all blocks, remember unpruned
+				if !blocks_at_number.is_empty() {
+					HeadersByNumber::insert(number, blocks_at_number);
+					break;
+				}
+			}
+
+			// we have pruned all headers at number
+			new_pruning_range.oldest_unpruned_block = number + 1;
+		}
+
+		// update pruning range in storage
+		if pruning_range != new_pruning_range {
+			BlocksToPrune::put(new_pruning_range);
+		}
+	}
+
+	/// Prune old blocks with given hashes.
+	fn prune_blocks_by_hashes(
+		&self,
+		max_blocks_to_prune: &mut u64,
+		finalized_number: u64,
+		number: u64,
+		blocks_at_number: &mut Vec<H256>,
+	) {
+		// ensure that unfinalized headers we want to prune do not have scheduled changes
+		if number > finalized_number {
+			if blocks_at_number
+				.iter()
+				.any(|block| ScheduledChanges::contains_key(block))
+			{
+				return;
+			}
+		}
+
+		// physically remove headers and (probably) obsolete validators sets
+		while let Some(hash) = blocks_at_number.pop() {
+			let header = Headers::<T>::take(&hash);
+			ScheduledChanges::remove(hash);
+			if let Some(header) = header {
+				ValidatorsSetsRc::mutate(header.next_validators_set_id, |rc| match *rc {
+					Some(rc) if rc > 1 => Some(rc - 1),
+					_ => None,
+				});
+			}
+
+			// check if we have already pruned too much headers in this call
+			*max_blocks_to_prune -= 1;
+			if *max_blocks_to_prune == 0 {
+				return;
+			}
+		}
 	}
 }
 
@@ -591,41 +696,8 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 			FinalizedBlock::put(finalized);
 		}
 
-		if let Some(prune_end) = prune_end {
-			let prune_begin = OldestUnprunedBlock::get();
-
-			for number in prune_begin..prune_end {
-				let blocks_at_number = HeadersByNumber::take(number);
-
-				// ensure that unfinalized headers we want to prune do not have scheduled changes
-				if number > finalized_number {
-					if let Some(ref blocks_at_number) = blocks_at_number {
-						if blocks_at_number
-							.iter()
-							.any(|block| ScheduledChanges::contains_key(block))
-						{
-							HeadersByNumber::insert(number, blocks_at_number);
-							OldestUnprunedBlock::put(number);
-							return;
-						}
-					}
-				}
-
-				// physically remove headers and (probably) obsolete validators sets
-				for hash in blocks_at_number.into_iter().flat_map(|x| x) {
-					let header = Headers::<T>::take(&hash);
-					ScheduledChanges::remove(hash);
-					if let Some(header) = header {
-						ValidatorsSetsRc::mutate(header.next_validators_set_id, |rc| match *rc {
-							Some(rc) if rc > 1 => Some(rc - 1),
-							_ => None,
-						});
-					}
-				}
-			}
-
-			OldestUnprunedBlock::put(prune_end);
-		}
+		// and now prune headers if we need to
+		self.prune_blocks(MAX_BLOCKS_TO_PRUNE_IN_SINGLE_IMPORT, finalized_number, prune_end);
 	}
 }
 
@@ -633,5 +705,173 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 fn pool_configuration() -> PoolConfiguration {
 	PoolConfiguration {
 		max_future_number_difference: 10,
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::{custom_block_i, custom_test_ext, genesis, validators, validators_addresses, TestRuntime};
+
+	fn with_headers_to_prune<T>(f: impl Fn(BridgeStorage<TestRuntime>) -> T) -> T {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let validators = validators(3);
+			for i in 1..10 {
+				let mut headers_by_number = Vec::with_capacity(5);
+				for j in 0..5 {
+					let header = custom_block_i(i, &validators, |header| {
+						header.gas_limit = header.gas_limit + U256::from(j);
+					});
+					let hash = header.hash();
+					headers_by_number.push(hash);
+					Headers::<TestRuntime>::insert(
+						hash,
+						StoredHeader {
+							submitter: None,
+							header: header,
+							total_difficulty: 0.into(),
+							next_validators_set_id: 0,
+							last_signal_block: None,
+						},
+					);
+
+					if i == 7 && j == 1 {
+						ScheduledChanges::insert(
+							hash,
+							ScheduledChange {
+								validators: validators_addresses(5),
+								prev_signal_block: None,
+							},
+						);
+					}
+				}
+				HeadersByNumber::insert(i, headers_by_number);
+			}
+
+			f(BridgeStorage::new())
+		})
+	}
+
+	#[test]
+	fn blocks_are_not_pruned_if_range_is_empty() {
+		with_headers_to_prune(|storage| {
+			BlocksToPrune::put(PruningRange {
+				oldest_unpruned_block: 5,
+				oldest_block_to_keep: 5,
+			});
+
+			// try to prune blocks [5; 10)
+			storage.prune_blocks(0xFFFF, 10, Some(5));
+			assert_eq!(HeadersByNumber::get(&5).unwrap().len(), 5);
+			assert_eq!(
+				BlocksToPrune::get(),
+				PruningRange {
+					oldest_unpruned_block: 5,
+					oldest_block_to_keep: 5,
+				},
+			);
+		});
+	}
+
+	#[test]
+	fn blocks_to_prune_never_shrinks_from_the_end() {
+		with_headers_to_prune(|storage| {
+			BlocksToPrune::put(PruningRange {
+				oldest_unpruned_block: 0,
+				oldest_block_to_keep: 5,
+			});
+
+			// try to prune blocks [5; 10)
+			storage.prune_blocks(0xFFFF, 10, Some(3));
+			assert_eq!(
+				BlocksToPrune::get(),
+				PruningRange {
+					oldest_unpruned_block: 5,
+					oldest_block_to_keep: 5,
+				},
+			);
+		});
+	}
+
+	#[test]
+	fn blocks_are_not_pruned_if_limit_is_zero() {
+		with_headers_to_prune(|storage| {
+			// try to prune blocks [0; 10)
+			storage.prune_blocks(0, 10, Some(10));
+			assert!(HeadersByNumber::get(&0).is_some());
+			assert!(HeadersByNumber::get(&1).is_some());
+			assert!(HeadersByNumber::get(&2).is_some());
+			assert!(HeadersByNumber::get(&3).is_some());
+			assert_eq!(
+				BlocksToPrune::get(),
+				PruningRange {
+					oldest_unpruned_block: 0,
+					oldest_block_to_keep: 10,
+				},
+			);
+		});
+	}
+
+	#[test]
+	fn blocks_are_pruned_if_limit_is_non_zero() {
+		with_headers_to_prune(|storage| {
+			// try to prune blocks [0; 10)
+			storage.prune_blocks(7, 10, Some(10));
+			// 1 headers with number = 0 is pruned (1 total)
+			assert!(HeadersByNumber::get(&0).is_none());
+			// 5 headers with number = 1 are pruned (6 total)
+			assert!(HeadersByNumber::get(&1).is_none());
+			// 1 header with number = 2 are pruned (7 total)
+			assert_eq!(HeadersByNumber::get(&2).unwrap().len(), 4);
+			assert_eq!(
+				BlocksToPrune::get(),
+				PruningRange {
+					oldest_unpruned_block: 2,
+					oldest_block_to_keep: 10,
+				},
+			);
+
+			// try to prune blocks [2; 10)
+			storage.prune_blocks(11, 10, Some(10));
+			// 4 headers with number = 2 are pruned (4 total)
+			assert!(HeadersByNumber::get(&2).is_none());
+			// 5 headers with number = 3 are pruned (9 total)
+			assert!(HeadersByNumber::get(&3).is_none());
+			// 2 headers with number = 4 are pruned (11 total)
+			assert_eq!(HeadersByNumber::get(&4).unwrap().len(), 3);
+			assert_eq!(
+				BlocksToPrune::get(),
+				PruningRange {
+					oldest_unpruned_block: 4,
+					oldest_block_to_keep: 10,
+				},
+			);
+		});
+	}
+
+	#[test]
+	fn pruning_stops_on_unfainalized_block_with_scheduled_change() {
+		with_headers_to_prune(|storage| {
+			// try to prune blocks [0; 10)
+			// last finalized block is 5
+			// and one of blocks#7 has scheduled change
+			// => we won't prune any block#7 at all
+			storage.prune_blocks(0xFFFF, 5, Some(10));
+			assert!(HeadersByNumber::get(&0).is_none());
+			assert!(HeadersByNumber::get(&1).is_none());
+			assert!(HeadersByNumber::get(&2).is_none());
+			assert!(HeadersByNumber::get(&3).is_none());
+			assert!(HeadersByNumber::get(&4).is_none());
+			assert!(HeadersByNumber::get(&5).is_none());
+			assert!(HeadersByNumber::get(&6).is_none());
+			assert_eq!(HeadersByNumber::get(&7).unwrap().len(), 5);
+			assert_eq!(
+				BlocksToPrune::get(),
+				PruningRange {
+					oldest_unpruned_block: 7,
+					oldest_block_to_keep: 10,
+				},
+			);
+		});
 	}
 }
