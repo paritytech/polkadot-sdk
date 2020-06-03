@@ -391,7 +391,8 @@ fn create_signed_submit_transaction(
 
 	let extra = |i: node_primitives::Index, f: node_primitives::Balance| {
 		(
-			frame_system::CheckVersion::<bridge_node_runtime::Runtime>::new(),
+			frame_system::CheckSpecVersion::<bridge_node_runtime::Runtime>::new(),
+			frame_system::CheckTxVersion::<bridge_node_runtime::Runtime>::new(),
 			frame_system::CheckGenesis::<bridge_node_runtime::Runtime>::new(),
 			frame_system::CheckEra::<bridge_node_runtime::Runtime>::from(sp_runtime::generic::Era::Immortal),
 			frame_system::CheckNonce::<bridge_node_runtime::Runtime>::from(i),
@@ -403,7 +404,8 @@ fn create_signed_submit_transaction(
 		function,
 		extra(index, 0),
 		(
-			bridge_node_runtime::VERSION.spec_version as u32,
+			bridge_node_runtime::VERSION.spec_version,
+			bridge_node_runtime::VERSION.transaction_version,
 			genesis_hash,
 			genesis_hash,
 			(),
