@@ -673,7 +673,7 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 		};
 
 		let last_signal_block = header.context.last_signal_block().cloned();
-		HeadersByNumber::append_or_insert(header.header.number, vec![header.hash]);
+		HeadersByNumber::append(header.header.number, header.hash);
 		Headers::<T>::insert(
 			&header.hash,
 			StoredHeader {

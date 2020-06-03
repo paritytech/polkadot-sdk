@@ -27,13 +27,12 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod kovan;
 
 use codec::{Decode, Encode};
-use pallet_grandpa::fg_primitives;
-use pallet_grandpa::AuthorityList as GrandpaAuthorityList;
+use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::OpaqueMetadata;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, OpaqueKeys, Verify,
+	BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, OpaqueKeys, Saturating, Verify,
 };
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
@@ -48,8 +47,8 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
-	traits::Randomness,
-	weights::{RuntimeDbWeight, Weight},
+	traits::{KeyOwnerProofSystem, Randomness},
+	weights::{IdentityFee, RuntimeDbWeight, Weight},
 	StorageValue,
 };
 pub use pallet_balances::Call as BalancesCall;
@@ -143,6 +142,9 @@ parameter_types! {
 	pub const MaximumBlockWeight: Weight = 2_000_000_000_000;
 	pub const ExtrinsicBaseWeight: Weight = 10_000_000;
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+	/// Assume 10% of weight for average on_initialize calls.
+	pub const MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
+		.saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
@@ -184,6 +186,10 @@ impl frame_system::Trait for Runtime {
 	/// The base weight of any extrinsic processed by the runtime, independent of the
 	/// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
 	type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
+	/// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
+	/// idependent of the logic of that extrinsics. (Roughly max block weight - average on
+	/// initialize cost).
+	type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
 	/// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
 	type MaximumBlockLength = MaximumBlockLength;
 	/// Portion of the block weight that is available to all normal transactions.
@@ -219,6 +225,16 @@ impl pallet_bridge_eth_poa::Trait for Runtime {
 
 impl pallet_grandpa::Trait for Runtime {
 	type Event = Event;
+	type Call = Call;
+
+	type KeyOwnerProofSystem = ();
+
+	type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+
+	type KeyOwnerIdentification =
+		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
+
+	type HandleEquivocation = ();
 }
 
 parameter_types! {
@@ -255,7 +271,7 @@ impl pallet_transaction_payment::Trait for Runtime {
 	type Currency = pallet_balances::Module<Runtime>;
 	type OnTransactionPayment = ();
 	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = ConvertInto;
+	type WeightToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
 }
 
@@ -363,7 +379,8 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
-	frame_system::CheckVersion<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
@@ -486,6 +503,26 @@ impl_runtime_apis! {
 	impl fg_primitives::GrandpaApi<Block> for Runtime {
 		fn grandpa_authorities() -> GrandpaAuthorityList {
 			Grandpa::grandpa_authorities()
+		}
+
+		fn submit_report_equivocation_extrinsic(
+			_equivocation_proof: fg_primitives::EquivocationProof<
+				<Block as BlockT>::Hash,
+				NumberFor<Block>,
+			>,
+			_key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			None
+		}
+
+		fn generate_key_ownership_proof(
+			_set_id: fg_primitives::SetId,
+			_authority_id: GrandpaId,
+		) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+			// NOTE: this is the only implementation possible since we've
+			// defined our key owner proof type as a bottom type (i.e. a type
+			// with no values).
+			None
 		}
 	}
 }
