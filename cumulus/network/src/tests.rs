@@ -48,12 +48,15 @@ fn make_validator_and_client() -> (
 	let builder = TestClientBuilder::new();
 	let client = Arc::new(TestApi::new(Arc::new(builder.build())));
 
-	(JustifiedBlockAnnounceValidator::new(client.clone()), client)
+	(
+		JustifiedBlockAnnounceValidator::new(client.clone(), ParaId::from(56)),
+		client,
+	)
 }
 
 fn default_header() -> Header {
 	Header {
-		number: Default::default(),
+		number: 1,
 		digest: Default::default(),
 		extrinsics_root: Default::default(),
 		parent_hash: Default::default(),
@@ -91,13 +94,34 @@ fn make_gossip_message_and_header(
 }
 
 #[test]
-fn valid_if_no_data() {
+fn valid_if_no_data_and_less_than_best_known_number() {
 	let mut validator = make_validator();
-	let header = default_header();
+	let header = Header {
+		number: 0,
+		..default_header()
+	};
+	let res = validator.validate(&header, &[]);
 
-	assert!(
-		matches!(validator.validate(&header, &[]), Ok(Validation::Success)),
-		"validating without data is always a success",
+	assert_eq!(
+		res.unwrap(),
+		Validation::Success,
+		"validating without data with block number < best known number is always a success",
+	);
+}
+
+#[test]
+fn invalid_if_no_data_exceeds_best_known_number() {
+	let mut validator = make_validator();
+	let header = Header {
+		number: 1,
+		..default_header()
+	};
+	let res = validator.validate(&header, &[]);
+
+	assert_eq!(
+		res.unwrap(),
+		Validation::Failure,
+		"validation fails if no justification and block number >= best known number",
 	);
 }
 
@@ -399,7 +423,10 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn local_validation_data(_: ParaId) -> Option<LocalValidationData> {
-			Some(Default::default())
+			Some(LocalValidationData {
+				parent_head: HeadData::<Block> { header: default_header() }.encode().into(),
+				..Default::default()
+			})
 		}
 
 		fn get_heads(_: Vec<<PBlock as BlockT>::Extrinsic>) -> Option<Vec<AbridgedCandidateReceipt>> {

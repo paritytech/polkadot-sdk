@@ -24,16 +24,18 @@ mod tests;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Error as ClientError, HeaderBackend};
 use sp_consensus::block_validation::{BlockAnnounceValidator, Validation};
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
 
 use polkadot_collator::Network as CollatorNetwork;
 use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
 use polkadot_primitives::{
-	parachain::ParachainHost,
+	parachain::{ParachainHost, Id as ParaId},
 	Block as PBlock, Hash as PHash,
 };
 use polkadot_statement_table::{SignedStatement, Statement};
 use polkadot_validation::check_statement;
+
+use cumulus_primitives::HeadData;
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, select, StreamExt};
@@ -54,13 +56,15 @@ use parking_lot::Mutex;
 pub struct JustifiedBlockAnnounceValidator<B, P> {
 	phantom: PhantomData<B>,
 	polkadot_client: Arc<P>,
+	para_id: ParaId,
 }
 
 impl<B, P> JustifiedBlockAnnounceValidator<B, P> {
-	pub fn new(polkadot_client: Arc<P>) -> Self {
+	pub fn new(polkadot_client: Arc<P>, para_id: ParaId) -> Self {
 		Self {
 			phantom: Default::default(),
 			polkadot_client,
+			para_id,
 		}
 	}
 }
@@ -75,9 +79,34 @@ where
 		header: &B::Header,
 		mut data: &[u8],
 	) -> Result<Validation, Box<dyn std::error::Error + Send>> {
-		// If no data is provided the announce is valid.
+		let runtime_api = self.polkadot_client.runtime_api();
+		let polkadot_info = self.polkadot_client.info();
+
 		if data.is_empty() {
-			return Ok(Validation::Success);
+			// Check if block is equal or higher than best (this requires a justification)
+			let runtime_api_block_id = BlockId::Hash(polkadot_info.best_hash);
+			let block_number = header.number();
+
+			let local_validation_data = runtime_api
+				.local_validation_data(&runtime_api_block_id, self.para_id)
+				.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?
+				.ok_or_else(|| {
+					Box::new(ClientError::Msg("Could not find parachain head in relay chain".into())) as Box<_>
+				})?;
+			let parent_head = HeadData::<B>::decode(&mut &local_validation_data.parent_head.0[..])
+				.map_err(|e| Box::new(ClientError::Msg(format!("Failed to decode parachain head: {:?}", e))) as Box<_>)?;
+			let known_best_number = parent_head.header.number();
+
+			return Ok(if block_number >= known_best_number {
+				trace!(
+					target: "cumulus-network",
+					"validation failed because a justification is needed if the block at the top of the chain."
+				);
+
+				Validation::Failure
+			} else {
+				Validation::Success
+			});
 		}
 
 		// Check data is a gossip message.
@@ -108,7 +137,7 @@ where
 		} = gossip_statement;
 
 		// Check that the relay chain parent of the block is the relay chain head
-		let best_number = self.polkadot_client.info().best_number;
+		let best_number = polkadot_info.best_number;
 
 		match self.polkadot_client.number(relay_chain_leaf) {
 			Err(err) => {
@@ -133,7 +162,6 @@ where
 			},
 		}
 
-		let runtime_api = self.polkadot_client.runtime_api();
 		let runtime_api_block_id = BlockId::Hash(relay_chain_leaf);
 		let signing_context = runtime_api
 			.signing_context(&runtime_api_block_id)

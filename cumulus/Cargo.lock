@@ -930,6 +930,7 @@ dependencies = [
 name = "cumulus-network"
 version = "0.1.0"
 dependencies = [
+ "cumulus-primitives",
  "cumulus-test-runtime",
  "futures 0.3.4",
  "log 0.4.8",

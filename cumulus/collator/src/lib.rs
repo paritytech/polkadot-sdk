@@ -20,7 +20,7 @@ use cumulus_network::{
 	DelayedBlockAnnounceValidator, JustifiedBlockAnnounceValidator, WaitToAnnounce,
 };
 use cumulus_primitives::{
-	inherents::VALIDATION_FUNCTION_PARAMS_IDENTIFIER as VFP_IDENT,
+	HeadData, inherents::VALIDATION_FUNCTION_PARAMS_IDENTIFIER as VFP_IDENT,
 	validation_function_params::ValidationFunctionParams,
 };
 use cumulus_runtime::ParachainBlockData;
@@ -55,12 +55,6 @@ use futures::prelude::*;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration, pin::Pin};
 
 use parking_lot::Mutex;
-
-/// The head data of the parachain, stored in the relay chain.
-#[derive(Decode, Encode, Debug)]
-struct HeadData<Block: BlockT> {
-	header: Block::Header,
-}
 
 /// The implementation of the Cumulus `Collator`.
 pub struct Collator<Block: BlockT, PF, BI> {
@@ -340,7 +334,10 @@ where
 		+ Sync
 		+ 'static,
 	Backend: sc_client_api::Backend<Block> + 'static,
-	Client: Finalizer<Block, Backend> + UsageProvider<Block> + Send + Sync + 'static,
+	Client: Finalizer<Block, Backend> + UsageProvider<Block> + HeaderBackend<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	type ParachainContext = Collator<Block, PF, BI>;
 
@@ -359,7 +356,7 @@ where
 		Extrinsic: codec::Codec + Send + Sync + 'static,
 	{
 		self.delayed_block_announce_validator.set(
-			Box::new(JustifiedBlockAnnounceValidator::new(polkadot_client.clone())),
+			Box::new(JustifiedBlockAnnounceValidator::new(polkadot_client.clone(), self.para_id)),
 		);
 
 		let follow =
