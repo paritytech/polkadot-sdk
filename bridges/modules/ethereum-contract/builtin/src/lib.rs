@@ -17,6 +17,7 @@
 use bridge_node_runtime::{Block, BlockNumber, Hash, Header as RuntimeHeader};
 use codec::{Decode, Encode};
 use ethereum_types::U256;
+use finality_grandpa::voter_set::VoterSet;
 use sp_blockchain::Error as ClientError;
 use sp_finality_grandpa::{AuthorityList, ConsensusLog, GRANDPA_ENGINE_ID};
 
@@ -29,6 +30,8 @@ pub enum Error {
 	HeaderDecode(codec::Error),
 	/// Failed to decode best voters set.
 	BestSetDecode(codec::Error),
+	/// Best voters set is invalid.
+	InvalidBestSet,
 	/// Failed to decode finality proof.
 	FinalityProofDecode(codec::Error),
 	/// Failed to verify justification.
@@ -108,12 +111,14 @@ pub fn verify_substrate_finality_proof(
 	raw_best_set: &[u8],
 	raw_finality_proof: &[u8],
 ) -> Result<(), Error> {
-	let best_set = AuthorityList::decode(&mut &raw_best_set[..]).map_err(Error::BestSetDecode)?;
+	let best_set = AuthorityList::decode(&mut &raw_best_set[..])
+		.map_err(Error::BestSetDecode)
+		.and_then(|authorities| VoterSet::new(authorities.into_iter()).ok_or(Error::InvalidBestSet))?;
 	sc_finality_grandpa::GrandpaJustification::<Block>::decode_and_verify_finalizes(
 		&raw_finality_proof,
 		(finality_target_hash, finality_target_number),
 		best_set_id,
-		&best_set.into_iter().collect(),
+		&best_set,
 	)
 	.map_err(Error::JustificationVerify)
 	.map(|_| ())
