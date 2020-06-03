@@ -22,27 +22,27 @@ plain_hasher = { version = "0.2.2", default-features = false }
 
 # Substrate Based Dependencies
 [dependencies.sp-api]
-version = "2.0.0-alpha.6"
+version = "2.0.0-rc1"
 default-features = false
-rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
+rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-std]
-version = "2.0.0-alpha.6"
+version = "2.0.0-rc1"
 default-features = false
-rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
+rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
-version = "2.0.0-alpha.6"
+version = "2.0.0-rc1"
 default-features = false
-rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
+rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-io]
-version = "2.0.0-alpha.6"
+version = "2.0.0-rc1"
 default-features = false
-rev = "c13ad41634d0bd7cf07897c2aa062b917d520520"
+rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
 git = "https://github.com/paritytech/substrate.git"
 
 [features]
