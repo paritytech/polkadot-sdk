@@ -318,44 +318,6 @@ impl CliConfiguration for PolkadotCli {
 		}
 	}
 
-	// TODO: we disable mdns for the polkadot node because it prevents the process to exit
-	//       properly. See https://github.com/paritytech/cumulus/issues/57
-	fn network_config(
-		&self,
-		chain_spec: &Box<dyn sc_service::ChainSpec>,
-		is_dev: bool,
-		net_config_dir: PathBuf,
-		client_id: &str,
-		node_name: &str,
-		node_key: NodeKeyConfig,
-	) -> Result<NetworkConfiguration> {
-		let (mut network, allow_private_ipv4) = self
-			.network_params()
-			.map(|x| {
-				(
-					x.network_config(
-						chain_spec,
-						is_dev,
-						Some(net_config_dir),
-						client_id,
-						node_name,
-						node_key,
-					),
-					!x.no_private_ipv4,
-				)
-			})
-			.expect("NetworkParams is always available on RunCmd; qed");
-
-		network.transport = TransportConfig::Normal {
-			enable_mdns: false,
-			allow_private_ipv4,
-			wasm_external_transport: None,
-			use_yamux_flow_control: false,
-		};
-
-		Ok(network)
-	}
-
 	fn init<C: SubstrateCli>(&self) -> Result<()> {
 		unreachable!("PolkadotCli is never initialized; qed");
 	}
