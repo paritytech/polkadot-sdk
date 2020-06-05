@@ -18,7 +18,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage, traits::Get};
-use primitives::{Address, Header, Receipt, H256, U256};
+use primitives::{Address, Header, RawTransaction, Receipt, H256, U256};
 use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource, TransactionValidity,
@@ -456,6 +456,11 @@ impl<T: Trait> Module<T> {
 	pub fn is_known_block(hash: H256) -> bool {
 		BridgeStorage::<T>::new().header(&hash).is_some()
 	}
+
+	/// Verify that transaction is included into given finalized block.
+	pub fn verify_transaction_finalized(block: H256, tx_index: u64, proof: &Vec<RawTransaction>) -> bool {
+		crate::verify_transaction_finalized(&BridgeStorage::<T>::new(), block, tx_index, proof)
+	}
 }
 
 impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
@@ -672,6 +677,13 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 			}
 		};
 
+		frame_support::debug::trace!(
+			target: "runtime",
+			"Inserting PoA header: ({}, {})",
+			header.header.number,
+			header.hash,
+		);
+
 		let last_signal_block = header.context.last_signal_block().cloned();
 		HeadersByNumber::append(header.header.number, header.hash);
 		Headers::<T>::insert(
@@ -693,12 +705,57 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 			.map(|f| f.0)
 			.unwrap_or_else(|| FinalizedBlock::get().0);
 		if let Some(finalized) = finalized {
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Finalizing PoA header: ({}, {})",
+				finalized.0,
+				finalized.1,
+			);
+
 			FinalizedBlock::put(finalized);
 		}
 
 		// and now prune headers if we need to
 		self.prune_blocks(MAX_BLOCKS_TO_PRUNE_IN_SINGLE_IMPORT, finalized_number, prune_end);
 	}
+}
+
+/// Verify that transaction is included into given finalized block.
+pub fn verify_transaction_finalized<S: Storage>(
+	storage: &S,
+	block: H256,
+	tx_index: u64,
+	proof: &Vec<RawTransaction>,
+) -> bool {
+	if tx_index >= proof.len() as _ {
+		return false;
+	}
+
+	let header = match storage.header(&block) {
+		Some((header, _)) => header,
+		None => return false,
+	};
+	let (finalized_number, finalized_hash) = storage.finalized_block();
+
+	// if header is not yet finalized => return
+	if header.number > finalized_number {
+		return false;
+	}
+
+	// check if header is actually finalized
+	let is_finalized = match header.number < finalized_number {
+		true => finality::ancestry(storage, finalized_hash)
+			.skip_while(|(_, ancestor, _)| ancestor.number > header.number)
+			.filter(|&(ancestor_hash, _, _)| ancestor_hash == block)
+			.next()
+			.is_some(),
+		false => block == finalized_hash,
+	};
+	if !is_finalized {
+		return false;
+	}
+
+	header.verify_transactions_root(proof)
 }
 
 /// Transaction pool configuration.
@@ -709,9 +766,12 @@ fn pool_configuration() -> PoolConfiguration {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 	use super::*;
-	use crate::mock::{custom_block_i, custom_test_ext, genesis, validators, validators_addresses, TestRuntime};
+	use crate::mock::{
+		custom_block_i, custom_test_ext, genesis, insert_header, validators, validators_addresses, TestRuntime,
+	};
+	use primitives::compute_merkle_root;
 
 	fn with_headers_to_prune<T>(f: impl Fn(BridgeStorage<TestRuntime>) -> T) -> T {
 		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
@@ -871,6 +931,135 @@ mod tests {
 					oldest_unpruned_block: 7,
 					oldest_block_to_keep: 10,
 				},
+			);
+		});
+	}
+
+	fn example_tx() -> Vec<u8> {
+		vec![42]
+	}
+
+	fn example_header() -> Header {
+		let mut header = Header::default();
+		header.number = 2;
+		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
+		header.parent_hash = example_header_parent().hash();
+		header
+	}
+
+	fn example_header_parent() -> Header {
+		let mut header = Header::default();
+		header.number = 1;
+		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
+		header.parent_hash = genesis().hash();
+		header
+	}
+
+	#[test]
+	fn verify_transaction_finalized_works_for_best_finalized_header() {
+		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
+			let storage = BridgeStorage::<TestRuntime>::new();
+			assert_eq!(
+				verify_transaction_finalized(&storage, example_header().hash(), 0, &vec![example_tx()],),
+				true,
+			);
+		});
+	}
+
+	#[test]
+	fn verify_transaction_finalized_works_for_best_finalized_header_ancestor() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+			insert_header(&mut storage, example_header_parent());
+			insert_header(&mut storage, example_header());
+			storage.finalize_headers(Some((example_header().number, example_header().hash())), None);
+			assert_eq!(
+				verify_transaction_finalized(&storage, example_header_parent().hash(), 0, &vec![example_tx()],),
+				true,
+			);
+		});
+	}
+
+	#[test]
+	fn verify_transaction_finalized_rejects_proof_with_missing_tx() {
+		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
+			let storage = BridgeStorage::<TestRuntime>::new();
+			assert_eq!(
+				verify_transaction_finalized(&storage, example_header().hash(), 1, &vec![],),
+				false,
+			);
+		});
+	}
+
+	#[test]
+	fn verify_transaction_finalized_rejects_unknown_header() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let storage = BridgeStorage::<TestRuntime>::new();
+			assert_eq!(
+				verify_transaction_finalized(&storage, example_header().hash(), 1, &vec![],),
+				false,
+			);
+		});
+	}
+
+	#[test]
+	fn verify_transaction_finalized_rejects_unfinalized_header() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+			insert_header(&mut storage, example_header_parent());
+			insert_header(&mut storage, example_header());
+			assert_eq!(
+				verify_transaction_finalized(&storage, example_header().hash(), 0, &vec![example_tx()],),
+				false,
+			);
+		});
+	}
+
+	#[test]
+	fn verify_transaction_finalized_rejects_finalized_header_sibling() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let mut finalized_header_sibling = example_header();
+			finalized_header_sibling.timestamp = 1;
+			let finalized_header_sibling_hash = finalized_header_sibling.hash();
+
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+			insert_header(&mut storage, example_header_parent());
+			insert_header(&mut storage, example_header());
+			insert_header(&mut storage, finalized_header_sibling);
+			storage.finalize_headers(Some((example_header().number, example_header().hash())), None);
+			assert_eq!(
+				verify_transaction_finalized(&storage, finalized_header_sibling_hash, 0, &vec![example_tx()],),
+				false,
+			);
+		});
+	}
+
+	#[test]
+	fn verify_transaction_finalized_rejects_finalized_header_uncle() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let mut finalized_header_uncle = example_header_parent();
+			finalized_header_uncle.timestamp = 1;
+			let finalized_header_uncle_hash = finalized_header_uncle.hash();
+
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+			insert_header(&mut storage, example_header_parent());
+			insert_header(&mut storage, finalized_header_uncle);
+			insert_header(&mut storage, example_header());
+			storage.finalize_headers(Some((example_header().number, example_header().hash())), None);
+			assert_eq!(
+				verify_transaction_finalized(&storage, finalized_header_uncle_hash, 0, &vec![example_tx()],),
+				false,
+			);
+		});
+	}
+
+	#[test]
+	fn verify_transaction_finalized_rejects_invalid_proof() {
+		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
+			let storage = BridgeStorage::<TestRuntime>::new();
+			assert_eq!(
+				verify_transaction_finalized(&storage, example_header().hash(), 0, &vec![example_tx(), example_tx(),],),
+				false,
 			);
 		});
 	}

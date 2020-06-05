@@ -134,7 +134,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 
 	// the heaviest, but rare operation - we do not want invalid receipts in the pool
 	if let Some(receipts) = receipts {
-		if !header.check_transactions_receipts(receipts) {
+		if !header.verify_receipts_root(receipts) {
 			return Err(Error::TransactionsReceiptsMismatch);
 		}
 	}
