@@ -43,6 +43,9 @@ impl_fixed_hash_rlp!(H520, 65);
 #[cfg(feature = "std")]
 impl_fixed_hash_serde!(H520, 65);
 
+/// Raw (RLP-encoded) ethereum transaction.
+pub type RawTransaction = Vec<u8>;
+
 /// An ethereum address.
 pub type Address = H160;
 
@@ -81,6 +84,21 @@ pub struct Header {
 	pub difficulty: U256,
 	/// Vector of post-RLP-encoded fields.
 	pub seal: Vec<Bytes>,
+}
+
+/// Parsed ethereum transaction.
+#[derive(Debug, PartialEq)]
+pub struct Transaction {
+	/// Sender address.
+	pub sender: Address,
+	/// Sender nonce.
+	pub nonce: U256,
+	/// Transaction destination address. None if it is contract creation transaction.
+	pub to: Option<Address>,
+	/// Transaction value.
+	pub value: U256,
+	/// Transaction payload.
+	pub payload: Bytes,
 }
 
 /// Information describing execution of a transaction.
@@ -143,23 +161,14 @@ impl Header {
 		keccak_256(&self.rlp(true)).into()
 	}
 
-	/// Check if passed transactions receipts are matching this header.
-	pub fn check_transactions_receipts(&self, receipts: &Vec<Receipt>) -> bool {
-		struct Keccak256Hasher;
+	/// Check if passed transactions receipts are matching receipts root in this header.
+	pub fn verify_receipts_root(&self, receipts: &[Receipt]) -> bool {
+		verify_merkle_proof(self.receipts_root, receipts.iter().map(|r| r.rlp()))
+	}
 
-		impl hash_db::Hasher for Keccak256Hasher {
-			type Out = H256;
-			type StdHasher = plain_hasher::PlainHasher;
-			const LENGTH: usize = 32;
-			fn hash(x: &[u8]) -> Self::Out {
-				keccak_256(x).into()
-			}
-		}
-
-		let receipts = receipts.iter().map(|r| r.rlp());
-		let actual_root = triehash::ordered_trie_root::<Keccak256Hasher, _>(receipts);
-		let expected_root = self.receipts_root;
-		actual_root == expected_root
+	/// Check if passed transactions are matching transactions root in this header.
+	pub fn verify_transactions_root(&self, transactions: &[RawTransaction]) -> bool {
+		verify_merkle_proof(self.transactions_root, transactions.into_iter())
 	}
 
 	/// Gets the seal hash of this header.
@@ -335,12 +344,92 @@ impl std::fmt::Debug for Bloom {
 	}
 }
 
+/// Decode Ethereum transaction.
+pub fn transaction_decode(raw_tx: &[u8]) -> Result<Transaction, rlp::DecoderError> {
+	// parse transaction fields
+	let tx_rlp = Rlp::new(raw_tx);
+	let nonce: U256 = tx_rlp.val_at(0)?;
+	let gas_price = tx_rlp.at(1)?;
+	let gas = tx_rlp.at(2)?;
+	let action = tx_rlp.at(3)?;
+	let to = match action.is_empty() {
+		false => Some(action.as_val()?),
+		true => None,
+	};
+	let value: U256 = tx_rlp.val_at(4)?;
+	let payload: Bytes = tx_rlp.val_at(5)?;
+	let v: u64 = tx_rlp.val_at(6)?;
+	let r: U256 = tx_rlp.val_at(7)?;
+	let s: U256 = tx_rlp.val_at(8)?;
+
+	// reconstruct signature
+	let mut signature = [0u8; 65];
+	let (chain_id, v) = match v {
+		v if v == 27u64 => (None, 0),
+		v if v == 28u64 => (None, 1),
+		v if v >= 35u64 => (Some((v - 35) / 2), ((v - 1) % 2) as u8),
+		_ => (None, 4),
+	};
+	r.to_big_endian(&mut signature[0..32]);
+	s.to_big_endian(&mut signature[32..64]);
+	signature[64] = v;
+
+	// reconstruct message that has been signed
+	let mut message = RlpStream::new_list(if chain_id.is_some() { 9 } else { 6 });
+	message.append(&nonce);
+	message.append_raw(gas_price.as_raw(), 1);
+	message.append_raw(gas.as_raw(), 1);
+	message.append_raw(action.as_raw(), 1);
+	message.append(&value);
+	message.append(&payload);
+	if let Some(chain_id) = chain_id {
+		message.append(&chain_id);
+		message.append(&0u8);
+		message.append(&0u8);
+	}
+	let message = keccak_256(&message.out());
+
+	// recover tx sender
+	let sender_public = sp_io::crypto::secp256k1_ecdsa_recover(&signature, &message)
+		.map_err(|_| rlp::DecoderError::Custom("Failed to recover transaction sender"))?;
+	let sender_address = public_to_address(&sender_public);
+
+	Ok(Transaction {
+		sender: sender_address,
+		nonce,
+		to,
+		value,
+		payload,
+	})
+}
+
 /// Convert public key into corresponding ethereum address.
 pub fn public_to_address(public: &[u8; 64]) -> Address {
 	let hash = keccak_256(public);
 	let mut result = Address::zero();
 	result.as_bytes_mut().copy_from_slice(&hash[12..]);
 	result
+}
+
+/// Verify ethereum merkle proof.
+fn verify_merkle_proof<T: AsRef<[u8]>>(expected_root: H256, items: impl Iterator<Item = T>) -> bool {
+	compute_merkle_root(items) == expected_root
+}
+
+/// Compute ethereum merkle root.
+pub fn compute_merkle_root<T: AsRef<[u8]>>(items: impl Iterator<Item = T>) -> H256 {
+	struct Keccak256Hasher;
+
+	impl hash_db::Hasher for Keccak256Hasher {
+		type Out = H256;
+		type StdHasher = plain_hasher::PlainHasher;
+		const LENGTH: usize = 32;
+		fn hash(x: &[u8]) -> Self::Out {
+			keccak_256(x).into()
+		}
+	}
+
+	triehash::ordered_trie_root::<Keccak256Hasher, _>(items)
 }
 
 sp_api::decl_runtime_apis! {
@@ -356,5 +445,77 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns true if header is known to the runtime.
 		fn is_known_block(hash: H256) -> bool;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use hex_literal::hex;
+
+	#[test]
+	fn transfer_transaction_decode_works() {
+		// value transfer transaction
+		// https://etherscan.io/tx/0xb9d4ad5408f53eac8627f9ccd840ba8fb3469d55cd9cc2a11c6e049f1eef4edd
+		// https://etherscan.io/getRawTx?tx=0xb9d4ad5408f53eac8627f9ccd840ba8fb3469d55cd9cc2a11c6e049f1eef4edd
+		let raw_tx = hex!("f86c0a85046c7cfe0083016dea94d1310c1e038bc12865d3d3997275b3e4737c6302880b503be34d9fe80080269fc7eaaa9c21f59adf8ad43ed66cf5ef9ee1c317bd4d32cd65401e7aaca47cfaa0387d79c65b90be6260d09dcfb780f29dd8133b9b1ceb20b83b7e442b4bfc30cb");
+		assert_eq!(
+			transaction_decode(&raw_tx),
+			Ok(Transaction {
+				sender: hex!("67835910d32600471f388a137bbff3eb07993c04").into(),
+				nonce: 10.into(),
+				to: Some(hex!("d1310c1e038bc12865d3d3997275b3e4737c6302").into()),
+				value: 815217380000000000_u64.into(),
+				payload: Default::default(),
+			}),
+		);
+
+		// Kovan value transfer transaction
+		// https://kovan.etherscan.io/tx/0x3b4b7bd41c1178045ccb4753aa84c1ef9864b4d712fa308b228917cd837915da
+		// https://kovan.etherscan.io/getRawTx?tx=0x3b4b7bd41c1178045ccb4753aa84c1ef9864b4d712fa308b228917cd837915da
+		let raw_tx = hex!("f86a822816808252089470c1ccde719d6f477084f07e4137ab0e55f8369f8930cf46e92063afd8008078a00e4d1f4d8aa992bda3c105ff3d6e9b9acbfd99facea00985e2131029290adbdca028ea29a46a4b66ec65b454f0706228e3768cb0ecf755f67c50ddd472f11d5994");
+		assert_eq!(
+			transaction_decode(&raw_tx),
+			Ok(Transaction {
+				sender: hex!("faadface3fbd81ce37b0e19c0b65ff4234148132").into(),
+				nonce: 10262.into(),
+				to: Some(hex!("70c1ccde719d6f477084f07e4137ab0e55f8369f").into()),
+				value: 900379597077600000000_u128.into(),
+				payload: Default::default(),
+			}),
+		);
+	}
+
+	#[test]
+	fn payload_transaction_decode_works() {
+		// contract call transaction
+		// https://etherscan.io/tx/0xdc2b996b4d1d6922bf6dba063bfd70913279cb6170967c9bb80252aeb061cf65
+		// https://etherscan.io/getRawTx?tx=0xdc2b996b4d1d6922bf6dba063bfd70913279cb6170967c9bb80252aeb061cf65
+		let raw_tx = hex!("f8aa76850430e234008301500094dac17f958d2ee523a2206206994597c13d831ec780b844a9059cbb000000000000000000000000e08f35f66867a454835b25118f1e490e7f9e9a7400000000000000000000000000000000000000000000000000000000004c4b4025a0964e023999621dc3d4d831c43c71f7555beb6d1192dee81a3674b3f57e310f21a00f229edd86f841d1ee4dc48cc16667e2283817b1d39bae16ced10cd206ae4fd4");
+		assert_eq!(
+			transaction_decode(&raw_tx),
+			Ok(Transaction {
+				sender: hex!("2b9a4d37bdeecdf994c4c9ad7f3cf8dc632f7d70").into(),
+				nonce: 118.into(),
+				to: Some(hex!("dac17f958d2ee523a2206206994597c13d831ec7").into()),
+				value: 0.into(),
+				payload: hex!("a9059cbb000000000000000000000000e08f35f66867a454835b25118f1e490e7f9e9a7400000000000000000000000000000000000000000000000000000000004c4b40").to_vec().into(),
+			}),
+		);
+
+		// Kovan contract call transaction
+		// https://kovan.etherscan.io/tx/0x2904b4451d23665492239016b78da052d40d55fdebc7304b38e53cf6a37322cf
+		// https://kovan.etherscan.io/getRawTx?tx=0x2904b4451d23665492239016b78da052d40d55fdebc7304b38e53cf6a37322cf
+		let raw_tx = hex!("f8ac8302200b843b9aca00830271009484dd11eb2a29615303d18149c0dbfa24167f896680b844a9059cbb00000000000000000000000001503dfc5ad81bf630d83697e98601871bb211b600000000000000000000000000000000000000000000000000000000000027101ba0ce126d2cca81f5e245f292ff84a0d915c0a4ac52af5c51219db1e5d36aa8da35a0045298b79dac631907403888f9b04c2ab5509fe0cc31785276d30a40b915fcf9");
+		assert_eq!(
+			transaction_decode(&raw_tx),
+			Ok(Transaction {
+				sender: hex!("617da121abf03d4c1af572f5a4e313e26bef7bdc").into(),
+				nonce: 139275.into(),
+				to: Some(hex!("84dd11eb2a29615303d18149c0dbfa24167f8966").into()),
+				value: 0.into(),
+				payload: hex!("a9059cbb00000000000000000000000001503dfc5ad81bf630d83697e98601871bb211b60000000000000000000000000000000000000000000000000000000000002710").to_vec().into(),
+			}),
+		);
 	}
 }
