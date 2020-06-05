@@ -103,7 +103,7 @@ fn prepare_votes<S: Storage>(
 	// we only take ancestors that are not yet pruned and those signed by
 	// the same set of validators
 	let mut parent_empty_step_signers = empty_steps_signers(header);
-	let ancestry = ancestry(storage, header)
+	let ancestry = ancestry(storage, header.parent_hash)
 		.map(|(hash, header, submitter)| {
 			let mut signers = BTreeSet::new();
 			sp_std::mem::swap(&mut signers, &mut parent_empty_step_signers);
@@ -196,9 +196,8 @@ fn empty_step_signer(empty_step: &SealedEmptyStep, parent_hash: &H256) -> Option
 /// Return iterator of given header ancestors.
 pub(crate) fn ancestry<'a, S: Storage>(
 	storage: &'a S,
-	header: &Header,
+	mut parent_hash: H256,
 ) -> impl Iterator<Item = (H256, Header, Option<S::Submitter>)> + 'a {
-	let mut parent_hash = header.parent_hash.clone();
 	from_fn(move || {
 		let (header, submitter) = storage.header(&parent_hash)?;
 		if header.number == 0 {

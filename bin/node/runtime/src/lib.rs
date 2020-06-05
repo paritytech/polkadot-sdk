@@ -24,6 +24,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod exchange;
+
 pub mod kovan;
 
 use codec::{Decode, Encode};
@@ -47,11 +49,12 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{KeyOwnerProofSystem, Randomness},
+	traits::{Currency, ExistenceRequirement, KeyOwnerProofSystem, Randomness},
 	weights::{IdentityFee, RuntimeDbWeight, Weight},
 	StorageValue,
 };
 pub use pallet_balances::Call as BalancesCall;
+pub use pallet_bridge_currency_exchange::Call as BridgeCurrencyExchangeCall;
 pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
@@ -223,6 +226,46 @@ impl pallet_bridge_eth_poa::Trait for Runtime {
 	type OnHeadersSubmitted = ();
 }
 
+impl pallet_bridge_currency_exchange::Trait for Runtime {
+	type OnTransactionSubmitted = ();
+	type PeerBlockchain = exchange::EthBlockchain;
+	type PeerMaybeLockFundsTransaction = exchange::EthTransaction;
+	type RecipientsMap = sp_currency_exchange::IdentityRecipients<AccountId>;
+	type Amount = Balance;
+	type CurrencyConverter = sp_currency_exchange::IdentityCurrencyConverter<Balance>;
+	type DepositInto = DepositInto;
+}
+
+pub struct DepositInto;
+
+impl sp_currency_exchange::DepositInto for DepositInto {
+	type Recipient = AccountId;
+	type Amount = Balance;
+
+	fn deposit_into(recipient: Self::Recipient, amount: Self::Amount) -> sp_currency_exchange::Result<()> {
+		<pallet_balances::Module<Runtime> as Currency<AccountId>>::deposit_into_existing(&recipient, amount)
+			.map(|_| {
+				frame_support::debug::trace!(
+					target: "runtime",
+					"Deposited {} to {:?}",
+					amount,
+					recipient,
+				);
+			})
+			.map_err(|e| {
+				frame_support::debug::error!(
+					target: "runtime",
+					"Deposit of {} to {:?} has failed with: {:?}",
+					amount,
+					recipient,
+					e
+				);
+
+				sp_currency_exchange::Error::DepositFailed
+			})
+	}
+}
+
 impl pallet_grandpa::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
@@ -364,6 +407,7 @@ construct_runtime!(
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
 		BridgeEthPoA: pallet_bridge_eth_poa::{Module, Call, Config, Storage, ValidateUnsigned},
+		BridgeCurrencyExchange: pallet_bridge_currency_exchange::{Module, Call},
 	}
 );
 
