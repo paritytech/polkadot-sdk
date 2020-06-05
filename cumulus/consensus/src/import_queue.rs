@@ -101,6 +101,8 @@ pub fn import_queue<Client, Block: BlockT, I>(
 	client: Arc<Client>,
 	block_import: I,
 	inherent_data_providers: InherentDataProviders,
+	spawner: &impl sp_core::traits::SpawnBlocking,
+	registry: Option<&substrate_prometheus_endpoint::Registry>,
 ) -> ClientResult<BasicQueue<Block, I::Transaction>>
 where
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
@@ -119,5 +121,7 @@ where
 		Box::new(block_import),
 		None,
 		None,
+		spawner,
+		registry,
 	))
 }

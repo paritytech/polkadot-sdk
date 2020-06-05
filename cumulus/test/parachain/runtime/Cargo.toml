@@ -6,7 +6,7 @@ edition = '2018'
 
 [dependencies]
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "1.0.6", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false, features = ["derive"] }
 
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
@@ -36,7 +36,7 @@ cumulus-runtime = { path = "../../../runtime", default-features = false }
 cumulus-parachain-upgrade = { path = "../../../parachain-upgrade", default-features = false }
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.3" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.6" }
 
 [features]
 default = ['std']

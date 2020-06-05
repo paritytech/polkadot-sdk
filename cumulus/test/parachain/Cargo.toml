@@ -73,3 +73,4 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

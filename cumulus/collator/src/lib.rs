@@ -52,7 +52,7 @@ use log::{error, trace};
 use futures::task::Spawn;
 use futures::prelude::*;
 
-use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration, pin::Pin};
+use std::{marker::PhantomData, sync::Arc, time::Duration, pin::Pin};
 
 use parking_lot::Mutex;
 
@@ -186,7 +186,7 @@ where
 		Box::pin(async move {
 			let parent_state_root = *last_head.header.state_root();
 
-			let mut proposer = proposer_future
+			let proposer = proposer_future
 				.await
 				.map_err(|e| {
 					error!(
@@ -453,7 +453,7 @@ mod tests {
 		type Transaction = sc_client_api::TransactionFor<test_client::Backend, Block>;
 
 		fn propose(
-			&mut self,
+			self,
 			_: InherentData,
 			digest: DigestFor<Block>,
 			_: Duration,

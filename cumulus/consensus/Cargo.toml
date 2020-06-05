@@ -15,6 +15,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulu
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 
 # polkadot deps
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
