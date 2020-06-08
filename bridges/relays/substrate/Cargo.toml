@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-async-std = "=1.6.0"
+async-std = "=1.5.0"
 clap = "2.33.1"
 ctrlc = "3.1.4"
 derive_more = "0.99.7"
