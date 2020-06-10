@@ -216,12 +216,14 @@ impl pallet_aura::Trait for Runtime {
 }
 
 parameter_types! {
+	pub const FinalityVotesCachingInterval: Option<u64> = Some(16);
 	pub const KovanAuraConfiguration: pallet_bridge_eth_poa::AuraConfiguration = kovan::kovan_aura_configuration();
 	pub const KovanValidatorsConfiguration: pallet_bridge_eth_poa::ValidatorsConfiguration = kovan::kovan_validators_configuration();
 }
 
 impl pallet_bridge_eth_poa::Trait for Runtime {
 	type AuraConfiguration = KovanAuraConfiguration;
+	type FinalityVotesCachingInterval = FinalityVotesCachingInterval;
 	type ValidatorsConfiguration = KovanValidatorsConfiguration;
 	type OnHeadersSubmitted = ();
 }
@@ -495,7 +497,8 @@ impl_runtime_apis! {
 
 	impl sp_bridge_eth_poa::EthereumHeadersApi<Block> for Runtime {
 		fn best_block() -> (u64, sp_bridge_eth_poa::H256) {
-			BridgeEthPoA::best_block()
+			let best_block = BridgeEthPoA::best_block();
+			(best_block.number, best_block.hash)
 		}
 
 		fn is_import_requires_receipts(header: sp_bridge_eth_poa::Header) -> bool {
