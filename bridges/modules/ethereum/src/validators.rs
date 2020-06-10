@@ -16,7 +16,7 @@
 
 use crate::error::Error;
 use crate::{ChangeToEnact, Storage};
-use primitives::{Address, Header, LogEntry, Receipt, H256, U256};
+use primitives::{Address, Header, HeaderId, LogEntry, Receipt, U256};
 use sp_std::prelude::*;
 
 /// The hash of InitiateChange event of the validators set contract.
@@ -181,18 +181,45 @@ impl<'a> Validators<'a> {
 	/// Finalize changes when blocks are finalized.
 	pub fn finalize_validators_change<S: Storage>(
 		&self,
-		storage: &mut S,
-		finalized_blocks: &[(u64, H256, Option<S::Submitter>)],
+		storage: &S,
+		finalized_blocks: &[(HeaderId, Option<S::Submitter>)],
 	) -> Option<ChangeToEnact> {
-		for (_, finalized_hash, _) in finalized_blocks.iter().rev() {
-			if let Some(changes) = storage.scheduled_change(finalized_hash) {
-				return Some(ChangeToEnact {
-					signal_block: Some(*finalized_hash),
-					validators: changes.validators,
-				});
-			}
-		}
-		None
+		// if we haven't finalized any blocks, no changes may be finalized
+		let newest_finalized_id = match finalized_blocks.last().map(|(id, _)| id) {
+			Some(last_finalized_id) => last_finalized_id,
+			None => return None,
+		};
+		let oldest_finalized_id = finalized_blocks
+			.first()
+			.map(|(id, _)| id)
+			.expect("finalized_blocks is not empty; qed");
+
+		// try to directly go to the header that has scheduled last change
+		//
+		// if we're unable to create import context for some block, it means
+		// that the header has already been pruned => it and its ancestors had
+		// no scheduled changes
+		//
+		// if we're unable to find scheduled changes for some block, it means
+		// that these changes have been finalized already
+		storage
+			.import_context(None, &newest_finalized_id.hash)
+			.and_then(|context| context.last_signal_block())
+			.and_then(|signal_block| {
+				if signal_block.number >= oldest_finalized_id.number {
+					Some(signal_block)
+				} else {
+					None
+				}
+			})
+			.and_then(|signal_block| {
+				storage
+					.scheduled_change(&signal_block.hash)
+					.map(|change| ChangeToEnact {
+						signal_block: Some(signal_block),
+						validators: change.validators,
+					})
+			})
 	}
 
 	/// Returns source of validators that should author the header.
@@ -254,7 +281,10 @@ pub fn step_validator(header_validators: &[Address], header_step: u64) -> Addres
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use primitives::TransactionOutcome;
+	use crate::mock::{custom_test_ext, genesis, validators_addresses, TestRuntime};
+	use crate::{BridgeStorage, Headers, ScheduledChange, ScheduledChanges, StoredHeader};
+	use frame_support::StorageMap;
+	use primitives::{TransactionOutcome, H256};
 
 	pub(crate) fn validators_change_recept(parent_hash: H256) -> Receipt {
 		Receipt {
@@ -392,5 +422,73 @@ pub(crate) mod tests {
 			validators.extract_validators_change(&header, Some(Vec::new())),
 			Err(Error::TransactionsReceiptsMismatch),
 		);
+	}
+
+	fn try_finalize_with_scheduled_change(scheduled_at: Option<HeaderId>) -> Option<ChangeToEnact> {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let config = ValidatorsConfiguration::Single(ValidatorsSource::Contract(Default::default(), Vec::new()));
+			let validators = Validators::new(&config);
+			let storage = BridgeStorage::<TestRuntime>::new();
+
+			// when we're finailizing blocks 10...100
+			let id10 = HeaderId {
+				number: 10,
+				hash: [10; 32].into(),
+			};
+			let id100 = HeaderId {
+				number: 100,
+				hash: [100; 32].into(),
+			};
+			let finalized_blocks = vec![(id10, None), (id100, None)];
+			let header100 = StoredHeader::<u64> {
+				submitter: None,
+				header: Header {
+					number: 100,
+					..Default::default()
+				},
+				total_difficulty: 0.into(),
+				next_validators_set_id: 0,
+				last_signal_block: scheduled_at,
+			};
+			let scheduled_change = ScheduledChange {
+				validators: validators_addresses(1),
+				prev_signal_block: None,
+			};
+			Headers::<TestRuntime>::insert(id100.hash, header100);
+			if let Some(scheduled_at) = scheduled_at {
+				ScheduledChanges::insert(scheduled_at.hash, scheduled_change);
+			}
+
+			validators.finalize_validators_change(&storage, &finalized_blocks)
+		})
+	}
+
+	#[test]
+	fn finalize_validators_change_finalizes_scheduled_change() {
+		let id50 = HeaderId {
+			number: 50,
+			..Default::default()
+		};
+		assert_eq!(
+			try_finalize_with_scheduled_change(Some(id50)),
+			Some(ChangeToEnact {
+				signal_block: Some(id50),
+				validators: validators_addresses(1),
+			}),
+		);
+	}
+
+	#[test]
+	fn finalize_validators_change_does_not_finalize_when_changes_are_not_scheduled() {
+		assert_eq!(try_finalize_with_scheduled_change(None), None,);
+	}
+
+	#[test]
+	fn finalize_validators_change_does_not_finalize_changes_when_they_are_outside_of_range() {
+		let id5 = HeaderId {
+			number: 5,
+			..Default::default()
+		};
+		assert_eq!(try_finalize_with_scheduled_change(Some(id5)), None,);
 	}
 }
