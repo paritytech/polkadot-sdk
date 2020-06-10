@@ -19,7 +19,7 @@ use crate::finality::finalize_blocks;
 use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::verification::{is_importable_header, verify_aura_header};
 use crate::{AuraConfiguration, ChangeToEnact, Storage};
-use primitives::{Header, Receipt, H256};
+use primitives::{Header, HeaderId, Receipt};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Maximal number of headers behind best blocks that we are aiming to store. When there
@@ -64,7 +64,7 @@ pub fn import_headers<S: Storage>(
 
 		match import_result {
 			Ok((_, finalized)) => {
-				for (_, _, submitter) in finalized {
+				for (_, submitter) in finalized {
 					if let Some(submitter) = submitter {
 						*finalized_headers.entry(submitter).or_default() += 1;
 					}
@@ -84,7 +84,7 @@ pub fn import_headers<S: Storage>(
 /// Transactions receipts must be provided if `header_import_requires_receipts()`
 /// has returned true.
 ///
-/// Returns imported block hash.
+/// Returns imported block id and list of all finalized headers.
 pub fn import_header<S: Storage>(
 	storage: &mut S,
 	aura_config: &AuraConfiguration,
@@ -93,9 +93,9 @@ pub fn import_header<S: Storage>(
 	submitter: Option<S::Submitter>,
 	header: Header,
 	receipts: Option<Vec<Receipt>>,
-) -> Result<(H256, Vec<(u64, H256, Option<S::Submitter>)>), Error> {
+) -> Result<(HeaderId, Vec<(HeaderId, Option<S::Submitter>)>), Error> {
 	// first check that we are able to import this header at all
-	let (hash, prev_finalized_hash) = is_importable_header(storage, &header)?;
+	let (header_id, finalized_id) = is_importable_header(storage, &header)?;
 
 	// verify header
 	let import_context = verify_aura_header(storage, aura_config, submitter, &header)?;
@@ -108,9 +108,9 @@ pub fn import_header<S: Storage>(
 	let validators_set = import_context.validators_set();
 	let finalized_blocks = finalize_blocks(
 		storage,
-		&prev_finalized_hash,
-		(&validators_set.enact_block, &validators_set.validators),
-		&hash,
+		finalized_id,
+		(validators_set.enact_block, &validators_set.validators),
+		header_id,
 		import_context.submitter(),
 		&header,
 		aura_config.two_thirds_majority_transition,
@@ -120,35 +120,36 @@ pub fn import_header<S: Storage>(
 			signal_block: None,
 			validators,
 		})
-		.or_else(|| validators.finalize_validators_change(storage, &finalized_blocks));
+		.or_else(|| validators.finalize_validators_change(storage, &finalized_blocks.finalized_headers));
 
 	// NOTE: we can't return Err() from anywhere below this line
 	// (because otherwise we'll have inconsistent storage if transaction will fail)
 
 	// and finally insert the block
-	let (_, _, best_total_difficulty) = storage.best_block();
+	let (_, best_total_difficulty) = storage.best_block();
 	let total_difficulty = import_context.total_difficulty() + header.difficulty;
 	let is_best = total_difficulty > best_total_difficulty;
 	let header_number = header.number;
 	storage.insert_header(import_context.into_import_header(
 		is_best,
-		hash,
+		header_id,
 		header,
 		total_difficulty,
 		enacted_change,
 		scheduled_change,
+		finalized_blocks.votes,
 	));
 
 	// now mark finalized headers && prune old headers
 	storage.finalize_headers(
-		finalized_blocks.last().map(|(number, hash, _)| (*number, *hash)),
+		finalized_blocks.finalized_headers.last().map(|(id, _)| *id),
 		match is_best {
 			true => header_number.checked_sub(prune_depth),
 			false => None,
 		},
 	);
 
-	Ok((hash, finalized_blocks))
+	Ok((header_id, finalized_blocks.finalized_headers))
 }
 
 /// Returns true if transactions receipts are required to import given header.
@@ -178,7 +179,13 @@ mod tests {
 	fn rejects_finalized_block_competitors() {
 		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
-			storage.finalize_headers(Some((100, Default::default())), None);
+			storage.finalize_headers(
+				Some(HeaderId {
+					number: 100,
+					..Default::default()
+				}),
+				None,
+			);
 			assert_eq!(
 				import_header(
 					&mut storage,
@@ -239,7 +246,7 @@ mod tests {
 			let validators = validators(3);
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			let header = block_i(1, &validators);
-			let hash = header.hash();
+			let hash = header.compute_hash();
 			assert_eq!(
 				import_header(
 					&mut storage,
@@ -273,10 +280,10 @@ mod tests {
 
 			// header [0..11] are finalizing blocks [0; 9]
 			// => since we want to keep 10 finalized blocks, we aren't pruning anything
-			let mut latest_block_hash = Default::default();
+			let mut latest_block_id = Default::default();
 			for i in 1..11 {
 				let header = block_i(i, &validators);
-				let (rolling_last_block_hash, finalized_blocks) = import_header(
+				let (rolling_last_block_id, finalized_blocks) = import_header(
 					&mut storage,
 					&test_aura_config(),
 					&validators_config,
@@ -289,15 +296,15 @@ mod tests {
 				match i {
 					2..=10 => assert_eq!(
 						finalized_blocks,
-						vec![(i - 1, block_i(i - 1, &validators).hash(), Some(100))],
+						vec![(block_i(i - 1, &validators).compute_id(), Some(100))],
 						"At {}",
 						i,
 					),
 					_ => assert_eq!(finalized_blocks, vec![], "At {}", i),
 				}
-				latest_block_hash = rolling_last_block_hash;
+				latest_block_id = rolling_last_block_id;
 			}
-			assert!(storage.header(&genesis().hash()).is_some());
+			assert!(storage.header(&genesis().compute_hash()).is_some());
 
 			// header 11 finalizes headers [10] AND schedules change
 			// => we prune header#0
@@ -307,7 +314,7 @@ mod tests {
 					.parse()
 					.unwrap();
 			});
-			let (rolling_last_block_hash, finalized_blocks) = import_header(
+			let (rolling_last_block_id, finalized_blocks) = import_header(
 				&mut storage,
 				&test_aura_config(),
 				&validators_config,
@@ -315,23 +322,26 @@ mod tests {
 				Some(101),
 				header11.clone(),
 				Some(vec![crate::validators::tests::validators_change_recept(
-					latest_block_hash,
+					latest_block_id.hash,
 				)]),
 			)
 			.unwrap();
-			assert_eq!(finalized_blocks, vec![(10, block_i(10, &validators).hash(), Some(100))],);
-			assert!(storage.header(&genesis().hash()).is_none());
-			latest_block_hash = rolling_last_block_hash;
+			assert_eq!(
+				finalized_blocks,
+				vec![(block_i(10, &validators).compute_id(), Some(100))],
+			);
+			assert!(storage.header(&genesis().compute_hash()).is_none());
+			latest_block_id = rolling_last_block_id;
 
 			// and now let's say validators 1 && 2 went offline
 			// => in the range 12-25 no blocks are finalized, but we still continue to prune old headers
 			// until header#11 is met. we can't prune #11, because it schedules change
 			let mut step = 56;
-			let mut expected_blocks = vec![(11, header11.hash(), Some(101))];
+			let mut expected_blocks = vec![(header11.compute_id(), Some(101))];
 			for i in 12..25 {
 				let header = Header {
 					number: i as _,
-					parent_hash: latest_block_hash,
+					parent_hash: latest_block_id.hash,
 					gas_limit: 0x2000.into(),
 					author: validator(2).address(),
 					seal: vec![vec![step].into(), vec![].into()],
@@ -339,8 +349,8 @@ mod tests {
 					..Default::default()
 				};
 				let header = signed_header(&validators, header, step as _);
-				expected_blocks.push((i, header.hash(), Some(102)));
-				let (rolling_last_block_hash, finalized_blocks) = import_header(
+				expected_blocks.push((header.compute_id(), Some(102)));
+				let (rolling_last_block_id, finalized_blocks) = import_header(
 					&mut storage,
 					&test_aura_config(),
 					&validators_config,
@@ -351,7 +361,7 @@ mod tests {
 				)
 				.unwrap();
 				assert_eq!(finalized_blocks, vec![],);
-				latest_block_hash = rolling_last_block_hash;
+				latest_block_id = rolling_last_block_id;
 				step += 3;
 			}
 			assert_eq!(
@@ -367,7 +377,7 @@ mod tests {
 			step -= 2;
 			let header = Header {
 				number: 25,
-				parent_hash: latest_block_hash,
+				parent_hash: latest_block_id.hash,
 				gas_limit: 0x2000.into(),
 				author: validator(0).address(),
 				seal: vec![vec![step].into(), vec![].into()],

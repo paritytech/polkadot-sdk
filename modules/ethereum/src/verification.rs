@@ -18,26 +18,26 @@ use crate::error::Error;
 use crate::validators::{step_validator, Validators, ValidatorsConfiguration};
 use crate::{AuraConfiguration, ImportContext, PoolConfiguration, ScheduledChange, Storage};
 use codec::Encode;
-use primitives::{public_to_address, Address, Header, Receipt, SealedEmptyStep, H256, H520, U128, U256};
+use primitives::{public_to_address, Address, Header, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256};
 use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_std::{vec, vec::Vec};
 
 /// Pre-check to see if should try and import this header.
 /// Returns error if we should not try to import this block.
-/// Returns hash of the header and number of the last finalized block otherwise.
-pub fn is_importable_header<S: Storage>(storage: &S, header: &Header) -> Result<(H256, H256), Error> {
+/// Returns ID of passed header and best finalized header.
+pub fn is_importable_header<S: Storage>(storage: &S, header: &Header) -> Result<(HeaderId, HeaderId), Error> {
 	// we never import any header that competes with finalized header
-	let (finalized_block_number, finalized_block_hash) = storage.finalized_block();
-	if header.number <= finalized_block_number {
+	let finalized_id = storage.finalized_block();
+	if header.number <= finalized_id.number {
 		return Err(Error::AncientHeader);
 	}
 	// we never import any header with known hash
-	let hash = header.hash();
-	if storage.header(&hash).is_some() {
+	let id = header.compute_id();
+	if storage.header(&id.hash).is_some() {
 		return Err(Error::KnownHeader);
 	}
 
-	Ok((hash, finalized_block_hash))
+	Ok((id, finalized_id))
 }
 
 /// Try accept unsigned aura header into transaction pool.
@@ -50,7 +50,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 	receipts: Option<&Vec<Receipt>>,
 ) -> Result<(Vec<Vec<u8>>, Vec<Vec<u8>>), Error> {
 	// check if we can verify further
-	let (hash, _) = is_importable_header(storage, header)?;
+	let (header_id, _) = is_importable_header(storage, header)?;
 
 	// we can always do contextless checks
 	contextless_checks(config, header)?;
@@ -69,8 +69,8 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 	// => if we see header with number > maximal ever seen header number + LIMIT,
 	// => we consider this transaction invalid, but only at this moment (we do not want to ban it)
 	// => let's mark it as Unknown transaction
-	let (best_number, best_hash, _) = storage.best_block();
-	let difference = header.number.saturating_sub(best_number);
+	let (best_id, _) = storage.best_block();
+	let difference = header.number.saturating_sub(best_id.number);
 	if difference > pool_config.max_future_number_difference {
 		return Err(Error::UnsignedTooFarInTheFuture);
 	}
@@ -87,7 +87,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 	// previous headers here
 	// => we can at least 'verify' that headers comprise a chain by providing and requiring
 	// tag (header.number, header.hash)
-	let provides_header_number_and_hash_tag = (header.number, hash).encode();
+	let provides_header_number_and_hash_tag = header_id.encode();
 
 	// depending on whether parent header is available, we either perform full or 'shortened' check
 	let context = storage.import_context(None, &header.parent_hash);
@@ -109,7 +109,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 			// PoA chain AND that the header is produced either by previous, or next
 			// scheduled validators set change
 			let header_step = header.step().ok_or(Error::MissingStep)?;
-			let best_context = storage.import_context(None, &best_hash).expect(
+			let best_context = storage.import_context(None, &best_id.hash).expect(
 				"import context is None only when header is missing from the storage;\
 							best header is always in the storage; qed",
 			);
@@ -124,7 +124,11 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 			// since our parent is missing from the storage, we **DO** require it
 			// to be in the transaction pool
 			// (- 1 can't underflow because there's always best block in the header)
-			let requires_header_number_and_hash_tag = (header.number - 1, header.parent_hash).encode();
+			let requires_header_number_and_hash_tag = HeaderId {
+				number: header.number - 1,
+				hash: header.parent_hash,
+			}
+			.encode();
 			(
 				vec![requires_header_number_and_hash_tag],
 				vec![provides_number_and_authority_tag, provides_header_number_and_hash_tag],
@@ -313,7 +317,7 @@ fn find_next_validators_signal<S: Storage>(storage: &S, context: &ImportContext<
 
 	// if parent schedules validators set change, then it may be our set
 	// else we'll start with last known change
-	let mut current_set_signal_block = context.last_signal_block().cloned();
+	let mut current_set_signal_block = context.last_signal_block();
 	let mut next_scheduled_set: Option<ScheduledChange> = None;
 
 	loop {
@@ -325,7 +329,7 @@ fn find_next_validators_signal<S: Storage>(storage: &S, context: &ImportContext<
 				return next_scheduled_set.map(|scheduled_set| scheduled_set.validators)
 			}
 			None => return next_scheduled_set.map(|scheduled_set| scheduled_set.validators),
-			Some(current_set_signal_block) => storage.scheduled_change(&current_set_signal_block).expect(
+			Some(current_set_signal_block) => storage.scheduled_change(&current_set_signal_block.hash).expect(
 				"header that is associated with this change is not pruned;\
 					scheduled changes are only removed when header is pruned; qed",
 			),
@@ -386,12 +390,12 @@ mod tests {
 			let block1 = block_i(1, &validators);
 			insert_header(&mut storage, block1);
 			let block2 = block_i(2, &validators);
-			let block2_hash = block2.hash();
+			let block2_id = block2.compute_id();
 			insert_header(&mut storage, block2);
 			let block3 = block_i(3, &validators);
 			insert_header(&mut storage, block3);
 
-			FinalizedBlock::put((2, block2_hash));
+			FinalizedBlock::put(block2_id);
 
 			let validators_config =
 				ValidatorsConfiguration::Single(ValidatorsSource::Contract(Default::default(), Vec::new()));
@@ -415,7 +419,10 @@ mod tests {
 			ValidatorsSet {
 				validators: finalized_set,
 				signal_block: None,
-				enact_block: HeadersByNumber::get(&0).unwrap()[0].clone(),
+				enact_block: HeaderId {
+					number: 0,
+					hash: HeadersByNumber::get(&0).unwrap()[0],
+				},
 			},
 		);
 
@@ -423,7 +430,10 @@ mod tests {
 		let mut header = Headers::<TestRuntime>::get(&header_hash).unwrap();
 		header.next_validators_set_id = set_id;
 		if let Some(signalled_set) = signalled_set {
-			header.last_signal_block = Some(header.header.parent_hash);
+			header.last_signal_block = Some(HeaderId {
+				number: header.header.number - 1,
+				hash: header.header.parent_hash,
+			});
 			ScheduledChanges::insert(
 				header.header.parent_hash,
 				ScheduledChange {
@@ -554,7 +564,7 @@ mod tests {
 		assert_eq!(default_verify(&header), Err(Error::MissingParentBlock));
 
 		// when parent is in the storage
-		header.parent_hash = genesis().hash();
+		header.parent_hash = genesis().compute_hash();
 		assert_ne!(default_verify(&header), Err(Error::MissingParentBlock));
 	}
 
@@ -564,7 +574,7 @@ mod tests {
 		let mut header = Header {
 			seal: vec![vec![].into(), vec![].into()],
 			gas_limit: test_aura_config().min_gas_limit,
-			parent_hash: genesis().hash(),
+			parent_hash: genesis().compute_hash(),
 			..Default::default()
 		};
 		assert_eq!(default_verify(&header), Err(Error::MissingStep));
@@ -601,16 +611,16 @@ mod tests {
 			seal: vec![
 				vec![45].into(),
 				vec![142].into(),
-				SealedEmptyStep::rlp_of(&[sealed_empty_step(&validators, &genesis().hash(), 42)]),
+				SealedEmptyStep::rlp_of(&[sealed_empty_step(&validators, &genesis().compute_hash(), 42)]),
 			],
 			gas_limit: test_aura_config().min_gas_limit,
-			parent_hash: genesis().hash(),
+			parent_hash: genesis().compute_hash(),
 			..Default::default()
 		};
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
 
 		// when empty step signature check fails
-		let mut wrong_sealed_empty_step = sealed_empty_step(&validators, &genesis().hash(), 43);
+		let mut wrong_sealed_empty_step = sealed_empty_step(&validators, &genesis().compute_hash(), 43);
 		wrong_sealed_empty_step.signature = Default::default();
 		header.seal[2] = SealedEmptyStep::rlp_of(&[wrong_sealed_empty_step]);
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
@@ -618,15 +628,15 @@ mod tests {
 		// when we are accepting strict empty steps and they come not in order
 		config.strict_empty_steps_transition = 0;
 		header.seal[2] = SealedEmptyStep::rlp_of(&[
-			sealed_empty_step(&validators, &genesis().hash(), 44),
-			sealed_empty_step(&validators, &genesis().hash(), 43),
+			sealed_empty_step(&validators, &genesis().compute_hash(), 44),
+			sealed_empty_step(&validators, &genesis().compute_hash(), 43),
 		]);
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
 
 		// when empty steps are OK
 		header.seal[2] = SealedEmptyStep::rlp_of(&[
-			sealed_empty_step(&validators, &genesis().hash(), 43),
-			sealed_empty_step(&validators, &genesis().hash(), 44),
+			sealed_empty_step(&validators, &genesis().compute_hash(), 43),
+			sealed_empty_step(&validators, &genesis().compute_hash(), 44),
 		]);
 		assert_ne!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
 	}
@@ -640,7 +650,7 @@ mod tests {
 		let mut header = Header {
 			seal: vec![vec![43].into(), vec![].into()],
 			gas_limit: test_aura_config().min_gas_limit,
-			parent_hash: genesis().hash(),
+			parent_hash: genesis().compute_hash(),
 			..Default::default()
 		};
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InvalidDifficulty));
@@ -659,7 +669,7 @@ mod tests {
 				author: validators[1].address().as_fixed_bytes().into(),
 				seal: vec![vec![43].into(), vec![].into()],
 				gas_limit: test_aura_config().min_gas_limit,
-				parent_hash: genesis().hash(),
+				parent_hash: genesis().compute_hash(),
 				..Default::default()
 			},
 			43,
@@ -787,7 +797,7 @@ mod tests {
 		assert_eq!(
 			default_accept_into_pool(|validators| {
 				let header = block_i(4, &validators);
-				hash = Some(header.hash());
+				hash = Some(header.compute_hash());
 				(header, None)
 			}),
 			Ok((
@@ -819,7 +829,7 @@ mod tests {
 					},
 					47,
 				);
-				hash = Some(header.hash());
+				hash = Some(header.compute_hash());
 				(header, None)
 			}),
 			Ok((
@@ -879,7 +889,7 @@ mod tests {
 					},
 					47,
 				);
-				hash = Some(header.hash());
+				hash = Some(header.compute_hash());
 
 				(header, None)
 			}),
@@ -919,7 +929,7 @@ mod tests {
 						.parse()
 						.unwrap();
 				});
-				hash = Some(header.hash());
+				hash = Some(header.compute_hash());
 				(header, Some(vec![validators_change_recept(Default::default())]))
 			}),
 			Ok((
