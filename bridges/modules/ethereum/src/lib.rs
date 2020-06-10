@@ -16,9 +16,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::finality::{CachedFinalityVotes, FinalityVotes};
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage, traits::Get};
-use primitives::{Address, Header, RawTransaction, Receipt, H256, U256};
+use primitives::{Address, Header, HeaderId, RawTransaction, Receipt, H256, U256};
 use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource, TransactionValidity,
@@ -93,7 +94,7 @@ pub struct StoredHeader<Submitter> {
 	/// Hash of the last block which has **SCHEDULED** validators set change.
 	/// Note that signal doesn't mean that the set has been (or ever will be) enacted.
 	/// Note that the header may already be pruned.
-	pub last_signal_block: Option<H256>,
+	pub last_signal_block: Option<HeaderId>,
 }
 
 /// Validators set as it is stored in the runtime storage.
@@ -103,9 +104,9 @@ pub struct ValidatorsSet {
 	/// Validators of this set.
 	pub validators: Vec<Address>,
 	/// Hash of the block where this set has been signalled. None if this is the first set.
-	pub signal_block: Option<H256>,
+	pub signal_block: Option<HeaderId>,
 	/// Hash of the block where this set has been enacted.
-	pub enact_block: H256,
+	pub enact_block: HeaderId,
 }
 
 /// Validators set change as it is stored in the runtime storage.
@@ -115,7 +116,7 @@ pub struct ScheduledChange {
 	/// Validators of this set.
 	pub validators: Vec<Address>,
 	/// Hash of the block which has emitted previous validators change signal.
-	pub prev_signal_block: Option<H256>,
+	pub prev_signal_block: Option<HeaderId>,
 }
 
 /// Header that we're importing.
@@ -126,8 +127,8 @@ pub struct HeaderToImport<Submitter> {
 	pub context: ImportContext<Submitter>,
 	/// Should we consider this header as best?
 	pub is_best: bool,
-	/// The hash of the header.
-	pub hash: H256,
+	/// The id of the header.
+	pub id: HeaderId,
 	/// The header itself.
 	pub header: Header,
 	/// Total chain difficulty at the header.
@@ -137,15 +138,17 @@ pub struct HeaderToImport<Submitter> {
 	pub enacted_change: Option<ChangeToEnact>,
 	/// Validators set scheduled change, if happened at the header.
 	pub scheduled_change: Option<Vec<Address>>,
+	/// Finality votes at this header.
+	pub finality_votes: FinalityVotes<Submitter>,
 }
 
 /// Header that we're importing.
 #[derive(RuntimeDebug)]
 #[cfg_attr(test, derive(Clone, PartialEq))]
 pub struct ChangeToEnact {
-	/// The hash of the header where change has been scheduled.
+	/// The id of the header where change has been scheduled.
 	/// None if it is a first set within current `ValidatorsSource`.
-	pub signal_block: Option<H256>,
+	pub signal_block: Option<HeaderId>,
 	/// Validators set that is enacted.
 	pub validators: Vec<Address>,
 }
@@ -179,7 +182,7 @@ pub struct ImportContext<Submitter> {
 	parent_scheduled_change: Option<ScheduledChange>,
 	validators_set_id: u64,
 	validators_set: ValidatorsSet,
-	last_signal_block: Option<H256>,
+	last_signal_block: Option<HeaderId>,
 }
 
 impl<Submitter> ImportContext<Submitter> {
@@ -215,10 +218,13 @@ impl<Submitter> ImportContext<Submitter> {
 
 	/// Returns reference to the latest block which has signalled change of validators set.
 	/// This may point to parent if parent has signalled change.
-	pub fn last_signal_block(&self) -> Option<&H256> {
+	pub fn last_signal_block(&self) -> Option<HeaderId> {
 		match self.parent_scheduled_change {
-			Some(_) => Some(&self.parent_hash),
-			None => self.last_signal_block.as_ref(),
+			Some(_) => Some(HeaderId {
+				number: self.parent_header.number,
+				hash: self.parent_hash,
+			}),
+			None => self.last_signal_block,
 		}
 	}
 
@@ -226,20 +232,22 @@ impl<Submitter> ImportContext<Submitter> {
 	pub fn into_import_header(
 		self,
 		is_best: bool,
-		hash: H256,
+		id: HeaderId,
 		header: Header,
 		total_difficulty: U256,
 		enacted_change: Option<ChangeToEnact>,
 		scheduled_change: Option<Vec<Address>>,
+		finality_votes: FinalityVotes<Submitter>,
 	) -> HeaderToImport<Submitter> {
 		HeaderToImport {
 			context: self,
 			is_best,
-			hash,
+			id,
 			header,
 			total_difficulty,
 			enacted_change,
 			scheduled_change,
+			finality_votes,
 		}
 	}
 }
@@ -251,14 +259,22 @@ pub trait Storage {
 	/// Header submitter identifier.
 	type Submitter: Clone + Ord;
 
-	/// Get best known block.
-	fn best_block(&self) -> (u64, H256, U256);
+	/// Get best known block and total chain difficulty.
+	fn best_block(&self) -> (HeaderId, U256);
 	/// Get last finalized block.
-	fn finalized_block(&self) -> (u64, H256);
+	fn finalized_block(&self) -> HeaderId;
 	/// Get imported header by its hash.
 	///
 	/// Returns header and its submitter (if known).
 	fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)>;
+	/// Returns latest cached finality votes (if any) for block ancestors, starting
+	/// from `parent_hash` block and stopping at genesis block, or block where `stop_at`
+	/// returns true.
+	fn cached_finality_votes(
+		&self,
+		parent_hash: &H256,
+		stop_at: impl Fn(&H256) -> bool,
+	) -> CachedFinalityVotes<Self::Submitter>;
 	/// Get header import context by parent header hash.
 	fn import_context(
 		&self,
@@ -275,7 +291,7 @@ pub trait Storage {
 	/// It is the storage duty to ensure that unfinalized headers that have
 	/// scheduled changes won't be pruned until they or their competitors
 	/// are finalized.
-	fn finalize_headers(&mut self, finalized: Option<(u64, H256)>, prune_end: Option<u64>);
+	fn finalize_headers(&mut self, finalized: Option<HeaderId>, prune_end: Option<u64>);
 }
 
 /// Decides whether the session should be ended.
@@ -302,10 +318,17 @@ impl<AccountId> OnHeadersSubmitted<AccountId> for () {
 	fn on_valid_headers_finalized(_submitter: AccountId, _finalized: u64) {}
 }
 
-/// The module configuration trait
+/// The module configuration trait.
 pub trait Trait: frame_system::Trait {
 	/// Aura configuration.
 	type AuraConfiguration: Get<AuraConfiguration>;
+	/// Interval (in blocks) for for finality votes caching.
+	/// If None, cache is disabled.
+	///
+	/// Ideally, this should either be None (when we are sure that there won't
+	/// be any significant finalization delays), or something that is bit larger
+	/// than average finalization delay.
+	type FinalityVotesCachingInterval: Get<Option<u64>>;
 	/// Validators configuration.
 	type ValidatorsConfiguration: Get<validators::ValidatorsConfiguration>;
 	/// Handler for headers submission result.
@@ -377,15 +400,17 @@ decl_module! {
 decl_storage! {
 	trait Store for Module<T: Trait> as Bridge {
 		/// Best known block.
-		BestBlock: (u64, H256, U256);
+		BestBlock: (HeaderId, U256);
 		/// Best finalized block.
-		FinalizedBlock: (u64, H256);
+		FinalizedBlock: HeaderId;
 		/// Range of blocks that we want to prune.
 		BlocksToPrune: PruningRange;
 		/// Map of imported headers by hash.
 		Headers: map hasher(identity) H256 => Option<StoredHeader<T::AccountId>>;
 		/// Map of imported header hashes by number.
 		HeadersByNumber: map hasher(blake2_128_concat) u64 => Option<Vec<H256>>;
+		/// Map of cached finality data by header hash.
+		FinalityCache: map hasher(identity) H256 => Option<FinalityVotes<T::AccountId>>;
 		/// The ID of next validator set.
 		NextValidatorsSetId: u64;
 		/// Map of validators sets by their id.
@@ -412,9 +437,13 @@ decl_storage! {
 				"Initial validators set can't be empty",
 			);
 
-			let initial_hash = config.initial_header.hash();
-			BestBlock::put((config.initial_header.number, initial_hash, config.initial_difficulty));
-			FinalizedBlock::put((config.initial_header.number, initial_hash));
+			let initial_hash = config.initial_header.compute_hash();
+			let initial_id = HeaderId {
+				number: config.initial_header.number,
+				hash: initial_hash,
+			};
+			BestBlock::put((initial_id, config.initial_difficulty));
+			FinalizedBlock::put(initial_id);
 			BlocksToPrune::put(PruningRange {
 				oldest_unpruned_block: config.initial_header.number,
 				oldest_block_to_keep: config.initial_header.number,
@@ -431,7 +460,7 @@ decl_storage! {
 			ValidatorsSets::insert(0, ValidatorsSet {
 				validators: config.initial_validators.clone(),
 				signal_block: None,
-				enact_block: initial_hash,
+				enact_block: initial_id,
 			});
 			ValidatorsSetsRc::insert(0, 1);
 		})
@@ -442,9 +471,8 @@ impl<T: Trait> Module<T> {
 	/// Returns number and hash of the best block known to the bridge module.
 	/// The caller should only submit `import_header` transaction that makes
 	/// (or leads to making) other header the best one.
-	pub fn best_block() -> (u64, H256) {
-		let (number, hash, _) = BridgeStorage::<T>::new().best_block();
-		(number, hash)
+	pub fn best_block() -> HeaderId {
+		BridgeStorage::<T>::new().best_block().0
 	}
 
 	/// Returns true if the import of given block requires transactions receipts.
@@ -580,6 +608,7 @@ impl<T: Trait> BridgeStorage<T> {
 		while let Some(hash) = blocks_at_number.pop() {
 			let header = Headers::<T>::take(&hash);
 			ScheduledChanges::remove(hash);
+			FinalityCache::<T>::remove(hash);
 			if let Some(header) = header {
 				ValidatorsSetsRc::mutate(header.next_validators_set_id, |rc| match *rc {
 					Some(rc) if rc > 1 => Some(rc - 1),
@@ -599,16 +628,51 @@ impl<T: Trait> BridgeStorage<T> {
 impl<T: Trait> Storage for BridgeStorage<T> {
 	type Submitter = T::AccountId;
 
-	fn best_block(&self) -> (u64, H256, U256) {
+	fn best_block(&self) -> (HeaderId, U256) {
 		BestBlock::get()
 	}
 
-	fn finalized_block(&self) -> (u64, H256) {
+	fn finalized_block(&self) -> HeaderId {
 		FinalizedBlock::get()
 	}
 
 	fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)> {
 		Headers::<T>::get(hash).map(|header| (header.header, header.submitter))
+	}
+
+	fn cached_finality_votes(
+		&self,
+		parent_hash: &H256,
+		stop_at: impl Fn(&H256) -> bool,
+	) -> CachedFinalityVotes<Self::Submitter> {
+		let mut votes = CachedFinalityVotes::default();
+		let mut current_hash = *parent_hash;
+		loop {
+			if stop_at(&current_hash) {
+				return votes;
+			}
+
+			let cached_votes = FinalityCache::<T>::get(&current_hash);
+			if let Some(cached_votes) = cached_votes {
+				votes.votes = Some(cached_votes);
+				return votes;
+			}
+
+			let header = match Headers::<T>::get(&current_hash) {
+				Some(header) if header.header.number != 0 => header,
+				_ => return votes,
+			};
+			let parent_hash = header.header.parent_hash;
+			let current_id = HeaderId {
+				number: header.header.number,
+				hash: current_hash,
+			};
+			votes
+				.unaccounted_ancestry
+				.push_back((current_id, header.submitter, header.header));
+
+			current_hash = parent_hash;
+		}
 	}
 
 	fn import_context(
@@ -639,11 +703,11 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 
 	fn insert_header(&mut self, header: HeaderToImport<Self::Submitter>) {
 		if header.is_best {
-			BestBlock::put((header.header.number, header.hash, header.total_difficulty));
+			BestBlock::put((header.id, header.total_difficulty));
 		}
 		if let Some(scheduled_change) = header.scheduled_change {
 			ScheduledChanges::insert(
-				&header.hash,
+				&header.id.hash,
 				ScheduledChange {
 					validators: scheduled_change,
 					prev_signal_block: header.context.last_signal_block,
@@ -661,7 +725,7 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 					next_validators_set_id,
 					ValidatorsSet {
 						validators: enacted_change.validators,
-						enact_block: header.hash,
+						enact_block: header.id,
 						signal_block: enacted_change.signal_block,
 					},
 				);
@@ -677,17 +741,25 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 			}
 		};
 
+		let finality_votes_caching_interval = T::FinalityVotesCachingInterval::get();
+		if let Some(finality_votes_caching_interval) = finality_votes_caching_interval {
+			let cache_entry_required = header.id.number != 0 && header.id.number % finality_votes_caching_interval == 0;
+			if cache_entry_required {
+				FinalityCache::<T>::insert(header.id.hash, header.finality_votes);
+			}
+		}
+
 		frame_support::debug::trace!(
 			target: "runtime",
 			"Inserting PoA header: ({}, {})",
 			header.header.number,
-			header.hash,
+			header.id.hash,
 		);
 
-		let last_signal_block = header.context.last_signal_block().cloned();
-		HeadersByNumber::append(header.header.number, header.hash);
+		let last_signal_block = header.context.last_signal_block();
+		HeadersByNumber::append(header.id.number, header.id.hash);
 		Headers::<T>::insert(
-			&header.hash,
+			&header.id.hash,
 			StoredHeader {
 				submitter: header.context.submitter,
 				header: header.header,
@@ -698,18 +770,18 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 		);
 	}
 
-	fn finalize_headers(&mut self, finalized: Option<(u64, H256)>, prune_end: Option<u64>) {
+	fn finalize_headers(&mut self, finalized: Option<HeaderId>, prune_end: Option<u64>) {
 		// remember just finalized block
 		let finalized_number = finalized
 			.as_ref()
-			.map(|f| f.0)
-			.unwrap_or_else(|| FinalizedBlock::get().0);
+			.map(|f| f.number)
+			.unwrap_or_else(|| FinalizedBlock::get().number);
 		if let Some(finalized) = finalized {
 			frame_support::debug::trace!(
 				target: "runtime",
 				"Finalizing PoA header: ({}, {})",
-				finalized.0,
-				finalized.1,
+				finalized.number,
+				finalized.hash,
 			);
 
 			FinalizedBlock::put(finalized);
@@ -735,21 +807,21 @@ pub fn verify_transaction_finalized<S: Storage>(
 		Some((header, _)) => header,
 		None => return false,
 	};
-	let (finalized_number, finalized_hash) = storage.finalized_block();
+	let finalized = storage.finalized_block();
 
 	// if header is not yet finalized => return
-	if header.number > finalized_number {
+	if header.number > finalized.number {
 		return false;
 	}
 
 	// check if header is actually finalized
-	let is_finalized = match header.number < finalized_number {
-		true => finality::ancestry(storage, finalized_hash)
-			.skip_while(|(_, ancestor, _)| ancestor.number > header.number)
-			.filter(|&(ancestor_hash, _, _)| ancestor_hash == block)
+	let is_finalized = match header.number < finalized.number {
+		true => ancestry(storage, finalized.hash)
+			.skip_while(|(_, ancestor)| ancestor.number > header.number)
+			.filter(|&(ancestor_hash, _)| ancestor_hash == block)
 			.next()
 			.is_some(),
-		false => block == finalized_hash,
+		false => block == finalized.hash,
 	};
 	if !is_finalized {
 		return false;
@@ -765,13 +837,48 @@ fn pool_configuration() -> PoolConfiguration {
 	}
 }
 
+/// Return iterator of given header ancestors.
+fn ancestry<'a, S: Storage>(storage: &'a S, mut parent_hash: H256) -> impl Iterator<Item = (H256, Header)> + 'a {
+	sp_std::iter::from_fn(move || {
+		let (header, _) = storage.header(&parent_hash)?;
+		if header.number == 0 {
+			return None;
+		}
+
+		let hash = parent_hash;
+		parent_hash = header.parent_hash;
+		Some((hash, header))
+	})
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
+	use crate::finality::FinalityAncestor;
 	use crate::mock::{
-		custom_block_i, custom_test_ext, genesis, insert_header, validators, validators_addresses, TestRuntime,
+		block_i, custom_block_i, custom_test_ext, genesis, insert_header, validators, validators_addresses, TestRuntime,
 	};
 	use primitives::compute_merkle_root;
+
+	fn example_tx() -> Vec<u8> {
+		vec![42]
+	}
+
+	fn example_header() -> Header {
+		let mut header = Header::default();
+		header.number = 2;
+		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
+		header.parent_hash = example_header_parent().compute_hash();
+		header
+	}
+
+	fn example_header_parent() -> Header {
+		let mut header = Header::default();
+		header.number = 1;
+		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
+		header.parent_hash = genesis().compute_hash();
+		header
+	}
 
 	fn with_headers_to_prune<T>(f: impl Fn(BridgeStorage<TestRuntime>) -> T) -> T {
 		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
@@ -782,7 +889,7 @@ pub(crate) mod tests {
 					let header = custom_block_i(i, &validators, |header| {
 						header.gas_limit = header.gas_limit + U256::from(j);
 					});
-					let hash = header.hash();
+					let hash = header.compute_hash();
 					headers_by_number.push(hash);
 					Headers::<TestRuntime>::insert(
 						hash,
@@ -935,24 +1042,97 @@ pub(crate) mod tests {
 		});
 	}
 
-	fn example_tx() -> Vec<u8> {
-		vec![42]
+	#[test]
+	fn finality_votes_are_cached() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+			let interval = <TestRuntime as Trait>::FinalityVotesCachingInterval::get().unwrap();
+
+			// for all headers with number < interval, cache entry is not created
+			let validators = validators(3);
+			for i in 1..interval {
+				let header = block_i(i, &validators);
+				let id = header.compute_id();
+				insert_header(&mut storage, header);
+				assert_eq!(FinalityCache::<TestRuntime>::get(&id.hash), None);
+			}
+
+			// for header with number = interval, cache entry is created
+			let header_with_entry = block_i(interval, &validators);
+			let header_with_entry_hash = header_with_entry.compute_hash();
+			insert_header(&mut storage, header_with_entry);
+			assert_eq!(
+				FinalityCache::<TestRuntime>::get(&header_with_entry_hash),
+				Some(Default::default()),
+			);
+
+			// when we later prune this header, cache entry is removed
+			BlocksToPrune::put(PruningRange {
+				oldest_unpruned_block: interval - 1,
+				oldest_block_to_keep: interval - 1,
+			});
+			storage.finalize_headers(None, Some(interval + 1));
+			assert_eq!(FinalityCache::<TestRuntime>::get(&header_with_entry_hash), None);
+		});
 	}
 
-	fn example_header() -> Header {
-		let mut header = Header::default();
-		header.number = 2;
-		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
-		header.parent_hash = example_header_parent().hash();
-		header
-	}
+	#[test]
+	fn cached_finality_votes_finds_entry() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			// insert 5 headers
+			let validators = validators(3);
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+			let mut headers = Vec::new();
+			for i in 1..5 {
+				let header = block_i(i, &validators);
+				headers.push(header.clone());
+				insert_header(&mut storage, header);
+			}
 
-	fn example_header_parent() -> Header {
-		let mut header = Header::default();
-		header.number = 1;
-		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
-		header.parent_hash = genesis().hash();
-		header
+			// when inserting header#6, entry isn't found
+			let hash5 = headers.last().unwrap().compute_hash();
+			assert_eq!(
+				storage.cached_finality_votes(&hash5, |_| false),
+				CachedFinalityVotes {
+					unaccounted_ancestry: headers
+						.iter()
+						.map(|header| (header.compute_id(), None, header.clone(),))
+						.rev()
+						.collect(),
+					votes: None,
+				},
+			);
+
+			// let's now create entry at #3
+			let hash3 = headers[2].compute_hash();
+			let votes_at_3 = FinalityVotes {
+				votes: vec![([42; 20].into(), 21)].into_iter().collect(),
+				ancestry: vec![FinalityAncestor {
+					id: HeaderId {
+						number: 100,
+						hash: Default::default(),
+					},
+					..Default::default()
+				}]
+				.into_iter()
+				.collect(),
+			};
+			FinalityCache::<TestRuntime>::insert(hash3, votes_at_3.clone());
+
+			// searching at #6 again => entry is found
+			assert_eq!(
+				storage.cached_finality_votes(&hash5, |_| false),
+				CachedFinalityVotes {
+					unaccounted_ancestry: headers
+						.iter()
+						.skip(3)
+						.map(|header| (header.compute_id(), None, header.clone(),))
+						.rev()
+						.collect(),
+					votes: Some(votes_at_3),
+				},
+			);
+		});
 	}
 
 	#[test]
@@ -960,7 +1140,7 @@ pub(crate) mod tests {
 		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().hash(), 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 0, &vec![example_tx()],),
 				true,
 			);
 		});
@@ -972,9 +1152,9 @@ pub(crate) mod tests {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
-			storage.finalize_headers(Some((example_header().number, example_header().hash())), None);
+			storage.finalize_headers(Some(example_header().compute_id()), None);
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header_parent().hash(), 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, example_header_parent().compute_hash(), 0, &vec![example_tx()],),
 				true,
 			);
 		});
@@ -985,7 +1165,7 @@ pub(crate) mod tests {
 		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().hash(), 1, &vec![],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &vec![],),
 				false,
 			);
 		});
@@ -996,7 +1176,7 @@ pub(crate) mod tests {
 		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().hash(), 1, &vec![],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &vec![],),
 				false,
 			);
 		});
@@ -1009,7 +1189,7 @@ pub(crate) mod tests {
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().hash(), 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 0, &vec![example_tx()],),
 				false,
 			);
 		});
@@ -1020,13 +1200,13 @@ pub(crate) mod tests {
 		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
 			let mut finalized_header_sibling = example_header();
 			finalized_header_sibling.timestamp = 1;
-			let finalized_header_sibling_hash = finalized_header_sibling.hash();
+			let finalized_header_sibling_hash = finalized_header_sibling.compute_hash();
 
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
 			insert_header(&mut storage, finalized_header_sibling);
-			storage.finalize_headers(Some((example_header().number, example_header().hash())), None);
+			storage.finalize_headers(Some(example_header().compute_id()), None);
 			assert_eq!(
 				verify_transaction_finalized(&storage, finalized_header_sibling_hash, 0, &vec![example_tx()],),
 				false,
@@ -1039,13 +1219,13 @@ pub(crate) mod tests {
 		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
 			let mut finalized_header_uncle = example_header_parent();
 			finalized_header_uncle.timestamp = 1;
-			let finalized_header_uncle_hash = finalized_header_uncle.hash();
+			let finalized_header_uncle_hash = finalized_header_uncle.compute_hash();
 
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, finalized_header_uncle);
 			insert_header(&mut storage, example_header());
-			storage.finalize_headers(Some((example_header().number, example_header().hash())), None);
+			storage.finalize_headers(Some(example_header().compute_id()), None);
 			assert_eq!(
 				verify_transaction_finalized(&storage, finalized_header_uncle_hash, 0, &vec![example_tx()],),
 				false,
@@ -1058,7 +1238,12 @@ pub(crate) mod tests {
 		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().hash(), 0, &vec![example_tx(), example_tx(),],),
+				verify_transaction_finalized(
+					&storage,
+					example_header().compute_hash(),
+					0,
+					&vec![example_tx(), example_tx(),],
+				),
 				false,
 			);
 		});

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::finality::FinalityVotes;
 use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
 use crate::{AuraConfiguration, GenesisConfig, HeaderToImport, HeadersByNumber, Storage, Trait};
 use frame_support::StorageMap;
@@ -70,12 +71,14 @@ impl frame_system::Trait for TestRuntime {
 }
 
 parameter_types! {
+	pub const TestFinalityVotesCachingInterval: Option<u64> = Some(16);
 	pub const TestAuraConfiguration: AuraConfiguration = test_aura_config();
 	pub const TestValidatorsConfiguration: ValidatorsConfiguration = test_validators_config();
 }
 
 impl Trait for TestRuntime {
 	type AuraConfiguration = TestAuraConfiguration;
+	type FinalityVotesCachingInterval = TestFinalityVotesCachingInterval;
 	type ValidatorsConfiguration = TestValidatorsConfiguration;
 	type OnHeadersSubmitted = ();
 }
@@ -171,10 +174,11 @@ pub fn insert_header<S: Storage>(storage: &mut S, header: Header) {
 	storage.insert_header(HeaderToImport {
 		context: storage.import_context(None, &header.parent_hash).unwrap(),
 		is_best: true,
-		hash: header.hash(),
+		id: header.compute_id(),
 		header,
 		total_difficulty: 0.into(),
 		enacted_change: None,
 		scheduled_change: None,
+		finality_votes: FinalityVotes::default(),
 	});
 }
