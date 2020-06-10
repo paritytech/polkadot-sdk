@@ -49,6 +49,15 @@ pub type RawTransaction = Vec<u8>;
 /// An ethereum address.
 pub type Address = H160;
 
+/// Complete header id.
+#[derive(Encode, Decode, Default, RuntimeDebug, PartialEq, Clone, Copy)]
+pub struct HeaderId {
+	/// Header number.
+	pub number: u64,
+	/// Header hash.
+	pub hash: H256,
+}
+
 /// An Aura header.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Default, Serialize, Deserialize))]
@@ -156,8 +165,16 @@ pub struct SealedEmptyStep {
 }
 
 impl Header {
-	/// Get the hash of this header (keccak of the RLP with seal).
-	pub fn hash(&self) -> H256 {
+	/// Compute id of this header.
+	pub fn compute_id(&self) -> HeaderId {
+		HeaderId {
+			number: self.number,
+			hash: self.compute_hash(),
+		}
+	}
+
+	/// Compute hash of this header (keccak of the RLP with seal).
+	pub fn compute_hash(&self) -> H256 {
 		keccak_256(&self.rlp(true)).into()
 	}
 
@@ -175,7 +192,7 @@ impl Header {
 	pub fn seal_hash(&self, include_empty_steps: bool) -> Option<H256> {
 		Some(match include_empty_steps {
 			true => {
-				let mut message = self.hash().as_bytes().to_vec();
+				let mut message = self.compute_hash().as_bytes().to_vec();
 				message.extend_from_slice(self.seal.get(2)?);
 				keccak_256(&message).into()
 			}
