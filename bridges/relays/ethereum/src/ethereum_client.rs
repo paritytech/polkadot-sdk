@@ -284,7 +284,7 @@ pub async fn submit_substrate_headers(
 				Some(contract_address),
 				Some(nonce),
 				false,
-				bridge_contract::functions::import_header::encode_input(header.extract().0.encode(),),
+				bridge_contract::functions::import_header::encode_input(header.header().encode(),),
 			)
 			.await
 		)
