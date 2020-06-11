@@ -16,11 +16,12 @@
 
 use crate::sync::HeadersSyncParams;
 use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader};
+
+use async_trait::async_trait;
 use futures::{future::FutureExt, stream::StreamExt};
 use num_traits::{Saturating, Zero};
 use std::{
 	collections::HashSet,
-	future::Future,
 	time::{Duration, Instant},
 };
 
@@ -48,69 +49,70 @@ pub type OwnedSourceFutureOutput<Client, P, T> = (Client, Result<T, <Client as S
 pub type OwnedTargetFutureOutput<Client, P, T> = (Client, Result<T, <Client as TargetClient<P>>::Error>);
 
 /// Source client trait.
+#[async_trait]
 pub trait SourceClient<P: HeadersSyncPipeline>: Sized {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
-	/// Future that returns best block number.
-	type BestBlockNumberFuture: Future<Output = OwnedSourceFutureOutput<Self, P, P::Number>>;
-	/// Future that returns header by hash.
-	type HeaderByHashFuture: Future<Output = OwnedSourceFutureOutput<Self, P, P::Header>>;
-	/// Future that returns header by number.
-	type HeaderByNumberFuture: Future<Output = OwnedSourceFutureOutput<Self, P, P::Header>>;
-	/// Future that returns extra data associated with header.
-	type HeaderExtraFuture: Future<Output = OwnedSourceFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, P::Extra)>>;
-	/// Future that returns data required to 'complete' header.
-	type HeaderCompletionFuture: Future<
-		Output = OwnedSourceFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, Option<P::Completion>)>,
-	>;
 
 	/// Get best block number.
-	fn best_block_number(self) -> Self::BestBlockNumberFuture;
+	async fn best_block_number(self) -> OwnedSourceFutureOutput<Self, P, P::Number>;
+
 	/// Get header by hash.
-	fn header_by_hash(self, hash: P::Hash) -> Self::HeaderByHashFuture;
+	async fn header_by_hash(self, hash: P::Hash) -> OwnedSourceFutureOutput<Self, P, P::Header>;
+
 	/// Get canonical header by number.
-	fn header_by_number(self, number: P::Number) -> Self::HeaderByNumberFuture;
-	/// Get extra data by header hash.
-	fn header_extra(self, id: HeaderId<P::Hash, P::Number>, header: &P::Header) -> Self::HeaderExtraFuture;
+	async fn header_by_number(self, number: P::Number) -> OwnedSourceFutureOutput<Self, P, P::Header>;
+
 	/// Get completion data by header hash.
-	fn header_completion(self, id: HeaderId<P::Hash, P::Number>) -> Self::HeaderCompletionFuture;
+	async fn header_completion(
+		self,
+		id: HeaderId<P::Hash, P::Number>,
+	) -> OwnedSourceFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, Option<P::Completion>)>;
+
+	/// Get extra data by header hash.
+	async fn header_extra(
+		self,
+		id: HeaderId<P::Hash, P::Number>,
+		header: QueuedHeader<P>,
+	) -> OwnedSourceFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, P::Extra)>;
 }
 
 /// Target client trait.
+#[async_trait]
 pub trait TargetClient<P: HeadersSyncPipeline>: Sized {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
-	/// Future that returns best header id.
-	type BestHeaderIdFuture: Future<Output = OwnedTargetFutureOutput<Self, P, HeaderId<P::Hash, P::Number>>>;
-	/// Future that returns known header check result.
-	type IsKnownHeaderFuture: Future<Output = OwnedTargetFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, bool)>>;
-	/// Future that returns extra check result.
-	type RequiresExtraFuture: Future<Output = OwnedTargetFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, bool)>>;
-	/// Future that returns header submission result.
-	type SubmitHeadersFuture: Future<Output = OwnedTargetFutureOutput<Self, P, Vec<HeaderId<P::Hash, P::Number>>>>;
-	/// Future that returns incomplete headers ids.
-	type IncompleteHeadersFuture: Future<
-		Output = OwnedTargetFutureOutput<Self, P, HashSet<HeaderId<P::Hash, P::Number>>>,
-	>;
-	/// Future that returns header completion result.
-	type CompleteHeadersFuture: Future<Output = OwnedTargetFutureOutput<Self, P, HeaderId<P::Hash, P::Number>>>;
 
 	/// Returns ID of best header known to the target node.
-	fn best_header_id(self) -> Self::BestHeaderIdFuture;
+	async fn best_header_id(self) -> OwnedTargetFutureOutput<Self, P, HeaderId<P::Hash, P::Number>>;
+
 	/// Returns true if header is known to the target node.
-	fn is_known_header(self, id: HeaderId<P::Hash, P::Number>) -> Self::IsKnownHeaderFuture;
-	/// Returns true if header requires extra data to be submitted.
-	fn requires_extra(self, header: &QueuedHeader<P>) -> Self::RequiresExtraFuture;
+	async fn is_known_header(
+		self,
+		id: HeaderId<P::Hash, P::Number>,
+	) -> OwnedTargetFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, bool)>;
+
 	/// Submit headers.
-	fn submit_headers(self, headers: Vec<QueuedHeader<P>>) -> Self::SubmitHeadersFuture;
+	async fn submit_headers(
+		self,
+		headers: Vec<QueuedHeader<P>>,
+	) -> OwnedTargetFutureOutput<Self, P, Vec<HeaderId<P::Hash, P::Number>>>;
+
 	/// Returns ID of headers that require to be 'completed' before children can be submitted.
-	fn incomplete_headers_ids(self) -> Self::IncompleteHeadersFuture;
+	async fn incomplete_headers_ids(self) -> OwnedTargetFutureOutput<Self, P, HashSet<HeaderId<P::Hash, P::Number>>>;
+
 	/// Submit completion data for header.
-	fn complete_header(
+	async fn complete_header(
 		self,
 		id: HeaderId<P::Hash, P::Number>,
 		completion: P::Completion,
-	) -> Self::CompleteHeadersFuture;
+	) -> OwnedTargetFutureOutput<Self, P, HeaderId<P::Hash, P::Number>>;
+
+	/// Returns true if header requires extra data to be submitted.
+	async fn requires_extra(
+		self,
+		header: QueuedHeader<P>,
+	) -> OwnedTargetFutureOutput<Self, P, (HeaderId<P::Hash, P::Number>, bool)>;
 }
 
 /// Run headers synchronization.
@@ -385,7 +387,7 @@ pub fn run<P: HeadersSyncPipeline>(
 						header.id(),
 					);
 
-					target_extra_check_future.set(target_client.requires_extra(header).fuse());
+					target_extra_check_future.set(target_client.requires_extra(header.clone()).fuse());
 				} else if let Some(header) = sync.headers().header(HeaderStatus::MaybeOrphan) {
 					// for MaybeOrphan we actually ask for parent' header existence
 					let parent_id = header.parent_id();
@@ -452,7 +454,7 @@ pub fn run<P: HeadersSyncPipeline>(
 						"Retrieving extra data for header: {:?}",
 						id,
 					);
-					source_extra_future.set(source_client.header_extra(id, header.header()).fuse());
+					source_extra_future.set(source_client.header_extra(id, header.clone()).fuse());
 				} else if let Some(header) = sync.headers().header(HeaderStatus::Orphan) {
 					// for Orphan we actually ask for parent' header
 					let parent_id = header.parent_id();

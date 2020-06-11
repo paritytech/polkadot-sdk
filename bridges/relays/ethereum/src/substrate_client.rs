@@ -380,10 +380,9 @@ fn create_signed_submit_transaction(
 			headers
 				.into_iter()
 				.map(|header| {
-					let (header, receipts) = header.extract();
 					(
-						into_substrate_ethereum_header(&header),
-						into_substrate_ethereum_receipts(&receipts),
+						into_substrate_ethereum_header(header.header()),
+						into_substrate_ethereum_receipts(header.extra()),
 					)
 				})
 				.collect(),
@@ -422,11 +421,10 @@ fn create_signed_submit_transaction(
 
 /// Create unsigned Substrate transaction for submitting Ethereum header.
 fn create_unsigned_submit_transaction(header: QueuedEthereumHeader) -> bridge_node_runtime::UncheckedExtrinsic {
-	let (header, receipts) = header.extract();
 	let function =
 		bridge_node_runtime::Call::BridgeEthPoA(bridge_node_runtime::BridgeEthPoACall::import_unsigned_header(
-			into_substrate_ethereum_header(&header),
-			into_substrate_ethereum_receipts(&receipts),
+			into_substrate_ethereum_header(header.header()),
+			into_substrate_ethereum_receipts(header.extra()),
 		));
 
 	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(function)
