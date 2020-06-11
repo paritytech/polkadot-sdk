@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::{ops::Deref, sync::Arc};
+
 /// Ethereum header Id.
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub struct HeaderId<Hash, Number>(pub Number, pub Hash);
@@ -70,7 +72,7 @@ pub trait HeadersSyncPipeline: Clone + Copy {
 		+ num_traits::Zero
 		+ num_traits::One;
 	/// Type of header that we're syncing.
-	type Header: Clone + std::fmt::Debug + SourceHeader<Self::Hash, Self::Number>;
+	type Header: Clone + std::fmt::Debug + PartialEq + SourceHeader<Self::Hash, Self::Number>;
 	/// Type of extra data for the header that we're receiving from the source node:
 	/// 1) extra data is required for some headers;
 	/// 2) target node may answer if it'll require extra data before header is submitted;
@@ -78,7 +80,7 @@ pub trait HeadersSyncPipeline: Clone + Copy {
 	/// 4) header and extra data are submitted in single transaction.
 	///
 	/// Example: Ethereum transactions receipts.
-	type Extra: Clone + std::fmt::Debug;
+	type Extra: Clone + PartialEq + std::fmt::Debug;
 	/// Type of data required to 'complete' header that we're receiving from the source node:
 	/// 1) completion data is required for some headers;
 	/// 2) target node can't answer if it'll require completion data before header is accepted;
@@ -101,19 +103,44 @@ pub trait SourceHeader<Hash, Number> {
 }
 
 /// Header how it's stored in the synchronization queue.
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct QueuedHeader<P: HeadersSyncPipeline>(Arc<QueuedHeaderData<P>>);
+
+impl<P: HeadersSyncPipeline> QueuedHeader<P> {
+	/// Creates new queued header.
+	pub fn new(header: P::Header) -> Self {
+		QueuedHeader(Arc::new(QueuedHeaderData { header, extra: None }))
+	}
+
+	/// Set associated extra data.
+	pub fn set_extra(self, extra: P::Extra) -> Self {
+		QueuedHeader(Arc::new(QueuedHeaderData {
+			header: Arc::try_unwrap(self.0)
+				.map(|data| data.header)
+				.unwrap_or_else(|data| data.header.clone()),
+			extra: Some(extra),
+		}))
+	}
+}
+
+impl<P: HeadersSyncPipeline> Deref for QueuedHeader<P> {
+	type Target = QueuedHeaderData<P>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+/// Header how it's stored in the synchronization queue.
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct QueuedHeader<P: HeadersSyncPipeline> {
+pub struct QueuedHeaderData<P: HeadersSyncPipeline> {
 	header: P::Header,
 	extra: Option<P::Extra>,
 }
 
 impl<P: HeadersSyncPipeline> QueuedHeader<P> {
-	/// Creates new queued header.
-	pub fn new(header: P::Header) -> Self {
-		QueuedHeader { header, extra: None }
-	}
-
 	/// Returns ID of header.
 	pub fn id(&self) -> HeaderId<P::Hash, P::Number> {
 		self.header.id()
@@ -132,16 +159,5 @@ impl<P: HeadersSyncPipeline> QueuedHeader<P> {
 	/// Returns reference to associated extra data.
 	pub fn extra(&self) -> &Option<P::Extra> {
 		&self.extra
-	}
-
-	/// Extract header and extra from self.
-	pub fn extract(self) -> (P::Header, Option<P::Extra>) {
-		(self.header, self.extra)
-	}
-
-	/// Set associated extra data.
-	pub fn set_extra(mut self, extra: P::Extra) -> Self {
-		self.extra = Some(extra);
-		self
 	}
 }
