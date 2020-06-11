@@ -12,37 +12,37 @@ sp-currency-exchange = { path = "../../primitives/currency-exchange", default-fe
 
 # Substrate Based Dependencies
 [dependencies.frame-support]
-version = "2.0.0-rc1"
+version = "2.0.0-rc3"
 default-features = false
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system]
-version = "2.0.0-rc1"
+version = "2.0.0-rc3"
 default-features = false
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-std]
-version = "2.0.0-rc1"
+version = "2.0.0-rc3"
 default-features = false
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc1"
+version = "2.0.0-rc3"
 default-features = false
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dev-dependencies.sp-core]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dev-dependencies.sp-io]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [features]
