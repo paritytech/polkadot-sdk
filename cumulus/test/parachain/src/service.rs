@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use ansi_term::Color;
 use std::sync::Arc;
 use sc_executor::native_executor_instance;
 use sc_service::{AbstractService, Configuration};
@@ -91,6 +92,7 @@ pub fn run_collator(
 	let block_announce_validator = DelayedBlockAnnounceValidator::new();
 	let block_announce_validator_copy = block_announce_validator.clone();
 	let service = builder
+		.with_informant_prefix(format!("[{}] ", Color::Yellow.bold().paint("Parachain")))?
 		.with_finality_proof_provider(|client, backend| {
 			// GenesisAuthoritySetProvider is implemented for StorageAndProofProvider
 			let provider = client as Arc<dyn StorageAndProofProvider<_, _>>;
@@ -130,6 +132,7 @@ pub fn run_collator(
 		crate::PARA_ID,
 		key,
 		polkadot_config,
+		Some(format!("[{}] ", Color::Blue.bold().paint("Relaychain"))),
 	).map(|_| ());
 	service.spawn_essential_task("polkadot", polkadot_future);
 

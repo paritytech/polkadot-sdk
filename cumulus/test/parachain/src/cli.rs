@@ -20,7 +20,7 @@ use sc_cli;
 use structopt::StructOpt;
 
 /// Sub-commands supported by the collator.
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, StructOpt)]
 pub enum Subcommand {
 	#[structopt(flatten)]
 	Base(sc_cli::Subcommand),
@@ -37,14 +37,14 @@ pub enum Subcommand {
 }
 
 /// Command for exporting the genesis state of the parachain
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, StructOpt)]
 pub struct ExportGenesisStateCommand {
 	/// Output file name or stdout if unspecified.
 	#[structopt(parse(from_os_str))]
 	pub output: Option<PathBuf>,
 }
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, StructOpt)]
 #[structopt(settings = &[
 	structopt::clap::AppSettings::GlobalVersion,
 	structopt::clap::AppSettings::ArgsNegateSubcommands,
@@ -62,7 +62,7 @@ pub struct Cli {
 	pub relaychain_args: Vec<String>,
 }
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, StructOpt)]
 pub struct PolkadotCli {
 	#[structopt(flatten)]
 	pub base: polkadot_cli::RunCmd,
