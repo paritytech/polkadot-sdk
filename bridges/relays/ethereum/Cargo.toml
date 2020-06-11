@@ -33,36 +33,36 @@ web3 = { git = "https://github.com/tomusdrw/rust-web3" }
 
 # Substrate Based Dependencies
 [dependencies.frame-system]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate.git"
 
 # I think this is used for sr-io and stuff
 [dependencies.node-primitives]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate.git"
 
 # Branch used for keccack256 hasher code
 # Could probably move the keccack hasher stuff to our own primitives
 [dependencies.sp-core]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-keyring]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc1"
-rev = "599ba75bc2b5acd238c21c5c7efe8e2ad8d401ee"
+version = "2.0.0-rc3"
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate.git"
 
 # This should get moved to our `bin` folder

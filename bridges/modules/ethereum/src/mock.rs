@@ -72,8 +72,8 @@ impl frame_system::Trait for TestRuntime {
 
 parameter_types! {
 	pub const TestFinalityVotesCachingInterval: Option<u64> = Some(16);
-	pub const TestAuraConfiguration: AuraConfiguration = test_aura_config();
-	pub const TestValidatorsConfiguration: ValidatorsConfiguration = test_validators_config();
+	pub TestAuraConfiguration: AuraConfiguration = test_aura_config();
+	pub TestValidatorsConfiguration: ValidatorsConfiguration = test_validators_config();
 }
 
 impl Trait for TestRuntime {

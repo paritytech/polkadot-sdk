@@ -18,7 +18,7 @@ use jsonrpsee::{
 	raw::client::{RawClient, RawClientError},
 	transport::TransportClient,
 };
-use node_primitives::{BlockNumber, Hash, Header};
+use node_primitives::{Hash, Header};
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
 
@@ -31,7 +31,7 @@ jsonrpsee::rpc_api! {
 		fn chain_finalized_head() -> Hash;
 
 		#[rpc(method = "chain_getBlockHash", positional_params)]
-		fn chain_block_hash(id: Option<NumberOrHex<BlockNumber>>) -> Option<Hash>;
+		fn chain_block_hash(id: Option<NumberOrHex>) -> Option<Hash>;
 
 		#[rpc(method = "chain_getHeader", positional_params)]
 		fn chain_header(hash: Option<Hash>) -> Option<Header>;
