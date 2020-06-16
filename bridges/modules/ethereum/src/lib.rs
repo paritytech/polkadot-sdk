@@ -286,15 +286,31 @@ pub trait Storage {
 	fn scheduled_change(&self, hash: &H256) -> Option<ScheduledChange>;
 	/// Insert imported header.
 	fn insert_header(&mut self, header: HeaderToImport<Self::Submitter>);
-	/// Finalize given block and prune all headers with number < prune_end.
+	/// Finalize given block and schedules pruning of all headers
+	/// with number < prune_end.
+	///
 	/// The headers in the pruning range could be either finalized, or not.
 	/// It is the storage duty to ensure that unfinalized headers that have
 	/// scheduled changes won't be pruned until they or their competitors
 	/// are finalized.
-	fn finalize_headers(&mut self, finalized: Option<HeaderId>, prune_end: Option<u64>);
+	fn finalize_and_prune_headers(&mut self, finalized: Option<HeaderId>, prune_end: u64);
 }
 
-/// Decides whether the session should be ended.
+/// Headers pruning strategy.
+pub trait PruningStrategy: Default {
+	/// Return upper bound (exclusive) of headers pruning range.
+	///
+	/// Every value that is returned from this function, must be greater or equal to the
+	/// previous value. Otherwise it will be ignored (we can't revert pruning).
+	///
+	/// Module may prune both finalized and unfinalized blocks. But it can't give any
+	/// guarantees on when it will happen. Example: if some unfinalized block at height N
+	/// has scheduled validators set change, then the module won't prune any blocks with
+	/// number >= N even if strategy allows that.
+	fn pruning_upper_bound(&mut self, best_number: u64, best_finalized_number: u64) -> u64;
+}
+
+/// Callbacks for header submission rewards/penalties.
 pub trait OnHeadersSubmitted<AccountId> {
 	/// Called when valid headers have been submitted.
 	///
@@ -322,6 +338,9 @@ impl<AccountId> OnHeadersSubmitted<AccountId> for () {
 pub trait Trait: frame_system::Trait {
 	/// Aura configuration.
 	type AuraConfiguration: Get<AuraConfiguration>;
+	/// Validators configuration.
+	type ValidatorsConfiguration: Get<validators::ValidatorsConfiguration>;
+
 	/// Interval (in blocks) for for finality votes caching.
 	/// If None, cache is disabled.
 	///
@@ -329,8 +348,9 @@ pub trait Trait: frame_system::Trait {
 	/// be any significant finalization delays), or something that is bit larger
 	/// than average finalization delay.
 	type FinalityVotesCachingInterval: Get<Option<u64>>;
-	/// Validators configuration.
-	type ValidatorsConfiguration: Get<validators::ValidatorsConfiguration>;
+	/// Headers pruning strategy.
+	type PruningStrategy: PruningStrategy;
+
 	/// Handler for headers submission result.
 	type OnHeadersSubmitted: OnHeadersSubmitted<Self::AccountId>;
 }
@@ -344,9 +364,9 @@ decl_module! {
 
 			import::import_header(
 				&mut BridgeStorage::<T>::new(),
+				&mut T::PruningStrategy::default(),
 				&T::AuraConfiguration::get(),
 				&T::ValidatorsConfiguration::get(),
-				crate::import::PRUNE_DEPTH,
 				None,
 				header,
 				receipts,
@@ -365,9 +385,9 @@ decl_module! {
 			let mut finalized_headers = BTreeMap::new();
 			let import_result = import::import_headers(
 				&mut BridgeStorage::<T>::new(),
+				&mut T::PruningStrategy::default(),
 				&T::AuraConfiguration::get(),
 				&T::ValidatorsConfiguration::get(),
-				crate::import::PRUNE_DEPTH,
 				Some(submitter.clone()),
 				headers_with_receipts,
 				&mut finalized_headers,
@@ -539,15 +559,13 @@ impl<T: Trait> BridgeStorage<T> {
 	}
 
 	/// Prune old blocks.
-	fn prune_blocks(&self, mut max_blocks_to_prune: u64, finalized_number: u64, prune_end: Option<u64>) {
+	fn prune_blocks(&self, mut max_blocks_to_prune: u64, finalized_number: u64, prune_end: u64) {
 		let pruning_range = BlocksToPrune::get();
 		let mut new_pruning_range = pruning_range.clone();
 
 		// update oldest block we want to keep
-		if let Some(prune_end) = prune_end {
-			if prune_end > new_pruning_range.oldest_block_to_keep {
-				new_pruning_range.oldest_block_to_keep = prune_end;
-			}
+		if prune_end > new_pruning_range.oldest_block_to_keep {
+			new_pruning_range.oldest_block_to_keep = prune_end;
 		}
 
 		// start pruning blocks
@@ -770,7 +788,7 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 		);
 	}
 
-	fn finalize_headers(&mut self, finalized: Option<HeaderId>, prune_end: Option<u64>) {
+	fn finalize_and_prune_headers(&mut self, finalized: Option<HeaderId>, prune_end: u64) {
 		// remember just finalized block
 		let finalized_number = finalized
 			.as_ref()
@@ -928,7 +946,7 @@ pub(crate) mod tests {
 			});
 
 			// try to prune blocks [5; 10)
-			storage.prune_blocks(0xFFFF, 10, Some(5));
+			storage.prune_blocks(0xFFFF, 10, 5);
 			assert_eq!(HeadersByNumber::get(&5).unwrap().len(), 5);
 			assert_eq!(
 				BlocksToPrune::get(),
@@ -949,7 +967,7 @@ pub(crate) mod tests {
 			});
 
 			// try to prune blocks [5; 10)
-			storage.prune_blocks(0xFFFF, 10, Some(3));
+			storage.prune_blocks(0xFFFF, 10, 3);
 			assert_eq!(
 				BlocksToPrune::get(),
 				PruningRange {
@@ -964,7 +982,7 @@ pub(crate) mod tests {
 	fn blocks_are_not_pruned_if_limit_is_zero() {
 		with_headers_to_prune(|storage| {
 			// try to prune blocks [0; 10)
-			storage.prune_blocks(0, 10, Some(10));
+			storage.prune_blocks(0, 10, 10);
 			assert!(HeadersByNumber::get(&0).is_some());
 			assert!(HeadersByNumber::get(&1).is_some());
 			assert!(HeadersByNumber::get(&2).is_some());
@@ -983,7 +1001,7 @@ pub(crate) mod tests {
 	fn blocks_are_pruned_if_limit_is_non_zero() {
 		with_headers_to_prune(|storage| {
 			// try to prune blocks [0; 10)
-			storage.prune_blocks(7, 10, Some(10));
+			storage.prune_blocks(7, 10, 10);
 			// 1 headers with number = 0 is pruned (1 total)
 			assert!(HeadersByNumber::get(&0).is_none());
 			// 5 headers with number = 1 are pruned (6 total)
@@ -999,7 +1017,7 @@ pub(crate) mod tests {
 			);
 
 			// try to prune blocks [2; 10)
-			storage.prune_blocks(11, 10, Some(10));
+			storage.prune_blocks(11, 10, 10);
 			// 4 headers with number = 2 are pruned (4 total)
 			assert!(HeadersByNumber::get(&2).is_none());
 			// 5 headers with number = 3 are pruned (9 total)
@@ -1023,7 +1041,7 @@ pub(crate) mod tests {
 			// last finalized block is 5
 			// and one of blocks#7 has scheduled change
 			// => we won't prune any block#7 at all
-			storage.prune_blocks(0xFFFF, 5, Some(10));
+			storage.prune_blocks(0xFFFF, 5, 10);
 			assert!(HeadersByNumber::get(&0).is_none());
 			assert!(HeadersByNumber::get(&1).is_none());
 			assert!(HeadersByNumber::get(&2).is_none());
@@ -1071,7 +1089,7 @@ pub(crate) mod tests {
 				oldest_unpruned_block: interval - 1,
 				oldest_block_to_keep: interval - 1,
 			});
-			storage.finalize_headers(None, Some(interval + 1));
+			storage.finalize_and_prune_headers(None, interval + 1);
 			assert_eq!(FinalityCache::<TestRuntime>::get(&header_with_entry_hash), None);
 		});
 	}
@@ -1152,7 +1170,7 @@ pub(crate) mod tests {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
-			storage.finalize_headers(Some(example_header().compute_id()), None);
+			storage.finalize_and_prune_headers(Some(example_header().compute_id()), 0);
 			assert_eq!(
 				verify_transaction_finalized(&storage, example_header_parent().compute_hash(), 0, &vec![example_tx()],),
 				true,
@@ -1206,7 +1224,7 @@ pub(crate) mod tests {
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
 			insert_header(&mut storage, finalized_header_sibling);
-			storage.finalize_headers(Some(example_header().compute_id()), None);
+			storage.finalize_and_prune_headers(Some(example_header().compute_id()), 0);
 			assert_eq!(
 				verify_transaction_finalized(&storage, finalized_header_sibling_hash, 0, &vec![example_tx()],),
 				false,
@@ -1225,7 +1243,7 @@ pub(crate) mod tests {
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, finalized_header_uncle);
 			insert_header(&mut storage, example_header());
-			storage.finalize_headers(Some(example_header().compute_id()), None);
+			storage.finalize_and_prune_headers(Some(example_header().compute_id()), 0);
 			assert_eq!(
 				verify_transaction_finalized(&storage, finalized_header_uncle_hash, 0, &vec![example_tx()],),
 				false,
