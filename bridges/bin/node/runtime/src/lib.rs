@@ -225,6 +225,7 @@ impl pallet_bridge_eth_poa::Trait for Runtime {
 	type AuraConfiguration = KovanAuraConfiguration;
 	type FinalityVotesCachingInterval = FinalityVotesCachingInterval;
 	type ValidatorsConfiguration = KovanValidatorsConfiguration;
+	type PruningStrategy = kovan::KovanPruningStrategy;
 	type OnHeadersSubmitted = ();
 }
 

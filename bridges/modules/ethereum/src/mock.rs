@@ -16,7 +16,7 @@
 
 use crate::finality::FinalityVotes;
 use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
-use crate::{AuraConfiguration, GenesisConfig, HeaderToImport, HeadersByNumber, Storage, Trait};
+use crate::{AuraConfiguration, GenesisConfig, HeaderToImport, HeadersByNumber, PruningStrategy, Storage, Trait};
 use frame_support::StorageMap;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use parity_crypto::publickey::{sign, KeyPair, Secret};
@@ -78,10 +78,14 @@ parameter_types! {
 
 impl Trait for TestRuntime {
 	type AuraConfiguration = TestAuraConfiguration;
-	type FinalityVotesCachingInterval = TestFinalityVotesCachingInterval;
 	type ValidatorsConfiguration = TestValidatorsConfiguration;
+	type FinalityVotesCachingInterval = TestFinalityVotesCachingInterval;
+	type PruningStrategy = KeepSomeHeadersBehindBest;
 	type OnHeadersSubmitted = ();
 }
+
+/// Step of genesis header.
+pub const GENESIS_STEP: u64 = 42;
 
 /// Aura configuration that is used in tests by default.
 pub fn test_aura_config() -> AuraConfiguration {
@@ -105,7 +109,7 @@ pub fn test_validators_config() -> ValidatorsConfiguration {
 /// Genesis header that is used in tests by default.
 pub fn genesis() -> Header {
 	Header {
-		seal: vec![vec![42].into(), vec![].into()],
+		seal: vec![vec![GENESIS_STEP as _].into(), vec![].into()],
 		..Default::default()
 	}
 }
@@ -123,12 +127,12 @@ pub fn custom_block_i(number: u64, validators: &[KeyPair], customize: impl FnOnc
 		parent_hash: HeadersByNumber::get(number - 1).unwrap()[0].clone(),
 		gas_limit: 0x2000.into(),
 		author: validator(validator_index).address(),
-		seal: vec![vec![number as u8 + 42].into(), vec![].into()],
+		seal: vec![vec![(number + GENESIS_STEP) as u8].into(), vec![].into()],
 		difficulty: number.into(),
 		..Default::default()
 	};
 	customize(&mut header);
-	signed_header(validators, header, number + 42)
+	signed_header(validators, header, number + GENESIS_STEP)
 }
 
 /// Build signed header from given header.
@@ -181,4 +185,19 @@ pub fn insert_header<S: Storage>(storage: &mut S, header: Header) {
 		scheduled_change: None,
 		finality_votes: FinalityVotes::default(),
 	});
+}
+
+/// Pruning strategy that keeps 10 headers behind best block.
+pub struct KeepSomeHeadersBehindBest(pub u64);
+
+impl Default for KeepSomeHeadersBehindBest {
+	fn default() -> KeepSomeHeadersBehindBest {
+		KeepSomeHeadersBehindBest(10)
+	}
+}
+
+impl PruningStrategy for KeepSomeHeadersBehindBest {
+	fn pruning_upper_bound(&mut self, best_number: u64, _: u64) -> u64 {
+		best_number.checked_sub(self.0).unwrap_or(0)
+	}
 }
