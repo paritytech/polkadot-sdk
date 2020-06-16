@@ -14,10 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::RuntimeDebug;
 use hex_literal::hex;
-use pallet_bridge_eth_poa::{AuraConfiguration, ValidatorsConfiguration, ValidatorsSource};
+use pallet_bridge_eth_poa::{AuraConfiguration, PruningStrategy, ValidatorsConfiguration, ValidatorsSource};
 use sp_bridge_eth_poa::{Address, Header, U256};
 use sp_std::prelude::*;
+
+/// Max number of finalized headers to keep. It is equivalent of ~24 hours of
+/// finalized blocks on current Kovan chain.
+const FINALIZED_HEADERS_TO_KEEP: u64 = 20_000;
 
 /// Aura engine configuration for Kovan chain.
 pub fn kovan_aura_configuration() -> AuraConfiguration {
@@ -100,5 +105,47 @@ pub fn kovan_genesis_header() -> Header {
 			]
 			.into(),
 		],
+	}
+}
+
+/// Kovan headers pruning strategy.
+///
+/// We do not prune unfinalized headers because exchange module only accepts
+/// claims from finalized headers. And if we're pruning unfinalized headers, then
+/// some claims may never be accepted.
+#[derive(Default, RuntimeDebug)]
+pub struct KovanPruningStrategy;
+
+impl PruningStrategy for KovanPruningStrategy {
+	fn pruning_upper_bound(&mut self, _best_number: u64, best_finalized_number: u64) -> u64 {
+		best_finalized_number
+			.checked_sub(FINALIZED_HEADERS_TO_KEEP)
+			.unwrap_or(0)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn pruning_strategy_keeps_enough_headers() {
+		assert_eq!(
+			KovanPruningStrategy::default().pruning_upper_bound(100_000, 10_000),
+			0,
+			"10_000 <= 20_000 => nothing should be pruned yet",
+		);
+
+		assert_eq!(
+			KovanPruningStrategy::default().pruning_upper_bound(100_000, 20_000),
+			0,
+			"20_000 <= 20_000 => nothing should be pruned yet",
+		);
+
+		assert_eq!(
+			KovanPruningStrategy::default().pruning_upper_bound(100_000, 30_000),
+			10_000,
+			"20_000 <= 30_000 => we're ready to prune first 10_000 headers",
+		);
 	}
 }
