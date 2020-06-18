@@ -268,11 +268,12 @@ pub trait Storage {
 	/// Returns header and its submitter (if known).
 	fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)>;
 	/// Returns latest cached finality votes (if any) for block ancestors, starting
-	/// from `parent_hash` block and stopping at genesis block, or block where `stop_at`
-	/// returns true.
+	/// from `parent_hash` block and stopping at genesis block, best finalized block
+	/// or block where `stop_at` returns true.
 	fn cached_finality_votes(
 		&self,
-		parent_hash: &H256,
+		parent: &HeaderId,
+		best_finalized: &HeaderId,
 		stop_at: impl Fn(&H256) -> bool,
 	) -> CachedFinalityVotes<Self::Submitter>;
 	/// Get header import context by parent header hash.
@@ -307,6 +308,12 @@ pub trait PruningStrategy: Default {
 	/// guarantees on when it will happen. Example: if some unfinalized block at height N
 	/// has scheduled validators set change, then the module won't prune any blocks with
 	/// number >= N even if strategy allows that.
+	///
+	/// If your strategy allows pruning unfinalized blocks, this could lead to switch
+	/// between finalized forks (only if authorities are misbehaving). But since 50%+1 (or 2/3)
+	/// authorities are able to do whatever they want with the chain, this isn't considered
+	/// fatal. If your strategy only prunes finalized blocks, we'll never be able to finalize
+	/// header that isn't descendant of current best finalized block.
 	fn pruning_upper_bound(&mut self, best_number: u64, best_finalized_number: u64) -> u64;
 }
 
@@ -660,36 +667,49 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 
 	fn cached_finality_votes(
 		&self,
-		parent_hash: &H256,
+		parent: &HeaderId,
+		best_finalized: &HeaderId,
 		stop_at: impl Fn(&H256) -> bool,
 	) -> CachedFinalityVotes<Self::Submitter> {
 		let mut votes = CachedFinalityVotes::default();
-		let mut current_hash = *parent_hash;
+		let mut current_id = *parent;
 		loop {
-			if stop_at(&current_hash) {
+			// if we have reached finalized block' sibling => stop with special signal
+			if current_id.number == best_finalized.number {
+				if current_id.hash != best_finalized.hash {
+					votes.stopped_at_finalized_sibling = true;
+					return votes;
+				}
+			}
+
+			// if we have reached target header => stop
+			if stop_at(&current_id.hash) {
 				return votes;
 			}
 
-			let cached_votes = FinalityCache::<T>::get(&current_hash);
+			// if we have found cached votes => stop
+			let cached_votes = FinalityCache::<T>::get(&current_id.hash);
 			if let Some(cached_votes) = cached_votes {
 				votes.votes = Some(cached_votes);
 				return votes;
 			}
 
-			let header = match Headers::<T>::get(&current_hash) {
+			// read next parent header id
+			let header = match Headers::<T>::get(&current_id.hash) {
 				Some(header) if header.header.number != 0 => header,
 				_ => return votes,
 			};
-			let parent_hash = header.header.parent_hash;
-			let current_id = HeaderId {
-				number: header.header.number,
-				hash: current_hash,
-			};
+			let parent_id = header.header.parent_id().expect(
+				"only returns None at genesis header;\
+					the header is proved to have number > 0;\
+					qed",
+			);
+
 			votes
 				.unaccounted_ancestry
 				.push_back((current_id, header.submitter, header.header));
 
-			current_hash = parent_hash;
+			current_id = parent_id;
 		}
 	}
 
@@ -1108,10 +1128,11 @@ pub(crate) mod tests {
 			}
 
 			// when inserting header#6, entry isn't found
-			let hash5 = headers.last().unwrap().compute_hash();
+			let id5 = headers.last().unwrap().compute_id();
 			assert_eq!(
-				storage.cached_finality_votes(&hash5, |_| false),
+				storage.cached_finality_votes(&id5, &genesis().compute_id(), |_| false),
 				CachedFinalityVotes {
+					stopped_at_finalized_sibling: false,
 					unaccounted_ancestry: headers
 						.iter()
 						.map(|header| (header.compute_id(), None, header.clone(),))
@@ -1139,8 +1160,9 @@ pub(crate) mod tests {
 
 			// searching at #6 again => entry is found
 			assert_eq!(
-				storage.cached_finality_votes(&hash5, |_| false),
+				storage.cached_finality_votes(&id5, &genesis().compute_id(), |_| false),
 				CachedFinalityVotes {
+					stopped_at_finalized_sibling: false,
 					unaccounted_ancestry: headers
 						.iter()
 						.skip(3)
@@ -1149,6 +1171,43 @@ pub(crate) mod tests {
 						.collect(),
 					votes: Some(votes_at_3),
 				},
+			);
+		});
+	}
+
+	#[test]
+	fn cached_finality_votes_stops_at_finalized_sibling() {
+		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+			let validators = validators(3);
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+
+			// insert header1
+			let header1 = block_i(1, &validators);
+			let header1_id = header1.compute_id();
+			insert_header(&mut storage, header1);
+
+			// insert header1' - sibling of header1
+			let header1s = custom_block_i(1, &validators, |header| {
+				header.gas_limit += 1.into();
+			});
+			let header1s_id = header1s.compute_id();
+			insert_header(&mut storage, header1s);
+
+			// header1 is finalized
+			FinalizedBlock::put(header1_id);
+
+			// trying to get finality votes when importing header2 -> header1 succeeds
+			assert!(
+				!storage
+					.cached_finality_votes(&header1_id, &genesis().compute_id(), |_| false)
+					.stopped_at_finalized_sibling
+			);
+
+			// trying to get finality votes when importing header2s -> header1s fails
+			assert!(
+				storage
+					.cached_finality_votes(&header1s_id, &header1_id, |_| false)
+					.stopped_at_finalized_sibling
 			);
 		});
 	}

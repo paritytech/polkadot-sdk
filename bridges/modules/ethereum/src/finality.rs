@@ -28,9 +28,13 @@ use sp_std::collections::{
 use sp_std::prelude::*;
 
 /// Cached finality votes for given block.
-#[derive(RuntimeDebug, Default)]
+#[derive(RuntimeDebug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct CachedFinalityVotes<Submitter> {
+	/// True if we have stopped at best finalized block' sibling. This means
+	/// that we are trying to finalize block from fork that has forked before
+	/// best finalized.
+	pub stopped_at_finalized_sibling: bool,
 	/// Header ancestors that were read while we have been searching for
 	/// cached votes entry. Newest header has index 0.
 	pub unaccounted_ancestry: VecDeque<(HeaderId, Option<Submitter>, Header)>,
@@ -88,10 +92,15 @@ pub fn finalize_blocks<S: Storage>(
 	// compute count of voters for every unfinalized block in ancestry
 	let validators = header_validators.1.iter().collect();
 	let votes = prepare_votes(
-		storage.cached_finality_votes(&header.parent_hash, |hash| {
-			*hash == header_validators.0.hash || *hash == best_finalized.hash
-		}),
-		best_finalized.number,
+		header
+			.parent_id()
+			.map(|parent_id| {
+				storage.cached_finality_votes(&parent_id, &best_finalized, |hash| {
+					*hash == header_validators.0.hash || *hash == best_finalized.hash
+				})
+			})
+			.unwrap_or_else(|| CachedFinalityVotes::default()),
+		best_finalized,
 		&validators,
 		id,
 		header,
@@ -133,12 +142,18 @@ fn is_finalized(
 /// Prepare 'votes' of header and its ancestors' signers.
 fn prepare_votes<Submitter>(
 	mut cached_votes: CachedFinalityVotes<Submitter>,
-	best_finalized_number: u64,
+	best_finalized: HeaderId,
 	validators: &BTreeSet<&Address>,
 	id: HeaderId,
 	header: &Header,
 	submitter: Option<Submitter>,
 ) -> Result<FinalityVotes<Submitter>, Error> {
+	// if we have reached finalized block sibling, then we're trying
+	// to switch finalized blocks
+	if cached_votes.stopped_at_finalized_sibling {
+		return Err(Error::TryingToFinalizeSibling);
+	}
+
 	// this fn can only work with single validators set
 	if !validators.contains(&header.author) {
 		return Err(Error::NotValidator);
@@ -154,7 +169,7 @@ fn prepare_votes<Submitter>(
 
 	// remove votes from finalized blocks
 	while let Some(old_ancestor) = votes.ancestry.pop_front() {
-		if old_ancestor.id.number > best_finalized_number {
+		if old_ancestor.id.number > best_finalized.number {
 			votes.ancestry.push_front(old_ancestor);
 			break;
 		}
@@ -245,6 +260,16 @@ fn empty_step_signer(empty_step: &SealedEmptyStep, parent_hash: &H256) -> Option
 		.map(|public| public_to_address(&public))
 }
 
+impl<Submitter> Default for CachedFinalityVotes<Submitter> {
+	fn default() -> Self {
+		CachedFinalityVotes {
+			stopped_at_finalized_sibling: false,
+			unaccounted_ancestry: VecDeque::new(),
+			votes: None,
+		}
+	}
+}
+
 impl<Submitter> Default for FinalityVotes<Submitter> {
 	fn default() -> Self {
 		FinalityVotes {
@@ -307,7 +332,7 @@ mod tests {
 			assert_eq!(
 				finalize_blocks(
 					&storage,
-					Default::default(),
+					genesis().compute_id(),
 					(Default::default(), &validators_addresses(5)),
 					id1,
 					None,
@@ -331,7 +356,7 @@ mod tests {
 			assert_eq!(
 				finalize_blocks(
 					&storage,
-					Default::default(),
+					genesis().compute_id(),
 					(Default::default(), &validators_addresses(5)),
 					id2,
 					None,
@@ -355,7 +380,7 @@ mod tests {
 			assert_eq!(
 				finalize_blocks(
 					&storage,
-					Default::default(),
+					genesis().compute_id(),
 					(Default::default(), &validators_addresses(5)),
 					id3,
 					None,
@@ -397,6 +422,7 @@ mod tests {
 		assert_eq!(
 			prepare_votes::<()>(
 				CachedFinalityVotes {
+					stopped_at_finalized_sibling: false,
 					unaccounted_ancestry: vec![(headers[3].compute_id(), None, headers[3].clone()),]
 						.into_iter()
 						.collect(),
@@ -407,7 +433,7 @@ mod tests {
 						ancestry: ancestry[..3].iter().cloned().collect(),
 					}),
 				},
-				2,
+				headers[1].compute_id(),
 				&validators.iter().collect(),
 				header5.compute_id(),
 				&header5,
@@ -471,8 +497,12 @@ mod tests {
 			let id7 = headers[6].compute_id();
 			assert_eq!(
 				prepare_votes(
-					storage.cached_finality_votes(&hashes.get(5).unwrap(), |_| false,),
-					0,
+					storage.cached_finality_votes(
+						&headers.get(5).unwrap().compute_id(),
+						&genesis().compute_id(),
+						|_| false,
+					),
+					Default::default(),
 					&validators_addresses.iter().collect(),
 					id7,
 					headers.get(6).unwrap(),
@@ -498,8 +528,12 @@ mod tests {
 			// check that votes at #7 are computed correctly with cache
 			assert_eq!(
 				prepare_votes(
-					storage.cached_finality_votes(&hashes.get(5).unwrap(), |_| false,),
-					0,
+					storage.cached_finality_votes(
+						&headers.get(5).unwrap().compute_id(),
+						&genesis().compute_id(),
+						|_| false,
+					),
+					Default::default(),
 					&validators_addresses.iter().collect(),
 					id7,
 					headers.get(6).unwrap(),
@@ -522,8 +556,12 @@ mod tests {
 			};
 			assert_eq!(
 				prepare_votes(
-					storage.cached_finality_votes(&hashes.get(5).unwrap(), |hash| *hash == hashes[2],),
-					3,
+					storage.cached_finality_votes(
+						&headers.get(5).unwrap().compute_id(),
+						&headers.get(2).unwrap().compute_id(),
+						|hash| *hash == hashes[2],
+					),
+					headers[2].compute_id(),
 					&validators_addresses.iter().collect(),
 					id7,
 					headers.get(6).unwrap(),
@@ -533,5 +571,23 @@ mod tests {
 				expected_votes_at_7,
 			);
 		});
+	}
+
+	#[test]
+	fn prepare_votes_fails_when_finalized_sibling_is_in_ancestry() {
+		assert_eq!(
+			prepare_votes::<()>(
+				CachedFinalityVotes {
+					stopped_at_finalized_sibling: true,
+					..Default::default()
+				},
+				Default::default(),
+				&validators_addresses(3).iter().collect(),
+				Default::default(),
+				&Default::default(),
+				None,
+			),
+			Err(Error::TryingToFinalizeSibling),
+		);
 	}
 }
