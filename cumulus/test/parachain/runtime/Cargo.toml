@@ -25,7 +25,6 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
-pallet-indices = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
@@ -34,35 +33,48 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 # Cumulus dependencies
 cumulus-runtime = { path = "../../../runtime", default-features = false }
 cumulus-parachain-upgrade = { path = "../../../parachain-upgrade", default-features = false }
+cumulus-message-broker = { path = "../../../message-broker", default-features = false }
+cumulus-upward-message = { path = "../../../upward-message", default-features = false }
+cumulus-primitives = { path = "../../../primitives", default-features = false }
+
+# Polkadot dependencies
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.6" }
 
 [features]
-default = ['std']
+default = [ "std" ]
 std = [
-	'codec/std',
-	'serde',
-	'sp-api/std',
-	'sp-std/std',
-	'sp-io/std',
-	'sp-core/std',
-	'sp-runtime/std',
-	'sp-version/std',
-	'sp-offchain/std',
-	'sp-session/std',
-	'sp-block-builder/std',
-	'sp-transaction-pool/std',
-	'sp-inherents/std',
-	'frame-support/std',
-	'frame-executive/std',
-	'frame-system/std',
-	'pallet-balances/std',
-	'pallet-indices/std',
-	'pallet-randomness-collective-flip/std',
-	'pallet-timestamp/std',
-	'pallet-sudo/std',
-	'pallet-transaction-payment/std',
-	'cumulus-runtime/std',
-	'cumulus-parachain-upgrade/std',
+	"codec/std",
+	"serde",
+	"sp-api/std",
+	"sp-std/std",
+	"sp-io/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-version/std",
+	"sp-offchain/std",
+	"sp-session/std",
+	"sp-block-builder/std",
+	"sp-transaction-pool/std",
+	"sp-inherents/std",
+	"frame-support/std",
+	"frame-executive/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-randomness-collective-flip/std",
+	"pallet-timestamp/std",
+	"pallet-sudo/std",
+	"pallet-transaction-payment/std",
+	"cumulus-runtime/std",
+	"cumulus-parachain-upgrade/std",
+	"cumulus-message-broker/std",
+	"cumulus-upward-message/std",
+	"cumulus-primitives/std",
+	"polkadot-parachain/std",
+]
+# Will be enabled by the `wasm-builder` when building the runtime for WASM.
+runtime-wasm = [
+	"cumulus-upward-message/runtime-wasm",
 ]

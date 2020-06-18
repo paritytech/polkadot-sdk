@@ -48,6 +48,6 @@ fn purge_chain_works() {
 	assert!(status.success());
 
 	// Make sure that the `parachain_local_testnet` chain folder exists, but the `db` is deleted.
-	assert!(PathBuf::from(base_path).join("chains/parachain_local_testnet/").exists());
-	assert!(!PathBuf::from(base_path).join("chains/parachain_local_testnet/db").exists());
+	assert!(PathBuf::from(base_path).join("chains/local_testnet/").exists());
+	assert!(!PathBuf::from(base_path).join("chains/local_testnet/db").exists());
 }

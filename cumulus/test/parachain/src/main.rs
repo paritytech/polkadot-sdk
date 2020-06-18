@@ -19,16 +19,11 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-use polkadot_primitives::parachain::Id as ParaId;
-
 mod chain_spec;
 #[macro_use]
 mod service;
 mod cli;
 mod command;
-
-/// The parachain id of this parachain.
-pub const PARA_ID: ParaId = ParaId::new(100);
 
 fn main() -> sc_cli::Result<()> {
 	command::run()

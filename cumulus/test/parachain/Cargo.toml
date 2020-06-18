@@ -44,9 +44,11 @@ sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch 
 cumulus-consensus = { path = "../../consensus" }
 cumulus-collator = { path = "../../collator" }
 cumulus-network = { path = "../../network" }
+cumulus-primitives = { path = "../../primitives" }
 
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
@@ -70,8 +72,8 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "c
 # Substrate dependencies
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

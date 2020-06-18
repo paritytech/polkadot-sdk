@@ -864,10 +864,14 @@ name = "cumulus-message-broker"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives",
+ "cumulus-upward-message",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "sp-inherents",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -923,6 +927,7 @@ version = "0.1.0"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
+ "polkadot-core-primitives",
  "polkadot-parachain",
  "polkadot-primitives",
  "sp-inherents",
@@ -947,7 +952,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
- "sp-inherents",
  "sp-io",
  "sp-keyring",
  "sp-runtime",
@@ -981,6 +985,7 @@ dependencies = [
  "cumulus-collator",
  "cumulus-consensus",
  "cumulus-network",
+ "cumulus-primitives",
  "cumulus-test-parachain-runtime",
  "derive_more 0.15.0",
  "exit-future 0.1.4",
@@ -997,6 +1002,7 @@ dependencies = [
  "parking_lot 0.9.0",
  "polkadot-cli",
  "polkadot-collator",
+ "polkadot-parachain",
  "polkadot-primitives",
  "polkadot-runtime",
  "polkadot-runtime-common",
@@ -1030,18 +1036,21 @@ dependencies = [
 name = "cumulus-test-parachain-runtime"
 version = "0.1.0"
 dependencies = [
+ "cumulus-message-broker",
  "cumulus-parachain-upgrade",
+ "cumulus-primitives",
  "cumulus-runtime",
+ "cumulus-upward-message",
  "frame-executive",
  "frame-support",
  "frame-system",
  "pallet-balances",
- "pallet-indices",
  "pallet-randomness-collective-flip",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "polkadot-parachain",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -1064,6 +1073,18 @@ dependencies = [
  "cumulus-runtime",
  "substrate-test-runtime",
  "substrate-wasm-builder-runner 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "cumulus-upward-message"
+version = "0.1.0"
+dependencies = [
+ "kusama-runtime",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime",
+ "sp-std",
+ "westend-runtime",
 ]
 
 [[package]]
@@ -2483,7 +2504,7 @@ dependencies = [
 [[package]]
 name = "kusama-runtime"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "bitvec",
  "frame-executive",
@@ -4320,7 +4341,7 @@ checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
 [[package]]
 name = "polkadot-availability-store"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "derive_more 0.99.7",
  "exit-future 0.2.0",
@@ -4347,7 +4368,7 @@ dependencies = [
 [[package]]
 name = "polkadot-cli"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "frame-benchmarking-cli",
  "futures 0.3.5",
@@ -4369,7 +4390,7 @@ dependencies = [
 [[package]]
 name = "polkadot-collator"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "futures 0.3.5",
  "futures-timer 2.0.2",
@@ -4394,9 +4415,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-core-primitives"
+version = "0.7.30"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
+dependencies = [
+ "parity-scale-codec",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "polkadot-erasure-coding"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "derive_more 0.15.0",
  "parity-scale-codec",
@@ -4409,7 +4441,7 @@ dependencies = [
 [[package]]
 name = "polkadot-network"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "arrayvec 0.4.12",
  "bytes 0.5.4",
@@ -4436,19 +4468,19 @@ dependencies = [
 [[package]]
 name = "polkadot-parachain"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "derive_more 0.99.7",
  "log 0.4.8",
  "parity-scale-codec",
  "parking_lot 0.10.2",
+ "polkadot-core-primitives",
  "sc-executor",
  "serde",
  "shared_memory",
  "sp-core",
  "sp-externalities",
  "sp-io",
- "sp-runtime-interface",
  "sp-std",
  "sp-wasm-interface",
 ]
@@ -4456,11 +4488,12 @@ dependencies = [
 [[package]]
 name = "polkadot-primitives"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "bitvec",
  "frame-system",
  "parity-scale-codec",
+ "polkadot-core-primitives",
  "polkadot-parachain",
  "serde",
  "sp-api",
@@ -4477,7 +4510,7 @@ dependencies = [
 [[package]]
 name = "polkadot-rpc"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "jsonrpc-core",
  "pallet-transaction-payment-rpc",
@@ -4503,7 +4536,7 @@ dependencies = [
 [[package]]
 name = "polkadot-runtime"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "bitvec",
  "frame-executive",
@@ -4567,7 +4600,7 @@ dependencies = [
 [[package]]
 name = "polkadot-runtime-common"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "bitvec",
  "frame-support",
@@ -4599,7 +4632,7 @@ dependencies = [
 [[package]]
 name = "polkadot-service"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "frame-benchmarking",
  "frame-system-rpc-runtime-api",
@@ -4657,7 +4690,7 @@ dependencies = [
 [[package]]
 name = "polkadot-statement-table"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
@@ -4667,7 +4700,7 @@ dependencies = [
 [[package]]
 name = "polkadot-test-runtime"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "bitvec",
  "frame-executive",
@@ -4717,7 +4750,7 @@ dependencies = [
 [[package]]
 name = "polkadot-test-runtime-client"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "futures 0.3.5",
  "pallet-timestamp",
@@ -4740,7 +4773,7 @@ dependencies = [
 [[package]]
 name = "polkadot-validation"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "bitvec",
  "derive_more 0.14.1",
@@ -8638,7 +8671,7 @@ dependencies = [
 [[package]]
 name = "westend-runtime"
 version = "0.8.8"
-source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#abc1db331ac1fc4f73138bb059c107ee4011a069"
+source = "git+https://github.com/paritytech/polkadot?branch=cumulus-branch#91f3e68f5750dff7bddedeb846ff55447e8cf8f8"
 dependencies = [
  "bitvec",
  "frame-executive",

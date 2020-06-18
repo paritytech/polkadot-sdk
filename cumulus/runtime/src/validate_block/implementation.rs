@@ -33,7 +33,11 @@ use codec::{Decode, Encode, EncodeAppend};
 
 use cumulus_primitives::{
 	validation_function_params::ValidationFunctionParams,
-	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_FUNCTION_PARAMS},
+	well_known_keys::{
+		NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES, UPWARD_MESSAGES,
+		VALIDATION_FUNCTION_PARAMS,
+	},
+	GenericUpwardMessage,
 };
 
 /// Stores the global [`Storage`] instance.
@@ -92,11 +96,11 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	let block_data = crate::ParachainBlockData::<B>::decode(&mut &params.block_data.0[..])
 		.expect("Invalid parachain block data");
 
-	let parent_head = B::Header::decode(&mut &params.parent_head.0[..]).expect("Invalid parent head");
-	// TODO: Use correct head data
+	let parent_head =
+		B::Header::decode(&mut &params.parent_head.0[..]).expect("Invalid parent head");
+
 	let head_data = HeadData(block_data.header.encode());
 
-	// TODO: Add `PolkadotInherent`.
 	let block = B::new(block_data.header, block_data.extrinsics);
 	assert!(
 		parent_head.hash() == *block.header().parent_hash(),
@@ -131,16 +135,30 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	E::execute_block(block);
 
-	// if in the course of block execution new validation code was set, insert
-	// its scheduled upgrade so we can validate that block number later
+	// If in the course of block execution new validation code was set, insert
+	// its scheduled upgrade so we can validate that block number later.
 	let new_validation_code = storage().get(NEW_VALIDATION_CODE).map(ValidationCode);
 	if new_validation_code.is_some() && validation_function_params.code_upgrade_allowed.is_none() {
-		panic!("attempt to upgrade validation function when not permitted");
+		panic!("Attempt to upgrade validation function when not permitted!");
 	}
+
+	// Extract potential upward messages from the storage.
+	let upward_messages = match storage().get(UPWARD_MESSAGES) {
+		Some(encoded) => Vec::<GenericUpwardMessage>::decode(&mut &encoded[..])
+			.expect("Upward messages vec is not correctly encoded in the storage!"),
+		None => Vec::new(),
+	};
+
+	let processed_downward_messages = storage()
+		.get(PROCESSED_DOWNWARD_MESSAGES)
+		.and_then(|v| Decode::decode(&mut &v[..]).ok())
+		.unwrap_or_default();
 
 	ValidationResult {
 		head_data,
 		new_validation_code,
+		upward_messages,
+		processed_downward_messages,
 	}
 }
 
@@ -157,7 +175,11 @@ impl<B: BlockT> WitnessStorage<B> {
 	/// Initialize from the given witness data and storage root.
 	///
 	/// Returns an error if given storage root was not found in the witness data.
-	fn new(data: WitnessData, storage_root: B::Hash, params: ValidationFunctionParams) -> Result<Self, &'static str> {
+	fn new(
+		data: WitnessData,
+		storage_root: B::Hash,
+		params: ValidationFunctionParams,
+	) -> Result<Self, &'static str> {
 		let mut db = MemoryDB::default();
 		data.into_iter().for_each(|i| {
 			db.insert(EMPTY_PREFIX, &i);
@@ -180,20 +202,19 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
 		match key {
 			VALIDATION_FUNCTION_PARAMS => Some(self.params.encode()),
-			key => {
-				self.overlay
-					.get(key)
-					.cloned()
-					.or_else(|| {
-						read_trie_value::<Layout<HashFor<B>>, _>(
-							&self.witness_data,
-							&self.storage_root,
-							key,
-						)
-						.ok()
-					})
-					.unwrap_or(None)
-			}
+			key => self
+				.overlay
+				.get(key)
+				.cloned()
+				.or_else(|| {
+					read_trie_value::<Layout<HashFor<B>>, _>(
+						&self.witness_data,
+						&self.storage_root,
+						key,
+					)
+					.ok()
+				})
+				.unwrap_or(None),
 		}
 	}
 
@@ -209,8 +230,11 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 		let root = delta_trie_root::<Layout<HashFor<B>>, _, _, _, _, _>(
 			&mut self.witness_data,
 			self.storage_root.clone(),
-			self.overlay.iter().map(|(k, v)| (k.as_ref(), v.as_ref().map(|v| v.as_ref()))),
-		).expect("Calculates storage root");
+			self.overlay
+				.iter()
+				.map(|(k, v)| (k.as_ref(), v.as_ref().map(|v| v.as_ref()))),
+		)
+		.expect("Calculates storage root");
 
 		root.encode()
 	}
@@ -222,8 +246,7 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 			}
 		});
 
-		let trie = match TrieDB::<Layout<HashFor<B>>>::new(&self.witness_data, &self.storage_root)
-		{
+		let trie = match TrieDB::<Layout<HashFor<B>>>::new(&self.witness_data, &self.storage_root) {
 			Ok(r) => r,
 			Err(_) => panic!(),
 		};
@@ -239,10 +262,12 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 		let current_value = self.overlay.entry(key.to_vec()).or_default();
 
 		let item = current_value.take().unwrap_or_default();
-		*current_value = Some(match Vec::<EncodeOpaqueValue>::append_or_new(item, &value_vec) {
-			Ok(item) => item,
-			Err(_) => value_vec.encode(),
-		});
+		*current_value = Some(
+			match Vec::<EncodeOpaqueValue>::append_or_new(item, &value_vec) {
+				Ok(item) => item,
+				Err(_) => value_vec.encode(),
+			},
+		);
 	}
 }
 

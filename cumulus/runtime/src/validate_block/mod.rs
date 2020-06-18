@@ -26,7 +26,8 @@ mod tests;
 #[doc(hidden)]
 pub use parachain;
 
-/// Register the `validate_block` function that is used by parachains to validate blocks on a validator.
+/// Register the `validate_block` function that is used by parachains to validate blocks on a
+/// validator.
 ///
 /// Does *nothing* when `std` feature is enabled.
 ///

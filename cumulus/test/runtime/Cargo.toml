@@ -7,7 +7,7 @@ build = "build.rs"
 
 [dependencies]
 runtime = { package = "cumulus-runtime", path = "../../runtime", default-features = false }
-substrate-test-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch", version = "2.0.0-rc2" }
+substrate-test-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "cumulus-branch" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = " 1.0.6" }
