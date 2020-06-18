@@ -178,6 +178,14 @@ impl Header {
 		keccak_256(&self.rlp(true)).into()
 	}
 
+	/// Get id of this header' parent. Returns None if this is genesis header.
+	pub fn parent_id(&self) -> Option<HeaderId> {
+		self.number.checked_sub(1).map(|parent_number| HeaderId {
+			number: parent_number,
+			hash: self.parent_hash,
+		})
+	}
+
 	/// Check if passed transactions receipts are matching receipts root in this header.
 	pub fn verify_receipts_root(&self, receipts: &[Receipt]) -> bool {
 		verify_merkle_proof(self.receipts_root, receipts.iter().map(|r| r.rlp()))
