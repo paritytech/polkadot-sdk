@@ -168,6 +168,7 @@ mod tests {
 	use crate::validators::ValidatorsSource;
 	use crate::{BlocksToPrune, BridgeStorage, Headers, PruningRange};
 	use frame_support::{StorageMap, StorageValue};
+	use parity_crypto::publickey::KeyPair;
 
 	#[test]
 	fn rejects_finalized_block_competitors() {
@@ -400,39 +401,53 @@ mod tests {
 		});
 	}
 
+	fn import_custom_block<S: Storage>(
+		storage: &mut S,
+		validators: &[KeyPair],
+		number: u64,
+		step: u64,
+		customize: impl FnOnce(&mut Header),
+	) -> Result<HeaderId, Error> {
+		let header = custom_block_i(number, validators, |header| {
+			header.seal[0][0] = step as _;
+			header.author =
+				crate::validators::step_validator(&validators.iter().map(|kp| kp.address()).collect::<Vec<_>>(), step);
+			customize(header);
+		});
+		let header = signed_header(validators, header, step);
+		let id = header.compute_id();
+		import_header(
+			storage,
+			&mut KeepSomeHeadersBehindBest::default(),
+			&test_aura_config(),
+			&ValidatorsConfiguration::Single(ValidatorsSource::Contract(
+				[0; 20].into(),
+				validators.iter().map(|kp| kp.address()).collect(),
+			)),
+			None,
+			header,
+			None,
+		)
+		.map(|_| id)
+	}
+
 	#[test]
 	fn import_of_non_best_block_may_finalize_blocks() {
 		const TOTAL_VALIDATORS: u8 = 3;
 		let validators_addresses = validators_addresses(TOTAL_VALIDATORS);
 		custom_test_ext(genesis(), validators_addresses.clone()).execute_with(move || {
 			let validators = validators(TOTAL_VALIDATORS);
-			let validators_config = ValidatorsConfiguration::Single(ValidatorsSource::Contract(
-				[0; 20].into(),
-				validators_addresses.clone(),
-			));
 			let mut storage = BridgeStorage::<TestRuntime>::new();
-			let mut pruning_strategy = KeepSomeHeadersBehindBest::default();
 
 			// insert headers (H1, validator1), (H2, validator1), (H3, validator1)
 			// making H3 the best header, without finalizing anything (we need 2 signatures)
 			let mut expected_best_block = Default::default();
 			for i in 1..4 {
 				let step = GENESIS_STEP + i * TOTAL_VALIDATORS as u64;
-				let header = custom_block_i(i, &validators, |header| {
+				expected_best_block = import_custom_block(&mut storage, &validators, i, step, |header| {
 					header.author = validators_addresses[0];
 					header.seal[0][0] = step as u8;
-				});
-				let header = signed_header(&validators, header, step);
-				expected_best_block = header.compute_id();
-				import_header(
-					&mut storage,
-					&mut pruning_strategy,
-					&test_aura_config(),
-					&validators_config,
-					None,
-					header,
-					None,
-				)
+				})
 				.unwrap();
 			}
 			let (best_block, best_difficulty) = storage.best_block();
@@ -444,31 +459,118 @@ mod tests {
 			let mut expected_finalized_block = Default::default();
 			let mut parent_hash = genesis().compute_hash();
 			for i in 1..3 {
-				let header = custom_block_i(i, &validators, |header| {
+				let step = GENESIS_STEP + i;
+				let id = import_custom_block(&mut storage, &validators, i, step, |header| {
 					header.gas_limit += 1.into();
 					header.parent_hash = parent_hash;
-				});
-				let header = signed_header(&validators, header, GENESIS_STEP + i);
-				parent_hash = header.compute_hash();
-				if i == 1 {
-					expected_finalized_block = header.compute_id();
-				}
-
-				import_header(
-					&mut storage,
-					&mut pruning_strategy,
-					&test_aura_config(),
-					&validators_config,
-					None,
-					header,
-					None,
-				)
+				})
 				.unwrap();
+				parent_hash = id.hash;
+				if i == 1 {
+					expected_finalized_block = id;
+				}
 			}
 			let (new_best_block, new_best_difficulty) = storage.best_block();
 			assert_eq!(new_best_block, expected_best_block);
 			assert_eq!(new_best_difficulty, best_difficulty);
 			assert_eq!(storage.finalized_block(), expected_finalized_block);
+		});
+	}
+
+	#[test]
+	fn append_to_unfinalized_fork_fails() {
+		const TOTAL_VALIDATORS: u64 = 5;
+		let validators_addresses = validators_addresses(TOTAL_VALIDATORS as _);
+		custom_test_ext(genesis(), validators_addresses.clone()).execute_with(move || {
+			let validators = validators(TOTAL_VALIDATORS as _);
+			let mut storage = BridgeStorage::<TestRuntime>::new();
+
+			// header1, authored by validator[2] is best common block between two competing forks
+			let header1 = import_custom_block(&mut storage, &validators, 1, GENESIS_STEP + 1, |_| ()).unwrap();
+			assert_eq!(storage.best_block().0, header1);
+			assert_eq!(storage.finalized_block().number, 0);
+
+			// validator[3] has authored header2 (nothing is finalized yet)
+			let header2 = import_custom_block(&mut storage, &validators, 2, GENESIS_STEP + 2, |_| ()).unwrap();
+			assert_eq!(storage.best_block().0, header2);
+			assert_eq!(storage.finalized_block().number, 0);
+
+			// validator[4] has authored header3 (header1 is finalized)
+			let header3 = import_custom_block(&mut storage, &validators, 3, GENESIS_STEP + 3, |_| ()).unwrap();
+			assert_eq!(storage.best_block().0, header3);
+			assert_eq!(storage.finalized_block(), header1);
+
+			// validator[4] has authored 4 blocks: header2'...header5' (header1 is still finalized)
+			let header2_1 = import_custom_block(&mut storage, &validators, 2, GENESIS_STEP + 3, |header| {
+				header.gas_limit += 1.into();
+			})
+			.unwrap();
+			let header3_1 = import_custom_block(
+				&mut storage,
+				&validators,
+				3,
+				GENESIS_STEP + 3 + TOTAL_VALIDATORS,
+				|header| {
+					header.parent_hash = header2_1.hash;
+				},
+			)
+			.unwrap();
+			let header4_1 = import_custom_block(
+				&mut storage,
+				&validators,
+				4,
+				GENESIS_STEP + 3 + TOTAL_VALIDATORS * 2,
+				|header| {
+					header.parent_hash = header3_1.hash;
+				},
+			)
+			.unwrap();
+			let header5_1 = import_custom_block(
+				&mut storage,
+				&validators,
+				5,
+				GENESIS_STEP + 3 + TOTAL_VALIDATORS * 3,
+				|header| {
+					header.parent_hash = header4_1.hash;
+				},
+			)
+			.unwrap();
+			assert_eq!(storage.best_block().0, header5_1);
+			assert_eq!(storage.finalized_block(), header1);
+
+			// when we import header4 { parent = header3 }, authored by validator[0], header2 is finalized
+			let header4 = import_custom_block(&mut storage, &validators, 4, GENESIS_STEP + 4, |_| ()).unwrap();
+			assert_eq!(storage.best_block().0, header5_1);
+			assert_eq!(storage.finalized_block(), header2);
+
+			// when we import header5 { parent = header4 }, authored by validator[1], header3 is finalized
+			let _ = import_custom_block(&mut storage, &validators, 5, GENESIS_STEP + 5, |header| {
+				header.parent_hash = header4.hash;
+			})
+			.unwrap();
+			assert_eq!(storage.best_block().0, header5_1);
+			assert_eq!(storage.finalized_block(), header3);
+
+			// import of header2'' { parent = header1 } fails, because it has number < best_finalized
+			assert_eq!(
+				import_custom_block(&mut storage, &validators, 2, GENESIS_STEP + 3, |header| {
+					header.gas_limit += 2.into();
+				}),
+				Err(Error::AncientHeader),
+			);
+
+			// import of header6' should also fail because we're trying to append to fork thas
+			// has forked before finalized block
+			assert_eq!(
+				import_custom_block(
+					&mut storage,
+					&validators,
+					6,
+					GENESIS_STEP + 3 + TOTAL_VALIDATORS * 4,
+					|_| ()
+				),
+				Err(Error::TryingToFinalizeSibling),
+			);
 		});
 	}
 }
