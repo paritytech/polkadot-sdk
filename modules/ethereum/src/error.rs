@@ -60,6 +60,8 @@ pub enum Error {
 	TransactionsReceiptsMismatch = 18,
 	/// Can't accept unsigned header from the far future.
 	UnsignedTooFarInTheFuture = 19,
+	/// Trying to finalize sibling of finalized block.
+	TryingToFinalizeSibling = 20,
 }
 
 impl Error {
@@ -85,6 +87,7 @@ impl Error {
 			Error::RedundantTransactionsReceipts => "Redundant transactions receipts are provided",
 			Error::TransactionsReceiptsMismatch => "Invalid transactions receipts provided",
 			Error::UnsignedTooFarInTheFuture => "The unsigned header is too far in future",
+			Error::TryingToFinalizeSibling => "Trying to finalize sibling of finalized block",
 		}
 	}
 
