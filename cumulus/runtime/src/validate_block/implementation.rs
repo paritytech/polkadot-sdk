@@ -112,7 +112,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	let storage_inner = WitnessStorage::<B>::new(
 		block_data.witness_data,
-		block_data.witness_data_storage_root,
+		parent_head.state_root().clone(),
 		validation_function_params,
 	)
 	.expect("Witness data and storage root always match; qed");

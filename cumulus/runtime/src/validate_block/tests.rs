@@ -17,10 +17,10 @@
 use crate::{ParachainBlockData, WitnessData};
 
 use parachain::primitives::{BlockData, HeadData, ValidationParams, ValidationResult};
-use sc_executor::{
-	error::Result, WasmExecutionMethod, WasmExecutor, sp_wasm_interface::HostFunctions,
-};
 use sc_block_builder::BlockBuilderProvider;
+use sc_executor::{
+	error::Result, sp_wasm_interface::HostFunctions, WasmExecutionMethod, WasmExecutor,
+};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SelectChain;
 use sp_core::traits::CallInWasm;
@@ -60,17 +60,18 @@ fn call_validate_block(
 		1,
 	);
 
-	executor.call_in_wasm(
-		&WASM_BINARY,
-		None,
-		"validate_block",
-		&params,
-		&mut ext_ext,
-		sp_core::traits::MissingHostFunctions::Disallow,
-	)
-	.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
-	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decode `Header`."))
-	.map_err(|err| err.into())
+	executor
+		.call_in_wasm(
+			&WASM_BINARY,
+			None,
+			"validate_block",
+			&params,
+			&mut ext_ext,
+			sp_core::traits::MissingHostFunctions::Disallow,
+		)
+		.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
+		.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decode `Header`."))
+		.map_err(|err| err.into())
 }
 
 fn create_extrinsics() -> Vec<<Block as BlockT>::Extrinsic> {
@@ -139,16 +140,10 @@ fn build_block_with_proof(
 fn validate_block_with_no_extrinsics() {
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
-	let witness_data_storage_root = *parent_head.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, Vec::new());
 	let (header, extrinsics) = block.deconstruct();
 
-	let block_data = ParachainBlockData::new(
-		header.clone(),
-		extrinsics,
-		witness_data,
-		witness_data_storage_root,
-	);
+	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness_data);
 
 	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
@@ -158,16 +153,10 @@ fn validate_block_with_no_extrinsics() {
 fn validate_block_with_extrinsics() {
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
-	let witness_data_storage_root = *parent_head.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, create_extrinsics());
 	let (header, extrinsics) = block.deconstruct();
 
-	let block_data = ParachainBlockData::new(
-		header.clone(),
-		extrinsics,
-		witness_data,
-		witness_data_storage_root,
-	);
+	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness_data);
 
 	let res_header = call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
@@ -178,12 +167,10 @@ fn validate_block_with_extrinsics() {
 fn validate_block_invalid_parent_hash() {
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
-	let witness_data_storage_root = *parent_head.state_root();
 	let (block, witness_data) = build_block_with_proof(&client, Vec::new());
 	let (mut header, extrinsics) = block.deconstruct();
 	header.set_parent_hash(Hash::from_low_u64_be(1));
 
-	let block_data =
-		ParachainBlockData::new(header, extrinsics, witness_data, witness_data_storage_root);
+	let block_data = ParachainBlockData::new(header, extrinsics, witness_data);
 	call_validate_block(parent_head, block_data).expect("Calls `validate_block`");
 }

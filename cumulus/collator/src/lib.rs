@@ -196,8 +196,6 @@ where
 		let wait_to_announce = self.wait_to_announce.clone();
 
 		Box::pin(async move {
-			let parent_state_root = *last_head.header.state_root();
-
 			let proposer = proposer_future.await.map_err(|e| {
 				error!(
 					target: "cumulus-collator",
@@ -251,7 +249,6 @@ where
 				header.clone(),
 				extrinsics,
 				proof.iter_nodes().collect(),
-				parent_state_root,
 			);
 
 			let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, header);
