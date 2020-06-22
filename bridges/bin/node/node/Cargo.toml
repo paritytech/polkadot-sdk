@@ -14,7 +14,7 @@ name = "bridge-node"
 futures = "0.3.5"
 jsonrpc-core = "14.2.0"
 log = "0.4.8"
-structopt = "0.3.14"
+structopt = "0.3.15"
 bridge-node-runtime = { version = "0.1.0", path = "../runtime" }
 sp-bridge-eth-poa = { version = "0.1.0", path = "../../../primitives/ethereum-poa" }
 
