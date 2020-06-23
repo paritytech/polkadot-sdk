@@ -14,9 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_client::{self, EthereumConnectionParams, EthereumSigningParams};
-use crate::substrate_client::{self, SubstrateConnectionParams};
+use crate::ethereum_client::{
+	bridge_contract, EthereumConnectionParams, EthereumHighLevelRpc, EthereumRpcClient, EthereumSigningParams,
+};
+use crate::rpc::SubstrateRpc;
+use crate::substrate_client::{SubstrateConnectionParams, SubstrateRpcClient};
 use crate::substrate_types::{Hash as SubstrateHash, Header as SubstrateHeader};
+
 use codec::{Decode, Encode};
 use num_traits::Zero;
 
@@ -59,18 +63,16 @@ pub fn run(params: EthereumDeployContractParams) {
 	let mut local_pool = futures::executor::LocalPool::new();
 
 	let result = local_pool.run_until(async move {
-		let eth_client = ethereum_client::client(params.eth);
-		let sub_client = substrate_client::client(params.sub);
+		let eth_client = EthereumRpcClient::new(params.eth);
+		let sub_client = SubstrateRpcClient::new(params.sub).await?;
 
-		let (sub_client, initial_header) = prepare_initial_header(sub_client, params.sub_initial_header).await;
-		let (initial_header_hash, initial_header) = initial_header?;
+		let (initial_header_hash, initial_header) = prepare_initial_header(&sub_client, params.sub_initial_header).await?;
 		let initial_set_id = params.sub_initial_authorities_set_id.unwrap_or(0);
-		let (_, initial_set) = prepare_initial_authorities_set(
-			sub_client,
+		let initial_set = prepare_initial_authorities_set(
+			&sub_client,
 			initial_header_hash,
 			params.sub_initial_authorities_set,
-		).await;
-		let initial_set = initial_set?;
+		).await?;
 
 		log::info!(
 			target: "bridge",
@@ -81,14 +83,14 @@ pub fn run(params: EthereumDeployContractParams) {
 			hex::encode(&initial_set),
 		);
 
-		ethereum_client::deploy_bridge_contract(
-			eth_client,
+		deploy_bridge_contract(
+			&eth_client,
 			&params.eth_sign,
 			params.eth_contract_code,
 			initial_header,
 			initial_set_id,
 			initial_set,
-		).await.1.map_err(|error| format!("Error deploying contract: {:?}", error))
+		).await
 	});
 
 	if let Err(error) = result {
@@ -98,39 +100,54 @@ pub fn run(params: EthereumDeployContractParams) {
 
 /// Prepare initial header.
 async fn prepare_initial_header(
-	sub_client: substrate_client::Client,
+	sub_client: &SubstrateRpcClient,
 	sub_initial_header: Option<Vec<u8>>,
-) -> (substrate_client::Client, Result<(SubstrateHash, Vec<u8>), String>) {
+) -> Result<(SubstrateHash, Vec<u8>), String> {
 	match sub_initial_header {
 		Some(raw_initial_header) => match SubstrateHeader::decode(&mut &raw_initial_header[..]) {
-			Ok(initial_header) => (sub_client, Ok((initial_header.hash(), raw_initial_header))),
-			Err(error) => (sub_client, Err(format!("Error decoding initial header: {}", error))),
+			Ok(initial_header) => Ok((initial_header.hash(), raw_initial_header)),
+			Err(error) => Err(format!("Error decoding initial header: {}", error)),
 		},
 		None => {
-			let (sub_client, initial_header) = substrate_client::header_by_number(sub_client, Zero::zero()).await;
-			(
-				sub_client,
-				initial_header
-					.map(|header| (header.hash(), header.encode()))
-					.map_err(|error| format!("Error reading Substrate genesis header: {:?}", error)),
-			)
+			let initial_header = sub_client.header_by_number(Zero::zero()).await;
+			initial_header
+				.map(|header| (header.hash(), header.encode()))
+				.map_err(|error| format!("Error reading Substrate genesis header: {:?}", error))
 		}
 	}
 }
 
 /// Prepare initial GRANDPA authorities set.
 async fn prepare_initial_authorities_set(
-	sub_client: substrate_client::Client,
+	sub_client: &SubstrateRpcClient,
 	sub_initial_header_hash: SubstrateHash,
 	sub_initial_authorities_set: Option<Vec<u8>>,
-) -> (substrate_client::Client, Result<Vec<u8>, String>) {
-	let (sub_client, initial_authorities_set) = match sub_initial_authorities_set {
-		Some(initial_authorities_set) => (sub_client, Ok(initial_authorities_set)),
-		None => substrate_client::grandpa_authorities_set(sub_client, sub_initial_header_hash).await,
+) -> Result<Vec<u8>, String> {
+	let initial_authorities_set = match sub_initial_authorities_set {
+		Some(initial_authorities_set) => Ok(initial_authorities_set),
+		None => sub_client.grandpa_authorities_set(sub_initial_header_hash).await,
 	};
 
-	(
-		sub_client,
-		initial_authorities_set.map_err(|error| format!("Error reading GRANDPA authorities set: {:?}", error)),
-	)
+	initial_authorities_set.map_err(|error| format!("Error reading GRANDPA authorities set: {:?}", error))
+}
+
+/// Deploy bridge contract to Ethereum chain.
+async fn deploy_bridge_contract(
+	eth_client: &EthereumRpcClient,
+	params: &EthereumSigningParams,
+	contract_code: Vec<u8>,
+	initial_header: Vec<u8>,
+	initial_set_id: u64,
+	initial_authorities: Vec<u8>,
+) -> Result<(), String> {
+	eth_client
+		.submit_ethereum_transaction(
+			params,
+			None,
+			None,
+			false,
+			bridge_contract::constructor(contract_code, initial_header, initial_set_id, initial_authorities),
+		)
+		.await
+		.map_err(|error| format!("Error deploying contract: {:?}", error))
 }
