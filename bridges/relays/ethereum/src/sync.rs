@@ -19,7 +19,7 @@ use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, QueuedHeade
 use num_traits::{One, Saturating};
 
 /// Common sync params.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HeadersSyncParams {
 	/// Maximal number of ethereum headers to pre-download.
 	pub max_future_headers_to_download: usize,
@@ -37,7 +37,7 @@ pub struct HeadersSyncParams {
 }
 
 /// Target transaction mode.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TargetTransactionMode {
 	/// Submit new headers using signed transactions.
 	Signed,
