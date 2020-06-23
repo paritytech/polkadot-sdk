@@ -46,28 +46,38 @@ fn main() {
 	let matches = clap::App::from_yaml(yaml).get_matches();
 	match matches.subcommand() {
 		("eth-to-sub", Some(eth_to_sub_matches)) => {
-			ethereum_sync_loop::run(match ethereum_sync_params(&eth_to_sub_matches) {
+			if ethereum_sync_loop::run(match ethereum_sync_params(&eth_to_sub_matches) {
 				Ok(ethereum_sync_params) => ethereum_sync_params,
 				Err(err) => {
 					log::error!(target: "bridge", "Error parsing parameters: {}", err);
 					return;
 				}
-			});
+			})
+			.is_err()
+			{
+				log::error!(target: "bridge", "Unable to get Substrate genesis block for Ethereum sync.");
+				return;
+			};
 		}
 		("sub-to-eth", Some(sub_to_eth_matches)) => {
-			substrate_sync_loop::run(match substrate_sync_params(&sub_to_eth_matches) {
+			if substrate_sync_loop::run(match substrate_sync_params(&sub_to_eth_matches) {
 				Ok(substrate_sync_params) => substrate_sync_params,
 				Err(err) => {
 					log::error!(target: "bridge", "Error parsing parameters: {}", err);
 					return;
 				}
-			});
+			})
+			.is_err()
+			{
+				log::error!(target: "bridge", "Unable to get Substrate genesis block for Substrate sync.");
+				return;
+			};
 		}
 		("eth-deploy-contract", Some(eth_deploy_matches)) => {
 			ethereum_deploy_contract::run(match ethereum_deploy_contract_params(&eth_deploy_matches) {
 				Ok(ethereum_deploy_matches) => ethereum_deploy_matches,
 				Err(err) => {
-					log::error!(target: "bridge", "Error parsing parameters: {}", err);
+					log::error!(target: "bridge", "Error during contract deployment: {}", err);
 					return;
 				}
 			});
