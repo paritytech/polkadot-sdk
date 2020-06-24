@@ -30,8 +30,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::Cli;
+use crate::cli::{Cli, Subcommand};
 use crate::service;
+use bridge_node_runtime::Block;
 use sc_cli::SubstrateCli;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 
@@ -81,7 +82,20 @@ pub fn run() -> sc_cli::Result<()> {
 	let cli = Cli::from_args();
 
 	match &cli.subcommand {
-		Some(subcommand) => {
+		Some(Subcommand::Benchmark(cmd)) => {
+			if cfg!(feature = "runtime-benchmarks") {
+				let runner = cli.create_runner(cmd)?;
+
+				runner.sync_run(|config| cmd.run::<Block, service::Executor>(config))
+			} else {
+				println!(
+					"Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
+				);
+				Ok(())
+			}
+		}
+		Some(Subcommand::Base(subcommand)) => {
 			let runner = cli.create_runner(subcommand)?;
 			runner.run_subcommand(subcommand, |config| Ok(new_full_start!(config).0))
 		}

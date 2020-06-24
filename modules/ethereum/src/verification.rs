@@ -15,10 +15,12 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::error::Error;
-use crate::validators::{step_validator, Validators, ValidatorsConfiguration};
+use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::{AuraConfiguration, ImportContext, PoolConfiguration, ScheduledChange, Storage};
 use codec::Encode;
-use primitives::{public_to_address, Address, Header, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256};
+use primitives::{
+	public_to_address, step_validator, Address, Header, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256,
+};
 use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_std::{vec, vec::Vec};
 
@@ -157,9 +159,16 @@ pub fn verify_aura_header<S: Storage>(
 	contextless_checks(config, header)?;
 
 	// the rest of checks requires access to the parent header
-	let context = storage
-		.import_context(submitter, &header.parent_hash)
-		.ok_or(Error::MissingParentBlock)?;
+	let context = storage.import_context(submitter, &header.parent_hash).ok_or_else(|| {
+		frame_support::debug::warn!(
+			target: "runtime",
+			"Missing parent PoA block: ({:?}, {})",
+			header.number.checked_sub(1),
+			header.parent_hash,
+		);
+
+		Error::MissingParentBlock
+	})?;
 	let header_step = contextual_checks(config, &context, None, header)?;
 	validator_checks(config, &context.validators_set().validators, header, header_step)?;
 
@@ -263,7 +272,7 @@ fn validator_checks(
 	header: &Header,
 	header_step: u64,
 ) -> Result<(), Error> {
-	let expected_validator = step_validator(validators, header_step);
+	let expected_validator = *step_validator(validators, header_step);
 	if header.author != expected_validator {
 		return Err(Error::NotValidator);
 	}
@@ -282,7 +291,7 @@ fn validator_checks(
 
 /// Returns expected number of seal fields in the header.
 fn expected_header_seal_fields(config: &AuraConfiguration, header: &Header) -> usize {
-	if header.number >= config.empty_steps_transition {
+	if header.number != u64::max_value() && header.number >= config.empty_steps_transition {
 		3
 	} else {
 		2
@@ -291,13 +300,13 @@ fn expected_header_seal_fields(config: &AuraConfiguration, header: &Header) -> u
 
 /// Verify single sealed empty step.
 fn verify_empty_step(parent_hash: &H256, step: &SealedEmptyStep, validators: &[Address]) -> bool {
-	let expected_validator = step_validator(validators, step.step);
+	let expected_validator = *step_validator(validators, step.step);
 	let message = step.message(parent_hash);
 	verify_signature(&expected_validator, &step.signature, &message)
 }
 
 /// Chain scoring: total weight is sqrt(U256::max_value())*height - step
-fn calculate_score(parent_step: u64, current_step: u64, current_empty_steps: usize) -> U256 {
+pub(crate) fn calculate_score(parent_step: u64, current_step: u64, current_empty_steps: usize) -> U256 {
 	U256::from(U128::max_value()) + U256::from(parent_step) - U256::from(current_step) + U256::from(current_empty_steps)
 }
 
@@ -344,8 +353,8 @@ fn find_next_validators_signal<S: Storage>(storage: &S, context: &ImportContext<
 mod tests {
 	use super::*;
 	use crate::mock::{
-		block_i, custom_block_i, custom_test_ext, genesis, insert_header, signed_header, test_aura_config, validator,
-		validators_addresses, AccountId, TestRuntime,
+		insert_header, run_test_with_genesis, test_aura_config, validator, validator_address, validators_addresses,
+		AccountId, HeaderBuilder, TestRuntime, GAS_LIMIT,
 	};
 	use crate::validators::{tests::validators_change_recept, ValidatorsSource};
 	use crate::{
@@ -353,25 +362,18 @@ mod tests {
 		ScheduledChanges, ValidatorsSet, ValidatorsSets,
 	};
 	use frame_support::{StorageMap, StorageValue};
-	use parity_crypto::publickey::{sign, KeyPair};
 	use primitives::{rlp_encode, TransactionOutcome, H520};
+	use secp256k1::SecretKey;
 
-	fn sealed_empty_step(validators: &[KeyPair], parent_hash: &H256, step: u64) -> SealedEmptyStep {
-		let mut empty_step = SealedEmptyStep {
-			step,
-			signature: Default::default(),
-		};
-		let message = empty_step.message(parent_hash);
-		let validator_index = (step % validators.len() as u64) as usize;
-		let signature: [u8; 65] = sign(validators[validator_index].secret(), &message.as_fixed_bytes().into())
-			.unwrap()
-			.into();
-		empty_step.signature = signature.into();
-		empty_step
+	const GENESIS_STEP: u64 = 42;
+	const TOTAL_VALIDATORS: usize = 3;
+
+	fn genesis() -> Header {
+		HeaderBuilder::genesis().step(GENESIS_STEP).sign_by(&validator(0))
 	}
 
 	fn verify_with_config(config: &AuraConfiguration, header: &Header) -> Result<ImportContext<AccountId>, Error> {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test_with_genesis(genesis(), TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			verify_aura_header(&storage, &config, None, header)
 		})
@@ -382,17 +384,17 @@ mod tests {
 	}
 
 	fn default_accept_into_pool(
-		mut make_header: impl FnMut(&[KeyPair]) -> (Header, Option<Vec<Receipt>>),
+		mut make_header: impl FnMut(&[SecretKey]) -> (Header, Option<Vec<Receipt>>),
 	) -> Result<(Vec<Vec<u8>>, Vec<Vec<u8>>), Error> {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test_with_genesis(genesis(), TOTAL_VALIDATORS, |_| {
 			let validators = vec![validator(0), validator(1), validator(2)];
 			let mut storage = BridgeStorage::<TestRuntime>::new();
-			let block1 = block_i(1, &validators);
+			let block1 = HeaderBuilder::with_parent_number(0).sign_by_set(&validators);
 			insert_header(&mut storage, block1);
-			let block2 = block_i(2, &validators);
+			let block2 = HeaderBuilder::with_parent_number(1).sign_by_set(&validators);
 			let block2_id = block2.compute_id();
 			insert_header(&mut storage, block2);
-			let block3 = block_i(3, &validators);
+			let block3 = HeaderBuilder::with_parent_number(2).sign_by_set(&validators);
 			insert_header(&mut storage, block3);
 
 			FinalizedBlock::put(block2_id);
@@ -468,32 +470,26 @@ mod tests {
 	#[test]
 	fn verifies_header_number() {
 		// when number is u64::max_value()
-		let mut header = Header {
-			seal: vec![vec![].into(), vec![].into(), vec![].into()],
-			number: u64::max_value(),
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_number(u64::max_value()).sign_by(&validator(0));
 		assert_eq!(default_verify(&header), Err(Error::RidiculousNumber));
 
 		// when header is < u64::max_value()
-		header.seal = vec![vec![].into(), vec![].into()];
-		header.number -= 1;
+		let header = HeaderBuilder::with_number(u64::max_value() - 1).sign_by(&validator(0));
 		assert_ne!(default_verify(&header), Err(Error::RidiculousNumber));
 	}
 
 	#[test]
 	fn verifies_gas_used() {
 		// when gas used is larger than gas limit
-		let mut header = Header {
-			seal: vec![vec![].into(), vec![].into()],
-			gas_used: 1.into(),
-			gas_limit: 0.into(),
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_number(1)
+			.gas_used((GAS_LIMIT + 1).into())
+			.sign_by(&validator(0));
 		assert_eq!(default_verify(&header), Err(Error::TooMuchGasUsed));
 
 		// when gas used is less than gas limit
-		header.gas_limit = 1.into();
+		let header = HeaderBuilder::with_number(1)
+			.gas_used((GAS_LIMIT - 1).into())
+			.sign_by(&validator(0));
 		assert_ne!(default_verify(&header), Err(Error::TooMuchGasUsed));
 	}
 
@@ -504,67 +500,62 @@ mod tests {
 		config.max_gas_limit = 200.into();
 
 		// when limit is lower than expected
-		let mut header = Header {
-			seal: vec![vec![].into(), vec![].into()],
-			gas_limit: 50.into(),
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_number(1)
+			.gas_limit(50.into())
+			.sign_by(&validator(0));
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InvalidGasLimit));
 
 		// when limit is larger than expected
-		header.gas_limit = 250.into();
+		let header = HeaderBuilder::with_number(1)
+			.gas_limit(250.into())
+			.sign_by(&validator(0));
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InvalidGasLimit));
 
 		// when limit is within expected range
-		header.gas_limit = 150.into();
+		let header = HeaderBuilder::with_number(1)
+			.gas_limit(150.into())
+			.sign_by(&validator(0));
 		assert_ne!(verify_with_config(&config, &header), Err(Error::InvalidGasLimit));
 	}
 
 	#[test]
 	fn verifies_extra_data_len() {
 		// when extra data is too large
-		let mut header = Header {
-			seal: vec![vec![].into(), vec![].into()],
-			gas_limit: test_aura_config().min_gas_limit,
-			extra_data: std::iter::repeat(42).take(1000).collect::<Vec<_>>().into(),
-			number: 1,
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_number(1)
+			.extra_data(std::iter::repeat(42).take(1000).collect::<Vec<_>>())
+			.sign_by(&validator(0));
 		assert_eq!(default_verify(&header), Err(Error::ExtraDataOutOfBounds));
 
 		// when extra data size is OK
-		header.extra_data = std::iter::repeat(42).take(10).collect::<Vec<_>>().into();
+		let header = HeaderBuilder::with_number(1)
+			.extra_data(std::iter::repeat(42).take(10).collect::<Vec<_>>())
+			.sign_by(&validator(0));
 		assert_ne!(default_verify(&header), Err(Error::ExtraDataOutOfBounds));
 	}
 
 	#[test]
 	fn verifies_timestamp() {
 		// when timestamp overflows i32
-		let mut header = Header {
-			seal: vec![vec![].into(), vec![].into()],
-			gas_limit: test_aura_config().min_gas_limit,
-			timestamp: i32::max_value() as u64 + 1,
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_number(1)
+			.timestamp(i32::max_value() as u64 + 1)
+			.sign_by(&validator(0));
 		assert_eq!(default_verify(&header), Err(Error::TimestampOverflow));
 
 		// when timestamp doesn't overflow i32
-		header.timestamp -= 1;
+		let header = HeaderBuilder::with_number(1)
+			.timestamp(i32::max_value() as u64)
+			.sign_by(&validator(0));
 		assert_ne!(default_verify(&header), Err(Error::TimestampOverflow));
 	}
 
 	#[test]
 	fn verifies_parent_existence() {
 		// when there's no parent in the storage
-		let mut header = Header {
-			seal: vec![vec![].into(), vec![].into()],
-			gas_limit: test_aura_config().min_gas_limit,
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_number(1).sign_by(&validator(0));
 		assert_eq!(default_verify(&header), Err(Error::MissingParentBlock));
 
 		// when parent is in the storage
-		header.parent_hash = genesis().compute_hash();
+		let header = HeaderBuilder::with_parent(&genesis()).sign_by(&validator(0));
 		assert_ne!(default_verify(&header), Err(Error::MissingParentBlock));
 	}
 
@@ -580,11 +571,11 @@ mod tests {
 		assert_eq!(default_verify(&header), Err(Error::MissingStep));
 
 		// when step is the same as for the parent block
-		header.seal = vec![vec![42].into(), vec![].into()];
+		header.seal[0] = rlp_encode(&42u64);
 		assert_eq!(default_verify(&header), Err(Error::DoubleVote));
 
 		// when step is OK
-		header.seal = vec![vec![43].into(), vec![].into()];
+		header.seal[0] = rlp_encode(&43u64);
 		assert_ne!(default_verify(&header), Err(Error::DoubleVote));
 
 		// now check with validate_step check enabled
@@ -592,52 +583,47 @@ mod tests {
 		config.validate_step_transition = 0;
 
 		// when step is lesser that for the parent block
+		header.seal[0] = rlp_encode(&40u64);
 		header.seal = vec![vec![40].into(), vec![].into()];
 		assert_eq!(verify_with_config(&config, &header), Err(Error::DoubleVote));
 
 		// when step is OK
-		header.seal = vec![vec![44].into(), vec![].into()];
+		header.seal[0] = rlp_encode(&44u64);
 		assert_ne!(verify_with_config(&config, &header), Err(Error::DoubleVote));
 	}
 
 	#[test]
 	fn verifies_empty_step() {
-		let validators = vec![validator(0), validator(1), validator(2)];
 		let mut config = test_aura_config();
 		config.empty_steps_transition = 0;
 
 		// when empty step duplicates parent step
-		let mut header = Header {
-			seal: vec![
-				vec![45].into(),
-				vec![142].into(),
-				SealedEmptyStep::rlp_of(&[sealed_empty_step(&validators, &genesis().compute_hash(), 42)]),
-			],
-			gas_limit: test_aura_config().min_gas_limit,
-			parent_hash: genesis().compute_hash(),
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_parent(&genesis())
+			.empty_steps(&[(&validator(0), GENESIS_STEP)])
+			.step(GENESIS_STEP + 3)
+			.sign_by(&validator(3));
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
 
 		// when empty step signature check fails
-		let mut wrong_sealed_empty_step = sealed_empty_step(&validators, &genesis().compute_hash(), 43);
-		wrong_sealed_empty_step.signature = Default::default();
-		header.seal[2] = SealedEmptyStep::rlp_of(&[wrong_sealed_empty_step]);
+		let header = HeaderBuilder::with_parent(&genesis())
+			.empty_steps(&[(&validator(100), GENESIS_STEP + 1)])
+			.step(GENESIS_STEP + 3)
+			.sign_by(&validator(3));
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
 
 		// when we are accepting strict empty steps and they come not in order
 		config.strict_empty_steps_transition = 0;
-		header.seal[2] = SealedEmptyStep::rlp_of(&[
-			sealed_empty_step(&validators, &genesis().compute_hash(), 44),
-			sealed_empty_step(&validators, &genesis().compute_hash(), 43),
-		]);
+		let header = HeaderBuilder::with_parent(&genesis())
+			.empty_steps(&[(&validator(2), GENESIS_STEP + 2), (&validator(1), GENESIS_STEP + 1)])
+			.step(GENESIS_STEP + 3)
+			.sign_by(&validator(3));
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
 
 		// when empty steps are OK
-		header.seal[2] = SealedEmptyStep::rlp_of(&[
-			sealed_empty_step(&validators, &genesis().compute_hash(), 43),
-			sealed_empty_step(&validators, &genesis().compute_hash(), 44),
-		]);
+		let header = HeaderBuilder::with_parent(&genesis())
+			.empty_steps(&[(&validator(1), GENESIS_STEP + 1), (&validator(2), GENESIS_STEP + 2)])
+			.step(GENESIS_STEP + 3)
+			.sign_by(&validator(3));
 		assert_ne!(verify_with_config(&config, &header), Err(Error::InsufficientProof));
 	}
 
@@ -647,33 +633,19 @@ mod tests {
 		config.validate_score_transition = 0;
 
 		// when chain score is invalid
-		let mut header = Header {
-			seal: vec![vec![43].into(), vec![].into()],
-			gas_limit: test_aura_config().min_gas_limit,
-			parent_hash: genesis().compute_hash(),
-			..Default::default()
-		};
+		let header = HeaderBuilder::with_parent(&genesis())
+			.difficulty(100.into())
+			.sign_by(&validator(0));
 		assert_eq!(verify_with_config(&config, &header), Err(Error::InvalidDifficulty));
 
 		// when chain score is accepted
-		header.difficulty = calculate_score(42, 43, 0);
+		let header = HeaderBuilder::with_parent(&genesis()).sign_by(&validator(0));
 		assert_ne!(verify_with_config(&config, &header), Err(Error::InvalidDifficulty));
 	}
 
 	#[test]
 	fn verifies_validator() {
-		let validators = vec![validator(0), validator(1), validator(2)];
-		let good_header = signed_header(
-			&validators,
-			Header {
-				author: validators[1].address().as_fixed_bytes().into(),
-				seal: vec![vec![43].into(), vec![].into()],
-				gas_limit: test_aura_config().min_gas_limit,
-				parent_hash: genesis().compute_hash(),
-				..Default::default()
-			},
-			43,
-		);
+		let good_header = HeaderBuilder::with_parent(&genesis()).sign_by(&validator(1));
 
 		// when header author is invalid
 		let mut header = good_header.clone();
@@ -693,7 +665,7 @@ mod tests {
 	fn pool_verifies_known_blocks() {
 		// when header is known
 		assert_eq!(
-			default_accept_into_pool(|validators| (block_i(3, validators), None)),
+			default_accept_into_pool(|validators| (HeaderBuilder::with_parent_number(2).sign_by_set(validators), None)),
 			Err(Error::KnownHeader),
 		);
 	}
@@ -703,7 +675,9 @@ mod tests {
 		// when header number is less than finalized
 		assert_eq!(
 			default_accept_into_pool(|validators| (
-				custom_block_i(2, validators, |header| header.gas_limit += 1.into()),
+				HeaderBuilder::with_parent_number(1)
+					.gas_limit((GAS_LIMIT + 1).into())
+					.sign_by_set(validators),
 				None,
 			),),
 			Err(Error::AncientHeader),
@@ -731,7 +705,7 @@ mod tests {
 	fn pool_rejects_headers_with_redundant_receipts() {
 		assert_eq!(
 			default_accept_into_pool(|validators| (
-				block_i(4, validators),
+				HeaderBuilder::with_parent_number(3).sign_by_set(validators),
 				Some(vec![Receipt {
 					gas_used: 1.into(),
 					log_bloom: (&[0xff; 256]).into(),
@@ -747,7 +721,7 @@ mod tests {
 	fn pool_verifies_future_block_number() {
 		// when header is too far from the future
 		assert_eq!(
-			default_accept_into_pool(|validators| (custom_block_i(4, validators, |header| header.number = 100), None,),),
+			default_accept_into_pool(|validators| (HeaderBuilder::with_number(100).sign_by_set(&validators), None),),
 			Err(Error::UnsignedTooFarInTheFuture),
 		);
 	}
@@ -758,8 +732,9 @@ mod tests {
 		// checks for DoubleVote
 		assert_eq!(
 			default_accept_into_pool(|validators| (
-				custom_block_i(4, validators, |header| header.seal[0] =
-					block_i(3, validators).seal[0].clone()),
+				HeaderBuilder::with_parent_number(3)
+					.step(GENESIS_STEP + 3)
+					.sign_by_set(&validators),
 				None,
 			),),
 			Err(Error::DoubleVote),
@@ -772,21 +747,7 @@ mod tests {
 		// (even if header will be considered invalid/duplicate later, we can use this signature
 		// as a proof of malicious action by this validator)
 		assert_eq!(
-			default_accept_into_pool(|validators| (
-				signed_header(
-					validators,
-					Header {
-						author: validators[1].address().as_fixed_bytes().into(),
-						seal: vec![vec![8].into(), vec![].into()],
-						gas_limit: test_aura_config().min_gas_limit,
-						parent_hash: [42; 32].into(),
-						number: 8,
-						..Default::default()
-					},
-					43
-				),
-				None,
-			)),
+			default_accept_into_pool(|_| (HeaderBuilder::with_number(8).step(8).sign_by(&validator(1)), None,)),
 			Err(Error::NotValidator),
 		);
 	}
@@ -796,7 +757,7 @@ mod tests {
 		let mut hash = None;
 		assert_eq!(
 			default_accept_into_pool(|validators| {
-				let header = block_i(4, &validators);
+				let header = HeaderBuilder::with_parent_number(3).sign_by_set(validators);
 				hash = Some(header.compute_hash());
 				(header, None)
 			}),
@@ -814,32 +775,22 @@ mod tests {
 
 	#[test]
 	fn pool_verifies_header_with_unknown_parent() {
-		let mut hash = None;
+		let mut id = None;
+		let mut parent_id = None;
 		assert_eq!(
 			default_accept_into_pool(|validators| {
-				let header = signed_header(
-					validators,
-					Header {
-						author: validators[2].address().as_fixed_bytes().into(),
-						seal: vec![vec![47].into(), vec![].into()],
-						gas_limit: test_aura_config().min_gas_limit,
-						parent_hash: [42; 32].into(),
-						number: 5,
-						..Default::default()
-					},
-					47,
-				);
-				hash = Some(header.compute_hash());
+				let header = HeaderBuilder::with_number(5)
+					.step(GENESIS_STEP + 5)
+					.sign_by_set(validators);
+				id = Some(header.compute_id());
+				parent_id = header.parent_id();
 				(header, None)
 			}),
 			Ok((
 				// parent tag required
-				vec![(4u64, [42u8; 32]).encode(),],
+				vec![parent_id.unwrap().encode()],
 				// header provides two tags
-				vec![
-					(5u64, validators_addresses(3)[2]).encode(),
-					(5u64, hash.unwrap()).encode(),
-				],
+				vec![(5u64, validator_address(2)).encode(), id.unwrap().encode(),],
 			)),
 		);
 	}
@@ -852,55 +803,36 @@ mod tests {
 				change_validators_set_at(3, validators_addresses(1), None);
 
 				// header is signed using wrong set
-				let header = signed_header(
-					actual_validators,
-					Header {
-						author: actual_validators[2].address().as_fixed_bytes().into(),
-						seal: vec![vec![47].into(), vec![].into()],
-						gas_limit: test_aura_config().min_gas_limit,
-						parent_hash: [42; 32].into(),
-						number: 5,
-						..Default::default()
-					},
-					47,
-				);
+				let header = HeaderBuilder::with_number(5)
+					.step(GENESIS_STEP + 2)
+					.sign_by_set(actual_validators);
 
 				(header, None)
 			}),
 			Err(Error::NotValidator),
 		);
 
-		let mut hash = None;
+		let mut id = None;
+		let mut parent_id = None;
 		assert_eq!(
 			default_accept_into_pool(|actual_validators| {
 				// change finalized set at parent header + signal valid set at parent block
 				change_validators_set_at(3, validators_addresses(10), Some(validators_addresses(3)));
 
 				// header is signed using wrong set
-				let header = signed_header(
-					actual_validators,
-					Header {
-						author: actual_validators[2].address().as_fixed_bytes().into(),
-						seal: vec![vec![47].into(), vec![].into()],
-						gas_limit: test_aura_config().min_gas_limit,
-						parent_hash: [42; 32].into(),
-						number: 5,
-						..Default::default()
-					},
-					47,
-				);
-				hash = Some(header.compute_hash());
+				let header = HeaderBuilder::with_number(5)
+					.step(GENESIS_STEP + 2)
+					.sign_by_set(actual_validators);
+				id = Some(header.compute_id());
+				parent_id = header.parent_id();
 
 				(header, None)
 			}),
 			Ok((
 				// parent tag required
-				vec![(4u64, [42u8; 32]).encode(),],
+				vec![parent_id.unwrap().encode(),],
 				// header provides two tags
-				vec![
-					(5u64, validators_addresses(3)[2]).encode(),
-					(5u64, hash.unwrap()).encode(),
-				],
+				vec![(5u64, validator_address(2)).encode(), id.unwrap().encode(),],
 			)),
 		);
 	}
@@ -909,9 +841,9 @@ mod tests {
 	fn pool_rejects_headers_with_invalid_receipts() {
 		assert_eq!(
 			default_accept_into_pool(|validators| {
-				let header = custom_block_i(4, &validators, |header| {
-					header.log_bloom = (&[0xff; 256]).into();
-				});
+				let header = HeaderBuilder::with_parent_number(3)
+					.log_bloom((&[0xff; 256]).into())
+					.sign_by_set(validators);
 				(header, Some(vec![validators_change_recept(Default::default())]))
 			}),
 			Err(Error::TransactionsReceiptsMismatch),
@@ -923,12 +855,14 @@ mod tests {
 		let mut hash = None;
 		assert_eq!(
 			default_accept_into_pool(|validators| {
-				let header = custom_block_i(4, &validators, |header| {
-					header.log_bloom = (&[0xff; 256]).into();
-					header.receipts_root = "81ce88dc524403b796222046bf3daf543978329b87ffd50228f1d3987031dc45"
-						.parse()
-						.unwrap();
-				});
+				let header = HeaderBuilder::with_parent_number(3)
+					.log_bloom((&[0xff; 256]).into())
+					.receipts_root(
+						"81ce88dc524403b796222046bf3daf543978329b87ffd50228f1d3987031dc45"
+							.parse()
+							.unwrap(),
+					)
+					.sign_by_set(validators);
 				hash = Some(header.compute_hash());
 				(header, Some(vec![validators_change_recept(Default::default())]))
 			}),

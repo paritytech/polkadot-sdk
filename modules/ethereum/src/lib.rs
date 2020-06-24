@@ -37,8 +37,14 @@ mod import;
 mod validators;
 mod verification;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 mod mock;
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod test_utils;
 
 /// Maximal number of blocks we're pruning in single import call.
 const MAX_BLOCKS_TO_PRUNE_IN_SINGLE_IMPORT: u64 = 8;
@@ -464,32 +470,11 @@ decl_storage! {
 				"Initial validators set can't be empty",
 			);
 
-			let initial_hash = config.initial_header.compute_hash();
-			let initial_id = HeaderId {
-				number: config.initial_header.number,
-				hash: initial_hash,
-			};
-			BestBlock::put((initial_id, config.initial_difficulty));
-			FinalizedBlock::put(initial_id);
-			BlocksToPrune::put(PruningRange {
-				oldest_unpruned_block: config.initial_header.number,
-				oldest_block_to_keep: config.initial_header.number,
-			});
-			HeadersByNumber::insert(config.initial_header.number, vec![initial_hash]);
-			Headers::<T>::insert(initial_hash, StoredHeader {
-				submitter: None,
-				header: config.initial_header.clone(),
-				total_difficulty: config.initial_difficulty,
-				next_validators_set_id: 0,
-				last_signal_block: None,
-			});
-			NextValidatorsSetId::put(1);
-			ValidatorsSets::insert(0, ValidatorsSet {
-				validators: config.initial_validators.clone(),
-				signal_block: None,
-				enact_block: initial_id,
-			});
-			ValidatorsSetsRc::insert(0, 1);
+			initialize_storage::<T>(
+				&config.initial_header,
+				config.initial_difficulty,
+				&config.initial_validators,
+			);
 		})
 	}
 }
@@ -632,6 +617,13 @@ impl<T: Trait> BridgeStorage<T> {
 		// physically remove headers and (probably) obsolete validators sets
 		while let Some(hash) = blocks_at_number.pop() {
 			let header = Headers::<T>::take(&hash);
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Pruning PoA header: ({}, {})",
+				number,
+				hash,
+			);
+
 			ScheduledChanges::remove(hash);
 			FinalityCache::<T>::remove(hash);
 			if let Some(header) = header {
@@ -830,6 +822,53 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 	}
 }
 
+/// Initialize storage.
+pub(crate) fn initialize_storage<T: Trait>(
+	initial_header: &Header,
+	initial_difficulty: U256,
+	initial_validators: &[Address],
+) {
+	let initial_hash = initial_header.compute_hash();
+	frame_support::debug::trace!(
+		target: "runtime",
+		"Initializing bridge with PoA header: ({}, {})",
+		initial_header.number,
+		initial_hash,
+	);
+
+	let initial_id = HeaderId {
+		number: initial_header.number,
+		hash: initial_hash,
+	};
+	BestBlock::put((initial_id, initial_difficulty));
+	FinalizedBlock::put(initial_id);
+	BlocksToPrune::put(PruningRange {
+		oldest_unpruned_block: initial_header.number,
+		oldest_block_to_keep: initial_header.number,
+	});
+	HeadersByNumber::insert(initial_header.number, vec![initial_hash]);
+	Headers::<T>::insert(
+		initial_hash,
+		StoredHeader {
+			submitter: None,
+			header: initial_header.clone(),
+			total_difficulty: initial_difficulty,
+			next_validators_set_id: 0,
+			last_signal_block: None,
+		},
+	);
+	NextValidatorsSetId::put(1);
+	ValidatorsSets::insert(
+		0,
+		ValidatorsSet {
+			validators: initial_validators.to_vec(),
+			signal_block: None,
+			enact_block: initial_id,
+		},
+	);
+	ValidatorsSetsRc::insert(0, 1);
+}
+
 /// Verify that transaction is included into given finalized block.
 pub fn verify_transaction_finalized<S: Storage>(
 	storage: &S,
@@ -894,9 +933,12 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::finality::FinalityAncestor;
 	use crate::mock::{
-		block_i, custom_block_i, custom_test_ext, genesis, insert_header, validators, validators_addresses, TestRuntime,
+		genesis, insert_header, run_test, run_test_with_genesis, validators_addresses, HeaderBuilder, TestRuntime,
+		GAS_LIMIT,
 	};
 	use primitives::compute_merkle_root;
+
+	const TOTAL_VALIDATORS: usize = 3;
 
 	fn example_tx() -> Vec<u8> {
 		vec![42]
@@ -919,14 +961,13 @@ pub(crate) mod tests {
 	}
 
 	fn with_headers_to_prune<T>(f: impl Fn(BridgeStorage<TestRuntime>) -> T) -> T {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
-			let validators = validators(3);
+		run_test(TOTAL_VALIDATORS, |ctx| {
 			for i in 1..10 {
 				let mut headers_by_number = Vec::with_capacity(5);
 				for j in 0..5 {
-					let header = custom_block_i(i, &validators, |header| {
-						header.gas_limit = header.gas_limit + U256::from(j);
-					});
+					let header = HeaderBuilder::with_parent_number(i - 1)
+						.gas_limit((GAS_LIMIT + j).into())
+						.sign_by_set(&ctx.validators);
 					let hash = header.compute_hash();
 					headers_by_number.push(hash);
 					Headers::<TestRuntime>::insert(
@@ -1082,21 +1123,20 @@ pub(crate) mod tests {
 
 	#[test]
 	fn finality_votes_are_cached() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |ctx| {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			let interval = <TestRuntime as Trait>::FinalityVotesCachingInterval::get().unwrap();
 
 			// for all headers with number < interval, cache entry is not created
-			let validators = validators(3);
 			for i in 1..interval {
-				let header = block_i(i, &validators);
+				let header = HeaderBuilder::with_parent_number(i - 1).sign_by_set(&ctx.validators);
 				let id = header.compute_id();
 				insert_header(&mut storage, header);
 				assert_eq!(FinalityCache::<TestRuntime>::get(&id.hash), None);
 			}
 
 			// for header with number = interval, cache entry is created
-			let header_with_entry = block_i(interval, &validators);
+			let header_with_entry = HeaderBuilder::with_parent_number(interval - 1).sign_by_set(&ctx.validators);
 			let header_with_entry_hash = header_with_entry.compute_hash();
 			insert_header(&mut storage, header_with_entry);
 			assert_eq!(
@@ -1116,13 +1156,12 @@ pub(crate) mod tests {
 
 	#[test]
 	fn cached_finality_votes_finds_entry() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |ctx| {
 			// insert 5 headers
-			let validators = validators(3);
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			let mut headers = Vec::new();
 			for i in 1..5 {
-				let header = block_i(i, &validators);
+				let header = HeaderBuilder::with_parent_number(i - 1).sign_by_set(&ctx.validators);
 				headers.push(header.clone());
 				insert_header(&mut storage, header);
 			}
@@ -1177,19 +1216,18 @@ pub(crate) mod tests {
 
 	#[test]
 	fn cached_finality_votes_stops_at_finalized_sibling() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
-			let validators = validators(3);
+		run_test(TOTAL_VALIDATORS, |ctx| {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 
 			// insert header1
-			let header1 = block_i(1, &validators);
+			let header1 = HeaderBuilder::with_parent_number(0).sign_by_set(&ctx.validators);
 			let header1_id = header1.compute_id();
 			insert_header(&mut storage, header1);
 
 			// insert header1' - sibling of header1
-			let header1s = custom_block_i(1, &validators, |header| {
-				header.gas_limit += 1.into();
-			});
+			let header1s = HeaderBuilder::with_parent_number(0)
+				.gas_limit((GAS_LIMIT + 1).into())
+				.sign_by_set(&ctx.validators);
 			let header1s_id = header1s.compute_id();
 			insert_header(&mut storage, header1s);
 
@@ -1214,7 +1252,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_works_for_best_finalized_header() {
-		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
+		run_test_with_genesis(example_header(), TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
 				verify_transaction_finalized(&storage, example_header().compute_hash(), 0, &vec![example_tx()],),
@@ -1225,7 +1263,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_works_for_best_finalized_header_ancestor() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |_| {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
@@ -1239,7 +1277,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_rejects_proof_with_missing_tx() {
-		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
+		run_test_with_genesis(example_header(), TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
 				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &vec![],),
@@ -1250,7 +1288,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_rejects_unknown_header() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
 				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &vec![],),
@@ -1261,7 +1299,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_rejects_unfinalized_header() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |_| {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
@@ -1274,7 +1312,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_rejects_finalized_header_sibling() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |_| {
 			let mut finalized_header_sibling = example_header();
 			finalized_header_sibling.timestamp = 1;
 			let finalized_header_sibling_hash = finalized_header_sibling.compute_hash();
@@ -1293,7 +1331,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_rejects_finalized_header_uncle() {
-		custom_test_ext(genesis(), validators_addresses(3)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |_| {
 			let mut finalized_header_uncle = example_header_parent();
 			finalized_header_uncle.timestamp = 1;
 			let finalized_header_uncle_hash = finalized_header_uncle.compute_hash();
@@ -1312,7 +1350,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn verify_transaction_finalized_rejects_invalid_proof() {
-		custom_test_ext(example_header(), validators_addresses(3)).execute_with(|| {
+		run_test_with_genesis(example_header(), TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
 				verify_transaction_finalized(

@@ -18,8 +18,6 @@
 
 pub use parity_bytes::Bytes;
 pub use primitive_types::{H160, H256, H512, U128, U256};
-
-#[cfg(feature = "test-helpers")]
 pub use rlp::encode as rlp_encode;
 
 use codec::{Decode, Encode};
@@ -49,6 +47,9 @@ pub type RawTransaction = Vec<u8>;
 /// An ethereum address.
 pub type Address = H160;
 
+#[cfg(any(feature = "test-helpers", test))]
+pub mod signatures;
+
 /// Complete header id.
 #[derive(Encode, Decode, Default, RuntimeDebug, PartialEq, Clone, Copy)]
 pub struct HeaderId {
@@ -59,8 +60,8 @@ pub struct HeaderId {
 }
 
 /// An Aura header.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Default, Serialize, Deserialize))]
+#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Header {
 	/// Parent block hash.
 	pub parent_hash: H256,
@@ -455,6 +456,11 @@ pub fn compute_merkle_root<T: AsRef<[u8]>>(items: impl Iterator<Item = T>) -> H2
 	}
 
 	triehash::ordered_trie_root::<Keccak256Hasher, _>(items)
+}
+
+/// Get validator that should author the block at given step.
+pub fn step_validator<T>(header_validators: &[T], header_step: u64) -> &T {
+	&header_validators[(header_step % header_validators.len() as u64) as usize]
 }
 
 sp_api::decl_runtime_apis! {

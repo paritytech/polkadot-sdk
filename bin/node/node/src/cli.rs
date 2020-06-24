@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use sc_cli::{RunCmd, Subcommand};
+use sc_cli::RunCmd;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -24,4 +24,16 @@ pub struct Cli {
 
 	#[structopt(flatten)]
 	pub run: RunCmd,
+}
+
+/// Possible subcommands of the main binary.
+#[derive(Debug, StructOpt)]
+pub enum Subcommand {
+	/// A set of base subcommands handled by `sc_cli`.
+	#[structopt(flatten)]
+	Base(sc_cli::Subcommand),
+
+	/// The custom benchmark subcommmand benchmarking runtime pallets.
+	#[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
+	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
