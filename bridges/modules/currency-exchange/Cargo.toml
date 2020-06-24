@@ -35,6 +35,13 @@ default-features = false
 rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
+[dependencies.frame-benchmarking]
+optional = true
+version = "2.0.0-rc3"
+default-features = false
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+git = "https://github.com/paritytech/substrate/"
+
 [dev-dependencies.sp-core]
 version = "2.0.0-rc3"
 rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
@@ -48,11 +55,13 @@ git = "https://github.com/paritytech/substrate/"
 [features]
 default = ["std"]
 std = [
-	"serde",
 	"codec/std",
-	"sp-std/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"sp-runtime/std",
+	"serde",
 	"sp-currency-exchange/std",
+	"sp-std/std",
+	"sp-runtime/std",
 ]
+runtime-benchmarks = ["frame-benchmarking"]

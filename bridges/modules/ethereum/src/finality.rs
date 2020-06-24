@@ -282,13 +282,15 @@ impl<Submitter> Default for FinalityVotes<Submitter> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{custom_test_ext, genesis, insert_header, validator, validators_addresses, TestRuntime};
+	use crate::mock::{insert_header, run_test, validator, validators_addresses, HeaderBuilder, TestRuntime};
 	use crate::{BridgeStorage, FinalityCache, HeaderToImport};
 	use frame_support::StorageMap;
 
+	const TOTAL_VALIDATORS: usize = 5;
+
 	#[test]
 	fn verifies_header_author() {
-		custom_test_ext(genesis(), validators_addresses(5)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |_| {
 			assert_eq!(
 				finalize_blocks(
 					&BridgeStorage::<TestRuntime>::new(),
@@ -306,21 +308,16 @@ mod tests {
 
 	#[test]
 	fn finalize_blocks_works() {
-		custom_test_ext(genesis(), validators_addresses(5)).execute_with(|| {
+		run_test(TOTAL_VALIDATORS, |ctx| {
 			// let's say we have 5 validators (we need 'votes' from 3 validators to achieve
 			// finality)
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 
 			// when header#1 is inserted, nothing is finalized (1 vote)
-			let header1 = Header {
-				author: validator(0).address().as_fixed_bytes().into(),
-				parent_hash: genesis().compute_hash(),
-				number: 1,
-				..Default::default()
-			};
+			let header1 = HeaderBuilder::with_parent(&ctx.genesis).sign_by(&validator(0));
 			let id1 = header1.compute_id();
 			let mut header_to_import = HeaderToImport {
-				context: storage.import_context(None, &genesis().compute_hash()).unwrap(),
+				context: storage.import_context(None, &header1.parent_hash).unwrap(),
 				is_best: true,
 				id: id1,
 				header: header1,
@@ -332,8 +329,8 @@ mod tests {
 			assert_eq!(
 				finalize_blocks(
 					&storage,
-					genesis().compute_id(),
-					(Default::default(), &validators_addresses(5)),
+					ctx.genesis.compute_id(),
+					(Default::default(), &ctx.addresses),
 					id1,
 					None,
 					&header_to_import.header,
@@ -345,19 +342,14 @@ mod tests {
 			storage.insert_header(header_to_import.clone());
 
 			// when header#2 is inserted, nothing is finalized (2 votes)
-			header_to_import.header = Header {
-				author: validator(1).address().as_fixed_bytes().into(),
-				parent_hash: id1.hash,
-				number: 2,
-				..Default::default()
-			};
+			header_to_import.header = HeaderBuilder::with_parent_hash(id1.hash).sign_by(&validator(1));
 			header_to_import.id = header_to_import.header.compute_id();
 			let id2 = header_to_import.header.compute_id();
 			assert_eq!(
 				finalize_blocks(
 					&storage,
-					genesis().compute_id(),
-					(Default::default(), &validators_addresses(5)),
+					ctx.genesis.compute_id(),
+					(Default::default(), &ctx.addresses),
 					id2,
 					None,
 					&header_to_import.header,
@@ -369,19 +361,14 @@ mod tests {
 			storage.insert_header(header_to_import.clone());
 
 			// when header#3 is inserted, header#1 is finalized (3 votes)
-			header_to_import.header = Header {
-				author: validator(2).address().as_fixed_bytes().into(),
-				parent_hash: id2.hash,
-				number: 3,
-				..Default::default()
-			};
+			header_to_import.header = HeaderBuilder::with_parent_hash(id2.hash).sign_by(&validator(2));
 			header_to_import.id = header_to_import.header.compute_id();
 			let id3 = header_to_import.header.compute_id();
 			assert_eq!(
 				finalize_blocks(
 					&storage,
-					genesis().compute_id(),
-					(Default::default(), &validators_addresses(5)),
+					ctx.genesis.compute_id(),
+					(Default::default(), &ctx.addresses),
 					id3,
 					None,
 					&header_to_import.header,
@@ -404,11 +391,7 @@ mod tests {
 		// 2) add votes from header#4 and header#5
 		let validators = validators_addresses(5);
 		let headers = (1..6)
-			.map(|number| Header {
-				number: number,
-				author: validators[number as usize - 1],
-				..Default::default()
-			})
+			.map(|number| HeaderBuilder::with_number(number).sign_by(&validator(number as usize - 1)))
 			.collect::<Vec<_>>();
 		let ancestry = headers
 			.iter()
@@ -451,8 +434,7 @@ mod tests {
 
 	#[test]
 	fn prepare_votes_respects_finality_cache() {
-		let validators_addresses = validators_addresses(5);
-		custom_test_ext(genesis(), validators_addresses.clone()).execute_with(move || {
+		run_test(TOTAL_VALIDATORS, |ctx| {
 			// we need signatures of 3 validators to finalize block
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 
@@ -462,14 +444,9 @@ mod tests {
 			let mut hashes = Vec::new();
 			let mut headers = Vec::new();
 			let mut ancestry = Vec::new();
-			let mut parent_hash = genesis().compute_hash();
+			let mut parent_hash = ctx.genesis.compute_hash();
 			for i in 1..10 {
-				let header = Header {
-					author: validator((i - 1) / 3).address().as_fixed_bytes().into(),
-					parent_hash,
-					number: i as _,
-					..Default::default()
-				};
+				let header = HeaderBuilder::with_parent_hash(parent_hash).sign_by(&validator((i - 1) / 3));
 				let id = header.compute_id();
 				insert_header(&mut storage, header.clone());
 				hashes.push(id.hash);
@@ -486,9 +463,9 @@ mod tests {
 			// check that votes at #7 are computed correctly without cache
 			let expected_votes_at_7 = FinalityVotes {
 				votes: vec![
-					(validators_addresses[0].clone(), 3),
-					(validators_addresses[1].clone(), 3),
-					(validators_addresses[2].clone(), 1),
+					(ctx.addresses[0].clone(), 3),
+					(ctx.addresses[1].clone(), 3),
+					(ctx.addresses[2].clone(), 1),
 				]
 				.into_iter()
 				.collect(),
@@ -499,11 +476,11 @@ mod tests {
 				prepare_votes(
 					storage.cached_finality_votes(
 						&headers.get(5).unwrap().compute_id(),
-						&genesis().compute_id(),
+						&ctx.genesis.compute_id(),
 						|_| false,
 					),
 					Default::default(),
-					&validators_addresses.iter().collect(),
+					&ctx.addresses.iter().collect(),
 					id7,
 					headers.get(6).unwrap(),
 					None,
@@ -514,12 +491,9 @@ mod tests {
 
 			// cached votes at #5
 			let expected_votes_at_5 = FinalityVotes {
-				votes: vec![
-					(validators_addresses[0].clone(), 3),
-					(validators_addresses[1].clone(), 2),
-				]
-				.into_iter()
-				.collect(),
+				votes: vec![(ctx.addresses[0].clone(), 3), (ctx.addresses[1].clone(), 2)]
+					.into_iter()
+					.collect(),
 				ancestry: ancestry[..5].iter().cloned().collect(),
 			};
 			FinalityCache::<TestRuntime>::insert(hashes[4], expected_votes_at_5);
@@ -530,11 +504,11 @@ mod tests {
 				prepare_votes(
 					storage.cached_finality_votes(
 						&headers.get(5).unwrap().compute_id(),
-						&genesis().compute_id(),
+						&ctx.genesis.compute_id(),
 						|_| false,
 					),
 					Default::default(),
-					&validators_addresses.iter().collect(),
+					&ctx.addresses.iter().collect(),
 					id7,
 					headers.get(6).unwrap(),
 					None,
@@ -546,12 +520,9 @@ mod tests {
 			// when we're inserting header#7 and last finalized header is 3:
 			// check that votes at #7 are computed correctly with cache
 			let expected_votes_at_7 = FinalityVotes {
-				votes: vec![
-					(validators_addresses[1].clone(), 3),
-					(validators_addresses[2].clone(), 1),
-				]
-				.into_iter()
-				.collect(),
+				votes: vec![(ctx.addresses[1].clone(), 3), (ctx.addresses[2].clone(), 1)]
+					.into_iter()
+					.collect(),
 				ancestry: ancestry[3..7].iter().cloned().collect(),
 			};
 			assert_eq!(
@@ -562,7 +533,7 @@ mod tests {
 						|hash| *hash == hashes[2],
 					),
 					headers[2].compute_id(),
-					&validators_addresses.iter().collect(),
+					&ctx.addresses.iter().collect(),
 					id7,
 					headers.get(6).unwrap(),
 					None,

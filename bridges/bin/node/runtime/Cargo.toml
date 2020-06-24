@@ -195,6 +195,13 @@ default-features = false
 rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
+[dependencies.frame-benchmarking]
+optional = true
+version = "2.0.0-rc3"
+default-features = false
+rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+git = "https://github.com/paritytech/substrate/"
+
 [build-dependencies.wasm-builder-runner]
 version = "1.0.5"
 package = "substrate-wasm-builder-runner"
@@ -209,6 +216,7 @@ std = [
 	"pallet-bridge-eth-poa/std",
 	"pallet-bridge-currency-exchange/std",
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -233,4 +241,12 @@ std = [
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-bridge-currency-exchange/runtime-benchmarks",
+	"pallet-bridge-eth-poa/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
