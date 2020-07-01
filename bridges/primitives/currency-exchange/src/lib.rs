@@ -35,6 +35,8 @@ pub enum Error {
 	FailedToConvertCurrency,
 	/// Deposit has failed.
 	DepositFailed,
+	/// Deposit has partially failed (changes to recipient account were made).
+	DepositPartiallyFailed,
 }
 
 /// Result of all exchange operations.

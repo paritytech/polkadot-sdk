@@ -83,6 +83,8 @@ decl_error! {
 		FailedToConvertCurrency,
 		/// Deposit has failed.
 		DepositFailed,
+		/// Deposit has partially failed (changes to recipient account were made).
+		DepositPartiallyFailed,
 		/// Transaction is not finalized.
 		UnfinalizedTransaction,
 		/// Transaction funds are already claimed.
@@ -121,7 +123,14 @@ decl_module! {
 			// make sure to update the mapping if we deposit successfully to avoid double spending,
 			// i.e. whenever `deposit_into` is successful we MUST update `Transfers`.
 			{
-				T::DepositInto::deposit_into(recipient, amount).map_err(Error::<T>::from)?;
+				// if any changes were made to the storage, we can't just return error here, because
+				// otherwise the same proof may be imported again
+				let deposit_result = T::DepositInto::deposit_into(recipient, amount);
+				match deposit_result {
+					Ok(_) => (),
+					Err(ExchangeError::DepositPartiallyFailed) => (),
+					Err(error) => Err(Error::<T>::from(error))?,
+				}
 				Transfers::<T>::insert(transfer_id, ())
 			}
 
@@ -149,6 +158,7 @@ impl<T: Trait> From<ExchangeError> for Error<T> {
 			ExchangeError::FailedToMapRecipients => Error::FailedToMapRecipients,
 			ExchangeError::FailedToConvertCurrency => Error::FailedToConvertCurrency,
 			ExchangeError::DepositFailed => Error::DepositFailed,
+			ExchangeError::DepositPartiallyFailed => Error::DepositPartiallyFailed,
 		}
 	}
 }
@@ -254,9 +264,12 @@ mod tests {
 		type Amount = u64;
 
 		fn deposit_into(_recipient: Self::Recipient, amount: Self::Amount) -> sp_currency_exchange::Result<()> {
-			match amount > MAX_DEPOSIT_AMOUNT {
-				true => Err(sp_currency_exchange::Error::DepositFailed),
-				_ => Ok(()),
+			if amount < MAX_DEPOSIT_AMOUNT * 10 {
+				Ok(())
+			} else if amount == MAX_DEPOSIT_AMOUNT * 10 {
+				Err(ExchangeError::DepositPartiallyFailed)
+			} else {
+				Err(ExchangeError::DepositFailed)
 			}
 		}
 	}
@@ -393,11 +406,28 @@ mod tests {
 	fn transaction_with_invalid_deposit_rejected() {
 		new_test_ext().execute_with(|| {
 			let mut transaction = transaction(0);
-			transaction.amount = MAX_DEPOSIT_AMOUNT;
+			transaction.amount = MAX_DEPOSIT_AMOUNT + 1;
 			assert_noop!(
 				Exchange::import_peer_transaction(Origin::signed(SUBMITTER), (true, transaction)),
 				Error::<TestRuntime>::DepositFailed,
 			);
+		});
+	}
+
+	#[test]
+	fn valid_transaction_accepted_even_if_deposit_partially_fails() {
+		new_test_ext().execute_with(|| {
+			let mut transaction = transaction(0);
+			transaction.amount = MAX_DEPOSIT_AMOUNT;
+			assert_ok!(Exchange::import_peer_transaction(
+				Origin::signed(SUBMITTER),
+				(true, transaction),
+			),);
+
+			// ensure that the transfer has been marked as completed
+			assert!(<Exchange as crate::Store>::Transfers::contains_key(0u64));
+			// ensure that submitter has been rewarded
+			assert!(<Exchange as crate::Store>::Transfers::contains_key(SUBMITTER));
 		});
 	}
 
