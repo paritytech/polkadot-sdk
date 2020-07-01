@@ -17,14 +17,14 @@
 use crate::chain_spec;
 use crate::cli::{Cli, PolkadotCli, Subcommand};
 use codec::Encode;
+use cumulus_primitives::ParaId;
 use log::info;
 use parachain_runtime::Block;
 use polkadot_parachain::primitives::AccountIdConversion;
 use sc_cli::{
-	CliConfiguration, Error, ImportParams, KeystoreParams, NetworkParams, Result, SharedParams,
-	SubstrateCli,
+	ChainSpec, CliConfiguration, Error, ImportParams, KeystoreParams, NetworkParams, Result, Role,
+	RuntimeVersion, SharedParams, SubstrateCli,
 };
-use sc_executor::NativeExecutionDispatch;
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
@@ -32,7 +32,6 @@ use sp_runtime::{
 	BuildStorage,
 };
 use std::{net::SocketAddr, sync::Arc};
-use cumulus_primitives::ParaId;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> &'static str {
@@ -68,7 +67,13 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, _id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		// Such a hack :(
-		Ok(Box::new(chain_spec::get_chain_spec(self.run.parachain_id.into())))
+		Ok(Box::new(chain_spec::get_chain_spec(
+			self.run.parachain_id.into(),
+		)))
+	}
+
+	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+		&parachain_runtime::VERSION
 	}
 }
 
@@ -113,6 +118,10 @@ impl SubstrateCli for PolkadotCli {
 				std::path::PathBuf::from(path),
 			)?),
 		})
+	}
+
+	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+		polkadot_cli::Cli::native_runtime_version(chain_spec)
 	}
 }
 
@@ -180,22 +189,18 @@ pub fn run() -> Result<()> {
 				))
 			};
 
-			runner.run_node(
-				|config| polkadot_service::polkadot_new_light(config),
-				|config| {
-					polkadot_service::polkadot_new_full(
-						config,
-						None,
-						None,
-						authority_discovery_enabled,
-						6000,
-						grandpa_pause,
-						None,
-					)
-					.map(|(s, _, _)| s)
-				},
-				polkadot_service::PolkadotExecutor::native_version().runtime_version,
-			)
+			runner.run_node_until_exit(|config| match config.role {
+				Role::Light => polkadot_service::polkadot_new_light(config).map(|r| r.0),
+				_ => polkadot_service::polkadot_new_full(
+					config,
+					None,
+					None,
+					authority_discovery_enabled,
+					6000,
+					grandpa_pause,
+				)
+				.map(|(s, _, _)| s),
+			})
 		}
 		Some(Subcommand::PolkadotValidationWorker(cmd)) => {
 			sc_cli::init_logger("");
@@ -223,27 +228,25 @@ pub fn run() -> Result<()> {
 			let block = generate_genesis_state(id)?;
 			let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
-			runner.run_full_node(
-				|config| {
-					polkadot_cli.base_path =
-						config.base_path.as_ref().map(|x| x.path().join("polkadot"));
+			runner.run_node_until_exit(|config| {
+				if matches!(config.role, Role::Light) {
+					return Err("Light client not supporter!".into());
+				}
 
-					let task_executor = config.task_executor.clone();
-					let polkadot_config = SubstrateCli::create_configuration(
-						&polkadot_cli,
-						&polkadot_cli,
-						task_executor,
-					)
-					.unwrap();
+				polkadot_cli.base_path =
+					config.base_path.as_ref().map(|x| x.path().join("polkadot"));
 
-					info!("Parachain id: {:?}", id);
-					info!("Parachain Account: {}", parachain_account);
-					info!("Parachain genesis state: {}", genesis_state);
+				let task_executor = config.task_executor.clone();
+				let polkadot_config =
+					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
+						.unwrap();
 
-					crate::service::run_collator(config, key, polkadot_config, id)
-				},
-				parachain_runtime::VERSION,
-			)
+				info!("Parachain id: {:?}", id);
+				info!("Parachain Account: {}", parachain_account);
+				info!("Parachain genesis state: {}", genesis_state);
+
+				crate::service::run_collator(config, key, polkadot_config, id)
+			})
 		}
 	}
 }
@@ -269,8 +272,7 @@ impl CliConfiguration for PolkadotCli {
 		Ok(self
 			.shared_params()
 			.base_path()
-			.or_else(|| self.base_path.clone().map(Into::into))
-		)
+			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
 	fn rpc_http(&self) -> Result<Option<SocketAddr>> {

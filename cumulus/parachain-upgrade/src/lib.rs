@@ -233,14 +233,16 @@ mod tests {
 
 	use codec::Encode;
 	use frame_support::{
-		assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
+		assert_ok,
+		dispatch::UnfilteredDispatchable,
+		impl_outer_event, impl_outer_origin, parameter_types,
 		traits::{OnFinalize, OnInitialize},
 		weights::Weight,
 	};
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
-		traits::{BlakeTwo256, Dispatchable, IdentityLookup},
+		traits::{BlakeTwo256, IdentityLookup},
 		Perbill,
 	};
 	use sp_version::RuntimeVersion;
@@ -305,6 +307,7 @@ mod tests {
 		type DbWeight = ();
 		type BlockExecutionWeight = ();
 		type ExtrinsicBaseWeight = ();
+		type BaseCallFilter = ();
 	}
 	impl Trait for Test {
 		type Event = TestEvent;
@@ -472,7 +475,7 @@ mod tests {
 					ParachainUpgrade::on_initialize(*n);
 					ParachainUpgrade::create_inherent(&inherent_data)
 						.expect("got an inherent")
-						.dispatch(RawOrigin::None.into())
+						.dispatch_bypass_filter(RawOrigin::None.into())
 						.expect("dispatch succeeded");
 					within_block();
 					ParachainUpgrade::on_finalize(*n);

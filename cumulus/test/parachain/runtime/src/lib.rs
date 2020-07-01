@@ -191,6 +191,7 @@ impl frame_system::Trait for Runtime {
 	type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
 	type BlockExecutionWeight = ();
 	type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
+	type BaseCallFilter = ();
 }
 
 parameter_types! {

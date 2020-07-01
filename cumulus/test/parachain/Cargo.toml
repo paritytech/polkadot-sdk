@@ -39,6 +39,7 @@ sc-network = { git = "https://github.com/paritytech/substrate", branch = "cumulu
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", version = "0.8.0-alpha.5" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sc-informant = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 
 # Cumulus dependencies
 cumulus-consensus = { path = "../../consensus" }

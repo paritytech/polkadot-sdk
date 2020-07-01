@@ -20,8 +20,12 @@ use cumulus_network::{
 	DelayedBlockAnnounceValidator, JustifiedBlockAnnounceValidator, WaitToAnnounce,
 };
 use cumulus_primitives::{
-	inherents::{VALIDATION_FUNCTION_PARAMS_IDENTIFIER as VFP_IDENT, DOWNWARD_MESSAGES_IDENTIFIER, DownwardMessagesType},
-	validation_function_params::ValidationFunctionParams, HeadData,
+	inherents::{
+		DownwardMessagesType, DOWNWARD_MESSAGES_IDENTIFIER,
+		VALIDATION_FUNCTION_PARAMS_IDENTIFIER as VFP_IDENT,
+	},
+	validation_function_params::ValidationFunctionParams,
+	HeadData,
 };
 use cumulus_runtime::ParachainBlockData;
 
@@ -37,8 +41,7 @@ use sp_inherents::{InherentData, InherentDataProviders};
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 
 use polkadot_collator::{
-	BuildParachainContext, InvalidHead, Network as CollatorNetwork, ParachainContext,
-	RuntimeApiCollection,
+	BuildParachainContext, Network as CollatorNetwork, ParachainContext, RuntimeApiCollection,
 };
 use polkadot_primitives::{
 	parachain::{self, BlockData, GlobalValidationSchedule, Id as ParaId, LocalValidationData},
@@ -99,15 +102,17 @@ impl<Block: BlockT, PF, BI> Collator<Block, PF, BI> {
 		global_validation: GlobalValidationSchedule,
 		local_validation: LocalValidationData,
 		downward_messages: DownwardMessagesType,
-	) -> Result<InherentData, InvalidHead> {
-		let mut inherent_data = inherent_providers.create_inherent_data().map_err(|e| {
-			error!(
-				target: "cumulus-collator",
-				"Failed to create inherent data: {:?}",
-				e,
-			);
-			InvalidHead
-		})?;
+	) -> Option<InherentData> {
+		let mut inherent_data = inherent_providers
+			.create_inherent_data()
+			.map_err(|e| {
+				error!(
+					target: "cumulus-collator",
+					"Failed to create inherent data: {:?}",
+					e,
+				);
+			})
+			.ok()?;
 
 		inherent_data
 			.put_data(
@@ -120,24 +125,21 @@ impl<Block: BlockT, PF, BI> Collator<Block, PF, BI> {
 					"Failed to put validation function params into inherent data: {:?}",
 					e,
 				);
-				InvalidHead
-			})?;
+			})
+			.ok()?;
 
 		inherent_data
-			.put_data(
-				DOWNWARD_MESSAGES_IDENTIFIER,
-				&downward_messages,
-			)
+			.put_data(DOWNWARD_MESSAGES_IDENTIFIER, &downward_messages)
 			.map_err(|e| {
 				error!(
 					target: "cumulus-collator",
 					"Failed to put downward messages into inherent data: {:?}",
 					e,
 				);
-				InvalidHead
-			})?;
+			})
+			.ok()?;
 
-		Ok(inherent_data)
+		Some(inherent_data)
 	}
 }
 
@@ -168,7 +170,7 @@ where
 		+ 'static,
 {
 	type ProduceCandidate =
-		Pin<Box<dyn Future<Output = Result<(BlockData, parachain::HeadData), InvalidHead>> + Send>>;
+		Pin<Box<dyn Future<Output = Option<(BlockData, parachain::HeadData)>> + Send>>;
 
 	fn produce_candidate(
 		&mut self,
@@ -187,7 +189,7 @@ where
 			Ok(x) => x,
 			Err(e) => {
 				error!(target: "cumulus-collator", "Could not decode the head data: {:?}", e);
-				return Box::pin(future::ready(Err(InvalidHead)));
+				return Box::pin(future::ready(None));
 			}
 		};
 
@@ -196,14 +198,16 @@ where
 		let wait_to_announce = self.wait_to_announce.clone();
 
 		Box::pin(async move {
-			let proposer = proposer_future.await.map_err(|e| {
-				error!(
-					target: "cumulus-collator",
-					"Could not create proposer: {:?}",
-					e,
-				);
-				InvalidHead
-			})?;
+			let proposer = proposer_future
+				.await
+				.map_err(|e| {
+					error!(
+						target: "cumulus-collator",
+						"Could not create proposer: {:?}",
+						e,
+					);
+				})
+				.ok()?;
 
 			let inherent_data = Self::inherent_data(
 				inherent_providers,
@@ -231,16 +235,20 @@ where
 						"Proposing failed: {:?}",
 						e,
 					);
-					InvalidHead
-				})?;
+				})
+				.ok()?;
 
-			let proof = proof.ok_or_else(|| {
-				error!(
-					target: "cumulus-collator",
-					"Proposer did not return the requested proof.",
-				);
-				InvalidHead
-			})?;
+			let proof = match proof {
+				Some(proof) => proof,
+				None => {
+					error!(
+						target: "cumulus-collator",
+						"Proposer did not return the requested proof.",
+					);
+
+					return None;
+				}
+			};
 
 			let (header, extrinsics) = block.deconstruct();
 
@@ -266,7 +274,8 @@ where
 					b.header().parent_hash(),
 					err,
 				);
-				return Err(InvalidHead);
+
+				return None;
 			}
 
 			let block_data = BlockData(b.encode());
@@ -283,7 +292,7 @@ where
 
 			trace!(target: "cumulus-collator", "Produced candidate: {:?}", candidate);
 
-			Ok(candidate)
+			Some(candidate)
 		})
 	}
 }

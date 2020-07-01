@@ -105,7 +105,7 @@ where
 
 				Validation::Failure
 			} else {
-				Validation::Success
+				Validation::Success { is_new_best: false }
 			});
 		}
 
@@ -202,7 +202,7 @@ where
 			)) as Box<_>);
 		}
 
-		Ok(Validation::Success)
+		Ok(Validation::Success { is_new_best: false })
 	}
 }
 
