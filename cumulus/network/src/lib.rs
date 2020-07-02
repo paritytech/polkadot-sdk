@@ -202,7 +202,7 @@ where
 			)) as Box<_>);
 		}
 
-		Ok(Validation::Success { is_new_best: false })
+		Ok(Validation::Success { is_new_best: true })
 	}
 }
 
