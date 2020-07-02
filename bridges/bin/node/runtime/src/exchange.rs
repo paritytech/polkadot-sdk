@@ -31,7 +31,7 @@ use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
 use pallet_bridge_currency_exchange::Blockchain;
-use sp_bridge_eth_poa::transaction_decode;
+use sp_bridge_eth_poa::{transaction_decode, RawTransaction};
 use sp_currency_exchange::{
 	Error as ExchangeError, LockFundsTransaction, MaybeLockFundsTransaction, Result as ExchangeResult,
 };
@@ -48,7 +48,7 @@ pub struct EthereumTransactionInclusionProof {
 	/// Index of the transaction within the block.
 	pub index: u64,
 	/// The proof itself (right now it is all RLP-encoded transactions of the block).
-	pub proof: Vec<Vec<u8>>,
+	pub proof: Vec<RawTransaction>,
 }
 
 /// We uniquely identify transfer by the pair (sender, nonce).
@@ -69,7 +69,7 @@ pub struct EthereumTransactionTag {
 pub struct EthBlockchain;
 
 impl Blockchain for EthBlockchain {
-	type Transaction = Vec<u8>;
+	type Transaction = RawTransaction;
 	type TransactionInclusionProof = EthereumTransactionInclusionProof;
 
 	fn verify_transaction_inclusion_proof(proof: &Self::TransactionInclusionProof) -> Option<Self::Transaction> {
@@ -88,7 +88,7 @@ impl Blockchain for EthBlockchain {
 pub struct EthTransaction;
 
 impl MaybeLockFundsTransaction for EthTransaction {
-	type Transaction = Vec<u8>;
+	type Transaction = RawTransaction;
 	type Id = EthereumTransactionTag;
 	type Recipient = crate::AccountId;
 	type Amount = crate::Balance;
@@ -99,19 +99,19 @@ impl MaybeLockFundsTransaction for EthTransaction {
 		let tx = transaction_decode(raw_tx).map_err(|_| ExchangeError::InvalidTransaction)?;
 
 		// we only accept transactions sending funds directly to the pre-configured address
-		if tx.to != Some(LOCK_FUNDS_ADDRESS.into()) {
+		if tx.unsigned.to != Some(LOCK_FUNDS_ADDRESS.into()) {
 			frame_support::debug::error!(
 				target: "runtime",
 				"Failed to parse fund locks transaction. Invalid peer recipient: {:?}",
-				tx.to,
+				tx.unsigned.to,
 			);
 
 			return Err(ExchangeError::InvalidTransaction);
 		}
 
 		let mut recipient_raw = sp_core::H256::default();
-		match tx.payload.len() {
-			32 => recipient_raw.as_fixed_bytes_mut().copy_from_slice(&tx.payload),
+		match tx.unsigned.payload.len() {
+			32 => recipient_raw.as_fixed_bytes_mut().copy_from_slice(&tx.unsigned.payload),
 			len => {
 				frame_support::debug::error!(
 					target: "runtime",
@@ -122,13 +122,13 @@ impl MaybeLockFundsTransaction for EthTransaction {
 				return Err(ExchangeError::InvalidRecipient);
 			}
 		}
-		let amount = tx.value.low_u128();
+		let amount = tx.unsigned.value.low_u128();
 
-		if tx.value != amount.into() {
+		if tx.unsigned.value != amount.into() {
 			frame_support::debug::error!(
 				target: "runtime",
 				"Failed to parse fund locks transaction. Invalid amount: {}",
-				tx.value,
+				tx.unsigned.value,
 			);
 
 			return Err(ExchangeError::InvalidAmount);
@@ -137,7 +137,7 @@ impl MaybeLockFundsTransaction for EthTransaction {
 		Ok(LockFundsTransaction {
 			id: EthereumTransactionTag {
 				account: *tx.sender.as_fixed_bytes(),
-				nonce: tx.nonce,
+				nonce: tx.unsigned.nonce,
 			},
 			recipient: crate::AccountId::from(*recipient_raw.as_fixed_bytes()),
 			amount,
@@ -149,29 +149,36 @@ impl MaybeLockFundsTransaction for EthTransaction {
 mod tests {
 	use super::*;
 	use hex_literal::hex;
+	use sp_bridge_eth_poa::{
+		signatures::{SecretKey, SignTransaction},
+		UnsignedTransaction,
+	};
 
 	fn ferdie() -> crate::AccountId {
 		hex!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c").into()
 	}
 
-	fn prepare_ethereum_transaction(editor: impl Fn(&mut ethereum_tx_sign::RawTransaction)) -> Vec<u8> {
+	fn prepare_ethereum_transaction(editor: impl Fn(&mut UnsignedTransaction)) -> Vec<u8> {
 		// prepare tx for OpenEthereum private dev chain:
 		// chain id is 0x11
 		// sender secret is 0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
 		let chain_id = 0x11_u64;
-		let signer = hex!("4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7");
+		let signer = SecretKey::parse(&hex!(
+			"4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7"
+		))
+		.unwrap();
 		let ferdie_id = ferdie();
 		let ferdie_raw: &[u8; 32] = ferdie_id.as_ref();
-		let mut eth_tx = ethereum_tx_sign::RawTransaction {
+		let mut eth_tx = UnsignedTransaction {
 			nonce: 0.into(),
 			to: Some(LOCK_FUNDS_ADDRESS.into()),
 			value: 100.into(),
 			gas: 100_000.into(),
 			gas_price: 100_000.into(),
-			data: ferdie_raw.to_vec(),
+			payload: ferdie_raw.to_vec(),
 		};
 		editor(&mut eth_tx);
-		eth_tx.sign(&signer.into(), &chain_id)
+		eth_tx.sign_by(&signer, Some(chain_id))
 	}
 
 	#[test]
@@ -211,7 +218,7 @@ mod tests {
 	fn transaction_with_invalid_recipient_rejected() {
 		assert_eq!(
 			EthTransaction::parse(&prepare_ethereum_transaction(|tx| {
-				tx.data.clear();
+				tx.payload.clear();
 			})),
 			Err(ExchangeError::InvalidRecipient),
 		);
