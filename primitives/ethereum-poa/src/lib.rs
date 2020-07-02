@@ -97,12 +97,24 @@ pub struct Header {
 }
 
 /// Parsed ethereum transaction.
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq, RuntimeDebug)]
 pub struct Transaction {
 	/// Sender address.
 	pub sender: Address,
+	/// Unsigned portion of ethereum transaction.
+	pub unsigned: UnsignedTransaction,
+}
+
+/// Unsigned portion of ethereum transaction.
+#[derive(PartialEq, RuntimeDebug)]
+#[cfg_attr(test, derive(Clone))]
+pub struct UnsignedTransaction {
 	/// Sender nonce.
 	pub nonce: U256,
+	/// Gas price.
+	pub gas_price: U256,
+	/// Gas limit.
+	pub gas: U256,
 	/// Transaction destination address. None if it is contract creation transaction.
 	pub to: Option<Address>,
 	/// Transaction value.
@@ -259,6 +271,55 @@ impl Header {
 	}
 }
 
+impl UnsignedTransaction {
+	/// Decode unsigned portion of raw transaction RLP.
+	pub fn decode(raw_tx: &[u8]) -> Result<Self, DecoderError> {
+		let tx_rlp = Rlp::new(raw_tx);
+		let to = tx_rlp.at(3)?;
+		Ok(UnsignedTransaction {
+			nonce: tx_rlp.val_at(0)?,
+			gas_price: tx_rlp.val_at(1)?,
+			gas: tx_rlp.val_at(2)?,
+			to: match to.is_empty() {
+				false => Some(to.as_val()?),
+				true => None,
+			},
+			value: tx_rlp.val_at(4)?,
+			payload: tx_rlp.val_at(5)?,
+		})
+	}
+
+	/// Returns message that has to be signed to sign this transaction.
+	pub fn message(&self, chain_id: Option<u64>) -> H256 {
+		keccak_256(&self.rlp(chain_id)).into()
+	}
+
+	/// Returns unsigned transaction RLP.
+	pub fn rlp(&self, chain_id: Option<u64>) -> Bytes {
+		let mut stream = RlpStream::new_list(if chain_id.is_some() { 9 } else { 6 });
+		self.rlp_to(chain_id, &mut stream);
+		stream.out()
+	}
+
+	/// Encode to given rlp stream.
+	pub fn rlp_to(&self, chain_id: Option<u64>, stream: &mut RlpStream) {
+		stream.append(&self.nonce);
+		stream.append(&self.gas_price);
+		stream.append(&self.gas);
+		match self.to {
+			Some(to) => stream.append(&to),
+			None => stream.append(&""),
+		};
+		stream.append(&self.value);
+		stream.append(&self.payload);
+		if let Some(chain_id) = chain_id {
+			stream.append(&chain_id);
+			stream.append(&0u8);
+			stream.append(&0u8);
+		}
+	}
+}
+
 impl Receipt {
 	/// Returns receipt RLP.
 	fn rlp(&self) -> Bytes {
@@ -373,17 +434,8 @@ impl std::fmt::Debug for Bloom {
 /// Decode Ethereum transaction.
 pub fn transaction_decode(raw_tx: &[u8]) -> Result<Transaction, rlp::DecoderError> {
 	// parse transaction fields
+	let unsigned = UnsignedTransaction::decode(raw_tx)?;
 	let tx_rlp = Rlp::new(raw_tx);
-	let nonce: U256 = tx_rlp.val_at(0)?;
-	let gas_price = tx_rlp.at(1)?;
-	let gas = tx_rlp.at(2)?;
-	let action = tx_rlp.at(3)?;
-	let to = match action.is_empty() {
-		false => Some(action.as_val()?),
-		true => None,
-	};
-	let value: U256 = tx_rlp.val_at(4)?;
-	let payload: Bytes = tx_rlp.val_at(5)?;
 	let v: u64 = tx_rlp.val_at(6)?;
 	let r: U256 = tx_rlp.val_at(7)?;
 	let s: U256 = tx_rlp.val_at(8)?;
@@ -401,31 +453,16 @@ pub fn transaction_decode(raw_tx: &[u8]) -> Result<Transaction, rlp::DecoderErro
 	signature[64] = v;
 
 	// reconstruct message that has been signed
-	let mut message = RlpStream::new_list(if chain_id.is_some() { 9 } else { 6 });
-	message.append(&nonce);
-	message.append_raw(gas_price.as_raw(), 1);
-	message.append_raw(gas.as_raw(), 1);
-	message.append_raw(action.as_raw(), 1);
-	message.append(&value);
-	message.append(&payload);
-	if let Some(chain_id) = chain_id {
-		message.append(&chain_id);
-		message.append(&0u8);
-		message.append(&0u8);
-	}
-	let message = keccak_256(&message.out());
+	let message = unsigned.message(chain_id);
 
 	// recover tx sender
-	let sender_public = sp_io::crypto::secp256k1_ecdsa_recover(&signature, &message)
+	let sender_public = sp_io::crypto::secp256k1_ecdsa_recover(&signature, &message.as_fixed_bytes())
 		.map_err(|_| rlp::DecoderError::Custom("Failed to recover transaction sender"))?;
 	let sender_address = public_to_address(&sender_public);
 
 	Ok(Transaction {
 		sender: sender_address,
-		nonce,
-		to,
-		value,
-		payload,
+		unsigned,
 	})
 }
 
@@ -494,10 +531,14 @@ mod tests {
 			transaction_decode(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("67835910d32600471f388a137bbff3eb07993c04").into(),
-				nonce: 10.into(),
-				to: Some(hex!("d1310c1e038bc12865d3d3997275b3e4737c6302").into()),
-				value: 815217380000000000_u64.into(),
-				payload: Default::default(),
+				unsigned: UnsignedTransaction {
+					nonce: 10.into(),
+					gas_price: 19000000000u64.into(),
+					gas: 93674.into(),
+					to: Some(hex!("d1310c1e038bc12865d3d3997275b3e4737c6302").into()),
+					value: 815217380000000000_u64.into(),
+					payload: Default::default(),
+				}
 			}),
 		);
 
@@ -509,10 +550,14 @@ mod tests {
 			transaction_decode(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("faadface3fbd81ce37b0e19c0b65ff4234148132").into(),
-				nonce: 10262.into(),
-				to: Some(hex!("70c1ccde719d6f477084f07e4137ab0e55f8369f").into()),
-				value: 900379597077600000000_u128.into(),
-				payload: Default::default(),
+				unsigned: UnsignedTransaction {
+					nonce: 10262.into(),
+					gas_price: 0.into(),
+					gas: 21000.into(),
+					to: Some(hex!("70c1ccde719d6f477084f07e4137ab0e55f8369f").into()),
+					value: 900379597077600000000_u128.into(),
+					payload: Default::default(),
+				},
 			}),
 		);
 	}
@@ -527,10 +572,14 @@ mod tests {
 			transaction_decode(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("2b9a4d37bdeecdf994c4c9ad7f3cf8dc632f7d70").into(),
-				nonce: 118.into(),
-				to: Some(hex!("dac17f958d2ee523a2206206994597c13d831ec7").into()),
-				value: 0.into(),
-				payload: hex!("a9059cbb000000000000000000000000e08f35f66867a454835b25118f1e490e7f9e9a7400000000000000000000000000000000000000000000000000000000004c4b40").to_vec().into(),
+				unsigned: UnsignedTransaction {
+					nonce: 118.into(),
+					gas_price: 18000000000u64.into(),
+					gas: 86016.into(),
+					to: Some(hex!("dac17f958d2ee523a2206206994597c13d831ec7").into()),
+					value: 0.into(),
+					payload: hex!("a9059cbb000000000000000000000000e08f35f66867a454835b25118f1e490e7f9e9a7400000000000000000000000000000000000000000000000000000000004c4b40").to_vec().into(),
+				},
 			}),
 		);
 
@@ -542,10 +591,14 @@ mod tests {
 			transaction_decode(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("617da121abf03d4c1af572f5a4e313e26bef7bdc").into(),
-				nonce: 139275.into(),
-				to: Some(hex!("84dd11eb2a29615303d18149c0dbfa24167f8966").into()),
-				value: 0.into(),
-				payload: hex!("a9059cbb00000000000000000000000001503dfc5ad81bf630d83697e98601871bb211b60000000000000000000000000000000000000000000000000000000000002710").to_vec().into(),
+				unsigned: UnsignedTransaction {
+					nonce: 139275.into(),
+					gas_price: 1000000000.into(),
+					gas: 160000.into(),
+					to: Some(hex!("84dd11eb2a29615303d18149c0dbfa24167f8966").into()),
+					value: 0.into(),
+					payload: hex!("a9059cbb00000000000000000000000001503dfc5ad81bf630d83697e98601871bb211b60000000000000000000000000000000000000000000000000000000000002710").to_vec().into(),
+				},
 			}),
 		);
 	}

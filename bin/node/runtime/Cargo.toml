@@ -9,9 +9,6 @@ repository = "https://github.com/paritytech/parity-bridges-common/"
 [dependencies]
 hex-literal = "0.2"
 
-[dev-dependencies]
-ethereum-tx-sign = "3.0"
-
 [dependencies.codec]
 package = "parity-scale-codec"
 version = "1.0.0"
@@ -201,6 +198,12 @@ version = "2.0.0-rc3"
 default-features = false
 rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
+
+[dev-dependencies.sp-bridge-eth-poa]
+version = "0.1.0"
+default-features = false
+features = ["test-helpers"]
+path = "../../../primitives/ethereum-poa"
 
 [build-dependencies.wasm-builder-runner]
 version = "1.0.5"

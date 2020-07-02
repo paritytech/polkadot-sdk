@@ -19,9 +19,15 @@
 //!
 //! Used for testing and benchmarking.
 
-use crate::{public_to_address, rlp_encode, step_validator, Address, Header, H256, H520};
+// reexport to avoid direct secp256k1 deps by other crates
+pub use secp256k1::SecretKey;
 
-use secp256k1::{Message, PublicKey, SecretKey};
+use crate::{
+	public_to_address, rlp_encode, step_validator, Address, Header, RawTransaction, UnsignedTransaction, H256, H520,
+	U256,
+};
+
+use secp256k1::{Message, PublicKey};
 
 /// Utilities for signing headers.
 pub trait SignHeader {
@@ -29,6 +35,12 @@ pub trait SignHeader {
 	fn sign_by(self, author: &SecretKey) -> Header;
 	/// Signs header by given authors set.
 	fn sign_by_set(self, authors: &[SecretKey]) -> Header;
+}
+
+/// Utilities for signing transactions.
+pub trait SignTransaction {
+	/// Sign transaction by given author.
+	fn sign_by(self, author: &SecretKey, chain_id: Option<u64>) -> RawTransaction;
 }
 
 impl SignHeader for Header {
@@ -48,6 +60,24 @@ impl SignHeader for Header {
 	}
 }
 
+impl SignTransaction for UnsignedTransaction {
+	fn sign_by(self, author: &SecretKey, chain_id: Option<u64>) -> RawTransaction {
+		let message = self.message(chain_id);
+		let signature = sign(author, message);
+		let signature_r = U256::from_big_endian(&signature.as_fixed_bytes()[..32][..]);
+		let signature_s = U256::from_big_endian(&signature.as_fixed_bytes()[32..64][..]);
+		let signature_v = signature.as_fixed_bytes()[64] as u64;
+		let signature_v = signature_v + if let Some(n) = chain_id { 35 + n * 2 } else { 27 };
+
+		let mut stream = rlp::RlpStream::new_list(9);
+		self.rlp_to(None, &mut stream);
+		stream.append(&signature_v);
+		stream.append(&signature_r);
+		stream.append(&signature_s);
+		stream.out()
+	}
+}
+
 /// Return author's signature over given message.
 pub fn sign(author: &SecretKey, message: H256) -> H520 {
 	let (signature, recovery_id) = secp256k1::sign(&Message::parse(message.as_fixed_bytes()), author);
@@ -63,4 +93,51 @@ pub fn secret_to_address(secret: &SecretKey) -> Address {
 	let mut raw_public = [0u8; 64];
 	raw_public.copy_from_slice(&public.serialize()[1..]);
 	public_to_address(&raw_public)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{transaction_decode, Transaction};
+
+	#[test]
+	fn transaction_signed_properly() {
+		// case1: with chain_id replay protection + to
+		let signer = SecretKey::parse(&[1u8; 32]).unwrap();
+		let signer_address = secret_to_address(&signer);
+		let unsigned = UnsignedTransaction {
+			nonce: 100.into(),
+			gas_price: 200.into(),
+			gas: 300.into(),
+			to: Some([42u8; 20].into()),
+			value: 400.into(),
+			payload: vec![1, 2, 3],
+		};
+		let raw_tx = unsigned.clone().sign_by(&signer, Some(42));
+		assert_eq!(
+			transaction_decode(&raw_tx),
+			Ok(Transaction {
+				sender: signer_address,
+				unsigned,
+			}),
+		);
+
+		// case2: without chain_id replay protection + contract creation
+		let unsigned = UnsignedTransaction {
+			nonce: 100.into(),
+			gas_price: 200.into(),
+			gas: 300.into(),
+			to: None,
+			value: 400.into(),
+			payload: vec![1, 2, 3],
+		};
+		let raw_tx = unsigned.clone().sign_by(&signer, None);
+		assert_eq!(
+			transaction_decode(&raw_tx),
+			Ok(Transaction {
+				sender: signer_address,
+				unsigned,
+			}),
+		);
+	}
 }
