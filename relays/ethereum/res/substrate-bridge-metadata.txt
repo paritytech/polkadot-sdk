@@ -1,5 +1,5 @@
-Last Change Date: 2020-05-01
+Last Change Date: 2020-07-03
 Solc version: 0.6.6+commit.6c089d02
-Source hash (keccak256): 0x36403636ad41082ca6c937c60ab06446cd9ef7036c178fa2f04d7c8286544d39
-Source gist: https://github.com/svyatonik/substrate-bridge-sol/blob/8b54f5f648f8685fecd52b7af1deb277922b0fc3/substrate-bridge.sol
+Source hash (keccak256): 0x3e6339beefe6786f4f26b408d4f727e03c6fd9630d692af9a7f6b46143fa308f
+Source gist: https://github.com/svyatonik/substrate-bridge-sol/blob/1d0fa475a2ba3a70a47ed2dd870568c42ec16c8c/substrate-bridge.sol
 Compiler flags used (command to produce the file): `docker run -i ethereum/solc:0.6.6 --optimize --bin - < substrate-bridge.sol`

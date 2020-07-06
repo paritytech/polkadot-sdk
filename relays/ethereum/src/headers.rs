@@ -62,6 +62,8 @@ pub struct QueuedHeaders<P: HeadersSyncPipeline> {
 	incomplete_headers: LinkedHashMap<HeaderId<P::Hash, P::Number>, Option<Instant>>,
 	/// Headers that are waiting to be completed at target node. Auto-sorted by insertion time.
 	completion_data: LinkedHashMap<HeaderId<P::Hash, P::Number>, P::Completion>,
+	/// Best synced block number.
+	best_synced_number: P::Number,
 	/// Pruned blocks border. We do not store or accept any blocks with number less than
 	/// this number.
 	prune_border: P::Number,
@@ -90,6 +92,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 			known_headers: KnownHeaders::<P>::new(),
 			incomplete_headers: LinkedHashMap::new(),
 			completion_data: LinkedHashMap::new(),
+			best_synced_number: Zero::zero(),
 			prune_border: Zero::zero(),
 		}
 	}
@@ -156,6 +159,12 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 				),
 			),
 		)
+	}
+
+	/// Returns number of best synced block we have ever seen. It is either less
+	/// than `best_queued_number()`, or points to last synced block if queue is empty.
+	pub fn best_synced_number(&self) -> P::Number {
+		self.best_synced_number
 	}
 
 	/// Returns synchronization status of the header.
@@ -328,10 +337,23 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	pub fn completion_response(&mut self, id: &HeaderId<P::Hash, P::Number>, completion: Option<P::Completion>) {
 		let completion = match completion {
 			Some(completion) => completion,
-			None => return, // we'll try refetch later
+			None => {
+				log::debug!(
+					target: "bridge",
+					"{} Node is still missing completion data for header: {:?}. Will retry later.",
+					P::SOURCE_NAME,
+					id,
+				);
+
+				return;
+			}
 		};
 
-		if self.incomplete_headers.remove(id).is_some() {
+		// do not remove from `incomplete_headers` here, because otherwise we'll miss
+		// completion 'notification'
+		// this could lead to duplicate completion retrieval (if completion transaction isn't mined
+		// for too long)
+		if self.incomplete_headers.get(id).is_some() {
 			log::debug!(
 				target: "bridge",
 				"Received completion data from {} for header: {:?}",
@@ -381,15 +403,8 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		}
 	}
 
-	/// When incomplete headers ids are receved from target node.
-	pub fn incomplete_headers_response(&mut self, ids: HashSet<HeaderId<P::Hash, P::Number>>) {
-		// all new incomplete headers are marked Synced and all their descendants
-		// are moved from Ready/Submitted to Incomplete queue
-		let new_incomplete_headers = ids
-			.iter()
-			.filter(|id| !self.incomplete_headers.contains_key(id) && !self.completion_data.contains_key(id))
-			.cloned()
-			.collect::<Vec<_>>();
+	/// Marks given headers incomplete.
+	pub fn add_incomplete_headers(&mut self, new_incomplete_headers: Vec<HeaderId<P::Hash, P::Number>>) {
 		for new_incomplete_header in new_incomplete_headers {
 			self.header_synced(&new_incomplete_header);
 			move_header_descendants::<P>(
@@ -408,6 +423,18 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 
 			self.incomplete_headers.insert(new_incomplete_header, None);
 		}
+	}
+
+	/// When incomplete headers ids are receved from target node.
+	pub fn incomplete_headers_response(&mut self, ids: HashSet<HeaderId<P::Hash, P::Number>>) {
+		// all new incomplete headers are marked Synced and all their descendants
+		// are moved from Ready/Submitted to Incomplete queue
+		let new_incomplete_headers = ids
+			.iter()
+			.filter(|id| !self.incomplete_headers.contains_key(id) && !self.completion_data.contains_key(id))
+			.cloned()
+			.collect::<Vec<_>>();
+		self.add_incomplete_headers(new_incomplete_headers);
 
 		// for all headers that were incompleted previously, but now are completed, we move
 		// all descendants from incomplete to ready
@@ -487,6 +514,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		self.incomplete.clear();
 		self.submitted.clear();
 		self.known_headers.clear();
+		self.best_synced_number = Zero::zero();
 		self.prune_border = Zero::zero();
 	}
 
@@ -519,6 +547,9 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 
 	/// When we receive new Synced header from target node.
 	fn header_synced(&mut self, id: &HeaderId<P::Hash, P::Number>) {
+		// update best synced block number
+		self.best_synced_number = std::cmp::max(self.best_synced_number, id.0);
+
 		// all ancestors of this header are now synced => let's remove them from
 		// queues
 		let mut current = *id;
@@ -1272,7 +1303,7 @@ pub(crate) mod tests {
 
 		// when response is Some, we're scheduling completion
 		queue.completion_response(&id(200), Some(()));
-		assert_eq!(queue.incomplete_headers.len(), 1);
+		assert_eq!(queue.incomplete_headers.len(), 2);
 		assert_eq!(queue.completion_data.len(), 1);
 		assert!(queue.incomplete_headers.contains_key(&id(100)));
 		assert!(queue.completion_data.contains_key(&id(200)));

@@ -26,7 +26,7 @@ use crate::substrate_client::{
 use crate::substrate_types::into_substrate_ethereum_header;
 use crate::sync::{HeadersSyncParams, TargetTransactionMode};
 use crate::sync_loop::{SourceClient, TargetClient};
-use crate::sync_types::SourceHeader;
+use crate::sync_types::{SourceHeader, SubmittedHeaders};
 
 use async_trait::async_trait;
 use web3::types::H256;
@@ -155,7 +155,10 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 		Ok((id, self.client.ethereum_header_known(id).await?))
 	}
 
-	async fn submit_headers(&self, headers: Vec<QueuedEthereumHeader>) -> Result<Vec<EthereumHeaderId>, Self::Error> {
+	async fn submit_headers(
+		&self,
+		headers: Vec<QueuedEthereumHeader>,
+	) -> SubmittedHeaders<EthereumHeaderId, Self::Error> {
 		let (sign_params, sign_transactions) = (self.sign_params.clone(), self.sign_transactions.clone());
 		self.client
 			.submit_ethereum_headers(sign_params, headers, sign_transactions)

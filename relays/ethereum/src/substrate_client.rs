@@ -21,7 +21,7 @@ use crate::substrate_types::{
 	into_substrate_ethereum_header, into_substrate_ethereum_receipts, Hash, Header as SubstrateHeader, Number,
 	SignedBlock as SignedSubstrateBlock,
 };
-use crate::sync_types::HeaderId;
+use crate::sync_types::{HeaderId, SubmittedHeaders};
 
 use async_trait::async_trait;
 use codec::{Decode, Encode};
@@ -32,6 +32,7 @@ use num_traits::Zero;
 use sp_bridge_eth_poa::Header as SubstrateEthereumHeader;
 use sp_core::crypto::Pair;
 use sp_runtime::traits::IdentifyAccount;
+use std::collections::VecDeque;
 
 const ETH_API_IMPORT_REQUIRES_RECEIPTS: &str = "EthereumHeadersApi_is_import_requires_receipts";
 const ETH_API_IS_KNOWN_BLOCK: &str = "EthereumHeadersApi_is_known_block";
@@ -193,20 +194,20 @@ pub trait SubmitEthereumHeaders: SubstrateRpc {
 		params: SubstrateSigningParams,
 		headers: Vec<QueuedEthereumHeader>,
 		sign_transactions: bool,
-	) -> Result<Vec<EthereumHeaderId>>;
+	) -> SubmittedHeaders<EthereumHeaderId, RpcError>;
 
 	/// Submits signed Ethereum header to Substrate runtime.
 	async fn submit_signed_ethereum_headers(
 		&self,
 		params: SubstrateSigningParams,
 		headers: Vec<QueuedEthereumHeader>,
-	) -> Result<Vec<EthereumHeaderId>>;
+	) -> SubmittedHeaders<EthereumHeaderId, RpcError>;
 
 	/// Submits unsigned Ethereum header to Substrate runtime.
 	async fn submit_unsigned_ethereum_headers(
 		&self,
 		headers: Vec<QueuedEthereumHeader>,
-	) -> Result<Vec<EthereumHeaderId>>;
+	) -> SubmittedHeaders<EthereumHeaderId, RpcError>;
 }
 
 #[async_trait]
@@ -216,7 +217,7 @@ impl SubmitEthereumHeaders for SubstrateRpcClient {
 		params: SubstrateSigningParams,
 		headers: Vec<QueuedEthereumHeader>,
 		sign_transactions: bool,
-	) -> Result<Vec<EthereumHeaderId>> {
+	) -> SubmittedHeaders<EthereumHeaderId, RpcError> {
 		if sign_transactions {
 			self.submit_signed_ethereum_headers(params, headers).await
 		} else {
@@ -228,29 +229,55 @@ impl SubmitEthereumHeaders for SubstrateRpcClient {
 		&self,
 		params: SubstrateSigningParams,
 		headers: Vec<QueuedEthereumHeader>,
-	) -> Result<Vec<EthereumHeaderId>> {
+	) -> SubmittedHeaders<EthereumHeaderId, RpcError> {
 		let ids = headers.iter().map(|header| header.id()).collect();
+		let submission_result = async {
+			let account_id = params.signer.public().as_array_ref().clone().into();
+			let nonce = self.next_account_index(account_id).await?;
 
-		let account_id = params.signer.public().as_array_ref().clone().into();
-		let nonce = self.next_account_index(account_id).await?;
+			let transaction = create_signed_submit_transaction(headers, &params.signer, nonce, self.genesis_hash);
+			let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
+			Ok(())
+		}
+		.await;
 
-		let transaction = create_signed_submit_transaction(headers, &params.signer, nonce, self.genesis_hash);
-		let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
-
-		Ok(ids)
+		match submission_result {
+			Ok(_) => SubmittedHeaders {
+				submitted: ids,
+				incomplete: Vec::new(),
+				rejected: Vec::new(),
+				fatal_error: None,
+			},
+			Err(error) => SubmittedHeaders {
+				submitted: Vec::new(),
+				incomplete: Vec::new(),
+				rejected: ids,
+				fatal_error: Some(error),
+			},
+		}
 	}
 
 	async fn submit_unsigned_ethereum_headers(
 		&self,
 		headers: Vec<QueuedEthereumHeader>,
-	) -> Result<Vec<EthereumHeaderId>> {
-		let ids = headers.iter().map(|header| header.id()).collect();
+	) -> SubmittedHeaders<EthereumHeaderId, RpcError> {
+		let mut ids = headers.iter().map(|header| header.id()).collect::<VecDeque<_>>();
+		let mut submitted_headers = SubmittedHeaders::default();
 		for header in headers {
+			let id = ids.pop_front().expect("both collections have same size; qed");
 			let transaction = create_unsigned_submit_transaction(header);
-			let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
+			match self.submit_extrinsic(Bytes(transaction.encode())).await {
+				Ok(_) => submitted_headers.submitted.push(id),
+				Err(error) => {
+					submitted_headers.rejected.push(id);
+					submitted_headers.rejected.extend(ids);
+					submitted_headers.fatal_error = Some(error);
+					break;
+				}
+			}
 		}
 
-		Ok(ids)
+		submitted_headers
 	}
 }
 

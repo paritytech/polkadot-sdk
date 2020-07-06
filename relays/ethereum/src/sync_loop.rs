@@ -15,7 +15,9 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::sync::HeadersSyncParams;
-use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader};
+use crate::sync_types::{
+	HeaderId, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader, SubmittedHeaders,
+};
 
 use async_trait::async_trait;
 use futures::{future::FutureExt, stream::StreamExt};
@@ -91,7 +93,7 @@ pub trait TargetClient<P: HeadersSyncPipeline>: Sized {
 	async fn submit_headers(
 		&self,
 		headers: Vec<QueuedHeader<P>>,
-	) -> Result<Vec<HeaderId<P::Hash, P::Number>>, Self::Error>;
+	) -> SubmittedHeaders<HeaderId<P::Hash, P::Number>, Self::Error>;
 
 	/// Returns ID of headers that require to be 'completed' before children can be submitted.
 	async fn incomplete_headers_ids(&self) -> Result<HashSet<HeaderId<P::Hash, P::Number>>, Self::Error>;
@@ -111,10 +113,10 @@ pub trait TargetClient<P: HeadersSyncPipeline>: Sized {
 }
 
 /// Run headers synchronization.
-pub fn run<P: HeadersSyncPipeline>(
+pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	source_client: impl SourceClient<P>,
 	source_tick: Duration,
-	target_client: impl TargetClient<P>,
+	target_client: TC,
 	target_tick: Duration,
 	sync_params: HeadersSyncParams,
 ) {
@@ -288,14 +290,21 @@ pub fn run<P: HeadersSyncPipeline>(
 						|| format!("Error retrieving existence status from {} node", P::TARGET_NAME),
 					);
 				},
-				target_submit_header_result = target_submit_header_future => {
+				submitted_headers = target_submit_header_future => {
+					// following line helps Rust understand the type of `submitted_headers` :/
+					let submitted_headers: SubmittedHeaders<HeaderId<P::Hash, P::Number>, TC::Error> = submitted_headers;
+					let maybe_fatal_error = submitted_headers.fatal_error.map(Err).unwrap_or(Ok(()));
+
 					target_client_is_online = process_future_result(
-						target_submit_header_result,
-						|submitted_headers| sync.headers_mut().headers_submitted(submitted_headers),
+						maybe_fatal_error,
+						|_| {},
 						&mut target_go_offline_future,
 						|| async_std::task::sleep(CONNECTION_ERROR_DELAY),
 						|| format!("Error submitting headers to {} node", P::TARGET_NAME),
 					);
+
+					sync.headers_mut().headers_submitted(submitted_headers.submitted);
+					sync.headers_mut().add_incomplete_headers(submitted_headers.incomplete);
 				},
 				target_complete_header_result = target_complete_header_future => {
 					target_client_is_online = process_future_result(
