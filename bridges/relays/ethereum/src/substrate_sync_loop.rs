@@ -28,7 +28,7 @@ use crate::substrate_types::{
 };
 use crate::sync::{HeadersSyncParams, TargetTransactionMode};
 use crate::sync_loop::{SourceClient, TargetClient};
-use crate::sync_types::SourceHeader;
+use crate::sync_types::{SourceHeader, SubmittedHeaders};
 
 use async_trait::async_trait;
 
@@ -165,7 +165,10 @@ impl TargetClient<SubstrateHeadersSyncPipeline> for EthereumHeadersTarget {
 		self.client.substrate_header_known(self.contract, id).await
 	}
 
-	async fn submit_headers(&self, headers: Vec<QueuedSubstrateHeader>) -> Result<Vec<SubstrateHeaderId>, Self::Error> {
+	async fn submit_headers(
+		&self,
+		headers: Vec<QueuedSubstrateHeader>,
+	) -> SubmittedHeaders<SubstrateHeaderId, Self::Error> {
 		self.client
 			.submit_substrate_headers(self.sign_params.clone(), self.contract, headers)
 			.await

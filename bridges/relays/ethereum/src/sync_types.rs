@@ -161,3 +161,30 @@ impl<P: HeadersSyncPipeline> QueuedHeader<P> {
 		&self.extra
 	}
 }
+
+/// Headers submission result.
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct SubmittedHeaders<Id, Error> {
+	/// IDs of headers that have been submitted to target node.
+	pub submitted: Vec<Id>,
+	/// IDs of incomplete headers. These headers were submitted (so this id is also in `submitted` vec),
+	/// but all descendants are not.
+	pub incomplete: Vec<Id>,
+	/// IDs of ignored headers that we have decided not to submit (they're either rejected by
+	/// target node immediately, or they're descendants of incomplete headers).
+	pub rejected: Vec<Id>,
+	/// Fatal target node error, if it has occured during submission.
+	pub fatal_error: Option<Error>,
+}
+
+impl<Id, Error> Default for SubmittedHeaders<Id, Error> {
+	fn default() -> Self {
+		SubmittedHeaders {
+			submitted: Vec::new(),
+			incomplete: Vec::new(),
+			rejected: Vec::new(),
+			fatal_error: None,
+		}
+	}
+}
