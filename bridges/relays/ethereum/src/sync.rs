@@ -113,7 +113,10 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 		}
 
 		// we assume that there were no reorgs if we have already downloaded best header
-		let best_downloaded_number = std::cmp::max(self.headers.best_queued_number(), target_best_header.0);
+		let best_downloaded_number = std::cmp::max(
+			std::cmp::max(self.headers.best_queued_number(), self.headers.best_synced_number()),
+			target_best_header.0,
+		);
 		if best_downloaded_number == source_best_number {
 			return None;
 		}
@@ -255,6 +258,26 @@ mod tests {
 			eth_sync.headers.header_response(header(i).header().clone());
 		}
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
+	}
+
+	#[test]
+	fn select_new_header_to_download_works_with_empty_queue() {
+		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(default_sync_params());
+		eth_sync.source_best_header_number_response(100);
+
+		// when queue is not empty => everything goes as usually
+		eth_sync.target_best_header_response(header(10).id());
+		eth_sync.headers_mut().header_response(header(11).header().clone());
+		eth_sync.headers_mut().maybe_extra_response(&header(11).id(), false);
+		assert_eq!(eth_sync.select_new_header_to_download(), Some(12));
+
+		// but then queue is drained
+		eth_sync.headers_mut().target_best_header_response(&header(11).id());
+
+		// even though it's empty, we know that header#11 is synced
+		assert_eq!(eth_sync.headers().best_queued_number(), 0);
+		assert_eq!(eth_sync.headers().best_synced_number(), 11);
+		assert_eq!(eth_sync.select_new_header_to_download(), Some(12));
 	}
 
 	#[test]
