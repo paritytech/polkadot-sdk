@@ -6,6 +6,7 @@ edition = "2018"
 build = "build.rs"
 homepage = "https://substrate.dev"
 repository = "https://github.com/paritytech/parity-bridges-common/"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [[bin]]
 name = "bridge-node"
