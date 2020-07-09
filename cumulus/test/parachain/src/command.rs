@@ -43,10 +43,13 @@ impl SubstrateCli for Cli {
 	}
 
 	fn description() -> String {
-		format!("Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
+		format!(
+			"Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]", Self::executable_name())
+		{} [parachain-args] -- [relaychain-args]",
+			Self::executable_name()
+		)
 	}
 
 	fn author() -> String {
@@ -59,10 +62,6 @@ impl SubstrateCli for Cli {
 
 	fn copyright_start_year() -> i32 {
 		2017
-	}
-
-	fn executable_name() -> String {
-		"cumulus-test-parachain-collator".into()
 	}
 
 	fn load_spec(&self, _id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
@@ -104,10 +103,6 @@ impl SubstrateCli for PolkadotCli {
 
 	fn copyright_start_year() -> i32 {
 		2017
-	}
-
-	fn executable_name() -> String {
-		"cumulus-test-parachain-collator".into()
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
@@ -161,7 +156,7 @@ pub fn run() -> Result<()> {
 			})
 		}
 		Some(Subcommand::ExportGenesisState(params)) => {
-			sc_cli::init_logger("");
+			sc_cli::init_logger("", &<sc_cli::LogRotationOpt as structopt::StructOpt>::from_args())?;
 
 			let block = generate_genesis_state(params.parachain_id.into())?;
 			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
@@ -200,7 +195,7 @@ pub fn run() -> Result<()> {
 			})
 		}
 		Some(Subcommand::PolkadotValidationWorker(cmd)) => {
-			sc_cli::init_logger("");
+			sc_cli::init_logger("", &<sc_cli::LogRotationOpt as structopt::StructOpt>::from_args())?;
 			polkadot_service::run_validation_worker(&cmd.mem_id)?;
 
 			Ok(())

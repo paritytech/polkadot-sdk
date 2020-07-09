@@ -22,7 +22,7 @@ sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus
 sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 sp-version = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
-system = { package = "frame-system", git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "cumulus-branch", default-features = false }
 
 # Other Dependencies
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"]}
@@ -45,6 +45,6 @@ std = [
 	'sp-runtime/std',
 	'sp-io/std',
 	'sp-std/std',
-	'system/std',
+	'frame-system/std',
 	'cumulus-primitives/std',
 ]

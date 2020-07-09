@@ -17,7 +17,7 @@
 use ansi_term::Color;
 use cumulus_collator::{prepare_collator_config, CollatorBuilder};
 use cumulus_network::DelayedBlockAnnounceValidator;
-use futures::{FutureExt, future::ready};
+use futures::{future::ready, FutureExt};
 use polkadot_primitives::parachain::CollatorPair;
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
@@ -51,7 +51,10 @@ macro_rules! new_full_start {
 		.with_select_chain(|_config, backend| Ok(sc_consensus::LongestChain::new(backend.clone())))?
 		.with_transaction_pool(|builder| {
 			let client = builder.client();
-			let pool_api = Arc::new(sc_transaction_pool::FullChainApi::new(client.clone()));
+			let pool_api = Arc::new(sc_transaction_pool::FullChainApi::new(
+				client.clone(),
+				builder.prometheus_registry(),
+			));
 			let pool = sc_transaction_pool::BasicPool::new(
 				builder.config().transaction_pool.clone(),
 				pool_api,
@@ -72,7 +75,7 @@ macro_rules! new_full_start {
 		})?;
 
 		(builder, inherent_data_providers)
-	}};
+		}};
 }
 
 /// Run a collator node with the given parachain `Configuration` and relaychain `Configuration`
@@ -139,9 +142,15 @@ pub fn run_collator(
 		polkadot_collator::start_collator(builder, id, key, polkadot_config)?;
 
 	// Make sure the polkadot task manager survives as long as the service.
-	let polkadot_future = polkadot_future.then(move |_| { let _ = task_manager; ready(())});
+	let polkadot_future = polkadot_future.then(move |_| {
+		let _ = task_manager;
+		ready(())
+	});
 
-	service.task_manager.spawn_essential_handle().spawn("polkadot", polkadot_future);
+	service
+		.task_manager
+		.spawn_essential_handle()
+		.spawn("polkadot", polkadot_future);
 
 	Ok(service.task_manager)
 }

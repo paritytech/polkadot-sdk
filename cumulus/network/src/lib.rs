@@ -24,12 +24,16 @@ mod tests;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Error as ClientError, HeaderBackend};
 use sp_consensus::block_validation::{BlockAnnounceValidator, Validation};
-use sp_runtime::{generic::BlockId, traits::{Block as BlockT, Header as HeaderT}};
+use sp_core::traits::SpawnNamed;
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, Header as HeaderT},
+};
 
 use polkadot_collator::Network as CollatorNetwork;
 use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
 use polkadot_primitives::{
-	parachain::{ParachainHost, Id as ParaId},
+	parachain::{Id as ParaId, ParachainHost},
 	Block as PBlock, Hash as PHash,
 };
 use polkadot_statement_table::{SignedStatement, Statement};
@@ -38,14 +42,11 @@ use polkadot_validation::check_statement;
 use cumulus_primitives::HeadData;
 
 use codec::{Decode, Encode};
-use futures::{pin_mut, select, StreamExt};
-use futures::channel::oneshot;
-use futures::future::FutureExt;
-use futures::task::Spawn;
-use log::{error, trace};
+use futures::{channel::oneshot, future::FutureExt, pin_mut, select, StreamExt};
+use log::trace;
 
-use std::{marker::PhantomData, sync::Arc};
 use parking_lot::Mutex;
+use std::{marker::PhantomData, sync::Arc};
 
 /// Validate that data is a valid justification from a relay-chain validator that the block is a
 /// valid parachain-block candidate.
@@ -91,10 +92,17 @@ where
 				.local_validation_data(&runtime_api_block_id, self.para_id)
 				.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?
 				.ok_or_else(|| {
-					Box::new(ClientError::Msg("Could not find parachain head in relay chain".into())) as Box<_>
+					Box::new(ClientError::Msg(
+						"Could not find parachain head in relay chain".into(),
+					)) as Box<_>
 				})?;
 			let parent_head = HeadData::<B>::decode(&mut &local_validation_data.parent_head.0[..])
-				.map_err(|e| Box::new(ClientError::Msg(format!("Failed to decode parachain head: {:?}", e))) as Box<_>)?;
+				.map_err(|e| {
+					Box::new(ClientError::Msg(format!(
+						"Failed to decode parachain head: {:?}",
+						e
+					))) as Box<_>
+				})?;
 			let known_best_number = parent_head.header.number();
 
 			return Ok(if block_number >= known_best_number {
@@ -145,11 +153,13 @@ where
 					"could not find block number for {}: {}",
 					relay_chain_leaf, err,
 				))));
-			},
-			Ok(Some(x)) if x == best_number => {},
+			}
+			Ok(Some(x)) if x == best_number => {}
 			Ok(None) => {
-				return Err(Box::new(ClientError::UnknownBlock(relay_chain_leaf.to_string())));
-			},
+				return Err(Box::new(ClientError::UnknownBlock(
+					relay_chain_leaf.to_string(),
+				)));
+			}
 			Ok(Some(_)) => {
 				trace!(
 					target: "cumulus-network",
@@ -159,7 +169,7 @@ where
 				);
 
 				return Ok(Validation::Failure);
-			},
+			}
 		}
 
 		let runtime_api_block_id = BlockId::Hash(relay_chain_leaf);
@@ -168,7 +178,8 @@ where
 			.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?;
 
 		// Check that the signer is a legit validator.
-		let authorities = runtime_api.validators(&runtime_api_block_id)
+		let authorities = runtime_api
+			.validators(&runtime_api_block_id)
 			.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?;
 		let signer = authorities.get(sender as usize).ok_or_else(|| {
 			Box::new(ClientError::BadJustification(
@@ -208,7 +219,9 @@ where
 
 /// A `BlockAnnounceValidator` that will be able to validate data when its internal
 /// `BlockAnnounceValidator` is set.
-pub struct DelayedBlockAnnounceValidator<B: BlockT>(Arc<Mutex<Option<Box<dyn BlockAnnounceValidator<B> + Send>>>>);
+pub struct DelayedBlockAnnounceValidator<B: BlockT>(
+	Arc<Mutex<Option<Box<dyn BlockAnnounceValidator<B> + Send>>>>,
+);
 
 impl<B: BlockT> DelayedBlockAnnounceValidator<B> {
 	pub fn new() -> DelayedBlockAnnounceValidator<B> {
@@ -232,7 +245,9 @@ impl<B: BlockT> BlockAnnounceValidator<B> for DelayedBlockAnnounceValidator<B> {
 		header: &B::Header,
 		data: &[u8],
 	) -> Result<Validation, Box<dyn std::error::Error + Send>> {
-		self.0.lock().as_mut()
+		self.0
+			.lock()
+			.as_mut()
 			.expect("BlockAnnounceValidator is set before validating the first announcement; qed")
 			.validate(header, data)
 	}
@@ -244,7 +259,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> for DelayedBlockAnnounceValidator<B> {
 /// This object will spawn a new task every time the method `wait_to_announce` is called and cancel
 /// the previous task running.
 pub struct WaitToAnnounce<Block: BlockT> {
-	spawner: Arc<dyn Spawn + Send + Sync>,
+	spawner: Arc<dyn SpawnNamed + Send + Sync>,
 	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 	collator_network: Arc<dyn CollatorNetwork>,
 	current_trigger: oneshot::Sender<()>,
@@ -253,7 +268,7 @@ pub struct WaitToAnnounce<Block: BlockT> {
 impl<Block: BlockT> WaitToAnnounce<Block> {
 	/// Create the `WaitToAnnounce` object
 	pub fn new(
-		spawner: Arc<dyn Spawn + Send + Sync>,
+		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 		collator_network: Arc<dyn CollatorNetwork>,
 	) -> WaitToAnnounce<Block> {
@@ -281,44 +296,43 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 
 		self.current_trigger = tx;
 
-		if let Err(err) = self.spawner.spawn_obj(Box::pin(async move {
-			let t1 = wait_to_announce::<Block>(
-				hash,
-				relay_chain_leaf,
-				announce_block,
-				collator_network,
-				&head_data,
-			).fuse();
-			let t2 = rx.fuse();
+		self.spawner.spawn(
+			"cumulus-wait-to-announce",
+			async move {
+				let t1 = wait_to_announce::<Block>(
+					hash,
+					relay_chain_leaf,
+					announce_block,
+					collator_network,
+					&head_data,
+				)
+				.fuse();
+				let t2 = rx.fuse();
 
-			pin_mut!(t1, t2);
+				pin_mut!(t1, t2);
 
-			trace!(
-				target: "cumulus-network",
-				"waiting for announce block in a background task...",
-			);
+				trace!(
+					target: "cumulus-network",
+					"waiting for announce block in a background task...",
+				);
 
-			select! {
-				_ = t1 => {
-					trace!(
-						target: "cumulus-network",
-						"block announcement finished",
-					);
-				},
-				_ = t2 => {
-					trace!(
-						target: "cumulus-network",
-						"previous task that waits for announce block has been canceled",
-					);
+				select! {
+					_ = t1 => {
+						trace!(
+							target: "cumulus-network",
+							"block announcement finished",
+						);
+					},
+					_ = t2 => {
+						trace!(
+							target: "cumulus-network",
+							"previous task that waits for announce block has been canceled",
+						);
+					}
 				}
 			}
-		}).into()) {
-			error!(
-				target: "cumulus-network",
-				"Could not spawn a new task to wait for the announce block: {:?}",
-				err,
-			);
-		}
+			.boxed(),
+		);
 	}
 }
 
@@ -337,13 +351,14 @@ async fn wait_to_announce<Block: BlockT>(
 				let gossip_message: GossipMessage = GossipStatement {
 					relay_chain_leaf,
 					signed_statement: statement,
-				}.into();
+				}
+				.into();
 
 				announce_block(hash, gossip_message.encode());
 
 				break;
-			},
-			_ => {},
+			}
+			_ => {}
 		}
 	}
 }

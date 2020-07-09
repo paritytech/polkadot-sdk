@@ -37,6 +37,7 @@ use sp_consensus::{
 	BlockImport, BlockImportParams, BlockOrigin, BlockStatus, Environment, Error as ConsensusError,
 	ForkChoiceStrategy, Proposal, Proposer, RecordProof,
 };
+use sp_core::traits::SpawnNamed;
 use sp_inherents::{InherentData, InherentDataProviders};
 use sp_runtime::{
 	generic::BlockId,
@@ -56,7 +57,6 @@ use codec::{Decode, Encode};
 use log::{debug, error, trace};
 
 use futures::prelude::*;
-use futures::task::Spawn;
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time::Duration};
 
@@ -81,7 +81,7 @@ impl<Block: BlockT, PF, BI, BS> Collator<Block, PF, BI, BS> {
 		collator_network: impl CollatorNetwork + Clone + 'static,
 		block_import: BI,
 		block_status: Arc<BS>,
-		spawner: Arc<dyn Spawn + Send + Sync>,
+		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 	) -> Self {
 		let collator_network = Arc::new(collator_network);
@@ -446,7 +446,7 @@ where
 			+ 'static,
 		PClient::Api: RuntimeApiCollection<Extrinsic>,
 		<PClient::Api as ApiExt<PBlock>>::StateBackend: StateBackend<HashFor<PBlock>>,
-		Spawner: Spawn + Clone + Send + Sync + 'static,
+		Spawner: SpawnNamed + Clone + Send + Sync + 'static,
 		Extrinsic: codec::Codec + Send + Sync + 'static,
 	{
 		self.delayed_block_announce_validator
@@ -463,9 +463,7 @@ where
 				}
 			};
 
-		spawner
-			.spawn_obj(Box::new(follow.map(|_| ())).into())
-			.map_err(|_| error!("Could not spawn parachain server!"))?;
+		spawner.spawn("cumulus-follow-polkadot", follow.map(|_| ()).boxed());
 
 		Ok(Collator::new(
 			self.proposer_factory,
@@ -498,6 +496,7 @@ mod tests {
 	use polkadot_primitives::parachain::Id as ParaId;
 
 	use sp_blockchain::Result as ClientResult;
+	use sp_core::testing::SpawnBlockingExecutor;
 	use sp_inherents::InherentData;
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::traits::{DigestFor, Header as HeaderT};
@@ -602,7 +601,7 @@ mod tests {
 	fn collates_produces_a_block() {
 		let id = ParaId::from(100);
 		let _ = env_logger::try_init();
-		let spawner = futures::executor::ThreadPool::new().unwrap();
+		let spawner = SpawnBlockingExecutor::new();
 		let announce_block = |_, _| ();
 		let block_announce_validator = DelayedBlockAnnounceValidator::new();
 		let client = Arc::new(TestClientBuilder::new().build());
