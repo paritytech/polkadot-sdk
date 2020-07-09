@@ -17,7 +17,7 @@
 use ansi_term::Color;
 use cumulus_collator::{prepare_collator_config, CollatorBuilder};
 use cumulus_network::DelayedBlockAnnounceValidator;
-use futures::FutureExt;
+use futures::{FutureExt, future::ready};
 use polkadot_primitives::parachain::CollatorPair;
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
@@ -135,8 +135,12 @@ pub fn run_collator(
 		prefix: format!("[{}] ", Color::Blue.bold().paint("Relaychain")),
 	};
 
-	let polkadot_future =
-		polkadot_collator::start_collator(builder, id, key, polkadot_config).map(|_| ());
+	let (polkadot_future, task_manager) =
+		polkadot_collator::start_collator(builder, id, key, polkadot_config)?;
+
+	// Make sure the polkadot task manager survives as long as the service.
+	let polkadot_future = polkadot_future.then(move |_| { let _ = task_manager; ready(())});
+
 	service.task_manager.spawn_essential_handle().spawn("polkadot", polkadot_future);
 
 	Ok(service.task_manager)
