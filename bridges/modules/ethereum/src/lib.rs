@@ -463,7 +463,7 @@ decl_storage! {
 			// the initial blocks should be selected so that:
 			// 1) it doesn't signal validators changes;
 			// 2) there are no scheduled validators changes from previous blocks;
-			// 3) (implied) all direct children of initial block are authred by the same validators set.
+			// 3) (implied) all direct children of initial block are authored by the same validators set.
 
 			assert!(
 				!config.initial_validators.is_empty(),
@@ -563,6 +563,7 @@ impl<T: Trait> BridgeStorage<T> {
 		// start pruning blocks
 		let begin = new_pruning_range.oldest_unpruned_block;
 		let end = new_pruning_range.oldest_block_to_keep;
+		frame_support::debug::trace!(target: "runtime", "Pruning blocks in range [{}..{})", begin, end);
 		for number in begin..end {
 			// if we can't prune anything => break
 			if max_blocks_to_prune == 0 {
@@ -588,6 +589,11 @@ impl<T: Trait> BridgeStorage<T> {
 
 			// we have pruned all headers at number
 			new_pruning_range.oldest_unpruned_block = number + 1;
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Oldest unpruned PoA header is now: {}",
+				new_pruning_range.oldest_unpruned_block,
+			);
 		}
 
 		// update pruning range in storage
