@@ -68,6 +68,7 @@ impl frame_system::Trait for TestRuntime {
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
+	type BaseCallFilter = ();
 }
 
 parameter_types! {
