@@ -21,12 +21,18 @@
 //!
 //! On the other hand, they may be used directly by the bechmarking module.
 
+// Since this is test code it's fine that not everything is used
+#![allow(dead_code)]
+
+use crate::finality::FinalityVotes;
+use crate::validators::CHANGE_EVENT_HASH;
 use crate::verification::calculate_score;
+use crate::{HeaderToImport, Storage};
 
 use primitives::{
 	rlp_encode,
 	signatures::{secret_to_address, sign, SignHeader},
-	Address, Bloom, Header, SealedEmptyStep, H256, U256,
+	Address, Bloom, Header, Receipt, SealedEmptyStep, H256, U256,
 };
 use secp256k1::SecretKey;
 use sp_std::prelude::*;
@@ -204,6 +210,39 @@ where
 	let new_header = HeaderBuilder::with_parent(&previous);
 	let custom_header = customize_header(new_header.header);
 	custom_header.sign_by(author)
+}
+
+/// Insert unverified header into storage.
+pub fn insert_header<S: Storage>(storage: &mut S, header: Header) {
+	storage.insert_header(HeaderToImport {
+		context: storage.import_context(None, &header.parent_hash).unwrap(),
+		is_best: true,
+		id: header.compute_id(),
+		header,
+		total_difficulty: 0.into(),
+		enacted_change: None,
+		scheduled_change: None,
+		finality_votes: FinalityVotes::default(),
+	});
+}
+
+pub fn validators_change_receipt(parent_hash: H256) -> Receipt {
+	use primitives::{LogEntry, TransactionOutcome};
+
+	Receipt {
+		gas_used: 0.into(),
+		log_bloom: (&[0xff; 256]).into(),
+		outcome: TransactionOutcome::Unknown,
+		logs: vec![LogEntry {
+			address: [3; 20].into(),
+			topics: vec![CHANGE_EVENT_HASH.into(), parent_hash],
+			data: vec![
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 7, 7, 7,
+				7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+			],
+		}],
+	}
 }
 
 pub mod validator_utils {
