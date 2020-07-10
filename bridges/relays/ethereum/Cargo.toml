@@ -40,40 +40,35 @@ features = ["http"]
 
 # Substrate Based Dependencies
 [dependencies.frame-system]
-version = "2.0.0-rc3"
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-rc3"
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate.git"
 
-# I think this is used for sr-io and stuff
 [dependencies.node-primitives]
-version = "2.0.0-rc3"
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate.git"
 
-# Branch used for keccack256 hasher code
-# Could probably move the keccack hasher stuff to our own primitives
 [dependencies.sp-core]
-version = "2.0.0-rc3"
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-keyring]
-version = "2.0.0-rc3"
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc3"
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate.git"
 
-# This should get moved to our `bin` folder
 [dependencies.bridge-node-runtime]
 version = "0.1.0"
 path = "../../bin/node/runtime"
-# node-runtime = { git = "https://github.com/svyatonik/substrate.git", branch = "bridge_runtime" }
