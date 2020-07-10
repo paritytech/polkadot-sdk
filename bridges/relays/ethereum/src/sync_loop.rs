@@ -659,7 +659,7 @@ mod tests {
 			|_| {},
 			&mut go_offline_future,
 			|delay| async_std::task::sleep(delay),
-			|| unreachable!(),
+			|| "Test error".into(),
 		);
 
 		(interval2, backoff.next_backoff().unwrap())
