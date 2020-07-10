@@ -20,7 +20,7 @@ use primitives::{Address, Header, HeaderId, LogEntry, Receipt, U256};
 use sp_std::prelude::*;
 
 /// The hash of InitiateChange event of the validators set contract.
-const CHANGE_EVENT_HASH: &'static [u8; 32] = &[
+pub(crate) const CHANGE_EVENT_HASH: &'static [u8; 32] = &[
 	0x55, 0x25, 0x2f, 0xa6, 0xee, 0xe4, 0x74, 0x1b, 0x4e, 0x24, 0xa7, 0x4a, 0x70, 0xe9, 0xc1, 0x1f, 0xd2, 0xc2, 0x28,
 	0x1d, 0xf8, 0xd6, 0xea, 0x13, 0x12, 0x6f, 0xf8, 0x45, 0xf7, 0x82, 0x5c, 0x89,
 ];
@@ -39,7 +39,7 @@ pub enum ValidatorsConfiguration {
 /// This source is valid within some blocks range. The blocks range could
 /// cover multiple epochs - i.e. the validators that are authoring blocks
 /// within this range could change, but the source itself can not.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
 pub enum ValidatorsSource {
 	/// The validators addresses are hardcoded and never change.
 	List(Vec<Address>),
@@ -276,29 +276,12 @@ impl ValidatorsSource {
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::mock::{run_test, validators_addresses, TestRuntime};
+	use crate::mock::{run_test, validators_addresses, validators_change_receipt, TestRuntime};
 	use crate::{BridgeStorage, Headers, ScheduledChange, ScheduledChanges, StoredHeader};
 	use frame_support::StorageMap;
-	use primitives::{TransactionOutcome, H256};
+	use primitives::compute_merkle_root;
 
 	const TOTAL_VALIDATORS: usize = 3;
-
-	pub(crate) fn validators_change_recept(parent_hash: H256) -> Receipt {
-		Receipt {
-			gas_used: 0.into(),
-			log_bloom: (&[0xff; 256]).into(),
-			outcome: TransactionOutcome::Unknown,
-			logs: vec![LogEntry {
-				address: [3; 20].into(),
-				topics: vec![CHANGE_EVENT_HASH.into(), parent_hash],
-				data: vec![
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 7,
-					7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-				],
-			}],
-		}
-	}
 
 	#[test]
 	fn source_at_works() {
@@ -405,10 +388,8 @@ pub(crate) mod tests {
 
 		// when we're inside contract range and logs bloom signals change
 		// and there's change in receipts
-		let receipts = vec![validators_change_recept(Default::default())];
-		header.receipts_root = "81ce88dc524403b796222046bf3daf543978329b87ffd50228f1d3987031dc45"
-			.parse()
-			.unwrap();
+		let receipts = vec![validators_change_receipt(Default::default())];
+		header.receipts_root = compute_merkle_root(receipts.iter().map(|r| r.rlp()));
 		assert_eq!(
 			validators.extract_validators_change(&header, Some(receipts)),
 			Ok((Some(vec![[7; 20].into()]), None)),

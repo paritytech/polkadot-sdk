@@ -140,6 +140,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 
 	// the heaviest, but rare operation - we do not want invalid receipts in the pool
 	if let Some(receipts) = receipts {
+		frame_support::debug::trace!(target: "runtime", "Got receipts! {:?}", receipts);
 		if !header.verify_receipts_root(receipts) {
 			return Err(Error::TransactionsReceiptsMismatch);
 		}
@@ -354,15 +355,15 @@ mod tests {
 	use super::*;
 	use crate::mock::{
 		insert_header, run_test_with_genesis, test_aura_config, validator, validator_address, validators_addresses,
-		AccountId, HeaderBuilder, TestRuntime, GAS_LIMIT,
+		validators_change_receipt, AccountId, HeaderBuilder, TestRuntime, GAS_LIMIT,
 	};
-	use crate::validators::{tests::validators_change_recept, ValidatorsSource};
+	use crate::validators::ValidatorsSource;
 	use crate::{
 		pool_configuration, BridgeStorage, FinalizedBlock, Headers, HeadersByNumber, NextValidatorsSetId,
 		ScheduledChanges, ValidatorsSet, ValidatorsSets,
 	};
 	use frame_support::{StorageMap, StorageValue};
-	use primitives::{rlp_encode, TransactionOutcome, H520};
+	use primitives::{compute_merkle_root, rlp_encode, TransactionOutcome, H520};
 	use secp256k1::SecretKey;
 
 	const GENESIS_STEP: u64 = 42;
@@ -844,7 +845,7 @@ mod tests {
 				let header = HeaderBuilder::with_parent_number(3)
 					.log_bloom((&[0xff; 256]).into())
 					.sign_by_set(validators);
-				(header, Some(vec![validators_change_recept(Default::default())]))
+				(header, Some(vec![validators_change_receipt(Default::default())]))
 			}),
 			Err(Error::TransactionsReceiptsMismatch),
 		);
@@ -853,18 +854,17 @@ mod tests {
 	#[test]
 	fn pool_accepts_headers_with_valid_receipts() {
 		let mut hash = None;
+		let receipts = vec![validators_change_receipt(Default::default())];
+		let receipts_root = compute_merkle_root(receipts.iter().map(|r| r.rlp()));
+
 		assert_eq!(
 			default_accept_into_pool(|validators| {
 				let header = HeaderBuilder::with_parent_number(3)
 					.log_bloom((&[0xff; 256]).into())
-					.receipts_root(
-						"81ce88dc524403b796222046bf3daf543978329b87ffd50228f1d3987031dc45"
-							.parse()
-							.unwrap(),
-					)
+					.receipts_root(receipts_root)
 					.sign_by_set(validators);
 				hash = Some(header.compute_hash());
-				(header, Some(vec![validators_change_recept(Default::default())]))
+				(header, Some(receipts.clone()))
 			}),
 			Ok((
 				// no tags are required

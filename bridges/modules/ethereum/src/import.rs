@@ -163,7 +163,7 @@ mod tests {
 	use super::*;
 	use crate::mock::{
 		run_test, secret_to_address, test_aura_config, test_validators_config, validator, validators_addresses,
-		HeaderBuilder, KeepSomeHeadersBehindBest, TestRuntime, GAS_LIMIT,
+		validators_change_receipt, HeaderBuilder, KeepSomeHeadersBehindBest, TestRuntime, GAS_LIMIT,
 	};
 	use crate::validators::ValidatorsSource;
 	use crate::{BlocksToPrune, BridgeStorage, Headers, PruningRange};
@@ -316,9 +316,7 @@ mod tests {
 				&validators_config,
 				Some(101),
 				header11.clone(),
-				Some(vec![crate::validators::tests::validators_change_recept(
-					latest_block_id.hash,
-				)]),
+				Some(vec![validators_change_receipt(latest_block_id.hash)]),
 			)
 			.unwrap();
 			assert_eq!(finalized_blocks, vec![(parent_id, Some(100))],);

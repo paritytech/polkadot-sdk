@@ -322,7 +322,7 @@ impl UnsignedTransaction {
 
 impl Receipt {
 	/// Returns receipt RLP.
-	fn rlp(&self) -> Bytes {
+	pub fn rlp(&self) -> Bytes {
 		let mut s = RlpStream::new();
 		match self.outcome {
 			TransactionOutcome::Unknown => {
