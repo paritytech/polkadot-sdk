@@ -23,15 +23,15 @@ features = ["derive"]
 
 # Substrate Dependencies
 [dependencies.pallet-aura]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-balances]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-bridge-eth-poa]
@@ -45,76 +45,76 @@ default-features = false
 path = "../../../modules/currency-exchange"
 
 [dependencies.frame-support]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-grandpa]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-randomness-collective-flip]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-sudo]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-session]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system-rpc-runtime-api]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-timestamp]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-executive]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 # Substrate Primitives
 [dependencies.sp-api]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-block-builder]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-bridge-eth-poa]
@@ -128,76 +128,76 @@ default-features = false
 path = "../../../primitives/currency-exchange"
 
 [dependencies.sp-consensus-aura]
-version = "0.8.0-rc3"
+version = "0.8.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-core]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-inherents]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-io]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-offchain]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-session]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-staking]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-std]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-transaction-pool]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-version]
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-benchmarking]
 optional = true
-version = "2.0.0-rc3"
+version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
 default-features = false
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [dev-dependencies.sp-bridge-eth-poa]
@@ -209,7 +209,6 @@ path = "../../../primitives/ethereum-poa"
 [build-dependencies.wasm-builder-runner]
 version = "1.0.5"
 package = "substrate-wasm-builder-runner"
-rev = "606c56d2e2f69f68f3947551224be6a3515dff60"
 git = "https://github.com/paritytech/substrate/"
 
 [features]
