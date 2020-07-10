@@ -215,6 +215,28 @@ impl pallet_aura::Trait for Runtime {
 	type AuthorityId = AuraId;
 }
 
+// We want to use a different validator configuration for benchmarking than what's used in Kovan,
+// but we can't configure a new validator set on the fly which means we need to wire the runtime
+// together like this
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_bridge_eth_poa::{ValidatorsConfiguration, ValidatorsSource};
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub const FinalityVotesCachingInterval: Option<u64> = Some(16);
+	pub KovanAuraConfiguration: pallet_bridge_eth_poa::AuraConfiguration = kovan::kovan_aura_configuration();
+	pub KovanValidatorsConfiguration: pallet_bridge_eth_poa::ValidatorsConfiguration = bench_validator_config();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+fn bench_validator_config() -> ValidatorsConfiguration {
+	ValidatorsConfiguration::Multi(vec![
+		(0, ValidatorsSource::List(vec![[1; 20].into()])),
+		(1, ValidatorsSource::Contract([3; 20].into(), vec![[1; 20].into()])),
+	])
+}
+
+#[cfg(not(feature = "runtime-benchmarks"))]
 parameter_types! {
 	pub const FinalityVotesCachingInterval: Option<u64> = Some(16);
 	pub KovanAuraConfiguration: pallet_bridge_eth_poa::AuraConfiguration = kovan::kovan_aura_configuration();
