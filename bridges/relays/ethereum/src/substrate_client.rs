@@ -37,6 +37,7 @@ use std::collections::VecDeque;
 const ETH_API_IMPORT_REQUIRES_RECEIPTS: &str = "EthereumHeadersApi_is_import_requires_receipts";
 const ETH_API_IS_KNOWN_BLOCK: &str = "EthereumHeadersApi_is_known_block";
 const ETH_API_BEST_BLOCK: &str = "EthereumHeadersApi_best_block";
+const ETH_API_BEST_FINALIZED_BLOCK: &str = "EthereumHeadersApi_finalized_block";
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 
 type Result<T> = std::result::Result<T, RpcError>;
@@ -133,6 +134,17 @@ impl SubstrateRpc for SubstrateRpcClient {
 
 	async fn best_ethereum_block(&self) -> Result<EthereumHeaderId> {
 		let call = ETH_API_BEST_BLOCK.to_string();
+		let data = Bytes("0x".into());
+
+		let encoded_response = Substrate::state_call(&self.client, call, data, None).await?;
+		let decoded_response: (u64, sp_bridge_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
+
+		let best_header_id = HeaderId(decoded_response.0, decoded_response.1);
+		Ok(best_header_id)
+	}
+
+	async fn best_ethereum_finalized_block(&self) -> Result<EthereumHeaderId> {
+		let call = ETH_API_BEST_FINALIZED_BLOCK.to_string();
 		let data = Bytes("0x".into());
 
 		let encoded_response = Substrate::state_call(&self.client, call, data, None).await?;
@@ -281,6 +293,42 @@ impl SubmitEthereumHeaders for SubstrateRpcClient {
 	}
 }
 
+/// A trait for RPC calls which are used to submit proof of Ethereum exchange transaction to a
+/// Substrate runtime. These are typically calls which use a combination of other low-level RPC
+/// calls.
+#[async_trait]
+pub trait SubmitEthereumExchangeTransactionProof: SubstrateRpc {
+	/// Submits Ethereum exchange transaction proof to Substrate runtime.
+	async fn submit_exchange_transaction_proof(
+		&self,
+		params: SubstrateSigningParams,
+		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
+	) -> Result<()>;
+}
+
+#[async_trait]
+impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
+	async fn submit_exchange_transaction_proof(
+		&self,
+		params: SubstrateSigningParams,
+		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
+	) -> Result<()> {
+		let account_id = params.signer.public().as_array_ref().clone().into();
+		let nonce = self.next_account_index(account_id).await?;
+
+		let transaction = create_signed_transaction(
+			bridge_node_runtime::Call::BridgeCurrencyExchange(
+				bridge_node_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof),
+			),
+			&params.signer,
+			nonce,
+			self.genesis_hash,
+		);
+		let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
+		Ok(())
+	}
+}
+
 /// Create signed Substrate transaction for submitting Ethereum headers.
 fn create_signed_submit_transaction(
 	headers: Vec<QueuedEthereumHeader>,
@@ -288,7 +336,7 @@ fn create_signed_submit_transaction(
 	index: node_primitives::Index,
 	genesis_hash: H256,
 ) -> bridge_node_runtime::UncheckedExtrinsic {
-	let function =
+	create_signed_transaction(
 		bridge_node_runtime::Call::BridgeEthPoA(bridge_node_runtime::BridgeEthPoACall::import_signed_headers(
 			headers
 				.into_iter()
@@ -299,8 +347,31 @@ fn create_signed_submit_transaction(
 					)
 				})
 				.collect(),
+		)),
+		signer,
+		index,
+		genesis_hash,
+	)
+}
+
+/// Create unsigned Substrate transaction for submitting Ethereum header.
+fn create_unsigned_submit_transaction(header: QueuedEthereumHeader) -> bridge_node_runtime::UncheckedExtrinsic {
+	let function =
+		bridge_node_runtime::Call::BridgeEthPoA(bridge_node_runtime::BridgeEthPoACall::import_unsigned_header(
+			into_substrate_ethereum_header(header.header()),
+			into_substrate_ethereum_receipts(header.extra()),
 		));
 
+	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(function)
+}
+
+/// Create signed Substrate transaction.
+fn create_signed_transaction(
+	function: bridge_node_runtime::Call,
+	signer: &sp_core::sr25519::Pair,
+	index: node_primitives::Index,
+	genesis_hash: H256,
+) -> bridge_node_runtime::UncheckedExtrinsic {
 	let extra = |i: node_primitives::Index, f: node_primitives::Balance| {
 		(
 			frame_system::CheckSpecVersion::<bridge_node_runtime::Runtime>::new(),
@@ -330,15 +401,4 @@ fn create_signed_submit_transaction(
 	let (function, extra, _) = raw_payload.deconstruct();
 
 	bridge_node_runtime::UncheckedExtrinsic::new_signed(function, signer.into_account().into(), signature.into(), extra)
-}
-
-/// Create unsigned Substrate transaction for submitting Ethereum header.
-fn create_unsigned_submit_transaction(header: QueuedEthereumHeader) -> bridge_node_runtime::UncheckedExtrinsic {
-	let function =
-		bridge_node_runtime::Call::BridgeEthPoA(bridge_node_runtime::BridgeEthPoACall::import_unsigned_header(
-			into_substrate_ethereum_header(header.header()),
-			into_substrate_ethereum_receipts(header.extra()),
-		));
-
-	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(function)
 }
