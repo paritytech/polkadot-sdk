@@ -134,7 +134,7 @@ impl SubstrateRpc for SubstrateRpcClient {
 
 	async fn best_ethereum_block(&self) -> Result<EthereumHeaderId> {
 		let call = ETH_API_BEST_BLOCK.to_string();
-		let data = Bytes("0x".into());
+		let data = Bytes(Vec::new());
 
 		let encoded_response = Substrate::state_call(&self.client, call, data, None).await?;
 		let decoded_response: (u64, sp_bridge_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
