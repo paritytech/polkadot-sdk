@@ -58,7 +58,7 @@ pub trait MaybeLockFundsTransaction {
 	/// Transaction type.
 	type Transaction;
 	/// Identifier that uniquely identifies this transfer.
-	type Id: Decode + Encode + EncodeLike;
+	type Id: Decode + Encode + EncodeLike + sp_std::fmt::Debug;
 	/// Peer recipient type.
 	type Recipient;
 	/// Peer currency amount type.

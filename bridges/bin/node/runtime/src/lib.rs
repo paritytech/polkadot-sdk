@@ -24,8 +24,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-mod exchange;
-
+pub mod exchange;
 pub mod kovan;
 
 use codec::{Decode, Encode};
@@ -551,6 +550,11 @@ impl_runtime_apis! {
 		fn best_block() -> (u64, sp_bridge_eth_poa::H256) {
 			let best_block = BridgeEthPoA::best_block();
 			(best_block.number, best_block.hash)
+		}
+
+		fn finalized_block() -> (u64, sp_bridge_eth_poa::H256) {
+			let finalized_block = BridgeEthPoA::finalized_block();
+			(finalized_block.number, finalized_block.hash)
 		}
 
 		fn is_import_requires_receipts(header: sp_bridge_eth_poa::Header) -> bool {

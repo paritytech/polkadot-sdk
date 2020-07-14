@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::ethereum_types::{EthereumHeaderId, TransactionHash as EthereumTransactionHash};
 use crate::sync_types::MaybeConnectionError;
 
 use jsonrpsee::client::RequestError;
@@ -101,20 +102,39 @@ pub enum EthereumNodeError {
 	IncompleteHeader,
 	/// We have received a receipt missing a `gas_used` field.
 	IncompleteReceipt,
+	/// We have received a transaction missing a `raw` field.
+	IncompleteTransaction,
 	/// An invalid Substrate block number was received from
 	/// an Ethereum node.
 	InvalidSubstrateBlockNumber,
+	/// Block includes the same transaction more than once.
+	DuplicateBlockTransaction(EthereumHeaderId, EthereumTransactionHash),
+	/// Block is missing transaction we believe is a part of this block.
+	BlockMissingTransaction(EthereumHeaderId, EthereumTransactionHash),
 }
 
 impl ToString for EthereumNodeError {
 	fn to_string(&self) -> String {
 		match self {
-			Self::ResponseParseFailed(e) => e,
-			Self::IncompleteHeader => "Incomplete Ethereum Header Received",
-			Self::IncompleteReceipt => "Incomplete Ethereum Receipt Recieved",
-			Self::InvalidSubstrateBlockNumber => "Received an invalid Substrate block from Ethereum Node",
+			Self::ResponseParseFailed(e) => e.to_string(),
+			Self::IncompleteHeader => {
+				"Incomplete Ethereum Header Received (missing some of required fields - hash, number, logs_bloom)"
+					.to_string()
+			}
+			Self::IncompleteReceipt => {
+				"Incomplete Ethereum Receipt Recieved (missing required field - gas_used)".to_string()
+			}
+			Self::IncompleteTransaction => "Incomplete Ethereum Transaction (missing required field - raw)".to_string(),
+			Self::InvalidSubstrateBlockNumber => "Received an invalid Substrate block from Ethereum Node".to_string(),
+			Self::DuplicateBlockTransaction(header_id, tx_hash) => format!(
+				"Ethereum block {}/{} includes Ethereum transaction {} more than once",
+				header_id.0, header_id.1, tx_hash,
+			),
+			Self::BlockMissingTransaction(header_id, tx_hash) => format!(
+				"Ethereum block {}/{} is missing Ethereum transaction {} which we believe is a part of this block",
+				header_id.0, header_id.1, tx_hash,
+			),
 		}
-		.to_string()
 	}
 }
 

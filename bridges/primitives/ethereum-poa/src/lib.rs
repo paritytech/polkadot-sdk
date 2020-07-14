@@ -508,6 +508,9 @@ sp_api::decl_runtime_apis! {
 		/// (or leads to making) other header the best one.
 		fn best_block() -> (u64, H256);
 
+		/// Returns number and hash of the best finalized block known to the bridge module.
+		fn finalized_block() -> (u64, H256);
+
 		/// Returns true if the import of given block requires transactions receipts.
 		fn is_import_requires_receipts(header: Header) -> bool;
 

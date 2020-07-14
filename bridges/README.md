@@ -141,8 +141,10 @@ The folder structure of the bridge relay is as follows:
 │  │  └── src
 │  │     ├── ethereum_client.rs          // Interface for Ethereum RPC
 │  │     ├── ethereum_deploy_contract.rs // Utility for deploying bridge contract to Ethereum
+│  │     ├── ethereum_exchange.rs        // Relay proof of PoA -> Substrate exchange transactions
 │  │     ├── ethereum_sync_loop.rs       // Sync headers from Ethereum, submit to Substrate
 │  │     ├── ethereum_types.rs           // Useful Ethereum types
+│  │     ├── exchange.rs                 // Relay proof of exchange transactions
 │  │     ├── headers.rs                  // Track synced and incoming block headers
 │  │     ├── main.rs                     // Entry point to binary
 │  │     ├── substrate_client.rs         // Interface for Substrate RPC

@@ -18,8 +18,10 @@
 
 mod ethereum_client;
 mod ethereum_deploy_contract;
+mod ethereum_exchange;
 mod ethereum_sync_loop;
 mod ethereum_types;
+mod exchange;
 mod headers;
 mod rpc;
 mod rpc_errors;
@@ -79,6 +81,15 @@ fn main() {
 				Ok(ethereum_deploy_matches) => ethereum_deploy_matches,
 				Err(err) => {
 					log::error!(target: "bridge", "Error during contract deployment: {}", err);
+					return;
+				}
+			});
+		}
+		("eth-exchange-sub", Some(eth_exchange_matches)) => {
+			ethereum_exchange::run(match ethereum_exchange_params(&eth_exchange_matches) {
+				Ok(eth_exchange_params) => eth_exchange_params,
+				Err(err) => {
+					log::error!(target: "bridge", "Error relaying Ethereum transactions proofs: {}", err);
 					return;
 				}
 			});
@@ -224,4 +235,19 @@ fn ethereum_deploy_contract_params(
 	}
 
 	Ok(eth_deploy_params)
+}
+
+fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<ethereum_exchange::EthereumExchangeParams, String> {
+	let mut params = ethereum_exchange::EthereumExchangeParams::default();
+	params.eth = ethereum_connection_params(matches)?;
+	params.sub = substrate_connection_params(matches)?;
+	params.sub_sign = substrate_signing_params(matches)?;
+
+	params.eth_tx_hash = matches
+		.value_of("eth-tx-hash")
+		.expect("eth-tx-hash is a required parameter; clap verifies that required parameters have matches; qed")
+		.parse()
+		.map_err(|e| format!("Failed to parse eth-tx-hash: {}", e))?;
+
+	Ok(params)
 }
