@@ -28,6 +28,7 @@ mod substrate_sync_loop;
 mod substrate_types;
 mod sync;
 mod sync_loop;
+mod sync_loop_tests;
 mod sync_types;
 mod utils;
 

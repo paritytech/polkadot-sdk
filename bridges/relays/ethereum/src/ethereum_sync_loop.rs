@@ -204,6 +204,7 @@ pub fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 		target,
 		SUBSTRATE_TICK_INTERVAL,
 		params.sync_params,
+		futures::future::pending(),
 	);
 
 	Ok(())
