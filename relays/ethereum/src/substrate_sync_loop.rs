@@ -209,6 +209,7 @@ pub fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 		target,
 		ETHEREUM_TICK_INTERVAL,
 		params.sync_params,
+		futures::future::pending(),
 	);
 
 	Ok(())

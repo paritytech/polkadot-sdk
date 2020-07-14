@@ -16,7 +16,7 @@
 
 use crate::headers::QueuedHeaders;
 use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, QueuedHeader};
-use num_traits::{One, Saturating};
+use num_traits::{One, Saturating, Zero};
 
 /// Common sync params.
 #[derive(Debug, Clone)]
@@ -112,17 +112,39 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 			return None;
 		}
 
+		// if queue is empty and best header on target is > than best header on source,
+		// then we shoud reorg
+		let best_queued_number = self.headers.best_queued_number();
+		if best_queued_number.is_zero() && source_best_number < target_best_header.0 {
+			return Some(source_best_number);
+		}
+
 		// we assume that there were no reorgs if we have already downloaded best header
 		let best_downloaded_number = std::cmp::max(
-			std::cmp::max(self.headers.best_queued_number(), self.headers.best_synced_number()),
+			std::cmp::max(best_queued_number, self.headers.best_synced_number()),
 			target_best_header.0,
 		);
-		if best_downloaded_number == source_best_number {
+		if best_downloaded_number >= source_best_number {
 			return None;
 		}
 
 		// download new header
 		Some(best_downloaded_number + One::one())
+	}
+
+	/// Selech orphan header to downoload.
+	pub fn select_orphan_header_to_download(&self) -> Option<&QueuedHeader<P>> {
+		let orphan_header = self.headers.header(HeaderStatus::Orphan)?;
+
+		// we consider header orphan until we'll find it ancestor that is known to the target node
+		// => we may get orphan header while we ask target node whether it knows its parent
+		// => let's avoid fetching duplicate headers
+		let parent_id = orphan_header.parent_id();
+		if self.headers.status(&parent_id) != HeaderStatus::Unknown {
+			return None;
+		}
+
+		Some(orphan_header)
 	}
 
 	/// Select headers that need to be submitted to the target node.
@@ -208,7 +230,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 	use super::*;
 	use crate::ethereum_types::{EthereumHeadersSyncPipeline, H256};
 	use crate::headers::tests::{header, id};
@@ -218,7 +240,7 @@ mod tests {
 		H256::from_low_u64_le(1000 + number)
 	}
 
-	fn default_sync_params() -> HeadersSyncParams {
+	pub fn default_sync_params() -> HeadersSyncParams {
 		HeadersSyncParams {
 			max_future_headers_to_download: 128,
 			max_headers_in_submitted_status: 128,
@@ -252,6 +274,11 @@ mod tests {
 		// when we actually need a new header
 		eth_sync.source_best_number = Some(101);
 		assert_eq!(eth_sync.select_new_header_to_download(), Some(101));
+
+		// when we have to reorganize to longer fork
+		eth_sync.source_best_number = Some(100);
+		eth_sync.target_best_header = Some(HeaderId(200, Default::default()));
+		assert_eq!(eth_sync.select_new_header_to_download(), Some(100));
 
 		// when there are too many headers scheduled for submitting
 		for i in 1..1000 {
@@ -355,6 +382,11 @@ mod tests {
 		// so we consider #101 orphaned now && will download its parent - #100
 		assert_eq!(eth_sync.headers.header(HeaderStatus::Orphan), Some(&header(101)));
 		eth_sync.headers.header_response(header(100).header().clone());
+
+		// #101 is now Orphan and #100 is MaybeOrphan => we do not want to retrieve
+		// header #100 again
+		assert_eq!(eth_sync.headers.header(HeaderStatus::Orphan), Some(&header(101)));
+		assert_eq!(eth_sync.select_orphan_header_to_download(), None);
 
 		// we can't submit header #100, because its parent status is unknown
 		assert_eq!(eth_sync.select_headers_to_submit(false), None);
