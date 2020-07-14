@@ -15,7 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::ethereum_types::{
-	Address, Bytes, CallRequest, EthereumHeaderId, Header, Receipt, SignedRawTx, TransactionHash, H256, U256,
+	Address, Bytes, CallRequest, EthereumHeaderId, Header, HeaderWithTransactions, Receipt, SignedRawTx, Transaction,
+	TransactionHash, H256, U256,
 };
 use crate::rpc::{Ethereum, EthereumRpc};
 use crate::rpc_errors::{EthereumNodeError, RpcError};
@@ -120,11 +121,33 @@ impl EthereumRpc for EthereumRpcClient {
 	}
 
 	async fn header_by_hash(&self, hash: H256) -> Result<Header> {
-		let header = Ethereum::get_block_by_hash(&self.client, hash).await?;
+		let get_full_tx_objects = false;
+		let header = Ethereum::get_block_by_hash(&self.client, hash, get_full_tx_objects).await?;
 		match header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some() {
 			true => Ok(header),
 			false => Err(RpcError::Ethereum(EthereumNodeError::IncompleteHeader)),
 		}
+	}
+
+	async fn header_by_hash_with_transactions(&self, hash: H256) -> Result<HeaderWithTransactions> {
+		let get_full_tx_objects = true;
+		let header = Ethereum::get_block_by_hash_with_transactions(&self.client, hash, get_full_tx_objects).await?;
+
+		let is_complete_header = header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some();
+		if !is_complete_header {
+			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteHeader));
+		}
+
+		let is_complete_transactions = header.transactions.iter().all(|tx| tx.raw.is_some());
+		if !is_complete_transactions {
+			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteTransaction));
+		}
+
+		Ok(header)
+	}
+
+	async fn transaction_by_hash(&self, hash: H256) -> Result<Option<Transaction>> {
+		Ok(Ethereum::transaction_by_hash(&self.client, hash).await?)
 	}
 
 	async fn transaction_receipt(&self, transaction_hash: H256) -> Result<Receipt> {

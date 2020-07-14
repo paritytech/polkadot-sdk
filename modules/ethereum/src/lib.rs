@@ -487,6 +487,11 @@ impl<T: Trait> Module<T> {
 		BridgeStorage::<T>::new().best_block().0
 	}
 
+	/// Returns number and hash of the best finalized block known to the bridge module.
+	pub fn finalized_block() -> HeaderId {
+		BridgeStorage::<T>::new().finalized_block()
+	}
+
 	/// Returns true if the import of given block requires transactions receipts.
 	pub fn is_import_requires_receipts(header: Header) -> bool {
 		import::header_import_requires_receipts(&BridgeStorage::<T>::new(), &T::ValidatorsConfiguration::get(), &header)
