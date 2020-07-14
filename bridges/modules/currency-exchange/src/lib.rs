@@ -131,11 +131,17 @@ decl_module! {
 					Err(ExchangeError::DepositPartiallyFailed) => (),
 					Err(error) => Err(Error::<T>::from(error))?,
 				}
-				Transfers::<T>::insert(transfer_id, ())
+				Transfers::<T>::insert(&transfer_id, ())
 			}
 
 			// reward submitter for providing valid message
 			T::OnTransactionSubmitted::on_valid_transaction_submitted(submitter);
+
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Completed currency exchange: {:?}",
+				transfer_id,
+			);
 
 			Ok(())
 		}
