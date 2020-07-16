@@ -117,9 +117,9 @@ pub struct UnsignedTransaction {
 	pub gas: U256,
 	/// Transaction destination address. None if it is contract creation transaction.
 	pub to: Option<Address>,
-	/// Transaction value.
+	/// Value.
 	pub value: U256,
-	/// Transaction payload.
+	/// Associated data.
 	pub payload: Bytes,
 }
 
@@ -432,7 +432,7 @@ impl std::fmt::Debug for Bloom {
 }
 
 /// Decode Ethereum transaction.
-pub fn transaction_decode(raw_tx: &[u8]) -> Result<Transaction, rlp::DecoderError> {
+pub fn transaction_decode(raw_tx: &[u8]) -> Result<Transaction, DecoderError> {
 	// parse transaction fields
 	let unsigned = UnsignedTransaction::decode(raw_tx)?;
 	let tx_rlp = Rlp::new(raw_tx);
