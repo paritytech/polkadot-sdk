@@ -641,9 +641,52 @@ impl_runtime_apis! {
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
 			let mut batches = Vec::<BenchmarkBatch>::new();
-			let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
+
+			let whitelist: Vec<Vec<u8>> = vec![];
+			let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist);
+
+			use pallet_bridge_currency_exchange::benchmarking::{
+				Module as BridgeCurrencyExchangeBench,
+				Trait as BridgeCurrencyExchangeTrait,
+				ProofParams as BridgeCurrencyExchangeProofParams,
+			};
+
+			impl BridgeCurrencyExchangeTrait for Runtime {
+				fn make_proof(
+					proof_params: BridgeCurrencyExchangeProofParams<AccountId>,
+				) -> crate::exchange::EthereumTransactionInclusionProof {
+					use sp_currency_exchange::DepositInto;
+
+					if proof_params.recipient_exists {
+						<Runtime as pallet_bridge_currency_exchange::Trait>::DepositInto::deposit_into(
+							proof_params.recipient.clone(),
+							ExistentialDeposit::get(),
+						).unwrap();
+					}
+
+					let transaction = crate::exchange::prepare_ethereum_transaction(
+						&proof_params.recipient,
+						|tx| {
+							// our runtime only supports transactions where data is exactly 32 bytes long
+							// (receiver key)
+							// => we are ignoring `transaction_size_factor` here
+							tx.value = (ExistentialDeposit::get() * 10).into();
+						},
+					);
+					let transactions = sp_std::iter::repeat(transaction.clone())
+						.take(1 + proof_params.proof_size_factor as usize)
+						.collect::<Vec<_>>();
+					let block_hash = crate::exchange::prepare_environment_for_claim::<Runtime>(&transactions);
+					crate::exchange::EthereumTransactionInclusionProof {
+						block: block_hash,
+						index: 0,
+						proof: transactions,
+					}
+				}
+			}
 
 			add_benchmark!(params, batches, b"bridge-eth-poa", BridgeEthPoA);
+			add_benchmark!(params, batches, b"bridge-currency-exchange", BridgeCurrencyExchangeBench::<Runtime>);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
