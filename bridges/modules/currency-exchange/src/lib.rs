@@ -24,6 +24,9 @@ use sp_currency_exchange::{
 };
 use sp_runtime::DispatchResult;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 /// Called when transaction is submitted to the exchange module.
 pub trait OnTransactionSubmitted<AccountId> {
 	/// Called when valid transaction is submitted and accepted by the module.
@@ -229,7 +232,7 @@ mod tests {
 
 		fn parse(tx: &Self::Transaction) -> sp_currency_exchange::Result<RawTransaction> {
 			match tx.id {
-				INVALID_TRANSACTION_ID => Err(sp_currency_exchange::Error::InvalidTransaction),
+				INVALID_TRANSACTION_ID => Err(ExchangeError::InvalidTransaction),
 				_ => Ok(tx.clone()),
 			}
 		}
@@ -243,7 +246,7 @@ mod tests {
 
 		fn map(peer_recipient: Self::PeerRecipient) -> sp_currency_exchange::Result<Self::Recipient> {
 			match peer_recipient {
-				UNKNOWN_RECIPIENT_ID => Err(sp_currency_exchange::Error::FailedToMapRecipients),
+				UNKNOWN_RECIPIENT_ID => Err(ExchangeError::FailedToMapRecipients),
 				_ => Ok(peer_recipient * 10),
 			}
 		}
@@ -257,7 +260,7 @@ mod tests {
 
 		fn convert(amount: Self::SourceAmount) -> sp_currency_exchange::Result<Self::TargetAmount> {
 			match amount {
-				INVALID_AMOUNT => Err(sp_currency_exchange::Error::FailedToConvertCurrency),
+				INVALID_AMOUNT => Err(ExchangeError::FailedToConvertCurrency),
 				_ => Ok(amount * 10),
 			}
 		}

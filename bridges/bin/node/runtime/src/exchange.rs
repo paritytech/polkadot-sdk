@@ -145,6 +145,57 @@ impl MaybeLockFundsTransaction for EthTransaction {
 	}
 }
 
+/// Prepares everything required to bench claim of funds locked by given transaction.
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Trait>(
+	transactions: &[RawTransaction],
+) -> sp_bridge_eth_poa::H256 {
+	use pallet_bridge_eth_poa::{
+		test_utils::{insert_header, validator_utils::validator, HeaderBuilder},
+		BridgeStorage, Storage,
+	};
+	use sp_bridge_eth_poa::compute_merkle_root;
+
+	let mut storage = BridgeStorage::<T>::new();
+	let header = HeaderBuilder::with_parent_number_on_runtime::<T>(0)
+		.with_transactions_root(compute_merkle_root(transactions.iter()))
+		.sign_by(&validator(0));
+	let header_id = header.compute_id();
+	insert_header(&mut storage, header);
+	storage.finalize_and_prune_headers(Some(header_id), 0);
+
+	header_id.hash
+}
+
+/// Prepare signed ethereum lock-funds transaction.
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub(crate) fn prepare_ethereum_transaction(
+	recipient: &crate::AccountId,
+	editor: impl Fn(&mut sp_bridge_eth_poa::UnsignedTransaction),
+) -> Vec<u8> {
+	use sp_bridge_eth_poa::signatures::SignTransaction;
+
+	// prepare tx for OpenEthereum private dev chain:
+	// chain id is 0x11
+	// sender secret is 0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
+	let chain_id = 0x11;
+	let signer = secp256k1::SecretKey::parse(&hex!(
+		"4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7"
+	))
+	.unwrap();
+	let recipient_raw: &[u8; 32] = recipient.as_ref();
+	let mut eth_tx = sp_bridge_eth_poa::UnsignedTransaction {
+		nonce: 0.into(),
+		to: Some(LOCK_FUNDS_ADDRESS.into()),
+		value: 100.into(),
+		gas: 100_000.into(),
+		gas_price: 100_000.into(),
+		payload: recipient_raw.to_vec(),
+	};
+	editor(&mut eth_tx);
+	eth_tx.sign_by(&signer.into(), Some(chain_id))
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -158,33 +209,10 @@ mod tests {
 		hex!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c").into()
 	}
 
-	fn prepare_ethereum_transaction(editor: impl Fn(&mut UnsignedTransaction)) -> Vec<u8> {
-		// prepare tx for OpenEthereum private dev chain:
-		// chain id is 0x11
-		// sender secret is 0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
-		let chain_id = 0x11_u64;
-		let signer = SecretKey::parse(&hex!(
-			"4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7"
-		))
-		.unwrap();
-		let ferdie_id = ferdie();
-		let ferdie_raw: &[u8; 32] = ferdie_id.as_ref();
-		let mut eth_tx = UnsignedTransaction {
-			nonce: 0.into(),
-			to: Some(LOCK_FUNDS_ADDRESS.into()),
-			value: 100.into(),
-			gas: 100_000.into(),
-			gas_price: 100_000.into(),
-			payload: ferdie_raw.to_vec(),
-		};
-		editor(&mut eth_tx);
-		eth_tx.sign_by(&signer, Some(chain_id))
-	}
-
 	#[test]
 	fn valid_transaction_accepted() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(|_| {})),
+			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |_| {})),
 			Ok(LockFundsTransaction {
 				id: EthereumTransactionTag {
 					account: hex!("00a329c0648769a73afac7f9381e08fb43dbea72"),
@@ -207,7 +235,7 @@ mod tests {
 	#[test]
 	fn transaction_with_invalid_peer_recipient_rejected() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(|tx| {
+			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |tx| {
 				tx.to = None;
 			})),
 			Err(ExchangeError::InvalidTransaction),
@@ -217,7 +245,7 @@ mod tests {
 	#[test]
 	fn transaction_with_invalid_recipient_rejected() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(|tx| {
+			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |tx| {
 				tx.payload.clear();
 			})),
 			Err(ExchangeError::InvalidRecipient),
@@ -227,7 +255,7 @@ mod tests {
 	#[test]
 	fn transaction_with_invalid_amount_rejected() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(|tx| {
+			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |tx| {
 				tx.value = sp_core::U256::from(u128::max_value()) + sp_core::U256::from(1);
 			})),
 			Err(ExchangeError::InvalidAmount),
