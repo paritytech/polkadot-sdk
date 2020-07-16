@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install curl netcat -y && \
     curl -sSo /wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh && \
     chmod +x /wait-for-it.sh
 # the only thing left to do is to actually run the transaction.
-COPY ./scripts/register_para.sh /usr/bin
+COPY ./docker/scripts/register_para.sh /usr/bin
 # unset the previous stage's entrypoint
 ENTRYPOINT []
 CMD [ "/usr/bin/register_para.sh" ]

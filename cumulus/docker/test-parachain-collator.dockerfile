@@ -39,9 +39,9 @@ RUN apt-get update && apt-get install jq curl bash -y && \
     yarn global add @polkadot/api-cli@0.10.0-beta.14
 COPY --from=builder \
     /paritytech/cumulus/target/release/cumulus-test-parachain-collator /usr/bin
-COPY ./scripts/inject_bootnodes.sh /usr/bin
+COPY ./docker/scripts/inject_bootnodes.sh /usr/bin
 CMD ["/usr/bin/inject_bootnodes.sh"]
-COPY ./scripts/healthcheck.sh /usr/bin/
+COPY ./docker/scripts/healthcheck.sh /usr/bin/
 HEALTHCHECK --interval=300s --timeout=75s --start-period=30s --retries=3 \
     CMD ["/usr/bin/healthcheck.sh"]
 
