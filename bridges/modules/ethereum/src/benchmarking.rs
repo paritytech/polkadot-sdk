@@ -48,7 +48,6 @@ benchmarks! {
 				header
 			},
 		);
-
 	}: import_unsigned_header(RawOrigin::None, header, None)
 	verify {
 		let storage = BridgeStorage::<T>::new();
