@@ -44,7 +44,7 @@ mod benchmarking;
 mod mock;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
-mod test_utils;
+pub mod test_utils;
 
 /// Maximal number of blocks we're pruning in single import call.
 const MAX_BLOCKS_TO_PRUNE_IN_SINGLE_IMPORT: u64 = 8;
@@ -547,7 +547,7 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 
 /// Runtime bridge storage.
 #[derive(Default)]
-struct BridgeStorage<T>(sp_std::marker::PhantomData<T>);
+pub struct BridgeStorage<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Trait> BridgeStorage<T> {
 	/// Create new BridgeStorage.
