@@ -16,8 +16,13 @@ futures = "0.3.5"
 jsonrpc-core = "14.2.0"
 log = "0.4.8"
 structopt = "0.3.15"
-bridge-node-runtime = { version = "0.1.0", path = "../runtime" }
 sp-bridge-eth-poa = { version = "0.1.0", path = "../../../primitives/ethereum-poa" }
+
+[dependencies.bridge-node-runtime]
+version = "0.1.0"
+path = "../runtime"
+default-features = false
+features = ["std"]
 
 [dependencies.sc-cli]
 version = "0.8.0-rc4"
@@ -141,7 +146,9 @@ tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate.git"
 
 [features]
-default = []
+default = ["bridge-rialto"]
+bridge-kovan = ["bridge-node-runtime/bridge-kovan"]
+bridge-rialto = ["bridge-node-runtime/bridge-rialto"]
 runtime-benchmarks = [
 	"bridge-node-runtime/runtime-benchmarks",
 ]

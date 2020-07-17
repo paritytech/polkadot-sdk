@@ -16,9 +16,19 @@
 
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
-use pallet_bridge_eth_poa::{AuraConfiguration, PruningStrategy, ValidatorsConfiguration, ValidatorsSource};
+use pallet_bridge_eth_poa::{
+	AuraConfiguration, PruningStrategy as BridgePruningStrategy, ValidatorsConfiguration, ValidatorsSource,
+};
 use sp_bridge_eth_poa::{Address, Header, U256};
 use sp_std::prelude::*;
+
+frame_support::parameter_types! {
+	pub const FinalityVotesCachingInterval: Option<u64> = Some(16);
+	pub BridgeAuraConfiguration: AuraConfiguration =
+		kovan_aura_configuration();
+	pub BridgeValidatorsConfiguration: ValidatorsConfiguration =
+		kovan_validators_configuration();
+}
 
 /// Max number of finalized headers to keep. It is equivalent of ~24 hours of
 /// finalized blocks on current Kovan chain.
@@ -41,7 +51,7 @@ pub fn kovan_aura_configuration() -> AuraConfiguration {
 /// Validators configuration for Kovan chain.
 pub fn kovan_validators_configuration() -> ValidatorsConfiguration {
 	ValidatorsConfiguration::Multi(vec![
-		(0, ValidatorsSource::List(kovan_genesis_validators())),
+		(0, ValidatorsSource::List(genesis_validators())),
 		(
 			10960440,
 			ValidatorsSource::List(vec![
@@ -67,7 +77,7 @@ pub fn kovan_validators_configuration() -> ValidatorsConfiguration {
 }
 
 /// Genesis validators set of Kovan chain.
-pub fn kovan_genesis_validators() -> Vec<Address> {
+pub fn genesis_validators() -> Vec<Address> {
 	vec![
 		hex!("00D6Cc1BA9cf89BD2e58009741f4F7325BAdc0ED").into(),
 		hex!("00427feae2419c15b89d1c21af10d1b6650a4d3d").into(),
@@ -82,7 +92,7 @@ pub fn kovan_genesis_validators() -> Vec<Address> {
 }
 
 /// Genesis header of the Kovan chain.
-pub fn kovan_genesis_header() -> Header {
+pub fn genesis_header() -> Header {
 	Header {
 		parent_hash: Default::default(),
 		timestamp: 0,
@@ -114,9 +124,9 @@ pub fn kovan_genesis_header() -> Header {
 /// claims from finalized headers. And if we're pruning unfinalized headers, then
 /// some claims may never be accepted.
 #[derive(Default, RuntimeDebug)]
-pub struct KovanPruningStrategy;
+pub struct PruningStrategy;
 
-impl PruningStrategy for KovanPruningStrategy {
+impl BridgePruningStrategy for PruningStrategy {
 	fn pruning_upper_bound(&mut self, _best_number: u64, best_finalized_number: u64) -> u64 {
 		best_finalized_number
 			.checked_sub(FINALIZED_HEADERS_TO_KEEP)
@@ -131,19 +141,19 @@ mod tests {
 	#[test]
 	fn pruning_strategy_keeps_enough_headers() {
 		assert_eq!(
-			KovanPruningStrategy::default().pruning_upper_bound(100_000, 10_000),
+			PruningStrategy::default().pruning_upper_bound(100_000, 10_000),
 			0,
 			"10_000 <= 20_000 => nothing should be pruned yet",
 		);
 
 		assert_eq!(
-			KovanPruningStrategy::default().pruning_upper_bound(100_000, 20_000),
+			PruningStrategy::default().pruning_upper_bound(100_000, 20_000),
 			0,
 			"20_000 <= 20_000 => nothing should be pruned yet",
 		);
 
 		assert_eq!(
-			KovanPruningStrategy::default().pruning_upper_bound(100_000, 30_000),
+			PruningStrategy::default().pruning_upper_bound(100_000, 30_000),
 			10_000,
 			"20_000 <= 30_000 => we're ready to prune first 10_000 headers",
 		);
