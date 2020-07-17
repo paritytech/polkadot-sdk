@@ -43,6 +43,17 @@ subcommands:
                 long: sub-signer-password
                 value_name: SUB_SIGNER_PASSWORD
                 help: The password for the SURI of secret key to use when transactions are submitted to the Substrate node.
+            - no-prometheus: &no-prometheus
+                long: no-prometheus
+                help: Do not expose a Prometheus metric endpoint.
+            - prometheus-host: &prometheus-host
+                long: prometheus-host
+                value_name: PROMETHEUS_HOST
+                help: Expose Prometheus endpoint at given interface.
+            - prometheus-port: &prometheus-port
+                long: prometheus-port
+                value_name: PROMETHEUS_PORT
+                help: Expose Prometheus endpoint at given port.
     - sub-to-eth:
         about: Synchronize headers from Substrate node to Ethereum node.
         args:
@@ -63,6 +74,9 @@ subcommands:
                 help: Hex-encoded secret to use when transactions are submitted to the Ethereum node.
             - sub-host: *sub-host
             - sub-port: *sub-port
+            - no-prometheus: *no-prometheus
+            - prometheus-host: *prometheus-host
+            - prometheus-port: *prometheus-port
     - eth-deploy-contract:
         about: Deploy Bridge contract on Ethereum node.
         args:

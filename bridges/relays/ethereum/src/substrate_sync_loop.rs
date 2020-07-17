@@ -20,6 +20,7 @@ use crate::ethereum_client::{
 	EthereumConnectionParams, EthereumHighLevelRpc, EthereumRpcClient, EthereumSigningParams,
 };
 use crate::ethereum_types::Address;
+use crate::metrics::MetricsParams;
 use crate::rpc::SubstrateRpc;
 use crate::rpc_errors::RpcError;
 use crate::substrate_client::{SubstrateConnectionParams, SubstrateRpcClient};
@@ -58,6 +59,8 @@ pub struct SubstrateSyncParams {
 	pub sub: SubstrateConnectionParams,
 	/// Synchronization parameters.
 	pub sync_params: HeadersSyncParams,
+	/// Metrics parameters.
+	pub metrics_params: Option<MetricsParams>,
 }
 
 impl Default for SubstrateSyncParams {
@@ -81,6 +84,7 @@ impl Default for SubstrateSyncParams {
 				prune_depth: PRUNE_DEPTH,
 				target_tx_mode: TargetTransactionMode::Signed,
 			},
+			metrics_params: Some(Default::default()),
 		}
 	}
 }
@@ -209,6 +213,7 @@ pub fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 		target,
 		ETHEREUM_TICK_INTERVAL,
 		params.sync_params,
+		params.metrics_params,
 		futures::future::pending(),
 	);
 

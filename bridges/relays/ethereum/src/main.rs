@@ -23,6 +23,7 @@ mod ethereum_sync_loop;
 mod ethereum_types;
 mod exchange;
 mod headers;
+mod metrics;
 mod rpc;
 mod rpc_errors;
 mod substrate_client;
@@ -30,6 +31,7 @@ mod substrate_sync_loop;
 mod substrate_types;
 mod sync;
 mod sync_loop;
+mod sync_loop_metrics;
 mod sync_loop_tests;
 mod sync_types;
 mod utils;
@@ -199,6 +201,7 @@ fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams
 	eth_sync_params.eth = ethereum_connection_params(matches)?;
 	eth_sync_params.sub = substrate_connection_params(matches)?;
 	eth_sync_params.sub_sign = substrate_signing_params(matches)?;
+	eth_sync_params.metrics_params = metrics_params(matches)?;
 
 	match matches.value_of("sub-tx-mode") {
 		Some("signed") => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
@@ -223,6 +226,7 @@ fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncPara
 	sub_sync_params.eth = ethereum_connection_params(matches)?;
 	sub_sync_params.eth_sign = ethereum_signing_params(matches)?;
 	sub_sync_params.sub = substrate_connection_params(matches)?;
+	sub_sync_params.metrics_params = metrics_params(matches)?;
 
 	if let Some(eth_contract) = matches.value_of("eth-contract") {
 		sub_sync_params.eth_contract_address = eth_contract.parse().map_err(|e| format!("{}", e))?;
@@ -264,4 +268,23 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<ethereum_excha
 		.map_err(|e| format!("Failed to parse eth-tx-hash: {}", e))?;
 
 	Ok(params)
+}
+
+fn metrics_params(matches: &clap::ArgMatches) -> Result<Option<metrics::MetricsParams>, String> {
+	if matches.is_present("no-prometheus") {
+		return Ok(None);
+	}
+
+	let mut metrics_params = metrics::MetricsParams::default();
+
+	if let Some(prometheus_host) = matches.value_of("prometheus-host") {
+		metrics_params.host = prometheus_host.into();
+	}
+	if let Some(prometheus_port) = matches.value_of("prometheus-port") {
+		metrics_params.port = prometheus_port
+			.parse()
+			.map_err(|e| format!("Failed to parse prometheus-port: {}", e))?;
+	}
+
+	Ok(Some(metrics_params))
 }
