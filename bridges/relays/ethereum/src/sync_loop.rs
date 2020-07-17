@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::metrics::{start as metrics_start, GlobalMetrics, MetricsParams, Registry as MetricsRegistry};
 use crate::sync::HeadersSyncParams;
+use crate::sync_loop_metrics::SyncLoopMetrics;
 use crate::sync_types::{
 	HeaderId, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader, SubmittedHeaders,
 };
@@ -124,6 +126,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	target_client: TC,
 	target_tick: Duration,
 	sync_params: HeadersSyncParams,
+	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
 ) {
 	let mut local_pool = futures::executor::LocalPool::new();
@@ -133,6 +136,19 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 		let mut sync = crate::sync::HeadersSync::<P>::new(sync_params);
 		let mut stall_countdown = None;
 		let mut last_update_time = Instant::now();
+
+		let mut metrics_global = GlobalMetrics::new();
+		let mut metrics_sync = SyncLoopMetrics::new();
+		let metrics_enabled = metrics_params.is_some();
+		if let Some(metrics_params) = metrics_params {
+			if let Err(err) = expose_metrics(metrics_params, &metrics_global, &metrics_sync).await {
+				log::warn!(
+					target: "bridge",
+					"Failed to expose metrics: {}",
+					err,
+				);
+			}
+		}
 
 		let mut source_retry_backoff = retry_backoff();
 		let mut source_client_is_online = false;
@@ -361,6 +377,12 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 				}
 			}
 
+			// update metrics
+			if metrics_enabled {
+				metrics_global.update();
+				metrics_sync.update(&mut sync);
+			}
+
 			// print progress
 			progress_context = print_sync_progress(progress_context, &sync);
 
@@ -538,6 +560,19 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 			}
 		}
 	});
+}
+
+/// Expose sync loop metrics.
+async fn expose_metrics(
+	metrics_params: MetricsParams,
+	metrics_global: &GlobalMetrics,
+	metrics_sync: &SyncLoopMetrics,
+) -> Result<(), String> {
+	let metrics_registry = MetricsRegistry::new();
+	metrics_global.register(&metrics_registry)?;
+	metrics_sync.register(&metrics_registry)?;
+	async_std::task::spawn(metrics_start(metrics_params, metrics_registry));
+	Ok(())
 }
 
 /// Stream that emits item every `timeout_ms` milliseconds.

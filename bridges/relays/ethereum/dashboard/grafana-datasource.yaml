@@ -1,0 +1,9 @@
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    url: http://localhost:9090
+    editable: false
+    is_default: true
+    version: 1

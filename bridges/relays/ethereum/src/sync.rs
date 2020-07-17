@@ -72,6 +72,16 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 		}
 	}
 
+	/// Return best header number known to source node.
+	pub fn source_best_number(&self) -> Option<P::Number> {
+		self.source_best_number
+	}
+
+	/// Best header known to target node.
+	pub fn target_best_header(&self) -> Option<HeaderId<P::Hash, P::Number>> {
+		self.target_best_header
+	}
+
 	/// Returns true if we have synced almost all known headers.
 	pub fn is_almost_synced(&self) -> bool {
 		match self.source_best_number {
