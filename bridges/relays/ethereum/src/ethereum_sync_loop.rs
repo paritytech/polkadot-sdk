@@ -51,7 +51,7 @@ const MAX_SUBMITTED_HEADERS: usize = 128;
 const PRUNE_DEPTH: u32 = 4096;
 
 /// Ethereum synchronization parameters.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EthereumSyncParams {
 	/// Ethereum connection params.
 	pub eth: EthereumConnectionParams,
