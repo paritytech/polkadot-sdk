@@ -28,6 +28,7 @@ parking_lot = "0.11.0"
 rustc-hex = "2.0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.56"
+sysinfo = "0.13"
 sp-bridge-eth-poa = { path = "../../primitives/ethereum-poa" }
 time = "0.2"
 web3 = "0.13"
@@ -66,6 +67,11 @@ git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
 version = "2.0.0-rc4"
+tag = 'v2.0.0-rc4'
+git = "https://github.com/paritytech/substrate.git"
+
+[dependencies.substrate-prometheus-endpoint]
+version = "0.8.0-rc4"
 tag = 'v2.0.0-rc4'
 git = "https://github.com/paritytech/substrate.git"
 
