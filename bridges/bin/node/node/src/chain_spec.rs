@@ -153,7 +153,7 @@ fn testnet_genesis(
 		pallet_aura: Some(AuraConfig {
 			authorities: Vec::new(),
 		}),
-		pallet_bridge_eth_poa: load_kovan_config(),
+		pallet_bridge_eth_poa: load_bridge_config(),
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
 		}),
@@ -167,10 +167,10 @@ fn testnet_genesis(
 	}
 }
 
-fn load_kovan_config() -> Option<BridgeEthPoAConfig> {
+fn load_bridge_config() -> Option<BridgeEthPoAConfig> {
 	Some(BridgeEthPoAConfig {
-		initial_header: bridge_node_runtime::kovan::kovan_genesis_header(),
+		initial_header: bridge_node_runtime::bridge::genesis_header(),
 		initial_difficulty: 0.into(),
-		initial_validators: bridge_node_runtime::kovan::kovan_genesis_validators(),
+		initial_validators: bridge_node_runtime::bridge::genesis_validators(),
 	})
 }

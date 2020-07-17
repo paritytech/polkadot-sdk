@@ -25,7 +25,20 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod exchange;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benches;
+#[cfg(feature = "bridge-kovan")]
 pub mod kovan;
+#[cfg(feature = "bridge-rialto")]
+pub mod rialto;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub use benches as bridge;
+#[cfg(all(feature = "bridge-kovan", not(feature = "runtime-benchmarks")))]
+pub use kovan as bridge;
+#[cfg(all(feature = "bridge-rialto", not(feature = "runtime-benchmarks")))]
+pub use rialto as bridge;
 
 use codec::{Decode, Encode};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
@@ -216,39 +229,11 @@ impl pallet_aura::Trait for Runtime {
 	type AuthorityId = AuraId;
 }
 
-// We want to use a different validator configuration for benchmarking than what's used in Kovan,
-// but we can't configure a new validator set on the fly which means we need to wire the runtime
-// together like this
-#[cfg(feature = "runtime-benchmarks")]
-use pallet_bridge_eth_poa::{ValidatorsConfiguration, ValidatorsSource};
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub const FinalityVotesCachingInterval: Option<u64> = Some(16);
-	pub KovanAuraConfiguration: pallet_bridge_eth_poa::AuraConfiguration = kovan::kovan_aura_configuration();
-	pub KovanValidatorsConfiguration: pallet_bridge_eth_poa::ValidatorsConfiguration = bench_validator_config();
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-fn bench_validator_config() -> ValidatorsConfiguration {
-	ValidatorsConfiguration::Multi(vec![
-		(0, ValidatorsSource::List(vec![[1; 20].into()])),
-		(1, ValidatorsSource::Contract([3; 20].into(), vec![[1; 20].into()])),
-	])
-}
-
-#[cfg(not(feature = "runtime-benchmarks"))]
-parameter_types! {
-	pub const FinalityVotesCachingInterval: Option<u64> = Some(16);
-	pub KovanAuraConfiguration: pallet_bridge_eth_poa::AuraConfiguration = kovan::kovan_aura_configuration();
-	pub KovanValidatorsConfiguration: pallet_bridge_eth_poa::ValidatorsConfiguration = kovan::kovan_validators_configuration();
-}
-
 impl pallet_bridge_eth_poa::Trait for Runtime {
-	type AuraConfiguration = KovanAuraConfiguration;
-	type FinalityVotesCachingInterval = FinalityVotesCachingInterval;
-	type ValidatorsConfiguration = KovanValidatorsConfiguration;
-	type PruningStrategy = kovan::KovanPruningStrategy;
+	type AuraConfiguration = bridge::BridgeAuraConfiguration;
+	type FinalityVotesCachingInterval = bridge::FinalityVotesCachingInterval;
+	type ValidatorsConfiguration = bridge::BridgeValidatorsConfiguration;
+	type PruningStrategy = bridge::PruningStrategy;
 	type OnHeadersSubmitted = ();
 }
 
@@ -641,8 +626,18 @@ impl_runtime_apis! {
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
 			let mut batches = Vec::<BenchmarkBatch>::new();
-
-			let whitelist: Vec<Vec<u8>> = vec![];
+			let whitelist: Vec<Vec<u8>> = vec![
+				// Block Number
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec(),
+				// Execution Phase
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec(),
+				// Event Count
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec(),
+				// System Events
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec(),
+				// Caller 0 Account
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da946c154ffd9992e395af90b5b13cc6f295c77033fce8a9045824a6690bbf99c6db269502f0a8d1d2a008542d5690a0749").to_vec(),
+			];
 			let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist);
 
 			use pallet_bridge_currency_exchange::benchmarking::{
