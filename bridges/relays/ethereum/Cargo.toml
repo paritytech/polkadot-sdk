@@ -21,7 +21,7 @@ ethereum-tx-sign = "3.0"
 futures = "0.3.5"
 hex = "0.4"
 linked-hash-map = "0.5.3"
-log = "0.4.8"
+log = "0.4.11"
 num-traits = "0.2"
 parity-crypto = { version = "0.6", features = ["publickey"] }
 parking_lot = "0.11.0"
