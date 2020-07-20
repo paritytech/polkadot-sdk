@@ -19,6 +19,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// Runtime-generated enums
+#![allow(clippy::large_enum_variant)]
+// Runtime-generated DecodeLimit::decode_all_With_depth_limit
+#![allow(clippy::unnecessary_mut_passed)]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]

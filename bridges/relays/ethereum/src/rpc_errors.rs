@@ -18,7 +18,6 @@ use crate::ethereum_types::{EthereumHeaderId, TransactionHash as EthereumTransac
 use crate::sync_types::MaybeConnectionError;
 
 use jsonrpsee::client::RequestError;
-use serde_json;
 
 /// Contains common errors that can occur when
 /// interacting with a Substrate or Ethereum node
@@ -79,10 +78,7 @@ impl From<ethabi::Error> for RpcError {
 
 impl MaybeConnectionError for RpcError {
 	fn is_connection_error(&self) -> bool {
-		match *self {
-			RpcError::Request(RequestError::TransportError(_)) => true,
-			_ => false,
-		}
+		matches!(*self, RpcError::Request(RequestError::TransportError(_)))
 	}
 }
 

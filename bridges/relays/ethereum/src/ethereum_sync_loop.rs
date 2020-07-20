@@ -163,7 +163,7 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 		&self,
 		headers: Vec<QueuedEthereumHeader>,
 	) -> SubmittedHeaders<EthereumHeaderId, Self::Error> {
-		let (sign_params, sign_transactions) = (self.sign_params.clone(), self.sign_transactions.clone());
+		let (sign_params, sign_transactions) = (self.sign_params.clone(), self.sign_transactions);
 		self.client
 			.submit_ethereum_headers(sign_params, headers, sign_transactions)
 			.await
@@ -173,6 +173,7 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 		Ok(HashSet::new())
 	}
 
+	#[allow(clippy::unit_arg)]
 	async fn complete_header(&self, id: EthereumHeaderId, _completion: ()) -> Result<EthereumHeaderId, Self::Error> {
 		Ok(id)
 	}

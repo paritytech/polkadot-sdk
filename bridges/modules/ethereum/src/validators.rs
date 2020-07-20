@@ -20,7 +20,7 @@ use primitives::{Address, Header, HeaderId, LogEntry, Receipt, U256};
 use sp_std::prelude::*;
 
 /// The hash of InitiateChange event of the validators set contract.
-pub(crate) const CHANGE_EVENT_HASH: &'static [u8; 32] = &[
+pub(crate) const CHANGE_EVENT_HASH: &[u8; 32] = &[
 	0x55, 0x25, 0x2f, 0xa6, 0xee, 0xe4, 0x74, 0x1b, 0x4e, 0x24, 0xa7, 0x4a, 0x70, 0xe9, 0xc1, 0x1f, 0xd2, 0xc2, 0x28,
 	0x1d, 0xf8, 0xd6, 0xea, 0x13, 0x12, 0x6f, 0xf8, 0x45, 0xf7, 0x82, 0x5c, 0x89,
 ];
@@ -48,6 +48,9 @@ pub enum ValidatorsSource {
 	/// interface. Additionally, the initial validators set must be provided.
 	Contract(Address, Vec<Address>),
 }
+
+/// A short hand for optional validators change.
+pub type ValidatorsChange = Option<Vec<Address>>;
 
 /// Validators manager.
 pub struct Validators<'a> {
@@ -94,7 +97,7 @@ impl<'a> Validators<'a> {
 		&self,
 		header: &Header,
 		receipts: Option<Vec<Receipt>>,
-	) -> Result<(Option<Vec<Address>>, Option<Vec<Address>>), Error> {
+	) -> Result<(ValidatorsChange, ValidatorsChange), Error> {
 		// let's first check if new source is starting from this header
 		let (source_index, _, source) = self.source_at(header.number);
 		let (next_starts_at, next_source) = self.source_at_next_header(source_index, header.number);
@@ -223,7 +226,7 @@ impl<'a> Validators<'a> {
 	}
 
 	/// Returns source of validators that should author the header.
-	fn source_at<'b>(&'b self, header_number: u64) -> (usize, u64, &'b ValidatorsSource) {
+	fn source_at(&self, header_number: u64) -> (usize, u64, &ValidatorsSource) {
 		match self.config {
 			ValidatorsConfiguration::Single(ref source) => (0, 0, source),
 			ValidatorsConfiguration::Multi(ref sources) => sources
@@ -240,11 +243,7 @@ impl<'a> Validators<'a> {
 	}
 
 	/// Returns source of validators that should author the next header.
-	fn source_at_next_header<'b>(
-		&'b self,
-		header_source_index: usize,
-		header_number: u64,
-	) -> (u64, &'b ValidatorsSource) {
+	fn source_at_next_header(&self, header_source_index: usize, header_number: u64) -> (u64, &ValidatorsSource) {
 		match self.config {
 			ValidatorsConfiguration::Single(ref source) => (0, source),
 			ValidatorsConfiguration::Multi(ref sources) => {

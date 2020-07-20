@@ -156,9 +156,10 @@ pub async fn run_async(params: Params, exit: Box<dyn Future<Output = ()> + Unpin
 	Ok(())
 }
 
-fn initial_next_events<'a>(
-	chains: &'a HashMap<ChainId, RefCell<Chain>>,
-) -> Vec<Pin<Box<dyn Future<Output = Result<(ChainId, RawClientEvent), Error>> + 'a>>> {
+type EventsResult = Result<(ChainId, RawClientEvent), Error>;
+type EventsFuture<'a> = Pin<Box<dyn Future<Output = EventsResult> + 'a>>;
+
+fn initial_next_events<'a>(chains: &'a HashMap<ChainId, RefCell<Chain>>) -> Vec<EventsFuture<'a>> {
 	chains
 		.values()
 		.map(|chain_cell| async move {
@@ -175,12 +176,9 @@ fn initial_next_events<'a>(
 }
 
 async fn next_event<'a>(
-	next_events: Vec<Pin<Box<dyn Future<Output = Result<(ChainId, RawClientEvent), Error>> + 'a>>>,
+	next_events: Vec<EventsFuture<'a>>,
 	chains: &'a HashMap<ChainId, RefCell<Chain>>,
-) -> (
-	Result<(Hash, RawClientEvent), Error>,
-	Vec<Pin<Box<dyn Future<Output = Result<(ChainId, RawClientEvent), Error>> + 'a>>>,
-) {
+) -> (Result<(Hash, RawClientEvent), Error>, Vec<EventsFuture<'a>>) {
 	let (result, _, mut rest) = future::select_all(next_events).await;
 
 	match result {

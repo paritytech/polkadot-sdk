@@ -22,6 +22,7 @@ use primitives::{
 	public_to_address, step_validator, Address, Header, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256,
 };
 use sp_io::crypto::secp256k1_ecdsa_recover;
+use sp_runtime::transaction_validity::TransactionTag;
 use sp_std::{vec, vec::Vec};
 
 /// Pre-check to see if should try and import this header.
@@ -43,6 +44,8 @@ pub fn is_importable_header<S: Storage>(storage: &S, header: &Header) -> Result<
 }
 
 /// Try accept unsigned aura header into transaction pool.
+///
+/// Returns required and provided tags.
 pub fn accept_aura_header_into_pool<S: Storage>(
 	storage: &S,
 	config: &AuraConfiguration,
@@ -50,7 +53,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 	pool_config: &PoolConfiguration,
 	header: &Header,
 	receipts: Option<&Vec<Receipt>>,
-) -> Result<(Vec<Vec<u8>>, Vec<Vec<u8>>), Error> {
+) -> Result<(Vec<TransactionTag>, Vec<TransactionTag>), Error> {
 	// check if we can verify further
 	let (header_id, _) = is_importable_header(storage, header)?;
 
@@ -365,6 +368,7 @@ mod tests {
 	use frame_support::{StorageMap, StorageValue};
 	use primitives::{compute_merkle_root, rlp_encode, TransactionOutcome, H520};
 	use secp256k1::SecretKey;
+	use sp_runtime::transaction_validity::TransactionTag;
 
 	const GENESIS_STEP: u64 = 42;
 	const TOTAL_VALIDATORS: usize = 3;
@@ -386,7 +390,7 @@ mod tests {
 
 	fn default_accept_into_pool(
 		mut make_header: impl FnMut(&[SecretKey]) -> (Header, Option<Vec<Receipt>>),
-	) -> Result<(Vec<Vec<u8>>, Vec<Vec<u8>>), Error> {
+	) -> Result<(Vec<TransactionTag>, Vec<TransactionTag>), Error> {
 		run_test_with_genesis(genesis(), TOTAL_VALIDATORS, |_| {
 			let validators = vec![validator(0), validator(1), validator(2)];
 			let mut storage = BridgeStorage::<TestRuntime>::new();
@@ -429,7 +433,7 @@ mod tests {
 			},
 		);
 
-		let header_hash = HeadersByNumber::get(&number).unwrap()[0].clone();
+		let header_hash = HeadersByNumber::get(&number).unwrap()[0];
 		let mut header = Headers::<TestRuntime>::get(&header_hash).unwrap();
 		header.next_validators_set_id = set_id;
 		if let Some(signalled_set) = signalled_set {
@@ -456,15 +460,15 @@ mod tests {
 		assert_eq!(default_verify(&header), Err(Error::InvalidSealArity));
 
 		// when there's single seal (we expect 2 or 3 seals)
-		header.seal = vec![vec![].into()];
+		header.seal = vec![vec![]];
 		assert_eq!(default_verify(&header), Err(Error::InvalidSealArity));
 
 		// when there's 3 seals (we expect 2 by default)
-		header.seal = vec![vec![].into(), vec![].into(), vec![].into()];
+		header.seal = vec![vec![], vec![], vec![]];
 		assert_eq!(default_verify(&header), Err(Error::InvalidSealArity));
 
 		// when there's 2 seals
-		header.seal = vec![vec![].into(), vec![].into()];
+		header.seal = vec![vec![], vec![]];
 		assert_ne!(default_verify(&header), Err(Error::InvalidSealArity));
 	}
 
@@ -564,7 +568,7 @@ mod tests {
 	fn verifies_step() {
 		// when step is missing from seals
 		let mut header = Header {
-			seal: vec![vec![].into(), vec![].into()],
+			seal: vec![vec![], vec![]],
 			gas_limit: test_aura_config().min_gas_limit,
 			parent_hash: genesis().compute_hash(),
 			..Default::default()
@@ -585,7 +589,7 @@ mod tests {
 
 		// when step is lesser that for the parent block
 		header.seal[0] = rlp_encode(&40u64);
-		header.seal = vec![vec![40].into(), vec![].into()];
+		header.seal = vec![vec![40], vec![]];
 		assert_eq!(verify_with_config(&config, &header), Err(Error::DoubleVote));
 
 		// when step is OK
@@ -691,7 +695,7 @@ mod tests {
 			default_accept_into_pool(|_| (
 				Header {
 					number: 20_000_000,
-					seal: vec![vec![].into(), vec![].into()],
+					seal: vec![vec![], vec![]],
 					gas_limit: test_aura_config().min_gas_limit,
 					log_bloom: (&[0xff; 256]).into(),
 					..Default::default()

@@ -82,10 +82,10 @@ pub fn genesis_header() -> Header {
 		gas_used: Default::default(),
 		gas_limit: 0x222222.into(),
 		difficulty: 0x20000.into(),
-		seal: vec![vec![0x80].into(), {
+		seal: vec![vec![0x80], {
 			let mut vec = vec![0xb8, 0x41];
 			vec.resize(67, 0);
-			vec.into()
+			vec
 		}],
 	}
 }
@@ -100,9 +100,7 @@ pub struct PruningStrategy;
 
 impl TPruningStrategy for PruningStrategy {
 	fn pruning_upper_bound(&mut self, _best_number: u64, best_finalized_number: u64) -> u64 {
-		best_finalized_number
-			.checked_sub(FINALIZED_HEADERS_TO_KEEP)
-			.unwrap_or(0)
+		best_finalized_number.saturating_sub(FINALIZED_HEADERS_TO_KEEP)
 	}
 }
 

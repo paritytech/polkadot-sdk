@@ -86,7 +86,7 @@ impl HeaderBuilder {
 		use crate::HeadersByNumber;
 		use frame_support::StorageMap;
 
-		let parent_hash = HeadersByNumber::get(parent_number).unwrap()[0].clone();
+		let parent_hash = HeadersByNumber::get(parent_number).unwrap()[0];
 		Self::with_parent_hash_on_runtime::<T>(parent_hash)
 	}
 
@@ -130,7 +130,7 @@ impl HeaderBuilder {
 	/// Adds empty steps to this header.
 	pub fn empty_steps(mut self, empty_steps: &[(&SecretKey, u64)]) -> Self {
 		let sealed_empty_steps = empty_steps
-			.into_iter()
+			.iter()
 			.map(|(author, step)| {
 				let mut empty_step = SealedEmptyStep {
 					step: *step,

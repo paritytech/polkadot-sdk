@@ -193,17 +193,13 @@ pub(crate) fn prepare_ethereum_transaction(
 		payload: recipient_raw.to_vec(),
 	};
 	editor(&mut eth_tx);
-	eth_tx.sign_by(&signer.into(), Some(chain_id))
+	eth_tx.sign_by(&signer, Some(chain_id))
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use hex_literal::hex;
-	use sp_bridge_eth_poa::{
-		signatures::{SecretKey, SignTransaction},
-		UnsignedTransaction,
-	};
 
 	fn ferdie() -> crate::AccountId {
 		hex!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c").into()

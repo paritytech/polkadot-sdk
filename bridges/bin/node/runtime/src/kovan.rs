@@ -108,12 +108,11 @@ pub fn genesis_header() -> Header {
 		gas_limit: 6000000.into(),
 		difficulty: 131072.into(),
 		seal: vec![
-			vec![128].into(),
+			vec![128],
 			vec![
 				184, 65, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			]
-			.into(),
+			],
 		],
 	}
 }
@@ -128,9 +127,7 @@ pub struct PruningStrategy;
 
 impl BridgePruningStrategy for PruningStrategy {
 	fn pruning_upper_bound(&mut self, _best_number: u64, best_finalized_number: u64) -> u64 {
-		best_finalized_number
-			.checked_sub(FINALIZED_HEADERS_TO_KEEP)
-			.unwrap_or(0)
+		best_finalized_number.saturating_sub(FINALIZED_HEADERS_TO_KEEP)
 	}
 }
 

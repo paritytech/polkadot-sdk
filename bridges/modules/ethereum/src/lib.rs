@@ -15,6 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+// Runtime-generated enums
+#![allow(clippy::large_enum_variant)]
 
 use crate::finality::{CachedFinalityVotes, FinalityVotes};
 use codec::{Decode, Encode};
@@ -235,6 +237,7 @@ impl<Submitter> ImportContext<Submitter> {
 	}
 
 	/// Converts import context into header we're going to import.
+	#[allow(clippy::too_many_arguments)]
 	pub fn into_import_header(
 		self,
 		is_best: bool,
@@ -503,7 +506,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Verify that transaction is included into given finalized block.
-	pub fn verify_transaction_finalized(block: H256, tx_index: u64, proof: &Vec<RawTransaction>) -> bool {
+	pub fn verify_transaction_finalized(block: H256, tx_index: u64, proof: &[RawTransaction]) -> bool {
 		crate::verify_transaction_finalized(&BridgeStorage::<T>::new(), block, tx_index, proof)
 	}
 }
@@ -616,13 +619,8 @@ impl<T: Trait> BridgeStorage<T> {
 		blocks_at_number: &mut Vec<H256>,
 	) {
 		// ensure that unfinalized headers we want to prune do not have scheduled changes
-		if number > finalized_number {
-			if blocks_at_number
-				.iter()
-				.any(|block| ScheduledChanges::contains_key(block))
-			{
-				return;
-			}
+		if number > finalized_number && blocks_at_number.iter().any(ScheduledChanges::contains_key) {
+			return;
 		}
 
 		// physically remove headers and (probably) obsolete validators sets
@@ -678,11 +676,9 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 		let mut current_id = *parent;
 		loop {
 			// if we have reached finalized block' sibling => stop with special signal
-			if current_id.number == best_finalized.number {
-				if current_id.hash != best_finalized.hash {
-					votes.stopped_at_finalized_sibling = true;
-					return votes;
-				}
+			if current_id.number == best_finalized.number && current_id.hash != best_finalized.hash {
+				votes.stopped_at_finalized_sibling = true;
+				return votes;
 			}
 
 			// if we have reached target header => stop
@@ -834,6 +830,7 @@ impl<T: Trait> Storage for BridgeStorage<T> {
 }
 
 /// Initialize storage.
+#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 pub(crate) fn initialize_storage<T: Trait>(
 	initial_header: &Header,
 	initial_difficulty: U256,
@@ -885,7 +882,7 @@ pub fn verify_transaction_finalized<S: Storage>(
 	storage: &S,
 	block: H256,
 	tx_index: u64,
-	proof: &Vec<RawTransaction>,
+	proof: &[RawTransaction],
 ) -> bool {
 	if tx_index >= proof.len() as _ {
 		return false;
@@ -906,9 +903,7 @@ pub fn verify_transaction_finalized<S: Storage>(
 	let is_finalized = match header.number < finalized.number {
 		true => ancestry(storage, finalized.hash)
 			.skip_while(|(_, ancestor)| ancestor.number > header.number)
-			.filter(|&(ancestor_hash, _)| ancestor_hash == block)
-			.next()
-			.is_some(),
+			.any(|(ancestor_hash, _)| ancestor_hash == block),
 		false => block == finalized.hash,
 	};
 	if !is_finalized {
@@ -985,7 +980,7 @@ pub(crate) mod tests {
 						hash,
 						StoredHeader {
 							submitter: None,
-							header: header,
+							header,
 							total_difficulty: 0.into(),
 							next_validators_set_id: 0,
 							last_signal_block: None,
@@ -1266,7 +1261,7 @@ pub(crate) mod tests {
 		run_test_with_genesis(example_header(), TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().compute_hash(), 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 0, &[example_tx()],),
 				true,
 			);
 		});
@@ -1280,7 +1275,7 @@ pub(crate) mod tests {
 			insert_header(&mut storage, example_header());
 			storage.finalize_and_prune_headers(Some(example_header().compute_id()), 0);
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header_parent().compute_hash(), 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, example_header_parent().compute_hash(), 0, &[example_tx()],),
 				true,
 			);
 		});
@@ -1291,7 +1286,7 @@ pub(crate) mod tests {
 		run_test_with_genesis(example_header(), TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &vec![],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &[],),
 				false,
 			);
 		});
@@ -1302,7 +1297,7 @@ pub(crate) mod tests {
 		run_test(TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &vec![],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 1, &[],),
 				false,
 			);
 		});
@@ -1315,7 +1310,7 @@ pub(crate) mod tests {
 			insert_header(&mut storage, example_header_parent());
 			insert_header(&mut storage, example_header());
 			assert_eq!(
-				verify_transaction_finalized(&storage, example_header().compute_hash(), 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, example_header().compute_hash(), 0, &[example_tx()],),
 				false,
 			);
 		});
@@ -1334,7 +1329,7 @@ pub(crate) mod tests {
 			insert_header(&mut storage, finalized_header_sibling);
 			storage.finalize_and_prune_headers(Some(example_header().compute_id()), 0);
 			assert_eq!(
-				verify_transaction_finalized(&storage, finalized_header_sibling_hash, 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, finalized_header_sibling_hash, 0, &[example_tx()],),
 				false,
 			);
 		});
@@ -1353,7 +1348,7 @@ pub(crate) mod tests {
 			insert_header(&mut storage, example_header());
 			storage.finalize_and_prune_headers(Some(example_header().compute_id()), 0);
 			assert_eq!(
-				verify_transaction_finalized(&storage, finalized_header_uncle_hash, 0, &vec![example_tx()],),
+				verify_transaction_finalized(&storage, finalized_header_uncle_hash, 0, &[example_tx()],),
 				false,
 			);
 		});
@@ -1368,7 +1363,7 @@ pub(crate) mod tests {
 					&storage,
 					example_header().compute_hash(),
 					0,
-					&vec![example_tx(), example_tx(),],
+					&[example_tx(), example_tx()],
 				),
 				false,
 			);
