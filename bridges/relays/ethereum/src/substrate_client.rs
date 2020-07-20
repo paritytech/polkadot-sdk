@@ -400,5 +400,5 @@ fn create_signed_transaction(
 	let signer: sp_runtime::MultiSigner = signer.public().into();
 	let (function, extra, _) = raw_payload.deconstruct();
 
-	bridge_node_runtime::UncheckedExtrinsic::new_signed(function, signer.into_account().into(), signature.into(), extra)
+	bridge_node_runtime::UncheckedExtrinsic::new_signed(function, signer.into_account(), signature.into(), extra)
 }
