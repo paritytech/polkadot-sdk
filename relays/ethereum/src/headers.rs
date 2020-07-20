@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use crate::sync_types::{HeaderId, HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SourceHeader};
 use linked_hash_map::LinkedHashMap;
 use num_traits::{One, Zero};
 use std::{
@@ -59,9 +59,9 @@ pub struct QueuedHeaders<P: HeadersSyncPipeline> {
 	known_headers: KnownHeaders<P>,
 	/// Headers that are waiting for completion data from source node. Mapped (and auto-sorted
 	/// by) to the last fetch time.
-	incomplete_headers: LinkedHashMap<HeaderId<P::Hash, P::Number>, Option<Instant>>,
+	incomplete_headers: LinkedHashMap<HeaderIdOf<P>, Option<Instant>>,
 	/// Headers that are waiting to be completed at target node. Auto-sorted by insertion time.
-	completion_data: LinkedHashMap<HeaderId<P::Hash, P::Number>, P::Completion>,
+	completion_data: LinkedHashMap<HeaderIdOf<P>, P::Completion>,
 	/// Best synced block number.
 	best_synced_number: P::Number,
 	/// Pruned blocks border. We do not store or accept any blocks with number less than
@@ -106,7 +106,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	/// Returns number of headers that are currently in given queue.
 	pub fn headers_in_status(&self, status: HeaderStatus) -> usize {
 		match status {
-			HeaderStatus::Unknown | HeaderStatus::Synced => return 0,
+			HeaderStatus::Unknown | HeaderStatus::Synced => 0,
 			HeaderStatus::MaybeOrphan => self
 				.maybe_orphan
 				.values()
@@ -168,7 +168,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Returns synchronization status of the header.
-	pub fn status(&self, id: &HeaderId<P::Hash, P::Number>) -> HeaderStatus {
+	pub fn status(&self, id: &HeaderIdOf<P>) -> HeaderStatus {
 		self.known_headers
 			.get(&id.0)
 			.and_then(|x| x.get(&id.1))
@@ -179,7 +179,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	/// Get oldest header from given queue.
 	pub fn header(&self, status: HeaderStatus) -> Option<&QueuedHeader<P>> {
 		match status {
-			HeaderStatus::Unknown | HeaderStatus::Synced => return None,
+			HeaderStatus::Unknown | HeaderStatus::Synced => None,
 			HeaderStatus::MaybeOrphan => oldest_header(&self.maybe_orphan),
 			HeaderStatus::Orphan => oldest_header(&self.orphan),
 			HeaderStatus::MaybeExtra => oldest_header(&self.maybe_extra),
@@ -197,7 +197,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		f: impl FnMut(&QueuedHeader<P>) -> bool,
 	) -> Option<Vec<&QueuedHeader<P>>> {
 		match status {
-			HeaderStatus::Unknown | HeaderStatus::Synced => return None,
+			HeaderStatus::Unknown | HeaderStatus::Synced => None,
 			HeaderStatus::MaybeOrphan => oldest_headers(&self.maybe_orphan, f),
 			HeaderStatus::Orphan => oldest_headers(&self.orphan, f),
 			HeaderStatus::MaybeExtra => oldest_headers(&self.maybe_extra, f),
@@ -268,12 +268,12 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Receive best header from the target node.
-	pub fn target_best_header_response(&mut self, id: &HeaderId<P::Hash, P::Number>) {
+	pub fn target_best_header_response(&mut self, id: &HeaderIdOf<P>) {
 		self.header_synced(id)
 	}
 
 	/// Receive target node response for MaybeOrphan request.
-	pub fn maybe_orphan_response(&mut self, id: &HeaderId<P::Hash, P::Number>, response: bool) {
+	pub fn maybe_orphan_response(&mut self, id: &HeaderIdOf<P>, response: bool) {
 		if !response {
 			move_header_descendants::<P>(
 				&mut [&mut self.maybe_orphan],
@@ -295,7 +295,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Receive target node response for MaybeExtra request.
-	pub fn maybe_extra_response(&mut self, id: &HeaderId<P::Hash, P::Number>, response: bool) {
+	pub fn maybe_extra_response(&mut self, id: &HeaderIdOf<P>, response: bool) {
 		let (destination_status, destination_queue) = if response {
 			(HeaderStatus::Extra, &mut self.extra)
 		} else if self.is_parent_incomplete(id) {
@@ -315,7 +315,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Receive extra from source node.
-	pub fn extra_response(&mut self, id: &HeaderId<P::Hash, P::Number>, extra: P::Extra) {
+	pub fn extra_response(&mut self, id: &HeaderIdOf<P>, extra: P::Extra) {
 		let (destination_status, destination_queue) = if self.is_parent_incomplete(id) {
 			(HeaderStatus::Incomplete, &mut self.incomplete)
 		} else {
@@ -334,7 +334,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Receive completion response from source node.
-	pub fn completion_response(&mut self, id: &HeaderId<P::Hash, P::Number>, completion: Option<P::Completion>) {
+	pub fn completion_response(&mut self, id: &HeaderIdOf<P>, completion: Option<P::Completion>) {
 		let completion = match completion {
 			Some(completion) => completion,
 			None => {
@@ -361,12 +361,12 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 				id,
 			);
 
-			self.completion_data.insert(id.clone(), completion);
+			self.completion_data.insert(*id, completion);
 		}
 	}
 
 	/// When header is submitted to target node.
-	pub fn headers_submitted(&mut self, ids: Vec<HeaderId<P::Hash, P::Number>>) {
+	pub fn headers_submitted(&mut self, ids: Vec<HeaderIdOf<P>>) {
 		for id in ids {
 			move_header(
 				&mut self.ready,
@@ -380,7 +380,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// When header completion data is sent to target node.
-	pub fn header_completed(&mut self, id: &HeaderId<P::Hash, P::Number>) {
+	pub fn header_completed(&mut self, id: &HeaderIdOf<P>) {
 		if self.completion_data.remove(id).is_some() {
 			log::debug!(
 				target: "bridge",
@@ -404,7 +404,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Marks given headers incomplete.
-	pub fn add_incomplete_headers(&mut self, new_incomplete_headers: Vec<HeaderId<P::Hash, P::Number>>) {
+	pub fn add_incomplete_headers(&mut self, new_incomplete_headers: Vec<HeaderIdOf<P>>) {
 		for new_incomplete_header in new_incomplete_headers {
 			self.header_synced(&new_incomplete_header);
 			move_header_descendants::<P>(
@@ -426,7 +426,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// When incomplete headers ids are receved from target node.
-	pub fn incomplete_headers_response(&mut self, ids: HashSet<HeaderId<P::Hash, P::Number>>) {
+	pub fn incomplete_headers_response(&mut self, ids: HashSet<HeaderIdOf<P>>) {
 		// all new incomplete headers are marked Synced and all their descendants
 		// are moved from Ready/Submitted to Incomplete queue
 		let new_incomplete_headers = ids
@@ -466,7 +466,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Returns id of the header for which we want to fetch completion data.
-	pub fn incomplete_header(&mut self) -> Option<HeaderId<P::Hash, P::Number>> {
+	pub fn incomplete_header(&mut self) -> Option<HeaderIdOf<P>> {
 		queued_incomplete_header(&mut self.incomplete_headers, |last_fetch_time| {
 			let retry = match *last_fetch_time {
 				Some(last_fetch_time) => last_fetch_time.elapsed() > RETRY_FETCH_COMPLETION_INTERVAL,
@@ -483,7 +483,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Returns header completion data to upload to target node.
-	pub fn header_to_complete(&mut self) -> Option<(HeaderId<P::Hash, P::Number>, &P::Completion)> {
+	pub fn header_to_complete(&mut self) -> Option<(HeaderIdOf<P>, &P::Completion)> {
 		queued_incomplete_header(&mut self.completion_data, |_| true)
 	}
 
@@ -520,7 +520,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 
 	/// Returns true if parent of this header is either incomplete or waiting for
 	/// its own incomplete ancestor to be completed.
-	fn is_parent_incomplete(&self, id: &HeaderId<P::Hash, P::Number>) -> bool {
+	fn is_parent_incomplete(&self, id: &HeaderIdOf<P>) -> bool {
 		let status = self.status(id);
 		let header = match status {
 			HeaderStatus::MaybeOrphan => header(&self.maybe_orphan, id),
@@ -546,7 +546,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// When we receive new Synced header from target node.
-	fn header_synced(&mut self, id: &HeaderId<P::Hash, P::Number>) {
+	fn header_synced(&mut self, id: &HeaderIdOf<P>) {
 		// update best synced block number
 		self.best_synced_number = std::cmp::max(self.best_synced_number, id.0);
 
@@ -593,19 +593,12 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 }
 
 /// Insert header to the queue.
-fn insert_header<P: HeadersSyncPipeline>(
-	queue: &mut HeadersQueue<P>,
-	id: HeaderId<P::Hash, P::Number>,
-	header: QueuedHeader<P>,
-) {
+fn insert_header<P: HeadersSyncPipeline>(queue: &mut HeadersQueue<P>, id: HeaderIdOf<P>, header: QueuedHeader<P>) {
 	queue.entry(id.0).or_default().insert(id.1, header);
 }
 
 /// Remove header from the queue.
-fn remove_header<P: HeadersSyncPipeline>(
-	queue: &mut HeadersQueue<P>,
-	id: &HeaderId<P::Hash, P::Number>,
-) -> Option<QueuedHeader<P>> {
+fn remove_header<P: HeadersSyncPipeline>(queue: &mut HeadersQueue<P>, id: &HeaderIdOf<P>) -> Option<QueuedHeader<P>> {
 	let mut headers_at = match queue.entry(id.0) {
 		BTreeMapEntry::Occupied(headers_at) => headers_at,
 		BTreeMapEntry::Vacant(_) => return None,
@@ -619,10 +612,7 @@ fn remove_header<P: HeadersSyncPipeline>(
 }
 
 /// Get header from the queue.
-fn header<'a, P: HeadersSyncPipeline>(
-	queue: &'a HeadersQueue<P>,
-	id: &HeaderId<P::Hash, P::Number>,
-) -> Option<&'a QueuedHeader<P>> {
+fn header<'a, P: HeadersSyncPipeline>(queue: &'a HeadersQueue<P>, id: &HeaderIdOf<P>) -> Option<&'a QueuedHeader<P>> {
 	queue.get(&id.0).and_then(|by_hash| by_hash.get(&id.1))
 }
 
@@ -634,9 +624,9 @@ fn move_header<P: HeadersSyncPipeline>(
 	destination_queue: &mut HeadersQueue<P>,
 	known_headers: &mut KnownHeaders<P>,
 	destination_status: HeaderStatus,
-	id: &HeaderId<P::Hash, P::Number>,
+	id: &HeaderIdOf<P>,
 	prepare: impl FnOnce(QueuedHeader<P>) -> QueuedHeader<P>,
-) -> Option<HeaderId<P::Hash, P::Number>> {
+) -> Option<HeaderIdOf<P>> {
 	let header = match remove_header(source_queue, id) {
 		Some(header) => prepare(header),
 		None => return None,
@@ -655,7 +645,7 @@ fn move_header_descendants<P: HeadersSyncPipeline>(
 	destination_queue: &mut HeadersQueue<P>,
 	known_headers: &mut KnownHeaders<P>,
 	destination_status: HeaderStatus,
-	id: &HeaderId<P::Hash, P::Number>,
+	id: &HeaderIdOf<P>,
 ) {
 	let mut current_number = id.0 + One::one();
 	let mut current_parents = HashSet::new();
@@ -743,7 +733,7 @@ fn prune_known_headers<P: HeadersSyncPipeline>(known_headers: &mut KnownHeaders<
 /// Change header status.
 fn set_header_status<P: HeadersSyncPipeline>(
 	known_headers: &mut KnownHeaders<P>,
-	id: &HeaderId<P::Hash, P::Number>,
+	id: &HeaderIdOf<P>,
 	status: HeaderStatus,
 ) {
 	log::debug!(

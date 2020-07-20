@@ -99,7 +99,7 @@ pub fn finalize_blocks<S: Storage>(
 					*hash == header_validators.0.hash || *hash == best_finalized.hash
 				})
 			})
-			.unwrap_or_else(|| CachedFinalityVotes::default()),
+			.unwrap_or_default(),
 		best_finalized,
 		&validators,
 		id,
@@ -247,7 +247,7 @@ fn empty_steps_signers(header: &Header) -> BTreeSet<Address> {
 	header
 		.empty_steps()
 		.into_iter()
-		.flat_map(|steps| steps)
+		.flatten()
 		.filter_map(|step| empty_step_signer(&step, &header.parent_hash))
 		.collect::<BTreeSet<_>>()
 }
@@ -462,13 +462,9 @@ mod tests {
 			// when we're inserting header#7 and last finalized header is 0:
 			// check that votes at #7 are computed correctly without cache
 			let expected_votes_at_7 = FinalityVotes {
-				votes: vec![
-					(ctx.addresses[0].clone(), 3),
-					(ctx.addresses[1].clone(), 3),
-					(ctx.addresses[2].clone(), 1),
-				]
-				.into_iter()
-				.collect(),
+				votes: vec![(ctx.addresses[0], 3), (ctx.addresses[1], 3), (ctx.addresses[2], 1)]
+					.into_iter()
+					.collect(),
 				ancestry: ancestry[..7].iter().cloned().collect(),
 			};
 			let id7 = headers[6].compute_id();
@@ -491,9 +487,7 @@ mod tests {
 
 			// cached votes at #5
 			let expected_votes_at_5 = FinalityVotes {
-				votes: vec![(ctx.addresses[0].clone(), 3), (ctx.addresses[1].clone(), 2)]
-					.into_iter()
-					.collect(),
+				votes: vec![(ctx.addresses[0], 3), (ctx.addresses[1], 2)].into_iter().collect(),
 				ancestry: ancestry[..5].iter().cloned().collect(),
 			};
 			FinalityCache::<TestRuntime>::insert(hashes[4], expected_votes_at_5);
@@ -520,9 +514,7 @@ mod tests {
 			// when we're inserting header#7 and last finalized header is 3:
 			// check that votes at #7 are computed correctly with cache
 			let expected_votes_at_7 = FinalityVotes {
-				votes: vec![(ctx.addresses[1].clone(), 3), (ctx.addresses[2].clone(), 1)]
-					.into_iter()
-					.collect(),
+				votes: vec![(ctx.addresses[1], 3), (ctx.addresses[2], 1)].into_iter().collect(),
 				ancestry: ancestry[3..7].iter().cloned().collect(),
 			};
 			assert_eq!(

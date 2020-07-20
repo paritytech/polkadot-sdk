@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::headers::QueuedHeaders;
-use crate::sync_types::{HeaderId, HeaderStatus, HeadersSyncPipeline, QueuedHeader};
+use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader};
 use num_traits::{One, Saturating, Zero};
 
 /// Common sync params.
@@ -56,7 +56,7 @@ pub struct HeadersSync<P: HeadersSyncPipeline> {
 	/// Best header number known to source node.
 	source_best_number: Option<P::Number>,
 	/// Best header known to target node.
-	target_best_header: Option<HeaderId<P::Hash, P::Number>>,
+	target_best_header: Option<HeaderIdOf<P>>,
 	/// Headers queue.
 	headers: QueuedHeaders<P>,
 }
@@ -78,7 +78,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 	}
 
 	/// Best header known to target node.
-	pub fn target_best_header(&self) -> Option<HeaderId<P::Hash, P::Number>> {
+	pub fn target_best_header(&self) -> Option<HeaderIdOf<P>> {
 		self.target_best_header
 	}
 
@@ -94,7 +94,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 	}
 
 	/// Returns synchronization status.
-	pub fn status(&self) -> (&Option<HeaderId<P::Hash, P::Number>>, &Option<P::Number>) {
+	pub fn status(&self) -> (&Option<HeaderIdOf<P>>, &Option<P::Number>) {
 		(&self.target_best_header, &self.source_best_number)
 	}
 
@@ -111,7 +111,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 	/// Select header that needs to be downloaded from the source node.
 	pub fn select_new_header_to_download(&self) -> Option<P::Number> {
 		// if we haven't received best header from source node yet, there's nothing we can download
-		let source_best_number = self.source_best_number.clone()?;
+		let source_best_number = self.source_best_number?;
 
 		// if we haven't received known best header from target node yet, there's nothing we can download
 		let target_best_header = self.target_best_header.as_ref()?;
@@ -205,7 +205,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 
 	/// Receive new best header from the target node.
 	/// Returns true if it is different from the previous block known to us.
-	pub fn target_best_header_response(&mut self, best_header: HeaderId<P::Hash, P::Number>) -> bool {
+	pub fn target_best_header_response(&mut self, best_header: HeaderIdOf<P>) -> bool {
 		log::debug!(
 			target: "bridge",
 			"Received best known header from {}: {:?}",
@@ -244,7 +244,7 @@ pub mod tests {
 	use super::*;
 	use crate::ethereum_types::{EthereumHeadersSyncPipeline, H256};
 	use crate::headers::tests::{header, id};
-	use crate::sync_types::HeaderStatus;
+	use crate::sync_types::{HeaderId, HeaderStatus};
 
 	fn side_hash(number: u64) -> H256 {
 		H256::from_low_u64_le(1000 + number)

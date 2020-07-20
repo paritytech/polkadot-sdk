@@ -95,6 +95,9 @@ pub trait HeadersSyncPipeline: Clone + Copy {
 	fn estimate_size(source: &QueuedHeader<Self>) -> usize;
 }
 
+/// A HeaderId for `HeaderSyncPipeline`.
+pub type HeaderIdOf<P> = HeaderId<<P as HeadersSyncPipeline>::Hash, <P as HeadersSyncPipeline>::Number>;
+
 /// Header that we're receiving from source node.
 pub trait SourceHeader<Hash, Number> {
 	/// Returns ID of header.

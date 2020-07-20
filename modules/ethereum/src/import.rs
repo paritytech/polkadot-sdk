@@ -70,6 +70,9 @@ pub fn import_headers<S: Storage, PS: PruningStrategy>(
 	Ok((useful, useless))
 }
 
+/// A vector of finalized headers and their submitters.
+pub type FinalizedHeaders<S> = Vec<(HeaderId, Option<<S as Storage>::Submitter>)>;
+
 /// Imports given header and updates blocks finality (if required).
 ///
 /// Transactions receipts must be provided if `header_import_requires_receipts()`
@@ -84,7 +87,7 @@ pub fn import_header<S: Storage, PS: PruningStrategy>(
 	submitter: Option<S::Submitter>,
 	header: Header,
 	receipts: Option<Vec<Receipt>>,
-) -> Result<(HeaderId, Vec<(HeaderId, Option<S::Submitter>)>), Error> {
+) -> Result<(HeaderId, FinalizedHeaders<S>), Error> {
 	// first check that we are able to import this header at all
 	let (header_id, finalized_id) = is_importable_header(storage, &header)?;
 

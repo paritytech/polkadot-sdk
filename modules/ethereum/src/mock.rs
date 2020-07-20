@@ -160,6 +160,6 @@ impl Default for KeepSomeHeadersBehindBest {
 
 impl PruningStrategy for KeepSomeHeadersBehindBest {
 	fn pruning_upper_bound(&mut self, best_number: u64, _: u64) -> u64 {
-		best_number.checked_sub(self.0).unwrap_or(0)
+		best_number.saturating_sub(self.0)
 	}
 }

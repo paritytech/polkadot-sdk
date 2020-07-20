@@ -55,8 +55,8 @@ impl SyncLoopMetrics {
 	/// Update metrics.
 	pub fn update<P: HeadersSyncPipeline>(&mut self, sync: &HeadersSync<P>) {
 		let headers = sync.headers();
-		let source_best_number = sync.source_best_number().unwrap_or(Zero::zero());
-		let target_best_number = sync.target_best_header().map(|id| id.0).unwrap_or(Zero::zero());
+		let source_best_number = sync.source_best_number().unwrap_or_else(Zero::zero);
+		let target_best_number = sync.target_best_header().map(|id| id.0).unwrap_or_else(Zero::zero);
 
 		self.best_block_numbers
 			.with_label_values(&["source"])

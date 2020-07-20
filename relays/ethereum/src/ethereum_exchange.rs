@@ -100,7 +100,7 @@ impl SourceClient<EthereumToSubstrateExchange> for EthereumTransactionsSource {
 		eth_header_id: &EthereumHeaderId,
 		eth_tx: EthereumTransaction,
 	) -> Result<EthereumTransactionInclusionProof, Self::Error> {
-		const TRANSACTION_HAS_RAW_FIELD_PROOF: &'static str = "RPC level checks that transactions from Ethereum\
+		const TRANSACTION_HAS_RAW_FIELD_PROOF: &str = "RPC level checks that transactions from Ethereum\
 			node are having `raw` field; qed";
 
 		let eth_header = self.client.header_by_hash_with_transactions(eth_header_id.1).await?;
