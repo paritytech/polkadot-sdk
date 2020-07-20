@@ -323,7 +323,7 @@ mod tests {
 			&self,
 			_: &TestTransactionHash,
 		) -> Result<Option<(TestHeaderId, TestTransaction)>, TestError> {
-			self.data.lock().transaction.clone()
+			self.data.lock().transaction
 		}
 
 		async fn transaction_proof(
@@ -331,7 +331,7 @@ mod tests {
 			_: &TestHeaderId,
 			_: TestTransaction,
 		) -> Result<TestTransactionProof, TestError> {
-			self.data.lock().transaction_proof.clone()
+			self.data.lock().transaction_proof
 		}
 	}
 
@@ -368,11 +368,11 @@ mod tests {
 		}
 
 		async fn is_header_known(&self, _: &TestHeaderId) -> Result<bool, TestError> {
-			self.data.lock().is_header_known.clone()
+			self.data.lock().is_header_known
 		}
 
 		async fn is_header_finalized(&self, _: &TestHeaderId) -> Result<bool, TestError> {
-			self.data.lock().is_header_finalized.clone()
+			self.data.lock().is_header_finalized
 		}
 
 		async fn submit_transaction_proof(&self, proof: TestTransactionProof) -> Result<(), TestError> {
