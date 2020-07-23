@@ -115,7 +115,8 @@ impl SubstrateCli for PolkadotCli {
 	}
 }
 
-fn generate_genesis_state(para_id: ParaId) -> Result<Block> {
+/// Generate the genesis block
+pub fn generate_genesis_state(para_id: ParaId) -> Result<Block> {
 	let storage = (&chain_spec::get_chain_spec(para_id)).build_storage()?;
 
 	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
@@ -156,7 +157,7 @@ pub fn run() -> Result<()> {
 			})
 		}
 		Some(Subcommand::ExportGenesisState(params)) => {
-			sc_cli::init_logger("", &<sc_cli::LogRotationOpt as structopt::StructOpt>::from_args())?;
+			sc_cli::init_logger("");
 
 			let block = generate_genesis_state(params.parachain_id.into())?;
 			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
@@ -166,37 +167,6 @@ pub fn run() -> Result<()> {
 			} else {
 				println!("{}", header_hex);
 			}
-
-			Ok(())
-		}
-		Some(Subcommand::Polkadot(polkadot_cli)) => {
-			let runner = polkadot_cli.create_runner(&polkadot_cli.run.base)?;
-			let authority_discovery_enabled = polkadot_cli.run.authority_discovery_enabled;
-			let grandpa_pause = if polkadot_cli.run.grandpa_pause.is_empty() {
-				None
-			} else {
-				Some((
-					polkadot_cli.run.grandpa_pause[0],
-					polkadot_cli.run.grandpa_pause[1],
-				))
-			};
-
-			runner.run_node_until_exit(|config| match config.role {
-				Role::Light => polkadot_service::polkadot_new_light(config).map(|r| r.0),
-				_ => polkadot_service::polkadot_new_full(
-					config,
-					None,
-					None,
-					authority_discovery_enabled,
-					6000,
-					grandpa_pause,
-				)
-				.map(|(s, _, _)| s),
-			})
-		}
-		Some(Subcommand::PolkadotValidationWorker(cmd)) => {
-			sc_cli::init_logger("", &<sc_cli::LogRotationOpt as structopt::StructOpt>::from_args())?;
-			polkadot_service::run_validation_worker(&cmd.mem_id)?;
 
 			Ok(())
 		}
@@ -238,6 +208,7 @@ pub fn run() -> Result<()> {
 				info!("Parachain genesis state: {}", genesis_state);
 
 				crate::service::run_collator(config, key, polkadot_config, id)
+					.map(|x| x.task_manager)
 			})
 		}
 	}

@@ -25,7 +25,7 @@ use sc_finality_grandpa::{
 	FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
 use sc_informant::OutputFormat;
-use sc_service::{Configuration, TaskManager};
+use sc_service::{Configuration, ServiceComponents, TFullBackend, TFullClient};
 use std::sync::Arc;
 
 // Our native executor instance.
@@ -55,10 +55,12 @@ macro_rules! new_full_start {
 				client.clone(),
 				builder.prometheus_registry(),
 			));
-			let pool = sc_transaction_pool::BasicPool::new(
+			let pool = sc_transaction_pool::BasicPool::new_full(
 				builder.config().transaction_pool.clone(),
 				pool_api,
 				builder.prometheus_registry(),
+				builder.spawn_handle(),
+				client.clone(),
 			);
 			Ok(pool)
 		})?
@@ -86,7 +88,19 @@ pub fn run_collator(
 	key: Arc<CollatorPair>,
 	mut polkadot_config: polkadot_collator::Configuration,
 	id: polkadot_primitives::parachain::Id,
-) -> sc_service::error::Result<TaskManager> {
+) -> sc_service::error::Result<ServiceComponents<
+	parachain_runtime::opaque::Block,
+	TFullBackend<parachain_runtime::opaque::Block>,
+	sc_consensus::LongestChain<TFullBackend<parachain_runtime::opaque::Block>, parachain_runtime::opaque::Block>,
+	sc_transaction_pool::BasicPool<
+		sc_transaction_pool::FullChainApi<
+			TFullClient<parachain_runtime::opaque::Block, parachain_runtime::RuntimeApi, crate::service::Executor>,
+			parachain_runtime::opaque::Block,
+		>,
+		parachain_runtime::opaque::Block,
+	>,
+	TFullClient<parachain_runtime::opaque::Block, parachain_runtime::RuntimeApi, crate::service::Executor>,
+>> {
 	let mut parachain_config = prepare_collator_config(parachain_config);
 
 	parachain_config.informant_output_format = OutputFormat {
@@ -152,5 +166,5 @@ pub fn run_collator(
 		.spawn_essential_handle()
 		.spawn("polkadot", polkadot_future);
 
-	Ok(service.task_manager)
+	Ok(service)
 }
