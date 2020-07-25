@@ -45,17 +45,23 @@ use cumulus_primitives::{
 /// As wasm is always executed with one thread, this global varibale is safe!
 static mut STORAGE: Option<Box<dyn Storage>> = None;
 
-/// Returns a mutable reference to the [`Storage`] implementation.
+/// Runs the given `call` with the global storage and returns the result of the call.
 ///
 /// # Panic
 ///
 /// Panics if the [`STORAGE`] is not initialized.
-fn storage() -> &'static mut dyn Storage {
+fn with_storage<R>(call: impl FnOnce(&mut dyn Storage) -> R) -> R {
+	let mut storage = unsafe {
+		STORAGE.take().expect("`STORAGE` needs to be set before calling this function.")
+	};
+
+	let res = call(&mut *storage);
+
 	unsafe {
-		&mut **STORAGE
-			.as_mut()
-			.expect("`STORAGE` needs to be set before calling this function.")
+		STORAGE = Some(storage);
 	}
+
+	res
 }
 
 /// Abstract the storage into a trait without `Block` generic.
@@ -137,20 +143,19 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	// If in the course of block execution new validation code was set, insert
 	// its scheduled upgrade so we can validate that block number later.
-	let new_validation_code = storage().get(NEW_VALIDATION_CODE).map(ValidationCode);
+	let new_validation_code = with_storage(|storage| storage.get(NEW_VALIDATION_CODE)).map(ValidationCode);
 	if new_validation_code.is_some() && validation_function_params.code_upgrade_allowed.is_none() {
 		panic!("Attempt to upgrade validation function when not permitted!");
 	}
 
 	// Extract potential upward messages from the storage.
-	let upward_messages = match storage().get(UPWARD_MESSAGES) {
+	let upward_messages = match with_storage(|storage| storage.get(UPWARD_MESSAGES)) {
 		Some(encoded) => Vec::<GenericUpwardMessage>::decode(&mut &encoded[..])
 			.expect("Upward messages vec is not correctly encoded in the storage!"),
 		None => Vec::new(),
 	};
 
-	let processed_downward_messages = storage()
-		.get(PROCESSED_DOWNWARD_MESSAGES)
+	let processed_downward_messages = with_storage(|storage| storage.get(PROCESSED_DOWNWARD_MESSAGES))
 		.and_then(|v| Decode::decode(&mut &v[..]).ok())
 		.unwrap_or_default();
 
@@ -272,7 +277,7 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
-	match storage().get(key) {
+	match with_storage(|storage| storage.get(key)) {
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
@@ -285,27 +290,27 @@ fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Opt
 }
 
 fn host_storage_set(key: &[u8], value: &[u8]) {
-	storage().insert(key, value);
+	with_storage(|storage| storage.insert(key, value));
 }
 
 fn host_storage_get(key: &[u8]) -> Option<Vec<u8>> {
-	storage().get(key).clone()
+	with_storage(|storage| storage.get(key).clone())
 }
 
 fn host_storage_exists(key: &[u8]) -> bool {
-	storage().get(key).is_some()
+	with_storage(|storage| storage.get(key).is_some())
 }
 
 fn host_storage_clear(key: &[u8]) {
-	storage().remove(key);
+	with_storage(|storage| storage.remove(key));
 }
 
 fn host_storage_root() -> Vec<u8> {
-	storage().storage_root()
+	with_storage(|storage| storage.storage_root())
 }
 
 fn host_storage_clear_prefix(prefix: &[u8]) {
-	storage().clear_prefix(prefix)
+	with_storage(|storage| storage.clear_prefix(prefix))
 }
 
 fn host_storage_changes_root(_: &[u8]) -> Option<Vec<u8>> {
@@ -314,5 +319,5 @@ fn host_storage_changes_root(_: &[u8]) -> Option<Vec<u8>> {
 }
 
 fn host_storage_append(key: &[u8], value: Vec<u8>) {
-	storage().storage_append(key, value);
+	with_storage(|storage| storage.storage_append(key, value));
 }
