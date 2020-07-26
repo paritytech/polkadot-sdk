@@ -264,7 +264,18 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 
 	fn storage_append(&mut self, key: &[u8], value: Vec<u8>) {
 		let value_vec = sp_std::vec![EncodeOpaqueValue(value)];
-		let current_value = self.overlay.entry(key.to_vec()).or_default();
+
+		let overlay = &mut self.overlay;
+		let witness_data = &self.witness_data;
+		let storage_root = &self.storage_root;
+
+		let current_value = overlay.entry(key.to_vec()).or_insert_with(||
+			read_trie_value::<Layout<HashFor<B>>, _>(
+				witness_data,
+				storage_root,
+				key,
+			).ok().flatten()
+		);
 
 		let item = current_value.take().unwrap_or_default();
 		*current_value = Some(
