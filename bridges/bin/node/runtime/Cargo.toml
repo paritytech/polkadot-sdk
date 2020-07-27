@@ -224,9 +224,7 @@ package = "substrate-wasm-builder-runner"
 git = "https://github.com/paritytech/substrate/"
 
 [features]
-default = ["std", "bridge-rialto"]
-bridge-kovan = []
-bridge-rialto = []
+default = ["std"]
 std = [
 	"pallet-aura/std",
 	"pallet-balances/std",
@@ -268,5 +266,4 @@ runtime-benchmarks = [
 	"pallet-bridge-eth-poa/runtime-benchmarks",
 	"sp-bridge-eth-poa/test-helpers",
 	"sp-runtime/runtime-benchmarks",
-	"bridge-kovan",
 ]

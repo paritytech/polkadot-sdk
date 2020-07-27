@@ -136,7 +136,7 @@ pub fn run_test_with_genesis<T>(genesis: Header, total_validators: usize, test: 
 			initial_difficulty: 0.into(),
 			initial_validators: addresses.clone(),
 		}
-		.build_storage::<TestRuntime>()
+		.build_storage::<TestRuntime, crate::DefaultInstance>()
 		.unwrap(),
 	)
 	.execute_with(|| {
