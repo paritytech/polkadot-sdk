@@ -15,8 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use bridge_node_runtime::{
-	AccountId, AuraConfig, BalancesConfig, BridgeEthPoAConfig, GenesisConfig, GrandpaConfig, SessionConfig,
-	SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, BalancesConfig, BridgeKovanConfig, BridgeRialtoConfig, GenesisConfig, GrandpaConfig,
+	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -152,7 +152,8 @@ fn testnet_genesis(
 		pallet_aura: Some(AuraConfig {
 			authorities: Vec::new(),
 		}),
-		pallet_bridge_eth_poa: load_bridge_config(),
+		pallet_bridge_eth_poa_Instance1: load_rialto_bridge_config(),
+		pallet_bridge_eth_poa_Instance2: load_kovan_bridge_config(),
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
 		}),
@@ -166,10 +167,18 @@ fn testnet_genesis(
 	}
 }
 
-fn load_bridge_config() -> Option<BridgeEthPoAConfig> {
-	Some(BridgeEthPoAConfig {
-		initial_header: bridge_node_runtime::bridge::genesis_header(),
+fn load_rialto_bridge_config() -> Option<BridgeRialtoConfig> {
+	Some(BridgeRialtoConfig {
+		initial_header: bridge_node_runtime::rialto::genesis_header(),
 		initial_difficulty: 0.into(),
-		initial_validators: bridge_node_runtime::bridge::genesis_validators(),
+		initial_validators: bridge_node_runtime::rialto::genesis_validators(),
+	})
+}
+
+fn load_kovan_bridge_config() -> Option<BridgeKovanConfig> {
+	Some(BridgeKovanConfig {
+		initial_header: bridge_node_runtime::kovan::genesis_header(),
+		initial_difficulty: 0.into(),
+		initial_validators: bridge_node_runtime::kovan::genesis_validators(),
 	})
 }

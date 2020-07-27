@@ -361,6 +361,7 @@ mod tests {
 		validators_change_receipt, AccountId, HeaderBuilder, TestRuntime, GAS_LIMIT,
 	};
 	use crate::validators::ValidatorsSource;
+	use crate::DefaultInstance;
 	use crate::{
 		pool_configuration, BridgeStorage, FinalizedBlock, Headers, HeadersByNumber, NextValidatorsSetId,
 		ScheduledChanges, ValidatorsSet, ValidatorsSets,
@@ -402,7 +403,7 @@ mod tests {
 			let block3 = HeaderBuilder::with_parent_number(2).sign_by_set(&validators);
 			insert_header(&mut storage, block3);
 
-			FinalizedBlock::put(block2_id);
+			FinalizedBlock::<DefaultInstance>::put(block2_id);
 
 			let validators_config =
 				ValidatorsConfiguration::Single(ValidatorsSource::Contract(Default::default(), Vec::new()));
@@ -419,21 +420,21 @@ mod tests {
 	}
 
 	fn change_validators_set_at(number: u64, finalized_set: Vec<Address>, signalled_set: Option<Vec<Address>>) {
-		let set_id = NextValidatorsSetId::get();
-		NextValidatorsSetId::put(set_id + 1);
-		ValidatorsSets::insert(
+		let set_id = NextValidatorsSetId::<DefaultInstance>::get();
+		NextValidatorsSetId::<DefaultInstance>::put(set_id + 1);
+		ValidatorsSets::<DefaultInstance>::insert(
 			set_id,
 			ValidatorsSet {
 				validators: finalized_set,
 				signal_block: None,
 				enact_block: HeaderId {
 					number: 0,
-					hash: HeadersByNumber::get(&0).unwrap()[0],
+					hash: HeadersByNumber::<DefaultInstance>::get(&0).unwrap()[0],
 				},
 			},
 		);
 
-		let header_hash = HeadersByNumber::get(&number).unwrap()[0];
+		let header_hash = HeadersByNumber::<DefaultInstance>::get(&number).unwrap()[0];
 		let mut header = Headers::<TestRuntime>::get(&header_hash).unwrap();
 		header.next_validators_set_id = set_id;
 		if let Some(signalled_set) = signalled_set {
@@ -441,7 +442,7 @@ mod tests {
 				number: header.header.number - 1,
 				hash: header.header.parent_hash,
 			});
-			ScheduledChanges::insert(
+			ScheduledChanges::<DefaultInstance>::insert(
 				header.header.parent_hash,
 				ScheduledChange {
 					validators: signalled_set,

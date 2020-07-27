@@ -14,12 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::exchange::EthereumTransactionInclusionProof;
+
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
+use pallet_bridge_currency_exchange::PeerBlockchain;
 use pallet_bridge_eth_poa::{
 	AuraConfiguration, PruningStrategy as TPruningStrategy, ValidatorsConfiguration, ValidatorsSource,
 };
-use sp_bridge_eth_poa::{Address, Header, U256};
+use sp_bridge_eth_poa::{Address, Header, RawTransaction, U256};
 use sp_std::prelude::*;
 
 frame_support::parameter_types! {
@@ -101,6 +104,25 @@ pub struct PruningStrategy;
 impl TPruningStrategy for PruningStrategy {
 	fn pruning_upper_bound(&mut self, _best_number: u64, best_finalized_number: u64) -> u64 {
 		best_finalized_number.saturating_sub(FINALIZED_HEADERS_TO_KEEP)
+	}
+}
+
+/// The Rialto Blockchain as seen by the runtime.
+pub struct RialtoBlockchain;
+
+impl PeerBlockchain for RialtoBlockchain {
+	type Transaction = RawTransaction;
+	type TransactionInclusionProof = EthereumTransactionInclusionProof;
+
+	fn verify_transaction_inclusion_proof(proof: &Self::TransactionInclusionProof) -> Option<Self::Transaction> {
+		let is_transaction_finalized =
+			crate::BridgeRialto::verify_transaction_finalized(proof.block, proof.index, &proof.proof);
+
+		if !is_transaction_finalized {
+			return None;
+		}
+
+		proof.proof.get(proof.index as usize).cloned()
 	}
 }
 
