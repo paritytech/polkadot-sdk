@@ -21,11 +21,11 @@ use crate::test_utils::{
 	HeaderBuilder,
 };
 
-use frame_benchmarking::benchmarks;
+use frame_benchmarking::benchmarks_instance;
 use frame_system::RawOrigin;
 use primitives::{compute_merkle_root, U256};
 
-benchmarks! {
+benchmarks_instance! {
 	_ { }
 
 	// Benchmark `import_unsigned_header` extrinsic with the best possible conditions:
@@ -37,7 +37,7 @@ benchmarks! {
 		let n in 1..1000;
 
 		let num_validators = 2;
-		let initial_header = initialize_bench::<T>(num_validators);
+		let initial_header = initialize_bench::<T, I>(num_validators);
 
 		// prepare header to be inserted
 		let header = build_custom_header(
@@ -50,7 +50,7 @@ benchmarks! {
 		);
 	}: import_unsigned_header(RawOrigin::None, header, None)
 	verify {
-		let storage = BridgeStorage::<T>::new();
+		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, 1);
 		assert_eq!(storage.finalized_block().number, 0);
 	}
@@ -67,9 +67,9 @@ benchmarks! {
 		// finalization.
 		let n in 1..7;
 
-		let mut storage = BridgeStorage::<T>::new();
+		let mut storage = BridgeStorage::<T, I>::new();
 		let num_validators: u32 = 2;
-		let initial_header = initialize_bench::<T>(num_validators as usize);
+		let initial_header = initialize_bench::<T, I>(num_validators as usize);
 
 		// Since we only have two validators we need to make sure the number of blocks is even to
 		// make sure the right validator signs the final block
@@ -95,7 +95,7 @@ benchmarks! {
 		let header = HeaderBuilder::with_parent(&last_header).sign_by(&last_authority);
 	}: import_unsigned_header(RawOrigin::None, header, None)
 	verify {
-		let storage = BridgeStorage::<T>::new();
+		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, (num_blocks + 1) as u64);
 		assert_eq!(storage.finalized_block().number, num_blocks as u64);
 	}
@@ -108,9 +108,9 @@ benchmarks! {
 		// finalization.
 		let n in 7..100;
 
-		let mut storage = BridgeStorage::<T>::new();
+		let mut storage = BridgeStorage::<T, I>::new();
 		let num_validators: u32 = 2;
-		let initial_header = initialize_bench::<T>(num_validators as usize);
+		let initial_header = initialize_bench::<T, I>(num_validators as usize);
 
 		// Since we only have two validators we need to make sure the number of blocks is even to
 		// make sure the right validator signs the final block
@@ -136,7 +136,7 @@ benchmarks! {
 		let header = HeaderBuilder::with_parent(&last_header).sign_by(&last_authority);
 	}: import_unsigned_header(RawOrigin::None, header, None)
 	verify {
-		let storage = BridgeStorage::<T>::new();
+		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, (num_blocks + 1) as u64);
 		assert_eq!(storage.finalized_block().number, num_blocks as u64);
 	}
@@ -148,14 +148,14 @@ benchmarks! {
 	import_unsigned_pruning {
 		let n in 1..MAX_BLOCKS_TO_PRUNE_IN_SINGLE_IMPORT as u32;
 
-		let mut storage = BridgeStorage::<T>::new();
+		let mut storage = BridgeStorage::<T, I>::new();
 
 		let num_validators = 3;
-		let initial_header = initialize_bench::<T>(num_validators as usize);
+		let initial_header = initialize_bench::<T, I>(num_validators as usize);
 		let validators = validators(num_validators);
 
 		// Want to prune eligible blocks between [0, n)
-		BlocksToPrune::put(PruningRange {
+		BlocksToPrune::<I>::put(PruningRange {
 			oldest_unpruned_block: 0,
 			oldest_block_to_keep: n as u64,
 		});
@@ -171,11 +171,11 @@ benchmarks! {
 		let header = HeaderBuilder::with_parent(&parent).sign_by_set(&validators);
 	}: import_unsigned_header(RawOrigin::None, header, None)
 	verify {
-		let storage = BridgeStorage::<T>::new();
+		let storage = BridgeStorage::<T, I>::new();
 		let max_pruned: u64 = (n - 1) as _;
 		assert_eq!(storage.best_block().0.number, (n + 1) as u64);
-		assert!(HeadersByNumber::get(&0).is_none());
-		assert!(HeadersByNumber::get(&max_pruned).is_none());
+		assert!(HeadersByNumber::<I>::get(&0).is_none());
+		assert!(HeadersByNumber::<I>::get(&max_pruned).is_none());
 	}
 
 	// The goal of this bench is to import a block which contains a transaction receipt. The receipt
@@ -184,10 +184,10 @@ benchmarks! {
 	import_unsigned_with_receipts {
 		let n in 1..100;
 
-		let mut storage = BridgeStorage::<T>::new();
+		let mut storage = BridgeStorage::<T, I>::new();
 
 		let num_validators = 1;
-		let initial_header = initialize_bench::<T>(num_validators as usize);
+		let initial_header = initialize_bench::<T, I>(num_validators as usize);
 
 		let mut receipts = vec![];
 		for i in 1..=n {
@@ -213,18 +213,18 @@ benchmarks! {
 		);
 	}: import_unsigned_header(RawOrigin::None, header, Some(receipts))
 	verify {
-		let storage = BridgeStorage::<T>::new();
+		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, 2);
 	}
 }
 
-fn initialize_bench<T: Trait>(num_validators: usize) -> Header {
+fn initialize_bench<T: Trait<I>, I: Instance>(num_validators: usize) -> Header {
 	// Initialize storage with some initial header
 	let initial_header = build_genesis_header(&validator(0));
 	let initial_difficulty = initial_header.difficulty;
 	let initial_validators = validators_addresses(num_validators as usize);
 
-	initialize_storage::<T>(&initial_header, initial_difficulty, &initial_validators);
+	initialize_storage::<T, I>(&initial_header, initial_difficulty, &initial_validators);
 
 	initial_header
 }

@@ -276,6 +276,7 @@ impl ValidatorsSource {
 pub(crate) mod tests {
 	use super::*;
 	use crate::mock::{run_test, validators_addresses, validators_change_receipt, TestRuntime};
+	use crate::DefaultInstance;
 	use crate::{BridgeStorage, Headers, ScheduledChange, ScheduledChanges, StoredHeader};
 	use frame_support::StorageMap;
 	use primitives::compute_merkle_root;
@@ -433,7 +434,7 @@ pub(crate) mod tests {
 			};
 			Headers::<TestRuntime>::insert(id100.hash, header100);
 			if let Some(scheduled_at) = scheduled_at {
-				ScheduledChanges::insert(scheduled_at.hash, scheduled_change);
+				ScheduledChanges::<DefaultInstance>::insert(scheduled_at.hash, scheduled_change);
 			}
 
 			validators.finalize_validators_change(&storage, &finalized_blocks)

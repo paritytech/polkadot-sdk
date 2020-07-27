@@ -505,19 +505,32 @@ pub fn step_validator<T>(header_validators: &[T], header_step: u64) -> &T {
 }
 
 sp_api::decl_runtime_apis! {
-	/// API for headers submitters.
-	pub trait EthereumHeadersApi {
+	/// API for querying information about headers from the Rialto Bridge Pallet
+	pub trait RialtoHeaderApi {
 		/// Returns number and hash of the best block known to the bridge module.
-		/// The caller should only submit `import_header` transaction that makes
+		///
+		/// The caller should only submit an `import_header` transaction that makes
 		/// (or leads to making) other header the best one.
 		fn best_block() -> (u64, H256);
-
 		/// Returns number and hash of the best finalized block known to the bridge module.
 		fn finalized_block() -> (u64, H256);
-
 		/// Returns true if the import of given block requires transactions receipts.
 		fn is_import_requires_receipts(header: Header) -> bool;
+		/// Returns true if header is known to the runtime.
+		fn is_known_block(hash: H256) -> bool;
+	}
 
+	/// API for querying information about headers from the Kovan Bridge Pallet
+	pub trait KovanHeaderApi {
+		/// Returns number and hash of the best block known to the bridge module.
+		///
+		/// The caller should only submit an `import_header` transaction that makes
+		/// (or leads to making) other header the best one.
+		fn best_block() -> (u64, H256);
+		/// Returns number and hash of the best finalized block known to the bridge module.
+		fn finalized_block() -> (u64, H256);
+		/// Returns true if the import of given block requires transactions receipts.
+		fn is_import_requires_receipts(header: Header) -> bool;
 		/// Returns true if header is known to the runtime.
 		fn is_known_block(hash: H256) -> bool;
 	}

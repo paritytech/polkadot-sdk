@@ -32,17 +32,11 @@ pub mod exchange;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benches;
-#[cfg(feature = "bridge-kovan")]
 pub mod kovan;
-#[cfg(feature = "bridge-rialto")]
 pub mod rialto;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub use benches as bridge;
-#[cfg(all(feature = "bridge-kovan", not(feature = "runtime-benchmarks")))]
-pub use kovan as bridge;
-#[cfg(all(feature = "bridge-rialto", not(feature = "runtime-benchmarks")))]
-pub use rialto as bridge;
 
 use codec::{Decode, Encode};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
@@ -69,10 +63,12 @@ pub use frame_support::{
 	weights::{IdentityFee, RuntimeDbWeight, Weight},
 	StorageValue,
 };
+
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_bridge_currency_exchange::Call as BridgeCurrencyExchangeCall;
 pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
 pub use pallet_timestamp::Call as TimestampCall;
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -233,17 +229,39 @@ impl pallet_aura::Trait for Runtime {
 	type AuthorityId = AuraId;
 }
 
-impl pallet_bridge_eth_poa::Trait for Runtime {
-	type AuraConfiguration = bridge::BridgeAuraConfiguration;
-	type FinalityVotesCachingInterval = bridge::FinalityVotesCachingInterval;
-	type ValidatorsConfiguration = bridge::BridgeValidatorsConfiguration;
-	type PruningStrategy = bridge::PruningStrategy;
+type Rialto = pallet_bridge_eth_poa::Instance1;
+impl pallet_bridge_eth_poa::Trait<Rialto> for Runtime {
+	type AuraConfiguration = rialto::BridgeAuraConfiguration;
+	type FinalityVotesCachingInterval = rialto::FinalityVotesCachingInterval;
+	type ValidatorsConfiguration = rialto::BridgeValidatorsConfiguration;
+	type PruningStrategy = rialto::PruningStrategy;
 	type OnHeadersSubmitted = ();
 }
 
-impl pallet_bridge_currency_exchange::Trait for Runtime {
+type Kovan = pallet_bridge_eth_poa::Instance2;
+impl pallet_bridge_eth_poa::Trait<Kovan> for Runtime {
+	type AuraConfiguration = kovan::BridgeAuraConfiguration;
+	type FinalityVotesCachingInterval = kovan::FinalityVotesCachingInterval;
+	type ValidatorsConfiguration = kovan::BridgeValidatorsConfiguration;
+	type PruningStrategy = kovan::PruningStrategy;
+	type OnHeadersSubmitted = ();
+}
+
+type RialtoCurrencyExchange = pallet_bridge_currency_exchange::Instance1;
+impl pallet_bridge_currency_exchange::Trait<RialtoCurrencyExchange> for Runtime {
 	type OnTransactionSubmitted = ();
-	type PeerBlockchain = exchange::EthBlockchain;
+	type PeerBlockchain = rialto::RialtoBlockchain;
+	type PeerMaybeLockFundsTransaction = exchange::EthTransaction;
+	type RecipientsMap = sp_currency_exchange::IdentityRecipients<AccountId>;
+	type Amount = Balance;
+	type CurrencyConverter = sp_currency_exchange::IdentityCurrencyConverter<Balance>;
+	type DepositInto = DepositInto;
+}
+
+type KovanCurrencyExchange = pallet_bridge_currency_exchange::Instance2;
+impl pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange> for Runtime {
+	type OnTransactionSubmitted = ();
+	type PeerBlockchain = kovan::KovanBlockchain;
 	type PeerMaybeLockFundsTransaction = exchange::EthTransaction;
 	type RecipientsMap = sp_currency_exchange::IdentityRecipients<AccountId>;
 	type Amount = Balance;
@@ -439,6 +457,10 @@ construct_runtime!(
 		NodeBlock = opaque::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
+		BridgeRialto: pallet_bridge_eth_poa::<Instance1>::{Module, Call, Config, Storage, ValidateUnsigned},
+		BridgeKovan: pallet_bridge_eth_poa::<Instance2>::{Module, Call, Config, Storage, ValidateUnsigned},
+		BridgeRialtoCurrencyExchange: pallet_bridge_currency_exchange::<Instance1>::{Module, Call},
+		BridgeKovanCurrencyExchange: pallet_bridge_currency_exchange::<Instance2>::{Module, Call},
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
@@ -448,8 +470,6 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-		BridgeEthPoA: pallet_bridge_eth_poa::{Module, Call, Config, Storage, ValidateUnsigned},
-		BridgeCurrencyExchange: pallet_bridge_currency_exchange::{Module, Call},
 	}
 );
 
@@ -535,31 +555,58 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_bridge_eth_poa::EthereumHeadersApi<Block> for Runtime {
+	impl sp_bridge_eth_poa::RialtoHeaderApi<Block> for Runtime {
 		fn best_block() -> (u64, sp_bridge_eth_poa::H256) {
-			let best_block = BridgeEthPoA::best_block();
+			let best_block = BridgeRialto::best_block();
 			(best_block.number, best_block.hash)
 		}
 
 		fn finalized_block() -> (u64, sp_bridge_eth_poa::H256) {
-			let finalized_block = BridgeEthPoA::finalized_block();
+			let finalized_block = BridgeRialto::finalized_block();
 			(finalized_block.number, finalized_block.hash)
 		}
 
 		fn is_import_requires_receipts(header: sp_bridge_eth_poa::Header) -> bool {
-			BridgeEthPoA::is_import_requires_receipts(header)
+			BridgeRialto::is_import_requires_receipts(header)
 		}
 
 		fn is_known_block(hash: sp_bridge_eth_poa::H256) -> bool {
-			BridgeEthPoA::is_known_block(hash)
+			BridgeRialto::is_known_block(hash)
 		}
 	}
 
-	impl sp_currency_exchange::CurrencyExchangeApi<Block, exchange::EthereumTransactionInclusionProof> for Runtime {
-		fn filter_transaction_proof(proof: exchange::EthereumTransactionInclusionProof) -> bool {
-			BridgeCurrencyExchange::filter_transaction_proof(&proof)
+	impl sp_bridge_eth_poa::KovanHeaderApi<Block> for Runtime {
+		fn best_block() -> (u64, sp_bridge_eth_poa::H256) {
+			let best_block = BridgeKovan::best_block();
+			(best_block.number, best_block.hash)
+		}
+
+		fn finalized_block() -> (u64, sp_bridge_eth_poa::H256) {
+			let finalized_block = BridgeKovan::finalized_block();
+			(finalized_block.number, finalized_block.hash)
+		}
+
+		fn is_import_requires_receipts(header: sp_bridge_eth_poa::Header) -> bool {
+			BridgeKovan::is_import_requires_receipts(header)
+		}
+
+		fn is_known_block(hash: sp_bridge_eth_poa::H256) -> bool {
+			BridgeKovan::is_known_block(hash)
 		}
 	}
+
+	impl sp_currency_exchange::RialtoCurrencyExchangeApi<Block, exchange::EthereumTransactionInclusionProof> for Runtime {
+		fn filter_transaction_proof(proof: exchange::EthereumTransactionInclusionProof) -> bool {
+			BridgeRialtoCurrencyExchange::filter_transaction_proof(&proof)
+		}
+	}
+
+	impl sp_currency_exchange::KovanCurrencyExchangeApi<Block, exchange::EthereumTransactionInclusionProof> for Runtime {
+		fn filter_transaction_proof(proof: exchange::EthereumTransactionInclusionProof) -> bool {
+			BridgeKovanCurrencyExchange::filter_transaction_proof(&proof)
+		}
+	}
+
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
@@ -656,14 +703,14 @@ impl_runtime_apis! {
 				ProofParams as BridgeCurrencyExchangeProofParams,
 			};
 
-			impl BridgeCurrencyExchangeTrait for Runtime {
+			impl BridgeCurrencyExchangeTrait<KovanCurrencyExchange> for Runtime {
 				fn make_proof(
 					proof_params: BridgeCurrencyExchangeProofParams<AccountId>,
 				) -> crate::exchange::EthereumTransactionInclusionProof {
 					use sp_currency_exchange::DepositInto;
 
 					if proof_params.recipient_exists {
-						<Runtime as pallet_bridge_currency_exchange::Trait>::DepositInto::deposit_into(
+						<Runtime as pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange>>::DepositInto::deposit_into(
 							proof_params.recipient.clone(),
 							ExistentialDeposit::get(),
 						).unwrap();
@@ -681,7 +728,7 @@ impl_runtime_apis! {
 					let transactions = sp_std::iter::repeat(transaction.clone())
 						.take(1 + proof_params.proof_size_factor as usize)
 						.collect::<Vec<_>>();
-					let block_hash = crate::exchange::prepare_environment_for_claim::<Runtime>(&transactions);
+					let block_hash = crate::exchange::prepare_environment_for_claim::<Runtime, Kovan>(&transactions);
 					crate::exchange::EthereumTransactionInclusionProof {
 						block: block_hash,
 						index: 0,
@@ -690,8 +737,8 @@ impl_runtime_apis! {
 				}
 			}
 
-			add_benchmark!(params, batches, b"bridge-eth-poa", BridgeEthPoA);
-			add_benchmark!(params, batches, b"bridge-currency-exchange", BridgeCurrencyExchangeBench::<Runtime>);
+			add_benchmark!(params, batches, b"bridge-eth-poa", BridgeKovan);
+			add_benchmark!(params, batches, b"bridge-currency-exchange", BridgeCurrencyExchangeBench::<Runtime, KovanCurrencyExchange>);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
@@ -785,7 +832,7 @@ mod tests {
 			let initial_amount =
 				<pallet_balances::Module<Runtime> as Currency<AccountId>>::free_balance(&existing_account);
 			let additional_amount = 10_000;
-			<Runtime as pallet_bridge_currency_exchange::Trait>::DepositInto::deposit_into(
+			<Runtime as pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange>>::DepositInto::deposit_into(
 				existing_account.clone(),
 				additional_amount,
 			)
@@ -804,7 +851,7 @@ mod tests {
 			let initial_amount = 0;
 			let additional_amount = ExistentialDeposit::get() + 10_000;
 			let new_account: AccountId = [42u8; 32].into();
-			<Runtime as pallet_bridge_currency_exchange::Trait>::DepositInto::deposit_into(
+			<Runtime as pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange>>::DepositInto::deposit_into(
 				new_account.clone(),
 				additional_amount,
 			)
