@@ -22,6 +22,7 @@ mod ethereum_exchange;
 mod ethereum_sync_loop;
 mod ethereum_types;
 mod exchange;
+mod exchange_loop;
 mod headers;
 mod metrics;
 mod rpc;
@@ -260,11 +261,21 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<ethereum_excha
 	params.sub = substrate_connection_params(matches)?;
 	params.sub_sign = substrate_signing_params(matches)?;
 
-	params.eth_tx_hash = matches
-		.value_of("eth-tx-hash")
-		.expect("eth-tx-hash is a required parameter; clap verifies that required parameters have matches; qed")
-		.parse()
-		.map_err(|e| format!("Failed to parse eth-tx-hash: {}", e))?;
+	params.mode = match matches.value_of("eth-tx-hash") {
+		Some(eth_tx_hash) => ethereum_exchange::ExchangeRelayMode::Single(
+			eth_tx_hash
+				.parse()
+				.map_err(|e| format!("Failed to parse eth-tx-hash: {}", e))?,
+		),
+		None => ethereum_exchange::ExchangeRelayMode::Auto(match matches.value_of("eth-start-with-block") {
+			Some(eth_start_with_block) => Some(
+				eth_start_with_block
+					.parse()
+					.map_err(|e| format!("Failed to parse eth-start-with-block: {}", e))?,
+			),
+			None => None,
+		}),
+	};
 
 	Ok(params)
 }

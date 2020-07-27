@@ -129,6 +129,23 @@ impl EthereumRpc for EthereumRpcClient {
 		}
 	}
 
+	async fn header_by_number_with_transactions(&self, number: u64) -> Result<HeaderWithTransactions> {
+		let get_full_tx_objects = true;
+		let header = Ethereum::get_block_by_number_with_transactions(&self.client, number, get_full_tx_objects).await?;
+
+		let is_complete_header = header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some();
+		if !is_complete_header {
+			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteHeader));
+		}
+
+		let is_complete_transactions = header.transactions.iter().all(|tx| tx.raw.is_some());
+		if !is_complete_transactions {
+			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteTransaction));
+		}
+
+		Ok(header)
+	}
+
 	async fn header_by_hash_with_transactions(&self, hash: H256) -> Result<HeaderWithTransactions> {
 		let get_full_tx_objects = true;
 		let header = Ethereum::get_block_by_hash_with_transactions(&self.client, hash, get_full_tx_objects).await?;

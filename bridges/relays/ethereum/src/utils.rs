@@ -14,6 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use backoff::ExponentialBackoff;
+use std::time::Duration;
+
+/// Max delay after connection-unrelated error happened before we'll try the
+/// same request again.
+const MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(60);
+
 /// Macro that returns (client, Err(error)) tuple from function if result is Err(error).
 #[macro_export]
 macro_rules! bail_on_error {
@@ -34,4 +41,13 @@ macro_rules! bail_on_arg_error {
 			Err(error) => return ($client, Err(error)),
 			}
 	};
+}
+
+/// Exponential backoff for connection-unrelated errors retries.
+pub fn retry_backoff() -> ExponentialBackoff {
+	let mut backoff = ExponentialBackoff::default();
+	// we do not want relayer to stop
+	backoff.max_elapsed_time = None;
+	backoff.max_interval = MAX_BACKOFF_INTERVAL;
+	backoff
 }

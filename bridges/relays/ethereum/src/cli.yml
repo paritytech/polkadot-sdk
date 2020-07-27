@@ -111,12 +111,18 @@ subcommands:
         args:
             - eth-host: *eth-host
             - eth-port: *eth-port
+            - eth-start-with-block:
+                long: eth-start-with-block
+                value_name: ETH_START_WITH_BLOCK
+                help: Auto-relay transactions starting with given block number. If not specified, starts with best finalized Ethereum block (known to Substrate node) transactions.
+                takes_value: true
+                conflicts_with:
+                    - eth-tx-hash
             - eth-tx-hash:
                 long: eth-tx-hash
                 value_name: ETH_TX_HASH
                 help: Hash of the lock funds transaction.
                 takes_value: true
-                required: true
             - sub-host: *sub-host
             - sub-port: *sub-port
             - sub-signer: *sub-signer
