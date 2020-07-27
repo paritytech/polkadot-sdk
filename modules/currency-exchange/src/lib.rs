@@ -105,36 +105,21 @@ decl_module! {
 		) -> DispatchResult {
 			let submitter = frame_system::ensure_signed(origin)?;
 
-			// ensure that transaction is included in finalized block that we know of
-			let transaction = <T as Trait>::PeerBlockchain::verify_transaction_inclusion_proof(
-				&proof,
-			).ok_or_else(|| Error::<T>::UnfinalizedTransaction)?;
-
-			// parse transaction
-			let transaction = <T as Trait>::PeerMaybeLockFundsTransaction::parse(&transaction)
-				.map_err(Error::<T>::from)?;
-			let transfer_id = transaction.id;
-			ensure!(
-				!Transfers::<T>::contains_key(&transfer_id),
-				Error::<T>::AlreadyClaimed
-			);
-
-			// grant recipient
-			let recipient = T::RecipientsMap::map(transaction.recipient).map_err(Error::<T>::from)?;
-			let amount = T::CurrencyConverter::convert(transaction.amount).map_err(Error::<T>::from)?;
+			// verify and parse transaction proof
+			let deposit = prepare_deposit_details::<T>(&proof)?;
 
 			// make sure to update the mapping if we deposit successfully to avoid double spending,
 			// i.e. whenever `deposit_into` is successful we MUST update `Transfers`.
 			{
 				// if any changes were made to the storage, we can't just return error here, because
 				// otherwise the same proof may be imported again
-				let deposit_result = T::DepositInto::deposit_into(recipient, amount);
+				let deposit_result = T::DepositInto::deposit_into(deposit.recipient, deposit.amount);
 				match deposit_result {
 					Ok(_) => (),
 					Err(ExchangeError::DepositPartiallyFailed) => (),
 					Err(error) => return Err(Error::<T>::from(error).into()),
 				}
-				Transfers::<T>::insert(&transfer_id, ())
+				Transfers::<T>::insert(&deposit.transfer_id, ())
 			}
 
 			// reward submitter for providing valid message
@@ -143,7 +128,7 @@ decl_module! {
 			frame_support::debug::trace!(
 				target: "runtime",
 				"Completed currency exchange: {:?}",
-				transfer_id,
+				deposit.transfer_id,
 			);
 
 			Ok(())
@@ -155,6 +140,18 @@ decl_storage! {
 	trait Store for Module<T: Trait> as Bridge {
 		/// All transfers that have already been claimed.
 		Transfers: map hasher(blake2_128_concat) <T::PeerMaybeLockFundsTransaction as MaybeLockFundsTransaction>::Id => ();
+	}
+}
+
+impl<T: Trait> Module<T> {
+	/// Returns true if currency exchange module is able to import given transaction proof in
+	/// its current state.
+	pub fn filter_transaction_proof(proof: &<T::PeerBlockchain as Blockchain>::TransactionInclusionProof) -> bool {
+		if prepare_deposit_details::<T>(proof).is_err() {
+			return false;
+		}
+
+		true
 	}
 }
 
@@ -174,6 +171,41 @@ impl<T: Trait> From<ExchangeError> for Error<T> {
 
 impl<AccountId> OnTransactionSubmitted<AccountId> for () {
 	fn on_valid_transaction_submitted(_: AccountId) {}
+}
+
+/// Exchange deposit details.
+struct DepositDetails<T: Trait> {
+	/// Transfer id.
+	pub transfer_id: <T::PeerMaybeLockFundsTransaction as MaybeLockFundsTransaction>::Id,
+	/// Transfer recipient.
+	pub recipient: <T::RecipientsMap as RecipientsMap>::Recipient,
+	/// Transfer amount.
+	pub amount: <T::CurrencyConverter as CurrencyConverter>::TargetAmount,
+}
+
+/// Verify and parse transaction proof, preparing everything required for importing
+/// this transaction proof.
+fn prepare_deposit_details<T: Trait>(
+	proof: &<<T as Trait>::PeerBlockchain as Blockchain>::TransactionInclusionProof,
+) -> Result<DepositDetails<T>, Error<T>> {
+	// ensure that transaction is included in finalized block that we know of
+	let transaction = <T as Trait>::PeerBlockchain::verify_transaction_inclusion_proof(proof)
+		.ok_or_else(|| Error::<T>::UnfinalizedTransaction)?;
+
+	// parse transaction
+	let transaction = <T as Trait>::PeerMaybeLockFundsTransaction::parse(&transaction).map_err(Error::<T>::from)?;
+	let transfer_id = transaction.id;
+	ensure!(!Transfers::<T>::contains_key(&transfer_id), Error::<T>::AlreadyClaimed);
+
+	// grant recipient
+	let recipient = T::RecipientsMap::map(transaction.recipient).map_err(Error::<T>::from)?;
+	let amount = T::CurrencyConverter::convert(transaction.amount).map_err(Error::<T>::from)?;
+
+	Ok(DepositDetails {
+		transfer_id,
+		recipient,
+		amount,
+	})
 }
 
 #[cfg(test)]

@@ -18,11 +18,16 @@
 
 use crate::ethereum_client::{EthereumConnectionParams, EthereumRpcClient};
 use crate::ethereum_types::{
-	EthereumHeaderId, Transaction as EthereumTransaction, TransactionHash as EthereumTransactionHash, H256,
+	EthereumHeaderId, HeaderWithTransactions as EthereumHeaderWithTransactions, Transaction as EthereumTransaction,
+	TransactionHash as EthereumTransactionHash, H256,
 };
-use crate::exchange::{relay_single_transaction_proof, SourceClient, TargetClient, TransactionProofPipeline};
+use crate::exchange::{
+	relay_single_transaction_proof, SourceBlock, SourceClient, SourceTransaction, TargetClient,
+	TransactionProofPipeline,
+};
+use crate::exchange_loop::{run as run_loop, InMemoryStorage};
 use crate::rpc::{EthereumRpc, SubstrateRpc};
-use crate::rpc_errors::{EthereumNodeError, RpcError};
+use crate::rpc_errors::RpcError;
 use crate::substrate_client::{
 	SubmitEthereumExchangeTransactionProof, SubstrateConnectionParams, SubstrateRpcClient, SubstrateSigningParams,
 };
@@ -30,6 +35,7 @@ use crate::sync_types::HeaderId;
 
 use async_trait::async_trait;
 use bridge_node_runtime::exchange::EthereumTransactionInclusionProof;
+use sp_currency_exchange::MaybeLockFundsTransaction;
 use std::time::Duration;
 
 /// Interval at which we ask Ethereum node for updates.
@@ -37,17 +43,26 @@ const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(10);
 /// Interval at which we ask Substrate node for updates.
 const SUBSTRATE_TICK_INTERVAL: Duration = Duration::from_secs(5);
 
+/// Exchange relay mode.
+#[derive(Debug)]
+pub enum ExchangeRelayMode {
+	/// Relay single transaction and quit.
+	Single(EthereumTransactionHash),
+	/// Auto-relay transactions starting with given block.
+	Auto(Option<u64>),
+}
+
 /// PoA exchange transaction relay params.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EthereumExchangeParams {
 	/// Ethereum connection params.
 	pub eth: EthereumConnectionParams,
-	/// Hash of the Ethereum transaction to relay.
-	pub eth_tx_hash: EthereumTransactionHash,
 	/// Substrate connection params.
 	pub sub: SubstrateConnectionParams,
 	/// Substrate signing params.
 	pub sub_sign: SubstrateSigningParams,
+	/// Relay working mode.
+	pub mode: ExchangeRelayMode,
 }
 
 /// Ethereum to Substrate exchange pipeline.
@@ -57,11 +72,44 @@ impl TransactionProofPipeline for EthereumToSubstrateExchange {
 	const SOURCE_NAME: &'static str = "Ethereum";
 	const TARGET_NAME: &'static str = "Substrate";
 
-	type BlockHash = H256;
-	type BlockNumber = u64;
-	type TransactionHash = EthereumTransactionHash;
-	type Transaction = EthereumTransaction;
+	type Block = EthereumSourceBlock;
 	type TransactionProof = EthereumTransactionInclusionProof;
+}
+
+/// Ethereum source block.
+struct EthereumSourceBlock(EthereumHeaderWithTransactions);
+
+impl SourceBlock for EthereumSourceBlock {
+	type Hash = H256;
+	type Number = u64;
+	type Transaction = EthereumSourceTransaction;
+
+	fn id(&self) -> EthereumHeaderId {
+		HeaderId(
+			self.0.number.expect(crate::ethereum_types::HEADER_ID_PROOF).as_u64(),
+			self.0.hash.expect(crate::ethereum_types::HEADER_ID_PROOF),
+		)
+	}
+
+	fn transactions(&self) -> Vec<Self::Transaction> {
+		self.0
+			.transactions
+			.iter()
+			.cloned()
+			.map(EthereumSourceTransaction)
+			.collect()
+	}
+}
+
+/// Ethereum source transaction.
+struct EthereumSourceTransaction(EthereumTransaction);
+
+impl SourceTransaction for EthereumSourceTransaction {
+	type Hash = EthereumTransactionHash;
+
+	fn hash(&self) -> Self::Hash {
+		self.0.hash
+	}
 }
 
 /// Ethereum node as transactions proof source.
@@ -77,63 +125,60 @@ impl SourceClient<EthereumToSubstrateExchange> for EthereumTransactionsSource {
 		async_std::task::sleep(ETHEREUM_TICK_INTERVAL).await;
 	}
 
-	async fn transaction(
+	async fn block_by_hash(&self, hash: H256) -> Result<EthereumSourceBlock, Self::Error> {
+		self.client
+			.header_by_hash_with_transactions(hash)
+			.await
+			.map(EthereumSourceBlock)
+	}
+
+	async fn block_by_number(&self, number: u64) -> Result<EthereumSourceBlock, Self::Error> {
+		self.client
+			.header_by_number_with_transactions(number)
+			.await
+			.map(EthereumSourceBlock)
+	}
+
+	async fn transaction_block(
 		&self,
 		hash: &EthereumTransactionHash,
-	) -> Result<Option<(EthereumHeaderId, EthereumTransaction)>, Self::Error> {
+	) -> Result<Option<(EthereumHeaderId, usize)>, Self::Error> {
 		let eth_tx = match self.client.transaction_by_hash(*hash).await? {
 			Some(eth_tx) => eth_tx,
 			None => return Ok(None),
 		};
 
 		// we need transaction to be mined => check if it is included in the block
-		let eth_header_id = match (eth_tx.block_number, eth_tx.block_hash) {
-			(Some(block_number), Some(block_hash)) => HeaderId(block_number.as_u64(), block_hash),
+		let (eth_header_id, eth_tx_index) = match (eth_tx.block_number, eth_tx.block_hash, eth_tx.transaction_index) {
+			(Some(block_number), Some(block_hash), Some(transaction_index)) => (
+				HeaderId(block_number.as_u64(), block_hash),
+				transaction_index.as_u64() as _,
+			),
 			_ => return Ok(None),
 		};
 
-		Ok(Some((eth_header_id, eth_tx)))
+		Ok(Some((eth_header_id, eth_tx_index)))
 	}
 
 	async fn transaction_proof(
 		&self,
-		eth_header_id: &EthereumHeaderId,
-		eth_tx: EthereumTransaction,
+		block: &EthereumSourceBlock,
+		tx_index: usize,
 	) -> Result<EthereumTransactionInclusionProof, Self::Error> {
 		const TRANSACTION_HAS_RAW_FIELD_PROOF: &str = "RPC level checks that transactions from Ethereum\
 			node are having `raw` field; qed";
+		const BLOCK_HAS_HASH_FIELD_PROOF: &str = "RPC level checks that block has `hash` field; qed";
 
-		let eth_header = self.client.header_by_hash_with_transactions(eth_header_id.1).await?;
-		let eth_relay_tx_hash = eth_tx.hash;
-		let mut eth_relay_tx = Some(eth_tx);
-		let mut eth_relay_tx_index = None;
-		let mut transaction_proof = Vec::with_capacity(eth_header.transactions.len());
-		for (index, eth_tx) in eth_header.transactions.into_iter().enumerate() {
-			if eth_tx.hash != eth_relay_tx_hash {
-				let eth_raw_tx = eth_tx.raw.expect(TRANSACTION_HAS_RAW_FIELD_PROOF);
-				transaction_proof.push(eth_raw_tx.0);
-			} else {
-				let eth_raw_relay_tx = match eth_relay_tx.take() {
-					Some(eth_relay_tx) => eth_relay_tx.raw.expect(TRANSACTION_HAS_RAW_FIELD_PROOF),
-					None => {
-						return Err(
-							EthereumNodeError::DuplicateBlockTransaction(*eth_header_id, eth_relay_tx_hash).into(),
-						)
-					}
-				};
-				eth_relay_tx_index = Some(index as u64);
-				transaction_proof.push(eth_raw_relay_tx.0);
-			}
-		}
+		let transaction_proof = block
+			.0
+			.transactions
+			.iter()
+			.map(|tx| tx.raw.clone().expect(TRANSACTION_HAS_RAW_FIELD_PROOF).0)
+			.collect();
 
 		Ok(EthereumTransactionInclusionProof {
-			block: eth_header_id.1,
-			index: eth_relay_tx_index.ok_or_else(|| {
-				RpcError::from(EthereumNodeError::BlockMissingTransaction(
-					*eth_header_id,
-					eth_relay_tx_hash,
-				))
-			})?,
+			block: block.0.hash.expect(BLOCK_HAS_HASH_FIELD_PROOF),
+			index: tx_index as _,
 			proof: transaction_proof,
 		})
 	}
@@ -170,15 +215,51 @@ impl TargetClient<EthereumToSubstrateExchange> for SubstrateTransactionsTarget {
 		Ok(id.0 <= best_finalized_ethereum_block.0)
 	}
 
+	async fn best_finalized_header_id(&self) -> Result<EthereumHeaderId, Self::Error> {
+		self.client.best_ethereum_finalized_block().await
+	}
+
+	async fn filter_transaction_proof(&self, proof: &EthereumTransactionInclusionProof) -> Result<bool, Self::Error> {
+		// let's try to parse transaction locally
+		let parse_result = bridge_node_runtime::exchange::EthTransaction::parse(&proof.proof[proof.index as usize]);
+		if parse_result.is_err() {
+			return Ok(false);
+		}
+
+		// seems that transaction is relayable - let's check if runtime is able to import it
+		// (we can't if e.g. header is pruned or there's some issue with tx data)
+		self.client.verify_exchange_transaction_proof(proof.clone()).await
+	}
+
 	async fn submit_transaction_proof(&self, proof: EthereumTransactionInclusionProof) -> Result<(), Self::Error> {
 		let sign_params = self.sign_params.clone();
 		self.client.submit_exchange_transaction_proof(sign_params, proof).await
 	}
 }
 
-/// Relay exchange transaction proof to Substrate node.
+impl Default for EthereumExchangeParams {
+	fn default() -> Self {
+		EthereumExchangeParams {
+			eth: Default::default(),
+			sub: Default::default(),
+			sub_sign: Default::default(),
+			mode: ExchangeRelayMode::Auto(None),
+		}
+	}
+}
+
+/// Relay exchange transaction proof(s) to Substrate node.
 pub fn run(params: EthereumExchangeParams) {
-	let eth_tx_hash = params.eth_tx_hash;
+	match params.mode {
+		ExchangeRelayMode::Single(eth_tx_hash) => run_single_transaction_relay(params, eth_tx_hash),
+		ExchangeRelayMode::Auto(eth_start_with_block_number) => {
+			run_auto_transactions_relay_loop(params, eth_start_with_block_number)
+		}
+	};
+}
+
+/// Run single transaction proof relay and stop.
+fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H256) {
 	let mut local_pool = futures::executor::LocalPool::new();
 
 	let result = local_pool.run_until(async move {
@@ -210,5 +291,48 @@ pub fn run(params: EthereumExchangeParams) {
 				err,
 			);
 		}
+	}
+}
+
+/// Run auto-relay loop.
+fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_with_block_number: Option<u64>) {
+	let do_run_loop = move || -> Result<(), String> {
+		let eth_client = EthereumRpcClient::new(params.eth);
+		let sub_client = async_std::task::block_on(SubstrateRpcClient::new(params.sub))
+			.map_err(|err| format!("Error starting Substrate client: {:?}", err))?;
+
+		let eth_start_with_block_number = match eth_start_with_block_number {
+			Some(eth_start_with_block_number) => eth_start_with_block_number,
+			None => {
+				async_std::task::block_on(sub_client.best_ethereum_finalized_block())
+					.map_err(|err| {
+						format!(
+							"Error retrieving best finalized Ethereum block from Substrate node: {:?}",
+							err
+						)
+					})?
+					.0
+			}
+		};
+
+		run_loop(
+			InMemoryStorage::new(eth_start_with_block_number),
+			EthereumTransactionsSource { client: eth_client },
+			SubstrateTransactionsTarget {
+				client: sub_client,
+				sign_params: params.sub_sign,
+			},
+			futures::future::pending(),
+		);
+
+		Ok(())
+	};
+
+	if let Err(err) = do_run_loop() {
+		log::error!(
+			target: "bridge",
+			"Error auto-relaying Ethereum transactions proofs to Substrate node: {}",
+			err,
+		);
 	}
 }

@@ -16,10 +16,11 @@
 
 #![cfg(test)]
 
-use crate::sync_loop::{process_future_result, retry_backoff, run, SourceClient, TargetClient};
+use crate::sync_loop::{process_future_result, run, SourceClient, TargetClient};
 use crate::sync_types::{
 	HeaderId, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader, SourceHeader, SubmittedHeaders,
 };
+use crate::utils::retry_backoff;
 
 use async_trait::async_trait;
 use backoff::backoff::Backoff;

@@ -555,6 +555,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl sp_currency_exchange::CurrencyExchangeApi<Block, exchange::EthereumTransactionInclusionProof> for Runtime {
+		fn filter_transaction_proof(proof: exchange::EthereumTransactionInclusionProof) -> bool {
+			BridgeCurrencyExchange::filter_transaction_proof(&proof)
+		}
+	}
+
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
 			source: TransactionSource,

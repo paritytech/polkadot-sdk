@@ -20,6 +20,7 @@ use crate::sync_loop_metrics::SyncLoopMetrics;
 use crate::sync_types::{
 	HeaderIdOf, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader, SubmittedHeaders,
 };
+use crate::utils::retry_backoff;
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoff};
@@ -48,9 +49,6 @@ const BACKUP_STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// Delay after connection-related error happened before we'll try
 /// reconnection again.
 const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
-/// Max delay after connection-unrelated error happened before we'll try the
-/// same request again.
-const MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Source client trait.
 #[async_trait]
@@ -567,15 +565,6 @@ fn interval(timeout: Duration) -> impl futures::Stream<Item = ()> {
 		async_std::task::sleep(timeout).await;
 		Some(((), ()))
 	})
-}
-
-/// Exponential backoff for connection-unrelated errors retries.
-pub(crate) fn retry_backoff() -> ExponentialBackoff {
-	let mut backoff = ExponentialBackoff::default();
-	// we do not want relayer to stop
-	backoff.max_elapsed_time = None;
-	backoff.max_interval = MAX_BACKOFF_INTERVAL;
-	backoff
 }
 
 /// Process result of the future from a client.
