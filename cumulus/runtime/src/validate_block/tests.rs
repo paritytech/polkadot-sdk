@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{ParachainBlockData, WitnessData};
+use crate::ParachainBlockData;
 
 use parachain::primitives::{BlockData, HeadData, ValidationParams, ValidationResult};
 use sc_block_builder::BlockBuilderProvider;
@@ -114,7 +114,7 @@ fn create_test_client() -> (Client, LongestChain) {
 fn build_block_with_proof(
 	client: &Client,
 	extrinsics: Vec<<Block as BlockT>::Extrinsic>,
-) -> (Block, WitnessData) {
+) -> (Block, sp_trie::StorageProof) {
 	let block_id = BlockId::Hash(client.info().best_hash);
 	let mut builder = client
 		.new_block_at(&block_id, Default::default(), true)
@@ -131,8 +131,6 @@ fn build_block_with_proof(
 		built_block
 			.proof
 			.expect("We enabled proof recording before.")
-			.iter_nodes()
-			.collect(),
 	)
 }
 

@@ -21,6 +21,7 @@
 use codec::{Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_std::vec::Vec;
+use sp_trie::StorageProof;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
@@ -28,9 +29,6 @@ pub use sp_std::slice;
 
 #[macro_use]
 pub mod validate_block;
-
-/// The witness data type.
-type WitnessData = Vec<Vec<u8>>;
 
 /// The parachain block that is created on a collator and validated by a validator.
 #[derive(Encode, Decode)]
@@ -40,19 +38,19 @@ pub struct ParachainBlockData<B: BlockT> {
 	/// The extrinsics of the parachain block without the `PolkadotInherent`.
 	extrinsics: Vec<<B as BlockT>::Extrinsic>,
 	/// The data that is required to emulate the storage accesses executed by all extrinsics.
-	witness_data: WitnessData,
+	storage_proof: StorageProof,
 }
 
 impl<B: BlockT> ParachainBlockData<B> {
 	pub fn new(
 		header: <B as BlockT>::Header,
 		extrinsics: Vec<<B as BlockT>::Extrinsic>,
-		witness_data: WitnessData,
+		storage_proof: StorageProof,
 	) -> Self {
 		Self {
 			header,
 			extrinsics,
-			witness_data,
+			storage_proof,
 		}
 	}
 

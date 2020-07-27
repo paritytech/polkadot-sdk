@@ -324,7 +324,7 @@ where
 			let b = ParachainBlockData::<Block>::new(
 				header.clone(),
 				extrinsics,
-				proof.iter_nodes().collect(),
+				proof,
 			);
 
 			let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, header);

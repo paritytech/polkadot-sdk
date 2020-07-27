@@ -16,12 +16,11 @@
 
 //! The actual implementation of the validate block functionality.
 
-use crate::WitnessData;
 use frame_executive::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 
 use sp_std::{boxed::Box, vec::Vec};
-use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB};
+use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB, StorageProof};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
@@ -117,7 +116,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	let validation_function_params = (&params).into();
 
 	let storage_inner = WitnessStorage::<B>::new(
-		block_data.witness_data,
+		block_data.storage_proof,
 		parent_head.state_root().clone(),
 		validation_function_params,
 	)
@@ -181,14 +180,11 @@ impl<B: BlockT> WitnessStorage<B> {
 	///
 	/// Returns an error if given storage root was not found in the witness data.
 	fn new(
-		data: WitnessData,
+		storage_proof: StorageProof,
 		storage_root: B::Hash,
 		params: ValidationFunctionParams,
 	) -> Result<Self, &'static str> {
-		let mut db = MemoryDB::default();
-		data.into_iter().for_each(|i| {
-			db.insert(EMPTY_PREFIX, &i);
-		});
+		let mut db = storage_proof.into_memory_db();
 
 		if !HashDB::contains(&db, &storage_root, EMPTY_PREFIX) {
 			return Err("Witness data does not contain given storage root.");
