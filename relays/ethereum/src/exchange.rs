@@ -42,7 +42,14 @@ pub trait SourceBlock {
 	/// Block hash type.
 	type Hash: Clone + Debug + Display;
 	/// Block number type.
-	type Number: Debug + Display + Clone + Copy + std::cmp::Ord + std::ops::Add<Output = Self::Number> + num_traits::One;
+	type Number: Debug
+		+ Display
+		+ Clone
+		+ Copy
+		+ Into<u64>
+		+ std::cmp::Ord
+		+ std::ops::Add<Output = Self::Number>
+		+ num_traits::One;
 	/// Block transaction.
 	type Transaction: SourceTransaction;
 

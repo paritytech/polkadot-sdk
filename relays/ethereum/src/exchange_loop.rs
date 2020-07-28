@@ -20,6 +20,8 @@ use crate::exchange::{
 	relay_block_transactions, BlockNumberOf, RelayedBlockTransactions, SourceClient, TargetClient,
 	TransactionProofPipeline,
 };
+use crate::exchange_loop_metrics::ExchangeLoopMetrics;
+use crate::metrics::{start as metrics_start, GlobalMetrics, MetricsParams};
 use crate::utils::retry_backoff;
 
 use backoff::backoff::Backoff;
@@ -83,6 +85,7 @@ pub fn run<P: TransactionProofPipeline>(
 	mut storage: impl TransactionProofsRelayStorage<BlockNumber = BlockNumberOf<P>>,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
+	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
 ) {
 	let mut local_pool = futures::executor::LocalPool::new();
@@ -91,6 +94,11 @@ pub fn run<P: TransactionProofPipeline>(
 		let mut retry_backoff = retry_backoff();
 		let mut state = storage.state();
 		let mut current_finalized_block = None;
+
+		let mut metrics_global = GlobalMetrics::new();
+		let mut metrics_exch = ExchangeLoopMetrics::new();
+		let metrics_enabled = metrics_params.is_some();
+		metrics_start(metrics_params, &metrics_global, &metrics_exch);
 
 		let exit_signal = exit_signal.fuse();
 
@@ -103,8 +111,13 @@ pub fn run<P: TransactionProofPipeline>(
 				&target_client,
 				&mut state,
 				&mut current_finalized_block,
+				if metrics_enabled { Some(&mut metrics_exch) } else { None },
 			)
 			.await;
+
+			if metrics_enabled {
+				metrics_global.update();
+			}
 
 			match iteration_result {
 				Ok(_) => {
@@ -135,6 +148,7 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 	target_client: &impl TargetClient<P>,
 	state: &mut TransactionProofsRelayState<BlockNumberOf<P>>,
 	current_finalized_block: &mut Option<(P::Block, RelayedBlockTransactions)>,
+	mut exchange_loop_metrics: Option<&mut ExchangeLoopMetrics>,
 ) -> Result<(), ()> {
 	let best_finalized_header_id = match target_client.best_finalized_header_id().await {
 		Ok(best_finalized_header_id) => {
@@ -180,6 +194,14 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 
 					state.best_processed_header_number = state.best_processed_header_number + One::one();
 					storage.set_state(state);
+
+					if let Some(exchange_loop_metrics) = exchange_loop_metrics.as_mut() {
+						exchange_loop_metrics.update::<P>(
+							state.best_processed_header_number,
+							best_finalized_header_id.0,
+							relayed_transactions,
+						);
+					}
 
 					// we have just updated state => proceed to next block retrieval
 				}
@@ -262,6 +284,12 @@ mod tests {
 			}
 		}));
 
-		run(storage, source, target, exit_receiver.into_future().map(|(_, _)| ()));
+		run(
+			storage,
+			source,
+			target,
+			None,
+			exit_receiver.into_future().map(|(_, _)| ()),
+		);
 	}
 }
