@@ -38,7 +38,7 @@ const ETH_API_IMPORT_REQUIRES_RECEIPTS: &str = "RialtoHeaderApi_is_import_requir
 const ETH_API_IS_KNOWN_BLOCK: &str = "RialtoHeaderApi_is_known_block";
 const ETH_API_BEST_BLOCK: &str = "RialtoHeaderApi_best_block";
 const ETH_API_BEST_FINALIZED_BLOCK: &str = "RialtoHeaderApi_finalized_block";
-const EXCH_API_FILTER_TRANSACTION_PROOF: &str = "CurrencyExchangeApi_filter_transaction_proof";
+const EXCH_API_FILTER_TRANSACTION_PROOF: &str = "RialtoCurrencyExchangeApi_filter_transaction_proof";
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 
 type Result<T> = std::result::Result<T, RpcError>;
