@@ -124,7 +124,12 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 		let mut metrics_global = GlobalMetrics::new();
 		let mut metrics_sync = SyncLoopMetrics::new();
 		let metrics_enabled = metrics_params.is_some();
-		metrics_start(metrics_params, &metrics_global, &metrics_sync);
+		metrics_start(
+			format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME),
+			metrics_params,
+			&metrics_global,
+			&metrics_sync,
+		);
 
 		let mut source_retry_backoff = retry_backoff();
 		let mut source_client_is_online = false;
