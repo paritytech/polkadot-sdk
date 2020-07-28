@@ -9,16 +9,15 @@ stages:
   - test
   - build
 
-variables:
+variables:                         &default-vars
   GIT_STRATEGY:                    fetch
   GIT_DEPTH:                       3
-  CARGO_HOME:                      "/ci-cache/${CI_PROJECT_NAME}/cargo/${CI_JOB_NAME}"
-  SCCACHE_DIR:                     "/ci-cache/${CI_PROJECT_NAME}/sccache"
   CARGO_INCREMENTAL:               0
+  CARGO_TARGET_DIR:                "/ci-cache/${CI_PROJECT_NAME}/targets/${CI_COMMIT_REF_NAME}/${CI_JOB_NAME}"
   CI_SERVER_NAME:                  "GitLab CI"
 
 .docker-env:                       &docker-env
-  image:                           parity/rust-builder:latest
+  image:                           paritytech/ci-linux:production
   before_script:
     - cargo -vV
     - rustc -vV
@@ -57,38 +56,11 @@ test-linux-stable:
   stage:                           test
   <<:                              *docker-env
   variables:
+    <<:                            *default-vars
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: -Cdebug-assertions=y
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo test --all --release --locked |
-        tee output.log
-    - time cargo test --release -- --ignored integration_test |
-        tee -a output.log
+    - time cargo test --all --release --locked
+    - time cargo test --release -- --ignored integration_test
     - sccache -s
-  after_script:
-    - echo "___Collecting warnings for check_warnings job___"
-    - awk '/^warning:/,/^$/ { print }' output.log > ${CI_COMMIT_SHORT_SHA}_warnings.log
-  artifacts:
-    name:                          $CI_COMMIT_SHORT_SHA
-    expire_in:                     24 hrs
-    paths:
-      - ${CI_COMMIT_SHORT_SHA}_warnings.log
-
-#### stage:                        build
-
-check_warnings:
-  stage:                           build
-  <<:                              *docker-env
-  variables:
-    GIT_STRATEGY:                  none
-  dependencies:
-    - test-linux-stable
-  script:
-    - if [ -s ${CI_COMMIT_SHORT_SHA}_warnings.log ]; then
-        cat ${CI_COMMIT_SHORT_SHA}_warnings.log;
-        exit 1;
-      else
-        echo "___No warnings___";
-      fi
-  allow_failure:                   true
