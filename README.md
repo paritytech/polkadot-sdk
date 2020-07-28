@@ -158,12 +158,39 @@ The folder structure of the bridge relay is as follows:
 
 ## Running the Bridge
 
-To run the Bridge you need to be able to connect to the RPC interface of nodes on each side of the
-bridge (home & foreign chain).
+To run the Bridge you need to be able to connect the bridge relay node to the RPC interface of nodes
+on each side of the bridge (home & foreign chain). An easy way to build all the required nodes is
+through Docker.
 
-You can build the relayer using [./Dockerfile](Dockerfile), which will use all the local source files,
-or you can use an image that is designed to build from Github repo sources (`master` branch by
-default, configurable via `build-arg`):
+### Local Docker Build
+If you want to make a Docker container using your local source files you can run the following
+command at the top level of the repository:
+
+```bash
+docker build . -t bridge-relay-dev
+```
+
+You can also build and run the Substrate based node as follows:
+
+```bash
+docker build . -t bridge-node-dev --build-arg PROJECT=bridge-node
+```
+
+To run the Substrate node you can do the following:
+
+```bash
+docker run -it bridge-node-dev --dev --tmp
+```
+
+Notice that the `docker run` command will accept all the normal Substrate flags. For local
+development you should at minimum run with the `--dev` flag or else no blocks will be produced.
+
+### GitHub Docker Build
+If you don't want to run using the local source files you can also use images which pull the latest
+`master`, or some other commit or branch of your choosing (configured with the `BRIDGE_HASH` build
+argument).
+
+These images live in the [Rialto deployments](./deployments/rialto) folder.
 
 ```bash
 docker build \
@@ -181,7 +208,7 @@ docker build \
   https://raw.githubusercontent.com/paritytech/parity-bridges-common/master/deployments/rialto/Bridge.Dockerfile \
   -t bridge-node \
   --build-arg PROJECT=bridge-node
-docker run -it bridge-node
+docker run -it bridge-node --dev
 ```
 
 And to build `OpenEthereum` with bridge support:
@@ -192,5 +219,6 @@ docker build \
 docker run -it openethereum
 ```
 
+### Full Network Docker Setup
 See [Deployments README](./deployments/README.md) to learn more about how to run
 a more sophisticated test network using `docker-compose` setup.
