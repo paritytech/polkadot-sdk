@@ -45,11 +45,18 @@ pub struct GlobalMetrics {
 }
 
 /// Start Prometheus endpoint with given metrics registry.
-pub fn start(params: Option<MetricsParams>, global_metrics: &GlobalMetrics, extra_metrics: &impl Metrics) {
+pub fn start(
+	prefix: String,
+	params: Option<MetricsParams>,
+	global_metrics: &GlobalMetrics,
+	extra_metrics: &impl Metrics,
+) {
 	let params = match params {
 		Some(params) => params,
 		None => return,
 	};
+
+	assert!(!prefix.is_empty(), "Metrics prefix can not be empty");
 
 	let do_start = move || {
 		let prometheus_socket_addr = SocketAddr::new(
@@ -59,7 +66,8 @@ pub fn start(params: Option<MetricsParams>, global_metrics: &GlobalMetrics, extr
 				.map_err(|err| format!("Invalid Prometheus host {}: {}", params.host, err))?,
 			params.port,
 		);
-		let metrics_registry = Registry::new();
+		let metrics_registry =
+			Registry::new_custom(Some(prefix), None).expect("only fails if prefix is empty; prefix is not empty; qed");
 		global_metrics.register(&metrics_registry)?;
 		extra_metrics.register(&metrics_registry)?;
 		async_std::task::spawn(async move {
