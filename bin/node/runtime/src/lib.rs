@@ -716,7 +716,7 @@ impl_runtime_apis! {
 						).unwrap();
 					}
 
-					let transaction = crate::exchange::prepare_ethereum_transaction(
+					let (transaction, receipt) = crate::exchange::prepare_ethereum_transaction(
 						&proof_params.recipient,
 						|tx| {
 							// our runtime only supports transactions where data is exactly 32 bytes long
@@ -725,7 +725,7 @@ impl_runtime_apis! {
 							tx.value = (ExistentialDeposit::get() * 10).into();
 						},
 					);
-					let transactions = sp_std::iter::repeat(transaction.clone())
+					let transactions = sp_std::iter::repeat((transaction, receipt))
 						.take(1 + proof_params.proof_size_factor as usize)
 						.collect::<Vec<_>>();
 					let block_hash = crate::exchange::prepare_environment_for_claim::<Runtime, Kovan>(&transactions);

@@ -98,7 +98,7 @@ pub fn secret_to_address(secret: &SecretKey) -> Address {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{transaction_decode, Transaction};
+	use crate::{transaction_decode_rlp, Transaction};
 
 	#[test]
 	fn transaction_signed_properly() {
@@ -115,7 +115,7 @@ mod tests {
 		};
 		let raw_tx = unsigned.clone().sign_by(&signer, Some(42));
 		assert_eq!(
-			transaction_decode(&raw_tx),
+			transaction_decode_rlp(&raw_tx),
 			Ok(Transaction {
 				sender: signer_address,
 				unsigned,
@@ -133,7 +133,7 @@ mod tests {
 		};
 		let raw_tx = unsigned.clone().sign_by(&signer, None);
 		assert_eq!(
-			transaction_decode(&raw_tx),
+			transaction_decode_rlp(&raw_tx),
 			Ok(Transaction {
 				sender: signer_address,
 				unsigned,

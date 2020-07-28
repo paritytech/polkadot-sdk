@@ -149,7 +149,7 @@ impl PeerBlockchain for KovanBlockchain {
 			return None;
 		}
 
-		proof.proof.get(proof.index as usize).cloned()
+		proof.proof.get(proof.index as usize).map(|(tx, _)| tx.clone())
 	}
 }
 
