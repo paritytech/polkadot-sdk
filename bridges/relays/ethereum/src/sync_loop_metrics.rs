@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{register, GaugeVec, Opts, Registry, U64};
+use crate::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
 use crate::sync::HeadersSync;
 use crate::sync_types::{HeaderStatus, HeadersSyncPipeline};
 
@@ -26,6 +26,14 @@ pub struct SyncLoopMetrics {
 	best_block_numbers: GaugeVec<U64>,
 	/// Number of headers in given states (see `HeaderStatus`).
 	blocks_in_state: GaugeVec<U64>,
+}
+
+impl Metrics for SyncLoopMetrics {
+	fn register(&self, registry: &Registry) -> Result<(), String> {
+		register(self.best_block_numbers.clone(), registry).map_err(|e| e.to_string())?;
+		register(self.blocks_in_state.clone(), registry).map_err(|e| e.to_string())?;
+		Ok(())
+	}
 }
 
 impl SyncLoopMetrics {
@@ -43,13 +51,6 @@ impl SyncLoopMetrics {
 			)
 			.expect("metric is static and thus valid; qed"),
 		}
-	}
-
-	/// Registers sync loop metrics in the metrics registry.
-	pub fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.best_block_numbers.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.blocks_in_state.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
 	}
 
 	/// Update metrics.
