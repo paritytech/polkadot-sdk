@@ -98,7 +98,12 @@ pub fn run<P: TransactionProofPipeline>(
 		let mut metrics_global = GlobalMetrics::new();
 		let mut metrics_exch = ExchangeLoopMetrics::new();
 		let metrics_enabled = metrics_params.is_some();
-		metrics_start(metrics_params, &metrics_global, &metrics_exch);
+		metrics_start(
+			format!("{}_to_{}_Exchange", P::SOURCE_NAME, P::TARGET_NAME),
+			metrics_params,
+			&metrics_global,
+			&metrics_exch,
+		);
 
 		let exit_signal = exit_signal.fuse();
 
