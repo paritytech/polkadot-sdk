@@ -127,3 +127,6 @@ subcommands:
             - sub-port: *sub-port
             - sub-signer: *sub-signer
             - sub-signer-password: *sub-signer-password
+            - no-prometheus: *no-prometheus
+            - prometheus-host: *prometheus-host
+            - prometheus-port: *prometheus-port
