@@ -30,7 +30,7 @@
 use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
-use sp_bridge_eth_poa::{transaction_decode, RawTransaction};
+use sp_bridge_eth_poa::{transaction_decode_rlp, RawTransaction, RawTransactionReceipt};
 use sp_currency_exchange::{
 	Error as ExchangeError, LockFundsTransaction, MaybeLockFundsTransaction, Result as ExchangeResult,
 };
@@ -46,8 +46,9 @@ pub struct EthereumTransactionInclusionProof {
 	pub block: sp_core::H256,
 	/// Index of the transaction within the block.
 	pub index: u64,
-	/// The proof itself (right now it is all RLP-encoded transactions of the block).
-	pub proof: Vec<RawTransaction>,
+	/// The proof itself (right now it is all RLP-encoded transactions of the block +
+	/// RLP-encoded receipts of all transactions of the block).
+	pub proof: Vec<(RawTransaction, RawTransactionReceipt)>,
 }
 
 /// We uniquely identify transfer by the pair (sender, nonce).
@@ -76,7 +77,7 @@ impl MaybeLockFundsTransaction for EthTransaction {
 	fn parse(
 		raw_tx: &Self::Transaction,
 	) -> ExchangeResult<LockFundsTransaction<Self::Id, Self::Recipient, Self::Amount>> {
-		let tx = transaction_decode(raw_tx).map_err(|_| ExchangeError::InvalidTransaction)?;
+		let tx = transaction_decode_rlp(raw_tx).map_err(|_| ExchangeError::InvalidTransaction)?;
 
 		// we only accept transactions sending funds directly to the pre-configured address
 		if tx.unsigned.to != Some(LOCK_FUNDS_ADDRESS.into()) {
@@ -128,7 +129,7 @@ impl MaybeLockFundsTransaction for EthTransaction {
 /// Prepares everything required to bench claim of funds locked by given transaction.
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Trait<I>, I: pallet_bridge_eth_poa::Instance>(
-	transactions: &[RawTransaction],
+	transactions: &[(RawTransaction, RawTransactionReceipt)],
 ) -> sp_bridge_eth_poa::H256 {
 	use pallet_bridge_eth_poa::{
 		test_utils::{insert_header, validator_utils::validator, HeaderBuilder},
@@ -138,7 +139,8 @@ pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Trait<I>, 
 
 	let mut storage = BridgeStorage::<T, I>::new();
 	let header = HeaderBuilder::with_parent_number_on_runtime::<T, I>(0)
-		.with_transactions_root(compute_merkle_root(transactions.iter()))
+		.transactions_root(compute_merkle_root(transactions.iter().map(|(tx, _)| tx)))
+		.receipts_root(compute_merkle_root(transactions.iter().map(|(_, receipt)| receipt)))
 		.sign_by(&validator(0));
 	let header_id = header.compute_id();
 	insert_header(&mut storage, header);
@@ -152,8 +154,8 @@ pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Trait<I>, 
 pub(crate) fn prepare_ethereum_transaction(
 	recipient: &crate::AccountId,
 	editor: impl Fn(&mut sp_bridge_eth_poa::UnsignedTransaction),
-) -> Vec<u8> {
-	use sp_bridge_eth_poa::signatures::SignTransaction;
+) -> (RawTransaction, RawTransactionReceipt) {
+	use sp_bridge_eth_poa::{signatures::SignTransaction, Receipt, TransactionOutcome};
 
 	// prepare tx for OpenEthereum private dev chain:
 	// chain id is 0x11
@@ -173,7 +175,16 @@ pub(crate) fn prepare_ethereum_transaction(
 		payload: recipient_raw.to_vec(),
 	};
 	editor(&mut eth_tx);
-	eth_tx.sign_by(&signer, Some(chain_id))
+	(
+		eth_tx.sign_by(&signer, Some(chain_id)),
+		Receipt {
+			outcome: TransactionOutcome::StatusCode(1),
+			gas_used: Default::default(),
+			log_bloom: Default::default(),
+			logs: Vec::new(),
+		}
+		.rlp(),
+	)
 }
 
 #[cfg(test)]
@@ -188,7 +199,7 @@ mod tests {
 	#[test]
 	fn valid_transaction_accepted() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |_| {})),
+			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |_| {}).0),
 			Ok(LockFundsTransaction {
 				id: EthereumTransactionTag {
 					account: hex!("00a329c0648769a73afac7f9381e08fb43dbea72"),
@@ -211,9 +222,12 @@ mod tests {
 	#[test]
 	fn transaction_with_invalid_peer_recipient_rejected() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |tx| {
-				tx.to = None;
-			})),
+			EthTransaction::parse(
+				&prepare_ethereum_transaction(&ferdie(), |tx| {
+					tx.to = None;
+				})
+				.0
+			),
 			Err(ExchangeError::InvalidTransaction),
 		);
 	}
@@ -221,9 +235,12 @@ mod tests {
 	#[test]
 	fn transaction_with_invalid_recipient_rejected() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |tx| {
-				tx.payload.clear();
-			})),
+			EthTransaction::parse(
+				&prepare_ethereum_transaction(&ferdie(), |tx| {
+					tx.payload.clear();
+				})
+				.0
+			),
 			Err(ExchangeError::InvalidRecipient),
 		);
 	}
@@ -231,9 +248,12 @@ mod tests {
 	#[test]
 	fn transaction_with_invalid_amount_rejected() {
 		assert_eq!(
-			EthTransaction::parse(&prepare_ethereum_transaction(&ferdie(), |tx| {
-				tx.value = sp_core::U256::from(u128::max_value()) + sp_core::U256::from(1);
-			})),
+			EthTransaction::parse(
+				&prepare_ethereum_transaction(&ferdie(), |tx| {
+					tx.value = sp_core::U256::from(u128::max_value()) + sp_core::U256::from(1);
+				})
+				.0
+			),
 			Err(ExchangeError::InvalidAmount),
 		);
 	}
