@@ -26,6 +26,7 @@ use crate::exchange::{
 	TransactionProofPipeline,
 };
 use crate::exchange_loop::{run as run_loop, InMemoryStorage};
+use crate::metrics::MetricsParams;
 use crate::rpc::{EthereumRpc, SubstrateRpc};
 use crate::rpc_errors::RpcError;
 use crate::substrate_client::{
@@ -64,6 +65,8 @@ pub struct EthereumExchangeParams {
 	pub sub_sign: SubstrateSigningParams,
 	/// Relay working mode.
 	pub mode: ExchangeRelayMode,
+	/// Metrics parameters.
+	pub metrics_params: Option<MetricsParams>,
 }
 
 /// Ethereum to Substrate exchange pipeline.
@@ -257,6 +260,7 @@ impl Default for EthereumExchangeParams {
 			sub: Default::default(),
 			sub_sign: Default::default(),
 			mode: ExchangeRelayMode::Auto(None),
+			metrics_params: Some(Default::default()),
 		}
 	}
 }
@@ -335,6 +339,7 @@ fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_wi
 				client: sub_client,
 				sign_params: params.sub_sign,
 			},
+			params.metrics_params,
 			futures::future::pending(),
 		);
 
