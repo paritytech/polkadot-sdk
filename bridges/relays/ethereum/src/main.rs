@@ -23,6 +23,7 @@ mod ethereum_sync_loop;
 mod ethereum_types;
 mod exchange;
 mod exchange_loop;
+mod exchange_loop_metrics;
 mod headers;
 mod metrics;
 mod rpc;
@@ -260,6 +261,7 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<ethereum_excha
 	params.eth = ethereum_connection_params(matches)?;
 	params.sub = substrate_connection_params(matches)?;
 	params.sub_sign = substrate_signing_params(matches)?;
+	params.metrics_params = metrics_params(matches)?;
 
 	params.mode = match matches.value_of("eth-tx-hash") {
 		Some(eth_tx_hash) => ethereum_exchange::ExchangeRelayMode::Single(

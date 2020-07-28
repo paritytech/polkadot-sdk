@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{start as metrics_start, GlobalMetrics, MetricsParams, Registry as MetricsRegistry};
+use crate::metrics::{start as metrics_start, GlobalMetrics, MetricsParams};
 use crate::sync::HeadersSyncParams;
 use crate::sync_loop_metrics::SyncLoopMetrics;
 use crate::sync_types::{
@@ -124,15 +124,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 		let mut metrics_global = GlobalMetrics::new();
 		let mut metrics_sync = SyncLoopMetrics::new();
 		let metrics_enabled = metrics_params.is_some();
-		if let Some(metrics_params) = metrics_params {
-			if let Err(err) = expose_metrics(metrics_params, &metrics_global, &metrics_sync).await {
-				log::warn!(
-					target: "bridge",
-					"Failed to expose metrics: {}",
-					err,
-				);
-			}
-		}
+		metrics_start(metrics_params, &metrics_global, &metrics_sync);
 
 		let mut source_retry_backoff = retry_backoff();
 		let mut source_client_is_online = false;
@@ -544,19 +536,6 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 			}
 		}
 	});
-}
-
-/// Expose sync loop metrics.
-async fn expose_metrics(
-	metrics_params: MetricsParams,
-	metrics_global: &GlobalMetrics,
-	metrics_sync: &SyncLoopMetrics,
-) -> Result<(), String> {
-	let metrics_registry = MetricsRegistry::new();
-	metrics_global.register(&metrics_registry)?;
-	metrics_sync.register(&metrics_registry)?;
-	async_std::task::spawn(metrics_start(metrics_params, metrics_registry));
-	Ok(())
 }
 
 /// Stream that emits item every `timeout_ms` milliseconds.

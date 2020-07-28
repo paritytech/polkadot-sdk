@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use substrate_prometheus_endpoint::{register, Gauge, GaugeVec, Opts, Registry, F64, U64};
+pub use substrate_prometheus_endpoint::{register, Counter, CounterVec, Gauge, GaugeVec, Opts, Registry, F64, U64};
 
 use std::net::SocketAddr;
 use substrate_prometheus_endpoint::init_prometheus;
@@ -29,6 +29,12 @@ pub struct MetricsParams {
 	pub port: u16,
 }
 
+/// Metrics API.
+pub trait Metrics {
+	/// Register metrics in the registry.
+	fn register(&self, registry: &Registry) -> Result<(), String>;
+}
+
 /// Global Prometheus metrics.
 #[derive(Debug)]
 pub struct GlobalMetrics {
@@ -39,19 +45,40 @@ pub struct GlobalMetrics {
 }
 
 /// Start Prometheus endpoint with given metrics registry.
-pub async fn start(params: MetricsParams, registry: Registry) -> Result<(), String> {
-	init_prometheus(
-		SocketAddr::new(
+pub fn start(params: Option<MetricsParams>, global_metrics: &GlobalMetrics, extra_metrics: &impl Metrics) {
+	let params = match params {
+		Some(params) => params,
+		None => return,
+	};
+
+	let do_start = move || {
+		let prometheus_socket_addr = SocketAddr::new(
 			params
 				.host
 				.parse()
 				.map_err(|err| format!("Invalid Prometheus host {}: {}", params.host, err))?,
 			params.port,
-		),
-		registry,
-	)
-	.await
-	.map_err(|err| format!("Error starting Prometheus endpoint: {}", err))
+		);
+		let metrics_registry = Registry::new();
+		global_metrics.register(&metrics_registry)?;
+		extra_metrics.register(&metrics_registry)?;
+		async_std::task::spawn(async move {
+			init_prometheus(prometheus_socket_addr, metrics_registry)
+				.await
+				.map_err(|err| format!("Error starting Prometheus endpoint: {}", err))
+		});
+
+		Ok(())
+	};
+
+	let result: Result<(), String> = do_start();
+	if let Err(err) = result {
+		log::warn!(
+			target: "bridge",
+			"Failed to expose metrics: {}",
+			err,
+		);
+	}
 }
 
 impl Default for MetricsParams {
@@ -60,6 +87,15 @@ impl Default for MetricsParams {
 			host: "127.0.0.1".into(),
 			port: 9616,
 		}
+	}
+}
+
+impl Metrics for GlobalMetrics {
+	fn register(&self, registry: &Registry) -> Result<(), String> {
+		register(self.system_average_load.clone(), registry).map_err(|e| e.to_string())?;
+		register(self.process_cpu_usage_percentage.clone(), registry).map_err(|e| e.to_string())?;
+		register(self.process_memory_usage_bytes.clone(), registry).map_err(|e| e.to_string())?;
+		Ok(())
 	}
 }
 
@@ -78,14 +114,6 @@ impl GlobalMetrics {
 			)
 			.expect("metric is static and thus valid; qed"),
 		}
-	}
-
-	/// Registers global metrics in the metrics registry.
-	pub fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.system_average_load.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.process_cpu_usage_percentage.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.process_memory_usage_bytes.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
 	}
 
 	/// Update metrics.
