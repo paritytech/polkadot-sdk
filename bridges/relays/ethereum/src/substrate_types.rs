@@ -100,27 +100,29 @@ pub fn into_substrate_ethereum_header(header: &EthereumHeader) -> SubstrateEther
 pub fn into_substrate_ethereum_receipts(
 	receipts: &Option<Vec<EthereumReceipt>>,
 ) -> Option<Vec<SubstrateEthereumReceipt>> {
-	receipts.as_ref().map(|receipts| {
-		receipts
+	receipts
+		.as_ref()
+		.map(|receipts| receipts.iter().map(into_substrate_ethereum_receipt).collect())
+}
+
+/// Convert Ethereum transactions receipt into Ethereum transactions receipt for Substrate.
+pub fn into_substrate_ethereum_receipt(receipt: &EthereumReceipt) -> SubstrateEthereumReceipt {
+	SubstrateEthereumReceipt {
+		gas_used: receipt.gas_used.expect(ETHEREUM_RECEIPT_GAS_USED_PROOF),
+		log_bloom: receipt.logs_bloom.data().into(),
+		logs: receipt
+			.logs
 			.iter()
-			.map(|receipt| SubstrateEthereumReceipt {
-				gas_used: receipt.gas_used.expect(ETHEREUM_RECEIPT_GAS_USED_PROOF),
-				log_bloom: receipt.logs_bloom.data().into(),
-				logs: receipt
-					.logs
-					.iter()
-					.map(|log_entry| SubstrateEthereumLogEntry {
-						address: log_entry.address,
-						topics: log_entry.topics.clone(),
-						data: log_entry.data.0.clone(),
-					})
-					.collect(),
-				outcome: match (receipt.status, receipt.root) {
-					(Some(status), None) => SubstrateEthereumTransactionOutcome::StatusCode(status.as_u64() as u8),
-					(None, Some(root)) => SubstrateEthereumTransactionOutcome::StateRoot(root),
-					_ => SubstrateEthereumTransactionOutcome::Unknown,
-				},
+			.map(|log_entry| SubstrateEthereumLogEntry {
+				address: log_entry.address,
+				topics: log_entry.topics.clone(),
+				data: log_entry.data.0.clone(),
 			})
-			.collect()
-	})
+			.collect(),
+		outcome: match (receipt.status, receipt.root) {
+			(Some(status), None) => SubstrateEthereumTransactionOutcome::StatusCode(status.as_u64() as u8),
+			(None, Some(root)) => SubstrateEthereumTransactionOutcome::StateRoot(root),
+			_ => SubstrateEthereumTransactionOutcome::Unknown,
+		},
+	}
 }

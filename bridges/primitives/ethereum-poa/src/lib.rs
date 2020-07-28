@@ -48,6 +48,9 @@ impl_fixed_hash_serde!(H520, 65);
 /// Raw (RLP-encoded) ethereum transaction.
 pub type RawTransaction = Vec<u8>;
 
+/// Raw (RLP-encoded) ethereum transaction receipt.
+pub type RawTransactionReceipt = Vec<u8>;
+
 /// An ethereum address.
 pub type Address = H160;
 
@@ -208,9 +211,14 @@ impl Header {
 		verify_merkle_proof(self.receipts_root, receipts.iter().map(|r| r.rlp()))
 	}
 
+	/// Check if passed raw transactions receipts are matching receipts root in this header.
+	pub fn verify_raw_receipts_root<'a>(&self, receipts: impl IntoIterator<Item = &'a RawTransactionReceipt>) -> bool {
+		verify_merkle_proof(self.receipts_root, receipts.into_iter())
+	}
+
 	/// Check if passed transactions are matching transactions root in this header.
-	pub fn verify_transactions_root(&self, transactions: &[RawTransaction]) -> bool {
-		verify_merkle_proof(self.transactions_root, transactions.iter())
+	pub fn verify_transactions_root<'a>(&self, transactions: impl IntoIterator<Item = &'a RawTransaction>) -> bool {
+		verify_merkle_proof(self.transactions_root, transactions.into_iter())
 	}
 
 	/// Gets the seal hash of this header.
@@ -277,7 +285,7 @@ impl Header {
 
 impl UnsignedTransaction {
 	/// Decode unsigned portion of raw transaction RLP.
-	pub fn decode(raw_tx: &[u8]) -> Result<Self, DecoderError> {
+	pub fn decode_rlp(raw_tx: &[u8]) -> Result<Self, DecoderError> {
 		let tx_rlp = Rlp::new(raw_tx);
 		let to = tx_rlp.at(3)?;
 		Ok(UnsignedTransaction {
@@ -325,6 +333,25 @@ impl UnsignedTransaction {
 }
 
 impl Receipt {
+	/// Decode status from raw transaction receipt RLP.
+	pub fn is_successful_raw_receipt(raw_receipt: &[u8]) -> Result<bool, DecoderError> {
+		let rlp = Rlp::new(raw_receipt);
+		if rlp.item_count()? == 3 {
+			// no outcome - invalid tx?
+			Ok(false)
+		} else {
+			let first = rlp.at(0)?;
+			if first.is_data() && first.data()?.len() <= 1 {
+				// EIP-658 transaction - status of successful transaction is 1
+				let status: u8 = first.as_val()?;
+				Ok(status == 1)
+			} else {
+				// pre-EIP-658 transaction - we do not support this kind of transactions
+				Ok(false)
+			}
+		}
+	}
+
 	/// Returns receipt RLP.
 	pub fn rlp(&self) -> Bytes {
 		let mut s = RlpStream::new();
@@ -436,9 +463,9 @@ impl std::fmt::Debug for Bloom {
 }
 
 /// Decode Ethereum transaction.
-pub fn transaction_decode(raw_tx: &[u8]) -> Result<Transaction, DecoderError> {
+pub fn transaction_decode_rlp(raw_tx: &[u8]) -> Result<Transaction, DecoderError> {
 	// parse transaction fields
-	let unsigned = UnsignedTransaction::decode(raw_tx)?;
+	let unsigned = UnsignedTransaction::decode_rlp(raw_tx)?;
 	let tx_rlp = Rlp::new(raw_tx);
 	let v: u64 = tx_rlp.val_at(6)?;
 	let r: U256 = tx_rlp.val_at(7)?;
@@ -548,7 +575,7 @@ mod tests {
 		// https://etherscan.io/getRawTx?tx=0xb9d4ad5408f53eac8627f9ccd840ba8fb3469d55cd9cc2a11c6e049f1eef4edd
 		let raw_tx = hex!("f86c0a85046c7cfe0083016dea94d1310c1e038bc12865d3d3997275b3e4737c6302880b503be34d9fe80080269fc7eaaa9c21f59adf8ad43ed66cf5ef9ee1c317bd4d32cd65401e7aaca47cfaa0387d79c65b90be6260d09dcfb780f29dd8133b9b1ceb20b83b7e442b4bfc30cb");
 		assert_eq!(
-			transaction_decode(&raw_tx),
+			transaction_decode_rlp(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("67835910d32600471f388a137bbff3eb07993c04").into(),
 				unsigned: UnsignedTransaction {
@@ -567,7 +594,7 @@ mod tests {
 		// https://kovan.etherscan.io/getRawTx?tx=0x3b4b7bd41c1178045ccb4753aa84c1ef9864b4d712fa308b228917cd837915da
 		let raw_tx = hex!("f86a822816808252089470c1ccde719d6f477084f07e4137ab0e55f8369f8930cf46e92063afd8008078a00e4d1f4d8aa992bda3c105ff3d6e9b9acbfd99facea00985e2131029290adbdca028ea29a46a4b66ec65b454f0706228e3768cb0ecf755f67c50ddd472f11d5994");
 		assert_eq!(
-			transaction_decode(&raw_tx),
+			transaction_decode_rlp(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("faadface3fbd81ce37b0e19c0b65ff4234148132").into(),
 				unsigned: UnsignedTransaction {
@@ -589,7 +616,7 @@ mod tests {
 		// https://etherscan.io/getRawTx?tx=0xdc2b996b4d1d6922bf6dba063bfd70913279cb6170967c9bb80252aeb061cf65
 		let raw_tx = hex!("f8aa76850430e234008301500094dac17f958d2ee523a2206206994597c13d831ec780b844a9059cbb000000000000000000000000e08f35f66867a454835b25118f1e490e7f9e9a7400000000000000000000000000000000000000000000000000000000004c4b4025a0964e023999621dc3d4d831c43c71f7555beb6d1192dee81a3674b3f57e310f21a00f229edd86f841d1ee4dc48cc16667e2283817b1d39bae16ced10cd206ae4fd4");
 		assert_eq!(
-			transaction_decode(&raw_tx),
+			transaction_decode_rlp(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("2b9a4d37bdeecdf994c4c9ad7f3cf8dc632f7d70").into(),
 				unsigned: UnsignedTransaction {
@@ -608,7 +635,7 @@ mod tests {
 		// https://kovan.etherscan.io/getRawTx?tx=0x2904b4451d23665492239016b78da052d40d55fdebc7304b38e53cf6a37322cf
 		let raw_tx = hex!("f8ac8302200b843b9aca00830271009484dd11eb2a29615303d18149c0dbfa24167f896680b844a9059cbb00000000000000000000000001503dfc5ad81bf630d83697e98601871bb211b600000000000000000000000000000000000000000000000000000000000027101ba0ce126d2cca81f5e245f292ff84a0d915c0a4ac52af5c51219db1e5d36aa8da35a0045298b79dac631907403888f9b04c2ab5509fe0cc31785276d30a40b915fcf9");
 		assert_eq!(
-			transaction_decode(&raw_tx),
+			transaction_decode_rlp(&raw_tx),
 			Ok(Transaction {
 				sender: hex!("617da121abf03d4c1af572f5a4e313e26bef7bdc").into(),
 				unsigned: UnsignedTransaction {
@@ -621,5 +648,71 @@ mod tests {
 				},
 			}),
 		);
+	}
+
+	#[test]
+	fn is_successful_raw_receipt_works() {
+		assert!(Receipt::is_successful_raw_receipt(&[]).is_err());
+
+		assert_eq!(
+			Receipt::is_successful_raw_receipt(
+				&Receipt {
+					outcome: TransactionOutcome::Unknown,
+					gas_used: Default::default(),
+					log_bloom: Default::default(),
+					logs: Vec::new(),
+				}
+				.rlp()
+			),
+			Ok(false),
+		);
+		assert_eq!(
+			Receipt::is_successful_raw_receipt(
+				&Receipt {
+					outcome: TransactionOutcome::StateRoot(Default::default()),
+					gas_used: Default::default(),
+					log_bloom: Default::default(),
+					logs: Vec::new(),
+				}
+				.rlp()
+			),
+			Ok(false),
+		);
+		assert_eq!(
+			Receipt::is_successful_raw_receipt(
+				&Receipt {
+					outcome: TransactionOutcome::StatusCode(0),
+					gas_used: Default::default(),
+					log_bloom: Default::default(),
+					logs: Vec::new(),
+				}
+				.rlp()
+			),
+			Ok(false),
+		);
+		assert_eq!(
+			Receipt::is_successful_raw_receipt(
+				&Receipt {
+					outcome: TransactionOutcome::StatusCode(1),
+					gas_used: Default::default(),
+					log_bloom: Default::default(),
+					logs: Vec::new(),
+				}
+				.rlp()
+			),
+			Ok(true),
+		);
+	}
+
+	#[test]
+	fn is_successful_raw_receipt_with_empty_data() {
+		let mut stream = RlpStream::new();
+		stream.begin_list(4);
+		stream.append_empty_data();
+		stream.append(&1u64);
+		stream.append(&2u64);
+		stream.append(&3u64);
+
+		assert_eq!(Receipt::is_successful_raw_receipt(&stream.out()), Ok(false),);
 	}
 }

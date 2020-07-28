@@ -195,7 +195,7 @@ impl HeaderBuilder {
 	}
 
 	/// Update transactions root field of this header.
-	pub fn with_transactions_root(mut self, transactions_root: H256) -> Self {
+	pub fn transactions_root(mut self, transactions_root: H256) -> Self {
 		self.header.transactions_root = transactions_root;
 		self
 	}
