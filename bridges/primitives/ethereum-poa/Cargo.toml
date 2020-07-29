@@ -47,18 +47,15 @@ default-features = false
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.libsecp256k1]
-optional = true
 version = "0.3.4"
 default-features = false
 features = ["hmac"]
 
 [dev-dependencies]
 hex-literal = "0.2"
-libsecp256k1 = { version = "0.3.4", default-features = false, features = ["hmac"] }
 
 [features]
 default = ["std"]
-test-helpers = ["libsecp256k1"]
 std = [
 	"serde/std",
 	"serde-big-array",

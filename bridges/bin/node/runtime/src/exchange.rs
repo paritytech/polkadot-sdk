@@ -37,7 +37,7 @@ use sp_currency_exchange::{
 use sp_std::vec::Vec;
 
 /// Ethereum address where locked PoA funds must be sent to.
-const LOCK_FUNDS_ADDRESS: [u8; 20] = hex!("DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF");
+pub const LOCK_FUNDS_ADDRESS: [u8; 20] = hex!("DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF");
 
 /// Ethereum transaction inclusion proof.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
