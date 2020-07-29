@@ -106,6 +106,28 @@ subcommands:
                 value_name: SUB_INITIAL_HEADER
                 help: Encoded initial Substrate header.
                 takes_value: true
+    - eth-submit-exchange-tx:
+        about: Submit lock funds transaction to Ethereum node.
+        args:
+            - eth-host: *eth-host
+            - eth-port: *eth-port
+            - eth-nonce:
+                long: eth-nonce
+                value_name: ETH_NONCE
+                help: Nonce that have to be used when building transaction. If not specified, read from PoA node.
+                takes_value: true
+            - eth-signer: *eth-signer
+            - eth-chain-id: *eth-chain-id
+            - eth-amount:
+                long: eth-amount
+                value_name: ETH_AMOUNT
+                help: Amount of ETH to lock (in wei).
+                takes_value: true
+            - sub-recipient:
+                long: sub-recipient
+                value_name: SUB_RECIPIENT
+                help: Hex-encoded Public key of funds recipient in Substrate chain.
+                takes_value: true
     - eth-exchange-sub:
         about: Submit proof of PoA lock funds transaction to Substrate node.
         args:

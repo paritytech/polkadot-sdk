@@ -54,7 +54,6 @@ pub type RawTransactionReceipt = Vec<u8>;
 /// An ethereum address.
 pub type Address = H160;
 
-#[cfg(any(feature = "test-helpers", test))]
 pub mod signatures;
 
 /// Complete header id.
@@ -113,8 +112,7 @@ pub struct Transaction {
 }
 
 /// Unsigned portion of ethereum transaction.
-#[derive(PartialEq, RuntimeDebug)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone, PartialEq, RuntimeDebug)]
 pub struct UnsignedTransaction {
 	/// Sender nonce.
 	pub nonce: U256,
@@ -396,7 +394,6 @@ impl SealedEmptyStep {
 	}
 
 	/// Returns rlp for the vector of empty steps (we only do encoding in tests).
-	#[cfg(feature = "test-helpers")]
 	pub fn rlp_of(empty_steps: &[SealedEmptyStep]) -> Bytes {
 		let mut s = RlpStream::new();
 		s.begin_list(empty_steps.len());

@@ -214,7 +214,7 @@ features = ["hmac"]
 [dev-dependencies.sp-bridge-eth-poa]
 version = "0.1.0"
 default-features = false
-features = ["std", "test-helpers"]
+features = ["std"]
 path = "../../../primitives/ethereum-poa"
 
 [build-dependencies.wasm-builder-runner]
@@ -264,6 +264,5 @@ runtime-benchmarks = [
 	"libsecp256k1",
 	"pallet-bridge-currency-exchange/runtime-benchmarks",
 	"pallet-bridge-eth-poa/runtime-benchmarks",
-	"sp-bridge-eth-poa/test-helpers",
 	"sp-runtime/runtime-benchmarks",
 ]
