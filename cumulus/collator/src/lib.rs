@@ -47,8 +47,8 @@ use sp_runtime::{
 use polkadot_collator::{
 	BuildParachainContext, Network as CollatorNetwork, ParachainContext, RuntimeApiCollection,
 };
-use polkadot_primitives::{
-	parachain::{self, BlockData, GlobalValidationSchedule, Id as ParaId, LocalValidationData},
+use polkadot_primitives::v0::{
+	self as parachain, BlockData, GlobalValidationData, Id as ParaId, LocalValidationData,
 	Block as PBlock, DownwardMessage, Hash as PHash,
 };
 
@@ -105,7 +105,7 @@ impl<Block: BlockT, PF, BI, BS> Collator<Block, PF, BI, BS> {
 	/// Get the inherent data with validation function parameters injected
 	fn inherent_data(
 		inherent_providers: InherentDataProviders,
-		global_validation: GlobalValidationSchedule,
+		global_validation: GlobalValidationData,
 		local_validation: LocalValidationData,
 		downward_messages: DownwardMessagesType,
 	) -> Option<InherentData> {
@@ -239,7 +239,7 @@ where
 	fn produce_candidate(
 		&mut self,
 		relay_chain_parent: PHash,
-		global_validation: GlobalValidationSchedule,
+		global_validation: GlobalValidationData,
 		local_validation: LocalValidationData,
 		downward_messages: Vec<DownwardMessage>,
 	) -> Self::ProduceCandidate {
@@ -493,10 +493,10 @@ mod tests {
 	use std::time::Duration;
 
 	use polkadot_collator::{collate, SignedStatement};
-	use polkadot_primitives::parachain::Id as ParaId;
+	use polkadot_primitives::v0::Id as ParaId;
 
 	use sp_blockchain::Result as ClientResult;
-	use sp_core::testing::SpawnBlockingExecutor;
+	use sp_core::testing::TaskExecutor;
 	use sp_inherents::InherentData;
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::traits::{DigestFor, Header as HeaderT};
@@ -601,7 +601,7 @@ mod tests {
 	fn collates_produces_a_block() {
 		let id = ParaId::from(100);
 		let _ = env_logger::try_init();
-		let spawner = SpawnBlockingExecutor::new();
+		let spawner = TaskExecutor::new();
 		let announce_block = |_, _| ();
 		let block_announce_validator = DelayedBlockAnnounceValidator::new();
 		let client = Arc::new(TestClientBuilder::new().build());
@@ -639,7 +639,7 @@ mod tests {
 		let collation = collate(
 			Default::default(),
 			id,
-			GlobalValidationSchedule {
+			GlobalValidationData {
 				block_number: 0,
 				max_code_size: 0,
 				max_head_data_size: 0,

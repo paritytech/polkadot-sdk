@@ -32,11 +32,10 @@ use sp_runtime::{
 
 use polkadot_collator::Network as CollatorNetwork;
 use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
-use polkadot_primitives::{
-	parachain::{Id as ParaId, ParachainHost},
-	Block as PBlock, Hash as PHash,
+use polkadot_primitives::v0::{
+	Id as ParaId, ParachainHost, Block as PBlock, Hash as PHash,
 };
-use polkadot_statement_table::{SignedStatement, Statement};
+use polkadot_statement_table::v0::{SignedStatement, Statement};
 use polkadot_validation::check_statement;
 
 use cumulus_primitives::HeadData;

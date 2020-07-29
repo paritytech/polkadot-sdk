@@ -16,7 +16,7 @@ parachain = { package = "polkadot-parachain", git = "https://github.com/parityte
 # Substrate dependencies
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", version = "2.0.0-dev", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", version = "2.0.0-rc5", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }

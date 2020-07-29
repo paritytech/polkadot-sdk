@@ -16,13 +16,10 @@
 
 use super::*;
 use cumulus_test_runtime::{Block, Header};
-use polkadot_primitives::{
-	parachain::{
-		AbridgedCandidateReceipt, Chain, CollatorId, DutyRoster, GlobalValidationSchedule,
-		Id as ParaId, LocalValidationData, ParachainHost, Retriable, SigningContext,
-		ValidationCode, ValidatorId,
-	},
-	Block as PBlock, Hash as PHash, Header as PHeader,
+use polkadot_primitives::v0::{
+	AbridgedCandidateReceipt, Chain, CollatorId, DutyRoster, GlobalValidationData,
+	Id as ParaId, LocalValidationData, ParachainHost, Retriable, SigningContext,
+	ValidationCode, ValidatorId, Block as PBlock, Hash as PHash, Header as PHeader,
 };
 use polkadot_test_runtime_client::{
 	DefaultTestClientBuilderExt, TestClient, TestClientBuilder, TestClientBuilderExt,
@@ -418,7 +415,7 @@ sp_api::mock_impl_runtime_apis! {
 			Some(ValidationCode(Vec::new()))
 		}
 
-		fn global_validation_schedule() -> GlobalValidationSchedule {
+		fn global_validation_data() -> GlobalValidationData {
 			Default::default()
 		}
 
@@ -440,7 +437,7 @@ sp_api::mock_impl_runtime_apis! {
 			}
 		}
 
-		fn downward_messages(_: ParaId) -> Vec<polkadot_primitives::DownwardMessage> {
+		fn downward_messages(_: ParaId) -> Vec<polkadot_primitives::v0::DownwardMessage> {
 			Vec::new()
 		}
 	}

@@ -16,7 +16,7 @@
 
 //! XMCP related primitives
 
-use polkadot_primitives::parachain::Id as ParaId;
+use polkadot_primitives::v0::Id as ParaId;
 use sp_std::vec::Vec;
 
 /// A raw XCMP message that is being send between two Parachain's.

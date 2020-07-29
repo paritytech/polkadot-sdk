@@ -18,7 +18,7 @@
 
 use codec::{Decode, Encode};
 use polkadot_parachain::primitives::{RelayChainBlockNumber, ValidationParams};
-use polkadot_primitives::parachain::{GlobalValidationSchedule, LocalValidationData};
+use polkadot_primitives::v0::{GlobalValidationData, LocalValidationData};
 
 /// Validation Function Parameters
 ///
@@ -48,8 +48,8 @@ impl From<&ValidationParams> for ValidationFunctionParams {
 	}
 }
 
-impl From<(GlobalValidationSchedule, LocalValidationData)> for ValidationFunctionParams {
-	fn from(t: (GlobalValidationSchedule, LocalValidationData)) -> Self {
+impl From<(GlobalValidationData, LocalValidationData)> for ValidationFunctionParams {
+	fn from(t: (GlobalValidationData, LocalValidationData)) -> Self {
 		let (global_validation, local_validation) = t;
 		ValidationFunctionParams {
 			max_code_size: global_validation.max_code_size,
