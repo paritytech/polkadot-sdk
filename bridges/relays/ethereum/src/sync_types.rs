@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::utils::format_ids;
+
 use std::{ops::Deref, sync::Arc};
 
 /// Ethereum header Id.
@@ -41,12 +43,6 @@ pub enum HeaderStatus {
 	Submitted,
 	/// Header is known to the target node.
 	Synced,
-}
-
-/// Error type that can signal connection errors.
-pub trait MaybeConnectionError {
-	/// Returns true if error (maybe) represents connection error.
-	fn is_connection_error(&self) -> bool;
 }
 
 /// Headers synchronization pipeline.
@@ -190,5 +186,19 @@ impl<Id, Error> Default for SubmittedHeaders<Id, Error> {
 			rejected: Vec::new(),
 			fatal_error: None,
 		}
+	}
+}
+
+impl<Id: std::fmt::Debug, Error> std::fmt::Display for SubmittedHeaders<Id, Error> {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let submitted = format_ids(self.submitted.iter());
+		let incomplete = format_ids(self.incomplete.iter());
+		let rejected = format_ids(self.rejected.iter());
+
+		write!(
+			f,
+			"Submitted: {}, Incomplete: {}, Rejected: {}",
+			submitted, incomplete, rejected
+		)
 	}
 }

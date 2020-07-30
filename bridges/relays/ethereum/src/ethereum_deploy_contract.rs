@@ -19,7 +19,8 @@ use crate::ethereum_client::{
 };
 use crate::rpc::SubstrateRpc;
 use crate::substrate_client::{SubstrateConnectionParams, SubstrateRpcClient};
-use crate::substrate_types::{Hash as SubstrateHash, Header as SubstrateHeader};
+use crate::substrate_types::{Hash as SubstrateHash, Header as SubstrateHeader, SubstrateHeaderId};
+use crate::sync_types::HeaderId;
 
 use codec::{Decode, Encode};
 use num_traits::Zero;
@@ -66,18 +67,19 @@ pub fn run(params: EthereumDeployContractParams) {
 		let eth_client = EthereumRpcClient::new(params.eth);
 		let sub_client = SubstrateRpcClient::new(params.sub).await?;
 
-		let (initial_header_hash, initial_header) = prepare_initial_header(&sub_client, params.sub_initial_header).await?;
+		let (initial_header_id, initial_header) = prepare_initial_header(&sub_client, params.sub_initial_header).await?;
 		let initial_set_id = params.sub_initial_authorities_set_id.unwrap_or(0);
 		let initial_set = prepare_initial_authorities_set(
 			&sub_client,
-			initial_header_hash,
+			initial_header_id.1,
 			params.sub_initial_authorities_set,
 		).await?;
 
 		log::info!(
 			target: "bridge",
-			"Deploying Ethereum contract.\r\n\tInitial header: {:?}\r\n\tInitial header encoded: {}\r\n\tInitial authorities set ID: {}\r\n\tInitial authorities set: {}",
+			"Deploying Ethereum contract.\r\n\tInitial header: {:?}\r\n\tInitial header id: {:?}\r\n\tInitial header encoded: {}\r\n\tInitial authorities set ID: {}\r\n\tInitial authorities set: {}",
 			initial_header,
+			initial_header_id,
 			hex::encode(&initial_header),
 			initial_set_id,
 			hex::encode(&initial_set),
@@ -102,16 +104,19 @@ pub fn run(params: EthereumDeployContractParams) {
 async fn prepare_initial_header(
 	sub_client: &SubstrateRpcClient,
 	sub_initial_header: Option<Vec<u8>>,
-) -> Result<(SubstrateHash, Vec<u8>), String> {
+) -> Result<(SubstrateHeaderId, Vec<u8>), String> {
 	match sub_initial_header {
 		Some(raw_initial_header) => match SubstrateHeader::decode(&mut &raw_initial_header[..]) {
-			Ok(initial_header) => Ok((initial_header.hash(), raw_initial_header)),
+			Ok(initial_header) => Ok((
+				HeaderId(initial_header.number, initial_header.hash()),
+				raw_initial_header,
+			)),
 			Err(error) => Err(format!("Error decoding initial header: {}", error)),
 		},
 		None => {
 			let initial_header = sub_client.header_by_number(Zero::zero()).await;
 			initial_header
-				.map(|header| (header.hash(), header.encode()))
+				.map(|header| (HeaderId(Zero::zero(), header.hash()), header.encode()))
 				.map_err(|error| format!("Error reading Substrate genesis header: {:?}", error))
 		}
 	}

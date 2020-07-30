@@ -21,7 +21,8 @@ use crate::ethereum_types::{
 use crate::rpc::{Ethereum, EthereumRpc};
 use crate::rpc_errors::{EthereumNodeError, RpcError};
 use crate::substrate_types::{GrandpaJustification, Hash as SubstrateHash, QueuedSubstrateHeader, SubstrateHeaderId};
-use crate::sync_types::{HeaderId, MaybeConnectionError, SubmittedHeaders};
+use crate::sync_types::{HeaderId, SubmittedHeaders};
+use crate::utils::MaybeConnectionError;
 
 use async_trait::async_trait;
 use codec::{Decode, Encode};
