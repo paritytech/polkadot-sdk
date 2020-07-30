@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::sync_types::MaybeConnectionError;
+use crate::utils::MaybeConnectionError;
 
 use jsonrpsee::client::RequestError;
 

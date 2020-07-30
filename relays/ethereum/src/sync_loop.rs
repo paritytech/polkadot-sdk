@@ -17,10 +17,8 @@
 use crate::metrics::{start as metrics_start, GlobalMetrics, MetricsParams};
 use crate::sync::HeadersSyncParams;
 use crate::sync_loop_metrics::SyncLoopMetrics;
-use crate::sync_types::{
-	HeaderIdOf, HeaderStatus, HeadersSyncPipeline, MaybeConnectionError, QueuedHeader, SubmittedHeaders,
-};
-use crate::utils::retry_backoff;
+use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SubmittedHeaders};
+use crate::utils::{format_ids, retry_backoff, MaybeConnectionError, StringifiedMaybeConnectionError};
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoff};
@@ -309,7 +307,16 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 				submitted_headers = target_submit_header_future => {
 					// following line helps Rust understand the type of `submitted_headers` :/
 					let submitted_headers: SubmittedHeaders<HeaderIdOf<P>, TC::Error> = submitted_headers;
-					let maybe_fatal_error = submitted_headers.fatal_error.map(Err).unwrap_or(Ok(()));
+					let submitted_headers_str = format!("{}", submitted_headers);
+					let maybe_fatal_error = match submitted_headers.fatal_error {
+						Some(fatal_error) => Err(StringifiedMaybeConnectionError::new(
+							fatal_error.is_connection_error(),
+							format!("{:?}", fatal_error),
+						)),
+						None if submitted_headers.submitted.is_empty() && submitted_headers.incomplete.is_empty() =>
+							Err(StringifiedMaybeConnectionError::new(false, "All headers were rejected".into())),
+						None => Ok(()),
+					};
 
 					target_client_is_online = process_future_result(
 						maybe_fatal_error,
@@ -319,6 +326,8 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error submitting headers to {} node", P::TARGET_NAME),
 					);
+
+					log::debug!(target: "bridge", "Header submit result: {}", submitted_headers_str);
 
 					sync.headers_mut().headers_submitted(submitted_headers.submitted);
 					sync.headers_mut().add_incomplete_headers(submitted_headers.incomplete);
@@ -434,17 +443,12 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 				} else if let Some(headers) =
 					sync.select_headers_to_submit(last_update_time.elapsed() > BACKUP_STALL_SYNC_TIMEOUT)
 				{
-					let ids = match headers.len() {
-						1 => format!("{:?}", headers[0].id()),
-						2 => format!("[{:?}, {:?}]", headers[0].id(), headers[1].id()),
-						len => format!("[{:?} ... {:?}]", headers[0].id(), headers[len - 1].id()),
-					};
 					log::debug!(
 						target: "bridge",
 						"Submitting {} header(s) to {} node: {:?}",
 						headers.len(),
 						P::TARGET_NAME,
-						ids,
+						format_ids(headers.iter().map(|header| header.id())),
 					);
 
 					let headers = headers.into_iter().cloned().collect();

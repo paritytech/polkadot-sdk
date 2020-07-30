@@ -187,9 +187,9 @@ impl SubstrateRpc for SubstrateRpcClient {
 
 	async fn grandpa_authorities_set(&self, block: Hash) -> Result<GrandpaAuthorityList> {
 		let call = SUB_API_GRANDPA_AUTHORITIES.to_string();
-		let data = Bytes(block.as_bytes().to_vec());
+		let data = Bytes(Vec::new());
 
-		let encoded_response = Substrate::state_call(&self.client, call, data, None).await?;
+		let encoded_response = Substrate::state_call(&self.client, call, data, Some(block)).await?;
 		let authority_list = encoded_response.0;
 
 		Ok(authority_list)

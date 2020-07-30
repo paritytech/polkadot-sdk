@@ -43,6 +43,50 @@ macro_rules! bail_on_arg_error {
 	};
 }
 
+/// Error type that can signal connection errors.
+pub trait MaybeConnectionError {
+	/// Returns true if error (maybe) represents connection error.
+	fn is_connection_error(&self) -> bool;
+}
+
+/// Stringified error that may be either connection-related or not.
+#[derive(Debug)]
+pub enum StringifiedMaybeConnectionError {
+	/// The error is connection-related error.
+	Connection(String),
+	/// The error is connection-unrelated error.
+	NonConnection(String),
+}
+
+impl StringifiedMaybeConnectionError {
+	/// Create new stringified connection error.
+	pub fn new(is_connection_error: bool, error: String) -> Self {
+		if is_connection_error {
+			StringifiedMaybeConnectionError::Connection(error)
+		} else {
+			StringifiedMaybeConnectionError::NonConnection(error)
+		}
+	}
+}
+
+impl MaybeConnectionError for StringifiedMaybeConnectionError {
+	fn is_connection_error(&self) -> bool {
+		match *self {
+			StringifiedMaybeConnectionError::Connection(_) => true,
+			StringifiedMaybeConnectionError::NonConnection(_) => false,
+		}
+	}
+}
+
+impl ToString for StringifiedMaybeConnectionError {
+	fn to_string(&self) -> String {
+		match *self {
+			StringifiedMaybeConnectionError::Connection(ref err) => err.clone(),
+			StringifiedMaybeConnectionError::NonConnection(ref err) => err.clone(),
+		}
+	}
+}
+
 /// Exponential backoff for connection-unrelated errors retries.
 pub fn retry_backoff() -> ExponentialBackoff {
 	let mut backoff = ExponentialBackoff::default();
@@ -50,4 +94,23 @@ pub fn retry_backoff() -> ExponentialBackoff {
 	backoff.max_elapsed_time = None;
 	backoff.max_interval = MAX_BACKOFF_INTERVAL;
 	backoff
+}
+
+/// Compact format of IDs vector.
+pub fn format_ids<Id: std::fmt::Debug>(mut ids: impl ExactSizeIterator<Item = Id>) -> String {
+	const NTH_PROOF: &str = "we have checked len; qed";
+	match ids.len() {
+		0 => "<nothing>".into(),
+		1 => format!("{:?}", ids.next().expect(NTH_PROOF)),
+		2 => {
+			let id0 = ids.next().expect(NTH_PROOF);
+			let id1 = ids.next().expect(NTH_PROOF);
+			format!("[{:?}, {:?}]", id0, id1)
+		}
+		len => {
+			let id0 = ids.next().expect(NTH_PROOF);
+			let id_last = ids.last().expect(NTH_PROOF);
+			format!("{}:[{:?} ... {:?}]", len, id0, id_last)
+		}
+	}
 }
