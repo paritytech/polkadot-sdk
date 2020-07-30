@@ -108,6 +108,13 @@ pub fn run_collator(
 	TaskManager,
 	Arc<TFullClient<parachain_runtime::opaque::Block, parachain_runtime::RuntimeApi, crate::service::Executor>>,
 )> {
+	if matches!(parachain_config.role, Role::Light) {
+		return Err("Light client not supported!".into());
+	}
+	if matches!(polkadot_config.role, Role::Light) {
+		return Err("Light client not supported!".into());
+	}
+
 	let mut parachain_config = prepare_collator_config(parachain_config);
 
 	parachain_config.informant_output_format = OutputFormat {
