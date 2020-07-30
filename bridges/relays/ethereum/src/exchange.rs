@@ -16,7 +16,7 @@
 
 //! Relaying proofs of exchange transaction.
 
-use crate::sync_types::MaybeConnectionError;
+use crate::utils::{MaybeConnectionError, StringifiedMaybeConnectionError};
 
 use async_trait::async_trait;
 use std::{
@@ -133,14 +133,6 @@ pub struct RelayedBlockTransactions {
 	pub relayed: usize,
 	/// Total number of transactions that we have failed to relay so far.
 	pub failed: usize,
-}
-
-/// Stringified error that may be either connection-related or not.
-enum StringifiedMaybeConnectionError {
-	/// The error is connection-related error.
-	Connection(String),
-	/// The error is connection-unrelated error.
-	NonConnection(String),
 }
 
 /// Relay all suitable transactions from single block.
@@ -444,34 +436,6 @@ async fn wait_header_finalized<P: TransactionProofPipeline>(
 
 				target_client.tick().await;
 			}
-		}
-	}
-}
-
-impl StringifiedMaybeConnectionError {
-	fn new(is_connection_error: bool, error: String) -> Self {
-		if is_connection_error {
-			StringifiedMaybeConnectionError::Connection(error)
-		} else {
-			StringifiedMaybeConnectionError::NonConnection(error)
-		}
-	}
-}
-
-impl MaybeConnectionError for StringifiedMaybeConnectionError {
-	fn is_connection_error(&self) -> bool {
-		match *self {
-			StringifiedMaybeConnectionError::Connection(_) => true,
-			StringifiedMaybeConnectionError::NonConnection(_) => false,
-		}
-	}
-}
-
-impl ToString for StringifiedMaybeConnectionError {
-	fn to_string(&self) -> String {
-		match *self {
-			StringifiedMaybeConnectionError::Connection(ref err) => err.clone(),
-			StringifiedMaybeConnectionError::NonConnection(ref err) => err.clone(),
 		}
 	}
 }

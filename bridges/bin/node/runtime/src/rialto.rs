@@ -79,7 +79,7 @@ pub fn genesis_header() -> Header {
 		transactions_root: hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").into(),
 		uncles_hash: hex!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").into(),
 		extra_data: vec![],
-		state_root: hex!("d6368925ffd9acad81f411ce45891d3722e14355af2790391839488e23d74b0d").into(),
+		state_root: hex!("eccf6b74c2bcbe115c71116a23fe963c54406010c244d9650526028ad3e32cce").into(),
 		receipts_root: hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").into(),
 		log_bloom: Default::default(),
 		gas_used: Default::default(),
@@ -134,7 +134,7 @@ mod tests {
 	fn genesis_hash_matches() {
 		assert_eq!(
 			genesis_header().compute_hash(),
-			hex!("bc936e808b668546250ad43de5c0a95fe2a9644a850a2ff69b57f874e3e35644").into(),
+			hex!("9ff57c7fa155853586382022f0982b71c51fa313a0942f8c456300896643e890").into(),
 		);
 	}
 
