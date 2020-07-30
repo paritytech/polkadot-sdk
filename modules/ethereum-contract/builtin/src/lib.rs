@@ -63,10 +63,19 @@ pub struct ValidatorsSetSignal {
 /// Convert from U256 to BlockNumber. Fails if `U256` value isn't fitting within `BlockNumber`
 /// limits (the runtime referenced by this module uses u32 as `BlockNumber`).
 pub fn to_substrate_block_number(number: U256) -> Result<BlockNumber, Error> {
-	match number == number.low_u32().into() {
+	let substrate_block_number = match number == number.low_u32().into() {
 		true => Ok(number.low_u32()),
 		false => Err(Error::BlockNumberDecode),
-	}
+	};
+
+	log::trace!(
+		target: "bridge-builtin",
+		"Parsed Substrate block number from {}: {:?}",
+		number,
+		substrate_block_number,
+	);
+
+	substrate_block_number
 }
 
 /// Convert from BlockNumber to U256.
@@ -76,7 +85,7 @@ pub fn from_substrate_block_number(number: BlockNumber) -> Result<U256, Error> {
 
 /// Parse Substrate header.
 pub fn parse_substrate_header(raw_header: &[u8]) -> Result<Header, Error> {
-	RuntimeHeader::decode(&mut &raw_header[..])
+	let substrate_header = RuntimeHeader::decode(&mut &raw_header[..])
 		.map(|header| Header {
 			hash: header.hash(),
 			parent_hash: header.parent_hash,
@@ -100,7 +109,20 @@ pub fn parse_substrate_header(raw_header: &[u8]) -> Result<Header, Error> {
 					_ => None,
 				}),
 		})
-		.map_err(Error::HeaderDecode)
+		.map_err(Error::HeaderDecode);
+
+	log::debug!(
+		target: "bridge-builtin",
+		"Parsed Substrate header {}: {:?}",
+		if substrate_header.is_ok() {
+			format!("<{}-bytes-blob>", raw_header.len())
+		} else {
+			hex::encode(raw_header)
+		},
+		substrate_header,
+	);
+
+	substrate_header
 }
 
 /// Verify GRANDPA finality proof.
@@ -113,8 +135,22 @@ pub fn verify_substrate_finality_proof(
 ) -> Result<(), Error> {
 	let best_set = AuthorityList::decode(&mut &raw_best_set[..])
 		.map_err(Error::BestSetDecode)
-		.and_then(|authorities| VoterSet::new(authorities.into_iter()).ok_or(Error::InvalidBestSet))?;
-	sc_finality_grandpa::GrandpaJustification::<Block>::decode_and_verify_finalizes(
+		.and_then(|authorities| VoterSet::new(authorities.into_iter()).ok_or(Error::InvalidBestSet));
+
+	log::debug!(
+		target: "bridge-builtin",
+		"Parsed Substrate authorities set {}: {:?}",
+		if best_set.is_ok() {
+			format!("<{}-bytes-blob>", raw_best_set.len())
+		} else {
+			hex::encode(raw_best_set)
+		},
+		best_set,
+	);
+
+	let best_set = best_set?;
+
+	let verify_result = sc_finality_grandpa::GrandpaJustification::<Block>::decode_and_verify_finalizes(
 		&raw_finality_proof,
 		(finality_target_hash, finality_target_number),
 		best_set_id,
@@ -122,7 +158,20 @@ pub fn verify_substrate_finality_proof(
 	)
 	.map_err(Box::new)
 	.map_err(Error::JustificationVerify)
-	.map(|_| ())
+	.map(|_| ());
+
+	log::debug!(
+		target: "bridge-builtin",
+		"Verified Substrate finality proof {}: {:?}",
+		if verify_result.is_ok() {
+			format!("<{}-bytes-blob>", raw_finality_proof.len())
+		} else {
+			hex::encode(raw_finality_proof)
+		},
+		verify_result,
+	);
+
+	verify_result
 }
 
 #[cfg(test)]
