@@ -147,7 +147,13 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// Returns true if currency exchange module is able to import given transaction proof in
 	/// its current state.
 	pub fn filter_transaction_proof(proof: &<T::PeerBlockchain as PeerBlockchain>::TransactionInclusionProof) -> bool {
-		if prepare_deposit_details::<T, I>(proof).is_err() {
+		if let Err(err) = prepare_deposit_details::<T, I>(proof) {
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Can't accept exchange transaction: {:?}",
+				err,
+			);
+
 			return false;
 		}
 

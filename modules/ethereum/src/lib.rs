@@ -893,17 +893,40 @@ pub fn verify_transaction_finalized<S: Storage>(
 	proof: &[(RawTransaction, RawTransactionReceipt)],
 ) -> bool {
 	if tx_index >= proof.len() as _ {
+		frame_support::debug::trace!(
+			target: "runtime",
+			"Tx finality check failed: transaction index ({}) is larger than number of transactions ({})",
+			tx_index,
+			proof.len(),
+		);
+
 		return false;
 	}
 
 	let header = match storage.header(&block) {
 		Some((header, _)) => header,
-		None => return false,
+		None => {
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Tx finality check failed: can't find header in the storage: {}",
+				block,
+			);
+
+			return false;
+		}
 	};
 	let finalized = storage.finalized_block();
 
 	// if header is not yet finalized => return
 	if header.number > finalized.number {
+		frame_support::debug::trace!(
+			target: "runtime",
+			"Tx finality check failed: header {}/{} is not finalized. Best finalized: {}",
+			header.number,
+			block,
+			finalized.number,
+		);
+
 		return false;
 	}
 
@@ -915,24 +938,62 @@ pub fn verify_transaction_finalized<S: Storage>(
 		false => block == finalized.hash,
 	};
 	if !is_finalized {
+		frame_support::debug::trace!(
+			target: "runtime",
+			"Tx finality check failed: header {} is not finalized: no canonical path to best finalized block {}",
+			block,
+			finalized.hash,
+		);
+
 		return false;
 	}
 
 	// verify that transaction is included in the block
-	if !header.verify_transactions_root(proof.iter().map(|(tx, _)| tx)) {
+	if let Err(computed_root) = header.check_transactions_root(proof.iter().map(|(tx, _)| tx)) {
+		frame_support::debug::trace!(
+			target: "runtime",
+			"Tx finality check failed: transactions root mismatch. Expected: {}, computed: {}",
+			header.transactions_root,
+			computed_root,
+		);
+
 		return false;
 	}
 
 	// verify that transaction receipt is included in the block
-	if !header.verify_raw_receipts_root(proof.iter().map(|(_, r)| r)) {
+	if let Err(computed_root) = header.check_raw_receipts_root(proof.iter().map(|(_, r)| r)) {
+		frame_support::debug::trace!(
+			target: "runtime",
+			"Tx finality check failed: receipts root mismatch. Expected: {}, computed: {}",
+			header.receipts_root,
+			computed_root,
+		);
+
 		return false;
 	}
 
 	// check that transaction has completed successfully
-	matches!(
-		Receipt::is_successful_raw_receipt(&proof[tx_index as usize].1),
-		Ok(true)
-	)
+	let is_successful_raw_receipt = Receipt::is_successful_raw_receipt(&proof[tx_index as usize].1);
+	match is_successful_raw_receipt {
+		Ok(true) => true,
+		Ok(false) => {
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Tx finality check failed: receipt shows that transaction has failed",
+			);
+
+			false
+		}
+		Err(err) => {
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Tx finality check failed: receipt check has failed: {}",
+				err,
+			);
+
+			false
+		}
+	}
 }
 
 /// Transaction pool configuration.
