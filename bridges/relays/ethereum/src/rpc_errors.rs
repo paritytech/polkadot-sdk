@@ -95,8 +95,6 @@ pub enum EthereumNodeError {
 	ResponseParseFailed(String),
 	/// We have received a header with missing fields.
 	IncompleteHeader,
-	/// We have received a receipt missing a `gas_used` field.
-	IncompleteReceipt,
 	/// We have received a transaction missing a `raw` field.
 	IncompleteTransaction,
 	/// An invalid Substrate block number was received from
@@ -111,9 +109,6 @@ impl ToString for EthereumNodeError {
 			Self::IncompleteHeader => {
 				"Incomplete Ethereum Header Received (missing some of required fields - hash, number, logs_bloom)"
 					.to_string()
-			}
-			Self::IncompleteReceipt => {
-				"Incomplete Ethereum Receipt Recieved (missing required field - gas_used)".to_string()
 			}
 			Self::IncompleteTransaction => "Incomplete Ethereum Transaction (missing required field - raw)".to_string(),
 			Self::InvalidSubstrateBlockNumber => "Received an invalid Substrate block from Ethereum Node".to_string(),
