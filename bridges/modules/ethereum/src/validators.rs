@@ -132,7 +132,7 @@ impl<'a> Validators<'a> {
 		}
 
 		let receipts = receipts.ok_or(Error::MissingTransactionsReceipts)?;
-		if !header.verify_receipts_root(&receipts) {
+		if header.check_receipts_root(&receipts).is_err() {
 			return Err(Error::TransactionsReceiptsMismatch);
 		}
 
