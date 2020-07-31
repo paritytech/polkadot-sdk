@@ -16,7 +16,6 @@
 
 use crate::ethereum_types::{
 	Header as EthereumHeader, Receipt as EthereumReceipt, HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
-	RECEIPT_GAS_USED_PROOF as ETHEREUM_RECEIPT_GAS_USED_PROOF,
 };
 use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
 use codec::Encode;
@@ -108,7 +107,7 @@ pub fn into_substrate_ethereum_receipts(
 /// Convert Ethereum transactions receipt into Ethereum transactions receipt for Substrate.
 pub fn into_substrate_ethereum_receipt(receipt: &EthereumReceipt) -> SubstrateEthereumReceipt {
 	SubstrateEthereumReceipt {
-		gas_used: receipt.gas_used.expect(ETHEREUM_RECEIPT_GAS_USED_PROOF),
+		gas_used: receipt.cumulative_gas_used,
 		log_bloom: receipt.logs_bloom.data().into(),
 		logs: receipt
 			.logs

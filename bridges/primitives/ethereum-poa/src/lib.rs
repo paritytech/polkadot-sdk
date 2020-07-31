@@ -205,18 +205,30 @@ impl Header {
 	}
 
 	/// Check if passed transactions receipts are matching receipts root in this header.
-	pub fn verify_receipts_root(&self, receipts: &[Receipt]) -> bool {
-		verify_merkle_proof(self.receipts_root, receipts.iter().map(|r| r.rlp()))
+	/// Returns Ok(computed-root) if check succeeds.
+	/// Returns Err(computed-root) if check fails.
+	pub fn check_receipts_root(&self, receipts: &[Receipt]) -> Result<H256, H256> {
+		check_merkle_proof(self.receipts_root, receipts.iter().map(|r| r.rlp()))
 	}
 
 	/// Check if passed raw transactions receipts are matching receipts root in this header.
-	pub fn verify_raw_receipts_root<'a>(&self, receipts: impl IntoIterator<Item = &'a RawTransactionReceipt>) -> bool {
-		verify_merkle_proof(self.receipts_root, receipts.into_iter())
+	/// Returns Ok(computed-root) if check succeeds.
+	/// Returns Err(computed-root) if check fails.
+	pub fn check_raw_receipts_root<'a>(
+		&self,
+		receipts: impl IntoIterator<Item = &'a RawTransactionReceipt>,
+	) -> Result<H256, H256> {
+		check_merkle_proof(self.receipts_root, receipts.into_iter())
 	}
 
 	/// Check if passed transactions are matching transactions root in this header.
-	pub fn verify_transactions_root<'a>(&self, transactions: impl IntoIterator<Item = &'a RawTransaction>) -> bool {
-		verify_merkle_proof(self.transactions_root, transactions.into_iter())
+	/// Returns Ok(computed-root) if check succeeds.
+	/// Returns Err(computed-root) if check fails.
+	pub fn check_transactions_root<'a>(
+		&self,
+		transactions: impl IntoIterator<Item = &'a RawTransaction>,
+	) -> Result<H256, H256> {
+		check_merkle_proof(self.transactions_root, transactions.into_iter())
 	}
 
 	/// Gets the seal hash of this header.
@@ -502,9 +514,16 @@ pub fn public_to_address(public: &[u8; 64]) -> Address {
 	result
 }
 
-/// Verify ethereum merkle proof.
-fn verify_merkle_proof<T: AsRef<[u8]>>(expected_root: H256, items: impl Iterator<Item = T>) -> bool {
-	compute_merkle_root(items) == expected_root
+/// Check ethereum merkle proof.
+/// Returns Ok(computed-root) if check succeeds.
+/// Returns Err(computed-root) if check fails.
+fn check_merkle_proof<T: AsRef<[u8]>>(expected_root: H256, items: impl Iterator<Item = T>) -> Result<H256, H256> {
+	let computed_root = compute_merkle_root(items);
+	if computed_root == expected_root {
+		Ok(computed_root)
+	} else {
+		Err(computed_root)
+	}
 }
 
 /// Compute ethereum merkle root.

@@ -144,7 +144,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 	// the heaviest, but rare operation - we do not want invalid receipts in the pool
 	if let Some(receipts) = receipts {
 		frame_support::debug::trace!(target: "runtime", "Got receipts! {:?}", receipts);
-		if !header.verify_receipts_root(receipts) {
+		if header.check_receipts_root(receipts).is_err() {
 			return Err(Error::TransactionsReceiptsMismatch);
 		}
 	}
