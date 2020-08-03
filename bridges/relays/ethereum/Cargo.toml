@@ -7,7 +7,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 ansi_term = "0.12"
-async-std = "=1.5.0"
+async-std = "1.6.2"
 async-stream = "0.2.0"
 async-trait = "0.1.36"
 backoff = "0.2"
@@ -43,38 +43,38 @@ features = ["http"]
 
 # Substrate Based Dependencies
 [dependencies.frame-system]
-version = "2.0.0-rc4"
-tag = 'v2.0.0-rc4'
+version = "2.0.0-rc5"
+tag = 'v2.0.0-rc5'
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-rc4"
-tag = 'v2.0.0-rc4'
+version = "2.0.0-rc5"
+tag = 'v2.0.0-rc5'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.node-primitives]
-version = "2.0.0-rc4"
-tag = 'v2.0.0-rc4'
+version = "2.0.0-rc5"
+tag = 'v2.0.0-rc5'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-core]
-version = "2.0.0-rc4"
-tag = 'v2.0.0-rc4'
+version = "2.0.0-rc5"
+tag = 'v2.0.0-rc5'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-keyring]
-version = "2.0.0-rc4"
-tag = 'v2.0.0-rc4'
+version = "2.0.0-rc5"
+tag = 'v2.0.0-rc5'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc4"
-tag = 'v2.0.0-rc4'
+version = "2.0.0-rc5"
+tag = 'v2.0.0-rc5'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.substrate-prometheus-endpoint]
-version = "0.8.0-rc4"
-tag = 'v2.0.0-rc4'
+version = "0.8.0-rc5"
+tag = 'v2.0.0-rc5'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.bridge-node-runtime]
