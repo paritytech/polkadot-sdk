@@ -35,9 +35,6 @@ pub mod benches;
 pub mod kovan;
 pub mod rialto;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub use benches as bridge;
-
 use codec::{Decode, Encode};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
@@ -223,6 +220,8 @@ impl frame_system::Trait for Runtime {
 	type OnKilledAccount = ();
 	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
+	/// Weight information for the extrinsics of this pallet.
+	type SystemWeightInfo = ();
 }
 
 impl pallet_aura::Trait for Runtime {
@@ -349,6 +348,7 @@ impl pallet_timestamp::Trait for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -363,6 +363,7 @@ impl pallet_balances::Trait for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -398,6 +399,7 @@ impl pallet_session::Trait for Runtime {
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisabledValidatorsThreshold = ();
+	type WeightInfo = ();
 }
 
 pub struct ShiftSessionManager;
@@ -464,7 +466,7 @@ construct_runtime!(
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-		Aura: pallet_aura::{Module, Config<T>, Inherent(Timestamp)},
+		Aura: pallet_aura::{Module, Config<T>, Inherent},
 		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
@@ -650,14 +652,19 @@ impl_runtime_apis! {
 			Grandpa::grandpa_authorities()
 		}
 
-		fn submit_report_equivocation_extrinsic(
-			_equivocation_proof: fg_primitives::EquivocationProof<
+		fn submit_report_equivocation_unsigned_extrinsic(
+			equivocation_proof: fg_primitives::EquivocationProof<
 				<Block as BlockT>::Hash,
 				NumberFor<Block>,
 			>,
-			_key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+			key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
-			None
+			let key_owner_proof = key_owner_proof.decode()?;
+
+			Grandpa::submit_unsigned_equivocation_report(
+				equivocation_proof,
+				key_owner_proof,
+			)
 		}
 
 		fn generate_key_ownership_proof(
@@ -737,8 +744,13 @@ impl_runtime_apis! {
 				}
 			}
 
-			add_benchmark!(params, batches, b"bridge-eth-poa", BridgeKovan);
-			add_benchmark!(params, batches, b"bridge-currency-exchange", BridgeCurrencyExchangeBench::<Runtime, KovanCurrencyExchange>);
+			add_benchmark!(params, batches, pallet_bridge_eth_poa, BridgeKovan);
+			add_benchmark!(
+				params,
+				batches,
+				pallet_bridge_currency_exchange,
+				BridgeCurrencyExchangeBench::<Runtime, KovanCurrencyExchange>
+			);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
