@@ -32,37 +32,42 @@
 
 use crate::cli::{Cli, Subcommand};
 use crate::service;
+use crate::service::new_full_params;
 use bridge_node_runtime::Block;
-use sc_cli::SubstrateCli;
-use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
+use sc_service::ServiceParams;
 
 impl SubstrateCli for Cli {
-	fn impl_name() -> &'static str {
-		"Bridge Node"
+	fn impl_name() -> String {
+		"Bridge Node".into()
 	}
 
-	fn impl_version() -> &'static str {
-		env!("CARGO_PKG_VERSION")
+	fn impl_version() -> String {
+		env!("CARGO_PKG_VERSION").into()
 	}
 
-	fn description() -> &'static str {
-		"Bridge Node"
+	fn description() -> String {
+		"Bridge Node".into()
 	}
 
-	fn author() -> &'static str {
-		"Parity Technologies"
+	fn author() -> String {
+		"Parity Technologies".into()
 	}
 
-	fn support_url() -> &'static str {
-		"https://github.com/paritytech/parity-bridges-common/"
+	fn support_url() -> String {
+		"https://github.com/paritytech/parity-bridges-common/".into()
 	}
 
 	fn copyright_start_year() -> i32 {
 		2019
 	}
 
-	fn executable_name() -> &'static str {
-		"bridge-node"
+	fn executable_name() -> String {
+		"bridge-node".into()
+	}
+
+	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+		&bridge_node_runtime::VERSION
 	}
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
@@ -97,11 +102,26 @@ pub fn run() -> sc_cli::Result<()> {
 		}
 		Some(Subcommand::Base(subcommand)) => {
 			let runner = cli.create_runner(subcommand)?;
-			runner.run_subcommand(subcommand, |config| Ok(new_full_start!(config).0))
+			runner.run_subcommand(subcommand, |config| {
+				let (
+					ServiceParams {
+						client,
+						backend,
+						task_manager,
+						import_queue,
+						..
+					},
+					..,
+				) = new_full_params(config)?;
+				Ok((client, backend, import_queue, task_manager))
+			})
 		}
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
-			runner.run_node(service::new_light, service::new_full, bridge_node_runtime::VERSION)
+			runner.run_node_until_exit(|config| match config.role {
+				Role::Light => service::new_light(config),
+				_ => service::new_full(config),
+			})
 		}
 	}
 }
