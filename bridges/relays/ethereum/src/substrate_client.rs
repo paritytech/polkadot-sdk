@@ -15,12 +15,10 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::ethereum_types::{Bytes, EthereumHeaderId, QueuedEthereumHeader, H256};
+use crate::instances::BridgeInstance;
 use crate::rpc::{Substrate, SubstrateRpc};
 use crate::rpc_errors::RpcError;
-use crate::substrate_types::{
-	into_substrate_ethereum_header, into_substrate_ethereum_receipts, Hash, Header as SubstrateHeader, Number,
-	SignedBlock as SignedSubstrateBlock,
-};
+use crate::substrate_types::{Hash, Header as SubstrateHeader, Number, SignedBlock as SignedSubstrateBlock};
 use crate::sync_types::{HeaderId, SubmittedHeaders};
 
 use async_trait::async_trait;
@@ -89,11 +87,13 @@ pub struct SubstrateRpcClient {
 	client: Client,
 	/// Genesis block hash.
 	genesis_hash: H256,
+	/// Instance of the bridge pallet being synchronized.
+	instance: Box<dyn BridgeInstance>,
 }
 
 impl SubstrateRpcClient {
 	/// Returns client that is able to call RPCs on Substrate node.
-	pub async fn new(params: SubstrateConnectionParams) -> Result<Self> {
+	pub async fn new(params: SubstrateConnectionParams, instance: Box<dyn BridgeInstance>) -> Result<Self> {
 		let uri = format!("http://{}:{}", params.host, params.port);
 		let transport = HttpTransportClient::new(&uri);
 		let raw_client = RawClient::new(transport);
@@ -102,7 +102,11 @@ impl SubstrateRpcClient {
 		let number: Number = Zero::zero();
 		let genesis_hash = Substrate::chain_get_block_hash(&client, number).await?;
 
-		Ok(Self { client, genesis_hash })
+		Ok(Self {
+			client,
+			genesis_hash,
+			instance,
+		})
 	}
 }
 
@@ -248,7 +252,8 @@ impl SubmitEthereumHeaders for SubstrateRpcClient {
 			let account_id = params.signer.public().as_array_ref().clone().into();
 			let nonce = self.next_account_index(account_id).await?;
 
-			let transaction = create_signed_submit_transaction(headers, &params.signer, nonce, self.genesis_hash);
+			let call = self.instance.build_signed_header_call(headers);
+			let transaction = create_signed_submit_transaction(call, &params.signer, nonce, self.genesis_hash);
 			let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
 			Ok(())
 		}
@@ -276,9 +281,13 @@ impl SubmitEthereumHeaders for SubstrateRpcClient {
 	) -> SubmittedHeaders<EthereumHeaderId, RpcError> {
 		let mut ids = headers.iter().map(|header| header.id()).collect::<VecDeque<_>>();
 		let mut submitted_headers = SubmittedHeaders::default();
+
 		for header in headers {
 			let id = ids.pop_front().expect("both collections have same size; qed");
-			let transaction = create_unsigned_submit_transaction(header);
+
+			let call = self.instance.build_unsigned_header_call(header);
+			let transaction = create_unsigned_submit_transaction(call);
+
 			match self.submit_extrinsic(Bytes(transaction.encode())).await {
 				Ok(_) => submitted_headers.submitted.push(id),
 				Err(error) => {
@@ -335,15 +344,9 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
 		let account_id = params.signer.public().as_array_ref().clone().into();
 		let nonce = self.next_account_index(account_id).await?;
 
-		let transaction = create_signed_transaction(
-			// TODO [#209]: Change so that that it's dynamic
-			bridge_node_runtime::Call::BridgeRialtoCurrencyExchange(
-				bridge_node_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof),
-			),
-			&params.signer,
-			nonce,
-			self.genesis_hash,
-		);
+		let call = self.instance.build_currency_exchange_call(proof);
+		let transaction = create_signed_transaction(call, &params.signer, nonce, self.genesis_hash);
+
 		let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
 		Ok(())
 	}
@@ -351,40 +354,17 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
 
 /// Create signed Substrate transaction for submitting Ethereum headers.
 fn create_signed_submit_transaction(
-	headers: Vec<QueuedEthereumHeader>,
+	signed_call: bridge_node_runtime::Call,
 	signer: &sp_core::sr25519::Pair,
 	index: node_primitives::Index,
 	genesis_hash: H256,
 ) -> bridge_node_runtime::UncheckedExtrinsic {
-	create_signed_transaction(
-		// TODO [#209]: Change so that that it's dynamic
-		bridge_node_runtime::Call::BridgeRialto(bridge_node_runtime::BridgeEthPoACall::import_signed_headers(
-			headers
-				.into_iter()
-				.map(|header| {
-					(
-						into_substrate_ethereum_header(header.header()),
-						into_substrate_ethereum_receipts(header.extra()),
-					)
-				})
-				.collect(),
-		)),
-		signer,
-		index,
-		genesis_hash,
-	)
+	create_signed_transaction(signed_call, signer, index, genesis_hash)
 }
 
 /// Create unsigned Substrate transaction for submitting Ethereum header.
-fn create_unsigned_submit_transaction(header: QueuedEthereumHeader) -> bridge_node_runtime::UncheckedExtrinsic {
-	let function =
-		// TODO [#209]: Change so that that it's dynamic
-		bridge_node_runtime::Call::BridgeRialto(bridge_node_runtime::BridgeEthPoACall::import_unsigned_header(
-			into_substrate_ethereum_header(header.header()),
-			into_substrate_ethereum_receipts(header.extra()),
-		));
-
-	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(function)
+fn create_unsigned_submit_transaction(call: bridge_node_runtime::Call) -> bridge_node_runtime::UncheckedExtrinsic {
+	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(call)
 }
 
 /// Create signed Substrate transaction.
