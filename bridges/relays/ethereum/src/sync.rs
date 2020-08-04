@@ -36,6 +36,38 @@ pub struct HeadersSyncParams {
 	pub target_tx_mode: TargetTransactionMode,
 }
 
+impl HeadersSyncParams {
+	/// Default parameters for syncing Ethereum headers.
+	pub fn ethereum_sync_default() -> Self {
+		use crate::ethereum_sync_loop::consts::*;
+
+		Self {
+			max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
+			max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
+			max_headers_in_single_submit: MAX_HEADERS_IN_SINGLE_SUBMIT,
+			max_headers_size_in_single_submit: MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT,
+			prune_depth: PRUNE_DEPTH,
+			target_tx_mode: TargetTransactionMode::Signed,
+		}
+	}
+
+	/// Default parameters for syncing Substrate headers.
+	pub fn substrate_sync_default() -> Self {
+		use crate::substrate_sync_loop::consts::*;
+
+		Self {
+			max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
+			max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
+			// since we always have single Substrate header in separate Ethereum transaction,
+			// all max_**_in_single_submit aren't important here
+			max_headers_in_single_submit: 4,
+			max_headers_size_in_single_submit: std::usize::MAX,
+			prune_depth: PRUNE_DEPTH,
+			target_tx_mode: TargetTransactionMode::Signed,
+		}
+	}
+}
+
 /// Target transaction mode.
 #[derive(Debug, PartialEq, Clone)]
 pub enum TargetTransactionMode {
