@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# this script runs the cumulus-test-parachain-collator after fetching
+# this script runs the rococo-collator after fetching
 # appropriate bootnode IDs
 #
 # this is _not_ a general-purpose script; it is closely tied to the
@@ -8,7 +8,7 @@
 
 set -e -o pipefail
 
-ctpc="/usr/bin/cumulus-test-parachain-collator"
+ctpc="/usr/bin/rococo-collator"
 
 if [ ! -x "$ctpc" ]; then
     echo "FATAL: $ctpc does not exist or is not executable"

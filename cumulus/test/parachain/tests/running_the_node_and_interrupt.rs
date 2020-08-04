@@ -32,7 +32,7 @@ fn running_the_node_works_and_can_be_interrupted() {
 
 	fn run_command_and_kill(signal: Signal) {
 		let _ = fs::remove_dir_all("interrupt_test");
-		let mut cmd = Command::new(cargo_bin("cumulus-test-parachain-collator"))
+		let mut cmd = Command::new(cargo_bin("rococo-collator"))
 			.args(&["-d", "interrupt_test", "--", "--dev"])
 			.spawn()
 			.unwrap();

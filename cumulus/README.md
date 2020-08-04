@@ -29,13 +29,13 @@ Collators are similar to validators in the relay chain. These nodes build the bl
 To run a collator on this test network you will need to compile the following binary:
 
 ```
-cargo build --release -p cumulus-test-parachain-collator
+cargo build --release -p rococo-collator
 ```
 
 After the build is finished you can use the binary to run a collator for all three parachains:
 
 ```
-./target/release/cumulus-test-parachain-collator --chain tick --validator
+./target/release/rococo-collator --chain tick --validator
 ```
 
 This will run the collator for the `Tick` parachain. To run a collator for one of the other nodes, the chain argument needs to be changed.
@@ -45,13 +45,13 @@ This will run the collator for the `Tick` parachain. To run a collator for one o
 To run a full node that should sync one of the parachains, you need to compile the following binary:
 
 ```
-cargo build --release -p cumulus-test-parachain-collator
+cargo build --release -p rococo-collator
 ```
 
 After the build is finished you can use the binary to run a collator for all three parachains:
 
 ```
-./target/release/cumulus-test-parachain-collator --chain tick
+./target/release/rococo-collator --chain tick
 ```
 
 ### Tick, Trick and Track

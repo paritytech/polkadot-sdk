@@ -30,7 +30,7 @@ fn purge_chain_works() {
 	let base_path = "purge_chain_test";
 
 	let _ = fs::remove_dir_all(base_path);
-	let mut cmd = Command::new(cargo_bin("cumulus-test-parachain-collator"))
+	let mut cmd = Command::new(cargo_bin("rococo-collator"))
 		.args(&["-d", base_path, "--", "--dev"])
 		.spawn()
 		.unwrap();
@@ -48,7 +48,7 @@ fn purge_chain_works() {
 		.map(|x| x.success())
 		.unwrap_or_default());
 
-	let status = Command::new(cargo_bin("cumulus-test-parachain-collator"))
+	let status = Command::new(cargo_bin("rococo-collator"))
 		.args(&["purge-chain", "-d", base_path, "-y"])
 		.status()
 		.unwrap();
