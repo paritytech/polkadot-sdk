@@ -32,9 +32,7 @@ use sp_runtime::{
 
 use polkadot_collator::Network as CollatorNetwork;
 use polkadot_network::legacy::gossip::{GossipMessage, GossipStatement};
-use polkadot_primitives::v0::{
-	Id as ParaId, ParachainHost, Block as PBlock, Hash as PHash,
-};
+use polkadot_primitives::v0::{Block as PBlock, Hash as PHash, Id as ParaId, ParachainHost};
 use polkadot_statement_table::v0::{SignedStatement, Statement};
 use polkadot_validation::check_statement;
 
@@ -244,11 +242,13 @@ impl<B: BlockT> BlockAnnounceValidator<B> for DelayedBlockAnnounceValidator<B> {
 		header: &B::Header,
 		data: &[u8],
 	) -> Result<Validation, Box<dyn std::error::Error + Send>> {
-		self.0
-			.lock()
-			.as_mut()
-			.expect("BlockAnnounceValidator is set before validating the first announcement; qed")
-			.validate(header, data)
+		match self.0.lock().as_mut() {
+			Some(validator) => validator.validate(header, data),
+			None => {
+				log::warn!("BlockAnnounce validator not yet set, rejecting block announcement");
+				Ok(Validation::Failure)
+			}
+		}
 	}
 }
 

@@ -16,9 +16,9 @@
 
 use ansi_term::Color;
 use cumulus_collator::{prepare_collator_config, CollatorBuilder};
-use cumulus_network::DelayedBlockAnnounceValidator;
+use cumulus_network::{DelayedBlockAnnounceValidator, JustifiedBlockAnnounceValidator};
 use futures::{future::ready, FutureExt};
-use polkadot_primitives::v0::CollatorPair;
+use polkadot_primitives::v0::{CollatorPair, Block as PBlock, Id as ParaId};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_informant::OutputFormat;
@@ -26,7 +26,8 @@ use sc_service::{Configuration, PartialComponents, TaskManager, TFullBackend, TF
 use std::sync::Arc;
 use sp_core::crypto::Pair;
 use sp_trie::PrefixedMemoryDB;
-use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
+use polkadot_service::{AbstractClient, RuntimeApiCollection};
 
 // Our native executor instance.
 native_executor_instance!(
@@ -206,11 +207,11 @@ pub fn run_collator(
 			.spawn("polkadot", polkadot_future);
 	} else {
 		let is_light = matches!(polkadot_config.role, Role::Light);
-		let builder = polkadot_service::NodeBuilder::new(polkadot_config);
-		let mut polkadot_task_manager = if is_light {
-			return Err("Light client not supported.".into());
+		let (mut polkadot_task_manager, client, _) = if is_light {
+			Err("Light client not supported.".into())
 		} else {
-			builder.build_full(
+			polkadot_service::build_full(
+				polkadot_config,
 				Some((key.public(), id)),
 				None,
 				false,
@@ -221,6 +222,7 @@ pub fn run_collator(
 		let polkadot_future = async move {
 			polkadot_task_manager.future().await.expect("polkadot essential task failed");
 		};
+		client.execute_with(SetDelayedBlockAnnounceValidator { block_announce_validator, para_id: id });
 
 		task_manager
 			.spawn_essential_handle()
@@ -228,4 +230,23 @@ pub fn run_collator(
 	}
 
 	Ok((task_manager, client))
+}
+
+struct SetDelayedBlockAnnounceValidator<B: BlockT> {
+	block_announce_validator: DelayedBlockAnnounceValidator<B>,
+	para_id: ParaId,
+}
+
+impl<B: BlockT> polkadot_service::ExecuteWithClient for SetDelayedBlockAnnounceValidator<B> {
+	type Output = ();
+
+	fn execute_with_client<Client, Api, Backend>(self, client: Arc<Client>) -> Self::Output
+		where<Api as sp_api::ApiExt<PBlock>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+		Backend: sc_client_api::Backend<PBlock>,
+		Backend::State: sp_api::StateBackend<BlakeTwo256>,
+		Api: RuntimeApiCollection<StateBackend = Backend::State>,
+		Client: AbstractClient<PBlock, Backend, Api = Api> + 'static
+	{
+		self.block_announce_validator.set(Box::new(JustifiedBlockAnnounceValidator::new(client, self.para_id)));
+	}
 }

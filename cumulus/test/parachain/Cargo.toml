@@ -40,6 +40,7 @@ sc-network = { git = "https://github.com/paritytech/substrate", branch = "cumulu
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", version = "0.8.0-rc5" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-informant = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }

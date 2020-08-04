@@ -62,7 +62,7 @@ fn call_validate_block(
 
 	executor
 		.call_in_wasm(
-			&WASM_BINARY,
+			&WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 			None,
 			"validate_block",
 			&params,
