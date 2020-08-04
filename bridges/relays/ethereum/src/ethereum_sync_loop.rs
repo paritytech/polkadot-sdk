@@ -18,6 +18,7 @@
 
 use crate::ethereum_client::{EthereumConnectionParams, EthereumHighLevelRpc, EthereumRpcClient};
 use crate::ethereum_types::{EthereumHeaderId, EthereumHeadersSyncPipeline, Header, QueuedEthereumHeader, Receipt};
+use crate::instances::BridgeInstance;
 use crate::metrics::MetricsParams;
 use crate::rpc::{EthereumRpc, SubstrateRpc};
 use crate::rpc_errors::RpcError;
@@ -32,57 +33,45 @@ use crate::sync_types::{SourceHeader, SubmittedHeaders};
 use async_trait::async_trait;
 use web3::types::H256;
 
+use std::fmt::Debug;
 use std::{collections::HashSet, time::Duration};
 
-/// Interval at which we check new Ethereum headers when we are synced/almost synced.
-const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(10);
-/// Interval at which we check new Substrate blocks.
-const SUBSTRATE_TICK_INTERVAL: Duration = Duration::from_secs(5);
-/// Max number of headers in single submit transaction.
-const MAX_HEADERS_IN_SINGLE_SUBMIT: usize = 32;
-/// Max total size of headers in single submit transaction. This only affects signed
-/// submissions, when several headers are submitted at once. 4096 is the maximal **expected**
-/// size of the Ethereum header + transactions receipts (if they're required).
-const MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT: usize = MAX_HEADERS_IN_SINGLE_SUBMIT * 4096;
-/// Max Ethereum headers we want to have in all 'before-submitted' states.
-const MAX_FUTURE_HEADERS_TO_DOWNLOAD: usize = 128;
-/// Max Ethereum headers count we want to have in 'submitted' state.
-const MAX_SUBMITTED_HEADERS: usize = 128;
-/// Max depth of in-memory headers in all states. Past this depth they will be forgotten (pruned).
-const PRUNE_DEPTH: u32 = 4096;
+pub mod consts {
+	use super::*;
+
+	/// Interval at which we check new Ethereum headers when we are synced/almost synced.
+	pub const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(10);
+	/// Interval at which we check new Substrate blocks.
+	pub const SUBSTRATE_TICK_INTERVAL: Duration = Duration::from_secs(5);
+	/// Max number of headers in single submit transaction.
+	pub const MAX_HEADERS_IN_SINGLE_SUBMIT: usize = 32;
+	/// Max total size of headers in single submit transaction. This only affects signed
+	/// submissions, when several headers are submitted at once. 4096 is the maximal **expected**
+	/// size of the Ethereum header + transactions receipts (if they're required).
+	pub const MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT: usize = MAX_HEADERS_IN_SINGLE_SUBMIT * 4096;
+	/// Max Ethereum headers we want to have in all 'before-submitted' states.
+	pub const MAX_FUTURE_HEADERS_TO_DOWNLOAD: usize = 128;
+	/// Max Ethereum headers count we want to have in 'submitted' state.
+	pub const MAX_SUBMITTED_HEADERS: usize = 128;
+	/// Max depth of in-memory headers in all states. Past this depth they will be forgotten (pruned).
+	pub const PRUNE_DEPTH: u32 = 4096;
+}
 
 /// Ethereum synchronization parameters.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct EthereumSyncParams {
 	/// Ethereum connection params.
-	pub eth: EthereumConnectionParams,
+	pub eth_params: EthereumConnectionParams,
 	/// Substrate connection params.
-	pub sub: SubstrateConnectionParams,
+	pub sub_params: SubstrateConnectionParams,
 	/// Substrate signing params.
 	pub sub_sign: SubstrateSigningParams,
 	/// Synchronization parameters.
 	pub sync_params: HeadersSyncParams,
 	/// Metrics parameters.
 	pub metrics_params: Option<MetricsParams>,
-}
-
-impl Default for EthereumSyncParams {
-	fn default() -> Self {
-		EthereumSyncParams {
-			eth: Default::default(),
-			sub: Default::default(),
-			sub_sign: Default::default(),
-			sync_params: HeadersSyncParams {
-				max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
-				max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
-				max_headers_in_single_submit: MAX_HEADERS_IN_SINGLE_SUBMIT,
-				max_headers_size_in_single_submit: MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT,
-				prune_depth: PRUNE_DEPTH,
-				target_tx_mode: TargetTransactionMode::Signed,
-			},
-			metrics_params: Some(Default::default()),
-		}
-	}
+	/// Instance of the bridge pallet being synchronized.
+	pub instance: Box<dyn BridgeInstance>,
 }
 
 /// Ethereum client as headers source.
@@ -190,26 +179,33 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 
 /// Run Ethereum headers synchronization.
 pub fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
-	let sub_params = params.clone();
+	let EthereumSyncParams {
+		eth_params,
+		sub_params,
+		sub_sign,
+		sync_params,
+		metrics_params,
+		instance,
+	} = params;
 
-	let eth_client = EthereumRpcClient::new(params.eth);
-	let sub_client = async_std::task::block_on(async { SubstrateRpcClient::new(sub_params.sub).await })?;
+	let eth_client = EthereumRpcClient::new(eth_params);
+	let sub_client = async_std::task::block_on(async { SubstrateRpcClient::new(sub_params, instance).await })?;
 
-	let sign_sub_transactions = match params.sync_params.target_tx_mode {
+	let sign_sub_transactions = match sync_params.target_tx_mode {
 		TargetTransactionMode::Signed | TargetTransactionMode::Backup => true,
 		TargetTransactionMode::Unsigned => false,
 	};
 
 	let source = EthereumHeadersSource::new(eth_client);
-	let target = SubstrateHeadersTarget::new(sub_client, sign_sub_transactions, params.sub_sign);
+	let target = SubstrateHeadersTarget::new(sub_client, sign_sub_transactions, sub_sign);
 
 	crate::sync_loop::run(
 		source,
-		ETHEREUM_TICK_INTERVAL,
+		consts::ETHEREUM_TICK_INTERVAL,
 		target,
-		SUBSTRATE_TICK_INTERVAL,
-		params.sync_params,
-		params.metrics_params,
+		consts::SUBSTRATE_TICK_INTERVAL,
+		sync_params,
+		metrics_params,
 		futures::future::pending(),
 	);
 

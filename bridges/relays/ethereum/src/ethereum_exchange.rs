@@ -26,6 +26,7 @@ use crate::exchange::{
 	TransactionProofPipeline,
 };
 use crate::exchange_loop::{run as run_loop, InMemoryStorage};
+use crate::instances::BridgeInstance;
 use crate::metrics::MetricsParams;
 use crate::rpc::{EthereumRpc, SubstrateRpc};
 use crate::rpc_errors::RpcError;
@@ -58,15 +59,17 @@ pub enum ExchangeRelayMode {
 #[derive(Debug)]
 pub struct EthereumExchangeParams {
 	/// Ethereum connection params.
-	pub eth: EthereumConnectionParams,
+	pub eth_params: EthereumConnectionParams,
 	/// Substrate connection params.
-	pub sub: SubstrateConnectionParams,
+	pub sub_params: SubstrateConnectionParams,
 	/// Substrate signing params.
 	pub sub_sign: SubstrateSigningParams,
 	/// Relay working mode.
 	pub mode: ExchangeRelayMode,
 	/// Metrics parameters.
 	pub metrics_params: Option<MetricsParams>,
+	/// Instance of the bridge pallet being synchronized.
+	pub instance: Box<dyn BridgeInstance>,
 }
 
 /// Ethereum to Substrate exchange pipeline.
@@ -253,18 +256,6 @@ impl TargetClient<EthereumToSubstrateExchange> for SubstrateTransactionsTarget {
 	}
 }
 
-impl Default for EthereumExchangeParams {
-	fn default() -> Self {
-		EthereumExchangeParams {
-			eth: Default::default(),
-			sub: Default::default(),
-			sub_sign: Default::default(),
-			mode: ExchangeRelayMode::Auto(None),
-			metrics_params: Some(Default::default()),
-		}
-	}
-}
-
 /// Relay exchange transaction proof(s) to Substrate node.
 pub fn run(params: EthereumExchangeParams) {
 	match params.mode {
@@ -279,14 +270,22 @@ pub fn run(params: EthereumExchangeParams) {
 fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H256) {
 	let mut local_pool = futures::executor::LocalPool::new();
 
+	let EthereumExchangeParams {
+		eth_params,
+		sub_params,
+		sub_sign,
+		instance,
+		..
+	} = params;
+
 	let result = local_pool.run_until(async move {
-		let eth_client = EthereumRpcClient::new(params.eth);
-		let sub_client = SubstrateRpcClient::new(params.sub).await?;
+		let eth_client = EthereumRpcClient::new(eth_params);
+		let sub_client = SubstrateRpcClient::new(sub_params, instance).await?;
 
 		let source = EthereumTransactionsSource { client: eth_client };
 		let target = SubstrateTransactionsTarget {
 			client: sub_client,
-			sign_params: params.sub_sign,
+			sign_params: sub_sign,
 		};
 
 		relay_single_transaction_proof(&source, &target, eth_tx_hash).await
@@ -313,9 +312,18 @@ fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H25
 
 /// Run auto-relay loop.
 fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_with_block_number: Option<u64>) {
+	let EthereumExchangeParams {
+		eth_params,
+		sub_params,
+		sub_sign,
+		metrics_params,
+		instance,
+		..
+	} = params;
+
 	let do_run_loop = move || -> Result<(), String> {
-		let eth_client = EthereumRpcClient::new(params.eth);
-		let sub_client = async_std::task::block_on(SubstrateRpcClient::new(params.sub))
+		let eth_client = EthereumRpcClient::new(eth_params);
+		let sub_client = async_std::task::block_on(SubstrateRpcClient::new(sub_params, instance))
 			.map_err(|err| format!("Error starting Substrate client: {:?}", err))?;
 
 		let eth_start_with_block_number = match eth_start_with_block_number {
@@ -337,9 +345,9 @@ fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_wi
 			EthereumTransactionsSource { client: eth_client },
 			SubstrateTransactionsTarget {
 				client: sub_client,
-				sign_params: params.sub_sign,
+				sign_params: sub_sign,
 			},
-			params.metrics_params,
+			metrics_params,
 			futures::future::pending(),
 		);
 

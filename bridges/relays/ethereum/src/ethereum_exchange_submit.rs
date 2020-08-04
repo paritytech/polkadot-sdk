@@ -21,7 +21,6 @@ use crate::ethereum_types::{CallRequest, U256};
 use crate::rpc::EthereumRpc;
 
 use bridge_node_runtime::exchange::LOCK_FUNDS_ADDRESS;
-use hex_literal::hex;
 use sp_bridge_eth_poa::{
 	signatures::{SecretKey, SignTransaction},
 	UnsignedTransaction,
@@ -31,7 +30,7 @@ use sp_bridge_eth_poa::{
 #[derive(Debug)]
 pub struct EthereumExchangeSubmitParams {
 	/// Ethereum connection params.
-	pub eth: EthereumConnectionParams,
+	pub eth_params: EthereumConnectionParams,
 	/// Ethereum signing params.
 	pub eth_sign: EthereumSigningParams,
 	/// Ethereum signer nonce.
@@ -42,28 +41,24 @@ pub struct EthereumExchangeSubmitParams {
 	pub sub_recipient: [u8; 32],
 }
 
-impl Default for EthereumExchangeSubmitParams {
-	fn default() -> Self {
-		EthereumExchangeSubmitParams {
-			eth: Default::default(),
-			eth_sign: Default::default(),
-			eth_nonce: None,
-			eth_amount: 1_000_000_000_000_000_000_u64.into(), // 1 ETH
-			sub_recipient: hex!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c"), // ferdie
-		}
-	}
-}
-
 /// Submit single Ethereum -> Substrate exchange transaction.
 pub fn run(params: EthereumExchangeSubmitParams) {
 	let mut local_pool = futures::executor::LocalPool::new();
 
-	let result: Result<_, String> = local_pool.run_until(async move {
-		let eth_client = EthereumRpcClient::new(params.eth);
+	let EthereumExchangeSubmitParams {
+		eth_params,
+		eth_sign,
+		eth_nonce,
+		eth_amount,
+		sub_recipient,
+	} = params;
 
-		let eth_signer_address = params.eth_sign.signer.address();
-		let sub_recipient_encoded = params.sub_recipient;
-		let nonce = match params.eth_nonce {
+	let result: Result<_, String> = local_pool.run_until(async move {
+		let eth_client = EthereumRpcClient::new(eth_params);
+
+		let eth_signer_address = eth_sign.signer.address();
+		let sub_recipient_encoded = sub_recipient;
+		let nonce = match eth_nonce {
 			Some(eth_nonce) => eth_nonce,
 			None => eth_client
 				.account_nonce(eth_signer_address)
@@ -74,7 +69,7 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 			.estimate_gas(CallRequest {
 				from: Some(eth_signer_address),
 				to: Some(LOCK_FUNDS_ADDRESS.into()),
-				value: Some(params.eth_amount),
+				value: Some(eth_amount),
 				data: Some(sub_recipient_encoded.to_vec().into()),
 				..Default::default()
 			})
@@ -82,16 +77,16 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 			.map_err(|err| format!("error estimating gas requirements: {:?}", err))?;
 		let eth_tx_unsigned = UnsignedTransaction {
 			nonce,
-			gas_price: params.eth_sign.gas_price,
+			gas_price: eth_sign.gas_price,
 			gas,
 			to: Some(LOCK_FUNDS_ADDRESS.into()),
-			value: params.eth_amount,
+			value: eth_amount,
 			payload: sub_recipient_encoded.to_vec(),
 		};
 		let eth_tx_signed = eth_tx_unsigned.clone().sign_by(
-			&SecretKey::parse(params.eth_sign.signer.secret().as_fixed_bytes())
+			&SecretKey::parse(eth_sign.signer.secret().as_fixed_bytes())
 				.expect("key is accepted by secp256k1::KeyPair and thus is valid; qed"),
-			Some(params.eth_sign.chain_id),
+			Some(eth_sign.chain_id),
 		);
 		eth_client
 			.submit_transaction(eth_tx_signed)

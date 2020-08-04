@@ -17,6 +17,7 @@
 use crate::ethereum_client::{
 	bridge_contract, EthereumConnectionParams, EthereumHighLevelRpc, EthereumRpcClient, EthereumSigningParams,
 };
+use crate::instances::BridgeInstance;
 use crate::rpc::SubstrateRpc;
 use crate::substrate_client::{SubstrateConnectionParams, SubstrateRpcClient};
 use crate::substrate_types::{Hash as SubstrateHash, Header as SubstrateHeader, SubstrateHeaderId};
@@ -29,50 +30,48 @@ use num_traits::Zero;
 #[derive(Debug)]
 pub struct EthereumDeployContractParams {
 	/// Ethereum connection params.
-	pub eth: EthereumConnectionParams,
+	pub eth_params: EthereumConnectionParams,
 	/// Ethereum signing params.
 	pub eth_sign: EthereumSigningParams,
 	/// Ethereum contract bytecode.
 	pub eth_contract_code: Vec<u8>,
 	/// Substrate connection params.
-	pub sub: SubstrateConnectionParams,
+	pub sub_params: SubstrateConnectionParams,
 	/// Initial authorities set id.
 	pub sub_initial_authorities_set_id: Option<u64>,
 	/// Initial authorities set.
 	pub sub_initial_authorities_set: Option<Vec<u8>>,
 	/// Initial header.
 	pub sub_initial_header: Option<Vec<u8>>,
-}
-
-impl Default for EthereumDeployContractParams {
-	fn default() -> Self {
-		EthereumDeployContractParams {
-			eth: Default::default(),
-			eth_sign: Default::default(),
-			eth_contract_code: hex::decode(include_str!("../res/substrate-bridge-bytecode.hex"))
-				.expect("code is hardcoded, thus valid; qed"),
-			sub: Default::default(),
-			sub_initial_authorities_set_id: None,
-			sub_initial_authorities_set: None,
-			sub_initial_header: None,
-		}
-	}
+	/// Instance of the bridge pallet being synchronized.
+	pub instance: Box<dyn BridgeInstance>,
 }
 
 /// Deploy Bridge contract on Ethereum chain.
 pub fn run(params: EthereumDeployContractParams) {
 	let mut local_pool = futures::executor::LocalPool::new();
 
-	let result = local_pool.run_until(async move {
-		let eth_client = EthereumRpcClient::new(params.eth);
-		let sub_client = SubstrateRpcClient::new(params.sub).await?;
+	let EthereumDeployContractParams {
+		eth_params,
+		eth_sign,
+		sub_params,
+		instance,
+		sub_initial_authorities_set_id,
+		sub_initial_authorities_set,
+		sub_initial_header,
+		eth_contract_code,
+	} = params;
 
-		let (initial_header_id, initial_header) = prepare_initial_header(&sub_client, params.sub_initial_header).await?;
-		let initial_set_id = params.sub_initial_authorities_set_id.unwrap_or(0);
+	let result = local_pool.run_until(async move {
+		let eth_client = EthereumRpcClient::new(eth_params);
+		let sub_client = SubstrateRpcClient::new(sub_params, instance).await?;
+
+		let (initial_header_id, initial_header) = prepare_initial_header(&sub_client, sub_initial_header).await?;
+		let initial_set_id = sub_initial_authorities_set_id.unwrap_or(0);
 		let initial_set = prepare_initial_authorities_set(
 			&sub_client,
 			initial_header_id.1,
-			params.sub_initial_authorities_set,
+			sub_initial_authorities_set,
 		).await?;
 
 		log::info!(
@@ -87,8 +86,8 @@ pub fn run(params: EthereumDeployContractParams) {
 
 		deploy_bridge_contract(
 			&eth_client,
-			&params.eth_sign,
-			params.eth_contract_code,
+			&eth_sign,
+			eth_contract_code,
 			initial_header,
 			initial_set_id,
 			initial_set,
