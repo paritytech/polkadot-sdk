@@ -5,12 +5,12 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-test-client = { package = "substrate-test-client", git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+test-client = { package = "substrate-test-client", git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 runtime = { package = "cumulus-test-runtime", path = "../runtime" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
-sp-test-primitives = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sp-test-primitives = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }

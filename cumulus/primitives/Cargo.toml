@@ -6,20 +6,20 @@ edition = "2018"
 
 [dependencies]
 # Substrate dependencies
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
 
 # Polkadot dependencies
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
 impl-trait-for-tuples = "0.1.3"
 
 # Polkadot dependencies
-polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
+polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
 
 [features]
 default = [ "std" ]

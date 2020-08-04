@@ -25,8 +25,9 @@ pub use polkadot_core_primitives::DownwardMessage;
 /// It is "generic" in such a way, that the actual message is encoded in the `data` field.
 /// Besides the `data` it also holds the `origin` of the message.
 pub use polkadot_parachain::primitives::UpwardMessage as GenericUpwardMessage;
-pub use polkadot_parachain::primitives::ParachainDispatchOrigin as UpwardMessageOrigin;
-pub use polkadot_parachain::primitives::Id as ParaId;
+pub use polkadot_parachain::primitives::{
+	Id as ParaId, ParachainDispatchOrigin as UpwardMessageOrigin,
+};
 
 pub mod validation_function_params;
 pub mod xcmp;
@@ -47,7 +48,8 @@ pub mod inherents {
 	/// The identifier for the `validation_function_params` inherent.
 	pub const VALIDATION_FUNCTION_PARAMS_IDENTIFIER: InherentIdentifier = *b"valfunp0";
 	/// The type of the inherent.
-	pub type ValidationFunctionParamsType = crate::validation_function_params::ValidationFunctionParams;
+	pub type ValidationFunctionParamsType =
+		crate::validation_function_params::ValidationFunctionParams;
 }
 
 /// Well known keys for values in the storage.

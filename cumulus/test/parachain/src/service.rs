@@ -112,9 +112,6 @@ pub fn run_collator(
 	if matches!(parachain_config.role, Role::Light) {
 		return Err("Light client not supported!".into());
 	}
-	if matches!(polkadot_config.role, Role::Light) {
-		return Err("Light client not supported!".into());
-	}
 
 	let mut parachain_config = prepare_collator_config(parachain_config);
 

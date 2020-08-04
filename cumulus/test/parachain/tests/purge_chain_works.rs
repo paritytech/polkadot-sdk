@@ -15,31 +15,38 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use assert_cmd::cargo::cargo_bin;
-use std::{convert::TryInto, process::Command, thread, time::Duration, fs, path::PathBuf};
+use std::{convert::TryInto, fs, path::PathBuf, process::Command, thread, time::Duration};
 
 mod common;
 
 #[test]
 #[cfg(unix)]
 fn purge_chain_works() {
-	use nix::sys::signal::{kill, Signal::SIGINT};
-	use nix::unistd::Pid;
+	use nix::{
+		sys::signal::{kill, Signal::SIGINT},
+		unistd::Pid,
+	};
 
 	let base_path = "purge_chain_test";
 
 	let _ = fs::remove_dir_all(base_path);
 	let mut cmd = Command::new(cargo_bin("cumulus-test-parachain-collator"))
-		.args(&["-d", base_path, "--dev", "--", "--dev"])
+		.args(&["-d", base_path, "--", "--dev"])
 		.spawn()
 		.unwrap();
 
 	// Let it produce some blocks.
 	thread::sleep(Duration::from_secs(30));
-	assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
+	assert!(
+		cmd.try_wait().unwrap().is_none(),
+		"the process should still be running"
+	);
 
 	// Stop the process
 	kill(Pid::from_raw(cmd.id().try_into().unwrap()), SIGINT).unwrap();
-	assert!(common::wait_for(&mut cmd, 30).map(|x| x.success()).unwrap_or_default());
+	assert!(common::wait_for(&mut cmd, 30)
+		.map(|x| x.success())
+		.unwrap_or_default());
 
 	let status = Command::new(cargo_bin("cumulus-test-parachain-collator"))
 		.args(&["purge-chain", "-d", base_path, "-y"])
@@ -48,6 +55,10 @@ fn purge_chain_works() {
 	assert!(status.success());
 
 	// Make sure that the `parachain_local_testnet` chain folder exists, but the `db` is deleted.
-	assert!(PathBuf::from(base_path).join("chains/local_testnet/").exists());
-	assert!(!PathBuf::from(base_path).join("chains/local_testnet/db").exists());
+	assert!(PathBuf::from(base_path)
+		.join("chains/local_testnet/")
+		.exists());
+	assert!(!PathBuf::from(base_path)
+		.join("chains/local_testnet/db")
+		.exists());
 }

@@ -18,76 +18,46 @@ A planned wrapper around substrate runtimes to turn them into parachain validati
 
 A planned Polkadot collator for the parachain.
 
-## Running a collator
+## Rococo
 
-1. Checkout polkadot at `96f5dc510ef770fd5c5ab57a90565bb5819bbbea`.
+Rococo is the testnet for parachains. It currently runs the parachains `Tick`, `Trick` and `Track`.
 
-2. Run `Alice` and `Bob`:
+### Running a collator
 
-	`cargo run --release -- --chain=${CUMULUS_REPO}/test/parachain/res/polkadot_chainspec.json --base-path=cumulus_relay_chain_node_0 --alice`
+Collators are similar to validators in the relay chain. These nodes build the blocks that will eventually be included by the relay chain for a parachain.
 
-	`cargo run --release -- --chain=${CUMULUS_REPO}/test/parachain/res/polkadot_chainspec.json --base-path=cumulus_relay_chain_node_1 --bob --port 50666`
+To run a collator on this test network you will need to compile the following binary:
 
-    Where `CUMULUS_REPO` is the path to the checkout of Cumulus.
-
-3. Switch back to this repository and generate the parachain genesis state:
-
-	`cargo run --release -p cumulus-test-parachain-collator -- export-genesis-state genesis-state`
-
-4. Run the collator:
-
-	`cargo run --release -p cumulus-test-parachain-collator -- --base-path cumulus_collator_path -- --bootnodes=/ip4/127.0.0.1/tcp/30333/p2p/PEER_ID_${NAME} --bootnodes=/ip4/127.0.0.1/tcp/50666/p2p/PEER_ID_${NAME}`
-
-	`PEER_ID_${NAME}` needs to be replaced with the peer id of the polkadot validator that uses `${NAME}`
-	as authority. The `--` after `--base-path cumulus_collator_path` is important, it tells the CLI to pass these arguments
-	to the relay chain node that is running inside of the collator.
-
-5. Open `https://polkadot.js.org/apps/#/sudo` and register the parachain by calling `Registrar > RegisterPara`
-
-	`id`: `100`
-
-	`ParaInfo`: `Always`
-
-	`code`: `CUMULUS_REPO/target/release/wbuild/cumulus-test-parachain-runtime/cumulus_test_parachain_runtime.compact.wasm`
-
-	`initial_head_data`: Use the file you generated in step 3. (name: genesis-state)
-
-	Now your parachain should be registered and the collator should start building blocks and sending
-	them to the relay chain.
-
-6. Now the `collator` should build blocks and the relay-chain should include them. You can check that the `parachain-header` for parachain `100` is changing.
-
-### Running the collator automatically
-
-To simplify the above process, you can run steps 1-5 above automatically:
-
-```sh
-scripts/build_polkadot.sh
-scripts/run_collator.sh
+```
+cargo build --release -p cumulus-test-parachain-collator
 ```
 
-This will churn for several minutes, but should end with docker reporting that several containers have successfully been brought up.
+After the build is finished you can use the binary to run a collator for all three parachains:
 
-To run step 6, first set up an alias which gives you quick access to the polkadot-js CLI:
-
-```sh
-docker build -f docker/parachain-registrar.dockerfile --target pjs -t parachain-registrar:pjs .
-alias pjs='docker run --rm --net cumulus_testing_net parachain-registrar:pjs --ws ws://172.28.1.1:9944'
+```
+./target/release/cumulus-test-parachain-collator --chain tick --validator
 ```
 
-Those steps should complete very quickly. At that point, you can do things like:
+This will run the collator for the `Tick` parachain. To run a collator for one of the other nodes, the chain argument needs to be changed.
 
-```sh
-$ pjs query.parachains.heads 100
-{
-  "heads": "0xe1efbf8cc2e1304da927986f4cd6964ce0888ce3995948bf71fe427b1a9d39b02101d2dac9c5342d7e8c4f4de2f5277ef860b3a518c1cd823b9a8cee175dce11bf7f57c5016e8a60a6cec16244b2cbf81a67a1dc7a825c288fc694997bc70e2d456400"
-}
+### Running a full node
+
+To run a full node that should sync one of the parachains, you need to compile the following binary:
+
+```
+cargo build --release -p cumulus-test-parachain-collator
 ```
 
-The collator includes its own health check, which you can inspect with
+After the build is finished you can use the binary to run a collator for all three parachains:
 
-```sh
-docker inspect --format='{{json .State.Health}}' cumulus_collator_1
+```
+./target/release/cumulus-test-parachain-collator --chain tick
 ```
 
-The check runs every 5 minutes, and takes about a minute to complete each time. Most of that time is spent sleeping; it remains a very lightweight process.
+### Tick, Trick and Track
+
+These are the parachains of Rococo, essentially all run the exact same runtime code. The only difference is the parachain ID they are registered
+with on the relay chain. `Tick` is using `100`, `Trick` `110` and `Track` `120`. The parachains demonstrate message
+passing between themselves and the relay chain. The message passing is currently implemented as a
+HRMP (Horizontal Message Passing). This means that every message is send to the relay chain and from the relay
+chain to its destination parachain.

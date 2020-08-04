@@ -6,16 +6,17 @@ edition = "2018"
 
 [dependencies]
 # Substrate dependencies
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
 
 # Polkadot deps
-polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
+polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
 
 # All these should be optional dependenices, but given the perfect Cargo, it is not possible.
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
-kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
-westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch", default-features = false }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
+kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
+westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
+rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -24,6 +25,7 @@ std = [
 	"polkadot-runtime/std",
 	"kusama-runtime/std",
 	"westend-runtime/std",
+	"rococo-runtime/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain/std",
 ]
@@ -35,5 +37,6 @@ std = [
 runtime-wasm = [
 	"polkadot-runtime/disable-runtime-api",
 	"westend-runtime/disable-runtime-api",
+	"rococo-runtime/disable-runtime-api",
 	"kusama-runtime/disable-runtime-api",
 ]

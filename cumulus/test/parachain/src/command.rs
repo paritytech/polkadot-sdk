@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec;
-use crate::cli::{Cli, PolkadotCli, Subcommand};
+use crate::{
+	chain_spec,
+	cli::{Cli, RelayChainCli, Subcommand},
+};
 use codec::Encode;
 use cumulus_primitives::ParaId;
 use log::info;
@@ -27,11 +29,8 @@ use sc_cli::{
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::{
-	traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero},
-	BuildStorage,
-};
-use std::{net::SocketAddr, sync::Arc};
+use sp_runtime::traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero};
+use std::{io::Write, net::SocketAddr, sync::Arc};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -64,11 +63,27 @@ impl SubstrateCli for Cli {
 		2017
 	}
 
-	fn load_spec(&self, _id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		// Such a hack :(
-		Ok(Box::new(chain_spec::get_chain_spec(
-			self.run.parachain_id.into(),
-		)))
+	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+		match id {
+			"staging" => Ok(Box::new(chain_spec::staging_test_net(
+				self.run.parachain_id.unwrap_or(100).into(),
+			))),
+			"tick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+				&include_bytes!("../res/tick.json")[..],
+			)?)),
+			"trick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+				&include_bytes!("../res/trick.json")[..],
+			)?)),
+			"track" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+				&include_bytes!("../res/track.json")[..],
+			)?)),
+			"" => Ok(Box::new(chain_spec::get_chain_spec(
+				self.run.parachain_id.unwrap_or(100).into(),
+			))),
+			path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
+				path.into(),
+			)?)),
+		}
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -76,7 +91,7 @@ impl SubstrateCli for Cli {
 	}
 }
 
-impl SubstrateCli for PolkadotCli {
+impl SubstrateCli for RelayChainCli {
 	fn impl_name() -> String {
 		"Cumulus Test Parachain Collator".into()
 	}
@@ -106,7 +121,7 @@ impl SubstrateCli for PolkadotCli {
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		polkadot_cli::Cli::from_iter([PolkadotCli::executable_name().to_string()].iter())
+		polkadot_cli::Cli::from_iter([RelayChainCli::executable_name().to_string()].iter())
 			.load_spec(id)
 	}
 
@@ -115,9 +130,8 @@ impl SubstrateCli for PolkadotCli {
 	}
 }
 
-/// Generate the genesis block
-pub fn generate_genesis_state(para_id: ParaId) -> Result<Block> {
-	let storage = (&chain_spec::get_chain_spec(para_id)).build_storage()?;
+pub fn generate_genesis_state(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<Block> {
+	let storage = chain_spec.build_storage()?;
 
 	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
 		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
@@ -144,6 +158,15 @@ pub fn generate_genesis_state(para_id: ParaId) -> Result<Block> {
 	))
 }
 
+fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<Vec<u8>> {
+	let mut storage = chain_spec.build_storage()?;
+
+	storage
+		.top
+		.remove(sp_core::storage::well_known_keys::CODE)
+		.ok_or_else(|| "Could not find wasm file in genesis state!".into())
+}
+
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
 	let cli = Cli::from_args();
@@ -166,7 +189,8 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisState(params)) => {
 			sc_cli::init_logger("");
 
-			let block = generate_genesis_state(params.parachain_id.into())?;
+			let block =
+				generate_genesis_state(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
 			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
 			if let Some(output) = &params.output {
@@ -177,29 +201,47 @@ pub fn run() -> Result<()> {
 
 			Ok(())
 		}
+		Some(Subcommand::ExportGenesisWasm(params)) => {
+			sc_cli::init_logger("");
+
+			let wasm_file =
+				extract_genesis_wasm(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
+
+			if let Some(output) = &params.output {
+				std::fs::write(output, wasm_file)?;
+			} else {
+				std::io::stdout().write_all(&wasm_file)?;
+			}
+
+			Ok(())
+		}
 		None => {
 			let runner = cli.create_runner(&*cli.run)?;
 
-			// TODO
-			let key = Arc::new(sp_core::Pair::generate().0);
-
-			let mut polkadot_cli = PolkadotCli::from_iter(
-				[PolkadotCli::executable_name().to_string()]
-					.iter()
-					.chain(cli.relaychain_args.iter()),
-			);
-
-			let id = ParaId::from(cli.run.parachain_id);
-
-			let parachain_account =
-				AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
-
-			let block = generate_genesis_state(id)?;
-			let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
-
 			runner.run_node_until_exit(|config| {
-				polkadot_cli.base_path =
-					config.base_path.as_ref().map(|x| x.path().join("polkadot"));
+				// TODO
+				let key = Arc::new(sp_core::Pair::generate().0);
+
+				let extension = chain_spec::Extensions::try_get(&config.chain_spec);
+				let relay_chain_id = extension.map(|e| e.relay_chain.clone());
+				let para_id = extension.map(|e| e.para_id);
+
+				let polkadot_cli = RelayChainCli::new(
+					config.base_path.as_ref().map(|x| x.path().join("polkadot")),
+					relay_chain_id,
+					[RelayChainCli::executable_name().to_string()]
+						.iter()
+						.chain(cli.relaychain_args.iter()),
+				);
+
+				let id = ParaId::from(cli.run.parachain_id.or(para_id).unwrap_or(100));
+
+				let parachain_account =
+					AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
+
+				let block =
+					generate_genesis_state(&config.chain_spec).map_err(|e| format!("{:?}", e))?;
+				let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
 				let task_executor = config.task_executor.clone();
 				let polkadot_config =
@@ -227,7 +269,7 @@ pub fn run() -> Result<()> {
 	}
 }
 
-impl CliConfiguration for PolkadotCli {
+impl CliConfiguration for RelayChainCli {
 	fn shared_params(&self) -> &SharedParams {
 		self.base.base.shared_params()
 	}
@@ -308,6 +350,16 @@ impl CliConfiguration for PolkadotCli {
 
 	fn init<C: SubstrateCli>(&self) -> Result<()> {
 		unreachable!("PolkadotCli is never initialized; qed");
+	}
+
+	fn chain_id(&self, is_dev: bool) -> Result<String> {
+		let chain_id = self.base.base.chain_id(is_dev)?;
+
+		Ok(if chain_id.is_empty() {
+			self.chain_id.clone().unwrap_or_default()
+		} else {
+			chain_id
+		})
 	}
 
 	fn role(&self, is_dev: bool) -> Result<sc_service::Role> {

@@ -7,19 +7,19 @@ edition = "2018"
 
 [dependencies]
 # substrate deps
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
-substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 
 # polkadot deps
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "cumulus-branch" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
 
 # other deps
 futures = { version = "0.3.1", features = ["compat"] }

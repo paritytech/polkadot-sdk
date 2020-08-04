@@ -14,15 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
 
-//! Kusama upward message
+//! Rococo upward message
 
 use crate::*;
-use kusama_runtime::{BalancesCall, ParachainsCall};
 use polkadot_core_primitives::{AccountId, Balance};
+use rococo_runtime::{BalancesCall, ParachainsCall};
 use sp_std::vec::Vec;
 
-/// The Kusama upward message.
-pub type UpwardMessage = kusama_runtime::Call;
+/// The Rococo upward message.
+pub type UpwardMessage = rococo_runtime::Call;
 
 impl BalancesMessage<AccountId, Balance> for UpwardMessage {
 	fn transfer(dest: AccountId, amount: Balance) -> Self {

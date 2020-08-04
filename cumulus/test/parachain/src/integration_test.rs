@@ -60,8 +60,7 @@ async fn integration_test() {
 		INTEGRATION_TEST_ALLOWED_TIME
 			.and_then(|x| x.parse().ok())
 			.unwrap_or(600),
-	))
-	.fuse();
+	)).fuse();
 
 	let t2 = async {
 		let para_id = ParaId::from(100);
@@ -69,7 +68,8 @@ async fn integration_test() {
 		future::join(alice.wait_for_blocks(2), bob.wait_for_blocks(2)).await;
 
 		// export genesis state
-		let genesis_state = crate::command::generate_genesis_state(para_id)
+		let spec = crate::chain_spec::get_chain_spec(para_id);
+		let genesis_state = crate::command::generate_genesis_state(&(Box::new(spec) as Box<_>))
 			.unwrap()
 			.encode();
 

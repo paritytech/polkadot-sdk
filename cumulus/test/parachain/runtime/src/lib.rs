@@ -101,11 +101,11 @@ pub mod opaque {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("wasm-test-parachain"),
-	impl_name: create_runtime_str!("wasm-test-parachain"),
-	authoring_version: 3,
-	spec_version: 4,
-	impl_version: 4,
+	spec_name: create_runtime_str!("cumulus-test-parachain"),
+	impl_name: create_runtime_str!("cumulus-test-parachain"),
+	authoring_version: 1,
+	spec_version: 1,
+	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 };
@@ -250,7 +250,7 @@ parameter_types! {
 impl cumulus_message_broker::Trait for Runtime {
 	type Event = Event;
 	type DownwardMessageHandlers = TokenDealer;
-	type UpwardMessage = cumulus_upward_message::WestendUpwardMessage;
+	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
 	type ParachainId = ParachainId;
 	type XCMPMessage = XCMPMessage<AccountId, Balance>;
 	type XCMPMessageHandlers = TokenDealer;
@@ -259,7 +259,7 @@ impl cumulus_message_broker::Trait for Runtime {
 impl message_example::Trait for Runtime {
 	type Event = Event;
 	type UpwardMessageSender = MessageBroker;
-	type UpwardMessage = cumulus_upward_message::WestendUpwardMessage;
+	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
 	type Currency = Balances;
 	type XCMPMessageSender = MessageBroker;
 }

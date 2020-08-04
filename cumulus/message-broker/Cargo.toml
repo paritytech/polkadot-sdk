@@ -6,12 +6,12 @@ edition = "2018"
 
 [dependencies]
 # substrate deps
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "cumulus-branch", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "1.3.0", features = [ "derive" ], default-features = false }

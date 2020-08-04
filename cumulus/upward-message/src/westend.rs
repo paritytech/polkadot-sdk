@@ -17,9 +17,9 @@
 //! Westend upward message
 
 use crate::*;
-use polkadot_core_primitives::{Balance, AccountId};
-use westend_runtime::{BalancesCall, ParachainsCall};
+use polkadot_core_primitives::{AccountId, Balance};
 use sp_std::vec::Vec;
+use westend_runtime::{BalancesCall, ParachainsCall};
 
 /// The Westend upward message.
 pub type UpwardMessage = westend_runtime::Call;
