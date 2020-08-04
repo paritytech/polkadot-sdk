@@ -26,6 +26,7 @@ mod exchange;
 mod exchange_loop;
 mod exchange_loop_metrics;
 mod headers;
+mod instances;
 mod metrics;
 mod rpc;
 mod rpc_errors;
@@ -40,12 +41,19 @@ mod sync_types;
 mod utils;
 
 use ethereum_client::{EthereumConnectionParams, EthereumSigningParams};
+use ethereum_deploy_contract::EthereumDeployContractParams;
+use ethereum_exchange::EthereumExchangeParams;
+use ethereum_exchange_submit::EthereumExchangeSubmitParams;
 use ethereum_sync_loop::EthereumSyncParams;
+use hex_literal::hex;
+use instances::{BridgeInstance, Kovan, Rialto};
 use parity_crypto::publickey::{KeyPair, Secret};
 use sp_core::crypto::Pair;
-use std::io::Write;
 use substrate_client::{SubstrateConnectionParams, SubstrateSigningParams};
 use substrate_sync_loop::SubstrateSyncParams;
+use sync::HeadersSyncParams;
+
+use std::io::Write;
 
 fn main() {
 	initialize();
@@ -210,110 +218,134 @@ fn substrate_signing_params(matches: &clap::ArgMatches) -> Result<SubstrateSigni
 }
 
 fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams, String> {
-	let mut eth_sync_params = EthereumSyncParams::default();
-	eth_sync_params.eth = ethereum_connection_params(matches)?;
-	eth_sync_params.sub = substrate_connection_params(matches)?;
-	eth_sync_params.sub_sign = substrate_signing_params(matches)?;
-	eth_sync_params.metrics_params = metrics_params(matches)?;
+	let mut sync_params = HeadersSyncParams::ethereum_sync_default();
 
 	match matches.value_of("sub-tx-mode") {
-		Some("signed") => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
+		Some("signed") => sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
 		Some("unsigned") => {
-			eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Unsigned;
+			sync_params.target_tx_mode = sync::TargetTransactionMode::Unsigned;
 
 			// tx pool won't accept too much unsigned transactions
-			eth_sync_params.sync_params.max_headers_in_submitted_status = 10;
+			sync_params.max_headers_in_submitted_status = 10;
 		}
-		Some("backup") => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Backup,
+		Some("backup") => sync_params.target_tx_mode = sync::TargetTransactionMode::Backup,
 		Some(mode) => return Err(format!("Invalid sub-tx-mode: {}", mode)),
-		None => eth_sync_params.sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
+		None => sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
 	}
 
-	log::debug!(target: "bridge", "Ethereum sync params: {:?}", eth_sync_params);
+	let params = EthereumSyncParams {
+		eth_params: ethereum_connection_params(matches)?,
+		sub_params: substrate_connection_params(matches)?,
+		sub_sign: substrate_signing_params(matches)?,
+		metrics_params: metrics_params(matches)?,
+		instance: instance_params(matches)?,
+		sync_params,
+	};
 
-	Ok(eth_sync_params)
+	log::debug!(target: "bridge", "Ethereum sync params: {:?}", params);
+
+	Ok(params)
 }
 
 fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncParams, String> {
-	let mut sub_sync_params = SubstrateSyncParams::default();
-	sub_sync_params.eth = ethereum_connection_params(matches)?;
-	sub_sync_params.eth_sign = ethereum_signing_params(matches)?;
-	sub_sync_params.sub = substrate_connection_params(matches)?;
-	sub_sync_params.metrics_params = metrics_params(matches)?;
-
-	if let Some(eth_contract) = matches.value_of("eth-contract") {
-		sub_sync_params.eth_contract_address = eth_contract.parse().map_err(|e| format!("{}", e))?;
-	}
-
-	log::debug!(target: "bridge", "Substrate sync params: {:?}", sub_sync_params);
-
-	Ok(sub_sync_params)
-}
-
-fn ethereum_deploy_contract_params(
-	matches: &clap::ArgMatches,
-) -> Result<ethereum_deploy_contract::EthereumDeployContractParams, String> {
-	let mut eth_deploy_params = ethereum_deploy_contract::EthereumDeployContractParams::default();
-	eth_deploy_params.eth = ethereum_connection_params(matches)?;
-	eth_deploy_params.eth_sign = ethereum_signing_params(matches)?;
-	eth_deploy_params.sub = substrate_connection_params(matches)?;
-
-	if let Some(eth_contract_code) = matches.value_of("eth-contract-code") {
-		eth_deploy_params.eth_contract_code =
-			hex::decode(&eth_contract_code).map_err(|e| format!("Failed to parse eth-contract-code: {}", e))?;
-	}
-
-	log::debug!(target: "bridge", "Deploy params: {:?}", eth_deploy_params);
-
-	Ok(eth_deploy_params)
-}
-
-fn ethereum_exchange_submit_params(
-	matches: &clap::ArgMatches,
-) -> Result<ethereum_exchange_submit::EthereumExchangeSubmitParams, String> {
-	let mut params = ethereum_exchange_submit::EthereumExchangeSubmitParams::default();
-	params.eth = ethereum_connection_params(matches)?;
-	params.eth_sign = ethereum_signing_params(matches)?;
-
-	if let Some(eth_nonce) = matches.value_of("eth-nonce") {
-		params.eth_nonce = Some(
-			ethereum_types::U256::from_dec_str(&eth_nonce).map_err(|e| format!("Failed to parse eth-nonce: {}", e))?,
-		);
-	}
-	if let Some(eth_amount) = matches.value_of("eth-amount") {
-		params.eth_amount = eth_amount
+	let eth_contract_address: ethereum_types::Address = if let Some(eth_contract) = matches.value_of("eth-contract") {
+		eth_contract.parse().map_err(|e| format!("{}", e))?
+	} else {
+		"731a10897d267e19b34503ad902d0a29173ba4b1"
 			.parse()
-			.map_err(|e| format!("Failed to parse eth-amount: {}", e))?;
-	}
-	if let Some(sub_recipient) = matches.value_of("sub-recipient") {
-		params.sub_recipient = hex::decode(&sub_recipient)
+			.expect("address is hardcoded, thus valid; qed")
+	};
+
+	let params = SubstrateSyncParams {
+		sub_params: substrate_connection_params(matches)?,
+		eth_params: ethereum_connection_params(matches)?,
+		eth_sign: ethereum_signing_params(matches)?,
+		metrics_params: metrics_params(matches)?,
+		instance: instance_params(matches)?,
+		sync_params: HeadersSyncParams::substrate_sync_default(),
+		eth_contract_address,
+	};
+
+	log::debug!(target: "bridge", "Substrate sync params: {:?}", params);
+
+	Ok(params)
+}
+
+fn ethereum_deploy_contract_params(matches: &clap::ArgMatches) -> Result<EthereumDeployContractParams, String> {
+	let eth_contract_code = if let Some(eth_contract_code) = matches.value_of("eth-contract-code") {
+		hex::decode(&eth_contract_code).map_err(|e| format!("Failed to parse eth-contract-code: {}", e))?
+	} else {
+		hex::decode(include_str!("../res/substrate-bridge-bytecode.hex")).expect("code is hardcoded, thus valid; qed")
+	};
+
+	let params = EthereumDeployContractParams {
+		eth_params: ethereum_connection_params(matches)?,
+		eth_sign: ethereum_signing_params(matches)?,
+		sub_params: substrate_connection_params(matches)?,
+		instance: instance_params(matches)?,
+		sub_initial_authorities_set_id: None,
+		sub_initial_authorities_set: None,
+		sub_initial_header: None,
+		eth_contract_code,
+	};
+
+	log::debug!(target: "bridge", "Deploy params: {:?}", params);
+
+	Ok(params)
+}
+
+fn ethereum_exchange_submit_params(matches: &clap::ArgMatches) -> Result<EthereumExchangeSubmitParams, String> {
+	let eth_nonce = if let Some(eth_nonce) = matches.value_of("eth-nonce") {
+		Some(ethereum_types::U256::from_dec_str(&eth_nonce).map_err(|e| format!("Failed to parse eth-nonce: {}", e))?)
+	} else {
+		None
+	};
+
+	let eth_amount = if let Some(eth_amount) = matches.value_of("eth-amount") {
+		eth_amount
+			.parse()
+			.map_err(|e| format!("Failed to parse eth-amount: {}", e))?
+	} else {
+		// This is in Wei, represents 1 ETH
+		1_000_000_000_000_000_000_u64.into()
+	};
+
+	// This is the well-known Substrate account of Ferdie
+	let default_recepient = hex!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c");
+
+	let sub_recipient = if let Some(sub_recipient) = matches.value_of("sub-recipient") {
+		hex::decode(&sub_recipient)
 			.map_err(|err| err.to_string())
 			.and_then(|vsub_recipient| {
-				let expected_len = params.sub_recipient.len();
+				let expected_len = default_recepient.len();
 				if expected_len != vsub_recipient.len() {
 					Err(format!("invalid length. Expected {} bytes", expected_len))
 				} else {
-					let mut sub_recipient = params.sub_recipient;
+					let mut sub_recipient = default_recepient;
 					sub_recipient.copy_from_slice(&vsub_recipient[..expected_len]);
 					Ok(sub_recipient)
 				}
 			})
-			.map_err(|e| format!("Failed to parse sub-recipient: {}", e))?;
-	}
+			.map_err(|e| format!("Failed to parse sub-recipient: {}", e))?
+	} else {
+		default_recepient
+	};
+
+	let params = EthereumExchangeSubmitParams {
+		eth_params: ethereum_connection_params(matches)?,
+		eth_sign: ethereum_signing_params(matches)?,
+		eth_nonce,
+		eth_amount,
+		sub_recipient,
+	};
 
 	log::debug!(target: "bridge", "Submit Ethereum exchange tx params: {:?}", params);
 
 	Ok(params)
 }
 
-fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<ethereum_exchange::EthereumExchangeParams, String> {
-	let mut params = ethereum_exchange::EthereumExchangeParams::default();
-	params.eth = ethereum_connection_params(matches)?;
-	params.sub = substrate_connection_params(matches)?;
-	params.sub_sign = substrate_signing_params(matches)?;
-	params.metrics_params = metrics_params(matches)?;
-
-	params.mode = match matches.value_of("eth-tx-hash") {
+fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchangeParams, String> {
+	let mode = match matches.value_of("eth-tx-hash") {
 		Some(eth_tx_hash) => ethereum_exchange::ExchangeRelayMode::Single(
 			eth_tx_hash
 				.parse()
@@ -327,6 +359,15 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<ethereum_excha
 			),
 			None => None,
 		}),
+	};
+
+	let params = EthereumExchangeParams {
+		eth_params: ethereum_connection_params(matches)?,
+		sub_params: substrate_connection_params(matches)?,
+		sub_sign: substrate_signing_params(matches)?,
+		metrics_params: metrics_params(matches)?,
+		instance: instance_params(matches)?,
+		mode,
 	};
 
 	log::debug!(target: "bridge", "Ethereum exchange params: {:?}", params);
@@ -351,4 +392,18 @@ fn metrics_params(matches: &clap::ArgMatches) -> Result<Option<metrics::MetricsP
 	}
 
 	Ok(Some(metrics_params))
+}
+
+fn instance_params(matches: &clap::ArgMatches) -> Result<Box<dyn BridgeInstance>, String> {
+	let instance: Box<dyn BridgeInstance> = if let Some(instance) = matches.value_of("sub-pallet-instance") {
+		match instance.to_lowercase().as_str() {
+			"rialto" => Box::new(Rialto::default()),
+			"kovan" => Box::new(Kovan::default()),
+			_ => return Err("Unsupported bridge pallet instance".to_string()),
+		}
+	} else {
+		unreachable!("CLI config enforces a default instance, can never be None")
+	};
+
+	Ok(instance)
 }
