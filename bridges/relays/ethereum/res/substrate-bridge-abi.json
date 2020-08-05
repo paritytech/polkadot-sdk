@@ -69,11 +69,26 @@
 		"inputs": [
 			{
 				"internalType": "bytes",
-				"name": "rawHeader",
+				"name": "rawHeader1",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "rawHeader2",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "rawHeader3",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "rawHeader4",
 				"type": "bytes"
 			}
 		],
-		"name": "importHeader",
+		"name": "importHeaders",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -100,16 +115,31 @@
 		"inputs": [
 			{
 				"internalType": "bytes",
-				"name": "rawHeader",
+				"name": "rawHeader1",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "rawHeader2",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "rawHeader3",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "rawHeader4",
 				"type": "bytes"
 			}
 		],
-		"name": "isIncompleteHeader",
+		"name": "isIncompleteHeaders",
 		"outputs": [
 			{
-				"internalType": "bool",
+				"internalType": "uint256",
 				"name": "",
-				"type": "bool"
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",
