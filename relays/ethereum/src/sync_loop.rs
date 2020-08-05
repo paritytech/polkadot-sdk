@@ -266,8 +266,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 								false => {
 									log::info!(
 										target: "bridge",
-										"Possible {} fork detected. Restarting {} headers synchronization.",
-										P::TARGET_NAME,
+										"Sync has stalled. Restarting {} headers synchronization.",
 										P::SOURCE_NAME,
 									);
 									stall_countdown = None;
@@ -308,16 +307,21 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 					// following line helps Rust understand the type of `submitted_headers` :/
 					let submitted_headers: SubmittedHeaders<HeaderIdOf<P>, TC::Error> = submitted_headers;
 					let submitted_headers_str = format!("{}", submitted_headers);
+					let all_headers_rejected = submitted_headers.submitted.is_empty()
+						&& submitted_headers.incomplete.is_empty();
+					let has_submitted_headers = sync.headers().headers_in_status(HeaderStatus::Submitted) != 0;
+
 					let maybe_fatal_error = match submitted_headers.fatal_error {
 						Some(fatal_error) => Err(StringifiedMaybeConnectionError::new(
 							fatal_error.is_connection_error(),
 							format!("{:?}", fatal_error),
 						)),
-						None if submitted_headers.submitted.is_empty() && submitted_headers.incomplete.is_empty() =>
+						None if all_headers_rejected && !has_submitted_headers =>
 							Err(StringifiedMaybeConnectionError::new(false, "All headers were rejected".into())),
 						None => Ok(()),
 					};
 
+					let no_fatal_error = maybe_fatal_error.is_ok();
 					target_client_is_online = process_future_result(
 						maybe_fatal_error,
 						&mut target_retry_backoff,
@@ -331,6 +335,12 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 
 					sync.headers_mut().headers_submitted(submitted_headers.submitted);
 					sync.headers_mut().add_incomplete_headers(submitted_headers.incomplete);
+
+					// when there's no fatal error, but node has rejected all our headers we may
+					// want to pause until our submitted headers will be accepted
+					if no_fatal_error && all_headers_rejected && has_submitted_headers {
+						sync.pause_submit();
+					}
 				},
 				target_complete_header_result = target_complete_header_future => {
 					target_client_is_online = process_future_result(

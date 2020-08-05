@@ -100,6 +100,8 @@ pub enum EthereumNodeError {
 	/// An invalid Substrate block number was received from
 	/// an Ethereum node.
 	InvalidSubstrateBlockNumber,
+	/// An invalid index has been received from an Ethereum node.
+	InvalidIncompleteIndex,
 }
 
 impl ToString for EthereumNodeError {
@@ -112,6 +114,7 @@ impl ToString for EthereumNodeError {
 			}
 			Self::IncompleteTransaction => "Incomplete Ethereum Transaction (missing required field - raw)".to_string(),
 			Self::InvalidSubstrateBlockNumber => "Received an invalid Substrate block from Ethereum Node".to_string(),
+			Self::InvalidIncompleteIndex => "Received an invalid incomplete index from Ethereum Node".to_string(),
 		}
 	}
 }
