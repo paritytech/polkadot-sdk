@@ -39,7 +39,7 @@ const ETH_API_BEST_FINALIZED_BLOCK: &str = "RialtoHeaderApi_finalized_block";
 const EXCH_API_FILTER_TRANSACTION_PROOF: &str = "RialtoCurrencyExchangeApi_filter_transaction_proof";
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 
-type Result<T> = std::result::Result<T, RpcError>;
+type RpcResult<T> = std::result::Result<T, RpcError>;
 type GrandpaAuthorityList = Vec<u8>;
 
 /// Substrate connection params.
@@ -93,7 +93,7 @@ pub struct SubstrateRpcClient {
 
 impl SubstrateRpcClient {
 	/// Returns client that is able to call RPCs on Substrate node.
-	pub async fn new(params: SubstrateConnectionParams, instance: Box<dyn BridgeInstance>) -> Result<Self> {
+	pub async fn new(params: SubstrateConnectionParams, instance: Box<dyn BridgeInstance>) -> RpcResult<Self> {
 		let uri = format!("http://{}:{}", params.host, params.port);
 		let transport = HttpTransportClient::new(&uri);
 		let raw_client = RawClient::new(transport);
@@ -112,32 +112,32 @@ impl SubstrateRpcClient {
 
 #[async_trait]
 impl SubstrateRpc for SubstrateRpcClient {
-	async fn best_header(&self) -> Result<SubstrateHeader> {
+	async fn best_header(&self) -> RpcResult<SubstrateHeader> {
 		Ok(Substrate::chain_get_header(&self.client, None).await?)
 	}
 
-	async fn get_block(&self, block_hash: Option<Hash>) -> Result<SignedSubstrateBlock> {
+	async fn get_block(&self, block_hash: Option<Hash>) -> RpcResult<SignedSubstrateBlock> {
 		Ok(Substrate::chain_get_block(&self.client, block_hash).await?)
 	}
 
-	async fn header_by_hash(&self, block_hash: Hash) -> Result<SubstrateHeader> {
+	async fn header_by_hash(&self, block_hash: Hash) -> RpcResult<SubstrateHeader> {
 		Ok(Substrate::chain_get_header(&self.client, block_hash).await?)
 	}
 
-	async fn block_hash_by_number(&self, number: Number) -> Result<Hash> {
+	async fn block_hash_by_number(&self, number: Number) -> RpcResult<Hash> {
 		Ok(Substrate::chain_get_block_hash(&self.client, number).await?)
 	}
 
-	async fn header_by_number(&self, block_number: Number) -> Result<SubstrateHeader> {
+	async fn header_by_number(&self, block_number: Number) -> RpcResult<SubstrateHeader> {
 		let block_hash = Self::block_hash_by_number(self, block_number).await?;
 		Ok(Self::header_by_hash(self, block_hash).await?)
 	}
 
-	async fn next_account_index(&self, account: node_primitives::AccountId) -> Result<node_primitives::Index> {
+	async fn next_account_index(&self, account: node_primitives::AccountId) -> RpcResult<node_primitives::Index> {
 		Ok(Substrate::system_account_next_index(&self.client, account).await?)
 	}
 
-	async fn best_ethereum_block(&self) -> Result<EthereumHeaderId> {
+	async fn best_ethereum_block(&self) -> RpcResult<EthereumHeaderId> {
 		let call = ETH_API_BEST_BLOCK.to_string();
 		let data = Bytes(Vec::new());
 
@@ -148,7 +148,7 @@ impl SubstrateRpc for SubstrateRpcClient {
 		Ok(best_header_id)
 	}
 
-	async fn best_ethereum_finalized_block(&self) -> Result<EthereumHeaderId> {
+	async fn best_ethereum_finalized_block(&self) -> RpcResult<EthereumHeaderId> {
 		let call = ETH_API_BEST_FINALIZED_BLOCK.to_string();
 		let data = Bytes(Vec::new());
 
@@ -159,7 +159,7 @@ impl SubstrateRpc for SubstrateRpcClient {
 		Ok(best_header_id)
 	}
 
-	async fn ethereum_receipts_required(&self, header: SubstrateEthereumHeader) -> Result<bool> {
+	async fn ethereum_receipts_required(&self, header: SubstrateEthereumHeader) -> RpcResult<bool> {
 		let call = ETH_API_IMPORT_REQUIRES_RECEIPTS.to_string();
 		let data = Bytes(header.encode());
 
@@ -175,7 +175,7 @@ impl SubstrateRpc for SubstrateRpcClient {
 	// But when we read the best header from Substrate next time, we will know that
 	// there's a better header. This Orphan will either be marked as synced, or
 	// eventually pruned.
-	async fn ethereum_header_known(&self, header_id: EthereumHeaderId) -> Result<bool> {
+	async fn ethereum_header_known(&self, header_id: EthereumHeaderId) -> RpcResult<bool> {
 		let call = ETH_API_IS_KNOWN_BLOCK.to_string();
 		let data = Bytes(header_id.1.encode());
 
@@ -185,11 +185,13 @@ impl SubstrateRpc for SubstrateRpcClient {
 		Ok(is_known_block)
 	}
 
-	async fn submit_extrinsic(&self, transaction: Bytes) -> Result<Hash> {
-		Ok(Substrate::author_submit_extrinsic(&self.client, transaction).await?)
+	async fn submit_extrinsic(&self, transaction: Bytes) -> RpcResult<Hash> {
+		let tx_hash = Substrate::author_submit_extrinsic(&self.client, transaction).await?;
+		log::trace!(target: "bridge", "Sent transaction to Substrate node: {:?}", tx_hash);
+		Ok(tx_hash)
 	}
 
-	async fn grandpa_authorities_set(&self, block: Hash) -> Result<GrandpaAuthorityList> {
+	async fn grandpa_authorities_set(&self, block: Hash) -> RpcResult<GrandpaAuthorityList> {
 		let call = SUB_API_GRANDPA_AUTHORITIES.to_string();
 		let data = Bytes(Vec::new());
 
@@ -312,13 +314,13 @@ pub trait SubmitEthereumExchangeTransactionProof: SubstrateRpc {
 	async fn verify_exchange_transaction_proof(
 		&self,
 		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
-	) -> Result<bool>;
+	) -> RpcResult<bool>;
 	/// Submits Ethereum exchange transaction proof to Substrate runtime.
 	async fn submit_exchange_transaction_proof(
 		&self,
 		params: SubstrateSigningParams,
 		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
-	) -> Result<()>;
+	) -> RpcResult<()>;
 }
 
 #[async_trait]
@@ -326,7 +328,7 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
 	async fn verify_exchange_transaction_proof(
 		&self,
 		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
-	) -> Result<bool> {
+	) -> RpcResult<bool> {
 		let call = EXCH_API_FILTER_TRANSACTION_PROOF.to_string();
 		let data = Bytes(proof.encode());
 
@@ -340,7 +342,7 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
 		&self,
 		params: SubstrateSigningParams,
 		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
-	) -> Result<()> {
+	) -> RpcResult<()> {
 		let account_id = params.signer.public().as_array_ref().clone().into();
 		let nonce = self.next_account_index(account_id).await?;
 
