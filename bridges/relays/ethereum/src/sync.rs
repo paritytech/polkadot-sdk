@@ -91,6 +91,8 @@ pub struct HeadersSync<P: HeadersSyncPipeline> {
 	target_best_header: Option<HeaderIdOf<P>>,
 	/// Headers queue.
 	headers: QueuedHeaders<P>,
+	/// Pause headers submission.
+	pause_submit: bool,
 }
 
 impl<P: HeadersSyncPipeline> HeadersSync<P> {
@@ -101,6 +103,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 			params,
 			source_best_number: None,
 			target_best_header: None,
+			pause_submit: false,
 		}
 	}
 
@@ -191,6 +194,11 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 
 	/// Select headers that need to be submitted to the target node.
 	pub fn select_headers_to_submit(&self, stalled: bool) -> Option<Vec<&QueuedHeader<P>>> {
+		// maybe we have paused new headers submit?
+		if self.pause_submit {
+			return None;
+		}
+
 		// if we operate in backup mode, we only submit headers when sync has stalled
 		if self.params.target_tx_mode == TargetTransactionMode::Backup && !stalled {
 			return None;
@@ -260,7 +268,32 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 		// finally remember the best header itself
 		self.target_best_header = Some(best_header);
 
+		// we are ready to submit headers again
+		if self.pause_submit {
+			log::debug!(
+				target: "bridge",
+				"Ready to submit {} headers to {} node again!",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+			);
+
+			self.pause_submit = false;
+		}
+
 		true
+	}
+
+	/// Pause headers submit until best header will be updated on target node.
+	pub fn pause_submit(&mut self) {
+		log::debug!(
+			target: "bridge",
+			"Stopping submitting {} headers to {} node. Waiting for {} submitted headers to be accepted",
+			P::SOURCE_NAME,
+			P::TARGET_NAME,
+			self.headers.headers_in_status(HeaderStatus::Submitted),
+		);
+
+		self.pause_submit = true;
 	}
 
 	/// Restart synchronization.
@@ -268,6 +301,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 		self.source_best_number = None;
 		self.target_best_header = None;
 		self.headers.clear();
+		self.pause_submit = false;
 	}
 }
 
@@ -480,5 +514,36 @@ pub mod tests {
 
 		// ensure that headers are not submitted when sync is stalled
 		assert_eq!(eth_sync.select_headers_to_submit(true), Some(vec![&header(101)]));
+	}
+
+	#[test]
+	fn does_not_select_new_headers_to_submit_when_submit_is_paused() {
+		let mut eth_sync = HeadersSync::new(default_sync_params());
+		eth_sync.params.max_headers_in_submitted_status = 1;
+
+		// ethereum reports best header #102 and substrate is at #100
+		eth_sync.source_best_header_number_response(102);
+		eth_sync.target_best_header_response(id(100));
+
+		// let's prepare #101 and #102 for submitting
+		eth_sync.headers.header_response(header(101).header().clone());
+		eth_sync.headers.maybe_extra_response(&id(101), false);
+		eth_sync.headers.header_response(header(102).header().clone());
+		eth_sync.headers.maybe_extra_response(&id(102), false);
+
+		// when submit is not paused, we're ready to submit #101
+		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(101)]));
+
+		// when submit is paused, we're not ready to submit anything
+		eth_sync.pause_submit();
+		assert_eq!(eth_sync.select_headers_to_submit(false), None);
+
+		// if best header on substrate node isn't updated, we still not submitting anything
+		eth_sync.target_best_header_response(id(100));
+		assert_eq!(eth_sync.select_headers_to_submit(false), None);
+
+		// but after it is actually updated, we are ready to submit
+		eth_sync.target_best_header_response(id(101));
+		assert_eq!(eth_sync.select_headers_to_submit(false), Some(vec![&header(102)]));
 	}
 }

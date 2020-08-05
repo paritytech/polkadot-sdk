@@ -157,7 +157,7 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 ) -> Result<(), ()> {
 	let best_finalized_header_id = match target_client.best_finalized_header_id().await {
 		Ok(best_finalized_header_id) => {
-			log::trace!(
+			log::debug!(
 				target: "bridge",
 				"Got best finalized {} block from {} node: {:?}",
 				P::SOURCE_NAME,
