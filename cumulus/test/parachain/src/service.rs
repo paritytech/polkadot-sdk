@@ -142,7 +142,7 @@ pub fn run_collator(
 	let transaction_pool = params.transaction_pool.clone();
 	let mut task_manager = params.task_manager;
 	let import_queue = params.import_queue;
-	let (network, network_status_sinks, system_rpc_tx) =
+	let (network, network_status_sinks, system_rpc_tx, start_network) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &parachain_config,
 				client: client.clone(),
@@ -231,6 +231,8 @@ pub fn run_collator(
 			.spawn_essential_handle()
 			.spawn("polkadot", polkadot_future);
 	}
+
+	start_network.start_network();
 
 	Ok((task_manager, client))
 }
