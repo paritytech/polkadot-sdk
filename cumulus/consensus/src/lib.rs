@@ -104,6 +104,7 @@ pub fn follow_polkadot<L, P, Block, B>(
 	para_id: ParaId,
 	local: Arc<L>,
 	polkadot: P,
+	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 ) -> ClientResult<impl Future<Output = ()> + Send + Unpin>
 where
 	Block: BlockT,
@@ -136,7 +137,7 @@ where
 			.map(|_| ())
 	};
 
-	Ok(future::select(follow_finalized, follow_new_best(para_id, local, polkadot)?).map(|_| ()))
+	Ok(future::select(follow_finalized, follow_new_best(para_id, local, polkadot, announce_block)?).map(|_| ()))
 }
 
 /// Follow the relay chain new best head, to update the Parachain new best head.
@@ -144,6 +145,7 @@ fn follow_new_best<L, P, Block, B>(
 	para_id: ParaId,
 	local: Arc<L>,
 	polkadot: P,
+	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 ) -> ClientResult<impl Future<Output = ()> + Send + Unpin>
 where
 	Block: BlockT,
@@ -195,6 +197,8 @@ where
 								hash, err
 							);
 						}
+
+						(*announce_block)(hash, Vec::new());
 					}
 					Ok(BlockStatus::InChainPruned) => {
 						error!(
