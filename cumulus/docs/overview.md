@@ -57,7 +57,7 @@ Parachain blocks to the Parachain validators. Secondly, the Collator participate
 of the relay chain to be informed of new relay-chain blocks. This information will be used for the
 consensus and the block production logic.
 
-## Block building
+## Block Building
 
 Polkadot requires that a Parachain block is transmitted in a fixed format. These blocks sent by a
 Parachain to the Parachain validators are called proof-of-validity blocks (PovBlock). Such a
