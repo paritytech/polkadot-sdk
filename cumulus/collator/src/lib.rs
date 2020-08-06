@@ -35,7 +35,7 @@ use sp_api::ApiExt;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{
 	BlockImport, BlockImportParams, BlockOrigin, BlockStatus, Environment, Error as ConsensusError,
-	ForkChoiceStrategy, Proposal, Proposer, RecordProof,
+	ForkChoiceStrategy, Proposal, Proposer, RecordProof, SyncOracle,
 };
 use sp_core::traits::SpawnNamed;
 use sp_inherents::{InherentData, InherentDataProviders};
@@ -431,7 +431,7 @@ where
 		self,
 		polkadot_client: polkadot_collator::Client,
 		spawner: Spawner,
-		polkadot_network: impl CollatorNetwork + Clone + 'static,
+		polkadot_network: impl CollatorNetwork + SyncOracle + Clone + 'static,
 	) -> Result<Self::ParachainContext, ()>
 	where
 		Spawner: SpawnNamed + Clone + Send + Sync + 'static,
@@ -497,7 +497,7 @@ where
 	for<'a> &'a Client: BlockImport<Block>,
 	BS: BlockBackend<Block>,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	Network: CollatorNetwork + Clone + 'static,
+	Network: CollatorNetwork + SyncOracle + Clone + 'static,
 {
 	type Output = Result<Collator<Block, PF, BI, BS>, ()>;
 
@@ -516,6 +516,7 @@ where
 			.set(Box::new(JustifiedBlockAnnounceValidator::new(
 				polkadot_client.clone(),
 				self.para_id,
+				Box::new(self.polkadot_network.clone()),
 			)));
 
 		let follow =
@@ -633,6 +634,16 @@ mod tests {
 			&self,
 			_: PHash,
 		) -> Pin<Box<dyn Stream<Item = SignedStatement> + Send>> {
+			unimplemented!("Not required in tests")
+		}
+	}
+
+	impl SyncOracle for DummyCollatorNetwork {
+		fn is_major_syncing(&mut self) -> bool {
+			unimplemented!("Not required in tests")
+		}
+
+		fn is_offline(&mut self) -> bool {
 			unimplemented!("Not required in tests")
 		}
 	}

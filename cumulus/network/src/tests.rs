@@ -32,6 +32,19 @@ use sp_core::H256;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 
+#[derive(Clone)]
+struct DummyCollatorNetwork;
+
+impl SyncOracle for DummyCollatorNetwork {
+	fn is_major_syncing(&mut self) -> bool {
+		false
+	}
+
+	fn is_offline(&mut self) -> bool {
+		unimplemented!("Not required in tests")
+	}
+}
+
 fn make_validator() -> JustifiedBlockAnnounceValidator<Block, TestApi> {
 	let (validator, _client) = make_validator_and_client();
 
@@ -46,7 +59,11 @@ fn make_validator_and_client() -> (
 	let client = Arc::new(TestApi::new(Arc::new(builder.build())));
 
 	(
-		JustifiedBlockAnnounceValidator::new(client.clone(), ParaId::from(56)),
+		JustifiedBlockAnnounceValidator::new(
+			client.clone(),
+			ParaId::from(56),
+			Box::new(DummyCollatorNetwork),
+		),
 		client,
 	)
 }

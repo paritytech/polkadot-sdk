@@ -28,6 +28,7 @@ use sp_core::crypto::Pair;
 use sp_trie::PrefixedMemoryDB;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use polkadot_service::{AbstractClient, RuntimeApiCollection};
+use sp_consensus::SyncOracle;
 
 // Our native executor instance.
 native_executor_instance!(
@@ -204,7 +205,7 @@ pub fn run_collator(
 			.spawn("polkadot", polkadot_future);
 	} else {
 		let is_light = matches!(polkadot_config.role, Role::Light);
-		let (mut polkadot_task_manager, client, _) = if is_light {
+		let (mut polkadot_task_manager, client, handles) = if is_light {
 			Err("Light client not supported.".into())
 		} else {
 			polkadot_service::build_full(
@@ -219,7 +220,12 @@ pub fn run_collator(
 		let polkadot_future = async move {
 			polkadot_task_manager.future().await.expect("polkadot essential task failed");
 		};
-		client.execute_with(SetDelayedBlockAnnounceValidator { block_announce_validator, para_id: id });
+		let polkadot_network = handles.polkadot_network.expect("polkadot service is started; qed");
+		client.execute_with(SetDelayedBlockAnnounceValidator {
+			block_announce_validator,
+			para_id: id,
+			polkadot_sync_oracle: Box::new(polkadot_network),
+		});
 
 		task_manager
 			.spawn_essential_handle()
@@ -232,6 +238,7 @@ pub fn run_collator(
 struct SetDelayedBlockAnnounceValidator<B: BlockT> {
 	block_announce_validator: DelayedBlockAnnounceValidator<B>,
 	para_id: ParaId,
+	polkadot_sync_oracle: Box<dyn SyncOracle + Send>,
 }
 
 impl<B: BlockT> polkadot_service::ExecuteWithClient for SetDelayedBlockAnnounceValidator<B> {
@@ -244,6 +251,10 @@ impl<B: BlockT> polkadot_service::ExecuteWithClient for SetDelayedBlockAnnounceV
 		Api: RuntimeApiCollection<StateBackend = Backend::State>,
 		Client: AbstractClient<PBlock, Backend, Api = Api> + 'static
 	{
-		self.block_announce_validator.set(Box::new(JustifiedBlockAnnounceValidator::new(client, self.para_id)));
+		self.block_announce_validator.set(Box::new(JustifiedBlockAnnounceValidator::new(
+			client,
+			self.para_id,
+			self.polkadot_sync_oracle,
+		)));
 	}
 }
