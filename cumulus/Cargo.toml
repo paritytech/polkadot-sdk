@@ -8,8 +8,9 @@ members = [
 	"runtime",
 	"test/runtime",
 	"test/client",
-	"test/parachain/runtime",
-	"test/parachain/",
+	"rococo-parachains",
+	"rococo-parachains/runtime",
+	"rococo-parachains/contracts-runtime",
 	"upward-message",
 ]
 

@@ -154,10 +154,27 @@ pub fn run_collator(
 				finality_proof_provider: None,
 		})?;
 
+	let rpc_extensions_builder = {
+		let _client = client.clone();
+
+		Box::new(move |_deny_unsafe| {
+			let io = jsonrpc_core::IoHandler::default();
+
+			// TODO: add this rpc when running the contracts runtime
+			/*
+			use pallet_contracts_rpc::{Contracts, ContractsApi};
+			io.extend_with(
+				ContractsApi::to_delegate(Contracts::new(client.clone()))
+			);
+			*/
+			io
+		})
+	};
+
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			on_demand: None,
 			remote_blockchain: None,
-			rpc_extensions_builder: Box::new(|_| ()),
+			rpc_extensions_builder,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			task_manager: &mut task_manager,

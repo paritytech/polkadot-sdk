@@ -141,5 +141,7 @@ fn testnet_genesis(
 		}),
 		pallet_sudo: Some(SudoConfig { key: root_key }),
 		message_example: Some(TokenDealerConfig { parachain_id: id }),
+		// TODO: add contracts genesis for the contracts runtime
+		// pallet_contracts: Some(parachain_runtime::ContractsConfig { current_schedule: Default::default() }),
 	}
 }

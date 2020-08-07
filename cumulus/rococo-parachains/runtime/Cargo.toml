@@ -31,11 +31,11 @@ pallet-sudo = { git = "https://github.com/paritytech/substrate", default-feature
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
 
 # Cumulus dependencies
-cumulus-runtime = { path = "../../../runtime", default-features = false }
-cumulus-parachain-upgrade = { path = "../../../parachain-upgrade", default-features = false }
-cumulus-message-broker = { path = "../../../message-broker", default-features = false }
-cumulus-upward-message = { path = "../../../upward-message", default-features = false }
-cumulus-primitives = { path = "../../../primitives", default-features = false }
+cumulus-runtime = { path = "../../runtime", default-features = false }
+cumulus-parachain-upgrade = { path = "../../parachain-upgrade", default-features = false }
+cumulus-message-broker = { path = "../../message-broker", default-features = false }
+cumulus-upward-message = { path = "../../upward-message", default-features = false }
+cumulus-primitives = { path = "../../primitives", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch", default-features = false }
