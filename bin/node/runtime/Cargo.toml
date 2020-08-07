@@ -123,16 +123,6 @@ tag = 'v2.0.0-rc5'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
-[dependencies.sp-bridge-eth-poa]
-version = "0.1.0"
-default-features = false
-path = "../../../primitives/ethereum-poa"
-
-[dependencies.sp-currency-exchange]
-version = "0.1.0"
-default-features = false
-path = "../../../primitives/currency-exchange"
-
 [dependencies.sp-consensus-aura]
 version = "0.8.0-rc5"
 tag = 'v2.0.0-rc5'
@@ -206,12 +196,24 @@ tag = 'v2.0.0-rc5'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
+[dependencies.bp-currency-exchange]
+version = "0.1.0"
+default-features = false
+path = "../../../primitives/currency-exchange"
+
+[dependencies.bp-eth-poa]
+version = "0.1.0"
+default-features = false
+path = "../../../primitives/ethereum-poa"
+
+# Dev Dependencies
+
 [dev-dependencies.libsecp256k1]
 version = "0.3.4"
 default-features = false
 features = ["hmac"]
 
-[dev-dependencies.sp-bridge-eth-poa]
+[dev-dependencies.bp-eth-poa]
 version = "0.1.0"
 default-features = false
 features = ["std"]
@@ -226,23 +228,26 @@ git = "https://github.com/paritytech/substrate/"
 [features]
 default = ["std"]
 std = [
-	"pallet-aura/std",
-	"pallet-balances/std",
-	"pallet-bridge-eth-poa/std",
-	"pallet-bridge-currency-exchange/std",
+	"bp-currency-exchange/std",
+	"bp-eth-poa/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
 	"frame-support/std",
-	"frame-system/std",
 	"frame-system-rpc-runtime-api/std",
+	"frame-system/std",
+	"pallet-aura/std",
+	"pallet-balances/std",
+	"pallet-bridge-currency-exchange/std",
+	"pallet-bridge-eth-poa/std",
 	"pallet-grandpa/std",
 	"pallet-randomness-collective-flip/std",
+	"pallet-sudo/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment/std",
 	"serde",
 	"sp-api/std",
 	"sp-block-builder/std",
-	"sp-bridge-eth-poa/std",
-	"sp-currency-exchange/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
@@ -253,9 +258,6 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"pallet-sudo/std",
-	"pallet-timestamp/std",
-	"pallet-transaction-payment/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

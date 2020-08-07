@@ -35,7 +35,7 @@ use crate::substrate_types::{
 };
 
 use async_trait::async_trait;
-use sp_bridge_eth_poa::Header as SubstrateEthereumHeader;
+use bp_eth_poa::Header as SubstrateEthereumHeader;
 
 type Result<T> = result::Result<T, RpcError>;
 type GrandpaAuthorityList = Vec<u8>;

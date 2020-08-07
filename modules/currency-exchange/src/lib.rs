@@ -18,10 +18,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_error, decl_module, decl_storage, ensure, Parameter};
-use sp_currency_exchange::{
+use bp_currency_exchange::{
 	CurrencyConverter, DepositInto, Error as ExchangeError, MaybeLockFundsTransaction, RecipientsMap,
 };
+use frame_support::{decl_error, decl_module, decl_storage, ensure, Parameter};
 use sp_runtime::DispatchResult;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -221,9 +221,9 @@ fn prepare_deposit_details<T: Trait<I>, I: Instance>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_currency_exchange::LockFundsTransaction;
 	use frame_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types, weights::Weight};
 	use sp_core::H256;
-	use sp_currency_exchange::LockFundsTransaction;
 	use sp_runtime::{
 		testing::Header,
 		traits::{BlakeTwo256, IdentityLookup},
@@ -272,7 +272,7 @@ mod tests {
 		type Recipient = AccountId;
 		type Amount = u64;
 
-		fn parse(tx: &Self::Transaction) -> sp_currency_exchange::Result<RawTransaction> {
+		fn parse(tx: &Self::Transaction) -> bp_currency_exchange::Result<RawTransaction> {
 			match tx.id {
 				INVALID_TRANSACTION_ID => Err(ExchangeError::InvalidTransaction),
 				_ => Ok(tx.clone()),
@@ -286,7 +286,7 @@ mod tests {
 		type PeerRecipient = AccountId;
 		type Recipient = AccountId;
 
-		fn map(peer_recipient: Self::PeerRecipient) -> sp_currency_exchange::Result<Self::Recipient> {
+		fn map(peer_recipient: Self::PeerRecipient) -> bp_currency_exchange::Result<Self::Recipient> {
 			match peer_recipient {
 				UNKNOWN_RECIPIENT_ID => Err(ExchangeError::FailedToMapRecipients),
 				_ => Ok(peer_recipient * 10),
@@ -300,7 +300,7 @@ mod tests {
 		type SourceAmount = u64;
 		type TargetAmount = u64;
 
-		fn convert(amount: Self::SourceAmount) -> sp_currency_exchange::Result<Self::TargetAmount> {
+		fn convert(amount: Self::SourceAmount) -> bp_currency_exchange::Result<Self::TargetAmount> {
 			match amount {
 				INVALID_AMOUNT => Err(ExchangeError::FailedToConvertCurrency),
 				_ => Ok(amount * 10),
@@ -314,7 +314,7 @@ mod tests {
 		type Recipient = AccountId;
 		type Amount = u64;
 
-		fn deposit_into(_recipient: Self::Recipient, amount: Self::Amount) -> sp_currency_exchange::Result<()> {
+		fn deposit_into(_recipient: Self::Recipient, amount: Self::Amount) -> bp_currency_exchange::Result<()> {
 			match amount {
 				amount if amount < MAX_DEPOSIT_AMOUNT * 10 => Ok(()),
 				amount if amount == MAX_DEPOSIT_AMOUNT * 10 => Err(ExchangeError::DepositPartiallyFailed),

@@ -15,12 +15,12 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 pub use crate::test_utils::{insert_header, validator_utils::*, validators_change_receipt, HeaderBuilder, GAS_LIMIT};
-pub use primitives::signatures::secret_to_address;
+pub use bp_eth_poa::signatures::secret_to_address;
 
 use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
 use crate::{AuraConfiguration, GenesisConfig, PruningStrategy, Trait};
+use bp_eth_poa::{Address, Header, H256, U256};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
-use primitives::{Address, Header, H256, U256};
 use secp256k1::SecretKey;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,

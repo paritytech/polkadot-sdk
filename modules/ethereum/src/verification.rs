@@ -17,10 +17,10 @@
 use crate::error::Error;
 use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::{AuraConfiguration, ImportContext, PoolConfiguration, ScheduledChange, Storage};
-use codec::Encode;
-use primitives::{
+use bp_eth_poa::{
 	public_to_address, step_validator, Address, Header, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256,
 };
+use codec::Encode;
 use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_runtime::transaction_validity::TransactionTag;
 use sp_std::{vec, vec::Vec};
@@ -366,8 +366,8 @@ mod tests {
 		pool_configuration, BridgeStorage, FinalizedBlock, Headers, HeadersByNumber, NextValidatorsSetId,
 		ScheduledChanges, ValidatorsSet, ValidatorsSets,
 	};
+	use bp_eth_poa::{compute_merkle_root, rlp_encode, TransactionOutcome, H520};
 	use frame_support::{StorageMap, StorageValue};
-	use primitives::{compute_merkle_root, rlp_encode, TransactionOutcome, H520};
 	use secp256k1::SecretKey;
 	use sp_runtime::transaction_validity::TransactionTag;
 

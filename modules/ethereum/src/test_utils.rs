@@ -29,7 +29,7 @@ use crate::validators::CHANGE_EVENT_HASH;
 use crate::verification::calculate_score;
 use crate::{HeaderToImport, Storage, Trait};
 
-use primitives::{
+use bp_eth_poa::{
 	rlp_encode,
 	signatures::{secret_to_address, sign, SignHeader},
 	Address, Bloom, Header, Receipt, SealedEmptyStep, H256, U256,
@@ -53,7 +53,7 @@ impl HeaderBuilder {
 		Self {
 			header: Header {
 				gas_limit: GAS_LIMIT.into(),
-				seal: vec![primitives::rlp_encode(&current_step), vec![]],
+				seal: vec![bp_eth_poa::rlp_encode(&current_step), vec![]],
 				..Default::default()
 			},
 			parent_header: Default::default(),
@@ -95,7 +95,7 @@ impl HeaderBuilder {
 	pub fn with_number(number: u64) -> Self {
 		Self::with_parent(&Header {
 			number: number - 1,
-			seal: vec![primitives::rlp_encode(&(number - 1)), vec![]],
+			seal: vec![bp_eth_poa::rlp_encode(&(number - 1)), vec![]],
 			..Default::default()
 		})
 	}
@@ -109,7 +109,7 @@ impl HeaderBuilder {
 				parent_hash: parent_header.compute_hash(),
 				number: parent_header.number + 1,
 				gas_limit: GAS_LIMIT.into(),
-				seal: vec![primitives::rlp_encode(&current_step), vec![]],
+				seal: vec![bp_eth_poa::rlp_encode(&current_step), vec![]],
 				difficulty: calculate_score(parent_step, current_step, 0),
 				..Default::default()
 			},
@@ -242,7 +242,7 @@ pub fn insert_header<S: Storage>(storage: &mut S, header: Header) {
 }
 
 pub fn validators_change_receipt(parent_hash: H256) -> Receipt {
-	use primitives::{LogEntry, TransactionOutcome};
+	use bp_eth_poa::{LogEntry, TransactionOutcome};
 
 	Receipt {
 		gas_used: 0.into(),

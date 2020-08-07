@@ -7,10 +7,10 @@ edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-serde = { version = "1.0", optional = true }
+bp-eth-poa = { path = "../../primitives/ethereum-poa", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false }
 hex-literal = "0.3"
-primitives = { package = "sp-bridge-eth-poa", path = "../../primitives/ethereum-poa", default-features = false }
+serde = { version = "1.0", optional = true }
 
 # Substrate Based Dependencies
 [dependencies.frame-support]
@@ -58,18 +58,17 @@ features = ["hmac"]
 
 # Dev Dependencies
 [dev-dependencies]
-# TODO: Stop renaming this on import
-primitives = { package = "sp-bridge-eth-poa", path = "../../primitives/ethereum-poa", features = ["std"] }
+bp-eth-poa = { path = "../../primitives/ethereum-poa", features = ["std"] }
 libsecp256k1 = { version = "0.3.4", features = ["hmac"] }
 
 [features]
 default = ["std"]
 std = [
+	"bp-eth-poa/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"primitives/std",
 	"serde",
 	"sp-io/std",
 	"sp-runtime/std",
