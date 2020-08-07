@@ -37,8 +37,8 @@ use crate::substrate_types::into_substrate_ethereum_receipt;
 use crate::sync_types::HeaderId;
 
 use async_trait::async_trait;
+use bp_currency_exchange::MaybeLockFundsTransaction;
 use bridge_node_runtime::exchange::EthereumTransactionInclusionProof;
-use sp_currency_exchange::MaybeLockFundsTransaction;
 use std::time::Duration;
 
 /// Interval at which we ask Ethereum node for updates.
@@ -240,7 +240,7 @@ impl TargetClient<EthereumToSubstrateExchange> for SubstrateTransactionsTarget {
 		}
 
 		// now let's check if transaction is successful
-		match sp_bridge_eth_poa::Receipt::is_successful_raw_receipt(raw_tx_receipt) {
+		match bp_eth_poa::Receipt::is_successful_raw_receipt(raw_tx_receipt) {
 			Ok(true) => (),
 			_ => return Ok(false),
 		}

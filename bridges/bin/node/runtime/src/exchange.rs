@@ -27,13 +27,13 @@
 //!    to the PoA -> Substrate bridge module (it can be provided by you);
 //! 5) receive tokens by providing proof-of-inclusion of PoA transaction.
 
+use bp_currency_exchange::{
+	Error as ExchangeError, LockFundsTransaction, MaybeLockFundsTransaction, Result as ExchangeResult,
+};
+use bp_eth_poa::{transaction_decode_rlp, RawTransaction, RawTransactionReceipt};
 use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
-use sp_bridge_eth_poa::{transaction_decode_rlp, RawTransaction, RawTransactionReceipt};
-use sp_currency_exchange::{
-	Error as ExchangeError, LockFundsTransaction, MaybeLockFundsTransaction, Result as ExchangeResult,
-};
 use sp_std::vec::Vec;
 
 /// Ethereum address where locked PoA funds must be sent to.
@@ -130,12 +130,12 @@ impl MaybeLockFundsTransaction for EthTransaction {
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Trait<I>, I: pallet_bridge_eth_poa::Instance>(
 	transactions: &[(RawTransaction, RawTransactionReceipt)],
-) -> sp_bridge_eth_poa::H256 {
+) -> bp_eth_poa::H256 {
+	use bp_eth_poa::compute_merkle_root;
 	use pallet_bridge_eth_poa::{
 		test_utils::{insert_header, validator_utils::validator, HeaderBuilder},
 		BridgeStorage, Storage,
 	};
-	use sp_bridge_eth_poa::compute_merkle_root;
 
 	let mut storage = BridgeStorage::<T, I>::new();
 	let header = HeaderBuilder::with_parent_number_on_runtime::<T, I>(0)
@@ -153,9 +153,9 @@ pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Trait<I>, 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub(crate) fn prepare_ethereum_transaction(
 	recipient: &crate::AccountId,
-	editor: impl Fn(&mut sp_bridge_eth_poa::UnsignedTransaction),
+	editor: impl Fn(&mut bp_eth_poa::UnsignedTransaction),
 ) -> (RawTransaction, RawTransactionReceipt) {
-	use sp_bridge_eth_poa::{signatures::SignTransaction, Receipt, TransactionOutcome};
+	use bp_eth_poa::{signatures::SignTransaction, Receipt, TransactionOutcome};
 
 	// prepare tx for OpenEthereum private dev chain:
 	// chain id is 0x11
@@ -166,7 +166,7 @@ pub(crate) fn prepare_ethereum_transaction(
 	))
 	.unwrap();
 	let recipient_raw: &[u8; 32] = recipient.as_ref();
-	let mut eth_tx = sp_bridge_eth_poa::UnsignedTransaction {
+	let mut eth_tx = bp_eth_poa::UnsignedTransaction {
 		nonce: 0.into(),
 		to: Some(LOCK_FUNDS_ADDRESS.into()),
 		value: 100.into(),
