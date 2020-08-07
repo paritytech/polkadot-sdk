@@ -17,7 +17,6 @@
 use ansi_term::Color;
 use cumulus_collator::{prepare_collator_config, CollatorBuilder};
 use cumulus_network::{DelayedBlockAnnounceValidator, JustifiedBlockAnnounceValidator};
-use futures::{future::ready, FutureExt};
 use polkadot_primitives::v0::{CollatorPair, Block as PBlock, Id as ParaId};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
@@ -191,21 +190,17 @@ pub fn run_collator(
 			block_announce_validator,
 		);
 
-		let (polkadot_future, polkadpt_task_manager) =
+		let (polkadot_future, polkadot_task_manager) =
 			polkadot_collator::start_collator(builder, id, key, polkadot_config)?;
-
-		// Make sure the polkadot task manager survives as long as the service.
-		let polkadot_future = polkadot_future.then(move |_| {
-			let _ = polkadpt_task_manager;
-			ready(())
-		});
 
 		task_manager
 			.spawn_essential_handle()
 			.spawn("polkadot", polkadot_future);
+
+		task_manager.add_child(polkadot_task_manager);
 	} else {
 		let is_light = matches!(polkadot_config.role, Role::Light);
-		let (mut polkadot_task_manager, client, handles) = if is_light {
+		let (polkadot_task_manager, client, handles) = if is_light {
 			Err("Light client not supported.".into())
 		} else {
 			polkadot_service::build_full(
@@ -217,9 +212,6 @@ pub fn run_collator(
 				None,
 			)
 		}?;
-		let polkadot_future = async move {
-			polkadot_task_manager.future().await.expect("polkadot essential task failed");
-		};
 		let polkadot_network = handles.polkadot_network.expect("polkadot service is started; qed");
 		client.execute_with(SetDelayedBlockAnnounceValidator {
 			block_announce_validator,
@@ -227,9 +219,7 @@ pub fn run_collator(
 			polkadot_sync_oracle: Box::new(polkadot_network),
 		});
 
-		task_manager
-			.spawn_essential_handle()
-			.spawn("polkadot", polkadot_future);
+		task_manager.add_child(polkadot_task_manager);
 	}
 
 	start_network.start_network();
