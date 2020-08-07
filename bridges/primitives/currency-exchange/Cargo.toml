@@ -1,5 +1,5 @@
 [package]
-name = "sp-currency-exchange"
+name = "bp-currency-exchange"
 description = "Primitives of currency exchange module."
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]

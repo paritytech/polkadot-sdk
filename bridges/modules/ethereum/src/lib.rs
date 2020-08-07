@@ -19,9 +19,9 @@
 #![allow(clippy::large_enum_variant)]
 
 use crate::finality::{CachedFinalityVotes, FinalityVotes};
+use bp_eth_poa::{Address, Header, HeaderId, RawTransaction, RawTransactionReceipt, Receipt, H256, U256};
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage, traits::Get};
-use primitives::{Address, Header, HeaderId, RawTransaction, RawTransactionReceipt, Receipt, H256, U256};
 use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource, TransactionValidity,
@@ -1025,7 +1025,7 @@ pub(crate) mod tests {
 		genesis, insert_header, run_test, run_test_with_genesis, validators_addresses, HeaderBuilder, TestRuntime,
 		GAS_LIMIT,
 	};
-	use primitives::compute_merkle_root;
+	use bp_eth_poa::compute_merkle_root;
 
 	const TOTAL_VALIDATORS: usize = 3;
 
@@ -1036,7 +1036,7 @@ pub(crate) mod tests {
 	fn example_tx_receipt(success: bool) -> Vec<u8> {
 		Receipt {
 			// the only thing that we care of:
-			outcome: primitives::TransactionOutcome::StatusCode(if success { 1 } else { 0 }),
+			outcome: bp_eth_poa::TransactionOutcome::StatusCode(if success { 1 } else { 0 }),
 			gas_used: Default::default(),
 			log_bloom: Default::default(),
 			logs: Vec::new(),

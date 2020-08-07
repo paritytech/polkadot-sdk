@@ -1,5 +1,5 @@
 [package]
-name = "sp-bridge-eth-poa"
+name = "bp-eth-poa"
 description = "Primitives of Ethereum PoA Bridge module."
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]

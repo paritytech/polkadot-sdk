@@ -19,7 +19,8 @@ use crate::ethereum_types::{
 };
 use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
 use codec::Encode;
-pub use sp_bridge_eth_poa::{
+
+pub use bp_eth_poa::{
 	Address, Bloom, Bytes, Header as SubstrateEthereumHeader, LogEntry as SubstrateEthereumLogEntry,
 	Receipt as SubstrateEthereumReceipt, TransactionOutcome as SubstrateEthereumTransactionOutcome, H256, U256,
 };

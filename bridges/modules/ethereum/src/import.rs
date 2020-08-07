@@ -19,7 +19,7 @@ use crate::finality::finalize_blocks;
 use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::verification::{is_importable_header, verify_aura_header};
 use crate::{AuraConfiguration, ChangeToEnact, PruningStrategy, Storage};
-use primitives::{Header, HeaderId, Receipt};
+use bp_eth_poa::{Header, HeaderId, Receipt};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Imports bunch of headers and updates blocks finality.

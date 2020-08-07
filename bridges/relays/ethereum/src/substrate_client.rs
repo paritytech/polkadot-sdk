@@ -22,12 +22,12 @@ use crate::substrate_types::{Hash, Header as SubstrateHeader, Number, SignedBloc
 use crate::sync_types::{HeaderId, SubmittedHeaders};
 
 use async_trait::async_trait;
+use bp_eth_poa::Header as SubstrateEthereumHeader;
 use codec::{Decode, Encode};
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use jsonrpsee::Client;
 use num_traits::Zero;
-use sp_bridge_eth_poa::Header as SubstrateEthereumHeader;
 use sp_core::crypto::Pair;
 use sp_runtime::traits::IdentifyAccount;
 use std::collections::VecDeque;
@@ -142,7 +142,7 @@ impl SubstrateRpc for SubstrateRpcClient {
 		let data = Bytes(Vec::new());
 
 		let encoded_response = Substrate::state_call(&self.client, call, data, None).await?;
-		let decoded_response: (u64, sp_bridge_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
+		let decoded_response: (u64, bp_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
 
 		let best_header_id = HeaderId(decoded_response.0, decoded_response.1);
 		Ok(best_header_id)
@@ -153,7 +153,7 @@ impl SubstrateRpc for SubstrateRpcClient {
 		let data = Bytes(Vec::new());
 
 		let encoded_response = Substrate::state_call(&self.client, call, data, None).await?;
-		let decoded_response: (u64, sp_bridge_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
+		let decoded_response: (u64, bp_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
 
 		let best_header_id = HeaderId(decoded_response.0, decoded_response.1);
 		Ok(best_header_id)

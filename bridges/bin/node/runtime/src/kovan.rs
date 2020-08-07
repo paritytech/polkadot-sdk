@@ -16,13 +16,13 @@
 
 use crate::exchange::EthereumTransactionInclusionProof;
 
+use bp_eth_poa::{Address, Header, RawTransaction, U256};
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
 use pallet_bridge_currency_exchange::PeerBlockchain;
 use pallet_bridge_eth_poa::{
 	AuraConfiguration, PruningStrategy as BridgePruningStrategy, ValidatorsConfiguration, ValidatorsSource,
 };
-use sp_bridge_eth_poa::{Address, Header, RawTransaction, U256};
 use sp_std::prelude::*;
 
 frame_support::parameter_types! {
