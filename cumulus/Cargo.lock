@@ -961,6 +961,7 @@ dependencies = [
  "cumulus-parachain-upgrade",
  "cumulus-primitives",
  "cumulus-runtime",
+ "cumulus-token-dealer",
  "cumulus-upward-message",
  "frame-executive",
  "frame-support",
@@ -973,6 +974,7 @@ dependencies = [
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
+ "parachain-info",
  "parity-scale-codec",
  "polkadot-parachain",
  "serde",
@@ -1114,6 +1116,7 @@ dependencies = [
  "cumulus-parachain-upgrade",
  "cumulus-primitives",
  "cumulus-runtime",
+ "cumulus-token-dealer",
  "cumulus-upward-message",
  "frame-executive",
  "frame-support",
@@ -1123,6 +1126,7 @@ dependencies = [
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
+ "parachain-info",
  "parity-scale-codec",
  "polkadot-parachain",
  "serde",
@@ -1147,6 +1151,18 @@ dependencies = [
  "cumulus-runtime",
  "substrate-test-runtime",
  "substrate-wasm-builder-runner 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "cumulus-token-dealer"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives",
+ "cumulus-upward-message",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "polkadot-parachain",
 ]
 
 [[package]]
@@ -4221,6 +4237,17 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "parachain-info"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
 ]
 
 [[package]]

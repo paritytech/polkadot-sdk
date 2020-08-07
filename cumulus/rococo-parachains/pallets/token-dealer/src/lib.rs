@@ -14,16 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Example Pallet that shows how to send upward messages and how to receive
-//! downward messages.
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-	decl_event, decl_module, decl_storage,
+	decl_event, decl_module, dispatch::DispatchResult,
 	traits::{Currency, ExistenceRequirement, WithdrawReason},
 };
 use frame_system::ensure_signed;
 
-use crate::XCMPMessage;
 use codec::{Decode, Encode};
 use cumulus_primitives::{
 	relay_chain::DownwardMessage,
@@ -32,7 +30,12 @@ use cumulus_primitives::{
 };
 use cumulus_upward_message::BalancesMessage;
 use polkadot_parachain::primitives::AccountIdConversion;
-use sp_runtime::DispatchResult;
+
+#[derive(Encode, Decode)]
+pub enum XCMPMessage<XAccountId, XBalance> {
+	/// Transfer tokens to the given account from the Parachain account.
+	TransferToken(XAccountId, XBalance),
+}
 
 type BalanceOf<T> =
 	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -55,19 +58,6 @@ pub trait Trait: frame_system::Trait {
 	type XCMPMessageSender: XCMPMessageSender<XCMPMessage<Self::AccountId, BalanceOf<Self>>>;
 }
 
-// This pallet's storage items.
-decl_storage! {
-	trait Store for Module<T: Trait> as ParachainUpgrade {}
-	add_extra_genesis {
-		config(parachain_id): ParaId;
-		build(|config: &Self| {
-			// This is basically a hack to make the parachain id easily configurable.
-			// Could also be done differently, but yeah..
-			crate::ParachainId::set(&config.parachain_id);
-		});
-	}
-}
-
 decl_event! {
 	pub enum Event<T> where
 		AccountId = <T as frame_system::Trait>::AccountId,
@@ -83,7 +73,7 @@ decl_event! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		/// Transfer `amount` of tokens on the relay chain from the Parachain account to
 		/// the given `dest` account.
 		#[weight = 10]

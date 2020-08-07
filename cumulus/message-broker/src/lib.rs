@@ -71,7 +71,7 @@ decl_event! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin, system = frame_system {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		/// Executes the given downward messages by calling the message handlers.
 		///
 		/// The origin of this call needs to be `None` as this is an inherent.
