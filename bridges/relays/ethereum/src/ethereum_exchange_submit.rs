@@ -20,11 +20,11 @@ use crate::ethereum_client::{EthereumConnectionParams, EthereumRpcClient, Ethere
 use crate::ethereum_types::{CallRequest, U256};
 use crate::rpc::EthereumRpc;
 
-use bridge_node_runtime::exchange::LOCK_FUNDS_ADDRESS;
-use sp_bridge_eth_poa::{
+use bp_eth_poa::{
 	signatures::{SecretKey, SignTransaction},
 	UnsignedTransaction,
 };
+use bridge_node_runtime::exchange::LOCK_FUNDS_ADDRESS;
 
 /// Ethereum exchange transaction params.
 #[derive(Debug)]
