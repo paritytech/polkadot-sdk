@@ -256,7 +256,7 @@ pub fn run() -> Result<()> {
 					if cli.run.base.validator { "yes" } else { "no" }
 				);
 
-				crate::service::run_collator(
+				crate::service::run_node(
 					config,
 					key,
 					polkadot_config,

@@ -11,6 +11,7 @@ members = [
 	"rococo-parachains/pallets/token-dealer",
 	"rococo-parachains/runtime",
 	"runtime",
+	"service",
 	"test/runtime",
 	"test/client",
 	"upward-message",

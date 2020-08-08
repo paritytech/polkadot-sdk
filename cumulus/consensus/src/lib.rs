@@ -26,12 +26,10 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 };
 
-use polkadot_primitives::v0::{
-	Id as ParaId, ParachainHost, Block as PBlock, Hash as PHash,
-};
+use polkadot_primitives::v0::{Block as PBlock, Hash as PHash, Id as ParaId, ParachainHost};
 
 use codec::Decode;
-use futures::{future, Future, FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
+use futures::{future, Future, FutureExt, Stream, StreamExt};
 use log::{error, trace, warn};
 
 use std::{marker::PhantomData, sync::Arc};
@@ -118,26 +116,39 @@ where
 
 		polkadot
 			.finalized_heads(para_id)?
-			.map(|head_data| {
-				<<Block as BlockT>::Header>::decode(&mut &head_data[..])
-					.map_err(|_| Error::InvalidHeadData)
+			.filter_map(|head_data| {
+				let res = match <<Block as BlockT>::Header>::decode(&mut &head_data[..]) {
+					Ok(header) => Some(header),
+					Err(err) => {
+						warn!(
+							target: "cumulus-consensus",
+							"Could not decode Parachain header for finalizing: {:?}",
+							err,
+						);
+						None
+					}
+				};
+
+				future::ready(res)
 			})
-			.try_for_each(move |p_head| {
-				future::ready(
-					finalize_block(&*local, p_head.hash())
-						.map_err(Error::Client)
-						.map(|_| ()),
-				)
+			.for_each(move |p_head| {
+				if let Err(e) = finalize_block(&*local, p_head.hash()) {
+					warn!(
+						target: "cumulus-consensus",
+						"Failed to finalize block: {:?}",
+						e,
+					);
+				}
+
+				future::ready(())
 			})
-			.map_err(|e| {
-				warn!(
-				target: "cumulus-consensus",
-				"Failed to finalize block: {:?}", e)
-			})
-			.map(|_| ())
 	};
 
-	Ok(future::select(follow_finalized, follow_new_best(para_id, local, polkadot, announce_block)?).map(|_| ()))
+	Ok(future::select(
+		follow_finalized,
+		follow_new_best(para_id, local, polkadot, announce_block)?,
+	)
+	.map(|_| ()))
 }
 
 /// Follow the relay chain new best head, to update the Parachain new best head.

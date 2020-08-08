@@ -920,7 +920,6 @@ dependencies = [
  "polkadot-validation",
  "sc-cli",
  "sc-client-api",
- "sc-service",
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
@@ -1091,6 +1090,27 @@ dependencies = [
  "sp-std",
  "sp-trie",
  "trie-db",
+]
+
+[[package]]
+name = "cumulus-service"
+version = "0.1.0"
+dependencies = [
+ "cumulus-collator",
+ "cumulus-consensus",
+ "cumulus-network",
+ "cumulus-primitives",
+ "polkadot-collator",
+ "polkadot-primitives",
+ "polkadot-service",
+ "sc-client-api",
+ "sc-service",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5788,6 +5808,7 @@ dependencies = [
  "cumulus-contracts-parachain-runtime",
  "cumulus-network",
  "cumulus-primitives",
+ "cumulus-service",
  "cumulus-test-parachain-runtime",
  "derive_more 0.15.0",
  "exit-future 0.1.4",

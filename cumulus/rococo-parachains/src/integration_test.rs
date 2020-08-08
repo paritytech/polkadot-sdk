@@ -105,7 +105,7 @@ async fn integration_test() {
 		let parachain_config =
 			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
 		let (_service, charlie_client) =
-			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true)
+			crate::service::run_node(parachain_config, key, polkadot_config, para_id, true)
 				.unwrap();
 		sleep(Duration::from_secs(3)).await;
 		charlie_client.wait_for_blocks(4).await;

@@ -30,7 +30,6 @@ use cumulus_primitives::{
 use cumulus_runtime::ParachainBlockData;
 
 use sc_client_api::{BlockBackend, Finalizer, StateBackend, UsageProvider};
-use sc_service::Configuration;
 use sp_api::ApiExt;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{
@@ -545,16 +544,6 @@ where
 			self.announce_block,
 		))
 	}
-}
-
-/// Prepare the collator's node condifugration
-///
-/// This function will disable the default announcement of Substrate for the parachain in favor
-/// of the one of Cumulus.
-pub fn prepare_collator_config(mut parachain_config: Configuration) -> Configuration {
-	parachain_config.announce_block = false;
-
-	parachain_config
 }
 
 #[cfg(test)]
