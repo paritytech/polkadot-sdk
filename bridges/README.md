@@ -162,6 +162,54 @@ To run the Bridge you need to be able to connect the bridge relay node to the RP
 on each side of the bridge (home & foreign chain). An easy way to build all the required nodes is
 through Docker.
 
+### Local Development Build
+
+#### Building
+
+First you'll need to build the bridge node and relay. This can be done as follows:
+
+```bash
+# In `parity-bridges-common` folder
+cargo build -p bridge-node
+cargo build -p ethereum-poa-relay
+```
+
+Next you'll need to clone the following [fork of OpenEthereum](https://github.com/HCastano/parity-ethereum).
+If you're doing development which only involves the Ethereum to Substrate side of the bridge you may
+use the `master` branch. Otherwise you'll need to checkout the `substrate-builtins-stubs` branch.
+
+```bash
+# Should be at the same level as `parity-bridges-common` folder
+git clone https://github.com/HCastano/parity-ethereum.git openethereum
+git fetch
+git checkout substrate-builtins-stubs
+```
+
+If you've checked out the `substrate-builtins-stubs` branch make sure you've cloned the OpenEthereum
+repo at the same level as `parity-bridges-common` since it references the repo.
+
+Next you'll need to build the Ethereum node:
+
+```bash
+# In `openethereum` folder
+cargo build
+```
+
+#### Running
+
+To run a simple dev network you'll can use the scripts located in
+[the `scripts` folder](./scripts). Since the relay connects to both the Substrate and Ethereum
+chains it must be run last.
+
+```bash
+# In `parity-bridges-common` folder
+./scripts/run-openethereum-node.sh
+./scripts/run-bridge-node.sh
+./scripts/run-eth2sub-relay.sh
+```
+At this point you should see the relayer submitting blocks from the Ethereum chain
+to the Substrate chain.
+
 ### Local Docker Build
 If you want to make a Docker container using your local source files you can run the following
 command at the top level of the repository:
