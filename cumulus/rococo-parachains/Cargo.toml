@@ -49,7 +49,7 @@ sc-informant = { git = "https://github.com/paritytech/substrate", branch = "roco
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 
 # RPC related dependencies
-pallet-contracts-rpc = { path = "./pallets/contracts/rpc" }
+cumulus-pallet-contracts-rpc = { path = "./pallets/contracts/rpc" }
 jsonrpc-core = "14.2.0"
 
 # Cumulus dependencies

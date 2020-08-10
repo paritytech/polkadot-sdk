@@ -24,8 +24,8 @@ use log::info;
 use parachain_runtime::Block;
 use polkadot_parachain::primitives::AccountIdConversion;
 use sc_cli::{
-	ChainSpec, CliConfiguration, Error, ImportParams, KeystoreParams, NetworkParams, Result,
-	RuntimeVersion, SharedParams, SubstrateCli,
+	ChainSpec, CliConfiguration, ImportParams, KeystoreParams, NetworkParams, Result,
+	RuntimeVersion, SharedParams, SubstrateCli, DefaultConfigurationValues,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
@@ -269,7 +269,25 @@ pub fn run() -> Result<()> {
 	}
 }
 
-impl CliConfiguration for RelayChainCli {
+impl DefaultConfigurationValues for RelayChainCli {
+	fn p2p_listen_port() -> u16 {
+		30334
+	}
+
+	fn rpc_ws_listen_port() -> u16 {
+		9945
+	}
+
+	fn rpc_http_listen_port() -> u16 {
+		9934
+	}
+
+	fn prometheus_listen_port() -> u16 {
+		9616
+	}
+}
+
+impl CliConfiguration<Self> for RelayChainCli {
 	fn shared_params(&self) -> &SharedParams {
 		self.base.base.shared_params()
 	}
@@ -293,59 +311,20 @@ impl CliConfiguration for RelayChainCli {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_http(&self) -> Result<Option<SocketAddr>> {
-		let rpc_external = self.base.base.rpc_external;
-		let unsafe_rpc_external = self.base.base.unsafe_rpc_external;
-		let validator = self.base.base.validator;
-		let rpc_port = self.base.base.rpc_port;
-		// copied directly from substrate
-		let rpc_interface: &str = interface_str(rpc_external, unsafe_rpc_external, validator)?;
-
-		Ok(Some(parse_address(
-			&format!("{}:{}", rpc_interface, 9934),
-			rpc_port,
-		)?))
+	fn rpc_http(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
+		self.base.base.rpc_http(default_listen_port)
 	}
 
 	fn rpc_ipc(&self) -> Result<Option<String>> {
 		self.base.base.rpc_ipc()
 	}
 
-	fn rpc_ws(&self) -> Result<Option<SocketAddr>> {
-		let ws_external = self.base.base.ws_external;
-		let unsafe_ws_external = self.base.base.unsafe_ws_external;
-		let validator = self.base.base.validator;
-		let ws_port = self.base.base.ws_port;
-		// copied directly from substrate
-		let ws_interface: &str = interface_str(ws_external, unsafe_ws_external, validator)?;
-
-		Ok(Some(parse_address(
-			&format!("{}:{}", ws_interface, 9945),
-			ws_port,
-		)?))
+	fn rpc_ws(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
+		self.base.base.rpc_ws(default_listen_port)
 	}
 
-	fn prometheus_config(&self) -> Result<Option<PrometheusConfig>> {
-		let no_prometheus = self.base.base.no_prometheus;
-		let prometheus_external = self.base.base.prometheus_external;
-		let prometheus_port = self.base.base.prometheus_port;
-
-		if no_prometheus {
-			Ok(None)
-		} else {
-			let prometheus_interface: &str = if prometheus_external {
-				"0.0.0.0"
-			} else {
-				"127.0.0.1"
-			};
-
-			Ok(Some(PrometheusConfig::new_with_default_registry(
-				parse_address(
-					&format!("{}:{}", prometheus_interface, 9616),
-					prometheus_port,
-				)?,
-			)))
-		}
+	fn prometheus_config(&self, default_listen_port: u16) -> Result<Option<PrometheusConfig>> {
+		self.base.base.prometheus_config(default_listen_port)
 	}
 
 	fn init<C: SubstrateCli>(&self) -> Result<()> {
@@ -408,44 +387,5 @@ impl CliConfiguration for RelayChainCli {
 
 	fn announce_block(&self) -> Result<bool> {
 		self.base.base.announce_block()
-	}
-}
-
-// copied directly from substrate
-fn parse_address(address: &str, port: Option<u16>) -> std::result::Result<SocketAddr, String> {
-	let mut address: SocketAddr = address
-		.parse()
-		.map_err(|_| format!("Invalid address: {}", address))?;
-	if let Some(port) = port {
-		address.set_port(port);
-	}
-
-	Ok(address)
-}
-
-// copied directly from substrate
-fn interface_str(
-	is_external: bool,
-	is_unsafe_external: bool,
-	is_validator: bool,
-) -> Result<&'static str> {
-	if is_external && is_validator {
-		return Err(Error::Input(
-			"--rpc-external and --ws-external options shouldn't be \
-		used if the node is running as a validator. Use `--unsafe-rpc-external` if you understand \
-		the risks. See the options description for more information."
-				.to_owned(),
-		));
-	}
-
-	if is_external || is_unsafe_external {
-		log::warn!(
-			"It isn't safe to expose RPC publicly without a proxy server that filters \
-		available set of RPC methods."
-		);
-
-		Ok("0.0.0.0")
-	} else {
-		Ok("127.0.0.1")
 	}
 }

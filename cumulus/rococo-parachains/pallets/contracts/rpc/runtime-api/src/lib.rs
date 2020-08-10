@@ -24,7 +24,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-use pallet_contracts_primitives::{GetStorageResult, RentProjectionResult};
+use cumulus_pallet_contracts_primitives::{GetStorageResult, RentProjectionResult};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 

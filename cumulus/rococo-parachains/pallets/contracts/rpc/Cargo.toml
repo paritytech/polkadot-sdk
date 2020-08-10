@@ -1,5 +1,5 @@
 [package]
-name = "pallet-contracts-rpc"
+name = "cumulus-pallet-contracts-rpc"
 version = "0.8.0-rc3"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -22,8 +22,8 @@ sp-rpc = { git = "https://github.com/paritytech/substrate", default-features = f
 serde = { version = "1.0.101", features = ["derive"] }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
-pallet-contracts-primitives = { path = "../common" }
-pallet-contracts-rpc-runtime-api = { path = "./runtime-api" }
+cumulus-pallet-contracts-primitives = { path = "../common" }
+cumulus-pallet-contracts-rpc-runtime-api = { path = "./runtime-api" }
 
 [dev-dependencies]
 serde_json = "1.0.41"

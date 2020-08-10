@@ -23,7 +23,7 @@ use crate::{
 use frame_support::storage::unhashed as storage;
 use frame_support::traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason};
 use frame_support::StorageMap;
-use pallet_contracts_primitives::{ContractAccessError, RentProjection, RentProjectionResult};
+use cumulus_pallet_contracts_primitives::{ContractAccessError, RentProjection, RentProjectionResult};
 use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul, SaturatedConversion, Saturating, Zero};
 
 /// The amount to charge.

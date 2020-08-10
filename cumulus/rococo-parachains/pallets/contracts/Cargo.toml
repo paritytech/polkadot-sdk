@@ -1,5 +1,5 @@
 [package]
-name = "pallet-contracts"
+name = "cumulus-pallet-contracts"
 version = "2.0.0-rc3"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -24,7 +24,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-sandbox = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
-pallet-contracts-primitives = { path = "./common", default-features = false }
+cumulus-pallet-contracts-primitives = { path = "./common", default-features = false }
 
 [dev-dependencies]
 wabt = "0.10"
@@ -49,5 +49,5 @@ std = [
 	"parity-wasm/std",
 	"pwasm-utils/std",
 	"wasmi-validation/std",
-	"pallet-contracts-primitives/std",
+	"cumulus-pallet-contracts-primitives/std",
 ]

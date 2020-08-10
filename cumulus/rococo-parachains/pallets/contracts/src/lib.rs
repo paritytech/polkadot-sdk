@@ -118,7 +118,7 @@ use frame_support::{
 use frame_support::traits::{OnUnbalanced, Currency, Get, Time, Randomness};
 use frame_support::weights::GetDispatchInfo;
 use frame_system::{ensure_signed, RawOrigin, ensure_root};
-use pallet_contracts_primitives::{RentProjection, ContractAccessError};
+use cumulus_pallet_contracts_primitives::{RentProjection, ContractAccessError};
 use frame_support::weights::Weight;
 
 pub type CodeHash<T> = <T as frame_system::Trait>::Hash;
