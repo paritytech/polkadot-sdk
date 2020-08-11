@@ -15,11 +15,11 @@
 // along with Substrate. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::Trait;
-use sp_std::marker::PhantomData;
-use sp_runtime::traits::Zero;
 use frame_support::dispatch::{
-	DispatchError, DispatchResultWithPostInfo, PostDispatchInfo, DispatchErrorWithPostInfo,
+	DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo,
 };
+use sp_runtime::traits::Zero;
+use sp_std::marker::PhantomData;
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -189,7 +189,8 @@ impl<T: Trait> GasMeter<T> {
 	}
 
 	/// Turn this GasMeter into a DispatchResult that contains the actually used gas.
-	pub fn into_dispatch_result<R, E>(self, result: Result<R, E>) -> DispatchResultWithPostInfo where
+	pub fn into_dispatch_result<R, E>(self, result: Result<R, E>) -> DispatchResultWithPostInfo
+	where
 		E: Into<DispatchError>,
 	{
 		let post_info = PostDispatchInfo {
@@ -199,7 +200,10 @@ impl<T: Trait> GasMeter<T> {
 
 		result
 			.map(|_| post_info)
-			.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e.into() })
+			.map_err(|e| DispatchErrorWithPostInfo {
+				post_info,
+				error: e.into(),
+			})
 	}
 
 	#[cfg(test)]
@@ -256,7 +260,9 @@ mod tests {
 	struct SimpleToken(u64);
 	impl Token<Test> for SimpleToken {
 		type Metadata = ();
-		fn calculate_amount(&self, _metadata: &()) -> u64 { self.0 }
+		fn calculate_amount(&self, _metadata: &()) -> u64 {
+			self.0
+		}
 	}
 
 	struct MultiplierTokenMetadata {
@@ -285,8 +291,10 @@ mod tests {
 	fn simple() {
 		let mut gas_meter = GasMeter::<Test>::new(50000);
 
-		let result = gas_meter
-			.charge(&MultiplierTokenMetadata { multiplier: 3 }, MultiplierToken(10));
+		let result = gas_meter.charge(
+			&MultiplierTokenMetadata { multiplier: 3 },
+			MultiplierToken(10),
+		);
 		assert!(!result.is_out_of_gas());
 
 		assert_eq!(gas_meter.gas_left(), 49_970);
@@ -297,7 +305,10 @@ mod tests {
 		let mut gas_meter = GasMeter::<Test>::new(50000);
 		assert!(!gas_meter.charge(&(), SimpleToken(1)).is_out_of_gas());
 		assert!(!gas_meter
-			.charge(&MultiplierTokenMetadata { multiplier: 3 }, MultiplierToken(10))
+			.charge(
+				&MultiplierTokenMetadata { multiplier: 3 },
+				MultiplierToken(10)
+			)
 			.is_out_of_gas());
 
 		let mut tokens = gas_meter.tokens()[0..2].iter();
@@ -326,7 +337,6 @@ mod tests {
 		// The gas meter is emptied at this moment, so this should also fail.
 		assert!(gas_meter.charge(&(), SimpleToken(1)).is_out_of_gas());
 	}
-
 
 	// Charging the exact amount that the user paid for should be
 	// possible.

@@ -15,19 +15,20 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_primitives::ParaId;
-use parachain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, Signature, SudoConfig, SystemConfig,
-	ParachainInfoConfig, WASM_BINARY,
-};
+use hex_literal::hex;
+use rococo_parachain_primitives::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use hex_literal::hex;
 
-/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
+/// Specialized `ChainSpec` for the normal parachain runtime.
+pub type ChainSpec = sc_service::GenericChainSpec<parachain_runtime::GenesisConfig, Extensions>;
+
+/// Specialized `ChainSpec` for the contracts parachain runtime.
+pub type ContractsChainSpec =
+	sc_service::GenericChainSpec<parachain_contracts_runtime::GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -99,6 +100,42 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 	)
 }
 
+pub fn get_contracts_chain_spec(id: ParaId) -> ContractsChainSpec {
+	ContractsChainSpec::from_genesis(
+		"Contracts Local Testnet",
+		"contracts_local_testnet",
+		ChainType::Local,
+		move || {
+			contracts_testnet_genesis(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				vec![
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_account_id_from_seed::<sr25519::Public>("Charlie"),
+					get_account_id_from_seed::<sr25519::Public>("Dave"),
+					get_account_id_from_seed::<sr25519::Public>("Eve"),
+					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+				],
+				id,
+			)
+		},
+		vec![],
+		None,
+		None,
+		None,
+		Extensions {
+			relay_chain: "westend-dev".into(),
+			para_id: id.into(),
+		},
+	)
+}
+
 pub fn staging_test_net(id: ParaId) -> ChainSpec {
 	ChainSpec::from_genesis(
 		"Staging Testnet",
@@ -107,7 +144,9 @@ pub fn staging_test_net(id: ParaId) -> ChainSpec {
 		move || {
 			testnet_genesis(
 				hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
-				vec![hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into()],
+				vec![
+					hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+				],
 				id,
 			)
 		},
@@ -126,22 +165,47 @@ fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> GenesisConfig {
-	GenesisConfig {
-		frame_system: Some(SystemConfig {
-			code: WASM_BINARY.expect("WASM binary was not build, please build it!").to_vec(),
+) -> parachain_runtime::GenesisConfig {
+	parachain_runtime::GenesisConfig {
+		frame_system: Some(parachain_runtime::SystemConfig {
+			code: parachain_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
 			changes_trie_config: Default::default(),
 		}),
-		pallet_balances: Some(BalancesConfig {
+		pallet_balances: Some(parachain_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, 1 << 60))
 				.collect(),
 		}),
-		pallet_sudo: Some(SudoConfig { key: root_key }),
-		parachain_info: Some(ParachainInfoConfig { parachain_id: id }),
-		// TODO: add contracts genesis for the contracts runtime
-		// pallet_contracts: Some(parachain_runtime::ContractsConfig { current_schedule: Default::default() }),
+		pallet_sudo: Some(parachain_runtime::SudoConfig { key: root_key }),
+		parachain_info: Some(parachain_runtime::ParachainInfoConfig { parachain_id: id }),
+	}
+}
+
+fn contracts_testnet_genesis(
+	root_key: AccountId,
+	endowed_accounts: Vec<AccountId>,
+	id: ParaId,
+) -> parachain_contracts_runtime::GenesisConfig {
+	parachain_contracts_runtime::GenesisConfig {
+		frame_system: Some(parachain_contracts_runtime::SystemConfig {
+			code: parachain_contracts_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
+			changes_trie_config: Default::default(),
+		}),
+		pallet_balances: Some(parachain_contracts_runtime::BalancesConfig {
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, 1 << 60))
+				.collect(),
+		}),
+		pallet_sudo: Some(parachain_contracts_runtime::SudoConfig { key: root_key }),
+		parachain_info: Some(parachain_contracts_runtime::ParachainInfoConfig { parachain_id: id }),
+		cumulus_pallet_contracts: None,
 	}
 }

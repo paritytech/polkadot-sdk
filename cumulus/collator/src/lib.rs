@@ -518,18 +518,17 @@ where
 				Box::new(self.polkadot_network.clone()),
 			)));
 
-		let follow =
-			match cumulus_consensus::follow_polkadot(
-				self.para_id,
-				self.client,
-				polkadot_client,
-				self.announce_block.clone(),
-			) {
-				Ok(follow) => follow,
-				Err(e) => {
-					return Err(error!("Could not start following polkadot: {:?}", e));
-				}
-			};
+		let follow = match cumulus_consensus::follow_polkadot(
+			self.para_id,
+			self.client,
+			polkadot_client,
+			self.announce_block.clone(),
+		) {
+			Ok(follow) => follow,
+			Err(e) => {
+				return Err(error!("Could not start following polkadot: {:?}", e));
+			}
+		};
 
 		self.spawner
 			.spawn("cumulus-follow-polkadot", follow.map(|_| ()).boxed());

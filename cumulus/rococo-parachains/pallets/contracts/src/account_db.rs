@@ -21,14 +21,19 @@ use super::{
 	TrieIdGenerator,
 };
 use crate::exec::StorageKey;
-use sp_std::cell::RefCell;
-use sp_std::collections::btree_map::{BTreeMap, Entry};
-use sp_std::prelude::*;
+use frame_support::{
+	storage::unhashed as storage,
+	traits::{Currency, Imbalance, SignedImbalance},
+	StorageMap,
+};
+use frame_system;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{Bounded, Zero};
-use frame_support::traits::{Currency, Imbalance, SignedImbalance};
-use frame_support::{storage::unhashed as storage, StorageMap};
-use frame_system;
+use sp_std::{
+	cell::RefCell,
+	collections::btree_map::{BTreeMap, Entry},
+	prelude::*,
+};
 
 // Note: we don't provide Option<Contract> because we can't create
 // the trie_id in the overlay, thus we provide an overlay on the fields
@@ -133,8 +138,7 @@ impl<T: Trait> AccountDb<T> for DirectAccountDb {
 		trie_id: Option<&TrieId>,
 		location: &StorageKey,
 	) -> Option<Vec<u8>> {
-		trie_id
-			.and_then(|id| storage::get_raw(&crate::prefixed_key(id, &blake2_256(location))))
+		trie_id.and_then(|id| storage::get_raw(&crate::prefixed_key(id, &blake2_256(location))))
 	}
 	fn get_code_hash(&self, account: &T::AccountId) -> Option<CodeHash<T>> {
 		<ContractInfoOf<T>>::get(account).and_then(|i| i.as_alive().map(|i| i.code_hash))
@@ -241,13 +245,13 @@ impl<T: Trait> AccountDb<T> for DirectAccountDb {
 							if prev_value.is_empty() {
 								new_info.empty_pair_count -= 1;
 							}
-						},
+						}
 						(None, Some(new_value)) => {
 							new_info.total_pair_count += 1;
 							if new_value.is_empty() {
 								new_info.empty_pair_count += 1;
 							}
-						},
+						}
 						(Some(prev_value), Some(new_value)) => {
 							if prev_value.is_empty() {
 								new_info.empty_pair_count -= 1;

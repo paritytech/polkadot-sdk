@@ -20,10 +20,14 @@ use crate::{
 	AliveContractInfo, BalanceOf, ContractInfo, ContractInfoOf, Module, RawEvent,
 	TombstoneContractInfo, Trait,
 };
-use frame_support::storage::unhashed as storage;
-use frame_support::traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason};
-use frame_support::StorageMap;
-use cumulus_pallet_contracts_primitives::{ContractAccessError, RentProjection, RentProjectionResult};
+use cumulus_pallet_contracts_primitives::{
+	ContractAccessError, RentProjection, RentProjectionResult,
+};
+use frame_support::{
+	storage::unhashed as storage,
+	traits::{Currency, ExistenceRequirement, Get, OnUnbalanced, WithdrawReason},
+	StorageMap,
+};
 use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul, SaturatedConversion, Saturating, Zero};
 
 /// The amount to charge.
@@ -238,10 +242,8 @@ fn enact_verdict<T: Trait>(
 
 			// Use a dummy storage root because restoration is currentlyy unsupported
 			// for parachains anyways.
-			let tombstone = <TombstoneContractInfo<T>>::new(
-				&[0u8; 32],
-				alive_contract_info.code_hash,
-			);
+			let tombstone =
+				<TombstoneContractInfo<T>>::new(&[0u8; 32], alive_contract_info.code_hash);
 			let tombstone_info = ContractInfo::Tombstone(tombstone);
 			<ContractInfoOf<T>>::insert(account, &tombstone_info);
 

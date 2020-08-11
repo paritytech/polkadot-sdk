@@ -84,42 +84,42 @@ mod gas;
 
 mod account_db;
 mod exec;
-mod wasm;
 mod rent;
+mod wasm;
 
 #[cfg(test)]
 mod tests;
 
-use crate::exec::ExecutionContext;
-use crate::account_db::{AccountDb, DirectAccountDb};
-use crate::wasm::{WasmLoader, WasmVm};
+use crate::{
+	account_db::{AccountDb, DirectAccountDb},
+	exec::ExecutionContext,
+	wasm::{WasmLoader, WasmVm},
+};
 
-pub use crate::gas::{Gas, GasMeter};
-pub use crate::exec::{ExecResult, ExecReturnValue, ExecError, StatusCode};
+pub use crate::{
+	exec::{ExecError, ExecResult, ExecReturnValue, StatusCode},
+	gas::{Gas, GasMeter},
+};
 
+use codec::{Codec, Decode, Encode};
+use cumulus_pallet_contracts_primitives::{ContractAccessError, RentProjection};
+use frame_support::{
+	decl_error, decl_event, decl_module, decl_storage,
+	dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
+	parameter_types,
+	traits::{Currency, Get, OnUnbalanced, Randomness, Time},
+	weights::{GetDispatchInfo, Weight},
+	Parameter,
+};
+use frame_system::{ensure_root, ensure_signed, RawOrigin};
 #[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use sp_core::crypto::UncheckedFrom;
-use sp_std::{prelude::*, marker::PhantomData, fmt::Debug};
-use codec::{Codec, Encode, Decode};
 use sp_runtime::{
-	traits::{
-		Hash, StaticLookup, Zero, MaybeSerializeDeserialize, Member, Convert,
-	},
+	traits::{Convert, Hash, MaybeSerializeDeserialize, Member, StaticLookup, Zero},
 	RuntimeDebug,
 };
-use frame_support::dispatch::{
-	PostDispatchInfo, DispatchResult, Dispatchable, DispatchResultWithPostInfo
-};
-use frame_support::{
-	Parameter, decl_module, decl_event, decl_storage, decl_error,
-	parameter_types,
-};
-use frame_support::traits::{OnUnbalanced, Currency, Get, Time, Randomness};
-use frame_support::weights::GetDispatchInfo;
-use frame_system::{ensure_signed, RawOrigin, ensure_root};
-use cumulus_pallet_contracts_primitives::{RentProjection, ContractAccessError};
-use frame_support::weights::Weight;
+use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 
 pub type CodeHash<T> = <T as frame_system::Trait>::Hash;
 pub type TrieId = Vec<u8>;
@@ -240,10 +240,16 @@ pub struct RawTombstoneContractInfo<H, Hasher>(H, PhantomData<Hasher>);
 
 impl<H, Hasher> RawTombstoneContractInfo<H, Hasher>
 where
-	H: Member + MaybeSerializeDeserialize+ Debug
-		+ AsRef<[u8]> + AsMut<[u8]> + Copy + Default
-		+ sp_std::hash::Hash + Codec,
-	Hasher: Hash<Output=H>,
+	H: Member
+		+ MaybeSerializeDeserialize
+		+ Debug
+		+ AsRef<[u8]>
+		+ AsMut<[u8]>
+		+ Copy
+		+ Default
+		+ sp_std::hash::Hash
+		+ Codec,
+	Hasher: Hash<Output = H>,
 {
 	fn new(storage_root: &[u8], code_hash: H) -> Self {
 		let mut buf = Vec::new();
@@ -272,7 +278,7 @@ pub struct TrieIdFromParentCounter<T: Trait>(PhantomData<T>);
 /// accountid_counter`.
 impl<T: Trait> TrieIdGenerator<T::AccountId> for TrieIdFromParentCounter<T>
 where
-	T::AccountId: AsRef<[u8]>
+	T::AccountId: AsRef<[u8]>,
 {
 	fn trie_id(account_id: &T::AccountId) -> TrieId {
 		// Note that skipping a value due to error is not an issue here.
@@ -321,10 +327,9 @@ pub trait Trait: frame_system::Trait {
 	type Currency: Currency<Self::AccountId>;
 
 	/// The outer call dispatch type.
-	type Call:
-		Parameter +
-		Dispatchable<PostInfo=PostDispatchInfo, Origin=<Self as frame_system::Trait>::Origin> +
-		GetDispatchInfo;
+	type Call: Parameter
+		+ Dispatchable<PostInfo = PostDispatchInfo, Origin = <Self as frame_system::Trait>::Origin>
+		+ GetDispatchInfo;
 
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -390,9 +395,13 @@ pub trait Trait: frame_system::Trait {
 pub struct SimpleAddressDeterminer<T: Trait>(PhantomData<T>);
 impl<T: Trait> ContractAddressFor<CodeHash<T>, T::AccountId> for SimpleAddressDeterminer<T>
 where
-	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>
+	T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
-	fn contract_address_for(code_hash: &CodeHash<T>, data: &[u8], origin: &T::AccountId) -> T::AccountId {
+	fn contract_address_for(
+		code_hash: &CodeHash<T>,
+		data: &[u8],
+		origin: &T::AccountId,
+	) -> T::AccountId {
 		let data_hash = T::Hashing::hash(data);
 
 		let mut buf = Vec::new();
@@ -641,13 +650,15 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> Module<T> {
 	fn calc_code_put_costs(code: &Vec<u8>) -> Gas {
-		<Module<T>>::current_schedule().put_code_per_byte_cost.saturating_mul(code.len() as Gas)
+		<Module<T>>::current_schedule()
+			.put_code_per_byte_cost
+			.saturating_mul(code.len() as Gas)
 	}
 
 	fn execute_wasm(
 		origin: T::AccountId,
 		gas_meter: &mut GasMeter<T>,
-		func: impl FnOnce(&mut ExecutionContext<T, WasmVm, WasmLoader>, &mut GasMeter<T>) -> ExecResult
+		func: impl FnOnce(&mut ExecutionContext<T, WasmVm, WasmLoader>, &mut GasMeter<T>) -> ExecResult,
 	) -> ExecResult {
 		let cfg = Config::preload();
 		let vm = WasmVm::new(&cfg.schedule);
@@ -656,7 +667,11 @@ impl<T: Trait> Module<T> {
 
 		let result = func(&mut ctx, gas_meter);
 
-		if result.as_ref().map(|output| output.is_success()).unwrap_or(false) {
+		if result
+			.as_ref()
+			.map(|output| output.is_success())
+			.unwrap_or(false)
+		{
 			// Commit all changes that made it thus far into the persistent storage.
 			DirectAccountDb.commit(ctx.overlay.into_change_set());
 		}
@@ -665,17 +680,11 @@ impl<T: Trait> Module<T> {
 		ctx.deferred.into_iter().for_each(|deferred| {
 			use self::exec::DeferredAction::*;
 			match deferred {
-				DepositEvent {
-					topics,
-					event,
-				} => <frame_system::Module<T>>::deposit_event_indexed(
+				DepositEvent { topics, event } => <frame_system::Module<T>>::deposit_event_indexed(
 					&*topics,
 					<T as Trait>::Event::from(event).into(),
 				),
-				DispatchRuntimeCall {
-					origin: who,
-					call,
-				} => {
+				DispatchRuntimeCall { origin: who, call } => {
 					let info = call.get_dispatch_info();
 					let result = call.dispatch(RawOrigin::Signed(who.clone()).into());
 					let post_info = match result {
@@ -693,11 +702,19 @@ impl<T: Trait> Module<T> {
 					delta,
 				} => {
 					let result = Self::restore_to(
-						donor.clone(), dest.clone(), code_hash.clone(), rent_allowance.clone(), delta
+						donor.clone(),
+						dest.clone(),
+						code_hash.clone(),
+						rent_allowance.clone(),
+						delta,
 					);
-					Self::deposit_event(
-						RawEvent::Restored(donor, dest, code_hash, rent_allowance, result.is_ok())
-					);
+					Self::deposit_event(RawEvent::Restored(
+						donor,
+						dest,
+						code_hash,
+						rent_allowance,
+						result.is_ok(),
+					));
 				}
 			}
 		});

@@ -25,6 +25,7 @@ hex-literal = "0.2.1"
 # Parachain dependencies
 parachain-runtime = { package = "cumulus-test-parachain-runtime", path = "runtime" }
 parachain-contracts-runtime = { package = "cumulus-contracts-parachain-runtime", path = "contracts-runtime" }
+rococo-parachain-primitives = { path = "primitives" }
 
 # Substrate dependencies
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
@@ -32,6 +33,7 @@ sp-io = { git = "https://github.com/paritytech/substrate", branch = "rococo-bran
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-session = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
@@ -42,11 +44,15 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", version = "0.8.0-rc5" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-informant = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 
 # RPC related dependencies
 cumulus-pallet-contracts-rpc = { path = "./pallets/contracts/rpc" }

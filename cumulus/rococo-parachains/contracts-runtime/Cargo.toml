@@ -10,6 +10,7 @@ codec = { package = "parity-scale-codec", version = "1.3.0", default-features = 
 
 cumulus-token-dealer = { path = "../pallets/token-dealer", default-features = false}
 parachain-info = { path = "../pallets/parachain-info", default-features = false}
+rococo-parachain-primitives = { path = "../primitives", default-features = false}
 
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
@@ -79,6 +80,7 @@ std = [
 	"pallet-sudo/std",
 	"pallet-transaction-payment/std",
 	"parachain-info/std",
+	"rococo-parachain-primitives/std",
 	"cumulus-runtime/std",
 	"cumulus-parachain-upgrade/std",
 	"cumulus-message-broker/std",

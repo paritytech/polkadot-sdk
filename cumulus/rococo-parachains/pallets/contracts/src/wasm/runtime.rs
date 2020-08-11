@@ -16,23 +16,18 @@
 
 //! Environment definition of the wasm smart-contract runtime.
 
-use crate::{Schedule, Trait, CodeHash, BalanceOf};
-use crate::exec::{
-	Ext, ExecResult, ExecError, ExecReturnValue, StorageKey, TopicOf, STATUS_SUCCESS,
+use crate::{
+	exec::{ExecError, ExecResult, ExecReturnValue, Ext, StorageKey, TopicOf, STATUS_SUCCESS},
+	gas::{Gas, GasMeter, GasMeterResult, Token},
+	BalanceOf, CodeHash, Schedule, Trait,
 };
-use crate::gas::{Gas, GasMeter, Token, GasMeterResult};
-use sp_sandbox;
-use frame_system;
-use sp_std::{prelude::*, mem, convert::TryInto};
 use codec::{Decode, Encode};
-use sp_runtime::traits::{Bounded, SaturatedConversion};
-use sp_io::hashing::{
-	keccak_256,
-	blake2_256,
-	blake2_128,
-	sha2_256,
-};
 use frame_support::weights::GetDispatchInfo;
+use frame_system;
+use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
+use sp_runtime::traits::{Bounded, SaturatedConversion};
+use sp_sandbox;
+use sp_std::{convert::TryInto, mem, prelude::*};
 
 /// The value returned from ext_call and ext_instantiate contract external functions if the call or
 /// instantiation traps. This value is chosen as if the execution does not trap, the return value
@@ -93,19 +88,19 @@ pub(crate) fn to_execution_result<E: Ext>(
 				status: STATUS_SUCCESS,
 				data,
 			})
-		},
+		}
 		Some(SpecialTrap::Termination) => {
 			return Ok(ExecReturnValue {
 				status: STATUS_SUCCESS,
 				data: Vec::new(),
 			})
-		},
+		}
 		Some(SpecialTrap::OutOfGas) => {
 			return Err(ExecError {
 				reason: "ran out of gas during contract execution".into(),
 				buffer: runtime.scratch_buf,
 			})
-		},
+		}
 		None => (),
 	}
 
@@ -115,29 +110,43 @@ pub(crate) fn to_execution_result<E: Ext>(
 		Ok(sp_sandbox::ReturnValue::Unit) => {
 			let mut buffer = runtime.scratch_buf;
 			buffer.clear();
-			Ok(ExecReturnValue { status: STATUS_SUCCESS, data: buffer })
+			Ok(ExecReturnValue {
+				status: STATUS_SUCCESS,
+				data: buffer,
+			})
 		}
 		Ok(sp_sandbox::ReturnValue::Value(sp_sandbox::Value::I32(exit_code))) => {
-			let status = (exit_code & 0xFF).try_into()
+			let status = (exit_code & 0xFF)
+				.try_into()
 				.expect("exit_code is masked into the range of a u8; qed");
-			Ok(ExecReturnValue { status, data: runtime.scratch_buf })
+			Ok(ExecReturnValue {
+				status,
+				data: runtime.scratch_buf,
+			})
 		}
 		// This should never happen as the return type of exported functions should have been
 		// validated by the code preparation process. However, because panics are really
 		// undesirable in the runtime code, we treat this as a trap for now. Eventually, we might
 		// want to revisit this.
-		Ok(_) => Err(ExecError { reason: "return type error".into(), buffer: runtime.scratch_buf }),
+		Ok(_) => Err(ExecError {
+			reason: "return type error".into(),
+			buffer: runtime.scratch_buf,
+		}),
 		// `Error::Module` is returned only if instantiation or linking failed (i.e.
 		// wasm binary tried to import a function that is not provided by the host).
 		// This shouldn't happen because validation process ought to reject such binaries.
 		//
 		// Because panics are really undesirable in the runtime code, we treat this as
 		// a trap for now. Eventually, we might want to revisit this.
-		Err(sp_sandbox::Error::Module) =>
-			Err(ExecError { reason: "validation error".into(), buffer: runtime.scratch_buf }),
+		Err(sp_sandbox::Error::Module) => Err(ExecError {
+			reason: "validation error".into(),
+			buffer: runtime.scratch_buf,
+		}),
 		// Any other kind of a trap should result in a failure.
-		Err(sp_sandbox::Error::Execution) | Err(sp_sandbox::Error::OutOfBounds) =>
-			Err(ExecError { reason: "contract trapped during execution".into(), buffer: runtime.scratch_buf }),
+		Err(sp_sandbox::Error::Execution) | Err(sp_sandbox::Error::OutOfBounds) => Err(ExecError {
+			reason: "contract trapped during execution".into(),
+			buffer: runtime.scratch_buf,
+		}),
 	}
 }
 
@@ -188,14 +197,12 @@ impl<T: Trait> Token<T> for RuntimeToken {
 
 				data_cost
 					.and_then(|data_cost| {
-						topics_cost.and_then(|topics_cost| {
-							data_cost.checked_add(topics_cost)
-						})
+						topics_cost.and_then(|topics_cost| data_cost.checked_add(topics_cost))
 					})
-					.and_then(|data_and_topics_cost|
+					.and_then(|data_and_topics_cost| {
 						data_and_topics_cost.checked_add(metadata.event_base_cost)
-					)
-			},
+					})
+			}
 			DispatchWithWeight(gas) => gas.checked_add(metadata.dispatch_base_cost),
 		};
 
@@ -214,10 +221,10 @@ fn charge_gas<T: Trait, Tok: Token<T>>(
 ) -> Result<(), sp_sandbox::HostError> {
 	match gas_meter.charge(metadata, token) {
 		GasMeterResult::Proceed => Ok(()),
-		GasMeterResult::OutOfGas =>  {
+		GasMeterResult::OutOfGas => {
 			*special_trap = Some(SpecialTrap::OutOfGas);
 			Err(sp_sandbox::HostError)
-		},
+		}
 	}
 }
 
@@ -242,7 +249,9 @@ fn read_sandbox_memory<E: Ext>(
 	)?;
 
 	let mut buf = vec![0u8; len as usize];
-	ctx.memory.get(ptr, buf.as_mut_slice()).map_err(|_| sp_sandbox::HostError)?;
+	ctx.memory
+		.get(ptr, buf.as_mut_slice())
+		.map_err(|_| sp_sandbox::HostError)?;
 	Ok(buf)
 }
 
@@ -267,7 +276,9 @@ fn read_sandbox_memory_into_scratch<E: Ext>(
 	)?;
 
 	ctx.scratch_buf.resize(len as usize, 0);
-	ctx.memory.get(ptr, ctx.scratch_buf.as_mut_slice()).map_err(|_| sp_sandbox::HostError)?;
+	ctx.memory
+		.get(ptr, ctx.scratch_buf.as_mut_slice())
+		.map_err(|_| sp_sandbox::HostError)?;
 	Ok(())
 }
 
@@ -1165,14 +1176,10 @@ where
 /// the order of items is not preserved.
 fn has_duplicates<T: PartialEq + AsRef<[u8]>>(items: &mut Vec<T>) -> bool {
 	// Sort the vector
-	items.sort_unstable_by(|a, b| {
-		Ord::cmp(a.as_ref(), b.as_ref())
-	});
+	items.sort_unstable_by(|a, b| Ord::cmp(a.as_ref(), b.as_ref()));
 	// And then find any two consecutive equal elements.
-	items.windows(2).any(|w| {
-		match w {
-			&[ref a, ref b] => a == b,
-			_ => false,
-		}
+	items.windows(2).any(|w| match w {
+		&[ref a, ref b] => a == b,
+		_ => false,
 	})
 }

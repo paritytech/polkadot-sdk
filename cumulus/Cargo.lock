@@ -976,6 +976,7 @@ dependencies = [
  "parachain-info",
  "parity-scale-codec",
  "polkadot-parachain",
+ "rococo-parachain-primitives",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -1213,6 +1214,7 @@ dependencies = [
  "parachain-info",
  "parity-scale-codec",
  "polkadot-parachain",
+ "rococo-parachain-primitives",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -5831,6 +5833,7 @@ dependencies = [
  "polkadot-test-runtime-client",
  "polkadot-test-service",
  "rand 0.7.3",
+ "rococo-parachain-primitives",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
@@ -5840,15 +5843,20 @@ dependencies = [
  "sc-finality-grandpa",
  "sc-informant",
  "sc-network",
+ "sc-rpc",
  "sc-service",
  "sc-transaction-pool",
  "serde",
  "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
  "sp-consensus",
  "sp-core",
  "sp-inherents",
  "sp-io",
+ "sp-offchain",
  "sp-runtime",
+ "sp-session",
  "sp-timestamp",
  "sp-transaction-pool",
  "sp-trie",
@@ -5858,6 +5866,14 @@ dependencies = [
  "substrate-test-runtime-client",
  "tokio 0.2.22",
  "trie-root 0.15.2",
+]
+
+[[package]]
+name = "rococo-parachain-primitives"
+version = "0.1.0"
+dependencies = [
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]

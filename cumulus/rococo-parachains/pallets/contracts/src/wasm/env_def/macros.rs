@@ -193,14 +193,14 @@ macro_rules! define_env {
 
 #[cfg(test)]
 mod tests {
-	use parity_wasm::elements::FunctionType;
-	use parity_wasm::elements::ValueType;
+	use crate::{
+		exec::Ext,
+		gas::Gas,
+		wasm::{tests::MockExt, Runtime},
+	};
+	use parity_wasm::elements::{FunctionType, ValueType};
 	use sp_runtime::traits::Zero;
 	use sp_sandbox::{ReturnValue, Value};
-	use crate::wasm::tests::MockExt;
-	use crate::wasm::Runtime;
-	use crate::exec::Ext;
-	use crate::gas::Gas;
 
 	#[test]
 	fn macro_unmarshall_then_body_then_marshall_value_or_trap() {
@@ -263,8 +263,10 @@ mod tests {
 				Err(sp_sandbox::HostError)
 			}
 		});
-		let _f: fn(&mut Runtime<MockExt>, &[sp_sandbox::Value])
-			-> Result<sp_sandbox::ReturnValue, sp_sandbox::HostError> = ext_gas::<MockExt>;
+		let _f: fn(
+			&mut Runtime<MockExt>,
+			&[sp_sandbox::Value],
+		) -> Result<sp_sandbox::ReturnValue, sp_sandbox::HostError> = ext_gas::<MockExt>;
 	}
 
 	#[test]
@@ -317,7 +319,13 @@ mod tests {
 			},
 		);
 
-		assert!(Env::can_satisfy(b"ext_gas", &FunctionType::new(vec![ValueType::I32], None)));
-		assert!(!Env::can_satisfy(b"not_exists", &FunctionType::new(vec![], None)));
+		assert!(Env::can_satisfy(
+			b"ext_gas",
+			&FunctionType::new(vec![ValueType::I32], None)
+		));
+		assert!(!Env::can_satisfy(
+			b"not_exists",
+			&FunctionType::new(vec![], None)
+		));
 	}
 }

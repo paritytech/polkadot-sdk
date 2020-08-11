@@ -1,0 +1,17 @@
+[package]
+name = "rococo-parachain-primitives"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[dependencies]
+# Substrate dependencies
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
+
+[features]
+default = [ "std" ]
+std = [
+	"sp-runtime/std",
+	"sp-core/std"
+]

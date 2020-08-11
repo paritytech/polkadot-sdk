@@ -130,7 +130,7 @@ fn build_block_with_proof(
 		built_block.block,
 		built_block
 			.proof
-			.expect("We enabled proof recording before.")
+			.expect("We enabled proof recording before."),
 	)
 }
 

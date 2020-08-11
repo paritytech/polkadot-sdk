@@ -24,8 +24,8 @@ use log::info;
 use parachain_runtime::Block;
 use polkadot_parachain::primitives::AccountIdConversion;
 use sc_cli::{
-	ChainSpec, CliConfiguration, ImportParams, KeystoreParams, NetworkParams, Result,
-	RuntimeVersion, SharedParams, SubstrateCli, DefaultConfigurationValues,
+	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
+	NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
@@ -77,6 +77,9 @@ impl SubstrateCli for Cli {
 			"track" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
 				&include_bytes!("../res/track.json")[..],
 			)?)),
+			"contracts" => Ok(Box::new(chain_spec::get_contracts_chain_spec(
+				self.run.parachain_id.unwrap_or(100).into(),
+			))),
 			"" => Ok(Box::new(chain_spec::get_chain_spec(
 				self.run.parachain_id.unwrap_or(100).into(),
 			))),
@@ -167,6 +170,10 @@ fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<V
 		.ok_or_else(|| "Could not find wasm file in genesis state!".into())
 }
 
+fn use_contracts_runtime(chain_spec: &Box<dyn ChainSpec>) -> bool {
+	chain_spec.id().starts_with("trick") || chain_spec.id().starts_with("contracts")
+}
+
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
 	let cli = Cli::from_args();
@@ -175,16 +182,35 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Base(subcommand)) => {
 			let runner = cli.create_runner(subcommand)?;
 
-			runner.run_subcommand(subcommand, |mut config| {
-				let params = crate::service::new_partial(&mut config)?;
+			if use_contracts_runtime(&runner.config().chain_spec) {
+				runner.run_subcommand(subcommand, |mut config| {
+					let params = crate::service::new_partial::<
+						parachain_contracts_runtime::RuntimeApi,
+						crate::service::ContractsRuntimeExecutor,
+					>(&mut config)?;
 
-				Ok((
-					params.client,
-					params.backend,
-					params.import_queue,
-					params.task_manager,
-				))
-			})
+					Ok((
+						params.client,
+						params.backend,
+						params.import_queue,
+						params.task_manager,
+					))
+				})
+			} else {
+				runner.run_subcommand(subcommand, |mut config| {
+					let params = crate::service::new_partial::<
+						parachain_runtime::RuntimeApi,
+						crate::service::RuntimeExecutor,
+					>(&mut config)?;
+
+					Ok((
+						params.client,
+						params.backend,
+						params.import_queue,
+						params.task_manager,
+					))
+				})
+			}
 		}
 		Some(Subcommand::ExportGenesisState(params)) => {
 			sc_cli::init_logger("");
@@ -256,14 +282,23 @@ pub fn run() -> Result<()> {
 					if cli.run.base.validator { "yes" } else { "no" }
 				);
 
-				crate::service::run_node(
-					config,
-					key,
-					polkadot_config,
-					id,
-					cli.run.base.validator,
-				)
-				.map(|(x, _)| x)
+				if use_contracts_runtime(&config.chain_spec) {
+					crate::service::start_contracts_node(
+						config,
+						key,
+						polkadot_config,
+						id,
+						cli.run.base.validator,
+					)
+				} else {
+					crate::service::start_node(
+						config,
+						key,
+						polkadot_config,
+						id,
+						cli.run.base.validator,
+					).map(|r| r.0)
+				}
 			})
 		}
 	}

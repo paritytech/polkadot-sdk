@@ -20,9 +20,9 @@
 use std::sync::Arc;
 
 use codec::Codec;
+use cumulus_pallet_contracts_primitives::RentProjection;
 use jsonrpc_core::{Error, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use cumulus_pallet_contracts_primitives::RentProjection;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -106,7 +106,11 @@ pub enum RpcContractExecResult {
 impl From<ContractExecResult> for RpcContractExecResult {
 	fn from(r: ContractExecResult) -> Self {
 		match r {
-			ContractExecResult::Success { flags, data, gas_consumed } => RpcContractExecResult::Success {
+			ContractExecResult::Success {
+				flags,
+				data,
+				gas_consumed,
+			} => RpcContractExecResult::Success {
 				flags,
 				data: data.into(),
 				gas_consumed,
@@ -293,7 +297,8 @@ mod tests {
 	#[test]
 	fn call_request_should_serialize_deserialize_properly() {
 		type Req = CallRequest<String, u128>;
-		let req: Req = serde_json::from_str(r#"
+		let req: Req = serde_json::from_str(
+			r#"
 		{
 			"origin": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
 			"dest": "5DRakbLVnjVrW6niwLfHGW24EeCEvDAFGEXrtaYS5M4ynoom",
@@ -301,7 +306,9 @@ mod tests {
 			"gasLimit": 1000000000000,
 			"inputData": "0x8c97db39"
 		}
-		"#).unwrap();
+		"#,
+		)
+		.unwrap();
 		assert_eq!(req.gas_limit.into_u256(), U256::from(0xe8d4a51000u64));
 	}
 

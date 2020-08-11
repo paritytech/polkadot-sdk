@@ -51,7 +51,9 @@ static mut STORAGE: Option<Box<dyn Storage>> = None;
 /// Panics if the [`STORAGE`] is not initialized.
 fn with_storage<R>(call: impl FnOnce(&mut dyn Storage) -> R) -> R {
 	let mut storage = unsafe {
-		STORAGE.take().expect("`STORAGE` needs to be set before calling this function.")
+		STORAGE
+			.take()
+			.expect("`STORAGE` needs to be set before calling this function.")
 	};
 
 	let res = call(&mut *storage);
@@ -142,7 +144,8 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	// If in the course of block execution new validation code was set, insert
 	// its scheduled upgrade so we can validate that block number later.
-	let new_validation_code = with_storage(|storage| storage.get(NEW_VALIDATION_CODE)).map(ValidationCode);
+	let new_validation_code =
+		with_storage(|storage| storage.get(NEW_VALIDATION_CODE)).map(ValidationCode);
 	if new_validation_code.is_some() && validation_function_params.code_upgrade_allowed.is_none() {
 		panic!("Attempt to upgrade validation function when not permitted!");
 	}
@@ -154,9 +157,10 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		None => Vec::new(),
 	};
 
-	let processed_downward_messages = with_storage(|storage| storage.get(PROCESSED_DOWNWARD_MESSAGES))
-		.and_then(|v| Decode::decode(&mut &v[..]).ok())
-		.unwrap_or_default();
+	let processed_downward_messages =
+		with_storage(|storage| storage.get(PROCESSED_DOWNWARD_MESSAGES))
+			.and_then(|v| Decode::decode(&mut &v[..]).ok())
+			.unwrap_or_default();
 
 	ValidationResult {
 		head_data,
@@ -266,13 +270,11 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 		let witness_data = &self.witness_data;
 		let storage_root = &self.storage_root;
 
-		let current_value = overlay.entry(key.to_vec()).or_insert_with(||
-			read_trie_value::<Layout<HashFor<B>>, _>(
-				witness_data,
-				storage_root,
-				key,
-			).ok().flatten()
-		);
+		let current_value = overlay.entry(key.to_vec()).or_insert_with(|| {
+			read_trie_value::<Layout<HashFor<B>>, _>(witness_data, storage_root, key)
+				.ok()
+				.flatten()
+		});
 
 		let item = current_value.take().unwrap_or_default();
 		*current_value = Some(

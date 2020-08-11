@@ -17,9 +17,9 @@
 use super::*;
 use cumulus_test_runtime::{Block, Header};
 use polkadot_primitives::v0::{
-	AbridgedCandidateReceipt, Chain, CollatorId, DutyRoster, GlobalValidationData,
-	Id as ParaId, LocalValidationData, ParachainHost, Retriable, SigningContext,
-	ValidationCode, ValidatorId, Block as PBlock, Hash as PHash, Header as PHeader,
+	AbridgedCandidateReceipt, Block as PBlock, Chain, CollatorId, DutyRoster, GlobalValidationData,
+	Hash as PHash, Header as PHeader, Id as ParaId, LocalValidationData, ParachainHost, Retriable,
+	SigningContext, ValidationCode, ValidatorId,
 };
 use polkadot_test_runtime_client::{
 	DefaultTestClientBuilderExt, TestClient, TestClientBuilder, TestClientBuilderExt,
