@@ -19,12 +19,12 @@
 use frame_executive::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 
-use sp_std::{boxed::Box, vec::Vec};
+use sp_std::{boxed::Box, vec::Vec, collections::btree_map::BTreeMap, ops::Bound};
 use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB, StorageProof};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
-use trie_db::{TrieDB, TrieDBIterator};
+use trie_db::{TrieDB, TrieDBIterator, Trie};
 
 use parachain::primitives::{HeadData, ValidationCode, ValidationParams, ValidationResult};
 
@@ -86,6 +86,9 @@ trait Storage {
 
 	/// Append the value to the given key
 	fn storage_append(&mut self, key: &[u8], value: Vec<u8>);
+
+	/// Get the next storage key after the given `key`.
+	fn next_key(&self, key: &[u8]) -> Option<Vec<u8>>;
 }
 
 /// Implement `Encode` by forwarding the stored raw vec.
@@ -137,6 +140,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 			sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
 			sp_io::storage::host_changes_root.replace_implementation(host_storage_changes_root),
 			sp_io::storage::host_append.replace_implementation(host_storage_append),
+			sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
 		)
 	};
 
@@ -174,7 +178,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 /// witness data as source.
 struct WitnessStorage<B: BlockT> {
 	witness_data: MemoryDB<HashFor<B>>,
-	overlay: hashbrown::HashMap<Vec<u8>, Option<Vec<u8>>>,
+	overlay: BTreeMap<Vec<u8>, Option<Vec<u8>>>,
 	storage_root: B::Hash,
 	params: ValidationFunctionParams,
 }
@@ -200,6 +204,38 @@ impl<B: BlockT> WitnessStorage<B> {
 			storage_root,
 			params,
 		})
+	}
+
+	/// Find the next storage key after the given `key` in the trie.
+	fn trie_next_key(&self, key: &[u8]) -> Option<Vec<u8>> {
+		let trie = TrieDB::<Layout<HashFor<B>>>::new(&self.witness_data, &self.storage_root)
+			.expect("Creates next storage key `TrieDB`");
+		let mut iter = trie.iter().expect("Creates trie iterator");
+
+		// The key just after the one given in input, basically `key++0`.
+		// Note: We are sure this is the next key if:
+		// * size of key has no limit (i.e. we can always add 0 to the path),
+		// * and no keys can be inserted between `key` and `key++0` (this is ensured by sp-io).
+		let mut potential_next_key = Vec::with_capacity(key.len() + 1);
+		potential_next_key.extend_from_slice(key);
+		potential_next_key.push(0);
+
+		iter.seek(&potential_next_key).expect("Seek trie iterator");
+
+		let next_element = iter.next();
+
+		if let Some(next_element) = next_element {
+			let (next_key, _) = next_element.expect("Extracts next key");
+			Some(next_key)
+		} else {
+			None
+		}
+	}
+
+	/// Find the next storage key after the given `key` in the overlay.
+	fn overlay_next_key(&self, key: &[u8]) -> Option<(&[u8], Option<&[u8]>)> {
+		let range = (Bound::Excluded(key), Bound::Unbounded);
+		self.overlay.range::<[u8], _>(range).next().map(|(k, v)| (&k[..], v.as_deref()))
 	}
 }
 
@@ -284,6 +320,21 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 			},
 		);
 	}
+
+	fn next_key(&self, key: &[u8]) -> Option<Vec<u8>> {
+		let next_trie_key = self.trie_next_key(key);
+		let next_overlay_key = self.overlay_next_key(key);
+
+		match (next_trie_key, next_overlay_key) {
+			(Some(backend_key), Some(overlay_key)) if &backend_key[..] < overlay_key.0 => Some(backend_key),
+			(backend_key, None) => backend_key,
+			(_, Some(overlay_key)) => if overlay_key.1.is_some() {
+				Some(overlay_key.0.to_vec())
+			} else {
+				self.next_key(&overlay_key.0)
+			},
+		}
+	}
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
@@ -330,4 +381,8 @@ fn host_storage_changes_root(_: &[u8]) -> Option<Vec<u8>> {
 
 fn host_storage_append(key: &[u8], value: Vec<u8>) {
 	with_storage(|storage| storage.storage_append(key, value));
+}
+
+fn host_storage_next_key(key: &[u8]) -> Option<Vec<u8>> {
+	with_storage(|storage| storage.next_key(key))
 }

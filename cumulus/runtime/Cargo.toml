@@ -10,7 +10,6 @@ codec = { package = "parity-scale-codec", version = "1.3.0", default-features = 
 memory-db = { version = "0.24.0", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 trie-db = { version = "0.22.0", default-features = false }
-hashbrown = "0.8.0"
 
 # Cumulus dependencies
 cumulus-primitives = { path = "../primitives", default-features = false }
