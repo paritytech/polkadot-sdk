@@ -32,6 +32,29 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero};
 use std::{io::Write, net::SocketAddr, sync::Arc};
 
+fn load_spec(
+	id: &str,
+	para_id: ParaId,
+) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+	match id {
+		"staging" => Ok(Box::new(chain_spec::staging_test_net(para_id))),
+		"tick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+			&include_bytes!("../res/tick.json")[..],
+		)?)),
+		"trick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+			&include_bytes!("../res/trick.json")[..],
+		)?)),
+		"track" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+			&include_bytes!("../res/track.json")[..],
+		)?)),
+		"contracts" => Ok(Box::new(chain_spec::get_contracts_chain_spec(para_id))),
+		"" => Ok(Box::new(chain_spec::get_chain_spec(para_id))),
+		path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
+			path.into(),
+		)?)),
+	}
+}
+
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
 		"Cumulus Test Parachain Collator".into()
@@ -64,29 +87,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		match id {
-			"staging" => Ok(Box::new(chain_spec::staging_test_net(
-				self.run.parachain_id.unwrap_or(100).into(),
-			))),
-			"tick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
-				&include_bytes!("../res/tick.json")[..],
-			)?)),
-			"trick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
-				&include_bytes!("../res/trick.json")[..],
-			)?)),
-			"track" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
-				&include_bytes!("../res/track.json")[..],
-			)?)),
-			"contracts" => Ok(Box::new(chain_spec::get_contracts_chain_spec(
-				self.run.parachain_id.unwrap_or(100).into(),
-			))),
-			"" => Ok(Box::new(chain_spec::get_chain_spec(
-				self.run.parachain_id.unwrap_or(100).into(),
-			))),
-			path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
-				path.into(),
-			)?)),
-		}
+		load_spec(id, self.run.parachain_id.unwrap_or(100).into())
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -215,14 +216,16 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisState(params)) => {
 			sc_cli::init_logger("");
 
-			let block =
-				generate_genesis_state(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
+			let block = generate_genesis_state(&load_spec(
+				&params.chain.clone().unwrap_or_default(),
+				params.parachain_id.into(),
+			)?)?;
 			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
 			if let Some(output) = &params.output {
 				std::fs::write(output, header_hex)?;
 			} else {
-				println!("{}", header_hex);
+				print!("{}", header_hex);
 			}
 
 			Ok(())
@@ -297,7 +300,8 @@ pub fn run() -> Result<()> {
 						polkadot_config,
 						id,
 						cli.run.base.validator,
-					).map(|r| r.0)
+					)
+					.map(|r| r.0)
 				}
 			})
 		}
