@@ -37,7 +37,7 @@ use cumulus_primitives::{
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, storage, weights::DispatchClass,
 };
-use frame_system::ensure_none;
+use frame_system::{ensure_none, ensure_root};
 use parachain::primitives::RelayChainBlockNumber;
 use sp_core::storage::well_known_keys;
 use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
@@ -79,30 +79,18 @@ decl_module! {
 		// TODO: figure out a better weight than this
 		#[weight = (0, DispatchClass::Operational)]
 		pub fn schedule_upgrade(origin, validation_function: Vec<u8>) {
-			// TODO: in the future, we can't rely on a superuser existing
-			// on-chain who can just wave their hands and make this happen.
-			// Instead, this should hook into the democracy pallet and check
-			// that a validation function upgrade has been approved; potentially,
-			// it should even trigger the validation function upgrade automatically
-			// the moment the vote passes.
-
-
 			System::<T>::can_set_code(origin, &validation_function)?;
-			ensure!(!PendingValidationFunction::exists(), Error::<T>::OverlappingUpgrades);
-			let vfp = Self::validation_function_params().ok_or(Error::<T>::ValidationFunctionParamsNotAvailable)?;
-			ensure!(validation_function.len() <= vfp.max_code_size as usize, Error::<T>::TooBig);
-			let apply_block = vfp.code_upgrade_allowed.ok_or(Error::<T>::ProhibitedByPolkadot)?;
+			Self::schedule_upgrade_impl(validation_function)?;
+		}
 
-			// When a code upgrade is scheduled, it has to be applied in two
-			// places, synchronized: both polkadot and the individual parachain
-			// have to upgrade on the same relay chain block.
-			//
-			// `notify_polkadot_of_pending_upgrade` notifies polkadot; the `PendingValidationFunction`
-			// storage keeps track locally for the parachain upgrade, which will
-			// be applied later.
-			Self::notify_polkadot_of_pending_upgrade(&validation_function);
-			PendingValidationFunction::put((apply_block, validation_function));
-			Self::deposit_event(Event::ValidationFunctionStored(apply_block));
+		/// Schedule a validation function upgrade without further checks.
+		///
+		/// Same as [`Module::schedule_upgrade`], but without checking that the new `validation_function`
+		/// is correct. This makes it more flexible, but also opens the door to easily brick the chain.
+		#[weight = (0, DispatchClass::Operational)]
+		pub fn schedule_upgrade_without_checks(origin, validation_function: Vec<u8>) {
+			ensure_root(origin)?;
+			Self::schedule_upgrade_impl(validation_function)?;
 		}
 
 		/// Set the current validation function parameters
@@ -114,8 +102,6 @@ decl_module! {
 		///
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
-		//
-		// weight data just stolen from Timestamp::set; may be inappropriate
 		#[weight = (0, DispatchClass::Mandatory)]
 		fn set_validation_function_parameters(origin, vfp: ValidationFunctionParams) {
 			ensure_none(origin)?;
@@ -181,6 +167,27 @@ impl<T: Trait> Module<T> {
 	/// The maximum code size permitted, in bytes.
 	pub fn max_code_size() -> Option<u32> {
 		Self::validation_function_params().map(|vfp| vfp.max_code_size)
+	}
+
+	/// The implementation of the runtime upgrade scheduling.
+	fn schedule_upgrade_impl(validation_function: Vec<u8>) -> frame_support::dispatch::DispatchResult {
+		ensure!(!PendingValidationFunction::exists(), Error::<T>::OverlappingUpgrades);
+		let vfp = Self::validation_function_params().ok_or(Error::<T>::ValidationFunctionParamsNotAvailable)?;
+		ensure!(validation_function.len() <= vfp.max_code_size as usize, Error::<T>::TooBig);
+		let apply_block = vfp.code_upgrade_allowed.ok_or(Error::<T>::ProhibitedByPolkadot)?;
+
+		// When a code upgrade is scheduled, it has to be applied in two
+		// places, synchronized: both polkadot and the individual parachain
+		// have to upgrade on the same relay chain block.
+		//
+		// `notify_polkadot_of_pending_upgrade` notifies polkadot; the `PendingValidationFunction`
+		// storage keeps track locally for the parachain upgrade, which will
+		// be applied later.
+		Self::notify_polkadot_of_pending_upgrade(&validation_function);
+		PendingValidationFunction::put((apply_block, validation_function));
+		Self::deposit_event(Event::ValidationFunctionStored(apply_block));
+
+		Ok(())
 	}
 }
 
