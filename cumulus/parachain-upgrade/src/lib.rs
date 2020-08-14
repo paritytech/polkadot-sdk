@@ -43,8 +43,6 @@ use sp_core::storage::well_known_keys;
 use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
 use sp_std::vec::Vec;
 
-/// A ValidationFunction is a compiled WASM blob which, on execution, validates parachain blocks.
-pub type ValidationFunction = Vec<u8>;
 type System<T> = frame_system::Module<T>;
 
 /// The pallet's configuration trait.
@@ -64,7 +62,7 @@ decl_storage! {
 		// we need to store the new validation function for the span between
 		// setting it and applying it.
 		PendingValidationFunction get(fn new_validation_function):
-			Option<(RelayChainBlockNumber, ValidationFunction)>;
+			Option<(RelayChainBlockNumber, Vec<u8>)>;
 
 		/// Were the VFPs updated this block?
 		DidUpdateVFPs: bool;
@@ -80,7 +78,7 @@ decl_module! {
 
 		// TODO: figure out a better weight than this
 		#[weight = (0, DispatchClass::Operational)]
-		pub fn schedule_upgrade(origin, validation_function: ValidationFunction) {
+		pub fn schedule_upgrade(origin, validation_function: Vec<u8>) {
 			// TODO: in the future, we can't rely on a superuser existing
 			// on-chain who can just wave their hands and make this happen.
 			// Instead, this should hook into the democracy pallet and check
