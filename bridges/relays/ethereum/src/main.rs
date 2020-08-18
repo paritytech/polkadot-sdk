@@ -272,20 +272,28 @@ fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncPara
 }
 
 fn ethereum_deploy_contract_params(matches: &clap::ArgMatches) -> Result<EthereumDeployContractParams, String> {
-	let eth_contract_code = if let Some(eth_contract_code) = matches.value_of("eth-contract-code") {
-		hex::decode(&eth_contract_code).map_err(|e| format!("Failed to parse eth-contract-code: {}", e))?
-	} else {
+	let eth_contract_code = parse_hex_argument(matches, "eth-contract-code")?.unwrap_or_else(|| {
 		hex::decode(include_str!("../res/substrate-bridge-bytecode.hex")).expect("code is hardcoded, thus valid; qed")
+	});
+	let sub_initial_authorities_set_id = match matches.value_of("sub-authorities-set-id") {
+		Some(sub_initial_authorities_set_id) => Some(
+			sub_initial_authorities_set_id
+				.parse()
+				.map_err(|e| format!("Failed to parse sub-authorities-set-id: {}", e))?,
+		),
+		None => None,
 	};
+	let sub_initial_authorities_set = parse_hex_argument(matches, "sub-authorities-set")?;
+	let sub_initial_header = parse_hex_argument(matches, "sub-initial-header")?;
 
 	let params = EthereumDeployContractParams {
 		eth_params: ethereum_connection_params(matches)?,
 		eth_sign: ethereum_signing_params(matches)?,
 		sub_params: substrate_connection_params(matches)?,
 		instance: instance_params(matches)?,
-		sub_initial_authorities_set_id: None,
-		sub_initial_authorities_set: None,
-		sub_initial_header: None,
+		sub_initial_authorities_set_id,
+		sub_initial_authorities_set,
+		sub_initial_header,
 		eth_contract_code,
 	};
 
@@ -406,4 +414,13 @@ fn instance_params(matches: &clap::ArgMatches) -> Result<Box<dyn BridgeInstance>
 	};
 
 	Ok(instance)
+}
+
+fn parse_hex_argument(matches: &clap::ArgMatches, arg: &str) -> Result<Option<Vec<u8>>, String> {
+	match matches.value_of(arg) {
+		Some(value) => Ok(Some(
+			hex::decode(value).map_err(|e| format!("Failed to parse {}: {}", arg, e))?,
+		)),
+		None => Ok(None),
+	}
 }
