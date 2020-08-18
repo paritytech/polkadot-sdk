@@ -17,9 +17,9 @@
 use crate::exchange::EthereumTransactionInclusionProof;
 
 use bp_eth_poa::{Address, Header, RawTransaction, U256};
+use bp_header_chain::BaseHeaderChain;
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
-use pallet_bridge_currency_exchange::PeerBlockchain;
 use pallet_bridge_eth_poa::{
 	AuraConfiguration, PruningStrategy as BridgePruningStrategy, ValidatorsConfiguration, ValidatorsSource,
 };
@@ -137,7 +137,7 @@ impl BridgePruningStrategy for PruningStrategy {
 /// The Kovan Blockchain as seen by the runtime.
 pub struct KovanBlockchain;
 
-impl PeerBlockchain for KovanBlockchain {
+impl BaseHeaderChain for KovanBlockchain {
 	type Transaction = RawTransaction;
 	type TransactionInclusionProof = EthereumTransactionInclusionProof;
 

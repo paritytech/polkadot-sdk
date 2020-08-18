@@ -21,7 +21,8 @@
 use bp_currency_exchange::{
 	CurrencyConverter, DepositInto, Error as ExchangeError, MaybeLockFundsTransaction, RecipientsMap,
 };
-use frame_support::{decl_error, decl_module, decl_storage, ensure, Parameter};
+use bp_header_chain::BaseHeaderChain;
+use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use sp_runtime::DispatchResult;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -33,28 +34,15 @@ pub trait OnTransactionSubmitted<AccountId> {
 	fn on_valid_transaction_submitted(submitter: AccountId);
 }
 
-/// Peer blockchain interface.
-pub trait PeerBlockchain {
-	/// Transaction type.
-	type Transaction: Parameter;
-	/// Transaction inclusion proof type.
-	type TransactionInclusionProof: Parameter;
-
-	/// Verify that transaction is a part of given block.
-	///
-	/// Returns Some(transaction) if proof is valid and None otherwise.
-	fn verify_transaction_inclusion_proof(proof: &Self::TransactionInclusionProof) -> Option<Self::Transaction>;
-}
-
 /// The module configuration trait
 pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// Handler for transaction submission result.
 	type OnTransactionSubmitted: OnTransactionSubmitted<Self::AccountId>;
 	/// Represents the blockchain that we'll be exchanging currency with.
-	type PeerBlockchain: PeerBlockchain;
+	type PeerBlockchain: BaseHeaderChain;
 	/// Peer blockchain transaction parser.
 	type PeerMaybeLockFundsTransaction: MaybeLockFundsTransaction<
-		Transaction = <Self::PeerBlockchain as PeerBlockchain>::Transaction,
+		Transaction = <Self::PeerBlockchain as BaseHeaderChain>::Transaction,
 	>;
 	/// Map between blockchains recipients.
 	type RecipientsMap: RecipientsMap<
@@ -101,7 +89,7 @@ decl_module! {
 		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 		pub fn import_peer_transaction(
 			origin,
-			proof: <<T as Trait<I>>::PeerBlockchain as PeerBlockchain>::TransactionInclusionProof,
+			proof: <<T as Trait<I>>::PeerBlockchain as BaseHeaderChain>::TransactionInclusionProof,
 		) -> DispatchResult {
 			let submitter = frame_system::ensure_signed(origin)?;
 
@@ -146,7 +134,7 @@ decl_storage! {
 impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// Returns true if currency exchange module is able to import given transaction proof in
 	/// its current state.
-	pub fn filter_transaction_proof(proof: &<T::PeerBlockchain as PeerBlockchain>::TransactionInclusionProof) -> bool {
+	pub fn filter_transaction_proof(proof: &<T::PeerBlockchain as BaseHeaderChain>::TransactionInclusionProof) -> bool {
 		if let Err(err) = prepare_deposit_details::<T, I>(proof) {
 			frame_support::debug::trace!(
 				target: "runtime",
@@ -192,7 +180,7 @@ struct DepositDetails<T: Trait<I>, I: Instance> {
 /// Verify and parse transaction proof, preparing everything required for importing
 /// this transaction proof.
 fn prepare_deposit_details<T: Trait<I>, I: Instance>(
-	proof: &<<T as Trait<I>>::PeerBlockchain as PeerBlockchain>::TransactionInclusionProof,
+	proof: &<<T as Trait<I>>::PeerBlockchain as BaseHeaderChain>::TransactionInclusionProof,
 ) -> Result<DepositDetails<T, I>, Error<T, I>> {
 	// ensure that transaction is included in finalized block that we know of
 	let transaction = <T as Trait<I>>::PeerBlockchain::verify_transaction_inclusion_proof(proof)
@@ -251,7 +239,7 @@ mod tests {
 
 	pub struct DummyBlockchain;
 
-	impl PeerBlockchain for DummyBlockchain {
+	impl BaseHeaderChain for DummyBlockchain {
 		type Transaction = RawTransaction;
 		type TransactionInclusionProof = (bool, RawTransaction);
 
