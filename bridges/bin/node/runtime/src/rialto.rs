@@ -17,9 +17,9 @@
 use crate::exchange::EthereumTransactionInclusionProof;
 
 use bp_eth_poa::{Address, Header, RawTransaction, U256};
+use bp_header_chain::BaseHeaderChain;
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
-use pallet_bridge_currency_exchange::PeerBlockchain;
 use pallet_bridge_eth_poa::{
 	AuraConfiguration, PruningStrategy as TPruningStrategy, ValidatorsConfiguration, ValidatorsSource,
 };
@@ -110,7 +110,7 @@ impl TPruningStrategy for PruningStrategy {
 /// The Rialto Blockchain as seen by the runtime.
 pub struct RialtoBlockchain;
 
-impl PeerBlockchain for RialtoBlockchain {
+impl BaseHeaderChain for RialtoBlockchain {
 	type Transaction = RawTransaction;
 	type TransactionInclusionProof = EthereumTransactionInclusionProof;
 

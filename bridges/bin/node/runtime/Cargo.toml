@@ -206,6 +206,11 @@ version = "0.1.0"
 default-features = false
 path = "../../../primitives/ethereum-poa"
 
+[dependencies.bp-header-chain]
+version = "0.1.0"
+default-features = false
+path = "../../../primitives/header-chain"
+
 # Dev Dependencies
 
 [dev-dependencies.libsecp256k1]
