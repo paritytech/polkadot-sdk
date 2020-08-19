@@ -47,7 +47,7 @@ pub mod consts {
 	/// Max Ethereum headers we want to have in all 'before-submitted' states.
 	pub const MAX_FUTURE_HEADERS_TO_DOWNLOAD: usize = 8;
 	/// Max Ethereum headers count we want to have in 'submitted' state.
-	pub const MAX_SUBMITTED_HEADERS: usize = 1;
+	pub const MAX_SUBMITTED_HEADERS: usize = 4;
 	/// Max depth of in-memory headers in all states. Past this depth they will be forgotten (pruned).
 	pub const PRUNE_DEPTH: u32 = 256;
 }
