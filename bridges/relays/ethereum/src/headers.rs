@@ -404,9 +404,12 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	}
 
 	/// Marks given headers incomplete.
-	pub fn add_incomplete_headers(&mut self, new_incomplete_headers: Vec<HeaderIdOf<P>>) {
+	pub fn add_incomplete_headers(&mut self, make_header_incomplete: bool, new_incomplete_headers: Vec<HeaderIdOf<P>>) {
 		for new_incomplete_header in new_incomplete_headers {
-			self.header_synced(&new_incomplete_header);
+			if make_header_incomplete {
+				self.header_synced(&new_incomplete_header);
+			}
+
 			move_header_descendants::<P>(
 				&mut [&mut self.ready, &mut self.submitted],
 				&mut self.incomplete,
@@ -415,13 +418,15 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 				&new_incomplete_header,
 			);
 
-			log::debug!(
-				target: "bridge",
-				"Scheduling completion data retrieval for header: {:?}",
-				new_incomplete_header,
-			);
+			if make_header_incomplete {
+				log::debug!(
+					target: "bridge",
+					"Scheduling completion data retrieval for header: {:?}",
+					new_incomplete_header,
+				);
 
-			self.incomplete_headers.insert(new_incomplete_header, None);
+				self.incomplete_headers.insert(new_incomplete_header, None);
+			}
 		}
 	}
 
@@ -434,7 +439,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 			.filter(|id| !self.incomplete_headers.contains_key(id) && !self.completion_data.contains_key(id))
 			.cloned()
 			.collect::<Vec<_>>();
-		self.add_incomplete_headers(new_incomplete_headers);
+		self.add_incomplete_headers(true, new_incomplete_headers);
 
 		// for all headers that were incompleted previously, but now are completed, we move
 		// all descendants from incomplete to ready

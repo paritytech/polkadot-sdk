@@ -334,7 +334,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 					log::debug!(target: "bridge", "Header submit result: {}", submitted_headers_str);
 
 					sync.headers_mut().headers_submitted(submitted_headers.submitted);
-					sync.headers_mut().add_incomplete_headers(submitted_headers.incomplete);
+					sync.headers_mut().add_incomplete_headers(false, submitted_headers.incomplete);
 
 					// when there's no fatal error, but node has rejected all our headers we may
 					// want to pause until our submitted headers will be accepted
