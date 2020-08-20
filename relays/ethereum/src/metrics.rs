@@ -18,7 +18,7 @@ pub use substrate_prometheus_endpoint::{register, Counter, CounterVec, Gauge, Ga
 
 use std::net::SocketAddr;
 use substrate_prometheus_endpoint::init_prometheus;
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::{ProcessExt, RefreshKind, System, SystemExt};
 
 /// Prometheus endpoint MetricsParams.
 #[derive(Debug, Clone)]
@@ -111,7 +111,7 @@ impl GlobalMetrics {
 	/// Creates global metrics.
 	pub fn new() -> Self {
 		GlobalMetrics {
-			system: System::new(),
+			system: System::new_with_specifics(RefreshKind::everything()),
 			system_average_load: GaugeVec::new(Opts::new("system_average_load", "System load average"), &["over"])
 				.expect("metric is static and thus valid; qed"),
 			process_cpu_usage_percentage: Gauge::new("process_cpu_usage_percentage", "Process CPU usage")
@@ -141,8 +141,18 @@ impl GlobalMetrics {
 		let is_process_refreshed = self.system.refresh_process(pid);
 		match (is_process_refreshed, self.system.get_process(pid)) {
 			(true, Some(process_info)) => {
-				self.process_cpu_usage_percentage.set(process_info.cpu_usage() as f64);
-				self.process_memory_usage_bytes.set(process_info.memory() * 1024);
+				let cpu_usage = process_info.cpu_usage() as f64;
+				let memory_usage = process_info.memory() * 1024;
+				log::trace!(
+					target: "bridge-metrics",
+					"Refreshed process metrics: CPU={}, memory={}",
+					cpu_usage,
+					memory_usage,
+				);
+
+				self.process_cpu_usage_percentage
+					.set(if cpu_usage.is_finite() { cpu_usage } else { 0f64 });
+				self.process_memory_usage_bytes.set(memory_usage);
 			}
 			_ => {
 				log::warn!(
