@@ -1,6 +1,6 @@
 [package]
 name = "substrate-bip39"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 edition = "2018"
@@ -13,6 +13,7 @@ pbkdf2 = { version = "0.3.0", default-features = false }
 sha2 = "0.8.0"
 hmac = "0.7.1"
 schnorrkel = "0.9.0"
+zeroize = { version = "1.0.0", default-features = false }
 
 [dev-dependencies]
 tiny-bip39 = "0.6.2"

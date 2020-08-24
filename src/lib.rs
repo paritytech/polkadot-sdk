@@ -16,6 +16,7 @@ use sha2::Sha512;
 use hmac::Hmac;
 use pbkdf2::pbkdf2;
 use schnorrkel::keys::MiniSecretKey;
+use zeroize::Zeroize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Error {
@@ -46,11 +47,15 @@ pub fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Err
         return Err(Error::InvalidEntropy);
     }
 
-    let salt = format!("mnemonic{}", password);
+    let mut salt = String::with_capacity(8 + password.len());
+    salt.push_str("mnemonic");
+    salt.push_str(password);
 
     let mut seed = [0u8; 64];
 
     pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed);
+
+    salt.zeroize();
 
     Ok(seed)
 }
