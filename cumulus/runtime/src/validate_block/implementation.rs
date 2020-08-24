@@ -24,7 +24,7 @@ use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB, StorageProof};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
-use trie_db::{TrieDB, TrieDBIterator, Trie};
+use trie_db::{TrieDB, TrieDBIterator, Trie, TrieError};
 
 use parachain::primitives::{HeadData, ValidationCode, ValidationParams, ValidationResult};
 
@@ -69,6 +69,9 @@ fn with_storage<R>(call: impl FnOnce(&mut dyn Storage) -> R) -> R {
 trait Storage {
 	/// Retrieve the value for the given key.
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>>;
+
+	/// Retrieve the value for the given key only if modified.
+	fn modified(&self, key: &[u8]) -> Option<Vec<u8>>;
 
 	/// Insert the given key and value.
 	fn insert(&mut self, key: &[u8], value: &[u8]);
@@ -149,20 +152,20 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	// If in the course of block execution new validation code was set, insert
 	// its scheduled upgrade so we can validate that block number later.
 	let new_validation_code =
-		with_storage(|storage| storage.get(NEW_VALIDATION_CODE)).map(ValidationCode);
+		with_storage(|storage| storage.modified(NEW_VALIDATION_CODE)).map(ValidationCode);
 	if new_validation_code.is_some() && validation_function_params.code_upgrade_allowed.is_none() {
 		panic!("Attempt to upgrade validation function when not permitted!");
 	}
 
 	// Extract potential upward messages from the storage.
-	let upward_messages = match with_storage(|storage| storage.get(UPWARD_MESSAGES)) {
+	let upward_messages = match with_storage(|storage| storage.modified(UPWARD_MESSAGES)) {
 		Some(encoded) => Vec::<GenericUpwardMessage>::decode(&mut &encoded[..])
 			.expect("Upward messages vec is not correctly encoded in the storage!"),
 		None => Vec::new(),
 	};
 
 	let processed_downward_messages =
-		with_storage(|storage| storage.get(PROCESSED_DOWNWARD_MESSAGES))
+		with_storage(|storage| storage.modified(PROCESSED_DOWNWARD_MESSAGES))
 			.and_then(|v| Decode::decode(&mut &v[..]).ok())
 			.unwrap_or_default();
 
@@ -240,6 +243,17 @@ impl<B: BlockT> WitnessStorage<B> {
 }
 
 impl<B: BlockT> Storage for WitnessStorage<B> {
+	fn modified(&self, key: &[u8]) -> Option<Vec<u8>> {
+		match key {
+			VALIDATION_FUNCTION_PARAMS => Some(self.params.encode()),
+			key => self
+				.overlay
+				.get(key)
+				.cloned()
+				.unwrap_or(None),
+		}
+	}
+
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
 		match key {
 			VALIDATION_FUNCTION_PARAMS => Some(self.params.encode()),
@@ -247,15 +261,14 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 				.overlay
 				.get(key)
 				.cloned()
-				.or_else(|| {
+				.unwrap_or_else(|| {
 					read_trie_value::<Layout<HashFor<B>>, _>(
 						&self.witness_data,
 						&self.storage_root,
 						key,
 					)
-					.ok()
+					.expect("Reading key from trie.")
 				})
-				.unwrap_or(None),
 		}
 	}
 
