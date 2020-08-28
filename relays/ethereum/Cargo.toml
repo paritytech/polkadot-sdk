@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 ansi_term = "0.12"
 async-std = "1.6.2"
 async-stream = "0.3.0"
-async-trait = "0.1.37"
+async-trait = "0.1.38"
 backoff = "0.2"
 bp-currency-exchange = { path = "../../primitives/currency-exchange" }
 bp-eth-poa = { path = "../../primitives/ethereum-poa" }
