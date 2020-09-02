@@ -16,6 +16,7 @@ bp-eth-poa = { version = "0.1.0", path = "../../../primitives/ethereum-poa" }
 futures = "0.3.5"
 jsonrpc-core = "14.2.0"
 log = "0.4.11"
+pallet-message-lane-rpc = { version = "0.1.0", path = "../../../modules/message-lane/rpc" }
 structopt = "0.3.17"
 
 [dependencies.bridge-node-runtime]
