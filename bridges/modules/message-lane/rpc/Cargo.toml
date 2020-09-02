@@ -1,0 +1,56 @@
+[package]
+name = "pallet-message-lane-rpc"
+description = "Module that provides RPC methods specific to message-lane pallet."
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+bp-runtime = { path = "../../../primitives/runtime" }
+bp-message-lane = { path = "../../../primitives/message-lane" }
+derive_more = "0.99.2"
+futures = { version = "0.3.5", features = ["compat"] }
+jsonrpc-core = "14.2.0"
+jsonrpc-core-client = "14.2.0"
+jsonrpc-derive = "14.2.1"
+
+# Substrate Based Dependencies
+
+[dependencies.sc-client-api]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-blockchain]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-core]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-runtime]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-state-machine]
+version = "0.8.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-trie]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
+
+[dev-dependencies]
+async-std = "1.6.2"
+
+[dev-dependencies.substrate-test-runtime-client]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
