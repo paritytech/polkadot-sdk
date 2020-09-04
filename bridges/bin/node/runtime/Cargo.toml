@@ -45,6 +45,11 @@ version = "0.1.0"
 default-features = false
 path = "../../../modules/ethereum"
 
+[dependencies.pallet-bridge-call-dispatch]
+version = "0.1.0"
+default-features = false
+path = "../../../modules/call-dispatch"
+
 [dependencies.pallet-bridge-currency-exchange]
 version = "0.1.0"
 default-features = false
@@ -216,6 +221,11 @@ version = "0.1.0"
 default-features = false
 path = "../../../primitives/header-chain"
 
+[dependencies.bp-message-lane]
+version = "0.1.0"
+default-features = false
+path = "../../../primitives/message-lane"
+
 # Dev Dependencies
 
 [dev-dependencies.libsecp256k1]
@@ -240,6 +250,7 @@ default = ["std"]
 std = [
 	"bp-currency-exchange/std",
 	"bp-eth-poa/std",
+	"bp-message-lane/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
@@ -248,6 +259,7 @@ std = [
 	"frame-system/std",
 	"pallet-aura/std",
 	"pallet-balances/std",
+	"pallet-bridge-call-dispatch/std",
 	"pallet-bridge-currency-exchange/std",
 	"pallet-bridge-eth-poa/std",
 	"pallet-grandpa/std",
