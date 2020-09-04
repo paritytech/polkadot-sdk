@@ -18,8 +18,29 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
+use sp_io::hashing::blake2_256;
+
+/// Call-dispatch module prefix.
+pub const CALL_DISPATCH_MODULE_PREFIX: &[u8] = b"pallet-bridge/call-dispatch";
+
 /// Id of deployed module instance. We have a bunch of pallets that may be used in
 /// different bridges. E.g. message-lane pallet may be deployed twice in the same
 /// runtime to bridge ThisChain with Chain1 and Chain2. Sometimes we need to be able
 /// to identify deployed instance dynamically. This type is used for that.
 pub type InstanceId = [u8; 4];
+
+/// Returns id of account that acts as "system" account of given bridge instance.
+/// The `module_prefix` (arbitrary slice) may be used to generate module-level
+/// "system" account, so you could have separate "system" accounts for currency
+/// exchange, message dispatch and other modules.
+///
+/// The account is not supposed to actually exists on the chain, or to have any funds.
+/// It is only used to
+pub fn bridge_account_id<AccountId>(bridge: InstanceId, module_prefix: &[u8]) -> AccountId
+where
+	AccountId: Decode + Default,
+{
+	let entropy = (module_prefix, bridge).using_encoded(blake2_256);
+	AccountId::decode(&mut &entropy[..]).unwrap_or_default()
+}

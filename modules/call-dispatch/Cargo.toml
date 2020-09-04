@@ -1,0 +1,62 @@
+[package]
+name = "pallet-bridge-call-dispatch"
+description = "A Substrate Runtime module that dispatches a bridge message, treating it simply as encoded Call"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false }
+bp-message-dispatch = { path = "../../primitives/message-dispatch", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false }
+
+# Substrate Based Dependencies
+[dependencies.frame-support]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+default-features = false
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.frame-system]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+default-features = false
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-std]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+default-features = false
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-runtime]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+default-features = false
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-core]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+default-features = false
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.sp-io]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+default-features = false
+git = "https://github.com/paritytech/substrate/"
+
+[features]
+default = ["std"]
+std = [
+	"bp-message-dispatch/std",
+	"bp-runtime/std",
+	"frame-support/std",
+	"frame-system/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
