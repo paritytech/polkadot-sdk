@@ -3,7 +3,9 @@
 A set of tools for writing [Substrate](https://substrate.dev/)-based
 [Polkadot](https://wiki.polkadot.network/en/)
 [parachains](https://wiki.polkadot.network/docs/en/learn-parachains). Refer to the included
-[overview](docs/overview.md) for more details.
+[overview](docs/overview.md) for architectural details, and the
+[Cumulus workshop](https://substrate.dev/cumulus-workshop) for a hand-holding walkthrough
+of using these tools.
 
 It's easy to write blockchains using Substrate, and the overhead of writing parachains'
 distribution, p2p, database, and synchronization layers should be just as low. This project aims to
