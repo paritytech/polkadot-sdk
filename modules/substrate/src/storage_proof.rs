@@ -14,29 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-// Copyright 2017-2019 Parity Technologies (UK) Ltd.
-// This file is part of Parity Bridges Common.
+// TODO: remove on actual use
+#![allow(dead_code)]
 
-// Parity Bridges Common is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Parity Bridges Common is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
-
-//! Logic for checking Parity Bridges Common storage proofs.
+//! Logic for checking Substrate storage proofs.
 
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_runtime::RuntimeDebug;
-use sp_trie::{trie_types::TrieDB, MemoryDB, Trie};
-
-pub(crate) type StorageProof = Vec<Vec<u8>>;
+use sp_trie::{read_trie_value, Layout, MemoryDB, StorageProof};
 
 /// This struct is used to read storage values from a subset of a Merklized database. The "proof"
 /// is a subset of the nodes in the Merkle structure of the database, so that it provides
@@ -57,27 +42,19 @@ where
 	///
 	/// This returns an error if the given proof is invalid with respect to the given root.
 	pub fn new(root: H::Out, proof: StorageProof) -> Result<Self, Error> {
-		let mut db = MemoryDB::default();
-		for item in proof {
-			db.insert(EMPTY_PREFIX, &item);
+		let db = proof.into_memory_db();
+		if !db.contains(&root, EMPTY_PREFIX) {
+			return Err(Error::StorageRootMismatch);
 		}
+
 		let checker = StorageProofChecker { root, db };
-		// Return error if trie would be invalid.
-		let _ = checker.trie()?;
 		Ok(checker)
 	}
 
 	/// Reads a value from the available subset of storage. If the value cannot be read due to an
 	/// incomplete or otherwise invalid proof, this returns an error.
 	pub fn read_value(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
-		self.trie()?
-			.get(key)
-			.map(|value| value.map(|value| value.to_vec()))
-			.map_err(|_| Error::StorageValueUnavailable)
-	}
-
-	fn trie(&self) -> Result<TrieDB<H>, Error> {
-		TrieDB::new(&self.db, &self.root).map_err(|_| Error::StorageRootMismatch)
+		read_trie_value::<Layout<H>, _>(&self.db, &self.root, key).map_err(|_| Error::StorageValueUnavailable)
 	}
 }
 
@@ -105,10 +82,12 @@ mod tests {
 			(None, vec![(b"key11".to_vec(), Some(vec![0u8; 32]))]),
 		]);
 		let root = backend.storage_root(std::iter::empty()).0;
-		let proof: StorageProof = prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key22"[..]])
-			.unwrap()
-			.iter_nodes()
-			.collect();
+		let proof = StorageProof::new(
+			prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key22"[..]])
+				.unwrap()
+				.iter_nodes()
+				.collect(),
+		);
 
 		// check proof in runtime
 		let checker = <StorageProofChecker<Blake2Hasher>>::new(root, proof.clone()).unwrap();
