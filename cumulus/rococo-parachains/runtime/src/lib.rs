@@ -89,7 +89,7 @@ pub enum XCMPMessage<XAccountId, XBalance> {
 	TransferToken(XAccountId, XBalance),
 }
 
-/// The version infromation used to identify this runtime when compiled natively.
+/// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
 	NativeVersion {
