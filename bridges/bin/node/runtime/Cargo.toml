@@ -78,6 +78,11 @@ tag = 'v2.0.0-rc6'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
+[dependencies.pallet-shift-session-manager]
+version = "0.1.0"
+default-features = false
+path = "../../../modules/shift-session-manager"
+
 [dependencies.pallet-sudo]
 version = "2.0.0-rc6"
 tag = 'v2.0.0-rc6'
@@ -264,6 +269,7 @@ std = [
 	"pallet-bridge-eth-poa/std",
 	"pallet-grandpa/std",
 	"pallet-randomness-collective-flip/std",
+	"pallet-shift-session-manager/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
