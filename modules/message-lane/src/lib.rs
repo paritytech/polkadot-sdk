@@ -49,7 +49,7 @@ mod mock;
 /// The module configuration trait
 pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// They overarching event type.
-	type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 	/// Message payload.
 	type Payload: Parameter;
 	/// Maximal number of messages that may be pruned during maintenance. Maintenance occurs
@@ -75,13 +75,17 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event {
+	pub enum Event<T, I = DefaultInstance> where
+		<T as frame_system::Trait>::AccountId,
+	{
 		/// Message has been accepted and is waiting to be delivered.
 		MessageAccepted(LaneId, MessageNonce),
 		/// Messages in the inclusive range have been delivered to the bridged chain.
 		MessagesDelivered(LaneId, MessageNonce, MessageNonce),
 		/// Messages in the inclusive range have been processed by the bridged chain.
 		MessagesProcessed(LaneId, MessageNonce, MessageNonce),
+		/// Phantom member, never used.
+		Dummy(PhantomData<(AccountId, I)>),
 	}
 );
 
@@ -102,7 +106,7 @@ decl_module! {
 			let nonce = lane.send_message(payload);
 			lane.prune_messages(T::MaxMessagesToPruneAtOnce::get());
 
-			Self::deposit_event(Event::MessageAccepted(lane_id, nonce));
+			Self::deposit_event(RawEvent::MessageAccepted(lane_id, nonce));
 		}
 	}
 }
@@ -153,7 +157,11 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 		let received_range = lane.confirm_receival(latest_received_nonce);
 
 		if let Some(received_range) = received_range {
-			Self::deposit_event(Event::MessagesDelivered(*lane_id, received_range.0, received_range.1));
+			Self::deposit_event(RawEvent::MessagesDelivered(
+				*lane_id,
+				received_range.0,
+				received_range.1,
+			));
 		}
 	}
 
@@ -166,7 +174,11 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 		let processed_range = lane.confirm_processing(latest_processed_nonce);
 
 		if let Some(processed_range) = processed_range {
-			Self::deposit_event(Event::MessagesProcessed(*lane_id, processed_range.0, processed_range.1));
+			Self::deposit_event(RawEvent::MessagesProcessed(
+				*lane_id,
+				processed_range.0,
+				processed_range.1,
+			));
 		}
 	}
 }
