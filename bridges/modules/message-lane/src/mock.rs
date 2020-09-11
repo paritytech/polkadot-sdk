@@ -38,7 +38,7 @@ mod message_lane {
 impl_outer_event! {
 	pub enum TestEvent for TestRuntime {
 		frame_system<T>,
-		message_lane,
+		message_lane<T>,
 	}
 }
 
