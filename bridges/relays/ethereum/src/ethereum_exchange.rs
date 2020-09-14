@@ -34,7 +34,7 @@ use crate::substrate_client::{
 	SubmitEthereumExchangeTransactionProof, SubstrateConnectionParams, SubstrateRpcClient, SubstrateSigningParams,
 };
 use crate::substrate_types::into_substrate_ethereum_receipt;
-use crate::sync_types::HeaderId;
+use crate::utils::HeaderId;
 
 use async_trait::async_trait;
 use bp_currency_exchange::MaybeLockFundsTransaction;
