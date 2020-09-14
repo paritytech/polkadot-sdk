@@ -19,7 +19,8 @@ use crate::instances::BridgeInstance;
 use crate::rpc::{Substrate, SubstrateRpc};
 use crate::rpc_errors::RpcError;
 use crate::substrate_types::{Hash, Header as SubstrateHeader, Number, SignedBlock as SignedSubstrateBlock};
-use crate::sync_types::{HeaderId, SubmittedHeaders};
+use crate::sync_types::SubmittedHeaders;
+use crate::utils::HeaderId;
 
 use async_trait::async_trait;
 use bp_eth_poa::Header as SubstrateEthereumHeader;

@@ -16,9 +16,9 @@
 
 #![cfg(test)]
 
-use crate::sync_loop::{process_future_result, run, SourceClient, TargetClient};
-use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader, SubmittedHeaders};
-use crate::utils::{retry_backoff, MaybeConnectionError};
+use crate::sync_loop::{run, SourceClient, TargetClient};
+use crate::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader, SubmittedHeaders};
+use crate::utils::{process_future_result, retry_backoff, HeaderId, MaybeConnectionError};
 
 use async_trait::async_trait;
 use backoff::backoff::Backoff;

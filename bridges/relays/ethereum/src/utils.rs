@@ -14,12 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use backoff::ExponentialBackoff;
+use backoff::{backoff::Backoff, ExponentialBackoff};
+use futures::future::FutureExt;
 use std::time::Duration;
 
 /// Max delay after connection-unrelated error happened before we'll try the
 /// same request again.
 const MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(60);
+/// Delay after connection-related error happened before we'll try
+/// reconnection again.
+const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
 
 /// Macro that returns (client, Err(error)) tuple from function if result is Err(error).
 #[macro_export]
@@ -42,6 +46,10 @@ macro_rules! bail_on_arg_error {
 			}
 	};
 }
+
+/// Ethereum header Id.
+#[derive(Debug, Default, Clone, Copy, Eq, Hash, PartialEq)]
+pub struct HeaderId<Hash, Number>(pub Number, pub Hash);
 
 /// Error type that can signal connection errors.
 pub trait MaybeConnectionError {
@@ -111,6 +119,105 @@ pub fn format_ids<Id: std::fmt::Debug>(mut ids: impl ExactSizeIterator<Item = Id
 			let id0 = ids.next().expect(NTH_PROOF);
 			let id_last = ids.last().expect(NTH_PROOF);
 			format!("{}:[{:?} ... {:?}]", len, id0, id_last)
+		}
+	}
+}
+
+/// Stream that emits item every `timeout_ms` milliseconds.
+pub fn interval(timeout: Duration) -> impl futures::Stream<Item = ()> {
+	futures::stream::unfold((), move |_| async move {
+		async_std::task::sleep(timeout).await;
+		Some(((), ()))
+	})
+}
+
+/// Which client has caused error.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FailedClient {
+	/// It is the source client who has caused error.
+	Source,
+	/// It is the target client who has caused error.
+	Target,
+	/// Both clients are failing, or we just encountered some other error that
+	/// should be treated like that.
+	Both,
+}
+
+/// Future process result.
+#[derive(Debug, Clone, Copy)]
+pub enum ProcessFutureResult {
+	/// Future has been processed successfully.
+	Success,
+	/// Future has failed with non-connection error.
+	Failed,
+	/// Future has failed with connection error.
+	ConnectionFailed,
+}
+
+impl ProcessFutureResult {
+	/// Returns true if result is Success.
+	pub fn is_ok(self) -> bool {
+		match self {
+			ProcessFutureResult::Success => true,
+			ProcessFutureResult::Failed | ProcessFutureResult::ConnectionFailed => false,
+		}
+	}
+
+	/// Returns Ok(true) if future has succeeded.
+	/// Returns Ok(false) if future has failed with non-connection error.
+	/// Returns Err if future is `ConnectionFailed`.
+	pub fn fail_if_connection_error(self, failed_client: FailedClient) -> Result<bool, FailedClient> {
+		match self {
+			ProcessFutureResult::Success => Ok(true),
+			ProcessFutureResult::Failed => Ok(false),
+			ProcessFutureResult::ConnectionFailed => Err(failed_client),
+		}
+	}
+}
+
+/// Process result of the future from a client.
+pub(crate) fn process_future_result<TResult, TError, TGoOfflineFuture>(
+	result: Result<TResult, TError>,
+	retry_backoff: &mut ExponentialBackoff,
+	on_success: impl FnOnce(TResult),
+	go_offline_future: &mut std::pin::Pin<&mut futures::future::Fuse<TGoOfflineFuture>>,
+	go_offline: impl FnOnce(Duration) -> TGoOfflineFuture,
+	error_pattern: impl FnOnce() -> String,
+) -> ProcessFutureResult
+where
+	TError: std::fmt::Debug + MaybeConnectionError,
+	TGoOfflineFuture: FutureExt,
+{
+	match result {
+		Ok(result) => {
+			on_success(result);
+			retry_backoff.reset();
+			ProcessFutureResult::Success
+		}
+		Err(error) if error.is_connection_error() => {
+			log::error!(
+				target: "bridge",
+				"{}: {:?}. Going to restart",
+				error_pattern(),
+				error,
+			);
+
+			retry_backoff.reset();
+			go_offline_future.set(go_offline(CONNECTION_ERROR_DELAY).fuse());
+			ProcessFutureResult::ConnectionFailed
+		}
+		Err(error) => {
+			let retry_delay = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
+			log::error!(
+				target: "bridge",
+				"{}: {:?}. Retrying in {}",
+				error_pattern(),
+				error,
+				retry_delay.as_secs_f64(),
+			);
+
+			go_offline_future.set(go_offline(retry_delay).fuse());
+			ProcessFutureResult::Failed
 		}
 	}
 }
