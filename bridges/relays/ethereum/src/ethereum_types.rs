@@ -15,7 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
-use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use crate::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use crate::utils::HeaderId;
 use codec::Encode;
 
 pub use web3::types::{Address, Bytes, CallRequest, H256, U128, U256, U64};
