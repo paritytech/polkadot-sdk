@@ -23,7 +23,7 @@ default-features = false
 features = ["hmac"]
 
 [dependencies.serde]
-version = "1.0.115"
+version = "1.0.116"
 optional = true
 features = ["derive"]
 
