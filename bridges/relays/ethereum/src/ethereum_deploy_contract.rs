@@ -21,7 +21,7 @@ use crate::instances::BridgeInstance;
 use crate::rpc::SubstrateRpc;
 use crate::substrate_client::{SubstrateConnectionParams, SubstrateRpcClient};
 use crate::substrate_types::{Hash as SubstrateHash, Header as SubstrateHeader, SubstrateHeaderId};
-use crate::sync_types::HeaderId;
+use crate::utils::HeaderId;
 
 use codec::{Decode, Encode};
 use num_traits::Zero;

@@ -310,7 +310,8 @@ pub mod tests {
 	use super::*;
 	use crate::ethereum_types::{EthereumHeadersSyncPipeline, H256};
 	use crate::headers::tests::{header, id};
-	use crate::sync_types::{HeaderId, HeaderStatus};
+	use crate::sync_types::HeaderStatus;
+	use crate::utils::HeaderId;
 
 	fn side_hash(number: u64) -> H256 {
 		H256::from_low_u64_le(1000 + number)
