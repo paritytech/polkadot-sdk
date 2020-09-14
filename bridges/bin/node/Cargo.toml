@@ -8,20 +8,24 @@ homepage = "https://substrate.dev"
 repository = "https://github.com/paritytech/parity-bridges-common/"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
-[[bin]]
-name = "bridge-node"
-
 [dependencies]
-bp-eth-poa = { version = "0.1.0", path = "../../../primitives/ethereum-poa" }
 futures = "0.3.5"
 jsonrpc-core = "14.2.0"
 log = "0.4.11"
-pallet-message-lane-rpc = { version = "0.1.0", path = "../../../modules/message-lane/rpc" }
+pallet-message-lane-rpc = { version = "0.1.0", path = "../../modules/message-lane/rpc" }
 structopt = "0.3.17"
 
-[dependencies.bridge-node-runtime]
+[dependencies.millau-runtime]
+optional = true
 version = "0.1.0"
-path = "../runtime"
+path = "../millau-runtime"
+default-features = false
+features = ["std"]
+
+[dependencies.rialto-runtime]
+optional = true
+version = "0.1.0"
+path = "../rialto-runtime"
 default-features = false
 features = ["std"]
 
@@ -148,6 +152,12 @@ git = "https://github.com/paritytech/substrate.git"
 
 [features]
 default = []
+millau = [
+	"millau-runtime",
+]
+rialto = [
+	"rialto-runtime",
+]
 runtime-benchmarks = [
-	"bridge-node-runtime/runtime-benchmarks",
+	"rialto-runtime/runtime-benchmarks",
 ]

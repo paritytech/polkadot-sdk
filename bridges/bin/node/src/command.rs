@@ -33,7 +33,7 @@
 use crate::cli::{Cli, Subcommand};
 use crate::service;
 use crate::service::new_partial;
-use bridge_node_runtime::Block;
+use rialto_runtime::Block;
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 
@@ -67,7 +67,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&bridge_node_runtime::VERSION
+		&rialto_runtime::VERSION
 	}
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
