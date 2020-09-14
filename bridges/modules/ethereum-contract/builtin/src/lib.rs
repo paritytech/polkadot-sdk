@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use bridge_node_runtime::{Block, BlockNumber, Hash, Header as RuntimeHeader};
 use codec::{Decode, Encode};
 use ethereum_types::U256;
 use finality_grandpa::voter_set::VoterSet;
+use rialto_runtime::{Block, BlockNumber, Hash, Header as RuntimeHeader};
 use sp_blockchain::Error as ClientError;
 use sp_finality_grandpa::{AuthorityList, ConsensusLog, GRANDPA_ENGINE_ID};
 
@@ -177,7 +177,7 @@ pub fn verify_substrate_finality_proof(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bridge_node_runtime::DigestItem;
+	use rialto_runtime::DigestItem;
 	use sp_core::crypto::Public;
 	use sp_finality_grandpa::{AuthorityId, ScheduledChange};
 	use sp_runtime::generic::Digest;
