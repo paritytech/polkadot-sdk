@@ -28,22 +28,22 @@ pub use bp_eth_poa::{
 };
 
 /// Substrate header hash.
-pub type Hash = bridge_node_runtime::Hash;
+pub type Hash = rialto_runtime::Hash;
 
 /// Substrate header number.
-pub type Number = bridge_node_runtime::BlockNumber;
+pub type Number = rialto_runtime::BlockNumber;
 
 /// Substrate header type.
-pub type Header = bridge_node_runtime::Header;
+pub type Header = rialto_runtime::Header;
 
 /// Substrate signed block type.
-pub type SignedBlock = bridge_node_runtime::SignedBlock;
+pub type SignedBlock = rialto_runtime::SignedBlock;
 
 /// GRANDPA justification.
 pub type GrandpaJustification = Vec<u8>;
 
 /// Substrate header ID.
-pub type SubstrateHeaderId = HeaderId<bridge_node_runtime::Hash, bridge_node_runtime::BlockNumber>;
+pub type SubstrateHeaderId = HeaderId<rialto_runtime::Hash, rialto_runtime::BlockNumber>;
 
 /// Queued substrate header ID.
 pub type QueuedSubstrateHeader = QueuedHeader<SubstrateHeadersSyncPipeline>;
@@ -57,8 +57,8 @@ impl HeadersSyncPipeline for SubstrateHeadersSyncPipeline {
 	const SOURCE_NAME: &'static str = "Substrate";
 	const TARGET_NAME: &'static str = "Ethereum";
 
-	type Hash = bridge_node_runtime::Hash;
-	type Number = bridge_node_runtime::BlockNumber;
+	type Hash = rialto_runtime::Hash;
+	type Number = rialto_runtime::BlockNumber;
 	type Header = Header;
 	type Extra = ();
 	type Completion = GrandpaJustification;
@@ -68,7 +68,7 @@ impl HeadersSyncPipeline for SubstrateHeadersSyncPipeline {
 	}
 }
 
-impl SourceHeader<bridge_node_runtime::Hash, bridge_node_runtime::BlockNumber> for Header {
+impl SourceHeader<rialto_runtime::Hash, rialto_runtime::BlockNumber> for Header {
 	fn id(&self) -> SubstrateHeaderId {
 		HeaderId(self.number, self.hash())
 	}
