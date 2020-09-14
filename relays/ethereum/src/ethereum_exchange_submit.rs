@@ -24,7 +24,7 @@ use bp_eth_poa::{
 	signatures::{SecretKey, SignTransaction},
 	UnsignedTransaction,
 };
-use bridge_node_runtime::exchange::LOCK_FUNDS_ADDRESS;
+use rialto_runtime::exchange::LOCK_FUNDS_ADDRESS;
 
 /// Ethereum exchange transaction params.
 #[derive(Debug)]

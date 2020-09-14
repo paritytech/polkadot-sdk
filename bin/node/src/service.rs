@@ -28,7 +28,7 @@
 // =====================================================================================
 // =====================================================================================
 
-use bridge_node_runtime::{self, opaque::Block, RuntimeApi};
+use rialto_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
@@ -42,8 +42,8 @@ use std::time::Duration;
 // Our native executor instance.
 native_executor_instance!(
 	pub Executor,
-	bridge_node_runtime::api::dispatch,
-	bridge_node_runtime::native_version,
+	rialto_runtime::api::dispatch,
+	rialto_runtime::native_version,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

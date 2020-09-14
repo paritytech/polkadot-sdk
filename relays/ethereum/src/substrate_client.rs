@@ -314,13 +314,13 @@ pub trait SubmitEthereumExchangeTransactionProof: SubstrateRpc {
 	/// Pre-verify Ethereum exchange transaction proof.
 	async fn verify_exchange_transaction_proof(
 		&self,
-		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
+		proof: rialto_runtime::exchange::EthereumTransactionInclusionProof,
 	) -> RpcResult<bool>;
 	/// Submits Ethereum exchange transaction proof to Substrate runtime.
 	async fn submit_exchange_transaction_proof(
 		&self,
 		params: SubstrateSigningParams,
-		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
+		proof: rialto_runtime::exchange::EthereumTransactionInclusionProof,
 	) -> RpcResult<()>;
 }
 
@@ -328,7 +328,7 @@ pub trait SubmitEthereumExchangeTransactionProof: SubstrateRpc {
 impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
 	async fn verify_exchange_transaction_proof(
 		&self,
-		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
+		proof: rialto_runtime::exchange::EthereumTransactionInclusionProof,
 	) -> RpcResult<bool> {
 		let call = EXCH_API_FILTER_TRANSACTION_PROOF.to_string();
 		let data = Bytes(proof.encode());
@@ -342,7 +342,7 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
 	async fn submit_exchange_transaction_proof(
 		&self,
 		params: SubstrateSigningParams,
-		proof: bridge_node_runtime::exchange::EthereumTransactionInclusionProof,
+		proof: rialto_runtime::exchange::EthereumTransactionInclusionProof,
 	) -> RpcResult<()> {
 		let account_id = params.signer.public().as_array_ref().clone().into();
 		let nonce = self.next_account_index(account_id).await?;
@@ -357,43 +357,43 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateRpcClient {
 
 /// Create signed Substrate transaction for submitting Ethereum headers.
 fn create_signed_submit_transaction(
-	signed_call: bridge_node_runtime::Call,
+	signed_call: rialto_runtime::Call,
 	signer: &sp_core::sr25519::Pair,
 	index: node_primitives::Index,
 	genesis_hash: H256,
-) -> bridge_node_runtime::UncheckedExtrinsic {
+) -> rialto_runtime::UncheckedExtrinsic {
 	create_signed_transaction(signed_call, signer, index, genesis_hash)
 }
 
 /// Create unsigned Substrate transaction for submitting Ethereum header.
-fn create_unsigned_submit_transaction(call: bridge_node_runtime::Call) -> bridge_node_runtime::UncheckedExtrinsic {
-	bridge_node_runtime::UncheckedExtrinsic::new_unsigned(call)
+fn create_unsigned_submit_transaction(call: rialto_runtime::Call) -> rialto_runtime::UncheckedExtrinsic {
+	rialto_runtime::UncheckedExtrinsic::new_unsigned(call)
 }
 
 /// Create signed Substrate transaction.
 fn create_signed_transaction(
-	function: bridge_node_runtime::Call,
+	function: rialto_runtime::Call,
 	signer: &sp_core::sr25519::Pair,
 	index: node_primitives::Index,
 	genesis_hash: H256,
-) -> bridge_node_runtime::UncheckedExtrinsic {
+) -> rialto_runtime::UncheckedExtrinsic {
 	let extra = |i: node_primitives::Index, f: node_primitives::Balance| {
 		(
-			frame_system::CheckSpecVersion::<bridge_node_runtime::Runtime>::new(),
-			frame_system::CheckTxVersion::<bridge_node_runtime::Runtime>::new(),
-			frame_system::CheckGenesis::<bridge_node_runtime::Runtime>::new(),
-			frame_system::CheckEra::<bridge_node_runtime::Runtime>::from(sp_runtime::generic::Era::Immortal),
-			frame_system::CheckNonce::<bridge_node_runtime::Runtime>::from(i),
-			frame_system::CheckWeight::<bridge_node_runtime::Runtime>::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::<bridge_node_runtime::Runtime>::from(f),
+			frame_system::CheckSpecVersion::<rialto_runtime::Runtime>::new(),
+			frame_system::CheckTxVersion::<rialto_runtime::Runtime>::new(),
+			frame_system::CheckGenesis::<rialto_runtime::Runtime>::new(),
+			frame_system::CheckEra::<rialto_runtime::Runtime>::from(sp_runtime::generic::Era::Immortal),
+			frame_system::CheckNonce::<rialto_runtime::Runtime>::from(i),
+			frame_system::CheckWeight::<rialto_runtime::Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<rialto_runtime::Runtime>::from(f),
 		)
 	};
-	let raw_payload = bridge_node_runtime::SignedPayload::from_raw(
+	let raw_payload = rialto_runtime::SignedPayload::from_raw(
 		function,
 		extra(index, 0),
 		(
-			bridge_node_runtime::VERSION.spec_version,
-			bridge_node_runtime::VERSION.transaction_version,
+			rialto_runtime::VERSION.spec_version,
+			rialto_runtime::VERSION.transaction_version,
 			genesis_hash,
 			genesis_hash,
 			(),
@@ -405,5 +405,5 @@ fn create_signed_transaction(
 	let signer: sp_runtime::MultiSigner = signer.public().into();
 	let (function, extra, _) = raw_payload.deconstruct();
 
-	bridge_node_runtime::UncheckedExtrinsic::new_signed(function, signer.into_account(), signature.into(), extra)
+	rialto_runtime::UncheckedExtrinsic::new_signed(function, signer.into_account(), signature.into(), extra)
 }

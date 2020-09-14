@@ -38,7 +38,7 @@ use crate::utils::HeaderId;
 
 use async_trait::async_trait;
 use bp_currency_exchange::MaybeLockFundsTransaction;
-use bridge_node_runtime::exchange::EthereumTransactionInclusionProof;
+use rialto_runtime::exchange::EthereumTransactionInclusionProof;
 use std::time::Duration;
 
 /// Interval at which we ask Ethereum node for updates.
@@ -234,7 +234,7 @@ impl TargetClient<EthereumToSubstrateExchange> for SubstrateTransactionsTarget {
 	async fn filter_transaction_proof(&self, proof: &EthereumTransactionInclusionProof) -> Result<bool, Self::Error> {
 		// let's try to parse transaction locally
 		let (raw_tx, raw_tx_receipt) = &proof.proof[proof.index as usize];
-		let parse_result = bridge_node_runtime::exchange::EthTransaction::parse(raw_tx);
+		let parse_result = rialto_runtime::exchange::EthTransaction::parse(raw_tx);
 		if parse_result.is_err() {
 			return Ok(false);
 		}

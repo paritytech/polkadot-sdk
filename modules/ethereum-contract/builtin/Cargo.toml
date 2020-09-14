@@ -18,7 +18,7 @@ log = "0.4.11"
 
 # Runtime/chain specific dependencies
 
-bridge-node-runtime = { path = "../../../bin/node/runtime" }
+rialto-runtime = { path = "../../../bin/rialto-runtime" }
 
 [dependencies.sp-blockchain]
 version = "2.0.0-rc6"

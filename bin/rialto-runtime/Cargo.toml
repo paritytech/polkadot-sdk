@@ -1,5 +1,5 @@
 [package]
-name = "bridge-node-runtime"
+name = "rialto-runtime"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -43,22 +43,22 @@ git = "https://github.com/paritytech/substrate/"
 [dependencies.pallet-bridge-eth-poa]
 version = "0.1.0"
 default-features = false
-path = "../../../modules/ethereum"
+path = "../../modules/ethereum"
 
 [dependencies.pallet-bridge-call-dispatch]
 version = "0.1.0"
 default-features = false
-path = "../../../modules/call-dispatch"
+path = "../../modules/call-dispatch"
 
 [dependencies.pallet-bridge-currency-exchange]
 version = "0.1.0"
 default-features = false
-path = "../../../modules/currency-exchange"
+path = "../../modules/currency-exchange"
 
 [dependencies.pallet-message-lane]
 version = "0.1.0"
 default-features = false
-path = "../../../modules/message-lane"
+path = "../../modules/message-lane"
 
 [dependencies.frame-support]
 version = "2.0.0-rc6"
@@ -81,7 +81,7 @@ git = "https://github.com/paritytech/substrate/"
 [dependencies.pallet-shift-session-manager]
 version = "0.1.0"
 default-features = false
-path = "../../../modules/shift-session-manager"
+path = "../../modules/shift-session-manager"
 
 [dependencies.pallet-sudo]
 version = "2.0.0-rc6"
@@ -214,22 +214,22 @@ git = "https://github.com/paritytech/substrate/"
 [dependencies.bp-currency-exchange]
 version = "0.1.0"
 default-features = false
-path = "../../../primitives/currency-exchange"
+path = "../../primitives/currency-exchange"
 
 [dependencies.bp-eth-poa]
 version = "0.1.0"
 default-features = false
-path = "../../../primitives/ethereum-poa"
+path = "../../primitives/ethereum-poa"
 
 [dependencies.bp-header-chain]
 version = "0.1.0"
 default-features = false
-path = "../../../primitives/header-chain"
+path = "../../primitives/header-chain"
 
 [dependencies.bp-message-lane]
 version = "0.1.0"
 default-features = false
-path = "../../../primitives/message-lane"
+path = "../../primitives/message-lane"
 
 # Dev Dependencies
 
@@ -242,7 +242,7 @@ features = ["hmac"]
 version = "0.1.0"
 default-features = false
 features = ["std"]
-path = "../../../primitives/ethereum-poa"
+path = "../../primitives/ethereum-poa"
 
 [build-dependencies.wasm-builder-runner]
 version = "1.0.5"

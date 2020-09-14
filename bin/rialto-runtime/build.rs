@@ -14,15 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Substrate Node Template CLI library.
-#![warn(missing_docs)]
+use wasm_builder_runner::WasmBuilder;
 
-mod chain_spec;
-#[macro_use]
-mod service;
-mod cli;
-mod command;
-
-fn main() -> sc_cli::Result<()> {
-	command::run()
+fn main() {
+	WasmBuilder::new()
+		.with_current_project()
+		.with_wasm_builder_from_crates("1.0.11")
+		.export_heap_base()
+		.import_memory()
+		.build()
 }
