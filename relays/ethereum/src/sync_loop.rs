@@ -18,10 +18,11 @@ use crate::metrics::{start as metrics_start, GlobalMetrics, MetricsParams};
 use crate::sync::HeadersSyncParams;
 use crate::sync_loop_metrics::SyncLoopMetrics;
 use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SubmittedHeaders};
-use crate::utils::{format_ids, retry_backoff, MaybeConnectionError, StringifiedMaybeConnectionError};
+use crate::utils::{
+	format_ids, interval, process_future_result, retry_backoff, MaybeConnectionError, StringifiedMaybeConnectionError,
+};
 
 use async_trait::async_trait;
-use backoff::{backoff::Backoff, ExponentialBackoff};
 use futures::{future::FutureExt, stream::StreamExt};
 use num_traits::{Saturating, Zero};
 use std::{
@@ -44,9 +45,6 @@ const STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 /// Delay after we have seen update of best source header at target node,
 /// for us to treat sync stalled. ONLY when relay operates in backup mode.
 const BACKUP_STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(10 * 60);
-/// Delay after connection-related error happened before we'll try
-/// reconnection again.
-const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
 
 /// Source client trait.
 #[async_trait]
@@ -186,7 +184,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving best header number from {}", P::SOURCE_NAME),
-					);
+					).is_ok();
 				},
 				source_new_header = source_new_header_future => {
 					source_client_is_online = process_future_result(
@@ -196,7 +194,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving header from {} node", P::SOURCE_NAME),
-					);
+					).is_ok();
 				},
 				source_orphan_header = source_orphan_header_future => {
 					source_client_is_online = process_future_result(
@@ -206,7 +204,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving orphan header from {} node", P::SOURCE_NAME),
-					);
+					).is_ok();
 				},
 				source_extra = source_extra_future => {
 					source_client_is_online = process_future_result(
@@ -216,7 +214,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving extra data from {} node", P::SOURCE_NAME),
-					);
+					).is_ok();
 				},
 				source_completion = source_completion_future => {
 					source_client_is_online = process_future_result(
@@ -226,7 +224,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving completion data from {} node", P::SOURCE_NAME),
-					);
+					).is_ok();
 				},
 				source_client = source_go_offline_future => {
 					source_client_is_online = true;
@@ -277,7 +275,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving best known header from {} node", P::TARGET_NAME),
-					);
+					).is_ok();
 				},
 				incomplete_headers_ids = target_incomplete_headers_future => {
 					target_incomplete_headers_required = false;
@@ -289,7 +287,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving incomplete headers from {} node", P::TARGET_NAME),
-					);
+					).is_ok();
 				},
 				target_existence_status = target_existence_status_future => {
 					target_client_is_online = process_future_result(
@@ -301,7 +299,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving existence status from {} node", P::TARGET_NAME),
-					);
+					).is_ok();
 				},
 				submitted_headers = target_submit_header_future => {
 					// following line helps Rust understand the type of `submitted_headers` :/
@@ -329,7 +327,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error submitting headers to {} node", P::TARGET_NAME),
-					);
+					).is_ok();
 
 					log::debug!(target: "bridge", "Header submit result: {}", submitted_headers_str);
 
@@ -350,7 +348,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error completing headers at {}", P::TARGET_NAME),
-					);
+					).is_ok();
 				},
 				target_extra_check_result = target_extra_check_future => {
 					target_client_is_online = process_future_result(
@@ -362,7 +360,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_go_offline_future,
 						|delay| async_std::task::sleep(delay),
 						|| format!("Error retrieving receipts requirement from {} node", P::TARGET_NAME),
-					);
+					).is_ok();
 				},
 				target_client = target_go_offline_future => {
 					target_client_is_online = true;
@@ -555,62 +553,6 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 			}
 		}
 	});
-}
-
-/// Stream that emits item every `timeout_ms` milliseconds.
-fn interval(timeout: Duration) -> impl futures::Stream<Item = ()> {
-	futures::stream::unfold((), move |_| async move {
-		async_std::task::sleep(timeout).await;
-		Some(((), ()))
-	})
-}
-
-/// Process result of the future from a client.
-///
-/// Returns whether or not the client we're interacting with is online. In this context
-/// what online means is that the client is currently not handling any other requests
-/// that we've previously sent.
-pub(crate) fn process_future_result<TResult, TError, TGoOfflineFuture>(
-	result: Result<TResult, TError>,
-	retry_backoff: &mut ExponentialBackoff,
-	on_success: impl FnOnce(TResult),
-	go_offline_future: &mut std::pin::Pin<&mut futures::future::Fuse<TGoOfflineFuture>>,
-	go_offline: impl FnOnce(Duration) -> TGoOfflineFuture,
-	error_pattern: impl FnOnce() -> String,
-) -> bool
-where
-	TError: std::fmt::Debug + MaybeConnectionError,
-	TGoOfflineFuture: FutureExt,
-{
-	let mut client_is_online = false;
-
-	match result {
-		Ok(result) => {
-			on_success(result);
-			retry_backoff.reset();
-			client_is_online = true
-		}
-		Err(error) => {
-			let is_connection_error = error.is_connection_error();
-			let retry_delay = if is_connection_error {
-				retry_backoff.reset();
-				CONNECTION_ERROR_DELAY
-			} else {
-				retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY)
-			};
-			go_offline_future.set(go_offline(retry_delay).fuse());
-
-			log::error!(
-				target: "bridge",
-				"{}: {:?}. Retrying in {}s",
-				error_pattern(),
-				error,
-				retry_delay.as_secs_f64(),
-			);
-		}
-	}
-
-	client_is_online
 }
 
 /// Print synchronization progress.

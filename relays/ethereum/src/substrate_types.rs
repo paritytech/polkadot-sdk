@@ -17,7 +17,9 @@
 use crate::ethereum_types::{
 	Header as EthereumHeader, Receipt as EthereumReceipt, HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
 };
-use crate::sync_types::{HeaderId, HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use crate::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use crate::utils::HeaderId;
+
 use codec::Encode;
 
 pub use bp_eth_poa::{

@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::sync_types::{HeaderId, HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use crate::utils::HeaderId;
+
 use linked_hash_map::LinkedHashMap;
 use num_traits::{One, Zero};
 use std::{
@@ -777,7 +779,7 @@ fn queued_incomplete_header<Id: Clone + Eq + std::hash::Hash, T>(
 pub(crate) mod tests {
 	use super::*;
 	use crate::ethereum_types::{EthereumHeaderId, EthereumHeadersSyncPipeline, Header, H256};
-	use crate::sync_types::{HeaderId, QueuedHeader};
+	use crate::sync_types::QueuedHeader;
 
 	pub(crate) fn header(number: u64) -> QueuedHeader<EthereumHeadersSyncPipeline> {
 		QueuedHeader::new(Header {
