@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The Substrate Node Template runtime. This can be compiled with `#[no_std]`, ready for Wasm.
+//! The Millau runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -27,13 +27,6 @@
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-
-pub mod exchange;
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benches;
-pub mod kovan;
-pub mod rialto;
 
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
@@ -61,8 +54,6 @@ pub use frame_support::{
 };
 
 pub use pallet_balances::Call as BalancesCall;
-pub use pallet_bridge_currency_exchange::Call as BridgeCurrencyExchangeCall;
-pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
 pub use pallet_timestamp::Call as TimestampCall;
 
 #[cfg(any(feature = "std", test))]
@@ -121,8 +112,8 @@ impl_opaque_keys! {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("bridge-node"),
-	impl_name: create_runtime_str!("bridge-node"),
+	spec_name: create_runtime_str!("millau-runtime"),
+	impl_name: create_runtime_str!("millau-runtime"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 1,
@@ -227,107 +218,10 @@ impl pallet_aura::Trait for Runtime {
 	type AuthorityId = AuraId;
 }
 
-type Rialto = pallet_bridge_eth_poa::Instance1;
-impl pallet_bridge_eth_poa::Trait<Rialto> for Runtime {
-	type AuraConfiguration = rialto::BridgeAuraConfiguration;
-	type FinalityVotesCachingInterval = rialto::FinalityVotesCachingInterval;
-	type ValidatorsConfiguration = rialto::BridgeValidatorsConfiguration;
-	type PruningStrategy = rialto::PruningStrategy;
-	type OnHeadersSubmitted = ();
-}
-
-type Kovan = pallet_bridge_eth_poa::Instance2;
-impl pallet_bridge_eth_poa::Trait<Kovan> for Runtime {
-	type AuraConfiguration = kovan::BridgeAuraConfiguration;
-	type FinalityVotesCachingInterval = kovan::FinalityVotesCachingInterval;
-	type ValidatorsConfiguration = kovan::BridgeValidatorsConfiguration;
-	type PruningStrategy = kovan::PruningStrategy;
-	type OnHeadersSubmitted = ();
-}
-
-type RialtoCurrencyExchange = pallet_bridge_currency_exchange::Instance1;
-impl pallet_bridge_currency_exchange::Trait<RialtoCurrencyExchange> for Runtime {
-	type OnTransactionSubmitted = ();
-	type PeerBlockchain = rialto::RialtoBlockchain;
-	type PeerMaybeLockFundsTransaction = exchange::EthTransaction;
-	type RecipientsMap = bp_currency_exchange::IdentityRecipients<AccountId>;
-	type Amount = Balance;
-	type CurrencyConverter = bp_currency_exchange::IdentityCurrencyConverter<Balance>;
-	type DepositInto = DepositInto;
-}
-
-type KovanCurrencyExchange = pallet_bridge_currency_exchange::Instance2;
-impl pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange> for Runtime {
-	type OnTransactionSubmitted = ();
-	type PeerBlockchain = kovan::KovanBlockchain;
-	type PeerMaybeLockFundsTransaction = exchange::EthTransaction;
-	type RecipientsMap = bp_currency_exchange::IdentityRecipients<AccountId>;
-	type Amount = Balance;
-	type CurrencyConverter = bp_currency_exchange::IdentityCurrencyConverter<Balance>;
-	type DepositInto = DepositInto;
-}
-
 impl pallet_bridge_call_dispatch::Trait for Runtime {
 	type Event = Event;
 	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
 	type Call = Call;
-}
-
-pub struct DepositInto;
-
-impl bp_currency_exchange::DepositInto for DepositInto {
-	type Recipient = AccountId;
-	type Amount = Balance;
-
-	fn deposit_into(recipient: Self::Recipient, amount: Self::Amount) -> bp_currency_exchange::Result<()> {
-		// let balances module make all checks for us (it won't allow depositing lower than existential
-		// deposit, balance overflow, ...)
-		let deposited = <pallet_balances::Module<Runtime> as Currency<AccountId>>::deposit_creating(&recipient, amount);
-
-		// I'm dropping deposited here explicitly to illustrate the fact that it'll update `TotalIssuance`
-		// on drop
-		let deposited_amount = deposited.peek();
-		drop(deposited);
-
-		// we have 3 cases here:
-		// - deposited == amount: success
-		// - deposited == 0: deposit has failed and no changes to storage were made
-		// - deposited != 0: (should never happen in practice) deposit has been partially completed
-		match deposited_amount {
-			_ if deposited_amount == amount => {
-				frame_support::debug::trace!(
-					target: "runtime",
-					"Deposited {} to {:?}",
-					amount,
-					recipient,
-				);
-
-				Ok(())
-			}
-			_ if deposited_amount == 0 => {
-				frame_support::debug::error!(
-					target: "runtime",
-					"Deposit of {} to {:?} has failed",
-					amount,
-					recipient,
-				);
-
-				Err(bp_currency_exchange::Error::DepositFailed)
-			}
-			_ => {
-				frame_support::debug::error!(
-					target: "runtime",
-					"Deposit of {} to {:?} has partially competed. {} has been deposited",
-					amount,
-					recipient,
-					deposited_amount,
-				);
-
-				// we can't return DepositFailed error here, because storage changes were made
-				Err(bp_currency_exchange::Error::DepositPartiallyFailed)
-			}
-		}
-	}
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -415,10 +309,6 @@ construct_runtime!(
 		NodeBlock = opaque::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
-		BridgeRialto: pallet_bridge_eth_poa::<Instance1>::{Module, Call, Config, Storage, ValidateUnsigned},
-		BridgeKovan: pallet_bridge_eth_poa::<Instance2>::{Module, Call, Config, Storage, ValidateUnsigned},
-		BridgeRialtoCurrencyExchange: pallet_bridge_currency_exchange::<Instance1>::{Module, Call},
-		BridgeKovanCurrencyExchange: pallet_bridge_currency_exchange::<Instance2>::{Module, Call},
 		BridgeCallDispatch: pallet_bridge_call_dispatch::{Module, Event<T>},
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
@@ -515,59 +405,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_eth_poa::RialtoHeaderApi<Block> for Runtime {
-		fn best_block() -> (u64, bp_eth_poa::H256) {
-			let best_block = BridgeRialto::best_block();
-			(best_block.number, best_block.hash)
-		}
-
-		fn finalized_block() -> (u64, bp_eth_poa::H256) {
-			let finalized_block = BridgeRialto::finalized_block();
-			(finalized_block.number, finalized_block.hash)
-		}
-
-		fn is_import_requires_receipts(header: bp_eth_poa::Header) -> bool {
-			BridgeRialto::is_import_requires_receipts(header)
-		}
-
-		fn is_known_block(hash: bp_eth_poa::H256) -> bool {
-			BridgeRialto::is_known_block(hash)
-		}
-	}
-
-	impl bp_eth_poa::KovanHeaderApi<Block> for Runtime {
-		fn best_block() -> (u64, bp_eth_poa::H256) {
-			let best_block = BridgeKovan::best_block();
-			(best_block.number, best_block.hash)
-		}
-
-		fn finalized_block() -> (u64, bp_eth_poa::H256) {
-			let finalized_block = BridgeKovan::finalized_block();
-			(finalized_block.number, finalized_block.hash)
-		}
-
-		fn is_import_requires_receipts(header: bp_eth_poa::Header) -> bool {
-			BridgeKovan::is_import_requires_receipts(header)
-		}
-
-		fn is_known_block(hash: bp_eth_poa::H256) -> bool {
-			BridgeKovan::is_known_block(hash)
-		}
-	}
-
-	impl bp_currency_exchange::RialtoCurrencyExchangeApi<Block, exchange::EthereumTransactionInclusionProof> for Runtime {
-		fn filter_transaction_proof(proof: exchange::EthereumTransactionInclusionProof) -> bool {
-			BridgeRialtoCurrencyExchange::filter_transaction_proof(&proof)
-		}
-	}
-
-	impl bp_currency_exchange::KovanCurrencyExchangeApi<Block, exchange::EthereumTransactionInclusionProof> for Runtime {
-		fn filter_transaction_proof(proof: exchange::EthereumTransactionInclusionProof) -> bool {
-			BridgeKovanCurrencyExchange::filter_transaction_proof(&proof)
-		}
-	}
-
-
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
 			source: TransactionSource,
@@ -634,164 +471,5 @@ impl_runtime_apis! {
 			// with no values).
 			None
 		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	impl frame_benchmarking::Benchmark<Block> for Runtime {
-		fn dispatch_benchmark(
-			pallet: Vec<u8>,
-			benchmark: Vec<u8>,
-			lowest_range_values: Vec<u32>,
-			highest_range_values: Vec<u32>,
-			steps: Vec<u32>,
-			repeat: u32,
-			extra: bool,
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey, add_benchmark};
-			let mut batches = Vec::<BenchmarkBatch>::new();
-			let whitelist: Vec<TrackedStorageKey> = vec![
-				// Block Number
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-				// Execution Phase
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-				// Event Count
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-				// System Events
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-				// Caller 0 Account
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da946c154ffd9992e395af90b5b13cc6f295c77033fce8a9045824a6690bbf99c6db269502f0a8d1d2a008542d5690a0749").to_vec().into(),
-			];
-			let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist, extra);
-
-			use pallet_bridge_currency_exchange::benchmarking::{
-				Module as BridgeCurrencyExchangeBench,
-				Trait as BridgeCurrencyExchangeTrait,
-				ProofParams as BridgeCurrencyExchangeProofParams,
-			};
-
-			impl BridgeCurrencyExchangeTrait<KovanCurrencyExchange> for Runtime {
-				fn make_proof(
-					proof_params: BridgeCurrencyExchangeProofParams<AccountId>,
-				) -> crate::exchange::EthereumTransactionInclusionProof {
-					use bp_currency_exchange::DepositInto;
-
-					if proof_params.recipient_exists {
-						<Runtime as pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange>>::DepositInto::deposit_into(
-							proof_params.recipient.clone(),
-							ExistentialDeposit::get(),
-						).unwrap();
-					}
-
-					let (transaction, receipt) = crate::exchange::prepare_ethereum_transaction(
-						&proof_params.recipient,
-						|tx| {
-							// our runtime only supports transactions where data is exactly 32 bytes long
-							// (receiver key)
-							// => we are ignoring `transaction_size_factor` here
-							tx.value = (ExistentialDeposit::get() * 10).into();
-						},
-					);
-					let transactions = sp_std::iter::repeat((transaction, receipt))
-						.take(1 + proof_params.proof_size_factor as usize)
-						.collect::<Vec<_>>();
-					let block_hash = crate::exchange::prepare_environment_for_claim::<Runtime, Kovan>(&transactions);
-					crate::exchange::EthereumTransactionInclusionProof {
-						block: block_hash,
-						index: 0,
-						proof: transactions,
-					}
-				}
-			}
-
-			add_benchmark!(params, batches, pallet_bridge_eth_poa, BridgeKovan);
-			add_benchmark!(
-				params,
-				batches,
-				pallet_bridge_currency_exchange,
-				BridgeCurrencyExchangeBench::<Runtime, KovanCurrencyExchange>
-			);
-
-			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
-			Ok(batches)
-		}
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use bp_currency_exchange::DepositInto;
-
-	fn run_deposit_into_test(test: impl Fn(AccountId) -> Balance) {
-		let mut ext: sp_io::TestExternalities = SystemConfig::default().build_storage::<Runtime>().unwrap().into();
-		ext.execute_with(|| {
-			// initially issuance is zero
-			assert_eq!(
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::total_issuance(),
-				0,
-			);
-
-			// create account
-			let account: AccountId = [1u8; 32].into();
-			let initial_amount = ExistentialDeposit::get();
-			let deposited =
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::deposit_creating(&account, initial_amount);
-			drop(deposited);
-			assert_eq!(
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::total_issuance(),
-				initial_amount,
-			);
-			assert_eq!(
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::free_balance(&account),
-				initial_amount,
-			);
-
-			// run test
-			let total_issuance_change = test(account);
-
-			// check that total issuance has changed by `run_deposit_into_test`
-			assert_eq!(
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::total_issuance(),
-				initial_amount + total_issuance_change,
-			);
-		});
-	}
-
-	#[test]
-	fn deposit_into_existing_account_works() {
-		run_deposit_into_test(|existing_account| {
-			let initial_amount =
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::free_balance(&existing_account);
-			let additional_amount = 10_000;
-			<Runtime as pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange>>::DepositInto::deposit_into(
-				existing_account.clone(),
-				additional_amount,
-			)
-			.unwrap();
-			assert_eq!(
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::free_balance(&existing_account),
-				initial_amount + additional_amount,
-			);
-			additional_amount
-		});
-	}
-
-	#[test]
-	fn deposit_into_new_account_works() {
-		run_deposit_into_test(|_| {
-			let initial_amount = 0;
-			let additional_amount = ExistentialDeposit::get() + 10_000;
-			let new_account: AccountId = [42u8; 32].into();
-			<Runtime as pallet_bridge_currency_exchange::Trait<KovanCurrencyExchange>>::DepositInto::deposit_into(
-				new_account.clone(),
-				additional_amount,
-			)
-			.unwrap();
-			assert_eq!(
-				<pallet_balances::Module<Runtime> as Currency<AccountId>>::free_balance(&new_account),
-				initial_amount + additional_amount,
-			);
-			additional_amount
-		});
 	}
 }

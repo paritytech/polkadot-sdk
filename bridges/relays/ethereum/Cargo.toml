@@ -77,6 +77,6 @@ version = "0.8.0-rc6"
 tag = 'v2.0.0-rc6'
 git = "https://github.com/paritytech/substrate.git"
 
-[dependencies.bridge-node-runtime]
+[dependencies.rialto-runtime]
 version = "0.1.0"
-path = "../../bin/node/runtime"
+path = "../../bin/rialto-runtime"

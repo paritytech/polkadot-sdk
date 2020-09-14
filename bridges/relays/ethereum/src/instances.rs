@@ -26,8 +26,8 @@
 use crate::ethereum_types::QueuedEthereumHeader;
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
 
-use bridge_node_runtime::exchange::EthereumTransactionInclusionProof as Proof;
-use bridge_node_runtime::Call;
+use rialto_runtime::exchange::EthereumTransactionInclusionProof as Proof;
+use rialto_runtime::Call;
 
 /// Interface for `Calls` which are needed to correctly sync the bridge.
 ///
@@ -48,7 +48,7 @@ pub struct Rialto;
 
 impl BridgeInstance for Rialto {
 	fn build_signed_header_call(&self, headers: Vec<QueuedEthereumHeader>) -> Call {
-		let pallet_call = bridge_node_runtime::BridgeEthPoACall::import_signed_headers(
+		let pallet_call = rialto_runtime::BridgeEthPoACall::import_signed_headers(
 			headers
 				.into_iter()
 				.map(|header| {
@@ -60,21 +60,21 @@ impl BridgeInstance for Rialto {
 				.collect(),
 		);
 
-		bridge_node_runtime::Call::BridgeRialto(pallet_call)
+		rialto_runtime::Call::BridgeRialto(pallet_call)
 	}
 
 	fn build_unsigned_header_call(&self, header: QueuedEthereumHeader) -> Call {
-		let pallet_call = bridge_node_runtime::BridgeEthPoACall::import_unsigned_header(
+		let pallet_call = rialto_runtime::BridgeEthPoACall::import_unsigned_header(
 			into_substrate_ethereum_header(header.header()),
 			into_substrate_ethereum_receipts(header.extra()),
 		);
 
-		bridge_node_runtime::Call::BridgeRialto(pallet_call)
+		rialto_runtime::Call::BridgeRialto(pallet_call)
 	}
 
 	fn build_currency_exchange_call(&self, proof: Proof) -> Call {
-		let pallet_call = bridge_node_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
-		bridge_node_runtime::Call::BridgeRialtoCurrencyExchange(pallet_call)
+		let pallet_call = rialto_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
+		rialto_runtime::Call::BridgeRialtoCurrencyExchange(pallet_call)
 	}
 }
 
@@ -84,7 +84,7 @@ pub struct Kovan;
 
 impl BridgeInstance for Kovan {
 	fn build_signed_header_call(&self, headers: Vec<QueuedEthereumHeader>) -> Call {
-		let pallet_call = bridge_node_runtime::BridgeEthPoACall::import_signed_headers(
+		let pallet_call = rialto_runtime::BridgeEthPoACall::import_signed_headers(
 			headers
 				.into_iter()
 				.map(|header| {
@@ -96,20 +96,20 @@ impl BridgeInstance for Kovan {
 				.collect(),
 		);
 
-		bridge_node_runtime::Call::BridgeKovan(pallet_call)
+		rialto_runtime::Call::BridgeKovan(pallet_call)
 	}
 
 	fn build_unsigned_header_call(&self, header: QueuedEthereumHeader) -> Call {
-		let pallet_call = bridge_node_runtime::BridgeEthPoACall::import_unsigned_header(
+		let pallet_call = rialto_runtime::BridgeEthPoACall::import_unsigned_header(
 			into_substrate_ethereum_header(header.header()),
 			into_substrate_ethereum_receipts(header.extra()),
 		);
 
-		bridge_node_runtime::Call::BridgeKovan(pallet_call)
+		rialto_runtime::Call::BridgeKovan(pallet_call)
 	}
 
 	fn build_currency_exchange_call(&self, proof: Proof) -> Call {
-		let pallet_call = bridge_node_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
-		bridge_node_runtime::Call::BridgeKovanCurrencyExchange(pallet_call)
+		let pallet_call = rialto_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
+		rialto_runtime::Call::BridgeKovanCurrencyExchange(pallet_call)
 	}
 }
