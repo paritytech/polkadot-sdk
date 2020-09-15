@@ -41,10 +41,6 @@ pub type MessagesProof = Bytes;
 /// SCALE-encoded trie nodes array `Vec<Vec<u8>>`.
 pub type MessagesReceivingProof = Bytes;
 
-/// Trie-based storage proof that the message(s) with given key(s) have been processed by the bridged chain.
-/// SCALE-encoded trie nodes array `Vec<Vec<u8>>`.
-pub type MessagesProcessingProof = Bytes;
-
 /// Runtime adapter.
 pub trait Runtime: Send + Sync + 'static {
 	/// Return runtime storage key for given message. May return None if instance is unknown.
@@ -75,15 +71,6 @@ pub trait MessageLaneApi<BlockHash> {
 		lane: LaneId,
 		block: Option<BlockHash>,
 	) -> FutureResult<MessagesReceivingProof>;
-
-	/// Returns proof-of-message(s) processing.
-	#[rpc(name = "messageLane_proveMessagesProcessing")]
-	fn prove_messages_processing(
-		&self,
-		instance: InstanceId,
-		lane: LaneId,
-		block: Option<BlockHash>,
-	) -> FutureResult<MessagesProcessingProof>;
 }
 
 /// Implements the MessageLaneApi trait for interacting with message lanes.
@@ -138,25 +125,6 @@ where
 		lane: LaneId,
 		block: Option<Block::Hash>,
 	) -> FutureResult<MessagesReceivingProof> {
-		Box::new(
-			prove_keys_read(
-				self.backend.clone(),
-				block,
-				vec![self.runtime.inbound_lane_data_key(&instance, &lane)],
-			)
-			.boxed()
-			.compat()
-			.map(serialize_storage_proof)
-			.map_err(Into::into),
-		)
-	}
-
-	fn prove_messages_processing(
-		&self,
-		instance: InstanceId,
-		lane: LaneId,
-		block: Option<Block::Hash>,
-	) -> FutureResult<MessagesProcessingProof> {
 		Box::new(
 			prove_keys_read(
 				self.backend.clone(),

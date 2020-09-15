@@ -80,25 +80,6 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 		Some((prev_latest_received_nonce + 1, latest_received_nonce))
 	}
 
-	/// Confirm message processing.
-	///
-	/// Returns `None` if confirmation is wrong/duplicate.
-	/// Returns `Some` with inclusive ranges of message nonces that have been processed.
-	pub fn confirm_processing(&mut self, latest_processed_nonce: MessageNonce) -> Option<(MessageNonce, MessageNonce)> {
-		let mut data = self.storage.data();
-		// wait for recieval confirmation first
-		if latest_processed_nonce <= data.latest_processed_nonce || latest_processed_nonce > data.latest_received_nonce
-		{
-			return None;
-		}
-
-		let prev_latest_processed_nonce = data.latest_processed_nonce;
-		data.latest_processed_nonce = latest_processed_nonce;
-		self.storage.set_data(data);
-
-		Some((prev_latest_processed_nonce + 1, latest_processed_nonce))
-	}
-
 	/// Prune at most `max_messages_to_prune` already received messages.
 	///
 	/// Returns number of pruned messages.
@@ -188,60 +169,6 @@ mod tests {
 			assert_eq!(lane.confirm_receival(10), None);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
-		});
-	}
-
-	#[test]
-	fn confirm_processing_works() {
-		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			assert_eq!(lane.send_message(REGULAR_PAYLOAD), 1);
-			assert_eq!(lane.send_message(REGULAR_PAYLOAD), 2);
-			assert_eq!(lane.send_message(REGULAR_PAYLOAD), 3);
-			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
-			assert_eq!(lane.storage.data().latest_processed_nonce, 0);
-			assert_eq!(lane.confirm_receival(3), Some((1, 3)));
-			assert_eq!(lane.confirm_processing(2), Some((1, 2)));
-			assert_eq!(lane.storage.data().latest_processed_nonce, 2);
-			assert_eq!(lane.confirm_processing(3), Some((3, 3)));
-			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
-			assert_eq!(lane.storage.data().latest_processed_nonce, 3);
-		});
-	}
-
-	#[test]
-	fn confirm_processing_rejects_nonce_lesser_than_latest_processed() {
-		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			lane.send_message(REGULAR_PAYLOAD);
-			lane.send_message(REGULAR_PAYLOAD);
-			lane.send_message(REGULAR_PAYLOAD);
-			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
-			assert_eq!(lane.storage.data().latest_processed_nonce, 0);
-			assert_eq!(lane.confirm_receival(3), Some((1, 3)));
-			assert_eq!(lane.confirm_processing(3), Some((1, 3)));
-			assert_eq!(lane.confirm_processing(3), None);
-			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
-			assert_eq!(lane.storage.data().latest_processed_nonce, 3);
-
-			assert_eq!(lane.confirm_processing(2), None);
-			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
-			assert_eq!(lane.storage.data().latest_processed_nonce, 3);
-		});
-	}
-
-	#[test]
-	fn confirm_processing_rejects_nonce_larger_than_last_received() {
-		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			lane.send_message(REGULAR_PAYLOAD);
-			lane.send_message(REGULAR_PAYLOAD);
-			lane.send_message(REGULAR_PAYLOAD);
-			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
-			assert_eq!(lane.storage.data().latest_processed_nonce, 0);
-			assert_eq!(lane.confirm_processing(2), None);
-			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
-			assert_eq!(lane.storage.data().latest_processed_nonce, 0);
 		});
 	}
 

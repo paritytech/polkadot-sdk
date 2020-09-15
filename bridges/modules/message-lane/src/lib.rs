@@ -58,15 +58,13 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// for it.
 	type MaxMessagesToPruneAtOnce: Get<MessageNonce>;
 	/// Called when message has been received.
-	type OnMessageReceived: Default + OnMessageReceived<Self::Payload>;
+	type OnMessageReceived: OnMessageReceived<Self::Payload>;
 }
 
 decl_storage! {
 	trait Store for Module<T: Trait<I>, I: Instance = DefaultInstance> as MessageLane {
 		/// Map of lane id => inbound lane data.
 		InboundLanes: map hasher(blake2_128_concat) LaneId => InboundLaneData;
-		/// All stored (unprocessed) inbound messages.
-		InboundMessages: map hasher(blake2_128_concat) MessageKey => Option<T::Payload>;
 		/// Map of lane id => outbound lane data.
 		OutboundLanes: map hasher(blake2_128_concat) LaneId => OutboundLaneData;
 		/// All queued outbound messages.
@@ -80,10 +78,8 @@ decl_event!(
 	{
 		/// Message has been accepted and is waiting to be delivered.
 		MessageAccepted(LaneId, MessageNonce),
-		/// Messages in the inclusive range have been delivered to the bridged chain.
+		/// Messages in the inclusive range have been delivered and processed by the bridged chain.
 		MessagesDelivered(LaneId, MessageNonce, MessageNonce),
-		/// Messages in the inclusive range have been processed by the bridged chain.
-		MessagesProcessed(LaneId, MessageNonce, MessageNonce),
 		/// Phantom member, never used.
 		Dummy(PhantomData<(AccountId, I)>),
 	}
@@ -126,23 +122,14 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// will be rejected.
 	pub fn receive_messages(messages: Vec<Message<T::Payload>>) -> MessageNonce {
 		let mut correct_messages = 0;
-		let mut processor = T::OnMessageReceived::default();
 		for message in messages {
 			let mut lane = inbound_lane::<T, I>(message.key.lane_id);
-			if lane.receive_message(message.key.nonce, message.payload, &mut processor) {
+			if lane.receive_message::<T::OnMessageReceived>(message.key.nonce, message.payload) {
 				correct_messages += 1;
 			}
 		}
 
 		correct_messages
-	}
-
-	/// Process stored lane messages.
-	///
-	/// Stops processing either when all messages are processed, or when processor returns
-	/// MessageResult::NotProcessed.
-	pub fn process_lane_messages(lane_id: &LaneId, processor: &mut impl OnMessageReceived<T::Payload>) {
-		inbound_lane::<T, I>(*lane_id).process_messages(processor);
 	}
 
 	/// Receive TRUSTED proof of message receival.
@@ -161,23 +148,6 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 				*lane_id,
 				received_range.0,
 				received_range.1,
-			));
-		}
-	}
-
-	/// Receive TRUSTED proof of message processing.
-	///
-	/// Trusted here means that the function itself doesn't check whether the bridged chain has
-	/// actually processed these messages.
-	pub fn confirm_processing(lane_id: &LaneId, latest_processed_nonce: MessageNonce) {
-		let mut lane = outbound_lane::<T, I>(*lane_id);
-		let processed_range = lane.confirm_processing(latest_processed_nonce);
-
-		if let Some(processed_range) = processed_range {
-			Self::deposit_event(RawEvent::MessagesProcessed(
-				*lane_id,
-				processed_range.0,
-				processed_range.1,
 			));
 		}
 	}
@@ -218,30 +188,6 @@ impl<T: Trait<I>, I: Instance> InboundLaneStorage for RuntimeInboundLaneStorage<
 
 	fn set_data(&mut self, data: InboundLaneData) {
 		InboundLanes::<I>::insert(&self.lane_id, data)
-	}
-
-	fn message(&self, nonce: &MessageNonce) -> Option<Self::Payload> {
-		InboundMessages::<T, I>::get(MessageKey {
-			lane_id: self.lane_id,
-			nonce: *nonce,
-		})
-	}
-
-	fn save_message(&mut self, nonce: MessageNonce, payload: T::Payload) {
-		InboundMessages::<T, I>::insert(
-			MessageKey {
-				lane_id: self.lane_id,
-				nonce,
-			},
-			payload,
-		);
-	}
-
-	fn remove_message(&mut self, nonce: &MessageNonce) {
-		InboundMessages::<T, I>::remove(MessageKey {
-			lane_id: self.lane_id,
-			nonce: *nonce,
-		});
 	}
 }
 
