@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use bp_message_lane::{LaneId, Message, MessageResult, OnMessageReceived};
+use bp_message_lane::LaneId;
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -89,31 +89,14 @@ impl Trait for TestRuntime {
 	type Event = TestEvent;
 	type Payload = TestPayload;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
-	type OnMessageReceived = TestMessageProcessor;
+	type OnMessageReceived = ();
 }
 
 /// Lane that we're using in tests.
 pub const TEST_LANE_ID: LaneId = [0, 0, 0, 1];
 
-/// Regular message payload that is not PAYLOAD_TO_QUEUE.
+/// Regular message payload.
 pub const REGULAR_PAYLOAD: TestPayload = 0;
-
-/// All messages with this payload are queued by TestMessageProcessor.
-pub const PAYLOAD_TO_QUEUE: TestPayload = 42;
-
-/// Message processor that immediately handles all messages except messages with PAYLOAD_TO_QUEUE payload.
-#[derive(Debug, Default)]
-pub struct TestMessageProcessor;
-
-impl OnMessageReceived<TestPayload> for TestMessageProcessor {
-	fn on_message_received(&mut self, message: Message<TestPayload>) -> MessageResult<TestPayload> {
-		if message.payload == PAYLOAD_TO_QUEUE {
-			MessageResult::NotProcessed(message)
-		} else {
-			MessageResult::Processed
-		}
-	}
-}
 
 /// Run message lane test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {

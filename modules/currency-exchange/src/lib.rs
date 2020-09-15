@@ -184,7 +184,7 @@ fn prepare_deposit_details<T: Trait<I>, I: Instance>(
 ) -> Result<DepositDetails<T, I>, Error<T, I>> {
 	// ensure that transaction is included in finalized block that we know of
 	let transaction = <T as Trait<I>>::PeerBlockchain::verify_transaction_inclusion_proof(proof)
-		.ok_or_else(|| Error::<T, I>::UnfinalizedTransaction)?;
+		.ok_or(Error::<T, I>::UnfinalizedTransaction)?;
 
 	// parse transaction
 	let transaction =
