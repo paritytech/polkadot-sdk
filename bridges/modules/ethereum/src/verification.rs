@@ -122,7 +122,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 				validator_checks(config, &best_context.validators_set().validators, header, header_step);
 			if let Err(error) = validators_check_result {
 				find_next_validators_signal(storage, &best_context)
-					.ok_or_else(|| error)
+					.ok_or(error)
 					.and_then(|next_validators| validator_checks(config, &next_validators, header, header_step))?;
 			}
 
