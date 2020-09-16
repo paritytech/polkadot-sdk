@@ -22,7 +22,7 @@ use cumulus_collator::CollatorBuilder;
 use cumulus_network::{DelayedBlockAnnounceValidator, JustifiedBlockAnnounceValidator};
 use cumulus_primitives::ParaId;
 use polkadot_primitives::v0::{Block as PBlock, CollatorPair};
-use polkadot_service::{AbstractClient, RuntimeApiCollection};
+use polkadot_service::{AbstractClient, ClientHandle, RuntimeApiCollection};
 use sc_client_api::{Backend as BackendT, BlockBackend, Finalizer, UsageProvider};
 use sc_service::{Configuration, Role, TaskManager};
 use sp_blockchain::{HeaderBackend, Result as ClientResult};
@@ -50,7 +50,7 @@ pub struct StartCollatorParams<'a, Block: BlockT, PF, BI, BS, Client> {
 /// Start a collator node for a parachain.
 ///
 /// A collator is similar to a validator in a normal blockchain.
-/// It is reponsible for producing blocks and sending the blocks to a
+/// It is responsible for producing blocks and sending the blocks to a
 /// parachain validator for validation and inclusion into the relay chain.
 pub fn start_collator<'a, Block, PF, BI, BS, Client, Backend>(
 	StartCollatorParams {

@@ -80,7 +80,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 assert_cmd = "0.12"
 nix = "0.17"
 rand = "0.7.3"
-tokio = { version = "0.2.13", features = ["macros"] }
+tokio = { version = "0.2.21", features = ["macros"] }
 
 # Polkadot dependencies
 polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
@@ -92,3 +92,4 @@ polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }

@@ -292,6 +292,7 @@ pub fn run() -> Result<()> {
 						polkadot_config,
 						id,
 						cli.run.base.validator,
+						false,
 					)
 				} else {
 					crate::service::start_node(
@@ -300,6 +301,7 @@ pub fn run() -> Result<()> {
 						polkadot_config,
 						id,
 						cli.run.base.validator,
+						false,
 					)
 					.map(|r| r.0)
 				}

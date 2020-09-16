@@ -15,18 +15,23 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use ansi_term::Color;
+use cumulus_collator::CollatorBuilder;
 use cumulus_network::DelayedBlockAnnounceValidator;
 use cumulus_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
 use polkadot_primitives::v0::CollatorPair;
 use rococo_parachain_primitives::Block;
+use sc_client_api::{Backend as BackendT, BlockBackend, Finalizer, UsageProvider};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_informant::OutputFormat;
 use sc_service::{Configuration, PartialComponents, Role, TFullBackend, TFullClient, TaskManager};
 use sp_api::ConstructRuntimeApi;
-use sp_runtime::traits::BlakeTwo256;
+use sp_blockchain::HeaderBackend;
+use sp_consensus::{BlockImport, Environment, Error as ConsensusError, Proposer};
+use sp_core::crypto::Pair;
+use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use sp_trie::PrefixedMemoryDB;
 use std::sync::Arc;
 
@@ -116,6 +121,91 @@ where
 	Ok(params)
 }
 
+/// Start a test collator node for a parachain.
+///
+/// A collator is similar to a validator in a normal blockchain.
+/// It is responsible for producing blocks and sending the blocks to a
+/// parachain validator for validation and inclusion into the relay chain.
+pub fn start_test_collator<'a, Block, PF, BI, BS, Client, Backend>(
+	StartCollatorParams {
+		para_id,
+		proposer_factory,
+		inherent_data_providers,
+		block_import,
+		block_status,
+		announce_block,
+		client,
+		block_announce_validator,
+		task_manager,
+		polkadot_config,
+		collator_key,
+	}: StartCollatorParams<'a, Block, PF, BI, BS, Client>,
+) -> sc_service::error::Result<()>
+where
+	Block: BlockT,
+	PF: Environment<Block> + Send + 'static,
+	BI: BlockImport<
+			Block,
+			Error = ConsensusError,
+			Transaction = <PF::Proposer as Proposer<Block>>::Transaction,
+		> + Send
+		+ Sync
+		+ 'static,
+	BS: BlockBackend<Block> + Send + Sync + 'static,
+	Client: Finalizer<Block, Backend>
+		+ UsageProvider<Block>
+		+ HeaderBackend<Block>
+		+ Send
+		+ Sync
+		+ BlockBackend<Block>
+		+ 'static,
+	for<'b> &'b Client: BlockImport<Block>,
+	Backend: BackendT<Block> + 'static,
+{
+	let builder = CollatorBuilder::new(
+		proposer_factory,
+		inherent_data_providers,
+		block_import,
+		block_status,
+		para_id,
+		client,
+		announce_block,
+		block_announce_validator,
+	);
+
+	let (polkadot_future, polkadot_task_manager) = {
+		let (task_manager, client, handles, _network, _rpc_handlers) =
+			polkadot_test_service::polkadot_test_new_full(
+				polkadot_config,
+				Some((collator_key.public(), para_id)),
+				None,
+				false,
+				6000,
+			)?;
+
+		let test_client = polkadot_test_service::TestClient(client);
+
+		let future = polkadot_collator::build_collator_service(
+			task_manager.spawn_handle(),
+			handles,
+			test_client,
+			para_id,
+			collator_key,
+			builder,
+		)?;
+
+		(future, task_manager)
+	};
+
+	task_manager
+		.spawn_essential_handle()
+		.spawn("polkadot", polkadot_future);
+
+	task_manager.add_child(polkadot_task_manager);
+
+	Ok(())
+}
+
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
@@ -126,6 +216,7 @@ fn start_node_impl<RuntimeApi, Executor, RB>(
 	id: polkadot_primitives::v0::Id,
 	validator: bool,
 	rpc_ext_builder: RB,
+	test: bool,
 ) -> sc_service::error::Result<(TaskManager, Arc<TFullClient<Block, RuntimeApi, Executor>>)>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, TFullClient<Block, RuntimeApi, Executor>>
@@ -240,7 +331,11 @@ where
 			collator_key,
 		};
 
-		start_collator(params)?;
+		if test {
+			start_test_collator(params)?;
+		} else {
+			start_collator(params)?;
+		}
 	} else {
 		let params = StartFullNodeParams {
 			client: client.clone(),
@@ -267,6 +362,7 @@ pub fn start_node(
 	polkadot_config: polkadot_collator::Configuration,
 	id: polkadot_primitives::v0::Id,
 	validator: bool,
+	test: bool,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<TFullClient<Block, parachain_runtime::RuntimeApi, RuntimeExecutor>>,
@@ -278,6 +374,7 @@ pub fn start_node(
 		id,
 		validator,
 		|_| Default::default(),
+		test,
 	)
 }
 
@@ -288,6 +385,7 @@ pub fn start_contracts_node(
 	polkadot_config: polkadot_collator::Configuration,
 	id: polkadot_primitives::v0::Id,
 	validator: bool,
+	test: bool,
 ) -> sc_service::error::Result<TaskManager> {
 	start_node_impl::<parachain_contracts_runtime::RuntimeApi, ContractsRuntimeExecutor, _>(
 		parachain_config,
@@ -302,6 +400,7 @@ pub fn start_contracts_node(
 			io.extend_with(ContractsApi::to_delegate(Contracts::new(client)));
 			io
 		},
+		test,
 	)
 	.map(|r| r.0)
 }

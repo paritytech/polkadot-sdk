@@ -29,8 +29,7 @@ use cumulus_primitives::{
 };
 use cumulus_runtime::ParachainBlockData;
 
-use sc_client_api::{BlockBackend, Finalizer, StateBackend, UsageProvider};
-use sp_api::ApiExt;
+use sc_client_api::{Backend as BackendT, BlockBackend, Finalizer, StateBackend, UsageProvider};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{
 	BlockImport, BlockImportParams, BlockOrigin, BlockStatus, Environment, Error as ConsensusError,
@@ -426,14 +425,19 @@ where
 {
 	type ParachainContext = Collator<Block, PF, BI, BS>;
 
-	fn build<Spawner>(
+	fn build<Spawner, PClient, PBackend, PNetwork>(
 		self,
-		polkadot_client: polkadot_collator::Client,
+		polkadot_client: Arc<PClient>,
 		spawner: Spawner,
-		polkadot_network: impl CollatorNetwork + SyncOracle + Clone + 'static,
+		polkadot_network: PNetwork,
 	) -> Result<Self::ParachainContext, ()>
 	where
 		Spawner: SpawnNamed + Clone + Send + Sync + 'static,
+		PBackend: BackendT<PBlock>,
+		PBackend::State: StateBackend<BlakeTwo256>,
+		PClient: polkadot_service::AbstractClient<PBlock, PBackend> + 'static,
+		PClient::Api: RuntimeApiCollection<StateBackend = PBackend::State>,
+		PNetwork: CollatorNetwork + SyncOracle + Clone + 'static,
 	{
 		let CollatorBuilder {
 			proposer_factory,
@@ -446,83 +450,17 @@ where
 			delayed_block_announce_validator,
 			_marker,
 		} = self;
-		polkadot_client.execute_with(CollatorBuilderWithClient {
-			spawner,
-			polkadot_network,
-			proposer_factory,
-			inherent_data_providers,
-			block_import,
-			block_status,
+		delayed_block_announce_validator.set(Box::new(JustifiedBlockAnnounceValidator::new(
+			polkadot_client.clone(),
 			para_id,
-			client,
-			announce_block,
-			delayed_block_announce_validator,
-			_marker,
-		})
-	}
-}
-
-pub struct CollatorBuilderWithClient<Block: BlockT, PF, BI, Backend, Client, BS, Spawner, Network> {
-	proposer_factory: PF,
-	inherent_data_providers: InherentDataProviders,
-	block_import: BI,
-	block_status: Arc<BS>,
-	para_id: ParaId,
-	client: Arc<Client>,
-	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
-	delayed_block_announce_validator: DelayedBlockAnnounceValidator<Block>,
-	_marker: PhantomData<(Block, Backend)>,
-	spawner: Spawner,
-	polkadot_network: Network,
-}
-
-impl<Block: BlockT, PF, BI, Backend, Client, BS, Spawner, Network>
-	polkadot_service::ExecuteWithClient
-	for CollatorBuilderWithClient<Block, PF, BI, Backend, Client, BS, Spawner, Network>
-where
-	PF: Environment<Block> + Send + 'static,
-	BI: BlockImport<Block, Error = sp_consensus::Error, Transaction = TransactionFor<PF, Block>>
-		+ Send
-		+ Sync
-		+ 'static,
-	Backend: sc_client_api::Backend<Block> + 'static,
-	Client: Finalizer<Block, Backend>
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
-		+ 'static,
-	for<'a> &'a Client: BlockImport<Block>,
-	BS: BlockBackend<Block>,
-	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	Network: CollatorNetwork + SyncOracle + Clone + 'static,
-{
-	type Output = Result<Collator<Block, PF, BI, BS>, ()>;
-
-	fn execute_with_client<PClient, Api, PBackend>(
-		self,
-		polkadot_client: Arc<PClient>,
-	) -> Self::Output
-	where
-		<Api as ApiExt<PBlock>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
-		PBackend: sc_client_api::Backend<PBlock>,
-		PBackend::State: StateBackend<BlakeTwo256>,
-		Api: RuntimeApiCollection<StateBackend = PBackend::State>,
-		PClient: polkadot_service::AbstractClient<PBlock, PBackend, Api = Api> + 'static,
-	{
-		self.delayed_block_announce_validator
-			.set(Box::new(JustifiedBlockAnnounceValidator::new(
-				polkadot_client.clone(),
-				self.para_id,
-				Box::new(self.polkadot_network.clone()),
-			)));
+			Box::new(polkadot_network.clone()),
+		)));
 
 		let follow = match cumulus_consensus::follow_polkadot(
-			self.para_id,
-			self.client,
+			para_id,
+			client,
 			polkadot_client,
-			self.announce_block.clone(),
+			announce_block.clone(),
 		) {
 			Ok(follow) => follow,
 			Err(e) => {
@@ -530,17 +468,16 @@ where
 			}
 		};
 
-		self.spawner
-			.spawn("cumulus-follow-polkadot", follow.map(|_| ()).boxed());
+		spawner.spawn("cumulus-follow-polkadot", follow.map(|_| ()).boxed());
 
 		Ok(Collator::new(
-			self.proposer_factory,
-			self.inherent_data_providers,
-			self.polkadot_network,
-			self.block_import,
-			self.block_status,
-			Arc::new(self.spawner),
-			self.announce_block,
+			proposer_factory,
+			inherent_data_providers,
+			polkadot_network,
+			block_import,
+			block_status,
+			Arc::new(spawner),
+			announce_block,
 		))
 	}
 }
@@ -685,8 +622,8 @@ mod tests {
 			block_announce_validator,
 		);
 		let context = builder
-			.build(
-				polkadot_service::Client::Polkadot(Arc::new(
+			.build::<_, _, polkadot_service::FullBackend, _>(
+				Arc::new(
 					substrate_test_client::TestClientBuilder::<_, _, _, ()>::default()
 						.build_with_native_executor::<polkadot_service::polkadot_runtime::RuntimeApi, _>(
 							Some(NativeExecutor::<polkadot_service::PolkadotExecutor>::new(
@@ -696,7 +633,7 @@ mod tests {
 							)),
 						)
 						.0,
-				)),
+				),
 				spawner,
 				DummyCollatorNetwork,
 			)

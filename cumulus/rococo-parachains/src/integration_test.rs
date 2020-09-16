@@ -15,122 +15,94 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
-use futures::{
-	future::{self, FutureExt},
-	pin_mut, select,
-};
+use futures::future;
 use polkadot_primitives::v0::{Id as ParaId, Info, Scheduling};
 use polkadot_runtime_common::registrar;
 use polkadot_test_runtime_client::Sr25519Keyring;
+use sc_chain_spec::ChainSpec;
 use sc_client_api::execution_extensions::ExecutionStrategies;
 use sc_informant::OutputFormat;
 use sc_network::{config::TransportConfig, multiaddr};
 use sc_service::{
 	config::{
 		DatabaseConfig, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		WasmExecutionMethod,
+		OffchainWorkerConfig, PruningMode, WasmExecutionMethod,
 	},
 	BasePath, Configuration, Error as ServiceError, Role, TaskExecutor,
 };
-use std::{sync::Arc, time::Duration};
+use sp_api::BlockT;
+use std::sync::Arc;
 use substrate_test_client::BlockchainEventsExt;
 use substrate_test_runtime_client::AccountKeyring::*;
-use tokio::{spawn, time::delay_for as sleep};
 
-static INTEGRATION_TEST_ALLOWED_TIME: Option<&str> = option_env!("INTEGRATION_TEST_ALLOWED_TIME");
-
-#[tokio::test]
+#[substrate_test_utils::test]
 #[ignore]
-async fn integration_test() {
-	let task_executor: TaskExecutor = (|fut, _| spawn(fut).map(|_| ())).into();
+async fn integration_test(task_executor: TaskExecutor) {
+	let para_id = ParaId::from(100);
+
+	// generate parachain spec
+	let spec = Box::new(crate::chain_spec::get_chain_spec(para_id));
 
 	// start alice
-	let mut alice =
-		polkadot_test_service::run_test_node(task_executor.clone(), Alice, || {}, vec![]);
+	let alice = polkadot_test_service::run_test_node(task_executor.clone(), Alice, || {}, vec![]);
 
 	// start bob
-	let mut bob = polkadot_test_service::run_test_node(
+	let bob = polkadot_test_service::run_test_node(
 		task_executor.clone(),
 		Bob,
 		|| {},
 		vec![alice.addr.clone()],
 	);
 
-	let t1 = sleep(Duration::from_secs(
-		INTEGRATION_TEST_ALLOWED_TIME
-			.and_then(|x| x.parse().ok())
-			.unwrap_or(600),
-	))
-	.fuse();
+	// ensure alice and bob can produce blocks
+	future::join(alice.wait_for_blocks(2), bob.wait_for_blocks(2)).await;
 
-	let t2 = async {
-		let para_id = ParaId::from(100);
+	// export genesis state
+	let block = crate::command::generate_genesis_state(&(spec.clone() as Box<_>)).unwrap();
+	let genesis_state = block.header().encode();
 
-		future::join(alice.wait_for_blocks(2), bob.wait_for_blocks(2)).await;
+	// create and sign transaction to register parachain
+	let function = polkadot_test_runtime::Call::Sudo(pallet_sudo::Call::sudo(Box::new(
+		polkadot_test_runtime::Call::Registrar(registrar::Call::register_para(
+			para_id,
+			Info {
+				scheduling: Scheduling::Always,
+			},
+			parachain_runtime::WASM_BINARY
+				.expect("You need to build the WASM binary to run this test!")
+				.to_vec()
+				.into(),
+			genesis_state.into(),
+		)),
+	)));
 
-		// export genesis state
-		let spec = crate::chain_spec::get_chain_spec(para_id);
-		let genesis_state = crate::command::generate_genesis_state(&(Box::new(spec) as Box<_>))
-			.unwrap()
-			.encode();
+	// register parachain
+	let _ = alice.call_function(function, Alice).await.unwrap();
 
-		// create and sign transaction
-		let function = polkadot_test_runtime::Call::Sudo(pallet_sudo::Call::sudo(Box::new(
-			polkadot_test_runtime::Call::Registrar(registrar::Call::register_para(
-				para_id,
-				Info {
-					scheduling: Scheduling::Always,
-				},
-				parachain_runtime::WASM_BINARY
-					.expect("You need to build the WASM binary to run this test!")
-					.to_vec()
-					.into(),
-				genesis_state.into(),
-			)),
-		)));
+	// run cumulus charlie
+	let key = Arc::new(sp_core::Pair::generate().0);
+	let polkadot_config = polkadot_test_service::node_config(
+		|| {},
+		task_executor.clone(),
+		Charlie,
+		vec![alice.addr.clone(), bob.addr.clone()],
+	);
+	let parachain_config = parachain_config(task_executor.clone(), Charlie, vec![], spec).unwrap();
+	let (charlie_task_manager, charlie_client) =
+		crate::service::start_node(parachain_config, key, polkadot_config, para_id, true, true)
+			.unwrap();
+	charlie_client.wait_for_blocks(4).await;
 
-		// register parachain
-		let _ = alice.call_function(function, Alice).await.unwrap();
-
-		// run cumulus charlie
-		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
-		let mut polkadot_config = polkadot_test_service::node_config(
-			|| {},
-			task_executor.clone(),
-			Charlie,
-			vec![alice.addr.clone(), bob.addr.clone()],
-		);
-		use std::net::{Ipv4Addr, SocketAddr};
-		polkadot_config.rpc_http = Some(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 27016));
-		polkadot_config.rpc_methods = sc_service::config::RpcMethods::Unsafe;
-		let parachain_config =
-			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
-		let (_service, charlie_client) =
-			crate::service::start_node(parachain_config, key, polkadot_config, para_id, true)
-				.unwrap();
-		sleep(Duration::from_secs(3)).await;
-		charlie_client.wait_for_blocks(4).await;
-
-		alice.task_manager.terminate();
-		bob.task_manager.terminate();
-	}
-	.fuse();
-
-	pin_mut!(t1, t2);
-
-	select! {
-		_ = t1 => {
-			panic!("the test took too long, maybe no parachain blocks have been produced");
-		},
-		_ = t2 => {},
-	}
+	alice.task_manager.clean_shutdown();
+	bob.task_manager.clean_shutdown();
+	charlie_task_manager.clean_shutdown();
 }
 
 pub fn parachain_config(
 	task_executor: TaskExecutor,
 	key: Sr25519Keyring,
 	boot_nodes: Vec<MultiaddrWithPeerId>,
-	para_id: ParaId,
+	spec: Box<dyn ChainSpec>,
 ) -> Result<Configuration, ServiceError> {
 	let base_path = BasePath::new_temp_dir()?;
 	let root = base_path.path().to_path_buf();
@@ -138,7 +110,6 @@ pub fn parachain_config(
 		sentry_nodes: Vec::new(),
 	};
 	let key_seed = key.to_seed();
-	let spec = crate::chain_spec::get_chain_spec(para_id);
 
 	let mut network_config = NetworkConfiguration::new(
 		format!("Cumulus Test Node for: {}", key_seed),
@@ -153,7 +124,7 @@ pub fn parachain_config(
 
 	network_config.boot_nodes = boot_nodes;
 
-	network_config.allow_non_globals_in_dht = true;
+	network_config.allow_non_globals_in_dht = false;
 
 	network_config
 		.listen_addresses
@@ -176,10 +147,10 @@ pub fn parachain_config(
 			path: root.join("db"),
 			cache_size: 128,
 		},
-		state_cache_size: 16777216,
+		state_cache_size: 67108864,
 		state_cache_child_ratio: None,
-		pruning: Default::default(),
-		chain_spec: Box::new(spec),
+		pruning: PruningMode::ArchiveAll,
+		chain_spec: spec,
 		wasm_method: WasmExecutionMethod::Interpreted,
 		// NOTE: we enforce the use of the native runtime to make the errors more debuggable
 		execution_strategies: ExecutionStrategies {
@@ -199,7 +170,10 @@ pub fn parachain_config(
 		telemetry_endpoints: None,
 		telemetry_external_transport: None,
 		default_heap_pages: None,
-		offchain_worker: Default::default(),
+		offchain_worker: OffchainWorkerConfig {
+			enabled: true,
+			indexing_enabled: false,
+		},
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(key_seed),
