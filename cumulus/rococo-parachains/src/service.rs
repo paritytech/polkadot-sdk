@@ -26,11 +26,12 @@ use sc_client_api::{Backend as BackendT, BlockBackend, Finalizer, UsageProvider}
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_informant::OutputFormat;
+use sc_network::NetworkService;
 use sc_service::{Configuration, PartialComponents, Role, TFullBackend, TFullClient, TaskManager};
 use sp_api::ConstructRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockImport, Environment, Error as ConsensusError, Proposer};
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, H256};
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use sp_trie::PrefixedMemoryDB;
 use std::sync::Arc;
@@ -217,7 +218,11 @@ fn start_node_impl<RuntimeApi, Executor, RB>(
 	validator: bool,
 	rpc_ext_builder: RB,
 	test: bool,
-) -> sc_service::error::Result<(TaskManager, Arc<TFullClient<Block, RuntimeApi, Executor>>)>
+) -> sc_service::error::Result<(
+	TaskManager,
+	Arc<TFullClient<Block, RuntimeApi, Executor>>,
+	Arc<NetworkService<Block, H256>>,
+)>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, TFullClient<Block, RuntimeApi, Executor>>
 		+ Send
@@ -308,7 +313,10 @@ where
 		system_rpc_tx,
 	})?;
 
-	let announce_block = Arc::new(move |hash, data| network.announce_block(hash, data));
+	let announce_block = {
+		let network = network.clone();
+		Arc::new(move |hash, data| network.announce_block(hash, data))
+	};
 
 	if validator {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
@@ -352,7 +360,7 @@ where
 
 	start_network.start_network();
 
-	Ok((task_manager, client))
+	Ok((task_manager, client, network))
 }
 
 /// Start a normal parachain node.
@@ -366,6 +374,7 @@ pub fn start_node(
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<TFullClient<Block, parachain_runtime::RuntimeApi, RuntimeExecutor>>,
+	Arc<NetworkService<Block, H256>>,
 )> {
 	start_node_impl::<parachain_runtime::RuntimeApi, RuntimeExecutor, _>(
 		parachain_config,

@@ -79,7 +79,7 @@ async fn integration_test(task_executor: TaskExecutor) {
 	// register parachain
 	let _ = alice.call_function(function, Alice).await.unwrap();
 
-	// run cumulus charlie
+	// run cumulus charlie (a validator)
 	let key = Arc::new(sp_core::Pair::generate().0);
 	let polkadot_config = polkadot_test_service::node_config(
 		|| {},
@@ -87,15 +87,43 @@ async fn integration_test(task_executor: TaskExecutor) {
 		Charlie,
 		vec![alice.addr.clone(), bob.addr.clone()],
 	);
-	let parachain_config = parachain_config(task_executor.clone(), Charlie, vec![], spec).unwrap();
-	let (charlie_task_manager, charlie_client) =
-		crate::service::start_node(parachain_config, key, polkadot_config, para_id, true, true)
+	let charlie_config =
+		parachain_config(task_executor.clone(), Charlie, vec![], spec.clone()).unwrap();
+	let multiaddr = charlie_config.network.listen_addresses[0].clone();
+	let (charlie_task_manager, charlie_client, charlie_network) =
+		crate::service::start_node(charlie_config, key, polkadot_config, para_id, true, true)
 			.unwrap();
 	charlie_client.wait_for_blocks(4).await;
+	let peer_id = charlie_network.local_peer_id().clone();
+	let charlie_addr = MultiaddrWithPeerId { multiaddr, peer_id };
+
+	// run cumulus dave (not a validator)
+	//
+	// a collator running in non-validator mode should be able to sync blocks from the tip of the
+	// parachain
+	let key = Arc::new(sp_core::Pair::generate().0);
+	let polkadot_config = polkadot_test_service::node_config(
+		|| {},
+		task_executor.clone(),
+		Dave,
+		vec![alice.addr.clone(), bob.addr.clone()],
+	);
+	let dave_config = parachain_config(
+		task_executor.clone(),
+		Dave,
+		vec![charlie_addr],
+		spec.clone(),
+	)
+	.unwrap();
+	let (dave_task_manager, dave_client, _dave_network) =
+		crate::service::start_node(dave_config, key, polkadot_config, para_id, false, true)
+			.unwrap();
+	dave_client.wait_for_blocks(4).await;
 
 	alice.task_manager.clean_shutdown();
 	bob.task_manager.clean_shutdown();
 	charlie_task_manager.clean_shutdown();
+	dave_task_manager.clean_shutdown();
 }
 
 pub fn parachain_config(
