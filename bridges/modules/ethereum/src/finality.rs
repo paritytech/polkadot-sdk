@@ -16,7 +16,7 @@
 
 use crate::error::Error;
 use crate::Storage;
-use bp_eth_poa::{public_to_address, Address, Header, HeaderId, SealedEmptyStep, H256};
+use bp_eth_poa::{public_to_address, Address, AuraHeader, HeaderId, SealedEmptyStep, H256};
 use codec::{Decode, Encode};
 use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_runtime::RuntimeDebug;
@@ -37,7 +37,7 @@ pub struct CachedFinalityVotes<Submitter> {
 	pub stopped_at_finalized_sibling: bool,
 	/// Header ancestors that were read while we have been searching for
 	/// cached votes entry. Newest header has index 0.
-	pub unaccounted_ancestry: VecDeque<(HeaderId, Option<Submitter>, Header)>,
+	pub unaccounted_ancestry: VecDeque<(HeaderId, Option<Submitter>, AuraHeader)>,
 	/// Cached finality votes, if they have been found. The associated
 	/// header is not included into `unaccounted_ancestry`.
 	pub votes: Option<FinalityVotes<Submitter>>,
@@ -86,7 +86,7 @@ pub fn finalize_blocks<S: Storage>(
 	header_validators: (HeaderId, &[Address]),
 	id: HeaderId,
 	submitter: Option<&S::Submitter>,
-	header: &Header,
+	header: &AuraHeader,
 	two_thirds_majority_transition: u64,
 ) -> Result<FinalityEffects<S::Submitter>, Error> {
 	// compute count of voters for every unfinalized block in ancestry
@@ -145,7 +145,7 @@ fn prepare_votes<Submitter>(
 	best_finalized: HeaderId,
 	validators: &BTreeSet<&Address>,
 	id: HeaderId,
-	header: &Header,
+	header: &AuraHeader,
 	submitter: Option<Submitter>,
 ) -> Result<FinalityVotes<Submitter>, Error> {
 	// if we have reached finalized block sibling, then we're trying
@@ -243,7 +243,7 @@ fn remove_signers_votes(signers_to_remove: &BTreeSet<Address>, votes: &mut BTree
 }
 
 /// Returns unique set of empty steps signers.
-fn empty_steps_signers(header: &Header) -> BTreeSet<Address> {
+fn empty_steps_signers(header: &AuraHeader) -> BTreeSet<Address> {
 	header
 		.empty_steps()
 		.into_iter()
@@ -298,7 +298,7 @@ mod tests {
 					(Default::default(), &[]),
 					Default::default(),
 					None,
-					&Header::default(),
+					&AuraHeader::default(),
 					0,
 				),
 				Err(Error::NotValidator),

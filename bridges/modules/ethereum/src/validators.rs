@@ -16,7 +16,7 @@
 
 use crate::error::Error;
 use crate::{ChangeToEnact, Storage};
-use bp_eth_poa::{Address, Header, HeaderId, LogEntry, Receipt, U256};
+use bp_eth_poa::{Address, AuraHeader, HeaderId, LogEntry, Receipt, U256};
 use sp_std::prelude::*;
 
 /// The hash of InitiateChange event of the validators set contract.
@@ -65,7 +65,7 @@ impl<'a> Validators<'a> {
 
 	/// Returns true if header (probabilistically) signals validators change and
 	/// the caller needs to provide transactions receipts to import the header.
-	pub fn maybe_signals_validators_change(&self, header: &Header) -> bool {
+	pub fn maybe_signals_validators_change(&self, header: &AuraHeader) -> bool {
 		let (_, _, source) = self.source_at(header.number);
 
 		// if we are taking validators set from the fixed list, there's always
@@ -95,7 +95,7 @@ impl<'a> Validators<'a> {
 	/// current block). The second element is the immediately applied change.
 	pub fn extract_validators_change(
 		&self,
-		header: &Header,
+		header: &AuraHeader,
 		receipts: Option<Vec<Receipt>>,
 	) -> Result<(ValidatorsChange, ValidatorsChange), Error> {
 		// let's first check if new source is starting from this header
@@ -325,7 +325,7 @@ pub(crate) mod tests {
 		// when contract is active, but bloom has no required bits set
 		let config = ValidatorsConfiguration::Single(ValidatorsSource::Contract(Default::default(), Vec::new()));
 		let validators = Validators::new(&config);
-		let mut header = Header::default();
+		let mut header = AuraHeader::default();
 		header.number = u64::max_value();
 		assert!(!validators.maybe_signals_validators_change(&header));
 
@@ -347,7 +347,7 @@ pub(crate) mod tests {
 			(200, ValidatorsSource::Contract([3; 20].into(), vec![[3; 20].into()])),
 		]);
 		let validators = Validators::new(&config);
-		let mut header = Header::default();
+		let mut header = AuraHeader::default();
 
 		// when we're at the block that switches to list source
 		header.number = 100;
@@ -420,7 +420,7 @@ pub(crate) mod tests {
 			let finalized_blocks = vec![(id10, None), (id100, None)];
 			let header100 = StoredHeader::<u64> {
 				submitter: None,
-				header: Header {
+				header: AuraHeader {
 					number: 100,
 					..Default::default()
 				},

@@ -18,7 +18,7 @@ use crate::error::Error;
 use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::{AuraConfiguration, ImportContext, PoolConfiguration, ScheduledChange, Storage};
 use bp_eth_poa::{
-	public_to_address, step_validator, Address, Header, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256,
+	public_to_address, step_validator, Address, AuraHeader, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256,
 };
 use codec::Encode;
 use sp_io::crypto::secp256k1_ecdsa_recover;
@@ -28,7 +28,7 @@ use sp_std::{vec, vec::Vec};
 /// Pre-check to see if should try and import this header.
 /// Returns error if we should not try to import this block.
 /// Returns ID of passed header and best finalized header.
-pub fn is_importable_header<S: Storage>(storage: &S, header: &Header) -> Result<(HeaderId, HeaderId), Error> {
+pub fn is_importable_header<S: Storage>(storage: &S, header: &AuraHeader) -> Result<(HeaderId, HeaderId), Error> {
 	// we never import any header that competes with finalized header
 	let finalized_id = storage.finalized_block();
 	if header.number <= finalized_id.number {
@@ -51,7 +51,7 @@ pub fn accept_aura_header_into_pool<S: Storage>(
 	config: &AuraConfiguration,
 	validators_config: &ValidatorsConfiguration,
 	pool_config: &PoolConfiguration,
-	header: &Header,
+	header: &AuraHeader,
 	receipts: Option<&Vec<Receipt>>,
 ) -> Result<(Vec<TransactionTag>, Vec<TransactionTag>), Error> {
 	// check if we can verify further
@@ -157,7 +157,7 @@ pub fn verify_aura_header<S: Storage>(
 	storage: &S,
 	config: &AuraConfiguration,
 	submitter: Option<S::Submitter>,
-	header: &Header,
+	header: &AuraHeader,
 ) -> Result<ImportContext<S::Submitter>, Error> {
 	// let's do the lightest check first
 	contextless_checks(config, header)?;
@@ -180,7 +180,7 @@ pub fn verify_aura_header<S: Storage>(
 }
 
 /// Perform basic checks that only require header itself.
-fn contextless_checks(config: &AuraConfiguration, header: &Header) -> Result<(), Error> {
+fn contextless_checks(config: &AuraConfiguration, header: &AuraHeader) -> Result<(), Error> {
 	let expected_seal_fields = expected_header_seal_fields(config, header);
 	if header.seal.len() != expected_seal_fields {
 		return Err(Error::InvalidSealArity);
@@ -215,7 +215,7 @@ fn contextual_checks<Submitter>(
 	config: &AuraConfiguration,
 	context: &ImportContext<Submitter>,
 	validators_override: Option<&[Address]>,
-	header: &Header,
+	header: &AuraHeader,
 ) -> Result<u64, Error> {
 	let validators = validators_override.unwrap_or_else(|| &context.validators_set().validators);
 	let header_step = header.step().ok_or(Error::MissingStep)?;
@@ -273,7 +273,7 @@ fn contextual_checks<Submitter>(
 fn validator_checks(
 	config: &AuraConfiguration,
 	validators: &[Address],
-	header: &Header,
+	header: &AuraHeader,
 	header_step: u64,
 ) -> Result<(), Error> {
 	let expected_validator = *step_validator(validators, header_step);
@@ -294,7 +294,7 @@ fn validator_checks(
 }
 
 /// Returns expected number of seal fields in the header.
-fn expected_header_seal_fields(config: &AuraConfiguration, header: &Header) -> usize {
+fn expected_header_seal_fields(config: &AuraConfiguration, header: &AuraHeader) -> usize {
 	if header.number != u64::max_value() && header.number >= config.empty_steps_transition {
 		3
 	} else {
@@ -374,23 +374,23 @@ mod tests {
 	const GENESIS_STEP: u64 = 42;
 	const TOTAL_VALIDATORS: usize = 3;
 
-	fn genesis() -> Header {
+	fn genesis() -> AuraHeader {
 		HeaderBuilder::genesis().step(GENESIS_STEP).sign_by(&validator(0))
 	}
 
-	fn verify_with_config(config: &AuraConfiguration, header: &Header) -> Result<ImportContext<AccountId>, Error> {
+	fn verify_with_config(config: &AuraConfiguration, header: &AuraHeader) -> Result<ImportContext<AccountId>, Error> {
 		run_test_with_genesis(genesis(), TOTAL_VALIDATORS, |_| {
 			let storage = BridgeStorage::<TestRuntime>::new();
 			verify_aura_header(&storage, &config, None, header)
 		})
 	}
 
-	fn default_verify(header: &Header) -> Result<ImportContext<AccountId>, Error> {
+	fn default_verify(header: &AuraHeader) -> Result<ImportContext<AccountId>, Error> {
 		verify_with_config(&test_aura_config(), header)
 	}
 
 	fn default_accept_into_pool(
-		mut make_header: impl FnMut(&[SecretKey]) -> (Header, Option<Vec<Receipt>>),
+		mut make_header: impl FnMut(&[SecretKey]) -> (AuraHeader, Option<Vec<Receipt>>),
 	) -> Result<(Vec<TransactionTag>, Vec<TransactionTag>), Error> {
 		run_test_with_genesis(genesis(), TOTAL_VALIDATORS, |_| {
 			let validators = vec![validator(0), validator(1), validator(2)];
@@ -457,7 +457,7 @@ mod tests {
 	#[test]
 	fn verifies_seal_count() {
 		// when there are no seals at all
-		let mut header = Header::default();
+		let mut header = AuraHeader::default();
 		assert_eq!(default_verify(&header), Err(Error::InvalidSealArity));
 
 		// when there's single seal (we expect 2 or 3 seals)
@@ -568,7 +568,7 @@ mod tests {
 	#[test]
 	fn verifies_step() {
 		// when step is missing from seals
-		let mut header = Header {
+		let mut header = AuraHeader {
 			seal: vec![vec![], vec![]],
 			gas_limit: test_aura_config().min_gas_limit,
 			parent_hash: genesis().compute_hash(),
@@ -694,7 +694,7 @@ mod tests {
 	fn pool_rejects_headers_without_required_receipts() {
 		assert_eq!(
 			default_accept_into_pool(|_| (
-				Header {
+				AuraHeader {
 					number: 20_000_000,
 					seal: vec![vec![], vec![]],
 					gas_limit: test_aura_config().min_gas_limit,
