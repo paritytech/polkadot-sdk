@@ -31,6 +31,7 @@ mod message_lane;
 mod message_lane_loop;
 mod message_race_delivery;
 mod message_race_loop;
+mod message_race_receiving;
 mod metrics;
 mod rpc;
 mod rpc_errors;
