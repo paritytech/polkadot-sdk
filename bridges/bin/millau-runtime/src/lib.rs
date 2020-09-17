@@ -38,7 +38,7 @@ use sp_runtime::traits::{
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult, MultiSignature, MultiSigner,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -222,6 +222,9 @@ impl pallet_bridge_call_dispatch::Trait for Runtime {
 	type Event = Event;
 	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
 	type Call = Call;
+	type SourceChainAccountPublic = MultiSigner;
+	type TargetChainAccountPublic = MultiSigner;
+	type TargetChainSignature = MultiSignature;
 }
 
 impl pallet_grandpa::Trait for Runtime {
