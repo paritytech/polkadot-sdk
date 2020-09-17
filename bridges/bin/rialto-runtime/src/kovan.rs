@@ -16,7 +16,7 @@
 
 use crate::exchange::EthereumTransactionInclusionProof;
 
-use bp_eth_poa::{Address, Header, RawTransaction, U256};
+use bp_eth_poa::{Address, AuraHeader, RawTransaction, U256};
 use bp_header_chain::BaseHeaderChain;
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
@@ -95,8 +95,8 @@ pub fn genesis_validators() -> Vec<Address> {
 }
 
 /// Genesis header of the Kovan chain.
-pub fn genesis_header() -> Header {
-	Header {
+pub fn genesis_header() -> AuraHeader {
+	AuraHeader {
 		parent_hash: Default::default(),
 		timestamp: 0,
 		number: 0,

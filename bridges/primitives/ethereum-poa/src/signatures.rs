@@ -23,8 +23,8 @@
 pub use secp256k1::SecretKey;
 
 use crate::{
-	public_to_address, rlp_encode, step_validator, Address, Header, RawTransaction, UnsignedTransaction, H256, H520,
-	U256,
+	public_to_address, rlp_encode, step_validator, Address, AuraHeader, RawTransaction, UnsignedTransaction, H256,
+	H520, U256,
 };
 
 use secp256k1::{Message, PublicKey};
@@ -32,9 +32,9 @@ use secp256k1::{Message, PublicKey};
 /// Utilities for signing headers.
 pub trait SignHeader {
 	/// Signs header by given author.
-	fn sign_by(self, author: &SecretKey) -> Header;
+	fn sign_by(self, author: &SecretKey) -> AuraHeader;
 	/// Signs header by given authors set.
-	fn sign_by_set(self, authors: &[SecretKey]) -> Header;
+	fn sign_by_set(self, authors: &[SecretKey]) -> AuraHeader;
 }
 
 /// Utilities for signing transactions.
@@ -43,7 +43,7 @@ pub trait SignTransaction {
 	fn sign_by(self, author: &SecretKey, chain_id: Option<u64>) -> RawTransaction;
 }
 
-impl SignHeader for Header {
+impl SignHeader for AuraHeader {
 	fn sign_by(mut self, author: &SecretKey) -> Self {
 		self.author = secret_to_address(author);
 

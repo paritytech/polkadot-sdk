@@ -19,7 +19,7 @@
 #![allow(clippy::large_enum_variant)]
 
 use crate::finality::{CachedFinalityVotes, FinalityVotes};
-use bp_eth_poa::{Address, Header, HeaderId, RawTransaction, RawTransactionReceipt, Receipt, H256, U256};
+use bp_eth_poa::{Address, AuraHeader, HeaderId, RawTransaction, RawTransactionReceipt, Receipt, H256, U256};
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage, traits::Get};
 use sp_runtime::{
@@ -91,7 +91,7 @@ pub struct StoredHeader<Submitter> {
 	/// using unsigned transaction.
 	pub submitter: Option<Submitter>,
 	/// The block header itself.
-	pub header: Header,
+	pub header: AuraHeader,
 	/// Total difficulty of the chain.
 	pub total_difficulty: U256,
 	/// The ID of set of validators that is expected to produce direct descendants of
@@ -138,7 +138,7 @@ pub struct HeaderToImport<Submitter> {
 	/// The id of the header.
 	pub id: HeaderId,
 	/// The header itself.
-	pub header: Header,
+	pub header: AuraHeader,
 	/// Total chain difficulty at the header.
 	pub total_difficulty: U256,
 	/// New validators set and the hash of block where it has been scheduled (if applicable).
@@ -185,7 +185,7 @@ struct PruningRange {
 pub struct ImportContext<Submitter> {
 	submitter: Option<Submitter>,
 	parent_hash: H256,
-	parent_header: Header,
+	parent_header: AuraHeader,
 	parent_total_difficulty: U256,
 	parent_scheduled_change: Option<ScheduledChange>,
 	validators_set_id: u64,
@@ -200,7 +200,7 @@ impl<Submitter> ImportContext<Submitter> {
 	}
 
 	/// Returns reference to parent header.
-	pub fn parent_header(&self) -> &Header {
+	pub fn parent_header(&self) -> &AuraHeader {
 		&self.parent_header
 	}
 
@@ -242,7 +242,7 @@ impl<Submitter> ImportContext<Submitter> {
 		self,
 		is_best: bool,
 		id: HeaderId,
-		header: Header,
+		header: AuraHeader,
 		total_difficulty: U256,
 		enacted_change: Option<ChangeToEnact>,
 		scheduled_change: Option<Vec<Address>>,
@@ -275,7 +275,7 @@ pub trait Storage {
 	/// Get imported header by its hash.
 	///
 	/// Returns header and its submitter (if known).
-	fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)>;
+	fn header(&self, hash: &H256) -> Option<(AuraHeader, Option<Self::Submitter>)>;
 	/// Returns latest cached finality votes (if any) for block ancestors, starting
 	/// from `parent_hash` block and stopping at genesis block, best finalized block
 	/// or block where `stop_at` returns true.
@@ -375,7 +375,7 @@ decl_module! {
 	pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
 		/// Import single Aura header. Requires transaction to be **UNSIGNED**.
 		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
-		pub fn import_unsigned_header(origin, header: Header, receipts: Option<Vec<Receipt>>) {
+		pub fn import_unsigned_header(origin, header: AuraHeader, receipts: Option<Vec<Receipt>>) {
 			frame_system::ensure_none(origin)?;
 
 			import::import_header(
@@ -396,7 +396,7 @@ decl_module! {
 		/// This should be used with caution - passing too many headers could lead to
 		/// enormous block production/import time.
 		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
-		pub fn import_signed_headers(origin, headers_with_receipts: Vec<(Header, Option<Vec<Receipt>>)>) {
+		pub fn import_signed_headers(origin, headers_with_receipts: Vec<(AuraHeader, Option<Vec<Receipt>>)>) {
 			let submitter = frame_system::ensure_signed(origin)?;
 			let mut finalized_headers = BTreeMap::new();
 			let import_result = import::import_headers(
@@ -459,7 +459,7 @@ decl_storage! {
 		ScheduledChanges: map hasher(identity) H256 => Option<ScheduledChange>;
 	}
 	add_extra_genesis {
-		config(initial_header): Header;
+		config(initial_header): AuraHeader;
 		config(initial_difficulty): U256;
 		config(initial_validators): Vec<Address>;
 		build(|config| {
@@ -496,7 +496,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	}
 
 	/// Returns true if the import of given block requires transactions receipts.
-	pub fn is_import_requires_receipts(header: Header) -> bool {
+	pub fn is_import_requires_receipts(header: AuraHeader) -> bool {
 		import::header_import_requires_receipts(
 			&BridgeStorage::<T, I>::new(),
 			&T::ValidatorsConfiguration::get(),
@@ -670,7 +670,7 @@ impl<T: Trait<I>, I: Instance> Storage for BridgeStorage<T, I> {
 		FinalizedBlock::<I>::get()
 	}
 
-	fn header(&self, hash: &H256) -> Option<(Header, Option<Self::Submitter>)> {
+	fn header(&self, hash: &H256) -> Option<(AuraHeader, Option<Self::Submitter>)> {
 		Headers::<T, I>::get(hash).map(|header| (header.header, header.submitter))
 	}
 
@@ -840,7 +840,7 @@ impl<T: Trait<I>, I: Instance> Storage for BridgeStorage<T, I> {
 /// Initialize storage.
 #[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 pub(crate) fn initialize_storage<T: Trait<I>, I: Instance>(
-	initial_header: &Header,
+	initial_header: &AuraHeader,
 	initial_difficulty: U256,
 	initial_validators: &[Address],
 ) {
@@ -1004,7 +1004,7 @@ fn pool_configuration() -> PoolConfiguration {
 }
 
 /// Return iterator of given header ancestors.
-fn ancestry<'a, S: Storage>(storage: &'a S, mut parent_hash: H256) -> impl Iterator<Item = (H256, Header)> + 'a {
+fn ancestry<'a, S: Storage>(storage: &'a S, mut parent_hash: H256) -> impl Iterator<Item = (H256, AuraHeader)> + 'a {
 	sp_std::iter::from_fn(move || {
 		let (header, _) = storage.header(&parent_hash)?;
 		if header.number == 0 {
@@ -1044,8 +1044,8 @@ pub(crate) mod tests {
 		.rlp()
 	}
 
-	fn example_header_with_failed_receipt() -> Header {
-		let mut header = Header::default();
+	fn example_header_with_failed_receipt() -> AuraHeader {
+		let mut header = AuraHeader::default();
 		header.number = 3;
 		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
 		header.receipts_root = compute_merkle_root(vec![example_tx_receipt(false)].into_iter());
@@ -1053,8 +1053,8 @@ pub(crate) mod tests {
 		header
 	}
 
-	fn example_header() -> Header {
-		let mut header = Header::default();
+	fn example_header() -> AuraHeader {
+		let mut header = AuraHeader::default();
 		header.number = 2;
 		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
 		header.receipts_root = compute_merkle_root(vec![example_tx_receipt(true)].into_iter());
@@ -1062,8 +1062,8 @@ pub(crate) mod tests {
 		header
 	}
 
-	fn example_header_parent() -> Header {
-		let mut header = Header::default();
+	fn example_header_parent() -> AuraHeader {
+		let mut header = AuraHeader::default();
 		header.number = 1;
 		header.transactions_root = compute_merkle_root(vec![example_tx()].into_iter());
 		header.receipts_root = compute_merkle_root(vec![example_tx_receipt(true)].into_iter());
