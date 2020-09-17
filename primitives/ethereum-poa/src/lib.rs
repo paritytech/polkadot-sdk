@@ -68,7 +68,7 @@ pub struct HeaderId {
 /// An Aura header.
 #[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Header {
+pub struct AuraHeader {
 	/// Parent block hash.
 	pub parent_hash: H256,
 	/// Block timestamp.
@@ -182,7 +182,7 @@ pub struct SealedEmptyStep {
 	pub step: u64,
 }
 
-impl Header {
+impl AuraHeader {
 	/// Compute id of this header.
 	pub fn compute_id(&self) -> HeaderId {
 		HeaderId {
@@ -558,7 +558,7 @@ sp_api::decl_runtime_apis! {
 		/// Returns number and hash of the best finalized block known to the bridge module.
 		fn finalized_block() -> (u64, H256);
 		/// Returns true if the import of given block requires transactions receipts.
-		fn is_import_requires_receipts(header: Header) -> bool;
+		fn is_import_requires_receipts(header: AuraHeader) -> bool;
 		/// Returns true if header is known to the runtime.
 		fn is_known_block(hash: H256) -> bool;
 	}
@@ -573,7 +573,7 @@ sp_api::decl_runtime_apis! {
 		/// Returns number and hash of the best finalized block known to the bridge module.
 		fn finalized_block() -> (u64, H256);
 		/// Returns true if the import of given block requires transactions receipts.
-		fn is_import_requires_receipts(header: Header) -> bool;
+		fn is_import_requires_receipts(header: AuraHeader) -> bool;
 		/// Returns true if header is known to the runtime.
 		fn is_known_block(hash: H256) -> bool;
 	}

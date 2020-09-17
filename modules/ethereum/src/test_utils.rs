@@ -32,7 +32,7 @@ use crate::{HeaderToImport, Storage, Trait};
 use bp_eth_poa::{
 	rlp_encode,
 	signatures::{secret_to_address, sign, SignHeader},
-	Address, Bloom, Header, Receipt, SealedEmptyStep, H256, U256,
+	Address, AuraHeader, Bloom, Receipt, SealedEmptyStep, H256, U256,
 };
 use secp256k1::SecretKey;
 use sp_std::prelude::*;
@@ -42,8 +42,8 @@ pub const GAS_LIMIT: u64 = 0x2000;
 
 /// Test header builder.
 pub struct HeaderBuilder {
-	header: Header,
-	parent_header: Header,
+	header: AuraHeader,
+	parent_header: AuraHeader,
 }
 
 impl HeaderBuilder {
@@ -51,7 +51,7 @@ impl HeaderBuilder {
 	pub fn genesis() -> Self {
 		let current_step = 0u64;
 		Self {
-			header: Header {
+			header: AuraHeader {
 				gas_limit: GAS_LIMIT.into(),
 				seal: vec![bp_eth_poa::rlp_encode(&current_step), vec![]],
 				..Default::default()
@@ -93,7 +93,7 @@ impl HeaderBuilder {
 	/// Creates default header on top of non-existent parent.
 	#[cfg(test)]
 	pub fn with_number(number: u64) -> Self {
-		Self::with_parent(&Header {
+		Self::with_parent(&AuraHeader {
 			number: number - 1,
 			seal: vec![bp_eth_poa::rlp_encode(&(number - 1)), vec![]],
 			..Default::default()
@@ -101,11 +101,11 @@ impl HeaderBuilder {
 	}
 
 	/// Creates default header on top of given parent.
-	pub fn with_parent(parent_header: &Header) -> Self {
+	pub fn with_parent(parent_header: &AuraHeader) -> Self {
 		let parent_step = parent_header.step().unwrap();
 		let current_step = parent_step + 1;
 		Self {
-			header: Header {
+			header: AuraHeader {
 				parent_hash: parent_header.compute_hash(),
 				number: parent_header.number + 1,
 				gas_limit: GAS_LIMIT.into(),
@@ -201,26 +201,26 @@ impl HeaderBuilder {
 	}
 
 	/// Signs header by given author.
-	pub fn sign_by(self, author: &SecretKey) -> Header {
+	pub fn sign_by(self, author: &SecretKey) -> AuraHeader {
 		self.header.sign_by(author)
 	}
 
 	/// Signs header by given authors set.
-	pub fn sign_by_set(self, authors: &[SecretKey]) -> Header {
+	pub fn sign_by_set(self, authors: &[SecretKey]) -> AuraHeader {
 		self.header.sign_by_set(authors)
 	}
 }
 
 /// Helper function for getting a genesis header which has been signed by an authority.
-pub fn build_genesis_header(author: &SecretKey) -> Header {
+pub fn build_genesis_header(author: &SecretKey) -> AuraHeader {
 	let genesis = HeaderBuilder::genesis();
 	genesis.header.sign_by(&author)
 }
 
 /// Helper function for building a custom child header which has been signed by an authority.
-pub fn build_custom_header<F>(author: &SecretKey, previous: &Header, customize_header: F) -> Header
+pub fn build_custom_header<F>(author: &SecretKey, previous: &AuraHeader, customize_header: F) -> AuraHeader
 where
-	F: FnOnce(Header) -> Header,
+	F: FnOnce(AuraHeader) -> AuraHeader,
 {
 	let new_header = HeaderBuilder::with_parent(&previous);
 	let custom_header = customize_header(new_header.header);
@@ -228,7 +228,7 @@ where
 }
 
 /// Insert unverified header into storage.
-pub fn insert_header<S: Storage>(storage: &mut S, header: Header) {
+pub fn insert_header<S: Storage>(storage: &mut S, header: AuraHeader) {
 	storage.insert_header(HeaderToImport {
 		context: storage.import_context(None, &header.parent_hash).unwrap(),
 		is_best: true,

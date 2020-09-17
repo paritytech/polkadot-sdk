@@ -17,7 +17,6 @@
 //! RPC Module
 
 #![warn(missing_docs)]
-
 // The compiler doesn't think we're using the
 // code from rpc_api!
 #![allow(dead_code)]
@@ -35,7 +34,7 @@ use crate::substrate_types::{
 };
 
 use async_trait::async_trait;
-use bp_eth_poa::Header as SubstrateEthereumHeader;
+use bp_eth_poa::AuraHeader as SubstrateEthereumHeader;
 
 type Result<T> = result::Result<T, RpcError>;
 type GrandpaAuthorityList = Vec<u8>;

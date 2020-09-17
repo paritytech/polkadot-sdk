@@ -218,7 +218,7 @@ benchmarks_instance! {
 	}
 }
 
-fn initialize_bench<T: Trait<I>, I: Instance>(num_validators: usize) -> Header {
+fn initialize_bench<T: Trait<I>, I: Instance>(num_validators: usize) -> AuraHeader {
 	// Initialize storage with some initial header
 	let initial_header = build_genesis_header(&validator(0));
 	let initial_difficulty = initial_header.difficulty;

@@ -23,7 +23,7 @@ use crate::utils::HeaderId;
 use codec::Encode;
 
 pub use bp_eth_poa::{
-	Address, Bloom, Bytes, Header as SubstrateEthereumHeader, LogEntry as SubstrateEthereumLogEntry,
+	Address, AuraHeader as SubstrateEthereumHeader, Bloom, Bytes, LogEntry as SubstrateEthereumLogEntry,
 	Receipt as SubstrateEthereumReceipt, TransactionOutcome as SubstrateEthereumTransactionOutcome, H256, U256,
 };
 

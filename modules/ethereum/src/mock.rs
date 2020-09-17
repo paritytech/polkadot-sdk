@@ -19,7 +19,7 @@ pub use bp_eth_poa::signatures::secret_to_address;
 
 use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
 use crate::{AuraConfiguration, GenesisConfig, PruningStrategy, Trait};
-use bp_eth_poa::{Address, Header, H256, U256};
+use bp_eth_poa::{Address, AuraHeader, H256, U256};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use secp256k1::SecretKey;
 use sp_runtime::{
@@ -89,7 +89,7 @@ impl Trait for TestRuntime {
 /// Test context.
 pub struct TestContext {
 	/// Initial (genesis) header.
-	pub genesis: Header,
+	pub genesis: AuraHeader,
 	/// Number of initial validators.
 	pub total_validators: usize,
 	/// Secret keys of validators, ordered by validator index.
@@ -118,7 +118,7 @@ pub fn test_validators_config() -> ValidatorsConfiguration {
 }
 
 /// Genesis header that is used in tests by default.
-pub fn genesis() -> Header {
+pub fn genesis() -> AuraHeader {
 	HeaderBuilder::genesis().sign_by(&validator(0))
 }
 
@@ -128,7 +128,11 @@ pub fn run_test<T>(total_validators: usize, test: impl FnOnce(TestContext) -> T)
 }
 
 /// Run test with default genesis header.
-pub fn run_test_with_genesis<T>(genesis: Header, total_validators: usize, test: impl FnOnce(TestContext) -> T) -> T {
+pub fn run_test_with_genesis<T>(
+	genesis: AuraHeader,
+	total_validators: usize,
+	test: impl FnOnce(TestContext) -> T,
+) -> T {
 	let validators = validators(total_validators);
 	let addresses = validators_addresses(total_validators);
 	sp_io::TestExternalities::new(

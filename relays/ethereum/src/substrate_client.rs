@@ -23,7 +23,7 @@ use crate::sync_types::SubmittedHeaders;
 use crate::utils::HeaderId;
 
 use async_trait::async_trait;
-use bp_eth_poa::Header as SubstrateEthereumHeader;
+use bp_eth_poa::AuraHeader as SubstrateEthereumHeader;
 use codec::{Decode, Encode};
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
