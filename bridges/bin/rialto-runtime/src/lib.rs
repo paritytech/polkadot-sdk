@@ -526,7 +526,7 @@ impl_runtime_apis! {
 			(finalized_block.number, finalized_block.hash)
 		}
 
-		fn is_import_requires_receipts(header: bp_eth_poa::Header) -> bool {
+		fn is_import_requires_receipts(header: bp_eth_poa::AuraHeader) -> bool {
 			BridgeRialto::is_import_requires_receipts(header)
 		}
 
@@ -546,7 +546,7 @@ impl_runtime_apis! {
 			(finalized_block.number, finalized_block.hash)
 		}
 
-		fn is_import_requires_receipts(header: bp_eth_poa::Header) -> bool {
+		fn is_import_requires_receipts(header: bp_eth_poa::AuraHeader) -> bool {
 			BridgeKovan::is_import_requires_receipts(header)
 		}
 

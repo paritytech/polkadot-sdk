@@ -19,7 +19,7 @@ use crate::finality::finalize_blocks;
 use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::verification::{is_importable_header, verify_aura_header};
 use crate::{AuraConfiguration, ChangeToEnact, PruningStrategy, Storage};
-use bp_eth_poa::{Header, HeaderId, Receipt};
+use bp_eth_poa::{AuraHeader, HeaderId, Receipt};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Imports bunch of headers and updates blocks finality.
@@ -37,7 +37,7 @@ pub fn import_headers<S: Storage, PS: PruningStrategy>(
 	aura_config: &AuraConfiguration,
 	validators_config: &ValidatorsConfiguration,
 	submitter: Option<S::Submitter>,
-	headers: Vec<(Header, Option<Vec<Receipt>>)>,
+	headers: Vec<(AuraHeader, Option<Vec<Receipt>>)>,
 	finalized_headers: &mut BTreeMap<S::Submitter, u64>,
 ) -> Result<(u64, u64), Error> {
 	let mut useful = 0;
@@ -85,7 +85,7 @@ pub fn import_header<S: Storage, PS: PruningStrategy>(
 	aura_config: &AuraConfiguration,
 	validators_config: &ValidatorsConfiguration,
 	submitter: Option<S::Submitter>,
-	header: Header,
+	header: AuraHeader,
 	receipts: Option<Vec<Receipt>>,
 ) -> Result<(HeaderId, FinalizedHeaders<S>), Error> {
 	// first check that we are able to import this header at all
@@ -153,7 +153,7 @@ pub fn import_header<S: Storage, PS: PruningStrategy>(
 pub fn header_import_requires_receipts<S: Storage>(
 	storage: &S,
 	validators_config: &ValidatorsConfiguration,
-	header: &Header,
+	header: &AuraHeader,
 ) -> bool {
 	is_importable_header(storage, header)
 		.map(|_| Validators::new(validators_config))
@@ -391,7 +391,7 @@ mod tests {
 	fn import_custom_block<S: Storage>(
 		storage: &mut S,
 		validators: &[SecretKey],
-		header: Header,
+		header: AuraHeader,
 	) -> Result<HeaderId, Error> {
 		let id = header.compute_id();
 		import_header(
