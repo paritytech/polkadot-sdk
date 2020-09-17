@@ -19,10 +19,11 @@ use crate::message_lane_loop::{
 	TargetClientState,
 };
 use crate::message_race_loop::{MessageRace, RaceState, RaceStrategy, SourceClient, TargetClient};
-use crate::utils::FailedClient;
+use crate::utils::{FailedClient, HeaderId};
 
 use async_trait::async_trait;
 use futures::stream::FusedStream;
+use num_traits::{One, Zero};
 use std::{collections::VecDeque, marker::PhantomData, ops::RangeInclusive, time::Duration};
 
 /// Maximal number of messages to relay in single transaction.
@@ -48,7 +49,7 @@ pub async fn run<P: MessageLane>(
 		},
 		target_state_updates,
 		stall_timeout,
-		MessageDeliveryStrategy::<P>::default(),
+		MessageDeliveryStrategy::<P>::new(MAX_MESSAGES_TO_RELAY_IN_SINGLE_TX.into()),
 	)
 	.await
 }
@@ -135,34 +136,60 @@ where
 	}
 }
 
-/// Message delivery strategy.
-struct MessageDeliveryStrategy<P: MessageLane> {
+/// Messages delivery strategy.
+type MessageDeliveryStrategy<P> = DeliveryStrategy<
+	<P as MessageLane>::SourceHeaderNumber,
+	<P as MessageLane>::SourceHeaderHash,
+	<P as MessageLane>::TargetHeaderNumber,
+	<P as MessageLane>::TargetHeaderHash,
+	<P as MessageLane>::MessageNonce,
+	<P as MessageLane>::MessagesProof,
+>;
+
+/// Nonces delivery strategy.
+#[derive(Debug)]
+pub struct DeliveryStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof> {
 	/// All queued nonces.
-	source_queue: VecDeque<(SourceHeaderIdOf<P>, P::MessageNonce)>,
+	source_queue: VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, Nonce)>,
 	/// Best nonce known to target node.
-	target_nonce: P::MessageNonce,
+	target_nonce: Nonce,
+	/// Max nonces to relay in single transaction.
+	max_nonces_to_relay_in_single_tx: Nonce,
 	/// Unused generic types dump.
-	_phantom: PhantomData<P>,
+	_phantom: PhantomData<(TargetHeaderNumber, TargetHeaderHash, Proof)>,
 }
 
-impl<P: MessageLane> Default for MessageDeliveryStrategy<P> {
-	fn default() -> Self {
-		MessageDeliveryStrategy {
+impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce: Default, Proof>
+	DeliveryStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
+{
+	/// Create new delivery strategy.
+	pub fn new(max_nonces_to_relay_in_single_tx: Nonce) -> Self {
+		DeliveryStrategy {
 			source_queue: VecDeque::new(),
 			target_nonce: Default::default(),
+			max_nonces_to_relay_in_single_tx,
 			_phantom: Default::default(),
 		}
 	}
 }
 
-impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessageNonce, P::MessagesProof>
-	for MessageDeliveryStrategy<P>
+impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
+	RaceStrategy<
+		HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+		HeaderId<TargetHeaderHash, TargetHeaderNumber>,
+		Nonce,
+		Proof,
+	> for DeliveryStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
+where
+	SourceHeaderHash: Clone,
+	SourceHeaderNumber: Clone + Ord,
+	Nonce: Clone + Copy + From<u32> + Ord + std::ops::Add<Output = Nonce> + One + Zero,
 {
 	fn is_empty(&self) -> bool {
 		self.source_queue.is_empty()
 	}
 
-	fn source_nonce_updated(&mut self, at_block: SourceHeaderIdOf<P>, nonce: P::MessageNonce) {
+	fn source_nonce_updated(&mut self, at_block: HeaderId<SourceHeaderHash, SourceHeaderNumber>, nonce: Nonce) {
 		if nonce <= self.target_nonce {
 			return;
 		}
@@ -178,8 +205,13 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 
 	fn target_nonce_updated(
 		&mut self,
-		nonce: P::MessageNonce,
-		race_state: &mut RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessageNonce, P::MessagesProof>,
+		nonce: Nonce,
+		race_state: &mut RaceState<
+			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
+			Nonce,
+			Proof,
+		>,
 	) {
 		if nonce < self.target_nonce {
 			return;
@@ -216,8 +248,13 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 
 	fn select_nonces_to_deliver(
 		&mut self,
-		race_state: &RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessageNonce, P::MessagesProof>,
-	) -> Option<RangeInclusive<P::MessageNonce>> {
+		race_state: &RaceState<
+			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
+			Nonce,
+			Proof,
+		>,
+	) -> Option<RangeInclusive<Nonce>> {
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit.is_some() {
 			return None;
@@ -229,18 +266,19 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 		}
 
 		// 1) we want to deliver all nonces, starting from `target_nonce + 1`
-		// 2) we want to deliver at most `MAX_MESSAGES_TO_RELAY_IN_SINGLE_TX` nonces in this batch
+		// 2) we want to deliver at most `self.max_nonces_to_relay_in_single_tx` nonces in this batch
 		// 3) we can't deliver new nonce until header, that has emitted this nonce, is finalized
 		// by target client
 		let nonces_begin = self.target_nonce + 1.into();
 		let best_header_at_target = &race_state.target_state.as_ref()?.best_peer;
 		let mut nonces_end = None;
-		for i in 0..MAX_MESSAGES_TO_RELAY_IN_SINGLE_TX {
-			let nonce = nonces_begin + i.into();
+		let mut i = Zero::zero();
+		while i < self.max_nonces_to_relay_in_single_tx {
+			let nonce = nonces_begin + i;
 
 			// if queue is empty, we don't need to prove anything
 			let (first_queued_at, first_queued_nonce) = match self.source_queue.front() {
-				Some((first_queued_at, first_queued_nonce)) => (first_queued_at.clone(), *first_queued_nonce),
+				Some((first_queued_at, first_queued_nonce)) => ((*first_queued_at).clone(), *first_queued_nonce),
 				None => break,
 			};
 
@@ -257,6 +295,8 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 			if nonce == first_queued_nonce {
 				self.source_queue.pop_front();
 			}
+
+			i = i + One::one();
 		}
 
 		nonces_end.map(|nonces_end| RangeInclusive::new(nonces_begin, nonces_end))
@@ -273,7 +313,7 @@ mod tests {
 
 	#[test]
 	fn strategy_is_empty_works() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		assert_eq!(strategy.is_empty(), true);
 		strategy.source_nonce_updated(header_id(1), 1);
 		assert_eq!(strategy.is_empty(), false);
@@ -281,7 +321,7 @@ mod tests {
 
 	#[test]
 	fn source_nonce_is_never_lower_than_known_target_nonce() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		strategy.target_nonce_updated(10, &mut Default::default());
 		strategy.source_nonce_updated(header_id(1), 5);
 		assert_eq!(strategy.source_queue, vec![]);
@@ -289,7 +329,7 @@ mod tests {
 
 	#[test]
 	fn source_nonce_is_never_lower_than_latest_known_source_nonce() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		strategy.source_nonce_updated(header_id(1), 5);
 		strategy.source_nonce_updated(header_id(2), 3);
 		strategy.source_nonce_updated(header_id(2), 5);
@@ -298,7 +338,7 @@ mod tests {
 
 	#[test]
 	fn target_nonce_is_never_lower_than_latest_known_target_nonce() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		strategy.target_nonce_updated(10, &mut Default::default());
 		strategy.target_nonce_updated(5, &mut Default::default());
 		assert_eq!(strategy.target_nonce, 10);
@@ -306,7 +346,7 @@ mod tests {
 
 	#[test]
 	fn updated_target_nonce_removes_queued_entries() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		strategy.source_nonce_updated(header_id(1), 5);
 		strategy.source_nonce_updated(header_id(2), 10);
 		strategy.source_nonce_updated(header_id(3), 15);
@@ -318,7 +358,7 @@ mod tests {
 	#[test]
 	fn selected_nonces_are_dropped_on_target_nonce_update() {
 		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		state.nonces_to_submit = Some((header_id(1), 5..=10, 5..=10));
 		strategy.target_nonce_updated(7, &mut state);
 		assert!(state.nonces_to_submit.is_some());
@@ -329,7 +369,7 @@ mod tests {
 	#[test]
 	fn submitted_nonces_are_dropped_on_target_nonce_update() {
 		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		state.nonces_submitted = Some(5..=10);
 		strategy.target_nonce_updated(7, &mut state);
 		assert!(state.nonces_submitted.is_some());
@@ -340,7 +380,7 @@ mod tests {
 	#[test]
 	fn nothing_is_selected_if_something_is_already_selected() {
 		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		state.nonces_to_submit = Some((header_id(1), 1..=10, 1..=10));
 		strategy.source_nonce_updated(header_id(1), 10);
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
@@ -349,7 +389,7 @@ mod tests {
 	#[test]
 	fn nothing_is_selected_if_something_is_already_submitted() {
 		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		state.nonces_submitted = Some(1..=10);
 		strategy.source_nonce_updated(header_id(1), 10);
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
@@ -358,7 +398,7 @@ mod tests {
 	#[test]
 	fn select_nonces_to_deliver_works() {
 		let mut state = RaceState::<_, _, TestMessageNonce, TestMessagesProof>::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::default();
+		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
 		strategy.source_nonce_updated(header_id(1), 1);
 		strategy.source_nonce_updated(header_id(2), 2);
 		strategy.source_nonce_updated(header_id(3), 6);
