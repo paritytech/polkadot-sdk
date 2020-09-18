@@ -19,7 +19,7 @@
 //! 1) relay new messages from source to target node;
 //! 2) relay proof-of-receiving from target to source node.
 
-use crate::utils::HeaderId;
+use relay_utils::HeaderId;
 
 use num_traits::{One, Zero};
 use std::fmt::Debug;

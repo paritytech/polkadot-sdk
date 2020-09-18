@@ -21,18 +21,21 @@ use crate::ethereum_client::{
 };
 use crate::ethereum_types::Address;
 use crate::instances::BridgeInstance;
-use crate::metrics::MetricsParams;
 use crate::rpc::SubstrateRpc;
 use crate::rpc_errors::RpcError;
 use crate::substrate_client::{SubstrateConnectionParams, SubstrateRpcClient};
 use crate::substrate_types::{
-	GrandpaJustification, Hash, Header, Number, QueuedSubstrateHeader, SubstrateHeaderId, SubstrateHeadersSyncPipeline,
+	GrandpaJustification, Hash, Number, QueuedSubstrateHeader, SubstrateHeaderId, SubstrateHeadersSyncPipeline,
+	SubstrateSyncHeader as Header,
 };
-use crate::sync::HeadersSyncParams;
-use crate::sync_loop::{SourceClient, TargetClient};
-use crate::sync_types::{SourceHeader, SubmittedHeaders};
 
 use async_trait::async_trait;
+use headers_relay::{
+	sync::HeadersSyncParams,
+	sync_loop::{SourceClient, TargetClient},
+	sync_types::{SourceHeader, SubmittedHeaders},
+};
+use relay_utils::metrics::MetricsParams;
 
 use std::fmt::Debug;
 use std::{collections::HashSet, time::Duration};
@@ -92,11 +95,11 @@ impl SourceClient<SubstrateHeadersSyncPipeline> for SubstrateHeadersSource {
 	}
 
 	async fn header_by_hash(&self, hash: Hash) -> Result<Header, Self::Error> {
-		self.client.header_by_hash(hash).await
+		self.client.header_by_hash(hash).await.map(Into::into)
 	}
 
 	async fn header_by_number(&self, number: Number) -> Result<Header, Self::Error> {
-		self.client.header_by_number(number).await
+		self.client.header_by_number(number).await.map(Into::into)
 	}
 
 	async fn header_completion(
@@ -197,7 +200,7 @@ pub fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 	let target = EthereumHeadersTarget::new(eth_client, eth_contract_address, eth_sign);
 	let source = SubstrateHeadersSource::new(sub_client);
 
-	crate::sync_loop::run(
+	headers_relay::sync_loop::run(
 		source,
 		consts::SUBSTRATE_TICK_INTERVAL,
 		target,

@@ -18,30 +18,30 @@
 
 use crate::sync_loop::{run, SourceClient, TargetClient};
 use crate::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader, SubmittedHeaders};
-use crate::utils::{process_future_result, retry_backoff, HeaderId, MaybeConnectionError};
 
 use async_trait::async_trait;
 use backoff::backoff::Backoff;
 use futures::{future::FutureExt, stream::StreamExt};
 use parking_lot::Mutex;
+use relay_utils::{process_future_result, retry_backoff, HeaderId, MaybeConnectionError};
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
 	time::Duration,
 };
 
-type TestNumber = u64;
-type TestHash = u64;
-type TestExtra = u64;
-type TestCompletion = u64;
-type TestHeaderId = HeaderId<TestHash, TestNumber>;
-type TestQueuedHeader = QueuedHeader<TestHeadersSyncPipeline>;
+pub type TestNumber = u64;
+pub type TestHash = u64;
+pub type TestHeaderId = HeaderId<TestHash, TestNumber>;
+pub type TestExtra = u64;
+pub type TestCompletion = u64;
+pub type TestQueuedHeader = QueuedHeader<TestHeadersSyncPipeline>;
 
-#[derive(Debug, Clone, PartialEq)]
-struct TestHeader {
-	hash: TestHash,
-	number: TestNumber,
-	parent_hash: TestHash,
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct TestHeader {
+	pub hash: TestHash,
+	pub number: TestNumber,
+	pub parent_hash: TestHash,
 }
 
 impl SourceHeader<TestHash, TestNumber> for TestHeader {
@@ -63,8 +63,8 @@ impl MaybeConnectionError for TestError {
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
-struct TestHeadersSyncPipeline;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TestHeadersSyncPipeline;
 
 impl HeadersSyncPipeline for TestHeadersSyncPipeline {
 	const SOURCE_NAME: &'static str = "Source";

@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Metrics for currency-exchange relay loop.
+
 use crate::exchange::{BlockNumberOf, RelayedBlockTransactions, TransactionProofPipeline};
-use crate::metrics::{register, Counter, CounterVec, GaugeVec, Metrics, Opts, Registry, U64};
+use relay_utils::metrics::{register, Counter, CounterVec, GaugeVec, Metrics, Opts, Registry, U64};
 
 /// Exchange transactions relay metrics.
 pub struct ExchangeLoopMetrics {
@@ -36,9 +38,8 @@ impl Metrics for ExchangeLoopMetrics {
 	}
 }
 
-impl ExchangeLoopMetrics {
-	/// Creates sync loop metrics.
-	pub fn new() -> Self {
+impl Default for ExchangeLoopMetrics {
+	fn default() -> Self {
 		ExchangeLoopMetrics {
 			best_block_numbers: GaugeVec::new(
 				Opts::new("best_block_numbers", "Best finalized block numbers"),
@@ -54,7 +55,9 @@ impl ExchangeLoopMetrics {
 			.expect("metric is static and thus valid; qed"),
 		}
 	}
+}
 
+impl ExchangeLoopMetrics {
 	/// Update metrics when single block is relayed.
 	pub fn update<P: TransactionProofPipeline>(
 		&mut self,

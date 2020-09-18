@@ -15,9 +15,10 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
-use crate::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader};
-use crate::utils::HeaderId;
+
 use codec::Encode;
+use headers_relay::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader};
+use relay_utils::HeaderId;
 
 pub use web3::types::{Address, Bytes, CallRequest, H256, U128, U256, U64};
 
@@ -33,6 +34,17 @@ pub type Transaction = web3::types::Transaction;
 
 /// Ethereum header type.
 pub type Header = web3::types::Block<H256>;
+
+/// Ethereum header type used in headers sync.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EthereumSyncHeader(Header);
+
+impl std::ops::Deref for EthereumSyncHeader {
+	type Target = Header;
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
 
 /// Ethereum header with transactions type.
 pub type HeaderWithTransactions = web3::types::Block<Transaction>;
@@ -60,7 +72,7 @@ impl HeadersSyncPipeline for EthereumHeadersSyncPipeline {
 
 	type Hash = H256;
 	type Number = u64;
-	type Header = Header;
+	type Header = EthereumSyncHeader;
 	type Extra = Vec<Receipt>;
 	type Completion = ();
 
@@ -72,7 +84,13 @@ impl HeadersSyncPipeline for EthereumHeadersSyncPipeline {
 	}
 }
 
-impl SourceHeader<H256, u64> for Header {
+impl From<Header> for EthereumSyncHeader {
+	fn from(header: Header) -> Self {
+		Self(header)
+	}
+}
+
+impl SourceHeader<H256, u64> for EthereumSyncHeader {
 	fn id(&self) -> EthereumHeaderId {
 		HeaderId(
 			self.number.expect(HEADER_ID_PROOF).as_u64(),

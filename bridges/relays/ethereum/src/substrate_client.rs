@@ -19,16 +19,16 @@ use crate::instances::BridgeInstance;
 use crate::rpc::{Substrate, SubstrateRpc};
 use crate::rpc_errors::RpcError;
 use crate::substrate_types::{Hash, Header as SubstrateHeader, Number, SignedBlock as SignedSubstrateBlock};
-use crate::sync_types::SubmittedHeaders;
-use crate::utils::HeaderId;
 
 use async_trait::async_trait;
 use bp_eth_poa::AuraHeader as SubstrateEthereumHeader;
 use codec::{Decode, Encode};
+use headers_relay::sync_types::SubmittedHeaders;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use jsonrpsee::Client;
 use num_traits::Zero;
+use relay_utils::HeaderId;
 use sp_core::crypto::Pair;
 use sp_runtime::traits::IdentifyAccount;
 use std::collections::VecDeque;
