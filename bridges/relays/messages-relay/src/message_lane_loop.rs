@@ -30,10 +30,10 @@
 use crate::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use crate::message_race_delivery::run as run_message_delivery_race;
 use crate::message_race_receiving::run as run_message_receiving_race;
-use crate::utils::{interval, process_future_result, retry_backoff, FailedClient, MaybeConnectionError};
 
 use async_trait::async_trait;
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
+use relay_utils::{interval, process_future_result, retry_backoff, FailedClient, MaybeConnectionError};
 use std::{fmt::Debug, future::Future, ops::RangeInclusive, time::Duration};
 
 /// Source client trait.
@@ -334,9 +334,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::utils::HeaderId;
 	use futures::stream::StreamExt;
 	use parking_lot::Mutex;
+	use relay_utils::HeaderId;
 	use std::sync::Arc;
 
 	pub fn header_id(number: TestSourceHeaderNumber) -> HeaderId<TestSourceHeaderNumber, TestSourceHeaderHash> {

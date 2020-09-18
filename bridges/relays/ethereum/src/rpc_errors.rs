@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::utils::MaybeConnectionError;
-
 use jsonrpsee::client::RequestError;
+use relay_utils::MaybeConnectionError;
 
 /// Contains common errors that can occur when
 /// interacting with a Substrate or Ethereum node

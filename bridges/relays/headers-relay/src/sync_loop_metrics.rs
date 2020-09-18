@@ -14,11 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
+//! Metrics for headers synchronization relay loop.
+
 use crate::sync::HeadersSync;
 use crate::sync_types::{HeaderStatus, HeadersSyncPipeline};
 
 use num_traits::Zero;
+use relay_utils::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
 
 /// Headers sync metrics.
 pub struct SyncLoopMetrics {
@@ -36,9 +38,8 @@ impl Metrics for SyncLoopMetrics {
 	}
 }
 
-impl SyncLoopMetrics {
-	/// Creates sync loop metrics.
-	pub fn new() -> Self {
+impl Default for SyncLoopMetrics {
+	fn default() -> Self {
 		SyncLoopMetrics {
 			best_block_numbers: GaugeVec::new(
 				Opts::new("best_block_numbers", "Best block numbers on source and target nodes"),
@@ -52,7 +53,9 @@ impl SyncLoopMetrics {
 			.expect("metric is static and thus valid; qed"),
 		}
 	}
+}
 
+impl SyncLoopMetrics {
 	/// Update metrics.
 	pub fn update<P: HeadersSyncPipeline>(&mut self, sync: &HeadersSync<P>) {
 		let headers = sync.headers();

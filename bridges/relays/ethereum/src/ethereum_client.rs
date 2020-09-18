@@ -21,17 +21,16 @@ use crate::ethereum_types::{
 use crate::rpc::{Ethereum, EthereumRpc};
 use crate::rpc_errors::{EthereumNodeError, RpcError};
 use crate::substrate_types::{GrandpaJustification, Hash as SubstrateHash, QueuedSubstrateHeader, SubstrateHeaderId};
-use crate::sync_types::SubmittedHeaders;
-use crate::utils::{HeaderId, MaybeConnectionError};
 
 use async_trait::async_trait;
 use codec::{Decode, Encode};
 use ethabi::FunctionOutputDecoder;
+use headers_relay::sync_types::SubmittedHeaders;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use jsonrpsee::Client;
 use parity_crypto::publickey::KeyPair;
-
+use relay_utils::{HeaderId, MaybeConnectionError};
 use std::collections::HashSet;
 
 // to encode/decode contract calls
@@ -693,17 +692,20 @@ mod tests {
 	}
 
 	fn header(number: SubstrateBlockNumber) -> QueuedSubstrateHeader {
-		QueuedSubstrateHeader::new(SubstrateHeader::new(
-			number,
-			Default::default(),
-			Default::default(),
-			if number == 0 {
-				Default::default()
-			} else {
-				header(number - 1).id().1
-			},
-			Default::default(),
-		))
+		QueuedSubstrateHeader::new(
+			SubstrateHeader::new(
+				number,
+				Default::default(),
+				Default::default(),
+				if number == 0 {
+					Default::default()
+				} else {
+					header(number - 1).id().1
+				},
+				Default::default(),
+			)
+			.into(),
+		)
 	}
 
 	#[test]
