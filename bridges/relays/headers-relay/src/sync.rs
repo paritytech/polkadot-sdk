@@ -14,6 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Headers synchronization context. This structure wraps headers queue and is
+//! able to choose: which headers to read from the source chain? Which headers
+//! to submit to the target chain? The context makes decisions basing on parameters
+//! passed using `HeadersSyncParams` structure.
+
 use crate::headers::QueuedHeaders;
 use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader};
 use num_traits::{One, Saturating, Zero};
@@ -34,38 +39,6 @@ pub struct HeadersSyncParams {
 	pub prune_depth: u32,
 	/// Target transactions mode.
 	pub target_tx_mode: TargetTransactionMode,
-}
-
-impl HeadersSyncParams {
-	/// Default parameters for syncing Ethereum headers.
-	pub fn ethereum_sync_default() -> Self {
-		use crate::ethereum_sync_loop::consts::*;
-
-		Self {
-			max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
-			max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
-			max_headers_in_single_submit: MAX_HEADERS_IN_SINGLE_SUBMIT,
-			max_headers_size_in_single_submit: MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT,
-			prune_depth: PRUNE_DEPTH,
-			target_tx_mode: TargetTransactionMode::Signed,
-		}
-	}
-
-	/// Default parameters for syncing Substrate headers.
-	pub fn substrate_sync_default() -> Self {
-		use crate::substrate_sync_loop::consts::*;
-
-		Self {
-			max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
-			max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
-			// since we always have single Substrate header in separate Ethereum transaction,
-			// all max_**_in_single_submit aren't important here
-			max_headers_in_single_submit: 4,
-			max_headers_size_in_single_submit: std::usize::MAX,
-			prune_depth: PRUNE_DEPTH,
-			target_tx_mode: TargetTransactionMode::Signed,
-		}
-	}
 }
 
 /// Target transaction mode.
@@ -99,7 +72,7 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 	/// Creates new headers synchronizer.
 	pub fn new(params: HeadersSyncParams) -> Self {
 		HeadersSync {
-			headers: QueuedHeaders::new(),
+			headers: QueuedHeaders::default(),
 			params,
 			source_best_number: None,
 			target_best_header: None,
@@ -308,13 +281,13 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	use crate::ethereum_types::{EthereumHeadersSyncPipeline, H256};
 	use crate::headers::tests::{header, id};
+	use crate::sync_loop_tests::{TestHash, TestHeadersSyncPipeline, TestNumber};
 	use crate::sync_types::HeaderStatus;
-	use crate::utils::HeaderId;
+	use relay_utils::HeaderId;
 
-	fn side_hash(number: u64) -> H256 {
-		H256::from_low_u64_le(1000 + number)
+	fn side_hash(number: TestNumber) -> TestHash {
+		1000 + number
 	}
 
 	pub fn default_sync_params() -> HeadersSyncParams {
@@ -330,7 +303,7 @@ pub mod tests {
 
 	#[test]
 	fn select_new_header_to_download_works() {
-		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(default_sync_params());
+		let mut eth_sync = HeadersSync::<TestHeadersSyncPipeline>::new(default_sync_params());
 
 		// both best && target headers are unknown
 		assert_eq!(eth_sync.select_new_header_to_download(), None);
@@ -366,7 +339,7 @@ pub mod tests {
 
 	#[test]
 	fn select_new_header_to_download_works_with_empty_queue() {
-		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(default_sync_params());
+		let mut eth_sync = HeadersSync::<TestHeadersSyncPipeline>::new(default_sync_params());
 		eth_sync.source_best_header_number_response(100);
 
 		// when queue is not empty => everything goes as usually
@@ -489,7 +462,7 @@ pub mod tests {
 
 	#[test]
 	fn pruning_happens_on_target_best_header_response() {
-		let mut eth_sync = HeadersSync::<EthereumHeadersSyncPipeline>::new(default_sync_params());
+		let mut eth_sync = HeadersSync::<TestHeadersSyncPipeline>::new(default_sync_params());
 		eth_sync.params.prune_depth = 50;
 		eth_sync.target_best_header_response(id(100));
 		assert_eq!(eth_sync.headers.prune_border(), 50);

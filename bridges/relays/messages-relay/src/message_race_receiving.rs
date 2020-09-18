@@ -11,6 +11,8 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+//! Message receiving race delivers proof-of-messages-delivery from lane.target to lane.source.
+
 use crate::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use crate::message_lane_loop::{
 	SourceClient as MessageLaneSourceClient, SourceClientState, TargetClient as MessageLaneTargetClient,
@@ -18,10 +20,10 @@ use crate::message_lane_loop::{
 };
 use crate::message_race_delivery::DeliveryStrategy;
 use crate::message_race_loop::{MessageRace, SourceClient, TargetClient};
-use crate::utils::FailedClient;
 
 use async_trait::async_trait;
 use futures::stream::FusedStream;
+use relay_utils::FailedClient;
 use std::{marker::PhantomData, ops::RangeInclusive, time::Duration};
 
 /// Message receiving confirmations delivery strategy.
