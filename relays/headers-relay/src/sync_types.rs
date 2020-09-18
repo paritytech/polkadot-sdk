@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::utils::{format_ids, HeaderId};
+//! Types that are used by headers synchronization components.
 
+use relay_utils::{format_ids, HeaderId};
 use std::{ops::Deref, sync::Arc};
 
 /// Ethereum header synchronization status.
@@ -99,8 +100,7 @@ pub trait SourceHeader<Hash, Number> {
 }
 
 /// Header how it's stored in the synchronization queue.
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct QueuedHeader<P: HeadersSyncPipeline>(Arc<QueuedHeaderData<P>>);
 
 impl<P: HeadersSyncPipeline> QueuedHeader<P> {
@@ -129,8 +129,7 @@ impl<P: HeadersSyncPipeline> Deref for QueuedHeader<P> {
 }
 
 /// Header how it's stored in the synchronization queue.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct QueuedHeaderData<P: HeadersSyncPipeline> {
 	header: P::Header,
 	extra: Option<P::Extra>,

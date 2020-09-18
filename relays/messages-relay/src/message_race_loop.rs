@@ -24,13 +24,13 @@
 #![allow(dead_code)]
 
 use crate::message_lane_loop::ClientState;
-use crate::utils::{process_future_result, retry_backoff, FailedClient, MaybeConnectionError};
 
 use async_trait::async_trait;
 use futures::{
 	future::FutureExt,
 	stream::{FusedStream, StreamExt},
 };
+use relay_utils::{process_future_result, retry_backoff, FailedClient, MaybeConnectionError};
 use std::{
 	fmt::Debug,
 	ops::RangeInclusive,

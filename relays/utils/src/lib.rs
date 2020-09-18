@@ -14,16 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Utilities used by different relays.
+
 use backoff::{backoff::Backoff, ExponentialBackoff};
 use futures::future::FutureExt;
 use std::time::Duration;
 
 /// Max delay after connection-unrelated error happened before we'll try the
 /// same request again.
-const MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(60);
+pub const MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(60);
 /// Delay after connection-related error happened before we'll try
 /// reconnection again.
-const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
+pub const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
+
+pub mod metrics;
 
 /// Macro that returns (client, Err(error)) tuple from function if result is Err(error).
 #[macro_export]
@@ -176,7 +180,7 @@ impl ProcessFutureResult {
 }
 
 /// Process result of the future from a client.
-pub(crate) fn process_future_result<TResult, TError, TGoOfflineFuture>(
+pub fn process_future_result<TResult, TError, TGoOfflineFuture>(
 	result: Result<TResult, TError>,
 	retry_backoff: &mut ExponentialBackoff,
 	on_success: impl FnOnce(TResult),

@@ -21,23 +21,22 @@ use crate::ethereum_types::{
 	EthereumHeaderId, HeaderWithTransactions as EthereumHeaderWithTransactions, Transaction as EthereumTransaction,
 	TransactionHash as EthereumTransactionHash, H256,
 };
-use crate::exchange::{
-	relay_single_transaction_proof, SourceBlock, SourceClient, SourceTransaction, TargetClient,
-	TransactionProofPipeline,
-};
-use crate::exchange_loop::{run as run_loop, InMemoryStorage};
 use crate::instances::BridgeInstance;
-use crate::metrics::MetricsParams;
 use crate::rpc::{EthereumRpc, SubstrateRpc};
 use crate::rpc_errors::RpcError;
 use crate::substrate_client::{
 	SubmitEthereumExchangeTransactionProof, SubstrateConnectionParams, SubstrateRpcClient, SubstrateSigningParams,
 };
 use crate::substrate_types::into_substrate_ethereum_receipt;
-use crate::utils::HeaderId;
 
 use async_trait::async_trait;
 use bp_currency_exchange::MaybeLockFundsTransaction;
+use exchange_relay::exchange::{
+	relay_single_transaction_proof, SourceBlock, SourceClient, SourceTransaction, TargetClient,
+	TransactionProofPipeline,
+};
+use exchange_relay::exchange_loop::{run as run_loop, InMemoryStorage};
+use relay_utils::{metrics::MetricsParams, HeaderId};
 use rialto_runtime::exchange::EthereumTransactionInclusionProof;
 use std::time::Duration;
 

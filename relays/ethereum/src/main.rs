@@ -22,42 +22,28 @@ mod ethereum_exchange;
 mod ethereum_exchange_submit;
 mod ethereum_sync_loop;
 mod ethereum_types;
-mod exchange;
-mod exchange_loop;
-mod exchange_loop_metrics;
-mod headers;
 mod instances;
-mod message_lane;
-mod message_lane_loop;
-mod message_race_delivery;
-mod message_race_loop;
-mod message_race_receiving;
-mod metrics;
 mod rpc;
 mod rpc_errors;
 mod substrate_client;
 mod substrate_sync_loop;
 mod substrate_types;
-mod sync;
-mod sync_loop;
-mod sync_loop_metrics;
-mod sync_loop_tests;
-mod sync_types;
-mod utils;
 
 use ethereum_client::{EthereumConnectionParams, EthereumSigningParams};
 use ethereum_deploy_contract::EthereumDeployContractParams;
 use ethereum_exchange::EthereumExchangeParams;
 use ethereum_exchange_submit::EthereumExchangeSubmitParams;
 use ethereum_sync_loop::EthereumSyncParams;
+use headers_relay::sync::TargetTransactionMode;
 use hex_literal::hex;
 use instances::{BridgeInstance, Kovan, Rialto};
 use parity_crypto::publickey::{KeyPair, Secret};
+use relay_utils::metrics::MetricsParams;
 use sp_core::crypto::Pair;
 use substrate_client::{SubstrateConnectionParams, SubstrateSigningParams};
 use substrate_sync_loop::SubstrateSyncParams;
-use sync::HeadersSyncParams;
 
+use headers_relay::sync::HeadersSyncParams;
 use std::io::Write;
 
 fn main() {
@@ -223,19 +209,28 @@ fn substrate_signing_params(matches: &clap::ArgMatches) -> Result<SubstrateSigni
 }
 
 fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams, String> {
-	let mut sync_params = HeadersSyncParams::ethereum_sync_default();
+	use crate::ethereum_sync_loop::consts::*;
+
+	let mut sync_params = HeadersSyncParams {
+		max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
+		max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
+		max_headers_in_single_submit: MAX_HEADERS_IN_SINGLE_SUBMIT,
+		max_headers_size_in_single_submit: MAX_HEADERS_SIZE_IN_SINGLE_SUBMIT,
+		prune_depth: PRUNE_DEPTH,
+		target_tx_mode: TargetTransactionMode::Signed,
+	};
 
 	match matches.value_of("sub-tx-mode") {
-		Some("signed") => sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
+		Some("signed") => sync_params.target_tx_mode = TargetTransactionMode::Signed,
 		Some("unsigned") => {
-			sync_params.target_tx_mode = sync::TargetTransactionMode::Unsigned;
+			sync_params.target_tx_mode = TargetTransactionMode::Unsigned;
 
 			// tx pool won't accept too much unsigned transactions
 			sync_params.max_headers_in_submitted_status = 10;
 		}
-		Some("backup") => sync_params.target_tx_mode = sync::TargetTransactionMode::Backup,
+		Some("backup") => sync_params.target_tx_mode = TargetTransactionMode::Backup,
 		Some(mode) => return Err(format!("Invalid sub-tx-mode: {}", mode)),
-		None => sync_params.target_tx_mode = sync::TargetTransactionMode::Signed,
+		None => sync_params.target_tx_mode = TargetTransactionMode::Signed,
 	}
 
 	let params = EthereumSyncParams {
@@ -253,6 +248,8 @@ fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams
 }
 
 fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncParams, String> {
+	use crate::substrate_sync_loop::consts::*;
+
 	let eth_contract_address: ethereum_types::Address = if let Some(eth_contract) = matches.value_of("eth-contract") {
 		eth_contract.parse().map_err(|e| format!("{}", e))?
 	} else {
@@ -267,7 +264,14 @@ fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncPara
 		eth_sign: ethereum_signing_params(matches)?,
 		metrics_params: metrics_params(matches)?,
 		instance: instance_params(matches)?,
-		sync_params: HeadersSyncParams::substrate_sync_default(),
+		sync_params: HeadersSyncParams {
+			max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
+			max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
+			max_headers_in_single_submit: 4,
+			max_headers_size_in_single_submit: std::usize::MAX,
+			prune_depth: PRUNE_DEPTH,
+			target_tx_mode: TargetTransactionMode::Signed,
+		},
 		eth_contract_address,
 	};
 
@@ -388,12 +392,12 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchan
 	Ok(params)
 }
 
-fn metrics_params(matches: &clap::ArgMatches) -> Result<Option<metrics::MetricsParams>, String> {
+fn metrics_params(matches: &clap::ArgMatches) -> Result<Option<MetricsParams>, String> {
 	if matches.is_present("no-prometheus") {
 		return Ok(None);
 	}
 
-	let mut metrics_params = metrics::MetricsParams::default();
+	let mut metrics_params = MetricsParams::default();
 
 	if let Some(prometheus_host) = matches.value_of("prometheus-host") {
 		metrics_params.host = prometheus_host.into();

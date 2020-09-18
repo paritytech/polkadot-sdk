@@ -16,9 +16,8 @@
 
 //! Relaying proofs of exchange transaction.
 
-use crate::utils::{MaybeConnectionError, StringifiedMaybeConnectionError};
-
 use async_trait::async_trait;
+use relay_utils::{MaybeConnectionError, StringifiedMaybeConnectionError};
 use std::{
 	fmt::{Debug, Display},
 	string::ToString,
@@ -54,7 +53,7 @@ pub trait SourceBlock {
 	type Transaction: SourceTransaction;
 
 	/// Return hash of the block.
-	fn id(&self) -> crate::utils::HeaderId<Self::Hash, Self::Number>;
+	fn id(&self) -> relay_utils::HeaderId<Self::Hash, Self::Number>;
 	/// Return block transactions iterator.
 	fn transactions(&self) -> Vec<Self::Transaction>;
 }
@@ -81,7 +80,7 @@ pub type TransactionOf<P> = <<P as TransactionProofPipeline>::Block as SourceBlo
 pub type TransactionHashOf<P> = <TransactionOf<P> as SourceTransaction>::Hash;
 
 /// Header id.
-pub type HeaderId<P> = crate::utils::HeaderId<BlockHashOf<P>, BlockNumberOf<P>>;
+pub type HeaderId<P> = relay_utils::HeaderId<BlockHashOf<P>, BlockNumberOf<P>>;
 
 /// Source client API.
 #[async_trait]
@@ -443,9 +442,9 @@ async fn wait_header_finalized<P: TransactionProofPipeline>(
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::utils::HeaderId;
 
 	use parking_lot::Mutex;
+	use relay_utils::HeaderId;
 	use std::{
 		collections::{HashMap, HashSet},
 		sync::Arc,

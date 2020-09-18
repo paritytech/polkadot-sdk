@@ -14,11 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Headers queue - the intermediate buffer that is filled when headers are read
+//! from the source chain. Headers are removed from the queue once they become
+//! known to the target chain. Inside, there are several sub-queues, where headers
+//! may stay until source/target chain state isn't updated. When a header reaches the
+//! `ready` sub-queue, it may be submitted to the target chain.
+
 use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SourceHeader};
-use crate::utils::HeaderId;
 
 use linked_hash_map::LinkedHashMap;
 use num_traits::{One, Zero};
+use relay_utils::HeaderId;
 use std::{
 	collections::{btree_map::Entry as BTreeMapEntry, hash_map::Entry as HashMapEntry, BTreeMap, HashMap, HashSet},
 	time::{Duration, Instant},
@@ -32,7 +38,7 @@ type KnownHeaders<P> =
 /// We're trying to fetch completion data for single header at this interval.
 const RETRY_FETCH_COMPLETION_INTERVAL: Duration = Duration::from_secs(20);
 
-/// Ethereum headers queue.
+/// Headers queue.
 #[derive(Debug)]
 pub struct QueuedHeaders<P: HeadersSyncPipeline> {
 	/// Headers that are received from source node, but we (native sync code) have
@@ -80,9 +86,8 @@ struct HeaderCompletion<Completion> {
 	pub completion: Completion,
 }
 
-impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
-	/// Returns new QueuedHeaders.
-	pub fn new() -> Self {
+impl<P: HeadersSyncPipeline> Default for QueuedHeaders<P> {
+	fn default() -> Self {
 		QueuedHeaders {
 			maybe_orphan: HeadersQueue::new(),
 			orphan: HeadersQueue::new(),
@@ -98,7 +103,9 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 			prune_border: Zero::zero(),
 		}
 	}
+}
 
+impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 	/// Returns prune border.
 	#[cfg(test)]
 	pub fn prune_border(&self) -> P::Number {
@@ -778,57 +785,56 @@ fn queued_incomplete_header<Id: Clone + Eq + std::hash::Hash, T>(
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::ethereum_types::{EthereumHeaderId, EthereumHeadersSyncPipeline, Header, H256};
+	use crate::sync_loop_tests::{TestHash, TestHeader, TestHeaderId, TestHeadersSyncPipeline, TestNumber};
 	use crate::sync_types::QueuedHeader;
 
-	pub(crate) fn header(number: u64) -> QueuedHeader<EthereumHeadersSyncPipeline> {
-		QueuedHeader::new(Header {
-			number: Some(number.into()),
-			hash: Some(hash(number)),
+	pub(crate) fn header(number: TestNumber) -> QueuedHeader<TestHeadersSyncPipeline> {
+		QueuedHeader::new(TestHeader {
+			number,
+			hash: hash(number),
 			parent_hash: hash(number - 1),
-			..Default::default()
 		})
 	}
 
-	pub(crate) fn hash(number: u64) -> H256 {
-		H256::from_low_u64_le(number)
+	pub(crate) fn hash(number: TestNumber) -> TestHash {
+		number
 	}
 
-	pub(crate) fn id(number: u64) -> EthereumHeaderId {
+	pub(crate) fn id(number: TestNumber) -> TestHeaderId {
 		HeaderId(number, hash(number))
 	}
 
 	#[test]
 	fn total_headers_works() {
 		// total headers just sums up number of headers in every queue
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue.maybe_orphan.entry(1).or_default().insert(
 			hash(1),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.maybe_orphan.entry(1).or_default().insert(
 			hash(2),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.maybe_orphan.entry(2).or_default().insert(
 			hash(3),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.orphan.entry(3).or_default().insert(
 			hash(4),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.maybe_extra.entry(4).or_default().insert(
 			hash(5),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.ready.entry(5).or_default().insert(
 			hash(6),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.incomplete.entry(6).or_default().insert(
 			hash(7),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		assert_eq!(queue.total_headers(), 7);
 	}
@@ -836,48 +842,48 @@ pub(crate) mod tests {
 	#[test]
 	fn best_queued_number_works() {
 		// initially there are headers in MaybeOrphan queue only
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue.maybe_orphan.entry(1).or_default().insert(
 			hash(1),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.maybe_orphan.entry(1).or_default().insert(
 			hash(2),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		queue.maybe_orphan.entry(3).or_default().insert(
 			hash(3),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		assert_eq!(queue.best_queued_number(), 3);
 		// and then there's better header in Orphan
 		queue.orphan.entry(10).or_default().insert(
 			hash(10),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		assert_eq!(queue.best_queued_number(), 10);
 		// and then there's better header in MaybeExtra
 		queue.maybe_extra.entry(20).or_default().insert(
 			hash(20),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		assert_eq!(queue.best_queued_number(), 20);
 		// and then there's better header in Ready
 		queue.ready.entry(30).or_default().insert(
 			hash(30),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		assert_eq!(queue.best_queued_number(), 30);
 		// and then there's better header in MaybeOrphan again
 		queue.maybe_orphan.entry(40).or_default().insert(
 			hash(40),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		assert_eq!(queue.best_queued_number(), 40);
 		// and then there's some header in Incomplete
 		queue.incomplete.entry(50).or_default().insert(
 			hash(50),
-			QueuedHeader::<EthereumHeadersSyncPipeline>::new(Default::default()),
+			QueuedHeader::<TestHeadersSyncPipeline>::new(Default::default()),
 		);
 		assert_eq!(queue.best_queued_number(), 50);
 	}
@@ -885,7 +891,7 @@ pub(crate) mod tests {
 	#[test]
 	fn status_works() {
 		// all headers are unknown initially
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		assert_eq!(queue.status(&id(10)), HeaderStatus::Unknown);
 		// and status is read from the KnownHeaders
 		queue
@@ -899,22 +905,22 @@ pub(crate) mod tests {
 	#[test]
 	fn header_works() {
 		// initially we have oldest header #10
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue.maybe_orphan.entry(10).or_default().insert(hash(1), header(100));
 		assert_eq!(
-			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(),
+			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash,
 			hash(100)
 		);
 		// inserting #20 changes nothing
 		queue.maybe_orphan.entry(20).or_default().insert(hash(1), header(101));
 		assert_eq!(
-			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(),
+			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash,
 			hash(100)
 		);
 		// inserting #5 makes it oldest
 		queue.maybe_orphan.entry(5).or_default().insert(hash(1), header(102));
 		assert_eq!(
-			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash.unwrap(),
+			queue.header(HeaderStatus::MaybeOrphan).unwrap().header().hash,
 			hash(102)
 		);
 	}
@@ -922,7 +928,7 @@ pub(crate) mod tests {
 	#[test]
 	fn header_response_works() {
 		// when parent is Synced, we insert to MaybeExtra
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -932,7 +938,7 @@ pub(crate) mod tests {
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeExtra);
 
 		// when parent is Ready, we insert to MaybeExtra
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -942,7 +948,7 @@ pub(crate) mod tests {
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeExtra);
 
 		// when parent is Receipts, we insert to MaybeExtra
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -952,7 +958,7 @@ pub(crate) mod tests {
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeExtra);
 
 		// when parent is MaybeExtra, we insert to MaybeExtra
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -962,7 +968,7 @@ pub(crate) mod tests {
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeExtra);
 
 		// when parent is Orphan, we insert to Orphan
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -972,7 +978,7 @@ pub(crate) mod tests {
 		assert_eq!(queue.status(&id(101)), HeaderStatus::Orphan);
 
 		// when parent is MaybeOrphan, we insert to MaybeOrphan
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -982,7 +988,7 @@ pub(crate) mod tests {
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeOrphan);
 
 		// when parent is unknown, we insert to MaybeOrphan
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue.header_response(header(101).header().clone());
 		assert_eq!(queue.status(&id(101)), HeaderStatus::MaybeOrphan);
 	}
@@ -996,7 +1002,7 @@ pub(crate) mod tests {
 		// #98 in MaybeExtra
 		// #97 in Receipts
 		// #96 in Ready
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -1053,7 +1059,7 @@ pub(crate) mod tests {
 		// #101 in Orphan
 		// #102 in MaybeOrphan
 		// #103 in Orphan
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(101)
@@ -1095,7 +1101,7 @@ pub(crate) mod tests {
 		// #102 in MaybeOrphan
 		// and we have asked for MaybeOrphan status of #100.parent (i.e. #99)
 		// and the response is: YES, #99 is known to the Substrate runtime
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -1140,7 +1146,7 @@ pub(crate) mod tests {
 		// #101 in MaybeOrphan
 		// and we have asked for MaybeOrphan status of #100.parent (i.e. #99)
 		// and the response is: NO, #99 is NOT known to the Substrate runtime
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -1172,7 +1178,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn positive_maybe_extra_response_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -1188,7 +1194,7 @@ pub(crate) mod tests {
 	#[test]
 	fn negative_maybe_extra_response_works() {
 		// when parent header is complete
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -1217,14 +1223,14 @@ pub(crate) mod tests {
 	#[test]
 	fn receipts_response_works() {
 		// when parent header is complete
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
 			.or_default()
 			.insert(hash(100), HeaderStatus::Extra);
 		queue.extra.entry(100).or_default().insert(hash(100), header(100));
-		queue.extra_response(&id(100), Vec::new());
+		queue.extra_response(&id(100), 100_100);
 		assert!(queue.extra.is_empty());
 		assert_eq!(queue.ready.len(), 1);
 		assert_eq!(queue.known_headers[&100][&hash(100)], HeaderStatus::Ready);
@@ -1237,7 +1243,7 @@ pub(crate) mod tests {
 			.or_default()
 			.insert(hash(201), HeaderStatus::Extra);
 		queue.extra.entry(201).or_default().insert(hash(201), header(201));
-		queue.extra_response(&id(201), Vec::new());
+		queue.extra_response(&id(201), 201_201);
 		assert!(queue.extra.is_empty());
 		assert_eq!(queue.incomplete.len(), 1);
 		assert_eq!(queue.known_headers[&201][&hash(201)], HeaderStatus::Incomplete);
@@ -1245,7 +1251,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn header_submitted_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(100)
@@ -1259,7 +1265,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn incomplete_header_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 
 		// nothing to complete if queue is empty
 		assert_eq!(queue.incomplete_header(), None);
@@ -1282,7 +1288,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn completion_response_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue.incomplete_headers.insert(id(100), None);
 		queue.incomplete_headers.insert(id(200), Some(Instant::now()));
 
@@ -1299,18 +1305,18 @@ pub(crate) mod tests {
 		assert_eq!(queue.header_to_complete(), None);
 
 		// when response is Some, we're scheduling completion
-		queue.completion_response(&id(200), Some(()));
+		queue.completion_response(&id(200), Some(200_200));
 		assert_eq!(queue.incomplete_headers.len(), 2);
 		assert_eq!(queue.completion_data.len(), 1);
 		assert!(queue.incomplete_headers.contains_key(&id(100)));
 		assert!(queue.completion_data.contains_key(&id(200)));
-		assert_eq!(queue.header_to_complete(), Some((id(200), &())));
+		assert_eq!(queue.header_to_complete(), Some((id(200), &200_200)));
 	}
 
 	#[test]
 	fn header_completed_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
-		queue.completion_data.insert(id(100), ());
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
+		queue.completion_data.insert(id(100), 100_100);
 
 		// when unknown header is completed
 		queue.header_completed(&id(200));
@@ -1323,7 +1329,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn incomplete_headers_response_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 
 		// when we have already submitted #101 and #102 is ready
 		queue
@@ -1370,7 +1376,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn is_parent_incomplete_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 
 		// when we do not know header itself
 		assert_eq!(queue.is_parent_incomplete(&id(50)), false);
@@ -1404,7 +1410,7 @@ pub(crate) mod tests {
 		assert_eq!(queue.is_parent_incomplete(&id(200)), true);
 
 		// when parent is the incomplete header and we have completion data
-		queue.completion_data.insert(id(299), ());
+		queue.completion_data.insert(id(299), 299_299);
 		queue
 			.known_headers
 			.entry(300)
@@ -1416,7 +1422,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn prune_works() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue
 			.known_headers
 			.entry(105)
@@ -1487,7 +1493,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn incomplete_headers_are_still_incomplete_after_advance() {
-		let mut queue = QueuedHeaders::<EthereumHeadersSyncPipeline>::new();
+		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 
 		// relay#1 knows that header#100 is incomplete && it has headers 101..104 in incomplete queue
 		queue.incomplete_headers.insert(id(100), None);

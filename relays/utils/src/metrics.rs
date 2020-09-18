@@ -107,9 +107,8 @@ impl Metrics for GlobalMetrics {
 	}
 }
 
-impl GlobalMetrics {
-	/// Creates global metrics.
-	pub fn new() -> Self {
+impl Default for GlobalMetrics {
+	fn default() -> Self {
 		GlobalMetrics {
 			system: System::new_with_specifics(RefreshKind::everything()),
 			system_average_load: GaugeVec::new(Opts::new("system_average_load", "System load average"), &["over"])
@@ -123,7 +122,9 @@ impl GlobalMetrics {
 			.expect("metric is static and thus valid; qed"),
 		}
 	}
+}
 
+impl GlobalMetrics {
 	/// Update metrics.
 	pub fn update(&mut self) {
 		// update system-wide metrics
