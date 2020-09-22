@@ -14,10 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_types::{
-	Header as EthereumHeader, Receipt as EthereumReceipt, HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
-};
-
 use codec::Encode;
 use headers_relay::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader};
 use relay_utils::HeaderId;
@@ -25,6 +21,9 @@ use relay_utils::HeaderId;
 pub use bp_eth_poa::{
 	Address, AuraHeader as SubstrateEthereumHeader, Bloom, Bytes, LogEntry as SubstrateEthereumLogEntry,
 	Receipt as SubstrateEthereumReceipt, TransactionOutcome as SubstrateEthereumTransactionOutcome, H256, U256,
+};
+use relay_ethereum_client::types::{
+	Header as EthereumHeader, Receipt as EthereumReceipt, HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
 };
 
 /// Substrate header hash.

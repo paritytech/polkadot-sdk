@@ -23,11 +23,6 @@
 #![allow(unused_variables)]
 use std::result;
 
-use crate::ethereum_types::{
-	Address as EthAddress, Bytes, CallRequest, EthereumHeaderId, Header as EthereumHeader,
-	HeaderWithTransactions as EthereumHeaderWithTransactions, Receipt, SignedRawTx, Transaction as EthereumTransaction,
-	TransactionHash as EthereumTxHash, H256, U256, U64,
-};
 use crate::rpc_errors::RpcError;
 use crate::substrate_types::{
 	Hash as SubstrateHash, Header as SubstrateHeader, Number as SubBlockNumber, SignedBlock as SubstrateBlock,
@@ -35,36 +30,12 @@ use crate::substrate_types::{
 
 use async_trait::async_trait;
 use bp_eth_poa::AuraHeader as SubstrateEthereumHeader;
+use relay_ethereum_client::types::{Bytes, HeaderId as EthereumHeaderId};
 
 type Result<T> = result::Result<T, RpcError>;
 type GrandpaAuthorityList = Vec<u8>;
 
 jsonrpsee::rpc_api! {
-	pub(crate) Ethereum {
-		#[rpc(method = "eth_estimateGas", positional_params)]
-		fn estimate_gas(call_request: CallRequest) -> U256;
-		#[rpc(method = "eth_blockNumber", positional_params)]
-		fn block_number() -> U64;
-		#[rpc(method = "eth_getBlockByNumber", positional_params)]
-		fn get_block_by_number(block_number: U64, full_tx_objs: bool) -> EthereumHeader;
-		#[rpc(method = "eth_getBlockByHash", positional_params)]
-		fn get_block_by_hash(hash: H256, full_tx_objs: bool) -> EthereumHeader;
-		#[rpc(method = "eth_getBlockByNumber", positional_params)]
-		fn get_block_by_number_with_transactions(number: U64, full_tx_objs: bool) -> EthereumHeaderWithTransactions;
-		#[rpc(method = "eth_getBlockByHash", positional_params)]
-		fn get_block_by_hash_with_transactions(hash: H256, full_tx_objs: bool) -> EthereumHeaderWithTransactions;
-		#[rpc(method = "eth_getTransactionByHash", positional_params)]
-		fn transaction_by_hash(hash: H256) -> Option<EthereumTransaction>;
-		#[rpc(method = "eth_getTransactionReceipt", positional_params)]
-		fn get_transaction_receipt(transaction_hash: H256) -> Receipt;
-		#[rpc(method = "eth_getTransactionCount", positional_params)]
-		fn get_transaction_count(address: EthAddress) -> U256;
-		#[rpc(method = "eth_submitTransaction", positional_params)]
-		fn submit_transaction(transaction: Bytes) -> EthereumTxHash;
-		#[rpc(method = "eth_call", positional_params)]
-		fn call(transaction_call: CallRequest) -> Bytes;
-	}
-
 	pub(crate) Substrate {
 		#[rpc(method = "chain_getHeader", positional_params)]
 		fn chain_get_header(block_hash: Option<SubstrateHash>) -> SubstrateHeader;
@@ -79,35 +50,6 @@ jsonrpsee::rpc_api! {
 		#[rpc(method = "state_call", positional_params)]
 		fn state_call(method: String, data: Bytes, at_block: Option<SubstrateHash>) -> Bytes;
 	}
-}
-
-/// The API for the supported Ethereum RPC methods.
-#[async_trait]
-pub trait EthereumRpc {
-	/// Estimate gas usage for the given call.
-	async fn estimate_gas(&self, call_request: CallRequest) -> Result<U256>;
-	/// Retrieve number of the best known block from the Ethereum node.
-	async fn best_block_number(&self) -> Result<u64>;
-	/// Retrieve block header by its number from Ethereum node.
-	async fn header_by_number(&self, block_number: u64) -> Result<EthereumHeader>;
-	/// Retrieve block header by its hash from Ethereum node.
-	async fn header_by_hash(&self, hash: H256) -> Result<EthereumHeader>;
-	/// Retrieve block header and its transactions by its number from Ethereum node.
-	async fn header_by_number_with_transactions(&self, block_number: u64) -> Result<EthereumHeaderWithTransactions>;
-	/// Retrieve block header and its transactions by its hash from Ethereum node.
-	async fn header_by_hash_with_transactions(&self, hash: H256) -> Result<EthereumHeaderWithTransactions>;
-	/// Retrieve transaction by its hash from Ethereum node.
-	async fn transaction_by_hash(&self, hash: H256) -> Result<Option<EthereumTransaction>>;
-	/// Retrieve transaction receipt by transaction hash.
-	async fn transaction_receipt(&self, transaction_hash: H256) -> Result<Receipt>;
-	/// Get the nonce of the given account.
-	async fn account_nonce(&self, address: EthAddress) -> Result<U256>;
-	/// Submit an Ethereum transaction.
-	///
-	/// The transaction must already be signed before sending it through this method.
-	async fn submit_transaction(&self, signed_raw_tx: SignedRawTx) -> Result<EthereumTxHash>;
-	/// Submit a call to an Ethereum smart contract.
-	async fn eth_call(&self, call_transaction: CallRequest) -> Result<Bytes>;
 }
 
 /// The API for the supported Substrate RPC methods.
