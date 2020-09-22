@@ -1,0 +1,17 @@
+[package]
+name = "relay-ethereum-client"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.4" }
+ethereum-tx-sign = "3.0"
+headers-relay = { path = "../headers-relay" }
+hex = "0.4"
+jsonrpsee = { git = "https://github.com/svyatonik/jsonrpsee.git", branch = "shared-client-in-rpc-api", default-features = false, features = ["http"] }
+log = "0.4.11"
+parity-crypto = { version = "0.6", features = ["publickey"] }
+relay-utils = { path = "../utils" }
+web3 = "0.13"

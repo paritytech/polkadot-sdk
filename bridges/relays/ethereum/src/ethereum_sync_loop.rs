@@ -16,26 +16,27 @@
 
 //! Ethereum PoA -> Substrate synchronization.
 
-use crate::ethereum_client::{EthereumConnectionParams, EthereumHighLevelRpc, EthereumRpcClient};
-use crate::ethereum_types::{
-	EthereumHeaderId, EthereumHeadersSyncPipeline, EthereumSyncHeader as Header, QueuedEthereumHeader, Receipt,
-};
+use crate::ethereum_client::EthereumHighLevelRpc;
 use crate::instances::BridgeInstance;
-use crate::rpc::{EthereumRpc, SubstrateRpc};
+use crate::rpc::SubstrateRpc;
 use crate::rpc_errors::RpcError;
 use crate::substrate_client::{
 	SubmitEthereumHeaders, SubstrateConnectionParams, SubstrateRpcClient, SubstrateSigningParams,
 };
-use crate::substrate_types::into_substrate_ethereum_header;
+use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
 
 use async_trait::async_trait;
+use codec::Encode;
 use headers_relay::{
 	sync::{HeadersSyncParams, TargetTransactionMode},
 	sync_loop::{SourceClient, TargetClient},
-	sync_types::{SourceHeader, SubmittedHeaders},
+	sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader, SubmittedHeaders},
+};
+use relay_ethereum_client::{
+	types::{HeaderHash, HeaderId as EthereumHeaderId, Receipt, SyncHeader as Header},
+	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
 };
 use relay_utils::metrics::MetricsParams;
-use web3::types::H256;
 
 use std::fmt::Debug;
 use std::{collections::HashSet, time::Duration};
@@ -78,14 +79,40 @@ pub struct EthereumSyncParams {
 	pub instance: Box<dyn BridgeInstance>,
 }
 
+/// Ethereum synchronization pipeline.
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct EthereumHeadersSyncPipeline;
+
+impl HeadersSyncPipeline for EthereumHeadersSyncPipeline {
+	const SOURCE_NAME: &'static str = "Ethereum";
+	const TARGET_NAME: &'static str = "Substrate";
+
+	type Hash = HeaderHash;
+	type Number = u64;
+	type Header = Header;
+	type Extra = Vec<Receipt>;
+	type Completion = ();
+
+	fn estimate_size(source: &QueuedHeader<Self>) -> usize {
+		into_substrate_ethereum_header(source.header()).encode().len()
+			+ into_substrate_ethereum_receipts(source.extra())
+				.map(|extra| extra.encode().len())
+				.unwrap_or(0)
+	}
+}
+
+/// Queued ethereum header ID.
+pub type QueuedEthereumHeader = QueuedHeader<EthereumHeadersSyncPipeline>;
+
 /// Ethereum client as headers source.
 struct EthereumHeadersSource {
 	/// Ethereum node client.
-	client: EthereumRpcClient,
+	client: EthereumClient,
 }
 
 impl EthereumHeadersSource {
-	fn new(client: EthereumRpcClient) -> Self {
+	fn new(client: EthereumClient) -> Self {
 		Self { client }
 	}
 }
@@ -95,15 +122,23 @@ impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
 	type Error = RpcError;
 
 	async fn best_block_number(&self) -> Result<u64, Self::Error> {
-		self.client.best_block_number().await
+		self.client.best_block_number().await.map_err(Into::into)
 	}
 
-	async fn header_by_hash(&self, hash: H256) -> Result<Header, Self::Error> {
-		self.client.header_by_hash(hash).await.map(Into::into)
+	async fn header_by_hash(&self, hash: HeaderHash) -> Result<Header, Self::Error> {
+		self.client
+			.header_by_hash(hash)
+			.await
+			.map(Into::into)
+			.map_err(Into::into)
 	}
 
 	async fn header_by_number(&self, number: u64) -> Result<Header, Self::Error> {
-		self.client.header_by_number(number).await.map(Into::into)
+		self.client
+			.header_by_number(number)
+			.await
+			.map(Into::into)
+			.map_err(Into::into)
 	}
 
 	async fn header_completion(&self, id: EthereumHeaderId) -> Result<(EthereumHeaderId, Option<()>), Self::Error> {
@@ -192,7 +227,7 @@ pub fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 		instance,
 	} = params;
 
-	let eth_client = EthereumRpcClient::new(eth_params);
+	let eth_client = EthereumClient::new(eth_params);
 	let sub_client = async_std::task::block_on(async { SubstrateRpcClient::new(sub_params, instance).await })?;
 
 	let sign_sub_transactions = match sync_params.target_tx_mode {
