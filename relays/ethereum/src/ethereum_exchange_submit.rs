@@ -16,13 +16,13 @@
 
 //! Submitting Ethereum -> Substrate exchange transactions.
 
-use crate::ethereum_client::{EthereumConnectionParams, EthereumRpcClient, EthereumSigningParams};
-use crate::ethereum_types::{CallRequest, U256};
-use crate::rpc::EthereumRpc;
-
 use bp_eth_poa::{
 	signatures::{SecretKey, SignTransaction},
 	UnsignedTransaction,
+};
+use relay_ethereum_client::{
+	types::{CallRequest, U256},
+	Client as EthereumClient, ConnectionParams as EthereumConnectionParams, SigningParams as EthereumSigningParams,
 };
 use rialto_runtime::exchange::LOCK_FUNDS_ADDRESS;
 
@@ -54,7 +54,7 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 	} = params;
 
 	let result: Result<_, String> = local_pool.run_until(async move {
-		let eth_client = EthereumRpcClient::new(eth_params);
+		let eth_client = EthereumClient::new(eth_params);
 
 		let eth_signer_address = eth_sign.signer.address();
 		let sub_recipient_encoded = sub_recipient;

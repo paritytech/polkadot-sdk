@@ -23,7 +23,7 @@
 //!
 //! This module helps by preparing the correct `Call`s for each of the different pallet instances.
 
-use crate::ethereum_types::QueuedEthereumHeader;
+use crate::ethereum_sync_loop::QueuedEthereumHeader;
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
 
 use rialto_runtime::exchange::EthereumTransactionInclusionProof as Proof;
