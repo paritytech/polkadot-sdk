@@ -14,22 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_types::{
-	Address, Bytes, CallRequest, EthereumHeaderId, Header, HeaderWithTransactions, Receipt, SignedRawTx, Transaction,
-	TransactionHash, H256, U256,
-};
-use crate::rpc::{Ethereum, EthereumRpc};
-use crate::rpc_errors::{EthereumNodeError, RpcError};
+use crate::rpc_errors::RpcError;
 use crate::substrate_types::{GrandpaJustification, Hash as SubstrateHash, QueuedSubstrateHeader, SubstrateHeaderId};
 
 use async_trait::async_trait;
 use codec::{Decode, Encode};
 use ethabi::FunctionOutputDecoder;
 use headers_relay::sync_types::SubmittedHeaders;
-use jsonrpsee::raw::RawClient;
-use jsonrpsee::transport::http::HttpTransportClient;
-use jsonrpsee::Client;
-use parity_crypto::publickey::KeyPair;
+use relay_ethereum_client::{
+	sign_and_submit_transaction,
+	types::{Address, CallRequest, HeaderId as EthereumHeaderId, Receipt, H256, U256},
+	Client as EthereumClient, Error as EthereumNodeError, SigningParams as EthereumSigningParams,
+};
 use relay_utils::{HeaderId, MaybeConnectionError};
 use std::collections::HashSet;
 
@@ -38,159 +34,10 @@ ethabi_contract::use_contract!(bridge_contract, "res/substrate-bridge-abi.json")
 
 type RpcResult<T> = std::result::Result<T, RpcError>;
 
-/// Ethereum connection params.
-#[derive(Debug, Clone)]
-pub struct EthereumConnectionParams {
-	/// Ethereum RPC host.
-	pub host: String,
-	/// Ethereum RPC port.
-	pub port: u16,
-}
-
-impl Default for EthereumConnectionParams {
-	fn default() -> Self {
-		EthereumConnectionParams {
-			host: "localhost".into(),
-			port: 8545,
-		}
-	}
-}
-
-/// Ethereum signing params.
-#[derive(Clone, Debug)]
-pub struct EthereumSigningParams {
-	/// Ethereum chain id.
-	pub chain_id: u64,
-	/// Ethereum transactions signer.
-	pub signer: KeyPair,
-	/// Gas price we agree to pay.
-	pub gas_price: U256,
-}
-
-impl Default for EthereumSigningParams {
-	fn default() -> Self {
-		EthereumSigningParams {
-			chain_id: 0x11, // Parity dev chain
-			// account that has a lot of ether when we run instant seal engine
-			// address: 0x00a329c0648769a73afac7f9381e08fb43dbea72
-			// secret: 0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
-			signer: KeyPair::from_secret_slice(
-				&hex::decode("4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7")
-					.expect("secret is hardcoded, thus valid; qed"),
-			)
-			.expect("secret is hardcoded, thus valid; qed"),
-			gas_price: 8_000_000_000u64.into(), // 8 Gwei
-		}
-	}
-}
-
-/// The client used to interact with an Ethereum node through RPC.
-pub struct EthereumRpcClient {
-	client: Client,
-}
-
-impl EthereumRpcClient {
-	/// Create a new Ethereum RPC Client.
-	pub fn new(params: EthereumConnectionParams) -> Self {
-		let uri = format!("http://{}:{}", params.host, params.port);
-		let transport = HttpTransportClient::new(&uri);
-		let raw_client = RawClient::new(transport);
-		let client: Client = raw_client.into();
-
-		Self { client }
-	}
-}
-
-#[async_trait]
-impl EthereumRpc for EthereumRpcClient {
-	async fn estimate_gas(&self, call_request: CallRequest) -> RpcResult<U256> {
-		Ok(Ethereum::estimate_gas(&self.client, call_request).await?)
-	}
-
-	async fn best_block_number(&self) -> RpcResult<u64> {
-		Ok(Ethereum::block_number(&self.client).await?.as_u64())
-	}
-
-	async fn header_by_number(&self, block_number: u64) -> RpcResult<Header> {
-		let get_full_tx_objects = false;
-		let header = Ethereum::get_block_by_number(&self.client, block_number, get_full_tx_objects).await?;
-		match header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some() {
-			true => Ok(header),
-			false => Err(RpcError::Ethereum(EthereumNodeError::IncompleteHeader)),
-		}
-	}
-
-	async fn header_by_hash(&self, hash: H256) -> RpcResult<Header> {
-		let get_full_tx_objects = false;
-		let header = Ethereum::get_block_by_hash(&self.client, hash, get_full_tx_objects).await?;
-		match header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some() {
-			true => Ok(header),
-			false => Err(RpcError::Ethereum(EthereumNodeError::IncompleteHeader)),
-		}
-	}
-
-	async fn header_by_number_with_transactions(&self, number: u64) -> RpcResult<HeaderWithTransactions> {
-		let get_full_tx_objects = true;
-		let header = Ethereum::get_block_by_number_with_transactions(&self.client, number, get_full_tx_objects).await?;
-
-		let is_complete_header = header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some();
-		if !is_complete_header {
-			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteHeader));
-		}
-
-		let is_complete_transactions = header.transactions.iter().all(|tx| tx.raw.is_some());
-		if !is_complete_transactions {
-			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteTransaction));
-		}
-
-		Ok(header)
-	}
-
-	async fn header_by_hash_with_transactions(&self, hash: H256) -> RpcResult<HeaderWithTransactions> {
-		let get_full_tx_objects = true;
-		let header = Ethereum::get_block_by_hash_with_transactions(&self.client, hash, get_full_tx_objects).await?;
-
-		let is_complete_header = header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some();
-		if !is_complete_header {
-			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteHeader));
-		}
-
-		let is_complete_transactions = header.transactions.iter().all(|tx| tx.raw.is_some());
-		if !is_complete_transactions {
-			return Err(RpcError::Ethereum(EthereumNodeError::IncompleteTransaction));
-		}
-
-		Ok(header)
-	}
-
-	async fn transaction_by_hash(&self, hash: H256) -> RpcResult<Option<Transaction>> {
-		Ok(Ethereum::transaction_by_hash(&self.client, hash).await?)
-	}
-
-	async fn transaction_receipt(&self, transaction_hash: H256) -> RpcResult<Receipt> {
-		Ok(Ethereum::get_transaction_receipt(&self.client, transaction_hash).await?)
-	}
-
-	async fn account_nonce(&self, address: Address) -> RpcResult<U256> {
-		Ok(Ethereum::get_transaction_count(&self.client, address).await?)
-	}
-
-	async fn submit_transaction(&self, signed_raw_tx: SignedRawTx) -> RpcResult<TransactionHash> {
-		let transaction = Bytes(signed_raw_tx);
-		let tx_hash = Ethereum::submit_transaction(&self.client, transaction).await?;
-		log::trace!(target: "bridge", "Sent transaction to Ethereum node: {:?}", tx_hash);
-		Ok(tx_hash)
-	}
-
-	async fn eth_call(&self, call_transaction: CallRequest) -> RpcResult<Bytes> {
-		Ok(Ethereum::call(&self.client, call_transaction).await?)
-	}
-}
-
 /// A trait which contains methods that work by using multiple low-level RPCs, or more complicated
 /// interactions involving, for example, an Ethereum contract.
 #[async_trait]
-pub trait EthereumHighLevelRpc: EthereumRpc {
+pub trait EthereumHighLevelRpc {
 	/// Returns best Substrate block that PoA chain knows of.
 	async fn best_substrate_block(&self, contract_address: Address) -> RpcResult<SubstrateHeaderId>;
 
@@ -240,7 +87,7 @@ pub trait EthereumHighLevelRpc: EthereumRpc {
 }
 
 #[async_trait]
-impl EthereumHighLevelRpc for EthereumRpcClient {
+impl EthereumHighLevelRpc for EthereumClient {
 	async fn best_substrate_block(&self, contract_address: Address) -> RpcResult<SubstrateHeaderId> {
 		let (encoded_call, call_decoder) = bridge_contract::functions::best_known_header::call();
 		let call_request = CallRequest {
@@ -293,7 +140,7 @@ impl EthereumHighLevelRpc for EthereumRpcClient {
 					submitted: Vec::new(),
 					incomplete: Vec::new(),
 					rejected: headers.iter().rev().map(|header| header.id()).collect(),
-					fatal_error: Some(error),
+					fatal_error: Some(error.into()),
 				}
 			}
 		};
@@ -302,9 +149,7 @@ impl EthereumHighLevelRpc for EthereumRpcClient {
 		// cloning `jsonrpsee::Client` only clones reference to background threads
 		submit_substrate_headers(
 			EthereumHeadersSubmitter {
-				client: EthereumRpcClient {
-					client: self.client.clone(),
-				},
+				client: self.clone(),
 				params,
 				contract_address,
 				nonce,
@@ -369,32 +214,9 @@ impl EthereumHighLevelRpc for EthereumRpcClient {
 		double_gas: bool,
 		encoded_call: Vec<u8>,
 	) -> RpcResult<()> {
-		let nonce = if let Some(n) = nonce {
-			n
-		} else {
-			let address: Address = params.signer.address().as_fixed_bytes().into();
-			self.account_nonce(address).await?
-		};
-
-		let call_request = CallRequest {
-			to: contract_address,
-			data: Some(encoded_call.clone().into()),
-			..Default::default()
-		};
-		let gas = self.estimate_gas(call_request).await?;
-
-		let raw_transaction = ethereum_tx_sign::RawTransaction {
-			nonce,
-			to: contract_address,
-			value: U256::zero(),
-			gas: if double_gas { gas.saturating_mul(2.into()) } else { gas },
-			gas_price: params.gas_price,
-			data: encoded_call,
-		}
-		.sign(&params.signer.secret().as_fixed_bytes().into(), &params.chain_id);
-
-		let _ = self.submit_transaction(raw_transaction).await?;
-		Ok(())
+		sign_and_submit_transaction(self, params, contract_address, nonce, double_gas, encoded_call)
+			.await
+			.map_err(Into::into)
 	}
 
 	async fn transaction_receipts(
@@ -524,7 +346,7 @@ trait HeadersSubmitter {
 
 /// Implementation of Substrate headers submitter that sends headers to running Ethereum node.
 struct EthereumHeadersSubmitter {
-	client: EthereumRpcClient,
+	client: EthereumClient,
 	params: EthereumSigningParams,
 	contract_address: Address,
 	nonce: U256,

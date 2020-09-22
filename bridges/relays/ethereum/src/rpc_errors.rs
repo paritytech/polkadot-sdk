@@ -15,6 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use jsonrpsee::client::RequestError;
+use relay_ethereum_client::Error as EthereumNodeError;
 use relay_utils::MaybeConnectionError;
 
 /// Contains common errors that can occur when
@@ -76,45 +77,17 @@ impl From<ethabi::Error> for RpcError {
 
 impl MaybeConnectionError for RpcError {
 	fn is_connection_error(&self) -> bool {
-		matches!(*self, RpcError::Request(RequestError::TransportError(_)))
+		match self {
+			RpcError::Request(RequestError::TransportError(_)) => true,
+			RpcError::Ethereum(ref error) => error.is_connection_error(),
+			_ => false,
+		}
 	}
 }
 
 impl From<codec::Error> for RpcError {
 	fn from(err: codec::Error) -> Self {
 		Self::Substrate(SubstrateNodeError::Decoding(err))
-	}
-}
-
-/// Errors that can occur only when interacting with
-/// an Ethereum node through RPC.
-#[derive(Debug)]
-pub enum EthereumNodeError {
-	/// Failed to parse response.
-	ResponseParseFailed(String),
-	/// We have received a header with missing fields.
-	IncompleteHeader,
-	/// We have received a transaction missing a `raw` field.
-	IncompleteTransaction,
-	/// An invalid Substrate block number was received from
-	/// an Ethereum node.
-	InvalidSubstrateBlockNumber,
-	/// An invalid index has been received from an Ethereum node.
-	InvalidIncompleteIndex,
-}
-
-impl ToString for EthereumNodeError {
-	fn to_string(&self) -> String {
-		match self {
-			Self::ResponseParseFailed(e) => e.to_string(),
-			Self::IncompleteHeader => {
-				"Incomplete Ethereum Header Received (missing some of required fields - hash, number, logs_bloom)"
-					.to_string()
-			}
-			Self::IncompleteTransaction => "Incomplete Ethereum Transaction (missing required field - raw)".to_string(),
-			Self::InvalidSubstrateBlockNumber => "Received an invalid Substrate block from Ethereum Node".to_string(),
-			Self::InvalidIncompleteIndex => "Received an invalid incomplete index from Ethereum Node".to_string(),
-		}
 	}
 }
 
