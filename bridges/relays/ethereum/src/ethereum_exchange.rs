@@ -16,13 +16,8 @@
 
 //! Relaying proofs of PoA -> Substrate exchange transactions.
 
-use crate::ethereum_client::{EthereumConnectionParams, EthereumRpcClient};
-use crate::ethereum_types::{
-	EthereumHeaderId, HeaderWithTransactions as EthereumHeaderWithTransactions, Transaction as EthereumTransaction,
-	TransactionHash as EthereumTransactionHash, H256,
-};
 use crate::instances::BridgeInstance;
-use crate::rpc::{EthereumRpc, SubstrateRpc};
+use crate::rpc::SubstrateRpc;
 use crate::rpc_errors::RpcError;
 use crate::substrate_client::{
 	SubmitEthereumExchangeTransactionProof, SubstrateConnectionParams, SubstrateRpcClient, SubstrateSigningParams,
@@ -36,6 +31,13 @@ use exchange_relay::exchange::{
 	TransactionProofPipeline,
 };
 use exchange_relay::exchange_loop::{run as run_loop, InMemoryStorage};
+use relay_ethereum_client::{
+	types::{
+		HeaderId as EthereumHeaderId, HeaderWithTransactions as EthereumHeaderWithTransactions,
+		Transaction as EthereumTransaction, TransactionHash as EthereumTransactionHash, H256, HEADER_ID_PROOF,
+	},
+	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
+};
 use relay_utils::{metrics::MetricsParams, HeaderId};
 use rialto_runtime::exchange::EthereumTransactionInclusionProof;
 use std::time::Duration;
@@ -92,8 +94,8 @@ impl SourceBlock for EthereumSourceBlock {
 
 	fn id(&self) -> EthereumHeaderId {
 		HeaderId(
-			self.0.number.expect(crate::ethereum_types::HEADER_ID_PROOF).as_u64(),
-			self.0.hash.expect(crate::ethereum_types::HEADER_ID_PROOF),
+			self.0.number.expect(HEADER_ID_PROOF).as_u64(),
+			self.0.hash.expect(HEADER_ID_PROOF),
 		)
 	}
 
@@ -120,7 +122,7 @@ impl SourceTransaction for EthereumSourceTransaction {
 
 /// Ethereum node as transactions proof source.
 struct EthereumTransactionsSource {
-	client: EthereumRpcClient,
+	client: EthereumClient,
 }
 
 #[async_trait]
@@ -136,6 +138,7 @@ impl SourceClient<EthereumToSubstrateExchange> for EthereumTransactionsSource {
 			.header_by_hash_with_transactions(hash)
 			.await
 			.map(EthereumSourceBlock)
+			.map_err(Into::into)
 	}
 
 	async fn block_by_number(&self, number: u64) -> Result<EthereumSourceBlock, Self::Error> {
@@ -143,6 +146,7 @@ impl SourceClient<EthereumToSubstrateExchange> for EthereumTransactionsSource {
 			.header_by_number_with_transactions(number)
 			.await
 			.map(EthereumSourceBlock)
+			.map_err(Into::into)
 	}
 
 	async fn transaction_block(
@@ -278,7 +282,7 @@ fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H25
 	} = params;
 
 	let result = local_pool.run_until(async move {
-		let eth_client = EthereumRpcClient::new(eth_params);
+		let eth_client = EthereumClient::new(eth_params);
 		let sub_client = SubstrateRpcClient::new(sub_params, instance).await?;
 
 		let source = EthereumTransactionsSource { client: eth_client };
@@ -321,7 +325,7 @@ fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_wi
 	} = params;
 
 	let do_run_loop = move || -> Result<(), String> {
-		let eth_client = EthereumRpcClient::new(eth_params);
+		let eth_client = EthereumClient::new(eth_params);
 		let sub_client = async_std::task::block_on(SubstrateRpcClient::new(sub_params, instance))
 			.map_err(|err| format!("Error starting Substrate client: {:?}", err))?;
 
