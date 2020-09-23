@@ -8,12 +8,27 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false }
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false }
+bp-substrate = { path = "../../primitives/substrate", default-features = false }
 finality-grandpa = { version = "0.12.3", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
+serde = { version = "1.0", optional = true }
+
+[dependencies.codec]
+package = "parity-scale-codec"
+version = "1.3.1"
+default-features = false
+features = ["derive"]
 
 # Substrate Based Dependencies
+
 [dependencies.frame-support]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+default-features = false
+git = "https://github.com/paritytech/substrate/"
+
+[dependencies.frame-system]
 version = "2.0.0-rc6"
 tag = 'v2.0.0-rc6'
 default-features = false
@@ -43,6 +58,12 @@ tag = 'v2.0.0-rc6'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
+# Dev Dependencies
+[dev-dependencies.sp-io]
+version = "2.0.0-rc6"
+tag = 'v2.0.0-rc6'
+git = "https://github.com/paritytech/substrate/"
+
 [dev-dependencies.sp-core]
 version = "2.0.0-rc6"
 tag = 'v2.0.0-rc6'
@@ -67,8 +88,11 @@ std = [
 	"codec/std",
 	"finality-grandpa/std",
 	"frame-support/std",
+	"frame-system/std",
+	"serde",
 	"sp-finality-grandpa/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
+	"sp-io/std",
 ]
