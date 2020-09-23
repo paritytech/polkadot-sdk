@@ -21,6 +21,7 @@
 
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_runtime::RuntimeDebug;
+use sp_std::vec::Vec;
 use sp_trie::{read_trie_value, Layout, MemoryDB, StorageProof};
 
 /// This struct is used to read storage values from a subset of a Merklized database. The "proof"
