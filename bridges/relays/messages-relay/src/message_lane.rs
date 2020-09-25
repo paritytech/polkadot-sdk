@@ -17,7 +17,7 @@
 //! One-way message lane types. Within single one-way lane we have three 'races' where we try to:
 //!
 //! 1) relay new messages from source to target node;
-//! 2) relay proof-of-receiving from target to source node.
+//! 2) relay proof-of-delivery from target to source node.
 
 use relay_utils::HeaderId;
 

@@ -46,10 +46,6 @@ use sp_std::{marker::PhantomData, prelude::*};
 /// Spec version type.
 pub type SpecVersion = u32;
 
-// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
-/// Weight of single deposit_event() call.
-const DEPOSIT_EVENT_WEIGHT: Weight = 0;
-
 /// Origin of the call on the target chain.
 #[derive(RuntimeDebug, Encode, Decode, Clone)]
 pub enum CallOrigin<SourceChainAccountPublic, TargetChainAccountPublic, TargetChainSignature> {
@@ -149,7 +145,11 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		<T as Trait<I>>::Call,
 	>;
 
-	fn dispatch(bridge: InstanceId, id: T::MessageId, message: Self::Message) -> Weight {
+	fn dispatch_weight(message: &Self::Message) -> Weight {
+		message.weight
+	}
+
+	fn dispatch(bridge: InstanceId, id: T::MessageId, message: Self::Message) {
 		// verify spec version
 		// (we want it to be the same, because otherwise we may decode Call improperly)
 		let expected_version = <T as frame_system::Trait>::Version::get().spec_version;
@@ -167,7 +167,7 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 				expected_version,
 				message.spec_version,
 			));
-			return DEPOSIT_EVENT_WEIGHT;
+			return;
 		}
 
 		// verify weight
@@ -189,7 +189,7 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 				expected_weight,
 				message.weight,
 			));
-			return DEPOSIT_EVENT_WEIGHT;
+			return;
 		}
 
 		// prepare dispatch origin
@@ -210,7 +210,7 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 						target_signature,
 					);
 					Self::deposit_event(RawEvent::MessageSignatureMismatch(bridge, id));
-					return DEPOSIT_EVENT_WEIGHT;
+					return;
 				}
 
 				target_account
@@ -222,9 +222,11 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		let dispatch_result = message.call.dispatch(origin);
 		let actual_call_weight = extract_actual_weight(&dispatch_result, &dispatch_info);
 		frame_support::debug::trace!(
-			"Message {:?}/{:?} has been dispatched. Result: {:?}",
+			"Message {:?}/{:?} has been dispatched. Weight: {} of {}. Result: {:?}",
 			bridge,
 			id,
+			actual_call_weight,
+			message.weight,
 			dispatch_result,
 		);
 
@@ -233,8 +235,6 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 			id,
 			dispatch_result.map(drop).map_err(|e| e.error),
 		));
-
-		actual_call_weight + DEPOSIT_EVENT_WEIGHT
 	}
 }
 

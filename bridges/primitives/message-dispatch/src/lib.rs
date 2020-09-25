@@ -29,6 +29,12 @@ pub trait MessageDispatch<MessageId> {
 	/// A type of the message to be dispatched.
 	type Message: codec::Decode;
 
+	/// Estimate dispatch weight.
+	///
+	/// This function must: (1) be instant and (2) return correct upper bound
+	/// of dispatch weight.
+	fn dispatch_weight(message: &Self::Message) -> Weight;
+
 	/// Dispatches the message internally.
 	///
 	/// `bridge` indicates instance of deployed bridge where the message came from.
@@ -36,5 +42,5 @@ pub trait MessageDispatch<MessageId> {
 	/// `id` is a short unique if of the message.
 	///
 	/// Returns post-dispatch (actual) message weight.
-	fn dispatch(bridge: InstanceId, id: MessageId, message: Self::Message) -> Weight;
+	fn dispatch(bridge: InstanceId, id: MessageId, message: Self::Message);
 }

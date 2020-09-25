@@ -7,7 +7,9 @@ edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
+bp-message-dispatch = { path = "../../primitives/message-dispatch", default-features = false }
 bp-message-lane = { path = "../../primitives/message-lane", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false }
 
 # Substrate Based Dependencies
@@ -48,9 +50,11 @@ git = "https://github.com/paritytech/substrate/"
 [features]
 default = ["std"]
 std = [
+	"bp-message-dispatch/std",
 	"bp-message-lane/std",
+	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"sp-std/std"
+	"sp-std/std",
 ]

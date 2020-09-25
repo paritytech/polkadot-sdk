@@ -21,12 +21,11 @@
 //! 3) the messages are stored in the storage;
 //! 4) external component (relay) delivers messages to bridged chain;
 //! 5) messages are processed in order (ordered by assigned nonce);
-//! 6) relay may send proof-of-receiving and proof-of-processing back to this chain.
+//! 6) relay may send proof-of-delivery back to this chain.
 //!
 //! Once message is sent, its progress can be tracked by looking at module events.
 //! The assigned nonce is reported using `MessageAccepted` event. When message is
-//! accepted by the bridged chain, `MessagesDelivered` is fired. When message is
-//! processedby the bridged chain, `MessagesProcessed` by the bridged chain.
+//! delivered to the the bridged chain, it is reported using `MessagesDelivered` event.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -34,9 +33,14 @@ use crate::inbound_lane::{InboundLane, InboundLaneStorage};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
 
 use bp_message_lane::{
-	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, OnMessageReceived, OutboundLaneData,
+	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
+	target_chain::{MessageDispatch, SourceHeaderChain},
+	InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
-use frame_support::{decl_event, decl_module, decl_storage, traits::Get, Parameter, StorageMap};
+use frame_support::{
+	decl_error, decl_event, decl_module, decl_storage, sp_runtime::DispatchResult, traits::Get, weights::Weight,
+	Parameter, StorageMap,
+};
 use frame_system::ensure_signed;
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -46,8 +50,14 @@ mod outbound_lane;
 #[cfg(test)]
 mod mock;
 
+// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
+/// Upper bound of delivery transaction weight.
+const DELIVERY_BASE_WEIGHT: Weight = 0;
+
 /// The module configuration trait
 pub trait Trait<I = DefaultInstance>: frame_system::Trait {
+	// General types
+
 	/// They overarching event type.
 	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 	/// Message payload.
@@ -57,8 +67,50 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// confirmed. The reason is that if you want to use lane, you should be ready to pay
 	/// for it.
 	type MaxMessagesToPruneAtOnce: Get<MessageNonce>;
-	/// Called when message has been received.
-	type OnMessageReceived: OnMessageReceived<Self::Payload>;
+
+	// Types that are used by outbound_lane (on source chain).
+
+	/// Type of delivery_and_dispatch_fee on source chain.
+	type MessageFee: Parameter;
+	/// Target header chain.
+	type TargetHeaderChain: TargetHeaderChain<Self::Payload>;
+	/// Message payload verifier.
+	type LaneMessageVerifier: LaneMessageVerifier<Self::AccountId, Self::Payload, Self::MessageFee>;
+	/// Message delivery payment.
+	type MessageDeliveryAndDispatchPayment: MessageDeliveryAndDispatchPayment<Self::AccountId, Self::MessageFee>;
+
+	// Types that are used by inbound_lane (on target chain).
+
+	/// Source header chain, as it is represented on target chain.
+	type SourceHeaderChain: SourceHeaderChain<Self::Payload, Self::MessageFee>;
+	/// Message dispatch.
+	type MessageDispatch: MessageDispatch<Self::Payload, Self::MessageFee>;
+}
+
+/// Shortcut to messages proof type for Trait.
+type MessagesProofOf<T, I> = <<T as Trait<I>>::SourceHeaderChain as SourceHeaderChain<
+	<T as Trait<I>>::Payload,
+	<T as Trait<I>>::MessageFee,
+>>::MessagesProof;
+/// Shortcut to messages delivery proof type for Trait.
+type MessagesDeliveryProofOf<T, I> =
+	<<T as Trait<I>>::TargetHeaderChain as TargetHeaderChain<<T as Trait<I>>::Payload>>::MessagesDeliveryProof;
+
+decl_error! {
+	pub enum Error for Module<T: Trait<I>, I: Instance> {
+		/// Message has been treated as invalid by chain verifier.
+		MessageRejectedByChainVerifier,
+		/// Message has been treated as invalid by lane verifier.
+		MessageRejectedByLaneVerifier,
+		/// Submitter has failed to pay fee for delivering and dispatching messages.
+		FailedToWithdrawMessageFee,
+		/// Invalid messages has been submitted.
+		InvalidMessagesProof,
+		/// Invalid messages dispatch weight has been declared by the relayer.
+		InvalidMessagesDispatchWeight,
+		/// Invalid messages delivery proof has been submitted.
+		InvalidMessagesDeliveryProof,
+	}
 }
 
 decl_storage! {
@@ -68,7 +120,7 @@ decl_storage! {
 		/// Map of lane id => outbound lane data.
 		OutboundLanes: map hasher(blake2_128_concat) LaneId => OutboundLaneData;
 		/// All queued outbound messages.
-		OutboundMessages: map hasher(blake2_128_concat) MessageKey => Option<T::Payload>;
+		OutboundMessages: map hasher(blake2_128_concat) MessageKey => Option<MessageData<T::Payload, T::MessageFee>>;
 	}
 }
 
@@ -96,59 +148,160 @@ decl_module! {
 			origin,
 			lane_id: LaneId,
 			payload: T::Payload,
-		) {
-			let _ = ensure_signed(origin)?;
+			delivery_and_dispatch_fee: T::MessageFee,
+		) -> DispatchResult {
+			let submitter = ensure_signed(origin)?;
+
+			// let's first check if message can be delivered to target chain
+			T::TargetHeaderChain::verify_message(&payload).map_err(|err| {
+				frame_support::debug::trace!(
+					target: "runtime",
+					"Message to lane {:?} is rejected by target chain: {:?}",
+					lane_id,
+					err,
+				);
+
+				Error::<T, I>::MessageRejectedByChainVerifier
+			})?;
+
+			// now let's enforce any additional lane rules
+			T::LaneMessageVerifier::verify_message(
+				&submitter,
+				&delivery_and_dispatch_fee,
+				&lane_id,
+				&payload,
+			).map_err(|err| {
+				frame_support::debug::trace!(
+					target: "runtime",
+					"Message to lane {:?} is rejected by lane verifier: {:?}",
+					lane_id,
+					err,
+				);
+
+				Error::<T, I>::MessageRejectedByLaneVerifier
+			})?;
+
+			// let's withdraw delivery and dispatch fee from submitter
+			T::MessageDeliveryAndDispatchPayment::pay_delivery_and_dispatch_fee(
+				&submitter,
+				&delivery_and_dispatch_fee,
+			).map_err(|err| {
+				frame_support::debug::trace!(
+					target: "runtime",
+					"Message to lane {:?} is rejected because submitter {:?} is unable to pay fee {:?}: {:?}",
+					lane_id,
+					submitter,
+					delivery_and_dispatch_fee,
+					err,
+				);
+
+				Error::<T, I>::FailedToWithdrawMessageFee
+			})?;
+
+			// finally, save message in outbound storage and emit event
 			let mut lane = outbound_lane::<T, I>(lane_id);
-			let nonce = lane.send_message(payload);
+			let nonce = lane.send_message(MessageData {
+				payload,
+				fee: delivery_and_dispatch_fee,
+			});
 			lane.prune_messages(T::MaxMessagesToPruneAtOnce::get());
 
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Accepted message {} to lane {:?}",
+				nonce,
+				lane_id,
+			);
+
 			Self::deposit_event(RawEvent::MessageAccepted(lane_id, nonce));
+
+			Ok(())
 		}
-	}
-}
 
-impl<T: Trait<I>, I: Instance> Module<T, I> {
-	// =========================================================================================
-	// === Exposed mutables ====================================================================
-	// =========================================================================================
+		/// Receive messages proof from bridged chain.
+		#[weight = DELIVERY_BASE_WEIGHT + dispatch_weight]
+		pub fn receive_messages_proof(
+			origin,
+			proof: MessagesProofOf<T, I>,
+			dispatch_weight: Weight,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
 
-	/// Receive new TRUSTED lane messages.
-	///
-	/// Trusted here means that the function itself doesn't check whether message has actually
-	/// been sent through the other end of the channel. We only check that we are receiving
-	/// and processing messages in order here.
-	///
-	/// Messages vector is required to be sorted by nonce within each lane. Otherise messages
-	/// will be rejected.
-	pub fn receive_messages(messages: Vec<Message<T::Payload>>) -> MessageNonce {
-		let mut correct_messages = 0;
-		for message in messages {
-			let mut lane = inbound_lane::<T, I>(message.key.lane_id);
-			if lane.receive_message::<T::OnMessageReceived>(message.key.nonce, message.payload) {
-				correct_messages += 1;
+			// verify messages proof && convert proof into messages
+			let messages = T::SourceHeaderChain::verify_messages_proof(proof).map_err(|err| {
+				frame_support::debug::trace!(
+					target: "runtime",
+					"Rejecting invalid messages proof: {:?}",
+					err,
+				);
+
+				Error::<T, I>::InvalidMessagesProof
+			})?;
+
+			// verify that relayer is paying actual dispatch weight
+			let actual_dispatch_weight: Weight = messages
+				.iter()
+				.map(T::MessageDispatch::dispatch_weight)
+				.sum();
+			if dispatch_weight < actual_dispatch_weight {
+				frame_support::debug::trace!(
+					target: "runtime",
+					"Rejecting messages proof because of dispatch weight mismatch: declared={}, expected={}",
+					dispatch_weight,
+					actual_dispatch_weight,
+				);
+
+				return Err(Error::<T, I>::InvalidMessagesDispatchWeight.into());
 			}
+
+			// dispatch messages
+			let total_messages = messages.len();
+			let mut valid_messages = 0;
+			for message in messages {
+				let mut lane = inbound_lane::<T, I>(message.key.lane_id);
+				if lane.receive_message::<T::MessageDispatch>(message.key.nonce, message.data) {
+					valid_messages += 1;
+				}
+			}
+
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Received messages: total={}, valid={}",
+				total_messages,
+				valid_messages,
+			);
+
+			Ok(())
 		}
 
-		correct_messages
-	}
+		/// Receive messages delivery proof from bridged chain.
+		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
+		pub fn receive_messages_delivery_proof(origin, proof: MessagesDeliveryProofOf<T, I>) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			let (lane_id, nonce) = T::TargetHeaderChain::verify_messages_delivery_proof(proof).map_err(|err| {
+				frame_support::debug::trace!(
+					target: "runtime",
+					"Rejecting invalid messages delivery proof: {:?}",
+					err,
+				);
 
-	/// Receive TRUSTED proof of message receival.
-	///
-	/// Trusted here means that the function itself doesn't check whether the bridged chain has
-	/// actually received these messages.
-	///
-	/// The caller may break the channel by providing `latest_received_nonce` that is larger
-	/// than actual one. Not-yet-sent messages may be pruned in this case.
-	pub fn confirm_receival(lane_id: &LaneId, latest_received_nonce: MessageNonce) {
-		let mut lane = outbound_lane::<T, I>(*lane_id);
-		let received_range = lane.confirm_receival(latest_received_nonce);
+				Error::<T, I>::InvalidMessagesDeliveryProof
+			})?;
 
-		if let Some(received_range) = received_range {
-			Self::deposit_event(RawEvent::MessagesDelivered(
-				*lane_id,
-				received_range.0,
-				received_range.1,
-			));
+			let mut lane = outbound_lane::<T, I>(lane_id);
+			let received_range = lane.confirm_delivery(nonce);
+			if let Some(received_range) = received_range {
+				Self::deposit_event(RawEvent::MessagesDelivered(lane_id, received_range.0, received_range.1));
+			}
+
+			frame_support::debug::trace!(
+				target: "runtime",
+				"Received messages delivery proof up to (and including) {} at lane {:?}",
+				nonce,
+				lane_id,
+			);
+
+			Ok(())
 		}
 	}
 }
@@ -177,6 +330,7 @@ struct RuntimeInboundLaneStorage<T, I = DefaultInstance> {
 
 impl<T: Trait<I>, I: Instance> InboundLaneStorage for RuntimeInboundLaneStorage<T, I> {
 	type Payload = T::Payload;
+	type MessageFee = T::MessageFee;
 
 	fn id(&self) -> LaneId {
 		self.lane_id
@@ -199,6 +353,7 @@ struct RuntimeOutboundLaneStorage<T, I = DefaultInstance> {
 
 impl<T: Trait<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStorage<T, I> {
 	type Payload = T::Payload;
+	type MessageFee = T::MessageFee;
 
 	fn id(&self) -> LaneId {
 		self.lane_id
@@ -213,20 +368,20 @@ impl<T: Trait<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStorag
 	}
 
 	#[cfg(test)]
-	fn message(&self, nonce: &MessageNonce) -> Option<Self::Payload> {
+	fn message(&self, nonce: &MessageNonce) -> Option<MessageData<T::Payload, T::MessageFee>> {
 		OutboundMessages::<T, I>::get(MessageKey {
 			lane_id: self.lane_id,
 			nonce: *nonce,
 		})
 	}
 
-	fn save_message(&mut self, nonce: MessageNonce, payload: T::Payload) {
+	fn save_message(&mut self, nonce: MessageNonce, mesage_data: MessageData<T::Payload, T::MessageFee>) {
 		OutboundMessages::<T, I>::insert(
 			MessageKey {
 				lane_id: self.lane_id,
 				nonce,
 			},
-			payload,
+			mesage_data,
 		);
 	}
 
@@ -234,6 +389,193 @@ impl<T: Trait<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStorag
 		OutboundMessages::<T, I>::remove(MessageKey {
 			lane_id: self.lane_id,
 			nonce: *nonce,
+		});
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::{
+		run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestRuntime,
+		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID,
+	};
+	use bp_message_lane::Message;
+	use frame_support::{assert_noop, assert_ok};
+	use frame_system::{EventRecord, Module as System, Phase};
+
+	fn send_regular_message() {
+		System::<TestRuntime>::set_block_number(1);
+		System::<TestRuntime>::reset_events();
+
+		assert_ok!(Module::<TestRuntime>::send_message(
+			Origin::signed(1),
+			TEST_LANE_ID,
+			REGULAR_PAYLOAD,
+			REGULAR_PAYLOAD.1,
+		));
+
+		// check event with assigned nonce
+		assert_eq!(
+			System::<TestRuntime>::events(),
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: TestEvent::message_lane(RawEvent::MessageAccepted(TEST_LANE_ID, 1)),
+				topics: vec![],
+			}],
+		);
+
+		// check that fee has been withdrawn from submitter
+		assert!(TestMessageDeliveryAndDispatchPayment::is_fee_paid(1, REGULAR_PAYLOAD.1));
+	}
+
+	fn receive_messages_delivery_proof() {
+		System::<TestRuntime>::set_block_number(1);
+		System::<TestRuntime>::reset_events();
+
+		assert_ok!(Module::<TestRuntime>::receive_messages_delivery_proof(
+			Origin::signed(1),
+			Ok((TEST_LANE_ID, 1)),
+		));
+
+		assert_eq!(
+			System::<TestRuntime>::events(),
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: TestEvent::message_lane(RawEvent::MessagesDelivered(TEST_LANE_ID, 1, 1)),
+				topics: vec![],
+			}],
+		);
+	}
+
+	#[test]
+	fn send_message_works() {
+		run_test(|| {
+			send_regular_message();
+		});
+	}
+
+	#[test]
+	fn chain_verifier_rejects_invalid_message_in_send_message() {
+		run_test(|| {
+			// messages with this payload are rejected by target chain verifier
+			assert_noop!(
+				Module::<TestRuntime>::send_message(
+					Origin::signed(1),
+					TEST_LANE_ID,
+					PAYLOAD_REJECTED_BY_TARGET_CHAIN,
+					PAYLOAD_REJECTED_BY_TARGET_CHAIN.1
+				),
+				Error::<TestRuntime, DefaultInstance>::MessageRejectedByChainVerifier,
+			);
+		});
+	}
+
+	#[test]
+	fn lane_verifier_rejects_invalid_message_in_send_message() {
+		run_test(|| {
+			// messages with zero fee are rejected by lane verifier
+			assert_noop!(
+				Module::<TestRuntime>::send_message(Origin::signed(1), TEST_LANE_ID, REGULAR_PAYLOAD, 0),
+				Error::<TestRuntime, DefaultInstance>::MessageRejectedByLaneVerifier,
+			);
+		});
+	}
+
+	#[test]
+	fn message_send_fails_if_submitter_cant_pay_message_fee() {
+		run_test(|| {
+			TestMessageDeliveryAndDispatchPayment::reject_payments();
+			assert_noop!(
+				Module::<TestRuntime>::send_message(
+					Origin::signed(1),
+					TEST_LANE_ID,
+					REGULAR_PAYLOAD,
+					REGULAR_PAYLOAD.1
+				),
+				Error::<TestRuntime, DefaultInstance>::FailedToWithdrawMessageFee,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_proof_works() {
+		run_test(|| {
+			assert_ok!(Module::<TestRuntime>::receive_messages_proof(
+				Origin::signed(1),
+				Ok(vec![Message {
+					key: MessageKey {
+						lane_id: TEST_LANE_ID,
+						nonce: 1,
+					},
+					data: MessageData {
+						payload: REGULAR_PAYLOAD,
+						fee: 0,
+					},
+				}]),
+				REGULAR_PAYLOAD.1,
+			));
+
+			assert_eq!(
+				InboundLanes::<DefaultInstance>::get(TEST_LANE_ID).latest_received_nonce,
+				1
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_proof_rejects_invalid_dispatch_weight() {
+		run_test(|| {
+			assert_noop!(
+				Module::<TestRuntime>::receive_messages_proof(
+					Origin::signed(1),
+					Ok(vec![Message {
+						key: MessageKey {
+							lane_id: TEST_LANE_ID,
+							nonce: 1,
+						},
+						data: MessageData {
+							payload: REGULAR_PAYLOAD,
+							fee: 0,
+						},
+					}]),
+					REGULAR_PAYLOAD.1 - 1,
+				),
+				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_proof_rejects_invalid_proof() {
+		run_test(|| {
+			assert_noop!(
+				Module::<TestRuntime, DefaultInstance>::receive_messages_proof(Origin::signed(1), Err(()), 0),
+				Error::<TestRuntime, DefaultInstance>::InvalidMessagesProof,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_delivery_proof_works() {
+		run_test(|| {
+			send_regular_message();
+			receive_messages_delivery_proof();
+
+			assert_eq!(
+				OutboundLanes::<DefaultInstance>::get(&TEST_LANE_ID).latest_received_nonce,
+				1,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_delivery_proof_rejects_invalid_proof() {
+		run_test(|| {
+			assert_noop!(
+				Module::<TestRuntime>::receive_messages_delivery_proof(Origin::signed(1), Err(()),),
+				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDeliveryProof,
+			);
 		});
 	}
 }
