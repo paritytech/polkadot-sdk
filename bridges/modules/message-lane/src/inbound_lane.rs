@@ -16,12 +16,16 @@
 
 //! Everything about incoming messages receival.
 
-use bp_message_lane::{InboundLaneData, LaneId, Message, MessageKey, MessageNonce, OnMessageReceived};
+use bp_message_lane::{
+	target_chain::MessageDispatch, InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce,
+};
 
 /// Inbound lane storage.
 pub trait InboundLaneStorage {
 	/// Message payload.
 	type Payload;
+	/// Delivery and dispatch fee type on source chain.
+	type MessageFee;
 
 	/// Lane id.
 	fn id(&self) -> LaneId;
@@ -43,10 +47,10 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 	}
 
 	/// Receive new message.
-	pub fn receive_message<P: OnMessageReceived<S::Payload>>(
+	pub fn receive_message<P: MessageDispatch<S::Payload, S::MessageFee>>(
 		&mut self,
 		nonce: MessageNonce,
-		payload: S::Payload,
+		message_data: MessageData<S::Payload, S::MessageFee>,
 	) -> bool {
 		let mut data = self.storage.data();
 		let is_correct_message = nonce == data.latest_received_nonce + 1;
@@ -57,12 +61,12 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		data.latest_received_nonce = nonce;
 		self.storage.set_data(data);
 
-		P::on_message_received(Message {
+		P::dispatch(Message {
 			key: MessageKey {
 				lane_id: self.storage.id(),
 				nonce,
 			},
-			payload,
+			data: message_data,
 		});
 
 		true
@@ -74,14 +78,14 @@ mod tests {
 	use super::*;
 	use crate::{
 		inbound_lane,
-		mock::{run_test, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID},
+		mock::{message_data, run_test, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID},
 	};
 
 	#[test]
 	fn fails_to_receive_message_with_incorrect_nonce() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			assert!(!lane.receive_message::<()>(10, REGULAR_PAYLOAD));
+			assert!(!lane.receive_message::<TestMessageDispatch>(10, message_data(REGULAR_PAYLOAD)));
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 		});
 	}
@@ -90,7 +94,7 @@ mod tests {
 	fn correct_message_is_processed_instantly() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			assert!(lane.receive_message::<()>(1, REGULAR_PAYLOAD));
+			assert!(lane.receive_message::<TestMessageDispatch>(1, message_data(REGULAR_PAYLOAD)));
 			assert_eq!(lane.storage.data().latest_received_nonce, 1);
 		});
 	}
