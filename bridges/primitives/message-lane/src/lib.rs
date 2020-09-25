@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Primitives for sending and receiving Substrate <-> Substrate messages.
+//! Primitives of message lane module.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // RuntimeApi generated functions
@@ -23,7 +23,12 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::{Decode, Encode};
+use frame_support::RuntimeDebug;
 use sp_api::decl_runtime_apis;
+use sp_std::prelude::*;
+
+pub mod source_chain;
+pub mod target_chain;
 
 /// Lane identifier.
 pub type LaneId = [u8; 4];
@@ -31,8 +36,11 @@ pub type LaneId = [u8; 4];
 /// Message nonce. Valid messages will never have 0 nonce.
 pub type MessageNonce = u64;
 
+/// Message id as a tuple.
+pub type MessageId = (LaneId, MessageNonce);
+
 /// Message key (unique message identifier) as it is stored in the storage.
-#[derive(Encode, Decode, Clone)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct MessageKey {
 	/// ID of the message lane.
 	pub lane_id: LaneId,
@@ -40,37 +48,33 @@ pub struct MessageKey {
 	pub nonce: MessageNonce,
 }
 
-/// Message as it is stored in the storage.
-#[derive(Encode, Decode, Clone)]
-pub struct Message<Payload> {
-	/// Message key.
-	pub key: MessageKey,
+/// Message data as it is stored in the storage.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct MessageData<Payload, Fee> {
 	/// Message payload.
 	pub payload: Payload,
+	/// Message delivery and dispatch fee, paid by the submitter.
+	pub fee: Fee,
 }
 
-/// Called when inbound message is received.
-pub trait OnMessageReceived<Payload> {
-	/// Called when inbound message is received.
-	///
-	/// It is up to the implementers of this trait to determine whether the message
-	/// is invalid (i.e. improperly encoded, has too large weight, ...) or not.
-	fn on_message_received(message: Message<Payload>);
-}
-
-impl<Payload> OnMessageReceived<Payload> for () {
-	fn on_message_received(_message: Message<Payload>) {}
+/// Message as it is stored in the storage.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct Message<Payload, Fee> {
+	/// Message key.
+	pub key: MessageKey,
+	/// Message data.
+	pub data: MessageData<Payload, Fee>,
 }
 
 /// Inbound lane data.
-#[derive(Default, Encode, Decode, Clone)]
+#[derive(Default, Encode, Decode, Clone, RuntimeDebug, PartialEq)]
 pub struct InboundLaneData {
 	/// Nonce of latest message that we have received from bridged chain.
 	pub latest_received_nonce: MessageNonce,
 }
 
 /// Outbound lane data.
-#[derive(Encode, Decode, Clone)]
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq)]
 pub struct OutboundLaneData {
 	/// Nonce of oldest message that we haven't yet pruned. May point to not-yet-generated message if
 	/// all sent messages are already pruned.
