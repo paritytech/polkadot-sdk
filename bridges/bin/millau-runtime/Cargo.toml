@@ -23,14 +23,14 @@ features = ["derive"]
 
 # Substrate Dependencies
 [dependencies.pallet-aura]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-balances]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
@@ -45,26 +45,26 @@ default-features = false
 path = "../../modules/message-lane"
 
 [dependencies.frame-support]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-grandpa]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-randomness-collective-flip]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-sudo]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
@@ -74,124 +74,124 @@ default-features = false
 path = "../../modules/shift-session-manager"
 
 [dependencies.pallet-session]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system-rpc-runtime-api]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-timestamp]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-executive]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 # Substrate Primitives
 [dependencies.sp-api]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-block-builder]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-consensus-aura]
-version = "0.8.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "0.8.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-core]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-inherents]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-io]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-offchain]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-session]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-staking]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-std]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-transaction-pool]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-version]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-benchmarking]
 optional = true
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
@@ -209,7 +209,7 @@ path = "../../primitives/message-lane"
 
 [build-dependencies.wasm-builder-runner]
 version = "1.0.5"
-tag = 'v2.0.0-rc6'
+tag = 'v2.0.0'
 package = "substrate-wasm-builder-runner"
 git = "https://github.com/paritytech/substrate/"
 
