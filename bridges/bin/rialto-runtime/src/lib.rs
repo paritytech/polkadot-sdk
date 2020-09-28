@@ -522,7 +522,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_eth_poa::RialtoHeaderApi<Block> for Runtime {
+	impl bp_eth_poa::RialtoPoAHeaderApi<Block> for Runtime {
 		fn best_block() -> (u64, bp_eth_poa::H256) {
 			let best_block = BridgeRialto::best_block();
 			(best_block.number, best_block.hash)

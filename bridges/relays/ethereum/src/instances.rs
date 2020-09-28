@@ -44,9 +44,9 @@ pub trait BridgeInstance: Send + Sync + std::fmt::Debug {
 
 /// Corresponds to the Rialto instance used in the bridge runtime.
 #[derive(Default, Clone, Debug)]
-pub struct Rialto;
+pub struct RialtoPoA;
 
-impl BridgeInstance for Rialto {
+impl BridgeInstance for RialtoPoA {
 	fn build_signed_header_call(&self, headers: Vec<QueuedEthereumHeader>) -> Call {
 		let pallet_call = rialto_runtime::BridgeEthPoACall::import_signed_headers(
 			headers
