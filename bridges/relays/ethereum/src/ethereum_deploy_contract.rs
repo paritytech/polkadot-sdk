@@ -15,15 +15,16 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::ethereum_client::{bridge_contract, EthereumHighLevelRpc};
-use crate::instances::BridgeInstance;
-use crate::rpc::SubstrateRpc;
-use crate::substrate_client::{SubstrateConnectionParams, SubstrateRpcClient};
-use crate::substrate_types::{Hash as SubstrateHash, Header as SubstrateHeader, SubstrateHeaderId};
+use crate::rpc_errors::RpcError;
 
 use codec::{Decode, Encode};
 use num_traits::Zero;
 use relay_ethereum_client::{
 	Client as EthereumClient, ConnectionParams as EthereumConnectionParams, SigningParams as EthereumSigningParams,
+};
+use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto};
+use relay_substrate_client::{
+	Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams, OpaqueGrandpaAuthoritiesSet,
 };
 use relay_utils::HeaderId;
 
@@ -44,8 +45,6 @@ pub struct EthereumDeployContractParams {
 	pub sub_initial_authorities_set: Option<Vec<u8>>,
 	/// Initial header.
 	pub sub_initial_header: Option<Vec<u8>>,
-	/// Instance of the bridge pallet being synchronized.
-	pub instance: Box<dyn BridgeInstance>,
 }
 
 /// Deploy Bridge contract on Ethereum chain.
@@ -56,7 +55,6 @@ pub fn run(params: EthereumDeployContractParams) {
 		eth_params,
 		eth_sign,
 		sub_params,
-		instance,
 		sub_initial_authorities_set_id,
 		sub_initial_authorities_set,
 		sub_initial_header,
@@ -65,7 +63,7 @@ pub fn run(params: EthereumDeployContractParams) {
 
 	let result = local_pool.run_until(async move {
 		let eth_client = EthereumClient::new(eth_params);
-		let sub_client = SubstrateRpcClient::new(sub_params, instance).await?;
+		let sub_client = SubstrateClient::<Rialto>::new(sub_params).await.map_err(RpcError::Substrate)?;
 
 		let (initial_header_id, initial_header) = prepare_initial_header(&sub_client, sub_initial_header).await?;
 		let initial_set_id = sub_initial_authorities_set_id.unwrap_or(0);
@@ -102,11 +100,11 @@ pub fn run(params: EthereumDeployContractParams) {
 
 /// Prepare initial header.
 async fn prepare_initial_header(
-	sub_client: &SubstrateRpcClient,
+	sub_client: &SubstrateClient<Rialto>,
 	sub_initial_header: Option<Vec<u8>>,
-) -> Result<(SubstrateHeaderId, Vec<u8>), String> {
+) -> Result<(RialtoHeaderId, Vec<u8>), String> {
 	match sub_initial_header {
-		Some(raw_initial_header) => match SubstrateHeader::decode(&mut &raw_initial_header[..]) {
+		Some(raw_initial_header) => match rialto_runtime::Header::decode(&mut &raw_initial_header[..]) {
 			Ok(initial_header) => Ok((
 				HeaderId(initial_header.number, initial_header.hash()),
 				raw_initial_header,
@@ -124,10 +122,10 @@ async fn prepare_initial_header(
 
 /// Prepare initial GRANDPA authorities set.
 async fn prepare_initial_authorities_set(
-	sub_client: &SubstrateRpcClient,
-	sub_initial_header_hash: SubstrateHash,
+	sub_client: &SubstrateClient<Rialto>,
+	sub_initial_header_hash: rialto_runtime::Hash,
 	sub_initial_authorities_set: Option<Vec<u8>>,
-) -> Result<Vec<u8>, String> {
+) -> Result<OpaqueGrandpaAuthoritiesSet, String> {
 	let initial_authorities_set = match sub_initial_authorities_set {
 		Some(initial_authorities_set) => Ok(initial_authorities_set),
 		None => sub_client.grandpa_authorities_set(sub_initial_header_hash).await,
