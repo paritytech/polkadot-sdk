@@ -39,6 +39,9 @@ pub type MessageNonce = u64;
 /// Message id as a tuple.
 pub type MessageId = (LaneId, MessageNonce);
 
+/// Opaque message payload. We only decode this payload when it is dispatched.
+pub type MessagePayload = Vec<u8>;
+
 /// Message key (unique message identifier) as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct MessageKey {
@@ -50,20 +53,20 @@ pub struct MessageKey {
 
 /// Message data as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-pub struct MessageData<Payload, Fee> {
+pub struct MessageData<Fee> {
 	/// Message payload.
-	pub payload: Payload,
+	pub payload: MessagePayload,
 	/// Message delivery and dispatch fee, paid by the submitter.
 	pub fee: Fee,
 }
 
 /// Message as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-pub struct Message<Payload, Fee> {
+pub struct Message<Fee> {
 	/// Message key.
 	pub key: MessageKey,
 	/// Message data.
-	pub data: MessageData<Payload, Fee>,
+	pub data: MessageData<Fee>,
 }
 
 /// Inbound lane data.

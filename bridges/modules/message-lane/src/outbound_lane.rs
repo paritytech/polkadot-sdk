@@ -20,8 +20,6 @@ use bp_message_lane::{LaneId, MessageData, MessageNonce, OutboundLaneData};
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
-	/// Message payload.
-	type Payload;
 	/// Delivery and dispatch fee type on source chain.
 	type MessageFee;
 
@@ -33,9 +31,9 @@ pub trait OutboundLaneStorage {
 	fn set_data(&mut self, data: OutboundLaneData);
 	/// Returns saved outbound message payload.
 	#[cfg(test)]
-	fn message(&self, nonce: &MessageNonce) -> Option<MessageData<Self::Payload, Self::MessageFee>>;
+	fn message(&self, nonce: &MessageNonce) -> Option<MessageData<Self::MessageFee>>;
 	/// Save outbound message in the storage.
-	fn save_message(&mut self, nonce: MessageNonce, message_data: MessageData<Self::Payload, Self::MessageFee>);
+	fn save_message(&mut self, nonce: MessageNonce, message_data: MessageData<Self::MessageFee>);
 	/// Remove outbound message from the storage.
 	fn remove_message(&mut self, nonce: &MessageNonce);
 }
@@ -54,7 +52,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	/// Send message over lane.
 	///
 	/// Returns new message nonce.
-	pub fn send_message(&mut self, message_data: MessageData<S::Payload, S::MessageFee>) -> MessageNonce {
+	pub fn send_message(&mut self, message_data: MessageData<S::MessageFee>) -> MessageNonce {
 		let mut data = self.storage.data();
 		let nonce = data.latest_generated_nonce + 1;
 		data.latest_generated_nonce = nonce;
