@@ -37,6 +37,7 @@ use bp_message_lane::{
 	target_chain::{MessageDispatch, SourceHeaderChain},
 	InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
+use codec::{Decode, Encode};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, sp_runtime::DispatchResult, traits::Get, weights::Weight,
 	Parameter, StorageMap,
@@ -60,41 +61,45 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 
 	/// They overarching event type.
 	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
-	/// Message payload.
-	type Payload: Parameter;
 	/// Maximal number of messages that may be pruned during maintenance. Maintenance occurs
 	/// whenever outbound lane is updated - i.e. when new message is sent, or receival is
 	/// confirmed. The reason is that if you want to use lane, you should be ready to pay
 	/// for it.
 	type MaxMessagesToPruneAtOnce: Get<MessageNonce>;
 
+	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
+	type OutboundPayload: Parameter;
+	/// Message fee type of outbound messages. This fee is paid on this chain.
+	type OutboundMessageFee: Parameter;
+
+	/// Payload type of inbound messages. This payload is dispatched on this chain.
+	type InboundPayload: Decode;
+	/// Message fee type of inbound messages. This fee is paid on the bridged chain.
+	type InboundMessageFee: Decode;
+
 	// Types that are used by outbound_lane (on source chain).
 
-	/// Type of delivery_and_dispatch_fee on source chain.
-	type MessageFee: Parameter;
 	/// Target header chain.
-	type TargetHeaderChain: TargetHeaderChain<Self::Payload>;
+	type TargetHeaderChain: TargetHeaderChain<Self::OutboundPayload>;
 	/// Message payload verifier.
-	type LaneMessageVerifier: LaneMessageVerifier<Self::AccountId, Self::Payload, Self::MessageFee>;
+	type LaneMessageVerifier: LaneMessageVerifier<Self::AccountId, Self::OutboundPayload, Self::OutboundMessageFee>;
 	/// Message delivery payment.
-	type MessageDeliveryAndDispatchPayment: MessageDeliveryAndDispatchPayment<Self::AccountId, Self::MessageFee>;
+	type MessageDeliveryAndDispatchPayment: MessageDeliveryAndDispatchPayment<Self::AccountId, Self::OutboundMessageFee>;
 
 	// Types that are used by inbound_lane (on target chain).
 
 	/// Source header chain, as it is represented on target chain.
-	type SourceHeaderChain: SourceHeaderChain<Self::Payload, Self::MessageFee>;
+	type SourceHeaderChain: SourceHeaderChain<Self::InboundMessageFee>;
 	/// Message dispatch.
-	type MessageDispatch: MessageDispatch<Self::Payload, Self::MessageFee>;
+	type MessageDispatch: MessageDispatch<Self::InboundMessageFee, DispatchPayload = Self::InboundPayload>;
 }
 
 /// Shortcut to messages proof type for Trait.
-type MessagesProofOf<T, I> = <<T as Trait<I>>::SourceHeaderChain as SourceHeaderChain<
-	<T as Trait<I>>::Payload,
-	<T as Trait<I>>::MessageFee,
->>::MessagesProof;
+type MessagesProofOf<T, I> =
+	<<T as Trait<I>>::SourceHeaderChain as SourceHeaderChain<<T as Trait<I>>::InboundMessageFee>>::MessagesProof;
 /// Shortcut to messages delivery proof type for Trait.
 type MessagesDeliveryProofOf<T, I> =
-	<<T as Trait<I>>::TargetHeaderChain as TargetHeaderChain<<T as Trait<I>>::Payload>>::MessagesDeliveryProof;
+	<<T as Trait<I>>::TargetHeaderChain as TargetHeaderChain<<T as Trait<I>>::OutboundPayload>>::MessagesDeliveryProof;
 
 decl_error! {
 	pub enum Error for Module<T: Trait<I>, I: Instance> {
@@ -120,7 +125,7 @@ decl_storage! {
 		/// Map of lane id => outbound lane data.
 		OutboundLanes: map hasher(blake2_128_concat) LaneId => OutboundLaneData;
 		/// All queued outbound messages.
-		OutboundMessages: map hasher(blake2_128_concat) MessageKey => Option<MessageData<T::Payload, T::MessageFee>>;
+		OutboundMessages: map hasher(blake2_128_concat) MessageKey => Option<MessageData<T::OutboundMessageFee>>;
 	}
 }
 
@@ -147,8 +152,8 @@ decl_module! {
 		pub fn send_message(
 			origin,
 			lane_id: LaneId,
-			payload: T::Payload,
-			delivery_and_dispatch_fee: T::MessageFee,
+			payload: T::OutboundPayload,
+			delivery_and_dispatch_fee: T::OutboundMessageFee,
 		) -> DispatchResult {
 			let submitter = ensure_signed(origin)?;
 
@@ -201,7 +206,7 @@ decl_module! {
 			// finally, save message in outbound storage and emit event
 			let mut lane = outbound_lane::<T, I>(lane_id);
 			let nonce = lane.send_message(MessageData {
-				payload,
+				payload: payload.encode(),
 				fee: delivery_and_dispatch_fee,
 			});
 			lane.prune_messages(T::MaxMessagesToPruneAtOnce::get());
@@ -237,6 +242,9 @@ decl_module! {
 
 				Error::<T, I>::InvalidMessagesProof
 			})?;
+
+			// try to decode message payloads
+			let messages: Vec<_> = messages.into_iter().map(Into::into).collect();
 
 			// verify that relayer is paying actual dispatch weight
 			let actual_dispatch_weight: Weight = messages
@@ -329,8 +337,7 @@ struct RuntimeInboundLaneStorage<T, I = DefaultInstance> {
 }
 
 impl<T: Trait<I>, I: Instance> InboundLaneStorage for RuntimeInboundLaneStorage<T, I> {
-	type Payload = T::Payload;
-	type MessageFee = T::MessageFee;
+	type MessageFee = T::InboundMessageFee;
 
 	fn id(&self) -> LaneId {
 		self.lane_id
@@ -352,8 +359,7 @@ struct RuntimeOutboundLaneStorage<T, I = DefaultInstance> {
 }
 
 impl<T: Trait<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStorage<T, I> {
-	type Payload = T::Payload;
-	type MessageFee = T::MessageFee;
+	type MessageFee = T::OutboundMessageFee;
 
 	fn id(&self) -> LaneId {
 		self.lane_id
@@ -368,14 +374,14 @@ impl<T: Trait<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStorag
 	}
 
 	#[cfg(test)]
-	fn message(&self, nonce: &MessageNonce) -> Option<MessageData<T::Payload, T::MessageFee>> {
+	fn message(&self, nonce: &MessageNonce) -> Option<MessageData<T::OutboundMessageFee>> {
 		OutboundMessages::<T, I>::get(MessageKey {
 			lane_id: self.lane_id,
 			nonce: *nonce,
 		})
 	}
 
-	fn save_message(&mut self, nonce: MessageNonce, mesage_data: MessageData<T::Payload, T::MessageFee>) {
+	fn save_message(&mut self, nonce: MessageNonce, mesage_data: MessageData<T::OutboundMessageFee>) {
 		OutboundMessages::<T, I>::insert(
 			MessageKey {
 				lane_id: self.lane_id,
@@ -397,10 +403,9 @@ impl<T: Trait<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStorag
 mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestRuntime,
+		message, run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestRuntime,
 		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID,
 	};
-	use bp_message_lane::Message;
 	use frame_support::{assert_noop, assert_ok};
 	use frame_system::{EventRecord, Module as System, Phase};
 
@@ -503,16 +508,7 @@ mod tests {
 		run_test(|| {
 			assert_ok!(Module::<TestRuntime>::receive_messages_proof(
 				Origin::signed(1),
-				Ok(vec![Message {
-					key: MessageKey {
-						lane_id: TEST_LANE_ID,
-						nonce: 1,
-					},
-					data: MessageData {
-						payload: REGULAR_PAYLOAD,
-						fee: 0,
-					},
-				}]),
+				Ok(vec![message(1, REGULAR_PAYLOAD)]),
 				REGULAR_PAYLOAD.1,
 			));
 
@@ -529,16 +525,7 @@ mod tests {
 			assert_noop!(
 				Module::<TestRuntime>::receive_messages_proof(
 					Origin::signed(1),
-					Ok(vec![Message {
-						key: MessageKey {
-							lane_id: TEST_LANE_ID,
-							nonce: 1,
-						},
-						data: MessageData {
-							payload: REGULAR_PAYLOAD,
-							fee: 0,
-						},
-					}]),
+					Ok(vec![message(1, REGULAR_PAYLOAD)]),
 					REGULAR_PAYLOAD.1 - 1,
 				),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
@@ -575,6 +562,48 @@ mod tests {
 			assert_noop!(
 				Module::<TestRuntime>::receive_messages_delivery_proof(Origin::signed(1), Err(()),),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDeliveryProof,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_accepts_single_message_with_invalid_payload() {
+		run_test(|| {
+			let mut invalid_message = message(1, REGULAR_PAYLOAD);
+			invalid_message.data.payload = Vec::new();
+
+			assert_ok!(Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+				Origin::signed(1),
+				Ok(vec![invalid_message]),
+				0, // weight may be zero in this case (all messages are improperly encoded)
+			),);
+
+			assert_eq!(
+				InboundLanes::<DefaultInstance>::get(&TEST_LANE_ID).latest_received_nonce,
+				1,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_accepts_batch_with_message_with_invalid_payload() {
+		run_test(|| {
+			let mut invalid_message = message(2, REGULAR_PAYLOAD);
+			invalid_message.data.payload = Vec::new();
+
+			assert_ok!(Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+				Origin::signed(1),
+				Ok(vec![
+					message(1, REGULAR_PAYLOAD),
+					invalid_message,
+					message(3, REGULAR_PAYLOAD),
+				]),
+				REGULAR_PAYLOAD.1 + REGULAR_PAYLOAD.1,
+			),);
+
+			assert_eq!(
+				InboundLanes::<DefaultInstance>::get(&TEST_LANE_ID).latest_received_nonce,
+				3,
 			);
 		});
 	}

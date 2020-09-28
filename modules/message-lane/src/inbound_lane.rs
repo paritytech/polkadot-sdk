@@ -17,13 +17,12 @@
 //! Everything about incoming messages receival.
 
 use bp_message_lane::{
-	target_chain::MessageDispatch, InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce,
+	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
+	InboundLaneData, LaneId, MessageKey, MessageNonce,
 };
 
 /// Inbound lane storage.
 pub trait InboundLaneStorage {
-	/// Message payload.
-	type Payload;
 	/// Delivery and dispatch fee type on source chain.
 	type MessageFee;
 
@@ -47,10 +46,10 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 	}
 
 	/// Receive new message.
-	pub fn receive_message<P: MessageDispatch<S::Payload, S::MessageFee>>(
+	pub fn receive_message<P: MessageDispatch<S::MessageFee>>(
 		&mut self,
 		nonce: MessageNonce,
-		message_data: MessageData<S::Payload, S::MessageFee>,
+		message_data: DispatchMessageData<P::DispatchPayload, S::MessageFee>,
 	) -> bool {
 		let mut data = self.storage.data();
 		let is_correct_message = nonce == data.latest_received_nonce + 1;
@@ -61,7 +60,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		data.latest_received_nonce = nonce;
 		self.storage.set_data(data);
 
-		P::dispatch(Message {
+		P::dispatch(DispatchMessage {
 			key: MessageKey {
 				lane_id: self.storage.id(),
 				nonce,
@@ -85,7 +84,7 @@ mod tests {
 	fn fails_to_receive_message_with_incorrect_nonce() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			assert!(!lane.receive_message::<TestMessageDispatch>(10, message_data(REGULAR_PAYLOAD)));
+			assert!(!lane.receive_message::<TestMessageDispatch>(10, message_data(REGULAR_PAYLOAD).into()));
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 		});
 	}
@@ -94,7 +93,7 @@ mod tests {
 	fn correct_message_is_processed_instantly() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			assert!(lane.receive_message::<TestMessageDispatch>(1, message_data(REGULAR_PAYLOAD)));
+			assert!(lane.receive_message::<TestMessageDispatch>(1, message_data(REGULAR_PAYLOAD).into()));
 			assert_eq!(lane.storage.data().latest_received_nonce, 1);
 		});
 	}
