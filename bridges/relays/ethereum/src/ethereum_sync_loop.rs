@@ -14,15 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Ethereum PoA -> Substrate synchronization.
+//! Ethereum PoA -> Rialto-Substrate synchronization.
 
 use crate::ethereum_client::EthereumHighLevelRpc;
 use crate::instances::BridgeInstance;
-use crate::rpc::SubstrateRpc;
+use crate::rialto_client::{SubmitEthereumHeaders, SubstrateHighLevelRpc};
 use crate::rpc_errors::RpcError;
-use crate::substrate_client::{
-	SubmitEthereumHeaders, SubstrateConnectionParams, SubstrateRpcClient, SubstrateSigningParams,
-};
 use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
 
 use async_trait::async_trait;
@@ -36,10 +33,12 @@ use relay_ethereum_client::{
 	types::{HeaderHash, HeaderId as EthereumHeaderId, Receipt, SyncHeader as Header},
 	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
 };
+use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
+use relay_substrate_client::{Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams};
 use relay_utils::metrics::MetricsParams;
 
 use std::fmt::Debug;
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 pub mod consts {
 	use super::*;
@@ -70,13 +69,13 @@ pub struct EthereumSyncParams {
 	/// Substrate connection params.
 	pub sub_params: SubstrateConnectionParams,
 	/// Substrate signing params.
-	pub sub_sign: SubstrateSigningParams,
+	pub sub_sign: RialtoSigningParams,
 	/// Synchronization parameters.
 	pub sync_params: HeadersSyncParams,
 	/// Metrics parameters.
 	pub metrics_params: Option<MetricsParams>,
 	/// Instance of the bridge pallet being synchronized.
-	pub instance: Box<dyn BridgeInstance>,
+	pub instance: Arc<dyn BridgeInstance>,
 }
 
 /// Ethereum synchronization pipeline.
@@ -158,19 +157,27 @@ impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
 
 struct SubstrateHeadersTarget {
 	/// Substrate node client.
-	client: SubstrateRpcClient,
+	client: SubstrateClient<Rialto>,
 	/// Whether we want to submit signed (true), or unsigned (false) transactions.
 	sign_transactions: bool,
 	/// Substrate signing params.
-	sign_params: SubstrateSigningParams,
+	sign_params: RialtoSigningParams,
+	/// Bridge instance used in Ethereum to Substrate sync.
+	bridge_instance: Arc<dyn BridgeInstance>,
 }
 
 impl SubstrateHeadersTarget {
-	fn new(client: SubstrateRpcClient, sign_transactions: bool, sign_params: SubstrateSigningParams) -> Self {
+	fn new(
+		client: SubstrateClient<Rialto>,
+		sign_transactions: bool,
+		sign_params: RialtoSigningParams,
+		bridge_instance: Arc<dyn BridgeInstance>,
+	) -> Self {
 		Self {
 			client,
 			sign_transactions,
 			sign_params,
+			bridge_instance,
 		}
 	}
 }
@@ -191,9 +198,13 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 		&self,
 		headers: Vec<QueuedEthereumHeader>,
 	) -> SubmittedHeaders<EthereumHeaderId, Self::Error> {
-		let (sign_params, sign_transactions) = (self.sign_params.clone(), self.sign_transactions);
+		let (sign_params, bridge_instance, sign_transactions) = (
+			self.sign_params.clone(),
+			self.bridge_instance.clone(),
+			self.sign_transactions,
+		);
 		self.client
-			.submit_ethereum_headers(sign_params, headers, sign_transactions)
+			.submit_ethereum_headers(sign_params, bridge_instance, headers, sign_transactions)
 			.await
 	}
 
@@ -228,7 +239,7 @@ pub fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 	} = params;
 
 	let eth_client = EthereumClient::new(eth_params);
-	let sub_client = async_std::task::block_on(async { SubstrateRpcClient::new(sub_params, instance).await })?;
+	let sub_client = async_std::task::block_on(async { SubstrateClient::<Rialto>::new(sub_params).await })?;
 
 	let sign_sub_transactions = match sync_params.target_tx_mode {
 		TargetTransactionMode::Signed | TargetTransactionMode::Backup => true,
@@ -236,7 +247,7 @@ pub fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 	};
 
 	let source = EthereumHeadersSource::new(eth_client);
-	let target = SubstrateHeadersTarget::new(sub_client, sign_sub_transactions, sub_sign);
+	let target = SubstrateHeadersTarget::new(sub_client, sign_sub_transactions, sub_sign, instance);
 
 	headers_relay::sync_loop::run(
 		source,

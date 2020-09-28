@@ -17,11 +17,8 @@
 //! Relaying proofs of PoA -> Substrate exchange transactions.
 
 use crate::instances::BridgeInstance;
-use crate::rpc::SubstrateRpc;
+use crate::rialto_client::{SubmitEthereumExchangeTransactionProof, SubstrateHighLevelRpc};
 use crate::rpc_errors::RpcError;
-use crate::substrate_client::{
-	SubmitEthereumExchangeTransactionProof, SubstrateConnectionParams, SubstrateRpcClient, SubstrateSigningParams,
-};
 use crate::substrate_types::into_substrate_ethereum_receipt;
 
 use async_trait::async_trait;
@@ -38,9 +35,11 @@ use relay_ethereum_client::{
 	},
 	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
 };
+use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
+use relay_substrate_client::{Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams};
 use relay_utils::{metrics::MetricsParams, HeaderId};
 use rialto_runtime::exchange::EthereumTransactionInclusionProof;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 /// Interval at which we ask Ethereum node for updates.
 const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(10);
@@ -64,13 +63,13 @@ pub struct EthereumExchangeParams {
 	/// Substrate connection params.
 	pub sub_params: SubstrateConnectionParams,
 	/// Substrate signing params.
-	pub sub_sign: SubstrateSigningParams,
+	pub sub_sign: RialtoSigningParams,
 	/// Relay working mode.
 	pub mode: ExchangeRelayMode,
 	/// Metrics parameters.
 	pub metrics_params: Option<MetricsParams>,
 	/// Instance of the bridge pallet being synchronized.
-	pub instance: Box<dyn BridgeInstance>,
+	pub instance: Arc<dyn BridgeInstance>,
 }
 
 /// Ethereum to Substrate exchange pipeline.
@@ -201,8 +200,9 @@ impl SourceClient<EthereumToSubstrateExchange> for EthereumTransactionsSource {
 
 /// Substrate node as transactions proof target.
 struct SubstrateTransactionsTarget {
-	client: SubstrateRpcClient,
-	sign_params: SubstrateSigningParams,
+	client: SubstrateClient<Rialto>,
+	sign_params: RialtoSigningParams,
+	bridge_instance: Arc<dyn BridgeInstance>,
 }
 
 #[async_trait]
@@ -254,8 +254,10 @@ impl TargetClient<EthereumToSubstrateExchange> for SubstrateTransactionsTarget {
 	}
 
 	async fn submit_transaction_proof(&self, proof: EthereumTransactionInclusionProof) -> Result<(), Self::Error> {
-		let sign_params = self.sign_params.clone();
-		self.client.submit_exchange_transaction_proof(sign_params, proof).await
+		let (sign_params, bridge_instance) = (self.sign_params.clone(), self.bridge_instance.clone());
+		self.client
+			.submit_exchange_transaction_proof(sign_params, bridge_instance, proof)
+			.await
 	}
 }
 
@@ -283,12 +285,15 @@ fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H25
 
 	let result = local_pool.run_until(async move {
 		let eth_client = EthereumClient::new(eth_params);
-		let sub_client = SubstrateRpcClient::new(sub_params, instance).await?;
+		let sub_client = SubstrateClient::<Rialto>::new(sub_params)
+			.await
+			.map_err(RpcError::Substrate)?;
 
 		let source = EthereumTransactionsSource { client: eth_client };
 		let target = SubstrateTransactionsTarget {
 			client: sub_client,
 			sign_params: sub_sign,
+			bridge_instance: instance,
 		};
 
 		relay_single_transaction_proof(&source, &target, eth_tx_hash).await
@@ -326,7 +331,7 @@ fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_wi
 
 	let do_run_loop = move || -> Result<(), String> {
 		let eth_client = EthereumClient::new(eth_params);
-		let sub_client = async_std::task::block_on(SubstrateRpcClient::new(sub_params, instance))
+		let sub_client = async_std::task::block_on(SubstrateClient::<Rialto>::new(sub_params))
 			.map_err(|err| format!("Error starting Substrate client: {:?}", err))?;
 
 		let eth_start_with_block_number = match eth_start_with_block_number {
@@ -349,6 +354,7 @@ fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_wi
 			SubstrateTransactionsTarget {
 				client: sub_client,
 				sign_params: sub_sign,
+				bridge_instance: instance,
 			},
 			metrics_params,
 			futures::future::pending(),
