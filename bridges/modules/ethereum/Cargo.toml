@@ -14,39 +14,39 @@ serde = { version = "1.0", optional = true }
 
 # Substrate Based Dependencies
 [dependencies.frame-support]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-std]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-io]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-benchmarking]
 optional = true
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 

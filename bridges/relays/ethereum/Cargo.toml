@@ -40,38 +40,38 @@ features = ["http"]
 
 # Substrate Based Dependencies
 [dependencies.frame-system]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.pallet-transaction-payment]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.node-primitives]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-core]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-keyring]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.substrate-prometheus-endpoint]
-version = "0.8.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "0.8.0"
+tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate.git"
 
 [dependencies.rialto-runtime]
