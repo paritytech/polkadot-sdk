@@ -13,4 +13,4 @@ log = "0.4.11"
 sysinfo = "0.15"
 
 # Substrate dependencies
-substrate-prometheus-endpoint = { version = "0.8.0-rc6", git = "https://github.com/paritytech/substrate.git", tag = "v2.0.0-rc6" }
+substrate-prometheus-endpoint = { version = "0.8.0", git = "https://github.com/paritytech/substrate.git", tag = "v2.0.0" }
