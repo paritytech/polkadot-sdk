@@ -13,38 +13,38 @@ bp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 # Substrate Based Dependencies
 [dependencies.frame-support]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.frame-system]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-std]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-runtime]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-core]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
 [dependencies.sp-io]
-version = "2.0.0-rc6"
-tag = 'v2.0.0-rc6'
+version = "2.0.0"
+tag = 'v2.0.0'
 default-features = false
 git = "https://github.com/paritytech/substrate/"
 
