@@ -549,7 +549,7 @@ pub fn step_validator<T>(header_validators: &[T], header_step: u64) -> &T {
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about headers from the Rialto Bridge Pallet
-	pub trait RialtoHeaderApi {
+	pub trait RialtoPoAHeaderApi {
 		/// Returns number and hash of the best block known to the bridge module.
 		///
 		/// The caller should only submit an `import_header` transaction that makes

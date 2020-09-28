@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use jsonrpsee::client::RequestError;
 use relay_ethereum_client::Error as EthereumNodeError;
+use relay_substrate_client::Error as SubstrateNodeError;
 use relay_utils::MaybeConnectionError;
 
 /// Contains common errors that can occur when
@@ -29,9 +29,6 @@ pub enum RpcError {
 	Ethereum(EthereumNodeError),
 	/// An error occured when interacting with a Substrate node.
 	Substrate(SubstrateNodeError),
-	/// An error that can occur when making an HTTP request to
-	/// an JSON-RPC client.
-	Request(RequestError),
 }
 
 impl From<RpcError> for String {
@@ -40,7 +37,6 @@ impl From<RpcError> for String {
 			RpcError::Serialization(e) => e.to_string(),
 			RpcError::Ethereum(e) => e.to_string(),
 			RpcError::Substrate(e) => e.to_string(),
-			RpcError::Request(e) => e.to_string(),
 		}
 	}
 }
@@ -63,12 +59,6 @@ impl From<SubstrateNodeError> for RpcError {
 	}
 }
 
-impl From<RequestError> for RpcError {
-	fn from(err: RequestError) -> Self {
-		Self::Request(err)
-	}
-}
-
 impl From<ethabi::Error> for RpcError {
 	fn from(err: ethabi::Error) -> Self {
 		Self::Ethereum(EthereumNodeError::ResponseParseFailed(format!("{}", err)))
@@ -78,8 +68,8 @@ impl From<ethabi::Error> for RpcError {
 impl MaybeConnectionError for RpcError {
 	fn is_connection_error(&self) -> bool {
 		match self {
-			RpcError::Request(RequestError::TransportError(_)) => true,
 			RpcError::Ethereum(ref error) => error.is_connection_error(),
+			RpcError::Substrate(ref error) => error.is_connection_error(),
 			_ => false,
 		}
 	}
@@ -87,22 +77,6 @@ impl MaybeConnectionError for RpcError {
 
 impl From<codec::Error> for RpcError {
 	fn from(err: codec::Error) -> Self {
-		Self::Substrate(SubstrateNodeError::Decoding(err))
-	}
-}
-
-/// Errors that can occur only when interacting with
-/// a Substrate node through RPC.
-#[derive(Debug)]
-pub enum SubstrateNodeError {
-	/// The response from the client could not be SCALE decoded.
-	Decoding(codec::Error),
-}
-
-impl ToString for SubstrateNodeError {
-	fn to_string(&self) -> String {
-		match self {
-			Self::Decoding(e) => e.what().to_string(),
-		}
+		Self::Substrate(SubstrateNodeError::ResponseParseFailed(err))
 	}
 }

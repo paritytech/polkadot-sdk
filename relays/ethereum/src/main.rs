@@ -22,9 +22,8 @@ mod ethereum_exchange;
 mod ethereum_exchange_submit;
 mod ethereum_sync_loop;
 mod instances;
-mod rpc;
+mod rialto_client;
 mod rpc_errors;
-mod substrate_client;
 mod substrate_sync_loop;
 mod substrate_types;
 
@@ -34,16 +33,17 @@ use ethereum_exchange_submit::EthereumExchangeSubmitParams;
 use ethereum_sync_loop::EthereumSyncParams;
 use headers_relay::sync::TargetTransactionMode;
 use hex_literal::hex;
-use instances::{BridgeInstance, Kovan, Rialto};
+use instances::{BridgeInstance, Kovan, RialtoPoA};
 use parity_crypto::publickey::{KeyPair, Secret};
 use relay_utils::metrics::MetricsParams;
 use sp_core::crypto::Pair;
-use substrate_client::{SubstrateConnectionParams, SubstrateSigningParams};
 use substrate_sync_loop::SubstrateSyncParams;
 
 use headers_relay::sync::HeadersSyncParams;
 use relay_ethereum_client::{ConnectionParams as EthereumConnectionParams, SigningParams as EthereumSigningParams};
-use std::io::Write;
+use relay_rialto_client::SigningParams as RialtoSigningParams;
+use relay_substrate_client::ConnectionParams as SubstrateConnectionParams;
+use std::{io::Write, sync::Arc};
 
 fn main() {
 	initialize();
@@ -197,8 +197,8 @@ fn substrate_connection_params(matches: &clap::ArgMatches) -> Result<SubstrateCo
 	Ok(params)
 }
 
-fn substrate_signing_params(matches: &clap::ArgMatches) -> Result<SubstrateSigningParams, String> {
-	let mut params = SubstrateSigningParams::default();
+fn rialto_signing_params(matches: &clap::ArgMatches) -> Result<RialtoSigningParams, String> {
+	let mut params = RialtoSigningParams::default();
 	if let Some(sub_signer) = matches.value_of("sub-signer") {
 		let sub_signer_password = matches.value_of("sub-signer-password");
 		params.signer = sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password)
@@ -235,7 +235,7 @@ fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams
 	let params = EthereumSyncParams {
 		eth_params: ethereum_connection_params(matches)?,
 		sub_params: substrate_connection_params(matches)?,
-		sub_sign: substrate_signing_params(matches)?,
+		sub_sign: rialto_signing_params(matches)?,
 		metrics_params: metrics_params(matches)?,
 		instance: instance_params(matches)?,
 		sync_params,
@@ -263,11 +263,10 @@ fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncPara
 		eth_params: ethereum_connection_params(matches)?,
 		eth_sign: ethereum_signing_params(matches)?,
 		metrics_params: metrics_params(matches)?,
-		instance: instance_params(matches)?,
 		sync_params: HeadersSyncParams {
 			max_future_headers_to_download: MAX_FUTURE_HEADERS_TO_DOWNLOAD,
 			max_headers_in_submitted_status: MAX_SUBMITTED_HEADERS,
-			max_headers_in_single_submit: 4,
+			max_headers_in_single_submit: MAX_SUBMITTED_HEADERS,
 			max_headers_size_in_single_submit: std::usize::MAX,
 			prune_depth: PRUNE_DEPTH,
 			target_tx_mode: TargetTransactionMode::Signed,
@@ -299,7 +298,6 @@ fn ethereum_deploy_contract_params(matches: &clap::ArgMatches) -> Result<Ethereu
 		eth_params: ethereum_connection_params(matches)?,
 		eth_sign: ethereum_signing_params(matches)?,
 		sub_params: substrate_connection_params(matches)?,
-		instance: instance_params(matches)?,
 		sub_initial_authorities_set_id,
 		sub_initial_authorities_set,
 		sub_initial_header,
@@ -384,7 +382,7 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchan
 	let params = EthereumExchangeParams {
 		eth_params: ethereum_connection_params(matches)?,
 		sub_params: substrate_connection_params(matches)?,
-		sub_sign: substrate_signing_params(matches)?,
+		sub_sign: rialto_signing_params(matches)?,
 		metrics_params: metrics_params(matches)?,
 		instance: instance_params(matches)?,
 		mode,
@@ -414,11 +412,11 @@ fn metrics_params(matches: &clap::ArgMatches) -> Result<Option<MetricsParams>, S
 	Ok(Some(metrics_params))
 }
 
-fn instance_params(matches: &clap::ArgMatches) -> Result<Box<dyn BridgeInstance>, String> {
-	let instance: Box<dyn BridgeInstance> = if let Some(instance) = matches.value_of("sub-pallet-instance") {
+fn instance_params(matches: &clap::ArgMatches) -> Result<Arc<dyn BridgeInstance>, String> {
+	let instance = if let Some(instance) = matches.value_of("sub-pallet-instance") {
 		match instance.to_lowercase().as_str() {
-			"rialto" => Box::new(Rialto::default()),
-			"kovan" => Box::new(Kovan::default()),
+			"rialto" => Arc::new(RialtoPoA) as Arc<dyn BridgeInstance>,
+			"kovan" => Arc::new(Kovan),
 			_ => return Err("Unsupported bridge pallet instance".to_string()),
 		}
 	} else {

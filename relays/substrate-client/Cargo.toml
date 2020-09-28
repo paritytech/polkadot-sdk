@@ -1,0 +1,22 @@
+[package]
+name = "relay-substrate-client"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.4" }
+headers-relay = { path = "../headers-relay" }
+jsonrpsee = { git = "https://github.com/svyatonik/jsonrpsee.git", branch = "shared-client-in-rpc-api", default-features = false, features = ["http"] }
+log = "0.4.11"
+num-traits = "0.2"
+relay-utils = { path = "../utils" }
+
+# Substrate Dependencies
+
+frame-support = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+frame-system = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+sp-core = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+sp-runtime = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+sp-std = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
