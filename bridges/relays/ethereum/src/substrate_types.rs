@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2020 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -14,85 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Encode;
-use headers_relay::sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader};
-use relay_utils::HeaderId;
+//! Converting between Ethereum headers and bridge module types.
 
-pub use bp_eth_poa::{
-	Address, AuraHeader as SubstrateEthereumHeader, Bloom, Bytes, LogEntry as SubstrateEthereumLogEntry,
-	Receipt as SubstrateEthereumReceipt, TransactionOutcome as SubstrateEthereumTransactionOutcome, H256, U256,
+use bp_eth_poa::{
+	AuraHeader as SubstrateEthereumHeader, LogEntry as SubstrateEthereumLogEntry, Receipt as SubstrateEthereumReceipt,
+	TransactionOutcome as SubstrateEthereumTransactionOutcome,
 };
 use relay_ethereum_client::types::{
 	Header as EthereumHeader, Receipt as EthereumReceipt, HEADER_ID_PROOF as ETHEREUM_HEADER_ID_PROOF,
 };
-
-/// Substrate header hash.
-pub type Hash = rialto_runtime::Hash;
-
-/// Substrate header number.
-pub type Number = rialto_runtime::BlockNumber;
-
-/// Substrate header type.
-pub type Header = rialto_runtime::Header;
-
-/// Substrate header type used in headers sync.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SubstrateSyncHeader(Header);
-
-impl std::ops::Deref for SubstrateSyncHeader {
-	type Target = Header;
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-/// Substrate signed block type.
-pub type SignedBlock = rialto_runtime::SignedBlock;
-
-/// GRANDPA justification.
-pub type GrandpaJustification = Vec<u8>;
-
-/// Substrate header ID.
-pub type SubstrateHeaderId = HeaderId<rialto_runtime::Hash, rialto_runtime::BlockNumber>;
-
-/// Queued substrate header ID.
-pub type QueuedSubstrateHeader = QueuedHeader<SubstrateHeadersSyncPipeline>;
-
-/// Substrate synchronization pipeline.
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(test, derive(PartialEq))]
-pub struct SubstrateHeadersSyncPipeline;
-
-impl HeadersSyncPipeline for SubstrateHeadersSyncPipeline {
-	const SOURCE_NAME: &'static str = "Substrate";
-	const TARGET_NAME: &'static str = "Ethereum";
-
-	type Hash = rialto_runtime::Hash;
-	type Number = rialto_runtime::BlockNumber;
-	type Header = SubstrateSyncHeader;
-	type Extra = ();
-	type Completion = GrandpaJustification;
-
-	fn estimate_size(source: &QueuedHeader<Self>) -> usize {
-		source.header().encode().len()
-	}
-}
-
-impl From<Header> for SubstrateSyncHeader {
-	fn from(header: Header) -> Self {
-		Self(header)
-	}
-}
-
-impl SourceHeader<rialto_runtime::Hash, rialto_runtime::BlockNumber> for SubstrateSyncHeader {
-	fn id(&self) -> SubstrateHeaderId {
-		HeaderId(self.number, self.hash())
-	}
-
-	fn parent_id(&self) -> SubstrateHeaderId {
-		HeaderId(self.number - 1, self.parent_hash)
-	}
-}
 
 /// Convert Ethereum header into Ethereum header for Substrate.
 pub fn into_substrate_ethereum_header(header: &EthereumHeader) -> SubstrateEthereumHeader {

@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::rpc_errors::RpcError;
-use crate::substrate_types::{GrandpaJustification, Hash as SubstrateHash, QueuedSubstrateHeader, SubstrateHeaderId};
+use crate::substrate_sync_loop::QueuedRialtoHeader;
 
 use async_trait::async_trait;
 use codec::{Decode, Encode};
@@ -26,7 +26,9 @@ use relay_ethereum_client::{
 	types::{Address, CallRequest, HeaderId as EthereumHeaderId, Receipt, H256, U256},
 	Client as EthereumClient, Error as EthereumNodeError, SigningParams as EthereumSigningParams,
 };
+use relay_rialto_client::HeaderId as RialtoHeaderId;
 use relay_utils::{HeaderId, MaybeConnectionError};
+use sp_runtime::Justification;
 use std::collections::HashSet;
 
 // to encode/decode contract calls
@@ -39,34 +41,34 @@ type RpcResult<T> = std::result::Result<T, RpcError>;
 #[async_trait]
 pub trait EthereumHighLevelRpc {
 	/// Returns best Substrate block that PoA chain knows of.
-	async fn best_substrate_block(&self, contract_address: Address) -> RpcResult<SubstrateHeaderId>;
+	async fn best_substrate_block(&self, contract_address: Address) -> RpcResult<RialtoHeaderId>;
 
 	/// Returns true if Substrate header is known to Ethereum node.
 	async fn substrate_header_known(
 		&self,
 		contract_address: Address,
-		id: SubstrateHeaderId,
-	) -> RpcResult<(SubstrateHeaderId, bool)>;
+		id: RialtoHeaderId,
+	) -> RpcResult<(RialtoHeaderId, bool)>;
 
 	/// Submits Substrate headers to Ethereum contract.
 	async fn submit_substrate_headers(
 		&self,
 		params: EthereumSigningParams,
 		contract_address: Address,
-		headers: Vec<QueuedSubstrateHeader>,
-	) -> SubmittedHeaders<SubstrateHeaderId, RpcError>;
+		headers: Vec<QueuedRialtoHeader>,
+	) -> SubmittedHeaders<RialtoHeaderId, RpcError>;
 
 	/// Returns ids of incomplete Substrate headers.
-	async fn incomplete_substrate_headers(&self, contract_address: Address) -> RpcResult<HashSet<SubstrateHeaderId>>;
+	async fn incomplete_substrate_headers(&self, contract_address: Address) -> RpcResult<HashSet<RialtoHeaderId>>;
 
 	/// Complete Substrate header.
 	async fn complete_substrate_header(
 		&self,
 		params: EthereumSigningParams,
 		contract_address: Address,
-		id: SubstrateHeaderId,
-		justification: GrandpaJustification,
-	) -> RpcResult<SubstrateHeaderId>;
+		id: RialtoHeaderId,
+		justification: Justification,
+	) -> RpcResult<RialtoHeaderId>;
 
 	/// Submit ethereum transaction.
 	async fn submit_ethereum_transaction(
@@ -88,7 +90,7 @@ pub trait EthereumHighLevelRpc {
 
 #[async_trait]
 impl EthereumHighLevelRpc for EthereumClient {
-	async fn best_substrate_block(&self, contract_address: Address) -> RpcResult<SubstrateHeaderId> {
+	async fn best_substrate_block(&self, contract_address: Address) -> RpcResult<RialtoHeaderId> {
 		let (encoded_call, call_decoder) = bridge_contract::functions::best_known_header::call();
 		let call_request = CallRequest {
 			to: Some(contract_address),
@@ -98,7 +100,7 @@ impl EthereumHighLevelRpc for EthereumClient {
 
 		let call_result = self.eth_call(call_request).await?;
 		let (number, raw_hash) = call_decoder.decode(&call_result.0)?;
-		let hash = SubstrateHash::decode(&mut &raw_hash[..])?;
+		let hash = rialto_runtime::Hash::decode(&mut &raw_hash[..])?;
 
 		if number != number.low_u32().into() {
 			return Err(RpcError::Ethereum(EthereumNodeError::InvalidSubstrateBlockNumber));
@@ -110,8 +112,8 @@ impl EthereumHighLevelRpc for EthereumClient {
 	async fn substrate_header_known(
 		&self,
 		contract_address: Address,
-		id: SubstrateHeaderId,
-	) -> RpcResult<(SubstrateHeaderId, bool)> {
+		id: RialtoHeaderId,
+	) -> RpcResult<(RialtoHeaderId, bool)> {
 		let (encoded_call, call_decoder) = bridge_contract::functions::is_known_header::call(id.1);
 		let call_request = CallRequest {
 			to: Some(contract_address),
@@ -129,8 +131,8 @@ impl EthereumHighLevelRpc for EthereumClient {
 		&self,
 		params: EthereumSigningParams,
 		contract_address: Address,
-		headers: Vec<QueuedSubstrateHeader>,
-	) -> SubmittedHeaders<SubstrateHeaderId, RpcError> {
+		headers: Vec<QueuedRialtoHeader>,
+	) -> SubmittedHeaders<RialtoHeaderId, RpcError> {
 		// read nonce of signer
 		let address: Address = params.signer.address().as_fixed_bytes().into();
 		let nonce = match self.account_nonce(address).await {
@@ -159,7 +161,7 @@ impl EthereumHighLevelRpc for EthereumClient {
 		.await
 	}
 
-	async fn incomplete_substrate_headers(&self, contract_address: Address) -> RpcResult<HashSet<SubstrateHeaderId>> {
+	async fn incomplete_substrate_headers(&self, contract_address: Address) -> RpcResult<HashSet<RialtoHeaderId>> {
 		let (encoded_call, call_decoder) = bridge_contract::functions::incomplete_headers::call();
 		let call_request = CallRequest {
 			to: Some(contract_address),
@@ -190,9 +192,9 @@ impl EthereumHighLevelRpc for EthereumClient {
 		&self,
 		params: EthereumSigningParams,
 		contract_address: Address,
-		id: SubstrateHeaderId,
-		justification: GrandpaJustification,
-	) -> RpcResult<SubstrateHeaderId> {
+		id: RialtoHeaderId,
+		justification: Justification,
+	) -> RpcResult<RialtoHeaderId> {
 		let _ = self
 			.submit_ethereum_transaction(
 				&params,
@@ -243,21 +245,21 @@ pub const HEADERS_BATCH: usize = 4;
 #[derive(Debug)]
 #[cfg_attr(test, derive(Clone))]
 pub struct HeadersBatch {
-	pub header1: QueuedSubstrateHeader,
-	pub header2: Option<QueuedSubstrateHeader>,
-	pub header3: Option<QueuedSubstrateHeader>,
-	pub header4: Option<QueuedSubstrateHeader>,
+	pub header1: QueuedRialtoHeader,
+	pub header2: Option<QueuedRialtoHeader>,
+	pub header3: Option<QueuedRialtoHeader>,
+	pub header4: Option<QueuedRialtoHeader>,
 }
 
 impl HeadersBatch {
 	/// Create new headers from given header & ids collections.
 	///
 	/// This method will pop `HEADERS_BATCH` items from both collections
-	/// and construct `Headers` object and a vector of `SubstrateheaderId`s.
+	/// and construct `Headers` object and a vector of `RialtoHeaderId`s.
 	pub fn pop_from(
-		headers: &mut Vec<QueuedSubstrateHeader>,
-		ids: &mut Vec<SubstrateHeaderId>,
-	) -> Result<(Self, Vec<SubstrateHeaderId>), ()> {
+		headers: &mut Vec<QueuedRialtoHeader>,
+		ids: &mut Vec<RialtoHeaderId>,
+	) -> Result<(Self, Vec<RialtoHeaderId>), ()> {
 		if headers.len() != ids.len() {
 			log::error!(target: "bridge", "Collection size mismatch ({} vs {})", headers.len(), ids.len());
 			return Err(());
@@ -287,7 +289,7 @@ impl HeadersBatch {
 	/// Returns unified array of headers.
 	///
 	/// The first element is always `Some`.
-	fn headers(&self) -> [Option<&QueuedSubstrateHeader>; HEADERS_BATCH] {
+	fn headers(&self) -> [Option<&QueuedRialtoHeader>; HEADERS_BATCH] {
 		[
 			Some(&self.header1),
 			self.header2.as_ref(),
@@ -298,7 +300,7 @@ impl HeadersBatch {
 
 	/// Encodes all headers. If header is not present an empty vector will be returned.
 	pub fn encode(&self) -> [Vec<u8>; HEADERS_BATCH] {
-		let encode = |h: &QueuedSubstrateHeader| h.header().encode();
+		let encode = |h: &QueuedRialtoHeader| h.header().encode();
 		let headers = self.headers();
 		[
 			headers[0].map(encode).unwrap_or_default(),
@@ -309,7 +311,7 @@ impl HeadersBatch {
 	}
 	/// Returns number of contained headers.
 	pub fn len(&self) -> usize {
-		let is_set = |h: &Option<&QueuedSubstrateHeader>| if h.is_some() { 1 } else { 0 };
+		let is_set = |h: &Option<&QueuedRialtoHeader>| if h.is_some() { 1 } else { 0 };
 		self.headers().iter().map(is_set).sum()
 	}
 
@@ -396,8 +398,8 @@ impl HeadersSubmitter for EthereumHeadersSubmitter {
 /// Submit multiple Substrate headers.
 async fn submit_substrate_headers(
 	mut header_submitter: impl HeadersSubmitter,
-	mut headers: Vec<QueuedSubstrateHeader>,
-) -> SubmittedHeaders<SubstrateHeaderId, RpcError> {
+	mut headers: Vec<QueuedRialtoHeader>,
+) -> SubmittedHeaders<RialtoHeaderId, RpcError> {
 	let mut submitted_headers = SubmittedHeaders::default();
 
 	let mut ids = headers.iter().map(|header| header.id()).rev().collect::<Vec<_>>();
@@ -424,8 +426,8 @@ async fn submit_substrate_headers(
 /// Submit 4 Substrate headers in single PoA transaction.
 async fn submit_substrate_headers_batch(
 	header_submitter: &mut impl HeadersSubmitter,
-	submitted_headers: &mut SubmittedHeaders<SubstrateHeaderId, RpcError>,
-	mut ids: Vec<SubstrateHeaderId>,
+	submitted_headers: &mut SubmittedHeaders<RialtoHeaderId, RpcError>,
+	mut ids: Vec<RialtoHeaderId>,
 	mut headers: HeadersBatch,
 ) -> Option<RpcError> {
 	debug_assert_eq!(ids.len(), headers.len(),);
@@ -486,12 +488,11 @@ async fn submit_substrate_headers_batch(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::substrate_types::{Header as SubstrateHeader, Number as SubstrateBlockNumber};
 	use sp_runtime::traits::Header;
 
 	struct TestHeadersSubmitter {
-		incomplete: Vec<SubstrateHeaderId>,
-		failed: Vec<SubstrateHeaderId>,
+		incomplete: Vec<RialtoHeaderId>,
+		failed: Vec<RialtoHeaderId>,
 	}
 
 	#[async_trait]
@@ -513,9 +514,9 @@ mod tests {
 		}
 	}
 
-	fn header(number: SubstrateBlockNumber) -> QueuedSubstrateHeader {
-		QueuedSubstrateHeader::new(
-			SubstrateHeader::new(
+	fn header(number: rialto_runtime::BlockNumber) -> QueuedRialtoHeader {
+		QueuedRialtoHeader::new(
+			rialto_runtime::Header::new(
 				number,
 				Default::default(),
 				Default::default(),
