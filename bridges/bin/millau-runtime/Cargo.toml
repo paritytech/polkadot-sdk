@@ -8,211 +8,45 @@ repository = "https://github.com/paritytech/parity-bridges-common/"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false, features = ["derive"] }
+serde = { version = "1.0.115", optional = true, features = ["derive"] }
+
+# Bridge dependencies
+
+bp-message-lane = { path = "../../primitives/message-lane", default-features = false }
 bp-millau = { path = "../../primitives/millau", default-features = false }
-hex-literal = "0.3"
-
-[dependencies.codec]
-package = "parity-scale-codec"
-version = "1.3.1"
-default-features = false
-features = ["derive"]
-
-[dependencies.serde]
-version = "1.0.115"
-optional = true
-features = ["derive"]
+pallet-bridge-call-dispatch = { path = "../../modules/call-dispatch", default-features = false }
+pallet-message-lane = { path = "../../modules/message-lane", default-features = false }
+pallet-shift-session-manager = { path = "../../modules/shift-session-manager", default-features = false }
 
 # Substrate Dependencies
-[dependencies.pallet-aura]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
 
-[dependencies.pallet-balances]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
+frame-executive = { version = "2.0", default-features = false }
+frame-support = { version = "2.0", default-features = false }
+frame-system = { version = "2.0", default-features = false }
+frame-system-rpc-runtime-api = { version = "2.0", default-features = false }
+pallet-aura = { version = "2.0", default-features = false }
+pallet-balances = { version = "2.0", default-features = false }
+pallet-grandpa = { version = "2.0", default-features = false }
+pallet-randomness-collective-flip = { version = "2.0", default-features = false }
+pallet-session = { version = "2.0", default-features = false }
+pallet-sudo = { version = "2.0", default-features = false }
+pallet-timestamp = { version = "2.0", default-features = false }
+pallet-transaction-payment = { version = "2.0", default-features = false }
+sp-api = { version = "2.0", default-features = false }
+sp-block-builder = { version = "2.0", default-features = false }
+sp-consensus-aura = { version = "0.8", default-features = false }
+sp-core = { version = "2.0", default-features = false }
+sp-inherents = { version = "2.0", default-features = false }
+sp-offchain = { version = "2.0", default-features = false }
+sp-runtime = { version = "2.0", default-features = false }
+sp-session = { version = "2.0", default-features = false }
+sp-std = { version = "2.0", default-features = false }
+sp-transaction-pool = { version = "2.0", default-features = false }
+sp-version = { version = "2.0", default-features = false }
 
-[dependencies.pallet-bridge-call-dispatch]
-version = "0.1.0"
-default-features = false
-path = "../../modules/call-dispatch"
-
-[dependencies.pallet-message-lane]
-version = "0.1.0"
-default-features = false
-path = "../../modules/message-lane"
-
-[dependencies.frame-support]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.pallet-grandpa]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.pallet-randomness-collective-flip]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.pallet-sudo]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.pallet-shift-session-manager]
-version = "0.1.0"
-default-features = false
-path = "../../modules/shift-session-manager"
-
-[dependencies.pallet-session]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.frame-system]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.frame-system-rpc-runtime-api]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.pallet-timestamp]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.pallet-transaction-payment]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.frame-executive]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-# Substrate Primitives
-[dependencies.sp-api]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-block-builder]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-consensus-aura]
-version = "0.8.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-core]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-inherents]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-io]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-offchain]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-runtime]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-session]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-staking]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-std]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-transaction-pool]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-version]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.frame-benchmarking]
-optional = true
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.bp-header-chain]
-version = "0.1.0"
-default-features = false
-path = "../../primitives/header-chain"
-
-[dependencies.bp-message-lane]
-version = "0.1.0"
-default-features = false
-path = "../../primitives/message-lane"
-
-# Dev Dependencies
-
-[build-dependencies.wasm-builder-runner]
-version = "1.0.5"
-tag = 'v2.0.0'
-package = "substrate-wasm-builder-runner"
-git = "https://github.com/paritytech/substrate/"
+[build-dependencies]
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.5" }
 
 [features]
 default = ["std"]
@@ -220,17 +54,18 @@ std = [
 	"bp-message-lane/std",
 	"bp-millau/std",
 	"codec/std",
-	"frame-benchmarking/std",
 	"frame-executive/std",
 	"frame-support/std",
-	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
+	"frame-system-rpc-runtime-api/std",
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-bridge-call-dispatch/std",
 	"pallet-grandpa/std",
+	"pallet-message-lane/std",
 	"pallet-randomness-collective-flip/std",
 	"pallet-shift-session-manager/std",
+	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
@@ -240,17 +75,10 @@ std = [
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
-	"sp-io/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-]
-runtime-benchmarks = [
-	"frame-benchmarking",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]

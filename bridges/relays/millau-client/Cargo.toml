@@ -17,5 +17,5 @@ millau-runtime = { path = "../../bin/millau-runtime" }
 
 # Substrate Dependencies
 
-frame-system = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
-sp-runtime = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+frame-system = "2.0"
+sp-runtime = "2.0"
