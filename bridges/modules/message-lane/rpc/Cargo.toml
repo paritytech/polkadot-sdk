@@ -48,7 +48,7 @@ tag = 'v2.0.0'
 git = "https://github.com/paritytech/substrate/"
 
 [dev-dependencies]
-async-std = "1.6.2"
+async-std = "1.6.5"
 
 [dev-dependencies.substrate-test-runtime-client]
 version = "2.0.0"
