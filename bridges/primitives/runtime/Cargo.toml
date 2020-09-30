@@ -9,13 +9,9 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false }
 
-# Substrate Based Dependencies
+# Substrate Dependencies
 
-[dependencies.sp-io]
-version = "2.0.0"
-tag = 'v2.0.0'
-default-features = false
-git = "https://github.com/paritytech/substrate/"
+sp-io = { version = "2.0", default-features = false }
 
 [features]
 default = ["std"]
