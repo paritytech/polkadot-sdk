@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Module for checking Grandpa Finality Proofs.
+//!
 //! Adapted copy of substrate/client/finality-grandpa/src/justification.rs. If origin
 //! will ever be moved to the sp_finality_grandpa, we should reuse that implementation.
-
-// TODO: remove on actual use
-#![allow(dead_code)]
 
 use codec::Decode;
 use finality_grandpa::{voter_set::VoterSet, Chain, Error as GrandpaError};
@@ -115,16 +114,21 @@ where
 	Ok(())
 }
 
-/// GRANDPA justification of the bridged chain
+/// A Grandpa Justification is a proof that a given header was finalized
+/// at a certain height and with a certain set of authorities.
+///
+/// This particular proof is used to prove that headers on a bridged chain
+/// (so not our chain) have been finalized correctly.
 #[derive(Decode, RuntimeDebug)]
 #[cfg_attr(test, derive(codec::Encode))]
-struct GrandpaJustification<Header: HeaderT> {
+pub(crate) struct GrandpaJustification<Header: HeaderT> {
 	round: u64,
 	commit: finality_grandpa::Commit<Header::Hash, Header::Number, AuthoritySignature, AuthorityId>,
 	votes_ancestries: Vec<Header>,
 }
 
 /// A utility trait implementing `finality_grandpa::Chain` using a given set of headers.
+#[derive(RuntimeDebug)]
 struct AncestryChain<Header: HeaderT> {
 	ancestry: BTreeMap<Header::Hash, Header::Hash>,
 }
@@ -170,56 +174,30 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 	use super::*;
+	use crate::mock::helpers::*;
 	use codec::Encode;
 	use sp_core::H256;
+	use sp_finality_grandpa::{AuthorityId, AuthorityWeight};
 	use sp_keyring::Ed25519Keyring;
-	use sp_runtime::traits::BlakeTwo256;
 
 	const TEST_GRANDPA_ROUND: u64 = 1;
 	const TEST_GRANDPA_SET_ID: SetId = 1;
 
-	type TestHeader = sp_runtime::generic::Header<u64, BlakeTwo256>;
-
-	fn header(index: u8) -> TestHeader {
-		TestHeader::new(
-			index as _,
-			Default::default(),
-			Default::default(),
-			if index == 0 {
-				Default::default()
-			} else {
-				header(index - 1).hash()
-			},
-			Default::default(),
-		)
-	}
-
-	fn header_id(index: u8) -> (H256, u64) {
-		(header(index).hash(), index as _)
-	}
-
-	fn authorities_set() -> VoterSet<AuthorityId> {
-		VoterSet::new(vec![
-			(Ed25519Keyring::Alice.public().into(), 1),
-			(Ed25519Keyring::Bob.public().into(), 1),
-			(Ed25519Keyring::Charlie.public().into(), 1),
-		])
-		.unwrap()
-	}
-
-	fn signed_precommit(
+	pub(crate) fn signed_precommit(
 		signer: Ed25519Keyring,
-		target: (H256, u64),
+		target: HeaderId,
+		round: u64,
+		set_id: SetId,
 	) -> finality_grandpa::SignedPrecommit<H256, u64, AuthoritySignature, AuthorityId> {
 		let precommit = finality_grandpa::Precommit {
 			target_hash: target.0,
 			target_number: target.1,
 		};
 		let encoded = sp_finality_grandpa::localized_payload(
-			TEST_GRANDPA_ROUND,
-			TEST_GRANDPA_SET_ID,
+			round,
+			set_id,
 			&finality_grandpa::Message::Precommit(precommit.clone()),
 		);
 		let signature = signer.sign(&encoded[..]).into();
@@ -230,26 +208,59 @@ mod tests {
 		}
 	}
 
-	fn make_justification_for_header_1() -> GrandpaJustification<TestHeader> {
-		GrandpaJustification {
-			round: TEST_GRANDPA_ROUND,
-			commit: finality_grandpa::Commit {
-				target_hash: header_id(1).0,
-				target_number: header_id(1).1,
-				precommits: vec![
-					signed_precommit(Ed25519Keyring::Alice, header_id(2)),
-					signed_precommit(Ed25519Keyring::Bob, header_id(3)),
-					signed_precommit(Ed25519Keyring::Charlie, header_id(4)),
-				],
-			},
-			votes_ancestries: vec![header(2), header(3), header(4)],
+	pub(crate) fn make_justification_for_header(
+		header: &TestHeader,
+		round: u64,
+		set_id: SetId,
+		authorities: &[(AuthorityId, AuthorityWeight)],
+	) -> GrandpaJustification<TestHeader> {
+		let (target_hash, target_number) = (header.hash(), *header.number());
+		let mut precommits = vec![];
+		let mut votes_ancestries = vec![];
+
+		// We want to make sure that the header included in the vote ancestries
+		// is actually related to our target header
+		let mut precommit_header = test_header(target_number + 1);
+		precommit_header.parent_hash = target_hash;
+
+		// I'm using the same header for all the voters since it doesn't matter as long
+		// as they all vote on blocks _ahead_ of the one we're interested in finalizing
+		for (id, _weight) in authorities.iter() {
+			let signer = extract_keyring(&id);
+			let precommit = signed_precommit(
+				signer,
+				(precommit_header.hash(), *precommit_header.number()),
+				round,
+				set_id,
+			);
+			precommits.push(precommit);
+			votes_ancestries.push(precommit_header.clone());
 		}
+
+		GrandpaJustification {
+			round,
+			commit: finality_grandpa::Commit {
+				target_hash,
+				target_number,
+				precommits,
+			},
+			votes_ancestries,
+		}
+	}
+
+	pub(crate) fn make_justification_for_header_1() -> GrandpaJustification<TestHeader> {
+		make_justification_for_header(
+			&test_header(1),
+			TEST_GRANDPA_ROUND,
+			TEST_GRANDPA_SET_ID,
+			&authority_list(),
+		)
 	}
 
 	#[test]
 	fn justification_with_invalid_encoding_rejected() {
 		assert_eq!(
-			verify_justification::<TestHeader>(header_id(1), TEST_GRANDPA_SET_ID, authorities_set(), &[],),
+			verify_justification::<TestHeader>(header_id(1), TEST_GRANDPA_SET_ID, voter_set(), &[],),
 			Err(Error::JustificationDecode),
 		);
 	}
@@ -260,7 +271,7 @@ mod tests {
 			verify_justification::<TestHeader>(
 				header_id(2),
 				TEST_GRANDPA_SET_ID,
-				authorities_set(),
+				voter_set(),
 				&make_justification_for_header_1().encode(),
 			),
 			Err(Error::InvalidJustificationTarget),
@@ -273,12 +284,7 @@ mod tests {
 		justification.commit.precommits.clear();
 
 		assert_eq!(
-			verify_justification::<TestHeader>(
-				header_id(1),
-				TEST_GRANDPA_SET_ID,
-				authorities_set(),
-				&justification.encode(),
-			),
+			verify_justification::<TestHeader>(header_id(1), TEST_GRANDPA_SET_ID, voter_set(), &justification.encode(),),
 			Err(Error::InvalidJustificationCommit),
 		);
 	}
@@ -289,12 +295,7 @@ mod tests {
 		justification.commit.precommits[0].signature = Default::default();
 
 		assert_eq!(
-			verify_justification::<TestHeader>(
-				header_id(1),
-				TEST_GRANDPA_SET_ID,
-				authorities_set(),
-				&justification.encode(),
-			),
+			verify_justification::<TestHeader>(header_id(1), TEST_GRANDPA_SET_ID, voter_set(), &justification.encode(),),
 			Err(Error::InvalidAuthoritySignature),
 		);
 	}
@@ -302,15 +303,10 @@ mod tests {
 	#[test]
 	fn justification_with_invalid_precommit_ancestry() {
 		let mut justification = make_justification_for_header_1();
-		justification.votes_ancestries.push(header(10));
+		justification.votes_ancestries.push(test_header(10));
 
 		assert_eq!(
-			verify_justification::<TestHeader>(
-				header_id(1),
-				TEST_GRANDPA_SET_ID,
-				authorities_set(),
-				&justification.encode(),
-			),
+			verify_justification::<TestHeader>(header_id(1), TEST_GRANDPA_SET_ID, voter_set(), &justification.encode(),),
 			Err(Error::InvalidPrecommitAncestries),
 		);
 	}
@@ -321,7 +317,7 @@ mod tests {
 			verify_justification::<TestHeader>(
 				header_id(1),
 				TEST_GRANDPA_SET_ID,
-				authorities_set(),
+				voter_set(),
 				&make_justification_for_header_1().encode(),
 			),
 			Ok(()),
