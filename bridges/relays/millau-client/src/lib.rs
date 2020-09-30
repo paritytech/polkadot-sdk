@@ -18,6 +18,12 @@
 
 use relay_substrate_client::Chain;
 
+use headers_relay::sync_types::SourceHeader;
+use sp_runtime::traits::Header as HeaderT;
+
+/// Millau header id.
+pub type HeaderId = relay_utils::HeaderId<millau_runtime::Hash, millau_runtime::BlockNumber>;
+
 /// Millau chain definition.
 #[derive(Debug, Clone, Copy)]
 pub struct Millau;
@@ -29,5 +35,33 @@ impl Chain for Millau {
 	type AccountId = millau_runtime::AccountId;
 	type Index = millau_runtime::Index;
 	type SignedBlock = millau_runtime::SignedBlock;
-	type Call = rialto_runtime::Call;
+	type Call = millau_runtime::Call;
+}
+
+/// Millau header type used in headers sync.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SyncHeader(millau_runtime::Header);
+
+impl std::ops::Deref for SyncHeader {
+	type Target = millau_runtime::Header;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl From<millau_runtime::Header> for SyncHeader {
+	fn from(header: millau_runtime::Header) -> Self {
+		Self(header)
+	}
+}
+
+impl SourceHeader<millau_runtime::Hash, millau_runtime::BlockNumber> for SyncHeader {
+	fn id(&self) -> HeaderId {
+		relay_utils::HeaderId(*self.number(), self.hash())
+	}
+
+	fn parent_id(&self) -> HeaderId {
+		relay_utils::HeaderId(*self.number(), *self.parent_hash())
+	}
 }
