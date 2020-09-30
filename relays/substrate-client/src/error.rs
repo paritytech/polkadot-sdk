@@ -45,6 +45,12 @@ impl MaybeConnectionError for Error {
 	}
 }
 
+impl From<Error> for String {
+	fn from(error: Error) -> String {
+		error.to_string()
+	}
+}
+
 impl ToString for Error {
 	fn to_string(&self) -> String {
 		match self {
