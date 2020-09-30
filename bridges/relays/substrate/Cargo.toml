@@ -18,5 +18,5 @@ paste = "1.0"
 relay-millau-client = { path = "../millau-client" }
 relay-rialto-client = { path = "../rialto-client" }
 relay-substrate-client = { path = "../substrate-client" }
-sp-runtime = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+sp-runtime = "2.0"
 structopt = "0.3"
