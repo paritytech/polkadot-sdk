@@ -19,9 +19,13 @@ use crate::client::Client;
 use frame_support::Parameter;
 use jsonrpsee::common::{DeserializeOwned, Serialize};
 use sp_core::Pair;
-use sp_runtime::traits::{
-	AtLeast32Bit, AtLeast32BitUnsigned, Bounded, CheckEqual, Dispatchable, Header as HeaderT, MaybeDisplay,
-	MaybeMallocSizeOf, MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps,
+use sp_runtime::{
+	generic::SignedBlock,
+	traits::{
+		AtLeast32Bit, AtLeast32BitUnsigned, Bounded, CheckEqual, Dispatchable, Header as HeaderT, MaybeDisplay,
+		MaybeMallocSizeOf, MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps,
+	},
+	Justification,
 };
 use sp_std::fmt::Debug;
 
@@ -63,9 +67,15 @@ pub trait Chain {
 	/// with a sender account.
 	type Index: Parameter + Member + MaybeSerialize + Debug + Default + MaybeDisplay + AtLeast32Bit + Copy;
 	/// Block type.
-	type SignedBlock: Member + Serialize + DeserializeOwned;
+	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification;
 	/// The aggregated `Call` type.
 	type Call: Dispatchable + Debug;
+}
+
+/// Block with justification.
+pub trait BlockWithJustification {
+	/// Return block justification, if known.
+	fn justification(&self) -> Option<&Justification>;
 }
 
 /// Substrate-based chain transactions signing scheme.
@@ -84,4 +94,19 @@ pub trait TransactionSignScheme {
 		signer_nonce: <Self::Chain as Chain>::Index,
 		call: <Self::Chain as Chain>::Call,
 	) -> Self::SignedTransaction;
+}
+
+/// Header type used by the chain.
+pub type HeaderOf<C> = <C as Chain>::Header;
+
+/// Hash type used by the chain.
+pub type HashOf<C> = <C as Chain>::Hash;
+
+/// Block number used by the chain.
+pub type BlockNumberOf<C> = <C as Chain>::BlockNumber;
+
+impl<Block> BlockWithJustification for SignedBlock<Block> {
+	fn justification(&self) -> Option<&Justification> {
+		self.justification.as_ref()
+	}
 }

@@ -43,19 +43,21 @@ pub enum HeaderStatus {
 }
 
 /// Headers synchronization pipeline.
-pub trait HeadersSyncPipeline: Clone + Copy {
+pub trait HeadersSyncPipeline: Clone + Copy + Send + Sync {
 	/// Name of the headers source.
 	const SOURCE_NAME: &'static str;
 	/// Name of the headers target.
 	const TARGET_NAME: &'static str;
 
 	/// Headers we're syncing are identified by this hash.
-	type Hash: Eq + Clone + Copy + std::fmt::Debug + std::fmt::Display + std::hash::Hash;
+	type Hash: Eq + Clone + Copy + Send + Sync + std::fmt::Debug + std::fmt::Display + std::hash::Hash;
 	/// Headers we're syncing are identified by this number.
 	type Number: From<u32>
 		+ Ord
 		+ Clone
 		+ Copy
+		+ Send
+		+ Sync
 		+ std::fmt::Debug
 		+ std::fmt::Display
 		+ std::hash::Hash
@@ -66,7 +68,7 @@ pub trait HeadersSyncPipeline: Clone + Copy {
 		+ num_traits::One
 		+ Into<u64>;
 	/// Type of header that we're syncing.
-	type Header: Clone + std::fmt::Debug + PartialEq + SourceHeader<Self::Hash, Self::Number>;
+	type Header: Clone + std::fmt::Debug + PartialEq + SourceHeader<Self::Hash, Self::Number> + Send + Sync;
 	/// Type of extra data for the header that we're receiving from the source node:
 	/// 1) extra data is required for some headers;
 	/// 2) target node may answer if it'll require extra data before header is submitted;

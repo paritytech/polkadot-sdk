@@ -1,21 +1,22 @@
 [package]
-name = "relay-millau-client"
+name = "substrate-relay"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
+async-std = "1.6.2"
+async-trait = "0.1.40"
+bp-rialto = { path = "../../primitives/rialto" }
 codec = { package = "parity-scale-codec", version = "1.3.4" }
+futures = "0.3.5"
 headers-relay = { path = "../headers-relay" }
+log = "0.4.11"
+messages-relay = { path = "../messages-relay" }
+paste = "1.0"
+relay-millau-client = { path = "../millau-client" }
+relay-rialto-client = { path = "../rialto-client" }
 relay-substrate-client = { path = "../substrate-client" }
-relay-utils = { path = "../utils" }
-
-# Supported Chains
-
-millau-runtime = { path = "../../bin/millau-runtime" }
-
-# Substrate Dependencies
-
-frame-system = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
 sp-runtime = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+structopt = "0.3"

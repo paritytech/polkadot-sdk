@@ -89,6 +89,15 @@ pub struct SigningParams {
 	pub signer: sp_core::sr25519::Pair,
 }
 
+impl SigningParams {
+	/// Create signing params from SURI and password.
+	pub fn from_suri(suri: &str, password: Option<&str>) -> Result<Self, sp_core::crypto::SecretStringError> {
+		Ok(SigningParams {
+			signer: sp_core::sr25519::Pair::from_string(suri, password)?,
+		})
+	}
+}
+
 impl std::fmt::Debug for SigningParams {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.signer.public())
