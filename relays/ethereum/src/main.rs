@@ -434,3 +434,16 @@ fn parse_hex_argument(matches: &clap::ArgMatches, arg: &str) -> Result<Option<Ve
 		None => Ok(None),
 	}
 }
+
+#[cfg(test)]
+mod tests {
+
+	// Details: https://github.com/paritytech/parity-bridges-common/issues/118
+	#[test]
+	fn async_std_sleep_works() {
+		let mut local_pool = futures::executor::LocalPool::new();
+		local_pool.run_until(async move {
+			async_std::task::sleep(std::time::Duration::from_secs(1)).await;
+		});
+	}
+}
