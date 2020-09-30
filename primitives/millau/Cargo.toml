@@ -9,9 +9,9 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 
 # Substrate Based Dependencies
-sp-api = { version = "2.0.0", git = "https://github.com/paritytech/substrate.git", tag = 'v2.0.0', default-features = false }
-sp-core = { version = "2.0.0", git = "https://github.com/paritytech/substrate.git", tag = 'v2.0.0', default-features = false }
-sp-std = { version = "2.0.0", git = "https://github.com/paritytech/substrate.git", tag = 'v2.0.0', default-features = false }
+sp-api = { version = "2.0", default-features = false }
+sp-core = { version = "2.0", default-features = false }
+sp-std = { version = "2.0", default-features = false }
 
 [features]
 default = ["std"]

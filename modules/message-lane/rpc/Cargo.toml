@@ -7,50 +7,22 @@ edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-bp-runtime = { path = "../../../primitives/runtime" }
-bp-message-lane = { path = "../../../primitives/message-lane" }
 derive_more = "0.99.2"
 futures = { version = "0.3.5", features = ["compat"] }
 jsonrpc-core = "15.0.0"
 jsonrpc-core-client = "15.0.0"
 jsonrpc-derive = "15.0.0"
 
-# Substrate Based Dependencies
+# Bridge dependencies
 
-[dependencies.sc-client-api]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate/"
+bp-runtime = { path = "../../../primitives/runtime" }
+bp-message-lane = { path = "../../../primitives/message-lane" }
 
-[dependencies.sp-blockchain]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate/"
+# Substrate Dependencies
 
-[dependencies.sp-core]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-runtime]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-state-machine]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate/"
-
-[dependencies.sp-trie]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate/"
-
-[dev-dependencies]
-async-std = "1.6.5"
-
-[dev-dependencies.substrate-test-runtime-client]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate/"
+sc-client-api = "2.0"
+sp-blockchain = "2.0"
+sp-core = "2.0"
+sp-runtime = "2.0"
+sp-state-machine = "0.8"
+sp-trie = "2.0"

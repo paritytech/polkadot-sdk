@@ -9,146 +9,41 @@ repository = "https://github.com/paritytech/parity-bridges-common/"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-futures = "0.3.5"
 jsonrpc-core = "15.0.0"
-log = "0.4.11"
-pallet-message-lane-rpc = { version = "0.1.0", path = "../../modules/message-lane/rpc" }
 structopt = "0.3.17"
 
-[dependencies.millau-runtime]
-optional = true
-version = "0.1.0"
-path = "../millau-runtime"
-default-features = false
-features = ["std"]
+# Bridge dependencies
 
-[dependencies.rialto-runtime]
-optional = true
-version = "0.1.0"
-path = "../rialto-runtime"
-default-features = false
-features = ["std"]
+millau-runtime = { path = "../millau-runtime", optional = true }
+pallet-message-lane-rpc = { path = "../../modules/message-lane/rpc" }
+rialto-runtime = { path = "../rialto-runtime", optional = true }
 
-[dependencies.sc-cli]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
+# Substrate Dependencies
 
-[dependencies.sc-rpc]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sp-core]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-executor]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-service]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sp-inherents]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-transaction-pool]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sp-transaction-pool]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-network]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-consensus-aura]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sp-consensus-aura]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sp-consensus]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-finality-grandpa]
-package = "sc-finality-grandpa"
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.grandpa-primitives]
-package = "sp-finality-grandpa"
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-consensus]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-client-api]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sp-runtime]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.sc-basic-authorship]
-version = "0.8.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.substrate-frame-rpc-system]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.frame-benchmarking]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[dependencies.frame-benchmarking-cli]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
+frame-benchmarking = "2.0"
+frame-benchmarking-cli = "2.0"
+sc-basic-authorship = "0.8"
+sc-cli = "0.8"
+sc-client-api = "2.0"
+sc-consensus = "0.8"
+sc-consensus-aura = "0.8"
+sc-executor = "0.8"
+sc-finality-grandpa = "0.8"
+sc-service = "0.8"
+sc-rpc = "2.0"
+sc-transaction-pool = "2.0"
+sp-consensus = "0.8"
+sp-consensus-aura = "0.8"
+sp-core = "2.0"
+sp-inherents = "2.0"
+sp-finality-grandpa = "2.0"
+sp-runtime = "2.0"
+substrate-frame-rpc-system = "2.0"
 
 [build-dependencies]
+build-script-utils = { package = "substrate-build-script-utils", version = "2.0" }
+frame-benchmarking-cli = "2.0"
 vergen = "3.1.0"
-
-[build-dependencies.build-script-utils]
-package = "substrate-build-script-utils"
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
-
-[build-dependencies.frame-benchmarking-cli]
-version = "2.0.0"
-tag = 'v2.0.0'
-git = "https://github.com/paritytech/substrate.git"
 
 [features]
 default = []
