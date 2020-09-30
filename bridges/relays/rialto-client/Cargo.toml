@@ -11,14 +11,14 @@ headers-relay = { path = "../headers-relay" }
 relay-substrate-client = { path = "../substrate-client" }
 relay-utils = { path = "../utils" }
 
-# Supported Chains
+# Bridge dependencies
 
 rialto-runtime = { path = "../../bin/rialto-runtime" }
 
 # Substrate Dependencies
 
-frame-system = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
-pallet-transaction-payment = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
-sp-core = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
-sp-keyring = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
-sp-runtime = { version = "2.0.0", tag = 'v2.0.0', git = "https://github.com/paritytech/substrate.git" }
+frame-system = "2.0"
+pallet-transaction-payment = "2.0"
+sp-core = "2.0"
+sp-keyring = "2.0"
+sp-runtime = "2.0"
