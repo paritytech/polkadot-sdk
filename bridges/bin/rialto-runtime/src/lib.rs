@@ -70,7 +70,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 /// An index to a block.
-pub type BlockNumber = u32;
+pub type BlockNumber = bp_rialto::BlockNumber;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -90,7 +90,7 @@ pub type Balance = u128;
 pub type Index = u32;
 
 /// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
+pub type Hash = bp_rialto::Hash;
 
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
@@ -574,6 +574,23 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_millau::MillauHeaderApi<Block> for Runtime {
+		fn best_block() -> (bp_millau::BlockNumber, bp_millau::Hash) {
+			unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/368")
+		}
+
+		fn finalized_block() -> (bp_millau::BlockNumber, bp_millau::Hash) {
+			unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/368")
+		}
+
+		fn incomplete_headers() -> Vec<(bp_millau::BlockNumber, bp_millau::Hash)> {
+			unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/368")
+		}
+
+		fn is_known_block(_hash: bp_millau::Hash) -> bool {
+			unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/368")
+		}
+	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
