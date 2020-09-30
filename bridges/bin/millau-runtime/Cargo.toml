@@ -8,6 +8,7 @@ repository = "https://github.com/paritytech/parity-bridges-common/"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
+bp-millau = { path = "../../primitives/millau", default-features = false }
 hex-literal = "0.3"
 
 [dependencies.codec]
@@ -217,6 +218,7 @@ git = "https://github.com/paritytech/substrate/"
 default = ["std"]
 std = [
 	"bp-message-lane/std",
+	"bp-millau/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",

@@ -23,7 +23,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use headers_relay::{
 	sync::HeadersSyncParams,
-	sync_loop::{SourceClient, TargetClient},
+	sync_loop::TargetClient,
 	sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader, SubmittedHeaders},
 };
 use relay_ethereum_client::{
@@ -31,7 +31,9 @@ use relay_ethereum_client::{
 	SigningParams as EthereumSigningParams,
 };
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SyncHeader as RialtoSyncHeader};
-use relay_substrate_client::{Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams};
+use relay_substrate_client::{
+	headers_source::HeadersSource, Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams,
+};
 use relay_utils::metrics::MetricsParams;
 use sp_runtime::Justification;
 
@@ -93,61 +95,8 @@ impl HeadersSyncPipeline for SubstrateHeadersSyncPipeline {
 /// Queued substrate header ID.
 pub type QueuedRialtoHeader = QueuedHeader<SubstrateHeadersSyncPipeline>;
 
-/// Substrate client as headers source.
-struct SubstrateHeadersSource {
-	/// Substrate node client.
-	client: SubstrateClient<Rialto>,
-}
-
-impl SubstrateHeadersSource {
-	fn new(client: SubstrateClient<Rialto>) -> Self {
-		Self { client }
-	}
-}
-
-#[async_trait]
-impl SourceClient<SubstrateHeadersSyncPipeline> for SubstrateHeadersSource {
-	type Error = RpcError;
-
-	async fn best_block_number(&self) -> Result<rialto_runtime::BlockNumber, Self::Error> {
-		Ok(self.client.best_header().await?.number)
-	}
-
-	async fn header_by_hash(&self, hash: rialto_runtime::Hash) -> Result<RialtoSyncHeader, Self::Error> {
-		self.client
-			.header_by_hash(hash)
-			.await
-			.map(Into::into)
-			.map_err(Into::into)
-	}
-
-	async fn header_by_number(&self, number: rialto_runtime::BlockNumber) -> Result<RialtoSyncHeader, Self::Error> {
-		self.client
-			.header_by_number(number)
-			.await
-			.map(Into::into)
-			.map_err(Into::into)
-	}
-
-	async fn header_completion(
-		&self,
-		id: RialtoHeaderId,
-	) -> Result<(RialtoHeaderId, Option<Justification>), Self::Error> {
-		let hash = id.1;
-		let signed_block = self.client.get_block(Some(hash)).await?;
-		let grandpa_justification = signed_block.justification;
-
-		Ok((id, grandpa_justification))
-	}
-
-	async fn header_extra(
-		&self,
-		id: RialtoHeaderId,
-		_header: QueuedRialtoHeader,
-	) -> Result<(RialtoHeaderId, ()), Self::Error> {
-		Ok((id, ()))
-	}
-}
+/// Rialto node as headers source.
+type SubstrateHeadersSource = HeadersSource<Rialto, SubstrateHeadersSyncPipeline>;
 
 /// Ethereum client as Substrate headers target.
 struct EthereumHeadersTarget {
