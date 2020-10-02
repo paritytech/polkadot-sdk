@@ -276,13 +276,14 @@ pub fn run() -> Result<()> {
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
+				let collator = cli.run.base.validator || cli.collator;
 
 				info!("Parachain id: {:?}", id);
 				info!("Parachain Account: {}", parachain_account);
 				info!("Parachain genesis state: {}", genesis_state);
 				info!(
 					"Is collating: {}",
-					if cli.run.base.validator { "yes" } else { "no" }
+					if collator { "yes" } else { "no" }
 				);
 
 				if use_contracts_runtime(&config.chain_spec) {
@@ -291,7 +292,7 @@ pub fn run() -> Result<()> {
 						key,
 						polkadot_config,
 						id,
-						cli.run.base.validator,
+						collator,
 						false,
 					)
 				} else {
@@ -300,7 +301,7 @@ pub fn run() -> Result<()> {
 						key,
 						polkadot_config,
 						id,
-						cli.run.base.validator,
+						collator,
 						false,
 					)
 					.map(|r| r.0)

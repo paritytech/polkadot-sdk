@@ -93,6 +93,12 @@ pub struct Cli {
 	#[structopt(flatten)]
 	pub run: RunCmd,
 
+	/// Run node as collator.
+	///
+	/// Note that this is the same as running with `--validator`.
+	#[structopt(long, conflicts_with = "validator")]
+	pub collator: bool,
+
 	/// Relaychain arguments
 	#[structopt(raw = true)]
 	pub relaychain_args: Vec<String>,
