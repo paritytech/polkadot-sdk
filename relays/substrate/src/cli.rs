@@ -44,8 +44,10 @@ macro_rules! declare_chain_options {
 			#[derive(StructOpt)]
 			pub struct [<$chain ConnectionParams>] {
 				#[doc = "Connect to " $chain " node at given host."]
+				#[structopt(long)]
 				pub [<$chain_prefix _host>]: String,
 				#[doc = "Connect to " $chain " node at given port."]
+				#[structopt(long)]
 				pub [<$chain_prefix _port>]: u16,
 			}
 
@@ -53,8 +55,10 @@ macro_rules! declare_chain_options {
 			#[derive(StructOpt)]
 			pub struct [<$chain SigningParams>] {
 				#[doc = "The SURI of secret key to use when transactions are submitted to the " $chain " node."]
+				#[structopt(long)]
 				pub [<$chain_prefix _signer>]: String,
 				#[doc = "The password for the SURI of secret key to use when transactions are submitted to the " $chain " node."]
+				#[structopt(long)]
 				pub [<$chain_prefix _signer_password>]: Option<String>,
 			}
 		}
