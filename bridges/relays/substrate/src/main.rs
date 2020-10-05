@@ -20,6 +20,7 @@
 
 use relay_rialto_client::SigningParams as RialtoSigningParams;
 use relay_substrate_client::ConnectionParams;
+use relay_utils::initialize::initialize_relay;
 
 /// Millau node client.
 pub type MillauClient = relay_substrate_client::Client<relay_millau_client::Millau>;
@@ -30,6 +31,8 @@ mod cli;
 mod millau_headers_to_rialto;
 
 fn main() {
+	initialize_relay();
+
 	let result = async_std::task::block_on(run_command(cli::parse_args()));
 	if let Err(error) = result {
 		log::error!(target: "bridge", "Failed to start relay: {}", error);
@@ -58,7 +61,7 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 				rialto_sign.rialto_signer_password.as_deref(),
 			)
 			.map_err(|e| format!("Failed to parse rialto-signer: {:?}", e))?;
-			millau_headers_to_rialto::run(millau_client, rialto_client, rialto_sign)
+			millau_headers_to_rialto::run(millau_client, rialto_client, rialto_sign);
 		}
 	}
 
