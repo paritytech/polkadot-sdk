@@ -35,7 +35,7 @@ use headers_relay::sync::TargetTransactionMode;
 use hex_literal::hex;
 use instances::{BridgeInstance, Kovan, RialtoPoA};
 use parity_crypto::publickey::{KeyPair, Secret};
-use relay_utils::metrics::MetricsParams;
+use relay_utils::{initialize::initialize_relay, metrics::MetricsParams};
 use sp_core::crypto::Pair;
 use substrate_sync_loop::SubstrateSyncParams;
 
@@ -43,10 +43,10 @@ use headers_relay::sync::HeadersSyncParams;
 use relay_ethereum_client::{ConnectionParams as EthereumConnectionParams, SigningParams as EthereumSigningParams};
 use relay_rialto_client::SigningParams as RialtoSigningParams;
 use relay_substrate_client::ConnectionParams as SubstrateConnectionParams;
-use std::{io::Write, sync::Arc};
+use std::sync::Arc;
 
 fn main() {
-	initialize();
+	initialize_relay();
 
 	let yaml = clap::load_yaml!("cli.yml");
 	let matches = clap::App::from_yaml(yaml).get_matches();
@@ -116,43 +116,6 @@ fn main() {
 		}
 		_ => unreachable!("all possible subcommands are checked above; qed"),
 	}
-}
-
-fn initialize() {
-	let mut builder = env_logger::Builder::new();
-
-	let filters = match std::env::var("RUST_LOG") {
-		Ok(env_filters) => format!("bridge=info,{}", env_filters),
-		Err(_) => "bridge=info".into(),
-	};
-
-	builder.parse_filters(&filters);
-	builder.format(move |buf, record| {
-		writeln!(buf, "{}", {
-			let timestamp = time::OffsetDateTime::now_local().format("%Y-%m-%d %H:%M:%S %z");
-			if cfg!(windows) {
-				format!("{} {} {} {}", timestamp, record.level(), record.target(), record.args())
-			} else {
-				use ansi_term::Colour as Color;
-				let log_level = match record.level() {
-					log::Level::Error => Color::Fixed(9).bold().paint(record.level().to_string()),
-					log::Level::Warn => Color::Fixed(11).bold().paint(record.level().to_string()),
-					log::Level::Info => Color::Fixed(10).paint(record.level().to_string()),
-					log::Level::Debug => Color::Fixed(14).paint(record.level().to_string()),
-					log::Level::Trace => Color::Fixed(12).paint(record.level().to_string()),
-				};
-				format!(
-					"{} {} {} {}",
-					Color::Fixed(8).bold().paint(timestamp),
-					log_level,
-					Color::Fixed(8).paint(record.target()),
-					record.args()
-				)
-			}
-		})
-	});
-
-	builder.init();
 }
 
 fn ethereum_connection_params(matches: &clap::ArgMatches) -> Result<EthereumConnectionParams, String> {
