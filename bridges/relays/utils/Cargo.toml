@@ -6,11 +6,14 @@ edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
+ansi_term = "0.12"
 async-std = "1.6.5"
 backoff = "0.2"
+env_logger = "0.7.0"
 futures = "0.3.5"
 log = "0.4.11"
 sysinfo = "0.15"
+time = "0.2"
 
 # Substrate dependencies
 

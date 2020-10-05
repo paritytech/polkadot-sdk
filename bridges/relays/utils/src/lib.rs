@@ -27,6 +27,7 @@ pub const MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(60);
 /// reconnection again.
 pub const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
 
+pub mod initialize;
 pub mod metrics;
 
 /// Macro that returns (client, Err(error)) tuple from function if result is Err(error).
