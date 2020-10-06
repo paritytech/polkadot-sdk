@@ -1,0 +1,52 @@
+[package]
+name = "rialto-bridge-node"
+description = "Substrate node compatible with Rialto runtime"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+build = "build.rs"
+homepage = "https://substrate.dev"
+repository = "https://github.com/paritytech/parity-bridges-common/"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+jsonrpc-core = "15.0.0"
+structopt = "0.3.17"
+
+# Bridge dependencies
+
+pallet-message-lane-rpc = { path = "../../../modules/message-lane/rpc" }
+rialto-runtime = { path = "../runtime" }
+
+# Substrate Dependencies
+
+frame-benchmarking = "2.0"
+frame-benchmarking-cli = "2.0"
+sc-basic-authorship = "0.8"
+sc-cli = "0.8"
+sc-client-api = "2.0"
+sc-consensus = "0.8"
+sc-consensus-aura = "0.8"
+sc-executor = "0.8"
+sc-finality-grandpa = "0.8"
+sc-service = "0.8"
+sc-rpc = "2.0"
+sc-transaction-pool = "2.0"
+sp-consensus = "0.8"
+sp-consensus-aura = "0.8"
+sp-core = "2.0"
+sp-inherents = "2.0"
+sp-finality-grandpa = "2.0"
+sp-runtime = "2.0"
+substrate-frame-rpc-system = "2.0"
+
+[build-dependencies]
+build-script-utils = { package = "substrate-build-script-utils", version = "2.0" }
+frame-benchmarking-cli = "2.0"
+vergen = "3.1.0"
+
+[features]
+default = []
+runtime-benchmarks = [
+	"rialto-runtime/runtime-benchmarks",
+]

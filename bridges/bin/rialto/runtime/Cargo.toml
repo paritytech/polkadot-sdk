@@ -15,17 +15,17 @@ serde = { version = "1.0.115", optional = true, features = ["derive"] }
 
 # Bridge dependencies
 
-bp-currency-exchange = { path = "../../primitives/currency-exchange", default-features = false }
-bp-eth-poa = { path = "../../primitives/ethereum-poa", default-features = false }
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false }
-bp-message-lane = { path = "../../primitives/message-lane", default-features = false }
-bp-millau = { path = "../../primitives/millau", default-features = false }
-bp-rialto = { path = "../../primitives/rialto", default-features = false }
-pallet-bridge-eth-poa = { path = "../../modules/ethereum", default-features = false }
-pallet-bridge-call-dispatch = { path = "../../modules/call-dispatch", default-features = false }
-pallet-bridge-currency-exchange = { path = "../../modules/currency-exchange", default-features = false }
-pallet-message-lane = { path = "../../modules/message-lane", default-features = false }
-pallet-shift-session-manager = { path = "../../modules/shift-session-manager", default-features = false }
+bp-currency-exchange = { path = "../../../primitives/currency-exchange", default-features = false }
+bp-eth-poa = { path = "../../../primitives/ethereum-poa", default-features = false }
+bp-header-chain = { path = "../../../primitives/header-chain", default-features = false }
+bp-message-lane = { path = "../../../primitives/message-lane", default-features = false }
+bp-millau = { path = "../../../primitives/millau", default-features = false }
+bp-rialto = { path = "../../../primitives/rialto", default-features = false }
+pallet-bridge-eth-poa = { path = "../../../modules/ethereum", default-features = false }
+pallet-bridge-call-dispatch = { path = "../../../modules/call-dispatch", default-features = false }
+pallet-bridge-currency-exchange = { path = "../../../modules/currency-exchange", default-features = false }
+pallet-message-lane = { path = "../../../modules/message-lane", default-features = false }
+pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
 
 # Substrate Dependencies
 
