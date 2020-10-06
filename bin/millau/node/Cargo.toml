@@ -1,5 +1,6 @@
 [package]
-name = "bridge-node"
+name = "millau-bridge-node"
+description = "Substrate node compatible with Millau runtime"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -14,9 +15,7 @@ structopt = "0.3.17"
 
 # Bridge dependencies
 
-millau-runtime = { path = "../millau-runtime", optional = true }
-pallet-message-lane-rpc = { path = "../../modules/message-lane/rpc" }
-rialto-runtime = { path = "../rialto-runtime", optional = true }
+millau-runtime = { path = "../runtime" }
 
 # Substrate Dependencies
 
@@ -47,12 +46,9 @@ vergen = "3.1.0"
 
 [features]
 default = []
-millau = [
-	"millau-runtime",
-]
-rialto = [
-	"rialto-runtime",
-]
+
+# TODO: https://github.com/paritytech/parity-bridges-common/issues/390
+# I've left the feature flag here to test our CI configuration
 runtime-benchmarks = [
-	"rialto-runtime/runtime-benchmarks",
+	# "millau-runtime/runtime-benchmarks",
 ]

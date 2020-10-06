@@ -36,7 +36,7 @@ relay-ethereum-client = { path = "../ethereum-client" }
 relay-rialto-client = { path = "../rialto-client" }
 relay-substrate-client = { path = "../substrate-client" }
 relay-utils = { path = "../utils" }
-rialto-runtime = { path = "../../bin/rialto-runtime" }
+rialto-runtime = { path = "../../bin/rialto/runtime" }
 
 # Substrate Dependencies
 
