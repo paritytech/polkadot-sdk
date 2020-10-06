@@ -106,13 +106,14 @@ where
 	/// Will perform some basic checks to make sure that this header doesn't break any assumptions
 	/// such as being on a different finalized fork.
 	pub fn import_header(&mut self, header: H) -> Result<(), ImportError> {
+		let hash = header.hash();
 		let best_finalized = self.storage.best_finalized_header();
 
 		if header.number() <= best_finalized.number() {
 			return Err(ImportError::OldHeader);
 		}
 
-		if self.storage.header_exists(header.hash()) {
+		if self.storage.header_exists(hash) {
 			return Err(ImportError::HeaderAlreadyExists);
 		}
 
@@ -176,12 +177,19 @@ where
 			}
 		};
 
-		let is_finalized = false;
 		self.storage.write_header(&ImportedHeader {
 			header,
 			requires_justification,
-			is_finalized,
+			is_finalized: false,
 		});
+
+		if requires_justification {
+			self.storage.update_unfinalized_header(Some(hash));
+		}
+
+		// Since we're not dealing with forks at the moment we know that
+		// the header we just got will be the one at the best height
+		self.storage.update_best_header(hash);
 
 		Ok(())
 	}
@@ -205,8 +213,8 @@ where
 
 		let current_authority_set = self.storage.current_authority_set();
 		let voter_set = VoterSet::new(current_authority_set.authorities).expect(
-			"This only fails if we have an invalid list of authorities. Since we
-			got this from storage it should always be valid, otherwise we have a bug.",
+			"We verified the correctness of the authority list during header import,
+			before writing them to storage. This must always be valid.",
 		);
 		verify_justification::<H>(
 			(hash, *header.number()),
@@ -255,6 +263,9 @@ where
 			let _ = self.storage.enact_authority_set().expect(
 				"Headers must only be marked as `requires_justification` if there's a scheduled change in storage.",
 			);
+
+			// Clear the storage entry since we got a justification
+			self.storage.update_unfinalized_header(None);
 		}
 
 		for header in finalized_headers.iter_mut() {
@@ -442,9 +453,11 @@ mod tests {
 			};
 			assert_ok!(verifier.import_header(header.clone()));
 
-			let stored_header = storage.header_by_hash(header.hash());
-			assert!(stored_header.is_some());
-			assert_eq!(stored_header.unwrap().is_finalized, false);
+			let stored_header = storage
+				.header_by_hash(header.hash())
+				.expect("Should have been imported successfully");
+			assert_eq!(stored_header.is_finalized, false);
+			assert_eq!(stored_header, storage.best_header());
 		})
 	}
 
@@ -648,11 +661,14 @@ mod tests {
 			};
 
 			assert_ok!(verifier.import_header(header.clone()));
+			assert_eq!(storage.unfinalized_header(), Some(header.hash()));
+
 			assert_ok!(verifier.import_finality_proof(header.hash(), justification.into()));
 			assert_eq!(storage.best_finalized_header().header, header);
 
 			// Make sure that we have updated the set now that we've finalized our header
 			assert_eq!(storage.current_authority_set(), change.authority_set);
+			assert_eq!(storage.unfinalized_header(), None);
 		})
 	}
 
