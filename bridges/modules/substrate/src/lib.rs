@@ -109,8 +109,15 @@ pub trait Trait: frame_system::Trait {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SubstrateBridge {
+		/// Hash of the header at the highest known height.
+		BestHeader: T::BridgedBlockHash;
 		/// Hash of the best finalized header.
 		BestFinalized: T::BridgedBlockHash;
+		/// A header which enacts an authority set change and therefore
+		/// requires a Grandpa justification.
+		// Since we won't always have an authority set change scheduled we
+		// won't always have a header which needs a justification.
+		RequiresJustification: Option<T::BridgedBlockHash>;
 		/// Headers which have been imported into the pallet.
 		ImportedHeaders: map hasher(identity) T::BridgedBlockHash => Option<ImportedHeader<T::BridgedHeader>>;
 		/// The current Grandpa Authority set.
@@ -136,6 +143,7 @@ decl_storage! {
 				.clone()
 				.expect("An initial header is needed");
 
+			<BestHeader<T>>::put(initial_header.hash());
 			<BestFinalized<T>>::put(initial_header.hash());
 			<ImportedHeaders<T>>::insert(
 				initial_header.hash(),
@@ -223,6 +231,58 @@ decl_module! {
 	}
 }
 
+impl<T: Trait> Module<T> {
+	/// Get the highest header that the pallet knows of.
+	// In a future where we support forks this could be a Vec of headers
+	// since we may have multiple headers at the same height.
+	pub fn best_header() -> T::BridgedHeader {
+		PalletStorage::<T>::new().best_header().header
+	}
+
+	/// Get the best finalized header the pallet knows of.
+	///
+	/// Since this has been finalized correctly a user of the bridge
+	/// pallet should be confident that any transactions that were
+	/// included in this or any previous header will not be reverted.
+	pub fn best_finalized() -> T::BridgedHeader {
+		PalletStorage::<T>::new().best_finalized_header().header
+	}
+
+	/// Check if a particular header is known to the bridge pallet.
+	pub fn is_known_header(hash: T::BridgedBlockHash) -> bool {
+		PalletStorage::<T>::new().header_exists(hash)
+	}
+
+	/// Check if a particular header is finalized.
+	///
+	/// Will return false if the header is not known to the pallet.
+	// One thing worth noting here is that this approach won't work well
+	// once we track forks since there could be an older header on a
+	// different fork which isn't an ancestor of our best finalized header.
+	pub fn is_finalized_header(hash: T::BridgedBlockHash) -> bool {
+		let storage = PalletStorage::<T>::new();
+		if let Some(header) = storage.header_by_hash(hash) {
+			header.number() <= storage.best_finalized_header().number()
+		} else {
+			false
+		}
+	}
+
+	/// Return the latest header which enacts an authority set change
+	/// and still needs a finality proof.
+	///
+	/// Will return None if there are no headers which are missing finality proofs.
+	pub fn requires_justification() -> Option<T::BridgedHeader> {
+		let storage = PalletStorage::<T>::new();
+		let hash = storage.unfinalized_header()?;
+		let imported_header = storage.header_by_hash(hash).expect(
+			"We write a header to storage before marking it as unfinalized, therefore
+			this must always exist if we got an unfinalized header hash.",
+		);
+		Some(imported_header.header)
+	}
+}
+
 /// Expected interface for interacting with bridge pallet storage.
 // TODO: This should be split into its own less-Substrate-dependent crate
 pub trait BridgeStorage {
@@ -232,6 +292,12 @@ pub trait BridgeStorage {
 	/// Write a header to storage.
 	fn write_header(&mut self, header: &ImportedHeader<Self::Header>);
 
+	/// Get the header at the highest known height.
+	fn best_header(&self) -> ImportedHeader<Self::Header>;
+
+	/// Update the header at the highest height.
+	fn update_best_header(&mut self, hash: <Self::Header as HeaderT>::Hash);
+
 	/// Get the best finalized header the pallet knows of.
 	fn best_finalized_header(&self) -> ImportedHeader<Self::Header>;
 
@@ -240,6 +306,15 @@ pub trait BridgeStorage {
 
 	/// Check if a particular header is known to the pallet.
 	fn header_exists(&self, hash: <Self::Header as HeaderT>::Hash) -> bool;
+
+	/// Return a header which requires a justification. A header will require
+	/// a justification when it enacts an new authority set.
+	fn unfinalized_header(&self) -> Option<<Self::Header as HeaderT>::Hash>;
+
+	/// Mark a header as eventually requiring a justification.
+	///
+	/// If None is passed the storage item is cleared.
+	fn update_unfinalized_header(&mut self, hash: Option<<Self::Header as HeaderT>::Hash>);
 
 	/// Get a specific header by its hash.
 	///
@@ -284,6 +359,16 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 		<ImportedHeaders<T>>::insert(hash, header);
 	}
 
+	fn best_header(&self) -> ImportedHeader<Self::Header> {
+		let hash = <BestHeader<T>>::get();
+		self.header_by_hash(hash)
+			.expect("A header must have been written at genesis, therefore this must always exist")
+	}
+
+	fn update_best_header(&mut self, hash: T::BridgedBlockHash) {
+		<BestHeader<T>>::put(hash)
+	}
+
 	fn best_finalized_header(&self) -> ImportedHeader<T::BridgedHeader> {
 		let hash = <BestFinalized<T>>::get();
 		self.header_by_hash(hash)
@@ -300,6 +385,18 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 
 	fn header_by_hash(&self, hash: T::BridgedBlockHash) -> Option<ImportedHeader<T::BridgedHeader>> {
 		<ImportedHeaders<T>>::get(hash)
+	}
+
+	fn unfinalized_header(&self) -> Option<T::BridgedBlockHash> {
+		<RequiresJustification<T>>::get()
+	}
+
+	fn update_unfinalized_header(&mut self, hash: Option<<Self::Header as HeaderT>::Hash>) {
+		if let Some(hash) = hash {
+			<RequiresJustification<T>>::put(hash);
+		} else {
+			<RequiresJustification<T>>::kill();
+		}
 	}
 
 	fn current_authority_set(&self) -> AuthoritySet {
