@@ -30,10 +30,16 @@
 use crate::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use crate::message_race_delivery::run as run_message_delivery_race;
 use crate::message_race_receiving::run as run_message_receiving_race;
+use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
+use bp_message_lane::LaneId;
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
-use relay_utils::{interval, process_future_result, retry_backoff, FailedClient, MaybeConnectionError};
+use relay_utils::{
+	interval,
+	metrics::{start as metrics_start, GlobalMetrics, MetricsParams},
+	process_future_result, retry_backoff, FailedClient, MaybeConnectionError,
+};
 use std::{fmt::Debug, future::Future, ops::RangeInclusive, time::Duration};
 
 /// Source client trait.
@@ -132,19 +138,37 @@ pub struct ClientsState<P: MessageLane> {
 }
 
 /// Run message lane service loop.
+#[allow(clippy::too_many_arguments)]
 pub fn run<P: MessageLane>(
+	lane: LaneId,
 	mut source_client: impl SourceClient<P>,
 	source_tick: Duration,
 	mut target_client: impl TargetClient<P>,
 	target_tick: Duration,
 	reconnect_delay: Duration,
 	stall_timeout: Duration,
+	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
 ) {
 	let mut local_pool = futures::executor::LocalPool::new();
 	let exit_signal = exit_signal.shared();
 
 	local_pool.run_until(async move {
+		let mut metrics_global = GlobalMetrics::default();
+		let metrics_msg = MessageLaneLoopMetrics::default();
+		let metrics_enabled = metrics_params.is_some();
+		metrics_start(
+			format!(
+				"{}_to_{}_MessageLoop/{}",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				hex::encode(lane)
+			),
+			metrics_params,
+			&metrics_global,
+			&metrics_msg,
+		);
+
 		loop {
 			let result = run_until_connection_lost(
 				source_client.clone(),
@@ -152,6 +176,16 @@ pub fn run<P: MessageLane>(
 				target_client.clone(),
 				target_tick,
 				stall_timeout,
+				if metrics_enabled {
+					Some(&mut metrics_global)
+				} else {
+					None
+				},
+				if metrics_enabled {
+					Some(metrics_msg.clone())
+				} else {
+					None
+				},
 				exit_signal.clone(),
 			)
 			.await;
@@ -180,12 +214,15 @@ pub fn run<P: MessageLane>(
 }
 
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit signal is received.
+#[allow(clippy::too_many_arguments)]
 async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: TargetClient<P>>(
 	source_client: SC,
 	source_tick: Duration,
 	target_client: TC,
 	target_tick: Duration,
 	stall_timeout: Duration,
+	mut metrics_global: Option<&mut GlobalMetrics>,
+	metrics_msg: Option<MessageLaneLoopMetrics>,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), FailedClient> {
 	let mut source_retry_backoff = retry_backoff();
@@ -212,6 +249,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		target_client.clone(),
 		delivery_target_state_receiver,
 		stall_timeout,
+		metrics_msg.clone(),
 	)
 	.fuse();
 
@@ -225,6 +263,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		target_client.clone(),
 		receiving_target_state_receiver,
 		stall_timeout,
+		metrics_msg.clone(),
 	)
 	.fuse();
 
@@ -259,6 +298,10 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						);
 						let _ = delivery_source_state_sender.unbounded_send(new_source_state.clone());
 						let _ = receiving_source_state_sender.unbounded_send(new_source_state.clone());
+
+						if let Some(metrics_msg) = metrics_msg.as_ref() {
+							metrics_msg.update_source_state::<P>(new_source_state);
+						}
 					},
 					&mut source_go_offline_future,
 					|delay| async_std::task::sleep(delay),
@@ -286,6 +329,10 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						);
 						let _ = delivery_target_state_sender.unbounded_send(new_target_state.clone());
 						let _ = receiving_target_state_sender.unbounded_send(new_target_state.clone());
+
+						if let Some(metrics_msg) = metrics_msg.as_ref() {
+							metrics_msg.update_target_state::<P>(new_target_state);
+						}
 					},
 					&mut target_go_offline_future,
 					|delay| async_std::task::sleep(delay),
@@ -315,6 +362,10 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 			() = exit_signal => {
 				return Ok(());
 			}
+		}
+
+		if let Some(metrics_global) = metrics_global.as_mut() {
+			metrics_global.update();
 		}
 
 		if source_client_is_online && source_state_required {
@@ -562,12 +613,14 @@ pub(crate) mod tests {
 				tick: target_tick,
 			};
 			run(
+				[0, 0, 0, 0],
 				source_client,
 				Duration::from_millis(100),
 				target_client,
 				Duration::from_millis(100),
 				Duration::from_millis(0),
 				Duration::from_secs(60),
+				None,
 				exit_signal,
 			);
 
