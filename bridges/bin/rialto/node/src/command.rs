@@ -14,22 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
-// This file is part of Parity Bridges Common.
-
-// Parity Bridges Common is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Parity Bridges Common is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
-
 use crate::cli::{Cli, Subcommand};
 use crate::service;
 use crate::service::new_partial;
@@ -39,7 +23,7 @@ use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Bridge Node".into()
+		"Rialto Bridge Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -47,7 +31,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn description() -> String {
-		"Bridge Node".into()
+		"Rialto Bridge Node".into()
 	}
 
 	fn author() -> String {
@@ -63,7 +47,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn executable_name() -> String {
-		"bridge-node".into()
+		"rialto-bridge-node".into()
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
