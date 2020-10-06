@@ -19,6 +19,7 @@ use crate::message_lane_loop::{
 	TargetClientState,
 };
 use crate::message_race_loop::{MessageRace, RaceState, RaceStrategy, SourceClient, TargetClient};
+use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
 use futures::stream::FusedStream;
@@ -36,15 +37,18 @@ pub async fn run<P: MessageLane>(
 	target_client: impl MessageLaneTargetClient<P>,
 	target_state_updates: impl FusedStream<Item = TargetClientState<P>>,
 	stall_timeout: Duration,
+	metrics_msg: Option<MessageLaneLoopMetrics>,
 ) -> Result<(), FailedClient> {
 	crate::message_race_loop::run(
 		MessageDeliveryRaceSource {
 			client: source_client,
+			metrics_msg: metrics_msg.clone(),
 			_phantom: Default::default(),
 		},
 		source_state_updates,
 		MessageDeliveryRaceTarget {
 			client: target_client,
+			metrics_msg,
 			_phantom: Default::default(),
 		},
 		target_state_updates,
@@ -76,6 +80,7 @@ impl<P: MessageLane> MessageRace for MessageDeliveryRace<P> {
 /// Message delivery race source, which is a source of the lane.
 struct MessageDeliveryRaceSource<P: MessageLane, C> {
 	client: C,
+	metrics_msg: Option<MessageLaneLoopMetrics>,
 	_phantom: PhantomData<P>,
 }
 
@@ -91,7 +96,13 @@ where
 		&self,
 		at_block: SourceHeaderIdOf<P>,
 	) -> Result<(SourceHeaderIdOf<P>, P::MessageNonce), Self::Error> {
-		self.client.latest_generated_nonce(at_block).await
+		let result = self.client.latest_generated_nonce(at_block).await;
+		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
+			if let Ok((_, source_latest_generated_nonce)) = result.as_ref() {
+				metrics_msg.update_target_latest_received_nonce::<P>(*source_latest_generated_nonce);
+			}
+		}
+		result
 	}
 
 	async fn generate_proof(
@@ -106,6 +117,7 @@ where
 /// Message delivery race target, which is a target of the lane.
 struct MessageDeliveryRaceTarget<P: MessageLane, C> {
 	client: C,
+	metrics_msg: Option<MessageLaneLoopMetrics>,
 	_phantom: PhantomData<P>,
 }
 
@@ -121,7 +133,13 @@ where
 		&self,
 		at_block: TargetHeaderIdOf<P>,
 	) -> Result<(TargetHeaderIdOf<P>, P::MessageNonce), Self::Error> {
-		self.client.latest_received_nonce(at_block).await
+		let result = self.client.latest_received_nonce(at_block).await;
+		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
+			if let Ok((_, target_latest_received_nonce)) = result.as_ref() {
+				metrics_msg.update_target_latest_received_nonce::<P>(*target_latest_received_nonce);
+			}
+		}
+		result
 	}
 
 	async fn submit_proof(

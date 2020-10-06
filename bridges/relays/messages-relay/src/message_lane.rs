@@ -37,6 +37,7 @@ pub trait MessageLane {
 		+ Debug
 		+ Default
 		+ From<u32>
+		+ Into<u64>
 		+ Ord
 		+ std::ops::Add<Output = Self::MessageNonce>
 		+ One
@@ -48,12 +49,12 @@ pub trait MessageLane {
 	type MessagesReceivingProof: Clone;
 
 	/// Number of the source header.
-	type SourceHeaderNumber: Clone + Debug + Default + Ord + PartialEq;
+	type SourceHeaderNumber: Clone + Debug + Default + Ord + PartialEq + Into<u64>;
 	/// Hash of the source header.
 	type SourceHeaderHash: Clone + Debug + Default + PartialEq;
 
 	/// Number of the target header.
-	type TargetHeaderNumber: Clone + Debug + Default + Ord + PartialEq;
+	type TargetHeaderNumber: Clone + Debug + Default + Ord + PartialEq + Into<u64>;
 	/// Hash of the target header.
 	type TargetHeaderHash: Clone + Debug + Default + PartialEq;
 }
