@@ -24,6 +24,7 @@ bp-rialto = { path = "../../../primitives/rialto", default-features = false }
 pallet-bridge-eth-poa = { path = "../../../modules/ethereum", default-features = false }
 pallet-bridge-call-dispatch = { path = "../../../modules/call-dispatch", default-features = false }
 pallet-bridge-currency-exchange = { path = "../../../modules/currency-exchange", default-features = false }
+pallet-substrate-bridge = { path = "../../../modules/substrate", default-features = false }
 pallet-message-lane = { path = "../../../modules/message-lane", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
 
@@ -68,8 +69,8 @@ std = [
 	"bp-eth-poa/std",
 	"bp-header-chain/std",
 	"bp-message-lane/std",
-	"bp-millau/std",
 	"bp-rialto/std",
+	"bp-millau/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
@@ -85,6 +86,7 @@ std = [
 	"pallet-message-lane/std",
 	"pallet-randomness-collective-flip/std",
 	"pallet-shift-session-manager/std",
+	"pallet-substrate-bridge/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",

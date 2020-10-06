@@ -54,6 +54,7 @@ pub use frame_support::{
 };
 
 pub use pallet_balances::Call as BalancesCall;
+pub use pallet_substrate_bridge::Call as BridgeSubstrateCall;
 pub use pallet_timestamp::Call as TimestampCall;
 
 #[cfg(any(feature = "std", test))]
@@ -216,7 +217,6 @@ impl frame_system::Trait for Runtime {
 impl pallet_aura::Trait for Runtime {
 	type AuthorityId = AuraId;
 }
-
 impl pallet_bridge_call_dispatch::Trait for Runtime {
 	type Event = Event;
 	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
@@ -308,6 +308,13 @@ impl pallet_session::Trait for Runtime {
 	type WeightInfo = ();
 }
 
+impl pallet_substrate_bridge::Trait for Runtime {
+	type BridgedHeader = bp_rialto::Header;
+	type BridgedBlockNumber = bp_rialto::BlockNumber;
+	type BridgedBlockHash = bp_rialto::Hash;
+	type BridgedBlockHasher = bp_rialto::Hasher;
+}
+
 impl pallet_shift_session_manager::Trait for Runtime {}
 
 construct_runtime!(
@@ -316,6 +323,7 @@ construct_runtime!(
 		NodeBlock = opaque::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
+		BridgeRialto: pallet_substrate_bridge::{Module, Call, Storage},
 		BridgeCallDispatch: pallet_bridge_call_dispatch::{Module, Event<T>},
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
@@ -477,6 +485,36 @@ impl_runtime_apis! {
 			// defined our key owner proof type as a bottom type (i.e. a type
 			// with no values).
 			None
+		}
+	}
+
+	impl bp_rialto::RialtoHeaderApi<Block> for Runtime {
+		fn best_block() -> (bp_rialto::BlockNumber, bp_rialto::Hash) {
+			let header = BridgeRialto::best_header();
+			(header.number, header.hash())
+		}
+
+		fn finalized_block() -> (bp_rialto::BlockNumber, bp_rialto::Hash) {
+			let header = BridgeRialto::best_finalized();
+			(header.number, header.hash())
+		}
+
+		fn incomplete_headers() -> Vec<(bp_rialto::BlockNumber, bp_rialto::Hash)> {
+			// Since the pallet doesn't accept multiple scheduled changes right now
+			// we can only have one header requiring a justification at any time.
+			if let Some(header) = BridgeRialto::requires_justification() {
+				vec![(header.number, header.hash())]
+			} else {
+				vec![]
+			}
+		}
+
+		fn is_known_block(hash: bp_rialto::Hash) -> bool {
+			BridgeRialto::is_known_header(hash)
+		}
+
+		fn is_finalized_block(hash: bp_rialto::Hash) -> bool {
+			BridgeRialto::is_finalized_header(hash)
 		}
 	}
 }
