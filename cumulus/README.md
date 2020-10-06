@@ -32,7 +32,7 @@ validation capabilities and proof-generation routines.
 
 ## Collator
 
-A Polkadot [collator](https://wiki.polkadot.network/docs/en/maintain-collator) for the parachain is
+A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for the parachain is
 implemented by [`cumulus-collator`](collator).
 
 # Rococo :crown:
