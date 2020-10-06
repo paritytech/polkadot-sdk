@@ -18,7 +18,13 @@
 
 #![warn(missing_docs)]
 
-/// Run node.
-fn main() -> bridge_node::Result {
-	bridge_node::run()
+mod chain_spec;
+#[macro_use]
+mod service;
+mod cli;
+mod command;
+
+/// Run the Rialto Node
+fn main() -> sc_cli::Result<()> {
+	command::run()
 }

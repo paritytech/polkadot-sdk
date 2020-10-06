@@ -15,7 +15,7 @@ log = "0.4.11"
 
 # Runtime/chain specific dependencies
 
-rialto-runtime = { path = "../../../bin/rialto-runtime" }
+rialto-runtime = { path = "../../../bin/rialto/runtime" }
 
 # Substrate Dependencies
 
