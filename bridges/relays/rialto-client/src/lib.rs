@@ -18,7 +18,7 @@
 
 use codec::Encode;
 use headers_relay::sync_types::SourceHeader;
-use relay_substrate_client::{Chain, Client, TransactionSignScheme};
+use relay_substrate_client::{Chain, ChainBase, Client, TransactionSignScheme};
 use sp_core::Pair;
 use sp_runtime::{
 	generic::SignedPayload,
@@ -32,10 +32,14 @@ pub type HeaderId = relay_utils::HeaderId<rialto_runtime::Hash, rialto_runtime::
 #[derive(Debug, Clone, Copy)]
 pub struct Rialto;
 
-impl Chain for Rialto {
+impl ChainBase for Rialto {
 	type BlockNumber = rialto_runtime::BlockNumber;
 	type Hash = rialto_runtime::Hash;
+	type Hasher = rialto_runtime::Hashing;
 	type Header = rialto_runtime::Header;
+}
+
+impl Chain for Rialto {
 	type AccountId = rialto_runtime::AccountId;
 	type Index = rialto_runtime::Index;
 	type SignedBlock = rialto_runtime::SignedBlock;

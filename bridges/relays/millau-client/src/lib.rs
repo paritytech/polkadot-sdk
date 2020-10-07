@@ -16,7 +16,7 @@
 
 //! Types used to connect to the Millau-Substrate chain.
 
-use relay_substrate_client::Chain;
+use relay_substrate_client::{Chain, ChainBase};
 
 use headers_relay::sync_types::SourceHeader;
 use sp_runtime::traits::Header as HeaderT;
@@ -28,10 +28,14 @@ pub type HeaderId = relay_utils::HeaderId<millau_runtime::Hash, millau_runtime::
 #[derive(Debug, Clone, Copy)]
 pub struct Millau;
 
-impl Chain for Millau {
+impl ChainBase for Millau {
 	type BlockNumber = millau_runtime::BlockNumber;
 	type Hash = millau_runtime::Hash;
+	type Hasher = millau_runtime::Hashing;
 	type Header = millau_runtime::Header;
+}
+
+impl Chain for Millau {
 	type AccountId = millau_runtime::AccountId;
 	type Index = millau_runtime::Index;
 	type SignedBlock = millau_runtime::SignedBlock;
