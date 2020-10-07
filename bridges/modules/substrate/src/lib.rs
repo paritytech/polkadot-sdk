@@ -32,18 +32,11 @@
 #![allow(clippy::large_enum_variant)]
 
 use crate::storage::{AuthoritySet, ImportedHeader, ScheduledChange};
-use codec::{Codec, EncodeLike};
-use frame_support::{
-	decl_error, decl_module, decl_storage,
-	dispatch::{DispatchResult, Parameter},
-};
+use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderOf};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::ensure_signed;
-use num_traits::AsPrimitive;
-use sp_runtime::traits::{
-	AtLeast32BitUnsigned, Hash as HashT, Header as HeaderT, MaybeDisplay, MaybeMallocSizeOf, MaybeSerializeDeserialize,
-	Member, SimpleBitOps,
-};
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*, str::FromStr};
+use sp_runtime::traits::Header as HeaderT;
+use sp_std::{marker::PhantomData, prelude::*};
 
 mod justification;
 mod storage;
@@ -54,84 +47,42 @@ mod verifier;
 mod mock;
 
 pub trait Trait: frame_system::Trait {
-	/// A type that fulfills the abstract idea of what a Substrate header is.
-	// See here for more info:
-	// https://crates.parity.io/sp_runtime/traits/trait.Header.html
-	type BridgedHeader: Parameter + HeaderT<Number = Self::BridgedBlockNumber, Hash = Self::BridgedBlockHash>;
-
-	/// A type that fulfills the abstract idea of what a Substrate block number is.
-	// Constraits come from the associated Number type of `sp_runtime::traits::Header`
-	// See here for more info:
-	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Number
-	//
-	// Note that the `AsPrimitive<usize>` trait is required by the Grandpa justification
-	// verifier, and is not usually part of a Substrate Header's Number type.
-	type BridgedBlockNumber: Parameter
-		+ Member
-		+ MaybeSerializeDeserialize
-		+ Debug
-		+ sp_std::hash::Hash
-		+ Copy
-		+ MaybeDisplay
-		+ AtLeast32BitUnsigned
-		+ Codec
-		+ FromStr
-		+ MaybeMallocSizeOf
-		+ AsPrimitive<usize>;
-
-	/// A type that fulfills the abstract idea of what a Substrate hash is.
-	// Constraits come from the associated Hash type of `sp_runtime::traits::Header`
-	// See here for more info:
-	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Hash
-	type BridgedBlockHash: Parameter
-		+ Member
-		+ MaybeSerializeDeserialize
-		+ Debug
-		+ sp_std::hash::Hash
-		+ Ord
-		+ Copy
-		+ MaybeDisplay
-		+ Default
-		+ SimpleBitOps
-		+ Codec
-		+ AsRef<[u8]>
-		+ AsMut<[u8]>
-		+ MaybeMallocSizeOf
-		+ EncodeLike;
-
-	/// A type that fulfills the abstract idea of what a Substrate hasher (a type
-	/// that produces hashes) is.
-	// Constraits come from the associated Hashing type of `sp_runtime::traits::Header`
-	// See here for more info:
-	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Hashing
-	type BridgedBlockHasher: HashT<Output = Self::BridgedBlockHash>;
+	/// Chain that we are bridging here.
+	type BridgedChain: Chain;
 }
+
+/// Block number of the bridged chain.
+pub(crate) type BridgedBlockNumber<T> = BlockNumberOf<<T as Trait>::BridgedChain>;
+/// Block hash of the bridged chain.
+pub(crate) type BridgedBlockHash<T> = HashOf<<T as Trait>::BridgedChain>;
+/// Header of the bridged chain.
+pub(crate) type BridgedHeader<T> = HeaderOf<<T as Trait>::BridgedChain>;
 
 decl_storage! {
 	trait Store for Module<T: Trait> as SubstrateBridge {
 		/// Hash of the header at the highest known height.
-		BestHeader: T::BridgedBlockHash;
+		BestHeader: BridgedBlockHash<T>;
 		/// Hash of the best finalized header.
-		BestFinalized: T::BridgedBlockHash;
+		BestFinalized: BridgedBlockHash<T>;
 		/// A header which enacts an authority set change and therefore
 		/// requires a Grandpa justification.
 		// Since we won't always have an authority set change scheduled we
 		// won't always have a header which needs a justification.
-		RequiresJustification: Option<T::BridgedBlockHash>;
+		RequiresJustification: Option<BridgedBlockHash<T>>;
 		/// Headers which have been imported into the pallet.
-		ImportedHeaders: map hasher(identity) T::BridgedBlockHash => Option<ImportedHeader<T::BridgedHeader>>;
+		ImportedHeaders: map hasher(identity) BridgedBlockHash<T> => Option<ImportedHeader<BridgedHeader<T>>>;
 		/// The current Grandpa Authority set.
 		CurrentAuthoritySet: AuthoritySet;
 		/// The next scheduled authority set change.
 		// Grandpa doesn't require there to always be a pending change. In fact, most of the time
 		// there will be no pending change available.
-		NextScheduledChange: Option<ScheduledChange<T::BridgedBlockNumber>>;
+		NextScheduledChange: Option<ScheduledChange<BridgedBlockNumber<T>>>;
 	}
 	add_extra_genesis {
-		config(initial_header): Option<T::BridgedHeader>;
+		config(initial_header): Option<BridgedHeader<T>>;
 		config(initial_authority_list): sp_finality_grandpa::AuthorityList;
 		config(initial_set_id): sp_finality_grandpa::SetId;
-		config(first_scheduled_change): Option<ScheduledChange<T::BridgedBlockNumber>>;
+		config(first_scheduled_change): Option<ScheduledChange<BridgedBlockNumber<T>>>;
 		build(|config| {
 			assert!(
 				!config.initial_authority_list.is_empty(),
@@ -187,7 +138,7 @@ decl_module! {
 		#[weight = 0]
 		pub fn import_signed_header(
 			origin,
-			header: T::BridgedHeader,
+			header: BridgedHeader<T>,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 			frame_support::debug::trace!(target: "sub-bridge", "Got header {:?}", header);
@@ -212,7 +163,7 @@ decl_module! {
 		#[weight = 0]
 		pub fn finalize_header(
 			origin,
-			hash: T::BridgedBlockHash,
+			hash: BridgedBlockHash<T>,
 			finality_proof: Vec<u8>,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
@@ -235,7 +186,7 @@ impl<T: Trait> Module<T> {
 	/// Get the highest header that the pallet knows of.
 	// In a future where we support forks this could be a Vec of headers
 	// since we may have multiple headers at the same height.
-	pub fn best_header() -> T::BridgedHeader {
+	pub fn best_header() -> BridgedHeader<T> {
 		PalletStorage::<T>::new().best_header().header
 	}
 
@@ -244,12 +195,12 @@ impl<T: Trait> Module<T> {
 	/// Since this has been finalized correctly a user of the bridge
 	/// pallet should be confident that any transactions that were
 	/// included in this or any previous header will not be reverted.
-	pub fn best_finalized() -> T::BridgedHeader {
+	pub fn best_finalized() -> BridgedHeader<T> {
 		PalletStorage::<T>::new().best_finalized_header().header
 	}
 
 	/// Check if a particular header is known to the bridge pallet.
-	pub fn is_known_header(hash: T::BridgedBlockHash) -> bool {
+	pub fn is_known_header(hash: BridgedBlockHash<T>) -> bool {
 		PalletStorage::<T>::new().header_exists(hash)
 	}
 
@@ -259,7 +210,7 @@ impl<T: Trait> Module<T> {
 	// One thing worth noting here is that this approach won't work well
 	// once we track forks since there could be an older header on a
 	// different fork which isn't an ancestor of our best finalized header.
-	pub fn is_finalized_header(hash: T::BridgedBlockHash) -> bool {
+	pub fn is_finalized_header(hash: BridgedBlockHash<T>) -> bool {
 		let storage = PalletStorage::<T>::new();
 		if let Some(header) = storage.header_by_hash(hash) {
 			header.number() <= storage.best_finalized_header().number()
@@ -272,7 +223,7 @@ impl<T: Trait> Module<T> {
 	/// and still needs a finality proof.
 	///
 	/// Will return None if there are no headers which are missing finality proofs.
-	pub fn requires_justification() -> Option<T::BridgedHeader> {
+	pub fn requires_justification() -> Option<BridgedHeader<T>> {
 		let storage = PalletStorage::<T>::new();
 		let hash = storage.unfinalized_header()?;
 		let imported_header = storage.header_by_hash(hash).expect(
@@ -352,42 +303,42 @@ impl<T> PalletStorage<T> {
 }
 
 impl<T: Trait> BridgeStorage for PalletStorage<T> {
-	type Header = T::BridgedHeader;
+	type Header = BridgedHeader<T>;
 
-	fn write_header(&mut self, header: &ImportedHeader<T::BridgedHeader>) {
+	fn write_header(&mut self, header: &ImportedHeader<BridgedHeader<T>>) {
 		let hash = header.header.hash();
 		<ImportedHeaders<T>>::insert(hash, header);
 	}
 
-	fn best_header(&self) -> ImportedHeader<Self::Header> {
+	fn best_header(&self) -> ImportedHeader<BridgedHeader<T>> {
 		let hash = <BestHeader<T>>::get();
 		self.header_by_hash(hash)
 			.expect("A header must have been written at genesis, therefore this must always exist")
 	}
 
-	fn update_best_header(&mut self, hash: T::BridgedBlockHash) {
+	fn update_best_header(&mut self, hash: BridgedBlockHash<T>) {
 		<BestHeader<T>>::put(hash)
 	}
 
-	fn best_finalized_header(&self) -> ImportedHeader<T::BridgedHeader> {
+	fn best_finalized_header(&self) -> ImportedHeader<BridgedHeader<T>> {
 		let hash = <BestFinalized<T>>::get();
 		self.header_by_hash(hash)
 			.expect("A finalized header was added at genesis, therefore this must always exist")
 	}
 
-	fn update_best_finalized(&self, hash: T::BridgedBlockHash) {
+	fn update_best_finalized(&self, hash: BridgedBlockHash<T>) {
 		<BestFinalized<T>>::put(hash)
 	}
 
-	fn header_exists(&self, hash: T::BridgedBlockHash) -> bool {
+	fn header_exists(&self, hash: BridgedBlockHash<T>) -> bool {
 		<ImportedHeaders<T>>::contains_key(hash)
 	}
 
-	fn header_by_hash(&self, hash: T::BridgedBlockHash) -> Option<ImportedHeader<T::BridgedHeader>> {
+	fn header_by_hash(&self, hash: BridgedBlockHash<T>) -> Option<ImportedHeader<BridgedHeader<T>>> {
 		<ImportedHeaders<T>>::get(hash)
 	}
 
-	fn unfinalized_header(&self) -> Option<T::BridgedBlockHash> {
+	fn unfinalized_header(&self) -> Option<BridgedBlockHash<T>> {
 		<RequiresJustification<T>>::get()
 	}
 
@@ -420,11 +371,11 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 		}
 	}
 
-	fn scheduled_set_change(&self) -> Option<ScheduledChange<T::BridgedBlockNumber>> {
+	fn scheduled_set_change(&self) -> Option<ScheduledChange<BridgedBlockNumber<T>>> {
 		<NextScheduledChange<T>>::get()
 	}
 
-	fn schedule_next_set_change(&self, next_change: ScheduledChange<T::BridgedBlockNumber>) {
+	fn schedule_next_set_change(&self, next_change: ScheduledChange<BridgedBlockNumber<T>>) {
 		<NextScheduledChange<T>>::put(next_change)
 	}
 }

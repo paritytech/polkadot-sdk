@@ -21,6 +21,10 @@
 use codec::{Decode, Encode};
 use sp_io::hashing::blake2_256;
 
+pub use chain::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
+
+mod chain;
+
 /// Call-dispatch module prefix.
 pub const CALL_DISPATCH_MODULE_PREFIX: &[u8] = b"pallet-bridge/call-dispatch";
 

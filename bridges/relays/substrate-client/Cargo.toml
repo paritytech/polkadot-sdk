@@ -14,6 +14,7 @@ num-traits = "0.2"
 
 # Bridge dependencies
 
+bp-runtime = { path = "../../primitives/runtime" }
 headers-relay = { path = "../headers-relay" }
 relay-utils = { path = "../utils" }
 
