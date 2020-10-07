@@ -27,6 +27,7 @@ pub fn parse_args() -> Command {
 #[derive(StructOpt)]
 #[structopt(about = "Substrate-to-Substrate relay")]
 pub enum Command {
+	/// Relay Millau headers to Rialto.
 	MillauHeadersToRialto {
 		#[structopt(flatten)]
 		millau: MillauConnectionParams,
@@ -34,7 +35,36 @@ pub enum Command {
 		rialto: RialtoConnectionParams,
 		#[structopt(flatten)]
 		rialto_sign: RialtoSigningParams,
+		#[structopt(flatten)]
+		prometheus_params: PrometheusParams,
 	},
+}
+
+/// Prometheus metrics params.
+#[derive(StructOpt)]
+pub struct PrometheusParams {
+	/// Do not expose a Prometheus metric endpoint.
+	#[structopt(long)]
+	pub no_prometheus: bool,
+	/// Expose Prometheus endpoint at given interface.
+	#[structopt(long, default_value = "127.0.0.1")]
+	pub prometheus_host: String,
+	/// Expose Prometheus endpoint at given port.
+	#[structopt(long, default_value = "9616")]
+	pub prometheus_port: u16,
+}
+
+impl From<PrometheusParams> for Option<relay_utils::metrics::MetricsParams> {
+	fn from(cli_params: PrometheusParams) -> Option<relay_utils::metrics::MetricsParams> {
+		if !cli_params.no_prometheus {
+			Some(relay_utils::metrics::MetricsParams {
+				host: cli_params.prometheus_host,
+				port: cli_params.prometheus_port,
+			})
+		} else {
+			None
+		}
+	}
 }
 
 macro_rules! declare_chain_options {
