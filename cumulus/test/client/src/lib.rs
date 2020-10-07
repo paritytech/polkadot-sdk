@@ -16,15 +16,25 @@
 
 //! A Cumulus test client.
 
+mod block_builder;
+
+pub use block_builder::*;
+
+use codec::Encode;
 pub use runtime;
 use runtime::{
-	genesismap::{additional_storage_with_genesis, GenesisConfig},
-	Block,
+	Balance, Block, BlockHashCount, Call, GenesisConfig, Runtime, Signature, SignedExtra,
+	SignedPayload, UncheckedExtrinsic, VERSION,
 };
 use sc_service::client;
-use sp_core::{sr25519, storage::Storage, ChangesTrieConfiguration};
-use sp_keyring::{AccountKeyring, Sr25519Keyring};
-use sp_runtime::traits::{Block as BlockT, Hash as HashT, Header as HeaderT};
+use sp_blockchain::HeaderBackend;
+use sp_core::{map, storage::Storage, twox_128, ChangesTrieConfiguration};
+use sp_runtime::{
+	generic::Era,
+	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
+	BuildStorage, SaturatedConversion,
+};
+use std::collections::BTreeMap;
 pub use test_client::*;
 
 mod local_executor {
@@ -63,14 +73,12 @@ pub struct GenesisParameters {
 
 impl test_client::GenesisInit for GenesisParameters {
 	fn genesis_storage(&self) -> Storage {
-		use codec::Encode;
-
 		let changes_trie_config: Option<ChangesTrieConfiguration> = if self.support_changes_trie {
 			Some(sp_test_primitives::changes_trie_config())
 		} else {
 			None
 		};
-		let mut storage = genesis_config(changes_trie_config).genesis_map();
+		let mut storage = genesis_config(changes_trie_config).build_storage().unwrap();
 
 		let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
 			let state_root =
@@ -128,20 +136,68 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 }
 
 fn genesis_config(changes_trie_config: Option<ChangesTrieConfiguration>) -> GenesisConfig {
-	GenesisConfig::new(
-		changes_trie_config,
-		vec![
-			sr25519::Public::from(Sr25519Keyring::Alice).into(),
-			sr25519::Public::from(Sr25519Keyring::Bob).into(),
-			sr25519::Public::from(Sr25519Keyring::Charlie).into(),
-		],
-		vec![
-			AccountKeyring::Alice.into(),
-			AccountKeyring::Bob.into(),
-			AccountKeyring::Charlie.into(),
-		],
-		1000,
-		Default::default(),
-		Default::default(),
+	cumulus_test_service::local_testnet_genesis(changes_trie_config)
+}
+
+fn additional_storage_with_genesis(genesis_block: &Block) -> BTreeMap<Vec<u8>, Vec<u8>> {
+	map![
+		twox_128(&b"latest"[..]).to_vec() => genesis_block.hash().as_fixed_bytes().to_vec()
+	]
+}
+
+/// Generate an extrinsic from the provided function call, origin and [`Client`].
+pub fn generate_extrinsic(
+	client: &Client,
+	origin: sp_keyring::AccountKeyring,
+	function: Call,
+) -> UncheckedExtrinsic {
+	let current_block_hash = client.info().best_hash;
+	let current_block = client.info().best_number.saturated_into();
+	let genesis_block = client.hash(0).unwrap().unwrap();
+	let nonce = 0;
+	let period = BlockHashCount::get()
+		.checked_next_power_of_two()
+		.map(|c| c / 2)
+		.unwrap_or(2) as u64;
+	let tip = 0;
+	let extra: SignedExtra = (
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(Era::mortal(period, current_block)),
+		frame_system::CheckNonce::<Runtime>::from(nonce),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+	);
+	let raw_payload = SignedPayload::from_raw(
+		function.clone(),
+		extra.clone(),
+		(
+			VERSION.spec_version,
+			genesis_block,
+			current_block_hash,
+			(),
+			(),
+			(),
+		),
+	);
+	let signature = raw_payload.using_encoded(|e| origin.sign(e));
+
+	UncheckedExtrinsic::new_signed(
+		function.clone(),
+		origin.public().into(),
+		Signature::Sr25519(signature.clone()),
+		extra.clone(),
 	)
+}
+
+/// Transfer some token from one account to another using a provided test [`Client`].
+pub fn transfer(
+	client: &Client,
+	origin: sp_keyring::AccountKeyring,
+	dest: sp_keyring::AccountKeyring,
+	value: Balance,
+) -> UncheckedExtrinsic {
+	let function = Call::Balances(pallet_balances::Call::transfer(dest.public().into(), value));
+
+	generate_extrinsic(client, origin, function)
 }

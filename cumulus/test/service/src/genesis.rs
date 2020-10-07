@@ -1,4 +1,4 @@
-// Copyright 2019 Parity Technologies (UK) Ltd.
+// Copyright 2020 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -14,17 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Cumulus test parachain collator
+use codec::Encode;
+use cumulus_primitives::{genesis::generate_genesis_block, ParaId};
+use cumulus_test_runtime::Block;
+use polkadot_primitives::v0::HeadData;
+use sp_runtime::traits::Block as BlockT;
 
-#![warn(missing_docs)]
-#![warn(unused_extern_crates)]
-
-mod chain_spec;
-#[macro_use]
-mod service;
-mod cli;
-mod command;
-
-fn main() -> sc_cli::Result<()> {
-	command::run()
+/// Returns the initial head data for a parachain ID.
+pub fn initial_head_data(para_id: ParaId) -> HeadData {
+	let spec = Box::new(crate::chain_spec::get_chain_spec(para_id));
+	let block: Block = generate_genesis_block(&(spec as Box<_>)).unwrap();
+	let genesis_state = block.header().encode();
+	genesis_state.into()
 }

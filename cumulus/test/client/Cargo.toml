@@ -8,9 +8,22 @@ edition = "2018"
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 test-client = { package = "substrate-test-client", git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
-runtime = { package = "cumulus-test-runtime", path = "../runtime" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
 sp-test-primitives = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-branch" }
+
+# Cumulus dependencies
+cumulus-test-service = { path = "../service" }
+cumulus-primitives = { path = "../../primitives" }
+runtime = { package = "cumulus-test-runtime", path = "../runtime" }

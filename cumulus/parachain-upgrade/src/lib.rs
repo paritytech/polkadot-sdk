@@ -96,7 +96,7 @@ decl_module! {
 		/// Set the current validation function parameters
 		///
 		/// This should be invoked exactly once per block. It will panic at the finalization
-		/// phease if the call was not invoked.
+		/// phase if the call was not invoked.
 		///
 		/// The dispatch origin for this call must be `Inherent`
 		///

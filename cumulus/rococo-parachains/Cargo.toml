@@ -41,7 +41,6 @@ sc-executor = { git = "https://github.com/paritytech/substrate", branch = "rococ
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
-sc-network = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", version = "0.8.0-rc5" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
@@ -70,7 +69,6 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 polkadot-collator = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
 
 [build-dependencies]
@@ -79,17 +77,3 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 [dev-dependencies]
 assert_cmd = "0.12"
 nix = "0.17"
-rand = "0.7.3"
-tokio = { version = "0.2.21", features = ["macros"] }
-
-# Polkadot dependencies
-polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
-polkadot-test-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
-polkadot-test-runtime-client = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "rococo-branch" }
-
-# Substrate dependencies
-pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
-substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }
-substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch" }

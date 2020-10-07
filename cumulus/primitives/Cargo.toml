@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Substrate dependencies
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", optional = true }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-branch", default-features = false }
@@ -24,6 +25,7 @@ polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", bra
 [features]
 default = [ "std" ]
 std = [
+	"sc-service",
 	"sp-std/std",
 	"codec/std",
 	"polkadot-primitives/std",

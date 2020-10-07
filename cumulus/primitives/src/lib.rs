@@ -29,6 +29,8 @@ pub use polkadot_parachain::primitives::{
 	Id as ParaId, ParachainDispatchOrigin as UpwardMessageOrigin,
 };
 
+#[cfg(feature = "std")]
+pub mod genesis;
 pub mod validation_function_params;
 pub mod xcmp;
 

@@ -1,5 +1,5 @@
 // Copyright 2019 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use wasm_builder_runner::WasmBuilder;
 
