@@ -39,9 +39,7 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as G
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, OpaqueKeys, Saturating, Verify,
-};
+use sp_runtime::traits::{Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, OpaqueKeys, Saturating, Verify};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	transaction_validity::{TransactionSource, TransactionValidity},
@@ -92,6 +90,9 @@ pub type Index = u32;
 /// A hash of some data used by the chain.
 pub type Hash = bp_rialto::Hash;
 
+/// Hashing algorithm used by the chain.
+pub type Hashing = bp_rialto::Hasher;
+
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
 
@@ -105,7 +106,7 @@ pub mod opaque {
 	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
 	/// Opaque block header type.
-	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+	pub type Header = generic::Header<BlockNumber, Hashing>;
 	/// Opaque block type.
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
@@ -180,9 +181,9 @@ impl frame_system::Trait for Runtime {
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
+	type Hashing = Hashing;
 	/// The header type.
-	type Header = generic::Header<BlockNumber, BlakeTwo256>;
+	type Header = generic::Header<BlockNumber, Hashing>;
 	/// The ubiquitous event type.
 	type Event = Event;
 	/// The ubiquitous origin type.
@@ -415,10 +416,7 @@ impl pallet_session::Trait for Runtime {
 }
 
 impl pallet_substrate_bridge::Trait for Runtime {
-	type BridgedHeader = bp_millau::Header;
-	type BridgedBlockNumber = bp_millau::BlockNumber;
-	type BridgedBlockHash = bp_millau::Hash;
-	type BridgedBlockHasher = bp_millau::Hasher;
+	type BridgedChain = bp_millau::Millau;
 }
 
 impl pallet_shift_session_manager::Trait for Runtime {}
@@ -451,7 +449,7 @@ construct_runtime!(
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type Header = generic::Header<BlockNumber, Hashing>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification

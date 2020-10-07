@@ -21,6 +21,7 @@
 #![cfg(test)]
 
 use crate::Trait;
+use bp_runtime::Chain;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_runtime::{
 	testing::{Header, H256},
@@ -73,10 +74,17 @@ impl frame_system::Trait for TestRuntime {
 }
 
 impl Trait for TestRuntime {
-	type BridgedHeader = <Self as frame_system::Trait>::Header;
-	type BridgedBlockNumber = <Self as frame_system::Trait>::BlockNumber;
-	type BridgedBlockHash = <Self as frame_system::Trait>::Hash;
-	type BridgedBlockHasher = <Self as frame_system::Trait>::Hashing;
+	type BridgedChain = TestBridgedChain;
+}
+
+#[derive(Debug)]
+pub struct TestBridgedChain;
+
+impl Chain for TestBridgedChain {
+	type BlockNumber = <TestRuntime as frame_system::Trait>::BlockNumber;
+	type Hash = <TestRuntime as frame_system::Trait>::Hash;
+	type Hasher = <TestRuntime as frame_system::Trait>::Hashing;
+	type Header = <TestRuntime as frame_system::Trait>::Header;
 }
 
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
@@ -85,13 +93,14 @@ pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 
 pub mod helpers {
 	use super::*;
+	use crate::{BridgedBlockHash, BridgedBlockNumber, BridgedHeader};
 	use finality_grandpa::voter_set::VoterSet;
 	use sp_finality_grandpa::{AuthorityId, AuthorityList};
 	use sp_keyring::Ed25519Keyring;
 
-	pub type TestHeader = <TestRuntime as Trait>::BridgedHeader;
-	pub type TestNumber = <TestRuntime as Trait>::BridgedBlockNumber;
-	pub type TestHash = <TestRuntime as Trait>::BridgedBlockHash;
+	pub type TestHeader = BridgedHeader<TestRuntime>;
+	pub type TestNumber = BridgedBlockNumber<TestRuntime>;
+	pub type TestHash = BridgedBlockHash<TestRuntime>;
 	pub type HeaderId = (TestHash, TestNumber);
 
 	pub fn test_header(num: TestNumber) -> TestHeader {

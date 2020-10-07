@@ -25,9 +25,10 @@ mod rpc;
 
 pub mod headers_source;
 
-pub use crate::chain::{BlockNumberOf, BlockWithJustification, Chain, HashOf, HeaderOf, TransactionSignScheme};
+pub use crate::chain::{BlockWithJustification, Chain, TransactionSignScheme};
 pub use crate::client::{Client, OpaqueGrandpaAuthoritiesSet};
 pub use crate::error::{Error, Result};
+pub use bp_runtime::{BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf};
 
 /// Substrate connection params.
 #[derive(Debug, Clone)]
