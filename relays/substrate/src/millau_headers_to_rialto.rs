@@ -97,7 +97,12 @@ impl TargetClient<MillauHeadersToRialto> for RialtoTargetClient {
 }
 
 /// Run Millau-to-Rialto headers sync.
-pub fn run(millau_client: MillauClient, rialto_client: RialtoClient, rialto_sign: RialtoSigningParams) {
+pub fn run(
+	millau_client: MillauClient,
+	rialto_client: RialtoClient,
+	rialto_sign: RialtoSigningParams,
+	metrics_params: Option<relay_utils::metrics::MetricsParams>,
+) {
 	let millau_tick = Duration::from_secs(5);
 	let rialto_tick = Duration::from_secs(5);
 	let sync_params = HeadersSyncParams {
@@ -108,7 +113,6 @@ pub fn run(millau_client: MillauClient, rialto_client: RialtoClient, rialto_sign
 		prune_depth: 256,
 		target_tx_mode: TargetTransactionMode::Signed,
 	};
-	let metrics_params = None;
 
 	headers_relay::sync_loop::run(
 		MillauSourceClient::new(millau_client),
