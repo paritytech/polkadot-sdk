@@ -20,6 +20,8 @@
 // Runtime-generated DecodeLimit::decode_all_With_depth_limit
 #![allow(clippy::unnecessary_mut_passed)]
 
+use bp_runtime::Chain;
+use frame_support::RuntimeDebug;
 use sp_core::Hasher as HasherT;
 use sp_runtime::traits::BlakeTwo256;
 use sp_std::prelude::*;
@@ -35,6 +37,17 @@ pub type Hasher = BlakeTwo256;
 
 /// The header type used by Millau.
 pub type Header = sp_runtime::generic::Header<BlockNumber, Hasher>;
+
+/// Millau chain.
+#[derive(RuntimeDebug)]
+pub struct Millau;
+
+impl Chain for Millau {
+	type BlockNumber = BlockNumber;
+	type Hash = Hash;
+	type Hasher = Hasher;
+	type Header = Header;
+}
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about Millau headers from the Bridge Pallet instance.
