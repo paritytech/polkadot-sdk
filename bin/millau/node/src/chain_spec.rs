@@ -15,8 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use millau_runtime::{
-	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature,
-	SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, BalancesConfig, BridgeRialtoConfig, GenesisConfig, GrandpaConfig, SessionConfig,
+	SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
@@ -155,6 +155,7 @@ fn testnet_genesis(
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
 		}),
+		pallet_substrate_bridge: load_rialto_bridge_config(),
 		pallet_sudo: Some(SudoConfig { key: root_key }),
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
@@ -163,4 +164,13 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		}),
 	}
+}
+
+fn load_rialto_bridge_config() -> Option<BridgeRialtoConfig> {
+	Some(BridgeRialtoConfig {
+		initial_header: Some(millau_runtime::rialto::initial_header()),
+		initial_authority_list: millau_runtime::rialto::initial_authority_set().authorities,
+		initial_set_id: millau_runtime::rialto::initial_authority_set().set_id,
+		first_scheduled_change: None,
+	})
 }
