@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Configuration parameters for the Rialto PoA chain.
+
 use crate::exchange::EthereumTransactionInclusionProof;
 
 use bp_eth_poa::{Address, AuraHeader, RawTransaction, U256};
@@ -50,12 +52,12 @@ pub fn aura_configuration() -> AuraConfiguration {
 	}
 }
 
-/// Validators configuration for Rialto chain.
+/// Validators configuration for Rialto PoA chain.
 pub fn validators_configuration() -> ValidatorsConfiguration {
 	ValidatorsConfiguration::Single(ValidatorsSource::List(genesis_validators()))
 }
 
-/// Genesis validators set of Rialto chain.
+/// Genesis validators set of Rialto PoA chain.
 pub fn genesis_validators() -> Vec<Address> {
 	vec![
 		hex!("005e714f896a8b7cede9d38688c1a81de72a58e4").into(),
@@ -64,7 +66,7 @@ pub fn genesis_validators() -> Vec<Address> {
 	]
 }
 
-/// Genesis header of the Rialto chain.
+/// Genesis header of the Rialto PoA chain.
 ///
 /// To obtain genesis header from a running node, invoke:
 /// ```bash
@@ -93,7 +95,7 @@ pub fn genesis_header() -> AuraHeader {
 	}
 }
 
-/// Rialto headers pruning strategy.
+/// Rialto PoA headers pruning strategy.
 ///
 /// We do not prune unfinalized headers because exchange module only accepts
 /// claims from finalized headers. And if we're pruning unfinalized headers, then
@@ -107,7 +109,7 @@ impl TPruningStrategy for PruningStrategy {
 	}
 }
 
-/// The Rialto Blockchain as seen by the runtime.
+/// The Rialto PoA Blockchain as seen by the runtime.
 pub struct RialtoBlockchain;
 
 impl BaseHeaderChain for RialtoBlockchain {
@@ -116,7 +118,7 @@ impl BaseHeaderChain for RialtoBlockchain {
 
 	fn verify_transaction_inclusion_proof(proof: &Self::TransactionInclusionProof) -> Option<Self::Transaction> {
 		let is_transaction_finalized =
-			crate::BridgeRialto::verify_transaction_finalized(proof.block, proof.index, &proof.proof);
+			crate::BridgeRialtoPoA::verify_transaction_finalized(proof.block, proof.index, &proof.proof);
 
 		if !is_transaction_finalized {
 			return None;

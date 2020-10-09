@@ -31,12 +31,15 @@
 // Runtime-generated enums
 #![allow(clippy::large_enum_variant)]
 
-use crate::storage::{AuthoritySet, ImportedHeader, ScheduledChange};
+use crate::storage::ImportedHeader;
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderOf};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::ensure_signed;
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::{marker::PhantomData, prelude::*};
+
+// Re-export since the node uses these when configuring genesis
+pub use storage::{AuthoritySet, ScheduledChange};
 
 mod justification;
 mod storage;

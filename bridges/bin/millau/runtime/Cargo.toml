@@ -9,6 +9,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false, features = ["derive"] }
+hex-literal = "0.3"
 serde = { version = "1.0.115", optional = true, features = ["derive"] }
 
 # Bridge dependencies
@@ -40,6 +41,7 @@ sp-block-builder = { version = "2.0", default-features = false }
 sp-consensus-aura = { version = "0.8", default-features = false }
 sp-core = { version = "2.0", default-features = false }
 sp-inherents = { version = "2.0", default-features = false }
+sp-finality-grandpa = { version = "2.0", default-features = false }
 sp-offchain = { version = "2.0", default-features = false }
 sp-runtime = { version = "2.0", default-features = false }
 sp-session = { version = "2.0", default-features = false }
@@ -79,6 +81,7 @@ std = [
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
+	"sp-finality-grandpa/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",

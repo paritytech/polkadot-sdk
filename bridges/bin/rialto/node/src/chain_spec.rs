@@ -15,8 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use rialto_runtime::{
-	AccountId, AuraConfig, BalancesConfig, BridgeKovanConfig, BridgeRialtoConfig, GenesisConfig, GrandpaConfig,
-	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauConfig, BridgeRialtoPoAConfig, GenesisConfig,
+	GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
@@ -152,11 +152,12 @@ fn testnet_genesis(
 		pallet_aura: Some(AuraConfig {
 			authorities: Vec::new(),
 		}),
-		pallet_bridge_eth_poa_Instance1: load_rialto_bridge_config(),
+		pallet_bridge_eth_poa_Instance1: load_rialto_poa_bridge_config(),
 		pallet_bridge_eth_poa_Instance2: load_kovan_bridge_config(),
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
 		}),
+		pallet_substrate_bridge: load_millau_bridge_config(),
 		pallet_sudo: Some(SudoConfig { key: root_key }),
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
@@ -167,11 +168,11 @@ fn testnet_genesis(
 	}
 }
 
-fn load_rialto_bridge_config() -> Option<BridgeRialtoConfig> {
-	Some(BridgeRialtoConfig {
-		initial_header: rialto_runtime::rialto::genesis_header(),
+fn load_rialto_poa_bridge_config() -> Option<BridgeRialtoPoAConfig> {
+	Some(BridgeRialtoPoAConfig {
+		initial_header: rialto_runtime::rialto_poa::genesis_header(),
 		initial_difficulty: 0.into(),
-		initial_validators: rialto_runtime::rialto::genesis_validators(),
+		initial_validators: rialto_runtime::rialto_poa::genesis_validators(),
 	})
 }
 
@@ -180,5 +181,14 @@ fn load_kovan_bridge_config() -> Option<BridgeKovanConfig> {
 		initial_header: rialto_runtime::kovan::genesis_header(),
 		initial_difficulty: 0.into(),
 		initial_validators: rialto_runtime::kovan::genesis_validators(),
+	})
+}
+
+fn load_millau_bridge_config() -> Option<BridgeMillauConfig> {
+	Some(BridgeMillauConfig {
+		initial_header: Some(rialto_runtime::millau::initial_header()),
+		initial_authority_list: rialto_runtime::millau::initial_authority_set().authorities,
+		initial_set_id: rialto_runtime::millau::initial_authority_set().set_id,
+		first_scheduled_change: None,
 	})
 }
