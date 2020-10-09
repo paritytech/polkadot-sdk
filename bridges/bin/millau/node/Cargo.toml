@@ -14,7 +14,7 @@ jsonrpc-core = "15.0.0"
 structopt = "0.3.17"
 
 # Bridge dependencies
-
+bp-rialto = { path = "../../../primitives/rialto" }
 millau-runtime = { path = "../runtime" }
 
 # Substrate Dependencies

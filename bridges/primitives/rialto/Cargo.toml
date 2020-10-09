@@ -13,7 +13,6 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Based Dependencies
-
 frame-support = { version = "2.0", default-features = false }
 sp-api = { version = "2.0", default-features = false }
 sp-core = { version = "2.0", default-features = false }
