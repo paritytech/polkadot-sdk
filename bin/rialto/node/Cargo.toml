@@ -11,7 +11,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 jsonrpc-core = "15.0.0"
-structopt = "0.3.17"
+structopt = "0.3.19"
 
 # Bridge dependencies
 
