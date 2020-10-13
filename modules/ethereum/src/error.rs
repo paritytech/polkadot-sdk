@@ -62,6 +62,8 @@ pub enum Error {
 	UnsignedTooFarInTheFuture = 19,
 	/// Trying to finalize sibling of finalized block.
 	TryingToFinalizeSibling = 20,
+	/// Header timestamp is ahead of on-chain timestamp
+	HeaderTimestampIsAhead = 21,
 }
 
 impl Error {
@@ -88,6 +90,7 @@ impl Error {
 			Error::TransactionsReceiptsMismatch => "Invalid transactions receipts provided",
 			Error::UnsignedTooFarInTheFuture => "The unsigned header is too far in future",
 			Error::TryingToFinalizeSibling => "Trying to finalize sibling of finalized block",
+			Error::HeaderTimestampIsAhead => "Header timestamp is ahead of on-chain timestamp",
 		}
 	}
 

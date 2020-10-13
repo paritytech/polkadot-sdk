@@ -326,6 +326,25 @@ pub trait PruningStrategy: Default {
 	fn pruning_upper_bound(&mut self, best_number: u64, best_finalized_number: u64) -> u64;
 }
 
+/// ChainTime represents the runtime on-chain time
+pub trait ChainTime: Default {
+	/// Is a header timestamp ahead of the current on-chain time.
+	///
+	/// Check whether `timestamp` is ahead (i.e greater than) the current on-chain
+	/// time. If so, return `true`, `false` otherwise.
+	fn is_timestamp_ahead(&self, timestamp: u64) -> bool;
+}
+
+/// ChainTime implementation for the empty type.
+///
+/// This implementation will allow a runtime without the timestamp pallet to use
+/// the empty type as its ChainTime associated type.
+impl ChainTime for () {
+	fn is_timestamp_ahead(&self, _: u64) -> bool {
+		false
+	}
+}
+
 /// Callbacks for header submission rewards/penalties.
 pub trait OnHeadersSubmitted<AccountId> {
 	/// Called when valid headers have been submitted.
@@ -366,6 +385,8 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	type FinalityVotesCachingInterval: Get<Option<u64>>;
 	/// Headers pruning strategy.
 	type PruningStrategy: PruningStrategy;
+	/// Header timestamp verification against current on-chain time.
+	type ChainTime: ChainTime;
 
 	/// Handler for headers submission result.
 	type OnHeadersSubmitted: OnHeadersSubmitted<Self::AccountId>;
@@ -385,6 +406,7 @@ decl_module! {
 				&T::ValidatorsConfiguration::get(),
 				None,
 				header,
+				&T::ChainTime::default(),
 				receipts,
 			).map_err(|e| e.msg())?;
 		}
@@ -406,6 +428,7 @@ decl_module! {
 				&T::ValidatorsConfiguration::get(),
 				Some(submitter.clone()),
 				headers_with_receipts,
+				&T::ChainTime::default(),
 				&mut finalized_headers,
 			);
 
@@ -531,6 +554,7 @@ impl<T: Trait<I>, I: Instance> frame_support::unsigned::ValidateUnsigned for Mod
 					&T::ValidatorsConfiguration::get(),
 					&pool_configuration(),
 					header,
+					&T::ChainTime::default(),
 					receipts.as_ref(),
 				);
 
