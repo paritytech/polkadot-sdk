@@ -18,7 +18,7 @@ pub use crate::test_utils::{insert_header, validator_utils::*, validators_change
 pub use bp_eth_poa::signatures::secret_to_address;
 
 use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
-use crate::{AuraConfiguration, GenesisConfig, PruningStrategy, Trait};
+use crate::{AuraConfiguration, ChainTime, GenesisConfig, PruningStrategy, Trait};
 use bp_eth_poa::{Address, AuraHeader, H256, U256};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use secp256k1::SecretKey;
@@ -83,6 +83,7 @@ impl Trait for TestRuntime {
 	type ValidatorsConfiguration = TestValidatorsConfiguration;
 	type FinalityVotesCachingInterval = TestFinalityVotesCachingInterval;
 	type PruningStrategy = KeepSomeHeadersBehindBest;
+	type ChainTime = ConstChainTime;
 	type OnHeadersSubmitted = ();
 }
 
@@ -166,5 +167,16 @@ impl Default for KeepSomeHeadersBehindBest {
 impl PruningStrategy for KeepSomeHeadersBehindBest {
 	fn pruning_upper_bound(&mut self, best_number: u64, _: u64) -> u64 {
 		best_number.saturating_sub(self.0)
+	}
+}
+
+/// Constant chain time
+#[derive(Default)]
+pub struct ConstChainTime;
+
+impl ChainTime for ConstChainTime {
+	fn is_timestamp_ahead(&self, timestamp: u64) -> bool {
+		let now = i32::max_value() as u64 / 2;
+		timestamp > now
 	}
 }

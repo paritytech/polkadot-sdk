@@ -26,6 +26,7 @@ sp-std = { version = "2.0", default-features = false }
 
 [dev-dependencies]
 libsecp256k1 = { version = "0.3.4", features = ["hmac"] }
+hex-literal = "0.3"
 
 [features]
 default = ["std"]

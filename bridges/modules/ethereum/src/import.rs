@@ -18,7 +18,7 @@ use crate::error::Error;
 use crate::finality::finalize_blocks;
 use crate::validators::{Validators, ValidatorsConfiguration};
 use crate::verification::{is_importable_header, verify_aura_header};
-use crate::{AuraConfiguration, ChangeToEnact, PruningStrategy, Storage};
+use crate::{AuraConfiguration, ChainTime, ChangeToEnact, PruningStrategy, Storage};
 use bp_eth_poa::{AuraHeader, HeaderId, Receipt};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -31,13 +31,16 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 /// we have NOT imported.
 /// Returns error if fatal error has occured during import. Some valid headers may be
 /// imported in this case.
-pub fn import_headers<S: Storage, PS: PruningStrategy>(
+/// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/415)
+#[allow(clippy::too_many_arguments)]
+pub fn import_headers<S: Storage, PS: PruningStrategy, CT: ChainTime>(
 	storage: &mut S,
 	pruning_strategy: &mut PS,
 	aura_config: &AuraConfiguration,
 	validators_config: &ValidatorsConfiguration,
 	submitter: Option<S::Submitter>,
 	headers: Vec<(AuraHeader, Option<Vec<Receipt>>)>,
+	chain_time: &CT,
 	finalized_headers: &mut BTreeMap<S::Submitter, u64>,
 ) -> Result<(u64, u64), Error> {
 	let mut useful = 0;
@@ -50,6 +53,7 @@ pub fn import_headers<S: Storage, PS: PruningStrategy>(
 			validators_config,
 			submitter.clone(),
 			header,
+			chain_time,
 			receipts,
 		);
 
@@ -79,20 +83,23 @@ pub type FinalizedHeaders<S> = Vec<(HeaderId, Option<<S as Storage>::Submitter>)
 /// has returned true.
 ///
 /// Returns imported block id and list of all finalized headers.
-pub fn import_header<S: Storage, PS: PruningStrategy>(
+/// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/415)
+#[allow(clippy::too_many_arguments)]
+pub fn import_header<S: Storage, PS: PruningStrategy, CT: ChainTime>(
 	storage: &mut S,
 	pruning_strategy: &mut PS,
 	aura_config: &AuraConfiguration,
 	validators_config: &ValidatorsConfiguration,
 	submitter: Option<S::Submitter>,
 	header: AuraHeader,
+	chain_time: &CT,
 	receipts: Option<Vec<Receipt>>,
 ) -> Result<(HeaderId, FinalizedHeaders<S>), Error> {
 	// first check that we are able to import this header at all
 	let (header_id, finalized_id) = is_importable_header(storage, &header)?;
 
 	// verify header
-	let import_context = verify_aura_header(storage, aura_config, submitter, &header)?;
+	let import_context = verify_aura_header(storage, aura_config, submitter, &header, chain_time)?;
 
 	// check if block schedules new validators
 	let validators = Validators::new(validators_config);
@@ -195,6 +202,7 @@ mod tests {
 					&test_validators_config(),
 					None,
 					Default::default(),
+					&(),
 					None,
 				),
 				Err(Error::AncientHeader),
@@ -215,6 +223,7 @@ mod tests {
 					&test_validators_config(),
 					None,
 					header.clone(),
+					&(),
 					None,
 				)
 				.map(|_| ()),
@@ -228,6 +237,7 @@ mod tests {
 					&test_validators_config(),
 					None,
 					header,
+					&(),
 					None,
 				)
 				.map(|_| ()),
@@ -254,6 +264,7 @@ mod tests {
 					&validators_config,
 					None,
 					header,
+					&(),
 					None
 				)
 				.map(|_| ()),
@@ -291,6 +302,7 @@ mod tests {
 					&validators_config,
 					Some(100),
 					header,
+					&(),
 					None,
 				)
 				.unwrap();
@@ -320,6 +332,7 @@ mod tests {
 				&validators_config,
 				Some(101),
 				header11.clone(),
+				&(),
 				Some(vec![validators_change_receipt(latest_block_id.hash)]),
 			)
 			.unwrap();
@@ -345,6 +358,7 @@ mod tests {
 					&validators_config,
 					Some(102),
 					header,
+					&(),
 					None,
 				)
 				.unwrap();
@@ -374,6 +388,7 @@ mod tests {
 				&validators_config,
 				Some(103),
 				header,
+				&(),
 				None,
 			)
 			.unwrap();
@@ -404,6 +419,7 @@ mod tests {
 			)),
 			None,
 			header,
+			&(),
 			None,
 		)
 		.map(|_| id)
