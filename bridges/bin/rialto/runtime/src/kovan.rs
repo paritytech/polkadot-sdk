@@ -21,7 +21,8 @@ use bp_header_chain::BaseHeaderChain;
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
 use pallet_bridge_eth_poa::{
-	AuraConfiguration, PruningStrategy as BridgePruningStrategy, ValidatorsConfiguration, ValidatorsSource,
+	AuraConfiguration, ChainTime as TChainTime, PruningStrategy as BridgePruningStrategy, ValidatorsConfiguration,
+	ValidatorsSource,
 };
 use sp_std::prelude::*;
 
@@ -131,6 +132,17 @@ pub struct PruningStrategy;
 impl BridgePruningStrategy for PruningStrategy {
 	fn pruning_upper_bound(&mut self, _best_number: u64, best_finalized_number: u64) -> u64 {
 		best_finalized_number.saturating_sub(FINALIZED_HEADERS_TO_KEEP)
+	}
+}
+
+/// PoA Header timestamp verification against `Timestamp` pallet.
+#[derive(Default, RuntimeDebug)]
+pub struct ChainTime;
+
+impl TChainTime for ChainTime {
+	fn is_timestamp_ahead(&self, timestamp: u64) -> bool {
+		let now = super::Timestamp::now();
+		timestamp > now
 	}
 }
 
