@@ -60,12 +60,18 @@ impl From<millau_runtime::Header> for SyncHeader {
 	}
 }
 
+impl From<SyncHeader> for millau_runtime::Header {
+	fn from(header: SyncHeader) -> Self {
+		header.0
+	}
+}
+
 impl SourceHeader<millau_runtime::Hash, millau_runtime::BlockNumber> for SyncHeader {
 	fn id(&self) -> HeaderId {
 		relay_utils::HeaderId(*self.number(), self.hash())
 	}
 
 	fn parent_id(&self) -> HeaderId {
-		relay_utils::HeaderId(*self.number(), *self.parent_hash())
+		relay_utils::HeaderId(*self.number() - 1, *self.parent_hash())
 	}
 }
