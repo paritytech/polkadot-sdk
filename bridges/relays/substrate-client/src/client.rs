@@ -33,6 +33,9 @@ const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 pub type OpaqueGrandpaAuthoritiesSet = Vec<u8>;
 
 /// Substrate client type.
+///
+/// Cloning Client is a cheap operation.
+#[derive(Clone)]
 pub struct Client<C: Chain> {
 	/// Substrate RPC client.
 	client: RpcClient,
