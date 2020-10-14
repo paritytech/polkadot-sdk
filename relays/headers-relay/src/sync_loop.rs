@@ -277,7 +277,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						},
 						&mut target_go_offline_future,
 						|delay| async_std::task::sleep(delay),
-						|| format!("Error retrieving best known header from {} node", P::TARGET_NAME),
+						|| format!("Error retrieving best known {} header from {} node", P::SOURCE_NAME, P::TARGET_NAME),
 					).is_ok();
 				},
 				incomplete_headers_ids = target_incomplete_headers_future => {

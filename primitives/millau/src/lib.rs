@@ -49,6 +49,13 @@ impl Chain for Millau {
 	type Header = Header;
 }
 
+/// Name of the `MillauHeaderApi::best_block` runtime method.
+pub const BEST_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_best_block";
+/// Name of the `MillauHeaderApi::is_known_block` runtime method.
+pub const IS_KNOWN_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_is_known_block";
+/// Name of the `MillauHeaderApi::incomplete_headers` runtime method.
+pub const INCOMPLETE_MILLAU_HEADERS_METHOD: &str = "MillauHeaderApi_incomplete_headers";
+
 sp_api::decl_runtime_apis! {
 	/// API for querying information about Millau headers from the Bridge Pallet instance.
 	///

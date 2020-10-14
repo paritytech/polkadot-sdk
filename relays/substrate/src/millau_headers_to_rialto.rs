@@ -16,24 +16,33 @@
 
 //! Millau-to-Rialto headers sync entrypoint.
 
-use crate::{MillauClient, RialtoClient};
+use crate::{
+	headers_target::{SubstrateHeadersSyncPipeline, SubstrateHeadersTarget},
+	MillauClient, RialtoClient,
+};
 
 use async_trait::async_trait;
+use bp_millau::{BEST_MILLAU_BLOCK_METHOD, INCOMPLETE_MILLAU_HEADERS_METHOD, IS_KNOWN_MILLAU_BLOCK_METHOD};
 use codec::Encode;
 use headers_relay::{
 	sync::{HeadersSyncParams, TargetTransactionMode},
-	sync_loop::TargetClient,
-	sync_types::{HeadersSyncPipeline, QueuedHeader, SubmittedHeaders},
+	sync_types::{HeadersSyncPipeline, QueuedHeader},
 };
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SyncHeader as MillauSyncHeader};
-use relay_rialto_client::SigningParams as RialtoSigningParams;
-use relay_substrate_client::{headers_source::HeadersSource, BlockNumberOf, Error as SubstrateError, HashOf};
+use relay_rialto_client::{BridgeMillauCall, Rialto, SigningParams as RialtoSigningParams};
+use relay_substrate_client::{
+	headers_source::HeadersSource, BlockNumberOf, Error as SubstrateError, HashOf, TransactionSignScheme,
+};
+use sp_core::Pair;
 use sp_runtime::Justification;
-use std::{collections::HashSet, time::Duration};
+use std::time::Duration;
 
 /// Millau-to-Rialto headers pipeline.
-#[derive(Debug, Clone, Copy)]
-struct MillauHeadersToRialto;
+#[derive(Debug, Clone)]
+struct MillauHeadersToRialto {
+	client: RialtoClient,
+	sign: RialtoSigningParams,
+}
 
 impl HeadersSyncPipeline for MillauHeadersToRialto {
 	const SOURCE_NAME: &'static str = "Millau";
@@ -50,6 +59,38 @@ impl HeadersSyncPipeline for MillauHeadersToRialto {
 	}
 }
 
+#[async_trait]
+impl SubstrateHeadersSyncPipeline for MillauHeadersToRialto {
+	const BEST_BLOCK_METHOD: &'static str = BEST_MILLAU_BLOCK_METHOD;
+	const IS_KNOWN_BLOCK_METHOD: &'static str = IS_KNOWN_MILLAU_BLOCK_METHOD;
+	const INCOMPLETE_HEADERS_METHOD: &'static str = INCOMPLETE_MILLAU_HEADERS_METHOD;
+
+	type SignedTransaction = <Rialto as TransactionSignScheme>::SignedTransaction;
+
+	async fn make_submit_header_transaction(
+		&self,
+		header: QueuedMillauHeader,
+	) -> Result<Self::SignedTransaction, SubstrateError> {
+		let account_id = self.sign.signer.public().as_array_ref().clone().into();
+		let nonce = self.client.next_account_index(account_id).await?;
+		let call = BridgeMillauCall::import_signed_header(header.header().clone().into()).into();
+		let transaction = Rialto::sign_transaction(&self.client, &self.sign.signer, nonce, call);
+		Ok(transaction)
+	}
+
+	async fn make_complete_header_transaction(
+		&self,
+		id: MillauHeaderId,
+		completion: Justification,
+	) -> Result<Self::SignedTransaction, SubstrateError> {
+		let account_id = self.sign.signer.public().as_array_ref().clone().into();
+		let nonce = self.client.next_account_index(account_id).await?;
+		let call = BridgeMillauCall::finalize_header(id.1, completion).into();
+		let transaction = Rialto::sign_transaction(&self.client, &self.sign.signer, nonce, call);
+		Ok(transaction)
+	}
+}
+
 /// Millau header in-the-queue.
 type QueuedMillauHeader = QueuedHeader<MillauHeadersToRialto>;
 
@@ -57,44 +98,7 @@ type QueuedMillauHeader = QueuedHeader<MillauHeadersToRialto>;
 type MillauSourceClient = HeadersSource<Millau, MillauHeadersToRialto>;
 
 /// Rialto node as headers target.
-struct RialtoTargetClient {
-	_client: RialtoClient,
-	_sign: RialtoSigningParams,
-}
-
-#[async_trait]
-impl TargetClient<MillauHeadersToRialto> for RialtoTargetClient {
-	type Error = SubstrateError;
-
-	async fn best_header_id(&self) -> Result<MillauHeaderId, Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/209")
-	}
-
-	async fn is_known_header(&self, _id: MillauHeaderId) -> Result<(MillauHeaderId, bool), Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/209")
-	}
-
-	async fn submit_headers(&self, _headers: Vec<QueuedMillauHeader>) -> SubmittedHeaders<MillauHeaderId, Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/209")
-	}
-
-	async fn incomplete_headers_ids(&self) -> Result<HashSet<MillauHeaderId>, Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/209")
-	}
-
-	#[allow(clippy::unit_arg)]
-	async fn complete_header(
-		&self,
-		_id: MillauHeaderId,
-		_completion: Justification,
-	) -> Result<MillauHeaderId, Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/209")
-	}
-
-	async fn requires_extra(&self, _header: QueuedMillauHeader) -> Result<(MillauHeaderId, bool), Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/209")
-	}
-}
+type RialtoTargetClient = SubstrateHeadersTarget<Rialto, MillauHeadersToRialto>;
 
 /// Run Millau-to-Rialto headers sync.
 pub fn run(
@@ -107,8 +111,8 @@ pub fn run(
 	let rialto_tick = Duration::from_secs(5);
 	let sync_params = HeadersSyncParams {
 		max_future_headers_to_download: 32,
-		max_headers_in_submitted_status: 1024,
-		max_headers_in_single_submit: 8,
+		max_headers_in_submitted_status: 8,
+		max_headers_in_single_submit: 1,
 		max_headers_size_in_single_submit: 1024 * 1024,
 		prune_depth: 256,
 		target_tx_mode: TargetTransactionMode::Signed,
@@ -117,10 +121,13 @@ pub fn run(
 	headers_relay::sync_loop::run(
 		MillauSourceClient::new(millau_client),
 		millau_tick,
-		RialtoTargetClient {
-			_client: rialto_client,
-			_sign: rialto_sign,
-		},
+		RialtoTargetClient::new(
+			rialto_client.clone(),
+			MillauHeadersToRialto {
+				client: rialto_client,
+				sign: rialto_sign,
+			},
+		),
 		rialto_tick,
 		sync_params,
 		metrics_params,
