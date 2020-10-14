@@ -30,12 +30,12 @@ pub use crate::client::{Client, OpaqueGrandpaAuthoritiesSet};
 pub use crate::error::{Error, Result};
 pub use bp_runtime::{BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf};
 
-/// Substrate connection params.
+/// Substrate-over-websocket connection params.
 #[derive(Debug, Clone)]
 pub struct ConnectionParams {
-	/// Substrate RPC host.
+	/// Websocket server hostname.
 	pub host: String,
-	/// Substrate RPC port.
+	/// Websocket server TCP port.
 	pub port: u16,
 }
 
@@ -43,7 +43,7 @@ impl Default for ConnectionParams {
 	fn default() -> Self {
 		ConnectionParams {
 			host: "localhost".into(),
-			port: 9933,
+			port: 9944,
 		}
 	}
 }
