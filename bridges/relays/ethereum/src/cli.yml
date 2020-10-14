@@ -24,7 +24,7 @@ subcommands:
             - sub-port: &sub-port
                 long: sub-port
                 value_name: SUB_PORT
-                help: Connect to Substrate node at given port.
+                help: Connect to Substrate node websocket server at given port.
                 takes_value: true
             - sub-tx-mode:
                 long: sub-tx-mode
