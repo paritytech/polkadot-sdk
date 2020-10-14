@@ -28,6 +28,7 @@ pub type MillauClient = relay_substrate_client::Client<relay_millau_client::Mill
 pub type RialtoClient = relay_substrate_client::Client<relay_rialto_client::Rialto>;
 
 mod cli;
+mod headers_target;
 mod millau_headers_to_rialto;
 
 fn main() {

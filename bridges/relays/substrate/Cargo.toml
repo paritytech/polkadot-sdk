@@ -16,6 +16,7 @@ structopt = "0.3"
 
 # Bridge dependencies
 
+bp-millau = { path = "../../primitives/millau" }
 bp-rialto = { path = "../../primitives/rialto" }
 headers-relay = { path = "../headers-relay" }
 messages-relay = { path = "../messages-relay" }
@@ -24,6 +25,7 @@ relay-rialto-client = { path = "../rialto-client" }
 relay-substrate-client = { path = "../substrate-client" }
 relay-utils = { path = "../utils" }
 
-# Substrate dependencies
+# Substrate Dependencies
 
+sp-core = "2.0"
 sp-runtime = "2.0"

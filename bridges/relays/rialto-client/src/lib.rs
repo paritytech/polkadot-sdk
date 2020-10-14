@@ -25,6 +25,8 @@ use sp_runtime::{
 	traits::{Header as HeaderT, IdentifyAccount},
 };
 
+pub use rialto_runtime::BridgeMillauCall;
+
 /// Rialto header id.
 pub type HeaderId = relay_utils::HeaderId<rialto_runtime::Hash, rialto_runtime::BlockNumber>;
 
