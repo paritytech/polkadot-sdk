@@ -18,10 +18,10 @@ use crate::Trait;
 
 use bp_message_lane::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
-	target_chain::{DispatchMessage, MessageDispatch, SourceHeaderChain},
-	LaneId, Message, MessageData, MessageKey, MessageNonce,
+	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
+	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce,
 };
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -29,10 +29,12 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	Perbill,
 };
+use std::collections::BTreeMap;
 
 pub type AccountId = u64;
 pub type TestPayload = (u64, Weight);
 pub type TestMessageFee = u64;
+pub type TestRelayer = u64;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TestRuntime;
@@ -89,17 +91,20 @@ impl frame_system::Trait for TestRuntime {
 
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: u64 = 10;
+	pub const MaxUnconfirmedMessagesAtInboundLane: u64 = 16;
 }
 
 impl Trait for TestRuntime {
 	type Event = TestEvent;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
+	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
 	type OutboundPayload = TestPayload;
 	type OutboundMessageFee = TestMessageFee;
 
 	type InboundPayload = TestPayload;
 	type InboundMessageFee = TestMessageFee;
+	type InboundRelayer = TestRelayer;
 
 	type TargetHeaderChain = TestTargetHeaderChain;
 	type LaneMessageVerifier = TestLaneMessageVerifier;
@@ -108,6 +113,15 @@ impl Trait for TestRuntime {
 	type SourceHeaderChain = TestSourceHeaderChain;
 	type MessageDispatch = TestMessageDispatch;
 }
+
+/// Account id of test relayer.
+pub const TEST_RELAYER_A: AccountId = 100;
+
+/// Account id of additional test relayer - B.
+pub const TEST_RELAYER_B: AccountId = 101;
+
+/// Account id of additional test relayer - C.
+pub const TEST_RELAYER_C: AccountId = 102;
 
 /// Error that is returned by all test implementations.
 pub const TEST_ERROR: &str = "Test error";
@@ -121,14 +135,42 @@ pub const REGULAR_PAYLOAD: TestPayload = (0, 50);
 /// Payload that is rejected by `TestTargetHeaderChain`.
 pub const PAYLOAD_REJECTED_BY_TARGET_CHAIN: TestPayload = (1, 50);
 
+/// Vec of proved messages, grouped by lane.
+pub type MessagesByLaneVec = Vec<(LaneId, ProvedLaneMessages<Message<TestMessageFee>>)>;
+
+/// Test messages proof.
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq)]
+pub struct TestMessagesProof {
+	pub result: Result<MessagesByLaneVec, ()>,
+}
+
+impl From<Result<Vec<Message<TestMessageFee>>, ()>> for TestMessagesProof {
+	fn from(result: Result<Vec<Message<TestMessageFee>>, ()>) -> Self {
+		Self {
+			result: result.map(|messages| {
+				let mut messages_by_lane: BTreeMap<LaneId, ProvedLaneMessages<Message<TestMessageFee>>> =
+					BTreeMap::new();
+				for message in messages {
+					messages_by_lane
+						.entry(message.key.lane_id)
+						.or_default()
+						.messages
+						.push(message);
+				}
+				messages_by_lane.into_iter().collect()
+			}),
+		}
+	}
+}
+
 /// Target header chain that is used in tests.
 #[derive(Debug, Default)]
 pub struct TestTargetHeaderChain;
 
-impl TargetHeaderChain<TestPayload> for TestTargetHeaderChain {
+impl TargetHeaderChain<TestPayload, TestRelayer> for TestTargetHeaderChain {
 	type Error = &'static str;
 
-	type MessagesDeliveryProof = Result<(LaneId, MessageNonce), ()>;
+	type MessagesDeliveryProof = Result<(LaneId, InboundLaneData<TestRelayer>), ()>;
 
 	fn verify_message(payload: &TestPayload) -> Result<(), Self::Error> {
 		if *payload == PAYLOAD_REJECTED_BY_TARGET_CHAIN {
@@ -140,7 +182,7 @@ impl TargetHeaderChain<TestPayload> for TestTargetHeaderChain {
 
 	fn verify_messages_delivery_proof(
 		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, MessageNonce), Self::Error> {
+	) -> Result<(LaneId, InboundLaneData<TestRelayer>), Self::Error> {
 		proof.map_err(|_| TEST_ERROR)
 	}
 }
@@ -176,9 +218,16 @@ impl TestMessageDeliveryAndDispatchPayment {
 		frame_support::storage::unhashed::put(b":reject-message-fee:", &true);
 	}
 
-	/// Returns true if given fee has been paid by given relayer.
+	/// Returns true if given fee has been paid by given submitter.
 	pub fn is_fee_paid(submitter: AccountId, fee: TestMessageFee) -> bool {
 		frame_support::storage::unhashed::get(b":message-fee:") == Some((submitter, fee))
+	}
+
+	/// Returns true if given relayer has been rewarded with given balance. The reward-paid flag is
+	/// cleared after the call.
+	pub fn is_reward_paid(relayer: AccountId, fee: TestMessageFee) -> bool {
+		let key = (b":relayer-reward:", relayer, fee).encode();
+		frame_support::storage::unhashed::take::<bool>(&key).is_some()
 	}
 }
 
@@ -193,6 +242,11 @@ impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee> for TestMessag
 		frame_support::storage::unhashed::put(b":message-fee:", &(submitter, fee));
 		Ok(())
 	}
+
+	fn pay_relayer_reward(_confirmation_relayer: &AccountId, relayer: &AccountId, fee: &TestMessageFee) {
+		let key = (b":relayer-reward:", relayer, fee).encode();
+		frame_support::storage::unhashed::put(&key, &true);
+	}
 }
 
 /// Source header chain that is used in tests.
@@ -202,10 +256,15 @@ pub struct TestSourceHeaderChain;
 impl SourceHeaderChain<TestMessageFee> for TestSourceHeaderChain {
 	type Error = &'static str;
 
-	type MessagesProof = Result<Vec<Message<TestMessageFee>>, ()>;
+	type MessagesProof = TestMessagesProof;
 
-	fn verify_messages_proof(proof: Self::MessagesProof) -> Result<Vec<Message<TestMessageFee>>, Self::Error> {
-		proof.map_err(|_| TEST_ERROR)
+	fn verify_messages_proof(
+		proof: Self::MessagesProof,
+	) -> Result<ProvedMessages<Message<TestMessageFee>>, Self::Error> {
+		proof
+			.result
+			.map(|proof| proof.into_iter().collect())
+			.map_err(|_| TEST_ERROR)
 	}
 }
 

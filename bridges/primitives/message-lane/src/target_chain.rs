@@ -16,11 +16,23 @@
 
 //! Primitives of message lane module, that are used on the target chain.
 
-use crate::{Message, MessageData, MessageKey};
+use crate::{LaneId, Message, MessageData, MessageKey, OutboundLaneData};
 
-use codec::{Decode, Error as CodecError};
+use codec::{Decode, Encode, Error as CodecError};
 use frame_support::{weights::Weight, Parameter, RuntimeDebug};
-use sp_std::{fmt::Debug, prelude::*};
+use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, prelude::*};
+
+/// Proved messages from the source chain.
+pub type ProvedMessages<Message> = BTreeMap<LaneId, ProvedLaneMessages<Message>>;
+
+/// Proved messages from single lane of the source chain.
+#[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq)]
+pub struct ProvedLaneMessages<Message> {
+	/// Optional outbound lane state.
+	pub lane_state: Option<OutboundLaneData>,
+	/// Messages sent through this lane.
+	pub messages: Vec<Message>,
+}
 
 /// Message data with decoded dispatch payload.
 #[derive(RuntimeDebug)]
@@ -49,14 +61,15 @@ pub trait SourceHeaderChain<Fee> {
 	/// Error type.
 	type Error: Debug + Into<&'static str>;
 
-	/// Proof that messages are sent from source chain.
+	/// Proof that messages are sent from source chain. This may also include proof
+	/// of corresponding outbound lane states.
 	type MessagesProof: Parameter;
 
 	/// Verify messages proof and return proved messages.
 	///
 	/// Messages vector is required to be sorted by nonce within each lane. Out-of-order
 	/// messages will be rejected.
-	fn verify_messages_proof(proof: Self::MessagesProof) -> Result<Vec<Message<Fee>>, Self::Error>;
+	fn verify_messages_proof(proof: Self::MessagesProof) -> Result<ProvedMessages<Message<Fee>>, Self::Error>;
 }
 
 /// Called when inbound message is received.
@@ -77,6 +90,15 @@ pub trait MessageDispatch<Fee> {
 	/// It is up to the implementers of this trait to determine whether the message
 	/// is invalid (i.e. improperly encoded, has too large weight, ...) or not.
 	fn dispatch(message: DispatchMessage<Self::DispatchPayload, Fee>);
+}
+
+impl<Message> Default for ProvedLaneMessages<Message> {
+	fn default() -> Self {
+		ProvedLaneMessages {
+			lane_state: None,
+			messages: Vec::new(),
+		}
+	}
 }
 
 impl<DispatchPayload: Decode, Fee> From<Message<Fee>> for DispatchMessage<DispatchPayload, Fee> {
