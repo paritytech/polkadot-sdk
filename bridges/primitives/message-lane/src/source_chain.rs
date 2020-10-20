@@ -16,7 +16,7 @@
 
 //! Primitives of message lane module, that are used on the source chain.
 
-use crate::{LaneId, MessageNonce};
+use crate::{InboundLaneData, LaneId};
 
 use frame_support::Parameter;
 use sp_std::fmt::Debug;
@@ -26,7 +26,7 @@ use sp_std::fmt::Debug;
 /// All implementations of this trait should only work with finalized data that
 /// can't change. Wrong implementation may lead to invalid lane states (i.e. lane
 /// that's stuck) and/or processing messages without paying fees.
-pub trait TargetHeaderChain<Payload> {
+pub trait TargetHeaderChain<Payload, RelayerId> {
 	/// Error type.
 	type Error: Debug + Into<&'static str>;
 
@@ -50,7 +50,7 @@ pub trait TargetHeaderChain<Payload> {
 	/// Verify messages delivery proof and return lane && nonce of the latest recevied message.
 	fn verify_messages_delivery_proof(
 		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, MessageNonce), Self::Error>;
+	) -> Result<(LaneId, InboundLaneData<RelayerId>), Self::Error>;
 }
 
 /// Lane message verifier.
@@ -94,4 +94,7 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 	/// Withhold/write-off delivery_and_dispatch_fee from submitter account to
 	/// some relayers-fund account.
 	fn pay_delivery_and_dispatch_fee(submitter: &AccountId, fee: &Balance) -> Result<(), Self::Error>;
+
+	/// Pay reward for delivering message to the given relayer account.
+	fn pay_relayer_reward(confirmation_relayer: &AccountId, relayer: &AccountId, reward: &Balance);
 }

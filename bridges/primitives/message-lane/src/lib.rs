@@ -25,7 +25,7 @@
 use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use sp_api::decl_runtime_apis;
-use sp_std::prelude::*;
+use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
 pub mod source_chain;
 pub mod target_chain;
@@ -70,14 +70,38 @@ pub struct Message<Fee> {
 }
 
 /// Inbound lane data.
-#[derive(Default, Encode, Decode, Clone, RuntimeDebug, PartialEq)]
-pub struct InboundLaneData {
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+pub struct InboundLaneData<RelayerId> {
+	/// Identifiers of relayers and messages that they have delivered (ordered by message nonce).
+	/// It is guaranteed to have at most N entries, where N is configured at module level. If
+	/// there are N entries in this vec, then:
+	/// 1) all incoming messages are rejected if they're missing corresponding `proof-of(outbound-lane.state)`;
+	/// 2) all incoming messages are rejected if `proof-of(outbound-lane.state).latest_received_nonce` is
+	///    equal to `this.latest_confirmed_nonce`.
+	/// Given what is said above, all nonces in this queue are in range (latest_confirmed_nonce; latest_received_nonce].
+	///
+	/// When a relayer sends a single message, both of MessageNonces are the same.
+	/// When relayer sends messages in a batch, the first arg is the lowest nonce, second arg the highest nonce.
+	/// Multiple dispatches from the same relayer one are allowed.
+	pub relayers: VecDeque<(MessageNonce, MessageNonce, RelayerId)>,
 	/// Nonce of latest message that we have received from bridged chain.
 	pub latest_received_nonce: MessageNonce,
+	/// Nonce of latest message that has been confirmed to the bridged chain.
+	pub latest_confirmed_nonce: MessageNonce,
+}
+
+impl<RelayerId> Default for InboundLaneData<RelayerId> {
+	fn default() -> Self {
+		InboundLaneData {
+			relayers: VecDeque::new(),
+			latest_received_nonce: 0,
+			latest_confirmed_nonce: 0,
+		}
+	}
 }
 
 /// Outbound lane data.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq)]
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
 pub struct OutboundLaneData {
 	/// Nonce of oldest message that we haven't yet pruned. May point to not-yet-generated message if
 	/// all sent messages are already pruned.
