@@ -66,10 +66,16 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// confirmed. The reason is that if you want to use lane, you should be ready to pay
 	/// for it.
 	type MaxMessagesToPruneAtOnce: Get<MessageNonce>;
-	/// Maximal number of messages in the 'unconfirmed' state at inbound lane. Unconfirmed
-	/// message at inbound lane is the message that has been: sent, delivered and dispatched.
-	/// Its delivery confirmation is still pending. This limit is introduced to bound maximal
-	/// number of relayers-ids in the inbound lane state.
+	/// Maximal number of "messages" (see note below) in the 'unconfirmed' state at inbound lane.
+	/// Unconfirmed message at inbound lane is the message that has been: sent, delivered and
+	/// dispatched. Its delivery confirmation is still pending. This limit is introduced to bound
+	/// maximal number of relayers-ids in the inbound lane state.
+	///
+	/// "Message" in this context does not necessarily mean an individual message, but instead
+	/// continuous range of individual messages, that are delivered by single relayer. So if relayer#1
+	/// has submitted delivery transaction#1 with individual messages [1; 2] and then delivery
+	/// transaction#2 with individual messages [3; 4], this would be treated as single "Message" and
+	/// would occupy single unit of `MaxUnconfirmedMessagesAtInboundLane` limit.
 	type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
 
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
