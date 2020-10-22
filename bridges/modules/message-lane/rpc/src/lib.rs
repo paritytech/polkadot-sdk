@@ -45,6 +45,8 @@ pub type MessagesDeliveryProof = Bytes;
 pub trait Runtime: Send + Sync + 'static {
 	/// Return runtime storage key for given message. May return None if instance is unknown.
 	fn message_key(&self, instance: &InstanceId, lane: &LaneId, nonce: MessageNonce) -> Option<StorageKey>;
+	/// Return runtime storage key for outbound lane state. May return None if instance is unknown.
+	fn outbound_lane_data_key(&self, instance: &InstanceId, lane: &LaneId) -> Option<StorageKey>;
 	/// Return runtime storage key for inbound lane state. May return None if instance is unknown.
 	fn inbound_lane_data_key(&self, instance: &InstanceId, lane: &LaneId) -> Option<StorageKey>;
 }
@@ -60,6 +62,7 @@ pub trait MessageLaneApi<BlockHash> {
 		lane: LaneId,
 		begin: MessageNonce,
 		end: MessageNonce,
+		include_outbound_lane_state: bool,
 		block: Option<BlockHash>,
 	) -> FutureResult<MessagesProof>;
 
@@ -103,14 +106,22 @@ where
 		lane: LaneId,
 		begin: MessageNonce,
 		end: MessageNonce,
+		include_outbound_lane_state: bool,
 		block: Option<Block::Hash>,
 	) -> FutureResult<MessagesProof> {
 		let runtime = self.runtime.clone();
+		let outbound_lane_data_key = if include_outbound_lane_state {
+			Some(runtime.inbound_lane_data_key(&instance, &lane))
+		} else {
+			None
+		};
 		Box::new(
 			prove_keys_read(
 				self.backend.clone(),
 				block,
-				(begin..=end).map(move |nonce| runtime.message_key(&instance, &lane, nonce)),
+				(begin..=end)
+					.map(move |nonce| runtime.message_key(&instance, &lane, nonce))
+					.chain(outbound_lane_data_key.into_iter()),
 			)
 			.boxed()
 			.compat()
