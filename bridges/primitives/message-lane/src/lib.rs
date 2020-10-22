@@ -136,5 +136,7 @@ decl_runtime_apis! {
 	pub trait InboundLaneApi {
 		/// Returns nonce of the latest message, received by given lane.
 		fn latest_received_nonce(lane: LaneId) -> MessageNonce;
+		/// Nonce of latest message that has been confirmed to the bridged chain.
+		fn latest_confirmed_nonce(lane: LaneId) -> MessageNonce;
 	}
 }
