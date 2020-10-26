@@ -18,9 +18,12 @@ serde = { version = "1.0.117", optional = true, features = ["derive"] }
 bp-currency-exchange = { path = "../../../primitives/currency-exchange", default-features = false }
 bp-eth-poa = { path = "../../../primitives/ethereum-poa", default-features = false }
 bp-header-chain = { path = "../../../primitives/header-chain", default-features = false }
+bp-message-dispatch = { path = "../../../primitives/message-dispatch", default-features = false }
 bp-message-lane = { path = "../../../primitives/message-lane", default-features = false }
 bp-millau = { path = "../../../primitives/millau", default-features = false }
 bp-rialto = { path = "../../../primitives/rialto", default-features = false }
+bp-runtime = { path = "../../../primitives/runtime", default-features = false }
+bridge-runtime-common = { path = "../../runtime-common", default-features = false }
 pallet-bridge-eth-poa = { path = "../../../modules/ethereum", default-features = false }
 pallet-bridge-call-dispatch = { path = "../../../modules/call-dispatch", default-features = false }
 pallet-bridge-currency-exchange = { path = "../../../modules/currency-exchange", default-features = false }
@@ -55,6 +58,7 @@ sp-runtime = { version = "2.0", default-features = false }
 sp-session = { version = "2.0", default-features = false }
 sp-std = { version = "2.0", default-features = false }
 sp-transaction-pool = { version = "2.0", default-features = false }
+sp-trie = { version = "2.0", default-features = false }
 sp-version = { version = "2.0", default-features = false }
 
 [dev-dependencies]
@@ -69,9 +73,12 @@ std = [
 	"bp-currency-exchange/std",
 	"bp-eth-poa/std",
 	"bp-header-chain/std",
+	"bp-message-dispatch/std",
 	"bp-message-lane/std",
-	"bp-rialto/std",
 	"bp-millau/std",
+	"bp-rialto/std",
+	"bp-runtime/std",
+	"bridge-runtime-common/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
@@ -104,6 +111,7 @@ std = [
 	"sp-session/std",
 	"sp-std/std",
 	"sp-transaction-pool/std",
+	"sp-trie/std",
 	"sp-version/std",
 ]
 runtime-benchmarks = [

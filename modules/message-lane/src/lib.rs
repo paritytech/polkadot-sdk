@@ -48,6 +48,8 @@ use sp_std::{cell::RefCell, marker::PhantomData, prelude::*};
 mod inbound_lane;
 mod outbound_lane;
 
+pub mod instant_payments;
+
 #[cfg(test)]
 mod mock;
 
