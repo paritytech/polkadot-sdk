@@ -177,6 +177,7 @@ pub fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 		consts::SUBSTRATE_TICK_INTERVAL,
 		target,
 		consts::ETHEREUM_TICK_INTERVAL,
+		(),
 		sync_params,
 		metrics_params,
 		futures::future::pending(),
