@@ -20,6 +20,7 @@ bp-millau = { path = "../../primitives/millau" }
 bp-rialto = { path = "../../primitives/rialto" }
 headers-relay = { path = "../headers-relay" }
 messages-relay = { path = "../messages-relay" }
+pallet-substrate-bridge = { path = "../../modules/substrate" }
 relay-millau-client = { path = "../millau-client" }
 relay-rialto-client = { path = "../rialto-client" }
 relay-substrate-client = { path = "../substrate-client" }

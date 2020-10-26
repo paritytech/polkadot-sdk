@@ -29,7 +29,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
 	/// Web socket connection error.
 	WsConnectionError(WsNewDnsError),
-	/// An error that can occur when making an HTTP request to
+	/// An error that can occur when making a request to
 	/// an JSON-RPC server.
 	Request(RequestError),
 	/// The response from the server could not be SCALE decoded.

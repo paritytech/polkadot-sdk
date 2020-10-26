@@ -41,6 +41,8 @@ use sp_std::{marker::PhantomData, prelude::*};
 // Re-export since the node uses these when configuring genesis
 pub use storage::{AuthoritySet, ScheduledChange};
 
+pub use justification::decode_justification_target;
+
 mod justification;
 mod storage;
 mod storage_proof;
