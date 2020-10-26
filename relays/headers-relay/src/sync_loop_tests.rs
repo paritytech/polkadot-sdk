@@ -479,6 +479,7 @@ fn run_sync_loop_test(params: SyncLoopTestParams) {
 		test_tick(),
 		target,
 		test_tick(),
+		(),
 		crate::sync::tests::default_sync_params(),
 		None,
 		exit_receiver.into_future().map(|(_, _)| ()),

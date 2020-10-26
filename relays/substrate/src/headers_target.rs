@@ -36,6 +36,8 @@ use std::collections::HashSet;
 pub trait SubstrateHeadersSyncPipeline: HeadersSyncPipeline {
 	/// Name of the `best_block` runtime method.
 	const BEST_BLOCK_METHOD: &'static str;
+	/// Name of the `finalized_block` runtime method.
+	const FINALIZED_BLOCK_METHOD: &'static str;
 	/// Name of the `is_known_block` runtime method.
 	const IS_KNOWN_BLOCK_METHOD: &'static str;
 	/// Name of the `incomplete_headers` runtime method.

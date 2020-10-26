@@ -292,7 +292,8 @@ impl pallet_sudo::Trait for Runtime {
 }
 
 parameter_types! {
-	pub const Period: BlockNumber = 4;
+	/// Authorities are changing every 5 minutes.
+	pub const Period: BlockNumber = 5 * MINUTES;
 	pub const Offset: BlockNumber = 0;
 }
 

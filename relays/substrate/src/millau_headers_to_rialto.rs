@@ -17,12 +17,16 @@
 //! Millau-to-Rialto headers sync entrypoint.
 
 use crate::{
+	headers_maintain::SubstrateHeadersToSubstrateMaintain,
 	headers_target::{SubstrateHeadersSyncPipeline, SubstrateHeadersTarget},
 	MillauClient, RialtoClient,
 };
 
 use async_trait::async_trait;
-use bp_millau::{BEST_MILLAU_BLOCK_METHOD, INCOMPLETE_MILLAU_HEADERS_METHOD, IS_KNOWN_MILLAU_BLOCK_METHOD};
+use bp_millau::{
+	BEST_MILLAU_BLOCK_METHOD, FINALIZED_MILLAU_BLOCK_METHOD, INCOMPLETE_MILLAU_HEADERS_METHOD,
+	IS_KNOWN_MILLAU_BLOCK_METHOD,
+};
 use codec::Encode;
 use headers_relay::{
 	sync::{HeadersSyncParams, TargetTransactionMode},
@@ -39,7 +43,7 @@ use std::time::Duration;
 
 /// Millau-to-Rialto headers pipeline.
 #[derive(Debug, Clone)]
-struct MillauHeadersToRialto {
+pub struct MillauHeadersToRialto {
 	client: RialtoClient,
 	sign: RialtoSigningParams,
 }
@@ -62,6 +66,7 @@ impl HeadersSyncPipeline for MillauHeadersToRialto {
 #[async_trait]
 impl SubstrateHeadersSyncPipeline for MillauHeadersToRialto {
 	const BEST_BLOCK_METHOD: &'static str = BEST_MILLAU_BLOCK_METHOD;
+	const FINALIZED_BLOCK_METHOD: &'static str = FINALIZED_MILLAU_BLOCK_METHOD;
 	const IS_KNOWN_BLOCK_METHOD: &'static str = IS_KNOWN_MILLAU_BLOCK_METHOD;
 	const INCOMPLETE_HEADERS_METHOD: &'static str = INCOMPLETE_MILLAU_HEADERS_METHOD;
 
@@ -100,8 +105,20 @@ type MillauSourceClient = HeadersSource<Millau, MillauHeadersToRialto>;
 /// Rialto node as headers target.
 type RialtoTargetClient = SubstrateHeadersTarget<Rialto, MillauHeadersToRialto>;
 
+/// Return sync parameters for Millau-to-Rialto headers sync.
+pub fn sync_params() -> HeadersSyncParams {
+	HeadersSyncParams {
+		max_future_headers_to_download: 32,
+		max_headers_in_submitted_status: 8,
+		max_headers_in_single_submit: 1,
+		max_headers_size_in_single_submit: 1024 * 1024,
+		prune_depth: 256,
+		target_tx_mode: TargetTransactionMode::Signed,
+	}
+}
+
 /// Run Millau-to-Rialto headers sync.
-pub fn run(
+pub async fn run(
 	millau_client: MillauClient,
 	rialto_client: RialtoClient,
 	rialto_sign: RialtoSigningParams,
@@ -109,27 +126,34 @@ pub fn run(
 ) {
 	let millau_tick = Duration::from_secs(5);
 	let rialto_tick = Duration::from_secs(5);
-	let sync_params = HeadersSyncParams {
-		max_future_headers_to_download: 32,
-		max_headers_in_submitted_status: 8,
-		max_headers_in_single_submit: 1,
-		max_headers_size_in_single_submit: 1024 * 1024,
-		prune_depth: 256,
-		target_tx_mode: TargetTransactionMode::Signed,
+
+	let millau_justifications = match millau_client.clone().subscribe_justifications().await {
+		Ok(millau_justifications) => millau_justifications,
+		Err(error) => {
+			log::warn!(
+				target: "bridge",
+				"Failed to subscribe to Millau justifications: {:?}",
+				error,
+			);
+
+			return;
+		}
 	};
+
+	let pipeline = MillauHeadersToRialto {
+		client: rialto_client.clone(),
+		sign: rialto_sign,
+	};
+	let sync_maintain =
+		SubstrateHeadersToSubstrateMaintain::new(pipeline.clone(), rialto_client.clone(), millau_justifications);
 
 	headers_relay::sync_loop::run(
 		MillauSourceClient::new(millau_client),
 		millau_tick,
-		RialtoTargetClient::new(
-			rialto_client.clone(),
-			MillauHeadersToRialto {
-				client: rialto_client,
-				sign: rialto_sign,
-			},
-		),
+		RialtoTargetClient::new(rialto_client, pipeline),
 		rialto_tick,
-		sync_params,
+		sync_maintain,
+		sync_params(),
 		metrics_params,
 		futures::future::pending(),
 	);

@@ -76,7 +76,7 @@ pub trait HeadersSyncPipeline: Clone + Send + Sync {
 	/// 4) header and extra data are submitted in single transaction.
 	///
 	/// Example: Ethereum transactions receipts.
-	type Extra: Clone + PartialEq + std::fmt::Debug;
+	type Extra: Clone + Send + Sync + PartialEq + std::fmt::Debug;
 	/// Type of data required to 'complete' header that we're receiving from the source node:
 	/// 1) completion data is required for some headers;
 	/// 2) target node can't answer if it'll require completion data before header is accepted;
@@ -84,7 +84,7 @@ pub trait HeadersSyncPipeline: Clone + Send + Sync {
 	/// 4) header and completion data are submitted in separate transactions.
 	///
 	/// Example: Substrate GRANDPA justifications.
-	type Completion: Clone + std::fmt::Debug;
+	type Completion: Clone + Send + Sync + std::fmt::Debug;
 
 	/// Function used to estimate size of target-encoded header.
 	fn estimate_size(source: &QueuedHeader<Self>) -> usize;
