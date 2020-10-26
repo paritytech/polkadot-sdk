@@ -16,7 +16,7 @@
 
 //! Entrypoint for running headers synchronization loop.
 
-use crate::sync::HeadersSyncParams;
+use crate::sync::{HeadersSync, HeadersSyncParams};
 use crate::sync_loop_metrics::SyncLoopMetrics;
 use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SubmittedHeaders};
 
@@ -48,10 +48,12 @@ const STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 /// Delay after we have seen update of best source header at target node,
 /// for us to treat sync stalled. ONLY when relay operates in backup mode.
 const BACKUP_STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+/// Interval between calling sync maintain procedure.
+const MAINTAIN_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Source client trait.
 #[async_trait]
-pub trait SourceClient<P: HeadersSyncPipeline>: Sized {
+pub trait SourceClient<P: HeadersSyncPipeline> {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 
@@ -78,7 +80,7 @@ pub trait SourceClient<P: HeadersSyncPipeline>: Sized {
 
 /// Target client trait.
 #[async_trait]
-pub trait TargetClient<P: HeadersSyncPipeline>: Sized {
+pub trait TargetClient<P: HeadersSyncPipeline> {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 
@@ -102,12 +104,24 @@ pub trait TargetClient<P: HeadersSyncPipeline>: Sized {
 	async fn requires_extra(&self, header: QueuedHeader<P>) -> Result<(HeaderIdOf<P>, bool), Self::Error>;
 }
 
+/// Synchronization maintain procedure.
+#[async_trait]
+pub trait SyncMaintain<P: HeadersSyncPipeline>: Send + Sync {
+	/// Run custom maintain procedures. This is guaranteed to be called when both source and target
+	/// clients are unoccupied.
+	async fn maintain(&self, _sync: &mut HeadersSync<P>) {}
+}
+
+impl<P: HeadersSyncPipeline> SyncMaintain<P> for () {}
+
 /// Run headers synchronization.
+#[allow(clippy::too_many_arguments)]
 pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	source_client: impl SourceClient<P>,
 	source_tick: Duration,
 	target_client: TC,
 	target_tick: Duration,
+	sync_maintain: impl SyncMaintain<P>,
 	sync_params: HeadersSyncParams,
 	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
@@ -116,7 +130,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	let mut progress_context = (Instant::now(), None, None);
 
 	local_pool.run_until(async move {
-		let mut sync = crate::sync::HeadersSync::<P>::new(sync_params);
+		let mut sync = HeadersSync::<P>::new(sync_params);
 		let mut stall_countdown = None;
 		let mut last_update_time = Instant::now();
 
@@ -154,6 +168,9 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 		let target_go_offline_future = futures::future::Fuse::terminated();
 		let target_tick_stream = interval(target_tick).fuse();
 
+		let mut maintain_required = false;
+		let maintain_stream = interval(MAINTAIN_INTERVAL).fuse();
+
 		let exit_signal = exit_signal.fuse();
 
 		futures::pin_mut!(
@@ -172,6 +189,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 			target_complete_header_future,
 			target_go_offline_future,
 			target_tick_stream,
+			maintain_stream,
 			exit_signal
 		);
 
@@ -373,6 +391,9 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 					target_incomplete_headers_required = true;
 				},
 
+				_ = maintain_stream.next() => {
+					maintain_required = true;
+				},
 				_ = exit_signal => {
 					return;
 				}
@@ -387,9 +408,16 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 			// print progress
 			progress_context = print_sync_progress(progress_context, &sync);
 
+			// run maintain procedures
+			if maintain_required && source_client_is_online && target_client_is_online {
+				log::debug!(target: "bridge", "Maintaining headers sync loop");
+				maintain_required = false;
+				sync_maintain.maintain(&mut sync).await;
+			}
+
 			// If the target client is accepting requests we update the requests that
 			// we want it to run
-			if target_client_is_online {
+			if !maintain_required && target_client_is_online {
 				// NOTE: Is is important to reset this so that we only have one
 				// request being processed by the client at a time. This prevents
 				// race conditions like receiving two transactions with the same
@@ -476,7 +504,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 
 			// If the source client is accepting requests we update the requests that
 			// we want it to run
-			if source_client_is_online {
+			if !maintain_required && source_client_is_online {
 				// NOTE: Is is important to reset this so that we only have one
 				// request being processed by the client at a time. This prevents
 				// race conditions like receiving two transactions with the same
@@ -561,7 +589,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 /// Print synchronization progress.
 fn print_sync_progress<P: HeadersSyncPipeline>(
 	progress_context: (Instant, Option<P::Number>, Option<P::Number>),
-	eth_sync: &crate::sync::HeadersSync<P>,
+	eth_sync: &HeadersSync<P>,
 ) -> (Instant, Option<P::Number>, Option<P::Number>) {
 	let (prev_time, prev_best_header, prev_target_header) = progress_context;
 	let now_time = Instant::now();
