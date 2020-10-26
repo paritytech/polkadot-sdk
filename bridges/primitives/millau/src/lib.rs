@@ -62,6 +62,8 @@ impl Chain for Millau {
 
 /// Name of the `MillauHeaderApi::best_block` runtime method.
 pub const BEST_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_best_block";
+/// Name of the `MillauHeaderApi::finalized_block` runtime method.
+pub const FINALIZED_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_finalized_block";
 /// Name of the `MillauHeaderApi::is_known_block` runtime method.
 pub const IS_KNOWN_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_is_known_block";
 /// Name of the `MillauHeaderApi::incomplete_headers` runtime method.

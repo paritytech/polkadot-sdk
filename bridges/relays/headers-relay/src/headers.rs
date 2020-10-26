@@ -496,6 +496,11 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		}
 	}
 
+	/// Returns true if given header requires completion data.
+	pub fn requires_completion_data(&self, id: &HeaderIdOf<P>) -> bool {
+		self.incomplete_headers.contains_key(id)
+	}
+
 	/// Returns id of the header for which we want to fetch completion data.
 	pub fn incomplete_header(&mut self) -> Option<HeaderIdOf<P>> {
 		queued_incomplete_header(&mut self.incomplete_headers, |last_fetch_time| {

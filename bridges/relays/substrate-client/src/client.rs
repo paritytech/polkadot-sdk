@@ -23,11 +23,14 @@ use crate::{ConnectionParams, Result};
 use jsonrpsee::common::DeserializeOwned;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::ws::WsTransportClient;
-use jsonrpsee::Client as RpcClient;
+use jsonrpsee::{client::Subscription, Client as RpcClient};
 use num_traits::Zero;
 use sp_core::Bytes;
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
+
+/// Opaque justifications subscription type.
+pub type JustificationsSubscription = Subscription<Bytes>;
 
 /// Opaque GRANDPA authorities set.
 pub type OpaqueGrandpaAuthoritiesSet = Vec<u8>;
@@ -134,5 +137,17 @@ where
 		Substrate::<C, _, _>::state_call(&self.client, method, data, at_block)
 			.await
 			.map_err(Into::into)
+	}
+
+	/// Return new justifications stream.
+	pub async fn subscribe_justifications(self) -> Result<JustificationsSubscription> {
+		Ok(self
+			.client
+			.subscribe(
+				"grandpa_subscribeJustifications",
+				jsonrpsee::common::Params::None,
+				"grandpa_unsubscribeJustifications",
+			)
+			.await?)
 	}
 }
