@@ -21,10 +21,21 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_runtime::Chain;
-use frame_support::RuntimeDebug;
+use frame_support::{weights::Weight, RuntimeDebug};
 use sp_core::Hasher as HasherT;
-use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::{
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	MultiSignature, MultiSigner,
+};
 use sp_std::prelude::*;
+
+/// Maximal weight of single Millau block.
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2_000_000_000_000;
+/// Portion of block reserved for regular transactions.
+pub const AVAILABLE_BLOCK_RATIO: u32 = 75;
+/// Maximal weight of single Millau extrinsic (65% of maximum block weight = 75% for regular
+/// transactions minus 10% for initialization).
+pub const MAXIMUM_EXTRINSIC_WEIGHT: Weight = MAXIMUM_BLOCK_WEIGHT / 100 * (AVAILABLE_BLOCK_RATIO as Weight - 10);
 
 /// Block number type used in Millau.
 pub type BlockNumber = u32;
@@ -55,6 +66,19 @@ pub const BEST_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_best_block";
 pub const IS_KNOWN_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_is_known_block";
 /// Name of the `MillauHeaderApi::incomplete_headers` runtime method.
 pub const INCOMPLETE_MILLAU_HEADERS_METHOD: &str = "MillauHeaderApi_incomplete_headers";
+
+/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
+pub type Signature = MultiSignature;
+
+/// Some way of identifying an account on the chain. We intentionally make it equivalent
+/// to the public key of our transaction signing scheme.
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+/// Public key of the chain account that may be used to verify signatures.
+pub type AccountSigner = MultiSigner;
+
+/// Balance of an account.
+pub type Balance = u128;
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about Millau headers from the Bridge Pallet instance.

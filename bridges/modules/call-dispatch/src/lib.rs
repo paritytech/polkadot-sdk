@@ -47,7 +47,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 pub type SpecVersion = u32;
 
 /// Origin of the call on the target chain.
-#[derive(RuntimeDebug, Encode, Decode, Clone)]
+#[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq)]
 pub enum CallOrigin<SourceChainAccountPublic, TargetChainAccountPublic, TargetChainSignature> {
 	/// Call is originated from bridge account, which is (designed to be) specific to
 	/// the single deployed instance of the messages bridge (message-lane, ...) module.
@@ -67,7 +67,7 @@ pub enum CallOrigin<SourceChainAccountPublic, TargetChainAccountPublic, TargetCh
 }
 
 /// Message payload type used by call-dispatch module.
-#[derive(RuntimeDebug, Encode, Decode, Clone)]
+#[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq)]
 pub struct MessagePayload<SourceChainAccountPublic, TargetChainAccountPublic, TargetChainSignature, Call> {
 	/// Runtime specification version. We only dispatch messages that have the same
 	/// runtime version. Otherwise we risk to misinterpret encoded calls.
