@@ -17,6 +17,8 @@ serde = { version = "1.0.117", optional = true, features = ["derive"] }
 bp-message-lane = { path = "../../../primitives/message-lane", default-features = false }
 bp-millau = { path = "../../../primitives/millau", default-features = false }
 bp-rialto = { path = "../../../primitives/rialto", default-features = false }
+bp-runtime = { path = "../../../primitives/runtime", default-features = false }
+bridge-runtime-common = { path = "../../runtime-common", default-features = false }
 pallet-bridge-call-dispatch = { path = "../../../modules/call-dispatch", default-features = false }
 pallet-message-lane = { path = "../../../modules/message-lane", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
@@ -47,6 +49,7 @@ sp-runtime = { version = "2.0", default-features = false }
 sp-session = { version = "2.0", default-features = false }
 sp-std = { version = "2.0", default-features = false }
 sp-transaction-pool = { version = "2.0", default-features = false }
+sp-trie = { version = "2.0", default-features = false }
 sp-version = { version = "2.0", default-features = false }
 
 [build-dependencies]
@@ -58,6 +61,8 @@ std = [
 	"bp-message-lane/std",
 	"bp-millau/std",
 	"bp-rialto/std",
+	"bp-runtime/std",
+	"bridge-runtime-common/std",
 	"codec/std",
 	"frame-executive/std",
 	"frame-support/std",
@@ -87,5 +92,6 @@ std = [
 	"sp-session/std",
 	"sp-std/std",
 	"sp-transaction-pool/std",
+	"sp-trie/std",
 	"sp-version/std",
 ]
