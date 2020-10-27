@@ -21,6 +21,7 @@ use core::default::Default;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{AuthorityList, SetId};
+use sp_runtime::traits::Header as HeaderT;
 use sp_runtime::RuntimeDebug;
 
 /// A Grandpa Authority List and ID.
@@ -54,7 +55,7 @@ pub struct ScheduledChange<N> {
 
 /// A more useful representation of a header for storage purposes.
 #[derive(Default, Encode, Decode, Clone, RuntimeDebug, PartialEq)]
-pub struct ImportedHeader<H> {
+pub struct ImportedHeader<H: HeaderT> {
 	/// A plain Substrate header.
 	pub header: H,
 	/// Does this header enact a new authority set change. If it does
@@ -63,9 +64,12 @@ pub struct ImportedHeader<H> {
 	/// Has this header been finalized, either explicitly via a justification,
 	/// or implicitly via one of its children getting finalized.
 	pub is_finalized: bool,
+	/// The hash of the header which scheduled a change on this fork. If there are currently
+	/// not pending changes on this fork this will be empty.
+	pub signal_hash: Option<H::Hash>,
 }
 
-impl<H> core::ops::Deref for ImportedHeader<H> {
+impl<H: HeaderT> core::ops::Deref for ImportedHeader<H> {
 	type Target = H;
 
 	fn deref(&self) -> &H {
