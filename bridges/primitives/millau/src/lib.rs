@@ -61,7 +61,7 @@ impl Chain for Millau {
 }
 
 /// Name of the `MillauHeaderApi::best_block` runtime method.
-pub const BEST_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_best_block";
+pub const BEST_MILLAU_BLOCKS_METHOD: &str = "MillauHeaderApi_best_blocks";
 /// Name of the `MillauHeaderApi::finalized_block` runtime method.
 pub const FINALIZED_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_finalized_block";
 /// Name of the `MillauHeaderApi::is_known_block` runtime method.
@@ -88,11 +88,13 @@ sp_api::decl_runtime_apis! {
 	/// This API is implemented by runtimes that are bridging with Millau chain, not the
 	/// Millau runtime itself.
 	pub trait MillauHeaderApi {
-		/// Returns number and hash of the best block known to the bridge module.
+		/// Returns number and hash of the best blocks known to the bridge module.
+		///
+		/// Will return multiple headers if there are many headers at the same "best" height.
 		///
 		/// The caller should only submit an `import_header` transaction that makes
 		/// (or leads to making) other header the best one.
-		fn best_block() -> (BlockNumber, Hash);
+		fn best_blocks() -> Vec<(BlockNumber, Hash)>;
 		/// Returns number and hash of the best finalized block known to the bridge module.
 		fn finalized_block() -> (BlockNumber, Hash);
 		/// Returns numbers and hashes of headers that require finality proofs.
