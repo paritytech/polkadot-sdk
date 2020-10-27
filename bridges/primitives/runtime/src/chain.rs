@@ -40,7 +40,8 @@ pub trait Chain {
 		+ AtLeast32BitUnsigned
 		+ FromStr
 		+ MaybeMallocSizeOf
-		+ AsPrimitive<usize>;
+		+ AsPrimitive<usize>
+		+ Default;
 
 	/// A type that fulfills the abstract idea of what a Substrate hash is.
 	// Constraits come from the associated Hash type of `sp_runtime::traits::Header`
