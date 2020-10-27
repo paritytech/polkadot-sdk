@@ -53,7 +53,7 @@ sp-trie = { version = "2.0", default-features = false }
 sp-version = { version = "2.0", default-features = false }
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "1.0.5" }
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "2.0.0" }
 
 [features]
 default = ["std"]
