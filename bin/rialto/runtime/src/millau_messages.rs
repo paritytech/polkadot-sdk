@@ -16,20 +16,40 @@
 
 //! Everything required to serve Millau <-> Rialto message lanes.
 
-use bridge_runtime_common::messages;
+use crate::Runtime;
 
 use bp_message_lane::{
 	source_chain::TargetHeaderChain,
 	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageNonce,
+	InboundLaneData, LaneId, Message, MessageKey, MessageNonce,
 };
 use bp_runtime::InstanceId;
-use bridge_runtime_common::messages::MessageBridge;
+use bridge_runtime_common::messages::{self, MessageBridge};
 use frame_support::{
+	storage::generator::StorageMap,
 	weights::{Weight, WeightToFeePolynomial},
 	RuntimeDebug,
 };
+use pallet_message_lane::{DefaultInstance, InboundLanes, OutboundLanes, OutboundMessages};
+use sp_core::storage::StorageKey;
 use sp_trie::StorageProof;
+
+/// Storage key of the Rialto -> Millau message in the runtime storage.
+pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
+	let message_key = MessageKey { lane_id: *lane, nonce };
+	let raw_storage_key = OutboundMessages::<Runtime, DefaultInstance>::storage_map_final_key(message_key);
+	StorageKey(raw_storage_key)
+}
+
+/// Storage key of the Rialto -> Millau message lane state in the runtime storage.
+pub fn outbound_lane_data_key(lane: &LaneId) -> StorageKey {
+	StorageKey(OutboundLanes::<DefaultInstance>::storage_map_final_key(*lane))
+}
+
+/// Storage key of the Millau -> Rialto message lane state in the runtime storage.
+pub fn inbound_lane_data_key(lane: &LaneId) -> StorageKey {
+	StorageKey(InboundLanes::<Runtime, DefaultInstance>::storage_map_final_key(*lane))
+}
 
 /// Message payload for Rialto -> Millau messages.
 pub type ToMillauMessagePayload = messages::source::FromThisChainMessagePayload<WithMillauMessageBridge>;

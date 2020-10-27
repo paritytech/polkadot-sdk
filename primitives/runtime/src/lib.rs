@@ -28,6 +28,12 @@ mod chain;
 /// Use this when something must be shared among all instances.
 pub const NO_INSTANCE_ID: InstanceId = [0, 0, 0, 0];
 
+/// Bridge-with-Rialto instance id.
+pub const RIALTO_BRIDGE_INSTANCE: InstanceId = *b"rlto";
+
+/// Bridge-with-Millau instance id.
+pub const MILLAU_BRIDGE_INSTANCE: InstanceId = *b"mlau";
+
 /// Call-dispatch module prefix.
 pub const CALL_DISPATCH_MODULE_PREFIX: &[u8] = b"pallet-bridge/call-dispatch";
 
