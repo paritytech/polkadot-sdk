@@ -138,11 +138,11 @@ decl_error! {
 decl_storage! {
 	trait Store for Module<T: Trait<I>, I: Instance = DefaultInstance> as MessageLane {
 		/// Map of lane id => inbound lane data.
-		InboundLanes: map hasher(blake2_128_concat) LaneId => InboundLaneData<T::InboundRelayer>;
+		pub InboundLanes: map hasher(blake2_128_concat) LaneId => InboundLaneData<T::InboundRelayer>;
 		/// Map of lane id => outbound lane data.
-		OutboundLanes: map hasher(blake2_128_concat) LaneId => OutboundLaneData;
+		pub OutboundLanes: map hasher(blake2_128_concat) LaneId => OutboundLaneData;
 		/// All queued outbound messages.
-		OutboundMessages: map hasher(blake2_128_concat) MessageKey => Option<MessageData<T::OutboundMessageFee>>;
+		pub OutboundMessages: map hasher(blake2_128_concat) MessageKey => Option<MessageData<T::OutboundMessageFee>>;
 	}
 }
 
