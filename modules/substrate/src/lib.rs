@@ -36,6 +36,7 @@ use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderOf};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::ensure_signed;
 use sp_runtime::traits::Header as HeaderT;
+use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, prelude::*};
 
 // Re-export since the node uses these when configuring genesis
@@ -51,10 +52,8 @@ mod verifier;
 #[cfg(test)]
 mod mock;
 
-pub trait Trait: frame_system::Trait {
-	/// Chain that we are bridging here.
-	type BridgedChain: Chain;
-}
+#[cfg(test)]
+mod fork_tests;
 
 /// Block number of the bridged chain.
 pub(crate) type BridgedBlockNumber<T> = BlockNumberOf<<T as Trait>::BridgedChain>;
@@ -63,25 +62,45 @@ pub(crate) type BridgedBlockHash<T> = HashOf<<T as Trait>::BridgedChain>;
 /// Header of the bridged chain.
 pub(crate) type BridgedHeader<T> = HeaderOf<<T as Trait>::BridgedChain>;
 
+/// A convenience type identifying headers.
+#[derive(RuntimeDebug, PartialEq)]
+pub struct HeaderId<H: HeaderT> {
+	/// The block number of the header.
+	pub number: H::Number,
+	/// The hash of the header.
+	pub hash: H::Hash,
+}
+
+pub trait Trait: frame_system::Trait {
+	/// Chain that we are bridging here.
+	type BridgedChain: Chain;
+}
+
 decl_storage! {
 	trait Store for Module<T: Trait> as SubstrateBridge {
+		/// The number of the highest block(s) we know of.
+		BestHeight: BridgedBlockNumber<T>;
 		/// Hash of the header at the highest known height.
-		BestHeader: BridgedBlockHash<T>;
+		///
+		/// If there are multiple headers at the same "best" height
+		/// this will contain all of their hashes.
+		BestHeaders: Vec<BridgedBlockHash<T>>;
 		/// Hash of the best finalized header.
 		BestFinalized: BridgedBlockHash<T>;
-		/// A header which enacts an authority set change and therefore
-		/// requires a Grandpa justification.
-		// Since we won't always have an authority set change scheduled we
-		// won't always have a header which needs a justification.
-		RequiresJustification: Option<BridgedBlockHash<T>>;
+		/// The set of header IDs (number, hash) which enact an authority set change and therefore
+		/// require a Grandpa justification.
+		RequiresJustification: map hasher(identity) BridgedBlockHash<T> => BridgedBlockNumber<T>;
 		/// Headers which have been imported into the pallet.
 		ImportedHeaders: map hasher(identity) BridgedBlockHash<T> => Option<ImportedHeader<BridgedHeader<T>>>;
 		/// The current Grandpa Authority set.
 		CurrentAuthoritySet: AuthoritySet;
-		/// The next scheduled authority set change.
+		/// The next scheduled authority set change for a given fork.
+		///
+		/// The fork is indicated by the header which _signals_ the change (key in the mapping).
+		/// Note that this is different than a header which _enacts_ a change.
 		// Grandpa doesn't require there to always be a pending change. In fact, most of the time
 		// there will be no pending change available.
-		NextScheduledChange: Option<ScheduledChange<BridgedBlockNumber<T>>>;
+		NextScheduledChange: map hasher(identity) BridgedBlockHash<T> => Option<ScheduledChange<BridgedBlockNumber<T>>>;
 	}
 	add_extra_genesis {
 		config(initial_header): Option<BridgedHeader<T>>;
@@ -98,25 +117,37 @@ decl_storage! {
 				.initial_header
 				.clone()
 				.expect("An initial header is needed");
+			let initial_hash = initial_header.hash();
 
-			<BestHeader<T>>::put(initial_header.hash());
-			<BestFinalized<T>>::put(initial_header.hash());
-			<ImportedHeaders<T>>::insert(
-				initial_header.hash(),
-				ImportedHeader {
-					header: initial_header,
-					requires_justification: false,
-					is_finalized: true,
-				},
-			);
+			<BestHeight<T>>::put(initial_header.number());
+			<BestHeaders<T>>::put(vec![initial_hash]);
+			<BestFinalized<T>>::put(initial_hash);
 
 			let authority_set =
 				AuthoritySet::new(config.initial_authority_list.clone(), config.initial_set_id);
 			CurrentAuthoritySet::put(authority_set);
 
+			let mut signal_hash = None;
 			if let Some(ref change) = config.first_scheduled_change {
-				<NextScheduledChange<T>>::put(change);
+				assert!(
+					change.height > *initial_header.number(),
+					"Changes must be scheduled past initial header."
+				);
+
+				signal_hash = Some(initial_hash);
+				<NextScheduledChange<T>>::insert(initial_hash, change);
 			};
+
+			<ImportedHeaders<T>>::insert(
+				initial_hash,
+				ImportedHeader {
+					header: initial_header,
+					requires_justification: false,
+					is_finalized: true,
+					signal_hash,
+				},
+			);
+
 		})
 	}
 }
@@ -188,11 +219,13 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	/// Get the highest header that the pallet knows of.
-	// In a future where we support forks this could be a Vec of headers
-	// since we may have multiple headers at the same height.
-	pub fn best_header() -> BridgedHeader<T> {
-		PalletStorage::<T>::new().best_header().header
+	/// Get the highest header(s) that the pallet knows of.
+	pub fn best_headers() -> Vec<(BridgedBlockNumber<T>, BridgedBlockHash<T>)> {
+		PalletStorage::<T>::new()
+			.best_headers()
+			.iter()
+			.map(|id| (id.number, id.hash))
+			.collect()
 	}
 
 	/// Get the best finalized header the pallet knows of.
@@ -224,18 +257,15 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	/// Return the latest header which enacts an authority set change
-	/// and still needs a finality proof.
+	/// Returns a list of headers which require finality proofs.
 	///
-	/// Will return None if there are no headers which are missing finality proofs.
-	pub fn requires_justification() -> Option<BridgedHeader<T>> {
-		let storage = PalletStorage::<T>::new();
-		let hash = storage.unfinalized_header()?;
-		let imported_header = storage.header_by_hash(hash).expect(
-			"We write a header to storage before marking it as unfinalized, therefore
-			this must always exist if we got an unfinalized header hash.",
-		);
-		Some(imported_header.header)
+	/// These headers require proofs because they enact authority set changes.
+	pub fn require_justifications() -> Vec<(BridgedBlockNumber<T>, BridgedBlockHash<T>)> {
+		PalletStorage::<T>::new()
+			.missing_justifications()
+			.iter()
+			.map(|id| (id.number, id.hash))
+			.collect()
 	}
 }
 
@@ -248,11 +278,8 @@ pub trait BridgeStorage {
 	/// Write a header to storage.
 	fn write_header(&mut self, header: &ImportedHeader<Self::Header>);
 
-	/// Get the header at the highest known height.
-	fn best_header(&self) -> ImportedHeader<Self::Header>;
-
-	/// Update the header at the highest height.
-	fn update_best_header(&mut self, hash: <Self::Header as HeaderT>::Hash);
+	/// Get the header(s) at the highest known height.
+	fn best_headers(&self) -> Vec<HeaderId<Self::Header>>;
 
 	/// Get the best finalized header the pallet knows of.
 	fn best_finalized_header(&self) -> ImportedHeader<Self::Header>;
@@ -263,14 +290,10 @@ pub trait BridgeStorage {
 	/// Check if a particular header is known to the pallet.
 	fn header_exists(&self, hash: <Self::Header as HeaderT>::Hash) -> bool;
 
-	/// Return a header which requires a justification. A header will require
-	/// a justification when it enacts an new authority set.
-	fn unfinalized_header(&self) -> Option<<Self::Header as HeaderT>::Hash>;
-
-	/// Mark a header as eventually requiring a justification.
+	/// Returns a list of headers which require justifications.
 	///
-	/// If None is passed the storage item is cleared.
-	fn update_unfinalized_header(&mut self, hash: Option<<Self::Header as HeaderT>::Hash>);
+	/// A header will require a justification if it enacts a new authority set.
+	fn missing_justifications(&self) -> Vec<HeaderId<Self::Header>>;
 
 	/// Get a specific header by its hash.
 	///
@@ -288,13 +311,22 @@ pub trait BridgeStorage {
 	/// Replace the current authority set with the next scheduled set.
 	///
 	/// Returns an error if there is no scheduled authority set to enact.
-	fn enact_authority_set(&mut self) -> Result<(), ()>;
+	fn enact_authority_set(&mut self, signal_hash: <Self::Header as HeaderT>::Hash) -> Result<(), ()>;
 
 	/// Get the next scheduled Grandpa authority set change.
-	fn scheduled_set_change(&self) -> Option<ScheduledChange<<Self::Header as HeaderT>::Number>>;
+	fn scheduled_set_change(
+		&self,
+		signal_hash: <Self::Header as HeaderT>::Hash,
+	) -> Option<ScheduledChange<<Self::Header as HeaderT>::Number>>;
 
 	/// Schedule a Grandpa authority set change in the future.
-	fn schedule_next_set_change(&self, next_change: ScheduledChange<<Self::Header as HeaderT>::Number>);
+	///
+	/// Takes the hash of the header which scheduled this particular change.
+	fn schedule_next_set_change(
+		&mut self,
+		signal_hash: <Self::Header as HeaderT>::Hash,
+		next_change: ScheduledChange<<Self::Header as HeaderT>::Number>,
+	);
 }
 
 /// Used to interact with the pallet storage in a more abstract way.
@@ -311,18 +343,43 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 	type Header = BridgedHeader<T>;
 
 	fn write_header(&mut self, header: &ImportedHeader<BridgedHeader<T>>) {
-		let hash = header.header.hash();
+		use core::cmp::Ordering;
+
+		let hash = header.hash();
+		let current_height = header.number();
+		let best_height = <BestHeight<T>>::get();
+
+		match current_height.cmp(&best_height) {
+			Ordering::Equal => {
+				<BestHeaders<T>>::append(hash);
+			}
+			Ordering::Greater => {
+				<BestHeaders<T>>::kill();
+				<BestHeaders<T>>::append(hash);
+				<BestHeight<T>>::put(current_height);
+			}
+			Ordering::Less => {
+				// This is fine. We can still have a valid header, but it might just be on a
+				// different fork and at a lower height than the "best" overall header.
+			}
+		}
+
+		if header.requires_justification {
+			<RequiresJustification<T>>::insert(hash, current_height);
+		} else {
+			// If the key doesn't exist this is a no-op, so it's fine to call it often
+			<RequiresJustification<T>>::remove(hash);
+		}
+
 		<ImportedHeaders<T>>::insert(hash, header);
 	}
 
-	fn best_header(&self) -> ImportedHeader<BridgedHeader<T>> {
-		let hash = <BestHeader<T>>::get();
-		self.header_by_hash(hash)
-			.expect("A header must have been written at genesis, therefore this must always exist")
-	}
-
-	fn update_best_header(&mut self, hash: BridgedBlockHash<T>) {
-		<BestHeader<T>>::put(hash)
+	fn best_headers(&self) -> Vec<HeaderId<BridgedHeader<T>>> {
+		let number = <BestHeight<T>>::get();
+		<BestHeaders<T>>::get()
+			.iter()
+			.map(|hash| HeaderId { number, hash: *hash })
+			.collect()
 	}
 
 	fn best_finalized_header(&self) -> ImportedHeader<BridgedHeader<T>> {
@@ -332,7 +389,7 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 	}
 
 	fn update_best_finalized(&self, hash: BridgedBlockHash<T>) {
-		<BestFinalized<T>>::put(hash)
+		<BestFinalized<T>>::put(hash);
 	}
 
 	fn header_exists(&self, hash: BridgedBlockHash<T>) -> bool {
@@ -343,16 +400,10 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 		<ImportedHeaders<T>>::get(hash)
 	}
 
-	fn unfinalized_header(&self) -> Option<BridgedBlockHash<T>> {
-		<RequiresJustification<T>>::get()
-	}
-
-	fn update_unfinalized_header(&mut self, hash: Option<<Self::Header as HeaderT>::Hash>) {
-		if let Some(hash) = hash {
-			<RequiresJustification<T>>::put(hash);
-		} else {
-			<RequiresJustification<T>>::kill();
-		}
+	fn missing_justifications(&self) -> Vec<HeaderId<BridgedHeader<T>>> {
+		<RequiresJustification<T>>::iter()
+			.map(|(hash, number)| HeaderId { number, hash })
+			.collect()
 	}
 
 	fn current_authority_set(&self) -> AuthoritySet {
@@ -363,24 +414,22 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 		CurrentAuthoritySet::put(new_set)
 	}
 
-	fn enact_authority_set(&mut self) -> Result<(), ()> {
-		if <NextScheduledChange<T>>::exists() {
-			let new_set = <NextScheduledChange<T>>::take()
-				.expect("Ensured that entry existed in storage")
-				.authority_set;
-			self.update_current_authority_set(new_set);
+	fn enact_authority_set(&mut self, signal_hash: BridgedBlockHash<T>) -> Result<(), ()> {
+		let new_set = <NextScheduledChange<T>>::take(signal_hash).ok_or(())?.authority_set;
+		self.update_current_authority_set(new_set);
 
-			Ok(())
-		} else {
-			Err(())
-		}
+		Ok(())
 	}
 
-	fn scheduled_set_change(&self) -> Option<ScheduledChange<BridgedBlockNumber<T>>> {
-		<NextScheduledChange<T>>::get()
+	fn scheduled_set_change(&self, signal_hash: BridgedBlockHash<T>) -> Option<ScheduledChange<BridgedBlockNumber<T>>> {
+		<NextScheduledChange<T>>::get(signal_hash)
 	}
 
-	fn schedule_next_set_change(&self, next_change: ScheduledChange<BridgedBlockNumber<T>>) {
-		<NextScheduledChange<T>>::put(next_change)
+	fn schedule_next_set_change(
+		&mut self,
+		signal_hash: BridgedBlockHash<T>,
+		next_change: ScheduledChange<BridgedBlockNumber<T>>,
+	) {
+		<NextScheduledChange<T>>::insert(signal_hash, next_change)
 	}
 }
