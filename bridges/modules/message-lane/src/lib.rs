@@ -35,7 +35,7 @@ use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
 use bp_message_lane::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, OutboundLaneData,
+	InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -371,6 +371,33 @@ decl_module! {
 
 			Ok(())
 		}
+	}
+}
+
+impl<T: Trait<I>, I: Instance> Module<T, I> {
+	/// Get payload of given outbound message.
+	pub fn outbound_message_payload(lane: LaneId, nonce: MessageNonce) -> Option<MessagePayload> {
+		OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce }).map(|message_data| message_data.payload)
+	}
+
+	/// Get nonce of latest generated message at given outbound lane.
+	pub fn outbound_latest_generated_nonce(lane: LaneId) -> MessageNonce {
+		OutboundLanes::<I>::get(&lane).latest_generated_nonce
+	}
+
+	/// Get nonce of latest confirmed message at given outbound lane.
+	pub fn outbound_latest_received_nonce(lane: LaneId) -> MessageNonce {
+		OutboundLanes::<I>::get(&lane).latest_received_nonce
+	}
+
+	/// Get nonce of latest received message at given inbound lane.
+	pub fn inbound_latest_received_nonce(lane: LaneId) -> MessageNonce {
+		InboundLanes::<T, I>::get(&lane).latest_received_nonce
+	}
+
+	/// Get nonce of latest confirmed message at given inbound lane.
+	pub fn inbound_latest_confirmed_nonce(lane: LaneId) -> MessageNonce {
+		InboundLanes::<T, I>::get(&lane).latest_confirmed_nonce
 	}
 }
 
