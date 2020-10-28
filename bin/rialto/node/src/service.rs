@@ -206,6 +206,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 				DenyUnsafe::No,
 			)));
 			io.extend_with(MessageLaneApi::to_delegate(MessageLaneRpcHandler::new(
+				client.clone(),
 				backend.clone(),
 				Arc::new(RialtoMessageLaneKeys),
 			)));

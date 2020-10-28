@@ -31,6 +31,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod rialto;
 pub mod rialto_messages;
 
+use codec::Decode;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -536,6 +537,36 @@ impl_runtime_apis! {
 
 		fn is_finalized_block(hash: bp_rialto::Hash) -> bool {
 			BridgeRialto::is_finalized_header(hash)
+		}
+	}
+
+	// TODO: runtime should support several chains (https://github.com/paritytech/parity-bridges-common/issues/457)
+	impl bp_message_lane::OutboundLaneApi<Block> for Runtime {
+		fn messages_dispatch_weight(lane: bp_message_lane::LaneId, begin: bp_message_lane::MessageNonce, end: bp_message_lane::MessageNonce) -> Weight {
+			(begin..=end)
+				.filter_map(|nonce| BridgeRialtoMessageLane::outbound_message_payload(lane, nonce))
+				.filter_map(|encoded_payload| rialto_messages::ToRialtoMessagePayload::decode(&mut &encoded_payload[..]).ok())
+				.map(|decoded_payload| decoded_payload.weight)
+				.fold(0, |sum, weight| sum.saturating_add(weight))
+		}
+
+		fn latest_received_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
+			BridgeRialtoMessageLane::outbound_latest_received_nonce(lane)
+		}
+
+		fn latest_generated_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
+			BridgeRialtoMessageLane::outbound_latest_generated_nonce(lane)
+		}
+	}
+
+	// TODO: runtime should support several chains (https://github.com/paritytech/parity-bridges-common/issues/457)
+	impl bp_message_lane::InboundLaneApi<Block> for Runtime {
+		fn latest_received_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
+			BridgeRialtoMessageLane::inbound_latest_received_nonce(lane)
+		}
+
+		fn latest_confirmed_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
+			BridgeRialtoMessageLane::inbound_latest_confirmed_nonce(lane)
 		}
 	}
 }
