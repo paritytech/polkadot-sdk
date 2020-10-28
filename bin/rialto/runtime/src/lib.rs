@@ -60,6 +60,7 @@ pub use frame_support::{
 	StorageValue,
 };
 
+pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_bridge_currency_exchange::Call as BridgeCurrencyExchangeCall;
 pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
