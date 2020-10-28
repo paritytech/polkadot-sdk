@@ -16,10 +16,14 @@
 
 //! Types used to connect to the Millau-Substrate chain.
 
-use relay_substrate_client::{Chain, ChainBase};
-
+use codec::Encode;
 use headers_relay::sync_types::SourceHeader;
-use sp_runtime::traits::Header as HeaderT;
+use relay_substrate_client::{Chain, ChainBase, Client, TransactionSignScheme};
+use sp_core::Pair;
+use sp_runtime::{
+	generic::SignedPayload,
+	traits::{Header as HeaderT, IdentifyAccount},
+};
 
 /// Millau header id.
 pub type HeaderId = relay_utils::HeaderId<millau_runtime::Hash, millau_runtime::BlockNumber>;
@@ -40,6 +44,68 @@ impl Chain for Millau {
 	type Index = millau_runtime::Index;
 	type SignedBlock = millau_runtime::SignedBlock;
 	type Call = millau_runtime::Call;
+}
+
+impl TransactionSignScheme for Millau {
+	type Chain = Millau;
+	type AccountKeyPair = sp_core::sr25519::Pair;
+	type SignedTransaction = millau_runtime::UncheckedExtrinsic;
+
+	fn sign_transaction(
+		client: &Client<Self>,
+		signer: &Self::AccountKeyPair,
+		signer_nonce: <Self::Chain as Chain>::Index,
+		call: <Self::Chain as Chain>::Call,
+	) -> Self::SignedTransaction {
+		let raw_payload = SignedPayload::from_raw(
+			call,
+			(
+				frame_system::CheckSpecVersion::<millau_runtime::Runtime>::new(),
+				frame_system::CheckTxVersion::<millau_runtime::Runtime>::new(),
+				frame_system::CheckGenesis::<millau_runtime::Runtime>::new(),
+				frame_system::CheckEra::<millau_runtime::Runtime>::from(sp_runtime::generic::Era::Immortal),
+				frame_system::CheckNonce::<millau_runtime::Runtime>::from(signer_nonce),
+				frame_system::CheckWeight::<millau_runtime::Runtime>::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::<millau_runtime::Runtime>::from(0),
+			),
+			(
+				millau_runtime::VERSION.spec_version,
+				millau_runtime::VERSION.transaction_version,
+				*client.genesis_hash(),
+				*client.genesis_hash(),
+				(),
+				(),
+				(),
+			),
+		);
+		let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
+		let signer: sp_runtime::MultiSigner = signer.public().into();
+		let (call, extra, _) = raw_payload.deconstruct();
+
+		millau_runtime::UncheckedExtrinsic::new_signed(call, signer.into_account(), signature.into(), extra)
+	}
+}
+
+/// Millau signing params.
+#[derive(Clone)]
+pub struct SigningParams {
+	/// Substrate transactions signer.
+	pub signer: sp_core::sr25519::Pair,
+}
+
+impl SigningParams {
+	/// Create signing params from SURI and password.
+	pub fn from_suri(suri: &str, password: Option<&str>) -> Result<Self, sp_core::crypto::SecretStringError> {
+		Ok(SigningParams {
+			signer: sp_core::sr25519::Pair::from_string(suri, password)?,
+		})
+	}
+}
+
+impl std::fmt::Debug for SigningParams {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{}", self.signer.public())
+	}
 }
 
 /// Millau header type used in headers sync.
