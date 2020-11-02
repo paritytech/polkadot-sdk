@@ -39,10 +39,13 @@ use bp_message_lane::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, sp_runtime::DispatchResult, traits::Get, weights::Weight,
+	decl_error, decl_event, decl_module, decl_storage,
+	traits::Get,
+	weights::{DispatchClass, Weight},
 	Parameter, StorageMap,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_signed, RawOrigin};
+use sp_runtime::{traits::BadOrigin, DispatchResult};
 use sp_std::{cell::RefCell, marker::PhantomData, prelude::*};
 
 mod inbound_lane;
@@ -120,6 +123,8 @@ type MessagesDeliveryProofOf<T, I> = <<T as Trait<I>>::TargetHeaderChain as Targ
 
 decl_error! {
 	pub enum Error for Module<T: Trait<I>, I: Instance> {
+		/// All pallet operations are halted.
+		Halted,
 		/// Message has been treated as invalid by chain verifier.
 		MessageRejectedByChainVerifier,
 		/// Message has been treated as invalid by lane verifier.
@@ -137,12 +142,24 @@ decl_error! {
 
 decl_storage! {
 	trait Store for Module<T: Trait<I>, I: Instance = DefaultInstance> as MessageLane {
+		/// Optional pallet owner.
+		///
+		/// Pallet owner has a right to halt all pallet operations and then resume it. If it is
+		/// `None`, then there are no direct ways to halt/resume pallet operations, but other
+		/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
+		/// flag directly or call the `halt_operations`).
+		pub ModuleOwner get(fn module_owner) config(): Option<T::AccountId>;
+		/// If true, all pallet transactions are failed immediately.
+		pub IsHalted get(fn is_halted) config(): bool;
 		/// Map of lane id => inbound lane data.
 		pub InboundLanes: map hasher(blake2_128_concat) LaneId => InboundLaneData<T::InboundRelayer>;
 		/// Map of lane id => outbound lane data.
 		pub OutboundLanes: map hasher(blake2_128_concat) LaneId => OutboundLaneData;
 		/// All queued outbound messages.
 		pub OutboundMessages: map hasher(blake2_128_concat) MessageKey => Option<MessageData<T::OutboundMessageFee>>;
+	}
+	add_extra_genesis {
+		config(phantom): sp_std::marker::PhantomData<I>;
 	}
 }
 
@@ -164,6 +181,36 @@ decl_module! {
 		/// Deposit one of this module's events by using the default implementation.
 		fn deposit_event() = default;
 
+		/// Change `ModuleOwner`.
+		///
+		/// May only be called either by root, or by `ModuleOwner`.
+		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
+		pub fn set_owner(origin, new_owner: Option<T::AccountId>) {
+			ensure_owner_or_root::<T, I>(origin)?;
+			match new_owner {
+				Some(new_owner) => ModuleOwner::<T, I>::put(new_owner),
+				None => ModuleOwner::<T, I>::kill(),
+			}
+		}
+
+		/// Halt all pallet operations. Operations may be resumed using `resume_operations` call.
+		///
+		/// May only be called either by root, or by `ModuleOwner`.
+		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
+		pub fn halt_operations(origin) {
+			ensure_owner_or_root::<T, I>(origin)?;
+			IsHalted::<I>::put(true);
+		}
+
+		/// Resume all pallet operations. May be called even if pallet is halted.
+		///
+		/// May only be called either by root, or by `ModuleOwner`.
+		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
+		pub fn resume_operations(origin) {
+			ensure_owner_or_root::<T, I>(origin)?;
+			IsHalted::<I>::put(false);
+		}
+
 		/// Send message over lane.
 		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 		pub fn send_message(
@@ -172,6 +219,7 @@ decl_module! {
 			payload: T::OutboundPayload,
 			delivery_and_dispatch_fee: T::OutboundMessageFee,
 		) -> DispatchResult {
+			ensure_operational::<T, I>()?;
 			let submitter = ensure_signed(origin)?;
 
 			// let's first check if message can be delivered to target chain
@@ -248,6 +296,7 @@ decl_module! {
 			proof: MessagesProofOf<T, I>,
 			dispatch_weight: Weight,
 		) -> DispatchResult {
+			ensure_operational::<T, I>()?;
 			let _ = ensure_signed(origin)?;
 
 			// verify messages proof && convert proof into messages
@@ -324,6 +373,8 @@ decl_module! {
 		/// Receive messages delivery proof from bridged chain.
 		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 		pub fn receive_messages_delivery_proof(origin, proof: MessagesDeliveryProofOf<T, I>) -> DispatchResult {
+			ensure_operational::<T, I>()?;
+
 			let confirmation_relayer = ensure_signed(origin)?;
 			let (lane_id, lane_data) = T::TargetHeaderChain::verify_messages_delivery_proof(proof).map_err(|err| {
 				frame_support::debug::trace!(
@@ -398,6 +449,24 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// Get nonce of latest confirmed message at given inbound lane.
 	pub fn inbound_latest_confirmed_nonce(lane: LaneId) -> MessageNonce {
 		InboundLanes::<T, I>::get(&lane).latest_confirmed_nonce
+	}
+}
+
+/// Ensure that the origin is either root, or `ModuleOwner`.
+fn ensure_owner_or_root<T: Trait<I>, I: Instance>(origin: T::Origin) -> Result<(), BadOrigin> {
+	match origin.into() {
+		Ok(RawOrigin::Root) => Ok(()),
+		Ok(RawOrigin::Signed(ref signer)) if Some(signer) == Module::<T, I>::module_owner().as_ref() => Ok(()),
+		_ => Err(BadOrigin),
+	}
+}
+
+/// Ensure that the pallet is in operational mode (not halted).
+fn ensure_operational<T: Trait<I>, I: Instance>() -> Result<(), Error<T, I>> {
+	if IsHalted::<I>::get() {
+		Err(Error::<T, I>::Halted)
+	} else {
+		Ok(())
 	}
 }
 
@@ -536,6 +605,7 @@ mod tests {
 	};
 	use frame_support::{assert_noop, assert_ok};
 	use frame_system::{EventRecord, Module as System, Phase};
+	use sp_runtime::DispatchError;
 
 	fn send_regular_message() {
 		System::<TestRuntime>::set_block_number(1);
@@ -585,6 +655,108 @@ mod tests {
 				topics: vec![],
 			}],
 		);
+	}
+
+	#[test]
+	fn pallet_owner_may_change_owner() {
+		run_test(|| {
+			ModuleOwner::<TestRuntime>::put(2);
+
+			assert_ok!(Module::<TestRuntime>::set_owner(Origin::root(), Some(1)));
+			assert_noop!(
+				Module::<TestRuntime>::halt_operations(Origin::signed(2)),
+				DispatchError::BadOrigin,
+			);
+			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::root()));
+
+			assert_ok!(Module::<TestRuntime>::set_owner(Origin::signed(1), None));
+			assert_noop!(
+				Module::<TestRuntime>::resume_operations(Origin::signed(1)),
+				DispatchError::BadOrigin,
+			);
+			assert_noop!(
+				Module::<TestRuntime>::resume_operations(Origin::signed(2)),
+				DispatchError::BadOrigin,
+			);
+			assert_ok!(Module::<TestRuntime>::resume_operations(Origin::root()));
+		});
+	}
+
+	#[test]
+	fn pallet_may_be_halted_by_root() {
+		run_test(|| {
+			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::root()));
+			assert_ok!(Module::<TestRuntime>::resume_operations(Origin::root()));
+		});
+	}
+
+	#[test]
+	fn pallet_may_be_halted_by_owner() {
+		run_test(|| {
+			ModuleOwner::<TestRuntime>::put(2);
+
+			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::signed(2)));
+			assert_ok!(Module::<TestRuntime>::resume_operations(Origin::signed(2)));
+
+			assert_noop!(
+				Module::<TestRuntime>::halt_operations(Origin::signed(1)),
+				DispatchError::BadOrigin,
+			);
+			assert_noop!(
+				Module::<TestRuntime>::resume_operations(Origin::signed(1)),
+				DispatchError::BadOrigin,
+			);
+
+			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::signed(2)));
+			assert_noop!(
+				Module::<TestRuntime>::resume_operations(Origin::signed(1)),
+				DispatchError::BadOrigin,
+			);
+		});
+	}
+
+	#[test]
+	fn pallet_rejects_transactions_if_halted() {
+		run_test(|| {
+			// send message first to be able to check that delivery_proof fails later
+			send_regular_message();
+
+			IsHalted::<DefaultInstance>::put(true);
+
+			assert_noop!(
+				Module::<TestRuntime>::send_message(
+					Origin::signed(1),
+					TEST_LANE_ID,
+					REGULAR_PAYLOAD,
+					REGULAR_PAYLOAD.1,
+				),
+				Error::<TestRuntime, DefaultInstance>::Halted,
+			);
+
+			assert_noop!(
+				Module::<TestRuntime>::receive_messages_proof(
+					Origin::signed(1),
+					TEST_RELAYER_A,
+					Ok(vec![message(2, REGULAR_PAYLOAD)]).into(),
+					REGULAR_PAYLOAD.1,
+				),
+				Error::<TestRuntime, DefaultInstance>::Halted,
+			);
+
+			assert_noop!(
+				Module::<TestRuntime>::receive_messages_delivery_proof(
+					Origin::signed(1),
+					Ok((
+						TEST_LANE_ID,
+						InboundLaneData {
+							latest_received_nonce: 1,
+							..Default::default()
+						}
+					)),
+				),
+				Error::<TestRuntime, DefaultInstance>::Halted,
+			);
+		});
 	}
 
 	#[test]
