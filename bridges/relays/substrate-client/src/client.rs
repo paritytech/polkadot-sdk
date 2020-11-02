@@ -16,16 +16,21 @@
 
 //! Substrate node client.
 
-use crate::chain::Chain;
+use crate::chain::{Chain, ChainWithBalances};
+use crate::error::Error;
 use crate::rpc::Substrate;
 use crate::{ConnectionParams, Result};
 
+use codec::Decode;
+use frame_system::AccountInfo;
 use jsonrpsee::common::DeserializeOwned;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::ws::WsTransportClient;
 use jsonrpsee::{client::Subscription, Client as RpcClient};
 use num_traits::Zero;
+use pallet_balances::AccountData;
 use sp_core::Bytes;
+use sp_version::RuntimeVersion;
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 
@@ -69,18 +74,17 @@ impl<C: Chain> Client<C> {
 	}
 }
 
-impl<C: Chain> Client<C>
-where
-	C::Header: DeserializeOwned,
-	C::Index: DeserializeOwned,
-{
+impl<C: Chain> Client<C> {
 	/// Return hash of the genesis block.
 	pub fn genesis_hash(&self) -> &C::Hash {
 		&self.genesis_hash
 	}
 
 	/// Returns the best Substrate header.
-	pub async fn best_header(&self) -> Result<C::Header> {
+	pub async fn best_header(&self) -> Result<C::Header>
+	where
+		C::Header: DeserializeOwned,
+	{
 		Ok(Substrate::<C, _, _>::chain_get_header(&self.client, None).await?)
 	}
 
@@ -90,7 +94,10 @@ where
 	}
 
 	/// Get a Substrate header by its hash.
-	pub async fn header_by_hash(&self, block_hash: C::Hash) -> Result<C::Header> {
+	pub async fn header_by_hash(&self, block_hash: C::Hash) -> Result<C::Header>
+	where
+		C::Header: DeserializeOwned,
+	{
 		Ok(Substrate::<C, _, _>::chain_get_header(&self.client, block_hash).await?)
 	}
 
@@ -100,15 +107,41 @@ where
 	}
 
 	/// Get a Substrate header by its number.
-	pub async fn header_by_number(&self, block_number: C::BlockNumber) -> Result<C::Header> {
+	pub async fn header_by_number(&self, block_number: C::BlockNumber) -> Result<C::Header>
+	where
+		C::Header: DeserializeOwned,
+	{
 		let block_hash = Self::block_hash_by_number(self, block_number).await?;
 		Ok(Self::header_by_hash(self, block_hash).await?)
+	}
+
+	/// Return runtime version.
+	pub async fn runtime_version(&self) -> Result<RuntimeVersion> {
+		Ok(Substrate::<C, _, _>::runtime_version(&self.client).await?)
+	}
+
+	/// Return native tokens balance of the account.
+	pub async fn free_native_balance(&self, account: C::AccountId) -> Result<C::NativeBalance>
+	where
+		C: ChainWithBalances,
+	{
+		let storage_key = C::account_info_storage_key(&account);
+		let encoded_account_data = Substrate::<C, _, _>::get_storage(&self.client, storage_key)
+			.await?
+			.ok_or(Error::AccountDoesNotExist)?;
+		let decoded_account_data =
+			AccountInfo::<C::Index, AccountData<C::NativeBalance>>::decode(&mut &encoded_account_data.0[..])
+				.map_err(Error::ResponseParseFailed)?;
+		Ok(decoded_account_data.data.free)
 	}
 
 	/// Get the nonce of the given Substrate account.
 	///
 	/// Note: It's the caller's responsibility to make sure `account` is a valid ss58 address.
-	pub async fn next_account_index(&self, account: C::AccountId) -> Result<C::Index> {
+	pub async fn next_account_index(&self, account: C::AccountId) -> Result<C::Index>
+	where
+		C::Index: DeserializeOwned,
+	{
 		Ok(Substrate::<C, _, _>::system_account_next_index(&self.client, account).await?)
 	}
 

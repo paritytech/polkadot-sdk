@@ -23,9 +23,10 @@ mod client;
 mod error;
 mod rpc;
 
+pub mod guard;
 pub mod headers_source;
 
-pub use crate::chain::{BlockWithJustification, Chain, TransactionSignScheme};
+pub use crate::chain::{BlockWithJustification, Chain, ChainWithBalances, TransactionSignScheme};
 pub use crate::client::{Client, JustificationsSubscription, OpaqueGrandpaAuthoritiesSet};
 pub use crate::error::{Error, Result};
 pub use bp_runtime::{BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf};

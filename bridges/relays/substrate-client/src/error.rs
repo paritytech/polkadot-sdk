@@ -34,6 +34,8 @@ pub enum Error {
 	Request(RequestError),
 	/// The response from the server could not be SCALE decoded.
 	ResponseParseFailed(codec::Error),
+	/// Account does not exist on the chain.
+	AccountDoesNotExist,
 }
 
 impl From<WsNewDnsError> for Error {
@@ -66,6 +68,7 @@ impl ToString for Error {
 			Self::WsConnectionError(e) => e.to_string(),
 			Self::Request(e) => e.to_string(),
 			Self::ResponseParseFailed(e) => e.what().to_string(),
+			Self::AccountDoesNotExist => "Account does not exist on the chain".into(),
 		}
 	}
 }

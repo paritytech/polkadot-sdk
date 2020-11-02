@@ -18,12 +18,13 @@
 
 use codec::Encode;
 use headers_relay::sync_types::SourceHeader;
-use relay_substrate_client::{Chain, ChainBase, Client, TransactionSignScheme};
-use sp_core::Pair;
+use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, Client, TransactionSignScheme};
+use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedPayload,
 	traits::{Header as HeaderT, IdentifyAccount},
 };
+use std::time::Duration;
 
 pub use rialto_runtime::BridgeMillauCall;
 
@@ -42,10 +43,24 @@ impl ChainBase for Rialto {
 }
 
 impl Chain for Rialto {
+	const NAME: &'static str = "Rialto";
+	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
+
 	type AccountId = rialto_runtime::AccountId;
 	type Index = rialto_runtime::Index;
 	type SignedBlock = rialto_runtime::SignedBlock;
 	type Call = rialto_runtime::Call;
+}
+
+impl ChainWithBalances for Rialto {
+	type NativeBalance = rialto_runtime::Balance;
+
+	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
+		use frame_support::storage::generator::StorageMap;
+		StorageKey(frame_system::Account::<rialto_runtime::Runtime>::storage_map_final_key(
+			account_id,
+		))
+	}
 }
 
 impl TransactionSignScheme for Rialto {

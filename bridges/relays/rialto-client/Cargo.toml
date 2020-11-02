@@ -18,6 +18,7 @@ rialto-runtime = { path = "../../bin/rialto/runtime" }
 # Substrate Dependencies
 
 frame-system = "2.0"
+frame-support = "2.0"
 pallet-transaction-payment = "2.0"
 sp-core = "2.0"
 sp-keyring = "2.0"
