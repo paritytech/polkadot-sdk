@@ -18,12 +18,13 @@
 
 use codec::Encode;
 use headers_relay::sync_types::SourceHeader;
-use relay_substrate_client::{Chain, ChainBase, Client, TransactionSignScheme};
-use sp_core::Pair;
+use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, Client, TransactionSignScheme};
+use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedPayload,
 	traits::{Header as HeaderT, IdentifyAccount},
 };
+use std::time::Duration;
 
 /// Millau header id.
 pub type HeaderId = relay_utils::HeaderId<millau_runtime::Hash, millau_runtime::BlockNumber>;
@@ -40,10 +41,24 @@ impl ChainBase for Millau {
 }
 
 impl Chain for Millau {
+	const NAME: &'static str = "Millau";
+	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
+
 	type AccountId = millau_runtime::AccountId;
 	type Index = millau_runtime::Index;
 	type SignedBlock = millau_runtime::SignedBlock;
 	type Call = millau_runtime::Call;
+}
+
+impl ChainWithBalances for Millau {
+	type NativeBalance = millau_runtime::Balance;
+
+	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
+		use frame_support::storage::generator::StorageMap;
+		StorageKey(frame_system::Account::<millau_runtime::Runtime>::storage_map_final_key(
+			account_id,
+		))
+	}
 }
 
 impl TransactionSignScheme for Millau {
