@@ -19,16 +19,24 @@ use crate::client::Client;
 use bp_runtime::Chain as ChainBase;
 use frame_support::Parameter;
 use jsonrpsee::common::{DeserializeOwned, Serialize};
-use sp_core::Pair;
+use num_traits::{CheckedSub, Zero};
+use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
 	traits::{AtLeast32Bit, Dispatchable, MaybeDisplay, MaybeSerialize, MaybeSerializeDeserialize, Member},
 	Justification,
 };
-use sp_std::fmt::Debug;
+use std::{fmt::Debug, time::Duration};
 
 /// Substrate-based chain from minimal relay-client point of view.
 pub trait Chain: ChainBase {
+	/// Chain name.
+	const NAME: &'static str;
+	/// Average block interval.
+	///
+	/// How often blocks are produced on that chain. It's suggested to set this value to match the block time of the chain.
+	const AVERAGE_BLOCK_INTERVAL: Duration;
+
 	/// The user account identifier type for the runtime.
 	type AccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
 	/// Account index (aka nonce) type. This stores the number of previous transactions associated
@@ -38,6 +46,16 @@ pub trait Chain: ChainBase {
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification;
 	/// The aggregated `Call` type.
 	type Call: Dispatchable + Debug;
+}
+
+/// Substrate-based chain with `frame_system::Trait::AccountData` set to
+/// the `pallet_balances::AccountData<NativeBalance>`.
+pub trait ChainWithBalances: Chain {
+	/// Balance of an account in native tokens.
+	type NativeBalance: Parameter + Member + DeserializeOwned + Clone + Copy + CheckedSub + PartialOrd + Zero;
+
+	/// Return runtime storage key for getting `frame_system::AccountInfo` of given account.
+	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey;
 }
 
 /// Block with justification.
@@ -62,6 +80,12 @@ pub trait TransactionSignScheme {
 		signer_nonce: <Self::Chain as Chain>::Index,
 		call: <Self::Chain as Chain>::Call,
 	) -> Self::SignedTransaction;
+}
+
+impl BlockWithJustification for () {
+	fn justification(&self) -> Option<&Justification> {
+		None
+	}
 }
 
 impl<Block> BlockWithJustification for SignedBlock<Block> {
