@@ -17,6 +17,7 @@ millau-runtime = { path = "../../bin/millau/runtime" }
 
 # Substrate Dependencies
 
+frame-support = "2.0"
 frame-system = "2.0"
 pallet-transaction-payment = "2.0"
 sp-core = "2.0"
