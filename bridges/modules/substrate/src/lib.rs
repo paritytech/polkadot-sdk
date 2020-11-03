@@ -251,7 +251,7 @@ impl<T: Trait> Module<T> {
 	pub fn is_finalized_header(hash: BridgedBlockHash<T>) -> bool {
 		let storage = PalletStorage::<T>::new();
 		if let Some(header) = storage.header_by_hash(hash) {
-			header.number() <= storage.best_finalized_header().number()
+			header.is_finalized
 		} else {
 			false
 		}
