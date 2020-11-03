@@ -29,11 +29,11 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-/// Maximal weight of single Millau block.
+/// Maximal weight of single Rialto block.
 pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2_000_000_000_000;
 /// Portion of block reserved for regular transactions.
 pub const AVAILABLE_BLOCK_RATIO: u32 = 75;
-/// Maximal weight of single Millau extrinsic (65% of maximum block weight = 75% for regular
+/// Maximal weight of single Rialto extrinsic (65% of maximum block weight = 75% for regular
 /// transactions minus 10% for initialization).
 pub const MAXIMUM_EXTRINSIC_WEIGHT: Weight = MAXIMUM_BLOCK_WEIGHT / 100 * (AVAILABLE_BLOCK_RATIO as Weight - 10);
 
@@ -59,6 +59,15 @@ impl Chain for Rialto {
 	type Hasher = Hasher;
 	type Header = Header;
 }
+
+/// Name of the `RialtoHeaderApi::best_blocks` runtime method.
+pub const BEST_RIALTO_BLOCKS_METHOD: &str = "RialtoHeaderApi_best_blocks";
+/// Name of the `RialtoHeaderApi::finalized_block` runtime method.
+pub const FINALIZED_RIALTO_BLOCK_METHOD: &str = "RialtoHeaderApi_finalized_block";
+/// Name of the `RialtoHeaderApi::is_known_block` runtime method.
+pub const IS_KNOWN_RIALTO_BLOCK_METHOD: &str = "RialtoHeaderApi_is_known_block";
+/// Name of the `RialtoHeaderApi::incomplete_headers` runtime method.
+pub const INCOMPLETE_RIALTO_HEADERS_METHOD: &str = "RialtoHeaderApi_incomplete_headers";
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;

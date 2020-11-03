@@ -34,7 +34,9 @@ use relay_ethereum_client::{
 	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
 };
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams};
+use relay_substrate_client::{
+	Chain as SubstrateChain, Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams,
+};
 use relay_utils::metrics::MetricsParams;
 
 use std::fmt::Debug;
@@ -45,8 +47,6 @@ pub mod consts {
 
 	/// Interval at which we check new Ethereum headers when we are synced/almost synced.
 	pub const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(10);
-	/// Interval at which we check new Substrate blocks.
-	pub const SUBSTRATE_TICK_INTERVAL: Duration = Duration::from_secs(5);
 	/// Max number of headers in single submit transaction.
 	pub const MAX_HEADERS_IN_SINGLE_SUBMIT: usize = 32;
 	/// Max total size of headers in single submit transaction. This only affects signed
@@ -253,7 +253,7 @@ pub fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 		source,
 		consts::ETHEREUM_TICK_INTERVAL,
 		target,
-		consts::SUBSTRATE_TICK_INTERVAL,
+		Rialto::AVERAGE_BLOCK_INTERVAL,
 		(),
 		sync_params,
 		metrics_params,

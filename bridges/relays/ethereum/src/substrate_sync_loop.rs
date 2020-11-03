@@ -32,7 +32,8 @@ use relay_ethereum_client::{
 };
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SyncHeader as RialtoSyncHeader};
 use relay_substrate_client::{
-	headers_source::HeadersSource, Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams,
+	headers_source::HeadersSource, Chain as SubstrateChain, Client as SubstrateClient,
+	ConnectionParams as SubstrateConnectionParams,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_runtime::Justification;
@@ -43,8 +44,6 @@ use std::{collections::HashSet, time::Duration};
 pub mod consts {
 	use super::*;
 
-	/// Interval at which we check new Substrate headers when we are synced/almost synced.
-	pub const SUBSTRATE_TICK_INTERVAL: Duration = Duration::from_secs(10);
 	/// Interval at which we check new Ethereum blocks.
 	pub const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(5);
 	/// Max Ethereum headers we want to have in all 'before-submitted' states.
@@ -174,7 +173,7 @@ pub fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 
 	headers_relay::sync_loop::run(
 		source,
-		consts::SUBSTRATE_TICK_INTERVAL,
+		Rialto::AVERAGE_BLOCK_INTERVAL,
 		target,
 		consts::ETHEREUM_TICK_INTERVAL,
 		(),

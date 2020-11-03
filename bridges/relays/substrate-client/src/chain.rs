@@ -34,14 +34,23 @@ pub trait Chain: ChainBase {
 	const NAME: &'static str;
 	/// Average block interval.
 	///
-	/// How often blocks are produced on that chain. It's suggested to set this value to match the block time of the chain.
+	/// How often blocks are produced on that chain. It's suggested to set this value
+	/// to match the block time of the chain.
 	const AVERAGE_BLOCK_INTERVAL: Duration;
 
 	/// The user account identifier type for the runtime.
 	type AccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
 	/// Account index (aka nonce) type. This stores the number of previous transactions associated
 	/// with a sender account.
-	type Index: Parameter + Member + MaybeSerialize + Debug + Default + MaybeDisplay + AtLeast32Bit + Copy;
+	type Index: Parameter
+		+ Member
+		+ MaybeSerialize
+		+ Debug
+		+ Default
+		+ MaybeDisplay
+		+ DeserializeOwned
+		+ AtLeast32Bit
+		+ Copy;
 	/// Block type.
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification;
 	/// The aggregated `Call` type.

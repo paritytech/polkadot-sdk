@@ -36,15 +36,15 @@ use relay_ethereum_client::{
 	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
 };
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams};
+use relay_substrate_client::{
+	Chain as SubstrateChain, Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams,
+};
 use relay_utils::{metrics::MetricsParams, HeaderId};
 use rialto_runtime::exchange::EthereumTransactionInclusionProof;
 use std::{sync::Arc, time::Duration};
 
 /// Interval at which we ask Ethereum node for updates.
 const ETHEREUM_TICK_INTERVAL: Duration = Duration::from_secs(10);
-/// Interval at which we ask Substrate node for updates.
-const SUBSTRATE_TICK_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Exchange relay mode.
 #[derive(Debug)]
@@ -210,7 +210,7 @@ impl TargetClient<EthereumToSubstrateExchange> for SubstrateTransactionsTarget {
 	type Error = RpcError;
 
 	async fn tick(&self) {
-		async_std::task::sleep(SUBSTRATE_TICK_INTERVAL).await;
+		async_std::task::sleep(Rialto::AVERAGE_BLOCK_INTERVAL).await;
 	}
 
 	async fn is_header_known(&self, id: &EthereumHeaderId) -> Result<bool, Self::Error> {
