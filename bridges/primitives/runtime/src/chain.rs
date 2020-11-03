@@ -70,7 +70,7 @@ pub trait Chain: Send + Sync + 'static {
 	/// A type that fulfills the abstract idea of what a Substrate header is.
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html
-	type Header: Parameter + HeaderT<Number = Self::BlockNumber, Hash = Self::Hash>;
+	type Header: Parameter + HeaderT<Number = Self::BlockNumber, Hash = Self::Hash> + MaybeSerializeDeserialize;
 }
 
 /// Block number used by the chain.

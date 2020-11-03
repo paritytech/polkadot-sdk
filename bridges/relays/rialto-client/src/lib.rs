@@ -151,6 +151,12 @@ impl From<rialto_runtime::Header> for SyncHeader {
 	}
 }
 
+impl From<SyncHeader> for rialto_runtime::Header {
+	fn from(header: SyncHeader) -> Self {
+		header.0
+	}
+}
+
 impl SourceHeader<rialto_runtime::Hash, rialto_runtime::BlockNumber> for SyncHeader {
 	fn id(&self) -> HeaderId {
 		relay_utils::HeaderId(*self.number(), self.hash())
