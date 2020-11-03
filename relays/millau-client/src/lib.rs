@@ -26,6 +26,8 @@ use sp_runtime::{
 };
 use std::time::Duration;
 
+pub use millau_runtime::BridgeRialtoCall;
+
 /// Millau header id.
 pub type HeaderId = relay_utils::HeaderId<millau_runtime::Hash, millau_runtime::BlockNumber>;
 

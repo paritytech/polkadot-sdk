@@ -68,7 +68,7 @@ pub trait HeadersSyncPipeline: Clone + Send + Sync {
 		+ num_traits::One
 		+ Into<u64>;
 	/// Type of header that we're syncing.
-	type Header: Clone + std::fmt::Debug + PartialEq + SourceHeader<Self::Hash, Self::Number> + Send + Sync;
+	type Header: SourceHeader<Self::Hash, Self::Number>;
 	/// Type of extra data for the header that we're receiving from the source node:
 	/// 1) extra data is required for some headers;
 	/// 2) target node may answer if it'll require extra data before header is submitted;
@@ -94,7 +94,7 @@ pub trait HeadersSyncPipeline: Clone + Send + Sync {
 pub type HeaderIdOf<P> = HeaderId<<P as HeadersSyncPipeline>::Hash, <P as HeadersSyncPipeline>::Number>;
 
 /// Header that we're receiving from source node.
-pub trait SourceHeader<Hash, Number> {
+pub trait SourceHeader<Hash, Number>: Clone + std::fmt::Debug + PartialEq + Send + Sync {
 	/// Returns ID of header.
 	fn id(&self) -> HeaderId<Hash, Number>;
 	/// Returns ID of parent header.
