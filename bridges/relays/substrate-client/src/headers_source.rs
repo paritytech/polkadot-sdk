@@ -25,7 +25,6 @@ use headers_relay::{
 	sync_loop::SourceClient,
 	sync_types::{HeaderIdOf, HeadersSyncPipeline, QueuedHeader, SourceHeader},
 };
-use jsonrpsee::common::DeserializeOwned;
 use num_traits::Saturating;
 use sp_runtime::{traits::Header as HeaderT, Justification};
 use std::marker::PhantomData;
@@ -51,8 +50,7 @@ impl<C, P> SourceClient<P> for HeadersSource<C, P>
 where
 	C: Chain,
 	C::BlockNumber: Into<u64> + Saturating,
-	C::Header: DeserializeOwned + Into<P::Header>,
-	C::Index: DeserializeOwned,
+	C::Header: Into<P::Header>,
 	P: HeadersSyncPipeline<Extra = (), Completion = Justification, Hash = C::Hash, Number = C::BlockNumber>,
 	P::Header: SourceHeader<C::Hash, C::BlockNumber>,
 {

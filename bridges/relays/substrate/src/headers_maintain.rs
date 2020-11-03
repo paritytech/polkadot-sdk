@@ -43,7 +43,7 @@ use headers_relay::{
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, JustificationsSubscription};
 use relay_utils::HeaderId;
 use sp_core::Bytes;
-use sp_runtime::{traits::Header as HeaderT, DeserializeOwned, Justification};
+use sp_runtime::{traits::Header as HeaderT, Justification};
 use std::{collections::VecDeque, task::Poll};
 
 /// Substrate-to-Substrate headers synchronization maintain procedure.
@@ -80,8 +80,6 @@ impl<P: SubstrateHeadersSyncPipeline, C: Chain> SubstrateHeadersToSubstrateMaint
 impl<P, C> SyncMaintain<P> for SubstrateHeadersToSubstrateMaintain<P, C>
 where
 	C: Chain,
-	C::Header: DeserializeOwned,
-	C::Index: DeserializeOwned,
 	P::Number: Decode + From<C::BlockNumber>,
 	P::Hash: Decode + From<C::Hash>,
 	P: SubstrateHeadersSyncPipeline<Completion = Justification, Extra = ()>,
@@ -271,8 +269,6 @@ where
 	P::Number: Decode + From<C::BlockNumber>,
 	P::Hash: Decode + From<C::Hash>,
 	C: Chain,
-	C::Header: DeserializeOwned,
-	C::Index: DeserializeOwned,
 {
 	let call = P::FINALIZED_BLOCK_METHOD.into();
 	let data = Bytes(Vec::new());
@@ -288,7 +284,8 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::millau_headers_to_rialto::{sync_params, MillauHeadersToRialto};
+	use crate::headers_pipeline::sync_params;
+	use crate::millau_headers_to_rialto::MillauHeadersToRialto;
 
 	fn parent_hash(index: u8) -> bp_millau::Hash {
 		if index == 1 {

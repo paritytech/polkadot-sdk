@@ -28,7 +28,7 @@ use headers_relay::{
 use relay_substrate_client::{Chain, Client, Error as SubstrateError};
 use relay_utils::HeaderId;
 use sp_core::Bytes;
-use sp_runtime::{DeserializeOwned, Justification};
+use sp_runtime::Justification;
 use std::collections::HashSet;
 
 /// Headers sync pipeline for Substrate <-> Substrate relays.
@@ -77,8 +77,6 @@ impl<C: Chain, P> SubstrateHeadersTarget<C, P> {
 impl<C, P> TargetClient<P> for SubstrateHeadersTarget<C, P>
 where
 	C: Chain,
-	C::Header: DeserializeOwned,
-	C::Index: DeserializeOwned,
 	P::Number: Decode,
 	P::Hash: Decode + Encode,
 	P: SubstrateHeadersSyncPipeline<Completion = Justification, Extra = ()>,
