@@ -16,7 +16,7 @@
 
 use crate::error::Error;
 use crate::validators::{Validators, ValidatorsConfiguration};
-use crate::{AuraConfiguration, ChainTime, ImportContext, PoolConfiguration, ScheduledChange, Storage};
+use crate::{AuraConfiguration, AuraScheduledChange, ChainTime, ImportContext, PoolConfiguration, Storage};
 use bp_eth_poa::{
 	public_to_address, step_validator, Address, AuraHeader, HeaderId, Receipt, SealedEmptyStep, H256, H520, U128, U256,
 };
@@ -341,7 +341,7 @@ fn find_next_validators_signal<S: Storage>(storage: &S, context: &ImportContext<
 	// if parent schedules validators set change, then it may be our set
 	// else we'll start with last known change
 	let mut current_set_signal_block = context.last_signal_block();
-	let mut next_scheduled_set: Option<ScheduledChange> = None;
+	let mut next_scheduled_set: Option<AuraScheduledChange> = None;
 
 	loop {
 		// if we have reached block that signals finalized change, then
@@ -456,7 +456,7 @@ mod tests {
 			});
 			ScheduledChanges::<DefaultInstance>::insert(
 				header.header.parent_hash,
-				ScheduledChange {
+				AuraScheduledChange {
 					validators: signalled_set,
 					prev_signal_block: None,
 				},
