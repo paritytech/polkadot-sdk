@@ -18,10 +18,22 @@
 
 use bp_rialto::Header;
 use hex_literal::hex;
-use pallet_substrate_bridge::AuthoritySet;
+use pallet_substrate_bridge::{AuthoritySet, InitializationData};
 use sp_core::crypto::Public;
 use sp_finality_grandpa::AuthorityId;
 use sp_std::vec;
+
+/// Information about where the bridge palelt should start syncing from. This includes things like
+/// the initial header and the initial authorities of the briged chain.
+pub fn init_data() -> InitializationData<Header> {
+	let authority_set = initial_authority_set();
+	InitializationData {
+		header: initial_header(),
+		authority_list: authority_set.authorities,
+		set_id: authority_set.set_id,
+		scheduled_change: None,
+	}
+}
 
 /// The first header known to the pallet.
 ///

@@ -186,9 +186,6 @@ fn load_kovan_bridge_config() -> Option<BridgeKovanConfig> {
 
 fn load_millau_bridge_config() -> Option<BridgeMillauConfig> {
 	Some(BridgeMillauConfig {
-		initial_header: Some(rialto_runtime::millau::initial_header()),
-		initial_authority_list: rialto_runtime::millau::initial_authority_set().authorities,
-		initial_set_id: rialto_runtime::millau::initial_authority_set().set_id,
-		first_scheduled_change: None,
+		init_data: Some(rialto_runtime::millau::init_data()),
 	})
 }
