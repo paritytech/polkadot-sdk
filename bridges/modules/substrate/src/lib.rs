@@ -32,17 +32,19 @@
 #![allow(clippy::large_enum_variant)]
 
 use crate::storage::ImportedHeader;
-use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderOf};
+use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::ensure_signed;
 use sp_runtime::traits::Header as HeaderT;
 use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, prelude::*};
+use sp_trie::StorageProof;
 
 // Re-export since the node uses these when configuring genesis
 pub use storage::{AuthoritySet, ScheduledChange};
 
 pub use justification::decode_justification_target;
+pub use storage_proof::StorageProofChecker;
 
 mod justification;
 mod storage;
@@ -59,6 +61,8 @@ mod fork_tests;
 pub(crate) type BridgedBlockNumber<T> = BlockNumberOf<<T as Trait>::BridgedChain>;
 /// Block hash of the bridged chain.
 pub(crate) type BridgedBlockHash<T> = HashOf<<T as Trait>::BridgedChain>;
+/// Hasher of the bridged chain.
+pub(crate) type BridgedBlockHasher<T> = HasherOf<<T as Trait>::BridgedChain>;
 /// Header of the bridged chain.
 pub(crate) type BridgedHeader<T> = HeaderOf<<T as Trait>::BridgedChain>;
 
@@ -158,6 +162,12 @@ decl_error! {
 		InvalidHeader,
 		/// This header has not been finalized.
 		UnfinalizedHeader,
+		/// The header is unknown.
+		UnknownHeader,
+		/// The storage proof doesn't contains storage root. So it is invalid for given header.
+		StorageRootMismatch,
+		/// Error when trying to fetch storage value from the proof.
+		StorageValueUnavailable,
 	}
 }
 
@@ -266,6 +276,27 @@ impl<T: Trait> Module<T> {
 			.iter()
 			.map(|id| (id.number, id.hash))
 			.collect()
+	}
+
+	/// Verify that the passed storage proof is valid, given it is crafted using
+	/// known finalized header. If the proof is valid, then the `parse` callback
+	/// is called and the function returns its result.
+	pub fn parse_finalized_storage_proof<R>(
+		finalized_header_hash: BridgedBlockHash<T>,
+		storage_proof: StorageProof,
+		parse: impl FnOnce(StorageProofChecker<BridgedBlockHasher<T>>) -> R,
+	) -> Result<R, sp_runtime::DispatchError> {
+		let storage = PalletStorage::<T>::new();
+		let header = storage
+			.header_by_hash(finalized_header_hash)
+			.ok_or(Error::<T>::UnknownHeader)?;
+		if !header.is_finalized {
+			return Err(Error::<T>::UnfinalizedHeader.into());
+		}
+
+		let storage_proof_checker =
+			StorageProofChecker::new(*header.state_root(), storage_proof).map_err(Error::<T>::from)?;
+		Ok(parse(storage_proof_checker))
 	}
 }
 
@@ -431,5 +462,61 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 		next_change: ScheduledChange<BridgedBlockNumber<T>>,
 	) {
 		<NextScheduledChange<T>>::insert(signal_hash, next_change)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::{helpers::unfinalized_header, run_test, TestRuntime};
+	use frame_support::{assert_noop, assert_ok};
+
+	#[test]
+	fn parse_finalized_storage_proof_rejects_proof_on_unknown_header() {
+		run_test(|| {
+			assert_noop!(
+				Module::<TestRuntime>::parse_finalized_storage_proof(
+					Default::default(),
+					StorageProof::new(vec![]),
+					|_| (),
+				),
+				Error::<TestRuntime>::UnknownHeader,
+			);
+		});
+	}
+
+	#[test]
+	fn parse_finalized_storage_proof_rejects_proof_on_unfinalized_header() {
+		run_test(|| {
+			let mut storage = PalletStorage::<TestRuntime>::new();
+			let header = unfinalized_header(1);
+			storage.write_header(&header);
+
+			assert_noop!(
+				Module::<TestRuntime>::parse_finalized_storage_proof(
+					header.header.hash(),
+					StorageProof::new(vec![]),
+					|_| (),
+				),
+				Error::<TestRuntime>::UnfinalizedHeader,
+			);
+		});
+	}
+
+	#[test]
+	fn parse_finalized_storage_accepts_valid_proof() {
+		run_test(|| {
+			let mut storage = PalletStorage::<TestRuntime>::new();
+			let (state_root, storage_proof) = storage_proof::tests::craft_valid_storage_proof();
+			let mut header = unfinalized_header(1);
+			header.is_finalized = true;
+			header.header.set_state_root(state_root);
+			storage.write_header(&header);
+
+			assert_ok!(
+				Module::<TestRuntime>::parse_finalized_storage_proof(header.header.hash(), storage_proof, |_| (),),
+				(),
+			);
+		});
 	}
 }

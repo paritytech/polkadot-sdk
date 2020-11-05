@@ -80,7 +80,7 @@ pub type BlockNumberOf<C> = <C as Chain>::BlockNumber;
 pub type HashOf<C> = <C as Chain>::Hash;
 
 /// Hasher type used by the chain.
-pub type HasherOf<C> = <C as Chain>::Header;
+pub type HasherOf<C> = <C as Chain>::Hasher;
 
 /// Header type used by the chain.
 pub type HeaderOf<C> = <C as Chain>::Header;

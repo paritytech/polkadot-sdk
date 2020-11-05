@@ -65,15 +65,24 @@ pub enum Error {
 	StorageValueUnavailable,
 }
 
+impl<T: crate::Trait> From<Error> for crate::Error<T> {
+	fn from(error: Error) -> Self {
+		match error {
+			Error::StorageRootMismatch => crate::Error::StorageRootMismatch,
+			Error::StorageValueUnavailable => crate::Error::StorageValueUnavailable,
+		}
+	}
+}
+
 #[cfg(test)]
-mod tests {
+pub mod tests {
 	use super::*;
 
 	use sp_core::{Blake2Hasher, H256};
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
-	#[test]
-	fn storage_proof_check() {
+	/// Return valid storage proof and state root.
+	pub fn craft_valid_storage_proof() -> (H256, StorageProof) {
 		// construct storage proof
 		let backend = <InMemoryBackend<Blake2Hasher>>::from(vec![
 			(None, vec![(b"key1".to_vec(), Some(b"value1".to_vec()))]),
@@ -89,6 +98,13 @@ mod tests {
 				.iter_nodes()
 				.collect(),
 		);
+
+		(root, proof)
+	}
+
+	#[test]
+	fn storage_proof_check() {
+		let (root, proof) = craft_valid_storage_proof();
 
 		// check proof in runtime
 		let checker = <StorageProofChecker<Blake2Hasher>>::new(root, proof.clone()).unwrap();
