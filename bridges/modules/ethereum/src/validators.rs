@@ -277,7 +277,7 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::mock::{run_test, validators_addresses, validators_change_receipt, TestRuntime};
 	use crate::DefaultInstance;
-	use crate::{BridgeStorage, Headers, ScheduledChange, ScheduledChanges, StoredHeader};
+	use crate::{AuraScheduledChange, BridgeStorage, Headers, ScheduledChanges, StoredHeader};
 	use bp_eth_poa::compute_merkle_root;
 	use frame_support::StorageMap;
 
@@ -428,7 +428,7 @@ pub(crate) mod tests {
 				next_validators_set_id: 0,
 				last_signal_block: scheduled_at,
 			};
-			let scheduled_change = ScheduledChange {
+			let scheduled_change = AuraScheduledChange {
 				validators: validators_addresses(1),
 				prev_signal_block: None,
 			};

@@ -120,7 +120,7 @@ pub struct ValidatorsSet {
 /// Validators set change as it is stored in the runtime storage.
 #[derive(Encode, Decode, PartialEq, RuntimeDebug)]
 #[cfg_attr(test, derive(Clone))]
-pub struct ScheduledChange {
+pub struct AuraScheduledChange {
 	/// Validators of this set.
 	pub validators: Vec<Address>,
 	/// Hash of the block which has emitted previous validators change signal.
@@ -187,7 +187,7 @@ pub struct ImportContext<Submitter> {
 	parent_hash: H256,
 	parent_header: AuraHeader,
 	parent_total_difficulty: U256,
-	parent_scheduled_change: Option<ScheduledChange>,
+	parent_scheduled_change: Option<AuraScheduledChange>,
 	validators_set_id: u64,
 	validators_set: ValidatorsSet,
 	last_signal_block: Option<HeaderId>,
@@ -210,7 +210,7 @@ impl<Submitter> ImportContext<Submitter> {
 	}
 
 	/// Returns the validator set change if the parent header has signaled a change.
-	pub fn parent_scheduled_change(&self) -> Option<&ScheduledChange> {
+	pub fn parent_scheduled_change(&self) -> Option<&AuraScheduledChange> {
 		self.parent_scheduled_change.as_ref()
 	}
 
@@ -293,7 +293,7 @@ pub trait Storage {
 	) -> Option<ImportContext<Self::Submitter>>;
 	/// Get new validators that are scheduled by given header and hash of the previous
 	/// block that has scheduled change.
-	fn scheduled_change(&self, hash: &H256) -> Option<ScheduledChange>;
+	fn scheduled_change(&self, hash: &H256) -> Option<AuraScheduledChange>;
 	/// Insert imported header.
 	fn insert_header(&mut self, header: HeaderToImport<Self::Submitter>);
 	/// Finalize given block and schedules pruning of all headers
@@ -479,7 +479,7 @@ decl_storage! {
 		/// When it reaches zero, we are free to prune validator set as well.
 		ValidatorsSetsRc: map hasher(twox_64_concat) u64 => Option<u64>;
 		/// Map of validators set changes scheduled by given header.
-		ScheduledChanges: map hasher(identity) H256 => Option<ScheduledChange>;
+		ScheduledChanges: map hasher(identity) H256 => Option<AuraScheduledChange>;
 	}
 	add_extra_genesis {
 		config(initial_header): AuraHeader;
@@ -766,7 +766,7 @@ impl<T: Trait<I>, I: Instance> Storage for BridgeStorage<T, I> {
 		})
 	}
 
-	fn scheduled_change(&self, hash: &H256) -> Option<ScheduledChange> {
+	fn scheduled_change(&self, hash: &H256) -> Option<AuraScheduledChange> {
 		ScheduledChanges::<I>::get(hash)
 	}
 
@@ -777,7 +777,7 @@ impl<T: Trait<I>, I: Instance> Storage for BridgeStorage<T, I> {
 		if let Some(scheduled_change) = header.scheduled_change {
 			ScheduledChanges::<I>::insert(
 				&header.id.hash,
-				ScheduledChange {
+				AuraScheduledChange {
 					validators: scheduled_change,
 					prev_signal_block: header.context.last_signal_block,
 				},
@@ -1119,7 +1119,7 @@ pub(crate) mod tests {
 					if i == 7 && j == 1 {
 						ScheduledChanges::<DefaultInstance>::insert(
 							hash,
-							ScheduledChange {
+							AuraScheduledChange {
 								validators: validators_addresses(5),
 								prev_signal_block: None,
 							},
