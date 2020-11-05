@@ -21,34 +21,37 @@ use crate::Runtime;
 use bp_message_lane::{
 	source_chain::TargetHeaderChain,
 	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageKey, MessageNonce,
+	InboundLaneData, LaneId, Message, MessageNonce,
 };
 use bp_runtime::InstanceId;
-use bridge_runtime_common::messages::{self, MessageBridge};
+use bridge_runtime_common::messages::{self, ChainWithMessageLanes, MessageBridge};
 use frame_support::{
-	storage::generator::StorageMap,
 	weights::{Weight, WeightToFeePolynomial},
 	RuntimeDebug,
 };
-use pallet_message_lane::{DefaultInstance, InboundLanes, OutboundLanes, OutboundMessages};
 use sp_core::storage::StorageKey;
 use sp_trie::StorageProof;
 
 /// Storage key of the Rialto -> Millau message in the runtime storage.
 pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
-	let message_key = MessageKey { lane_id: *lane, nonce };
-	let raw_storage_key = OutboundMessages::<Runtime, DefaultInstance>::storage_map_final_key(message_key);
-	StorageKey(raw_storage_key)
+	pallet_message_lane::storage_keys::message_key::<Runtime, <Rialto as ChainWithMessageLanes>::MessageLaneInstance>(
+		lane, nonce,
+	)
 }
 
 /// Storage key of the Rialto -> Millau message lane state in the runtime storage.
 pub fn outbound_lane_data_key(lane: &LaneId) -> StorageKey {
-	StorageKey(OutboundLanes::<DefaultInstance>::storage_map_final_key(*lane))
+	pallet_message_lane::storage_keys::outbound_lane_data_key::<<Rialto as ChainWithMessageLanes>::MessageLaneInstance>(
+		lane,
+	)
 }
 
 /// Storage key of the Millau -> Rialto message lane state in the runtime storage.
 pub fn inbound_lane_data_key(lane: &LaneId) -> StorageKey {
-	StorageKey(InboundLanes::<Runtime, DefaultInstance>::storage_map_final_key(*lane))
+	pallet_message_lane::storage_keys::inbound_lane_data_key::<
+		Runtime,
+		<Rialto as ChainWithMessageLanes>::MessageLaneInstance,
+	>(lane)
 }
 
 /// Message payload for Rialto -> Millau messages.
@@ -66,6 +69,9 @@ pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDi
 	crate::Runtime,
 	pallet_bridge_call_dispatch::DefaultInstance,
 >;
+
+/// Messages proof for Millau -> Rialto messages.
+type FromMillauMessagesProof = messages::target::FromBridgedChainMessagesProof<WithMillauMessageBridge>;
 
 /// Millau <-> Rialto message bridge.
 #[derive(RuntimeDebug, Clone, Copy)]
@@ -116,12 +122,15 @@ impl MessageBridge for WithMillauMessageBridge {
 pub struct Rialto;
 
 impl messages::ChainWithMessageLanes for Rialto {
+	type Hash = bp_rialto::Hash;
 	type AccountId = bp_rialto::AccountId;
 	type Signer = bp_rialto::AccountSigner;
 	type Signature = bp_rialto::Signature;
 	type Call = crate::Call;
 	type Weight = Weight;
 	type Balance = bp_rialto::Balance;
+
+	type MessageLaneInstance = pallet_message_lane::DefaultInstance;
 }
 
 /// Millau chain from message lane point of view.
@@ -129,12 +138,15 @@ impl messages::ChainWithMessageLanes for Rialto {
 pub struct Millau;
 
 impl messages::ChainWithMessageLanes for Millau {
+	type Hash = bp_millau::Hash;
 	type AccountId = bp_millau::AccountId;
 	type Signer = bp_millau::AccountSigner;
 	type Signature = bp_millau::Signature;
 	type Call = (); // unknown to us
 	type Weight = Weight;
 	type Balance = bp_millau::Balance;
+
+	type MessageLaneInstance = pallet_message_lane::DefaultInstance;
 }
 
 impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau {
@@ -167,7 +179,7 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 	// - the storage proof of one or several keys;
 	// - id of the lane we prove messages for;
 	// - inclusive range of messages nonces that are proved.
-	type MessagesProof = (bp_millau::Hash, StorageProof, LaneId, MessageNonce, MessageNonce);
+	type MessagesProof = FromMillauMessagesProof;
 
 	fn verify_messages_proof(
 		_proof: Self::MessagesProof,

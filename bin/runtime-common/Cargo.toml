@@ -16,6 +16,7 @@ bp-message-dispatch = { path = "../../primitives/message-dispatch", default-feat
 bp-message-lane = { path = "../../primitives/message-lane", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
 pallet-bridge-call-dispatch = { path = "../../modules/call-dispatch", default-features = false }
+pallet-message-lane = { path = "../../modules/message-lane", default-features = false }
 
 # Substrate dependencies
 
@@ -33,6 +34,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"pallet-bridge-call-dispatch/std",
+	"pallet-message-lane/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
