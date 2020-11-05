@@ -24,9 +24,6 @@
 //! finalized header. I.e. when talking about headers in lane context, we
 //! only care about finalized headers.
 
-// Until there'll be actual message-lane in the runtime.
-#![allow(dead_code)]
-
 use crate::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use crate::message_race_delivery::run as run_message_delivery_race;
 use crate::message_race_receiving::run as run_message_receiving_race;
@@ -42,14 +39,33 @@ use relay_utils::{
 };
 use std::{fmt::Debug, future::Future, ops::RangeInclusive, time::Duration};
 
+/// Message lane loop configuration params.
+#[derive(Debug, Clone)]
+pub struct Params<MessageNonce> {
+	/// Id of lane this loop is servicing.
+	pub lane: LaneId,
+	/// Interval at which we ask target node about its updates.
+	pub source_tick: Duration,
+	/// Interval at which we ask target node about its updates.
+	pub target_tick: Duration,
+	/// Delay between moments when connection error happens and our reconnect attempt.
+	pub reconnect_delay: Duration,
+	/// The loop will auto-restart if there has been no updates during this period.
+	pub stall_timeout: Duration,
+	/// Message delivery race will stop delivering messages if there are `max_unconfirmed_nonces_at_target`
+	/// unconfirmed nonces on the target node. The race would continue once they're confirmed by the
+	/// receiving race.
+	pub max_unconfirmed_nonces_at_target: MessageNonce,
+}
+
 /// Source client trait.
-#[async_trait(?Send)]
-pub trait SourceClient<P: MessageLane>: Clone {
+#[async_trait]
+pub trait SourceClient<P: MessageLane>: Clone + Send + Sync {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 
 	/// Try to reconnect to source node.
-	fn reconnect(self) -> Self;
+	async fn reconnect(self) -> Result<Self, Self::Error>;
 
 	/// Returns state of the client.
 	async fn state(&self) -> Result<SourceClientState<P>, Self::Error>;
@@ -70,6 +86,7 @@ pub trait SourceClient<P: MessageLane>: Clone {
 		&self,
 		id: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<P::MessageNonce>,
+		include_outbound_lane_state: bool,
 	) -> Result<(SourceHeaderIdOf<P>, RangeInclusive<P::MessageNonce>, P::MessagesProof), Self::Error>;
 
 	/// Submit messages receiving proof.
@@ -77,23 +94,29 @@ pub trait SourceClient<P: MessageLane>: Clone {
 		&self,
 		generated_at_block: TargetHeaderIdOf<P>,
 		proof: P::MessagesReceivingProof,
-	) -> Result<RangeInclusive<P::MessageNonce>, Self::Error>;
+	) -> Result<(), Self::Error>;
 }
 
 /// Target client trait.
-#[async_trait(?Send)]
-pub trait TargetClient<P: MessageLane>: Clone {
+#[async_trait]
+pub trait TargetClient<P: MessageLane>: Clone + Send + Sync {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 
 	/// Try to reconnect to source node.
-	fn reconnect(self) -> Self;
+	async fn reconnect(self) -> Result<Self, Self::Error>;
 
 	/// Returns state of the client.
 	async fn state(&self) -> Result<TargetClientState<P>, Self::Error>;
 
 	/// Get nonce of latest received message.
 	async fn latest_received_nonce(
+		&self,
+		id: TargetHeaderIdOf<P>,
+	) -> Result<(TargetHeaderIdOf<P>, P::MessageNonce), Self::Error>;
+
+	/// Get nonce of latest confirmed message.
+	async fn latest_confirmed_received_nonce(
 		&self,
 		id: TargetHeaderIdOf<P>,
 	) -> Result<(TargetHeaderIdOf<P>, P::MessageNonce), Self::Error>;
@@ -138,15 +161,10 @@ pub struct ClientsState<P: MessageLane> {
 }
 
 /// Run message lane service loop.
-#[allow(clippy::too_many_arguments)]
 pub fn run<P: MessageLane>(
-	lane: LaneId,
+	params: Params<P::MessageNonce>,
 	mut source_client: impl SourceClient<P>,
-	source_tick: Duration,
 	mut target_client: impl TargetClient<P>,
-	target_tick: Duration,
-	reconnect_delay: Duration,
-	stall_timeout: Duration,
 	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
 ) {
@@ -162,7 +180,7 @@ pub fn run<P: MessageLane>(
 				"{}_to_{}_MessageLoop/{}",
 				P::SOURCE_NAME,
 				P::TARGET_NAME,
-				hex::encode(lane)
+				hex::encode(params.lane)
 			),
 			metrics_params,
 			&metrics_global,
@@ -171,11 +189,9 @@ pub fn run<P: MessageLane>(
 
 		loop {
 			let result = run_until_connection_lost(
+				params.clone(),
 				source_client.clone(),
-				source_tick,
 				target_client.clone(),
-				target_tick,
-				stall_timeout,
 				if metrics_enabled {
 					Some(&mut metrics_global)
 				} else {
@@ -192,15 +208,41 @@ pub fn run<P: MessageLane>(
 
 			match result {
 				Ok(()) => break,
-				Err(failed_client) => {
-					async_std::task::sleep(reconnect_delay).await;
+				Err(failed_client) => loop {
+					async_std::task::sleep(params.reconnect_delay).await;
 					if failed_client == FailedClient::Both || failed_client == FailedClient::Source {
-						source_client = source_client.reconnect();
+						source_client = match source_client.clone().reconnect().await {
+							Ok(source_client) => source_client,
+							Err(error) => {
+								log::warn!(
+									target: "bridge",
+									"Failed to reconnect {}. Going to retry in {}s: {:?}",
+									P::SOURCE_NAME,
+									params.reconnect_delay.as_secs(),
+									error,
+								);
+								continue;
+							}
+						}
 					}
 					if failed_client == FailedClient::Both || failed_client == FailedClient::Target {
-						target_client = target_client.reconnect();
+						target_client = match target_client.clone().reconnect().await {
+							Ok(target_client) => target_client,
+							Err(error) => {
+								log::warn!(
+									target: "bridge",
+									"Failed to reconnect {}. Going to retry in {}s: {:?}",
+									P::TARGET_NAME,
+									params.reconnect_delay.as_secs(),
+									error,
+								);
+								continue;
+							}
+						}
 					}
-				}
+
+					break;
+				},
 			}
 
 			log::debug!(
@@ -214,13 +256,10 @@ pub fn run<P: MessageLane>(
 }
 
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit signal is received.
-#[allow(clippy::too_many_arguments)]
 async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: TargetClient<P>>(
+	params: Params<P::MessageNonce>,
 	source_client: SC,
-	source_tick: Duration,
 	target_client: TC,
-	target_tick: Duration,
-	stall_timeout: Duration,
 	mut metrics_global: Option<&mut GlobalMetrics>,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
 	exit_signal: impl Future<Output = ()>,
@@ -230,14 +269,14 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 	let mut source_state_required = true;
 	let source_state = source_client.state().fuse();
 	let source_go_offline_future = futures::future::Fuse::terminated();
-	let source_tick_stream = interval(source_tick).fuse();
+	let source_tick_stream = interval(params.source_tick).fuse();
 
 	let mut target_retry_backoff = retry_backoff();
 	let mut target_client_is_online = false;
 	let mut target_state_required = true;
 	let target_state = target_client.state().fuse();
 	let target_go_offline_future = futures::future::Fuse::terminated();
-	let target_tick_stream = interval(target_tick).fuse();
+	let target_tick_stream = interval(params.target_tick).fuse();
 
 	let (
 		(delivery_source_state_sender, delivery_source_state_receiver),
@@ -248,8 +287,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		delivery_source_state_receiver,
 		target_client.clone(),
 		delivery_target_state_receiver,
-		stall_timeout,
+		params.stall_timeout,
 		metrics_msg.clone(),
+		params.max_unconfirmed_nonces_at_target,
 	)
 	.fuse();
 
@@ -262,7 +302,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		receiving_source_state_receiver,
 		target_client.clone(),
 		receiving_target_state_receiver,
-		stall_timeout,
+		params.stall_timeout,
 		metrics_msg.clone(),
 	)
 	.fuse();
@@ -395,7 +435,7 @@ pub(crate) mod tests {
 	}
 
 	pub type TestMessageNonce = u64;
-	pub type TestMessagesProof = RangeInclusive<TestMessageNonce>;
+	pub type TestMessagesProof = (RangeInclusive<TestMessageNonce>, Option<TestMessageNonce>);
 	pub type TestMessagesReceivingProof = TestMessageNonce;
 
 	pub type TestSourceHeaderNumber = u64;
@@ -405,20 +445,15 @@ pub(crate) mod tests {
 	pub type TestTargetHeaderHash = u64;
 
 	#[derive(Debug)]
-	pub enum TestError {
-		Logic,
-		Connection,
-	}
+	pub struct TestError;
 
 	impl MaybeConnectionError for TestError {
 		fn is_connection_error(&self) -> bool {
-			match *self {
-				TestError::Logic => false,
-				TestError::Connection => true,
-			}
+			true
 		}
 	}
 
+	#[derive(Clone)]
 	pub struct TestMessageLane;
 
 	impl MessageLane for TestMessageLane {
@@ -449,33 +484,34 @@ pub(crate) mod tests {
 		is_target_reconnected: bool,
 		target_state: SourceClientState<TestMessageLane>,
 		target_latest_received_nonce: TestMessageNonce,
+		target_latest_confirmed_received_nonce: TestMessageNonce,
 		submitted_messages_proofs: Vec<TestMessagesProof>,
 	}
 
 	#[derive(Clone)]
 	pub struct TestSourceClient {
 		data: Arc<Mutex<TestClientData>>,
-		tick: Arc<dyn Fn(&mut TestClientData)>,
+		tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 	}
 
-	#[async_trait(?Send)]
+	#[async_trait]
 	impl SourceClient<TestMessageLane> for TestSourceClient {
 		type Error = TestError;
 
-		fn reconnect(self) -> Self {
+		async fn reconnect(self) -> Result<Self, Self::Error> {
 			{
 				let mut data = self.data.lock();
 				(self.tick)(&mut *data);
 				data.is_source_reconnected = true;
 			}
-			self
+			Ok(self)
 		}
 
 		async fn state(&self) -> Result<SourceClientState<TestMessageLane>, Self::Error> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_source_fails {
-				return Err(TestError::Connection);
+				return Err(TestError);
 			}
 			Ok(data.source_state.clone())
 		}
@@ -487,7 +523,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_source_fails {
-				return Err(TestError::Connection);
+				return Err(TestError);
 			}
 			Ok((id, data.source_latest_generated_nonce))
 		}
@@ -505,6 +541,7 @@ pub(crate) mod tests {
 			&self,
 			id: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<TestMessageNonce>,
+			include_outbound_lane_state: bool,
 		) -> Result<
 			(
 				SourceHeaderIdOf<TestMessageLane>,
@@ -513,46 +550,59 @@ pub(crate) mod tests {
 			),
 			Self::Error,
 		> {
-			Ok((id, nonces.clone(), nonces))
+			let mut data = self.data.lock();
+			(self.tick)(&mut *data);
+			Ok((
+				id,
+				nonces.clone(),
+				(
+					nonces,
+					if include_outbound_lane_state {
+						Some(data.source_latest_confirmed_received_nonce)
+					} else {
+						None
+					},
+				),
+			))
 		}
 
 		async fn submit_messages_receiving_proof(
 			&self,
 			_generated_at_block: TargetHeaderIdOf<TestMessageLane>,
 			proof: TestMessagesReceivingProof,
-		) -> Result<RangeInclusive<TestMessageNonce>, Self::Error> {
+		) -> Result<(), Self::Error> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			data.submitted_messages_receiving_proofs.push(proof);
 			data.source_latest_confirmed_received_nonce = proof;
-			Ok(proof..=proof)
+			Ok(())
 		}
 	}
 
 	#[derive(Clone)]
 	pub struct TestTargetClient {
 		data: Arc<Mutex<TestClientData>>,
-		tick: Arc<dyn Fn(&mut TestClientData)>,
+		tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 	}
 
-	#[async_trait(?Send)]
+	#[async_trait]
 	impl TargetClient<TestMessageLane> for TestTargetClient {
 		type Error = TestError;
 
-		fn reconnect(self) -> Self {
+		async fn reconnect(self) -> Result<Self, Self::Error> {
 			{
 				let mut data = self.data.lock();
 				(self.tick)(&mut *data);
 				data.is_target_reconnected = true;
 			}
-			self
+			Ok(self)
 		}
 
 		async fn state(&self) -> Result<TargetClientState<TestMessageLane>, Self::Error> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
-				return Err(TestError::Connection);
+				return Err(TestError);
 			}
 			Ok(data.target_state.clone())
 		}
@@ -564,9 +614,21 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
-				return Err(TestError::Connection);
+				return Err(TestError);
 			}
 			Ok((id, data.target_latest_received_nonce))
+		}
+
+		async fn latest_confirmed_received_nonce(
+			&self,
+			id: TargetHeaderIdOf<TestMessageLane>,
+		) -> Result<(TargetHeaderIdOf<TestMessageLane>, TestMessageNonce), Self::Error> {
+			let mut data = self.data.lock();
+			(self.tick)(&mut *data);
+			if data.is_target_fails {
+				return Err(TestError);
+			}
+			Ok((id, data.target_latest_confirmed_received_nonce))
 		}
 
 		async fn prove_messages_receiving(
@@ -585,11 +647,14 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
-				return Err(TestError::Connection);
+				return Err(TestError);
 			}
 			data.target_state.best_self =
 				HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.1 + 1);
-			data.target_latest_received_nonce = *proof.end();
+			data.target_latest_received_nonce = *proof.0.end();
+			if let Some(target_latest_confirmed_received_nonce) = proof.1 {
+				data.target_latest_confirmed_received_nonce = target_latest_confirmed_received_nonce;
+			}
 			data.submitted_messages_proofs.push(proof);
 			Ok(nonces)
 		}
@@ -597,8 +662,8 @@ pub(crate) mod tests {
 
 	fn run_loop_test(
 		data: TestClientData,
-		source_tick: Arc<dyn Fn(&mut TestClientData)>,
-		target_tick: Arc<dyn Fn(&mut TestClientData)>,
+		source_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
+		target_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 		exit_signal: impl Future<Output = ()>,
 	) -> TestClientData {
 		async_std::task::block_on(async {
@@ -613,17 +678,19 @@ pub(crate) mod tests {
 				tick: target_tick,
 			};
 			run(
-				[0, 0, 0, 0],
+				Params {
+					lane: [0, 0, 0, 0],
+					source_tick: Duration::from_millis(100),
+					target_tick: Duration::from_millis(100),
+					reconnect_delay: Duration::from_millis(0),
+					stall_timeout: Duration::from_millis(60),
+					max_unconfirmed_nonces_at_target: 100,
+				},
 				source_client,
-				Duration::from_millis(100),
 				target_client,
-				Duration::from_millis(100),
-				Duration::from_millis(0),
-				Duration::from_secs(60),
 				None,
 				exit_signal,
 			);
-
 			let result = data.lock().clone();
 			result
 		})
@@ -671,7 +738,7 @@ pub(crate) mod tests {
 			exit_receiver.into_future().map(|(_, _)| ()),
 		);
 
-		assert_eq!(result.submitted_messages_proofs, vec![1..=1],);
+		assert_eq!(result.submitted_messages_proofs, vec![(1..=1, None)],);
 	}
 
 	#[test]
@@ -717,7 +784,13 @@ pub(crate) mod tests {
 			exit_receiver.into_future().map(|(_, _)| ()),
 		);
 
-		assert_eq!(result.submitted_messages_proofs, vec![1..=4, 5..=8, 9..=10],);
+		// there are no strict restrictions on when reward confirmation should come
+		// (because `max_unconfirmed_nonces_at_target` is `100` in tests and this confirmation
+		// depends on the state of both clients)
+		// => we do not check it here
+		assert_eq!(result.submitted_messages_proofs[0].0, 1..=4);
+		assert_eq!(result.submitted_messages_proofs[1].0, 5..=8);
+		assert_eq!(result.submitted_messages_proofs[2].0, 9..=10);
 		assert!(!result.submitted_messages_receiving_proofs.is_empty());
 	}
 }

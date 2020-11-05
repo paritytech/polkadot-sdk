@@ -50,6 +50,22 @@ pub enum Command {
 		#[structopt(flatten)]
 		prometheus_params: PrometheusParams,
 	},
+	/// Serve given lane of Millau -> Rialto messages.
+	MillauMessagesToRialto {
+		#[structopt(flatten)]
+		millau: MillauConnectionParams,
+		#[structopt(flatten)]
+		millau_sign: MillauSigningParams,
+		#[structopt(flatten)]
+		rialto: RialtoConnectionParams,
+		#[structopt(flatten)]
+		rialto_sign: RialtoSigningParams,
+		#[structopt(flatten)]
+		prometheus_params: PrometheusParams,
+		/// Hex-encoded id of lane that should be served by relay.
+		#[structopt(long)]
+		lane: HexLaneId,
+	},
 	/// Submit message to given Rialto -> Millau lane.
 	SubmitMillauToRialtoMessage {
 		#[structopt(flatten)]

@@ -18,8 +18,8 @@ use crate::message_lane_loop::{
 	SourceClient as MessageLaneSourceClient, SourceClientState, TargetClient as MessageLaneTargetClient,
 	TargetClientState,
 };
-use crate::message_race_delivery::DeliveryStrategy;
-use crate::message_race_loop::{MessageRace, SourceClient, TargetClient};
+use crate::message_race_loop::{ClientNonces, MessageRace, SourceClient, TargetClient};
+use crate::message_race_strategy::BasicStrategy;
 use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
@@ -28,7 +28,7 @@ use relay_utils::FailedClient;
 use std::{marker::PhantomData, ops::RangeInclusive, time::Duration};
 
 /// Message receiving confirmations delivery strategy.
-type ReceivingConfirmationsDeliveryStrategy<P> = DeliveryStrategy<
+type ReceivingConfirmationsBasicStrategy<P> = BasicStrategy<
 	<P as MessageLane>::TargetHeaderNumber,
 	<P as MessageLane>::TargetHeaderHash,
 	<P as MessageLane>::SourceHeaderNumber,
@@ -60,7 +60,7 @@ pub async fn run<P: MessageLane>(
 		},
 		source_state_updates,
 		stall_timeout,
-		ReceivingConfirmationsDeliveryStrategy::<P>::new(std::u32::MAX.into()),
+		ReceivingConfirmationsBasicStrategy::<P>::new(std::u32::MAX.into()),
 	)
 	.await
 }
@@ -91,31 +91,38 @@ struct ReceivingConfirmationsRaceSource<P: MessageLane, C> {
 	_phantom: PhantomData<P>,
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl<P, C> SourceClient<ReceivingConfirmationsRace<P>> for ReceivingConfirmationsRaceSource<P, C>
 where
 	P: MessageLane,
 	C: MessageLaneTargetClient<P>,
 {
 	type Error = C::Error;
+	type ProofParameters = ();
 
-	async fn latest_nonce(
+	async fn nonces(
 		&self,
 		at_block: TargetHeaderIdOf<P>,
-	) -> Result<(TargetHeaderIdOf<P>, P::MessageNonce), Self::Error> {
-		let result = self.client.latest_received_nonce(at_block).await;
+	) -> Result<(TargetHeaderIdOf<P>, ClientNonces<P::MessageNonce>), Self::Error> {
+		let (at_block, latest_received_nonce) = self.client.latest_received_nonce(at_block).await?;
 		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
-			if let Ok((_, target_latest_received_nonce)) = result.as_ref() {
-				metrics_msg.update_target_latest_received_nonce::<P>(*target_latest_received_nonce);
-			}
+			metrics_msg.update_target_latest_received_nonce::<P>(latest_received_nonce);
 		}
-		result
+		Ok((
+			at_block,
+			ClientNonces {
+				latest_nonce: latest_received_nonce,
+				confirmed_nonce: None,
+			},
+		))
 	}
 
+	#[allow(clippy::unit_arg)]
 	async fn generate_proof(
 		&self,
 		at_block: TargetHeaderIdOf<P>,
 		nonces: RangeInclusive<P::MessageNonce>,
+		_proof_parameters: Self::ProofParameters,
 	) -> Result<
 		(
 			TargetHeaderIdOf<P>,
@@ -138,7 +145,7 @@ struct ReceivingConfirmationsRaceTarget<P: MessageLane, C> {
 	_phantom: PhantomData<P>,
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl<P, C> TargetClient<ReceivingConfirmationsRace<P>> for ReceivingConfirmationsRaceTarget<P, C>
 where
 	P: MessageLane,
@@ -146,27 +153,32 @@ where
 {
 	type Error = C::Error;
 
-	async fn latest_nonce(
+	async fn nonces(
 		&self,
 		at_block: SourceHeaderIdOf<P>,
-	) -> Result<(SourceHeaderIdOf<P>, P::MessageNonce), Self::Error> {
-		let result = self.client.latest_confirmed_received_nonce(at_block).await;
+	) -> Result<(SourceHeaderIdOf<P>, ClientNonces<P::MessageNonce>), Self::Error> {
+		let (at_block, latest_confirmed_nonce) = self.client.latest_confirmed_received_nonce(at_block).await?;
 		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
-			if let Ok((_, source_latest_confirmed_nonce)) = result.as_ref() {
-				metrics_msg.update_source_latest_confirmed_nonce::<P>(*source_latest_confirmed_nonce);
-			}
+			metrics_msg.update_source_latest_confirmed_nonce::<P>(latest_confirmed_nonce);
 		}
-		result
+		Ok((
+			at_block,
+			ClientNonces {
+				latest_nonce: latest_confirmed_nonce,
+				confirmed_nonce: None,
+			},
+		))
 	}
 
 	async fn submit_proof(
 		&self,
 		generated_at_block: TargetHeaderIdOf<P>,
-		_nonces: RangeInclusive<P::MessageNonce>,
+		nonces: RangeInclusive<P::MessageNonce>,
 		proof: P::MessagesReceivingProof,
 	) -> Result<RangeInclusive<P::MessageNonce>, Self::Error> {
 		self.client
 			.submit_messages_receiving_proof(generated_at_block, proof)
-			.await
+			.await?;
+		Ok(nonces)
 	}
 }

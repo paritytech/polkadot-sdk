@@ -20,9 +20,6 @@
 //! associated data - like messages, lane state, etc) to the target node by
 //! generating and submitting proof.
 
-// Until there'll be actual message-lane in the runtime.
-#![allow(dead_code)]
-
 use crate::message_lane_loop::ClientState;
 
 use async_trait::async_trait;
@@ -61,36 +58,49 @@ type SourceClientState<P> = ClientState<<P as MessageRace>::SourceHeaderId, <P a
 /// State of race target client.
 type TargetClientState<P> = ClientState<<P as MessageRace>::TargetHeaderId, <P as MessageRace>::SourceHeaderId>;
 
+/// Nonces on the race client.
+#[derive(Debug, Clone)]
+pub struct ClientNonces<MessageNonce> {
+	/// Latest nonce that is known to the client.
+	pub latest_nonce: MessageNonce,
+	/// Latest nonce that is confirmed to the bridged client. This nonce only makes
+	/// sense in some races. In other races it is `None`.
+	pub confirmed_nonce: Option<MessageNonce>,
+}
+
 /// One of message lane clients, which is source client for the race.
-#[async_trait(?Send)]
+#[async_trait]
 pub trait SourceClient<P: MessageRace> {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
+	/// Additional proof parameters required to generate proof.
+	type ProofParameters;
 
-	/// Return latest nonce that is known to the source client.
-	async fn latest_nonce(
+	/// Return nonces that are known to the source client.
+	async fn nonces(
 		&self,
 		at_block: P::SourceHeaderId,
-	) -> Result<(P::SourceHeaderId, P::MessageNonce), Self::Error>;
+	) -> Result<(P::SourceHeaderId, ClientNonces<P::MessageNonce>), Self::Error>;
 	/// Generate proof for delivering to the target client.
 	async fn generate_proof(
 		&self,
 		at_block: P::SourceHeaderId,
 		nonces: RangeInclusive<P::MessageNonce>,
+		proof_parameters: Self::ProofParameters,
 	) -> Result<(P::SourceHeaderId, RangeInclusive<P::MessageNonce>, P::Proof), Self::Error>;
 }
 
 /// One of message lane clients, which is target client for the race.
-#[async_trait(?Send)]
+#[async_trait]
 pub trait TargetClient<P: MessageRace> {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 
-	/// Return latest nonce that is known to the target client.
-	async fn latest_nonce(
+	/// Return nonces that are known to the target client.
+	async fn nonces(
 		&self,
 		at_block: P::TargetHeaderId,
-	) -> Result<(P::TargetHeaderId, P::MessageNonce), Self::Error>;
+	) -> Result<(P::TargetHeaderId, ClientNonces<P::MessageNonce>), Self::Error>;
 	/// Submit proof to the target client.
 	async fn submit_proof(
 		&self,
@@ -102,22 +112,26 @@ pub trait TargetClient<P: MessageRace> {
 
 /// Race strategy.
 pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
+	/// Additional proof parameters required to generate proof.
+	type ProofParameters;
+
 	/// Should return true if nothing has to be synced.
 	fn is_empty(&self) -> bool;
-	/// Called when latest nonce is updated at source node of the race.
-	fn source_nonce_updated(&mut self, at_block: SourceHeaderId, nonce: MessageNonce);
-	/// Called when latest nonce is updated at target node of the race.
-	fn target_nonce_updated(
+	/// Called when nonces are updated at source node of the race.
+	fn source_nonces_updated(&mut self, at_block: SourceHeaderId, nonce: ClientNonces<MessageNonce>);
+	/// Called when nonces are updated at target node of the race.
+	fn target_nonces_updated(
 		&mut self,
-		nonce: MessageNonce,
+		nonces: ClientNonces<MessageNonce>,
 		race_state: &mut RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof>,
 	);
 	/// Should return `Some(nonces)` if we need to deliver proof of `nonces` (and associated
 	/// data) from source to target node.
+	/// Additionally, parameters required to generate proof are returned.
 	fn select_nonces_to_deliver(
 		&mut self,
 		race_state: &RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof>,
-	) -> Option<RangeInclusive<MessageNonce>>;
+	) -> Option<(RangeInclusive<MessageNonce>, Self::ProofParameters)>;
 }
 
 /// State of the race.
@@ -133,38 +147,44 @@ pub struct RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
 }
 
 /// Run race loop until connection with target or source node is lost.
-pub async fn run<P: MessageRace>(
-	race_source: impl SourceClient<P>,
+pub async fn run<P: MessageRace, SC: SourceClient<P>>(
+	race_source: SC,
 	race_source_updated: impl FusedStream<Item = SourceClientState<P>>,
 	race_target: impl TargetClient<P>,
 	race_target_updated: impl FusedStream<Item = TargetClientState<P>>,
 	stall_timeout: Duration,
-	mut strategy: impl RaceStrategy<P::SourceHeaderId, P::TargetHeaderId, P::MessageNonce, P::Proof>,
+	mut strategy: impl RaceStrategy<
+		P::SourceHeaderId,
+		P::TargetHeaderId,
+		P::MessageNonce,
+		P::Proof,
+		ProofParameters = SC::ProofParameters,
+	>,
 ) -> Result<(), FailedClient> {
 	let mut race_state = RaceState::default();
 	let mut stall_countdown = Instant::now();
 
 	let mut source_retry_backoff = retry_backoff();
 	let mut source_client_is_online = true;
-	let mut source_latest_nonce_required = false;
-	let source_latest_nonce = futures::future::Fuse::terminated();
+	let mut source_nonces_required = false;
+	let source_nonces = futures::future::Fuse::terminated();
 	let source_generate_proof = futures::future::Fuse::terminated();
 	let source_go_offline_future = futures::future::Fuse::terminated();
 
 	let mut target_retry_backoff = retry_backoff();
 	let mut target_client_is_online = true;
-	let mut target_latest_nonce_required = false;
-	let target_latest_nonce = futures::future::Fuse::terminated();
+	let mut target_nonces_required = false;
+	let target_nonces = futures::future::Fuse::terminated();
 	let target_submit_proof = futures::future::Fuse::terminated();
 	let target_go_offline_future = futures::future::Fuse::terminated();
 
 	futures::pin_mut!(
 		race_source_updated,
-		source_latest_nonce,
+		source_nonces,
 		source_generate_proof,
 		source_go_offline_future,
 		race_target_updated,
-		target_latest_nonce,
+		target_nonces,
 		target_submit_proof,
 		target_go_offline_future,
 	);
@@ -175,7 +195,7 @@ pub async fn run<P: MessageRace>(
 			source_state = race_source_updated.next() => {
 				if let Some(source_state) = source_state {
 					if race_state.source_state.as_ref() != Some(&source_state) {
-						source_latest_nonce_required = true;
+						source_nonces_required = true;
 						race_state.source_state = Some(source_state);
 					}
 				}
@@ -183,53 +203,53 @@ pub async fn run<P: MessageRace>(
 			target_state = race_target_updated.next() => {
 				if let Some(target_state) = target_state {
 					if race_state.target_state.as_ref() != Some(&target_state) {
-						target_latest_nonce_required = true;
+						target_nonces_required = true;
 						race_state.target_state = Some(target_state);
 					}
 				}
 			},
 
 			// when nonces are updated
-			latest_nonce = source_latest_nonce => {
-				source_latest_nonce_required = false;
+			nonces = source_nonces => {
+				source_nonces_required = false;
 
 				source_client_is_online = process_future_result(
-					latest_nonce,
+					nonces,
 					&mut source_retry_backoff,
-					|(at_block, latest_nonce)| {
+					|(at_block, nonces)| {
 						log::debug!(
 							target: "bridge",
-							"Received latest nonce from {}: {:?}",
+							"Received nonces from {}: {:?}",
 							P::source_name(),
-							latest_nonce,
+							nonces,
 						);
 
-						strategy.source_nonce_updated(at_block, latest_nonce);
+						strategy.source_nonces_updated(at_block, nonces);
 					},
 					&mut source_go_offline_future,
 					|delay| async_std::task::sleep(delay),
-					|| format!("Error retrieving latest nonce from {}", P::source_name()),
+					|| format!("Error retrieving nonces from {}", P::source_name()),
 				).fail_if_connection_error(FailedClient::Source)?;
 			},
-			latest_nonce = target_latest_nonce => {
-				target_latest_nonce_required = false;
+			nonces = target_nonces => {
+				target_nonces_required = false;
 
 				target_client_is_online = process_future_result(
-					latest_nonce,
+					nonces,
 					&mut target_retry_backoff,
-					|(_, latest_nonce)| {
+					|(_, nonces)| {
 						log::debug!(
 							target: "bridge",
-							"Received latest nonce from {}: {:?}",
+							"Received nonces from {}: {:?}",
 							P::target_name(),
-							latest_nonce,
+							nonces,
 						);
 
-						strategy.target_nonce_updated(latest_nonce, &mut race_state);
+						strategy.target_nonces_updated(nonces, &mut race_state);
 					},
 					&mut target_go_offline_future,
 					|delay| async_std::task::sleep(delay),
-					|| format!("Error retrieving latest nonce from {}", P::target_name()),
+					|| format!("Error retrieving nonces from {}", P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
 
@@ -288,26 +308,32 @@ pub async fn run<P: MessageRace>(
 			let nonces_to_deliver = race_state.source_state.as_ref().and_then(|source_state| {
 				strategy
 					.select_nonces_to_deliver(&race_state)
-					.map(|nonces_range| (source_state.best_self.clone(), nonces_range))
+					.map(|(nonces_range, proof_parameters)| {
+						(source_state.best_self.clone(), nonces_range, proof_parameters)
+					})
 			});
 
-			if let Some((at_block, nonces_range)) = nonces_to_deliver {
+			if let Some((at_block, nonces_range, proof_parameters)) = nonces_to_deliver {
 				log::debug!(
 					target: "bridge",
 					"Asking {} to prove nonces in range {:?}",
 					P::source_name(),
 					nonces_range,
 				);
-				source_generate_proof.set(race_source.generate_proof(at_block, nonces_range).fuse());
-			} else if source_latest_nonce_required {
-				log::debug!(target: "bridge", "Asking {} about latest generated message nonce", P::source_name());
+				source_generate_proof.set(
+					race_source
+						.generate_proof(at_block, nonces_range, proof_parameters)
+						.fuse(),
+				);
+			} else if source_nonces_required {
+				log::debug!(target: "bridge", "Asking {} about message nonces", P::source_name());
 				let at_block = race_state
 					.source_state
 					.as_ref()
-					.expect("source_latest_nonce_required is only true when source_state is Some; qed")
+					.expect("source_nonces_required is only true when source_state is Some; qed")
 					.best_self
 					.clone();
-				source_latest_nonce.set(race_source.latest_nonce(at_block).fuse());
+				source_nonces.set(race_source.nonces(at_block).fuse());
 			} else {
 				source_client_is_online = true;
 			}
@@ -329,15 +355,15 @@ pub async fn run<P: MessageRace>(
 						.fuse(),
 				);
 			}
-			if target_latest_nonce_required {
-				log::debug!(target: "bridge", "Asking {} about latest nonce", P::target_name());
+			if target_nonces_required {
+				log::debug!(target: "bridge", "Asking {} about message nonces", P::target_name());
 				let at_block = race_state
 					.target_state
 					.as_ref()
-					.expect("target_latest_nonce_required is only true when target_state is Some; qed")
+					.expect("target_nonces_required is only true when target_state is Some; qed")
 					.best_self
 					.clone();
-				target_latest_nonce.set(race_target.latest_nonce(at_block).fuse());
+				target_nonces.set(race_target.nonces(at_block).fuse());
 			} else {
 				target_client_is_online = true;
 			}

@@ -16,6 +16,7 @@ rand = "0.7"
 
 # Bridge dependencies
 
+bp-message-lane = { path = "../../primitives/message-lane" }
 bp-runtime = { path = "../../primitives/runtime" }
 headers-relay = { path = "../headers-relay" }
 relay-utils = { path = "../utils" }
@@ -27,6 +28,8 @@ frame-system = "2.0"
 pallet-balances = "2.0"
 sp-core = "2.0"
 sp-runtime = "2.0"
+sp-std = "2.0"
+sp-trie = "2.0"
 sp-version = "2.0"
 
 #[dev-dependencies]
