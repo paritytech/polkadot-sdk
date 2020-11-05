@@ -23,6 +23,9 @@
 
 use crate::chain::Chain;
 
+use bp_message_lane::{LaneId, MessageNonce};
+use bp_runtime::InstanceId;
+use frame_support::weights::Weight;
 use sp_core::{
 	storage::{StorageData, StorageKey},
 	Bytes,
@@ -33,6 +36,8 @@ jsonrpsee::rpc_api! {
 	pub(crate) Substrate<C: Chain> {
 		#[rpc(method = "chain_getHeader", positional_params)]
 		fn chain_get_header(block_hash: Option<C::Hash>) -> C::Header;
+		#[rpc(method = "chain_getFinalizedHead", positional_params)]
+		fn chain_get_finalized_head() -> C::Hash;
 		#[rpc(method = "chain_getBlock", positional_params)]
 		fn chain_get_block(block_hash: Option<C::Hash>) -> C::SignedBlock;
 		#[rpc(method = "chain_getBlockHash", positional_params)]
@@ -47,5 +52,24 @@ jsonrpsee::rpc_api! {
 		fn get_storage(key: StorageKey) -> Option<StorageData>;
 		#[rpc(method = "state_getRuntimeVersion", positional_params)]
 		fn runtime_version() -> RuntimeVersion;
+	}
+
+	pub(crate) SubstrateMessageLane<C: Chain> {
+		#[rpc(method = "messageLane_proveMessages", positional_params)]
+		fn prove_messages(
+			instance: InstanceId,
+			lane: LaneId,
+			begin: MessageNonce,
+			end: MessageNonce,
+			include_outbound_lane_state: bool,
+			block: Option<C::Hash>,
+		) -> (Weight, Bytes);
+
+		#[rpc(method = "messageLane_proveMessagesDelivery", positional_params)]
+		fn prove_messages_delivery(
+			instance: InstanceId,
+			lane: LaneId,
+			block: Option<C::Hash>,
+		) -> Bytes;
 	}
 }

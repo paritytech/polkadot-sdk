@@ -29,6 +29,8 @@ mod metrics;
 
 pub mod message_lane;
 pub mod message_lane_loop;
-pub mod message_race_delivery;
-pub mod message_race_loop;
-pub mod message_race_receiving;
+
+mod message_race_delivery;
+mod message_race_loop;
+mod message_race_receiving;
+mod message_race_strategy;

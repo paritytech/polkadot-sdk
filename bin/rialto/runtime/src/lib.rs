@@ -65,6 +65,7 @@ pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_bridge_currency_exchange::Call as BridgeCurrencyExchangeCall;
 pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
+pub use pallet_message_lane::Call as MessageLaneCall;
 pub use pallet_substrate_bridge::Call as BridgeMillauCall;
 pub use pallet_timestamp::Call as TimestampCall;
 
@@ -428,7 +429,7 @@ impl pallet_shift_session_manager::Trait for Runtime {}
 
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: bp_message_lane::MessageNonce = 8;
-	pub const MaxUnconfirmedMessagesAtInboundLane: bp_message_lane::MessageNonce = 128;
+	pub const MaxUnconfirmedMessagesAtInboundLane: bp_message_lane::MessageNonce = bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE;
 }
 
 impl pallet_message_lane::Trait for Runtime {

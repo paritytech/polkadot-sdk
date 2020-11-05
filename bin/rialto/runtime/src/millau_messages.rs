@@ -23,7 +23,7 @@ use bp_message_lane::{
 	target_chain::{ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageNonce,
 };
-use bp_runtime::InstanceId;
+use bp_runtime::{InstanceId, MILLAU_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::{self, ChainWithMessageLanes, MessageBridge};
 use frame_support::{
 	weights::{Weight, WeightToFeePolynomial},
@@ -78,7 +78,7 @@ type FromMillauMessagesProof = messages::target::FromBridgedChainMessagesProof<W
 pub struct WithMillauMessageBridge;
 
 impl MessageBridge for WithMillauMessageBridge {
-	const INSTANCE: InstanceId = *b"mlau";
+	const INSTANCE: InstanceId = MILLAU_BRIDGE_INSTANCE;
 
 	const RELAYER_FEE_PERCENT: u32 = 10;
 

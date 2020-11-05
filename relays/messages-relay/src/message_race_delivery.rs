@@ -18,14 +18,15 @@ use crate::message_lane_loop::{
 	SourceClient as MessageLaneSourceClient, SourceClientState, TargetClient as MessageLaneTargetClient,
 	TargetClientState,
 };
-use crate::message_race_loop::{MessageRace, RaceState, RaceStrategy, SourceClient, TargetClient};
+use crate::message_race_loop::{ClientNonces, MessageRace, RaceState, RaceStrategy, SourceClient, TargetClient};
+use crate::message_race_strategy::BasicStrategy;
 use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
 use futures::stream::FusedStream;
-use num_traits::{One, Zero};
-use relay_utils::{FailedClient, HeaderId};
-use std::{collections::VecDeque, marker::PhantomData, ops::RangeInclusive, time::Duration};
+use num_traits::CheckedSub;
+use relay_utils::FailedClient;
+use std::{marker::PhantomData, ops::RangeInclusive, time::Duration};
 
 /// Maximal number of messages to relay in single transaction.
 const MAX_MESSAGES_TO_RELAY_IN_SINGLE_TX: u32 = 4;
@@ -38,6 +39,7 @@ pub async fn run<P: MessageLane>(
 	target_state_updates: impl FusedStream<Item = TargetClientState<P>>,
 	stall_timeout: Duration,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
+	max_unconfirmed_nonces_at_target: P::MessageNonce,
 ) -> Result<(), FailedClient> {
 	crate::message_race_loop::run(
 		MessageDeliveryRaceSource {
@@ -53,7 +55,12 @@ pub async fn run<P: MessageLane>(
 		},
 		target_state_updates,
 		stall_timeout,
-		MessageDeliveryStrategy::<P>::new(MAX_MESSAGES_TO_RELAY_IN_SINGLE_TX.into()),
+		MessageDeliveryStrategy::<P> {
+			max_unconfirmed_nonces_at_target,
+			source_nonces: None,
+			target_nonces: None,
+			strategy: BasicStrategy::new(MAX_MESSAGES_TO_RELAY_IN_SINGLE_TX.into()),
+		},
 	)
 	.await
 }
@@ -84,33 +91,46 @@ struct MessageDeliveryRaceSource<P: MessageLane, C> {
 	_phantom: PhantomData<P>,
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl<P, C> SourceClient<MessageDeliveryRace<P>> for MessageDeliveryRaceSource<P, C>
 where
 	P: MessageLane,
 	C: MessageLaneSourceClient<P>,
 {
 	type Error = C::Error;
+	type ProofParameters = bool;
 
-	async fn latest_nonce(
+	async fn nonces(
 		&self,
 		at_block: SourceHeaderIdOf<P>,
-	) -> Result<(SourceHeaderIdOf<P>, P::MessageNonce), Self::Error> {
-		let result = self.client.latest_generated_nonce(at_block).await;
+	) -> Result<(SourceHeaderIdOf<P>, ClientNonces<P::MessageNonce>), Self::Error> {
+		let (at_block, latest_generated_nonce) = self.client.latest_generated_nonce(at_block).await?;
+		let (at_block, latest_confirmed_nonce) = self.client.latest_confirmed_received_nonce(at_block).await?;
+
 		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
-			if let Ok((_, source_latest_generated_nonce)) = result.as_ref() {
-				metrics_msg.update_target_latest_received_nonce::<P>(*source_latest_generated_nonce);
-			}
+			metrics_msg.update_source_latest_generated_nonce::<P>(latest_generated_nonce);
+			metrics_msg.update_source_latest_confirmed_nonce::<P>(latest_confirmed_nonce);
 		}
-		result
+
+		Ok((
+			at_block,
+			ClientNonces {
+				latest_nonce: latest_generated_nonce,
+				confirmed_nonce: Some(latest_confirmed_nonce),
+			},
+		))
 	}
 
 	async fn generate_proof(
 		&self,
 		at_block: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<P::MessageNonce>,
+		proof_parameters: Self::ProofParameters,
 	) -> Result<(SourceHeaderIdOf<P>, RangeInclusive<P::MessageNonce>, P::MessagesProof), Self::Error> {
-		self.client.prove_messages(at_block, nonces).await
+		let outbound_state_proof_required = proof_parameters;
+		self.client
+			.prove_messages(at_block, nonces, outbound_state_proof_required)
+			.await
 	}
 }
 
@@ -121,7 +141,7 @@ struct MessageDeliveryRaceTarget<P: MessageLane, C> {
 	_phantom: PhantomData<P>,
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl<P, C> TargetClient<MessageDeliveryRace<P>> for MessageDeliveryRaceTarget<P, C>
 where
 	P: MessageLane,
@@ -129,17 +149,25 @@ where
 {
 	type Error = C::Error;
 
-	async fn latest_nonce(
+	async fn nonces(
 		&self,
 		at_block: TargetHeaderIdOf<P>,
-	) -> Result<(TargetHeaderIdOf<P>, P::MessageNonce), Self::Error> {
-		let result = self.client.latest_received_nonce(at_block).await;
+	) -> Result<(TargetHeaderIdOf<P>, ClientNonces<P::MessageNonce>), Self::Error> {
+		let (at_block, latest_received_nonce) = self.client.latest_received_nonce(at_block).await?;
+		let (at_block, latest_confirmed_nonce) = self.client.latest_confirmed_received_nonce(at_block).await?;
+
 		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
-			if let Ok((_, target_latest_received_nonce)) = result.as_ref() {
-				metrics_msg.update_target_latest_received_nonce::<P>(*target_latest_received_nonce);
-			}
+			metrics_msg.update_target_latest_received_nonce::<P>(latest_received_nonce);
+			metrics_msg.update_target_latest_confirmed_nonce::<P>(latest_confirmed_nonce);
 		}
-		result
+
+		Ok((
+			at_block,
+			ClientNonces {
+				latest_nonce: latest_received_nonce,
+				confirmed_nonce: Some(latest_confirmed_nonce),
+			},
+		))
 	}
 
 	async fn submit_proof(
@@ -155,7 +183,18 @@ where
 }
 
 /// Messages delivery strategy.
-type MessageDeliveryStrategy<P> = DeliveryStrategy<
+struct MessageDeliveryStrategy<P: MessageLane> {
+	/// Maximal unconfirmed nonces at target client.
+	max_unconfirmed_nonces_at_target: P::MessageNonce,
+	/// Latest nonces from the source client.
+	source_nonces: Option<ClientNonces<P::MessageNonce>>,
+	/// Target nonces from the source client.
+	target_nonces: Option<ClientNonces<P::MessageNonce>>,
+	/// Basic delivery strategy.
+	strategy: MessageDeliveryStrategyBase<P>,
+}
+
+type MessageDeliveryStrategyBase<P> = BasicStrategy<
 	<P as MessageLane>::SourceHeaderNumber,
 	<P as MessageLane>::SourceHeaderHash,
 	<P as MessageLane>::TargetHeaderNumber,
@@ -164,280 +203,90 @@ type MessageDeliveryStrategy<P> = DeliveryStrategy<
 	<P as MessageLane>::MessagesProof,
 >;
 
-/// Nonces delivery strategy.
-#[derive(Debug)]
-pub struct DeliveryStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof> {
-	/// All queued nonces.
-	source_queue: VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, Nonce)>,
-	/// Best nonce known to target node.
-	target_nonce: Nonce,
-	/// Max nonces to relay in single transaction.
-	max_nonces_to_relay_in_single_tx: Nonce,
-	/// Unused generic types dump.
-	_phantom: PhantomData<(TargetHeaderNumber, TargetHeaderHash, Proof)>,
-}
-
-impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce: Default, Proof>
-	DeliveryStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
+impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessageNonce, P::MessagesProof>
+	for MessageDeliveryStrategy<P>
 {
-	/// Create new delivery strategy.
-	pub fn new(max_nonces_to_relay_in_single_tx: Nonce) -> Self {
-		DeliveryStrategy {
-			source_queue: VecDeque::new(),
-			target_nonce: Default::default(),
-			max_nonces_to_relay_in_single_tx,
-			_phantom: Default::default(),
-		}
-	}
-}
+	type ProofParameters = bool;
 
-impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
-	RaceStrategy<
-		HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-		HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-		Nonce,
-		Proof,
-	> for DeliveryStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
-where
-	SourceHeaderHash: Clone,
-	SourceHeaderNumber: Clone + Ord,
-	Nonce: Clone + Copy + From<u32> + Ord + std::ops::Add<Output = Nonce> + One + Zero,
-{
 	fn is_empty(&self) -> bool {
-		self.source_queue.is_empty()
+		self.strategy.is_empty()
 	}
 
-	fn source_nonce_updated(&mut self, at_block: HeaderId<SourceHeaderHash, SourceHeaderNumber>, nonce: Nonce) {
-		if nonce <= self.target_nonce {
-			return;
-		}
-
-		match self.source_queue.back() {
-			Some((_, prev_nonce)) if *prev_nonce < nonce => (),
-			Some(_) => return,
-			None => (),
-		}
-
-		self.source_queue.push_back((at_block, nonce))
+	fn source_nonces_updated(&mut self, at_block: SourceHeaderIdOf<P>, nonces: ClientNonces<P::MessageNonce>) {
+		self.source_nonces = Some(nonces.clone());
+		self.strategy.source_nonces_updated(at_block, nonces)
 	}
 
-	fn target_nonce_updated(
+	fn target_nonces_updated(
 		&mut self,
-		nonce: Nonce,
-		race_state: &mut RaceState<
-			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Nonce,
-			Proof,
-		>,
+		nonces: ClientNonces<P::MessageNonce>,
+		race_state: &mut RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessageNonce, P::MessagesProof>,
 	) {
-		if nonce < self.target_nonce {
-			return;
-		}
-
-		while let Some(true) = self
-			.source_queue
-			.front()
-			.map(|(_, source_nonce)| *source_nonce <= nonce)
-		{
-			self.source_queue.pop_front();
-		}
-
-		let need_to_select_new_nonces = race_state
-			.nonces_to_submit
-			.as_ref()
-			.map(|(_, nonces, _)| *nonces.end() <= nonce)
-			.unwrap_or(false);
-		if need_to_select_new_nonces {
-			race_state.nonces_to_submit = None;
-		}
-
-		let need_new_nonces_to_submit = race_state
-			.nonces_submitted
-			.as_ref()
-			.map(|nonces| *nonces.end() <= nonce)
-			.unwrap_or(false);
-		if need_new_nonces_to_submit {
-			race_state.nonces_submitted = None;
-		}
-
-		self.target_nonce = nonce;
+		self.target_nonces = Some(nonces.clone());
+		self.strategy.target_nonces_updated(nonces, race_state)
 	}
 
 	fn select_nonces_to_deliver(
 		&mut self,
-		race_state: &RaceState<
-			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Nonce,
-			Proof,
-		>,
-	) -> Option<RangeInclusive<Nonce>> {
-		// if we have already selected nonces that we want to submit, do nothing
-		if race_state.nonces_to_submit.is_some() {
-			return None;
-		}
+		race_state: &RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessageNonce, P::MessagesProof>,
+	) -> Option<(RangeInclusive<P::MessageNonce>, Self::ProofParameters)> {
+		const CONFIRMED_NONCE_PROOF: &str = "\
+			ClientNonces are crafted by MessageDeliveryRace(Source|Target);\
+			MessageDeliveryRace(Source|Target) always fills confirmed_nonce field;\
+			qed";
 
-		// if we already submitted some nonces, do nothing
-		if race_state.nonces_submitted.is_some() {
-			return None;
-		}
+		let source_nonces = self.source_nonces.as_ref()?;
+		let target_nonces = self.target_nonces.as_ref()?;
 
-		// 1) we want to deliver all nonces, starting from `target_nonce + 1`
-		// 2) we want to deliver at most `self.max_nonces_to_relay_in_single_tx` nonces in this batch
-		// 3) we can't deliver new nonce until header, that has emitted this nonce, is finalized
-		// by target client
-		let nonces_begin = self.target_nonce + 1.into();
-		let best_header_at_target = &race_state.target_state.as_ref()?.best_peer;
-		let mut nonces_end = None;
-		let mut i = Zero::zero();
-		while i < self.max_nonces_to_relay_in_single_tx {
-			let nonce = nonces_begin + i;
+		// There's additional condition in the message delivery race: target would reject messages
+		// if there are too much unconfirmed messages at the inbound lane.
 
-			// if queue is empty, we don't need to prove anything
-			let (first_queued_at, first_queued_nonce) = match self.source_queue.front() {
-				Some((first_queued_at, first_queued_nonce)) => ((*first_queued_at).clone(), *first_queued_nonce),
-				None => break,
-			};
+		// https://github.com/paritytech/parity-bridges-common/issues/432
+		// TODO: message lane loop works with finalized blocks only, but we're submitting transactions that
+		// are updating best block (which may not be finalized yet). So all decisions that are made below
+		// may be outdated. This needs to be changed - all logic here must be built on top of best blocks.
 
-			// if header that has queued the message is not yet finalized at bridged chain,
-			// we can't prove anything
-			if first_queued_at.0 > best_header_at_target.0 {
-				break;
+		// The receiving race is responsible to deliver confirmations back to the source chain. So if
+		// there's a lot of unconfirmed messages, let's wait until it'll be able to do its job.
+		let latest_received_nonce_at_target = target_nonces.latest_nonce;
+		let latest_confirmed_nonce_at_source = source_nonces.confirmed_nonce.expect(CONFIRMED_NONCE_PROOF);
+		let confirmations_missing = latest_received_nonce_at_target.checked_sub(&latest_confirmed_nonce_at_source);
+		match confirmations_missing {
+			Some(confirmations_missing) if confirmations_missing > self.max_unconfirmed_nonces_at_target => {
+				log::debug!(
+					target: "bridge",
+					"Cannot deliver any more messages from {} to {}. Too many unconfirmed nonces \
+					at target: target.latest_received={:?}, source.latest_confirmed={:?}, max={:?}",
+					MessageDeliveryRace::<P>::source_name(),
+					MessageDeliveryRace::<P>::target_name(),
+					latest_received_nonce_at_target,
+					latest_confirmed_nonce_at_source,
+					self.max_unconfirmed_nonces_at_target,
+				);
+
+				return None;
 			}
-
-			// ok, we may deliver this nonce
-			nonces_end = Some(nonce);
-
-			// probably remove it from the queue?
-			if nonce == first_queued_nonce {
-				self.source_queue.pop_front();
-			}
-
-			i = i + One::one();
+			_ => (),
 		}
 
-		nonces_end.map(|nonces_end| RangeInclusive::new(nonces_begin, nonces_end))
-	}
-}
+		// If we're here, then the confirmations race did it job && sending side now knows that messages
+		// have been delivered. Now let's select nonces that we want to deliver.
+		let selected_nonces = self.strategy.select_nonces_to_deliver(race_state)?.0;
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::message_lane_loop::{
-		tests::{header_id, TestMessageLane, TestMessageNonce, TestMessagesProof},
-		ClientState,
-	};
+		// Ok - we have new nonces to deliver. But target may still reject new messages, because we haven't
+		// notified it that (some) messages have been confirmed. So we may want to include updated
+		// `source.latest_confirmed` in the proof.
+		//
+		// Important note: we're including outbound state lane proof whenever there are unconfirmed nonces
+		// on the target chain. Other strategy is to include it only if it's absolutely necessary.
+		let latest_confirmed_nonce_at_target = target_nonces.confirmed_nonce.expect(CONFIRMED_NONCE_PROOF);
+		let outbound_state_proof_required = latest_confirmed_nonce_at_target < latest_confirmed_nonce_at_source;
 
-	#[test]
-	fn strategy_is_empty_works() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		assert_eq!(strategy.is_empty(), true);
-		strategy.source_nonce_updated(header_id(1), 1);
-		assert_eq!(strategy.is_empty(), false);
-	}
+		// https://github.com/paritytech/parity-bridges-common/issues/432
+		// https://github.com/paritytech/parity-bridges-common/issues/433
+		// TODO: number of messages must be no larger than:
+		// `max_unconfirmed_nonces_at_target - (latest_received_nonce_at_target - latest_confirmed_nonce_at_target)`
 
-	#[test]
-	fn source_nonce_is_never_lower_than_known_target_nonce() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		strategy.target_nonce_updated(10, &mut Default::default());
-		strategy.source_nonce_updated(header_id(1), 5);
-		assert_eq!(strategy.source_queue, vec![]);
-	}
-
-	#[test]
-	fn source_nonce_is_never_lower_than_latest_known_source_nonce() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		strategy.source_nonce_updated(header_id(1), 5);
-		strategy.source_nonce_updated(header_id(2), 3);
-		strategy.source_nonce_updated(header_id(2), 5);
-		assert_eq!(strategy.source_queue, vec![(header_id(1), 5)]);
-	}
-
-	#[test]
-	fn target_nonce_is_never_lower_than_latest_known_target_nonce() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		strategy.target_nonce_updated(10, &mut Default::default());
-		strategy.target_nonce_updated(5, &mut Default::default());
-		assert_eq!(strategy.target_nonce, 10);
-	}
-
-	#[test]
-	fn updated_target_nonce_removes_queued_entries() {
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		strategy.source_nonce_updated(header_id(1), 5);
-		strategy.source_nonce_updated(header_id(2), 10);
-		strategy.source_nonce_updated(header_id(3), 15);
-		strategy.source_nonce_updated(header_id(4), 20);
-		strategy.target_nonce_updated(15, &mut Default::default());
-		assert_eq!(strategy.source_queue, vec![(header_id(4), 20)]);
-	}
-
-	#[test]
-	fn selected_nonces_are_dropped_on_target_nonce_update() {
-		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		state.nonces_to_submit = Some((header_id(1), 5..=10, 5..=10));
-		strategy.target_nonce_updated(7, &mut state);
-		assert!(state.nonces_to_submit.is_some());
-		strategy.target_nonce_updated(10, &mut state);
-		assert!(state.nonces_to_submit.is_none());
-	}
-
-	#[test]
-	fn submitted_nonces_are_dropped_on_target_nonce_update() {
-		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		state.nonces_submitted = Some(5..=10);
-		strategy.target_nonce_updated(7, &mut state);
-		assert!(state.nonces_submitted.is_some());
-		strategy.target_nonce_updated(10, &mut state);
-		assert!(state.nonces_submitted.is_none());
-	}
-
-	#[test]
-	fn nothing_is_selected_if_something_is_already_selected() {
-		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		state.nonces_to_submit = Some((header_id(1), 1..=10, 1..=10));
-		strategy.source_nonce_updated(header_id(1), 10);
-		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
-	}
-
-	#[test]
-	fn nothing_is_selected_if_something_is_already_submitted() {
-		let mut state = RaceState::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		state.nonces_submitted = Some(1..=10);
-		strategy.source_nonce_updated(header_id(1), 10);
-		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
-	}
-
-	#[test]
-	fn select_nonces_to_deliver_works() {
-		let mut state = RaceState::<_, _, TestMessageNonce, TestMessagesProof>::default();
-		let mut strategy = MessageDeliveryStrategy::<TestMessageLane>::new(4);
-		strategy.source_nonce_updated(header_id(1), 1);
-		strategy.source_nonce_updated(header_id(2), 2);
-		strategy.source_nonce_updated(header_id(3), 6);
-		strategy.source_nonce_updated(header_id(5), 8);
-
-		state.target_state = Some(ClientState {
-			best_self: header_id(0),
-			best_peer: header_id(4),
-		});
-		assert_eq!(strategy.select_nonces_to_deliver(&state), Some(1..=4));
-		strategy.target_nonce_updated(4, &mut state);
-		assert_eq!(strategy.select_nonces_to_deliver(&state), Some(5..=6));
-		strategy.target_nonce_updated(6, &mut state);
-		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
-
-		state.target_state = Some(ClientState {
-			best_self: header_id(0),
-			best_peer: header_id(5),
-		});
-		assert_eq!(strategy.select_nonces_to_deliver(&state), Some(7..=8));
-		strategy.target_nonce_updated(8, &mut state);
-		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
+		Some((selected_nonces, outbound_state_proof_required))
 	}
 }

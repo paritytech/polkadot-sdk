@@ -20,6 +20,7 @@
 // Runtime-generated DecodeLimit::decode_all_With_depth_limit
 #![allow(clippy::unnecessary_mut_passed)]
 
+use bp_message_lane::MessageNonce;
 use bp_runtime::Chain;
 use frame_support::{weights::Weight, RuntimeDebug};
 use sp_core::Hasher as HasherT;
@@ -36,6 +37,9 @@ pub const AVAILABLE_BLOCK_RATIO: u32 = 75;
 /// Maximal weight of single Rialto extrinsic (65% of maximum block weight = 75% for regular
 /// transactions minus 10% for initialization).
 pub const MAXIMUM_EXTRINSIC_WEIGHT: Weight = MAXIMUM_BLOCK_WEIGHT / 100 * (AVAILABLE_BLOCK_RATIO as Weight - 10);
+
+/// Maximal number of unconfirmed messages at inbound lane.
+pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 128;
 
 /// Block number type used in Rialto.
 pub type BlockNumber = u32;
