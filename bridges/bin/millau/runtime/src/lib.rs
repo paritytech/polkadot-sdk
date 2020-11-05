@@ -321,7 +321,7 @@ impl pallet_shift_session_manager::Trait for Runtime {}
 
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: bp_message_lane::MessageNonce = 8;
-	pub const MaxUnconfirmedMessagesAtInboundLane: bp_message_lane::MessageNonce = 128;
+	pub const MaxUnconfirmedMessagesAtInboundLane: bp_message_lane::MessageNonce = bp_millau::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE;
 }
 
 impl pallet_message_lane::Trait for Runtime {

@@ -20,6 +20,7 @@ structopt = "0.3"
 
 bp-message-lane = { path = "../../primitives/message-lane" }
 bp-millau = { path = "../../primitives/millau" }
+bp-runtime = { path = "../../primitives/runtime" }
 bp-rialto = { path = "../../primitives/rialto" }
 headers-relay = { path = "../headers-relay" }
 messages-relay = { path = "../messages-relay" }
@@ -37,3 +38,4 @@ rialto-runtime = { path = "../../bin/rialto/runtime" }
 frame-support = "2.0"
 sp-core = "2.0"
 sp-runtime = "2.0"
+sp-trie = "2.0"
