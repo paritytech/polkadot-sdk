@@ -155,7 +155,10 @@ fn testnet_genesis(
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
 		}),
-		pallet_substrate_bridge: load_rialto_bridge_config(),
+		pallet_substrate_bridge: Some(BridgeRialtoConfig {
+			// We'll initialize the pallet with a dispatchable instead.
+			init_data: None,
+		}),
 		pallet_sudo: Some(SudoConfig { key: root_key }),
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
@@ -164,13 +167,4 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		}),
 	}
-}
-
-fn load_rialto_bridge_config() -> Option<BridgeRialtoConfig> {
-	Some(BridgeRialtoConfig {
-		initial_header: Some(millau_runtime::rialto::initial_header()),
-		initial_authority_list: millau_runtime::rialto::initial_authority_set().authorities,
-		initial_set_id: millau_runtime::rialto::initial_authority_set().set_id,
-		first_scheduled_change: None,
-	})
 }
