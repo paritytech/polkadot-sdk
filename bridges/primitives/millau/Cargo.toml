@@ -10,6 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 # Bridge Dependencies
 
+bp-message-lane = { path = "../message-lane", default-features = false }
 bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Based Dependencies
@@ -23,6 +24,7 @@ sp-std = { version = "2.0", default-features = false }
 [features]
 default = ["std"]
 std = [
+	"bp-message-lane/std",
 	"bp-runtime/std",
 	"frame-support/std",
 	"sp-api/std",
