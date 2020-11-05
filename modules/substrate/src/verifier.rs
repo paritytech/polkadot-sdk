@@ -361,15 +361,6 @@ mod tests {
 	use sp_finality_grandpa::{AuthorityId, SetId};
 	use sp_runtime::{Digest, DigestItem};
 
-	fn unfinalized_header(num: u64) -> ImportedHeader<TestHeader> {
-		ImportedHeader {
-			header: test_header(num),
-			requires_justification: false,
-			is_finalized: false,
-			signal_hash: None,
-		}
-	}
-
 	fn schedule_next_change(
 		authorities: Vec<AuthorityId>,
 		set_id: SetId,

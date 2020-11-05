@@ -93,6 +93,7 @@ pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 
 pub mod helpers {
 	use super::*;
+	use crate::storage::ImportedHeader;
 	use crate::{BridgedBlockHash, BridgedBlockNumber, BridgedHeader};
 	use finality_grandpa::voter_set::VoterSet;
 	use sp_finality_grandpa::{AuthorityId, AuthorityList};
@@ -112,6 +113,15 @@ pub mod helpers {
 		};
 
 		header
+	}
+
+	pub fn unfinalized_header(num: u64) -> ImportedHeader<TestHeader> {
+		ImportedHeader {
+			header: test_header(num),
+			requires_justification: false,
+			is_finalized: false,
+			signal_hash: None,
+		}
 	}
 
 	pub fn header_id(index: u8) -> HeaderId {
