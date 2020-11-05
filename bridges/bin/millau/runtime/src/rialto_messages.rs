@@ -23,7 +23,7 @@ use bp_message_lane::{
 	target_chain::{ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageNonce,
 };
-use bp_runtime::InstanceId;
+use bp_runtime::{InstanceId, RIALTO_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::{self, ChainWithMessageLanes, MessageBridge};
 use frame_support::{
 	weights::{Weight, WeightToFeePolynomial},
@@ -75,7 +75,7 @@ pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDi
 pub struct WithRialtoMessageBridge;
 
 impl MessageBridge for WithRialtoMessageBridge {
-	const INSTANCE: InstanceId = *b"rlto";
+	const INSTANCE: InstanceId = RIALTO_BRIDGE_INSTANCE;
 
 	const RELAYER_FEE_PERCENT: u32 = 10;
 
