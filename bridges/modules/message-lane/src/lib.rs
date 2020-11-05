@@ -452,6 +452,42 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	}
 }
 
+/// Getting storage keys for messages and lanes states. These keys are normally used when building
+/// messages and lanes states proofs.
+///
+/// Keep in mind that all functions in this module are **NOT** using passed `T` argument, so any
+/// runtime can be passed. E.g. if you're verifying proof from Runtime1 in Runtime2, you only have
+/// access to Runtime2 and you may pass it to the functions, where required. This is because our
+/// maps are not using any Runtime-specific data in the keys.
+///
+/// On the other side, passing correct instance is required. So if proof has been crafted by the
+/// Instance1, you should verify it using Instance1. This is inconvenient if you're using different
+/// instances on different sides of the bridge. I.e. in Runtime1 it is Instance2, but on Runtime2
+/// it is Instance42. But there's no other way, but to craft this key manually (which is what I'm
+/// trying to avoid here) - by using strings like "Instance2", "OutboundMessages", etc.
+pub mod storage_keys {
+	use super::*;
+	use frame_support::storage::generator::StorageMap;
+	use sp_core::storage::StorageKey;
+
+	/// Storage key of the outbound message in the runtime storage.
+	pub fn message_key<T: Trait<I>, I: Instance>(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
+		let message_key = MessageKey { lane_id: *lane, nonce };
+		let raw_storage_key = OutboundMessages::<T, I>::storage_map_final_key(message_key);
+		StorageKey(raw_storage_key)
+	}
+
+	/// Storage key of the outbound message lane state in the runtime storage.
+	pub fn outbound_lane_data_key<I: Instance>(lane: &LaneId) -> StorageKey {
+		StorageKey(OutboundLanes::<I>::storage_map_final_key(*lane))
+	}
+
+	/// Storage key of the inbound message lane state in the runtime storage.
+	pub fn inbound_lane_data_key<T: Trait<I>, I: Instance>(lane: &LaneId) -> StorageKey {
+		StorageKey(InboundLanes::<T, I>::storage_map_final_key(*lane))
+	}
+}
+
 /// Ensure that the origin is either root, or `ModuleOwner`.
 fn ensure_owner_or_root<T: Trait<I>, I: Instance>(origin: T::Origin) -> Result<(), BadOrigin> {
 	match origin.into() {
@@ -605,6 +641,7 @@ mod tests {
 	};
 	use frame_support::{assert_noop, assert_ok};
 	use frame_system::{EventRecord, Module as System, Phase};
+	use hex_literal::hex;
 	use sp_runtime::DispatchError;
 
 	fn send_regular_message() {
@@ -1017,5 +1054,35 @@ mod tests {
 
 			assert_eq!(InboundLanes::<TestRuntime>::get(&TEST_LANE_ID).latest_received_nonce, 3,);
 		});
+	}
+
+	#[test]
+	fn storage_message_key_computed_properly() {
+		// If this test fails, then something has been changed in module storage that is breaking all
+		// previously crafted messages proofs.
+		assert_eq!(
+			storage_keys::message_key::<TestRuntime, DefaultInstance>(&*b"test", 42).0,
+			hex!("87f1ffe31b52878f09495ca7482df1a48a395e6242c6813b196ca31ed0547ea79446af0e09063bd4a7874aef8a997cec746573742a00000000000000").to_vec(),
+		);
+	}
+
+	#[test]
+	fn outbound_lane_data_key_computed_properly() {
+		// If this test fails, then something has been changed in module storage that is breaking all
+		// previously crafted outbound lane state proofs.
+		assert_eq!(
+			storage_keys::outbound_lane_data_key::<DefaultInstance>(&*b"test").0,
+			hex!("87f1ffe31b52878f09495ca7482df1a496c246acb9b55077390e3ca723a0ca1f44a8995dd50b6657a037a7839304535b74657374").to_vec(),
+		);
+	}
+
+	#[test]
+	fn inbound_lane_data_key_computed_properly() {
+		// If this test fails, then something has been changed in module storage that is breaking all
+		// previously crafted inbound lane state proofs.
+		assert_eq!(
+			storage_keys::inbound_lane_data_key::<TestRuntime, DefaultInstance>(&*b"test").0,
+			hex!("87f1ffe31b52878f09495ca7482df1a4e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374").to_vec(),
+		);
 	}
 }

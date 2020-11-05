@@ -19,11 +19,12 @@ bp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 frame-support = { version = "2.0", default-features = false }
 frame-system = { version = "2.0", default-features = false }
+sp-core = { version = "2.0", default-features = false }
 sp-runtime = { version = "2.0", default-features = false }
 sp-std = { version = "2.0", default-features = false }
 
 [dev-dependencies]
-sp-core = "2.0"
+hex-literal = "0.3"
 sp-io = "2.0"
 
 [features]
@@ -35,6 +36,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"serde",
+	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]

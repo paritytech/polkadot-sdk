@@ -28,9 +28,10 @@ use bp_message_lane::{
 };
 use bp_runtime::InstanceId;
 use codec::{Compact, Decode, Input};
-use frame_support::RuntimeDebug;
+use frame_support::{traits::Instance, RuntimeDebug};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{cmp::PartialOrd, marker::PhantomData, vec::Vec};
+use sp_trie::StorageProof;
 
 /// Bidirectional message bridge.
 pub trait MessageBridge {
@@ -73,6 +74,8 @@ pub trait MessageBridge {
 
 /// Chain that has `message-lane` and `call-dispatch` modules.
 pub trait ChainWithMessageLanes {
+	/// Hash used in the chain.
+	type Hash: Decode;
 	/// Accound id on the chain.
 	type AccountId;
 	/// Public key of the chain account that may be used to verify signatures.
@@ -88,10 +91,14 @@ pub trait ChainWithMessageLanes {
 	type Weight: From<frame_support::weights::Weight>;
 	/// Type of balances that is used on the chain.
 	type Balance: CheckedAdd + CheckedDiv + CheckedMul + PartialOrd + From<u32> + Copy;
+
+	/// Instance of the message-lane pallet.
+	type MessageLaneInstance: Instance;
 }
 
 pub(crate) type ThisChain<B> = <B as MessageBridge>::ThisChain;
 pub(crate) type BridgedChain<B> = <B as MessageBridge>::BridgedChain;
+pub(crate) type HashOf<C> = <C as ChainWithMessageLanes>::Hash;
 pub(crate) type AccountIdOf<C> = <C as ChainWithMessageLanes>::AccountId;
 pub(crate) type SignerOf<C> = <C as ChainWithMessageLanes>::Signer;
 pub(crate) type SignatureOf<C> = <C as ChainWithMessageLanes>::Signature;
@@ -201,6 +208,20 @@ pub mod target {
 		SignatureOf<ThisChain<B>>,
 		CallOf<ThisChain<B>>,
 	>;
+
+	/// Messages proof from bridged chain:
+	///
+	/// - hash of finalized header;
+	/// - storage proof of messages and (optionally) outbound lane state;
+	/// - lane id;
+	/// - nonces (inclusive range) of messages which are included in this proof.
+	pub type FromBridgedChainMessagesProof<B> = (
+		HashOf<BridgedChain<B>>,
+		StorageProof,
+		LaneId,
+		MessageNonce,
+		MessageNonce,
+	);
 
 	/// Message payload for Bridged -> This messages.
 	pub struct FromBridgedChainMessagePayload<B: MessageBridge>(pub(crate) FromBridgedChainDecodedMessagePayload<B>);
@@ -450,23 +471,29 @@ mod tests {
 	struct ThisChain;
 
 	impl ChainWithMessageLanes for ThisChain {
+		type Hash = ();
 		type AccountId = ThisChainAccountId;
 		type Signer = ThisChainSigner;
 		type Signature = ThisChainSignature;
 		type Call = ThisChainCall;
 		type Weight = frame_support::weights::Weight;
 		type Balance = ThisChainBalance;
+
+		type MessageLaneInstance = pallet_message_lane::DefaultInstance;
 	}
 
 	struct BridgedChain;
 
 	impl ChainWithMessageLanes for BridgedChain {
+		type Hash = ();
 		type AccountId = BridgedChainAccountId;
 		type Signer = BridgedChainSigner;
 		type Signature = BridgedChainSignature;
 		type Call = BridgedChainCall;
 		type Weight = frame_support::weights::Weight;
 		type Balance = BridgedChainBalance;
+
+		type MessageLaneInstance = pallet_message_lane::DefaultInstance;
 	}
 
 	#[test]
