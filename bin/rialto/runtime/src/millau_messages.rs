@@ -30,7 +30,6 @@ use frame_support::{
 	RuntimeDebug,
 };
 use sp_core::storage::StorageKey;
-use sp_trie::StorageProof;
 
 /// Storage key of the Rialto -> Millau message in the runtime storage.
 pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
@@ -72,6 +71,9 @@ pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDi
 
 /// Messages proof for Millau -> Rialto messages.
 type FromMillauMessagesProof = messages::target::FromBridgedChainMessagesProof<WithMillauMessageBridge>;
+
+/// Messages delivery proof for Rialto -> Millau messages.
+type ToMillauMessagesDeliveryProof = messages::source::FromBridgedChainMessagesDeliveryProof<WithMillauMessageBridge>;
 
 /// Millau <-> Rialto message bridge.
 #[derive(RuntimeDebug, Clone, Copy)]
@@ -155,7 +157,7 @@ impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau 
 	// - hash of the header this proof has been created with;
 	// - the storage proof of one or several keys;
 	// - id of the lane we prove state of.
-	type MessagesDeliveryProof = (bp_millau::Hash, StorageProof, LaneId);
+	type MessagesDeliveryProof = ToMillauMessagesDeliveryProof;
 
 	fn verify_message(payload: &ToMillauMessagePayload) -> Result<(), Self::Error> {
 		if payload.weight > WithMillauMessageBridge::maximal_dispatch_weight_of_message_on_bridged_chain() {
@@ -166,9 +168,9 @@ impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau 
 	}
 
 	fn verify_messages_delivery_proof(
-		_proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<bp_millau::AccountId>), Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/397")
+		proof: Self::MessagesDeliveryProof,
+	) -> Result<(LaneId, InboundLaneData<bp_rialto::AccountId>), Self::Error> {
+		messages::source::verify_messages_delivery_proof::<WithMillauMessageBridge, Runtime>(proof)
 	}
 }
 
