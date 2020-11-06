@@ -184,8 +184,8 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 	type MessagesProof = FromMillauMessagesProof;
 
 	fn verify_messages_proof(
-		_proof: Self::MessagesProof,
+		proof: Self::MessagesProof,
 	) -> Result<ProvedMessages<Message<bp_millau::Balance>>, Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/397")
+		messages::target::verify_messages_proof::<WithMillauMessageBridge, Runtime>(proof)
 	}
 }
