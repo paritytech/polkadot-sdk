@@ -124,8 +124,11 @@ pub async fn run<SourceChain, TargetChain, P>(
 		}
 	};
 
-	let sync_maintain =
-		SubstrateHeadersToSubstrateMaintain::new(pipeline.clone(), source_client.clone(), source_justifications);
+	let sync_maintain = SubstrateHeadersToSubstrateMaintain::<_, SourceChain, _>::new(
+		pipeline.clone(),
+		target_client.clone(),
+		source_justifications,
+	);
 
 	headers_relay::sync_loop::run(
 		HeadersSource::new(source_client),
