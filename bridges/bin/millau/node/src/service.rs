@@ -35,7 +35,6 @@ use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState};
-use sc_finality_grandpa_rpc::GrandpaRpcHandler;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_core::storage::StorageKey;
@@ -193,7 +192,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		}
 
 		use pallet_message_lane_rpc::{MessageLaneApi, MessageLaneRpcHandler};
-		use sc_finality_grandpa_rpc::GrandpaApi;
+		use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
 		use sc_rpc::DenyUnsafe;
 		use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
