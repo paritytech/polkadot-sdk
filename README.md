@@ -233,40 +233,6 @@ docker run -it bridge-node-dev --dev --tmp
 Notice that the `docker run` command will accept all the normal Substrate flags. For local
 development you should at minimum run with the `--dev` flag or else no blocks will be produced.
 
-### GitHub Docker Build
-If you don't want to run using the local source files you can also use images which pull the latest
-`master`, or some other commit or branch of your choosing (configured with the `BRIDGE_HASH` build
-argument).
-
-These images live in the [Rialto deployments](./deployments/rialto) folder.
-
-```bash
-docker build \
-  https://raw.githubusercontent.com/paritytech/parity-bridges-common/master/deployments/rialto/Bridge.Dockerfile \
-  -t poa-relay
-docker run -it poa-relay
-```
-
-By default the relayer is configured to connect to OpenEthereum `--dev` chain node and Substrate
-`rialto-bridge-node` running in `--dev` mode.
-
-To build the `rialto-bridge-node`:
-```bash
-docker build \
-  https://raw.githubusercontent.com/paritytech/parity-bridges-common/master/deployments/rialto/Bridge.Dockerfile \
-  -t rialto-bridge-node \
-  --build-arg PROJECT=rialto-bridge-node
-docker run -it rialto-bridge-node --dev
-```
-
-And to build `OpenEthereum` with bridge support:
-```bash
-docker build \
-  https://raw.githubusercontent.com/paritytech/parity-bridges-common/master/deployments/rialto/OpenEthereum.Dockerfile
-  -t openethereum
-docker run -it openethereum
-```
-
 ### Full Network Docker Setup
 See [Deployments README](./deployments/README.md) to learn more about how to run
 a more sophisticated test network using `docker-compose` setup.
