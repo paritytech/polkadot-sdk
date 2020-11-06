@@ -212,6 +212,14 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 		self.strategy.is_empty()
 	}
 
+	fn best_at_source(&self) -> P::MessageNonce {
+		self.strategy.best_at_source()
+	}
+
+	fn best_at_target(&self) -> P::MessageNonce {
+		self.strategy.best_at_target()
+	}
+
 	fn source_nonces_updated(&mut self, at_block: SourceHeaderIdOf<P>, nonces: ClientNonces<P::MessageNonce>) {
 		self.source_nonces = Some(nonces.clone());
 		self.strategy.source_nonces_updated(at_block, nonces)

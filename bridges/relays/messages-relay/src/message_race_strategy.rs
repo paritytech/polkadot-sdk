@@ -68,6 +68,17 @@ where
 		self.source_queue.is_empty()
 	}
 
+	fn best_at_source(&self) -> Nonce {
+		self.source_queue
+			.back()
+			.map(|(_, nonce)| *nonce)
+			.unwrap_or_else(Zero::zero)
+	}
+
+	fn best_at_target(&self) -> Nonce {
+		self.target_nonce
+	}
+
 	fn source_nonces_updated(
 		&mut self,
 		at_block: HeaderId<SourceHeaderHash, SourceHeaderNumber>,
