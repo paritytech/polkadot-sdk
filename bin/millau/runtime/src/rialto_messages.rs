@@ -184,8 +184,8 @@ impl SourceHeaderChain<bp_rialto::Balance> for Rialto {
 	type MessagesProof = FromRialtoMessagesProof;
 
 	fn verify_messages_proof(
-		_proof: Self::MessagesProof,
+		proof: Self::MessagesProof,
 	) -> Result<ProvedMessages<Message<bp_rialto::Balance>>, Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/397")
+		messages::target::verify_messages_proof::<WithRialtoMessageBridge, Runtime>(proof)
 	}
 }
