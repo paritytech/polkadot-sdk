@@ -24,7 +24,7 @@ use bp_message_dispatch::MessageDispatch as _;
 use bp_message_lane::{
 	source_chain::LaneMessageVerifier,
 	target_chain::{DispatchMessage, MessageDispatch},
-	LaneId, MessageNonce,
+	InboundLaneData, LaneId, MessageNonce,
 };
 use bp_runtime::InstanceId;
 use codec::{Compact, Decode, Input};
@@ -77,7 +77,7 @@ pub trait ChainWithMessageLanes {
 	/// Hash used in the chain.
 	type Hash: Decode;
 	/// Accound id on the chain.
-	type AccountId;
+	type AccountId: Decode;
 	/// Public key of the chain account that may be used to verify signatures.
 	type Signer: Decode;
 	/// Signature type used on the chain.
@@ -105,6 +105,7 @@ pub(crate) type SignatureOf<C> = <C as ChainWithMessageLanes>::Signature;
 pub(crate) type WeightOf<C> = <C as ChainWithMessageLanes>::Weight;
 pub(crate) type BalanceOf<C> = <C as ChainWithMessageLanes>::Balance;
 pub(crate) type CallOf<C> = <C as ChainWithMessageLanes>::Call;
+pub(crate) type MessageLaneInstanceOf<C> = <C as ChainWithMessageLanes>::MessageLaneInstance;
 
 /// Sub-module that is declaring types required for processing This -> Bridged chain messages.
 pub mod source {
@@ -120,6 +121,16 @@ pub mod source {
 		SignatureOf<BridgedChain<B>>,
 		BridgedChainOpaqueCall,
 	>;
+
+	/// Messages delivery proof from bridged chain:
+	///
+	/// - hash of finalized header;
+	/// - storage proof of inbound lane state;
+	/// - lane id.
+	pub type FromBridgedChainMessagesDeliveryProof<B> = (HashOf<BridgedChain<B>>, StorageProof, LaneId);
+
+	/// 'Parsed' message delivery proof - inbound lane id and its state.
+	pub type ParsedMessagesDeliveryProofFromBridgedChain<B> = (LaneId, InboundLaneData<AccountIdOf<ThisChain<B>>>);
 
 	/// Message verifier that requires submitter to pay minimal delivery and dispatch fee.
 	#[derive(RuntimeDebug)]
@@ -187,6 +198,40 @@ pub mod source {
 				.and_then(|interest| interest.checked_div(&100u32.into()))
 				.and_then(|interest| fee.checked_add(&interest)))
 			.ok_or("Overflow when computing minimal required message delivery and dispatch fee")
+	}
+
+	/// Verify proof of This -> Bridged chain messages delivery.
+	pub fn verify_messages_delivery_proof<B: MessageBridge, ThisRuntime>(
+		proof: FromBridgedChainMessagesDeliveryProof<B>,
+	) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<B>, &'static str>
+	where
+		ThisRuntime: pallet_substrate_bridge::Trait,
+		ThisRuntime: pallet_message_lane::Trait<MessageLaneInstanceOf<BridgedChain<B>>>,
+		HashOf<BridgedChain<B>>:
+			Into<bp_runtime::HashOf<<ThisRuntime as pallet_substrate_bridge::Trait>::BridgedChain>>,
+	{
+		let (bridged_header_hash, bridged_storage_proof, lane) = proof;
+		pallet_substrate_bridge::Module::<ThisRuntime>::parse_finalized_storage_proof(
+			bridged_header_hash.into(),
+			bridged_storage_proof,
+			|storage| {
+				// Messages delivery proof is just proof of single storage key read => any error
+				// is fatal.
+				let storage_inbound_lane_data_key = pallet_message_lane::storage_keys::inbound_lane_data_key::<
+					ThisRuntime,
+					MessageLaneInstanceOf<BridgedChain<B>>,
+				>(&lane);
+				let raw_inbound_lane_data = storage
+					.read_value(storage_inbound_lane_data_key.0.as_ref())
+					.map_err(|_| "Failed to read inbound lane state from storage proof")?
+					.ok_or("Inbound lane state is missing from the messages proof")?;
+				let inbound_lane_data = InboundLaneData::decode(&mut &raw_inbound_lane_data[..])
+					.map_err(|_| "Failed to decode inbound lane state from the proof")?;
+
+				Ok((lane, inbound_lane_data))
+			},
+		)
+		.map_err(<&'static str>::from)?
 	}
 }
 

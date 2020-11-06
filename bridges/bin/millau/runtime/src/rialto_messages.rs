@@ -30,7 +30,6 @@ use frame_support::{
 	RuntimeDebug,
 };
 use sp_core::storage::StorageKey;
-use sp_trie::StorageProof;
 
 /// Storage key of the Millau -> Rialto message in the runtime storage.
 pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
@@ -62,6 +61,12 @@ pub type ToRialtoMessageVerifier = messages::source::FromThisChainMessageVerifie
 
 /// Message payload for Rialto -> Millau messages.
 pub type FromRialtoMessagePayload = messages::target::FromBridgedChainMessagePayload<WithRialtoMessageBridge>;
+
+/// Messages proof for Rialto -> Millau messages.
+type FromRialtoMessagesProof = messages::target::FromBridgedChainMessagesProof<WithRialtoMessageBridge>;
+
+/// Messages delivery proof for Millau -> Rialto messages.
+type ToRialtoMessagesDeliveryProof = messages::source::FromBridgedChainMessagesDeliveryProof<WithRialtoMessageBridge>;
 
 /// Call-dispatch based message dispatch for Rialto -> Millau messages.
 pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
@@ -152,7 +157,7 @@ impl TargetHeaderChain<ToRialtoMessagePayload, bp_rialto::AccountId> for Rialto 
 	// - hash of the header this proof has been created with;
 	// - the storage proof or one or several keys;
 	// - id of the lane we prove state of.
-	type MessagesDeliveryProof = (bp_rialto::Hash, StorageProof, LaneId);
+	type MessagesDeliveryProof = ToRialtoMessagesDeliveryProof;
 
 	fn verify_message(payload: &ToRialtoMessagePayload) -> Result<(), Self::Error> {
 		if payload.weight > WithRialtoMessageBridge::maximal_dispatch_weight_of_message_on_bridged_chain() {
@@ -163,9 +168,9 @@ impl TargetHeaderChain<ToRialtoMessagePayload, bp_rialto::AccountId> for Rialto 
 	}
 
 	fn verify_messages_delivery_proof(
-		_proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<bp_rialto::AccountId>), Self::Error> {
-		unimplemented!("https://github.com/paritytech/parity-bridges-common/issues/397")
+		proof: Self::MessagesDeliveryProof,
+	) -> Result<(LaneId, InboundLaneData<bp_millau::AccountId>), Self::Error> {
+		messages::source::verify_messages_delivery_proof::<WithRialtoMessageBridge, Runtime>(proof)
 	}
 }
 
@@ -176,7 +181,7 @@ impl SourceHeaderChain<bp_rialto::Balance> for Rialto {
 	// - the storage proof or one or several keys;
 	// - id of the lane we prove messages for;
 	// - inclusive range of messages nonces that are proved.
-	type MessagesProof = (bp_rialto::Hash, StorageProof, LaneId, MessageNonce, MessageNonce);
+	type MessagesProof = FromRialtoMessagesProof;
 
 	fn verify_messages_proof(
 		_proof: Self::MessagesProof,
