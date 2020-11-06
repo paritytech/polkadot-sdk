@@ -117,6 +117,11 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
 
 	/// Should return true if nothing has to be synced.
 	fn is_empty(&self) -> bool;
+	/// Return best nonce at source node.
+	fn best_at_source(&self) -> MessageNonce;
+	/// Return best nonce at target node.
+	fn best_at_target(&self) -> MessageNonce;
+
 	/// Called when nonces are updated at source node of the race.
 	fn source_nonces_updated(&mut self, at_block: SourceHeaderId, nonce: ClientNonces<MessageNonce>);
 	/// Called when nonces are updated at target node of the race.
@@ -135,6 +140,7 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
 }
 
 /// State of the race.
+#[derive(Debug)]
 pub struct RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
 	/// Source state, if known.
 	pub source_state: Option<ClientState<SourceHeaderId, TargetHeaderId>>,
@@ -161,6 +167,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 		ProofParameters = SC::ProofParameters,
 	>,
 ) -> Result<(), FailedClient> {
+	let mut progress_context = Instant::now();
 	let mut race_state = RaceState::default();
 	let mut stall_countdown = Instant::now();
 
@@ -295,6 +302,8 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 			}
 		}
 
+		progress_context = print_race_progress::<P, _>(progress_context, &strategy);
+
 		if stall_countdown.elapsed() > stall_timeout {
 			return Err(FailedClient::Both);
 		} else if race_state.nonces_to_submit.is_none() && race_state.nonces_submitted.is_none() && strategy.is_empty()
@@ -377,6 +386,32 @@ impl<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> Default
 			nonces_submitted: None,
 		}
 	}
+}
+
+/// Print race progress.
+fn print_race_progress<P, S>(prev_time: Instant, strategy: &S) -> Instant
+where
+	P: MessageRace,
+	S: RaceStrategy<P::SourceHeaderId, P::TargetHeaderId, P::MessageNonce, P::Proof>,
+{
+	let now_time = Instant::now();
+
+	let need_update = now_time.saturating_duration_since(prev_time) > Duration::from_secs(10);
+	if !need_update {
+		return prev_time;
+	}
+
+	let now_best_nonce_at_source = strategy.best_at_source();
+	let now_best_nonce_at_target = strategy.best_at_target();
+	log::info!(
+		target: "bridge",
+		"Synced {:?} of {:?} nonces in {} -> {} race",
+		now_best_nonce_at_target,
+		now_best_nonce_at_source,
+		P::source_name(),
+		P::target_name(),
+	);
+	now_time
 }
 
 fn select_nonces_to_deliver<SourceHeaderId, TargetHeaderId, MessageNonce, Proof, Strategy>(
