@@ -19,24 +19,22 @@
 use frame_executive::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 
-use sp_std::{boxed::Box, vec::Vec, collections::btree_map::BTreeMap, ops::Bound};
+use sp_std::{boxed::Box, collections::btree_map::BTreeMap, ops::Bound, vec::Vec};
 use sp_trie::{delta_trie_root, read_trie_value, Layout, MemoryDB, StorageProof};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
-use trie_db::{TrieDB, TrieDBIterator, Trie, TrieError};
+use trie_db::{Trie, TrieDB, TrieDBIterator};
 
 use parachain::primitives::{HeadData, ValidationCode, ValidationParams, ValidationResult};
 
 use codec::{Decode, Encode, EncodeAppend};
 
 use cumulus_primitives::{
-	validation_function_params::ValidationFunctionParams,
 	well_known_keys::{
-		NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES, UPWARD_MESSAGES,
-		VALIDATION_FUNCTION_PARAMS,
+		NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES, UPWARD_MESSAGES, VALIDATION_DATA,
 	},
-	GenericUpwardMessage,
+	GenericUpwardMessage, ValidationData,
 };
 
 /// Stores the global [`Storage`] instance.
@@ -117,16 +115,13 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	let block = B::new(block_data.header, block_data.extrinsics);
 	assert!(
 		parent_head.hash() == *block.header().parent_hash(),
-		"Invalid parent hash"
+		"Invalid parent hash",
 	);
-
-	// make a copy for later use
-	let validation_function_params = (&params).into();
 
 	let storage_inner = WitnessStorage::<B>::new(
 		block_data.storage_proof,
 		parent_head.state_root().clone(),
-		validation_function_params,
+		params,
 	)
 	.expect("Witness data and storage root always match; qed");
 
@@ -153,9 +148,6 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	// its scheduled upgrade so we can validate that block number later.
 	let new_validation_code =
 		with_storage(|storage| storage.modified(NEW_VALIDATION_CODE)).map(ValidationCode);
-	if new_validation_code.is_some() && validation_function_params.code_upgrade_allowed.is_none() {
-		panic!("Attempt to upgrade validation function when not permitted!");
-	}
 
 	// Extract potential upward messages from the storage.
 	let upward_messages = match with_storage(|storage| storage.modified(UPWARD_MESSAGES)) {
@@ -183,7 +175,7 @@ struct WitnessStorage<B: BlockT> {
 	witness_data: MemoryDB<HashFor<B>>,
 	overlay: BTreeMap<Vec<u8>, Option<Vec<u8>>>,
 	storage_root: B::Hash,
-	params: ValidationFunctionParams,
+	validation_params: ValidationParams,
 }
 
 impl<B: BlockT> WitnessStorage<B> {
@@ -193,9 +185,9 @@ impl<B: BlockT> WitnessStorage<B> {
 	fn new(
 		storage_proof: StorageProof,
 		storage_root: B::Hash,
-		params: ValidationFunctionParams,
+		validation_params: ValidationParams,
 	) -> Result<Self, &'static str> {
-		let mut db = storage_proof.into_memory_db();
+		let db = storage_proof.into_memory_db();
 
 		if !HashDB::contains(&db, &storage_root, EMPTY_PREFIX) {
 			return Err("Witness data does not contain given storage root.");
@@ -205,7 +197,7 @@ impl<B: BlockT> WitnessStorage<B> {
 			witness_data: db,
 			overlay: Default::default(),
 			storage_root,
-			params,
+			validation_params,
 		})
 	}
 
@@ -238,41 +230,50 @@ impl<B: BlockT> WitnessStorage<B> {
 	/// Find the next storage key after the given `key` in the overlay.
 	fn overlay_next_key(&self, key: &[u8]) -> Option<(&[u8], Option<&[u8]>)> {
 		let range = (Bound::Excluded(key), Bound::Unbounded);
-		self.overlay.range::<[u8], _>(range).next().map(|(k, v)| (&k[..], v.as_deref()))
+		self.overlay
+			.range::<[u8], _>(range)
+			.next()
+			.map(|(k, v)| (&k[..], v.as_deref()))
+	}
+
+	/// Checks that the encoded `ValidationData` in `data` is correct.
+	///
+	/// Should be removed with: https://github.com/paritytech/cumulus/issues/217
+	fn check_validation_data(&self, mut data: &[u8]) {
+		let validation_data = ValidationData::decode(&mut data).expect("Invalid `ValidationData`");
+
+		assert_eq!(
+			self.validation_params.parent_head,
+			validation_data.persisted.parent_head
+		);
+		assert_eq!(
+			self.validation_params.relay_chain_height,
+			validation_data.persisted.block_number
+		);
+		assert_eq!(
+			self.validation_params.hrmp_mqc_heads,
+			validation_data.persisted.hrmp_mqc_heads
+		);
 	}
 }
 
 impl<B: BlockT> Storage for WitnessStorage<B> {
 	fn modified(&self, key: &[u8]) -> Option<Vec<u8>> {
-		match key {
-			VALIDATION_FUNCTION_PARAMS => Some(self.params.encode()),
-			key => self
-				.overlay
-				.get(key)
-				.cloned()
-				.unwrap_or(None),
-		}
+		self.overlay.get(key).cloned().unwrap_or(None)
 	}
 
 	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-		match key {
-			VALIDATION_FUNCTION_PARAMS => Some(self.params.encode()),
-			key => self
-				.overlay
-				.get(key)
-				.cloned()
-				.unwrap_or_else(|| {
-					read_trie_value::<Layout<HashFor<B>>, _>(
-						&self.witness_data,
-						&self.storage_root,
-						key,
-					)
-					.expect("Reading key from trie.")
-				})
-		}
+		self.overlay.get(key).cloned().unwrap_or_else(|| {
+			read_trie_value::<Layout<HashFor<B>>, _>(&self.witness_data, &self.storage_root, key)
+				.expect("Reading key from trie.")
+		})
 	}
 
 	fn insert(&mut self, key: &[u8], value: &[u8]) {
+		if key == VALIDATION_DATA {
+			self.check_validation_data(value);
+		}
+
 		self.overlay.insert(key.to_vec(), Some(value.to_vec()));
 	}
 
@@ -339,13 +340,17 @@ impl<B: BlockT> Storage for WitnessStorage<B> {
 		let next_overlay_key = self.overlay_next_key(key);
 
 		match (next_trie_key, next_overlay_key) {
-			(Some(backend_key), Some(overlay_key)) if &backend_key[..] < overlay_key.0 => Some(backend_key),
+			(Some(backend_key), Some(overlay_key)) if &backend_key[..] < overlay_key.0 => {
+				Some(backend_key)
+			}
 			(backend_key, None) => backend_key,
-			(_, Some(overlay_key)) => if overlay_key.1.is_some() {
-				Some(overlay_key.0.to_vec())
-			} else {
-				self.next_key(&overlay_key.0)
-			},
+			(_, Some(overlay_key)) => {
+				if overlay_key.1.is_some() {
+					Some(overlay_key.0.to_vec())
+				} else {
+					self.next_key(&overlay_key.0)
+				}
+			}
 		}
 	}
 }

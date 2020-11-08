@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
-use sc_service::ChainSpec;
+use sc_chain_spec::ChainSpec;
 use sp_runtime::traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero};
 
 /// Generate the genesis state for a given ChainSpec.

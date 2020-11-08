@@ -16,21 +16,25 @@
 
 use super::*;
 use cumulus_test_runtime::{Block, Header};
-use polkadot_primitives::v0::{
-	AbridgedCandidateReceipt, Block as PBlock, Chain, CollatorId, DutyRoster, GlobalValidationData,
-	Hash as PHash, Header as PHeader, Id as ParaId, LocalValidationData, ParachainHost, Retriable,
-	SigningContext, ValidationCode, ValidatorId,
+use futures::executor::block_on;
+use polkadot_node_primitives::{SignedFullStatement, Statement};
+use polkadot_primitives::v1::{
+	AuthorityDiscoveryId, Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor,
+	CandidateEvent, CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash,
+	HeadData, Header as PHeader, Id as ParaId, OccupiedCoreAssumption, ParachainHost,
+	PersistedValidationData, SessionIndex, SigningContext, ValidationCode, ValidationData,
+	ValidationOutputs, ValidatorId, ValidatorIndex, InboundDownwardMessage,
 };
-use polkadot_test_runtime_client::{
-	DefaultTestClientBuilderExt, TestClient, TestClientBuilder, TestClientBuilderExt,
-};
-use polkadot_validation::{sign_table_statement, Statement};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend};
-use sp_consensus::block_validation::BlockAnnounceValidator;
+use sp_consensus::block_validation::BlockAnnounceValidator as _;
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
+use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};
+use sp_runtime::{
+	traits::{NumberFor, Zero},
+	RuntimeAppPublic,
+};
 
 #[derive(Clone)]
 struct DummyCollatorNetwork;
@@ -45,26 +49,16 @@ impl SyncOracle for DummyCollatorNetwork {
 	}
 }
 
-fn make_validator() -> JustifiedBlockAnnounceValidator<Block, TestApi> {
-	let (validator, _client) = make_validator_and_client();
-
-	validator
-}
-
-fn make_validator_and_client() -> (
-	JustifiedBlockAnnounceValidator<Block, TestApi>,
-	Arc<TestApi>,
-) {
-	let builder = TestClientBuilder::new();
-	let client = Arc::new(TestApi::new(Arc::new(builder.build())));
+fn make_validator_and_api() -> (BlockAnnounceValidator<Block, TestApi>, Arc<TestApi>) {
+	let api = Arc::new(TestApi::new());
 
 	(
-		JustifiedBlockAnnounceValidator::new(
-			client.clone(),
+		BlockAnnounceValidator::new(
+			api.clone(),
 			ParaId::from(56),
 			Box::new(DummyCollatorNetwork),
 		),
-		client,
+		api,
 	)
 }
 
@@ -79,42 +73,58 @@ fn default_header() -> Header {
 }
 
 fn make_gossip_message_and_header(
-	client: Arc<TestApi>,
-	relay_chain_leaf: H256,
-) -> (GossipMessage, Header) {
-	let key = Sr25519Keyring::Alice.pair().into();
-	let signing_context = client
+	api: Arc<TestApi>,
+	relay_parent: H256,
+	validator_index: u32,
+) -> (SignedFullStatement, Header) {
+	let keystore: SyncCryptoStorePtr = Arc::new(KeyStore::new());
+	let alice_public = SyncCryptoStore::sr25519_generate_new(
+		&*keystore,
+		ValidatorId::ID,
+		Some(&Sr25519Keyring::Alice.to_seed()),
+	)
+	.unwrap();
+	let session_index = api
 		.runtime_api()
-		.signing_context(&BlockId::Hash(relay_chain_leaf))
+		.session_index_for_child(&BlockId::Hash(relay_parent))
 		.unwrap();
-	let header = default_header();
-	let candidate_receipt = AbridgedCandidateReceipt {
-		head_data: header.encode().into(),
-		..AbridgedCandidateReceipt::default()
-	};
-	let statement = Statement::Candidate(candidate_receipt);
-	let signature = sign_table_statement(&statement, &key, &signing_context);
-	let sender = 0;
-	let gossip_statement = GossipStatement {
-		relay_chain_leaf,
-		signed_statement: SignedStatement {
-			statement,
-			signature,
-			sender,
-		},
+	let signing_context = SigningContext {
+		parent_hash: relay_parent,
+		session_index,
 	};
 
-	(GossipMessage::Statement(gossip_statement), header)
+	let header = default_header();
+	let candidate_receipt = CommittedCandidateReceipt {
+		commitments: CandidateCommitments {
+			head_data: header.encode().into(),
+			..Default::default()
+		},
+		descriptor: CandidateDescriptor {
+			relay_parent,
+			..Default::default()
+		},
+	};
+	let statement = Statement::Seconded(candidate_receipt);
+	let signed = block_on(SignedFullStatement::sign(
+		&keystore,
+		statement,
+		&signing_context,
+		validator_index,
+		&alice_public.into(),
+	))
+	.expect("Signing statement");
+
+	(signed, header)
 }
 
 #[test]
 fn valid_if_no_data_and_less_than_best_known_number() {
-	let mut validator = make_validator();
+	let mut validator = make_validator_and_api().0;
 	let header = Header {
 		number: 0,
 		..default_header()
 	};
-	let res = validator.validate(&header, &[]);
+	let res = block_on(validator.validate(&header, &[]));
 
 	assert_eq!(
 		res.unwrap(),
@@ -125,12 +135,12 @@ fn valid_if_no_data_and_less_than_best_known_number() {
 
 #[test]
 fn invalid_if_no_data_exceeds_best_known_number() {
-	let mut validator = make_validator();
+	let mut validator = make_validator_and_api().0;
 	let header = Header {
 		number: 1,
 		..default_header()
 	};
-	let res = validator.validate(&header, &[]);
+	let res = block_on(validator.validate(&header, &[]));
 
 	assert_eq!(
 		res.unwrap(),
@@ -140,28 +150,26 @@ fn invalid_if_no_data_exceeds_best_known_number() {
 }
 
 #[test]
-fn check_gossip_message_is_valid() {
-	let mut validator = make_validator();
+fn check_statement_is_encoded_correctly() {
+	let mut validator = make_validator_and_api().0;
 	let header = default_header();
-	let res = validator.validate(&header, &[0x42]).err();
+	let res = block_on(validator.validate(&header, &[0x42]))
+		.err()
+		.expect("Should fail on invalid encoded statement");
 
-	assert!(
-		res.is_some(),
-		"only data that are gossip message are allowed"
-	);
 	assert!(matches!(
-		*res.unwrap().downcast::<ClientError>().unwrap(),
-		ClientError::BadJustification(x) if x.contains("must be a gossip message")
+		*res.downcast::<ClientError>().unwrap(),
+		ClientError::BadJustification(x) if x.contains("must be a `SignedFullStatement`")
 	));
 }
 
 #[test]
 fn check_relay_parent_is_head() {
-	let (mut validator, client) = make_validator_and_client();
+	let (mut validator, api) = make_validator_and_api();
 	let relay_chain_leaf = H256::zero();
-	let (gossip_message, header) = make_gossip_message_and_header(client, relay_chain_leaf);
+	let (gossip_message, header) = make_gossip_message_and_header(api, relay_chain_leaf, 0);
 	let data = gossip_message.encode();
-	let res = validator.validate(&header, data.as_slice());
+	let res = block_on(validator.validate(&header, data.as_slice()));
 
 	assert_eq!(
 		res.unwrap(),
@@ -172,199 +180,136 @@ fn check_relay_parent_is_head() {
 
 #[test]
 fn check_relay_parent_actually_exists() {
-	let (mut validator, client) = make_validator_and_client();
-	let relay_chain_leaf = H256::from_low_u64_be(42);
-	let (gossip_message, header) = make_gossip_message_and_header(client, relay_chain_leaf);
-	let data = gossip_message.encode();
-	let res = validator.validate(&header, data.as_slice()).err();
+	let (mut validator, api) = make_validator_and_api();
+	let relay_parent = H256::from_low_u64_be(42);
+	let (signed_statement, header) = make_gossip_message_and_header(api, relay_parent, 0);
+	let data = signed_statement.encode();
+	let res = block_on(validator.validate(&header, &data))
+		.err()
+		.expect("Should fail on unknown relay parent");
 
-	assert!(
-		res.is_some(),
-		"validation should fail if the relay chain leaf does not exist"
-	);
 	assert!(matches!(
-		*res.unwrap().downcast::<ClientError>().unwrap(),
+		*res.downcast::<ClientError>().unwrap(),
 		ClientError::UnknownBlock(_)
 	));
 }
 
 #[test]
 fn check_relay_parent_fails_if_cannot_retrieve_number() {
-	let (mut validator, client) = make_validator_and_client();
-	let relay_chain_leaf = H256::from_low_u64_be(0xdead);
-	let (gossip_message, header) = make_gossip_message_and_header(client, relay_chain_leaf);
-	let data = gossip_message.encode();
-	let res = validator.validate(&header, data.as_slice()).err();
+	let (mut validator, api) = make_validator_and_api();
+	let relay_parent = H256::from_low_u64_be(0xdead);
+	let (signed_statement, header) = make_gossip_message_and_header(api, relay_parent, 0);
+	let data = signed_statement.encode();
+	let res = block_on(validator.validate(&header, &data))
+		.err()
+		.expect("Should fail when the relay chain number could not be retrieved");
 
-	assert!(
-		res.is_some(),
-		"validation should fail if the relay chain leaf does not exist"
-	);
 	assert!(matches!(
-		*res.unwrap().downcast::<ClientError>().unwrap(),
+		*res.downcast::<ClientError>().unwrap(),
 		ClientError::Backend(_)
 	));
 }
 
 #[test]
 fn check_signer_is_legit_validator() {
-	let (mut validator, client) = make_validator_and_client();
-	let relay_chain_leaf = H256::from_low_u64_be(1);
+	let (mut validator, api) = make_validator_and_api();
+	let relay_parent = H256::from_low_u64_be(1);
 
-	let key = Sr25519Keyring::Alice.pair().into();
-	let signing_context = client
-		.runtime_api()
-		.signing_context(&BlockId::Hash(relay_chain_leaf))
-		.unwrap();
-	let header = default_header();
-	let candidate_receipt = AbridgedCandidateReceipt {
-		head_data: header.encode().into(),
-		..AbridgedCandidateReceipt::default()
-	};
-	let statement = Statement::Candidate(candidate_receipt);
-	let signature = sign_table_statement(&statement, &key, &signing_context);
-	let sender = 1;
-	let gossip_statement = GossipStatement {
-		relay_chain_leaf,
-		signed_statement: SignedStatement {
-			statement,
-			signature,
-			sender,
-		},
-	};
-	let gossip_message = GossipMessage::Statement(gossip_statement);
+	let (signed_statement, header) = make_gossip_message_and_header(api, relay_parent, 1);
+	let data = signed_statement.encode();
 
-	let data = gossip_message.encode();
-	let res = validator.validate(&header, data.as_slice()).err();
+	let res = block_on(validator.validate(&header, &data))
+		.err()
+		.expect("Should fail on invalid validator");
 
-	assert!(
-		res.is_some(),
-		"validation should fail if the signer is not a legit validator"
-	);
 	assert!(matches!(
-		*res.unwrap().downcast::<ClientError>().unwrap(),
+		*res.downcast::<ClientError>().unwrap(),
 		ClientError::BadJustification(x) if x.contains("signer is a validator")
 	));
 }
 
 #[test]
 fn check_statement_is_correctly_signed() {
-	let (mut validator, client) = make_validator_and_client();
-	let header = default_header();
-	let relay_chain_leaf = H256::from_low_u64_be(1);
+	let (mut validator, api) = make_validator_and_api();
+	let relay_parent = H256::from_low_u64_be(1);
 
-	let key = Sr25519Keyring::Alice.pair().into();
-	let signing_context = client
-		.runtime_api()
-		.signing_context(&BlockId::Hash(relay_chain_leaf))
-		.unwrap();
-	let mut candidate_receipt = AbridgedCandidateReceipt::default();
-	let statement = Statement::Candidate(candidate_receipt.clone());
-	let signature = sign_table_statement(&statement, &key, &signing_context);
+	let (signed_statement, header) = make_gossip_message_and_header(api, relay_parent, 0);
 
-	// alterate statement so the signature doesn't match anymore
-	candidate_receipt = AbridgedCandidateReceipt {
-		parachain_index: candidate_receipt.parachain_index + 1,
-		..candidate_receipt
-	};
-	let statement = Statement::Candidate(candidate_receipt);
+	let mut data = signed_statement.encode();
 
-	let sender = 0;
-	let gossip_statement = GossipStatement {
-		relay_chain_leaf,
-		signed_statement: SignedStatement {
-			statement,
-			signature,
-			sender,
-		},
-	};
-	let gossip_message = GossipMessage::Statement(gossip_statement);
+	// The signature comes at the end of the type, so change a bit to make the signature invalid.
+	let last = data.len() - 1;
+	data[last] = data[last].wrapping_add(1);
 
-	let data = gossip_message.encode();
-	let res = validator.validate(&header, data.as_slice()).err();
+	let res = block_on(validator.validate(&header, &data))
+		.err()
+		.expect("Validation should fail if the statement is not signed correctly");
 
-	assert!(
-		res.is_some(),
-		"validation should fail if the statement is not correctly signed"
-	);
 	assert!(matches!(
-		*res.unwrap().downcast::<ClientError>().unwrap(),
+		*res.downcast::<ClientError>().unwrap(),
 		ClientError::BadJustification(x) if x.contains("signature is invalid")
 	));
 }
 
 #[test]
-fn check_statement_is_a_candidate_message() {
-	let (mut validator, client) = make_validator_and_client();
+fn check_statement_seconded() {
+	let (mut validator, api) = make_validator_and_api();
 	let header = default_header();
-	let relay_chain_leaf = H256::from_low_u64_be(1);
+	let relay_parent = H256::from_low_u64_be(1);
 
-	let key = Sr25519Keyring::Alice.pair().into();
-	let signing_context = client
+	let keystore: SyncCryptoStorePtr = Arc::new(KeyStore::new());
+	let alice_public = SyncCryptoStore::sr25519_generate_new(
+		&*keystore,
+		ValidatorId::ID,
+		Some(&Sr25519Keyring::Alice.to_seed()),
+	)
+	.unwrap();
+	let session_index = api
 		.runtime_api()
-		.signing_context(&BlockId::Hash(relay_chain_leaf))
+		.session_index_for_child(&BlockId::Hash(relay_parent))
 		.unwrap();
-	let statement = Statement::Valid(H256::zero());
-	let signature = sign_table_statement(&statement, &key, &signing_context);
-	let sender = 0;
-	let gossip_statement = GossipStatement {
-		relay_chain_leaf,
-		signed_statement: SignedStatement {
-			statement,
-			signature,
-			sender,
-		},
+	let signing_context = SigningContext {
+		parent_hash: relay_parent,
+		session_index,
 	};
-	let gossip_message = GossipMessage::Statement(gossip_statement);
 
-	let data = gossip_message.encode();
-	let res = validator.validate(&header, data.as_slice()).err();
+	let statement = Statement::Valid(Default::default());
 
-	assert!(
-		res.is_some(),
-		"validation should fail if the statement is not a candidate message"
-	);
+	let signed_statement = block_on(SignedFullStatement::sign(
+		&keystore,
+		statement,
+		&signing_context,
+		0,
+		&alice_public.into(),
+	))
+	.expect("Signs statement");
+	let data = signed_statement.encode();
+
+	let res = block_on(validator.validate(&header, &data))
+		.err()
+		.expect("validation should fail if not seconded statement");
+
 	assert!(matches!(
-		*res.unwrap().downcast::<ClientError>().unwrap(),
-		ClientError::BadJustification(x) if x.contains("must be a candidate statement")
+		*res.downcast::<ClientError>().unwrap(),
+		ClientError::BadJustification(x) if x.contains("must be a `Statement::Seconded`")
 	));
 }
 
 #[test]
 fn check_header_match_candidate_receipt_header() {
-	let (mut validator, client) = make_validator_and_client();
-	let relay_chain_leaf = H256::from_low_u64_be(1);
+	let (mut validator, api) = make_validator_and_api();
+	let relay_parent = H256::from_low_u64_be(1);
 
-	let key = Sr25519Keyring::Alice.pair().into();
-	let signing_context = client
-		.runtime_api()
-		.signing_context(&BlockId::Hash(relay_chain_leaf))
-		.unwrap();
-	let header = default_header();
-	let candidate_receipt = AbridgedCandidateReceipt::default();
-	let statement = Statement::Candidate(candidate_receipt);
-	let signature = sign_table_statement(&statement, &key, &signing_context);
-	let sender = 0;
-	let gossip_statement = GossipStatement {
-		relay_chain_leaf,
-		signed_statement: SignedStatement {
-			statement,
-			signature,
-			sender,
-		},
-	};
-	let gossip_message = GossipMessage::Statement(gossip_statement);
+	let (signed_statement, mut header) = make_gossip_message_and_header(api, relay_parent, 0);
+	let data = signed_statement.encode();
+	header.number = 300;
 
-	let data = gossip_message.encode();
-	let res = validator.validate(&header, data.as_slice()).err();
+	let res = block_on(validator.validate(&header, &data))
+		.err()
+		.expect("validation should fail if the header in doesn't match");
 
-	assert!(
-		res.is_some(),
-		"validation should fail if the header in the candidate_receipt doesn't \
-		match the header provided"
-	);
 	assert!(matches!(
-		*res.unwrap().downcast::<ClientError>().unwrap(),
+		*res.downcast::<ClientError>().unwrap(),
 		ClientError::BadJustification(x) if x.contains("header does not match")
 	));
 }
@@ -372,31 +317,25 @@ fn check_header_match_candidate_receipt_header() {
 #[derive(Default)]
 struct ApiData {
 	validators: Vec<ValidatorId>,
-	duties: Vec<Chain>,
-	active_parachains: Vec<(ParaId, Option<(CollatorId, Retriable)>)>,
 }
 
-#[derive(Clone)]
 struct TestApi {
-	data: Arc<Mutex<ApiData>>,
-	client: Arc<TestClient>,
+	data: Arc<ApiData>,
 }
 
 impl TestApi {
-	fn new(client: Arc<TestClient>) -> Self {
+	fn new() -> Self {
 		Self {
-			client,
-			data: Arc::new(Mutex::new(ApiData {
+			data: Arc::new(ApiData {
 				validators: vec![Sr25519Keyring::Alice.public().into()],
-				..Default::default()
-			})),
+			}),
 		}
 	}
 }
 
 #[derive(Default)]
 struct RuntimeApi {
-	data: Arc<Mutex<ApiData>>,
+	data: Arc<ApiData>,
 }
 
 impl ProvideRuntimeApi<PBlock> for TestApi {
@@ -415,47 +354,58 @@ sp_api::mock_impl_runtime_apis! {
 		type Error = sp_blockchain::Error;
 
 		fn validators(&self) -> Vec<ValidatorId> {
-			self.data.lock().validators.clone()
+			self.data.validators.clone()
 		}
 
-		fn duty_roster(&self) -> DutyRoster {
-			DutyRoster {
-				validator_duty: self.data.lock().duties.clone(),
-			}
+		fn validator_groups(&self) -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumber>) {
+			(Vec::new(), GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 0, now: 0 })
 		}
 
-		fn active_parachains(&self) -> Vec<(ParaId, Option<(CollatorId, Retriable)>)> {
-			self.data.lock().active_parachains.clone()
+		fn availability_cores(&self) -> Vec<CoreState<BlockNumber>> {
+			Vec::new()
 		}
 
-		fn parachain_code(_: ParaId) -> Option<ValidationCode> {
-			Some(ValidationCode(Vec::new()))
+		fn full_validation_data(&self, _: ParaId, _: OccupiedCoreAssumption) -> Option<ValidationData<BlockNumber>> {
+			None
 		}
 
-		fn global_validation_data() -> GlobalValidationData {
-			Default::default()
-		}
-
-		fn local_validation_data(_: ParaId) -> Option<LocalValidationData> {
-			Some(LocalValidationData {
-				parent_head: HeadData::<Block> { header: default_header() }.encode().into(),
+		fn persisted_validation_data(&self, _: ParaId, _: OccupiedCoreAssumption) -> Option<PersistedValidationData<BlockNumber>> {
+			Some(PersistedValidationData {
+				parent_head: HeadData(default_header().encode()),
 				..Default::default()
 			})
 		}
 
-		fn get_heads(_: Vec<<PBlock as BlockT>::Extrinsic>) -> Option<Vec<AbridgedCandidateReceipt>> {
-			Some(Vec::new())
+		fn session_index_for_child(&self) -> SessionIndex {
+			0
 		}
 
-		fn signing_context() -> SigningContext {
-			SigningContext {
-				session_index: Default::default(),
-				parent_hash: Default::default(),
-			}
+		fn validation_code(&self, _: ParaId, _: OccupiedCoreAssumption) -> Option<ValidationCode> {
+			None
 		}
 
-		fn downward_messages(_: ParaId) -> Vec<polkadot_primitives::v0::DownwardMessage> {
+		fn candidate_pending_availability(&self, _: ParaId) -> Option<CommittedCandidateReceipt<PHash>> {
+			None
+		}
+
+		fn candidate_events(&self) -> Vec<CandidateEvent<PHash>> {
 			Vec::new()
+		}
+
+		fn validator_discovery(_: Vec<ValidatorId>) -> Vec<Option<AuthorityDiscoveryId>> {
+			Vec::new()
+		}
+
+		fn check_validation_outputs(_: ParaId, _: ValidationOutputs) -> bool {
+			false
+		}
+
+		fn dmq_contents(_: ParaId) -> Vec<InboundDownwardMessage<BlockNumber>> {
+			Vec::new()
+		}
+
+		fn historical_validation_code(_: ParaId, _: BlockNumber) -> Option<ValidationCode> {
+			None
 		}
 	}
 }

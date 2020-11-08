@@ -131,8 +131,7 @@ impl frame_system::Trait for Runtime {
 	type AvailableBlockRatio = AvailableBlockRatio;
 	/// Runtime version.
 	type Version = Version;
-	/// Converts a module to an index of this module in the runtime.
-	type ModuleToIndex = ModuleToIndex;
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
@@ -172,11 +171,11 @@ impl pallet_balances::Trait for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type MaxLocks = ();
 }
 
 impl pallet_transaction_payment::Trait for Runtime {
-	type Currency = Balances;
-	type OnTransactionPayment = ();
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
@@ -189,7 +188,7 @@ impl pallet_sudo::Trait for Runtime {
 
 impl cumulus_parachain_upgrade::Trait for Runtime {
 	type Event = Event;
-	type OnValidationFunctionParams = ();
+	type OnValidationData = ();
 }
 
 parameter_types! {

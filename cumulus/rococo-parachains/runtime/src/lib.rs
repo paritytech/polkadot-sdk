@@ -36,9 +36,6 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-/// Import the token dealer pallet.
-pub use cumulus_token_dealer;
-
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
@@ -142,7 +139,7 @@ impl frame_system::Trait for Runtime {
 	/// Runtime version.
 	type Version = Version;
 	/// Converts a module to an index of this module in the runtime.
-	type ModuleToIndex = ModuleToIndex;
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
@@ -171,6 +168,7 @@ parameter_types! {
 	pub const TransferFee: u128 = 0;
 	pub const CreationFee: u128 = 0;
 	pub const TransactionByteFee: u128 = 1;
+	pub const MaxLocks: u32 = 50;
 }
 
 impl pallet_balances::Trait for Runtime {
@@ -182,11 +180,11 @@ impl pallet_balances::Trait for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type MaxLocks = MaxLocks;
 }
 
 impl pallet_transaction_payment::Trait for Runtime {
-	type Currency = Balances;
-	type OnTransactionPayment = ();
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
@@ -199,24 +197,7 @@ impl pallet_sudo::Trait for Runtime {
 
 impl cumulus_parachain_upgrade::Trait for Runtime {
 	type Event = Event;
-	type OnValidationFunctionParams = ();
-}
-
-impl cumulus_message_broker::Trait for Runtime {
-	type Event = Event;
-	type DownwardMessageHandlers = TokenDealer;
-	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
-	type ParachainId = ParachainInfo;
-	type XCMPMessage = cumulus_token_dealer::XCMPMessage<AccountId, Balance>;
-	type XCMPMessageHandlers = TokenDealer;
-}
-
-impl cumulus_token_dealer::Trait for Runtime {
-	type Event = Event;
-	type UpwardMessageSender = MessageBroker;
-	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
-	type Currency = Balances;
-	type XCMPMessageSender = MessageBroker;
+	type OnValidationData = ();
 }
 
 impl parachain_info::Trait for Runtime {}
@@ -233,8 +214,6 @@ construct_runtime! {
 		Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		ParachainUpgrade: cumulus_parachain_upgrade::{Module, Call, Storage, Inherent, Event},
-		MessageBroker: cumulus_message_broker::{Module, Call, Inherent, Event<T>},
-		TokenDealer: cumulus_token_dealer::{Module, Call, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		ParachainInfo: parachain_info::{Module, Storage, Config},
 	}

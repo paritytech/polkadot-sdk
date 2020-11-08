@@ -30,12 +30,13 @@
 //! Users must ensure that they register this pallet as an inherent provider.
 
 use cumulus_primitives::{
-	inherents::VALIDATION_FUNCTION_PARAMS_IDENTIFIER as INHERENT_IDENTIFIER,
-	validation_function_params::{OnValidationFunctionParams, ValidationFunctionParams},
-	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_FUNCTION_PARAMS},
+	inherents::VALIDATION_DATA_IDENTIFIER as INHERENT_IDENTIFIER,
+	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_DATA},
+	OnValidationData, ValidationData,
 };
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, storage, weights::DispatchClass,
+	decl_error, decl_event, decl_module, decl_storage, ensure, storage,
+	weights::{DispatchClass, Weight},
 };
 use frame_system::{ensure_none, ensure_root};
 use parachain::primitives::RelayChainBlockNumber;
@@ -50,10 +51,8 @@ pub trait Trait: frame_system::Trait {
 	/// The overarching event type.
 	type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
-	/// Something which can be notified when the validation function params are set.
-	///
-	/// Set this to `()` if not needed.
-	type OnValidationFunctionParams: OnValidationFunctionParams;
+	/// Something which can be notified when the validation data is set.
+	type OnValidationData: OnValidationData;
 }
 
 // This pallet's storage items.
@@ -64,8 +63,11 @@ decl_storage! {
 		PendingValidationFunction get(fn new_validation_function):
 			Option<(RelayChainBlockNumber, Vec<u8>)>;
 
-		/// Were the VFPs updated this block?
-		DidUpdateVFPs: bool;
+		/// Were the [`ValidationData`] updated in this block?
+		DidUpdateValidationData: bool;
+
+		/// Were the validation data set to notify the relay chain?
+		DidSetValidationCode: bool;
 	}
 }
 
@@ -79,7 +81,8 @@ decl_module! {
 		// TODO: figure out a better weight than this
 		#[weight = (0, DispatchClass::Operational)]
 		pub fn schedule_upgrade(origin, validation_function: Vec<u8>) {
-			System::<T>::can_set_code(origin, &validation_function)?;
+			ensure_root(origin)?;
+			System::<T>::can_set_code(&validation_function)?;
 			Self::schedule_upgrade_impl(validation_function)?;
 		}
 
@@ -93,7 +96,7 @@ decl_module! {
 			Self::schedule_upgrade_impl(validation_function)?;
 		}
 
-		/// Set the current validation function parameters
+		/// Set the current validation data.
 		///
 		/// This should be invoked exactly once per block. It will panic at the finalization
 		/// phase if the call was not invoked.
@@ -103,45 +106,52 @@ decl_module! {
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
 		#[weight = (0, DispatchClass::Mandatory)]
-		fn set_validation_function_parameters(origin, vfp: ValidationFunctionParams) {
+		fn set_validation_data(origin, vfp: ValidationData) {
 			ensure_none(origin)?;
-			assert!(!DidUpdateVFPs::exists(), "VFPs must be updated only once in the block");
+			assert!(!DidUpdateValidationData::exists(), "ValidationData must be updated only once in a block");
 
 			// initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
 			if let Some((apply_block, validation_function)) = PendingValidationFunction::get() {
-				if vfp.relay_chain_height >= apply_block {
+				if vfp.persisted.block_number >= apply_block {
 					PendingValidationFunction::kill();
 					Self::put_parachain_code(&validation_function);
-					Self::deposit_event(Event::ValidationFunctionApplied(vfp.relay_chain_height));
+					Self::deposit_event(Event::ValidationFunctionApplied(vfp.persisted.block_number));
 				}
 			}
 
-			storage::unhashed::put(VALIDATION_FUNCTION_PARAMS, &vfp);
-			DidUpdateVFPs::put(true);
-			<T::OnValidationFunctionParams as OnValidationFunctionParams>::on_validation_function_params(vfp);
+			storage::unhashed::put(VALIDATION_DATA, &vfp);
+			DidUpdateValidationData::put(true);
+			<T::OnValidationData as OnValidationData>::on_validation_data(vfp);
 		}
 
 		fn on_finalize() {
-			assert!(DidUpdateVFPs::take(), "VFPs must be updated once per block");
+			assert!(DidUpdateValidationData::take(), "VFPs must be updated once per block");
+			DidSetValidationCode::take();
+		}
+
+		fn on_initialize(n: T::BlockNumber) -> Weight {
+			// To prevent removing `NEW_VALIDATION_CODE` that was set by another `on_initialize` like
+			// for example from scheduler, we only kill the storage entry if it was not yet updated
+			// in the current block.
+			if !DidSetValidationCode::get() {
+				storage::unhashed::kill(NEW_VALIDATION_CODE);
+			}
+
+			storage::unhashed::kill(VALIDATION_DATA);
+
+			0
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
-	/// Get validation function parameters.
+	/// Get validation data.
 	///
-	/// This will return `None` if this module's inherent has not yet run.
-	/// If it returns `Some(_)`, the validation function params are current for this block.
-	pub fn validation_function_params() -> Option<ValidationFunctionParams> {
-		if DidUpdateVFPs::get() {
-			// this storage value is set by cumulus during block validation,
-			// and also by the inherent from this module.
-			storage::unhashed::get(VALIDATION_FUNCTION_PARAMS)
-		} else {
-			None
-		}
+	/// Returns `Some(_)` after the inherent set the data for the current block.
+	pub fn validation_data() -> Option<ValidationData> {
+		storage::unhashed::get(VALIDATION_DATA)
 	}
 
 	/// Put a new validation function into a particular location where polkadot
@@ -149,6 +159,7 @@ impl<T: Trait> Module<T> {
 	/// upgrade has been scheduled.
 	fn notify_polkadot_of_pending_upgrade(code: &[u8]) {
 		storage::unhashed::put_raw(NEW_VALIDATION_CODE, code);
+		DidSetValidationCode::put(true);
 	}
 
 	/// Put a new validation function into a particular location where this
@@ -159,22 +170,33 @@ impl<T: Trait> Module<T> {
 
 	/// `true` when a code upgrade is currently legal
 	pub fn can_set_code() -> bool {
-		Self::validation_function_params()
-			.map(|vfp| vfp.code_upgrade_allowed.is_some())
+		Self::validation_data()
+			.map(|vfp| vfp.transient.code_upgrade_allowed.is_some())
 			.unwrap_or_default()
 	}
 
 	/// The maximum code size permitted, in bytes.
 	pub fn max_code_size() -> Option<u32> {
-		Self::validation_function_params().map(|vfp| vfp.max_code_size)
+		Self::validation_data().map(|vfp| vfp.transient.max_code_size)
 	}
 
 	/// The implementation of the runtime upgrade scheduling.
-	fn schedule_upgrade_impl(validation_function: Vec<u8>) -> frame_support::dispatch::DispatchResult {
-		ensure!(!PendingValidationFunction::exists(), Error::<T>::OverlappingUpgrades);
-		let vfp = Self::validation_function_params().ok_or(Error::<T>::ValidationFunctionParamsNotAvailable)?;
-		ensure!(validation_function.len() <= vfp.max_code_size as usize, Error::<T>::TooBig);
-		let apply_block = vfp.code_upgrade_allowed.ok_or(Error::<T>::ProhibitedByPolkadot)?;
+	fn schedule_upgrade_impl(
+		validation_function: Vec<u8>,
+	) -> frame_support::dispatch::DispatchResult {
+		ensure!(
+			!PendingValidationFunction::exists(),
+			Error::<T>::OverlappingUpgrades
+		);
+		let vfp = Self::validation_data().ok_or(Error::<T>::ValidationDataNotAvailable)?;
+		ensure!(
+			validation_function.len() <= vfp.transient.max_code_size as usize,
+			Error::<T>::TooBig
+		);
+		let apply_block = vfp
+			.transient
+			.code_upgrade_allowed
+			.ok_or(Error::<T>::ProhibitedByPolkadot)?;
 
 		// When a code upgrade is scheduled, it has to be applied in two
 		// places, synchronized: both polkadot and the individual parachain
@@ -197,15 +219,13 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-		// If the inherent is not present, this returns None early. This in turn will
-		// cause the on_finalize assertion to fail.
-		let vfp: ValidationFunctionParams = data
+		let data: ValidationData = data
 			.get_data(&INHERENT_IDENTIFIER)
 			.ok()
 			.flatten()
 			.expect("validation function params are always injected into inherent data; qed");
 
-		Some(Call::set_validation_function_parameters(vfp))
+		Some(Call::set_validation_data(data))
 	}
 }
 
@@ -226,8 +246,8 @@ decl_error! {
 		ProhibitedByPolkadot,
 		/// The supplied validation function has compiled into a blob larger than Polkadot is willing to run
 		TooBig,
-		/// The inherent which supplies the validation function params did not run this block
-		ValidationFunctionParamsNotAvailable,
+		/// The inherent which supplies the validation data did not run this block
+		ValidationDataNotAvailable,
 	}
 }
 
@@ -237,6 +257,7 @@ mod tests {
 	use super::*;
 
 	use codec::Encode;
+	use cumulus_primitives::{PersistedValidationData, TransientValidationData};
 	use frame_support::{
 		assert_ok,
 		dispatch::UnfilteredDispatchable,
@@ -305,7 +326,7 @@ mod tests {
 		type MaximumBlockLength = MaximumBlockLength;
 		type AvailableBlockRatio = AvailableBlockRatio;
 		type Version = Version;
-		type ModuleToIndex = ();
+		type PalletInfo = ();
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
@@ -317,7 +338,7 @@ mod tests {
 	}
 	impl Trait for Test {
 		type Event = TestEvent;
-		type OnValidationFunctionParams = ();
+		type OnValidationData = ();
 	}
 
 	type ParachainUpgrade = Module<Test>;
@@ -376,8 +397,7 @@ mod tests {
 		tests: Vec<BlockTest>,
 		pending_upgrade: Option<RelayChainBlockNumber>,
 		ran: bool,
-		vfp_maker:
-			Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber) -> ValidationFunctionParams>>,
+		vfp_maker: Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber) -> ValidationData>>,
 	}
 
 	impl BlockTests {
@@ -418,9 +438,9 @@ mod tests {
 			})
 		}
 
-		fn with_validation_function_params<F>(mut self, f: F) -> Self
+		fn with_validation_data<F>(mut self, f: F) -> Self
 		where
-			F: 'static + Fn(&BlockTests, RelayChainBlockNumber) -> ValidationFunctionParams,
+			F: 'static + Fn(&BlockTests, RelayChainBlockNumber) -> ValidationData,
 		{
 			self.vfp_maker = Some(Box::new(f));
 			self
@@ -453,18 +473,24 @@ mod tests {
 
 					// now mess with the storage the way validate_block does
 					let vfp = match self.vfp_maker {
-						None => ValidationFunctionParams {
-							max_code_size: 10 * 1024 * 1024, // 10 mb
-							relay_chain_height: *n as RelayChainBlockNumber,
-							code_upgrade_allowed: if self.pending_upgrade.is_some() {
-								None
-							} else {
-								Some(*n as RelayChainBlockNumber + 1000)
+						None => ValidationData {
+							persisted: PersistedValidationData {
+								block_number: *n as RelayChainBlockNumber,
+								..Default::default()
+							},
+							transient: TransientValidationData {
+								max_code_size: 10 * 1024 * 1024, // 10 mb
+								code_upgrade_allowed: if self.pending_upgrade.is_some() {
+									None
+								} else {
+									Some(*n as RelayChainBlockNumber + 1000)
+								},
+								..Default::default()
 							},
 						},
 						Some(ref maker) => maker(self, *n as RelayChainBlockNumber),
 					};
-					storage::unhashed::put(VALIDATION_FUNCTION_PARAMS, &vfp);
+					storage::unhashed::put(VALIDATION_DATA, &vfp);
 					storage::unhashed::kill(NEW_VALIDATION_CODE);
 
 					// It is insufficient to push the validation function params
@@ -491,7 +517,7 @@ mod tests {
 						if self.pending_upgrade.is_some() {
 							panic!("attempted to set validation code while upgrade was pending");
 						}
-						self.pending_upgrade = vfp.code_upgrade_allowed;
+						self.pending_upgrade = vfp.transient.code_upgrade_allowed;
 					}
 
 					// clean up
@@ -621,10 +647,16 @@ mod tests {
 	#[test]
 	fn checks_size() {
 		BlockTests::new()
-			.with_validation_function_params(|_, n| ValidationFunctionParams {
-				max_code_size: 32,
-				relay_chain_height: n,
-				code_upgrade_allowed: Some(n + 1000),
+			.with_validation_data(|_, n| ValidationData {
+				persisted: PersistedValidationData {
+					block_number: n,
+					..Default::default()
+				},
+				transient: TransientValidationData {
+					max_code_size: 32,
+					code_upgrade_allowed: Some(n + 1000),
+					..Default::default()
+				},
 			})
 			.add(123, || {
 				assert_eq!(

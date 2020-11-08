@@ -16,6 +16,13 @@
 
 use crate::ParachainBlockData;
 
+use cumulus_primitives::{PersistedValidationData, ValidationData};
+use cumulus_test_client::{
+	generate_block_inherents,
+	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
+	transfer, Client, DefaultTestClientBuilderExt, LongestChain, TestClientBuilder,
+	TestClientBuilderExt,
+};
 use parachain::primitives::{BlockData, HeadData, ValidationParams, ValidationResult};
 use sc_block_builder::BlockBuilderProvider;
 use sc_executor::{
@@ -30,12 +37,6 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT},
 };
-use test_client::{
-	generate_block_inherents,
-	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
-	transfer, Client, DefaultTestClientBuilderExt, LongestChain, TestClientBuilder,
-	TestClientBuilderExt,
-};
 
 use codec::{Decode, Encode};
 
@@ -48,10 +49,9 @@ fn call_validate_block(
 	let params = ValidationParams {
 		block_data: BlockData(block_data.encode()),
 		parent_head: HeadData(parent_head.encode()),
-		code_upgrade_allowed: None,
-		max_code_size: 1024,
-		max_head_data_size: 1024,
 		relay_chain_height: 1,
+		hrmp_mqc_heads: Vec::new(),
+		dmq_mqc_head: Default::default(),
 	}
 	.encode();
 
@@ -86,15 +86,26 @@ fn create_test_client() -> (Client, LongestChain) {
 fn build_block_with_proof(
 	client: &Client,
 	extra_extrinsics: Vec<UncheckedExtrinsic>,
+	parent_head: Header,
 ) -> (Block, sp_trie::StorageProof) {
 	let block_id = BlockId::Hash(client.info().best_hash);
 	let mut builder = client
 		.new_block_at(&block_id, Default::default(), true)
 		.expect("Initializes new block");
 
-	generate_block_inherents(client)
-		.into_iter()
-		.for_each(|e| builder.push(e).expect("Pushes an inherent"));
+	generate_block_inherents(
+		client,
+		Some(ValidationData {
+			persisted: PersistedValidationData {
+				block_number: 1,
+				parent_head: parent_head.encode().into(),
+				..Default::default()
+			},
+			..Default::default()
+		}),
+	)
+	.into_iter()
+	.for_each(|e| builder.push(e).expect("Pushes an inherent"));
 
 	extra_extrinsics
 		.into_iter()
@@ -112,9 +123,11 @@ fn build_block_with_proof(
 
 #[test]
 fn validate_block_no_extra_extrinsics() {
+	let _ = env_logger::try_init();
+
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
-	let (block, witness_data) = build_block_with_proof(&client, vec![]);
+	let (block, witness_data) = build_block_with_proof(&client, vec![], parent_head.clone());
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness_data);
@@ -125,6 +138,8 @@ fn validate_block_no_extra_extrinsics() {
 
 #[test]
 fn validate_block_with_extra_extrinsics() {
+	let _ = env_logger::try_init();
+
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
 	let extra_extrinsics = vec![
@@ -133,7 +148,8 @@ fn validate_block_with_extra_extrinsics() {
 		transfer(&client, Charlie, Alice, 500),
 	];
 
-	let (block, witness_data) = build_block_with_proof(&client, extra_extrinsics);
+	let (block, witness_data) =
+		build_block_with_proof(&client, extra_extrinsics, parent_head.clone());
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness_data);
@@ -145,9 +161,11 @@ fn validate_block_with_extra_extrinsics() {
 #[test]
 #[should_panic(expected = "Calls `validate_block`: Other(\"Trap: Trap { kind: Unreachable }\")")]
 fn validate_block_invalid_parent_hash() {
+	let _ = env_logger::try_init();
+
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
-	let (block, witness_data) = build_block_with_proof(&client, vec![]);
+	let (block, witness_data) = build_block_with_proof(&client, vec![], parent_head.clone());
 	let (mut header, extrinsics) = block.deconstruct();
 	header.set_parent_hash(Hash::from_low_u64_be(1));
 

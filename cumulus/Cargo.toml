@@ -1,14 +1,11 @@
 [workspace]
 members = [
 	"consensus",
-	"message-broker",
 	"network",
 	"parachain-upgrade",
 	"primitives",
 	"rococo-parachains/",
-	"rococo-parachains/contracts-runtime",
 	"rococo-parachains/pallets/parachain-info",
-	"rococo-parachains/pallets/token-dealer",
 	"rococo-parachains/primitives",
 	"rococo-parachains/runtime",
 	"runtime",
@@ -16,7 +13,6 @@ members = [
 	"test/runtime",
 	"test/client",
 	"test/service",
-	"upward-message",
 ]
 
 [profile.release]

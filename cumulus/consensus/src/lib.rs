@@ -26,7 +26,9 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 };
 
-use polkadot_primitives::v0::{Block as PBlock, Hash as PHash, Id as ParaId, ParachainHost};
+use polkadot_primitives::v1::{
+	Block as PBlock, Hash as PHash, Id as ParaId, OccupiedCoreAssumption, ParachainHost,
+};
 
 use codec::Decode;
 use futures::{future, Future, FutureExt, Stream, StreamExt};
@@ -281,7 +283,7 @@ where
 		para_id: ParaId,
 	) -> ClientResult<Option<Vec<u8>>> {
 		self.runtime_api()
-			.local_validation_data(at, para_id)
+			.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
 			.map(|s| s.map(|s| s.parent_head.0))
 	}
 }

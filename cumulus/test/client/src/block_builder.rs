@@ -15,34 +15,39 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::Client;
-use cumulus_primitives::{
-	inherents::VALIDATION_FUNCTION_PARAMS_IDENTIFIER,
-	validation_function_params::ValidationFunctionParams,
-};
-use runtime::GetLastTimestamp;
+use cumulus_primitives::{inherents::VALIDATION_DATA_IDENTIFIER, ValidationData};
+use cumulus_test_runtime::GetLastTimestamp;
+use polkadot_primitives::v1::BlockNumber as PBlockNumber;
 use sc_block_builder::BlockBuilderApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::ExecutionContext;
 use sp_runtime::generic::BlockId;
 
-/// Generate the inherents to a block so you don't have to.
-pub fn generate_block_inherents(client: &Client) -> Vec<runtime::UncheckedExtrinsic> {
-	let mut inherent_data = sp_consensus::InherentData::new();
+/// Generate the inherents required by the test runtime.
+///
+/// - `validation_data`: The [`ValidationData`] that will be passed as inherent
+///                      data into the runtime when building the inherents. If
+///                      `None` is passed, the default value will be used.
+pub fn generate_block_inherents(
+	client: &Client,
+	validation_data: Option<ValidationData<PBlockNumber>>,
+) -> Vec<cumulus_test_runtime::UncheckedExtrinsic> {
+	let mut inherent_data = sp_inherents::InherentData::new();
 	let block_id = BlockId::Hash(client.info().best_hash);
 	let last_timestamp = client
 		.runtime_api()
 		.get_last_timestamp(&block_id)
 		.expect("Get last timestamp");
-	let timestamp = last_timestamp + runtime::MinimumPeriod::get();
+	let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
 
 	inherent_data
 		.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 		.expect("Put timestamp failed");
 	inherent_data
 		.put_data(
-			VALIDATION_FUNCTION_PARAMS_IDENTIFIER,
-			&ValidationFunctionParams::default(),
+			VALIDATION_DATA_IDENTIFIER,
+			&validation_data.unwrap_or_default(),
 		)
 		.expect("Put validation function params failed");
 
