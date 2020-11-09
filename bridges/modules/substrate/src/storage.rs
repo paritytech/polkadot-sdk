@@ -38,6 +38,8 @@ pub struct InitializationData<H: HeaderT> {
 	pub set_id: SetId,
 	/// The first scheduled authority set change of the pallet.
 	pub scheduled_change: Option<ScheduledChange<H::Number>>,
+	/// Should the pallet block transaction immediately after initialization.
+	pub is_halted: bool,
 }
 
 /// A Grandpa Authority List and ID.
