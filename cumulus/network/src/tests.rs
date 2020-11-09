@@ -21,9 +21,9 @@ use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::v1::{
 	AuthorityDiscoveryId, Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor,
 	CandidateEvent, CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash,
-	HeadData, Header as PHeader, Id as ParaId, OccupiedCoreAssumption, ParachainHost,
-	PersistedValidationData, SessionIndex, SigningContext, ValidationCode, ValidationData,
-	ValidationOutputs, ValidatorId, ValidatorIndex, InboundDownwardMessage,
+	HeadData, Header as PHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, ParachainHost, PersistedValidationData, SessionIndex, SigningContext,
+	ValidationCode, ValidationData, ValidationOutputs, ValidatorId, ValidatorIndex,
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend};
@@ -35,6 +35,7 @@ use sp_runtime::{
 	traits::{NumberFor, Zero},
 	RuntimeAppPublic,
 };
+use std::collections::BTreeMap;
 
 #[derive(Clone)]
 struct DummyCollatorNetwork;
@@ -406,6 +407,12 @@ sp_api::mock_impl_runtime_apis! {
 
 		fn historical_validation_code(_: ParaId, _: BlockNumber) -> Option<ValidationCode> {
 			None
+		}
+
+		fn inbound_hrmp_channels_contents(
+			_: ParaId,
+		) -> BTreeMap<ParaId, Vec<InboundHrmpMessage<BlockNumber>>> {
+			BTreeMap::new()
 		}
 	}
 }

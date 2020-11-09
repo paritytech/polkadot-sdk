@@ -12,15 +12,15 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", optional = true, branch = "master" }
 
 # Polkadot dependencies
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "bkchr-adder-collator-integration-test" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "bkchr-adder-collator-integration-test" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
 impl-trait-for-tuples = "0.1.3"
 
 # Polkadot dependencies
-polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "bkchr-adder-collator-integration-test" }
+polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
 
 [features]
 default = [ "std" ]

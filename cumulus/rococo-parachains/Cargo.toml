@@ -62,11 +62,11 @@ cumulus-primitives = { path = "../primitives" }
 cumulus-service = { path = "../service" }
 
 # Polkadot dependencies
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -78,10 +78,10 @@ rand = "0.7.3"
 tokio = { version = "0.2.13", features = ["macros"] }
 
 # Polkadot dependencies
-polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-test-runtime = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Substrate dependencies
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "master" }

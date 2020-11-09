@@ -15,13 +15,13 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # polkadot deps
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-statement-table = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-validation = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-statement-table = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-validation = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # cumulus deps
 cumulus-primitives = { path = "../primitives" }

@@ -36,10 +36,10 @@ sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus
 cumulus-consensus = { path = "../../consensus" }
@@ -56,8 +56,8 @@ futures = { version = "0.3.5" }
 tokio = { version = "0.2.21", features = ["macros"] }
 
 # Polkadot dependencies
-polkadot-test-runtime = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
+polkadot-test-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Substrate dependencies
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "master" }

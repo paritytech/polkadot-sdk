@@ -27,7 +27,7 @@ cumulus-test-service = { path = "../service" }
 cumulus-primitives = { path = "../../primitives" }
 
 # Polkadot deps
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Other deps
 codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }

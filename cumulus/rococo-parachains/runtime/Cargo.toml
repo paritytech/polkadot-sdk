@@ -39,7 +39,7 @@ cumulus-parachain-upgrade = { path = "../../parachain-upgrade", default-features
 cumulus-primitives = { path = "../../primitives", default-features = false }
 
 # Polkadot dependencies
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "bkchr-adder-collator-integration-test" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "2.0.0" }

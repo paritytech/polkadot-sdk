@@ -11,7 +11,7 @@ cumulus-primitives = { path = "../primitives", default-features = false }
 cumulus-runtime = { path = "../runtime", default-features = false }
 
 # Polkadot dependencies
-parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", default-features = false , branch = "bkchr-adder-collator-integration-test" }
+parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
 
 # Substrate dependencies
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }

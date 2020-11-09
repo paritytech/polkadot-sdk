@@ -161,11 +161,20 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 			.and_then(|v| Decode::decode(&mut &v[..]).ok())
 			.unwrap_or_default();
 
+	let validation_data: ValidationData =
+		with_storage(|storage| storage.modified(VALIDATION_DATA))
+			.and_then(|v| Decode::decode(&mut &v[..]).ok())
+			.expect("`ValidationData` is required to be placed into the storage!");
+
 	ValidationResult {
 		head_data,
 		new_validation_code,
 		upward_messages,
 		processed_downward_messages,
+		//TODO!
+		horizontal_messages: Vec::new(),
+		//TODO!
+		hrmp_watermark: validation_data.persisted.block_number,
 	}
 }
 

@@ -42,7 +42,7 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_overseer::OverseerHandler;
 use polkadot_primitives::v1::{
 	Block as PBlock, BlockData, CollatorPair, Hash as PHash, HeadData, Id as ParaId, PoV,
-	UpwardMessage,
+	UpwardMessage, BlockNumber as PBlockNumber,
 };
 use polkadot_service::RuntimeApiCollection;
 
@@ -215,6 +215,7 @@ where
 		&mut self,
 		block: ParachainBlockData<Block>,
 		block_hash: Block::Hash,
+		relay_block_number: PBlockNumber,
 	) -> Option<Collation> {
 		let block_data = BlockData(block.encode());
 		let header = block.into_header();
@@ -248,6 +249,9 @@ where
 				proof_of_validity: PoV { block_data },
 				// TODO!
 				processed_downward_messages: 0,
+				// TODO!
+				horizontal_messages: Vec::new(),
+				hrmp_watermark: relay_block_number,
 			})
 		})
 	}
@@ -360,7 +364,7 @@ where
 			return None;
 		}
 
-		let collation = self.build_collation(b, block_hash)?;
+		let collation = self.build_collation(b, block_hash, validation_data.persisted.block_number)?;
 		let pov_hash = collation.proof_of_validity.hash();
 
 		self.wait_to_announce

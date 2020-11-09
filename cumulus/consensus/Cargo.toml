@@ -18,8 +18,8 @@ sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # polkadot deps
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "bkchr-adder-collator-integration-test" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # other deps
 futures = { version = "0.3.1", features = ["compat"] }
