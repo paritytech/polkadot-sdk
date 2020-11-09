@@ -32,6 +32,7 @@ pub fn init_data() -> InitializationData<Header> {
 		authority_list: authority_set.authorities,
 		set_id: authority_set.set_id,
 		scheduled_change: None,
+		is_halted: false,
 	}
 }
 
