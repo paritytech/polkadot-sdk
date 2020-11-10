@@ -186,7 +186,7 @@ fn load_kovan_bridge_config() -> Option<BridgeKovanConfig> {
 
 fn load_millau_bridge_config() -> Option<BridgeMillauConfig> {
 	Some(BridgeMillauConfig {
-		init_data: Some(rialto_runtime::millau::init_data()),
+		init_data: None,
 		owner: Some([0; 32].into()),
 	})
 }
