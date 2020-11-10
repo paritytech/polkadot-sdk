@@ -58,6 +58,7 @@ pub use frame_support::{
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_message_lane::Call as MessageLaneCall;
 pub use pallet_substrate_bridge::Call as BridgeRialtoCall;
+pub use pallet_sudo::Call as SudoCall;
 pub use pallet_timestamp::Call as TimestampCall;
 
 #[cfg(any(feature = "std", test))]
