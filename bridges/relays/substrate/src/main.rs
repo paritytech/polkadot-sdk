@@ -33,6 +33,7 @@ pub type MillauClient = relay_substrate_client::Client<Millau>;
 pub type RialtoClient = relay_substrate_client::Client<Rialto>;
 
 mod cli;
+mod headers_initialize;
 mod headers_maintain;
 mod headers_pipeline;
 mod headers_target;
@@ -53,6 +54,54 @@ fn main() {
 
 async fn run_command(command: cli::Command) -> Result<(), String> {
 	match command {
+		cli::Command::InitializeMillauHeadersBridgeInRialto {
+			millau,
+			rialto,
+			rialto_sign,
+			millau_bridge_params,
+		} => {
+			let millau_client = MillauClient::new(ConnectionParams {
+				host: millau.millau_host,
+				port: millau.millau_port,
+			})
+			.await?;
+			let rialto_client = RialtoClient::new(ConnectionParams {
+				host: rialto.rialto_host,
+				port: rialto.rialto_port,
+			})
+			.await?;
+			let rialto_sign = RialtoSigningParams::from_suri(
+				&rialto_sign.rialto_signer,
+				rialto_sign.rialto_signer_password.as_deref(),
+			)
+			.map_err(|e| format!("Failed to parse rialto-signer: {:?}", e))?;
+			let rialto_signer_next_index = rialto_client
+				.next_account_index(rialto_sign.signer.public().into())
+				.await?;
+
+			headers_initialize::initialize(
+				millau_client,
+				rialto_client.clone(),
+				millau_bridge_params.millau_initial_header,
+				millau_bridge_params.millau_initial_authorities,
+				millau_bridge_params.millau_initial_authorities_set_id,
+				move |initialization_data| {
+					Ok(Bytes(
+						Rialto::sign_transaction(
+							&rialto_client,
+							&rialto_sign.signer,
+							rialto_signer_next_index,
+							millau_runtime::SudoCall::sudo(Box::new(
+								rialto_runtime::BridgeMillauCall::initialize(initialization_data).into(),
+							))
+							.into(),
+						)
+						.encode(),
+					))
+				},
+			)
+			.await;
+		}
 		cli::Command::MillauHeadersToRialto {
 			millau,
 			rialto,
@@ -75,6 +124,54 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 			)
 			.map_err(|e| format!("Failed to parse rialto-signer: {:?}", e))?;
 			millau_headers_to_rialto::run(millau_client, rialto_client, rialto_sign, prometheus_params.into()).await;
+		}
+		cli::Command::InitializeRialtoHeadersBridgeInMillau {
+			rialto,
+			millau,
+			millau_sign,
+			rialto_bridge_params,
+		} => {
+			let rialto_client = RialtoClient::new(ConnectionParams {
+				host: rialto.rialto_host,
+				port: rialto.rialto_port,
+			})
+			.await?;
+			let millau_client = MillauClient::new(ConnectionParams {
+				host: millau.millau_host,
+				port: millau.millau_port,
+			})
+			.await?;
+			let millau_sign = MillauSigningParams::from_suri(
+				&millau_sign.millau_signer,
+				millau_sign.millau_signer_password.as_deref(),
+			)
+			.map_err(|e| format!("Failed to parse millau-signer: {:?}", e))?;
+			let millau_signer_next_index = millau_client
+				.next_account_index(millau_sign.signer.public().into())
+				.await?;
+
+			headers_initialize::initialize(
+				rialto_client,
+				millau_client.clone(),
+				rialto_bridge_params.rialto_initial_header,
+				rialto_bridge_params.rialto_initial_authorities,
+				rialto_bridge_params.rialto_initial_authorities_set_id,
+				move |initialization_data| {
+					Ok(Bytes(
+						Millau::sign_transaction(
+							&millau_client,
+							&millau_sign.signer,
+							millau_signer_next_index,
+							millau_runtime::SudoCall::sudo(Box::new(
+								millau_runtime::BridgeRialtoCall::initialize(initialization_data).into(),
+							))
+							.into(),
+						)
+						.encode(),
+					))
+				},
+			)
+			.await;
 		}
 		cli::Command::RialtoHeadersToMillau {
 			rialto,
