@@ -17,6 +17,8 @@
 //! Deal with CLI args of substrate-to-substrate relay.
 
 use bp_message_lane::LaneId;
+use sp_core::Bytes;
+use sp_finality_grandpa::SetId as GrandpaAuthoritiesSetId;
 use structopt::{clap::arg_enum, StructOpt};
 
 /// Parse relay CLI args.
@@ -28,6 +30,17 @@ pub fn parse_args() -> Command {
 #[derive(StructOpt)]
 #[structopt(about = "Substrate-to-Substrate relay")]
 pub enum Command {
+	/// Initialize Millau headers bridge in Rialto.
+	InitializeMillauHeadersBridgeInRialto {
+		#[structopt(flatten)]
+		millau: MillauConnectionParams,
+		#[structopt(flatten)]
+		rialto: RialtoConnectionParams,
+		#[structopt(flatten)]
+		rialto_sign: RialtoSigningParams,
+		#[structopt(flatten)]
+		millau_bridge_params: MillauBridgeInitializationParams,
+	},
 	/// Relay Millau headers to Rialto.
 	MillauHeadersToRialto {
 		#[structopt(flatten)]
@@ -38,6 +51,17 @@ pub enum Command {
 		rialto_sign: RialtoSigningParams,
 		#[structopt(flatten)]
 		prometheus_params: PrometheusParams,
+	},
+	/// Initialize Rialto headers bridge in Millau.
+	InitializeRialtoHeadersBridgeInMillau {
+		#[structopt(flatten)]
+		rialto: RialtoConnectionParams,
+		#[structopt(flatten)]
+		millau: MillauConnectionParams,
+		#[structopt(flatten)]
+		millau_sign: MillauSigningParams,
+		#[structopt(flatten)]
+		rialto_bridge_params: RialtoBridgeInitializationParams,
 	},
 	/// Relay Rialto headers to Millau.
 	RialtoHeadersToMillau {
@@ -164,6 +188,20 @@ macro_rules! declare_chain_options {
 				#[doc = "The password for the SURI of secret key to use when transactions are submitted to the " $chain " node."]
 				#[structopt(long)]
 				pub [<$chain_prefix _signer_password>]: Option<String>,
+			}
+
+			#[doc = $chain " headers bridge initialization params."]
+			#[derive(StructOpt)]
+			pub struct [<$chain BridgeInitializationParams>] {
+				#[doc = "Hex-encoded " $chain " header to initialize bridge with. If not specified, genesis header is used."]
+				#[structopt(long)]
+				pub [<$chain_prefix _initial_header>]: Option<Bytes>,
+				#[doc = "Hex-encoded " $chain " GRANDPA authorities set to initialize bridge with. If not specified, set from genesis block is used."]
+				#[structopt(long)]
+				pub [<$chain_prefix _initial_authorities>]: Option<Bytes>,
+				#[doc = "Id of the " $chain " GRANDPA authorities set to initialize bridge with. If not specified, zero is used."]
+				#[structopt(long)]
+				pub [<$chain_prefix _initial_authorities_set_id>]: Option<GrandpaAuthoritiesSetId>,
 			}
 		}
 	};
