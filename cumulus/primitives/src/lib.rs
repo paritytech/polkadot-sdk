@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use polkadot_core_primitives as relay_chain;
-pub use polkadot_core_primitives::DownwardMessage;
+pub use polkadot_core_primitives::InboundDownwardMessage;
 /// A generic upward message from a Parachain to the Relay Chain.
 ///
 /// It is "generic" in such a way, that the actual message is encoded in the `data` field.
@@ -42,7 +42,7 @@ pub mod inherents {
 	pub const DOWNWARD_MESSAGES_IDENTIFIER: InherentIdentifier = *b"cumdownm";
 
 	/// The type of the inherent downward messages.
-	pub type DownwardMessagesType = sp_std::vec::Vec<crate::DownwardMessage>;
+	pub type DownwardMessagesType = sp_std::vec::Vec<crate::InboundDownwardMessage>;
 
 	/// The identifier for the `set_validation_data` inherent.
 	pub const VALIDATION_DATA_IDENTIFIER: InherentIdentifier = *b"valfunp0";
@@ -73,7 +73,7 @@ pub mod well_known_keys {
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait DownwardMessageHandler {
 	/// Handle the given downward message.
-	fn handle_downward_message(msg: &DownwardMessage);
+	fn handle_downward_message(msg: &InboundDownwardMessage);
 }
 
 /// A trait which is called when the validation data is set.

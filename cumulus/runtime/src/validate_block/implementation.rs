@@ -155,7 +155,10 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	let processed_downward_messages = overlay.storage(PROCESSED_DOWNWARD_MESSAGES)
 		.flatten()
-		.and_then(|v| Decode::decode(&mut &v[..]).ok())
+		.map(|v|
+			Decode::decode(&mut &v[..])
+				.expect("Processed downward message count is not correctly encoded in the storage")
+		)
 		.unwrap_or_default();
 
 	let validation_data: ValidationData = overlay.storage(VALIDATION_DATA).flatten()

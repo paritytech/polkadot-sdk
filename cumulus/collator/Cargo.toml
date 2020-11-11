@@ -51,6 +51,7 @@ sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot dependencies
+polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-node-subsystem-test-helpers = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Other dependencies

@@ -1074,6 +1074,7 @@ dependencies = [
  "polkadot-parachain",
  "polkadot-primitives",
  "polkadot-service",
+ "polkadot-test-client",
  "polkadot-validation",
  "sc-block-builder",
  "sc-cli",
