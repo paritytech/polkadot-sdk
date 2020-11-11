@@ -90,7 +90,7 @@ pub enum Command {
 		#[structopt(long)]
 		lane: HexLaneId,
 	},
-	/// Submit message to given Rialto -> Millau lane.
+	/// Submit message to given Millau -> Rialto lane.
 	SubmitMillauToRialtoMessage {
 		#[structopt(flatten)]
 		millau: MillauConnectionParams,
