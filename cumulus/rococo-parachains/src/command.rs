@@ -223,12 +223,17 @@ pub fn run() -> Result<()> {
 				&params.chain.clone().unwrap_or_default(),
 				params.parachain_id.into(),
 			)?)?;
-			let header_hex = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
+			let raw_header = block.header().encode();
+			let output_buf = if params.raw {
+				raw_header
+			} else {
+				format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
+			};
 
 			if let Some(output) = &params.output {
-				std::fs::write(output, header_hex)?;
+				std::fs::write(output, output_buf)?;
 			} else {
-				print!("{}", header_hex);
+				std::io::stdout().write_all(&output_buf)?;
 			}
 
 			Ok(())
@@ -236,13 +241,18 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisWasm(params)) => {
 			sc_cli::init_logger("", sc_tracing::TracingReceiver::Log, None)?;
 
-			let wasm_file =
+			let raw_wasm_blob =
 				extract_genesis_wasm(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
+			let output_buf = if params.raw {
+				raw_wasm_blob
+			} else {
+				format!("0x{:?}", HexDisplay::from(&raw_wasm_blob)).into_bytes()
+			};
 
 			if let Some(output) = &params.output {
-				std::fs::write(output, wasm_file)?;
+				std::fs::write(output, output_buf)?;
 			} else {
-				std::io::stdout().write_all(&wasm_file)?;
+				std::io::stdout().write_all(&output_buf)?;
 			}
 
 			Ok(())
