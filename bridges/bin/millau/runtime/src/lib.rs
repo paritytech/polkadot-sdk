@@ -28,7 +28,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod rialto;
 pub mod rialto_messages;
 
 use codec::Decode;
