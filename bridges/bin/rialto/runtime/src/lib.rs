@@ -33,7 +33,6 @@ pub mod exchange;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benches;
 pub mod kovan;
-pub mod millau;
 pub mod millau_messages;
 pub mod rialto_poa;
 
