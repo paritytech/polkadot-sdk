@@ -200,6 +200,10 @@ impl cumulus_parachain_upgrade::Trait for Runtime {
 	type OnValidationData = ();
 }
 
+impl cumulus_message_broker::Trait for Runtime {
+	type DownwardMessageHandlers = ();
+}
+
 impl parachain_info::Trait for Runtime {}
 
 construct_runtime! {
@@ -214,6 +218,7 @@ construct_runtime! {
 		Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		ParachainUpgrade: cumulus_parachain_upgrade::{Module, Call, Storage, Inherent, Event},
+		MessageBroker: cumulus_message_broker::{Module, Call, Inherent},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		ParachainInfo: parachain_info::{Module, Storage, Config},
 	}

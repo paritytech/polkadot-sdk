@@ -73,7 +73,7 @@ pub mod well_known_keys {
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait DownwardMessageHandler {
 	/// Handle the given downward message.
-	fn handle_downward_message(msg: &InboundDownwardMessage);
+	fn handle_downward_message(msg: InboundDownwardMessage);
 }
 
 /// A trait which is called when the validation data is set.
