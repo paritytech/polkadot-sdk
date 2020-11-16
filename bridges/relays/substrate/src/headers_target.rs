@@ -91,11 +91,11 @@ where
 		let decoded_response: Vec<(P::Number, P::Hash)> =
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 
-		let best_header = decoded_response.last().ok_or_else(|| {
-			SubstrateError::ResponseParseFailed(
-				"Parsed an empty list of headers, we should always have at least one.".into(),
-			)
-		})?;
+		const WARNING_MSG: &str = "Parsed an empty list of headers, we should always have at least
+									one. Has the bridge pallet been initialized yet?";
+		let best_header = decoded_response
+			.last()
+			.ok_or_else(|| SubstrateError::ResponseParseFailed(WARNING_MSG.into()))?;
 		let best_header_id = HeaderId(best_header.0, best_header.1);
 		Ok(best_header_id)
 	}

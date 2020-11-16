@@ -157,7 +157,11 @@ fn testnet_genesis(
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
 		}),
-		pallet_substrate_bridge: load_millau_bridge_config(),
+		pallet_substrate_bridge: Some(BridgeMillauConfig {
+			// We'll initialize the pallet with a dispatchable instead.
+			init_data: None,
+			owner: Some(root_key.clone()),
+		}),
 		pallet_sudo: Some(SudoConfig { key: root_key }),
 		pallet_session: Some(SessionConfig {
 			keys: initial_authorities
@@ -181,12 +185,5 @@ fn load_kovan_bridge_config() -> Option<BridgeKovanConfig> {
 		initial_header: rialto_runtime::kovan::genesis_header(),
 		initial_difficulty: 0.into(),
 		initial_validators: rialto_runtime::kovan::genesis_validators(),
-	})
-}
-
-fn load_millau_bridge_config() -> Option<BridgeMillauConfig> {
-	Some(BridgeMillauConfig {
-		init_data: None,
-		owner: Some([0; 32].into()),
 	})
 }
