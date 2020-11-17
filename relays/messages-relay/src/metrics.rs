@@ -19,6 +19,7 @@
 use crate::message_lane::MessageLane;
 use crate::message_lane_loop::{SourceClientState, TargetClientState};
 
+use bp_message_lane::MessageNonce;
 use relay_utils::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
 
 /// Message lane relay metrics.
@@ -77,30 +78,30 @@ impl MessageLaneLoopMetrics {
 	}
 
 	/// Update latest generated nonce at source.
-	pub fn update_source_latest_generated_nonce<P: MessageLane>(&self, source_latest_generated_nonce: P::MessageNonce) {
+	pub fn update_source_latest_generated_nonce<P: MessageLane>(&self, source_latest_generated_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["source_latest_generated"])
-			.set(source_latest_generated_nonce.into());
+			.set(source_latest_generated_nonce);
 	}
 
 	/// Update latest confirmed nonce at source.
-	pub fn update_source_latest_confirmed_nonce<P: MessageLane>(&self, source_latest_confirmed_nonce: P::MessageNonce) {
+	pub fn update_source_latest_confirmed_nonce<P: MessageLane>(&self, source_latest_confirmed_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["source_latest_confirmed"])
-			.set(source_latest_confirmed_nonce.into());
+			.set(source_latest_confirmed_nonce);
 	}
 
 	/// Update latest received nonce at target.
-	pub fn update_target_latest_received_nonce<P: MessageLane>(&self, target_latest_generated_nonce: P::MessageNonce) {
+	pub fn update_target_latest_received_nonce<P: MessageLane>(&self, target_latest_generated_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["target_latest_received"])
-			.set(target_latest_generated_nonce.into());
+			.set(target_latest_generated_nonce);
 	}
 
 	/// Update latest confirmed nonce at target.
-	pub fn update_target_latest_confirmed_nonce<P: MessageLane>(&self, target_latest_confirmed_nonce: P::MessageNonce) {
+	pub fn update_target_latest_confirmed_nonce<P: MessageLane>(&self, target_latest_confirmed_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["target_latest_confirmed"])
-			.set(target_latest_confirmed_nonce.into());
+			.set(target_latest_confirmed_nonce);
 	}
 }

@@ -21,7 +21,6 @@
 
 use relay_utils::HeaderId;
 
-use num_traits::{CheckedSub, One, Zero};
 use std::fmt::Debug;
 
 /// One-way message lane.
@@ -30,21 +29,6 @@ pub trait MessageLane: Clone + Send + Sync {
 	const SOURCE_NAME: &'static str;
 	/// Name of the messages target.
 	const TARGET_NAME: &'static str;
-
-	/// Message nonce type.
-	type MessageNonce: Clone
-		+ Send
-		+ Sync
-		+ Copy
-		+ Debug
-		+ Default
-		+ From<u32>
-		+ Into<u64>
-		+ Ord
-		+ CheckedSub
-		+ std::ops::Add<Output = Self::MessageNonce>
-		+ One
-		+ Zero;
 
 	/// Messages proof.
 	type MessagesProof: Clone + Send + Sync;

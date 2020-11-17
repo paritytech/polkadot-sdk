@@ -23,7 +23,6 @@ use crate::{ConnectionParams, Error, Result};
 use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use codec::Decode;
-use frame_support::weights::Weight;
 use frame_system::AccountInfo;
 use jsonrpsee::common::DeserializeOwned;
 use jsonrpsee::raw::RawClient;
@@ -215,8 +214,8 @@ impl<C: Chain> Client<C> {
 		range: RangeInclusive<MessageNonce>,
 		include_outbound_lane_state: bool,
 		at_block: C::Hash,
-	) -> Result<(Weight, StorageProof)> {
-		let (dispatch_weight, encoded_trie_nodes) = SubstrateMessageLane::<C, _, _>::prove_messages(
+	) -> Result<StorageProof> {
+		let encoded_trie_nodes = SubstrateMessageLane::<C, _, _>::prove_messages(
 			&self.client,
 			instance,
 			lane,
@@ -229,7 +228,7 @@ impl<C: Chain> Client<C> {
 		.map_err(Error::Request)?;
 		let decoded_trie_nodes: Vec<Vec<u8>> =
 			Decode::decode(&mut &encoded_trie_nodes[..]).map_err(Error::ResponseParseFailed)?;
-		Ok((dispatch_weight, StorageProof::new(decoded_trie_nodes)))
+		Ok(StorageProof::new(decoded_trie_nodes))
 	}
 
 	/// Returns proof-of-message(s) delivery.

@@ -25,7 +25,7 @@ use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
-	message_lane_loop::{ClientState, SourceClient, SourceClientState},
+	message_lane_loop::{ClientState, MessageProofParameters, MessageWeightsMap, SourceClient, SourceClientState},
 };
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf, HeaderIdOf};
 use relay_utils::HeaderId;
@@ -95,7 +95,6 @@ where
 	C::Index: DeserializeOwned,
 	<C::Header as HeaderT>::Number: Into<u64>,
 	P: MessageLane<
-		MessageNonce = MessageNonce,
 		MessagesProof = SubstrateMessagesProof<C>,
 		SourceHeaderNumber = <C::Header as HeaderT>::Number,
 		SourceHeaderHash = <C::Header as HeaderT>::Hash,
@@ -119,7 +118,7 @@ where
 	async fn latest_generated_nonce(
 		&self,
 		id: SourceHeaderIdOf<P>,
-	) -> Result<(SourceHeaderIdOf<P>, P::MessageNonce), Self::Error> {
+	) -> Result<(SourceHeaderIdOf<P>, MessageNonce), Self::Error> {
 		let encoded_response = self
 			.client
 			.state_call(
@@ -129,7 +128,7 @@ where
 				Some(id.1),
 			)
 			.await?;
-		let latest_generated_nonce: P::MessageNonce =
+		let latest_generated_nonce: MessageNonce =
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 		Ok((id, latest_generated_nonce))
 	}
@@ -137,7 +136,7 @@ where
 	async fn latest_confirmed_received_nonce(
 		&self,
 		id: SourceHeaderIdOf<P>,
-	) -> Result<(SourceHeaderIdOf<P>, P::MessageNonce), Self::Error> {
+	) -> Result<(SourceHeaderIdOf<P>, MessageNonce), Self::Error> {
 		let encoded_response = self
 			.client
 			.state_call(
@@ -147,29 +146,62 @@ where
 				Some(id.1),
 			)
 			.await?;
-		let latest_received_nonce: P::MessageNonce =
+		let latest_received_nonce: MessageNonce =
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 		Ok((id, latest_received_nonce))
+	}
+
+	async fn generated_messages_weights(
+		&self,
+		id: SourceHeaderIdOf<P>,
+		nonces: RangeInclusive<MessageNonce>,
+	) -> Result<MessageWeightsMap, Self::Error> {
+		let encoded_response = self
+			.client
+			.state_call(
+				// TODO: https://github.com/paritytech/parity-bridges-common/issues/457
+				"OutboundLaneApi_messages_dispatch_weight".into(),
+				Bytes((self.lane, nonces.start(), nonces.end()).encode()),
+				Some(id.1),
+			)
+			.await?;
+		let weights: Vec<(MessageNonce, Weight)> =
+			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
+
+		let mut expected_nonce = *nonces.start();
+		let mut weights_map = MessageWeightsMap::new();
+		for (nonce, weight) in weights {
+			if nonce != expected_nonce {
+				return Err(SubstrateError::Custom(format!(
+					"Unexpected nonce in messages_dispatch_weight call result. Expected {}, got {}",
+					expected_nonce, nonce
+				)));
+			}
+
+			weights_map.insert(nonce, weight);
+			expected_nonce += 1;
+		}
+		Ok(weights_map)
 	}
 
 	async fn prove_messages(
 		&self,
 		id: SourceHeaderIdOf<P>,
-		nonces: RangeInclusive<P::MessageNonce>,
-		include_outbound_lane_state: bool,
-	) -> Result<(SourceHeaderIdOf<P>, RangeInclusive<P::MessageNonce>, P::MessagesProof), Self::Error> {
-		let (weight, proof) = self
+		nonces: RangeInclusive<MessageNonce>,
+		proof_parameters: MessageProofParameters,
+	) -> Result<(SourceHeaderIdOf<P>, RangeInclusive<MessageNonce>, P::MessagesProof), Self::Error> {
+		let proof = self
 			.client
 			.prove_messages(
 				self.instance,
 				self.lane,
 				nonces.clone(),
-				include_outbound_lane_state,
+				proof_parameters.outbound_state_proof_required,
 				id.1,
 			)
 			.await?;
 		let proof = (id.1, proof, self.lane, *nonces.start(), *nonces.end());
-		Ok((id, nonces, (weight, proof)))
+		Ok((id, nonces, (proof_parameters.dispatch_weight, proof)))
 	}
 
 	async fn submit_messages_receiving_proof(

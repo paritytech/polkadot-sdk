@@ -53,7 +53,7 @@ pub trait SubstrateTransactionMaker<C: Chain, P: MessageLane>: Clone + Send + Sy
 	async fn make_messages_delivery_transaction(
 		&self,
 		generated_at_header: SourceHeaderIdOf<P>,
-		nonces: RangeInclusive<P::MessageNonce>,
+		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
 	) -> Result<Self::SignedTransaction, SubstrateError>;
 }
@@ -91,7 +91,6 @@ where
 	C::Index: DeserializeOwned,
 	<C::Header as HeaderT>::Number: Into<u64>,
 	P: MessageLane<
-		MessageNonce = MessageNonce,
 		MessagesReceivingProof = (HashOf<C>, StorageProof, LaneId),
 		TargetHeaderNumber = <C::Header as HeaderT>::Number,
 		TargetHeaderHash = <C::Header as HeaderT>::Hash,
@@ -115,7 +114,7 @@ where
 	async fn latest_received_nonce(
 		&self,
 		id: TargetHeaderIdOf<P>,
-	) -> Result<(TargetHeaderIdOf<P>, P::MessageNonce), Self::Error> {
+	) -> Result<(TargetHeaderIdOf<P>, MessageNonce), Self::Error> {
 		let encoded_response = self
 			.client
 			.state_call(
@@ -125,7 +124,7 @@ where
 				Some(id.1),
 			)
 			.await?;
-		let latest_received_nonce: P::MessageNonce =
+		let latest_received_nonce: MessageNonce =
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 		Ok((id, latest_received_nonce))
 	}
@@ -133,7 +132,7 @@ where
 	async fn latest_confirmed_received_nonce(
 		&self,
 		id: TargetHeaderIdOf<P>,
-	) -> Result<(TargetHeaderIdOf<P>, P::MessageNonce), Self::Error> {
+	) -> Result<(TargetHeaderIdOf<P>, MessageNonce), Self::Error> {
 		let encoded_response = self
 			.client
 			.state_call(
@@ -143,7 +142,7 @@ where
 				Some(id.1),
 			)
 			.await?;
-		let latest_received_nonce: P::MessageNonce =
+		let latest_received_nonce: MessageNonce =
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 		Ok((id, latest_received_nonce))
 	}
@@ -163,9 +162,9 @@ where
 	async fn submit_messages_proof(
 		&self,
 		generated_at_header: SourceHeaderIdOf<P>,
-		nonces: RangeInclusive<P::MessageNonce>,
+		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
-	) -> Result<RangeInclusive<P::MessageNonce>, Self::Error> {
+	) -> Result<RangeInclusive<MessageNonce>, Self::Error> {
 		let tx = self
 			.tx_maker
 			.make_messages_delivery_transaction(generated_at_header, nonces.clone(), proof)

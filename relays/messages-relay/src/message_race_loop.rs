@@ -23,6 +23,7 @@
 use crate::message_lane_loop::ClientState;
 
 use async_trait::async_trait;
+use bp_message_lane::MessageNonce;
 use futures::{
 	future::FutureExt,
 	stream::{FusedStream, StreamExt},
@@ -58,10 +59,32 @@ type SourceClientState<P> = ClientState<<P as MessageRace>::SourceHeaderId, <P a
 /// State of race target client.
 type TargetClientState<P> = ClientState<<P as MessageRace>::TargetHeaderId, <P as MessageRace>::SourceHeaderId>;
 
-/// Nonces on the race client.
+/// Inclusive nonces range.
+pub trait NoncesRange: Debug + Sized {
+	/// Get begin of the range.
+	fn begin(&self) -> MessageNonce;
+	/// Get end of the range.
+	fn end(&self) -> MessageNonce;
+	/// Returns new range with current range nonces that are greater than the passed `nonce`.
+	/// If there are no such nonces, `None` is returned.
+	fn greater_than(self, nonce: MessageNonce) -> Option<Self>;
+}
+
+/// Nonces on the race source client.
 #[derive(Debug, Clone)]
-pub struct ClientNonces<MessageNonce> {
-	/// Latest nonce that is known to the client.
+pub struct SourceClientNonces<NoncesRange> {
+	/// New nonces range known to the client. `New` here means all nonces generated after
+	/// `prev_latest_nonce` passed to the `SourceClient::nonces` method.
+	pub new_nonces: NoncesRange,
+	/// Latest nonce that is confirmed to the bridged client. This nonce only makes
+	/// sense in some races. In other races it is `None`.
+	pub confirmed_nonce: Option<MessageNonce>,
+}
+
+/// Nonces on the race target client.
+#[derive(Debug, Clone)]
+pub struct TargetClientNonces {
+	/// Latest nonce that is known to the target client.
 	pub latest_nonce: MessageNonce,
 	/// Latest nonce that is confirmed to the bridged client. This nonce only makes
 	/// sense in some races. In other races it is `None`.
@@ -73,6 +96,8 @@ pub struct ClientNonces<MessageNonce> {
 pub trait SourceClient<P: MessageRace> {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
+	/// Type of nonces range returned by the source client.
+	type NoncesRange: NoncesRange;
 	/// Additional proof parameters required to generate proof.
 	type ProofParameters;
 
@@ -80,14 +105,15 @@ pub trait SourceClient<P: MessageRace> {
 	async fn nonces(
 		&self,
 		at_block: P::SourceHeaderId,
-	) -> Result<(P::SourceHeaderId, ClientNonces<P::MessageNonce>), Self::Error>;
+		prev_latest_nonce: MessageNonce,
+	) -> Result<(P::SourceHeaderId, SourceClientNonces<Self::NoncesRange>), Self::Error>;
 	/// Generate proof for delivering to the target client.
 	async fn generate_proof(
 		&self,
 		at_block: P::SourceHeaderId,
-		nonces: RangeInclusive<P::MessageNonce>,
+		nonces: RangeInclusive<MessageNonce>,
 		proof_parameters: Self::ProofParameters,
-	) -> Result<(P::SourceHeaderId, RangeInclusive<P::MessageNonce>, P::Proof), Self::Error>;
+	) -> Result<(P::SourceHeaderId, RangeInclusive<MessageNonce>, P::Proof), Self::Error>;
 }
 
 /// One of message lane clients, which is target client for the race.
@@ -97,21 +123,21 @@ pub trait TargetClient<P: MessageRace> {
 	type Error: std::fmt::Debug + MaybeConnectionError;
 
 	/// Return nonces that are known to the target client.
-	async fn nonces(
-		&self,
-		at_block: P::TargetHeaderId,
-	) -> Result<(P::TargetHeaderId, ClientNonces<P::MessageNonce>), Self::Error>;
+	async fn nonces(&self, at_block: P::TargetHeaderId)
+		-> Result<(P::TargetHeaderId, TargetClientNonces), Self::Error>;
 	/// Submit proof to the target client.
 	async fn submit_proof(
 		&self,
 		generated_at_block: P::SourceHeaderId,
-		nonces: RangeInclusive<P::MessageNonce>,
+		nonces: RangeInclusive<MessageNonce>,
 		proof: P::Proof,
-	) -> Result<RangeInclusive<P::MessageNonce>, Self::Error>;
+	) -> Result<RangeInclusive<MessageNonce>, Self::Error>;
 }
 
 /// Race strategy.
-pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
+pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof> {
+	/// Type of nonces range expected from the source client.
+	type SourceNoncesRange: NoncesRange;
 	/// Additional proof parameters required to generate proof.
 	type ProofParameters;
 
@@ -123,25 +149,25 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
 	fn best_at_target(&self) -> MessageNonce;
 
 	/// Called when nonces are updated at source node of the race.
-	fn source_nonces_updated(&mut self, at_block: SourceHeaderId, nonce: ClientNonces<MessageNonce>);
+	fn source_nonces_updated(&mut self, at_block: SourceHeaderId, nonces: SourceClientNonces<Self::SourceNoncesRange>);
 	/// Called when nonces are updated at target node of the race.
 	fn target_nonces_updated(
 		&mut self,
-		nonces: ClientNonces<MessageNonce>,
-		race_state: &mut RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof>,
+		nonces: TargetClientNonces,
+		race_state: &mut RaceState<SourceHeaderId, TargetHeaderId, Proof>,
 	);
 	/// Should return `Some(nonces)` if we need to deliver proof of `nonces` (and associated
 	/// data) from source to target node.
 	/// Additionally, parameters required to generate proof are returned.
 	fn select_nonces_to_deliver(
 		&mut self,
-		race_state: &RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof>,
+		race_state: &RaceState<SourceHeaderId, TargetHeaderId, Proof>,
 	) -> Option<(RangeInclusive<MessageNonce>, Self::ProofParameters)>;
 }
 
 /// State of the race.
 #[derive(Debug)]
-pub struct RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> {
+pub struct RaceState<SourceHeaderId, TargetHeaderId, Proof> {
 	/// Source state, if known.
 	pub source_state: Option<ClientState<SourceHeaderId, TargetHeaderId>>,
 	/// Target state, if known.
@@ -162,8 +188,8 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 	mut strategy: impl RaceStrategy<
 		P::SourceHeaderId,
 		P::TargetHeaderId,
-		P::MessageNonce,
 		P::Proof,
+		SourceNoncesRange = SC::NoncesRange,
 		ProofParameters = SC::ProofParameters,
 	>,
 ) -> Result<(), FailedClient> {
@@ -337,7 +363,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 					.expect("source_nonces_required is only true when source_state is Some; qed")
 					.best_self
 					.clone();
-				source_nonces.set(race_source.nonces(at_block).fuse());
+				source_nonces.set(race_source.nonces(at_block, strategy.best_at_source()).fuse());
 			} else {
 				source_client_is_online = true;
 			}
@@ -375,9 +401,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 	}
 }
 
-impl<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> Default
-	for RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof>
-{
+impl<SourceHeaderId, TargetHeaderId, Proof> Default for RaceState<SourceHeaderId, TargetHeaderId, Proof> {
 	fn default() -> Self {
 		RaceState {
 			source_state: None,
@@ -392,7 +416,7 @@ impl<SourceHeaderId, TargetHeaderId, MessageNonce, Proof> Default
 fn print_race_progress<P, S>(prev_time: Instant, strategy: &S) -> Instant
 where
 	P: MessageRace,
-	S: RaceStrategy<P::SourceHeaderId, P::TargetHeaderId, P::MessageNonce, P::Proof>,
+	S: RaceStrategy<P::SourceHeaderId, P::TargetHeaderId, P::Proof>,
 {
 	let now_time = Instant::now();
 
@@ -414,13 +438,13 @@ where
 	now_time
 }
 
-fn select_nonces_to_deliver<SourceHeaderId, TargetHeaderId, MessageNonce, Proof, Strategy>(
-	race_state: &RaceState<SourceHeaderId, TargetHeaderId, MessageNonce, Proof>,
+fn select_nonces_to_deliver<SourceHeaderId, TargetHeaderId, Proof, Strategy>(
+	race_state: &RaceState<SourceHeaderId, TargetHeaderId, Proof>,
 	strategy: &mut Strategy,
 ) -> Option<(SourceHeaderId, RangeInclusive<MessageNonce>, Strategy::ProofParameters)>
 where
 	SourceHeaderId: Clone,
-	Strategy: RaceStrategy<SourceHeaderId, TargetHeaderId, MessageNonce, Proof>,
+	Strategy: RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>,
 {
 	race_state.target_state.as_ref().and_then(|target_state| {
 		strategy
@@ -442,8 +466,8 @@ mod tests {
 		const BEST_AT_TARGET: u64 = 8;
 
 		// target node only knows about source' BEST_AT_TARGET block
-		// source node has BEST_AT_SOURCE > BEST_AT_SOURCE block
-		let mut race_state = RaceState::<_, _, _, ()> {
+		// source node has BEST_AT_SOURCE > BEST_AT_TARGET block
+		let mut race_state = RaceState::<_, _, ()> {
 			source_state: Some(ClientState {
 				best_self: HeaderId(BEST_AT_SOURCE, BEST_AT_SOURCE),
 				best_peer: HeaderId(0, 0),
@@ -457,16 +481,16 @@ mod tests {
 		};
 
 		// we have some nonces to deliver and they're generated at GENERATED_AT < BEST_AT_SOURCE
-		let mut strategy = BasicStrategy::new(100);
+		let mut strategy = BasicStrategy::new();
 		strategy.source_nonces_updated(
 			HeaderId(GENERATED_AT, GENERATED_AT),
-			ClientNonces {
-				latest_nonce: 10u64,
+			SourceClientNonces {
+				new_nonces: 0..=10,
 				confirmed_nonce: None,
 			},
 		);
 		strategy.target_nonces_updated(
-			ClientNonces {
+			TargetClientNonces {
 				latest_nonce: 5u64,
 				confirmed_nonce: None,
 			},
