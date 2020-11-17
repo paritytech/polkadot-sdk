@@ -221,7 +221,6 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 				finality_proof_provider.clone(),
 			)));
 			io.extend_with(MessageLaneApi::to_delegate(MessageLaneRpcHandler::new(
-				client.clone(),
 				backend.clone(),
 				Arc::new(MillauMessageLaneKeys),
 			)));
