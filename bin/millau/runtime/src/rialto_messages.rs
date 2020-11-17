@@ -104,16 +104,16 @@ impl MessageBridge for WithRialtoMessageBridge {
 		0 // TODO: https://github.com/paritytech/parity-bridges-common/issues/391
 	}
 
-	fn this_weight_to_balance(weight: Weight) -> bp_rialto::Balance {
+	fn this_weight_to_this_balance(weight: Weight) -> bp_millau::Balance {
 		<crate::Runtime as pallet_transaction_payment::Trait>::WeightToFee::calc(&weight)
 	}
 
-	fn bridged_weight_to_balance(weight: Weight) -> bp_millau::Balance {
+	fn bridged_weight_to_bridged_balance(weight: Weight) -> bp_rialto::Balance {
 		// we're using the same weights in both chains now
 		<crate::Runtime as pallet_transaction_payment::Trait>::WeightToFee::calc(&weight)
 	}
 
-	fn this_chain_balance_to_bridged_chain_balance(this_balance: bp_rialto::Balance) -> bp_millau::Balance {
+	fn this_balance_to_bridged_balance(this_balance: bp_millau::Balance) -> bp_rialto::Balance {
 		// 1:1 conversion that will probably change in the future
 		this_balance
 	}

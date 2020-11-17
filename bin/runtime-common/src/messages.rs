@@ -61,15 +61,13 @@ pub trait MessageBridge {
 	fn weight_of_reward_confirmation_transaction_on_target_chain() -> WeightOf<BridgedChain<Self>>;
 
 	/// Convert weight of This chain to the fee (paid in Balance) of This chain.
-	fn this_weight_to_balance(weight: WeightOf<ThisChain<Self>>) -> BalanceOf<ThisChain<Self>>;
+	fn this_weight_to_this_balance(weight: WeightOf<ThisChain<Self>>) -> BalanceOf<ThisChain<Self>>;
 
 	/// Convert weight of the Bridged chain to the fee (paid in Balance) of the Bridged chain.
-	fn bridged_weight_to_balance(weight: WeightOf<BridgedChain<Self>>) -> BalanceOf<BridgedChain<Self>>;
+	fn bridged_weight_to_bridged_balance(weight: WeightOf<BridgedChain<Self>>) -> BalanceOf<BridgedChain<Self>>;
 
 	/// Convert This chain Balance into Bridged chain Balance.
-	fn this_chain_balance_to_bridged_chain_balance(
-		this_balance: BalanceOf<ThisChain<Self>>,
-	) -> BalanceOf<BridgedChain<Self>>;
+	fn this_balance_to_bridged_balance(this_balance: BalanceOf<ThisChain<Self>>) -> BalanceOf<BridgedChain<Self>>;
 }
 
 /// Chain that has `message-lane` and `call-dispatch` modules.
@@ -152,8 +150,7 @@ pub mod source {
 				estimate_message_dispatch_and_delivery_fee::<B>(payload, B::RELAYER_FEE_PERCENT)?;
 
 			// compare with actual fee paid
-			let actual_fee_in_bridged_tokens =
-				B::this_chain_balance_to_bridged_chain_balance(*delivery_and_dispatch_fee);
+			let actual_fee_in_bridged_tokens = B::this_balance_to_bridged_balance(*delivery_and_dispatch_fee);
 			if actual_fee_in_bridged_tokens < minimal_fee_in_bridged_tokens {
 				return Err("Too low fee paid");
 			}
@@ -171,13 +168,13 @@ pub mod source {
 		relayer_fee_percent: u32,
 	) -> Result<BalanceOf<BridgedChain<B>>, &'static str> {
 		// the fee (in Bridged tokens) of all transactions that are made on the Bridged chain
-		let delivery_fee = B::bridged_weight_to_balance(B::weight_of_delivery_transaction());
-		let dispatch_fee = B::bridged_weight_to_balance(payload.weight.into());
+		let delivery_fee = B::bridged_weight_to_bridged_balance(B::weight_of_delivery_transaction());
+		let dispatch_fee = B::bridged_weight_to_bridged_balance(payload.weight.into());
 		let reward_confirmation_fee =
-			B::bridged_weight_to_balance(B::weight_of_reward_confirmation_transaction_on_target_chain());
+			B::bridged_weight_to_bridged_balance(B::weight_of_reward_confirmation_transaction_on_target_chain());
 
 		// the fee (in Bridged tokens) of all transactions that are made on This chain
-		let delivery_confirmation_fee = B::this_chain_balance_to_bridged_chain_balance(B::this_weight_to_balance(
+		let delivery_confirmation_fee = B::this_balance_to_bridged_balance(B::this_weight_to_this_balance(
 			B::weight_of_delivery_confirmation_transaction_on_this_chain(),
 		));
 
@@ -444,15 +441,15 @@ mod tests {
 			REWARD_CONFIRMATION_TRANSACTION_WEIGHT
 		}
 
-		fn this_weight_to_balance(weight: Weight) -> ThisChainBalance {
+		fn this_weight_to_this_balance(weight: Weight) -> ThisChainBalance {
 			ThisChainBalance(weight as u32 * THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
 		}
 
-		fn bridged_weight_to_balance(weight: Weight) -> BridgedChainBalance {
+		fn bridged_weight_to_bridged_balance(weight: Weight) -> BridgedChainBalance {
 			BridgedChainBalance(weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
 		}
 
-		fn this_chain_balance_to_bridged_chain_balance(this_balance: ThisChainBalance) -> BridgedChainBalance {
+		fn this_balance_to_bridged_balance(this_balance: ThisChainBalance) -> BridgedChainBalance {
 			BridgedChainBalance(this_balance.0 * THIS_CHAIN_TO_BRIDGED_CHAIN_BALANCE_RATE as u32)
 		}
 	}
@@ -483,15 +480,15 @@ mod tests {
 			unreachable!()
 		}
 
-		fn this_weight_to_balance(_weight: Weight) -> BridgedChainBalance {
+		fn this_weight_to_this_balance(_weight: Weight) -> BridgedChainBalance {
 			unreachable!()
 		}
 
-		fn bridged_weight_to_balance(_weight: Weight) -> ThisChainBalance {
+		fn bridged_weight_to_bridged_balance(_weight: Weight) -> ThisChainBalance {
 			unreachable!()
 		}
 
-		fn this_chain_balance_to_bridged_chain_balance(_this_balance: BridgedChainBalance) -> ThisChainBalance {
+		fn this_balance_to_bridged_balance(_this_balance: BridgedChainBalance) -> ThisChainBalance {
 			unreachable!()
 		}
 	}
