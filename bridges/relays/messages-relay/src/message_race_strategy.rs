@@ -17,95 +17,172 @@
 //! 2) new nonces may be proved to target node (i.e. they have appeared at the
 //!    block, which is known to the target node).
 
-use crate::message_race_loop::{ClientNonces, RaceState, RaceStrategy};
+use crate::message_race_loop::{NoncesRange, RaceState, RaceStrategy, SourceClientNonces, TargetClientNonces};
 
-use num_traits::{One, Zero};
+use bp_message_lane::MessageNonce;
 use relay_utils::HeaderId;
 use std::{collections::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 /// Nonces delivery strategy.
 #[derive(Debug)]
-pub struct BasicStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof> {
+pub struct BasicStrategy<
+	SourceHeaderNumber,
+	SourceHeaderHash,
+	TargetHeaderNumber,
+	TargetHeaderHash,
+	SourceNoncesRange,
+	Proof,
+> {
 	/// All queued nonces.
-	source_queue: VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, Nonce)>,
+	source_queue: VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, SourceNoncesRange)>,
 	/// Best nonce known to target node.
-	target_nonce: Nonce,
-	/// Max nonces to relay in single transaction.
-	max_nonces_to_relay_in_single_tx: Nonce,
+	target_nonce: MessageNonce,
 	/// Unused generic types dump.
 	_phantom: PhantomData<(TargetHeaderNumber, TargetHeaderHash, Proof)>,
 }
 
-impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce: Default, Proof>
-	BasicStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
-{
-	/// Create new delivery strategy.
-	pub fn new(max_nonces_to_relay_in_single_tx: Nonce) -> Self {
-		BasicStrategy {
-			source_queue: VecDeque::new(),
-			target_nonce: Default::default(),
-			max_nonces_to_relay_in_single_tx,
-			_phantom: Default::default(),
-		}
-	}
-}
-
-impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
-	RaceStrategy<
-		HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-		HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-		Nonce,
-		Proof,
-	> for BasicStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, Nonce, Proof>
+impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, SourceNoncesRange, Proof>
+	BasicStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, SourceNoncesRange, Proof>
 where
 	SourceHeaderHash: Clone,
 	SourceHeaderNumber: Clone + Ord,
-	Nonce: Clone + Copy + From<u32> + Ord + std::ops::Add<Output = Nonce> + One + Zero,
+	SourceNoncesRange: NoncesRange,
 {
+	/// Create new delivery strategy.
+	pub fn new() -> Self {
+		BasicStrategy {
+			source_queue: VecDeque::new(),
+			target_nonce: Default::default(),
+			_phantom: Default::default(),
+		}
+	}
+
+	/// Should return `Some(nonces)` if we need to deliver proof of `nonces` (and associated
+	/// data) from source to target node.
+	///
+	/// The `selector` function receives range of nonces and should return `None` if the whole
+	/// range needs to be delivered. If there are some nonces in the range that can't be delivered
+	/// right now, it should return `Some` with 'undeliverable' nonces. Please keep in mind that
+	/// this should be the sub-range that the passed range ends with, because nonces are always
+	/// delivered in-order. Otherwise the function will panic.
+	pub fn select_nonces_to_deliver_with_selector(
+		&mut self,
+		race_state: &RaceState<
+			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
+			Proof,
+		>,
+		mut selector: impl FnMut(SourceNoncesRange) -> Option<SourceNoncesRange>,
+	) -> Option<RangeInclusive<MessageNonce>> {
+		// if we have already selected nonces that we want to submit, do nothing
+		if race_state.nonces_to_submit.is_some() {
+			return None;
+		}
+
+		// if we already submitted some nonces, do nothing
+		if race_state.nonces_submitted.is_some() {
+			return None;
+		}
+
+		// 1) we want to deliver all nonces, starting from `target_nonce + 1`
+		// 2) we can't deliver new nonce until header, that has emitted this nonce, is finalized
+		// by target client
+		// 3) selector is used for more complicated logic
+		let best_header_at_target = &race_state.target_state.as_ref()?.best_peer;
+		let mut nonces_end = None;
+
+		while let Some((queued_at, queued_range)) = self.source_queue.pop_front() {
+			// select (sub) range to deliver
+			let queued_range_begin = queued_range.begin();
+			let queued_range_end = queued_range.end();
+			let range_to_requeue = if queued_at.0 > best_header_at_target.0 {
+				// if header that has queued the range is not yet finalized at bridged chain,
+				// we can't prove anything
+				Some(queued_range)
+			} else {
+				// selector returns `Some(range)` if this `range` needs to be requeued
+				selector(queued_range)
+			};
+
+			// requeue (sub) range and update range to deliver
+			match range_to_requeue {
+				Some(range_to_requeue) => {
+					assert!(
+						range_to_requeue.begin() <= range_to_requeue.end()
+							&& range_to_requeue.begin() >= queued_range_begin
+							&& range_to_requeue.end() == queued_range_end,
+						"Incorrect implementation of internal `selector` function. Expected original\
+						range {:?} to end with returned range {:?}",
+						queued_range_begin..=queued_range_end,
+						range_to_requeue,
+					);
+
+					if range_to_requeue.begin() != queued_range_begin {
+						nonces_end = Some(range_to_requeue.begin() - 1);
+					}
+					self.source_queue.push_front((queued_at, range_to_requeue));
+					break;
+				}
+				None => {
+					nonces_end = Some(queued_range_end);
+				}
+			}
+		}
+
+		nonces_end.map(|nonces_end| RangeInclusive::new(self.target_nonce + 1, nonces_end))
+	}
+}
+
+impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, SourceNoncesRange, Proof>
+	RaceStrategy<HeaderId<SourceHeaderHash, SourceHeaderNumber>, HeaderId<TargetHeaderHash, TargetHeaderNumber>, Proof>
+	for BasicStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, SourceNoncesRange, Proof>
+where
+	SourceHeaderHash: Clone,
+	SourceHeaderNumber: Clone + Ord,
+	SourceNoncesRange: NoncesRange,
+{
+	type SourceNoncesRange = SourceNoncesRange;
 	type ProofParameters = ();
 
 	fn is_empty(&self) -> bool {
 		self.source_queue.is_empty()
 	}
 
-	fn best_at_source(&self) -> Nonce {
-		self.source_queue
-			.back()
-			.map(|(_, nonce)| *nonce)
-			.unwrap_or_else(Zero::zero)
+	fn best_at_source(&self) -> MessageNonce {
+		std::cmp::max(
+			self.source_queue
+				.back()
+				.map(|(_, range)| range.end())
+				.unwrap_or(self.target_nonce),
+			self.target_nonce,
+		)
 	}
 
-	fn best_at_target(&self) -> Nonce {
+	fn best_at_target(&self) -> MessageNonce {
 		self.target_nonce
 	}
 
 	fn source_nonces_updated(
 		&mut self,
 		at_block: HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-		nonces: ClientNonces<Nonce>,
+		nonces: SourceClientNonces<SourceNoncesRange>,
 	) {
-		let nonce = nonces.latest_nonce;
-
-		if nonce <= self.target_nonce {
-			return;
-		}
-
-		match self.source_queue.back() {
-			Some((_, prev_nonce)) if *prev_nonce < nonce => (),
-			Some(_) => return,
-			None => (),
-		}
-
-		self.source_queue.push_back((at_block, nonce))
+		let prev_best_at_source = self.best_at_source();
+		self.source_queue.extend(
+			nonces
+				.new_nonces
+				.greater_than(prev_best_at_source)
+				.into_iter()
+				.map(move |range| (at_block.clone(), range)),
+		)
 	}
 
 	fn target_nonces_updated(
 		&mut self,
-		nonces: ClientNonces<Nonce>,
+		nonces: TargetClientNonces,
 		race_state: &mut RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Nonce,
 			Proof,
 		>,
 	) {
@@ -115,12 +192,15 @@ where
 			return;
 		}
 
-		while let Some(true) = self
-			.source_queue
-			.front()
-			.map(|(_, source_nonce)| *source_nonce <= nonce)
-		{
-			self.source_queue.pop_front();
+		while let Some(true) = self.source_queue.front().map(|(_, range)| range.begin() <= nonce) {
+			let maybe_subrange = self
+				.source_queue
+				.pop_front()
+				.and_then(|(at_block, range)| range.greater_than(nonce).map(|subrange| (at_block, subrange)));
+			if let Some((at_block, subrange)) = maybe_subrange {
+				self.source_queue.push_front((at_block, subrange));
+				break;
+			}
 		}
 
 		let need_to_select_new_nonces = race_state
@@ -149,60 +229,11 @@ where
 		race_state: &RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Nonce,
 			Proof,
 		>,
-	) -> Option<(RangeInclusive<Nonce>, Self::ProofParameters)> {
-		// if we have already selected nonces that we want to submit, do nothing
-		if race_state.nonces_to_submit.is_some() {
-			return None;
-		}
-
-		// if we already submitted some nonces, do nothing
-		if race_state.nonces_submitted.is_some() {
-			return None;
-		}
-
-		// 1) we want to deliver all nonces, starting from `target_nonce + 1`
-		// 2) we want to deliver at most `self.max_nonces_to_relay_in_single_tx` nonces in this batch
-		// 3) we can't deliver new nonce until header, that has emitted this nonce, is finalized
-		// by target client
-		let nonces_begin = self.target_nonce + 1.into();
-		let best_header_at_target = &race_state.target_state.as_ref()?.best_peer;
-		let mut nonces_end = None;
-		let mut i = Zero::zero();
-
-		// https://github.com/paritytech/parity-bridges-common/issues/433
-		// TODO: instead of limiting number of messages by number, provide custom limit callback here.
-		// In delivery race it'll be weight-based callback. In receiving race it'll be unlimited callback.
-
-		while i < self.max_nonces_to_relay_in_single_tx {
-			let nonce = nonces_begin + i;
-
-			// if queue is empty, we don't need to prove anything
-			let (first_queued_at, first_queued_nonce) = match self.source_queue.front() {
-				Some((first_queued_at, first_queued_nonce)) => ((*first_queued_at).clone(), *first_queued_nonce),
-				None => break,
-			};
-
-			// if header that has queued the message is not yet finalized at bridged chain,
-			// we can't prove anything
-			if first_queued_at.0 > best_header_at_target.0 {
-				break;
-			}
-
-			// ok, we may deliver this nonce
-			nonces_end = Some(nonce);
-
-			// probably remove it from the queue?
-			if nonce == first_queued_nonce {
-				self.source_queue.pop_front();
-			}
-
-			i = i + One::one();
-		}
-
-		nonces_end.map(|nonces_end| (RangeInclusive::new(nonces_begin, nonces_end), ()))
+	) -> Option<(RangeInclusive<MessageNonce>, Self::ProofParameters)> {
+		self.select_nonces_to_deliver_with_selector(race_state, |_| None)
+			.map(|range| (range, ()))
 	}
 }
 
@@ -211,21 +242,30 @@ mod tests {
 	use super::*;
 	use crate::message_lane::MessageLane;
 	use crate::message_lane_loop::{
-		tests::{header_id, TestMessageLane, TestMessageNonce, TestMessagesProof},
+		tests::{header_id, TestMessageLane, TestMessagesProof},
 		ClientState,
 	};
+
+	type SourceNoncesRange = RangeInclusive<MessageNonce>;
 
 	type BasicStrategy<P> = super::BasicStrategy<
 		<P as MessageLane>::SourceHeaderNumber,
 		<P as MessageLane>::SourceHeaderHash,
 		<P as MessageLane>::TargetHeaderNumber,
 		<P as MessageLane>::TargetHeaderHash,
-		<P as MessageLane>::MessageNonce,
+		SourceNoncesRange,
 		<P as MessageLane>::MessagesProof,
 	>;
 
-	fn nonces(latest_nonce: TestMessageNonce) -> ClientNonces<TestMessageNonce> {
-		ClientNonces {
+	fn source_nonces(new_nonces: SourceNoncesRange) -> SourceClientNonces<SourceNoncesRange> {
+		SourceClientNonces {
+			new_nonces,
+			confirmed_nonce: None,
+		}
+	}
+
+	fn target_nonces(latest_nonce: MessageNonce) -> TargetClientNonces {
+		TargetClientNonces {
 			latest_nonce,
 			confirmed_nonce: None,
 		}
@@ -233,105 +273,116 @@ mod tests {
 
 	#[test]
 	fn strategy_is_empty_works() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		assert_eq!(strategy.is_empty(), true);
-		strategy.source_nonces_updated(header_id(1), nonces(1));
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
 		assert_eq!(strategy.is_empty(), false);
 	}
 
 	#[test]
+	fn best_at_source_is_never_lower_than_target_nonce() {
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		assert_eq!(strategy.best_at_source(), 0);
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
+		assert_eq!(strategy.best_at_source(), 5);
+		strategy.target_nonces_updated(target_nonces(10), &mut Default::default());
+		assert_eq!(strategy.source_queue, vec![]);
+		assert_eq!(strategy.best_at_source(), 10);
+	}
+
+	#[test]
 	fn source_nonce_is_never_lower_than_known_target_nonce() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
-		strategy.target_nonces_updated(nonces(10), &mut Default::default());
-		strategy.source_nonces_updated(header_id(1), nonces(5));
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		strategy.target_nonces_updated(target_nonces(10), &mut Default::default());
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
 		assert_eq!(strategy.source_queue, vec![]);
 	}
 
 	#[test]
 	fn source_nonce_is_never_lower_than_latest_known_source_nonce() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
-		strategy.source_nonces_updated(header_id(1), nonces(5));
-		strategy.source_nonces_updated(header_id(2), nonces(3));
-		strategy.source_nonces_updated(header_id(2), nonces(5));
-		assert_eq!(strategy.source_queue, vec![(header_id(1), 5)]);
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
+		strategy.source_nonces_updated(header_id(2), source_nonces(1..=3));
+		strategy.source_nonces_updated(header_id(2), source_nonces(1..=5));
+		assert_eq!(strategy.source_queue, vec![(header_id(1), 1..=5)]);
 	}
 
 	#[test]
 	fn target_nonce_is_never_lower_than_latest_known_target_nonce() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
-		strategy.target_nonces_updated(nonces(10), &mut Default::default());
-		strategy.target_nonces_updated(nonces(5), &mut Default::default());
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		strategy.target_nonces_updated(target_nonces(10), &mut Default::default());
+		strategy.target_nonces_updated(target_nonces(5), &mut Default::default());
 		assert_eq!(strategy.target_nonce, 10);
 	}
 
 	#[test]
 	fn updated_target_nonce_removes_queued_entries() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
-		strategy.source_nonces_updated(header_id(1), nonces(5));
-		strategy.source_nonces_updated(header_id(2), nonces(10));
-		strategy.source_nonces_updated(header_id(3), nonces(15));
-		strategy.source_nonces_updated(header_id(4), nonces(20));
-		strategy.target_nonces_updated(nonces(15), &mut Default::default());
-		assert_eq!(strategy.source_queue, vec![(header_id(4), 20)]);
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
+		strategy.source_nonces_updated(header_id(2), source_nonces(6..=10));
+		strategy.source_nonces_updated(header_id(3), source_nonces(11..=15));
+		strategy.source_nonces_updated(header_id(4), source_nonces(16..=20));
+		strategy.target_nonces_updated(target_nonces(15), &mut Default::default());
+		assert_eq!(strategy.source_queue, vec![(header_id(4), 16..=20)]);
+		strategy.target_nonces_updated(target_nonces(17), &mut Default::default());
+		assert_eq!(strategy.source_queue, vec![(header_id(4), 18..=20)]);
 	}
 
 	#[test]
 	fn selected_nonces_are_dropped_on_target_nonce_update() {
 		let mut state = RaceState::default();
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_to_submit = Some((header_id(1), 5..=10, (5..=10, None)));
-		strategy.target_nonces_updated(nonces(7), &mut state);
+		strategy.target_nonces_updated(target_nonces(7), &mut state);
 		assert!(state.nonces_to_submit.is_some());
-		strategy.target_nonces_updated(nonces(10), &mut state);
+		strategy.target_nonces_updated(target_nonces(10), &mut state);
 		assert!(state.nonces_to_submit.is_none());
 	}
 
 	#[test]
 	fn submitted_nonces_are_dropped_on_target_nonce_update() {
 		let mut state = RaceState::default();
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_submitted = Some(5..=10);
-		strategy.target_nonces_updated(nonces(7), &mut state);
+		strategy.target_nonces_updated(target_nonces(7), &mut state);
 		assert!(state.nonces_submitted.is_some());
-		strategy.target_nonces_updated(nonces(10), &mut state);
+		strategy.target_nonces_updated(target_nonces(10), &mut state);
 		assert!(state.nonces_submitted.is_none());
 	}
 
 	#[test]
 	fn nothing_is_selected_if_something_is_already_selected() {
 		let mut state = RaceState::default();
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_to_submit = Some((header_id(1), 1..=10, (1..=10, None)));
-		strategy.source_nonces_updated(header_id(1), nonces(10));
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=10));
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
 	}
 
 	#[test]
 	fn nothing_is_selected_if_something_is_already_submitted() {
 		let mut state = RaceState::default();
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_submitted = Some(1..=10);
-		strategy.source_nonces_updated(header_id(1), nonces(10));
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=10));
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
 	}
 
 	#[test]
 	fn select_nonces_to_deliver_works() {
-		let mut state = RaceState::<_, _, TestMessageNonce, TestMessagesProof>::default();
-		let mut strategy = BasicStrategy::<TestMessageLane>::new(4);
-		strategy.source_nonces_updated(header_id(1), nonces(1));
-		strategy.source_nonces_updated(header_id(2), nonces(2));
-		strategy.source_nonces_updated(header_id(3), nonces(6));
-		strategy.source_nonces_updated(header_id(5), nonces(8));
+		let mut state = RaceState::<_, _, TestMessagesProof>::default();
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
+		strategy.source_nonces_updated(header_id(2), source_nonces(2..=2));
+		strategy.source_nonces_updated(header_id(3), source_nonces(6..=6));
+		strategy.source_nonces_updated(header_id(5), source_nonces(8..=8));
 
 		state.target_state = Some(ClientState {
 			best_self: header_id(0),
 			best_peer: header_id(4),
 		});
-		assert_eq!(strategy.select_nonces_to_deliver(&state), Some((1..=4, ())));
-		strategy.target_nonces_updated(nonces(4), &mut state);
-		assert_eq!(strategy.select_nonces_to_deliver(&state), Some((5..=6, ())));
-		strategy.target_nonces_updated(nonces(6), &mut state);
+		assert_eq!(strategy.select_nonces_to_deliver(&state), Some((1..=6, ())));
+		strategy.target_nonces_updated(target_nonces(6), &mut state);
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
 
 		state.target_state = Some(ClientState {
@@ -339,7 +390,57 @@ mod tests {
 			best_peer: header_id(5),
 		});
 		assert_eq!(strategy.select_nonces_to_deliver(&state), Some((7..=8, ())));
-		strategy.target_nonces_updated(nonces(8), &mut state);
+		strategy.target_nonces_updated(target_nonces(8), &mut state);
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
+	}
+
+	#[test]
+	fn select_nonces_to_deliver_able_to_split_ranges_with_selector() {
+		let mut state = RaceState::<_, _, TestMessagesProof>::default();
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=100));
+
+		state.target_state = Some(ClientState {
+			best_self: header_id(0),
+			best_peer: header_id(1),
+		});
+		assert_eq!(
+			strategy.select_nonces_to_deliver_with_selector(&state, |_| Some(50..=100)),
+			Some(1..=49),
+		);
+	}
+
+	fn run_panic_test_for_incorrect_selector(
+		invalid_selector: impl Fn(SourceNoncesRange) -> Option<SourceNoncesRange>,
+	) {
+		let mut state = RaceState::<_, _, TestMessagesProof>::default();
+		let mut strategy = BasicStrategy::<TestMessageLane>::new();
+		strategy.source_nonces_updated(header_id(1), source_nonces(1..=100));
+		strategy.target_nonces_updated(target_nonces(50), &mut state);
+		state.target_state = Some(ClientState {
+			best_self: header_id(0),
+			best_peer: header_id(1),
+		});
+
+		strategy.select_nonces_to_deliver_with_selector(&state, invalid_selector);
+	}
+
+	#[test]
+	#[should_panic]
+	fn select_nonces_to_deliver_panics_if_selector_returns_empty_range() {
+		#[allow(clippy::reversed_empty_ranges)]
+		run_panic_test_for_incorrect_selector(|_| Some(2..=1))
+	}
+
+	#[test]
+	#[should_panic]
+	fn select_nonces_to_deliver_panics_if_selector_returns_range_that_starts_before_passed_range() {
+		run_panic_test_for_incorrect_selector(|range| Some(range.begin() - 1..=*range.end()))
+	}
+
+	#[test]
+	#[should_panic]
+	fn select_nonces_to_deliver_panics_if_selector_returns_range_with_mismatched_end() {
+		run_panic_test_for_incorrect_selector(|range| Some(range.begin()..=*range.end() + 1))
 	}
 }
