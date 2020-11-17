@@ -36,6 +36,8 @@ pub enum Error {
 	ResponseParseFailed(codec::Error),
 	/// Account does not exist on the chain.
 	AccountDoesNotExist,
+	/// Custom logic error.
+	Custom(String),
 }
 
 impl From<WsNewDnsError> for Error {
@@ -69,6 +71,7 @@ impl ToString for Error {
 			Self::Request(e) => e.to_string(),
 			Self::ResponseParseFailed(e) => e.what().to_string(),
 			Self::AccountDoesNotExist => "Account does not exist on the chain".into(),
+			Self::Custom(e) => e.clone(),
 		}
 	}
 }

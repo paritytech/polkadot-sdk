@@ -20,9 +20,7 @@ bp-message-lane = { path = "../../../primitives/message-lane" }
 
 # Substrate Dependencies
 
-frame-support = "2.0"
 sc-client-api = "2.0"
-sp-api = "2.0"
 sp-blockchain = "2.0"
 sp-core = "2.0"
 sp-runtime = "2.0"

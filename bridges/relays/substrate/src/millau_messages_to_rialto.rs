@@ -52,7 +52,6 @@ impl MessageLane for MillauMessagesToRialto {
 	const SOURCE_NAME: &'static str = "Millau";
 	const TARGET_NAME: &'static str = "Rialto";
 
-	type MessageNonce = MessageNonce;
 	type MessagesProof = FromMillauMessagesProof;
 	type MessagesReceivingProof = FromRialtoMessagesReceivingProof;
 
@@ -144,7 +143,12 @@ pub fn run(
 			target_tick: rialto_tick,
 			reconnect_delay,
 			stall_timeout,
-			max_unconfirmed_nonces_at_target: bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
+			delivery_params: messages_relay::message_lane_loop::MessageDeliveryParams {
+				max_unconfirmed_nonces_at_target: bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
+				// TODO: subtract base weight of delivery from this when it'll be known
+				// https://github.com/paritytech/parity-bridges-common/issues/78
+				max_messages_weight_in_single_batch: bp_rialto::MAXIMUM_EXTRINSIC_WEIGHT,
+			},
 		},
 		MillauSourceClient::new(
 			millau_client.clone(),
