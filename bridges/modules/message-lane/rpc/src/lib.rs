@@ -18,14 +18,12 @@
 
 use crate::error::{Error, FutureResult};
 
-use bp_message_lane::{LaneId, MessageNonce, OutboundLaneApi};
+use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
-use frame_support::weights::Weight;
 use futures::{FutureExt, TryFutureExt};
 use jsonrpc_core::futures::Future as _;
 use jsonrpc_derive::rpc;
 use sc_client_api::Backend as BackendT;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Error as BlockchainError, HeaderBackend};
 use sp_core::{storage::StorageKey, Bytes};
 use sp_runtime::{codec::Encode, generic::BlockId, traits::Block as BlockT};
@@ -56,8 +54,8 @@ pub trait Runtime: Send + Sync + 'static {
 /// Provides RPC methods for interacting with message-lane pallet.
 #[rpc]
 pub trait MessageLaneApi<BlockHash> {
-	/// Returns cumulative dispatch weight of messages in given inclusive range and their storage proof.
-	/// The state of outbound lane is included in the proof if `include_outbound_lane_state` is true.
+	/// Returns storage proof of messages in given inclusive range. The state of outbound
+	/// lane is included in the proof if `include_outbound_lane_state` is true.
 	#[rpc(name = "messageLane_proveMessages")]
 	fn prove_messages(
 		&self,
@@ -67,7 +65,7 @@ pub trait MessageLaneApi<BlockHash> {
 		end: MessageNonce,
 		include_outbound_lane_state: bool,
 		block: Option<BlockHash>,
-	) -> FutureResult<(Weight, MessagesProof)>;
+	) -> FutureResult<MessagesProof>;
 
 	/// Returns proof-of-message(s) delivery.
 	#[rpc(name = "messageLane_proveMessagesDelivery")]
@@ -80,18 +78,16 @@ pub trait MessageLaneApi<BlockHash> {
 }
 
 /// Implements the MessageLaneApi trait for interacting with message lanes.
-pub struct MessageLaneRpcHandler<Block, Client, Backend, R> {
-	client: Arc<Client>,
+pub struct MessageLaneRpcHandler<Block, Backend, R> {
 	backend: Arc<Backend>,
 	runtime: Arc<R>,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
-impl<Block, Client, Backend, R> MessageLaneRpcHandler<Block, Client, Backend, R> {
+impl<Block, Backend, R> MessageLaneRpcHandler<Block, Backend, R> {
 	/// Creates new mesage lane RPC handler.
-	pub fn new(client: Arc<Client>, backend: Arc<Backend>, runtime: Arc<R>) -> Self {
+	pub fn new(backend: Arc<Backend>, runtime: Arc<R>) -> Self {
 		Self {
-			client,
 			backend,
 			runtime,
 			_phantom: Default::default(),
@@ -99,11 +95,9 @@ impl<Block, Client, Backend, R> MessageLaneRpcHandler<Block, Client, Backend, R>
 	}
 }
 
-impl<Block, Client, Backend, R> MessageLaneApi<Block::Hash> for MessageLaneRpcHandler<Block, Client, Backend, R>
+impl<Block, Backend, R> MessageLaneApi<Block::Hash> for MessageLaneRpcHandler<Block, Backend, R>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	Client::Api: OutboundLaneApi<Block>,
 	Backend: BackendT<Block> + 'static,
 	R: Runtime,
 {
@@ -115,22 +109,7 @@ where
 		end: MessageNonce,
 		include_outbound_lane_state: bool,
 		block: Option<Block::Hash>,
-	) -> FutureResult<(Weight, MessagesProof)> {
-		let block = unwrap_or_best(&*self.backend, block);
-
-		let messages_dispatch_weight_result =
-			self.client
-				.runtime_api()
-				.messages_dispatch_weight(&BlockId::Hash(block), lane, begin, end);
-		let messages_dispatch_weight = match messages_dispatch_weight_result {
-			Ok(messages_dispatch_weight) => messages_dispatch_weight,
-			Err(error) => {
-				return Box::new(jsonrpc_core::futures::future::err(
-					blockchain_err(BlockchainError::Execution(Box::new(format!("{:?}", error)))).into(),
-				))
-			}
-		};
-
+	) -> FutureResult<MessagesProof> {
 		let runtime = self.runtime.clone();
 		let outbound_lane_data_key = if include_outbound_lane_state {
 			Some(runtime.inbound_lane_data_key(&instance, &lane))
@@ -140,14 +119,14 @@ where
 		Box::new(
 			prove_keys_read(
 				self.backend.clone(),
-				Some(block),
+				block,
 				(begin..=end)
 					.map(move |nonce| runtime.message_key(&instance, &lane, nonce))
 					.chain(outbound_lane_data_key.into_iter()),
 			)
 			.boxed()
 			.compat()
-			.map(move |proof| (messages_dispatch_weight, serialize_storage_proof(proof)))
+			.map(serialize_storage_proof)
 			.map_err(Into::into),
 		)
 	}

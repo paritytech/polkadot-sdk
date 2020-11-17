@@ -706,12 +706,19 @@ impl_runtime_apis! {
 
 	// TODO: runtime should support several chains (https://github.com/paritytech/parity-bridges-common/issues/457)
 	impl bp_message_lane::OutboundLaneApi<Block> for Runtime {
-		fn messages_dispatch_weight(lane: bp_message_lane::LaneId, begin: bp_message_lane::MessageNonce, end: bp_message_lane::MessageNonce) -> Weight {
-			(begin..=end)
-				.filter_map(|nonce| BridgeMillauMessageLane::outbound_message_payload(lane, nonce))
-				.filter_map(|encoded_payload| millau_messages::ToMillauMessagePayload::decode(&mut &encoded_payload[..]).ok())
-				.map(|decoded_payload| decoded_payload.weight)
-				.fold(0, |sum, weight| sum.saturating_add(weight))
+		fn messages_dispatch_weight(
+			lane: bp_message_lane::LaneId,
+			begin: bp_message_lane::MessageNonce,
+			end: bp_message_lane::MessageNonce,
+		) -> Vec<(bp_message_lane::MessageNonce, Weight)> {
+			(begin..=end).filter_map(|nonce| {
+				let encoded_payload = BridgeMillauMessageLane::outbound_message_payload(lane, nonce)?;
+				let decoded_payload = millau_messages::ToMillauMessagePayload::decode(
+					&mut &encoded_payload[..]
+				).ok()?;
+				Some((nonce, decoded_payload.weight))
+			})
+			.collect()
 		}
 
 		fn latest_received_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
