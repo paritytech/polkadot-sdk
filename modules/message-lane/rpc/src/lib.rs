@@ -112,7 +112,7 @@ where
 	) -> FutureResult<MessagesProof> {
 		let runtime = self.runtime.clone();
 		let outbound_lane_data_key = if include_outbound_lane_state {
-			Some(runtime.inbound_lane_data_key(&instance, &lane))
+			Some(runtime.outbound_lane_data_key(&instance, &lane))
 		} else {
 			None
 		};
