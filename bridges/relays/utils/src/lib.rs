@@ -30,6 +30,51 @@ pub const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
 pub mod initialize;
 pub mod metrics;
 
+/// Block number traits shared by all chains that relay is able to serve.
+pub trait BlockNumberBase:
+	'static
+	+ From<u32>
+	+ Into<u64>
+	+ Ord
+	+ Clone
+	+ Copy
+	+ Default
+	+ Send
+	+ Sync
+	+ std::fmt::Debug
+	+ std::fmt::Display
+	+ std::hash::Hash
+	+ std::ops::Add<Output = Self>
+	+ std::ops::Sub<Output = Self>
+	+ num_traits::CheckedSub
+	+ num_traits::Saturating
+	+ num_traits::Zero
+	+ num_traits::One
+{
+}
+
+impl<T> BlockNumberBase for T where
+	T: 'static
+		+ From<u32>
+		+ Into<u64>
+		+ Ord
+		+ Clone
+		+ Copy
+		+ Default
+		+ Send
+		+ Sync
+		+ std::fmt::Debug
+		+ std::fmt::Display
+		+ std::hash::Hash
+		+ std::ops::Add<Output = Self>
+		+ std::ops::Sub<Output = Self>
+		+ num_traits::CheckedSub
+		+ num_traits::Saturating
+		+ num_traits::Zero
+		+ num_traits::One
+{
+}
+
 /// Macro that returns (client, Err(error)) tuple from function if result is Err(error).
 #[macro_export]
 macro_rules! bail_on_error {
