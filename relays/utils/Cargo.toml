@@ -12,6 +12,7 @@ backoff = "0.2"
 env_logger = "0.7.0"
 futures = "0.3.5"
 log = "0.4.11"
+num-traits = "0.2"
 sysinfo = "0.15"
 time = "0.2"
 

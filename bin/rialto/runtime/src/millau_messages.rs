@@ -110,12 +110,12 @@ impl MessageBridge for WithMillauMessageBridge {
 
 	fn bridged_weight_to_bridged_balance(weight: Weight) -> bp_millau::Balance {
 		// we're using the same weights in both chains now
-		<crate::Runtime as pallet_transaction_payment::Trait>::WeightToFee::calc(&weight)
+		<crate::Runtime as pallet_transaction_payment::Trait>::WeightToFee::calc(&weight) as _
 	}
 
 	fn this_balance_to_bridged_balance(this_balance: bp_rialto::Balance) -> bp_millau::Balance {
 		// 1:1 conversion that will probably change in the future
-		this_balance
+		this_balance as _
 	}
 }
 

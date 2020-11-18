@@ -28,7 +28,7 @@ use messages_relay::{
 	message_lane_loop::{ClientState, MessageProofParameters, MessageWeightsMap, SourceClient, SourceClientState},
 };
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf, HeaderIdOf};
-use relay_utils::HeaderId;
+use relay_utils::{BlockNumberBase, HeaderId};
 use sp_core::Bytes;
 use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
 use sp_trie::StorageProof;
@@ -93,7 +93,7 @@ where
 	C: Chain,
 	C::Header: DeserializeOwned,
 	C::Index: DeserializeOwned,
-	<C::Header as HeaderT>::Number: Into<u64>,
+	C::BlockNumber: BlockNumberBase,
 	P: MessageLane<
 		MessagesProof = SubstrateMessagesProof<C>,
 		SourceHeaderNumber = <C::Header as HeaderT>::Number,
