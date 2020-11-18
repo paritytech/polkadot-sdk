@@ -19,8 +19,7 @@
 //! 1) relay new messages from source to target node;
 //! 2) relay proof-of-delivery from target to source node.
 
-use relay_utils::HeaderId;
-
+use relay_utils::{BlockNumberBase, HeaderId};
 use std::fmt::Debug;
 
 /// One-way message lane.
@@ -36,12 +35,12 @@ pub trait MessageLane: Clone + Send + Sync {
 	type MessagesReceivingProof: Clone + Send + Sync;
 
 	/// Number of the source header.
-	type SourceHeaderNumber: Clone + Debug + Ord + PartialEq + Into<u64> + Send + Sync;
+	type SourceHeaderNumber: BlockNumberBase;
 	/// Hash of the source header.
 	type SourceHeaderHash: Clone + Debug + Default + PartialEq + Send + Sync;
 
 	/// Number of the target header.
-	type TargetHeaderNumber: Clone + Debug + Ord + PartialEq + Into<u64> + Send + Sync;
+	type TargetHeaderNumber: BlockNumberBase;
 	/// Hash of the target header.
 	type TargetHeaderHash: Clone + Debug + Default + PartialEq + Send + Sync;
 }

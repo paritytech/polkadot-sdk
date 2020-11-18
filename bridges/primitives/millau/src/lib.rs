@@ -20,18 +20,56 @@
 // Runtime-generated DecodeLimit::decode_all_With_depth_limit
 #![allow(clippy::unnecessary_mut_passed)]
 
+mod millau_hash;
+
 use bp_message_lane::MessageNonce;
 use bp_runtime::Chain;
 use frame_support::{weights::Weight, RuntimeDebug};
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	traits::{IdentifyAccount, Verify},
 	MultiSignature, MultiSigner,
 };
 use sp_std::prelude::*;
+use sp_trie::{trie_types::Layout, TrieConfiguration};
+
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
+pub use millau_hash::MillauHash;
+
+/// Millau Hasher (Blake2-256 ++ Keccak-256) implementation.
+#[derive(PartialEq, Eq, Clone, Copy, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct BlakeTwoAndKeccak256;
+
+impl sp_core::Hasher for BlakeTwoAndKeccak256 {
+	type Out = MillauHash;
+	type StdHasher = hash256_std_hasher::Hash256StdHasher;
+	const LENGTH: usize = 64;
+
+	fn hash(s: &[u8]) -> Self::Out {
+		let mut combined_hash = MillauHash::default();
+		combined_hash.as_mut()[..32].copy_from_slice(&sp_io::hashing::blake2_256(s));
+		combined_hash.as_mut()[32..].copy_from_slice(&sp_io::hashing::keccak_256(s));
+		combined_hash
+	}
+}
+
+impl sp_runtime::traits::Hash for BlakeTwoAndKeccak256 {
+	type Output = MillauHash;
+
+	fn trie_root(input: Vec<(Vec<u8>, Vec<u8>)>) -> Self::Output {
+		Layout::<BlakeTwoAndKeccak256>::trie_root(input)
+	}
+
+	fn ordered_trie_root(input: Vec<Vec<u8>>) -> Self::Output {
+		Layout::<BlakeTwoAndKeccak256>::ordered_trie_root(input)
+	}
+}
 
 /// Maximal weight of single Millau block.
-pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2_000_000_000_000;
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = 10_000_000_000;
 /// Portion of block reserved for regular transactions.
 pub const AVAILABLE_BLOCK_RATIO: u32 = 75;
 /// Maximal weight of single Millau extrinsic (65% of maximum block weight = 75% for regular
@@ -39,16 +77,16 @@ pub const AVAILABLE_BLOCK_RATIO: u32 = 75;
 pub const MAXIMUM_EXTRINSIC_WEIGHT: Weight = MAXIMUM_BLOCK_WEIGHT / 100 * (AVAILABLE_BLOCK_RATIO as Weight - 10);
 
 /// Maximal number of unconfirmed messages at inbound lane.
-pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 128;
+pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 1024;
 
 /// Block number type used in Millau.
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 
 /// Hash type used in Millau.
-pub type Hash = <BlakeTwo256 as HasherT>::Out;
+pub type Hash = <BlakeTwoAndKeccak256 as HasherT>::Out;
 
 /// The type of an object that can produce hashes on Millau.
-pub type Hasher = BlakeTwo256;
+pub type Hasher = BlakeTwoAndKeccak256;
 
 /// The header type used by Millau.
 pub type Header = sp_runtime::generic::Header<BlockNumber, Hasher>;
@@ -84,7 +122,7 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 pub type AccountSigner = MultiSigner;
 
 /// Balance of an account.
-pub type Balance = u128;
+pub type Balance = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about Millau headers from the Bridge Pallet instance.
