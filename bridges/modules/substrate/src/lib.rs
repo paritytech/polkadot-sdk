@@ -289,6 +289,9 @@ impl<T: Trait> Module<T> {
 
 	/// Get the best finalized header the pallet knows of.
 	///
+	/// Returns a dummy header if there is no best header. This can only happen
+	/// if the pallet has not been initialized yet.
+	///
 	/// Since this has been finalized correctly a user of the bridge
 	/// pallet should be confident that any transactions that were
 	/// included in this or any previous header will not be reverted.
@@ -424,6 +427,9 @@ pub trait BridgeStorage {
 	fn best_headers(&self) -> Vec<HeaderId<Self::Header>>;
 
 	/// Get the best finalized header the pallet knows of.
+	///
+	/// Returns None if there is no best header. This can only happen if the pallet
+	/// has not been initialized yet.
 	fn best_finalized_header(&self) -> ImportedHeader<Self::Header>;
 
 	/// Update the best finalized header the pallet knows of.
@@ -525,9 +531,22 @@ impl<T: Trait> BridgeStorage for PalletStorage<T> {
 	}
 
 	fn best_finalized_header(&self) -> ImportedHeader<BridgedHeader<T>> {
+		// We will only construct a dummy header if the pallet is not initialized and someone tries
+		// to use the public module interface (not dispatchables) to get the best finalized header.
+		// This is an edge case since this can only really happen when bootstrapping the bridge.
 		let hash = <BestFinalized<T>>::get();
-		self.header_by_hash(hash)
-			.expect("A finalized header was added at genesis, therefore this must always exist")
+		self.header_by_hash(hash).unwrap_or_else(|| ImportedHeader {
+			header: <BridgedHeader<T>>::new(
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			),
+			requires_justification: false,
+			is_finalized: false,
+			signal_hash: None,
+		})
 	}
 
 	fn update_best_finalized(&self, hash: BridgedBlockHash<T>) {
@@ -619,6 +638,9 @@ mod tests {
 				scheduled_change: None,
 				is_halted: false,
 			};
+
+			assert!(Module::<TestRuntime>::best_headers().is_empty());
+			assert_eq!(Module::<TestRuntime>::best_finalized(), test_header(0));
 
 			assert_ok!(Module::<TestRuntime>::initialize(Origin::root(), init_data.clone()));
 

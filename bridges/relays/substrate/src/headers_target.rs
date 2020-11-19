@@ -91,13 +91,12 @@ where
 		let decoded_response: Vec<(P::Number, P::Hash)> =
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 
-		const WARNING_MSG: &str = "Parsed an empty list of headers, we should always have at least
-									one. Has the bridge pallet been initialized yet?";
-		let best_header = decoded_response
+		// If we parse an empty list of headers it means that bridge pallet has not been initalized
+		// yet. Otherwise we expect to always have at least one header.
+		decoded_response
 			.last()
-			.ok_or_else(|| SubstrateError::ResponseParseFailed(WARNING_MSG.into()))?;
-		let best_header_id = HeaderId(best_header.0, best_header.1);
-		Ok(best_header_id)
+			.ok_or(SubstrateError::UninitializedBridgePallet)
+			.map(|(num, hash)| HeaderId(*num, *hash))
 	}
 
 	async fn is_known_header(&self, id: HeaderIdOf<P>) -> Result<(HeaderIdOf<P>, bool), Self::Error> {

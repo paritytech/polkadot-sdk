@@ -34,6 +34,8 @@ pub enum Error {
 	Request(RequestError),
 	/// The response from the server could not be SCALE decoded.
 	ResponseParseFailed(codec::Error),
+	/// The Substrate bridge pallet has not yet been initialized.
+	UninitializedBridgePallet,
 	/// Account does not exist on the chain.
 	AccountDoesNotExist,
 	/// Custom logic error.
@@ -70,6 +72,7 @@ impl ToString for Error {
 			Self::WsConnectionError(e) => e.to_string(),
 			Self::Request(e) => e.to_string(),
 			Self::ResponseParseFailed(e) => e.what().to_string(),
+			Self::UninitializedBridgePallet => "The Substrate bridge pallet has not been initialized yet.".into(),
 			Self::AccountDoesNotExist => "Account does not exist on the chain".into(),
 			Self::Custom(e) => e.clone(),
 		}
