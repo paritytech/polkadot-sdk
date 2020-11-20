@@ -30,7 +30,9 @@ pub fn initialize_relay() {
 	builder.parse_filters(&filters);
 	builder.format(move |buf, record| {
 		writeln!(buf, "{}", {
-			let timestamp = time::OffsetDateTime::now_local().format("%Y-%m-%d %H:%M:%S %z");
+			let timestamp = time::OffsetDateTime::try_now_local()
+				.unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+				.format("%Y-%m-%d %H:%M:%S %z");
 			if cfg!(windows) {
 				format!("{} {} {} {}", timestamp, record.level(), record.target(), record.args())
 			} else {
