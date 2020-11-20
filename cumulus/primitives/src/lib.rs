@@ -20,11 +20,7 @@
 
 pub use polkadot_core_primitives as relay_chain;
 pub use polkadot_core_primitives::InboundDownwardMessage;
-/// A generic upward message from a Parachain to the Relay Chain.
-///
-/// It is "generic" in such a way, that the actual message is encoded in the `data` field.
-/// Besides the `data` it also holds the `origin` of the message.
-pub use polkadot_parachain::primitives::UpwardMessage as GenericUpwardMessage;
+pub use polkadot_parachain::primitives::UpwardMessage;
 pub use polkadot_parachain::primitives::{Id as ParaId, ValidationParams};
 pub use polkadot_primitives::v1::{
 	PersistedValidationData, TransientValidationData, ValidationData,
@@ -54,7 +50,7 @@ pub mod inherents {
 pub mod well_known_keys {
 	/// The storage key for the upward messages.
 	///
-	/// The upward messages are stored as SCALE encoded `Vec<GenericUpwardMessage>`.
+	/// The upward messages are stored as SCALE encoded `Vec<UpwardMessage>`.
 	pub const UPWARD_MESSAGES: &'static [u8] = b":cumulus_upward_messages:";
 
 	/// Current validation data.

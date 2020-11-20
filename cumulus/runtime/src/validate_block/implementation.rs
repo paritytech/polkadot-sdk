@@ -31,7 +31,7 @@ use cumulus_primitives::{
 	well_known_keys::{
 		NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES, UPWARD_MESSAGES, VALIDATION_DATA,
 	},
-	GenericUpwardMessage, ValidationData,
+	UpwardMessage, ValidationData,
 };
 use sp_externalities::{set_and_run_with_externalities};
 use sp_externalities::{Externalities, ExtensionStore, Error, Extension};
@@ -148,7 +148,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	// Extract potential upward messages from the storage.
 	let upward_messages = match overlay.storage(UPWARD_MESSAGES).flatten() {
-		Some(encoded) => Vec::<GenericUpwardMessage>::decode(&mut &encoded[..])
+		Some(encoded) => Vec::<UpwardMessage>::decode(&mut &encoded[..])
 			.expect("Upward messages vec is not correctly encoded in the storage!"),
 		None => Vec::new(),
 	};

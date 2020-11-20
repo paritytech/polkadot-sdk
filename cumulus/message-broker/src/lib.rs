@@ -21,21 +21,31 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::prelude::*;
+use frame_support::{
+	decl_module, decl_storage, storage,
+	weights::{DispatchClass, Weight},
+	traits::Get,
+	StorageValue,
+};
 use frame_system::ensure_none;
-use frame_support::{decl_module, storage, weights::DispatchClass};
 use sp_inherents::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent};
+use sp_std::{prelude::*, cmp};
 
 use cumulus_primitives::{
 	inherents::{DownwardMessagesType, DOWNWARD_MESSAGES_IDENTIFIER},
-	well_known_keys,
-	DownwardMessageHandler, InboundDownwardMessage,
+	well_known_keys, DownwardMessageHandler, InboundDownwardMessage, UpwardMessage,
 };
 
 /// Configuration trait of the message broker pallet.
 pub trait Trait: frame_system::Trait {
 	/// The downward message handlers that will be informed when a message is received.
 	type DownwardMessageHandlers: DownwardMessageHandler;
+}
+
+decl_storage! {
+	trait Store for Module<T: Trait> as MessageBroker {
+		PendingUpwardMessages: Vec<UpwardMessage>;
+	}
 }
 
 decl_module! {
@@ -58,6 +68,40 @@ decl_module! {
 				&messages_len,
 			);
 		}
+
+		fn on_initialize() -> Weight {
+			// Reads and writes performed by `on_finalize`.
+			T::DbWeight::get().reads_writes(1, 2)
+		}
+
+		fn on_finalize() {
+			// TODO: this should be not a constant, but sourced from the relay-chain configuration.
+			const UMP_MSG_NUM_PER_CANDIDATE: usize = 5;
+
+			<Self as Store>::PendingUpwardMessages::mutate(|up| {
+				let num = cmp::min(UMP_MSG_NUM_PER_CANDIDATE, up.len());
+				storage::unhashed::put(
+					well_known_keys::UPWARD_MESSAGES,
+					&up[0..num],
+				);
+				*up = up.split_off(num);
+			});
+		}
+	}
+}
+
+/// An error that can be raised upon sending an upward message.
+pub enum SendUpErr {
+	/// The message sent is too big.
+	TooBig,
+}
+
+impl<T: Trait> Module<T> {
+	pub fn send_upward_message(message: UpwardMessage) -> Result<(), SendUpErr> {
+		// TODO: check the message against the limit. The limit should be sourced from the
+		// relay-chain configuration.
+		<Self as Store>::PendingUpwardMessages::append(message);
+		Ok(())
 	}
 }
 
