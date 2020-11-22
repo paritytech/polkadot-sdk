@@ -1218,6 +1218,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-service",
+ "sc-cli",
  "sc-client-api",
  "sc-service",
  "sp-api",

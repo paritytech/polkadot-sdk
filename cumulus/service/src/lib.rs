@@ -292,6 +292,7 @@ pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration
 }
 
 /// Build the Polkadot full node using the given `config`.
+#[sc_cli::prefix_logs_with("Relaychain")]
 pub fn build_polkadot_full_node(
 	config: Configuration,
 	collator_id: CollatorId,
