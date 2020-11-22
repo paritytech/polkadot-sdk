@@ -23,13 +23,13 @@
 
 use frame_support::{
 	decl_module, decl_storage, storage,
-	weights::{DispatchClass, Weight},
 	traits::Get,
+	weights::{DispatchClass, Weight},
 	StorageValue,
 };
 use frame_system::ensure_none;
 use sp_inherents::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent};
-use sp_std::{prelude::*, cmp};
+use sp_std::{cmp, prelude::*};
 
 use cumulus_primitives::{
 	inherents::{DownwardMessagesType, DOWNWARD_MESSAGES_IDENTIFIER},

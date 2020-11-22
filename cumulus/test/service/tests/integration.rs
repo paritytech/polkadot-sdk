@@ -27,7 +27,8 @@ async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExe
 	let para_id = ParaId::from(100);
 
 	// start alice
-	let alice = polkadot_test_service::run_validator_node(task_executor.clone(), Alice, || {}, vec![]);
+	let alice =
+		polkadot_test_service::run_validator_node(task_executor.clone(), Alice, || {}, vec![]);
 
 	// start bob
 	let bob = polkadot_test_service::run_validator_node(

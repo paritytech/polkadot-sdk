@@ -131,6 +131,7 @@ where
 		polkadot_full_node.client.clone(),
 		id,
 		Box::new(polkadot_full_node.network.clone()),
+		polkadot_full_node.backend.clone(),
 	);
 
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();

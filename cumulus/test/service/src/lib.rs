@@ -22,6 +22,7 @@ mod chain_spec;
 mod genesis;
 
 pub use chain_spec::*;
+pub use cumulus_test_runtime as runtime;
 pub use genesis::*;
 
 use core::future::Future;
@@ -164,6 +165,8 @@ where
 		polkadot_full_node.client.clone(),
 		para_id,
 		Box::new(polkadot_full_node.network.clone()),
+		polkadot_full_node.backend.clone(),
+		polkadot_full_node.client.clone(),
 	);
 	let block_announce_validator_builder = move |_| Box::new(block_announce_validator) as Box<_>;
 

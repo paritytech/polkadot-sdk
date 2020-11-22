@@ -62,5 +62,4 @@ test-linux-stable:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo test --all --release --locked
-    - time cargo test --release -- --ignored integration_test
     - sccache -s

@@ -21,7 +21,7 @@ use cumulus_test_runtime::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{sr25519, ChangesTrieConfiguration, Pair, Public};
+use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
@@ -67,7 +67,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		"Local Testnet",
 		"local_testnet",
 		ChainType::Local,
-		move || local_testnet_genesis(None),
+		move || local_testnet_genesis(),
 		vec![],
 		None,
 		None,
@@ -80,9 +80,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 }
 
 /// Local testnet genesis for testing.
-pub fn local_testnet_genesis(
-	changes_trie_config: Option<ChangesTrieConfiguration>,
-) -> cumulus_test_runtime::GenesisConfig {
+pub fn local_testnet_genesis() -> cumulus_test_runtime::GenesisConfig {
 	testnet_genesis(
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		vec![
@@ -99,21 +97,19 @@ pub fn local_testnet_genesis(
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
-		changes_trie_config,
 	)
 }
 
 fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-	changes_trie_config: Option<ChangesTrieConfiguration>,
 ) -> cumulus_test_runtime::GenesisConfig {
 	cumulus_test_runtime::GenesisConfig {
 		frame_system: Some(cumulus_test_runtime::SystemConfig {
 			code: cumulus_test_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
-			changes_trie_config,
+			..Default::default()
 		}),
 		pallet_balances: Some(cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts

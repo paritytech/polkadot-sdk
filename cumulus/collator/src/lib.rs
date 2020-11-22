@@ -41,8 +41,8 @@ use polkadot_node_primitives::{Collation, CollationGenerationConfig};
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::OverseerHandler;
 use polkadot_primitives::v1::{
-	Block as PBlock, BlockData, CollatorPair, Hash as PHash, HeadData, Id as ParaId, PoV,
-	UpwardMessage, BlockNumber as PBlockNumber,
+	Block as PBlock, BlockData, BlockNumber as PBlockNumber, CollatorPair, Hash as PHash, HeadData,
+	Id as ParaId, PoV, UpwardMessage,
 };
 use polkadot_service::RuntimeApiCollection;
 
@@ -299,7 +299,7 @@ where
 
 		info!(
 			target: "cumulus-collator",
-			"Starting collation for relay parent `{}` on parent `{}`.",
+			"Starting collation for relay parent {:?} on parent {:?}.",
 			relay_parent,
 			last_head_hash,
 		);
@@ -380,14 +380,20 @@ where
 			return None;
 		}
 
-		let collation = self.build_collation(b, block_hash, validation_data.persisted.block_number)?;
+		let collation =
+			self.build_collation(b, block_hash, validation_data.persisted.block_number)?;
 		let pov_hash = collation.proof_of_validity.hash();
 
 		self.wait_to_announce
 			.lock()
 			.wait_to_announce(block_hash, pov_hash);
 
-		info!(target: "cumulus-collator", "Produced proof-of-validity candidate `{:?}` from block `{:?}`.", pov_hash, block_hash);
+		info!(
+			target: "cumulus-collator",
+			"Produced proof-of-validity candidate {:?} from block {:?}.",
+			pov_hash,
+			block_hash,
+		);
 
 		Some(collation)
 	}
@@ -461,7 +467,8 @@ where
 	let retrieve_dmq_contents = {
 		let polkadot_client = polkadot_client.clone();
 		move |relay_parent: PHash| {
-			polkadot_client.runtime_api()
+			polkadot_client
+				.runtime_api()
 				.dmq_contents_with_context(
 					&BlockId::hash(relay_parent),
 					sp_core::ExecutionContext::Importing,
@@ -535,8 +542,8 @@ mod tests {
 	use sp_runtime::traits::DigestFor;
 
 	use cumulus_test_client::{
-		generate_block_inherents, Client, DefaultTestClientBuilderExt,
-		TestClientBuilder, TestClientBuilderExt,
+		generate_block_inherents, Client, DefaultTestClientBuilderExt, TestClientBuilder,
+		TestClientBuilderExt,
 	};
 	use cumulus_test_runtime::{Block, Header};
 
@@ -634,14 +641,16 @@ mod tests {
 		let (polkadot_client, relay_parent) = {
 			// Create a polkadot client with a block imported.
 			use polkadot_test_client::{
-				TestClientBuilderExt as _, DefaultTestClientBuilderExt as _,
-				InitPolkadotBlockBuilder as _, ClientBlockImportExt as _
+				ClientBlockImportExt as _, DefaultTestClientBuilderExt as _,
+				InitPolkadotBlockBuilder as _, TestClientBuilderExt as _,
 			};
 			let mut client = polkadot_test_client::TestClientBuilder::new().build();
 			let block_builder = client.init_polkadot_block_builder();
 			let block = block_builder.build().expect("Finalizes the block").block;
 			let hash = block.header().hash();
-			client.import_as_best(BlockOrigin::Own, block).expect("Imports the block");
+			client
+				.import_as_best(BlockOrigin::Own, block)
+				.expect("Imports the block");
 			(client, hash)
 		};
 
@@ -659,7 +668,7 @@ mod tests {
 					spawner,
 					para_id,
 					key: CollatorPair::generate().0,
-					polkadot_client: Arc::new(polkadot_client,),
+					polkadot_client: Arc::new(polkadot_client),
 				},
 			);
 		block_on(collator_start).expect("Should start collator");

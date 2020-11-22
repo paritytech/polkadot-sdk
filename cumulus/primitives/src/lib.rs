@@ -20,8 +20,7 @@
 
 pub use polkadot_core_primitives as relay_chain;
 pub use polkadot_core_primitives::InboundDownwardMessage;
-pub use polkadot_parachain::primitives::UpwardMessage;
-pub use polkadot_parachain::primitives::{Id as ParaId, ValidationParams};
+pub use polkadot_parachain::primitives::{Id as ParaId, UpwardMessage, ValidationParams};
 pub use polkadot_primitives::v1::{
 	PersistedValidationData, TransientValidationData, ValidationData,
 };

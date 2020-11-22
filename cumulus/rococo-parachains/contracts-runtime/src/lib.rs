@@ -22,13 +22,15 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use sp_api::{decl_runtime_apis, impl_runtime_apis};
+use cumulus_pallet_contracts_rpc_runtime_api::ContractExecResult;
+use rococo_parachain_primitives::*;
+use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Saturating, Verify},
+	traits::{BlakeTwo256, Block as BlockT, IdentityLookup, Saturating},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -56,16 +58,16 @@ impl_opaque_keys! {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("cumulus-test-parachain"),
-	impl_name: create_runtime_str!("cumulus-test-parachain"),
+	spec_name: create_runtime_str!("cumulus-contracts-parachain"),
+	impl_name: create_runtime_str!("cumulus-contracts-parachain"),
 	authoring_version: 1,
-	spec_version: 3,
+	spec_version: 4,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 1000;
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
@@ -78,6 +80,12 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+
+#[derive(codec::Encode, codec::Decode)]
+pub enum XCMPMessage<XAccountId, XBalance> {
+	/// Transfer tokens to the given account from the Parachain account.
+	TransferToken(XAccountId, XBalance),
+}
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -171,11 +179,11 @@ impl pallet_balances::Trait for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type MaxLocks = ();
 }
 
 impl pallet_transaction_payment::Trait for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type Currency = Balances;
+	type OnTransactionPayment = ();
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
@@ -188,44 +196,75 @@ impl pallet_sudo::Trait for Runtime {
 
 impl cumulus_parachain_upgrade::Trait for Runtime {
 	type Event = Event;
-	type OnValidationData = ();
+	type OnValidationFunctionParams = ();
 }
 
+impl cumulus_message_broker::Trait for Runtime {
+	type Event = Event;
+	type DownwardMessageHandlers = TokenDealer;
+	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
+	type ParachainId = ParachainInfo;
+	type XCMPMessage = cumulus_token_dealer::XCMPMessage<AccountId, Balance>;
+	type XCMPMessageHandlers = TokenDealer;
+}
+
+impl cumulus_token_dealer::Trait for Runtime {
+	type Event = Event;
+	type UpwardMessageSender = MessageBroker;
+	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
+	type Currency = Balances;
+	type XCMPMessageSender = MessageBroker;
+}
+
+impl parachain_info::Trait for Runtime {}
+
+// We disable the rent system for easier testing.
 parameter_types! {
-	pub storage ParachainId: cumulus_primitives::ParaId = 100.into();
+	pub const TombstoneDeposit: Balance = 0;
+	pub const RentByteFee: Balance = 0;
+	pub const RentDepositOffset: Balance = 0;
+	pub const SurchargeReward: Balance = 0;
+}
+
+impl cumulus_pallet_contracts::Trait for Runtime {
+	type Time = Timestamp;
+	type Randomness = RandomnessCollectiveFlip;
+	type Currency = Balances;
+	type Call = Call;
+	type Event = Event;
+	type DetermineContractAddress = cumulus_pallet_contracts::SimpleAddressDeterminer<Runtime>;
+	type TrieIdGenerator = cumulus_pallet_contracts::TrieIdFromParentCounter<Runtime>;
+	type RentPayment = ();
+	type SignedClaimHandicap = cumulus_pallet_contracts::DefaultSignedClaimHandicap;
+	type TombstoneDeposit = TombstoneDeposit;
+	type StorageSizeOffset = cumulus_pallet_contracts::DefaultStorageSizeOffset;
+	type RentByteFee = RentByteFee;
+	type RentDepositOffset = RentDepositOffset;
+	type SurchargeReward = SurchargeReward;
+	type MaxDepth = cumulus_pallet_contracts::DefaultMaxDepth;
+	type MaxValueSize = cumulus_pallet_contracts::DefaultMaxValueSize;
+	type WeightPrice = pallet_transaction_payment::Module<Self>;
 }
 
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
-		NodeBlock = NodeBlock,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		NodeBlock = rococo_parachain_primitives::Block,
+		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		System: frame_system::{Module, Call, Storage, Config, Event<T>},
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+		Contracts: cumulus_pallet_contracts::{Module, Call, Config, Storage, Event<T>},
 		Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		ParachainUpgrade: cumulus_parachain_upgrade::{Module, Call, Storage, Inherent, Event},
+		MessageBroker: cumulus_message_broker::{Module, Call, Inherent, Event<T>},
+		TokenDealer: cumulus_token_dealer::{Module, Call, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
+		ParachainInfo: parachain_info::{Module, Storage, Config},
 	}
 }
-
-/// Index of a transaction in the chain.
-pub type Index = u32;
-/// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
-/// Balance of an account.
-pub type Balance = u128;
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-/// An index to a block.
-pub type BlockNumber = u32;
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-/// Opaque block type.
-pub type NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
 
 /// The address format for describing accounts.
 pub type Address = AccountId;
@@ -258,15 +297,6 @@ pub type Executive = frame_executive::Executive<
 	Runtime,
 	AllModules,
 >;
-/// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
-
-decl_runtime_apis! {
-	pub trait GetLastTimestamp {
-		/// Returns the last timestamp of a runtime.
-		fn get_last_timestamp() -> u64;
-	}
-}
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -340,9 +370,39 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl crate::GetLastTimestamp<Block> for Runtime {
-		fn get_last_timestamp() -> u64 {
-			Timestamp::now()
+	impl cumulus_pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
+		for Runtime
+	{
+		fn call(
+			origin: AccountId,
+			dest: AccountId,
+			value: Balance,
+			gas_limit: u64,
+			input_data: Vec<u8>,
+		) -> ContractExecResult {
+			let (exec_result, gas_consumed) =
+				Contracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
+			match exec_result {
+				Ok(v) => ContractExecResult::Success {
+					flags: v.status.into(),
+					data: v.data,
+					gas_consumed: gas_consumed,
+				},
+				Err(_) => ContractExecResult::Error,
+			}
+		}
+
+		fn get_storage(
+			address: AccountId,
+			key: [u8; 32],
+		) -> cumulus_pallet_contracts_primitives::GetStorageResult {
+			Contracts::get_storage(address, key)
+		}
+
+		fn rent_projection(
+			address: AccountId,
+		) -> cumulus_pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
+			Contracts::rent_projection(address)
 		}
 	}
 }

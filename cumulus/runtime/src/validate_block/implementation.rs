@@ -17,7 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use frame_executive::ExecuteBlock;
-use sp_runtime::traits::{Block as BlockT, HashFor, NumberFor, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT, NumberFor};
 
 use sp_std::{boxed::Box, vec::Vec};
 
@@ -33,11 +33,12 @@ use cumulus_primitives::{
 	},
 	UpwardMessage, ValidationData,
 };
-use sp_externalities::{set_and_run_with_externalities};
-use sp_externalities::{Externalities, ExtensionStore, Error, Extension};
-use sp_trie::MemoryDB;
-use sp_std::{any::{TypeId, Any}};
 use sp_core::storage::{ChildInfo, TrackedStorageKey};
+use sp_externalities::{
+	set_and_run_with_externalities, Error, Extension, ExtensionStore, Externalities,
+};
+use sp_std::any::{Any, TypeId};
+use sp_trie::MemoryDB;
 
 type StorageValue = Vec<u8>;
 type StorageKey = Vec<u8>;
@@ -50,8 +51,7 @@ type Ext<'a, B: BlockT> = sp_state_machine::Ext<
 >;
 
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
-	sp_externalities::with_externalities(f)
-		.expect("Environmental externalities not set.")
+	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
 
 /// Implement `Encode` by forwarding the stored raw vec.
@@ -85,10 +85,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	if !HashDB::<HashFor<B>, _>::contains(&db, &root, EMPTY_PREFIX) {
 		panic!("Witness data does not contain given storage root.");
 	}
-	let backend = sp_state_machine::TrieBackend::new(
-		db,
-		root,
-	);
+	let backend = sp_state_machine::TrieBackend::new(db, root);
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
 	let mut cache = Default::default();
 	let mut ext = WitnessExt::<B> {
@@ -109,30 +106,30 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 			sp_io::storage::host_changes_root.replace_implementation(host_storage_changes_root),
 			sp_io::storage::host_append.replace_implementation(host_storage_append),
 			sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
-			sp_io::storage::host_start_transaction.replace_implementation(host_storage_start_transaction),
-			sp_io::storage::host_rollback_transaction.replace_implementation(
-				host_storage_rollback_transaction
-			),
-			sp_io::storage::host_commit_transaction.replace_implementation(
-				host_storage_commit_transaction
-			),
-			sp_io::default_child_storage::host_get.replace_implementation(host_default_child_storage_get),
-			sp_io::default_child_storage::host_read.replace_implementation(host_default_child_storage_read),
-			sp_io::default_child_storage::host_set.replace_implementation(host_default_child_storage_set),
-			sp_io::default_child_storage::host_clear.replace_implementation(
-				host_default_child_storage_clear
-			),
-			sp_io::default_child_storage::host_storage_kill.replace_implementation(
-				host_default_child_storage_storage_kill
-			),
-			sp_io::default_child_storage::host_exists.replace_implementation(
-				host_default_child_storage_exists
-			),
-			sp_io::default_child_storage::host_clear_prefix.replace_implementation(
-				host_default_child_storage_clear_prefix
-			),
-			sp_io::default_child_storage::host_root.replace_implementation(host_default_child_storage_root),
-			sp_io::default_child_storage::host_next_key.replace_implementation(host_default_child_storage_next_key),
+			sp_io::storage::host_start_transaction
+				.replace_implementation(host_storage_start_transaction),
+			sp_io::storage::host_rollback_transaction
+				.replace_implementation(host_storage_rollback_transaction),
+			sp_io::storage::host_commit_transaction
+				.replace_implementation(host_storage_commit_transaction),
+			sp_io::default_child_storage::host_get
+				.replace_implementation(host_default_child_storage_get),
+			sp_io::default_child_storage::host_read
+				.replace_implementation(host_default_child_storage_read),
+			sp_io::default_child_storage::host_set
+				.replace_implementation(host_default_child_storage_set),
+			sp_io::default_child_storage::host_clear
+				.replace_implementation(host_default_child_storage_clear),
+			sp_io::default_child_storage::host_storage_kill
+				.replace_implementation(host_default_child_storage_storage_kill),
+			sp_io::default_child_storage::host_exists
+				.replace_implementation(host_default_child_storage_exists),
+			sp_io::default_child_storage::host_clear_prefix
+				.replace_implementation(host_default_child_storage_clear_prefix),
+			sp_io::default_child_storage::host_root
+				.replace_implementation(host_default_child_storage_root),
+			sp_io::default_child_storage::host_next_key
+				.replace_implementation(host_default_child_storage_next_key),
 		)
 	};
 
@@ -142,7 +139,9 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 
 	// If in the course of block execution new validation code was set, insert
 	// its scheduled upgrade so we can validate that block number later.
-	let new_validation_code = overlay.storage(NEW_VALIDATION_CODE).flatten()
+	let new_validation_code = overlay
+		.storage(NEW_VALIDATION_CODE)
+		.flatten()
 		.map(|slice| slice.to_vec())
 		.map(ValidationCode);
 
@@ -153,17 +152,20 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		None => Vec::new(),
 	};
 
-	let processed_downward_messages = overlay.storage(PROCESSED_DOWNWARD_MESSAGES)
+	let processed_downward_messages = overlay
+		.storage(PROCESSED_DOWNWARD_MESSAGES)
 		.flatten()
-		.map(|v|
+		.map(|v| {
 			Decode::decode(&mut &v[..])
 				.expect("Processed downward message count is not correctly encoded in the storage")
-		)
+		})
 		.unwrap_or_default();
 
-	let validation_data: ValidationData = overlay.storage(VALIDATION_DATA).flatten()
-			.and_then(|v| Decode::decode(&mut &v[..]).ok())
-			.expect("`ValidationData` is required to be placed into the storage!");
+	let validation_data: ValidationData = overlay
+		.storage(VALIDATION_DATA)
+		.flatten()
+		.and_then(|v| Decode::decode(&mut &v[..]).ok())
+		.expect("`ValidationData` is required to be placed into the storage!");
 
 	ValidationResult {
 		head_data,
@@ -220,19 +222,11 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.storage_hash(key)
 	}
 
-	fn child_storage(
-		&self,
-		child_info: &ChildInfo,
-		key: &[u8],
-	) -> Option<StorageValue> {
+	fn child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
 		self.inner.child_storage(child_info, key)
 	}
 
-	fn child_storage_hash(
-		&self,
-		child_info: &ChildInfo,
-		key: &[u8],
-	) -> Option<Vec<u8>> {
+	fn child_storage_hash(&self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
 		self.inner.child_storage_hash(child_info, key)
 	}
 
@@ -240,11 +234,7 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.exists_storage(key)
 	}
 
-	fn exists_child_storage(
-		&self,
-		child_info: &ChildInfo,
-		key: &[u8],
-	) -> bool {
+	fn exists_child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> bool {
 		self.inner.exists_child_storage(child_info, key)
 	}
 
@@ -252,11 +242,7 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.next_storage_key(key)
 	}
 
-	fn next_child_storage_key(
-		&self,
-		child_info: &ChildInfo,
-		key: &[u8],
-	) -> Option<StorageKey> {
+	fn next_child_storage_key(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
 		self.inner.next_child_storage_key(child_info, key)
 	}
 
@@ -279,10 +265,7 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.place_child_storage(child_info, key, value)
 	}
 
-	fn kill_child_storage(
-		&mut self,
-		child_info: &ChildInfo,
-	) {
+	fn kill_child_storage(&mut self, child_info: &ChildInfo) {
 		self.inner.kill_child_storage(child_info)
 	}
 
@@ -290,19 +273,11 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.clear_prefix(prefix)
 	}
 
-	fn clear_child_prefix(
-		&mut self,
-		child_info: &ChildInfo,
-		prefix: &[u8],
-	) {
+	fn clear_child_prefix(&mut self, child_info: &ChildInfo, prefix: &[u8]) {
 		self.inner.clear_child_prefix(child_info, prefix)
 	}
 
-	fn storage_append(
-		&mut self,
-		key: Vec<u8>,
-		value: Vec<u8>,
-	) {
+	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>) {
 		self.inner.storage_append(key, value)
 	}
 
@@ -314,10 +289,7 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.storage_root()
 	}
 
-	fn child_storage_root(
-		&mut self,
-		child_info: &ChildInfo,
-	) -> Vec<u8> {
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
 		self.inner.child_storage_root(child_info)
 	}
 
@@ -372,13 +344,11 @@ impl<'a, B: BlockT> ExtensionStore for WitnessExt<'a, B> {
 		type_id: TypeId,
 		extension: Box<dyn Extension>,
 	) -> Result<(), Error> {
-		self.inner.register_extension_with_type_id(type_id, extension)
+		self.inner
+			.register_extension_with_type_id(type_id, extension)
 	}
 
-	fn deregister_extension_by_type_id(
-		&mut self,
-		type_id: TypeId,
-	) -> Result<(), Error> {
+	fn deregister_extension_by_type_id(&mut self, type_id: TypeId) -> Result<(), Error> {
 		self.inner.deregister_extension_by_type_id(type_id)
 	}
 }
@@ -470,57 +440,39 @@ fn host_default_child_storage_read(
 	}
 }
 
-fn host_default_child_storage_set(
-	storage_key: &[u8],
-	key: &[u8],
-	value: &[u8],
-) {
+fn host_default_child_storage_set(storage_key: &[u8], key: &[u8], value: &[u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.place_child_storage(&child_info, key.to_vec(), Some(value.to_vec())))
+	with_externalities(|ext| {
+		ext.place_child_storage(&child_info, key.to_vec(), Some(value.to_vec()))
+	})
 }
 
-fn host_default_child_storage_clear(
-	storage_key: &[u8],
-	key: &[u8],
-) {
+fn host_default_child_storage_clear(storage_key: &[u8], key: &[u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.place_child_storage(&child_info, key.to_vec(), None))
 }
 
-fn host_default_child_storage_storage_kill(
-	storage_key: &[u8],
-) {
+fn host_default_child_storage_storage_kill(storage_key: &[u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.kill_child_storage(&child_info))
 }
 
-fn host_default_child_storage_exists(
-	storage_key: &[u8],
-	key: &[u8],
-) -> bool {
+fn host_default_child_storage_exists(storage_key: &[u8], key: &[u8]) -> bool {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.exists_child_storage(&child_info, key))
 }
 
-fn host_default_child_storage_clear_prefix(
-	storage_key: &[u8],
-	prefix: &[u8],
-) {
+fn host_default_child_storage_clear_prefix(storage_key: &[u8], prefix: &[u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.clear_child_prefix(&child_info, prefix))
 }
 
-fn host_default_child_storage_root(
-	storage_key: &[u8],
-) -> Vec<u8> {
+fn host_default_child_storage_root(storage_key: &[u8]) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.child_storage_root(&child_info))
 }
 
-fn host_default_child_storage_next_key(
-	storage_key: &[u8],
-	key: &[u8],
-) -> Option<Vec<u8>> {
+fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.next_child_storage_key(&child_info, key))
 }
