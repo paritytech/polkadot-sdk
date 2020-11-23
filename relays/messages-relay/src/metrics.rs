@@ -64,7 +64,7 @@ impl MessageLaneLoopMetrics {
 			.set(source_client_state.best_self.0.into());
 		self.best_block_numbers
 			.with_label_values(&["target_at_source"])
-			.set(source_client_state.best_peer.0.into());
+			.set(source_client_state.best_finalized_peer_at_best_self.0.into());
 	}
 
 	/// Update target client state metrics.
@@ -74,7 +74,7 @@ impl MessageLaneLoopMetrics {
 			.set(target_client_state.best_self.0.into());
 		self.best_block_numbers
 			.with_label_values(&["source_at_target"])
-			.set(target_client_state.best_peer.0.into());
+			.set(target_client_state.best_finalized_peer_at_best_self.0.into());
 	}
 
 	/// Update latest generated nonce at source.
