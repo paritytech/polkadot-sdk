@@ -17,8 +17,8 @@
 //! Rialto-to-Millau headers sync entrypoint.
 
 use crate::{
-	headers_pipeline::SubstrateHeadersToSubstrate, headers_target::SubstrateHeadersSyncPipeline, MillauClient,
-	RialtoClient,
+	headers_pipeline::{SubstrateHeadersSyncPipeline, SubstrateHeadersToSubstrate},
+	MillauClient, RialtoClient,
 };
 
 use async_trait::async_trait;
