@@ -207,7 +207,7 @@ pub fn run<P: MessageLane>(
 		let metrics_enabled = metrics_params.is_some();
 		metrics_start(
 			format!(
-				"{}_to_{}_MessageLoop/{}",
+				"{}_to_{}_MessageLane_{}",
 				P::SOURCE_NAME,
 				P::TARGET_NAME,
 				hex::encode(params.lane)
