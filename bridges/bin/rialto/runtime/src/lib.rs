@@ -704,8 +704,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	// TODO: runtime should support several chains (https://github.com/paritytech/parity-bridges-common/issues/457)
-	impl bp_message_lane::OutboundLaneApi<Block> for Runtime {
+	impl bp_millau::ToMillauOutboundLaneApi<Block> for Runtime {
 		fn messages_dispatch_weight(
 			lane: bp_message_lane::LaneId,
 			begin: bp_message_lane::MessageNonce,
@@ -730,8 +729,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	// TODO: runtime should support several chains (https://github.com/paritytech/parity-bridges-common/issues/457)
-	impl bp_message_lane::InboundLaneApi<Block> for Runtime {
+	impl bp_millau::FromMillauInboundLaneApi<Block> for Runtime {
 		fn latest_received_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
 			BridgeMillauMessageLane::inbound_latest_received_nonce(lane)
 		}
