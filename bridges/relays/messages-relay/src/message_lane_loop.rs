@@ -169,8 +169,10 @@ pub trait TargetClient<P: MessageLane>: Clone + Send + Sync {
 pub struct ClientState<SelfHeaderId, PeerHeaderId> {
 	/// Best header id of this chain.
 	pub best_self: SelfHeaderId,
-	/// Best header id of the peer chain.
-	pub best_peer: PeerHeaderId,
+	/// Best finalized header id of this chain.
+	pub best_finalized_self: SelfHeaderId,
+	/// Best finalized header id of the peer chain read at the best block of this chain (at `best_finalized_self`).
+	pub best_finalized_peer_at_best_self: PeerHeaderId,
 }
 
 /// State of source client in one-way message lane.
@@ -746,12 +748,14 @@ pub(crate) mod tests {
 				is_source_fails: true,
 				source_state: ClientState {
 					best_self: HeaderId(0, 0),
-					best_peer: HeaderId(0, 0),
+					best_finalized_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
 				},
 				source_latest_generated_nonce: 1,
 				target_state: ClientState {
 					best_self: HeaderId(0, 0),
-					best_peer: HeaderId(0, 0),
+					best_finalized_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
 				},
 				target_latest_received_nonce: 0,
 				..Default::default()
@@ -766,9 +770,11 @@ pub(crate) mod tests {
 				if data.is_target_reconnected {
 					data.is_target_fails = false;
 				}
-				if data.target_state.best_peer.0 < 10 {
-					data.target_state.best_peer =
-						HeaderId(data.target_state.best_peer.0 + 1, data.target_state.best_peer.0 + 1);
+				if data.target_state.best_finalized_peer_at_best_self.0 < 10 {
+					data.target_state.best_finalized_peer_at_best_self = HeaderId(
+						data.target_state.best_finalized_peer_at_best_self.0 + 1,
+						data.target_state.best_finalized_peer_at_best_self.0 + 1,
+					);
 				}
 				if !data.submitted_messages_proofs.is_empty() {
 					exit_sender.unbounded_send(()).unwrap();
@@ -787,12 +793,14 @@ pub(crate) mod tests {
 			TestClientData {
 				source_state: ClientState {
 					best_self: HeaderId(10, 10),
-					best_peer: HeaderId(0, 0),
+					best_finalized_self: HeaderId(10, 10),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
 				},
 				source_latest_generated_nonce: 10,
 				target_state: ClientState {
 					best_self: HeaderId(0, 0),
-					best_peer: HeaderId(0, 0),
+					best_finalized_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
 				},
 				target_latest_received_nonce: 0,
 				..Default::default()
@@ -800,12 +808,12 @@ pub(crate) mod tests {
 			Arc::new(|_: &mut TestClientData| {}),
 			Arc::new(move |data: &mut TestClientData| {
 				// syncing source headers -> target chain (all at once)
-				if data.target_state.best_peer.0 < data.source_state.best_self.0 {
-					data.target_state.best_peer = data.source_state.best_self;
+				if data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_finalized_self.0 {
+					data.target_state.best_finalized_peer_at_best_self = data.source_state.best_finalized_self;
 				}
-				// syncing target headers -> source chain (all at once)
-				if data.source_state.best_peer.0 < data.target_state.best_self.0 {
-					data.source_state.best_peer = data.target_state.best_self;
+				// syncing source headers -> target chain (all at once)
+				if data.source_state.best_finalized_peer_at_best_self.0 < data.target_state.best_finalized_self.0 {
+					data.source_state.best_finalized_peer_at_best_self = data.target_state.best_finalized_self;
 				}
 				// if target has received messages batch => increase blocks so that confirmations may be sent
 				if data.target_latest_received_nonce == 4
@@ -814,8 +822,10 @@ pub(crate) mod tests {
 				{
 					data.target_state.best_self =
 						HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.0 + 1);
+					data.target_state.best_finalized_self = data.target_state.best_self;
 					data.source_state.best_self =
 						HeaderId(data.source_state.best_self.0 + 1, data.source_state.best_self.0 + 1);
+					data.source_state.best_finalized_self = data.source_state.best_self;
 				}
 				// if source has received all messages receiving confirmations => increase source block so that confirmations may be sent
 				if data.source_latest_confirmed_received_nonce == 10 {
