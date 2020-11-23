@@ -269,7 +269,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 						strategy.source_nonces_updated(at_block, nonces);
 					},
 					&mut source_go_offline_future,
-					|delay| async_std::task::sleep(delay),
+					async_std::task::sleep,
 					|| format!("Error retrieving nonces from {}", P::source_name()),
 				).fail_if_connection_error(FailedClient::Source)?;
 			},
@@ -290,7 +290,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 						strategy.target_nonces_updated(nonces, &mut race_state);
 					},
 					&mut target_go_offline_future,
-					|delay| async_std::task::sleep(delay),
+					async_std::task::sleep,
 					|| format!("Error retrieving nonces from {}", P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
@@ -311,7 +311,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 						race_state.nonces_to_submit = Some((at_block, nonces_range, proof));
 					},
 					&mut source_go_offline_future,
-					|delay| async_std::task::sleep(delay),
+					async_std::task::sleep,
 					|| format!("Error generating proof at {}", P::source_name()),
 				).fail_if_connection_error(FailedClient::Source)?;
 			},
@@ -331,7 +331,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 						race_state.nonces_submitted = Some(nonces_range);
 					},
 					&mut target_go_offline_future,
-					|delay| async_std::task::sleep(delay),
+					async_std::task::sleep,
 					|| format!("Error submitting proof {}", P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)?;
 			}
