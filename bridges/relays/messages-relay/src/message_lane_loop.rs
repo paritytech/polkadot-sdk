@@ -374,7 +374,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut source_go_offline_future,
-					|delay| async_std::task::sleep(delay),
+					async_std::task::sleep,
 					|| format!("Error retrieving state from {} node", P::SOURCE_NAME),
 				).fail_if_connection_error(FailedClient::Source)?;
 			},
@@ -405,7 +405,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut target_go_offline_future,
-					|delay| async_std::task::sleep(delay),
+					async_std::task::sleep,
 					|| format!("Error retrieving state from {} node", P::TARGET_NAME),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
