@@ -522,13 +522,13 @@ where
 
 	overseer_handler
 		.send_msg(CollationGenerationMessage::Initialize(config))
-		.await
-		.map_err(|e| format!("Failed to send `Initialize` message: {:?}", e))?;
+		.await;
 
 	overseer_handler
 		.send_msg(CollatorProtocolMessage::CollateOn(para_id))
-		.await
-		.map_err(|e| format!("Failed to send `CollateOn` message: {:?}", e))
+		.await;
+
+	Ok(())
 }
 
 #[cfg(test)]

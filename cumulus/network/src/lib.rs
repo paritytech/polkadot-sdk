@@ -52,7 +52,7 @@ use futures::{
 	future::{ready, FutureExt},
 	pin_mut, select, Future, StreamExt,
 };
-use log::{trace, warn};
+use log::trace;
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
@@ -467,19 +467,11 @@ async fn wait_to_announce<Block: BlockT>(
 	mut overseer_handler: OverseerHandler,
 ) {
 	let (sender, mut receiver) = mpsc::channel(5);
-	if overseer_handler
+	overseer_handler
 		.send_msg(StatementDistributionMessage::RegisterStatementListener(
 			sender,
 		))
-		.await
-		.is_err()
-	{
-		warn!(
-			target: "cumulus-network",
-			"Failed to register the statement listener!",
-		);
-		return;
-	}
+		.await;
 
 	while let Some(statement) = receiver.next().await {
 		match &statement.payload() {
