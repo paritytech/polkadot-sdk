@@ -168,10 +168,13 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof> {
 /// State of the race.
 #[derive(Debug)]
 pub struct RaceState<SourceHeaderId, TargetHeaderId, Proof> {
-	/// Source state, if known.
-	pub source_state: Option<ClientState<SourceHeaderId, TargetHeaderId>>,
-	/// Target state, if known.
-	pub target_state: Option<ClientState<TargetHeaderId, SourceHeaderId>>,
+	/// Best finalized source header id at the source client.
+	pub best_finalized_source_header_id_at_source: Option<SourceHeaderId>,
+	/// Best finalized source header id at the best block on the target
+	/// client (at the `best_finalized_source_header_id_at_best_target`).
+	pub best_finalized_source_header_id_at_best_target: Option<SourceHeaderId>,
+	/// Best header id at the target client.
+	pub best_target_header_id: Option<TargetHeaderId>,
 	/// Range of nonces that we have selected to submit.
 	pub nonces_to_submit: Option<(SourceHeaderId, RangeInclusive<MessageNonce>, Proof)>,
 	/// Range of nonces that is currently submitted.
@@ -227,17 +230,23 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 			// when headers ids are updated
 			source_state = race_source_updated.next() => {
 				if let Some(source_state) = source_state {
-					if race_state.source_state.as_ref() != Some(&source_state) {
+					let is_source_state_updated = race_state.best_finalized_source_header_id_at_source.as_ref()
+						!= Some(&source_state.best_finalized_self);
+					if is_source_state_updated {
 						source_nonces_required = true;
-						race_state.source_state = Some(source_state);
+						race_state.best_finalized_source_header_id_at_source = Some(source_state.best_finalized_self);
 					}
 				}
 			},
 			target_state = race_target_updated.next() => {
 				if let Some(target_state) = target_state {
-					if race_state.target_state.as_ref() != Some(&target_state) {
+					let is_target_state_updated = race_state.best_target_header_id.as_ref()
+						!= Some(&target_state.best_self);
+					if is_target_state_updated {
 						target_nonces_required = true;
-						race_state.target_state = Some(target_state);
+						race_state.best_target_header_id = Some(target_state.best_self);
+						race_state.best_finalized_source_header_id_at_best_target
+							= Some(target_state.best_finalized_peer_at_best_self);
 					}
 				}
 			},
@@ -358,10 +367,12 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 			} else if source_nonces_required {
 				log::debug!(target: "bridge", "Asking {} about message nonces", P::source_name());
 				let at_block = race_state
-					.source_state
+					.best_finalized_source_header_id_at_source
 					.as_ref()
-					.expect("source_nonces_required is only true when source_state is Some; qed")
-					.best_self
+					.expect(
+						"source_nonces_required is only true when\
+						best_finalized_source_header_id_at_source is Some; qed",
+					)
 					.clone();
 				source_nonces.set(race_source.nonces(at_block, strategy.best_at_source()).fuse());
 			} else {
@@ -388,10 +399,9 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 			if target_nonces_required {
 				log::debug!(target: "bridge", "Asking {} about message nonces", P::target_name());
 				let at_block = race_state
-					.target_state
+					.best_target_header_id
 					.as_ref()
-					.expect("target_nonces_required is only true when target_state is Some; qed")
-					.best_self
+					.expect("target_nonces_required is only true when best_target_header_id is Some; qed")
 					.clone();
 				target_nonces.set(race_target.nonces(at_block).fuse());
 			} else {
@@ -404,8 +414,9 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 impl<SourceHeaderId, TargetHeaderId, Proof> Default for RaceState<SourceHeaderId, TargetHeaderId, Proof> {
 	fn default() -> Self {
 		RaceState {
-			source_state: None,
-			target_state: None,
+			best_finalized_source_header_id_at_source: None,
+			best_finalized_source_header_id_at_best_target: None,
+			best_target_header_id: None,
 			nonces_to_submit: None,
 			nonces_submitted: None,
 		}
@@ -446,11 +457,20 @@ where
 	SourceHeaderId: Clone,
 	Strategy: RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>,
 {
-	race_state.target_state.as_ref().and_then(|target_state| {
-		strategy
-			.select_nonces_to_deliver(&race_state)
-			.map(|(nonces_range, proof_parameters)| (target_state.best_peer.clone(), nonces_range, proof_parameters))
-	})
+	race_state
+		.best_finalized_source_header_id_at_best_target
+		.as_ref()
+		.and_then(|best_finalized_source_header_id_at_best_target| {
+			strategy
+				.select_nonces_to_deliver(&race_state)
+				.map(|(nonces_range, proof_parameters)| {
+					(
+						best_finalized_source_header_id_at_best_target.clone(),
+						nonces_range,
+						proof_parameters,
+					)
+				})
+		})
 }
 
 #[cfg(test)]
@@ -468,14 +488,9 @@ mod tests {
 		// target node only knows about source' BEST_AT_TARGET block
 		// source node has BEST_AT_SOURCE > BEST_AT_TARGET block
 		let mut race_state = RaceState::<_, _, ()> {
-			source_state: Some(ClientState {
-				best_self: HeaderId(BEST_AT_SOURCE, BEST_AT_SOURCE),
-				best_peer: HeaderId(0, 0),
-			}),
-			target_state: Some(ClientState {
-				best_self: HeaderId(0, 0),
-				best_peer: HeaderId(BEST_AT_TARGET, BEST_AT_TARGET),
-			}),
+			best_finalized_source_header_id_at_source: Some(HeaderId(BEST_AT_SOURCE, BEST_AT_SOURCE)),
+			best_finalized_source_header_id_at_best_target: Some(HeaderId(BEST_AT_TARGET, BEST_AT_TARGET)),
+			best_target_header_id: Some(HeaderId(0, 0)),
 			nonces_to_submit: None,
 			nonces_submitted: None,
 		};

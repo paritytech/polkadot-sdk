@@ -264,11 +264,6 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 		// There's additional condition in the message delivery race: target would reject messages
 		// if there are too much unconfirmed messages at the inbound lane.
 
-		// https://github.com/paritytech/parity-bridges-common/issues/432
-		// TODO: message lane loop works with finalized blocks only, but we're submitting transactions that
-		// are updating best block (which may not be finalized yet). So all decisions that are made below
-		// may be outdated. This needs to be changed - all logic here must be built on top of best blocks.
-
 		// The receiving race is responsible to deliver confirmations back to the source chain. So if
 		// there's a lot of unconfirmed messages, let's wait until it'll be able to do its job.
 		let latest_received_nonce_at_target = target_nonces.latest_nonce;
@@ -388,9 +383,8 @@ impl NoncesRange for MessageWeightsMap {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::message_lane_loop::{
-		tests::{header_id, TestMessageLane, TestMessagesProof, TestSourceHeaderId, TestTargetHeaderId},
-		ClientState,
+	use crate::message_lane_loop::tests::{
+		header_id, TestMessageLane, TestMessagesProof, TestSourceHeaderId, TestTargetHeaderId,
 	};
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
@@ -398,14 +392,9 @@ mod tests {
 
 	fn prepare_strategy() -> (TestRaceState, TestStrategy) {
 		let mut race_state = RaceState {
-			source_state: Some(ClientState {
-				best_self: header_id(1),
-				best_peer: header_id(1),
-			}),
-			target_state: Some(ClientState {
-				best_self: header_id(1),
-				best_peer: header_id(1),
-			}),
+			best_finalized_source_header_id_at_source: Some(header_id(1)),
+			best_finalized_source_header_id_at_best_target: Some(header_id(1)),
+			best_target_header_id: Some(header_id(1)),
 			nonces_to_submit: None,
 			nonces_submitted: None,
 		};
