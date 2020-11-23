@@ -234,13 +234,18 @@ where
 	let self_best_finalized_header = self_client.header_by_hash(self_best_finalized_header_hash).await?;
 	let self_best_finalized_id = HeaderId(*self_best_finalized_header.number(), self_best_finalized_header_hash);
 
+	// now let's read our best header on **this** chain
+	let self_best_header = self_client.best_header().await?;
+	let self_best_hash = self_best_header.hash();
+	let self_best_id = HeaderId(*self_best_header.number(), self_best_hash);
+
 	// now let's read id of best finalized peer header at our best finalized block
 	let best_finalized_peer_on_self_method = format!("{}HeaderApi_finalized_block", bridged_chain_name);
 	let encoded_best_finalized_peer_on_self = self_client
 		.state_call(
 			best_finalized_peer_on_self_method,
 			Bytes(Vec::new()),
-			Some(self_best_finalized_header_hash),
+			Some(self_best_hash),
 		)
 		.await?;
 	let decoded_best_finalized_peer_on_self: (BridgedHeaderNumber, BridgedHeaderHash) =
@@ -251,7 +256,8 @@ where
 	);
 
 	Ok(ClientState {
-		best_self: self_best_finalized_id,
-		best_peer: peer_on_self_best_finalized_id,
+		best_self: self_best_id,
+		best_finalized_self: self_best_finalized_id,
+		best_finalized_peer_at_best_self: peer_on_self_best_finalized_id,
 	})
 }
