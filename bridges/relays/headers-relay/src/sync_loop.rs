@@ -126,6 +126,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
 ) {
+	#![allow(unused_variables)] // this is to suppress weird errors from clippy
 	let mut local_pool = futures::executor::LocalPool::new();
 	let mut progress_context = (Instant::now(), None, None);
 
@@ -203,7 +204,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_retry_backoff,
 						|source_best_block_number| sync.source_best_header_number_response(source_best_block_number),
 						&mut source_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving best header number from {}", P::SOURCE_NAME),
 					).is_ok();
 				},
@@ -213,7 +214,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_retry_backoff,
 						|source_new_header| sync.headers_mut().header_response(source_new_header),
 						&mut source_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving header from {} node", P::SOURCE_NAME),
 					).is_ok();
 				},
@@ -223,7 +224,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_retry_backoff,
 						|source_orphan_header| sync.headers_mut().header_response(source_orphan_header),
 						&mut source_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving orphan header from {} node", P::SOURCE_NAME),
 					).is_ok();
 				},
@@ -233,7 +234,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_retry_backoff,
 						|(header, extra)| sync.headers_mut().extra_response(&header, extra),
 						&mut source_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving extra data from {} node", P::SOURCE_NAME),
 					).is_ok();
 				},
@@ -243,7 +244,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut source_retry_backoff,
 						|(header, completion)| sync.headers_mut().completion_response(&header, completion),
 						&mut source_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving completion data from {} node", P::SOURCE_NAME),
 					).is_ok();
 				},
@@ -294,7 +295,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 							}
 						},
 						&mut target_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving best known {} header from {} node", P::SOURCE_NAME, P::TARGET_NAME),
 					).is_ok();
 				},
@@ -306,7 +307,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_retry_backoff,
 						|incomplete_headers_ids| sync.headers_mut().incomplete_headers_response(incomplete_headers_ids),
 						&mut target_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving incomplete headers from {} node", P::TARGET_NAME),
 					).is_ok();
 				},
@@ -318,7 +319,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 							.headers_mut()
 							.maybe_orphan_response(&target_header, target_existence_status),
 						&mut target_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving existence status from {} node", P::TARGET_NAME),
 					).is_ok();
 				},
@@ -346,7 +347,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_retry_backoff,
 						|_| {},
 						&mut target_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error submitting headers to {} node", P::TARGET_NAME),
 					).is_ok();
 
@@ -367,7 +368,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						&mut target_retry_backoff,
 						|completed_header| sync.headers_mut().header_completed(&completed_header),
 						&mut target_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error completing headers at {}", P::TARGET_NAME),
 					).is_ok();
 				},
@@ -379,7 +380,7 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 							.headers_mut()
 							.maybe_extra_response(&header, extra_check_result),
 						&mut target_go_offline_future,
-						|delay| async_std::task::sleep(delay),
+						async_std::task::sleep,
 						|| format!("Error retrieving receipts requirement from {} node", P::TARGET_NAME),
 					).is_ok();
 				},
