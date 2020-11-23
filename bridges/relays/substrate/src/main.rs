@@ -37,6 +37,7 @@ mod headers_initialize;
 mod headers_maintain;
 mod headers_pipeline;
 mod headers_target;
+mod messages_lane;
 mod messages_source;
 mod messages_target;
 mod millau_headers_to_rialto;

@@ -29,7 +29,7 @@
 //! best finalized header on the target chain, we submit this justification to the target
 //! node.
 
-use crate::headers_target::SubstrateHeadersSyncPipeline;
+use crate::headers_pipeline::SubstrateHeadersSyncPipeline;
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;

@@ -16,20 +16,49 @@
 
 //! Substrate-to-Substrate headers sync entrypoint.
 
-use crate::{
-	headers_maintain::SubstrateHeadersToSubstrateMaintain,
-	headers_target::{SubstrateHeadersSyncPipeline, SubstrateHeadersTarget},
-};
+use crate::{headers_maintain::SubstrateHeadersToSubstrateMaintain, headers_target::SubstrateHeadersTarget};
 
+use async_trait::async_trait;
 use codec::Encode;
 use headers_relay::{
 	sync::{HeadersSyncParams, TargetTransactionMode},
-	sync_types::{HeadersSyncPipeline, QueuedHeader, SourceHeader},
+	sync_types::{HeaderIdOf, HeadersSyncPipeline, QueuedHeader, SourceHeader},
 };
-use relay_substrate_client::{headers_source::HeadersSource, BlockNumberOf, Chain, Client, HashOf};
+use relay_substrate_client::{
+	headers_source::HeadersSource, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
+};
 use relay_utils::BlockNumberBase;
 use sp_runtime::Justification;
 use std::marker::PhantomData;
+
+/// Headers sync pipeline for Substrate <-> Substrate relays.
+#[async_trait]
+pub trait SubstrateHeadersSyncPipeline: HeadersSyncPipeline {
+	/// Name of the `best_block` runtime method.
+	const BEST_BLOCK_METHOD: &'static str;
+	/// Name of the `finalized_block` runtime method.
+	const FINALIZED_BLOCK_METHOD: &'static str;
+	/// Name of the `is_known_block` runtime method.
+	const IS_KNOWN_BLOCK_METHOD: &'static str;
+	/// Name of the `incomplete_headers` runtime method.
+	const INCOMPLETE_HEADERS_METHOD: &'static str;
+
+	/// Signed transaction type.
+	type SignedTransaction: Send + Sync + Encode;
+
+	/// Make submit header transaction.
+	async fn make_submit_header_transaction(
+		&self,
+		header: QueuedHeader<Self>,
+	) -> Result<Self::SignedTransaction, SubstrateError>;
+
+	/// Make completion transaction for the header.
+	async fn make_complete_header_transaction(
+		&self,
+		id: HeaderIdOf<Self>,
+		completion: Justification,
+	) -> Result<Self::SignedTransaction, SubstrateError>;
+}
 
 /// Substrate-to-Substrate headers pipeline.
 #[derive(Debug, Clone)]

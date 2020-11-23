@@ -18,13 +18,15 @@
 //! runtime that implements `<BridgedChainName>HeaderApi` to allow bridging with
 //! <BridgedName> chain.
 
+use crate::messages_lane::SubstrateMessageLane;
+
 use async_trait::async_trait;
 use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use messages_relay::{
-	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
+	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{ClientState, MessageProofParameters, MessageWeightsMap, SourceClient, SourceClientState},
 };
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf, HeaderIdOf};
@@ -32,7 +34,7 @@ use relay_utils::{BlockNumberBase, HeaderId};
 use sp_core::Bytes;
 use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
 use sp_trie::StorageProof;
-use std::{marker::PhantomData, ops::RangeInclusive};
+use std::ops::RangeInclusive;
 
 /// Intermediate message proof returned by the source Substrate node. Includes everything
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
@@ -40,68 +42,50 @@ use std::{marker::PhantomData, ops::RangeInclusive};
 pub type SubstrateMessagesProof<C> = (Weight, (HashOf<C>, StorageProof, LaneId, MessageNonce, MessageNonce));
 
 /// Substrate client as Substrate messages source.
-pub struct SubstrateMessagesSource<C: Chain, P, M> {
+pub struct SubstrateMessagesSource<C: Chain, P> {
 	client: Client<C>,
-	tx_maker: M,
-	lane: LaneId,
+	lane: P,
+	lane_id: LaneId,
 	instance: InstanceId,
-	_marker: PhantomData<P>,
 }
 
-/// Substrate transactions maker.
-#[async_trait]
-pub trait SubstrateTransactionMaker<C: Chain, P: MessageLane>: Clone + Send + Sync {
-	/// Signed transaction type.
-	type SignedTransaction: Send + Sync + Encode;
-
-	/// Make messages receiving proof transaction.
-	async fn make_messages_receiving_proof_transaction(
-		&self,
-		generated_at_block: TargetHeaderIdOf<P>,
-		proof: P::MessagesReceivingProof,
-	) -> Result<Self::SignedTransaction, SubstrateError>;
-}
-
-impl<C: Chain, P, M> SubstrateMessagesSource<C, P, M> {
+impl<C: Chain, P> SubstrateMessagesSource<C, P> {
 	/// Create new Substrate headers source.
-	pub fn new(client: Client<C>, tx_maker: M, lane: LaneId, instance: InstanceId) -> Self {
+	pub fn new(client: Client<C>, lane: P, lane_id: LaneId, instance: InstanceId) -> Self {
 		SubstrateMessagesSource {
 			client,
-			tx_maker,
 			lane,
+			lane_id,
 			instance,
-			_marker: Default::default(),
 		}
 	}
 }
 
-impl<C: Chain, P, M: Clone> Clone for SubstrateMessagesSource<C, P, M> {
+impl<C: Chain, P: SubstrateMessageLane> Clone for SubstrateMessagesSource<C, P> {
 	fn clone(&self) -> Self {
 		Self {
 			client: self.client.clone(),
-			tx_maker: self.tx_maker.clone(),
-			lane: self.lane,
+			lane: self.lane.clone(),
+			lane_id: self.lane_id,
 			instance: self.instance,
-			_marker: Default::default(),
 		}
 	}
 }
 
 #[async_trait]
-impl<C, P, M> SourceClient<P> for SubstrateMessagesSource<C, P, M>
+impl<C, P> SourceClient<P> for SubstrateMessagesSource<C, P>
 where
 	C: Chain,
 	C::Header: DeserializeOwned,
 	C::Index: DeserializeOwned,
 	C::BlockNumber: BlockNumberBase,
-	P: MessageLane<
+	P: SubstrateMessageLane<
 		MessagesProof = SubstrateMessagesProof<C>,
 		SourceHeaderNumber = <C::Header as HeaderT>::Number,
 		SourceHeaderHash = <C::Header as HeaderT>::Hash,
 	>,
 	P::TargetHeaderNumber: Decode,
 	P::TargetHeaderHash: Decode,
-	M: SubstrateTransactionMaker<C, P>,
 {
 	type Error = SubstrateError;
 
@@ -112,7 +96,11 @@ where
 	}
 
 	async fn state(&self) -> Result<SourceClientState<P>, Self::Error> {
-		read_client_state::<_, P::TargetHeaderHash, P::TargetHeaderNumber>(&self.client, P::TARGET_NAME).await
+		read_client_state::<_, P::TargetHeaderHash, P::TargetHeaderNumber>(
+			&self.client,
+			P::BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE,
+		)
+		.await
 	}
 
 	async fn latest_generated_nonce(
@@ -122,9 +110,8 @@ where
 		let encoded_response = self
 			.client
 			.state_call(
-				// TODO: https://github.com/paritytech/parity-bridges-common/issues/457
-				"OutboundLaneApi_latest_generated_nonce".into(),
-				Bytes(self.lane.encode()),
+				P::OUTBOUND_LANE_LATEST_GENERATED_NONCE_METHOD.into(),
+				Bytes(self.lane_id.encode()),
 				Some(id.1),
 			)
 			.await?;
@@ -140,9 +127,8 @@ where
 		let encoded_response = self
 			.client
 			.state_call(
-				// TODO: https://github.com/paritytech/parity-bridges-common/issues/457
-				"OutboundLaneApi_latest_received_nonce".into(),
-				Bytes(self.lane.encode()),
+				P::OUTBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD.into(),
+				Bytes(self.lane_id.encode()),
 				Some(id.1),
 			)
 			.await?;
@@ -159,9 +145,8 @@ where
 		let encoded_response = self
 			.client
 			.state_call(
-				// TODO: https://github.com/paritytech/parity-bridges-common/issues/457
-				"OutboundLaneApi_messages_dispatch_weight".into(),
-				Bytes((self.lane, nonces.start(), nonces.end()).encode()),
+				P::OUTBOUND_LANE_MESSAGES_DISPATCH_WEIGHT_METHOD.into(),
+				Bytes((self.lane_id, nonces.start(), nonces.end()).encode()),
 				Some(id.1),
 			)
 			.await?;
@@ -194,13 +179,13 @@ where
 			.client
 			.prove_messages(
 				self.instance,
-				self.lane,
+				self.lane_id,
 				nonces.clone(),
 				proof_parameters.outbound_state_proof_required,
 				id.1,
 			)
 			.await?;
-		let proof = (id.1, proof, self.lane, *nonces.start(), *nonces.end());
+		let proof = (id.1, proof, self.lane_id, *nonces.start(), *nonces.end());
 		Ok((id, nonces, (proof_parameters.dispatch_weight, proof)))
 	}
 
@@ -210,7 +195,7 @@ where
 		proof: P::MessagesReceivingProof,
 	) -> Result<(), Self::Error> {
 		let tx = self
-			.tx_maker
+			.lane
 			.make_messages_receiving_proof_transaction(generated_at_block, proof)
 			.await?;
 		self.client.submit_extrinsic(Bytes(tx.encode())).await?;
@@ -220,7 +205,7 @@ where
 
 pub async fn read_client_state<SelfChain, BridgedHeaderHash, BridgedHeaderNumber>(
 	self_client: &Client<SelfChain>,
-	bridged_chain_name: &str,
+	best_finalized_header_id_method_name: &str,
 ) -> Result<ClientState<HeaderIdOf<SelfChain>, HeaderId<BridgedHeaderHash, BridgedHeaderNumber>>, SubstrateError>
 where
 	SelfChain: Chain,
@@ -240,10 +225,9 @@ where
 	let self_best_id = HeaderId(*self_best_header.number(), self_best_hash);
 
 	// now let's read id of best finalized peer header at our best finalized block
-	let best_finalized_peer_on_self_method = format!("{}HeaderApi_finalized_block", bridged_chain_name);
 	let encoded_best_finalized_peer_on_self = self_client
 		.state_call(
-			best_finalized_peer_on_self_method,
+			best_finalized_header_id_method_name.into(),
 			Bytes(Vec::new()),
 			Some(self_best_hash),
 		)
