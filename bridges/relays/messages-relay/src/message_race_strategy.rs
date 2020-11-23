@@ -88,9 +88,8 @@ where
 		// 2) we can't deliver new nonce until header, that has emitted this nonce, is finalized
 		// by target client
 		// 3) selector is used for more complicated logic
-		let best_header_at_target = &race_state.target_state.as_ref()?.best_peer;
+		let best_header_at_target = &race_state.best_finalized_source_header_id_at_best_target.as_ref()?;
 		let mut nonces_end = None;
-
 		while let Some((queued_at, queued_range)) = self.source_queue.pop_front() {
 			// select (sub) range to deliver
 			let queued_range_begin = queued_range.begin();
@@ -241,10 +240,7 @@ where
 mod tests {
 	use super::*;
 	use crate::message_lane::MessageLane;
-	use crate::message_lane_loop::{
-		tests::{header_id, TestMessageLane, TestMessagesProof},
-		ClientState,
-	};
+	use crate::message_lane_loop::tests::{header_id, TestMessageLane, TestMessagesProof};
 
 	type SourceNoncesRange = RangeInclusive<MessageNonce>;
 
@@ -374,21 +370,15 @@ mod tests {
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
 		strategy.source_nonces_updated(header_id(2), source_nonces(2..=2));
-		strategy.source_nonces_updated(header_id(3), source_nonces(6..=6));
-		strategy.source_nonces_updated(header_id(5), source_nonces(8..=8));
+		strategy.source_nonces_updated(header_id(3), source_nonces(3..=6));
+		strategy.source_nonces_updated(header_id(5), source_nonces(7..=8));
 
-		state.target_state = Some(ClientState {
-			best_self: header_id(0),
-			best_peer: header_id(4),
-		});
+		state.best_finalized_source_header_id_at_best_target = Some(header_id(4));
 		assert_eq!(strategy.select_nonces_to_deliver(&state), Some((1..=6, ())));
 		strategy.target_nonces_updated(target_nonces(6), &mut state);
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
 
-		state.target_state = Some(ClientState {
-			best_self: header_id(0),
-			best_peer: header_id(5),
-		});
+		state.best_finalized_source_header_id_at_best_target = Some(header_id(5));
 		assert_eq!(strategy.select_nonces_to_deliver(&state), Some((7..=8, ())));
 		strategy.target_nonces_updated(target_nonces(8), &mut state);
 		assert_eq!(strategy.select_nonces_to_deliver(&state), None);
@@ -400,10 +390,10 @@ mod tests {
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=100));
 
-		state.target_state = Some(ClientState {
-			best_self: header_id(0),
-			best_peer: header_id(1),
-		});
+		state.best_finalized_source_header_id_at_source = Some(header_id(1));
+		state.best_finalized_source_header_id_at_best_target = Some(header_id(1));
+		state.best_target_header_id = Some(header_id(1));
+
 		assert_eq!(
 			strategy.select_nonces_to_deliver_with_selector(&state, |_| Some(50..=100)),
 			Some(1..=49),
@@ -417,11 +407,9 @@ mod tests {
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=100));
 		strategy.target_nonces_updated(target_nonces(50), &mut state);
-		state.target_state = Some(ClientState {
-			best_self: header_id(0),
-			best_peer: header_id(1),
-		});
-
+		state.best_finalized_source_header_id_at_source = Some(header_id(1));
+		state.best_finalized_source_header_id_at_best_target = Some(header_id(1));
+		state.best_target_header_id = Some(header_id(1));
 		strategy.select_nonces_to_deliver_with_selector(&state, invalid_selector);
 	}
 
