@@ -11,7 +11,7 @@ async-std = "1.7.0"
 async-trait = "0.1.41"
 clap = { version = "2.33.3", features = ["yaml"] }
 codec = { package = "parity-scale-codec", version = "1.3.4" }
-env_logger = "0.8.1"
+env_logger = "0.8.2"
 ethabi = "12.0"
 ethabi-contract = "11.0"
 ethabi-derive = "12.0"
