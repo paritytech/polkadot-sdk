@@ -463,7 +463,7 @@ mod tests {
 				vec![EventRecord {
 					phase: Phase::Initialization,
 					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageWeightMismatch(
-						origin, id, 1305000, 0,
+						origin, id, 1973000, 0,
 					)),
 					topics: vec![],
 				}],
@@ -488,7 +488,7 @@ mod tests {
 				vec![EventRecord {
 					phase: Phase::Initialization,
 					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageWeightMismatch(
-						origin, id, 1305000, 0,
+						origin, id, 1973000, 0,
 					)),
 					topics: vec![],
 				}],
