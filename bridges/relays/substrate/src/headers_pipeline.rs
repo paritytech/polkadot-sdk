@@ -159,6 +159,13 @@ pub async fn run<SourceChain, TargetChain, P>(
 		source_justifications,
 	);
 
+	log::info!(
+		target: "bridge",
+		"Starting {} -> {} headers relay",
+		SourceChain::NAME,
+		TargetChain::NAME,
+	);
+
 	headers_relay::sync_loop::run(
 		HeadersSource::new(source_client),
 		SourceChain::AVERAGE_BLOCK_INTERVAL,
