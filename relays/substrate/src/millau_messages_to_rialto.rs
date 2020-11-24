@@ -112,6 +112,12 @@ pub fn run(
 		relayer_id_at_source: relayer_id_at_millau,
 	};
 
+	log::info!(
+		target: "bridge",
+		"Starting Millau -> Rialto messages relay. Millau relayer account id: {:?}",
+		lane.relayer_id_at_source,
+	);
+
 	messages_relay::message_lane_loop::run(
 		messages_relay::message_lane_loop::Params {
 			lane: lane_id,

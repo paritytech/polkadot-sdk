@@ -56,14 +56,20 @@ where
 		);
 
 		// we can't actually do anything here, because rewards are paid as a part of unrelated transaction
-		if let Err(error) = pay_result {
-			frame_support::debug::trace!(
+		match pay_result {
+			Ok(_) => frame_support::debug::trace!(
+				target: "runtime",
+				"Rewarded relayer {:?} with {:?}",
+				relayer,
+				reward,
+			),
+			Err(error) => frame_support::debug::trace!(
 				target: "runtime",
 				"Failed to pay relayer {:?} reward {:?}: {:?}",
 				relayer,
 				reward,
 				error,
-			);
+			),
 		}
 	}
 }
