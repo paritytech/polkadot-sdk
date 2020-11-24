@@ -43,6 +43,7 @@ mod messages_target;
 mod millau_headers_to_rialto;
 mod millau_messages_to_rialto;
 mod rialto_headers_to_millau;
+mod rialto_messages_to_millau;
 
 fn main() {
 	initialize_relay();
@@ -287,7 +288,7 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 				millau_runtime::Call::BridgeRialtoMessageLane(millau_runtime::MessageLaneCall::send_message(
 					lane.into(),
 					MessagePayload {
-						spec_version: millau_runtime::VERSION.spec_version,
+						spec_version: rialto_runtime::VERSION.spec_version,
 						weight: rialto_call_weight,
 						origin: CallOrigin::RealAccount(
 							millau_sender_public,
@@ -310,6 +311,120 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 
 			millau_client
 				.submit_extrinsic(Bytes(signed_millau_call.encode()))
+				.await?;
+		}
+		cli::Command::RialtoMessagesToMillau {
+			rialto,
+			rialto_sign,
+			millau,
+			millau_sign,
+			prometheus_params,
+			lane,
+		} => {
+			let rialto_client = RialtoClient::new(ConnectionParams {
+				host: rialto.rialto_host,
+				port: rialto.rialto_port,
+			})
+			.await?;
+			let rialto_sign = RialtoSigningParams::from_suri(
+				&rialto_sign.rialto_signer,
+				rialto_sign.rialto_signer_password.as_deref(),
+			)
+			.map_err(|e| format!("Failed to parse rialto-signer: {:?}", e))?;
+			let millau_client = MillauClient::new(ConnectionParams {
+				host: millau.millau_host,
+				port: millau.millau_port,
+			})
+			.await?;
+			let millau_sign = MillauSigningParams::from_suri(
+				&millau_sign.millau_signer,
+				millau_sign.millau_signer_password.as_deref(),
+			)
+			.map_err(|e| format!("Failed to parse millau-signer: {:?}", e))?;
+
+			rialto_messages_to_millau::run(
+				rialto_client,
+				rialto_sign,
+				millau_client,
+				millau_sign,
+				lane.into(),
+				prometheus_params.into(),
+			);
+		}
+		cli::Command::SubmitRialtoToMillauMessage {
+			rialto,
+			rialto_sign,
+			millau_sign,
+			lane,
+			message,
+			fee,
+		} => {
+			let rialto_client = RialtoClient::new(ConnectionParams {
+				host: rialto.rialto_host,
+				port: rialto.rialto_port,
+			})
+			.await?;
+			let rialto_sign = RialtoSigningParams::from_suri(
+				&rialto_sign.rialto_signer,
+				rialto_sign.rialto_signer_password.as_deref(),
+			)
+			.map_err(|e| format!("Failed to parse rialto-signer: {:?}", e))?;
+			let millau_sign = MillauSigningParams::from_suri(
+				&millau_sign.millau_signer,
+				millau_sign.millau_signer_password.as_deref(),
+			)
+			.map_err(|e| format!("Failed to parse millau-signer: {:?}", e))?;
+
+			let millau_call = match message {
+				cli::ToMillauMessage::Remark => millau_runtime::Call::System(millau_runtime::SystemCall::remark(
+					format!(
+						"Unix time: {}",
+						std::time::SystemTime::now()
+							.duration_since(std::time::SystemTime::UNIX_EPOCH)
+							.unwrap_or_default()
+							.as_secs(),
+					)
+					.as_bytes()
+					.to_vec(),
+				)),
+			};
+			let millau_call_weight = millau_call.get_dispatch_info().weight;
+
+			let rialto_sender_public: bp_rialto::AccountSigner = rialto_sign.signer.public().clone().into();
+			let millau_origin_public = millau_sign.signer.public();
+
+			let mut millau_origin_signature_message = Vec::new();
+			millau_call.encode_to(&mut millau_origin_signature_message);
+			rialto_sender_public.encode_to(&mut millau_origin_signature_message);
+			let millau_origin_signature = millau_sign.signer.sign(&millau_origin_signature_message);
+
+			let rialto_call =
+				rialto_runtime::Call::BridgeMillauMessageLane(rialto_runtime::MessageLaneCall::send_message(
+					lane.into(),
+					MessagePayload {
+						spec_version: millau_runtime::VERSION.spec_version,
+						weight: millau_call_weight,
+						origin: CallOrigin::RealAccount(
+							rialto_sender_public,
+							millau_origin_public.into(),
+							millau_origin_signature.into(),
+						),
+						call: millau_call.encode(),
+					},
+					fee,
+				));
+
+			let signed_rialto_call = Rialto::sign_transaction(
+				&rialto_client,
+				&rialto_sign.signer,
+				rialto_client
+					.next_account_index(rialto_sign.signer.public().clone().into())
+					.await?,
+				rialto_call,
+			);
+
+			rialto_client
+				.submit_extrinsic(Bytes(signed_rialto_call.encode()))
 				.await?;
 		}
 	}

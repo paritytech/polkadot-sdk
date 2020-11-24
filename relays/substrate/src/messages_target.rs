@@ -36,6 +36,9 @@ use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
 use sp_trie::StorageProof;
 use std::ops::RangeInclusive;
 
+/// Message receiving proof returned by the target Substrate node.
+pub type SubstrateMessagesReceivingProof<C> = (HashOf<C>, StorageProof, LaneId);
+
 /// Substrate client as Substrate messages target.
 pub struct SubstrateMessagesTarget<C: Chain, P> {
 	client: Client<C>,
@@ -75,7 +78,7 @@ where
 	C::Index: DeserializeOwned,
 	<C::Header as HeaderT>::Number: BlockNumberBase,
 	P: SubstrateMessageLane<
-		MessagesReceivingProof = (HashOf<C>, StorageProof, LaneId),
+		MessagesReceivingProof = SubstrateMessagesReceivingProof<C>,
 		TargetHeaderNumber = <C::Header as HeaderT>::Number,
 		TargetHeaderHash = <C::Header as HeaderT>::Hash,
 	>,

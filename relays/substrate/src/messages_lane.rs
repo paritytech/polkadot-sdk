@@ -14,11 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::messages_source::SubstrateMessagesProof;
+use crate::messages_target::SubstrateMessagesReceivingProof;
+
 use async_trait::async_trait;
 use bp_message_lane::MessageNonce;
 use codec::Encode;
 use messages_relay::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
-use relay_substrate_client::Error as SubstrateError;
+use relay_substrate_client::{BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf};
+use relay_utils::BlockNumberBase;
 use std::ops::RangeInclusive;
 
 /// Message sync pipeline for Substrate <-> Substrate relays.
@@ -60,4 +64,54 @@ pub trait SubstrateMessageLane: MessageLane {
 		generated_at_header: TargetHeaderIdOf<Self>,
 		proof: Self::MessagesReceivingProof,
 	) -> Result<Self::SourceSignedTransaction, SubstrateError>;
+}
+
+/// Substrate-to-Substrate message lane.
+#[derive(Debug)]
+pub struct SubstrateMessageLaneToSubstrate<Source: Chain, SourceSignParams, Target: Chain, TargetSignParams> {
+	/// Client for the source Substrate chain.
+	pub(crate) source_client: Client<Source>,
+	/// Parameters required to sign transactions for source chain.
+	pub(crate) source_sign: SourceSignParams,
+	/// Client for the target Substrate chain.
+	pub(crate) target_client: Client<Target>,
+	/// Parameters required to sign transactions for target chain.
+	pub(crate) target_sign: TargetSignParams,
+	/// Account id of relayer at the source chain.
+	pub(crate) relayer_id_at_source: Source::AccountId,
+}
+
+impl<Source: Chain, SourceSignParams: Clone, Target: Chain, TargetSignParams: Clone> Clone
+	for SubstrateMessageLaneToSubstrate<Source, SourceSignParams, Target, TargetSignParams>
+{
+	fn clone(&self) -> Self {
+		Self {
+			source_client: self.source_client.clone(),
+			source_sign: self.source_sign.clone(),
+			target_client: self.target_client.clone(),
+			target_sign: self.target_sign.clone(),
+			relayer_id_at_source: self.relayer_id_at_source.clone(),
+		}
+	}
+}
+
+impl<Source: Chain, SourceSignParams, Target: Chain, TargetSignParams> MessageLane
+	for SubstrateMessageLaneToSubstrate<Source, SourceSignParams, Target, TargetSignParams>
+where
+	SourceSignParams: Clone + Send + Sync + 'static,
+	TargetSignParams: Clone + Send + Sync + 'static,
+	BlockNumberOf<Source>: BlockNumberBase,
+	BlockNumberOf<Target>: BlockNumberBase,
+{
+	const SOURCE_NAME: &'static str = Source::NAME;
+	const TARGET_NAME: &'static str = Target::NAME;
+
+	type MessagesProof = SubstrateMessagesProof<Source>;
+	type MessagesReceivingProof = SubstrateMessagesReceivingProof<Target>;
+
+	type SourceHeaderNumber = BlockNumberOf<Source>;
+	type SourceHeaderHash = HashOf<Source>;
+
+	type TargetHeaderNumber = BlockNumberOf<Target>;
+	type TargetHeaderHash = HashOf<Target>;
 }
