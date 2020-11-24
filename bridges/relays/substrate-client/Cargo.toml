@@ -23,14 +23,14 @@ relay-utils = { path = "../utils" }
 
 # Substrate Dependencies
 
-frame-support = "2.0"
-frame-system = "2.0"
-pallet-balances = "2.0"
-sp-core = "2.0"
-sp-runtime = "2.0"
-sp-std = "2.0"
-sp-trie = "2.0"
-sp-version = "2.0"
+frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-version = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 
 #[dev-dependencies]
 futures = "0.3.7"

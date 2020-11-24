@@ -9,9 +9,9 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 derive_more = "0.99.2"
 futures = { version = "0.3.5", features = ["compat"] }
-jsonrpc-core = "15.0.0"
-jsonrpc-core-client = "15.0.0"
-jsonrpc-derive = "15.0.0"
+jsonrpc-core = "15.1.0"
+jsonrpc-core-client = "15.1.0"
+jsonrpc-derive = "15.1.0"
 
 # Bridge dependencies
 
@@ -20,9 +20,9 @@ bp-message-lane = { path = "../../../primitives/message-lane" }
 
 # Substrate Dependencies
 
-sc-client-api = "2.0"
-sp-blockchain = "2.0"
-sp-core = "2.0"
-sp-runtime = "2.0"
-sp-state-machine = "0.8"
-sp-trie = "2.0"
+sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate.git", branch = "master" }

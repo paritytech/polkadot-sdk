@@ -282,8 +282,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Trait for Runtime {
-	type Currency = pallet_balances::Module<Runtime>;
-	type OnTransactionPayment = ();
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();

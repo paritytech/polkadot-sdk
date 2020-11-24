@@ -21,13 +21,13 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
 # Substrate Based Dependencies
 
-frame-support = { version = "2.0", default-features = false }
-sp-api = { version = "2.0", default-features = false }
-sp-core = { version = "2.0", default-features = false }
-sp-io = { version = "2.0", default-features = false }
-sp-runtime = { version = "2.0", default-features = false }
-sp-std = { version = "2.0", default-features = false }
-sp-trie = { version = "2.0", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-trie = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 
 [features]
 default = ["std"]

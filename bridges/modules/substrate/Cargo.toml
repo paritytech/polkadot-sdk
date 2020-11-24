@@ -19,18 +19,18 @@ bp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 # Substrate Dependencies
 
-frame-support = { version = "2.0", default-features = false }
-frame-system = { version = "2.0", default-features = false }
-sp-finality-grandpa = { version = "2.0", default-features = false }
-sp-runtime = { version = "2.0", default-features = false }
-sp-std = { version = "2.0", default-features = false }
-sp-trie = { version = "2.0", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-trie = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 
 [dev-dependencies]
-sp-core = "2.0"
-sp-io = "2.0"
-sp-keyring = "2.0"
-sp-state-machine = "0.8"
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 
 [features]
 default = ["std"]
