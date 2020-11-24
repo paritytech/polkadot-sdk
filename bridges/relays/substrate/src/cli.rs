@@ -108,12 +108,54 @@ pub enum Command {
 		#[structopt(long)]
 		fee: bp_millau::Balance,
 	},
+	/// Serve given lane of Rialto -> Millau messages.
+	RialtoMessagesToMillau {
+		#[structopt(flatten)]
+		rialto: RialtoConnectionParams,
+		#[structopt(flatten)]
+		rialto_sign: RialtoSigningParams,
+		#[structopt(flatten)]
+		millau: MillauConnectionParams,
+		#[structopt(flatten)]
+		millau_sign: MillauSigningParams,
+		#[structopt(flatten)]
+		prometheus_params: PrometheusParams,
+		/// Hex-encoded id of lane that should be served by relay.
+		#[structopt(long)]
+		lane: HexLaneId,
+	},
+	/// Submit message to given Rialto -> Millau lane.
+	SubmitRialtoToMillauMessage {
+		#[structopt(flatten)]
+		rialto: RialtoConnectionParams,
+		#[structopt(flatten)]
+		rialto_sign: RialtoSigningParams,
+		#[structopt(flatten)]
+		millau_sign: MillauSigningParams,
+		/// Hex-encoded lane id.
+		#[structopt(long)]
+		lane: HexLaneId,
+		/// Message type.
+		#[structopt(long, possible_values = &ToMillauMessage::variants())]
+		message: ToMillauMessage,
+		/// Delivery and dispatch fee.
+		#[structopt(long)]
+		fee: bp_rialto::Balance,
+	},
 }
 
 arg_enum! {
 	#[derive(Debug)]
 	/// All possible messages that may be delivered to the Rialto chain.
 	pub enum ToRialtoMessage {
+		Remark,
+	}
+}
+
+arg_enum! {
+	#[derive(Debug)]
+	/// All possible messages that may be delivered to the Millau chain.
+	pub enum ToMillauMessage {
 		Remark,
 	}
 }
