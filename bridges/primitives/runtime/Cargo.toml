@@ -12,10 +12,10 @@ num-traits = { version = "0.2", default-features = false }
 
 # Substrate Dependencies
 
-frame-support = { version = "2.0", default-features = false }
-sp-io = { version = "2.0", default-features = false }
-sp-runtime = { version = "2.0", default-features = false }
-sp-std = { version = "2.0", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 
 [features]
 default = ["std"]

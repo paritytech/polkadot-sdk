@@ -22,30 +22,30 @@ rialto-runtime = { path = "../runtime" }
 
 # Substrate Dependencies
 
-frame-benchmarking = "2.0"
-frame-benchmarking-cli = "2.0"
-sc-basic-authorship = "0.8"
-sc-cli = "0.8"
-sc-client-api = "2.0"
-sc-consensus = "0.8"
-sc-consensus-aura = "0.8"
-sc-executor = "0.8"
-sc-finality-grandpa = "0.8"
-sc-finality-grandpa-rpc = "0.8"
-sc-service = "0.8"
-sc-rpc = "2.0"
-sc-transaction-pool = "2.0"
-sp-consensus = "0.8"
-sp-consensus-aura = "0.8"
-sp-core = "2.0"
-sp-inherents = "2.0"
-sp-finality-grandpa = "2.0"
-sp-runtime = "2.0"
-substrate-frame-rpc-system = "2.0"
+frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-cli = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-consensus-aura = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-executor = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-consensus-aura = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-inherents = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 
 [build-dependencies]
 build-script-utils = { package = "substrate-build-script-utils", version = "2.0" }
-frame-benchmarking-cli = "2.0"
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 vergen = "3.1.0"
 
 [features]
