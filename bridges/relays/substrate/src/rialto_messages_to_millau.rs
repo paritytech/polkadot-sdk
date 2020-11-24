@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Millau-to-Rialto messages sync entrypoint.
+//! Rialto-to-Millau messages sync entrypoint.
 
 use crate::messages_lane::{SubstrateMessageLane, SubstrateMessageLaneToSubstrate};
 use crate::messages_source::SubstrateMessagesSource;
@@ -32,102 +32,102 @@ use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
 use std::{ops::RangeInclusive, time::Duration};
 
-/// Millau-to-Rialto message lane.
-type MillauMessagesToRialto = SubstrateMessageLaneToSubstrate<Millau, MillauSigningParams, Rialto, RialtoSigningParams>;
+/// Rialto-to-Millau message lane.
+type RialtoMessagesToMillau = SubstrateMessageLaneToSubstrate<Rialto, RialtoSigningParams, Millau, MillauSigningParams>;
 
 #[async_trait]
-impl SubstrateMessageLane for MillauMessagesToRialto {
+impl SubstrateMessageLane for RialtoMessagesToMillau {
 	const OUTBOUND_LANE_MESSAGES_DISPATCH_WEIGHT_METHOD: &'static str =
-		bp_rialto::TO_RIALTO_MESSAGES_DISPATCH_WEIGHT_METHOD;
+		bp_millau::TO_MILLAU_MESSAGES_DISPATCH_WEIGHT_METHOD;
 	const OUTBOUND_LANE_LATEST_GENERATED_NONCE_METHOD: &'static str =
-		bp_rialto::TO_RIALTO_LATEST_GENERATED_NONCE_METHOD;
-	const OUTBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str = bp_rialto::TO_RIALTO_LATEST_RECEIVED_NONCE_METHOD;
+		bp_millau::TO_MILLAU_LATEST_GENERATED_NONCE_METHOD;
+	const OUTBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str = bp_millau::TO_MILLAU_LATEST_RECEIVED_NONCE_METHOD;
 
-	const INBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str = bp_millau::FROM_MILLAU_LATEST_RECEIVED_NONCE_METHOD;
+	const INBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str = bp_rialto::FROM_RIALTO_LATEST_RECEIVED_NONCE_METHOD;
 	const INBOUND_LANE_LATEST_CONFIRMED_NONCE_METHOD: &'static str =
-		bp_millau::FROM_MILLAU_LATEST_CONFIRMED_NONCE_METHOD;
+		bp_rialto::FROM_RIALTO_LATEST_CONFIRMED_NONCE_METHOD;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_millau::FINALIZED_MILLAU_BLOCK_METHOD;
-	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str = bp_rialto::FINALIZED_RIALTO_BLOCK_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rialto::FINALIZED_RIALTO_BLOCK_METHOD;
+	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str = bp_millau::FINALIZED_MILLAU_BLOCK_METHOD;
 
-	type SourceSignedTransaction = <Millau as TransactionSignScheme>::SignedTransaction;
-	type TargetSignedTransaction = <Rialto as TransactionSignScheme>::SignedTransaction;
+	type SourceSignedTransaction = <Rialto as TransactionSignScheme>::SignedTransaction;
+	type TargetSignedTransaction = <Millau as TransactionSignScheme>::SignedTransaction;
 
 	async fn make_messages_receiving_proof_transaction(
 		&self,
-		_generated_at_block: RialtoHeaderId,
+		_generated_at_block: MillauHeaderId,
 		proof: <Self as MessageLane>::MessagesReceivingProof,
 	) -> Result<Self::SourceSignedTransaction, SubstrateError> {
 		let account_id = self.source_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.source_client.next_account_index(account_id).await?;
-		let call = millau_runtime::MessageLaneCall::receive_messages_delivery_proof(proof).into();
-		let transaction = Millau::sign_transaction(&self.source_client, &self.source_sign.signer, nonce, call);
+		let call = rialto_runtime::MessageLaneCall::receive_messages_delivery_proof(proof).into();
+		let transaction = Rialto::sign_transaction(&self.source_client, &self.source_sign.signer, nonce, call);
 		Ok(transaction)
 	}
 
 	async fn make_messages_delivery_transaction(
 		&self,
-		_generated_at_header: MillauHeaderId,
+		_generated_at_header: RialtoHeaderId,
 		_nonces: RangeInclusive<MessageNonce>,
 		proof: <Self as MessageLane>::MessagesProof,
 	) -> Result<Self::TargetSignedTransaction, SubstrateError> {
 		let (dispatch_weight, proof) = proof;
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
-		let call = rialto_runtime::MessageLaneCall::receive_messages_proof(
+		let call = millau_runtime::MessageLaneCall::receive_messages_proof(
 			self.relayer_id_at_source.clone(),
 			proof,
 			dispatch_weight,
 		)
 		.into();
-		let transaction = Rialto::sign_transaction(&self.target_client, &self.target_sign.signer, nonce, call);
+		let transaction = Millau::sign_transaction(&self.target_client, &self.target_sign.signer, nonce, call);
 		Ok(transaction)
 	}
 }
 
-/// Millau node as messages source.
-type MillauSourceClient = SubstrateMessagesSource<Millau, MillauMessagesToRialto>;
+/// Rialto node as messages source.
+type RialtoSourceClient = SubstrateMessagesSource<Rialto, RialtoMessagesToMillau>;
 
-/// Rialto node as messages target.
-type RialtoTargetClient = SubstrateMessagesTarget<Rialto, MillauMessagesToRialto>;
+/// Millau node as messages target.
+type MillauTargetClient = SubstrateMessagesTarget<Millau, RialtoMessagesToMillau>;
 
-/// Run Millau-to-Rialto messages sync.
+/// Run Rialto-to-Millau messages sync.
 pub fn run(
-	millau_client: MillauClient,
-	millau_sign: MillauSigningParams,
 	rialto_client: RialtoClient,
 	rialto_sign: RialtoSigningParams,
+	millau_client: MillauClient,
+	millau_sign: MillauSigningParams,
 	lane_id: LaneId,
 	metrics_params: Option<MetricsParams>,
 ) {
 	let reconnect_delay = Duration::from_secs(10);
 	let stall_timeout = Duration::from_secs(5 * 60);
-	let relayer_id_at_millau = millau_sign.signer.public().as_array_ref().clone().into();
+	let relayer_id_at_rialto = rialto_sign.signer.public().as_array_ref().clone().into();
 
-	let lane = MillauMessagesToRialto {
-		source_client: millau_client.clone(),
-		source_sign: millau_sign,
-		target_client: rialto_client.clone(),
-		target_sign: rialto_sign,
-		relayer_id_at_source: relayer_id_at_millau,
+	let lane = RialtoMessagesToMillau {
+		source_client: rialto_client.clone(),
+		source_sign: rialto_sign,
+		target_client: millau_client.clone(),
+		target_sign: millau_sign,
+		relayer_id_at_source: relayer_id_at_rialto,
 	};
 
 	messages_relay::message_lane_loop::run(
 		messages_relay::message_lane_loop::Params {
 			lane: lane_id,
-			source_tick: Millau::AVERAGE_BLOCK_INTERVAL,
-			target_tick: Rialto::AVERAGE_BLOCK_INTERVAL,
+			source_tick: Rialto::AVERAGE_BLOCK_INTERVAL,
+			target_tick: Millau::AVERAGE_BLOCK_INTERVAL,
 			reconnect_delay,
 			stall_timeout,
 			delivery_params: messages_relay::message_lane_loop::MessageDeliveryParams {
-				max_unconfirmed_nonces_at_target: bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
+				max_unconfirmed_nonces_at_target: bp_millau::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
 				// TODO: subtract base weight of delivery from this when it'll be known
 				// https://github.com/paritytech/parity-bridges-common/issues/78
-				max_messages_weight_in_single_batch: bp_rialto::MAXIMUM_EXTRINSIC_WEIGHT,
+				max_messages_weight_in_single_batch: bp_millau::MAXIMUM_EXTRINSIC_WEIGHT,
 			},
 		},
-		MillauSourceClient::new(millau_client, lane.clone(), lane_id, RIALTO_BRIDGE_INSTANCE),
-		RialtoTargetClient::new(rialto_client, lane, lane_id, MILLAU_BRIDGE_INSTANCE),
+		RialtoSourceClient::new(rialto_client, lane.clone(), lane_id, MILLAU_BRIDGE_INSTANCE),
+		MillauTargetClient::new(millau_client, lane, lane_id, RIALTO_BRIDGE_INSTANCE),
 		metrics_params,
 		futures::future::pending(),
 	);
