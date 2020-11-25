@@ -43,7 +43,7 @@ cumulus-message-broker = { path = "../../message-broker", default-features = fal
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "2.0.0" }
+substrate-wasm-builder = "3.0.0"
 
 [features]
 default = [ "std" ]

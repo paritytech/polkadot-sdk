@@ -305,7 +305,6 @@ pub fn build_polkadot_full_node(
 			config,
 			polkadot_service::IsCollator::Yes(collator_id),
 			None,
-			None,
 		)
 	}
 }

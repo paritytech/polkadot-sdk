@@ -125,7 +125,6 @@ where
 		verifier,
 		Box::new(block_import),
 		None,
-		None,
 		spawner,
 		registry,
 	))

@@ -147,8 +147,6 @@ where
 			import_queue,
 			on_demand: None,
 			block_announce_validator_builder: Some(Box::new(|_| block_announce_validator)),
-			finality_proof_request_builder: None,
-			finality_proof_provider: None,
 		})?;
 
 	let rpc_client = client.clone();
