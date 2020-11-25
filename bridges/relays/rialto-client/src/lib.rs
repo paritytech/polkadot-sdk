@@ -17,13 +17,9 @@
 //! Types used to connect to the Rialto-Substrate chain.
 
 use codec::Encode;
-use headers_relay::sync_types::SourceHeader;
 use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, Client, TransactionSignScheme};
 use sp_core::{storage::StorageKey, Pair};
-use sp_runtime::{
-	generic::SignedPayload,
-	traits::{Header as HeaderT, IdentifyAccount},
-};
+use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
 
 pub use rialto_runtime::BridgeMillauCall;
@@ -134,35 +130,4 @@ impl Default for SigningParams {
 }
 
 /// Rialto header type used in headers sync.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SyncHeader(rialto_runtime::Header);
-
-impl std::ops::Deref for SyncHeader {
-	type Target = rialto_runtime::Header;
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-impl From<rialto_runtime::Header> for SyncHeader {
-	fn from(header: rialto_runtime::Header) -> Self {
-		Self(header)
-	}
-}
-
-impl From<SyncHeader> for rialto_runtime::Header {
-	fn from(header: SyncHeader) -> Self {
-		header.0
-	}
-}
-
-impl SourceHeader<rialto_runtime::Hash, rialto_runtime::BlockNumber> for SyncHeader {
-	fn id(&self) -> HeaderId {
-		relay_utils::HeaderId(*self.number(), self.hash())
-	}
-
-	fn parent_id(&self) -> HeaderId {
-		relay_utils::HeaderId(*self.number() - 1, *self.parent_hash())
-	}
-}
+pub type SyncHeader = relay_substrate_client::SyncHeader<rialto_runtime::Header>;

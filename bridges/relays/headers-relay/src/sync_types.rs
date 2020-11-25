@@ -84,6 +84,8 @@ pub trait SourceHeader<Hash, Number>: Clone + std::fmt::Debug + PartialEq + Send
 	/// Returns ID of header.
 	fn id(&self) -> HeaderId<Hash, Number>;
 	/// Returns ID of parent header.
+	///
+	/// Panics if called for genesis header.
 	fn parent_id(&self) -> HeaderId<Hash, Number>;
 }
 
