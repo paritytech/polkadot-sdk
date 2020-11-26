@@ -111,12 +111,16 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Dave"),
 							get_account_id_from_seed::<sr25519::Public>("Eve"),
 							get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+							get_account_id_from_seed::<sr25519::Public>("George"),
+							get_account_id_from_seed::<sr25519::Public>("Harry"),
 							get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+							get_account_id_from_seed::<sr25519::Public>("George//stash"),
+							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
 						],
 						true,
 					)
@@ -147,7 +151,7 @@ fn testnet_genesis(
 			changes_trie_config: Default::default(),
 		}),
 		pallet_balances: Some(BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
 		}),
 		pallet_aura: Some(AuraConfig {
 			authorities: Vec::new(),
