@@ -19,11 +19,11 @@ use cumulus_test_service::runtime::{Block, Header};
 use futures::{executor::block_on, poll, task::Poll};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::v1::{
-	AuthorityDiscoveryId, Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor,
+	Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor,
 	CandidateEvent, CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash,
 	HeadData, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
 	ParachainHost, PersistedValidationData, SessionIndex, SigningContext, ValidationCode,
-	ValidationData, ValidationOutputs, ValidatorId, ValidatorIndex,
+	ValidationData, ValidationOutputs, ValidatorId, ValidatorIndex, SessionInfo,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -427,8 +427,8 @@ sp_api::mock_impl_runtime_apis! {
 			Vec::new()
 		}
 
-		fn validator_discovery(_: Vec<ValidatorId>) -> Vec<Option<AuthorityDiscoveryId>> {
-			Vec::new()
+		fn session_info(_: SessionIndex) -> Option<SessionInfo> {
+			None
 		}
 
 		fn check_validation_outputs(_: ParaId, _: ValidationOutputs) -> bool {
