@@ -103,6 +103,9 @@ pub trait SourceClient<P: MessageLane>: Clone + Send + Sync {
 	) -> Result<(SourceHeaderIdOf<P>, MessageNonce), Self::Error>;
 
 	/// Returns mapping of message nonces, generated on this client, to their weights.
+	///
+	/// Some weights may be missing from returned map, if corresponding messages were pruned at
+	/// the source chain.
 	async fn generated_messages_weights(
 		&self,
 		id: SourceHeaderIdOf<P>,

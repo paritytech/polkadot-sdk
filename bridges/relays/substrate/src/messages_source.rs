@@ -150,23 +150,11 @@ where
 				Some(id.1),
 			)
 			.await?;
-		let weights: Vec<(MessageNonce, Weight)> =
-			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 
-		let mut expected_nonce = *nonces.start();
-		let mut weights_map = MessageWeightsMap::new();
-		for (nonce, weight) in weights {
-			if nonce != expected_nonce {
-				return Err(SubstrateError::Custom(format!(
-					"Unexpected nonce in messages_dispatch_weight call result. Expected {}, got {}",
-					expected_nonce, nonce
-				)));
-			}
-
-			weights_map.insert(nonce, weight);
-			expected_nonce += 1;
-		}
-		Ok(weights_map)
+		make_message_weights_map::<C>(
+			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?,
+			nonces,
+		)
 	}
 
 	async fn prove_messages(
@@ -244,4 +232,109 @@ where
 		best_finalized_self: self_best_finalized_id,
 		best_finalized_peer_at_best_self: peer_on_self_best_finalized_id,
 	})
+}
+
+fn make_message_weights_map<C: Chain>(
+	weights: Vec<(MessageNonce, Weight)>,
+	nonces: RangeInclusive<MessageNonce>,
+) -> Result<MessageWeightsMap, SubstrateError> {
+	let make_missing_nonce_error = |expected_nonce| {
+		Err(SubstrateError::Custom(format!(
+			"Missing nonce {} in messages_dispatch_weight call result. Expected all nonces from {:?}",
+			expected_nonce, nonces,
+		)))
+	};
+
+	let mut weights_map = MessageWeightsMap::new();
+
+	// this is actually prevented by external logic
+	if nonces.is_empty() {
+		return Ok(weights_map);
+	}
+
+	// check if last nonce is missing - loop below is not checking this
+	let last_nonce_is_missing = weights
+		.last()
+		.map(|(last_nonce, _)| last_nonce != nonces.end())
+		.unwrap_or(true);
+	if last_nonce_is_missing {
+		return make_missing_nonce_error(*nonces.end());
+	}
+
+	let mut expected_nonce = *nonces.start();
+	let mut is_at_head = true;
+
+	for (nonce, weight) in weights {
+		match (nonce == expected_nonce, is_at_head) {
+			(true, _) => (),
+			(false, true) => {
+				// this may happen if some messages were already pruned from the source node
+				//
+				// this is not critical error and will be auto-resolved by messages lane (and target node)
+				log::info!(
+					target: "bridge",
+					"Some messages are missing from the {} node: {:?}. Target node may be out of sync?",
+					C::NAME,
+					expected_nonce..nonce,
+				);
+			}
+			(false, false) => {
+				// some nonces are missing from the middle/tail of the range
+				//
+				// this is critical error, because we can't miss any nonces
+				return make_missing_nonce_error(expected_nonce);
+			}
+		}
+
+		weights_map.insert(nonce, weight);
+		expected_nonce = nonce + 1;
+		is_at_head = false;
+	}
+
+	Ok(weights_map)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn make_message_weights_map_succeeds_if_no_messages_are_missing() {
+		assert_eq!(
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0), (2, 0), (3, 0)], 1..=3).unwrap(),
+			vec![(1, 0), (2, 0), (3, 0)].into_iter().collect(),
+		);
+	}
+
+	#[test]
+	fn make_message_weights_map_succeeds_if_head_messages_are_missing() {
+		assert_eq!(
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(2, 0), (3, 0)], 1..=3).unwrap(),
+			vec![(2, 0), (3, 0)].into_iter().collect(),
+		);
+	}
+
+	#[test]
+	fn make_message_weights_map_fails_if_mid_messages_are_missing() {
+		assert!(matches!(
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0), (3, 0)], 1..=3),
+			Err(SubstrateError::Custom(_))
+		));
+	}
+
+	#[test]
+	fn make_message_weights_map_fails_if_tail_messages_are_missing() {
+		assert!(matches!(
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0), (2, 0)], 1..=3),
+			Err(SubstrateError::Custom(_))
+		));
+	}
+
+	#[test]
+	fn make_message_weights_map_fails_if_all_messages_are_missing() {
+		assert!(matches!(
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![], 1..=3),
+			Err(SubstrateError::Custom(_))
+		));
+	}
 }
