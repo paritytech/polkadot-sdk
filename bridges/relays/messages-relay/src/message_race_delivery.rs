@@ -223,11 +223,11 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 		self.strategy.is_empty()
 	}
 
-	fn best_at_source(&self) -> MessageNonce {
+	fn best_at_source(&self) -> Option<MessageNonce> {
 		self.strategy.best_at_source()
 	}
 
-	fn best_at_target(&self) -> MessageNonce {
+	fn best_at_target(&self) -> Option<MessageNonce> {
 		self.strategy.best_at_target()
 	}
 
