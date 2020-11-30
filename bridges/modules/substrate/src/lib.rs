@@ -459,6 +459,7 @@ pub trait BridgeStorage {
 	/// Replace the current authority set with the next scheduled set.
 	///
 	/// Returns an error if there is no scheduled authority set to enact.
+	#[allow(clippy::result_unit_err)]
 	fn enact_authority_set(&mut self, signal_hash: <Self::Header as HeaderT>::Hash) -> Result<(), ()>;
 
 	/// Get the next scheduled Grandpa authority set change.
