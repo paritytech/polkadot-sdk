@@ -114,7 +114,7 @@ pub mod source {
 
 	/// Message payload for This -> Bridged chain messages.
 	pub type FromThisChainMessagePayload<B> = pallet_bridge_call_dispatch::MessagePayload<
-		SignerOf<ThisChain<B>>,
+		AccountIdOf<ThisChain<B>>,
 		SignerOf<BridgedChain<B>>,
 		SignatureOf<BridgedChain<B>>,
 		BridgedChainOpaqueCall,
@@ -238,14 +238,14 @@ pub mod target {
 
 	/// Call origin for Bridged -> This chain messages.
 	pub type FromBridgedChainMessageCallOrigin<B> = pallet_bridge_call_dispatch::CallOrigin<
-		SignerOf<BridgedChain<B>>,
+		AccountIdOf<BridgedChain<B>>,
 		SignerOf<ThisChain<B>>,
 		SignatureOf<ThisChain<B>>,
 	>;
 
 	/// Decoded Bridged -> This message payload.
 	pub type FromBridgedChainDecodedMessagePayload<B> = pallet_bridge_call_dispatch::MessagePayload<
-		SignerOf<BridgedChain<B>>,
+		AccountIdOf<BridgedChain<B>>,
 		SignerOf<ThisChain<B>>,
 		SignatureOf<ThisChain<B>>,
 		CallOf<ThisChain<B>>,
@@ -614,7 +614,7 @@ mod tests {
 		let message_on_bridged_chain = source::FromThisChainMessagePayload::<OnBridgedChainBridge> {
 			spec_version: 1,
 			weight: 100,
-			origin: pallet_bridge_call_dispatch::CallOrigin::BridgeAccount,
+			origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
 			call: ThisChainCall::Transfer.encode(),
 		}
 		.encode();
@@ -628,7 +628,7 @@ mod tests {
 			target::FromBridgedChainDecodedMessagePayload::<OnThisChainBridge> {
 				spec_version: 1,
 				weight: 100,
-				origin: pallet_bridge_call_dispatch::CallOrigin::BridgeAccount,
+				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
 				call: ThisChainCall::Transfer,
 			}
 		);
@@ -642,7 +642,7 @@ mod tests {
 		let payload = source::FromThisChainMessagePayload::<OnThisChainBridge> {
 			spec_version: 1,
 			weight: 100,
-			origin: pallet_bridge_call_dispatch::CallOrigin::BridgeAccount,
+			origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
 			call: vec![42],
 		};
 

@@ -39,7 +39,7 @@ pub trait MessageDispatch<MessageId> {
 	///
 	/// `bridge` indicates instance of deployed bridge where the message came from.
 	///
-	/// `id` is a short unique if of the message.
+	/// `id` is a short unique identifier of the message.
 	///
 	/// Returns post-dispatch (actual) message weight.
 	fn dispatch(bridge: InstanceId, id: MessageId, message: Self::Message);

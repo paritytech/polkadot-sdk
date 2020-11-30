@@ -226,9 +226,10 @@ impl pallet_bridge_call_dispatch::Trait for Runtime {
 	type Event = Event;
 	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
 	type Call = Call;
-	type SourceChainAccountPublic = MultiSigner;
+	type SourceChainAccountId = bp_rialto::AccountId;
 	type TargetChainAccountPublic = MultiSigner;
 	type TargetChainSignature = MultiSignature;
+	type AccountIdConverter = bp_millau::AccountIdConverter;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -335,6 +336,8 @@ impl pallet_message_lane::Trait for Runtime {
 	type InboundPayload = crate::rialto_messages::FromRialtoMessagePayload;
 	type InboundMessageFee = bp_rialto::Balance;
 	type InboundRelayer = bp_rialto::AccountId;
+
+	type AccountIdConverter = bp_millau::AccountIdConverter;
 
 	type TargetHeaderChain = crate::rialto_messages::Rialto;
 	type LaneMessageVerifier = crate::rialto_messages::ToRialtoMessageVerifier;

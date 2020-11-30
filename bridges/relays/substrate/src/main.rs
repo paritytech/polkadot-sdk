@@ -26,6 +26,7 @@ use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
 use relay_substrate_client::{ConnectionParams, TransactionSignScheme};
 use relay_utils::initialize::initialize_relay;
 use sp_core::{Bytes, Pair};
+use sp_runtime::traits::IdentifyAccount;
 
 /// Millau node client.
 pub type MillauClient = relay_substrate_client::Client<Millau>;
@@ -277,11 +278,12 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 			let rialto_call_weight = rialto_call.get_dispatch_info().weight;
 
 			let millau_sender_public: bp_millau::AccountSigner = millau_sign.signer.public().clone().into();
+			let millau_account_id: bp_millau::AccountId = millau_sender_public.into_account();
 			let rialto_origin_public = rialto_sign.signer.public();
 
 			let mut rialto_origin_signature_message = Vec::new();
 			rialto_call.encode_to(&mut rialto_origin_signature_message);
-			millau_sender_public.encode_to(&mut rialto_origin_signature_message);
+			millau_account_id.encode_to(&mut rialto_origin_signature_message);
 			let rialto_origin_signature = rialto_sign.signer.sign(&rialto_origin_signature_message);
 
 			let millau_call =
@@ -290,8 +292,8 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 					MessagePayload {
 						spec_version: rialto_runtime::VERSION.spec_version,
 						weight: rialto_call_weight,
-						origin: CallOrigin::RealAccount(
-							millau_sender_public,
+						origin: CallOrigin::TargetAccount(
+							millau_account_id,
 							rialto_origin_public.into(),
 							rialto_origin_signature.into(),
 						),
@@ -391,11 +393,12 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 			let millau_call_weight = millau_call.get_dispatch_info().weight;
 
 			let rialto_sender_public: bp_rialto::AccountSigner = rialto_sign.signer.public().clone().into();
+			let rialto_account_id: bp_rialto::AccountId = rialto_sender_public.into_account();
 			let millau_origin_public = millau_sign.signer.public();
 
 			let mut millau_origin_signature_message = Vec::new();
 			millau_call.encode_to(&mut millau_origin_signature_message);
-			rialto_sender_public.encode_to(&mut millau_origin_signature_message);
+			rialto_account_id.encode_to(&mut millau_origin_signature_message);
 			let millau_origin_signature = millau_sign.signer.sign(&millau_origin_signature_message);
 
 			let rialto_call =
@@ -404,8 +407,8 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 					MessagePayload {
 						spec_version: millau_runtime::VERSION.spec_version,
 						weight: millau_call_weight,
-						origin: CallOrigin::RealAccount(
-							rialto_sender_public,
+						origin: CallOrigin::TargetAccount(
+							rialto_account_id,
 							millau_origin_public.into(),
 							millau_origin_signature.into(),
 						),
