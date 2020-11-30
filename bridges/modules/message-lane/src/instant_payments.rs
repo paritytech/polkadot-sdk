@@ -18,8 +18,7 @@
 //! All payments are instant.
 
 use bp_message_lane::source_chain::MessageDeliveryAndDispatchPayment;
-use bp_runtime::{bridge_account_id, MESSAGE_LANE_MODULE_PREFIX, NO_INSTANCE_ID};
-use codec::Decode;
+use codec::Encode;
 use frame_support::traits::{Currency as CurrencyT, ExistenceRequirement};
 use sp_std::fmt::Debug;
 
@@ -33,23 +32,26 @@ impl<AccountId, Currency> MessageDeliveryAndDispatchPayment<AccountId, Currency:
 	for InstantCurrencyPayments<AccountId, Currency>
 where
 	Currency: CurrencyT<AccountId>,
-	AccountId: Debug + Default + Decode,
+	AccountId: Debug + Default + Encode,
 {
 	type Error = &'static str;
 
-	fn pay_delivery_and_dispatch_fee(submitter: &AccountId, fee: &Currency::Balance) -> Result<(), Self::Error> {
-		Currency::transfer(
-			submitter,
-			&relayers_fund_account(),
-			*fee,
-			ExistenceRequirement::AllowDeath,
-		)
-		.map_err(Into::into)
+	fn pay_delivery_and_dispatch_fee(
+		submitter: &AccountId,
+		fee: &Currency::Balance,
+		relayer_fund_account: &AccountId,
+	) -> Result<(), Self::Error> {
+		Currency::transfer(submitter, relayer_fund_account, *fee, ExistenceRequirement::AllowDeath).map_err(Into::into)
 	}
 
-	fn pay_relayer_reward(_confirmation_relayer: &AccountId, relayer: &AccountId, reward: &Currency::Balance) {
+	fn pay_relayer_reward(
+		_confirmation_relayer: &AccountId,
+		relayer: &AccountId,
+		reward: &Currency::Balance,
+		relayer_fund_account: &AccountId,
+	) {
 		let pay_result = Currency::transfer(
-			&relayers_fund_account(),
+			&relayer_fund_account,
 			relayer,
 			*reward,
 			ExistenceRequirement::AllowDeath,
@@ -72,10 +74,4 @@ where
 			),
 		}
 	}
-}
-
-/// Return account id of shared relayers-fund account that is storing all fees
-/// paid by submitters, until they're claimed by relayers.
-fn relayers_fund_account<AccountId: Default + Decode>() -> AccountId {
-	bridge_account_id(NO_INSTANCE_ID, MESSAGE_LANE_MODULE_PREFIX)
 }
