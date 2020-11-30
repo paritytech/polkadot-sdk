@@ -147,11 +147,12 @@ impl ToString for StringifiedMaybeConnectionError {
 
 /// Exponential backoff for connection-unrelated errors retries.
 pub fn retry_backoff() -> ExponentialBackoff {
-	let mut backoff = ExponentialBackoff::default();
-	// we do not want relayer to stop
-	backoff.max_elapsed_time = None;
-	backoff.max_interval = MAX_BACKOFF_INTERVAL;
-	backoff
+	ExponentialBackoff {
+		// we do not want relayer to stop
+		max_elapsed_time: None,
+		max_interval: MAX_BACKOFF_INTERVAL,
+		..Default::default()
+	}
 }
 
 /// Compact format of IDs vector.

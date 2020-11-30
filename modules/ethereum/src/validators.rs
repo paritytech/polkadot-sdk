@@ -325,8 +325,10 @@ pub(crate) mod tests {
 		// when contract is active, but bloom has no required bits set
 		let config = ValidatorsConfiguration::Single(ValidatorsSource::Contract(Default::default(), Vec::new()));
 		let validators = Validators::new(&config);
-		let mut header = AuraHeader::default();
-		header.number = u64::max_value();
+		let mut header = AuraHeader {
+			number: u64::max_value(),
+			..Default::default()
+		};
 		assert!(!validators.maybe_signals_validators_change(&header));
 
 		// when contract is active and bloom has required bits set
@@ -347,10 +349,12 @@ pub(crate) mod tests {
 			(200, ValidatorsSource::Contract([3; 20].into(), vec![[3; 20].into()])),
 		]);
 		let validators = Validators::new(&config);
-		let mut header = AuraHeader::default();
+		let mut header = AuraHeader {
+			number: 100,
+			..Default::default()
+		};
 
 		// when we're at the block that switches to list source
-		header.number = 100;
 		assert_eq!(
 			validators.extract_validators_change(&header, None),
 			Ok((None, Some(vec![[2; 20].into()]))),
