@@ -18,7 +18,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::Encode;
+use sp_core::hash::H256;
 use sp_io::hashing::blake2_256;
 
 pub use chain::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
@@ -46,17 +47,45 @@ pub const MESSAGE_LANE_MODULE_PREFIX: &[u8] = b"pallet-bridge/message-lane";
 /// to identify deployed instance dynamically. This type is used for that.
 pub type InstanceId = [u8; 4];
 
-/// Returns id of account that acts as "system" account of given bridge instance.
-/// The `module_prefix` (arbitrary slice) may be used to generate module-level
-/// "system" account, so you could have separate "system" accounts for currency
-/// exchange, message dispatch and other modules.
+/// Type of accounts on the source chain.
+pub enum SourceAccount<T> {
+	/// An account that belongs to Root (priviledged origin).
+	Root,
+	/// A non-priviledged account.
+	///
+	/// The embedded account ID may or may not have a private key depending on the "owner" of the
+	/// account (private key, pallet, proxy, etc.).
+	Account(T),
+}
+
+/// Derive an account ID from a foreign account ID.
 ///
-/// The account is not supposed to actually exists on the chain, or to have any funds.
-/// It is only used to
-pub fn bridge_account_id<AccountId>(bridge: InstanceId, module_prefix: &[u8]) -> AccountId
+/// This function returns an encoded Blake2 hash. It is the responsibility of the caller to ensure
+/// this can be succesfully decoded into an AccountId.
+///
+/// The `bridge_id` is used to provide extra entropy when producing account IDs. This helps prevent
+/// AccountId collisions between different bridges on a single target chain.
+///
+/// Note: If the same `bridge_id` is used across different chains (for example, if one source chain
+/// is bridged to multiple target chains), then all the derived accounts would be the same across
+/// the different chains. This could negatively impact users' privacy across chains.
+pub fn derive_account_id<AccountId>(bridge_id: InstanceId, id: SourceAccount<AccountId>) -> H256
 where
-	AccountId: Decode + Default,
+	AccountId: Encode,
 {
-	let entropy = (module_prefix, bridge).using_encoded(blake2_256);
-	AccountId::decode(&mut &entropy[..]).unwrap_or_default()
+	match id {
+		SourceAccount::Root => ("root", bridge_id).using_encoded(blake2_256),
+		SourceAccount::Account(id) => ("account", bridge_id, id).using_encoded(blake2_256),
+	}
+	.into()
+}
+
+/// Derive the account ID of the shared relayer fund account.
+///
+/// This account is used to collect fees for relayers that are passing messages across the bridge.
+///
+/// The account ID can be the same across different instances of `message-lane` if the same
+/// `bridge_id` is used.
+pub fn derive_relayer_fund_account_id(bridge_id: InstanceId) -> H256 {
+	("relayer-fund-account", bridge_id).using_encoded(blake2_256).into()
 }
