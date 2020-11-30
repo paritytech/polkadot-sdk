@@ -65,8 +65,8 @@ pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
 
 impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
-	pub(crate) fn load(self) -> Result<ChainSpec, String> {
-		Ok(match self {
+	pub(crate) fn load(self) -> ChainSpec {
+		match self {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
 				"dev",
@@ -131,7 +131,7 @@ impl Alternative {
 				None,
 				None,
 			),
-		})
+		}
 	}
 }
 
