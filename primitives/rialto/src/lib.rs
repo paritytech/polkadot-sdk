@@ -98,6 +98,15 @@ pub type AccountSigner = MultiSigner;
 /// Balance of an account.
 pub type Balance = u128;
 
+/// Convert a 256-bit hash into an AccountId.
+pub struct AccountIdConverter;
+
+impl sp_runtime::traits::Convert<sp_core::H256, AccountId> for AccountIdConverter {
+	fn convert(hash: sp_core::H256) -> AccountId {
+		hash.to_fixed_bytes().into()
+	}
+}
+
 sp_api::decl_runtime_apis! {
 	/// API for querying information about Rialto headers from the Bridge Pallet instance.
 	///

@@ -277,9 +277,10 @@ impl pallet_bridge_call_dispatch::Trait for Runtime {
 	type Event = Event;
 	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
 	type Call = Call;
-	type SourceChainAccountPublic = MultiSigner;
+	type SourceChainAccountId = bp_millau::AccountId;
 	type TargetChainAccountPublic = MultiSigner;
 	type TargetChainSignature = MultiSignature;
+	type AccountIdConverter = bp_rialto::AccountIdConverter;
 }
 
 pub struct DepositInto;
@@ -442,6 +443,8 @@ impl pallet_message_lane::Trait for Runtime {
 	type InboundPayload = crate::millau_messages::FromMillauMessagePayload;
 	type InboundMessageFee = bp_millau::Balance;
 	type InboundRelayer = bp_millau::AccountId;
+
+	type AccountIdConverter = bp_rialto::AccountIdConverter;
 
 	type TargetHeaderChain = crate::millau_messages::Millau;
 	type LaneMessageVerifier = crate::millau_messages::ToMillauMessageVerifier;

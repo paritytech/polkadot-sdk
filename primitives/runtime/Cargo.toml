@@ -13,6 +13,7 @@ num-traits = { version = "0.2", default-features = false }
 # Substrate Dependencies
 
 frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
@@ -23,6 +24,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"num-traits/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

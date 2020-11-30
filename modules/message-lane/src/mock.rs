@@ -36,6 +36,14 @@ pub type TestPayload = (u64, Weight);
 pub type TestMessageFee = u64;
 pub type TestRelayer = u64;
 
+pub struct AccountIdConverter;
+
+impl sp_runtime::traits::Convert<H256, AccountId> for AccountIdConverter {
+	fn convert(hash: H256) -> AccountId {
+		hash.to_low_u64_ne()
+	}
+}
+
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TestRuntime;
 
@@ -105,6 +113,8 @@ impl Trait for TestRuntime {
 	type InboundPayload = TestPayload;
 	type InboundMessageFee = TestMessageFee;
 	type InboundRelayer = TestRelayer;
+
+	type AccountIdConverter = AccountIdConverter;
 
 	type TargetHeaderChain = TestTargetHeaderChain;
 	type LaneMessageVerifier = TestLaneMessageVerifier;
@@ -234,7 +244,11 @@ impl TestMessageDeliveryAndDispatchPayment {
 impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee> for TestMessageDeliveryAndDispatchPayment {
 	type Error = &'static str;
 
-	fn pay_delivery_and_dispatch_fee(submitter: &AccountId, fee: &TestMessageFee) -> Result<(), Self::Error> {
+	fn pay_delivery_and_dispatch_fee(
+		submitter: &AccountId,
+		fee: &TestMessageFee,
+		_relayer_fund_account: &AccountId,
+	) -> Result<(), Self::Error> {
 		if frame_support::storage::unhashed::get(b":reject-message-fee:") == Some(true) {
 			return Err(TEST_ERROR);
 		}
@@ -243,7 +257,12 @@ impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee> for TestMessag
 		Ok(())
 	}
 
-	fn pay_relayer_reward(_confirmation_relayer: &AccountId, relayer: &AccountId, fee: &TestMessageFee) {
+	fn pay_relayer_reward(
+		_confirmation_relayer: &AccountId,
+		relayer: &AccountId,
+		fee: &TestMessageFee,
+		_relayer_fund_account: &AccountId,
+	) {
 		let key = (b":relayer-reward:", relayer, fee).encode();
 		frame_support::storage::unhashed::put(&key, &true);
 	}

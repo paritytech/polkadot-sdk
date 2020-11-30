@@ -93,8 +93,17 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 
 	/// Withhold/write-off delivery_and_dispatch_fee from submitter account to
 	/// some relayers-fund account.
-	fn pay_delivery_and_dispatch_fee(submitter: &AccountId, fee: &Balance) -> Result<(), Self::Error>;
+	fn pay_delivery_and_dispatch_fee(
+		submitter: &AccountId,
+		fee: &Balance,
+		relayer_fund_account: &AccountId,
+	) -> Result<(), Self::Error>;
 
 	/// Pay reward for delivering message to the given relayer account.
-	fn pay_relayer_reward(confirmation_relayer: &AccountId, relayer: &AccountId, reward: &Balance);
+	fn pay_relayer_reward(
+		confirmation_relayer: &AccountId,
+		relayer: &AccountId,
+		reward: &Balance,
+		relayer_fund_account: &AccountId,
+	);
 }
