@@ -65,8 +65,8 @@ pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
 
 impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
-	pub(crate) fn load(self) -> Result<ChainSpec, String> {
-		Ok(match self {
+	pub(crate) fn load(self) -> ChainSpec {
+		match self {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
 				"dev",
@@ -131,7 +131,7 @@ impl Alternative {
 				None,
 				None,
 			),
-		})
+		}
 	}
 }
 
@@ -156,8 +156,8 @@ fn testnet_genesis(
 		pallet_aura: Some(AuraConfig {
 			authorities: Vec::new(),
 		}),
-		pallet_bridge_eth_poa_Instance1: load_rialto_poa_bridge_config(),
-		pallet_bridge_eth_poa_Instance2: load_kovan_bridge_config(),
+		pallet_bridge_eth_poa_Instance1: Some(load_rialto_poa_bridge_config()),
+		pallet_bridge_eth_poa_Instance2: Some(load_kovan_bridge_config()),
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
 		}),
@@ -176,18 +176,18 @@ fn testnet_genesis(
 	}
 }
 
-fn load_rialto_poa_bridge_config() -> Option<BridgeRialtoPoAConfig> {
-	Some(BridgeRialtoPoAConfig {
+fn load_rialto_poa_bridge_config() -> BridgeRialtoPoAConfig {
+	BridgeRialtoPoAConfig {
 		initial_header: rialto_runtime::rialto_poa::genesis_header(),
 		initial_difficulty: 0.into(),
 		initial_validators: rialto_runtime::rialto_poa::genesis_validators(),
-	})
+	}
 }
 
-fn load_kovan_bridge_config() -> Option<BridgeKovanConfig> {
-	Some(BridgeKovanConfig {
+fn load_kovan_bridge_config() -> BridgeKovanConfig {
+	BridgeKovanConfig {
 		initial_header: rialto_runtime::kovan::genesis_header(),
 		initial_difficulty: 0.into(),
 		initial_validators: rialto_runtime::kovan::genesis_validators(),
-	})
+	}
 }
