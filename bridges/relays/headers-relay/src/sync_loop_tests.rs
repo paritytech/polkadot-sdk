@@ -357,9 +357,10 @@ fn target_accept_all_headers(method: &TargetMethod, data: &mut TargetData, requi
 	if let TargetMethod::SubmitHeaders(ref submitted) = method {
 		assert_eq!(submitted.iter().all(|header| header.extra().is_some()), requires_extra,);
 
-		let mut submitted_headers = SubmittedHeaders::default();
-		submitted_headers.submitted = submitted.iter().map(|header| header.id()).collect();
-		data.submit_headers_result = Some(submitted_headers);
+		data.submit_headers_result = Some(SubmittedHeaders {
+			submitted: submitted.iter().map(|header| header.id()).collect(),
+			..Default::default()
+		});
 	}
 }
 

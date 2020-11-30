@@ -61,7 +61,7 @@ impl SubstrateCli for Cli {
 				"local" => crate::chain_spec::Alternative::LocalTestnet,
 				_ => return Err(format!("Unsupported chain specification: {}", id)),
 			}
-			.load()?,
+			.load(),
 		))
 	}
 }
