@@ -37,19 +37,19 @@ use cumulus_primitives::{
 };
 
 /// Configuration trait of the message broker pallet.
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
 	/// The downward message handlers that will be informed when a message is received.
 	type DownwardMessageHandlers: DownwardMessageHandler;
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as MessageBroker {
+	trait Store for Module<T: Config> as MessageBroker {
 		PendingUpwardMessages: Vec<UpwardMessage>;
 	}
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		/// An entrypoint for an inherent to deposit downward messages into the runtime. It accepts
 		/// and processes the list of downward messages.
 		#[weight = (10, DispatchClass::Mandatory)]
@@ -96,7 +96,7 @@ pub enum SendUpErr {
 	TooBig,
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	pub fn send_upward_message(message: UpwardMessage) -> Result<(), SendUpErr> {
 		// TODO: check the message against the limit. The limit should be sourced from the
 		// relay-chain configuration.
@@ -105,7 +105,7 @@ impl<T: Trait> Module<T> {
 	}
 }
 
-impl<T: Trait> ProvideInherent for Module<T> {
+impl<T: Config> ProvideInherent for Module<T> {
 	type Call = Call<T>;
 	type Error = MakeFatalError<()>;
 	const INHERENT_IDENTIFIER: InherentIdentifier = DOWNWARD_MESSAGES_IDENTIFIER;

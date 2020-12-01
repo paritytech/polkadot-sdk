@@ -162,7 +162,7 @@ where
 	fn execute_with_client<PClient, Api, PBackend>(self, client: Arc<PClient>) -> Self::Output
 	where
 		<Api as sp_api::ApiExt<PBlock>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
-		PBackend: sc_client_api::Backend<PBlock>,
+		PBackend: sc_client_api::Backend<PBlock> + 'static,
 		PBackend::State: sp_api::StateBackend<BlakeTwo256>,
 		Api: RuntimeApiCollection<StateBackend = PBackend::State>,
 		PClient: AbstractClient<PBlock, PBackend, Api = Api> + 'static,

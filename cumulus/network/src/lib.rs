@@ -26,7 +26,7 @@ mod wait_on_relay_chain_block;
 
 use sc_client_api::{Backend, BlockchainEvents};
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::{Error as ClientError, HeaderBackend};
+use sp_blockchain::HeaderBackend;
 use sp_consensus::{
 	block_validation::{BlockAnnounceValidator as BlockAnnounceValidatorT, Validation},
 	SyncOracle,
@@ -54,11 +54,21 @@ use futures::{
 };
 use log::trace;
 
-use std::{marker::PhantomData, pin::Pin, sync::Arc};
+use std::{marker::PhantomData, pin::Pin, sync::Arc, fmt};
 
 use wait_on_relay_chain_block::WaitOnRelayChainBlock;
 
-type BlockAnnounceError = Box<dyn std::error::Error + Send>;
+type BoxedError = Box<dyn std::error::Error + Send>;
+
+#[derive(Debug)]
+struct BlockAnnounceError(String);
+impl std::error::Error for BlockAnnounceError { }
+
+impl fmt::Display for BlockAnnounceError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		self.0.fmt(f)
+	}
+}
 
 /// Parachain specific block announce validator.
 ///
@@ -131,7 +141,7 @@ where
 	fn handle_empty_block_announce_data(
 		&self,
 		header: Block::Header,
-	) -> impl Future<Output = Result<Validation, BlockAnnounceError>> {
+	) -> impl Future<Output = Result<Validation, BoxedError>> {
 		let relay_chain_client = self.relay_chain_client.clone();
 		let relay_chain_backend = self.relay_chain_backend.clone();
 		let para_id = self.para_id;
@@ -149,15 +159,15 @@ where
 					para_id,
 					OccupiedCoreAssumption::TimedOut,
 				)
-				.map_err(|e| Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>)?
+				.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?
 				.ok_or_else(|| {
-					Box::new(ClientError::Msg(
+					Box::new(BlockAnnounceError(
 						"Could not find parachain head in relay chain".into(),
 					)) as Box<_>
 				})?;
 			let parent_head = Block::Header::decode(&mut &local_validation_data.parent_head.0[..])
 				.map_err(|e| {
-					Box::new(ClientError::Msg(format!(
+					Box::new(BlockAnnounceError(format!(
 						"Failed to decode parachain head: {:?}",
 						e
 					))) as Box<_>
@@ -192,7 +202,7 @@ where
 		&mut self,
 		header: &Block::Header,
 		mut data: &[u8],
-	) -> Pin<Box<dyn Future<Output = Result<Validation, BlockAnnounceError>> + Send>> {
+	) -> Pin<Box<dyn Future<Output = Result<Validation, BoxedError>> + Send>> {
 		if self.relay_chain_sync_oracle.is_major_syncing() {
 			return ready(Ok(Validation::Success { is_new_best: false })).boxed();
 		}
@@ -205,7 +215,7 @@ where
 
 		let signed_stmt = match SignedFullStatement::decode(&mut data) {
 			Ok(r) => r,
-			Err(_) => return ready(Err(Box::new(ClientError::Msg(
+			Err(_) => return ready(Err(Box::new(BlockAnnounceError(
 				"cannot decode block announcement justification, must be a `SignedFullStatement`"
 					.into(),
 			)) as Box<_>))
@@ -221,7 +231,7 @@ where
 			let candidate_receipt = match signed_stmt.payload() {
 				Statement::Seconded(ref candidate_receipt) => candidate_receipt,
 				_ => {
-					return Err(Box::new(ClientError::Msg(
+					return Err(Box::new(BlockAnnounceError(
 						"block announcement justification must be a `Statement::Seconded`".into(),
 					)) as Box<_>)
 				}
@@ -229,7 +239,7 @@ where
 
 			// Check the header in the candidate_receipt match header given header.
 			if header_encoded != candidate_receipt.commitments.head_data.0 {
-				return Err(Box::new(ClientError::Msg(
+				return Err(Box::new(BlockAnnounceError(
 					"block announcement header does not match the one justified".into(),
 				)) as Box<_>);
 			}
@@ -239,7 +249,7 @@ where
 			wait_on_relay_chain_block
 				.wait_on_relay_chain_block(*relay_parent)
 				.await
-				.map_err(|e| Box::new(ClientError::Msg(e.to_string())) as Box<_>)?;
+				.map_err(|e| Box::new(BlockAnnounceError(e.to_string())) as Box<_>)?;
 
 			let runtime_api = relay_chain_client.runtime_api();
 			let validator_index = signed_stmt.validator_index();
@@ -248,7 +258,7 @@ where
 			let session_index = match runtime_api.session_index_for_child(&runtime_api_block_id) {
 				Ok(r) => r,
 				Err(e) => {
-					return Err(Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>);
+					return Err(Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>);
 				}
 			};
 
@@ -261,13 +271,13 @@ where
 			let authorities = match runtime_api.validators(&runtime_api_block_id) {
 				Ok(r) => r,
 				Err(e) => {
-					return Err(Box::new(ClientError::Msg(format!("{:?}", e))) as Box<_>);
+					return Err(Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>);
 				}
 			};
 			let signer = match authorities.get(validator_index as usize) {
 				Some(r) => r,
 				None => {
-					return Err(Box::new(ClientError::Msg(
+					return Err(Box::new(BlockAnnounceError(
 						"block accouncement justification signer is a validator index out of bound"
 							.to_string(),
 					)) as Box<_>);
@@ -279,7 +289,7 @@ where
 				.check_signature(&signing_context, &signer)
 				.is_err()
 			{
-				return Err(Box::new(ClientError::Msg(
+				return Err(Box::new(BlockAnnounceError(
 					"block announcement justification signature is invalid".to_string(),
 				)) as Box<_>);
 			}

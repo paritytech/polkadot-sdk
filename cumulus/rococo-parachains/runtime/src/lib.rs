@@ -107,7 +107,7 @@ parameter_types! {
 	pub const ExtrinsicBaseWeight: Weight = 10_000_000;
 }
 
-impl frame_system::Trait for Runtime {
+impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
@@ -155,7 +155,7 @@ parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl pallet_timestamp::Trait for Runtime {
+impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = ();
@@ -171,7 +171,7 @@ parameter_types! {
 	pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Trait for Runtime {
+impl pallet_balances::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
 	/// The ubiquitous event type.
@@ -183,28 +183,28 @@ impl pallet_balances::Trait for Runtime {
 	type MaxLocks = MaxLocks;
 }
 
-impl pallet_transaction_payment::Trait for Runtime {
+impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
 }
 
-impl pallet_sudo::Trait for Runtime {
+impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 	type Event = Event;
 }
 
-impl cumulus_parachain_upgrade::Trait for Runtime {
+impl cumulus_parachain_upgrade::Config for Runtime {
 	type Event = Event;
 	type OnValidationData = ();
 }
 
-impl cumulus_message_broker::Trait for Runtime {
+impl cumulus_message_broker::Config for Runtime {
 	type DownwardMessageHandlers = ();
 }
 
-impl parachain_info::Trait for Runtime {}
+impl parachain_info::Config for Runtime {}
 
 construct_runtime! {
 	pub enum Runtime where

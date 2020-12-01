@@ -47,9 +47,9 @@ use sp_std::vec::Vec;
 type System<T> = frame_system::Module<T>;
 
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
 	/// The overarching event type.
-	type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
 	/// Something which can be notified when the validation data is set.
 	type OnValidationData: OnValidationData;
@@ -57,7 +57,7 @@ pub trait Trait: frame_system::Trait {
 
 // This pallet's storage items.
 decl_storage! {
-	trait Store for Module<T: Trait> as ParachainUpgrade {
+	trait Store for Module<T: Config> as ParachainUpgrade {
 		// we need to store the new validation function for the span between
 		// setting it and applying it.
 		PendingValidationFunction get(fn new_validation_function):
@@ -73,7 +73,7 @@ decl_storage! {
 
 // The pallet's dispatchable functions.
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		// Initializing events
 		// this is needed only if you are using events in your pallet
 		fn deposit_event() = default;
@@ -146,7 +146,7 @@ decl_module! {
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	/// Get validation data.
 	///
 	/// Returns `Some(_)` after the inherent set the data for the current block.
@@ -213,7 +213,7 @@ impl<T: Trait> Module<T> {
 	}
 }
 
-impl<T: Trait> ProvideInherent for Module<T> {
+impl<T: Config> ProvideInherent for Module<T> {
 	type Call = Call<T>;
 	type Error = sp_inherents::MakeFatalError<()>;
 	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
@@ -239,7 +239,7 @@ decl_event! {
 }
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		/// Attempt to upgrade validation function while existing upgrade pending
 		OverlappingUpgrades,
 		/// Polkadot currently prohibits this parachain from upgrading its validation function
@@ -309,7 +309,7 @@ mod tests {
 			transaction_version: 1,
 		};
 	}
-	impl frame_system::Trait for Test {
+	impl frame_system::Config for Test {
 		type Origin = Origin;
 		type Call = ();
 		type Index = u64;
@@ -336,7 +336,7 @@ mod tests {
 		type BaseCallFilter = ();
 		type SystemWeightInfo = ();
 	}
-	impl Trait for Test {
+	impl Config for Test {
 		type Event = TestEvent;
 		type OnValidationData = ();
 	}
@@ -383,7 +383,7 @@ mod tests {
 	}
 
 	struct BlockTest {
-		n: <Test as frame_system::Trait>::BlockNumber,
+		n: <Test as frame_system::Config>::BlockNumber,
 		within_block: Box<dyn Fn()>,
 		after_block: Option<Box<dyn Fn()>>,
 	}
@@ -410,7 +410,7 @@ mod tests {
 			self
 		}
 
-		fn add<F>(self, n: <Test as frame_system::Trait>::BlockNumber, within_block: F) -> Self
+		fn add<F>(self, n: <Test as frame_system::Config>::BlockNumber, within_block: F) -> Self
 		where
 			F: 'static + Fn(),
 		{
@@ -423,7 +423,7 @@ mod tests {
 
 		fn add_with_post_test<F1, F2>(
 			self,
-			n: <Test as frame_system::Trait>::BlockNumber,
+			n: <Test as frame_system::Config>::BlockNumber,
 			within_block: F1,
 			after_block: F2,
 		) -> Self

@@ -108,7 +108,7 @@ parameter_types! {
 	pub const ExtrinsicBaseWeight: Weight = 10_000_000;
 }
 
-impl frame_system::Trait for Runtime {
+impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
@@ -155,7 +155,7 @@ parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl pallet_timestamp::Trait for Runtime {
+impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = ();
@@ -170,7 +170,7 @@ parameter_types! {
 	pub const TransactionByteFee: u128 = 1;
 }
 
-impl pallet_balances::Trait for Runtime {
+impl pallet_balances::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
 	/// The ubiquitous event type.
@@ -181,7 +181,7 @@ impl pallet_balances::Trait for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_transaction_payment::Trait for Runtime {
+impl pallet_transaction_payment::Config for Runtime {
 	type Currency = Balances;
 	type OnTransactionPayment = ();
 	type TransactionByteFee = TransactionByteFee;
@@ -189,17 +189,17 @@ impl pallet_transaction_payment::Trait for Runtime {
 	type FeeMultiplierUpdate = ();
 }
 
-impl pallet_sudo::Trait for Runtime {
+impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 	type Event = Event;
 }
 
-impl cumulus_parachain_upgrade::Trait for Runtime {
+impl cumulus_parachain_upgrade::Config for Runtime {
 	type Event = Event;
 	type OnValidationFunctionParams = ();
 }
 
-impl cumulus_message_broker::Trait for Runtime {
+impl cumulus_message_broker::Config for Runtime {
 	type Event = Event;
 	type DownwardMessageHandlers = TokenDealer;
 	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
@@ -208,7 +208,7 @@ impl cumulus_message_broker::Trait for Runtime {
 	type XCMPMessageHandlers = TokenDealer;
 }
 
-impl cumulus_token_dealer::Trait for Runtime {
+impl cumulus_token_dealer::Config for Runtime {
 	type Event = Event;
 	type UpwardMessageSender = MessageBroker;
 	type UpwardMessage = cumulus_upward_message::RococoUpwardMessage;
@@ -216,7 +216,7 @@ impl cumulus_token_dealer::Trait for Runtime {
 	type XCMPMessageSender = MessageBroker;
 }
 
-impl parachain_info::Trait for Runtime {}
+impl parachain_info::Config for Runtime {}
 
 // We disable the rent system for easier testing.
 parameter_types! {
@@ -226,7 +226,7 @@ parameter_types! {
 	pub const SurchargeReward: Balance = 0;
 }
 
-impl cumulus_pallet_contracts::Trait for Runtime {
+impl cumulus_pallet_contracts::Config for Runtime {
 	type Time = Timestamp;
 	type Randomness = RandomnessCollectiveFlip;
 	type Currency = Balances;

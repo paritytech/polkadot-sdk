@@ -23,14 +23,14 @@ use polkadot_primitives::v1::{
 	CandidateEvent, CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash,
 	HeadData, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
 	ParachainHost, PersistedValidationData, SessionIndex, SigningContext, ValidationCode,
-	ValidationData, ValidationOutputs, ValidatorId, ValidatorIndex, SessionInfo,
+	ValidationData, ValidatorId, ValidatorIndex, SessionInfo,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
 	InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use sp_blockchain::{Error as ClientError, HeaderBackend};
+use sp_blockchain::HeaderBackend;
 use sp_consensus::{block_validation::BlockAnnounceValidator as _, BlockOrigin};
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring;
@@ -38,9 +38,9 @@ use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};
 use sp_runtime::RuntimeAppPublic;
 use std::collections::BTreeMap;
 
-fn check_error(error: crate::BlockAnnounceError, check_error: impl Fn(&ClientError) -> bool) {
+fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceError) -> bool) {
 	let error = *error
-		.downcast::<ClientError>()
+		.downcast::<BlockAnnounceError>()
 		.expect("Downcasts error to `ClientError`");
 	if !check_error(&error) {
 		panic!("Invalid error: {:?}", error);
@@ -192,7 +192,7 @@ fn check_statement_is_encoded_correctly() {
 	check_error(res, |error| {
 		matches!(
 			error,
-			ClientError::Msg(x) if x.contains("must be a `SignedFullStatement`")
+			BlockAnnounceError(x) if x.contains("must be a `SignedFullStatement`")
 		)
 	});
 }
@@ -209,8 +209,8 @@ fn check_signer_is_legit_validator() {
 		.expect("Should fail on invalid validator");
 
 	assert!(matches!(
-		*res.downcast::<ClientError>().unwrap(),
-		ClientError::Msg(x) if x.contains("signer is a validator")
+		*res.downcast::<BlockAnnounceError>().unwrap(),
+		BlockAnnounceError(x) if x.contains("signer is a validator")
 	));
 }
 
@@ -233,7 +233,7 @@ fn check_statement_is_correctly_signed() {
 	check_error(res, |error| {
 		matches!(
 			error,
-			ClientError::Msg(x) if x.contains("signature is invalid")
+			BlockAnnounceError(x) if x.contains("signature is invalid")
 		)
 	});
 }
@@ -279,7 +279,7 @@ fn check_statement_seconded() {
 	check_error(res, |error| {
 		matches!(
 			error,
-			ClientError::Msg(x) if x.contains("must be a `Statement::Seconded`")
+			BlockAnnounceError(x) if x.contains("must be a `Statement::Seconded`")
 		)
 	});
 }
@@ -300,7 +300,7 @@ fn check_header_match_candidate_receipt_header() {
 	check_error(res, |error| {
 		matches!(
 			error,
-			ClientError::Msg(x) if x.contains("header does not match")
+			BlockAnnounceError(x) if x.contains("header does not match")
 		)
 	});
 }
@@ -431,7 +431,7 @@ sp_api::mock_impl_runtime_apis! {
 			None
 		}
 
-		fn check_validation_outputs(_: ParaId, _: ValidationOutputs) -> bool {
+		fn check_validation_outputs(_: ParaId, _: CandidateCommitments) -> bool {
 			false
 		}
 
