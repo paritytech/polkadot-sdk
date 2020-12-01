@@ -30,6 +30,7 @@ use frame_support::{
 	RuntimeDebug,
 };
 use sp_core::storage::StorageKey;
+use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Storage key of the Rialto -> Millau message in the runtime storage.
 pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
@@ -87,9 +88,15 @@ impl MessageBridge for WithMillauMessageBridge {
 	type ThisChain = Rialto;
 	type BridgedChain = Millau;
 
-	fn maximal_dispatch_weight_of_message_on_bridged_chain() -> Weight {
+	fn weight_limits_of_message_on_bridged_chain(message_payload: &[u8]) -> RangeInclusive<Weight> {
 		// we don't want to relay too large messages + keep reserve for future upgrades
-		bp_millau::MAXIMUM_EXTRINSIC_WEIGHT / 2
+		let upper_limit = bp_millau::MAXIMUM_EXTRINSIC_WEIGHT / 2;
+
+		// given Millau chain parameters (`TransactionByteFee`, `WeightToFee`, `FeeMultiplierUpdate`),
+		// the minimal weight of the message may be computed as message.length()
+		let lower_limit = Weight::try_from(message_payload.len()).unwrap_or(Weight::MAX);
+
+		lower_limit..=upper_limit
 	}
 
 	fn weight_of_delivery_transaction() -> Weight {
@@ -160,8 +167,9 @@ impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau 
 	type MessagesDeliveryProof = ToMillauMessagesDeliveryProof;
 
 	fn verify_message(payload: &ToMillauMessagePayload) -> Result<(), Self::Error> {
-		if payload.weight > WithMillauMessageBridge::maximal_dispatch_weight_of_message_on_bridged_chain() {
-			return Err("Payload has weight larger than maximum allowed weight");
+		let weight_limits = WithMillauMessageBridge::weight_limits_of_message_on_bridged_chain(&payload.call);
+		if !weight_limits.contains(&payload.weight) {
+			return Err("Incorrect message weight declared");
 		}
 
 		Ok(())
