@@ -30,7 +30,7 @@ use bp_runtime::InstanceId;
 use codec::{Compact, Decode, Input};
 use frame_support::{traits::Instance, RuntimeDebug};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
-use sp_std::{cmp::PartialOrd, marker::PhantomData, vec::Vec};
+use sp_std::{cmp::PartialOrd, marker::PhantomData, ops::RangeInclusive, vec::Vec};
 use sp_trie::StorageProof;
 
 /// Bidirectional message bridge.
@@ -46,8 +46,18 @@ pub trait MessageBridge {
 	/// Bridged chain in context of message bridge.
 	type BridgedChain: ChainWithMessageLanes;
 
-	/// Maximal (dispatch) weight of the message that we are able to send to Bridged chain.
-	fn maximal_dispatch_weight_of_message_on_bridged_chain() -> WeightOf<BridgedChain<Self>>;
+	/// Returns feasible weights range for given message payload on the target chain.
+	///
+	/// If message is being sent with the weight that is out of this range, then it
+	/// should be rejected.
+	///
+	/// Weights returned from this function shall not include transaction overhead
+	/// (like weight of signature and signed extensions verification), because they're
+	/// already accounted by the `weight_of_delivery_transaction`. So this function should
+	/// return pure call dispatch weights range.
+	fn weight_limits_of_message_on_bridged_chain(
+		message_payload: &[u8],
+	) -> RangeInclusive<WeightOf<BridgedChain<Self>>>;
 
 	/// Maximal weight of single message delivery transaction on Bridged chain.
 	fn weight_of_delivery_transaction() -> WeightOf<BridgedChain<Self>>;
@@ -425,7 +435,7 @@ mod tests {
 		type ThisChain = ThisChain;
 		type BridgedChain = BridgedChain;
 
-		fn maximal_dispatch_weight_of_message_on_bridged_chain() -> Weight {
+		fn weight_limits_of_message_on_bridged_chain(_message_payload: &[u8]) -> RangeInclusive<Weight> {
 			unreachable!()
 		}
 
@@ -464,7 +474,7 @@ mod tests {
 		type ThisChain = BridgedChain;
 		type BridgedChain = ThisChain;
 
-		fn maximal_dispatch_weight_of_message_on_bridged_chain() -> Weight {
+		fn weight_limits_of_message_on_bridged_chain(_message_payload: &[u8]) -> RangeInclusive<Weight> {
 			unreachable!()
 		}
 
