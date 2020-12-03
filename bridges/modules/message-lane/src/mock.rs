@@ -100,12 +100,14 @@ impl frame_system::Trait for TestRuntime {
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: u64 = 10;
 	pub const MaxUnconfirmedMessagesAtInboundLane: u64 = 16;
+	pub const MaxMessagesInDeliveryTransaction: u64 = 128;
 }
 
 impl Trait for TestRuntime {
 	type Event = TestEvent;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
+	type MaxMessagesInDeliveryTransaction = MaxMessagesInDeliveryTransaction;
 
 	type OutboundPayload = TestPayload;
 	type OutboundMessageFee = TestMessageFee;
@@ -279,6 +281,7 @@ impl SourceHeaderChain<TestMessageFee> for TestSourceHeaderChain {
 
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
+		_max_messages: MessageNonce,
 	) -> Result<ProvedMessages<Message<TestMessageFee>>, Self::Error> {
 		proof
 			.result
