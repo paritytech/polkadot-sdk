@@ -57,8 +57,12 @@ pub mod instant_payments;
 mod mock;
 
 // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
-/// Upper bound of delivery transaction weight.
-const DELIVERY_BASE_WEIGHT: Weight = 0;
+/// Weight of message delivery without any code that is touching messages.
+const DELIVERY_OVERHEAD_WEIGHT: Weight = 0;
+// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
+/// Single-message delivery weight. This shall not include message dispatch weight and
+/// any delivery transaction code that is not specific to this message.
+const SINGLE_MESSAGE_DELIVERY_WEIGHT: Weight = 0;
 
 /// The module configuration trait
 pub trait Trait<I = DefaultInstance>: frame_system::Trait {
@@ -82,6 +86,11 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// transaction#2 with individual messages [3; 4], this would be treated as single "Message" and
 	/// would occupy single unit of `MaxUnconfirmedMessagesAtInboundLane` limit.
 	type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
+	/// Maximal number of messages in single delivery transaction. This directly affects the base
+	/// weight of the delivery transaction.
+	///
+	/// All transactions that deliver more messages than this number, are rejected.
+	type MaxMessagesInDeliveryTransaction: Get<MessageNonce>;
 
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 	type OutboundPayload: Parameter;
@@ -305,7 +314,13 @@ decl_module! {
 		}
 
 		/// Receive messages proof from bridged chain.
-		#[weight = DELIVERY_BASE_WEIGHT + dispatch_weight]
+		#[weight = DELIVERY_OVERHEAD_WEIGHT
+			.saturating_add(
+				T::MaxMessagesInDeliveryTransaction::get()
+					.saturating_mul(SINGLE_MESSAGE_DELIVERY_WEIGHT)
+			)
+			.saturating_add(*dispatch_weight)
+		]
 		pub fn receive_messages_proof(
 			origin,
 			relayer_id: T::InboundRelayer,
@@ -316,7 +331,11 @@ decl_module! {
 			let _ = ensure_signed(origin)?;
 
 			// verify messages proof && convert proof into messages
-			let messages = verify_and_decode_messages_proof::<T::SourceHeaderChain, T::InboundMessageFee, T::InboundPayload>(proof)
+			let messages = verify_and_decode_messages_proof::<
+				T::SourceHeaderChain,
+				T::InboundMessageFee,
+				T::InboundPayload,
+			>(proof, T::MaxMessagesInDeliveryTransaction::get())
 				.map_err(|err| {
 					frame_support::debug::trace!(
 						"Rejecting invalid messages proof: {:?}",
@@ -627,8 +646,9 @@ impl<T: Trait<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStorag
 /// Verify messages proof and return proved messages with decoded payload.
 fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, DispatchPayload: Decode>(
 	proof: Chain::MessagesProof,
+	max_messages: MessageNonce,
 ) -> Result<ProvedMessages<DispatchMessage<DispatchPayload, Fee>>, Chain::Error> {
-	Chain::verify_messages_proof(proof).map(|messages_by_lane| {
+	Chain::verify_messages_proof(proof, max_messages).map(|messages_by_lane| {
 		messages_by_lane
 			.into_iter()
 			.map(|(lane, lane_data)| {

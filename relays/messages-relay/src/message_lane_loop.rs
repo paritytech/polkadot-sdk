@@ -63,6 +63,8 @@ pub struct MessageDeliveryParams {
 	/// unconfirmed nonces on the target node. The race would continue once they're confirmed by the
 	/// receiving race.
 	pub max_unconfirmed_nonces_at_target: MessageNonce,
+	/// Maximal number of relayed messages in single delivery transaction.
+	pub max_messages_in_single_batch: MessageNonce,
 	/// Maximal cumulative dispatch weight of relayed messages in single delivery transaction.
 	pub max_messages_weight_in_single_batch: Weight,
 }
@@ -727,6 +729,7 @@ pub(crate) mod tests {
 					stall_timeout: Duration::from_millis(60 * 1000),
 					delivery_params: MessageDeliveryParams {
 						max_unconfirmed_nonces_at_target: 4,
+						max_messages_in_single_batch: 4,
 						max_messages_weight_in_single_batch: 4,
 					},
 				},

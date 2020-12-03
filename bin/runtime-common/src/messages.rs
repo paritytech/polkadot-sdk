@@ -29,6 +29,8 @@ use bp_message_lane::{
 use bp_runtime::InstanceId;
 use codec::{Compact, Decode, Input};
 use frame_support::{traits::Instance, RuntimeDebug};
+use hash_db::Hasher;
+use pallet_substrate_bridge::StorageProofChecker;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{cmp::PartialOrd, marker::PhantomData, ops::RangeInclusive, vec::Vec};
 use sp_trie::StorageProof;
@@ -344,6 +346,7 @@ pub mod target {
 	/// Verify proof of Bridged -> This chain messages.
 	pub fn verify_messages_proof<B: MessageBridge, ThisRuntime>(
 		proof: FromBridgedChainMessagesProof<B>,
+		max_messages: MessageNonce,
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, &'static str>
 	where
 		ThisRuntime: pallet_substrate_bridge::Trait,
@@ -351,64 +354,147 @@ pub mod target {
 		HashOf<BridgedChain<B>>:
 			Into<bp_runtime::HashOf<<ThisRuntime as pallet_substrate_bridge::Trait>::BridgedChain>>,
 	{
-		let (bridged_header_hash, bridged_storage_proof, lane_id, begin, end) = proof;
-		pallet_substrate_bridge::Module::<ThisRuntime>::parse_finalized_storage_proof(
-			bridged_header_hash.into(),
-			bridged_storage_proof,
-			|storage| {
-				// Read messages first. All messages that are claimed to be in the proof must
-				// be in the proof. So any error in `read_value`, or even missing value is fatal.
-				//
-				// Mind that we allow proofs with no messages if outbound lane state is proved.
-				let mut messages = Vec::with_capacity(end.saturating_sub(begin) as _);
-				for nonce in begin..=end {
-					let message_key = MessageKey { lane_id, nonce };
-					let storage_message_key = pallet_message_lane::storage_keys::message_key::<
-						ThisRuntime,
-						MessageLaneInstanceOf<BridgedChain<B>>,
-					>(&lane_id, nonce);
-					let raw_message_data = storage
-						.read_value(storage_message_key.0.as_ref())
-						.map_err(|_| "Failed to read message from storage proof")?
-						.ok_or("Message is missing from the messages proof")?;
-					let message_data = MessageData::<BalanceOf<BridgedChain<B>>>::decode(&mut &raw_message_data[..])
-						.map_err(|_| "Failed to decode message from the proof")?;
-					messages.push(Message {
-						key: message_key,
-						data: message_data,
-					});
-				}
-
-				// Now let's check if proof contains outbound lane state proof. It is optional, so we
-				// simply ignore `read_value` errors and missing value.
-				let mut proved_lane_messages = ProvedLaneMessages {
-					lane_state: None,
-					messages,
-				};
-				let storage_outbound_lane_data_key = pallet_message_lane::storage_keys::outbound_lane_data_key::<
-					MessageLaneInstanceOf<BridgedChain<B>>,
-				>(&lane_id);
-				let raw_outbound_lane_data = storage.read_value(storage_outbound_lane_data_key.0.as_ref());
-				if let Ok(Some(raw_outbound_lane_data)) = raw_outbound_lane_data {
-					proved_lane_messages.lane_state = Some(
-						OutboundLaneData::decode(&mut &raw_outbound_lane_data[..])
-							.map_err(|_| "Failed to decode outbound lane data from the proof")?,
-					);
-				}
-
-				// Now we may actually check if the proof is empty or not.
-				if proved_lane_messages.lane_state.is_none() && proved_lane_messages.messages.is_empty() {
-					return Err("Messages proof is empty");
-				}
-
-				// We only support single lane messages in this schema
-				let mut proved_messages = ProvedMessages::new();
-				proved_messages.insert(lane_id, proved_lane_messages);
-
-				Ok(proved_messages)
+		verify_messages_proof_with_parser::<B, _, _>(
+			proof,
+			max_messages,
+			|bridged_header_hash, bridged_storage_proof| {
+				pallet_substrate_bridge::Module::<ThisRuntime>::parse_finalized_storage_proof(
+					bridged_header_hash.into(),
+					bridged_storage_proof,
+					|storage_adapter| storage_adapter,
+				)
+				.map(|storage| StorageProofCheckerAdapter::<_, B, ThisRuntime> {
+					storage,
+					_dummy: Default::default(),
+				})
+				.map_err(|err| MessageProofError::Custom(err.into()))
 			},
 		)
-		.map_err(<&'static str>::from)?
+		.map_err(Into::into)
+	}
+
+	#[derive(Debug, PartialEq)]
+	pub(crate) enum MessageProofError {
+		Empty,
+		TooManyMessages,
+		MissingRequiredMessage,
+		FailedToDecodeMessage,
+		FailedToDecodeOutboundLaneState,
+		Custom(&'static str),
+	}
+
+	impl From<MessageProofError> for &'static str {
+		fn from(err: MessageProofError) -> &'static str {
+			match err {
+				MessageProofError::Empty => "Messages proof is empty",
+				MessageProofError::TooManyMessages => "Too many messages in the proof",
+				MessageProofError::MissingRequiredMessage => "Message is missing from the proof",
+				MessageProofError::FailedToDecodeMessage => "Failed to decode message from the proof",
+				MessageProofError::FailedToDecodeOutboundLaneState => {
+					"Failed to decode outbound lane data from the proof"
+				}
+				MessageProofError::Custom(err) => err,
+			}
+		}
+	}
+
+	pub(crate) trait MessageProofParser {
+		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>>;
+		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>>;
+	}
+
+	struct StorageProofCheckerAdapter<H: Hasher, B, ThisRuntime> {
+		storage: StorageProofChecker<H>,
+		_dummy: sp_std::marker::PhantomData<(B, ThisRuntime)>,
+	}
+
+	impl<H, B, ThisRuntime> MessageProofParser for StorageProofCheckerAdapter<H, B, ThisRuntime>
+	where
+		H: Hasher,
+		B: MessageBridge,
+		ThisRuntime: pallet_message_lane::Trait<MessageLaneInstanceOf<BridgedChain<B>>>,
+	{
+		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>> {
+			let storage_outbound_lane_data_key = pallet_message_lane::storage_keys::outbound_lane_data_key::<
+				MessageLaneInstanceOf<BridgedChain<B>>,
+			>(lane_id);
+			self.storage
+				.read_value(storage_outbound_lane_data_key.0.as_ref())
+				.ok()?
+		}
+
+		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>> {
+			let storage_message_key = pallet_message_lane::storage_keys::message_key::<
+				ThisRuntime,
+				MessageLaneInstanceOf<BridgedChain<B>>,
+			>(&message_key.lane_id, message_key.nonce);
+			self.storage.read_value(storage_message_key.0.as_ref()).ok()?
+		}
+	}
+
+	/// Verify proof of Bridged -> This chain messages using given message proof parser.
+	pub(crate) fn verify_messages_proof_with_parser<B: MessageBridge, BuildParser, Parser>(
+		proof: FromBridgedChainMessagesProof<B>,
+		max_messages: MessageNonce,
+		build_parser: BuildParser,
+	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, MessageProofError>
+	where
+		BuildParser: FnOnce(HashOf<BridgedChain<B>>, StorageProof) -> Result<Parser, MessageProofError>,
+		Parser: MessageProofParser,
+	{
+		let (bridged_header_hash, bridged_storage_proof, lane_id, begin, end) = proof;
+
+		// receiving proofs where end < begin is ok (if proof includes outbound lane state)
+		// => hence unwrap_or(0)
+		let messages_in_the_proof = end.checked_sub(begin).and_then(|diff| diff.checked_add(1)).unwrap_or(0);
+		if messages_in_the_proof > max_messages {
+			return Err(MessageProofError::TooManyMessages);
+		}
+
+		let parser = build_parser(bridged_header_hash, bridged_storage_proof)?;
+
+		// Read messages first. All messages that are claimed to be in the proof must
+		// be in the proof. So any error in `read_value`, or even missing value is fatal.
+		//
+		// Mind that we allow proofs with no messages if outbound lane state is proved.
+		let mut messages = Vec::with_capacity(end.saturating_sub(begin) as _);
+		for nonce in begin..=end {
+			let message_key = MessageKey { lane_id, nonce };
+			let raw_message_data = parser
+				.read_raw_message(&message_key)
+				.ok_or(MessageProofError::MissingRequiredMessage)?;
+			let message_data = MessageData::<BalanceOf<BridgedChain<B>>>::decode(&mut &raw_message_data[..])
+				.map_err(|_| MessageProofError::FailedToDecodeMessage)?;
+			messages.push(Message {
+				key: message_key,
+				data: message_data,
+			});
+		}
+
+		// Now let's check if proof contains outbound lane state proof. It is optional, so we
+		// simply ignore `read_value` errors and missing value.
+		let mut proved_lane_messages = ProvedLaneMessages {
+			lane_state: None,
+			messages,
+		};
+		let raw_outbound_lane_data = parser.read_raw_outbound_lane_data(&lane_id);
+		if let Some(raw_outbound_lane_data) = raw_outbound_lane_data {
+			proved_lane_messages.lane_state = Some(
+				OutboundLaneData::decode(&mut &raw_outbound_lane_data[..])
+					.map_err(|_| MessageProofError::FailedToDecodeOutboundLaneState)?,
+			);
+		}
+
+		// Now we may actually check if the proof is empty or not.
+		if proved_lane_messages.lane_state.is_none() && proved_lane_messages.messages.is_empty() {
+			return Err(MessageProofError::Empty);
+		}
+
+		// We only support single lane messages in this schema
+		let mut proved_messages = ProvedMessages::new();
+		proved_messages.insert(lane_id, proved_lane_messages);
+
+		Ok(proved_messages)
 	}
 }
 
@@ -417,6 +503,7 @@ mod tests {
 	use super::*;
 	use codec::{Decode, Encode};
 	use frame_support::weights::Weight;
+	use std::ops::RangeInclusive;
 
 	const DELIVERY_TRANSACTION_WEIGHT: Weight = 100;
 	const DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT: Weight = 100;
@@ -683,6 +770,209 @@ mod tests {
 				&payload,
 			)
 			.is_ok(),
+		);
+	}
+
+	#[derive(Debug)]
+	struct TestMessageProofParser {
+		failing: bool,
+		messages: RangeInclusive<MessageNonce>,
+		outbound_lane_data: Option<OutboundLaneData>,
+	}
+
+	impl target::MessageProofParser for TestMessageProofParser {
+		fn read_raw_outbound_lane_data(&self, _lane_id: &LaneId) -> Option<Vec<u8>> {
+			if self.failing {
+				Some(vec![])
+			} else {
+				self.outbound_lane_data.clone().map(|data| data.encode())
+			}
+		}
+
+		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>> {
+			if self.failing {
+				Some(vec![])
+			} else if self.messages.contains(&message_key.nonce) {
+				Some(
+					MessageData::<BridgedChainBalance> {
+						payload: message_key.nonce.encode(),
+						fee: BridgedChainBalance(0),
+					}
+					.encode(),
+				)
+			} else {
+				None
+			}
+		}
+	}
+
+	#[allow(clippy::reversed_empty_ranges)]
+	fn no_messages_range() -> RangeInclusive<MessageNonce> {
+		1..=0
+	}
+
+	#[test]
+	fn messages_proof_is_rejected_if_there_are_too_many_messages() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, TestMessageProofParser>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 11),
+				10,
+				|_, _| unreachable!(),
+			),
+			Err(target::MessageProofError::TooManyMessages),
+		);
+	}
+
+	#[test]
+	fn message_proof_is_rejected_if_build_parser_fails() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, TestMessageProofParser>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 10),
+				10,
+				|_, _| Err(target::MessageProofError::Custom("test")),
+			),
+			Err(target::MessageProofError::Custom("test")),
+		);
+	}
+
+	#[test]
+	fn message_proof_is_rejected_if_required_message_is_missing() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 10),
+				10,
+				|_, _| Ok(TestMessageProofParser {
+					failing: false,
+					messages: 1..=5,
+					outbound_lane_data: None,
+				}),
+			),
+			Err(target::MessageProofError::MissingRequiredMessage),
+		);
+	}
+
+	#[test]
+	fn message_proof_is_rejected_if_message_decode_fails() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 10),
+				10,
+				|_, _| Ok(TestMessageProofParser {
+					failing: true,
+					messages: 1..=10,
+					outbound_lane_data: None,
+				}),
+			),
+			Err(target::MessageProofError::FailedToDecodeMessage),
+		);
+	}
+
+	#[test]
+	fn message_proof_is_rejected_if_outbound_lane_state_decode_fails() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 0),
+				10,
+				|_, _| Ok(TestMessageProofParser {
+					failing: true,
+					messages: no_messages_range(),
+					outbound_lane_data: Some(OutboundLaneData {
+						oldest_unpruned_nonce: 1,
+						latest_received_nonce: 1,
+						latest_generated_nonce: 1,
+					}),
+				}),
+			),
+			Err(target::MessageProofError::FailedToDecodeOutboundLaneState),
+		);
+	}
+
+	#[test]
+	fn message_proof_is_rejected_if_it_is_empty() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 0),
+				10,
+				|_, _| Ok(TestMessageProofParser {
+					failing: false,
+					messages: no_messages_range(),
+					outbound_lane_data: None,
+				}),
+			),
+			Err(target::MessageProofError::Empty),
+		);
+	}
+
+	#[test]
+	fn non_empty_message_proof_without_messages_is_accepted() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 0),
+				10,
+				|_, _| Ok(TestMessageProofParser {
+					failing: false,
+					messages: no_messages_range(),
+					outbound_lane_data: Some(OutboundLaneData {
+						oldest_unpruned_nonce: 1,
+						latest_received_nonce: 1,
+						latest_generated_nonce: 1,
+					}),
+				}),
+			),
+			Ok(vec![(
+				Default::default(),
+				ProvedLaneMessages {
+					lane_state: Some(OutboundLaneData {
+						oldest_unpruned_nonce: 1,
+						latest_received_nonce: 1,
+						latest_generated_nonce: 1,
+					}),
+					messages: Vec::new(),
+				},
+			)]
+			.into_iter()
+			.collect()),
+		);
+	}
+
+	#[test]
+	fn non_empty_message_proof_is_accepted() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 1),
+				10,
+				|_, _| Ok(TestMessageProofParser {
+					failing: false,
+					messages: 1..=1,
+					outbound_lane_data: Some(OutboundLaneData {
+						oldest_unpruned_nonce: 1,
+						latest_received_nonce: 1,
+						latest_generated_nonce: 1,
+					}),
+				}),
+			),
+			Ok(vec![(
+				Default::default(),
+				ProvedLaneMessages {
+					lane_state: Some(OutboundLaneData {
+						oldest_unpruned_nonce: 1,
+						latest_received_nonce: 1,
+						latest_generated_nonce: 1,
+					}),
+					messages: vec![Message {
+						key: MessageKey {
+							lane_id: Default::default(),
+							nonce: 1
+						},
+						data: MessageData {
+							payload: 1u64.encode(),
+							fee: BridgedChainBalance(0)
+						},
+					}],
+				},
+			)]
+			.into_iter()
+			.collect()),
 		);
 	}
 }

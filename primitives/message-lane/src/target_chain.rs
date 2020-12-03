@@ -16,7 +16,7 @@
 
 //! Primitives of message lane module, that are used on the target chain.
 
-use crate::{LaneId, Message, MessageData, MessageKey, OutboundLaneData};
+use crate::{LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData};
 
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::{weights::Weight, Parameter, RuntimeDebug};
@@ -67,9 +67,15 @@ pub trait SourceHeaderChain<Fee> {
 
 	/// Verify messages proof and return proved messages.
 	///
+	/// Returns error if either proof is incorrect, or the number of messages in the proof
+	/// is larger than `max_messages`.
+	///
 	/// Messages vector is required to be sorted by nonce within each lane. Out-of-order
 	/// messages will be rejected.
-	fn verify_messages_proof(proof: Self::MessagesProof) -> Result<ProvedMessages<Message<Fee>>, Self::Error>;
+	fn verify_messages_proof(
+		proof: Self::MessagesProof,
+		max_messages: MessageNonce,
+	) -> Result<ProvedMessages<Message<Fee>>, Self::Error>;
 }
 
 /// Called when inbound message is received.
