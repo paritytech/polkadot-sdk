@@ -48,6 +48,9 @@ pub trait MessageBridge {
 	/// Bridged chain in context of message bridge.
 	type BridgedChain: ChainWithMessageLanes;
 
+	/// Maximal extrinsic size on target chain.
+	fn maximal_extrinsic_size_on_target_chain() -> u32;
+
 	/// Returns feasible weights range for given message payload on the target chain.
 	///
 	/// If message is being sent with the weight that is out of this range, then it
@@ -98,7 +101,7 @@ pub trait ChainWithMessageLanes {
 	/// `frame_support::weight::Weight`. But since the meaning of weight on different chains
 	/// may be different, the `WeightOf<>` construct is used to avoid confusion between
 	/// different weights.
-	type Weight: From<frame_support::weights::Weight>;
+	type Weight: From<frame_support::weights::Weight> + PartialOrd;
 	/// Type of balances that is used on the chain.
 	type Balance: Decode + CheckedAdd + CheckedDiv + CheckedMul + PartialOrd + From<u32> + Copy;
 
@@ -169,6 +172,36 @@ pub mod source {
 
 			Ok(())
 		}
+	}
+
+	/// Do basic Bridged-chain specific verification of This -> Bridged chain message.
+	///
+	/// Ok result from this function means that the delivery transaction with this message
+	/// may be 'mined' by the target chain. But the lane may have its own checks (e.g. fee
+	/// check) that would reject message (see `FromThisChainMessageVerifier`).
+	pub fn verify_chain_message<B: MessageBridge>(
+		payload: &FromThisChainMessagePayload<B>,
+	) -> Result<(), &'static str> {
+		let weight_limits = B::weight_limits_of_message_on_bridged_chain(&payload.call);
+		if !weight_limits.contains(&payload.weight.into()) {
+			return Err("Incorrect message weight declared");
+		}
+
+		// The maximal size of extrinsic at Substrate-based chain depends on the
+		// `frame_system::Trait::MaximumBlockLength` and `frame_system::Trait::AvailableBlockRatio`
+		// constants. This check is here to be sure that the lane won't stuck because message is too
+		// large to fit into delivery transaction.
+		//
+		// **IMPORTANT NOTE**: the delivery transaction contains storage proof of the message, not
+		// the message itself. The proof is always larger than the message. But unless chain state
+		// is enormously large, it should be several dozens/hundreds of bytes. The delivery
+		// transaction also contains signatures and signed extensions. Because of this, we reserve
+		// 1/3 of the the maximal extrinsic weight for this data.
+		if payload.call.len() > B::maximal_extrinsic_size_on_target_chain() as usize * 2 / 3 {
+			return Err("The message is too large to be sent over the lane");
+		}
+
+		Ok(())
 	}
 
 	/// Estimate delivery and dispatch fee that must be paid for delivering a message to the Bridged chain.
@@ -511,6 +544,8 @@ mod tests {
 	const THIS_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 2;
 	const BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 4;
 	const THIS_CHAIN_TO_BRIDGED_CHAIN_BALANCE_RATE: u32 = 6;
+	const BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT: Weight = 2048;
+	const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
 	/// Bridge that is deployed on ThisChain and allows sending/receiving messages to/from BridgedChain;
 	struct OnThisChainBridge;
@@ -522,8 +557,13 @@ mod tests {
 		type ThisChain = ThisChain;
 		type BridgedChain = BridgedChain;
 
-		fn weight_limits_of_message_on_bridged_chain(_message_payload: &[u8]) -> RangeInclusive<Weight> {
-			unreachable!()
+		fn maximal_extrinsic_size_on_target_chain() -> u32 {
+			BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE
+		}
+
+		fn weight_limits_of_message_on_bridged_chain(message_payload: &[u8]) -> RangeInclusive<Weight> {
+			let begin = std::cmp::min(BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT, message_payload.len() as Weight);
+			begin..=BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT
 		}
 
 		fn weight_of_delivery_transaction() -> Weight {
@@ -560,6 +600,10 @@ mod tests {
 
 		type ThisChain = BridgedChain;
 		type BridgedChain = ThisChain;
+
+		fn maximal_extrinsic_size_on_target_chain() -> u32 {
+			unreachable!()
+		}
 
 		fn weight_limits_of_message_on_bridged_chain(_message_payload: &[u8]) -> RangeInclusive<Weight> {
 			unreachable!()
@@ -770,6 +814,66 @@ mod tests {
 				&payload,
 			)
 			.is_ok(),
+		);
+	}
+
+	#[test]
+	fn verify_chain_message_rejects_message_with_too_small_declared_weight() {
+		assert!(
+			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
+				OnThisChainBridge,
+			> {
+				spec_version: 1,
+				weight: 5,
+				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+				call: vec![1, 2, 3, 4, 5, 6],
+			},)
+			.is_err()
+		);
+	}
+
+	#[test]
+	fn verify_chain_message_rejects_message_with_too_large_declared_weight() {
+		assert!(
+			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
+				OnThisChainBridge,
+			> {
+				spec_version: 1,
+				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT + 1,
+				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+				call: vec![1, 2, 3, 4, 5, 6],
+			},)
+			.is_err()
+		);
+	}
+
+	#[test]
+	fn verify_chain_message_rejects_message_too_large_message() {
+		assert!(
+			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
+				OnThisChainBridge,
+			> {
+				spec_version: 1,
+				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
+				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+				call: vec![0; BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE as usize * 2 / 3 + 1],
+			},)
+			.is_err()
+		);
+	}
+
+	#[test]
+	fn verify_chain_message_accepts_maximal_message() {
+		assert_eq!(
+			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
+				OnThisChainBridge,
+			> {
+				spec_version: 1,
+				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
+				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+				call: vec![0; BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE as usize * 2 / 3],
+			},),
+			Ok(()),
 		);
 	}
 
