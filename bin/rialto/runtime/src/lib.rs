@@ -161,7 +161,7 @@ parameter_types! {
 	pub const ExtrinsicBaseWeight: Weight = 10_000_000;
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(bp_rialto::AVAILABLE_BLOCK_RATIO);
 	pub MaximumExtrinsicWeight: Weight = bp_rialto::MAXIMUM_EXTRINSIC_WEIGHT;
-	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
+	pub const MaximumBlockLength: u32 = bp_rialto::MAXIMUM_BLOCK_SIZE;
 	pub const Version: RuntimeVersion = VERSION;
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
 		read: 60_000_000, // ~0.06 ms = ~60 µs

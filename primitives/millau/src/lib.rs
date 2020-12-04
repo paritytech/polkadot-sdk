@@ -75,6 +75,10 @@ pub const AVAILABLE_BLOCK_RATIO: u32 = 75;
 /// Maximal weight of single Millau extrinsic (65% of maximum block weight = 75% for regular
 /// transactions minus 10% for initialization).
 pub const MAXIMUM_EXTRINSIC_WEIGHT: Weight = MAXIMUM_BLOCK_WEIGHT / 100 * (AVAILABLE_BLOCK_RATIO as Weight - 10);
+/// Maximal size of Millau block.
+pub const MAXIMUM_BLOCK_SIZE: u32 = 2 * 1024 * 1024;
+/// Maximal size of single normal Millau extrinsic (75% of maximal block size).
+pub const MAXIMUM_EXTRINSIC_SIZE: u32 = MAXIMUM_BLOCK_SIZE / 100 * AVAILABLE_BLOCK_RATIO;
 
 // TODO: may need to be updated after https://github.com/paritytech/parity-bridges-common/issues/78
 /// Maximal number of messages in single delivery transaction.
