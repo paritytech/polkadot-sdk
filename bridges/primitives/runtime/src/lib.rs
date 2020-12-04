@@ -35,6 +35,12 @@ pub const RIALTO_BRIDGE_INSTANCE: InstanceId = *b"rlto";
 /// Bridge-with-Millau instance id.
 pub const MILLAU_BRIDGE_INSTANCE: InstanceId = *b"mlau";
 
+/// Bridge-with-Polkadot instance id.
+pub const POLKADOT_BRIDGE_INSTANCE: InstanceId = *b"pdot";
+
+/// Bridge-with-Kusama instance id.
+pub const KUSAMA_BRIDGE_INSTANCE: InstanceId = *b"ksma";
+
 /// Call-dispatch module prefix.
 pub const CALL_DISPATCH_MODULE_PREFIX: &[u8] = b"pallet-bridge/call-dispatch";
 
