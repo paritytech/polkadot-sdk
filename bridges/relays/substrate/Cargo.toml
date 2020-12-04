@@ -18,8 +18,10 @@ structopt = "0.3"
 
 # Bridge dependencies
 
+bp-kusama = { path = "../../primitives/kusama" }
 bp-message-lane = { path = "../../primitives/message-lane" }
 bp-millau = { path = "../../primitives/millau" }
+bp-polkadot = { path = "../../primitives/polkadot" }
 bp-runtime = { path = "../../primitives/runtime" }
 bp-rialto = { path = "../../primitives/rialto" }
 headers-relay = { path = "../headers-relay" }
@@ -27,7 +29,9 @@ messages-relay = { path = "../messages-relay" }
 millau-runtime = { path = "../../bin/millau/runtime" }
 pallet-bridge-call-dispatch = { path = "../../modules/call-dispatch" }
 pallet-substrate-bridge = { path = "../../modules/substrate" }
+relay-kusama-client = { path = "../kusama-client" }
 relay-millau-client = { path = "../millau-client" }
+relay-polkadot-client = { path = "../polkadot-client" }
 relay-rialto-client = { path = "../rialto-client" }
 relay-substrate-client = { path = "../substrate-client" }
 relay-utils = { path = "../utils" }
