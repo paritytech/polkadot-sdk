@@ -88,6 +88,10 @@ impl MessageBridge for WithMillauMessageBridge {
 	type ThisChain = Rialto;
 	type BridgedChain = Millau;
 
+	fn maximal_extrinsic_size_on_target_chain() -> u32 {
+		bp_millau::MAXIMUM_EXTRINSIC_SIZE
+	}
+
 	fn weight_limits_of_message_on_bridged_chain(message_payload: &[u8]) -> RangeInclusive<Weight> {
 		// we don't want to relay too large messages + keep reserve for future upgrades
 		let upper_limit = bp_millau::MAXIMUM_EXTRINSIC_WEIGHT / 2;
@@ -167,12 +171,7 @@ impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau 
 	type MessagesDeliveryProof = ToMillauMessagesDeliveryProof;
 
 	fn verify_message(payload: &ToMillauMessagePayload) -> Result<(), Self::Error> {
-		let weight_limits = WithMillauMessageBridge::weight_limits_of_message_on_bridged_chain(&payload.call);
-		if !weight_limits.contains(&payload.weight) {
-			return Err("Incorrect message weight declared");
-		}
-
-		Ok(())
+		messages::source::verify_chain_message::<WithMillauMessageBridge>(payload)
 	}
 
 	fn verify_messages_delivery_proof(
