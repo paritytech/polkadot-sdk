@@ -40,8 +40,7 @@ pub trait Chain: ChainBase {
 
 	/// The user account identifier type for the runtime.
 	type AccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
-	/// Account index (aka nonce) type. This stores the number of previous transactions associated
-	/// with a sender account.
+	/// Index of a transaction used by the chain.
 	type Index: Parameter
 		+ Member
 		+ MaybeSerialize

@@ -21,6 +21,7 @@
 use codec::Encode;
 use frame_support::weights::GetDispatchInfo;
 use pallet_bridge_call_dispatch::{CallOrigin, MessagePayload};
+use relay_kusama_client::Kusama;
 use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
 use relay_substrate_client::{ConnectionParams, TransactionSignScheme};
@@ -28,6 +29,8 @@ use relay_utils::initialize::initialize_relay;
 use sp_core::{Bytes, Pair};
 use sp_runtime::traits::IdentifyAccount;
 
+/// Kusama node client.
+pub type KusamaClient = relay_substrate_client::Client<Kusama>;
 /// Millau node client.
 pub type MillauClient = relay_substrate_client::Client<Millau>;
 /// Rialto node client.
