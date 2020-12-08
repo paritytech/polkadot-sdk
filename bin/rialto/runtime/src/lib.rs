@@ -437,6 +437,7 @@ parameter_types! {
 		bp_rialto::MAX_MESSAGES_IN_DELIVERY_TRANSACTION;
 }
 
+pub(crate) type WithMillauMessageLaneInstance = pallet_message_lane::DefaultInstance;
 impl pallet_message_lane::Trait for Runtime {
 	type Event = Event;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
@@ -814,12 +815,58 @@ impl_runtime_apis! {
 				}
 			}
 
+			use pallet_message_lane::benchmarking::{
+				Module as MessageLaneBench,
+				Trait as MessageLaneTrait,
+				MessageParams as MessageLaneMessageParams,
+			};
+
+			impl MessageLaneTrait<WithMillauMessageLaneInstance> for Runtime {
+				fn endow_account(account: &Self::AccountId) {
+					pallet_balances::Module::<Runtime>::make_free_balance_be(
+						account,
+						1_000_000_000_000,
+					);
+				}
+
+				fn prepare_message(
+					params: MessageLaneMessageParams,
+				) -> (millau_messages::ToMillauMessagePayload, Balance) {
+					use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
+					use bridge_runtime_common::messages;
+					use pallet_message_lane::benchmarking::WORST_MESSAGE_SIZE_FACTOR;
+
+					let max_message_size = messages::source::maximal_message_size::<WithMillauMessageBridge>();
+					let message_size = match params.size_factor {
+						0 => 1,
+						factor => max_message_size / WORST_MESSAGE_SIZE_FACTOR
+							* sp_std::cmp::min(factor, WORST_MESSAGE_SIZE_FACTOR),
+					};
+					let message_payload = vec![0; message_size as usize];
+					let dispatch_origin = pallet_bridge_call_dispatch::CallOrigin::SourceAccount(Default::default());
+
+					let message = ToMillauMessagePayload {
+						spec_version: 0,
+						weight: message_size as _,
+						origin: dispatch_origin,
+						call: message_payload,
+					};
+					(message, 1_000_000_000)
+				}
+			}
+
 			add_benchmark!(params, batches, pallet_bridge_eth_poa, BridgeKovan);
 			add_benchmark!(
 				params,
 				batches,
 				pallet_bridge_currency_exchange,
 				BridgeCurrencyExchangeBench::<Runtime, KovanCurrencyExchange>
+			);
+			add_benchmark!(
+				params,
+				batches,
+				pallet_message_lane,
+				MessageLaneBench::<Runtime, WithMillauMessageLaneInstance>
 			);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
