@@ -322,6 +322,8 @@ impl pallet_shift_session_manager::Trait for Runtime {}
 
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: bp_message_lane::MessageNonce = 8;
+	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_message_lane::MessageNonce =
+		bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE;
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_message_lane::MessageNonce =
 		bp_millau::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE;
 	pub const MaxMessagesInDeliveryTransaction: bp_message_lane::MessageNonce =
@@ -331,6 +333,7 @@ parameter_types! {
 impl pallet_message_lane::Trait for Runtime {
 	type Event = Event;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
+	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 	type MaxMessagesInDeliveryTransaction = MaxMessagesInDeliveryTransaction;
 
@@ -579,6 +582,10 @@ impl_runtime_apis! {
 
 		fn latest_confirmed_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
 			BridgeRialtoMessageLane::inbound_latest_confirmed_nonce(lane)
+		}
+
+		fn unrewarded_relayers_state(lane: bp_message_lane::LaneId) -> bp_message_lane::UnrewardedRelayersState {
+			BridgeRialtoMessageLane::inbound_unrewarded_relayers_state(lane)
 		}
 	}
 }

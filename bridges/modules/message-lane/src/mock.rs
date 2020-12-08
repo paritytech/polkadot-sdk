@@ -99,13 +99,15 @@ impl frame_system::Trait for TestRuntime {
 
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: u64 = 10;
-	pub const MaxUnconfirmedMessagesAtInboundLane: u64 = 16;
+	pub const MaxUnrewardedRelayerEntriesAtInboundLane: u64 = 16;
+	pub const MaxUnconfirmedMessagesAtInboundLane: u64 = 32;
 	pub const MaxMessagesInDeliveryTransaction: u64 = 128;
 }
 
 impl Trait for TestRuntime {
 	type Event = TestEvent;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
+	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 	type MaxMessagesInDeliveryTransaction = MaxMessagesInDeliveryTransaction;
 

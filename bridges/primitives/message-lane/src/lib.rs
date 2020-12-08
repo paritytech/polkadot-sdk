@@ -102,6 +102,16 @@ impl<RelayerId> Default for InboundLaneData<RelayerId> {
 	}
 }
 
+/// Gist of `InboundLaneData::relayers` field used by runtime APIs.
+#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
+pub struct UnrewardedRelayersState {
+	/// Number of entries in the `InboundLaneData::relayers` set.
+	pub unrewarded_relayer_entries: MessageNonce,
+	/// Number of messages in the oldest entry of `InboundLaneData::relayers`. This is the
+	/// minimal number of reward proofs required to push out this entry from the set.
+	pub messages_in_oldest_entry: MessageNonce,
+}
+
 /// Outbound lane data.
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
 pub struct OutboundLaneData {

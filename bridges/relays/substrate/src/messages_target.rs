@@ -22,7 +22,7 @@ use crate::messages_lane::SubstrateMessageLane;
 use crate::messages_source::read_client_state;
 
 use async_trait::async_trait;
-use bp_message_lane::{LaneId, MessageNonce};
+use bp_message_lane::{LaneId, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::InstanceId;
 use codec::{Decode, Encode};
 use messages_relay::{
@@ -133,6 +133,23 @@ where
 		let latest_received_nonce: MessageNonce =
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
 		Ok((id, latest_received_nonce))
+	}
+
+	async fn unrewarded_relayers_state(
+		&self,
+		id: TargetHeaderIdOf<P>,
+	) -> Result<(TargetHeaderIdOf<P>, UnrewardedRelayersState), Self::Error> {
+		let encoded_response = self
+			.client
+			.state_call(
+				P::INBOUND_LANE_UNREWARDED_RELAYERS_STATE.into(),
+				Bytes(self.lane_id.encode()),
+				Some(id.1),
+			)
+			.await?;
+		let unrewarded_relayers_state: UnrewardedRelayersState =
+			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
+		Ok((id, unrewarded_relayers_state))
 	}
 
 	async fn prove_messages_receiving(
