@@ -157,11 +157,12 @@ where
 	C: MessageLaneSourceClient<P>,
 {
 	type Error = C::Error;
+	type TargetNoncesData = ();
 
 	async fn nonces(
 		&self,
 		at_block: SourceHeaderIdOf<P>,
-	) -> Result<(SourceHeaderIdOf<P>, TargetClientNonces), Self::Error> {
+	) -> Result<(SourceHeaderIdOf<P>, TargetClientNonces<()>), Self::Error> {
 		let (at_block, latest_confirmed_nonce) = self.client.latest_confirmed_received_nonce(at_block).await?;
 		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
 			metrics_msg.update_source_latest_confirmed_nonce::<P>(latest_confirmed_nonce);
@@ -170,7 +171,7 @@ where
 			at_block,
 			TargetClientNonces {
 				latest_nonce: latest_confirmed_nonce,
-				confirmed_nonce: None,
+				nonces_data: (),
 			},
 		))
 	}

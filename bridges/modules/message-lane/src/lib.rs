@@ -75,16 +75,20 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// confirmed. The reason is that if you want to use lane, you should be ready to pay
 	/// for it.
 	type MaxMessagesToPruneAtOnce: Get<MessageNonce>;
-	/// Maximal number of "messages" (see note below) in the 'unconfirmed' state at inbound lane.
-	/// Unconfirmed message at inbound lane is the message that has been: sent, delivered and
-	/// dispatched. Its delivery confirmation is still pending. This limit is introduced to bound
-	/// maximal number of relayers-ids in the inbound lane state.
+	/// Maximal number of unrewarded relayer entries at inbound lane. Unrewarded means that the
+	/// relayer has delivered messages, but either confirmations haven't been delivered back to the
+	/// source chain, or we haven't received reward confirmations yet.
 	///
-	/// "Message" in this context does not necessarily mean an individual message, but instead
-	/// continuous range of individual messages, that are delivered by single relayer. So if relayer#1
-	/// has submitted delivery transaction#1 with individual messages [1; 2] and then delivery
-	/// transaction#2 with individual messages [3; 4], this would be treated as single "Message" and
-	/// would occupy single unit of `MaxUnconfirmedMessagesAtInboundLane` limit.
+	/// This constant limits maximal number of entries in the `InboundLaneData::relayers`. Keep
+	/// in mind that the same relayer account may take several (non-consecutive) entries in this
+	/// set.
+	type MaxUnrewardedRelayerEntriesAtInboundLane: Get<MessageNonce>;
+	/// Maximal number of unconfirmed messages at inbound lane. Unconfirmed means that the
+	/// message has been delivered, but either confirmations haven't been delivered back to the
+	/// source chain, or we haven't received reward confirmations for these messages yet.
+	///
+	/// This constant limits difference between last message from last entry of the
+	/// `InboundLaneData::relayers` and first message at the first entry.
 	type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
 	/// Maximal number of messages in single delivery transaction. This directly affects the base
 	/// weight of the delivery transaction.
@@ -481,6 +485,17 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	pub fn inbound_latest_confirmed_nonce(lane: LaneId) -> MessageNonce {
 		InboundLanes::<T, I>::get(&lane).latest_confirmed_nonce
 	}
+
+	/// Get state of unrewarded relayers set.
+	pub fn inbound_unrewarded_relayers_state(
+		lane: bp_message_lane::LaneId,
+	) -> bp_message_lane::UnrewardedRelayersState {
+		let relayers = InboundLanes::<T, I>::get(&lane).relayers;
+		bp_message_lane::UnrewardedRelayersState {
+			unrewarded_relayer_entries: relayers.len() as _,
+			messages_in_oldest_entry: relayers.front().map(|(begin, end, _)| 1 + end - begin).unwrap_or(0),
+		}
+	}
 }
 
 /// Getting storage keys for messages and lanes states. These keys are normally used when building
@@ -567,6 +582,10 @@ impl<T: Trait<I>, I: Instance> InboundLaneStorage for RuntimeInboundLaneStorage<
 
 	fn id(&self) -> LaneId {
 		self.lane_id
+	}
+
+	fn max_unrewarded_relayer_entries(&self) -> MessageNonce {
+		T::MaxUnrewardedRelayerEntriesAtInboundLane::get()
 	}
 
 	fn max_unconfirmed_messages(&self) -> MessageNonce {
@@ -681,6 +700,7 @@ mod tests {
 		message, run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestMessagesProof, TestRuntime,
 		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
+	use bp_message_lane::UnrewardedRelayersState;
 	use frame_support::{assert_noop, assert_ok};
 	use frame_system::{EventRecord, Module as System, Phase};
 	use hex_literal::hex;
@@ -916,6 +936,13 @@ mod tests {
 						.collect(),
 				},
 			);
+			assert_eq!(
+				Module::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 2,
+					messages_in_oldest_entry: 1,
+				},
+			);
 
 			// message proof includes outbound lane state with latest confirmed message updated to 9
 			let mut message_proof: TestMessagesProof = Ok(vec![message(11, REGULAR_PAYLOAD)]).into();
@@ -939,6 +966,13 @@ mod tests {
 						.collect(),
 					latest_received_nonce: 11,
 					latest_confirmed_nonce: 9,
+				},
+			);
+			assert_eq!(
+				Module::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 2,
+					messages_in_oldest_entry: 1,
 				},
 			);
 		});
