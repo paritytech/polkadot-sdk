@@ -174,6 +174,11 @@ pub mod source {
 		}
 	}
 
+	/// Return maximal message size of This -> Bridged chain message.
+	pub fn maximal_message_size<B: MessageBridge>() -> u32 {
+		B::maximal_extrinsic_size_on_target_chain() / 3 * 2
+	}
+
 	/// Do basic Bridged-chain specific verification of This -> Bridged chain message.
 	///
 	/// Ok result from this function means that the delivery transaction with this message
@@ -197,7 +202,7 @@ pub mod source {
 		// is enormously large, it should be several dozens/hundreds of bytes. The delivery
 		// transaction also contains signatures and signed extensions. Because of this, we reserve
 		// 1/3 of the the maximal extrinsic weight for this data.
-		if payload.call.len() > B::maximal_extrinsic_size_on_target_chain() as usize * 2 / 3 {
+		if payload.call.len() > maximal_message_size::<B>() as usize {
 			return Err("The message is too large to be sent over the lane");
 		}
 
@@ -856,7 +861,7 @@ mod tests {
 				spec_version: 1,
 				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
 				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
-				call: vec![0; BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE as usize * 2 / 3 + 1],
+				call: vec![0; source::maximal_message_size::<OnThisChainBridge>() as usize + 1],
 			},)
 			.is_err()
 		);
@@ -871,7 +876,7 @@ mod tests {
 				spec_version: 1,
 				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
 				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
-				call: vec![0; BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE as usize * 2 / 3],
+				call: vec![0; source::maximal_message_size::<OnThisChainBridge>() as _],
 			},),
 			Ok(()),
 		);
