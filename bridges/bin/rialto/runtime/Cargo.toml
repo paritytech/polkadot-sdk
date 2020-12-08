@@ -121,5 +121,6 @@ runtime-benchmarks = [
 	"libsecp256k1",
 	"pallet-bridge-currency-exchange/runtime-benchmarks",
 	"pallet-bridge-eth-poa/runtime-benchmarks",
+	"pallet-message-lane/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
