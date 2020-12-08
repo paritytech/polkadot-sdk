@@ -145,6 +145,7 @@ where
 {
 	type SourceNoncesRange = SourceNoncesRange;
 	type ProofParameters = ();
+	type TargetNoncesData = ();
 
 	fn is_empty(&self) -> bool {
 		self.source_queue.is_empty()
@@ -185,7 +186,7 @@ where
 
 	fn target_nonces_updated(
 		&mut self,
-		nonces: TargetClientNonces,
+		nonces: TargetClientNonces<()>,
 		race_state: &mut RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
@@ -269,10 +270,10 @@ mod tests {
 		}
 	}
 
-	fn target_nonces(latest_nonce: MessageNonce) -> TargetClientNonces {
+	fn target_nonces(latest_nonce: MessageNonce) -> TargetClientNonces<()> {
 		TargetClientNonces {
 			latest_nonce,
-			confirmed_nonce: None,
+			nonces_data: (),
 		}
 	}
 

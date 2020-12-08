@@ -83,12 +83,11 @@ pub struct SourceClientNonces<NoncesRange> {
 
 /// Nonces on the race target client.
 #[derive(Debug, Clone)]
-pub struct TargetClientNonces {
+pub struct TargetClientNonces<TargetNoncesData> {
 	/// Latest nonce that is known to the target client.
 	pub latest_nonce: MessageNonce,
-	/// Latest nonce that is confirmed to the bridged client. This nonce only makes
-	/// sense in some races. In other races it is `None`.
-	pub confirmed_nonce: Option<MessageNonce>,
+	/// Additional data from target node that may be used by the race.
+	pub nonces_data: TargetNoncesData,
 }
 
 /// One of message lane clients, which is source client for the race.
@@ -121,10 +120,14 @@ pub trait SourceClient<P: MessageRace> {
 pub trait TargetClient<P: MessageRace> {
 	/// Type of error this clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
+	/// Type of the additional data from the target client, used by the race.
+	type TargetNoncesData: std::fmt::Debug;
 
 	/// Return nonces that are known to the target client.
-	async fn nonces(&self, at_block: P::TargetHeaderId)
-		-> Result<(P::TargetHeaderId, TargetClientNonces), Self::Error>;
+	async fn nonces(
+		&self,
+		at_block: P::TargetHeaderId,
+	) -> Result<(P::TargetHeaderId, TargetClientNonces<Self::TargetNoncesData>), Self::Error>;
 	/// Submit proof to the target client.
 	async fn submit_proof(
 		&self,
@@ -140,6 +143,8 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof> {
 	type SourceNoncesRange: NoncesRange;
 	/// Additional proof parameters required to generate proof.
 	type ProofParameters;
+	/// Additional data expected from the target client.
+	type TargetNoncesData;
 
 	/// Should return true if nothing has to be synced.
 	fn is_empty(&self) -> bool;
@@ -158,7 +163,7 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof> {
 	/// Called when nonces are updated at target node of the race.
 	fn target_nonces_updated(
 		&mut self,
-		nonces: TargetClientNonces,
+		nonces: TargetClientNonces<Self::TargetNoncesData>,
 		race_state: &mut RaceState<SourceHeaderId, TargetHeaderId, Proof>,
 	);
 	/// Should return `Some(nonces)` if we need to deliver proof of `nonces` (and associated
@@ -187,10 +192,10 @@ pub struct RaceState<SourceHeaderId, TargetHeaderId, Proof> {
 }
 
 /// Run race loop until connection with target or source node is lost.
-pub async fn run<P: MessageRace, SC: SourceClient<P>>(
+pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 	race_source: SC,
 	race_source_updated: impl FusedStream<Item = SourceClientState<P>>,
-	race_target: impl TargetClient<P>,
+	race_target: TC,
 	race_target_updated: impl FusedStream<Item = TargetClientState<P>>,
 	stall_timeout: Duration,
 	mut strategy: impl RaceStrategy<
@@ -199,6 +204,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>>(
 		P::Proof,
 		SourceNoncesRange = SC::NoncesRange,
 		ProofParameters = SC::ProofParameters,
+		TargetNoncesData = TC::TargetNoncesData,
 	>,
 ) -> Result<(), FailedClient> {
 	let mut progress_context = Instant::now();
@@ -524,7 +530,7 @@ mod tests {
 		strategy.target_nonces_updated(
 			TargetClientNonces {
 				latest_nonce: 5u64,
-				confirmed_nonce: None,
+				nonces_data: (),
 			},
 			&mut race_state,
 		);
