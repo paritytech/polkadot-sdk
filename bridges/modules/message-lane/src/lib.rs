@@ -255,18 +255,19 @@ decl_module! {
 			delivery_and_dispatch_fee: T::OutboundMessageFee,
 		) -> DispatchResult {
 			ensure_operational::<T, I>()?;
-			let submitter = ensure_signed(origin)?;
+			let submitter = origin.into().map_err(|_| BadOrigin)?;
 
 			// let's first check if message can be delivered to target chain
-			T::TargetHeaderChain::verify_message(&payload).map_err(|err| {
-				frame_support::debug::trace!(
-					"Message to lane {:?} is rejected by target chain: {:?}",
-					lane_id,
-					err,
-				);
+			T::TargetHeaderChain::verify_message(&payload)
+				.map_err(|err| {
+					frame_support::debug::trace!(
+						"Message to lane {:?} is rejected by target chain: {:?}",
+						lane_id,
+						err,
+					);
 
-				Error::<T, I>::MessageRejectedByChainVerifier
-			})?;
+					Error::<T, I>::MessageRejectedByChainVerifier
+				})?;
 
 			// now let's enforce any additional lane rules
 			T::LaneMessageVerifier::verify_message(
