@@ -17,7 +17,7 @@
 use crate::Trait;
 
 use bp_message_lane::{
-	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
+	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, Sender, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce,
 };
@@ -209,7 +209,7 @@ impl LaneMessageVerifier<AccountId, TestPayload, TestMessageFee> for TestLaneMes
 	type Error = &'static str;
 
 	fn verify_message(
-		_submitter: &AccountId,
+		_submitter: &Sender<AccountId>,
 		delivery_and_dispatch_fee: &TestMessageFee,
 		_lane: &LaneId,
 		_payload: &TestPayload,
@@ -234,7 +234,7 @@ impl TestMessageDeliveryAndDispatchPayment {
 
 	/// Returns true if given fee has been paid by given submitter.
 	pub fn is_fee_paid(submitter: AccountId, fee: TestMessageFee) -> bool {
-		frame_support::storage::unhashed::get(b":message-fee:") == Some((submitter, fee))
+		frame_support::storage::unhashed::get(b":message-fee:") == Some((Sender::Signed(submitter), fee))
 	}
 
 	/// Returns true if given relayer has been rewarded with given balance. The reward-paid flag is
@@ -249,7 +249,7 @@ impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee> for TestMessag
 	type Error = &'static str;
 
 	fn pay_delivery_and_dispatch_fee(
-		submitter: &AccountId,
+		submitter: &Sender<AccountId>,
 		fee: &TestMessageFee,
 		_relayer_fund_account: &AccountId,
 	) -> Result<(), Self::Error> {

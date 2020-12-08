@@ -30,11 +30,12 @@ use codec::{Decode, Encode};
 use frame_support::{
 	decl_event, decl_module, decl_storage,
 	dispatch::{Dispatchable, Parameter},
+	ensure,
 	traits::Get,
 	weights::{extract_actual_weight, GetDispatchInfo},
 	RuntimeDebug,
 };
-use frame_system::{ensure_root, ensure_signed, RawOrigin};
+use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{BadOrigin, Convert, IdentifyAccount, MaybeDisplay, MaybeSerializeDeserialize, Member, Verify},
 	DispatchResult,
@@ -266,39 +267,31 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 /// For example, if a message is sent from a "regular" account on the source chain it will not be
 /// allowed to be dispatched as Root on the target chain. This is a useful check to do on the source
 /// chain _before_ sending a message whose dispatch will be rejected on the target chain.
-pub fn verify_message_origin<
-	SourceChainOuterOrigin,
-	SourceChainAccountId,
-	TargetChainAccountPublic,
-	TargetChainSignature,
-	Call,
->(
-	sender_origin: SourceChainOuterOrigin,
+pub fn verify_message_origin<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature, Call>(
+	sender_origin: &RawOrigin<SourceChainAccountId>,
 	message: &MessagePayload<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature, Call>,
 ) -> Result<Option<SourceChainAccountId>, BadOrigin>
 where
-	SourceChainOuterOrigin: Into<Result<RawOrigin<SourceChainAccountId>, SourceChainOuterOrigin>>,
-	SourceChainAccountId: PartialEq,
+	SourceChainAccountId: PartialEq + Clone,
 {
 	match message.origin {
 		CallOrigin::SourceRoot => {
-			ensure_root(sender_origin)?;
+			ensure!(sender_origin == &RawOrigin::Root, BadOrigin);
 			Ok(None)
 		}
 		CallOrigin::TargetAccount(ref source_account_id, _, _) => {
-			let source_chain_signer = ensure_signed(sender_origin)?;
-			if source_chain_signer != *source_account_id {
-				return Err(BadOrigin);
-			}
-
-			Ok(Some(source_chain_signer))
+			ensure!(
+				sender_origin == &RawOrigin::Signed(source_account_id.clone()),
+				BadOrigin
+			);
+			Ok(Some(source_account_id.clone()))
 		}
 		CallOrigin::SourceAccount(ref source_account_id) => {
-			let source_chain_signer = ensure_signed(sender_origin)?;
-			if source_chain_signer != *source_account_id {
-				return Err(BadOrigin);
-			}
-			Ok(Some(source_chain_signer))
+			ensure!(
+				sender_origin == &RawOrigin::Signed(source_account_id.clone()),
+				BadOrigin
+			);
+			Ok(Some(source_account_id.clone()))
 		}
 	}
 }
@@ -617,14 +610,11 @@ mod tests {
 		let message = prepare_root_message(call);
 
 		// When message is sent by Root, CallOrigin::SourceRoot is allowed
-		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Root), &message),
-			Ok(None)
-		));
+		assert!(matches!(verify_message_origin(&RawOrigin::Root, &message), Ok(None)));
 
 		// when message is sent by some real account, CallOrigin::SourceRoot is not allowed
 		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Signed(1)), &message),
+			verify_message_origin(&RawOrigin::Signed(1), &message),
 			Err(BadOrigin)
 		));
 	}
@@ -636,20 +626,20 @@ mod tests {
 
 		// When message is sent by Root, CallOrigin::TargetAccount is not allowed
 		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Root), &message),
+			verify_message_origin(&RawOrigin::Root, &message),
 			Err(BadOrigin)
 		));
 
 		// When message is sent by some other account, it is rejected
 		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Signed(2)), &message),
+			verify_message_origin(&RawOrigin::Signed(2), &message),
 			Err(BadOrigin)
 		));
 
 		// When message is sent by a real account, it is allowed to have origin
 		// CallOrigin::TargetAccount
 		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Signed(1)), &message),
+			verify_message_origin(&RawOrigin::Signed(1), &message),
 			Ok(Some(1))
 		));
 	}
@@ -661,19 +651,19 @@ mod tests {
 
 		// Sending a message from the expected origin account works
 		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Signed(1)), &message),
+			verify_message_origin(&RawOrigin::Signed(1), &message),
 			Ok(Some(1))
 		));
 
 		// If we send a message from a different account, it is rejected
 		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Signed(2)), &message),
+			verify_message_origin(&RawOrigin::Signed(2), &message),
 			Err(BadOrigin)
 		));
 
 		// If we try and send the message from Root, it is also rejected
 		assert!(matches!(
-			verify_message_origin(Origin::from(RawOrigin::Root), &message),
+			verify_message_origin(&RawOrigin::Root, &message),
 			Err(BadOrigin)
 		));
 	}
