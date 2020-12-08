@@ -21,12 +21,15 @@ use crate::{InboundLaneData, LaneId};
 use frame_support::Parameter;
 use sp_std::fmt::Debug;
 
+/// The sender of the message on the source chain.
+pub type Sender<AccountId> = frame_system::RawOrigin<AccountId>;
+
 /// Target chain API. Used by source chain to verify target chain proofs.
 ///
 /// All implementations of this trait should only work with finalized data that
 /// can't change. Wrong implementation may lead to invalid lane states (i.e. lane
 /// that's stuck) and/or processing messages without paying fees.
-pub trait TargetHeaderChain<Payload, RelayerId> {
+pub trait TargetHeaderChain<Payload, AccountId> {
 	/// Error type.
 	type Error: Debug + Into<&'static str>;
 
@@ -50,7 +53,7 @@ pub trait TargetHeaderChain<Payload, RelayerId> {
 	/// Verify messages delivery proof and return lane && nonce of the latest recevied message.
 	fn verify_messages_delivery_proof(
 		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<RelayerId>), Self::Error>;
+	) -> Result<(LaneId, InboundLaneData<AccountId>), Self::Error>;
 }
 
 /// Lane message verifier.
@@ -67,7 +70,7 @@ pub trait LaneMessageVerifier<Submitter, Payload, Fee> {
 
 	/// Verify message payload and return Ok(()) if message is valid and allowed to be sent over the lane.
 	fn verify_message(
-		submitter: &Submitter,
+		submitter: &Sender<Submitter>,
 		delivery_and_dispatch_fee: &Fee,
 		lane: &LaneId,
 		payload: &Payload,
@@ -94,7 +97,7 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 	/// Withhold/write-off delivery_and_dispatch_fee from submitter account to
 	/// some relayers-fund account.
 	fn pay_delivery_and_dispatch_fee(
-		submitter: &AccountId,
+		submitter: &Sender<AccountId>,
 		fee: &Balance,
 		relayer_fund_account: &AccountId,
 	) -> Result<(), Self::Error>;

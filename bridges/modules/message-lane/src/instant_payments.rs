@@ -17,7 +17,7 @@
 //! Implementation of `MessageDeliveryAndDispatchPayment` trait on top of `Currency` trait.
 //! All payments are instant.
 
-use bp_message_lane::source_chain::MessageDeliveryAndDispatchPayment;
+use bp_message_lane::source_chain::{MessageDeliveryAndDispatchPayment, Sender};
 use codec::Encode;
 use frame_support::traits::{Currency as CurrencyT, ExistenceRequirement};
 use sp_std::fmt::Debug;
@@ -37,11 +37,20 @@ where
 	type Error = &'static str;
 
 	fn pay_delivery_and_dispatch_fee(
-		submitter: &AccountId,
+		submitter: &Sender<AccountId>,
 		fee: &Currency::Balance,
 		relayer_fund_account: &AccountId,
 	) -> Result<(), Self::Error> {
-		Currency::transfer(submitter, relayer_fund_account, *fee, ExistenceRequirement::AllowDeath).map_err(Into::into)
+		match submitter {
+			Sender::Signed(submitter) => {
+				Currency::transfer(submitter, relayer_fund_account, *fee, ExistenceRequirement::AllowDeath)
+					.map_err(Into::into)
+			}
+			Sender::Root | Sender::None => {
+				// fixme: we might want to add root account id to this struct.
+				Err("Root and None account is not allowed to send regular messages.")
+			}
+		}
 	}
 
 	fn pay_relayer_reward(
