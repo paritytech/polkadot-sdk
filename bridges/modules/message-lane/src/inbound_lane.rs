@@ -31,6 +31,8 @@ pub trait InboundLaneStorage {
 
 	/// Lane id.
 	fn id(&self) -> LaneId;
+	/// Return maximal number of unrewarded relayer entries in inbound lane.
+	fn max_unrewarded_relayer_entries(&self) -> MessageNonce;
 	/// Return maximal number of unconfirmed messages in inbound lane.
 	fn max_unconfirmed_messages(&self) -> MessageNonce;
 	/// Get lane data from the storage.
@@ -97,8 +99,14 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 			return false;
 		}
 
+		// if there are more unrewarded relayer entries than we may accept, reject this message
+		if data.relayers.len() as MessageNonce >= self.storage.max_unrewarded_relayer_entries() {
+			return false;
+		}
+
 		// if there are more unconfirmed messages than we may accept, reject this message
-		if self.storage.max_unconfirmed_messages() <= data.relayers.len() as MessageNonce {
+		let unconfirmed_messages_count = nonce.saturating_sub(data.latest_confirmed_nonce);
+		if unconfirmed_messages_count > self.storage.max_unconfirmed_messages() {
 			return false;
 		}
 
@@ -271,10 +279,10 @@ mod tests {
 	}
 
 	#[test]
-	fn fails_to_receive_messages_above_max_limit_per_lane() {
+	fn fails_to_receive_messages_above_unrewarded_relayer_entries_limit_per_lane() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce = <TestRuntime as crate::Trait>::MaxUnconfirmedMessagesAtInboundLane::get();
+			let max_nonce = <TestRuntime as crate::Trait>::MaxUnrewardedRelayerEntriesAtInboundLane::get();
 			for current_nonce in 1..max_nonce + 1 {
 				assert!(lane.receive_message::<TestMessageDispatch>(
 					TEST_RELAYER_A + current_nonce,
@@ -296,6 +304,39 @@ mod tests {
 				false,
 				lane.receive_message::<TestMessageDispatch>(
 					TEST_RELAYER_A + max_nonce,
+					max_nonce + 1,
+					message_data(REGULAR_PAYLOAD).into()
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn fails_to_receive_messages_above_unconfirmed_messages_limit_per_lane() {
+		run_test(|| {
+			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let max_nonce = <TestRuntime as crate::Trait>::MaxUnconfirmedMessagesAtInboundLane::get();
+			for current_nonce in 1..=max_nonce {
+				assert!(lane.receive_message::<TestMessageDispatch>(
+					TEST_RELAYER_A,
+					current_nonce,
+					message_data(REGULAR_PAYLOAD).into()
+				));
+			}
+			// Fails to dispatch new message from different than latest relayer.
+			assert_eq!(
+				false,
+				lane.receive_message::<TestMessageDispatch>(
+					TEST_RELAYER_B,
+					max_nonce + 1,
+					message_data(REGULAR_PAYLOAD).into()
+				)
+			);
+			// Fails to dispatch new messages from latest relayer.
+			assert_eq!(
+				false,
+				lane.receive_message::<TestMessageDispatch>(
+					TEST_RELAYER_A,
 					max_nonce + 1,
 					message_data(REGULAR_PAYLOAD).into()
 				)
