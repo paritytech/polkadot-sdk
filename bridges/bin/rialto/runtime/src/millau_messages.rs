@@ -143,7 +143,7 @@ impl messages::ChainWithMessageLanes for Rialto {
 	type Weight = Weight;
 	type Balance = bp_rialto::Balance;
 
-	type MessageLaneInstance = pallet_message_lane::DefaultInstance;
+	type MessageLaneInstance = crate::WithMillauMessageLaneInstance;
 }
 
 /// Millau chain from message lane point of view.
