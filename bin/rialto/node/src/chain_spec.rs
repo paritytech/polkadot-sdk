@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use bp_rialto::derive_account_from_millau_id;
 use rialto_runtime::{
 	AccountId, AuraConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauConfig, BridgeRialtoPoAConfig, GenesisConfig,
 	GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
@@ -121,6 +122,10 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
+							derive_account_from_millau_id(bp_runtime::SourceAccount::Root),
+							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Dave"),
+							)),
 						],
 						true,
 					)
@@ -190,4 +195,23 @@ fn load_kovan_bridge_config() -> BridgeKovanConfig {
 		initial_difficulty: 0.into(),
 		initial_validators: rialto_runtime::kovan::genesis_validators(),
 	}
+}
+
+#[test]
+fn derived_dave_account_is_as_expected() {
+	let dave = get_account_id_from_seed::<sr25519::Public>("Dave");
+	let derived: AccountId = derive_account_from_millau_id(bp_runtime::SourceAccount::Account(dave));
+	assert_eq!(
+		derived.to_string(),
+		"5Hg7WQyk8C1FmPzxY3xSjR7S6zZZC5sAL35vMr6NpW17jBhQ".to_string()
+	);
+}
+
+#[test]
+fn derived_root_account_is_as_expected() {
+	let root: AccountId = derive_account_from_millau_id(bp_runtime::SourceAccount::Root);
+	assert_eq!(
+		root.to_string(),
+		"5HYYwXQvxhgdcBYs6kzqfK1HW6M3UF3Kh4YM7j288yiqbhnt".to_string()
+	);
 }
