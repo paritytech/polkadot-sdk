@@ -25,7 +25,7 @@ use bp_runtime::Chain;
 use frame_support::{weights::Weight, RuntimeDebug};
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	traits::{BlakeTwo256, Convert, IdentifyAccount, Verify},
 	MultiSignature, MultiSigner,
 };
 use sp_std::prelude::*;
@@ -112,10 +112,23 @@ pub type Balance = u128;
 /// Convert a 256-bit hash into an AccountId.
 pub struct AccountIdConverter;
 
-impl sp_runtime::traits::Convert<sp_core::H256, AccountId> for AccountIdConverter {
+impl Convert<sp_core::H256, AccountId> for AccountIdConverter {
 	fn convert(hash: sp_core::H256) -> AccountId {
 		hash.to_fixed_bytes().into()
 	}
+}
+
+// We use this to get the account on Rialto (target) which is derived from Millau's (source)
+// account. We do this so we can fund the derived account on Rialto at Genesis to it can pay
+// transaction fees.
+//
+// The reason we can use the same `AccountId` type for both chains is because they share the same
+// development seed phrase.
+//
+// Note that this should only be used for testing.
+pub fn derive_account_from_millau_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
+	let encoded_id = bp_runtime::derive_account_id(*b"mlau", id);
+	AccountIdConverter::convert(encoded_id)
 }
 
 sp_api::decl_runtime_apis! {
