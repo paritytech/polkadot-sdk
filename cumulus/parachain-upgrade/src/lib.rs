@@ -263,14 +263,12 @@ mod tests {
 		dispatch::UnfilteredDispatchable,
 		impl_outer_event, impl_outer_origin, parameter_types,
 		traits::{OnFinalize, OnInitialize},
-		weights::Weight,
 	};
 	use frame_system::{InitKind, RawOrigin};
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
 		traits::{BlakeTwo256, IdentityLookup},
-		Perbill,
 	};
 	use sp_version::RuntimeVersion;
 
@@ -296,9 +294,6 @@ mod tests {
 	pub struct Test;
 	parameter_types! {
 		pub const BlockHashCount: u64 = 250;
-		pub const MaximumBlockWeight: Weight = 1024;
-		pub const MaximumBlockLength: u32 = 2 * 1024;
-		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 		pub Version: RuntimeVersion = RuntimeVersion {
 			spec_name: sp_version::create_runtime_str!("test"),
 			impl_name: sp_version::create_runtime_str!("system-test"),
@@ -321,18 +316,14 @@ mod tests {
 		type Header = Header;
 		type Event = TestEvent;
 		type BlockHashCount = BlockHashCount;
-		type MaximumBlockWeight = MaximumBlockWeight;
-		type MaximumExtrinsicWeight = MaximumBlockWeight;
-		type MaximumBlockLength = MaximumBlockLength;
-		type AvailableBlockRatio = AvailableBlockRatio;
+		type BlockLength = ();
+		type BlockWeights = ();
 		type Version = Version;
 		type PalletInfo = ();
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type DbWeight = ();
-		type BlockExecutionWeight = ();
-		type ExtrinsicBaseWeight = ();
 		type BaseCallFilter = ();
 		type SystemWeightInfo = ();
 	}

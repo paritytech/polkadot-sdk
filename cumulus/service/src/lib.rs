@@ -301,10 +301,6 @@ pub fn build_polkadot_full_node(
 	if is_light {
 		Err("Light client not supported.".into())
 	} else {
-		polkadot_service::build_full(
-			config,
-			polkadot_service::IsCollator::Yes(collator_id),
-			None,
-		)
+		polkadot_service::build_full(config, polkadot_service::IsCollator::Yes(collator_id), None)
 	}
 }
