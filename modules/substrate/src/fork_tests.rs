@@ -134,7 +134,7 @@ fn fork_does_not_allow_competing_finality_proofs() {
 //
 // Not allowed to import 3 until we get F2
 //
-// Note: Grandpa would technically allow 3 to be imported as long as it didn't try and enact an
+// Note: GRANDPA would technically allow 3 to be imported as long as it didn't try and enact an
 // authority set change. However, since we expect finality proofs to be imported quickly we've
 // decided to simplify our import process and disallow header imports until we get a finality proof.
 #[test]
@@ -161,9 +161,9 @@ fn fork_waits_for_finality_proof_before_importing_header_past_one_which_enacts_a
 //
 // [1] <- [2: S|1] <- [3: S|0]
 //
-// Grandpa can have multiple authority set changes pending on the same fork. However, we've decided
+// GRANDPA can have multiple authority set changes pending on the same fork. However, we've decided
 // to introduce a limit of _one_ pending authority set change per fork in order to simplify pallet
-// logic and to prevent DoS attacks if Grandpa finality were to temporarily stall for a long time
+// logic and to prevent DoS attacks if GRANDPA finality were to temporarily stall for a long time
 // (we'd have to perform a lot of expensive ancestry checks to catch back up).
 #[test]
 fn fork_does_not_allow_multiple_scheduled_changes_on_the_same_fork() {

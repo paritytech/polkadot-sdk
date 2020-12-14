@@ -19,7 +19,7 @@
 //!
 //! When importing headers it performs checks to ensure that no invariants are broken (like
 //! importing the same header twice). When it imports finality proofs it will ensure that the proof
-//! has been signed off by the correct Grandpa authorities, and also enact any authority set changes
+//! has been signed off by the correct GRANDPA authorities, and also enact any authority set changes
 //! if required.
 
 use crate::justification::verify_justification;
@@ -34,8 +34,8 @@ use sp_std::{prelude::Vec, vec};
 
 /// The finality proof used by the pallet.
 ///
-/// For a Substrate based chain using Grandpa this will
-/// be an encoded Grandpa Justification.
+/// For a Substrate based chain using GRANDPA this will
+/// be an encoded GRANDPA Justification.
 #[derive(RuntimeDebug)]
 pub struct FinalityProof(Vec<u8>);
 
@@ -139,7 +139,7 @@ where
 		// we need to make a note of it.
 		//
 		// Note: This assumes that we can only have one authority set change pending per fork at a
-		// time. While this is not strictly true of Grandpa (it can have multiple pending changes,
+		// time. While this is not strictly true of GRANDPA (it can have multiple pending changes,
 		// even across forks), this assumption simplifies our tracking of authority set changes.
 		let mut signal_hash = parent_header.signal_hash;
 		let scheduled_change = find_scheduled_change(&header);
@@ -213,7 +213,7 @@ where
 		Ok(())
 	}
 
-	/// Verify that a previously imported header can be finalized with the given Grandpa finality
+	/// Verify that a previously imported header can be finalized with the given GRANDPA finality
 	/// proof. If the header enacts an authority set change the change will be applied once the
 	/// header has been finalized.
 	pub fn import_finality_proof(&mut self, hash: H::Hash, proof: FinalityProof) -> Result<(), FinalizationError> {
@@ -680,7 +680,7 @@ mod tests {
 			let mut storage = PalletStorage::<TestRuntime>::new();
 			let _imported_headers = write_default_headers(&mut storage, vec![1]);
 
-			// Nothing special about this header, yet Grandpa may have created a justification
+			// Nothing special about this header, yet GRANDPA may have created a justification
 			// for it since it does that periodically
 			let header = test_header(2);
 
