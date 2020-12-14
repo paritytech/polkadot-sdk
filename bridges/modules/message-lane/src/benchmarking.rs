@@ -34,11 +34,13 @@ const SEED: u32 = 0;
 pub struct Module<T: Trait<I>, I: crate::Instance>(crate::Module<T, I>);
 
 /// Benchmark-specific message parameters.
-pub struct MessageParams {
+pub struct MessageParams<ThisAccountId> {
 	/// Size factor of the message payload. Message payload grows with every factor
 	/// increment. Zero is the smallest possible message and the `WORST_MESSAGE_SIZE_FACTOR` is
 	/// largest possible message.
 	pub size_factor: u32,
+	/// Message sender account.
+	pub sender_account: ThisAccountId,
 }
 
 /// Trait that must be implemented by runtime.
@@ -46,7 +48,7 @@ pub trait Trait<I: Instance>: crate::Trait<I> {
 	/// Create given account and give it enough balance for test purposes.
 	fn endow_account(account: &Self::AccountId);
 	/// Prepare message to send over lane.
-	fn prepare_message(params: MessageParams) -> (Self::OutboundPayload, Self::OutboundMessageFee);
+	fn prepare_message(params: MessageParams<Self::AccountId>) -> (Self::OutboundPayload, Self::OutboundMessageFee);
 }
 
 benchmarks_instance! {
@@ -70,7 +72,10 @@ benchmarks_instance! {
 		}
 		confirm_message_delivery::<T, I>(T::MaxMessagesToPruneAtOnce::get());
 
-		let (payload, fee) = T::prepare_message(MessageParams { size_factor: WORST_MESSAGE_SIZE_FACTOR });
+		let (payload, fee) = T::prepare_message(MessageParams {
+			size_factor: WORST_MESSAGE_SIZE_FACTOR,
+			sender_account: sender.clone(),
+		});
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 }
 
