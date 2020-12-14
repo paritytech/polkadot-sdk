@@ -21,7 +21,7 @@
 //! It has a simple interface for achieving this. First it can import headers to the runtime
 //! storage. During this it will check the validity of the headers and ensure they don't conflict
 //! with any existing headers (e.g they're on a different finalized chain). Secondly it can finalize
-//! an already imported header (and its ancestors) given a valid Grandpa justification.
+//! an already imported header (and its ancestors) given a valid GRANDPA justification.
 //!
 //! With these two functions the pallet is able to form a "source of truth" for what headers have
 //! been finalized on a given Substrate chain. This can be a useful source of info for other
@@ -94,17 +94,17 @@ decl_storage! {
 		/// Hash of the best finalized header.
 		BestFinalized: BridgedBlockHash<T>;
 		/// The set of header IDs (number, hash) which enact an authority set change and therefore
-		/// require a Grandpa justification.
+		/// require a GRANDPA justification.
 		RequiresJustification: map hasher(identity) BridgedBlockHash<T> => BridgedBlockNumber<T>;
 		/// Headers which have been imported into the pallet.
 		ImportedHeaders: map hasher(identity) BridgedBlockHash<T> => Option<ImportedHeader<BridgedHeader<T>>>;
-		/// The current Grandpa Authority set.
+		/// The current GRANDPA Authority set.
 		CurrentAuthoritySet: AuthoritySet;
 		/// The next scheduled authority set change for a given fork.
 		///
 		/// The fork is indicated by the header which _signals_ the change (key in the mapping).
 		/// Note that this is different than a header which _enacts_ a change.
-		// Grandpa doesn't require there to always be a pending change. In fact, most of the time
+		// GRANDPA doesn't require there to always be a pending change. In fact, most of the time
 		// there will be no pending change available.
 		NextScheduledChange: map hasher(identity) BridgedBlockHash<T> => Option<ScheduledChange<BridgedBlockNumber<T>>>;
 		/// Optional pallet owner.
@@ -448,10 +448,10 @@ pub trait BridgeStorage {
 	/// Returns None if it is not known to the pallet.
 	fn header_by_hash(&self, hash: <Self::Header as HeaderT>::Hash) -> Option<ImportedHeader<Self::Header>>;
 
-	/// Get the current Grandpa authority set.
+	/// Get the current GRANDPA authority set.
 	fn current_authority_set(&self) -> AuthoritySet;
 
-	/// Update the current Grandpa authority set.
+	/// Update the current GRANDPA authority set.
 	///
 	/// Should only be updated when a scheduled change has been triggered.
 	fn update_current_authority_set(&self, new_set: AuthoritySet);
@@ -462,13 +462,13 @@ pub trait BridgeStorage {
 	#[allow(clippy::result_unit_err)]
 	fn enact_authority_set(&mut self, signal_hash: <Self::Header as HeaderT>::Hash) -> Result<(), ()>;
 
-	/// Get the next scheduled Grandpa authority set change.
+	/// Get the next scheduled GRANDPA authority set change.
 	fn scheduled_set_change(
 		&self,
 		signal_hash: <Self::Header as HeaderT>::Hash,
 	) -> Option<ScheduledChange<<Self::Header as HeaderT>::Number>>;
 
-	/// Schedule a Grandpa authority set change in the future.
+	/// Schedule a GRANDPA authority set change in the future.
 	///
 	/// Takes the hash of the header which scheduled this particular change.
 	fn schedule_next_set_change(

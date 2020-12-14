@@ -29,7 +29,7 @@ pub trait Chain: Send + Sync + 'static {
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Number
 	//
-	// Note that the `AsPrimitive<usize>` trait is required by the Grandpa justification
+	// Note that the `AsPrimitive<usize>` trait is required by the GRANDPA justification
 	// verifier, and is not usually part of a Substrate Header's Number type.
 	type BlockNumber: Parameter
 		+ Member
