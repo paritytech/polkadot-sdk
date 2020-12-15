@@ -60,6 +60,7 @@ pub async fn run<P: MessageLane>(
 			max_unconfirmed_nonces_at_target: params.max_unconfirmed_nonces_at_target,
 			max_messages_in_single_batch: params.max_messages_in_single_batch,
 			max_messages_weight_in_single_batch: params.max_messages_weight_in_single_batch,
+			max_messages_size_in_single_batch: params.max_messages_size_in_single_batch,
 			latest_confirmed_nonce_at_source: None,
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
@@ -218,6 +219,8 @@ struct MessageDeliveryStrategy<P: MessageLane> {
 	max_messages_in_single_batch: MessageNonce,
 	/// Maximal cumulative messages weight in the single delivery transaction.
 	max_messages_weight_in_single_batch: Weight,
+	/// Maximal messages size in the single delivery transaction.
+	max_messages_size_in_single_batch: usize,
 	/// Latest confirmed nonce at the source client.
 	latest_confirmed_nonce_at_source: Option<MessageNonce>,
 	/// Target nonces from the source client.
@@ -360,7 +363,9 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 			.unwrap_or_default();
 		let max_nonces = std::cmp::min(max_nonces, self.max_messages_in_single_batch);
 		let max_messages_weight_in_single_batch = self.max_messages_weight_in_single_batch;
+		let max_messages_size_in_single_batch = self.max_messages_size_in_single_batch;
 		let mut selected_weight: Weight = 0;
+		let mut selected_size: usize = 0;
 		let mut selected_count: MessageNonce = 0;
 
 		let selected_nonces = self
@@ -369,10 +374,43 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 				let to_requeue = range
 					.into_iter()
 					.skip_while(|(_, weight)| {
+						// Since we (hopefully) have some reserves in `max_messages_weight_in_single_batch`
+						// and `max_messages_size_in_single_batch`, we may still try to submit transaction
+						// with single message if message overflows these limits. The worst case would be if
+						// transaction will be rejected by the target runtime, but at least we have tried.
+
 						// limit messages in the batch by weight
-						let new_selected_weight = match selected_weight.checked_add(*weight) {
+						let new_selected_weight = match selected_weight.checked_add(weight.weight) {
 							Some(new_selected_weight) if new_selected_weight <= max_messages_weight_in_single_batch => {
 								new_selected_weight
+							}
+							new_selected_weight if selected_count == 0 => {
+								log::warn!(
+									target: "bridge",
+									"Going to submit message delivery transaction with declared dispatch \
+									weight {:?} that overflows maximal configured weight {}",
+									new_selected_weight,
+									max_messages_weight_in_single_batch,
+								);
+								new_selected_weight.unwrap_or(Weight::MAX)
+							}
+							_ => return false,
+						};
+
+						// limit messages in the batch by size
+						let new_selected_size = match selected_size.checked_add(weight.size) {
+							Some(new_selected_size) if new_selected_size <= max_messages_size_in_single_batch => {
+								new_selected_size
+							}
+							new_selected_size if selected_count == 0 => {
+								log::warn!(
+									target: "bridge",
+									"Going to submit message delivery transaction with message \
+									size {:?} that overflows maximal configured size {}",
+									new_selected_size,
+									max_messages_size_in_single_batch,
+								);
+								new_selected_size.unwrap_or(usize::MAX)
 							}
 							_ => return false,
 						};
@@ -384,6 +422,7 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 						}
 
 						selected_weight = new_selected_weight;
+						selected_size = new_selected_size;
 						selected_count = new_selected_count;
 						true
 					})
@@ -427,8 +466,9 @@ impl NoncesRange for MessageWeightsMap {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::message_lane_loop::tests::{
-		header_id, TestMessageLane, TestMessagesProof, TestSourceHeaderId, TestTargetHeaderId,
+	use crate::message_lane_loop::{
+		tests::{header_id, TestMessageLane, TestMessagesProof, TestSourceHeaderId, TestTargetHeaderId},
+		MessageWeights,
 	};
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
@@ -448,6 +488,7 @@ mod tests {
 			max_unconfirmed_nonces_at_target: 4,
 			max_messages_in_single_batch: 4,
 			max_messages_weight_in_single_batch: 4,
+			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonce_at_source: Some(19),
 			target_nonces: Some(TargetClientNonces {
 				latest_nonce: 19,
@@ -465,7 +506,14 @@ mod tests {
 		race_strategy.strategy.source_nonces_updated(
 			header_id(1),
 			SourceClientNonces {
-				new_nonces: vec![(20, 1), (21, 1), (22, 1), (23, 1)].into_iter().collect(),
+				new_nonces: vec![
+					(20, MessageWeights { weight: 1, size: 1 }),
+					(21, MessageWeights { weight: 1, size: 1 }),
+					(22, MessageWeights { weight: 1, size: 1 }),
+					(23, MessageWeights { weight: 1, size: 1 }),
+				]
+				.into_iter()
+				.collect(),
 				confirmed_nonce: Some(19),
 			},
 		);
@@ -490,7 +538,17 @@ mod tests {
 	#[test]
 	fn weights_map_works_as_nonces_range() {
 		fn build_map(range: RangeInclusive<MessageNonce>) -> MessageWeightsMap {
-			range.map(|idx| (idx, idx)).collect()
+			range
+				.map(|idx| {
+					(
+						idx,
+						MessageWeights {
+							weight: idx,
+							size: idx as _,
+						},
+					)
+				})
+				.collect()
 		}
 
 		let map = build_map(20..=30);
@@ -601,6 +659,42 @@ mod tests {
 		assert_eq!(
 			strategy.select_nonces_to_deliver(&state),
 			Some(((20..=22), proof_parameters(false, 3)))
+		);
+	}
+
+	#[test]
+	fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_weight() {
+		let (state, mut strategy) = prepare_strategy();
+
+		// first message doesn't fit in the batch, because it has weight (10) that overflows max weight (4)
+		strategy.strategy.source_queue_mut()[0].1.get_mut(&20).unwrap().weight = 10;
+		assert_eq!(
+			strategy.select_nonces_to_deliver(&state),
+			Some(((20..=20), proof_parameters(false, 10)))
+		);
+	}
+
+	#[test]
+	fn message_delivery_strategy_limits_batch_by_messages_size() {
+		let (state, mut strategy) = prepare_strategy();
+
+		// not all queued messages may fit in the batch, because batch has max weight
+		strategy.max_messages_size_in_single_batch = 3;
+		assert_eq!(
+			strategy.select_nonces_to_deliver(&state),
+			Some(((20..=22), proof_parameters(false, 3)))
+		);
+	}
+
+	#[test]
+	fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_size() {
+		let (state, mut strategy) = prepare_strategy();
+
+		// first message doesn't fit in the batch, because it has weight (10) that overflows max weight (4)
+		strategy.strategy.source_queue_mut()[0].1.get_mut(&20).unwrap().size = 10;
+		assert_eq!(
+			strategy.select_nonces_to_deliver(&state),
+			Some(((20..=20), proof_parameters(false, 1)))
 		);
 	}
 
