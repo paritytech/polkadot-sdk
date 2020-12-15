@@ -71,10 +71,21 @@ pub struct MessageDeliveryParams {
 	pub max_messages_in_single_batch: MessageNonce,
 	/// Maximal cumulative dispatch weight of relayed messages in single delivery transaction.
 	pub max_messages_weight_in_single_batch: Weight,
+	/// Maximal cumulative size of relayed messages in single delivery transaction.
+	pub max_messages_size_in_single_batch: usize,
+}
+
+/// Message weights.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MessageWeights {
+	/// Message dispatch weight.
+	pub weight: Weight,
+	/// Message size (number of bytes in encoded payload).
+	pub size: usize,
 }
 
 /// Messages weights map.
-pub type MessageWeightsMap = BTreeMap<MessageNonce, Weight>;
+pub type MessageWeightsMap = BTreeMap<MessageNonce, MessageWeights>;
 
 /// Message delivery race proof parameters.
 #[derive(Debug, PartialEq)]
@@ -586,7 +597,9 @@ pub(crate) mod tests {
 			_id: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<MessageNonce>,
 		) -> Result<MessageWeightsMap, Self::Error> {
-			Ok(nonces.map(|nonce| (nonce, 1)).collect())
+			Ok(nonces
+				.map(|nonce| (nonce, MessageWeights { weight: 1, size: 1 }))
+				.collect())
 		}
 
 		async fn prove_messages(
@@ -754,6 +767,7 @@ pub(crate) mod tests {
 						max_unconfirmed_nonces_at_target: 4,
 						max_messages_in_single_batch: 4,
 						max_messages_weight_in_single_batch: 4,
+						max_messages_size_in_single_batch: 4,
 					},
 				},
 				source_client,
