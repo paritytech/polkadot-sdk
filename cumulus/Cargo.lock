@@ -1155,6 +1155,7 @@ dependencies = [
  "polkadot-parachain",
  "polkadot-primitives",
  "sc-chain-spec",
+ "sp-core",
  "sp-inherents",
  "sp-runtime",
  "sp-std",

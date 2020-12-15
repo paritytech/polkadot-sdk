@@ -18,8 +18,8 @@
 
 use cumulus_network::WaitToAnnounce;
 use cumulus_primitives::{
-	inherents::{DownwardMessagesType, DOWNWARD_MESSAGES_IDENTIFIER, VALIDATION_DATA_IDENTIFIER},
-	well_known_keys, ValidationData,
+	inherents::{self, VALIDATION_DATA_IDENTIFIER},
+	well_known_keys, ValidationData, InboundHrmpMessage, OutboundHrmpMessage, InboundDownwardMessage,
 };
 use cumulus_runtime::ParachainBlockData;
 
@@ -52,7 +52,7 @@ use log::{debug, error, info, trace};
 
 use futures::prelude::*;
 
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration, collections::BTreeMap};
 
 use parking_lot::Mutex;
 
@@ -146,8 +146,9 @@ where
 	/// for.
 	///
 	/// Returns `None` in case of an error.
-	fn retrieve_dmq_contents(&self, relay_parent: PHash) -> Option<DownwardMessagesType> {
-		self.polkadot_client
+	fn retrieve_dmq_contents(&self, relay_parent: PHash) -> Option<Vec<InboundDownwardMessage>> {
+		self
+			.polkadot_client
 			.runtime_api()
 			.dmq_contents_with_context(
 				&BlockId::hash(relay_parent),
@@ -158,6 +159,31 @@ where
 				error!(
 					target: "cumulus-collator",
 					"An error occured during requesting the downward messages for {}: {:?}",
+					relay_parent, e,
+				);
+			})
+			.ok()
+	}
+
+	/// Returns channels contents for each inbound HRMP channel addressed to the parachain we are
+	/// collating for.
+	///
+	/// Empty channels are also included.
+	fn retrieve_all_inbound_hrmp_channel_contents(&self, relay_parent: PHash)
+		-> Option<BTreeMap<ParaId, Vec<InboundHrmpMessage>>>
+	{
+		self
+			.polkadot_client
+			.runtime_api()
+			.inbound_hrmp_channels_contents_with_context(
+				&BlockId::hash(relay_parent),
+				sp_core::ExecutionContext::Importing,
+				self.para_id,
+			)
+			.map_err(|e| {
+				error!(
+					target: "cumulus-collator",
+					"An error occured during requesting the inbound HRMP messages for {}: {:?}",
 					relay_parent, e,
 				);
 			})
@@ -193,9 +219,18 @@ where
 			})
 			.ok()?;
 
-		let downward_messages = self.retrieve_dmq_contents(relay_parent)?;
+		let message_ingestion_data = {
+			let downward_messages = self.retrieve_dmq_contents(relay_parent)?;
+			let horizontal_messages = self.retrieve_all_inbound_hrmp_channel_contents(relay_parent)?;
+
+			inherents::MessageIngestionType {
+				downward_messages,
+				horizontal_messages,
+			}
+		};
+
 		inherent_data
-			.put_data(DOWNWARD_MESSAGES_IDENTIFIER, &downward_messages)
+			.put_data(inherents::MESSAGE_INGESTION_IDENTIFIER, &message_ingestion_data)
 			.map_err(|e| {
 				error!(
 					target: "cumulus-collator",
@@ -296,15 +331,50 @@ where
 				None => 0,
 			};
 
+			let horizontal_messages = sp_io::storage::get(well_known_keys::HRMP_OUTBOUND_MESSAGES);
+			let horizontal_messages = match horizontal_messages
+				.map(|v| Vec::<OutboundHrmpMessage>::decode(&mut &v[..]))
+			{
+				Some(Ok(horizontal_messages)) => horizontal_messages,
+				Some(Err(e)) => {
+					error!(
+						target: "cumulus-collator",
+						"Failed to decode the horizontal messages: {:?}",
+						e
+					);
+					return None
+				}
+				None => Vec::new(),
+			};
+
+			let hrmp_watermark = sp_io::storage::get(well_known_keys::HRMP_WATERMARK);
+			let hrmp_watermark = match hrmp_watermark.map(|v| PBlockNumber::decode(&mut &v[..])) {
+				Some(Ok(hrmp_watermark)) => hrmp_watermark,
+				Some(Err(e)) => {
+					error!(
+						target: "cumulus-collator",
+						"Failed to decode the HRMP watermark: {:?}",
+						e
+					);
+					return None
+				}
+				None => {
+					// If the runtime didn't set `HRMP_WATERMARK`, then it means no messages were
+					// supplied via the message ingestion inherent. Assuming that the PVF/runtime
+					// checks that legitly there are no pending messages we can therefore move the
+					// watermark up to the relay-block number.
+					relay_block_number
+				}
+			};
+
 			Some(Collation {
 				upward_messages,
 				new_validation_code: new_validation_code.map(Into::into),
 				head_data,
 				proof_of_validity: PoV { block_data },
 				processed_downward_messages,
-				// TODO!
-				horizontal_messages: Vec::new(),
-				hrmp_watermark: relay_block_number,
+				horizontal_messages,
+				hrmp_watermark,
 			})
 		})
 	}

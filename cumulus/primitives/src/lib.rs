@@ -27,17 +27,35 @@ pub use polkadot_primitives::v1::{
 
 #[cfg(feature = "std")]
 pub mod genesis;
-pub mod xcmp;
+
+/// An inbound HRMP message.
+pub type InboundHrmpMessage = polkadot_primitives::v1::InboundHrmpMessage<relay_chain::BlockNumber>;
+
+/// And outbound HRMP message
+pub type OutboundHrmpMessage = polkadot_primitives::v1::OutboundHrmpMessage<ParaId>;
 
 /// Identifiers and types related to Cumulus Inherents
 pub mod inherents {
 	use sp_inherents::InherentIdentifier;
+	use sp_std::{
+		vec::Vec,
+		collections::btree_map::BTreeMap,
+	};
+	use super::{InboundDownwardMessage, InboundHrmpMessage, ParaId};
 
-	/// Inherent identifier for downward messages.
-	pub const DOWNWARD_MESSAGES_IDENTIFIER: InherentIdentifier = *b"cumdownm";
-
-	/// The type of the inherent downward messages.
-	pub type DownwardMessagesType = sp_std::vec::Vec<crate::InboundDownwardMessage>;
+	/// Inherent identifier for message ingestion inherent.
+	pub const MESSAGE_INGESTION_IDENTIFIER: InherentIdentifier = *b"msgingst";
+	/// The data passed via a message ingestion inherent. Consists of a bundle of
+	/// DMP and HRMP messages.
+	#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq)]
+	pub struct MessageIngestionType {
+		/// Downward messages in the order they were sent.
+		pub downward_messages: Vec<InboundDownwardMessage>,
+		/// HRMP messages grouped by channels. The messages in the inner vec must be in order they
+		/// were sent. In combination with the rule of no more than one message in a channel per block,
+		/// this means `sent_at` is **strictly** greater than the previous one (if any).
+		pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
+	}
 
 	/// The identifier for the `set_validation_data` inherent.
 	pub const VALIDATION_DATA_IDENTIFIER: InherentIdentifier = *b"valfunp0";
@@ -58,6 +76,18 @@ pub mod well_known_keys {
 	/// Code upgarde (set as appropriate by a pallet).
 	pub const NEW_VALIDATION_CODE: &'static [u8] = b":cumulus_new_validation_code:";
 
+	/// The storage key with which the runtime passes outbound HRMP messages it wants to send to the
+	/// PVF.
+	///
+	/// The value is stored as SCALE encoded `Vec<OutboundHrmpMessage>`
+	pub const HRMP_OUTBOUND_MESSAGES: &'static [u8] = b":cumulus_hrmp_outbound_messages:";
+
+	/// The storage key for communicating the HRMP watermark from the runtime to the PVF. Cleared by
+	/// the runtime each block and set after message inclusion, but only if there were messages.
+	///
+	/// The value is stored as SCALE encoded relay-chain's `BlockNumber`.
+	pub const HRMP_WATERMARK: &'static [u8] = b":cumulus_hrmp_watermark:";
+
 	/// The storage key for the processed downward messages.
 	///
 	/// The value is stored as SCALE encoded `u32`.
@@ -69,6 +99,13 @@ pub mod well_known_keys {
 pub trait DownwardMessageHandler {
 	/// Handle the given downward message.
 	fn handle_downward_message(msg: InboundDownwardMessage);
+}
+
+/// Something that should be called when an HRMP message is received.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+pub trait HrmpMessageHandler {
+	/// Handle the given HRMP message.
+	fn handle_hrmp_message(sender: ParaId, msg: InboundHrmpMessage);
 }
 
 /// A trait which is called when the validation data is set.

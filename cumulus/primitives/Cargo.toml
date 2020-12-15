@@ -10,6 +10,7 @@ sp-inherents = { git = "https://github.com/paritytech/substrate", default-featur
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", optional = true, branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -33,4 +34,5 @@ std = [
 	"sp-inherents/std",
 	"polkadot-core-primitives/std",
 	"sp-runtime/std",
+	"sp-core/std",
 ]
