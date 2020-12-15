@@ -27,7 +27,9 @@ use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
-	message_lane_loop::{ClientState, MessageProofParameters, MessageWeightsMap, SourceClient, SourceClientState},
+	message_lane_loop::{
+		ClientState, MessageProofParameters, MessageWeights, MessageWeightsMap, SourceClient, SourceClientState,
+	},
 };
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf, HeaderIdOf};
 use relay_utils::{BlockNumberBase, HeaderId};
@@ -235,7 +237,7 @@ where
 }
 
 fn make_message_weights_map<C: Chain>(
-	weights: Vec<(MessageNonce, Weight)>,
+	weights: Vec<(MessageNonce, Weight, u32)>,
 	nonces: RangeInclusive<MessageNonce>,
 ) -> Result<MessageWeightsMap, SubstrateError> {
 	let make_missing_nonce_error = |expected_nonce| {
@@ -255,7 +257,7 @@ fn make_message_weights_map<C: Chain>(
 	// check if last nonce is missing - loop below is not checking this
 	let last_nonce_is_missing = weights
 		.last()
-		.map(|(last_nonce, _)| last_nonce != nonces.end())
+		.map(|(last_nonce, _, _)| last_nonce != nonces.end())
 		.unwrap_or(true);
 	if last_nonce_is_missing {
 		return make_missing_nonce_error(*nonces.end());
@@ -264,7 +266,7 @@ fn make_message_weights_map<C: Chain>(
 	let mut expected_nonce = *nonces.start();
 	let mut is_at_head = true;
 
-	for (nonce, weight) in weights {
+	for (nonce, weight, size) in weights {
 		match (nonce == expected_nonce, is_at_head) {
 			(true, _) => (),
 			(false, true) => {
@@ -286,7 +288,13 @@ fn make_message_weights_map<C: Chain>(
 			}
 		}
 
-		weights_map.insert(nonce, weight);
+		weights_map.insert(
+			nonce,
+			MessageWeights {
+				weight,
+				size: size as _,
+			},
+		);
 		expected_nonce = nonce + 1;
 		is_at_head = false;
 	}
@@ -301,23 +309,35 @@ mod tests {
 	#[test]
 	fn make_message_weights_map_succeeds_if_no_messages_are_missing() {
 		assert_eq!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0), (2, 0), (3, 0)], 1..=3).unwrap(),
-			vec![(1, 0), (2, 0), (3, 0)].into_iter().collect(),
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0, 0), (2, 0, 0), (3, 0, 0)], 1..=3,)
+				.unwrap(),
+			vec![
+				(1, MessageWeights { weight: 0, size: 0 }),
+				(2, MessageWeights { weight: 0, size: 0 }),
+				(3, MessageWeights { weight: 0, size: 0 }),
+			]
+			.into_iter()
+			.collect(),
 		);
 	}
 
 	#[test]
 	fn make_message_weights_map_succeeds_if_head_messages_are_missing() {
 		assert_eq!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(2, 0), (3, 0)], 1..=3).unwrap(),
-			vec![(2, 0), (3, 0)].into_iter().collect(),
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(2, 0, 0), (3, 0, 0)], 1..=3,).unwrap(),
+			vec![
+				(2, MessageWeights { weight: 0, size: 0 }),
+				(3, MessageWeights { weight: 0, size: 0 }),
+			]
+			.into_iter()
+			.collect(),
 		);
 	}
 
 	#[test]
 	fn make_message_weights_map_fails_if_mid_messages_are_missing() {
 		assert!(matches!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0), (3, 0)], 1..=3),
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0, 0), (3, 0, 0)], 1..=3,),
 			Err(SubstrateError::Custom(_))
 		));
 	}
@@ -325,7 +345,7 @@ mod tests {
 	#[test]
 	fn make_message_weights_map_fails_if_tail_messages_are_missing() {
 		assert!(matches!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0), (2, 0)], 1..=3),
+			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0, 0), (2, 0, 0)], 1..=3,),
 			Err(SubstrateError::Custom(_))
 		));
 	}

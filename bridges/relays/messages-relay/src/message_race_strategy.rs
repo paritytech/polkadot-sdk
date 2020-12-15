@@ -57,6 +57,14 @@ where
 		}
 	}
 
+	/// Mutable reference to source queue to use in tests.
+	#[cfg(test)]
+	pub(crate) fn source_queue_mut(
+		&mut self,
+	) -> &mut VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, SourceNoncesRange)> {
+		&mut self.source_queue
+	}
+
 	/// Should return `Some(nonces)` if we need to deliver proof of `nonces` (and associated
 	/// data) from source to target node.
 	///
