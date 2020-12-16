@@ -128,7 +128,7 @@ impl MaybeLockFundsTransaction for EthTransaction {
 
 /// Prepares everything required to bench claim of funds locked by given transaction.
 #[cfg(feature = "runtime-benchmarks")]
-pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Trait<I>, I: frame_support::traits::Instance>(
+pub(crate) fn prepare_environment_for_claim<T: pallet_bridge_eth_poa::Config<I>, I: frame_support::traits::Instance>(
 	transactions: &[(RawTransaction, RawTransactionReceipt)],
 ) -> bp_eth_poa::H256 {
 	use bp_eth_poa::compute_merkle_root;

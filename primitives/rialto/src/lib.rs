@@ -22,31 +22,36 @@
 
 use bp_message_lane::{LaneId, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::Chain;
-use frame_support::{weights::Weight, RuntimeDebug};
+use frame_support::{
+	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, Weight},
+	RuntimeDebug,
+};
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
 	traits::{BlakeTwo256, Convert, IdentifyAccount, Verify},
-	MultiSignature, MultiSigner,
+	MultiSignature, MultiSigner, Perbill,
 };
 use sp_std::prelude::*;
 
 /// Maximal weight of single Rialto block.
-pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2_000_000_000_000;
-/// Portion of block reserved for regular transactions.
-pub const AVAILABLE_BLOCK_RATIO: u32 = 75;
-/// Maximal weight of single Rialto extrinsic (65% of maximum block weight = 75% for regular
-/// transactions minus 10% for initialization).
-pub const MAXIMUM_EXTRINSIC_WEIGHT: Weight = MAXIMUM_BLOCK_WEIGHT / 100 * (AVAILABLE_BLOCK_RATIO as Weight - 10);
-/// Maximal size of Rialto block.
-pub const MAXIMUM_BLOCK_SIZE: u32 = 5 * 1024 * 1024;
-/// Maximal size of single normal Rialto extrinsic (75% of maximal block size).
-pub const MAXIMUM_EXTRINSIC_SIZE: u32 = MAXIMUM_BLOCK_SIZE / 100 * AVAILABLE_BLOCK_RATIO;
+///
+/// This represents two seconds of compute assuming a target block time of six seconds.
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
+
+/// Represents the average portion of a block's weight that will be used by an
+/// `on_initialize()` runtime call.
+pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+
+/// Represents the portion of a block that will be used by Normal extrinsics.
+pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 // TODO: may need to be updated after https://github.com/paritytech/parity-bridges-common/issues/78
 /// Maximal number of messages in single delivery transaction.
 pub const MAX_MESSAGES_IN_DELIVERY_TRANSACTION: MessageNonce = 128;
+
 /// Maximal number of unrewarded relayer entries at inbound lane.
 pub const MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE: MessageNonce = 128;
+
 /// Maximal number of unconfirmed messages at inbound lane.
 pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 128;
 
@@ -129,6 +134,43 @@ impl Convert<sp_core::H256, AccountId> for AccountIdConverter {
 pub fn derive_account_from_millau_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
 	let encoded_id = bp_runtime::derive_account_id(*b"mlau", id);
 	AccountIdConverter::convert(encoded_id)
+}
+
+/// Get a struct which defines the weight limits and values used during extrinsic execution.
+pub fn runtime_block_weights() -> frame_system::limits::BlockWeights {
+	frame_system::limits::BlockWeights::builder()
+		// Allowance for Normal class
+		.for_class(DispatchClass::Normal, |weights| {
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		// Allowance for Operational class
+		.for_class(DispatchClass::Operational, |weights| {
+			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			// Extra reserved space for Operational class
+			weights.reserved = Some(MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		// By default Mandatory class is not limited at all.
+		// This parameter is used to derive maximal size of a single extrinsic.
+		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+		.build_or_panic()
+}
+
+/// Get the maximum weight (compute time) that a Normal extrinsic on the Millau chain can use.
+pub fn max_extrinsic_weight() -> Weight {
+	runtime_block_weights()
+		.get(DispatchClass::Normal)
+		.max_extrinsic
+		.unwrap_or(Weight::MAX)
+}
+
+/// Get a struct which tracks the length in bytes for each extrinsic class in a Millau block.
+pub fn runtime_block_length() -> frame_system::limits::BlockLength {
+	frame_system::limits::BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO)
+}
+
+/// Get the maximum length in bytes that a Normal extrinsic on the Millau chain requires.
+pub fn max_extrinsic_size() -> u32 {
+	*runtime_block_length().max.get(DispatchClass::Normal)
 }
 
 sp_api::decl_runtime_apis! {

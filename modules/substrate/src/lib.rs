@@ -60,13 +60,13 @@ mod mock;
 mod fork_tests;
 
 /// Block number of the bridged chain.
-pub(crate) type BridgedBlockNumber<T> = BlockNumberOf<<T as Trait>::BridgedChain>;
+pub(crate) type BridgedBlockNumber<T> = BlockNumberOf<<T as Config>::BridgedChain>;
 /// Block hash of the bridged chain.
-pub(crate) type BridgedBlockHash<T> = HashOf<<T as Trait>::BridgedChain>;
+pub(crate) type BridgedBlockHash<T> = HashOf<<T as Config>::BridgedChain>;
 /// Hasher of the bridged chain.
-pub(crate) type BridgedBlockHasher<T> = HasherOf<<T as Trait>::BridgedChain>;
+pub(crate) type BridgedBlockHasher<T> = HasherOf<<T as Config>::BridgedChain>;
 /// Header of the bridged chain.
-pub(crate) type BridgedHeader<T> = HeaderOf<<T as Trait>::BridgedChain>;
+pub(crate) type BridgedHeader<T> = HeaderOf<<T as Config>::BridgedChain>;
 
 /// A convenience type identifying headers.
 #[derive(RuntimeDebug, PartialEq)]
@@ -77,13 +77,13 @@ pub struct HeaderId<H: HeaderT> {
 	pub hash: H::Hash,
 }
 
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
 	/// Chain that we are bridging here.
 	type BridgedChain: Chain;
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as SubstrateBridge {
+	trait Store for Module<T: Config> as SubstrateBridge {
 		/// The number of the highest block(s) we know of.
 		BestHeight: BridgedBlockNumber<T>;
 		/// Hash of the header at the highest known height.
@@ -137,7 +137,7 @@ decl_storage! {
 }
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		/// This header has failed basic verification.
 		InvalidHeader,
 		/// This header has not been finalized.
@@ -156,7 +156,7 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		type Error = Error<T>;
 
 		/// Import a signed Substrate header into the runtime.
@@ -277,7 +277,7 @@ decl_module! {
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	/// Get the highest header(s) that the pallet knows of.
 	pub fn best_headers() -> Vec<(BridgedBlockNumber<T>, BridgedBlockHash<T>)> {
 		PalletStorage::<T>::new()
@@ -353,7 +353,7 @@ impl<T: Trait> Module<T> {
 }
 
 /// Ensure that the origin is either root, or `ModuleOwner`.
-fn ensure_owner_or_root<T: Trait>(origin: T::Origin) -> Result<(), BadOrigin> {
+fn ensure_owner_or_root<T: Config>(origin: T::Origin) -> Result<(), BadOrigin> {
 	match origin.into() {
 		Ok(RawOrigin::Root) => Ok(()),
 		Ok(RawOrigin::Signed(ref signer)) if Some(signer) == <Module<T>>::module_owner().as_ref() => Ok(()),
@@ -362,7 +362,7 @@ fn ensure_owner_or_root<T: Trait>(origin: T::Origin) -> Result<(), BadOrigin> {
 }
 
 /// Ensure that the pallet is in operational mode (not halted).
-fn ensure_operational<T: Trait>() -> Result<(), Error<T>> {
+fn ensure_operational<T: Config>() -> Result<(), Error<T>> {
 	if IsHalted::get() {
 		Err(<Error<T>>::Halted)
 	} else {
@@ -372,7 +372,7 @@ fn ensure_operational<T: Trait>() -> Result<(), Error<T>> {
 
 /// Since this writes to storage with no real checks this should only be used in functions that were
 /// called by a trusted origin.
-fn initialize_bridge<T: Trait>(init_params: InitializationData<BridgedHeader<T>>) {
+fn initialize_bridge<T: Config>(init_params: InitializationData<BridgedHeader<T>>) {
 	let InitializationData {
 		header,
 		authority_list,
@@ -488,7 +488,7 @@ impl<T> PalletStorage<T> {
 	}
 }
 
-impl<T: Trait> BridgeStorage for PalletStorage<T> {
+impl<T: Config> BridgeStorage for PalletStorage<T> {
 	type Header = BridgedHeader<T>;
 
 	fn write_header(&mut self, header: &ImportedHeader<BridgedHeader<T>>) {

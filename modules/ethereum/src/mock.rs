@@ -18,7 +18,7 @@ pub use crate::test_utils::{insert_header, validator_utils::*, validators_change
 pub use bp_eth_poa::signatures::secret_to_address;
 
 use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
-use crate::{AuraConfiguration, ChainTime, GenesisConfig, PruningStrategy, Trait};
+use crate::{AuraConfiguration, ChainTime, Config, GenesisConfig, PruningStrategy};
 use bp_eth_poa::{Address, AuraHeader, H256, U256};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use secp256k1::SecretKey;
@@ -44,7 +44,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl frame_system::Trait for TestRuntime {
+impl frame_system::Config for TestRuntime {
 	type Origin = Origin;
 	type Index = u64;
 	type Call = ();
@@ -56,13 +56,6 @@ impl frame_system::Trait for TestRuntime {
 	type Header = SubstrateHeader;
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = ();
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
 	type PalletInfo = ();
 	type AccountData = ();
@@ -70,6 +63,9 @@ impl frame_system::Trait for TestRuntime {
 	type OnKilledAccount = ();
 	type BaseCallFilter = ();
 	type SystemWeightInfo = ();
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
 }
 
 parameter_types! {
@@ -78,7 +74,7 @@ parameter_types! {
 	pub TestValidatorsConfiguration: ValidatorsConfiguration = test_validators_config();
 }
 
-impl Trait for TestRuntime {
+impl Config for TestRuntime {
 	type AuraConfiguration = TestAuraConfiguration;
 	type ValidatorsConfiguration = TestValidatorsConfiguration;
 	type FinalityVotesCachingInterval = TestFinalityVotesCachingInterval;

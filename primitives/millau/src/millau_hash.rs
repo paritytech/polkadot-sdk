@@ -18,7 +18,7 @@ use parity_util_mem::MallocSizeOf;
 use sp_runtime::traits::CheckEqual;
 
 // `sp_core::H512` can't be used, because it doesn't implement `CheckEqual`, which is required
-// by `frame_system::Trait::Hash`.
+// by `frame_system::Config::Hash`.
 
 fixed_hash::construct_fixed_hash! {
 	/// Hash type used in Millau chain.

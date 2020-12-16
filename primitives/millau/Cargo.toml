@@ -22,6 +22,7 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 # Substrate Based Dependencies
 
 frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
@@ -36,6 +37,7 @@ std = [
 	"bp-runtime/std",
 	"fixed-hash/std",
 	"frame-support/std",
+	"frame-system/std",
 	"hash256-std-hasher/std",
 	"impl-codec/std",
 	"impl-serde",

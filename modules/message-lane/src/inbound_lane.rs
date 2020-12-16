@@ -282,7 +282,7 @@ mod tests {
 	fn fails_to_receive_messages_above_unrewarded_relayer_entries_limit_per_lane() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce = <TestRuntime as crate::Trait>::MaxUnrewardedRelayerEntriesAtInboundLane::get();
+			let max_nonce = <TestRuntime as crate::Config>::MaxUnrewardedRelayerEntriesAtInboundLane::get();
 			for current_nonce in 1..max_nonce + 1 {
 				assert!(lane.receive_message::<TestMessageDispatch>(
 					TEST_RELAYER_A + current_nonce,
@@ -315,7 +315,7 @@ mod tests {
 	fn fails_to_receive_messages_above_unconfirmed_messages_limit_per_lane() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce = <TestRuntime as crate::Trait>::MaxUnconfirmedMessagesAtInboundLane::get();
+			let max_nonce = <TestRuntime as crate::Config>::MaxUnconfirmedMessagesAtInboundLane::get();
 			for current_nonce in 1..=max_nonce {
 				assert!(lane.receive_message::<TestMessageDispatch>(
 					TEST_RELAYER_A,

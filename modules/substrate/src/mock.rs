@@ -20,7 +20,7 @@
 
 #![cfg(test)]
 
-use crate::Trait;
+use crate::Config;
 use bp_runtime::Chain;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_runtime::{
@@ -45,7 +45,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl frame_system::Trait for TestRuntime {
+impl frame_system::Config for TestRuntime {
 	type Origin = Origin;
 	type Index = u64;
 	type Call = ();
@@ -57,13 +57,6 @@ impl frame_system::Trait for TestRuntime {
 	type Header = Header;
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = ();
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type MaximumBlockLength = MaximumBlockLength;
 	type Version = ();
 	type PalletInfo = ();
 	type AccountData = ();
@@ -71,9 +64,12 @@ impl frame_system::Trait for TestRuntime {
 	type OnKilledAccount = ();
 	type BaseCallFilter = ();
 	type SystemWeightInfo = ();
+	type DbWeight = ();
+	type BlockWeights = ();
+	type BlockLength = ();
 }
 
-impl Trait for TestRuntime {
+impl Config for TestRuntime {
 	type BridgedChain = TestBridgedChain;
 }
 
@@ -81,10 +77,10 @@ impl Trait for TestRuntime {
 pub struct TestBridgedChain;
 
 impl Chain for TestBridgedChain {
-	type BlockNumber = <TestRuntime as frame_system::Trait>::BlockNumber;
-	type Hash = <TestRuntime as frame_system::Trait>::Hash;
-	type Hasher = <TestRuntime as frame_system::Trait>::Hashing;
-	type Header = <TestRuntime as frame_system::Trait>::Header;
+	type BlockNumber = <TestRuntime as frame_system::Config>::BlockNumber;
+	type Hash = <TestRuntime as frame_system::Config>::Hash;
+	type Hasher = <TestRuntime as frame_system::Config>::Hashing;
+	type Header = <TestRuntime as frame_system::Config>::Header;
 }
 
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {

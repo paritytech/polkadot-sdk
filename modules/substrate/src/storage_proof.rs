@@ -65,7 +65,7 @@ pub enum Error {
 	StorageValueUnavailable,
 }
 
-impl<T: crate::Trait> From<Error> for crate::Error<T> {
+impl<T: crate::Config> From<Error> for crate::Error<T> {
 	fn from(error: Error) -> Self {
 		match error {
 			Error::StorageRootMismatch => crate::Error::StorageRootMismatch,
