@@ -27,7 +27,7 @@ use bp_message_lane::{
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
 use bp_runtime::InstanceId;
-use codec::{Compact, Decode, Input};
+use codec::{Compact, Decode, Encode, Input};
 use frame_support::{traits::Instance, RuntimeDebug};
 use hash_db::Hasher;
 use pallet_substrate_bridge::StorageProofChecker;
@@ -96,14 +96,14 @@ pub trait ChainWithMessageLanes {
 	/// Signature type used on the chain.
 	type Signature: Decode;
 	/// Call type on the chain.
-	type Call: Decode;
+	type Call: Encode + Decode;
 	/// Type of weight that is used on the chain. This would almost always be a regular
 	/// `frame_support::weight::Weight`. But since the meaning of weight on different chains
 	/// may be different, the `WeightOf<>` construct is used to avoid confusion between
 	/// different weights.
 	type Weight: From<frame_support::weights::Weight> + PartialOrd;
 	/// Type of balances that is used on the chain.
-	type Balance: Decode + CheckedAdd + CheckedDiv + CheckedMul + PartialOrd + From<u32> + Copy;
+	type Balance: Encode + Decode + CheckedAdd + CheckedDiv + CheckedMul + PartialOrd + From<u32> + Copy;
 
 	/// Instance of the message-lane pallet.
 	type MessageLaneInstance: Instance;
@@ -326,6 +326,12 @@ pub mod target {
 
 	/// Message payload for Bridged -> This messages.
 	pub struct FromBridgedChainMessagePayload<B: MessageBridge>(pub(crate) FromBridgedChainDecodedMessagePayload<B>);
+
+	impl<B: MessageBridge> From<FromBridgedChainDecodedMessagePayload<B>> for FromBridgedChainMessagePayload<B> {
+		fn from(decoded_payload: FromBridgedChainDecodedMessagePayload<B>) -> Self {
+			Self(decoded_payload)
+		}
+	}
 
 	impl<B: MessageBridge> Decode for FromBridgedChainMessagePayload<B> {
 		fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
