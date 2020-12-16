@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use bp_millau::derive_account_from_rialto_id;
 use millau_runtime::{
 	AccountId, AuraConfig, BalancesConfig, BridgeRialtoConfig, GenesisConfig, GrandpaConfig, SessionConfig,
 	SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
@@ -121,6 +122,9 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
+							derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Dave"),
+							)),
 						],
 						true,
 					)
@@ -172,4 +176,14 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		}),
 	}
+}
+
+#[test]
+fn derived_dave_account_is_as_expected() {
+	let dave = get_account_id_from_seed::<sr25519::Public>("Dave");
+	let derived: AccountId = derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(dave));
+	assert_eq!(
+		derived.to_string(),
+		"5G81vRqUUysQGtN5aEThD5UsLdt4rZWSbVLkjuZzLHadp8ZD".to_string()
+	);
 }

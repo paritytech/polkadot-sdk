@@ -46,9 +46,11 @@ where
 				Currency::transfer(submitter, relayer_fund_account, *fee, ExistenceRequirement::AllowDeath)
 					.map_err(Into::into)
 			}
-			Sender::Root | Sender::None => {
-				// fixme: we might want to add root account id to this struct.
-				Err("Root and None account is not allowed to send regular messages.")
+			Sender::Root => {
+				Err("Sending messages from Root account is not supported yet. See GitHub issue #559 for more.")
+			}
+			Sender::None => {
+				Err("Sending messages from None account is not supported yet. See GitHub issue #559 for more.")
 			}
 		}
 	}

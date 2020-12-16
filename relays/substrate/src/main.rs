@@ -97,7 +97,7 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 							&rialto_client,
 							&rialto_sign.signer,
 							rialto_signer_next_index,
-							millau_runtime::SudoCall::sudo(Box::new(
+							rialto_runtime::SudoCall::sudo(Box::new(
 								rialto_runtime::BridgeMillauCall::initialize(initialization_data).into(),
 							))
 							.into(),
@@ -290,12 +290,6 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 			let rialto_origin_public = rialto_sign.signer.public();
 
 			let payload = match origin {
-				cli::Origins::Root => MessagePayload {
-					spec_version: rialto_runtime::VERSION.spec_version,
-					weight: rialto_call_weight,
-					origin: CallOrigin::SourceRoot,
-					call: rialto_call.encode(),
-				},
 				cli::Origins::Source => MessagePayload {
 					spec_version: rialto_runtime::VERSION.spec_version,
 					weight: rialto_call_weight,
@@ -312,7 +306,7 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 						spec_version: rialto_runtime::VERSION.spec_version,
 						weight: rialto_call_weight,
 						origin: CallOrigin::TargetAccount(
-							millau_account_id.clone(),
+							millau_account_id,
 							rialto_origin_public.into(),
 							rialto_origin_signature.into(),
 						),
@@ -383,6 +377,8 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 			lane,
 			message,
 			fee,
+			origin,
+			..
 		} => {
 			let rialto_client = RialtoClient::new(ConnectionParams {
 				host: rialto.rialto_host,
@@ -412,21 +408,29 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 					.as_bytes()
 					.to_vec(),
 				)),
+				cli::ToMillauMessage::Transfer { recipient, amount } => {
+					millau_runtime::Call::Balances(millau_runtime::BalancesCall::transfer(recipient, amount))
+				}
 			};
-			let millau_call_weight = millau_call.get_dispatch_info().weight;
 
+			let millau_call_weight = millau_call.get_dispatch_info().weight;
 			let rialto_sender_public: bp_rialto::AccountSigner = rialto_sign.signer.public().clone().into();
 			let rialto_account_id: bp_rialto::AccountId = rialto_sender_public.into_account();
 			let millau_origin_public = millau_sign.signer.public();
 
-			let mut millau_origin_signature_message = Vec::new();
-			millau_call.encode_to(&mut millau_origin_signature_message);
-			rialto_account_id.encode_to(&mut millau_origin_signature_message);
-			let millau_origin_signature = millau_sign.signer.sign(&millau_origin_signature_message);
+			let payload = match origin {
+				cli::Origins::Source => MessagePayload {
+					spec_version: millau_runtime::VERSION.spec_version,
+					weight: millau_call_weight,
+					origin: CallOrigin::SourceAccount(rialto_account_id),
+					call: millau_call.encode(),
+				},
+				cli::Origins::Target => {
+					let mut millau_origin_signature_message = Vec::new();
+					millau_call.encode_to(&mut millau_origin_signature_message);
+					rialto_account_id.encode_to(&mut millau_origin_signature_message);
+					let millau_origin_signature = millau_sign.signer.sign(&millau_origin_signature_message);
 
-			let rialto_call =
-				rialto_runtime::Call::BridgeMillauMessageLane(rialto_runtime::MessageLaneCall::send_message(
-					lane.into(),
 					MessagePayload {
 						spec_version: millau_runtime::VERSION.spec_version,
 						weight: millau_call_weight,
@@ -436,9 +440,13 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 							millau_origin_signature.into(),
 						),
 						call: millau_call.encode(),
-					},
-					fee,
-				));
+					}
+				}
+			};
+
+			let rialto_call = rialto_runtime::Call::BridgeMillauMessageLane(
+				rialto_runtime::MessageLaneCall::send_message(lane.into(), payload, fee),
+			);
 
 			let signed_rialto_call = Rialto::sign_transaction(
 				&rialto_client,
