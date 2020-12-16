@@ -95,9 +95,9 @@ pub struct MessagePayload<SourceChainAccountId, TargetChainAccountPublic, Target
 }
 
 /// The module configuration trait.
-pub trait Trait<I = DefaultInstance>: frame_system::Trait {
+pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// The overarching event type.
-	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
 	/// Id of the message. Whenever message is passed to the dispatch module, it emits
 	/// event with this id + dispatch result. Could be e.g. (LaneId, MessageNonce) if
 	/// it comes from message-lane module.
@@ -113,7 +113,7 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	type Call: Parameter
 		+ GetDispatchInfo
 		+ Dispatchable<
-			Origin = <Self as frame_system::Trait>::Origin,
+			Origin = <Self as frame_system::Config>::Origin,
 			PostInfo = frame_support::dispatch::PostDispatchInfo,
 		>;
 	/// A type which can be turned into an AccountId from a 256-bit hash.
@@ -123,12 +123,12 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait<I>, I: Instance = DefaultInstance> as CallDispatch {}
+	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as CallDispatch {}
 }
 
 decl_event!(
 	pub enum Event<T, I = DefaultInstance> where
-		<T as Trait<I>>::MessageId
+		<T as Config<I>>::MessageId
 	{
 		/// Message has been rejected by dispatcher because of spec version mismatch.
 		/// Last two arguments are: expected and passed spec version.
@@ -147,18 +147,18 @@ decl_event!(
 
 decl_module! {
 	/// Call Dispatch FRAME Pallet.
-	pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
 		/// Deposit one of this module's events by using the default implementation.
 		fn deposit_event() = default;
 	}
 }
 
-impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
+impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 	type Message = MessagePayload<
 		T::SourceChainAccountId,
 		T::TargetChainAccountPublic,
 		T::TargetChainSignature,
-		<T as Trait<I>>::Call,
+		<T as Config<I>>::Call,
 	>;
 
 	fn dispatch_weight(message: &Self::Message) -> Weight {
@@ -168,7 +168,7 @@ impl<T: Trait<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 	fn dispatch(bridge: InstanceId, id: T::MessageId, message: Self::Message) {
 		// verify spec version
 		// (we want it to be the same, because otherwise we may decode Call improperly)
-		let expected_version = <T as frame_system::Trait>::Version::get().spec_version;
+		let expected_version = <T as frame_system::Config>::Version::get().spec_version;
 		if message.spec_version != expected_version {
 			frame_support::debug::trace!(
 				"Message {:?}/{:?}: spec_version mismatch. Expected {:?}, got {:?}",
@@ -384,7 +384,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
-	impl frame_system::Trait for TestRuntime {
+	impl frame_system::Config for TestRuntime {
 		type Origin = Origin;
 		type Index = u64;
 		type Call = Call;
@@ -396,13 +396,6 @@ mod tests {
 		type Header = Header;
 		type Event = TestEvent;
 		type BlockHashCount = BlockHashCount;
-		type MaximumBlockWeight = MaximumBlockWeight;
-		type DbWeight = ();
-		type BlockExecutionWeight = ();
-		type ExtrinsicBaseWeight = ();
-		type MaximumExtrinsicWeight = ();
-		type AvailableBlockRatio = AvailableBlockRatio;
-		type MaximumBlockLength = MaximumBlockLength;
 		type Version = ();
 		type PalletInfo = ();
 		type AccountData = ();
@@ -410,9 +403,12 @@ mod tests {
 		type OnKilledAccount = ();
 		type BaseCallFilter = ();
 		type SystemWeightInfo = ();
+		type BlockWeights = ();
+		type BlockLength = ();
+		type DbWeight = ();
 	}
 
-	impl Trait for TestRuntime {
+	impl Config for TestRuntime {
 		type Event = TestEvent;
 		type MessageId = MessageId;
 		type SourceChainAccountId = AccountId;
@@ -435,7 +431,7 @@ mod tests {
 	fn prepare_message(
 		origin: CallOrigin<AccountId, TestAccountPublic, TestSignature>,
 		call: Call,
-	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Trait>::MessageId>>::Message {
+	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
 		MessagePayload {
 			spec_version: TEST_SPEC_VERSION,
 			weight: TEST_WEIGHT,
@@ -446,20 +442,20 @@ mod tests {
 
 	fn prepare_root_message(
 		call: Call,
-	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Trait>::MessageId>>::Message {
+	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
 		prepare_message(CallOrigin::SourceRoot, call)
 	}
 
 	fn prepare_target_message(
 		call: Call,
-	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Trait>::MessageId>>::Message {
+	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
 		let origin = CallOrigin::TargetAccount(1, TestAccountPublic(1), TestSignature(1));
 		prepare_message(origin, call)
 	}
 
 	fn prepare_source_message(
 		call: Call,
-	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Trait>::MessageId>>::Message {
+	) -> <Module<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
 		let origin = CallOrigin::SourceAccount(1);
 		prepare_message(origin, call)
 	}

@@ -27,7 +27,7 @@
 use crate::finality::FinalityVotes;
 use crate::validators::CHANGE_EVENT_HASH;
 use crate::verification::calculate_score;
-use crate::{HeaderToImport, Storage, Trait};
+use crate::{Config, HeaderToImport, Storage};
 
 use bp_eth_poa::{
 	rlp_encode,
@@ -73,7 +73,7 @@ impl HeaderBuilder {
 	}
 
 	/// Creates default header on top of parent with given hash.
-	pub fn with_parent_hash_on_runtime<T: Trait<I>, I: crate::Instance>(parent_hash: H256) -> Self {
+	pub fn with_parent_hash_on_runtime<T: Config<I>, I: crate::Instance>(parent_hash: H256) -> Self {
 		use crate::Headers;
 		use frame_support::StorageMap;
 
@@ -82,7 +82,7 @@ impl HeaderBuilder {
 	}
 
 	/// Creates default header on top of parent with given number. First parent is selected.
-	pub fn with_parent_number_on_runtime<T: Trait<I>, I: crate::Instance>(parent_number: u64) -> Self {
+	pub fn with_parent_number_on_runtime<T: Config<I>, I: crate::Instance>(parent_number: u64) -> Self {
 		use crate::HeadersByNumber;
 		use frame_support::StorageMap;
 

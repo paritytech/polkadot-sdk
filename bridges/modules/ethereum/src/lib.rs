@@ -370,7 +370,7 @@ impl<AccountId> OnHeadersSubmitted<AccountId> for () {
 }
 
 /// The module configuration trait.
-pub trait Trait<I = DefaultInstance>: frame_system::Trait {
+pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// Aura configuration.
 	type AuraConfiguration: Get<AuraConfiguration>;
 	/// Validators configuration.
@@ -393,7 +393,7 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 }
 
 decl_module! {
-	pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
 		/// Import single Aura header. Requires transaction to be **UNSIGNED**.
 		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 		pub fn import_unsigned_header(origin, header: AuraHeader, receipts: Option<Vec<Receipt>>) {
@@ -457,7 +457,7 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait<I>, I: Instance = DefaultInstance> as Bridge {
+	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as Bridge {
 		/// Best known block.
 		BestBlock: (HeaderId, U256);
 		/// Best finalized block.
@@ -505,7 +505,7 @@ decl_storage! {
 	}
 }
 
-impl<T: Trait<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: Instance> Module<T, I> {
 	/// Returns number and hash of the best block known to the bridge module.
 	/// The caller should only submit `import_header` transaction that makes
 	/// (or leads to making) other header the best one.
@@ -542,7 +542,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	}
 }
 
-impl<T: Trait<I>, I: Instance> frame_support::unsigned::ValidateUnsigned for Module<T, I> {
+impl<T: Config<I>, I: Instance> frame_support::unsigned::ValidateUnsigned for Module<T, I> {
 	type Call = Call<T, I>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
@@ -584,7 +584,7 @@ impl<T: Trait<I>, I: Instance> frame_support::unsigned::ValidateUnsigned for Mod
 #[derive(Default)]
 pub struct BridgeStorage<T, I = DefaultInstance>(sp_std::marker::PhantomData<(T, I)>);
 
-impl<T: Trait<I>, I: Instance> BridgeStorage<T, I> {
+impl<T: Config<I>, I: Instance> BridgeStorage<T, I> {
 	/// Create new BridgeStorage.
 	pub fn new() -> Self {
 		BridgeStorage(sp_std::marker::PhantomData::<(T, I)>::default())
@@ -683,7 +683,7 @@ impl<T: Trait<I>, I: Instance> BridgeStorage<T, I> {
 	}
 }
 
-impl<T: Trait<I>, I: Instance> Storage for BridgeStorage<T, I> {
+impl<T: Config<I>, I: Instance> Storage for BridgeStorage<T, I> {
 	type Submitter = T::AccountId;
 
 	fn best_block(&self) -> (HeaderId, U256) {
@@ -863,7 +863,7 @@ impl<T: Trait<I>, I: Instance> Storage for BridgeStorage<T, I> {
 
 /// Initialize storage.
 #[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
-pub(crate) fn initialize_storage<T: Trait<I>, I: Instance>(
+pub(crate) fn initialize_storage<T: Config<I>, I: Instance>(
 	initial_header: &AuraHeader,
 	initial_difficulty: U256,
 	initial_validators: &[Address],
@@ -1263,7 +1263,7 @@ pub(crate) mod tests {
 	fn finality_votes_are_cached() {
 		run_test(TOTAL_VALIDATORS, |ctx| {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
-			let interval = <TestRuntime as Trait>::FinalityVotesCachingInterval::get().unwrap();
+			let interval = <TestRuntime as Config>::FinalityVotesCachingInterval::get().unwrap();
 
 			// for all headers with number < interval, cache entry is not created
 			for i in 1..interval {
