@@ -806,9 +806,14 @@ impl_runtime_apis! {
 				Module as MessageLaneBench,
 				Config as MessageLaneConfig,
 				MessageParams as MessageLaneMessageParams,
+				MessageProofParams as MessageLaneMessageProofParams,
 			};
 
 			impl MessageLaneConfig<WithMillauMessageLaneInstance> for Runtime {
+				fn bridged_relayer_id() -> Self::InboundRelayer {
+					Default::default()
+				}
+
 				fn endow_account(account: &Self::AccountId) {
 					pallet_balances::Module::<Runtime>::make_free_balance_be(
 						account,
@@ -816,7 +821,7 @@ impl_runtime_apis! {
 					);
 				}
 
-				fn prepare_message(
+				fn prepare_outbound_message(
 					params: MessageLaneMessageParams<Self::AccountId>,
 				) -> (millau_messages::ToMillauMessagePayload, Balance) {
 					use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
@@ -841,6 +846,75 @@ impl_runtime_apis! {
 						call: message_payload,
 					};
 					(message, 1_000_000_000)
+				}
+
+				fn prepare_message_proof(
+					params: MessageLaneMessageProofParams,
+				) -> (millau_messages::FromMillauMessagesProof, Weight) {
+					use crate::millau_messages::{Millau, WithMillauMessageBridge};
+					use bp_message_lane::MessageKey;
+					use bridge_runtime_common::{
+						messages::ChainWithMessageLanes,
+						messages_benchmarking::{ed25519_sign, prepare_message_proof},
+					};
+					use codec::Encode;
+					use frame_support::weights::GetDispatchInfo;
+					use pallet_message_lane::storage_keys;
+					use sp_runtime::traits::Header;
+
+					let call = Call::System(SystemCall::remark(vec![]));
+					let call_weight = call.get_dispatch_info().weight;
+
+					let millau_account_id: bp_millau::AccountId = Default::default();
+					let (rialto_raw_public, rialto_raw_signature) = ed25519_sign(
+						&call,
+						&millau_account_id,
+					);
+					let rialto_public = MultiSigner::Ed25519(sp_core::ed25519::Public::from_raw(rialto_raw_public));
+					let rialto_signature = MultiSignature::Ed25519(sp_core::ed25519::Signature::from_raw(
+						rialto_raw_signature,
+					));
+
+					let make_millau_message_key = |message_key: MessageKey| storage_keys::message_key::<
+						Runtime,
+						<Millau as ChainWithMessageLanes>::MessageLaneInstance,
+					>(
+						&message_key.lane_id, message_key.nonce,
+					).0;
+					let make_millau_outbound_lane_data_key = |lane_id| storage_keys::outbound_lane_data_key::<
+						<Millau as ChainWithMessageLanes>::MessageLaneInstance,
+					>(
+						&lane_id,
+					).0;
+					let make_millau_header = |state_root| bp_millau::Header::new(
+						0,
+						Default::default(),
+						state_root,
+						Default::default(),
+						Default::default(),
+					);
+
+					prepare_message_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, _, _, _>(
+						params,
+						make_millau_message_key,
+						make_millau_outbound_lane_data_key,
+						make_millau_header,
+						call_weight,
+						pallet_bridge_call_dispatch::MessagePayload {
+							spec_version: VERSION.spec_version,
+							weight: call_weight,
+							origin: pallet_bridge_call_dispatch::CallOrigin::<
+								bp_millau::AccountId,
+								MultiSigner,
+								Signature,
+							>::TargetAccount(
+								millau_account_id,
+								rialto_public,
+								rialto_signature,
+							),
+							call: call.encode(),
+						}.encode(),
+					)
 				}
 			}
 

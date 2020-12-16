@@ -370,6 +370,18 @@ fn ensure_operational<T: Config>() -> Result<(), Error<T>> {
 	}
 }
 
+/// (Re)initialize bridge with given header for using it in external benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn initialize_for_benchmarks<T: Config>(header: HeaderOf<T::BridgedChain>) {
+	initialize_bridge::<T>(InitializationData {
+		header,
+		authority_list: Vec::new(), // we don't verify any proofs in external benchmarks
+		set_id: 0,
+		scheduled_change: None,
+		is_halted: false,
+	});
+}
+
 /// Since this writes to storage with no real checks this should only be used in functions that were
 /// called by a trusted origin.
 fn initialize_bridge<T: Config>(init_params: InitializationData<BridgedHeader<T>>) {
