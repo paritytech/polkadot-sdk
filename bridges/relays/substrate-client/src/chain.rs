@@ -56,7 +56,7 @@ pub trait Chain: ChainBase {
 	type Call: Dispatchable + Debug;
 }
 
-/// Substrate-based chain with `frame_system::Trait::AccountData` set to
+/// Substrate-based chain with `frame_system::Config::AccountData` set to
 /// the `pallet_balances::AccountData<NativeBalance>`.
 pub trait ChainWithBalances: Chain {
 	/// Balance of an account in native tokens.
