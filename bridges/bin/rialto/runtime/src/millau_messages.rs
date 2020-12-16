@@ -71,7 +71,7 @@ pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDi
 >;
 
 /// Messages proof for Millau -> Rialto messages.
-type FromMillauMessagesProof = messages::target::FromBridgedChainMessagesProof<WithMillauMessageBridge>;
+pub type FromMillauMessagesProof = messages::target::FromBridgedChainMessagesProof<WithMillauMessageBridge>;
 
 /// Messages delivery proof for Rialto -> Millau messages.
 type ToMillauMessagesDeliveryProof = messages::source::FromBridgedChainMessagesDeliveryProof<WithMillauMessageBridge>;
