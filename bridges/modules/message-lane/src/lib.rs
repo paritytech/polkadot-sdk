@@ -558,11 +558,16 @@ fn ensure_operational<T: Config<I>, I: Instance>() -> Result<(), Error<T, I>> {
 
 /// Creates new inbound lane object, backed by runtime storage.
 fn inbound_lane<T: Config<I>, I: Instance>(lane_id: LaneId) -> InboundLane<RuntimeInboundLaneStorage<T, I>> {
-	InboundLane::new(RuntimeInboundLaneStorage {
+	InboundLane::new(inbound_lane_storage::<T, I>(lane_id))
+}
+
+/// Creates new runtime inbound lane storage.
+fn inbound_lane_storage<T: Config<I>, I: Instance>(lane_id: LaneId) -> RuntimeInboundLaneStorage<T, I> {
+	RuntimeInboundLaneStorage {
 		lane_id,
 		cached_data: RefCell::new(None),
 		_phantom: Default::default(),
-	})
+	}
 }
 
 /// Creates new outbound lane object, backed by runtime storage.
