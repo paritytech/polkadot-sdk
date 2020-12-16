@@ -19,7 +19,8 @@
 use cumulus_network::WaitToAnnounce;
 use cumulus_primitives::{
 	inherents::{self, VALIDATION_DATA_IDENTIFIER},
-	well_known_keys, ValidationData, InboundHrmpMessage, OutboundHrmpMessage, InboundDownwardMessage,
+	well_known_keys, InboundDownwardMessage, InboundHrmpMessage, OutboundHrmpMessage,
+	ValidationData,
 };
 use cumulus_runtime::ParachainBlockData;
 
@@ -52,7 +53,7 @@ use log::{debug, error, info, trace};
 
 use futures::prelude::*;
 
-use std::{marker::PhantomData, sync::Arc, time::Duration, collections::BTreeMap};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
 
@@ -147,8 +148,7 @@ where
 	///
 	/// Returns `None` in case of an error.
 	fn retrieve_dmq_contents(&self, relay_parent: PHash) -> Option<Vec<InboundDownwardMessage>> {
-		self
-			.polkadot_client
+		self.polkadot_client
 			.runtime_api()
 			.dmq_contents_with_context(
 				&BlockId::hash(relay_parent),
@@ -169,11 +169,11 @@ where
 	/// collating for.
 	///
 	/// Empty channels are also included.
-	fn retrieve_all_inbound_hrmp_channel_contents(&self, relay_parent: PHash)
-		-> Option<BTreeMap<ParaId, Vec<InboundHrmpMessage>>>
-	{
-		self
-			.polkadot_client
+	fn retrieve_all_inbound_hrmp_channel_contents(
+		&self,
+		relay_parent: PHash,
+	) -> Option<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
+		self.polkadot_client
 			.runtime_api()
 			.inbound_hrmp_channels_contents_with_context(
 				&BlockId::hash(relay_parent),
@@ -221,7 +221,8 @@ where
 
 		let message_ingestion_data = {
 			let downward_messages = self.retrieve_dmq_contents(relay_parent)?;
-			let horizontal_messages = self.retrieve_all_inbound_hrmp_channel_contents(relay_parent)?;
+			let horizontal_messages =
+				self.retrieve_all_inbound_hrmp_channel_contents(relay_parent)?;
 
 			inherents::MessageIngestionType {
 				downward_messages,
@@ -230,7 +231,10 @@ where
 		};
 
 		inherent_data
-			.put_data(inherents::MESSAGE_INGESTION_IDENTIFIER, &message_ingestion_data)
+			.put_data(
+				inherents::MESSAGE_INGESTION_IDENTIFIER,
+				&message_ingestion_data,
+			)
 			.map_err(|e| {
 				error!(
 					target: "cumulus-collator",

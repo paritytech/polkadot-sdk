@@ -176,7 +176,7 @@ fn invalid_if_no_data_exceeds_best_known_number() {
 
 	assert_eq!(
 		res.unwrap(),
-		Validation::Failure,
+		Validation::Failure { disconnect: false },
 		"validation fails if no justification and block number >= best known number",
 	);
 }

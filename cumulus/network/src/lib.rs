@@ -180,7 +180,7 @@ where
 					"validation failed because a justification is needed if the block at the top of the chain."
 				);
 
-				Ok(Validation::Failure)
+				Ok(Validation::Failure { disconnect: false })
 			} else {
 				Ok(Validation::Success { is_new_best: false })
 			}

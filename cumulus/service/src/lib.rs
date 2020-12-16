@@ -296,11 +296,18 @@ pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration
 pub fn build_polkadot_full_node(
 	config: Configuration,
 	collator_id: CollatorId,
-) -> sc_service::error::Result<PFullNode<PClient>> {
+) -> Result<PFullNode<PClient>, polkadot_service::Error> {
 	let is_light = matches!(config.role, Role::Light);
 	if is_light {
-		Err("Light client not supported.".into())
+		Err(polkadot_service::Error::Sub(
+			"Light client not supported.".into(),
+		))
 	} else {
-		polkadot_service::build_full(config, polkadot_service::IsCollator::Yes(collator_id), None)
+		polkadot_service::build_full(
+			config,
+			polkadot_service::IsCollator::Yes(collator_id),
+			None,
+			None,
+		)
 	}
 }

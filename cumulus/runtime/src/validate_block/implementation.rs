@@ -29,10 +29,10 @@ use codec::{Decode, Encode};
 
 use cumulus_primitives::{
 	well_known_keys::{
-		NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES, UPWARD_MESSAGES, VALIDATION_DATA,
-		HRMP_WATERMARK, HRMP_OUTBOUND_MESSAGES,
+		HRMP_OUTBOUND_MESSAGES, HRMP_WATERMARK, NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES,
+		UPWARD_MESSAGES, VALIDATION_DATA,
 	},
-	UpwardMessage, ValidationData, OutboundHrmpMessage,
+	OutboundHrmpMessage, UpwardMessage, ValidationData,
 };
 use sp_core::storage::{ChildInfo, TrackedStorageKey};
 use sp_externalities::{
@@ -175,10 +175,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	let hrmp_watermark = overlay
 		.storage(HRMP_WATERMARK)
 		.flatten()
-		.map(|v| {
-			Decode::decode(&mut &v[..])
-				.expect("HRMP watermark is not encoded correctly")
-		})
+		.map(|v| Decode::decode(&mut &v[..]).expect("HRMP watermark is not encoded correctly"))
 		.unwrap_or(validation_data.persisted.block_number);
 
 	ValidationResult {

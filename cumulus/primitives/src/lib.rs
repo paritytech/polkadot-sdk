@@ -36,12 +36,9 @@ pub type OutboundHrmpMessage = polkadot_primitives::v1::OutboundHrmpMessage<Para
 
 /// Identifiers and types related to Cumulus Inherents
 pub mod inherents {
-	use sp_inherents::InherentIdentifier;
-	use sp_std::{
-		vec::Vec,
-		collections::btree_map::BTreeMap,
-	};
 	use super::{InboundDownwardMessage, InboundHrmpMessage, ParaId};
+	use sp_inherents::InherentIdentifier;
+	use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 	/// Inherent identifier for message ingestion inherent.
 	pub const MESSAGE_INGESTION_IDENTIFIER: InherentIdentifier = *b"msgingst";
