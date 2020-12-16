@@ -202,7 +202,7 @@ pub mod source {
 		}
 
 		// The maximal size of extrinsic at Substrate-based chain depends on the
-		// `frame_system::Trait::MaximumBlockLength` and `frame_system::Trait::AvailableBlockRatio`
+		// `frame_system::Config::MaximumBlockLength` and `frame_system::Config::AvailableBlockRatio`
 		// constants. This check is here to be sure that the lane won't stuck because message is too
 		// large to fit into delivery transaction.
 		//
@@ -261,10 +261,10 @@ pub mod source {
 		proof: FromBridgedChainMessagesDeliveryProof<B>,
 	) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<B>, &'static str>
 	where
-		ThisRuntime: pallet_substrate_bridge::Trait,
-		ThisRuntime: pallet_message_lane::Trait<MessageLaneInstanceOf<BridgedChain<B>>>,
+		ThisRuntime: pallet_substrate_bridge::Config,
+		ThisRuntime: pallet_message_lane::Config<MessageLaneInstanceOf<BridgedChain<B>>>,
 		HashOf<BridgedChain<B>>:
-			Into<bp_runtime::HashOf<<ThisRuntime as pallet_substrate_bridge::Trait>::BridgedChain>>,
+			Into<bp_runtime::HashOf<<ThisRuntime as pallet_substrate_bridge::Config>::BridgedChain>>,
 	{
 		let (bridged_header_hash, bridged_storage_proof, lane) = proof;
 		pallet_substrate_bridge::Module::<ThisRuntime>::parse_finalized_storage_proof(
@@ -359,7 +359,7 @@ pub mod target {
 		for FromBridgedChainMessageDispatch<B, ThisRuntime, ThisCallDispatchInstance>
 	where
 		ThisCallDispatchInstance: frame_support::traits::Instance,
-		ThisRuntime: pallet_bridge_call_dispatch::Trait<ThisCallDispatchInstance>,
+		ThisRuntime: pallet_bridge_call_dispatch::Config<ThisCallDispatchInstance>,
 		pallet_bridge_call_dispatch::Module<ThisRuntime, ThisCallDispatchInstance>:
 			bp_message_dispatch::MessageDispatch<
 				(LaneId, MessageNonce),
@@ -396,10 +396,10 @@ pub mod target {
 		max_messages: MessageNonce,
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, &'static str>
 	where
-		ThisRuntime: pallet_substrate_bridge::Trait,
-		ThisRuntime: pallet_message_lane::Trait<MessageLaneInstanceOf<BridgedChain<B>>>,
+		ThisRuntime: pallet_substrate_bridge::Config,
+		ThisRuntime: pallet_message_lane::Config<MessageLaneInstanceOf<BridgedChain<B>>>,
 		HashOf<BridgedChain<B>>:
-			Into<bp_runtime::HashOf<<ThisRuntime as pallet_substrate_bridge::Trait>::BridgedChain>>,
+			Into<bp_runtime::HashOf<<ThisRuntime as pallet_substrate_bridge::Config>::BridgedChain>>,
 	{
 		verify_messages_proof_with_parser::<B, _, _>(
 			proof,
@@ -459,7 +459,7 @@ pub mod target {
 	where
 		H: Hasher,
 		B: MessageBridge,
-		ThisRuntime: pallet_message_lane::Trait<MessageLaneInstanceOf<BridgedChain<B>>>,
+		ThisRuntime: pallet_message_lane::Config<MessageLaneInstanceOf<BridgedChain<B>>>,
 	{
 		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>> {
 			let storage_outbound_lane_data_key = pallet_message_lane::storage_keys::outbound_lane_data_key::<
