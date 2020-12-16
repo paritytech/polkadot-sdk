@@ -122,7 +122,6 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
-							derive_account_from_millau_id(bp_runtime::SourceAccount::Root),
 							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
 								get_account_id_from_seed::<sr25519::Public>("Dave"),
 							)),
@@ -204,14 +203,5 @@ fn derived_dave_account_is_as_expected() {
 	assert_eq!(
 		derived.to_string(),
 		"5Hg7WQyk8C1FmPzxY3xSjR7S6zZZC5sAL35vMr6NpW17jBhQ".to_string()
-	);
-}
-
-#[test]
-fn derived_root_account_is_as_expected() {
-	let root: AccountId = derive_account_from_millau_id(bp_runtime::SourceAccount::Root);
-	assert_eq!(
-		root.to_string(),
-		"5HYYwXQvxhgdcBYs6kzqfK1HW6M3UF3Kh4YM7j288yiqbhnt".to_string()
 	);
 }

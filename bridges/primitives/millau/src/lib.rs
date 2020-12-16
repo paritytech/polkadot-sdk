@@ -29,6 +29,7 @@ use frame_support::{
 	RuntimeDebug,
 };
 use sp_core::Hasher as HasherT;
+use sp_runtime::traits::Convert;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	MultiSignature, MultiSigner, Perbill,
@@ -159,6 +160,19 @@ impl sp_runtime::traits::Convert<sp_core::H256, AccountId> for AccountIdConverte
 	fn convert(hash: sp_core::H256) -> AccountId {
 		hash.to_fixed_bytes().into()
 	}
+}
+
+/// We use this to get the account on Millau (target) which is derived from Rialto's (source)
+/// account. We do this so we can fund the derived account on Millau at Genesis to it can pay
+/// transaction fees.
+///
+/// The reason we can use the same `AccountId` type for both chains is because they share the same
+/// development seed phrase.
+///
+/// Note that this should only be used for testing.
+pub fn derive_account_from_rialto_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
+	let encoded_id = bp_runtime::derive_account_id(bp_runtime::RIALTO_BRIDGE_INSTANCE, id);
+	AccountIdConverter::convert(encoded_id)
 }
 
 /// Get a struct which defines the weight limits and values used during extrinsic execution.
