@@ -93,11 +93,6 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// This constant limits difference between last message from last entry of the
 	/// `InboundLaneData::relayers` and first message at the first entry.
 	type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
-	/// Maximal number of messages in single delivery transaction. This directly affects the base
-	/// weight of the delivery transaction.
-	///
-	/// All transactions that deliver more messages than this number, are rejected.
-	type MaxMessagesInDeliveryTransaction: Get<MessageNonce>;
 
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 	type OutboundPayload: Parameter;
@@ -322,17 +317,16 @@ decl_module! {
 		}
 
 		/// Receive messages proof from bridged chain.
-		#[weight = DELIVERY_OVERHEAD_WEIGHT
-			.saturating_add(
-				T::MaxMessagesInDeliveryTransaction::get()
-					.saturating_mul(SINGLE_MESSAGE_DELIVERY_WEIGHT)
-			)
+		#[weight = messages_count
+			.saturating_mul(SINGLE_MESSAGE_DELIVERY_WEIGHT)
+			.saturating_add(DELIVERY_OVERHEAD_WEIGHT)
 			.saturating_add(*dispatch_weight)
 		]
 		pub fn receive_messages_proof(
 			origin,
 			relayer_id: T::InboundRelayer,
 			proof: MessagesProofOf<T, I>,
+			messages_count: MessageNonce,
 			dispatch_weight: Weight,
 		) -> DispatchResult {
 			ensure_operational::<T, I>()?;
@@ -343,7 +337,7 @@ decl_module! {
 				T::SourceHeaderChain,
 				T::InboundMessageFee,
 				T::InboundPayload,
-			>(proof, T::MaxMessagesInDeliveryTransaction::get())
+			>(proof, messages_count)
 				.map_err(|err| {
 					frame_support::debug::trace!(
 						"Rejecting invalid messages proof: {:?}",
@@ -674,9 +668,9 @@ impl<T: Config<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStora
 /// Verify messages proof and return proved messages with decoded payload.
 fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, DispatchPayload: Decode>(
 	proof: Chain::MessagesProof,
-	max_messages: MessageNonce,
+	messages_count: MessageNonce,
 ) -> Result<ProvedMessages<DispatchMessage<DispatchPayload, Fee>>, Chain::Error> {
-	Chain::verify_messages_proof(proof, max_messages).map(|messages_by_lane| {
+	Chain::verify_messages_proof(proof, messages_count).map(|messages_by_lane| {
 		messages_by_lane
 			.into_iter()
 			.map(|(lane, lane_data)| {
@@ -846,6 +840,7 @@ mod tests {
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					Ok(vec![message(2, REGULAR_PAYLOAD)]).into(),
+					1,
 					REGULAR_PAYLOAD.1,
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
@@ -924,6 +919,7 @@ mod tests {
 				Origin::signed(1),
 				TEST_RELAYER_A,
 				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
+				1,
 				REGULAR_PAYLOAD.1,
 			));
 
@@ -964,6 +960,7 @@ mod tests {
 				Origin::signed(1),
 				TEST_RELAYER_A,
 				message_proof,
+				1,
 				REGULAR_PAYLOAD.1,
 			));
 
@@ -995,6 +992,7 @@ mod tests {
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
+					1,
 					REGULAR_PAYLOAD.1 - 1,
 				),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
@@ -1010,6 +1008,7 @@ mod tests {
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					Err(()).into(),
+					1,
 					0,
 				),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesProof,
@@ -1112,6 +1111,7 @@ mod tests {
 				Origin::signed(1),
 				TEST_RELAYER_A,
 				Ok(vec![invalid_message]).into(),
+				1,
 				0, // weight may be zero in this case (all messages are improperly encoded)
 			),);
 
@@ -1134,6 +1134,7 @@ mod tests {
 					message(3, REGULAR_PAYLOAD),
 				])
 				.into(),
+				3,
 				REGULAR_PAYLOAD.1 + REGULAR_PAYLOAD.1,
 			),);
 

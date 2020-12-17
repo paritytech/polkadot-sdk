@@ -73,11 +73,14 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 		proof: <Self as MessageLane>::MessagesProof,
 	) -> Result<Self::TargetSignedTransaction, SubstrateError> {
 		let (dispatch_weight, proof) = proof;
+		let (_, _, _, ref nonces_begin, ref nonces_end) = proof;
+		let messages_count = nonces_end - nonces_begin + 1;
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
 		let call = rialto_runtime::MessageLaneCall::receive_messages_proof(
 			self.relayer_id_at_source.clone(),
 			proof,
+			messages_count,
 			dispatch_weight,
 		)
 		.into();
@@ -119,6 +122,14 @@ pub fn run(
 		lane.relayer_id_at_source,
 	);
 
+	// TODO: these two parameters need to be updated after https://github.com/paritytech/parity-bridges-common/issues/78
+	// the rough idea is to reserve some portion (1/3?) of max extrinsic weight for delivery tx overhead + messages
+	// overhead
+	// this must be tuned mostly with `max_messages_in_single_batch`, but `max_messages_weight_in_single_batch` also
+	// needs to be updated (subtract tx overhead)
+	let max_messages_in_single_batch = 1024;
+	let max_messages_weight_in_single_batch = bp_rialto::max_extrinsic_weight();
+
 	messages_relay::message_lane_loop::run(
 		messages_relay::message_lane_loop::Params {
 			lane: lane_id,
@@ -129,10 +140,8 @@ pub fn run(
 			delivery_params: messages_relay::message_lane_loop::MessageDeliveryParams {
 				max_unrewarded_relayer_entries_at_target: bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
 				max_unconfirmed_nonces_at_target: bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
-				max_messages_in_single_batch: bp_rialto::MAX_MESSAGES_IN_DELIVERY_TRANSACTION,
-				// TODO: subtract base weight of delivery from this when it'll be known
-				// https://github.com/paritytech/parity-bridges-common/issues/78
-				max_messages_weight_in_single_batch: bp_rialto::max_extrinsic_weight(),
+				max_messages_in_single_batch,
+				max_messages_weight_in_single_batch,
 				// 2/3 is reserved for proofs and tx overhead
 				max_messages_size_in_single_batch: bp_rialto::max_extrinsic_size() as usize / 3,
 			},
