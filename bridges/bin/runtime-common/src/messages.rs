@@ -399,7 +399,7 @@ pub mod target {
 	/// Verify proof of Bridged -> This chain messages.
 	pub fn verify_messages_proof<B: MessageBridge, ThisRuntime>(
 		proof: FromBridgedChainMessagesProof<B>,
-		max_messages: MessageNonce,
+		messages_count: MessageNonce,
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, &'static str>
 	where
 		ThisRuntime: pallet_substrate_bridge::Config,
@@ -409,7 +409,7 @@ pub mod target {
 	{
 		verify_messages_proof_with_parser::<B, _, _>(
 			proof,
-			max_messages,
+			messages_count,
 			|bridged_header_hash, bridged_storage_proof| {
 				pallet_substrate_bridge::Module::<ThisRuntime>::parse_finalized_storage_proof(
 					bridged_header_hash.into(),
@@ -429,7 +429,7 @@ pub mod target {
 	#[derive(Debug, PartialEq)]
 	pub(crate) enum MessageProofError {
 		Empty,
-		TooManyMessages,
+		MessagesCountMismatch,
 		MissingRequiredMessage,
 		FailedToDecodeMessage,
 		FailedToDecodeOutboundLaneState,
@@ -440,7 +440,7 @@ pub mod target {
 		fn from(err: MessageProofError) -> &'static str {
 			match err {
 				MessageProofError::Empty => "Messages proof is empty",
-				MessageProofError::TooManyMessages => "Too many messages in the proof",
+				MessageProofError::MessagesCountMismatch => "Declared messages count doesn't match actual value",
 				MessageProofError::MissingRequiredMessage => "Message is missing from the proof",
 				MessageProofError::FailedToDecodeMessage => "Failed to decode message from the proof",
 				MessageProofError::FailedToDecodeOutboundLaneState => {
@@ -488,7 +488,7 @@ pub mod target {
 	/// Verify proof of Bridged -> This chain messages using given message proof parser.
 	pub(crate) fn verify_messages_proof_with_parser<B: MessageBridge, BuildParser, Parser>(
 		proof: FromBridgedChainMessagesProof<B>,
-		max_messages: MessageNonce,
+		messages_count: MessageNonce,
 		build_parser: BuildParser,
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, MessageProofError>
 	where
@@ -500,8 +500,8 @@ pub mod target {
 		// receiving proofs where end < begin is ok (if proof includes outbound lane state)
 		// => hence unwrap_or(0)
 		let messages_in_the_proof = end.checked_sub(begin).and_then(|diff| diff.checked_add(1)).unwrap_or(0);
-		if messages_in_the_proof > max_messages {
-			return Err(MessageProofError::TooManyMessages);
+		if messages_in_the_proof != messages_count {
+			return Err(MessageProofError::MessagesCountMismatch);
 		}
 
 		let parser = build_parser(bridged_header_hash, bridged_storage_proof)?;
@@ -1009,14 +1009,26 @@ mod tests {
 	}
 
 	#[test]
-	fn messages_proof_is_rejected_if_there_are_too_many_messages() {
+	fn messages_proof_is_rejected_if_declared_less_than_actual_number_of_messages() {
 		assert_eq!(
 			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, TestMessageProofParser>(
-				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 11),
-				10,
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 10),
+				5,
 				|_, _| unreachable!(),
 			),
-			Err(target::MessageProofError::TooManyMessages),
+			Err(target::MessageProofError::MessagesCountMismatch),
+		);
+	}
+
+	#[test]
+	fn messages_proof_is_rejected_if_declared_more_than_actual_number_of_messages() {
+		assert_eq!(
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, TestMessageProofParser>(
+				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 10),
+				15,
+				|_, _| unreachable!(),
+			),
+			Err(target::MessageProofError::MessagesCountMismatch),
 		);
 	}
 
@@ -1069,7 +1081,7 @@ mod tests {
 		assert_eq!(
 			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
 				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 0),
-				10,
+				0,
 				|_, _| Ok(TestMessageProofParser {
 					failing: true,
 					messages: no_messages_range(),
@@ -1089,7 +1101,7 @@ mod tests {
 		assert_eq!(
 			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
 				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 0),
-				10,
+				0,
 				|_, _| Ok(TestMessageProofParser {
 					failing: false,
 					messages: no_messages_range(),
@@ -1105,7 +1117,7 @@ mod tests {
 		assert_eq!(
 			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
 				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 0),
-				10,
+				0,
 				|_, _| Ok(TestMessageProofParser {
 					failing: false,
 					messages: no_messages_range(),
@@ -1137,7 +1149,7 @@ mod tests {
 		assert_eq!(
 			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
 				(Default::default(), StorageProof::new(vec![]), Default::default(), 1, 1),
-				10,
+				1,
 				|_, _| Ok(TestMessageProofParser {
 					failing: false,
 					messages: 1..=1,

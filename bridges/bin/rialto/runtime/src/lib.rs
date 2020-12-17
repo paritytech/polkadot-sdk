@@ -420,8 +420,6 @@ parameter_types! {
 		bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE;
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_message_lane::MessageNonce =
 		bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE;
-	pub const MaxMessagesInDeliveryTransaction: bp_message_lane::MessageNonce =
-		bp_rialto::MAX_MESSAGES_IN_DELIVERY_TRANSACTION;
 }
 
 pub(crate) type WithMillauMessageLaneInstance = pallet_message_lane::DefaultInstance;
@@ -430,7 +428,6 @@ impl pallet_message_lane::Config for Runtime {
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
-	type MaxMessagesInDeliveryTransaction = MaxMessagesInDeliveryTransaction;
 
 	type OutboundPayload = crate::millau_messages::ToMillauMessagePayload;
 	type OutboundMessageFee = Balance;

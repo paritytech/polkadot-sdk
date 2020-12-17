@@ -68,13 +68,13 @@ pub trait SourceHeaderChain<Fee> {
 	/// Verify messages proof and return proved messages.
 	///
 	/// Returns error if either proof is incorrect, or the number of messages in the proof
-	/// is larger than `max_messages`.
+	/// is not matching the `messages_count`.
 	///
 	/// Messages vector is required to be sorted by nonce within each lane. Out-of-order
 	/// messages will be rejected.
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
-		max_messages: MessageNonce,
+		messages_count: MessageNonce,
 	) -> Result<ProvedMessages<Message<Fee>>, Self::Error>;
 }
 
