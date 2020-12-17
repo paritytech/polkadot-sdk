@@ -101,7 +101,7 @@ There are 3 ways to run the bridge, described below:
  - building or using Docker images for each individual component,
  - running a Docker Compose setup (recommended).
 
-### Building
+### Using the Source
 
 First you'll need to build the bridge nodes and relay. This can be done as follows:
 
@@ -115,40 +115,75 @@ cargo build -p substrate-relay
 ### Running
 
 To run a simple dev network you'll can use the scripts located in
-[the `scripts` folder](./scripts). Since the relay connects to both Substrate chains it must be run
-last.
+[the `deployments/local-scripts` folder](./deployments/local-scripts). Since the relayer connects to
+both Substrate chains it must be run last.
 
 ```bash
 # In `parity-bridges-common` folder
 ./deployments/local-scripts/run-rialto-bridge-node.sh
 ./deployments/local-scripts/run-millau-bridge-node.sh
 ./deployments/local-scripts/run-millau-to-rialto-relay.sh
-./deployments/local-scripts/run-rialto-to-millau-relay.sh
 ```
 
-At this point you should see the relayer submitting blocks from the Millau Substrate chain to the
-Rialto Substrate chain and vice-versa.
+At this point you should see the relayer submitting headers from the Millau Substrate chain to the
+Rialto Substrate chain.
 
-### Local Docker Build
-If you want to make a Docker container using your local source files you can run the following
-command at the top level of the repository:
+### Local Docker Setup
+
+To get up and running quickly you can use published Docker images for the bridge nodes and relayer.
+The images are published on [Docker Hub](https://hub.docker.com/u/paritytech).
+
+To run the dev network we first run the two bridge nodes:
 
 ```bash
+docker run -p 30333:30333 -p 9933:9933 -p 9944:9944 \
+           -it paritytech/rialto-bridge-node --dev --tmp \
+           --rpc-cors=all --unsafe-rpc-external --unsafe-ws-external
+
+docker run -p 30334:30333 -p 9934:9933 -p 9945:9944 \
+           -it paritytech/millau-bridge-node --dev --tmp \
+           --rpc-cors=all --unsafe-rpc-external --unsafe-ws-external
+```
+
+Notice that the `docker run` command will accept all the normal Substrate flags. For local
+development you should at minimum run with the `--dev` flag or else no blocks will be produced.
+
+Then we need to initialize and run the relayer:
+
+```bash
+docker run --network=host -it \
+        paritytech/substrate-relay initialize-rialto-headers-bridge-in-millau \
+        --millau-host localhost \
+        --millau-port 9945 \
+        --rialto-host localhost \
+        --rialto-port 9944 \
+        --millau-signer //Alice
+
+docker run --network=host -it \
+        paritytech/substrate-relay rialto-headers-to-millau \
+        --millau-host localhost \
+        --millau-port 9945 \
+        --rialto-host localhost \
+        --rialto-port 9944 \
+        --millau-signer //Bob \
+```
+
+You should now see the relayer submitting headers from the Millau chain to the Rialto chain.
+
+If you don't want to use the published Docker images you can build images yourself. You can do this
+by running the following commands at the top level of the repository.
+
+```bash
+# In `parity-bridges-common` folder
 docker build . -t local/rialto-bridge-node --build-arg PROJECT=rialto-bridge-node
 docker build . -t local/millau-bridge-node --build-arg PROJECT=millau-bridge-node
 docker build . -t local/substrate-relay --build-arg PROJECT=substrate-relay
 ```
 
-You can then run the network as follows:
+_Note: Building the node images will take a long time, so make sure you have some coffee handy._
 
-```bash
-docker run -it local/rialto-bridge-node --dev --tmp
-docker run -it local/millau-bridge-node --dev --tmp
-docker run -it local/substrate-relay
-```
-
-Notice that the `docker run` command will accept all the normal Substrate flags. For local
-development you should at minimum run with the `--dev` flag or else no blocks will be produced.
+Once you have the images built you can use them in the previous commands by replacing
+`paritytech/<component_name>` with `local/<component_name>` everywhere.
 
 ### Full Network Docker Compose Setup
 
