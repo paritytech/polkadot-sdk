@@ -25,7 +25,7 @@ use frame_benchmarking::{account, benchmarks_instance};
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use num_traits::Zero;
-use sp_std::{convert::TryInto, ops::RangeInclusive, prelude::*};
+use sp_std::{ops::RangeInclusive, prelude::*};
 
 /// Message crafted with this size factor should be the largest possible message.
 pub const WORST_MESSAGE_SIZE_FACTOR: u32 = 1000;
@@ -127,7 +127,7 @@ benchmarks_instance! {
 			message_nonces: 1..=1,
 			outbound_lane_data: None,
 		});
-	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, dispatch_weight)
+	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
@@ -154,7 +154,7 @@ benchmarks_instance! {
 			message_nonces: 1..=2,
 			outbound_lane_data: None,
 		});
-	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, dispatch_weight)
+	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 2, dispatch_weight)
 	verify {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
@@ -188,7 +188,7 @@ benchmarks_instance! {
 				latest_generated_nonce: 21,
 			}),
 		});
-	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, dispatch_weight)
+	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
@@ -214,19 +214,24 @@ benchmarks_instance! {
 	// `weight(receive_two_messages_proof) - weight(receive_single_message_proof)`. So it may be used
 	// to verify that the other approximation is correct.
 	receive_multiple_messages_proof {
-		let i in 1..T::MaxMessagesInDeliveryTransaction::get()
-			.try_into()
-			.expect("Value of MaxMessagesInDeliveryTransaction is too large");
+		let i in 1..128;
 
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		let messages_count = i as _;
 
 		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
 			lane: bench_lane_id(),
 			message_nonces: 1..=i as _,
 			outbound_lane_data: None,
 		});
-	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, dispatch_weight)
+	}: receive_messages_proof(
+		RawOrigin::Signed(relayer_id_on_target),
+		relayer_id_on_source,
+		proof,
+		messages_count,
+		dispatch_weight
+	)
 	verify {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
@@ -244,12 +249,11 @@ benchmarks_instance! {
 	// `weight(receive_single_message_proof_with_outbound_lane_state) - weight(receive_single_message_proof)`.
 	// So it may be used to verify that the other approximation is correct.
 	receive_multiple_messages_proof_with_outbound_lane_state {
-		let i in 1..T::MaxMessagesInDeliveryTransaction::get()
-			.try_into()
-			.expect("Value of MaxMessagesInDeliveryTransaction is too large");
+		let i in 1..128;
 
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		let messages_count = i as _;
 
 		// mark messages 1..=20 as delivered
 		receive_messages::<T, I>(20);
@@ -263,7 +267,13 @@ benchmarks_instance! {
 				latest_generated_nonce: 21,
 			}),
 		});
-	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, dispatch_weight)
+	}: receive_messages_proof(
+		RawOrigin::Signed(relayer_id_on_target),
+		relayer_id_on_source,
+		proof,
+		messages_count,
+		dispatch_weight
+	)
 	verify {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
