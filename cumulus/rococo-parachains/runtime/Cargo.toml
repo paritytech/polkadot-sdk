@@ -38,9 +38,13 @@ cumulus-runtime = { path = "../../runtime", default-features = false }
 cumulus-parachain-upgrade = { path = "../../parachain-upgrade", default-features = false }
 cumulus-primitives = { path = "../../primitives", default-features = false }
 cumulus-message-broker = { path = "../../message-broker", default-features = false }
+xcm-handler = { path = "../../xcm-handler", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
+xcm = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
 
 [build-dependencies]
 substrate-wasm-builder = "3.0.0"
@@ -75,4 +79,8 @@ std = [
 	"cumulus-parachain-upgrade/std",
 	"cumulus-message-broker/std",
 	"cumulus-primitives/std",
+	"xcm/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm-handler/std",
 ]

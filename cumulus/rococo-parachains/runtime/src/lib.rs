@@ -53,6 +53,19 @@ pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
+// XCM imports
+use polkadot_parachain::primitives::Sibling;
+use xcm::v0::{MultiLocation, NetworkId, Junction};
+use xcm_builder::{
+	ParentIsDefault, SiblingParachainConvertsVia, AccountId32Aliases, LocationInverter,
+	SovereignSignedViaLocation, SiblingParachainAsNative,
+	RelayChainAsNative, SignedAccountId32AsNative, CurrencyAdapter
+};
+use xcm_executor::{
+	XcmExecutor, Config,
+	traits::{NativeAsset, IsConcrete},
+};
+
 pub type SessionHandlers = ();
 
 impl_opaque_keys! {
@@ -226,6 +239,59 @@ impl cumulus_message_broker::Config for Runtime {
 
 impl parachain_info::Config for Runtime {}
 
+parameter_types! {
+	pub const RococoLocation: MultiLocation = MultiLocation::X1(Junction::Parent);
+	pub const RococoNetwork: NetworkId = NetworkId::Polkadot;
+	pub RelayChainOrigin: Origin = xcm_handler::Origin::Relay.into();
+	pub Ancestry: MultiLocation = Junction::Parachain {
+		id: ParachainInfo::parachain_id().into()
+	}.into();
+}
+
+type LocationConverter = (
+	ParentIsDefault<AccountId>,
+	SiblingParachainConvertsVia<Sibling, AccountId>,
+	AccountId32Aliases<RococoNetwork, AccountId>,
+);
+
+type LocalAssetTransactor =
+	CurrencyAdapter<
+		// Use this currency:
+		Balances,
+		// Use this currency when it is a fungible asset matching the given location or name:
+		IsConcrete<RococoLocation>,
+		// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+		LocationConverter,
+		// Our chain's account ID type (we can't get away without mentioning it explicitly):
+		AccountId,
+	>;
+
+type LocalOriginConverter = (
+	SovereignSignedViaLocation<LocationConverter, Origin>,
+	RelayChainAsNative<RelayChainOrigin, Origin>,
+	SiblingParachainAsNative<xcm_handler::Origin, Origin>,
+	SignedAccountId32AsNative<RococoNetwork, Origin>,
+);
+
+pub struct XcmConfig;
+impl Config for XcmConfig {
+	type Call = Call;
+	type XcmSender = XcmHandler;
+	// How to withdraw and deposit an asset.
+	type AssetTransactor = LocalAssetTransactor;
+	type OriginConverter = LocalOriginConverter;
+	type IsReserve = NativeAsset;
+	type IsTeleporter = ();
+	type LocationInverter = LocationInverter<Ancestry>;
+}
+
+impl xcm_handler::Config for Runtime {
+	type Event = Event;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type UpwardMessageSender = MessageBroker;
+	type HrmpMessageSender = MessageBroker;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -241,6 +307,7 @@ construct_runtime! {
 		MessageBroker: cumulus_message_broker::{Module, Storage, Call, Inherent},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		ParachainInfo: parachain_info::{Module, Storage, Config},
+		XcmHandler: xcm_handler::{Module, Event<T>, Origin},
 	}
 }
 

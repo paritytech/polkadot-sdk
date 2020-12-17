@@ -105,6 +105,18 @@ pub trait HrmpMessageHandler {
 	fn handle_hrmp_message(sender: ParaId, msg: InboundHrmpMessage);
 }
 
+/// Something that should be called when sending an upward message.
+pub trait UpwardMessageSender {
+	/// Send the given upward message.
+	fn send_upward_message(msg: UpwardMessage) -> Result<(), ()>;
+}
+
+/// Something that should be called when sending an HRMP message.
+pub trait HrmpMessageSender {
+	/// Send the given HRMP message.
+	fn send_hrmp_message(msg: OutboundHrmpMessage) -> Result<(), ()>;
+}
+
 /// A trait which is called when the validation data is set.
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait OnValidationData {

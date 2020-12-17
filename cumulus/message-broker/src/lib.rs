@@ -34,7 +34,7 @@ use sp_std::{cmp, prelude::*};
 use cumulus_primitives::{
 	inherents::{MessageIngestionType, MESSAGE_INGESTION_IDENTIFIER},
 	well_known_keys, DownwardMessageHandler, HrmpMessageHandler, OutboundHrmpMessage, ParaId,
-	UpwardMessage,
+	UpwardMessage, UpwardMessageSender, HrmpMessageSender,
 };
 
 // TODO: these should be not a constant, but sourced from the relay-chain configuration.
@@ -201,7 +201,7 @@ pub enum SendUpErr {
 }
 
 /// An error that can be raised upon sending a horizontal message.
-pub enum SendHorizonalErr {
+pub enum SendHorizontalErr {
 	/// The message sent is too big.
 	TooBig,
 	/// There is no channel to the specified destination.
@@ -216,7 +216,7 @@ impl<T: Config> Module<T> {
 		Ok(())
 	}
 
-	pub fn send_hrmp_message(message: OutboundHrmpMessage) -> Result<(), SendHorizonalErr> {
+	pub fn send_hrmp_message(message: OutboundHrmpMessage) -> Result<(), SendHorizontalErr> {
 		// TODO:
 		// (a) check against the size limit sourced from the relay-chain configuration
 		// (b) check if the channel to the recipient is actually opened.
@@ -231,6 +231,18 @@ impl<T: Config> Module<T> {
 		});
 
 		Ok(())
+	}
+}
+
+impl<T: Config> UpwardMessageSender for Module<T> {
+	fn send_upward_message(message: UpwardMessage) -> Result<(), ()> {
+		Self::send_upward_message(message).map_err(|_| ())
+	}
+}
+
+impl<T: Config> HrmpMessageSender for Module<T> {
+	fn send_hrmp_message(message: OutboundHrmpMessage) -> Result<(), ()> {
+		Self::send_hrmp_message(message).map_err(|_| ())
 	}
 }
 

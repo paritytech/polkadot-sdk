@@ -14,6 +14,7 @@ members = [
 	"test/runtime",
 	"test/client",
 	"test/service",
+	"xcm-handler",
 ]
 
 [profile.release]
