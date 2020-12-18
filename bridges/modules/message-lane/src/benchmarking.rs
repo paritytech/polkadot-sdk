@@ -16,19 +16,23 @@
 
 //! Message lane pallet benchmarking.
 
-use crate::{inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane, Call, Instance};
+use crate::{
+	inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane, relayer_fund_account_id, Call, Instance,
+};
 
 use bp_message_lane::{
-	target_chain::SourceHeaderChain, InboundLaneData, LaneId, MessageData, MessageNonce, OutboundLaneData,
+	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, InboundLaneData, LaneId, MessageData,
+	MessageNonce, OutboundLaneData,
 };
 use frame_benchmarking::{account, benchmarks_instance};
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
-use num_traits::Zero;
-use sp_std::{ops::RangeInclusive, prelude::*};
+use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, ops::RangeInclusive, prelude::*};
 
 /// Message crafted with this size factor should be the largest possible message.
 pub const WORST_MESSAGE_SIZE_FACTOR: u32 = 1000;
+/// Fee paid by submitter for single message delivery.
+const MESSAGE_FEE: u32 = 1_000_000;
 
 const SEED: u32 = 0;
 
@@ -55,10 +59,20 @@ pub struct MessageProofParams {
 	pub outbound_lane_data: Option<OutboundLaneData>,
 }
 
+/// Benchmark-specific message delivery proof parameters.
+pub struct MessageDeliveryProofParams<ThisChainAccountId> {
+	/// Id of the lane.
+	pub lane: LaneId,
+	/// The proof needs to include this inbound lane data.
+	pub inbound_lane_data: InboundLaneData<ThisChainAccountId>,
+}
+
 /// Trait that must be implemented by runtime.
 pub trait Config<I: Instance>: crate::Config<I> {
 	/// Return id of relayer account at the bridged chain.
 	fn bridged_relayer_id() -> Self::InboundRelayer;
+	/// Return balance of given account.
+	fn account_balance(account: &Self::AccountId) -> Self::OutboundMessageFee;
 	/// Create given account and give it enough balance for test purposes.
 	fn endow_account(account: &Self::AccountId);
 	/// Prepare message to send over lane.
@@ -72,6 +86,10 @@ pub trait Config<I: Instance>: crate::Config<I> {
 		<Self::SourceHeaderChain as SourceHeaderChain<Self::InboundMessageFee>>::MessagesProof,
 		Weight,
 	);
+	/// Prepare messages delivery proof to receive by the module.
+	fn prepare_message_delivery_proof(
+		params: MessageDeliveryProofParams<Self::AccountId>,
+	) -> <Self::TargetHeaderChain as TargetHeaderChain<Self::OutboundPayload, Self::AccountId>>::MessagesDeliveryProof;
 }
 
 benchmarks_instance! {
@@ -200,6 +218,111 @@ benchmarks_instance! {
 		);
 	}
 
+	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
+	// * single relayer is rewarded for relaying single message;
+	// * relayer account does not exist (in practice it needs to exist in production environment).
+	//
+	// This is base benchmark for all other confirmations delivery benchmarks.
+	receive_delivery_proof_for_single_message {
+		let relayers_fund_id = relayer_fund_account_id::<T, I>();
+		let relayer_id: T::AccountId = account("relayer", 0, SEED);
+		let relayer_balance = T::account_balance(&relayer_id);
+		T::endow_account(&relayers_fund_id);
+
+		// send message that we're going to confirm
+		send_regular_message::<T, I>();
+
+		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
+			lane: bench_lane_id(),
+			inbound_lane_data: InboundLaneData {
+				relayers: vec![(1, 1, relayer_id.clone())].into_iter().collect(),
+				latest_received_nonce: 1,
+				latest_confirmed_nonce: 0,
+			}
+		});
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof)
+	verify {
+		assert_eq!(
+			T::account_balance(&relayer_id),
+			relayer_balance + MESSAGE_FEE.into(),
+		);
+	}
+
+	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
+	// * single relayer is rewarded for relaying two messages;
+	// * relayer account does not exist (in practice it needs to exist in production environment).
+	//
+	// Additional weight for paying single-message reward to the same relayer could be computed
+	// as `weight(receive_delivery_proof_for_two_messages_by_single_relayer)
+	//   - weight(receive_delivery_proof_for_single_message)`.
+	receive_delivery_proof_for_two_messages_by_single_relayer {
+		let relayers_fund_id = relayer_fund_account_id::<T, I>();
+		let relayer_id: T::AccountId = account("relayer", 0, SEED);
+		let relayer_balance = T::account_balance(&relayer_id);
+		T::endow_account(&relayers_fund_id);
+
+		// send message that we're going to confirm
+		send_regular_message::<T, I>();
+		send_regular_message::<T, I>();
+
+		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
+			lane: bench_lane_id(),
+			inbound_lane_data: InboundLaneData {
+				relayers: vec![(1, 2, relayer_id.clone())].into_iter().collect(),
+				latest_received_nonce: 2,
+				latest_confirmed_nonce: 0,
+			}
+		});
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof)
+	verify {
+		assert_eq!(
+			T::account_balance(&relayer_id),
+			relayer_balance + (MESSAGE_FEE * 2).into(),
+		);
+	}
+
+	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
+	// * two relayers are rewarded for relaying single message each;
+	// * relayer account does not exist (in practice it needs to exist in production environment).
+	//
+	// Additional weight for paying reward to the next relayer could be computed
+	// as `weight(receive_delivery_proof_for_two_messages_by_two_relayers)
+	//   - weight(receive_delivery_proof_for_two_messages_by_single_relayer)`.
+	receive_delivery_proof_for_two_messages_by_two_relayers {
+		let relayers_fund_id = relayer_fund_account_id::<T, I>();
+		let relayer1_id: T::AccountId = account("relayer1", 1, SEED);
+		let relayer1_balance = T::account_balance(&relayer1_id);
+		let relayer2_id: T::AccountId = account("relayer2", 2, SEED);
+		let relayer2_balance = T::account_balance(&relayer2_id);
+		T::endow_account(&relayers_fund_id);
+
+		// send message that we're going to confirm
+		send_regular_message::<T, I>();
+		send_regular_message::<T, I>();
+
+		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
+			lane: bench_lane_id(),
+			inbound_lane_data: InboundLaneData {
+				relayers: vec![
+					(1, 1, relayer1_id.clone()),
+					(2, 2, relayer2_id.clone()),
+				].into_iter().collect(),
+				latest_received_nonce: 2,
+				latest_confirmed_nonce: 0,
+			}
+		});
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof)
+	verify {
+		assert_eq!(
+			T::account_balance(&relayer1_id),
+			relayer1_balance + MESSAGE_FEE.into(),
+		);
+		assert_eq!(
+			T::account_balance(&relayer2_id),
+			relayer2_balance + MESSAGE_FEE.into(),
+		);
+	}
+
 	//
 	// Benchmarks for manual checks.
 	//
@@ -284,6 +407,86 @@ benchmarks_instance! {
 			20,
 		);
 	}
+
+	// Benchmark `receive_messages_delivery_proof` extrinsic where single relayer delivers multiple messages.
+	receive_delivery_proof_for_multiple_messages_by_single_relayer {
+		// there actually should be used value of `MaxUnrewardedRelayerEntriesAtInboundLane` from the bridged
+		// chain, but we're more interested in additional weight/message than in max weight
+		let i in 1..T::MaxUnrewardedRelayerEntriesAtInboundLane::get()
+			.try_into()
+			.expect("Value of MaxUnrewardedRelayerEntriesAtInboundLane is too large");
+
+		let relayers_fund_id = relayer_fund_account_id::<T, I>();
+		let relayer_id: T::AccountId = account("relayer", 0, SEED);
+		let relayer_balance = T::account_balance(&relayer_id);
+		T::endow_account(&relayers_fund_id);
+
+		// send messages that we're going to confirm
+		for _ in 1..=i {
+			send_regular_message::<T, I>();
+		}
+
+		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
+			lane: bench_lane_id(),
+			inbound_lane_data: InboundLaneData {
+				relayers: vec![(1, i as MessageNonce, relayer_id.clone())].into_iter().collect(),
+				latest_received_nonce: i as MessageNonce,
+				latest_confirmed_nonce: 0,
+			}
+		});
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof)
+	verify {
+		assert_eq!(
+			T::account_balance(&relayer_id),
+			relayer_balance + (MESSAGE_FEE * i).into(),
+		);
+	}
+
+	// Benchmark `receive_messages_delivery_proof` extrinsic where every relayer delivers single messages.
+	receive_delivery_proof_for_multiple_messages_by_multiple_relayers {
+		// there actually should be used value of `MaxUnconfirmedMessagesAtInboundLane` from the bridged
+		// chain, but we're more interested in additional weight/message than in max weight
+		let i in 1..T::MaxUnconfirmedMessagesAtInboundLane::get()
+			.try_into()
+			.expect("Value of MaxUnconfirmedMessagesAtInboundLane is too large ");
+
+		let relayers_fund_id = relayer_fund_account_id::<T, I>();
+		let confirmation_relayer_id = account("relayer", 0, SEED);
+		let relayers: BTreeMap<T::AccountId, T::OutboundMessageFee> = (1..=i)
+			.map(|j| {
+				let relayer_id = account("relayer", j + 1, SEED);
+				let relayer_balance = T::account_balance(&relayer_id);
+				(relayer_id, relayer_balance)
+			})
+			.collect();
+		T::endow_account(&relayers_fund_id);
+
+		// send messages that we're going to confirm
+		for _ in 1..=i {
+			send_regular_message::<T, I>();
+		}
+
+		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
+			lane: bench_lane_id(),
+			inbound_lane_data: InboundLaneData {
+				relayers: relayers
+					.keys()
+					.enumerate()
+					.map(|(j, relayer_id)| (j as MessageNonce + 1, j as MessageNonce + 1, relayer_id.clone()))
+					.collect(),
+				latest_received_nonce: i as MessageNonce,
+				latest_confirmed_nonce: 0,
+			}
+		});
+	}: receive_messages_delivery_proof(RawOrigin::Signed(confirmation_relayer_id), proof)
+	verify {
+		for (relayer_id, prev_balance) in relayers {
+			assert_eq!(
+				T::account_balance(&relayer_id),
+				prev_balance + MESSAGE_FEE.into(),
+			);
+		}
+	}
 }
 
 fn bench_lane_id() -> LaneId {
@@ -294,7 +497,7 @@ fn send_regular_message<T: Config<I>, I: Instance>() {
 	let mut outbound_lane = outbound_lane::<T, I>(bench_lane_id());
 	outbound_lane.send_message(MessageData {
 		payload: vec![],
-		fee: Zero::zero(),
+		fee: MESSAGE_FEE.into(),
 	});
 }
 
