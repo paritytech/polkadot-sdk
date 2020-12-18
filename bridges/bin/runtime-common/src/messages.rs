@@ -90,7 +90,7 @@ pub trait ChainWithMessageLanes {
 	/// Hash used in the chain.
 	type Hash: Decode;
 	/// Accound id on the chain.
-	type AccountId: Decode;
+	type AccountId: Encode + Decode;
 	/// Public key of the chain account that may be used to verify signatures.
 	type Signer: Decode;
 	/// Signature type used on the chain.
