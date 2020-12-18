@@ -396,7 +396,7 @@ sp_api::mock_impl_runtime_apis! {
 			(Vec::new(), GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 0, now: 0 })
 		}
 
-		fn availability_cores(&self) -> Vec<CoreState<BlockNumber>> {
+		fn availability_cores(&self) -> Vec<CoreState<PHash>> {
 			Vec::new()
 		}
 
