@@ -19,13 +19,16 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::messages::{target::FromBridgedChainMessagesProof, BalanceOf, BridgedChain, HashOf, MessageBridge};
+use crate::messages::{
+	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof, AccountIdOf, BalanceOf,
+	BridgedChain, HashOf, MessageBridge, ThisChain,
+};
 
 use bp_message_lane::{LaneId, MessageData, MessageKey, MessagePayload};
 use codec::Encode;
 use ed25519_dalek::{PublicKey, SecretKey, Signer, KEYPAIR_LENGTH, SECRET_KEY_LENGTH};
 use frame_support::weights::Weight;
-use pallet_message_lane::benchmarking::MessageProofParams;
+use pallet_message_lane::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_core::Hasher;
 use sp_runtime::traits::Header;
 use sp_std::prelude::*;
@@ -140,5 +143,49 @@ where
 		message_dispatch_weight
 			.checked_mul(message_count)
 			.expect("too many messages requested by benchmark"),
+	)
+}
+
+/// Prepare proof of messages delivery for the `receive_messages_delivery_proof` call.
+pub fn prepare_message_delivery_proof<B, H, R, ML, MH>(
+	params: MessageDeliveryProofParams<AccountIdOf<ThisChain<B>>>,
+	make_bridged_inbound_lane_data_key: ML,
+	make_bridged_header: MH,
+) -> FromBridgedChainMessagesDeliveryProof<B>
+where
+	B: MessageBridge,
+	H: Hasher,
+	R: pallet_substrate_bridge::Config,
+	<R::BridgedChain as bp_runtime::Chain>::Hash: Into<HashOf<BridgedChain<B>>>,
+	ML: Fn(LaneId) -> Vec<u8>,
+	MH: Fn(H::Out) -> <R::BridgedChain as bp_runtime::Chain>::Header,
+{
+	// prepare Bridged chain storage with inbound lane state
+	let storage_key = make_bridged_inbound_lane_data_key(params.lane);
+	let mut root = Default::default();
+	let mut mdb = MemoryDB::default();
+	{
+		let mut trie = TrieDBMut::<H>::new(&mut mdb, &mut root);
+		trie.insert(&storage_key, &params.inbound_lane_data.encode())
+			.map_err(|_| "TrieMut::insert has failed")
+			.expect("TrieMut::insert should not fail in benchmarks");
+	}
+
+	// generate storage proof to be delivered to This chain
+	let mut proof_recorder = Recorder::<H::Out>::new();
+	read_trie_value_with::<Layout<H>, _, _>(&mdb, &root, &storage_key, &mut proof_recorder)
+		.map_err(|_| "read_trie_value_with has failed")
+		.expect("read_trie_value_with should not fail in benchmarks");
+	let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
+
+	// prepare Bridged chain header and insert it into the Substrate pallet
+	let bridged_header = make_bridged_header(root);
+	let bridged_header_hash = bridged_header.hash();
+	pallet_substrate_bridge::initialize_for_benchmarks::<R>(bridged_header);
+
+	(
+		bridged_header_hash.into(),
+		StorageProof::new(storage_proof),
+		params.lane,
 	)
 }

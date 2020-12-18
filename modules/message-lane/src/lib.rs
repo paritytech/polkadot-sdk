@@ -45,7 +45,7 @@ use frame_support::{
 	Parameter, StorageMap,
 };
 use frame_system::{ensure_signed, RawOrigin};
-use num_traits::Zero;
+use num_traits::{SaturatingAdd, Zero};
 use sp_runtime::{traits::BadOrigin, DispatchResult};
 use sp_std::{cell::RefCell, marker::PhantomData, prelude::*};
 
@@ -92,12 +92,15 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	///
 	/// This constant limits difference between last message from last entry of the
 	/// `InboundLaneData::relayers` and first message at the first entry.
+	///
+	/// There is no point of making this parameter lesser than MaxUnrewardedRelayerEntriesAtInboundLane,
+	/// because then maximal number of relayer entries will be limited by maximal number of messages.
 	type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
 
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 	type OutboundPayload: Parameter;
 	/// Message fee type of outbound messages. This fee is paid on this chain.
-	type OutboundMessageFee: Parameter + Zero;
+	type OutboundMessageFee: From<u32> + Parameter + SaturatingAdd + Zero;
 
 	/// Payload type of inbound messages. This payload is dispatched on this chain.
 	type InboundPayload: Decode;
@@ -423,24 +426,30 @@ decl_module! {
 			let received_range = lane.confirm_delivery(lane_data.latest_received_nonce);
 			if let Some(received_range) = received_range {
 				Self::deposit_event(RawEvent::MessagesDelivered(lane_id, received_range.0, received_range.1));
-				let relayer_fund_account = relayer_fund_account_id::<T, I>();
 
 				// reward relayers that have delivered messages
-				// this loop is bounded by `T::MaxUnconfirmedMessagesAtInboundLane` on the bridged chain
+				// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
+				let relayer_fund_account = relayer_fund_account_id::<T, I>();
 				for (nonce_low, nonce_high, relayer) in lane_data.relayers {
 					let nonce_begin = sp_std::cmp::max(nonce_low, received_range.0);
 					let nonce_end = sp_std::cmp::min(nonce_high, received_range.1);
+
 					// loop won't proceed if current entry is ahead of received range (begin > end).
+					// this loop is bound by `T::MaxUnconfirmedMessagesAtInboundLane` on the bridged chain
+					let mut relayer_fee: T::OutboundMessageFee = Zero::zero();
 					for nonce in nonce_begin..nonce_end + 1 {
 						let message_data = OutboundMessages::<T, I>::get(MessageKey {
 							lane_id,
 							nonce,
 						}).expect("message was just confirmed; we never prune unconfirmed messages; qed");
+						relayer_fee = relayer_fee.saturating_add(&message_data.fee);
+					}
 
+					if !relayer_fee.is_zero() {
 						<T as Config<I>>::MessageDeliveryAndDispatchPayment::pay_relayer_reward(
 							&confirmation_relayer,
 							&relayer,
-							&message_data.fee,
+							&relayer_fee,
 							&relayer_fund_account,
 						);
 					}
