@@ -17,7 +17,7 @@
 //! Submitting Ethereum -> Substrate exchange transactions.
 
 use bp_eth_poa::{
-	signatures::{SecretKey, SignTransaction},
+	signatures::{secret_to_address, SignTransaction},
 	UnsignedTransaction,
 };
 use relay_ethereum_client::{
@@ -56,7 +56,7 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 	let result: Result<_, String> = local_pool.run_until(async move {
 		let eth_client = EthereumClient::new(eth_params);
 
-		let eth_signer_address = eth_sign.signer.address();
+		let eth_signer_address = secret_to_address(&eth_sign.signer);
 		let sub_recipient_encoded = sub_recipient;
 		let nonce = match eth_nonce {
 			Some(eth_nonce) => eth_nonce,
@@ -83,11 +83,9 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 			value: eth_amount,
 			payload: sub_recipient_encoded.to_vec(),
 		};
-		let eth_tx_signed = eth_tx_unsigned.clone().sign_by(
-			&SecretKey::parse(eth_sign.signer.secret().as_fixed_bytes())
-				.expect("key is accepted by secp256k1::KeyPair and thus is valid; qed"),
-			Some(eth_sign.chain_id),
-		);
+		let eth_tx_signed = eth_tx_unsigned
+			.clone()
+			.sign_by(&eth_sign.signer, Some(eth_sign.chain_id));
 		eth_client
 			.submit_transaction(eth_tx_signed)
 			.await
