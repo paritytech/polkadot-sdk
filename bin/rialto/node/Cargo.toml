@@ -26,7 +26,7 @@ rialto-runtime = { path = "../runtime" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
-sc-cli = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-cli = { git = "https://github.com/paritytech/substrate.git", branch = "master", features = ["wasmtime"] }
 sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sc-consensus-aura = { git = "https://github.com/paritytech/substrate.git", branch = "master" }

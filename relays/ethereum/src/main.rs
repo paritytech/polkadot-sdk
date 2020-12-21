@@ -34,8 +34,8 @@ use ethereum_sync_loop::EthereumSyncParams;
 use headers_relay::sync::TargetTransactionMode;
 use hex_literal::hex;
 use instances::{BridgeInstance, Kovan, RialtoPoA};
-use parity_crypto::publickey::{KeyPair, Secret};
 use relay_utils::{initialize::initialize_relay, metrics::MetricsParams};
+use secp256k1::SecretKey;
 use sp_core::crypto::Pair;
 use substrate_sync_loop::SubstrateSyncParams;
 
@@ -134,10 +134,9 @@ fn ethereum_connection_params(matches: &clap::ArgMatches) -> Result<EthereumConn
 fn ethereum_signing_params(matches: &clap::ArgMatches) -> Result<EthereumSigningParams, String> {
 	let mut params = EthereumSigningParams::default();
 	if let Some(eth_signer) = matches.value_of("eth-signer") {
-		params.signer = eth_signer
-			.parse::<Secret>()
-			.map_err(|e| format!("Failed to parse eth-signer: {}", e))
-			.and_then(|secret| KeyPair::from_secret(secret).map_err(|e| format!("Invalid eth-signer: {}", e)))?;
+		params.signer =
+			SecretKey::parse_slice(&hex::decode(eth_signer).map_err(|e| format!("Failed to parse eth-signer: {}", e))?)
+				.map_err(|e| format!("Invalid eth-signer: {}", e))?;
 	}
 	if let Some(eth_chain_id) = matches.value_of("eth-chain-id") {
 		params.chain_id = eth_chain_id

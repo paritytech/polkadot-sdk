@@ -18,6 +18,7 @@ use crate::rpc_errors::RpcError;
 use crate::substrate_sync_loop::QueuedRialtoHeader;
 
 use async_trait::async_trait;
+use bp_eth_poa::signatures::secret_to_address;
 use codec::{Decode, Encode};
 use ethabi::FunctionOutputDecoder;
 use headers_relay::sync_types::SubmittedHeaders;
@@ -134,7 +135,7 @@ impl EthereumHighLevelRpc for EthereumClient {
 		headers: Vec<QueuedRialtoHeader>,
 	) -> SubmittedHeaders<RialtoHeaderId, RpcError> {
 		// read nonce of signer
-		let address: Address = params.signer.address().as_fixed_bytes().into();
+		let address: Address = secret_to_address(&params.signer);
 		let nonce = match self.account_nonce(address).await {
 			Ok(nonce) => nonce,
 			Err(error) => {

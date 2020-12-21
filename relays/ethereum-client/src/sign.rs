@@ -16,8 +16,9 @@
 
 use crate::types::{Address, CallRequest, U256};
 use crate::{Client, Result};
-
-use parity_crypto::publickey::KeyPair;
+use bp_eth_poa::signatures::{secret_to_address, SignTransaction};
+use hex_literal::hex;
+use secp256k1::SecretKey;
 
 /// Ethereum signing params.
 #[derive(Clone, Debug)]
@@ -25,7 +26,7 @@ pub struct SigningParams {
 	/// Ethereum chain id.
 	pub chain_id: u64,
 	/// Ethereum transactions signer.
-	pub signer: KeyPair,
+	pub signer: SecretKey,
 	/// Gas price we agree to pay.
 	pub gas_price: U256,
 }
@@ -37,10 +38,9 @@ impl Default for SigningParams {
 			// account that has a lot of ether when we run instant seal engine
 			// address: 0x00a329c0648769a73afac7f9381e08fb43dbea72
 			// secret: 0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
-			signer: KeyPair::from_secret_slice(
-				&hex::decode("4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7")
-					.expect("secret is hardcoded, thus valid; qed"),
-			)
+			signer: SecretKey::parse(&hex!(
+				"4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7"
+			))
 			.expect("secret is hardcoded, thus valid; qed"),
 			gas_price: 8_000_000_000u64.into(), // 8 Gwei
 		}
@@ -59,7 +59,7 @@ pub async fn sign_and_submit_transaction(
 	let nonce = if let Some(n) = nonce {
 		n
 	} else {
-		let address: Address = params.signer.address().as_fixed_bytes().into();
+		let address: Address = secret_to_address(&params.signer);
 		client.account_nonce(address).await?
 	};
 
@@ -70,15 +70,15 @@ pub async fn sign_and_submit_transaction(
 	};
 	let gas = client.estimate_gas(call_request).await?;
 
-	let raw_transaction = ethereum_tx_sign::RawTransaction {
+	let raw_transaction = bp_eth_poa::UnsignedTransaction {
 		nonce,
 		to: contract_address,
 		value: U256::zero(),
 		gas: if double_gas { gas.saturating_mul(2.into()) } else { gas },
 		gas_price: params.gas_price,
-		data: encoded_call,
+		payload: encoded_call,
 	}
-	.sign(&params.signer.secret().as_fixed_bytes().into(), &params.chain_id);
+	.sign_by(&params.signer, Some(params.chain_id));
 
 	let _ = client.submit_transaction(raw_transaction).await?;
 	Ok(())
