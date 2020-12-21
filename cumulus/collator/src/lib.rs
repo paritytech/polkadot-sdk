@@ -61,7 +61,7 @@ type TransactionFor<E, Block> =
 	<<E as Environment<Block>>::Proposer as Proposer<Block>>::Transaction;
 
 /// The implementation of the Cumulus `Collator`.
-pub struct Collator<Block: BlockT, PF, BI, BS, Backend, PBackend, PClient> {
+pub struct Collator<Block: BlockT, PF, BI, BS, Backend, PBackend, PClient, PBackend2> {
 	para_id: ParaId,
 	proposer_factory: Arc<Mutex<PF>>,
 	_phantom: PhantomData<(Block, PBackend)>,
@@ -71,10 +71,11 @@ pub struct Collator<Block: BlockT, PF, BI, BS, Backend, PBackend, PClient> {
 	wait_to_announce: Arc<Mutex<WaitToAnnounce<Block>>>,
 	backend: Arc<Backend>,
 	polkadot_client: Arc<PClient>,
+	polkadot_backend: Arc<PBackend2>,
 }
 
-impl<Block: BlockT, PF, BI, BS, Backend, PBackend, PClient> Clone
-	for Collator<Block, PF, BI, BS, Backend, PBackend, PClient>
+impl<Block: BlockT, PF, BI, BS, Backend, PBackend, PClient, PBackend2> Clone
+	for Collator<Block, PF, BI, BS, Backend, PBackend, PClient, PBackend2>
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -87,12 +88,13 @@ impl<Block: BlockT, PF, BI, BS, Backend, PBackend, PClient> Clone
 			wait_to_announce: self.wait_to_announce.clone(),
 			backend: self.backend.clone(),
 			polkadot_client: self.polkadot_client.clone(),
+			polkadot_backend: self.polkadot_backend.clone(),
 		}
 	}
 }
 
-impl<Block, PF, BI, BS, Backend, PBackend, PApi, PClient>
-	Collator<Block, PF, BI, BS, Backend, PBackend, PClient>
+impl<Block, PF, BI, BS, Backend, PBackend, PApi, PClient, PBackend2>
+	Collator<Block, PF, BI, BS, Backend, PBackend, PClient, PBackend2>
 where
 	Block: BlockT,
 	PF: Environment<Block> + 'static + Send,
@@ -110,6 +112,8 @@ where
 	PBackend::State: StateBackend<BlakeTwo256>,
 	PApi: RuntimeApiCollection<StateBackend = PBackend::State>,
 	PClient: polkadot_service::AbstractClient<PBlock, PBackend, Api = PApi> + 'static,
+	PBackend2: sc_client_api::Backend<PBlock> + 'static,
+	PBackend2::State: StateBackend<BlakeTwo256>,
 {
 	/// Create a new instance.
 	fn new(
@@ -123,6 +127,7 @@ where
 		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 		backend: Arc<Backend>,
 		polkadot_client: Arc<PClient>,
+		polkadot_backend: Arc<PBackend2>,
 	) -> Self {
 		let wait_to_announce = Arc::new(Mutex::new(WaitToAnnounce::new(
 			spawner,
@@ -140,6 +145,7 @@ where
 			wait_to_announce,
 			backend,
 			polkadot_client,
+			polkadot_backend,
 		}
 	}
 
@@ -208,8 +214,17 @@ where
 			})
 			.ok()?;
 
+		let validation_data = {
+			// TODO: Actual proof is to be created in the upcoming PRs.
+			let relay_chain_state = sp_state_machine::StorageProof::empty();
+			inherents::ValidationDataType {
+				validation_data: validation_data.clone(),
+				relay_chain_state,
+			}
+		};
+
 		inherent_data
-			.put_data(VALIDATION_DATA_IDENTIFIER, validation_data)
+			.put_data(VALIDATION_DATA_IDENTIFIER, &validation_data)
 			.map_err(|e| {
 				error!(
 					target: "cumulus-collator",
@@ -507,7 +522,7 @@ where
 }
 
 /// Parameters for [`start_collator`].
-pub struct StartCollatorParams<Block: BlockT, PF, BI, Backend, Client, BS, Spawner, PClient> {
+pub struct StartCollatorParams<Block: BlockT, PF, BI, Backend, Client, BS, Spawner, PClient, PBackend> {
 	pub proposer_factory: PF,
 	pub inherent_data_providers: InherentDataProviders,
 	pub backend: Arc<Backend>,
@@ -520,6 +535,7 @@ pub struct StartCollatorParams<Block: BlockT, PF, BI, Backend, Client, BS, Spawn
 	pub para_id: ParaId,
 	pub key: CollatorPair,
 	pub polkadot_client: Arc<PClient>,
+	pub polkadot_backend: Arc<PBackend>,
 }
 
 pub async fn start_collator<
@@ -532,6 +548,7 @@ pub async fn start_collator<
 	Spawner,
 	PClient,
 	PBackend,
+	PBackend2,
 	PApi,
 >(
 	StartCollatorParams {
@@ -547,7 +564,8 @@ pub async fn start_collator<
 		para_id,
 		key,
 		polkadot_client,
-	}: StartCollatorParams<Block, PF, BI, Backend, Client, BS, Spawner, PClient>,
+		polkadot_backend,
+	}: StartCollatorParams<Block, PF, BI, Backend, Client, BS, Spawner, PClient, PBackend2>,
 ) -> Result<(), String>
 where
 	PF: Environment<Block> + Send + 'static,
@@ -570,6 +588,8 @@ where
 	PBackend::State: StateBackend<BlakeTwo256>,
 	PApi: RuntimeApiCollection<StateBackend = PBackend::State>,
 	PClient: polkadot_service::AbstractClient<PBlock, PBackend, Api = PApi> + 'static,
+	PBackend2: sc_client_api::Backend<PBlock> + 'static,
+	PBackend2::State: StateBackend<BlakeTwo256>,
 {
 	let follow = match cumulus_consensus::follow_polkadot(
 		para_id,
@@ -594,6 +614,7 @@ where
 		announce_block,
 		backend,
 		polkadot_client,
+		polkadot_backend,
 	);
 
 	let config = CollationGenerationConfig {
@@ -725,24 +746,27 @@ mod tests {
 
 		spawner.spawn("overseer", overseer.run().then(|_| async { () }).boxed());
 
-		let (polkadot_client, relay_parent) = {
+		let (polkadot_client, polkadot_backend, relay_parent) = {
 			// Create a polkadot client with a block imported.
 			use polkadot_test_client::{
 				ClientBlockImportExt as _, DefaultTestClientBuilderExt as _,
 				InitPolkadotBlockBuilder as _, TestClientBuilderExt as _,
 			};
-			let mut client = polkadot_test_client::TestClientBuilder::new().build();
+
+			let client_builder = polkadot_test_client::TestClientBuilder::new();
+			let polkadot_backend = client_builder.backend();
+			let mut client = client_builder.build();
 			let block_builder = client.init_polkadot_block_builder();
 			let block = block_builder.build().expect("Finalizes the block").block;
 			let hash = block.header().hash();
 			client
 				.import_as_best(BlockOrigin::Own, block)
 				.expect("Imports the block");
-			(client, hash)
+			(client, polkadot_backend, hash)
 		};
 
 		let collator_start =
-			start_collator::<_, _, _, _, _, _, _, _, polkadot_service::FullBackend, _>(
+			start_collator::<_, _, _, _, _, _, _, _, polkadot_service::FullBackend, _, _>(
 				StartCollatorParams {
 					proposer_factory: DummyFactory(client.clone()),
 					inherent_data_providers: Default::default(),
@@ -756,6 +780,7 @@ mod tests {
 					para_id,
 					key: CollatorPair::generate().0,
 					polkadot_client: Arc::new(polkadot_client),
+					polkadot_backend,
 				},
 			);
 		block_on(collator_start).expect("Should start collator");

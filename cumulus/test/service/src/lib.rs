@@ -223,6 +223,7 @@ where
 			prometheus_registry.as_ref(),
 		);
 
+		let polkadot_backend = polkadot_full_node.backend.clone();
 		let params = StartCollatorParams {
 			proposer_factory,
 			inherent_data_providers: params.inherent_data_providers,
@@ -236,6 +237,7 @@ where
 			para_id,
 			collator_key,
 			polkadot_full_node,
+			polkadot_backend,
 		};
 
 		start_collator(params).await?;

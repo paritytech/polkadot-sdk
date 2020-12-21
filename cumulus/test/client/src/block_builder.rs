@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::Client;
-use cumulus_primitives::{inherents::VALIDATION_DATA_IDENTIFIER, ValidationData};
+use cumulus_primitives::{inherents::{VALIDATION_DATA_IDENTIFIER, ValidationDataType}, ValidationData};
 use cumulus_test_runtime::GetLastTimestamp;
 use polkadot_primitives::v1::BlockNumber as PBlockNumber;
 use sc_block_builder::BlockBuilderApi;
@@ -47,7 +47,10 @@ pub fn generate_block_inherents(
 	inherent_data
 		.put_data(
 			VALIDATION_DATA_IDENTIFIER,
-			&validation_data.unwrap_or_default(),
+			&ValidationDataType {
+				validation_data: validation_data.unwrap_or_default(),
+				relay_chain_state: sp_state_machine::StorageProof::empty(),
+			},
 		)
 		.expect("Put validation function params failed");
 

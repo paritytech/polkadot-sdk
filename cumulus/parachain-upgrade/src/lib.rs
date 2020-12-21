@@ -30,7 +30,7 @@
 //! Users must ensure that they register this pallet as an inherent provider.
 
 use cumulus_primitives::{
-	inherents::VALIDATION_DATA_IDENTIFIER as INHERENT_IDENTIFIER,
+	inherents::{ValidationDataType, VALIDATION_DATA_IDENTIFIER as INHERENT_IDENTIFIER},
 	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_DATA},
 	OnValidationData, ValidationData,
 };
@@ -106,9 +106,14 @@ decl_module! {
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
 		#[weight = (0, DispatchClass::Mandatory)]
-		fn set_validation_data(origin, vfp: ValidationData) {
+		fn set_validation_data(origin, data: ValidationDataType) {
 			ensure_none(origin)?;
 			assert!(!DidUpdateValidationData::exists(), "ValidationData must be updated only once in a block");
+
+			let ValidationDataType {
+				validation_data: vfp,
+				relay_chain_state,
+			} = data;
 
 			// initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
@@ -123,6 +128,10 @@ decl_module! {
 
 			storage::unhashed::put(VALIDATION_DATA, &vfp);
 			DidUpdateValidationData::put(true);
+
+			// TODO: here we should extract the key value pairs out of the storage proof.
+			drop(relay_chain_state);
+
 			<T::OnValidationData as OnValidationData>::on_validation_data(vfp);
 		}
 
@@ -219,7 +228,7 @@ impl<T: Config> ProvideInherent for Module<T> {
 	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-		let data: ValidationData = data
+		let data: ValidationDataType = data
 			.get_data(&INHERENT_IDENTIFIER)
 			.ok()
 			.flatten()
@@ -489,7 +498,10 @@ mod tests {
 					let inherent_data = {
 						let mut inherent_data = InherentData::default();
 						inherent_data
-							.put_data(INHERENT_IDENTIFIER, &vfp)
+							.put_data(INHERENT_IDENTIFIER, &ValidationDataType {
+								validation_data: vfp.clone(),
+								relay_chain_state: sp_state_machine::StorageProof::empty(),
+							})
 							.expect("failed to put VFP inherent");
 						inherent_data
 					};

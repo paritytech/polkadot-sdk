@@ -57,7 +57,14 @@ pub mod inherents {
 	/// The identifier for the `set_validation_data` inherent.
 	pub const VALIDATION_DATA_IDENTIFIER: InherentIdentifier = *b"valfunp0";
 	/// The type of the inherent.
-	pub type ValidationDataType = crate::ValidationData;
+	#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq)]
+	pub struct ValidationDataType {
+		pub validation_data: crate::ValidationData,
+		/// A storage proof of a predefined set of keys from the relay-chain.
+		///
+		/// The set of keys is TBD
+		pub relay_chain_state: sp_trie::StorageProof,
+	}
 }
 
 /// Well known keys for values in the storage.

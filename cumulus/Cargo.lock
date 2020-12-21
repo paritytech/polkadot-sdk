@@ -1140,6 +1140,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-runtime",
+ "sp-state-machine",
  "sp-std",
  "sp-version",
  "substrate-test-runtime-client",
@@ -1159,6 +1160,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
@@ -1232,6 +1234,7 @@ dependencies = [
  "sp-inherents",
  "sp-keyring",
  "sp-runtime",
+ "sp-state-machine",
  "sp-test-primitives",
  "sp-timestamp",
  "substrate-test-client",
