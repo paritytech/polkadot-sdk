@@ -59,9 +59,10 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		_generated_at_block: MillauHeaderId,
 		proof: <Self as MessageLane>::MessagesReceivingProof,
 	) -> Result<Self::SourceSignedTransaction, SubstrateError> {
+		let (relayers_state, proof) = proof;
 		let account_id = self.source_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.source_client.next_account_index(account_id).await?;
-		let call = rialto_runtime::MessageLaneCall::receive_messages_delivery_proof(proof).into();
+		let call = rialto_runtime::MessageLaneCall::receive_messages_delivery_proof(proof, relayers_state).into();
 		let transaction = Rialto::sign_transaction(&self.source_client, &self.source_sign.signer, nonce, call);
 		Ok(transaction)
 	}

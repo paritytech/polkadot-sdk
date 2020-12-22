@@ -37,7 +37,7 @@ use sp_trie::StorageProof;
 use std::ops::RangeInclusive;
 
 /// Message receiving proof returned by the target Substrate node.
-pub type SubstrateMessagesReceivingProof<C> = (HashOf<C>, StorageProof, LaneId);
+pub type SubstrateMessagesReceivingProof<C> = (UnrewardedRelayersState, (HashOf<C>, StorageProof, LaneId));
 
 /// Substrate client as Substrate messages target.
 pub struct SubstrateMessagesTarget<C: Chain, P> {
@@ -156,12 +156,13 @@ where
 		&self,
 		id: TargetHeaderIdOf<P>,
 	) -> Result<(TargetHeaderIdOf<P>, P::MessagesReceivingProof), Self::Error> {
+		let (id, relayers_state) = self.unrewarded_relayers_state(id).await?;
 		let proof = self
 			.client
 			.prove_messages_delivery(self.instance, self.lane_id, id.1)
 			.await?;
 		let proof = (id.1, proof, self.lane_id);
-		Ok((id, proof))
+		Ok((id, (relayers_state, proof)))
 	}
 
 	async fn submit_messages_proof(
