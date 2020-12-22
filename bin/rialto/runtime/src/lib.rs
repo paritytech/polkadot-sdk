@@ -425,6 +425,7 @@ parameter_types! {
 pub(crate) type WithMillauMessageLaneInstance = pallet_message_lane::DefaultInstance;
 impl pallet_message_lane::Config for Runtime {
 	type Event = Event;
+	type WeightInfo = pallet_message_lane::weights::RialtoWeight<Runtime>;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
