@@ -35,11 +35,12 @@ use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
 use bp_message_lane::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
+	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload,
+	OutboundLaneData, UnrewardedRelayersState,
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage,
+	decl_error, decl_event, decl_module, decl_storage, ensure,
 	traits::Get,
 	weights::{DispatchClass, Weight},
 	Parameter, StorageMap,
@@ -156,6 +157,8 @@ decl_error! {
 		InvalidMessagesDispatchWeight,
 		/// Invalid messages delivery proof has been submitted.
 		InvalidMessagesDeliveryProof,
+		/// The relayer has declared invalid unrewarded relayers state in the `receive_messages_delivery_proof` call.
+		InvalidUnrewardedRelayersState,
 	}
 }
 
@@ -408,7 +411,11 @@ decl_module! {
 
 		/// Receive messages delivery proof from bridged chain.
 		#[weight = 0] // TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
-		pub fn receive_messages_delivery_proof(origin, proof: MessagesDeliveryProofOf<T, I>) -> DispatchResult {
+		pub fn receive_messages_delivery_proof(
+			origin,
+			proof: MessagesDeliveryProofOf<T, I>,
+			relayers_state: UnrewardedRelayersState,
+		) -> DispatchResult {
 			ensure_operational::<T, I>()?;
 
 			let confirmation_relayer = ensure_signed(origin)?;
@@ -420,6 +427,14 @@ decl_module! {
 
 				Error::<T, I>::InvalidMessagesDeliveryProof
 			})?;
+
+			// verify that the relayer has declared correct `lane_data::relayers` state
+			// (we only care about total number of entries and messages, because this affects call weight)
+			ensure!(
+				total_unrewarded_messages(&lane_data.relayers) == relayers_state.total_messages
+					&& lane_data.relayers.len() as MessageNonce == relayers_state.unrewarded_relayer_entries,
+				Error::<T, I>::InvalidUnrewardedRelayersState
+			);
 
 			// mark messages as delivered
 			let mut lane = outbound_lane::<T, I>(lane_id);
@@ -501,6 +516,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 		bp_message_lane::UnrewardedRelayersState {
 			unrewarded_relayer_entries: relayers.len() as _,
 			messages_in_oldest_entry: relayers.front().map(|(begin, end, _)| 1 + end - begin).unwrap_or(0),
+			total_messages: total_unrewarded_messages(&relayers),
 		}
 	}
 }
@@ -754,8 +770,9 @@ mod tests {
 				InboundLaneData {
 					latest_received_nonce: 1,
 					..Default::default()
-				}
+				},
 			)),
+			Default::default(),
 		));
 
 		assert_eq!(
@@ -863,8 +880,9 @@ mod tests {
 						InboundLaneData {
 							latest_received_nonce: 1,
 							..Default::default()
-						}
+						},
 					)),
+					Default::default(),
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
 			);
@@ -955,6 +973,7 @@ mod tests {
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,
+					total_messages: 2,
 				},
 			);
 
@@ -988,6 +1007,7 @@ mod tests {
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,
+					total_messages: 2,
 				},
 			);
 		});
@@ -1065,6 +1085,11 @@ mod tests {
 						..Default::default()
 					}
 				)),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					total_messages: 1,
+					..Default::default()
+				},
 			));
 			assert!(TestMessageDeliveryAndDispatchPayment::is_reward_paid(
 				TEST_RELAYER_A,
@@ -1088,6 +1113,11 @@ mod tests {
 						..Default::default()
 					}
 				)),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 2,
+					total_messages: 2,
+					..Default::default()
+				},
 			));
 			assert!(!TestMessageDeliveryAndDispatchPayment::is_reward_paid(
 				TEST_RELAYER_A,
@@ -1104,8 +1134,59 @@ mod tests {
 	fn receive_messages_delivery_proof_rejects_invalid_proof() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_delivery_proof(Origin::signed(1), Err(()),),
+				Module::<TestRuntime>::receive_messages_delivery_proof(Origin::signed(1), Err(()), Default::default(),),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDeliveryProof,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_delivery_proof_rejects_proof_if_declared_relayers_state_is_invalid() {
+		run_test(|| {
+			// when number of relayers entires is invalid
+			assert_noop!(
+				Module::<TestRuntime>::receive_messages_delivery_proof(
+					Origin::signed(1),
+					Ok((
+						TEST_LANE_ID,
+						InboundLaneData {
+							relayers: vec![(1, 1, TEST_RELAYER_A), (2, 2, TEST_RELAYER_B)]
+								.into_iter()
+								.collect(),
+							latest_received_nonce: 2,
+							..Default::default()
+						}
+					)),
+					UnrewardedRelayersState {
+						unrewarded_relayer_entries: 1,
+						total_messages: 2,
+						..Default::default()
+					},
+				),
+				Error::<TestRuntime, DefaultInstance>::InvalidUnrewardedRelayersState,
+			);
+
+			// when number of messages is invalid
+			assert_noop!(
+				Module::<TestRuntime>::receive_messages_delivery_proof(
+					Origin::signed(1),
+					Ok((
+						TEST_LANE_ID,
+						InboundLaneData {
+							relayers: vec![(1, 1, TEST_RELAYER_A), (2, 2, TEST_RELAYER_B)]
+								.into_iter()
+								.collect(),
+							latest_received_nonce: 2,
+							..Default::default()
+						}
+					)),
+					UnrewardedRelayersState {
+						unrewarded_relayer_entries: 2,
+						total_messages: 1,
+						..Default::default()
+					},
+				),
+				Error::<TestRuntime, DefaultInstance>::InvalidUnrewardedRelayersState,
 			);
 		});
 	}
