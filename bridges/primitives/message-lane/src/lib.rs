@@ -103,13 +103,15 @@ impl<RelayerId> Default for InboundLaneData<RelayerId> {
 }
 
 /// Gist of `InboundLaneData::relayers` field used by runtime APIs.
-#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
+#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
 pub struct UnrewardedRelayersState {
 	/// Number of entries in the `InboundLaneData::relayers` set.
 	pub unrewarded_relayer_entries: MessageNonce,
 	/// Number of messages in the oldest entry of `InboundLaneData::relayers`. This is the
 	/// minimal number of reward proofs required to push out this entry from the set.
 	pub messages_in_oldest_entry: MessageNonce,
+	/// Total number of messages in the relayers vector.
+	pub total_messages: MessageNonce,
 }
 
 /// Outbound lane data.
@@ -132,5 +134,15 @@ impl Default for OutboundLaneData {
 			latest_received_nonce: 0,
 			latest_generated_nonce: 0,
 		}
+	}
+}
+
+/// Returns total number of messages in the `InboundLaneData::relayers` vector.
+pub fn total_unrewarded_messages<RelayerId>(
+	relayers: &VecDeque<(MessageNonce, MessageNonce, RelayerId)>,
+) -> MessageNonce {
+	match (relayers.front(), relayers.back()) {
+		(Some((begin, _, _)), Some((_, end, _))) => end.checked_sub(*begin).and_then(|d| d.checked_add(1)).unwrap_or(0),
+		_ => 0,
 	}
 }
