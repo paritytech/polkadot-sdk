@@ -31,6 +31,7 @@
 
 use crate::inbound_lane::{InboundLane, InboundLaneStorage};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
+use crate::weights::WeightInfo;
 
 use bp_message_lane::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
@@ -54,6 +55,7 @@ mod inbound_lane;
 mod outbound_lane;
 
 pub mod instant_payments;
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -75,6 +77,8 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 
 	/// They overarching event type.
 	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
+	/// Benchmarks results from runtime we're plugged into.
+	type WeightInfo: WeightInfo;
 	/// Maximal number of messages that may be pruned during maintenance. Maintenance occurs
 	/// whenever new message is sent. The reason is that if you want to use lane, you should
 	/// be ready to pay for its maintenance.

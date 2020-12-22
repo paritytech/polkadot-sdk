@@ -101,6 +101,7 @@ parameter_types! {
 
 impl Config for TestRuntime {
 	type Event = TestEvent;
+	type WeightInfo = ();
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
