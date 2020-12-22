@@ -22,7 +22,7 @@ use crate::{
 
 use bp_message_lane::{
 	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, InboundLaneData, LaneId, MessageData,
-	MessageNonce, OutboundLaneData,
+	MessageNonce, OutboundLaneData, UnrewardedRelayersState,
 };
 use frame_benchmarking::{account, benchmarks_instance};
 use frame_support::{traits::Get, weights::Weight};
@@ -232,6 +232,11 @@ benchmarks_instance! {
 		// send message that we're going to confirm
 		send_regular_message::<T, I>();
 
+		let relayers_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			messages_in_oldest_entry: 1,
+			total_messages: 1,
+		};
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
@@ -240,7 +245,7 @@ benchmarks_instance! {
 				latest_confirmed_nonce: 0,
 			}
 		});
-	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof)
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
 		assert_eq!(
 			T::account_balance(&relayer_id),
@@ -265,6 +270,11 @@ benchmarks_instance! {
 		send_regular_message::<T, I>();
 		send_regular_message::<T, I>();
 
+		let relayers_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			messages_in_oldest_entry: 2,
+			total_messages: 2,
+		};
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
@@ -273,7 +283,7 @@ benchmarks_instance! {
 				latest_confirmed_nonce: 0,
 			}
 		});
-	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof)
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
 		assert_eq!(
 			T::account_balance(&relayer_id),
@@ -300,6 +310,11 @@ benchmarks_instance! {
 		send_regular_message::<T, I>();
 		send_regular_message::<T, I>();
 
+		let relayers_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 2,
+			messages_in_oldest_entry: 1,
+			total_messages: 2,
+		};
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
@@ -311,7 +326,7 @@ benchmarks_instance! {
 				latest_confirmed_nonce: 0,
 			}
 		});
-	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof)
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof, relayers_state)
 	verify {
 		assert_eq!(
 			T::account_balance(&relayer1_id),
@@ -426,6 +441,11 @@ benchmarks_instance! {
 			send_regular_message::<T, I>();
 		}
 
+		let relayers_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			messages_in_oldest_entry: 1,
+			total_messages: i as MessageNonce,
+		};
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
@@ -434,7 +454,7 @@ benchmarks_instance! {
 				latest_confirmed_nonce: 0,
 			}
 		});
-	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof)
+	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
 		assert_eq!(
 			T::account_balance(&relayer_id),
@@ -466,6 +486,11 @@ benchmarks_instance! {
 			send_regular_message::<T, I>();
 		}
 
+		let relayers_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: i as MessageNonce,
+			messages_in_oldest_entry: 1,
+			total_messages: i as MessageNonce,
+		};
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
@@ -478,7 +503,7 @@ benchmarks_instance! {
 				latest_confirmed_nonce: 0,
 			}
 		});
-	}: receive_messages_delivery_proof(RawOrigin::Signed(confirmation_relayer_id), proof)
+	}: receive_messages_delivery_proof(RawOrigin::Signed(confirmation_relayer_id), proof, relayers_state)
 	verify {
 		for (relayer_id, prev_balance) in relayers {
 			assert_eq!(
