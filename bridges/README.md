@@ -15,6 +15,7 @@ Substrate chains or Ethereum Proof-of-Authority chains.
 - [High-Level Architecture](#high-level-architecture)
 - [Project Layout](#project-layout)
 - [Running the Bridge](#running-the-bridge)
+- [Community](#community)
 
 ## Installation
 To get up and running you need both stable and nightly Rust. Rust nightly is used to build the Web
@@ -189,3 +190,16 @@ Once you have the images built you can use them in the previous commands by repl
 
 For a more sophisticated deployment which includes bidirectional header sync, message passing,
 monitoring dashboards, etc. see the [Deployments README](./deployments/README.md).
+
+## Community
+
+Main hangout for the community is [Element](https://element.io/) (formerly Riot). Element is a chat
+server like, for example, Discord. Most discussions around Polkadot and Substrate happen
+in various Element "rooms" (channels). So, joining Element might be a good idea, anyway.
+
+If you are interested in information exchange and development of Polkadot related bridges please
+feel free to join the [Polkadot Bridges](https://app.element.io/#/room/#bridges:web3.foundation)
+Element channel.
+
+The [Substrate Technical](https://app.element.io/#/room/#substrate-technical:matrix.org) Element
+channel is most suited for discussions regarding Substrate itself.
