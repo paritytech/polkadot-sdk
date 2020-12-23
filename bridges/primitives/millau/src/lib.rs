@@ -28,6 +28,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_PER_MILLIS, DispatchClass, Weight},
 	RuntimeDebug,
 };
+use frame_system::limits;
 use sp_core::Hasher as HasherT;
 use sp_runtime::traits::Convert;
 use sp_runtime::{
@@ -41,36 +42,6 @@ use sp_trie::{trie_types::Layout, TrieConfiguration};
 use serde::{Deserialize, Serialize};
 
 pub use millau_hash::MillauHash;
-
-/// Millau Hasher (Blake2-256 ++ Keccak-256) implementation.
-#[derive(PartialEq, Eq, Clone, Copy, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct BlakeTwoAndKeccak256;
-
-impl sp_core::Hasher for BlakeTwoAndKeccak256 {
-	type Out = MillauHash;
-	type StdHasher = hash256_std_hasher::Hash256StdHasher;
-	const LENGTH: usize = 64;
-
-	fn hash(s: &[u8]) -> Self::Out {
-		let mut combined_hash = MillauHash::default();
-		combined_hash.as_mut()[..32].copy_from_slice(&sp_io::hashing::blake2_256(s));
-		combined_hash.as_mut()[32..].copy_from_slice(&sp_io::hashing::keccak_256(s));
-		combined_hash
-	}
-}
-
-impl sp_runtime::traits::Hash for BlakeTwoAndKeccak256 {
-	type Output = MillauHash;
-
-	fn trie_root(input: Vec<(Vec<u8>, Vec<u8>)>) -> Self::Output {
-		Layout::<BlakeTwoAndKeccak256>::trie_root(input)
-	}
-
-	fn ordered_trie_root(input: Vec<Vec<u8>>) -> Self::Output {
-		Layout::<BlakeTwoAndKeccak256>::ordered_trie_root(input)
-	}
-}
 
 /// Maximum weight of single Millau block.
 ///
@@ -102,6 +73,19 @@ pub type Hasher = BlakeTwoAndKeccak256;
 /// The header type used by Millau.
 pub type Header = sp_runtime::generic::Header<BlockNumber, Hasher>;
 
+/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
+pub type Signature = MultiSignature;
+
+/// Some way of identifying an account on the chain. We intentionally make it equivalent
+/// to the public key of our transaction signing scheme.
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+/// Public key of the chain account that may be used to verify signatures.
+pub type AccountSigner = MultiSigner;
+
+/// Balance of an account.
+pub type Balance = u64;
+
 /// Millau chain.
 #[derive(RuntimeDebug)]
 pub struct Millau;
@@ -111,6 +95,91 @@ impl Chain for Millau {
 	type Hash = Hash;
 	type Hasher = Hasher;
 	type Header = Header;
+}
+
+/// Millau Hasher (Blake2-256 ++ Keccak-256) implementation.
+#[derive(PartialEq, Eq, Clone, Copy, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct BlakeTwoAndKeccak256;
+
+impl sp_core::Hasher for BlakeTwoAndKeccak256 {
+	type Out = MillauHash;
+	type StdHasher = hash256_std_hasher::Hash256StdHasher;
+	const LENGTH: usize = 64;
+
+	fn hash(s: &[u8]) -> Self::Out {
+		let mut combined_hash = MillauHash::default();
+		combined_hash.as_mut()[..32].copy_from_slice(&sp_io::hashing::blake2_256(s));
+		combined_hash.as_mut()[32..].copy_from_slice(&sp_io::hashing::keccak_256(s));
+		combined_hash
+	}
+}
+
+impl sp_runtime::traits::Hash for BlakeTwoAndKeccak256 {
+	type Output = MillauHash;
+
+	fn trie_root(input: Vec<(Vec<u8>, Vec<u8>)>) -> Self::Output {
+		Layout::<BlakeTwoAndKeccak256>::trie_root(input)
+	}
+
+	fn ordered_trie_root(input: Vec<Vec<u8>>) -> Self::Output {
+		Layout::<BlakeTwoAndKeccak256>::ordered_trie_root(input)
+	}
+}
+
+/// Convert a 256-bit hash into an AccountId.
+pub struct AccountIdConverter;
+
+impl sp_runtime::traits::Convert<sp_core::H256, AccountId> for AccountIdConverter {
+	fn convert(hash: sp_core::H256) -> AccountId {
+		hash.to_fixed_bytes().into()
+	}
+}
+
+/// We use this to get the account on Millau (target) which is derived from Rialto's (source)
+/// account. We do this so we can fund the derived account on Millau at Genesis to it can pay
+/// transaction fees.
+///
+/// The reason we can use the same `AccountId` type for both chains is because they share the same
+/// development seed phrase.
+///
+/// Note that this should only be used for testing.
+pub fn derive_account_from_rialto_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
+	let encoded_id = bp_runtime::derive_account_id(bp_runtime::RIALTO_BRIDGE_INSTANCE, id);
+	AccountIdConverter::convert(encoded_id)
+}
+
+frame_support::parameter_types! {
+	pub BlockLength: limits::BlockLength =
+		limits::BlockLength::max_with_normal_ratio(2 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
+		// Allowance for Normal class
+		.for_class(DispatchClass::Normal, |weights| {
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		// Allowance for Operational class
+		.for_class(DispatchClass::Operational, |weights| {
+			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			// Extra reserved space for Operational class
+			weights.reserved = Some(MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		// By default Mandatory class is not limited at all.
+		// This parameter is used to derive maximal size of a single extrinsic.
+		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+		.build_or_panic();
+}
+
+/// Get the maximum weight (compute time) that a Normal extrinsic on the Millau chain can use.
+pub fn max_extrinsic_weight() -> Weight {
+	BlockWeights::get()
+		.get(DispatchClass::Normal)
+		.max_extrinsic
+		.unwrap_or(Weight::MAX)
+}
+
+/// Get the maximum length in bytes that a Normal extrinsic on the Millau chain requires.
+pub fn max_extrinsic_size() -> u32 {
+	*BlockLength::get().max.get(DispatchClass::Normal)
 }
 
 /// Name of the `MillauHeaderApi::best_block` runtime method.
@@ -135,78 +204,6 @@ pub const FROM_MILLAU_LATEST_RECEIVED_NONCE_METHOD: &str = "FromMillauInboundLan
 pub const FROM_MILLAU_LATEST_CONFIRMED_NONCE_METHOD: &str = "FromMillauInboundLaneApi_latest_confirmed_nonce";
 /// Name of the `FromMillauInboundLaneApi::unrewarded_relayers_state` runtime method.
 pub const FROM_MILLAU_UNREWARDED_RELAYERS_STATE: &str = "FromMillauInboundLaneApi_unrewarded_relayers_state";
-
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-/// Public key of the chain account that may be used to verify signatures.
-pub type AccountSigner = MultiSigner;
-
-/// Balance of an account.
-pub type Balance = u64;
-
-/// Convert a 256-bit hash into an AccountId.
-pub struct AccountIdConverter;
-
-impl sp_runtime::traits::Convert<sp_core::H256, AccountId> for AccountIdConverter {
-	fn convert(hash: sp_core::H256) -> AccountId {
-		hash.to_fixed_bytes().into()
-	}
-}
-
-/// We use this to get the account on Millau (target) which is derived from Rialto's (source)
-/// account. We do this so we can fund the derived account on Millau at Genesis to it can pay
-/// transaction fees.
-///
-/// The reason we can use the same `AccountId` type for both chains is because they share the same
-/// development seed phrase.
-///
-/// Note that this should only be used for testing.
-pub fn derive_account_from_rialto_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
-	let encoded_id = bp_runtime::derive_account_id(bp_runtime::RIALTO_BRIDGE_INSTANCE, id);
-	AccountIdConverter::convert(encoded_id)
-}
-
-/// Get a struct which defines the weight limits and values used during extrinsic execution.
-pub fn runtime_block_weights() -> frame_system::limits::BlockWeights {
-	frame_system::limits::BlockWeights::builder()
-		// Allowance for Normal class
-		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		})
-		// Allowance for Operational class
-		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
-			// Extra reserved space for Operational class
-			weights.reserved = Some(MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		})
-		// By default Mandatory class is not limited at all.
-		// This parameter is used to derive maximal size of a single extrinsic.
-		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
-		.build_or_panic()
-}
-
-/// Get the maximum weight (compute time) that a Normal extrinsic on the Millau chain can use.
-pub fn max_extrinsic_weight() -> Weight {
-	runtime_block_weights()
-		.get(DispatchClass::Normal)
-		.max_extrinsic
-		.unwrap_or(Weight::MAX)
-}
-
-/// Get a struct which tracks the length in bytes for each extrinsic class in a Millau block.
-pub fn runtime_block_length() -> frame_system::limits::BlockLength {
-	frame_system::limits::BlockLength::max_with_normal_ratio(2 * 1024 * 1024, NORMAL_DISPATCH_RATIO)
-}
-
-/// Get the maximum length in bytes that a Normal extrinsic on the Millau chain requires.
-pub fn max_extrinsic_size() -> u32 {
-	*runtime_block_length().max.get(DispatchClass::Normal)
-}
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about Millau headers from the Bridge Pallet instance.
