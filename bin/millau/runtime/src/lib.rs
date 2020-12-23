@@ -31,7 +31,6 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod rialto_messages;
 
 use codec::Decode;
-use frame_system::limits;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -155,9 +154,6 @@ parameter_types! {
 		read: 60_000_000, // ~0.06 ms = ~60 µs
 		write: 200_000_000, // ~0.2 ms = 200 µs
 	};
-
-	pub RuntimeBlockLength: limits::BlockLength = bp_millau::runtime_block_length();
-	pub RuntimeBlockWeights: limits::BlockWeights = bp_millau::runtime_block_weights();
 }
 
 impl frame_system::Config for Runtime {
@@ -199,9 +195,9 @@ impl frame_system::Config for Runtime {
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = ();
 	/// Block and extrinsics weights: base values and limits.
-	type BlockWeights = RuntimeBlockWeights;
+	type BlockWeights = bp_millau::BlockWeights;
 	/// The maximum length of a block (in bytes).
-	type BlockLength = RuntimeBlockLength;
+	type BlockLength = bp_millau::BlockLength;
 	/// The weight of database operations that the runtime can invoke.
 	type DbWeight = DbWeight;
 }

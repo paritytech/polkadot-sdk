@@ -31,6 +31,18 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+// TODO: may need to be updated after https://github.com/paritytech/parity-bridges-common/issues/78
+/// Maximal number of messages in single delivery transaction.
+pub const MAX_MESSAGES_IN_DELIVERY_TRANSACTION: MessageNonce = 128;
+
+/// Maximal number of unrewarded relayer entries at inbound lane.
+pub const MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE: MessageNonce = 128;
+
+// TODO: should be selected keeping in mind:
+// finality delay on both chains + reward payout cost + messages throughput.
+/// Maximal number of unconfirmed messages at inbound lane.
+pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 8192;
+
 /// Block number type used in Kusama.
 pub type BlockNumber = u32;
 
@@ -75,6 +87,15 @@ impl Chain for Kusama {
 	type Header = Header;
 }
 
+/// Convert a 256-bit hash into an AccountId.
+pub struct AccountIdConverter;
+
+impl sp_runtime::traits::Convert<sp_core::H256, AccountId> for AccountIdConverter {
+	fn convert(hash: sp_core::H256) -> AccountId {
+		hash.to_fixed_bytes().into()
+	}
+}
+
 /// Name of the `KusamaHeaderApi::best_blocks` runtime method.
 pub const BEST_KUSAMA_BLOCKS_METHOD: &str = "KusamaHeaderApi_best_blocks";
 /// Name of the `KusamaHeaderApi::finalized_block` runtime method.
@@ -83,13 +104,6 @@ pub const FINALIZED_KUSAMA_BLOCK_METHOD: &str = "KusamaHeaderApi_finalized_block
 pub const IS_KNOWN_KUSAMA_BLOCK_METHOD: &str = "KusamaHeaderApi_is_known_block";
 /// Name of the `KusamaHeaderApi::incomplete_headers` runtime method.
 pub const INCOMPLETE_KUSAMA_HEADERS_METHOD: &str = "KusamaHeaderApi_incomplete_headers";
-
-/// Maximal weight of single Kusama extrinsic.
-pub const MAXIMUM_EXTRINSIC_WEIGHT: Weight = 725_000_000_000;
-
-// TODO: should be selected keeping in mind: finality delay on both chains + reward payout cost + messages throughput.
-/// Maximal number of unconfirmed messages at inbound lane.
-pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 8192;
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about Kusama headers from the Bridge Pallet instance.
