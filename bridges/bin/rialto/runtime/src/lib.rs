@@ -1006,6 +1006,11 @@ mod tests {
 	}
 
 	#[test]
+	fn ensure_rialto_message_lane_weights_are_correct() {
+		pallet_message_lane::ensure_weights_are_correct::<pallet_message_lane::weights::RialtoWeight<Runtime>>();
+	}
+
+	#[test]
 	fn deposit_into_existing_account_works() {
 		run_deposit_into_test(|existing_account| {
 			let initial_amount =
