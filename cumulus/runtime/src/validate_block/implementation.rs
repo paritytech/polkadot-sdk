@@ -290,10 +290,6 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.storage_append(key, value)
 	}
 
-	fn chain_id(&self) -> u64 {
-		42
-	}
-
 	fn storage_root(&mut self) -> Vec<u8> {
 		self.inner.storage_root()
 	}

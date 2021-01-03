@@ -335,6 +335,7 @@ mod tests {
 		type DbWeight = ();
 		type BaseCallFilter = ();
 		type SystemWeightInfo = ();
+		type SS58Prefix = ();
 	}
 	impl Config for Test {
 		type Event = TestEvent;

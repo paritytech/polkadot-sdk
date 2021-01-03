@@ -106,6 +106,7 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
 	pub const ExtrinsicBaseWeight: Weight = 10_000_000;
+	pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Runtime {
@@ -149,6 +150,7 @@ impl frame_system::Config for Runtime {
 	type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
 	type BaseCallFilter = ();
 	type SystemWeightInfo = ();
+	type SS58Prefix = SS58Prefix;
 }
 
 parameter_types! {
