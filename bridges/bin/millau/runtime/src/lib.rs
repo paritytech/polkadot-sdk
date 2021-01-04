@@ -30,6 +30,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod rialto_messages;
 
+use crate::rialto_messages::{ToRialtoMessagePayload, WithRialtoMessageBridge};
+
+use bridge_runtime_common::messages::{source::estimate_message_dispatch_and_delivery_fee, MessageBridge};
 use codec::Decode;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
@@ -532,7 +535,17 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_rialto::ToRialtoOutboundLaneApi<Block> for Runtime {
+	impl bp_rialto::ToRialtoOutboundLaneApi<Block, Balance, ToRialtoMessagePayload> for Runtime {
+		fn estimate_message_delivery_and_dispatch_fee(
+			_lane_id: bp_message_lane::LaneId,
+			payload: ToRialtoMessagePayload,
+		) -> Option<Balance> {
+			estimate_message_dispatch_and_delivery_fee::<WithRialtoMessageBridge>(
+				&payload,
+				WithRialtoMessageBridge::RELAYER_FEE_PERCENT,
+			).ok()
+		}
+
 		fn messages_dispatch_weight(
 			lane: bp_message_lane::LaneId,
 			begin: bp_message_lane::MessageNonce,
