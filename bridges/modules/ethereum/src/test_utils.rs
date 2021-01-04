@@ -228,7 +228,41 @@ where
 }
 
 /// Insert unverified header into storage.
+///
+/// This function assumes that the header is signed by validator from the current set.
 pub fn insert_header<S: Storage>(storage: &mut S, header: AuraHeader) {
+	let id = header.compute_id();
+	let best_finalized = storage.finalized_block();
+	let import_context = storage.import_context(None, &header.parent_hash).unwrap();
+	let parent_finality_votes = storage.cached_finality_votes(&header.parent_id().unwrap(), &best_finalized, |_| false);
+	let finality_votes = crate::finality::prepare_votes(
+		parent_finality_votes,
+		best_finalized,
+		&import_context.validators_set().validators.iter().collect(),
+		id,
+		&header,
+		None,
+	)
+	.unwrap();
+
+	storage.insert_header(HeaderToImport {
+		context: storage.import_context(None, &header.parent_hash).unwrap(),
+		is_best: true,
+		id,
+		header,
+		total_difficulty: 0.into(),
+		enacted_change: None,
+		scheduled_change: None,
+		finality_votes,
+	});
+}
+
+/// Insert unverified header into storage.
+///
+/// No assumptions about header author are made. The cost is that finality votes cache
+/// is filled incorrectly, so this function shall not be used if you're going to insert
+/// (or import) header descendants.
+pub fn insert_dummy_header<S: Storage>(storage: &mut S, header: AuraHeader) {
 	storage.insert_header(HeaderToImport {
 		context: storage.import_context(None, &header.parent_hash).unwrap(),
 		is_best: true,
