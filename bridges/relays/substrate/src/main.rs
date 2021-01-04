@@ -18,13 +18,13 @@
 
 #![warn(missing_docs)]
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::weights::GetDispatchInfo;
 use pallet_bridge_call_dispatch::{CallOrigin, MessagePayload};
 use relay_kusama_client::Kusama;
 use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{ConnectionParams, TransactionSignScheme};
+use relay_substrate_client::{Chain, ConnectionParams, TransactionSignScheme};
 use relay_utils::initialize::initialize_relay;
 use sp_core::{Bytes, Pair};
 use sp_runtime::traits::IdentifyAccount;
@@ -315,8 +315,27 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 				}
 			};
 
+			let lane = lane.into();
+			let fee = match fee {
+				Some(fee) => fee,
+				None => match estimate_message_delivery_and_dispatch_fee(
+					&millau_client,
+					bp_rialto::TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD,
+					lane,
+					payload.clone(),
+				)
+				.await
+				{
+					Ok(Some(fee)) => fee,
+					Ok(None) => return Err("Failed to estimate message fee. Message is too heavy?".into()),
+					Err(error) => return Err(format!("Failed to estimate message fee: {:?}", error)),
+				},
+			};
+
+			log::error!(target: "bridge", "Sending message to Rialto. Fee: {}", fee);
+
 			let millau_call = millau_runtime::Call::BridgeRialtoMessageLane(
-				millau_runtime::MessageLaneCall::send_message(lane.into(), payload, fee),
+				millau_runtime::MessageLaneCall::send_message(lane, payload, fee),
 			);
 
 			let signed_millau_call = Millau::sign_transaction(
@@ -444,8 +463,27 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 				}
 			};
 
+			let lane = lane.into();
+			let fee = match fee {
+				Some(fee) => fee,
+				None => match estimate_message_delivery_and_dispatch_fee(
+					&rialto_client,
+					bp_millau::TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD,
+					lane,
+					payload.clone(),
+				)
+				.await
+				{
+					Ok(Some(fee)) => fee,
+					Ok(None) => return Err("Failed to estimate message fee. Message is too heavy?".into()),
+					Err(error) => return Err(format!("Failed to estimate message fee: {:?}", error)),
+				},
+			};
+
+			log::info!(target: "bridge", "Sending message to Millau. Fee: {}", fee);
+
 			let rialto_call = rialto_runtime::Call::BridgeMillauMessageLane(
-				rialto_runtime::MessageLaneCall::send_message(lane.into(), payload, fee),
+				rialto_runtime::MessageLaneCall::send_message(lane, payload, fee),
 			);
 
 			let signed_rialto_call = Rialto::sign_transaction(
@@ -464,4 +502,18 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 	}
 
 	Ok(())
+}
+
+async fn estimate_message_delivery_and_dispatch_fee<Fee: Decode, C: Chain, P: Encode>(
+	client: &relay_substrate_client::Client<C>,
+	estimate_fee_method: &str,
+	lane: bp_message_lane::LaneId,
+	payload: P,
+) -> Result<Option<Fee>, relay_substrate_client::Error> {
+	let encoded_response = client
+		.state_call(estimate_fee_method.into(), (lane, payload).encode().into(), None)
+		.await?;
+	let decoded_response: Option<Fee> =
+		Decode::decode(&mut &encoded_response.0[..]).map_err(relay_substrate_client::Error::ResponseParseFailed)?;
+	Ok(decoded_response)
 }
