@@ -1049,6 +1049,7 @@ pub(crate) mod tests {
 		genesis, insert_header, run_test, run_test_with_genesis, validators_addresses, HeaderBuilder, TestRuntime,
 		GAS_LIMIT,
 	};
+	use crate::test_utils::validator_utils::*;
 	use bp_eth_poa::compute_merkle_root;
 
 	const TOTAL_VALIDATORS: usize = 3;
@@ -1069,33 +1070,24 @@ pub(crate) mod tests {
 	}
 
 	fn example_header_with_failed_receipt() -> AuraHeader {
-		AuraHeader {
-			number: 3,
-			transactions_root: compute_merkle_root(vec![example_tx()].into_iter()),
-			receipts_root: compute_merkle_root(vec![example_tx_receipt(false)].into_iter()),
-			parent_hash: example_header().compute_hash(),
-			..Default::default()
-		}
+		HeaderBuilder::with_parent(&example_header())
+			.transactions_root(compute_merkle_root(vec![example_tx()].into_iter()))
+			.receipts_root(compute_merkle_root(vec![example_tx_receipt(false)].into_iter()))
+			.sign_by(&validator(0))
 	}
 
 	fn example_header() -> AuraHeader {
-		AuraHeader {
-			number: 2,
-			transactions_root: compute_merkle_root(vec![example_tx()].into_iter()),
-			receipts_root: compute_merkle_root(vec![example_tx_receipt(true)].into_iter()),
-			parent_hash: example_header_parent().compute_hash(),
-			..Default::default()
-		}
+		HeaderBuilder::with_parent(&example_header_parent())
+			.transactions_root(compute_merkle_root(vec![example_tx()].into_iter()))
+			.receipts_root(compute_merkle_root(vec![example_tx_receipt(true)].into_iter()))
+			.sign_by(&validator(0))
 	}
 
 	fn example_header_parent() -> AuraHeader {
-		AuraHeader {
-			number: 1,
-			transactions_root: compute_merkle_root(vec![example_tx()].into_iter()),
-			receipts_root: compute_merkle_root(vec![example_tx_receipt(true)].into_iter()),
-			parent_hash: genesis().compute_hash(),
-			..Default::default()
-		}
+		HeaderBuilder::with_parent(&genesis())
+			.transactions_root(compute_merkle_root(vec![example_tx()].into_iter()))
+			.receipts_root(compute_merkle_root(vec![example_tx_receipt(true)].into_iter()))
+			.sign_by(&validator(0))
 	}
 
 	fn with_headers_to_prune<T>(f: impl Fn(BridgeStorage<TestRuntime>) -> T) -> T {
@@ -1277,10 +1269,7 @@ pub(crate) mod tests {
 			let header_with_entry = HeaderBuilder::with_parent_number(interval - 1).sign_by_set(&ctx.validators);
 			let header_with_entry_hash = header_with_entry.compute_hash();
 			insert_header(&mut storage, header_with_entry);
-			assert_eq!(
-				FinalityCache::<TestRuntime>::get(&header_with_entry_hash),
-				Some(Default::default()),
-			);
+			assert!(FinalityCache::<TestRuntime>::get(&header_with_entry_hash).is_some());
 
 			// when we later prune this header, cache entry is removed
 			BlocksToPrune::<DefaultInstance>::put(PruningRange {
