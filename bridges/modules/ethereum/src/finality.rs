@@ -140,7 +140,7 @@ fn is_finalized(
 }
 
 /// Prepare 'votes' of header and its ancestors' signers.
-fn prepare_votes<Submitter>(
+pub(crate) fn prepare_votes<Submitter>(
 	mut cached_votes: CachedFinalityVotes<Submitter>,
 	best_finalized: HeaderId,
 	validators: &BTreeSet<&Address>,
