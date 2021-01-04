@@ -81,8 +81,8 @@ pub trait MessageBridge {
 	/// Convert weight of the Bridged chain to the fee (paid in Balance) of the Bridged chain.
 	fn bridged_weight_to_bridged_balance(weight: WeightOf<BridgedChain<Self>>) -> BalanceOf<BridgedChain<Self>>;
 
-	/// Convert This chain Balance into Bridged chain Balance.
-	fn this_balance_to_bridged_balance(this_balance: BalanceOf<ThisChain<Self>>) -> BalanceOf<BridgedChain<Self>>;
+	/// Convert Bridged chain Balance into This chain Balance.
+	fn bridged_balance_to_this_balance(bridged_balance: BalanceOf<BridgedChain<Self>>) -> BalanceOf<ThisChain<Self>>;
 }
 
 /// Chain that has `message-lane` and `call-dispatch` modules.
@@ -170,12 +170,11 @@ pub mod source {
 			// `CallDispatch`, so we verify the message accordingly.
 			pallet_bridge_call_dispatch::verify_message_origin(submitter, payload).map_err(|_| BAD_ORIGIN)?;
 
-			let minimal_fee_in_bridged_tokens =
+			let minimal_fee_in_this_tokens =
 				estimate_message_dispatch_and_delivery_fee::<B>(payload, B::RELAYER_FEE_PERCENT)?;
 
 			// compare with actual fee paid
-			let actual_fee_in_bridged_tokens = B::this_balance_to_bridged_balance(*delivery_and_dispatch_fee);
-			if actual_fee_in_bridged_tokens < minimal_fee_in_bridged_tokens {
+			if *delivery_and_dispatch_fee < minimal_fee_in_this_tokens {
 				return Err(TOO_LOW_FEE);
 			}
 
@@ -225,22 +224,22 @@ pub mod source {
 	pub fn estimate_message_dispatch_and_delivery_fee<B: MessageBridge>(
 		payload: &FromThisChainMessagePayload<B>,
 		relayer_fee_percent: u32,
-	) -> Result<BalanceOf<BridgedChain<B>>, &'static str> {
+	) -> Result<BalanceOf<ThisChain<B>>, &'static str> {
 		// the fee (in Bridged tokens) of all transactions that are made on the Bridged chain
 		let delivery_fee = B::bridged_weight_to_bridged_balance(B::weight_of_delivery_transaction());
 		let dispatch_fee = B::bridged_weight_to_bridged_balance(payload.weight.into());
 		let reward_confirmation_fee =
 			B::bridged_weight_to_bridged_balance(B::weight_of_reward_confirmation_transaction_on_target_chain());
 
-		// the fee (in Bridged tokens) of all transactions that are made on This chain
-		let delivery_confirmation_fee = B::this_balance_to_bridged_balance(B::this_weight_to_this_balance(
-			B::weight_of_delivery_confirmation_transaction_on_this_chain(),
-		));
+		// the fee (in This tokens) of all transactions that are made on This chain
+		let delivery_confirmation_fee =
+			B::this_weight_to_this_balance(B::weight_of_delivery_confirmation_transaction_on_this_chain());
 
-		// minimal fee (in Bridged tokens) is a sum of all required fees
+		// minimal fee (in This tokens) is a sum of all required fees
 		let minimal_fee = delivery_fee
 			.checked_add(&dispatch_fee)
 			.and_then(|fee| fee.checked_add(&reward_confirmation_fee))
+			.map(B::bridged_balance_to_this_balance)
 			.and_then(|fee| fee.checked_add(&delivery_confirmation_fee));
 
 		// before returning, add extra fee that is paid to the relayer (relayer interest)
@@ -563,7 +562,7 @@ mod tests {
 	const REWARD_CONFIRMATION_TRANSACTION_WEIGHT: Weight = 100;
 	const THIS_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 2;
 	const BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 4;
-	const THIS_CHAIN_TO_BRIDGED_CHAIN_BALANCE_RATE: u32 = 6;
+	const BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE: u32 = 6;
 	const BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT: Weight = 2048;
 	const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
@@ -606,8 +605,8 @@ mod tests {
 			BridgedChainBalance(weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
 		}
 
-		fn this_balance_to_bridged_balance(this_balance: ThisChainBalance) -> BridgedChainBalance {
-			BridgedChainBalance(this_balance.0 * THIS_CHAIN_TO_BRIDGED_CHAIN_BALANCE_RATE as u32)
+		fn bridged_balance_to_this_balance(bridged_balance: BridgedChainBalance) -> ThisChainBalance {
+			ThisChainBalance(bridged_balance.0 * BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE as u32)
 		}
 	}
 
@@ -649,7 +648,7 @@ mod tests {
 			unreachable!()
 		}
 
-		fn this_balance_to_bridged_balance(_this_balance: BridgedChainBalance) -> ThisChainBalance {
+		fn bridged_balance_to_this_balance(_this_balance: ThisChainBalance) -> BridgedChainBalance {
 			unreachable!()
 		}
 	}
@@ -799,7 +798,7 @@ mod tests {
 
 	#[test]
 	fn message_fee_is_checked_by_verifier() {
-		const EXPECTED_MINIMAL_FEE: u32 = 2640;
+		const EXPECTED_MINIMAL_FEE: u32 = 8140;
 
 		// payload of the This -> Bridged chain message
 		let payload = source::FromThisChainMessagePayload::<OnThisChainBridge> {
@@ -815,7 +814,7 @@ mod tests {
 				&payload,
 				OnThisChainBridge::RELAYER_FEE_PERCENT,
 			),
-			Ok(BridgedChainBalance(EXPECTED_MINIMAL_FEE)),
+			Ok(ThisChainBalance(EXPECTED_MINIMAL_FEE)),
 		);
 
 		// and now check that the verifier checks the fee

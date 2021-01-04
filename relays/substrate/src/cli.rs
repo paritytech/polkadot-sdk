@@ -101,9 +101,9 @@ pub enum Command {
 		/// Hex-encoded lane id.
 		#[structopt(long)]
 		lane: HexLaneId,
-		/// Delivery and dispatch fee.
+		/// Delivery and dispatch fee. If not passed, determined automatically.
 		#[structopt(long)]
-		fee: bp_millau::Balance,
+		fee: Option<bp_millau::Balance>,
 		/// Message type.
 		#[structopt(subcommand)]
 		message: ToRialtoMessage,
@@ -138,9 +138,9 @@ pub enum Command {
 		/// Hex-encoded lane id.
 		#[structopt(long)]
 		lane: HexLaneId,
-		/// Delivery and dispatch fee.
+		/// Delivery and dispatch fee. If not passed, determined automatically.
 		#[structopt(long)]
-		fee: bp_rialto::Balance,
+		fee: Option<bp_rialto::Balance>,
 		/// Message type.
 		#[structopt(subcommand)]
 		message: ToMillauMessage,
