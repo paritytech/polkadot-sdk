@@ -270,7 +270,7 @@ pub fn run() -> Result<()> {
 				// TODO
 				let key = sp_core::Pair::generate().0;
 
-				let extension = chain_spec::Extensions::try_get(&config.chain_spec);
+				let extension = chain_spec::Extensions::try_get(&*config.chain_spec);
 				let relay_chain_id = extension.map(|e| e.relay_chain.clone());
 				let para_id = extension.map(|e| e.para_id);
 
