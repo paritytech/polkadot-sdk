@@ -24,8 +24,7 @@ use cumulus_primitives::{
 };
 use cumulus_runtime::ParachainBlockData;
 
-use sc_client_api::{BlockBackend, Finalizer, StateBackend, UsageProvider};
-use sp_blockchain::HeaderBackend;
+use sc_client_api::{BlockBackend, StateBackend};
 use sp_consensus::{
 	BlockImport, BlockImportParams, BlockOrigin, BlockStatus, Environment, Error as ConsensusError,
 	ForkChoiceStrategy, Proposal, Proposer, RecordProof,
@@ -522,13 +521,12 @@ where
 }
 
 /// Parameters for [`start_collator`].
-pub struct StartCollatorParams<Block: BlockT, PF, BI, Backend, Client, BS, Spawner, PClient, PBackend> {
+pub struct StartCollatorParams<Block: BlockT, PF, BI, Backend, BS, Spawner, PClient, PBackend> {
 	pub proposer_factory: PF,
 	pub inherent_data_providers: InherentDataProviders,
 	pub backend: Arc<Backend>,
 	pub block_import: BI,
 	pub block_status: Arc<BS>,
-	pub client: Arc<Client>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 	pub overseer_handler: OverseerHandler,
 	pub spawner: Spawner,
@@ -543,7 +541,6 @@ pub async fn start_collator<
 	PF,
 	BI,
 	Backend,
-	Client,
 	BS,
 	Spawner,
 	PClient,
@@ -557,7 +554,6 @@ pub async fn start_collator<
 		backend,
 		block_import,
 		block_status,
-		client,
 		announce_block,
 		mut overseer_handler,
 		spawner,
@@ -565,7 +561,7 @@ pub async fn start_collator<
 		key,
 		polkadot_client,
 		polkadot_backend,
-	}: StartCollatorParams<Block, PF, BI, Backend, Client, BS, Spawner, PClient, PBackend2>,
+	}: StartCollatorParams<Block, PF, BI, Backend, BS, Spawner, PClient, PBackend2>,
 ) -> Result<(), String>
 where
 	PF: Environment<Block> + Send + 'static,
@@ -574,14 +570,6 @@ where
 		+ Sync
 		+ 'static,
 	Backend: sc_client_api::Backend<Block> + 'static,
-	Client: Finalizer<Block, Backend>
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
-		+ 'static,
-	for<'a> &'a Client: BlockImport<Block>,
 	BS: BlockBackend<Block> + Send + Sync + 'static,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
 	PBackend: sc_client_api::Backend<PBlock> + 'static,
@@ -591,18 +579,6 @@ where
 	PBackend2: sc_client_api::Backend<PBlock> + 'static,
 	PBackend2::State: StateBackend<BlakeTwo256>,
 {
-	let follow = match cumulus_consensus::follow_polkadot(
-		para_id,
-		client,
-		polkadot_client.clone(),
-		announce_block.clone(),
-	) {
-		Ok(follow) => follow,
-		Err(e) => return Err(format!("Could not start following polkadot: {:?}", e)),
-	};
-
-	spawner.spawn("cumulus-follow-polkadot", follow.map(|_| ()).boxed());
-
 	let collator = Collator::new(
 		para_id,
 		proposer_factory,
@@ -644,13 +620,12 @@ mod tests {
 	use super::*;
 	use std::{pin::Pin, time::Duration};
 
-	use sc_block_builder::BlockBuilderProvider;
 	use sp_core::{testing::TaskExecutor, Pair};
 	use sp_inherents::InherentData;
 	use sp_runtime::traits::DigestFor;
 
 	use cumulus_test_client::{
-		generate_block_inherents, Client, DefaultTestClientBuilderExt, TestClientBuilder,
+		Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 	use cumulus_test_runtime::{Block, Header};
@@ -700,19 +675,12 @@ mod tests {
 		fn propose(
 			self,
 			_: InherentData,
-			digest: DigestFor<Block>,
+			_: DigestFor<Block>,
 			_: Duration,
-			record_proof: RecordProof,
+			_: RecordProof,
 		) -> Self::Proposal {
 			let block_id = BlockId::Hash(self.header.hash());
-			let mut builder = self
-				.client
-				.new_block_at(&block_id, digest, record_proof.yes())
-				.expect("Initializes new block");
-
-			generate_block_inherents(&*self.client, None)
-				.into_iter()
-				.for_each(|e| builder.push(e).expect("Pushes an inherent"));
+			let builder = self.client.init_block_builder_at(&block_id, None);
 
 			let (block, storage_changes, proof) =
 				builder.build().expect("Creates block").into_inner();
@@ -766,14 +734,13 @@ mod tests {
 		};
 
 		let collator_start =
-			start_collator::<_, _, _, _, _, _, _, _, polkadot_service::FullBackend, _, _>(
+			start_collator::<_, _, _, _, _, _, _, polkadot_service::FullBackend, _, _>(
 				StartCollatorParams {
 					proposer_factory: DummyFactory(client.clone()),
 					inherent_data_providers: Default::default(),
 					backend,
 					block_import: client.clone(),
 					block_status: client.clone(),
-					client: client.clone(),
 					announce_block: Arc::new(announce_block),
 					overseer_handler: handler,
 					spawner,

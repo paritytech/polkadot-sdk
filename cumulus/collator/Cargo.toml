@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 # Substrate dependencies
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -16,7 +15,6 @@ sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot dependencies
 polkadot-service = { git = "https://github.com/paritytech/polkadot", features = [ "real-overseer" ] , branch = "master" }
@@ -28,7 +26,6 @@ polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "
 polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus dependencies
-cumulus-consensus = { path = "../consensus" }
 cumulus-network = { path = "../network" }
 cumulus-primitives = { path = "../primitives" }
 cumulus-runtime = { path = "../runtime" }

@@ -28,7 +28,6 @@ sp-externalities = { git = "https://github.com/paritytech/substrate", default-fe
 parachain = { package = "polkadot-parachain", git = "https://github.com/paritytech/polkadot", default-features = false, features = [ "wasm-api" ] , branch = "master" }
 
 [dev-dependencies]
-sc-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }

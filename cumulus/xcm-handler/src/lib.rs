@@ -22,20 +22,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Encode, Decode};
-use sp_std::convert::{TryFrom, TryInto};
-use frame_support::{
-	decl_module, decl_event, decl_error,
-	sp_runtime::traits::Hash,
-};
-use frame_system::ensure_root;
+use codec::{Decode, Encode};
 use cumulus_primitives::{
-	ParaId, InboundHrmpMessage, InboundDownwardMessage, OutboundHrmpMessage,
-	DownwardMessageHandler, HrmpMessageHandler, UpwardMessageSender, HrmpMessageSender,
+	DownwardMessageHandler, HrmpMessageHandler, HrmpMessageSender, InboundDownwardMessage,
+	InboundHrmpMessage, OutboundHrmpMessage, ParaId, UpwardMessageSender,
 };
+use frame_support::{decl_error, decl_event, decl_module, sp_runtime::traits::Hash};
+use frame_system::ensure_root;
+use sp_std::convert::{TryFrom, TryInto};
 use xcm::{
+	v0::{Error as XcmError, ExecuteXcm, Junction, MultiLocation, SendXcm, Xcm},
 	VersionedXcm,
-	v0::{Xcm, MultiLocation, Error as XcmError, Junction, SendXcm, ExecuteXcm}
 };
 
 pub trait Config: frame_system::Config {
@@ -125,7 +122,10 @@ impl<T: Config> HrmpMessageHandler for Module<T> {
 		frame_support::debug::print!("Processing HRMP XCM: {:?}", &hash);
 		match VersionedXcm::decode(&mut &msg.data[..]).map(Xcm::try_from) {
 			Ok(Ok(xcm)) => {
-				match T::XcmExecutor::execute_xcm(Junction::Parachain { id: sender.into() }.into(), xcm) {
+				match T::XcmExecutor::execute_xcm(
+					Junction::Parachain { id: sender.into() }.into(),
+					xcm,
+				) {
 					Ok(..) => RawEvent::Success(hash),
 					Err(e) => RawEvent::Fail(hash, e),
 				};
@@ -151,7 +151,8 @@ impl<T: Config> SendXcm for Module<T> {
 				let data = msg.encode();
 				let hash = T::Hashing::hash(&data);
 
-				T::UpwardMessageSender::send_upward_message(data).map_err(|_| XcmError::Undefined)?;
+				T::UpwardMessageSender::send_upward_message(data)
+					.map_err(|_| XcmError::Undefined)?;
 				Self::deposit_event(RawEvent::UpwardMessageSent(hash));
 
 				Ok(())
@@ -165,7 +166,8 @@ impl<T: Config> SendXcm for Module<T> {
 					data,
 				};
 				// TODO: Better error here
-				T::HrmpMessageSender::send_hrmp_message(message).map_err(|_| XcmError::Undefined)?;
+				T::HrmpMessageSender::send_hrmp_message(message)
+					.map_err(|_| XcmError::Undefined)?;
 				Self::deposit_event(RawEvent::HrmpMessageSent(hash));
 				Ok(())
 			}

@@ -498,10 +498,13 @@ mod tests {
 					let inherent_data = {
 						let mut inherent_data = InherentData::default();
 						inherent_data
-							.put_data(INHERENT_IDENTIFIER, &ValidationDataType {
-								validation_data: vfp.clone(),
-								relay_chain_state: sp_state_machine::StorageProof::empty(),
-							})
+							.put_data(
+								INHERENT_IDENTIFIER,
+								&ValidationDataType {
+									validation_data: vfp.clone(),
+									relay_chain_state: sp_state_machine::StorageProof::empty(),
+								},
+							)
 							.expect("failed to put VFP inherent");
 						inherent_data
 					};

@@ -18,13 +18,11 @@ use crate::ParachainBlockData;
 
 use cumulus_primitives::{PersistedValidationData, ValidationData};
 use cumulus_test_client::{
-	generate_block_inherents,
 	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
-	transfer, Client, DefaultTestClientBuilderExt, LongestChain, TestClientBuilder,
-	TestClientBuilderExt,
+	transfer, Client, DefaultTestClientBuilderExt, InitBlockBuilder, LongestChain,
+	TestClientBuilder, TestClientBuilderExt,
 };
 use parachain::primitives::{BlockData, HeadData, ValidationParams, ValidationResult};
-use sc_block_builder::BlockBuilderProvider;
 use sc_executor::{
 	error::Result, sp_wasm_interface::HostFunctions, WasmExecutionMethod, WasmExecutor,
 };
@@ -89,12 +87,8 @@ fn build_block_with_proof(
 	parent_head: Header,
 ) -> (Block, sp_trie::StorageProof) {
 	let block_id = BlockId::Hash(client.info().best_hash);
-	let mut builder = client
-		.new_block_at(&block_id, Default::default(), true)
-		.expect("Initializes new block");
-
-	generate_block_inherents(
-		client,
+	let mut builder = client.init_block_builder_at(
+		&block_id,
 		Some(ValidationData {
 			persisted: PersistedValidationData {
 				block_number: 1,
@@ -103,13 +97,11 @@ fn build_block_with_proof(
 			},
 			..Default::default()
 		}),
-	)
-	.into_iter()
-	.for_each(|e| builder.push(e).expect("Pushes an inherent"));
+	);
 
 	extra_extrinsics
 		.into_iter()
-		.for_each(|e| builder.push(e).expect("Pushes an extrinsic"));
+		.for_each(|e| builder.push(e).unwrap());
 
 	let built_block = builder.build().expect("Creates block");
 

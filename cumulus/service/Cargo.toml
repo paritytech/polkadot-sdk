@@ -28,3 +28,4 @@ polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "
 
 # Other deps
 futures = "0.3.6"
+tracing = "0.1.22"

@@ -23,7 +23,9 @@ use futures::{Future, FutureExt};
 use polkadot_overseer::OverseerHandler;
 use polkadot_primitives::v1::{Block as PBlock, CollatorId, CollatorPair};
 use polkadot_service::{AbstractClient, Client as PClient, ClientHandle, RuntimeApiCollection};
-use sc_client_api::{Backend as BackendT, BlockBackend, Finalizer, UsageProvider, StateBackend};
+use sc_client_api::{
+	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, StateBackend, UsageProvider,
+};
 use sc_service::{error::Result as ServiceResult, Configuration, Role, TaskManager};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockImport, Environment, Error as ConsensusError, Proposer};
@@ -36,7 +38,18 @@ use std::{marker::PhantomData, sync::Arc};
 type PFullNode<C> = polkadot_service::NewFull<C>;
 
 /// Parameters given to [`start_collator`].
-pub struct StartCollatorParams<'a, Block: BlockT, PF, BI, BS, Client, Backend, Spawner, PClient, PBackend> {
+pub struct StartCollatorParams<
+	'a,
+	Block: BlockT,
+	PF,
+	BI,
+	BS,
+	Client,
+	Backend,
+	Spawner,
+	PClient,
+	PBackend,
+> {
 	pub proposer_factory: PF,
 	pub inherent_data_providers: InherentDataProviders,
 	pub backend: Arc<Backend>,
@@ -91,6 +104,7 @@ where
 		+ Send
 		+ Sync
 		+ BlockBackend<Block>
+		+ BlockchainEvents<Block>
 		+ 'static,
 	for<'b> &'b Client: BlockImport<Block>,
 	Backend: BackendT<Block> + 'static,
@@ -99,13 +113,20 @@ where
 	PBackend: BackendT<PBlock> + 'static,
 	PBackend::State: StateBackend<BlakeTwo256>,
 {
+	polkadot_full_node.client.execute_with(StartConsensus {
+		para_id,
+		announce_block: announce_block.clone(),
+		client: client.clone(),
+		task_manager,
+		_phantom: PhantomData,
+	})?;
+
 	polkadot_full_node
 		.client
 		.execute_with(StartCollator {
 			proposer_factory,
 			inherent_data_providers,
 			backend,
-			client,
 			announce_block,
 			overseer_handler: polkadot_full_node
 				.overseer_handler
@@ -124,13 +145,12 @@ where
 	Ok(())
 }
 
-struct StartCollator<Block: BlockT, Client, Backend, PF, BI, BS, Spawner, PBackend> {
+struct StartCollator<Block: BlockT, Backend, PF, BI, BS, Spawner, PBackend> {
 	proposer_factory: PF,
 	inherent_data_providers: InherentDataProviders,
 	backend: Arc<Backend>,
 	block_import: BI,
 	block_status: Arc<BS>,
-	client: Arc<Client>,
 	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 	overseer_handler: OverseerHandler,
 	spawner: Spawner,
@@ -139,8 +159,8 @@ struct StartCollator<Block: BlockT, Client, Backend, PF, BI, BS, Spawner, PBacke
 	polkadot_backend: Arc<PBackend>,
 }
 
-impl<Block, Client, Backend, PF, BI, BS, Spawner, PBackend2> polkadot_service::ExecuteWithClient
-	for StartCollator<Block, Client, Backend, PF, BI, BS, Spawner, PBackend2>
+impl<Block, Backend, PF, BI, BS, Spawner, PBackend2> polkadot_service::ExecuteWithClient
+	for StartCollator<Block, Backend, PF, BI, BS, Spawner, PBackend2>
 where
 	Block: BlockT,
 	PF: Environment<Block> + Send + 'static,
@@ -152,14 +172,6 @@ where
 		+ Sync
 		+ 'static,
 	BS: BlockBackend<Block> + Send + Sync + 'static,
-	Client: Finalizer<Block, Backend>
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
-		+ 'static,
-	for<'b> &'b Client: BlockImport<Block>,
 	Backend: BackendT<Block> + 'static,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
 	PBackend2: sc_client_api::Backend<PBlock> + 'static,
@@ -182,7 +194,6 @@ where
 				backend: self.backend,
 				block_import: self.block_import,
 				block_status: self.block_status,
-				client: self.client,
 				announce_block: self.announce_block,
 				overseer_handler: self.overseer_handler,
 				spawner: self.spawner,
@@ -227,12 +238,13 @@ where
 		+ Send
 		+ Sync
 		+ BlockBackend<Block>
+		+ BlockchainEvents<Block>
 		+ 'static,
 	for<'a> &'a Client: BlockImport<Block>,
 	Backend: BackendT<Block> + 'static,
 	PClient: ClientHandle,
 {
-	polkadot_full_node.client.execute_with(StartFullNode {
+	polkadot_full_node.client.execute_with(StartConsensus {
 		announce_block,
 		para_id,
 		client,
@@ -245,7 +257,7 @@ where
 	Ok(())
 }
 
-struct StartFullNode<'a, Block: BlockT, Client, Backend> {
+struct StartConsensus<'a, Block: BlockT, Client, Backend> {
 	para_id: ParaId,
 	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 	client: Arc<Client>,
@@ -254,7 +266,7 @@ struct StartFullNode<'a, Block: BlockT, Client, Backend> {
 }
 
 impl<'a, Block, Client, Backend> polkadot_service::ExecuteWithClient
-	for StartFullNode<'a, Block, Client, Backend>
+	for StartConsensus<'a, Block, Client, Backend>
 where
 	Block: BlockT,
 	Client: Finalizer<Block, Backend>
@@ -262,6 +274,7 @@ where
 		+ Send
 		+ Sync
 		+ BlockBackend<Block>
+		+ BlockchainEvents<Block>
 		+ 'static,
 	for<'b> &'b Client: BlockImport<Block>,
 	Backend: BackendT<Block> + 'static,
@@ -276,15 +289,25 @@ where
 		Api: RuntimeApiCollection<StateBackend = PBackend::State>,
 		PClient: AbstractClient<PBlock, PBackend, Api = Api> + 'static,
 	{
-		let future = cumulus_consensus::follow_polkadot(
+		let consensus = cumulus_consensus::run_parachain_consensus(
 			self.para_id,
 			self.client,
 			client,
 			self.announce_block,
-		)?;
-		self.task_manager
-			.spawn_essential_handle()
-			.spawn("cumulus-consensus", future);
+		);
+
+		self.task_manager.spawn_essential_handle().spawn(
+			"cumulus-consensus",
+			consensus.then(|r| async move {
+				if let Err(e) = r {
+					tracing::error!(
+						target: "cumulus-service",
+						error = %e,
+						"Parachain consensus failed.",
+					)
+				}
+			}),
+		);
 
 		Ok(())
 	}

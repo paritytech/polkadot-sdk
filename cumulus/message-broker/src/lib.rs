@@ -33,8 +33,8 @@ use sp_std::{cmp, prelude::*};
 
 use cumulus_primitives::{
 	inherents::{MessageIngestionType, MESSAGE_INGESTION_IDENTIFIER},
-	well_known_keys, DownwardMessageHandler, HrmpMessageHandler, OutboundHrmpMessage, ParaId,
-	UpwardMessage, UpwardMessageSender, HrmpMessageSender,
+	well_known_keys, DownwardMessageHandler, HrmpMessageHandler, HrmpMessageSender,
+	OutboundHrmpMessage, ParaId, UpwardMessage, UpwardMessageSender,
 };
 
 // TODO: these should be not a constant, but sourced from the relay-chain configuration.

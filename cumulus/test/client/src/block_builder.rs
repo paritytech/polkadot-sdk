@@ -14,52 +14,86 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::Client;
-use cumulus_primitives::{inherents::{VALIDATION_DATA_IDENTIFIER, ValidationDataType}, ValidationData};
-use cumulus_test_runtime::GetLastTimestamp;
+use crate::{Backend, Client};
+use cumulus_primitives::{
+	inherents::{ValidationDataType, VALIDATION_DATA_IDENTIFIER},
+	ValidationData,
+};
+use cumulus_test_runtime::{Block, GetLastTimestamp};
 use polkadot_primitives::v1::BlockNumber as PBlockNumber;
-use sc_block_builder::BlockBuilderApi;
+use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::HeaderBackend;
-use sp_core::ExecutionContext;
 use sp_runtime::generic::BlockId;
 
-/// Generate the inherents required by the test runtime.
-///
-/// - `validation_data`: The [`ValidationData`] that will be passed as inherent
-///                      data into the runtime when building the inherents. If
-///                      `None` is passed, the default value will be used.
-pub fn generate_block_inherents(
-	client: &Client,
-	validation_data: Option<ValidationData<PBlockNumber>>,
-) -> Vec<cumulus_test_runtime::UncheckedExtrinsic> {
-	let mut inherent_data = sp_inherents::InherentData::new();
-	let block_id = BlockId::Hash(client.info().best_hash);
-	let last_timestamp = client
-		.runtime_api()
-		.get_last_timestamp(&block_id)
-		.expect("Get last timestamp");
-	let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
+/// An extension for the Cumulus test client to init a block builder.
+pub trait InitBlockBuilder {
+	/// Init a specific block builder that works for the test runtime.
+	///
+	/// This will automatically create and push the inherents for you to make the block
+	/// valid for the test runtime.
+	fn init_block_builder(
+		&self,
+		validation_data: Option<ValidationData<PBlockNumber>>,
+	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 
-	inherent_data
-		.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
-		.expect("Put timestamp failed");
-	inherent_data
-		.put_data(
-			VALIDATION_DATA_IDENTIFIER,
-			&ValidationDataType {
-				validation_data: validation_data.unwrap_or_default(),
-				relay_chain_state: sp_state_machine::StorageProof::empty(),
-			},
-		)
-		.expect("Put validation function params failed");
+	/// Init a specific block builder at a specific block that works for the test runtime.
+	///
+	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes a
+	/// [`BlockId`] to say which should be the parent block of the block that is being build.
+	fn init_block_builder_at(
+		&self,
+		at: &BlockId<Block>,
+		validation_data: Option<ValidationData<PBlockNumber>>,
+	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
+}
 
-	client
-		.runtime_api()
-		.inherent_extrinsics_with_context(
-			&BlockId::number(0),
-			ExecutionContext::BlockConstruction,
-			inherent_data,
-		)
-		.expect("Get inherents failed")
+impl InitBlockBuilder for Client {
+	fn init_block_builder(
+		&self,
+		validation_data: Option<ValidationData<PBlockNumber>>,
+	) -> BlockBuilder<Block, Client, Backend> {
+		let chain_info = self.chain_info();
+		self.init_block_builder_at(&BlockId::Hash(chain_info.best_hash), validation_data)
+	}
+
+	fn init_block_builder_at(
+		&self,
+		at: &BlockId<Block>,
+		validation_data: Option<ValidationData<PBlockNumber>>,
+	) -> BlockBuilder<Block, Client, Backend> {
+		let mut block_builder = self
+			.new_block_at(at, Default::default(), true)
+			.expect("Creates new block builder for test runtime");
+
+		let mut inherent_data = sp_inherents::InherentData::new();
+		let last_timestamp = self
+			.runtime_api()
+			.get_last_timestamp(&at)
+			.expect("Get last timestamp");
+
+		let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
+
+		inherent_data
+			.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
+			.expect("Put timestamp failed");
+		inherent_data
+			.put_data(
+				VALIDATION_DATA_IDENTIFIER,
+				&ValidationDataType {
+					validation_data: validation_data.unwrap_or_default(),
+					relay_chain_state: sp_state_machine::StorageProof::empty(),
+				},
+			)
+			.expect("Put validation function params failed");
+
+		let inherents = block_builder
+			.create_inherents(inherent_data)
+			.expect("Creates inherents");
+
+		inherents
+			.into_iter()
+			.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
+
+		block_builder
+	}
 }

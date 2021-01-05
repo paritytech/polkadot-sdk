@@ -1034,7 +1034,6 @@ dependencies = [
 name = "cumulus-collator"
 version = "0.1.0"
 dependencies = [
- "cumulus-consensus",
  "cumulus-network",
  "cumulus-primitives",
  "cumulus-runtime",
@@ -1054,7 +1053,6 @@ dependencies = [
  "polkadot-service",
  "polkadot-test-client",
  "polkadot-validation",
- "sc-block-builder",
  "sc-cli",
  "sc-client-api",
  "sp-api",
@@ -1073,8 +1071,10 @@ dependencies = [
 name = "cumulus-consensus"
 version = "0.1.0"
 dependencies = [
+ "cumulus-test-client",
+ "cumulus-test-runtime",
  "futures 0.3.8",
- "log",
+ "futures-timer 3.0.2",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime",
@@ -1086,8 +1086,10 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
+ "sp-tracing",
  "substrate-prometheus-endpoint",
  "tokio 0.1.22",
+ "tracing",
 ]
 
 [[package]]
@@ -1184,7 +1186,6 @@ dependencies = [
  "memory-db",
  "parity-scale-codec",
  "polkadot-parachain",
- "sc-block-builder",
  "sc-client-api",
  "sc-executor",
  "sp-blockchain",
@@ -1220,6 +1221,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
+ "tracing",
 ]
 
 [[package]]
