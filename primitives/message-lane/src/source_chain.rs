@@ -109,4 +109,12 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 		reward: &Balance,
 		relayer_fund_account: &AccountId,
 	);
+
+	/// Perform some initialization in externalities-provided environment.
+	///
+	/// For instance you may ensure that particular required accounts or storage items are present.
+	/// Returns the number of storage reads performed.
+	fn initialize(_relayer_fund_account: &AccountId) -> usize {
+		0
+	}
 }
