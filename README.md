@@ -123,7 +123,7 @@ both Substrate chains it must be run last.
 # In `parity-bridges-common` folder
 ./deployments/local-scripts/run-rialto-bridge-node.sh
 ./deployments/local-scripts/run-millau-bridge-node.sh
-./deployments/local-scripts/run-millau-to-rialto-relay.sh
+./deployments/local-scripts/relay-millau-to-rialto.sh
 ```
 
 At this point you should see the relayer submitting headers from the Millau Substrate chain to the
