@@ -66,6 +66,16 @@ pub enum CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainS
 	/// The account can be identified by `TargetChainAccountPublic`. The proof that the
 	/// `SourceChainAccountId` controls `TargetChainAccountPublic` is the `TargetChainSignature`
 	/// over `(Call, SourceChainAccountId).encode()`.
+	///
+	/// NOTE sending messages using this origin (or any other) does not have replay protection!
+	/// The assumption is that both the source account and the target account is controlled by
+	/// the same entity, so source-chain replay protection is sufficient.
+	/// As a consequence, it's extremely important for the target chain user to never produce
+	/// a signature with their target-private key on something that could be sent over the bridge,
+	/// i.e. if the target user signs `(<some-source-account-id>, Call::Transfer(X, 5))`
+	/// The owner of `some-source-account-id` can send that message multiple times, which would
+	/// result with multiple transfer calls being dispatched on the target chain.
+	/// So please, NEVER USE YOUR PRIVATE KEY TO SIGN SOMETHING YOU DON'T FULLY UNDERSTAND!
 	TargetAccount(SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature),
 
 	/// Call is sent by the `SourceChainAccountId` on the source chain. On the target chain it is
