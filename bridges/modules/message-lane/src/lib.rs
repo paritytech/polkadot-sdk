@@ -214,6 +214,14 @@ decl_module! {
 		/// Deposit one of this module's events by using the default implementation.
 		fn deposit_event() = default;
 
+		/// Ensure runtime invariants.
+		fn on_runtime_upgrade() -> Weight {
+			let reads = T::MessageDeliveryAndDispatchPayment::initialize(
+				&Self::relayer_fund_account_id()
+			);
+			T::DbWeight::get().reads(reads as u64)
+		}
+
 		/// Change `ModuleOwner`.
 		///
 		/// May only be called either by root, or by `ModuleOwner`.
@@ -298,7 +306,7 @@ decl_module! {
 			T::MessageDeliveryAndDispatchPayment::pay_delivery_and_dispatch_fee(
 				&submitter,
 				&delivery_and_dispatch_fee,
-				&relayer_fund_account_id::<T, I>(),
+				&Self::relayer_fund_account_id(),
 			).map_err(|err| {
 				frame_support::debug::trace!(
 					"Message to lane {:?} is rejected because submitter {:?} is unable to pay fee {:?}: {:?}",
@@ -463,7 +471,7 @@ decl_module! {
 
 				// reward relayers that have delivered messages
 				// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
-				let relayer_fund_account = relayer_fund_account_id::<T, I>();
+				let relayer_fund_account = Self::relayer_fund_account_id();
 				for (nonce_low, nonce_high, relayer) in lane_data.relayers {
 					let nonce_begin = sp_std::cmp::max(nonce_low, received_range.0);
 					let nonce_end = sp_std::cmp::min(nonce_high, received_range.1);
@@ -537,6 +545,17 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 			messages_in_oldest_entry: relayers.front().map(|(begin, end, _)| 1 + end - begin).unwrap_or(0),
 			total_messages: total_unrewarded_messages(&relayers),
 		}
+	}
+
+	/// AccountId of the shared relayer fund account.
+	///
+	/// This account is passed to `MessageDeliveryAndDispatchPayment` trait, and depending
+	/// on the implementation it can be used to store relayers rewards.
+	/// See [InstantCurrencyPayments] for a concrete implementation.
+	pub fn relayer_fund_account_id() -> T::AccountId {
+		use sp_runtime::traits::Convert;
+		let encoded_id = bp_runtime::derive_relayer_fund_account_id(bp_runtime::NO_INSTANCE_ID);
+		T::AccountIdConverter::convert(encoded_id)
 	}
 }
 
@@ -728,16 +747,6 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, Dispatch
 			})
 			.collect()
 	})
-}
-
-/// AccountId of the shared relayer fund account.
-///
-/// This account stores all the fees paid by submitters. Relayers are able to claim these
-/// funds as at their convenience.
-fn relayer_fund_account_id<T: Config<I>, I: Instance>() -> T::AccountId {
-	use sp_runtime::traits::Convert;
-	let encoded_id = bp_runtime::derive_relayer_fund_account_id(bp_runtime::NO_INSTANCE_ID);
-	T::AccountIdConverter::convert(encoded_id)
 }
 
 #[cfg(test)]
