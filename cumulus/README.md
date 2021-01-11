@@ -77,3 +77,50 @@ parachain ID used for registration with the relay chain:
 The network uses horizontal message passing (HRMP) to enable communication between parachains and
 the relay chain and, in turn, between parachains. This means that every message is sent to the relay
 chain, and from the relay chain to its destination parachain.
+
+## Launch a local setup including a Relay Chain and a Parachain
+
+### Launch the Relay Chain
+
+```bash
+# Compile Polkadot with the real overseer feature
+git clone https://github.com/paritytech/polkadot
+git checkout master
+cargo build --release --features=real-overseer
+
+# Generate a raw chain spec
+./target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local-cfde-real-overseer.json
+
+# Alice
+./target/release/polkadot --chain rococo-local-cfde-real-overseer.json --alice --tmp
+
+# Bob (In a separate terminal)
+./target/release/polkadot --chain rococo-local-cfde-real-overseer.json --bob --tmp --port 30334
+```
+
+### Launch the Parachain
+
+```bash
+# Compile
+git clone https://github.com/paritytech/cumulus
+git checkout master
+cargo build --release
+
+# Export genesis state
+# --parachain-id 200 as an example that can be chosen freely. Make sure to everywhere use the same parachain id
+./target/release/rococo-collator export-genesis-state --parachain-id 200 > genesis-state
+
+# Export genesis wasm
+./target/release/rococo-collator export-genesis-wasm > genesis-wasm
+
+# Collator1
+./target/release/rococo-collator --collator --tmp --parachain-id <parachain_id_u32_type_range> --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local-cfde-real-overseer.json --port 30335
+
+# Collator2
+./target/release/rococo-collator --collator --tmp --parachain-id <parachain_id_u32_type_range> --port 40336 --ws-port 9947 -- --execution wasm --chain ../polkadot/rococo-local-cfde-real-overseer.json --port 30336
+
+# Parachain Full Node 1
+./target/release/rococo-collator --tmp --parachain-id <parachain_id_u32_type_range> --port 40337 --ws-port 9948 -- --execution wasm --chain ../polkadot/rococo-local-cfde-real-overseer.json --port 30337
+```
+### Register the parachain
+![image](https://user-images.githubusercontent.com/2915325/99548884-1be13580-2987-11eb-9a8b-20be658d34f9.png)
