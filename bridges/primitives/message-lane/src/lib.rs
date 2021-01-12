@@ -74,31 +74,51 @@ pub struct Message<Fee> {
 /// Inbound lane data.
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
 pub struct InboundLaneData<RelayerId> {
-	/// Identifiers of relayers and messages that they have delivered (ordered by message nonce).
-	/// It is guaranteed to have at most N entries, where N is configured at module level. If
-	/// there are N entries in this vec, then:
+	/// Identifiers of relayers and messages that they have delivered to this lane (ordered by message nonce).
+	///
+	/// This serves as a helper storage item, to allow the source chain to easily pay rewards
+	/// to the relayers who succesfuly delivered messages to the target chain (inbound lane).
+	///
+	/// It is guaranteed to have at most N entries, where N is configured at the module level.
+	/// If there are N entries in this vec, then:
 	/// 1) all incoming messages are rejected if they're missing corresponding `proof-of(outbound-lane.state)`;
-	/// 2) all incoming messages are rejected if `proof-of(outbound-lane.state).latest_received_nonce` is
-	///    equal to `this.latest_confirmed_nonce`.
-	/// Given what is said above, all nonces in this queue are in range (latest_confirmed_nonce; latest_received_nonce].
+	/// 2) all incoming messages are rejected if `proof-of(outbound-lane.state).last_delivered_nonce` is
+	///    equal to `self.last_confirmed_nonce`.
+	/// Given what is said above, all nonces in this queue are in range:
+	/// `(self.last_confirmed_nonce; self.last_delivered_nonce()]`.
 	///
 	/// When a relayer sends a single message, both of MessageNonces are the same.
 	/// When relayer sends messages in a batch, the first arg is the lowest nonce, second arg the highest nonce.
-	/// Multiple dispatches from the same relayer one are allowed.
+	/// Multiple dispatches from the same relayer are allowed.
 	pub relayers: VecDeque<(MessageNonce, MessageNonce, RelayerId)>,
-	/// Nonce of latest message that we have received from bridged chain.
-	pub latest_received_nonce: MessageNonce,
-	/// Nonce of latest message that has been confirmed to the bridged chain.
-	pub latest_confirmed_nonce: MessageNonce,
+
+	/// Nonce of the last message that
+	/// a) has been delivered to the target (this) chain and
+	/// b) the delivery has been confirmed on the source chain
+	///
+	/// that the target chain knows of.
+	///
+	/// This value is updated indirectly when an `OutboundLane` state of the source
+	/// chain is received alongside with new messages delivery.
+	pub last_confirmed_nonce: MessageNonce,
 }
 
 impl<RelayerId> Default for InboundLaneData<RelayerId> {
 	fn default() -> Self {
 		InboundLaneData {
 			relayers: VecDeque::new(),
-			latest_received_nonce: 0,
-			latest_confirmed_nonce: 0,
+			last_confirmed_nonce: 0,
 		}
+	}
+}
+
+impl<RelayerId> InboundLaneData<RelayerId> {
+	/// Nonce of the last message that has been delivered to this (target) chain.
+	pub fn last_delivered_nonce(&self) -> MessageNonce {
+		self.relayers
+			.back()
+			.map(|(_, last_nonce, _)| *last_nonce)
+			.unwrap_or(self.last_confirmed_nonce)
 	}
 }
 
