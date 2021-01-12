@@ -424,6 +424,7 @@ mod tests {
 		type BlockWeights = ();
 		type BlockLength = ();
 		type DbWeight = ();
+		type SS58Prefix = ();
 	}
 
 	impl Config for TestRuntime {

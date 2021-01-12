@@ -637,11 +637,11 @@ mod tests {
 		assert_eq!(default_verify(&header), Err(Error::MissingStep));
 
 		// when step is the same as for the parent block
-		header.seal[0] = rlp_encode(&42u64);
+		header.seal[0] = rlp_encode(&42u64).to_vec();
 		assert_eq!(default_verify(&header), Err(Error::DoubleVote));
 
 		// when step is OK
-		header.seal[0] = rlp_encode(&43u64);
+		header.seal[0] = rlp_encode(&43u64).to_vec();
 		assert_ne!(default_verify(&header), Err(Error::DoubleVote));
 
 		// now check with validate_step check enabled
@@ -649,12 +649,12 @@ mod tests {
 		config.validate_step_transition = 0;
 
 		// when step is lesser that for the parent block
-		header.seal[0] = rlp_encode(&40u64);
+		header.seal[0] = rlp_encode(&40u64).to_vec();
 		header.seal = vec![vec![40], vec![]];
 		assert_eq!(verify_with_config(&config, &header), Err(Error::DoubleVote));
 
 		// when step is OK
-		header.seal[0] = rlp_encode(&44u64);
+		header.seal[0] = rlp_encode(&44u64).to_vec();
 		assert_ne!(verify_with_config(&config, &header), Err(Error::DoubleVote));
 	}
 
@@ -720,7 +720,7 @@ mod tests {
 
 		// when header signature is invalid
 		let mut header = good_header.clone();
-		header.seal[1] = rlp_encode(&H520::default());
+		header.seal[1] = rlp_encode(&H520::default()).to_vec();
 		assert_eq!(default_verify(&header), Err(Error::NotValidator));
 
 		// when everything is OK

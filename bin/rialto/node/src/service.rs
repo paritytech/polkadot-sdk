@@ -134,8 +134,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
 	config
 		.network
-		.notifications_protocols
-		.push(sc_finality_grandpa::GRANDPA_PROTOCOL_NAME.into());
+		.extra_sets
+		.push(sc_finality_grandpa::grandpa_peers_set_config());
 
 	let (network, network_status_sinks, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
@@ -335,8 +335,8 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
 
 	config
 		.network
-		.notifications_protocols
-		.push(sc_finality_grandpa::GRANDPA_PROTOCOL_NAME.into());
+		.extra_sets
+		.push(sc_finality_grandpa::grandpa_peers_set_config());
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 

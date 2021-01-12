@@ -14,4 +14,4 @@ jsonrpsee = { git = "https://github.com/svyatonik/jsonrpsee.git", branch = "shar
 libsecp256k1 = { version = "0.3.4", default-features = false, features = ["hmac"] }
 log = "0.4.11"
 relay-utils = { path = "../utils" }
-web3 = { version = "0.14", default-features = false }
+web3 = { version = "0.15", default-features = false }

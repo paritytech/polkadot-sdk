@@ -66,6 +66,7 @@ impl frame_system::Config for TestRuntime {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
+	type SS58Prefix = ();
 }
 
 parameter_types! {
