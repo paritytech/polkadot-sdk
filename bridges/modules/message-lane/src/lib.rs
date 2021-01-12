@@ -39,7 +39,6 @@ pub use crate::weights_ext::{ensure_weights_are_correct, WeightInfoExt};
 
 use crate::inbound_lane::{InboundLane, InboundLaneStorage};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
-use crate::weights::WeightInfo;
 
 use bp_message_lane::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
@@ -47,6 +46,7 @@ use bp_message_lane::{
 	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload,
 	OutboundLaneData, UnrewardedRelayersState,
 };
+use bp_runtime::Size;
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure,
@@ -104,7 +104,7 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
 
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
-	type OutboundPayload: Parameter;
+	type OutboundPayload: Parameter + Size;
 	/// Message fee type of outbound messages. This fee is paid on this chain.
 	type OutboundMessageFee: From<u32> + Parameter + SaturatingAdd + Zero;
 
@@ -261,10 +261,9 @@ decl_module! {
 		}
 
 		/// Send message over lane.
-		///
-		/// The weight of the call assumes that the largest possible message is sent in
-		/// worst possible environment.
-		#[weight = T::WeightInfo::send_message_worst_case()]
+		#[weight = T::WeightInfo::send_message_overhead()
+			.saturating_add(T::WeightInfo::send_message_size_overhead(Size::size_hint(payload)))
+		]
 		pub fn send_message(
 			origin,
 			lane_id: LaneId,
