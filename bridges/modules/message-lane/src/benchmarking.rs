@@ -311,8 +311,7 @@ benchmarks_instance! {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![(1, 1, relayer_id.clone())].into_iter().collect(),
-				latest_received_nonce: 1,
-				latest_confirmed_nonce: 0,
+				last_confirmed_nonce: 0,
 			}
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
@@ -349,8 +348,7 @@ benchmarks_instance! {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![(1, 2, relayer_id.clone())].into_iter().collect(),
-				latest_received_nonce: 2,
-				latest_confirmed_nonce: 0,
+				last_confirmed_nonce: 0,
 			}
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
@@ -392,8 +390,7 @@ benchmarks_instance! {
 					(1, 1, relayer1_id.clone()),
 					(2, 2, relayer2_id.clone()),
 				].into_iter().collect(),
-				latest_received_nonce: 2,
-				latest_confirmed_nonce: 0,
+				last_confirmed_nonce: 0,
 			}
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof, relayers_state)
@@ -552,8 +549,7 @@ benchmarks_instance! {
 			lane: bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![(1, i as MessageNonce, relayer_id.clone())].into_iter().collect(),
-				latest_received_nonce: i as MessageNonce,
-				latest_confirmed_nonce: 0,
+				last_confirmed_nonce: 0,
 			}
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
@@ -601,8 +597,7 @@ benchmarks_instance! {
 					.enumerate()
 					.map(|(j, relayer_id)| (j as MessageNonce + 1, j as MessageNonce + 1, relayer_id.clone()))
 					.collect(),
-				latest_received_nonce: i as MessageNonce,
-				latest_confirmed_nonce: 0,
+				last_confirmed_nonce: 0,
 			}
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(confirmation_relayer_id), proof, relayers_state)
@@ -637,7 +632,6 @@ fn receive_messages<T: Config<I>, I: Instance>(nonce: MessageNonce) {
 	let mut inbound_lane_storage = inbound_lane_storage::<T, I>(bench_lane_id());
 	inbound_lane_storage.set_data(InboundLaneData {
 		relayers: vec![(1, nonce, T::bridged_relayer_id())].into_iter().collect(),
-		latest_received_nonce: nonce,
-		latest_confirmed_nonce: 0,
+		last_confirmed_nonce: 0,
 	});
 }
