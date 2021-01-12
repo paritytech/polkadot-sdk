@@ -25,7 +25,7 @@
 #![warn(missing_docs)]
 
 use bp_message_dispatch::{MessageDispatch, Weight};
-use bp_runtime::{derive_account_id, InstanceId, SourceAccount};
+use bp_runtime::{derive_account_id, InstanceId, Size, SourceAccount};
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_event, decl_module, decl_storage,
@@ -102,6 +102,14 @@ pub struct MessagePayload<SourceChainAccountId, TargetChainAccountPublic, Target
 	pub origin: CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature>,
 	/// The call itself.
 	pub call: Call,
+}
+
+impl<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature> Size
+	for MessagePayload<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature, Vec<u8>>
+{
+	fn size_hint(&self) -> u32 {
+		self.call.len() as _
+	}
 }
 
 /// The module configuration trait.

@@ -23,7 +23,8 @@ use frame_support::weights::Weight;
 
 /// Ensure that weights from `WeightInfoExt` implementation are looking correct.
 pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
-	assert_ne!(W::send_message_worst_case(), 0);
+	assert_ne!(W::send_message_overhead(), 0);
+	assert_ne!(W::send_message_size_overhead(0), 0);
 
 	assert_ne!(W::receive_messages_proof_overhead(), 0);
 	assert_ne!(W::receive_messages_proof_messages_overhead(1), 0);
@@ -36,6 +37,18 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 
 /// Extended weight info.
 pub trait WeightInfoExt: WeightInfo {
+	/// Returns weight of message send transaction (`send_message`).
+	fn send_message_overhead() -> Weight {
+		Self::send_minimal_message_worst_case()
+	}
+
+	/// Returns weight that needs to be accounted when message of given size is sent (`send_message`).
+	fn send_message_size_overhead(message_size: u32) -> Weight {
+		let message_size_in_kb = (1024u64 + message_size as u64) / 1024;
+		let single_kb_weight = (Self::send_16_kb_message_worst_case() - Self::send_1_kb_message_worst_case()) / 15;
+		message_size_in_kb * single_kb_weight
+	}
+
 	/// Returns weight overhead of message delivery transaction (`receive_messages_proof`).
 	fn receive_messages_proof_overhead() -> Weight {
 		let weight_of_two_messages_and_two_tx_overheads = Self::receive_single_message_proof().saturating_mul(2);

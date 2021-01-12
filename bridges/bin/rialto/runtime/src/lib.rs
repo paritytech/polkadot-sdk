@@ -813,6 +813,8 @@ impl_runtime_apis! {
 				}
 			}
 
+			use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
+			use bridge_runtime_common::messages;
 			use pallet_message_lane::benchmarking::{
 				Module as MessageLaneBench,
 				Config as MessageLaneConfig,
@@ -822,6 +824,10 @@ impl_runtime_apis! {
 			};
 
 			impl MessageLaneConfig<WithMillauMessageLaneInstance> for Runtime {
+				fn maximal_message_size() -> u32 {
+					messages::source::maximal_message_size::<WithMillauMessageBridge>()
+				}
+
 				fn bridged_relayer_id() -> Self::InboundRelayer {
 					Default::default()
 				}
@@ -840,24 +846,14 @@ impl_runtime_apis! {
 				fn prepare_outbound_message(
 					params: MessageLaneMessageParams<Self::AccountId>,
 				) -> (millau_messages::ToMillauMessagePayload, Balance) {
-					use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
-					use bridge_runtime_common::messages;
-					use pallet_message_lane::benchmarking::WORST_MESSAGE_SIZE_FACTOR;
-
-					let max_message_size = messages::source::maximal_message_size::<WithMillauMessageBridge>();
-					let message_size = match params.size_factor {
-						0 => 1,
-						factor => max_message_size / WORST_MESSAGE_SIZE_FACTOR
-							* sp_std::cmp::min(factor, WORST_MESSAGE_SIZE_FACTOR),
-					};
-					let message_payload = vec![0; message_size as usize];
+					let message_payload = vec![0; params.size as usize];
 					let dispatch_origin = pallet_bridge_call_dispatch::CallOrigin::SourceAccount(
 						params.sender_account,
 					);
 
 					let message = ToMillauMessagePayload {
 						spec_version: 0,
-						weight: message_size as _,
+						weight: params.size as _,
 						origin: dispatch_origin,
 						call: message_payload,
 					};
