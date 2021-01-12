@@ -26,8 +26,6 @@ use frame_benchmarking::benchmarks_instance;
 use frame_system::RawOrigin;
 
 benchmarks_instance! {
-	_ { }
-
 	// Benchmark `import_unsigned_header` extrinsic with the best possible conditions:
 	// * Parent header is finalized.
 	// * New header doesn't require receipts.

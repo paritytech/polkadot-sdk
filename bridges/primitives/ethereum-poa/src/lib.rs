@@ -289,7 +289,7 @@ impl AuraHeader {
 			}
 		}
 
-		s.out()
+		s.out().to_vec()
 	}
 }
 
@@ -320,7 +320,7 @@ impl UnsignedTransaction {
 	pub fn rlp(&self, chain_id: Option<u64>) -> Bytes {
 		let mut stream = RlpStream::new_list(if chain_id.is_some() { 9 } else { 6 });
 		self.rlp_to(chain_id, &mut stream);
-		stream.out()
+		stream.out().to_vec()
 	}
 
 	/// Encode to given rlp stream.
@@ -392,7 +392,7 @@ impl Receipt {
 			s.append(&log.data);
 		}
 
-		s.out()
+		s.out().to_vec()
 	}
 }
 
@@ -412,7 +412,7 @@ impl SealedEmptyStep {
 		for empty_step in empty_steps {
 			s.begin_list(2).append(&empty_step.signature).append(&empty_step.step);
 		}
-		s.out()
+		s.out().to_vec()
 	}
 }
 
