@@ -49,7 +49,7 @@ impl SignHeader for AuraHeader {
 
 		let message = self.seal_hash(false).unwrap();
 		let signature = sign(author, message);
-		self.seal[1] = rlp_encode(&signature);
+		self.seal[1] = rlp_encode(&signature).to_vec();
 		self
 	}
 
@@ -74,7 +74,7 @@ impl SignTransaction for UnsignedTransaction {
 		stream.append(&signature_v);
 		stream.append(&signature_r);
 		stream.append(&signature_s);
-		stream.out()
+		stream.out().to_vec()
 	}
 }
 
