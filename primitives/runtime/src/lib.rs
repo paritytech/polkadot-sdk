@@ -95,3 +95,12 @@ where
 pub fn derive_relayer_fund_account_id(bridge_id: InstanceId) -> H256 {
 	("relayer-fund-account", bridge_id).using_encoded(blake2_256).into()
 }
+
+/// Anything that has size.
+pub trait Size {
+	/// Return approximate size of this object (in bytes).
+	///
+	/// This function should be lightweight. The result should not necessary be absolutely
+	/// accurate.
+	fn size_hint(&self) -> u32;
+}

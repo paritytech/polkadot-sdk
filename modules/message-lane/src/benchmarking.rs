@@ -27,8 +27,6 @@ use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, ops::RangeInclusive, prelude::*};
 
-/// Message crafted with this size factor should be the largest possible message.
-pub const WORST_MESSAGE_SIZE_FACTOR: u32 = 1000;
 /// Fee paid by submitter for single message delivery.
 const MESSAGE_FEE: u32 = 1_000_000;
 
@@ -39,10 +37,8 @@ pub struct Module<T: Config<I>, I: crate::Instance>(crate::Module<T, I>);
 
 /// Benchmark-specific message parameters.
 pub struct MessageParams<ThisAccountId> {
-	/// Size factor of the message payload. Message payload grows with every factor
-	/// increment. Zero is the smallest possible message and the `WORST_MESSAGE_SIZE_FACTOR` is
-	/// largest possible message.
-	pub size_factor: u32,
+	/// Size of the message payload.
+	pub size: u32,
 	/// Message sender account.
 	pub sender_account: ThisAccountId,
 }
@@ -67,6 +63,8 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 
 /// Trait that must be implemented by runtime.
 pub trait Config<I: Instance>: crate::Config<I> {
+	/// Get maximal size of the message payload.
+	fn maximal_message_size() -> u32;
 	/// Return id of relayer account at the bridged chain.
 	fn bridged_relayer_id() -> Self::InboundRelayer;
 	/// Return balance of given account.
@@ -101,10 +99,12 @@ benchmarks_instance! {
 	// * outbound lane already has state, so it needs to be read and decoded;
 	// * relayers fund account does not exists (in practice it needs to exist in production environment);
 	// * maximal number of messages is being pruned during the call;
-	// * message size is maximal for the target chain.
+	// * message size is minimal for the target chain.
 	//
-	// Results of this benchmark may be directly used in the `send_message`.
-	send_message_worst_case {
+	// Result of this benchmark is used as a base weight for `send_message` call. Then the 'message weight'
+	// (estimated using `send_half_maximal_message_worst_case` and `send_maximal_message_worst_case`) is
+	// added.
+	send_minimal_message_worst_case {
 		let lane_id = bench_lane_id();
 		let sender = account("sender", 0, SEED);
 		T::endow_account(&sender);
@@ -116,7 +116,81 @@ benchmarks_instance! {
 		confirm_message_delivery::<T, I>(T::MaxMessagesToPruneAtOnce::get());
 
 		let (payload, fee) = T::prepare_outbound_message(MessageParams {
-			size_factor: WORST_MESSAGE_SIZE_FACTOR,
+			size: 0,
+			sender_account: sender.clone(),
+		});
+	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
+	verify {
+		assert_eq!(
+			crate::Module::<T, I>::outbound_latest_generated_nonce(bench_lane_id()),
+			T::MaxMessagesToPruneAtOnce::get() + 1,
+		);
+	}
+
+	// Benchmark `send_message` extrinsic with the worst possible conditions:
+	// * outbound lane already has state, so it needs to be read and decoded;
+	// * relayers fund account does not exists (in practice it needs to exist in production environment);
+	// * maximal number of messages is being pruned during the call;
+	// * message size is 1KB.
+	//
+	// With single KB of message size, the weight of the call is increased (roughly) by
+	// `(send_16_kb_message_worst_case - send_1_kb_message_worst_case) / 15`.
+	send_1_kb_message_worst_case {
+		let lane_id = bench_lane_id();
+		let sender = account("sender", 0, SEED);
+		T::endow_account(&sender);
+
+		// 'send' messages that are to be pruned when our message is sent
+		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
+			send_regular_message::<T, I>();
+		}
+		confirm_message_delivery::<T, I>(T::MaxMessagesToPruneAtOnce::get());
+
+		let size = 1024;
+		assert!(
+			T::maximal_message_size() > size,
+			"This benchmark can only be used with runtime that accepts 1KB messages",
+		);
+
+		let (payload, fee) = T::prepare_outbound_message(MessageParams {
+			size,
+			sender_account: sender.clone(),
+		});
+	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
+	verify {
+		assert_eq!(
+			crate::Module::<T, I>::outbound_latest_generated_nonce(bench_lane_id()),
+			T::MaxMessagesToPruneAtOnce::get() + 1,
+		);
+	}
+
+	// Benchmark `send_message` extrinsic with the worst possible conditions:
+	// * outbound lane already has state, so it needs to be read and decoded;
+	// * relayers fund account does not exists (in practice it needs to exist in production environment);
+	// * maximal number of messages is being pruned during the call;
+	// * message size is 16KB.
+	//
+	// With single KB of message size, the weight of the call is increased (roughly) by
+	// `(send_16_kb_message_worst_case - send_1_kb_message_worst_case) / 15`.
+	send_16_kb_message_worst_case {
+		let lane_id = bench_lane_id();
+		let sender = account("sender", 0, SEED);
+		T::endow_account(&sender);
+
+		// 'send' messages that are to be pruned when our message is sent
+		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
+			send_regular_message::<T, I>();
+		}
+		confirm_message_delivery::<T, I>(T::MaxMessagesToPruneAtOnce::get());
+
+		let size = 16 * 1024;
+		assert!(
+			T::maximal_message_size() > size,
+			"This benchmark can only be used with runtime that accepts 16KB messages",
+		);
+
+		let (payload, fee) = T::prepare_outbound_message(MessageParams {
+			size,
 			sender_account: sender.clone(),
 		});
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
@@ -339,6 +413,38 @@ benchmarks_instance! {
 	//
 	// Benchmarks for manual checks.
 	//
+
+	// Benchmark `send_message` extrinsic with following conditions:
+	// * outbound lane already has state, so it needs to be read and decoded;
+	// * relayers fund account does not exists (in practice it needs to exist in production environment);
+	// * maximal number of messages is being pruned during the call;
+	// * message size varies from minimal to maximal for the target chain.
+	//
+	// Results of this benchmark may be used to check how message size affects `send_message` performance.
+	send_messages_of_various_lengths {
+		let i in 0..T::maximal_message_size().try_into().unwrap_or_default();
+
+		let lane_id = bench_lane_id();
+		let sender = account("sender", 0, SEED);
+		T::endow_account(&sender);
+
+		// 'send' messages that are to be pruned when our message is sent
+		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
+			send_regular_message::<T, I>();
+		}
+		confirm_message_delivery::<T, I>(T::MaxMessagesToPruneAtOnce::get());
+
+		let (payload, fee) = T::prepare_outbound_message(MessageParams {
+			size: i as _,
+			sender_account: sender.clone(),
+		});
+	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
+	verify {
+		assert_eq!(
+			crate::Module::<T, I>::outbound_latest_generated_nonce(bench_lane_id()),
+			T::MaxMessagesToPruneAtOnce::get() + 1,
+		);
+	}
 
 	// Benchmark `receive_messages_proof` extrinsic with multiple minimal-weight messages and following conditions:
 	// * proof does not include outbound lane state proof;
