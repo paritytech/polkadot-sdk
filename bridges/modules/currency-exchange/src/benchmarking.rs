@@ -54,8 +54,6 @@ pub trait Config<I: Instance>: CurrencyExchangeConfig<I> {
 }
 
 benchmarks_instance! {
-	_ { }
-
 	// Benchmark `import_peer_transaction` extrinsic with the best possible conditions:
 	// * Proof is the transaction itself.
 	// * Transaction has minimal size.
