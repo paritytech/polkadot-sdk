@@ -89,8 +89,6 @@ pub trait Config<I: Instance>: crate::Config<I> {
 }
 
 benchmarks_instance! {
-	_ { }
-
 	//
 	// Benchmarks that are used directly by the runtime.
 	//
