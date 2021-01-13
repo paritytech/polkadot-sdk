@@ -79,11 +79,11 @@ impl<P: MessageLane> MessageRace for ReceivingConfirmationsRace<P> {
 	type Proof = P::MessagesReceivingProof;
 
 	fn source_name() -> String {
-		format!("{}::ReceivingConfirmationsDelivery", P::SOURCE_NAME)
+		format!("{}::ReceivingConfirmationsDelivery", P::TARGET_NAME)
 	}
 
 	fn target_name() -> String {
-		format!("{}::ReceivingConfirmationsDelivery", P::TARGET_NAME)
+		format!("{}::ReceivingConfirmationsDelivery", P::SOURCE_NAME)
 	}
 }
 
