@@ -24,15 +24,18 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Other Dependencies
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"]}
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
+hash-db = { version = "0.15.2", default-features = false }
 
 [dev-dependencies]
 sp-externalities = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+cumulus-test-relay-sproof-builder = { path = "../test/relay-sproof-builder" }
 
 [features]
 default = ['std']
@@ -46,7 +49,9 @@ std = [
 	'sp-runtime/std',
 	'sp-io/std',
 	'sp-std/std',
+	'hash-db/std',
 	'sp-state-machine/std',
+	'sp-trie/std',
 	'frame-system/std',
 	'cumulus-primitives/std',
 ]

@@ -596,7 +596,7 @@ mod tests {
 	}
 
 	fn build_and_import_block(mut client: Arc<Client>) -> Block {
-		let builder = client.init_block_builder(None);
+		let builder = client.init_block_builder(None, Default::default());
 
 		let block = builder.build().unwrap().block;
 		let (header, body) = block.clone().deconstruct();
@@ -704,7 +704,11 @@ mod tests {
 		let block = build_and_import_block(client.clone());
 
 		let unknown_block = {
-			let block_builder = client.init_block_builder_at(&BlockId::Hash(block.hash()), None);
+			let block_builder = client.init_block_builder_at(
+				&BlockId::Hash(block.hash()),
+				None,
+				Default::default(),
+			);
 			block_builder.build().unwrap().block
 		};
 
@@ -762,7 +766,11 @@ mod tests {
 		let block = build_and_import_block(client.clone());
 
 		let unknown_block = {
-			let block_builder = client.init_block_builder_at(&BlockId::Hash(block.hash()), None);
+			let block_builder = client.init_block_builder_at(
+				&BlockId::Hash(block.hash()),
+				None,
+				Default::default(),
+			);
 			block_builder.build().unwrap().block
 		};
 

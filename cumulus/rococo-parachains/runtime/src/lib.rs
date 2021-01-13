@@ -232,6 +232,7 @@ impl pallet_sudo::Config for Runtime {
 impl cumulus_parachain_upgrade::Config for Runtime {
 	type Event = Event;
 	type OnValidationData = ();
+	type SelfParaId = parachain_info::Module<Runtime>;
 }
 
 impl cumulus_message_broker::Config for Runtime {

@@ -31,12 +31,12 @@
 
 use cumulus_primitives::{
 	inherents::{ValidationDataType, VALIDATION_DATA_IDENTIFIER as INHERENT_IDENTIFIER},
-	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_DATA},
-	OnValidationData, ValidationData,
+	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_DATA}, AbridgedHostConfiguration,
+	OnValidationData, ValidationData, ParaId, relay_chain,
 };
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, storage,
-	weights::{DispatchClass, Weight},
+	weights::{DispatchClass, Weight}, dispatch::DispatchResult, traits::Get,
 };
 use frame_system::{ensure_none, ensure_root};
 use parachain::primitives::RelayChainBlockNumber;
@@ -44,7 +44,9 @@ use sp_core::storage::well_known_keys;
 use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
 use sp_std::vec::Vec;
 
-type System<T> = frame_system::Module<T>;
+mod relay_state_snapshot;
+
+pub use relay_state_snapshot::MessagingStateSnapshot;
 
 /// The pallet's configuration trait.
 pub trait Config: frame_system::Config {
@@ -53,6 +55,9 @@ pub trait Config: frame_system::Config {
 
 	/// Something which can be notified when the validation data is set.
 	type OnValidationData: OnValidationData;
+
+	/// Returns the parachain ID we are running with.
+	type SelfParaId: Get<ParaId>;
 }
 
 // This pallet's storage items.
@@ -68,6 +73,25 @@ decl_storage! {
 
 		/// Were the validation data set to notify the relay chain?
 		DidSetValidationCode: bool;
+
+		/// The last relay parent block number at which we signalled the code upgrade.
+		LastUpgrade: relay_chain::BlockNumber;
+
+		/// The snapshot of some state related to messaging relevant to the current parachain as per
+		/// the relay parent.
+		///
+		/// This field is meant to be updated each block with the validation data inherent. Therefore,
+		/// before processing of the inherent, e.g. in `on_initialize` this data may be stale.
+		///
+		/// This data is also absent from the genesis.
+		RelevantMessagingState get(fn relevant_messaging_state): Option<MessagingStateSnapshot>;
+		/// The parachain host configuration that was obtained from the relay parent.
+		///
+		/// This field is meant to be updated each block with the validation data inherent. Therefore,
+		/// before processing of the inherent, e.g. in `on_initialize` this data may be stale.
+		///
+		/// This data is also absent from the genesis.
+		HostConfiguration get(fn host_configuration): Option<AbridgedHostConfiguration>;
 	}
 }
 
@@ -82,7 +106,7 @@ decl_module! {
 		#[weight = (0, DispatchClass::Operational)]
 		pub fn schedule_upgrade(origin, validation_function: Vec<u8>) {
 			ensure_root(origin)?;
-			System::<T>::can_set_code(&validation_function)?;
+			<frame_system::Module<T>>::can_set_code(&validation_function)?;
 			Self::schedule_upgrade_impl(validation_function)?;
 		}
 
@@ -106,7 +130,7 @@ decl_module! {
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
 		#[weight = (0, DispatchClass::Mandatory)]
-		fn set_validation_data(origin, data: ValidationDataType) {
+		fn set_validation_data(origin, data: ValidationDataType) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(!DidUpdateValidationData::exists(), "ValidationData must be updated only once in a block");
 
@@ -121,18 +145,31 @@ decl_module! {
 			if let Some((apply_block, validation_function)) = PendingValidationFunction::get() {
 				if vfp.persisted.block_number >= apply_block {
 					PendingValidationFunction::kill();
+					LastUpgrade::put(&apply_block);
 					Self::put_parachain_code(&validation_function);
 					Self::deposit_event(Event::ValidationFunctionApplied(vfp.persisted.block_number));
 				}
 			}
 
+			let (host_config, relevant_messaging_state) =
+				relay_state_snapshot::extract_from_proof(
+					T::SelfParaId::get(),
+					vfp.persisted.relay_storage_root,
+					relay_chain_state
+				)
+				.map_err(|err| {
+					frame_support::debug::print!("invalid relay chain merkle proof: {:?}", err);
+					Error::<T>::InvalidRelayChainMerkleProof
+				})?;
+
 			storage::unhashed::put(VALIDATION_DATA, &vfp);
 			DidUpdateValidationData::put(true);
-
-			// TODO: here we should extract the key value pairs out of the storage proof.
-			drop(relay_chain_state);
+			RelevantMessagingState::put(relevant_messaging_state);
+			HostConfiguration::put(host_config);
 
 			<T::OnValidationData as OnValidationData>::on_validation_data(vfp);
+
+			Ok(())
 		}
 
 		fn on_finalize() {
@@ -177,35 +214,53 @@ impl<T: Config> Module<T> {
 		storage::unhashed::put_raw(well_known_keys::CODE, code);
 	}
 
-	/// `true` when a code upgrade is currently legal
-	pub fn can_set_code() -> bool {
-		Self::validation_data()
-			.map(|vfp| vfp.transient.code_upgrade_allowed.is_some())
-			.unwrap_or_default()
+	/// The maximum code size permitted, in bytes.
+	///
+	/// Returns `None` if the relay chain parachain host configuration hasn't been submitted yet.
+	pub fn max_code_size() -> Option<u32> {
+		HostConfiguration::get().map(|cfg| cfg.max_code_size)
 	}
 
-	/// The maximum code size permitted, in bytes.
-	pub fn max_code_size() -> Option<u32> {
-		Self::validation_data().map(|vfp| vfp.transient.max_code_size)
+	/// Returns if a PVF/runtime upgrade could be signalled at the current block, and if so
+	/// when the new code will take the effect.
+	fn code_upgrade_allowed(
+		vfp: &ValidationData,
+		cfg: &AbridgedHostConfiguration,
+	) -> Option<relay_chain::BlockNumber> {
+		if PendingValidationFunction::get().is_some() {
+			// There is already upgrade scheduled. Upgrade is not allowed.
+			return None;
+		}
+
+		let relay_blocks_since_last_upgrade = vfp
+			.persisted
+			.block_number
+			.saturating_sub(LastUpgrade::get());
+
+		if relay_blocks_since_last_upgrade <= cfg.validation_upgrade_frequency {
+			// The cooldown after the last upgrade hasn't elapsed yet. Upgrade is not allowed.
+			return None;
+		}
+
+		Some(vfp.persisted.block_number + cfg.validation_upgrade_delay)
 	}
 
 	/// The implementation of the runtime upgrade scheduling.
 	fn schedule_upgrade_impl(
 		validation_function: Vec<u8>,
-	) -> frame_support::dispatch::DispatchResult {
+	) -> DispatchResult {
 		ensure!(
 			!PendingValidationFunction::exists(),
 			Error::<T>::OverlappingUpgrades
 		);
 		let vfp = Self::validation_data().ok_or(Error::<T>::ValidationDataNotAvailable)?;
+		let cfg = Self::host_configuration().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
 		ensure!(
-			validation_function.len() <= vfp.transient.max_code_size as usize,
+			validation_function.len() <= cfg.max_code_size as usize,
 			Error::<T>::TooBig
 		);
-		let apply_block = vfp
-			.transient
-			.code_upgrade_allowed
-			.ok_or(Error::<T>::ProhibitedByPolkadot)?;
+		let apply_block =
+			Self::code_upgrade_allowed(&vfp, &cfg).ok_or(Error::<T>::ProhibitedByPolkadot)?;
 
 		// When a code upgrade is scheduled, it has to be applied in two
 		// places, synchronized: both polkadot and the individual parachain
@@ -257,6 +312,10 @@ decl_error! {
 		TooBig,
 		/// The inherent which supplies the validation data did not run this block
 		ValidationDataNotAvailable,
+		/// The inherent which supplies the host configuration did not run this block
+		HostConfigurationNotAvailable,
+		/// Invalid relay-chain storage merkle proof
+		InvalidRelayChainMerkleProof,
 	}
 }
 
@@ -267,6 +326,7 @@ mod tests {
 
 	use codec::Encode;
 	use cumulus_primitives::{PersistedValidationData, TransientValidationData};
+	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use frame_support::{
 		assert_ok,
 		dispatch::UnfilteredDispatchable,
@@ -312,6 +372,7 @@ mod tests {
 			apis: sp_version::create_apis_vec!([]),
 			transaction_version: 1,
 		};
+		pub const ParachainId: ParaId = ParaId::new(200);
 	}
 	impl frame_system::Config for Test {
 		type Origin = Origin;
@@ -340,9 +401,11 @@ mod tests {
 	impl Config for Test {
 		type Event = TestEvent;
 		type OnValidationData = ();
+		type SelfParaId = ParachainId;
 	}
 
 	type ParachainUpgrade = Module<Test>;
+	type System = frame_system::Module<Test>;
 
 	// This function basically just builds a genesis storage key/value store according to
 	// our desired mockup.
@@ -398,7 +461,9 @@ mod tests {
 		tests: Vec<BlockTest>,
 		pending_upgrade: Option<RelayChainBlockNumber>,
 		ran: bool,
-		vfp_maker: Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber) -> ValidationData>>,
+		relay_sproof_builder_hook: Option<
+			Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut RelayStateSproofBuilder)>
+		>,
 	}
 
 	impl BlockTests {
@@ -439,11 +504,11 @@ mod tests {
 			})
 		}
 
-		fn with_validation_data<F>(mut self, f: F) -> Self
+		fn with_relay_sproof_builder<F>(mut self, f: F) -> Self
 		where
-			F: 'static + Fn(&BlockTests, RelayChainBlockNumber) -> ValidationData,
+			F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut RelayStateSproofBuilder)
 		{
-			self.vfp_maker = Some(Box::new(f));
+			self.relay_sproof_builder_hook = Some(Box::new(f));
 			self
 		}
 
@@ -464,7 +529,7 @@ mod tests {
 					}
 
 					// begin initialization
-					System::<Test>::initialize(
+					System::initialize(
 						&n,
 						&Default::default(),
 						&Default::default(),
@@ -472,24 +537,21 @@ mod tests {
 					);
 
 					// now mess with the storage the way validate_block does
-					let vfp = match self.vfp_maker {
-						None => ValidationData {
-							persisted: PersistedValidationData {
-								block_number: *n as RelayChainBlockNumber,
-								..Default::default()
-							},
-							transient: TransientValidationData {
-								max_code_size: 10 * 1024 * 1024, // 10 mb
-								code_upgrade_allowed: if self.pending_upgrade.is_some() {
-									None
-								} else {
-									Some(*n as RelayChainBlockNumber + 1000)
-								},
-								..Default::default()
-							},
+					let mut sproof_builder = RelayStateSproofBuilder::default();
+					if let Some(ref hook) = self.relay_sproof_builder_hook {
+						hook(self, *n as RelayChainBlockNumber, &mut sproof_builder);
+					}
+					let (relay_storage_root, relay_chain_state) =
+						sproof_builder.into_state_root_and_proof();
+					let vfp = ValidationData {
+						persisted: PersistedValidationData {
+							block_number: *n as RelayChainBlockNumber,
+							relay_storage_root,
+							..Default::default()
 						},
-						Some(ref maker) => maker(self, *n as RelayChainBlockNumber),
+						transient: TransientValidationData::default(),
 					};
+
 					storage::unhashed::put(VALIDATION_DATA, &vfp);
 					storage::unhashed::kill(NEW_VALIDATION_CODE);
 
@@ -498,13 +560,10 @@ mod tests {
 					let inherent_data = {
 						let mut inherent_data = InherentData::default();
 						inherent_data
-							.put_data(
-								INHERENT_IDENTIFIER,
-								&ValidationDataType {
-									validation_data: vfp.clone(),
-									relay_chain_state: sp_state_machine::StorageProof::empty(),
-								},
-							)
+							.put_data(INHERENT_IDENTIFIER, &ValidationDataType {
+								validation_data: vfp.clone(),
+								relay_chain_state,
+							})
 							.expect("failed to put VFP inherent");
 						inherent_data
 					};
@@ -527,7 +586,7 @@ mod tests {
 					}
 
 					// clean up
-					System::<Test>::finalize();
+					System::finalize();
 					if let Some(after_block) = after_block {
 						after_block();
 					}
@@ -575,6 +634,9 @@ mod tests {
 	#[test]
 	fn events() {
 		BlockTests::new()
+			.with_relay_sproof_builder(|_, _, builder| {
+				builder.host_config.validation_upgrade_delay = 1000;
+			})
 			.add_with_post_test(
 				123,
 				|| {
@@ -584,7 +646,7 @@ mod tests {
 					));
 				},
 				|| {
-					let events = System::<Test>::events();
+					let events = System::events();
 					assert_eq!(
 						events[0].event,
 						TestEvent::parachain_upgrade(Event::ValidationFunctionStored(1123))
@@ -595,7 +657,7 @@ mod tests {
 				1234,
 				|| {},
 				|| {
-					let events = System::<Test>::events();
+					let events = System::events();
 					assert_eq!(
 						events[0].event,
 						TestEvent::parachain_upgrade(Event::ValidationFunctionApplied(1234))
@@ -607,6 +669,9 @@ mod tests {
 	#[test]
 	fn non_overlapping() {
 		BlockTests::new()
+			.with_relay_sproof_builder(|_, _, builder| {
+				builder.host_config.validation_upgrade_delay = 1000;
+			})
 			.add(123, || {
 				assert_ok!(ParachainUpgrade::schedule_upgrade(
 					RawOrigin::Root.into(),
@@ -615,7 +680,7 @@ mod tests {
 			})
 			.add(234, || {
 				assert_eq!(
-					ParachainUpgrade::schedule_upgrade(RawOrigin::Root.into(), Default::default(),),
+					ParachainUpgrade::schedule_upgrade(RawOrigin::Root.into(), Default::default()),
 					Err(Error::<Test>::OverlappingUpgrades.into()),
 				)
 			});
@@ -653,16 +718,8 @@ mod tests {
 	#[test]
 	fn checks_size() {
 		BlockTests::new()
-			.with_validation_data(|_, n| ValidationData {
-				persisted: PersistedValidationData {
-					block_number: n,
-					..Default::default()
-				},
-				transient: TransientValidationData {
-					max_code_size: 32,
-					code_upgrade_allowed: Some(n + 1000),
-					..Default::default()
-				},
+			.with_relay_sproof_builder(|_, _, builder| {
+				builder.host_config.max_code_size = 8;
 			})
 			.add(123, || {
 				assert_eq!(

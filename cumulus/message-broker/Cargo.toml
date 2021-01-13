@@ -16,6 +16,7 @@ codec = { package = "parity-scale-codec", version = "1.3.0", features = [ "deriv
 
 # Cumulus dependencies
 cumulus-primitives = { path = "../primitives", default-features = false }
+cumulus-parachain-upgrade = { path = "../parachain-upgrade", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -24,5 +25,6 @@ std = [
 	"frame-system/std",
 	"sp-inherents/std",
 	"cumulus-primitives/std",
+	"cumulus-parachain-upgrade/std",
 	"sp-std/std"
 ]

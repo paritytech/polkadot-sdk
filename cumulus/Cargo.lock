@@ -1090,6 +1090,7 @@ dependencies = [
 name = "cumulus-message-broker"
 version = "0.1.0"
 dependencies = [
+ "cumulus-parachain-upgrade",
  "cumulus-primitives",
  "frame-support",
  "frame-system",
@@ -1134,8 +1135,10 @@ version = "0.1.0"
 dependencies = [
  "cumulus-primitives",
  "cumulus-runtime",
+ "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
+ "hash-db",
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-parachain",
@@ -1147,6 +1150,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-std",
+ "sp-trie",
  "sp-version",
  "substrate-test-runtime-client",
 ]
@@ -1174,6 +1178,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-primitives",
  "cumulus-test-client",
+ "cumulus-test-relay-sproof-builder",
  "env_logger",
  "frame-executive",
  "hash-db",
@@ -1223,6 +1228,7 @@ name = "cumulus-test-client"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives",
+ "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
  "cumulus-test-service",
  "frame-system",
@@ -1282,6 +1288,17 @@ dependencies = [
  "xcm-builder",
  "xcm-executor",
  "xcm-handler",
+]
+
+[[package]]
+name = "cumulus-test-relay-sproof-builder"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]

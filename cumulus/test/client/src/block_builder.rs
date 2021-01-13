@@ -20,6 +20,7 @@ use cumulus_primitives::{
 	ValidationData,
 };
 use cumulus_test_runtime::{Block, GetLastTimestamp};
+use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_primitives::v1::BlockNumber as PBlockNumber;
 use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
 use sp_api::ProvideRuntimeApi;
@@ -31,9 +32,13 @@ pub trait InitBlockBuilder {
 	///
 	/// This will automatically create and push the inherents for you to make the block
 	/// valid for the test runtime.
+	///
+	/// You can use the relay chain state sproof builder to arrange required relay chain state or
+	/// just use a default one.
 	fn init_block_builder(
 		&self,
 		validation_data: Option<ValidationData<PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
@@ -44,6 +49,7 @@ pub trait InitBlockBuilder {
 		&self,
 		at: &BlockId<Block>,
 		validation_data: Option<ValidationData<PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 }
 
@@ -51,15 +57,21 @@ impl InitBlockBuilder for Client {
 	fn init_block_builder(
 		&self,
 		validation_data: Option<ValidationData<PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
 		let chain_info = self.chain_info();
-		self.init_block_builder_at(&BlockId::Hash(chain_info.best_hash), validation_data)
+		self.init_block_builder_at(
+			&BlockId::Hash(chain_info.best_hash),
+			validation_data,
+			relay_sproof_builder,
+		)
 	}
 
 	fn init_block_builder_at(
 		&self,
 		at: &BlockId<Block>,
 		validation_data: Option<ValidationData<PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
 		let mut block_builder = self
 			.new_block_at(at, Default::default(), true)
@@ -76,12 +88,24 @@ impl InitBlockBuilder for Client {
 		inherent_data
 			.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 			.expect("Put timestamp failed");
+
+		let (relay_storage_root, relay_chain_state) =
+			relay_sproof_builder.into_state_root_and_proof();
+
+		let mut validation_data = validation_data.unwrap_or_default();
+		assert_eq!(
+			validation_data.persisted.relay_storage_root,
+			Default::default(),
+			"Overriding the relay storage root is not implemented",
+		);
+		validation_data.persisted.relay_storage_root = relay_storage_root;
+
 		inherent_data
 			.put_data(
 				VALIDATION_DATA_IDENTIFIER,
 				&ValidationDataType {
-					validation_data: validation_data.unwrap_or_default(),
-					relay_chain_state: sp_state_machine::StorageProof::empty(),
+					validation_data,
+					relay_chain_state,
 				},
 			)
 			.expect("Put validation function params failed");
