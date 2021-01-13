@@ -332,7 +332,7 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 				},
 			};
 
-			log::error!(target: "bridge", "Sending message to Rialto. Fee: {}", fee);
+			log::info!(target: "bridge", "Sending message to Rialto. Fee: {}", fee);
 
 			let millau_call = millau_runtime::Call::BridgeRialtoMessageLane(
 				millau_runtime::MessageLaneCall::send_message(lane, payload, fee),
