@@ -16,13 +16,25 @@
 
 //! Primitives of message lane module, that are used on the source chain.
 
-use crate::{InboundLaneData, LaneId};
+use crate::{InboundLaneData, LaneId, MessageNonce};
 
-use frame_support::Parameter;
-use sp_std::fmt::Debug;
+use frame_support::{Parameter, RuntimeDebug};
+use sp_std::{collections::btree_map::BTreeMap, fmt::Debug};
 
 /// The sender of the message on the source chain.
 pub type Sender<AccountId> = frame_system::RawOrigin<AccountId>;
+
+/// Relayers rewards, grouped by relayer account id.
+pub type RelayersRewards<AccountId, Balance> = BTreeMap<AccountId, RelayerRewards<Balance>>;
+
+/// Single relayer rewards.
+#[derive(RuntimeDebug, Default)]
+pub struct RelayerRewards<Balance> {
+	/// Total rewards that are to be paid to the relayer.
+	pub reward: Balance,
+	/// Total number of messages relayed by this relayer.
+	pub messages: MessageNonce,
+}
 
 /// Target chain API. Used by source chain to verify target chain proofs.
 ///
@@ -102,11 +114,13 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 		relayer_fund_account: &AccountId,
 	) -> Result<(), Self::Error>;
 
-	/// Pay reward for delivering message to the given relayer account.
-	fn pay_relayer_reward(
+	/// Pay rewards for delivering messages to the given relayers.
+	///
+	/// The implementation may also choose to pay reward to the `confirmation_relayer`, which is
+	/// a relayer that has submitted delivery confirmation transaction.
+	fn pay_relayers_rewards(
 		confirmation_relayer: &AccountId,
-		relayer: &AccountId,
-		reward: &Balance,
+		relayers_rewards: RelayersRewards<AccountId, Balance>,
 		relayer_fund_account: &AccountId,
 	);
 
