@@ -28,6 +28,7 @@ sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master
 [dev-dependencies]
 hex-literal = "0.3"
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 
 [features]
 default = ["std"]
