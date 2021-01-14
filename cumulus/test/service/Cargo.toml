@@ -10,7 +10,7 @@ rand = "0.7.3"
 serde = { version = "1.0.101", features = ["derive"] }
 
 # Substrate
-sc-basic-authorship = { git = "https://github.com/paritytech/substrate", version = "0.8.0-rc5" , branch = "master" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", version = "0.8.0-rc5", branch = "master" }
 sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }

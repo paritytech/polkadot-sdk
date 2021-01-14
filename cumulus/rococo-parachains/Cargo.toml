@@ -40,7 +40,7 @@ sc-service = { git = "https://github.com/paritytech/substrate", branch = "master
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-basic-authorship = { git = "https://github.com/paritytech/substrate", version = "0.8.0-rc5" , branch = "master" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", version = "0.8.0-rc5", branch = "master" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
