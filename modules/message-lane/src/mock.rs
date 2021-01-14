@@ -17,7 +17,9 @@
 use crate::Config;
 
 use bp_message_lane::{
-	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, Sender, TargetHeaderChain},
+	source_chain::{
+		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, Sender, TargetHeaderChain,
+	},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce,
 };
@@ -33,6 +35,7 @@ use sp_runtime::{
 use std::collections::BTreeMap;
 
 pub type AccountId = u64;
+pub type Balance = u64;
 #[derive(Decode, Encode, Clone, Debug, PartialEq, Eq)]
 pub struct TestPayload(pub u64, pub Weight);
 pub type TestMessageFee = u64;
@@ -56,6 +59,7 @@ mod message_lane {
 impl_outer_event! {
 	pub enum TestEvent for TestRuntime {
 		frame_system<T>,
+		pallet_balances<T>,
 		message_lane<T>,
 	}
 }
@@ -85,7 +89,7 @@ impl frame_system::Config for TestRuntime {
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = ();
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type BaseCallFilter = ();
@@ -94,6 +98,20 @@ impl frame_system::Config for TestRuntime {
 	type BlockLength = ();
 	type DbWeight = ();
 	type SS58Prefix = ();
+}
+
+parameter_types! {
+	pub const ExistentialDeposit: u64 = 1;
+}
+
+impl pallet_balances::Config for TestRuntime {
+	type MaxLocks = ();
+	type Balance = Balance;
+	type DustRemoval = ();
+	type Event = TestEvent;
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = frame_system::Module<TestRuntime>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -131,6 +149,9 @@ impl Size for TestPayload {
 		16
 	}
 }
+
+/// Account that has balance to use in tests.
+pub const ENDOWED_ACCOUNT: AccountId = 0xDEAD;
 
 /// Account id of test relayer.
 pub const TEST_RELAYER_A: AccountId = 100;
@@ -265,14 +286,15 @@ impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee> for TestMessag
 		Ok(())
 	}
 
-	fn pay_relayer_reward(
+	fn pay_relayers_rewards(
 		_confirmation_relayer: &AccountId,
-		relayer: &AccountId,
-		fee: &TestMessageFee,
+		relayers_rewards: RelayersRewards<AccountId, TestMessageFee>,
 		_relayer_fund_account: &AccountId,
 	) {
-		let key = (b":relayer-reward:", relayer, fee).encode();
-		frame_support::storage::unhashed::put(&key, &true);
+		for (relayer, reward) in relayers_rewards {
+			let key = (b":relayer-reward:", relayer, reward.reward).encode();
+			frame_support::storage::unhashed::put(&key, &true);
+		}
 	}
 }
 
@@ -334,9 +356,14 @@ pub fn message_data(payload: TestPayload) -> MessageData<TestMessageFee> {
 
 /// Run message lane test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	let t = frame_system::GenesisConfig::default()
+	let mut t = frame_system::GenesisConfig::default()
 		.build_storage::<TestRuntime>()
 		.unwrap();
+	pallet_balances::GenesisConfig::<TestRuntime> {
+		balances: vec![(ENDOWED_ACCOUNT, 1_000_000)],
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(test)
 }

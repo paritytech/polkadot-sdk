@@ -41,7 +41,7 @@ use crate::inbound_lane::{InboundLane, InboundLaneStorage};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
 
 use bp_message_lane::{
-	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
+	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload,
 	OutboundLaneData, UnrewardedRelayersState,
@@ -106,7 +106,7 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 	type OutboundPayload: Parameter + Size;
 	/// Message fee type of outbound messages. This fee is paid on this chain.
-	type OutboundMessageFee: From<u32> + Parameter + SaturatingAdd + Zero;
+	type OutboundMessageFee: Default + From<u32> + Parameter + SaturatingAdd + Zero;
 
 	/// Payload type of inbound messages. This payload is dispatched on this chain.
 	type InboundPayload: Decode;
@@ -464,38 +464,40 @@ decl_module! {
 
 			// mark messages as delivered
 			let mut lane = outbound_lane::<T, I>(lane_id);
+			let mut relayers_rewards: RelayersRewards<_, T::OutboundMessageFee> = RelayersRewards::new();
 			let last_delivered_nonce = lane_data.last_delivered_nonce();
 			let received_range = lane.confirm_delivery(last_delivered_nonce);
 			if let Some(received_range) = received_range {
 				Self::deposit_event(RawEvent::MessagesDelivered(lane_id, received_range.0, received_range.1));
 
-				// reward relayers that have delivered messages
+				// remember to reward relayers that have delivered messages
 				// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
-				let relayer_fund_account = Self::relayer_fund_account_id();
 				for (nonce_low, nonce_high, relayer) in lane_data.relayers {
 					let nonce_begin = sp_std::cmp::max(nonce_low, received_range.0);
 					let nonce_end = sp_std::cmp::min(nonce_high, received_range.1);
 
 					// loop won't proceed if current entry is ahead of received range (begin > end).
 					// this loop is bound by `T::MaxUnconfirmedMessagesAtInboundLane` on the bridged chain
-					let mut relayer_fee: T::OutboundMessageFee = Zero::zero();
+					let mut relayer_reward = relayers_rewards.entry(relayer).or_default();
 					for nonce in nonce_begin..nonce_end + 1 {
 						let message_data = OutboundMessages::<T, I>::get(MessageKey {
 							lane_id,
 							nonce,
 						}).expect("message was just confirmed; we never prune unconfirmed messages; qed");
-						relayer_fee = relayer_fee.saturating_add(&message_data.fee);
-					}
-
-					if !relayer_fee.is_zero() {
-						<T as Config<I>>::MessageDeliveryAndDispatchPayment::pay_relayer_reward(
-							&confirmation_relayer,
-							&relayer,
-							&relayer_fee,
-							&relayer_fund_account,
-						);
+						relayer_reward.reward = relayer_reward.reward.saturating_add(&message_data.fee);
+						relayer_reward.messages += 1;
 					}
 				}
+			}
+
+			// if some new messages have been confirmed, reward relayers
+			if !relayers_rewards.is_empty() {
+				let relayer_fund_account = Self::relayer_fund_account_id();
+				<T as Config<I>>::MessageDeliveryAndDispatchPayment::pay_relayers_rewards(
+					&confirmation_relayer,
+					relayers_rewards,
+					&relayer_fund_account,
+				);
 			}
 
 			frame_support::debug::trace!(
