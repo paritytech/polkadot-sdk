@@ -22,9 +22,9 @@
 //! has been signed off by the correct GRANDPA authorities, and also enact any authority set changes
 //! if required.
 
-use crate::justification::verify_justification;
 use crate::storage::{AuthoritySet, ImportedHeader, ScheduledChange};
 use crate::BridgeStorage;
+use bp_header_chain::justification::verify_justification;
 use finality_grandpa::voter_set::VoterSet;
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::generic::OpaqueDigestItemId;
@@ -350,10 +350,9 @@ fn find_scheduled_change<H: HeaderT>(header: &H) -> Option<sp_finality_grandpa::
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::justification::tests::*;
-	use crate::mock::helpers::*;
 	use crate::mock::*;
 	use crate::{BestFinalized, BestHeight, HeaderId, ImportedHeaders, PalletStorage};
+	use bp_test_utils::{alice, authority_list, bob, make_justification_for_header};
 	use codec::Encode;
 	use frame_support::{assert_err, assert_ok};
 	use frame_support::{StorageMap, StorageValue};

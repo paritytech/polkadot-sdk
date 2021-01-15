@@ -18,6 +18,7 @@ structopt = "0.3"
 
 # Bridge dependencies
 
+bp-header-chain = { path = "../../primitives/header-chain" }
 bp-kusama = { path = "../../primitives/kusama" }
 bp-message-lane = { path = "../../primitives/message-lane" }
 bp-millau = { path = "../../primitives/millau" }

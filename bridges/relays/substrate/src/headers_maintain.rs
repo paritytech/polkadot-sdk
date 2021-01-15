@@ -190,7 +190,7 @@ where
 			};
 
 			// decode justification target
-			let target = pallet_substrate_bridge::decode_justification_target::<SourceHeader>(&justification);
+			let target = bp_header_chain::justification::decode_justification_target::<SourceHeader>(&justification);
 			let target = match target {
 				Ok((target_hash, target_number)) => HeaderId(target_number.into(), target_hash.into()),
 				Err(error) => {
