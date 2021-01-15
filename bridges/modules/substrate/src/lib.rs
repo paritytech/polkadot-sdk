@@ -172,15 +172,21 @@ decl_module! {
 		) -> DispatchResult {
 			ensure_operational::<T>()?;
 			let _ = ensure_signed(origin)?;
-			frame_support::debug::trace!("Got header {:?}", header);
+			let hash = header.hash();
+			frame_support::debug::trace!("Going to import header {:?}: {:?}", hash, header);
 
 			let mut verifier = verifier::Verifier {
 				storage: PalletStorage::<T>::new(),
 			};
 
 			let _ = verifier
-				.import_header(header)
-				.map_err(|_| <Error<T>>::InvalidHeader)?;
+				.import_header(hash, header)
+				.map_err(|e| {
+					frame_support::debug::error!("Failed to import header {:?}: {:?}", hash, e);
+					<Error<T>>::InvalidHeader
+				})?;
+
+			frame_support::debug::trace!("Successfully imported header: {:?}", hash);
 
 			Ok(())
 		}
@@ -199,7 +205,7 @@ decl_module! {
 		) -> DispatchResult {
 			ensure_operational::<T>()?;
 			let _ = ensure_signed(origin)?;
-			frame_support::debug::trace!("Got header hash {:?}", hash);
+			frame_support::debug::trace!("Going to finalize header: {:?}", hash);
 
 			let mut verifier = verifier::Verifier {
 				storage: PalletStorage::<T>::new(),
@@ -207,7 +213,12 @@ decl_module! {
 
 			let _ = verifier
 				.import_finality_proof(hash, finality_proof.into())
-				.map_err(|_| <Error<T>>::UnfinalizedHeader)?;
+				.map_err(|e| {
+					frame_support::debug::error!("Failed to finalize header {:?}: {:?}", hash, e);
+					<Error<T>>::UnfinalizedHeader
+				})?;
+
+			frame_support::debug::trace!("Successfully finalized header: {:?}", hash);
 
 			Ok(())
 		}
