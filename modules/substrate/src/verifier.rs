@@ -112,8 +112,7 @@ where
 	///
 	/// Will perform some basic checks to make sure that this header doesn't break any assumptions
 	/// such as being on a different finalized fork.
-	pub fn import_header(&mut self, header: H) -> Result<(), ImportError> {
-		let hash = header.hash();
+	pub fn import_header(&mut self, hash: H::Hash, header: H) -> Result<(), ImportError> {
 		let best_finalized = self.storage.best_finalized_header();
 
 		if header.number() <= best_finalized.number() {
@@ -424,7 +423,7 @@ mod tests {
 
 			let header = test_header(1);
 			let mut verifier = Verifier { storage };
-			assert_err!(verifier.import_header(header), ImportError::OldHeader);
+			assert_err!(verifier.import_header(header.hash(), header), ImportError::OldHeader);
 		})
 	}
 
@@ -440,7 +439,10 @@ mod tests {
 			let header = TestHeader::new_from_number(2);
 
 			let mut verifier = Verifier { storage };
-			assert_err!(verifier.import_header(header), ImportError::MissingParent);
+			assert_err!(
+				verifier.import_header(header.hash(), header),
+				ImportError::MissingParent
+			);
 		})
 	}
 
@@ -460,7 +462,7 @@ mod tests {
 			<ImportedHeaders<TestRuntime>>::insert(header.hash(), &imported_header);
 
 			let mut verifier = Verifier { storage };
-			assert_err!(verifier.import_header(header), ImportError::OldHeader);
+			assert_err!(verifier.import_header(header.hash(), header), ImportError::OldHeader);
 		})
 	}
 
@@ -484,7 +486,7 @@ mod tests {
 			let mut verifier = Verifier {
 				storage: storage.clone(),
 			};
-			assert_ok!(verifier.import_header(header.clone()));
+			assert_ok!(verifier.import_header(header.hash(), header.clone()));
 
 			let stored_header = storage
 				.header_by_hash(header.hash())
@@ -514,8 +516,8 @@ mod tests {
 			};
 
 			// It should be fine to import both
-			assert_ok!(verifier.import_header(header_on_fork1.clone()));
-			assert_ok!(verifier.import_header(header_on_fork2.clone()));
+			assert_ok!(verifier.import_header(header_on_fork1.hash(), header_on_fork1.clone()));
+			assert_ok!(verifier.import_header(header_on_fork2.hash(), header_on_fork2.clone()));
 
 			// We should have two headers marked as being the best since they're
 			// both at the same height
@@ -559,7 +561,7 @@ mod tests {
 			let mut verifier = Verifier {
 				storage: storage.clone(),
 			};
-			assert_ok!(verifier.import_header(better_header.clone()));
+			assert_ok!(verifier.import_header(better_header.hash(), better_header.clone()));
 
 			// Since `better_header` is the only one at height = 2 we should only have
 			// a single "best header" now.
@@ -668,7 +670,7 @@ mod tests {
 			let mut verifier = Verifier { storage };
 
 			assert_eq!(
-				verifier.import_header(header).unwrap_err(),
+				verifier.import_header(header.hash(), header).unwrap_err(),
 				ImportError::InvalidAuthoritySet
 			);
 		})
@@ -697,7 +699,7 @@ mod tests {
 				storage: storage.clone(),
 			};
 
-			assert_ok!(verifier.import_header(header.clone()));
+			assert_ok!(verifier.import_header(header.hash(), header.clone()));
 			assert_ok!(verifier.import_finality_proof(header.hash(), justification.into()));
 			assert_eq!(storage.best_finalized_header().header, header);
 		})
@@ -724,7 +726,7 @@ mod tests {
 			let mut verifier = Verifier {
 				storage: storage.clone(),
 			};
-			assert!(verifier.import_header(header.clone()).is_ok());
+			assert!(verifier.import_header(header.hash(), header.clone()).is_ok());
 			assert!(verifier
 				.import_finality_proof(header.hash(), justification.into())
 				.is_ok());
@@ -776,7 +778,7 @@ mod tests {
 				storage: storage.clone(),
 			};
 
-			assert_ok!(verifier.import_header(header.clone()));
+			assert_ok!(verifier.import_header(header.hash(), header.clone()));
 			assert_eq!(storage.missing_justifications().len(), 1);
 			assert_eq!(storage.missing_justifications()[0].hash, header.hash());
 
