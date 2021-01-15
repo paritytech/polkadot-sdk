@@ -397,7 +397,9 @@ where
 						}
 
 						// Try and import into storage
-						let res = verifier.import_header(header.clone()).map_err(TestError::Import);
+						let res = verifier
+							.import_header(header.hash(), header.clone())
+							.map_err(TestError::Import);
 						assert_eq!(
 							res, *expected_result,
 							"Expected {:?} while importing header ({}, {}), got {:?}",
@@ -427,7 +429,9 @@ where
 						header.digest = change_log(*delay);
 					}
 
-					let res = verifier.import_header(header.clone()).map_err(TestError::Import);
+					let res = verifier
+						.import_header(header.hash(), header.clone())
+						.map_err(TestError::Import);
 					assert_eq!(
 						res, *expected_result,
 						"Expected {:?} while importing header ({}, {}), got {:?}",
