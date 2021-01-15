@@ -6,13 +6,29 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
-[dependencies.parity-scale-codec]
-version = "1.3.1"
-default-features = false
-features = ["derive"]
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false }
+finality-grandpa = { version = "0.12.3", default-features = false }
+
+# Substrate Dependencies
+
+frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+
+[dev-dependencies]
+bp-test-utils = { path = "../test-utils" }
+sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 
 [features]
 default = ["std"]
 std = [
-	"parity-scale-codec/std",
+	"codec/std",
+	"finality-grandpa/std",
+	"frame-support/std",
+	"sp-core/std",
+	"sp-finality-grandpa/std",
+	"sp-std/std",
 ]

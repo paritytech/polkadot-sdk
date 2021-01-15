@@ -19,10 +19,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Codec, EncodeLike};
 use core::clone::Clone;
 use core::cmp::Eq;
 use core::fmt::Debug;
-use parity_scale_codec::{Codec, EncodeLike};
+
+pub mod justification;
 
 /// A type that can be used as a parameter in a dispatchable function.
 ///
