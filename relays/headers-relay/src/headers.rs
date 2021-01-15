@@ -368,7 +368,10 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		// completion 'notification'
 		// this could lead to duplicate completion retrieval (if completion transaction isn't mined
 		// for too long)
-		if self.incomplete_headers.get(id).is_some() {
+		//
+		// instead, we're moving entry to the end of the queue, so that completion data won't be
+		// refetched instantly
+		if self.incomplete_headers.remove(id).is_some() {
 			log::debug!(
 				target: "bridge",
 				"Received completion data from {} for header: {:?}",
@@ -377,6 +380,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 			);
 
 			self.completion_data.insert(*id, completion);
+			self.incomplete_headers.insert(*id, Some(Instant::now()));
 		}
 	}
 
@@ -1410,26 +1414,29 @@ pub(crate) mod tests {
 		let mut queue = QueuedHeaders::<TestHeadersSyncPipeline>::default();
 		queue.incomplete_headers.insert(id(100), None);
 		queue.incomplete_headers.insert(id(200), Some(Instant::now()));
+		queue.incomplete_headers.insert(id(300), Some(Instant::now()));
 
-		// when headers isn't incompete, nothing changes
-		queue.completion_response(&id(300), None);
-		assert_eq!(queue.incomplete_headers.len(), 2);
+		// when header isn't incompete, nothing changes
+		queue.completion_response(&id(400), None);
+		assert_eq!(queue.incomplete_headers.len(), 3);
 		assert_eq!(queue.completion_data.len(), 0);
 		assert_eq!(queue.header_to_complete(), None);
 
 		// when response is None, nothing changes
 		queue.completion_response(&id(100), None);
-		assert_eq!(queue.incomplete_headers.len(), 2);
+		assert_eq!(queue.incomplete_headers.len(), 3);
 		assert_eq!(queue.completion_data.len(), 0);
 		assert_eq!(queue.header_to_complete(), None);
 
 		// when response is Some, we're scheduling completion
 		queue.completion_response(&id(200), Some(200_200));
-		assert_eq!(queue.incomplete_headers.len(), 2);
 		assert_eq!(queue.completion_data.len(), 1);
-		assert!(queue.incomplete_headers.contains_key(&id(100)));
 		assert!(queue.completion_data.contains_key(&id(200)));
 		assert_eq!(queue.header_to_complete(), Some((id(200), &200_200)));
+		assert_eq!(
+			queue.incomplete_headers.keys().collect::<Vec<_>>(),
+			vec![&id(100), &id(300), &id(200)],
+		);
 	}
 
 	#[test]
