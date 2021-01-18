@@ -573,6 +573,14 @@ where
 			return None;
 		}
 
+		trace!(
+			target: "cumulus-collator",
+			"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
+			b.header().encode().len() as f64 / 1024f64,
+			b.extrinsics().encode().len() as f64 / 1024f64,
+			b.storage_proof().encode().len() as f64 / 1024f64,
+		);
+
 		let collation =
 			self.build_collation(b, block_hash, validation_data.persisted.block_number)?;
 		let pov_hash = collation.proof_of_validity.hash();

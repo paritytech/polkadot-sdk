@@ -41,6 +41,7 @@ pub struct ParachainBlockData<B: BlockT> {
 }
 
 impl<B: BlockT> ParachainBlockData<B> {
+	/// Creates a new instance of `Self`.
 	pub fn new(
 		header: <B as BlockT>::Header,
 		extrinsics: Vec<<B as BlockT>::Extrinsic>,
@@ -66,5 +67,10 @@ impl<B: BlockT> ParachainBlockData<B> {
 	/// Returns the extrinsics.
 	pub fn extrinsics(&self) -> &[B::Extrinsic] {
 		&self.extrinsics
+	}
+
+	/// Returns the [`StorageProof`].
+	pub fn storage_proof(&self) -> &StorageProof {
+		&self.storage_proof
 	}
 }
