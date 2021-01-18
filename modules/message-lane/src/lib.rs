@@ -379,9 +379,9 @@ decl_module! {
 					.messages
 					.iter()
 					.map(T::MessageDispatch::dispatch_weight)
-					.sum::<Weight>()
+					.fold(0, |sum, weight| sum.saturating_add(&weight))
 				)
-				.sum();
+				.fold(0, |sum, weight| sum.saturating_add(weight));
 			if dispatch_weight < actual_dispatch_weight {
 				frame_support::debug::trace!(
 					"Rejecting messages proof because of dispatch weight mismatch: declared={}, expected={}",
@@ -755,8 +755,8 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, Dispatch
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestMessagesProof, TestRuntime,
-		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
+		message, run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestMessagesProof, TestPayload,
+		TestRuntime, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_message_lane::UnrewardedRelayersState;
 	use frame_support::{assert_noop, assert_ok};
@@ -1290,5 +1290,26 @@ mod tests {
 			storage_keys::inbound_lane_data_key::<TestRuntime, DefaultInstance>(&*b"test").0,
 			hex!("87f1ffe31b52878f09495ca7482df1a4e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374").to_vec(),
 		);
+	}
+
+	#[test]
+	fn actual_dispatch_weight_does_not_overlow() {
+		run_test(|| {
+			let message1 = message(1, TestPayload(0, Weight::MAX / 2));
+			let message2 = message(2, TestPayload(0, Weight::MAX / 2));
+			let message3 = message(2, TestPayload(0, Weight::MAX / 2));
+
+			assert_noop!(
+				Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+					Origin::signed(1),
+					TEST_RELAYER_A,
+					// this may cause overflow if source chain storage is invalid
+					Ok(vec![message1, message2, message3]).into(),
+					3,
+					100,
+				),
+				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
+			);
+		});
 	}
 }
