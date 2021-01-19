@@ -24,6 +24,7 @@
 
 use crate::storage::{AuthoritySet, ImportedHeader, ScheduledChange};
 use crate::BridgeStorage;
+
 use bp_header_chain::justification::verify_justification;
 use finality_grandpa::voter_set::VoterSet;
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
@@ -545,8 +546,23 @@ mod tests {
 		run_test(|| {
 			let mut storage = PalletStorage::<TestRuntime>::new();
 
+			// We want to write the genesis header to storage
+			let _ = write_headers(&mut storage, vec![]);
+
 			// Write two headers at the same height to storage.
-			let imported_headers = write_default_headers(&mut storage, vec![1, 1]);
+			let best_header = test_header(1);
+			let mut also_best_header = test_header(1);
+
+			// We need to change _something_ to make it a different header
+			also_best_header.state_root = [1; 32].into();
+
+			let mut verifier = Verifier {
+				storage: storage.clone(),
+			};
+
+			// It should be fine to import both
+			assert_ok!(verifier.import_header(best_header.hash(), best_header.clone()));
+			assert_ok!(verifier.import_header(also_best_header.hash(), also_best_header));
 
 			// The headers we manually imported should have been marked as the best
 			// upon writing to storage. Let's confirm that.
@@ -555,11 +571,8 @@ mod tests {
 
 			// Now let's build something at a better height.
 			let mut better_header = test_header(2);
-			better_header.parent_hash = imported_headers[1].hash();
+			better_header.parent_hash = best_header.hash();
 
-			let mut verifier = Verifier {
-				storage: storage.clone(),
-			};
 			assert_ok!(verifier.import_header(better_header.hash(), better_header.clone()));
 
 			// Since `better_header` is the only one at height = 2 we should only have
@@ -574,6 +587,39 @@ mod tests {
 				}
 			);
 			assert_eq!(<BestHeight<TestRuntime>>::get(), 2);
+		})
+	}
+
+	#[test]
+	fn doesnt_write_best_header_twice_upon_finalization() {
+		run_test(|| {
+			let mut storage = PalletStorage::<TestRuntime>::new();
+			let _imported_headers = write_default_headers(&mut storage, vec![1]);
+
+			let set_id = 1;
+			let authorities = authority_list();
+			let initial_authority_set = AuthoritySet::new(authorities.clone(), set_id);
+			storage.update_current_authority_set(initial_authority_set);
+
+			// Let's import our header
+			let header = test_header(2);
+			let mut verifier = Verifier {
+				storage: storage.clone(),
+			};
+			assert_ok!(verifier.import_header(header.hash(), header.clone()));
+
+			// Our header should be the only best header we have
+			assert_eq!(storage.best_headers()[0].hash, header.hash());
+			assert_eq!(storage.best_headers().len(), 1);
+
+			// Now lets finalize our best header
+			let grandpa_round = 1;
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &authorities).encode();
+			assert_ok!(verifier.import_finality_proof(header.hash(), justification.into()));
+
+			// Our best header should only appear once in the list of best headers
+			assert_eq!(storage.best_headers()[0].hash, header.hash());
+			assert_eq!(storage.best_headers().len(), 1);
 		})
 	}
 
