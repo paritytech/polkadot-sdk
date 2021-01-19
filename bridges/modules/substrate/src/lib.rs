@@ -521,7 +521,12 @@ impl<T: Config> BridgeStorage for PalletStorage<T> {
 
 		match current_height.cmp(&best_height) {
 			Ordering::Equal => {
-				<BestHeaders<T>>::append(hash);
+				// Want to avoid duplicates in the case where we're writing a finalized header to
+				// storage which also happens to be at the best height the best height
+				let not_duplicate = !<ImportedHeaders<T>>::contains_key(hash);
+				if not_duplicate {
+					<BestHeaders<T>>::append(hash);
+				}
 			}
 			Ordering::Greater => {
 				<BestHeaders<T>>::kill();
