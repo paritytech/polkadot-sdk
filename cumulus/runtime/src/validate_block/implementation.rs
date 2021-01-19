@@ -130,6 +130,10 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 			.replace_implementation(host_default_child_storage_root),
 		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
+		sp_io::offchain_index::host_set
+			.replace_implementation(host_offchain_index_set),
+		sp_io::offchain_index::host_clear
+			.replace_implementation(host_offchain_index_clear),
 	);
 
 	set_and_run_with_externalities(&mut ext, || {
@@ -489,3 +493,7 @@ fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.next_child_storage_key(&child_info, key))
 }
+
+fn host_offchain_index_set(_key: &[u8], _value: &[u8]) { }
+
+fn host_offchain_index_clear(_key: &[u8]) { }
