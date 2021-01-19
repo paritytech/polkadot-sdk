@@ -32,7 +32,7 @@
 use cumulus_primitives::{
 	inherents::{ValidationDataType, VALIDATION_DATA_IDENTIFIER as INHERENT_IDENTIFIER},
 	well_known_keys::{NEW_VALIDATION_CODE, VALIDATION_DATA}, AbridgedHostConfiguration,
-	OnValidationData, ValidationData, ParaId, relay_chain,
+	OnValidationData, PersistedValidationData, ParaId, relay_chain,
 };
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, storage,
@@ -143,18 +143,18 @@ decl_module! {
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
 			if let Some((apply_block, validation_function)) = PendingValidationFunction::get() {
-				if vfp.persisted.block_number >= apply_block {
+				if vfp.block_number >= apply_block {
 					PendingValidationFunction::kill();
 					LastUpgrade::put(&apply_block);
 					Self::put_parachain_code(&validation_function);
-					Self::deposit_event(Event::ValidationFunctionApplied(vfp.persisted.block_number));
+					Self::deposit_event(Event::ValidationFunctionApplied(vfp.block_number));
 				}
 			}
 
 			let (host_config, relevant_messaging_state) =
 				relay_state_snapshot::extract_from_proof(
 					T::SelfParaId::get(),
-					vfp.persisted.relay_storage_root,
+					vfp.relay_storage_root,
 					relay_chain_state
 				)
 				.map_err(|err| {
@@ -196,7 +196,7 @@ impl<T: Config> Module<T> {
 	/// Get validation data.
 	///
 	/// Returns `Some(_)` after the inherent set the data for the current block.
-	pub fn validation_data() -> Option<ValidationData> {
+	pub fn validation_data() -> Option<PersistedValidationData> {
 		storage::unhashed::get(VALIDATION_DATA)
 	}
 
@@ -224,7 +224,7 @@ impl<T: Config> Module<T> {
 	/// Returns if a PVF/runtime upgrade could be signalled at the current block, and if so
 	/// when the new code will take the effect.
 	fn code_upgrade_allowed(
-		vfp: &ValidationData,
+		vfp: &PersistedValidationData,
 		cfg: &AbridgedHostConfiguration,
 	) -> Option<relay_chain::BlockNumber> {
 		if PendingValidationFunction::get().is_some() {
@@ -233,7 +233,6 @@ impl<T: Config> Module<T> {
 		}
 
 		let relay_blocks_since_last_upgrade = vfp
-			.persisted
 			.block_number
 			.saturating_sub(LastUpgrade::get());
 
@@ -242,7 +241,7 @@ impl<T: Config> Module<T> {
 			return None;
 		}
 
-		Some(vfp.persisted.block_number + cfg.validation_upgrade_delay)
+		Some(vfp.block_number + cfg.validation_upgrade_delay)
 	}
 
 	/// The implementation of the runtime upgrade scheduling.
@@ -325,7 +324,7 @@ mod tests {
 	use super::*;
 
 	use codec::Encode;
-	use cumulus_primitives::{PersistedValidationData, TransientValidationData};
+	use cumulus_primitives::PersistedValidationData;
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use frame_support::{
 		assert_ok,
@@ -543,13 +542,10 @@ mod tests {
 					}
 					let (relay_storage_root, relay_chain_state) =
 						sproof_builder.into_state_root_and_proof();
-					let vfp = ValidationData {
-						persisted: PersistedValidationData {
-							block_number: *n as RelayChainBlockNumber,
-							relay_storage_root,
-							..Default::default()
-						},
-						transient: TransientValidationData::default(),
+					let vfp = PersistedValidationData {
+						block_number: *n as RelayChainBlockNumber,
+						relay_storage_root,
+						..Default::default()
 					};
 
 					storage::unhashed::put(VALIDATION_DATA, &vfp);
@@ -582,7 +578,6 @@ mod tests {
 						if self.pending_upgrade.is_some() {
 							panic!("attempted to set validation code while upgrade was pending");
 						}
-						self.pending_upgrade = vfp.transient.code_upgrade_allowed;
 					}
 
 					// clean up

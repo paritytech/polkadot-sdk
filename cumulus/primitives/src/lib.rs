@@ -21,8 +21,7 @@
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain::primitives::{Id as ParaId, UpwardMessage, ValidationParams};
 pub use polkadot_primitives::v1::{
-	PersistedValidationData, TransientValidationData, ValidationData, AbridgedHostConfiguration,
-	AbridgedHrmpChannel,
+	PersistedValidationData, AbridgedHostConfiguration, AbridgedHrmpChannel,
 };
 
 #[cfg(feature = "std")]
@@ -66,7 +65,7 @@ pub mod inherents {
 	/// The type of the inherent.
 	#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq)]
 	pub struct ValidationDataType {
-		pub validation_data: crate::ValidationData,
+		pub validation_data: crate::PersistedValidationData,
 		/// A storage proof of a predefined set of keys from the relay-chain.
 		///
 		/// Specifically this witness contains the data for:
@@ -139,5 +138,5 @@ pub trait HrmpMessageSender {
 /// A trait which is called when the validation data is set.
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait OnValidationData {
-	fn on_validation_data(data: ValidationData);
+	fn on_validation_data(data: PersistedValidationData);
 }

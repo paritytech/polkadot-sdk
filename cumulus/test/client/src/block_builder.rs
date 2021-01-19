@@ -16,8 +16,7 @@
 
 use crate::{Backend, Client};
 use cumulus_primitives::{
-	inherents::{ValidationDataType, VALIDATION_DATA_IDENTIFIER},
-	ValidationData,
+	inherents::{ValidationDataType, VALIDATION_DATA_IDENTIFIER}, PersistedValidationData,
 };
 use cumulus_test_runtime::{Block, GetLastTimestamp};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -37,7 +36,7 @@ pub trait InitBlockBuilder {
 	/// just use a default one.
 	fn init_block_builder(
 		&self,
-		validation_data: Option<ValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 
@@ -48,7 +47,7 @@ pub trait InitBlockBuilder {
 	fn init_block_builder_at(
 		&self,
 		at: &BlockId<Block>,
-		validation_data: Option<ValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 }
@@ -56,7 +55,7 @@ pub trait InitBlockBuilder {
 impl InitBlockBuilder for Client {
 	fn init_block_builder(
 		&self,
-		validation_data: Option<ValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
 		let chain_info = self.chain_info();
@@ -70,7 +69,7 @@ impl InitBlockBuilder for Client {
 	fn init_block_builder_at(
 		&self,
 		at: &BlockId<Block>,
-		validation_data: Option<ValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
 		let mut block_builder = self
@@ -94,11 +93,11 @@ impl InitBlockBuilder for Client {
 
 		let mut validation_data = validation_data.unwrap_or_default();
 		assert_eq!(
-			validation_data.persisted.relay_storage_root,
+			validation_data.relay_storage_root,
 			Default::default(),
 			"Overriding the relay storage root is not implemented",
 		);
-		validation_data.persisted.relay_storage_root = relay_storage_root;
+		validation_data.relay_storage_root = relay_storage_root;
 
 		inherent_data
 			.put_data(

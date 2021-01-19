@@ -32,7 +32,7 @@ use cumulus_primitives::{
 		HRMP_OUTBOUND_MESSAGES, HRMP_WATERMARK, NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES,
 		UPWARD_MESSAGES, VALIDATION_DATA,
 	},
-	OutboundHrmpMessage, UpwardMessage, ValidationData,
+	OutboundHrmpMessage, UpwardMessage, PersistedValidationData,
 };
 use sp_core::storage::{ChildInfo, TrackedStorageKey};
 use sp_externalities::{
@@ -164,11 +164,11 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		})
 		.unwrap_or_default();
 
-	let validation_data: ValidationData = overlay
+	let validation_data: PersistedValidationData = overlay
 		.storage(VALIDATION_DATA)
 		.flatten()
 		.and_then(|v| Decode::decode(&mut &v[..]).ok())
-		.expect("`ValidationData` is required to be placed into the storage!");
+		.expect("`PersistedValidationData` is required to be placed into the storage!");
 
 	let horizontal_messages = match overlay.storage(HRMP_OUTBOUND_MESSAGES).flatten() {
 		Some(encoded) => Vec::<OutboundHrmpMessage>::decode(&mut &encoded[..])
@@ -180,7 +180,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		.storage(HRMP_WATERMARK)
 		.flatten()
 		.map(|v| Decode::decode(&mut &v[..]).expect("HRMP watermark is not encoded correctly"))
-		.unwrap_or(validation_data.persisted.block_number);
+		.unwrap_or(validation_data.block_number);
 
 	ValidationResult {
 		head_data,
@@ -200,32 +200,33 @@ struct WitnessExt<'a, B: BlockT> {
 }
 
 impl<'a, B: BlockT> WitnessExt<'a, B> {
-	/// Checks that the encoded `ValidationData` in `data` is correct.
+	/// Checks that the encoded `PersistedValidationData` in `data` is correct.
 	///
 	/// Should be removed with: https://github.com/paritytech/cumulus/issues/217
 	/// When removed `WitnessExt` could also be removed.
 	fn check_validation_data(&self, mut data: &[u8]) {
-		let validation_data = ValidationData::decode(&mut data).expect("Invalid `ValidationData`");
+		let validation_data = PersistedValidationData::decode(&mut data)
+			.expect("Invalid `PersistedValidationData`");
 
 		assert_eq!(
 			self.params.parent_head,
-			validation_data.persisted.parent_head
+			validation_data.parent_head
 		);
 		assert_eq!(
 			self.params.relay_chain_height,
-			validation_data.persisted.block_number
+			validation_data.block_number
 		);
 		assert_eq!(
 			self.params.hrmp_mqc_heads,
-			validation_data.persisted.hrmp_mqc_heads
+			validation_data.hrmp_mqc_heads
 		);
 		assert_eq!(
 			self.params.dmq_mqc_head,
-			validation_data.persisted.dmq_mqc_head,
+			validation_data.dmq_mqc_head,
 		);
 		assert_eq!(
 			self.params.relay_storage_root,
-			validation_data.persisted.relay_storage_root,
+			validation_data.relay_storage_root,
 		);
 	}
 }

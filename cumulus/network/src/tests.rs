@@ -23,7 +23,7 @@ use polkadot_primitives::v1::{
 	CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash, HeadData, Id as ParaId,
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, ParachainHost,
 	PersistedValidationData, SessionIndex, SessionInfo, SigningContext, ValidationCode,
-	ValidationData, ValidatorId, ValidatorIndex,
+	ValidatorId, ValidatorIndex,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -398,10 +398,6 @@ sp_api::mock_impl_runtime_apis! {
 
 		fn availability_cores(&self) -> Vec<CoreState<PHash>> {
 			Vec::new()
-		}
-
-		fn full_validation_data(&self, _: ParaId, _: OccupiedCoreAssumption) -> Option<ValidationData<BlockNumber>> {
-			None
 		}
 
 		fn persisted_validation_data(&self, _: ParaId, _: OccupiedCoreAssumption) -> Option<PersistedValidationData<BlockNumber>> {

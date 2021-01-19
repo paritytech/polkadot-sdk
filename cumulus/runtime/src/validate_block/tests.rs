@@ -16,7 +16,7 @@
 
 use crate::ParachainBlockData;
 
-use cumulus_primitives::{PersistedValidationData, ValidationData};
+use cumulus_primitives::PersistedValidationData;
 use cumulus_test_client::{
 	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
 	transfer, Client, DefaultTestClientBuilderExt, InitBlockBuilder, LongestChain,
@@ -100,12 +100,9 @@ fn build_block_with_witness(
 	let block_id = BlockId::Hash(client.info().best_hash);
 	let mut builder = client.init_block_builder_at(
 		&block_id,
-		Some(ValidationData {
-			persisted: PersistedValidationData {
-				block_number: 1,
-				parent_head: parent_head.encode().into(),
-				..Default::default()
-			},
+		Some(PersistedValidationData {
+			block_number: 1,
+			parent_head: parent_head.encode().into(),
 			..Default::default()
 		}),
 		sproof_builder,
