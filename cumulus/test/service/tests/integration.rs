@@ -22,7 +22,9 @@ use substrate_test_runtime_client::AccountKeyring::*;
 
 #[substrate_test_utils::test]
 async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExecutor) {
-	sc_cli::init_logger(Default::default()).expect("Sets up logger");
+	let mut builder = sc_cli::GlobalLoggerBuilder::new("");
+	builder.with_colors(false);
+	let _ = builder.init();
 
 	let para_id = ParaId::from(100);
 
