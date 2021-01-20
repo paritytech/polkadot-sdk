@@ -16,7 +16,7 @@
 
 //! Primitives of message lane module, that are used on the target chain.
 
-use crate::{LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData};
+use crate::{LaneId, Message, MessageData, MessageKey, OutboundLaneData};
 
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::{weights::Weight, Parameter, RuntimeDebug};
@@ -72,9 +72,13 @@ pub trait SourceHeaderChain<Fee> {
 	///
 	/// Messages vector is required to be sorted by nonce within each lane. Out-of-order
 	/// messages will be rejected.
+	///
+	/// The `messages_count` argument verification (sane limits) is supposed to be made
+	/// outside of this function. This function only verifies that the proof declares exactly
+	/// `messages_count` messages.
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
-		messages_count: MessageNonce,
+		messages_count: u32,
 	) -> Result<ProvedMessages<Message<Fee>>, Self::Error>;
 }
 

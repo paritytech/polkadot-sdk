@@ -309,7 +309,7 @@ impl SourceHeaderChain<TestMessageFee> for TestSourceHeaderChain {
 
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
-		_messages_count: MessageNonce,
+		_messages_count: u32,
 	) -> Result<ProvedMessages<Message<TestMessageFee>>, Self::Error> {
 		proof
 			.result
