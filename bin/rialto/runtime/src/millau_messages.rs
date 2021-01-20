@@ -193,7 +193,7 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
-		messages_count: MessageNonce,
+		messages_count: u32,
 	) -> Result<ProvedMessages<Message<bp_millau::Balance>>, Self::Error> {
 		messages::target::verify_messages_proof::<WithMillauMessageBridge, Runtime>(proof, messages_count)
 	}

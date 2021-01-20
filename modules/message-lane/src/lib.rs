@@ -101,6 +101,10 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	///
 	/// There is no point of making this parameter lesser than MaxUnrewardedRelayerEntriesAtInboundLane,
 	/// because then maximal number of relayer entries will be limited by maximal number of messages.
+	///
+	/// This value also represents maximal number of messages in single delivery transaction. Transaction
+	/// that is declaring more messages than this value, will be rejected. Even if these messages are
+	/// from different lanes.
 	type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
 
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
@@ -156,6 +160,8 @@ decl_error! {
 		MessageRejectedByLaneVerifier,
 		/// Submitter has failed to pay fee for delivering and dispatching messages.
 		FailedToWithdrawMessageFee,
+		/// The transaction brings too many messages.
+		TooManyMessagesInTheProof,
 		/// Invalid messages has been submitted.
 		InvalidMessagesProof,
 		/// Invalid messages dispatch weight has been declared by the relayer.
@@ -344,18 +350,24 @@ decl_module! {
 		/// this data in the transaction, so reward confirmations lags should be minimal.
 		#[weight = T::WeightInfo::receive_messages_proof_overhead()
 			.saturating_add(T::WeightInfo::receive_messages_proof_outbound_lane_state_overhead())
-			.saturating_add(T::WeightInfo::receive_messages_proof_messages_overhead(*messages_count))
+			.saturating_add(T::WeightInfo::receive_messages_proof_messages_overhead(MessageNonce::from(*messages_count)))
 			.saturating_add(*dispatch_weight)
 		]
 		pub fn receive_messages_proof(
 			origin,
 			relayer_id: T::InboundRelayer,
 			proof: MessagesProofOf<T, I>,
-			messages_count: MessageNonce,
+			messages_count: u32,
 			dispatch_weight: Weight,
 		) -> DispatchResult {
 			ensure_operational::<T, I>()?;
 			let _ = ensure_signed(origin)?;
+
+			// reject transactions that are declaring too many messages
+			ensure!(
+				MessageNonce::from(messages_count) <= T::MaxUnconfirmedMessagesAtInboundLane::get(),
+				Error::<T, I>::TooManyMessagesInTheProof
+			);
 
 			// verify messages proof && convert proof into messages
 			let messages = verify_and_decode_messages_proof::<
@@ -457,7 +469,8 @@ decl_module! {
 			// verify that the relayer has declared correct `lane_data::relayers` state
 			// (we only care about total number of entries and messages, because this affects call weight)
 			ensure!(
-				total_unrewarded_messages(&lane_data.relayers) == relayers_state.total_messages
+				total_unrewarded_messages(&lane_data.relayers)
+					.unwrap_or(MessageNonce::MAX) == relayers_state.total_messages
 					&& lane_data.relayers.len() as MessageNonce == relayers_state.unrewarded_relayer_entries,
 				Error::<T, I>::InvalidUnrewardedRelayersState
 			);
@@ -545,7 +558,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 		bp_message_lane::UnrewardedRelayersState {
 			unrewarded_relayer_entries: relayers.len() as _,
 			messages_in_oldest_entry: relayers.front().map(|(begin, end, _)| 1 + end - begin).unwrap_or(0),
-			total_messages: total_unrewarded_messages(&relayers),
+			total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
 		}
 	}
 
@@ -733,8 +746,11 @@ impl<T: Config<I>, I: Instance> OutboundLaneStorage for RuntimeOutboundLaneStora
 /// Verify messages proof and return proved messages with decoded payload.
 fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, DispatchPayload: Decode>(
 	proof: Chain::MessagesProof,
-	messages_count: MessageNonce,
+	messages_count: u32,
 ) -> Result<ProvedMessages<DispatchMessage<DispatchPayload, Fee>>, Chain::Error> {
+	// `receive_messages_proof` weight formula and `MaxUnconfirmedMessagesAtInboundLane` check
+	// guarantees that the `message_count` is sane and Vec<Message> may be allocated.
+	// (tx with too many messages will either be rejected from the pool, or will fail earlier)
 	Chain::verify_messages_proof(proof, messages_count).map(|messages_by_lane| {
 		messages_by_lane
 			.into_iter()
@@ -1069,6 +1085,22 @@ mod tests {
 					0,
 				),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesProof,
+			);
+		});
+	}
+
+	#[test]
+	fn receive_messages_proof_rejects_proof_with_too_many_messages() {
+		run_test(|| {
+			assert_noop!(
+				Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+					Origin::signed(1),
+					TEST_RELAYER_A,
+					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
+					u32::MAX,
+					0,
+				),
+				Error::<TestRuntime, DefaultInstance>::TooManyMessagesInTheProof,
 			);
 		});
 	}

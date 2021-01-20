@@ -158,11 +158,36 @@ impl Default for OutboundLaneData {
 }
 
 /// Returns total number of messages in the `InboundLaneData::relayers` vector.
+///
+/// Returns `None` if there are more messages that `MessageNonce` may fit (i.e. `MessageNonce + 1`).
 pub fn total_unrewarded_messages<RelayerId>(
 	relayers: &VecDeque<(MessageNonce, MessageNonce, RelayerId)>,
-) -> MessageNonce {
+) -> Option<MessageNonce> {
 	match (relayers.front(), relayers.back()) {
-		(Some((begin, _, _)), Some((_, end, _))) => end.checked_sub(*begin).and_then(|d| d.checked_add(1)).unwrap_or(0),
-		_ => 0,
+		(Some((begin, _, _)), Some((_, end, _))) => {
+			if let Some(difference) = end.checked_sub(*begin) {
+				difference.checked_add(1)
+			} else {
+				Some(0)
+			}
+		}
+		_ => Some(0),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn total_unrewarded_messages_does_not_overflow() {
+		assert_eq!(
+			total_unrewarded_messages(
+				&vec![(0, 0, 1), (MessageNonce::MAX, MessageNonce::MAX, 2)]
+					.into_iter()
+					.collect()
+			),
+			None,
+		);
 	}
 }
