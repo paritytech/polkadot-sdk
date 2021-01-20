@@ -81,7 +81,7 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 		let call = rialto_runtime::MessageLaneCall::receive_messages_proof(
 			self.relayer_id_at_source.clone(),
 			proof,
-			messages_count,
+			messages_count as _,
 			dispatch_weight,
 		)
 		.into();

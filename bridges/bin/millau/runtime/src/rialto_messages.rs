@@ -192,7 +192,7 @@ impl SourceHeaderChain<bp_rialto::Balance> for Rialto {
 
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
-		messages_count: MessageNonce,
+		messages_count: u32,
 	) -> Result<ProvedMessages<Message<bp_rialto::Balance>>, Self::Error> {
 		messages::target::verify_messages_proof::<WithRialtoMessageBridge, Runtime>(proof, messages_count)
 	}
