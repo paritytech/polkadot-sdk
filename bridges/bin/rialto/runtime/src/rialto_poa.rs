@@ -19,7 +19,7 @@
 use crate::exchange::EthereumTransactionInclusionProof;
 
 use bp_eth_poa::{Address, AuraHeader, RawTransaction, U256};
-use bp_header_chain::BaseHeaderChain;
+use bp_header_chain::InclusionProofVerifier;
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
 use pallet_bridge_eth_poa::{
@@ -124,7 +124,7 @@ impl TChainTime for ChainTime {
 /// The Rialto PoA Blockchain as seen by the runtime.
 pub struct RialtoBlockchain;
 
-impl BaseHeaderChain for RialtoBlockchain {
+impl InclusionProofVerifier for RialtoBlockchain {
 	type Transaction = RawTransaction;
 	type TransactionInclusionProof = EthereumTransactionInclusionProof;
 
