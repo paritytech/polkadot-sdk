@@ -22,7 +22,10 @@ use bp_message_lane::MessageNonce;
 use frame_support::weights::Weight;
 
 /// Ensure that weights from `WeightInfoExt` implementation are looking correct.
-pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
+pub fn ensure_weights_are_correct<W: WeightInfoExt>(
+	expected_max_single_message_delivery_tx_weight: Weight,
+	expected_max_messages_delivery_tx_weight: Weight,
+) {
 	assert_ne!(W::send_message_overhead(), 0);
 	assert_ne!(W::send_message_size_overhead(0), 0);
 
@@ -30,9 +33,33 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 	assert_ne!(W::receive_messages_proof_messages_overhead(1), 0);
 	assert_ne!(W::receive_messages_proof_outbound_lane_state_overhead(), 0);
 
+	let actual_max_single_message_delivery_tx_weight = W::receive_messages_proof_overhead()
+		.checked_add(W::receive_messages_proof_messages_overhead(1))
+		.expect("weights are too large")
+		.checked_add(W::receive_messages_proof_outbound_lane_state_overhead())
+		.expect("weights are too large");
+	assert!(
+		actual_max_single_message_delivery_tx_weight <= expected_max_single_message_delivery_tx_weight,
+		"Single message delivery transaction weight {} is larger than expected weight {}",
+		actual_max_single_message_delivery_tx_weight,
+		expected_max_single_message_delivery_tx_weight,
+	);
+
 	assert_ne!(W::receive_messages_delivery_proof_overhead(), 0);
 	assert_ne!(W::receive_messages_delivery_proof_messages_overhead(1), 0);
 	assert_ne!(W::receive_messages_delivery_proof_relayers_overhead(1), 0);
+
+	let actual_max_messages_delivery_tx_weight = W::receive_messages_delivery_proof_overhead()
+		.checked_add(W::receive_messages_delivery_proof_messages_overhead(1))
+		.expect("weights are too large")
+		.checked_add(W::receive_messages_delivery_proof_relayers_overhead(1))
+		.expect("weights are too large");
+	assert!(
+		actual_max_messages_delivery_tx_weight <= expected_max_messages_delivery_tx_weight,
+		"Messages delivery confirmation transaction weight {} is larger than expected weight {}",
+		actual_max_messages_delivery_tx_weight,
+		expected_max_messages_delivery_tx_weight,
+	);
 }
 
 /// Extended weight info.

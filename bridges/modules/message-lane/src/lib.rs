@@ -326,16 +326,19 @@ decl_module! {
 
 			// finally, save message in outbound storage and emit event
 			let mut lane = outbound_lane::<T, I>(lane_id);
+			let encoded_payload = payload.encode();
+			let encoded_payload_len = encoded_payload.len();
 			let nonce = lane.send_message(MessageData {
-				payload: payload.encode(),
+				payload: encoded_payload,
 				fee: delivery_and_dispatch_fee,
 			});
 			lane.prune_messages(T::MaxMessagesToPruneAtOnce::get());
 
 			frame_support::debug::trace!(
-				"Accepted message {} to lane {:?}",
+				"Accepted message {} to lane {:?}. Message size: {:?}",
 				nonce,
 				lane_id,
+				encoded_payload_len,
 			);
 
 			Self::deposit_event(RawEvent::MessageAccepted(lane_id, nonce));

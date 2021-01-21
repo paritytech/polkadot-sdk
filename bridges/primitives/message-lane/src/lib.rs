@@ -113,6 +113,17 @@ impl<RelayerId> Default for InboundLaneData<RelayerId> {
 }
 
 impl<RelayerId> InboundLaneData<RelayerId> {
+	/// Returns approximate size of the struct, given number of entries in the `relayers` set and
+	/// size of each entry.
+	///
+	/// Returns `None` if size overflows `u32` limits.
+	pub fn encoded_size_hint(relayer_id_encoded_size: u32, relayers_entries: u32) -> Option<u32> {
+		let message_nonce_size = 8;
+		let relayers_entry_size = relayer_id_encoded_size.checked_add(2 * message_nonce_size)?;
+		let relayers_size = relayers_entries.checked_mul(relayers_entry_size)?;
+		relayers_size.checked_add(message_nonce_size)
+	}
+
 	/// Nonce of the last message that has been delivered to this (target) chain.
 	pub fn last_delivered_nonce(&self) -> MessageNonce {
 		self.relayers
@@ -188,6 +199,29 @@ mod tests {
 					.collect()
 			),
 			None,
+		);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn inbound_lane_data_returns_correct_hint() {
+		let expected_size = InboundLaneData::<u8>::encoded_size_hint(1, 13);
+		let actual_size = InboundLaneData {
+			relayers: (1u8..=13u8).map(|i| (i as _, i as _, i)).collect(),
+			last_confirmed_nonce: 13,
+		}
+		.encode()
+		.len();
+		let difference = (expected_size.unwrap() as f64 - actual_size as f64).abs();
+		assert!(
+			difference / (std::cmp::min(actual_size, expected_size.unwrap() as usize) as f64) < 0.1,
+			"Too large difference between actual ({}) and expected ({:?}) inbound lane data size",
+			actual_size,
+			expected_size,
 		);
 	}
 }

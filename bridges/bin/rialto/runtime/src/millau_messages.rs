@@ -26,7 +26,7 @@ use bp_message_lane::{
 use bp_runtime::{InstanceId, MILLAU_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::{self, ChainWithMessageLanes, MessageBridge};
 use frame_support::{
-	weights::{Weight, WeightToFeePolynomial},
+	weights::{DispatchClass, Weight, WeightToFeePolynomial},
 	RuntimeDebug,
 };
 use sp_core::storage::StorageKey;
@@ -99,21 +99,35 @@ impl MessageBridge for WithMillauMessageBridge {
 
 		// given Millau chain parameters (`TransactionByteFee`, `WeightToFee`, `FeeMultiplierUpdate`),
 		// the minimal weight of the message may be computed as message.length()
-		let lower_limit = Weight::try_from(message_payload.len()).unwrap_or(Weight::MAX);
+		let lower_limit = u32::try_from(message_payload.len())
+			.map(Into::into)
+			.unwrap_or(Weight::MAX);
 
 		lower_limit..=upper_limit
 	}
 
-	fn weight_of_delivery_transaction() -> Weight {
-		0 // TODO: https://github.com/paritytech/parity-bridges-common/issues/391
+	fn weight_of_delivery_transaction(message_payload: &[u8]) -> Weight {
+		messages::transaction_weight_without_multiplier(
+			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
+			u32::try_from(message_payload.len())
+				.map(Into::into)
+				.unwrap_or(Weight::MAX)
+				.saturating_add(bp_rialto::EXTRA_STORAGE_PROOF_SIZE as _),
+			bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT,
+		)
 	}
 
 	fn weight_of_delivery_confirmation_transaction_on_this_chain() -> Weight {
-		0 // TODO: https://github.com/paritytech/parity-bridges-common/issues/391
-	}
+		let inbounded_data_size: Weight =
+			InboundLaneData::<bp_millau::AccountId>::encoded_size_hint(bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE, 1)
+				.map(Into::into)
+				.unwrap_or(Weight::MAX);
 
-	fn weight_of_reward_confirmation_transaction_on_target_chain() -> Weight {
-		0 // TODO: https://github.com/paritytech/parity-bridges-common/issues/391
+		messages::transaction_weight_without_multiplier(
+			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
+			inbounded_data_size.saturating_add(bp_millau::EXTRA_STORAGE_PROOF_SIZE as _),
+			bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
+		)
 	}
 
 	fn this_weight_to_this_balance(weight: Weight) -> bp_rialto::Balance {
