@@ -32,6 +32,7 @@
 #![allow(clippy::large_enum_variant)]
 
 use crate::storage::ImportedHeader;
+use bp_header_chain::AuthoritySet;
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
 use frame_support::{
 	decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get, weights::DispatchClass,
@@ -43,7 +44,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 use sp_trie::StorageProof;
 
 // Re-export since the node uses these when configuring genesis
-pub use storage::{AuthoritySet, InitializationData, ScheduledChange};
+pub use storage::{InitializationData, ScheduledChange};
 
 pub use storage_proof::StorageProofChecker;
 
@@ -358,6 +359,38 @@ impl<T: Config> Module<T> {
 		let storage_proof_checker =
 			StorageProofChecker::new(*header.state_root(), storage_proof).map_err(Error::<T>::from)?;
 		Ok(parse(storage_proof_checker))
+	}
+}
+
+impl<T: Config> bp_header_chain::HeaderChain<BridgedHeader<T>> for Module<T> {
+	fn best_finalized() -> BridgedHeader<T> {
+		PalletStorage::<T>::new().best_finalized_header().header
+	}
+
+	fn authority_set() -> AuthoritySet {
+		PalletStorage::<T>::new().current_authority_set()
+	}
+
+	fn import_header(header: BridgedHeader<T>) -> Result<(), ()> {
+		let mut verifier = verifier::Verifier {
+			storage: PalletStorage::<T>::new(),
+		};
+
+		let _ = verifier.import_header(header.hash(), header).map_err(|_| ())?;
+
+		Ok(())
+	}
+
+	fn import_finality_proof(header: BridgedHeader<T>, finality_proof: Vec<u8>) -> Result<(), ()> {
+		let mut verifier = verifier::Verifier {
+			storage: PalletStorage::<T>::new(),
+		};
+
+		let _ = verifier
+			.import_finality_proof(header.hash(), finality_proof.into())
+			.map_err(|_| ())?;
+
+		Ok(())
 	}
 }
 
