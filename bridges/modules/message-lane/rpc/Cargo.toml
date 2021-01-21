@@ -12,6 +12,7 @@ futures = { version = "0.3.5", features = ["compat"] }
 jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
+log = "0.4.11"
 
 # Bridge dependencies
 

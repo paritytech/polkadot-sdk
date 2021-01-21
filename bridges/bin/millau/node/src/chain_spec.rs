@@ -122,6 +122,7 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
+							pallet_message_lane::Module::<millau_runtime::Runtime, pallet_message_lane::DefaultInstance>::relayer_fund_account_id(),
 							derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(
 								get_account_id_from_seed::<sr25519::Public>("Dave"),
 							)),
