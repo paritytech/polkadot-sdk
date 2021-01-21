@@ -201,11 +201,6 @@ mod tests {
 			None,
 		);
 	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
 
 	#[test]
 	fn inbound_lane_data_returns_correct_hint() {
