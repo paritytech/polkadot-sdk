@@ -1086,19 +1086,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-message-broker"
-version = "0.1.0"
-dependencies = [
- "cumulus-parachain-upgrade",
- "cumulus-primitives",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "sp-inherents",
- "sp-std",
-]
-
-[[package]]
 name = "cumulus-network"
 version = "0.1.0"
 dependencies = [
@@ -1128,7 +1115,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-parachain-upgrade"
+name = "cumulus-parachain-system"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives",
@@ -1253,8 +1240,7 @@ dependencies = [
 name = "cumulus-test-parachain-runtime"
 version = "0.1.0"
 dependencies = [
- "cumulus-message-broker",
- "cumulus-parachain-upgrade",
+ "cumulus-parachain-system",
  "cumulus-primitives",
  "cumulus-runtime",
  "frame-executive",
@@ -1297,13 +1283,14 @@ dependencies = [
  "polkadot-primitives",
  "sp-runtime",
  "sp-state-machine",
+ "sp-std",
 ]
 
 [[package]]
 name = "cumulus-test-runtime"
 version = "0.1.0"
 dependencies = [
- "cumulus-parachain-upgrade",
+ "cumulus-parachain-system",
  "cumulus-primitives",
  "cumulus-runtime",
  "frame-executive",

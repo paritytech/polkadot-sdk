@@ -18,7 +18,7 @@
 
 use cumulus_network::WaitToAnnounce;
 use cumulus_primitives::{
-	inherents::{self, VALIDATION_DATA_IDENTIFIER},
+	inherents,
 	well_known_keys, InboundDownwardMessage, InboundHrmpMessage, OutboundHrmpMessage,
 	PersistedValidationData, relay_chain,
 };
@@ -286,45 +286,29 @@ where
 			})
 			.ok()?;
 
-		let validation_data = {
+		let system_inherent_data = {
 			let relay_chain_state = self.collect_relay_storage_proof(relay_parent)?;
-			inherents::ValidationDataType {
+			let downward_messages = self.retrieve_dmq_contents(relay_parent)?;
+			let horizontal_messages =
+				self.retrieve_all_inbound_hrmp_channel_contents(relay_parent)?;
+
+			inherents::SystemInherentData {
+				downward_messages,
+				horizontal_messages,
 				validation_data: validation_data.clone(),
 				relay_chain_state,
 			}
 		};
 
 		inherent_data
-			.put_data(VALIDATION_DATA_IDENTIFIER, &validation_data)
-			.map_err(|e| {
-				error!(
-					target: "cumulus-collator",
-					"Failed to put validation function params into inherent data: {:?}",
-					e,
-				)
-			})
-			.ok()?;
-
-		let message_ingestion_data = {
-			let downward_messages = self.retrieve_dmq_contents(relay_parent)?;
-			let horizontal_messages =
-				self.retrieve_all_inbound_hrmp_channel_contents(relay_parent)?;
-
-			inherents::MessageIngestionType {
-				downward_messages,
-				horizontal_messages,
-			}
-		};
-
-		inherent_data
 			.put_data(
-				inherents::MESSAGE_INGESTION_IDENTIFIER,
-				&message_ingestion_data,
+				inherents::SYSTEM_INHERENT_IDENTIFIER,
+				&system_inherent_data,
 			)
 			.map_err(|e| {
 				error!(
 					target: "cumulus-collator",
-					"Failed to put downward messages into inherent data: {:?}",
+					"Failed to put the system inherent into inherent data: {:?}",
 					e,
 				)
 			})

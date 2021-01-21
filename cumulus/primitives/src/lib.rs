@@ -46,25 +46,12 @@ pub mod inherents {
 	use sp_inherents::InherentIdentifier;
 	use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-	/// Inherent identifier for message ingestion inherent.
-	pub const MESSAGE_INGESTION_IDENTIFIER: InherentIdentifier = *b"msgingst";
-	/// The data passed via a message ingestion inherent. Consists of a bundle of
-	/// DMP and HRMP messages.
-	#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq)]
-	pub struct MessageIngestionType {
-		/// Downward messages in the order they were sent.
-		pub downward_messages: Vec<InboundDownwardMessage>,
-		/// HRMP messages grouped by channels. The messages in the inner vec must be in order they
-		/// were sent. In combination with the rule of no more than one message in a channel per block,
-		/// this means `sent_at` is **strictly** greater than the previous one (if any).
-		pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
-	}
+	/// The identifier for the parachain-system inherent.
+	pub const SYSTEM_INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
 
-	/// The identifier for the `set_validation_data` inherent.
-	pub const VALIDATION_DATA_IDENTIFIER: InherentIdentifier = *b"valfunp0";
-	/// The type of the inherent.
+	/// The payload that system inherent carries.
 	#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq)]
-	pub struct ValidationDataType {
+	pub struct SystemInherentData {
 		pub validation_data: crate::PersistedValidationData,
 		/// A storage proof of a predefined set of keys from the relay-chain.
 		///
@@ -75,6 +62,12 @@ pub mod inherents {
 		/// - the list of egress HRMP channels (in the list of recipients form)
 		/// - the metadata for the egress HRMP channels
 		pub relay_chain_state: sp_trie::StorageProof,
+		/// Downward messages in the order they were sent.
+		pub downward_messages: Vec<InboundDownwardMessage>,
+		/// HRMP messages grouped by channels. The messages in the inner vec must be in order they
+		/// were sent. In combination with the rule of no more than one message in a channel per block,
+		/// this means `sent_at` is **strictly** greater than the previous one (if any).
+		pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
 	}
 }
 

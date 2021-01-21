@@ -30,7 +30,7 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus dependencies
-cumulus-parachain-upgrade = { path = "../../parachain-upgrade", default-features = false }
+cumulus-parachain-system = { path = "../../parachain-system", default-features = false }
 cumulus-primitives = { path = "../../primitives", default-features = false }
 cumulus-runtime = { path = "../../runtime", default-features = false }
 
@@ -44,7 +44,7 @@ substrate-wasm-builder = "3.0.0"
 default = [ "std" ]
 std = [
 	"codec/std",
-	"cumulus-parachain-upgrade/std",
+	"cumulus-parachain-system/std",
 	"cumulus-primitives/std",
 	"cumulus-runtime/std",
 	"frame-executive/std",

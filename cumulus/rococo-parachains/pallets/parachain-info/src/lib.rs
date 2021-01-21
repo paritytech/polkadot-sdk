@@ -32,7 +32,7 @@ impl<T: Config> Get<ParaId> for Module<T> {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as ParachainUpgrade {
+	trait Store for Module<T: Config> as ParachainInfo {
 		ParachainId get(fn parachain_id) config(): ParaId = 100.into();
 	}
 }

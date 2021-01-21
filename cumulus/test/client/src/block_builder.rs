@@ -16,7 +16,7 @@
 
 use crate::{Backend, Client};
 use cumulus_primitives::{
-	inherents::{ValidationDataType, VALIDATION_DATA_IDENTIFIER}, PersistedValidationData,
+	inherents::{SystemInherentData, SYSTEM_INHERENT_IDENTIFIER}, PersistedValidationData,
 };
 use cumulus_test_runtime::{Block, GetLastTimestamp};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -101,10 +101,12 @@ impl InitBlockBuilder for Client {
 
 		inherent_data
 			.put_data(
-				VALIDATION_DATA_IDENTIFIER,
-				&ValidationDataType {
+				SYSTEM_INHERENT_IDENTIFIER,
+				&SystemInherentData {
 					validation_data,
 					relay_chain_state,
+					downward_messages: Default::default(),
+					horizontal_messages: Default::default(),
 				},
 			)
 			.expect("Put validation function params failed");
