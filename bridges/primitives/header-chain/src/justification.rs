@@ -63,23 +63,25 @@ pub fn verify_justification<Header: HeaderT>(
 where
 	Header::Number: finality_grandpa::BlockNumberOps,
 {
-	// decode justification first
+	// Decode justification first
 	let justification =
 		GrandpaJustification::<Header>::decode(&mut &raw_justification[..]).map_err(|_| Error::JustificationDecode)?;
 
-	// ensure that it is justification for the expected header
+	// Ensure that it is justification for the expected header
 	if (justification.commit.target_hash, justification.commit.target_number) != finalized_target {
 		return Err(Error::InvalidJustificationTarget);
 	}
 
-	// validate commit of the justification (it just assumes all signatures are valid)
+	// Validate commit of the justification. Note that `validate_commit()` assumes that all
+	// signatures are valid. We'll check the validity of the signatures later since they're more
+	// resource intensive to verify.
 	let ancestry_chain = AncestryChain::new(&justification.votes_ancestries);
 	match finality_grandpa::validate_commit(&justification.commit, &authorities_set, &ancestry_chain) {
 		Ok(ref result) if result.ghost().is_some() => {}
 		_ => return Err(Error::InvalidJustificationCommit),
 	}
 
-	// now that we know that the commit is correct, check authorities signatures
+	// Now that we know that the commit is correct, check authorities signatures
 	let mut buf = Vec::new();
 	let mut visited_hashes = BTreeSet::new();
 	for signed in &justification.commit.precommits {
