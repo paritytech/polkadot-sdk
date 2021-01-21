@@ -43,6 +43,14 @@ use serde::{Deserialize, Serialize};
 
 pub use millau_hash::MillauHash;
 
+/// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
+/// Millau chain. This mostly depends on number of entries (and their density) in the storage trie.
+/// Some reserve is reserved to account future chain growth.
+pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
+
+/// Maximal size (in bytes) of encoded (using `Encode::encode()`) account id.
+pub const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 32;
+
 /// Maximum weight of single Millau block.
 ///
 /// This represents 0.5 seconds of compute assuming a target block time of six seconds.
@@ -60,6 +68,20 @@ pub const MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE: MessageNonce = 1024;
 
 /// Maximal number of unconfirmed messages at inbound lane.
 pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 1024;
+
+/// Maximal weight of single message delivery transaction on Millau chain.
+///
+/// This value is a result of `pallet_message_lane::Module::receive_messages_proof` weight formula computation
+/// for the case when single message is delivered. The result then must be rounded up to account possible future
+/// runtime upgrades.
+pub const MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT: Weight = 1_500_000_000;
+
+/// Maximal weight of single message delivery confirmation transaction on Millau chain.
+///
+/// This value is a result of `pallet_message_lane::Module::receive_messages_delivery_proof` weight formula computation
+/// for the case when single message is confirmed. The result then must be rounded up to account possible future
+/// runtime upgrades.
+pub const MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT: Weight = 2_000_000_000;
 
 /// Block number type used in Millau.
 pub type BlockNumber = u64;
@@ -278,5 +300,21 @@ sp_api::decl_runtime_apis! {
 		fn latest_confirmed_nonce(lane: LaneId) -> MessageNonce;
 		/// State of the unrewarded relayers set at given lane.
 		fn unrewarded_relayers_state(lane: LaneId) -> UnrewardedRelayersState;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_runtime::codec::Encode;
+
+	#[test]
+	fn maximal_account_size_does_not_overflow_constant() {
+		assert!(
+			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE as usize >= AccountId::default().encode().len(),
+			"Actual maximal size of encoded AccountId ({}) overflows expected ({})",
+			AccountId::default().encode().len(),
+			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
+		);
 	}
 }

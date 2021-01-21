@@ -28,7 +28,7 @@ use bp_message_lane::{
 };
 use bp_runtime::InstanceId;
 use codec::{Compact, Decode, Encode, Input};
-use frame_support::{traits::Instance, RuntimeDebug};
+use frame_support::{traits::Instance, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
 use pallet_substrate_bridge::StorageProofChecker;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
@@ -65,15 +65,10 @@ pub trait MessageBridge {
 	) -> RangeInclusive<WeightOf<BridgedChain<Self>>>;
 
 	/// Maximal weight of single message delivery transaction on Bridged chain.
-	fn weight_of_delivery_transaction() -> WeightOf<BridgedChain<Self>>;
+	fn weight_of_delivery_transaction(message_payload: &[u8]) -> WeightOf<BridgedChain<Self>>;
 
 	/// Maximal weight of single message delivery confirmation transaction on This chain.
 	fn weight_of_delivery_confirmation_transaction_on_this_chain() -> WeightOf<ThisChain<Self>>;
-
-	/// Weight of single message reward confirmation on the Bridged chain. This confirmation
-	/// is a part of delivery transaction, so this weight is added to the delivery
-	/// transaction weight.
-	fn weight_of_reward_confirmation_transaction_on_target_chain() -> WeightOf<BridgedChain<Self>>;
 
 	/// Convert weight of This chain to the fee (paid in Balance) of This chain.
 	fn this_weight_to_this_balance(weight: WeightOf<ThisChain<Self>>) -> BalanceOf<ThisChain<Self>>;
@@ -119,6 +114,31 @@ pub(crate) type WeightOf<C> = <C as ChainWithMessageLanes>::Weight;
 pub(crate) type BalanceOf<C> = <C as ChainWithMessageLanes>::Balance;
 pub(crate) type CallOf<C> = <C as ChainWithMessageLanes>::Call;
 pub(crate) type MessageLaneInstanceOf<C> = <C as ChainWithMessageLanes>::MessageLaneInstance;
+
+/// Compute weight of transaction at runtime where:
+///
+/// - transaction payment pallet is being used;
+/// - fee multiplier is zero.
+pub fn transaction_weight_without_multiplier(
+	base_weight: Weight,
+	payload_size: Weight,
+	dispatch_weight: Weight,
+) -> Weight {
+	// non-adjustable per-byte weight is mapped 1:1 to tx weight
+	let per_byte_weight = payload_size;
+
+	// we assume that adjustable per-byte weight is always zero
+	let adjusted_per_byte_weight = 0;
+
+	// we assume that transaction tip we use is also zero
+	let transaction_tip_weight = 0;
+
+	base_weight
+		.saturating_add(per_byte_weight)
+		.saturating_add(adjusted_per_byte_weight)
+		.saturating_add(transaction_tip_weight)
+		.saturating_add(dispatch_weight)
+}
 
 /// Sub-module that is declaring types required for processing This -> Bridged chain messages.
 pub mod source {
@@ -226,10 +246,8 @@ pub mod source {
 		relayer_fee_percent: u32,
 	) -> Result<BalanceOf<ThisChain<B>>, &'static str> {
 		// the fee (in Bridged tokens) of all transactions that are made on the Bridged chain
-		let delivery_fee = B::bridged_weight_to_bridged_balance(B::weight_of_delivery_transaction());
+		let delivery_fee = B::bridged_weight_to_bridged_balance(B::weight_of_delivery_transaction(&payload.call));
 		let dispatch_fee = B::bridged_weight_to_bridged_balance(payload.weight.into());
-		let reward_confirmation_fee =
-			B::bridged_weight_to_bridged_balance(B::weight_of_reward_confirmation_transaction_on_target_chain());
 
 		// the fee (in This tokens) of all transactions that are made on This chain
 		let delivery_confirmation_fee =
@@ -238,7 +256,6 @@ pub mod source {
 		// minimal fee (in This tokens) is a sum of all required fees
 		let minimal_fee = delivery_fee
 			.checked_add(&dispatch_fee)
-			.and_then(|fee| fee.checked_add(&reward_confirmation_fee))
 			.map(B::bridged_balance_to_this_balance)
 			.and_then(|fee| fee.checked_add(&delivery_confirmation_fee));
 
@@ -570,7 +587,6 @@ mod tests {
 
 	const DELIVERY_TRANSACTION_WEIGHT: Weight = 100;
 	const DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT: Weight = 100;
-	const REWARD_CONFIRMATION_TRANSACTION_WEIGHT: Weight = 100;
 	const THIS_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 2;
 	const BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 4;
 	const BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE: u32 = 6;
@@ -596,16 +612,12 @@ mod tests {
 			begin..=BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT
 		}
 
-		fn weight_of_delivery_transaction() -> Weight {
+		fn weight_of_delivery_transaction(_message_payload: &[u8]) -> Weight {
 			DELIVERY_TRANSACTION_WEIGHT
 		}
 
 		fn weight_of_delivery_confirmation_transaction_on_this_chain() -> Weight {
 			DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT
-		}
-
-		fn weight_of_reward_confirmation_transaction_on_target_chain() -> Weight {
-			REWARD_CONFIRMATION_TRANSACTION_WEIGHT
 		}
 
 		fn this_weight_to_this_balance(weight: Weight) -> ThisChainBalance {
@@ -639,15 +651,11 @@ mod tests {
 			unreachable!()
 		}
 
-		fn weight_of_delivery_transaction() -> Weight {
+		fn weight_of_delivery_transaction(_message_payload: &[u8]) -> Weight {
 			unreachable!()
 		}
 
 		fn weight_of_delivery_confirmation_transaction_on_this_chain() -> Weight {
-			unreachable!()
-		}
-
-		fn weight_of_reward_confirmation_transaction_on_target_chain() -> Weight {
 			unreachable!()
 		}
 
@@ -809,7 +817,7 @@ mod tests {
 
 	#[test]
 	fn message_fee_is_checked_by_verifier() {
-		const EXPECTED_MINIMAL_FEE: u32 = 8140;
+		const EXPECTED_MINIMAL_FEE: u32 = 5500;
 
 		// payload of the This -> Bridged chain message
 		let payload = source::FromThisChainMessagePayload::<OnThisChainBridge> {

@@ -116,6 +116,7 @@ where
 		} else {
 			None
 		};
+		let messages_count = if end >= begin { end - begin + 1 } else { 0 };
 		Box::new(
 			prove_keys_read(
 				self.backend.clone(),
@@ -126,7 +127,15 @@ where
 			)
 			.boxed()
 			.compat()
-			.map(serialize_storage_proof)
+			.map(move |proof| {
+				let serialized_proof = serialize_storage_proof(proof);
+				log::trace!(
+					"Generated proof of {} messages. Size: {}",
+					messages_count,
+					serialized_proof.len()
+				);
+				serialized_proof
+			})
 			.map_err(Into::into),
 		)
 	}
@@ -145,7 +154,11 @@ where
 			)
 			.boxed()
 			.compat()
-			.map(serialize_storage_proof)
+			.map(|proof| {
+				let serialized_proof = serialize_storage_proof(proof);
+				log::trace!("Generated message delivery proof. Size: {}", serialized_proof.len());
+				serialized_proof
+			})
 			.map_err(Into::into),
 		)
 	}
