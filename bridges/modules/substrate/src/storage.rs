@@ -16,6 +16,7 @@
 
 //! Storage primitives for the Substrate light client (a.k.a bridge) pallet.
 
+use bp_header_chain::AuthoritySet;
 use codec::{Decode, Encode};
 use core::default::Default;
 #[cfg(feature = "std")]
@@ -40,23 +41,6 @@ pub struct InitializationData<H: HeaderT> {
 	pub scheduled_change: Option<ScheduledChange<H::Number>>,
 	/// Should the pallet block transaction immediately after initialization.
 	pub is_halted: bool,
-}
-
-/// A GRANDPA Authority List and ID.
-#[derive(Default, Encode, Decode, RuntimeDebug, PartialEq, Clone)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct AuthoritySet {
-	/// List of GRANDPA authorities for the current round.
-	pub authorities: AuthorityList,
-	/// Monotonic identifier of the current GRANDPA authority set.
-	pub set_id: SetId,
-}
-
-impl AuthoritySet {
-	/// Create a new GRANDPA Authority Set.
-	pub fn new(authorities: AuthorityList, set_id: SetId) -> Self {
-		Self { authorities, set_id }
-	}
 }
 
 /// Keeps track of when the next GRANDPA authority set change will occur.
