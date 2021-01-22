@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{BridgedHeader, Config};
+use crate::pallet::{BridgedHeader, Config};
 use bp_runtime::{BlockNumberOf, Chain};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_runtime::{
@@ -74,7 +74,7 @@ parameter_types! {
 	pub const MaxHeadersInSingleProof: u8 = 5;
 }
 
-impl crate::Config for TestRuntime {
+impl crate::pallet::Config for TestRuntime {
 	type BridgedChain = TestBridgedChain;
 	type HeaderChain = pallet_substrate_bridge::Module<TestRuntime>;
 	type AncestryChecker = Checker<<Self::BridgedChain as Chain>::Header, Vec<<Self::BridgedChain as Chain>::Header>>;
@@ -94,7 +94,7 @@ impl Chain for TestBridgedChain {
 #[derive(Debug)]
 pub struct Checker<H, P>(std::marker::PhantomData<(H, P)>);
 
-impl<H> crate::AncestryChecker<H, Vec<H>> for Checker<H, Vec<H>> {
+impl<H> bp_header_chain::AncestryChecker<H, Vec<H>> for Checker<H, Vec<H>> {
 	fn are_ancestors(_ancestor: &H, _child: &H, proof: &Vec<H>) -> bool {
 		!proof.is_empty()
 	}
