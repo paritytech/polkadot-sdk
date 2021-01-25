@@ -20,6 +20,7 @@ use crate::messages_target::SubstrateMessagesReceivingProof;
 use async_trait::async_trait;
 use bp_message_lane::MessageNonce;
 use codec::Encode;
+use frame_support::weights::Weight;
 use messages_relay::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use relay_substrate_client::{BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf};
 use relay_utils::BlockNumberBase;
@@ -116,4 +117,66 @@ where
 
 	type TargetHeaderNumber = BlockNumberOf<Target>;
 	type TargetHeaderHash = HashOf<Target>;
+}
+
+/// Returns maximal number of messages and their maximal cumulative dispatch weight, based
+/// on given chain parameters.
+pub fn select_delivery_transaction_limits<W: pallet_message_lane::WeightInfoExt>(
+	max_extrinsic_weight: Weight,
+	max_unconfirmed_messages_at_inbound_lane: MessageNonce,
+) -> (MessageNonce, Weight) {
+	// We may try to guess accurate value, based on maximal number of messages and per-message
+	// weight overhead, but the relay loop isn't using this info in a super-accurate way anyway.
+	// So just a rough guess: let's say 1/3 of max tx weight is for tx itself and the rest is
+	// for messages dispatch.
+
+	// Another thing to keep in mind is that our runtimes (when this code was written) accept
+	// messages with dispatch weight <= max_extrinsic_weight/2. So we can't reserve less than
+	// that for dispatch.
+
+	let weight_for_delivery_tx = max_extrinsic_weight / 3;
+	let weight_for_messages_dispatch = max_extrinsic_weight - weight_for_delivery_tx;
+
+	let delivery_tx_base_weight =
+		W::receive_messages_proof_overhead() + W::receive_messages_proof_outbound_lane_state_overhead();
+	let delivery_tx_weight_rest = weight_for_delivery_tx - delivery_tx_base_weight;
+	let max_number_of_messages = std::cmp::min(
+		delivery_tx_weight_rest / W::receive_messages_proof_messages_overhead(1),
+		max_unconfirmed_messages_at_inbound_lane,
+	);
+
+	assert!(
+		max_number_of_messages > 0,
+		"Relay should fit at least one message in every delivery transaction",
+	);
+	assert!(
+		weight_for_messages_dispatch >= max_extrinsic_weight / 2,
+		"Relay shall be able to deliver messages with dispatch weight = max_extrinsic_weight / 2",
+	);
+
+	(max_number_of_messages, weight_for_messages_dispatch)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	type RialtoToMillauMessageLaneWeights = pallet_message_lane::weights::RialtoWeight<rialto_runtime::Runtime>;
+
+	#[test]
+	fn select_delivery_transaction_limits_works() {
+		let (max_count, max_weight) = select_delivery_transaction_limits::<RialtoToMillauMessageLaneWeights>(
+			bp_rialto::max_extrinsic_weight(),
+			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
+		);
+		assert_eq!(
+			(max_count, max_weight),
+			// We don't actually care about these values, so feel free to update them whenever test
+			// fails. The only thing to do before that is to ensure that new values looks sane: i.e. weight
+			// reserved for messages dispatch allows dispatch of non-trivial messages.
+			//
+			// Any significant change in this values should attract additional attention.
+			(1024, 866_583_333_334),
+		);
+	}
 }
