@@ -105,7 +105,6 @@ pub fn run(
 	lane_id: LaneId,
 	metrics_params: Option<MetricsParams>,
 ) {
-	let reconnect_delay = Duration::from_secs(10);
 	let stall_timeout = Duration::from_secs(5 * 60);
 	let relayer_id_at_millau = millau_sign.signer.public().as_array_ref().clone().into();
 
@@ -135,7 +134,7 @@ pub fn run(
 			lane: lane_id,
 			source_tick: Millau::AVERAGE_BLOCK_INTERVAL,
 			target_tick: Rialto::AVERAGE_BLOCK_INTERVAL,
-			reconnect_delay,
+			reconnect_delay: relay_utils::relay_loop::RECONNECT_DELAY,
 			stall_timeout,
 			delivery_params: messages_relay::message_lane_loop::MessageDeliveryParams {
 				max_unrewarded_relayer_entries_at_target: bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,

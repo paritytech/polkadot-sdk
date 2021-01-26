@@ -17,7 +17,9 @@
 //! Relaying proofs of exchange transaction.
 
 use async_trait::async_trait;
-use relay_utils::{MaybeConnectionError, StringifiedMaybeConnectionError};
+use relay_utils::{
+	relay_loop::Client as RelayClient, FailedClient, MaybeConnectionError, StringifiedMaybeConnectionError,
+};
 use std::{
 	fmt::{Debug, Display},
 	string::ToString,
@@ -84,10 +86,7 @@ pub type HeaderId<P> = relay_utils::HeaderId<BlockHashOf<P>, BlockNumberOf<P>>;
 
 /// Source client API.
 #[async_trait]
-pub trait SourceClient<P: TransactionProofPipeline> {
-	/// Error type.
-	type Error: Debug + MaybeConnectionError;
-
+pub trait SourceClient<P: TransactionProofPipeline>: RelayClient {
 	/// Sleep until exchange-related data is (probably) updated.
 	async fn tick(&self);
 	/// Get block by hash.
@@ -104,10 +103,7 @@ pub trait SourceClient<P: TransactionProofPipeline> {
 
 /// Target client API.
 #[async_trait]
-pub trait TargetClient<P: TransactionProofPipeline> {
-	/// Error type.
-	type Error: Debug + MaybeConnectionError;
-
+pub trait TargetClient<P: TransactionProofPipeline>: RelayClient {
 	/// Sleep until exchange-related data is (probably) updated.
 	async fn tick(&self);
 	/// Returns `Ok(true)` if header is known to the target node.
@@ -146,7 +142,7 @@ pub async fn relay_block_transactions<P: TransactionProofPipeline>(
 	target_client: &impl TargetClient<P>,
 	source_block: &P::Block,
 	mut relayed_transactions: RelayedBlockTransactions,
-) -> Result<RelayedBlockTransactions, RelayedBlockTransactions> {
+) -> Result<RelayedBlockTransactions, (FailedClient, RelayedBlockTransactions)> {
 	let transactions_to_process = source_block
 		.transactions()
 		.into_iter()
@@ -156,16 +152,21 @@ pub async fn relay_block_transactions<P: TransactionProofPipeline>(
 		let result = async {
 			let source_tx_id = format!("{}/{}", source_block.id().1, source_tx_index);
 			let source_tx_proof =
-				prepare_transaction_proof(source_client, &source_tx_id, source_block, source_tx_index).await?;
+				prepare_transaction_proof(source_client, &source_tx_id, source_block, source_tx_index)
+					.await
+					.map_err(|e| (FailedClient::Source, e))?;
 
 			let needs_to_be_relayed =
 				target_client
 					.filter_transaction_proof(&source_tx_proof)
 					.await
 					.map_err(|err| {
-						StringifiedMaybeConnectionError::new(
-							err.is_connection_error(),
-							format!("Transaction filtering has failed with {:?}", err),
+						(
+							FailedClient::Target,
+							StringifiedMaybeConnectionError::new(
+								err.is_connection_error(),
+								format!("Transaction filtering has failed with {:?}", err),
+							),
 						)
 					})?;
 
@@ -176,6 +177,7 @@ pub async fn relay_block_transactions<P: TransactionProofPipeline>(
 			relay_ready_transaction_proof(target_client, &source_tx_id, source_tx_proof)
 				.await
 				.map(|_| true)
+				.map_err(|e| (FailedClient::Target, e))
 		}
 		.await;
 
@@ -205,7 +207,7 @@ pub async fn relay_block_transactions<P: TransactionProofPipeline>(
 				relayed_transactions.processed += 1;
 				relayed_transactions.relayed += 1;
 			}
-			Err(err) => {
+			Err((failed_client, err)) => {
 				log::error!(
 					target: "bridge",
 					"Error relaying {} transaction {} proof to {} node: {}. {}",
@@ -221,7 +223,7 @@ pub async fn relay_block_transactions<P: TransactionProofPipeline>(
 				);
 
 				if err.is_connection_error() {
-					return Err(relayed_transactions);
+					return Err((failed_client, relayed_transactions));
 				}
 
 				relayed_transactions.processed += 1;
@@ -529,8 +531,9 @@ pub(crate) mod tests {
 	#[derive(Debug, Clone, PartialEq)]
 	pub struct TestTransactionProof(pub TestTransactionHash);
 
+	#[derive(Clone)]
 	pub struct TestTransactionsSource {
-		pub on_tick: Box<dyn Fn(&mut TestTransactionsSourceData) + Send + Sync>,
+		pub on_tick: Arc<dyn Fn(&mut TestTransactionsSourceData) + Send + Sync>,
 		pub data: Arc<Mutex<TestTransactionsSourceData>>,
 	}
 
@@ -543,7 +546,7 @@ pub(crate) mod tests {
 	impl TestTransactionsSource {
 		pub fn new(on_tick: Box<dyn Fn(&mut TestTransactionsSourceData) + Send + Sync>) -> Self {
 			Self {
-				on_tick,
+				on_tick: Arc::new(on_tick),
 				data: Arc::new(Mutex::new(TestTransactionsSourceData {
 					block: Ok(test_block()),
 					transaction_block: Ok(Some((test_block_id(), 0))),
@@ -554,9 +557,16 @@ pub(crate) mod tests {
 	}
 
 	#[async_trait]
-	impl SourceClient<TestTransactionProofPipeline> for TestTransactionsSource {
+	impl RelayClient for TestTransactionsSource {
 		type Error = TestError;
 
+		async fn reconnect(&mut self) -> Result<(), TestError> {
+			Ok(())
+		}
+	}
+
+	#[async_trait]
+	impl SourceClient<TestTransactionProofPipeline> for TestTransactionsSource {
 		async fn tick(&self) {
 			(self.on_tick)(&mut *self.data.lock())
 		}
@@ -584,8 +594,9 @@ pub(crate) mod tests {
 		}
 	}
 
+	#[derive(Clone)]
 	pub struct TestTransactionsTarget {
-		pub on_tick: Box<dyn Fn(&mut TestTransactionsTargetData) + Send + Sync>,
+		pub on_tick: Arc<dyn Fn(&mut TestTransactionsTargetData) + Send + Sync>,
 		pub data: Arc<Mutex<TestTransactionsTargetData>>,
 	}
 
@@ -600,7 +611,7 @@ pub(crate) mod tests {
 	impl TestTransactionsTarget {
 		pub fn new(on_tick: Box<dyn Fn(&mut TestTransactionsTargetData) + Send + Sync>) -> Self {
 			Self {
-				on_tick,
+				on_tick: Arc::new(on_tick),
 				data: Arc::new(Mutex::new(TestTransactionsTargetData {
 					is_header_known: Ok(true),
 					is_header_finalized: Ok(true),
@@ -613,9 +624,16 @@ pub(crate) mod tests {
 	}
 
 	#[async_trait]
-	impl TargetClient<TestTransactionProofPipeline> for TestTransactionsTarget {
+	impl RelayClient for TestTransactionsTarget {
 		type Error = TestError;
 
+		async fn reconnect(&mut self) -> Result<(), TestError> {
+			Ok(())
+		}
+	}
+
+	#[async_trait]
+	impl TargetClient<TestTransactionProofPipeline> for TestTransactionsTarget {
 		async fn tick(&self) {
 			(self.on_tick)(&mut *self.data.lock())
 		}
@@ -784,6 +802,7 @@ pub(crate) mod tests {
 			),
 			pre_relayed,
 		))
+		.map_err(|(_, transactions)| transactions)
 	}
 
 	#[test]
