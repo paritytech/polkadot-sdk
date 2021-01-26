@@ -132,6 +132,7 @@ async fn make_gossip_message_and_header(
 		},
 		descriptor: CandidateDescriptor {
 			relay_parent,
+			para_head: polkadot_parachain::primitives::HeadData(header.encode()).hash(),
 			..Default::default()
 		},
 	};
@@ -192,7 +193,7 @@ fn check_statement_is_encoded_correctly() {
 	check_error(res, |error| {
 		matches!(
 			error,
-			BlockAnnounceError(x) if x.contains("must be a `SignedFullStatement`")
+			BlockAnnounceError(x) if x.contains("Can not decode the `BlockAnnounceData`")
 		)
 	});
 }
@@ -202,7 +203,7 @@ fn check_signer_is_legit_validator() {
 	let (mut validator, api) = make_validator_and_api();
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-	let data = signed_statement.encode();
+	let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
 
 	let res = block_on(validator.validate(&header, &data))
 		.err()
@@ -220,7 +221,7 @@ fn check_statement_is_correctly_signed() {
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
 
-	let mut data = signed_statement.encode();
+	let mut data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
 
 	// The signature comes at the end of the type, so change a bit to make the signature invalid.
 	let last = data.len() - 1;
@@ -270,7 +271,10 @@ fn check_statement_seconded() {
 		&alice_public.into(),
 	))
 	.expect("Signs statement");
-	let data = signed_statement.encode();
+	let data = BlockAnnounceData {
+		receipt: Default::default(),
+		statement: signed_statement.convert_payload(),
+	}.encode();
 
 	let res = block_on(validator.validate(&header, &data))
 		.err()
@@ -279,7 +283,7 @@ fn check_statement_seconded() {
 	check_error(res, |error| {
 		matches!(
 			error,
-			BlockAnnounceError(x) if x.contains("must be a `Statement::Seconded`")
+			BlockAnnounceError(x) if x.contains("`CompactStatement` isn't the candidate variant")
 		)
 	});
 }
@@ -290,7 +294,7 @@ fn check_header_match_candidate_receipt_header() {
 
 	let (signed_statement, mut header) =
 		block_on(make_gossip_message_and_header_using_genesis(api, 0));
-	let data = signed_statement.encode();
+	let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
 	header.number = 300;
 
 	let res = block_on(validator.validate(&header, &data))
@@ -300,7 +304,7 @@ fn check_header_match_candidate_receipt_header() {
 	check_error(res, |error| {
 		matches!(
 			error,
-			BlockAnnounceError(x) if x.contains("header does not match")
+			BlockAnnounceError(x) if x.contains("Receipt para head hash doesn't match")
 		)
 	});
 }
@@ -323,7 +327,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 
 		let (signed_statement, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
 
-		let data = signed_statement.encode();
+		let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
 
 		let mut validation = validator.validate(&header, &data);
 

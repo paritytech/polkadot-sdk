@@ -21,6 +21,7 @@ polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "
 polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus deps
 cumulus-primitives = { path = "../primitives" }
