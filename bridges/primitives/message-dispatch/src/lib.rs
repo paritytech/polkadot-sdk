@@ -41,6 +41,9 @@ pub trait MessageDispatch<MessageId> {
 	///
 	/// `id` is a short unique identifier of the message.
 	///
-	/// Returns post-dispatch (actual) message weight.
-	fn dispatch(bridge: InstanceId, id: MessageId, message: Self::Message);
+	/// If message is `Ok`, then it should be dispatched. If it is `Err`, then it's just
+	/// a sign that some other component has rejected the message even before it has
+	/// reached `dispatch` method (right now this may only be caused if we fail to decode
+	/// the whole message).
+	fn dispatch(bridge: InstanceId, id: MessageId, message: Result<Self::Message, ()>);
 }
