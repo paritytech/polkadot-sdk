@@ -148,6 +148,8 @@ decl_event!(
 	pub enum Event<T, I = DefaultInstance> where
 		<T as Config<I>>::MessageId
 	{
+		/// Message has been rejected before reaching dispatch.
+		MessageRejected(InstanceId, MessageId),
 		/// Message has been rejected by dispatcher because of spec version mismatch.
 		/// Last two arguments are: expected and passed spec version.
 		MessageVersionSpecMismatch(InstanceId, MessageId, SpecVersion, SpecVersion),
@@ -183,7 +185,17 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		message.weight
 	}
 
-	fn dispatch(bridge: InstanceId, id: T::MessageId, message: Self::Message) {
+	fn dispatch(bridge: InstanceId, id: T::MessageId, message: Result<Self::Message, ()>) {
+		// emit special even if message has been rejected by external component
+		let message = match message {
+			Ok(message) => message,
+			Err(_) => {
+				frame_support::debug::trace!("Message {:?}/{:?}: rejected before actual dispatch", bridge, id);
+				Self::deposit_event(RawEvent::MessageRejected(bridge, id));
+				return;
+			}
+		};
+
 		// verify spec version
 		// (we want it to be the same, because otherwise we may decode Call improperly)
 		let expected_version = <T as frame_system::Config>::Version::get().spec_version;
@@ -491,7 +503,7 @@ mod tests {
 			message.spec_version = BAD_SPEC_VERSION;
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, message);
+			CallDispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -519,7 +531,7 @@ mod tests {
 			message.weight = 0;
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, message);
+			CallDispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -547,13 +559,33 @@ mod tests {
 			);
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, message);
+			CallDispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
 					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageSignatureMismatch(bridge, id)),
+					topics: vec![],
+				}],
+			);
+		});
+	}
+
+	#[test]
+	fn should_emit_event_for_rejected_messages() {
+		new_test_ext().execute_with(|| {
+			let bridge = b"ethb".to_owned();
+			let id = [0; 4];
+
+			System::set_block_number(1);
+			CallDispatch::dispatch(bridge, id, Err(()));
+
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageRejected(bridge, id)),
 					topics: vec![],
 				}],
 			);
@@ -568,7 +600,7 @@ mod tests {
 			let message = prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, message);
+			CallDispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -591,7 +623,7 @@ mod tests {
 			let message = prepare_target_message(call);
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, message);
+			CallDispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -614,7 +646,7 @@ mod tests {
 			let message = prepare_source_message(call);
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, message);
+			CallDispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
