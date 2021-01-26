@@ -27,13 +27,9 @@ use futures::{future::FutureExt, select};
 use num_traits::One;
 use relay_utils::{
 	metrics::{start as metrics_start, GlobalMetrics, MetricsParams},
-	retry_backoff,
+	retry_backoff, FailedClient, MaybeConnectionError,
 };
-use std::{future::Future, time::Duration};
-
-/// Delay after connection-related error happened before we'll try
-/// reconnection again.
-const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
+use std::future::Future;
 
 /// Transactions proofs relay state.
 #[derive(Debug)]
@@ -43,7 +39,7 @@ pub struct TransactionProofsRelayState<BlockNumber> {
 }
 
 /// Transactions proofs relay storage.
-pub trait TransactionProofsRelayStorage {
+pub trait TransactionProofsRelayStorage: Clone {
 	/// Associated block number.
 	type BlockNumber;
 
@@ -54,7 +50,7 @@ pub trait TransactionProofsRelayStorage {
 }
 
 /// In-memory storage for auto-relay loop.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InMemoryStorage<BlockNumber> {
 	best_processed_header_number: BlockNumber,
 }
@@ -84,68 +80,101 @@ impl<BlockNumber: Clone + Copy> TransactionProofsRelayStorage for InMemoryStorag
 
 /// Run proofs synchronization.
 pub fn run<P: TransactionProofPipeline>(
-	mut storage: impl TransactionProofsRelayStorage<BlockNumber = BlockNumberOf<P>>,
+	storage: impl TransactionProofsRelayStorage<BlockNumber = BlockNumberOf<P>>,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
 ) {
-	let mut local_pool = futures::executor::LocalPool::new();
+	let exit_signal = exit_signal.shared();
+	let metrics_global = GlobalMetrics::default();
+	let metrics_exch = ExchangeLoopMetrics::default();
+	let metrics_enabled = metrics_params.is_some();
+	metrics_start(
+		format!("{}_to_{}_Exchange", P::SOURCE_NAME, P::TARGET_NAME),
+		metrics_params,
+		&metrics_global,
+		&metrics_exch,
+	);
 
-	local_pool.run_until(async move {
-		let mut retry_backoff = retry_backoff();
-		let mut state = storage.state();
-		let mut current_finalized_block = None;
-
-		let mut metrics_global = GlobalMetrics::default();
-		let mut metrics_exch = ExchangeLoopMetrics::default();
-		let metrics_enabled = metrics_params.is_some();
-		metrics_start(
-			format!("{}_to_{}_Exchange", P::SOURCE_NAME, P::TARGET_NAME),
-			metrics_params,
-			&metrics_global,
-			&metrics_exch,
-		);
-
-		let exit_signal = exit_signal.fuse();
-
-		futures::pin_mut!(exit_signal);
-
-		loop {
-			let iteration_result = run_loop_iteration(
-				&mut storage,
-				&source_client,
-				&target_client,
-				&mut state,
-				&mut current_finalized_block,
-				if metrics_enabled { Some(&mut metrics_exch) } else { None },
+	relay_utils::relay_loop::run(
+		relay_utils::relay_loop::RECONNECT_DELAY,
+		source_client,
+		target_client,
+		|source_client, target_client| {
+			run_until_connection_lost(
+				storage.clone(),
+				source_client,
+				target_client,
+				if metrics_enabled {
+					Some(metrics_global.clone())
+				} else {
+					None
+				},
+				if metrics_enabled {
+					Some(metrics_exch.clone())
+				} else {
+					None
+				},
+				exit_signal.clone(),
 			)
-			.await;
+		},
+	);
+}
 
-			if metrics_enabled {
-				metrics_global.update();
+/// Run proofs synchronization.
+async fn run_until_connection_lost<P: TransactionProofPipeline>(
+	mut storage: impl TransactionProofsRelayStorage<BlockNumber = BlockNumberOf<P>>,
+	source_client: impl SourceClient<P>,
+	target_client: impl TargetClient<P>,
+	metrics_global: Option<GlobalMetrics>,
+	metrics_exch: Option<ExchangeLoopMetrics>,
+	exit_signal: impl Future<Output = ()>,
+) -> Result<(), FailedClient> {
+	let mut retry_backoff = retry_backoff();
+	let mut state = storage.state();
+	let mut current_finalized_block = None;
+
+	let exit_signal = exit_signal.fuse();
+
+	futures::pin_mut!(exit_signal);
+
+	loop {
+		let iteration_result = run_loop_iteration(
+			&mut storage,
+			&source_client,
+			&target_client,
+			&mut state,
+			&mut current_finalized_block,
+			metrics_exch.as_ref(),
+		)
+		.await;
+
+		if let Some(ref metrics_global) = metrics_global {
+			metrics_global.update().await;
+		}
+
+		if let Err((is_connection_error, failed_client)) = iteration_result {
+			if is_connection_error {
+				return Err(failed_client);
 			}
 
-			match iteration_result {
-				Ok(_) => {
-					retry_backoff.reset();
+			let retry_timeout = retry_backoff
+				.next_backoff()
+				.unwrap_or(relay_utils::relay_loop::RECONNECT_DELAY);
+			select! {
+				_ = async_std::task::sleep(retry_timeout).fuse() => {},
+				_ = exit_signal => return Ok(()),
+			}
+		} else {
+			retry_backoff.reset();
 
-					select! {
-						_ = source_client.tick().fuse() => {},
-						_ = exit_signal => return,
-					}
-				}
-				Err(_) => {
-					let retry_timeout = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
-
-					select! {
-						_ = async_std::task::sleep(retry_timeout).fuse() => {},
-						_ = exit_signal => return,
-					}
-				}
+			select! {
+				_ = source_client.tick().fuse() => {},
+				_ = exit_signal => return Ok(()),
 			}
 		}
-	});
+	}
 }
 
 /// Run exchange loop until we need to break.
@@ -155,8 +184,8 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 	target_client: &impl TargetClient<P>,
 	state: &mut TransactionProofsRelayState<BlockNumberOf<P>>,
 	current_finalized_block: &mut Option<(P::Block, RelayedBlockTransactions)>,
-	mut exchange_loop_metrics: Option<&mut ExchangeLoopMetrics>,
-) -> Result<(), ()> {
+	exchange_loop_metrics: Option<&ExchangeLoopMetrics>,
+) -> Result<(), (bool, FailedClient)> {
 	let best_finalized_header_id = match target_client.best_finalized_header_id().await {
 		Ok(best_finalized_header_id) => {
 			log::debug!(
@@ -178,7 +207,7 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 				err,
 			);
 
-			return Err(());
+			return Err((err.is_connection_error(), FailedClient::Target));
 		}
 	};
 
@@ -202,7 +231,7 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 					state.best_processed_header_number = state.best_processed_header_number + One::one();
 					storage.set_state(state);
 
-					if let Some(exchange_loop_metrics) = exchange_loop_metrics.as_mut() {
+					if let Some(ref exchange_loop_metrics) = exchange_loop_metrics {
 						exchange_loop_metrics.update::<P>(
 							state.best_processed_header_number,
 							best_finalized_header_id.0,
@@ -212,9 +241,9 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 
 					// we have just updated state => proceed to next block retrieval
 				}
-				Err(relayed_transactions) => {
+				Err((failed_client, relayed_transactions)) => {
 					*current_finalized_block = Some((block, relayed_transactions));
-					return Err(());
+					return Err((true, failed_client));
 				}
 			}
 		}
@@ -240,7 +269,7 @@ async fn run_loop_iteration<P: TransactionProofPipeline>(
 						err,
 					);
 
-					return Err(());
+					return Err((err.is_connection_error(), FailedClient::Source));
 				}
 			}
 		}

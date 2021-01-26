@@ -37,7 +37,7 @@ use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
 use relay_substrate_client::{
 	Chain as SubstrateChain, Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams,
 };
-use relay_utils::metrics::MetricsParams;
+use relay_utils::{metrics::MetricsParams, relay_loop::Client as RelayClient};
 
 use std::fmt::Debug;
 use std::{collections::HashSet, sync::Arc, time::Duration};
@@ -105,6 +105,7 @@ impl HeadersSyncPipeline for EthereumHeadersSyncPipeline {
 pub type QueuedEthereumHeader = QueuedHeader<EthereumHeadersSyncPipeline>;
 
 /// Ethereum client as headers source.
+#[derive(Clone)]
 struct EthereumHeadersSource {
 	/// Ethereum node client.
 	client: EthereumClient,
@@ -117,14 +118,22 @@ impl EthereumHeadersSource {
 }
 
 #[async_trait]
-impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
+impl RelayClient for EthereumHeadersSource {
 	type Error = RpcError;
 
-	async fn best_block_number(&self) -> Result<u64, Self::Error> {
+	async fn reconnect(&mut self) -> Result<(), RpcError> {
+		self.client.reconnect();
+		Ok(())
+	}
+}
+
+#[async_trait]
+impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
+	async fn best_block_number(&self) -> Result<u64, RpcError> {
 		self.client.best_block_number().await.map_err(Into::into)
 	}
 
-	async fn header_by_hash(&self, hash: HeaderHash) -> Result<Header, Self::Error> {
+	async fn header_by_hash(&self, hash: HeaderHash) -> Result<Header, RpcError> {
 		self.client
 			.header_by_hash(hash)
 			.await
@@ -132,7 +141,7 @@ impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
 			.map_err(Into::into)
 	}
 
-	async fn header_by_number(&self, number: u64) -> Result<Header, Self::Error> {
+	async fn header_by_number(&self, number: u64) -> Result<Header, RpcError> {
 		self.client
 			.header_by_number(number)
 			.await
@@ -140,7 +149,7 @@ impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
 			.map_err(Into::into)
 	}
 
-	async fn header_completion(&self, id: EthereumHeaderId) -> Result<(EthereumHeaderId, Option<()>), Self::Error> {
+	async fn header_completion(&self, id: EthereumHeaderId) -> Result<(EthereumHeaderId, Option<()>), RpcError> {
 		Ok((id, None))
 	}
 
@@ -148,13 +157,14 @@ impl SourceClient<EthereumHeadersSyncPipeline> for EthereumHeadersSource {
 		&self,
 		id: EthereumHeaderId,
 		header: QueuedEthereumHeader,
-	) -> Result<(EthereumHeaderId, Vec<Receipt>), Self::Error> {
+	) -> Result<(EthereumHeaderId, Vec<Receipt>), RpcError> {
 		self.client
 			.transaction_receipts(id, header.header().transactions.clone())
 			.await
 	}
 }
 
+#[derive(Clone)]
 struct SubstrateHeadersTarget {
 	/// Substrate node client.
 	client: SubstrateClient<Rialto>,
@@ -183,21 +193,25 @@ impl SubstrateHeadersTarget {
 }
 
 #[async_trait]
-impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
+impl RelayClient for SubstrateHeadersTarget {
 	type Error = RpcError;
 
-	async fn best_header_id(&self) -> Result<EthereumHeaderId, Self::Error> {
+	async fn reconnect(&mut self) -> Result<(), RpcError> {
+		Ok(self.client.reconnect().await?)
+	}
+}
+
+#[async_trait]
+impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
+	async fn best_header_id(&self) -> Result<EthereumHeaderId, RpcError> {
 		self.client.best_ethereum_block().await
 	}
 
-	async fn is_known_header(&self, id: EthereumHeaderId) -> Result<(EthereumHeaderId, bool), Self::Error> {
+	async fn is_known_header(&self, id: EthereumHeaderId) -> Result<(EthereumHeaderId, bool), RpcError> {
 		Ok((id, self.client.ethereum_header_known(id).await?))
 	}
 
-	async fn submit_headers(
-		&self,
-		headers: Vec<QueuedEthereumHeader>,
-	) -> SubmittedHeaders<EthereumHeaderId, Self::Error> {
+	async fn submit_headers(&self, headers: Vec<QueuedEthereumHeader>) -> SubmittedHeaders<EthereumHeaderId, RpcError> {
 		let (sign_params, bridge_instance, sign_transactions) = (
 			self.sign_params.clone(),
 			self.bridge_instance.clone(),
@@ -208,16 +222,16 @@ impl TargetClient<EthereumHeadersSyncPipeline> for SubstrateHeadersTarget {
 			.await
 	}
 
-	async fn incomplete_headers_ids(&self) -> Result<HashSet<EthereumHeaderId>, Self::Error> {
+	async fn incomplete_headers_ids(&self) -> Result<HashSet<EthereumHeaderId>, RpcError> {
 		Ok(HashSet::new())
 	}
 
 	#[allow(clippy::unit_arg)]
-	async fn complete_header(&self, id: EthereumHeaderId, _completion: ()) -> Result<EthereumHeaderId, Self::Error> {
+	async fn complete_header(&self, id: EthereumHeaderId, _completion: ()) -> Result<EthereumHeaderId, RpcError> {
 		Ok(id)
 	}
 
-	async fn requires_extra(&self, header: QueuedEthereumHeader) -> Result<(EthereumHeaderId, bool), Self::Error> {
+	async fn requires_extra(&self, header: QueuedEthereumHeader) -> Result<(EthereumHeaderId, bool), RpcError> {
 		// we can minimize number of receipts_check calls by checking header
 		// logs bloom here, but it may give us false positives (when authorities
 		// source is contract, we never need any logs)

@@ -28,7 +28,7 @@ use headers_relay::{
 	sync_types::{HeaderIdOf, QueuedHeader, SubmittedHeaders},
 };
 use relay_substrate_client::{Chain, Client, Error as SubstrateError};
-use relay_utils::HeaderId;
+use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::Bytes;
 use sp_runtime::Justification;
 use std::collections::HashSet;
@@ -46,6 +46,24 @@ impl<C: Chain, P> SubstrateHeadersTarget<C, P> {
 	}
 }
 
+impl<C: Chain, P: SubstrateHeadersSyncPipeline> Clone for SubstrateHeadersTarget<C, P> {
+	fn clone(&self) -> Self {
+		SubstrateHeadersTarget {
+			client: self.client.clone(),
+			pipeline: self.pipeline.clone(),
+		}
+	}
+}
+
+#[async_trait]
+impl<C: Chain, P: SubstrateHeadersSyncPipeline> RelayClient for SubstrateHeadersTarget<C, P> {
+	type Error = SubstrateError;
+
+	async fn reconnect(&mut self) -> Result<(), SubstrateError> {
+		self.client.reconnect().await
+	}
+}
+
 #[async_trait]
 impl<C, P> TargetClient<P> for SubstrateHeadersTarget<C, P>
 where
@@ -54,9 +72,7 @@ where
 	P::Hash: Decode + Encode,
 	P: SubstrateHeadersSyncPipeline<Completion = Justification, Extra = ()>,
 {
-	type Error = SubstrateError;
-
-	async fn best_header_id(&self) -> Result<HeaderIdOf<P>, Self::Error> {
+	async fn best_header_id(&self) -> Result<HeaderIdOf<P>, SubstrateError> {
 		let call = P::BEST_BLOCK_METHOD.into();
 		let data = Bytes(Vec::new());
 
@@ -72,7 +88,7 @@ where
 			.map(|(num, hash)| HeaderId(*num, *hash))
 	}
 
-	async fn is_known_header(&self, id: HeaderIdOf<P>) -> Result<(HeaderIdOf<P>, bool), Self::Error> {
+	async fn is_known_header(&self, id: HeaderIdOf<P>) -> Result<(HeaderIdOf<P>, bool), SubstrateError> {
 		let call = P::IS_KNOWN_BLOCK_METHOD.into();
 		let data = Bytes(id.1.encode());
 
@@ -83,7 +99,10 @@ where
 		Ok((id, is_known_block))
 	}
 
-	async fn submit_headers(&self, mut headers: Vec<QueuedHeader<P>>) -> SubmittedHeaders<HeaderIdOf<P>, Self::Error> {
+	async fn submit_headers(
+		&self,
+		mut headers: Vec<QueuedHeader<P>>,
+	) -> SubmittedHeaders<HeaderIdOf<P>, SubstrateError> {
 		debug_assert_eq!(
 			headers.len(),
 			1,
@@ -114,7 +133,7 @@ where
 		}
 	}
 
-	async fn incomplete_headers_ids(&self) -> Result<HashSet<HeaderIdOf<P>>, Self::Error> {
+	async fn incomplete_headers_ids(&self) -> Result<HashSet<HeaderIdOf<P>>, SubstrateError> {
 		let call = P::INCOMPLETE_HEADERS_METHOD.into();
 		let data = Bytes(Vec::new());
 
@@ -133,13 +152,13 @@ where
 		&self,
 		id: HeaderIdOf<P>,
 		completion: Justification,
-	) -> Result<HeaderIdOf<P>, Self::Error> {
+	) -> Result<HeaderIdOf<P>, SubstrateError> {
 		let tx = self.pipeline.make_complete_header_transaction(id, completion).await?;
 		self.client.submit_extrinsic(Bytes(tx.encode())).await?;
 		Ok(id)
 	}
 
-	async fn requires_extra(&self, header: QueuedHeader<P>) -> Result<(HeaderIdOf<P>, bool), Self::Error> {
+	async fn requires_extra(&self, header: QueuedHeader<P>) -> Result<(HeaderIdOf<P>, bool), SubstrateError> {
 		Ok((header.id(), false))
 	}
 }

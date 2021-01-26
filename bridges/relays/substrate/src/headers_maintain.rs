@@ -81,6 +81,20 @@ impl<P: SubstrateHeadersSyncPipeline, SourceChain, TargetChain: Chain>
 }
 
 #[async_trait]
+impl<P: SubstrateHeadersSyncPipeline, SourceChain, TargetChain: Chain> Clone
+	for SubstrateHeadersToSubstrateMaintain<P, SourceChain, TargetChain>
+{
+	fn clone(&self) -> Self {
+		SubstrateHeadersToSubstrateMaintain {
+			pipeline: self.pipeline.clone(),
+			target_client: self.target_client.clone(),
+			justifications: self.justifications.clone(),
+			_marker: Default::default(),
+		}
+	}
+}
+
+#[async_trait]
 impl<P, SourceChain, TargetChain> SyncMaintain<P> for SubstrateHeadersToSubstrateMaintain<P, SourceChain, TargetChain>
 where
 	SourceChain: Chain,

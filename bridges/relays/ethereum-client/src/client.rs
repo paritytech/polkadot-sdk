@@ -28,22 +28,32 @@ use jsonrpsee::Client as RpcClient;
 /// The client used to interact with an Ethereum node through RPC.
 #[derive(Clone)]
 pub struct Client {
+	params: ConnectionParams,
 	client: RpcClient,
 }
 
 impl Client {
 	/// Create a new Ethereum RPC Client.
 	pub fn new(params: ConnectionParams) -> Self {
+		Self {
+			client: Self::build_client(&params),
+			params,
+		}
+	}
+
+	/// Build client to use in connection.
+	fn build_client(params: &ConnectionParams) -> RpcClient {
 		let uri = format!("http://{}:{}", params.host, params.port);
 		let transport = HttpTransportClient::new(&uri);
 		let raw_client = RawClient::new(transport);
-		let client: RpcClient = raw_client.into();
-
-		Self { client }
+		raw_client.into()
 	}
-}
 
-impl Client {
+	/// Reopen client connection.
+	pub fn reconnect(&mut self) {
+		self.client = Self::build_client(&self.params);
+	}
+
 	/// Estimate gas usage for the given call.
 	pub async fn estimate_gas(&self, call_request: CallRequest) -> Result<U256> {
 		Ok(Ethereum::estimate_gas(&self.client, call_request).await?)

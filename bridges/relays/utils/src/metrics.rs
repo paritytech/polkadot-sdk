@@ -16,6 +16,7 @@
 
 pub use substrate_prometheus_endpoint::{register, Counter, CounterVec, Gauge, GaugeVec, Opts, Registry, F64, U64};
 
+use async_std::sync::{Arc, Mutex};
 use std::net::SocketAddr;
 use substrate_prometheus_endpoint::init_prometheus;
 use sysinfo::{ProcessExt, RefreshKind, System, SystemExt};
@@ -36,9 +37,9 @@ pub trait Metrics {
 }
 
 /// Global Prometheus metrics.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GlobalMetrics {
-	system: System,
+	system: Arc<Mutex<System>>,
 	system_average_load: GaugeVec<F64>,
 	process_cpu_usage_percentage: Gauge<F64>,
 	process_memory_usage_bytes: Gauge<U64>,
@@ -110,7 +111,7 @@ impl Metrics for GlobalMetrics {
 impl Default for GlobalMetrics {
 	fn default() -> Self {
 		GlobalMetrics {
-			system: System::new_with_specifics(RefreshKind::everything()),
+			system: Arc::new(Mutex::new(System::new_with_specifics(RefreshKind::everything()))),
 			system_average_load: GaugeVec::new(Opts::new("system_average_load", "System load average"), &["over"])
 				.expect("metric is static and thus valid; qed"),
 			process_cpu_usage_percentage: Gauge::new("process_cpu_usage_percentage", "Process CPU usage")
@@ -126,9 +127,10 @@ impl Default for GlobalMetrics {
 
 impl GlobalMetrics {
 	/// Update metrics.
-	pub fn update(&mut self) {
+	pub async fn update(&self) {
 		// update system-wide metrics
-		let load = self.system.get_load_average();
+		let mut system = self.system.lock().await;
+		let load = system.get_load_average();
 		self.system_average_load.with_label_values(&["1min"]).set(load.one);
 		self.system_average_load.with_label_values(&["5min"]).set(load.five);
 		self.system_average_load.with_label_values(&["15min"]).set(load.fifteen);
@@ -139,8 +141,8 @@ impl GlobalMetrics {
 				relay is not supposed to run in such MetricsParamss;\
 				qed",
 		);
-		let is_process_refreshed = self.system.refresh_process(pid);
-		match (is_process_refreshed, self.system.get_process(pid)) {
+		let is_process_refreshed = system.refresh_process(pid);
+		match (is_process_refreshed, system.get_process(pid)) {
 			(true, Some(process_info)) => {
 				let cpu_usage = process_info.cpu_usage() as f64;
 				let memory_usage = process_info.memory() * 1024;

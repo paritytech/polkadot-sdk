@@ -35,7 +35,7 @@ use relay_substrate_client::{
 	headers_source::HeadersSource, Chain as SubstrateChain, Client as SubstrateClient,
 	ConnectionParams as SubstrateConnectionParams,
 };
-use relay_utils::metrics::MetricsParams;
+use relay_utils::{metrics::MetricsParams, relay_loop::Client as RelayClient};
 use sp_runtime::Justification;
 
 use std::fmt::Debug;
@@ -98,6 +98,7 @@ pub type QueuedRialtoHeader = QueuedHeader<SubstrateHeadersSyncPipeline>;
 type SubstrateHeadersSource = HeadersSource<Rialto, SubstrateHeadersSyncPipeline>;
 
 /// Ethereum client as Substrate headers target.
+#[derive(Clone)]
 struct EthereumHeadersTarget {
 	/// Ethereum node client.
 	client: EthereumClient,
@@ -118,38 +119,42 @@ impl EthereumHeadersTarget {
 }
 
 #[async_trait]
-impl TargetClient<SubstrateHeadersSyncPipeline> for EthereumHeadersTarget {
+impl RelayClient for EthereumHeadersTarget {
 	type Error = RpcError;
 
-	async fn best_header_id(&self) -> Result<RialtoHeaderId, Self::Error> {
+	async fn reconnect(&mut self) -> Result<(), RpcError> {
+		self.client.reconnect();
+		Ok(())
+	}
+}
+
+#[async_trait]
+impl TargetClient<SubstrateHeadersSyncPipeline> for EthereumHeadersTarget {
+	async fn best_header_id(&self) -> Result<RialtoHeaderId, RpcError> {
 		self.client.best_substrate_block(self.contract).await
 	}
 
-	async fn is_known_header(&self, id: RialtoHeaderId) -> Result<(RialtoHeaderId, bool), Self::Error> {
+	async fn is_known_header(&self, id: RialtoHeaderId) -> Result<(RialtoHeaderId, bool), RpcError> {
 		self.client.substrate_header_known(self.contract, id).await
 	}
 
-	async fn submit_headers(&self, headers: Vec<QueuedRialtoHeader>) -> SubmittedHeaders<RialtoHeaderId, Self::Error> {
+	async fn submit_headers(&self, headers: Vec<QueuedRialtoHeader>) -> SubmittedHeaders<RialtoHeaderId, RpcError> {
 		self.client
 			.submit_substrate_headers(self.sign_params.clone(), self.contract, headers)
 			.await
 	}
 
-	async fn incomplete_headers_ids(&self) -> Result<HashSet<RialtoHeaderId>, Self::Error> {
+	async fn incomplete_headers_ids(&self) -> Result<HashSet<RialtoHeaderId>, RpcError> {
 		self.client.incomplete_substrate_headers(self.contract).await
 	}
 
-	async fn complete_header(
-		&self,
-		id: RialtoHeaderId,
-		completion: Justification,
-	) -> Result<RialtoHeaderId, Self::Error> {
+	async fn complete_header(&self, id: RialtoHeaderId, completion: Justification) -> Result<RialtoHeaderId, RpcError> {
 		self.client
 			.complete_substrate_header(self.sign_params.clone(), self.contract, id, completion)
 			.await
 	}
 
-	async fn requires_extra(&self, header: QueuedRialtoHeader) -> Result<(RialtoHeaderId, bool), Self::Error> {
+	async fn requires_extra(&self, header: QueuedRialtoHeader) -> Result<(RialtoHeaderId, bool), RpcError> {
 		Ok((header.header().id(), false))
 	}
 }
