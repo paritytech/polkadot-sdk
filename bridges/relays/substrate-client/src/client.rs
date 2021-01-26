@@ -89,12 +89,9 @@ impl<C: Chain> Client<C> {
 	}
 
 	/// Reopen client connection.
-	pub async fn reconnect(self) -> Result<Self> {
-		Ok(Self {
-			params: self.params.clone(),
-			client: Self::build_client(self.params).await?,
-			genesis_hash: self.genesis_hash,
-		})
+	pub async fn reconnect(&mut self) -> Result<()> {
+		self.client = Self::build_client(self.params.clone()).await?;
+		Ok(())
 	}
 
 	/// Build client to use in connection.

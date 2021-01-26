@@ -29,6 +29,7 @@ pub const CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(10);
 
 pub mod initialize;
 pub mod metrics;
+pub mod relay_loop;
 
 /// Block number traits shared by all chains that relay is able to serve.
 pub trait BlockNumberBase:
