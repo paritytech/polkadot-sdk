@@ -65,7 +65,7 @@ pub enum CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainS
 	///
 	/// The account can be identified by `TargetChainAccountPublic`. The proof that the
 	/// `SourceChainAccountId` controls `TargetChainAccountPublic` is the `TargetChainSignature`
-	/// over `(Call, SourceChainAccountId).encode()`.
+	/// over `(Call, SourceChainAccountId, TargetChainSpecVersion, SourceChainBridgeId).encode()`.
 	///
 	/// NOTE sending messages using this origin (or any other) does not have replay protection!
 	/// The assumption is that both the source account and the target account is controlled by
@@ -247,12 +247,11 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 				target_id
 			}
 			CallOrigin::TargetAccount(source_account_id, target_public, target_signature) => {
-				let mut signed_message = Vec::new();
-				message.call.encode_to(&mut signed_message);
-				source_account_id.encode_to(&mut signed_message);
+				let digest =
+					account_ownership_digest(message.call.clone(), source_account_id, message.spec_version, bridge);
 
 				let target_account = target_public.into_account();
-				if !target_signature.verify(&signed_message[..], &target_account) {
+				if !target_signature.verify(&digest[..], &target_account) {
 					frame_support::debug::trace!(
 						"Message {:?}/{:?}: origin proof is invalid. Expected account: {:?} from signature: {:?}",
 						bridge,
@@ -332,6 +331,32 @@ where
 			Ok(Some(source_account_id.clone()))
 		}
 	}
+}
+
+/// Target account ownership digest from the source chain.
+///
+/// The byte vector returned by this function will be signed with a target chain account
+/// private key. This way, the owner of `source_account_id` on the source chain proves that
+/// the target chain account private key is also under his control.
+pub fn account_ownership_digest<Call, AccountId, SpecVersion, BridgeId>(
+	call: Call,
+	source_account_id: AccountId,
+	target_spec_version: SpecVersion,
+	source_instance_id: BridgeId,
+) -> Vec<u8>
+where
+	Call: Encode,
+	AccountId: Encode,
+	SpecVersion: Encode,
+	BridgeId: Encode,
+{
+	let mut proof = Vec::new();
+	call.encode_to(&mut proof);
+	source_account_id.encode_to(&mut proof);
+	target_spec_version.encode_to(&mut proof);
+	source_instance_id.encode_to(&mut proof);
+
+	proof
 }
 
 #[cfg(test)]
