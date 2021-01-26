@@ -35,7 +35,9 @@ use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
 use relay_utils::{
 	interval,
 	metrics::{start as metrics_start, GlobalMetrics, MetricsParams},
-	process_future_result, retry_backoff, FailedClient, MaybeConnectionError,
+	process_future_result,
+	relay_loop::Client as RelayClient,
+	retry_backoff, FailedClient,
 };
 use std::{collections::BTreeMap, fmt::Debug, future::Future, ops::RangeInclusive, time::Duration};
 
@@ -98,13 +100,7 @@ pub struct MessageProofParameters {
 
 /// Source client trait.
 #[async_trait]
-pub trait SourceClient<P: MessageLane>: Clone + Send + Sync {
-	/// Type of error this clients returns.
-	type Error: std::fmt::Debug + MaybeConnectionError;
-
-	/// Try to reconnect to source node.
-	async fn reconnect(self) -> Result<Self, Self::Error>;
-
+pub trait SourceClient<P: MessageLane>: RelayClient {
 	/// Returns state of the client.
 	async fn state(&self) -> Result<SourceClientState<P>, Self::Error>;
 
@@ -147,13 +143,7 @@ pub trait SourceClient<P: MessageLane>: Clone + Send + Sync {
 
 /// Target client trait.
 #[async_trait]
-pub trait TargetClient<P: MessageLane>: Clone + Send + Sync {
-	/// Type of error this clients returns.
-	type Error: std::fmt::Debug + MaybeConnectionError;
-
-	/// Try to reconnect to source node.
-	async fn reconnect(self) -> Result<Self, Self::Error>;
-
+pub trait TargetClient<P: MessageLane>: RelayClient {
 	/// Returns state of the client.
 	async fn state(&self) -> Result<TargetClientState<P>, Self::Error>;
 
@@ -218,37 +208,38 @@ pub struct ClientsState<P: MessageLane> {
 /// Run message lane service loop.
 pub fn run<P: MessageLane>(
 	params: Params,
-	mut source_client: impl SourceClient<P>,
-	mut target_client: impl TargetClient<P>,
+	source_client: impl SourceClient<P>,
+	target_client: impl TargetClient<P>,
 	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
 ) {
-	let mut local_pool = futures::executor::LocalPool::new();
 	let exit_signal = exit_signal.shared();
+	let metrics_global = GlobalMetrics::default();
+	let metrics_msg = MessageLaneLoopMetrics::default();
+	let metrics_enabled = metrics_params.is_some();
+	metrics_start(
+		format!(
+			"{}_to_{}_MessageLane_{}",
+			P::SOURCE_NAME,
+			P::TARGET_NAME,
+			hex::encode(params.lane)
+		),
+		metrics_params,
+		&metrics_global,
+		&metrics_msg,
+	);
 
-	local_pool.run_until(async move {
-		let mut metrics_global = GlobalMetrics::default();
-		let metrics_msg = MessageLaneLoopMetrics::default();
-		let metrics_enabled = metrics_params.is_some();
-		metrics_start(
-			format!(
-				"{}_to_{}_MessageLane_{}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
-				hex::encode(params.lane)
-			),
-			metrics_params,
-			&metrics_global,
-			&metrics_msg,
-		);
-
-		loop {
-			let result = run_until_connection_lost(
+	relay_utils::relay_loop::run(
+		params.reconnect_delay,
+		source_client,
+		target_client,
+		|source_client, target_client| {
+			run_until_connection_lost(
 				params.clone(),
-				source_client.clone(),
-				target_client.clone(),
+				source_client,
+				target_client,
 				if metrics_enabled {
-					Some(&mut metrics_global)
+					Some(metrics_global.clone())
 				} else {
 					None
 				},
@@ -259,55 +250,8 @@ pub fn run<P: MessageLane>(
 				},
 				exit_signal.clone(),
 			)
-			.await;
-
-			match result {
-				Ok(()) => break,
-				Err(failed_client) => loop {
-					async_std::task::sleep(params.reconnect_delay).await;
-					if failed_client == FailedClient::Both || failed_client == FailedClient::Source {
-						source_client = match source_client.clone().reconnect().await {
-							Ok(source_client) => source_client,
-							Err(error) => {
-								log::warn!(
-									target: "bridge",
-									"Failed to reconnect {}. Going to retry in {}s: {:?}",
-									P::SOURCE_NAME,
-									params.reconnect_delay.as_secs(),
-									error,
-								);
-								continue;
-							}
-						}
-					}
-					if failed_client == FailedClient::Both || failed_client == FailedClient::Target {
-						target_client = match target_client.clone().reconnect().await {
-							Ok(target_client) => target_client,
-							Err(error) => {
-								log::warn!(
-									target: "bridge",
-									"Failed to reconnect {}. Going to retry in {}s: {:?}",
-									P::TARGET_NAME,
-									params.reconnect_delay.as_secs(),
-									error,
-								);
-								continue;
-							}
-						}
-					}
-
-					break;
-				},
-			}
-
-			log::debug!(
-				target: "bridge",
-				"Restarting lane {} -> {}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
-			);
-		}
-	});
+		},
+	);
 }
 
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit signal is received.
@@ -315,7 +259,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 	params: Params,
 	source_client: SC,
 	target_client: TC,
-	mut metrics_global: Option<&mut GlobalMetrics>,
+	metrics_global: Option<GlobalMetrics>,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), FailedClient> {
@@ -459,8 +403,8 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 			}
 		}
 
-		if let Some(metrics_global) = metrics_global.as_mut() {
-			metrics_global.update();
+		if let Some(ref metrics_global) = metrics_global {
+			metrics_global.update().await;
 		}
 
 		if source_client_is_online && source_state_required {
@@ -482,7 +426,7 @@ pub(crate) mod tests {
 	use super::*;
 	use futures::stream::StreamExt;
 	use parking_lot::Mutex;
-	use relay_utils::HeaderId;
+	use relay_utils::{HeaderId, MaybeConnectionError};
 	use std::sync::Arc;
 
 	pub fn header_id(number: TestSourceHeaderNumber) -> TestSourceHeaderId {
@@ -550,19 +494,22 @@ pub(crate) mod tests {
 	}
 
 	#[async_trait]
-	impl SourceClient<TestMessageLane> for TestSourceClient {
+	impl RelayClient for TestSourceClient {
 		type Error = TestError;
 
-		async fn reconnect(self) -> Result<Self, Self::Error> {
+		async fn reconnect(&mut self) -> Result<(), TestError> {
 			{
 				let mut data = self.data.lock();
 				(self.tick)(&mut *data);
 				data.is_source_reconnected = true;
 			}
-			Ok(self)
+			Ok(())
 		}
+	}
 
-		async fn state(&self) -> Result<SourceClientState<TestMessageLane>, Self::Error> {
+	#[async_trait]
+	impl SourceClient<TestMessageLane> for TestSourceClient {
+		async fn state(&self) -> Result<SourceClientState<TestMessageLane>, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_source_fails {
@@ -574,7 +521,7 @@ pub(crate) mod tests {
 		async fn latest_generated_nonce(
 			&self,
 			id: SourceHeaderIdOf<TestMessageLane>,
-		) -> Result<(SourceHeaderIdOf<TestMessageLane>, MessageNonce), Self::Error> {
+		) -> Result<(SourceHeaderIdOf<TestMessageLane>, MessageNonce), TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_source_fails {
@@ -586,7 +533,7 @@ pub(crate) mod tests {
 		async fn latest_confirmed_received_nonce(
 			&self,
 			id: SourceHeaderIdOf<TestMessageLane>,
-		) -> Result<(SourceHeaderIdOf<TestMessageLane>, MessageNonce), Self::Error> {
+		) -> Result<(SourceHeaderIdOf<TestMessageLane>, MessageNonce), TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			Ok((id, data.source_latest_confirmed_received_nonce))
@@ -596,7 +543,7 @@ pub(crate) mod tests {
 			&self,
 			_id: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<MessageNonce>,
-		) -> Result<MessageWeightsMap, Self::Error> {
+		) -> Result<MessageWeightsMap, TestError> {
 			Ok(nonces
 				.map(|nonce| (nonce, MessageWeights { weight: 1, size: 1 }))
 				.collect())
@@ -613,7 +560,7 @@ pub(crate) mod tests {
 				RangeInclusive<MessageNonce>,
 				TestMessagesProof,
 			),
-			Self::Error,
+			TestError,
 		> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
@@ -635,7 +582,7 @@ pub(crate) mod tests {
 			&self,
 			_generated_at_block: TargetHeaderIdOf<TestMessageLane>,
 			proof: TestMessagesReceivingProof,
-		) -> Result<(), Self::Error> {
+		) -> Result<(), TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			data.submitted_messages_receiving_proofs.push(proof);
@@ -651,19 +598,22 @@ pub(crate) mod tests {
 	}
 
 	#[async_trait]
-	impl TargetClient<TestMessageLane> for TestTargetClient {
+	impl RelayClient for TestTargetClient {
 		type Error = TestError;
 
-		async fn reconnect(self) -> Result<Self, Self::Error> {
+		async fn reconnect(&mut self) -> Result<(), TestError> {
 			{
 				let mut data = self.data.lock();
 				(self.tick)(&mut *data);
 				data.is_target_reconnected = true;
 			}
-			Ok(self)
+			Ok(())
 		}
+	}
 
-		async fn state(&self) -> Result<TargetClientState<TestMessageLane>, Self::Error> {
+	#[async_trait]
+	impl TargetClient<TestMessageLane> for TestTargetClient {
+		async fn state(&self) -> Result<TargetClientState<TestMessageLane>, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
@@ -675,7 +625,7 @@ pub(crate) mod tests {
 		async fn latest_received_nonce(
 			&self,
 			id: TargetHeaderIdOf<TestMessageLane>,
-		) -> Result<(TargetHeaderIdOf<TestMessageLane>, MessageNonce), Self::Error> {
+		) -> Result<(TargetHeaderIdOf<TestMessageLane>, MessageNonce), TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
@@ -687,7 +637,7 @@ pub(crate) mod tests {
 		async fn unrewarded_relayers_state(
 			&self,
 			id: TargetHeaderIdOf<TestMessageLane>,
-		) -> Result<(TargetHeaderIdOf<TestMessageLane>, UnrewardedRelayersState), Self::Error> {
+		) -> Result<(TargetHeaderIdOf<TestMessageLane>, UnrewardedRelayersState), TestError> {
 			Ok((
 				id,
 				UnrewardedRelayersState {
@@ -701,7 +651,7 @@ pub(crate) mod tests {
 		async fn latest_confirmed_received_nonce(
 			&self,
 			id: TargetHeaderIdOf<TestMessageLane>,
-		) -> Result<(TargetHeaderIdOf<TestMessageLane>, MessageNonce), Self::Error> {
+		) -> Result<(TargetHeaderIdOf<TestMessageLane>, MessageNonce), TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
@@ -713,7 +663,7 @@ pub(crate) mod tests {
 		async fn prove_messages_receiving(
 			&self,
 			id: TargetHeaderIdOf<TestMessageLane>,
-		) -> Result<(TargetHeaderIdOf<TestMessageLane>, TestMessagesReceivingProof), Self::Error> {
+		) -> Result<(TargetHeaderIdOf<TestMessageLane>, TestMessagesReceivingProof), TestError> {
 			Ok((id, self.data.lock().target_latest_received_nonce))
 		}
 
@@ -722,7 +672,7 @@ pub(crate) mod tests {
 			_generated_at_header: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<MessageNonce>,
 			proof: TestMessagesProof,
-		) -> Result<RangeInclusive<MessageNonce>, Self::Error> {
+		) -> Result<RangeInclusive<MessageNonce>, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {

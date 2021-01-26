@@ -20,6 +20,7 @@ use crate::exchange::{BlockNumberOf, RelayedBlockTransactions, TransactionProofP
 use relay_utils::metrics::{register, Counter, CounterVec, GaugeVec, Metrics, Opts, Registry, U64};
 
 /// Exchange transactions relay metrics.
+#[derive(Clone)]
 pub struct ExchangeLoopMetrics {
 	/// Best finalized block numbers - "processed" and "known".
 	best_block_numbers: GaugeVec<U64>,
@@ -60,7 +61,7 @@ impl Default for ExchangeLoopMetrics {
 impl ExchangeLoopMetrics {
 	/// Update metrics when single block is relayed.
 	pub fn update<P: TransactionProofPipeline>(
-		&mut self,
+		&self,
 		best_processed_block_number: BlockNumberOf<P>,
 		best_known_block_number: BlockNumberOf<P>,
 		relayed_transactions: RelayedBlockTransactions,

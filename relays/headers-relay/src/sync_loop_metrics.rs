@@ -23,6 +23,7 @@ use num_traits::Zero;
 use relay_utils::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
 
 /// Headers sync metrics.
+#[derive(Clone)]
 pub struct SyncLoopMetrics {
 	/// Best syncing headers at "source" and "target" nodes.
 	best_block_numbers: GaugeVec<U64>,
@@ -57,7 +58,7 @@ impl Default for SyncLoopMetrics {
 
 impl SyncLoopMetrics {
 	/// Update metrics.
-	pub fn update<P: HeadersSyncPipeline>(&mut self, sync: &HeadersSync<P>) {
+	pub fn update<P: HeadersSyncPipeline>(&self, sync: &HeadersSync<P>) {
 		let headers = sync.headers();
 		let source_best_number = sync.source_best_number().unwrap_or_else(Zero::zero);
 		let target_best_number = sync.target_best_header().map(|id| id.0).unwrap_or_else(Zero::zero);

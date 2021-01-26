@@ -23,7 +23,9 @@ use async_trait::async_trait;
 use backoff::backoff::Backoff;
 use futures::{future::FutureExt, stream::StreamExt};
 use parking_lot::Mutex;
-use relay_utils::{process_future_result, retry_backoff, HeaderId, MaybeConnectionError};
+use relay_utils::{
+	process_future_result, relay_loop::Client as RelayClient, retry_backoff, HeaderId, MaybeConnectionError,
+};
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
@@ -89,8 +91,9 @@ enum SourceMethod {
 	HeaderExtra(TestHeaderId, TestQueuedHeader),
 }
 
+#[derive(Clone)]
 struct Source {
-	data: Mutex<SourceData>,
+	data: Arc<Mutex<SourceData>>,
 	on_method_call: Arc<dyn Fn(SourceMethod, &mut SourceData) + Send + Sync>,
 }
 
@@ -109,7 +112,7 @@ impl Source {
 		on_method_call: impl Fn(SourceMethod, &mut SourceData) + Send + Sync + 'static,
 	) -> Self {
 		Source {
-			data: Mutex::new(SourceData {
+			data: Arc::new(Mutex::new(SourceData {
 				best_block_number: Ok(best_block_id.0),
 				header_by_hash: headers
 					.iter()
@@ -127,35 +130,42 @@ impl Source {
 					.collect(),
 				provides_completion: true,
 				provides_extra: true,
-			}),
+			})),
 			on_method_call: Arc::new(on_method_call),
 		}
 	}
 }
 
 #[async_trait]
-impl SourceClient<TestHeadersSyncPipeline> for Source {
+impl RelayClient for Source {
 	type Error = TestError;
 
-	async fn best_block_number(&self) -> Result<TestNumber, Self::Error> {
+	async fn reconnect(&mut self) -> Result<(), TestError> {
+		unimplemented!()
+	}
+}
+
+#[async_trait]
+impl SourceClient<TestHeadersSyncPipeline> for Source {
+	async fn best_block_number(&self) -> Result<TestNumber, TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(SourceMethod::BestBlockNumber, &mut *data);
 		data.best_block_number.clone()
 	}
 
-	async fn header_by_hash(&self, hash: TestHash) -> Result<TestHeader, Self::Error> {
+	async fn header_by_hash(&self, hash: TestHash) -> Result<TestHeader, TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(SourceMethod::HeaderByHash(hash), &mut *data);
 		data.header_by_hash.get(&hash).cloned().ok_or(TestError(false))
 	}
 
-	async fn header_by_number(&self, number: TestNumber) -> Result<TestHeader, Self::Error> {
+	async fn header_by_number(&self, number: TestNumber) -> Result<TestHeader, TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(SourceMethod::HeaderByNumber(number), &mut *data);
 		data.header_by_number.get(&number).cloned().ok_or(TestError(false))
 	}
 
-	async fn header_completion(&self, id: TestHeaderId) -> Result<(TestHeaderId, Option<TestCompletion>), Self::Error> {
+	async fn header_completion(&self, id: TestHeaderId) -> Result<(TestHeaderId, Option<TestCompletion>), TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(SourceMethod::HeaderCompletion(id), &mut *data);
 		if data.provides_completion {
@@ -169,7 +179,7 @@ impl SourceClient<TestHeadersSyncPipeline> for Source {
 		&self,
 		id: TestHeaderId,
 		header: TestQueuedHeader,
-	) -> Result<(TestHeaderId, TestExtra), Self::Error> {
+	) -> Result<(TestHeaderId, TestExtra), TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(SourceMethod::HeaderExtra(id, header), &mut *data);
 		if data.provides_extra {
@@ -189,8 +199,9 @@ enum TargetMethod {
 	RequiresExtra(TestQueuedHeader),
 }
 
+#[derive(Clone)]
 struct Target {
-	data: Mutex<TargetData>,
+	data: Arc<Mutex<TargetData>>,
 	on_method_call: Arc<dyn Fn(TargetMethod, &mut TargetData) + Send + Sync>,
 }
 
@@ -211,7 +222,7 @@ impl Target {
 		on_method_call: impl Fn(TargetMethod, &mut TargetData) + Send + Sync + 'static,
 	) -> Self {
 		Target {
-			data: Mutex::new(TargetData {
+			data: Arc::new(Mutex::new(TargetData {
 				best_header_id: Ok(best_header_id),
 				is_known_header_by_hash: headers.iter().map(|header| (header.1, true)).collect(),
 				submitted_headers: HashMap::new(),
@@ -219,16 +230,23 @@ impl Target {
 				completed_headers: HashMap::new(),
 				requires_completion: false,
 				requires_extra: false,
-			}),
+			})),
 			on_method_call: Arc::new(on_method_call),
 		}
 	}
 }
 
 #[async_trait]
-impl TargetClient<TestHeadersSyncPipeline> for Target {
+impl RelayClient for Target {
 	type Error = TestError;
 
+	async fn reconnect(&mut self) -> Result<(), TestError> {
+		unimplemented!()
+	}
+}
+
+#[async_trait]
+impl TargetClient<TestHeadersSyncPipeline> for Target {
 	async fn best_header_id(&self) -> Result<TestHeaderId, TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(TargetMethod::BestHeaderId, &mut *data);
