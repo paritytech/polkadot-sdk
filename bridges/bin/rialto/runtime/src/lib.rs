@@ -985,6 +985,29 @@ impl_runtime_apis! {
 	}
 }
 
+/// Millau account ownership digest from Rialto.
+///
+/// The byte vector returned by this function should be signed with a Millau account private key.
+/// This way, the owner of `rialto_account_id` on Rialto proves that the 'millau' account private key
+/// is also under his control.
+pub fn millau_account_ownership_digest<Call, AccountId, SpecVersion>(
+	millau_call: Call,
+	rialto_account_id: AccountId,
+	millau_spec_version: SpecVersion,
+) -> sp_std::vec::Vec<u8>
+where
+	Call: codec::Encode,
+	AccountId: codec::Encode,
+	SpecVersion: codec::Encode,
+{
+	pallet_bridge_call_dispatch::account_ownership_digest(
+		millau_call,
+		rialto_account_id,
+		millau_spec_version,
+		bp_runtime::RIALTO_BRIDGE_INSTANCE,
+	)
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
