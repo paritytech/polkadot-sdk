@@ -28,7 +28,6 @@ use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{AuthorityList, SetId};
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::Vec;
 
 pub mod justification;
 
@@ -69,25 +68,24 @@ pub trait InclusionProofVerifier {
 }
 
 /// A base trait for pallets which want to keep track of a full set of headers from a bridged chain.
-pub trait HeaderChain<H> {
+pub trait HeaderChain<H, E> {
 	/// Get the best finalized header known to the header chain.
 	fn best_finalized() -> H;
 
 	/// Get the best authority set known to the header chain.
 	fn authority_set() -> AuthoritySet;
 
-	/// Write the given header to the underlying pallet storage.
-	#[allow(clippy::result_unit_err)]
-	fn import_header(header: H) -> Result<(), ()>;
-
-	/// Submit a valid finality proof for the given header to the underlying pallet storage.
+	/// Write a finalized chain of headers to the underlying pallet storage.
 	///
-	/// This will finalize the given header and enact any authority set changes if required.
-	#[allow(clippy::result_unit_err)]
-	fn import_finality_proof(header: H, finality_proof: Vec<u8>) -> Result<(), ()>;
+	/// It is assumed that each header in this chain been finalized, and that the given headers are
+	/// in order (e.g vec![header_1, header_2, ..., header_n]).
+	///
+	/// This function should fail if the first header is not a child of the current best finalized
+	/// header known to the underlying pallet storage.
+	fn append_finalized_chain(headers: impl IntoIterator<Item = H>) -> Result<(), E>;
 }
 
-impl<H: Default> HeaderChain<H> for () {
+impl<H: Default, E> HeaderChain<H, E> for () {
 	fn best_finalized() -> H {
 		H::default()
 	}
@@ -96,20 +94,14 @@ impl<H: Default> HeaderChain<H> for () {
 		AuthoritySet::default()
 	}
 
-	#[allow(clippy::result_unit_err)]
-	fn import_header(_header: H) -> Result<(), ()> {
-		Ok(())
-	}
-
-	#[allow(clippy::result_unit_err)]
-	fn import_finality_proof(_header: H, _finality_proof: Vec<u8>) -> Result<(), ()> {
+	fn append_finalized_chain(_headers: impl IntoIterator<Item = H>) -> Result<(), E> {
 		Ok(())
 	}
 }
 
-/// A trait for checking if a given child header is a direct decendant of an ancestor.
+/// A trait for checking if a given child header is a direct descendant of an ancestor.
 pub trait AncestryChecker<H, P> {
-	/// Is the child header a decendant of the ancestor header?
+	/// Is the child header a descendant of the ancestor header?
 	fn are_ancestors(ancestor: &H, child: &H, proof: &P) -> bool;
 }
 
