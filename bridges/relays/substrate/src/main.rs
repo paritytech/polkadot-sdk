@@ -298,7 +298,7 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 				},
 				cli::Origins::Target => {
 					let digest = millau_runtime::rialto_account_ownership_digest(
-						rialto_call.clone(),
+						&rialto_call,
 						millau_account_id.clone(),
 						rialto_runtime::VERSION.spec_version,
 					);
@@ -449,7 +449,7 @@ async fn run_command(command: cli::Command) -> Result<(), String> {
 				},
 				cli::Origins::Target => {
 					let digest = rialto_runtime::millau_account_ownership_digest(
-						millau_call.clone(),
+						&millau_call,
 						rialto_account_id.clone(),
 						millau_runtime::VERSION.spec_version,
 					);
@@ -539,7 +539,7 @@ mod tests {
 		let millau_account_id: bp_millau::AccountId = millau_public.into_account();
 
 		let digest = millau_runtime::rialto_account_ownership_digest(
-			call,
+			&call,
 			millau_account_id,
 			rialto_runtime::VERSION.spec_version,
 		);
@@ -560,7 +560,7 @@ mod tests {
 		let rialto_account_id: bp_rialto::AccountId = rialto_public.into_account();
 
 		let digest = rialto_runtime::millau_account_ownership_digest(
-			call,
+			&call,
 			rialto_account_id,
 			millau_runtime::VERSION.spec_version,
 		);
