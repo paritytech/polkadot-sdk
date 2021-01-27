@@ -503,7 +503,7 @@ where
 	storage.update_current_authority_set(authority_set);
 }
 
-fn change_log(delay: u64) -> Digest<TestHash> {
+pub(crate) fn change_log(delay: u64) -> Digest<TestHash> {
 	let consensus_log = ConsensusLog::<TestNumber>::ScheduledChange(sp_finality_grandpa::ScheduledChange {
 		next_authorities: vec![(alice(), 1), (bob(), 1)],
 		delay,
