@@ -242,9 +242,13 @@ where
 			&proof.0,
 		)
 		.map_err(|_| FinalizationError::InvalidJustification)?;
-		frame_support::debug::trace!(target: "sub-bridge", "Received valid justification for {:?}", header);
+		frame_support::debug::trace!("Received valid justification for {:?}", header);
 
-		frame_support::debug::trace!(target: "sub-bridge", "Checking ancestry for headers between {:?} and {:?}", last_finalized, header);
+		frame_support::debug::trace!(
+			"Checking ancestry for headers between {:?} and {:?}",
+			last_finalized,
+			header
+		);
 		let mut finalized_headers =
 			if let Some(ancestors) = headers_between(&self.storage, last_finalized, header.clone()) {
 				// Since we only try and finalize headers with a height strictly greater
@@ -335,7 +339,7 @@ where
 	Some(ancestors)
 }
 
-fn find_scheduled_change<H: HeaderT>(header: &H) -> Option<sp_finality_grandpa::ScheduledChange<H::Number>> {
+pub(crate) fn find_scheduled_change<H: HeaderT>(header: &H) -> Option<sp_finality_grandpa::ScheduledChange<H::Number>> {
 	let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
 
 	let filter_log = |log: ConsensusLog<H::Number>| match log {

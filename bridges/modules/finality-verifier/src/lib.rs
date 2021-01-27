@@ -35,7 +35,7 @@
 use bp_header_chain::{justification::verify_justification, AncestryChecker, HeaderChain};
 use bp_runtime::{Chain, HeaderOf};
 use finality_grandpa::voter_set::VoterSet;
-use frame_support::{ensure, traits::Get};
+use frame_support::{dispatch::DispatchError, ensure, traits::Get};
 use frame_system::ensure_signed;
 use sp_runtime::traits::Header as HeaderT;
 
@@ -57,7 +57,7 @@ pub mod pallet {
 		type BridgedChain: Chain;
 
 		/// The pallet which we will use as our underlying storage mechanism.
-		type HeaderChain: HeaderChain<<Self::BridgedChain as Chain>::Header>;
+		type HeaderChain: HeaderChain<<Self::BridgedChain as Chain>::Header, DispatchError>;
 
 		/// The type through which we will verify that a given header is related to the last
 		/// finalized header in our storage pallet.
@@ -80,13 +80,16 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Verify a header is finalized according to the given finality proof.
+		/// Verify a target header is finalized according to the given finality proof.
 		///
 		/// Will use the underlying storage pallet to fetch information about the current
 		/// authorities and best finalized header in order to verify that the header is finalized.
 		///
-		/// If successful in verification, it will write the headers to the underlying storage
-		/// pallet as well as import the valid finality proof.
+		/// If successful in verification, it will write the header as well as its ancestors (from
+		/// the given `ancestry_proof`) to the underlying storage pallet.
+		///
+		/// Note that the expected format for `ancestry_proof` is a continguous list of finalized
+		/// headers containing (current_best_finalized_header, finality_target]
 		#[pallet::weight(0)]
 		pub fn submit_finality_proof(
 			origin: OriginFor<T>,
@@ -119,22 +122,10 @@ pub mod pallet {
 				<Error<T>>::InvalidAncestryProof
 			);
 
-			// If for whatever reason we are unable to fully import headers and the corresponding
-			// finality proof we want to avoid writing to the base pallet storage
-			use frame_support::storage::{with_transaction, TransactionOutcome};
-			with_transaction(|| {
-				for header in ancestry_proof {
-					if T::HeaderChain::import_header(header).is_err() {
-						return TransactionOutcome::Rollback(Err(<Error<T>>::FailedToWriteHeader));
-					}
-				}
-
-				if T::HeaderChain::import_finality_proof(finality_target, justification).is_err() {
-					return TransactionOutcome::Rollback(Err(<Error<T>>::FailedToWriteFinalityProof));
-				}
-
-				TransactionOutcome::Commit(Ok(()))
-			})?;
+			// Note that this won't work if we ever change the `ancestry_proof` format to be
+			// sparse since this expects a contiguous set of finalized headers.
+			let _ =
+				T::HeaderChain::append_finalized_chain(ancestry_proof).map_err(|_| <Error<T>>::FailedToWriteHeader)?;
 
 			Ok(().into())
 		}
@@ -151,8 +142,6 @@ pub mod pallet {
 		InvalidAuthoritySet,
 		/// Failed to write a header to the underlying header chain.
 		FailedToWriteHeader,
-		/// Failed to write finality proof to the underlying header chain.
-		FailedToWriteFinalityProof,
 		/// The given ancestry proof is too large to be verified in a single transaction.
 		OversizedAncestryProof,
 	}
