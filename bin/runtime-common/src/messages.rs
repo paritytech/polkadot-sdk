@@ -27,7 +27,7 @@ use bp_message_lane::{
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
 use bp_runtime::InstanceId;
-use codec::{Compact, Decode, Encode, Input};
+use codec::{Compact, Decode, Encode};
 use frame_support::{traits::Instance, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
 use pallet_substrate_bridge::StorageProofChecker;
@@ -319,11 +319,11 @@ pub mod target {
 	>;
 
 	/// Decoded Bridged -> This message payload.
-	pub type FromBridgedChainDecodedMessagePayload<B> = pallet_bridge_call_dispatch::MessagePayload<
+	pub type FromBridgedChainMessagePayload<B> = pallet_bridge_call_dispatch::MessagePayload<
 		AccountIdOf<BridgedChain<B>>,
 		SignerOf<ThisChain<B>>,
 		SignatureOf<ThisChain<B>>,
-		CallOf<ThisChain<B>>,
+		FromBridgedChainEncodedMessageCall<B>,
 	>;
 
 	/// Messages proof from bridged chain:
@@ -340,33 +340,21 @@ pub mod target {
 		MessageNonce,
 	);
 
-	/// Message payload for Bridged -> This messages.
-	pub struct FromBridgedChainMessagePayload<B: MessageBridge>(pub(crate) FromBridgedChainDecodedMessagePayload<B>);
-
-	impl<B: MessageBridge> From<FromBridgedChainDecodedMessagePayload<B>> for FromBridgedChainMessagePayload<B> {
-		fn from(decoded_payload: FromBridgedChainDecodedMessagePayload<B>) -> Self {
-			Self(decoded_payload)
-		}
+	/// Encoded Call of This chain as it is transferred over bridge.
+	///
+	/// Our Call is opaque (`Vec<u8>`) for Bridged chain. So it is encoded, prefixed with
+	/// vector length. Custom decode implementation here is exactly to deal with this.
+	#[derive(Decode, Encode, RuntimeDebug, PartialEq)]
+	pub struct FromBridgedChainEncodedMessageCall<B> {
+		pub(crate) encoded_call: Vec<u8>,
+		pub(crate) _marker: PhantomData<B>,
 	}
 
-	impl<B: MessageBridge> Decode for FromBridgedChainMessagePayload<B> {
-		fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
-			// for bridged chain our Calls are opaque - they're encoded to Vec<u8> by submitter
-			// => skip encoded vec length here before decoding Call
-			let spec_version = pallet_bridge_call_dispatch::SpecVersion::decode(input)?;
-			let weight = frame_support::weights::Weight::decode(input)?;
-			let origin = FromBridgedChainMessageCallOrigin::<B>::decode(input)?;
-			let _skipped_length = Compact::<u32>::decode(input)?;
-			let call = CallOf::<ThisChain<B>>::decode(input)?;
-
-			Ok(FromBridgedChainMessagePayload(
-				pallet_bridge_call_dispatch::MessagePayload {
-					spec_version,
-					weight,
-					origin,
-					call,
-				},
-			))
+	impl<B: MessageBridge> From<FromBridgedChainEncodedMessageCall<B>> for Result<CallOf<ThisChain<B>>, ()> {
+		fn from(encoded_call: FromBridgedChainEncodedMessageCall<B>) -> Self {
+			let mut input = &encoded_call.encoded_call[..];
+			let _skipped_length = Compact::<u32>::decode(&mut input).map_err(drop)?;
+			CallOf::<ThisChain<B>>::decode(&mut input).map_err(drop)
 		}
 	}
 
@@ -385,22 +373,14 @@ pub mod target {
 		<ThisRuntime as pallet_bridge_call_dispatch::Config<ThisCallDispatchInstance>>::Event:
 			From<pallet_bridge_call_dispatch::RawEvent<(LaneId, MessageNonce), ThisCallDispatchInstance>>,
 		pallet_bridge_call_dispatch::Module<ThisRuntime, ThisCallDispatchInstance>:
-			bp_message_dispatch::MessageDispatch<
-				(LaneId, MessageNonce),
-				Message = FromBridgedChainDecodedMessagePayload<B>,
-			>,
+			bp_message_dispatch::MessageDispatch<(LaneId, MessageNonce), Message = FromBridgedChainMessagePayload<B>>,
 	{
 		type DispatchPayload = FromBridgedChainMessagePayload<B>;
 
 		fn dispatch_weight(
 			message: &DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>,
 		) -> frame_support::weights::Weight {
-			message
-				.data
-				.payload
-				.as_ref()
-				.map(|payload| payload.0.weight)
-				.unwrap_or(0)
+			message.data.payload.as_ref().map(|payload| payload.weight).unwrap_or(0)
 		}
 
 		fn dispatch(message: DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>) {
@@ -408,7 +388,7 @@ pub mod target {
 			pallet_bridge_call_dispatch::Module::<ThisRuntime, ThisCallDispatchInstance>::dispatch(
 				B::INSTANCE,
 				message_id,
-				message.data.payload.map_err(drop).map(|payload| payload.0),
+				message.data.payload.map_err(drop),
 			);
 		}
 	}
@@ -595,6 +575,7 @@ mod tests {
 	const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
 	/// Bridge that is deployed on ThisChain and allows sending/receiving messages to/from BridgedChain;
+	#[derive(Debug, PartialEq)]
 	struct OnThisChainBridge;
 
 	impl MessageBridge for OnThisChainBridge {
@@ -635,6 +616,7 @@ mod tests {
 	}
 
 	/// Bridge that is deployed on BridgedChain and allows sending/receiving messages to/from ThisChain;
+	#[derive(Debug, PartialEq)]
 	struct OnBridgedChainBridge;
 
 	impl MessageBridge for OnBridgedChainBridge {
@@ -804,12 +786,15 @@ mod tests {
 			target::FromBridgedChainMessagePayload::<OnThisChainBridge>::decode(&mut &message_on_bridged_chain[..])
 				.unwrap();
 		assert_eq!(
-			message_on_this_chain.0,
-			target::FromBridgedChainDecodedMessagePayload::<OnThisChainBridge> {
+			message_on_this_chain,
+			target::FromBridgedChainMessagePayload::<OnThisChainBridge> {
 				spec_version: 1,
 				weight: 100,
 				origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
-				call: ThisChainCall::Transfer,
+				call: target::FromBridgedChainEncodedMessageCall::<OnThisChainBridge> {
+					encoded_call: ThisChainCall::Transfer.encode(),
+					_marker: PhantomData::default(),
+				},
 			}
 		);
 	}
