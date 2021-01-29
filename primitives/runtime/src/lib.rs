@@ -47,6 +47,12 @@ pub const CALL_DISPATCH_MODULE_PREFIX: &[u8] = b"pallet-bridge/call-dispatch";
 /// Message-lane module prefix.
 pub const MESSAGE_LANE_MODULE_PREFIX: &[u8] = b"pallet-bridge/message-lane";
 
+/// A unique prefix for entropy when generating cross-chain account IDs.
+pub const ACCOUNT_DERIVATION_PREFIX: &[u8] = b"pallet-bridge/account-derivation/account";
+
+/// A unique prefix for entropy when generating a cross-chain account ID for the Root account.
+pub const ROOT_ACCOUNT_DERIVATION_PREFIX: &[u8] = b"pallet-bridge/account-derivation/root";
+
 /// Id of deployed module instance. We have a bunch of pallets that may be used in
 /// different bridges. E.g. message-lane pallet may be deployed twice in the same
 /// runtime to bridge ThisChain with Chain1 and Chain2. Sometimes we need to be able
@@ -80,8 +86,8 @@ where
 	AccountId: Encode,
 {
 	match id {
-		SourceAccount::Root => ("root", bridge_id).using_encoded(blake2_256),
-		SourceAccount::Account(id) => ("account", bridge_id, id).using_encoded(blake2_256),
+		SourceAccount::Root => (ROOT_ACCOUNT_DERIVATION_PREFIX, bridge_id).using_encoded(blake2_256),
+		SourceAccount::Account(id) => (ACCOUNT_DERIVATION_PREFIX, bridge_id, id).using_encoded(blake2_256),
 	}
 	.into()
 }

@@ -203,6 +203,6 @@ fn derived_dave_account_is_as_expected() {
 	let derived: AccountId = derive_account_from_millau_id(bp_runtime::SourceAccount::Account(dave));
 	assert_eq!(
 		derived.to_string(),
-		"5Hg7WQyk8C1FmPzxY3xSjR7S6zZZC5sAL35vMr6NpW17jBhQ".to_string()
+		"5HZhdv53gSJmWWtD8XR5Ypu4PgbT5JNWwGw2mkE75cN61w9t".to_string()
 	);
 }
