@@ -93,7 +93,7 @@ mod tests {
 		traits::{BlakeTwo256, ConvertInto, IdentityLookup},
 		Perbill, RuntimeAppPublic,
 	};
-	use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+	use frame_support::{impl_outer_origin, parameter_types, weights::Weight, BasicExternalities};
 	use sp_core::H256;
 
 	type AccountId = u64;
@@ -172,17 +172,24 @@ mod tests {
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<TestRuntime>()
 			.unwrap();
-		pallet_session::GenesisConfig::<TestRuntime> {
-			keys: vec![
-				(1, 1, UintAuthorityId(1)),
-				(2, 2, UintAuthorityId(2)),
-				(3, 3, UintAuthorityId(3)),
-				(4, 4, UintAuthorityId(4)),
-				(5, 5, UintAuthorityId(5)),
-			],
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
+
+		let keys = vec![
+			(1, 1, UintAuthorityId(1)),
+			(2, 2, UintAuthorityId(2)),
+			(3, 3, UintAuthorityId(3)),
+			(4, 4, UintAuthorityId(4)),
+			(5, 5, UintAuthorityId(5)),
+		];
+
+		BasicExternalities::execute_with_storage(&mut t, || {
+			for (ref k, ..) in &keys {
+				frame_system::Module::<TestRuntime>::inc_providers(k);
+			}
+		});
+
+		pallet_session::GenesisConfig::<TestRuntime> { keys }
+			.assimilate_storage(&mut t)
+			.unwrap();
 		TestExternalities::new(t)
 	}
 
