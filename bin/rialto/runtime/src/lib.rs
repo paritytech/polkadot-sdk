@@ -847,7 +847,7 @@ impl_runtime_apis! {
 				fn endow_account(account: &Self::AccountId) {
 					pallet_balances::Module::<Runtime>::make_free_balance_be(
 						account,
-						1_000_000_000_000,
+						Balance::MAX / 100,
 					);
 				}
 
@@ -865,7 +865,7 @@ impl_runtime_apis! {
 						origin: dispatch_origin,
 						call: message_payload,
 					};
-					(message, 1_000_000_000)
+					(message, pallet_message_lane::benchmarking::MESSAGE_FEE.into())
 				}
 
 				fn prepare_message_proof(
