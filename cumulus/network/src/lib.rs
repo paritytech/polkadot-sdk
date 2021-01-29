@@ -54,9 +54,11 @@ use futures::{
 };
 use log::trace;
 
-use std::{fmt, marker::PhantomData, pin::Pin, sync::Arc, convert::TryFrom};
+use std::{convert::TryFrom, fmt, marker::PhantomData, pin::Pin, sync::Arc};
 
 use wait_on_relay_chain_block::WaitOnRelayChainBlock;
+
+const LOG_TARGET: &str = "cumulus-network";
 
 type BoxedError = Box<dyn std::error::Error + Send>;
 
@@ -84,26 +86,33 @@ impl BlockAnnounceData {
 	/// Validate that the receipt, statement and announced header match.
 	///
 	/// This will not check the signature, for this you should use [`BlockAnnounceData::check_signature`].
-	fn validate(&self, encoded_header: Vec<u8>) -> Result<(), BlockAnnounceError> {
+	fn validate(&self, encoded_header: Vec<u8>) -> Result<(), Validation> {
 		let candidate_hash = if let CompactStatement::Candidate(h) = self.statement.payload() {
 			h
 		} else {
-			return Err(BlockAnnounceError(
-				"`CompactStatement` isn't the candidate variant!".into(),
-			));
+			log::debug!(
+				target: LOG_TARGET,
+				"`CompactStatement` isn't the candidate variant!",
+			);
+			return Err(Validation::Failure { disconnect: true });
 		};
 
 		if *candidate_hash != self.receipt.hash() {
-			return Err(BlockAnnounceError(
-				"Receipt candidate hash doesn't match candidate hash in statement".into(),
-			));
+			log::debug!(
+				target: LOG_TARGET,
+				"Receipt candidate hash doesn't match candidate hash in statement",
+			);
+			return Err(Validation::Failure { disconnect: true });
 		}
 
-		if polkadot_parachain::primitives::HeadData(encoded_header).hash() != self.receipt.descriptor.para_head
+		if polkadot_parachain::primitives::HeadData(encoded_header).hash()
+			!= self.receipt.descriptor.para_head
 		{
-			return Err(BlockAnnounceError(
-				"Receipt para head hash doesn't match the hash of the header in the block announcement".into(),
-			));
+			log::debug!(
+				target: LOG_TARGET,
+				"Receipt para head hash doesn't match the hash of the header in the block announcement",
+			);
+			return Err(Validation::Failure { disconnect: true });
 		}
 
 		Ok(())
@@ -112,7 +121,7 @@ impl BlockAnnounceData {
 	/// Check the signature of the statement.
 	///
 	/// Returns an `Err(_)` if it failed.
-	fn check_signature<P>(&self, relay_chain_client: &Arc<P>) -> Result<(), BlockAnnounceError>
+	fn check_signature<P>(&self, relay_chain_client: &Arc<P>) -> Result<Validation, BlockAnnounceError>
 	where
 		P: ProvideRuntimeApi<PBlock> + Send + Sync + 'static,
 		P::Api: ParachainHost<PBlock>,
@@ -143,10 +152,12 @@ impl BlockAnnounceData {
 		let signer = match authorities.get(validator_index as usize) {
 			Some(r) => r,
 			None => {
-				return Err(BlockAnnounceError(
-					"block accouncement justification signer is a validator index out of bound"
-						.to_string(),
-				));
+				log::debug!(
+					target: LOG_TARGET,
+					"Block announcement justification signer is a validator index out of bound",
+				);
+
+				return Ok(Validation::Failure { disconnect: true })
 			}
 		};
 
@@ -156,12 +167,15 @@ impl BlockAnnounceData {
 			.check_signature(&signing_context, &signer)
 			.is_err()
 		{
-			return Err(BlockAnnounceError(
-				"block announcement justification signature is invalid".to_string(),
-			));
+			log::debug!(
+				target: LOG_TARGET,
+				"Block announcement justification signature is invalid.",
+			);
+
+			return Ok(Validation::Failure { disconnect: true });
 		}
 
-		Ok(())
+		Ok(Validation::Success { is_new_best: true })
 	}
 }
 
@@ -340,9 +354,9 @@ where
 		let wait_on_relay_chain_block = self.wait_on_relay_chain_block.clone();
 
 		async move {
-			block_announce_data
-				.validate(header_encoded)
-				.map_err(|e| Box::new(e) as Box<_>)?;
+			if let Err(e) = block_announce_data.validate(header_encoded) {
+				return Ok(e);
+			}
 
 			let relay_parent = block_announce_data.receipt.descriptor.relay_parent;
 
@@ -353,9 +367,7 @@ where
 
 			block_announce_data
 				.check_signature(&relay_chain_client)
-				.map_err(|e| Box::new(e) as Box<_>)?;
-
-			Ok(Validation::Success { is_new_best: true })
+				.map_err(|e| Box::new(e) as Box<_>)
 		}
 		.boxed()
 	}

@@ -205,14 +205,8 @@ fn check_signer_is_legit_validator() {
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
 	let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
 
-	let res = block_on(validator.validate(&header, &data))
-		.err()
-		.expect("Should fail on invalid validator");
-
-	assert!(matches!(
-		*res.downcast::<BlockAnnounceError>().unwrap(),
-		BlockAnnounceError(x) if x.contains("signer is a validator")
-	));
+	let res = block_on(validator.validate(&header, &data));
+	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
 }
 
 #[test]
@@ -227,16 +221,8 @@ fn check_statement_is_correctly_signed() {
 	let last = data.len() - 1;
 	data[last] = data[last].wrapping_add(1);
 
-	let res = block_on(validator.validate(&header, &data))
-		.err()
-		.expect("Validation should fail if the statement is not signed correctly");
-
-	check_error(res, |error| {
-		matches!(
-			error,
-			BlockAnnounceError(x) if x.contains("signature is invalid")
-		)
-	});
+	let res = block_on(validator.validate(&header, &data));
+	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
 }
 
 #[test]
@@ -276,16 +262,8 @@ fn check_statement_seconded() {
 		statement: signed_statement.convert_payload(),
 	}.encode();
 
-	let res = block_on(validator.validate(&header, &data))
-		.err()
-		.expect("validation should fail if not seconded statement");
-
-	check_error(res, |error| {
-		matches!(
-			error,
-			BlockAnnounceError(x) if x.contains("`CompactStatement` isn't the candidate variant")
-		)
-	});
+	let res = block_on(validator.validate(&header, &data));
+	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
 }
 
 #[test]
@@ -297,16 +275,8 @@ fn check_header_match_candidate_receipt_header() {
 	let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
 	header.number = 300;
 
-	let res = block_on(validator.validate(&header, &data))
-		.err()
-		.expect("validation should fail if the header in doesn't match");
-
-	check_error(res, |error| {
-		matches!(
-			error,
-			BlockAnnounceError(x) if x.contains("Receipt para head hash doesn't match")
-		)
-	});
+	let res = block_on(validator.validate(&header, &data));
+	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
 }
 
 /// Test that ensures that we postpone the block announce verification until
