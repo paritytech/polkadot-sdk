@@ -32,4 +32,4 @@ cumulus-primitives = { path = "../../primitives" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Other deps
-codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }

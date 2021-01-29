@@ -6,7 +6,7 @@ edition = '2018'
 
 [dependencies]
 # Other dependencies
-codec = { package = "parity-scale-codec", version = "1.0.5", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
 
 # Substrate dependencies
 sp-state-machine = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }

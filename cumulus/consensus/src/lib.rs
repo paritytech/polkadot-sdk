@@ -502,7 +502,7 @@ where
 
 		match para_best_chain {
 			Some(best) => Decode::decode(&mut &best[..]).map_err(|e| {
-				ConsensusError::ChainLookup(format!("Error decoding parachain head: {}", e.what()))
+				ConsensusError::ChainLookup(format!("Error decoding parachain head: {}", e))
 			}),
 			None => Err(ConsensusError::ChainLookup(
 				"Could not find parachain head for best relay chain!".into(),

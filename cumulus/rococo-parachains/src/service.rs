@@ -49,13 +49,13 @@ pub fn new_partial(
 		(),
 		sp_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
 		sc_transaction_pool::FullPool<Block, TFullClient<Block, RuntimeApi, Executor>>,
-		Option<sc_telemetry::TelemetrySpan>,
+		(),
 	>,
 	sc_service::Error,
 > {
 	let inherent_data_providers = sp_inherents::InherentDataProviders::new();
 
-	let (client, backend, keystore_container, task_manager, telemetry_span) =
+	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, Executor>(&config)?;
 	let client = Arc::new(client);
 
@@ -85,7 +85,7 @@ pub fn new_partial(
 		transaction_pool,
 		inherent_data_providers,
 		select_chain: (),
-		other: telemetry_span,
+		other: (),
 	};
 
 	Ok(params)
@@ -125,7 +125,6 @@ where
 		)?;
 
 	let params = new_partial(&parachain_config)?;
-	let telemetry_span = params.other;
 	params
 		.inherent_data_providers
 		.register_provider(sp_timestamp::InherentDataProvider)
@@ -171,7 +170,6 @@ where
 		network: network.clone(),
 		network_status_sinks,
 		system_rpc_tx,
-		telemetry_span,
 	})?;
 
 	let announce_block = {
