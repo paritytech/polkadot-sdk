@@ -33,7 +33,7 @@ use sp_core::traits::SpawnNamed;
 use sp_inherents::{InherentData, InherentDataProviders};
 use sp_runtime::{
 	generic::BlockId,
-	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
+	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT, Zero},
 };
 use sp_state_machine::InspectState;
 
@@ -58,6 +58,9 @@ use parking_lot::Mutex;
 
 type TransactionFor<E, Block> =
 	<<E as Environment<Block>>::Proposer as Proposer<Block>>::Transaction;
+
+/// The logging target.
+const LOG_TARGET: &str = "cumulus-collator";
 
 /// The implementation of the Cumulus `Collator`.
 pub struct Collator<Block: BlockT, PF, BI, BS, Backend, PBackend, PClient, PBackend2> {
@@ -162,7 +165,7 @@ where
 			)
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"An error occured during requesting the downward messages for {}: {:?}",
 					relay_parent, e,
 				);
@@ -187,7 +190,7 @@ where
 			)
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"An error occured during requesting the inbound HRMP messages for {}: {:?}",
 					relay_parent, e,
 				);
@@ -208,7 +211,7 @@ where
 			.state_at(BlockId::Hash(relay_parent))
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Cannot obtain the state of the relay chain at `{:?}`: {:?}",
 					relay_parent,
 					e,
@@ -222,7 +225,7 @@ where
 			))
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Cannot obtain the hrmp egress channel index: {:?}",
 					e,
 				)
@@ -233,7 +236,7 @@ where
 			.transpose()
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Cannot decode the hrmp egress channel index: {:?}",
 					e,
 				)
@@ -259,7 +262,7 @@ where
 		sp_state_machine::prove_read(relay_parent_state_backend, relevant_keys)
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Failed to collect required relay chain state storage proof at `{:?}`: {:?}",
 					relay_parent,
 					e,
@@ -279,7 +282,7 @@ where
 			.create_inherent_data()
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Failed to create inherent data: {:?}",
 					e,
 				)
@@ -307,7 +310,7 @@ where
 			)
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Failed to put the system inherent into inherent data: {:?}",
 					e,
 				)
@@ -320,39 +323,56 @@ where
 	/// Checks the status of the given block hash in the Parachain.
 	///
 	/// Returns `true` if the block could be found and is good to be build on.
-	fn check_block_status(&self, hash: Block::Hash) -> bool {
+	fn check_block_status(&self, hash: Block::Hash, header: &Block::Header) -> bool {
 		match self.block_status.block_status(&BlockId::Hash(hash)) {
 			Ok(BlockStatus::Queued) => {
 				debug!(
-					target: "cumulus-collator",
-					"Skipping candidate production, because block `{:?}` is still queued for import.", hash,
+					target: LOG_TARGET,
+					"Skipping candidate production, because block `{:?}` is still queued for import.",
+					hash,
 				);
 				false
 			}
 			Ok(BlockStatus::InChainWithState) => true,
 			Ok(BlockStatus::InChainPruned) => {
 				error!(
-					target: "cumulus-collator",
-					"Skipping candidate production, because block `{:?}` is already pruned!", hash,
+					target: LOG_TARGET,
+					"Skipping candidate production, because block `{:?}` is already pruned!",
+					hash,
 				);
 				false
 			}
 			Ok(BlockStatus::KnownBad) => {
 				error!(
-					target: "cumulus-collator",
-					"Block `{}` is tagged as known bad and is included in the relay chain! Skipping candidate production!", hash,
+					target: LOG_TARGET,
+					"Block `{}` is tagged as known bad and is included in the relay chain! Skipping candidate production!",
+					hash,
 				);
 				false
 			}
 			Ok(BlockStatus::Unknown) => {
-				debug!(
-					target: "cumulus-collator",
-					"Skipping candidate production, because block `{:?}` is unknown.", hash,
-				);
+				if header.number().is_zero() {
+					error!(
+						target: LOG_TARGET,
+						"Could not find the header `{:?}` of the genesis block in the database!",
+						hash,
+					);
+				} else {
+					debug!(
+						target: LOG_TARGET,
+						"Skipping candidate production, because block `{:?}` is unknown.",
+						hash,
+					);
+				}
 				false
 			}
 			Err(e) => {
-				error!(target: "cumulus-collator", "Failed to get block status of `{:?}`: {:?}", hash, e);
+				error!(
+					target: LOG_TARGET,
+					"Failed to get block status of `{:?}`: {:?}",
+					hash,
+					e,
+				);
 				false
 			}
 		}
@@ -371,7 +391,7 @@ where
 		let state = match self.backend.state_at(BlockId::Hash(block_hash)) {
 			Ok(state) => state,
 			Err(e) => {
-				error!(target: "cumulus-collator", "Failed to get state of the freshly built block: {:?}", e);
+				error!(target: LOG_TARGET, "Failed to get state of the freshly built block: {:?}", e);
 				return None;
 			}
 		};
@@ -381,7 +401,7 @@ where
 			let upward_messages = match upward_messages.map(|v| Vec::<UpwardMessage>::decode(&mut &v[..])) {
 				Some(Ok(msgs)) => msgs,
 				Some(Err(e)) => {
-					error!(target: "cumulus-collator", "Failed to decode upward messages from the build block: {:?}", e);
+					error!(target: LOG_TARGET, "Failed to decode upward messages from the build block: {:?}", e);
 					return None
 				},
 				None => Vec::new(),
@@ -396,7 +416,7 @@ where
 				Some(Ok(processed_cnt)) => processed_cnt,
 				Some(Err(e)) => {
 					error!(
-						target: "cumulus-collator",
+						target: LOG_TARGET,
 						"Failed to decode the count of processed downward messages: {:?}",
 						e
 					);
@@ -412,7 +432,7 @@ where
 				Some(Ok(horizontal_messages)) => horizontal_messages,
 				Some(Err(e)) => {
 					error!(
-						target: "cumulus-collator",
+						target: LOG_TARGET,
 						"Failed to decode the horizontal messages: {:?}",
 						e
 					);
@@ -426,7 +446,7 @@ where
 				Some(Ok(hrmp_watermark)) => hrmp_watermark,
 				Some(Err(e)) => {
 					error!(
-						target: "cumulus-collator",
+						target: LOG_TARGET,
 						"Failed to decode the HRMP watermark: {:?}",
 						e
 					);
@@ -458,24 +478,24 @@ where
 		relay_parent: PHash,
 		validation_data: PersistedValidationData,
 	) -> Option<Collation> {
-		trace!(target: "cumulus-collator", "Producing candidate");
+		trace!(target: LOG_TARGET, "Producing candidate");
 
 		let last_head =
 			match Block::Header::decode(&mut &validation_data.parent_head.0[..]) {
 				Ok(x) => x,
 				Err(e) => {
-					error!(target: "cumulus-collator", "Could not decode the head data: {:?}", e);
+					error!(target: LOG_TARGET, "Could not decode the head data: {:?}", e);
 					return None;
 				}
 			};
 
 		let last_head_hash = last_head.hash();
-		if !self.check_block_status(last_head_hash) {
+		if !self.check_block_status(last_head_hash, &last_head) {
 			return None;
 		}
 
 		info!(
-			target: "cumulus-collator",
+			target: LOG_TARGET,
 			"Starting collation for relay parent {:?} on parent {:?}.",
 			relay_parent,
 			last_head_hash,
@@ -487,7 +507,7 @@ where
 			.await
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Could not create proposer: {:?}",
 					e,
 				)
@@ -511,7 +531,7 @@ where
 			.await
 			.map_err(|e| {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Proposing failed: {:?}",
 					e,
 				)
@@ -522,7 +542,7 @@ where
 			Some(proof) => proof,
 			None => {
 				error!(
-					target: "cumulus-collator",
+					target: LOG_TARGET,
 					"Proposer did not return the requested proof.",
 				);
 
@@ -548,7 +568,7 @@ where
 			.import_block(block_import_params, Default::default())
 		{
 			error!(
-				target: "cumulus-collator",
+				target: LOG_TARGET,
 				"Error importing build block (at {:?}): {:?}",
 				b.header().parent_hash(),
 				err,
@@ -558,7 +578,7 @@ where
 		}
 
 		trace!(
-			target: "cumulus-collator",
+			target: LOG_TARGET,
 			"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
 			b.header().encode().len() as f64 / 1024f64,
 			b.extrinsics().encode().len() as f64 / 1024f64,
@@ -574,7 +594,7 @@ where
 			.wait_to_announce(block_hash, pov_hash);
 
 		info!(
-			target: "cumulus-collator",
+			target: LOG_TARGET,
 			"Produced proof-of-validity candidate {:?} from block {:?}.",
 			pov_hash,
 			block_hash,
