@@ -57,7 +57,7 @@ use frame_support::{
 use frame_system::{ensure_signed, RawOrigin};
 use num_traits::{SaturatingAdd, Zero};
 use sp_runtime::{traits::BadOrigin, DispatchResult};
-use sp_std::{cell::RefCell, marker::PhantomData, prelude::*};
+use sp_std::{cell::RefCell, cmp::PartialOrd, marker::PhantomData, prelude::*};
 
 mod inbound_lane;
 mod outbound_lane;
@@ -110,7 +110,7 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 	type OutboundPayload: Parameter + Size;
 	/// Message fee type of outbound messages. This fee is paid on this chain.
-	type OutboundMessageFee: Default + From<u32> + Parameter + SaturatingAdd + Zero;
+	type OutboundMessageFee: Default + From<u64> + PartialOrd + Parameter + SaturatingAdd + Zero;
 
 	/// Payload type of inbound messages. This payload is dispatched on this chain.
 	type InboundPayload: Decode;
