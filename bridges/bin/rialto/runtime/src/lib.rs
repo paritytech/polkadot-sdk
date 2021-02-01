@@ -266,6 +266,7 @@ impl pallet_bridge_call_dispatch::Config for Runtime {
 	type Event = Event;
 	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
 	type Call = Call;
+	type CallFilter = ();
 	type EncodedCall = crate::millau_messages::FromMillauEncodedCall;
 	type SourceChainAccountId = bp_millau::AccountId;
 	type TargetChainAccountPublic = MultiSigner;

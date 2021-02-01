@@ -215,6 +215,7 @@ impl pallet_bridge_call_dispatch::Config for Runtime {
 	type Event = Event;
 	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
 	type Call = Call;
+	type CallFilter = ();
 	type EncodedCall = crate::rialto_messages::FromRialtoEncodedCall;
 	type SourceChainAccountId = bp_rialto::AccountId;
 	type TargetChainAccountPublic = MultiSigner;
