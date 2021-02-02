@@ -25,6 +25,7 @@ use crate::chain::Chain;
 
 use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
+use sc_rpc_api::system::Health;
 use sp_core::{
 	storage::{StorageData, StorageKey},
 	Bytes,
@@ -33,6 +34,8 @@ use sp_version::RuntimeVersion;
 
 jsonrpsee::rpc_api! {
 	pub(crate) Substrate<C: Chain> {
+		#[rpc(method = "system_health", positional_params)]
+		fn system_health() -> Health;
 		#[rpc(method = "chain_getHeader", positional_params)]
 		fn chain_get_header(block_hash: Option<C::Hash>) -> C::Header;
 		#[rpc(method = "chain_getFinalizedHead", positional_params)]
