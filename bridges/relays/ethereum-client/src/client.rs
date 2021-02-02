@@ -16,14 +16,17 @@
 
 use crate::rpc::Ethereum;
 use crate::types::{
-	Address, Bytes, CallRequest, Header, HeaderWithTransactions, Receipt, SignedRawTx, Transaction, TransactionHash,
-	H256, U256,
+	Address, Bytes, CallRequest, Header, HeaderWithTransactions, Receipt, SignedRawTx, SyncState, Transaction,
+	TransactionHash, H256, U256,
 };
 use crate::{ConnectionParams, Error, Result};
 
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use jsonrpsee::Client as RpcClient;
+
+/// Number of headers missing from the Ethereum node for us to consider node not synced.
+const MAJOR_SYNC_BLOCKS: u64 = 5;
 
 /// The client used to interact with an Ethereum node through RPC.
 #[derive(Clone)]
@@ -52,6 +55,23 @@ impl Client {
 	/// Reopen client connection.
 	pub fn reconnect(&mut self) {
 		self.client = Self::build_client(&self.params);
+	}
+}
+
+impl Client {
+	/// Returns true if client is connected to at least one peer and is in synced state.
+	pub async fn ensure_synced(&self) -> Result<()> {
+		match Ethereum::syncing(&self.client).await? {
+			SyncState::NotSyncing => Ok(()),
+			SyncState::Syncing(syncing) => {
+				let missing_headers = syncing.highest_block.saturating_sub(syncing.current_block);
+				if missing_headers > MAJOR_SYNC_BLOCKS.into() {
+					return Err(Error::ClientNotSynced(missing_headers));
+				}
+
+				Ok(())
+			}
+		}
 	}
 
 	/// Estimate gas usage for the given call.

@@ -18,7 +18,7 @@
 
 use headers_relay::sync_types::SourceHeader;
 
-pub use web3::types::{Address, Bytes, CallRequest, H256, U128, U256, U64};
+pub use web3::types::{Address, Bytes, CallRequest, SyncState, H256, U128, U256, U64};
 
 /// When header is just received from the Ethereum node, we check that it has
 /// both number and hash fields filled.

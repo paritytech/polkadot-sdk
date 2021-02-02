@@ -16,6 +16,8 @@
 
 //! Ethereum node RPC errors.
 
+use crate::types::U256;
+
 use jsonrpsee::client::RequestError;
 use relay_utils::MaybeConnectionError;
 
@@ -40,6 +42,9 @@ pub enum Error {
 	InvalidSubstrateBlockNumber,
 	/// An invalid index has been received from an Ethereum node.
 	InvalidIncompleteIndex,
+	/// The client we're connected to is not synced, so we can't rely on its state. Contains
+	/// number of unsynced headers.
+	ClientNotSynced(U256),
 }
 
 impl From<RequestError> for Error {
@@ -50,7 +55,11 @@ impl From<RequestError> for Error {
 
 impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
-		matches!(*self, Error::Request(RequestError::TransportError(_)))
+		matches!(
+			*self,
+			Error::Request(RequestError::TransportError(_))
+				| Error::ClientNotSynced(_),
+		)
 	}
 }
 
@@ -66,6 +75,9 @@ impl ToString for Error {
 			Self::IncompleteTransaction => "Incomplete Ethereum Transaction (missing required field - raw)".to_string(),
 			Self::InvalidSubstrateBlockNumber => "Received an invalid Substrate block from Ethereum Node".to_string(),
 			Self::InvalidIncompleteIndex => "Received an invalid incomplete index from Ethereum Node".to_string(),
+			Self::ClientNotSynced(missing_headers) => {
+				format!("Ethereum client is not synced: syncing {} headers", missing_headers)
+			}
 		}
 	}
 }

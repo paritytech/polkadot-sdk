@@ -22,11 +22,14 @@
 #![allow(unused_variables)]
 
 use crate::types::{
-	Address, Bytes, CallRequest, Header, HeaderWithTransactions, Receipt, Transaction, TransactionHash, H256, U256, U64,
+	Address, Bytes, CallRequest, Header, HeaderWithTransactions, Receipt, SyncState, Transaction, TransactionHash,
+	H256, U256, U64,
 };
 
 jsonrpsee::rpc_api! {
 	pub(crate) Ethereum {
+		#[rpc(method = "eth_syncing", positional_params)]
+		fn syncing() -> SyncState;
 		#[rpc(method = "eth_estimateGas", positional_params)]
 		fn estimate_gas(call_request: CallRequest) -> U256;
 		#[rpc(method = "eth_blockNumber", positional_params)]

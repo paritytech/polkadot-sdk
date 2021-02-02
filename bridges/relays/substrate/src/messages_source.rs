@@ -99,6 +99,10 @@ where
 	P::TargetHeaderHash: Decode,
 {
 	async fn state(&self) -> Result<SourceClientState<P>, SubstrateError> {
+		// we can't continue to deliver confirmations if source node is out of sync, because
+		// it may have already received confirmations that we're going to deliver
+		self.client.ensure_synced().await?;
+
 		read_client_state::<_, P::TargetHeaderHash, P::TargetHeaderNumber>(
 			&self.client,
 			P::BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE,
