@@ -1127,6 +1127,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hash-db",
+ "hex-literal 0.2.1",
+ "lazy_static",
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-parachain",

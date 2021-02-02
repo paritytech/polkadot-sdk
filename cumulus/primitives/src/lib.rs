@@ -131,5 +131,5 @@ pub trait HrmpMessageSender {
 /// A trait which is called when the validation data is set.
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait OnValidationData {
-	fn on_validation_data(data: PersistedValidationData);
+	fn on_validation_data(data: &PersistedValidationData);
 }

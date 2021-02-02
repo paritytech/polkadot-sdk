@@ -36,6 +36,8 @@ sp-externalities = { git = "https://github.com/paritytech/substrate", default-fe
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 cumulus-test-relay-sproof-builder = { path = "../test/relay-sproof-builder" }
+hex-literal = "0.2.1"
+lazy_static = "1.4"
 
 [features]
 default = ['std']
