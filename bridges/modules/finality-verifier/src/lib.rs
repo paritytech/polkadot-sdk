@@ -204,6 +204,27 @@ mod tests {
 	}
 
 	#[test]
+	fn rejects_justification_that_skips_authority_set_transition() {
+		run_test(|| {
+			initialize_substrate_bridge();
+
+			let child = test_header(1);
+			let header = test_header(2);
+
+			let set_id = 2;
+			let grandpa_round = 1;
+			let justification =
+				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+			let ancestry_proof = vec![child, header.clone()];
+
+			assert_err!(
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
+				<Error<TestRuntime>>::InvalidJustification
+			);
+		})
+	}
+
+	#[test]
 	fn does_not_import_header_with_invalid_finality_proof() {
 		run_test(|| {
 			initialize_substrate_bridge();
