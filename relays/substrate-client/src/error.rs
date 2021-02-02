@@ -19,6 +19,7 @@
 use jsonrpsee::client::RequestError;
 use jsonrpsee::transport::ws::WsNewDnsError;
 use relay_utils::MaybeConnectionError;
+use sc_rpc_api::system::Health;
 
 /// Result type used by Substrate client.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -38,6 +39,8 @@ pub enum Error {
 	UninitializedBridgePallet,
 	/// Account does not exist on the chain.
 	AccountDoesNotExist,
+	/// The client we're connected to is not synced, so we can't rely on its state.
+	ClientNotSynced(Health),
 	/// Custom logic error.
 	Custom(String),
 }
@@ -56,7 +59,11 @@ impl From<RequestError> for Error {
 
 impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
-		matches!(*self, Error::Request(RequestError::TransportError(_)))
+		matches!(
+			*self,
+			Error::Request(RequestError::TransportError(_))
+				| Error::ClientNotSynced(_)
+		)
 	}
 }
 
@@ -74,6 +81,7 @@ impl ToString for Error {
 			Self::ResponseParseFailed(e) => e.what().to_string(),
 			Self::UninitializedBridgePallet => "The Substrate bridge pallet has not been initialized yet.".into(),
 			Self::AccountDoesNotExist => "Account does not exist on the chain".into(),
+			Self::ClientNotSynced(health) => format!("Substrate client is not synced: {}", health),
 			Self::Custom(e) => e.clone(),
 		}
 	}

@@ -26,6 +26,7 @@ relay-utils = { path = "../utils" }
 frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" }

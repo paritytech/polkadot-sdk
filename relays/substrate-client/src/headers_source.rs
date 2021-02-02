@@ -73,6 +73,8 @@ where
 	P::Header: SourceHeader<C::Hash, C::BlockNumber>,
 {
 	async fn best_block_number(&self) -> Result<P::Number, Error> {
+		// we **CAN** continue to relay headers if source node is out of sync, because
+		// target node may be missing headers that are already available at the source
 		Ok(*self.client.best_header().await?.number())
 	}
 
