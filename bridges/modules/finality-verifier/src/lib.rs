@@ -37,10 +37,15 @@ use bp_runtime::{Chain, HeaderOf};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get};
 use frame_system::ensure_signed;
+use num_traits::AsPrimitive;
 use sp_runtime::traits::Header as HeaderT;
+use sp_std::vec::Vec;
 
 #[cfg(test)]
 mod mock;
+
+// Re-export in crate namespace for `construct_runtime!`
+pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -69,7 +74,7 @@ pub mod pallet {
 		/// The maximum length of headers we can have in a single ancestry proof. This prevents
 		/// unbounded iteration when verifying proofs.
 		#[pallet::constant]
-		type MaxHeadersInSingleProof: Get<u8>;
+		type MaxHeadersInSingleProof: Get<<Self::BridgedChain as Chain>::BlockNumber>;
 	}
 
 	#[pallet::pallet]
@@ -100,7 +105,7 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 
 			ensure!(
-				ancestry_proof.len() <= T::MaxHeadersInSingleProof::get() as usize,
+				ancestry_proof.len() <= T::MaxHeadersInSingleProof::get().as_(),
 				<Error<T>>::OversizedAncestryProof
 			);
 
@@ -149,7 +154,6 @@ pub mod pallet {
 
 #[cfg(test)]
 mod tests {
-	use super::pallet::*;
 	use super::*;
 	use crate::mock::{run_test, test_header, Origin, TestRuntime};
 	use bp_test_utils::{authority_list, make_justification_for_header};

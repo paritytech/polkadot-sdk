@@ -27,6 +27,7 @@ bridge-runtime-common = { path = "../../runtime-common", default-features = fals
 pallet-bridge-eth-poa = { path = "../../../modules/ethereum", default-features = false }
 pallet-bridge-call-dispatch = { path = "../../../modules/call-dispatch", default-features = false }
 pallet-bridge-currency-exchange = { path = "../../../modules/currency-exchange", default-features = false }
+pallet-finality-verifier = { path = "../../../modules/finality-verifier", default-features = false }
 pallet-substrate-bridge = { path = "../../../modules/substrate", default-features = false }
 pallet-message-lane = { path = "../../../modules/message-lane", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
@@ -90,6 +91,7 @@ std = [
 	"pallet-bridge-eth-poa/std",
 	"pallet-bridge-call-dispatch/std",
 	"pallet-bridge-currency-exchange/std",
+	"pallet-finality-verifier/std",
 	"pallet-grandpa/std",
 	"pallet-message-lane/std",
 	"pallet-randomness-collective-flip/std",
