@@ -27,7 +27,7 @@ use bp_message_lane::{
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
 use bp_runtime::InstanceId;
-use codec::{Compact, Decode, Encode};
+use codec::{Decode, Encode};
 use frame_support::{traits::Instance, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
 use pallet_substrate_bridge::StorageProofChecker;
@@ -352,9 +352,7 @@ pub mod target {
 
 	impl<B: MessageBridge> From<FromBridgedChainEncodedMessageCall<B>> for Result<CallOf<ThisChain<B>>, ()> {
 		fn from(encoded_call: FromBridgedChainEncodedMessageCall<B>) -> Self {
-			let mut input = &encoded_call.encoded_call[..];
-			let _skipped_length = Compact::<u32>::decode(&mut input).map_err(drop)?;
-			CallOf::<ThisChain<B>>::decode(&mut input).map_err(drop)
+			CallOf::<ThisChain<B>>::decode(&mut &encoded_call.encoded_call[..]).map_err(drop)
 		}
 	}
 
@@ -797,6 +795,7 @@ mod tests {
 				},
 			}
 		);
+		assert_eq!(Ok(ThisChainCall::Transfer), message_on_this_chain.call.into());
 	}
 
 	const TEST_LANE_ID: &LaneId = b"test";

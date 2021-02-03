@@ -145,9 +145,6 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// that all other stuff (like `spec_version`) is ok. If we would try to decode
 	/// `Call` which has been encoded using previous `spec_version`, then we might end
 	/// up with decoding error, instead of `MessageVersionSpecMismatch`.
-	///
-	/// The `Encode` implementation should match `Encode` implementation of the actual
-	/// `Call`, that (may) have been used to produce signature for `CallOrigin::TargetAccount`.
 	type EncodedCall: Decode + Encode + Into<Result<<Self as Config<I>>::Call, ()>>;
 	/// A type which can be turned into an AccountId from a 256-bit hash.
 	///
@@ -231,6 +228,16 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 			return;
 		}
 
+		// now that we have spec version checked, let's decode the call
+		let call = match message.call.into() {
+			Ok(call) => call,
+			Err(_) => {
+				frame_support::debug::trace!("Failed to decode Call from message {:?}/{:?}", bridge, id,);
+				Self::deposit_event(RawEvent::MessageCallDecodeFailed(bridge, id));
+				return;
+			}
+		};
+
 		// prepare dispatch origin
 		let origin_account = match message.origin {
 			CallOrigin::SourceRoot => {
@@ -240,7 +247,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 				target_id
 			}
 			CallOrigin::TargetAccount(source_account_id, target_public, target_signature) => {
-				let digest = account_ownership_digest(&message.call, source_account_id, message.spec_version, bridge);
+				let digest = account_ownership_digest(&call, source_account_id, message.spec_version, bridge);
 
 				let target_account = target_public.into_account();
 				if !target_signature.verify(&digest[..], &target_account) {
@@ -263,16 +270,6 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 				let target_id = T::AccountIdConverter::convert(hex_id);
 				frame_support::debug::trace!("Source Account: {:?}", &target_id);
 				target_id
-			}
-		};
-
-		// now that we have everything checked, let's decode the call
-		let call = match message.call.into() {
-			Ok(call) => call,
-			Err(_) => {
-				frame_support::debug::trace!("Failed to decode Call from message {:?}/{:?}", bridge, id,);
-				Self::deposit_event(RawEvent::MessageCallDecodeFailed(bridge, id));
-				return;
 			}
 		};
 
