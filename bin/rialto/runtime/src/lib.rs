@@ -140,15 +140,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -344,7 +335,7 @@ impl pallet_grandpa::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = bp_rialto::SLOT_DURATION / 2;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -394,7 +385,7 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	pub const Period: BlockNumber = 4;
+	pub const Period: BlockNumber = bp_rialto::SESSION_LENGTH;
 	pub const Offset: BlockNumber = 0;
 }
 
@@ -414,6 +405,19 @@ impl pallet_session::Config for Runtime {
 
 impl pallet_substrate_bridge::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
+}
+
+parameter_types! {
+	// We'll use the length of a session on the bridged chain as our bound since GRANDPA is
+	// guaranteed to produce a justification every session.
+	pub const MaxHeadersInSingleProof: bp_millau::BlockNumber = bp_millau::SESSION_LENGTH;
+}
+
+impl pallet_finality_verifier::Config for Runtime {
+	type BridgedChain = bp_millau::Millau;
+	type HeaderChain = pallet_substrate_bridge::Module<Runtime>;
+	type AncestryChecker = bp_header_chain::LinearAncestryChecker;
+	type MaxHeadersInSingleProof = MaxHeadersInSingleProof;
 }
 
 impl pallet_shift_session_manager::Config for Runtime {}
@@ -471,6 +475,7 @@ construct_runtime!(
 		BridgeRialtoCurrencyExchange: pallet_bridge_currency_exchange::<Instance1>::{Module, Call},
 		BridgeKovanCurrencyExchange: pallet_bridge_currency_exchange::<Instance2>::{Module, Call},
 		BridgeMillau: pallet_substrate_bridge::{Module, Call, Storage, Config<T>},
+		BridgeFinalityVerifier: pallet_finality_verifier::{Module, Call},
 		BridgeCallDispatch: pallet_bridge_call_dispatch::{Module, Event<T>},
 		BridgeMillauMessageLane: pallet_message_lane::{Module, Call, Storage, Event<T>},
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
