@@ -14,12 +14,14 @@ serde = { version = "1.0.121", optional = true, features = ["derive"] }
 
 # Bridge dependencies
 
+bp-header-chain = { path = "../../../primitives/header-chain", default-features = false }
 bp-message-lane = { path = "../../../primitives/message-lane", default-features = false }
 bp-millau = { path = "../../../primitives/millau", default-features = false }
 bp-rialto = { path = "../../../primitives/rialto", default-features = false }
 bp-runtime = { path = "../../../primitives/runtime", default-features = false }
 bridge-runtime-common = { path = "../../runtime-common", default-features = false }
 pallet-bridge-call-dispatch = { path = "../../../modules/call-dispatch", default-features = false }
+pallet-finality-verifier = { path = "../../../modules/finality-verifier", default-features = false }
 pallet-message-lane = { path = "../../../modules/message-lane", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
 pallet-substrate-bridge = { path = "../../../modules/substrate", default-features = false }
@@ -58,6 +60,7 @@ wasm-builder-runner = { package = "substrate-wasm-builder-runner", version = "2.
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-message-lane/std",
 	"bp-millau/std",
 	"bp-rialto/std",
@@ -71,6 +74,7 @@ std = [
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-bridge-call-dispatch/std",
+	"pallet-finality-verifier/std",
 	"pallet-grandpa/std",
 	"pallet-message-lane/std",
 	"pallet-randomness-collective-flip/std",
