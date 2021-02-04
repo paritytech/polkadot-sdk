@@ -104,6 +104,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
+			frame_support::debug::trace!("Going to try and finalize header {:?}", finality_target);
+			frame_support::debug::trace!("Got ancestry proof of length {}", ancestry_proof.len());
+
 			ensure!(
 				ancestry_proof.len() <= T::MaxHeadersInSingleProof::get().as_(),
 				<Error<T>>::OversizedAncestryProof
@@ -119,9 +122,14 @@ pub mod pallet {
 				voter_set,
 				&justification,
 			)
-			.map_err(|_| <Error<T>>::InvalidJustification)?;
+			.map_err(|e| {
+				frame_support::debug::error!("Received invalid justification for {:?}: {:?}", finality_target, e);
+				<Error<T>>::InvalidJustification
+			})?;
 
 			let best_finalized = T::HeaderChain::best_finalized();
+			frame_support::debug::trace!("Checking ancestry against best finalized header: {:?}", &best_finalized);
+
 			ensure!(
 				T::AncestryChecker::are_ancestors(&best_finalized, &finality_target, &ancestry_proof),
 				<Error<T>>::InvalidAncestryProof
@@ -129,8 +137,15 @@ pub mod pallet {
 
 			// Note that this won't work if we ever change the `ancestry_proof` format to be
 			// sparse since this expects a contiguous set of finalized headers.
-			let _ =
-				T::HeaderChain::append_finalized_chain(ancestry_proof).map_err(|_| <Error<T>>::FailedToWriteHeader)?;
+			let _ = T::HeaderChain::append_finalized_chain(ancestry_proof).map_err(|_| {
+				frame_support::debug::error!("Failed to append finalized header chain.");
+				<Error<T>>::FailedToWriteHeader
+			})?;
+
+			frame_support::debug::info!(
+				"Succesfully imported finalized header chain for target header {:?}!",
+				finality_target
+			);
 
 			Ok(().into())
 		}
