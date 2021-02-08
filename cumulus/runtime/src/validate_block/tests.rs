@@ -42,17 +42,15 @@ use codec::{Decode, Encode};
 fn call_validate_block(
 	parent_head: Header,
 	block_data: ParachainBlockData<Block>,
-	relay_storage_root: Hash,
+	relay_parent_storage_root: Hash,
 ) -> Result<Header> {
 	let mut ext = TestExternalities::default();
 	let mut ext_ext = ext.ext();
 	let params = ValidationParams {
 		block_data: BlockData(block_data.encode()),
 		parent_head: HeadData(parent_head.encode()),
-		relay_chain_height: 1,
-		relay_storage_root,
-		hrmp_mqc_heads: Vec::new(),
-		dmq_mqc_head: Default::default(),
+		relay_parent_number: 1,
+		relay_parent_storage_root,
 	}
 	.encode();
 
@@ -87,7 +85,7 @@ fn create_test_client() -> (Client, LongestChain) {
 struct TestBlockData {
 	block: Block,
 	witness: sp_trie::StorageProof,
-	relay_storage_root: Hash,
+	relay_parent_storage_root: Hash,
 }
 
 fn build_block_with_witness(
@@ -96,12 +94,12 @@ fn build_block_with_witness(
 	parent_head: Header,
 ) -> TestBlockData {
 	let sproof_builder = RelayStateSproofBuilder::default();
-	let (relay_storage_root, _) = sproof_builder.clone().into_state_root_and_proof();
+	let (relay_parent_storage_root, _) = sproof_builder.clone().into_state_root_and_proof();
 	let block_id = BlockId::Hash(client.info().best_hash);
 	let mut builder = client.init_block_builder_at(
 		&block_id,
 		Some(PersistedValidationData {
-			block_number: 1,
+			relay_parent_number: 1,
 			parent_head: parent_head.encode().into(),
 			..Default::default()
 		}),
@@ -119,7 +117,7 @@ fn build_block_with_witness(
 		witness: built_block
 			.proof
 			.expect("We enabled proof recording before."),
-		relay_storage_root,
+		relay_parent_storage_root,
 	}
 }
 
@@ -132,13 +130,13 @@ fn validate_block_no_extra_extrinsics() {
 	let TestBlockData {
 		block,
 		witness,
-		relay_storage_root,
+		relay_parent_storage_root,
 	} = build_block_with_witness(&client, vec![], parent_head.clone());
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
 
-	let res_header = call_validate_block(parent_head, block_data, relay_storage_root)
+	let res_header = call_validate_block(parent_head, block_data, relay_parent_storage_root)
 		.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
 }
@@ -158,13 +156,13 @@ fn validate_block_with_extra_extrinsics() {
 	let TestBlockData {
 		block,
 		witness,
-		relay_storage_root,
+		relay_parent_storage_root,
 	} = build_block_with_witness(&client, extra_extrinsics, parent_head.clone());
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
 
-	let res_header = call_validate_block(parent_head, block_data, relay_storage_root)
+	let res_header = call_validate_block(parent_head, block_data, relay_parent_storage_root)
 		.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
 }
@@ -179,12 +177,12 @@ fn validate_block_invalid_parent_hash() {
 	let TestBlockData {
 		block,
 		witness,
-		relay_storage_root,
+		relay_parent_storage_root,
 	} = build_block_with_witness(&client, vec![], parent_head.clone());
 	let (mut header, extrinsics) = block.deconstruct();
 	header.set_parent_hash(Hash::from_low_u64_be(1));
 
 	let block_data = ParachainBlockData::new(header, extrinsics, witness);
-	call_validate_block(parent_head, block_data, relay_storage_root)
+	call_validate_block(parent_head, block_data, relay_parent_storage_root)
 		.expect("Calls `validate_block`");
 }

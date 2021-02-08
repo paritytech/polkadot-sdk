@@ -219,6 +219,31 @@ where
 			})
 			.ok()?;
 
+		let ingress_channels = relay_parent_state_backend
+			.storage(&relay_well_known_keys::hrmp_ingress_channel_index(
+				self.para_id,
+			))
+			.map_err(|e| {
+				error!(
+					target: LOG_TARGET,
+					"Cannot obtain the hrmp ingress channel index: {:?}",
+					e,
+				)
+			})
+			.ok()?;
+		let ingress_channels = ingress_channels
+			.map(|raw| <Vec<ParaId>>::decode(&mut &raw[..]))
+			.transpose()
+			.map_err(|e| {
+				error!(
+					target: LOG_TARGET,
+					"Cannot decode the hrmp ingress channel index: {:?}",
+					e,
+				)
+			})
+			.ok()?
+			.unwrap_or_default();
+
 		let egress_channels = relay_parent_state_backend
 			.storage(&relay_well_known_keys::hrmp_egress_channel_index(
 				self.para_id,
@@ -246,12 +271,22 @@ where
 
 		let mut relevant_keys = vec![];
 		relevant_keys.push(relay_well_known_keys::ACTIVE_CONFIG.to_vec());
+		relevant_keys.push(relay_well_known_keys::dmq_mqc_head(self.para_id));
 		relevant_keys.push(relay_well_known_keys::relay_dispatch_queue_size(
+			self.para_id,
+		));
+		relevant_keys.push(relay_well_known_keys::hrmp_ingress_channel_index(
 			self.para_id,
 		));
 		relevant_keys.push(relay_well_known_keys::hrmp_egress_channel_index(
 			self.para_id,
 		));
+		relevant_keys.extend(ingress_channels.into_iter().map(|sender| {
+			relay_well_known_keys::hrmp_channels(HrmpChannelId {
+				sender,
+				recipient: self.para_id,
+			})
+		}));
 		relevant_keys.extend(egress_channels.into_iter().map(|recipient| {
 			relay_well_known_keys::hrmp_channels(HrmpChannelId {
 				sender: self.para_id,
@@ -586,7 +621,7 @@ where
 		);
 
 		let collation =
-			self.build_collation(b, block_hash, validation_data.block_number)?;
+			self.build_collation(b, block_hash, validation_data.relay_parent_number)?;
 		let pov_hash = collation.proof_of_validity.hash();
 
 		self.wait_to_announce

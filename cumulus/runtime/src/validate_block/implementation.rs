@@ -180,7 +180,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		.storage(HRMP_WATERMARK)
 		.flatten()
 		.map(|v| Decode::decode(&mut &v[..]).expect("HRMP watermark is not encoded correctly"))
-		.unwrap_or(validation_data.block_number);
+		.unwrap_or(validation_data.relay_parent_number);
 
 	ValidationResult {
 		head_data,
@@ -210,23 +210,15 @@ impl<'a, B: BlockT> WitnessExt<'a, B> {
 
 		assert_eq!(
 			self.params.parent_head,
-			validation_data.parent_head
+			validation_data.parent_head,
 		);
 		assert_eq!(
-			self.params.relay_chain_height,
-			validation_data.block_number
+			self.params.relay_parent_number,
+			validation_data.relay_parent_number,
 		);
 		assert_eq!(
-			self.params.hrmp_mqc_heads,
-			validation_data.hrmp_mqc_heads
-		);
-		assert_eq!(
-			self.params.dmq_mqc_head,
-			validation_data.dmq_mqc_head,
-		);
-		assert_eq!(
-			self.params.relay_storage_root,
-			validation_data.relay_storage_root,
+			self.params.relay_parent_storage_root,
+			validation_data.relay_parent_storage_root,
 		);
 	}
 }

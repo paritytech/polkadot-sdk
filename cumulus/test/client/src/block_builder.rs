@@ -88,16 +88,16 @@ impl InitBlockBuilder for Client {
 			.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 			.expect("Put timestamp failed");
 
-		let (relay_storage_root, relay_chain_state) =
+		let (relay_parent_storage_root, relay_chain_state) =
 			relay_sproof_builder.into_state_root_and_proof();
 
 		let mut validation_data = validation_data.unwrap_or_default();
 		assert_eq!(
-			validation_data.relay_storage_root,
+			validation_data.relay_parent_storage_root,
 			Default::default(),
 			"Overriding the relay storage root is not implemented",
 		);
-		validation_data.relay_storage_root = relay_storage_root;
+		validation_data.relay_parent_storage_root = relay_parent_storage_root;
 
 		inherent_data
 			.put_data(

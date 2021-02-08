@@ -22,9 +22,20 @@ use sp_std::collections::btree_map::BTreeMap;
 /// Builds a sproof (portmanteau of 'spoof' and 'proof') of the relay chain state.
 #[derive(Clone)]
 pub struct RelayStateSproofBuilder {
+	/// The para id of the current parachain.
+	///
+	/// This doesn't get into the storage proof produced by the builder, however, it is used for
+	/// generation of the storage image and by auxilary methods.
+	///
+	/// It's recommended to change this value once in the very beginning of usage.
+	///
+	/// The default value is 200.
 	pub para_id: ParaId,
+
 	pub host_config: AbridgedHostConfiguration,
+	pub dmq_mqc_head: Option<relay_chain::Hash>,
 	pub relay_dispatch_queue_size: Option<(u32, u32)>,
+	pub hrmp_ingress_channel_index: Option<Vec<ParaId>>,
 	pub hrmp_egress_channel_index: Option<Vec<ParaId>>,
 	pub hrmp_channels: BTreeMap<relay_chain::v1::HrmpChannelId, AbridgedHrmpChannel>,
 }
@@ -44,7 +55,9 @@ impl Default for RelayStateSproofBuilder {
 				validation_upgrade_frequency: 6,
 				validation_upgrade_delay: 6,
 			},
+			dmq_mqc_head: None,
 			relay_dispatch_queue_size: None,
+			hrmp_ingress_channel_index: None,
 			hrmp_egress_channel_index: None,
 			hrmp_channels: BTreeMap::new(),
 		}
@@ -52,6 +65,32 @@ impl Default for RelayStateSproofBuilder {
 }
 
 impl RelayStateSproofBuilder {
+	/// Returns a mutable reference to HRMP channel metadata for a channel (`sender`, `self.para_id`).
+	///
+	/// If there is no channel, a new default one is created.
+	///
+	/// It also updates the `hrmp_ingress_channel_index`, creating it if needed.
+	pub fn upsert_inbound_channel(&mut self, sender: ParaId) -> &mut AbridgedHrmpChannel {
+		let in_index = self.hrmp_ingress_channel_index.get_or_insert_with(Vec::new);
+		if let Err(idx) = in_index.binary_search(&sender) {
+			in_index.insert(idx, sender);
+		}
+
+		self.hrmp_channels
+			.entry(relay_chain::v1::HrmpChannelId {
+				sender,
+				recipient: self.para_id,
+			})
+			.or_insert_with(|| AbridgedHrmpChannel {
+				max_capacity: 0,
+				max_total_size: 0,
+				max_message_size: 0,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			})
+	}
+
 	pub fn into_state_root_and_proof(
 		self,
 	) -> (
@@ -74,16 +113,32 @@ impl RelayStateSproofBuilder {
 				relay_chain::well_known_keys::ACTIVE_CONFIG.to_vec(),
 				self.host_config.encode(),
 			);
+			if let Some(dmq_mqc_head) = self.dmq_mqc_head {
+				insert(
+					relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
+					dmq_mqc_head.encode(),
+				);
+			}
 			if let Some(relay_dispatch_queue_size) = self.relay_dispatch_queue_size {
 				insert(
 					relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
 					relay_dispatch_queue_size.encode(),
 				);
 			}
+			if let Some(hrmp_ingress_channel_index) = self.hrmp_ingress_channel_index {
+				let mut sorted = hrmp_ingress_channel_index.clone();
+				sorted.sort();
+				assert_eq!(sorted, hrmp_ingress_channel_index);
+
+				insert(
+					relay_chain::well_known_keys::hrmp_ingress_channel_index(self.para_id),
+					hrmp_ingress_channel_index.encode(),
+				);
+			}
 			if let Some(hrmp_egress_channel_index) = self.hrmp_egress_channel_index {
 				let mut sorted = hrmp_egress_channel_index.clone();
 				sorted.sort();
-				assert_eq!(sorted, hrmp_egress_channel_index,);
+				assert_eq!(sorted, hrmp_egress_channel_index);
 
 				insert(
 					relay_chain::well_known_keys::hrmp_egress_channel_index(self.para_id),
