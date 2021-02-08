@@ -122,10 +122,11 @@ impl<T: Config> HrmpMessageHandler for Module<T> {
 		frame_support::debug::print!("Processing HRMP XCM: {:?}", &hash);
 		match VersionedXcm::decode(&mut &msg.data[..]).map(Xcm::try_from) {
 			Ok(Ok(xcm)) => {
-				match T::XcmExecutor::execute_xcm(
-					Junction::Parachain { id: sender.into() }.into(),
-					xcm,
-				) {
+				let location = (
+					Junction::Parent,
+					Junction::Parachain { id: sender.into() },
+				);
+				match T::XcmExecutor::execute_xcm(location.into(), xcm) {
 					Ok(..) => RawEvent::Success(hash),
 					Err(e) => RawEvent::Fail(hash, e),
 				};
