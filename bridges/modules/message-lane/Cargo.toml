@@ -14,6 +14,7 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 # Bridge dependencies
 
 bp-message-lane = { path = "../../primitives/message-lane", default-features = false }
+bp-rialto = { path = "../../primitives/rialto", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 # Substrate Dependencies
@@ -35,6 +36,7 @@ default = ["std"]
 std = [
 	"bp-message-lane/std",
 	"bp-runtime/std",
+	"bp-rialto/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",

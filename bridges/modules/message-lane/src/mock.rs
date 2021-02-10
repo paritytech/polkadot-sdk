@@ -183,6 +183,12 @@ pub struct TestMessagesProof {
 	pub result: Result<MessagesByLaneVec, ()>,
 }
 
+impl Size for TestMessagesProof {
+	fn size_hint(&self) -> u32 {
+		0
+	}
+}
+
 impl From<Result<Vec<Message<TestMessageFee>>, ()>> for TestMessagesProof {
 	fn from(result: Result<Vec<Message<TestMessageFee>>, ()>) -> Self {
 		Self {
@@ -202,6 +208,16 @@ impl From<Result<Vec<Message<TestMessageFee>>, ()>> for TestMessagesProof {
 	}
 }
 
+/// Messages delivery proof used in tests.
+#[derive(Debug, Encode, Decode, Eq, Clone, PartialEq)]
+pub struct TestMessagesDeliveryProof(pub Result<(LaneId, InboundLaneData<TestRelayer>), ()>);
+
+impl Size for TestMessagesDeliveryProof {
+	fn size_hint(&self) -> u32 {
+		0
+	}
+}
+
 /// Target header chain that is used in tests.
 #[derive(Debug, Default)]
 pub struct TestTargetHeaderChain;
@@ -209,7 +225,7 @@ pub struct TestTargetHeaderChain;
 impl TargetHeaderChain<TestPayload, TestRelayer> for TestTargetHeaderChain {
 	type Error = &'static str;
 
-	type MessagesDeliveryProof = Result<(LaneId, InboundLaneData<TestRelayer>), ()>;
+	type MessagesDeliveryProof = TestMessagesDeliveryProof;
 
 	fn verify_message(payload: &TestPayload) -> Result<(), Self::Error> {
 		if *payload == PAYLOAD_REJECTED_BY_TARGET_CHAIN {
@@ -222,7 +238,7 @@ impl TargetHeaderChain<TestPayload, TestRelayer> for TestTargetHeaderChain {
 	fn verify_messages_delivery_proof(
 		proof: Self::MessagesDeliveryProof,
 	) -> Result<(LaneId, InboundLaneData<TestRelayer>), Self::Error> {
-		proof.map_err(|_| TEST_ERROR)
+		proof.0.map_err(|_| TEST_ERROR)
 	}
 }
 

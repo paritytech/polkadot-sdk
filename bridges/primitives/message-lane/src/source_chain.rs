@@ -18,6 +18,7 @@
 
 use crate::{InboundLaneData, LaneId, MessageNonce};
 
+use bp_runtime::Size;
 use frame_support::{Parameter, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug};
 
@@ -46,7 +47,7 @@ pub trait TargetHeaderChain<Payload, AccountId> {
 	type Error: Debug + Into<&'static str>;
 
 	/// Proof that messages have been received by target chain.
-	type MessagesDeliveryProof: Parameter;
+	type MessagesDeliveryProof: Parameter + Size;
 
 	/// Verify message payload before we accept it.
 	///
