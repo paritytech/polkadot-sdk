@@ -1,21 +1,20 @@
 [workspace]
 members = [
-	"consensus",
-	"network",
-	"parachain-system",
-	"primitives",
+	"client/consensus",
+	"client/network",
+	"client/service",
+	"pallets/parachain-system",
+	"pallets/xcm-handler",
+	"primitives/core",
 	"rococo-parachains/",
 	"rococo-parachains/pallets/parachain-info",
 	"rococo-parachains/primitives",
 	"rococo-parachains/runtime",
-	"runtime",
-	"service",
 	"test/runtime",
 	"test/client",
 	"test/service",
 	"test/relay-sproof-builder",
-	"xcm-handler",
 ]
 
 [profile.release]
-panic = 'unwind'
+panic = "unwind"

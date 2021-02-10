@@ -26,9 +26,9 @@ pub use cumulus_test_runtime as runtime;
 pub use genesis::*;
 
 use core::future::Future;
-use cumulus_network::BlockAnnounceValidator;
-use cumulus_primitives::ParaId;
-use cumulus_service::{
+use cumulus_client_network::BlockAnnounceValidator;
+use cumulus_primitives_core::ParaId;
+use cumulus_client_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
 use cumulus_test_runtime::{NodeBlock as Block, RuntimeApi};
@@ -93,7 +93,7 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let import_queue = cumulus_consensus::import_queue::import_queue(
+	let import_queue = cumulus_client_consensus::import_queue::import_queue(
 		client.clone(),
 		client.clone(),
 		inherent_data_providers.clone(),

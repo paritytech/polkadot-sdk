@@ -20,7 +20,7 @@
 
 use frame_support::{decl_module, decl_storage, traits::Get};
 
-use cumulus_primitives::ParaId;
+use cumulus_primitives_core::ParaId;
 
 /// Configuration trait of this pallet.
 pub trait Config: frame_system::Config {}

@@ -11,14 +11,14 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
-cumulus-primitives = { path = "../../../primitives", default-features = false }
+cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "serde",
-    "cumulus-primitives/std",
-    "frame-support/std",
-    "frame-system/std",
+	"codec/std",
+	"serde",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
 ]

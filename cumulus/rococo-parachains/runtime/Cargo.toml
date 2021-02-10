@@ -34,10 +34,9 @@ pallet-sudo = { git = "https://github.com/paritytech/substrate", default-feature
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus dependencies
-cumulus-runtime = { path = "../../runtime", default-features = false }
-cumulus-parachain-system = { path = "../../parachain-system", default-features = false }
-cumulus-primitives = { path = "../../primitives", default-features = false }
-xcm-handler = { path = "../../xcm-handler", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-pallet-xcm-handler = { path = "../../pallets/xcm-handler", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -74,11 +73,10 @@ std = [
 	"pallet-transaction-payment/std",
 	"parachain-info/std",
 	"rococo-parachain-primitives/std",
-	"cumulus-runtime/std",
-	"cumulus-parachain-system/std",
-	"cumulus-primitives/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcm-handler/std",
+	"cumulus-primitives-core/std",
 	"xcm/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm-handler/std",
 ]

@@ -1070,12 +1070,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-collator"
+name = "cumulus-client-collator"
 version = "0.1.0"
 dependencies = [
- "cumulus-network",
- "cumulus-primitives",
- "cumulus-runtime",
+ "cumulus-client-network",
+ "cumulus-primitives-core",
  "cumulus-test-client",
  "cumulus-test-runtime",
  "env_logger",
@@ -1106,7 +1105,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-consensus"
+name = "cumulus-client-consensus"
 version = "0.1.0"
 dependencies = [
  "cumulus-test-client",
@@ -1131,10 +1130,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-network"
+name = "cumulus-client-network"
 version = "0.1.0"
 dependencies = [
- "cumulus-primitives",
  "cumulus-test-service",
  "derive_more 0.99.11",
  "futures 0.3.12",
@@ -1161,89 +1159,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-parachain-system"
+name = "cumulus-client-service"
 version = "0.1.0"
 dependencies = [
- "cumulus-primitives",
- "cumulus-runtime",
- "cumulus-test-relay-sproof-builder",
- "frame-support",
- "frame-system",
- "hash-db",
- "hex-literal 0.2.1",
- "lazy_static",
- "pallet-balances",
- "parity-scale-codec",
- "polkadot-parachain",
- "serde",
- "sp-core",
- "sp-externalities",
- "sp-inherents",
- "sp-io",
- "sp-runtime",
- "sp-state-machine",
- "sp-std",
- "sp-trie",
- "sp-version",
- "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "cumulus-primitives"
-version = "0.1.0"
-dependencies = [
- "impl-trait-for-tuples 0.1.3",
- "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain",
- "polkadot-primitives",
- "sc-chain-spec",
- "sp-core",
- "sp-inherents",
- "sp-runtime",
- "sp-std",
- "sp-trie",
-]
-
-[[package]]
-name = "cumulus-runtime"
-version = "0.1.0"
-dependencies = [
- "cumulus-primitives",
- "cumulus-test-client",
- "cumulus-test-relay-sproof-builder",
- "env_logger",
- "frame-executive",
- "hash-db",
- "memory-db",
- "parity-scale-codec",
- "polkadot-parachain",
- "sc-client-api",
- "sc-executor",
- "sp-blockchain",
- "sp-consensus",
- "sp-core",
- "sp-externalities",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-state-machine",
- "sp-std",
- "sp-trie",
- "trie-db",
-]
-
-[[package]]
-name = "cumulus-service"
-version = "0.1.0"
-dependencies = [
- "cumulus-collator",
- "cumulus-consensus",
- "cumulus-primitives",
+ "cumulus-client-collator",
+ "cumulus-client-consensus",
+ "cumulus-primitives-core",
  "futures 0.3.12",
+ "parity-scale-codec",
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-service",
+ "sc-chain-spec",
  "sc-client-api",
  "sc-service",
  "sc-tracing",
@@ -1257,10 +1184,75 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-parachain-system"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "cumulus-test-client",
+ "cumulus-test-relay-sproof-builder",
+ "env_logger",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "hash-db",
+ "hex-literal 0.2.1",
+ "lazy_static",
+ "memory-db",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-parachain",
+ "sc-client-api",
+ "sc-executor",
+ "serde",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-externalities",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "sp-trie",
+ "sp-version",
+ "substrate-test-runtime-client",
+ "trie-db",
+]
+
+[[package]]
+name = "cumulus-pallet-xcm-handler"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "sp-std",
+ "xcm",
+]
+
+[[package]]
+name = "cumulus-primitives-core"
+version = "0.1.0"
+dependencies = [
+ "impl-trait-for-tuples 0.2.1",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-primitives",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-trie",
+]
+
+[[package]]
 name = "cumulus-test-client"
 version = "0.1.0"
 dependencies = [
- "cumulus-primitives",
+ "cumulus-primitives-core",
  "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
  "cumulus-test-service",
@@ -1288,9 +1280,9 @@ dependencies = [
 name = "cumulus-test-parachain-runtime"
 version = "0.1.0"
 dependencies = [
- "cumulus-parachain-system",
- "cumulus-primitives",
- "cumulus-runtime",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcm-handler",
+ "cumulus-primitives-core",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -1319,14 +1311,13 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
- "xcm-handler",
 ]
 
 [[package]]
 name = "cumulus-test-relay-sproof-builder"
 version = "0.1.0"
 dependencies = [
- "cumulus-primitives",
+ "cumulus-primitives-core",
  "parity-scale-codec",
  "polkadot-primitives",
  "sp-runtime",
@@ -1338,9 +1329,8 @@ dependencies = [
 name = "cumulus-test-runtime"
 version = "0.1.0"
 dependencies = [
- "cumulus-parachain-system",
- "cumulus-primitives",
- "cumulus-runtime",
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -1370,10 +1360,10 @@ dependencies = [
 name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
- "cumulus-consensus",
- "cumulus-network",
- "cumulus-primitives",
- "cumulus-service",
+ "cumulus-client-consensus",
+ "cumulus-client-network",
+ "cumulus-client-service",
+ "cumulus-primitives-core",
  "cumulus-test-runtime",
  "futures 0.3.12",
  "jsonrpc-core",
@@ -1970,7 +1960,7 @@ dependencies = [
  "bitflags",
  "frame-metadata",
  "frame-support-procedural",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "log",
  "once_cell",
  "parity-scale-codec",
@@ -2028,7 +2018,7 @@ version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b14ca6235b4b916"
 dependencies = [
  "frame-support",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "serde",
  "sp-core",
@@ -2780,9 +2770,9 @@ dependencies = [
 
 [[package]]
 name = "impl-trait-for-tuples"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f65a8ecf74feeacdab8d38cb129e550ca871cccaa7d1921d8636ecd75534903"
+checksum = "d5dacb10c5b3bb92d46ba347505a9041e676bb20ad220101326bffb0c93031ee"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.8",
@@ -4296,7 +4286,7 @@ source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b
 dependencies = [
  "frame-support",
  "frame-system",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "sp-authorship",
  "sp-inherents",
@@ -4675,7 +4665,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "serde",
  "sp-inherents",
@@ -4749,7 +4739,7 @@ source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b
 dependencies = [
  "frame-support",
  "frame-system",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "pallet-balances",
  "parity-scale-codec",
  "serde",
@@ -4790,7 +4780,7 @@ dependencies = [
 name = "parachain-info"
 version = "0.1.0"
 dependencies = [
- "cumulus-primitives",
+ "cumulus-primitives-core",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -4890,7 +4880,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "ethereum-types",
  "hashbrown",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "lru",
  "parity-util-mem-derive",
  "parking_lot 0.11.1",
@@ -6888,11 +6878,11 @@ name = "rococo-collator"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
- "cumulus-collator",
- "cumulus-consensus",
- "cumulus-network",
- "cumulus-primitives",
- "cumulus-service",
+ "cumulus-client-collator",
+ "cumulus-client-consensus",
+ "cumulus-client-network",
+ "cumulus-client-service",
+ "cumulus-primitives-core",
  "cumulus-test-parachain-runtime",
  "derive_more 0.15.0",
  "exit-future 0.1.4",
@@ -7219,7 +7209,7 @@ name = "sc-chain-spec"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b14ca6235b4b916"
 dependencies = [
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "sc-chain-spec-derive",
  "sc-consensus-babe",
@@ -8918,7 +8908,7 @@ source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b
 dependencies = [
  "either",
  "hash256-std-hasher",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "log",
  "parity-scale-codec",
  "parity-util-mem",
@@ -8937,7 +8927,7 @@ name = "sp-runtime-interface"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b14ca6235b4b916"
 dependencies = [
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "primitive-types",
  "sp-externalities",
@@ -9064,7 +9054,7 @@ name = "sp-timestamp"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b14ca6235b4b916"
 dependencies = [
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "sp-api",
  "sp-inherents",
@@ -9145,7 +9135,7 @@ name = "sp-wasm-interface"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate#cc71cca1d3087bf62381a9d60b14ca6235b4b916"
 dependencies = [
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "sp-std",
  "wasmi",
@@ -10096,7 +10086,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.3.23",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
@@ -10845,24 +10835,12 @@ version = "0.8.22"
 source = "git+https://github.com/paritytech/polkadot#e526a15b1fa9bb7ac5378541d9f32667618e18c4"
 dependencies = [
  "frame-support",
- "impl-trait-for-tuples 0.2.0",
+ "impl-trait-for-tuples 0.2.1",
  "parity-scale-codec",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
- "xcm",
-]
-
-[[package]]
-name = "xcm-handler"
-version = "0.1.0"
-dependencies = [
- "cumulus-primitives",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
  "sp-std",
  "xcm",
 ]

@@ -43,10 +43,10 @@ polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch
 polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus
-cumulus-consensus = { path = "../../consensus" }
-cumulus-network = { path = "../../network" }
-cumulus-primitives = { path = "../../primitives" }
-cumulus-service = { path = "../../service" }
+cumulus-client-consensus = { path = "../../client/consensus" }
+cumulus-client-network = { path = "../../client/network" }
+cumulus-client-service = { path = "../../client/service" }
+cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-test-runtime = { path = "../runtime" }
 
 # RPC related dependencies

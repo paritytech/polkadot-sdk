@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use cumulus_primitives::ParaId;
+use cumulus_primitives_core::ParaId;
 use cumulus_test_service::initial_head_data;
 use futures::join;
 use sc_service::TaskExecutor;

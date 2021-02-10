@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{Backend, Client};
-use cumulus_primitives::{
+use cumulus_primitives_core::{
 	inherents::{SystemInherentData, SYSTEM_INHERENT_IDENTIFIER}, PersistedValidationData,
 };
 use cumulus_test_runtime::{Block, GetLastTimestamp};

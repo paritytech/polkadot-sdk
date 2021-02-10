@@ -13,7 +13,7 @@ messages of other Parachains.
 To convert a Substrate runtime into a Parachain runtime, the following code needs to be added to the
 runtime:
 ```rust
-cumulus_runtime::register_validate_block!(Block, Executive);
+cumulus_pallet_parachain_system::register_validate_block!(Block, Executive);
 ```
 
 This macro call expects the `Block` and `Executive` type. It generates the `validate_block` function

@@ -26,7 +26,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "m
 cumulus-test-runtime = { path = "../runtime" }
 cumulus-test-service = { path = "../service" }
 cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
-cumulus-primitives = { path = "../../primitives" }
+cumulus-primitives-core = { path = "../../primitives/core" }
 
 # Polkadot deps
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }

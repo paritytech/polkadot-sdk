@@ -30,9 +30,8 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus dependencies
-cumulus-parachain-system = { path = "../../parachain-system", default-features = false }
-cumulus-primitives = { path = "../../primitives", default-features = false }
-cumulus-runtime = { path = "../../runtime", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -44,9 +43,8 @@ substrate-wasm-builder = "3.0.0"
 default = [ "std" ]
 std = [
 	"codec/std",
-	"cumulus-parachain-system/std",
-	"cumulus-primitives/std",
-	"cumulus-runtime/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",

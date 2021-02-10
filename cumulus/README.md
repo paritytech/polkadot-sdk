@@ -25,11 +25,6 @@ follow,
 [finalize](https://wiki.polkadot.network/docs/en/learn-consensus#probabilistic-vs-provable-finality),
 and treat as best.
 
-## Runtime
-
-The [`cumulus-runtime`](runtime) is wrapper around Substrate runtimes that provides parachain
-validation capabilities and proof-generation routines.
-
 ## Collator
 
 A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for the parachain is

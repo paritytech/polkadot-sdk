@@ -17,7 +17,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus dependencies
-cumulus-primitives = { path = "../../primitives", default-features = false }
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -26,5 +26,5 @@ std = [
 	"sp-state-machine/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"cumulus-primitives/std",
+	"cumulus-primitives-core/std",
 ]
