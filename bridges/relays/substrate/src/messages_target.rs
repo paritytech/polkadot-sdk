@@ -24,6 +24,7 @@ use crate::messages_source::read_client_state;
 use async_trait::async_trait;
 use bp_message_lane::{LaneId, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::InstanceId;
+use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use codec::{Decode, Encode};
 use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
@@ -33,11 +34,13 @@ use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf};
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase};
 use sp_core::Bytes;
 use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
-use sp_trie::StorageProof;
 use std::ops::RangeInclusive;
 
 /// Message receiving proof returned by the target Substrate node.
-pub type SubstrateMessagesReceivingProof<C> = (UnrewardedRelayersState, (HashOf<C>, StorageProof, LaneId));
+pub type SubstrateMessagesReceivingProof<C> = (
+	UnrewardedRelayersState,
+	FromBridgedChainMessagesDeliveryProof<HashOf<C>>,
+);
 
 /// Substrate client as Substrate messages target.
 pub struct SubstrateMessagesTarget<C: Chain, P> {
@@ -166,7 +169,11 @@ where
 			.client
 			.prove_messages_delivery(self.instance, self.lane_id, id.1)
 			.await?;
-		let proof = (id.1, proof, self.lane_id);
+		let proof = FromBridgedChainMessagesDeliveryProof {
+			bridged_header_hash: id.1,
+			storage_proof: proof,
+			lane: self.lane_id,
+		};
 		Ok((id, (relayers_state, proof)))
 	}
 

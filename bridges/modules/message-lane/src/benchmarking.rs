@@ -16,6 +16,7 @@
 
 //! Message lane pallet benchmarking.
 
+use crate::weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH;
 use crate::{inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane, Call, Instance};
 
 use bp_message_lane::{
@@ -37,8 +38,9 @@ pub struct Module<T: Config<I>, I: crate::Instance>(crate::Module<T, I>);
 
 /// Proof size requirements.
 pub enum ProofSize {
-	/// The proof is expected to be minimal.
-	Minimal,
+	/// The proof is expected to be minimal. If value size may be changed, then it is expected to
+	/// have given size.
+	Minimal(u32),
 	/// The proof is expected to have at least given size and grow by increasing number of trie nodes
 	/// included in the proof.
 	HasExtraNodes(u32),
@@ -73,6 +75,8 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 	pub lane: LaneId,
 	/// The proof needs to include this inbound lane data.
 	pub inbound_lane_data: InboundLaneData<ThisChainAccountId>,
+	/// Proof size requirements.
+	pub size: ProofSize,
 }
 
 /// Trait that must be implemented by runtime.
@@ -224,17 +228,20 @@ benchmarks_instance! {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
 
+		// mark messages 1..=20 as delivered
+		receive_messages::<T, I>(20);
+
 		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
 			lane: bench_lane_id(),
-			message_nonces: 1..=1,
+			message_nonces: 21..=21,
 			outbound_lane_data: None,
-			size: ProofSize::Minimal,
+			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
-			1,
+			21,
 		);
 	}
 
@@ -252,17 +259,20 @@ benchmarks_instance! {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
 
+		// mark messages 1..=20 as delivered
+		receive_messages::<T, I>(20);
+
 		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
 			lane: bench_lane_id(),
-			message_nonces: 1..=2,
+			message_nonces: 21..=22,
 			outbound_lane_data: None,
-			size: ProofSize::Minimal,
+			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 2, dispatch_weight)
 	verify {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
-			2,
+			22,
 		);
 	}
 
@@ -291,7 +301,7 @@ benchmarks_instance! {
 				latest_received_nonce: 20,
 				latest_generated_nonce: 21,
 			}),
-			size: ProofSize::Minimal,
+			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
@@ -302,6 +312,68 @@ benchmarks_instance! {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_confirmed_nonce(bench_lane_id()),
 			20,
+		);
+	}
+
+	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
+	// * the proof has many redundand trie nodes with total size of approximately 1KB;
+	// * proof does not include outbound lane state proof;
+	// * inbound lane already has state, so it needs to be read and decoded;
+	// * message is successfully dispatched;
+	// * message requires all heavy checks done by dispatcher.
+	//
+	// With single KB of messages proof, the weight of the call is increased (roughly) by
+	// `(receive_single_message_proof_16KB - receive_single_message_proof_1_kb) / 15`.
+	receive_single_message_proof_1_kb {
+		let relayer_id_on_source = T::bridged_relayer_id();
+		let relayer_id_on_target = account("relayer", 0, SEED);
+
+		// mark messages 1..=20 as delivered
+		receive_messages::<T, I>(20);
+
+		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
+			lane: bench_lane_id(),
+			message_nonces: 21..=21,
+			outbound_lane_data: None,
+			size: ProofSize::HasExtraNodes(1024),
+		});
+	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
+	verify {
+		assert_eq!(
+			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
+			21,
+		);
+	}
+
+	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
+	// * the proof has many redundand trie nodes with total size of approximately 16KB;
+	// * proof does not include outbound lane state proof;
+	// * inbound lane already has state, so it needs to be read and decoded;
+	// * message is successfully dispatched;
+	// * message requires all heavy checks done by dispatcher.
+	//
+	// Size of proof grows because it contains extra trie nodes in it.
+	//
+	// With single KB of messages proof, the weight of the call is increased (roughly) by
+	// `(receive_single_message_proof_16KB - receive_single_message_proof) / 15`.
+	receive_single_message_proof_16_kb {
+		let relayer_id_on_source = T::bridged_relayer_id();
+		let relayer_id_on_target = account("relayer", 0, SEED);
+
+		// mark messages 1..=20 as delivered
+		receive_messages::<T, I>(20);
+
+		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
+			lane: bench_lane_id(),
+			message_nonces: 21..=21,
+			outbound_lane_data: None,
+			size: ProofSize::HasExtraNodes(16 * 1024),
+		});
+	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
+	verify {
+		assert_eq!(
+			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
+			21,
 		);
 	}
 
@@ -329,7 +401,8 @@ benchmarks_instance! {
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![(1, 1, relayer_id.clone())].into_iter().collect(),
 				last_confirmed_nonce: 0,
-			}
+			},
+			size: ProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
@@ -366,7 +439,8 @@ benchmarks_instance! {
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![(1, 2, relayer_id.clone())].into_iter().collect(),
 				last_confirmed_nonce: 0,
-			}
+			},
+			size: ProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
@@ -405,7 +479,8 @@ benchmarks_instance! {
 					(2, 2, relayer2_id.clone()),
 				].into_iter().collect(),
 				last_confirmed_nonce: 0,
-			}
+			},
+			size: ProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof, relayers_state)
 	verify {
@@ -459,43 +534,7 @@ benchmarks_instance! {
 	// `weight(receive_two_messages_proof) - weight(receive_single_message_proof)`. So it may be used
 	// to verify that the other approximation is correct.
 	receive_multiple_messages_proof {
-		let i in 1..128;
-
-		let relayer_id_on_source = T::bridged_relayer_id();
-		let relayer_id_on_target = account("relayer", 0, SEED);
-		let messages_count = i as _;
-
-		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
-			lane: bench_lane_id(),
-			message_nonces: 1..=i as _,
-			outbound_lane_data: None,
-			size: ProofSize::Minimal,
-		});
-	}: receive_messages_proof(
-		RawOrigin::Signed(relayer_id_on_target),
-		relayer_id_on_source,
-		proof,
-		messages_count,
-		dispatch_weight
-	)
-	verify {
-		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
-			i as MessageNonce,
-		);
-	}
-
-	// Benchmark `receive_messages_proof` extrinsic with multiple minimal-weight messages and following conditions:
-	// * proof includes outbound lane state proof;
-	// * inbound lane already has state, so it needs to be read and decoded;
-	// * message is successfully dispatched;
-	// * message requires all heavy checks done by dispatcher.
-	//
-	// This benchmarks gives us an approximation of outbound lane state delivery weight. It is similar to the
-	// `weight(receive_single_message_proof_with_outbound_lane_state) - weight(receive_single_message_proof)`.
-	// So it may be used to verify that the other approximation is correct.
-	receive_multiple_messages_proof_with_outbound_lane_state {
-		let i in 1..128;
+		let i in 1..64;
 
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
@@ -506,13 +545,9 @@ benchmarks_instance! {
 
 		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
 			lane: bench_lane_id(),
-			message_nonces: 21..=20 + i as MessageNonce,
-			outbound_lane_data: Some(OutboundLaneData {
-				oldest_unpruned_nonce: 21,
-				latest_received_nonce: 20,
-				latest_generated_nonce: 21,
-			}),
-			size: ProofSize::Minimal,
+			message_nonces: 21..=(20 + i as MessageNonce),
+			outbound_lane_data: None,
+			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 		});
 	}: receive_messages_proof(
 		RawOrigin::Signed(relayer_id_on_target),
@@ -526,10 +561,6 @@ benchmarks_instance! {
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
 			20 + i as MessageNonce,
 		);
-		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_confirmed_nonce(bench_lane_id()),
-			20,
-		);
 	}
 
 	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
@@ -538,7 +569,7 @@ benchmarks_instance! {
 	// * message is successfully dispatched;
 	// * message requires all heavy checks done by dispatcher.
 	//
-	// Results of this benchmark may be used to check how extra nodes in proof affect transaction performance.
+	// Results of this benchmark may be used to check how proof size affects `receive_message_proof` performance.
 	receive_message_proofs_with_extra_nodes {
 		let i in 0..T::maximal_message_size();
 
@@ -575,7 +606,7 @@ benchmarks_instance! {
 	// * message is successfully dispatched;
 	// * message requires all heavy checks done by dispatcher.
 	//
-	// Results of this benchmark may be used to check how large (extra) leaf in proof affect transaction performance.
+	// Results of this benchmark may be used to check how message size affects `receive_message_proof` performance.
 	receive_message_proofs_with_large_leaf {
 		let i in 0..T::maximal_message_size();
 
@@ -603,6 +634,53 @@ benchmarks_instance! {
 		assert_eq!(
 			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
 			21,
+		);
+	}
+
+	// Benchmark `receive_messages_proof` extrinsic with multiple minimal-weight messages and following conditions:
+	// * proof includes outbound lane state proof;
+	// * inbound lane already has state, so it needs to be read and decoded;
+	// * message is successfully dispatched;
+	// * message requires all heavy checks done by dispatcher.
+	//
+	// This benchmarks gives us an approximation of outbound lane state delivery weight. It is similar to the
+	// `weight(receive_single_message_proof_with_outbound_lane_state) - weight(receive_single_message_proof)`.
+	// So it may be used to verify that the other approximation is correct.
+	receive_multiple_messages_proof_with_outbound_lane_state {
+		let i in 1..128;
+
+		let relayer_id_on_source = T::bridged_relayer_id();
+		let relayer_id_on_target = account("relayer", 0, SEED);
+		let messages_count = i as _;
+
+		// mark messages 1..=20 as delivered
+		receive_messages::<T, I>(20);
+
+		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
+			lane: bench_lane_id(),
+			message_nonces: 21..=20 + i as MessageNonce,
+			outbound_lane_data: Some(OutboundLaneData {
+				oldest_unpruned_nonce: 21,
+				latest_received_nonce: 20,
+				latest_generated_nonce: 21,
+			}),
+			size: ProofSize::Minimal(0),
+		});
+	}: receive_messages_proof(
+		RawOrigin::Signed(relayer_id_on_target),
+		relayer_id_on_source,
+		proof,
+		messages_count,
+		dispatch_weight
+	)
+	verify {
+		assert_eq!(
+			crate::Module::<T, I>::inbound_latest_received_nonce(bench_lane_id()),
+			20 + i as MessageNonce,
+		);
+		assert_eq!(
+			crate::Module::<T, I>::inbound_latest_confirmed_nonce(bench_lane_id()),
+			20,
 		);
 	}
 
@@ -634,7 +712,8 @@ benchmarks_instance! {
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![(1, i as MessageNonce, relayer_id.clone())].into_iter().collect(),
 				last_confirmed_nonce: 0,
-			}
+			},
+			size: ProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
@@ -679,7 +758,8 @@ benchmarks_instance! {
 					.map(|(j, relayer_id)| (j as MessageNonce + 1, j as MessageNonce + 1, relayer_id.clone()))
 					.collect(),
 				last_confirmed_nonce: 0,
-			}
+			},
+			size: ProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(confirmation_relayer_id), proof, relayers_state)
 	verify {

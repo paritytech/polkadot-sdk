@@ -35,7 +35,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use crate::weights_ext::{ensure_weights_are_correct, WeightInfoExt};
+pub use crate::weights_ext::{
+	ensure_able_to_receive_confirmation, ensure_able_to_receive_message, ensure_weights_are_correct, WeightInfoExt,
+	EXPECTED_DEFAULT_MESSAGE_LENGTH,
+};
 
 use crate::inbound_lane::{InboundLane, InboundLaneStorage};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
@@ -267,9 +270,7 @@ decl_module! {
 		}
 
 		/// Send message over lane.
-		#[weight = T::WeightInfo::send_message_overhead()
-			.saturating_add(T::WeightInfo::send_message_size_overhead(Size::size_hint(payload)))
-		]
+		#[weight = T::WeightInfo::send_message_weight(payload)]
 		pub fn send_message(
 			origin,
 			lane_id: LaneId,
@@ -351,11 +352,7 @@ decl_module! {
 		/// The weight of the call assumes that the transaction always brings outbound lane
 		/// state update. Because of that, the submitter (relayer) has no benefit of not including
 		/// this data in the transaction, so reward confirmations lags should be minimal.
-		#[weight = T::WeightInfo::receive_messages_proof_overhead()
-			.saturating_add(T::WeightInfo::receive_messages_proof_outbound_lane_state_overhead())
-			.saturating_add(T::WeightInfo::receive_messages_proof_messages_overhead(MessageNonce::from(*messages_count)))
-			.saturating_add(*dispatch_weight)
-		]
+		#[weight = T::WeightInfo::receive_messages_proof_weight(proof, *messages_count, *dispatch_weight)]
 		pub fn receive_messages_proof(
 			origin,
 			relayer_id: T::InboundRelayer,
@@ -444,14 +441,7 @@ decl_module! {
 		}
 
 		/// Receive messages delivery proof from bridged chain.
-		#[weight = T::WeightInfo::receive_messages_delivery_proof_overhead()
-			.saturating_add(T::WeightInfo::receive_messages_delivery_proof_messages_overhead(
-				relayers_state.total_messages
-			))
-			.saturating_add(T::WeightInfo::receive_messages_delivery_proof_relayers_overhead(
-				relayers_state.unrewarded_relayer_entries
-			))
-		]
+		#[weight = T::WeightInfo::receive_messages_delivery_proof_weight(proof, relayers_state)]
 		pub fn receive_messages_delivery_proof(
 			origin,
 			proof: MessagesDeliveryProofOf<T, I>,
@@ -774,8 +764,9 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, Dispatch
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestMessagesProof, TestPayload,
-		TestRuntime, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
+		message, run_test, Origin, TestEvent, TestMessageDeliveryAndDispatchPayment, TestMessagesDeliveryProof,
+		TestMessagesProof, TestPayload, TestRuntime, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID,
+		TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_message_lane::UnrewardedRelayersState;
 	use frame_support::{assert_noop, assert_ok};
@@ -814,13 +805,13 @@ mod tests {
 
 		assert_ok!(Module::<TestRuntime>::receive_messages_delivery_proof(
 			Origin::signed(1),
-			Ok((
+			TestMessagesDeliveryProof(Ok((
 				TEST_LANE_ID,
 				InboundLaneData {
 					last_confirmed_nonce: 1,
 					..Default::default()
 				},
-			)),
+			))),
 			Default::default(),
 		));
 
@@ -924,13 +915,13 @@ mod tests {
 			assert_noop!(
 				Module::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
-					Ok((
+					TestMessagesDeliveryProof(Ok((
 						TEST_LANE_ID,
 						InboundLaneData {
 							last_confirmed_nonce: 1,
 							..Default::default()
 						},
-					)),
+					))),
 					Default::default(),
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
@@ -1140,13 +1131,13 @@ mod tests {
 			// this reports delivery of message 1 => reward is paid to TEST_RELAYER_A
 			assert_ok!(Module::<TestRuntime>::receive_messages_delivery_proof(
 				Origin::signed(1),
-				Ok((
+				TestMessagesDeliveryProof(Ok((
 					TEST_LANE_ID,
 					InboundLaneData {
 						relayers: vec![(1, 1, TEST_RELAYER_A)].into_iter().collect(),
 						..Default::default()
 					}
-				)),
+				))),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
 					total_messages: 1,
@@ -1165,7 +1156,7 @@ mod tests {
 			// this reports delivery of both message 1 and message 2 => reward is paid only to TEST_RELAYER_B
 			assert_ok!(Module::<TestRuntime>::receive_messages_delivery_proof(
 				Origin::signed(1),
-				Ok((
+				TestMessagesDeliveryProof(Ok((
 					TEST_LANE_ID,
 					InboundLaneData {
 						relayers: vec![(1, 1, TEST_RELAYER_A), (2, 2, TEST_RELAYER_B)]
@@ -1173,7 +1164,7 @@ mod tests {
 							.collect(),
 						..Default::default()
 					}
-				)),
+				))),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					total_messages: 2,
@@ -1195,7 +1186,11 @@ mod tests {
 	fn receive_messages_delivery_proof_rejects_invalid_proof() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_delivery_proof(Origin::signed(1), Err(()), Default::default(),),
+				Module::<TestRuntime>::receive_messages_delivery_proof(
+					Origin::signed(1),
+					TestMessagesDeliveryProof(Err(())),
+					Default::default(),
+				),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDeliveryProof,
 			);
 		});
@@ -1208,7 +1203,7 @@ mod tests {
 			assert_noop!(
 				Module::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
-					Ok((
+					TestMessagesDeliveryProof(Ok((
 						TEST_LANE_ID,
 						InboundLaneData {
 							relayers: vec![(1, 1, TEST_RELAYER_A), (2, 2, TEST_RELAYER_B)]
@@ -1216,7 +1211,7 @@ mod tests {
 								.collect(),
 							..Default::default()
 						}
-					)),
+					))),
 					UnrewardedRelayersState {
 						unrewarded_relayer_entries: 1,
 						total_messages: 2,
@@ -1230,7 +1225,7 @@ mod tests {
 			assert_noop!(
 				Module::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
-					Ok((
+					TestMessagesDeliveryProof(Ok((
 						TEST_LANE_ID,
 						InboundLaneData {
 							relayers: vec![(1, 1, TEST_RELAYER_A), (2, 2, TEST_RELAYER_B)]
@@ -1238,7 +1233,7 @@ mod tests {
 								.collect(),
 							..Default::default()
 						}
-					)),
+					))),
 					UnrewardedRelayersState {
 						unrewarded_relayer_entries: 2,
 						total_messages: 1,
