@@ -35,9 +35,8 @@
 use bp_header_chain::{justification::verify_justification, AncestryChecker, HeaderChain};
 use bp_runtime::{Chain, HeaderOf};
 use finality_grandpa::voter_set::VoterSet;
-use frame_support::{dispatch::DispatchError, ensure, traits::Get};
+use frame_support::{dispatch::DispatchError, ensure};
 use frame_system::ensure_signed;
-use num_traits::AsPrimitive;
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::vec::Vec;
 
@@ -64,17 +63,15 @@ pub mod pallet {
 		/// The pallet which we will use as our underlying storage mechanism.
 		type HeaderChain: HeaderChain<<Self::BridgedChain as Chain>::Header, DispatchError>;
 
+		/// The type of ancestry proof used by the pallet.
+		///
+		/// Will be used by the ancestry checker to verify that the header being finalized is
+		/// related to the best finalized header in storage.
+		type AncestryProof: Parameter;
+
 		/// The type through which we will verify that a given header is related to the last
 		/// finalized header in our storage pallet.
-		type AncestryChecker: AncestryChecker<
-			<Self::BridgedChain as Chain>::Header,
-			Vec<<Self::BridgedChain as Chain>::Header>,
-		>;
-
-		/// The maximum length of headers we can have in a single ancestry proof. This prevents
-		/// unbounded iteration when verifying proofs.
-		#[pallet::constant]
-		type MaxHeadersInSingleProof: Get<<Self::BridgedChain as Chain>::BlockNumber>;
+		type AncestryChecker: AncestryChecker<<Self::BridgedChain as Chain>::Header, Self::AncestryProof>;
 	}
 
 	#[pallet::pallet]
@@ -87,45 +84,33 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Verify a target header is finalized according to the given finality proof.
 		///
-		/// Will use the underlying storage pallet to fetch information about the current
+		/// It will use the underlying storage pallet to fetch information about the current
 		/// authorities and best finalized header in order to verify that the header is finalized.
 		///
-		/// If successful in verification, it will write the header as well as its ancestors (from
-		/// the given `ancestry_proof`) to the underlying storage pallet.
-		///
-		/// Note that the expected format for `ancestry_proof` is a continguous list of finalized
-		/// headers containing (current_best_finalized_header, finality_target]
+		/// If successful in verification, it will write the target header to the underlying storage
+		/// pallet.
 		#[pallet::weight(0)]
 		pub fn submit_finality_proof(
 			origin: OriginFor<T>,
 			finality_target: BridgedHeader<T>,
 			justification: Vec<u8>,
-			ancestry_proof: Vec<BridgedHeader<T>>,
+			ancestry_proof: T::AncestryProof,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
 			frame_support::debug::trace!("Going to try and finalize header {:?}", finality_target);
-			frame_support::debug::trace!("Got ancestry proof of length {}", ancestry_proof.len());
-
-			ensure!(
-				ancestry_proof.len() <= T::MaxHeadersInSingleProof::get().as_(),
-				<Error<T>>::OversizedAncestryProof
-			);
 
 			let authority_set = T::HeaderChain::authority_set();
 			let voter_set = VoterSet::new(authority_set.authorities).ok_or(<Error<T>>::InvalidAuthoritySet)?;
 			let set_id = authority_set.set_id;
 
-			verify_justification::<BridgedHeader<T>>(
-				(finality_target.hash(), *finality_target.number()),
-				set_id,
-				voter_set,
-				&justification,
-			)
-			.map_err(|e| {
-				frame_support::debug::error!("Received invalid justification for {:?}: {:?}", finality_target, e);
-				<Error<T>>::InvalidJustification
-			})?;
+			let (hash, number) = (finality_target.hash(), *finality_target.number());
+			verify_justification::<BridgedHeader<T>>((hash, number), set_id, voter_set, &justification).map_err(
+				|e| {
+					frame_support::debug::error!("Received invalid justification for {:?}: {:?}", finality_target, e);
+					<Error<T>>::InvalidJustification
+				},
+			)?;
 
 			let best_finalized = T::HeaderChain::best_finalized();
 			frame_support::debug::trace!("Checking ancestry against best finalized header: {:?}", &best_finalized);
@@ -135,17 +120,8 @@ pub mod pallet {
 				<Error<T>>::InvalidAncestryProof
 			);
 
-			// Note that this won't work if we ever change the `ancestry_proof` format to be
-			// sparse since this expects a contiguous set of finalized headers.
-			let _ = T::HeaderChain::append_finalized_chain(ancestry_proof).map_err(|_| {
-				frame_support::debug::error!("Failed to append finalized header chain.");
-				<Error<T>>::FailedToWriteHeader
-			})?;
-
-			frame_support::debug::info!(
-				"Succesfully imported finalized header chain for target header {:?}!",
-				finality_target
-			);
+			T::HeaderChain::append_header(finality_target);
+			frame_support::debug::info!("Succesfully imported finalized header with hash {:?}!", hash);
 
 			Ok(().into())
 		}
@@ -162,8 +138,6 @@ pub mod pallet {
 		InvalidAuthoritySet,
 		/// Failed to write a header to the underlying header chain.
 		FailedToWriteHeader,
-		/// The given ancestry proof is too large to be verified in a single transaction.
-		OversizedAncestryProof,
 	}
 }
 
@@ -279,27 +253,6 @@ mod tests {
 			assert_err!(
 				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
 				<Error<TestRuntime>>::InvalidAncestryProof
-			);
-		})
-	}
-
-	#[test]
-	fn disallows_ancestry_proofs_which_are_too_large() {
-		run_test(|| {
-			initialize_substrate_bridge();
-
-			let header = test_header(1);
-			let justification = [1u8; 32].encode();
-
-			let mut ancestry_proof = vec![];
-			let max_len = <TestRuntime as Config>::MaxHeadersInSingleProof::get();
-			for i in 1..=max_len + 1 {
-				ancestry_proof.push(test_header(i as u64));
-			}
-
-			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
-				<Error<TestRuntime>>::OversizedAncestryProof
 			);
 		})
 	}
