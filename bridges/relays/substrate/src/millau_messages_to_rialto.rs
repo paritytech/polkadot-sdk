@@ -24,6 +24,7 @@ use crate::{MillauClient, RialtoClient};
 use async_trait::async_trait;
 use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::{MILLAU_BRIDGE_INSTANCE, RIALTO_BRIDGE_INSTANCE};
+use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SigningParams as RialtoSigningParams};
@@ -74,8 +75,12 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 		proof: <Self as MessageLane>::MessagesProof,
 	) -> Result<Self::TargetSignedTransaction, SubstrateError> {
 		let (dispatch_weight, proof) = proof;
-		let (_, _, _, ref nonces_begin, ref nonces_end) = proof;
-		let messages_count = nonces_end - nonces_begin + 1;
+		let FromBridgedChainMessagesProof {
+			ref nonces_start,
+			ref nonces_end,
+			..
+		} = proof;
+		let messages_count = nonces_end - nonces_start + 1;
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
 		let call = rialto_runtime::MessageLaneCall::receive_messages_proof(
