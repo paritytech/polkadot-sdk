@@ -23,6 +23,7 @@ use crate::messages_lane::SubstrateMessageLane;
 use async_trait::async_trait;
 use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
+use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use messages_relay::{
@@ -35,13 +36,12 @@ use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf, Hea
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase, HeaderId};
 use sp_core::Bytes;
 use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
-use sp_trie::StorageProof;
 use std::ops::RangeInclusive;
 
 /// Intermediate message proof returned by the source Substrate node. Includes everything
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
 /// the proof itself.
-pub type SubstrateMessagesProof<C> = (Weight, (HashOf<C>, StorageProof, LaneId, MessageNonce, MessageNonce));
+pub type SubstrateMessagesProof<C> = (Weight, FromBridgedChainMessagesProof<HashOf<C>>);
 
 /// Substrate client as Substrate messages source.
 pub struct SubstrateMessagesSource<C: Chain, P> {
@@ -179,8 +179,16 @@ where
 				proof_parameters.outbound_state_proof_required,
 				id.1,
 			)
-			.await?;
-		let proof = (id.1, proof, self.lane_id, *nonces.start(), *nonces.end());
+			.await?
+			.iter_nodes()
+			.collect();
+		let proof = FromBridgedChainMessagesProof {
+			bridged_header_hash: id.1,
+			storage_proof: proof,
+			lane: self.lane_id,
+			nonces_start: *nonces.start(),
+			nonces_end: *nonces.end(),
+		};
 		Ok((id, nonces, (proof_parameters.dispatch_weight, proof)))
 	}
 

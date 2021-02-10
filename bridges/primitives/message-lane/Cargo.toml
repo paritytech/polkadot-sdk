@@ -9,6 +9,10 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false, features = ["derive"] }
 
+# Bridge dependencies
+
+bp-runtime = { path = "../runtime", default-features = false }
+
 # Substrate Dependencies
 
 frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
@@ -18,6 +22,7 @@ sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master
 [features]
 default = ["std"]
 std = [
+	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
