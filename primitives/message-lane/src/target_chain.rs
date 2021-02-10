@@ -18,6 +18,7 @@
 
 use crate::{LaneId, Message, MessageData, MessageKey, OutboundLaneData};
 
+use bp_runtime::Size;
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::{weights::Weight, Parameter, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, prelude::*};
@@ -63,7 +64,7 @@ pub trait SourceHeaderChain<Fee> {
 
 	/// Proof that messages are sent from source chain. This may also include proof
 	/// of corresponding outbound lane states.
-	type MessagesProof: Parameter;
+	type MessagesProof: Parameter + Size;
 
 	/// Verify messages proof and return proved messages.
 	///

@@ -245,14 +245,14 @@ impl<C: Chain> Client<C> {
 		instance: InstanceId,
 		lane: LaneId,
 		at_block: C::Hash,
-	) -> Result<StorageProof> {
+	) -> Result<Vec<Vec<u8>>> {
 		let encoded_trie_nodes =
 			SubstrateMessageLane::<C, _, _>::prove_messages_delivery(&self.client, instance, lane, Some(at_block))
 				.await
 				.map_err(Error::Request)?;
 		let decoded_trie_nodes: Vec<Vec<u8>> =
 			Decode::decode(&mut &encoded_trie_nodes[..]).map_err(Error::ResponseParseFailed)?;
-		Ok(StorageProof::new(decoded_trie_nodes))
+		Ok(decoded_trie_nodes)
 	}
 
 	/// Return new justifications stream.

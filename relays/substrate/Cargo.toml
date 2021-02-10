@@ -25,6 +25,7 @@ bp-millau = { path = "../../primitives/millau" }
 bp-polkadot = { path = "../../primitives/polkadot" }
 bp-runtime = { path = "../../primitives/runtime" }
 bp-rialto = { path = "../../primitives/rialto" }
+bridge-runtime-common = { path = "../../bin/runtime-common" }
 headers-relay = { path = "../headers-relay" }
 messages-relay = { path = "../messages-relay" }
 millau-runtime = { path = "../../bin/millau/runtime" }

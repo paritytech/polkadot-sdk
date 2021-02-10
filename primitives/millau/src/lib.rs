@@ -69,12 +69,15 @@ pub const MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE: MessageNonce = 1024;
 /// Maximal number of unconfirmed messages at inbound lane.
 pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 1024;
 
-/// Maximal weight of single message delivery transaction on Millau chain.
+/// Maximal weight of single regular message delivery transaction on Millau chain.
 ///
 /// This value is a result of `pallet_message_lane::Module::receive_messages_proof` weight formula computation
 /// for the case when single message is delivered. The result then must be rounded up to account possible future
 /// runtime upgrades.
-pub const MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT: Weight = 1_500_000_000;
+pub const MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT: Weight = 1_000_000_000;
+
+/// Increase of delivery transaction weight on Millau chain with every additional message byte.
+pub const ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT: Weight = 3_000;
 
 /// Maximal weight of single message delivery confirmation transaction on Millau chain.
 ///

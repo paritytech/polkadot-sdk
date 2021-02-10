@@ -67,10 +67,10 @@ pub type FromRialtoMessagePayload = messages::target::FromBridgedChainMessagePay
 pub type FromRialtoEncodedCall = messages::target::FromBridgedChainEncodedMessageCall<WithRialtoMessageBridge>;
 
 /// Messages proof for Rialto -> Millau messages.
-type FromRialtoMessagesProof = messages::target::FromBridgedChainMessagesProof<WithRialtoMessageBridge>;
+type FromRialtoMessagesProof = messages::target::FromBridgedChainMessagesProof<bp_rialto::Hash>;
 
 /// Messages delivery proof for Millau -> Rialto messages.
-type ToRialtoMessagesDeliveryProof = messages::source::FromBridgedChainMessagesDeliveryProof<WithRialtoMessageBridge>;
+type ToRialtoMessagesDeliveryProof = messages::source::FromBridgedChainMessagesDeliveryProof<bp_rialto::Hash>;
 
 /// Call-dispatch based message dispatch for Rialto -> Millau messages.
 pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
@@ -97,7 +97,7 @@ impl MessageBridge for WithRialtoMessageBridge {
 
 	fn weight_limits_of_message_on_bridged_chain(message_payload: &[u8]) -> RangeInclusive<Weight> {
 		// we don't want to relay too large messages + keep reserve for future upgrades
-		let upper_limit = bp_rialto::max_extrinsic_weight() / 2;
+		let upper_limit = messages::target::maximal_incoming_message_dispatch_weight(bp_rialto::max_extrinsic_weight());
 
 		// given Rialto chain parameters (`TransactionByteFee`, `WeightToFee`, `FeeMultiplierUpdate`),
 		// the minimal weight of the message may be computed as message.length()
@@ -109,13 +109,17 @@ impl MessageBridge for WithRialtoMessageBridge {
 	}
 
 	fn weight_of_delivery_transaction(message_payload: &[u8]) -> Weight {
+		let message_payload_len = u32::try_from(message_payload.len())
+			.map(Into::into)
+			.unwrap_or(Weight::MAX);
+		let extra_bytes_in_payload =
+			message_payload_len.saturating_sub(pallet_message_lane::EXPECTED_DEFAULT_MESSAGE_LENGTH.into());
 		messages::transaction_weight_without_multiplier(
-			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
-			u32::try_from(message_payload.len())
-				.map(Into::into)
-				.unwrap_or(Weight::MAX)
-				.saturating_add(bp_millau::EXTRA_STORAGE_PROOF_SIZE as _),
-			bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT,
+			bp_rialto::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
+			message_payload_len.saturating_add(bp_millau::EXTRA_STORAGE_PROOF_SIZE as _),
+			extra_bytes_in_payload
+				.saturating_mul(bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
+				.saturating_add(bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT),
 		)
 	}
 

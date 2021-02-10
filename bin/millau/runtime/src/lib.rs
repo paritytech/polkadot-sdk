@@ -623,13 +623,49 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bridge_runtime_common::messages;
 
 	#[test]
 	fn ensure_millau_message_lane_weights_are_correct() {
 		// TODO: https://github.com/paritytech/parity-bridges-common/issues/390
-		pallet_message_lane::ensure_weights_are_correct::<pallet_message_lane::weights::RialtoWeight<Runtime>>(
+		type Weights = pallet_message_lane::weights::RialtoWeight<Runtime>;
+
+		pallet_message_lane::ensure_weights_are_correct::<Weights>(
 			bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT,
 			bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
+		);
+
+		let max_incoming_message_proof_size = bp_rialto::EXTRA_STORAGE_PROOF_SIZE.saturating_add(
+			messages::target::maximal_incoming_message_size(bp_millau::max_extrinsic_size()),
+		);
+		pallet_message_lane::ensure_able_to_receive_message::<Weights>(
+			bp_millau::max_extrinsic_size(),
+			bp_millau::max_extrinsic_weight(),
+			max_incoming_message_proof_size,
+			bridge_runtime_common::messages::transaction_weight_without_multiplier(
+				bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
+				max_incoming_message_proof_size as _,
+				0,
+			),
+			messages::target::maximal_incoming_message_dispatch_weight(bp_millau::max_extrinsic_weight()),
+		);
+
+		let max_incoming_inbound_lane_data_proof_size = bp_message_lane::InboundLaneData::<()>::encoded_size_hint(
+			bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
+			bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE as _,
+		)
+		.unwrap_or(u32::MAX);
+		pallet_message_lane::ensure_able_to_receive_confirmation::<Weights>(
+			bp_millau::max_extrinsic_size(),
+			bp_millau::max_extrinsic_weight(),
+			max_incoming_inbound_lane_data_proof_size,
+			bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
+			bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
+			bridge_runtime_common::messages::transaction_weight_without_multiplier(
+				bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
+				max_incoming_inbound_lane_data_proof_size as _,
+				0,
+			),
 		);
 	}
 }
