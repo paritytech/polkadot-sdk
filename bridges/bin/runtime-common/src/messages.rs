@@ -44,7 +44,7 @@ pub trait MessageBridge {
 	const RELAYER_FEE_PERCENT: u32;
 
 	/// This chain in context of message bridge.
-	type ThisChain: ChainWithMessageLanes;
+	type ThisChain: ThisChainWithMessageLanes;
 	/// Bridged chain in context of message bridge.
 	type BridgedChain: ChainWithMessageLanes;
 
@@ -102,6 +102,17 @@ pub trait ChainWithMessageLanes {
 
 	/// Instance of the message-lane pallet.
 	type MessageLaneInstance: Instance;
+}
+
+/// This chain that has `message-lane` and `call-dispatch` modules.
+pub trait ThisChainWithMessageLanes: ChainWithMessageLanes {
+	/// Are we accepting any messages to the given lane?
+	fn is_outbound_lane_enabled(lane: &LaneId) -> bool;
+
+	/// Maximal number of pending (not yet delivered) messages at this chain.
+	///
+	/// Any messages over this limit, will be rejected.
+	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce;
 }
 
 pub(crate) type ThisChain<B> = <B as MessageBridge>::ThisChain;
@@ -187,10 +198,24 @@ pub mod source {
 	/// 'Parsed' message delivery proof - inbound lane id and its state.
 	pub type ParsedMessagesDeliveryProofFromBridgedChain<B> = (LaneId, InboundLaneData<AccountIdOf<ThisChain<B>>>);
 
-	/// Message verifier that requires submitter to pay minimal delivery and dispatch fee.
+	/// Message verifier that is doing all basic checks.
+	///
+	/// This verifier assumes following:
+	///
+	/// - all message lanes are equivalent, so all checks are the same;
+	/// - messages are being dispatched using `pallet-bridge-call-dispatch` pallet on the target chain.
+	///
+	/// Following checks are made:
+	///
+	/// - message is rejected if its lane is currently blocked;
+	/// - message is rejected if there are too many pending (undelivered) messages at the outbound lane;
+	/// - check that the sender has rights to dispatch the call on target chain using provided dispatch origin;
+	/// - check that the sender has paid enough funds for both message delivery and dispatch.
 	#[derive(RuntimeDebug)]
 	pub struct FromThisChainMessageVerifier<B>(PhantomData<B>);
 
+	pub(crate) const OUTBOUND_LANE_DISABLED: &str = "The outbound message lane is disabled.";
+	pub(crate) const TOO_MANY_PENDING_MESSAGES: &str = "Too many pending messages at the lane.";
 	pub(crate) const BAD_ORIGIN: &str = "Unable to match the source origin to expected target origin.";
 	pub(crate) const TOO_LOW_FEE: &str = "Provided fee is below minimal threshold required by the lane.";
 
@@ -205,9 +230,24 @@ pub mod source {
 		fn verify_message(
 			submitter: &Sender<AccountIdOf<ThisChain<B>>>,
 			delivery_and_dispatch_fee: &BalanceOf<ThisChain<B>>,
-			_lane: &LaneId,
+			lane: &LaneId,
+			lane_outbound_data: &OutboundLaneData,
 			payload: &FromThisChainMessagePayload<B>,
 		) -> Result<(), Self::Error> {
+			// reject message if lane is blocked
+			if !ThisChain::<B>::is_outbound_lane_enabled(lane) {
+				return Err(OUTBOUND_LANE_DISABLED);
+			}
+
+			// reject message if there are too many pending messages at this lane
+			let max_pending_messages = ThisChain::<B>::maximal_pending_messages_at_outbound_lane();
+			let pending_messages = lane_outbound_data
+				.latest_generated_nonce
+				.saturating_sub(lane_outbound_data.latest_received_nonce);
+			if pending_messages > max_pending_messages {
+				return Err(TOO_MANY_PENDING_MESSAGES);
+			}
+
 			// Do the dispatch-specific check. We assume that the target chain uses
 			// `CallDispatch`, so we verify the message accordingly.
 			pallet_bridge_call_dispatch::verify_message_origin(submitter, payload).map_err(|_| BAD_ORIGIN)?;
@@ -812,6 +852,16 @@ mod tests {
 		type MessageLaneInstance = pallet_message_lane::DefaultInstance;
 	}
 
+	impl ThisChainWithMessageLanes for ThisChain {
+		fn is_outbound_lane_enabled(lane: &LaneId) -> bool {
+			lane == TEST_LANE_ID
+		}
+
+		fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
+			MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE
+		}
+	}
+
 	struct BridgedChain;
 
 	impl ChainWithMessageLanes for BridgedChain {
@@ -824,6 +874,20 @@ mod tests {
 		type Balance = BridgedChainBalance;
 
 		type MessageLaneInstance = pallet_message_lane::DefaultInstance;
+	}
+
+	impl ThisChainWithMessageLanes for BridgedChain {
+		fn is_outbound_lane_enabled(_lane: &LaneId) -> bool {
+			unreachable!()
+		}
+
+		fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
+			unreachable!()
+		}
+	}
+
+	fn test_lane_outbound_data() -> OutboundLaneData {
+		OutboundLaneData::default()
 	}
 
 	#[test]
@@ -857,18 +921,23 @@ mod tests {
 	}
 
 	const TEST_LANE_ID: &LaneId = b"test";
+	const MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE: MessageNonce = 32;
+
+	fn regular_outbound_message_payload() -> source::FromThisChainMessagePayload<OnThisChainBridge> {
+		source::FromThisChainMessagePayload::<OnThisChainBridge> {
+			spec_version: 1,
+			weight: 100,
+			origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+			call: vec![42],
+		}
+	}
 
 	#[test]
 	fn message_fee_is_checked_by_verifier() {
 		const EXPECTED_MINIMAL_FEE: u32 = 5500;
 
 		// payload of the This -> Bridged chain message
-		let payload = source::FromThisChainMessagePayload::<OnThisChainBridge> {
-			spec_version: 1,
-			weight: 100,
-			origin: pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
-			call: vec![42],
-		};
+		let payload = regular_outbound_message_payload();
 
 		// let's check if estimation matching hardcoded value
 		assert_eq!(
@@ -885,6 +954,7 @@ mod tests {
 				&Sender::Root,
 				&ThisChainBalance(1),
 				&TEST_LANE_ID,
+				&test_lane_outbound_data(),
 				&payload,
 			),
 			Err(source::TOO_LOW_FEE)
@@ -894,6 +964,7 @@ mod tests {
 				&Sender::Root,
 				&ThisChainBalance(1_000_000),
 				&TEST_LANE_ID,
+				&test_lane_outbound_data(),
 				&payload,
 			)
 			.is_ok(),
@@ -916,6 +987,7 @@ mod tests {
 				&Sender::Signed(ThisChainAccountId(0)),
 				&ThisChainBalance(1_000_000),
 				&TEST_LANE_ID,
+				&test_lane_outbound_data(),
 				&payload,
 			),
 			Err(source::BAD_ORIGIN)
@@ -925,6 +997,7 @@ mod tests {
 				&Sender::None,
 				&ThisChainBalance(1_000_000),
 				&TEST_LANE_ID,
+				&test_lane_outbound_data(),
 				&payload,
 			),
 			Err(source::BAD_ORIGIN)
@@ -934,6 +1007,7 @@ mod tests {
 				&Sender::Root,
 				&ThisChainBalance(1_000_000),
 				&TEST_LANE_ID,
+				&test_lane_outbound_data(),
 				&payload,
 			)
 			.is_ok(),
@@ -956,6 +1030,7 @@ mod tests {
 				&Sender::Signed(ThisChainAccountId(0)),
 				&ThisChainBalance(1_000_000),
 				&TEST_LANE_ID,
+				&test_lane_outbound_data(),
 				&payload,
 			),
 			Err(source::BAD_ORIGIN)
@@ -965,9 +1040,42 @@ mod tests {
 				&Sender::Signed(ThisChainAccountId(1)),
 				&ThisChainBalance(1_000_000),
 				&TEST_LANE_ID,
+				&test_lane_outbound_data(),
 				&payload,
 			)
 			.is_ok(),
+		);
+	}
+
+	#[test]
+	fn message_is_rejected_when_sent_using_disabled_lane() {
+		assert_eq!(
+			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
+				&Sender::Root,
+				&ThisChainBalance(1_000_000),
+				b"dsbl",
+				&test_lane_outbound_data(),
+				&regular_outbound_message_payload(),
+			),
+			Err(source::OUTBOUND_LANE_DISABLED)
+		);
+	}
+
+	#[test]
+	fn message_is_rejected_when_there_are_too_many_pending_messages_at_outbound_lane() {
+		assert_eq!(
+			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
+				&Sender::Root,
+				&ThisChainBalance(1_000_000),
+				&TEST_LANE_ID,
+				&OutboundLaneData {
+					latest_received_nonce: 100,
+					latest_generated_nonce: 100 + MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE + 1,
+					..Default::default()
+				},
+				&regular_outbound_message_payload(),
+			),
+			Err(source::TOO_MANY_PENDING_MESSAGES)
 		);
 	}
 
