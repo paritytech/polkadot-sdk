@@ -21,7 +21,7 @@ use bp_message_lane::{
 		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, Sender, TargetHeaderChain,
 	},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce,
+	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
 use bp_runtime::Size;
 use codec::{Decode, Encode};
@@ -253,6 +253,7 @@ impl LaneMessageVerifier<AccountId, TestPayload, TestMessageFee> for TestLaneMes
 		_submitter: &Sender<AccountId>,
 		delivery_and_dispatch_fee: &TestMessageFee,
 		_lane: &LaneId,
+		_lane_outbound_data: &OutboundLaneData,
 		_payload: &TestPayload,
 	) -> Result<(), Self::Error> {
 		if *delivery_and_dispatch_fee != 0 {
