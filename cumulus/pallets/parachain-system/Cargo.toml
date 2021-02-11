@@ -8,6 +8,7 @@ description = "Base pallet for cumulus-based parachains"
 [dependencies]
 # Cumulus dependencies
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, features = [ "wasm-api" ], branch = "master" }
@@ -68,4 +69,5 @@ std = [
 	"frame-system/std",
 	"frame-executive/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-parachain-inherent/std",
 ]

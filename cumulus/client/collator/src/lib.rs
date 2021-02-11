@@ -18,10 +18,9 @@
 
 use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{
-	inherents, ParachainBlockData,
-	well_known_keys, InboundDownwardMessage, InboundHrmpMessage, OutboundHrmpMessage,
-	PersistedValidationData, relay_chain,
+	well_known_keys, OutboundHrmpMessage, ParachainBlockData, PersistedValidationData,
 };
+use cumulus_primitives_parachain_inherent::ParachainInherentData;
 
 use sc_client_api::{BlockBackend, StateBackend};
 use sp_consensus::{
@@ -41,7 +40,7 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_overseer::OverseerHandler;
 use polkadot_primitives::v1::{
 	Block as PBlock, BlockData, BlockNumber as PBlockNumber, CollatorPair, Hash as PHash, HeadData,
-	Id as ParaId, PoV, UpwardMessage, HrmpChannelId,
+	Id as ParaId, PoV, UpwardMessage,
 };
 use polkadot_service::RuntimeApiCollection;
 
@@ -51,7 +50,7 @@ use log::{debug, error, info, trace};
 
 use futures::prelude::*;
 
-use std::{collections::BTreeMap, marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
 
@@ -101,10 +100,10 @@ where
 	PF: Environment<Block> + 'static + Send,
 	PF::Proposer: Send,
 	BI: BlockImport<
-		Block,
-		Error = ConsensusError,
-		Transaction = <PF::Proposer as Proposer<Block>>::Transaction,
-	> + Send
+			Block,
+			Error = ConsensusError,
+			Transaction = <PF::Proposer as Proposer<Block>>::Transaction,
+		> + Send
 		+ Sync
 		+ 'static,
 	BS: BlockBackend<Block>,
@@ -150,161 +149,6 @@ where
 		}
 	}
 
-	/// Returns the whole contents of the downward message queue for the parachain we are collating
-	/// for.
-	///
-	/// Returns `None` in case of an error.
-	fn retrieve_dmq_contents(&self, relay_parent: PHash) -> Option<Vec<InboundDownwardMessage>> {
-		self.polkadot_client
-			.runtime_api()
-			.dmq_contents_with_context(
-				&BlockId::hash(relay_parent),
-				sp_core::ExecutionContext::Importing,
-				self.para_id,
-			)
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"An error occured during requesting the downward messages for {}: {:?}",
-					relay_parent, e,
-				);
-			})
-			.ok()
-	}
-
-	/// Returns channels contents for each inbound HRMP channel addressed to the parachain we are
-	/// collating for.
-	///
-	/// Empty channels are also included.
-	fn retrieve_all_inbound_hrmp_channel_contents(
-		&self,
-		relay_parent: PHash,
-	) -> Option<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
-		self.polkadot_client
-			.runtime_api()
-			.inbound_hrmp_channels_contents_with_context(
-				&BlockId::hash(relay_parent),
-				sp_core::ExecutionContext::Importing,
-				self.para_id,
-			)
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"An error occured during requesting the inbound HRMP messages for {}: {:?}",
-					relay_parent, e,
-				);
-			})
-			.ok()
-	}
-
-	/// Collect the relevant relay chain state in form of a proof for putting it into the validation
-	/// data inherent.
-	fn collect_relay_storage_proof(
-		&self,
-		relay_parent: PHash,
-	) -> Option<sp_state_machine::StorageProof> {
-		use relay_chain::well_known_keys as relay_well_known_keys;
-
-		let relay_parent_state_backend = self
-			.polkadot_backend
-			.state_at(BlockId::Hash(relay_parent))
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Cannot obtain the state of the relay chain at `{:?}`: {:?}",
-					relay_parent,
-					e,
-				)
-			})
-			.ok()?;
-
-		let ingress_channels = relay_parent_state_backend
-			.storage(&relay_well_known_keys::hrmp_ingress_channel_index(
-				self.para_id,
-			))
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Cannot obtain the hrmp ingress channel index: {:?}",
-					e,
-				)
-			})
-			.ok()?;
-		let ingress_channels = ingress_channels
-			.map(|raw| <Vec<ParaId>>::decode(&mut &raw[..]))
-			.transpose()
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Cannot decode the hrmp ingress channel index: {:?}",
-					e,
-				)
-			})
-			.ok()?
-			.unwrap_or_default();
-
-		let egress_channels = relay_parent_state_backend
-			.storage(&relay_well_known_keys::hrmp_egress_channel_index(
-				self.para_id,
-			))
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Cannot obtain the hrmp egress channel index: {:?}",
-					e,
-				)
-			})
-			.ok()?;
-		let egress_channels = egress_channels
-			.map(|raw| <Vec<ParaId>>::decode(&mut &raw[..]))
-			.transpose()
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Cannot decode the hrmp egress channel index: {:?}",
-					e,
-				)
-			})
-			.ok()?
-			.unwrap_or_default();
-
-		let mut relevant_keys = vec![];
-		relevant_keys.push(relay_well_known_keys::ACTIVE_CONFIG.to_vec());
-		relevant_keys.push(relay_well_known_keys::dmq_mqc_head(self.para_id));
-		relevant_keys.push(relay_well_known_keys::relay_dispatch_queue_size(
-			self.para_id,
-		));
-		relevant_keys.push(relay_well_known_keys::hrmp_ingress_channel_index(
-			self.para_id,
-		));
-		relevant_keys.push(relay_well_known_keys::hrmp_egress_channel_index(
-			self.para_id,
-		));
-		relevant_keys.extend(ingress_channels.into_iter().map(|sender| {
-			relay_well_known_keys::hrmp_channels(HrmpChannelId {
-				sender,
-				recipient: self.para_id,
-			})
-		}));
-		relevant_keys.extend(egress_channels.into_iter().map(|recipient| {
-			relay_well_known_keys::hrmp_channels(HrmpChannelId {
-				sender: self.para_id,
-				recipient,
-			})
-		}));
-
-		sp_state_machine::prove_read(relay_parent_state_backend, relevant_keys)
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Failed to collect required relay chain state storage proof at `{:?}`: {:?}",
-					relay_parent,
-					e,
-				)
-			})
-			.ok()
-	}
-
 	/// Get the inherent data with validation function parameters injected
 	fn inherent_data(
 		&mut self,
@@ -317,36 +161,28 @@ where
 			.map_err(|e| {
 				error!(
 					target: LOG_TARGET,
-					"Failed to create inherent data: {:?}",
-					e,
+					"Failed to create inherent data: {:?}", e,
 				)
 			})
 			.ok()?;
 
-		let system_inherent_data = {
-			let relay_chain_state = self.collect_relay_storage_proof(relay_parent)?;
-			let downward_messages = self.retrieve_dmq_contents(relay_parent)?;
-			let horizontal_messages =
-				self.retrieve_all_inbound_hrmp_channel_contents(relay_parent)?;
-
-			inherents::SystemInherentData {
-				downward_messages,
-				horizontal_messages,
-				validation_data: validation_data.clone(),
-				relay_chain_state,
-			}
-		};
+		let parachain_inherent_data = ParachainInherentData::create_at(
+			relay_parent,
+			&*self.polkadot_client,
+			&*self.polkadot_backend,
+			validation_data,
+			self.para_id,
+		)?;
 
 		inherent_data
 			.put_data(
-				inherents::SYSTEM_INHERENT_IDENTIFIER,
-				&system_inherent_data,
+				cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
+				&parachain_inherent_data,
 			)
 			.map_err(|e| {
 				error!(
 					target: LOG_TARGET,
-					"Failed to put the system inherent into inherent data: {:?}",
-					e,
+					"Failed to put the system inherent into inherent data: {:?}", e,
 				)
 			})
 			.ok()?;
@@ -371,8 +207,7 @@ where
 			Ok(BlockStatus::InChainPruned) => {
 				error!(
 					target: LOG_TARGET,
-					"Skipping candidate production, because block `{:?}` is already pruned!",
-					hash,
+					"Skipping candidate production, because block `{:?}` is already pruned!", hash,
 				);
 				false
 			}
@@ -394,8 +229,7 @@ where
 				} else {
 					debug!(
 						target: LOG_TARGET,
-						"Skipping candidate production, because block `{:?}` is unknown.",
-						hash,
+						"Skipping candidate production, because block `{:?}` is unknown.", hash,
 					);
 				}
 				false
@@ -403,9 +237,7 @@ where
 			Err(e) => {
 				error!(
 					target: LOG_TARGET,
-					"Failed to get block status of `{:?}`: {:?}",
-					hash,
-					e,
+					"Failed to get block status of `{:?}`: {:?}", hash, e,
 				);
 				false
 			}
@@ -425,39 +257,45 @@ where
 		let state = match self.backend.state_at(BlockId::Hash(block_hash)) {
 			Ok(state) => state,
 			Err(e) => {
-				error!(target: LOG_TARGET, "Failed to get state of the freshly built block: {:?}", e);
+				error!(
+					target: LOG_TARGET,
+					"Failed to get state of the freshly built block: {:?}", e
+				);
 				return None;
 			}
 		};
 
 		state.inspect_state(|| {
 			let upward_messages = sp_io::storage::get(well_known_keys::UPWARD_MESSAGES);
-			let upward_messages = match upward_messages.map(|v| Vec::<UpwardMessage>::decode(&mut &v[..])) {
-				Some(Ok(msgs)) => msgs,
-				Some(Err(e)) => {
-					error!(target: LOG_TARGET, "Failed to decode upward messages from the build block: {:?}", e);
-					return None
-				},
-				None => Vec::new(),
-			};
+			let upward_messages =
+				match upward_messages.map(|v| Vec::<UpwardMessage>::decode(&mut &v[..])) {
+					Some(Ok(msgs)) => msgs,
+					Some(Err(e)) => {
+						error!(
+							target: LOG_TARGET,
+							"Failed to decode upward messages from the build block: {:?}", e
+						);
+						return None;
+					}
+					None => Vec::new(),
+				};
 
 			let new_validation_code = sp_io::storage::get(well_known_keys::NEW_VALIDATION_CODE);
 
-			let processed_downward_messages = sp_io::storage::get(well_known_keys::PROCESSED_DOWNWARD_MESSAGES);
-			let processed_downward_messages = match processed_downward_messages
-				.map(|v| u32::decode(&mut &v[..]))
-			{
-				Some(Ok(processed_cnt)) => processed_cnt,
-				Some(Err(e)) => {
-					error!(
-						target: LOG_TARGET,
-						"Failed to decode the count of processed downward messages: {:?}",
-						e
-					);
-					return None
-				}
-				None => 0,
-			};
+			let processed_downward_messages =
+				sp_io::storage::get(well_known_keys::PROCESSED_DOWNWARD_MESSAGES);
+			let processed_downward_messages =
+				match processed_downward_messages.map(|v| u32::decode(&mut &v[..])) {
+					Some(Ok(processed_cnt)) => processed_cnt,
+					Some(Err(e)) => {
+						error!(
+							target: LOG_TARGET,
+							"Failed to decode the count of processed downward messages: {:?}", e
+						);
+						return None;
+					}
+					None => 0,
+				};
 
 			let horizontal_messages = sp_io::storage::get(well_known_keys::HRMP_OUTBOUND_MESSAGES);
 			let horizontal_messages = match horizontal_messages
@@ -467,10 +305,9 @@ where
 				Some(Err(e)) => {
 					error!(
 						target: LOG_TARGET,
-						"Failed to decode the horizontal messages: {:?}",
-						e
+						"Failed to decode the horizontal messages: {:?}", e
 					);
-					return None
+					return None;
 				}
 				None => Vec::new(),
 			};
@@ -481,10 +318,9 @@ where
 				Some(Err(e)) => {
 					error!(
 						target: LOG_TARGET,
-						"Failed to decode the HRMP watermark: {:?}",
-						e
+						"Failed to decode the HRMP watermark: {:?}", e
 					);
-					return None
+					return None;
 				}
 				None => {
 					// If the runtime didn't set `HRMP_WATERMARK`, then it means no messages were
@@ -514,14 +350,16 @@ where
 	) -> Option<Collation> {
 		trace!(target: LOG_TARGET, "Producing candidate");
 
-		let last_head =
-			match Block::Header::decode(&mut &validation_data.parent_head.0[..]) {
-				Ok(x) => x,
-				Err(e) => {
-					error!(target: LOG_TARGET, "Could not decode the head data: {:?}", e);
-					return None;
-				}
-			};
+		let last_head = match Block::Header::decode(&mut &validation_data.parent_head.0[..]) {
+			Ok(x) => x,
+			Err(e) => {
+				error!(
+					target: LOG_TARGET,
+					"Could not decode the head data: {:?}", e
+				);
+				return None;
+			}
+		};
 
 		let last_head_hash = last_head.hash();
 		if !self.check_block_status(last_head_hash, &last_head) {
@@ -539,13 +377,7 @@ where
 
 		let proposer = proposer_future
 			.await
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Could not create proposer: {:?}",
-					e,
-				)
-			})
+			.map_err(|e| error!(target: LOG_TARGET, "Could not create proposer: {:?}", e,))
 			.ok()?;
 
 		let inherent_data = self.inherent_data(&validation_data, relay_parent)?;
@@ -563,13 +395,7 @@ where
 				RecordProof::Yes,
 			)
 			.await
-			.map_err(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Proposing failed: {:?}",
-					e,
-				)
-			})
+			.map_err(|e| error!(target: LOG_TARGET, "Proposing failed: {:?}", e,))
 			.ok()?;
 
 		let proof = match proof {
@@ -619,8 +445,7 @@ where
 			b.storage_proof().encode().len() as f64 / 1024f64,
 		);
 
-		let collation =
-			self.build_collation(b, block_hash, validation_data.relay_parent_number)?;
+		let collation = self.build_collation(b, block_hash, validation_data.relay_parent_number)?;
 		let pov_hash = collation.proof_of_validity.hash();
 
 		self.wait_to_announce
@@ -629,9 +454,7 @@ where
 
 		info!(
 			target: LOG_TARGET,
-			"Produced proof-of-validity candidate {:?} from block {:?}.",
-			pov_hash,
-			block_hash,
+			"Produced proof-of-validity candidate {:?} from block {:?}.", pov_hash, block_hash,
 		);
 
 		Some(collation)

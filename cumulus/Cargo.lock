@@ -1075,6 +1075,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-client-network",
  "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
  "cumulus-test-client",
  "cumulus-test-runtime",
  "env_logger",
@@ -1188,6 +1189,7 @@ name = "cumulus-pallet-parachain-system"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "env_logger",
@@ -1241,11 +1243,26 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain",
  "polkadot-primitives",
- "sp-core",
- "sp-inherents",
  "sp-runtime",
  "sp-std",
  "sp-trie",
+]
+
+[[package]]
+name = "cumulus-primitives-parachain-inherent"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sp-api",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "sp-trie",
+ "tracing",
 ]
 
 [[package]]
@@ -1253,6 +1270,7 @@ name = "cumulus-test-client"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
  "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
  "cumulus-test-service",

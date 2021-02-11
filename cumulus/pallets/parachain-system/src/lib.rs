@@ -28,13 +28,13 @@
 //! Users must ensure that they register this pallet as an inherent provider.
 
 use cumulus_primitives_core::{
-	inherents::{SystemInherentData, SYSTEM_INHERENT_IDENTIFIER},
 	relay_chain,
 	well_known_keys::{self, NEW_VALIDATION_CODE, VALIDATION_DATA},
 	AbridgedHostConfiguration, DownwardMessageHandler, HrmpMessageHandler, HrmpMessageSender,
 	InboundDownwardMessage, InboundHrmpMessage, OnValidationData, OutboundHrmpMessage, ParaId,
 	PersistedValidationData, UpwardMessage, UpwardMessageSender,
 };
+use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::DispatchResult,
@@ -166,11 +166,11 @@ decl_module! {
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
 		#[weight = (0, DispatchClass::Mandatory)]
-		fn set_validation_data(origin, data: SystemInherentData) -> DispatchResult {
+		fn set_validation_data(origin, data: ParachainInherentData) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(!DidUpdateValidationData::exists(), "ValidationData must be updated only once in a block");
 
-			let SystemInherentData {
+			let ParachainInherentData {
 				validation_data: vfp,
 				relay_chain_state,
 				downward_messages,
@@ -798,11 +798,12 @@ impl<T: Config> HrmpMessageSender for Module<T> {
 impl<T: Config> ProvideInherent for Module<T> {
 	type Call = Call<T>;
 	type Error = sp_inherents::MakeFatalError<()>;
-	const INHERENT_IDENTIFIER: InherentIdentifier = SYSTEM_INHERENT_IDENTIFIER;
+	const INHERENT_IDENTIFIER: InherentIdentifier =
+		cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-		let data: SystemInherentData = data
-			.get_data(&SYSTEM_INHERENT_IDENTIFIER)
+		let data: ParachainInherentData = data
+			.get_data(&Self::INHERENT_IDENTIFIER)
 			.ok()
 			.flatten()
 			.expect("validation function params are always injected into inherent data; qed");
@@ -1029,7 +1030,7 @@ mod tests {
 		persisted_validation_data_hook:
 			Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut PersistedValidationData)>>,
 		inherent_data_hook:
-			Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut SystemInherentData)>>,
+			Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData)>>,
 	}
 
 	impl BlockTests {
@@ -1089,7 +1090,7 @@ mod tests {
 
 		fn with_inherent_data<F>(mut self, f: F) -> Self
 		where
-			F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut SystemInherentData),
+			F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData),
 		{
 			self.inherent_data_hook = Some(Box::new(f));
 			self
@@ -1142,7 +1143,7 @@ mod tests {
 					// to storage; they must also be included in the inherent data.
 					let inherent_data = {
 						let mut inherent_data = InherentData::default();
-						let mut system_inherent_data = SystemInherentData {
+						let mut system_inherent_data = ParachainInherentData {
 							validation_data: vfp.clone(),
 							relay_chain_state,
 							downward_messages: Default::default(),
@@ -1152,7 +1153,10 @@ mod tests {
 							hook(self, *n as RelayChainBlockNumber, &mut system_inherent_data);
 						}
 						inherent_data
-							.put_data(SYSTEM_INHERENT_IDENTIFIER, &system_inherent_data)
+							.put_data(
+								cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
+								&system_inherent_data,
+							)
 							.expect("failed to put VFP inherent");
 						inherent_data
 					};

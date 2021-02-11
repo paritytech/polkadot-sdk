@@ -39,37 +39,6 @@ pub type InboundHrmpMessage = polkadot_primitives::v1::InboundHrmpMessage<relay_
 /// And outbound HRMP message
 pub type OutboundHrmpMessage = polkadot_primitives::v1::OutboundHrmpMessage<ParaId>;
 
-/// Identifiers and types related to Cumulus Inherents
-pub mod inherents {
-	use super::{InboundDownwardMessage, InboundHrmpMessage, ParaId};
-	use sp_inherents::InherentIdentifier;
-	use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-
-	/// The identifier for the parachain-system inherent.
-	pub const SYSTEM_INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
-
-	/// The payload that system inherent carries.
-	#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq)]
-	pub struct SystemInherentData {
-		pub validation_data: crate::PersistedValidationData,
-		/// A storage proof of a predefined set of keys from the relay-chain.
-		///
-		/// Specifically this witness contains the data for:
-		///
-		/// - active host configuration as per the relay parent,
-		/// - the relay dispatch queue sizes
-		/// - the list of egress HRMP channels (in the list of recipients form)
-		/// - the metadata for the egress HRMP channels
-		pub relay_chain_state: sp_trie::StorageProof,
-		/// Downward messages in the order they were sent.
-		pub downward_messages: Vec<InboundDownwardMessage>,
-		/// HRMP messages grouped by channels. The messages in the inner vec must be in order they
-		/// were sent. In combination with the rule of no more than one message in a channel per block,
-		/// this means `sent_at` is **strictly** greater than the previous one (if any).
-		pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
-	}
-}
-
 /// Well known keys for values in the storage.
 pub mod well_known_keys {
 	/// The storage key for the upward messages.

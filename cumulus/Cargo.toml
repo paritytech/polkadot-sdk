@@ -6,6 +6,7 @@ members = [
 	"pallets/parachain-system",
 	"pallets/xcm-handler",
 	"primitives/core",
+	"primitives/parachain-inherent",
 	"rococo-parachains/",
 	"rococo-parachains/pallets/parachain-info",
 	"rococo-parachains/primitives",
