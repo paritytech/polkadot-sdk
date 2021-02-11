@@ -167,6 +167,16 @@ impl messages::ChainWithMessageLanes for Rialto {
 	type MessageLaneInstance = crate::WithMillauMessageLaneInstance;
 }
 
+impl messages::ThisChainWithMessageLanes for Rialto {
+	fn is_outbound_lane_enabled(lane: &LaneId) -> bool {
+		*lane == LaneId::default()
+	}
+
+	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
+		MessageNonce::MAX
+	}
+}
+
 /// Millau chain from message lane point of view.
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct Millau;

@@ -16,7 +16,7 @@
 
 //! Primitives of message lane module, that are used on the source chain.
 
-use crate::{InboundLaneData, LaneId, MessageNonce};
+use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
 
 use bp_runtime::Size;
 use frame_support::{Parameter, RuntimeDebug};
@@ -86,6 +86,7 @@ pub trait LaneMessageVerifier<Submitter, Payload, Fee> {
 		submitter: &Sender<Submitter>,
 		delivery_and_dispatch_fee: &Fee,
 		lane: &LaneId,
+		outbound_data: &OutboundLaneData,
 		payload: &Payload,
 	) -> Result<(), Self::Error>;
 }

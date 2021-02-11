@@ -49,6 +49,11 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 		OutboundLane { storage }
 	}
 
+	/// Get this lane data.
+	pub fn data(&self) -> OutboundLaneData {
+		self.storage.data()
+	}
+
 	/// Send message over lane.
 	///
 	/// Returns new message nonce.

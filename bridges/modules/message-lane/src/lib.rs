@@ -293,10 +293,12 @@ decl_module! {
 				})?;
 
 			// now let's enforce any additional lane rules
+			let mut lane = outbound_lane::<T, I>(lane_id);
 			T::LaneMessageVerifier::verify_message(
 				&submitter,
 				&delivery_and_dispatch_fee,
 				&lane_id,
+				&lane.data(),
 				&payload,
 			).map_err(|err| {
 				frame_support::debug::trace!(
@@ -326,7 +328,6 @@ decl_module! {
 			})?;
 
 			// finally, save message in outbound storage and emit event
-			let mut lane = outbound_lane::<T, I>(lane_id);
 			let encoded_payload = payload.encode();
 			let encoded_payload_len = encoded_payload.len();
 			let nonce = lane.send_message(MessageData {
