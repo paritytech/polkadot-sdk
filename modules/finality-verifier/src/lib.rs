@@ -72,13 +72,28 @@ pub mod pallet {
 		/// The type through which we will verify that a given header is related to the last
 		/// finalized header in our storage pallet.
 		type AncestryChecker: AncestryChecker<<Self::BridgedChain as Chain>::Header, Self::AncestryProof>;
+
+		/// The upper bound on the number of requests allowed by the pallet.
+		///
+		/// Once this bound is reached the pallet will not allow any dispatchables to be called
+		/// until the request count has decreased.
+		#[pallet::constant]
+		type MaxRequests: Get<u32>;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: T::BlockNumber) -> frame_support::weights::Weight {
+			<RequestCount<T>>::mutate(|count| *count = count.saturating_sub(1));
+
+			(0_u64)
+				.saturating_add(T::DbWeight::get().reads(1))
+				.saturating_add(T::DbWeight::get().writes(1))
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -97,6 +112,12 @@ pub mod pallet {
 			ancestry_proof: T::AncestryProof,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
+
+			ensure!(
+				Self::request_count() < T::MaxRequests::get(),
+				<Error<T>>::TooManyRequests
+			);
+			<RequestCount<T>>::mutate(|count| *count += 1);
 
 			frame_support::debug::trace!("Going to try and finalize header {:?}", finality_target);
 
@@ -127,6 +148,17 @@ pub mod pallet {
 		}
 	}
 
+	/// The current number of requests for calling dispatchables.
+	///
+	/// If the `RequestCount` hits `MaxRequests`, no more calls will be allowed to the pallet until
+	/// the request capacity is increased.
+	///
+	/// The `RequestCount` is decreased by one at the beginning of every block. This is to ensure
+	/// that the pallet can always make progress.
+	#[pallet::storage]
+	#[pallet::getter(fn request_count)]
+	pub(super) type RequestCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The given justification is invalid for the given header.
@@ -138,6 +170,8 @@ pub mod pallet {
 		InvalidAuthoritySet,
 		/// Failed to write a header to the underlying header chain.
 		FailedToWriteHeader,
+		/// There are too many requests for the current window to handle.
+		TooManyRequests,
 	}
 }
 
@@ -166,27 +200,34 @@ mod tests {
 		));
 	}
 
+	fn submit_finality_proof() -> frame_support::dispatch::DispatchResultWithPostInfo {
+		let child = test_header(1);
+		let header = test_header(2);
+
+		let set_id = 1;
+		let grandpa_round = 1;
+		let justification = make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+		let ancestry_proof = vec![child, header.clone()];
+
+		Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof)
+	}
+
+	fn next_block() {
+		use frame_support::traits::OnInitialize;
+
+		let current_number = frame_system::Module::<TestRuntime>::block_number();
+		frame_system::Module::<TestRuntime>::set_block_number(current_number + 1);
+		let _ = Module::<TestRuntime>::on_initialize(current_number);
+	}
+
 	#[test]
 	fn succesfully_imports_header_with_valid_finality_and_ancestry_proofs() {
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			let child = test_header(1);
+			assert_ok!(submit_finality_proof());
+
 			let header = test_header(2);
-
-			let set_id = 1;
-			let grandpa_round = 1;
-			let justification =
-				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
-			let ancestry_proof = vec![child, header.clone()];
-
-			assert_ok!(Module::<TestRuntime>::submit_finality_proof(
-				Origin::signed(1),
-				header.clone(),
-				justification,
-				ancestry_proof,
-			));
-
 			assert_eq!(
 				pallet_substrate_bridge::Module::<TestRuntime>::best_headers(),
 				vec![(*header.number(), header.hash())]
@@ -286,6 +327,57 @@ mod tests {
 				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
 				<Error<TestRuntime>>::InvalidAuthoritySet
 			);
+		})
+	}
+
+	#[test]
+	fn disallows_imports_once_limit_is_hit_in_single_block() {
+		run_test(|| {
+			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof());
+			assert_err!(submit_finality_proof(), <Error<TestRuntime>>::TooManyRequests);
+		})
+	}
+
+	#[test]
+	fn allows_request_after_new_block_has_started() {
+		run_test(|| {
+			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof());
+
+			next_block();
+			assert_ok!(submit_finality_proof());
+		})
+	}
+
+	#[test]
+	fn disallows_imports_once_limit_is_hit_across_different_blocks() {
+		run_test(|| {
+			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof());
+
+			next_block();
+			assert_ok!(submit_finality_proof());
+			assert_err!(submit_finality_proof(), <Error<TestRuntime>>::TooManyRequests);
+		})
+	}
+
+	#[test]
+	fn allows_max_requests_after_long_time_with_no_activity() {
+		run_test(|| {
+			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof());
+
+			next_block();
+			next_block();
+
+			next_block();
+			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof());
 		})
 	}
 }
