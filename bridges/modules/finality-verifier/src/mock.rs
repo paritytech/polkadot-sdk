@@ -71,7 +71,7 @@ impl pallet_substrate_bridge::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const MaxElementsInSingleProof: Option<u32> = Some(5);
+	pub const MaxRequests: u32 = 2;
 }
 
 impl crate::pallet::Config for TestRuntime {
@@ -79,6 +79,7 @@ impl crate::pallet::Config for TestRuntime {
 	type HeaderChain = pallet_substrate_bridge::Module<TestRuntime>;
 	type AncestryProof = Vec<<Self::BridgedChain as Chain>::Header>;
 	type AncestryChecker = Checker<<Self::BridgedChain as Chain>::Header, Self::AncestryProof>;
+	type MaxRequests = MaxRequests;
 }
 
 #[derive(Debug)]
