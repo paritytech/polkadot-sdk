@@ -238,6 +238,36 @@ type MessageDeliveryStrategyBase<P> = BasicStrategy<
 	<P as MessageLane>::MessagesProof,
 >;
 
+impl<P: MessageLane> std::fmt::Debug for MessageDeliveryStrategy<P> {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		fmt.debug_struct("MessageDeliveryStrategy")
+			.field(
+				"max_unrewarded_relayer_entries_at_target",
+				&self.max_unrewarded_relayer_entries_at_target,
+			)
+			.field(
+				"max_unconfirmed_nonces_at_target",
+				&self.max_unconfirmed_nonces_at_target,
+			)
+			.field("max_messages_in_single_batch", &self.max_messages_in_single_batch)
+			.field(
+				"max_messages_weight_in_single_batch",
+				&self.max_messages_weight_in_single_batch,
+			)
+			.field(
+				"max_messages_size_in_single_batch",
+				&self.max_messages_size_in_single_batch,
+			)
+			.field(
+				"latest_confirmed_noncs_at_source",
+				&self.latest_confirmed_nonce_at_source,
+			)
+			.field("target_nonces", &self.target_nonces)
+			.field("strategy", &self.strategy)
+			.finish()
+	}
+}
+
 impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
 	for MessageDeliveryStrategy<P>
 {

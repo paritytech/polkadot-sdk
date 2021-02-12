@@ -21,7 +21,7 @@ use crate::message_race_loop::{NoncesRange, RaceState, RaceStrategy, SourceClien
 
 use bp_message_lane::MessageNonce;
 use relay_utils::HeaderId;
-use std::{collections::VecDeque, marker::PhantomData, ops::RangeInclusive};
+use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, ops::RangeInclusive};
 
 /// Nonces delivery strategy.
 #[derive(Debug)]
@@ -147,9 +147,12 @@ impl<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash,
 	RaceStrategy<HeaderId<SourceHeaderHash, SourceHeaderNumber>, HeaderId<TargetHeaderHash, TargetHeaderNumber>, Proof>
 	for BasicStrategy<SourceHeaderNumber, SourceHeaderHash, TargetHeaderNumber, TargetHeaderHash, SourceNoncesRange, Proof>
 where
-	SourceHeaderHash: Clone,
-	SourceHeaderNumber: Clone + Ord,
-	SourceNoncesRange: NoncesRange,
+	SourceHeaderHash: Clone + Debug,
+	SourceHeaderNumber: Clone + Ord + Debug,
+	SourceNoncesRange: NoncesRange + Debug,
+	TargetHeaderHash: Debug,
+	TargetHeaderNumber: Debug,
+	Proof: Debug,
 {
 	type SourceNoncesRange = SourceNoncesRange;
 	type ProofParameters = ();
