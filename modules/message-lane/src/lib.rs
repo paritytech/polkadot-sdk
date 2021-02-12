@@ -42,6 +42,7 @@ pub use crate::weights_ext::{
 
 use crate::inbound_lane::{InboundLane, InboundLaneStorage};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
+use crate::weights::WeightInfo;
 
 use bp_message_lane::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, TargetHeaderChain},
@@ -173,6 +174,10 @@ decl_error! {
 		InvalidMessagesDeliveryProof,
 		/// The relayer has declared invalid unrewarded relayers state in the `receive_messages_delivery_proof` call.
 		InvalidUnrewardedRelayersState,
+		/// The message someone is trying to work with (i.e. increase fee) is already-delivered.
+		MessageIsAlreadyDelivered,
+		/// The message someone is trying to work with (i.e. increase fee) is not yet sent.
+		MessageIsNotYetSent
 	}
 }
 
@@ -344,6 +349,57 @@ decl_module! {
 			);
 
 			Self::deposit_event(RawEvent::MessageAccepted(lane_id, nonce));
+
+			Ok(())
+		}
+
+		/// Pay additional fee for the message.
+		#[weight = T::WeightInfo::increase_message_fee()]
+		pub fn increase_message_fee(
+			origin,
+			lane_id: LaneId,
+			nonce: MessageNonce,
+			additional_fee: T::OutboundMessageFee,
+		) -> DispatchResult {
+			// if someone tries to pay for already-delivered message, we're rejecting this intention
+			// (otherwise this additional fee will be locked forever in relayers fund)
+			//
+			// if someone tries to pay for not-yet-sent message, we're rejeting this intention, or
+			// we're risking to have mess in the storage
+			let lane = outbound_lane::<T, I>(lane_id);
+			ensure!(nonce > lane.data().latest_received_nonce, Error::<T, I>::MessageIsAlreadyDelivered);
+			ensure!(nonce <= lane.data().latest_generated_nonce, Error::<T, I>::MessageIsNotYetSent);
+
+			// withdraw additional fee from submitter
+			let submitter = origin.into().map_err(|_| BadOrigin)?;
+			T::MessageDeliveryAndDispatchPayment::pay_delivery_and_dispatch_fee(
+				&submitter,
+				&additional_fee,
+				&Self::relayer_fund_account_id(),
+			).map_err(|err| {
+				frame_support::debug::trace!(
+					"Submitter {:?} can't pay additional fee {:?} for the message {:?}/{:?}: {:?}",
+					submitter,
+					additional_fee,
+					lane_id,
+					nonce,
+					err,
+				);
+
+				Error::<T, I>::FailedToWithdrawMessageFee
+			})?;
+
+			// and finally update fee in the storage
+			let message_key = MessageKey { lane_id, nonce };
+			OutboundMessages::<T, I>::mutate(message_key, |message_data| {
+				// saturating_add is fine here - overflow here means that someone controls all
+				// chain funds, which shouldn't ever happen + `pay_delivery_and_dispatch_fee`
+				// above will fail before we reach here
+				let message_data = message_data
+					.as_mut()
+					.expect("the message is sent and not yet delivered; so it is in the storage; qed");
+				message_data.fee = message_data.fee.saturating_add(&additional_fee);
+			});
 
 			Ok(())
 		}
@@ -1341,6 +1397,58 @@ mod tests {
 				),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
 			);
+		});
+	}
+
+	#[test]
+	fn increase_message_fee_fails_if_message_is_already_delivered() {
+		run_test(|| {
+			send_regular_message();
+			receive_messages_delivery_proof();
+
+			assert_noop!(
+				Module::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
+				Error::<TestRuntime, DefaultInstance>::MessageIsAlreadyDelivered,
+			);
+		});
+	}
+
+	#[test]
+	fn increase_message_fee_fails_if_message_is_not_yet_sent() {
+		run_test(|| {
+			assert_noop!(
+				Module::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
+				Error::<TestRuntime, DefaultInstance>::MessageIsNotYetSent,
+			);
+		});
+	}
+
+	#[test]
+	fn increase_message_fee_fails_if_submitter_cant_pay_additional_fee() {
+		run_test(|| {
+			send_regular_message();
+
+			TestMessageDeliveryAndDispatchPayment::reject_payments();
+
+			assert_noop!(
+				Module::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
+				Error::<TestRuntime, DefaultInstance>::FailedToWithdrawMessageFee,
+			);
+		});
+	}
+
+	#[test]
+	fn increase_message_fee_succeeds() {
+		run_test(|| {
+			send_regular_message();
+
+			assert_ok!(Module::<TestRuntime, DefaultInstance>::increase_message_fee(
+				Origin::signed(1),
+				TEST_LANE_ID,
+				1,
+				100,
+			),);
+			assert!(TestMessageDeliveryAndDispatchPayment::is_fee_paid(1, 100));
 		});
 	}
 }
