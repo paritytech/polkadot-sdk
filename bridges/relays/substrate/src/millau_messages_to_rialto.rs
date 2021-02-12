@@ -25,6 +25,8 @@ use async_trait::async_trait;
 use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::{MILLAU_BRIDGE_INSTANCE, RIALTO_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
+use codec::Encode;
+use frame_support::dispatch::GetDispatchInfo;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SigningParams as RialtoSigningParams};
@@ -63,8 +65,18 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 		let (relayers_state, proof) = proof;
 		let account_id = self.source_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.source_client.next_account_index(account_id).await?;
-		let call = millau_runtime::MessageLaneCall::receive_messages_delivery_proof(proof, relayers_state).into();
+		let call: millau_runtime::Call =
+			millau_runtime::MessageLaneCall::receive_messages_delivery_proof(proof, relayers_state).into();
+		let call_weight = call.get_dispatch_info().weight;
 		let transaction = Millau::sign_transaction(&self.source_client, &self.source_sign.signer, nonce, call);
+		log::trace!(
+			target: "bridge",
+			"Prepared Rialto -> Millau confirmation transaction. Weight: {}/{}, size: {}/{}",
+			call_weight,
+			bp_millau::max_extrinsic_weight(),
+			transaction.encode().len(),
+			bp_millau::max_extrinsic_size(),
+		);
 		Ok(transaction)
 	}
 
@@ -83,14 +95,23 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 		let messages_count = nonces_end - nonces_start + 1;
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
-		let call = rialto_runtime::MessageLaneCall::receive_messages_proof(
+		let call: rialto_runtime::Call = rialto_runtime::MessageLaneCall::receive_messages_proof(
 			self.relayer_id_at_source.clone(),
 			proof,
 			messages_count as _,
 			dispatch_weight,
 		)
 		.into();
+		let call_weight = call.get_dispatch_info().weight;
 		let transaction = Rialto::sign_transaction(&self.target_client, &self.target_sign.signer, nonce, call);
+		log::trace!(
+			target: "bridge",
+			"Prepared Millau -> Rialto delivery transaction. Weight: {}/{}, size: {}/{}",
+			call_weight,
+			bp_rialto::max_extrinsic_weight(),
+			transaction.encode().len(),
+			bp_rialto::max_extrinsic_size(),
+		);
 		Ok(transaction)
 	}
 }
@@ -121,18 +142,27 @@ pub fn run(
 		relayer_id_at_source: relayer_id_at_millau,
 	};
 
-	log::info!(
-		target: "bridge",
-		"Starting Millau -> Rialto messages relay. Millau relayer account id: {:?}",
-		lane.relayer_id_at_source,
-	);
-
+	// 2/3 is reserved for proofs and tx overhead
+	let max_messages_size_in_single_batch = bp_rialto::max_extrinsic_size() as usize / 3;
 	// TODO: use Millau weights after https://github.com/paritytech/parity-bridges-common/issues/390
 	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
 		select_delivery_transaction_limits::<pallet_message_lane::weights::RialtoWeight<millau_runtime::Runtime>>(
-			bp_millau::max_extrinsic_weight(),
+			bp_rialto::max_extrinsic_weight(),
 			bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
 		);
+
+	log::info!(
+		target: "bridge",
+		"Starting Millau -> Rialto messages relay.\n\t\
+			Millau relayer account id: {:?}\n\t\
+			Max messages in single transaction: {}\n\t\
+			Max messages size in single transaction: {}\n\t\
+			Max messages weight in single transaction: {}",
+		lane.relayer_id_at_source,
+		max_messages_in_single_batch,
+		max_messages_size_in_single_batch,
+		max_messages_weight_in_single_batch,
+	);
 
 	messages_relay::message_lane_loop::run(
 		messages_relay::message_lane_loop::Params {
@@ -146,8 +176,7 @@ pub fn run(
 				max_unconfirmed_nonces_at_target: bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
 				max_messages_in_single_batch,
 				max_messages_weight_in_single_batch,
-				// 2/3 is reserved for proofs and tx overhead
-				max_messages_size_in_single_batch: bp_rialto::max_extrinsic_size() as usize / 3,
+				max_messages_size_in_single_batch,
 			},
 		},
 		MillauSourceClient::new(millau_client, lane.clone(), lane_id, RIALTO_BRIDGE_INSTANCE),
