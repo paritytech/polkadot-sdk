@@ -45,7 +45,7 @@ pub trait MessageRace {
 	/// Message nonce used in the race.
 	type MessageNonce: Debug + Clone;
 	/// Proof that is generated and delivered in this race.
-	type Proof: Clone;
+	type Proof: Debug + Clone;
 
 	/// Name of the race source.
 	fn source_name() -> String;
@@ -138,7 +138,7 @@ pub trait TargetClient<P: MessageRace> {
 }
 
 /// Race strategy.
-pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof> {
+pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 	/// Type of nonces range expected from the source client.
 	type SourceNoncesRange: NoncesRange;
 	/// Additional proof parameters required to generate proof.
@@ -359,6 +359,15 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 		progress_context = print_race_progress::<P, _>(progress_context, &strategy);
 
 		if stall_countdown.elapsed() > stall_timeout {
+			log::warn!(
+				target: "bridge",
+				"{} -> {} race has stalled. State: {:?}. Strategy: {:?}",
+				P::source_name(),
+				P::target_name(),
+				race_state,
+				strategy,
+			);
+
 			return Err(FailedClient::Both);
 		} else if race_state.nonces_to_submit.is_none() && race_state.nonces_submitted.is_none() && strategy.is_empty()
 		{
