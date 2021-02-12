@@ -407,11 +407,20 @@ impl pallet_substrate_bridge::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
 }
 
+parameter_types! {
+	// This is a pretty unscientific cap.
+	//
+	// Note that once this is hit the pallet will essentially throttle incoming requests down to one
+	// call per block.
+	pub const MaxRequests: u32 = 50;
+}
+
 impl pallet_finality_verifier::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
 	type HeaderChain = pallet_substrate_bridge::Module<Runtime>;
 	type AncestryProof = Vec<bp_millau::Header>;
 	type AncestryChecker = bp_header_chain::LinearAncestryChecker;
+	type MaxRequests = MaxRequests;
 }
 
 impl pallet_shift_session_manager::Config for Runtime {}
