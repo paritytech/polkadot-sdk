@@ -162,10 +162,13 @@ where
 	async fn nonces(
 		&self,
 		at_block: SourceHeaderIdOf<P>,
+		update_metrics: bool,
 	) -> Result<(SourceHeaderIdOf<P>, TargetClientNonces<()>), Self::Error> {
 		let (at_block, latest_confirmed_nonce) = self.client.latest_confirmed_received_nonce(at_block).await?;
-		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
-			metrics_msg.update_source_latest_confirmed_nonce::<P>(latest_confirmed_nonce);
+		if update_metrics {
+			if let Some(metrics_msg) = self.metrics_msg.as_ref() {
+				metrics_msg.update_source_latest_confirmed_nonce::<P>(latest_confirmed_nonce);
+			}
 		}
 		Ok((
 			at_block,
