@@ -95,17 +95,16 @@ impl MessageBridge for WithRialtoMessageBridge {
 		bp_rialto::max_extrinsic_size()
 	}
 
-	fn weight_limits_of_message_on_bridged_chain(message_payload: &[u8]) -> RangeInclusive<Weight> {
+	fn weight_limits_of_message_on_bridged_chain(_message_payload: &[u8]) -> RangeInclusive<Weight> {
 		// we don't want to relay too large messages + keep reserve for future upgrades
 		let upper_limit = messages::target::maximal_incoming_message_dispatch_weight(bp_rialto::max_extrinsic_weight());
 
-		// given Rialto chain parameters (`TransactionByteFee`, `WeightToFee`, `FeeMultiplierUpdate`),
-		// the minimal weight of the message may be computed as message.length()
-		let lower_limit = u32::try_from(message_payload.len())
-			.map(Into::into)
-			.unwrap_or(Weight::MAX);
+		// we're charging for payload bytes in `WithRialtoMessageBridge::weight_of_delivery_transaction` function
+		//
+		// this bridge may be used to deliver all kind of messages, so we're not making any assumptions about
+		// minimal dispatch weight here
 
-		lower_limit..=upper_limit
+		0..=upper_limit
 	}
 
 	fn weight_of_delivery_transaction(message_payload: &[u8]) -> Weight {
