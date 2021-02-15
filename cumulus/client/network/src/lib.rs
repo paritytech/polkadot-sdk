@@ -20,10 +20,6 @@
 //! that use the relay chain provided consensus. See [`BlockAnnounceValidator`]
 //! and [`WaitToAnnounce`] for more information about this implementation.
 
-#[cfg(test)]
-mod tests;
-mod wait_on_relay_chain_block;
-
 use sc_client_api::{Backend, BlockchainEvents};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -38,8 +34,6 @@ use sp_runtime::{
 };
 
 use polkadot_node_primitives::{SignedFullStatement, Statement};
-use polkadot_node_subsystem::messages::StatementDistributionMessage;
-use polkadot_overseer::OverseerHandler;
 use polkadot_primitives::v1::{
 	Block as PBlock, CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
 	OccupiedCoreAssumption, ParachainHost, SignedStatement, SigningContext,
@@ -48,15 +42,18 @@ use polkadot_service::ClientHandle;
 
 use codec::{Decode, Encode};
 use futures::{
-	channel::{mpsc, oneshot},
+	channel::oneshot,
 	future::{ready, FutureExt},
-	pin_mut, select, Future, StreamExt,
+	pin_mut, select, Future,
 };
-use log::trace;
 
 use std::{convert::TryFrom, fmt, marker::PhantomData, pin::Pin, sync::Arc};
 
 use wait_on_relay_chain_block::WaitOnRelayChainBlock;
+
+#[cfg(test)]
+mod tests;
+mod wait_on_relay_chain_block;
 
 const LOG_TARGET: &str = "cumulus-network";
 
@@ -90,7 +87,7 @@ impl BlockAnnounceData {
 		let candidate_hash = if let CompactStatement::Candidate(h) = self.statement.payload() {
 			h
 		} else {
-			log::debug!(
+			tracing::debug!(
 				target: LOG_TARGET,
 				"`CompactStatement` isn't the candidate variant!",
 			);
@@ -98,7 +95,7 @@ impl BlockAnnounceData {
 		};
 
 		if *candidate_hash != self.receipt.hash() {
-			log::debug!(
+			tracing::debug!(
 				target: LOG_TARGET,
 				"Receipt candidate hash doesn't match candidate hash in statement",
 			);
@@ -108,7 +105,7 @@ impl BlockAnnounceData {
 		if polkadot_parachain::primitives::HeadData(encoded_header).hash()
 			!= self.receipt.descriptor.para_head
 		{
-			log::debug!(
+			tracing::debug!(
 				target: LOG_TARGET,
 				"Receipt para head hash doesn't match the hash of the header in the block announcement",
 			);
@@ -121,7 +118,10 @@ impl BlockAnnounceData {
 	/// Check the signature of the statement.
 	///
 	/// Returns an `Err(_)` if it failed.
-	fn check_signature<P>(&self, relay_chain_client: &Arc<P>) -> Result<Validation, BlockAnnounceError>
+	fn check_signature<P>(
+		&self,
+		relay_chain_client: &Arc<P>,
+	) -> Result<Validation, BlockAnnounceError>
 	where
 		P: ProvideRuntimeApi<PBlock> + Send + Sync + 'static,
 		P::Api: ParachainHost<PBlock>,
@@ -152,12 +152,12 @@ impl BlockAnnounceData {
 		let signer = match authorities.get(validator_index as usize) {
 			Some(r) => r,
 			None => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
 					"Block announcement justification signer is a validator index out of bound",
 				);
 
-				return Ok(Validation::Failure { disconnect: true })
+				return Ok(Validation::Failure { disconnect: true });
 			}
 		};
 
@@ -167,7 +167,7 @@ impl BlockAnnounceData {
 			.check_signature(&signing_context, &signer)
 			.is_err()
 		{
-			log::debug!(
+			tracing::debug!(
 				target: LOG_TARGET,
 				"Block announcement justification signature is invalid.",
 			);
@@ -301,7 +301,7 @@ where
 			let known_best_number = parent_head.number();
 
 			if block_number >= known_best_number {
-				trace!(
+				tracing::trace!(
 					target: "cumulus-network",
 					"validation failed because a justification is needed if the block at the top of the chain."
 				);
@@ -474,7 +474,6 @@ where
 pub struct WaitToAnnounce<Block: BlockT> {
 	spawner: Arc<dyn SpawnNamed + Send + Sync>,
 	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
-	overseer_handler: OverseerHandler,
 	current_trigger: oneshot::Sender<()>,
 }
 
@@ -483,24 +482,26 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 	pub fn new(
 		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
-		overseer_handler: OverseerHandler,
 	) -> WaitToAnnounce<Block> {
 		let (tx, _rx) = oneshot::channel();
 
 		WaitToAnnounce {
 			spawner,
 			announce_block,
-			overseer_handler,
 			current_trigger: tx,
 		}
 	}
 
 	/// Wait for a candidate message for the block, then announce the block. The candidate
 	/// message will be added as justification to the block announcement.
-	pub fn wait_to_announce(&mut self, block_hash: <Block as BlockT>::Hash, pov_hash: PHash) {
+	pub fn wait_to_announce(
+		&mut self,
+		block_hash: <Block as BlockT>::Hash,
+		pov_hash: PHash,
+		signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
+	) {
 		let (tx, rx) = oneshot::channel();
 		let announce_block = self.announce_block.clone();
-		let overseer_handler = self.overseer_handler.clone();
 
 		self.current_trigger = tx;
 
@@ -511,27 +512,27 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 					block_hash,
 					pov_hash,
 					announce_block,
-					overseer_handler,
+					signed_stmt_recv,
 				)
 				.fuse();
 				let t2 = rx.fuse();
 
 				pin_mut!(t1, t2);
 
-				trace!(
+				tracing::trace!(
 					target: "cumulus-network",
 					"waiting for announce block in a background task...",
 				);
 
 				select! {
 					_ = t1 => {
-						trace!(
+						tracing::trace!(
 							target: "cumulus-network",
 							"block announcement finished",
 						);
 					},
 					_ = t2 => {
-						trace!(
+						tracing::trace!(
 							target: "cumulus-network",
 							"previous task that waits for announce block has been canceled",
 						);
@@ -547,25 +548,33 @@ async fn wait_to_announce<Block: BlockT>(
 	block_hash: <Block as BlockT>::Hash,
 	pov_hash: PHash,
 	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
-	mut overseer_handler: OverseerHandler,
+	signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
 ) {
-	let (sender, mut receiver) = mpsc::channel(5);
-	overseer_handler
-		.send_msg(StatementDistributionMessage::RegisterStatementListener(
-			sender,
-		))
-		.await;
-
-	while let Some(statement) = receiver.next().await {
-		match statement.payload() {
-			Statement::Seconded(c) if &c.descriptor.pov_hash == &pov_hash => {
-				if let Ok(data) = BlockAnnounceData::try_from(statement) {
-					announce_block(block_hash, data.encode());
-				}
-
-				break;
-			}
-			_ => {}
+	let statement = match signed_stmt_recv.await {
+		Ok(s) => s,
+		Err(_) => {
+			tracing::debug!(
+				target: "cumulus-network",
+				pov_hash = ?pov_hash,
+				block = ?block_hash,
+				"Wait to announce stopped, because sender was dropped.",
+			);
+			return;
 		}
+	};
+
+	match statement.payload() {
+		Statement::Seconded(c) if &c.descriptor.pov_hash == &pov_hash => {
+			if let Ok(data) = BlockAnnounceData::try_from(statement) {
+				announce_block(block_hash, data.encode());
+			}
+		}
+		_ => tracing::debug!(
+			target: "cumulus-network",
+			statement = ?statement,
+			block = ?block_hash,
+			expected_pov_hash = ?pov_hash,
+			"Received invalid statement while waiting to announce block.",
+		),
 	}
 }

@@ -17,9 +17,7 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "mas
 # Polkadot deps
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-statement-table = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
@@ -27,7 +25,7 @@ polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = 
 codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
 futures = { version = "0.3.1", features = ["compat"] }
 futures-timer = "3.0.2"
-log = "0.4.8"
+tracing = "0.1.22"
 parking_lot = "0.10.2"
 derive_more = "0.99.2"
 

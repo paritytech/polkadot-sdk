@@ -57,6 +57,7 @@ fn call_validate_block(
 		Some(1024),
 		sp_io::SubstrateHostFunctions::host_functions(),
 		1,
+		None,
 	);
 
 	executor

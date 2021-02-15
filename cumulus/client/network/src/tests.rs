@@ -31,7 +31,7 @@ use polkadot_test_client::{
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{block_validation::BlockAnnounceValidator as _, BlockOrigin};
+use sp_consensus::BlockOrigin;
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};

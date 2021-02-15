@@ -35,7 +35,7 @@ use sp_runtime::{
 };
 use sp_state_machine::InspectState;
 
-use polkadot_node_primitives::{Collation, CollationGenerationConfig};
+use polkadot_node_primitives::{Collation, CollationGenerationConfig, CollationResult};
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::OverseerHandler;
 use polkadot_primitives::v1::{
@@ -48,7 +48,7 @@ use codec::{Decode, Encode};
 
 use log::{debug, error, info, trace};
 
-use futures::prelude::*;
+use futures::{channel::oneshot, prelude::*};
 
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -100,10 +100,10 @@ where
 	PF: Environment<Block> + 'static + Send,
 	PF::Proposer: Send,
 	BI: BlockImport<
-			Block,
-			Error = ConsensusError,
-			Transaction = <PF::Proposer as Proposer<Block>>::Transaction,
-		> + Send
+		Block,
+		Error = ConsensusError,
+		Transaction = <PF::Proposer as Proposer<Block>>::Transaction,
+	> + Send
 		+ Sync
 		+ 'static,
 	BS: BlockBackend<Block>,
@@ -120,7 +120,6 @@ where
 		para_id: ParaId,
 		proposer_factory: PF,
 		inherent_data_providers: InherentDataProviders,
-		overseer_handler: OverseerHandler,
 		block_import: BI,
 		block_status: Arc<BS>,
 		spawner: Arc<dyn SpawnNamed + Send + Sync>,
@@ -129,11 +128,7 @@ where
 		polkadot_client: Arc<PClient>,
 		polkadot_backend: Arc<PBackend2>,
 	) -> Self {
-		let wait_to_announce = Arc::new(Mutex::new(WaitToAnnounce::new(
-			spawner,
-			announce_block,
-			overseer_handler,
-		)));
+		let wait_to_announce = Arc::new(Mutex::new(WaitToAnnounce::new(spawner, announce_block)));
 
 		Self {
 			para_id,
@@ -347,7 +342,7 @@ where
 		mut self,
 		relay_parent: PHash,
 		validation_data: PersistedValidationData,
-	) -> Option<Collation> {
+	) -> Option<CollationResult> {
 		trace!(target: LOG_TARGET, "Producing candidate");
 
 		let last_head = match Block::Header::decode(&mut &validation_data.parent_head.0[..]) {
@@ -448,16 +443,21 @@ where
 		let collation = self.build_collation(b, block_hash, validation_data.relay_parent_number)?;
 		let pov_hash = collation.proof_of_validity.hash();
 
+		let (result_sender, signed_stmt_recv) = oneshot::channel();
+
 		self.wait_to_announce
 			.lock()
-			.wait_to_announce(block_hash, pov_hash);
+			.wait_to_announce(block_hash, pov_hash, signed_stmt_recv);
 
 		info!(
 			target: LOG_TARGET,
 			"Produced proof-of-validity candidate {:?} from block {:?}.", pov_hash, block_hash,
 		);
 
-		Some(collation)
+		Some(CollationResult {
+			collation,
+			result_sender: Some(result_sender),
+		})
 	}
 }
 
@@ -524,7 +524,6 @@ where
 		para_id,
 		proposer_factory,
 		inherent_data_providers,
-		overseer_handler.clone(),
 		block_import,
 		block_status,
 		Arc::new(spawner),
@@ -707,7 +706,8 @@ mod tests {
 		validation_data.parent_head = header.encode().into();
 
 		let collation = block_on((config.collator)(relay_parent, &validation_data))
-			.expect("Collation is build");
+			.expect("Collation is build")
+			.collation;
 
 		let block_data = collation.proof_of_validity.block_data;
 
