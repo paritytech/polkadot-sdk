@@ -29,15 +29,14 @@ use sp_runtime::{
 };
 
 use polkadot_primitives::v1::{
-	Block as PBlock, Id as ParaId, OccupiedCoreAssumption, ParachainHost,
+	Block as PBlock, Hash as PHash, Id as ParaId, OccupiedCoreAssumption, ParachainHost,
+	PersistedValidationData,
 };
 
 use codec::Decode;
 use futures::{future, select, FutureExt, Stream, StreamExt};
 
 use std::{marker::PhantomData, sync::Arc};
-
-pub mod import_queue;
 
 /// Errors that can occur while following the polkadot relay-chain.
 #[derive(Debug)]
@@ -508,6 +507,52 @@ where
 				"Could not find parachain head for best relay chain!".into(),
 			)),
 		}
+	}
+}
+
+/// The result of [`ParachainConsensus::produce_candidate`].
+pub struct ParachainCandidate<B> {
+	/// The block that was build for this candidate.
+	pub block: B,
+	/// The proof that was recorded while building the block.
+	pub proof: sp_trie::StorageProof,
+}
+
+/// A specific parachain consensus implementation that can be used by a collator to produce candidates.
+///
+/// The collator will call [`Self::produce_candidate`] every time there is a free core for the parachain
+/// this collator is collating for. It is the job of the consensus implementation to decide if this
+/// specific collator should build candidate for the given relay chain block. The consensus
+/// implementation could for example check if this specific collator is part of the validator.
+#[async_trait::async_trait]
+pub trait ParachainConsensus<B: BlockT>: Send + Sync + dyn_clone::DynClone {
+	/// Produce a new candidate at the given parent block.
+	///
+	/// Should return `None` if the consensus implementation decided that it shouldn't build a
+	/// candidate or if there occurred any error.
+	///
+	/// # NOTE
+	///
+	/// It is expected that the block is already imported when the future resolves.
+	async fn produce_candidate(
+		&mut self,
+		parent: &B::Header,
+		relay_parent: PHash,
+		validation_data: &PersistedValidationData,
+	) -> Option<ParachainCandidate<B>>;
+}
+
+dyn_clone::clone_trait_object!(<B> ParachainConsensus<B> where B: BlockT);
+
+#[async_trait::async_trait]
+impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send + Sync> {
+	async fn produce_candidate(
+		&mut self,
+		parent: &B::Header,
+		relay_parent: PHash,
+		validation_data: &PersistedValidationData,
+	) -> Option<ParachainCandidate<B>> {
+		(*self).produce_candidate(parent, relay_parent, validation_data).await
 	}
 }
 

@@ -1,0 +1,33 @@
+[package]
+name = "cumulus-client-consensus-relay-chain"
+description = "The relay-chain provided consensus algorithm"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+
+[dependencies]
+# Substrate deps
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Polkadot dependencies
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master", features = [ "real-overseer" ] }
+
+# Cumulus dependencies
+cumulus-client-consensus-common = { path = "../common" }
+cumulus-primitives-core = { path = "../../../primitives/core" }
+cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }
+
+# Other deps
+futures = { version = "0.3.8", features = ["compat"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
+tracing = "0.1.22"
+async-trait = "0.1.42"
+parking_lot = "0.9"

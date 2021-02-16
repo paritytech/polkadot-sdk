@@ -27,10 +27,10 @@ pub use genesis::*;
 
 use core::future::Future;
 use cumulus_client_network::BlockAnnounceValidator;
-use cumulus_primitives_core::ParaId;
 use cumulus_client_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
+use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::{NodeBlock as Block, RuntimeApi};
 use polkadot_primitives::v1::CollatorPair;
 use sc_client_api::execution_extensions::ExecutionStrategies;
@@ -39,8 +39,8 @@ pub use sc_executor::NativeExecutor;
 use sc_network::{config::TransportConfig, multiaddr, NetworkService};
 use sc_service::{
 	config::{
-		DatabaseConfig, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, KeepBlocks, TransactionStorageMode, PruningMode, WasmExecutionMethod,
+		DatabaseConfig, KeepBlocks, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
+		OffchainWorkerConfig, PruningMode, TransactionStorageMode, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec, Configuration, Error as ServiceError, PartialComponents, Role,
 	RpcHandlers, TFullBackend, TFullClient, TaskExecutor, TaskManager,
@@ -93,7 +93,7 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let import_queue = cumulus_client_consensus::import_queue::import_queue(
+	let import_queue = cumulus_client_consensus_relay_chain::import_queue(
 		client.clone(),
 		client.clone(),
 		inherent_data_providers.clone(),
@@ -123,7 +123,7 @@ pub fn new_partial(
 async fn start_node_impl<RB>(
 	parachain_config: Configuration,
 	collator_key: CollatorPair,
-	polkadot_config: Configuration,
+	relay_chain_config: Configuration,
 	para_id: ParaId,
 	is_collator: bool,
 	rpc_ext_builder: RB,
@@ -155,8 +155,8 @@ where
 	let transaction_pool = params.transaction_pool.clone();
 	let mut task_manager = params.task_manager;
 
-	let polkadot_full_node = polkadot_test_service::new_full(
-		polkadot_config,
+	let relay_chain_full_node = polkadot_test_service::new_full(
+		relay_chain_config,
 		polkadot_service::IsCollator::Yes(collator_key.public()),
 	)
 	.map_err(|e| match e {
@@ -167,11 +167,11 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 	let block_announce_validator = BlockAnnounceValidator::new(
-		polkadot_full_node.client.clone(),
+		relay_chain_full_node.client.clone(),
 		para_id,
-		Box::new(polkadot_full_node.network.clone()),
-		polkadot_full_node.backend.clone(),
-		polkadot_full_node.client.clone(),
+		Box::new(relay_chain_full_node.network.clone()),
+		relay_chain_full_node.backend.clone(),
+		relay_chain_full_node.client.clone(),
 	);
 	let block_announce_validator_builder = move |_| Box::new(block_announce_validator) as Box<_>;
 
@@ -214,7 +214,6 @@ where
 		Arc::new(move |hash, data| network.announce_block(hash, Some(data)))
 	};
 
-	let polkadot_full_node = polkadot_full_node.with_client(polkadot_test_service::TestClient);
 	if is_collator {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -222,13 +221,20 @@ where
 			transaction_pool,
 			prometheus_registry.as_ref(),
 		);
-
-		let polkadot_backend = polkadot_full_node.backend.clone();
-		let params = StartCollatorParams {
+		let parachain_consensus = cumulus_client_consensus_relay_chain::RelayChainConsensus::new(
+			para_id,
 			proposer_factory,
-			inherent_data_providers: params.inherent_data_providers,
+			params.inherent_data_providers,
+			client.clone(),
+			relay_chain_full_node.client.clone(),
+			relay_chain_full_node.backend.clone(),
+		);
+
+		let relay_chain_full_node =
+			relay_chain_full_node.with_client(polkadot_test_service::TestClient);
+
+		let params = StartCollatorParams {
 			backend: params.backend,
-			block_import: client.clone(),
 			block_status: client.clone(),
 			announce_block,
 			client: client.clone(),
@@ -236,18 +242,21 @@ where
 			task_manager: &mut task_manager,
 			para_id,
 			collator_key,
-			polkadot_full_node,
-			polkadot_backend,
+			parachain_consensus: Box::new(parachain_consensus),
+			relay_chain_full_node,
 		};
 
 		start_collator(params).await?;
 	} else {
+		let relay_chain_full_node =
+			relay_chain_full_node.with_client(polkadot_test_service::TestClient);
+
 		let params = StartFullNodeParams {
 			client: client.clone(),
 			announce_block,
 			task_manager: &mut task_manager,
 			para_id,
-			polkadot_full_node,
+			polkadot_full_node: relay_chain_full_node,
 		};
 
 		start_full_node(params)?;
@@ -281,9 +290,9 @@ pub async fn run_test_node(
 	task_executor: TaskExecutor,
 	key: Sr25519Keyring,
 	parachain_storage_update_func: impl Fn(),
-	polkadot_storage_update_func: impl Fn(),
+	relay_chain_storage_update_func: impl Fn(),
 	parachain_boot_nodes: Vec<MultiaddrWithPeerId>,
-	polkadot_boot_nodes: Vec<MultiaddrWithPeerId>,
+	relay_chain_boot_nodes: Vec<MultiaddrWithPeerId>,
 	para_id: ParaId,
 	is_collator: bool,
 ) -> CumulusTestNode {
@@ -297,22 +306,22 @@ pub async fn run_test_node(
 		is_collator,
 	)
 	.expect("could not generate Configuration");
-	let mut polkadot_config = polkadot_test_service::node_config(
-		polkadot_storage_update_func,
+	let mut relay_chain_config = polkadot_test_service::node_config(
+		relay_chain_storage_update_func,
 		task_executor.clone(),
 		key,
-		polkadot_boot_nodes,
+		relay_chain_boot_nodes,
 		false,
 	);
 
-	polkadot_config.network.node_name =
-		format!("{} (relay chain)", polkadot_config.network.node_name);
+	relay_chain_config.network.node_name =
+		format!("{} (relay chain)", relay_chain_config.network.node_name);
 
 	let multiaddr = parachain_config.network.listen_addresses[0].clone();
 	let (task_manager, client, network, rpc_handlers) = start_node_impl(
 		parachain_config,
 		collator_key,
-		polkadot_config,
+		relay_chain_config,
 		para_id,
 		is_collator,
 		|_| Default::default(),

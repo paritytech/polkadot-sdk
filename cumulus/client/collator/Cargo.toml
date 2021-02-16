@@ -10,15 +10,10 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot dependencies
-polkadot-service = { git = "https://github.com/paritytech/polkadot", features = [ "real-overseer" ], branch = "master" }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -26,16 +21,19 @@ polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", bran
 
 # Cumulus dependencies
 cumulus-client-network = { path = "../network" }
+cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 
 # Other dependencies
-log = "0.4.8"
 codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
 futures = { version = "0.3.1", features = ["compat"] }
 parking_lot = "0.9"
+tracing = "0.1.22"
 
 [dev-dependencies]
+# Polkadot dependencies
+polkadot-node-subsystem-test-helpers = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
 # Cumulus dependencies
 cumulus-test-runtime = { path = "../../test/runtime" }
 cumulus-test-client = { path = "../../test/client" }
@@ -46,9 +44,6 @@ sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "mas
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-# Polkadot dependencies
-polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-node-subsystem-test-helpers = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-
 # Other dependencies
 env_logger = "0.7.1"
+async-trait = "0.1.42"

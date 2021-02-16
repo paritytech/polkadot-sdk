@@ -1085,44 +1085,41 @@ dependencies = [
 name = "cumulus-client-collator"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
  "cumulus-test-client",
  "cumulus-test-runtime",
  "env_logger",
  "futures 0.3.12",
- "log",
  "parity-scale-codec",
  "parking_lot 0.9.0",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-overseer",
- "polkadot-parachain",
  "polkadot-primitives",
- "polkadot-service",
- "polkadot-test-client",
- "sc-cli",
  "sc-client-api",
- "sp-api",
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
- "sp-inherents",
  "sp-io",
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
  "substrate-test-client",
+ "tracing",
 ]
 
 [[package]]
-name = "cumulus-client-consensus"
+name = "cumulus-client-consensus-common"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "cumulus-test-client",
  "cumulus-test-runtime",
+ "dyn-clone",
  "futures 0.3.12",
  "futures-timer 3.0.2",
  "parity-scale-codec",
@@ -1137,8 +1134,33 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-tracing",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "tokio 0.1.22",
+ "tracing",
+]
+
+[[package]]
+name = "cumulus-client-consensus-relay-chain"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cumulus-client-consensus-common",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "futures 0.3.12",
+ "parity-scale-codec",
+ "parking_lot 0.9.0",
+ "polkadot-service",
+ "sc-client-api",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "substrate-prometheus-endpoint",
  "tracing",
 ]
 
@@ -1174,11 +1196,10 @@ name = "cumulus-client-service"
 version = "0.1.0"
 dependencies = [
  "cumulus-client-collator",
- "cumulus-client-consensus",
+ "cumulus-client-consensus-common",
  "cumulus-primitives-core",
  "futures 0.3.12",
  "parity-scale-codec",
- "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-service",
  "sc-chain-spec",
@@ -1189,7 +1210,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
- "sp-inherents",
  "sp-runtime",
  "tracing",
 ]
@@ -1388,7 +1408,7 @@ dependencies = [
 name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
- "cumulus-client-consensus",
+ "cumulus-client-consensus-relay-chain",
  "cumulus-client-network",
  "cumulus-client-service",
  "cumulus-primitives-core",
@@ -6914,7 +6934,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "cumulus-client-collator",
- "cumulus-client-consensus",
+ "cumulus-client-consensus-relay-chain",
  "cumulus-client-network",
  "cumulus-client-service",
  "cumulus-primitives-core",
@@ -10121,7 +10141,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.7.3",
+ "rand 0.6.5",
  "static_assertions",
 ]
 

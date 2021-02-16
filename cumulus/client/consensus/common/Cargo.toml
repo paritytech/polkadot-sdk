@@ -1,6 +1,6 @@
 [package]
-name = "cumulus-client-consensus"
-description = "Proxy Polkadot's consensus as a consensus engine for Substrate"
+name = "cumulus-client-consensus-common"
+description = "Cumulus specific common consensus implementations"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -15,6 +15,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot deps
@@ -26,14 +27,16 @@ futures = { version = "0.3.8", features = ["compat"] }
 tokio = "0.1.22"
 codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
 tracing = "0.1.22"
+async-trait = "0.1.42"
+dyn-clone = "1.0.4"
 
 [dev-dependencies]
 # Substrate deps
 sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Cumulus dependencies
-cumulus-test-runtime = { path = "../../test/runtime" }
-cumulus-test-client = { path = "../../test/client" }
+cumulus-test-runtime = { path = "../../../test/runtime" }
+cumulus-test-client = { path = "../../../test/client" }
 
 # Other deps
 futures-timer = "3.0.2"
