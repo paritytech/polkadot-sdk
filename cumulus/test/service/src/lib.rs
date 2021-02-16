@@ -355,9 +355,7 @@ pub fn node_config(
 	let base_path = BasePath::new_temp_dir()?;
 	let root = base_path.path().to_path_buf();
 	let role = if is_collator {
-		Role::Authority {
-			sentry_nodes: Vec::new(),
-		}
+		Role::Authority
 	} else {
 		Role::Full
 	};

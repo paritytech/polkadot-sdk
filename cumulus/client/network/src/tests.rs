@@ -360,8 +360,6 @@ impl ProvideRuntimeApi<PBlock> for TestApi {
 
 sp_api::mock_impl_runtime_apis! {
 	impl ParachainHost<PBlock> for RuntimeApi {
-		type Error = sp_blockchain::Error;
-
 		fn validators(&self) -> Vec<ValidatorId> {
 			self.data.validators.clone()
 		}

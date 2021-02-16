@@ -384,7 +384,7 @@ fn import_block_as_new_best<Block, P>(
 impl<T> RelaychainClient for Arc<T>
 where
 	T: sc_client_api::BlockchainEvents<PBlock> + ProvideRuntimeApi<PBlock> + 'static + Send + Sync,
-	<T as ProvideRuntimeApi<PBlock>>::Api: ParachainHost<PBlock, Error = ClientError>,
+	<T as ProvideRuntimeApi<PBlock>>::Api: ParachainHost<PBlock>,
 {
 	type Error = ClientError;
 
@@ -430,6 +430,7 @@ where
 		self.runtime_api()
 			.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
 			.map(|s| s.map(|s| s.parent_head.0))
+			.map_err(Into::into)
 	}
 }
 
