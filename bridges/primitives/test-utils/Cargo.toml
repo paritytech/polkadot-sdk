@@ -6,7 +6,7 @@ edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-finality-grandpa = { version = "0.12.3" }
+finality-grandpa = { version = "0.13.0" }
 bp-header-chain = { path = "../header-chain" }
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
