@@ -18,9 +18,9 @@ pub use crate::test_utils::{insert_header, validator_utils::*, validators_change
 pub use bp_eth_poa::signatures::secret_to_address;
 
 use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
-use crate::{AuraConfiguration, ChainTime, Config, GenesisConfig, PruningStrategy};
+use crate::{AuraConfiguration, ChainTime, Config, GenesisConfig as CrateGenesisConfig, PruningStrategy};
 use bp_eth_poa::{Address, AuraHeader, H256, U256};
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+use frame_support::{parameter_types, weights::Weight};
 use secp256k1::SecretKey;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -30,11 +30,20 @@ use sp_runtime::{
 
 pub type AccountId = u64;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct TestRuntime;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
-impl_outer_origin! {
-	pub enum Origin for TestRuntime where system = frame_system {}
+use crate as pallet_ethereum;
+
+frame_support::construct_runtime! {
+	pub enum TestRuntime where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		Ethereum: pallet_ethereum::{Module, Call},
+	}
 }
 
 parameter_types! {
@@ -47,17 +56,17 @@ parameter_types! {
 impl frame_system::Config for TestRuntime {
 	type Origin = Origin;
 	type Index = u64;
-	type Call = ();
+	type Call = Call;
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = SubstrateHeader;
-	type Event = ();
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
@@ -134,7 +143,7 @@ pub fn run_test_with_genesis<T>(
 	let validators = validators(total_validators);
 	let addresses = validators_addresses(total_validators);
 	sp_io::TestExternalities::new(
-		GenesisConfig {
+		CrateGenesisConfig {
 			initial_header: genesis.clone(),
 			initial_difficulty: 0.into(),
 			initial_validators: addresses.clone(),

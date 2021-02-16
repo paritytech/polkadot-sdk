@@ -16,7 +16,7 @@
 
 use crate::pallet::{BridgedHeader, Config};
 use bp_runtime::{BlockNumberOf, Chain};
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+use frame_support::{construct_runtime, parameter_types, weights::Weight};
 use sp_runtime::{
 	testing::{Header, H256},
 	traits::{BlakeTwo256, IdentityLookup},
@@ -27,11 +27,21 @@ pub type AccountId = u64;
 pub type TestHeader = BridgedHeader<TestRuntime>;
 pub type TestNumber = BlockNumberOf<<TestRuntime as Config>::BridgedChain>;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct TestRuntime;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
-impl_outer_origin! {
-	pub enum Origin for TestRuntime where system = frame_system {}
+use crate as finality_verifier;
+
+construct_runtime! {
+	pub enum TestRuntime where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		Bridge: pallet_substrate_bridge::{Module},
+		FinalityVerifier: finality_verifier::{Module},
+	}
 }
 
 parameter_types! {
@@ -44,7 +54,7 @@ parameter_types! {
 impl frame_system::Config for TestRuntime {
 	type Origin = Origin;
 	type Index = u64;
-	type Call = ();
+	type Call = Call;
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
@@ -54,7 +64,7 @@ impl frame_system::Config for TestRuntime {
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
@@ -74,9 +84,9 @@ parameter_types! {
 	pub const MaxRequests: u32 = 2;
 }
 
-impl crate::pallet::Config for TestRuntime {
+impl finality_verifier::Config for TestRuntime {
 	type BridgedChain = TestBridgedChain;
-	type HeaderChain = pallet_substrate_bridge::Module<TestRuntime>;
+	type HeaderChain = pallet_substrate_bridge::Module<Self>;
 	type AncestryProof = Vec<<Self::BridgedChain as Chain>::Header>;
 	type AncestryChecker = Checker<<Self::BridgedChain as Chain>::Header, Self::AncestryProof>;
 	type MaxRequests = MaxRequests;

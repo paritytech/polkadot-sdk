@@ -25,7 +25,7 @@ use bp_message_lane::{
 };
 use bp_runtime::Size;
 use codec::{Decode, Encode};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
+use frame_support::{parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -49,23 +49,21 @@ impl sp_runtime::traits::Convert<H256, AccountId> for AccountIdConverter {
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct TestRuntime;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
-mod message_lane {
-	pub use crate::Event;
-}
+use crate as pallet_message_lane;
 
-impl_outer_event! {
-	pub enum TestEvent for TestRuntime {
-		frame_system<T>,
-		pallet_balances<T>,
-		message_lane<T>,
+frame_support::construct_runtime! {
+	pub enum TestRuntime where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		Balances: pallet_balances::{Module, Call, Event<T>},
+		MessageLane: pallet_message_lane::{Module, Call, Event<T>},
 	}
-}
-
-impl_outer_origin! {
-	pub enum Origin for TestRuntime where system = frame_system {}
 }
 
 parameter_types! {
@@ -78,17 +76,17 @@ parameter_types! {
 impl frame_system::Config for TestRuntime {
 	type Origin = Origin;
 	type Index = u64;
-	type Call = ();
+	type Call = Call;
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = SubstrateHeader;
-	type Event = TestEvent;
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
@@ -108,7 +106,7 @@ impl pallet_balances::Config for TestRuntime {
 	type MaxLocks = ();
 	type Balance = Balance;
 	type DustRemoval = ();
-	type Event = TestEvent;
+	type Event = Event;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Module<TestRuntime>;
 	type WeightInfo = ();
@@ -121,7 +119,7 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-	type Event = TestEvent;
+	type Event = Event;
 	type WeightInfo = ();
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;

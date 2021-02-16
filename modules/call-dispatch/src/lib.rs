@@ -395,7 +395,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::{impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
+	use frame_support::{parameter_types, weights::Weight};
 	use frame_system::{EventRecord, Phase};
 	use sp_core::H256;
 	use sp_runtime::{
@@ -405,9 +405,6 @@ mod tests {
 	};
 
 	type AccountId = u64;
-	type CallDispatch = Module<TestRuntime>;
-	type System = frame_system::Module<TestRuntime>;
-
 	type MessageId = [u8; 4];
 
 	#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq)]
@@ -440,28 +437,19 @@ mod tests {
 		}
 	}
 
-	#[derive(Clone, Eq, PartialEq)]
-	pub struct TestRuntime;
+	type Block = frame_system::mocking::MockBlock<TestRuntime>;
+	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
-	mod call_dispatch {
-		pub use crate::Event;
-	}
+	use crate as call_dispatch;
 
-	impl_outer_event! {
-		pub enum TestEvent for TestRuntime {
-			frame_system<T>,
-			call_dispatch<T>,
-		}
-	}
-
-	impl_outer_origin! {
-		pub enum Origin for TestRuntime where system = frame_system {}
-	}
-
-	impl_outer_dispatch! {
-		pub enum Call for TestRuntime where origin: Origin {
-			frame_system::System,
-			call_dispatch::CallDispatch,
+	frame_support::construct_runtime! {
+		pub enum TestRuntime where
+			Block = Block,
+			NodeBlock = Block,
+			UncheckedExtrinsic = UncheckedExtrinsic,
+		{
+			System: frame_system::{Module, Call, Config, Storage, Event<T>},
+			CallDispatch: call_dispatch::{Module, Call, Event<T>},
 		}
 	}
 
@@ -482,10 +470,10 @@ mod tests {
 		type AccountId = AccountId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
-		type Event = TestEvent;
+		type Event = Event;
 		type BlockHashCount = BlockHashCount;
 		type Version = ();
-		type PalletInfo = ();
+		type PalletInfo = PalletInfo;
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
@@ -498,7 +486,7 @@ mod tests {
 	}
 
 	impl Config for TestRuntime {
-		type Event = TestEvent;
+		type Event = Event;
 		type MessageId = MessageId;
 		type SourceChainAccountId = AccountId;
 		type TargetChainAccountPublic = TestAccountPublic;
@@ -586,7 +574,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageVersionSpecMismatch(
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageVersionSpecMismatch(
 						bridge,
 						id,
 						TEST_SPEC_VERSION,
@@ -614,7 +602,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageWeightMismatch(
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageWeightMismatch(
 						bridge, id, 1973000, 0,
 					)),
 					topics: vec![],
@@ -642,7 +630,9 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageSignatureMismatch(bridge, id)),
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageSignatureMismatch(
+						bridge, id
+					)),
 					topics: vec![],
 				}],
 			);
@@ -662,7 +652,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageRejected(bridge, id)),
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageRejected(bridge, id)),
 					topics: vec![],
 				}],
 			);
@@ -686,7 +676,9 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageCallDecodeFailed(bridge, id)),
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageCallDecodeFailed(
+						bridge, id
+					)),
 					topics: vec![],
 				}],
 			);
@@ -711,7 +703,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageCallRejected(bridge, id)),
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageCallRejected(bridge, id)),
 					topics: vec![],
 				}],
 			);
@@ -732,7 +724,11 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageDispatched(bridge, id, Ok(()))),
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
+						bridge,
+						id,
+						Ok(())
+					)),
 					topics: vec![],
 				}],
 			);
@@ -755,7 +751,11 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageDispatched(bridge, id, Ok(()))),
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
+						bridge,
+						id,
+						Ok(())
+					)),
 					topics: vec![],
 				}],
 			);
@@ -778,7 +778,11 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::call_dispatch(Event::<TestRuntime>::MessageDispatched(bridge, id, Ok(()))),
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
+						bridge,
+						id,
+						Ok(())
+					)),
 					topics: vec![],
 				}],
 			);
