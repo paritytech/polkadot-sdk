@@ -210,6 +210,9 @@ fn prepare_deposit_details<T: Config<I>, I: Instance>(
 
 #[cfg(test)]
 mod tests {
+	// From construct_runtime macro
+	#![allow(clippy::from_over_into)]
+
 	use super::*;
 	use bp_currency_exchange::LockFundsTransaction;
 	use frame_support::{assert_noop, assert_ok, construct_runtime, parameter_types, weights::Weight};

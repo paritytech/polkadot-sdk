@@ -63,7 +63,6 @@ fn main() {
 			.is_err()
 			{
 				log::error!(target: "bridge", "Unable to get Substrate genesis block for Ethereum sync.");
-				return;
 			};
 		}
 		("sub-to-eth", Some(sub_to_eth_matches)) => {
@@ -78,7 +77,6 @@ fn main() {
 			.is_err()
 			{
 				log::error!(target: "bridge", "Unable to get Substrate genesis block for Substrate sync.");
-				return;
 			};
 		}
 		("eth-deploy-contract", Some(eth_deploy_matches)) => {

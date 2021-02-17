@@ -394,6 +394,9 @@ where
 
 #[cfg(test)]
 mod tests {
+	// From construct_runtime macro
+	#![allow(clippy::from_over_into)]
+
 	use super::*;
 	use frame_support::{parameter_types, weights::Weight};
 	use frame_system::{EventRecord, Phase};
