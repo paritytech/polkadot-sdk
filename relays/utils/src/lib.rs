@@ -83,7 +83,7 @@ macro_rules! bail_on_error {
 		match $result {
 			(client, Ok(result)) => (client, result),
 			(client, Err(error)) => return (client, Err(error)),
-			}
+		}
 	};
 }
 
@@ -94,7 +94,7 @@ macro_rules! bail_on_arg_error {
 		match $result {
 			Ok(result) => result,
 			Err(error) => return ($client, Err(error)),
-			}
+		}
 	};
 }
 
