@@ -61,8 +61,7 @@ impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
 		matches!(
 			*self,
-			Error::Request(RequestError::TransportError(_))
-				| Error::ClientNotSynced(_)
+			Error::Request(RequestError::TransportError(_)) | Error::ClientNotSynced(_)
 		)
 	}
 }

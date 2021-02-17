@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+// From construct_runtime macro
+#![allow(clippy::from_over_into)]
+
 use crate::pallet::{BridgedHeader, Config};
 use bp_runtime::{BlockNumberOf, Chain};
 use frame_support::{construct_runtime, parameter_types, weights::Weight};

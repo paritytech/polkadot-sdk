@@ -85,7 +85,7 @@ pub fn from_substrate_block_number(number: BlockNumber) -> Result<U256, Error> {
 
 /// Parse Substrate header.
 pub fn parse_substrate_header(raw_header: &[u8]) -> Result<Header, Error> {
-	let substrate_header = RuntimeHeader::decode(&mut &raw_header[..])
+	let substrate_header = RuntimeHeader::decode(&mut &*raw_header)
 		.map(|header| Header {
 			hash: header.hash(),
 			parent_hash: header.parent_hash,
@@ -100,7 +100,7 @@ pub fn parse_substrate_header(raw_header: &[u8]) -> Result<Header, Error> {
 						}
 					})
 				})
-				.and_then(|log| ConsensusLog::decode(&mut &log[..]).ok())
+				.and_then(|log| ConsensusLog::decode(&mut &*log).ok())
 				.and_then(|log| match log {
 					ConsensusLog::ScheduledChange(scheduled_change) => Some(ValidatorsSetSignal {
 						delay: scheduled_change.delay,
@@ -133,7 +133,7 @@ pub fn verify_substrate_finality_proof(
 	raw_best_set: &[u8],
 	raw_finality_proof: &[u8],
 ) -> Result<(), Error> {
-	let best_set = AuthorityList::decode(&mut &raw_best_set[..])
+	let best_set = AuthorityList::decode(&mut &*raw_best_set)
 		.map_err(Error::BestSetDecode)
 		.and_then(|authorities| VoterSet::new(authorities.into_iter()).ok_or(Error::InvalidBestSet));
 
