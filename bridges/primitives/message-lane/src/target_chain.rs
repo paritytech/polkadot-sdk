@@ -129,3 +129,32 @@ impl<DispatchPayload: Decode, Fee> From<MessageData<Fee>> for DispatchMessageDat
 		}
 	}
 }
+
+/// Structure that may be used in place of `SourceHeaderChain` and `MessageDispatch` on chains,
+/// where inbound messages are forbidden.
+pub struct ForbidInboundMessages;
+
+/// Error message that is used in `ForbidOutboundMessages` implementation.
+const ALL_INBOUND_MESSAGES_REJECTED: &str = "This chain is configured to reject all inbound messages";
+
+impl<Fee> SourceHeaderChain<Fee> for ForbidInboundMessages {
+	type Error = &'static str;
+	type MessagesProof = ();
+
+	fn verify_messages_proof(
+		_proof: Self::MessagesProof,
+		_messages_count: u32,
+	) -> Result<ProvedMessages<Message<Fee>>, Self::Error> {
+		Err(ALL_INBOUND_MESSAGES_REJECTED)
+	}
+}
+
+impl<Fee> MessageDispatch<Fee> for ForbidInboundMessages {
+	type DispatchPayload = ();
+
+	fn dispatch_weight(_message: &DispatchMessage<Self::DispatchPayload, Fee>) -> Weight {
+		Weight::MAX
+	}
+
+	fn dispatch(_message: DispatchMessage<Self::DispatchPayload, Fee>) {}
+}
