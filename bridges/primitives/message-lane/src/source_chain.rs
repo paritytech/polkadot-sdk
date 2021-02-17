@@ -134,3 +134,59 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 		0
 	}
 }
+
+/// Structure that may be used in place of `TargetHeaderChain`, `LaneMessageVerifier` and
+/// `MessageDeliveryAndDispatchPayment` on chains, where outbound messages are forbidden.
+pub struct ForbidOutboundMessages;
+
+/// Error message that is used in `ForbidOutboundMessages` implementation.
+const ALL_OUTBOUND_MESSAGES_REJECTED: &str = "This chain is configured to reject all outbound messages";
+
+impl<Payload, AccountId> TargetHeaderChain<Payload, AccountId> for ForbidOutboundMessages {
+	type Error = &'static str;
+
+	type MessagesDeliveryProof = ();
+
+	fn verify_message(_payload: &Payload) -> Result<(), Self::Error> {
+		Err(ALL_OUTBOUND_MESSAGES_REJECTED)
+	}
+
+	fn verify_messages_delivery_proof(
+		_proof: Self::MessagesDeliveryProof,
+	) -> Result<(LaneId, InboundLaneData<AccountId>), Self::Error> {
+		Err(ALL_OUTBOUND_MESSAGES_REJECTED)
+	}
+}
+
+impl<Submitter, Payload, Fee> LaneMessageVerifier<Submitter, Payload, Fee> for ForbidOutboundMessages {
+	type Error = &'static str;
+
+	fn verify_message(
+		_submitter: &Sender<Submitter>,
+		_delivery_and_dispatch_fee: &Fee,
+		_lane: &LaneId,
+		_outbound_data: &OutboundLaneData,
+		_payload: &Payload,
+	) -> Result<(), Self::Error> {
+		Err(ALL_OUTBOUND_MESSAGES_REJECTED)
+	}
+}
+
+impl<AccountId, Balance> MessageDeliveryAndDispatchPayment<AccountId, Balance> for ForbidOutboundMessages {
+	type Error = &'static str;
+
+	fn pay_delivery_and_dispatch_fee(
+		_submitter: &Sender<AccountId>,
+		_fee: &Balance,
+		_relayer_fund_account: &AccountId,
+	) -> Result<(), Self::Error> {
+		Err(ALL_OUTBOUND_MESSAGES_REJECTED)
+	}
+
+	fn pay_relayers_rewards(
+		_confirmation_relayer: &AccountId,
+		_relayers_rewards: RelayersRewards<AccountId, Balance>,
+		_relayer_fund_account: &AccountId,
+	) {
+	}
+}
