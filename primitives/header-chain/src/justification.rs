@@ -48,7 +48,7 @@ pub enum Error {
 pub fn decode_justification_target<Header: HeaderT>(
 	raw_justification: &[u8],
 ) -> Result<(Header::Hash, Header::Number), Error> {
-	GrandpaJustification::<Header>::decode(&mut &raw_justification[..])
+	GrandpaJustification::<Header>::decode(&mut &*raw_justification)
 		.map(|justification| (justification.commit.target_hash, justification.commit.target_number))
 		.map_err(|_| Error::JustificationDecode)
 }
@@ -65,7 +65,7 @@ where
 {
 	// Decode justification first
 	let justification =
-		GrandpaJustification::<Header>::decode(&mut &raw_justification[..]).map_err(|_| Error::JustificationDecode)?;
+		GrandpaJustification::<Header>::decode(&mut &*raw_justification).map_err(|_| Error::JustificationDecode)?;
 
 	// Ensure that it is justification for the expected header
 	if (justification.commit.target_hash, justification.commit.target_number) != finalized_target {

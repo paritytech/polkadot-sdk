@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+// From construct_runtime macro
+#![allow(clippy::from_over_into)]
+
 pub use crate::test_utils::{insert_header, validator_utils::*, validators_change_receipt, HeaderBuilder, GAS_LIMIT};
 pub use bp_eth_poa::signatures::secret_to_address;
 

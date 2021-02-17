@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+// From construct_runtime macro
+#![allow(clippy::from_over_into)]
+
 use crate::Config;
 
 use bp_message_lane::{

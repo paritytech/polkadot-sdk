@@ -86,6 +86,9 @@ impl<T: Config> Module<T> {
 
 #[cfg(test)]
 mod tests {
+	// From construct_runtime macro
+	#![allow(clippy::from_over_into)]
+
 	use super::*;
 	use frame_support::sp_io::TestExternalities;
 	use frame_support::sp_runtime::{

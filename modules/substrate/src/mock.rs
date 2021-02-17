@@ -19,6 +19,8 @@
 //! Includes some useful testing types and functions.
 
 #![cfg(test)]
+// From construct_runtime macro
+#![allow(clippy::from_over_into)]
 
 use crate::{BridgedBlockHash, BridgedBlockNumber, BridgedHeader, Config};
 use bp_runtime::Chain;
