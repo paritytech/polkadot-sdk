@@ -48,7 +48,7 @@ use bp_message_lane::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload,
-	OutboundLaneData, UnrewardedRelayersState,
+	OutboundLaneData, Parameter as MessageLaneParameter, UnrewardedRelayersState,
 };
 use bp_runtime::Size;
 use codec::{Decode, Encode};
@@ -84,6 +84,12 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
 	/// Benchmarks results from runtime we're plugged into.
 	type WeightInfo: WeightInfoExt;
+	/// Pallet parameter that is opaque to the pallet itself, but may be used by the runtime
+	/// for integrating the pallet.
+	///
+	/// All pallet parameters may only be updated either by the root, or by the pallet owner.
+	type Parameter: MessageLaneParameter;
+
 	/// Maximal number of messages that may be pruned during maintenance. Maintenance occurs
 	/// whenever new message is sent. The reason is that if you want to use lane, you should
 	/// be ready to pay for its maintenance.
@@ -211,9 +217,13 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T, I = DefaultInstance> where
-		<T as frame_system::Config>::AccountId,
+	pub enum Event<T, I = DefaultInstance>
+	where
+		AccountId = <T as frame_system::Config>::AccountId,
+		Parameter = <T as Config<I>>::Parameter,
 	{
+		/// Pallet parameter has been updated.
+		ParameterUpdated(Parameter),
 		/// Message has been accepted and is waiting to be delivered.
 		MessageAccepted(LaneId, MessageNonce),
 		/// Messages in the inclusive range have been delivered and processed by the bridged chain.
@@ -272,6 +282,18 @@ decl_module! {
 			ensure_owner_or_root::<T, I>(origin)?;
 			IsHalted::<I>::put(false);
 			frame_support::debug::info!("Resuming pallet operations.");
+		}
+
+		/// Update pallet parameter.
+		///
+		/// May only be called either by root, or by `ModuleOwner`.
+		///
+		/// The weight is: single read for permissions check + 2 writes for parameter value and event.
+		#[weight = (T::DbWeight::get().reads_writes(1, 2), DispatchClass::Operational)]
+		pub fn update_pallet_parameter(origin, parameter: T::Parameter) {
+			ensure_owner_or_root::<T, I>(origin)?;
+			parameter.save();
+			Self::deposit_event(RawEvent::ParameterUpdated(parameter));
 		}
 
 		/// Send message over lane.
@@ -821,9 +843,9 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, Dispatch
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, run_test, Event as TestEvent, Origin, TestMessageDeliveryAndDispatchPayment,
-		TestMessagesDeliveryProof, TestMessagesProof, TestPayload, TestRuntime, PAYLOAD_REJECTED_BY_TARGET_CHAIN,
-		REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
+		message, run_test, Event as TestEvent, Origin, TestMessageDeliveryAndDispatchPayment, TestMessageLaneParameter,
+		TestMessagesDeliveryProof, TestMessagesProof, TestPayload, TestRuntime, TokenConversionRate,
+		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_message_lane::UnrewardedRelayersState;
 	use frame_support::{assert_noop, assert_ok};
@@ -831,9 +853,13 @@ mod tests {
 	use hex_literal::hex;
 	use sp_runtime::DispatchError;
 
-	fn send_regular_message() {
+	fn get_ready_for_events() {
 		System::<TestRuntime>::set_block_number(1);
 		System::<TestRuntime>::reset_events();
+	}
+
+	fn send_regular_message() {
+		get_ready_for_events();
 
 		assert_ok!(Module::<TestRuntime>::send_message(
 			Origin::signed(1),
@@ -937,6 +963,101 @@ mod tests {
 				Module::<TestRuntime>::resume_operations(Origin::signed(1)),
 				DispatchError::BadOrigin,
 			);
+		});
+	}
+
+	#[test]
+	fn pallet_parameter_may_be_updated_by_root() {
+		run_test(|| {
+			get_ready_for_events();
+
+			let parameter = TestMessageLaneParameter::TokenConversionRate(10.into());
+			assert_ok!(Module::<TestRuntime>::update_pallet_parameter(
+				Origin::root(),
+				parameter.clone(),
+			));
+
+			assert_eq!(TokenConversionRate::get(), 10.into());
+			assert_eq!(
+				System::<TestRuntime>::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::pallet_message_lane(RawEvent::ParameterUpdated(parameter)),
+					topics: vec![],
+				}],
+			);
+		});
+	}
+
+	#[test]
+	fn pallet_parameter_may_be_updated_by_owner() {
+		run_test(|| {
+			ModuleOwner::<TestRuntime>::put(2);
+			get_ready_for_events();
+
+			let parameter = TestMessageLaneParameter::TokenConversionRate(10.into());
+			assert_ok!(Module::<TestRuntime>::update_pallet_parameter(
+				Origin::signed(2),
+				parameter.clone(),
+			));
+
+			assert_eq!(TokenConversionRate::get(), 10.into());
+			assert_eq!(
+				System::<TestRuntime>::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::pallet_message_lane(RawEvent::ParameterUpdated(parameter)),
+					topics: vec![],
+				}],
+			);
+		});
+	}
+
+	#[test]
+	fn pallet_parameter_cant_be_updated_by_arbitrary_submitter() {
+		run_test(|| {
+			assert_noop!(
+				Module::<TestRuntime>::update_pallet_parameter(
+					Origin::signed(2),
+					TestMessageLaneParameter::TokenConversionRate(10.into()),
+				),
+				DispatchError::BadOrigin,
+			);
+
+			ModuleOwner::<TestRuntime>::put(2);
+
+			assert_noop!(
+				Module::<TestRuntime>::update_pallet_parameter(
+					Origin::signed(1),
+					TestMessageLaneParameter::TokenConversionRate(10.into()),
+				),
+				DispatchError::BadOrigin,
+			);
+		});
+	}
+
+	#[test]
+	fn fixed_u128_works_as_i_think() {
+		// this test is here just to be sure that conversion rate may be represented with FixedU128
+		run_test(|| {
+			use sp_runtime::{FixedPointNumber, FixedU128};
+
+			// 1:1 conversion that we use by default for testnets
+			let rialto_token = 1u64;
+			let rialto_token_in_millau_tokens = TokenConversionRate::get().saturating_mul_int(rialto_token);
+			assert_eq!(rialto_token_in_millau_tokens, 1);
+
+			// let's say conversion rate is 1:1.7
+			let conversion_rate = FixedU128::saturating_from_rational(170, 100);
+			let rialto_tokens = 100u64;
+			let rialto_tokens_in_millau_tokens = conversion_rate.saturating_mul_int(rialto_tokens);
+			assert_eq!(rialto_tokens_in_millau_tokens, 170);
+
+			// let's say conversion rate is 1:0.25
+			let conversion_rate = FixedU128::saturating_from_rational(25, 100);
+			let rialto_tokens = 100u64;
+			let rialto_tokens_in_millau_tokens = conversion_rate.saturating_mul_int(rialto_tokens);
+			assert_eq!(rialto_tokens_in_millau_tokens, 25);
 		});
 	}
 
