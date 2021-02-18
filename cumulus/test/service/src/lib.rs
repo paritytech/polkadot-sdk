@@ -207,6 +207,7 @@ where
 		network: network.clone(),
 		network_status_sinks,
 		system_rpc_tx,
+		telemetry_span: None,
 	})?;
 
 	let announce_block = {
@@ -425,7 +426,6 @@ pub fn node_config(
 		telemetry_handle: None,
 		telemetry_endpoints: None,
 		telemetry_external_transport: None,
-		telemetry_span: None,
 		default_heap_pages: None,
 		offchain_worker: OffchainWorkerConfig {
 			enabled: true,
