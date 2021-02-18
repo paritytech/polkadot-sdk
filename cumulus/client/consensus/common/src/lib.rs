@@ -513,7 +513,7 @@ where
 
 /// The result of [`ParachainConsensus::produce_candidate`].
 pub struct ParachainCandidate<B> {
-	/// The block that was build for this candidate.
+	/// The block that was built for this candidate.
 	pub block: B,
 	/// The proof that was recorded while building the block.
 	pub proof: sp_trie::StorageProof,
@@ -523,11 +523,11 @@ pub struct ParachainCandidate<B> {
 ///
 /// The collator will call [`Self::produce_candidate`] every time there is a free core for the parachain
 /// this collator is collating for. It is the job of the consensus implementation to decide if this
-/// specific collator should build candidate for the given relay chain block. The consensus
-/// implementation could for example check if this specific collator is part of the validator.
+/// specific collator should build a candidate for the given relay chain block. The consensus
+/// implementation could, for example, check whether this specific collator is part of a staked set.
 #[async_trait::async_trait]
 pub trait ParachainConsensus<B: BlockT>: Send + Sync + dyn_clone::DynClone {
-	/// Produce a new candidate at the given parent block.
+	/// Produce a new candidate at the given parent block and relay-parent blocks.
 	///
 	/// Should return `None` if the consensus implementation decided that it shouldn't build a
 	/// candidate or if there occurred any error.
