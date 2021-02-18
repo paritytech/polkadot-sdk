@@ -32,6 +32,12 @@ pub mod target_chain;
 // Weight is reexported to avoid additional frame-support dependencies in message-lane related crates.
 pub use frame_support::weights::Weight;
 
+/// Message lane pallet parameter.
+pub trait Parameter: frame_support::Parameter {
+	/// Save parameter value in the runtime storage.
+	fn save(&self);
+}
+
 /// Lane identifier.
 pub type LaneId = [u8; 4];
 

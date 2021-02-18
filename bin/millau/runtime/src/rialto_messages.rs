@@ -21,16 +21,24 @@ use crate::Runtime;
 use bp_message_lane::{
 	source_chain::TargetHeaderChain,
 	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageNonce,
+	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessageLaneParameter,
 };
 use bp_runtime::{InstanceId, RIALTO_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::{self, ChainWithMessageLanes, MessageBridge};
+use codec::{Decode, Encode};
 use frame_support::{
+	parameter_types,
 	weights::{DispatchClass, Weight, WeightToFeePolynomial},
 	RuntimeDebug,
 };
 use sp_core::storage::StorageKey;
+use sp_runtime::{FixedPointNumber, FixedU128};
 use sp_std::{convert::TryFrom, ops::RangeInclusive};
+
+parameter_types! {
+	/// Rialto to Millau conversion rate. Initially we treat both tokens as equal.
+	storage RialtoToMillauConversionRate: FixedU128 = 1.into();
+}
 
 /// Storage key of the Millau -> Rialto message in the runtime storage.
 pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
@@ -145,8 +153,8 @@ impl MessageBridge for WithRialtoMessageBridge {
 	}
 
 	fn bridged_balance_to_this_balance(bridged_balance: bp_rialto::Balance) -> bp_millau::Balance {
-		// 1:1 conversion that will probably change in the future
-		bridged_balance as _
+		bp_millau::Balance::try_from(RialtoToMillauConversionRate::get().saturating_mul_int(bridged_balance))
+			.unwrap_or(bp_millau::Balance::MAX)
 	}
 }
 
@@ -225,5 +233,22 @@ impl SourceHeaderChain<bp_rialto::Balance> for Rialto {
 		messages_count: u32,
 	) -> Result<ProvedMessages<Message<bp_rialto::Balance>>, Self::Error> {
 		messages::target::verify_messages_proof::<WithRialtoMessageBridge, Runtime>(proof, messages_count)
+	}
+}
+
+/// Millau -> Rialto message lane pallet parameters.
+#[derive(RuntimeDebug, Clone, Encode, Decode, PartialEq, Eq)]
+pub enum MillauToRialtoMessageLaneParameter {
+	/// The conversion formula we use is: `MillauTokens = RialtoTokens * conversion_rate`.
+	RialtoToMillauConversionRate(FixedU128),
+}
+
+impl MessageLaneParameter for MillauToRialtoMessageLaneParameter {
+	fn save(&self) {
+		match *self {
+			MillauToRialtoMessageLaneParameter::RialtoToMillauConversionRate(ref conversion_rate) => {
+				RialtoToMillauConversionRate::set(conversion_rate)
+			}
+		}
 	}
 }
