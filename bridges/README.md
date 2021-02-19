@@ -15,6 +15,7 @@ Substrate chains or Ethereum Proof-of-Authority chains.
 - [High-Level Architecture](#high-level-architecture)
 - [Project Layout](#project-layout)
 - [Running the Bridge](#running-the-bridge)
+- [How to send a message](#how-to-send-a-message)
 - [Community](#community)
 
 ## Installation
@@ -191,6 +192,10 @@ Once you have the images built you can use them in the previous commands by repl
 For a more sophisticated deployment which includes bidirectional header sync, message passing,
 monitoring dashboards, etc. see the [Deployments README](./deployments/README.md).
 
+### How to send a message
+
+A straightforward way to interact with and test the bridge is sending messages. This is explained
+in the [send message](./docs/send-message.md) document.
 ## Community
 
 Main hangout for the community is [Element](https://element.io/) (formerly Riot). Element is a chat
