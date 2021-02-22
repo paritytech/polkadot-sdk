@@ -166,7 +166,7 @@ mod tests {
 	#[test]
 	fn select_delivery_transaction_limits_works() {
 		let (max_count, max_weight) = select_delivery_transaction_limits::<RialtoToMillauMessageLaneWeights>(
-			bp_rialto::max_extrinsic_weight(),
+			bp_millau::max_extrinsic_weight(),
 			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
 		);
 		assert_eq!(
@@ -176,7 +176,7 @@ mod tests {
 			// reserved for messages dispatch allows dispatch of non-trivial messages.
 			//
 			// Any significant change in this values should attract additional attention.
-			(1024, 866_583_333_334),
+			(955, 216_583_333_334),
 		);
 	}
 }
