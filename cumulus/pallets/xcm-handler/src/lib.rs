@@ -103,16 +103,17 @@ impl<T: Config> DownwardMessageHandler for Module<T> {
 	fn handle_downward_message(msg: InboundDownwardMessage) {
 		let hash = msg.using_encoded(T::Hashing::hash);
 		frame_support::debug::print!("Processing Downward XCM: {:?}", &hash);
-		match VersionedXcm::decode(&mut &msg.msg[..]).map(Xcm::try_from) {
+		let event = match VersionedXcm::decode(&mut &msg.msg[..]).map(Xcm::try_from) {
 			Ok(Ok(xcm)) => {
 				match T::XcmExecutor::execute_xcm(Junction::Parent.into(), xcm) {
 					Ok(..) => RawEvent::Success(hash),
 					Err(e) => RawEvent::Fail(hash, e),
-				};
+				}
 			}
-			Ok(Err(..)) => Self::deposit_event(RawEvent::BadVersion(hash)),
-			Err(..) => Self::deposit_event(RawEvent::BadFormat(hash)),
-		}
+			Ok(Err(..)) => RawEvent::BadVersion(hash),
+			Err(..) => RawEvent::BadFormat(hash),
+		};
+		Self::deposit_event(event);
 	}
 }
 
@@ -120,7 +121,7 @@ impl<T: Config> HrmpMessageHandler for Module<T> {
 	fn handle_hrmp_message(sender: ParaId, msg: InboundHrmpMessage) {
 		let hash = msg.using_encoded(T::Hashing::hash);
 		frame_support::debug::print!("Processing HRMP XCM: {:?}", &hash);
-		match VersionedXcm::decode(&mut &msg.data[..]).map(Xcm::try_from) {
+		let event = match VersionedXcm::decode(&mut &msg.data[..]).map(Xcm::try_from) {
 			Ok(Ok(xcm)) => {
 				let location = (
 					Junction::Parent,
@@ -129,11 +130,12 @@ impl<T: Config> HrmpMessageHandler for Module<T> {
 				match T::XcmExecutor::execute_xcm(location.into(), xcm) {
 					Ok(..) => RawEvent::Success(hash),
 					Err(e) => RawEvent::Fail(hash, e),
-				};
+				}
 			}
-			Ok(Err(..)) => Self::deposit_event(RawEvent::BadVersion(hash)),
-			Err(..) => Self::deposit_event(RawEvent::BadFormat(hash)),
-		}
+			Ok(Err(..)) => RawEvent::BadVersion(hash),
+			Err(..) => RawEvent::BadFormat(hash),
+		};
+		Self::deposit_event(event);
 	}
 }
 
