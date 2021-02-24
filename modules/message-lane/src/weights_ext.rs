@@ -31,7 +31,8 @@ const SIGNED_EXTENSIONS_SIZE: u32 = 1024;
 
 /// Ensure that weights from `WeightInfoExt` implementation are looking correct.
 pub fn ensure_weights_are_correct<W: WeightInfoExt>(
-	expected_single_regular_message_delivery_tx_weight: Weight,
+	expected_default_message_delivery_tx_weight: Weight,
+	expected_additional_byte_delivery_weight: Weight,
 	expected_messages_delivery_confirmation_tx_weight: Weight,
 ) {
 	// verify `send_message` weight components
@@ -51,10 +52,19 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>(
 		0,
 	);
 	assert!(
-		actual_single_regular_message_delivery_tx_weight <= expected_single_regular_message_delivery_tx_weight,
-		"Single message delivery transaction weight {} is larger than expected weight {}",
+		actual_single_regular_message_delivery_tx_weight <= expected_default_message_delivery_tx_weight,
+		"Default message delivery transaction weight {} is larger than expected weight {}",
 		actual_single_regular_message_delivery_tx_weight,
-		expected_single_regular_message_delivery_tx_weight,
+		expected_default_message_delivery_tx_weight,
+	);
+
+	// verify that hardcoded value covers additional byte length of `receive_messages_proof` weight
+	let actual_additional_byte_delivery_weight = W::storage_proof_size_overhead(1);
+	assert!(
+		actual_additional_byte_delivery_weight <= expected_additional_byte_delivery_weight,
+		"Single additional byte delivery weight {} is larger than expected weight {}",
+		actual_additional_byte_delivery_weight,
+		expected_additional_byte_delivery_weight,
 	);
 
 	// verify `receive_messages_delivery_proof` weight components
