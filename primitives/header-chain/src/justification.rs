@@ -180,8 +180,4 @@ where
 
 		Ok(route)
 	}
-
-	fn best_chain_containing(&self, _block: Header::Hash) -> Option<(Header::Hash, Header::Number)> {
-		unreachable!("is only used during voting; qed")
-	}
 }
