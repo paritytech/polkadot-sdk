@@ -643,7 +643,8 @@ mod tests {
 		type Weights = pallet_message_lane::weights::RialtoWeight<Runtime>;
 
 		pallet_message_lane::ensure_weights_are_correct::<Weights>(
-			bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT,
+			bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,
+			bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT,
 			bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
 		);
 

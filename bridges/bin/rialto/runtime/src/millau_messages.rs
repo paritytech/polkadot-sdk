@@ -126,7 +126,7 @@ impl MessageBridge for WithMillauMessageBridge {
 			message_payload_len.saturating_add(bp_rialto::EXTRA_STORAGE_PROOF_SIZE as _),
 			extra_bytes_in_payload
 				.saturating_mul(bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
-				.saturating_add(bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_TX_WEIGHT),
+				.saturating_add(bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT),
 		)
 	}
 
