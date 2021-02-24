@@ -20,6 +20,7 @@ use frame_executive::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT, NumberFor};
 
 use sp_std::{boxed::Box, vec::Vec};
+use sp_io::KillChildStorageResult;
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
@@ -277,7 +278,7 @@ impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
 		self.inner.place_child_storage(child_info, key, value)
 	}
 
-	fn kill_child_storage(&mut self, child_info: &ChildInfo, limit: Option<u32>) -> bool {
+	fn kill_child_storage(&mut self, child_info: &ChildInfo, limit: Option<u32>) -> (bool, u32) {
 		self.inner.kill_child_storage(child_info, limit)
 	}
 
@@ -460,9 +461,18 @@ fn host_default_child_storage_clear(storage_key: &[u8], key: &[u8]) {
 	with_externalities(|ext| ext.place_child_storage(&child_info, key.to_vec(), None))
 }
 
-fn host_default_child_storage_storage_kill(storage_key: &[u8], limit: Option<u32>) -> bool {
+fn host_default_child_storage_storage_kill(
+	storage_key: &[u8],
+	limit: Option<u32>,
+) -> KillChildStorageResult {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.kill_child_storage(&child_info, limit))
+	with_externalities(|ext| {
+		let (all_removed, num_removed) = ext.kill_child_storage(&child_info, limit);
+		match all_removed {
+			true => KillChildStorageResult::AllRemoved(num_removed),
+			false => KillChildStorageResult::SomeRemaining(num_removed),
+		}
+	})
 }
 
 fn host_default_child_storage_exists(storage_key: &[u8], key: &[u8]) -> bool {

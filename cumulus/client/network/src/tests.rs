@@ -145,6 +145,8 @@ async fn make_gossip_message_and_header(
 		&alice_public.into(),
 	)
 	.await
+	.ok()
+	.flatten()
 	.expect("Signing statement");
 
 	(signed, header)
@@ -203,7 +205,9 @@ fn check_signer_is_legit_validator() {
 	let (mut validator, api) = make_validator_and_api();
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-	let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
+	let data = BlockAnnounceData::try_from(signed_statement)
+		.unwrap()
+		.encode();
 
 	let res = block_on(validator.validate(&header, &data));
 	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
@@ -215,7 +219,9 @@ fn check_statement_is_correctly_signed() {
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
 
-	let mut data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
+	let mut data = BlockAnnounceData::try_from(signed_statement)
+		.unwrap()
+		.encode();
 
 	// The signature comes at the end of the type, so change a bit to make the signature invalid.
 	let last = data.len() - 1;
@@ -256,11 +262,15 @@ fn check_statement_seconded() {
 		0,
 		&alice_public.into(),
 	))
+	.ok()
+	.flatten()
 	.expect("Signs statement");
+
 	let data = BlockAnnounceData {
 		receipt: Default::default(),
 		statement: signed_statement.convert_payload(),
-	}.encode();
+	}
+	.encode();
 
 	let res = block_on(validator.validate(&header, &data));
 	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
@@ -272,7 +282,9 @@ fn check_header_match_candidate_receipt_header() {
 
 	let (signed_statement, mut header) =
 		block_on(make_gossip_message_and_header_using_genesis(api, 0));
-	let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
+	let data = BlockAnnounceData::try_from(signed_statement)
+		.unwrap()
+		.encode();
 	header.number = 300;
 
 	let res = block_on(validator.validate(&header, &data));
@@ -297,7 +309,9 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 
 		let (signed_statement, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
 
-		let data = BlockAnnounceData::try_from(signed_statement).unwrap().encode();
+		let data = BlockAnnounceData::try_from(signed_statement)
+			.unwrap()
+			.encode();
 
 		let mut validation = validator.validate(&header, &data);
 
