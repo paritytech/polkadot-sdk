@@ -93,8 +93,8 @@ pub enum RelayMessages {
 		rialto_sign: RialtoSigningParams,
 		#[structopt(flatten)]
 		prometheus_params: PrometheusParams,
-		/// Hex-encoded id of lane that should be served by relay.
-		#[structopt(long)]
+		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
+		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
 	},
 	/// Serve given lane of Rialto -> Millau messages.
@@ -109,8 +109,8 @@ pub enum RelayMessages {
 		millau_sign: MillauSigningParams,
 		#[structopt(flatten)]
 		prometheus_params: PrometheusParams,
-		/// Hex-encoded id of lane that should be served by relay.
-		#[structopt(long)]
+		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
+		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
 	},
 }
@@ -151,8 +151,8 @@ pub enum SendMessage {
 		millau_sign: MillauSigningParams,
 		#[structopt(flatten)]
 		rialto_sign: RialtoSigningParams,
-		/// Hex-encoded lane id.
-		#[structopt(long)]
+		/// Hex-encoded lane id. Defaults to `00000000`.
+		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
 		/// Dispatch weight of the message. If not passed, determined automatically.
 		#[structopt(long)]
@@ -163,8 +163,9 @@ pub enum SendMessage {
 		/// Message type.
 		#[structopt(subcommand)]
 		message: ToRialtoMessage,
-		/// The origin to use when dispatching the message on the target chain.
-		#[structopt(long, possible_values = &Origins::variants())]
+		/// The origin to use when dispatching the message on the target chain. Defaults to
+		/// `SourceAccount`.
+		#[structopt(long, possible_values = &Origins::variants(), default_value = "Source")]
 		origin: Origins,
 	},
 	/// Submit message to given Rialto -> Millau lane.
@@ -175,8 +176,8 @@ pub enum SendMessage {
 		rialto_sign: RialtoSigningParams,
 		#[structopt(flatten)]
 		millau_sign: MillauSigningParams,
-		/// Hex-encoded lane id.
-		#[structopt(long)]
+		/// Hex-encoded lane id. Defaults to `00000000`.
+		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
 		/// Dispatch weight of the message. If not passed, determined automatically.
 		#[structopt(long)]
@@ -187,8 +188,9 @@ pub enum SendMessage {
 		/// Message type.
 		#[structopt(subcommand)]
 		message: ToMillauMessage,
-		/// The origin to use when dispatching the message on the target chain.
-		#[structopt(long, possible_values = &Origins::variants())]
+		/// The origin to use when dispatching the message on the target chain. Defaults to
+		/// `SourceAccount`.
+		#[structopt(long, possible_values = &Origins::variants(), default_value = "Source")]
 		origin: Origins,
 	},
 }
@@ -321,7 +323,7 @@ macro_rules! declare_chain_options {
 			#[derive(StructOpt)]
 			pub struct [<$chain ConnectionParams>] {
 				#[doc = "Connect to " $chain " node at given host."]
-				#[structopt(long)]
+				#[structopt(long, default_value = "127.0.0.1")]
 				pub [<$chain_prefix _host>]: String,
 				#[doc = "Connect to " $chain " node websocket server at given port."]
 				#[structopt(long)]
