@@ -420,8 +420,8 @@ parameter_types! {
 impl pallet_finality_verifier::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
 	type HeaderChain = pallet_substrate_bridge::Module<Runtime>;
-	type AncestryProof = Vec<bp_millau::Header>;
-	type AncestryChecker = bp_header_chain::LinearAncestryChecker;
+	type AncestryProof = ();
+	type AncestryChecker = ();
 	type MaxRequests = MaxRequests;
 }
 
