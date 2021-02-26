@@ -27,8 +27,7 @@ use cumulus_primitives_core::{
 	DownwardMessageHandler, HrmpMessageHandler, HrmpMessageSender, InboundDownwardMessage,
 	InboundHrmpMessage, OutboundHrmpMessage, ParaId, UpwardMessageSender,
 };
-use frame_support::{decl_error, decl_event, decl_module, sp_runtime::traits::Hash};
-use frame_system::ensure_root;
+use frame_support::{decl_error, decl_event, decl_module, sp_runtime::traits::Hash, traits::EnsureOrigin};
 use sp_std::convert::{TryFrom, TryInto};
 use xcm::{
 	v0::{Error as XcmError, ExecuteXcm, Junction, MultiLocation, SendXcm, Xcm},
@@ -43,6 +42,9 @@ pub trait Config: frame_system::Config {
 	type UpwardMessageSender: UpwardMessageSender;
 	/// Something to send an HRMP message.
 	type HrmpMessageSender: HrmpMessageSender;
+	/// Required origin for sending XCM messages. Typically Root or parachain
+	/// council majority.
+	type SendXcmOrigin: EnsureOrigin<Self::Origin>;
 }
 
 decl_event! {
@@ -57,7 +59,7 @@ decl_event! {
 		BadFormat(Hash),
 		/// An upward message was sent to the relay chain.
 		UpwardMessageSent(Hash),
-		/// An HRMP message was sent to a sibling parachainchain.
+		/// An HRMP message was sent to a sibling parachain.
 		HrmpMessageSent(Hash),
 	}
 }
@@ -74,21 +76,21 @@ decl_module! {
 		fn deposit_event() = default;
 
 		#[weight = 1_000]
-		fn sudo_send_xcm(origin, dest: MultiLocation, message: Xcm) {
-			ensure_root(origin)?;
-			Self::send_xcm(dest, message).map_err(|_| Error::<T>::FailedToSend)?;
+		fn send_xcm(origin, dest: MultiLocation, message: Xcm) {
+			T::SendXcmOrigin::ensure_origin(origin)?;
+			<Self as SendXcm>::send_xcm(dest, message).map_err(|_| Error::<T>::FailedToSend)?;
 		}
 
 		#[weight = 1_000]
-		fn sudo_send_upward_xcm(origin, message: VersionedXcm) {
-			ensure_root(origin)?;
+		fn send_upward_xcm(origin, message: VersionedXcm) {
+			T::SendXcmOrigin::ensure_origin(origin)?;
 			let data = message.encode();
 			T::UpwardMessageSender::send_upward_message(data).map_err(|_| Error::<T>::FailedToSend)?;
 		}
 
 		#[weight = 1_000]
-		fn sudo_send_hrmp_xcm(origin, recipient: ParaId, message: VersionedXcm) {
-			ensure_root(origin)?;
+		fn send_hrmp_xcm(origin, recipient: ParaId, message: VersionedXcm) {
+			T::SendXcmOrigin::ensure_origin(origin)?;
 			let data = message.encode();
 			let outbound_message = OutboundHrmpMessage {
 				recipient,
