@@ -142,7 +142,7 @@ pub mod pallet {
 				<Error<T>>::InvalidAncestryProof
 			);
 
-			T::HeaderChain::append_header(finality_target);
+			let _ = T::HeaderChain::append_header(finality_target)?;
 			frame_support::debug::info!("Succesfully imported finalized header with hash {:?}!", hash);
 
 			<RequestCount<T>>::mutate(|count| *count += 1);
@@ -203,9 +203,9 @@ mod tests {
 		));
 	}
 
-	fn submit_finality_proof() -> frame_support::dispatch::DispatchResultWithPostInfo {
-		let child = test_header(1);
-		let header = test_header(2);
+	fn submit_finality_proof(child: u8, header: u8) -> frame_support::dispatch::DispatchResultWithPostInfo {
+		let child = test_header(child.into());
+		let header = test_header(header.into());
 
 		let set_id = 1;
 		let grandpa_round = 1;
@@ -228,7 +228,7 @@ mod tests {
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof(1, 2));
 
 			let header = test_header(2);
 			assert_eq!(
@@ -337,9 +337,9 @@ mod tests {
 	fn disallows_imports_once_limit_is_hit_in_single_block() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof());
-			assert_ok!(submit_finality_proof());
-			assert_err!(submit_finality_proof(), <Error<TestRuntime>>::TooManyRequests);
+			assert_ok!(submit_finality_proof(1, 2));
+			assert_ok!(submit_finality_proof(3, 4));
+			assert_err!(submit_finality_proof(5, 6), <Error<TestRuntime>>::TooManyRequests);
 		})
 	}
 
@@ -379,11 +379,11 @@ mod tests {
 	fn allows_request_after_new_block_has_started() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof());
-			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof(1, 2));
+			assert_ok!(submit_finality_proof(3, 4));
 
 			next_block();
-			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof(5, 6));
 		})
 	}
 
@@ -391,12 +391,12 @@ mod tests {
 	fn disallows_imports_once_limit_is_hit_across_different_blocks() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof());
-			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof(1, 2));
+			assert_ok!(submit_finality_proof(3, 4));
 
 			next_block();
-			assert_ok!(submit_finality_proof());
-			assert_err!(submit_finality_proof(), <Error<TestRuntime>>::TooManyRequests);
+			assert_ok!(submit_finality_proof(5, 6));
+			assert_err!(submit_finality_proof(7, 8), <Error<TestRuntime>>::TooManyRequests);
 		})
 	}
 
@@ -404,15 +404,15 @@ mod tests {
 	fn allows_max_requests_after_long_time_with_no_activity() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof());
-			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof(1, 2));
+			assert_ok!(submit_finality_proof(3, 4));
 
 			next_block();
 			next_block();
 
 			next_block();
-			assert_ok!(submit_finality_proof());
-			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof(5, 6));
+			assert_ok!(submit_finality_proof(7, 8));
 		})
 	}
 }
