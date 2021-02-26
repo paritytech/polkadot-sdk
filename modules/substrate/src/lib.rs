@@ -155,6 +155,11 @@ decl_error! {
 		AlreadyInitialized,
 		/// The given header is not a descendant of a particular header.
 		NotDescendant,
+		/// The header being imported is on a fork which is incompatible with the current chain.
+		///
+		/// This can happen if we try and import a finalized header at a lower height than our
+		/// current `best_finalized` header.
+		ConflictingFork,
 	}
 }
 
@@ -375,8 +380,14 @@ impl<T: Config> bp_header_chain::HeaderChain<BridgedHeader<T>, sp_runtime::Dispa
 		PalletStorage::<T>::new().current_authority_set()
 	}
 
-	fn append_header(header: BridgedHeader<T>) {
+	fn append_header(header: BridgedHeader<T>) -> Result<(), sp_runtime::DispatchError> {
+		// We do a quick check here to ensure that our header chain is making progress and isn't
+		// "travelling back in time" (which would be indicative of something bad, e.g a hard-fork).
+		let best_finalized = PalletStorage::<T>::new().best_finalized_header().header;
+		ensure!(best_finalized.number() < header.number(), <Error<T>>::ConflictingFork);
 		import_header_unchecked::<_, T>(&mut PalletStorage::<T>::new(), header);
+
+		Ok(())
 	}
 }
 
@@ -714,7 +725,7 @@ mod tests {
 	use crate::mock::{run_test, test_header, unfinalized_header, Origin, TestHeader, TestRuntime};
 	use bp_header_chain::HeaderChain;
 	use bp_test_utils::{alice, authority_list, bob};
-	use frame_support::{assert_noop, assert_ok};
+	use frame_support::{assert_err, assert_noop, assert_ok};
 	use sp_runtime::DispatchError;
 
 	fn init_with_origin(origin: Origin) -> Result<InitializationData<TestHeader>, DispatchError> {
@@ -907,11 +918,30 @@ mod tests {
 			let storage = PalletStorage::<TestRuntime>::new();
 
 			let header = test_header(2);
-			Module::<TestRuntime>::append_header(header.clone());
+			assert_ok!(Module::<TestRuntime>::append_header(header.clone()));
 
 			assert!(storage.header_by_hash(header.hash()).unwrap().is_finalized);
 			assert_eq!(storage.best_finalized_header().header, header);
 			assert_eq!(storage.best_headers()[0].hash, header.hash());
+		})
+	}
+
+	#[test]
+	fn importing_unchecked_header_ensures_that_chain_is_extended() {
+		run_test(|| {
+			init_with_origin(Origin::root()).unwrap();
+
+			let header = test_header(3);
+			assert_ok!(Module::<TestRuntime>::append_header(header));
+
+			let header = test_header(2);
+			assert_err!(
+				Module::<TestRuntime>::append_header(header),
+				Error::<TestRuntime>::ConflictingFork,
+			);
+
+			let header = test_header(4);
+			assert_ok!(Module::<TestRuntime>::append_header(header));
 		})
 	}
 
@@ -930,7 +960,7 @@ mod tests {
 			header.digest = fork_tests::change_log(0);
 
 			// Let's import our test header
-			Module::<TestRuntime>::append_header(header.clone());
+			assert_ok!(Module::<TestRuntime>::append_header(header.clone()));
 
 			// Make sure that our header is the best finalized
 			assert_eq!(storage.best_finalized_header().header, header);
@@ -960,8 +990,8 @@ mod tests {
 			let header = test_header(3);
 
 			// Let's import our test headers
-			Module::<TestRuntime>::append_header(schedules_change);
-			Module::<TestRuntime>::append_header(header.clone());
+			assert_ok!(Module::<TestRuntime>::append_header(schedules_change));
+			assert_ok!(Module::<TestRuntime>::append_header(header.clone()));
 
 			// Make sure that our header is the best finalized
 			assert_eq!(storage.best_finalized_header().header, header);
@@ -1001,7 +1031,7 @@ mod tests {
 
 			// We are expecting an authority set change at height 2, so this header should enact
 			// that upon being imported.
-			Module::<TestRuntime>::append_header(test_header(2));
+			assert_ok!(Module::<TestRuntime>::append_header(test_header(2)));
 
 			// Make sure that the authority set actually changed upon importing our header
 			assert_eq!(

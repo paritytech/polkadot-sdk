@@ -78,7 +78,7 @@ pub trait HeaderChain<H, E> {
 	fn authority_set() -> AuthoritySet;
 
 	/// Write a header finalized by GRANDPA to the underlying pallet storage.
-	fn append_header(header: H);
+	fn append_header(header: H) -> Result<(), E>;
 }
 
 impl<H: Default, E> HeaderChain<H, E> for () {
@@ -90,7 +90,9 @@ impl<H: Default, E> HeaderChain<H, E> for () {
 		AuthoritySet::default()
 	}
 
-	fn append_header(_header: H) {}
+	fn append_header(_header: H) -> Result<(), E> {
+		Ok(())
+	}
 }
 
 /// A trait for checking if a given child header is a direct descendant of an ancestor.
