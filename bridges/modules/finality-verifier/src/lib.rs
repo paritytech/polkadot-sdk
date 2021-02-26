@@ -75,6 +75,8 @@ pub mod pallet {
 
 		/// The upper bound on the number of requests allowed by the pallet.
 		///
+		/// A request refers to an action which writes a header to storage.
+		///
 		/// Once this bound is reached the pallet will not allow any dispatchables to be called
 		/// until the request count has decreased.
 		#[pallet::constant]
@@ -117,7 +119,6 @@ pub mod pallet {
 				Self::request_count() < T::MaxRequests::get(),
 				<Error<T>>::TooManyRequests
 			);
-			<RequestCount<T>>::mutate(|count| *count += 1);
 
 			frame_support::debug::trace!("Going to try and finalize header {:?}", finality_target);
 
@@ -144,11 +145,13 @@ pub mod pallet {
 			T::HeaderChain::append_header(finality_target);
 			frame_support::debug::info!("Succesfully imported finalized header with hash {:?}!", hash);
 
+			<RequestCount<T>>::mutate(|count| *count += 1);
+
 			Ok(().into())
 		}
 	}
 
-	/// The current number of requests for calling dispatchables.
+	/// The current number of requests which have written to storage.
 	///
 	/// If the `RequestCount` hits `MaxRequests`, no more calls will be allowed to the pallet until
 	/// the request capacity is increased.
@@ -334,6 +337,38 @@ mod tests {
 	fn disallows_imports_once_limit_is_hit_in_single_block() {
 		run_test(|| {
 			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof());
+			assert_ok!(submit_finality_proof());
+			assert_err!(submit_finality_proof(), <Error<TestRuntime>>::TooManyRequests);
+		})
+	}
+
+	#[test]
+	fn invalid_requests_do_not_count_towards_request_count() {
+		run_test(|| {
+			let submit_invalid_request = || {
+				let child = test_header(1);
+				let header = test_header(2);
+
+				let invalid_justification = vec![4, 2, 4, 2].encode();
+				let ancestry_proof = vec![child, header.clone()];
+
+				Module::<TestRuntime>::submit_finality_proof(
+					Origin::signed(1),
+					header,
+					invalid_justification,
+					ancestry_proof,
+				)
+			};
+
+			initialize_substrate_bridge();
+
+			for _ in 0..<TestRuntime as Config>::MaxRequests::get() + 1 {
+				// Notice that the error here *isn't* `TooManyRequests`
+				assert_err!(submit_invalid_request(), <Error<TestRuntime>>::InvalidJustification);
+			}
+
+			// Can still submit `MaxRequests` requests afterwards
 			assert_ok!(submit_finality_proof());
 			assert_ok!(submit_finality_proof());
 			assert_err!(submit_finality_proof(), <Error<TestRuntime>>::TooManyRequests);
