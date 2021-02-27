@@ -46,9 +46,6 @@ pub mod well_known_keys {
 	/// The upward messages are stored as SCALE encoded `Vec<UpwardMessage>`.
 	pub const UPWARD_MESSAGES: &'static [u8] = b":cumulus_upward_messages:";
 
-	/// Current validation data.
-	pub const VALIDATION_DATA: &'static [u8] = b":cumulus_validation_data:";
-
 	/// Code upgarde (set as appropriate by a pallet).
 	pub const NEW_VALIDATION_CODE: &'static [u8] = b":cumulus_new_validation_code:";
 

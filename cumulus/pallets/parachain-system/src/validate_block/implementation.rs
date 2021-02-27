@@ -19,19 +19,21 @@
 use frame_executive::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT, NumberFor};
 
-use sp_std::{boxed::Box, vec::Vec};
 use sp_io::KillChildStorageResult;
+use sp_std::{boxed::Box, vec::Vec};
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
-use polkadot_parachain::primitives::{HeadData, ValidationCode, ValidationParams, ValidationResult};
+use polkadot_parachain::primitives::{
+	HeadData, ValidationCode, ValidationParams, ValidationResult,
+};
 
 use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	well_known_keys::{
 		HRMP_OUTBOUND_MESSAGES, HRMP_WATERMARK, NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES,
-		UPWARD_MESSAGES, VALIDATION_DATA,
+		UPWARD_MESSAGES,
 	},
 	OutboundHrmpMessage, PersistedValidationData, UpwardMessage,
 };
@@ -41,9 +43,6 @@ use sp_externalities::{
 };
 use sp_std::any::{Any, TypeId};
 use sp_trie::MemoryDB;
-
-type StorageValue = Vec<u8>;
-type StorageKey = Vec<u8>;
 
 type Ext<'a, B> = sp_state_machine::Ext<
 	'a,
@@ -56,18 +55,13 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
 
-/// Implement `Encode` by forwarding the stored raw vec.
-struct EncodeOpaqueValue(Vec<u8>);
-
-impl Encode for EncodeOpaqueValue {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		f(&self.0)
-	}
-}
+type ParachainSystem<PSC> = crate::Module::<PSC>;
 
 /// Validate a given parachain block on a validator.
 #[doc(hidden)]
-pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -> ValidationResult {
+pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
+	params: ValidationParams,
+) -> ValidationResult {
 	let block_data =
 		cumulus_primitives_core::ParachainBlockData::<B>::decode(&mut &params.block_data.0[..])
 			.expect("Invalid parachain block data");
@@ -93,10 +87,7 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 	let backend = sp_state_machine::TrieBackend::new(db, root);
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
 	let mut cache = Default::default();
-	let mut ext = WitnessExt::<B> {
-		inner: Ext::<B>::new(&mut overlay, &mut cache, &backend),
-		params: &params,
-	};
+	let mut ext = Ext::<B>::new(&mut overlay, &mut cache, &backend);
 
 	let _guard = (
 		// Replace storage calls with our own implementations
@@ -138,8 +129,13 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 	);
 
-	set_and_run_with_externalities(&mut ext, || {
-		E::execute_block(block);
+	let validation_data = set_and_run_with_externalities(&mut ext, || {
+		super::set_and_run_with_validation_params(params, || {
+			E::execute_block(block);
+
+			ParachainSystem::<PSC>::validation_data()
+				.expect("`PersistedValidationData` should be set in every block!")
+		})
 	});
 
 	// If in the course of block execution new validation code was set, insert
@@ -166,12 +162,6 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		})
 		.unwrap_or_default();
 
-	let validation_data: PersistedValidationData = overlay
-		.storage(VALIDATION_DATA)
-		.flatten()
-		.and_then(|v| Decode::decode(&mut &v[..]).ok())
-		.expect("`PersistedValidationData` is required to be placed into the storage!");
-
 	let horizontal_messages = match overlay.storage(HRMP_OUTBOUND_MESSAGES).flatten() {
 		Some(encoded) => Vec::<OutboundHrmpMessage>::decode(&mut &encoded[..])
 			.expect("Outbound HRMP messages vec is not correctly encoded in the storage!"),
@@ -191,174 +181,6 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>>(params: ValidationParams) -
 		processed_downward_messages,
 		horizontal_messages,
 		hrmp_watermark,
-	}
-}
-
-/// The storage implementation used when validating a block that is using the
-/// witness data as source.
-struct WitnessExt<'a, B: BlockT> {
-	inner: Ext<'a, B>,
-	params: &'a ValidationParams,
-}
-
-impl<'a, B: BlockT> WitnessExt<'a, B> {
-	/// Checks that the encoded `PersistedValidationData` in `data` is correct.
-	///
-	/// Should be removed with: https://github.com/paritytech/cumulus/issues/217
-	/// When removed `WitnessExt` could also be removed.
-	fn check_validation_data(&self, mut data: &[u8]) {
-		let validation_data =
-			PersistedValidationData::decode(&mut data).expect("Invalid `PersistedValidationData`");
-
-		assert_eq!(self.params.parent_head, validation_data.parent_head,);
-		assert_eq!(
-			self.params.relay_parent_number,
-			validation_data.relay_parent_number,
-		);
-		assert_eq!(
-			self.params.relay_parent_storage_root,
-			validation_data.relay_parent_storage_root,
-		);
-	}
-}
-
-impl<'a, B: BlockT> Externalities for WitnessExt<'a, B> {
-	fn storage(&self, key: &[u8]) -> Option<StorageValue> {
-		self.inner.storage(key)
-	}
-
-	fn set_offchain_storage(&mut self, key: &[u8], value: Option<&[u8]>) {
-		self.inner.set_offchain_storage(key, value)
-	}
-
-	fn storage_hash(&self, key: &[u8]) -> Option<Vec<u8>> {
-		self.inner.storage_hash(key)
-	}
-
-	fn child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
-		self.inner.child_storage(child_info, key)
-	}
-
-	fn child_storage_hash(&self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
-		self.inner.child_storage_hash(child_info, key)
-	}
-
-	fn exists_storage(&self, key: &[u8]) -> bool {
-		self.inner.exists_storage(key)
-	}
-
-	fn exists_child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> bool {
-		self.inner.exists_child_storage(child_info, key)
-	}
-
-	fn next_storage_key(&self, key: &[u8]) -> Option<StorageKey> {
-		self.inner.next_storage_key(key)
-	}
-
-	fn next_child_storage_key(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
-		self.inner.next_child_storage_key(child_info, key)
-	}
-
-	fn place_storage(&mut self, key: StorageKey, value: Option<StorageValue>) {
-		if let Some(value) = value.as_ref() {
-			if key == VALIDATION_DATA {
-				self.check_validation_data(value);
-			}
-		}
-
-		self.inner.place_storage(key, value)
-	}
-
-	fn place_child_storage(
-		&mut self,
-		child_info: &ChildInfo,
-		key: StorageKey,
-		value: Option<StorageValue>,
-	) {
-		self.inner.place_child_storage(child_info, key, value)
-	}
-
-	fn kill_child_storage(&mut self, child_info: &ChildInfo, limit: Option<u32>) -> (bool, u32) {
-		self.inner.kill_child_storage(child_info, limit)
-	}
-
-	fn clear_prefix(&mut self, prefix: &[u8]) {
-		self.inner.clear_prefix(prefix)
-	}
-
-	fn clear_child_prefix(&mut self, child_info: &ChildInfo, prefix: &[u8]) {
-		self.inner.clear_child_prefix(child_info, prefix)
-	}
-
-	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>) {
-		self.inner.storage_append(key, value)
-	}
-
-	fn storage_root(&mut self) -> Vec<u8> {
-		self.inner.storage_root()
-	}
-
-	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
-		self.inner.child_storage_root(child_info)
-	}
-
-	fn storage_changes_root(&mut self, parent_hash: &[u8]) -> Result<Option<Vec<u8>>, ()> {
-		self.inner.storage_changes_root(parent_hash)
-	}
-
-	fn storage_start_transaction(&mut self) {
-		self.inner.storage_start_transaction()
-	}
-
-	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.inner.storage_rollback_transaction()
-	}
-
-	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.inner.storage_commit_transaction()
-	}
-
-	fn wipe(&mut self) {
-		self.inner.wipe()
-	}
-
-	fn commit(&mut self) {
-		self.inner.commit()
-	}
-
-	fn read_write_count(&self) -> (u32, u32, u32, u32) {
-		self.inner.read_write_count()
-	}
-
-	fn reset_read_write_count(&mut self) {
-		self.inner.reset_read_write_count()
-	}
-
-	fn get_whitelist(&self) -> Vec<TrackedStorageKey> {
-		self.inner.get_whitelist()
-	}
-
-	fn set_whitelist(&mut self, new: Vec<TrackedStorageKey>) {
-		self.inner.set_whitelist(new)
-	}
-}
-
-impl<'a, B: BlockT> ExtensionStore for WitnessExt<'a, B> {
-	fn extension_by_type_id(&mut self, type_id: TypeId) -> Option<&mut dyn Any> {
-		self.inner.extension_by_type_id(type_id)
-	}
-
-	fn register_extension_with_type_id(
-		&mut self,
-		type_id: TypeId,
-		extension: Box<dyn Extension>,
-	) -> Result<(), Error> {
-		self.inner
-			.register_extension_with_type_id(type_id, extension)
-	}
-
-	fn deregister_extension_by_type_id(&mut self, type_id: TypeId) -> Result<(), Error> {
-		self.inner.deregister_extension_by_type_id(type_id)
 	}
 }
 

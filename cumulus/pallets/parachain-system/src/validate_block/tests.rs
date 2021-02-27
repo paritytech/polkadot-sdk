@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use cumulus_primitives_core::{PersistedValidationData, ParachainBlockData};
+use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
 	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
 	transfer, Client, DefaultTestClientBuilderExt, InitBlockBuilder, LongestChain,
@@ -84,7 +84,7 @@ fn create_test_client() -> (Client, LongestChain) {
 struct TestBlockData {
 	block: Block,
 	witness: sp_trie::StorageProof,
-	relay_parent_storage_root: Hash,
+	validation_data: PersistedValidationData,
 }
 
 fn build_block_with_witness(
@@ -95,15 +95,15 @@ fn build_block_with_witness(
 	let sproof_builder = RelayStateSproofBuilder::default();
 	let (relay_parent_storage_root, _) = sproof_builder.clone().into_state_root_and_proof();
 	let block_id = BlockId::Hash(client.info().best_hash);
-	let mut builder = client.init_block_builder_at(
-		&block_id,
-		Some(PersistedValidationData {
-			relay_parent_number: 1,
-			parent_head: parent_head.encode().into(),
-			..Default::default()
-		}),
-		sproof_builder,
-	);
+	let mut validation_data = PersistedValidationData {
+		relay_parent_number: 1,
+		parent_head: parent_head.encode().into(),
+		..Default::default()
+	};
+	let mut builder =
+		client.init_block_builder_at(&block_id, Some(validation_data.clone()), sproof_builder);
+
+	validation_data.relay_parent_storage_root = relay_parent_storage_root;
 
 	extra_extrinsics
 		.into_iter()
@@ -116,7 +116,7 @@ fn build_block_with_witness(
 		witness: built_block
 			.proof
 			.expect("We enabled proof recording before."),
-		relay_parent_storage_root,
+		validation_data,
 	}
 }
 
@@ -129,14 +129,18 @@ fn validate_block_no_extra_extrinsics() {
 	let TestBlockData {
 		block,
 		witness,
-		relay_parent_storage_root,
+		validation_data,
 	} = build_block_with_witness(&client, vec![], parent_head.clone());
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
 
-	let res_header = call_validate_block(parent_head, block_data, relay_parent_storage_root)
-		.expect("Calls `validate_block`");
+	let res_header = call_validate_block(
+		parent_head,
+		block_data,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
 }
 
@@ -155,14 +159,18 @@ fn validate_block_with_extra_extrinsics() {
 	let TestBlockData {
 		block,
 		witness,
-		relay_parent_storage_root,
+		validation_data,
 	} = build_block_with_witness(&client, extra_extrinsics, parent_head.clone());
 	let (header, extrinsics) = block.deconstruct();
 
 	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
 
-	let res_header = call_validate_block(parent_head, block_data, relay_parent_storage_root)
-		.expect("Calls `validate_block`");
+	let res_header = call_validate_block(
+		parent_head,
+		block_data,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
 }
 
@@ -176,12 +184,39 @@ fn validate_block_invalid_parent_hash() {
 	let TestBlockData {
 		block,
 		witness,
-		relay_parent_storage_root,
+		validation_data,
 	} = build_block_with_witness(&client, vec![], parent_head.clone());
 	let (mut header, extrinsics) = block.deconstruct();
 	header.set_parent_hash(Hash::from_low_u64_be(1));
 
 	let block_data = ParachainBlockData::new(header, extrinsics, witness);
-	call_validate_block(parent_head, block_data, relay_parent_storage_root)
-		.expect("Calls `validate_block`");
+	call_validate_block(
+		parent_head,
+		block_data,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+}
+
+#[test]
+#[should_panic(expected = "Calls `validate_block`: Other(\"Trap: Trap { kind: Unreachable }\")")]
+fn validate_block_fails_on_invalid_validation_data() {
+	let _ = env_logger::try_init();
+
+	let (client, longest_chain) = create_test_client();
+	let parent_head = longest_chain.best_chain().expect("Best block exists");
+	let TestBlockData {
+		block,
+		witness,
+		..
+	} = build_block_with_witness(&client, vec![], parent_head.clone());
+	let (header, extrinsics) = block.deconstruct();
+
+	let block_data = ParachainBlockData::new(header, extrinsics, witness);
+	call_validate_block(
+		parent_head,
+		block_data,
+		Hash::random(),
+	)
+	.expect("Calls `validate_block`");
 }

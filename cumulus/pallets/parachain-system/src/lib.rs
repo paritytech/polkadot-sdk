@@ -29,7 +29,7 @@
 
 use cumulus_primitives_core::{
 	relay_chain,
-	well_known_keys::{self, NEW_VALIDATION_CODE, VALIDATION_DATA},
+	well_known_keys::{self, NEW_VALIDATION_CODE},
 	AbridgedHostConfiguration, DownwardMessageHandler, HrmpMessageHandler, HrmpMessageSender,
 	InboundDownwardMessage, InboundHrmpMessage, OnValidationData, OutboundHrmpMessage, ParaId,
 	PersistedValidationData, UpwardMessage, UpwardMessageSender,
@@ -82,8 +82,8 @@ decl_storage! {
 		PendingValidationFunction get(fn new_validation_function):
 			Option<(RelayChainBlockNumber, Vec<u8>)>;
 
-		/// Were the [`ValidationData`] updated in this block?
-		DidUpdateValidationData: bool;
+		/// The [`PersistedValidationData`] set for this block.
+		ValidationData get(fn validation_data): Option<PersistedValidationData>;
 
 		/// Were the validation data set to notify the relay chain?
 		DidSetValidationCode: bool;
@@ -168,7 +168,10 @@ decl_module! {
 		#[weight = (0, DispatchClass::Mandatory)]
 		fn set_validation_data(origin, data: ParachainInherentData) -> DispatchResult {
 			ensure_none(origin)?;
-			assert!(!DidUpdateValidationData::exists(), "ValidationData must be updated only once in a block");
+			assert!(
+				!ValidationData::exists(),
+				"ValidationData must be updated only once in a block",
+			);
 
 			let ParachainInherentData {
 				validation_data: vfp,
@@ -176,6 +179,8 @@ decl_module! {
 				downward_messages,
 				horizontal_messages,
 			} = data;
+
+			Self::validate_validation_data(&vfp);
 
 			// initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
@@ -200,8 +205,7 @@ decl_module! {
 					Error::<T>::InvalidRelayChainMerkleProof
 				})?;
 
-			storage::unhashed::put(VALIDATION_DATA, &vfp);
-			DidUpdateValidationData::put(true);
+			ValidationData::put(&vfp);
 			RelevantMessagingState::put(relevant_messaging_state.clone());
 			HostConfiguration::put(host_config);
 
@@ -232,7 +236,6 @@ decl_module! {
 		}
 
 		fn on_finalize() {
-			assert!(DidUpdateValidationData::take(), "VFPs must be updated once per block");
 			DidSetValidationCode::take();
 
 			let host_config = Self::host_configuration()
@@ -396,7 +399,8 @@ decl_module! {
 				storage::unhashed::kill(NEW_VALIDATION_CODE);
 			}
 
-			storage::unhashed::kill(VALIDATION_DATA);
+			// Remove the validation from the old block.
+			ValidationData::kill();
 
 			let mut weight = T::DbWeight::get().writes(3);
 			storage::unhashed::kill(well_known_keys::HRMP_WATERMARK);
@@ -440,6 +444,30 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// Validate the given [`PersistedValidationData`] against the
+	/// [`ValidationParams`](polkadot_parachain::primitives::ValidationParams).
+	///
+	/// This check will only be executed when the block is currently being executed in the context
+	/// of [`validate_block`]. If this is being executed in the context of block building or block
+	/// import, this is a no-op.
+	///
+	/// # Panics
+	fn validate_validation_data(validation_data: &PersistedValidationData) {
+		validate_block::with_validation_params(|params| {
+			assert_eq!(params.parent_head, validation_data.parent_head, "Parent head doesn't match");
+			assert_eq!(
+				params.relay_parent_number,
+				validation_data.relay_parent_number,
+				"Relay parent number doesn't match",
+			);
+			assert_eq!(
+				params.relay_parent_storage_root,
+				validation_data.relay_parent_storage_root,
+				"Relay parent stoarage root doesn't match",
+			);
+		});
+	}
+
 	/// Process all inbound downward messages relayed by the collator.
 	///
 	/// Checks if the sequence of the messages is valid, dispatches them and communicates the number
@@ -559,13 +587,6 @@ impl<T: Config> Module<T> {
 		}
 
 		Ok(())
-	}
-
-	/// Get validation data.
-	///
-	/// Returns `Some(_)` after the inherent set the data for the current block.
-	pub fn validation_data() -> Option<PersistedValidationData> {
-		storage::unhashed::get(VALIDATION_DATA)
 	}
 
 	/// Put a new validation function into a particular location where polkadot
@@ -1129,7 +1150,7 @@ mod tests {
 						hook(self, *n as RelayChainBlockNumber, &mut vfp);
 					}
 
-					storage::unhashed::put(VALIDATION_DATA, &vfp);
+					ValidationData::put(&vfp);
 					storage::unhashed::kill(NEW_VALIDATION_CODE);
 
 					// It is insufficient to push the validation function params

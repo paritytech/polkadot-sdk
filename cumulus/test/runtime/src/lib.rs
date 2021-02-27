@@ -371,4 +371,4 @@ impl_runtime_apis! {
 	}
 }
 
-cumulus_pallet_parachain_system::register_validate_block!(Block, Executive);
+cumulus_pallet_parachain_system::register_validate_block!(Runtime, Executive);
