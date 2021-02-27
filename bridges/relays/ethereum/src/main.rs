@@ -243,6 +243,8 @@ fn ethereum_deploy_contract_params(matches: &clap::ArgMatches) -> Result<Ethereu
 	let eth_contract_code = parse_hex_argument(matches, "eth-contract-code")?.unwrap_or_else(|| {
 		hex::decode(include_str!("../res/substrate-bridge-bytecode.hex")).expect("code is hardcoded, thus valid; qed")
 	});
+
+	#[allow(clippy::manual_map)]
 	let sub_initial_authorities_set_id = match matches.value_of("sub-authorities-set-id") {
 		Some(sub_initial_authorities_set_id) => Some(
 			sub_initial_authorities_set_id
@@ -270,6 +272,7 @@ fn ethereum_deploy_contract_params(matches: &clap::ArgMatches) -> Result<Ethereu
 }
 
 fn ethereum_exchange_submit_params(matches: &clap::ArgMatches) -> Result<EthereumExchangeSubmitParams, String> {
+	#[allow(clippy::manual_map)]
 	let eth_nonce = if let Some(eth_nonce) = matches.value_of("eth-nonce") {
 		Some(
 			relay_ethereum_client::types::U256::from_dec_str(&eth_nonce)
@@ -329,6 +332,7 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchan
 				.parse()
 				.map_err(|e| format!("Failed to parse eth-tx-hash: {}", e))?,
 		),
+		#[allow(clippy::manual_map)]
 		None => ethereum_exchange::ExchangeRelayMode::Auto(match matches.value_of("eth-start-with-block") {
 			Some(eth_start_with_block) => Some(
 				eth_start_with_block
