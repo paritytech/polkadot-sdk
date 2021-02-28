@@ -243,16 +243,13 @@ fn ethereum_deploy_contract_params(matches: &clap::ArgMatches) -> Result<Ethereu
 	let eth_contract_code = parse_hex_argument(matches, "eth-contract-code")?.unwrap_or_else(|| {
 		hex::decode(include_str!("../res/substrate-bridge-bytecode.hex")).expect("code is hardcoded, thus valid; qed")
 	});
-
-	#[allow(clippy::manual_map)]
-	let sub_initial_authorities_set_id = match matches.value_of("sub-authorities-set-id") {
-		Some(sub_initial_authorities_set_id) => Some(
-			sub_initial_authorities_set_id
-				.parse()
-				.map_err(|e| format!("Failed to parse sub-authorities-set-id: {}", e))?,
-		),
-		None => None,
-	};
+	let sub_initial_authorities_set_id = matches
+		.value_of("sub-authorities-set-id")
+		.map(|set| {
+			set.parse()
+				.map_err(|e| format!("Failed to parse sub-authorities-set-id: {}", e))
+		})
+		.transpose()?;
 	let sub_initial_authorities_set = parse_hex_argument(matches, "sub-authorities-set")?;
 	let sub_initial_header = parse_hex_argument(matches, "sub-initial-header")?;
 
@@ -272,24 +269,26 @@ fn ethereum_deploy_contract_params(matches: &clap::ArgMatches) -> Result<Ethereu
 }
 
 fn ethereum_exchange_submit_params(matches: &clap::ArgMatches) -> Result<EthereumExchangeSubmitParams, String> {
-	#[allow(clippy::manual_map)]
-	let eth_nonce = if let Some(eth_nonce) = matches.value_of("eth-nonce") {
-		Some(
+	let eth_nonce = matches
+		.value_of("eth-nonce")
+		.map(|eth_nonce| {
 			relay_ethereum_client::types::U256::from_dec_str(&eth_nonce)
-				.map_err(|e| format!("Failed to parse eth-nonce: {}", e))?,
-		)
-	} else {
-		None
-	};
+				.map_err(|e| format!("Failed to parse eth-nonce: {}", e))
+		})
+		.transpose()?;
 
-	let eth_amount = if let Some(eth_amount) = matches.value_of("eth-amount") {
-		eth_amount
-			.parse()
-			.map_err(|e| format!("Failed to parse eth-amount: {}", e))?
-	} else {
-		// This is in Wei, represents 1 ETH
-		1_000_000_000_000_000_000_u64.into()
-	};
+	let eth_amount = matches
+		.value_of("eth-amount")
+		.map(|eth_amount| {
+			eth_amount
+				.parse()
+				.map_err(|e| format!("Failed to parse eth-amount: {}", e))
+		})
+		.transpose()?
+		.unwrap_or_else(|| {
+			// This is in Wei, represents 1 ETH
+			1_000_000_000_000_000_000_u64.into()
+		});
 
 	// This is the well-known Substrate account of Ferdie
 	let default_recepient = hex!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c");
@@ -332,15 +331,16 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchan
 				.parse()
 				.map_err(|e| format!("Failed to parse eth-tx-hash: {}", e))?,
 		),
-		#[allow(clippy::manual_map)]
-		None => ethereum_exchange::ExchangeRelayMode::Auto(match matches.value_of("eth-start-with-block") {
-			Some(eth_start_with_block) => Some(
-				eth_start_with_block
-					.parse()
-					.map_err(|e| format!("Failed to parse eth-start-with-block: {}", e))?,
-			),
-			None => None,
-		}),
+		None => ethereum_exchange::ExchangeRelayMode::Auto(
+			matches
+				.value_of("eth-start-with-block")
+				.map(|eth_start_with_block| {
+					eth_start_with_block
+						.parse()
+						.map_err(|e| format!("Failed to parse eth-start-with-block: {}", e))
+				})
+				.transpose()?,
+		),
 	};
 
 	let params = EthereumExchangeParams {
