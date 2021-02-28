@@ -369,9 +369,9 @@ mod tests {
 			}
 
 			// Can still submit `MaxRequests` requests afterwards
-			assert_ok!(submit_finality_proof());
-			assert_ok!(submit_finality_proof());
-			assert_err!(submit_finality_proof(), <Error<TestRuntime>>::TooManyRequests);
+			assert_ok!(submit_finality_proof(1, 2));
+			assert_ok!(submit_finality_proof(3, 4));
+			assert_err!(submit_finality_proof(5, 6), <Error<TestRuntime>>::TooManyRequests);
 		})
 	}
 
