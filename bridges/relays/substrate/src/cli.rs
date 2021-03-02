@@ -20,6 +20,7 @@ use bp_message_lane::LaneId;
 use frame_support::weights::Weight;
 use sp_core::Bytes;
 use sp_finality_grandpa::SetId as GrandpaAuthoritiesSetId;
+use sp_runtime::app_crypto::Ss58Codec;
 use structopt::{clap::arg_enum, StructOpt};
 
 /// Parse relay CLI args.
@@ -63,6 +64,8 @@ pub enum Command {
 	EncodeMessagePayload(EncodeMessagePayload),
 	/// Estimate Delivery and Dispatch Fee required for message submission to message lane.
 	EstimateFee(EstimateFee),
+	/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
+	DeriveAccount(DeriveAccount),
 }
 
 /// Start headers relayer process.
@@ -268,6 +271,20 @@ pub enum EstimateFee {
 	},
 }
 
+/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
+///
+/// The (derived) target chain `AccountId` is going to be used as dispatch origin of the call
+/// that has been sent over the bridge.
+/// This account can also be used to receive target-chain funds (or other form of ownership),
+/// since messages sent over the bridge will be able to spend these.
+#[derive(StructOpt)]
+pub enum DeriveAccount {
+	/// Given Rialto AccountId, display corresponding Millau AccountId.
+	RialtoToMillau { account: AccountId },
+	/// Given Millau AccountId, display corresponding Rialto AccountId.
+	MillauToRialto { account: AccountId },
+}
+
 /// MessagePayload that can be delivered to message lane pallet on Millau.
 #[derive(StructOpt, Debug)]
 pub enum MillauToRialtoMessagePayload {
@@ -284,7 +301,7 @@ pub enum MillauToRialtoMessagePayload {
 		message: ToRialtoMessage,
 		/// SS58 encoded account that will send the payload (must have SS58Prefix = 42)
 		#[structopt(long)]
-		sender: bp_rialto::AccountId,
+		sender: AccountId,
 	},
 }
 
@@ -305,7 +322,7 @@ pub enum RialtoToMillauMessagePayload {
 
 		/// SS58 encoded account that will send the payload (must have SS58Prefix = 42)
 		#[structopt(long)]
-		sender: bp_rialto::AccountId,
+		sender: AccountId,
 	},
 }
 
@@ -327,7 +344,7 @@ pub enum ToRialtoMessage {
 	Transfer {
 		/// SS58 encoded account that will receive the transfer (must have SS58Prefix = 42)
 		#[structopt(long)]
-		recipient: bp_rialto::AccountId,
+		recipient: AccountId,
 		/// Amount of target tokens to send.
 		#[structopt(long)]
 		amount: bp_rialto::Balance,
@@ -352,7 +369,7 @@ pub enum ToMillauMessage {
 	Transfer {
 		/// SS58 encoded account that will receive the transfer (must have SS58Prefix = 42)
 		#[structopt(long)]
-		recipient: bp_millau::AccountId,
+		recipient: AccountId,
 		/// Amount of target tokens to send.
 		#[structopt(long)]
 		amount: bp_millau::Balance,
@@ -368,6 +385,51 @@ arg_enum! {
 	pub enum Origins {
 		Target,
 		Source,
+	}
+}
+
+/// Generic account id with custom parser.
+#[derive(Debug)]
+pub struct AccountId {
+	account: sp_runtime::AccountId32,
+	version: sp_core::crypto::Ss58AddressFormat,
+}
+
+impl std::str::FromStr for AccountId {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let (account, version) = sp_runtime::AccountId32::from_ss58check_with_version(s)
+			.map_err(|err| format!("Unable to decode SS58 address: {:?}", err))?;
+		Ok(Self { account, version })
+	}
+}
+
+impl AccountId {
+	/// Perform runtime checks of SS58 version and get Rialto's AccountId.
+	pub fn into_rialto(self) -> bp_rialto::AccountId {
+		self.check_and_get("Rialto", rialto_runtime::SS58Prefix::get())
+	}
+
+	/// Perform runtime checks of SS58 version and get Millau's AccountId.
+	pub fn into_millau(self) -> bp_millau::AccountId {
+		self.check_and_get("Millau", millau_runtime::SS58Prefix::get())
+	}
+
+	/// Check SS58Prefix and return the account id.
+	fn check_and_get(self, net: &str, expected_prefix: u8) -> sp_runtime::AccountId32 {
+		let version: u16 = self.version.into();
+		println!("Version: {} vs {}", version, expected_prefix);
+		if version != expected_prefix as u16 {
+			log::warn!(
+				target: "bridge",
+				"Following address: {} does not seem to match {}'s format, got: {}",
+				self.account,
+				net,
+				self.version,
+			)
+		}
+		self.account
 	}
 }
 
