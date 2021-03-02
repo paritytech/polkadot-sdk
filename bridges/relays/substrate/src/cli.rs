@@ -176,7 +176,7 @@ pub enum SendMessage {
 		/// Dispatch weight of the message. If not passed, determined automatically.
 		#[structopt(long)]
 		dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
-		/// Delivery and dispatch fee. If not passed, determined automatically.
+		/// Delivery and dispatch fee in source chain base currency units. If not passed, determined automatically.
 		#[structopt(long)]
 		fee: Option<bp_millau::Balance>,
 		/// Message type.
@@ -201,7 +201,7 @@ pub enum SendMessage {
 		/// Dispatch weight of the message. If not passed, determined automatically.
 		#[structopt(long)]
 		dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
-		/// Delivery and dispatch fee. If not passed, determined automatically.
+		/// Delivery and dispatch fee in source chain base currency units. If not passed, determined automatically.
 		#[structopt(long)]
 		fee: Option<bp_rialto::Balance>,
 		/// Message type.
@@ -291,7 +291,6 @@ pub enum MillauToRialtoMessagePayload {
 	/// Raw, SCALE-encoded `MessagePayload`.
 	Raw {
 		/// Hex-encoded SCALE data.
-		#[structopt(long)]
 		data: Bytes,
 	},
 	/// Construct message to send over the bridge.
@@ -311,7 +310,6 @@ pub enum RialtoToMillauMessagePayload {
 	/// Raw, SCALE-encoded `MessagePayload`.
 	Raw {
 		/// Hex-encoded SCALE data.
-		#[structopt(long)]
 		data: Bytes,
 	},
 	/// Construct message to send over the bridge.
@@ -319,7 +317,6 @@ pub enum RialtoToMillauMessagePayload {
 		/// Message details.
 		#[structopt(flatten)]
 		message: ToMillauMessage,
-
 		/// SS58 encoded account that will send the payload (must have SS58Prefix = 42)
 		#[structopt(long)]
 		sender: AccountId,
@@ -345,9 +342,21 @@ pub enum ToRialtoMessage {
 		/// SS58 encoded account that will receive the transfer (must have SS58Prefix = 42)
 		#[structopt(long)]
 		recipient: AccountId,
-		/// Amount of target tokens to send.
+		/// Amount of target tokens to send in target chain base currency units.
 		#[structopt(long)]
 		amount: bp_rialto::Balance,
+	},
+	/// A call to the Millau Bridge Message Lane pallet to send a message over the bridge.
+	MillauSendMessage {
+		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
+		#[structopt(long, default_value = "00000000")]
+		lane: HexLaneId,
+		/// Raw SCALE-encoded Message Payload to submit to the message lane pallet.
+		#[structopt(long)]
+		payload: Bytes,
+		/// Declared delivery and dispatch fee in base source-chain currency units.
+		#[structopt(long)]
+		fee: bp_rialto::Balance,
 	},
 }
 
@@ -370,9 +379,21 @@ pub enum ToMillauMessage {
 		/// SS58 encoded account that will receive the transfer (must have SS58Prefix = 42)
 		#[structopt(long)]
 		recipient: AccountId,
-		/// Amount of target tokens to send.
+		/// Amount of target tokens to send in target chain base currency units.
 		#[structopt(long)]
 		amount: bp_millau::Balance,
+	},
+	/// A call to the Rialto Bridge Message Lane pallet to send a message over the bridge.
+	RialtoSendMessage {
+		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
+		#[structopt(long, default_value = "00000000")]
+		lane: HexLaneId,
+		/// Raw SCALE-encoded Message Payload to submit to the message lane pallet.
+		#[structopt(long)]
+		payload: Bytes,
+		/// Declared delivery and dispatch fee in base source-chain currency units.
+		#[structopt(long)]
+		fee: bp_millau::Balance,
 	},
 }
 
