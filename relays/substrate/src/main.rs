@@ -283,6 +283,7 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 				dispatch_weight,
 				fee,
 			);
+			log::info!(target: "bridge", "Signed Millau Call: {:?}", HexBytes::encode(&signed_millau_call));
 
 			millau_client.submit_extrinsic(Bytes(signed_millau_call)).await?;
 		}
@@ -338,6 +339,7 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 				dispatch_weight,
 				fee,
 			);
+			log::info!(target: "bridge", "Signed Rialto Call: {:?}", HexBytes::encode(&signed_rialto_call));
 
 			rialto_client.submit_extrinsic(Bytes(signed_rialto_call)).await?;
 		}
@@ -728,6 +730,13 @@ impl crate::cli::ToRialtoMessage {
 				let recipient = recipient.into_rialto();
 				rialto_runtime::Call::Balances(rialto_runtime::BalancesCall::transfer(recipient, amount))
 			}
+			cli::ToRialtoMessage::MillauSendMessage { lane, payload, fee } => {
+				let payload = cli::RialtoToMillauMessagePayload::Raw { data: payload }.into_payload()?;
+				let lane = lane.into();
+				rialto_runtime::Call::BridgeMillauMessageLane(rialto_runtime::MessageLaneCall::send_message(
+					lane, payload, fee,
+				))
+			}
 		};
 
 		log::info!(target: "bridge", "Generated Rialto call: {:#?}", call);
@@ -757,6 +766,13 @@ impl crate::cli::ToMillauMessage {
 			cli::ToMillauMessage::Transfer { recipient, amount } => {
 				let recipient = recipient.into_millau();
 				millau_runtime::Call::Balances(millau_runtime::BalancesCall::transfer(recipient, amount))
+			}
+			cli::ToMillauMessage::RialtoSendMessage { lane, payload, fee } => {
+				let payload = cli::MillauToRialtoMessagePayload::Raw { data: payload }.into_payload()?;
+				let lane = lane.into();
+				millau_runtime::Call::BridgeRialtoMessageLane(millau_runtime::MessageLaneCall::send_message(
+					lane, payload, fee,
+				))
 			}
 		};
 
