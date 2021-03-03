@@ -149,7 +149,7 @@ impl BlockAnnounceData {
 				return Err(BlockAnnounceError(format!("{:?}", e)));
 			}
 		};
-		let signer = match authorities.get(validator_index as usize) {
+		let signer = match authorities.get(validator_index.0 as usize) {
 			Some(r) => r,
 			None => {
 				tracing::debug!(

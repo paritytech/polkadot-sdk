@@ -141,7 +141,7 @@ async fn make_gossip_message_and_header(
 		&keystore,
 		statement,
 		&signing_context,
-		validator_index,
+		validator_index.into(),
 		&alice_public.into(),
 	)
 	.await
@@ -259,7 +259,7 @@ fn check_statement_seconded() {
 		&keystore,
 		statement,
 		&signing_context,
-		0,
+		0.into(),
 		&alice_public.into(),
 	))
 	.ok()

@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ], default-features = false }
+log = { version = "0.4.14", default-features = false }
 
 # Substrate Dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -23,6 +24,7 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 default = [ "std" ]
 std = [
 	"codec/std",
+	"log/std",
 	"sp-std/std",
 	"frame-support/std",
 	"frame-system/std",

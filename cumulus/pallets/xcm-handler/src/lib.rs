@@ -104,7 +104,7 @@ decl_module! {
 impl<T: Config> DownwardMessageHandler for Module<T> {
 	fn handle_downward_message(msg: InboundDownwardMessage) {
 		let hash = msg.using_encoded(T::Hashing::hash);
-		frame_support::debug::print!("Processing Downward XCM: {:?}", &hash);
+		log::debug!("Processing Downward XCM: {:?}", &hash);
 		let event = match VersionedXcm::decode(&mut &msg.msg[..]).map(Xcm::try_from) {
 			Ok(Ok(xcm)) => {
 				match T::XcmExecutor::execute_xcm(Junction::Parent.into(), xcm) {
@@ -122,7 +122,7 @@ impl<T: Config> DownwardMessageHandler for Module<T> {
 impl<T: Config> HrmpMessageHandler for Module<T> {
 	fn handle_hrmp_message(sender: ParaId, msg: InboundHrmpMessage) {
 		let hash = msg.using_encoded(T::Hashing::hash);
-		frame_support::debug::print!("Processing HRMP XCM: {:?}", &hash);
+		log::debug!("Processing HRMP XCM: {:?}", &hash);
 		let event = match VersionedXcm::decode(&mut &msg.data[..]).map(Xcm::try_from) {
 			Ok(Ok(xcm)) => {
 				let location = (
