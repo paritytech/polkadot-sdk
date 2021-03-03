@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"cli",
 	"client/consensus/common",
 	"client/consensus/relay-chain",
 	"client/network",

@@ -1113,6 +1113,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-cli"
+version = "0.1.0"
+dependencies = [
+ "sc-cli",
+ "sc-service",
+ "structopt",
+]
+
+[[package]]
 name = "cumulus-client-collator"
 version = "0.1.0"
 dependencies = [
@@ -7077,6 +7086,7 @@ name = "rococo-collator"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "cumulus-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-network",
@@ -7133,6 +7143,7 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-test-client",
  "substrate-test-runtime-client",
+ "tempfile",
  "tokio 0.2.24",
  "trie-root 0.15.2",
 ]
