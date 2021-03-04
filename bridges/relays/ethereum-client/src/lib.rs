@@ -29,12 +29,12 @@ pub use crate::sign::{sign_and_submit_transaction, SigningParams};
 
 pub mod types;
 
-/// Ethereum connection params.
+/// Ethereum-over-websocket connection params.
 #[derive(Debug, Clone)]
 pub struct ConnectionParams {
-	/// Ethereum RPC host.
+	/// Websocket server hostname.
 	pub host: String,
-	/// Ethereum RPC port.
+	/// Websocket server TCP port.
 	pub port: u16,
 }
 
@@ -42,7 +42,7 @@ impl Default for ConnectionParams {
 	fn default() -> Self {
 		ConnectionParams {
 			host: "localhost".into(),
-			port: 8545,
+			port: 8546,
 		}
 	}
 }

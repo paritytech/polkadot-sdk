@@ -24,10 +24,8 @@ use bp_message_lane::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use codec::Decode;
 use frame_system::AccountInfo;
-use jsonrpsee::common::DeserializeOwned;
-use jsonrpsee::raw::RawClient;
-use jsonrpsee::transport::ws::WsTransportClient;
-use jsonrpsee::{client::Subscription, Client as RpcClient};
+use jsonrpsee_types::{jsonrpc::DeserializeOwned, traits::SubscriptionClient};
+use jsonrpsee_ws_client::{WsClient as RpcClient, WsConfig as RpcConfig, WsSubscription as Subscription};
 use num_traits::Zero;
 use pallet_balances::AccountData;
 use sp_core::Bytes;
@@ -36,6 +34,7 @@ use sp_version::RuntimeVersion;
 use std::ops::RangeInclusive;
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
+const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
 /// Opaque justifications subscription type.
 pub type JustificationsSubscription = Subscription<Bytes>;
@@ -79,7 +78,7 @@ impl<C: Chain> Client<C> {
 		let client = Self::build_client(params.clone()).await?;
 
 		let number: C::BlockNumber = Zero::zero();
-		let genesis_hash = Substrate::<C, _, _>::chain_get_block_hash(&client, number).await?;
+		let genesis_hash = Substrate::<C>::chain_get_block_hash(&client, number).await?;
 
 		Ok(Self {
 			params,
@@ -97,16 +96,17 @@ impl<C: Chain> Client<C> {
 	/// Build client to use in connection.
 	async fn build_client(params: ConnectionParams) -> Result<RpcClient> {
 		let uri = format!("ws://{}:{}", params.host, params.port);
-		let transport = WsTransportClient::new(&uri).await?;
-		let raw_client = RawClient::new(transport);
-		Ok(raw_client.into())
+		let mut config = RpcConfig::with_url(&uri);
+		config.max_subscription_capacity = MAX_SUBSCRIPTION_CAPACITY;
+		let client = RpcClient::new(config).await?;
+		Ok(client)
 	}
 }
 
 impl<C: Chain> Client<C> {
 	/// Returns true if client is connected to at least one peer and is in synced state.
 	pub async fn ensure_synced(&self) -> Result<()> {
-		let health = Substrate::<C, _, _>::system_health(&self.client).await?;
+		let health = Substrate::<C>::system_health(&self.client).await?;
 		let is_synced = !health.is_syncing && (!health.should_have_peers || health.peers > 0);
 		if is_synced {
 			Ok(())
@@ -122,7 +122,7 @@ impl<C: Chain> Client<C> {
 
 	/// Return hash of the best finalized block.
 	pub async fn best_finalized_header_hash(&self) -> Result<C::Hash> {
-		Ok(Substrate::<C, _, _>::chain_get_finalized_head(&self.client).await?)
+		Ok(Substrate::<C>::chain_get_finalized_head(&self.client).await?)
 	}
 
 	/// Returns the best Substrate header.
@@ -130,12 +130,12 @@ impl<C: Chain> Client<C> {
 	where
 		C::Header: DeserializeOwned,
 	{
-		Ok(Substrate::<C, _, _>::chain_get_header(&self.client, None).await?)
+		Ok(Substrate::<C>::chain_get_header(&self.client, None).await?)
 	}
 
 	/// Get a Substrate block from its hash.
 	pub async fn get_block(&self, block_hash: Option<C::Hash>) -> Result<C::SignedBlock> {
-		Ok(Substrate::<C, _, _>::chain_get_block(&self.client, block_hash).await?)
+		Ok(Substrate::<C>::chain_get_block(&self.client, block_hash).await?)
 	}
 
 	/// Get a Substrate header by its hash.
@@ -143,12 +143,12 @@ impl<C: Chain> Client<C> {
 	where
 		C::Header: DeserializeOwned,
 	{
-		Ok(Substrate::<C, _, _>::chain_get_header(&self.client, block_hash).await?)
+		Ok(Substrate::<C>::chain_get_header(&self.client, block_hash).await?)
 	}
 
 	/// Get a Substrate block hash by its number.
 	pub async fn block_hash_by_number(&self, number: C::BlockNumber) -> Result<C::Hash> {
-		Ok(Substrate::<C, _, _>::chain_get_block_hash(&self.client, number).await?)
+		Ok(Substrate::<C>::chain_get_block_hash(&self.client, number).await?)
 	}
 
 	/// Get a Substrate header by its number.
@@ -162,7 +162,7 @@ impl<C: Chain> Client<C> {
 
 	/// Return runtime version.
 	pub async fn runtime_version(&self) -> Result<RuntimeVersion> {
-		Ok(Substrate::<C, _, _>::runtime_version(&self.client).await?)
+		Ok(Substrate::<C>::runtime_version(&self.client).await?)
 	}
 
 	/// Return native tokens balance of the account.
@@ -171,7 +171,7 @@ impl<C: Chain> Client<C> {
 		C: ChainWithBalances,
 	{
 		let storage_key = C::account_info_storage_key(&account);
-		let encoded_account_data = Substrate::<C, _, _>::get_storage(&self.client, storage_key)
+		let encoded_account_data = Substrate::<C>::get_storage(&self.client, storage_key)
 			.await?
 			.ok_or(Error::AccountDoesNotExist)?;
 		let decoded_account_data =
@@ -184,14 +184,14 @@ impl<C: Chain> Client<C> {
 	///
 	/// Note: It's the caller's responsibility to make sure `account` is a valid ss58 address.
 	pub async fn next_account_index(&self, account: C::AccountId) -> Result<C::Index> {
-		Ok(Substrate::<C, _, _>::system_account_next_index(&self.client, account).await?)
+		Ok(Substrate::<C>::system_account_next_index(&self.client, account).await?)
 	}
 
 	/// Submit an extrinsic for inclusion in a block.
 	///
 	/// Note: The given transaction does not need be SCALE encoded beforehand.
 	pub async fn submit_extrinsic(&self, transaction: Bytes) -> Result<C::Hash> {
-		let tx_hash = Substrate::<C, _, _>::author_submit_extrinsic(&self.client, transaction).await?;
+		let tx_hash = Substrate::<C>::author_submit_extrinsic(&self.client, transaction).await?;
 		log::trace!(target: "bridge", "Sent transaction to Substrate node: {:?}", tx_hash);
 		Ok(tx_hash)
 	}
@@ -201,7 +201,7 @@ impl<C: Chain> Client<C> {
 		let call = SUB_API_GRANDPA_AUTHORITIES.to_string();
 		let data = Bytes(Vec::new());
 
-		let encoded_response = Substrate::<C, _, _>::state_call(&self.client, call, data, Some(block)).await?;
+		let encoded_response = Substrate::<C>::state_call(&self.client, call, data, Some(block)).await?;
 		let authority_list = encoded_response.0;
 
 		Ok(authority_list)
@@ -209,7 +209,7 @@ impl<C: Chain> Client<C> {
 
 	/// Execute runtime call at given block.
 	pub async fn state_call(&self, method: String, data: Bytes, at_block: Option<C::Hash>) -> Result<Bytes> {
-		Substrate::<C, _, _>::state_call(&self.client, method, data, at_block)
+		Substrate::<C>::state_call(&self.client, method, data, at_block)
 			.await
 			.map_err(Into::into)
 	}
@@ -223,7 +223,7 @@ impl<C: Chain> Client<C> {
 		include_outbound_lane_state: bool,
 		at_block: C::Hash,
 	) -> Result<StorageProof> {
-		let encoded_trie_nodes = SubstrateMessageLane::<C, _, _>::prove_messages(
+		let encoded_trie_nodes = SubstrateMessageLane::<C>::prove_messages(
 			&self.client,
 			instance,
 			lane,
@@ -233,7 +233,7 @@ impl<C: Chain> Client<C> {
 			Some(at_block),
 		)
 		.await
-		.map_err(Error::Request)?;
+		.map_err(Error::RpcError)?;
 		let decoded_trie_nodes: Vec<Vec<u8>> =
 			Decode::decode(&mut &encoded_trie_nodes[..]).map_err(Error::ResponseParseFailed)?;
 		Ok(StorageProof::new(decoded_trie_nodes))
@@ -247,21 +247,21 @@ impl<C: Chain> Client<C> {
 		at_block: C::Hash,
 	) -> Result<Vec<Vec<u8>>> {
 		let encoded_trie_nodes =
-			SubstrateMessageLane::<C, _, _>::prove_messages_delivery(&self.client, instance, lane, Some(at_block))
+			SubstrateMessageLane::<C>::prove_messages_delivery(&self.client, instance, lane, Some(at_block))
 				.await
-				.map_err(Error::Request)?;
+				.map_err(Error::RpcError)?;
 		let decoded_trie_nodes: Vec<Vec<u8>> =
 			Decode::decode(&mut &encoded_trie_nodes[..]).map_err(Error::ResponseParseFailed)?;
 		Ok(decoded_trie_nodes)
 	}
 
 	/// Return new justifications stream.
-	pub async fn subscribe_justifications(self) -> Result<JustificationsSubscription> {
+	pub async fn subscribe_justifications(&self) -> Result<JustificationsSubscription> {
 		Ok(self
 			.client
 			.subscribe(
 				"grandpa_subscribeJustifications",
-				jsonrpsee::common::Params::None,
+				jsonrpsee_types::jsonrpc::Params::None,
 				"grandpa_unsubscribeJustifications",
 			)
 			.await?)

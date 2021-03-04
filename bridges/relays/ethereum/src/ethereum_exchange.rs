@@ -130,8 +130,7 @@ impl RelayClient for EthereumTransactionsSource {
 	type Error = RpcError;
 
 	async fn reconnect(&mut self) -> Result<(), RpcError> {
-		self.client.reconnect();
-		Ok(())
+		self.client.reconnect().await.map_err(Into::into)
 	}
 }
 
@@ -305,7 +304,7 @@ fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H25
 	} = params;
 
 	let result = local_pool.run_until(async move {
-		let eth_client = EthereumClient::new(eth_params);
+		let eth_client = EthereumClient::new(eth_params).await.map_err(RpcError::Ethereum)?;
 		let sub_client = SubstrateClient::<Rialto>::new(sub_params)
 			.await
 			.map_err(RpcError::Substrate)?;
@@ -351,7 +350,8 @@ fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_wi
 	} = params;
 
 	let do_run_loop = move || -> Result<(), String> {
-		let eth_client = EthereumClient::new(eth_params);
+		let eth_client = async_std::task::block_on(EthereumClient::new(eth_params))
+			.map_err(|err| format!("Error starting Ethereum client: {:?}", err))?;
 		let sub_client = async_std::task::block_on(SubstrateClient::<Rialto>::new(sub_params))
 			.map_err(|err| format!("Error starting Substrate client: {:?}", err))?;
 
