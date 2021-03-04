@@ -32,7 +32,7 @@ use sp_core::{
 };
 use sp_version::RuntimeVersion;
 
-jsonrpsee::rpc_api! {
+jsonrpsee_proc_macros::rpc_client_api! {
 	pub(crate) Substrate<C: Chain> {
 		#[rpc(method = "system_health", positional_params)]
 		fn system_health() -> Health;

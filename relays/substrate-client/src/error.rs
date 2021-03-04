@@ -16,8 +16,7 @@
 
 //! Substrate node RPC errors.
 
-use jsonrpsee::client::RequestError;
-use jsonrpsee::transport::ws::WsNewDnsError;
+use jsonrpsee_types::error::Error as RpcError;
 use relay_utils::MaybeConnectionError;
 use sc_rpc_api::system::Health;
 
@@ -28,11 +27,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// a Substrate node through RPC.
 #[derive(Debug)]
 pub enum Error {
-	/// Web socket connection error.
-	WsConnectionError(WsNewDnsError),
 	/// An error that can occur when making a request to
 	/// an JSON-RPC server.
-	Request(RequestError),
+	RpcError(RpcError),
 	/// The response from the server could not be SCALE decoded.
 	ResponseParseFailed(codec::Error),
 	/// The Substrate bridge pallet has not yet been initialized.
@@ -45,15 +42,9 @@ pub enum Error {
 	Custom(String),
 }
 
-impl From<WsNewDnsError> for Error {
-	fn from(error: WsNewDnsError) -> Self {
-		Error::WsConnectionError(error)
-	}
-}
-
-impl From<RequestError> for Error {
-	fn from(error: RequestError) -> Self {
-		Error::Request(error)
+impl From<RpcError> for Error {
+	fn from(error: RpcError) -> Self {
+		Error::RpcError(error)
 	}
 }
 
@@ -61,7 +52,11 @@ impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
 		matches!(
 			*self,
-			Error::Request(RequestError::TransportError(_)) | Error::ClientNotSynced(_)
+			Error::RpcError(RpcError::TransportError(_))
+				// right now if connection to the ws server is dropped (after it is already established),
+				// we're getting this error
+				| Error::RpcError(RpcError::Internal(_))
+				| Error::ClientNotSynced(_),
 		)
 	}
 }
@@ -75,8 +70,7 @@ impl From<Error> for String {
 impl ToString for Error {
 	fn to_string(&self) -> String {
 		match self {
-			Self::WsConnectionError(e) => e.to_string(),
-			Self::Request(e) => e.to_string(),
+			Self::RpcError(e) => e.to_string(),
 			Self::ResponseParseFailed(e) => e.to_string(),
 			Self::UninitializedBridgePallet => "The Substrate bridge pallet has not been initialized yet.".into(),
 			Self::AccountDoesNotExist => "Account does not exist on the chain".into(),

@@ -139,25 +139,12 @@ pub async fn run<SourceChain, TargetChain, P>(
 	BlockNumberOf<SourceChain>: BlockNumberBase,
 	TargetChain: Clone + Chain,
 {
-	let source_justifications = match source_client.clone().subscribe_justifications().await {
-		Ok(source_justifications) => source_justifications,
-		Err(error) => {
-			log::warn!(
-				target: "bridge",
-				"Failed to subscribe to {} justifications: {:?}",
-				SourceChain::NAME,
-				error,
-			);
-
-			return;
-		}
-	};
-
 	let sync_maintain = SubstrateHeadersToSubstrateMaintain::<_, SourceChain, _>::new(
 		pipeline.clone(),
+		source_client.clone(),
 		target_client.clone(),
-		source_justifications,
-	);
+	)
+	.await;
 
 	log::info!(
 		target: "bridge",

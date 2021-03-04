@@ -62,7 +62,7 @@ pub fn run(params: EthereumDeployContractParams) {
 	} = params;
 
 	let result = local_pool.run_until(async move {
-		let eth_client = EthereumClient::new(eth_params);
+		let eth_client = EthereumClient::new(eth_params).await.map_err(RpcError::Ethereum)?;
 		let sub_client = SubstrateClient::<Rialto>::new(sub_params).await.map_err(RpcError::Substrate)?;
 
 		let (initial_header_id, initial_header) = prepare_initial_header(&sub_client, sub_initial_header).await?;
