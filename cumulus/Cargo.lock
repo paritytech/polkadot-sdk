@@ -1264,7 +1264,6 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "env_logger 0.7.1",
  "environmental",
- "frame-executive",
  "frame-support",
  "frame-system",
  "hash-db",
