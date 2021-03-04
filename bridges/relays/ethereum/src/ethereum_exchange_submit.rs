@@ -54,7 +54,9 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 	} = params;
 
 	let result: Result<_, String> = local_pool.run_until(async move {
-		let eth_client = EthereumClient::new(eth_params);
+		let eth_client = EthereumClient::new(eth_params)
+			.await
+			.map_err(|err| format!("error connecting to Ethereum node: {:?}", err))?;
 
 		let eth_signer_address = secret_to_address(&eth_sign.signer);
 		let sub_recipient_encoded = sub_recipient;

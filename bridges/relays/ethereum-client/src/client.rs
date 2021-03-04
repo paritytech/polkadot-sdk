@@ -21,9 +21,8 @@ use crate::types::{
 };
 use crate::{ConnectionParams, Error, Result};
 
-use jsonrpsee::raw::RawClient;
-use jsonrpsee::transport::http::HttpTransportClient;
-use jsonrpsee::Client as RpcClient;
+use jsonrpsee_ws_client::{WsClient as RpcClient, WsConfig as RpcConfig};
+use std::sync::Arc;
 
 /// Number of headers missing from the Ethereum node for us to consider node not synced.
 const MAJOR_SYNC_BLOCKS: u64 = 5;
@@ -32,36 +31,36 @@ const MAJOR_SYNC_BLOCKS: u64 = 5;
 #[derive(Clone)]
 pub struct Client {
 	params: ConnectionParams,
-	client: RpcClient,
+	client: Arc<RpcClient>,
 }
 
 impl Client {
 	/// Create a new Ethereum RPC Client.
-	pub fn new(params: ConnectionParams) -> Self {
-		Self {
-			client: Self::build_client(&params),
+	pub async fn new(params: ConnectionParams) -> Result<Self> {
+		Ok(Self {
+			client: Self::build_client(&params).await?,
 			params,
-		}
+		})
 	}
 
 	/// Build client to use in connection.
-	fn build_client(params: &ConnectionParams) -> RpcClient {
-		let uri = format!("http://{}:{}", params.host, params.port);
-		let transport = HttpTransportClient::new(&uri);
-		let raw_client = RawClient::new(transport);
-		raw_client.into()
+	async fn build_client(params: &ConnectionParams) -> Result<Arc<RpcClient>> {
+		let uri = format!("ws://{}:{}", params.host, params.port);
+		let client = RpcClient::new(RpcConfig::with_url(&uri)).await?;
+		Ok(Arc::new(client))
 	}
 
 	/// Reopen client connection.
-	pub fn reconnect(&mut self) {
-		self.client = Self::build_client(&self.params);
+	pub async fn reconnect(&mut self) -> Result<()> {
+		self.client = Self::build_client(&self.params).await?;
+		Ok(())
 	}
 }
 
 impl Client {
 	/// Returns true if client is connected to at least one peer and is in synced state.
 	pub async fn ensure_synced(&self) -> Result<()> {
-		match Ethereum::syncing(&self.client).await? {
+		match Ethereum::syncing(&*self.client).await? {
 			SyncState::NotSyncing => Ok(()),
 			SyncState::Syncing(syncing) => {
 				let missing_headers = syncing.highest_block.saturating_sub(syncing.current_block);
@@ -76,18 +75,18 @@ impl Client {
 
 	/// Estimate gas usage for the given call.
 	pub async fn estimate_gas(&self, call_request: CallRequest) -> Result<U256> {
-		Ok(Ethereum::estimate_gas(&self.client, call_request).await?)
+		Ok(Ethereum::estimate_gas(&*self.client, call_request).await?)
 	}
 
 	/// Retrieve number of the best known block from the Ethereum node.
 	pub async fn best_block_number(&self) -> Result<u64> {
-		Ok(Ethereum::block_number(&self.client).await?.as_u64())
+		Ok(Ethereum::block_number(&*self.client).await?.as_u64())
 	}
 
 	/// Retrieve number of the best known block from the Ethereum node.
 	pub async fn header_by_number(&self, block_number: u64) -> Result<Header> {
 		let get_full_tx_objects = false;
-		let header = Ethereum::get_block_by_number(&self.client, block_number, get_full_tx_objects).await?;
+		let header = Ethereum::get_block_by_number(&*self.client, block_number, get_full_tx_objects).await?;
 		match header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some() {
 			true => Ok(header),
 			false => Err(Error::IncompleteHeader),
@@ -97,7 +96,7 @@ impl Client {
 	/// Retrieve block header by its hash from Ethereum node.
 	pub async fn header_by_hash(&self, hash: H256) -> Result<Header> {
 		let get_full_tx_objects = false;
-		let header = Ethereum::get_block_by_hash(&self.client, hash, get_full_tx_objects).await?;
+		let header = Ethereum::get_block_by_hash(&*self.client, hash, get_full_tx_objects).await?;
 		match header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some() {
 			true => Ok(header),
 			false => Err(Error::IncompleteHeader),
@@ -107,7 +106,8 @@ impl Client {
 	/// Retrieve block header and its transactions by its number from Ethereum node.
 	pub async fn header_by_number_with_transactions(&self, number: u64) -> Result<HeaderWithTransactions> {
 		let get_full_tx_objects = true;
-		let header = Ethereum::get_block_by_number_with_transactions(&self.client, number, get_full_tx_objects).await?;
+		let header =
+			Ethereum::get_block_by_number_with_transactions(&*self.client, number, get_full_tx_objects).await?;
 
 		let is_complete_header = header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some();
 		if !is_complete_header {
@@ -125,7 +125,7 @@ impl Client {
 	/// Retrieve block header and its transactions by its hash from Ethereum node.
 	pub async fn header_by_hash_with_transactions(&self, hash: H256) -> Result<HeaderWithTransactions> {
 		let get_full_tx_objects = true;
-		let header = Ethereum::get_block_by_hash_with_transactions(&self.client, hash, get_full_tx_objects).await?;
+		let header = Ethereum::get_block_by_hash_with_transactions(&*self.client, hash, get_full_tx_objects).await?;
 
 		let is_complete_header = header.number.is_some() && header.hash.is_some() && header.logs_bloom.is_some();
 		if !is_complete_header {
@@ -142,17 +142,17 @@ impl Client {
 
 	/// Retrieve transaction by its hash from Ethereum node.
 	pub async fn transaction_by_hash(&self, hash: H256) -> Result<Option<Transaction>> {
-		Ok(Ethereum::transaction_by_hash(&self.client, hash).await?)
+		Ok(Ethereum::transaction_by_hash(&*self.client, hash).await?)
 	}
 
 	/// Retrieve transaction receipt by transaction hash.
 	pub async fn transaction_receipt(&self, transaction_hash: H256) -> Result<Receipt> {
-		Ok(Ethereum::get_transaction_receipt(&self.client, transaction_hash).await?)
+		Ok(Ethereum::get_transaction_receipt(&*self.client, transaction_hash).await?)
 	}
 
 	/// Get the nonce of the given account.
 	pub async fn account_nonce(&self, address: Address) -> Result<U256> {
-		Ok(Ethereum::get_transaction_count(&self.client, address).await?)
+		Ok(Ethereum::get_transaction_count(&*self.client, address).await?)
 	}
 
 	/// Submit an Ethereum transaction.
@@ -160,13 +160,13 @@ impl Client {
 	/// The transaction must already be signed before sending it through this method.
 	pub async fn submit_transaction(&self, signed_raw_tx: SignedRawTx) -> Result<TransactionHash> {
 		let transaction = Bytes(signed_raw_tx);
-		let tx_hash = Ethereum::submit_transaction(&self.client, transaction).await?;
+		let tx_hash = Ethereum::submit_transaction(&*self.client, transaction).await?;
 		log::trace!(target: "bridge", "Sent transaction to Ethereum node: {:?}", tx_hash);
 		Ok(tx_hash)
 	}
 
 	/// Call Ethereum smart contract.
 	pub async fn eth_call(&self, call_transaction: CallRequest) -> Result<Bytes> {
-		Ok(Ethereum::call(&self.client, call_transaction).await?)
+		Ok(Ethereum::call(&*self.client, call_transaction).await?)
 	}
 }

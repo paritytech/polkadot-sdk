@@ -9,17 +9,17 @@ subcommands:
             - eth-host: &eth-host
                 long: eth-host
                 value_name: ETH_HOST
-                help: Connect to Ethereum node at given host.
+                help: Connect to Ethereum node websocket server at given host.
                 takes_value: true
             - eth-port: &eth-port
                 long: eth-port
                 value_name: ETH_PORT
-                help: Connect to Ethereum node at given port.
+                help: Connect to Ethereum node websocket server at given port.
                 takes_value: true
             - sub-host: &sub-host
                 long: sub-host
                 value_name: SUB_HOST
-                help: Connect to Substrate node at given host.
+                help: Connect to Substrate node websocket server at given host.
                 takes_value: true
             - sub-port: &sub-port
                 long: sub-port

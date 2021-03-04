@@ -26,7 +26,7 @@ use crate::types::{
 	H256, U256, U64,
 };
 
-jsonrpsee::rpc_api! {
+jsonrpsee_proc_macros::rpc_client_api! {
 	pub(crate) Ethereum {
 		#[rpc(method = "eth_syncing", positional_params)]
 		fn syncing() -> SyncState;
