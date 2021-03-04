@@ -559,6 +559,17 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_rialto::RialtoFinalityApi<Block> for Runtime {
+		fn best_finalized() -> (bp_rialto::BlockNumber, bp_rialto::Hash) {
+			let header = BridgeFinalityVerifier::best_finalized();
+			(header.number, header.hash())
+		}
+
+		fn is_known_header(hash: bp_rialto::Hash) -> bool {
+			BridgeFinalityVerifier::is_known_header(hash)
+		}
+	}
+
 	impl bp_rialto::ToRialtoOutboundLaneApi<Block, Balance, ToRialtoMessagePayload> for Runtime {
 		fn estimate_message_delivery_and_dispatch_fee(
 			_lane_id: bp_message_lane::LaneId,
