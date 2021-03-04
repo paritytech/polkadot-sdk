@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use frame_executive::ExecuteBlock;
+use frame_support::traits::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT, NumberFor};
 
 use sp_io::KillChildStorageResult;
