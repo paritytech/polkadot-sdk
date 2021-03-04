@@ -18,7 +18,7 @@ use crate::client::Client;
 
 use bp_runtime::Chain as ChainBase;
 use frame_support::Parameter;
-use jsonrpsee::common::{DeserializeOwned, Serialize};
+use jsonrpsee_types::jsonrpc::{DeserializeOwned, Serialize};
 use num_traits::{CheckedSub, Zero};
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{

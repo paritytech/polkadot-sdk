@@ -122,8 +122,7 @@ impl RelayClient for EthereumHeadersSource {
 	type Error = RpcError;
 
 	async fn reconnect(&mut self) -> Result<(), RpcError> {
-		self.client.reconnect();
-		Ok(())
+		self.client.reconnect().await.map_err(Into::into)
 	}
 }
 
@@ -259,8 +258,8 @@ pub fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 		instance,
 	} = params;
 
-	let eth_client = EthereumClient::new(eth_params);
-	let sub_client = async_std::task::block_on(async { SubstrateClient::<Rialto>::new(sub_params).await })?;
+	let eth_client = async_std::task::block_on(EthereumClient::new(eth_params))?;
+	let sub_client = async_std::task::block_on(SubstrateClient::<Rialto>::new(sub_params))?;
 
 	let sign_sub_transactions = match sync_params.target_tx_mode {
 		TargetTransactionMode::Signed | TargetTransactionMode::Backup => true,
