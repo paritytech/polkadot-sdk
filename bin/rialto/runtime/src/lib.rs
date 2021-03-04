@@ -642,6 +642,17 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_millau::MillauFinalityApi<Block> for Runtime {
+		fn best_finalized() -> (bp_millau::BlockNumber, bp_millau::Hash) {
+			let header = BridgeFinalityVerifier::best_finalized();
+			(header.number, header.hash())
+		}
+
+		fn is_known_header(hash: bp_millau::Hash) -> bool {
+			BridgeFinalityVerifier::is_known_header(hash)
+		}
+	}
+
 	impl bp_currency_exchange::RialtoCurrencyExchangeApi<Block, exchange::EthereumTransactionInclusionProof> for Runtime {
 		fn filter_transaction_proof(proof: exchange::EthereumTransactionInclusionProof) -> bool {
 			BridgeRialtoCurrencyExchange::filter_transaction_proof(&proof)
