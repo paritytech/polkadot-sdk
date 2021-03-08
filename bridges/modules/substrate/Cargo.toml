@@ -11,6 +11,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
 finality-grandpa = { version = "0.14.0", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
+log = { version = "0.4.14", default-features = false }
 serde = { version = "1.0", optional = true }
 
 # Bridge Dependencies
@@ -44,6 +45,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"hash-db/std",
+	"log/std",
 	"serde",
 	"sp-finality-grandpa/std",
 	"sp-runtime/std",

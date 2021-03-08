@@ -113,7 +113,7 @@ decl_module! {
 			// reward submitter for providing valid message
 			T::OnTransactionSubmitted::on_valid_transaction_submitted(submitter);
 
-			frame_support::debug::trace!(
+			log::trace!(
 				target: "runtime",
 				"Completed currency exchange: {:?}",
 				deposit.transfer_id,
@@ -138,7 +138,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 		proof: &<T::PeerBlockchain as InclusionProofVerifier>::TransactionInclusionProof,
 	) -> bool {
 		if let Err(err) = prepare_deposit_details::<T, I>(proof) {
-			frame_support::debug::trace!(
+			log::trace!(
 				target: "runtime",
 				"Can't accept exchange transaction: {:?}",
 				err,
