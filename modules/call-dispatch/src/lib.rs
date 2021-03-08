@@ -202,7 +202,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		let message = match message {
 			Ok(message) => message,
 			Err(_) => {
-				frame_support::debug::trace!("Message {:?}/{:?}: rejected before actual dispatch", bridge, id);
+				log::trace!("Message {:?}/{:?}: rejected before actual dispatch", bridge, id);
 				Self::deposit_event(RawEvent::MessageRejected(bridge, id));
 				return;
 			}
@@ -212,7 +212,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		// (we want it to be the same, because otherwise we may decode Call improperly)
 		let expected_version = <T as frame_system::Config>::Version::get().spec_version;
 		if message.spec_version != expected_version {
-			frame_support::debug::trace!(
+			log::trace!(
 				"Message {:?}/{:?}: spec_version mismatch. Expected {:?}, got {:?}",
 				bridge,
 				id,
@@ -232,7 +232,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		let call = match message.call.into() {
 			Ok(call) => call,
 			Err(_) => {
-				frame_support::debug::trace!("Failed to decode Call from message {:?}/{:?}", bridge, id,);
+				log::trace!("Failed to decode Call from message {:?}/{:?}", bridge, id,);
 				Self::deposit_event(RawEvent::MessageCallDecodeFailed(bridge, id));
 				return;
 			}
@@ -243,7 +243,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 			CallOrigin::SourceRoot => {
 				let hex_id = derive_account_id::<T::SourceChainAccountId>(bridge, SourceAccount::Root);
 				let target_id = T::AccountIdConverter::convert(hex_id);
-				frame_support::debug::trace!("Root Account: {:?}", &target_id);
+				log::trace!("Root Account: {:?}", &target_id);
 				target_id
 			}
 			CallOrigin::TargetAccount(source_account_id, target_public, target_signature) => {
@@ -251,7 +251,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 
 				let target_account = target_public.into_account();
 				if !target_signature.verify(&digest[..], &target_account) {
-					frame_support::debug::trace!(
+					log::trace!(
 						"Message {:?}/{:?}: origin proof is invalid. Expected account: {:?} from signature: {:?}",
 						bridge,
 						id,
@@ -262,20 +262,20 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 					return;
 				}
 
-				frame_support::debug::trace!("Target Account: {:?}", &target_account);
+				log::trace!("Target Account: {:?}", &target_account);
 				target_account
 			}
 			CallOrigin::SourceAccount(source_account_id) => {
 				let hex_id = derive_account_id(bridge, SourceAccount::Account(source_account_id));
 				let target_id = T::AccountIdConverter::convert(hex_id);
-				frame_support::debug::trace!("Source Account: {:?}", &target_id);
+				log::trace!("Source Account: {:?}", &target_id);
 				target_id
 			}
 		};
 
 		// filter the call
 		if !T::CallFilter::filter(&call) {
-			frame_support::debug::trace!(
+			log::trace!(
 				"Message {:?}/{:?}: the call ({:?}) is rejected by filter",
 				bridge,
 				id,
@@ -291,7 +291,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		let dispatch_info = call.get_dispatch_info();
 		let expected_weight = dispatch_info.weight;
 		if message.weight < expected_weight {
-			frame_support::debug::trace!(
+			log::trace!(
 				"Message {:?}/{:?}: passed weight is too low. Expected at least {:?}, got {:?}",
 				bridge,
 				id,
@@ -310,11 +310,11 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		// finally dispatch message
 		let origin = RawOrigin::Signed(origin_account).into();
 
-		frame_support::debug::trace!("Message being dispatched is: {:?}", &call);
+		log::trace!("Message being dispatched is: {:?}", &call);
 		let dispatch_result = call.dispatch(origin);
 		let actual_call_weight = extract_actual_weight(&dispatch_result, &dispatch_info);
 
-		frame_support::debug::trace!(
+		log::trace!(
 			"Message {:?}/{:?} has been dispatched. Weight: {} of {}. Result: {:?}",
 			bridge,
 			id,
@@ -606,7 +606,7 @@ mod tests {
 				vec![EventRecord {
 					phase: Phase::Initialization,
 					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageWeightMismatch(
-						bridge, id, 1279000, 0,
+						bridge, id, 1345000, 0,
 					)),
 					topics: vec![],
 				}],

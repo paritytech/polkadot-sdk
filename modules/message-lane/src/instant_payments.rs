@@ -167,13 +167,13 @@ fn pay_relayer_reward<Currency, AccountId>(
 	);
 
 	match pay_result {
-		Ok(_) => frame_support::debug::trace!(
+		Ok(_) => log::trace!(
 			target: "runtime",
 			"Rewarded relayer {:?} with {:?}",
 			relayer_account,
 			reward,
 		),
-		Err(error) => frame_support::debug::trace!(
+		Err(error) => log::trace!(
 			target: "runtime",
 			"Failed to pay relayer {:?} reward {:?}: {:?}",
 			relayer_account,
