@@ -24,11 +24,11 @@ use bp_message_lane::{
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessageLaneParameter,
 };
 use bp_runtime::{InstanceId, MILLAU_BRIDGE_INSTANCE};
-use bridge_runtime_common::messages::{self, ChainWithMessageLanes, MessageBridge};
+use bridge_runtime_common::messages::{self, ChainWithMessageLanes, MessageBridge, MessageLaneTransaction};
 use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
-	weights::{DispatchClass, Weight, WeightToFeePolynomial},
+	weights::{DispatchClass, Weight},
 	RuntimeDebug,
 };
 use sp_core::storage::StorageKey;
@@ -99,59 +99,6 @@ impl MessageBridge for WithMillauMessageBridge {
 	type ThisChain = Rialto;
 	type BridgedChain = Millau;
 
-	fn maximal_extrinsic_size_on_target_chain() -> u32 {
-		bp_millau::max_extrinsic_size()
-	}
-
-	fn weight_limits_of_message_on_bridged_chain(_message_payload: &[u8]) -> RangeInclusive<Weight> {
-		// we don't want to relay too large messages + keep reserve for future upgrades
-		let upper_limit = messages::target::maximal_incoming_message_dispatch_weight(bp_millau::max_extrinsic_weight());
-
-		// we're charging for payload bytes in `WithMillauMessageBridge::weight_of_delivery_transaction` function
-		//
-		// this bridge may be used to deliver all kind of messages, so we're not making any assumptions about
-		// minimal dispatch weight here
-
-		0..=upper_limit
-	}
-
-	fn weight_of_delivery_transaction(message_payload: &[u8]) -> Weight {
-		let message_payload_len = u32::try_from(message_payload.len())
-			.map(Into::into)
-			.unwrap_or(Weight::MAX);
-		let extra_bytes_in_payload =
-			message_payload_len.saturating_sub(pallet_message_lane::EXPECTED_DEFAULT_MESSAGE_LENGTH.into());
-		messages::transaction_weight_without_multiplier(
-			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
-			message_payload_len.saturating_add(bp_rialto::EXTRA_STORAGE_PROOF_SIZE as _),
-			extra_bytes_in_payload
-				.saturating_mul(bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
-				.saturating_add(bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT),
-		)
-	}
-
-	fn weight_of_delivery_confirmation_transaction_on_this_chain() -> Weight {
-		let inbounded_data_size: Weight =
-			InboundLaneData::<bp_millau::AccountId>::encoded_size_hint(bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE, 1)
-				.map(Into::into)
-				.unwrap_or(Weight::MAX);
-
-		messages::transaction_weight_without_multiplier(
-			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
-			inbounded_data_size.saturating_add(bp_millau::EXTRA_STORAGE_PROOF_SIZE as _),
-			bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
-		)
-	}
-
-	fn this_weight_to_this_balance(weight: Weight) -> bp_rialto::Balance {
-		<crate::Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&weight)
-	}
-
-	fn bridged_weight_to_bridged_balance(weight: Weight) -> bp_millau::Balance {
-		// we're using the same weights in both chains now
-		<crate::Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&weight) as _
-	}
-
 	fn bridged_balance_to_this_balance(bridged_balance: bp_millau::Balance) -> bp_rialto::Balance {
 		bp_rialto::Balance::try_from(MillauToRialtoConversionRate::get().saturating_mul_int(bridged_balance))
 			.unwrap_or(bp_rialto::Balance::MAX)
@@ -167,7 +114,6 @@ impl messages::ChainWithMessageLanes for Rialto {
 	type AccountId = bp_rialto::AccountId;
 	type Signer = bp_rialto::AccountSigner;
 	type Signature = bp_rialto::Signature;
-	type Call = crate::Call;
 	type Weight = Weight;
 	type Balance = bp_rialto::Balance;
 
@@ -175,12 +121,37 @@ impl messages::ChainWithMessageLanes for Rialto {
 }
 
 impl messages::ThisChainWithMessageLanes for Rialto {
+	type Call = crate::Call;
+
 	fn is_outbound_lane_enabled(lane: &LaneId) -> bool {
 		*lane == LaneId::default()
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
 		MessageNonce::MAX
+	}
+
+	fn estimate_delivery_confirmation_transaction() -> MessageLaneTransaction<Weight> {
+		let inbound_data_size =
+			InboundLaneData::<bp_rialto::AccountId>::encoded_size_hint(bp_rialto::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE, 1)
+				.unwrap_or(u32::MAX);
+
+		MessageLaneTransaction {
+			dispatch_weight: bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
+			size: inbound_data_size
+				.saturating_add(bp_millau::EXTRA_STORAGE_PROOF_SIZE)
+				.saturating_add(bp_rialto::TX_EXTRA_BYTES),
+		}
+	}
+
+	fn transaction_payment(transaction: MessageLaneTransaction<Weight>) -> bp_rialto::Balance {
+		// in our testnets, both per-byte fee and weight-to-fee are 1:1
+		messages::transaction_payment_without_multiplier(
+			bp_rialto::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
+			1,
+			|weight| weight as _,
+			transaction,
+		)
 	}
 }
 
@@ -193,11 +164,57 @@ impl messages::ChainWithMessageLanes for Millau {
 	type AccountId = bp_millau::AccountId;
 	type Signer = bp_millau::AccountSigner;
 	type Signature = bp_millau::Signature;
-	type Call = (); // unknown to us
 	type Weight = Weight;
 	type Balance = bp_millau::Balance;
 
 	type MessageLaneInstance = pallet_message_lane::DefaultInstance;
+}
+
+impl messages::BridgedChainWithMessageLanes for Millau {
+	fn maximal_extrinsic_size() -> u32 {
+		bp_millau::max_extrinsic_size()
+	}
+
+	fn message_weight_limits(_message_payload: &[u8]) -> RangeInclusive<Weight> {
+		// we don't want to relay too large messages + keep reserve for future upgrades
+		let upper_limit = messages::target::maximal_incoming_message_dispatch_weight(bp_millau::max_extrinsic_weight());
+
+		// we're charging for payload bytes in `WithMillauMessageBridge::transaction_payment` function
+		//
+		// this bridge may be used to deliver all kind of messages, so we're not making any assumptions about
+		// minimal dispatch weight here
+
+		0..=upper_limit
+	}
+
+	fn estimate_delivery_transaction(
+		message_payload: &[u8],
+		message_dispatch_weight: Weight,
+	) -> MessageLaneTransaction<Weight> {
+		let message_payload_len = u32::try_from(message_payload.len()).unwrap_or(u32::MAX);
+		let extra_bytes_in_payload = Weight::from(message_payload_len)
+			.saturating_sub(pallet_message_lane::EXPECTED_DEFAULT_MESSAGE_LENGTH.into());
+
+		MessageLaneTransaction {
+			dispatch_weight: extra_bytes_in_payload
+				.saturating_mul(bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
+				.saturating_add(bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT)
+				.saturating_add(message_dispatch_weight),
+			size: message_payload_len
+				.saturating_add(bp_rialto::EXTRA_STORAGE_PROOF_SIZE)
+				.saturating_add(bp_millau::TX_EXTRA_BYTES),
+		}
+	}
+
+	fn transaction_payment(transaction: MessageLaneTransaction<Weight>) -> bp_millau::Balance {
+		// in our testnets, both per-byte fee and weight-to-fee are 1:1
+		messages::transaction_payment_without_multiplier(
+			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
+			1,
+			|weight| weight as _,
+			transaction,
+		)
+	}
 }
 
 impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau {

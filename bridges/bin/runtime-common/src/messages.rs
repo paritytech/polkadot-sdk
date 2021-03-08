@@ -31,7 +31,7 @@ use codec::{Decode, Encode};
 use frame_support::{traits::Instance, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
 use pallet_substrate_bridge::StorageProofChecker;
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
+use sp_runtime::traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul};
 use sp_std::{cmp::PartialOrd, convert::TryFrom, fmt::Debug, marker::PhantomData, ops::RangeInclusive, vec::Vec};
 use sp_trie::StorageProof;
 
@@ -46,37 +46,9 @@ pub trait MessageBridge {
 	/// This chain in context of message bridge.
 	type ThisChain: ThisChainWithMessageLanes;
 	/// Bridged chain in context of message bridge.
-	type BridgedChain: ChainWithMessageLanes;
+	type BridgedChain: BridgedChainWithMessageLanes;
 
-	/// Maximal extrinsic size on target chain.
-	fn maximal_extrinsic_size_on_target_chain() -> u32;
-
-	/// Returns feasible weights range for given message payload on the target chain.
-	///
-	/// If message is being sent with the weight that is out of this range, then it
-	/// should be rejected.
-	///
-	/// Weights returned from this function shall not include transaction overhead
-	/// (like weight of signature and signed extensions verification), because they're
-	/// already accounted by the `weight_of_delivery_transaction`. So this function should
-	/// return pure call dispatch weights range.
-	fn weight_limits_of_message_on_bridged_chain(
-		message_payload: &[u8],
-	) -> RangeInclusive<WeightOf<BridgedChain<Self>>>;
-
-	/// Maximal weight of single message delivery transaction on Bridged chain.
-	fn weight_of_delivery_transaction(message_payload: &[u8]) -> WeightOf<BridgedChain<Self>>;
-
-	/// Maximal weight of single message delivery confirmation transaction on This chain.
-	fn weight_of_delivery_confirmation_transaction_on_this_chain() -> WeightOf<ThisChain<Self>>;
-
-	/// Convert weight of This chain to the fee (paid in Balance) of This chain.
-	fn this_weight_to_this_balance(weight: WeightOf<ThisChain<Self>>) -> BalanceOf<ThisChain<Self>>;
-
-	/// Convert weight of the Bridged chain to the fee (paid in Balance) of the Bridged chain.
-	fn bridged_weight_to_bridged_balance(weight: WeightOf<BridgedChain<Self>>) -> BalanceOf<BridgedChain<Self>>;
-
-	/// Convert Bridged chain Balance into This chain Balance.
+	/// Convert Bridged chain balance into This chain balance.
 	fn bridged_balance_to_this_balance(bridged_balance: BalanceOf<BridgedChain<Self>>) -> BalanceOf<ThisChain<Self>>;
 }
 
@@ -90,8 +62,6 @@ pub trait ChainWithMessageLanes {
 	type Signer: Decode;
 	/// Signature type used on the chain.
 	type Signature: Decode;
-	/// Call type on the chain.
-	type Call: Encode + Decode;
 	/// Type of weight that is used on the chain. This would almost always be a regular
 	/// `frame_support::weight::Weight`. But since the meaning of weight on different chains
 	/// may be different, the `WeightOf<>` construct is used to avoid confusion between
@@ -104,15 +74,59 @@ pub trait ChainWithMessageLanes {
 	type MessageLaneInstance: Instance;
 }
 
+/// Message-lane related transaction parameters estimation.
+#[derive(RuntimeDebug)]
+pub struct MessageLaneTransaction<Weight> {
+	/// The estimated dispatch weight of the transaction.
+	pub dispatch_weight: Weight,
+	/// The estimated size of the encoded transaction.
+	pub size: u32,
+}
+
 /// This chain that has `message-lane` and `call-dispatch` modules.
 pub trait ThisChainWithMessageLanes: ChainWithMessageLanes {
+	/// Call type on the chain.
+	type Call: Encode + Decode;
+
 	/// Are we accepting any messages to the given lane?
 	fn is_outbound_lane_enabled(lane: &LaneId) -> bool;
 
-	/// Maximal number of pending (not yet delivered) messages at this chain.
+	/// Maximal number of pending (not yet delivered) messages at This chain.
 	///
 	/// Any messages over this limit, will be rejected.
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce;
+
+	/// Estimate size and weight of single message delivery confirmation transaction at This chain.
+	fn estimate_delivery_confirmation_transaction() -> MessageLaneTransaction<WeightOf<Self>>;
+
+	/// Returns minimal transaction fee that must be paid for given transaction at This chain.
+	fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
+}
+
+/// Bridged chain that has `message-lane` and `call-dispatch` modules.
+pub trait BridgedChainWithMessageLanes: ChainWithMessageLanes {
+	/// Maximal extrinsic size at Bridged chain.
+	fn maximal_extrinsic_size() -> u32;
+
+	/// Returns feasible weights range for given message payload at the Bridged chain.
+	///
+	/// If message is being sent with the weight that is out of this range, then it
+	/// should be rejected.
+	///
+	/// Weights returned from this function shall not include transaction overhead
+	/// (like weight of signature and signed extensions verification), because they're
+	/// already accounted by the `weight_of_delivery_transaction`. So this function should
+	/// return pure call dispatch weights range.
+	fn message_weight_limits(message_payload: &[u8]) -> RangeInclusive<Self::Weight>;
+
+	/// Estimate size and weight of single message delivery transaction at the Bridged chain.
+	fn estimate_delivery_transaction(
+		message_payload: &[u8],
+		message_dispatch_weight: WeightOf<Self>,
+	) -> MessageLaneTransaction<WeightOf<Self>>;
+
+	/// Returns minimal transaction fee that must be paid for given transaction at the Bridged chain.
+	fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
 }
 
 pub(crate) type ThisChain<B> = <B as MessageBridge>::ThisChain;
@@ -123,35 +137,35 @@ pub(crate) type SignerOf<C> = <C as ChainWithMessageLanes>::Signer;
 pub(crate) type SignatureOf<C> = <C as ChainWithMessageLanes>::Signature;
 pub(crate) type WeightOf<C> = <C as ChainWithMessageLanes>::Weight;
 pub(crate) type BalanceOf<C> = <C as ChainWithMessageLanes>::Balance;
-pub(crate) type CallOf<C> = <C as ChainWithMessageLanes>::Call;
 pub(crate) type MessageLaneInstanceOf<C> = <C as ChainWithMessageLanes>::MessageLaneInstance;
+
+pub(crate) type CallOf<C> = <C as ThisChainWithMessageLanes>::Call;
 
 /// Raw storage proof type (just raw trie nodes).
 type RawStorageProof = Vec<Vec<u8>>;
 
-/// Compute weight of transaction at runtime where:
+/// Compute fee of transaction at runtime where:
 ///
 /// - transaction payment pallet is being used;
 /// - fee multiplier is zero.
-pub fn transaction_weight_without_multiplier(
-	base_weight: Weight,
-	payload_size: Weight,
-	dispatch_weight: Weight,
-) -> Weight {
-	// non-adjustable per-byte weight is mapped 1:1 to tx weight
-	let per_byte_weight = payload_size;
+pub fn transaction_payment_without_multiplier<Balance: AtLeast32BitUnsigned>(
+	base_extrinsic_weight: Weight,
+	per_byte_fee: Balance,
+	weight_to_fee: impl Fn(Weight) -> Balance,
+	transaction: MessageLaneTransaction<Weight>,
+) -> Balance {
+	// base fee is charged for every tx
+	let base_fee = weight_to_fee(base_extrinsic_weight);
 
-	// we assume that adjustable per-byte weight is always zero
-	let adjusted_per_byte_weight = 0;
+	// non-adjustable per-byte fee
+	let len_fee = per_byte_fee.saturating_mul(Balance::from(transaction.size));
 
-	// we assume that transaction tip we use is also zero
-	let transaction_tip_weight = 0;
+	// the adjustable part of the fee
+	//
+	// here we assume that the fee multiplier is zero, so this part is also always zero
+	let adjusted_weight_fee = Balance::zero();
 
-	base_weight
-		.saturating_add(per_byte_weight)
-		.saturating_add(adjusted_per_byte_weight)
-		.saturating_add(transaction_tip_weight)
-		.saturating_add(dispatch_weight)
+	base_fee.saturating_add(len_fee).saturating_add(adjusted_weight_fee)
 }
 
 /// Sub-module that is declaring types required for processing This -> Bridged chain messages.
@@ -266,7 +280,7 @@ pub mod source {
 
 	/// Return maximal message size of This -> Bridged chain message.
 	pub fn maximal_message_size<B: MessageBridge>() -> u32 {
-		super::target::maximal_incoming_message_size(B::maximal_extrinsic_size_on_target_chain())
+		super::target::maximal_incoming_message_size(BridgedChain::<B>::maximal_extrinsic_size())
 	}
 
 	/// Do basic Bridged-chain specific verification of This -> Bridged chain message.
@@ -277,7 +291,7 @@ pub mod source {
 	pub fn verify_chain_message<B: MessageBridge>(
 		payload: &FromThisChainMessagePayload<B>,
 	) -> Result<(), &'static str> {
-		let weight_limits = B::weight_limits_of_message_on_bridged_chain(&payload.call);
+		let weight_limits = BridgedChain::<B>::message_weight_limits(&payload.call);
 		if !weight_limits.contains(&payload.weight.into()) {
 			return Err("Incorrect message weight declared");
 		}
@@ -308,18 +322,17 @@ pub mod source {
 		relayer_fee_percent: u32,
 	) -> Result<BalanceOf<ThisChain<B>>, &'static str> {
 		// the fee (in Bridged tokens) of all transactions that are made on the Bridged chain
-		let delivery_fee = B::bridged_weight_to_bridged_balance(B::weight_of_delivery_transaction(&payload.call));
-		let dispatch_fee = B::bridged_weight_to_bridged_balance(payload.weight.into());
+		let delivery_transaction =
+			BridgedChain::<B>::estimate_delivery_transaction(&payload.call, payload.weight.into());
+		let delivery_transaction_fee = BridgedChain::<B>::transaction_payment(delivery_transaction);
 
 		// the fee (in This tokens) of all transactions that are made on This chain
-		let delivery_confirmation_fee =
-			B::this_weight_to_this_balance(B::weight_of_delivery_confirmation_transaction_on_this_chain());
+		let confirmation_transaction = ThisChain::<B>::estimate_delivery_confirmation_transaction();
+		let confirmation_transaction_fee = ThisChain::<B>::transaction_payment(confirmation_transaction);
 
 		// minimal fee (in This tokens) is a sum of all required fees
-		let minimal_fee = delivery_fee
-			.checked_add(&dispatch_fee)
-			.map(B::bridged_balance_to_this_balance)
-			.and_then(|fee| fee.checked_add(&delivery_confirmation_fee));
+		let minimal_fee =
+			B::bridged_balance_to_this_balance(delivery_transaction_fee).checked_add(&confirmation_transaction_fee);
 
 		// before returning, add extra fee that is paid to the relayer (relayer interest)
 		minimal_fee
@@ -681,31 +694,6 @@ mod tests {
 		type ThisChain = ThisChain;
 		type BridgedChain = BridgedChain;
 
-		fn maximal_extrinsic_size_on_target_chain() -> u32 {
-			BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE
-		}
-
-		fn weight_limits_of_message_on_bridged_chain(message_payload: &[u8]) -> RangeInclusive<Weight> {
-			let begin = std::cmp::min(BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT, message_payload.len() as Weight);
-			begin..=BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT
-		}
-
-		fn weight_of_delivery_transaction(_message_payload: &[u8]) -> Weight {
-			DELIVERY_TRANSACTION_WEIGHT
-		}
-
-		fn weight_of_delivery_confirmation_transaction_on_this_chain() -> Weight {
-			DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT
-		}
-
-		fn this_weight_to_this_balance(weight: Weight) -> ThisChainBalance {
-			ThisChainBalance(weight as u32 * THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
-		}
-
-		fn bridged_weight_to_bridged_balance(weight: Weight) -> BridgedChainBalance {
-			BridgedChainBalance(weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
-		}
-
 		fn bridged_balance_to_this_balance(bridged_balance: BridgedChainBalance) -> ThisChainBalance {
 			ThisChainBalance(bridged_balance.0 * BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE as u32)
 		}
@@ -721,30 +709,6 @@ mod tests {
 
 		type ThisChain = BridgedChain;
 		type BridgedChain = ThisChain;
-
-		fn maximal_extrinsic_size_on_target_chain() -> u32 {
-			unreachable!()
-		}
-
-		fn weight_limits_of_message_on_bridged_chain(_message_payload: &[u8]) -> RangeInclusive<Weight> {
-			unreachable!()
-		}
-
-		fn weight_of_delivery_transaction(_message_payload: &[u8]) -> Weight {
-			unreachable!()
-		}
-
-		fn weight_of_delivery_confirmation_transaction_on_this_chain() -> Weight {
-			unreachable!()
-		}
-
-		fn this_weight_to_this_balance(_weight: Weight) -> BridgedChainBalance {
-			unreachable!()
-		}
-
-		fn bridged_weight_to_bridged_balance(_weight: Weight) -> ThisChainBalance {
-			unreachable!()
-		}
 
 		fn bridged_balance_to_this_balance(_this_balance: ThisChainBalance) -> BridgedChainBalance {
 			unreachable!()
@@ -845,7 +809,6 @@ mod tests {
 		type AccountId = ThisChainAccountId;
 		type Signer = ThisChainSigner;
 		type Signature = ThisChainSignature;
-		type Call = ThisChainCall;
 		type Weight = frame_support::weights::Weight;
 		type Balance = ThisChainBalance;
 
@@ -853,12 +816,46 @@ mod tests {
 	}
 
 	impl ThisChainWithMessageLanes for ThisChain {
+		type Call = ThisChainCall;
+
 		fn is_outbound_lane_enabled(lane: &LaneId) -> bool {
 			lane == TEST_LANE_ID
 		}
 
 		fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
 			MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE
+		}
+
+		fn estimate_delivery_confirmation_transaction() -> MessageLaneTransaction<WeightOf<Self>> {
+			MessageLaneTransaction {
+				dispatch_weight: DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT,
+				size: 0,
+			}
+		}
+
+		fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+			ThisChainBalance(transaction.dispatch_weight as u32 * THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
+		}
+	}
+
+	impl BridgedChainWithMessageLanes for ThisChain {
+		fn maximal_extrinsic_size() -> u32 {
+			unreachable!()
+		}
+
+		fn message_weight_limits(_message_payload: &[u8]) -> RangeInclusive<Self::Weight> {
+			unreachable!()
+		}
+
+		fn estimate_delivery_transaction(
+			_message_payload: &[u8],
+			_message_dispatch_weight: WeightOf<Self>,
+		) -> MessageLaneTransaction<WeightOf<Self>> {
+			unreachable!()
+		}
+
+		fn transaction_payment(_transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+			unreachable!()
 		}
 	}
 
@@ -869,7 +866,6 @@ mod tests {
 		type AccountId = BridgedChainAccountId;
 		type Signer = BridgedChainSigner;
 		type Signature = BridgedChainSignature;
-		type Call = BridgedChainCall;
 		type Weight = frame_support::weights::Weight;
 		type Balance = BridgedChainBalance;
 
@@ -877,12 +873,47 @@ mod tests {
 	}
 
 	impl ThisChainWithMessageLanes for BridgedChain {
+		type Call = BridgedChainCall;
+
 		fn is_outbound_lane_enabled(_lane: &LaneId) -> bool {
 			unreachable!()
 		}
 
 		fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
 			unreachable!()
+		}
+
+		fn estimate_delivery_confirmation_transaction() -> MessageLaneTransaction<WeightOf<Self>> {
+			unreachable!()
+		}
+
+		fn transaction_payment(_transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+			unreachable!()
+		}
+	}
+
+	impl BridgedChainWithMessageLanes for BridgedChain {
+		fn maximal_extrinsic_size() -> u32 {
+			BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE
+		}
+
+		fn message_weight_limits(message_payload: &[u8]) -> RangeInclusive<Self::Weight> {
+			let begin = std::cmp::min(BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT, message_payload.len() as Weight);
+			begin..=BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT
+		}
+
+		fn estimate_delivery_transaction(
+			_message_payload: &[u8],
+			message_dispatch_weight: WeightOf<Self>,
+		) -> MessageLaneTransaction<WeightOf<Self>> {
+			MessageLaneTransaction {
+				dispatch_weight: DELIVERY_TRANSACTION_WEIGHT + message_dispatch_weight,
+				size: 0,
+			}
+		}
+
+		fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+			BridgedChainBalance(transaction.dispatch_weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
 		}
 	}
 

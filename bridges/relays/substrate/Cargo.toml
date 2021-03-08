@@ -48,3 +48,6 @@ sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "maste
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
+
+[dev-dependencies]
+sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "master" }
