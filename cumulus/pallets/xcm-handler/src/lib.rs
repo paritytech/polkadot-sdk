@@ -157,7 +157,7 @@ impl<T: Config> SendXcm for Module<T> {
 				let hash = T::Hashing::hash(&data);
 
 				T::UpwardMessageSender::send_upward_message(data)
-					.map_err(|_| XcmError::Undefined)?;
+					.map_err(|_| XcmError::CannotReachDestination)?;
 				Self::deposit_event(RawEvent::UpwardMessageSent(hash));
 
 				Ok(())
@@ -170,9 +170,8 @@ impl<T: Config> SendXcm for Module<T> {
 					recipient: (*id).into(),
 					data,
 				};
-				// TODO: Better error here
 				T::HrmpMessageSender::send_hrmp_message(message)
-					.map_err(|_| XcmError::Undefined)?;
+					.map_err(|_| XcmError::CannotReachDestination)?;
 				Self::deposit_event(RawEvent::HrmpMessageSent(hash));
 				Ok(())
 			}
