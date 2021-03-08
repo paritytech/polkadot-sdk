@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::client::Client;
-
 use bp_runtime::Chain as ChainBase;
 use frame_support::Parameter;
 use jsonrpsee_types::jsonrpc::{DeserializeOwned, Serialize};
@@ -87,7 +85,7 @@ pub trait TransactionSignScheme {
 
 	/// Create transaction for given runtime call, signed by given account.
 	fn sign_transaction(
-		client: &Client<Self::Chain>,
+		genesis_hash: <Self::Chain as ChainBase>::Hash,
 		signer: &Self::AccountKeyPair,
 		signer_nonce: <Self::Chain as Chain>::Index,
 		call: <Self::Chain as Chain>::Call,

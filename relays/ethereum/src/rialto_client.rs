@@ -160,7 +160,7 @@ impl SubmitEthereumHeaders for SubstrateClient<Rialto> {
 			let nonce = self.next_account_index(account_id).await?;
 
 			let call = instance.build_signed_header_call(headers);
-			let transaction = Rialto::sign_transaction(self, &params.signer, nonce, call);
+			let transaction = Rialto::sign_transaction(*self.genesis_hash(), &params.signer, nonce, call);
 
 			let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
 			Ok(())
@@ -256,7 +256,7 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateClient<Rialto> {
 		let nonce = self.next_account_index(account_id).await?;
 
 		let call = instance.build_currency_exchange_call(proof);
-		let transaction = Rialto::sign_transaction(self, &params.signer, nonce, call);
+		let transaction = Rialto::sign_transaction(*self.genesis_hash(), &params.signer, nonce, call);
 
 		let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
 		Ok(())

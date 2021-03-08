@@ -96,7 +96,7 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 				move |initialization_data| {
 					Ok(Bytes(
 						Rialto::sign_transaction(
-							&rialto_client,
+							*rialto_client.genesis_hash(),
 							&rialto_sign.signer,
 							rialto_signer_next_index,
 							rialto_runtime::SudoCall::sudo(Box::new(
@@ -132,7 +132,7 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 				move |initialization_data| {
 					Ok(Bytes(
 						Millau::sign_transaction(
-							&millau_client,
+							*millau_client.genesis_hash(),
 							&millau_sign.signer,
 							millau_signer_next_index,
 							millau_runtime::SudoCall::sudo(Box::new(
@@ -266,7 +266,7 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 			);
 
 			let signed_millau_call = Millau::sign_transaction(
-				&millau_client,
+				*millau_client.genesis_hash(),
 				&millau_sign.signer,
 				millau_client
 					.next_account_index(millau_sign.signer.public().clone().into())
@@ -322,7 +322,7 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 			);
 
 			let signed_rialto_call = Rialto::sign_transaction(
-				&rialto_client,
+				*rialto_client.genesis_hash(),
 				&rialto_sign.signer,
 				rialto_client
 					.next_account_index(rialto_sign.signer.public().clone().into())
@@ -932,5 +932,41 @@ mod tests {
 			&call,
 		);
 		assert!(Rialto::verify_message(&payload).is_err());
+	}
+
+	#[test]
+	fn rialto_tx_extra_bytes_constant_is_correct() {
+		let rialto_call = rialto_runtime::Call::System(rialto_runtime::SystemCall::remark(vec![]));
+		let rialto_tx = Rialto::sign_transaction(
+			Default::default(),
+			&sp_keyring::AccountKeyring::Alice.pair(),
+			0,
+			rialto_call.clone(),
+		);
+		let extra_bytes_in_transaction = rialto_tx.encode().len() - rialto_call.encode().len();
+		assert!(
+			bp_rialto::TX_EXTRA_BYTES as usize >= extra_bytes_in_transaction,
+			"Hardcoded number of extra bytes in Rialto transaction {} is lower than actual value: {}",
+			bp_rialto::TX_EXTRA_BYTES,
+			extra_bytes_in_transaction,
+		);
+	}
+
+	#[test]
+	fn millau_tx_extra_bytes_constant_is_correct() {
+		let millau_call = millau_runtime::Call::System(millau_runtime::SystemCall::remark(vec![]));
+		let millau_tx = Millau::sign_transaction(
+			Default::default(),
+			&sp_keyring::AccountKeyring::Alice.pair(),
+			0,
+			millau_call.clone(),
+		);
+		let extra_bytes_in_transaction = millau_tx.encode().len() - millau_call.encode().len();
+		assert!(
+			bp_millau::TX_EXTRA_BYTES as usize >= extra_bytes_in_transaction,
+			"Hardcoded number of extra bytes in Millau transaction {} is lower than actual value: {}",
+			bp_millau::TX_EXTRA_BYTES,
+			extra_bytes_in_transaction,
+		);
 	}
 }

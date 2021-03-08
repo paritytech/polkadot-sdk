@@ -95,9 +95,6 @@ pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 	max_extrinsic_size: u32,
 	max_extrinsic_weight: Weight,
 	max_incoming_message_proof_size: u32,
-	// This is a base weight (which includes cost of tx itself, per-byte cost, adjusted per-byte cost) of single
-	// message delivery transaction that brings `max_incoming_message_proof_size` proof.
-	max_incoming_message_proof_base_weight: Weight,
 	max_incoming_message_dispatch_weight: Weight,
 ) {
 	// verify that we're able to receive proof of maximal-size message
@@ -116,12 +113,9 @@ pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 		1,
 		max_incoming_message_dispatch_weight,
 	);
-	let max_delivery_transaction_weight =
-		max_incoming_message_proof_base_weight.saturating_add(max_delivery_transaction_dispatch_weight);
 	assert!(
-		max_delivery_transaction_weight <= max_extrinsic_weight,
-		"Weight of maximal message delivery transaction {} + {} is larger than maximal possible transaction weight {}",
-		max_delivery_transaction_weight,
+		max_delivery_transaction_dispatch_weight <= max_extrinsic_weight,
+		"Weight of maximal message delivery transaction + {} is larger than maximal possible transaction weight {}",
 		max_delivery_transaction_dispatch_weight,
 		max_extrinsic_weight,
 	);
@@ -134,9 +128,6 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 	max_inbound_lane_data_proof_size_from_peer_chain: u32,
 	max_unrewarded_relayer_entries_at_peer_inbound_lane: MessageNonce,
 	max_unconfirmed_messages_at_inbound_lane: MessageNonce,
-	// This is a base weight (which includes cost of tx itself, per-byte cost, adjusted per-byte cost) of single
-	// confirmation transaction that brings `max_inbound_lane_data_proof_size_from_peer_chain` proof.
-	max_incoming_delivery_proof_base_weight: Weight,
 ) {
 	// verify that we're able to receive confirmation of maximal-size
 	let max_confirmation_transaction_size =
@@ -158,12 +149,9 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 			..Default::default()
 		},
 	);
-	let max_confirmation_transaction_weight =
-		max_incoming_delivery_proof_base_weight.saturating_add(max_confirmation_transaction_dispatch_weight);
 	assert!(
-		max_confirmation_transaction_weight <= max_extrinsic_weight,
-		"Weight of maximal confirmation transaction {} + {} is larger than maximal possible transaction weight {}",
-		max_incoming_delivery_proof_base_weight,
+		max_confirmation_transaction_dispatch_weight <= max_extrinsic_weight,
+		"Weight of maximal confirmation transaction {} is larger than maximal possible transaction weight {}",
 		max_confirmation_transaction_dispatch_weight,
 		max_extrinsic_weight,
 	);
