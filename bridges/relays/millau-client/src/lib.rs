@@ -17,7 +17,7 @@
 //! Types used to connect to the Millau-Substrate chain.
 
 use codec::Encode;
-use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, Client, TransactionSignScheme};
+use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, TransactionSignScheme};
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
@@ -65,7 +65,7 @@ impl TransactionSignScheme for Millau {
 	type SignedTransaction = millau_runtime::UncheckedExtrinsic;
 
 	fn sign_transaction(
-		client: &Client<Self>,
+		genesis_hash: <Self::Chain as ChainBase>::Hash,
 		signer: &Self::AccountKeyPair,
 		signer_nonce: <Self::Chain as Chain>::Index,
 		call: <Self::Chain as Chain>::Call,
@@ -84,8 +84,8 @@ impl TransactionSignScheme for Millau {
 			(
 				millau_runtime::VERSION.spec_version,
 				millau_runtime::VERSION.transaction_version,
-				*client.genesis_hash(),
-				*client.genesis_hash(),
+				genesis_hash,
+				genesis_hash,
 				(),
 				(),
 				(),

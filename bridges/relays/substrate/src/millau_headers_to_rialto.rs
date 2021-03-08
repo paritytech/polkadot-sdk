@@ -49,7 +49,10 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 			(),
 		)
 		.into();
-		let transaction = Rialto::sign_transaction(&self.target_client, &self.target_sign.signer, nonce, call);
+
+		let genesis_hash = *self.target_client.genesis_hash();
+		let transaction = Rialto::sign_transaction(genesis_hash, &self.target_sign.signer, nonce, call);
+
 		Ok(transaction)
 	}
 }
