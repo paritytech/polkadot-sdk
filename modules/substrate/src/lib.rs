@@ -417,7 +417,7 @@ where
 	} else {
 		// We don't have a scheduled change in storage at the moment. Let's check if the current
 		// header signals an authority set change.
-		if let Some(change) = verifier::find_scheduled_change(&header) {
+		if let Some(change) = bp_header_chain::find_grandpa_authorities_scheduled_change(&header) {
 			let next_set = AuthoritySet {
 				authorities: change.next_authorities,
 				set_id: storage.current_authority_set().set_id + 1,

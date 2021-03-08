@@ -23,7 +23,9 @@ use num_traits::{CheckedSub, Zero};
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{AtLeast32Bit, Dispatchable, MaybeDisplay, MaybeSerialize, MaybeSerializeDeserialize, Member},
+	traits::{
+		AtLeast32Bit, Block as BlockT, Dispatchable, MaybeDisplay, MaybeSerialize, MaybeSerializeDeserialize, Member,
+	},
 	Justification,
 };
 use std::{fmt::Debug, time::Duration};
@@ -51,7 +53,7 @@ pub trait Chain: ChainBase {
 		+ AtLeast32Bit
 		+ Copy;
 	/// Block type.
-	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification;
+	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
 	/// The aggregated `Call` type.
 	type Call: Dispatchable + Debug;
 }
@@ -67,7 +69,9 @@ pub trait ChainWithBalances: Chain {
 }
 
 /// Block with justification.
-pub trait BlockWithJustification {
+pub trait BlockWithJustification<Header> {
+	/// Return block header.
+	fn header(&self) -> Header;
 	/// Return block justification, if known.
 	fn justification(&self) -> Option<&Justification>;
 }
@@ -90,13 +94,11 @@ pub trait TransactionSignScheme {
 	) -> Self::SignedTransaction;
 }
 
-impl BlockWithJustification for () {
-	fn justification(&self) -> Option<&Justification> {
-		None
+impl<Block: BlockT> BlockWithJustification<Block::Header> for SignedBlock<Block> {
+	fn header(&self) -> Block::Header {
+		self.block.header().clone()
 	}
-}
 
-impl<Block> BlockWithJustification for SignedBlock<Block> {
 	fn justification(&self) -> Option<&Justification> {
 		self.justification.as_ref()
 	}

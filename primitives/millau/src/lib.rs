@@ -229,19 +229,8 @@ pub fn max_extrinsic_size() -> u32 {
 	*BlockLength::get().max.get(DispatchClass::Normal)
 }
 
-/// Name of the `MillauHeaderApi::best_block` runtime method.
-pub const BEST_MILLAU_BLOCKS_METHOD: &str = "MillauHeaderApi_best_blocks";
-/// Name of the `MillauHeaderApi::finalized_block` runtime method.
-pub const FINALIZED_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_finalized_block";
-/// Name of the `MillauHeaderApi::is_known_block` runtime method.
-pub const IS_KNOWN_MILLAU_BLOCK_METHOD: &str = "MillauHeaderApi_is_known_block";
-/// Name of the `MillauHeaderApi::incomplete_headers` runtime method.
-pub const INCOMPLETE_MILLAU_HEADERS_METHOD: &str = "MillauHeaderApi_incomplete_headers";
-
-/// Name of the `RialtoFinalityApi::best_finalized` runtime method.
+/// Name of the `MillauFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_MILLAU_HEADER_METHOD: &str = "MillauFinalityApi_best_finalized";
-/// Name of the `RialtoFinalityApi::is_known_header` runtime method.
-pub const IS_KNOW_MILLAU_HEADER_METHOD: &str = "MillauFinalityApi_is_known_header";
 
 /// Name of the `ToMillauOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime method.
 pub const TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD: &str =

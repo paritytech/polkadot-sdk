@@ -38,10 +38,9 @@ pub type MillauClient = relay_substrate_client::Client<Millau>;
 pub type RialtoClient = relay_substrate_client::Client<Rialto>;
 
 mod cli;
+mod finality_pipeline;
+mod finality_target;
 mod headers_initialize;
-mod headers_maintain;
-mod headers_pipeline;
-mod headers_target;
 mod messages_lane;
 mod messages_source;
 mod messages_target;
@@ -101,7 +100,7 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 							&rialto_sign.signer,
 							rialto_signer_next_index,
 							rialto_runtime::SudoCall::sudo(Box::new(
-								rialto_runtime::BridgeMillauCall::initialize(initialization_data).into(),
+								rialto_runtime::FinalityBridgeMillauCall::initialize(initialization_data).into(),
 							))
 							.into(),
 						)
@@ -137,7 +136,7 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 							&millau_sign.signer,
 							millau_signer_next_index,
 							millau_runtime::SudoCall::sudo(Box::new(
-								millau_runtime::BridgeRialtoCall::initialize(initialization_data).into(),
+								millau_runtime::FinalityBridgeRialtoCall::initialize(initialization_data).into(),
 							))
 							.into(),
 						)
