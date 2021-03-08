@@ -25,6 +25,7 @@ frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+sp-trie = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 
 [dev-dependencies]
 bp-test-utils = {path = "../../primitives/test-utils" }
@@ -46,4 +47,6 @@ std = [
 	"sp-finality-grandpa/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-trie/std",
 ]
+runtime-benchmarks = []
