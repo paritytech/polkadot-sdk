@@ -187,7 +187,8 @@ mod tests {
 
 		type AccountId = u32;
 		type Index = u32;
-		type SignedBlock = ();
+		type SignedBlock =
+			sp_runtime::generic::SignedBlock<sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>>;
 		type Call = ();
 	}
 

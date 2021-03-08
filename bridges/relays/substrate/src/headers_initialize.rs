@@ -17,12 +17,12 @@
 //! Initialize Substrate -> Substrate headers bridge.
 //!
 //! Initialization is a transaction that calls `initialize()` function of the
-//! `pallet-substrate-bridge` pallet. This transaction brings initial header
+//! `pallet-finality-verifier` pallet. This transaction brings initial header
 //! and authorities set from source to target chain. The headers sync starts
 //! with this header.
 
 use codec::Decode;
-use pallet_substrate_bridge::InitializationData;
+use pallet_finality_verifier::InitializationData;
 use relay_substrate_client::{Chain, Client};
 use sp_core::Bytes;
 use sp_finality_grandpa::{AuthorityList as GrandpaAuthoritiesSet, SetId as GrandpaAuthoritiesSetId};
@@ -132,10 +132,6 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 		header: initial_header,
 		authority_list: initial_authorities_set,
 		set_id: initial_authorities_set_id.unwrap_or(0),
-		// There may be multiple scheduled changes, so on real chains we should select proper
-		// moment, when there's nothing scheduled. On ephemeral (temporary) chains, it is ok to
-		// start with genesis.
-		scheduled_change: None,
 		is_halted: false,
 	})
 }
