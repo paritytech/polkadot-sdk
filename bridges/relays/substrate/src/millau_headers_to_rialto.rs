@@ -17,70 +17,52 @@
 //! Millau-to-Rialto headers sync entrypoint.
 
 use crate::{
-	headers_pipeline::{SubstrateHeadersSyncPipeline, SubstrateHeadersToSubstrate},
+	finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate},
 	MillauClient, RialtoClient,
 };
 
 use async_trait::async_trait;
-use bp_millau::{
-	BEST_MILLAU_BLOCKS_METHOD, FINALIZED_MILLAU_BLOCK_METHOD, INCOMPLETE_MILLAU_HEADERS_METHOD,
-	IS_KNOWN_MILLAU_BLOCK_METHOD,
-};
-use headers_relay::sync_types::QueuedHeader;
-use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SyncHeader as MillauSyncHeader};
-use relay_rialto_client::{BridgeMillauCall, Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Error as SubstrateError, TransactionSignScheme};
+use relay_millau_client::{Millau, SyncHeader as MillauSyncHeader};
+use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
+use relay_substrate_client::{finality_source::Justification, Error as SubstrateError, TransactionSignScheme};
 use sp_core::Pair;
-use sp_runtime::Justification;
 
-/// Millau-to-Rialto headers sync pipeline.
-pub(crate) type MillauHeadersToRialto =
-	SubstrateHeadersToSubstrate<Millau, MillauSyncHeader, Rialto, RialtoSigningParams>;
-/// Millau header in-the-queue.
-type QueuedMillauHeader = QueuedHeader<MillauHeadersToRialto>;
+/// Millau-to-Rialto finality sync pipeline.
+pub(crate) type MillauFinalityToRialto = SubstrateFinalityToSubstrate<Millau, Rialto, RialtoSigningParams>;
 
 #[async_trait]
-impl SubstrateHeadersSyncPipeline for MillauHeadersToRialto {
-	const BEST_BLOCK_METHOD: &'static str = BEST_MILLAU_BLOCKS_METHOD;
-	const FINALIZED_BLOCK_METHOD: &'static str = FINALIZED_MILLAU_BLOCK_METHOD;
-	const IS_KNOWN_BLOCK_METHOD: &'static str = IS_KNOWN_MILLAU_BLOCK_METHOD;
-	const INCOMPLETE_HEADERS_METHOD: &'static str = INCOMPLETE_MILLAU_HEADERS_METHOD;
+impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 
 	type SignedTransaction = <Rialto as TransactionSignScheme>::SignedTransaction;
 
-	async fn make_submit_header_transaction(
+	async fn make_submit_finality_proof_transaction(
 		&self,
-		header: QueuedMillauHeader,
+		header: MillauSyncHeader,
+		proof: Justification<bp_millau::Header>,
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
-		let call = BridgeMillauCall::import_signed_header(header.header().clone().into_inner()).into();
-		let transaction = Rialto::sign_transaction(&self.target_client, &self.target_sign.signer, nonce, call);
-		Ok(transaction)
-	}
-
-	async fn make_complete_header_transaction(
-		&self,
-		id: MillauHeaderId,
-		completion: Justification,
-	) -> Result<Self::SignedTransaction, SubstrateError> {
-		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
-		let nonce = self.target_client.next_account_index(account_id).await?;
-		let call = BridgeMillauCall::finalize_header(id.1, completion).into();
+		let call = rialto_runtime::FinalityBridgeMillauCall::submit_finality_proof(
+			header.into_inner(),
+			proof.into_inner(),
+			(),
+		)
+		.into();
 		let transaction = Rialto::sign_transaction(&self.target_client, &self.target_sign.signer, nonce, call);
 		Ok(transaction)
 	}
 }
 
-/// Run Millau-to-Rialto headers sync.
+/// Run Millau-to-Rialto finality sync.
 pub async fn run(
 	millau_client: MillauClient,
 	rialto_client: RialtoClient,
 	rialto_sign: RialtoSigningParams,
 	metrics_params: Option<relay_utils::metrics::MetricsParams>,
 ) {
-	crate::headers_pipeline::run(
-		MillauHeadersToRialto::new(rialto_client.clone(), rialto_sign),
+	crate::finality_pipeline::run(
+		MillauFinalityToRialto::new(rialto_client.clone(), rialto_sign),
 		millau_client,
 		rialto_client,
 		metrics_params,

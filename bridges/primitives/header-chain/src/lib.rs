@@ -26,9 +26,9 @@ use core::default::Default;
 use core::fmt::Debug;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_finality_grandpa::{AuthorityList, SetId};
-use sp_runtime::traits::Header as HeaderT;
+use sp_finality_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::RuntimeDebug;
+use sp_runtime::{generic::OpaqueDigestItemId, traits::Header as HeaderT};
 use sp_std::vec::Vec;
 
 pub mod justification;
@@ -138,6 +138,22 @@ impl<H: HeaderT> AncestryChecker<H, Vec<H>> for LinearAncestryChecker {
 
 		true
 	}
+}
+
+/// Find header digest that schedules next GRANDPA authorities set.
+pub fn find_grandpa_authorities_scheduled_change<H: HeaderT>(
+	header: &H,
+) -> Option<sp_finality_grandpa::ScheduledChange<H::Number>> {
+	let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
+
+	let filter_log = |log: ConsensusLog<H::Number>| match log {
+		ConsensusLog::ScheduledChange(change) => Some(change),
+		_ => None,
+	};
+
+	// find the first consensus digest with the right ID which converts to
+	// the right kind of consensus log.
+	header.digest().convert_first(|l| l.try_to(id).and_then(filter_log))
 }
 
 #[cfg(test)]
