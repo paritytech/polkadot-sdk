@@ -133,7 +133,7 @@ pub mod pallet {
 			);
 
 			let (hash, number) = (finality_target.hash(), finality_target.number());
-			frame_support::debug::trace!("Going to try and finalize header {:?}", finality_target);
+			log::trace!("Going to try and finalize header {:?}", finality_target);
 
 			let best_finalized = <ImportedHeaders<T>>::get(<BestFinalized<T>>::get()).expect(
 				"In order to reach this point the bridge must have been initialized. Afterwards,
@@ -151,13 +151,13 @@ pub mod pallet {
 
 			verify_justification::<BridgedHeader<T>>((hash, *number), set_id, voter_set, &justification).map_err(
 				|e| {
-					frame_support::debug::error!("Received invalid justification for {:?}: {:?}", finality_target, e);
+					log::error!("Received invalid justification for {:?}: {:?}", finality_target, e);
 					<Error<T>>::InvalidJustification
 				},
 			)?;
 
 			let best_finalized = T::HeaderChain::best_finalized();
-			frame_support::debug::trace!("Checking ancestry against best finalized header: {:?}", &best_finalized);
+			log::trace!("Checking ancestry against best finalized header: {:?}", &best_finalized);
 
 			ensure!(
 				T::AncestryChecker::are_ancestors(&best_finalized, &finality_target, &ancestry_proof),
@@ -169,7 +169,7 @@ pub mod pallet {
 			import_header::<T>(hash, finality_target)?;
 			<RequestCount<T>>::mutate(|count| *count += 1);
 
-			frame_support::debug::info!("Succesfully imported finalized header with hash {:?}!", hash);
+			log::info!("Succesfully imported finalized header with hash {:?}!", hash);
 
 			Ok(().into())
 		}
@@ -194,7 +194,7 @@ pub mod pallet {
 			ensure!(init_allowed, <Error<T>>::AlreadyInitialized);
 			initialize_bridge::<T>(init_data.clone());
 
-			frame_support::debug::info!(
+			log::info!(
 				"Pallet has been initialized with the following parameters: {:?}",
 				init_data
 			);
@@ -211,11 +211,11 @@ pub mod pallet {
 			match new_owner {
 				Some(new_owner) => {
 					ModuleOwner::<T>::put(&new_owner);
-					frame_support::debug::info!("Setting pallet Owner to: {:?}", new_owner);
+					log::info!("Setting pallet Owner to: {:?}", new_owner);
 				}
 				None => {
 					ModuleOwner::<T>::kill();
-					frame_support::debug::info!("Removed Owner of pallet.");
+					log::info!("Removed Owner of pallet.");
 				}
 			}
 
@@ -229,7 +229,7 @@ pub mod pallet {
 		pub fn halt_operations(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			ensure_owner_or_root::<T>(origin)?;
 			<IsHalted<T>>::put(true);
-			frame_support::debug::warn!("Stopping pallet operations.");
+			log::warn!("Stopping pallet operations.");
 
 			Ok(().into())
 		}
@@ -241,7 +241,7 @@ pub mod pallet {
 		pub fn resume_operations(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			ensure_owner_or_root::<T>(origin)?;
 			<IsHalted<T>>::put(false);
-			frame_support::debug::info!("Resuming pallet operations.");
+			log::info!("Resuming pallet operations.");
 
 			Ok(().into())
 		}

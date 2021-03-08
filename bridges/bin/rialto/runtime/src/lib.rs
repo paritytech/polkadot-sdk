@@ -290,7 +290,7 @@ impl bp_currency_exchange::DepositInto for DepositInto {
 		// - deposited != 0: (should never happen in practice) deposit has been partially completed
 		match deposited_amount {
 			_ if deposited_amount == amount => {
-				frame_support::debug::trace!(
+				log::trace!(
 					target: "runtime",
 					"Deposited {} to {:?}",
 					amount,
@@ -300,7 +300,7 @@ impl bp_currency_exchange::DepositInto for DepositInto {
 				Ok(())
 			}
 			_ if deposited_amount == 0 => {
-				frame_support::debug::error!(
+				log::error!(
 					target: "runtime",
 					"Deposit of {} to {:?} has failed",
 					amount,
@@ -310,7 +310,7 @@ impl bp_currency_exchange::DepositInto for DepositInto {
 				Err(bp_currency_exchange::Error::DepositFailed)
 			}
 			_ => {
-				frame_support::debug::error!(
+				log::error!(
 					target: "runtime",
 					"Deposit of {} to {:?} has partially competed. {} has been deposited",
 					amount,
@@ -535,7 +535,7 @@ impl_runtime_apis! {
 		}
 
 		fn execute_block(block: Block) {
-			Executive::execute_block(block)
+			Executive::execute_block(block);
 		}
 
 		fn initialize_block(header: &<Block as BlockT>::Header) {

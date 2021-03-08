@@ -240,9 +240,9 @@ where
 			&proof.0,
 		)
 		.map_err(|_| FinalizationError::InvalidJustification)?;
-		frame_support::debug::trace!("Received valid justification for {:?}", header);
+		log::trace!("Received valid justification for {:?}", header);
 
-		frame_support::debug::trace!(
+		log::trace!(
 			"Checking ancestry for headers between {:?} and {:?}",
 			last_finalized,
 			header
