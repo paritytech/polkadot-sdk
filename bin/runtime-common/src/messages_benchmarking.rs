@@ -73,7 +73,7 @@ pub fn prepare_message_proof<B, H, R, MM, ML, MH>(
 where
 	B: MessageBridge,
 	H: Hasher,
-	R: pallet_substrate_bridge::Config,
+	R: pallet_finality_verifier::Config,
 	<R::BridgedChain as bp_runtime::Chain>::Hash: Into<HashOf<BridgedChain<B>>>,
 	MM: Fn(MessageKey) -> Vec<u8>,
 	ML: Fn(LaneId) -> Vec<u8>,
@@ -129,7 +129,7 @@ where
 	// prepare Bridged chain header and insert it into the Substrate pallet
 	let bridged_header = make_bridged_header(root);
 	let bridged_header_hash = bridged_header.hash();
-	pallet_substrate_bridge::initialize_for_benchmarks::<R>(bridged_header);
+	pallet_finality_verifier::initialize_for_benchmarks::<R>(bridged_header);
 
 	(
 		FromBridgedChainMessagesProof {
@@ -154,7 +154,7 @@ pub fn prepare_message_delivery_proof<B, H, R, ML, MH>(
 where
 	B: MessageBridge,
 	H: Hasher,
-	R: pallet_substrate_bridge::Config,
+	R: pallet_finality_verifier::Config,
 	<R::BridgedChain as bp_runtime::Chain>::Hash: Into<HashOf<BridgedChain<B>>>,
 	ML: Fn(LaneId) -> Vec<u8>,
 	MH: Fn(H::Out) -> <R::BridgedChain as bp_runtime::Chain>::Header,
@@ -181,7 +181,7 @@ where
 	// prepare Bridged chain header and insert it into the Substrate pallet
 	let bridged_header = make_bridged_header(root);
 	let bridged_header_hash = bridged_header.hash();
-	pallet_substrate_bridge::initialize_for_benchmarks::<R>(bridged_header);
+	pallet_finality_verifier::initialize_for_benchmarks::<R>(bridged_header);
 
 	FromBridgedChainMessagesDeliveryProof {
 		bridged_header_hash: bridged_header_hash.into(),
