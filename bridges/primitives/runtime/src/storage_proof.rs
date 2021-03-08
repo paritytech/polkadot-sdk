@@ -14,12 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-// TODO: remove on actual use
-#![allow(dead_code)]
-
 //! Logic for checking Substrate storage proofs.
 
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
+use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 use sp_trie::{read_trie_value, Layout, MemoryDB, StorageProof};
@@ -65,49 +63,42 @@ pub enum Error {
 	StorageValueUnavailable,
 }
 
-impl<T: crate::Config> From<Error> for crate::Error<T> {
-	fn from(error: Error) -> Self {
-		match error {
-			Error::StorageRootMismatch => crate::Error::StorageRootMismatch,
-			Error::StorageValueUnavailable => crate::Error::StorageValueUnavailable,
-		}
-	}
+/// Return valid storage proof and state root.
+///
+/// NOTE: This should only be used for **testing**.
+#[cfg(feature = "std")]
+pub fn craft_valid_storage_proof() -> (H256, StorageProof) {
+	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
+
+	// construct storage proof
+	let backend = <InMemoryBackend<sp_core::Blake2Hasher>>::from(vec![
+		(None, vec![(b"key1".to_vec(), Some(b"value1".to_vec()))]),
+		(None, vec![(b"key2".to_vec(), Some(b"value2".to_vec()))]),
+		(None, vec![(b"key3".to_vec(), Some(b"value3".to_vec()))]),
+		// Value is too big to fit in a branch node
+		(None, vec![(b"key11".to_vec(), Some(vec![0u8; 32]))]),
+	]);
+	let root = backend.storage_root(std::iter::empty()).0;
+	let proof = StorageProof::new(
+		prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key22"[..]])
+			.unwrap()
+			.iter_nodes()
+			.collect(),
+	);
+
+	(root, proof)
 }
 
 #[cfg(test)]
 pub mod tests {
 	use super::*;
 
-	use sp_core::{Blake2Hasher, H256};
-	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
-
-	/// Return valid storage proof and state root.
-	pub fn craft_valid_storage_proof() -> (H256, StorageProof) {
-		// construct storage proof
-		let backend = <InMemoryBackend<Blake2Hasher>>::from(vec![
-			(None, vec![(b"key1".to_vec(), Some(b"value1".to_vec()))]),
-			(None, vec![(b"key2".to_vec(), Some(b"value2".to_vec()))]),
-			(None, vec![(b"key3".to_vec(), Some(b"value3".to_vec()))]),
-			// Value is too big to fit in a branch node
-			(None, vec![(b"key11".to_vec(), Some(vec![0u8; 32]))]),
-		]);
-		let root = backend.storage_root(std::iter::empty()).0;
-		let proof = StorageProof::new(
-			prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key22"[..]])
-				.unwrap()
-				.iter_nodes()
-				.collect(),
-		);
-
-		(root, proof)
-	}
-
 	#[test]
 	fn storage_proof_check() {
 		let (root, proof) = craft_valid_storage_proof();
 
 		// check proof in runtime
-		let checker = <StorageProofChecker<Blake2Hasher>>::new(root, proof.clone()).unwrap();
+		let checker = <StorageProofChecker<sp_core::Blake2Hasher>>::new(root, proof.clone()).unwrap();
 		assert_eq!(checker.read_value(b"key1"), Ok(Some(b"value1".to_vec())));
 		assert_eq!(checker.read_value(b"key2"), Ok(Some(b"value2".to_vec())));
 		assert_eq!(checker.read_value(b"key11111"), Err(Error::StorageValueUnavailable));
@@ -115,7 +106,7 @@ pub mod tests {
 
 		// checking proof against invalid commitment fails
 		assert_eq!(
-			<StorageProofChecker<Blake2Hasher>>::new(H256::random(), proof).err(),
+			<StorageProofChecker<sp_core::Blake2Hasher>>::new(H256::random(), proof).err(),
 			Some(Error::StorageRootMismatch)
 		);
 	}
