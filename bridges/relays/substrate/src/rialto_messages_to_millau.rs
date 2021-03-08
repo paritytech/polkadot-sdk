@@ -51,8 +51,8 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		bp_rialto::FROM_RIALTO_LATEST_CONFIRMED_NONCE_METHOD;
 	const INBOUND_LANE_UNREWARDED_RELAYERS_STATE: &'static str = bp_rialto::FROM_RIALTO_UNREWARDED_RELAYERS_STATE;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rialto::FINALIZED_RIALTO_BLOCK_METHOD;
-	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str = bp_millau::FINALIZED_MILLAU_BLOCK_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
+	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str = bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 
 	type SourceSignedTransaction = <Rialto as TransactionSignScheme>::SignedTransaction;
 	type TargetSignedTransaction = <Millau as TransactionSignScheme>::SignedTransaction;

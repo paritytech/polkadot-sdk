@@ -57,18 +57,28 @@ impl Default for SyncLoopMetrics {
 }
 
 impl SyncLoopMetrics {
+	/// Update best block number at source.
+	pub fn update_best_block_at_source<Number: Into<u64>>(&self, source_best_number: Number) {
+		self.best_block_numbers
+			.with_label_values(&["source"])
+			.set(source_best_number.into());
+	}
+
+	/// Update best block number at target.
+	pub fn update_best_block_at_target<Number: Into<u64>>(&self, target_best_number: Number) {
+		self.best_block_numbers
+			.with_label_values(&["target"])
+			.set(target_best_number.into());
+	}
+
 	/// Update metrics.
 	pub fn update<P: HeadersSyncPipeline>(&self, sync: &HeadersSync<P>) {
 		let headers = sync.headers();
 		let source_best_number = sync.source_best_number().unwrap_or_else(Zero::zero);
 		let target_best_number = sync.target_best_header().map(|id| id.0).unwrap_or_else(Zero::zero);
 
-		self.best_block_numbers
-			.with_label_values(&["source"])
-			.set(source_best_number.into());
-		self.best_block_numbers
-			.with_label_values(&["target"])
-			.set(target_best_number.into());
+		self.update_best_block_at_source(source_best_number);
+		self.update_best_block_at_target(target_best_number);
 
 		self.blocks_in_state
 			.with_label_values(&["maybe_orphan"])
