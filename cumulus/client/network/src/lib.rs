@@ -44,7 +44,7 @@ use codec::{Decode, Encode};
 use futures::{
 	channel::oneshot,
 	future::{ready, FutureExt},
-	pin_mut, select, Future,
+	Future,
 };
 
 use std::{convert::TryFrom, fmt, marker::PhantomData, pin::Pin, sync::Arc};
@@ -474,7 +474,6 @@ where
 pub struct WaitToAnnounce<Block: BlockT> {
 	spawner: Arc<dyn SpawnNamed + Send + Sync>,
 	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
-	current_trigger: oneshot::Sender<()>,
 }
 
 impl<Block: BlockT> WaitToAnnounce<Block> {
@@ -483,12 +482,9 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
 	) -> WaitToAnnounce<Block> {
-		let (tx, _rx) = oneshot::channel();
-
 		WaitToAnnounce {
 			spawner,
 			announce_block,
-			current_trigger: tx,
 		}
 	}
 
@@ -500,44 +496,23 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 		pov_hash: PHash,
 		signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
 	) {
-		let (tx, rx) = oneshot::channel();
 		let announce_block = self.announce_block.clone();
-
-		self.current_trigger = tx;
 
 		self.spawner.spawn(
 			"cumulus-wait-to-announce",
 			async move {
-				let t1 = wait_to_announce::<Block>(
-					block_hash,
-					pov_hash,
-					announce_block,
-					signed_stmt_recv,
-				)
-				.fuse();
-				let t2 = rx.fuse();
-
-				pin_mut!(t1, t2);
-
 				tracing::trace!(
 					target: "cumulus-network",
 					"waiting for announce block in a background task...",
 				);
 
-				select! {
-					_ = t1 => {
-						tracing::trace!(
-							target: "cumulus-network",
-							"block announcement finished",
-						);
-					},
-					_ = t2 => {
-						tracing::trace!(
-							target: "cumulus-network",
-							"previous task that waits for announce block has been canceled",
-						);
-					}
-				}
+				wait_to_announce::<Block>(block_hash, pov_hash, announce_block, signed_stmt_recv)
+					.await;
+
+				tracing::trace!(
+					target: "cumulus-network",
+					"block announcement finished",
+				);
 			}
 			.boxed(),
 		);
