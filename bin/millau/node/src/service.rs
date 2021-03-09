@@ -224,6 +224,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		}
 
 		use pallet_message_lane_rpc::{MessageLaneApi, MessageLaneRpcHandler};
+		use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 		use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
 		use sc_rpc::DenyUnsafe;
 		use substrate_frame_rpc_system::{FullSystem, SystemApi};
@@ -246,6 +247,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				pool.clone(),
 				DenyUnsafe::No,
 			)));
+			io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
+				client.clone(),
+			)));
 			io.extend_with(GrandpaApi::to_delegate(GrandpaRpcHandler::new(
 				shared_authority_set.clone(),
 				shared_voter_state.clone(),
@@ -257,7 +261,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				backend.clone(),
 				Arc::new(MillauMessageLaneKeys),
 			)));
-
 			io
 		})
 	};

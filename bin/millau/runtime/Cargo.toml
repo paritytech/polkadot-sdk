@@ -40,6 +40,7 @@ pallet-session = { git = "https://github.com/paritytech/substrate.git", branch =
 pallet-sudo = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate.git", branch = "master" , default-features = false }
@@ -84,6 +85,7 @@ std = [
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
 	"serde",
 	"sp-api/std",
 	"sp-block-builder/std",
