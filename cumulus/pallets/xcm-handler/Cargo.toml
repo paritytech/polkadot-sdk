@@ -16,6 +16,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 
 # Polkadot Dependencies
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus Dependencies
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
@@ -29,5 +30,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"cumulus-primitives-core/std",
-	"xcm/std"
+	"xcm/std",
+	"xcm-executor/std",
 ]

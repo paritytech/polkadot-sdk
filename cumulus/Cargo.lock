@@ -1304,6 +1304,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-std",
  "xcm",
+ "xcm-executor",
 ]
 
 [[package]]
