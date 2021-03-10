@@ -16,7 +16,7 @@ structopt = "0.3.21"
 # Bridge dependencies
 
 bp-message-lane = { path = "../../../primitives/message-lane" }
-bp-millau= { path = "../../../primitives/millau" }
+bp-millau= { path = "../../../primitives/chains/millau" }
 bp-runtime = { path = "../../../primitives/runtime" }
 millau-runtime = { path = "../runtime" }
 pallet-message-lane = { path = "../../../modules/message-lane" }
