@@ -13,7 +13,7 @@ relay-utils = { path = "../utils" }
 
 # Bridge dependencies
 
-bp-polkadot = { path = "../../primitives/polkadot" }
+bp-polkadot = { path = "../../primitives/chains/polkadot" }
 
 # Substrate Dependencies
 
