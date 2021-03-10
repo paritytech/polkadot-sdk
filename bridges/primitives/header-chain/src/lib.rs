@@ -29,7 +29,6 @@ use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::RuntimeDebug;
 use sp_runtime::{generic::OpaqueDigestItemId, traits::Header as HeaderT};
-use sp_std::vec::Vec;
 
 pub mod justification;
 
@@ -95,51 +94,6 @@ impl<H: Default, E> HeaderChain<H, E> for () {
 	}
 }
 
-/// A trait for checking if a given child header is a direct descendant of an ancestor.
-pub trait AncestryChecker<H, P> {
-	/// Is the child header a descendant of the ancestor header?
-	fn are_ancestors(ancestor: &H, child: &H, proof: &P) -> bool;
-}
-
-impl<H, P> AncestryChecker<H, P> for () {
-	fn are_ancestors(_ancestor: &H, _child: &H, _proof: &P) -> bool {
-		true
-	}
-}
-
-/// A simple ancestry checker which verifies ancestry by walking every header between `child` and
-/// `ancestor`.
-pub struct LinearAncestryChecker;
-
-impl<H: HeaderT> AncestryChecker<H, Vec<H>> for LinearAncestryChecker {
-	fn are_ancestors(ancestor: &H, child: &H, proof: &Vec<H>) -> bool {
-		// You can't be your own parent
-		if proof.len() < 2 {
-			return false;
-		}
-
-		// Let's make sure that the given headers are actually in the proof
-		match proof.first() {
-			Some(first) if first == ancestor => {}
-			_ => return false,
-		}
-
-		match proof.last() {
-			Some(last) if last == child => {}
-			_ => return false,
-		}
-
-		// Now we actually check the proof
-		for i in 1..proof.len() {
-			if &proof[i - 1].hash() != proof[i].parent_hash() {
-				return false;
-			}
-		}
-
-		true
-	}
-}
-
 /// Find header digest that schedules next GRANDPA authorities set.
 pub fn find_grandpa_authorities_scheduled_change<H: HeaderT>(
 	header: &H,
@@ -154,69 +108,4 @@ pub fn find_grandpa_authorities_scheduled_change<H: HeaderT>(
 	// find the first consensus digest with the right ID which converts to
 	// the right kind of consensus log.
 	header.digest().convert_first(|l| l.try_to(id).and_then(filter_log))
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use bp_test_utils::test_header;
-	use sp_runtime::testing::Header;
-
-	#[test]
-	fn can_verify_ancestry_correctly() {
-		let ancestor: Header = test_header(1);
-		let header2: Header = test_header(2);
-		let header3: Header = test_header(3);
-		let child: Header = test_header(4);
-
-		let ancestry_proof = vec![ancestor.clone(), header2, header3, child.clone()];
-
-		assert!(LinearAncestryChecker::are_ancestors(&ancestor, &child, &ancestry_proof));
-	}
-
-	#[test]
-	fn does_not_verify_invalid_proof() {
-		let ancestor: Header = test_header(1);
-		let header2: Header = test_header(2);
-		let header3: Header = test_header(3);
-		let child: Header = test_header(4);
-
-		let ancestry_proof = vec![ancestor.clone(), header3, header2, child.clone()];
-
-		let invalid = !LinearAncestryChecker::are_ancestors(&ancestor, &child, &ancestry_proof);
-		assert!(invalid);
-	}
-
-	#[test]
-	fn header_is_not_allowed_to_be_its_own_ancestor() {
-		let ancestor: Header = test_header(1);
-		let child: Header = ancestor.clone();
-		let ancestry_proof = vec![ancestor.clone()];
-
-		let invalid = !LinearAncestryChecker::are_ancestors(&ancestor, &child, &ancestry_proof);
-		assert!(invalid);
-	}
-
-	#[test]
-	fn proof_is_considered_invalid_if_child_and_ancestor_do_not_match() {
-		let ancestor: Header = test_header(1);
-		let header2: Header = test_header(2);
-		let header3: Header = test_header(3);
-		let child: Header = test_header(4);
-
-		let ancestry_proof = vec![ancestor, header3.clone(), header2.clone(), child];
-
-		let invalid = !LinearAncestryChecker::are_ancestors(&header2, &header3, &ancestry_proof);
-		assert!(invalid);
-	}
-
-	#[test]
-	fn empty_proof_is_invalid() {
-		let ancestor: Header = test_header(1);
-		let child: Header = ancestor.clone();
-		let ancestry_proof = vec![];
-
-		let invalid = !LinearAncestryChecker::are_ancestors(&ancestor, &child, &ancestry_proof);
-		assert!(invalid);
-	}
 }
