@@ -264,24 +264,19 @@ decl_module! {
 			}
 		}
 
-		/// Halt all pallet operations. Operations may be resumed using `resume_operations` call.
+		/// Halt or resume all pallet operations.
 		///
 		/// May only be called either by root, or by `ModuleOwner`.
 		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
-		pub fn halt_operations(origin) {
+		pub fn set_operational(origin, operational: bool) {
 			ensure_owner_or_root::<T, I>(origin)?;
-			IsHalted::<I>::put(true);
-			log::warn!("Stopping pallet operations.");
-		}
+			<IsHalted<I>>::put(operational);
 
-		/// Resume all pallet operations. May be called even if pallet is halted.
-		///
-		/// May only be called either by root, or by `ModuleOwner`.
-		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
-		pub fn resume_operations(origin) {
-			ensure_owner_or_root::<T, I>(origin)?;
-			IsHalted::<I>::put(false);
-			log::info!("Resuming pallet operations.");
+			if operational {
+				log::info!("Resuming pallet operations.");
+			} else {
+				log::warn!("Stopping pallet operations.");
+			}
 		}
 
 		/// Update pallet parameter.
@@ -915,29 +910,29 @@ mod tests {
 
 			assert_ok!(Module::<TestRuntime>::set_owner(Origin::root(), Some(1)));
 			assert_noop!(
-				Module::<TestRuntime>::halt_operations(Origin::signed(2)),
+				Module::<TestRuntime>::set_operational(Origin::signed(2), false),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::root()));
+			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), false));
 
 			assert_ok!(Module::<TestRuntime>::set_owner(Origin::signed(1), None));
 			assert_noop!(
-				Module::<TestRuntime>::resume_operations(Origin::signed(1)),
+				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Module::<TestRuntime>::resume_operations(Origin::signed(2)),
+				Module::<TestRuntime>::set_operational(Origin::signed(2), true),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Module::<TestRuntime>::resume_operations(Origin::root()));
+			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), true));
 		});
 	}
 
 	#[test]
 	fn pallet_may_be_halted_by_root() {
 		run_test(|| {
-			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::root()));
-			assert_ok!(Module::<TestRuntime>::resume_operations(Origin::root()));
+			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), true));
 		});
 	}
 
@@ -946,21 +941,21 @@ mod tests {
 		run_test(|| {
 			ModuleOwner::<TestRuntime>::put(2);
 
-			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::signed(2)));
-			assert_ok!(Module::<TestRuntime>::resume_operations(Origin::signed(2)));
+			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), false));
+			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), true));
 
 			assert_noop!(
-				Module::<TestRuntime>::halt_operations(Origin::signed(1)),
+				Module::<TestRuntime>::set_operational(Origin::signed(1), false),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Module::<TestRuntime>::resume_operations(Origin::signed(1)),
+				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 
-			assert_ok!(Module::<TestRuntime>::halt_operations(Origin::signed(2)));
+			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), false));
 			assert_noop!(
-				Module::<TestRuntime>::resume_operations(Origin::signed(1)),
+				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 		});
