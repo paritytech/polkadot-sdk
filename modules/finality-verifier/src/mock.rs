@@ -42,7 +42,6 @@ construct_runtime! {
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		Bridge: pallet_substrate_bridge::{Module},
 		FinalityVerifier: finality_verifier::{Module},
 	}
 }
@@ -79,19 +78,12 @@ impl frame_system::Config for TestRuntime {
 	type SS58Prefix = ();
 }
 
-impl pallet_substrate_bridge::Config for TestRuntime {
-	type BridgedChain = TestBridgedChain;
-}
-
 parameter_types! {
 	pub const MaxRequests: u32 = 2;
 }
 
 impl finality_verifier::Config for TestRuntime {
 	type BridgedChain = TestBridgedChain;
-	type HeaderChain = pallet_substrate_bridge::Module<Self>;
-	type AncestryProof = Vec<<Self::BridgedChain as Chain>::Header>;
-	type AncestryChecker = Checker<<Self::BridgedChain as Chain>::Header, Self::AncestryProof>;
 	type MaxRequests = MaxRequests;
 }
 
@@ -103,15 +95,6 @@ impl Chain for TestBridgedChain {
 	type Hash = <TestRuntime as frame_system::Config>::Hash;
 	type Hasher = <TestRuntime as frame_system::Config>::Hashing;
 	type Header = <TestRuntime as frame_system::Config>::Header;
-}
-
-#[derive(Debug)]
-pub struct Checker<H, P>(std::marker::PhantomData<(H, P)>);
-
-impl<H> bp_header_chain::AncestryChecker<H, Vec<H>> for Checker<H, Vec<H>> {
-	fn are_ancestors(_ancestor: &H, _child: &H, proof: &Vec<H>) -> bool {
-		!proof.is_empty()
-	}
 }
 
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {

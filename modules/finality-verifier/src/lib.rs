@@ -16,27 +16,30 @@
 
 //! Substrate Finality Verifier Pallet
 //!
-//! The goal of this pallet is to provide a safe interface for writing finalized headers to an
-//! external pallet which tracks headers and finality proofs. By safe, we mean that only headers
-//! whose finality has been verified will be written to the underlying pallet.
+//! This pallet is an on-chain GRANDPA light client for Substrate based chains.
 //!
-//! By verifying the finality of headers before writing them to storage we prevent DoS vectors in
-//! which unfinalized headers get written to storage even if they don't have a chance of being
-//! finalized in the future (such as in the case where a different fork gets finalized).
+//! This pallet achieves this by trustlessly verifying GRANDPA finality proofs on-chain. Once
+//! verified, finalized headers are stored in the pallet, thereby creating a sparse header chain.
+//! This sparse header chain can be used as a source of truth for other higher-level applications.
 //!
-//! The underlying pallet used for storage is assumed to be a pallet which tracks headers and
-//! GRANDPA authority set changes. This information is used during the verification of GRANDPA
-//! finality proofs.
+//! The pallet is responsible for tracking GRANDPA validator set hand-offs. We only import headers
+//! with justifications signed by the current validator set we know of. The header is inspected for
+//! a `ScheduledChanges` digest item, which is then used to update to next validator set.
+//!
+//! Since this pallet only tracks finalized headers it does not deal with forks. Forks can only
+//! occur if the GRANDPA validator set on the bridged chain is either colluding or there is a severe
+//! bug causing resulting in an equivocation. Such events are outside of the scope of this pallet.
+//! Shall the fork occur on the bridged chain governance intervention will be required to
+//! re-initialize the bridge and track the right fork.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Runtime-generated enums
 #![allow(clippy::large_enum_variant)]
 
-use bp_header_chain::{justification::verify_justification, AncestryChecker, HeaderChain};
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
 use codec::{Decode, Encode};
 use finality_grandpa::voter_set::VoterSet;
-use frame_support::{dispatch::DispatchError, ensure};
+use frame_support::ensure;
 use frame_system::{ensure_signed, RawOrigin};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -70,19 +73,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The chain we are bridging to here.
 		type BridgedChain: Chain;
-
-		/// The pallet which we will use as our underlying storage mechanism.
-		type HeaderChain: HeaderChain<<Self::BridgedChain as Chain>::Header, DispatchError>;
-
-		/// The type of ancestry proof used by the pallet.
-		///
-		/// Will be used by the ancestry checker to verify that the header being finalized is
-		/// related to the best finalized header in storage.
-		type AncestryProof: Parameter;
-
-		/// The type through which we will verify that a given header is related to the last
-		/// finalized header in our storage pallet.
-		type AncestryChecker: AncestryChecker<<Self::BridgedChain as Chain>::Header, Self::AncestryProof>;
 
 		/// The upper bound on the number of requests allowed by the pallet.
 		///
@@ -122,7 +112,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			finality_target: BridgedHeader<T>,
 			justification: Vec<u8>,
-			ancestry_proof: T::AncestryProof,
 		) -> DispatchResultWithPostInfo {
 			ensure_operational::<T>()?;
 			let _ = ensure_signed(origin)?;
@@ -145,28 +134,11 @@ pub mod pallet {
 			// "travelling back in time" (which could be indicative of something bad, e.g a hard-fork).
 			ensure!(best_finalized.number() < number, <Error<T>>::OldHeader);
 
-			let authority_set = <CurrentAuthoritySet<T>>::get();
-			let voter_set = VoterSet::new(authority_set.authorities).ok_or(<Error<T>>::InvalidAuthoritySet)?;
-			let set_id = authority_set.set_id;
+			verify_justification::<T>(&justification, hash, *number)?;
 
-			verify_justification::<BridgedHeader<T>>((hash, *number), set_id, voter_set, &justification).map_err(
-				|e| {
-					log::error!("Received invalid justification for {:?}: {:?}", finality_target, e);
-					<Error<T>>::InvalidJustification
-				},
-			)?;
-
-			let best_finalized = T::HeaderChain::best_finalized();
-			log::trace!("Checking ancestry against best finalized header: {:?}", &best_finalized);
-
-			ensure!(
-				T::AncestryChecker::are_ancestors(&best_finalized, &finality_target, &ancestry_proof),
-				<Error<T>>::InvalidAncestryProof
-			);
-
-			let _ = T::HeaderChain::append_header(finality_target.clone())?;
-
-			import_header::<T>(hash, finality_target)?;
+			try_enact_authority_change::<T>(&finality_target)?;
+			<BestFinalized<T>>::put(hash);
+			<ImportedHeaders<T>>::insert(hash, finality_target);
 			<RequestCount<T>>::mutate(|count| *count += 1);
 
 			log::info!("Succesfully imported finalized header with hash {:?}!", hash);
@@ -317,13 +289,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The given justification is invalid for the given header.
 		InvalidJustification,
-		/// The given ancestry proof is unable to verify that the child and ancestor headers are
-		/// related.
-		InvalidAncestryProof,
 		/// The authority set from the underlying header chain is invalid.
 		InvalidAuthoritySet,
-		/// Failed to write a header to the underlying header chain.
-		FailedToWriteHeader,
 		/// There are too many requests for the current window to handle.
 		TooManyRequests,
 		/// The header being imported is older than the best finalized header known to the pallet.
@@ -342,44 +309,68 @@ pub mod pallet {
 		StorageRootMismatch,
 	}
 
-	/// Import the given header to the pallet's storage.
+	/// Check the given header for a GRANDPA scheduled authority set change. If a change
+	/// is found it will be enacted immediately.
 	///
-	/// This function will also check if the header schedules and enacts authority set changes,
-	/// updating the current authority set accordingly.
-	///
-	/// Note: This function assumes that the given header has already been proven to be valid and
-	/// finalized. Using this assumption it will write them to storage with minimal checks. That
-	/// means it's of great importance that this function *not* called with any headers whose
-	/// finality has not been checked, otherwise you risk bricking your bridge.
-	pub(crate) fn import_header<T: Config>(
-		hash: BridgedBlockHash<T>,
-		header: BridgedHeader<T>,
+	/// This function does not support forced changes, or scheduled changes with delays
+	/// since these types of changes are indicitive of abnormal behaviour from GRANDPA.
+	pub(crate) fn try_enact_authority_change<T: Config>(
+		header: &BridgedHeader<T>,
 	) -> Result<(), sp_runtime::DispatchError> {
 		// We don't support forced changes - at that point governance intervention is required.
 		ensure!(
-			super::find_forced_change(&header).is_none(),
+			super::find_forced_change(header).is_none(),
 			<Error<T>>::UnsupportedScheduledChange
 		);
 
-		if let Some(change) = super::find_scheduled_change(&header) {
+		if let Some(change) = super::find_scheduled_change(header) {
 			// GRANDPA only includes a `delay` for forced changes, so this isn't valid.
 			ensure!(change.delay == Zero::zero(), <Error<T>>::UnsupportedScheduledChange);
 
+			let current_set_id = <CurrentAuthoritySet<T>>::get().set_id;
 			// TODO [#788]: Stop manually increasing the `set_id` here.
 			let next_authorities = bp_header_chain::AuthoritySet {
 				authorities: change.next_authorities,
-				set_id: <CurrentAuthoritySet<T>>::get().set_id + 1,
+				set_id: current_set_id + 1,
 			};
 
 			// Since our header schedules a change and we know the delay is 0, it must also enact
 			// the change.
-			<CurrentAuthoritySet<T>>::put(next_authorities);
+			<CurrentAuthoritySet<T>>::put(&next_authorities);
+
+			log::info!(
+				"Transitioned from authority set {} to {}! New authorities are: {:?}",
+				current_set_id,
+				current_set_id + 1,
+				next_authorities,
+			);
 		};
 
-		<BestFinalized<T>>::put(hash);
-		<ImportedHeaders<T>>::insert(hash, header);
-
 		Ok(())
+	}
+
+	/// Verify a GRANDPA justification (finality proof) for a given header.
+	///
+	/// Will use the GRANDPA current authorities known to the pallet.
+	pub(crate) fn verify_justification<T: Config>(
+		justification: &[u8],
+		hash: BridgedBlockHash<T>,
+		number: BridgedBlockNumber<T>,
+	) -> Result<(), sp_runtime::DispatchError> {
+		use bp_header_chain::justification::verify_justification;
+
+		let authority_set = <CurrentAuthoritySet<T>>::get();
+		let voter_set = VoterSet::new(authority_set.authorities).ok_or(<Error<T>>::InvalidAuthoritySet)?;
+		let set_id = authority_set.set_id;
+
+		Ok(
+			verify_justification::<BridgedHeader<T>>((hash, number), set_id, voter_set, &justification).map_err(
+				|e| {
+					log::error!("Received invalid justification for {:?}: {:?}", hash, e);
+					<Error<T>>::InvalidJustification
+				},
+			)?,
+		)
 	}
 
 	/// Since this writes to storage with no real checks this should only be used in functions that
@@ -551,16 +542,14 @@ mod tests {
 		Module::<TestRuntime>::initialize(origin, init_data.clone()).map(|_| init_data)
 	}
 
-	fn submit_finality_proof(child: u8, header: u8) -> frame_support::dispatch::DispatchResultWithPostInfo {
-		let child = test_header(child.into());
+	fn submit_finality_proof(header: u8) -> frame_support::dispatch::DispatchResultWithPostInfo {
 		let header = test_header(header.into());
 
 		let set_id = 1;
 		let grandpa_round = 1;
 		let justification = make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
-		let ancestry_proof = vec![child, header.clone()];
 
-		Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof)
+		Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification)
 	}
 
 	fn next_block() {
@@ -705,20 +694,19 @@ mod tests {
 			<IsHalted<TestRuntime>>::put(true);
 
 			assert_noop!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), test_header(1), vec![], vec![]),
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), test_header(1), vec![]),
 				Error::<TestRuntime>::Halted,
 			);
 		})
 	}
 
 	#[test]
-	fn succesfully_imports_header_with_valid_finality_and_ancestry_proofs() {
+	fn succesfully_imports_header_with_valid_finality() {
 		run_test(|| {
 			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof(1));
 
-			assert_ok!(submit_finality_proof(1, 2));
-
-			let header = test_header(2);
+			let header = test_header(1);
 			assert_eq!(<BestFinalized<TestRuntime>>::get(), header.hash());
 			assert!(<ImportedHeaders<TestRuntime>>::contains_key(header.hash()));
 		})
@@ -729,17 +717,15 @@ mod tests {
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			let child = test_header(1);
-			let header = test_header(2);
+			let header = test_header(1);
 
 			let set_id = 2;
 			let grandpa_round = 1;
 			let justification =
 				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
-			let ancestry_proof = vec![child, header.clone()];
 
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
 				<Error<TestRuntime>>::InvalidJustification
 			);
 		})
@@ -750,37 +736,12 @@ mod tests {
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			let child = test_header(1);
-			let header = test_header(2);
-
+			let header = test_header(1);
 			let justification = [1u8; 32].encode();
-			let ancestry_proof = vec![child, header.clone()];
 
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
 				<Error<TestRuntime>>::InvalidJustification
-			);
-		})
-	}
-
-	#[test]
-	fn does_not_import_header_with_invalid_ancestry_proof() {
-		run_test(|| {
-			initialize_substrate_bridge();
-
-			let header = test_header(2);
-
-			let set_id = 1;
-			let grandpa_round = 1;
-			let justification =
-				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
-
-			// For testing, we've made it so that an empty ancestry proof is invalid
-			let ancestry_proof = vec![];
-
-			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
-				<Error<TestRuntime>>::InvalidAncestryProof
 			);
 		})
 	}
@@ -804,10 +765,9 @@ mod tests {
 
 			let header = test_header(1);
 			let justification = [1u8; 32].encode();
-			let ancestry_proof = vec![];
 
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification, ancestry_proof,),
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
 				<Error<TestRuntime>>::InvalidAuthoritySet
 			);
 		})
@@ -818,9 +778,9 @@ mod tests {
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			assert_ok!(submit_finality_proof(5, 6));
-			assert_err!(submit_finality_proof(3, 4), Error::<TestRuntime>::OldHeader);
-			assert_ok!(submit_finality_proof(7, 8));
+			assert_ok!(submit_finality_proof(4));
+			assert_err!(submit_finality_proof(3), Error::<TestRuntime>::OldHeader);
+			assert_ok!(submit_finality_proof(5));
 		})
 	}
 
@@ -837,8 +797,18 @@ mod tests {
 			let mut header = test_header(2);
 			header.digest = change_log(0);
 
+			// Create a valid justification for the header
+			let set_id = 1;
+			let grandpa_round = 1;
+			let justification =
+				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+
 			// Let's import our test header
-			assert_ok!(pallet::import_header::<TestRuntime>(header.hash(), header.clone()));
+			assert_ok!(Module::<TestRuntime>::submit_finality_proof(
+				Origin::signed(1),
+				header.clone(),
+				justification
+			));
 
 			// Make sure that our header is the best finalized
 			assert_eq!(<BestFinalized<TestRuntime>>::get(), header.hash());
@@ -862,9 +832,15 @@ mod tests {
 			let mut header = test_header(2);
 			header.digest = change_log(1);
 
+			// Create a valid justification for the header
+			let set_id = 1;
+			let grandpa_round = 1;
+			let justification =
+				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+
 			// Should not be allowed to import this header
 			assert_err!(
-				pallet::import_header::<TestRuntime>(header.hash(), header),
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
 		})
@@ -880,9 +856,15 @@ mod tests {
 			let mut header = test_header(2);
 			header.digest = forced_change_log(0);
 
+			// Create a valid justification for the header
+			let set_id = 1;
+			let grandpa_round = 1;
+			let justification =
+				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+
 			// Should not be allowed to import this header
 			assert_err!(
-				pallet::import_header::<TestRuntime>(header.hash(), header),
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
 		})
@@ -925,9 +907,10 @@ mod tests {
 	fn rate_limiter_disallows_imports_once_limit_is_hit_in_single_block() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1, 2));
-			assert_ok!(submit_finality_proof(3, 4));
-			assert_err!(submit_finality_proof(5, 6), <Error<TestRuntime>>::TooManyRequests);
+
+			assert_ok!(submit_finality_proof(1));
+			assert_ok!(submit_finality_proof(2));
+			assert_err!(submit_finality_proof(3), <Error<TestRuntime>>::TooManyRequests);
 		})
 	}
 
@@ -935,18 +918,10 @@ mod tests {
 	fn rate_limiter_invalid_requests_do_not_count_towards_request_count() {
 		run_test(|| {
 			let submit_invalid_request = || {
-				let child = test_header(1);
-				let header = test_header(2);
-
+				let header = test_header(1);
 				let invalid_justification = vec![4, 2, 4, 2].encode();
-				let ancestry_proof = vec![child, header.clone()];
 
-				Module::<TestRuntime>::submit_finality_proof(
-					Origin::signed(1),
-					header,
-					invalid_justification,
-					ancestry_proof,
-				)
+				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, invalid_justification)
 			};
 
 			initialize_substrate_bridge();
@@ -957,9 +932,9 @@ mod tests {
 			}
 
 			// Can still submit `MaxRequests` requests afterwards
-			assert_ok!(submit_finality_proof(1, 2));
-			assert_ok!(submit_finality_proof(3, 4));
-			assert_err!(submit_finality_proof(5, 6), <Error<TestRuntime>>::TooManyRequests);
+			assert_ok!(submit_finality_proof(1));
+			assert_ok!(submit_finality_proof(2));
+			assert_err!(submit_finality_proof(3), <Error<TestRuntime>>::TooManyRequests);
 		})
 	}
 
@@ -967,11 +942,11 @@ mod tests {
 	fn rate_limiter_allows_request_after_new_block_has_started() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1, 2));
-			assert_ok!(submit_finality_proof(3, 4));
+			assert_ok!(submit_finality_proof(1));
+			assert_ok!(submit_finality_proof(2));
 
 			next_block();
-			assert_ok!(submit_finality_proof(5, 6));
+			assert_ok!(submit_finality_proof(3));
 		})
 	}
 
@@ -979,12 +954,12 @@ mod tests {
 	fn rate_limiter_disallows_imports_once_limit_is_hit_across_different_blocks() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1, 2));
-			assert_ok!(submit_finality_proof(3, 4));
+			assert_ok!(submit_finality_proof(1));
+			assert_ok!(submit_finality_proof(2));
 
 			next_block();
-			assert_ok!(submit_finality_proof(5, 6));
-			assert_err!(submit_finality_proof(7, 8), <Error<TestRuntime>>::TooManyRequests);
+			assert_ok!(submit_finality_proof(3));
+			assert_err!(submit_finality_proof(4), <Error<TestRuntime>>::TooManyRequests);
 		})
 	}
 
@@ -992,15 +967,15 @@ mod tests {
 	fn rate_limiter_allows_max_requests_after_long_time_with_no_activity() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1, 2));
-			assert_ok!(submit_finality_proof(3, 4));
+			assert_ok!(submit_finality_proof(1));
+			assert_ok!(submit_finality_proof(2));
 
 			next_block();
 			next_block();
 
 			next_block();
-			assert_ok!(submit_finality_proof(5, 6));
-			assert_ok!(submit_finality_proof(7, 8));
+			assert_ok!(submit_finality_proof(5));
+			assert_ok!(submit_finality_proof(7));
 		})
 	}
 }
