@@ -13,7 +13,7 @@ relay-utils = { path = "../utils" }
 
 # Bridge dependencies
 
-bp-kusama = { path = "../../primitives/kusama" }
+bp-kusama = { path = "../../primitives/chains/kusama" }
 
 # Substrate Dependencies
 

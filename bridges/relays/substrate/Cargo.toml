@@ -19,12 +19,12 @@ structopt = "0.3"
 # Bridge dependencies
 
 bp-header-chain = { path = "../../primitives/header-chain" }
-bp-kusama = { path = "../../primitives/kusama" }
+bp-kusama = { path = "../../primitives/chains/kusama" }
 bp-message-lane = { path = "../../primitives/message-lane" }
-bp-millau = { path = "../../primitives/millau" }
-bp-polkadot = { path = "../../primitives/polkadot" }
+bp-millau = { path = "../../primitives/chains/millau" }
+bp-polkadot = { path = "../../primitives/chains/polkadot" }
 bp-runtime = { path = "../../primitives/runtime" }
-bp-rialto = { path = "../../primitives/rialto" }
+bp-rialto = { path = "../../primitives/chains/rialto" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 finality-relay = { path = "../finality-relay" }
 headers-relay = { path = "../headers-relay" }
