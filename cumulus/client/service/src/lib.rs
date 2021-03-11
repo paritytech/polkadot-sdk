@@ -27,6 +27,7 @@ use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, UsageProvider,
 };
 use sc_service::{error::Result as ServiceResult, Configuration, Role, TaskManager};
+use sc_telemetry::TelemetryWorkerHandle;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockImport;
 use sp_core::traits::SpawnNamed;
@@ -233,6 +234,7 @@ pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration
 pub fn build_polkadot_full_node(
 	config: Configuration,
 	collator_id: CollatorId,
+	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 ) -> Result<RFullNode<PClient>, polkadot_service::Error> {
 	let is_light = matches!(config.role, Role::Light);
 	if is_light {
@@ -245,6 +247,7 @@ pub fn build_polkadot_full_node(
 			polkadot_service::IsCollator::Yes(collator_id),
 			None,
 			None,
+			telemetry_worker_handle,
 		)
 	}
 }

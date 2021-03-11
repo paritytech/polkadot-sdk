@@ -80,7 +80,7 @@ pub fn new_partial(
 	let inherent_data_providers = sp_inherents::InherentDataProviders::new();
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, RuntimeExecutor>(&config)?;
+		sc_service::new_full_parts::<Block, RuntimeApi, RuntimeExecutor>(&config, None)?;
 	let client = Arc::new(client);
 
 	let registry = config.prometheus_registry();
@@ -194,7 +194,7 @@ where
 		Box::new(move |_, _| rpc_ext_builder(client.clone()))
 	};
 
-	let (rpc_handlers, _) = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		on_demand: None,
 		remote_blockchain: None,
 		rpc_extensions_builder,
@@ -207,7 +207,7 @@ where
 		network: network.clone(),
 		network_status_sinks,
 		system_rpc_tx,
-		telemetry_span: None,
+		telemetry: None,
 	})?;
 
 	let announce_block = {
@@ -221,6 +221,7 @@ where
 			client.clone(),
 			transaction_pool,
 			prometheus_registry.as_ref(),
+			None,
 		);
 		let parachain_consensus = cumulus_client_consensus_relay_chain::RelayChainConsensus::new(
 			para_id,
@@ -423,7 +424,6 @@ pub fn node_config(
 		rpc_cors: None,
 		rpc_methods: Default::default(),
 		prometheus_config: None,
-		telemetry_handle: None,
 		telemetry_endpoints: None,
 		telemetry_external_transport: None,
 		default_heap_pages: None,

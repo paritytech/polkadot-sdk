@@ -84,7 +84,7 @@ impl BlockAnnounceData {
 	///
 	/// This will not check the signature, for this you should use [`BlockAnnounceData::check_signature`].
 	fn validate(&self, encoded_header: Vec<u8>) -> Result<(), Validation> {
-		let candidate_hash = if let CompactStatement::Candidate(h) = self.statement.payload() {
+		let candidate_hash = if let CompactStatement::Seconded(h) = self.statement.payload() {
 			h
 		} else {
 			tracing::debug!(
