@@ -89,7 +89,7 @@ where
 	type Hash = HashOf<SourceChain>;
 	type Number = BlockNumberOf<SourceChain>;
 	type Header = SyncHeader<SourceChain::Header>;
-	type FinalityProof = Justification<SourceChain::Header>;
+	type FinalityProof = Justification<SourceChain::BlockNumber>;
 }
 
 /// Run Substrate-to-Substrate finality sync.
@@ -103,7 +103,7 @@ pub async fn run<SourceChain, TargetChain, P>(
 		Hash = HashOf<SourceChain>,
 		Number = BlockNumberOf<SourceChain>,
 		Header = SyncHeader<SourceChain::Header>,
-		FinalityProof = Justification<SourceChain::Header>,
+		FinalityProof = Justification<SourceChain::BlockNumber>,
 	>,
 	SourceChain: Clone + Chain,
 	BlockNumberOf<SourceChain>: BlockNumberBase,
