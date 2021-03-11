@@ -22,6 +22,7 @@ use crate::error::Error;
 use crate::sync_header::SyncHeader;
 
 use async_trait::async_trait;
+use bp_header_chain::justification::decode_justification_target;
 use finality_relay::{FinalityProof, FinalitySyncPipeline, SourceClient, SourceHeader};
 use futures::stream::{unfold, Stream, StreamExt};
 use relay_utils::relay_loop::Client as RelayClient;
@@ -30,26 +31,23 @@ use std::{marker::PhantomData, pin::Pin};
 
 /// Wrapped raw Justification.
 #[derive(Debug, Clone)]
-pub struct Justification<Header> {
+pub struct Justification<Number> {
+	/// Header number decoded from the [`raw_justification`].
+	target_header_number: Number,
+	/// Raw, encoded justification bytes.
 	raw_justification: sp_runtime::Justification,
-	_phantom: PhantomData<Header>,
 }
 
-impl<Header> Justification<Header> {
+impl<Number> Justification<Number> {
 	/// Extract raw justification.
 	pub fn into_inner(self) -> sp_runtime::Justification {
 		self.raw_justification
 	}
 }
 
-impl<Header> FinalityProof<Header::Number> for Justification<Header>
-where
-	Header: HeaderT,
-{
-	fn target_header_number(&self) -> Option<Header::Number> {
-		bp_header_chain::justification::decode_justification_target::<Header>(&self.raw_justification)
-			.ok()
-			.map(|(_, number)| number)
+impl<Number: relay_utils::BlockNumberBase> FinalityProof<Number> for Justification<Number> {
+	fn target_header_number(&self) -> Number {
+		self.target_header_number
 	}
 }
 
@@ -96,11 +94,11 @@ where
 		Hash = C::Hash,
 		Number = C::BlockNumber,
 		Header = SyncHeader<C::Header>,
-		FinalityProof = Justification<C::Header>,
+		FinalityProof = Justification<C::BlockNumber>,
 	>,
 	P::Header: SourceHeader<C::BlockNumber>,
 {
-	type FinalityProofsStream = Pin<Box<dyn Stream<Item = Justification<C::Header>>>>;
+	type FinalityProofsStream = Pin<Box<dyn Stream<Item = Justification<C::BlockNumber>>>>;
 
 	async fn best_finalized_block_number(&self) -> Result<P::Number, Error> {
 		// we **CAN** continue to relay finality proofs if source node is out of sync, because
@@ -122,8 +120,8 @@ where
 				.justification()
 				.cloned()
 				.map(|raw_justification| Justification {
+					target_header_number: number,
 					raw_justification,
-					_phantom: Default::default(),
 				}),
 		))
 	}
@@ -132,14 +130,31 @@ where
 		Ok(unfold(
 			self.client.clone().subscribe_justifications().await?,
 			move |mut subscription| async move {
-				let next_justification = subscription.next().await?;
-				Some((
-					Justification {
-						raw_justification: next_justification.0,
-						_phantom: Default::default(),
-					},
-					subscription,
-				))
+				loop {
+					let next_justification = subscription.next().await?;
+					let decoded_target = decode_justification_target::<C::Header>(&next_justification.0);
+					let target_header_number = match decoded_target {
+						Ok((_, number)) => number,
+						Err(err) => {
+							log::error!(
+								target: "bridge",
+								"Failed to decode justification target from the {} justifications stream: {:?}",
+								P::SOURCE_NAME,
+								err,
+							);
+
+							continue;
+						}
+					};
+
+					return Some((
+						Justification {
+							target_header_number,
+							raw_justification: next_justification.0,
+						},
+						subscription,
+					));
+				}
 			},
 		)
 		.boxed())
