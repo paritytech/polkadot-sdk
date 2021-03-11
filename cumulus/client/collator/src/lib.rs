@@ -79,7 +79,7 @@ where
 	fn new(
 		block_status: Arc<BS>,
 		spawner: Arc<dyn SpawnNamed + Send + Sync>,
-		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<Backend>,
 		parachain_consensus: Box<dyn ParachainConsensus<Block>>,
 	) -> Self {
@@ -337,7 +337,7 @@ pub struct StartCollatorParams<Block: BlockT, Backend, BS, Spawner> {
 	pub para_id: ParaId,
 	pub backend: Arc<Backend>,
 	pub block_status: Arc<BS>,
-	pub announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	pub overseer_handler: OverseerHandler,
 	pub spawner: Spawner,
 	pub key: CollatorPair,

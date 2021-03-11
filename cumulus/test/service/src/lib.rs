@@ -21,10 +21,6 @@
 mod chain_spec;
 mod genesis;
 
-pub use chain_spec::*;
-pub use cumulus_test_runtime as runtime;
-pub use genesis::*;
-
 use core::future::Future;
 use cumulus_client_network::BlockAnnounceValidator;
 use cumulus_client_service::{
@@ -52,6 +48,11 @@ use sp_state_machine::BasicExternalities;
 use sp_trie::PrefixedMemoryDB;
 use std::sync::Arc;
 use substrate_test_client::BlockchainEventsExt;
+
+pub use chain_spec::*;
+pub use cumulus_test_runtime as runtime;
+pub use genesis::*;
+pub use sp_keyring::Sr25519Keyring as Keyring;
 
 // Native executor instance.
 native_executor_instance!(
@@ -122,10 +123,9 @@ pub fn new_partial(
 #[sc_tracing::logging::prefix_logs_with(parachain_config.network.node_name.as_str())]
 async fn start_node_impl<RB>(
 	parachain_config: Configuration,
-	collator_key: CollatorPair,
+	collator_key: Option<CollatorPair>,
 	relay_chain_config: Configuration,
 	para_id: ParaId,
-	is_collator: bool,
 	rpc_ext_builder: RB,
 ) -> sc_service::error::Result<(
 	TaskManager,
@@ -157,7 +157,11 @@ where
 
 	let relay_chain_full_node = polkadot_test_service::new_full(
 		relay_chain_config,
-		polkadot_service::IsCollator::Yes(collator_key.public()),
+		if let Some(ref key) = collator_key {
+			polkadot_service::IsCollator::Yes(key.public())
+		} else {
+			polkadot_service::IsCollator::No
+		},
 	)
 	.map_err(|e| match e {
 		polkadot_service::Error::Sub(x) => x,
@@ -212,10 +216,10 @@ where
 
 	let announce_block = {
 		let network = network.clone();
-		Arc::new(move |hash, data| network.announce_block(hash, Some(data)))
+		Arc::new(move |hash, data| network.announce_block(hash, data))
 	};
 
-	if is_collator {
+	if let Some(collator_key) = collator_key {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -270,7 +274,7 @@ where
 }
 
 /// A Cumulus test node instance used for testing.
-pub struct CumulusTestNode {
+pub struct TestNode {
 	/// TaskManager's instance.
 	pub task_manager: TaskManager,
 	/// Client's instance.
@@ -284,73 +288,156 @@ pub struct CumulusTestNode {
 	pub rpc_handlers: RpcHandlers,
 }
 
-/// Run a Cumulus test node using the Cumulus test runtime. The node will be using an in-memory
-/// socket, therefore you need to provide boot nodes if you want it to be connected to other nodes.
-/// The `storage_update_func` can be used to make adjustements to the runtime before the node
-/// starts.
-pub async fn run_test_node(
+
+/// A builder to create a [`TestNode`].
+pub struct TestNodeBuilder {
+	para_id: ParaId,
 	task_executor: TaskExecutor,
 	key: Sr25519Keyring,
-	parachain_storage_update_func: impl Fn(),
-	relay_chain_storage_update_func: impl Fn(),
-	parachain_boot_nodes: Vec<MultiaddrWithPeerId>,
-	relay_chain_boot_nodes: Vec<MultiaddrWithPeerId>,
-	para_id: ParaId,
-	is_collator: bool,
-) -> CumulusTestNode {
-	let collator_key = CollatorPair::generate().0;
-	let parachain_config = node_config(
-		parachain_storage_update_func,
-		task_executor.clone(),
-		key,
-		parachain_boot_nodes,
-		para_id,
-		is_collator,
-	)
-	.expect("could not generate Configuration");
-	let mut relay_chain_config = polkadot_test_service::node_config(
-		relay_chain_storage_update_func,
-		task_executor.clone(),
-		key,
-		relay_chain_boot_nodes,
-		false,
-	);
+	collator_key: Option<CollatorPair>,
+	parachain_nodes: Vec<MultiaddrWithPeerId>,
+	parachain_nodes_exclusive: bool,
+	relay_chain_nodes: Vec<MultiaddrWithPeerId>,
+}
 
-	relay_chain_config.network.node_name =
-		format!("{} (relay chain)", relay_chain_config.network.node_name);
+impl TestNodeBuilder {
+	/// Create a new instance of `Self`.
+	///
+	/// `para_id` - The parachain id this node is running for.
+	/// `task_executor` - The task executor to use.
+	/// `key` - The key that will be used to generate the name and that will be passed as `dev_seed`.
+	pub fn new(para_id: ParaId, task_executor: TaskExecutor, key: Sr25519Keyring) -> Self {
+		TestNodeBuilder {
+			key,
+			para_id,
+			task_executor,
+			collator_key: None,
+			parachain_nodes: Vec::new(),
+			parachain_nodes_exclusive: false,
+			relay_chain_nodes: Vec::new(),
+		}
+	}
 
-	let multiaddr = parachain_config.network.listen_addresses[0].clone();
-	let (task_manager, client, network, rpc_handlers) = start_node_impl(
-		parachain_config,
-		collator_key,
-		relay_chain_config,
-		para_id,
-		is_collator,
-		|_| Default::default(),
-	)
-	.await
-	.expect("could not create Cumulus test service");
+	/// Enable collator for this node.
+	pub fn enable_collator(mut self) -> Self {
+		let collator_key = CollatorPair::generate().0;
+		self.collator_key = Some(collator_key);
+		self
+	}
 
-	let peer_id = network.local_peer_id().clone();
-	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
+	/// Instruct the node to exclusively connect to registered parachain nodes.
+	///
+	/// Parachain nodes can be registered using [`Self::connect_to_parachain_node`] and
+	/// [`Self::connect_to_parachain_nodes`].
+	pub fn exclusively_connect_to_registered_parachain_nodes(mut self) -> Self {
+		self.parachain_nodes_exclusive = true;
+		self
+	}
 
-	CumulusTestNode {
-		task_manager,
-		client,
-		network,
-		addr,
-		rpc_handlers,
+	/// Make the node connect to the given parachain node.
+	///
+	/// By default the node will not be connected to any node or will be able to discover any other
+	/// node.
+	pub fn connect_to_parachain_node(mut self, node: &TestNode) -> Self {
+		self.parachain_nodes.push(node.addr.clone());
+		self
+	}
+
+	/// Make the node connect to the given parachain nodes.
+	///
+	/// By default the node will not be connected to any node or will be able to discover any other
+	/// node.
+	pub fn connect_to_parachain_nodes<'a>(
+		mut self,
+		nodes: impl Iterator<Item = &'a TestNode>,
+	) -> Self {
+		self.parachain_nodes.extend(nodes.map(|n| n.addr.clone()));
+		self
+	}
+
+	/// Make the node connect to the given relay chain node.
+	///
+	/// By default the node will not be connected to any node or will be able to discover any other
+	/// node.
+	pub fn connect_to_relay_chain_node(
+		mut self,
+		node: &polkadot_test_service::PolkadotTestNode,
+	) -> Self {
+		self.relay_chain_nodes.push(node.addr.clone());
+		self
+	}
+
+	/// Make the node connect to the given relay chain nodes.
+	///
+	/// By default the node will not be connected to any node or will be able to discover any other
+	/// node.
+	pub fn connect_to_relay_chain_nodes<'a>(
+		mut self,
+		nodes: impl IntoIterator<Item = &'a polkadot_test_service::PolkadotTestNode>,
+	) -> Self {
+		self.relay_chain_nodes.extend(nodes.into_iter().map(|n| n.addr.clone()));
+		self
+	}
+
+	/// Build the [`TestNode`].
+	pub async fn build(self) -> TestNode {
+		let parachain_config = node_config(
+			|| (),
+			self.task_executor.clone(),
+			self.key.clone(),
+			self.parachain_nodes,
+			self.parachain_nodes_exclusive,
+			self.para_id,
+			self.collator_key.is_some(),
+		)
+		.expect("could not generate Configuration");
+		let mut relay_chain_config = polkadot_test_service::node_config(
+			|| (),
+			self.task_executor,
+			self.key,
+			self.relay_chain_nodes,
+			false,
+		);
+
+		relay_chain_config.network.node_name =
+			format!("{} (relay chain)", relay_chain_config.network.node_name);
+
+		let multiaddr = parachain_config.network.listen_addresses[0].clone();
+		let (task_manager, client, network, rpc_handlers) = start_node_impl(
+			parachain_config,
+			self.collator_key,
+			relay_chain_config,
+			self.para_id,
+			|_| Default::default(),
+		)
+		.await
+		.expect("could not create Cumulus test service");
+
+		let peer_id = network.local_peer_id().clone();
+		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
+
+		TestNode {
+			task_manager,
+			client,
+			network,
+			addr,
+			rpc_handlers,
+		}
 	}
 }
 
-/// Create a Cumulus `Configuration`. By default an in-memory socket will be used, therefore you
-/// need to provide boot nodes if you want the future node to be connected to other nodes. The
-/// `storage_update_func` can be used to make adjustments to the runtime before the node starts.
+/// Create a Cumulus `Configuration`.
+///
+/// By default an in-memory socket will be used, therefore you need to provide nodes if you want the
+/// node to be connected to other nodes. If `nodes_exclusive` is `true`, the node will only connect
+/// to the given `nodes` and not to any other node. The `storage_update_func` can be used to make
+/// adjustments to the runtime genesis.
 pub fn node_config(
 	storage_update_func: impl Fn(),
 	task_executor: TaskExecutor,
 	key: Sr25519Keyring,
-	boot_nodes: Vec<MultiaddrWithPeerId>,
+	nodes: Vec<MultiaddrWithPeerId>,
+	nodes_exlusive: bool,
 	para_id: ParaId,
 	is_collator: bool,
 ) -> Result<Configuration, ServiceError> {
@@ -379,7 +466,13 @@ pub fn node_config(
 		None,
 	);
 
-	network_config.boot_nodes = boot_nodes;
+	if nodes_exlusive {
+		network_config.default_peers_set.reserved_nodes = nodes;
+		network_config.default_peers_set.non_reserved_mode =
+			sc_network::config::NonReservedPeerMode::Deny;
+	} else {
+		network_config.boot_nodes = nodes;
+	}
 
 	network_config.allow_non_globals_in_dht = true;
 
@@ -445,7 +538,7 @@ pub fn node_config(
 	})
 }
 
-impl CumulusTestNode {
+impl TestNode {
 	/// Wait for `count` blocks to be imported in the node and then exit. This function will not
 	/// return if no blocks are ever created, thus you should restrict the maximum amount of time of
 	/// the test execution.

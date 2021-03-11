@@ -30,11 +30,15 @@ parking_lot = "0.10.2"
 derive_more = "0.99.2"
 
 [dev-dependencies]
+tokio = { version = "0.2.21", features = ["macros"] }
+
 # Cumulus deps
 cumulus-test-service = { path = "../../test/service" }
+cumulus-primitives-core = { path = "../../primitives/core" }
 
 # Polkadot deps
 polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # substrate deps
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -42,3 +46,6 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }

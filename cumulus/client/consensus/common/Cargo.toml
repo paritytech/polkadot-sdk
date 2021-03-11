@@ -26,7 +26,7 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "m
 futures = { version = "0.3.8", features = ["compat"] }
 tokio = "0.1.22"
 codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
-tracing = "0.1.22"
+tracing = "0.1.25"
 async-trait = "0.1.42"
 dyn-clone = "1.0.4"
 

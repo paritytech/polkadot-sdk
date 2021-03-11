@@ -473,14 +473,14 @@ where
 /// the previous task running.
 pub struct WaitToAnnounce<Block: BlockT> {
 	spawner: Arc<dyn SpawnNamed + Send + Sync>,
-	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 }
 
 impl<Block: BlockT> WaitToAnnounce<Block> {
 	/// Create the `WaitToAnnounce` object
 	pub fn new(
 		spawner: Arc<dyn SpawnNamed + Send + Sync>,
-		announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	) -> WaitToAnnounce<Block> {
 		WaitToAnnounce {
 			spawner,
@@ -522,7 +522,7 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 async fn wait_to_announce<Block: BlockT>(
 	block_hash: <Block as BlockT>::Hash,
 	pov_hash: PHash,
-	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
 ) {
 	let statement = match signed_stmt_recv.await {
@@ -541,7 +541,7 @@ async fn wait_to_announce<Block: BlockT>(
 	match statement.payload() {
 		Statement::Seconded(c) if &c.descriptor.pov_hash == &pov_hash => {
 			if let Ok(data) = BlockAnnounceData::try_from(statement) {
-				announce_block(block_hash, data.encode());
+				announce_block(block_hash, Some(data.encode()));
 			}
 		}
 		_ => tracing::debug!(

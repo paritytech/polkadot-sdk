@@ -143,7 +143,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	para_id: ParaId,
 	parachain: Arc<P>,
 	relay_chain: R,
-	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> ClientResult<()>
 where
 	Block: BlockT,
@@ -175,7 +175,7 @@ async fn follow_new_best<P, R, Block, B>(
 	para_id: ParaId,
 	parachain: Arc<P>,
 	relay_chain: R,
-	announce_block: Arc<dyn Fn(Block::Hash, Vec<u8>) + Send + Sync>,
+	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> ClientResult<()>
 where
 	Block: BlockT,
@@ -203,7 +203,6 @@ where
 					Some(h) => handle_new_best_parachain_head(
 						h,
 						&*parachain,
-						&*announce_block,
 						&mut unset_best_header,
 					),
 					None => {
@@ -241,12 +240,19 @@ fn handle_new_block_imported<Block, P>(
 	notification: BlockImportNotification<Block>,
 	unset_best_header_opt: &mut Option<Block::Header>,
 	parachain: &P,
-	announce_block: &dyn Fn(Block::Hash, Vec<u8>),
+	announce_block: &dyn Fn(Block::Hash, Option<Vec<u8>>),
 ) where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
 	for<'a> &'a P: BlockImport<Block>,
 {
+	// HACK
+	//
+	// Remove after https://github.com/paritytech/substrate/pull/8052 or similar is merged
+	if notification.origin != BlockOrigin::Own {
+		announce_block(notification.hash, None);
+	}
+
 	let unset_best_header = match (notification.is_new_best, &unset_best_header_opt) {
 		// If this is the new best block or we don't have any unset block, we can end it here.
 		(true, _) | (_, None) => return,
@@ -274,12 +280,12 @@ fn handle_new_block_imported<Block, P>(
 				.take()
 				.expect("We checked above that the value is set; qed");
 
-			import_block_as_new_best(unset_hash, unset_best_header, parachain, announce_block);
+			import_block_as_new_best(unset_hash, unset_best_header, parachain);
 		}
 		state => tracing::debug!(
 			target: "cumulus-consensus",
-			unset_best_header = ?unset_best_header,
-			imported_header = ?notification.header,
+			?unset_best_header,
+			?notification.header,
 			?state,
 			"Unexpected state for unset best header.",
 		),
@@ -290,7 +296,6 @@ fn handle_new_block_imported<Block, P>(
 fn handle_new_best_parachain_head<Block, P>(
 	head: Vec<u8>,
 	parachain: &P,
-	announce_block: &dyn Fn(Block::Hash, Vec<u8>),
 	unset_best_header: &mut Option<Block::Header>,
 ) where
 	Block: BlockT,
@@ -323,7 +328,7 @@ fn handle_new_best_parachain_head<Block, P>(
 			Ok(BlockStatus::InChainWithState) => {
 				unset_best_header.take();
 
-				import_block_as_new_best(hash, parachain_head, parachain, announce_block);
+				import_block_as_new_best(hash, parachain_head, parachain);
 			}
 			Ok(BlockStatus::InChainPruned) => {
 				tracing::error!(
@@ -358,7 +363,6 @@ fn import_block_as_new_best<Block, P>(
 	hash: Block::Hash,
 	header: Block::Header,
 	parachain: &P,
-	announce_block: &dyn Fn(Block::Hash, Vec<u8>),
 ) where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
@@ -376,8 +380,6 @@ fn import_block_as_new_best<Block, P>(
 			error = ?err,
 			"Failed to set new best block.",
 		);
-	} else {
-		(*announce_block)(hash, Vec::new());
 	}
 }
 
