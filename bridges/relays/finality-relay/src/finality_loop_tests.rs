@@ -19,8 +19,8 @@
 #![cfg(test)]
 
 use crate::finality_loop::{
-	prune_recent_finality_proofs, prune_unjustified_headers, run, FinalityProofs, FinalitySyncParams, SourceClient,
-	TargetClient, UnjustifiedHeaders,
+	prune_recent_finality_proofs, read_finality_proofs_from_stream, run, select_better_recent_finality_proof,
+	FinalityProofs, FinalitySyncParams, SourceClient, TargetClient,
 };
 use crate::{FinalityProof, FinalitySyncPipeline, SourceHeader};
 
@@ -71,10 +71,10 @@ impl SourceHeader<TestNumber> for TestSourceHeader {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct TestFinalityProof(Option<TestNumber>);
+struct TestFinalityProof(TestNumber);
 
 impl FinalityProof<TestNumber> for TestFinalityProof {
-	fn target_header_number(&self) -> Option<TestNumber> {
+	fn target_header_number(&self) -> TestNumber {
 		self.0
 	}
 }
@@ -176,14 +176,14 @@ fn run_sync_loop(state_function: impl Fn(&mut ClientsData) -> bool + Send + Sync
 		source_best_block_number: 10,
 		source_headers: vec![
 			(6, (TestSourceHeader(false, 6), None)),
-			(7, (TestSourceHeader(false, 7), Some(TestFinalityProof(Some(7))))),
-			(8, (TestSourceHeader(true, 8), Some(TestFinalityProof(Some(8))))),
-			(9, (TestSourceHeader(false, 9), Some(TestFinalityProof(Some(9))))),
+			(7, (TestSourceHeader(false, 7), Some(TestFinalityProof(7)))),
+			(8, (TestSourceHeader(true, 8), Some(TestFinalityProof(8)))),
+			(9, (TestSourceHeader(false, 9), Some(TestFinalityProof(9)))),
 			(10, (TestSourceHeader(false, 10), None)),
 		]
 		.into_iter()
 		.collect(),
-		source_proofs: vec![TestFinalityProof(Some(12)), TestFinalityProof(Some(14))],
+		source_proofs: vec![TestFinalityProof(12), TestFinalityProof(14)],
 
 		target_best_block_number: 5,
 		target_headers: vec![],
@@ -222,22 +222,22 @@ fn finality_sync_loop_works() {
 		// header#9 has persistent finality proof, but it isn't mandatory => it is submitted, because
 		//   there are no more persistent finality proofs
 		//
-		// once this ^^^ is done, we generate more blocks && read proof for blocks 12, 14 and 16 from the stream
-		// but we only submit proof for 16
-		//
-		// proof for block 15 is ignored - we haven't managed to decode it
+		// once this ^^^ is done, we generate more blocks && read proof for blocks 12 and 14 from the stream
 		if data.target_best_block_number == 9 {
-			data.source_best_block_number = 17;
+			data.source_best_block_number = 14;
 			data.source_headers.insert(11, (TestSourceHeader(false, 11), None));
 			data.source_headers
-				.insert(12, (TestSourceHeader(false, 12), Some(TestFinalityProof(Some(12)))));
+				.insert(12, (TestSourceHeader(false, 12), Some(TestFinalityProof(12))));
 			data.source_headers.insert(13, (TestSourceHeader(false, 13), None));
 			data.source_headers
-				.insert(14, (TestSourceHeader(false, 14), Some(TestFinalityProof(Some(14)))));
+				.insert(14, (TestSourceHeader(false, 14), Some(TestFinalityProof(14))));
+		}
+		// once this ^^^ is done, we generate more blocks && read persistent proof for block 16
+		if data.target_best_block_number == 14 {
+			data.source_best_block_number = 17;
+			data.source_headers.insert(15, (TestSourceHeader(false, 15), None));
 			data.source_headers
-				.insert(15, (TestSourceHeader(false, 15), Some(TestFinalityProof(None))));
-			data.source_headers
-				.insert(16, (TestSourceHeader(false, 16), Some(TestFinalityProof(Some(16)))));
+				.insert(16, (TestSourceHeader(false, 16), Some(TestFinalityProof(16))));
 			data.source_headers.insert(17, (TestSourceHeader(false, 17), None));
 		}
 
@@ -247,67 +247,132 @@ fn finality_sync_loop_works() {
 	assert_eq!(
 		client_data.target_headers,
 		vec![
-			(TestSourceHeader(true, 8), TestFinalityProof(Some(8))),
-			(TestSourceHeader(false, 9), TestFinalityProof(Some(9))),
-			(TestSourceHeader(false, 16), TestFinalityProof(Some(16))),
+			// before adding 11..14: finality proof for mandatory header#8
+			(TestSourceHeader(true, 8), TestFinalityProof(8)),
+			// before adding 11..14: persistent finality proof for non-mandatory header#9
+			(TestSourceHeader(false, 9), TestFinalityProof(9)),
+			// after adding 11..14: ephemeral finality proof for non-mandatory header#14
+			(TestSourceHeader(false, 14), TestFinalityProof(14)),
+			// after adding 15..17: persistent finality proof for non-mandatory header#16
+			(TestSourceHeader(false, 16), TestFinalityProof(16)),
 		],
 	);
 }
 
 #[test]
-fn prune_unjustified_headers_works() {
-	let original_unjustified_headers: UnjustifiedHeaders<TestFinalitySyncPipeline> = vec![
+fn select_better_recent_finality_proof_works() {
+	// if there are no unjustified headers, nothing is changed
+	assert_eq!(
+		select_better_recent_finality_proof::<TestFinalitySyncPipeline>(
+			&[(5, TestFinalityProof(5))],
+			&mut vec![],
+			Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+		),
+		Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+	);
+
+	// if there are no recent finality proofs, nothing is changed
+	assert_eq!(
+		select_better_recent_finality_proof::<TestFinalitySyncPipeline>(
+			&[],
+			&mut vec![TestSourceHeader(false, 5)],
+			Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+		),
+		Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+	);
+
+	// if there's no intersection between recent finality proofs and unjustified headers, nothing is changed
+	let mut unjustified_headers = vec![TestSourceHeader(false, 9), TestSourceHeader(false, 10)];
+	assert_eq!(
+		select_better_recent_finality_proof::<TestFinalitySyncPipeline>(
+			&[(1, TestFinalityProof(1)), (4, TestFinalityProof(4))],
+			&mut unjustified_headers,
+			Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+		),
+		Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+	);
+
+	// if there's intersection between recent finality proofs and unjustified headers, but there are no
+	// proofs in this intersection, nothing is changed
+	let mut unjustified_headers = vec![
+		TestSourceHeader(false, 8),
+		TestSourceHeader(false, 9),
 		TestSourceHeader(false, 10),
-		TestSourceHeader(false, 13),
-		TestSourceHeader(false, 15),
-		TestSourceHeader(false, 17),
-		TestSourceHeader(false, 19),
-	]
-	.into_iter()
-	.collect();
-
-	// when header is in the collection
-	let mut unjustified_headers = original_unjustified_headers.clone();
+	];
 	assert_eq!(
-		prune_unjustified_headers::<TestFinalitySyncPipeline>(10, &mut unjustified_headers),
-		Some(TestSourceHeader(false, 10)),
+		select_better_recent_finality_proof::<TestFinalitySyncPipeline>(
+			&[(7, TestFinalityProof(7)), (11, TestFinalityProof(11))],
+			&mut unjustified_headers,
+			Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+		),
+		Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
 	);
-	assert_eq!(&original_unjustified_headers[1..], unjustified_headers,);
-
-	// when the header doesn't exist in the collection
-	let mut unjustified_headers = original_unjustified_headers.clone();
 	assert_eq!(
-		prune_unjustified_headers::<TestFinalitySyncPipeline>(11, &mut unjustified_headers),
-		None,
-	);
-	assert_eq!(&original_unjustified_headers[1..], unjustified_headers,);
-
-	// when last entry is pruned
-	let mut unjustified_headers = original_unjustified_headers.clone();
-	assert_eq!(
-		prune_unjustified_headers::<TestFinalitySyncPipeline>(19, &mut unjustified_headers),
-		Some(TestSourceHeader(false, 19)),
+		unjustified_headers,
+		vec![
+			TestSourceHeader(false, 8),
+			TestSourceHeader(false, 9),
+			TestSourceHeader(false, 10)
+		]
 	);
 
-	assert_eq!(&original_unjustified_headers[5..], unjustified_headers,);
-
-	// when we try and prune past last entry
-	let mut unjustified_headers = original_unjustified_headers.clone();
+	// if there's intersection between recent finality proofs and unjustified headers and there's
+	// a proof in this intersection:
+	// - this better (last from intersection) proof is selected;
+	// - 'obsolete' unjustified headers are pruned.
+	let mut unjustified_headers = vec![
+		TestSourceHeader(false, 8),
+		TestSourceHeader(false, 9),
+		TestSourceHeader(false, 10),
+	];
 	assert_eq!(
-		prune_unjustified_headers::<TestFinalitySyncPipeline>(20, &mut unjustified_headers),
-		None,
+		select_better_recent_finality_proof::<TestFinalitySyncPipeline>(
+			&[(7, TestFinalityProof(7)), (9, TestFinalityProof(9))],
+			&mut unjustified_headers,
+			Some((TestSourceHeader(false, 2), TestFinalityProof(2))),
+		),
+		Some((TestSourceHeader(false, 9), TestFinalityProof(9))),
 	);
-	assert_eq!(&original_unjustified_headers[5..], unjustified_headers,);
+}
+
+#[test]
+fn read_finality_proofs_from_stream_works() {
+	// when stream is currently empty, nothing is changed
+	let mut recent_finality_proofs = vec![(1, TestFinalityProof(1))];
+	let mut stream = futures::stream::pending().into();
+	read_finality_proofs_from_stream::<TestFinalitySyncPipeline, _>(&mut stream, &mut recent_finality_proofs);
+	assert_eq!(recent_finality_proofs, vec![(1, TestFinalityProof(1))]);
+	assert_eq!(stream.needs_restart, false);
+
+	// when stream has entry with target, it is added to the recent proofs container
+	let mut stream = futures::stream::iter(vec![TestFinalityProof(4)])
+		.chain(futures::stream::pending())
+		.into();
+	read_finality_proofs_from_stream::<TestFinalitySyncPipeline, _>(&mut stream, &mut recent_finality_proofs);
+	assert_eq!(
+		recent_finality_proofs,
+		vec![(1, TestFinalityProof(1)), (4, TestFinalityProof(4))]
+	);
+	assert_eq!(stream.needs_restart, false);
+
+	// when stream has ended, we'll need to restart it
+	let mut stream = futures::stream::empty().into();
+	read_finality_proofs_from_stream::<TestFinalitySyncPipeline, _>(&mut stream, &mut recent_finality_proofs);
+	assert_eq!(
+		recent_finality_proofs,
+		vec![(1, TestFinalityProof(1)), (4, TestFinalityProof(4))]
+	);
+	assert_eq!(stream.needs_restart, true);
 }
 
 #[test]
 fn prune_recent_finality_proofs_works() {
 	let original_recent_finality_proofs: FinalityProofs<TestFinalitySyncPipeline> = vec![
-		(10, TestFinalityProof(Some(10))),
-		(13, TestFinalityProof(Some(13))),
-		(15, TestFinalityProof(Some(15))),
-		(17, TestFinalityProof(Some(17))),
-		(19, TestFinalityProof(Some(19))),
+		(10, TestFinalityProof(10)),
+		(13, TestFinalityProof(13)),
+		(15, TestFinalityProof(15)),
+		(17, TestFinalityProof(17)),
+		(19, TestFinalityProof(19)),
 	]
 	.into_iter()
 	.collect();

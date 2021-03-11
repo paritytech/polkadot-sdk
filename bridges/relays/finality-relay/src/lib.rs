@@ -53,8 +53,6 @@ pub trait SourceHeader<Number>: Clone + Debug + PartialEq + Send + Sync {
 
 /// Abstract finality proof that is justifying block finality.
 pub trait FinalityProof<Number>: Clone + Send + Sync + Debug {
-	/// Return header id that this proof is generated for.
-	///
-	/// None is returned if proof is invalid from relayer PoV.
-	fn target_header_number(&self) -> Option<Number>;
+	/// Return number of header that this proof is generated for.
+	fn target_header_number(&self) -> Number;
 }
