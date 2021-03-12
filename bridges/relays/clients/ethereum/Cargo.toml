@@ -6,14 +6,14 @@ edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-bp-eth-poa = { path = "../../primitives/ethereum-poa" }
+bp-eth-poa = { path = "../../../primitives/ethereum-poa" }
 codec = { package = "parity-scale-codec", version = "2.0.0" }
-headers-relay = { path = "../headers-relay" }
+headers-relay = { path = "../../generic/headers" }
 hex-literal = "0.3"
 jsonrpsee-proc-macros = "0.2.0-alpha"
 jsonrpsee-types = "0.2.0-alpha"
 jsonrpsee-ws-client = "0.2.0-alpha"
 libsecp256k1 = { version = "0.3.4", default-features = false, features = ["hmac"] }
 log = "0.4.11"
-relay-utils = { path = "../utils" }
+relay-utils = { path = "../../generic/utils" }
 web3 = { version = "0.15", git = "https://github.com/tomusdrw/rust-web3", branch ="td-ethabi", default-features = false }
