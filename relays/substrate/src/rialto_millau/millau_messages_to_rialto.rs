@@ -16,10 +16,10 @@
 
 //! Millau-to-Rialto messages sync entrypoint.
 
+use super::{MillauClient, RialtoClient};
 use crate::messages_lane::{select_delivery_transaction_limits, SubstrateMessageLane, SubstrateMessageLaneToSubstrate};
 use crate::messages_source::SubstrateMessagesSource;
 use crate::messages_target::SubstrateMessagesTarget;
-use crate::{MillauClient, RialtoClient};
 
 use async_trait::async_trait;
 use bp_message_lane::{LaneId, MessageNonce};
