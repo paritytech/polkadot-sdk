@@ -16,10 +16,8 @@
 
 //! Rialto-to-Millau headers sync entrypoint.
 
-use crate::{
-	finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate},
-	MillauClient, RialtoClient,
-};
+use super::{MillauClient, RialtoClient};
+use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
 use async_trait::async_trait;
 use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
