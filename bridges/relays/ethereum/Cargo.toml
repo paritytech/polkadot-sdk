@@ -29,13 +29,13 @@ time = "0.2"
 
 bp-currency-exchange = { path = "../../primitives/currency-exchange" }
 bp-eth-poa = { path = "../../primitives/ethereum-poa" }
-exchange-relay = { path = "../exchange-relay" }
-headers-relay = { path = "../headers-relay" }
-messages-relay = { path = "../messages-relay" }
-relay-ethereum-client = { path = "../ethereum-client" }
-relay-rialto-client = { path = "../rialto-client" }
-relay-substrate-client = { path = "../substrate-client" }
-relay-utils = { path = "../utils" }
+exchange-relay = { path = "../generic/exchange" }
+headers-relay = { path = "../generic/headers" }
+messages-relay = { path = "../generic/messages" }
+relay-ethereum-client = { path = "../clients/ethereum" }
+relay-rialto-client = { path = "../clients/rialto" }
+relay-substrate-client = { path = "../clients/substrate" }
+relay-utils = { path = "../generic/utils" }
 rialto-runtime = { path = "../../bin/rialto/runtime" }
 
 # Substrate Dependencies
