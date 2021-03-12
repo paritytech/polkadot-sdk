@@ -46,7 +46,7 @@ pub enum Subcommand {
 	ImportBlocks(sc_cli::ImportBlocksCmd),
 
 	/// Remove the whole chain.
-	PurgeChain(cumulus_cli::PurgeChainCmd),
+	PurgeChain(cumulus_client_cli::PurgeChainCmd),
 
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),

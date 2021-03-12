@@ -56,7 +56,7 @@ sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "maste
 jsonrpc-core = "15.1.0"
 
 # Cumulus dependencies
-cumulus-cli = { path = "../cli" }
+cumulus-client-cli = { path = "../client/cli" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
 cumulus-client-collator = { path = "../client/collator" }
 cumulus-client-service = { path = "../client/service" }
