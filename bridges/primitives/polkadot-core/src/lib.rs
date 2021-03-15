@@ -18,17 +18,110 @@
 
 use bp_message_lane::MessageNonce;
 use bp_runtime::Chain;
-use frame_support::RuntimeDebug;
+use frame_support::{
+	parameter_types,
+	weights::{
+		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_PER_SECOND},
+		DispatchClass, Weight,
+	},
+	RuntimeDebug,
+};
+use frame_system::limits;
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature, OpaqueExtrinsic as UncheckedExtrinsic,
+	MultiSignature, OpaqueExtrinsic as UncheckedExtrinsic, Perbill,
 };
 
 // Re-export's to avoid extra substrate dependencies in chain-specific crates.
 pub use frame_support::Parameter;
 pub use sp_runtime::traits::Convert;
+
+/// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
+/// Polkadot-like chain. This mostly depends on number of entries in the storage trie.
+/// Some reserve is reserved to account future chain growth.
+///
+/// To compute this value, we've synced Kusama chain blocks [0; 6545733] to see if there were
+/// any significant changes of the storage proof size (NO):
+///
+/// - at block 3072 the storage proof size overhead was 579 bytes;
+/// - at block 2479616 it was 578 bytes;
+/// - at block 4118528 it was 711 bytes;
+/// - at block 6540800 it was 779 bytes.
+///
+/// The number of storage entries at the block 6546170 was 351207 and number of trie nodes in
+/// the storage proof was 5 (log(16, 351207) ~ 4.6).
+///
+/// So the assumption is that the storage proof size overhead won't be larger than 1024 in the
+/// nearest future. If it'll ever break this barrier, then we'll need to update this constant
+/// at next runtime upgrade.
+pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
+
+/// Maximal size (in bytes) of encoded (using `Encode::encode()`) account id.
+///
+/// All polkadot-like chains are using same crypto.
+pub const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 32;
+
+/// All Polkadot-like chains allow normal extrinsics to fill block up to 75%.
+///
+/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+
+/// All Polkadot-like chains allow 2 seconds of compute with a 6 second average block time.
+///
+/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
+
+/// All Polkadot-like chains assume that an on-initialize consumes 1% of the weight on average,
+/// hence a single extrinsic will not be allowed to consume more than `AvailableBlockRatio - 1%`.
+///
+/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
+pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
+
+parameter_types! {
+	/// All Polkadot-like chains have maximal block size set to 5MB.
+	///
+	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
+	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
+		5 * 1024 * 1024,
+		NORMAL_DISPATCH_RATIO,
+	);
+	/// All Polkadot-like chains have the same block weights.
+	///
+	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
+	pub BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
+		.base_block(BlockExecutionWeight::get())
+		.for_class(DispatchClass::all(), |weights| {
+			weights.base_extrinsic = ExtrinsicBaseWeight::get();
+		})
+		.for_class(DispatchClass::Normal, |weights| {
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		.for_class(DispatchClass::Operational, |weights| {
+			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			// Operational transactions have an extra reserved space, so that they
+			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			weights.reserved = Some(
+				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT,
+			);
+		})
+		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+		.build_or_panic();
+}
+
+/// Get the maximum weight (compute time) that a Normal extrinsic on the Polkadot-like chain can use.
+pub fn max_extrinsic_weight() -> Weight {
+	BlockWeights::get()
+		.get(DispatchClass::Normal)
+		.max_extrinsic
+		.unwrap_or(Weight::MAX)
+}
+
+/// Get the maximum length in bytes that a Normal extrinsic on the Polkadot-like chain requires.
+pub fn max_extrinsic_size() -> u32 {
+	*BlockLength::get().max.get(DispatchClass::Normal)
+}
 
 // TODO [#78] may need to be updated after https://github.com/paritytech/parity-bridges-common/issues/78
 /// Maximal number of messages in single delivery transaction.
@@ -92,5 +185,22 @@ pub struct AccountIdConverter;
 impl Convert<sp_core::H256, AccountId> for AccountIdConverter {
 	fn convert(hash: sp_core::H256) -> AccountId {
 		hash.to_fixed_bytes().into()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_runtime::codec::Encode;
+
+	#[test]
+	fn maximal_encoded_account_id_size_is_correct() {
+		let actual_size = AccountId::default().encode().len();
+		assert!(
+			actual_size <= MAXIMAL_ENCODED_ACCOUNT_ID_SIZE as usize,
+			"Actual size of encoded account id for Polkadot-like chains ({}) is larger than expected {}",
+			actual_size,
+			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
+		);
 	}
 }
