@@ -953,7 +953,7 @@ impl_runtime_apis! {
 						Default::default(),
 					);
 
-					prepare_message_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, _, _, _>(
+					prepare_message_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, (), _, _, _>(
 						params,
 						make_millau_message_key,
 						make_millau_outbound_lane_data_key,
@@ -986,7 +986,7 @@ impl_runtime_apis! {
 					};
 					use sp_runtime::traits::Header;
 
-					prepare_message_delivery_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, _, _>(
+					prepare_message_delivery_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, (), _, _>(
 						params,
 						|lane_id| pallet_message_lane::storage_keys::inbound_lane_data_key::<
 							Runtime,
