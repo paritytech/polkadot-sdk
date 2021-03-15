@@ -62,7 +62,7 @@ pub fn ed25519_sign(target_call: &impl Encode, source_account_id: &impl Encode) 
 }
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
-pub fn prepare_message_proof<B, H, R, MM, ML, MH>(
+pub fn prepare_message_proof<B, H, R, FI, MM, ML, MH>(
 	params: MessageProofParams,
 	make_bridged_message_storage_key: MM,
 	make_bridged_outbound_lane_data_key: ML,
@@ -73,7 +73,8 @@ pub fn prepare_message_proof<B, H, R, MM, ML, MH>(
 where
 	B: MessageBridge,
 	H: Hasher,
-	R: pallet_finality_verifier::Config,
+	R: pallet_finality_verifier::Config<FI>,
+	FI: 'static,
 	<R::BridgedChain as bp_runtime::Chain>::Hash: Into<HashOf<BridgedChain<B>>>,
 	MM: Fn(MessageKey) -> Vec<u8>,
 	ML: Fn(LaneId) -> Vec<u8>,
@@ -129,7 +130,7 @@ where
 	// prepare Bridged chain header and insert it into the Substrate pallet
 	let bridged_header = make_bridged_header(root);
 	let bridged_header_hash = bridged_header.hash();
-	pallet_finality_verifier::initialize_for_benchmarks::<R>(bridged_header);
+	pallet_finality_verifier::initialize_for_benchmarks::<R, FI>(bridged_header);
 
 	(
 		FromBridgedChainMessagesProof {
@@ -146,7 +147,7 @@ where
 }
 
 /// Prepare proof of messages delivery for the `receive_messages_delivery_proof` call.
-pub fn prepare_message_delivery_proof<B, H, R, ML, MH>(
+pub fn prepare_message_delivery_proof<B, H, R, FI, ML, MH>(
 	params: MessageDeliveryProofParams<AccountIdOf<ThisChain<B>>>,
 	make_bridged_inbound_lane_data_key: ML,
 	make_bridged_header: MH,
@@ -154,7 +155,8 @@ pub fn prepare_message_delivery_proof<B, H, R, ML, MH>(
 where
 	B: MessageBridge,
 	H: Hasher,
-	R: pallet_finality_verifier::Config,
+	R: pallet_finality_verifier::Config<FI>,
+	FI: 'static,
 	<R::BridgedChain as bp_runtime::Chain>::Hash: Into<HashOf<BridgedChain<B>>>,
 	ML: Fn(LaneId) -> Vec<u8>,
 	MH: Fn(H::Out) -> <R::BridgedChain as bp_runtime::Chain>::Header,
@@ -181,7 +183,7 @@ where
 	// prepare Bridged chain header and insert it into the Substrate pallet
 	let bridged_header = make_bridged_header(root);
 	let bridged_header_hash = bridged_header.hash();
-	pallet_finality_verifier::initialize_for_benchmarks::<R>(bridged_header);
+	pallet_finality_verifier::initialize_for_benchmarks::<R, FI>(bridged_header);
 
 	FromBridgedChainMessagesDeliveryProof {
 		bridged_header_hash: bridged_header_hash.into(),
