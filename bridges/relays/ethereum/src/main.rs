@@ -50,6 +50,10 @@ fn main() {
 
 	let yaml = clap::load_yaml!("cli.yml");
 	let matches = clap::App::from_yaml(yaml).get_matches();
+	async_std::task::block_on(run_command(&matches));
+}
+
+async fn run_command(matches: &clap::ArgMatches<'_>) {
 	match matches.subcommand() {
 		("eth-to-sub", Some(eth_to_sub_matches)) => {
 			log::info!(target: "bridge", "Starting ETH ➡ SUB relay.");
@@ -60,6 +64,7 @@ fn main() {
 					return;
 				}
 			})
+			.await
 			.is_err()
 			{
 				log::error!(target: "bridge", "Unable to get Substrate genesis block for Ethereum sync.");
@@ -74,6 +79,7 @@ fn main() {
 					return;
 				}
 			})
+			.await
 			.is_err()
 			{
 				log::error!(target: "bridge", "Unable to get Substrate genesis block for Substrate sync.");
@@ -87,7 +93,8 @@ fn main() {
 					log::error!(target: "bridge", "Error during contract deployment: {}", err);
 					return;
 				}
-			});
+			})
+			.await;
 		}
 		("eth-submit-exchange-tx", Some(eth_exchange_submit_matches)) => {
 			log::info!(target: "bridge", "Submitting ETH ➡ SUB exchange transaction.");
@@ -97,7 +104,8 @@ fn main() {
 					log::error!(target: "bridge", "Error submitting Eethereum exchange transaction: {}", err);
 					return;
 				}
-			});
+			})
+			.await;
 		}
 		("eth-exchange-sub", Some(eth_exchange_matches)) => {
 			log::info!(target: "bridge", "Starting ETH ➡ SUB exchange transactions relay.");
@@ -107,7 +115,8 @@ fn main() {
 					log::error!(target: "bridge", "Error relaying Ethereum transactions proofs: {}", err);
 					return;
 				}
-			});
+			})
+			.await;
 		}
 		("", _) => {
 			log::error!(target: "bridge", "No subcommand specified");
@@ -396,18 +405,5 @@ fn parse_hex_argument(matches: &clap::ArgMatches, arg: &str) -> Result<Option<Ve
 			hex::decode(value).map_err(|e| format!("Failed to parse {}: {}", arg, e))?,
 		)),
 		None => Ok(None),
-	}
-}
-
-#[cfg(test)]
-mod tests {
-
-	// Details: https://github.com/paritytech/parity-bridges-common/issues/118
-	#[test]
-	fn async_std_sleep_works() {
-		let mut local_pool = futures::executor::LocalPool::new();
-		local_pool.run_until(async move {
-			async_std::task::sleep(std::time::Duration::from_secs(1)).await;
-		});
 	}
 }
