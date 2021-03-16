@@ -16,11 +16,6 @@
 
 //! Ethereum node RPC interface.
 
-// The compiler doesn't think we're using the
-// code from rpc_api!
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 use crate::types::{
 	Address, Bytes, CallRequest, Header, HeaderWithTransactions, Receipt, SyncState, Transaction, TransactionHash,
 	H256, U256, U64,
