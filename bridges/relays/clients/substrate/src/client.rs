@@ -102,7 +102,7 @@ impl<C: Chain> Client<C> {
 			params.port,
 		);
 		let mut config = RpcConfig::with_url(&uri);
-		config.max_subscription_capacity = MAX_SUBSCRIPTION_CAPACITY;
+		config.max_notifs_per_subscription = MAX_SUBSCRIPTION_CAPACITY;
 		let client = RpcClient::new(config).await?;
 		Ok(client)
 	}
