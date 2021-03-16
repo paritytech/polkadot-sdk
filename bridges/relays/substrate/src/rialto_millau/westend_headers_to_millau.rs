@@ -14,37 +14,37 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Rialto-to-Millau headers sync entrypoint.
+//! Westend-to-Millau headers sync entrypoint.
 
-use super::{MillauClient, RialtoClient};
+use super::{MillauClient, WestendClient};
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
 use async_trait::async_trait;
 use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
-use relay_rialto_client::{Rialto, SyncHeader as RialtoSyncHeader};
 use relay_substrate_client::{finality_source::Justification, Error as SubstrateError, TransactionSignScheme};
+use relay_westend_client::{SyncHeader as WestendSyncHeader, Westend};
 use sp_core::Pair;
 
-/// Rialto-to-Millau finality sync pipeline.
-pub(crate) type RialtoFinalityToMillau = SubstrateFinalityToSubstrate<Rialto, Millau, MillauSigningParams>;
+/// Westend-to-Millau finality sync pipeline.
+pub(crate) type WestendFinalityToMillau = SubstrateFinalityToSubstrate<Westend, Millau, MillauSigningParams>;
 
 #[async_trait]
-impl SubstrateFinalitySyncPipeline for RialtoFinalityToMillau {
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
+impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
 
 	type SignedTransaction = <Millau as TransactionSignScheme>::SignedTransaction;
 
 	async fn make_submit_finality_proof_transaction(
 		&self,
-		header: RialtoSyncHeader,
-		proof: Justification<bp_rialto::BlockNumber>,
+		header: WestendSyncHeader,
+		proof: Justification<bp_westend::BlockNumber>,
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
 
-		let call = millau_runtime::FinalityBridgeRialtoCall::<
+		let call = millau_runtime::FinalityBridgeWestendCall::<
 			millau_runtime::Runtime,
-			millau_runtime::RialtoFinalityVerifierInstance,
+			millau_runtime::WestendFinalityVerifierInstance,
 		>::submit_finality_proof(header.into_inner(), proof.into_inner())
 		.into();
 
@@ -55,16 +55,16 @@ impl SubstrateFinalitySyncPipeline for RialtoFinalityToMillau {
 	}
 }
 
-/// Run Rialto-to-Millau finality sync.
+/// Run Westend-to-Millau finality sync.
 pub async fn run(
-	rialto_client: RialtoClient,
+	westend_client: WestendClient,
 	millau_client: MillauClient,
 	millau_sign: MillauSigningParams,
 	metrics_params: Option<relay_utils::metrics::MetricsParams>,
 ) {
 	crate::finality_pipeline::run(
-		RialtoFinalityToMillau::new(millau_client.clone(), millau_sign),
-		rialto_client,
+		WestendFinalityToMillau::new(millau_client.clone(), millau_sign),
+		westend_client,
 		millau_client,
 		metrics_params,
 	)
