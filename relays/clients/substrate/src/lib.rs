@@ -44,6 +44,8 @@ pub struct ConnectionParams {
 	pub host: String,
 	/// Websocket server TCP port.
 	pub port: u16,
+	/// Use secure websocket connection.
+	pub secure: bool,
 }
 
 impl Default for ConnectionParams {
@@ -51,6 +53,7 @@ impl Default for ConnectionParams {
 		ConnectionParams {
 			host: "localhost".into(),
 			port: 9944,
+			secure: false,
 		}
 	}
 }

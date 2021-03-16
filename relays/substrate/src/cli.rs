@@ -396,6 +396,9 @@ macro_rules! declare_chain_options {
 				#[doc = "Connect to " $chain " node websocket server at given port."]
 				#[structopt(long)]
 				pub [<$chain_prefix _port>]: u16,
+				#[doc = "Use secure websocket connection."]
+				#[structopt(long)]
+				pub [<$chain_prefix _secure>]: bool,
 			}
 
 			#[doc = $chain " signing params."]
@@ -407,20 +410,6 @@ macro_rules! declare_chain_options {
 				#[doc = "The password for the SURI of secret key to use when transactions are submitted to the " $chain " node."]
 				#[structopt(long)]
 				pub [<$chain_prefix _signer_password>]: Option<String>,
-			}
-
-			#[doc = $chain " headers bridge initialization params."]
-			#[derive(StructOpt)]
-			pub struct [<$chain BridgeInitializationParams>] {
-				#[doc = "Hex-encoded " $chain " header to initialize bridge with. If not specified, genesis header is used."]
-				#[structopt(long)]
-				pub [<$chain_prefix _initial_header>]: Option<sp_core::Bytes>,
-				#[doc = "Hex-encoded " $chain " GRANDPA authorities set to initialize bridge with. If not specified, set from genesis block is used."]
-				#[structopt(long)]
-				pub [<$chain_prefix _initial_authorities>]: Option<sp_core::Bytes>,
-				#[doc = "Id of the " $chain " GRANDPA authorities set to initialize bridge with. If not specified, zero is used."]
-				#[structopt(long)]
-				pub [<$chain_prefix _initial_authorities_set_id>]: Option<sp_finality_grandpa::SetId>,
 			}
 		}
 	};

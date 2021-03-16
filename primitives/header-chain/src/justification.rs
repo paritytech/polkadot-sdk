@@ -57,7 +57,7 @@ pub fn decode_justification_target<Header: HeaderT>(
 pub fn verify_justification<Header: HeaderT>(
 	finalized_target: (Header::Hash, Header::Number),
 	authorities_set_id: SetId,
-	authorities_set: VoterSet<AuthorityId>,
+	authorities_set: &VoterSet<AuthorityId>,
 	raw_justification: &[u8],
 ) -> Result<(), Error>
 where
@@ -76,7 +76,7 @@ where
 	// signatures are valid. We'll check the validity of the signatures later since they're more
 	// resource intensive to verify.
 	let ancestry_chain = AncestryChain::new(&justification.votes_ancestries);
-	match finality_grandpa::validate_commit(&justification.commit, &authorities_set, &ancestry_chain) {
+	match finality_grandpa::validate_commit(&justification.commit, authorities_set, &ancestry_chain) {
 		Ok(ref result) if result.ghost().is_some() => {}
 		_ => return Err(Error::InvalidJustificationCommit),
 	}
