@@ -163,7 +163,7 @@ impl TargetClient<SubstrateHeadersSyncPipeline> for EthereumHeadersTarget {
 }
 
 /// Run Substrate headers synchronization.
-pub fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
+pub async fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 	let SubstrateSyncParams {
 		sub_params,
 		eth_params,
@@ -188,7 +188,8 @@ pub fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 		sync_params,
 		metrics_params,
 		futures::future::pending(),
-	);
+	)
+	.await;
 
 	Ok(())
 }

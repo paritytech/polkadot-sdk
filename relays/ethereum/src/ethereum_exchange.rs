@@ -282,19 +282,39 @@ impl TargetClient<EthereumToSubstrateExchange> for SubstrateTransactionsTarget {
 }
 
 /// Relay exchange transaction proof(s) to Substrate node.
-pub fn run(params: EthereumExchangeParams) {
+pub async fn run(params: EthereumExchangeParams) {
 	match params.mode {
-		ExchangeRelayMode::Single(eth_tx_hash) => run_single_transaction_relay(params, eth_tx_hash),
-		ExchangeRelayMode::Auto(eth_start_with_block_number) => {
-			run_auto_transactions_relay_loop(params, eth_start_with_block_number)
+		ExchangeRelayMode::Single(eth_tx_hash) => {
+			let result = run_single_transaction_relay(params, eth_tx_hash).await;
+			match result {
+				Ok(_) => log::info!(
+					target: "bridge",
+					"Ethereum transaction {} proof has been successfully submitted to Substrate node",
+					eth_tx_hash,
+				),
+				Err(err) => log::error!(
+					target: "bridge",
+					"Error submitting Ethereum transaction {} proof to Substrate node: {}",
+					eth_tx_hash,
+					err,
+				),
+			}
 		}
-	};
+		ExchangeRelayMode::Auto(eth_start_with_block_number) => {
+			let result = run_auto_transactions_relay_loop(params, eth_start_with_block_number).await;
+			if let Err(err) = result {
+				log::error!(
+					target: "bridge",
+					"Error auto-relaying Ethereum transactions proofs to Substrate node: {}",
+					err,
+				);
+			}
+		}
+	}
 }
 
 /// Run single transaction proof relay and stop.
-fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H256) {
-	let mut local_pool = futures::executor::LocalPool::new();
-
+async fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H256) -> Result<(), String> {
 	let EthereumExchangeParams {
 		eth_params,
 		sub_params,
@@ -303,43 +323,25 @@ fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_hash: H25
 		..
 	} = params;
 
-	let result = local_pool.run_until(async move {
-		let eth_client = EthereumClient::new(eth_params).await.map_err(RpcError::Ethereum)?;
-		let sub_client = SubstrateClient::<Rialto>::new(sub_params)
-			.await
-			.map_err(RpcError::Substrate)?;
+	let eth_client = EthereumClient::new(eth_params).await.map_err(RpcError::Ethereum)?;
+	let sub_client = SubstrateClient::<Rialto>::new(sub_params)
+		.await
+		.map_err(RpcError::Substrate)?;
 
-		let source = EthereumTransactionsSource { client: eth_client };
-		let target = SubstrateTransactionsTarget {
-			client: sub_client,
-			sign_params: sub_sign,
-			bridge_instance: instance,
-		};
+	let source = EthereumTransactionsSource { client: eth_client };
+	let target = SubstrateTransactionsTarget {
+		client: sub_client,
+		sign_params: sub_sign,
+		bridge_instance: instance,
+	};
 
-		relay_single_transaction_proof(&source, &target, eth_tx_hash).await
-	});
-
-	match result {
-		Ok(_) => {
-			log::info!(
-				target: "bridge",
-				"Ethereum transaction {} proof has been successfully submitted to Substrate node",
-				eth_tx_hash,
-			);
-		}
-		Err(err) => {
-			log::error!(
-				target: "bridge",
-				"Error submitting Ethereum transaction {} proof to Substrate node: {}",
-				eth_tx_hash,
-				err,
-			);
-		}
-	}
+	relay_single_transaction_proof(&source, &target, eth_tx_hash).await
 }
 
-/// Run auto-relay loop.
-fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_with_block_number: Option<u64>) {
+async fn run_auto_transactions_relay_loop(
+	params: EthereumExchangeParams,
+	eth_start_with_block_number: Option<u64>,
+) -> Result<(), String> {
 	let EthereumExchangeParams {
 		eth_params,
 		sub_params,
@@ -349,46 +351,41 @@ fn run_auto_transactions_relay_loop(params: EthereumExchangeParams, eth_start_wi
 		..
 	} = params;
 
-	let do_run_loop = move || -> Result<(), String> {
-		let eth_client = async_std::task::block_on(EthereumClient::new(eth_params))
-			.map_err(|err| format!("Error starting Ethereum client: {:?}", err))?;
-		let sub_client = async_std::task::block_on(SubstrateClient::<Rialto>::new(sub_params))
-			.map_err(|err| format!("Error starting Substrate client: {:?}", err))?;
+	let eth_client = EthereumClient::new(eth_params)
+		.await
+		.map_err(|err| format!("Error starting Ethereum client: {:?}", err))?;
+	let sub_client = SubstrateClient::<Rialto>::new(sub_params)
+		.await
+		.map_err(|err| format!("Error starting Substrate client: {:?}", err))?;
 
-		let eth_start_with_block_number = match eth_start_with_block_number {
-			Some(eth_start_with_block_number) => eth_start_with_block_number,
-			None => {
-				async_std::task::block_on(sub_client.best_ethereum_finalized_block())
-					.map_err(|err| {
-						format!(
-							"Error retrieving best finalized Ethereum block from Substrate node: {:?}",
-							err
-						)
-					})?
-					.0
-			}
-		};
-
-		run_loop(
-			InMemoryStorage::new(eth_start_with_block_number),
-			EthereumTransactionsSource { client: eth_client },
-			SubstrateTransactionsTarget {
-				client: sub_client,
-				sign_params: sub_sign,
-				bridge_instance: instance,
-			},
-			metrics_params,
-			futures::future::pending(),
-		);
-
-		Ok(())
+	let eth_start_with_block_number = match eth_start_with_block_number {
+		Some(eth_start_with_block_number) => eth_start_with_block_number,
+		None => {
+			sub_client
+				.best_ethereum_finalized_block()
+				.await
+				.map_err(|err| {
+					format!(
+						"Error retrieving best finalized Ethereum block from Substrate node: {:?}",
+						err
+					)
+				})?
+				.0
+		}
 	};
 
-	if let Err(err) = do_run_loop() {
-		log::error!(
-			target: "bridge",
-			"Error auto-relaying Ethereum transactions proofs to Substrate node: {}",
-			err,
-		);
-	}
+	run_loop(
+		InMemoryStorage::new(eth_start_with_block_number),
+		EthereumTransactionsSource { client: eth_client },
+		SubstrateTransactionsTarget {
+			client: sub_client,
+			sign_params: sub_sign,
+			bridge_instance: instance,
+		},
+		metrics_params,
+		futures::future::pending(),
+	)
+	.await;
+
+	Ok(())
 }

@@ -126,5 +126,6 @@ pub async fn run<SourceChain, TargetChain, P>(
 		},
 		metrics_params,
 		futures::future::pending(),
-	);
+	)
+	.await;
 }

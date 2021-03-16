@@ -198,7 +198,8 @@ async fn run_relay_messages(command: cli::RelayMessages) -> Result<(), String> {
 				rialto_sign,
 				lane.into(),
 				prometheus_params.into(),
-			);
+			)
+			.await;
 		}
 		cli::RelayMessages::RialtoToMillau {
 			rialto,
@@ -220,7 +221,8 @@ async fn run_relay_messages(command: cli::RelayMessages) -> Result<(), String> {
 				millau_sign,
 				lane.into(),
 				prometheus_params.into(),
-			);
+			)
+			.await;
 		}
 	}
 	Ok(())

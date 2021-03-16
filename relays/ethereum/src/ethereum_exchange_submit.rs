@@ -42,9 +42,7 @@ pub struct EthereumExchangeSubmitParams {
 }
 
 /// Submit single Ethereum -> Substrate exchange transaction.
-pub fn run(params: EthereumExchangeSubmitParams) {
-	let mut local_pool = futures::executor::LocalPool::new();
-
+pub async fn run(params: EthereumExchangeSubmitParams) {
 	let EthereumExchangeSubmitParams {
 		eth_params,
 		eth_sign,
@@ -53,7 +51,7 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 		sub_recipient,
 	} = params;
 
-	let result: Result<_, String> = local_pool.run_until(async move {
+	let result: Result<_, String> = async move {
 		let eth_client = EthereumClient::new(eth_params)
 			.await
 			.map_err(|err| format!("error connecting to Ethereum node: {:?}", err))?;
@@ -94,7 +92,8 @@ pub fn run(params: EthereumExchangeSubmitParams) {
 			.map_err(|err| format!("error submitting transaction: {:?}", err))?;
 
 		Ok(eth_tx_unsigned)
-	});
+	}
+	.await;
 
 	match result {
 		Ok(eth_tx_unsigned) => {
