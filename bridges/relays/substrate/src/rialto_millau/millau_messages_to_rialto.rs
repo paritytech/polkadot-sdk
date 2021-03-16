@@ -125,7 +125,7 @@ type MillauSourceClient = SubstrateMessagesSource<Millau, MillauMessagesToRialto
 type RialtoTargetClient = SubstrateMessagesTarget<Rialto, MillauMessagesToRialto>;
 
 /// Run Millau-to-Rialto messages sync.
-pub fn run(
+pub async fn run(
 	millau_client: MillauClient,
 	millau_sign: MillauSigningParams,
 	rialto_client: RialtoClient,
@@ -185,5 +185,6 @@ pub fn run(
 		RialtoTargetClient::new(rialto_client, lane, lane_id, MILLAU_BRIDGE_INSTANCE),
 		metrics_params,
 		futures::future::pending(),
-	);
+	)
+	.await;
 }

@@ -206,7 +206,7 @@ pub struct ClientsState<P: MessageLane> {
 }
 
 /// Run message lane service loop.
-pub fn run<P: MessageLane>(
+pub async fn run<P: MessageLane>(
 	params: Params,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
@@ -251,7 +251,8 @@ pub fn run<P: MessageLane>(
 				exit_signal.clone(),
 			)
 		},
-	);
+	)
+	.await;
 }
 
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit signal is received.
