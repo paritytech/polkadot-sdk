@@ -236,7 +236,7 @@ where
 		verify_justification::<H>(
 			(hash, *header.number()),
 			current_authority_set.set_id,
-			voter_set,
+			&voter_set,
 			&proof.0,
 		)
 		.map_err(|_| FinalizationError::InvalidJustification)?;

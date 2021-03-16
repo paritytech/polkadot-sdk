@@ -95,7 +95,12 @@ impl<C: Chain> Client<C> {
 
 	/// Build client to use in connection.
 	async fn build_client(params: ConnectionParams) -> Result<RpcClient> {
-		let uri = format!("ws://{}:{}", params.host, params.port);
+		let uri = format!(
+			"{}://{}:{}",
+			if params.secure { "wss" } else { "ws" },
+			params.host,
+			params.port,
+		);
 		let mut config = RpcConfig::with_url(&uri);
 		config.max_subscription_capacity = MAX_SUBSCRIPTION_CAPACITY;
 		let client = RpcClient::new(config).await?;
