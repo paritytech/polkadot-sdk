@@ -16,11 +16,6 @@
 
 //! The most generic Substrate node RPC interface.
 
-// The compiler doesn't think we're using the
-// code from rpc_api!
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 use crate::chain::Chain;
 
 use bp_message_lane::{LaneId, MessageNonce};
