@@ -91,7 +91,7 @@ pub trait TargetClient<P: FinalitySyncPipeline>: RelayClient {
 }
 
 /// Run finality proofs synchronization loop.
-pub fn run<P: FinalitySyncPipeline>(
+pub async fn run<P: FinalitySyncPipeline>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	sync_params: FinalitySyncParams,
@@ -132,7 +132,8 @@ pub fn run<P: FinalitySyncPipeline>(
 				exit_signal.clone(),
 			)
 		},
-	);
+	)
+	.await;
 }
 
 /// Unjustified headers container. Ordered by header number.

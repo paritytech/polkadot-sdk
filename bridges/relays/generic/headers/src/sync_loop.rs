@@ -112,7 +112,7 @@ impl<P: HeadersSyncPipeline> SyncMaintain<P> for () {}
 
 /// Run headers synchronization.
 #[allow(clippy::too_many_arguments)]
-pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
+pub async fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	source_client: impl SourceClient<P>,
 	source_tick: Duration,
 	target_client: TC,
@@ -159,7 +159,8 @@ pub fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 				exit_signal.clone(),
 			)
 		},
-	);
+	)
+	.await;
 }
 
 /// Run headers synchronization.

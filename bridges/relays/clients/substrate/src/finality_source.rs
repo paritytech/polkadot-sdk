@@ -98,7 +98,7 @@ where
 	>,
 	P::Header: SourceHeader<C::BlockNumber>,
 {
-	type FinalityProofsStream = Pin<Box<dyn Stream<Item = Justification<C::BlockNumber>>>>;
+	type FinalityProofsStream = Pin<Box<dyn Stream<Item = Justification<C::BlockNumber>> + Send>>;
 
 	async fn best_finalized_block_number(&self) -> Result<P::Number, Error> {
 		// we **CAN** continue to relay finality proofs if source node is out of sync, because

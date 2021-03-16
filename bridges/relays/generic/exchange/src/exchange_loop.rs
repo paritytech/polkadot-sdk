@@ -79,7 +79,7 @@ impl<BlockNumber: Clone + Copy> TransactionProofsRelayStorage for InMemoryStorag
 }
 
 /// Run proofs synchronization.
-pub fn run<P: TransactionProofPipeline>(
+pub async fn run<P: TransactionProofPipeline>(
 	storage: impl TransactionProofsRelayStorage<BlockNumber = BlockNumberOf<P>>,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
@@ -119,7 +119,8 @@ pub fn run<P: TransactionProofPipeline>(
 				exit_signal.clone(),
 			)
 		},
-	);
+	)
+	.await;
 }
 
 /// Run proofs synchronization.

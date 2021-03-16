@@ -48,9 +48,7 @@ pub struct EthereumDeployContractParams {
 }
 
 /// Deploy Bridge contract on Ethereum chain.
-pub fn run(params: EthereumDeployContractParams) {
-	let mut local_pool = futures::executor::LocalPool::new();
-
+pub async fn run(params: EthereumDeployContractParams) {
 	let EthereumDeployContractParams {
 		eth_params,
 		eth_sign,
@@ -61,7 +59,7 @@ pub fn run(params: EthereumDeployContractParams) {
 		eth_contract_code,
 	} = params;
 
-	let result = local_pool.run_until(async move {
+	let result = async move {
 		let eth_client = EthereumClient::new(eth_params).await.map_err(RpcError::Ethereum)?;
 		let sub_client = SubstrateClient::<Rialto>::new(sub_params).await.map_err(RpcError::Substrate)?;
 
@@ -91,7 +89,7 @@ pub fn run(params: EthereumDeployContractParams) {
 			initial_set_id,
 			initial_set,
 		).await
-	});
+	}.await;
 
 	if let Err(error) = result {
 		log::error!(target: "bridge", "{}", error);
