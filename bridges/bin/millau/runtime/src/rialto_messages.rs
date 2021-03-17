@@ -37,7 +37,7 @@ use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
 parameter_types! {
 	/// Rialto to Millau conversion rate. Initially we treat both tokens as equal.
-	storage RialtoToMillauConversionRate: FixedU128 = 1.into();
+	storage RialtoToMillauConversionRate: FixedU128 = FixedU128::one();
 }
 
 /// Storage key of the Millau -> Rialto message in the runtime storage.
@@ -146,9 +146,10 @@ impl messages::ThisChainWithMessageLanes for Millau {
 
 	fn transaction_payment(transaction: MessageLaneTransaction<Weight>) -> bp_millau::Balance {
 		// in our testnets, both per-byte fee and weight-to-fee are 1:1
-		messages::transaction_payment_without_multiplier(
+		messages::transaction_payment(
 			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
 			1,
+			FixedU128::zero(),
 			|weight| weight as _,
 			transaction,
 		)
@@ -208,9 +209,10 @@ impl messages::BridgedChainWithMessageLanes for Rialto {
 
 	fn transaction_payment(transaction: MessageLaneTransaction<Weight>) -> bp_rialto::Balance {
 		// in our testnets, both per-byte fee and weight-to-fee are 1:1
-		messages::transaction_payment_without_multiplier(
+		messages::transaction_payment(
 			bp_rialto::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
 			1,
+			FixedU128::zero(),
 			|weight| weight as _,
 			transaction,
 		)
