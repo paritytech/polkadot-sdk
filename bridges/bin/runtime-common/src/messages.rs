@@ -30,7 +30,10 @@ use bp_runtime::{InstanceId, Size, StorageProofChecker};
 use codec::{Decode, Encode};
 use frame_support::{traits::Instance, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
-use sp_runtime::traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul},
+	FixedPointNumber, FixedPointOperand, FixedU128,
+};
 use sp_std::{cmp::PartialOrd, convert::TryFrom, fmt::Debug, marker::PhantomData, ops::RangeInclusive, vec::Vec};
 use sp_trie::StorageProof;
 
@@ -143,13 +146,16 @@ pub(crate) type CallOf<C> = <C as ThisChainWithMessageLanes>::Call;
 /// Raw storage proof type (just raw trie nodes).
 type RawStorageProof = Vec<Vec<u8>>;
 
-/// Compute fee of transaction at runtime where:
+/// Compute fee of transaction at runtime where regular transaction payment pallet is being used.
 ///
-/// - transaction payment pallet is being used;
-/// - fee multiplier is zero.
-pub fn transaction_payment_without_multiplier<Balance: AtLeast32BitUnsigned>(
+/// The value of `multiplier` parameter is the expected value of `pallet_transaction_payment::NextFeeMultiplier`
+/// at the moment when transaction is submitted. If you're charging this payment in advance (and that's what
+/// happens with delivery and confirmation transaction in this crate), then there's a chance that the actual
+/// fee will be larger than what is paid in advance. So the value must be chosen carefully.
+pub fn transaction_payment<Balance: AtLeast32BitUnsigned + FixedPointOperand>(
 	base_extrinsic_weight: Weight,
 	per_byte_fee: Balance,
+	multiplier: FixedU128,
 	weight_to_fee: impl Fn(Weight) -> Balance,
 	transaction: MessageLaneTransaction<Weight>,
 ) -> Balance {
@@ -160,9 +166,8 @@ pub fn transaction_payment_without_multiplier<Balance: AtLeast32BitUnsigned>(
 	let len_fee = per_byte_fee.saturating_mul(Balance::from(transaction.size));
 
 	// the adjustable part of the fee
-	//
-	// here we assume that the fee multiplier is zero, so this part is also always zero
-	let adjusted_weight_fee = Balance::zero();
+	let unadjusted_weight_fee = weight_to_fee(transaction.dispatch_weight);
+	let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
 	base_fee.saturating_add(len_fee).saturating_add(adjusted_weight_fee)
 }
@@ -1399,6 +1404,40 @@ mod tests {
 				}),
 			),
 			Err(target::MessageProofError::MessagesCountMismatch),
+		);
+	}
+
+	#[test]
+	fn transaction_payment_works_with_zero_multiplier() {
+		assert_eq!(
+			transaction_payment(
+				100,
+				10,
+				FixedU128::zero(),
+				|weight| weight,
+				MessageLaneTransaction {
+					size: 50,
+					dispatch_weight: 777
+				},
+			),
+			100 + 50 * 10,
+		);
+	}
+
+	#[test]
+	fn transaction_payment_works_with_non_zero_multiplier() {
+		assert_eq!(
+			transaction_payment(
+				100,
+				10,
+				FixedU128::one(),
+				|weight| weight,
+				MessageLaneTransaction {
+					size: 50,
+					dispatch_weight: 777
+				},
+			),
+			100 + 50 * 10 + 777,
 		);
 	}
 }
