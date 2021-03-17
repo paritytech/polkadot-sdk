@@ -40,12 +40,10 @@ use polkadot_primitives::v1::{
 };
 
 use codec::{Decode, Encode};
-
 use futures::{channel::oneshot, FutureExt};
-
 use std::sync::Arc;
-
 use parking_lot::Mutex;
+use tracing::Instrument;
 
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
@@ -370,6 +368,7 @@ pub async fn start_collator<Block, Backend, BS, Spawner>(
 		parachain_consensus,
 	);
 
+	let span = tracing::Span::current();
 	let config = CollationGenerationConfig {
 		key,
 		para_id,
@@ -377,6 +376,7 @@ pub async fn start_collator<Block, Backend, BS, Spawner>(
 			let collator = collator.clone();
 			collator
 				.produce_candidate(relay_parent, validation_data.clone())
+				.instrument(span.clone())
 				.boxed()
 		}),
 	};
