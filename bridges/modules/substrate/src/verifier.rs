@@ -342,7 +342,10 @@ mod tests {
 	use super::*;
 	use crate::mock::*;
 	use crate::{BestFinalized, BestHeight, HeaderId, ImportedHeaders, PalletStorage};
-	use bp_test_utils::{alice, authority_list, bob, make_justification_for_header};
+	use bp_test_utils::{
+		authority_list, keyring, make_justification_for_header,
+		Keyring::{Alice, Bob},
+	};
 	use codec::Encode;
 	use frame_support::{assert_err, assert_ok};
 	use frame_support::{StorageMap, StorageValue};
@@ -587,7 +590,7 @@ mod tests {
 
 			let set_id = 1;
 			let authorities = authority_list();
-			let initial_authority_set = AuthoritySet::new(authorities.clone(), set_id);
+			let initial_authority_set = AuthoritySet::new(authorities, set_id);
 			storage.update_current_authority_set(initial_authority_set);
 
 			// Let's import our header
@@ -603,7 +606,7 @@ mod tests {
 
 			// Now lets finalize our best header
 			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &authorities).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 			assert_ok!(verifier.import_finality_proof(header.hash(), justification.into()));
 
 			// Our best header should only appear once in the list of best headers
@@ -693,7 +696,7 @@ mod tests {
 			// This is an *invalid* authority set because the combined weight of the
 			// authorities is greater than `u64::MAX`
 			let consensus_log = ConsensusLog::<TestNumber>::ScheduledChange(sp_finality_grandpa::ScheduledChange {
-				next_authorities: vec![(alice(), u64::MAX), (bob(), u64::MAX)],
+				next_authorities: vec![(Alice.into(), u64::MAX), (Bob.into(), u64::MAX)],
 				delay: 0,
 			});
 
@@ -722,12 +725,12 @@ mod tests {
 
 			let set_id = 1;
 			let authorities = authority_list();
-			let authority_set = AuthoritySet::new(authorities.clone(), set_id);
+			let authority_set = AuthoritySet::new(authorities, set_id);
 			storage.update_current_authority_set(authority_set);
 
 			// We'll need this justification to finalize the header
 			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &authorities).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 			let mut verifier = Verifier {
 				storage: storage.clone(),
@@ -748,14 +751,11 @@ mod tests {
 
 			let set_id = 1;
 			let authorities = authority_list();
-			let authority_set = AuthoritySet {
-				authorities: authorities.clone(),
-				set_id,
-			};
+			let authority_set = AuthoritySet { authorities, set_id };
 			storage.update_current_authority_set(authority_set);
 
 			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &authorities).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 			let mut verifier = Verifier {
 				storage: storage.clone(),
@@ -792,19 +792,19 @@ mod tests {
 
 			let set_id = 1;
 			let authorities = authority_list();
-			let initial_authority_set = AuthoritySet::new(authorities.clone(), set_id);
+			let initial_authority_set = AuthoritySet::new(authorities, set_id);
 			storage.update_current_authority_set(initial_authority_set);
 
 			// This header enacts an authority set change upon finalization
 			let header = test_header(2);
 
 			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &authorities).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 			// Schedule a change at the height of our header
 			let set_id = 2;
 			let height = *header.number();
-			let authorities = vec![alice()];
+			let authorities = vec![Alice.into()];
 			let change = schedule_next_change(authorities, set_id, height);
 			storage.schedule_next_set_change(genesis_hash, change.clone());
 
