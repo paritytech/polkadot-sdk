@@ -23,12 +23,7 @@ use codec::Encode;
 type TestHeader = sp_runtime::testing::Header;
 
 fn make_justification_for_header_1() -> GrandpaJustification<TestHeader> {
-	make_justification_for_header(
-		&test_header(1),
-		TEST_GRANDPA_ROUND,
-		TEST_GRANDPA_SET_ID,
-		&authority_list(),
-	)
+	make_justification_for_header(&test_header(1), TEST_GRANDPA_ROUND, TEST_GRANDPA_SET_ID, &keyring())
 }
 
 #[test]
