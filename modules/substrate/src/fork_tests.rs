@@ -59,7 +59,10 @@ use crate::storage::ImportedHeader;
 use crate::verifier::*;
 use crate::{BestFinalized, BestHeight, BridgeStorage, NextScheduledChange, PalletStorage};
 use bp_header_chain::AuthoritySet;
-use bp_test_utils::{alice, authority_list, bob, make_justification_for_header};
+use bp_test_utils::{
+	authority_list, keyring, make_justification_for_header,
+	Keyring::{Alice, Bob},
+};
 use codec::Encode;
 use frame_support::{IterableStorageMap, StorageValue};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
@@ -456,8 +459,7 @@ where
 				// See for more: https://github.com/paritytech/parity-bridges-common/issues/430
 				let grandpa_round = 1;
 				let set_id = 1;
-				let authorities = authority_list();
-				let justification = make_justification_for_header(header, grandpa_round, set_id, &authorities).encode();
+				let justification = make_justification_for_header(header, grandpa_round, set_id, &keyring()).encode();
 
 				let res = verifier
 					.import_finality_proof(header.hash(), justification.into())
@@ -505,7 +507,7 @@ where
 
 pub(crate) fn change_log(delay: u64) -> Digest<TestHash> {
 	let consensus_log = ConsensusLog::<TestNumber>::ScheduledChange(sp_finality_grandpa::ScheduledChange {
-		next_authorities: vec![(alice(), 1), (bob(), 1)],
+		next_authorities: vec![(Alice.into(), 1), (Bob.into(), 1)],
 		delay,
 	});
 
