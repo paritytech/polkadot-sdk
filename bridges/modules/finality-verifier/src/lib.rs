@@ -521,7 +521,10 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 mod tests {
 	use super::*;
 	use crate::mock::{run_test, test_header, Origin, TestHash, TestHeader, TestNumber, TestRuntime};
-	use bp_test_utils::{alice, authority_list, bob, make_justification_for_header};
+	use bp_test_utils::{
+		authority_list, keyring, make_justification_for_header,
+		Keyring::{Alice, Bob},
+	};
 	use codec::Encode;
 	use frame_support::weights::PostDispatchInfo;
 	use frame_support::{assert_err, assert_noop, assert_ok};
@@ -551,7 +554,7 @@ mod tests {
 
 		let set_id = 1;
 		let grandpa_round = 1;
-		let justification = make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+		let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 		Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification)
 	}
@@ -566,7 +569,7 @@ mod tests {
 
 	fn change_log(delay: u64) -> Digest<TestHash> {
 		let consensus_log = ConsensusLog::<TestNumber>::ScheduledChange(sp_finality_grandpa::ScheduledChange {
-			next_authorities: vec![(alice(), 1), (bob(), 1)],
+			next_authorities: vec![(Alice.into(), 1), (Bob.into(), 1)],
 			delay,
 		});
 
@@ -579,7 +582,7 @@ mod tests {
 		let consensus_log = ConsensusLog::<TestNumber>::ForcedChange(
 			delay,
 			sp_finality_grandpa::ScheduledChange {
-				next_authorities: vec![(alice(), 1), (bob(), 1)],
+				next_authorities: vec![(Alice.into(), 1), (Bob.into(), 1)],
 				delay,
 			},
 		);
@@ -725,8 +728,7 @@ mod tests {
 
 			let set_id = 2;
 			let grandpa_round = 1;
-			let justification =
-				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 			assert_err!(
 				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
@@ -753,11 +755,9 @@ mod tests {
 	#[test]
 	fn disallows_invalid_authority_set() {
 		run_test(|| {
-			use bp_test_utils::{alice, bob};
-
 			let genesis = test_header(0);
 
-			let invalid_authority_list = vec![(alice(), u64::MAX), (bob(), u64::MAX)];
+			let invalid_authority_list = vec![(Alice.into(), u64::MAX), (Bob.into(), u64::MAX)];
 			let init_data = InitializationData {
 				header: genesis,
 				authority_list: invalid_authority_list,
@@ -794,7 +794,7 @@ mod tests {
 			initialize_substrate_bridge();
 
 			let next_set_id = 2;
-			let next_authorities = vec![(alice(), 1), (bob(), 1)];
+			let next_authorities = vec![(Alice.into(), 1), (Bob.into(), 1)];
 
 			// Need to update the header digest to indicate that our header signals an authority set
 			// change. The change will be enacted when we import our header.
@@ -804,8 +804,7 @@ mod tests {
 			// Create a valid justification for the header
 			let set_id = 1;
 			let grandpa_round = 1;
-			let justification =
-				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 			// Let's import our test header
 			assert_ok!(Module::<TestRuntime>::submit_finality_proof(
@@ -839,8 +838,7 @@ mod tests {
 			// Create a valid justification for the header
 			let set_id = 1;
 			let grandpa_round = 1;
-			let justification =
-				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 			// Should not be allowed to import this header
 			assert_err!(
@@ -863,8 +861,7 @@ mod tests {
 			// Create a valid justification for the header
 			let set_id = 1;
 			let grandpa_round = 1;
-			let justification =
-				make_justification_for_header(&header, grandpa_round, set_id, &authority_list()).encode();
+			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
 
 			// Should not be allowed to import this header
 			assert_err!(
