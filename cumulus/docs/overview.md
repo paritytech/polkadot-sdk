@@ -23,12 +23,12 @@ When compiling a runtime that uses Cumulus, a WASM binary is generated that cont
 of the Parachain runtime plus the `validate_block` functionality. This binary is required to
 register a Parachain on the relay chain.
 
-When the Parachain validator calls the `validate_block` function, it passes the PovBlock (See [Block
+When the Parachain validator calls the `validate_block` function, it passes the PoVBlock (See [Block
 building](#block-building) for more information) and the parent header of the Parachain that is
-stored on the relay chain. From the PovBlock witness data, Cumulus reconstructs the partial trie.
+stored on the relay chain. From the PoVBlock witness data, Cumulus reconstructs the partial trie.
 This partial trie is used as storage while executing the block. Cumulus also redirects all storage
 related host functions to use the witness data storage. After the setup is done, Cumulus calls
-`execute_block` with the transactions and the header stored in the PovBlock. On success, the new
+`execute_block` with the transactions and the header stored in the PoVBlock. On success, the new
 Parachain header is returned as part of the `validate_block` result.
 
 ## Node
@@ -60,14 +60,14 @@ consensus and the block production logic.
 ## Block Building
 
 Polkadot requires that a Parachain block is transmitted in a fixed format. These blocks sent by a
-Parachain to the Parachain validators are called proof-of-validity blocks (PovBlock). Such a
-PovBlock contains the header and the transactions of the Parachain as opaque blobs (`Vec<u8>`). They
+Parachain to the Parachain validators are called proof-of-validity blocks (PoVBlock). Such a
+PoVBlock contains the header and the transactions of the Parachain as opaque blobs (`Vec<u8>`). They
 are opaque, because Polkadot can not and should not support all kinds of possible Parachain block
 formats. Besides the header and the transactions, it also contains the witness data and the outgoing
 messages.
 
 A Parachain validator needs to validate a given PoVBlock, but without requiring the full state of
-the Parachain. To still make it possible to validate the Parachain block, the PovBlock contains the
+the Parachain. To still make it possible to validate the Parachain block, the PoVBlock contains the
 witness data. The witness data is a proof that is collected while building the block. The proof will
 contain all trie nodes that are read during the block production. Cumulus uses the witness data to
 reconstruct a partial trie and uses this a storage when executing the block.
