@@ -1,22 +1,22 @@
-# Helpers for Message Lane Module Integration
+# Helpers for Messages Module Integration
 
 The [`messages`](./src/messages.rs) module of this crate contains a bunch of helpers for integrating
-message lane module into your runtime. Basic prerequisites of these helpers are:
+messages module into your runtime. Basic prerequisites of these helpers are:
 - we're going to bridge Substrate-based chain with another Substrate-based chain;
-- both chains have [message lane module](../../modules/message-lane/README.md), Substrate bridge
+- both chains have [messages module](../../modules/messages/README.md), Substrate bridge
   module and the [call dispatch module](../../modules/call-dispatch/README.md);
 - all message lanes are identical and may be used to transfer the same messages;
 - the messages sent over the bridge are dispatched using
   [call dispatch module](../../modules/call-dispatch/README.md);
 - the messages are `pallet_bridge_call_dispatch::MessagePayload` structures, where `call` field is
   encoded `Call` of the target chain. This means that the `Call` is opaque to the
-  [message lane module](../../modules/message-lane/README.md) instance at the source chain.
+  [messages module](../../modules/messages/README.md) instance at the source chain.
   It is pre-encoded by the message submitter;
-- all proofs in the [message lane module](../../modules/message-lane/README.md) transactions are
+- all proofs in the [messages module](../../modules/messages/README.md) transactions are
   based on the storage proofs from the bridged chain: storage proof of the outbound message (value
-  from the `pallet_message_lane::Store::MessagePayload` map), storage proof of the outbound lane
-  state (value from the `pallet_message_lane::Store::OutboundLanes` map) and storage proof of the
-  inbound lane state (value from the `pallet_message_lane::Store::InboundLanes` map);
+  from the `pallet_bridge_messages::Store::MessagePayload` map), storage proof of the outbound lane
+  state (value from the `pallet_bridge_messages::Store::OutboundLanes` map) and storage proof of the
+  inbound lane state (value from the `pallet_bridge_messages::Store::InboundLanes` map);
 - storage proofs are built at the finalized headers of the corresponding chain. So all message lane
   transactions with proofs are verifying storage proofs against finalized chain headers from
   Substrate bridge module.
@@ -27,7 +27,7 @@ message lane module into your runtime. Basic prerequisites of these helpers are:
 
 ## Contents
 - [`MessageBridge` Trait](#messagebridge-trait)
-- [`ChainWithMessageLanes` Trait ](#chainwithmessagelanes-trait)
+- [`ChainWithMessages` Trait ](#ChainWithMessages-trait)
 - [Helpers for the Source Chain](#helpers-for-the-source-chain)
 - [Helpers for the Target Chain](#helpers-for-the-target-chain)
 
@@ -40,41 +40,41 @@ tokens into this chain tokens. The bridge also requires two associated types to 
 
 Worth to say that if you're going to use hardcoded constant (conversion rate) in the
 `MessageBridge::bridged_balance_to_this_balance` method (or in any other method of
-`ThisChainWithMessageLanes` or `BridgedChainWithMessageLanes` traits), then you should take a
+`ThisChainWithMessages` or `BridgedChainWithMessages` traits), then you should take a
 look at the
-[message lane parameters functionality](../../modules/message-lane/README.md#Non-Essential-Functionality).
+[messages parameters functionality](../../modules/messages/README.md#Non-Essential-Functionality).
 They allow pallet owner to update constants more frequently than runtime upgrade happens.
 
-## `ChainWithMessageLanes` Trait
+## `ChainWithMessages` Trait
 
 The trait is quite simple and can easily be implemented - you just need to specify types used at the
 corresponding chain. There is single exception, though (it may be changed in the future):
 
-- `ChainWithMessageLanes::MessageLaneInstance`: this is used to compute runtime storage keys. There
-  may be several instances of message lane pallet, included in the Runtime. Every instance stores
+- `ChainWithMessages::MessagesInstance`: this is used to compute runtime storage keys. There
+  may be several instances of messages pallet, included in the Runtime. Every instance stores
   messages and these messages stored under different keys. When we are verifying storage proofs from
   the bridged chain, we should know which instance we're talking to. This is fine, but there's
-  significant inconvenience with that - this chain runtime must have the same message lane pallet
+  significant inconvenience with that - this chain runtime must have the same messages pallet
   instance. This does not necessarily mean that we should use the same instance on both chains -
   this instance may be used to bridge with another chain/instance, or may not be used at all.
 
-## `ThisChainWithMessageLanes` Trait
+## `ThisChainWithMessages` Trait
 
 This trait represents this chain from bridge point of view. Let's review every method of this trait:
 
-- `ThisChainWithMessageLanes::is_outbound_lane_enabled`: is used to check whether given lane accepts
+- `ThisChainWithMessages::is_outbound_lane_enabled`: is used to check whether given lane accepts
   outbound messages.
 
-- `ThisChainWithMessageLanes::maximal_pending_messages_at_outbound_lane`: you should return maximal
+- `ThisChainWithMessages::maximal_pending_messages_at_outbound_lane`: you should return maximal
   number of pending (undelivered) messages from this function. Returning small values would require
   relayers to operate faster and could make message sending logic more complicated. On the other
   hand, returning large values could lead to chain state growth.
 
-- `ThisChainWithMessageLanes::estimate_delivery_confirmation_transaction`: you'll need to return
+- `ThisChainWithMessages::estimate_delivery_confirmation_transaction`: you'll need to return
   estimated size and dispatch weight of the delivery confirmation transaction (that happens on
   this chain) from this function.
 
-- `ThisChainWithMessageLanes::transaction_payment`: you'll need to return fee that the submitter
+- `ThisChainWithMessages::transaction_payment`: you'll need to return fee that the submitter
   must pay for given transaction on this chain. Normally, you would use transaction payment pallet
   for this. However, if your chain has non-zero fee multiplier set, this would mean that the
   payment will be computed using current value of this multiplier. But since this transaction
@@ -82,11 +82,11 @@ This trait represents this chain from bridge point of view. Let's review every m
   non-altruistic relayer may choose not to submit this transaction until number of transactions
   will decrease.
 
-## `BridgedChainWithMessageLanes` Trait
+## `BridgedChainWithMessages` Trait
 
 This trait represents this chain from bridge point of view. Let's review every method of this trait:
 
-- `BridgedChainWithMessageLanes::maximal_extrinsic_size`: you will need to return the maximal
+- `BridgedChainWithMessages::maximal_extrinsic_size`: you will need to return the maximal
   extrinsic size of the target chain from this function.
 
 - `MessageBridge::message_weight_limits`: you'll need to return a range of
@@ -106,7 +106,7 @@ This trait represents this chain from bridge point of view. Let's review every m
 
 - `MessageBridge::transaction_payment`: you'll need to return fee that the submitter
   must pay for given transaction on bridged chain. The best case is when you have the same conversion
-  formula on both chains - then you may just reuse the `ThisChainWithMessageLanes::transaction_payment`
+  formula on both chains - then you may just reuse the `ThisChainWithMessages::transaction_payment`
   implementation. Otherwise, you'll need to hardcode this formula into your runtime.
 
 ## Helpers for the Source Chain
@@ -121,7 +121,7 @@ are: `maximal_message_size`, `verify_chain_message`, `verify_messages_delivery_p
 `pallet_bridge_call_dispatch::MessagePayload`, where `call` field is encoded target chain call. So
 at this chain we don't see internals of this call - we just know its size.
 
-`FromThisChainMessageVerifier` is an implementation of `bp_message_lane::LaneMessageVerifier`. It
+`FromThisChainMessageVerifier` is an implementation of `bp_messages::LaneMessageVerifier`. It
 has following checks in its `verify_message` method:
 
 1. it'll verify that the used outbound lane is enabled in our runtime;
@@ -167,10 +167,10 @@ The helpers for the target chain reside in the `target` submodule of the
 
 `FromBridgedChainMessagePayload` corresponds to the `FromThisChainMessagePayload` at the bridged
 chain. We expect that messages with this payload are stored in the `OutboundMessages` storage map of
-the [message lane module](../../modules/message-lane/README.md). This map is used to build
+the [messages module](../../modules/messages/README.md). This map is used to build
 `FromBridgedChainMessagesProof`. The proof holds the lane id, range of message nonces included in
 the proof, storage proof of `OutboundMessages` entries and the hash of bridged chain header that has
 been used to build the proof. Additionally, there's storage proof may contain the proof of outbound
 lane state. It may be required to prune `relayers` entries at this chain (see
-[message lane module documentation](../../modules/message-lane/README.md#What-about-other-Constants-in-the-Message-Lane-Module-Configuration-Trait)
+[messages module documentation](../../modules/messages/README.md#What-about-other-Constants-in-the-Messages-Module-Configuration-Trait)
 for details). This proof is verified by the `verify_messages_proof` function.

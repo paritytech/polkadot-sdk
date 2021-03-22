@@ -16,7 +16,7 @@
 
 //! Everything about incoming messages receival.
 
-use bp_message_lane::{
+use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData,
 };

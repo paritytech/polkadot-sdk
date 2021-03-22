@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Possible errors and results of message-lane RPC calls.
+//! Possible errors and results of messages pallet RPC calls.
 
 /// Future Result type.
 pub type FutureResult<T> = jsonrpc_core::BoxFuture<T>;

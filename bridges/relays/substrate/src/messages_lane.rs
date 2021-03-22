@@ -18,7 +18,7 @@ use crate::messages_source::SubstrateMessagesProof;
 use crate::messages_target::SubstrateMessagesReceivingProof;
 
 use async_trait::async_trait;
-use bp_message_lane::MessageNonce;
+use bp_messages::MessageNonce;
 use codec::Encode;
 use frame_support::weights::Weight;
 use messages_relay::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
@@ -121,7 +121,7 @@ where
 
 /// Returns maximal number of messages and their maximal cumulative dispatch weight, based
 /// on given chain parameters.
-pub fn select_delivery_transaction_limits<W: pallet_message_lane::WeightInfoExt>(
+pub fn select_delivery_transaction_limits<W: pallet_bridge_messages::WeightInfoExt>(
 	max_extrinsic_weight: Weight,
 	max_unconfirmed_messages_at_inbound_lane: MessageNonce,
 ) -> (MessageNonce, Weight) {
@@ -161,11 +161,11 @@ pub fn select_delivery_transaction_limits<W: pallet_message_lane::WeightInfoExt>
 mod tests {
 	use super::*;
 
-	type RialtoToMillauMessageLaneWeights = pallet_message_lane::weights::RialtoWeight<rialto_runtime::Runtime>;
+	type RialtoToMillauMessagesWeights = pallet_bridge_messages::weights::RialtoWeight<rialto_runtime::Runtime>;
 
 	#[test]
 	fn select_delivery_transaction_limits_works() {
-		let (max_count, max_weight) = select_delivery_transaction_limits::<RialtoToMillauMessageLaneWeights>(
+		let (max_count, max_weight) = select_delivery_transaction_limits::<RialtoToMillauMessagesWeights>(
 			bp_millau::max_extrinsic_weight(),
 			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
 		);

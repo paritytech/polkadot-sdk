@@ -19,7 +19,7 @@
 use crate::message_lane::MessageLane;
 use crate::message_lane_loop::{SourceClientState, TargetClientState};
 
-use bp_message_lane::MessageNonce;
+use bp_messages::MessageNonce;
 use relay_utils::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
 
 /// Message lane relay metrics.

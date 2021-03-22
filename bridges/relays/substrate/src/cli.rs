@@ -16,7 +16,7 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
-use bp_message_lane::LaneId;
+use bp_messages::LaneId;
 use codec::{Decode, Encode};
 use sp_runtime::app_crypto::Ss58Codec;
 use structopt::{clap::arg_enum, StructOpt};
@@ -39,7 +39,7 @@ pub enum Command {
 	RelayHeaders(RelayHeaders),
 	/// Start messages relay between two chains.
 	///
-	/// Ties up to `MessageLane` pallets on both chains and starts relaying messages.
+	/// Ties up to `Messages` pallets on both chains and starts relaying messages.
 	/// Requires the header relay to be already running.
 	RelayMessages(RelayMessages),
 	/// Initialize on-chain bridge pallet with current header data.
@@ -48,7 +48,7 @@ pub enum Command {
 	InitBridge(InitBridge),
 	/// Send custom message over the bridge.
 	///
-	/// Allows interacting with the bridge by sending messages over `MessageLane` component.
+	/// Allows interacting with the bridge by sending messages over `Messages` component.
 	/// The message is being sent to the source chain, delivered to the target chain and dispatched
 	/// there.
 	SendMessage(SendMessage),
@@ -59,10 +59,10 @@ pub enum Command {
 	EncodeCall(EncodeCall),
 	/// Generate SCALE-encoded `MessagePayload` object that can be sent over selected bridge.
 	///
-	/// The `MessagePayload` can be then fed to `MessageLane::send_message` function and sent over
+	/// The `MessagePayload` can be then fed to `Messages::send_message` function and sent over
 	/// the bridge.
 	EncodeMessagePayload(EncodeMessagePayload),
-	/// Estimate Delivery and Dispatch Fee required for message submission to message lane.
+	/// Estimate Delivery and Dispatch Fee required for message submission to messages pallet.
 	EstimateFee(EstimateFee),
 	/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
 	DeriveAccount(DeriveAccount),

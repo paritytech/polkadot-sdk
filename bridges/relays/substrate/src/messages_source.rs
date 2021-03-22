@@ -21,7 +21,7 @@
 use crate::messages_lane::SubstrateMessageLane;
 
 use async_trait::async_trait;
-use bp_message_lane::{LaneId, MessageNonce};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::{Decode, Encode};

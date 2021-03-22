@@ -16,7 +16,7 @@
 
 //! Everything about outgoing messages sending.
 
-use bp_message_lane::{LaneId, MessageData, MessageNonce, OutboundLaneData};
+use bp_messages::{LaneId, MessageData, MessageNonce, OutboundLaneData};
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
