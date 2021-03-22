@@ -1,6 +1,6 @@
 [package]
-name = "bp-message-lane"
-description = "Primitives of message lane module."
+name = "bp-messages"
+description = "Primitives of messages module."
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"

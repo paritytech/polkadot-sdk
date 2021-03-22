@@ -21,7 +21,7 @@
 //! of to elements - message lane id and message nonce.
 
 use bp_message_dispatch::MessageDispatch as _;
-use bp_message_lane::{
+use bp_messages::{
 	source_chain::{LaneMessageVerifier, Sender},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages},
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
@@ -46,16 +46,16 @@ pub trait MessageBridge {
 	const RELAYER_FEE_PERCENT: u32;
 
 	/// This chain in context of message bridge.
-	type ThisChain: ThisChainWithMessageLanes;
+	type ThisChain: ThisChainWithMessages;
 	/// Bridged chain in context of message bridge.
-	type BridgedChain: BridgedChainWithMessageLanes;
+	type BridgedChain: BridgedChainWithMessages;
 
 	/// Convert Bridged chain balance into This chain balance.
 	fn bridged_balance_to_this_balance(bridged_balance: BalanceOf<BridgedChain<Self>>) -> BalanceOf<ThisChain<Self>>;
 }
 
-/// Chain that has `message-lane` and `call-dispatch` modules.
-pub trait ChainWithMessageLanes {
+/// Chain that has `pallet-bridge-messages` and `call-dispatch` modules.
+pub trait ChainWithMessages {
 	/// Hash used in the chain.
 	type Hash: Decode;
 	/// Accound id on the chain.
@@ -72,21 +72,21 @@ pub trait ChainWithMessageLanes {
 	/// Type of balances that is used on the chain.
 	type Balance: Encode + Decode + CheckedAdd + CheckedDiv + CheckedMul + PartialOrd + From<u32> + Copy;
 
-	/// Instance of the message-lane pallet.
-	type MessageLaneInstance: Instance;
+	/// Instance of the `pallet-bridge-messages` pallet.
+	type MessagesInstance: Instance;
 }
 
-/// Message-lane related transaction parameters estimation.
+/// Message related transaction parameters estimation.
 #[derive(RuntimeDebug)]
-pub struct MessageLaneTransaction<Weight> {
+pub struct MessageTransaction<Weight> {
 	/// The estimated dispatch weight of the transaction.
 	pub dispatch_weight: Weight,
 	/// The estimated size of the encoded transaction.
 	pub size: u32,
 }
 
-/// This chain that has `message-lane` and `call-dispatch` modules.
-pub trait ThisChainWithMessageLanes: ChainWithMessageLanes {
+/// This chain that has `pallet-bridge-messages` and `call-dispatch` modules.
+pub trait ThisChainWithMessages: ChainWithMessages {
 	/// Call type on the chain.
 	type Call: Encode + Decode;
 
@@ -99,14 +99,14 @@ pub trait ThisChainWithMessageLanes: ChainWithMessageLanes {
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce;
 
 	/// Estimate size and weight of single message delivery confirmation transaction at This chain.
-	fn estimate_delivery_confirmation_transaction() -> MessageLaneTransaction<WeightOf<Self>>;
+	fn estimate_delivery_confirmation_transaction() -> MessageTransaction<WeightOf<Self>>;
 
 	/// Returns minimal transaction fee that must be paid for given transaction at This chain.
-	fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
+	fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
 }
 
-/// Bridged chain that has `message-lane` and `call-dispatch` modules.
-pub trait BridgedChainWithMessageLanes: ChainWithMessageLanes {
+/// Bridged chain that has `pallet-bridge-messages` and `call-dispatch` modules.
+pub trait BridgedChainWithMessages: ChainWithMessages {
 	/// Maximal extrinsic size at Bridged chain.
 	fn maximal_extrinsic_size() -> u32;
 
@@ -125,23 +125,23 @@ pub trait BridgedChainWithMessageLanes: ChainWithMessageLanes {
 	fn estimate_delivery_transaction(
 		message_payload: &[u8],
 		message_dispatch_weight: WeightOf<Self>,
-	) -> MessageLaneTransaction<WeightOf<Self>>;
+	) -> MessageTransaction<WeightOf<Self>>;
 
 	/// Returns minimal transaction fee that must be paid for given transaction at the Bridged chain.
-	fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
+	fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
 }
 
 pub(crate) type ThisChain<B> = <B as MessageBridge>::ThisChain;
 pub(crate) type BridgedChain<B> = <B as MessageBridge>::BridgedChain;
-pub(crate) type HashOf<C> = <C as ChainWithMessageLanes>::Hash;
-pub(crate) type AccountIdOf<C> = <C as ChainWithMessageLanes>::AccountId;
-pub(crate) type SignerOf<C> = <C as ChainWithMessageLanes>::Signer;
-pub(crate) type SignatureOf<C> = <C as ChainWithMessageLanes>::Signature;
-pub(crate) type WeightOf<C> = <C as ChainWithMessageLanes>::Weight;
-pub(crate) type BalanceOf<C> = <C as ChainWithMessageLanes>::Balance;
-pub(crate) type MessageLaneInstanceOf<C> = <C as ChainWithMessageLanes>::MessageLaneInstance;
+pub(crate) type HashOf<C> = <C as ChainWithMessages>::Hash;
+pub(crate) type AccountIdOf<C> = <C as ChainWithMessages>::AccountId;
+pub(crate) type SignerOf<C> = <C as ChainWithMessages>::Signer;
+pub(crate) type SignatureOf<C> = <C as ChainWithMessages>::Signature;
+pub(crate) type WeightOf<C> = <C as ChainWithMessages>::Weight;
+pub(crate) type BalanceOf<C> = <C as ChainWithMessages>::Balance;
+pub(crate) type MessagesInstanceOf<C> = <C as ChainWithMessages>::MessagesInstance;
 
-pub(crate) type CallOf<C> = <C as ThisChainWithMessageLanes>::Call;
+pub(crate) type CallOf<C> = <C as ThisChainWithMessages>::Call;
 
 /// Raw storage proof type (just raw trie nodes).
 type RawStorageProof = Vec<Vec<u8>>;
@@ -157,7 +157,7 @@ pub fn transaction_payment<Balance: AtLeast32BitUnsigned + FixedPointOperand>(
 	per_byte_fee: Balance,
 	multiplier: FixedU128,
 	weight_to_fee: impl Fn(Weight) -> Balance,
-	transaction: MessageLaneTransaction<Weight>,
+	transaction: MessageTransaction<Weight>,
 ) -> Balance {
 	// base fee is charged for every tx
 	let base_fee = weight_to_fee(base_extrinsic_weight);
@@ -357,7 +357,7 @@ pub mod source {
 	) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<B>, &'static str>
 	where
 		ThisRuntime: pallet_finality_verifier::Config,
-		ThisRuntime: pallet_message_lane::Config<MessageLaneInstanceOf<BridgedChain<B>>>,
+		ThisRuntime: pallet_bridge_messages::Config<MessagesInstanceOf<BridgedChain<B>>>,
 		HashOf<BridgedChain<B>>:
 			Into<bp_runtime::HashOf<<ThisRuntime as pallet_finality_verifier::Config>::BridgedChain>>,
 	{
@@ -372,9 +372,9 @@ pub mod source {
 			|storage| {
 				// Messages delivery proof is just proof of single storage key read => any error
 				// is fatal.
-				let storage_inbound_lane_data_key = pallet_message_lane::storage_keys::inbound_lane_data_key::<
+				let storage_inbound_lane_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key::<
 					ThisRuntime,
-					MessageLaneInstanceOf<BridgedChain<B>>,
+					MessagesInstanceOf<BridgedChain<B>>,
 				>(&lane);
 				let raw_inbound_lane_data = storage
 					.read_value(storage_inbound_lane_data_key.0.as_ref())
@@ -462,7 +462,7 @@ pub mod target {
 	}
 
 	impl<B: MessageBridge, ThisRuntime, ThisCallDispatchInstance>
-		MessageDispatch<<BridgedChain<B> as ChainWithMessageLanes>::Balance>
+		MessageDispatch<<BridgedChain<B> as ChainWithMessages>::Balance>
 		for FromBridgedChainMessageDispatch<B, ThisRuntime, ThisCallDispatchInstance>
 	where
 		ThisCallDispatchInstance: frame_support::traits::Instance,
@@ -511,7 +511,7 @@ pub mod target {
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, &'static str>
 	where
 		ThisRuntime: pallet_finality_verifier::Config,
-		ThisRuntime: pallet_message_lane::Config<MessageLaneInstanceOf<BridgedChain<B>>>,
+		ThisRuntime: pallet_bridge_messages::Config<MessagesInstanceOf<BridgedChain<B>>>,
 		HashOf<BridgedChain<B>>:
 			Into<bp_runtime::HashOf<<ThisRuntime as pallet_finality_verifier::Config>::BridgedChain>>,
 	{
@@ -573,11 +573,11 @@ pub mod target {
 	where
 		H: Hasher,
 		B: MessageBridge,
-		ThisRuntime: pallet_message_lane::Config<MessageLaneInstanceOf<BridgedChain<B>>>,
+		ThisRuntime: pallet_bridge_messages::Config<MessagesInstanceOf<BridgedChain<B>>>,
 	{
 		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>> {
-			let storage_outbound_lane_data_key = pallet_message_lane::storage_keys::outbound_lane_data_key::<
-				MessageLaneInstanceOf<BridgedChain<B>>,
+			let storage_outbound_lane_data_key = pallet_bridge_messages::storage_keys::outbound_lane_data_key::<
+				MessagesInstanceOf<BridgedChain<B>>,
 			>(lane_id);
 			self.storage
 				.read_value(storage_outbound_lane_data_key.0.as_ref())
@@ -585,9 +585,9 @@ pub mod target {
 		}
 
 		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>> {
-			let storage_message_key = pallet_message_lane::storage_keys::message_key::<
+			let storage_message_key = pallet_bridge_messages::storage_keys::message_key::<
 				ThisRuntime,
-				MessageLaneInstanceOf<BridgedChain<B>>,
+				MessagesInstanceOf<BridgedChain<B>>,
 			>(&message_key.lane_id, message_key.nonce);
 			self.storage.read_value(storage_message_key.0.as_ref()).ok()?
 		}
@@ -808,7 +808,7 @@ mod tests {
 
 	struct ThisChain;
 
-	impl ChainWithMessageLanes for ThisChain {
+	impl ChainWithMessages for ThisChain {
 		type Hash = ();
 		type AccountId = ThisChainAccountId;
 		type Signer = ThisChainSigner;
@@ -816,10 +816,10 @@ mod tests {
 		type Weight = frame_support::weights::Weight;
 		type Balance = ThisChainBalance;
 
-		type MessageLaneInstance = pallet_message_lane::DefaultInstance;
+		type MessagesInstance = pallet_bridge_messages::DefaultInstance;
 	}
 
-	impl ThisChainWithMessageLanes for ThisChain {
+	impl ThisChainWithMessages for ThisChain {
 		type Call = ThisChainCall;
 
 		fn is_outbound_lane_enabled(lane: &LaneId) -> bool {
@@ -830,19 +830,19 @@ mod tests {
 			MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE
 		}
 
-		fn estimate_delivery_confirmation_transaction() -> MessageLaneTransaction<WeightOf<Self>> {
-			MessageLaneTransaction {
+		fn estimate_delivery_confirmation_transaction() -> MessageTransaction<WeightOf<Self>> {
+			MessageTransaction {
 				dispatch_weight: DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT,
 				size: 0,
 			}
 		}
 
-		fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
 			ThisChainBalance(transaction.dispatch_weight as u32 * THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
 		}
 	}
 
-	impl BridgedChainWithMessageLanes for ThisChain {
+	impl BridgedChainWithMessages for ThisChain {
 		fn maximal_extrinsic_size() -> u32 {
 			unreachable!()
 		}
@@ -854,18 +854,18 @@ mod tests {
 		fn estimate_delivery_transaction(
 			_message_payload: &[u8],
 			_message_dispatch_weight: WeightOf<Self>,
-		) -> MessageLaneTransaction<WeightOf<Self>> {
+		) -> MessageTransaction<WeightOf<Self>> {
 			unreachable!()
 		}
 
-		fn transaction_payment(_transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(_transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
 			unreachable!()
 		}
 	}
 
 	struct BridgedChain;
 
-	impl ChainWithMessageLanes for BridgedChain {
+	impl ChainWithMessages for BridgedChain {
 		type Hash = ();
 		type AccountId = BridgedChainAccountId;
 		type Signer = BridgedChainSigner;
@@ -873,10 +873,10 @@ mod tests {
 		type Weight = frame_support::weights::Weight;
 		type Balance = BridgedChainBalance;
 
-		type MessageLaneInstance = pallet_message_lane::DefaultInstance;
+		type MessagesInstance = pallet_bridge_messages::DefaultInstance;
 	}
 
-	impl ThisChainWithMessageLanes for BridgedChain {
+	impl ThisChainWithMessages for BridgedChain {
 		type Call = BridgedChainCall;
 
 		fn is_outbound_lane_enabled(_lane: &LaneId) -> bool {
@@ -887,16 +887,16 @@ mod tests {
 			unreachable!()
 		}
 
-		fn estimate_delivery_confirmation_transaction() -> MessageLaneTransaction<WeightOf<Self>> {
+		fn estimate_delivery_confirmation_transaction() -> MessageTransaction<WeightOf<Self>> {
 			unreachable!()
 		}
 
-		fn transaction_payment(_transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(_transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
 			unreachable!()
 		}
 	}
 
-	impl BridgedChainWithMessageLanes for BridgedChain {
+	impl BridgedChainWithMessages for BridgedChain {
 		fn maximal_extrinsic_size() -> u32 {
 			BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE
 		}
@@ -909,14 +909,14 @@ mod tests {
 		fn estimate_delivery_transaction(
 			_message_payload: &[u8],
 			message_dispatch_weight: WeightOf<Self>,
-		) -> MessageLaneTransaction<WeightOf<Self>> {
-			MessageLaneTransaction {
+		) -> MessageTransaction<WeightOf<Self>> {
+			MessageTransaction {
 				dispatch_weight: DELIVERY_TRANSACTION_WEIGHT + message_dispatch_weight,
 				size: 0,
 			}
 		}
 
-		fn transaction_payment(transaction: MessageLaneTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
 			BridgedChainBalance(transaction.dispatch_weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
 		}
 	}
@@ -1415,7 +1415,7 @@ mod tests {
 				10,
 				FixedU128::zero(),
 				|weight| weight,
-				MessageLaneTransaction {
+				MessageTransaction {
 					size: 50,
 					dispatch_weight: 777
 				},
@@ -1432,7 +1432,7 @@ mod tests {
 				10,
 				FixedU128::one(),
 				|weight| weight,
-				MessageLaneTransaction {
+				MessageTransaction {
 					size: 50,
 					dispatch_weight: 777
 				},

@@ -90,7 +90,7 @@ message dispatch.
 
 #### Message Lanes Delivery
 
-The [Message delivery pallet](../modules/message-lane/src/lib.rs) is responsible for queueing up
+The [Message delivery pallet](../modules/messages/src/lib.rs) is responsible for queueing up
 messages and delivering them in order on the target chain. It also dispatches messages, but we will
 cover that in the next section.
 

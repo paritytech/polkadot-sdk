@@ -22,7 +22,7 @@
 
 mod millau_hash;
 
-use bp_message_lane::{LaneId, MessageNonce, UnrewardedRelayersState};
+use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::Chain;
 use frame_support::{
 	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, Weight},
@@ -76,21 +76,21 @@ pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 1024;
 
 /// Weight of single regular message delivery transaction on Millau chain.
 ///
-/// This value is a result of `pallet_message_lane::Module::receive_messages_proof_weight()` call
-/// for the case when single message of `pallet_message_lane::EXPECTED_DEFAULT_MESSAGE_LENGTH` bytes is delivered.
+/// This value is a result of `pallet_bridge_messages::Module::receive_messages_proof_weight()` call
+/// for the case when single message of `pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH` bytes is delivered.
 /// The message must have dispatch weight set to zero. The result then must be rounded up to account
 /// possible future runtime upgrades.
 pub const DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT: Weight = 1_000_000_000;
 
 /// Increase of delivery transaction weight on Millau chain with every additional message byte.
 ///
-/// This value is a result of `pallet_message_lane::WeightInfoExt::storage_proof_size_overhead(1)` call. The
+/// This value is a result of `pallet_bridge_messages::WeightInfoExt::storage_proof_size_overhead(1)` call. The
 /// result then must be rounded up to account possible future runtime upgrades.
 pub const ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT: Weight = 25_000;
 
 /// Maximal weight of single message delivery confirmation transaction on Millau chain.
 ///
-/// This value is a result of `pallet_message_lane::Module::receive_messages_delivery_proof` weight formula computation
+/// This value is a result of `pallet_bridge_messages::Module::receive_messages_delivery_proof` weight formula computation
 /// for the case when single message is confirmed. The result then must be rounded up to account possible future
 /// runtime upgrades.
 pub const MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT: Weight = 2_000_000_000;

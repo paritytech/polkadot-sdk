@@ -17,10 +17,10 @@
 //! Substrate node client.
 
 use crate::chain::{Chain, ChainWithBalances};
-use crate::rpc::{Substrate, SubstrateMessageLane};
+use crate::rpc::{Substrate, SubstrateMessages};
 use crate::{ConnectionParams, Error, Result};
 
-use bp_message_lane::{LaneId, MessageNonce};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use codec::Decode;
 use frame_system::AccountInfo;
@@ -228,7 +228,7 @@ impl<C: Chain> Client<C> {
 		include_outbound_lane_state: bool,
 		at_block: C::Hash,
 	) -> Result<StorageProof> {
-		let encoded_trie_nodes = SubstrateMessageLane::<C>::prove_messages(
+		let encoded_trie_nodes = SubstrateMessages::<C>::prove_messages(
 			&self.client,
 			instance,
 			lane,
@@ -252,7 +252,7 @@ impl<C: Chain> Client<C> {
 		at_block: C::Hash,
 	) -> Result<Vec<Vec<u8>>> {
 		let encoded_trie_nodes =
-			SubstrateMessageLane::<C>::prove_messages_delivery(&self.client, instance, lane, Some(at_block))
+			SubstrateMessages::<C>::prove_messages_delivery(&self.client, instance, lane, Some(at_block))
 				.await
 				.map_err(Error::RpcError)?;
 		let decoded_trie_nodes: Vec<Vec<u8>> =

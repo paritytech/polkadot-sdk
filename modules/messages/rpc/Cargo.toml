@@ -1,6 +1,6 @@
 [package]
-name = "pallet-message-lane-rpc"
-description = "Module that provides RPC methods specific to message-lane pallet."
+name = "pallet-bridge-messages-rpc"
+description = "Module that provides RPC methods specific to pallet-bridge-messages pallet."
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -17,7 +17,7 @@ log = "0.4.11"
 # Bridge dependencies
 
 bp-runtime = { path = "../../../primitives/runtime" }
-bp-message-lane = { path = "../../../primitives/message-lane" }
+bp-messages = { path = "../../../primitives/messages" }
 
 # Substrate Dependencies
 

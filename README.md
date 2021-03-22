@@ -87,7 +87,7 @@ the `relays` which are used to pass messages between chains.
 ├── modules         // Substrate Runtime Modules (a.k.a Pallets)
 │  ├── ethereum     // Ethereum PoA Header Sync Module
 │  ├── substrate    // Substrate Based Chain Header Sync Module
-│  ├── message-lane // Cross Chain Message Passing
+│  ├── messages     // Cross Chain Message Passing
 │  └──  ...
 ├── primitives      // Code shared between modules, runtimes, and relays
 │  └──  ...

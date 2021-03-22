@@ -18,7 +18,7 @@
 
 use crate::weights::WeightInfo;
 
-use bp_message_lane::{MessageNonce, UnrewardedRelayersState};
+use bp_messages::{MessageNonce, UnrewardedRelayersState};
 use bp_runtime::{PreComputedSize, Size};
 use frame_support::weights::Weight;
 
