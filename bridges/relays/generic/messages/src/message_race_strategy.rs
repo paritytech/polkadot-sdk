@@ -19,7 +19,7 @@
 
 use crate::message_race_loop::{NoncesRange, RaceState, RaceStrategy, SourceClientNonces, TargetClientNonces};
 
-use bp_message_lane::MessageNonce;
+use bp_messages::MessageNonce;
 use relay_utils::HeaderId;
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, ops::RangeInclusive};
 

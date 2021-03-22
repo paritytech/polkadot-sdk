@@ -16,7 +16,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_message_lane::MessageNonce;
+use bp_messages::MessageNonce;
 use bp_runtime::Chain;
 use frame_support::{
 	parameter_types,

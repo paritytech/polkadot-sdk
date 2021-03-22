@@ -19,7 +19,7 @@ rand = "0.7"
 # Bridge dependencies
 
 bp-header-chain = { path = "../../../primitives/header-chain" }
-bp-message-lane = { path = "../../../primitives/message-lane" }
+bp-messages = { path = "../../../primitives/messages" }
 bp-runtime = { path = "../../../primitives/runtime" }
 finality-relay = { path = "../../generic/finality" }
 headers-relay = { path = "../../generic/headers" }

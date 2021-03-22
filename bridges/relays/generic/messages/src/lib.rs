@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Relaying [`message-lane`](../pallet_message_lane/index.html) application specific
+//! Relaying [`pallet-bridge-messages`](../pallet_bridge_messages/index.html) application specific
 //! data. Message lane allows sending arbitrary messages between bridged chains. This
 //! module provides entrypoint that starts reading messages from given message lane
 //! of source chain and submits proof-of-message-at-source-chain transactions to the

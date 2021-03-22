@@ -118,7 +118,7 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
 	/// Id of the message. Whenever message is passed to the dispatch module, it emits
 	/// event with this id + dispatch result. Could be e.g. (LaneId, MessageNonce) if
-	/// it comes from message-lane module.
+	/// it comes from the messages module.
 	type MessageId: Parameter;
 	/// Type of account ID on source chain.
 	type SourceChainAccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;

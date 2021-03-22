@@ -1,25 +1,25 @@
-# Message Lane Module
+# Messages Module
 
-The message lane module is used to deliver messages from source chain to target chain. Message is
+The messages module is used to deliver messages from source chain to target chain. Message is
 (almost) opaque to the module and the final goal is to hand message to the message dispatch
 mechanism.
 
 ## Contents
 - [Overview](#overview)
 - [Message Workflow](#message-workflow)
-- [Integrating Message Lane Module into Runtime](#integrating-message-lane-module-into-runtime)
+- [Integrating Message Lane Module into Runtime](#integrating-messages-module-into-runtime)
 - [Non-Essential Functionality](#non-essential-functionality)
 - [Weights of Module Extrinsics](#weights-of-module-extrinsics)
 
 ## Overview
 
 Message lane is an unidirectional channel, where messages are sent from source chain to the target
-chain. At the same time, a single instance of message lane module supports both outbound lanes and
+chain. At the same time, a single instance of messages module supports both outbound lanes and
 inbound lanes. So the chain where the module is deployed (this chain), may act as a source chain for
 outbound messages (heading to a bridged chain) and as a target chain for inbound messages (coming
 from a bridged chain).
 
-Message lane module supports multiple message lanes. Every message lane is identified with a 4-byte
+Messages module supports multiple message lanes. Every message lane is identified with a 4-byte
 identifier. Messages sent through the lane are assigned unique (for this lane) increasing integer
 value that is known as nonce ("number that can only be used once"). Messages that are sent over the
 same lane are guaranteed to be delivered to the target chain in the same order they're sent from
@@ -41,12 +41,12 @@ now.
 We assume that there are external, offchain actors, called relayers, that are submitting module
 related transactions to both target and source chains. The pallet itself has no assumptions about
 relayers incentivization scheme, but it has some callbacks for paying rewards. See
-[Integrating Message Lane Module into runtime](#Integrating-Message-Lane-Module-into-runtime)
+[Integrating Messages Module into runtime](#Integrating-Messages-Module-into-runtime)
 for details.
 
 Eventually, some relayer would notice this message in the "undelivered" state and it would decide to
 deliver this message. Relayer then crafts `receive_messages_proof()` transaction (aka delivery
-transaction) for the message lane module instance, deployed at the target chain. Relayer provides
+transaction) for the messages module instance, deployed at the target chain. Relayer provides
 his account id at the source chain, the proof of message (or several messages), the number of
 messages in the transaction and their cumulative dispatch weight. Once a transaction is mined, the
 message is considered "delivered".
@@ -54,12 +54,12 @@ message is considered "delivered".
 Once a message is delivered, the relayer may want to confirm delivery back to the source chain.
 There are two reasons why he would want to do that. The first is that we intentionally limit number
 of "delivered", but not yet "confirmed" messages at inbound lanes
-(see [What about other Constants in the Message Lane Module Configuration Trait](#What-about-other-Constants-in-the-Message-Lane-Module-Configuration-Trait) for explanation).
+(see [What about other Constants in the Messages Module Configuration Trait](#What-about-other-Constants-in-the-Messages-Module-Configuration-Trait) for explanation).
 So at some point, the target chain may stop accepting new messages until relayers confirm some of
 these. The second is that if the relayer wants to be rewarded for delivery, he must prove the fact
 that he has actually delivered the message. And this proof may only be generated after the delivery
 transaction is mined. So relayer crafts the `receive_messages_delivery_proof()` transaction (aka
-confirmation transaction) for the message lane module instance, deployed at the source chain. Once
+confirmation transaction) for the messages module instance, deployed at the source chain. Once
 this transaction is mined, the message is considered "confirmed".
 
 The "confirmed" state is the final state of the message. But there's one last thing related to the
@@ -69,21 +69,21 @@ the limit of "unconfirmed" messages at the target chain and it will stop accepti
 relayer sometimes includes a nonce of the latest "confirmed" message in the next
 `receive_messages_proof()` transaction, proving that some messages have been confirmed.
 
-## Integrating Message Lane Module into Runtime
+## Integrating Messages Module into Runtime
 
-As it has been said above, the message lane module supports both outbound and inbound message lanes.
+As it has been said above, the messages module supports both outbound and inbound message lanes.
 So if we will integrate a module in some runtime, it may act as the source chain runtime for
 outbound messages and as the target chain runtime for inbound messages. In this section, we'll
 sometimes refer to the chain we're currently integrating with, as this chain and the other chain as
 bridged chain.
 
-Message lane module doesn't simply accept transactions that are claiming that the bridged chain has
+Messages module doesn't simply accept transactions that are claiming that the bridged chain has
 some updated data for us. Instead of this, the module assumes that the bridged chain is able to
 prove that updated data in some way. The proof is abstracted from the module and may be of any kind.
 In our Substrate-to-Substrate bridge we're using runtime storage proofs. Other bridges may use
 transaction proofs, Substrate header digests or anything else that may be proved.
 
-**IMPORTANT NOTE**: everything below in this chapter describes details of the message lane module
+**IMPORTANT NOTE**: everything below in this chapter describes details of the messages module
 configuration. But if you interested in well-probed and relatively easy integration of two
 Substrate-based chains, you may want to look at the
 [bridge-runtime-common](../../bin/runtime-common/README.md) crate. This crate is providing a lot of
@@ -92,7 +92,7 @@ to change something in this scheme, get back here for detailed information.
 
 ### General Information
 
-The message lane module supports instances. Every module instance is supposed to bridge this chain
+The messages module supports instances. Every module instance is supposed to bridge this chain
 and some bridged chain. To bridge with another chain, using another instance is suggested (this
 isn't forced anywhere in the code, though).
 
@@ -103,10 +103,10 @@ to the target chain, the `MessagesDelivered` event is emitted from the
 `receive_messages_delivery_proof()` transaction. The `MessagesDelivered` contains the message lane
 identifier and inclusive range of delivered message nonces.
 
-### How to plug-in Message Lane Module to Send Messages to the Bridged Chain?
+### How to plug-in Messages Module to Send Messages to the Bridged Chain?
 
-The `pallet_message_lane::Config` trait has 3 main associated types that are used to work with
-outbound messages. The `pallet_message_lane::Config::TargetHeaderChain` defines how we see the
+The `pallet_bridge_messages::Config` trait has 3 main associated types that are used to work with
+outbound messages. The `pallet_bridge_messages::Config::TargetHeaderChain` defines how we see the
 bridged chain as the target for our outbound messages. It must be able to check that the bridged
 chain may accept our message - like that the message has size below maximal possible transaction
 size of the chain and so on. And when the relayer sends us a confirmation transaction, this
@@ -114,7 +114,7 @@ implementation must be able to parse and verify the proof of messages delivery. 
 reuse the same (configurable) type on all chains that are sending messages to the same bridged
 chain.
 
-The `pallet_message_lane::Config::LaneMessageVerifier` defines a single callback to verify outbound
+The `pallet_bridge_messages::Config::LaneMessageVerifier` defines a single callback to verify outbound
 messages. The simplest callback may just accept all messages. But in this case you'll need to answer
 many questions first. Who will pay for the delivery and confirmation transaction? Are we sure that
 someone will ever deliver this message to the bridged chain? Are we sure that we don't bloat our
@@ -123,15 +123,15 @@ fields set to invalid values? Answering all those (and similar) questions would 
 implementation.
 
 There's another thing to consider when implementing type for use in
-`pallet_message_lane::Config::LaneMessageVerifier`. It is whether we treat all message lanes
+`pallet_bridge_messages::Config::LaneMessageVerifier`. It is whether we treat all message lanes
 identically, or they'll have different sets of verification rules? For example, you may reserve
 lane#1 for messages coming from some 'wrapped-token' pallet - then you may verify in your
 implementation that the origin is associated with this pallet. Lane#2 may be reserved for 'system'
 messages and you may charge zero fee for such messages. You may have some rate limiting for messages
 sent over the lane#3. Or you may just verify the same rules set for all outbound messages - it is
-all up to the `pallet_message_lane::Config::LaneMessageVerifier` implementation.
+all up to the `pallet_bridge_messages::Config::LaneMessageVerifier` implementation.
 
-The last type is the `pallet_message_lane::Config::MessageDeliveryAndDispatchPayment`. When all
+The last type is the `pallet_bridge_messages::Config::MessageDeliveryAndDispatchPayment`. When all
 checks are made and we have decided to accept the message, we're calling the
 `pay_delivery_and_dispatch_fee()` callback, passing the corresponding argument of the `send_message`
 function. Later, when message delivery is confirmed, we're calling `pay_relayers_rewards()`
@@ -140,41 +140,41 @@ implementation of this trait is in the [`instant_payments.rs`](./src/instant_pay
 simply calls `Currency::transfer()` when those callbacks are called. So `Currency` units are
 transferred between submitter, 'relayers fund' and relayers accounts. Other implementations may use
 more or less sophisticated techniques - the whole relayers incentivization scheme is not a part of
-the message lane module.
+the messages module.
 
-### I have a Message Lane Module in my Runtime, but I Want to Reject all Outbound Messages. What shall I do?
+### I have a Messages Module in my Runtime, but I Want to Reject all Outbound Messages. What shall I do?
 
-You should be looking at the `bp_message_lane::source_chain::ForbidOutboundMessages` structure
-[`bp_message_lane::source_chain`](../../primitives/message-lane/src/source_chain.rs). It implements
+You should be looking at the `bp_messages::source_chain::ForbidOutboundMessages` structure
+[`bp_messages::source_chain`](../../primitives/messages/src/source_chain.rs). It implements
 all required traits and will simply reject all transactions, related to outbound messages.
 
-### How to plug-in Message Lane Module to Receive Messages from the Bridged Chain?
+### How to plug-in Messages Module to Receive Messages from the Bridged Chain?
 
-The `pallet_message_lane::Config` trait has 2 main associated types that are used to work with
-inbound messages. The `pallet_message_lane::Config::SourceHeaderChain` defines how we see the
+The `pallet_bridge_messages::Config` trait has 2 main associated types that are used to work with
+inbound messages. The `pallet_bridge_messages::Config::SourceHeaderChain` defines how we see the
 bridged chain as the source or our inbound messages. When relayer sends us a  delivery transaction,
 this implementation must be able to parse and verify the proof of messages wrapped in this
 transaction. Normally, you would reuse the same (configurable) type on all chains that are sending
 messages to the same bridged chain.
 
-The `pallet_message_lane::Config::MessageDispatch` defines a way on how to dispatch delivered
+The `pallet_bridge_messages::Config::MessageDispatch` defines a way on how to dispatch delivered
 messages. Apart from actually dispatching the message, the implementation must return the correct
 dispatch weight of the message before dispatch is called.
 
-### I have a Message Lane Module in my Runtime, but I Want to Reject all Inbound Messages. What
+### I have a Messages Module in my Runtime, but I Want to Reject all Inbound Messages. What
 shall I do?
 
-You should be looking at the `bp_message_lane::target_chain::ForbidInboundMessages` structure from
-the [`bp_message_lane::target_chain`](../../primitives/message-lane/src/target_chain.rs) module. It
+You should be looking at the `bp_messages::target_chain::ForbidInboundMessages` structure from
+the [`bp_messages::target_chain`](../../primitives/messages/src/target_chain.rs) module. It
 implements all required traits and will simply reject all transactions, related to inbound messages.
 
-### What about other Constants in the Message Lane Module Configuration Trait?
+### What about other Constants in the Messages Module Configuration Trait?
 
 Message is being stored in the source chain storage until its delivery will be confirmed. After
 that, we may safely remove the message from the storage. Lane messages are removed (pruned) when
 someone sends a new message using the same lane. So the message submitter pays for that pruning. To
 avoid pruning too many messages in a single transaction, there's
-`pallet_message_lane::Config::MaxMessagesToPruneAtOnce` configuration parameter. We will never prune
+`pallet_bridge_messages::Config::MaxMessagesToPruneAtOnce` configuration parameter. We will never prune
 more than this number of messages in the single transaction. That said, the value should not be too
 big to avoid waste of resources when there are no messages to prune.
 
@@ -186,10 +186,10 @@ chain to confirm delivery and pay rewards. So to make sure we are able to craft 
 transaction, we need to: (1) keep the size of this map below a certain limit and (2) make sure that
 the weight of processing this map is below a certain limit. Both size and processing weight mostly
 depend on the number of entries. The number of entries is limited with the
-`pallet_message_lane::ConfigMaxUnrewardedRelayerEntriesAtInboundLane` parameter. Processing weight
+`pallet_bridge_messages::ConfigMaxUnrewardedRelayerEntriesAtInboundLane` parameter. Processing weight
 also depends on the total number of messages that are being confirmed, because every confirmed
 message needs to be read. So there's another
-`pallet_message_lane::Config::MaxUnconfirmedMessagesAtInboundLane` parameter for that.
+`pallet_bridge_messages::Config::MaxUnconfirmedMessagesAtInboundLane` parameter for that.
 
 When choosing values for these parameters, you must also keep in mind that if proof in your scheme
 is based on finality of headers (and it is the most obvious option for Substrate-based chains with
@@ -215,7 +215,7 @@ large maps, at the same time keeping reserve for future source chain upgrades.
 Apart from the message related calls, the module exposes a set of auxiliary calls. They fall in two
 groups, described in the next two paragraphs.
 
-There may be a special account in every runtime where the message lane module is deployed. This
+There may be a special account in every runtime where the messages module is deployed. This
 account, named 'module owner', is like a module-level sudo account - he's able to halt all and
 result all module operations without requiring runtime upgrade. The module may have no message
 owner, but we suggest to use it at least for initial deployment. To calls that are related to this
@@ -242,7 +242,7 @@ The main assumptions behind weight formulas is:
 - all possible costs are paid in advance by the message submitter;
 - whenever possible, relayer tries to minimize cost of its transactions. So e.g. even though sender
   always pays for delivering outbound lane state proof, relayer may not include it in the delivery
-  transaction (unless message lane module on target chain requires that);
+  transaction (unless messages module on target chain requires that);
 - weight formula should incentivize relayer to not to submit any redundant data in the extrinsics
   arguments;
 - the extrinsic shall never be executing slower (i.e. has larger actual weight) than defined by the
@@ -343,8 +343,8 @@ hardcoded into runtime. Adequate relayer would only include required trie nodes 
 if message size would be maximal (`2/3` of `MaximalExtrinsicSize`), then the extra proof size would
 be `MaximalExtrinsicSize / 3 * 2 - EXPECTED_DEFAULT_MESSAGE_LENGTH`.
 
-Both conditions are verified by `pallet_message_lane::ensure_weights_are_correct` and
-`pallet_message_lane::ensure_able_to_receive_messages` functions, which must be called from every
+Both conditions are verified by `pallet_bridge_messages::ensure_weights_are_correct` and
+`pallet_bridge_messages::ensure_able_to_receive_messages` functions, which must be called from every
 runtime's tests.
 
 ### Weight of `receive_messages_delivery_proof` call
@@ -381,11 +381,11 @@ Where:
 
 #### Why we're always able to craft `receive_messages_delivery_proof` transaction?
 
-There can be at most `<PeerRuntime as pallet_message_lane::Config>::MaxUnconfirmedMessagesAtInboundLane`
+There can be at most `<PeerRuntime as pallet_bridge_messages::Config>::MaxUnconfirmedMessagesAtInboundLane`
 messages and at most
-`<PeerRuntime as pallet_message_lane::Config>::MaxUnrewardedRelayerEntriesAtInboundLane` unrewarded
+`<PeerRuntime as pallet_bridge_messages::Config>::MaxUnrewardedRelayerEntriesAtInboundLane` unrewarded
 relayers in the single delivery confirmation transaction.
 
 We're checking that this transaction may be crafted in the
-`pallet_message_lane::ensure_able_to_receive_confirmation` function, which must be called from every
+`pallet_bridge_messages::ensure_able_to_receive_confirmation` function, which must be called from every
 runtime' tests.
