@@ -18,7 +18,7 @@
 
 use crate::chain::Chain;
 
-use bp_message_lane::{LaneId, MessageNonce};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use sc_rpc_api::system::Health;
 use sp_core::{
@@ -51,8 +51,8 @@ jsonrpsee_proc_macros::rpc_client_api! {
 		fn runtime_version() -> RuntimeVersion;
 	}
 
-	pub(crate) SubstrateMessageLane<C: Chain> {
-		#[rpc(method = "messageLane_proveMessages", positional_params)]
+	pub(crate) SubstrateMessages<C: Chain> {
+		#[rpc(method = "messages_proveMessages", positional_params)]
 		fn prove_messages(
 			instance: InstanceId,
 			lane: LaneId,
@@ -62,7 +62,7 @@ jsonrpsee_proc_macros::rpc_client_api! {
 			block: Option<C::Hash>,
 		) -> Bytes;
 
-		#[rpc(method = "messageLane_proveMessagesDelivery", positional_params)]
+		#[rpc(method = "messages_proveMessagesDelivery", positional_params)]
 		fn prove_messages_delivery(
 			instance: InstanceId,
 			lane: LaneId,

@@ -21,7 +21,7 @@ structopt = "0.3"
 
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-kusama = { path = "../../primitives/chains/kusama" }
-bp-message-lane = { path = "../../primitives/message-lane" }
+bp-messages = { path = "../../primitives/messages" }
 bp-millau = { path = "../../primitives/chains/millau" }
 bp-polkadot = { path = "../../primitives/chains/polkadot" }
 bp-runtime = { path = "../../primitives/runtime" }
@@ -35,7 +35,7 @@ messages-relay = { path = "../generic/messages" }
 millau-runtime = { path = "../../bin/millau/runtime" }
 pallet-bridge-call-dispatch = { path = "../../modules/call-dispatch" }
 pallet-finality-verifier = { path = "../../modules/finality-verifier" }
-pallet-message-lane = { path = "../../modules/message-lane" }
+pallet-bridge-messages = { path = "../../modules/messages" }
 relay-kusama-client = { path = "../clients/kusama" }
 relay-millau-client = { path = "../clients/millau" }
 relay-polkadot-client = { path = "../clients/polkadot" }

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-message-lane"
+name = "pallet-bridge-messages"
 description = "Module that allows bridged chains to exchange messages using lane concept."
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
@@ -14,7 +14,7 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
 # Bridge dependencies
 
-bp-message-lane = { path = "../../primitives/message-lane", default-features = false }
+bp-messages = { path = "../../primitives/messages", default-features = false }
 bp-rialto = { path = "../../primitives/chains/rialto", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
 
@@ -28,6 +28,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 
 [dev-dependencies]
+hex = "0.4"
 hex-literal = "0.3"
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -35,7 +36,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "m
 [features]
 default = ["std"]
 std = [
-	"bp-message-lane/std",
+	"bp-messages/std",
 	"bp-runtime/std",
 	"bp-rialto/std",
 	"codec/std",

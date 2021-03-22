@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Message delivery loop. Designed to work with message-lane pallet.
+//! Message delivery loop. Designed to work with messages pallet.
 //!
 //! Single relay instance delivers messages of single lane in single direction.
 //! To serve two-way lane, you would need two instances of relay.
@@ -30,7 +30,7 @@ use crate::message_race_receiving::run as run_message_receiving_race;
 use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
-use bp_message_lane::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
+use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
 use relay_utils::{
 	interval,

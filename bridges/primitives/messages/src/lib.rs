@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Primitives of message lane module.
+//! Primitives of messages module.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // RuntimeApi generated functions
@@ -29,10 +29,10 @@ use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 pub mod source_chain;
 pub mod target_chain;
 
-// Weight is reexported to avoid additional frame-support dependencies in message-lane related crates.
+// Weight is reexported to avoid additional frame-support dependencies in related crates.
 pub use frame_support::weights::Weight;
 
-/// Message lane pallet parameter.
+/// Messages pallet parameter.
 pub trait Parameter: frame_support::Parameter {
 	/// Save parameter value in the runtime storage.
 	fn save(&self);

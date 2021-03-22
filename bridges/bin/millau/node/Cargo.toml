@@ -15,12 +15,12 @@ structopt = "0.3.21"
 
 # Bridge dependencies
 
-bp-message-lane = { path = "../../../primitives/message-lane" }
+bp-messages = { path = "../../../primitives/messages" }
 bp-millau= { path = "../../../primitives/chains/millau" }
 bp-runtime = { path = "../../../primitives/runtime" }
 millau-runtime = { path = "../runtime" }
-pallet-message-lane = { path = "../../../modules/message-lane" }
-pallet-message-lane-rpc = { path = "../../../modules/message-lane/rpc" }
+pallet-bridge-messages = { path = "../../../modules/messages" }
+pallet-bridge-messages-rpc = { path = "../../../modules/messages/rpc" }
 
 # Substrate Dependencies
 
