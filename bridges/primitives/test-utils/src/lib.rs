@@ -31,29 +31,95 @@ use sp_std::prelude::*;
 pub const TEST_GRANDPA_ROUND: u64 = 1;
 pub const TEST_GRANDPA_SET_ID: SetId = 1;
 
-/// Get a valid Grandpa justification for a header given a Grandpa round, authority set ID, and
-/// authority list.
-pub fn make_justification_for_header<H: HeaderT>(
-	header: &H,
-	round: u64,
-	set_id: SetId,
-	authorities: &[(Keyring, AuthorityWeight)],
-) -> GrandpaJustification<H> {
+/// Configuration parameters when generating test GRANDPA justifications.
+pub struct JustificationGeneratorParams<H> {
+	/// The header which we want to finalize.
+	pub header: H,
+	/// The GRANDPA round number for the current authority set.
+	pub round: u64,
+	/// The current authority set ID.
+	pub set_id: SetId,
+	/// The current GRANDPA authority set.
+	pub authorities: Vec<(Keyring, AuthorityWeight)>,
+	/// The number of headers included in our justification's vote ancestries.
+	pub depth: u32,
+	/// The number of forks, and thus the number of pre-commits in our justification.
+	pub forks: u32,
+}
+
+impl<H: HeaderT> Default for JustificationGeneratorParams<H> {
+	fn default() -> Self {
+		Self {
+			header: test_header(One::one()),
+			round: TEST_GRANDPA_ROUND,
+			set_id: TEST_GRANDPA_SET_ID,
+			authorities: keyring(),
+			depth: 2,
+			forks: 1,
+		}
+	}
+}
+
+/// Make a valid GRANDPA justification with sensible defaults
+pub fn make_default_justification<H: HeaderT>(header: &H) -> GrandpaJustification<H> {
+	let params = JustificationGeneratorParams::<H> {
+		header: header.clone(),
+		..Default::default()
+	};
+
+	make_justification_for_header(params)
+}
+
+/// Generate justifications in a way where we are able to tune the number of pre-commits
+/// and vote ancestries which are included in the justification.
+///
+/// This is useful for benchmarkings where we want to generate valid justifications with
+/// a specific number of pre-commits (tuned with the "forks" parameter) and/or a specific
+/// number of vote ancestries (tuned with the "depth" parameter).
+///
+/// Note: This needs at least three authorities or else the verifier will complain about
+/// being given an invalid commit.
+pub fn make_justification_for_header<H: HeaderT>(params: JustificationGeneratorParams<H>) -> GrandpaJustification<H> {
+	let JustificationGeneratorParams {
+		header,
+		round,
+		set_id,
+		authorities,
+		depth,
+		forks,
+	} = params;
+
 	let (target_hash, target_number) = (header.hash(), *header.number());
 	let mut precommits = vec![];
 	let mut votes_ancestries = vec![];
 
-	// We want to make sure that the header included in the vote ancestries
-	// is actually related to our target header
-	let mut precommit_header = test_header::<H>(target_number + One::one());
-	precommit_header.set_parent_hash(target_hash);
+	assert!(depth != 0, "Can't have a chain of zero length.");
+	assert!(
+		forks as usize <= authorities.len(),
+		"If we have more forks than authorities we can't create valid pre-commits for all the forks."
+	);
 
-	// I'm using the same header for all the voters since it doesn't matter as long
-	// as they all vote on blocks _ahead_ of the one we're interested in finalizing
-	for (id, _weight) in authorities.iter() {
-		let precommit = signed_precommit::<H>(id, (precommit_header.hash(), *precommit_header.number()), round, set_id);
+	let mut unsigned_precommits = vec![];
+	for i in 0..forks {
+		let chain = generate_chain(i as u8, depth, &header);
+
+		// We don't include our finality target header in the vote ancestries
+		for child in &chain[1..] {
+			votes_ancestries.push(child.clone());
+		}
+
+		// The header we need to use when pre-commiting is the one at the highest height
+		// on our chain.
+		let precommit_candidate = chain.last().map(|h| (h.hash(), *h.number())).unwrap();
+		unsigned_precommits.push(precommit_candidate);
+	}
+
+	for (i, (id, _weight)) in authorities.iter().enumerate() {
+		// Assign authorities to sign pre-commits in a round-robin fashion
+		let target = unsigned_precommits[i % forks as usize];
+		let precommit = signed_precommit::<H>(&id, target, round, set_id);
+
 		precommits.push(precommit);
-		votes_ancestries.push(precommit_header.clone());
 	}
 
 	GrandpaJustification {
@@ -65,6 +131,29 @@ pub fn make_justification_for_header<H: HeaderT>(
 		},
 		votes_ancestries,
 	}
+}
+
+fn generate_chain<H: HeaderT>(fork_id: u8, depth: u32, ancestor: &H) -> Vec<H> {
+	let mut headers = vec![ancestor.clone()];
+
+	for i in 1..depth {
+		let parent = &headers[(i - 1) as usize];
+		let (hash, num) = (parent.hash(), *parent.number());
+
+		let mut header = test_header::<H>(num + One::one());
+		header.set_parent_hash(hash);
+
+		// Modifying the digest so headers at the same height but in different forks have different
+		// hashes
+		header
+			.digest_mut()
+			.logs
+			.push(sp_runtime::DigestItem::Other(vec![fork_id]));
+
+		headers.push(header);
+	}
+
+	headers
 }
 
 fn signed_precommit<H: HeaderT>(

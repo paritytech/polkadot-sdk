@@ -343,7 +343,7 @@ mod tests {
 	use crate::mock::*;
 	use crate::{BestFinalized, BestHeight, HeaderId, ImportedHeaders, PalletStorage};
 	use bp_test_utils::{
-		authority_list, keyring, make_justification_for_header,
+		authority_list, make_default_justification,
 		Keyring::{Alice, Bob},
 	};
 	use codec::Encode;
@@ -605,8 +605,7 @@ mod tests {
 			assert_eq!(storage.best_headers().len(), 1);
 
 			// Now lets finalize our best header
-			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
+			let justification = make_default_justification(&header).encode();
 			assert_ok!(verifier.import_finality_proof(header.hash(), justification.into()));
 
 			// Our best header should only appear once in the list of best headers
@@ -729,8 +728,7 @@ mod tests {
 			storage.update_current_authority_set(authority_set);
 
 			// We'll need this justification to finalize the header
-			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
+			let justification = make_default_justification(&header).encode();
 
 			let mut verifier = Verifier {
 				storage: storage.clone(),
@@ -754,8 +752,7 @@ mod tests {
 			let authority_set = AuthoritySet { authorities, set_id };
 			storage.update_current_authority_set(authority_set);
 
-			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
+			let justification = make_default_justification(&header).encode();
 
 			let mut verifier = Verifier {
 				storage: storage.clone(),
@@ -798,8 +795,7 @@ mod tests {
 			// This header enacts an authority set change upon finalization
 			let header = test_header(2);
 
-			let grandpa_round = 1;
-			let justification = make_justification_for_header(&header, grandpa_round, set_id, &keyring()).encode();
+			let justification = make_default_justification(&header).encode();
 
 			// Schedule a change at the height of our header
 			let set_id = 2;

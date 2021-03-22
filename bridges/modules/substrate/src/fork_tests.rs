@@ -60,7 +60,7 @@ use crate::verifier::*;
 use crate::{BestFinalized, BestHeight, BridgeStorage, NextScheduledChange, PalletStorage};
 use bp_header_chain::AuthoritySet;
 use bp_test_utils::{
-	authority_list, keyring, make_justification_for_header,
+	authority_list, make_default_justification,
 	Keyring::{Alice, Bob},
 };
 use codec::Encode;
@@ -457,9 +457,7 @@ where
 				// `grandpa_round`).
 				//
 				// See for more: https://github.com/paritytech/parity-bridges-common/issues/430
-				let grandpa_round = 1;
-				let set_id = 1;
-				let justification = make_justification_for_header(header, grandpa_round, set_id, &keyring()).encode();
+				let justification = make_default_justification(header).encode();
 
 				let res = verifier
 					.import_finality_proof(header.hash(), justification.into())
