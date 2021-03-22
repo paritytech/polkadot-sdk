@@ -323,7 +323,7 @@ fn format_err(err: String) -> anyhow::Error {
 	anyhow::anyhow!(err)
 }
 
-/// MessagePayload that can be delivered to message lane pallet on Millau.
+/// MessagePayload that can be delivered to messages pallet on Millau.
 #[derive(StructOpt, Debug)]
 pub enum MillauToRialtoMessagePayload {
 	/// Raw, SCALE-encoded `MessagePayload`.
@@ -342,7 +342,7 @@ pub enum MillauToRialtoMessagePayload {
 	},
 }
 
-/// MessagePayload that can be delivered to message lane pallet on Rialto.
+/// MessagePayload that can be delivered to messages pallet on Rialto.
 #[derive(StructOpt, Debug)]
 pub enum RialtoToMillauMessagePayload {
 	/// Raw, SCALE-encoded `MessagePayload`.
@@ -384,12 +384,12 @@ pub enum ToRialtoMessage {
 		#[structopt(long)]
 		amount: bp_rialto::Balance,
 	},
-	/// A call to the Millau Bridge Message Lane pallet to send a message over the bridge.
+	/// A call to the Millau Bridge Messages pallet to send a message over the bridge.
 	MillauSendMessage {
 		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
 		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
-		/// Raw SCALE-encoded Message Payload to submit to the message lane pallet.
+		/// Raw SCALE-encoded Message Payload to submit to the messages pallet.
 		#[structopt(long)]
 		payload: HexBytes,
 		/// Declared delivery and dispatch fee in base source-chain currency units.
@@ -421,12 +421,12 @@ pub enum ToMillauMessage {
 		#[structopt(long)]
 		amount: bp_millau::Balance,
 	},
-	/// A call to the Rialto Bridge Message Lane pallet to send a message over the bridge.
+	/// A call to the Rialto Bridge Messages pallet to send a message over the bridge.
 	RialtoSendMessage {
 		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
 		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
-		/// Raw SCALE-encoded Message Payload to submit to the message lane pallet.
+		/// Raw SCALE-encoded Message Payload to submit to the messages pallet.
 		#[structopt(long)]
 		payload: HexBytes,
 		/// Declared delivery and dispatch fee in base source-chain currency units.

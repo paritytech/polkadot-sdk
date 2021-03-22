@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Everything required to run benchmarks of message-lanes, based on
+//! Everything required to run benchmarks of messages module, based on
 //! `bridge_runtime_common::messages` implementation.
 
 #![cfg(feature = "runtime-benchmarks")]
@@ -24,11 +24,11 @@ use crate::messages::{
 	BridgedChain, HashOf, MessageBridge, ThisChain,
 };
 
-use bp_message_lane::{LaneId, MessageData, MessageKey, MessagePayload};
+use bp_messages::{LaneId, MessageData, MessageKey, MessagePayload};
 use codec::Encode;
 use ed25519_dalek::{PublicKey, SecretKey, Signer, KEYPAIR_LENGTH, SECRET_KEY_LENGTH};
 use frame_support::weights::Weight;
-use pallet_message_lane::benchmarking::{MessageDeliveryProofParams, MessageProofParams, ProofSize};
+use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams, ProofSize};
 use sp_core::Hasher;
 use sp_runtime::traits::Header;
 use sp_std::prelude::*;

@@ -23,7 +23,7 @@
 use crate::message_lane_loop::ClientState;
 
 use async_trait::async_trait;
-use bp_message_lane::MessageNonce;
+use bp_messages::MessageNonce;
 use futures::{
 	future::FutureExt,
 	stream::{FusedStream, StreamExt},

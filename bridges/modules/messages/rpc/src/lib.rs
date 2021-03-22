@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Module that provides RPC methods specific to message-lane pallet.
+//! Module that provides RPC methods specific to messages pallet.
 
 use crate::error::{Error, FutureResult};
 
-use bp_message_lane::{LaneId, MessageNonce};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use futures::{FutureExt, TryFutureExt};
 use jsonrpc_core::futures::Future as _;
@@ -51,12 +51,12 @@ pub trait Runtime: Send + Sync + 'static {
 	fn inbound_lane_data_key(&self, instance: &InstanceId, lane: &LaneId) -> Option<StorageKey>;
 }
 
-/// Provides RPC methods for interacting with message-lane pallet.
+/// Provides RPC methods for interacting with messages pallet.
 #[rpc]
-pub trait MessageLaneApi<BlockHash> {
+pub trait MessagesApi<BlockHash> {
 	/// Returns storage proof of messages in given inclusive range. The state of outbound
 	/// lane is included in the proof if `include_outbound_lane_state` is true.
-	#[rpc(name = "messageLane_proveMessages")]
+	#[rpc(name = "messages_proveMessages")]
 	fn prove_messages(
 		&self,
 		instance: InstanceId,
@@ -68,7 +68,7 @@ pub trait MessageLaneApi<BlockHash> {
 	) -> FutureResult<MessagesProof>;
 
 	/// Returns proof-of-message(s) delivery.
-	#[rpc(name = "messageLane_proveMessagesDelivery")]
+	#[rpc(name = "messages_proveMessagesDelivery")]
 	fn prove_messages_delivery(
 		&self,
 		instance: InstanceId,
@@ -77,14 +77,14 @@ pub trait MessageLaneApi<BlockHash> {
 	) -> FutureResult<MessagesDeliveryProof>;
 }
 
-/// Implements the MessageLaneApi trait for interacting with message lanes.
-pub struct MessageLaneRpcHandler<Block, Backend, R> {
+/// Implements the MessagesApi trait for interacting with message lanes.
+pub struct MessagesRpcHandler<Block, Backend, R> {
 	backend: Arc<Backend>,
 	runtime: Arc<R>,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
-impl<Block, Backend, R> MessageLaneRpcHandler<Block, Backend, R> {
+impl<Block, Backend, R> MessagesRpcHandler<Block, Backend, R> {
 	/// Creates new mesage lane RPC handler.
 	pub fn new(backend: Arc<Backend>, runtime: Arc<R>) -> Self {
 		Self {
@@ -95,7 +95,7 @@ impl<Block, Backend, R> MessageLaneRpcHandler<Block, Backend, R> {
 	}
 }
 
-impl<Block, Backend, R> MessageLaneApi<Block::Hash> for MessageLaneRpcHandler<Block, Backend, R>
+impl<Block, Backend, R> MessagesApi<Block::Hash> for MessagesRpcHandler<Block, Backend, R>
 where
 	Block: BlockT,
 	Backend: BackendT<Block> + 'static,

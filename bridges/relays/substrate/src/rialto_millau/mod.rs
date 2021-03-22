@@ -261,9 +261,9 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 			})
 			.await?;
 
-			let millau_call = millau_runtime::Call::BridgeRialtoMessageLane(
-				millau_runtime::MessageLaneCall::send_message(lane, payload, fee),
-			);
+			let millau_call = millau_runtime::Call::BridgeRialtoMessages(millau_runtime::MessagesCall::send_message(
+				lane, payload, fee,
+			));
 
 			let signed_millau_call = Millau::sign_transaction(
 				*millau_client.genesis_hash(),
@@ -317,9 +317,9 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 			})
 			.await?;
 
-			let rialto_call = rialto_runtime::Call::BridgeMillauMessageLane(
-				rialto_runtime::MessageLaneCall::send_message(lane, payload, fee),
-			);
+			let rialto_call = rialto_runtime::Call::BridgeMillauMessages(rialto_runtime::MessagesCall::send_message(
+				lane, payload, fee,
+			));
 
 			let signed_rialto_call = Rialto::sign_transaction(
 				*rialto_client.genesis_hash(),
@@ -442,7 +442,7 @@ async fn run_derive_account(cmd: cli::DeriveAccount) -> Result<(), String> {
 async fn estimate_message_delivery_and_dispatch_fee<Fee: Decode, C: Chain, P: Encode>(
 	client: &relay_substrate_client::Client<C>,
 	estimate_fee_method: &str,
-	lane: bp_message_lane::LaneId,
+	lane: bp_messages::LaneId,
 	payload: P,
 ) -> Result<Option<Fee>, relay_substrate_client::Error> {
 	let encoded_response = client
@@ -747,7 +747,7 @@ impl cli::ToRialtoMessage {
 			cli::ToRialtoMessage::MillauSendMessage { lane, payload, fee } => {
 				let payload = cli::RialtoToMillauMessagePayload::Raw { data: payload }.into_payload()?;
 				let lane = lane.into();
-				rialto_runtime::Call::BridgeMillauMessageLane(rialto_runtime::MessageLaneCall::send_message(
+				rialto_runtime::Call::BridgeMillauMessages(rialto_runtime::MessagesCall::send_message(
 					lane, payload, fee,
 				))
 			}
@@ -784,7 +784,7 @@ impl cli::ToMillauMessage {
 			cli::ToMillauMessage::RialtoSendMessage { lane, payload, fee } => {
 				let payload = cli::MillauToRialtoMessagePayload::Raw { data: payload }.into_payload()?;
 				let lane = lane.into();
-				millau_runtime::Call::BridgeRialtoMessageLane(millau_runtime::MessageLaneCall::send_message(
+				millau_runtime::Call::BridgeRialtoMessages(millau_runtime::MessagesCall::send_message(
 					lane, payload, fee,
 				))
 			}
@@ -801,7 +801,7 @@ impl cli::ToMillauMessage {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_message_lane::source_chain::TargetHeaderChain;
+	use bp_messages::source_chain::TargetHeaderChain;
 	use sp_core::Pair;
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 

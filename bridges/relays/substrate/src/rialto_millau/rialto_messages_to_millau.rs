@@ -22,7 +22,7 @@ use crate::messages_source::SubstrateMessagesSource;
 use crate::messages_target::SubstrateMessagesTarget;
 
 use async_trait::async_trait;
-use bp_message_lane::{LaneId, MessageNonce};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::{MILLAU_BRIDGE_INSTANCE, RIALTO_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::Encode;
@@ -66,7 +66,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		let account_id = self.source_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.source_client.next_account_index(account_id).await?;
 		let call: rialto_runtime::Call =
-			rialto_runtime::MessageLaneCall::receive_messages_delivery_proof(proof, relayers_state).into();
+			rialto_runtime::MessagesCall::receive_messages_delivery_proof(proof, relayers_state).into();
 		let call_weight = call.get_dispatch_info().weight;
 		let genesis_hash = *self.source_client.genesis_hash();
 		let transaction = Rialto::sign_transaction(genesis_hash, &self.source_sign.signer, nonce, call);
@@ -96,7 +96,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		let messages_count = nonces_end - nonces_start + 1;
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
-		let call: millau_runtime::Call = millau_runtime::MessageLaneCall::receive_messages_proof(
+		let call: millau_runtime::Call = millau_runtime::MessagesCall::receive_messages_proof(
 			self.relayer_id_at_source.clone(),
 			proof,
 			messages_count as _,
@@ -147,7 +147,7 @@ pub async fn run(
 	// 2/3 is reserved for proofs and tx overhead
 	let max_messages_size_in_single_batch = bp_millau::max_extrinsic_size() as usize / 3;
 	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
-		select_delivery_transaction_limits::<pallet_message_lane::weights::RialtoWeight<rialto_runtime::Runtime>>(
+		select_delivery_transaction_limits::<pallet_bridge_messages::weights::RialtoWeight<rialto_runtime::Runtime>>(
 			bp_millau::max_extrinsic_weight(),
 			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
 		);

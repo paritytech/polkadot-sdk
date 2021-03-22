@@ -190,17 +190,17 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let prometheus_registry = config.prometheus_registry().cloned();
 
 	let rpc_extensions_builder = {
-		use bp_message_lane::{LaneId, MessageNonce};
+		use bp_messages::{LaneId, MessageNonce};
 		use bp_runtime::{InstanceId, MILLAU_BRIDGE_INSTANCE};
 		use sc_finality_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
 		use sp_core::storage::StorageKey;
 
 		// This struct is here to ease update process.
 
-		/// Rialto runtime from message-lane RPC point of view.
-		struct RialtoMessageLaneKeys;
+		/// Rialto runtime from messages RPC point of view.
+		struct RialtoMessagesKeys;
 
-		impl pallet_message_lane_rpc::Runtime for RialtoMessageLaneKeys {
+		impl pallet_bridge_messages_rpc::Runtime for RialtoMessagesKeys {
 			fn message_key(&self, instance: &InstanceId, lane: &LaneId, nonce: MessageNonce) -> Option<StorageKey> {
 				match *instance {
 					MILLAU_BRIDGE_INSTANCE => Some(rialto_runtime::millau_messages::message_key(lane, nonce)),
@@ -223,7 +223,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			}
 		}
 
-		use pallet_message_lane_rpc::{MessageLaneApi, MessageLaneRpcHandler};
+		use pallet_bridge_messages_rpc::{MessagesApi, MessagesRpcHandler};
 		use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 		use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
 		use sc_rpc::DenyUnsafe;
@@ -257,9 +257,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				subscription_executor,
 				finality_proof_provider.clone(),
 			)));
-			io.extend_with(MessageLaneApi::to_delegate(MessageLaneRpcHandler::new(
+			io.extend_with(MessagesApi::to_delegate(MessagesRpcHandler::new(
 				backend.clone(),
-				Arc::new(RialtoMessageLaneKeys),
+				Arc::new(RialtoMessagesKeys),
 			)));
 
 			io

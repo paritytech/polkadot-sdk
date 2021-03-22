@@ -22,7 +22,7 @@ use crate::messages_lane::SubstrateMessageLane;
 use crate::messages_source::read_client_state;
 
 use async_trait::async_trait;
-use bp_message_lane::{LaneId, MessageNonce, UnrewardedRelayersState};
+use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::InstanceId;
 use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use codec::{Decode, Encode};

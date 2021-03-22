@@ -44,11 +44,11 @@ use crate::inbound_lane::{InboundLane, InboundLaneStorage};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
 use crate::weights::WeightInfo;
 
-use bp_message_lane::{
+use bp_messages::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload,
-	OutboundLaneData, Parameter as MessageLaneParameter, UnrewardedRelayersState,
+	OutboundLaneData, Parameter as MessagesParameter, UnrewardedRelayersState,
 };
 use bp_runtime::Size;
 use codec::{Decode, Encode};
@@ -88,7 +88,7 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// for integrating the pallet.
 	///
 	/// All pallet parameters may only be updated either by the root, or by the pallet owner.
-	type Parameter: MessageLaneParameter;
+	type Parameter: MessagesParameter;
 
 	/// Maximal number of messages that may be pruned during maintenance. Maintenance occurs
 	/// whenever new message is sent. The reason is that if you want to use lane, you should
@@ -188,7 +188,7 @@ decl_error! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as MessageLane {
+	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as BridgeMessages {
 		/// Optional pallet owner.
 		///
 		/// Pallet owner has a right to halt all pallet operations and then resume it. If it is
@@ -255,11 +255,11 @@ decl_module! {
 			match new_owner {
 				Some(new_owner) => {
 					ModuleOwner::<T, I>::put(&new_owner);
-					log::info!("Setting pallet Owner to: {:?}", new_owner);
+					log::info!(target: "runtime::bridge-messages", "Setting pallet Owner to: {:?}", new_owner);
 				},
 				None => {
 					ModuleOwner::<T, I>::kill();
-					log::info!("Removed Owner of pallet.");
+					log::info!(target: "runtime::bridge-messages", "Removed Owner of pallet.");
 				},
 			}
 		}
@@ -273,9 +273,9 @@ decl_module! {
 			<IsHalted<I>>::put(operational);
 
 			if operational {
-				log::info!("Resuming pallet operations.");
+				log::info!(target: "runtime::bridge-messages", "Resuming pallet operations.");
 			} else {
-				log::warn!("Stopping pallet operations.");
+				log::warn!(target: "runtime::bridge-messages", "Stopping pallet operations.");
 			}
 		}
 
@@ -306,6 +306,7 @@ decl_module! {
 			T::TargetHeaderChain::verify_message(&payload)
 				.map_err(|err| {
 					log::trace!(
+						target: "runtime::bridge-messages",
 						"Message to lane {:?} is rejected by target chain: {:?}",
 						lane_id,
 						err,
@@ -324,6 +325,7 @@ decl_module! {
 				&payload,
 			).map_err(|err| {
 				log::trace!(
+					target: "runtime::bridge-messages",
 					"Message to lane {:?} is rejected by lane verifier: {:?}",
 					lane_id,
 					err,
@@ -339,6 +341,7 @@ decl_module! {
 				&Self::relayer_fund_account_id(),
 			).map_err(|err| {
 				log::trace!(
+					target: "runtime::bridge-messages",
 					"Message to lane {:?} is rejected because submitter {:?} is unable to pay fee {:?}: {:?}",
 					lane_id,
 					submitter,
@@ -359,6 +362,7 @@ decl_module! {
 			lane.prune_messages(T::MaxMessagesToPruneAtOnce::get());
 
 			log::trace!(
+				target: "runtime::bridge-messages",
 				"Accepted message {} to lane {:?}. Message size: {:?}",
 				nonce,
 				lane_id,
@@ -395,6 +399,7 @@ decl_module! {
 				&Self::relayer_fund_account_id(),
 			).map_err(|err| {
 				log::trace!(
+					target: "runtime::bridge-messages",
 					"Submitter {:?} can't pay additional fee {:?} for the message {:?}/{:?}: {:?}",
 					submitter,
 					additional_fee,
@@ -451,6 +456,7 @@ decl_module! {
 			>(proof, messages_count)
 				.map_err(|err| {
 					log::trace!(
+						target: "runtime::bridge-messages",
 						"Rejecting invalid messages proof: {:?}",
 						err,
 					);
@@ -470,6 +476,7 @@ decl_module! {
 				.fold(0, |sum, weight| sum.saturating_add(weight));
 			if dispatch_weight < actual_dispatch_weight {
 				log::trace!(
+					target: "runtime::bridge-messages",
 					"Rejecting messages proof because of dispatch weight mismatch: declared={}, expected={}",
 					dispatch_weight,
 					actual_dispatch_weight,
@@ -488,6 +495,7 @@ decl_module! {
 					let updated_latest_confirmed_nonce = lane.receive_state_update(lane_state);
 					if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
 						log::trace!(
+							target: "runtime::bridge-messages",
 							"Received lane {:?} state update: latest_confirmed_nonce={}",
 							lane_id,
 							updated_latest_confirmed_nonce,
@@ -506,6 +514,7 @@ decl_module! {
 			}
 
 			log::trace!(
+				target: "runtime::bridge-messages",
 				"Received messages: total={}, valid={}",
 				total_messages,
 				valid_messages,
@@ -526,6 +535,7 @@ decl_module! {
 			let confirmation_relayer = ensure_signed(origin)?;
 			let (lane_id, lane_data) = T::TargetHeaderChain::verify_messages_delivery_proof(proof).map_err(|err| {
 				log::trace!(
+					target: "runtime::bridge-messages",
 					"Rejecting invalid messages delivery proof: {:?}",
 					err,
 				);
@@ -581,6 +591,7 @@ decl_module! {
 			}
 
 			log::trace!(
+				target: "runtime::bridge-messages",
 				"Received messages delivery proof up to (and including) {} at lane {:?}",
 				last_delivered_nonce,
 				lane_id,
@@ -618,11 +629,9 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 	}
 
 	/// Get state of unrewarded relayers set.
-	pub fn inbound_unrewarded_relayers_state(
-		lane: bp_message_lane::LaneId,
-	) -> bp_message_lane::UnrewardedRelayersState {
+	pub fn inbound_unrewarded_relayers_state(lane: bp_messages::LaneId) -> bp_messages::UnrewardedRelayersState {
 		let relayers = InboundLanes::<T, I>::get(&lane).relayers;
-		bp_message_lane::UnrewardedRelayersState {
+		bp_messages::UnrewardedRelayersState {
 			unrewarded_relayer_entries: relayers.len() as _,
 			messages_in_oldest_entry: relayers.front().map(|(begin, end, _)| 1 + end - begin).unwrap_or(0),
 			total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
@@ -838,11 +847,12 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, Dispatch
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, run_test, Event as TestEvent, Origin, TestMessageDeliveryAndDispatchPayment, TestMessageLaneParameter,
-		TestMessagesDeliveryProof, TestMessagesProof, TestPayload, TestRuntime, TokenConversionRate,
-		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
+		message, run_test, Event as TestEvent, Origin, TestMessageDeliveryAndDispatchPayment,
+		TestMessagesDeliveryProof, TestMessagesParameter, TestMessagesProof, TestPayload, TestRuntime,
+		TokenConversionRate, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A,
+		TEST_RELAYER_B,
 	};
-	use bp_message_lane::UnrewardedRelayersState;
+	use bp_messages::UnrewardedRelayersState;
 	use frame_support::{assert_noop, assert_ok};
 	use frame_system::{EventRecord, Module as System, Phase};
 	use hex_literal::hex;
@@ -868,7 +878,7 @@ mod tests {
 			System::<TestRuntime>::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: TestEvent::pallet_message_lane(RawEvent::MessageAccepted(TEST_LANE_ID, 1)),
+				event: TestEvent::pallet_bridge_messages(RawEvent::MessageAccepted(TEST_LANE_ID, 1)),
 				topics: vec![],
 			}],
 		);
@@ -897,7 +907,7 @@ mod tests {
 			System::<TestRuntime>::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: TestEvent::pallet_message_lane(RawEvent::MessagesDelivered(TEST_LANE_ID, 1, 1)),
+				event: TestEvent::pallet_bridge_messages(RawEvent::MessagesDelivered(TEST_LANE_ID, 1, 1)),
 				topics: vec![],
 			}],
 		);
@@ -966,7 +976,7 @@ mod tests {
 		run_test(|| {
 			get_ready_for_events();
 
-			let parameter = TestMessageLaneParameter::TokenConversionRate(10.into());
+			let parameter = TestMessagesParameter::TokenConversionRate(10.into());
 			assert_ok!(Module::<TestRuntime>::update_pallet_parameter(
 				Origin::root(),
 				parameter.clone(),
@@ -977,7 +987,7 @@ mod tests {
 				System::<TestRuntime>::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::pallet_message_lane(RawEvent::ParameterUpdated(parameter)),
+					event: TestEvent::pallet_bridge_messages(RawEvent::ParameterUpdated(parameter)),
 					topics: vec![],
 				}],
 			);
@@ -990,7 +1000,7 @@ mod tests {
 			ModuleOwner::<TestRuntime>::put(2);
 			get_ready_for_events();
 
-			let parameter = TestMessageLaneParameter::TokenConversionRate(10.into());
+			let parameter = TestMessagesParameter::TokenConversionRate(10.into());
 			assert_ok!(Module::<TestRuntime>::update_pallet_parameter(
 				Origin::signed(2),
 				parameter.clone(),
@@ -1001,7 +1011,7 @@ mod tests {
 				System::<TestRuntime>::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::pallet_message_lane(RawEvent::ParameterUpdated(parameter)),
+					event: TestEvent::pallet_bridge_messages(RawEvent::ParameterUpdated(parameter)),
 					topics: vec![],
 				}],
 			);
@@ -1014,7 +1024,7 @@ mod tests {
 			assert_noop!(
 				Module::<TestRuntime>::update_pallet_parameter(
 					Origin::signed(2),
-					TestMessageLaneParameter::TokenConversionRate(10.into()),
+					TestMessagesParameter::TokenConversionRate(10.into()),
 				),
 				DispatchError::BadOrigin,
 			);
@@ -1024,7 +1034,7 @@ mod tests {
 			assert_noop!(
 				Module::<TestRuntime>::update_pallet_parameter(
 					Origin::signed(1),
-					TestMessageLaneParameter::TokenConversionRate(10.into()),
+					TestMessagesParameter::TokenConversionRate(10.into()),
 				),
 				DispatchError::BadOrigin,
 			);
@@ -1469,9 +1479,12 @@ mod tests {
 	fn storage_message_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking all
 		// previously crafted messages proofs.
+		let storage_key = storage_keys::message_key::<TestRuntime, DefaultInstance>(&*b"test", 42).0;
 		assert_eq!(
-			storage_keys::message_key::<TestRuntime, DefaultInstance>(&*b"test", 42).0,
-			hex!("87f1ffe31b52878f09495ca7482df1a48a395e6242c6813b196ca31ed0547ea79446af0e09063bd4a7874aef8a997cec746573742a00000000000000").to_vec(),
+			storage_key,
+			hex!("dd16c784ebd3390a9bc0357c7511ed018a395e6242c6813b196ca31ed0547ea79446af0e09063bd4a7874aef8a997cec746573742a00000000000000").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
 		);
 	}
 
@@ -1479,9 +1492,12 @@ mod tests {
 	fn outbound_lane_data_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking all
 		// previously crafted outbound lane state proofs.
+		let storage_key = storage_keys::outbound_lane_data_key::<DefaultInstance>(&*b"test").0;
 		assert_eq!(
-			storage_keys::outbound_lane_data_key::<DefaultInstance>(&*b"test").0,
-			hex!("87f1ffe31b52878f09495ca7482df1a496c246acb9b55077390e3ca723a0ca1f44a8995dd50b6657a037a7839304535b74657374").to_vec(),
+			storage_key,
+			hex!("dd16c784ebd3390a9bc0357c7511ed0196c246acb9b55077390e3ca723a0ca1f44a8995dd50b6657a037a7839304535b74657374").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
 		);
 	}
 
@@ -1489,9 +1505,12 @@ mod tests {
 	fn inbound_lane_data_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking all
 		// previously crafted inbound lane state proofs.
+		let storage_key = storage_keys::inbound_lane_data_key::<TestRuntime, DefaultInstance>(&*b"test").0;
 		assert_eq!(
-			storage_keys::inbound_lane_data_key::<TestRuntime, DefaultInstance>(&*b"test").0,
-			hex!("87f1ffe31b52878f09495ca7482df1a4e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374").to_vec(),
+			storage_key,
+			hex!("dd16c784ebd3390a9bc0357c7511ed01e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
 		);
 	}
 

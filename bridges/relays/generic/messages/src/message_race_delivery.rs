@@ -26,7 +26,7 @@ use crate::message_race_strategy::BasicStrategy;
 use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
-use bp_message_lane::{MessageNonce, UnrewardedRelayersState, Weight};
+use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
 use futures::stream::FusedStream;
 use relay_utils::FailedClient;
 use std::{

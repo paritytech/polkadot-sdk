@@ -19,7 +19,7 @@
 //! The payment is first transferred to a special `relayers-fund` account and only transferred
 //! to the actual relayer in case confirmation is received.
 
-use bp_message_lane::{
+use bp_messages::{
 	source_chain::{MessageDeliveryAndDispatchPayment, RelayersRewards, Sender},
 	MessageNonce,
 };
@@ -168,13 +168,13 @@ fn pay_relayer_reward<Currency, AccountId>(
 
 	match pay_result {
 		Ok(_) => log::trace!(
-			target: "runtime",
+			target: "runtime::bridge-messages",
 			"Rewarded relayer {:?} with {:?}",
 			relayer_account,
 			reward,
 		),
 		Err(error) => log::trace!(
-			target: "runtime",
+			target: "runtime::bridge-messages",
 			"Failed to pay relayer {:?} reward {:?}: {:?}",
 			relayer_account,
 			reward,
@@ -187,7 +187,7 @@ fn pay_relayer_reward<Currency, AccountId>(
 mod tests {
 	use super::*;
 	use crate::mock::{run_test, AccountId as TestAccountId, Balance as TestBalance, TestRuntime};
-	use bp_message_lane::source_chain::RelayerRewards;
+	use bp_messages::source_chain::RelayerRewards;
 
 	type Balances = pallet_balances::Module<TestRuntime>;
 

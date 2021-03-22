@@ -11,7 +11,7 @@ Every message that is being dispatched has three main characteristics:
   identifier of the bridged chain (like `b"rlto"` for messages coming from `Rialto`), or the
   identifier of the bridge itself (`b"rimi"` for `Rialto` <-> `Millau` bridge);
 - `id` is the unique id of the message within the given bridge. For messages coming from the
-  [message lane module](../message-lane/README.md), it may worth to use a tuple
+  [messages module](../messages/README.md), it may worth to use a tuple
   `(LaneId, MessageNonce)` to identify a message;
 - `message` is the `pallet_bridge_call_dispatch::MessagePayload` structure. The `call` field is set
   to the (potentially) encoded `Call` of this chain.
@@ -52,7 +52,7 @@ When we talk about module in context of bridges, these events are helping in fol
 
 1. when the message submitter has access to the state of both chains and wants to monitor what has
    happened with his message. Then he could use the message id (that he gets from the
-   [message lane module events](../message-lane/README.md#General-Information)) to filter events of
+   [messages module events](../messages/README.md#General-Information)) to filter events of
    call dispatch module at the target chain and actually see what has happened with his message;
 
 1. when the message submitter only has access to the source chain state (for example, when sender is

@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Message lane pallet benchmarking.
+//! Messages pallet benchmarking.
 
 use crate::weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH;
 use crate::{inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane, Call, Instance};
 
-use bp_message_lane::{
+use bp_messages::{
 	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, InboundLaneData, LaneId, MessageData,
 	MessageNonce, OutboundLaneData, UnrewardedRelayersState,
 };

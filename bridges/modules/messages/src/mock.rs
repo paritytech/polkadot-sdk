@@ -19,13 +19,13 @@
 
 use crate::Config;
 
-use bp_message_lane::{
+use bp_messages::{
 	source_chain::{
 		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, Sender, TargetHeaderChain,
 	},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
-	Parameter as MessageLaneParameter,
+	Parameter as MessagesParameter,
 };
 use bp_runtime::Size;
 use codec::{Decode, Encode};
@@ -56,7 +56,7 @@ impl sp_runtime::traits::Convert<H256, AccountId> for AccountIdConverter {
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
-use crate as pallet_message_lane;
+use crate as pallet_bridge_messages;
 
 frame_support::construct_runtime! {
 	pub enum TestRuntime where
@@ -66,7 +66,7 @@ frame_support::construct_runtime! {
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Module, Call, Event<T>},
-		MessageLane: pallet_message_lane::{Module, Call, Event<T>},
+		Messages: pallet_bridge_messages::{Module, Call, Event<T>},
 	}
 }
 
@@ -124,16 +124,14 @@ parameter_types! {
 }
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-pub enum TestMessageLaneParameter {
+pub enum TestMessagesParameter {
 	TokenConversionRate(FixedU128),
 }
 
-impl MessageLaneParameter for TestMessageLaneParameter {
+impl MessagesParameter for TestMessagesParameter {
 	fn save(&self) {
 		match *self {
-			TestMessageLaneParameter::TokenConversionRate(conversion_rate) => {
-				TokenConversionRate::set(&conversion_rate)
-			}
+			TestMessagesParameter::TokenConversionRate(conversion_rate) => TokenConversionRate::set(&conversion_rate),
 		}
 	}
 }
@@ -141,7 +139,7 @@ impl MessageLaneParameter for TestMessageLaneParameter {
 impl Config for TestRuntime {
 	type Event = Event;
 	type WeightInfo = ();
-	type Parameter = TestMessageLaneParameter;
+	type Parameter = TestMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
@@ -390,7 +388,7 @@ pub fn message_data(payload: TestPayload) -> MessageData<TestMessageFee> {
 	}
 }
 
-/// Run message lane test.
+/// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 	let mut t = frame_system::GenesisConfig::default()
 		.build_storage::<TestRuntime>()

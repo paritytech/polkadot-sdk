@@ -70,8 +70,8 @@ pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_bridge_currency_exchange::Call as BridgeCurrencyExchangeCall;
 pub use pallet_bridge_eth_poa::Call as BridgeEthPoACall;
+pub use pallet_bridge_messages::Call as MessagesCall;
 pub use pallet_finality_verifier::Call as FinalityBridgeMillauCall;
-pub use pallet_message_lane::Call as MessageLaneCall;
 pub use pallet_substrate_bridge::Call as BridgeMillauCall;
 pub use pallet_sudo::Call as SudoCall;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -259,7 +259,7 @@ impl pallet_bridge_currency_exchange::Config<KovanCurrencyExchange> for Runtime 
 
 impl pallet_bridge_call_dispatch::Config for Runtime {
 	type Event = Event;
-	type MessageId = (bp_message_lane::LaneId, bp_message_lane::MessageNonce);
+	type MessageId = (bp_messages::LaneId, bp_messages::MessageNonce);
 	type Call = Call;
 	type CallFilter = ();
 	type EncodedCall = crate::millau_messages::FromMillauEncodedCall;
@@ -427,10 +427,10 @@ impl pallet_finality_verifier::Config for Runtime {
 impl pallet_shift_session_manager::Config for Runtime {}
 
 parameter_types! {
-	pub const MaxMessagesToPruneAtOnce: bp_message_lane::MessageNonce = 8;
-	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_message_lane::MessageNonce =
+	pub const MaxMessagesToPruneAtOnce: bp_messages::MessageNonce = 8;
+	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
 		bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE;
-	pub const MaxUnconfirmedMessagesAtInboundLane: bp_message_lane::MessageNonce =
+	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE;
 	// `IdentityFee` is used by Rialto => we may use weight directly
 	pub const GetDeliveryConfirmationTransactionFee: Balance =
@@ -438,11 +438,11 @@ parameter_types! {
 	pub const RootAccountForPayments: Option<AccountId> = None;
 }
 
-pub(crate) type WithMillauMessageLaneInstance = pallet_message_lane::DefaultInstance;
-impl pallet_message_lane::Config for Runtime {
+pub(crate) type WithMillauMessagesInstance = pallet_bridge_messages::DefaultInstance;
+impl pallet_bridge_messages::Config for Runtime {
 	type Event = Event;
-	type WeightInfo = pallet_message_lane::weights::RialtoWeight<Runtime>;
-	type Parameter = millau_messages::RialtoToMillauMessageLaneParameter;
+	type WeightInfo = pallet_bridge_messages::weights::RialtoWeight<Runtime>;
+	type Parameter = millau_messages::RialtoToMillauMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
@@ -458,7 +458,7 @@ impl pallet_message_lane::Config for Runtime {
 
 	type TargetHeaderChain = crate::millau_messages::Millau;
 	type LaneMessageVerifier = crate::millau_messages::ToMillauMessageVerifier;
-	type MessageDeliveryAndDispatchPayment = pallet_message_lane::instant_payments::InstantCurrencyPayments<
+	type MessageDeliveryAndDispatchPayment = pallet_bridge_messages::instant_payments::InstantCurrencyPayments<
 		Runtime,
 		pallet_balances::Module<Runtime>,
 		GetDeliveryConfirmationTransactionFee,
@@ -482,7 +482,7 @@ construct_runtime!(
 		BridgeMillau: pallet_substrate_bridge::{Module, Call, Storage, Config<T>},
 		BridgeFinalityVerifier: pallet_finality_verifier::{Module, Call},
 		BridgeCallDispatch: pallet_bridge_call_dispatch::{Module, Event<T>},
-		BridgeMillauMessageLane: pallet_message_lane::{Module, Call, Storage, Event<T>},
+		BridgeMillauMessages: pallet_bridge_messages::{Module, Call, Storage, Event<T>},
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
@@ -746,7 +746,7 @@ impl_runtime_apis! {
 
 	impl bp_millau::ToMillauOutboundLaneApi<Block, Balance, ToMillauMessagePayload> for Runtime {
 		fn estimate_message_delivery_and_dispatch_fee(
-			_lane_id: bp_message_lane::LaneId,
+			_lane_id: bp_messages::LaneId,
 			payload: ToMillauMessagePayload,
 		) -> Option<Balance> {
 			estimate_message_dispatch_and_delivery_fee::<WithMillauMessageBridge>(
@@ -756,12 +756,12 @@ impl_runtime_apis! {
 		}
 
 		fn messages_dispatch_weight(
-			lane: bp_message_lane::LaneId,
-			begin: bp_message_lane::MessageNonce,
-			end: bp_message_lane::MessageNonce,
-		) -> Vec<(bp_message_lane::MessageNonce, Weight, u32)> {
+			lane: bp_messages::LaneId,
+			begin: bp_messages::MessageNonce,
+			end: bp_messages::MessageNonce,
+		) -> Vec<(bp_messages::MessageNonce, Weight, u32)> {
 			(begin..=end).filter_map(|nonce| {
-				let encoded_payload = BridgeMillauMessageLane::outbound_message_payload(lane, nonce)?;
+				let encoded_payload = BridgeMillauMessages::outbound_message_payload(lane, nonce)?;
 				let decoded_payload = millau_messages::ToMillauMessagePayload::decode(
 					&mut &encoded_payload[..]
 				).ok()?;
@@ -770,26 +770,26 @@ impl_runtime_apis! {
 			.collect()
 		}
 
-		fn latest_received_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
-			BridgeMillauMessageLane::outbound_latest_received_nonce(lane)
+		fn latest_received_nonce(lane: bp_messages::LaneId) -> bp_messages::MessageNonce {
+			BridgeMillauMessages::outbound_latest_received_nonce(lane)
 		}
 
-		fn latest_generated_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
-			BridgeMillauMessageLane::outbound_latest_generated_nonce(lane)
+		fn latest_generated_nonce(lane: bp_messages::LaneId) -> bp_messages::MessageNonce {
+			BridgeMillauMessages::outbound_latest_generated_nonce(lane)
 		}
 	}
 
 	impl bp_millau::FromMillauInboundLaneApi<Block> for Runtime {
-		fn latest_received_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
-			BridgeMillauMessageLane::inbound_latest_received_nonce(lane)
+		fn latest_received_nonce(lane: bp_messages::LaneId) -> bp_messages::MessageNonce {
+			BridgeMillauMessages::inbound_latest_received_nonce(lane)
 		}
 
-		fn latest_confirmed_nonce(lane: bp_message_lane::LaneId) -> bp_message_lane::MessageNonce {
-			BridgeMillauMessageLane::inbound_latest_confirmed_nonce(lane)
+		fn latest_confirmed_nonce(lane: bp_messages::LaneId) -> bp_messages::MessageNonce {
+			BridgeMillauMessages::inbound_latest_confirmed_nonce(lane)
 		}
 
-		fn unrewarded_relayers_state(lane: bp_message_lane::LaneId) -> bp_message_lane::UnrewardedRelayersState {
-			BridgeMillauMessageLane::inbound_unrewarded_relayers_state(lane)
+		fn unrewarded_relayers_state(lane: bp_messages::LaneId) -> bp_messages::UnrewardedRelayersState {
+			BridgeMillauMessages::inbound_unrewarded_relayers_state(lane)
 		}
 	}
 
@@ -857,16 +857,16 @@ impl_runtime_apis! {
 
 			use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
 			use bridge_runtime_common::messages;
-			use pallet_message_lane::benchmarking::{
-				Module as MessageLaneBench,
-				Config as MessageLaneConfig,
-				MessageDeliveryProofParams as MessageLaneMessageDeliveryProofParams,
-				MessageParams as MessageLaneMessageParams,
-				MessageProofParams as MessageLaneMessageProofParams,
-				ProofSize as MessageLaneProofSize,
+			use pallet_bridge_messages::benchmarking::{
+				Module as MessagesBench,
+				Config as MessagesConfig,
+				MessageDeliveryProofParams,
+				MessageParams,
+				MessageProofParams,
+				ProofSize as MessagesProofSize,
 			};
 
-			impl MessageLaneConfig<WithMillauMessageLaneInstance> for Runtime {
+			impl MessagesConfig<WithMillauMessagesInstance> for Runtime {
 				fn maximal_message_size() -> u32 {
 					messages::source::maximal_message_size::<WithMillauMessageBridge>()
 				}
@@ -887,7 +887,7 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_outbound_message(
-					params: MessageLaneMessageParams<Self::AccountId>,
+					params: MessageParams<Self::AccountId>,
 				) -> (millau_messages::ToMillauMessagePayload, Balance) {
 					let message_payload = vec![0; params.size as usize];
 					let dispatch_origin = pallet_bridge_call_dispatch::CallOrigin::SourceAccount(
@@ -900,25 +900,25 @@ impl_runtime_apis! {
 						origin: dispatch_origin,
 						call: message_payload,
 					};
-					(message, pallet_message_lane::benchmarking::MESSAGE_FEE.into())
+					(message, pallet_bridge_messages::benchmarking::MESSAGE_FEE.into())
 				}
 
 				fn prepare_message_proof(
-					params: MessageLaneMessageProofParams,
+					params: MessageProofParams,
 				) -> (millau_messages::FromMillauMessagesProof, Weight) {
 					use crate::millau_messages::{Millau, WithMillauMessageBridge};
-					use bp_message_lane::MessageKey;
+					use bp_messages::MessageKey;
 					use bridge_runtime_common::{
-						messages::ChainWithMessageLanes,
+						messages::ChainWithMessages,
 						messages_benchmarking::{ed25519_sign, prepare_message_proof},
 					};
 					use codec::Encode;
 					use frame_support::weights::GetDispatchInfo;
-					use pallet_message_lane::storage_keys;
+					use pallet_bridge_messages::storage_keys;
 					use sp_runtime::traits::Header;
 
 					let remark = match params.size {
-						MessageLaneProofSize::Minimal(ref size) => vec![0u8; *size as _],
+						MessagesProofSize::Minimal(ref size) => vec![0u8; *size as _],
 						_ => vec![],
 					};
 					let call = Call::System(SystemCall::remark(remark));
@@ -936,12 +936,12 @@ impl_runtime_apis! {
 
 					let make_millau_message_key = |message_key: MessageKey| storage_keys::message_key::<
 						Runtime,
-						<Millau as ChainWithMessageLanes>::MessageLaneInstance,
+						<Millau as ChainWithMessages>::MessagesInstance,
 					>(
 						&message_key.lane_id, message_key.nonce,
 					).0;
 					let make_millau_outbound_lane_data_key = |lane_id| storage_keys::outbound_lane_data_key::<
-						<Millau as ChainWithMessageLanes>::MessageLaneInstance,
+						<Millau as ChainWithMessages>::MessagesInstance,
 					>(
 						&lane_id,
 					).0;
@@ -977,20 +977,20 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_message_delivery_proof(
-					params: MessageLaneMessageDeliveryProofParams<Self::AccountId>,
+					params: MessageDeliveryProofParams<Self::AccountId>,
 				) -> millau_messages::ToMillauMessagesDeliveryProof {
 					use crate::millau_messages::{Millau, WithMillauMessageBridge};
 					use bridge_runtime_common::{
-						messages::ChainWithMessageLanes,
+						messages::ChainWithMessages,
 						messages_benchmarking::prepare_message_delivery_proof,
 					};
 					use sp_runtime::traits::Header;
 
 					prepare_message_delivery_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, (), _, _>(
 						params,
-						|lane_id| pallet_message_lane::storage_keys::inbound_lane_data_key::<
+						|lane_id| pallet_bridge_messages::storage_keys::inbound_lane_data_key::<
 							Runtime,
-							<Millau as ChainWithMessageLanes>::MessageLaneInstance,
+							<Millau as ChainWithMessages>::MessagesInstance,
 						>(
 							&lane_id,
 						).0,
@@ -1015,8 +1015,8 @@ impl_runtime_apis! {
 			add_benchmark!(
 				params,
 				batches,
-				pallet_message_lane,
-				MessageLaneBench::<Runtime, WithMillauMessageLaneInstance>
+				pallet_bridge_messages,
+				MessagesBench::<Runtime, WithMillauMessagesInstance>
 			);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
@@ -1091,9 +1091,9 @@ mod tests {
 
 	#[test]
 	fn ensure_rialto_message_lane_weights_are_correct() {
-		type Weights = pallet_message_lane::weights::RialtoWeight<Runtime>;
+		type Weights = pallet_bridge_messages::weights::RialtoWeight<Runtime>;
 
-		pallet_message_lane::ensure_weights_are_correct::<Weights>(
+		pallet_bridge_messages::ensure_weights_are_correct::<Weights>(
 			bp_rialto::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,
 			bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT,
 			bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
@@ -1102,19 +1102,19 @@ mod tests {
 		let max_incoming_message_proof_size = bp_millau::EXTRA_STORAGE_PROOF_SIZE.saturating_add(
 			messages::target::maximal_incoming_message_size(bp_rialto::max_extrinsic_size()),
 		);
-		pallet_message_lane::ensure_able_to_receive_message::<Weights>(
+		pallet_bridge_messages::ensure_able_to_receive_message::<Weights>(
 			bp_rialto::max_extrinsic_size(),
 			bp_rialto::max_extrinsic_weight(),
 			max_incoming_message_proof_size,
 			messages::target::maximal_incoming_message_dispatch_weight(bp_rialto::max_extrinsic_weight()),
 		);
 
-		let max_incoming_inbound_lane_data_proof_size = bp_message_lane::InboundLaneData::<()>::encoded_size_hint(
+		let max_incoming_inbound_lane_data_proof_size = bp_messages::InboundLaneData::<()>::encoded_size_hint(
 			bp_rialto::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
 			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE as _,
 		)
 		.unwrap_or(u32::MAX);
-		pallet_message_lane::ensure_able_to_receive_confirmation::<Weights>(
+		pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights>(
 			bp_rialto::max_extrinsic_size(),
 			bp_rialto::max_extrinsic_weight(),
 			max_incoming_inbound_lane_data_proof_size,

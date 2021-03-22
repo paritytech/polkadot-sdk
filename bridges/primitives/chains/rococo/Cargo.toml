@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 
 # Bridge Dependencies
-bp-message-lane = { path = "../../message-lane", default-features = false }
+bp-messages = { path = "../../messages", default-features = false }
 bp-polkadot-core = { path = "../../polkadot-core", default-features = false }
 bp-runtime = { path = "../../runtime", default-features = false }
 
@@ -20,7 +20,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 [features]
 default = ["std"]
 std = [
-	"bp-message-lane/std",
+	"bp-messages/std",
 	"bp-polkadot-core/std",
 	"bp-runtime/std",
 	"sp-api/std",

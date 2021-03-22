@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Primitives of message lane module, that are used on the source chain.
+//! Primitives of messages module, that are used on the source chain.
 
 use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
 
