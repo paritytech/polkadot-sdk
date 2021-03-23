@@ -142,7 +142,6 @@ decl_module! {
 		#[weight = (0, DispatchClass::Operational)]
 		pub fn schedule_upgrade(origin, validation_function: Vec<u8>) {
 			ensure_root(origin)?;
-			<frame_system::Module<T>>::can_set_code(&validation_function)?;
 			Self::schedule_upgrade_impl(validation_function)?;
 		}
 
@@ -909,8 +908,8 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			ParachainSystem: parachain_system::{Module, Call, Storage, Event},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			ParachainSystem: parachain_system::{Pallet, Call, Storage, Event},
 		}
 	);
 

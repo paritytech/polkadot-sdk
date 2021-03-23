@@ -28,7 +28,7 @@ use sp_inherents::InherentDataProviders;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT},
-	Justification,
+	Justifications,
 };
 
 /// A verifier that just checks the inherents.
@@ -48,7 +48,7 @@ where
 		&mut self,
 		origin: BlockOrigin,
 		header: Block::Header,
-		justification: Option<Justification>,
+		justifications: Option<Justifications>,
 		mut body: Option<Vec<Block::Extrinsic>>,
 	) -> Result<
 		(
@@ -88,7 +88,7 @@ where
 		let post_hash = Some(header.hash());
 		let mut block_import_params = BlockImportParams::new(origin, header);
 		block_import_params.body = body;
-		block_import_params.justification = justification;
+		block_import_params.justifications = justifications;
 
 		// Best block is determined by the relay chain, or if we are doing the intial sync
 		// we import all blocks as new best.
