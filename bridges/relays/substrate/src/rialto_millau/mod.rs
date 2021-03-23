@@ -115,6 +115,9 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 				.next_account_index(millau_sign.signer.public().into())
 				.await?;
 
+			// at Westend -> Millau initialization we're not using sudo, because otherwise our deployments
+			// may fail, because we need to initialize both Rialto -> Millau and Westend -> Millau bridge.
+			// => since there's single possible sudo account, one of transaction may fail with duplicate nonce error
 			crate::headers_initialize::initialize(westend_client, millau_client.clone(), move |initialization_data| {
 				let initialize_call = millau_runtime::FinalityBridgeWestendCall::<
 					millau_runtime::Runtime,
@@ -126,7 +129,7 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 						*millau_client.genesis_hash(),
 						&millau_sign.signer,
 						millau_signer_next_index,
-						millau_runtime::SudoCall::sudo(Box::new(initialize_call.into())).into(),
+						initialize_call.into(),
 					)
 					.encode(),
 				))
