@@ -33,7 +33,7 @@ pub type WestendClient = relay_substrate_client::Client<Westend>;
 use crate::cli::{ExplicitOrMaximal, HexBytes, Origins};
 use codec::{Decode, Encode};
 use frame_support::weights::{GetDispatchInfo, Weight};
-use pallet_bridge_call_dispatch::{CallOrigin, MessagePayload};
+use pallet_bridge_dispatch::{CallOrigin, MessagePayload};
 use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
 use relay_substrate_client::{Chain, ConnectionParams, TransactionSignScheme};
@@ -64,7 +64,7 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 						&rialto_sign.signer,
 						rialto_signer_next_index,
 						rialto_runtime::SudoCall::sudo(Box::new(
-							rialto_runtime::FinalityBridgeMillauCall::initialize(initialization_data).into(),
+							rialto_runtime::BridgeGrandpaMillauCall::initialize(initialization_data).into(),
 						))
 						.into(),
 					)
@@ -86,9 +86,9 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 				.await?;
 
 			crate::headers_initialize::initialize(rialto_client, millau_client.clone(), move |initialization_data| {
-				let initialize_call = millau_runtime::FinalityBridgeRialtoCall::<
+				let initialize_call = millau_runtime::BridgeGrandpaRialtoCall::<
 					millau_runtime::Runtime,
-					millau_runtime::RialtoFinalityVerifierInstance,
+					millau_runtime::RialtoGrandpaInstance,
 				>::initialize(initialization_data);
 
 				Ok(Bytes(
@@ -119,9 +119,9 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 			// may fail, because we need to initialize both Rialto -> Millau and Westend -> Millau bridge.
 			// => since there's single possible sudo account, one of transaction may fail with duplicate nonce error
 			crate::headers_initialize::initialize(westend_client, millau_client.clone(), move |initialization_data| {
-				let initialize_call = millau_runtime::FinalityBridgeWestendCall::<
+				let initialize_call = millau_runtime::BridgeGrandpaWestendCall::<
 					millau_runtime::Runtime,
-					millau_runtime::WestendFinalityVerifierInstance,
+					millau_runtime::WestendGrandpaInstance,
 				>::initialize(initialization_data);
 
 				Ok(Bytes(
@@ -861,7 +861,7 @@ mod tests {
 		let payload = message_payload(
 			Default::default(),
 			call.get_dispatch_info().weight,
-			pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+			pallet_bridge_dispatch::CallOrigin::SourceRoot,
 			&call,
 		);
 		assert_eq!(Millau::verify_message(&payload), Ok(()));
@@ -871,7 +871,7 @@ mod tests {
 		let payload = message_payload(
 			Default::default(),
 			call.get_dispatch_info().weight,
-			pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+			pallet_bridge_dispatch::CallOrigin::SourceRoot,
 			&call,
 		);
 		assert!(Millau::verify_message(&payload).is_err());
@@ -897,7 +897,7 @@ mod tests {
 		let payload = message_payload(
 			Default::default(),
 			maximal_dispatch_weight,
-			pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+			pallet_bridge_dispatch::CallOrigin::SourceRoot,
 			&call,
 		);
 		assert_eq!(Millau::verify_message(&payload), Ok(()));
@@ -905,7 +905,7 @@ mod tests {
 		let payload = message_payload(
 			Default::default(),
 			maximal_dispatch_weight + 1,
-			pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+			pallet_bridge_dispatch::CallOrigin::SourceRoot,
 			&call,
 		);
 		assert!(Millau::verify_message(&payload).is_err());
@@ -921,7 +921,7 @@ mod tests {
 		let payload = message_payload(
 			Default::default(),
 			maximal_dispatch_weight,
-			pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+			pallet_bridge_dispatch::CallOrigin::SourceRoot,
 			&call,
 		);
 		assert_eq!(Rialto::verify_message(&payload), Ok(()));
@@ -929,7 +929,7 @@ mod tests {
 		let payload = message_payload(
 			Default::default(),
 			maximal_dispatch_weight + 1,
-			pallet_bridge_call_dispatch::CallOrigin::SourceRoot,
+			pallet_bridge_dispatch::CallOrigin::SourceRoot,
 			&call,
 		);
 		assert!(Rialto::verify_message(&payload).is_err());

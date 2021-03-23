@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Substrate Finality Verifier Pallet
+//! Substrate GRANDPA Pallet
 //!
 //! This pallet is an on-chain GRANDPA light client for Substrate based chains.
 //!
@@ -122,7 +122,7 @@ pub mod pallet {
 			);
 
 			let (hash, number) = (finality_target.hash(), finality_target.number());
-			log::trace!("Going to try and finalize header {:?}", finality_target);
+			log::trace!(target: "runtime::bridge-grandpa", "Going to try and finalize header {:?}", finality_target);
 
 			let best_finalized = <ImportedHeaders<T, I>>::get(<BestFinalized<T, I>>::get()).expect(
 				"In order to reach this point the bridge must have been initialized. Afterwards,
@@ -141,7 +141,7 @@ pub mod pallet {
 			<ImportedHeaders<T, I>>::insert(hash, finality_target);
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
 
-			log::info!("Succesfully imported finalized header with hash {:?}!", hash);
+			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
 
 			Ok(().into())
 		}
@@ -167,6 +167,7 @@ pub mod pallet {
 			initialize_bridge::<T, I>(init_data.clone());
 
 			log::info!(
+				target: "runtime::bridge-grandpa",
 				"Pallet has been initialized with the following parameters: {:?}",
 				init_data
 			);
@@ -183,11 +184,11 @@ pub mod pallet {
 			match new_owner {
 				Some(new_owner) => {
 					ModuleOwner::<T, I>::put(&new_owner);
-					log::info!("Setting pallet Owner to: {:?}", new_owner);
+					log::info!(target: "runtime::bridge-grandpa", "Setting pallet Owner to: {:?}", new_owner);
 				}
 				None => {
 					ModuleOwner::<T, I>::kill();
-					log::info!("Removed Owner of pallet.");
+					log::info!(target: "runtime::bridge-grandpa", "Removed Owner of pallet.");
 				}
 			}
 
@@ -203,9 +204,9 @@ pub mod pallet {
 			<IsHalted<T, I>>::put(operational);
 
 			if operational {
-				log::info!("Resuming pallet operations.");
+				log::info!(target: "runtime::bridge-grandpa", "Resuming pallet operations.");
 			} else {
-				log::warn!("Stopping pallet operations.");
+				log::warn!(target: "runtime::bridge-grandpa", "Stopping pallet operations.");
 			}
 
 			Ok(().into())
@@ -343,6 +344,7 @@ pub mod pallet {
 			<CurrentAuthoritySet<T, I>>::put(&next_authorities);
 
 			log::info!(
+				target: "runtime::bridge-grandpa",
 				"Transitioned from authority set {} to {}! New authorities are: {:?}",
 				current_set_id,
 				current_set_id + 1,
@@ -370,7 +372,7 @@ pub mod pallet {
 		Ok(
 			verify_justification::<BridgedHeader<T, I>>((hash, number), set_id, &voter_set, &justification).map_err(
 				|e| {
-					log::error!("Received invalid justification for {:?}: {:?}", hash, e);
+					log::error!(target: "runtime::bridge-grandpa", "Received invalid justification for {:?}: {:?}", hash, e);
 					<Error<T, I>>::InvalidJustification
 				},
 			)?,

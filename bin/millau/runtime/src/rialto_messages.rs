@@ -84,7 +84,7 @@ type ToRialtoMessagesDeliveryProof = messages::source::FromBridgedChainMessagesD
 pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
 	WithRialtoMessageBridge,
 	crate::Runtime,
-	pallet_bridge_call_dispatch::DefaultInstance,
+	pallet_bridge_dispatch::DefaultInstance,
 >;
 
 /// Millau <-> Rialto message bridge.

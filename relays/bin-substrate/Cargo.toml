@@ -33,9 +33,9 @@ finality-relay = { path = "../finality" }
 headers-relay = { path = "../headers" }
 messages-relay = { path = "../messages" }
 millau-runtime = { path = "../../bin/millau/runtime" }
-pallet-bridge-call-dispatch = { path = "../../modules/call-dispatch" }
+pallet-bridge-dispatch = { path = "../../modules/dispatch" }
+pallet-bridge-grandpa = { path = "../../modules/grandpa" }
 pallet-bridge-messages = { path = "../../modules/messages" }
-pallet-finality-verifier = { path = "../../modules/finality-verifier" }
 relay-kusama-client = { path = "../client-kusama" }
 relay-millau-client = { path = "../client-millau" }
 relay-polkadot-client = { path = "../client-polkadot" }

@@ -16,7 +16,7 @@
 
 use bp_millau::derive_account_from_rialto_id;
 use millau_runtime::{
-	AccountId, AuraConfig, BalancesConfig, BridgeRialtoConfig, BridgeWestendFinalityVerifierConfig, GenesisConfig,
+	AccountId, AuraConfig, BalancesConfig, BridgeRialtoConfig, BridgeWestendGrandpaConfig, GenesisConfig,
 	GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -179,7 +179,7 @@ fn testnet_genesis(
 				.map(|x| (x.0.clone(), x.0.clone(), session_keys(x.1.clone(), x.2.clone())))
 				.collect::<Vec<_>>(),
 		}),
-		pallet_finality_verifier_Instance1: Some(BridgeWestendFinalityVerifierConfig {
+		pallet_bridge_grandpa_Instance1: Some(BridgeWestendGrandpaConfig {
 			// for our deployments to avoid multiple same-nonces transactions:
 			// //Alice is already used to initialize Rialto<->Millau bridge
 			// => let's use //George to initialize Westend->Millau bridge

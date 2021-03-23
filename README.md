@@ -86,8 +86,9 @@ the `relays` which are used to pass messages between chains.
 │  └──  ...
 ├── modules         // Substrate Runtime Modules (a.k.a Pallets)
 │  ├── ethereum     // Ethereum PoA Header Sync Module
-│  ├── substrate    // Substrate Based Chain Header Sync Module
+│  ├── grandpa      // On-Chain GRANDPA Light Client
 │  ├── messages     // Cross Chain Message Passing
+│  ├── dispatch     // Target Chain Message Execution
 │  └──  ...
 ├── primitives      // Code shared between modules, runtimes, and relays
 │  └──  ...
