@@ -256,8 +256,10 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
-		owner: Option<T::AccountId>,
-		init_data: Option<super::InitializationData<BridgedHeader<T, I>>>,
+		/// Optional module owner account.
+		pub owner: Option<T::AccountId>,
+		/// Optional module initialization data.
+		pub init_data: Option<super::InitializationData<BridgedHeader<T, I>>>,
 	}
 
 	#[cfg(feature = "std")]

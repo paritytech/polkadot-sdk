@@ -380,7 +380,7 @@ construct_runtime!(
 		BridgeRialtoMessages: pallet_bridge_messages::{Module, Call, Storage, Event<T>},
 		BridgeCallDispatch: pallet_bridge_call_dispatch::{Module, Event<T>},
 		BridgeRialtoFinalityVerifier: pallet_finality_verifier::{Module, Call},
-		BridgeWestendFinalityVerifier: pallet_finality_verifier::<Instance1>::{Module, Call},
+		BridgeWestendFinalityVerifier: pallet_finality_verifier::<Instance1>::{Module, Call, Config<T>},
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 		Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
