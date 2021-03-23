@@ -17,7 +17,7 @@ structopt = "0.3.21"
 
 bp-messages = { path = "../../../primitives/messages" }
 bp-runtime = { path = "../../../primitives/runtime" }
-bp-rialto = { path = "../../../primitives/chains/rialto" }
+bp-rialto = { path = "../../../primitives/chain-rialto" }
 pallet-bridge-messages = { path = "../../../modules/messages" }
 pallet-bridge-messages-rpc = { path = "../../../modules/messages/rpc" }
 rialto-runtime = { path = "../runtime" }
