@@ -78,7 +78,7 @@ pub type FromMillauEncodedCall = messages::target::FromBridgedChainEncodedMessag
 pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
 	WithMillauMessageBridge,
 	crate::Runtime,
-	pallet_bridge_call_dispatch::DefaultInstance,
+	pallet_bridge_dispatch::DefaultInstance,
 >;
 
 /// Messages proof for Millau -> Rialto messages.
