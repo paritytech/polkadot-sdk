@@ -89,7 +89,7 @@ pub enum CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainS
 	SourceAccount(SourceChainAccountId),
 }
 
-/// Message payload type used by call-dispatch module.
+/// Message payload type used by dispatch module.
 #[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq)]
 pub struct MessagePayload<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature, Call> {
 	/// Runtime specification version. We only dispatch messages that have the same
@@ -153,7 +153,7 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as CallDispatch {}
+	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as Dispatch {}
 }
 
 decl_event!(
@@ -202,7 +202,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		let message = match message {
 			Ok(message) => message,
 			Err(_) => {
-				log::trace!("Message {:?}/{:?}: rejected before actual dispatch", bridge, id);
+				log::trace!(target: "runtime::bridge-dispatch", "Message {:?}/{:?}: rejected before actual dispatch", bridge, id);
 				Self::deposit_event(RawEvent::MessageRejected(bridge, id));
 				return;
 			}
@@ -232,7 +232,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		let call = match message.call.into() {
 			Ok(call) => call,
 			Err(_) => {
-				log::trace!("Failed to decode Call from message {:?}/{:?}", bridge, id,);
+				log::trace!(target: "runtime::bridge-dispatch", "Failed to decode Call from message {:?}/{:?}", bridge, id,);
 				Self::deposit_event(RawEvent::MessageCallDecodeFailed(bridge, id));
 				return;
 			}
@@ -243,7 +243,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 			CallOrigin::SourceRoot => {
 				let hex_id = derive_account_id::<T::SourceChainAccountId>(bridge, SourceAccount::Root);
 				let target_id = T::AccountIdConverter::convert(hex_id);
-				log::trace!("Root Account: {:?}", &target_id);
+				log::trace!(target: "runtime::bridge-dispatch", "Root Account: {:?}", &target_id);
 				target_id
 			}
 			CallOrigin::TargetAccount(source_account_id, target_public, target_signature) => {
@@ -252,6 +252,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 				let target_account = target_public.into_account();
 				if !target_signature.verify(&digest[..], &target_account) {
 					log::trace!(
+						target: "runtime::bridge-dispatch",
 						"Message {:?}/{:?}: origin proof is invalid. Expected account: {:?} from signature: {:?}",
 						bridge,
 						id,
@@ -262,13 +263,13 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 					return;
 				}
 
-				log::trace!("Target Account: {:?}", &target_account);
+				log::trace!(target: "runtime::bridge-dispatch", "Target Account: {:?}", &target_account);
 				target_account
 			}
 			CallOrigin::SourceAccount(source_account_id) => {
 				let hex_id = derive_account_id(bridge, SourceAccount::Account(source_account_id));
 				let target_id = T::AccountIdConverter::convert(hex_id);
-				log::trace!("Source Account: {:?}", &target_id);
+				log::trace!(target: "runtime::bridge-dispatch", "Source Account: {:?}", &target_id);
 				target_id
 			}
 		};
@@ -276,6 +277,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		// filter the call
 		if !T::CallFilter::filter(&call) {
 			log::trace!(
+				target: "runtime::bridge-dispatch",
 				"Message {:?}/{:?}: the call ({:?}) is rejected by filter",
 				bridge,
 				id,
@@ -292,6 +294,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		let expected_weight = dispatch_info.weight;
 		if message.weight < expected_weight {
 			log::trace!(
+				target: "runtime::bridge-dispatch",
 				"Message {:?}/{:?}: passed weight is too low. Expected at least {:?}, got {:?}",
 				bridge,
 				id,
@@ -310,11 +313,12 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Module<T, I> {
 		// finally dispatch message
 		let origin = RawOrigin::Signed(origin_account).into();
 
-		log::trace!("Message being dispatched is: {:?}", &call);
+		log::trace!(target: "runtime::bridge-dispatch", "Message being dispatched is: {:?}", &call);
 		let dispatch_result = call.dispatch(origin);
 		let actual_call_weight = extract_actual_weight(&dispatch_result, &dispatch_info);
 
 		log::trace!(
+			target: "runtime::bridge-dispatch",
 			"Message {:?}/{:?} has been dispatched. Weight: {} of {}. Result: {:?}",
 			bridge,
 			id,
@@ -452,7 +456,7 @@ mod tests {
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
 			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			CallDispatch: call_dispatch::{Module, Call, Event<T>},
+			Dispatch: call_dispatch::{Module, Call, Event<T>},
 		}
 	}
 
@@ -571,7 +575,7 @@ mod tests {
 			message.spec_version = BAD_SPEC_VERSION;
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -599,7 +603,7 @@ mod tests {
 			message.weight = 0;
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -627,7 +631,7 @@ mod tests {
 			);
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -649,7 +653,7 @@ mod tests {
 			let id = [0; 4];
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Err(()));
+			Dispatch::dispatch(bridge, id, Err(()));
 
 			assert_eq!(
 				System::events(),
@@ -673,7 +677,7 @@ mod tests {
 			message.call.0 = vec![];
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -700,7 +704,7 @@ mod tests {
 			message.weight = weight;
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -721,7 +725,7 @@ mod tests {
 			let message = prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -748,7 +752,7 @@ mod tests {
 			let message = prepare_target_message(call);
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),
@@ -775,7 +779,7 @@ mod tests {
 			let message = prepare_source_message(call);
 
 			System::set_block_number(1);
-			CallDispatch::dispatch(bridge, id, Ok(message));
+			Dispatch::dispatch(bridge, id, Ok(message));
 
 			assert_eq!(
 				System::events(),

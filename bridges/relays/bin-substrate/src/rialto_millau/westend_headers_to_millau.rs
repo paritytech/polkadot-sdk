@@ -42,9 +42,9 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
 
-		let call = millau_runtime::FinalityBridgeWestendCall::<
+		let call = millau_runtime::BridgeGrandpaWestendCall::<
 			millau_runtime::Runtime,
-			millau_runtime::WestendFinalityVerifierInstance,
+			millau_runtime::WestendGrandpaInstance,
 		>::submit_finality_proof(header.into_inner(), proof.into_inner())
 		.into();
 
