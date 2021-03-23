@@ -17,7 +17,7 @@
 //! Initialize Substrate -> Substrate headers bridge.
 //!
 //! Initialization is a transaction that calls `initialize()` function of the
-//! `pallet-finality-verifier` pallet. This transaction brings initial header
+//! `pallet-bridge-grandpa` pallet. This transaction brings initial header
 //! and authorities set from source to target chain. The headers sync starts
 //! with this header.
 
@@ -28,7 +28,7 @@ use bp_header_chain::{
 use codec::Decode;
 use finality_grandpa::voter_set::VoterSet;
 use num_traits::{One, Zero};
-use pallet_finality_verifier::InitializationData;
+use pallet_bridge_grandpa::InitializationData;
 use relay_substrate_client::{Chain, Client};
 use sp_core::Bytes;
 use sp_finality_grandpa::AuthorityList as GrandpaAuthoritiesSet;
@@ -83,7 +83,7 @@ async fn do_initialize<SourceChain: Chain, TargetChain: Chain>(
 	Ok(initialization_tx_hash)
 }
 
-/// Prepare initialization data for the finality-verifier pallet.
+/// Prepare initialization data for the GRANDPA verifier pallet.
 async fn prepare_initialization_data<SourceChain: Chain>(
 	source_client: Client<SourceChain>,
 ) -> Result<InitializationData<SourceChain::Header>, String> {

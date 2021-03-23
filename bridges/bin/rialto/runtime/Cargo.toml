@@ -25,13 +25,13 @@ bp-millau = { path = "../../../primitives/chain-millau", default-features = fals
 bp-rialto = { path = "../../../primitives/chain-rialto", default-features = false }
 bp-runtime = { path = "../../../primitives/runtime", default-features = false }
 bridge-runtime-common = { path = "../../runtime-common", default-features = false }
-pallet-bridge-eth-poa = { path = "../../../modules/ethereum", default-features = false }
-pallet-bridge-call-dispatch = { path = "../../../modules/call-dispatch", default-features = false }
 pallet-bridge-currency-exchange = { path = "../../../modules/currency-exchange", default-features = false }
-pallet-finality-verifier = { path = "../../../modules/finality-verifier", default-features = false }
-pallet-substrate-bridge = { path = "../../../modules/substrate", default-features = false }
+pallet-bridge-dispatch = { path = "../../../modules/dispatch", default-features = false }
+pallet-bridge-eth-poa = { path = "../../../modules/ethereum", default-features = false }
+pallet-bridge-grandpa = { path = "../../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../modules/messages", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
+pallet-substrate-bridge = { path = "../../../modules/substrate", default-features = false }
 
 # Substrate Dependencies
 
@@ -92,19 +92,19 @@ std = [
 	"log/std",
 	"pallet-aura/std",
 	"pallet-balances/std",
-	"pallet-bridge-eth-poa/std",
-	"pallet-bridge-call-dispatch/std",
 	"pallet-bridge-currency-exchange/std",
-	"pallet-finality-verifier/std",
-	"pallet-grandpa/std",
+	"pallet-bridge-dispatch/std",
+	"pallet-bridge-eth-poa/std",
+	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
+	"pallet-grandpa/std",
 	"pallet-randomness-collective-flip/std",
 	"pallet-shift-session-manager/std",
 	"pallet-substrate-bridge/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
-	"pallet-transaction-payment/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
 	"serde",
 	"sp-api/std",
 	"sp-block-builder/std",

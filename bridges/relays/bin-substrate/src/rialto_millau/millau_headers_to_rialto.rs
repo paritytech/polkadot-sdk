@@ -42,7 +42,7 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
 		let nonce = self.target_client.next_account_index(account_id).await?;
 		let call =
-			rialto_runtime::FinalityBridgeMillauCall::submit_finality_proof(header.into_inner(), proof.into_inner())
+			rialto_runtime::BridgeGrandpaMillauCall::submit_finality_proof(header.into_inner(), proof.into_inner())
 				.into();
 
 		let genesis_hash = *self.target_client.genesis_hash();

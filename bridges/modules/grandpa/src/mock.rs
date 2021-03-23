@@ -33,7 +33,7 @@ pub type TestHash = crate::BridgedBlockHash<TestRuntime, ()>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
-use crate as finality_verifier;
+use crate as grandpa;
 
 construct_runtime! {
 	pub enum TestRuntime where
@@ -42,7 +42,7 @@ construct_runtime! {
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		FinalityVerifier: finality_verifier::{Module},
+		Grandpa: grandpa::{Module},
 	}
 }
 
@@ -82,7 +82,7 @@ parameter_types! {
 	pub const MaxRequests: u32 = 2;
 }
 
-impl finality_verifier::Config for TestRuntime {
+impl grandpa::Config for TestRuntime {
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = MaxRequests;
 }
