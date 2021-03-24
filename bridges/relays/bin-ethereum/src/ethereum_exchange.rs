@@ -385,7 +385,7 @@ async fn run_auto_transactions_relay_loop(
 		metrics_params,
 		futures::future::pending(),
 	)
-	.await;
+	.await?;
 
 	Ok(())
 }
