@@ -258,8 +258,8 @@ pub async fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 		instance,
 	} = params;
 
-	let eth_client = async_std::task::block_on(EthereumClient::new(eth_params))?;
-	let sub_client = async_std::task::block_on(SubstrateClient::<Rialto>::new(sub_params))?;
+	let eth_client = EthereumClient::new(eth_params).await?;
+	let sub_client = SubstrateClient::<Rialto>::new(sub_params).await?;
 
 	let sign_sub_transactions = match sync_params.target_tx_mode {
 		TargetTransactionMode::Signed | TargetTransactionMode::Backup => true,
@@ -279,7 +279,8 @@ pub async fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 		metrics_params,
 		futures::future::pending(),
 	)
-	.await;
+	.await
+	.map_err(RpcError::SyncLoop)?;
 
 	Ok(())
 }

@@ -202,7 +202,7 @@ fn run_sync_loop(state_function: impl Fn(&mut ClientsData) -> bool + Send + Sync
 		stall_timeout: Duration::from_secs(1),
 	};
 
-	async_std::task::block_on(run(
+	let _ = async_std::task::block_on(run(
 		source_client,
 		target_client,
 		sync_params,
