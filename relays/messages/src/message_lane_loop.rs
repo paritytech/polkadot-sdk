@@ -34,7 +34,7 @@ use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
 use relay_utils::{
 	interval,
-	metrics::{start as metrics_start, GlobalMetrics, MetricsParams},
+	metrics::{GlobalMetrics, MetricsParams},
 	process_future_result,
 	relay_loop::Client as RelayClient,
 	retry_backoff, FailedClient,
@@ -212,47 +212,29 @@ pub async fn run<P: MessageLane>(
 	target_client: impl TargetClient<P>,
 	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
-) {
+) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
-	let metrics_global = GlobalMetrics::default();
-	let metrics_msg = MessageLaneLoopMetrics::default();
-	let metrics_enabled = metrics_params.is_some();
-	metrics_start(
-		format!(
+	relay_utils::relay_loop(source_client, target_client)
+		.with_metrics(format!(
 			"{}_to_{}_MessageLane_{}",
 			P::SOURCE_NAME,
 			P::TARGET_NAME,
 			hex::encode(params.lane)
-		),
-		metrics_params,
-		&metrics_global,
-		&metrics_msg,
-	);
-
-	relay_utils::relay_loop::run(
-		params.reconnect_delay,
-		source_client,
-		target_client,
-		|source_client, target_client| {
+		))
+		.loop_metric(MessageLaneLoopMetrics::default())?
+		.standalone_metric(GlobalMetrics::default())?
+		.expose(metrics_params)
+		.await?
+		.run(|source_client, target_client, metrics| {
 			run_until_connection_lost(
 				params.clone(),
 				source_client,
 				target_client,
-				if metrics_enabled {
-					Some(metrics_global.clone())
-				} else {
-					None
-				},
-				if metrics_enabled {
-					Some(metrics_msg.clone())
-				} else {
-					None
-				},
+				metrics,
 				exit_signal.clone(),
 			)
-		},
-	)
-	.await;
+		})
+		.await
 }
 
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit signal is received.
@@ -260,7 +242,6 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 	params: Params,
 	source_client: SC,
 	target_client: TC,
-	metrics_global: Option<GlobalMetrics>,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), FailedClient> {
@@ -402,10 +383,6 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 			() = exit_signal => {
 				return Ok(());
 			}
-		}
-
-		if let Some(ref metrics_global) = metrics_global {
-			metrics_global.update().await;
 		}
 
 		if source_client_is_online && source_state_required {
@@ -707,7 +684,7 @@ pub(crate) mod tests {
 				data: data.clone(),
 				tick: target_tick,
 			};
-			run(
+			let _ = run(
 				Params {
 					lane: [0, 0, 0, 0],
 					source_tick: Duration::from_millis(100),

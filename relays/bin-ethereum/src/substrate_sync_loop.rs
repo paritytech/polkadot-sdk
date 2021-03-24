@@ -173,8 +173,8 @@ pub async fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 		metrics_params,
 	} = params;
 
-	let eth_client = async_std::task::block_on(EthereumClient::new(eth_params))?;
-	let sub_client = async_std::task::block_on(SubstrateClient::<Rialto>::new(sub_params))?;
+	let eth_client = EthereumClient::new(eth_params).await?;
+	let sub_client = SubstrateClient::<Rialto>::new(sub_params).await?;
 
 	let target = EthereumHeadersTarget::new(eth_client, eth_contract_address, eth_sign);
 	let source = SubstrateHeadersSource::new(sub_client);
@@ -189,7 +189,8 @@ pub async fn run(params: SubstrateSyncParams) -> Result<(), RpcError> {
 		metrics_params,
 		futures::future::pending(),
 	)
-	.await;
+	.await
+	.map_err(RpcError::SyncLoop)?;
 
 	Ok(())
 }

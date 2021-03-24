@@ -27,7 +27,7 @@ use futures::{select, Future, FutureExt, Stream, StreamExt};
 use headers_relay::sync_loop_metrics::SyncLoopMetrics;
 use num_traits::{One, Saturating};
 use relay_utils::{
-	metrics::{start as metrics_start, GlobalMetrics, MetricsParams},
+	metrics::{GlobalMetrics, MetricsParams},
 	relay_loop::Client as RelayClient,
 	retry_backoff, FailedClient, MaybeConnectionError,
 };
@@ -97,43 +97,24 @@ pub async fn run<P: FinalitySyncPipeline>(
 	sync_params: FinalitySyncParams,
 	metrics_params: Option<MetricsParams>,
 	exit_signal: impl Future<Output = ()>,
-) {
+) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
-
-	let metrics_global = GlobalMetrics::default();
-	let metrics_sync = SyncLoopMetrics::default();
-	let metrics_enabled = metrics_params.is_some();
-	metrics_start(
-		format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME),
-		metrics_params,
-		&metrics_global,
-		&metrics_sync,
-	);
-
-	relay_utils::relay_loop::run(
-		relay_utils::relay_loop::RECONNECT_DELAY,
-		source_client,
-		target_client,
-		|source_client, target_client| {
+	relay_utils::relay_loop(source_client, target_client)
+		.with_metrics(format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME))
+		.loop_metric(SyncLoopMetrics::default())?
+		.standalone_metric(GlobalMetrics::default())?
+		.expose(metrics_params)
+		.await?
+		.run(|source_client, target_client, metrics| {
 			run_until_connection_lost(
 				source_client,
 				target_client,
 				sync_params.clone(),
-				if metrics_enabled {
-					Some(metrics_global.clone())
-				} else {
-					None
-				},
-				if metrics_enabled {
-					Some(metrics_sync.clone())
-				} else {
-					None
-				},
+				metrics,
 				exit_signal.clone(),
 			)
-		},
-	)
-	.await;
+		})
+		.await
 }
 
 /// Unjustified headers container. Ordered by header number.
@@ -221,7 +202,6 @@ async fn run_until_connection_lost<P: FinalitySyncPipeline>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	sync_params: FinalitySyncParams,
-	metrics_global: Option<GlobalMetrics>,
 	metrics_sync: Option<SyncLoopMetrics>,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), FailedClient> {
@@ -266,11 +246,6 @@ async fn run_until_connection_lost<P: FinalitySyncPipeline>(
 			&metrics_sync,
 		)
 		.await;
-
-		// update global metrics
-		if let Some(ref metrics_global) = metrics_global {
-			metrics_global.update().await;
-		}
 
 		// deal with errors
 		let next_tick = match iteration_result {

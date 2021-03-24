@@ -493,7 +493,7 @@ fn run_sync_loop_test(params: SyncLoopTestParams) {
 	target.data.lock().requires_extra = target_requires_extra;
 	target.data.lock().requires_completion = target_requires_completion;
 
-	async_std::task::block_on(run(
+	let _ = async_std::task::block_on(run(
 		source,
 		test_tick(),
 		target,
