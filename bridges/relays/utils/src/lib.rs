@@ -16,6 +16,8 @@
 
 //! Utilities used by different relays.
 
+pub use relay_loop::relay_loop;
+
 use backoff::{backoff::Backoff, ExponentialBackoff};
 use futures::future::FutureExt;
 use std::time::Duration;

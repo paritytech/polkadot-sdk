@@ -14,12 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+pub use global::GlobalMetrics;
 pub use substrate_prometheus_endpoint::{register, Counter, CounterVec, Gauge, GaugeVec, Opts, Registry, F64, U64};
 
-use async_std::sync::{Arc, Mutex};
-use std::net::SocketAddr;
-use substrate_prometheus_endpoint::init_prometheus;
-use sysinfo::{ProcessExt, RefreshKind, System, SystemExt};
+use async_trait::async_trait;
+use std::time::Duration;
+
+mod global;
 
 /// Prometheus endpoint MetricsParams.
 #[derive(Debug, Clone)]
@@ -31,62 +32,32 @@ pub struct MetricsParams {
 }
 
 /// Metrics API.
-pub trait Metrics {
+pub trait Metrics: Clone + Send + Sync + 'static {
 	/// Register metrics in the registry.
 	fn register(&self, registry: &Registry) -> Result<(), String>;
 }
 
-/// Global Prometheus metrics.
-#[derive(Debug, Clone)]
-pub struct GlobalMetrics {
-	system: Arc<Mutex<System>>,
-	system_average_load: GaugeVec<F64>,
-	process_cpu_usage_percentage: Gauge<F64>,
-	process_memory_usage_bytes: Gauge<U64>,
-}
+/// Standalone metrics API.
+///
+/// Metrics of this kind know how to update themselves, so we may just spawn and forget the
+/// asynchronous self-update task.
+#[async_trait]
+pub trait StandaloneMetrics: Metrics {
+	/// Update metric values.
+	async fn update(&self);
 
-/// Start Prometheus endpoint with given metrics registry.
-pub fn start(
-	prefix: String,
-	params: Option<MetricsParams>,
-	global_metrics: &GlobalMetrics,
-	extra_metrics: &impl Metrics,
-) {
-	let params = match params {
-		Some(params) => params,
-		None => return,
-	};
+	/// Metrics update interval.
+	fn update_interval(&self) -> Duration;
 
-	assert!(!prefix.is_empty(), "Metrics prefix can not be empty");
-
-	let do_start = move || {
-		let prometheus_socket_addr = SocketAddr::new(
-			params
-				.host
-				.parse()
-				.map_err(|err| format!("Invalid Prometheus host {}: {}", params.host, err))?,
-			params.port,
-		);
-		let metrics_registry =
-			Registry::new_custom(Some(prefix), None).expect("only fails if prefix is empty; prefix is not empty; qed");
-		global_metrics.register(&metrics_registry)?;
-		extra_metrics.register(&metrics_registry)?;
+	/// Spawn the self update task that will keep update metric value at given intervals.
+	fn spawn(self) {
 		async_std::task::spawn(async move {
-			init_prometheus(prometheus_socket_addr, metrics_registry)
-				.await
-				.map_err(|err| format!("Error starting Prometheus endpoint: {}", err))
+			let update_interval = self.update_interval();
+			loop {
+				self.update().await;
+				async_std::task::sleep(update_interval).await;
+			}
 		});
-
-		Ok(())
-	};
-
-	let result: Result<(), String> = do_start();
-	if let Err(err) = result {
-		log::warn!(
-			target: "bridge",
-			"Failed to expose metrics: {}",
-			err,
-		);
 	}
 }
 
@@ -95,74 +66,6 @@ impl Default for MetricsParams {
 		MetricsParams {
 			host: "127.0.0.1".into(),
 			port: 9616,
-		}
-	}
-}
-
-impl Metrics for GlobalMetrics {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.system_average_load.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.process_cpu_usage_percentage.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.process_memory_usage_bytes.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
-	}
-}
-
-impl Default for GlobalMetrics {
-	fn default() -> Self {
-		GlobalMetrics {
-			system: Arc::new(Mutex::new(System::new_with_specifics(RefreshKind::everything()))),
-			system_average_load: GaugeVec::new(Opts::new("system_average_load", "System load average"), &["over"])
-				.expect("metric is static and thus valid; qed"),
-			process_cpu_usage_percentage: Gauge::new("process_cpu_usage_percentage", "Process CPU usage")
-				.expect("metric is static and thus valid; qed"),
-			process_memory_usage_bytes: Gauge::new(
-				"process_memory_usage_bytes",
-				"Process memory (resident set size) usage",
-			)
-			.expect("metric is static and thus valid; qed"),
-		}
-	}
-}
-
-impl GlobalMetrics {
-	/// Update metrics.
-	pub async fn update(&self) {
-		// update system-wide metrics
-		let mut system = self.system.lock().await;
-		let load = system.get_load_average();
-		self.system_average_load.with_label_values(&["1min"]).set(load.one);
-		self.system_average_load.with_label_values(&["5min"]).set(load.five);
-		self.system_average_load.with_label_values(&["15min"]).set(load.fifteen);
-
-		// update process-related metrics
-		let pid = sysinfo::get_current_pid().expect(
-			"only fails where pid is unavailable (os=unknown || arch=wasm32);\
-				relay is not supposed to run in such MetricsParamss;\
-				qed",
-		);
-		let is_process_refreshed = system.refresh_process(pid);
-		match (is_process_refreshed, system.get_process(pid)) {
-			(true, Some(process_info)) => {
-				let cpu_usage = process_info.cpu_usage() as f64;
-				let memory_usage = process_info.memory() * 1024;
-				log::trace!(
-					target: "bridge-metrics",
-					"Refreshed process metrics: CPU={}, memory={}",
-					cpu_usage,
-					memory_usage,
-				);
-
-				self.process_cpu_usage_percentage
-					.set(if cpu_usage.is_finite() { cpu_usage } else { 0f64 });
-				self.process_memory_usage_bytes.set(memory_usage);
-			}
-			_ => {
-				log::warn!(
-					target: "bridge",
-					"Failed to refresh process information. Metrics may show obsolete values",
-				);
-			}
 		}
 	}
 }

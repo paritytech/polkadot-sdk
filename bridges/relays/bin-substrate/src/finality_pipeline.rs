@@ -98,7 +98,8 @@ pub async fn run<SourceChain, TargetChain, P>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	metrics_params: Option<relay_utils::metrics::MetricsParams>,
-) where
+) -> Result<(), String>
+where
 	P: SubstrateFinalitySyncPipeline<
 		Hash = HashOf<SourceChain>,
 		Number = BlockNumberOf<SourceChain>,
@@ -127,5 +128,5 @@ pub async fn run<SourceChain, TargetChain, P>(
 		metrics_params,
 		futures::future::pending(),
 	)
-	.await;
+	.await
 }

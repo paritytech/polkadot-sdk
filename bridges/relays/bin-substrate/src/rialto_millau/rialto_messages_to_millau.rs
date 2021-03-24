@@ -132,7 +132,7 @@ pub async fn run(
 	millau_sign: MillauSigningParams,
 	lane_id: LaneId,
 	metrics_params: Option<MetricsParams>,
-) {
+) -> Result<(), String> {
 	let stall_timeout = Duration::from_secs(5 * 60);
 	let relayer_id_at_rialto = rialto_sign.signer.public().as_array_ref().clone().into();
 
@@ -185,5 +185,5 @@ pub async fn run(
 		metrics_params,
 		futures::future::pending(),
 	)
-	.await;
+	.await
 }

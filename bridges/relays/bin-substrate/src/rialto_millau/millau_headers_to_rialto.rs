@@ -58,12 +58,12 @@ pub async fn run(
 	rialto_client: RialtoClient,
 	rialto_sign: RialtoSigningParams,
 	metrics_params: Option<relay_utils::metrics::MetricsParams>,
-) {
+) -> Result<(), String> {
 	crate::finality_pipeline::run(
 		MillauFinalityToRialto::new(rialto_client.clone(), rialto_sign),
 		millau_client,
 		rialto_client,
 		metrics_params,
 	)
-	.await;
+	.await
 }

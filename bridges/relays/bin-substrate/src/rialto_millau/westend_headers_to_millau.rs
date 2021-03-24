@@ -61,12 +61,12 @@ pub async fn run(
 	millau_client: MillauClient,
 	millau_sign: MillauSigningParams,
 	metrics_params: Option<relay_utils::metrics::MetricsParams>,
-) {
+) -> Result<(), String> {
 	crate::finality_pipeline::run(
 		WestendFinalityToMillau::new(millau_client.clone(), millau_sign),
 		westend_client,
 		millau_client,
 		metrics_params,
 	)
-	.await;
+	.await
 }
