@@ -17,7 +17,6 @@
 //! Tests for Grandpa Justification code.
 
 use bp_header_chain::justification::{verify_justification, Error};
-use bp_test_utils::Keyring::*;
 use bp_test_utils::*;
 use codec::Encode;
 
@@ -29,7 +28,7 @@ fn valid_justification_accepted() {
 		header: test_header(1),
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
-		authorities: vec![(Alice, 1), (Bob, 1), (Charlie, 1), (Dave, 1), (Eve, 1)],
+		authorities: vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1), (EVE, 1)],
 		depth: 5,
 		forks: 5,
 	};
@@ -51,7 +50,7 @@ fn valid_justification_accepted_with_single_fork() {
 		header: test_header(1),
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
-		authorities: vec![(Alice, 1), (Bob, 1), (Charlie, 1), (Dave, 1), (Eve, 1)],
+		authorities: vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1), (EVE, 1)],
 		depth: 5,
 		forks: 1,
 	};
@@ -61,6 +60,40 @@ fn valid_justification_accepted_with_single_fork() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
+			&make_justification_for_header::<TestHeader>(params).encode()
+		),
+		Ok(()),
+	);
+}
+
+#[test]
+fn valid_justification_accepted_with_arbitrary_number_of_authorities() {
+	use finality_grandpa::voter_set::VoterSet;
+	use sp_finality_grandpa::AuthorityId;
+
+	let n = 15;
+	let authorities = accounts(n).iter().map(|k| (*k, 1)).collect::<Vec<_>>();
+
+	let params = JustificationGeneratorParams {
+		header: test_header(1),
+		round: TEST_GRANDPA_ROUND,
+		set_id: TEST_GRANDPA_SET_ID,
+		authorities: authorities.clone(),
+		depth: 5,
+		forks: n.into(),
+	};
+
+	let authorities = authorities
+		.iter()
+		.map(|(id, w)| (AuthorityId::from(*id), *w))
+		.collect::<Vec<(AuthorityId, _)>>();
+	let voter_set = VoterSet::new(authorities).unwrap();
+
+	assert_eq!(
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			TEST_GRANDPA_SET_ID,
+			&voter_set,
 			&make_justification_for_header::<TestHeader>(params).encode()
 		),
 		Ok(()),
@@ -143,7 +176,7 @@ fn justification_is_invalid_if_we_dont_meet_threshold() {
 		header: test_header(1),
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
-		authorities: vec![(Alice, 1), (Bob, 1)],
+		authorities: vec![(ALICE, 1), (BOB, 1)],
 		depth: 2,
 		forks: 2,
 	};

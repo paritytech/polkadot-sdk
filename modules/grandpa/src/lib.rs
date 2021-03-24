@@ -526,8 +526,8 @@ mod tests {
 	use super::*;
 	use crate::mock::{run_test, test_header, Origin, TestHash, TestHeader, TestNumber, TestRuntime};
 	use bp_test_utils::{
-		authority_list, make_default_justification, make_justification_for_header, JustificationGeneratorParams,
-		Keyring::{Alice, Bob},
+		authority_list, make_default_justification, make_justification_for_header, JustificationGeneratorParams, ALICE,
+		BOB,
 	};
 	use codec::Encode;
 	use frame_support::weights::PostDispatchInfo;
@@ -570,7 +570,7 @@ mod tests {
 
 	fn change_log(delay: u64) -> Digest<TestHash> {
 		let consensus_log = ConsensusLog::<TestNumber>::ScheduledChange(sp_finality_grandpa::ScheduledChange {
-			next_authorities: vec![(Alice.into(), 1), (Bob.into(), 1)],
+			next_authorities: vec![(ALICE.into(), 1), (BOB.into(), 1)],
 			delay,
 		});
 
@@ -583,7 +583,7 @@ mod tests {
 		let consensus_log = ConsensusLog::<TestNumber>::ForcedChange(
 			delay,
 			sp_finality_grandpa::ScheduledChange {
-				next_authorities: vec![(Alice.into(), 1), (Bob.into(), 1)],
+				next_authorities: vec![(ALICE.into(), 1), (BOB.into(), 1)],
 				delay,
 			},
 		);
@@ -760,7 +760,7 @@ mod tests {
 		run_test(|| {
 			let genesis = test_header(0);
 
-			let invalid_authority_list = vec![(Alice.into(), u64::MAX), (Bob.into(), u64::MAX)];
+			let invalid_authority_list = vec![(ALICE.into(), u64::MAX), (BOB.into(), u64::MAX)];
 			let init_data = InitializationData {
 				header: genesis,
 				authority_list: invalid_authority_list,
@@ -797,7 +797,7 @@ mod tests {
 			initialize_substrate_bridge();
 
 			let next_set_id = 2;
-			let next_authorities = vec![(Alice.into(), 1), (Bob.into(), 1)];
+			let next_authorities = vec![(ALICE.into(), 1), (BOB.into(), 1)];
 
 			// Need to update the header digest to indicate that our header signals an authority set
 			// change. The change will be enacted when we import our header.
