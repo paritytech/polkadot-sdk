@@ -151,7 +151,7 @@ async fn run_relay_headers(command: cli::RelayHeaders) -> Result<(), String> {
 			let millau_client = millau.into_client().await?;
 			let rialto_client = rialto.into_client().await?;
 			let rialto_sign = rialto_sign.parse()?;
-			millau_headers_to_rialto::run(millau_client, rialto_client, rialto_sign, prometheus_params.into()).await;
+			millau_headers_to_rialto::run(millau_client, rialto_client, rialto_sign, prometheus_params.into()).await
 		}
 		cli::RelayHeaders::RialtoToMillau {
 			rialto,
@@ -162,7 +162,7 @@ async fn run_relay_headers(command: cli::RelayHeaders) -> Result<(), String> {
 			let rialto_client = rialto.into_client().await?;
 			let millau_client = millau.into_client().await?;
 			let millau_sign = millau_sign.parse()?;
-			rialto_headers_to_millau::run(rialto_client, millau_client, millau_sign, prometheus_params.into()).await;
+			rialto_headers_to_millau::run(rialto_client, millau_client, millau_sign, prometheus_params.into()).await
 		}
 		cli::RelayHeaders::WestendToMillau {
 			westend,
@@ -173,10 +173,9 @@ async fn run_relay_headers(command: cli::RelayHeaders) -> Result<(), String> {
 			let westend_client = westend.into_client().await?;
 			let millau_client = millau.into_client().await?;
 			let millau_sign = millau_sign.parse()?;
-			westend_headers_to_millau::run(westend_client, millau_client, millau_sign, prometheus_params.into()).await;
+			westend_headers_to_millau::run(westend_client, millau_client, millau_sign, prometheus_params.into()).await
 		}
 	}
-	Ok(())
 }
 
 async fn run_relay_messages(command: cli::RelayMessages) -> Result<(), String> {
@@ -202,7 +201,7 @@ async fn run_relay_messages(command: cli::RelayMessages) -> Result<(), String> {
 				lane.into(),
 				prometheus_params.into(),
 			)
-			.await;
+			.await
 		}
 		cli::RelayMessages::RialtoToMillau {
 			rialto,
@@ -225,10 +224,9 @@ async fn run_relay_messages(command: cli::RelayMessages) -> Result<(), String> {
 				lane.into(),
 				prometheus_params.into(),
 			)
-			.await;
+			.await
 		}
 	}
-	Ok(())
 }
 
 async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
