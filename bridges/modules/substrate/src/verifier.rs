@@ -342,10 +342,7 @@ mod tests {
 	use super::*;
 	use crate::mock::*;
 	use crate::{BestFinalized, BestHeight, HeaderId, ImportedHeaders, PalletStorage};
-	use bp_test_utils::{
-		authority_list, make_default_justification,
-		Keyring::{Alice, Bob},
-	};
+	use bp_test_utils::{authority_list, make_default_justification, ALICE, BOB};
 	use codec::Encode;
 	use frame_support::{assert_err, assert_ok};
 	use frame_support::{StorageMap, StorageValue};
@@ -695,7 +692,7 @@ mod tests {
 			// This is an *invalid* authority set because the combined weight of the
 			// authorities is greater than `u64::MAX`
 			let consensus_log = ConsensusLog::<TestNumber>::ScheduledChange(sp_finality_grandpa::ScheduledChange {
-				next_authorities: vec![(Alice.into(), u64::MAX), (Bob.into(), u64::MAX)],
+				next_authorities: vec![(ALICE.into(), u64::MAX), (BOB.into(), u64::MAX)],
 				delay: 0,
 			});
 
@@ -800,7 +797,7 @@ mod tests {
 			// Schedule a change at the height of our header
 			let set_id = 2;
 			let height = *header.number();
-			let authorities = vec![Alice.into()];
+			let authorities = vec![ALICE.into()];
 			let change = schedule_next_change(authorities, set_id, height);
 			storage.schedule_next_set_change(genesis_hash, change.clone());
 

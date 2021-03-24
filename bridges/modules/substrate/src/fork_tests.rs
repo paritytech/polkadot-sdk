@@ -59,10 +59,7 @@ use crate::storage::ImportedHeader;
 use crate::verifier::*;
 use crate::{BestFinalized, BestHeight, BridgeStorage, NextScheduledChange, PalletStorage};
 use bp_header_chain::AuthoritySet;
-use bp_test_utils::{
-	authority_list, make_default_justification,
-	Keyring::{Alice, Bob},
-};
+use bp_test_utils::{authority_list, make_default_justification, ALICE, BOB};
 use codec::Encode;
 use frame_support::{IterableStorageMap, StorageValue};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
@@ -505,7 +502,7 @@ where
 
 pub(crate) fn change_log(delay: u64) -> Digest<TestHash> {
 	let consensus_log = ConsensusLog::<TestNumber>::ScheduledChange(sp_finality_grandpa::ScheduledChange {
-		next_authorities: vec![(Alice.into(), 1), (Bob.into(), 1)],
+		next_authorities: vec![(ALICE.into(), 1), (BOB.into(), 1)],
 		delay,
 	});
 
