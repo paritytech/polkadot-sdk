@@ -19,6 +19,7 @@
 use bp_messages::MessageNonce;
 use bp_runtime::Chain;
 use frame_support::{
+	dispatch::Dispatchable,
 	parameter_types,
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_PER_SECOND},
@@ -31,7 +32,7 @@ use sp_core::Hasher as HasherT;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature, OpaqueExtrinsic as UncheckedExtrinsic, Perbill,
+	MultiSignature, OpaqueExtrinsic, Perbill,
 };
 
 // Re-export's to avoid extra substrate dependencies in chain-specific crates.
@@ -141,6 +142,12 @@ pub type BlockNumber = u32;
 /// Hash type used in Polkadot-like chains.
 pub type Hash = <BlakeTwo256 as HasherT>::Out;
 
+/// Account Index (a.k.a. nonce).
+pub type Index = u32;
+
+/// Hashing type.
+pub type Hashing = BlakeTwo256;
+
 /// The type of an object that can produce hashes on Polkadot-like chains.
 pub type Hasher = BlakeTwo256;
 
@@ -160,13 +167,93 @@ pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 pub type Nonce = u32;
 
 /// Block type of Polkadot-like chains.
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+pub type Block = generic::Block<Header, OpaqueExtrinsic>;
 
 /// Polkadot-like block signed with a Justification.
 pub type SignedBlock = generic::SignedBlock<Block>;
 
 /// The balance of an account on Polkadot-like chain.
 pub type Balance = u128;
+
+/// Unchecked Extrinsic type.
+pub type UncheckedExtrinsic<Call> = generic::UncheckedExtrinsic<AccountId, Call, Signature, SignedExtensions<Call>>;
+
+/// A type of the data encoded as part of the transaction.
+pub type SignedExtra = ((), (), (), sp_runtime::generic::Era, Nonce, (), Balance);
+
+/// Parameters which are part of the payload used to produce transaction signature,
+/// but don't end up in the transaction itself (i.e. inherent part of the runtime).
+pub type AdditionalSigned = (u32, u32, Hash, Hash, (), (), ());
+
+/// A simplified version of signed extensions meant for producing signed transactions
+/// and signed payload in the client code.
+#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+pub struct SignedExtensions<Call> {
+	encode_payload: SignedExtra,
+	additional_signed: AdditionalSigned,
+	_data: sp_std::marker::PhantomData<Call>,
+}
+
+impl<Call> parity_scale_codec::Encode for SignedExtensions<Call> {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		self.encode_payload.using_encoded(f)
+	}
+}
+
+impl<Call> parity_scale_codec::Decode for SignedExtensions<Call> {
+	fn decode<I: parity_scale_codec::Input>(_input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+		unimplemented!("SignedExtensions are never meant to be decoded, they are only used to create transaction");
+	}
+}
+
+impl<Call> SignedExtensions<Call> {
+	pub fn new(
+		version: sp_version::RuntimeVersion,
+		era: sp_runtime::generic::Era,
+		genesis_hash: Hash,
+		nonce: Nonce,
+		tip: Balance,
+	) -> Self {
+		Self {
+			encode_payload: (
+				(),    // spec version
+				(),    // tx version
+				(),    // genesis
+				era,   // era
+				nonce, // nonce (compact encoding)
+				(),    // Check weight
+				tip,   // transaction payment / tip (compact encoding)
+			),
+			additional_signed: (
+				version.spec_version,
+				version.transaction_version,
+				genesis_hash,
+				genesis_hash,
+				(),
+				(),
+				(),
+			),
+			_data: Default::default(),
+		}
+	}
+}
+
+impl<Call> sp_runtime::traits::SignedExtension for SignedExtensions<Call>
+where
+	Call: parity_scale_codec::Codec + sp_std::fmt::Debug + Sync + Send + Clone + Eq + PartialEq,
+	Call: Dispatchable,
+{
+	const IDENTIFIER: &'static str = "Not needed.";
+
+	type AccountId = AccountId;
+	type Call = Call;
+	type AdditionalSigned = AdditionalSigned;
+	type Pre = ();
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, frame_support::unsigned::TransactionValidityError> {
+		Ok(self.additional_signed)
+	}
+}
 
 /// Polkadot-like chain.
 #[derive(RuntimeDebug)]
