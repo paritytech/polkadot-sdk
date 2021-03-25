@@ -21,13 +21,9 @@ use std::io::Write;
 /// Initialize relay environment.
 pub fn initialize_relay() {
 	let mut builder = env_logger::Builder::new();
-
-	let filters = match std::env::var("RUST_LOG") {
-		Ok(env_filters) => format!("bridge=info,{}", env_filters),
-		Err(_) => "bridge=info".into(),
-	};
-
-	builder.parse_filters(&filters);
+	builder.filter_level(log::LevelFilter::Warn);
+	builder.filter_module("bridge", log::LevelFilter::Info);
+	builder.parse_default_env();
 	builder.format(move |buf, record| {
 		writeln!(buf, "{}", {
 			let timestamp = time::OffsetDateTime::try_now_local()
