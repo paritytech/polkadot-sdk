@@ -480,7 +480,7 @@ construct_runtime!(
 		BridgeRialtoCurrencyExchange: pallet_bridge_currency_exchange::<Instance1>::{Module, Call},
 		BridgeKovanCurrencyExchange: pallet_bridge_currency_exchange::<Instance2>::{Module, Call},
 		BridgeMillau: pallet_substrate_bridge::{Module, Call, Storage, Config<T>},
-		BridgeGrandpa: pallet_bridge_grandpa::{Module, Call},
+		BridgeMillauGrandpa: pallet_bridge_grandpa::{Module, Call, Storage},
 		BridgeDispatch: pallet_bridge_dispatch::{Module, Event<T>},
 		BridgeMillauMessages: pallet_bridge_messages::{Module, Call, Storage, Event<T>},
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
@@ -643,12 +643,12 @@ impl_runtime_apis! {
 
 	impl bp_millau::MillauFinalityApi<Block> for Runtime {
 		fn best_finalized() -> (bp_millau::BlockNumber, bp_millau::Hash) {
-			let header = BridgeGrandpa::best_finalized();
+			let header = BridgeMillauGrandpa::best_finalized();
 			(header.number, header.hash())
 		}
 
 		fn is_known_header(hash: bp_millau::Hash) -> bool {
-			BridgeGrandpa::is_known_header(hash)
+			BridgeMillauGrandpa::is_known_header(hash)
 		}
 	}
 
