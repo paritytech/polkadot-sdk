@@ -19,29 +19,30 @@
 use super::{MillauClient, WestendClient};
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
-use async_trait::async_trait;
+use codec::Encode;
 use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
-use relay_substrate_client::{finality_source::Justification, Error as SubstrateError, TransactionSignScheme};
+use relay_substrate_client::{finality_source::Justification, Chain, TransactionSignScheme};
 use relay_westend_client::{SyncHeader as WestendSyncHeader, Westend};
-use sp_core::Pair;
+use sp_core::{Bytes, Pair};
 
 /// Westend-to-Millau finality sync pipeline.
 pub(crate) type WestendFinalityToMillau = SubstrateFinalityToSubstrate<Westend, Millau, MillauSigningParams>;
 
-#[async_trait]
 impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
 
-	type SignedTransaction = <Millau as TransactionSignScheme>::SignedTransaction;
+	type TargetChain = Millau;
 
-	async fn make_submit_finality_proof_transaction(
+	fn transactions_author(&self) -> bp_millau::AccountId {
+		self.target_sign.signer.public().as_array_ref().clone().into()
+	}
+
+	fn make_submit_finality_proof_transaction(
 		&self,
+		transaction_nonce: <Millau as Chain>::Index,
 		header: WestendSyncHeader,
 		proof: Justification<bp_westend::BlockNumber>,
-	) -> Result<Self::SignedTransaction, SubstrateError> {
-		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
-		let nonce = self.target_client.next_account_index(account_id).await?;
-
+	) -> Bytes {
 		let call = millau_runtime::BridgeGrandpaWestendCall::<
 			millau_runtime::Runtime,
 			millau_runtime::WestendGrandpaInstance,
@@ -49,9 +50,9 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 		.into();
 
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign.signer, nonce, call);
+		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign.signer, transaction_nonce, call);
 
-		Ok(transaction)
+		Bytes(transaction.encode())
 	}
 }
 

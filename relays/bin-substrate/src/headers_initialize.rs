@@ -38,9 +38,16 @@ use sp_runtime::traits::Header as HeaderT;
 pub async fn initialize<SourceChain: Chain, TargetChain: Chain>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
-	prepare_initialize_transaction: impl FnOnce(InitializationData<SourceChain::Header>) -> Result<Bytes, String>,
+	target_transactions_signer: TargetChain::AccountId,
+	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes,
 ) {
-	let result = do_initialize(source_client, target_client, prepare_initialize_transaction).await;
+	let result = do_initialize(
+		source_client,
+		target_client,
+		target_transactions_signer,
+		prepare_initialize_transaction,
+	)
+	.await;
 
 	match result {
 		Ok(tx_hash) => log::info!(
@@ -64,7 +71,8 @@ pub async fn initialize<SourceChain: Chain, TargetChain: Chain>(
 async fn do_initialize<SourceChain: Chain, TargetChain: Chain>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
-	prepare_initialize_transaction: impl FnOnce(InitializationData<SourceChain::Header>) -> Result<Bytes, String>,
+	target_transactions_signer: TargetChain::AccountId,
+	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes,
 ) -> Result<TargetChain::Hash, String> {
 	let initialization_data = prepare_initialization_data(source_client).await?;
 	log::info!(
@@ -75,9 +83,10 @@ async fn do_initialize<SourceChain: Chain, TargetChain: Chain>(
 		initialization_data,
 	);
 
-	let initialization_tx = prepare_initialize_transaction(initialization_data)?;
 	let initialization_tx_hash = target_client
-		.submit_extrinsic(initialization_tx)
+		.submit_signed_extrinsic(target_transactions_signer, move |transaction_nonce| {
+			prepare_initialize_transaction(transaction_nonce, initialization_data)
+		})
 		.await
 		.map_err(|err| format!("Failed to submit {} transaction: {:?}", TargetChain::NAME, err))?;
 	Ok(initialization_tx_hash)

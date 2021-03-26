@@ -90,6 +90,7 @@ where
 	C::Index: DeserializeOwned,
 	<C::Header as HeaderT>::Number: BlockNumberBase,
 	P: SubstrateMessageLane<
+		TargetChain = C,
 		MessagesReceivingProof = SubstrateMessagesReceivingProof<C>,
 		TargetHeaderNumber = <C::Header as HeaderT>::Number,
 		TargetHeaderHash = <C::Header as HeaderT>::Hash,
@@ -183,11 +184,18 @@ where
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
 	) -> Result<RangeInclusive<MessageNonce>, SubstrateError> {
-		let tx = self
-			.lane
-			.make_messages_delivery_transaction(generated_at_header, nonces.clone(), proof)
+		self.client
+			.submit_signed_extrinsic(self.lane.target_transactions_author(), |transaction_nonce| {
+				self.lane.make_messages_delivery_transaction(
+					transaction_nonce,
+					generated_at_header,
+					nonces.clone(),
+					proof,
+				)
+			})
 			.await?;
-		self.client.submit_extrinsic(Bytes(tx.encode())).await?;
 		Ok(nonces)
 	}
+
+	async fn activate_source_to_target_headers_relay(&self, _activate: bool) {}
 }

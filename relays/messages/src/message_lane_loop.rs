@@ -139,6 +139,9 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 		generated_at_block: TargetHeaderIdOf<P>,
 		proof: P::MessagesReceivingProof,
 	) -> Result<(), Self::Error>;
+
+	/// Activate (or deactivate) headers relay that relays target headers to source node.
+	async fn activate_target_to_source_headers_relay(&self, activate: bool);
 }
 
 /// Target client trait.
@@ -177,6 +180,9 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
 	) -> Result<RangeInclusive<MessageNonce>, Self::Error>;
+
+	/// Activate (or deactivate) headers relay that relays source headers to target node.
+	async fn activate_source_to_target_headers_relay(&self, activate: bool);
 }
 
 /// State of the client.
@@ -463,6 +469,8 @@ pub(crate) mod tests {
 		target_latest_received_nonce: MessageNonce,
 		target_latest_confirmed_received_nonce: MessageNonce,
 		submitted_messages_proofs: Vec<TestMessagesProof>,
+		is_target_to_source_headers_relay_activated: bool,
+		is_source_to_target_headers_relay_activated: bool,
 	}
 
 	#[derive(Clone)]
@@ -567,6 +575,12 @@ pub(crate) mod tests {
 			data.source_latest_confirmed_received_nonce = proof;
 			Ok(())
 		}
+
+		async fn activate_target_to_source_headers_relay(&self, activate: bool) {
+			let mut data = self.data.lock();
+			data.is_target_to_source_headers_relay_activated = activate;
+			(self.tick)(&mut *data);
+		}
 	}
 
 	#[derive(Clone)]
@@ -664,6 +678,12 @@ pub(crate) mod tests {
 			}
 			data.submitted_messages_proofs.push(proof);
 			Ok(nonces)
+		}
+
+		async fn activate_source_to_target_headers_relay(&self, activate: bool) {
+			let mut data = self.data.lock();
+			data.is_source_to_target_headers_relay_activated = activate;
+			(self.tick)(&mut *data);
 		}
 	}
 
@@ -778,8 +798,19 @@ pub(crate) mod tests {
 				target_latest_received_nonce: 0,
 				..Default::default()
 			},
-			Arc::new(|_: &mut TestClientData| {}),
+			Arc::new(|data: &mut TestClientData| {
+				// headers relay must only be started when we need new target headers at source node
+				if data.is_target_to_source_headers_relay_activated {
+					assert!(data.source_state.best_finalized_peer_at_best_self.0 < data.target_state.best_self.0);
+					data.is_target_to_source_headers_relay_activated = false;
+				}
+			}),
 			Arc::new(move |data: &mut TestClientData| {
+				// headers relay must only be started when we need new source headers at target node
+				if data.is_target_to_source_headers_relay_activated {
+					assert!(data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_self.0);
+					data.is_target_to_source_headers_relay_activated = false;
+				}
 				// syncing source headers -> target chain (all at once)
 				if data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_finalized_self.0 {
 					data.target_state.best_finalized_peer_at_best_self = data.source_state.best_finalized_self;

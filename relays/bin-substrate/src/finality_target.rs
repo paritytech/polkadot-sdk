@@ -21,12 +21,10 @@
 use crate::finality_pipeline::SubstrateFinalitySyncPipeline;
 
 use async_trait::async_trait;
-use codec::{Decode, Encode};
+use codec::Decode;
 use finality_relay::TargetClient;
-use futures::TryFutureExt;
 use relay_substrate_client::{Chain, Client, Error as SubstrateError};
 use relay_utils::relay_loop::Client as RelayClient;
-use sp_core::Bytes;
 
 /// Substrate client as Substrate finality target.
 pub struct SubstrateFinalityTarget<C: Chain, P> {
@@ -65,7 +63,7 @@ where
 	C: Chain,
 	P::Number: Decode,
 	P::Hash: Decode,
-	P: SubstrateFinalitySyncPipeline,
+	P: SubstrateFinalitySyncPipeline<TargetChain = C>,
 {
 	async fn best_finalized_source_block_number(&self) -> Result<P::Number, SubstrateError> {
 		// we can't continue to relay finality if target node is out of sync, because
@@ -82,9 +80,11 @@ where
 	}
 
 	async fn submit_finality_proof(&self, header: P::Header, proof: P::FinalityProof) -> Result<(), SubstrateError> {
-		self.pipeline
-			.make_submit_finality_proof_transaction(header, proof)
-			.and_then(|tx| self.client.submit_extrinsic(Bytes(tx.encode())))
+		self.client
+			.submit_signed_extrinsic(self.pipeline.transactions_author(), move |transaction_nonce| {
+				self.pipeline
+					.make_submit_finality_proof_transaction(transaction_nonce, header, proof)
+			})
 			.await
 			.map(drop)
 	}

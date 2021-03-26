@@ -17,17 +17,15 @@
 use crate::messages_source::SubstrateMessagesProof;
 use crate::messages_target::SubstrateMessagesReceivingProof;
 
-use async_trait::async_trait;
 use bp_messages::MessageNonce;
-use codec::Encode;
 use frame_support::weights::Weight;
 use messages_relay::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
-use relay_substrate_client::{BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf};
+use relay_substrate_client::{BlockNumberOf, Chain, Client, HashOf};
 use relay_utils::BlockNumberBase;
+use sp_core::Bytes;
 use std::ops::RangeInclusive;
 
 /// Message sync pipeline for Substrate <-> Substrate relays.
-#[async_trait]
 pub trait SubstrateMessageLane: MessageLane {
 	/// Name of the runtime method that returns dispatch weight of outbound messages at the source chain.
 	const OUTBOUND_LANE_MESSAGES_DISPATCH_WEIGHT_METHOD: &'static str;
@@ -48,25 +46,33 @@ pub trait SubstrateMessageLane: MessageLane {
 	/// Name of the runtime method that returns id of best finalized target header at source chain.
 	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str;
 
-	/// Signed transaction type of the source chain.
-	type SourceSignedTransaction: Send + Sync + Encode;
-	/// Signed transaction type of the target chain.
-	type TargetSignedTransaction: Send + Sync + Encode;
+	/// Source chain.
+	type SourceChain: Chain;
+	/// Target chain.
+	type TargetChain: Chain;
+
+	/// Returns id of account that we're using to sign transactions at target chain (messages proof).
+	fn target_transactions_author(&self) -> <Self::TargetChain as Chain>::AccountId;
 
 	/// Make messages delivery transaction.
-	async fn make_messages_delivery_transaction(
+	fn make_messages_delivery_transaction(
 		&self,
+		transaction_nonce: <Self::TargetChain as Chain>::Index,
 		generated_at_header: SourceHeaderIdOf<Self>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: Self::MessagesProof,
-	) -> Result<Self::TargetSignedTransaction, SubstrateError>;
+	) -> Bytes;
+
+	/// Returns id of account that we're using to sign transactions at source chain (delivery proof).
+	fn source_transactions_author(&self) -> <Self::SourceChain as Chain>::AccountId;
 
 	/// Make messages receiving proof transaction.
-	async fn make_messages_receiving_proof_transaction(
+	fn make_messages_receiving_proof_transaction(
 		&self,
+		transaction_nonce: <Self::SourceChain as Chain>::Index,
 		generated_at_header: TargetHeaderIdOf<Self>,
 		proof: Self::MessagesReceivingProof,
-	) -> Result<Self::SourceSignedTransaction, SubstrateError>;
+	) -> Bytes;
 }
 
 /// Substrate-to-Substrate message lane.
