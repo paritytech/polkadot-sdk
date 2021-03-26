@@ -19,36 +19,38 @@
 use super::{MillauClient, RialtoClient};
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
-use async_trait::async_trait;
+use codec::Encode;
 use relay_millau_client::{Millau, SyncHeader as MillauSyncHeader};
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{finality_source::Justification, Error as SubstrateError, TransactionSignScheme};
-use sp_core::Pair;
+use relay_substrate_client::{finality_source::Justification, Chain, TransactionSignScheme};
+use sp_core::{Bytes, Pair};
 
 /// Millau-to-Rialto finality sync pipeline.
 pub(crate) type MillauFinalityToRialto = SubstrateFinalityToSubstrate<Millau, Rialto, RialtoSigningParams>;
 
-#[async_trait]
 impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 
-	type SignedTransaction = <Rialto as TransactionSignScheme>::SignedTransaction;
+	type TargetChain = Rialto;
 
-	async fn make_submit_finality_proof_transaction(
+	fn transactions_author(&self) -> bp_rialto::AccountId {
+		self.target_sign.signer.public().as_array_ref().clone().into()
+	}
+
+	fn make_submit_finality_proof_transaction(
 		&self,
+		transaction_nonce: <Rialto as Chain>::Index,
 		header: MillauSyncHeader,
 		proof: Justification<bp_millau::BlockNumber>,
-	) -> Result<Self::SignedTransaction, SubstrateError> {
-		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
-		let nonce = self.target_client.next_account_index(account_id).await?;
+	) -> Bytes {
 		let call =
 			rialto_runtime::BridgeGrandpaMillauCall::submit_finality_proof(header.into_inner(), proof.into_inner())
 				.into();
 
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Rialto::sign_transaction(genesis_hash, &self.target_sign.signer, nonce, call);
+		let transaction = Rialto::sign_transaction(genesis_hash, &self.target_sign.signer, transaction_nonce, call);
 
-		Ok(transaction)
+		Bytes(transaction.encode())
 	}
 }
 

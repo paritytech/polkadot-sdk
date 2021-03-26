@@ -156,13 +156,21 @@ impl SubmitEthereumHeaders for SubstrateClient<Rialto> {
 	) -> SubmittedHeaders<EthereumHeaderId, RpcError> {
 		let ids = headers.iter().map(|header| header.id()).collect();
 		let submission_result = async {
-			let account_id = params.signer.public().as_array_ref().clone().into();
-			let nonce = self.next_account_index(account_id).await?;
-
-			let call = instance.build_signed_header_call(headers);
-			let transaction = Rialto::sign_transaction(*self.genesis_hash(), &params.signer, nonce, call);
-
-			let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
+			self.submit_signed_extrinsic(
+				params.signer.public().as_array_ref().clone().into(),
+				|transaction_nonce| {
+					Bytes(
+						Rialto::sign_transaction(
+							*self.genesis_hash(),
+							&params.signer,
+							transaction_nonce,
+							instance.build_signed_header_call(headers),
+						)
+						.encode(),
+					)
+				},
+			)
+			.await?;
 			Ok(())
 		}
 		.await;
@@ -197,7 +205,7 @@ impl SubmitEthereumHeaders for SubstrateClient<Rialto> {
 			let call = instance.build_unsigned_header_call(header);
 			let transaction = create_unsigned_submit_transaction(call);
 
-			match self.submit_extrinsic(Bytes(transaction.encode())).await {
+			match self.submit_unsigned_extrinsic(Bytes(transaction.encode())).await {
 				Ok(_) => submitted_headers.submitted.push(id),
 				Err(error) => {
 					submitted_headers.rejected.push(id);
@@ -252,13 +260,21 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateClient<Rialto> {
 		instance: Arc<dyn BridgeInstance>,
 		proof: rialto_runtime::exchange::EthereumTransactionInclusionProof,
 	) -> RpcResult<()> {
-		let account_id = params.signer.public().as_array_ref().clone().into();
-		let nonce = self.next_account_index(account_id).await?;
-
-		let call = instance.build_currency_exchange_call(proof);
-		let transaction = Rialto::sign_transaction(*self.genesis_hash(), &params.signer, nonce, call);
-
-		let _ = self.submit_extrinsic(Bytes(transaction.encode())).await?;
+		self.submit_signed_extrinsic(
+			params.signer.public().as_array_ref().clone().into(),
+			|transaction_nonce| {
+				Bytes(
+					Rialto::sign_transaction(
+						*self.genesis_hash(),
+						&params.signer,
+						transaction_nonce,
+						instance.build_currency_exchange_call(proof),
+					)
+					.encode(),
+				)
+			},
+		)
+		.await?;
 		Ok(())
 	}
 }
