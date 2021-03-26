@@ -94,6 +94,7 @@ where
 		MessagesProof = SubstrateMessagesProof<C>,
 		SourceHeaderNumber = <C::Header as HeaderT>::Number,
 		SourceHeaderHash = <C::Header as HeaderT>::Hash,
+		SourceChain = C,
 	>,
 	P::TargetHeaderNumber: Decode,
 	P::TargetHeaderHash: Decode,
@@ -197,13 +198,16 @@ where
 		generated_at_block: TargetHeaderIdOf<P>,
 		proof: P::MessagesReceivingProof,
 	) -> Result<(), SubstrateError> {
-		let tx = self
-			.lane
-			.make_messages_receiving_proof_transaction(generated_at_block, proof)
+		self.client
+			.submit_signed_extrinsic(self.lane.source_transactions_author(), move |transaction_nonce| {
+				self.lane
+					.make_messages_receiving_proof_transaction(transaction_nonce, generated_at_block, proof)
+			})
 			.await?;
-		self.client.submit_extrinsic(Bytes(tx.encode())).await?;
 		Ok(())
 	}
+
+	async fn activate_target_to_source_headers_relay(&self, _activate: bool) {}
 }
 
 pub async fn read_client_state<SelfChain, BridgedHeaderHash, BridgedHeaderNumber>(

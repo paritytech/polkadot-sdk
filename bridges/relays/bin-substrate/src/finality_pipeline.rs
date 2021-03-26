@@ -18,14 +18,13 @@
 
 use crate::finality_target::SubstrateFinalityTarget;
 
-use async_trait::async_trait;
-use codec::Encode;
 use finality_relay::{FinalitySyncParams, FinalitySyncPipeline};
 use relay_substrate_client::{
 	finality_source::{FinalitySource, Justification},
-	BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf, SyncHeader,
+	BlockNumberOf, Chain, Client, HashOf, SyncHeader,
 };
 use relay_utils::BlockNumberBase;
+use sp_core::Bytes;
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
 /// Default synchronization loop timeout.
@@ -37,20 +36,23 @@ const STALL_TIMEOUT: Duration = Duration::from_secs(120);
 const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 
 /// Headers sync pipeline for Substrate <-> Substrate relays.
-#[async_trait]
 pub trait SubstrateFinalitySyncPipeline: FinalitySyncPipeline {
 	/// Name of the runtime method that returns id of best finalized source header at target chain.
 	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str;
 
-	/// Signed transaction type.
-	type SignedTransaction: Send + Sync + Encode;
+	/// Chain with GRANDPA bridge pallet.
+	type TargetChain: Chain;
+
+	/// Returns id of account that we're using to sign transactions at target chain.
+	fn transactions_author(&self) -> <Self::TargetChain as Chain>::AccountId;
 
 	/// Make submit header transaction.
-	async fn make_submit_finality_proof_transaction(
+	fn make_submit_finality_proof_transaction(
 		&self,
+		transaction_nonce: <Self::TargetChain as Chain>::Index,
 		header: Self::Header,
 		proof: Self::FinalityProof,
-	) -> Result<Self::SignedTransaction, SubstrateError>;
+	) -> Bytes;
 }
 
 /// Substrate-to-Substrate finality proof pipeline.
@@ -105,6 +107,7 @@ where
 		Number = BlockNumberOf<SourceChain>,
 		Header = SyncHeader<SourceChain::Header>,
 		FinalityProof = Justification<SourceChain::BlockNumber>,
+		TargetChain = TargetChain,
 	>,
 	SourceChain: Clone + Chain,
 	BlockNumberOf<SourceChain>: BlockNumberBase,

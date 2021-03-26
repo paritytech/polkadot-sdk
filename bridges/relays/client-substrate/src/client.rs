@@ -20,6 +20,7 @@ use crate::chain::{Chain, ChainWithBalances};
 use crate::rpc::{Substrate, SubstrateMessages};
 use crate::{ConnectionParams, Error, Result};
 
+use async_std::sync::{Arc, Mutex};
 use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::InstanceId;
 use codec::Decode;
@@ -52,6 +53,10 @@ pub struct Client<C: Chain> {
 	client: RpcClient,
 	/// Genesis block hash.
 	genesis_hash: C::Hash,
+	/// If several tasks are submitting their transactions simultaneously using `submit_signed_extrinsic`
+	/// method, they may get the same transaction nonce. So one of transactions will be rejected
+	/// from the pool. This lock is here to prevent situations like that.
+	submit_signed_extrinsic_lock: Arc<Mutex<()>>,
 }
 
 impl<C: Chain> Clone for Client<C> {
@@ -60,6 +65,7 @@ impl<C: Chain> Clone for Client<C> {
 			params: self.params.clone(),
 			client: self.client.clone(),
 			genesis_hash: self.genesis_hash,
+			submit_signed_extrinsic_lock: self.submit_signed_extrinsic_lock.clone(),
 		}
 	}
 }
@@ -84,6 +90,7 @@ impl<C: Chain> Client<C> {
 			params,
 			client,
 			genesis_hash,
+			submit_signed_extrinsic_lock: Arc::new(Mutex::new(())),
 		})
 	}
 
@@ -192,12 +199,32 @@ impl<C: Chain> Client<C> {
 		Ok(Substrate::<C>::system_account_next_index(&self.client, account).await?)
 	}
 
-	/// Submit an extrinsic for inclusion in a block.
+	/// Submit unsigned extrinsic for inclusion in a block.
 	///
-	/// Note: The given transaction does not need be SCALE encoded beforehand.
-	pub async fn submit_extrinsic(&self, transaction: Bytes) -> Result<C::Hash> {
+	/// Note: The given transaction needs to be SCALE encoded beforehand.
+	pub async fn submit_unsigned_extrinsic(&self, transaction: Bytes) -> Result<C::Hash> {
 		let tx_hash = Substrate::<C>::author_submit_extrinsic(&self.client, transaction).await?;
 		log::trace!(target: "bridge", "Sent transaction to Substrate node: {:?}", tx_hash);
+		Ok(tx_hash)
+	}
+
+	/// Submit an extrinsic signed by given account.
+	///
+	/// All calls of this method are synchronized, so there can't be more than one active
+	/// `submit_signed_extrinsic()` call. This guarantees that no nonces collision may happen
+	/// if all client instances are clones of the same initial `Client`.
+	///
+	/// Note: The given transaction needs to be SCALE encoded beforehand.
+	pub async fn submit_signed_extrinsic(
+		&self,
+		extrinsic_signer: C::AccountId,
+		prepare_extrinsic: impl FnOnce(C::Index) -> Bytes,
+	) -> Result<C::Hash> {
+		let _guard = self.submit_signed_extrinsic_lock.lock().await;
+		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
+		let extrinsic = prepare_extrinsic(transaction_nonce);
+		let tx_hash = Substrate::<C>::author_submit_extrinsic(&self.client, extrinsic).await?;
+		log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 		Ok(tx_hash)
 	}
 

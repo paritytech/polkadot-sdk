@@ -166,6 +166,10 @@ where
 	type Error = C::Error;
 	type TargetNoncesData = DeliveryRaceTargetNoncesData;
 
+	async fn require_more_source_headers(&self, activate: bool) {
+		self.client.activate_source_to_target_headers_relay(activate).await
+	}
+
 	async fn nonces(
 		&self,
 		at_block: TargetHeaderIdOf<P>,

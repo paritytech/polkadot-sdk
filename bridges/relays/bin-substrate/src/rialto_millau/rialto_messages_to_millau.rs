@@ -21,7 +21,6 @@ use crate::messages_lane::{select_delivery_transaction_limits, SubstrateMessageL
 use crate::messages_source::SubstrateMessagesSource;
 use crate::messages_target::SubstrateMessagesTarget;
 
-use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::{MILLAU_BRIDGE_INSTANCE, RIALTO_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
@@ -30,15 +29,14 @@ use frame_support::dispatch::GetDispatchInfo;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Chain, Error as SubstrateError, TransactionSignScheme};
+use relay_substrate_client::{Chain, TransactionSignScheme};
 use relay_utils::metrics::MetricsParams;
-use sp_core::Pair;
+use sp_core::{Bytes, Pair};
 use std::{ops::RangeInclusive, time::Duration};
 
 /// Rialto-to-Millau message lane.
 type RialtoMessagesToMillau = SubstrateMessageLaneToSubstrate<Rialto, RialtoSigningParams, Millau, MillauSigningParams>;
 
-#[async_trait]
 impl SubstrateMessageLane for RialtoMessagesToMillau {
 	const OUTBOUND_LANE_MESSAGES_DISPATCH_WEIGHT_METHOD: &'static str =
 		bp_millau::TO_MILLAU_MESSAGES_DISPATCH_WEIGHT_METHOD;
@@ -54,22 +52,25 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
 	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str = bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 
-	type SourceSignedTransaction = <Rialto as TransactionSignScheme>::SignedTransaction;
-	type TargetSignedTransaction = <Millau as TransactionSignScheme>::SignedTransaction;
+	type SourceChain = Rialto;
+	type TargetChain = Millau;
 
-	async fn make_messages_receiving_proof_transaction(
+	fn source_transactions_author(&self) -> bp_rialto::AccountId {
+		self.source_sign.signer.public().as_array_ref().clone().into()
+	}
+
+	fn make_messages_receiving_proof_transaction(
 		&self,
+		transaction_nonce: <Rialto as Chain>::Index,
 		_generated_at_block: MillauHeaderId,
 		proof: <Self as MessageLane>::MessagesReceivingProof,
-	) -> Result<Self::SourceSignedTransaction, SubstrateError> {
+	) -> Bytes {
 		let (relayers_state, proof) = proof;
-		let account_id = self.source_sign.signer.public().as_array_ref().clone().into();
-		let nonce = self.source_client.next_account_index(account_id).await?;
 		let call: rialto_runtime::Call =
 			rialto_runtime::MessagesCall::receive_messages_delivery_proof(proof, relayers_state).into();
 		let call_weight = call.get_dispatch_info().weight;
 		let genesis_hash = *self.source_client.genesis_hash();
-		let transaction = Rialto::sign_transaction(genesis_hash, &self.source_sign.signer, nonce, call);
+		let transaction = Rialto::sign_transaction(genesis_hash, &self.source_sign.signer, transaction_nonce, call);
 		log::trace!(
 			target: "bridge",
 			"Prepared Millau -> Rialto confirmation transaction. Weight: {}/{}, size: {}/{}",
@@ -78,15 +79,20 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 			transaction.encode().len(),
 			bp_rialto::max_extrinsic_size(),
 		);
-		Ok(transaction)
+		Bytes(transaction.encode())
 	}
 
-	async fn make_messages_delivery_transaction(
+	fn target_transactions_author(&self) -> bp_rialto::AccountId {
+		self.target_sign.signer.public().as_array_ref().clone().into()
+	}
+
+	fn make_messages_delivery_transaction(
 		&self,
+		transaction_nonce: <Millau as Chain>::Index,
 		_generated_at_header: RialtoHeaderId,
 		_nonces: RangeInclusive<MessageNonce>,
 		proof: <Self as MessageLane>::MessagesProof,
-	) -> Result<Self::TargetSignedTransaction, SubstrateError> {
+	) -> Bytes {
 		let (dispatch_weight, proof) = proof;
 		let FromBridgedChainMessagesProof {
 			ref nonces_start,
@@ -94,8 +100,6 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 			..
 		} = proof;
 		let messages_count = nonces_end - nonces_start + 1;
-		let account_id = self.target_sign.signer.public().as_array_ref().clone().into();
-		let nonce = self.target_client.next_account_index(account_id).await?;
 		let call: millau_runtime::Call = millau_runtime::MessagesCall::receive_messages_proof(
 			self.relayer_id_at_source.clone(),
 			proof,
@@ -105,7 +109,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		.into();
 		let call_weight = call.get_dispatch_info().weight;
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign.signer, nonce, call);
+		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign.signer, transaction_nonce, call);
 		log::trace!(
 			target: "bridge",
 			"Prepared Rialto -> Millau delivery transaction. Weight: {}/{}, size: {}/{}",
@@ -114,7 +118,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 			transaction.encode().len(),
 			bp_millau::max_extrinsic_size(),
 		);
-		Ok(transaction)
+		Bytes(transaction.encode())
 	}
 }
 
