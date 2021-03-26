@@ -53,24 +53,25 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 			let rialto_client = rialto.into_client().await?;
 			let rialto_sign = rialto_sign.parse()?;
 
-			let rialto_signer_next_index = rialto_client
-				.next_account_index(rialto_sign.signer.public().into())
-				.await?;
-
-			crate::headers_initialize::initialize(millau_client, rialto_client.clone(), move |initialization_data| {
-				Ok(Bytes(
-					Rialto::sign_transaction(
-						*rialto_client.genesis_hash(),
-						&rialto_sign.signer,
-						rialto_signer_next_index,
-						rialto_runtime::SudoCall::sudo(Box::new(
-							rialto_runtime::BridgeGrandpaMillauCall::initialize(initialization_data).into(),
-						))
-						.into(),
+			crate::headers_initialize::initialize(
+				millau_client,
+				rialto_client.clone(),
+				rialto_sign.signer.public().into(),
+				move |transaction_nonce, initialization_data| {
+					Bytes(
+						Rialto::sign_transaction(
+							*rialto_client.genesis_hash(),
+							&rialto_sign.signer,
+							transaction_nonce,
+							rialto_runtime::SudoCall::sudo(Box::new(
+								rialto_runtime::BridgeGrandpaMillauCall::initialize(initialization_data).into(),
+							))
+							.into(),
+						)
+						.encode(),
 					)
-					.encode(),
-				))
-			})
+				},
+			)
 			.await;
 		}
 		cli::InitBridge::RialtoToMillau {
@@ -81,26 +82,28 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 			let rialto_client = rialto.into_client().await?;
 			let millau_client = millau.into_client().await?;
 			let millau_sign = millau_sign.parse()?;
-			let millau_signer_next_index = millau_client
-				.next_account_index(millau_sign.signer.public().into())
-				.await?;
 
-			crate::headers_initialize::initialize(rialto_client, millau_client.clone(), move |initialization_data| {
-				let initialize_call = millau_runtime::BridgeGrandpaRialtoCall::<
-					millau_runtime::Runtime,
-					millau_runtime::RialtoGrandpaInstance,
-				>::initialize(initialization_data);
+			crate::headers_initialize::initialize(
+				rialto_client,
+				millau_client.clone(),
+				millau_sign.signer.public().into(),
+				move |transaction_nonce, initialization_data| {
+					let initialize_call = millau_runtime::BridgeGrandpaRialtoCall::<
+						millau_runtime::Runtime,
+						millau_runtime::RialtoGrandpaInstance,
+					>::initialize(initialization_data);
 
-				Ok(Bytes(
-					Millau::sign_transaction(
-						*millau_client.genesis_hash(),
-						&millau_sign.signer,
-						millau_signer_next_index,
-						millau_runtime::SudoCall::sudo(Box::new(initialize_call.into())).into(),
+					Bytes(
+						Millau::sign_transaction(
+							*millau_client.genesis_hash(),
+							&millau_sign.signer,
+							transaction_nonce,
+							millau_runtime::SudoCall::sudo(Box::new(initialize_call.into())).into(),
+						)
+						.encode(),
 					)
-					.encode(),
-				))
-			})
+				},
+			)
 			.await;
 		}
 		cli::InitBridge::WestendToMillau {
@@ -111,29 +114,31 @@ async fn run_init_bridge(command: cli::InitBridge) -> Result<(), String> {
 			let westend_client = westend.into_client().await?;
 			let millau_client = millau.into_client().await?;
 			let millau_sign = millau_sign.parse()?;
-			let millau_signer_next_index = millau_client
-				.next_account_index(millau_sign.signer.public().into())
-				.await?;
 
 			// at Westend -> Millau initialization we're not using sudo, because otherwise our deployments
 			// may fail, because we need to initialize both Rialto -> Millau and Westend -> Millau bridge.
 			// => since there's single possible sudo account, one of transaction may fail with duplicate nonce error
-			crate::headers_initialize::initialize(westend_client, millau_client.clone(), move |initialization_data| {
-				let initialize_call = millau_runtime::BridgeGrandpaWestendCall::<
-					millau_runtime::Runtime,
-					millau_runtime::WestendGrandpaInstance,
-				>::initialize(initialization_data);
+			crate::headers_initialize::initialize(
+				westend_client,
+				millau_client.clone(),
+				millau_sign.signer.public().into(),
+				move |transaction_nonce, initialization_data| {
+					let initialize_call = millau_runtime::BridgeGrandpaWestendCall::<
+						millau_runtime::Runtime,
+						millau_runtime::WestendGrandpaInstance,
+					>::initialize(initialization_data);
 
-				Ok(Bytes(
-					Millau::sign_transaction(
-						*millau_client.genesis_hash(),
-						&millau_sign.signer,
-						millau_signer_next_index,
-						initialize_call.into(),
+					Bytes(
+						Millau::sign_transaction(
+							*millau_client.genesis_hash(),
+							&millau_sign.signer,
+							transaction_nonce,
+							initialize_call.into(),
+						)
+						.encode(),
 					)
-					.encode(),
-				))
-			})
+				},
+			)
 			.await;
 		}
 	}
@@ -262,30 +267,32 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 			})
 			.await?;
 
-			let millau_call = millau_runtime::Call::BridgeRialtoMessages(millau_runtime::MessagesCall::send_message(
-				lane, payload, fee,
-			));
+			millau_client
+				.submit_signed_extrinsic(millau_sign.signer.public().clone().into(), |transaction_nonce| {
+					let millau_call = millau_runtime::Call::BridgeRialtoMessages(
+						millau_runtime::MessagesCall::send_message(lane, payload, fee),
+					);
 
-			let signed_millau_call = Millau::sign_transaction(
-				*millau_client.genesis_hash(),
-				&millau_sign.signer,
-				millau_client
-					.next_account_index(millau_sign.signer.public().clone().into())
-					.await?,
-				millau_call,
-			)
-			.encode();
+					let signed_millau_call = Millau::sign_transaction(
+						*millau_client.genesis_hash(),
+						&millau_sign.signer,
+						transaction_nonce,
+						millau_call,
+					)
+					.encode();
 
-			log::info!(
-				target: "bridge",
-				"Sending message to Rialto. Size: {}. Dispatch weight: {}. Fee: {}",
-				signed_millau_call.len(),
-				dispatch_weight,
-				fee,
-			);
-			log::info!(target: "bridge", "Signed Millau Call: {:?}", HexBytes::encode(&signed_millau_call));
+					log::info!(
+						target: "bridge",
+						"Sending message to Rialto. Size: {}. Dispatch weight: {}. Fee: {}",
+						signed_millau_call.len(),
+						dispatch_weight,
+						fee,
+					);
+					log::info!(target: "bridge", "Signed Millau Call: {:?}", HexBytes::encode(&signed_millau_call));
 
-			millau_client.submit_extrinsic(Bytes(signed_millau_call)).await?;
+					Bytes(signed_millau_call)
+				})
+				.await?;
 		}
 		cli::SendMessage::RialtoToMillau {
 			rialto,
@@ -318,30 +325,32 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 			})
 			.await?;
 
-			let rialto_call = rialto_runtime::Call::BridgeMillauMessages(rialto_runtime::MessagesCall::send_message(
-				lane, payload, fee,
-			));
+			rialto_client
+				.submit_signed_extrinsic(rialto_sign.signer.public().clone().into(), |transaction_nonce| {
+					let rialto_call = rialto_runtime::Call::BridgeMillauMessages(
+						rialto_runtime::MessagesCall::send_message(lane, payload, fee),
+					);
 
-			let signed_rialto_call = Rialto::sign_transaction(
-				*rialto_client.genesis_hash(),
-				&rialto_sign.signer,
-				rialto_client
-					.next_account_index(rialto_sign.signer.public().clone().into())
-					.await?,
-				rialto_call,
-			)
-			.encode();
+					let signed_rialto_call = Rialto::sign_transaction(
+						*rialto_client.genesis_hash(),
+						&rialto_sign.signer,
+						transaction_nonce,
+						rialto_call,
+					)
+					.encode();
 
-			log::info!(
-				target: "bridge",
-				"Sending message to Millau. Size: {}. Dispatch weight: {}. Fee: {}",
-				signed_rialto_call.len(),
-				dispatch_weight,
-				fee,
-			);
-			log::info!(target: "bridge", "Signed Rialto Call: {:?}", HexBytes::encode(&signed_rialto_call));
+					log::info!(
+						target: "bridge",
+						"Sending message to Millau. Size: {}. Dispatch weight: {}. Fee: {}",
+						signed_rialto_call.len(),
+						dispatch_weight,
+						fee,
+					);
+					log::info!(target: "bridge", "Signed Rialto Call: {:?}", HexBytes::encode(&signed_rialto_call));
 
-			rialto_client.submit_extrinsic(Bytes(signed_rialto_call)).await?;
+					Bytes(signed_rialto_call)
+				})
+				.await?;
 		}
 	}
 	Ok(())

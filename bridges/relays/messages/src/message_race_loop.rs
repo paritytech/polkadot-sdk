@@ -123,6 +123,9 @@ pub trait TargetClient<P: MessageRace> {
 	/// Type of the additional data from the target client, used by the race.
 	type TargetNoncesData: std::fmt::Debug;
 
+	/// Ask headers relay to relay more headers from race source to race target.
+	async fn require_more_source_headers(&self, activate: bool);
+
 	/// Return nonces that are known to the target client.
 	async fn nonces(
 		&self,
@@ -216,6 +219,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 		TargetNoncesData = TC::TargetNoncesData,
 	>,
 ) -> Result<(), FailedClient> {
+	let mut is_strategy_empty = true;
 	let mut progress_context = Instant::now();
 	let mut race_state = RaceState::default();
 	let mut stall_countdown = Instant::now();
@@ -403,6 +407,13 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 		}
 
 		progress_context = print_race_progress::<P, _>(progress_context, &strategy);
+
+		// ask for more headers if we have nonces to deliver
+		let prev_is_strategy_empty = is_strategy_empty;
+		is_strategy_empty = strategy.is_empty();
+		if is_strategy_empty != prev_is_strategy_empty {
+			race_target.require_more_source_headers(!is_strategy_empty).await;
+		}
 
 		if stall_countdown.elapsed() > stall_timeout {
 			log::warn!(
