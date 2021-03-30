@@ -18,7 +18,7 @@
 
 #![warn(missing_docs)]
 
-use relay_utils::initialize::initialize_relay;
+use relay_utils::initialize::initialize_logger;
 
 mod cli;
 mod finality_pipeline;
@@ -31,7 +31,7 @@ mod messages_target;
 mod rialto_millau;
 
 fn main() {
-	initialize_relay();
+	initialize_logger(false);
 	let command = cli::parse_args();
 	let run = command.run();
 	let result = async_std::task::block_on(run);

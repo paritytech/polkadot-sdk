@@ -30,7 +30,7 @@ pub type RialtoClient = relay_substrate_client::Client<Rialto>;
 /// Westend node client.
 pub type WestendClient = relay_substrate_client::Client<Westend>;
 
-use crate::cli::{ExplicitOrMaximal, HexBytes, Origins};
+use crate::cli::{AccountChain, AccountId, ExplicitOrMaximal, HexBytes, Origins};
 use codec::{Decode, Encode};
 use frame_support::weights::{GetDispatchInfo, Weight};
 use pallet_bridge_dispatch::{CallOrigin, MessagePayload};
@@ -426,23 +426,21 @@ async fn run_estimate_fee(cmd: cli::EstimateFee) -> Result<(), String> {
 
 async fn run_derive_account(cmd: cli::DeriveAccount) -> Result<(), String> {
 	match cmd {
-		cli::DeriveAccount::RialtoToMillau { account } => {
-			let account = account.into_rialto();
-			let acc = bp_runtime::SourceAccount::Account(account.clone());
+		cli::DeriveAccount::RialtoToMillau { mut account } => {
+			account.enforce_chain::<Rialto>();
+			let acc = bp_runtime::SourceAccount::Account(account.raw_id());
 			let id = bp_millau::derive_account_from_rialto_id(acc);
-			println!(
-				"{} (Rialto)\n\nCorresponding (derived) account id:\n-> {} (Millau)",
-				account, id
-			)
+			let derived_account = AccountId::from_raw::<Millau>(id);
+			println!("Source address:\n{} (Rialto)", account);
+			println!("->Corresponding (derived) address:\n{} (Millau)", derived_account);
 		}
-		cli::DeriveAccount::MillauToRialto { account } => {
-			let account = account.into_millau();
-			let acc = bp_runtime::SourceAccount::Account(account.clone());
+		cli::DeriveAccount::MillauToRialto { mut account } => {
+			account.enforce_chain::<Millau>();
+			let acc = bp_runtime::SourceAccount::Account(account.raw_id());
 			let id = bp_rialto::derive_account_from_millau_id(acc);
-			println!(
-				"{} (Millau)\n\nCorresponding (derived) account id:\n-> {} (Rialto)",
-				account, id
-			)
+			let derived_account = AccountId::from_raw::<Rialto>(id);
+			println!("Source address:\n{} (Millau)", account);
+			println!("->Corresponding (derived) address:\n{} (Rialto)", derived_account);
 		}
 	}
 
@@ -650,9 +648,10 @@ impl cli::MillauToRialtoMessagePayload {
 		match self {
 			Self::Raw { data } => MessagePayload::decode(&mut &*data.0)
 				.map_err(|e| format!("Failed to decode Millau's MessagePayload: {:?}", e)),
-			Self::Message { message, sender } => {
+			Self::Message { message, mut sender } => {
 				let spec_version = rialto_runtime::VERSION.spec_version;
-				let origin = CallOrigin::SourceAccount(sender.into_millau());
+				sender.enforce_chain::<Millau>();
+				let origin = CallOrigin::SourceAccount(sender.raw_id());
 				let call = message.into_call()?;
 				let weight = call.get_dispatch_info().weight;
 
@@ -670,9 +669,10 @@ impl cli::RialtoToMillauMessagePayload {
 		match self {
 			Self::Raw { data } => MessagePayload::decode(&mut &*data.0)
 				.map_err(|e| format!("Failed to decode Rialto's MessagePayload: {:?}", e)),
-			Self::Message { message, sender } => {
+			Self::Message { message, mut sender } => {
 				let spec_version = millau_runtime::VERSION.spec_version;
-				let origin = CallOrigin::SourceAccount(sender.into_rialto());
+				sender.enforce_chain::<Rialto>();
+				let origin = CallOrigin::SourceAccount(sender.raw_id());
 				let call = message.into_call()?;
 				let weight = call.get_dispatch_info().weight;
 
@@ -750,9 +750,9 @@ impl cli::ToRialtoMessage {
 					),
 				)))
 			}
-			cli::ToRialtoMessage::Transfer { recipient, amount } => {
-				let recipient = recipient.into_rialto();
-				rialto_runtime::Call::Balances(rialto_runtime::BalancesCall::transfer(recipient, amount))
+			cli::ToRialtoMessage::Transfer { mut recipient, amount } => {
+				recipient.enforce_chain::<Rialto>();
+				rialto_runtime::Call::Balances(rialto_runtime::BalancesCall::transfer(recipient.raw_id(), amount))
 			}
 			cli::ToRialtoMessage::MillauSendMessage { lane, payload, fee } => {
 				let payload = cli::RialtoToMillauMessagePayload::Raw { data: payload }.into_payload()?;
@@ -787,9 +787,9 @@ impl cli::ToMillauMessage {
 					),
 				)))
 			}
-			cli::ToMillauMessage::Transfer { recipient, amount } => {
-				let recipient = recipient.into_millau();
-				millau_runtime::Call::Balances(millau_runtime::BalancesCall::transfer(recipient, amount))
+			cli::ToMillauMessage::Transfer { mut recipient, amount } => {
+				recipient.enforce_chain::<Millau>();
+				millau_runtime::Call::Balances(millau_runtime::BalancesCall::transfer(recipient.raw_id(), amount))
 			}
 			cli::ToMillauMessage::RialtoSendMessage { lane, payload, fee } => {
 				let payload = cli::MillauToRialtoMessagePayload::Raw { data: payload }.into_payload()?;
@@ -805,6 +805,22 @@ impl cli::ToMillauMessage {
 		log::info!(target: "bridge", "Encoded Millau call: {:?}", HexBytes::encode(&call));
 
 		Ok(call)
+	}
+}
+
+impl AccountChain for Rialto {
+	const NAME: &'static str = "Rialto";
+
+	fn ss58_format() -> u16 {
+		rialto_runtime::SS58Prefix::get() as u16
+	}
+}
+
+impl AccountChain for Millau {
+	const NAME: &'static str = "Millau";
+
+	fn ss58_format() -> u16 {
+		millau_runtime::SS58Prefix::get() as u16
 	}
 }
 
@@ -975,6 +991,27 @@ mod tests {
 			"Hardcoded number of extra bytes in Millau transaction {} is lower than actual value: {}",
 			bp_millau::TX_EXTRA_BYTES,
 			extra_bytes_in_transaction,
+		);
+	}
+
+	#[test]
+	fn should_reformat_addresses() {
+		// given
+		let mut rialto1: AccountId = "5sauUXUfPjmwxSgmb3tZ5d6yx24eZX4wWJ2JtVUBaQqFbvEU".parse().unwrap();
+		let mut millau1: AccountId = "752paRyW1EGfq9YLTSSqcSJ5hqnBDidBmaftGhBo8fy6ypW9".parse().unwrap();
+
+		// when
+		rialto1.enforce_chain::<Millau>();
+		millau1.enforce_chain::<Rialto>();
+
+		// then
+		assert_eq!(
+			&format!("{}", rialto1),
+			"752paRyW1EGfq9YLTSSqcSJ5hqnBDidBmaftGhBo8fy6ypW9"
+		);
+		assert_eq!(
+			&format!("{}", millau1),
+			"5sauUXUfPjmwxSgmb3tZ5d6yx24eZX4wWJ2JtVUBaQqFbvEU"
 		);
 	}
 }
