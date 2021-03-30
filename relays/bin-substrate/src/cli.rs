@@ -16,6 +16,8 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
+use std::convert::TryInto;
+
 use bp_messages::LaneId;
 use codec::{Decode, Encode};
 use sp_runtime::app_crypto::Ss58Codec;
@@ -239,48 +241,76 @@ arg_enum! {
 }
 
 /// Generic account id with custom parser.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AccountId {
 	account: sp_runtime::AccountId32,
-	version: sp_core::crypto::Ss58AddressFormat,
+	ss58_format: sp_core::crypto::Ss58AddressFormat,
+}
+
+impl std::fmt::Display for AccountId {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(fmt, "{}", self.account.to_ss58check_with_version(self.ss58_format))
+	}
 }
 
 impl std::str::FromStr for AccountId {
 	type Err = String;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let (account, version) = sp_runtime::AccountId32::from_ss58check_with_version(s)
+		let (account, ss58_format) = sp_runtime::AccountId32::from_ss58check_with_version(s)
 			.map_err(|err| format!("Unable to decode SS58 address: {:?}", err))?;
-		Ok(Self { account, version })
+		Ok(Self { account, ss58_format })
 	}
 }
 
+const SS58_FORMAT_PROOF: &str = "u16 -> Ss58Format is infallible; qed";
+
 impl AccountId {
-	/// Perform runtime checks of SS58 version and get Rialto's AccountId.
-	pub fn into_rialto(self) -> bp_rialto::AccountId {
-		self.check_and_get("Rialto", rialto_runtime::SS58Prefix::get())
+	/// Create new SS58-formatted address from raw account id.
+	pub fn from_raw<T: AccountChain>(account: sp_runtime::AccountId32) -> Self {
+		Self {
+			account,
+			ss58_format: T::ss58_format().try_into().expect(SS58_FORMAT_PROOF),
+		}
 	}
 
-	/// Perform runtime checks of SS58 version and get Millau's AccountId.
-	pub fn into_millau(self) -> bp_millau::AccountId {
-		self.check_and_get("Millau", millau_runtime::SS58Prefix::get())
-	}
-
-	/// Check SS58Prefix and return the account id.
-	fn check_and_get(self, net: &str, expected_prefix: u8) -> sp_runtime::AccountId32 {
-		let version: u16 = self.version.into();
-		println!("Version: {} vs {}", version, expected_prefix);
-		if version != expected_prefix as u16 {
+	/// Enforces formatting account to be for given `AccountChain` type.
+	///
+	/// This will change the `ss58format` of the account to match the requested one.
+	/// Note that a warning will be produced in case the current format does not match
+	/// the requested one, but the conversion always succeeds.
+	pub fn enforce_chain<T: AccountChain>(&mut self) {
+		let original = self.clone();
+		self.ss58_format = T::ss58_format().try_into().expect(SS58_FORMAT_PROOF);
+		log::debug!("{} SS58 format: {} (RAW: {})", self, self.ss58_format, self.account);
+		if original.ss58_format != self.ss58_format {
 			log::warn!(
 				target: "bridge",
-				"Following address: {} does not seem to match {}'s format, got: {}",
-				self.account,
-				net,
-				self.version,
+				"Address {} does not seem to match {}'s SS58 format (got: {}, expected: {}).\nConverted to: {}",
+				original,
+				T::NAME,
+				original.ss58_format,
+				self.ss58_format,
+				self,
 			)
 		}
-		self.account
 	}
+
+	/// Returns the raw (no SS58-prefixed) account id.
+	pub fn raw_id(&self) -> sp_runtime::AccountId32 {
+		self.account.clone()
+	}
+}
+
+/// A trait representing an account address bound to a specific chain.
+///
+/// Can be used to convert [`AccountId`] formatting to be chain-specific.
+pub trait AccountChain {
+	/// Network name associated with the SS58 format.
+	const NAME: &'static str;
+
+	/// Numeric value of SS58 format.
+	fn ss58_format() -> u16;
 }
 
 /// Lane id.
@@ -413,4 +443,32 @@ macro_rules! declare_chain_options {
 			}
 		}
 	};
+}
+
+#[cfg(test)]
+mod tests {
+	use std::str::FromStr;
+
+	use super::*;
+
+	#[test]
+	fn should_format_addresses_with_ss58_format() {
+		// given
+		let rialto1 = "5sauUXUfPjmwxSgmb3tZ5d6yx24eZX4wWJ2JtVUBaQqFbvEU";
+		let rialto2 = "5rERgaT1Z8nM3et2epA5i1VtEBfp5wkhwHtVE8HK7BRbjAH2";
+		let millau1 = "752paRyW1EGfq9YLTSSqcSJ5hqnBDidBmaftGhBo8fy6ypW9";
+		let millau2 = "74GNQjmkcfstRftSQPJgMREchqHM56EvAUXRc266cZ1NYVW5";
+
+		let expected = vec![rialto1, rialto2, millau1, millau2];
+
+		// when
+		let parsed = expected
+			.iter()
+			.map(|s| AccountId::from_str(s).unwrap())
+			.collect::<Vec<_>>();
+
+		let actual = parsed.iter().map(|a| format!("{}", a)).collect::<Vec<_>>();
+
+		assert_eq!(actual, expected)
+	}
 }
