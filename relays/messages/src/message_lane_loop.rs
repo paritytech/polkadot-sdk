@@ -221,6 +221,7 @@ pub async fn run<P: MessageLane>(
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
+		.reconnect_delay(params.reconnect_delay)
 		.with_metrics(format!(
 			"{}_to_{}_MessageLane_{}",
 			P::SOURCE_NAME,
