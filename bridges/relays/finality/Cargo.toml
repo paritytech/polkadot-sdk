@@ -10,6 +10,7 @@ description = "Finality proofs relay"
 async-std = "1.6.5"
 async-trait = "0.1.40"
 backoff = "0.2"
+bp-header-chain = { path = "../../primitives/header-chain" }
 futures = "0.3.5"
 headers-relay = { path = "../headers" }
 log = "0.4.11"

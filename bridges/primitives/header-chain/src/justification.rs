@@ -25,7 +25,7 @@ use frame_support::RuntimeDebug;
 use sp_finality_grandpa::{AuthorityId, AuthoritySignature, SetId};
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-use sp_std::prelude::Vec;
+use sp_std::prelude::*;
 
 /// Justification verification error.
 #[derive(RuntimeDebug, PartialEq)]
@@ -58,15 +58,11 @@ pub fn verify_justification<Header: HeaderT>(
 	finalized_target: (Header::Hash, Header::Number),
 	authorities_set_id: SetId,
 	authorities_set: &VoterSet<AuthorityId>,
-	raw_justification: &[u8],
+	justification: &GrandpaJustification<Header>,
 ) -> Result<(), Error>
 where
 	Header::Number: finality_grandpa::BlockNumberOps,
 {
-	// Decode justification first
-	let justification =
-		GrandpaJustification::<Header>::decode(&mut &*raw_justification).map_err(|_| Error::JustificationDecode)?;
-
 	// Ensure that it is justification for the expected header
 	if (justification.commit.target_hash, justification.commit.target_number) != finalized_target {
 		return Err(Error::InvalidJustificationTarget);
@@ -130,7 +126,7 @@ where
 ///
 /// This particular proof is used to prove that headers on a bridged chain
 /// (so not our chain) have been finalized correctly.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq)]
 pub struct GrandpaJustification<Header: HeaderT> {
 	/// The round (voting period) this justification is valid for.
 	pub round: u64,
@@ -138,6 +134,12 @@ pub struct GrandpaJustification<Header: HeaderT> {
 	pub commit: finality_grandpa::Commit<Header::Hash, Header::Number, AuthoritySignature, AuthorityId>,
 	/// A proof that the chain of blocks in the commit are related to each other.
 	pub votes_ancestries: Vec<Header>,
+}
+
+impl<H: HeaderT> crate::FinalityProof<H::Number> for GrandpaJustification<H> {
+	fn target_header_number(&self) -> H::Number {
+		self.commit.target_number
+	}
 }
 
 /// A utility trait implementing `finality_grandpa::Chain` using a given set of headers.
