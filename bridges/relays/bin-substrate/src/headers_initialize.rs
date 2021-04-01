@@ -23,7 +23,7 @@
 
 use bp_header_chain::{
 	find_grandpa_authorities_scheduled_change,
-	justification::{decode_justification_target, verify_justification},
+	justification::{verify_justification, GrandpaJustification},
 };
 use codec::Decode;
 use finality_grandpa::voter_set::VoterSet;
@@ -116,9 +116,12 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	})?;
 
 	// Read initial header.
+	let justification: GrandpaJustification<SourceChain::Header> = Decode::decode(&mut &justification.0[..])
+		.map_err(|err| format!("Failed to decode {} justification: {:?}", SourceChain::NAME, err))?;
+
 	let (initial_header_hash, initial_header_number) =
-		decode_justification_target::<SourceChain::Header>(&justification.0)
-			.map_err(|err| format!("Failed to decode {} justification: {:?}", SourceChain::NAME, err))?;
+		(justification.commit.target_hash, justification.commit.target_number);
+
 	let initial_header = source_header(&source_client, initial_header_hash).await?;
 	log::trace!(target: "bridge", "Selected {} initial header: {}/{}",
 		SourceChain::NAME,
@@ -176,9 +179,10 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 			(initial_header_hash, initial_header_number),
 			initial_authorities_set_id,
 			&authorities_for_verification,
-			&justification.0,
+			&justification,
 		)
 		.is_ok();
+
 		if is_valid_set_id {
 			break;
 		}
