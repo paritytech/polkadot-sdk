@@ -21,6 +21,7 @@ use finality_grandpa::voter_set::VoterSet;
 use sp_application_crypto::Public;
 use sp_finality_grandpa::{AuthorityId, AuthorityList, AuthorityWeight};
 use sp_runtime::RuntimeDebug;
+use sp_std::prelude::*;
 
 /// Set of test accounts with friendly names.
 pub const ALICE: Account = Account(0);
