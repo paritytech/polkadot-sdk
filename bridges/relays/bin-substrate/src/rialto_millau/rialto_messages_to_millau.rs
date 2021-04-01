@@ -56,7 +56,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 	type TargetChain = Millau;
 
 	fn source_transactions_author(&self) -> bp_rialto::AccountId {
-		self.source_sign.signer.public().as_array_ref().clone().into()
+		self.source_sign.public().as_array_ref().clone().into()
 	}
 
 	fn make_messages_receiving_proof_transaction(
@@ -70,7 +70,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 			rialto_runtime::MessagesCall::receive_messages_delivery_proof(proof, relayers_state).into();
 		let call_weight = call.get_dispatch_info().weight;
 		let genesis_hash = *self.source_client.genesis_hash();
-		let transaction = Rialto::sign_transaction(genesis_hash, &self.source_sign.signer, transaction_nonce, call);
+		let transaction = Rialto::sign_transaction(genesis_hash, &self.source_sign, transaction_nonce, call);
 		log::trace!(
 			target: "bridge",
 			"Prepared Millau -> Rialto confirmation transaction. Weight: {}/{}, size: {}/{}",
@@ -83,7 +83,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 	}
 
 	fn target_transactions_author(&self) -> bp_rialto::AccountId {
-		self.target_sign.signer.public().as_array_ref().clone().into()
+		self.target_sign.public().as_array_ref().clone().into()
 	}
 
 	fn make_messages_delivery_transaction(
@@ -109,7 +109,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		.into();
 		let call_weight = call.get_dispatch_info().weight;
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign.signer, transaction_nonce, call);
+		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
 		log::trace!(
 			target: "bridge",
 			"Prepared Rialto -> Millau delivery transaction. Weight: {}/{}, size: {}/{}",
@@ -138,7 +138,7 @@ pub async fn run(
 	metrics_params: Option<MetricsParams>,
 ) -> Result<(), String> {
 	let stall_timeout = Duration::from_secs(5 * 60);
-	let relayer_id_at_rialto = rialto_sign.signer.public().as_array_ref().clone().into();
+	let relayer_id_at_rialto = rialto_sign.public().as_array_ref().clone().into();
 
 	let lane = RialtoMessagesToMillau {
 		source_client: rialto_client.clone(),

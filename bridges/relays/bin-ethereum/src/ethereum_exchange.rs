@@ -56,7 +56,6 @@ pub enum ExchangeRelayMode {
 }
 
 /// PoA exchange transaction relay params.
-#[derive(Debug)]
 pub struct EthereumExchangeParams {
 	/// Ethereum connection params.
 	pub eth_params: EthereumConnectionParams,
@@ -70,6 +69,19 @@ pub struct EthereumExchangeParams {
 	pub metrics_params: Option<MetricsParams>,
 	/// Instance of the bridge pallet being synchronized.
 	pub instance: Arc<dyn BridgeInstance>,
+}
+
+impl std::fmt::Debug for EthereumExchangeParams {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		f.debug_struct("EthereumExchangeParams")
+			.field("eth_params", &self.eth_params)
+			.field("sub_params", &self.sub_params)
+			.field("sub_sign", &sp_core::Pair::public(&self.sub_sign))
+			.field("mode", &self.mode)
+			.field("metrics_params", &self.metrics_params)
+			.field("instance", &self.instance)
+			.finish()
+	}
 }
 
 /// Ethereum to Substrate exchange pipeline.
