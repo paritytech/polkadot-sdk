@@ -95,7 +95,11 @@ pub const ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT: Weight = 25_000;
 /// runtime upgrades.
 pub const MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT: Weight = 2_000_000_000;
 
-/// The length of a session (how often authorities change) on Millau measured in of number of blocks.
+/// The target length of a session (how often authorities change) on Millau measured in of number of
+/// blocks.
+///
+/// Note that since this is a target sessions may change before/after this time depending on network
+/// conditions.
 pub const SESSION_LENGTH: BlockNumber = 5 * time_units::MINUTES;
 
 /// Re-export `time_units` to make usage easier.

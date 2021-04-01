@@ -36,12 +36,15 @@
 // Runtime-generated enums
 #![allow(clippy::large_enum_variant)]
 
+use crate::weights::WeightInfo;
+
 use bp_header_chain::justification::GrandpaJustification;
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
 use codec::{Decode, Encode};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::ensure;
 use frame_system::{ensure_signed, RawOrigin};
+use num_traits::cast::AsPrimitive;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
@@ -50,6 +53,12 @@ use sp_runtime::RuntimeDebug;
 
 #[cfg(test)]
 mod mock;
+
+/// Module containing weights for this pallet.
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 // Re-export in crate namespace for `construct_runtime!`
 pub use pallet::*;
@@ -82,6 +91,30 @@ pub mod pallet {
 		/// until the request count has decreased.
 		#[pallet::constant]
 		type MaxRequests: Get<u32>;
+
+		/// The maximum length of a session on the bridged chain.
+		///
+		/// The pallet uses this to bound justification verification since justifications contain
+		/// ancestry proofs whose size is capped at `MaxBridgedSessionLength`.
+		#[pallet::constant]
+		type MaxBridgedSessionLength: Get<BridgedBlockNumber<Self, I>>;
+
+		/// The number of validators on the bridged chain.
+		///
+		/// The pallet uses this to bound justification verification since justifications may
+		/// contain up to `MaxBridgedValidatorCount` number of signed `pre-commit` messages which
+		/// need to be verified.
+		///
+		/// Note that `MaxBridgedValidatorCount` should *not* match the exact number of validators
+		/// on the bridged chain. Instead it should be a number which is greater than the actual
+		/// number of validators in order to provide some buffer room should the validator set
+		/// increase in size. If this number ends up being lower than the actual number of
+		/// validators on the bridged chain you risk stalling the bridge.
+		#[pallet::constant]
+		type MaxBridgedValidatorCount: Get<u32>;
+
+		/// Weights gathered through benchmarking.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -107,7 +140,10 @@ pub mod pallet {
 		///
 		/// If successful in verification, it will write the target header to the underlying storage
 		/// pallet.
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::submit_finality_proof(
+			T::MaxBridgedSessionLength::get().as_() as u32,
+			T::MaxBridgedValidatorCount::get(),
+		))]
 		pub fn submit_finality_proof(
 			origin: OriginFor<T>,
 			finality_target: BridgedHeader<T, I>,
@@ -134,16 +170,26 @@ pub mod pallet {
 			// "travelling back in time" (which could be indicative of something bad, e.g a hard-fork).
 			ensure!(best_finalized.number() < number, <Error<T, I>>::OldHeader);
 
-			verify_justification::<T, I>(&justification, hash, *number)?;
+			let authority_set = <CurrentAuthoritySet<T, I>>::get();
+			let set_id = authority_set.set_id;
+			verify_justification::<T, I>(&justification, hash, *number, authority_set)?;
 
-			try_enact_authority_change::<T, I>(&finality_target)?;
+			let _enacted = try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			<BestFinalized<T, I>>::put(hash);
 			<ImportedHeaders<T, I>>::insert(hash, finality_target);
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
 
 			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
 
-			Ok(().into())
+			// Note that the number of precommits is indicitive of the number of GRANDPA forks being
+			// voted on.
+			let precommits = justification.commit.precommits.len();
+
+			// This represents the average number of votes in a single fork since the weight formula
+			// uses that metric instead of the aggregated number of vote ancestries.
+			let votes = (justification.votes_ancestries.len() + precommits - 1) / precommits;
+
+			Ok(Some(T::WeightInfo::submit_finality_proof(votes as u32, precommits as u32)).into())
 		}
 
 		/// Bootstrap the bridge pallet with an initial header and authority set from which to sync.
@@ -319,9 +365,14 @@ pub mod pallet {
 	///
 	/// This function does not support forced changes, or scheduled changes with delays
 	/// since these types of changes are indicitive of abnormal behaviour from GRANDPA.
+	///
+	/// Returned value will indicate if a change was enacted or not.
 	pub(crate) fn try_enact_authority_change<T: Config<I>, I: 'static>(
 		header: &BridgedHeader<T, I>,
-	) -> Result<(), sp_runtime::DispatchError> {
+		current_set_id: sp_finality_grandpa::SetId,
+	) -> Result<bool, sp_runtime::DispatchError> {
+		let mut change_enacted = false;
+
 		// We don't support forced changes - at that point governance intervention is required.
 		ensure!(
 			super::find_forced_change(header).is_none(),
@@ -332,7 +383,6 @@ pub mod pallet {
 			// GRANDPA only includes a `delay` for forced changes, so this isn't valid.
 			ensure!(change.delay == Zero::zero(), <Error<T, I>>::UnsupportedScheduledChange);
 
-			let current_set_id = <CurrentAuthoritySet<T, I>>::get().set_id;
 			// TODO [#788]: Stop manually increasing the `set_id` here.
 			let next_authorities = bp_header_chain::AuthoritySet {
 				authorities: change.next_authorities,
@@ -342,6 +392,7 @@ pub mod pallet {
 			// Since our header schedules a change and we know the delay is 0, it must also enact
 			// the change.
 			<CurrentAuthoritySet<T, I>>::put(&next_authorities);
+			change_enacted = true;
 
 			log::info!(
 				target: "runtime::bridge-grandpa",
@@ -352,20 +403,23 @@ pub mod pallet {
 			);
 		};
 
-		Ok(())
+		Ok(change_enacted)
 	}
 
 	/// Verify a GRANDPA justification (finality proof) for a given header.
 	///
 	/// Will use the GRANDPA current authorities known to the pallet.
+	///
+	/// If succesful it returns the decoded GRANDPA justification so we can refund any weight which
+	/// was overcharged in the initial call.
 	pub(crate) fn verify_justification<T: Config<I>, I: 'static>(
 		justification: &GrandpaJustification<BridgedHeader<T, I>>,
 		hash: BridgedBlockHash<T, I>,
 		number: BridgedBlockNumber<T, I>,
+		authority_set: bp_header_chain::AuthoritySet,
 	) -> Result<(), sp_runtime::DispatchError> {
 		use bp_header_chain::justification::verify_justification;
 
-		let authority_set = <CurrentAuthoritySet<T, I>>::get();
 		let voter_set = VoterSet::new(authority_set.authorities).ok_or(<Error<T, I>>::InvalidAuthoritySet)?;
 		let set_id = authority_set.set_id;
 
@@ -510,7 +564,7 @@ pub(crate) fn find_forced_change<H: HeaderT>(
 	header.digest().convert_first(|l| l.try_to(id).and_then(filter_log))
 }
 
-/// (Re)initialize bridge with given header for using it in external benchmarks.
+/// (Re)initialize bridge with given header for using it in `pallet-bridge-messages` benchmarks.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader<T, I>) {
 	initialize_bridge::<T, I>(InitializationData {
