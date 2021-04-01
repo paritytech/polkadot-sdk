@@ -136,6 +136,21 @@ pub const MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE: MessageNonce = 128;
 /// Maximal number of unconfirmed messages at inbound lane.
 pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 8192;
 
+/// Re-export `time_units` to make usage easier.
+pub use time_units::*;
+
+/// Human readable time units defined in terms of number of blocks.
+pub mod time_units {
+	use super::BlockNumber;
+
+	pub const MILLISECS_PER_BLOCK: u64 = 6000;
+	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+
+	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+	pub const HOURS: BlockNumber = MINUTES * 60;
+	pub const DAYS: BlockNumber = HOURS * 24;
+}
+
 /// Block number type used in Polkadot-like chains.
 pub type BlockNumber = u32;
 
