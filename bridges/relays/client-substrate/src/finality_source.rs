@@ -22,34 +22,13 @@ use crate::error::Error;
 use crate::sync_header::SyncHeader;
 
 use async_trait::async_trait;
-use bp_header_chain::justification::decode_justification_target;
-use finality_relay::{FinalityProof, FinalitySyncPipeline, SourceClient, SourceHeader};
+use bp_header_chain::justification::GrandpaJustification;
+use codec::Decode;
+use finality_relay::{FinalitySyncPipeline, SourceClient, SourceHeader};
 use futures::stream::{unfold, Stream, StreamExt};
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_runtime::traits::Header as HeaderT;
 use std::{marker::PhantomData, pin::Pin};
-
-/// Wrapped raw Justification.
-#[derive(Debug, Clone)]
-pub struct Justification<Number> {
-	/// Header number decoded from the [`raw_justification`].
-	target_header_number: Number,
-	/// Raw, encoded justification bytes.
-	raw_justification: sp_runtime::Justification,
-}
-
-impl<Number> Justification<Number> {
-	/// Extract raw justification.
-	pub fn into_inner(self) -> sp_runtime::Justification {
-		self.raw_justification
-	}
-}
-
-impl<Number: relay_utils::BlockNumberBase> FinalityProof<Number> for Justification<Number> {
-	fn target_header_number(&self) -> Number {
-		self.target_header_number
-	}
-}
 
 /// Substrate node as finality source.
 pub struct FinalitySource<C: Chain, P> {
@@ -94,11 +73,11 @@ where
 		Hash = C::Hash,
 		Number = C::BlockNumber,
 		Header = SyncHeader<C::Header>,
-		FinalityProof = Justification<C::BlockNumber>,
+		FinalityProof = GrandpaJustification<C::Header>,
 	>,
 	P::Header: SourceHeader<C::BlockNumber>,
 {
-	type FinalityProofsStream = Pin<Box<dyn Stream<Item = Justification<C::BlockNumber>> + Send>>;
+	type FinalityProofsStream = Pin<Box<dyn Stream<Item = GrandpaJustification<C::Header>> + Send>>;
 
 	async fn best_finalized_block_number(&self) -> Result<P::Number, Error> {
 		// we **CAN** continue to relay finality proofs if source node is out of sync, because
@@ -114,16 +93,14 @@ where
 	) -> Result<(P::Header, Option<P::FinalityProof>), Error> {
 		let header_hash = self.client.block_hash_by_number(number).await?;
 		let signed_block = self.client.get_block(Some(header_hash)).await?;
-		Ok((
-			signed_block.header().into(),
-			signed_block
-				.justification()
-				.cloned()
-				.map(|raw_justification| Justification {
-					target_header_number: number,
-					raw_justification,
-				}),
-		))
+
+		let justification = signed_block
+			.justification()
+			.map(|raw_justification| GrandpaJustification::<C::Header>::decode(&mut raw_justification.as_slice()))
+			.transpose()
+			.map_err(Error::ResponseParseFailed)?;
+
+		Ok((signed_block.header().into(), justification))
 	}
 
 	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, Error> {
@@ -132,9 +109,11 @@ where
 			move |mut subscription| async move {
 				loop {
 					let next_justification = subscription.next().await?;
-					let decoded_target = decode_justification_target::<C::Header>(&next_justification.0);
-					let target_header_number = match decoded_target {
-						Ok((_, number)) => number,
+					let decoded_justification =
+						GrandpaJustification::<C::Header>::decode(&mut &next_justification.0[..]);
+
+					let justification = match decoded_justification {
+						Ok(j) => j,
 						Err(err) => {
 							log::error!(
 								target: "bridge",
@@ -147,13 +126,7 @@ where
 						}
 					};
 
-					return Some((
-						Justification {
-							target_header_number,
-							raw_justification: next_justification.0,
-						},
-						subscription,
-					));
+					return Some((justification, subscription));
 				}
 			},
 		)
