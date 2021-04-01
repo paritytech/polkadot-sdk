@@ -158,20 +158,20 @@ Then we need to initialize and run the relayer:
 
 ```bash
 docker run --network=host -it \
-        paritytech/substrate-relay initialize-rialto-headers-bridge-in-millau \
-        --millau-host localhost \
-        --millau-port 9945 \
-        --rialto-host localhost \
-        --rialto-port 9944 \
-        --millau-signer //Alice
+        paritytech/substrate-relay init-bridge RialtoToMillau \
+        --target-host localhost \
+        --target-port 9945 \
+        --source-host localhost \
+        --source-port 9944 \
+        --target-signer //Alice
 
 docker run --network=host -it \
-        paritytech/substrate-relay rialto-headers-to-millau \
-        --millau-host localhost \
-        --millau-port 9945 \
-        --rialto-host localhost \
-        --rialto-port 9944 \
-        --millau-signer //Bob \
+        paritytech/substrate-relay relay-headers RialtoToMillau \
+        --target-host localhost \
+        --target-port 9945 \
+        --source-host localhost \
+        --source-port 9944 \
+        --target-signer //Bob \
 ```
 
 You should now see the relayer submitting headers from the Millau chain to the Rialto chain.

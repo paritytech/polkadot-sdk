@@ -100,26 +100,7 @@ impl TransactionSignScheme for Millau {
 }
 
 /// Millau signing params.
-#[derive(Clone)]
-pub struct SigningParams {
-	/// Substrate transactions signer.
-	pub signer: sp_core::sr25519::Pair,
-}
-
-impl SigningParams {
-	/// Create signing params from SURI and password.
-	pub fn from_suri(suri: &str, password: Option<&str>) -> Result<Self, sp_core::crypto::SecretStringError> {
-		Ok(SigningParams {
-			signer: sp_core::sr25519::Pair::from_string(suri, password)?,
-		})
-	}
-}
-
-impl std::fmt::Debug for SigningParams {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.signer.public())
-	}
-}
+pub type SigningParams = sp_core::sr25519::Pair;
 
 /// Millau header type used in headers sync.
 pub type SyncHeader = relay_substrate_client::SyncHeader<millau_runtime::Header>;

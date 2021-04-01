@@ -22,11 +22,23 @@
 
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
 use sp_std::prelude::*;
+use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
 
 /// Westend Chain
 pub type Westend = PolkadotLike;
+
+/// Runtime version.
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: sp_version::create_runtime_str!("westend"),
+	impl_name: sp_version::create_runtime_str!("parity-westend"),
+	authoring_version: 2,
+	spec_version: 50,
+	impl_version: 0,
+	apis: sp_version::create_apis_vec![[]],
+	transaction_version: 5,
+};
 
 // We use this to get the account on Westend (target) which is derived from Rococo's (source)
 // account.

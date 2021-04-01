@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -18,12 +18,15 @@
 
 use std::convert::TryInto;
 
+use crate::rialto_millau::cli as rialto_millau;
 use bp_messages::LaneId;
 use codec::{Decode, Encode};
+use frame_support::weights::Weight;
 use sp_runtime::app_crypto::Ss58Codec;
 use structopt::{clap::arg_enum, StructOpt};
 
-use crate::rialto_millau::cli as rialto_millau;
+mod init_bridge;
+mod relay_headers;
 
 /// Parse relay CLI args.
 pub fn parse_args() -> Command {
@@ -38,7 +41,7 @@ pub enum Command {
 	///
 	/// The on-chain bridge component should have been already initialized with
 	/// `init-bridge` sub-command.
-	RelayHeaders(RelayHeaders),
+	RelayHeaders(relay_headers::RelayHeaders),
 	/// Start messages relay between two chains.
 	///
 	/// Ties up to `Messages` pallets on both chains and starts relaying messages.
@@ -47,7 +50,7 @@ pub enum Command {
 	/// Initialize on-chain bridge pallet with current header data.
 	///
 	/// Sends initialization transaction to bootstrap the bridge with current finalized block data.
-	InitBridge(InitBridge),
+	InitBridge(init_bridge::InitBridge),
 	/// Send custom message over the bridge.
 	///
 	/// Allows interacting with the bridge by sending messages over `Messages` component.
@@ -74,31 +77,14 @@ impl Command {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self {
-			Self::InitBridge(arg) => arg.run().await?,
 			Self::RelayHeaders(arg) => arg.run().await?,
 			Self::RelayMessages(arg) => arg.run().await?,
+			Self::InitBridge(arg) => arg.run().await?,
 			Self::SendMessage(arg) => arg.run().await?,
 			Self::EncodeCall(arg) => arg.run().await?,
 			Self::EncodeMessagePayload(arg) => arg.run().await?,
 			Self::EstimateFee(arg) => arg.run().await?,
 			Self::DeriveAccount(arg) => arg.run().await?,
-		}
-		Ok(())
-	}
-}
-
-/// Start headers relayer process.
-#[derive(StructOpt)]
-pub enum RelayHeaders {
-	#[structopt(flatten)]
-	RialtoMillau(rialto_millau::RelayHeaders),
-}
-
-impl RelayHeaders {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		match self {
-			Self::RialtoMillau(arg) => arg.run().await?,
 		}
 		Ok(())
 	}
@@ -112,23 +98,6 @@ pub enum RelayMessages {
 }
 
 impl RelayMessages {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		match self {
-			Self::RialtoMillau(arg) => arg.run().await?,
-		}
-		Ok(())
-	}
-}
-
-/// Initialize bridge pallet.
-#[derive(StructOpt)]
-pub enum InitBridge {
-	#[structopt(flatten)]
-	RialtoMillau(rialto_millau::InitBridge),
-}
-
-impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self {
@@ -240,6 +209,25 @@ arg_enum! {
 	}
 }
 
+/// Generic balance type.
+#[derive(Debug)]
+pub struct Balance(pub u128);
+
+impl std::str::FromStr for Balance {
+	type Err = <u128 as std::str::FromStr>::Err;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Ok(Self(s.parse()?))
+	}
+}
+
+impl Balance {
+	/// Cast balance to `u64` type, panicking if it's too large.
+	pub fn cast(&self) -> u64 {
+		self.0.try_into().expect("Balance is too high for this chain.")
+	}
+}
+
 /// Generic account id with custom parser.
 #[derive(Debug, Clone)]
 pub struct AccountId {
@@ -267,19 +255,19 @@ const SS58_FORMAT_PROOF: &str = "u16 -> Ss58Format is infallible; qed";
 
 impl AccountId {
 	/// Create new SS58-formatted address from raw account id.
-	pub fn from_raw<T: AccountChain>(account: sp_runtime::AccountId32) -> Self {
+	pub fn from_raw<T: CliChain>(account: sp_runtime::AccountId32) -> Self {
 		Self {
 			account,
 			ss58_format: T::ss58_format().try_into().expect(SS58_FORMAT_PROOF),
 		}
 	}
 
-	/// Enforces formatting account to be for given `AccountChain` type.
+	/// Enforces formatting account to be for given [`CliChain`] type.
 	///
 	/// This will change the `ss58format` of the account to match the requested one.
 	/// Note that a warning will be produced in case the current format does not match
 	/// the requested one, but the conversion always succeeds.
-	pub fn enforce_chain<T: AccountChain>(&mut self) {
+	pub fn enforce_chain<T: CliChain>(&mut self) {
 		let original = self.clone();
 		self.ss58_format = T::ss58_format().try_into().expect(SS58_FORMAT_PROOF);
 		log::debug!("{} SS58 format: {} (RAW: {})", self, self.ss58_format, self.account);
@@ -302,15 +290,48 @@ impl AccountId {
 	}
 }
 
-/// A trait representing an account address bound to a specific chain.
+/// Bridge-supported network definition.
 ///
-/// Can be used to convert [`AccountId`] formatting to be chain-specific.
-pub trait AccountChain {
-	/// Network name associated with the SS58 format.
-	const NAME: &'static str;
+/// Used to abstract away CLI commands.
+pub trait CliChain: relay_substrate_client::Chain {
+	/// Chain's current version of the runtime.
+	const RUNTIME_VERSION: sp_version::RuntimeVersion;
+
+	/// Crypto keypair type used to send messages.
+	///
+	/// In case of chains supporting multiple cryptos, pick one used by the CLI.
+	type KeyPair: sp_core::crypto::Pair;
+
+	/// Bridge Message Payload type.
+	///
+	/// TODO [#854] This should be removed in favour of target-specifc types.
+	type MessagePayload;
 
 	/// Numeric value of SS58 format.
 	fn ss58_format() -> u16;
+
+	/// Parse CLI call and encode it to be dispatched on this specific chain.
+	fn encode_call(call: crate::rialto_millau::cli::Call) -> Result<Self::Call, String>;
+
+	/// Construct message payload to be sent over the bridge.
+	fn encode_message(message: crate::rialto_millau::cli::MessagePayload) -> Result<Self::MessagePayload, String>;
+
+	/// Maximal extrinsic weight (from the runtime).
+	fn max_extrinsic_weight() -> Weight;
+
+	/// Convert CLI signing parameters of `Source` chain into a `KeyPair` instance.
+	fn source_signing_params(params: SourceSigningParams) -> Result<Self::KeyPair, String> {
+		use sp_core::crypto::Pair;
+		Self::KeyPair::from_string(&params.source_signer, params.source_signer_password.as_deref())
+			.map_err(|e| format!("Failed to parse source-signer: {:?}", e))
+	}
+
+	/// Convert CLI signing parameters of `Target` chain into a `KeyPair` instance.
+	fn target_signing_params(params: TargetSigningParams) -> Result<Self::KeyPair, String> {
+		use sp_core::crypto::Pair;
+		Self::KeyPair::from_string(&params.target_signer, params.target_signer_password.as_deref())
+			.map_err(|e| format!("Failed to parse target-signer: {:?}", e))
+	}
 }
 
 /// Lane id.
@@ -444,6 +465,11 @@ macro_rules! declare_chain_options {
 		}
 	};
 }
+
+// TODO [#852] Use structop renames instead of different fields.
+// TODO [#852] Add Into<ConnectionParams>?
+declare_chain_options!(Source, source);
+declare_chain_options!(Target, target);
 
 #[cfg(test)]
 mod tests {
