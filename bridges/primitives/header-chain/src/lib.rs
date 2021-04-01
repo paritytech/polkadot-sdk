@@ -94,6 +94,12 @@ impl<H: Default, E> HeaderChain<H, E> for () {
 	}
 }
 
+/// Abstract finality proof that is justifying block finality.
+pub trait FinalityProof<Number>: Clone + Send + Sync + Debug {
+	/// Return number of header that this proof is generated for.
+	fn target_header_number(&self) -> Number;
+}
+
 /// Find header digest that schedules next GRANDPA authorities set.
 pub fn find_grandpa_authorities_scheduled_change<H: HeaderT>(
 	header: &H,

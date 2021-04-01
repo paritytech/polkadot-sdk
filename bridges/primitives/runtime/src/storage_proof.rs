@@ -17,7 +17,6 @@
 //! Logic for checking Substrate storage proofs.
 
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
-use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 use sp_trie::{read_trie_value, Layout, MemoryDB, StorageProof};
@@ -67,7 +66,7 @@ pub enum Error {
 ///
 /// NOTE: This should only be used for **testing**.
 #[cfg(feature = "std")]
-pub fn craft_valid_storage_proof() -> (H256, StorageProof) {
+pub fn craft_valid_storage_proof() -> (sp_core::H256, StorageProof) {
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
 	// construct storage proof
@@ -106,7 +105,7 @@ pub mod tests {
 
 		// checking proof against invalid commitment fails
 		assert_eq!(
-			<StorageProofChecker<sp_core::Blake2Hasher>>::new(H256::random(), proof).err(),
+			<StorageProofChecker<sp_core::Blake2Hasher>>::new(sp_core::H256::random(), proof).err(),
 			Some(Error::StorageRootMismatch)
 		);
 	}

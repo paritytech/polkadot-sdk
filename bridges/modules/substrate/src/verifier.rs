@@ -215,6 +215,8 @@ where
 	/// proof. If the header enacts an authority set change the change will be applied once the
 	/// header has been finalized.
 	pub fn import_finality_proof(&mut self, hash: H::Hash, proof: FinalityProof) -> Result<(), FinalizationError> {
+		use codec::Decode;
+
 		// Make sure that we've previously imported this header
 		let header = self
 			.storage
@@ -233,11 +235,15 @@ where
 			"We verified the correctness of the authority list during header import,
 			before writing them to storage. This must always be valid.",
 		);
+
+		let justification = bp_header_chain::justification::GrandpaJustification::<H>::decode(&mut proof.0.as_slice())
+			.map_err(|_| FinalizationError::InvalidJustification)?;
+
 		verify_justification::<H>(
 			(hash, *header.number()),
 			current_authority_set.set_id,
 			&voter_set,
-			&proof.0,
+			&justification,
 		)
 		.map_err(|_| FinalizationError::InvalidJustification)?;
 		log::trace!("Received valid justification for {:?}", header);
