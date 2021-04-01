@@ -18,7 +18,6 @@
 
 use bp_header_chain::justification::{verify_justification, Error};
 use bp_test_utils::*;
-use codec::Encode;
 
 type TestHeader = sp_runtime::testing::Header;
 
@@ -38,7 +37,7 @@ fn valid_justification_accepted() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&make_justification_for_header::<TestHeader>(params).encode()
+			&make_justification_for_header::<TestHeader>(params)
 		),
 		Ok(()),
 	);
@@ -60,7 +59,7 @@ fn valid_justification_accepted_with_single_fork() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&make_justification_for_header::<TestHeader>(params).encode()
+			&make_justification_for_header::<TestHeader>(params)
 		),
 		Ok(()),
 	);
@@ -94,17 +93,9 @@ fn valid_justification_accepted_with_arbitrary_number_of_authorities() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set,
-			&make_justification_for_header::<TestHeader>(params).encode()
+			&make_justification_for_header::<TestHeader>(params)
 		),
 		Ok(()),
-	);
-}
-
-#[test]
-fn justification_with_invalid_encoding_rejected() {
-	assert_eq!(
-		verify_justification::<TestHeader>(header_id::<TestHeader>(1), TEST_GRANDPA_SET_ID, &voter_set(), &[],),
-		Err(Error::JustificationDecode),
 	);
 }
 
@@ -115,7 +106,7 @@ fn justification_with_invalid_target_rejected() {
 			header_id::<TestHeader>(2),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&make_default_justification::<TestHeader>(&test_header(1)).encode(),
+			&make_default_justification::<TestHeader>(&test_header(1)),
 		),
 		Err(Error::InvalidJustificationTarget),
 	);
@@ -131,7 +122,7 @@ fn justification_with_invalid_commit_rejected() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&justification.encode(),
+			&justification,
 		),
 		Err(Error::InvalidJustificationCommit),
 	);
@@ -147,7 +138,7 @@ fn justification_with_invalid_authority_signature_rejected() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&justification.encode(),
+			&justification,
 		),
 		Err(Error::InvalidAuthoritySignature),
 	);
@@ -163,7 +154,7 @@ fn justification_with_invalid_precommit_ancestry() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&justification.encode(),
+			&justification,
 		),
 		Err(Error::InvalidPrecommitAncestries),
 	);
@@ -186,7 +177,7 @@ fn justification_is_invalid_if_we_dont_meet_threshold() {
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&make_justification_for_header::<TestHeader>(params).encode()
+			&make_justification_for_header::<TestHeader>(params)
 		),
 		Err(Error::InvalidJustificationCommit),
 	);
