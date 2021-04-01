@@ -167,10 +167,11 @@ fn substrate_connection_params(matches: &clap::ArgMatches) -> Result<SubstrateCo
 }
 
 fn rialto_signing_params(matches: &clap::ArgMatches) -> Result<RialtoSigningParams, String> {
-	let mut params = RialtoSigningParams::default();
+	let mut params = sp_keyring::AccountKeyring::Alice.pair();
+
 	if let Some(sub_signer) = matches.value_of("sub-signer") {
 		let sub_signer_password = matches.value_of("sub-signer-password");
-		params.signer = sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password)
+		params = sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password)
 			.map_err(|e| format!("Failed to parse sub-signer: {:?}", e))?;
 	}
 	Ok(params)

@@ -19,68 +19,26 @@
 use frame_support::weights::Weight;
 use structopt::StructOpt;
 
-use crate::cli::{AccountId, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, PrometheusParams};
-use crate::declare_chain_options;
-
-/// Start headers relayer process.
-#[derive(StructOpt)]
-pub enum RelayHeaders {
-	/// Relay Millau headers to Rialto.
-	MillauToRialto {
-		#[structopt(flatten)]
-		millau: MillauConnectionParams,
-		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
-		#[structopt(flatten)]
-		rialto_sign: RialtoSigningParams,
-		#[structopt(flatten)]
-		prometheus_params: PrometheusParams,
-	},
-	/// Relay Rialto headers to Millau.
-	RialtoToMillau {
-		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
-		#[structopt(flatten)]
-		millau: MillauConnectionParams,
-		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
-		#[structopt(flatten)]
-		prometheus_params: PrometheusParams,
-	},
-	/// Relay Westend headers to Millau.
-	WestendToMillau {
-		#[structopt(flatten)]
-		westend: WestendConnectionParams,
-		#[structopt(flatten)]
-		millau: MillauConnectionParams,
-		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
-		#[structopt(flatten)]
-		prometheus_params: PrometheusParams,
-	},
-}
-
-impl RelayHeaders {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		super::run_relay_headers(self).await.map_err(format_err)?;
-		Ok(())
-	}
-}
+use crate::cli::{
+	AccountId, Balance, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, PrometheusParams, SourceConnectionParams,
+	SourceSigningParams, TargetConnectionParams, TargetSigningParams,
+};
 
 /// Start message relayer process.
+///
+/// TODO [#855] Move to separate module.
 #[derive(StructOpt)]
 pub enum RelayMessages {
 	/// Serve given lane of Millau -> Rialto messages.
 	MillauToRialto {
 		#[structopt(flatten)]
-		millau: MillauConnectionParams,
+		source: SourceConnectionParams,
 		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
+		source_sign: SourceSigningParams,
 		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
+		target: TargetConnectionParams,
 		#[structopt(flatten)]
-		rialto_sign: RialtoSigningParams,
+		target_sign: TargetSigningParams,
 		#[structopt(flatten)]
 		prometheus_params: PrometheusParams,
 		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
@@ -90,13 +48,13 @@ pub enum RelayMessages {
 	/// Serve given lane of Rialto -> Millau messages.
 	RialtoToMillau {
 		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
+		source: SourceConnectionParams,
 		#[structopt(flatten)]
-		rialto_sign: RialtoSigningParams,
+		source_sign: SourceSigningParams,
 		#[structopt(flatten)]
-		millau: MillauConnectionParams,
+		target: TargetConnectionParams,
 		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
+		target_sign: TargetSigningParams,
 		#[structopt(flatten)]
 		prometheus_params: PrometheusParams,
 		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
@@ -113,57 +71,19 @@ impl RelayMessages {
 	}
 }
 
-/// Initialize bridge pallet.
-#[derive(StructOpt)]
-pub enum InitBridge {
-	/// Initialize Millau headers bridge in Rialto.
-	MillauToRialto {
-		#[structopt(flatten)]
-		millau: MillauConnectionParams,
-		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
-		#[structopt(flatten)]
-		rialto_sign: RialtoSigningParams,
-	},
-	/// Initialize Rialto headers bridge in Millau.
-	RialtoToMillau {
-		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
-		#[structopt(flatten)]
-		millau: MillauConnectionParams,
-		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
-	},
-	/// Initialize Westend headers bridge in Millau.
-	WestendToMillau {
-		#[structopt(flatten)]
-		westend: WestendConnectionParams,
-		#[structopt(flatten)]
-		millau: MillauConnectionParams,
-		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
-	},
-}
-
-impl InitBridge {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		super::run_init_bridge(self).await.map_err(format_err)?;
-		Ok(())
-	}
-}
-
 /// Send bridge message.
+///
+/// TODO [#855] Move to separate module.
 #[derive(StructOpt)]
 pub enum SendMessage {
 	/// Submit message to given Millau -> Rialto lane.
 	MillauToRialto {
 		#[structopt(flatten)]
-		millau: MillauConnectionParams,
+		source: SourceConnectionParams,
 		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
+		source_sign: SourceSigningParams,
 		#[structopt(flatten)]
-		rialto_sign: RialtoSigningParams,
+		target_sign: TargetSigningParams,
 		/// Hex-encoded lane id. Defaults to `00000000`.
 		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
@@ -172,10 +92,10 @@ pub enum SendMessage {
 		dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
 		/// Delivery and dispatch fee in source chain base currency units. If not passed, determined automatically.
 		#[structopt(long)]
-		fee: Option<bp_millau::Balance>,
+		fee: Option<Balance>,
 		/// Message type.
 		#[structopt(subcommand)]
-		message: ToRialtoMessage,
+		message: Call,
 		/// The origin to use when dispatching the message on the target chain. Defaults to
 		/// `SourceAccount`.
 		#[structopt(long, possible_values = &Origins::variants(), default_value = "Source")]
@@ -184,11 +104,11 @@ pub enum SendMessage {
 	/// Submit message to given Rialto -> Millau lane.
 	RialtoToMillau {
 		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
+		source: SourceConnectionParams,
 		#[structopt(flatten)]
-		rialto_sign: RialtoSigningParams,
+		source_sign: SourceSigningParams,
 		#[structopt(flatten)]
-		millau_sign: MillauSigningParams,
+		target_sign: TargetSigningParams,
 		/// Hex-encoded lane id. Defaults to `00000000`.
 		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
@@ -197,10 +117,10 @@ pub enum SendMessage {
 		dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
 		/// Delivery and dispatch fee in source chain base currency units. If not passed, determined automatically.
 		#[structopt(long)]
-		fee: Option<bp_rialto::Balance>,
+		fee: Option<Balance>,
 		/// Message type.
 		#[structopt(subcommand)]
-		message: ToMillauMessage,
+		message: Call,
 		/// The origin to use when dispatching the message on the target chain. Defaults to
 		/// `SourceAccount`.
 		#[structopt(long, possible_values = &Origins::variants(), default_value = "Source")]
@@ -217,17 +137,19 @@ impl SendMessage {
 }
 
 /// A call to encode.
+///
+/// TODO [#855] Move to separate module.
 #[derive(StructOpt)]
 pub enum EncodeCall {
 	/// Encode Rialto's Call.
 	Rialto {
 		#[structopt(flatten)]
-		call: ToRialtoMessage,
+		call: Call,
 	},
 	/// Encode Millau's Call.
 	Millau {
 		#[structopt(flatten)]
-		call: ToMillauMessage,
+		call: Call,
 	},
 }
 
@@ -240,17 +162,19 @@ impl EncodeCall {
 }
 
 /// A `MessagePayload` to encode.
+///
+/// TODO [#855] Move to separate module.
 #[derive(StructOpt)]
 pub enum EncodeMessagePayload {
 	/// Message Payload of Rialto to Millau call.
 	RialtoToMillau {
 		#[structopt(flatten)]
-		payload: RialtoToMillauMessagePayload,
+		payload: MessagePayload,
 	},
 	/// Message Payload of Millau to Rialto call.
 	MillauToRialto {
 		#[structopt(flatten)]
-		payload: MillauToRialtoMessagePayload,
+		payload: MessagePayload,
 	},
 }
 
@@ -263,29 +187,31 @@ impl EncodeMessagePayload {
 }
 
 /// Estimate Delivery & Dispatch Fee command.
+///
+/// TODO [#855] Move to separate module.
 #[derive(StructOpt)]
 pub enum EstimateFee {
 	/// Estimate fee of Rialto to Millau message.
 	RialtoToMillau {
 		#[structopt(flatten)]
-		rialto: RialtoConnectionParams,
+		source: SourceConnectionParams,
 		/// Hex-encoded id of lane that will be delivering the message.
 		#[structopt(long)]
 		lane: HexLaneId,
 		/// Payload to send over the bridge.
 		#[structopt(flatten)]
-		payload: RialtoToMillauMessagePayload,
+		payload: MessagePayload,
 	},
 	/// Estimate fee of Rialto to Millau message.
 	MillauToRialto {
 		#[structopt(flatten)]
-		millau: MillauConnectionParams,
+		source: SourceConnectionParams,
 		/// Hex-encoded id of lane that will be delivering the message.
 		#[structopt(long)]
 		lane: HexLaneId,
 		/// Payload to send over the bridge.
 		#[structopt(flatten)]
-		payload: MillauToRialtoMessagePayload,
+		payload: MessagePayload,
 	},
 }
 
@@ -303,6 +229,8 @@ impl EstimateFee {
 /// that has been sent over the bridge.
 /// This account can also be used to receive target-chain funds (or other form of ownership),
 /// since messages sent over the bridge will be able to spend these.
+///
+/// TODO [#855] Move to separate module.
 #[derive(StructOpt)]
 pub enum DeriveAccount {
 	/// Given Rialto AccountId, display corresponding Millau AccountId.
@@ -323,47 +251,31 @@ fn format_err(err: String) -> anyhow::Error {
 	anyhow::anyhow!(err)
 }
 
-/// MessagePayload that can be delivered to messages pallet on Millau.
+/// Generic message payload.
 #[derive(StructOpt, Debug)]
-pub enum MillauToRialtoMessagePayload {
+pub enum MessagePayload {
 	/// Raw, SCALE-encoded `MessagePayload`.
 	Raw {
 		/// Hex-encoded SCALE data.
 		data: HexBytes,
 	},
 	/// Construct message to send over the bridge.
-	Message {
+	Call {
 		/// Message details.
 		#[structopt(flatten)]
-		message: ToRialtoMessage,
+		call: Call,
 		/// SS58 encoded account that will send the payload (must have SS58Prefix = 42)
 		#[structopt(long)]
 		sender: AccountId,
 	},
 }
 
-/// MessagePayload that can be delivered to messages pallet on Rialto.
+/// All possible messages that may be delivered to generic Substrate chain.
+///
+/// Note this enum may be used in the context of both Source (as part of `encode-call`)
+/// and Target chain (as part of `encode-message/send-message`).
 #[derive(StructOpt, Debug)]
-pub enum RialtoToMillauMessagePayload {
-	/// Raw, SCALE-encoded `MessagePayload`.
-	Raw {
-		/// Hex-encoded SCALE data.
-		data: HexBytes,
-	},
-	/// Construct message to send over the bridge.
-	Message {
-		/// Message details.
-		#[structopt(flatten)]
-		message: ToMillauMessage,
-		/// SS58 encoded account that will send the payload (must have SS58Prefix = 42)
-		#[structopt(long)]
-		sender: AccountId,
-	},
-}
-
-/// All possible messages that may be delivered to the Rialto chain.
-#[derive(StructOpt, Debug)]
-pub enum ToRialtoMessage {
+pub enum Call {
 	/// Raw bytes for the message
 	Raw {
 		/// Raw, SCALE-encoded message
@@ -382,10 +294,11 @@ pub enum ToRialtoMessage {
 		recipient: AccountId,
 		/// Amount of target tokens to send in target chain base currency units.
 		#[structopt(long)]
-		amount: bp_rialto::Balance,
+		amount: Balance,
 	},
-	/// A call to the Millau Bridge Messages pallet to send a message over the bridge.
-	MillauSendMessage {
+	// TODO [#853] Support multiple bridges.
+	/// A call to the specific Bridge Messages pallet to queue message to be sent over a bridge.
+	BridgeSendMessage {
 		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
 		#[structopt(long, default_value = "00000000")]
 		lane: HexLaneId,
@@ -394,47 +307,6 @@ pub enum ToRialtoMessage {
 		payload: HexBytes,
 		/// Declared delivery and dispatch fee in base source-chain currency units.
 		#[structopt(long)]
-		fee: bp_rialto::Balance,
+		fee: Balance,
 	},
 }
-
-/// All possible messages that may be delivered to the Millau chain.
-#[derive(StructOpt, Debug)]
-pub enum ToMillauMessage {
-	/// Raw bytes for the message
-	Raw {
-		/// Raw, SCALE-encoded message
-		data: HexBytes,
-	},
-	/// Make an on-chain remark (comment).
-	Remark {
-		/// Size of the remark. If not passed, small UTF8-encoded string is generated by relay as remark.
-		#[structopt(long)]
-		remark_size: Option<ExplicitOrMaximal<usize>>,
-	},
-	/// Transfer the specified `amount` of native tokens to a particular `recipient`.
-	Transfer {
-		/// SS58 encoded account that will receive the transfer (must have SS58Prefix = 42)
-		#[structopt(long)]
-		recipient: AccountId,
-		/// Amount of target tokens to send in target chain base currency units.
-		#[structopt(long)]
-		amount: bp_millau::Balance,
-	},
-	/// A call to the Rialto Bridge Messages pallet to send a message over the bridge.
-	RialtoSendMessage {
-		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-		#[structopt(long, default_value = "00000000")]
-		lane: HexLaneId,
-		/// Raw SCALE-encoded Message Payload to submit to the messages pallet.
-		#[structopt(long)]
-		payload: HexBytes,
-		/// Declared delivery and dispatch fee in base source-chain currency units.
-		#[structopt(long)]
-		fee: bp_millau::Balance,
-	},
-}
-
-declare_chain_options!(Rialto, rialto);
-declare_chain_options!(Millau, millau);
-declare_chain_options!(Westend, westend);

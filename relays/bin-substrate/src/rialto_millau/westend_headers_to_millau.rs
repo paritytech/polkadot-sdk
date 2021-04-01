@@ -16,7 +16,6 @@
 
 //! Westend-to-Millau headers sync entrypoint.
 
-use super::{MillauClient, WestendClient};
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
 use codec::Encode;
@@ -34,7 +33,7 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 	type TargetChain = Millau;
 
 	fn transactions_author(&self) -> bp_millau::AccountId {
-		self.target_sign.signer.public().as_array_ref().clone().into()
+		self.target_sign.public().as_array_ref().clone().into()
 	}
 
 	fn make_submit_finality_proof_transaction(
@@ -50,24 +49,8 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 		.into();
 
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign.signer, transaction_nonce, call);
+		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
 
 		Bytes(transaction.encode())
 	}
-}
-
-/// Run Westend-to-Millau finality sync.
-pub async fn run(
-	westend_client: WestendClient,
-	millau_client: MillauClient,
-	millau_sign: MillauSigningParams,
-	metrics_params: Option<relay_utils::metrics::MetricsParams>,
-) -> Result<(), String> {
-	crate::finality_pipeline::run(
-		WestendFinalityToMillau::new(millau_client.clone(), millau_sign),
-		westend_client,
-		millau_client,
-		metrics_params,
-	)
-	.await
 }

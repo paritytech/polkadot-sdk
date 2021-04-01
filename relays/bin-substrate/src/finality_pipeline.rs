@@ -56,7 +56,7 @@ pub trait SubstrateFinalitySyncPipeline: FinalitySyncPipeline {
 }
 
 /// Substrate-to-Substrate finality proof pipeline.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SubstrateFinalityToSubstrate<SourceChain, TargetChain: Chain, TargetSign> {
 	/// Client for the target chain.
 	pub(crate) target_client: Client<TargetChain>,
@@ -64,6 +64,16 @@ pub struct SubstrateFinalityToSubstrate<SourceChain, TargetChain: Chain, TargetS
 	pub(crate) target_sign: TargetSign,
 	/// Unused generic arguments dump.
 	_marker: PhantomData<SourceChain>,
+}
+
+impl<SourceChain, TargetChain: Chain, TargetSign> Debug
+	for SubstrateFinalityToSubstrate<SourceChain, TargetChain, TargetSign>
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		f.debug_struct("SubstrateFinalityToSubstrate")
+			.field("target_client", &self.target_client)
+			.finish()
+	}
 }
 
 impl<SourceChain, TargetChain: Chain, TargetSign> SubstrateFinalityToSubstrate<SourceChain, TargetChain, TargetSign> {
@@ -83,7 +93,7 @@ where
 	SourceChain: Clone + Chain + Debug,
 	BlockNumberOf<SourceChain>: BlockNumberBase,
 	TargetChain: Clone + Chain + Debug,
-	TargetSign: Clone + Send + Sync + Debug,
+	TargetSign: Clone + Send + Sync,
 {
 	const SOURCE_NAME: &'static str = SourceChain::NAME;
 	const TARGET_NAME: &'static str = TargetChain::NAME;
@@ -100,7 +110,7 @@ pub async fn run<SourceChain, TargetChain, P>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	metrics_params: Option<relay_utils::metrics::MetricsParams>,
-) -> Result<(), String>
+) -> anyhow::Result<()>
 where
 	P: SubstrateFinalitySyncPipeline<
 		Hash = HashOf<SourceChain>,
@@ -132,4 +142,5 @@ where
 		futures::future::pending(),
 	)
 	.await
+	.map_err(|e| anyhow::format_err!("{}", e))
 }
