@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -20,56 +20,9 @@ use frame_support::weights::Weight;
 use structopt::StructOpt;
 
 use crate::cli::{
-	AccountId, Balance, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, PrometheusParams, SourceConnectionParams,
-	SourceSigningParams, TargetConnectionParams, TargetSigningParams,
+	AccountId, Balance, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, SourceConnectionParams, SourceSigningParams,
+	TargetSigningParams,
 };
-
-/// Start message relayer process.
-///
-/// TODO [#855] Move to separate module.
-#[derive(StructOpt)]
-pub enum RelayMessages {
-	/// Serve given lane of Millau -> Rialto messages.
-	MillauToRialto {
-		#[structopt(flatten)]
-		source: SourceConnectionParams,
-		#[structopt(flatten)]
-		source_sign: SourceSigningParams,
-		#[structopt(flatten)]
-		target: TargetConnectionParams,
-		#[structopt(flatten)]
-		target_sign: TargetSigningParams,
-		#[structopt(flatten)]
-		prometheus_params: PrometheusParams,
-		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-		#[structopt(long, default_value = "00000000")]
-		lane: HexLaneId,
-	},
-	/// Serve given lane of Rialto -> Millau messages.
-	RialtoToMillau {
-		#[structopt(flatten)]
-		source: SourceConnectionParams,
-		#[structopt(flatten)]
-		source_sign: SourceSigningParams,
-		#[structopt(flatten)]
-		target: TargetConnectionParams,
-		#[structopt(flatten)]
-		target_sign: TargetSigningParams,
-		#[structopt(flatten)]
-		prometheus_params: PrometheusParams,
-		/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-		#[structopt(long, default_value = "00000000")]
-		lane: HexLaneId,
-	},
-}
-
-impl RelayMessages {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		super::run_relay_messages(self).await.map_err(format_err)?;
-		Ok(())
-	}
-}
 
 /// Send bridge message.
 ///

@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -43,63 +43,6 @@ use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 use sp_version::RuntimeVersion;
 use std::fmt::Debug;
-
-async fn run_relay_messages(command: cli::RelayMessages) -> Result<(), String> {
-	match command {
-		cli::RelayMessages::MillauToRialto {
-			source,
-			source_sign,
-			target,
-			target_sign,
-			prometheus_params,
-			lane,
-		} => {
-			type Source = Millau;
-			type Target = Rialto;
-
-			let source_client = source_chain_client::<Source>(source).await?;
-			let source_sign = Source::source_signing_params(source_sign)?;
-			let target_client = target_chain_client::<Target>(target).await?;
-			let target_sign = Target::target_signing_params(target_sign)?;
-
-			millau_messages_to_rialto::run(
-				source_client,
-				source_sign,
-				target_client,
-				target_sign,
-				lane.into(),
-				prometheus_params.into(),
-			)
-			.await
-		}
-		cli::RelayMessages::RialtoToMillau {
-			source,
-			source_sign,
-			target,
-			target_sign,
-			prometheus_params,
-			lane,
-		} => {
-			type Source = Rialto;
-			type Target = Millau;
-
-			let source_client = source_chain_client::<Source>(source).await?;
-			let source_sign = Source::source_signing_params(source_sign)?;
-			let target_client = target_chain_client::<Target>(target).await?;
-			let target_sign = Target::target_signing_params(target_sign)?;
-
-			rialto_messages_to_millau::run(
-				source_client,
-				source_sign,
-				target_client,
-				target_sign,
-				lane.into(),
-				prometheus_params.into(),
-			)
-			.await
-		}
-	}
-}
 
 async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 	match command {
