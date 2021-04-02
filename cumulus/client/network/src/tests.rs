@@ -321,6 +321,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 
 		client
 			.import(BlockOrigin::Own, block)
+			.await
 			.expect("Imports the block");
 
 		assert!(matches!(
@@ -386,7 +387,11 @@ sp_api::mock_impl_runtime_apis! {
 			Vec::new()
 		}
 
-		fn persisted_validation_data(&self, _: ParaId, _: OccupiedCoreAssumption) -> Option<PersistedValidationData<BlockNumber>> {
+		fn persisted_validation_data(
+			&self,
+			_: ParaId,
+			_: OccupiedCoreAssumption,
+		) -> Option<PersistedValidationData<PHash, BlockNumber>> {
 			Some(PersistedValidationData {
 				parent_head: HeadData(default_header().encode()),
 				..Default::default()
@@ -429,6 +434,10 @@ sp_api::mock_impl_runtime_apis! {
 			_: ParaId,
 		) -> BTreeMap<ParaId, Vec<InboundHrmpMessage<BlockNumber>>> {
 			BTreeMap::new()
+		}
+
+		fn validation_code_by_hash(_: PHash) -> Option<ValidationCode> {
+			None
 		}
 	}
 }

@@ -62,7 +62,7 @@ pub struct RelayChainConsensus<B, PF, BI, RClient, RBackend> {
 	_phantom: PhantomData<B>,
 	proposer_factory: Arc<Mutex<PF>>,
 	inherent_data_providers: InherentDataProviders,
-	block_import: Arc<Mutex<BI>>,
+	block_import: Arc<futures::lock::Mutex<BI>>,
 	relay_chain_client: Arc<RClient>,
 	relay_chain_backend: Arc<RBackend>,
 }
@@ -101,7 +101,7 @@ where
 			para_id,
 			proposer_factory: Arc::new(Mutex::new(proposer_factory)),
 			inherent_data_providers,
-			block_import: Arc::new(Mutex::new(block_import)),
+			block_import: Arc::new(futures::lock::Mutex::new(block_import)),
 			relay_chain_backend: polkadot_backend,
 			relay_chain_client: polkadot_client,
 			_phantom: PhantomData,
@@ -212,7 +212,9 @@ where
 		if let Err(err) = self
 			.block_import
 			.lock()
+			.await
 			.import_block(block_import_params, Default::default())
+			.await
 		{
 			tracing::error!(
 				target: LOG_TARGET,

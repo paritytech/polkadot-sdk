@@ -21,7 +21,7 @@
 use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_primitives_core::ParaId;
 use futures::FutureExt;
-use polkadot_primitives::v1::{Block as PBlock, CollatorId, CollatorPair};
+use polkadot_primitives::v1::{Block as PBlock, CollatorPair};
 use polkadot_service::{AbstractClient, Client as PClient, ClientHandle, RuntimeApiCollection};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, UsageProvider,
@@ -233,7 +233,7 @@ pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration
 #[sc_tracing::logging::prefix_logs_with("Relaychain")]
 pub fn build_polkadot_full_node(
 	config: Configuration,
-	collator_id: CollatorId,
+	collator_pair: CollatorPair,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 ) -> Result<RFullNode<PClient>, polkadot_service::Error> {
 	let is_light = matches!(config.role, Role::Light);
@@ -244,7 +244,7 @@ pub fn build_polkadot_full_node(
 	} else {
 		polkadot_service::build_full(
 			config,
-			polkadot_service::IsCollator::Yes(collator_id),
+			polkadot_service::IsCollator::Yes(collator_pair),
 			None,
 			None,
 			telemetry_worker_handle,

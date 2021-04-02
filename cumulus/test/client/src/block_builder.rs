@@ -19,7 +19,7 @@ use cumulus_primitives_core::PersistedValidationData;
 use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp};
-use polkadot_primitives::v1::BlockNumber as PBlockNumber;
+use polkadot_primitives::v1::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::generic::BlockId;
@@ -35,7 +35,7 @@ pub trait InitBlockBuilder {
 	/// just use a default one.
 	fn init_block_builder(
 		&self,
-		validation_data: Option<PersistedValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 
@@ -46,7 +46,7 @@ pub trait InitBlockBuilder {
 	fn init_block_builder_at(
 		&self,
 		at: &BlockId<Block>,
-		validation_data: Option<PersistedValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 }
@@ -54,7 +54,7 @@ pub trait InitBlockBuilder {
 impl InitBlockBuilder for Client {
 	fn init_block_builder(
 		&self,
-		validation_data: Option<PersistedValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
 		let chain_info = self.chain_info();
@@ -68,7 +68,7 @@ impl InitBlockBuilder for Client {
 	fn init_block_builder_at(
 		&self,
 		at: &BlockId<Block>,
-		validation_data: Option<PersistedValidationData<PBlockNumber>>,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
 		let mut block_builder = self

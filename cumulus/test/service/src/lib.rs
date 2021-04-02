@@ -158,7 +158,7 @@ where
 	let relay_chain_full_node = polkadot_test_service::new_full(
 		relay_chain_config,
 		if let Some(ref key) = collator_key {
-			polkadot_service::IsCollator::Yes(key.public())
+			polkadot_service::IsCollator::Yes(key.clone())
 		} else {
 			polkadot_service::IsCollator::No
 		},

@@ -204,7 +204,7 @@ where
 						h,
 						&*parachain,
 						&mut unset_best_header,
-					),
+					).await,
 					None => {
 						tracing::debug!(
 							target: "cumulus-consensus",
@@ -221,7 +221,7 @@ where
 						&mut unset_best_header,
 						&*parachain,
 						&*announce_block,
-					),
+					).await,
 					None => {
 						tracing::debug!(
 							target: "cumulus-consensus",
@@ -236,11 +236,11 @@ where
 }
 
 /// Handle a new import block of the parachain.
-fn handle_new_block_imported<Block, P>(
+async fn handle_new_block_imported<Block, P>(
 	notification: BlockImportNotification<Block>,
 	unset_best_header_opt: &mut Option<Block::Header>,
 	parachain: &P,
-	announce_block: &dyn Fn(Block::Hash, Option<Vec<u8>>),
+	announce_block: &(dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync),
 ) where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
@@ -280,7 +280,7 @@ fn handle_new_block_imported<Block, P>(
 				.take()
 				.expect("We checked above that the value is set; qed");
 
-			import_block_as_new_best(unset_hash, unset_best_header, parachain);
+			import_block_as_new_best(unset_hash, unset_best_header, parachain).await;
 		}
 		state => tracing::debug!(
 			target: "cumulus-consensus",
@@ -293,7 +293,7 @@ fn handle_new_block_imported<Block, P>(
 }
 
 /// Handle the new best parachain head as extracted from the new best relay chain.
-fn handle_new_best_parachain_head<Block, P>(
+async fn handle_new_best_parachain_head<Block, P>(
 	head: Vec<u8>,
 	parachain: &P,
 	unset_best_header: &mut Option<Block::Header>,
@@ -328,7 +328,7 @@ fn handle_new_best_parachain_head<Block, P>(
 			Ok(BlockStatus::InChainWithState) => {
 				unset_best_header.take();
 
-				import_block_as_new_best(hash, parachain_head, parachain);
+				import_block_as_new_best(hash, parachain_head, parachain).await;
 			}
 			Ok(BlockStatus::InChainPruned) => {
 				tracing::error!(
@@ -359,11 +359,8 @@ fn handle_new_best_parachain_head<Block, P>(
 	}
 }
 
-fn import_block_as_new_best<Block, P>(
-	hash: Block::Hash,
-	header: Block::Header,
-	parachain: &P,
-) where
+async fn import_block_as_new_best<Block, P>(hash: Block::Hash, header: Block::Header, parachain: &P)
+where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
 	for<'a> &'a P: BlockImport<Block>,
@@ -373,7 +370,10 @@ fn import_block_as_new_best<Block, P>(
 	block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 	block_import_params.import_existing = true;
 
-	if let Err(err) = (&*parachain).import_block(block_import_params, Default::default()) {
+	if let Err(err) = (&*parachain)
+		.import_block(block_import_params, Default::default())
+		.await
+	{
 		tracing::warn!(
 			target: "cumulus-consensus",
 			block_hash = ?hash,
@@ -555,7 +555,9 @@ impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send +
 		relay_parent: PHash,
 		validation_data: &PersistedValidationData,
 	) -> Option<ParachainCandidate<B>> {
-		(*self).produce_candidate(parent, relay_parent, validation_data).await
+		(*self)
+			.produce_candidate(parent, relay_parent, validation_data)
+			.await
 	}
 }
 
@@ -653,9 +655,7 @@ mod tests {
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(false));
 		block_import_params.body = Some(body);
 
-		client
-			.import_block(block_import_params, Default::default())
-			.unwrap();
+		block_on(client.import_block(block_import_params, Default::default())).unwrap();
 		assert_eq!(0, client.chain_info().best_number);
 
 		block
@@ -865,6 +865,7 @@ mod tests {
 			// Now import the unkown block to make it "known"
 			client
 				.import_block(block_import_params, Default::default())
+				.await
 				.unwrap();
 
 			loop {

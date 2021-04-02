@@ -165,9 +165,7 @@ mod tests {
 		let (mut client, backend, block) = build_client_backend_and_block();
 		let hash = block.hash();
 
-		client
-			.import(BlockOrigin::Own, block)
-			.expect("Imports the block");
+		block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
 
 		let wait = WaitOnRelayChainBlock::new(backend, client);
 
@@ -195,6 +193,7 @@ mod tests {
 			// Import the block that should fire the notification
 			client
 				.import(BlockOrigin::Own, block)
+				.await
 				.expect("Imports the block");
 
 			// Now it should have received the notification and report that the block was imported
@@ -246,6 +245,7 @@ mod tests {
 			// Import the block that should fire the notification
 			client
 				.import(BlockOrigin::Own, block2)
+				.await
 				.expect("Imports the second block");
 
 			// The import notification of the second block should not make this one finish
@@ -255,6 +255,7 @@ mod tests {
 
 			client
 				.import(BlockOrigin::Own, block)
+				.await
 				.expect("Imports the first block");
 
 			// Now it should be ready
