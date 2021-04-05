@@ -51,12 +51,22 @@ use bp_test_utils::{
 	TEST_GRANDPA_ROUND, TEST_GRANDPA_SET_ID,
 };
 use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller};
-use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use num_traits::cast::AsPrimitive;
 use sp_finality_grandpa::AuthorityId;
 use sp_runtime::traits::{One, Zero};
 use sp_std::{vec, vec::Vec};
+
+// The maximum number of vote ancestries to include in a justification.
+//
+// In practice this would be limited by the session length (number of blocks a single authority set
+// can produce) of a given chain.
+const MAX_VOTE_ANCESTRIES: u32 = 1000;
+
+// The maximum number of pre-commits to include in a justification. In practice this scales with the
+// number of validators.
+//
+// TODO [#846]: Right now this will break benchmarking if it is greater than `u8::MAX`
+const MAX_VALIDATOR_SET_SIZE: u32 = 255;
 
 benchmarks_instance_pallet! {
 	// This is the "gold standard" benchmark for this extrinsic, and it's what should be used to
@@ -65,8 +75,8 @@ benchmarks_instance_pallet! {
 	// The other benchmarks related to `submit_finality_proof` are looking at the effect of specific
 	// parameters and are there mostly for seeing how specific codepaths behave.
 	submit_finality_proof {
-		let s in 1..T::MaxBridgedSessionLength::get().as_() as u32;
-		let p in 1..T::MaxBridgedValidatorCount::get();
+		let v in 1..MAX_VOTE_ANCESTRIES;
+		let p in 1..MAX_VALIDATOR_SET_SIZE;
 
 		let caller: T::AccountId = whitelisted_caller();
 
@@ -90,8 +100,8 @@ benchmarks_instance_pallet! {
 			round: TEST_GRANDPA_ROUND,
 			set_id: TEST_GRANDPA_SET_ID,
 			authorities: accounts(p as u8).iter().map(|k| (*k, 1)).collect::<Vec<_>>(),
-			depth: s,
-			forks: p,
+			votes: v,
+			forks: 1,
 		};
 
 		let justification = make_justification_for_header(params);
@@ -108,7 +118,7 @@ benchmarks_instance_pallet! {
 	// What we want to check here is the effect of vote ancestries on justification verification
 	// do this by varying the number of headers between `finality_target` and `header_of_chain`.
 	submit_finality_proof_on_single_fork {
-		let s in 1..T::MaxBridgedSessionLength::get().as_() as u32;
+		let v in 1..MAX_VOTE_ANCESTRIES;
 
 		let caller: T::AccountId = whitelisted_caller();
 
@@ -127,7 +137,7 @@ benchmarks_instance_pallet! {
 			round: TEST_GRANDPA_ROUND,
 			set_id: TEST_GRANDPA_SET_ID,
 			authorities: test_keyring(),
-			depth: s,
+			votes: v,
 			forks: 1,
 		};
 
@@ -146,7 +156,7 @@ benchmarks_instance_pallet! {
 	// We do this by creating many forks, whose head will be used as a signed pre-commit in the
 	// final justification.
 	submit_finality_proof_on_many_forks {
-		let p in 1..T::MaxBridgedValidatorCount::get();
+		let p in 1..MAX_VALIDATOR_SET_SIZE;
 
 		let caller: T::AccountId = whitelisted_caller();
 
@@ -170,7 +180,7 @@ benchmarks_instance_pallet! {
 			round: TEST_GRANDPA_ROUND,
 			set_id: TEST_GRANDPA_SET_ID,
 			authorities: accounts(p as u8).iter().map(|k| (*k, 1)).collect::<Vec<_>>(),
-			depth: 2,
+			votes: p,
 			forks: p,
 		};
 

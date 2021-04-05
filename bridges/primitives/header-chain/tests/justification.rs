@@ -23,24 +23,29 @@ type TestHeader = sp_runtime::testing::Header;
 
 #[test]
 fn valid_justification_accepted() {
+	let authorities = vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1), (EVE, 1)];
 	let params = JustificationGeneratorParams {
 		header: test_header(1),
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
-		authorities: vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1), (EVE, 1)],
-		depth: 5,
-		forks: 5,
+		authorities: authorities.clone(),
+		votes: 7,
+		forks: 3,
 	};
 
+	let justification = make_justification_for_header::<TestHeader>(params.clone());
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
 			TEST_GRANDPA_SET_ID,
 			&voter_set(),
-			&make_justification_for_header::<TestHeader>(params)
+			&justification,
 		),
 		Ok(()),
 	);
+
+	assert_eq!(justification.commit.precommits.len(), authorities.len());
+	assert_eq!(justification.votes_ancestries.len(), params.votes as usize);
 }
 
 #[test]
@@ -50,7 +55,7 @@ fn valid_justification_accepted_with_single_fork() {
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
 		authorities: vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1), (EVE, 1)],
-		depth: 5,
+		votes: 5,
 		forks: 1,
 	};
 
@@ -78,7 +83,7 @@ fn valid_justification_accepted_with_arbitrary_number_of_authorities() {
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
 		authorities: authorities.clone(),
-		depth: 5,
+		votes: n.into(),
 		forks: n.into(),
 	};
 
@@ -163,12 +168,14 @@ fn justification_with_invalid_precommit_ancestry() {
 #[test]
 fn justification_is_invalid_if_we_dont_meet_threshold() {
 	// Need at least three authorities to sign off or else the voter set threshold can't be reached
+	let authorities = vec![(ALICE, 1), (BOB, 1)];
+
 	let params = JustificationGeneratorParams {
 		header: test_header(1),
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
-		authorities: vec![(ALICE, 1), (BOB, 1)],
-		depth: 2,
+		authorities: authorities.clone(),
+		votes: 2 * authorities.len() as u32,
 		forks: 2,
 	};
 
