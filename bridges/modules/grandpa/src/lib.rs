@@ -44,7 +44,6 @@ use codec::{Decode, Encode};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::ensure;
 use frame_system::{ensure_signed, RawOrigin};
-use num_traits::cast::AsPrimitive;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
@@ -92,27 +91,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxRequests: Get<u32>;
 
-		/// The maximum length of a session on the bridged chain.
-		///
-		/// The pallet uses this to bound justification verification since justifications contain
-		/// ancestry proofs whose size is capped at `MaxBridgedSessionLength`.
-		#[pallet::constant]
-		type MaxBridgedSessionLength: Get<BridgedBlockNumber<Self, I>>;
-
-		/// The number of validators on the bridged chain.
-		///
-		/// The pallet uses this to bound justification verification since justifications may
-		/// contain up to `MaxBridgedValidatorCount` number of signed `pre-commit` messages which
-		/// need to be verified.
-		///
-		/// Note that `MaxBridgedValidatorCount` should *not* match the exact number of validators
-		/// on the bridged chain. Instead it should be a number which is greater than the actual
-		/// number of validators in order to provide some buffer room should the validator set
-		/// increase in size. If this number ends up being lower than the actual number of
-		/// validators on the bridged chain you risk stalling the bridge.
-		#[pallet::constant]
-		type MaxBridgedValidatorCount: Get<u32>;
-
 		/// Weights gathered through benchmarking.
 		type WeightInfo: WeightInfo;
 	}
@@ -141,8 +119,8 @@ pub mod pallet {
 		/// If successful in verification, it will write the target header to the underlying storage
 		/// pallet.
 		#[pallet::weight(T::WeightInfo::submit_finality_proof(
-			T::MaxBridgedSessionLength::get().as_() as u32,
-			T::MaxBridgedValidatorCount::get(),
+			justification.votes_ancestries.len() as u32,
+			justification.commit.precommits.len() as u32,
 		))]
 		pub fn submit_finality_proof(
 			origin: OriginFor<T>,
@@ -181,15 +159,7 @@ pub mod pallet {
 
 			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
 
-			// Note that the number of precommits is indicitive of the number of GRANDPA forks being
-			// voted on.
-			let precommits = justification.commit.precommits.len();
-
-			// This represents the average number of votes in a single fork since the weight formula
-			// uses that metric instead of the aggregated number of vote ancestries.
-			let votes = (justification.votes_ancestries.len() + precommits - 1) / precommits;
-
-			Ok(Some(T::WeightInfo::submit_finality_proof(votes as u32, precommits as u32)).into())
+			Ok(().into())
 		}
 
 		/// Bootstrap the bridge pallet with an initial header and authority set from which to sync.
