@@ -176,30 +176,6 @@ impl EstimateFee {
 	}
 }
 
-/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
-///
-/// The (derived) target chain `AccountId` is going to be used as dispatch origin of the call
-/// that has been sent over the bridge.
-/// This account can also be used to receive target-chain funds (or other form of ownership),
-/// since messages sent over the bridge will be able to spend these.
-///
-/// TODO [#855] Move to separate module.
-#[derive(StructOpt)]
-pub enum DeriveAccount {
-	/// Given Rialto AccountId, display corresponding Millau AccountId.
-	RialtoToMillau { account: AccountId },
-	/// Given Millau AccountId, display corresponding Rialto AccountId.
-	MillauToRialto { account: AccountId },
-}
-
-impl DeriveAccount {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		super::run_derive_account(self).await.map_err(format_err)?;
-		Ok(())
-	}
-}
-
 fn format_err(err: String) -> anyhow::Error {
 	anyhow::anyhow!(err)
 }
