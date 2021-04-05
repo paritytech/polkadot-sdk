@@ -281,20 +281,6 @@ pub trait CliChain: relay_substrate_client::Chain {
 
 	/// Maximal extrinsic weight (from the runtime).
 	fn max_extrinsic_weight() -> Weight;
-
-	/// Convert CLI signing parameters of `Source` chain into a `KeyPair` instance.
-	fn source_signing_params(params: SourceSigningParams) -> Result<Self::KeyPair, String> {
-		use sp_core::crypto::Pair;
-		Self::KeyPair::from_string(&params.source_signer, params.source_signer_password.as_deref())
-			.map_err(|e| format!("Failed to parse source-signer: {:?}", e))
-	}
-
-	/// Convert CLI signing parameters of `Target` chain into a `KeyPair` instance.
-	fn target_signing_params(params: TargetSigningParams) -> Result<Self::KeyPair, String> {
-		use sp_core::crypto::Pair;
-		Self::KeyPair::from_string(&params.target_signer, params.target_signer_password.as_deref())
-			.map_err(|e| format!("Failed to parse target-signer: {:?}", e))
-	}
 }
 
 /// Lane id.
@@ -425,12 +411,36 @@ macro_rules! declare_chain_options {
 				#[structopt(long)]
 				pub [<$chain_prefix _signer_password>]: Option<String>,
 			}
+
+			impl [<$chain SigningParams>] {
+				/// Parse signing params into chain-specific KeyPair.
+				pub fn into_keypair<Chain: CliChain>(self) -> anyhow::Result<Chain::KeyPair> {
+					use sp_core::crypto::Pair;
+					Chain::KeyPair::from_string(
+						&self.[<$chain_prefix _signer>],
+						self.[<$chain_prefix _signer_password>].as_deref()
+					).map_err(|e| anyhow::format_err!("{:?}", e))
+				}
+			}
+
+			impl [<$chain ConnectionParams>] {
+				/// Convert connection params into Substrate client.
+				pub async fn into_client<Chain: CliChain>(
+					self,
+				) -> anyhow::Result<relay_substrate_client::Client<Chain>> {
+					Ok(relay_substrate_client::Client::new(relay_substrate_client::ConnectionParams {
+						host: self.[<$chain_prefix _host>],
+						port: self.[<$chain_prefix _port>],
+						secure: self.[<$chain_prefix _secure>],
+					})
+					.await?
+					)
+				}
+			}
 		}
 	};
 }
 
-// TODO [#852] Use structop renames instead of different fields.
-// TODO [#852] Add Into<ConnectionParams>?
 declare_chain_options!(Source, source);
 declare_chain_options!(Target, target);
 

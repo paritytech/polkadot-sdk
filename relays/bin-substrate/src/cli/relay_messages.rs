@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::{
-	CliChain, HexLaneId, PrometheusParams, SourceConnectionParams, SourceSigningParams, TargetConnectionParams,
+	HexLaneId, PrometheusParams, SourceConnectionParams, SourceSigningParams, TargetConnectionParams,
 	TargetSigningParams,
 };
 use structopt::{clap::arg_enum, StructOpt};
@@ -75,12 +75,10 @@ impl RelayMessages {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.bridge, {
-			let source_client = crate::rialto_millau::source_chain_client::<Source>(self.source).await?;
-			let source_sign =
-				Source::source_signing_params(self.source_sign).map_err(|e| anyhow::format_err!("{}", e))?;
-			let target_client = crate::rialto_millau::target_chain_client::<Target>(self.target).await?;
-			let target_sign =
-				Target::target_signing_params(self.target_sign).map_err(|e| anyhow::format_err!("{}", e))?;
+			let source_client = self.source.into_client::<Source>().await?;
+			let source_sign = self.source_sign.into_keypair::<Source>()?;
+			let target_client = self.target.into_client::<Target>().await?;
+			let target_sign = self.target_sign.into_keypair::<Target>()?;
 
 			run(
 				source_client,
