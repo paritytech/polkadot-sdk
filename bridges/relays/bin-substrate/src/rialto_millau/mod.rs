@@ -29,7 +29,7 @@ pub type MillauClient = relay_substrate_client::Client<Millau>;
 pub type RialtoClient = relay_substrate_client::Client<Rialto>;
 
 use crate::cli::{
-	AccountId, CliChain, ExplicitOrMaximal, HexBytes, Origins, SourceConnectionParams, SourceSigningParams,
+	CliChain, ExplicitOrMaximal, HexBytes, Origins, SourceConnectionParams, SourceSigningParams,
 	TargetConnectionParams, TargetSigningParams,
 };
 use codec::{Decode, Encode};
@@ -331,43 +331,6 @@ async fn run_estimate_fee(cmd: cli::EstimateFee) -> Result<(), String> {
 					.await?;
 
 			println!("Fee: {:?}", fee);
-		}
-	}
-
-	Ok(())
-}
-
-async fn run_derive_account(cmd: cli::DeriveAccount) -> Result<(), String> {
-	match cmd {
-		cli::DeriveAccount::RialtoToMillau { mut account } => {
-			type Source = Rialto;
-			type Target = Millau;
-
-			account.enforce_chain::<Source>();
-			let acc = bp_runtime::SourceAccount::Account(account.raw_id());
-			let id = bp_millau::derive_account_from_rialto_id(acc);
-			let derived_account = AccountId::from_raw::<Target>(id);
-			println!("Source address:\n{} ({})", account, Source::NAME);
-			println!(
-				"->Corresponding (derived) address:\n{} ({})",
-				derived_account,
-				Target::NAME,
-			);
-		}
-		cli::DeriveAccount::MillauToRialto { mut account } => {
-			type Source = Millau;
-			type Target = Rialto;
-
-			account.enforce_chain::<Source>();
-			let acc = bp_runtime::SourceAccount::Account(account.raw_id());
-			let id = bp_rialto::derive_account_from_millau_id(acc);
-			let derived_account = AccountId::from_raw::<Target>(id);
-			println!("Source address:\n{} ({})", account, Source::NAME);
-			println!(
-				"->Corresponding (derived) address:\n{} ({})",
-				derived_account,
-				Target::NAME,
-			);
 		}
 	}
 
@@ -862,27 +825,6 @@ mod tests {
 			"Hardcoded number of extra bytes in Millau transaction {} is lower than actual value: {}",
 			bp_millau::TX_EXTRA_BYTES,
 			extra_bytes_in_transaction,
-		);
-	}
-
-	#[test]
-	fn should_reformat_addresses() {
-		// given
-		let mut rialto1: AccountId = "5sauUXUfPjmwxSgmb3tZ5d6yx24eZX4wWJ2JtVUBaQqFbvEU".parse().unwrap();
-		let mut millau1: AccountId = "752paRyW1EGfq9YLTSSqcSJ5hqnBDidBmaftGhBo8fy6ypW9".parse().unwrap();
-
-		// when
-		rialto1.enforce_chain::<Millau>();
-		millau1.enforce_chain::<Rialto>();
-
-		// then
-		assert_eq!(
-			&format!("{}", rialto1),
-			"752paRyW1EGfq9YLTSSqcSJ5hqnBDidBmaftGhBo8fy6ypW9"
-		);
-		assert_eq!(
-			&format!("{}", millau1),
-			"5sauUXUfPjmwxSgmb3tZ5d6yx24eZX4wWJ2JtVUBaQqFbvEU"
 		);
 	}
 }
