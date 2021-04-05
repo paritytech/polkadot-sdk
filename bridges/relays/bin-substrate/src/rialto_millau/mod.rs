@@ -28,16 +28,13 @@ pub type MillauClient = relay_substrate_client::Client<Millau>;
 /// Rialto node client.
 pub type RialtoClient = relay_substrate_client::Client<Rialto>;
 
-use crate::cli::{
-	CliChain, ExplicitOrMaximal, HexBytes, Origins, SourceConnectionParams, SourceSigningParams,
-	TargetConnectionParams, TargetSigningParams,
-};
+use crate::cli::{CliChain, ExplicitOrMaximal, HexBytes, Origins};
 use codec::{Decode, Encode};
 use frame_support::weights::{GetDispatchInfo, Weight};
 use pallet_bridge_dispatch::{CallOrigin, MessagePayload};
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
-use relay_substrate_client::{Chain, ConnectionParams, TransactionSignScheme};
+use relay_substrate_client::{Chain, TransactionSignScheme};
 use relay_westend_client::Westend;
 use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::IdentifyAccount, MultiSigner};
@@ -75,9 +72,9 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 				))
 			};
 
-			let source_client = source_chain_client::<Source>(source).await?;
-			let source_sign = Source::source_signing_params(source_sign)?;
-			let target_sign = Target::target_signing_params(target_sign)?;
+			let source_client = source.into_client::<Source>().await.map_err(format_err)?;
+			let source_sign = source_sign.into_keypair::<Source>().map_err(format_err)?;
+			let target_sign = target_sign.into_keypair::<Target>().map_err(format_err)?;
 			let target_call = Target::encode_call(message)?;
 
 			let payload = {
@@ -181,9 +178,9 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 				))
 			};
 
-			let source_client = source_chain_client::<Source>(source).await?;
-			let source_sign = Source::source_signing_params(source_sign)?;
-			let target_sign = Target::target_signing_params(target_sign)?;
+			let source_client = source.into_client::<Source>().await.map_err(format_err)?;
+			let source_sign = source_sign.into_keypair::<Source>().map_err(format_err)?;
+			let target_sign = target_sign.into_keypair::<Target>().map_err(format_err)?;
 			let target_call = Target::encode_call(message)?;
 
 			let payload = {
@@ -306,7 +303,7 @@ async fn run_estimate_fee(cmd: cli::EstimateFee) -> Result<(), String> {
 
 			let estimate_message_fee_method = bp_millau::TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD;
 
-			let source_client = source_chain_client::<Source>(source).await?;
+			let source_client = source.into_client::<Source>().await.map_err(format_err)?;
 			let lane = lane.into();
 			let payload = Source::encode_message(payload)?;
 
@@ -322,7 +319,7 @@ async fn run_estimate_fee(cmd: cli::EstimateFee) -> Result<(), String> {
 
 			let estimate_message_fee_method = bp_rialto::TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD;
 
-			let source_client = source_chain_client::<Source>(source).await?;
+			let source_client = source.into_client::<Source>().await.map_err(format_err)?;
 			let lane = lane.into();
 			let payload = Source::encode_message(payload)?;
 
@@ -601,16 +598,6 @@ impl CliChain for Rialto {
 			}
 		}
 	}
-
-	fn source_signing_params(params: SourceSigningParams) -> Result<Self::KeyPair, String> {
-		Self::KeyPair::from_string(&params.source_signer, params.source_signer_password.as_deref())
-			.map_err(|e| format!("Failed to parse source-signer: {:?}", e))
-	}
-
-	fn target_signing_params(params: TargetSigningParams) -> Result<Self::KeyPair, String> {
-		Self::KeyPair::from_string(&params.target_signer, params.target_signer_password.as_deref())
-			.map_err(|e| format!("Failed to parse target-signer: {:?}", e))
-	}
 }
 
 impl CliChain for Westend {
@@ -636,26 +623,8 @@ impl CliChain for Westend {
 	}
 }
 
-pub async fn source_chain_client<Chain: CliChain>(
-	params: SourceConnectionParams,
-) -> relay_substrate_client::Result<relay_substrate_client::Client<Chain>> {
-	relay_substrate_client::Client::new(ConnectionParams {
-		host: params.source_host,
-		port: params.source_port,
-		secure: params.source_secure,
-	})
-	.await
-}
-
-pub async fn target_chain_client<Chain: CliChain>(
-	params: TargetConnectionParams,
-) -> relay_substrate_client::Result<relay_substrate_client::Client<Chain>> {
-	relay_substrate_client::Client::new(ConnectionParams {
-		host: params.target_host,
-		port: params.target_port,
-		secure: params.target_secure,
-	})
-	.await
+fn format_err(e: anyhow::Error) -> String {
+	e.to_string()
 }
 
 #[cfg(test)]
