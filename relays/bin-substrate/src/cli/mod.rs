@@ -25,6 +25,7 @@ use frame_support::weights::Weight;
 use sp_runtime::app_crypto::Ss58Codec;
 use structopt::{clap::arg_enum, StructOpt};
 
+mod derive_account;
 mod init_bridge;
 mod relay_headers;
 mod relay_messages;
@@ -71,7 +72,7 @@ pub enum Command {
 	/// Estimate Delivery and Dispatch Fee required for message submission to messages pallet.
 	EstimateFee(EstimateFee),
 	/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
-	DeriveAccount(DeriveAccount),
+	DeriveAccount(derive_account::DeriveAccount),
 }
 
 impl Command {
@@ -159,28 +160,6 @@ impl EstimateFee {
 	}
 }
 
-/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
-///
-/// The (derived) target chain `AccountId` is going to be used as dispatch origin of the call
-/// that has been sent over the bridge.
-/// This account can also be used to receive target-chain funds (or other form of ownership),
-/// since messages sent over the bridge will be able to spend these.
-#[derive(StructOpt)]
-pub enum DeriveAccount {
-	#[structopt(flatten)]
-	RialtoMillau(rialto_millau::DeriveAccount),
-}
-
-impl DeriveAccount {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		match self {
-			Self::RialtoMillau(arg) => arg.run().await?,
-		}
-		Ok(())
-	}
-}
-
 arg_enum! {
 	#[derive(Debug)]
 	/// The origin to use when dispatching the message on the target chain.
@@ -213,7 +192,7 @@ impl Balance {
 }
 
 /// Generic account id with custom parser.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountId {
 	account: sp_runtime::AccountId32,
 	ss58_format: sp_core::crypto::Ss58AddressFormat,
