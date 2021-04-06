@@ -34,7 +34,10 @@ use ethereum_sync_loop::EthereumSyncParams;
 use headers_relay::sync::TargetTransactionMode;
 use hex_literal::hex;
 use instances::{BridgeInstance, Kovan, RialtoPoA};
-use relay_utils::{initialize::initialize_relay, metrics::MetricsParams};
+use relay_utils::{
+	initialize::initialize_relay,
+	metrics::{MetricsAddress, MetricsParams},
+};
 use secp256k1::SecretKey;
 use sp_core::crypto::Pair;
 use substrate_sync_loop::SubstrateSyncParams;
@@ -367,12 +370,12 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchan
 	Ok(params)
 }
 
-fn metrics_params(matches: &clap::ArgMatches) -> Result<Option<MetricsParams>, String> {
+fn metrics_params(matches: &clap::ArgMatches) -> Result<MetricsParams, String> {
 	if matches.is_present("no-prometheus") {
-		return Ok(None);
+		return Ok(None.into());
 	}
 
-	let mut metrics_params = MetricsParams::default();
+	let mut metrics_params = MetricsAddress::default();
 
 	if let Some(prometheus_host) = matches.value_of("prometheus-host") {
 		metrics_params.host = prometheus_host.into();
@@ -383,7 +386,7 @@ fn metrics_params(matches: &clap::ArgMatches) -> Result<Option<MetricsParams>, S
 			.map_err(|e| format!("Failed to parse prometheus-port: {}", e))?;
 	}
 
-	Ok(Some(metrics_params))
+	Ok(Some(metrics_params).into())
 }
 
 fn instance_params(matches: &clap::ArgMatches) -> Result<Arc<dyn BridgeInstance>, String> {

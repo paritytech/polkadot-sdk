@@ -16,12 +16,11 @@
 
 //! Global system-wide Prometheus metrics exposed by relays.
 
-use crate::metrics::{Metrics, StandaloneMetrics};
+use crate::metrics::{register, Gauge, GaugeVec, Metrics, Opts, Registry, StandaloneMetrics, F64, U64};
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use std::time::Duration;
-use substrate_prometheus_endpoint::{register, Gauge, GaugeVec, Opts, Registry, F64, U64};
 use sysinfo::{ProcessExt, RefreshKind, System, SystemExt};
 
 /// Global metrics update interval.
@@ -79,7 +78,7 @@ impl StandaloneMetrics for GlobalMetrics {
 			}
 			_ => {
 				log::warn!(
-					target: "bridge",
+					target: "bridge-metrics",
 					"Failed to refresh process information. Metrics may show obsolete values",
 				);
 			}

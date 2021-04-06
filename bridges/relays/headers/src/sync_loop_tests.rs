@@ -24,7 +24,8 @@ use backoff::backoff::Backoff;
 use futures::{future::FutureExt, stream::StreamExt};
 use parking_lot::Mutex;
 use relay_utils::{
-	process_future_result, relay_loop::Client as RelayClient, retry_backoff, HeaderId, MaybeConnectionError,
+	metrics::MetricsParams, process_future_result, relay_loop::Client as RelayClient, retry_backoff, HeaderId,
+	MaybeConnectionError,
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -500,7 +501,7 @@ fn run_sync_loop_test(params: SyncLoopTestParams) {
 		test_tick(),
 		(),
 		crate::sync::tests::default_sync_params(),
-		None,
+		MetricsParams::disabled(),
 		exit_receiver.into_future().map(|(_, _)| ()),
 	));
 }

@@ -90,20 +90,25 @@ pub trait TargetClient<P: FinalitySyncPipeline>: RelayClient {
 	async fn submit_finality_proof(&self, header: P::Header, proof: P::FinalityProof) -> Result<(), Self::Error>;
 }
 
+/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs sync loop.
+pub fn metrics_prefix<P: FinalitySyncPipeline>() -> String {
+	format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME)
+}
+
 /// Run finality proofs synchronization loop.
 pub async fn run<P: FinalitySyncPipeline>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	sync_params: FinalitySyncParams,
-	metrics_params: Option<MetricsParams>,
+	metrics_params: MetricsParams,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
-		.with_metrics(format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME))
+		.with_metrics(metrics_prefix::<P>(), metrics_params)
 		.loop_metric(SyncLoopMetrics::default())?
 		.standalone_metric(GlobalMetrics::default())?
-		.expose(metrics_params)
+		.expose()
 		.await?
 		.run(|source_client, target_client, metrics| {
 			run_until_connection_lost(
