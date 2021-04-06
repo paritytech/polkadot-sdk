@@ -27,6 +27,7 @@ mod sync_header;
 pub mod finality_source;
 pub mod guard;
 pub mod headers_source;
+pub mod metrics;
 
 pub use crate::chain::{BlockWithJustification, Chain, ChainWithBalances, TransactionSignScheme};
 pub use crate::client::{Client, JustificationsSubscription, OpaqueGrandpaAuthoritiesSet};
