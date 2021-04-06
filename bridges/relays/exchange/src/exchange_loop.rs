@@ -83,16 +83,19 @@ pub async fn run<P: TransactionProofPipeline>(
 	storage: impl TransactionProofsRelayStorage<BlockNumber = BlockNumberOf<P>>,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
-	metrics_params: Option<MetricsParams>,
+	metrics_params: MetricsParams,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 
 	relay_utils::relay_loop(source_client, target_client)
-		.with_metrics(format!("{}_to_{}_Exchange", P::SOURCE_NAME, P::TARGET_NAME))
+		.with_metrics(
+			format!("{}_to_{}_Exchange", P::SOURCE_NAME, P::TARGET_NAME),
+			metrics_params,
+		)
 		.loop_metric(ExchangeLoopMetrics::default())?
 		.standalone_metric(GlobalMetrics::default())?
-		.expose(metrics_params)
+		.expose()
 		.await?
 		.run(|source_client, target_client, metrics| {
 			run_until_connection_lost(
@@ -303,7 +306,7 @@ mod tests {
 			storage,
 			source,
 			target,
-			None,
+			MetricsParams::disabled(),
 			exit_receiver.into_future().map(|(_, _)| ()),
 		));
 	}

@@ -15,6 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::{PrometheusParams, SourceConnectionParams, TargetConnectionParams, TargetSigningParams};
+use crate::finality_pipeline::SubstrateFinalitySyncPipeline;
 use structopt::{clap::arg_enum, StructOpt};
 
 /// Start headers relayer process.
@@ -77,12 +78,13 @@ impl RelayHeaders {
 			let source_client = self.source.into_client::<Source>().await?;
 			let target_client = self.target.into_client::<Target>().await?;
 			let target_sign = self.target_sign.into_keypair::<Target>()?;
+			let metrics_params = Finality::customize_metrics(self.prometheus_params.into())?;
 
 			crate::finality_pipeline::run(
 				Finality::new(target_client.clone(), target_sign),
 				source_client,
 				target_client,
-				self.prometheus_params.into(),
+				metrics_params,
 			)
 			.await
 		})

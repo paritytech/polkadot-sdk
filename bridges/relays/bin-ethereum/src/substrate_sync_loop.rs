@@ -68,7 +68,7 @@ pub struct SubstrateSyncParams {
 	/// Synchronization parameters.
 	pub sync_params: HeadersSyncParams,
 	/// Metrics parameters.
-	pub metrics_params: Option<MetricsParams>,
+	pub metrics_params: MetricsParams,
 }
 
 /// Substrate synchronization pipeline.

@@ -35,9 +35,12 @@ use sp_core::storage::StorageKey;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
+/// Initial value of `RialtoToMillauConversionRate` parameter.
+pub const INITIAL_RIALTO_TO_MILLAU_CONVERSION_RATE: FixedU128 = FixedU128::from_inner(FixedU128::DIV);
+
 parameter_types! {
 	/// Rialto to Millau conversion rate. Initially we treat both tokens as equal.
-	storage RialtoToMillauConversionRate: FixedU128 = FixedU128::one();
+	pub storage RialtoToMillauConversionRate: FixedU128 = INITIAL_RIALTO_TO_MILLAU_CONVERSION_RATE;
 }
 
 /// Storage key of the Millau -> Rialto message in the runtime storage.
