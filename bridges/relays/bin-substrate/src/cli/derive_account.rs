@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::AccountId;
+use crate::cli::{bridge::FullBridge, AccountId};
+use crate::select_full_bridge;
 use relay_substrate_client::Chain;
-use structopt::{clap::arg_enum, StructOpt};
+use structopt::StructOpt;
 
 /// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
 ///
@@ -27,44 +28,10 @@ use structopt::{clap::arg_enum, StructOpt};
 #[derive(StructOpt)]
 pub struct DeriveAccount {
 	/// A bridge instance to initalize.
-	#[structopt(possible_values = &DeriveAccountBridge::variants(), case_insensitive = true)]
-	bridge: DeriveAccountBridge,
+	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	bridge: FullBridge,
 	/// Source-chain address to derive Target-chain address from.
 	account: AccountId,
-}
-
-arg_enum! {
-	#[derive(Debug)]
-	/// Bridge to derive account for.
-	pub enum DeriveAccountBridge {
-		MillauToRialto,
-		RialtoToMillau,
-	}
-}
-
-macro_rules! select_bridge {
-	($bridge: expr, $generic: tt) => {
-		match $bridge {
-			DeriveAccountBridge::MillauToRialto => {
-				type Source = relay_millau_client::Millau;
-				type Target = relay_rialto_client::Rialto;
-
-				#[allow(unused_imports)] // the import is not used in `run`
-				use bp_millau::derive_account_from_rialto_id as derive_account;
-
-				$generic
-			}
-			DeriveAccountBridge::RialtoToMillau => {
-				type Source = relay_rialto_client::Rialto;
-				type Target = relay_millau_client::Millau;
-
-				#[allow(unused_imports)] // the import is not used in `run`.
-				use bp_rialto::derive_account_from_millau_id as derive_account;
-
-				$generic
-			}
-		}
-	};
 }
 
 impl DeriveAccount {
@@ -72,7 +39,7 @@ impl DeriveAccount {
 	///
 	/// Returns both the Source account in correct SS58 format and the derived account.
 	fn derive_account(&self) -> (AccountId, AccountId) {
-		select_bridge!(self.bridge, {
+		select_full_bridge!(self.bridge, {
 			let mut account = self.account.clone();
 			account.enforce_chain::<Source>();
 			let acc = bp_runtime::SourceAccount::Account(account.raw_id());
@@ -84,7 +51,7 @@ impl DeriveAccount {
 
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
-		select_bridge!(self.bridge, {
+		select_full_bridge!(self.bridge, {
 			let (account, derived_account) = self.derive_account();
 			println!("Source address:\n{} ({})", account, Source::NAME);
 			println!(

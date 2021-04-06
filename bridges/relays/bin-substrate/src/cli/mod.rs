@@ -25,6 +25,7 @@ use frame_support::weights::Weight;
 use sp_runtime::app_crypto::Ss58Codec;
 use structopt::{clap::arg_enum, StructOpt};
 
+pub(crate) mod bridge;
 pub(crate) mod encode_call;
 
 mod derive_account;
