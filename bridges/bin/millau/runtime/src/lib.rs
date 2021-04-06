@@ -65,7 +65,6 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_bridge_grandpa::Call as BridgeGrandpaRialtoCall;
 pub use pallet_bridge_grandpa::Call as BridgeGrandpaWestendCall;
 pub use pallet_bridge_messages::Call as MessagesCall;
-pub use pallet_substrate_bridge::Call as BridgeRialtoCall;
 pub use pallet_sudo::Call as SudoCall;
 pub use pallet_timestamp::Call as TimestampCall;
 
@@ -301,10 +300,6 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_substrate_bridge::Config for Runtime {
-	type BridgedChain = bp_rialto::Rialto;
-}
-
 parameter_types! {
 	// This is a pretty unscientific cap.
 	//
@@ -383,7 +378,6 @@ construct_runtime!(
 		NodeBlock = opaque::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
-		BridgeRialto: pallet_substrate_bridge::{Module, Call, Storage, Config<T>},
 		BridgeRialtoMessages: pallet_bridge_messages::{Module, Call, Storage, Event<T>},
 		BridgeDispatch: pallet_bridge_dispatch::{Module, Event<T>},
 		BridgeRialtoGrandpa: pallet_bridge_grandpa::{Module, Call, Storage},
@@ -560,29 +554,6 @@ impl_runtime_apis! {
 			// defined our key owner proof type as a bottom type (i.e. a type
 			// with no values).
 			None
-		}
-	}
-
-	impl bp_rialto::RialtoHeaderApi<Block> for Runtime {
-		fn best_blocks() -> Vec<(bp_rialto::BlockNumber, bp_rialto::Hash)> {
-			BridgeRialto::best_headers()
-		}
-
-		fn finalized_block() -> (bp_rialto::BlockNumber, bp_rialto::Hash) {
-			let header = BridgeRialto::best_finalized();
-			(header.number, header.hash())
-		}
-
-		fn incomplete_headers() -> Vec<(bp_rialto::BlockNumber, bp_rialto::Hash)> {
-			BridgeRialto::require_justifications()
-		}
-
-		fn is_known_block(hash: bp_rialto::Hash) -> bool {
-			BridgeRialto::is_known_header(hash)
-		}
-
-		fn is_finalized_block(hash: bp_rialto::Hash) -> bool {
-			BridgeRialto::is_finalized_header(hash)
 		}
 	}
 

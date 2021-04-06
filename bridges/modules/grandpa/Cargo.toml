@@ -33,7 +33,6 @@ bp-test-utils = { path = "../../primitives/test-utils", default-features = false
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false, optional = true }
 
 [dev-dependencies]
-pallet-substrate-bridge = { path = "../../modules/substrate" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]
