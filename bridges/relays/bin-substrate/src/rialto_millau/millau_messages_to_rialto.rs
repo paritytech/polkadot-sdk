@@ -29,7 +29,10 @@ use frame_support::dispatch::GetDispatchInfo;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Chain, TransactionSignScheme};
+use relay_substrate_client::{
+	metrics::{FloatStorageValueMetric, StorageProofOverheadMetric},
+	Chain, TransactionSignScheme,
+};
 use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
 use std::{ops::RangeInclusive, time::Duration};
@@ -135,7 +138,7 @@ pub async fn run(
 	rialto_client: RialtoClient,
 	rialto_sign: RialtoSigningParams,
 	lane_id: LaneId,
-	metrics_params: Option<MetricsParams>,
+	metrics_params: MetricsParams,
 ) -> Result<(), String> {
 	let stall_timeout = Duration::from_secs(5 * 60);
 	let relayer_id_at_millau = millau_sign.public().as_array_ref().clone().into();
@@ -185,9 +188,27 @@ pub async fn run(
 				max_messages_size_in_single_batch,
 			},
 		},
-		MillauSourceClient::new(millau_client, lane.clone(), lane_id, RIALTO_BRIDGE_INSTANCE),
+		MillauSourceClient::new(millau_client.clone(), lane.clone(), lane_id, RIALTO_BRIDGE_INSTANCE),
 		RialtoTargetClient::new(rialto_client, lane, lane_id, MILLAU_BRIDGE_INSTANCE),
-		metrics_params,
+		relay_utils::relay_metrics(
+			messages_relay::message_lane_loop::metrics_prefix::<MillauMessagesToRialto>(&lane_id),
+			metrics_params.address,
+		)
+		.standalone_metric(StorageProofOverheadMetric::new(
+			millau_client.clone(),
+			(bp_runtime::RIALTO_BRIDGE_INSTANCE, lane_id),
+			millau_runtime::rialto_messages::inbound_lane_data_key(&lane_id),
+			"millau_storage_proof_overhead".into(),
+			"Millau storage proof overhead".into(),
+		))?
+		.standalone_metric(FloatStorageValueMetric::<_, sp_runtime::FixedU128>::new(
+			millau_client,
+			sp_core::storage::StorageKey(millau_runtime::rialto_messages::RialtoToMillauConversionRate::key().to_vec()),
+			Some(millau_runtime::rialto_messages::INITIAL_RIALTO_TO_MILLAU_CONVERSION_RATE),
+			"millau_rialto_to_millau_conversion_rate".into(),
+			"Rialto to Millau tokens conversion rate (used by Rialto)".into(),
+		))?
+		.into_params(),
 		futures::future::pending(),
 	)
 	.await

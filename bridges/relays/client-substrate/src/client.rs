@@ -29,7 +29,7 @@ use jsonrpsee_types::{jsonrpc::DeserializeOwned, traits::SubscriptionClient};
 use jsonrpsee_ws_client::{WsClient as RpcClient, WsConfig as RpcConfig, WsSubscription as Subscription};
 use num_traits::Zero;
 use pallet_balances::AccountData;
-use sp_core::Bytes;
+use sp_core::{storage::StorageKey, Bytes};
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 use std::ops::RangeInclusive;
@@ -175,6 +175,14 @@ impl<C: Chain> Client<C> {
 	/// Return runtime version.
 	pub async fn runtime_version(&self) -> Result<RuntimeVersion> {
 		Ok(Substrate::<C>::runtime_version(&self.client).await?)
+	}
+
+	/// Read value from runtime storage.
+	pub async fn storage_value<T: Decode>(&self, storage_key: StorageKey) -> Result<Option<T>> {
+		Substrate::<C>::get_storage(&self.client, storage_key)
+			.await?
+			.map(|encoded_value| T::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed))
+			.transpose()
 	}
 
 	/// Return native tokens balance of the account.

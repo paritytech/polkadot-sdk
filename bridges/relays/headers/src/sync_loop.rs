@@ -119,15 +119,15 @@ pub async fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	target_tick: Duration,
 	sync_maintain: impl SyncMaintain<P>,
 	sync_params: HeadersSyncParams,
-	metrics_params: Option<MetricsParams>,
+	metrics_params: MetricsParams,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
-		.with_metrics(format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME))
+		.with_metrics(format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME), metrics_params)
 		.loop_metric(SyncLoopMetrics::default())?
 		.standalone_metric(GlobalMetrics::default())?
-		.expose(metrics_params)
+		.expose()
 		.await?
 		.run(|source_client, target_client, metrics| {
 			run_until_connection_lost(

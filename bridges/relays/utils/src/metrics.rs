@@ -14,21 +14,35 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+pub use float_json_value::FloatJsonValueMetric;
 pub use global::GlobalMetrics;
-pub use substrate_prometheus_endpoint::{register, Counter, CounterVec, Gauge, GaugeVec, Opts, Registry, F64, U64};
+pub use substrate_prometheus_endpoint::{
+	prometheus::core::{Atomic, Collector},
+	register, Counter, CounterVec, Gauge, GaugeVec, Opts, Registry, F64, U64,
+};
 
 use async_trait::async_trait;
-use std::time::Duration;
+use std::{fmt::Debug, time::Duration};
 
+mod float_json_value;
 mod global;
 
-/// Prometheus endpoint MetricsParams.
+/// Unparsed address that needs to be used to expose Prometheus metrics.
 #[derive(Debug, Clone)]
-pub struct MetricsParams {
+pub struct MetricsAddress {
 	/// Serve HTTP requests at given host.
 	pub host: String,
 	/// Serve HTTP requests at given port.
 	pub port: u16,
+}
+
+/// Prometheus endpoint MetricsParams.
+#[derive(Debug, Clone)]
+pub struct MetricsParams {
+	/// Interface and TCP port to be used when exposing Prometheus metrics.
+	pub address: Option<MetricsAddress>,
+	/// Metrics registry. May be `Some(_)` if several components share the same endpoint.
+	pub registry: Option<Registry>,
 }
 
 /// Metrics API.
@@ -61,11 +75,64 @@ pub trait StandaloneMetrics: Metrics {
 	}
 }
 
-impl Default for MetricsParams {
+impl Default for MetricsAddress {
 	fn default() -> Self {
-		MetricsParams {
+		MetricsAddress {
 			host: "127.0.0.1".into(),
 			port: 9616,
 		}
 	}
+}
+
+impl MetricsParams {
+	/// Creates metrics params so that metrics are not exposed.
+	pub fn disabled() -> Self {
+		MetricsParams {
+			address: None,
+			registry: None,
+		}
+	}
+}
+
+impl From<Option<MetricsAddress>> for MetricsParams {
+	fn from(address: Option<MetricsAddress>) -> Self {
+		MetricsParams {
+			address,
+			registry: None,
+		}
+	}
+}
+
+/// Set value of gauge metric.
+///
+/// If value is `Ok(None)` or `Err(_)`, metric would have default value.
+pub fn set_gauge_value<T: Default + Debug, V: Atomic<T = T>, E: Debug>(gauge: &Gauge<V>, value: Result<Option<T>, E>) {
+	gauge.set(match value {
+		Ok(Some(value)) => {
+			log::trace!(
+				target: "bridge-metrics",
+				"Updated value of metric '{:?}': {:?}",
+				gauge.desc().first().map(|d| &d.fq_name),
+				value,
+			);
+			value
+		}
+		Ok(None) => {
+			log::warn!(
+				target: "bridge-metrics",
+				"Failed to update metric '{:?}': value is empty",
+				gauge.desc().first().map(|d| &d.fq_name),
+			);
+			Default::default()
+		}
+		Err(error) => {
+			log::warn!(
+				target: "bridge-metrics",
+				"Failed to update metric '{:?}': {:?}",
+				gauge.desc().first().map(|d| &d.fq_name),
+				error,
+			);
+			Default::default()
+		}
+	})
 }

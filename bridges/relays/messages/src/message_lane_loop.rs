@@ -211,26 +211,31 @@ pub struct ClientsState<P: MessageLane> {
 	pub target: Option<TargetClientState<P>>,
 }
 
+/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs sync loop.
+pub fn metrics_prefix<P: MessageLane>(lane: &LaneId) -> String {
+	format!(
+		"{}_to_{}_MessageLane_{}",
+		P::SOURCE_NAME,
+		P::TARGET_NAME,
+		hex::encode(lane)
+	)
+}
+
 /// Run message lane service loop.
 pub async fn run<P: MessageLane>(
 	params: Params,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
-	metrics_params: Option<MetricsParams>,
+	metrics_params: MetricsParams,
 	exit_signal: impl Future<Output = ()>,
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
 		.reconnect_delay(params.reconnect_delay)
-		.with_metrics(format!(
-			"{}_to_{}_MessageLane_{}",
-			P::SOURCE_NAME,
-			P::TARGET_NAME,
-			hex::encode(params.lane)
-		))
+		.with_metrics(metrics_prefix::<P>(&params.lane), metrics_params)
 		.loop_metric(MessageLaneLoopMetrics::default())?
 		.standalone_metric(GlobalMetrics::default())?
-		.expose(metrics_params)
+		.expose()
 		.await?
 		.run(|source_client, target_client, metrics| {
 			run_until_connection_lost(
@@ -722,7 +727,7 @@ pub(crate) mod tests {
 				},
 				source_client,
 				target_client,
-				None,
+				MetricsParams::disabled(),
 				exit_signal,
 			)
 			.await;
