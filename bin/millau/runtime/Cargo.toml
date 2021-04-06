@@ -25,7 +25,6 @@ pallet-bridge-dispatch = { path = "../../../modules/dispatch", default-features 
 pallet-bridge-grandpa = { path = "../../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../modules/messages", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
-pallet-substrate-bridge = { path = "../../../modules/substrate", default-features = false }
 
 # Substrate Dependencies
 
@@ -83,7 +82,6 @@ std = [
 	"pallet-randomness-collective-flip/std",
 	"pallet-session/std",
 	"pallet-shift-session-manager/std",
-	"pallet-substrate-bridge/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",

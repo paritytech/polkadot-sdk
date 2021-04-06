@@ -16,8 +16,8 @@
 
 use bp_rialto::derive_account_from_millau_id;
 use rialto_runtime::{
-	AccountId, AuraConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauConfig, BridgeRialtoPoAConfig, GenesisConfig,
-	GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, BalancesConfig, BridgeKovanConfig, BridgeRialtoPoAConfig, GenesisConfig, GrandpaConfig,
+	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
@@ -168,11 +168,6 @@ fn testnet_genesis(
 		pallet_bridge_eth_poa_Instance2: Some(load_kovan_bridge_config()),
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: Vec::new(),
-		}),
-		pallet_substrate_bridge: Some(BridgeMillauConfig {
-			// We'll initialize the pallet with a dispatchable instead.
-			init_data: None,
-			owner: Some(root_key.clone()),
 		}),
 		pallet_sudo: Some(SudoConfig { key: root_key }),
 		pallet_session: Some(SessionConfig {
