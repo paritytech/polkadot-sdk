@@ -14,17 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::cli::bridge::FullBridge;
 use crate::cli::{AccountId, Balance, CliChain, ExplicitOrMaximal, HexBytes, HexLaneId};
+use crate::select_full_bridge;
 use frame_support::dispatch::GetDispatchInfo;
 use relay_substrate_client::Chain;
-use structopt::{clap::arg_enum, StructOpt};
+use structopt::StructOpt;
 
 /// Encode source chain runtime call.
 #[derive(StructOpt, Debug)]
 pub struct EncodeCall {
 	/// A bridge instance to encode call for.
-	#[structopt(possible_values = &EncodeCallBridge::variants(), case_insensitive = true)]
-	bridge: EncodeCallBridge,
+	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	bridge: FullBridge,
 	#[structopt(flatten)]
 	call: Call,
 }
@@ -85,49 +87,9 @@ pub trait CliEncodeCall: Chain {
 	fn encode_call(call: &Call) -> anyhow::Result<Self::Call>;
 }
 
-arg_enum! {
-	#[derive(Debug)]
-	/// Bridge to encode call for.
-	pub enum EncodeCallBridge {
-		MillauToRialto,
-		RialtoToMillau,
-	}
-}
-
-impl EncodeCallBridge {
-	fn bridge_instance_index(&self) -> u8 {
-		match self {
-			Self::MillauToRialto => MILLAU_TO_RIALTO_INDEX,
-			Self::RialtoToMillau => RIALTO_TO_MILLAU_INDEX,
-		}
-	}
-}
-
-pub const RIALTO_TO_MILLAU_INDEX: u8 = 0;
-pub const MILLAU_TO_RIALTO_INDEX: u8 = 0;
-
-macro_rules! select_bridge {
-	($bridge: expr, $generic: tt) => {
-		match $bridge {
-			EncodeCallBridge::MillauToRialto => {
-				type Source = relay_millau_client::Millau;
-				type Target = relay_rialto_client::Rialto;
-
-				$generic
-			}
-			EncodeCallBridge::RialtoToMillau => {
-				type Source = relay_rialto_client::Rialto;
-				type Target = relay_millau_client::Millau;
-
-				$generic
-			}
-		}
-	};
-}
-
 impl EncodeCall {
 	fn encode(&mut self) -> anyhow::Result<HexBytes> {
-		select_bridge!(self.bridge, {
+		select_full_bridge!(self.bridge, {
 			preprocess_call::<Source, Target>(&mut self.call, self.bridge.bridge_instance_index());
 			let call = Source::encode_call(&self.call)?;
 

@@ -14,18 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::cli::bridge::FullBridge;
 use crate::cli::{
 	HexLaneId, PrometheusParams, SourceConnectionParams, SourceSigningParams, TargetConnectionParams,
 	TargetSigningParams,
 };
-use structopt::{clap::arg_enum, StructOpt};
+use crate::select_full_bridge;
+use structopt::StructOpt;
 
 /// Start messages relayer process.
 #[derive(StructOpt)]
 pub struct RelayMessages {
 	/// A bridge instance to relay messages for.
-	#[structopt(possible_values = &RelayMessagesBridge::variants(), case_insensitive = true)]
-	bridge: RelayMessagesBridge,
+	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	bridge: FullBridge,
 	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
@@ -41,46 +43,16 @@ pub struct RelayMessages {
 	prometheus_params: PrometheusParams,
 }
 
-arg_enum! {
-	#[derive(Debug)]
-	/// Headers relay bridge.
-	pub enum RelayMessagesBridge {
-		MillauToRialto,
-		RialtoToMillau,
-	}
-}
-
-macro_rules! select_bridge {
-	($bridge: expr, $generic: tt) => {
-		match $bridge {
-			RelayMessagesBridge::MillauToRialto => {
-				type Source = relay_millau_client::Millau;
-				type Target = relay_rialto_client::Rialto;
-				use crate::rialto_millau::millau_messages_to_rialto::run;
-
-				$generic
-			}
-			RelayMessagesBridge::RialtoToMillau => {
-				type Source = relay_rialto_client::Rialto;
-				type Target = relay_millau_client::Millau;
-				use crate::rialto_millau::rialto_messages_to_millau::run;
-
-				$generic
-			}
-		}
-	};
-}
-
 impl RelayMessages {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
-		select_bridge!(self.bridge, {
+		select_full_bridge!(self.bridge, {
 			let source_client = self.source.into_client::<Source>().await?;
 			let source_sign = self.source_sign.into_keypair::<Source>()?;
 			let target_client = self.target.into_client::<Target>().await?;
 			let target_sign = self.target_sign.into_keypair::<Target>()?;
 
-			run(
+			relay_messages(
 				source_client,
 				source_sign,
 				target_client,
