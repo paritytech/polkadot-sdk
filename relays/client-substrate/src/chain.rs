@@ -29,7 +29,7 @@ use sp_runtime::{
 use std::{fmt::Debug, time::Duration};
 
 /// Substrate-based chain from minimal relay-client point of view.
-pub trait Chain: ChainBase {
+pub trait Chain: ChainBase + Clone {
 	/// Chain name.
 	const NAME: &'static str;
 	/// Average block interval.

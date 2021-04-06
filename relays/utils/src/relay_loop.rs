@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{Metrics, MetricsParams, StandaloneMetrics};
+use crate::metrics::{Metrics, MetricsAddress, MetricsParams, StandaloneMetrics};
 use crate::{FailedClient, MaybeConnectionError};
 
 use async_trait::async_trait;
@@ -44,6 +44,24 @@ pub fn relay_loop<SC, TC>(source_client: SC, target_client: TC) -> Loop<SC, TC, 
 	}
 }
 
+/// Returns generic relay loop metrics that may be customized and used in one or several relay loops.
+pub fn relay_metrics(prefix: String, address: Option<MetricsAddress>) -> LoopMetrics<(), (), ()> {
+	assert!(!prefix.is_empty(), "Metrics prefix can not be empty");
+
+	LoopMetrics {
+		relay_loop: Loop {
+			reconnect_delay: RECONNECT_DELAY,
+			source_client: (),
+			target_client: (),
+			loop_metric: None,
+		},
+		address,
+		registry: Registry::new_custom(Some(prefix), None)
+			.expect("only fails if prefix is empty; prefix is not empty; qed"),
+		loop_metric: None,
+	}
+}
+
 /// Generic relay loop.
 pub struct Loop<SC, TC, LM> {
 	reconnect_delay: Duration,
@@ -55,6 +73,7 @@ pub struct Loop<SC, TC, LM> {
 /// Relay loop metrics builder.
 pub struct LoopMetrics<SC, TC, LM> {
 	relay_loop: Loop<SC, TC, ()>,
+	address: Option<MetricsAddress>,
 	registry: Registry,
 	loop_metric: Option<LM>,
 }
@@ -69,7 +88,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 	/// Start building loop metrics using given prefix.
 	///
 	/// Panics if `prefix` is empty.
-	pub fn with_metrics(self, prefix: String) -> LoopMetrics<SC, TC, ()> {
+	pub fn with_metrics(self, prefix: String, params: MetricsParams) -> LoopMetrics<SC, TC, ()> {
 		assert!(!prefix.is_empty(), "Metrics prefix can not be empty");
 
 		LoopMetrics {
@@ -79,8 +98,12 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 				target_client: self.target_client,
 				loop_metric: None,
 			},
-			registry: Registry::new_custom(Some(prefix), None)
-				.expect("only fails if prefix is empty; prefix is not empty; qed"),
+			address: params.address,
+			registry: match params.registry {
+				Some(registry) => registry,
+				None => Registry::new_custom(Some(prefix), None)
+					.expect("only fails if prefix is empty; prefix is not empty; qed"),
+			},
 			loop_metric: None,
 		}
 	}
@@ -159,6 +182,7 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 
 		Ok(LoopMetrics {
 			relay_loop: self.relay_loop,
+			address: self.address,
 			registry: self.registry,
 			loop_metric: Some(loop_metric),
 		})
@@ -171,19 +195,27 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 		Ok(self)
 	}
 
-	/// Expose metrics using given params.
+	/// Convert into `MetricsParams` structure so that metrics registry may be extended later.
+	pub fn into_params(self) -> MetricsParams {
+		MetricsParams {
+			address: self.address,
+			registry: Some(self.registry),
+		}
+	}
+
+	/// Expose metrics using address passed at creation.
 	///
-	/// If `params` is `None`, metrics are not exposed.
-	pub async fn expose(self, params: Option<MetricsParams>) -> Result<Loop<SC, TC, LM>, String> {
-		if let Some(params) = params {
+	/// If passed `address` is `None`, metrics are not exposed.
+	pub async fn expose(self) -> Result<Loop<SC, TC, LM>, String> {
+		if let Some(address) = self.address {
 			let socket_addr = SocketAddr::new(
-				params.host.parse().map_err(|err| {
+				address.host.parse().map_err(|err| {
 					format!(
 						"Invalid host {} is used to expose Prometheus metrics: {}",
-						params.host, err,
+						address.host, err,
 					)
 				})?,
-				params.port,
+				address.port,
 			);
 
 			let registry = self.registry;

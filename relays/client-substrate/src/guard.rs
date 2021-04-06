@@ -172,6 +172,7 @@ mod tests {
 		SinkExt,
 	};
 
+	#[derive(Debug, Clone)]
 	struct TestChain;
 
 	impl bp_runtime::Chain for TestChain {

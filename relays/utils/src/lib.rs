@@ -16,7 +16,7 @@
 
 //! Utilities used by different relays.
 
-pub use relay_loop::relay_loop;
+pub use relay_loop::{relay_loop, relay_metrics};
 
 use backoff::{backoff::Backoff, ExponentialBackoff};
 use futures::future::FutureExt;

@@ -21,7 +21,7 @@ use crate::finality_target::SubstrateFinalityTarget;
 use bp_header_chain::justification::GrandpaJustification;
 use finality_relay::{FinalitySyncParams, FinalitySyncPipeline};
 use relay_substrate_client::{finality_source::FinalitySource, BlockNumberOf, Chain, Client, HashOf, SyncHeader};
-use relay_utils::BlockNumberBase;
+use relay_utils::{metrics::MetricsParams, BlockNumberBase};
 use sp_core::Bytes;
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
@@ -40,6 +40,11 @@ pub trait SubstrateFinalitySyncPipeline: FinalitySyncPipeline {
 
 	/// Chain with GRANDPA bridge pallet.
 	type TargetChain: Chain;
+
+	/// Customize metrics exposed by headers sync loop.
+	fn customize_metrics(params: MetricsParams) -> anyhow::Result<MetricsParams> {
+		Ok(params)
+	}
 
 	/// Returns id of account that we're using to sign transactions at target chain.
 	fn transactions_author(&self) -> <Self::TargetChain as Chain>::AccountId;
@@ -107,7 +112,7 @@ pub async fn run<SourceChain, TargetChain, P>(
 	pipeline: P,
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
-	metrics_params: Option<relay_utils::metrics::MetricsParams>,
+	metrics_params: MetricsParams,
 ) -> anyhow::Result<()>
 where
 	P: SubstrateFinalitySyncPipeline<
