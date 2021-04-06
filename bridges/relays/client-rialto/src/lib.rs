@@ -22,8 +22,6 @@ use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
 
-pub use rialto_runtime::BridgeMillauCall;
-
 /// Rialto header id.
 pub type HeaderId = relay_utils::HeaderId<rialto_runtime::Hash, rialto_runtime::BlockNumber>;
 
