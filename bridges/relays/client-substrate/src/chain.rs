@@ -24,7 +24,7 @@ use sp_runtime::{
 	traits::{
 		AtLeast32Bit, Block as BlockT, Dispatchable, MaybeDisplay, MaybeSerialize, MaybeSerializeDeserialize, Member,
 	},
-	Justification,
+	EncodedJustification,
 };
 use std::{fmt::Debug, time::Duration};
 
@@ -71,7 +71,7 @@ pub trait BlockWithJustification<Header> {
 	/// Return block header.
 	fn header(&self) -> Header;
 	/// Return block justification, if known.
-	fn justification(&self) -> Option<&Justification>;
+	fn justification(&self) -> Option<&EncodedJustification>;
 }
 
 /// Substrate-based chain transactions signing scheme.
@@ -97,7 +97,9 @@ impl<Block: BlockT> BlockWithJustification<Block::Header> for SignedBlock<Block>
 		self.block.header().clone()
 	}
 
-	fn justification(&self) -> Option<&Justification> {
-		self.justification.as_ref()
+	fn justification(&self) -> Option<&EncodedJustification> {
+		self.justifications
+			.as_ref()
+			.and_then(|j| j.get(sp_finality_grandpa::GRANDPA_ENGINE_ID))
 	}
 }

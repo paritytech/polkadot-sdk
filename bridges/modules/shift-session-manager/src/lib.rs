@@ -31,13 +31,13 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config> as ShiftSessionManager {
+	trait Store for Pallet<T: Config> as ShiftSessionManager {
 		/// Validators of first two sessions.
 		InitialValidators: Option<Vec<T::ValidatorId>>;
 	}
 }
 
-impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Module<T> {
+impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 	fn end_session(_: sp_staking::SessionIndex) {}
 	fn start_session(_: sp_staking::SessionIndex) {}
 	fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
@@ -52,7 +52,7 @@ impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Module<T> {
 		// then for every session we select (deterministically) 2/3 of these initial
 		// validators to serve validators of new session
 		let available_validators = InitialValidators::<T>::get().unwrap_or_else(|| {
-			let validators = <pallet_session::Module<T>>::validators();
+			let validators = <pallet_session::Pallet<T>>::validators();
 			InitialValidators::<T>::put(validators.clone());
 			validators
 		});
@@ -61,7 +61,7 @@ impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Module<T> {
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Select validators for session.
 	fn select_validators(
 		session_index: sp_staking::SessionIndex,
@@ -110,8 +110,8 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			Session: pallet_session::{Module},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			Session: pallet_session::{Pallet},
 		}
 	}
 
@@ -145,6 +145,7 @@ mod tests {
 		type BlockLength = ();
 		type DbWeight = ();
 		type SS58Prefix = ();
+		type OnSetCode = ();
 	}
 
 	parameter_types! {
@@ -193,7 +194,7 @@ mod tests {
 
 		BasicExternalities::execute_with_storage(&mut t, || {
 			for (ref k, ..) in &keys {
-				frame_system::Module::<TestRuntime>::inc_providers(k);
+				frame_system::Pallet::<TestRuntime>::inc_providers(k);
 			}
 		});
 
@@ -209,19 +210,19 @@ mod tests {
 			let all_accs = vec![1, 2, 3, 4, 5];
 
 			// at least 1 validator is selected
-			assert_eq!(Module::<TestRuntime>::select_validators(0, &[1]), vec![1],);
+			assert_eq!(Pallet::<TestRuntime>::select_validators(0, &[1]), vec![1],);
 
 			// at session#0, shift is also 0
-			assert_eq!(Module::<TestRuntime>::select_validators(0, &all_accs), vec![1, 2, 3],);
+			assert_eq!(Pallet::<TestRuntime>::select_validators(0, &all_accs), vec![1, 2, 3],);
 
 			// at session#1, shift is also 1
-			assert_eq!(Module::<TestRuntime>::select_validators(1, &all_accs), vec![2, 3, 4],);
+			assert_eq!(Pallet::<TestRuntime>::select_validators(1, &all_accs), vec![2, 3, 4],);
 
 			// at session#3, we're wrapping
-			assert_eq!(Module::<TestRuntime>::select_validators(3, &all_accs), vec![4, 5, 1],);
+			assert_eq!(Pallet::<TestRuntime>::select_validators(3, &all_accs), vec![4, 5, 1],);
 
 			// at session#5, we're starting from the beginning again
-			assert_eq!(Module::<TestRuntime>::select_validators(5, &all_accs), vec![1, 2, 3],);
+			assert_eq!(Pallet::<TestRuntime>::select_validators(5, &all_accs), vec![1, 2, 3],);
 		});
 	}
 }

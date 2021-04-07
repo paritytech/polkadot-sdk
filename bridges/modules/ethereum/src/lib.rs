@@ -313,7 +313,7 @@ pub trait PruningStrategy: Default {
 	/// Every value that is returned from this function, must be greater or equal to the
 	/// previous value. Otherwise it will be ignored (we can't revert pruning).
 	///
-	/// Module may prune both finalized and unfinalized blocks. But it can't give any
+	/// Pallet may prune both finalized and unfinalized blocks. But it can't give any
 	/// guarantees on when it will happen. Example: if some unfinalized block at height N
 	/// has scheduled validators set change, then the module won't prune any blocks with
 	/// number >= N even if strategy allows that.
@@ -457,7 +457,7 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as Bridge {
+	trait Store for Pallet<T: Config<I>, I: Instance = DefaultInstance> as Bridge {
 		/// Best known block.
 		BestBlock: (HeaderId, U256);
 		/// Best finalized block.
@@ -505,7 +505,7 @@ decl_storage! {
 	}
 }
 
-impl<T: Config<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: Instance> Pallet<T, I> {
 	/// Returns number and hash of the best block known to the bridge module.
 	/// The caller should only submit `import_header` transaction that makes
 	/// (or leads to making) other header the best one.
@@ -542,7 +542,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: Instance> frame_support::unsigned::ValidateUnsigned for Module<T, I> {
+impl<T: Config<I>, I: Instance> frame_support::unsigned::ValidateUnsigned for Pallet<T, I> {
 	type Call = Call<T, I>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {

@@ -161,7 +161,7 @@ type MessagesDeliveryProofOf<T, I> = <<T as Config<I>>::TargetHeaderChain as Tar
 >>::MessagesDeliveryProof;
 
 decl_error! {
-	pub enum Error for Module<T: Config<I>, I: Instance> {
+	pub enum Error for Pallet<T: Config<I>, I: Instance> {
 		/// All pallet operations are halted.
 		Halted,
 		/// Message has been treated as invalid by chain verifier.
@@ -188,14 +188,14 @@ decl_error! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as BridgeMessages {
+	trait Store for Pallet<T: Config<I>, I: Instance = DefaultInstance> as BridgeMessages {
 		/// Optional pallet owner.
 		///
 		/// Pallet owner has a right to halt all pallet operations and then resume it. If it is
 		/// `None`, then there are no direct ways to halt/resume pallet operations, but other
 		/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
 		/// flag directly or call the `halt_operations`).
-		pub ModuleOwner get(fn module_owner): Option<T::AccountId>;
+		pub PalletOwner get(fn module_owner): Option<T::AccountId>;
 		/// If true, all pallet transactions are failed immediately.
 		pub IsHalted get(fn is_halted) config(): bool;
 		/// Map of lane id => inbound lane data.
@@ -210,7 +210,7 @@ decl_storage! {
 		config(owner): Option<T::AccountId>;
 		build(|config| {
 			if let Some(ref owner) = config.owner {
-				<ModuleOwner<T, I>>::put(owner);
+				<PalletOwner<T, I>>::put(owner);
 			}
 		})
 	}
@@ -246,19 +246,19 @@ decl_module! {
 			T::DbWeight::get().reads(reads as u64)
 		}
 
-		/// Change `ModuleOwner`.
+		/// Change `PalletOwner`.
 		///
-		/// May only be called either by root, or by `ModuleOwner`.
+		/// May only be called either by root, or by `PalletOwner`.
 		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
 		pub fn set_owner(origin, new_owner: Option<T::AccountId>) {
 			ensure_owner_or_root::<T, I>(origin)?;
 			match new_owner {
 				Some(new_owner) => {
-					ModuleOwner::<T, I>::put(&new_owner);
+					PalletOwner::<T, I>::put(&new_owner);
 					log::info!(target: "runtime::bridge-messages", "Setting pallet Owner to: {:?}", new_owner);
 				},
 				None => {
-					ModuleOwner::<T, I>::kill();
+					PalletOwner::<T, I>::kill();
 					log::info!(target: "runtime::bridge-messages", "Removed Owner of pallet.");
 				},
 			}
@@ -266,7 +266,7 @@ decl_module! {
 
 		/// Halt or resume all pallet operations.
 		///
-		/// May only be called either by root, or by `ModuleOwner`.
+		/// May only be called either by root, or by `PalletOwner`.
 		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
 		pub fn set_operational(origin, operational: bool) {
 			ensure_owner_or_root::<T, I>(origin)?;
@@ -281,7 +281,7 @@ decl_module! {
 
 		/// Update pallet parameter.
 		///
-		/// May only be called either by root, or by `ModuleOwner`.
+		/// May only be called either by root, or by `PalletOwner`.
 		///
 		/// The weight is: single read for permissions check + 2 writes for parameter value and event.
 		#[weight = (T::DbWeight::get().reads_writes(1, 2), DispatchClass::Operational)]
@@ -602,7 +602,7 @@ decl_module! {
 	}
 }
 
-impl<T: Config<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: Instance> Pallet<T, I> {
 	/// Get payload of given outbound message.
 	pub fn outbound_message_payload(lane: LaneId, nonce: MessageNonce) -> Option<MessagePayload> {
 		OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce }).map(|message_data| message_data.payload)
@@ -686,11 +686,11 @@ pub mod storage_keys {
 	}
 }
 
-/// Ensure that the origin is either root, or `ModuleOwner`.
+/// Ensure that the origin is either root, or `PalletOwner`.
 fn ensure_owner_or_root<T: Config<I>, I: Instance>(origin: T::Origin) -> Result<(), BadOrigin> {
 	match origin.into() {
 		Ok(RawOrigin::Root) => Ok(()),
-		Ok(RawOrigin::Signed(ref signer)) if Some(signer) == Module::<T, I>::module_owner().as_ref() => Ok(()),
+		Ok(RawOrigin::Signed(ref signer)) if Some(signer) == Pallet::<T, I>::module_owner().as_ref() => Ok(()),
 		_ => Err(BadOrigin),
 	}
 }
@@ -854,7 +854,7 @@ mod tests {
 	};
 	use bp_messages::UnrewardedRelayersState;
 	use frame_support::{assert_noop, assert_ok};
-	use frame_system::{EventRecord, Module as System, Phase};
+	use frame_system::{EventRecord, Pallet as System, Phase};
 	use hex_literal::hex;
 	use sp_runtime::DispatchError;
 
@@ -866,7 +866,7 @@ mod tests {
 	fn send_regular_message() {
 		get_ready_for_events();
 
-		assert_ok!(Module::<TestRuntime>::send_message(
+		assert_ok!(Pallet::<TestRuntime>::send_message(
 			Origin::signed(1),
 			TEST_LANE_ID,
 			REGULAR_PAYLOAD,
@@ -891,7 +891,7 @@ mod tests {
 		System::<TestRuntime>::set_block_number(1);
 		System::<TestRuntime>::reset_events();
 
-		assert_ok!(Module::<TestRuntime>::receive_messages_delivery_proof(
+		assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
 			Origin::signed(1),
 			TestMessagesDeliveryProof(Ok((
 				TEST_LANE_ID,
@@ -916,56 +916,56 @@ mod tests {
 	#[test]
 	fn pallet_owner_may_change_owner() {
 		run_test(|| {
-			ModuleOwner::<TestRuntime>::put(2);
+			PalletOwner::<TestRuntime>::put(2);
 
-			assert_ok!(Module::<TestRuntime>::set_owner(Origin::root(), Some(1)));
+			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::root(), Some(1)));
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(2), false),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(2), false),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
 
-			assert_ok!(Module::<TestRuntime>::set_owner(Origin::signed(1), None));
+			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::signed(1), None));
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(2), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(2), true),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
 		});
 	}
 
 	#[test]
 	fn pallet_may_be_halted_by_root() {
 		run_test(|| {
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), false));
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
 		});
 	}
 
 	#[test]
 	fn pallet_may_be_halted_by_owner() {
 		run_test(|| {
-			ModuleOwner::<TestRuntime>::put(2);
+			PalletOwner::<TestRuntime>::put(2);
 
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), false));
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), true));
 
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), false),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), false),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 		});
@@ -977,7 +977,7 @@ mod tests {
 			get_ready_for_events();
 
 			let parameter = TestMessagesParameter::TokenConversionRate(10.into());
-			assert_ok!(Module::<TestRuntime>::update_pallet_parameter(
+			assert_ok!(Pallet::<TestRuntime>::update_pallet_parameter(
 				Origin::root(),
 				parameter.clone(),
 			));
@@ -997,11 +997,11 @@ mod tests {
 	#[test]
 	fn pallet_parameter_may_be_updated_by_owner() {
 		run_test(|| {
-			ModuleOwner::<TestRuntime>::put(2);
+			PalletOwner::<TestRuntime>::put(2);
 			get_ready_for_events();
 
 			let parameter = TestMessagesParameter::TokenConversionRate(10.into());
-			assert_ok!(Module::<TestRuntime>::update_pallet_parameter(
+			assert_ok!(Pallet::<TestRuntime>::update_pallet_parameter(
 				Origin::signed(2),
 				parameter.clone(),
 			));
@@ -1022,17 +1022,17 @@ mod tests {
 	fn pallet_parameter_cant_be_updated_by_arbitrary_submitter() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime>::update_pallet_parameter(
+				Pallet::<TestRuntime>::update_pallet_parameter(
 					Origin::signed(2),
 					TestMessagesParameter::TokenConversionRate(10.into()),
 				),
 				DispatchError::BadOrigin,
 			);
 
-			ModuleOwner::<TestRuntime>::put(2);
+			PalletOwner::<TestRuntime>::put(2);
 
 			assert_noop!(
-				Module::<TestRuntime>::update_pallet_parameter(
+				Pallet::<TestRuntime>::update_pallet_parameter(
 					Origin::signed(1),
 					TestMessagesParameter::TokenConversionRate(10.into()),
 				),
@@ -1075,7 +1075,7 @@ mod tests {
 			IsHalted::<DefaultInstance>::put(true);
 
 			assert_noop!(
-				Module::<TestRuntime>::send_message(
+				Pallet::<TestRuntime>::send_message(
 					Origin::signed(1),
 					TEST_LANE_ID,
 					REGULAR_PAYLOAD,
@@ -1085,7 +1085,7 @@ mod tests {
 			);
 
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_proof(
+				Pallet::<TestRuntime>::receive_messages_proof(
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					Ok(vec![message(2, REGULAR_PAYLOAD)]).into(),
@@ -1096,7 +1096,7 @@ mod tests {
 			);
 
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_delivery_proof(
+				Pallet::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
 					TestMessagesDeliveryProof(Ok((
 						TEST_LANE_ID,
@@ -1124,7 +1124,7 @@ mod tests {
 		run_test(|| {
 			// messages with this payload are rejected by target chain verifier
 			assert_noop!(
-				Module::<TestRuntime>::send_message(
+				Pallet::<TestRuntime>::send_message(
 					Origin::signed(1),
 					TEST_LANE_ID,
 					PAYLOAD_REJECTED_BY_TARGET_CHAIN,
@@ -1140,7 +1140,7 @@ mod tests {
 		run_test(|| {
 			// messages with zero fee are rejected by lane verifier
 			assert_noop!(
-				Module::<TestRuntime>::send_message(Origin::signed(1), TEST_LANE_ID, REGULAR_PAYLOAD, 0),
+				Pallet::<TestRuntime>::send_message(Origin::signed(1), TEST_LANE_ID, REGULAR_PAYLOAD, 0),
 				Error::<TestRuntime, DefaultInstance>::MessageRejectedByLaneVerifier,
 			);
 		});
@@ -1151,7 +1151,7 @@ mod tests {
 		run_test(|| {
 			TestMessageDeliveryAndDispatchPayment::reject_payments();
 			assert_noop!(
-				Module::<TestRuntime>::send_message(
+				Pallet::<TestRuntime>::send_message(
 					Origin::signed(1),
 					TEST_LANE_ID,
 					REGULAR_PAYLOAD,
@@ -1165,7 +1165,7 @@ mod tests {
 	#[test]
 	fn receive_messages_proof_works() {
 		run_test(|| {
-			assert_ok!(Module::<TestRuntime>::receive_messages_proof(
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
 				Origin::signed(1),
 				TEST_RELAYER_A,
 				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
@@ -1191,7 +1191,7 @@ mod tests {
 				},
 			);
 			assert_eq!(
-				Module::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				Pallet::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,
@@ -1206,7 +1206,7 @@ mod tests {
 				..Default::default()
 			});
 
-			assert_ok!(Module::<TestRuntime>::receive_messages_proof(
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
 				Origin::signed(1),
 				TEST_RELAYER_A,
 				message_proof,
@@ -1224,7 +1224,7 @@ mod tests {
 				},
 			);
 			assert_eq!(
-				Module::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				Pallet::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,
@@ -1238,7 +1238,7 @@ mod tests {
 	fn receive_messages_proof_rejects_invalid_dispatch_weight() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_proof(
+				Pallet::<TestRuntime>::receive_messages_proof(
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
@@ -1254,7 +1254,7 @@ mod tests {
 	fn receive_messages_proof_rejects_invalid_proof() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+				Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					Err(()).into(),
@@ -1270,7 +1270,7 @@ mod tests {
 	fn receive_messages_proof_rejects_proof_with_too_many_messages() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+				Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
@@ -1298,13 +1298,13 @@ mod tests {
 	#[test]
 	fn receive_messages_delivery_proof_rewards_relayers() {
 		run_test(|| {
-			assert_ok!(Module::<TestRuntime>::send_message(
+			assert_ok!(Pallet::<TestRuntime>::send_message(
 				Origin::signed(1),
 				TEST_LANE_ID,
 				REGULAR_PAYLOAD,
 				1000,
 			));
-			assert_ok!(Module::<TestRuntime>::send_message(
+			assert_ok!(Pallet::<TestRuntime>::send_message(
 				Origin::signed(1),
 				TEST_LANE_ID,
 				REGULAR_PAYLOAD,
@@ -1312,7 +1312,7 @@ mod tests {
 			));
 
 			// this reports delivery of message 1 => reward is paid to TEST_RELAYER_A
-			assert_ok!(Module::<TestRuntime>::receive_messages_delivery_proof(
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
 				Origin::signed(1),
 				TestMessagesDeliveryProof(Ok((
 					TEST_LANE_ID,
@@ -1337,7 +1337,7 @@ mod tests {
 			));
 
 			// this reports delivery of both message 1 and message 2 => reward is paid only to TEST_RELAYER_B
-			assert_ok!(Module::<TestRuntime>::receive_messages_delivery_proof(
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
 				Origin::signed(1),
 				TestMessagesDeliveryProof(Ok((
 					TEST_LANE_ID,
@@ -1369,7 +1369,7 @@ mod tests {
 	fn receive_messages_delivery_proof_rejects_invalid_proof() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_delivery_proof(
+				Pallet::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
 					TestMessagesDeliveryProof(Err(())),
 					Default::default(),
@@ -1384,7 +1384,7 @@ mod tests {
 		run_test(|| {
 			// when number of relayers entires is invalid
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_delivery_proof(
+				Pallet::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
 					TestMessagesDeliveryProof(Ok((
 						TEST_LANE_ID,
@@ -1406,7 +1406,7 @@ mod tests {
 
 			// when number of messages is invalid
 			assert_noop!(
-				Module::<TestRuntime>::receive_messages_delivery_proof(
+				Pallet::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
 					TestMessagesDeliveryProof(Ok((
 						TEST_LANE_ID,
@@ -1434,7 +1434,7 @@ mod tests {
 			let mut invalid_message = message(1, REGULAR_PAYLOAD);
 			invalid_message.data.payload = Vec::new();
 
-			assert_ok!(Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+			assert_ok!(Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
 				Origin::signed(1),
 				TEST_RELAYER_A,
 				Ok(vec![invalid_message]).into(),
@@ -1455,7 +1455,7 @@ mod tests {
 			let mut invalid_message = message(2, REGULAR_PAYLOAD);
 			invalid_message.data.payload = Vec::new();
 
-			assert_ok!(Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+			assert_ok!(Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
 				Origin::signed(1),
 				TEST_RELAYER_A,
 				Ok(vec![
@@ -1522,7 +1522,7 @@ mod tests {
 			let message3 = message(2, TestPayload(0, Weight::MAX / 2));
 
 			assert_noop!(
-				Module::<TestRuntime, DefaultInstance>::receive_messages_proof(
+				Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
 					Origin::signed(1),
 					TEST_RELAYER_A,
 					// this may cause overflow if source chain storage is invalid
@@ -1542,7 +1542,7 @@ mod tests {
 			receive_messages_delivery_proof();
 
 			assert_noop!(
-				Module::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
+				Pallet::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
 				Error::<TestRuntime, DefaultInstance>::MessageIsAlreadyDelivered,
 			);
 		});
@@ -1552,7 +1552,7 @@ mod tests {
 	fn increase_message_fee_fails_if_message_is_not_yet_sent() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
+				Pallet::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
 				Error::<TestRuntime, DefaultInstance>::MessageIsNotYetSent,
 			);
 		});
@@ -1566,7 +1566,7 @@ mod tests {
 			TestMessageDeliveryAndDispatchPayment::reject_payments();
 
 			assert_noop!(
-				Module::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
+				Pallet::<TestRuntime, DefaultInstance>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 100,),
 				Error::<TestRuntime, DefaultInstance>::FailedToWithdrawMessageFee,
 			);
 		});
@@ -1577,7 +1577,7 @@ mod tests {
 		run_test(|| {
 			send_regular_message();
 
-			assert_ok!(Module::<TestRuntime, DefaultInstance>::increase_message_fee(
+			assert_ok!(Pallet::<TestRuntime, DefaultInstance>::increase_message_fee(
 				Origin::signed(1),
 				TEST_LANE_ID,
 				1,
