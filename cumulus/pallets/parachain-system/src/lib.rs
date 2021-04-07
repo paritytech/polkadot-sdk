@@ -140,6 +140,8 @@ decl_storage! {
 // The pallet's dispatchable functions.
 decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+		type Error = Error<T>;
+
 		// Initializing events
 		// this is needed only if you are using events in your pallet
 		fn deposit_event() = default;
