@@ -268,12 +268,8 @@ mod tests {
 
 		// then
 		assert_eq!(err.kind, structopt::clap::ErrorKind::ArgumentConflict);
-		assert_eq!(
-			err.info,
-			Some(vec![
-				"remark-size".to_string(),
-				"--remark-payload <remark-payload>".to_string()
-			])
-		);
+
+		let info = err.info.unwrap();
+		assert!(info.contains(&"remark-payload".to_string()) | info.contains(&"remark-size".to_string()))
 	}
 }
