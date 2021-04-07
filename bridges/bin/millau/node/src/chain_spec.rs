@@ -122,7 +122,7 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
-							pallet_bridge_messages::Module::<
+							pallet_bridge_messages::Pallet::<
 								millau_runtime::Runtime,
 								pallet_bridge_messages::DefaultInstance,
 							>::relayer_fund_account_id(),
@@ -154,33 +154,33 @@ fn testnet_genesis(
 	_enable_println: bool,
 ) -> GenesisConfig {
 	GenesisConfig {
-		frame_system: Some(SystemConfig {
+		frame_system: SystemConfig {
 			code: WASM_BINARY.to_vec(),
 			changes_trie_config: Default::default(),
-		}),
-		pallet_balances: Some(BalancesConfig {
+		},
+		pallet_balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
-		}),
-		pallet_aura: Some(AuraConfig {
+		},
+		pallet_aura: AuraConfig {
 			authorities: Vec::new(),
-		}),
-		pallet_grandpa: Some(GrandpaConfig {
+		},
+		pallet_grandpa: GrandpaConfig {
 			authorities: Vec::new(),
-		}),
-		pallet_sudo: Some(SudoConfig { key: root_key }),
-		pallet_session: Some(SessionConfig {
+		},
+		pallet_sudo: SudoConfig { key: root_key },
+		pallet_session: SessionConfig {
 			keys: initial_authorities
 				.iter()
 				.map(|x| (x.0.clone(), x.0.clone(), session_keys(x.1.clone(), x.2.clone())))
 				.collect::<Vec<_>>(),
-		}),
-		pallet_bridge_grandpa_Instance1: Some(BridgeWestendGrandpaConfig {
+		},
+		pallet_bridge_grandpa_Instance1: BridgeWestendGrandpaConfig {
 			// for our deployments to avoid multiple same-nonces transactions:
 			// //Alice is already used to initialize Rialto<->Millau bridge
 			// => let's use //George to initialize Westend->Millau bridge
 			owner: Some(get_account_id_from_seed::<sr25519::Public>("George")),
 			..Default::default()
-		}),
+		},
 	}
 }
 

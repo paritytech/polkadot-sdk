@@ -41,7 +41,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 #[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
 pub enum Call {
-	MockModule,
+	MockPallet,
 }
 
 impl sp_runtime::traits::Dispatchable for Call {
