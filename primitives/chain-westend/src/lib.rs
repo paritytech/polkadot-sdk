@@ -29,6 +29,8 @@ pub use bp_polkadot_core::*;
 /// Westend Chain
 pub type Westend = PolkadotLike;
 
+pub type UncheckedExtrinsic = bp_polkadot_core::UncheckedExtrinsic<Call>;
+
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_version::create_runtime_str!("westend"),
@@ -39,6 +41,22 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 5,
 };
+
+#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
+pub enum Call {
+	MockModule,
+}
+
+impl sp_runtime::traits::Dispatchable for Call {
+	type Origin = ();
+	type Config = ();
+	type Info = ();
+	type PostInfo = ();
+
+	fn dispatch(self, _origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
+		unimplemented!("The Call is not expected to be dispatched.")
+	}
+}
 
 // We use this to get the account on Westend (target) which is derived from Rococo's (source)
 // account.
