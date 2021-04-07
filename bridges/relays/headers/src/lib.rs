@@ -16,7 +16,7 @@
 
 //! Relaying source chain headers to target chain. This module provides entrypoint
 //! that starts reading new headers from source chain and submit these headers as
-//! module/contract transactions to the target chain. Module/contract on the target
+//! module/contract transactions to the target chain. Pallet/contract on the target
 //! chain is a light-client of the source chain. All other trustless bridge
 //! applications are built using this light-client, so running headers-relay is
 //! essential for running all other bridge applications.

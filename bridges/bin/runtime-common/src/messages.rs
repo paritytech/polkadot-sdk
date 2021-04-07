@@ -365,7 +365,7 @@ pub mod source {
 			storage_proof,
 			lane,
 		} = proof;
-		pallet_bridge_grandpa::Module::<ThisRuntime>::parse_finalized_storage_proof(
+		pallet_bridge_grandpa::Pallet::<ThisRuntime>::parse_finalized_storage_proof(
 			bridged_header_hash.into(),
 			StorageProof::new(storage_proof),
 			|storage| {
@@ -468,7 +468,7 @@ pub mod target {
 		ThisRuntime: pallet_bridge_dispatch::Config<ThisDispatchInstance, MessageId = (LaneId, MessageNonce)>,
 		<ThisRuntime as pallet_bridge_dispatch::Config<ThisDispatchInstance>>::Event:
 			From<pallet_bridge_dispatch::RawEvent<(LaneId, MessageNonce), ThisDispatchInstance>>,
-		pallet_bridge_dispatch::Module<ThisRuntime, ThisDispatchInstance>:
+		pallet_bridge_dispatch::Pallet<ThisRuntime, ThisDispatchInstance>:
 			bp_message_dispatch::MessageDispatch<(LaneId, MessageNonce), Message = FromBridgedChainMessagePayload<B>>,
 	{
 		type DispatchPayload = FromBridgedChainMessagePayload<B>;
@@ -481,7 +481,7 @@ pub mod target {
 
 		fn dispatch(message: DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>) {
 			let message_id = (message.key.lane_id, message.key.nonce);
-			pallet_bridge_dispatch::Module::<ThisRuntime, ThisDispatchInstance>::dispatch(
+			pallet_bridge_dispatch::Pallet::<ThisRuntime, ThisDispatchInstance>::dispatch(
 				B::INSTANCE,
 				message_id,
 				message.data.payload.map_err(drop),
@@ -517,7 +517,7 @@ pub mod target {
 			proof,
 			messages_count,
 			|bridged_header_hash, bridged_storage_proof| {
-				pallet_bridge_grandpa::Module::<ThisRuntime>::parse_finalized_storage_proof(
+				pallet_bridge_grandpa::Pallet::<ThisRuntime>::parse_finalized_storage_proof(
 					bridged_header_hash.into(),
 					StorageProof::new(bridged_storage_proof),
 					|storage_adapter| storage_adapter,

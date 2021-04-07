@@ -67,7 +67,7 @@ pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 128;
 
 /// Weight of single regular message delivery transaction on Rialto chain.
 ///
-/// This value is a result of `pallet_bridge_messages::Module::receive_messages_proof_weight()` call
+/// This value is a result of `pallet_bridge_messages::Pallet::receive_messages_proof_weight()` call
 /// for the case when single message of `pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH` bytes is delivered.
 /// The message must have dispatch weight set to zero. The result then must be rounded up to account
 /// possible future runtime upgrades.
@@ -81,7 +81,7 @@ pub const ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT: Weight = 25_000;
 
 /// Maximal weight of single message delivery confirmation transaction on Rialto chain.
 ///
-/// This value is a result of `pallet_bridge_messages::Module::receive_messages_delivery_proof` weight formula computation
+/// This value is a result of `pallet_bridge_messages::Pallet::receive_messages_delivery_proof` weight formula computation
 /// for the case when single message is confirmed. The result then must be rounded up to account possible future
 /// runtime upgrades.
 pub const MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT: Weight = 2_000_000_000;

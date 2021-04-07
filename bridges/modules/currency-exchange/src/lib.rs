@@ -61,7 +61,7 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 }
 
 decl_error! {
-	pub enum Error for Module<T: Config<I>, I: Instance> {
+	pub enum Error for Pallet<T: Config<I>, I: Instance> {
 		/// Invalid peer blockchain transaction provided.
 		InvalidTransaction,
 		/// Peer transaction has invalid amount.
@@ -125,13 +125,13 @@ decl_module! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as Bridge {
+	trait Store for Pallet<T: Config<I>, I: Instance = DefaultInstance> as Bridge {
 		/// All transfers that have already been claimed.
 		Transfers: map hasher(blake2_128_concat) <T::PeerMaybeLockFundsTransaction as MaybeLockFundsTransaction>::Id => ();
 	}
 }
 
-impl<T: Config<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: Instance> Pallet<T, I> {
 	/// Returns true if currency exchange module is able to import given transaction proof in
 	/// its current state.
 	pub fn filter_transaction_proof(
@@ -326,8 +326,8 @@ mod tests {
 			NodeBlock = Block,
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			Exchange: pallet_bridge_currency_exchange::{Module},
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			Exchange: pallet_bridge_currency_exchange::{Pallet},
 		}
 	}
 
@@ -361,6 +361,7 @@ mod tests {
 		type BlockLength = ();
 		type DbWeight = ();
 		type SS58Prefix = ();
+		type OnSetCode = ();
 	}
 
 	impl Config for TestRuntime {

@@ -32,6 +32,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "mast
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }

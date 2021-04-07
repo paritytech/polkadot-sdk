@@ -29,7 +29,7 @@ use relay_ethereum_client::{
 };
 use relay_rialto_client::HeaderId as RialtoHeaderId;
 use relay_utils::{HeaderId, MaybeConnectionError};
-use sp_runtime::Justification;
+use sp_runtime::EncodedJustification;
 use std::collections::HashSet;
 
 // to encode/decode contract calls
@@ -68,7 +68,7 @@ pub trait EthereumHighLevelRpc {
 		params: EthereumSigningParams,
 		contract_address: Address,
 		id: RialtoHeaderId,
-		justification: Justification,
+		justification: EncodedJustification,
 	) -> RpcResult<RialtoHeaderId>;
 
 	/// Submit ethereum transaction.
@@ -194,7 +194,7 @@ impl EthereumHighLevelRpc for EthereumClient {
 		params: EthereumSigningParams,
 		contract_address: Address,
 		id: RialtoHeaderId,
-		justification: Justification,
+		justification: EncodedJustification,
 	) -> RpcResult<RialtoHeaderId> {
 		let _ = self
 			.submit_ethereum_transaction(
