@@ -53,7 +53,7 @@ use sp_runtime::RuntimeDebug;
 #[cfg(test)]
 mod mock;
 
-/// Module containing weights for this pallet.
+/// Pallet containing weights for this pallet.
 pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -191,19 +191,19 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Change `ModuleOwner`.
+		/// Change `PalletOwner`.
 		///
-		/// May only be called either by root, or by `ModuleOwner`.
+		/// May only be called either by root, or by `PalletOwner`.
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_owner(origin: OriginFor<T>, new_owner: Option<T::AccountId>) -> DispatchResultWithPostInfo {
 			ensure_owner_or_root::<T, I>(origin)?;
 			match new_owner {
 				Some(new_owner) => {
-					ModuleOwner::<T, I>::put(&new_owner);
+					PalletOwner::<T, I>::put(&new_owner);
 					log::info!(target: "runtime::bridge-grandpa", "Setting pallet Owner to: {:?}", new_owner);
 				}
 				None => {
-					ModuleOwner::<T, I>::kill();
+					PalletOwner::<T, I>::kill();
 					log::info!(target: "runtime::bridge-grandpa", "Removed Owner of pallet.");
 				}
 			}
@@ -213,7 +213,7 @@ pub mod pallet {
 
 		/// Halt or resume all pallet operations.
 		///
-		/// May only be called either by root, or by `ModuleOwner`.
+		/// May only be called either by root, or by `PalletOwner`.
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_operational(origin: OriginFor<T>, operational: bool) -> DispatchResultWithPostInfo {
 			ensure_owner_or_root::<T, I>(origin)?;
@@ -265,7 +265,7 @@ pub mod pallet {
 	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
 	/// flag directly or call the `halt_operations`).
 	#[pallet::storage]
-	pub(super) type ModuleOwner<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub(super) type PalletOwner<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	/// If true, all pallet transactions are failed immediately.
 	#[pallet::storage]
@@ -293,7 +293,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
 		fn build(&self) {
 			if let Some(ref owner) = self.owner {
-				<ModuleOwner<T, I>>::put(owner);
+				<PalletOwner<T, I>>::put(owner);
 			}
 
 			if let Some(init_data) = self.init_data.clone() {
@@ -426,11 +426,11 @@ pub mod pallet {
 		<IsHalted<T, I>>::put(is_halted);
 	}
 
-	/// Ensure that the origin is either root, or `ModuleOwner`.
+	/// Ensure that the origin is either root, or `PalletOwner`.
 	fn ensure_owner_or_root<T: Config<I>, I: 'static>(origin: T::Origin) -> Result<(), BadOrigin> {
 		match origin.into() {
 			Ok(RawOrigin::Root) => Ok(()),
-			Ok(RawOrigin::Signed(ref signer)) if Some(signer) == <ModuleOwner<T, I>>::get().as_ref() => Ok(()),
+			Ok(RawOrigin::Signed(ref signer)) if Some(signer) == <PalletOwner<T, I>>::get().as_ref() => Ok(()),
 			_ => Err(BadOrigin),
 		}
 	}
@@ -574,22 +574,22 @@ mod tests {
 			is_halted: false,
 		};
 
-		Module::<TestRuntime>::initialize(origin, init_data.clone()).map(|_| init_data)
+		Pallet::<TestRuntime>::initialize(origin, init_data.clone()).map(|_| init_data)
 	}
 
 	fn submit_finality_proof(header: u8) -> frame_support::dispatch::DispatchResultWithPostInfo {
 		let header = test_header(header.into());
 		let justification = make_default_justification(&header);
 
-		Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification)
+		Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification)
 	}
 
 	fn next_block() {
 		use frame_support::traits::OnInitialize;
 
-		let current_number = frame_system::Module::<TestRuntime>::block_number();
-		frame_system::Module::<TestRuntime>::set_block_number(current_number + 1);
-		let _ = Module::<TestRuntime>::on_initialize(current_number);
+		let current_number = frame_system::Pallet::<TestRuntime>::block_number();
+		frame_system::Pallet::<TestRuntime>::set_block_number(current_number + 1);
+		let _ = Pallet::<TestRuntime>::on_initialize(current_number);
 	}
 
 	fn change_log(delay: u64) -> Digest<TestHash> {
@@ -625,7 +625,7 @@ mod tests {
 
 			// Reset storage so we can initialize the pallet again
 			BestFinalized::<TestRuntime>::kill();
-			ModuleOwner::<TestRuntime>::put(2);
+			PalletOwner::<TestRuntime>::put(2);
 			assert_ok!(init_with_origin(Origin::signed(2)));
 		})
 	}
@@ -637,7 +637,7 @@ mod tests {
 				BestFinalized::<TestRuntime>::get(),
 				BridgedBlockHash::<TestRuntime, ()>::default()
 			);
-			assert_eq!(Module::<TestRuntime>::best_finalized(), test_header(0));
+			assert_eq!(Pallet::<TestRuntime>::best_finalized(), test_header(0));
 
 			let init_data = init_with_origin(Origin::root()).unwrap();
 
@@ -665,56 +665,56 @@ mod tests {
 	#[test]
 	fn pallet_owner_may_change_owner() {
 		run_test(|| {
-			ModuleOwner::<TestRuntime>::put(2);
+			PalletOwner::<TestRuntime>::put(2);
 
-			assert_ok!(Module::<TestRuntime>::set_owner(Origin::root(), Some(1)));
+			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::root(), Some(1)));
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(2), false),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(2), false),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
 
-			assert_ok!(Module::<TestRuntime>::set_owner(Origin::signed(1), None));
+			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::signed(1), None));
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(2), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(2), true),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
 		});
 	}
 
 	#[test]
 	fn pallet_may_be_halted_by_root() {
 		run_test(|| {
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), false));
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
 		});
 	}
 
 	#[test]
 	fn pallet_may_be_halted_by_owner() {
 		run_test(|| {
-			ModuleOwner::<TestRuntime>::put(2);
+			PalletOwner::<TestRuntime>::put(2);
 
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), false));
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), true));
 
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), false),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), false),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 
-			assert_ok!(Module::<TestRuntime>::set_operational(Origin::signed(2), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
 			assert_noop!(
-				Module::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
 				DispatchError::BadOrigin,
 			);
 		});
@@ -755,7 +755,7 @@ mod tests {
 			let justification = make_justification_for_header(params);
 
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
 				<Error<TestRuntime>>::InvalidJustification
 			);
 		})
@@ -771,7 +771,7 @@ mod tests {
 			justification.round = 42;
 
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
 				<Error<TestRuntime>>::InvalidJustification
 			);
 		})
@@ -790,13 +790,13 @@ mod tests {
 				is_halted: false,
 			};
 
-			assert_ok!(Module::<TestRuntime>::initialize(Origin::root(), init_data));
+			assert_ok!(Pallet::<TestRuntime>::initialize(Origin::root(), init_data));
 
 			let header = test_header(1);
 			let justification = make_default_justification(&header);
 
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
 				<Error<TestRuntime>>::InvalidAuthoritySet
 			);
 		})
@@ -830,7 +830,7 @@ mod tests {
 			let justification = make_default_justification(&header);
 
 			// Let's import our test header
-			assert_ok!(Module::<TestRuntime>::submit_finality_proof(
+			assert_ok!(Pallet::<TestRuntime>::submit_finality_proof(
 				Origin::signed(1),
 				header.clone(),
 				justification
@@ -863,7 +863,7 @@ mod tests {
 
 			// Should not be allowed to import this header
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
 		})
@@ -884,7 +884,7 @@ mod tests {
 
 			// Should not be allowed to import this header
 			assert_err!(
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
 		})
@@ -894,7 +894,7 @@ mod tests {
 	fn parse_finalized_storage_proof_rejects_proof_on_unknown_header() {
 		run_test(|| {
 			assert_noop!(
-				Module::<TestRuntime>::parse_finalized_storage_proof(
+				Pallet::<TestRuntime>::parse_finalized_storage_proof(
 					Default::default(),
 					sp_trie::StorageProof::new(vec![]),
 					|_| (),
@@ -917,7 +917,7 @@ mod tests {
 			<ImportedHeaders<TestRuntime>>::insert(hash, header);
 
 			assert_ok!(
-				Module::<TestRuntime>::parse_finalized_storage_proof(hash, storage_proof, |_| (),),
+				Pallet::<TestRuntime>::parse_finalized_storage_proof(hash, storage_proof, |_| (),),
 				(),
 			);
 		});
@@ -942,7 +942,7 @@ mod tests {
 				let mut invalid_justification = make_default_justification(&header);
 				invalid_justification.round = 42;
 
-				Module::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, invalid_justification)
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, invalid_justification)
 			};
 
 			initialize_substrate_bridge();

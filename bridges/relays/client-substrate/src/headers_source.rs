@@ -26,7 +26,7 @@ use headers_relay::{
 	sync_types::{HeaderIdOf, HeadersSyncPipeline, QueuedHeader, SourceHeader},
 };
 use relay_utils::relay_loop::Client as RelayClient;
-use sp_runtime::{traits::Header as HeaderT, Justification};
+use sp_runtime::{traits::Header as HeaderT, EncodedJustification};
 use std::marker::PhantomData;
 
 /// Substrate node as headers source.
@@ -69,7 +69,7 @@ where
 	C: Chain,
 	C::BlockNumber: relay_utils::BlockNumberBase,
 	C::Header: Into<P::Header>,
-	P: HeadersSyncPipeline<Extra = (), Completion = Justification, Hash = C::Hash, Number = C::BlockNumber>,
+	P: HeadersSyncPipeline<Extra = (), Completion = EncodedJustification, Hash = C::Hash, Number = C::BlockNumber>,
 	P::Header: SourceHeader<C::Hash, C::BlockNumber>,
 {
 	async fn best_block_number(&self) -> Result<P::Number, Error> {

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Module provides a set of guard functions that are running in background threads
+//! Pallet provides a set of guard functions that are running in background threads
 //! and are aborting process if some condition fails.
 
 use crate::{Chain, ChainWithBalances, Client};
