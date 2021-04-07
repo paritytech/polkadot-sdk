@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Module for checking GRANDPA Finality Proofs.
+//! Pallet for checking GRANDPA Finality Proofs.
 //!
 //! Adapted copy of substrate/client/finality-grandpa/src/justification.rs. If origin
 //! will ever be moved to the sp_finality_grandpa, we should reuse that implementation.

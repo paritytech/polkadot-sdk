@@ -33,8 +33,8 @@ pub const MESSAGE_FEE: u64 = 10_000_000_000;
 
 const SEED: u32 = 0;
 
-/// Module we're benchmarking here.
-pub struct Module<T: Config<I>, I: crate::Instance>(crate::Module<T, I>);
+/// Pallet we're benchmarking here.
+pub struct Pallet<T: Config<I>, I: crate::Instance>(crate::Pallet<T, I>);
 
 /// Proof size requirements.
 pub enum ProofSize {
@@ -142,7 +142,7 @@ benchmarks_instance! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -179,7 +179,7 @@ benchmarks_instance! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -216,7 +216,7 @@ benchmarks_instance! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -261,7 +261,7 @@ benchmarks_instance! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			21,
 		);
 	}
@@ -292,7 +292,7 @@ benchmarks_instance! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 2, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			22,
 		);
 	}
@@ -327,11 +327,11 @@ benchmarks_instance! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			21,
 		);
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_confirmed_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_confirmed_nonce(T::bench_lane_id()),
 			20,
 		);
 	}
@@ -361,7 +361,7 @@ benchmarks_instance! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			21,
 		);
 	}
@@ -393,7 +393,7 @@ benchmarks_instance! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			21,
 		);
 	}
@@ -404,7 +404,7 @@ benchmarks_instance! {
 	//
 	// This is base benchmark for all other confirmations delivery benchmarks.
 	receive_delivery_proof_for_single_message {
-		let relayers_fund_id = crate::Module::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
 		T::endow_account(&relayers_fund_id);
@@ -441,7 +441,7 @@ benchmarks_instance! {
 	// as `weight(receive_delivery_proof_for_two_messages_by_single_relayer)
 	//   - weight(receive_delivery_proof_for_single_message)`.
 	receive_delivery_proof_for_two_messages_by_single_relayer {
-		let relayers_fund_id = crate::Module::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
 		T::endow_account(&relayers_fund_id);
@@ -476,7 +476,7 @@ benchmarks_instance! {
 	// as `weight(receive_delivery_proof_for_two_messages_by_two_relayers)
 	//   - weight(receive_delivery_proof_for_two_messages_by_single_relayer)`.
 	receive_delivery_proof_for_two_messages_by_two_relayers {
-		let relayers_fund_id = crate::Module::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
 		let relayer1_id: T::AccountId = account("relayer1", 1, SEED);
 		let relayer1_balance = T::account_balance(&relayer1_id);
 		let relayer2_id: T::AccountId = account("relayer2", 2, SEED);
@@ -540,7 +540,7 @@ benchmarks_instance! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -579,7 +579,7 @@ benchmarks_instance! {
 	)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			20 + i as MessageNonce,
 		);
 	}
@@ -616,7 +616,7 @@ benchmarks_instance! {
 	)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			21,
 		);
 	}
@@ -653,7 +653,7 @@ benchmarks_instance! {
 	)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			21,
 		);
 	}
@@ -696,11 +696,11 @@ benchmarks_instance! {
 	)
 	verify {
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
 			20 + i as MessageNonce,
 		);
 		assert_eq!(
-			crate::Module::<T, I>::inbound_latest_confirmed_nonce(T::bench_lane_id()),
+			crate::Pallet::<T, I>::inbound_latest_confirmed_nonce(T::bench_lane_id()),
 			20,
 		);
 	}
@@ -713,7 +713,7 @@ benchmarks_instance! {
 			.try_into()
 			.expect("Value of MaxUnrewardedRelayerEntriesAtInboundLane is too large");
 
-		let relayers_fund_id = crate::Module::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
 		T::endow_account(&relayers_fund_id);
@@ -749,7 +749,7 @@ benchmarks_instance! {
 			.try_into()
 			.expect("Value of MaxUnconfirmedMessagesAtInboundLane is too large ");
 
-		let relayers_fund_id = crate::Module::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
 		let confirmation_relayer_id = account("relayer", 0, SEED);
 		let relayers: BTreeMap<T::AccountId, T::OutboundMessageFee> = (1..=i)
 			.map(|j| {
