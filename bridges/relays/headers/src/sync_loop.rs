@@ -628,5 +628,5 @@ fn print_sync_progress<P: HeadersSyncPipeline>(
 		now_best_header.map(|id| id.0),
 		now_target_header,
 	);
-	(now_time, now_best_header.clone().map(|id| id.0), *now_target_header)
+	(now_time, (*now_best_header).map(|id| id.0), *now_target_header)
 }
