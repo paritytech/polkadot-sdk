@@ -34,7 +34,7 @@ impl SubstrateFinalitySyncPipeline for RialtoFinalityToMillau {
 	type TargetChain = Millau;
 
 	fn transactions_author(&self) -> bp_millau::AccountId {
-		self.target_sign.public().as_array_ref().clone().into()
+		(*self.target_sign.public().as_array_ref()).into()
 	}
 
 	fn make_submit_finality_proof_transaction(
