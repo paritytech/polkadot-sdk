@@ -219,7 +219,7 @@ fn check_signer_is_legit_validator() {
 	let (mut validator, api) = make_validator_and_api();
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-	let data = BlockAnnounceData::try_from(signed_statement)
+	let data = BlockAnnounceData::try_from(&signed_statement)
 		.unwrap()
 		.encode();
 
@@ -233,7 +233,7 @@ fn check_statement_is_correctly_signed() {
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
 
-	let mut data = BlockAnnounceData::try_from(signed_statement)
+	let mut data = BlockAnnounceData::try_from(&signed_statement)
 		.unwrap()
 		.encode();
 
@@ -296,7 +296,7 @@ fn check_header_match_candidate_receipt_header() {
 
 	let (signed_statement, mut header) =
 		block_on(make_gossip_message_and_header_using_genesis(api, 0));
-	let data = BlockAnnounceData::try_from(signed_statement)
+	let data = BlockAnnounceData::try_from(&signed_statement)
 		.unwrap()
 		.encode();
 	header.number = 300;
@@ -323,7 +323,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 
 		let (signed_statement, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
 
-		let data = BlockAnnounceData::try_from(signed_statement)
+		let data = BlockAnnounceData::try_from(&signed_statement)
 			.unwrap()
 			.encode();
 

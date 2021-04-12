@@ -309,17 +309,15 @@ where
 
 		let block_hash = b.header().hash();
 		let collation = self.build_collation(b, block_hash, validation_data.relay_parent_number)?;
-		let pov_hash = collation.proof_of_validity.hash();
 
 		let (result_sender, signed_stmt_recv) = oneshot::channel();
 
 		self.wait_to_announce
 			.lock()
-			.wait_to_announce(block_hash, pov_hash, signed_stmt_recv);
+			.wait_to_announce(block_hash, signed_stmt_recv);
 
 		tracing::info!(
 			target: LOG_TARGET,
-			pov_hash = ?pov_hash,
 			?block_hash,
 			"Produced proof-of-validity candidate.",
 		);

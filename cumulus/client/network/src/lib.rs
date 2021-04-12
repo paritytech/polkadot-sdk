@@ -36,7 +36,7 @@ use sp_runtime::{
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_parachain::primitives::HeadData;
 use polkadot_primitives::v1::{
-	Block as PBlock, CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
+	Block as PBlock, Hash as PHash, CandidateReceipt, CompactStatement, Id as ParaId,
 	OccupiedCoreAssumption, ParachainHost, SignedStatement, SigningContext,
 };
 use polkadot_service::ClientHandle;
@@ -178,10 +178,10 @@ impl BlockAnnounceData {
 	}
 }
 
-impl TryFrom<SignedFullStatement> for BlockAnnounceData {
+impl TryFrom<&'_ SignedFullStatement> for BlockAnnounceData {
 	type Error = ();
 
-	fn try_from(stmt: SignedFullStatement) -> Result<BlockAnnounceData, ()> {
+	fn try_from(stmt: &SignedFullStatement) -> Result<BlockAnnounceData, ()> {
 		let receipt = if let Statement::Seconded(receipt) = stmt.payload() {
 			receipt.to_plain()
 		} else {
@@ -530,7 +530,6 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 	pub fn wait_to_announce(
 		&mut self,
 		block_hash: <Block as BlockT>::Hash,
-		pov_hash: PHash,
 		signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
 	) {
 		let announce_block = self.announce_block.clone();
@@ -543,8 +542,7 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 					"waiting for announce block in a background task...",
 				);
 
-				wait_to_announce::<Block>(block_hash, pov_hash, announce_block, signed_stmt_recv)
-					.await;
+				wait_to_announce::<Block>(block_hash, announce_block, signed_stmt_recv).await;
 
 				tracing::debug!(
 					target: "cumulus-network",
@@ -558,7 +556,6 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 
 async fn wait_to_announce<Block: BlockT>(
 	block_hash: <Block as BlockT>::Hash,
-	pov_hash: PHash,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
 ) {
@@ -567,7 +564,6 @@ async fn wait_to_announce<Block: BlockT>(
 		Err(_) => {
 			tracing::debug!(
 				target: "cumulus-network",
-				pov_hash = ?pov_hash,
 				block = ?block_hash,
 				"Wait to announce stopped, because sender was dropped.",
 			);
@@ -575,18 +571,14 @@ async fn wait_to_announce<Block: BlockT>(
 		}
 	};
 
-	match statement.payload() {
-		Statement::Seconded(c) if &c.descriptor.pov_hash == &pov_hash => {
-			if let Ok(data) = BlockAnnounceData::try_from(statement) {
-				announce_block(block_hash, Some(data.encode()));
-			}
-		}
-		_ => tracing::debug!(
+	if let Ok(data) = BlockAnnounceData::try_from(&statement) {
+		announce_block(block_hash, Some(data.encode()));
+	} else {
+		tracing::debug!(
 			target: "cumulus-network",
 			statement = ?statement,
 			block = ?block_hash,
-			expected_pov_hash = ?pov_hash,
 			"Received invalid statement while waiting to announce block.",
-		),
+		);
 	}
 }
