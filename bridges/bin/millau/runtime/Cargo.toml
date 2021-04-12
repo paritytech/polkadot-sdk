@@ -101,3 +101,6 @@ std = [
 	"sp-trie/std",
 	"sp-version/std",
 ]
+# TODO: https://github.com/paritytech/parity-bridges-common/issues/390
+# I've left the feature flag here to test our CI configuration
+runtime-benchmarks = []
