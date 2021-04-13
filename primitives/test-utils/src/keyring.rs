@@ -18,6 +18,7 @@
 
 use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
 use finality_grandpa::voter_set::VoterSet;
+use parity_scale_codec::Encode;
 use sp_application_crypto::Public;
 use sp_finality_grandpa::{AuthorityId, AuthorityList, AuthorityWeight};
 use sp_runtime::RuntimeDebug;
@@ -33,7 +34,7 @@ pub const FERDIE: Account = Account(5);
 
 /// A test account which can be used to sign messages.
 #[derive(RuntimeDebug, Clone, Copy)]
-pub struct Account(pub u8);
+pub struct Account(pub u16);
 
 impl Account {
 	pub fn public(&self) -> PublicKey {
@@ -41,7 +42,10 @@ impl Account {
 	}
 
 	pub fn secret(&self) -> SecretKey {
-		SecretKey::from_bytes(&[self.0; 32]).expect("A static array of the correct length is a known good.")
+		let data = self.0.encode();
+		let mut bytes = [0_u8; 32];
+		bytes[0..data.len()].copy_from_slice(&*data);
+		SecretKey::from_bytes(&bytes).expect("A static array of the correct length is a known good.")
 	}
 
 	pub fn pair(&self) -> Keypair {
@@ -87,6 +91,6 @@ pub fn test_keyring() -> Vec<(Account, AuthorityWeight)> {
 }
 
 /// Get a list of "unique" accounts.
-pub fn accounts(len: u8) -> Vec<Account> {
+pub fn accounts(len: u16) -> Vec<Account> {
 	(0..len).into_iter().map(Account).collect()
 }
