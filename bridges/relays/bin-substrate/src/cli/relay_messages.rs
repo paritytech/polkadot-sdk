@@ -47,10 +47,10 @@ impl RelayMessages {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_full_bridge!(self.bridge, {
-			let source_client = self.source.into_client::<Source>().await?;
-			let source_sign = self.source_sign.into_keypair::<Source>()?;
-			let target_client = self.target.into_client::<Target>().await?;
-			let target_sign = self.target_sign.into_keypair::<Target>()?;
+			let source_client = self.source.to_client::<Source>().await?;
+			let source_sign = self.source_sign.to_keypair::<Source>()?;
+			let target_client = self.target.to_client::<Target>().await?;
+			let target_sign = self.target_sign.to_keypair::<Target>()?;
 
 			relay_messages(
 				source_client,
