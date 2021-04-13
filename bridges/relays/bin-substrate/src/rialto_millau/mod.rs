@@ -16,7 +16,6 @@
 
 //! Rialto <> Millau Bridge commands.
 
-pub mod cli;
 pub mod millau_headers_to_rialto;
 pub mod millau_messages_to_rialto;
 pub mod rialto_headers_to_millau;
@@ -31,111 +30,15 @@ pub type RialtoClient = relay_substrate_client::Client<Rialto>;
 use crate::cli::{
 	bridge,
 	encode_call::{self, Call, CliEncodeCall},
-	encode_message, CliChain, HexBytes,
+	encode_message, send_message, CliChain,
 };
-use codec::{Decode, Encode};
+use codec::Decode;
 use frame_support::weights::{GetDispatchInfo, Weight};
 use pallet_bridge_dispatch::{CallOrigin, MessagePayload};
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
-use relay_substrate_client::Chain;
 use relay_westend_client::Westend;
 use sp_version::RuntimeVersion;
-use std::fmt::Debug;
-
-async fn run_estimate_fee(cmd: cli::EstimateFee) -> Result<(), String> {
-	match cmd {
-		cli::EstimateFee::RialtoToMillau { source, lane, payload } => {
-			type Source = Rialto;
-			type SourceBalance = bp_rialto::Balance;
-
-			let estimate_message_fee_method = bp_millau::TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD;
-
-			let source_client = source.to_client::<Source>().await.map_err(format_err)?;
-			let lane = lane.into();
-			let payload = Source::encode_message(payload)?;
-
-			let fee: Option<SourceBalance> =
-				estimate_message_delivery_and_dispatch_fee(&source_client, estimate_message_fee_method, lane, payload)
-					.await?;
-
-			println!("Fee: {:?}", fee);
-		}
-		cli::EstimateFee::MillauToRialto { source, lane, payload } => {
-			type Source = Millau;
-			type SourceBalance = bp_millau::Balance;
-
-			let estimate_message_fee_method = bp_rialto::TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD;
-
-			let source_client = source.to_client::<Source>().await.map_err(format_err)?;
-			let lane = lane.into();
-			let payload = Source::encode_message(payload)?;
-
-			let fee: Option<SourceBalance> =
-				estimate_message_delivery_and_dispatch_fee(&source_client, estimate_message_fee_method, lane, payload)
-					.await?;
-
-			println!("Fee: {:?}", fee);
-		}
-	}
-
-	Ok(())
-}
-
-pub(crate) async fn estimate_message_delivery_and_dispatch_fee<Fee: Decode, C: Chain, P: Encode>(
-	client: &relay_substrate_client::Client<C>,
-	estimate_fee_method: &str,
-	lane: bp_messages::LaneId,
-	payload: P,
-) -> Result<Option<Fee>, relay_substrate_client::Error> {
-	let encoded_response = client
-		.state_call(estimate_fee_method.into(), (lane, payload).encode().into(), None)
-		.await?;
-	let decoded_response: Option<Fee> =
-		Decode::decode(&mut &encoded_response.0[..]).map_err(relay_substrate_client::Error::ResponseParseFailed)?;
-	Ok(decoded_response)
-}
-
-pub(crate) fn message_payload<SAccountId, TPublic, TSignature>(
-	spec_version: u32,
-	weight: Weight,
-	origin: CallOrigin<SAccountId, TPublic, TSignature>,
-	call: &impl Encode,
-) -> MessagePayload<SAccountId, TPublic, TSignature, Vec<u8>>
-where
-	SAccountId: Encode + Debug,
-	TPublic: Encode + Debug,
-	TSignature: Encode + Debug,
-{
-	// Display nicely formatted call.
-	let payload = MessagePayload {
-		spec_version,
-		weight,
-		origin,
-		call: HexBytes::encode(call),
-	};
-
-	log::info!(target: "bridge", "Created Message Payload: {:#?}", payload);
-	log::info!(target: "bridge", "Encoded Message Payload: {:?}", HexBytes::encode(&payload));
-
-	// re-pack to return `Vec<u8>`
-	let MessagePayload {
-		spec_version,
-		weight,
-		origin,
-		call,
-	} = payload;
-	MessagePayload {
-		spec_version,
-		weight,
-		origin,
-		call: call.0,
-	}
-}
-
-pub(crate) fn compute_maximal_message_dispatch_weight(maximal_extrinsic_weight: Weight) -> Weight {
-	bridge_runtime_common::messages::target::maximal_incoming_message_dispatch_weight(maximal_extrinsic_weight)
-}
 
 impl CliEncodeCall for Millau {
 	fn max_extrinsic_size() -> u32 {
@@ -204,7 +107,7 @@ impl CliChain for Millau {
 				let call = Target::encode_call(&call).map_err(|e| e.to_string())?;
 				let weight = call.get_dispatch_info().weight;
 
-				Ok(message_payload(spec_version, weight, origin, &call))
+				Ok(send_message::message_payload(spec_version, weight, origin, &call))
 			}
 		}
 	}
@@ -274,7 +177,7 @@ impl CliChain for Rialto {
 				let call = Target::encode_call(&call).map_err(|e| e.to_string())?;
 				let weight = call.get_dispatch_info().weight;
 
-				Ok(message_payload(spec_version, weight, origin, &call))
+				Ok(send_message::message_payload(spec_version, weight, origin, &call))
 			}
 		}
 	}
@@ -299,14 +202,11 @@ impl CliChain for Westend {
 	}
 }
 
-fn format_err(e: anyhow::Error) -> String {
-	e.to_string()
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use bp_messages::source_chain::TargetHeaderChain;
+	use codec::Encode;
 	use relay_substrate_client::TransactionSignScheme;
 	use sp_core::Pair;
 	use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -363,7 +263,7 @@ mod tests {
 		);
 
 		let call: millau_runtime::Call = millau_runtime::SystemCall::remark(vec![42; maximal_remark_size as _]).into();
-		let payload = message_payload(
+		let payload = send_message::message_payload(
 			Default::default(),
 			call.get_dispatch_info().weight,
 			pallet_bridge_dispatch::CallOrigin::SourceRoot,
@@ -373,7 +273,7 @@ mod tests {
 
 		let call: millau_runtime::Call =
 			millau_runtime::SystemCall::remark(vec![42; (maximal_remark_size + 1) as _]).into();
-		let payload = message_payload(
+		let payload = send_message::message_payload(
 			Default::default(),
 			call.get_dispatch_info().weight,
 			pallet_bridge_dispatch::CallOrigin::SourceRoot,
@@ -396,10 +296,11 @@ mod tests {
 	fn maximal_rialto_to_millau_message_dispatch_weight_is_computed_correctly() {
 		use rialto_runtime::millau_messages::Millau;
 
-		let maximal_dispatch_weight = compute_maximal_message_dispatch_weight(bp_millau::max_extrinsic_weight());
+		let maximal_dispatch_weight =
+			send_message::compute_maximal_message_dispatch_weight(bp_millau::max_extrinsic_weight());
 		let call: millau_runtime::Call = rialto_runtime::SystemCall::remark(vec![]).into();
 
-		let payload = message_payload(
+		let payload = send_message::message_payload(
 			Default::default(),
 			maximal_dispatch_weight,
 			pallet_bridge_dispatch::CallOrigin::SourceRoot,
@@ -407,7 +308,7 @@ mod tests {
 		);
 		assert_eq!(Millau::verify_message(&payload), Ok(()));
 
-		let payload = message_payload(
+		let payload = send_message::message_payload(
 			Default::default(),
 			maximal_dispatch_weight + 1,
 			pallet_bridge_dispatch::CallOrigin::SourceRoot,
@@ -420,10 +321,11 @@ mod tests {
 	fn maximal_weight_fill_block_to_rialto_is_generated_correctly() {
 		use millau_runtime::rialto_messages::Rialto;
 
-		let maximal_dispatch_weight = compute_maximal_message_dispatch_weight(bp_rialto::max_extrinsic_weight());
+		let maximal_dispatch_weight =
+			send_message::compute_maximal_message_dispatch_weight(bp_rialto::max_extrinsic_weight());
 		let call: rialto_runtime::Call = millau_runtime::SystemCall::remark(vec![]).into();
 
-		let payload = message_payload(
+		let payload = send_message::message_payload(
 			Default::default(),
 			maximal_dispatch_weight,
 			pallet_bridge_dispatch::CallOrigin::SourceRoot,
@@ -431,7 +333,7 @@ mod tests {
 		);
 		assert_eq!(Rialto::verify_message(&payload), Ok(()));
 
-		let payload = message_payload(
+		let payload = send_message::message_payload(
 			Default::default(),
 			maximal_dispatch_weight + 1,
 			pallet_bridge_dispatch::CallOrigin::SourceRoot,
