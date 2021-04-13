@@ -16,77 +16,9 @@
 
 //! Deal with CLI args of Rialto <> Millau relay.
 
-use frame_support::weights::Weight;
 use structopt::StructOpt;
 
-use crate::cli::{
-	Balance, ExplicitOrMaximal, HexLaneId, Origins, SourceConnectionParams, SourceSigningParams, TargetSigningParams,
-};
-
-/// Send bridge message.
-///
-/// TODO [#855] Move to separate module.
-#[derive(StructOpt)]
-pub enum SendMessage {
-	/// Submit message to given Millau -> Rialto lane.
-	MillauToRialto {
-		#[structopt(flatten)]
-		source: SourceConnectionParams,
-		#[structopt(flatten)]
-		source_sign: SourceSigningParams,
-		#[structopt(flatten)]
-		target_sign: TargetSigningParams,
-		/// Hex-encoded lane id. Defaults to `00000000`.
-		#[structopt(long, default_value = "00000000")]
-		lane: HexLaneId,
-		/// Dispatch weight of the message. If not passed, determined automatically.
-		#[structopt(long)]
-		dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
-		/// Delivery and dispatch fee in source chain base currency units. If not passed, determined automatically.
-		#[structopt(long)]
-		fee: Option<Balance>,
-		/// Message type.
-		#[structopt(subcommand)]
-		message: crate::cli::encode_call::Call,
-		/// The origin to use when dispatching the message on the target chain. Defaults to
-		/// `SourceAccount`.
-		#[structopt(long, possible_values = &Origins::variants(), default_value = "Source")]
-		origin: Origins,
-	},
-	/// Submit message to given Rialto -> Millau lane.
-	RialtoToMillau {
-		#[structopt(flatten)]
-		source: SourceConnectionParams,
-		#[structopt(flatten)]
-		source_sign: SourceSigningParams,
-		#[structopt(flatten)]
-		target_sign: TargetSigningParams,
-		/// Hex-encoded lane id. Defaults to `00000000`.
-		#[structopt(long, default_value = "00000000")]
-		lane: HexLaneId,
-		/// Dispatch weight of the message. If not passed, determined automatically.
-		#[structopt(long)]
-		dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
-		/// Delivery and dispatch fee in source chain base currency units. If not passed, determined automatically.
-		#[structopt(long)]
-		fee: Option<Balance>,
-		/// Message type.
-		#[structopt(subcommand)]
-		message: crate::cli::encode_call::Call,
-		/// The origin to use when dispatching the message on the target chain. Defaults to
-		/// `SourceAccount`.
-		#[structopt(long, possible_values = &Origins::variants(), default_value = "Source")]
-		origin: Origins,
-	},
-}
-
-impl SendMessage {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		super::run_send_message(self).await.map_err(format_err)?;
-		Ok(())
-	}
-}
+use crate::cli::{HexLaneId, SourceConnectionParams};
 
 /// Estimate Delivery & Dispatch Fee command.
 ///
