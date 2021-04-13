@@ -414,11 +414,18 @@ parameter_types! {
 	// Note that once this is hit the pallet will essentially throttle incoming requests down to one
 	// call per block.
 	pub const MaxRequests: u32 = 50;
+
+	// Number of headers to keep.
+	//
+	// Assuming the worst case of every header being finalized, we will keep headers at least for a
+	// week.
+	pub const HeadersToKeep: u32 = 7 * bp_rialto::DAYS as u32;
 }
 
 impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
 	type MaxRequests = MaxRequests;
+	type HeadersToKeep = HeadersToKeep;
 	type WeightInfo = pallet_bridge_grandpa::weights::RialtoWeight<Runtime>;
 }
 
