@@ -18,7 +18,6 @@
 
 use std::convert::TryInto;
 
-use crate::rialto_millau::cli as rialto_millau;
 use bp_messages::LaneId;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
@@ -28,12 +27,13 @@ use structopt::{clap::arg_enum, StructOpt};
 pub(crate) mod bridge;
 pub(crate) mod encode_call;
 pub(crate) mod encode_message;
+pub(crate) mod estimate_fee;
+pub(crate) mod send_message;
 
 mod derive_account;
 mod init_bridge;
 mod relay_headers;
 mod relay_messages;
-mod send_message;
 
 /// Parse relay CLI args.
 pub fn parse_args() -> Command {
@@ -75,7 +75,7 @@ pub enum Command {
 	/// the bridge.
 	EncodeMessage(encode_message::EncodeMessage),
 	/// Estimate Delivery and Dispatch Fee required for message submission to messages pallet.
-	EstimateFee(EstimateFee),
+	EstimateFee(estimate_fee::EstimateFee),
 	/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
 	DeriveAccount(derive_account::DeriveAccount),
 }
@@ -97,23 +97,6 @@ impl Command {
 	}
 }
 
-/// Estimate Delivery & Dispatch Fee command.
-#[derive(StructOpt)]
-pub enum EstimateFee {
-	#[structopt(flatten)]
-	RialtoMillau(rialto_millau::EstimateFee),
-}
-
-impl EstimateFee {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		match self {
-			Self::RialtoMillau(arg) => arg.run().await?,
-		}
-		Ok(())
-	}
-}
-
 arg_enum! {
 	#[derive(Debug)]
 	/// The origin to use when dispatching the message on the target chain.
@@ -127,7 +110,7 @@ arg_enum! {
 }
 
 /// Generic balance type.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Balance(pub u128);
 
 impl std::fmt::Display for Balance {
@@ -242,7 +225,7 @@ pub trait CliChain: relay_substrate_client::Chain {
 }
 
 /// Lane id.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HexLaneId(pub LaneId);
 
 impl From<HexLaneId> for LaneId {
@@ -262,7 +245,7 @@ impl std::str::FromStr for HexLaneId {
 }
 
 /// Nicer formatting for raw bytes vectors.
-#[derive(Default, Encode, Decode)]
+#[derive(Default, Encode, Decode, PartialEq, Eq)]
 pub struct HexBytes(pub Vec<u8>);
 
 impl std::str::FromStr for HexBytes {
@@ -321,7 +304,7 @@ impl From<PrometheusParams> for relay_utils::metrics::MetricsParams {
 }
 
 /// Either explicit or maximal allowed value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExplicitOrMaximal<V> {
 	/// User has explicitly specified argument value.
 	Explicit(V),
@@ -353,7 +336,7 @@ macro_rules! declare_chain_options {
 	($chain:ident, $chain_prefix:ident) => {
 		paste::item! {
 			#[doc = $chain " connection params."]
-			#[derive(StructOpt)]
+			#[derive(StructOpt, Debug, PartialEq, Eq)]
 			pub struct [<$chain ConnectionParams>] {
 				#[doc = "Connect to " $chain " node at given host."]
 				#[structopt(long, default_value = "127.0.0.1")]
@@ -367,7 +350,7 @@ macro_rules! declare_chain_options {
 			}
 
 			#[doc = $chain " signing params."]
-			#[derive(StructOpt)]
+			#[derive(StructOpt, Debug, PartialEq, Eq)]
 			pub struct [<$chain SigningParams>] {
 				#[doc = "The SURI of secret key to use when transactions are submitted to the " $chain " node."]
 				#[structopt(long)]

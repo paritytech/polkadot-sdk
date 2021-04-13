@@ -17,7 +17,7 @@
 use structopt::clap::arg_enum;
 
 arg_enum! {
-	#[derive(Debug)]
+	#[derive(Debug, PartialEq, Eq)]
 	/// Supported full bridges (headers + messages).
 	pub enum FullBridge {
 		MillauToRialto,
@@ -59,9 +59,9 @@ macro_rules! select_full_bridge {
 				#[allow(unused_imports)]
 				use crate::rialto_millau::millau_messages_to_rialto::run as relay_messages;
 
-				// Send-message
+				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
-				use bp_millau::TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD as ESTIMATE_MESSAGE_FEE_METHOD;
+				use bp_rialto::TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD as ESTIMATE_MESSAGE_FEE_METHOD;
 				// Send-message
 				#[allow(unused_imports)]
 				use millau_runtime::rialto_account_ownership_digest as account_ownership_digest;
@@ -81,9 +81,10 @@ macro_rules! select_full_bridge {
 				#[allow(unused_imports)]
 				use crate::rialto_millau::rialto_messages_to_millau::run as relay_messages;
 
-				// Send-message
+				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
-				use bp_rialto::TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD as ESTIMATE_MESSAGE_FEE_METHOD;
+				use bp_millau::TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD as ESTIMATE_MESSAGE_FEE_METHOD;
+
 				// Send-message
 				#[allow(unused_imports)]
 				use rialto_runtime::millau_account_ownership_digest as account_ownership_digest;
