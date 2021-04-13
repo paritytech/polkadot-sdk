@@ -35,7 +35,7 @@ pub struct EncodeCall {
 ///
 /// Note this enum may be used in the context of both Source (as part of `encode-call`)
 /// and Target chain (as part of `encode-message/send-message`).
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, PartialEq, Eq)]
 pub enum Call {
 	/// Raw bytes for the message
 	Raw {
