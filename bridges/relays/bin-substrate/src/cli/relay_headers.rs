@@ -59,12 +59,14 @@ macro_rules! select_bridge {
 				type Source = relay_rialto_client::Rialto;
 				type Target = relay_millau_client::Millau;
 				type Finality = crate::rialto_millau::rialto_headers_to_millau::RialtoFinalityToMillau;
+
 				$generic
 			}
 			RelayHeadersBridge::WestendToMillau => {
 				type Source = relay_westend_client::Westend;
 				type Target = relay_millau_client::Millau;
 				type Finality = crate::rialto_millau::westend_headers_to_millau::WestendFinalityToMillau;
+
 				$generic
 			}
 		}
@@ -75,9 +77,9 @@ impl RelayHeaders {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.bridge, {
-			let source_client = self.source.into_client::<Source>().await?;
-			let target_client = self.target.into_client::<Target>().await?;
-			let target_sign = self.target_sign.into_keypair::<Target>()?;
+			let source_client = self.source.to_client::<Source>().await?;
+			let target_client = self.target.to_client::<Target>().await?;
+			let target_sign = self.target_sign.to_keypair::<Target>()?;
 			let metrics_params = Finality::customize_metrics(self.prometheus_params.into())?;
 
 			crate::finality_pipeline::run(

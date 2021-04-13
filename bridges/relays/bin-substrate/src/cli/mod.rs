@@ -33,6 +33,7 @@ mod derive_account;
 mod init_bridge;
 mod relay_headers;
 mod relay_messages;
+mod send_message;
 
 /// Parse relay CLI args.
 pub fn parse_args() -> Command {
@@ -62,7 +63,7 @@ pub enum Command {
 	/// Allows interacting with the bridge by sending messages over `Messages` component.
 	/// The message is being sent to the source chain, delivered to the target chain and dispatched
 	/// there.
-	SendMessage(SendMessage),
+	SendMessage(send_message::SendMessage),
 	/// Generate SCALE-encoded `Call` for choosen network.
 	///
 	/// The call can be used either as message payload or can be wrapped into a transaction
@@ -91,23 +92,6 @@ impl Command {
 			Self::EncodeMessage(arg) => arg.run().await?,
 			Self::EstimateFee(arg) => arg.run().await?,
 			Self::DeriveAccount(arg) => arg.run().await?,
-		}
-		Ok(())
-	}
-}
-
-/// Send bridge message.
-#[derive(StructOpt)]
-pub enum SendMessage {
-	#[structopt(flatten)]
-	RialtoMillau(rialto_millau::SendMessage),
-}
-
-impl SendMessage {
-	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		match self {
-			Self::RialtoMillau(arg) => arg.run().await?,
 		}
 		Ok(())
 	}
@@ -143,8 +127,15 @@ arg_enum! {
 }
 
 /// Generic balance type.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Balance(pub u128);
+
+impl std::fmt::Display for Balance {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		use num_format::{Locale, ToFormattedString};
+		write!(fmt, "{}", self.0.to_formatted_string(&Locale::en))
+	}
+}
 
 impl std::str::FromStr for Balance {
 	type Err = <u128 as std::str::FromStr>::Err;
@@ -251,7 +242,7 @@ pub trait CliChain: relay_substrate_client::Chain {
 }
 
 /// Lane id.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HexLaneId(pub LaneId);
 
 impl From<HexLaneId> for LaneId {
@@ -330,7 +321,7 @@ impl From<PrometheusParams> for relay_utils::metrics::MetricsParams {
 }
 
 /// Either explicit or maximal allowed value.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExplicitOrMaximal<V> {
 	/// User has explicitly specified argument value.
 	Explicit(V),
@@ -388,7 +379,7 @@ macro_rules! declare_chain_options {
 
 			impl [<$chain SigningParams>] {
 				/// Parse signing params into chain-specific KeyPair.
-				pub fn into_keypair<Chain: CliChain>(self) -> anyhow::Result<Chain::KeyPair> {
+				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Chain::KeyPair> {
 					use sp_core::crypto::Pair;
 					Chain::KeyPair::from_string(
 						&self.[<$chain_prefix _signer>],
@@ -399,11 +390,11 @@ macro_rules! declare_chain_options {
 
 			impl [<$chain ConnectionParams>] {
 				/// Convert connection params into Substrate client.
-				pub async fn into_client<Chain: CliChain>(
-					self,
+				pub async fn to_client<Chain: CliChain>(
+					&self,
 				) -> anyhow::Result<relay_substrate_client::Client<Chain>> {
 					Ok(relay_substrate_client::Client::new(relay_substrate_client::ConnectionParams {
-						host: self.[<$chain_prefix _host>],
+						host: self.[<$chain_prefix _host>].clone(),
 						port: self.[<$chain_prefix _port>],
 						secure: self.[<$chain_prefix _secure>],
 					})

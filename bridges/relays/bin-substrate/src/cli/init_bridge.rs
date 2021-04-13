@@ -108,9 +108,9 @@ impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.bridge, {
-			let source_client = self.source.into_client::<Source>().await?;
-			let target_client = self.target.into_client::<Target>().await?;
-			let target_sign = self.target_sign.into_keypair::<Target>()?;
+			let source_client = self.source.to_client::<Source>().await?;
+			let target_client = self.target.to_client::<Target>().await?;
+			let target_sign = self.target_sign.to_keypair::<Target>()?;
 
 			crate::headers_initialize::initialize(
 				source_client,
