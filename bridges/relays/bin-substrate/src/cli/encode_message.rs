@@ -19,7 +19,7 @@ use crate::select_full_bridge;
 use structopt::StructOpt;
 
 /// Generic message payload.
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, PartialEq, Eq)]
 pub enum MessagePayload {
 	/// Raw, SCALE-encoded `MessagePayload`.
 	Raw {
