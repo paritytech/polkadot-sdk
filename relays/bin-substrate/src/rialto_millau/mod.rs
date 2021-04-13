@@ -31,7 +31,7 @@ pub type RialtoClient = relay_substrate_client::Client<Rialto>;
 use crate::cli::{
 	bridge::{MILLAU_TO_RIALTO_INDEX, RIALTO_TO_MILLAU_INDEX},
 	encode_call::{self, Call, CliEncodeCall},
-	CliChain, ExplicitOrMaximal, HexBytes, Origins,
+	encode_message, CliChain, ExplicitOrMaximal, HexBytes, Origins,
 };
 use codec::{Decode, Encode};
 use frame_support::weights::{GetDispatchInfo, Weight};
@@ -267,24 +267,6 @@ async fn run_send_message(command: cli::SendMessage) -> Result<(), String> {
 	Ok(())
 }
 
-async fn run_encode_message_payload(call: cli::EncodeMessagePayload) -> Result<(), String> {
-	match call {
-		cli::EncodeMessagePayload::RialtoToMillau { payload } => {
-			type Source = Rialto;
-
-			let payload = Source::encode_message(payload)?;
-			println!("{:?}", HexBytes::encode(&payload));
-		}
-		cli::EncodeMessagePayload::MillauToRialto { payload } => {
-			type Source = Millau;
-
-			let payload = Source::encode_message(payload)?;
-			println!("{:?}", HexBytes::encode(&payload));
-		}
-	}
-	Ok(())
-}
-
 async fn run_estimate_fee(cmd: cli::EstimateFee) -> Result<(), String> {
 	match cmd {
 		cli::EstimateFee::RialtoToMillau { source, lane, payload } => {
@@ -459,11 +441,11 @@ impl CliChain for Millau {
 	}
 
 	// TODO [#854|#843] support multiple bridges?
-	fn encode_message(message: cli::MessagePayload) -> Result<Self::MessagePayload, String> {
+	fn encode_message(message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
 		match message {
-			cli::MessagePayload::Raw { data } => MessagePayload::decode(&mut &*data.0)
+			encode_message::MessagePayload::Raw { data } => MessagePayload::decode(&mut &*data.0)
 				.map_err(|e| format!("Failed to decode Millau's MessagePayload: {:?}", e)),
-			cli::MessagePayload::Call { mut call, mut sender } => {
+			encode_message::MessagePayload::Call { mut call, mut sender } => {
 				type Source = Millau;
 				type Target = Rialto;
 
@@ -529,11 +511,11 @@ impl CliChain for Rialto {
 		bp_rialto::max_extrinsic_weight()
 	}
 
-	fn encode_message(message: cli::MessagePayload) -> Result<Self::MessagePayload, String> {
+	fn encode_message(message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
 		match message {
-			cli::MessagePayload::Raw { data } => MessagePayload::decode(&mut &*data.0)
+			encode_message::MessagePayload::Raw { data } => MessagePayload::decode(&mut &*data.0)
 				.map_err(|e| format!("Failed to decode Rialto's MessagePayload: {:?}", e)),
-			cli::MessagePayload::Call { mut call, mut sender } => {
+			encode_message::MessagePayload::Call { mut call, mut sender } => {
 				type Source = Rialto;
 				type Target = Millau;
 
@@ -564,7 +546,7 @@ impl CliChain for Westend {
 		0
 	}
 
-	fn encode_message(_message: cli::MessagePayload) -> Result<Self::MessagePayload, String> {
+	fn encode_message(_message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
 		Err("Sending messages from Westend is not yet supported.".into())
 	}
 }
