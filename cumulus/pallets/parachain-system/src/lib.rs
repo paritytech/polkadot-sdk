@@ -171,7 +171,7 @@ decl_module! {
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
 		#[weight = (0, DispatchClass::Mandatory)]
-		fn set_validation_data(origin, data: ParachainInherentData) -> DispatchResult {
+		pub fn set_validation_data(origin, data: ParachainInherentData) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
 				!ValidationData::exists(),
