@@ -91,6 +91,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxRequests: Get<u32>;
 
+		/// Maximal number of finalized headers to keep in the storage.
+		///
+		/// The setting is there to prevent growing the on-chain state indefinitely. Note
+		/// the setting does not relate to block numbers - we will simply keep as much items
+		/// in the storage, so it doesn't guarantee any fixed timeframe for finality headers.
+		#[pallet::constant]
+		type HeadersToKeep: Get<u32>;
+
 		/// Weights gathered through benchmarking.
 		type WeightInfo: WeightInfo;
 	}
@@ -153,9 +161,19 @@ pub mod pallet {
 			verify_justification::<T, I>(&justification, hash, *number, authority_set)?;
 
 			let _enacted = try_enact_authority_change::<T, I>(&finality_target, set_id)?;
+			let index = <ImportedHashesPointer<T, I>>::get();
+			let pruning = <ImportedHashes<T, I>>::try_get(index);
 			<BestFinalized<T, I>>::put(hash);
 			<ImportedHeaders<T, I>>::insert(hash, finality_target);
+			<ImportedHashes<T, I>>::insert(index, hash);
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
+
+			// Update ring buffer pointer and remove old header.
+			<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
+			if let Ok(hash) = pruning {
+				log::debug!(target: "runtime::bridge-grandpa", "Pruning old header: {:?}.", hash);
+				<ImportedHeaders<T, I>>::remove(hash);
+			}
 
 			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
 
@@ -247,6 +265,15 @@ pub mod pallet {
 	/// Hash of the best finalized header.
 	#[pallet::storage]
 	pub(super) type BestFinalized<T: Config<I>, I: 'static = ()> = StorageValue<_, BridgedBlockHash<T, I>, ValueQuery>;
+
+	/// A ring buffer of imported hashes. Ordered by the insertion time.
+	#[pallet::storage]
+	pub(super) type ImportedHashes<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, u32, BridgedBlockHash<T, I>>;
+
+	/// Current ring buffer position.
+	#[pallet::storage]
+	pub(super) type ImportedHashesPointer<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
 	/// Headers which have been imported into the pallet.
 	#[pallet::storage]
@@ -997,6 +1024,32 @@ mod tests {
 			next_block();
 			assert_ok!(submit_finality_proof(5));
 			assert_ok!(submit_finality_proof(7));
+		})
+	}
+
+	#[test]
+	fn should_prune_headers_over_headers_to_keep_parameter() {
+		run_test(|| {
+			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof(1));
+			let first_header = Pallet::<TestRuntime>::best_finalized();
+			next_block();
+
+			assert_ok!(submit_finality_proof(2));
+			next_block();
+			assert_ok!(submit_finality_proof(3));
+			next_block();
+			assert_ok!(submit_finality_proof(4));
+			next_block();
+			assert_ok!(submit_finality_proof(5));
+			next_block();
+
+			assert_ok!(submit_finality_proof(6));
+
+			assert!(
+				!Pallet::<TestRuntime>::is_known_header(first_header.hash()),
+				"First header should be pruned."
+			);
 		})
 	}
 }
