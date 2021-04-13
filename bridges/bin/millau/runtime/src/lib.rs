@@ -309,12 +309,19 @@ parameter_types! {
 	// call per block.
 	pub const MaxRequests: u32 = 50;
 	pub const WestendValidatorCount: u32 = 255;
+
+	// Number of headers to keep.
+	//
+	// Assuming the worst case of every header being finalized, we will keep headers for at least a
+	// week.
+	pub const HeadersToKeep: u32 = 7 * bp_millau::DAYS as u32;
 }
 
 pub type RialtoGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_rialto::Rialto;
 	type MaxRequests = MaxRequests;
+	type HeadersToKeep = HeadersToKeep;
 
 	// TODO [#391]: Use weights generated for the Millau runtime instead of Rialto ones.
 	type WeightInfo = pallet_bridge_grandpa::weights::RialtoWeight<Runtime>;
@@ -324,6 +331,7 @@ pub type WestendGrandpaInstance = pallet_bridge_grandpa::Instance1;
 impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
 	type BridgedChain = bp_westend::Westend;
 	type MaxRequests = MaxRequests;
+	type HeadersToKeep = HeadersToKeep;
 
 	// TODO [#391]: Use weights generated for the Millau runtime instead of Rialto ones.
 	type WeightInfo = pallet_bridge_grandpa::weights::RialtoWeight<Runtime>;
