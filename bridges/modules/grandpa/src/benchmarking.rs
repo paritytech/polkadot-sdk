@@ -64,9 +64,7 @@ const MAX_VOTE_ANCESTRIES: u32 = 1000;
 
 // The maximum number of pre-commits to include in a justification. In practice this scales with the
 // number of validators.
-//
-// TODO [#846]: Right now this will break benchmarking if it is greater than `u8::MAX`
-const MAX_VALIDATOR_SET_SIZE: u32 = 255;
+const MAX_VALIDATOR_SET_SIZE: u32 = 1024;
 
 benchmarks_instance_pallet! {
 	// This is the "gold standard" benchmark for this extrinsic, and it's what should be used to
@@ -80,7 +78,7 @@ benchmarks_instance_pallet! {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		let authority_list = accounts(p as u8)
+		let authority_list = accounts(p as u16)
 			.iter()
 			.map(|id| (AuthorityId::from(*id), 1))
 			.collect::<Vec<_>>();
@@ -99,7 +97,7 @@ benchmarks_instance_pallet! {
 			header: header.clone(),
 			round: TEST_GRANDPA_ROUND,
 			set_id: TEST_GRANDPA_SET_ID,
-			authorities: accounts(p as u8).iter().map(|k| (*k, 1)).collect::<Vec<_>>(),
+			authorities: accounts(p as u16).iter().map(|k| (*k, 1)).collect::<Vec<_>>(),
 			votes: v,
 			forks: 1,
 		};
@@ -160,7 +158,7 @@ benchmarks_instance_pallet! {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		let authority_list = accounts(p as u8)
+		let authority_list = accounts(p as u16)
 			.iter()
 			.map(|id| (AuthorityId::from(*id), 1))
 			.collect::<Vec<_>>();
@@ -179,7 +177,7 @@ benchmarks_instance_pallet! {
 			header: header.clone(),
 			round: TEST_GRANDPA_ROUND,
 			set_id: TEST_GRANDPA_SET_ID,
-			authorities: accounts(p as u8).iter().map(|k| (*k, 1)).collect::<Vec<_>>(),
+			authorities: accounts(p as u16).iter().map(|k| (*k, 1)).collect::<Vec<_>>(),
 			votes: p,
 			forks: p,
 		};
