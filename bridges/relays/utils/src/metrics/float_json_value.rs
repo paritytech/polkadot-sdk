@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{register, Gauge, Metrics, Registry, StandaloneMetrics, F64};
+use crate::metrics::{metric_name, register, Gauge, PrometheusError, Registry, StandaloneMetrics, F64};
 
 use async_trait::async_trait;
 use std::time::Duration;
@@ -32,16 +32,19 @@ pub struct FloatJsonValueMetric {
 
 impl FloatJsonValueMetric {
 	/// Create new metric instance with given name and help.
-	pub fn new(url: String, json_path: String, name: String, help: String) -> Self {
-		FloatJsonValueMetric {
+	pub fn new(
+		registry: &Registry,
+		prefix: Option<&str>,
+		url: String,
+		json_path: String,
+		name: String,
+		help: String,
+	) -> Result<Self, PrometheusError> {
+		Ok(FloatJsonValueMetric {
 			url,
 			json_path,
-			metric: Gauge::new(name, help).expect(
-				"only fails if gauge options are customized;\
-					we use default options;\
-					qed",
-			),
-		}
+			metric: register(Gauge::new(metric_name(prefix, &name), help)?, registry)?,
+		})
 	}
 
 	/// Read value from HTTP service.
@@ -66,13 +69,6 @@ impl FloatJsonValueMetric {
 			.map_err(map_isahc_err)?;
 
 		parse_service_response(&self.json_path, &raw_response)
-	}
-}
-
-impl Metrics for FloatJsonValueMetric {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.metric.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
 	}
 }
 

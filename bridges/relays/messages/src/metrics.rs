@@ -20,7 +20,7 @@ use crate::message_lane::MessageLane;
 use crate::message_lane_loop::{SourceClientState, TargetClientState};
 
 use bp_messages::MessageNonce;
-use relay_utils::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
+use relay_utils::metrics::{metric_name, register, GaugeVec, Opts, PrometheusError, Registry, U64};
 
 /// Message lane relay metrics.
 ///
@@ -34,25 +34,28 @@ pub struct MessageLaneLoopMetrics {
 	lane_state_nonces: GaugeVec<U64>,
 }
 
-impl Metrics for MessageLaneLoopMetrics {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.best_block_numbers.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.lane_state_nonces.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
-	}
-}
-
-impl Default for MessageLaneLoopMetrics {
-	fn default() -> Self {
-		MessageLaneLoopMetrics {
-			best_block_numbers: GaugeVec::new(
-				Opts::new("best_block_numbers", "Best finalized block numbers"),
-				&["type"],
-			)
-			.expect("metric is static and thus valid; qed"),
-			lane_state_nonces: GaugeVec::new(Opts::new("lane_state_nonces", "Nonces of the lane state"), &["type"])
-				.expect("metric is static and thus valid; qed"),
-		}
+impl MessageLaneLoopMetrics {
+	/// Create and register messages loop metrics.
+	pub fn new(registry: &Registry, prefix: Option<&str>) -> Result<Self, PrometheusError> {
+		Ok(MessageLaneLoopMetrics {
+			best_block_numbers: register(
+				GaugeVec::new(
+					Opts::new(
+						metric_name(prefix, "best_block_numbers"),
+						"Best finalized block numbers",
+					),
+					&["type"],
+				)?,
+				registry,
+			)?,
+			lane_state_nonces: register(
+				GaugeVec::new(
+					Opts::new(metric_name(prefix, "lane_state_nonces"), "Nonces of the lane state"),
+					&["type"],
+				)?,
+				registry,
+			)?,
+		})
 	}
 }
 

@@ -17,7 +17,9 @@
 //! Metrics for currency-exchange relay loop.
 
 use crate::exchange::{BlockNumberOf, RelayedBlockTransactions, TransactionProofPipeline};
-use relay_utils::metrics::{register, Counter, CounterVec, GaugeVec, Metrics, Opts, Registry, U64};
+use relay_utils::metrics::{
+	metric_name, register, Counter, CounterVec, GaugeVec, Opts, PrometheusError, Registry, U64,
+};
 
 /// Exchange transactions relay metrics.
 #[derive(Clone)]
@@ -30,31 +32,38 @@ pub struct ExchangeLoopMetrics {
 	processed_transactions: CounterVec<U64>,
 }
 
-impl Metrics for ExchangeLoopMetrics {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.best_block_numbers.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.processed_blocks.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.processed_transactions.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
-	}
-}
-
-impl Default for ExchangeLoopMetrics {
-	fn default() -> Self {
-		ExchangeLoopMetrics {
-			best_block_numbers: GaugeVec::new(
-				Opts::new("best_block_numbers", "Best finalized block numbers"),
-				&["type"],
-			)
-			.expect("metric is static and thus valid; qed"),
-			processed_blocks: Counter::new("processed_blocks", "Total number of processed blocks")
-				.expect("metric is static and thus valid; qed"),
-			processed_transactions: CounterVec::new(
-				Opts::new("processed_transactions", "Total number of processed transactions"),
-				&["type"],
-			)
-			.expect("metric is static and thus valid; qed"),
-		}
+impl ExchangeLoopMetrics {
+	/// Create and register exchange loop metrics.
+	pub fn new(registry: &Registry, prefix: Option<&str>) -> Result<Self, PrometheusError> {
+		Ok(ExchangeLoopMetrics {
+			best_block_numbers: register(
+				GaugeVec::new(
+					Opts::new(
+						metric_name(prefix, "best_block_numbers"),
+						"Best finalized block numbers",
+					),
+					&["type"],
+				)?,
+				registry,
+			)?,
+			processed_blocks: register(
+				Counter::new(
+					metric_name(prefix, "processed_blocks"),
+					"Total number of processed blocks",
+				)?,
+				registry,
+			)?,
+			processed_transactions: register(
+				CounterVec::new(
+					Opts::new(
+						metric_name(prefix, "processed_transactions"),
+						"Total number of processed transactions",
+					),
+					&["type"],
+				)?,
+				registry,
+			)?,
+		})
 	}
 }
 
