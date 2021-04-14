@@ -6,17 +6,22 @@ members = [
 	"client/network",
 	"client/service",
 	"pallets/parachain-system",
-	"pallets/xcm-handler",
+	"pallets/xcm",
+	"pallets/xcmp-queue",
 	"primitives/core",
 	"primitives/parachain-inherent",
+	"primitives/utility",
 	"rococo-parachains/",
 	"rococo-parachains/pallets/parachain-info",
+	"rococo-parachains/pallets/ping",
 	"rococo-parachains/primitives",
 	"rococo-parachains/runtime",
+	"rococo-parachains/shell-runtime",
 	"test/runtime",
 	"test/client",
 	"test/service",
 	"test/relay-sproof-builder",
+	"test/relay-validation-worker-provider",
 ]
 
 [profile.release]

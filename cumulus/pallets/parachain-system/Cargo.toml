@@ -12,6 +12,7 @@ cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inh
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, features = [ "wasm-api" ], branch = "master" }
+xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Substrate dependencies
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -72,4 +73,5 @@ std = [
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
 	"environmental/std",
+	"xcm/std"
 ]

@@ -1,5 +1,5 @@
 [package]
-name = "cumulus-primitives-core"
+name = "cumulus-primitives-utility"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -17,6 +17,8 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-
 polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
+cumulus-primitives-core = { path = "../core", default-features = false }
+
 # Other dependencies
 impl-trait-for-tuples = "0.2.1"
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
@@ -33,4 +35,5 @@ std = [
 	"sp-runtime/std",
 	"sp-trie/std",
 	"frame-support/std",
+	"cumulus-primitives-core/std",
 ]

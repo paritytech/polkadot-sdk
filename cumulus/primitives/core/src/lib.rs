@@ -18,7 +18,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::traits::Block as BlockT;
+use sp_std::prelude::*;
+use codec::{Encode, Decode};
+use sp_runtime::{RuntimeDebug, traits::Block as BlockT};
+use frame_support::weights::Weight;
 
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain::primitives::{Id as ParaId, UpwardMessage, ValidationParams};
@@ -32,12 +35,59 @@ pub mod relay_chain {
 	pub use polkadot_primitives::v1;
 	pub use polkadot_primitives::v1::well_known_keys;
 }
+use relay_chain::BlockNumber as RelayBlockNumber;
 
 /// An inbound HRMP message.
 pub type InboundHrmpMessage = polkadot_primitives::v1::InboundHrmpMessage<relay_chain::BlockNumber>;
 
 /// And outbound HRMP message
 pub type OutboundHrmpMessage = polkadot_primitives::v1::OutboundHrmpMessage<ParaId>;
+
+/// Error description of a message send failure.
+#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode)]
+pub enum MessageSendError {
+	/// The dispatch queue is full.
+	QueueFull,
+	/// There does not exist a channel for sending the message.
+	NoChannel,
+	/// The message is too big to ever fit in a channel.
+	TooBig,
+	/// Some other error.
+	Other,
+}
+
+impl From<MessageSendError> for &'static str {
+	fn from(e: MessageSendError) -> Self {
+		use MessageSendError::*;
+		match e {
+			QueueFull => "QueueFull",
+			NoChannel => "NoChannel",
+			TooBig => "TooBig",
+			Other => "Other",
+		}
+	}
+}
+
+/// Information about an XCMP channel.
+pub struct ChannelInfo {
+	/// The maximum number of messages that can be pending in the channel at once.
+	pub max_capacity: u32,
+	/// The maximum total size of the messages that can be pending in the channel at once.
+	pub max_total_size: u32,
+	/// The maximum message size that could be put into the channel.
+	pub max_message_size: u32,
+	/// The current number of messages pending in the channel.
+	/// Invariant: should be less or equal to `max_capacity`.s`.
+	pub msg_count: u32,
+	/// The total size in bytes of all message payloads in the channel.
+	/// Invariant: should be less or equal to `max_total_size`.
+	pub total_size: u32,
+}
+
+pub trait GetChannelInfo {
+	fn get_channel_status(id: ParaId) -> ChannelStatus;
+	fn get_channel_max(id: ParaId) -> Option<usize>;
+}
 
 /// Well known keys for values in the storage.
 pub mod well_known_keys {
@@ -68,29 +118,81 @@ pub mod well_known_keys {
 }
 
 /// Something that should be called when a downward message is received.
-#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait DownwardMessageHandler {
 	/// Handle the given downward message.
-	fn handle_downward_message(msg: InboundDownwardMessage);
+	fn handle_downward_message(msg: InboundDownwardMessage) -> Weight;
+}
+impl DownwardMessageHandler for () {
+	fn handle_downward_message(_msg: InboundDownwardMessage) -> Weight { 0 }
 }
 
-/// Something that should be called when an HRMP message is received.
-#[impl_trait_for_tuples::impl_for_tuples(30)]
-pub trait HrmpMessageHandler {
-	/// Handle the given HRMP message.
-	fn handle_hrmp_message(sender: ParaId, msg: InboundHrmpMessage);
+/// Something that should be called for each batch of messages received over XCMP.
+pub trait XcmpMessageHandler {
+	/// Handle some incoming XCMP messages (note these are the big one-per-block aggregate
+	/// messages).
+	///
+	/// Also, process messages up to some `max_weight`.
+	fn handle_xcmp_messages<'a, I: Iterator<Item=(ParaId, RelayBlockNumber, &'a [u8])>>(
+		iter: I,
+		max_weight: Weight,
+	) -> Weight;
+}
+impl XcmpMessageHandler for () {
+	fn handle_xcmp_messages<'a, I: Iterator<Item=(ParaId, RelayBlockNumber, &'a [u8])>>(
+		iter: I,
+		_max_weight: Weight,
+	) -> Weight { for _ in iter {} 0 }
 }
 
 /// Something that should be called when sending an upward message.
 pub trait UpwardMessageSender {
-	/// Send the given upward message.
-	fn send_upward_message(msg: UpwardMessage) -> Result<(), ()>;
+	/// Send the given UMP message; return the expected number of blocks before the message will
+	/// be dispatched or an error if the message cannot be sent.
+	fn send_upward_message(msg: UpwardMessage) -> Result<u32, MessageSendError>;
+}
+impl UpwardMessageSender for () {
+	fn send_upward_message(_msg: UpwardMessage) -> Result<u32, MessageSendError> {
+		Err(MessageSendError::NoChannel)
+	}
 }
 
-/// Something that should be called when sending an HRMP message.
-pub trait HrmpMessageSender {
-	/// Send the given HRMP message.
-	fn send_hrmp_message(msg: OutboundHrmpMessage) -> Result<(), ()>;
+/// The status of a channel.
+pub enum ChannelStatus {
+	/// Channel doesn't exist/has been closed.
+	Closed,
+	/// Channel is completely full right now.
+	Full,
+	/// Channel is ready for sending; the two parameters are the maximum size a valid message may
+	/// have right now, and the maximum size a message may ever have (this will generally have been
+	/// available during message construction, but it's possible the channel parameters changed in
+	/// the meantime).
+	Ready(usize, usize),
+}
+
+/// A means of figuring out what outbound XCMP messages should be being sent.
+pub trait XcmpMessageSource {
+	/// Take a single XCMP message from the queue for the given `dest`, if one exists.
+	fn take_outbound_messages(
+		maximum_channels: usize,
+	) -> Vec<(ParaId, Vec<u8>)>;
+}
+
+impl XcmpMessageSource for () {
+	fn take_outbound_messages(
+		_maximum_channels: usize,
+	) -> Vec<(ParaId, Vec<u8>)> { vec![] }
+}
+
+/// The "quality of service" considerations for message sending.
+#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+pub enum ServiceQuality {
+	/// Ensure that this message is dispatched in the same relative order as any other messages that
+	/// were also sent with `Ordered`. This only guarantees message ordering on the dispatch side,
+	/// and not necessarily on the execution side.
+	Ordered,
+	/// Ensure that the message is dispatched as soon as possible, which could result in it being
+	/// dispatched before other messages which are larger and/or rely on relative ordering.
+	Fast,
 }
 
 /// A trait which is called when the validation data is set.

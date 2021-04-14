@@ -1,35 +1,31 @@
 [package]
-name = "cumulus-pallet-xcm-handler"
-version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
+name = "cumulus-ping"
+version = "0.1.0"
 
 [dependencies]
-# Other dependencies
-codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ], default-features = false }
-log = { version = "0.4.14", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
-# Substrate Dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
-# Polkadot Dependencies
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
-# Cumulus Dependencies
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
+cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
-	"log/std",
+	"serde",
+	"cumulus-primitives-core/std",
 	"sp-std/std",
+	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
-	"cumulus-primitives-core/std",
-	"xcm/std",
-	"xcm-executor/std",
 ]

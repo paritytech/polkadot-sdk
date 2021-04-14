@@ -400,9 +400,14 @@ mod tests {
 	use cumulus_test_runtime::{Block, Header};
 	use futures::{channel::mpsc, executor::block_on, StreamExt};
 	use polkadot_node_subsystem_test_helpers::ForwardSubsystem;
-	use polkadot_overseer::{AllSubsystems, Overseer};
+	use polkadot_overseer::{AllSubsystems, Overseer, HeadSupportsParachains};
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, Pair};
+
+	struct AlwaysSupportsParachains;
+	impl HeadSupportsParachains for AlwaysSupportsParachains {
+		fn head_supports_parachains(&self, _head: &PHash) -> bool { true }
+	}
 
 	#[derive(Clone)]
 	struct DummyParachainConsensus {
@@ -454,8 +459,13 @@ mod tests {
 
 		let all_subsystems =
 			AllSubsystems::<()>::dummy().replace_collation_generation(ForwardSubsystem(sub_tx));
-		let (overseer, handler) = Overseer::new(Vec::new(), all_subsystems, None, spawner.clone())
-			.expect("Creates overseer");
+		let (overseer, handler) = Overseer::new(
+			Vec::new(),
+			all_subsystems,
+			None,
+			AlwaysSupportsParachains,
+			spawner.clone(),
+		).expect("Creates overseer");
 
 		spawner.spawn("overseer", overseer.run().then(|_| async { () }).boxed());
 

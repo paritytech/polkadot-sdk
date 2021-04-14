@@ -27,27 +27,28 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
-use cumulus_primitives_core::{
-	relay_chain,
-	well_known_keys::{self, NEW_VALIDATION_CODE},
-	AbridgedHostConfiguration, DownwardMessageHandler, HrmpMessageHandler, HrmpMessageSender,
-	InboundDownwardMessage, InboundHrmpMessage, OnValidationData, OutboundHrmpMessage, ParaId,
-	PersistedValidationData, UpwardMessage, UpwardMessageSender,
-};
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
+use sp_std::{prelude::*, cmp, collections::btree_map::BTreeMap};
+use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::DispatchResult,
+	dispatch::{DispatchResult, DispatchError, DispatchResultWithPostInfo},
 	ensure, storage,
 	traits::Get,
-	weights::{DispatchClass, Weight},
+	weights::{DispatchClass, Weight, PostDispatchInfo, Pays},
 };
 use frame_system::{ensure_none, ensure_root};
 use polkadot_parachain::primitives::RelayChainBlockNumber;
+use cumulus_primitives_core::{
+	relay_chain,
+	well_known_keys::{self, NEW_VALIDATION_CODE},
+	AbridgedHostConfiguration, DownwardMessageHandler, XcmpMessageHandler,
+	InboundDownwardMessage, InboundHrmpMessage, OnValidationData, OutboundHrmpMessage, ParaId,
+	PersistedValidationData, UpwardMessage, UpwardMessageSender, MessageSendError,
+	XcmpMessageSource, ChannelStatus, GetChannelInfo,
+};
+use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use relay_state_snapshot::MessagingStateSnapshot;
-use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
-use sp_runtime::traits::{BlakeTwo256, Hash};
-use sp_std::{cmp, collections::btree_map::BTreeMap, vec::Vec};
 
 mod relay_state_snapshot;
 #[macro_use]
@@ -56,7 +57,7 @@ pub mod validate_block;
 /// The pallet's configuration trait.
 pub trait Config: frame_system::Config<OnSetCode = ParachainSetCode<Self>> {
 	/// The overarching event type.
-	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
 	/// Something which can be notified when the validation data is set.
 	type OnValidationData: OnValidationData;
@@ -67,11 +68,18 @@ pub trait Config: frame_system::Config<OnSetCode = ParachainSetCode<Self>> {
 	/// The downward message handlers that will be informed when a message is received.
 	type DownwardMessageHandlers: DownwardMessageHandler;
 
+	/// The place where outbound XCMP messages come from. This is queried in `finalize_block`.
+	type OutboundXcmpMessageSource: XcmpMessageSource;
+
 	/// The HRMP message handlers that will be informed when a message is received.
 	///
 	/// The messages are dispatched in the order they were relayed by the relay chain. If multiple
-	/// messages were relayed at one block, these will be dispatched in ascending order of the sender's para ID.
-	type HrmpMessageHandlers: HrmpMessageHandler;
+	/// messages were relayed at one block, these will be dispatched in ascending order of the
+	/// sender's para ID.
+	type XcmpMessageHandler: XcmpMessageHandler;
+
+	/// The weight we reserve at the beginning of the block for processing XCMP messages.
+	type ReservedXcmpWeight: Get<Weight>;
 }
 
 // This pallet's storage items.
@@ -126,14 +134,16 @@ decl_storage! {
 
 		PendingUpwardMessages: Vec<UpwardMessage>;
 
-		/// Essentially `OutboundHrmpMessage`s grouped by the recipients.
-		OutboundHrmpMessages: map hasher(twox_64_concat) ParaId => Vec<Vec<u8>>;
-		/// HRMP channels with the given recipients are awaiting to be processed. If a `ParaId` is
-		/// present in this vector then `OutboundHrmpMessages` for it should be not empty.
-		NonEmptyHrmpChannels: Vec<ParaId>;
 		/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
-		/// announcing the weight of `on_initialize` and `on_finialize`.
+		/// announcing the weight of `on_initialize` and `on_finalize`.
 		AnnouncedHrmpMessagesPerCandidate: u32;
+
+		/// The weight we reserve at the beginning of the block for processing XCMP messages. This
+		/// overrides the amount set in the Config trait.
+		ReservedXcmpWeightOverride: Option<Weight>;
+
+		/// The next authorized upgrade, if there is one.
+		AuthorizedUpgrade: Option<T::Hash>;
 	}
 }
 
@@ -171,7 +181,8 @@ decl_module! {
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
 		#[weight = (0, DispatchClass::Mandatory)]
-		pub fn set_validation_data(origin, data: ParachainInherentData) -> DispatchResult {
+		// TODO: This weight should be corrected.
+		pub fn set_validation_data(origin, data: ParachainInherentData) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			assert!(
 				!ValidationData::exists(),
@@ -196,7 +207,7 @@ decl_module! {
 					let validation_function = PendingValidationFunction::take();
 					LastUpgrade::put(&apply_block);
 					Self::put_parachain_code(&validation_function);
-					Self::deposit_event(Event::ValidationFunctionApplied(vfp.relay_parent_number));
+					Self::deposit_event(RawEvent::ValidationFunctionApplied(vfp.relay_parent_number));
 				}
 			}
 
@@ -217,16 +228,18 @@ decl_module! {
 
 			<T::OnValidationData as OnValidationData>::on_validation_data(&vfp);
 
-			Self::process_inbound_downward_messages(
+			// TODO: This is more than zero, but will need benchmarking to figure out what.
+			let mut total_weight = 0;
+			total_weight += Self::process_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
 				downward_messages,
 			)?;
-			Self::process_inbound_horizontal_messages(
+			total_weight += Self::process_inbound_horizontal_messages(
 				&relevant_messaging_state.ingress_channels,
 				horizontal_messages,
 			)?;
 
-			Ok(())
+			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
 		}
 
 		#[weight = (1_000, DispatchClass::Operational)]
@@ -235,19 +248,43 @@ decl_module! {
 			let _ = Self::send_upward_message(message);
 		}
 
-		#[weight = (1_000, DispatchClass::Operational)]
-		fn sudo_send_hrmp_message(origin, message: OutboundHrmpMessage) {
+		#[weight = (1_000_000, DispatchClass::Operational)]
+		fn authorize_upgrade(origin, code_hash: T::Hash) {
 			ensure_root(origin)?;
-			let _ = Self::send_hrmp_message(message);
+
+			AuthorizedUpgrade::<T>::put(&code_hash);
+
+			Self::deposit_event(RawEvent::UpgradeAuthorized(code_hash));
+		}
+
+		#[weight = 1_000_000]
+		fn enact_authorized_upgrade(origin, code: Vec<u8>) {
+			// No ensure origin on purpose. We validate by checking the code vs hash in storage.
+			let required_hash = AuthorizedUpgrade::<T>::get()
+				.ok_or(Error::<T>::NothingAuthorized)?;
+			let actual_hash = T::Hashing::hash(&code[..]);
+			ensure!(actual_hash == required_hash, Error::<T>::Unauthorized);
+			Self::set_code_impl(code)?;
+			AuthorizedUpgrade::<T>::kill();
 		}
 
 		fn on_finalize() {
-			DidSetValidationCode::take();
+			DidSetValidationCode::kill();
 
-			let host_config = Self::host_configuration()
-				.expect("host configuration is promised to set until `on_finalize`; qed");
-			let relevant_messaging_state = Self::relevant_messaging_state()
-				.expect("relevant messaging state is promised to be set until `on_finalize`; qed");
+			let host_config = match Self::host_configuration() {
+				Some(ok) => ok,
+				None => {
+					debug_assert!(false, "host configuration is promised to set until `on_finalize`; qed");
+					return
+				}
+			};
+			let relevant_messaging_state = match Self::relevant_messaging_state() {
+				Some(ok) => ok,
+				None => {
+					debug_assert!(false, "relevant messaging state is promised to be set until `on_finalize`; qed");
+					return
+				}
+			};
 
 			<Self as Store>::PendingUpwardMessages::mutate(|up| {
 				let (count, size) = relevant_messaging_state.relay_dispatch_queue_size;
@@ -292,109 +329,19 @@ decl_module! {
 			// - the capacity and total size of the channel is limited,
 			// - the maximum size of a message is limited (and can potentially be changed),
 
-			let mut non_empty_hrmp_channels = NonEmptyHrmpChannels::get();
-			// The number of messages we can send is limited by all of:
-			// - the number of non empty channels
-			// - the maximum number of messages per candidate according to the fresh config
-			// - the maximum number of messages per candidate according to the stale config
-			let outbound_hrmp_num =
-				non_empty_hrmp_channels.len()
-					.min(host_config.hrmp_max_message_num_per_candidate as usize)
-					.min(AnnouncedHrmpMessagesPerCandidate::take() as usize);
+			let maximum_channels = host_config.hrmp_max_message_num_per_candidate
+				.min(AnnouncedHrmpMessagesPerCandidate::take()) as usize;
 
-			let mut outbound_hrmp_messages = Vec::with_capacity(outbound_hrmp_num);
-			let mut prune_empty = Vec::with_capacity(outbound_hrmp_num);
-
-			for &recipient in non_empty_hrmp_channels.iter() {
-				if outbound_hrmp_messages.len() == outbound_hrmp_num {
-					// We have picked the required number of messages for the batch, no reason to
-					// iterate further.
-					//
-					// We check this condition in the beginning of the loop so that we don't include
-					// a message where the limit is 0.
-					break;
-				}
-
-				let idx = match relevant_messaging_state
-					.egress_channels
-					.binary_search_by_key(&recipient, |(recipient, _)| *recipient)
-				{
-					Ok(m) => m,
-					Err(_) => {
-						// TODO: #274 This means that there is no such channel anymore. Means that we should
-						// return back the messages from this channel.
-						//
-						// Until then pretend it became empty
-						prune_empty.push(recipient);
-						continue;
-					}
-				};
-
-				let channel_meta = &relevant_messaging_state.egress_channels[idx].1;
-				if channel_meta.msg_count + 1 > channel_meta.max_capacity {
-					// The channel is at its capacity. Skip it for now.
-					continue;
-				}
-
-				let mut pending = <Self as Store>::OutboundHrmpMessages::get(&recipient);
-
-				// This panics if `v` is empty. However, we are iterating only once over non-empty
-				// channels, therefore it cannot panic.
-				let message_payload = pending.remove(0);
-				let became_empty = pending.is_empty();
-
-				if channel_meta.total_size + message_payload.len() as u32 > channel_meta.max_total_size {
-					// Sending this message will make the channel total size overflow. Skip it for now.
-					continue;
-				}
-
-				// If we reached here, then the channel has capacity to receive this message. However,
-				// it doesn't mean that we are sending it just yet.
-				if became_empty {
-					OutboundHrmpMessages::remove(&recipient);
-					prune_empty.push(recipient);
-				} else {
-					OutboundHrmpMessages::insert(&recipient, pending);
-				}
-
-				if message_payload.len() as u32 > channel_meta.max_message_size {
-					// Apparently, the max message size was decreased since the message while the
-					// message was buffered. While it's possible to make another iteration to fetch
-					// the next message, we just keep going here to not complicate the logic too much.
-					//
-					// TODO: #274 Return back this message to sender.
-					continue;
-				}
-
-				outbound_hrmp_messages.push(OutboundHrmpMessage {
-					recipient,
-					data: message_payload,
-				});
-			}
-
-			// Sort the outbound messages by asceding recipient para id to satisfy the acceptance
-			// criteria requirement.
-			outbound_hrmp_messages.sort_by_key(|m| m.recipient);
-
-			// Prune hrmp channels that became empty. Additionally, because it may so happen that we
-			// only gave attention to some channels in `non_empty_hrmp_channels` it's important to
-			// change the order. Otherwise, the next `on_finalize` we will again give attention
-			// only to those channels that happen to be in the beginning, until they are emptied.
-			// This leads to "starvation" of the channels near to the end.
-			//
-			// To mitigate this we shift all processed elements towards the end of the vector using
-			// `rotate_left`. To get intution how it works see the examples in its rustdoc.
-			non_empty_hrmp_channels.retain(|x| !prune_empty.contains(x));
-			// `prune_empty.len()` is greater or equal to `outbound_hrmp_num` because the loop above
-			// can only do `outbound_hrmp_num` iterations and `prune_empty` is appended to only inside
-			// the loop body.
-			non_empty_hrmp_channels.rotate_left(outbound_hrmp_num - prune_empty.len());
-
-			<Self as Store>::NonEmptyHrmpChannels::put(non_empty_hrmp_channels);
-			storage::unhashed::put(
-				well_known_keys::HRMP_OUTBOUND_MESSAGES,
-				&outbound_hrmp_messages,
+			let outbound_messages = T::OutboundXcmpMessageSource::take_outbound_messages(
+				maximum_channels,
 			);
+
+			// Note conversion to the OutboundHrmpMessage isn't needed since the data that
+			// `take_outbound_messages` returns encodes equivalently.
+			// If the following code breaks, then we'll need to revisit that assumption.
+			let _ = OutboundHrmpMessage { recipient: ParaId::from(0), data: vec![] };
+
+			storage::unhashed::put(well_known_keys::HRMP_OUTBOUND_MESSAGES, &outbound_messages);
 		}
 
 		fn on_initialize(n: T::BlockNumber) -> Weight {
@@ -449,6 +396,55 @@ decl_module! {
 	}
 }
 
+impl<T: Config> GetChannelInfo for Module<T> {
+	fn get_channel_status(id: ParaId) -> ChannelStatus {
+		// Note, that we are using `relevant_messaging_state` which may be from the previous
+		// block, in case this is called from `on_initialize`, i.e. before the inherent with fresh
+		// data is submitted.
+		//
+		// That shouldn't be a problem though because this is anticipated and already can happen.
+		// This is because sending implies that a message is buffered until there is space to send
+		// a message in the candidate. After a while waiting in a buffer, it may be discovered that
+		// the channel to which a message were addressed is now closed. Another possibility, is that
+		// the maximum message size was decreased so that a message in the buffer doesn't fit. Should
+		// any of that happen the sender should be notified about the message was discarded.
+		//
+		// Here it a similar case, with the difference that the realization that the channel is closed
+		// came the same block.
+		let channels = match Self::relevant_messaging_state() {
+			None => {
+				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
+				return ChannelStatus::Closed
+			},
+			Some(d) => d.egress_channels,
+		};
+		// ^^^ NOTE: This storage field should carry over from the previous block. So if it's None
+		// then it must be that this is an edge-case where a message is attempted to be
+		// sent at the first block. It should be safe to assume that there are no channels
+		// opened at all so early. At least, relying on this assumption seems to be a better
+		// tradeoff, compared to introducing an error variant that the clients should be
+		// prepared to handle.
+		let index = match channels.binary_search_by_key(&id, |item| item.0) {
+			Err(_) => return ChannelStatus::Closed,
+			Ok(i) => i,
+		};
+		let meta = &channels[index].1;
+		if meta.msg_count + 1 > meta.max_capacity {
+			// The channel is at its capacity. Skip it for now.
+			return ChannelStatus::Full;
+		}
+		let max_size_now = meta.max_total_size - meta.total_size;
+		let max_size_ever = meta.max_message_size;
+		ChannelStatus::Ready(max_size_now as usize, max_size_ever as usize)
+	}
+
+	fn get_channel_max(id: ParaId) -> Option<usize> {
+		let channels = Self::relevant_messaging_state()?.egress_channels;
+		let index = channels.binary_search_by_key(&id, |item| item.0).ok()?;
+		Some(channels[index].1.max_message_size as usize)
+	}
+}
+
 impl<T: Config> Module<T> {
 	/// Validate the given [`PersistedValidationData`] against the
 	/// [`ValidationParams`](polkadot_parachain::primitives::ValidationParams).
@@ -481,13 +477,17 @@ impl<T: Config> Module<T> {
 	fn process_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: Vec<InboundDownwardMessage>,
-	) -> DispatchResult {
+	) -> Result<Weight, DispatchError> {
 		let dm_count = downward_messages.len() as u32;
 
+		let mut weight_used = 0;
+
+		// Reference fu to avoid the `move` capture.
+		let weight_used_mut_ref = &mut weight_used;
 		let result_mqc_head = LastDmqMqcHead::mutate(move |mqc| {
 			for downward_message in downward_messages {
 				mqc.extend_downward(&downward_message);
-				T::DownwardMessageHandlers::handle_downward_message(downward_message);
+				*weight_used_mut_ref += T::DownwardMessageHandlers::handle_downward_message(downward_message);
 			}
 			mqc.0
 		});
@@ -503,7 +503,7 @@ impl<T: Config> Module<T> {
 		// PVF's `validate_block` wrapper and collation pipeline.
 		storage::unhashed::put(well_known_keys::PROCESSED_DOWNWARD_MESSAGES, &dm_count);
 
-		Ok(())
+		Ok(weight_used)
 	}
 
 	/// Process all inbound horizontal messages relayed by the collator.
@@ -513,7 +513,7 @@ impl<T: Config> Module<T> {
 	fn process_inbound_horizontal_messages(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
-	) -> DispatchResult {
+	) -> Result<Weight, DispatchError> {
 		// First, check that all submitted messages are sent from channels that exist. The channel
 		// exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
 		for sender in horizontal_messages.keys() {
@@ -552,21 +552,26 @@ impl<T: Config> Module<T> {
 		let mut running_mqc_heads = BTreeMap::new();
 		let mut hrmp_watermark = None;
 
-		for (sender, horizontal_message) in horizontal_messages {
-			if hrmp_watermark
-				.map(|w| w < horizontal_message.sent_at)
-				.unwrap_or(true)
-			{
-				hrmp_watermark = Some(horizontal_message.sent_at);
+		{
+			for (sender, ref horizontal_message) in &horizontal_messages {
+				if hrmp_watermark
+					.map(|w| w < horizontal_message.sent_at)
+					.unwrap_or(true)
+				{
+					hrmp_watermark = Some(horizontal_message.sent_at);
+				}
+
+				running_mqc_heads
+					.entry(sender)
+					.or_insert_with(|| last_mqc_heads.get(&sender).cloned().unwrap_or_default())
+					.extend_hrmp(horizontal_message);
 			}
-
-			running_mqc_heads
-				.entry(sender)
-				.or_insert_with(|| last_mqc_heads.get(&sender).cloned().unwrap_or_default())
-				.extend_hrmp(&horizontal_message);
-
-			T::HrmpMessageHandlers::handle_hrmp_message(sender, horizontal_message);
 		}
+		let message_iter = horizontal_messages.iter()
+			.map(|&(sender, ref message)| (sender, message.sent_at, &message.data[..]));
+
+		let max_weight = ReservedXcmpWeightOverride::get().unwrap_or_else(T::ReservedXcmpWeight::get);
+		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(message_iter, max_weight);
 
 		// Check that the MQC heads for each channel provided by the relay chain match the MQC heads
 		// we have after processing all incoming messages.
@@ -577,7 +582,7 @@ impl<T: Config> Module<T> {
 		// would corrupt the message queue chain.
 		for &(ref sender, ref channel) in ingress_channels {
 			let cur_head = running_mqc_heads
-				.entry(*sender)
+				.entry(sender)
 				.or_insert_with(|| last_mqc_heads.get(&sender).cloned().unwrap_or_default())
 				.head();
 			let target_head = channel.mqc_head.unwrap_or_default();
@@ -592,7 +597,7 @@ impl<T: Config> Module<T> {
 			storage::unhashed::put(well_known_keys::HRMP_WATERMARK, &hrmp_watermark);
 		}
 
-		Ok(())
+		Ok(weight_used)
 	}
 
 	/// Put a new validation function into a particular location where polkadot
@@ -663,7 +668,7 @@ impl<T: Config> Module<T> {
 		Self::notify_polkadot_of_pending_upgrade(&validation_function);
 		PendingRelayChainBlockNumber::put(apply_block);
 		PendingValidationFunction::put(validation_function);
-		Self::deposit_event(Event::ValidationFunctionStored(apply_block));
+		Self::deposit_event(RawEvent::ValidationFunctionStored(apply_block));
 
 		Ok(())
 	}
@@ -714,24 +719,8 @@ impl MessageQueueChain {
 	}
 }
 
-/// An error that can be raised upon sending an upward message.
-#[derive(Debug, PartialEq)]
-pub enum SendUpErr {
-	/// The message sent is too big.
-	TooBig,
-}
-
-/// An error that can be raised upon sending a horizontal message.
-#[derive(Debug, PartialEq)]
-pub enum SendHorizontalErr {
-	/// The message sent is too big.
-	TooBig,
-	/// There is no channel to the specified destination.
-	NoChannel,
-}
-
 impl<T: Config> Module<T> {
-	pub fn send_upward_message(message: UpwardMessage) -> Result<(), SendUpErr> {
+	pub fn send_upward_message(message: UpwardMessage) -> Result<u32, MessageSendError> {
 		// Check if the message fits into the relay-chain constraints.
 		//
 		// Note, that we are using `host_configuration` here which may be from the previous
@@ -747,7 +736,7 @@ impl<T: Config> Module<T> {
 		match Self::host_configuration() {
 			Some(cfg) => {
 				if message.len() > cfg.max_upward_message_size as usize {
-					return Err(SendUpErr::TooBig);
+					return Err(MessageSendError::TooBig);
 				}
 			}
 			None => {
@@ -763,71 +752,13 @@ impl<T: Config> Module<T> {
 			}
 		};
 		<Self as Store>::PendingUpwardMessages::append(message);
-		Ok(())
-	}
-
-	pub fn send_hrmp_message(message: OutboundHrmpMessage) -> Result<(), SendHorizontalErr> {
-		let OutboundHrmpMessage { recipient, data } = message;
-
-		// First, check if the message is addressed into an opened channel.
-		//
-		// Note, that we are using `relevant_messaging_state` which may be from the previous
-		// block, in case this is called from `on_initialize`, i.e. before the inherent with fresh
-		// data is submitted.
-		//
-		// That shouldn't be a problem though because this is anticipated and already can happen.
-		// This is because sending implies that a message is buffered until there is space to send
-		// a message in the candidate. After a while waiting in a buffer, it may be discovered that
-		// the channel to which a message were addressed is now closed. Another possibility, is that
-		// the maximum message size was decreased so that a message in the bufer doesn't fit. Should
-		// any of that happen the sender should be notified about the message was discarded.
-		//
-		// Here it a similar case, with the difference that the realization that the channel is closed
-		// came the same block.
-		let relevant_messaging_state = match Self::relevant_messaging_state() {
-			Some(s) => s,
-			None => {
-				// This storage field should carry over from the previous block. So if it's None
-				// then it must be that this is an edge-case where a message is attempted to be
-				// sent at the first block. It should be safe to assume that there are no channels
-				// opened at all so early. At least, relying on this assumption seems to be a better
-				// tradeoff, compared to introducing an error variant that the clients should be
-				// prepared to handle.
-				return Err(SendHorizontalErr::NoChannel);
-			}
-		};
-		let channel_meta = match relevant_messaging_state
-			.egress_channels
-			.binary_search_by_key(&recipient, |(recipient, _)| *recipient)
-		{
-			Ok(idx) => &relevant_messaging_state.egress_channels[idx].1,
-			Err(_) => return Err(SendHorizontalErr::NoChannel),
-		};
-		if data.len() as u32 > channel_meta.max_message_size {
-			return Err(SendHorizontalErr::TooBig);
-		}
-
-		// And then at last update the storage.
-		<Self as Store>::OutboundHrmpMessages::append(&recipient, data);
-		<Self as Store>::NonEmptyHrmpChannels::mutate(|v| {
-			if !v.contains(&recipient) {
-				v.push(recipient);
-			}
-		});
-
-		Ok(())
+		Ok(0)
 	}
 }
 
 impl<T: Config> UpwardMessageSender for Module<T> {
-	fn send_upward_message(message: UpwardMessage) -> Result<(), ()> {
-		Self::send_upward_message(message).map_err(|_| ())
-	}
-}
-
-impl<T: Config> HrmpMessageSender for Module<T> {
-	fn send_hrmp_message(message: OutboundHrmpMessage) -> Result<(), ()> {
-		Self::send_hrmp_message(message).map_err(|_| ())
+	fn send_upward_message(message: UpwardMessage) -> Result<u32, MessageSendError> {
+		Self::send_upward_message(message)
 	}
 }
 
@@ -846,14 +777,20 @@ impl<T: Config> ProvideInherent for Module<T> {
 
 		Some(Call::set_validation_data(data))
 	}
+
+	fn is_inherent(call: &Self::Call) -> bool {
+		matches!(call, Call::set_validation_data(_))
+	}
 }
 
 decl_event! {
-	pub enum Event {
+	pub enum Event<T> where Hash = <T as frame_system::Config>::Hash {
 		// The validation function has been scheduled to apply as of the contained relay chain block number.
 		ValidationFunctionStored(RelayChainBlockNumber),
 		// The validation function was applied as of the contained relay chain block number.
 		ValidationFunctionApplied(RelayChainBlockNumber),
+		// An upgrade has been authorized.
+		UpgradeAuthorized(Hash),
 	}
 }
 
@@ -888,6 +825,10 @@ decl_error! {
 		HrmpMqcMismatch,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
+		/// No code upgrade has been authorized.
+		NothingAuthorized,
+		/// The given code upgrade has not been authorized.
+		Unauthorized,
 	}
 }
 
@@ -899,6 +840,7 @@ mod tests {
 	use codec::Encode;
 	use cumulus_primitives_core::{
 		AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
+		relay_chain::BlockNumber as RelayBlockNumber,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use frame_support::{
@@ -927,7 +869,7 @@ mod tests {
 			UncheckedExtrinsic = UncheckedExtrinsic,
 		{
 			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-			ParachainSystem: parachain_system::{Pallet, Call, Storage, Event},
+			ParachainSystem: parachain_system::{Pallet, Call, Storage, Event<T>},
 		}
 	);
 
@@ -943,6 +885,7 @@ mod tests {
 			transaction_version: 1,
 		};
 		pub const ParachainId: ParaId = ParaId::new(200);
+		pub const ReservedXcmpWeight: Weight = 0;
 	}
 	impl frame_system::Config for Test {
 		type Origin = Origin;
@@ -974,28 +917,69 @@ mod tests {
 		type OnValidationData = ();
 		type SelfParaId = ParachainId;
 		type DownwardMessageHandlers = SaveIntoThreadLocal;
-		type HrmpMessageHandlers = SaveIntoThreadLocal;
+		type XcmpMessageHandler = SaveIntoThreadLocal;
+		type OutboundXcmpMessageSource = FromThreadLocal;
+		type ReservedXcmpWeight = ReservedXcmpWeight;
 	}
 
+	pub struct FromThreadLocal;
 	pub struct SaveIntoThreadLocal;
 
 	std::thread_local! {
 		static HANDLED_DOWNWARD_MESSAGES: RefCell<Vec<InboundDownwardMessage>> = RefCell::new(Vec::new());
-		static HANDLED_HRMP_MESSAGES: RefCell<Vec<(ParaId, InboundHrmpMessage)>> = RefCell::new(Vec::new());
+		static HANDLED_XCMP_MESSAGES: RefCell<Vec<(ParaId, relay_chain::BlockNumber, Vec<u8>)>> = RefCell::new(Vec::new());
+		static SENT_MESSAGES: RefCell<Vec<(ParaId, Vec<u8>)>> = RefCell::new(Vec::new());
 	}
 
-	impl DownwardMessageHandler for SaveIntoThreadLocal {
-		fn handle_downward_message(msg: InboundDownwardMessage) {
-			HANDLED_DOWNWARD_MESSAGES.with(|m| {
-				m.borrow_mut().push(msg);
-			});
+	fn send_message(
+		dest: ParaId,
+		message: Vec<u8>,
+	) {
+		SENT_MESSAGES.with(|m| m.borrow_mut().push((dest, message)));
+	}
+
+	impl XcmpMessageSource for FromThreadLocal {
+		fn take_outbound_messages(maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
+			let mut ids = std::collections::BTreeSet::<ParaId>::new();
+			let mut taken = 0;
+			let mut result = Vec::new();
+			SENT_MESSAGES.with(|ms| ms.borrow_mut()
+				.retain(|m| {
+					let status = <Module::<Test> as GetChannelInfo>::get_channel_status(m.0);
+					let ready = matches!(status, ChannelStatus::Ready(..));
+					if ready && !ids.contains(&m.0) && taken < maximum_channels {
+						ids.insert(m.0);
+						taken += 1;
+						result.push(m.clone());
+						false
+					} else {
+						true
+					}
+				})
+			);
+			result
 		}
 	}
 
-	impl HrmpMessageHandler for SaveIntoThreadLocal {
-		fn handle_hrmp_message(sender: ParaId, msg: InboundHrmpMessage) {
-			HANDLED_HRMP_MESSAGES.with(|m| {
-				m.borrow_mut().push((sender, msg));
+	impl DownwardMessageHandler for SaveIntoThreadLocal {
+		fn handle_downward_message(msg: InboundDownwardMessage) -> Weight {
+			HANDLED_DOWNWARD_MESSAGES.with(|m| {
+				m.borrow_mut().push(msg);
+			});
+			0
+		}
+	}
+
+	impl XcmpMessageHandler for SaveIntoThreadLocal {
+		fn handle_xcmp_messages<'a, I: Iterator<Item=(ParaId, RelayBlockNumber, &'a [u8])>>(
+			iter: I,
+			_max_weight: Weight,
+		) -> Weight {
+			HANDLED_XCMP_MESSAGES.with(|m| {
+				for (sender, sent_at, message) in iter {
+					m.borrow_mut().push((sender, sent_at, message.to_vec()));
+				}
+				0
 			})
 		}
 	}
@@ -1004,7 +988,7 @@ mod tests {
 	// our desired mockup.
 	fn new_test_ext() -> sp_io::TestExternalities {
 		HANDLED_DOWNWARD_MESSAGES.with(|m| m.borrow_mut().clear());
-		HANDLED_HRMP_MESSAGES.with(|m| m.borrow_mut().clear());
+		HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
 
 		frame_system::GenesisConfig::default()
 			.build_storage::<Test>()
@@ -1253,7 +1237,7 @@ mod tests {
 					let events = System::events();
 					assert_eq!(
 						events[0].event,
-						Event::parachain_system(crate::Event::ValidationFunctionStored(1123))
+						Event::parachain_system(crate::RawEvent::ValidationFunctionStored(1123).into())
 					);
 				},
 			)
@@ -1264,7 +1248,7 @@ mod tests {
 					let events = System::events();
 					assert_eq!(
 						events[0].event,
-						Event::parachain_system(crate::Event::ValidationFunctionApplied(1234))
+						Event::parachain_system(crate::RawEvent::ValidationFunctionApplied(1234).into())
 					);
 				},
 			);
@@ -1400,80 +1384,6 @@ mod tests {
 	}
 
 	#[test]
-	fn send_hrmp_preliminary_no_channel() {
-		BlockTests::new()
-			.with_relay_sproof_builder(|_, _, sproof| {
-				sproof.para_id = ParaId::from(200);
-
-				// no channels established
-				sproof.hrmp_egress_channel_index = Some(vec![]);
-			})
-			.add(1, || {})
-			.add(2, || {
-				assert!(ParachainSystem::send_hrmp_message(OutboundHrmpMessage {
-					recipient: ParaId::from(300),
-					data: b"derp".to_vec(),
-				})
-				.is_err());
-			});
-	}
-
-	#[test]
-	fn send_hrmp_message_simple() {
-		BlockTests::new()
-			.with_relay_sproof_builder(|_, _, sproof| {
-				sproof.para_id = ParaId::from(200);
-				sproof.hrmp_egress_channel_index = Some(vec![ParaId::from(300)]);
-				sproof.hrmp_channels.insert(
-					HrmpChannelId {
-						sender: ParaId::from(200),
-						recipient: ParaId::from(300),
-					},
-					AbridgedHrmpChannel {
-						max_capacity: 1,
-						max_total_size: 1024,
-						max_message_size: 8,
-						msg_count: 0,
-						total_size: 0,
-						mqc_head: Default::default(),
-					},
-				);
-			})
-			.add_with_post_test(
-				1,
-				|| {
-					ParachainSystem::send_hrmp_message(OutboundHrmpMessage {
-						recipient: ParaId::from(300),
-						data: b"derp".to_vec(),
-					})
-					.unwrap()
-				},
-				|| {
-					// there are no outbound messages since the special logic for handling the
-					// first block kicks in.
-					let v: Option<Vec<OutboundHrmpMessage>> =
-						storage::unhashed::get(well_known_keys::HRMP_OUTBOUND_MESSAGES);
-					assert_eq!(v, Some(vec![]));
-				},
-			)
-			.add_with_post_test(
-				2,
-				|| {},
-				|| {
-					let v: Option<Vec<OutboundHrmpMessage>> =
-						storage::unhashed::get(well_known_keys::HRMP_OUTBOUND_MESSAGES);
-					assert_eq!(
-						v,
-						Some(vec![OutboundHrmpMessage {
-							recipient: ParaId::from(300),
-							data: b"derp".to_vec(),
-						}])
-					);
-				},
-			);
-	}
-
-	#[test]
 	fn send_hrmp_message_buffer_channel_close() {
 		BlockTests::new()
 			.with_relay_sproof_builder(|_, relay_block_num, sproof| {
@@ -1512,7 +1422,7 @@ mod tests {
 				);
 
 				//
-				// Adjustement according to block
+				// Adjustment according to block
 				//
 				match relay_block_num {
 					1 => {}
@@ -1545,16 +1455,14 @@ mod tests {
 			.add_with_post_test(
 				1,
 				|| {
-					ParachainSystem::send_hrmp_message(OutboundHrmpMessage {
-						recipient: ParaId::from(300),
-						data: b"1".to_vec(),
-					})
-					.unwrap();
-					ParachainSystem::send_hrmp_message(OutboundHrmpMessage {
-						recipient: ParaId::from(400),
-						data: b"2".to_vec(),
-					})
-					.unwrap()
+					send_message(
+						ParaId::from(300),
+						b"1".to_vec(),
+					);
+					send_message(
+						ParaId::from(400),
+						b"2".to_vec(),
+					);
 				},
 				|| {},
 			)
@@ -1659,22 +1567,22 @@ mod tests {
 		lazy_static::lazy_static! {
 			static ref MSG_1: InboundHrmpMessage = InboundHrmpMessage {
 				sent_at: 1,
-				data: b"aquadisco".to_vec(),
+				data: b"1".to_vec(),
 			};
 
 			static ref MSG_2: InboundHrmpMessage = InboundHrmpMessage {
 				sent_at: 1,
-				data: b"mudroom".to_vec(),
+				data: b"2".to_vec(),
 			};
 
 			static ref MSG_3: InboundHrmpMessage = InboundHrmpMessage {
 				sent_at: 2,
-				data: b"eggpeeling".to_vec(),
+				data: b"3".to_vec(),
 			};
 
 			static ref MSG_4: InboundHrmpMessage = InboundHrmpMessage {
 				sent_at: 2,
-				data: b"casino".to_vec(),
+				data: b"4".to_vec(),
 			};
 		}
 
@@ -1730,21 +1638,21 @@ mod tests {
 				_ => unreachable!(),
 			})
 			.add(1, || {
-				HANDLED_HRMP_MESSAGES.with(|m| {
+				HANDLED_XCMP_MESSAGES.with(|m| {
 					let mut m = m.borrow_mut();
-					assert_eq!(&*m, &[(ParaId::from(300), MSG_1.clone())]);
+					assert_eq!(&*m, &[(ParaId::from(300), 1, b"1".to_vec())]);
 					m.clear();
 				});
 			})
 			.add(2, || {
-				HANDLED_HRMP_MESSAGES.with(|m| {
+				HANDLED_XCMP_MESSAGES.with(|m| {
 					let mut m = m.borrow_mut();
 					assert_eq!(
 						&*m,
 						&[
-							(ParaId::from(300), MSG_2.clone()),
-							(ParaId::from(200), MSG_4.clone()),
-							(ParaId::from(300), MSG_3.clone()),
+							(ParaId::from(300), 1, b"2".to_vec()),
+							(ParaId::from(200), 2, b"4".to_vec()),
+							(ParaId::from(300), 2, b"3".to_vec()),
 						]
 					);
 					m.clear();
@@ -1822,17 +1730,17 @@ mod tests {
 				_ => unreachable!(),
 			})
 			.add(1, || {
-				HANDLED_HRMP_MESSAGES.with(|m| {
+				HANDLED_XCMP_MESSAGES.with(|m| {
 					let mut m = m.borrow_mut();
-					assert_eq!(&*m, &[(ALICE, MSG_1.clone())]);
+					assert_eq!(&*m, &[(ALICE, 1, b"mikhailinvanovich".to_vec())]);
 					m.clear();
 				});
 			})
 			.add(2, || {})
 			.add(3, || {
-				HANDLED_HRMP_MESSAGES.with(|m| {
+				HANDLED_XCMP_MESSAGES.with(|m| {
 					let mut m = m.borrow_mut();
-					assert_eq!(&*m, &[(ALICE, MSG_2.clone())]);
+					assert_eq!(&*m, &[(ALICE, 3, b"1000000000".to_vec())]);
 					m.clear();
 				});
 			});

@@ -23,6 +23,7 @@ hex-literal = "0.2.1"
 
 # Parachain dependencies
 parachain-runtime = { package = "cumulus-test-parachain-runtime", path = "runtime" }
+shell-runtime = { package = "cumulus-shell-runtime", path = "shell-runtime" }
 rococo-parachain-primitives = { path = "primitives" }
 
 # Substrate dependencies
@@ -67,7 +68,6 @@ cumulus-primitives-core = { path = "../primitives/core" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 [build-dependencies]
