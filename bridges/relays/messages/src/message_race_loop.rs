@@ -123,8 +123,9 @@ pub trait TargetClient<P: MessageRace> {
 	/// Type of the additional data from the target client, used by the race.
 	type TargetNoncesData: std::fmt::Debug;
 
-	/// Ask headers relay to relay more headers from race source to race target.
-	async fn require_more_source_headers(&self, activate: bool);
+	/// Ask headers relay to relay finalized headers up to (and including) given header
+	/// from race source to race target.
+	async fn require_source_header(&self, id: P::SourceHeaderId);
 
 	/// Return nonces that are known to the target client.
 	async fn nonces(
@@ -152,6 +153,8 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 
 	/// Should return true if nothing has to be synced.
 	fn is_empty(&self) -> bool;
+	/// Return id of source header that is required to be on target to continue synchronization.
+	fn required_source_header_at_target(&self, current_best: &SourceHeaderId) -> Option<SourceHeaderId>;
 	/// Return best nonce at source node.
 	///
 	/// `Some` is returned only if we are sure that the value is greater or equal
@@ -219,7 +222,6 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 		TargetNoncesData = TC::TargetNoncesData,
 	>,
 ) -> Result<(), FailedClient> {
-	let mut is_strategy_empty = true;
 	let mut progress_context = Instant::now();
 	let mut race_state = RaceState::default();
 	let mut stall_countdown = Instant::now();
@@ -307,6 +309,15 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					async_std::task::sleep,
 					|| format!("Error retrieving nonces from {}", P::source_name()),
 				).fail_if_connection_error(FailedClient::Source)?;
+
+				// ask for more headers if we have nonces to deliver and required headers are missing
+				let required_source_header_id = race_state
+					.best_finalized_source_header_id_at_best_target
+					.as_ref()
+					.and_then(|best|strategy.required_source_header_at_target(best));
+				if let Some(required_source_header_id) = required_source_header_id {
+					race_target.require_source_header(required_source_header_id).await;
+				}
 			},
 			nonces = target_best_nonces => {
 				target_best_nonces_required = false;
@@ -407,13 +418,6 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 		}
 
 		progress_context = print_race_progress::<P, _>(progress_context, &strategy);
-
-		// ask for more headers if we have nonces to deliver
-		let prev_is_strategy_empty = is_strategy_empty;
-		is_strategy_empty = strategy.is_empty();
-		if is_strategy_empty != prev_is_strategy_empty {
-			race_target.require_more_source_headers(!is_strategy_empty).await;
-		}
 
 		if stall_countdown.elapsed() > stall_timeout {
 			log::warn!(

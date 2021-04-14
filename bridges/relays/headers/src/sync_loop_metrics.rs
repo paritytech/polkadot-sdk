@@ -20,7 +20,7 @@ use crate::sync::HeadersSync;
 use crate::sync_types::{HeaderStatus, HeadersSyncPipeline};
 
 use num_traits::Zero;
-use relay_utils::metrics::{register, GaugeVec, Metrics, Opts, Registry, U64};
+use relay_utils::metrics::{metric_name, register, GaugeVec, Opts, PrometheusError, Registry, U64};
 
 /// Headers sync metrics.
 #[derive(Clone)]
@@ -31,28 +31,31 @@ pub struct SyncLoopMetrics {
 	blocks_in_state: GaugeVec<U64>,
 }
 
-impl Metrics for SyncLoopMetrics {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.best_block_numbers.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.blocks_in_state.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
-	}
-}
-
-impl Default for SyncLoopMetrics {
-	fn default() -> Self {
-		SyncLoopMetrics {
-			best_block_numbers: GaugeVec::new(
-				Opts::new("best_block_numbers", "Best block numbers on source and target nodes"),
-				&["node"],
-			)
-			.expect("metric is static and thus valid; qed"),
-			blocks_in_state: GaugeVec::new(
-				Opts::new("blocks_in_state", "Number of blocks in given state"),
-				&["state"],
-			)
-			.expect("metric is static and thus valid; qed"),
-		}
+impl SyncLoopMetrics {
+	/// Create and register headers loop metrics.
+	pub fn new(registry: &Registry, prefix: Option<&str>) -> Result<Self, PrometheusError> {
+		Ok(SyncLoopMetrics {
+			best_block_numbers: register(
+				GaugeVec::new(
+					Opts::new(
+						metric_name(prefix, "best_block_numbers"),
+						"Best block numbers on source and target nodes",
+					),
+					&["node"],
+				)?,
+				registry,
+			)?,
+			blocks_in_state: register(
+				GaugeVec::new(
+					Opts::new(
+						metric_name(prefix, "blocks_in_state"),
+						"Number of blocks in given state",
+					),
+					&["state"],
+				)?,
+				registry,
+			)?,
+		})
 	}
 }
 
