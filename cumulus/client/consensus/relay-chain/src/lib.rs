@@ -196,6 +196,11 @@ where
 				Default::default(),
 				//TODO: Fix this.
 				Duration::from_millis(500),
+				// Set the block limit to 50% of the maximum PoV size.
+				//
+				// TODO: If we got benchmarking that includes that encapsulates the proof size,
+				// we should be able to use the maximum pov size.
+				Some((validation_data.max_pov_size / 2) as usize),
 			)
 			.await
 			.map_err(|e| tracing::error!(target: LOG_TARGET, error = ?e, "Proposing failed."))
