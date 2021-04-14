@@ -24,14 +24,13 @@ use bp_messages::{
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
 };
 use bp_runtime::{InstanceId, MILLAU_BRIDGE_INSTANCE};
-use bridge_runtime_common::messages::{self, ChainWithMessages, MessageBridge, MessageTransaction};
+use bridge_runtime_common::messages::{self, MessageBridge, MessageTransaction};
 use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
 	weights::{DispatchClass, Weight},
 	RuntimeDebug,
 };
-use sp_core::storage::StorageKey;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
@@ -41,28 +40,6 @@ pub const INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE: FixedU128 = FixedU128::from_
 parameter_types! {
 	/// Millau to Rialto conversion rate. Initially we treat both tokens as equal.
 	pub storage MillauToRialtoConversionRate: FixedU128 = INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE;
-}
-
-/// Storage key of the Rialto -> Millau message in the runtime storage.
-pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
-	pallet_bridge_messages::storage_keys::message_key::<Runtime, <Rialto as ChainWithMessages>::MessagesInstance>(
-		lane, nonce,
-	)
-}
-
-/// Storage key of the Rialto -> Millau message lane state in the runtime storage.
-pub fn outbound_lane_data_key(lane: &LaneId) -> StorageKey {
-	pallet_bridge_messages::storage_keys::outbound_lane_data_key::<<Rialto as ChainWithMessages>::MessagesInstance>(
-		lane,
-	)
-}
-
-/// Storage key of the Millau -> Rialto message lane state in the runtime storage.
-pub fn inbound_lane_data_key(lane: &LaneId) -> StorageKey {
-	pallet_bridge_messages::storage_keys::inbound_lane_data_key::<
-		Runtime,
-		<Rialto as ChainWithMessages>::MessagesInstance,
-	>(lane)
 }
 
 /// Message payload for Rialto -> Millau messages.

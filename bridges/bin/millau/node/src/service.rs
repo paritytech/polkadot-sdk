@@ -211,40 +211,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let prometheus_registry = config.prometheus_registry().cloned();
 
 	let rpc_extensions_builder = {
-		use bp_messages::{LaneId, MessageNonce};
-		use bp_runtime::{InstanceId, RIALTO_BRIDGE_INSTANCE};
 		use sc_finality_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
-		use sp_core::storage::StorageKey;
 
-		// This struct is here to ease update process.
-
-		/// Millau runtime from messages RPC point of view.
-		struct MillauMessagesKeys;
-
-		impl pallet_bridge_messages_rpc::Runtime for MillauMessagesKeys {
-			fn message_key(&self, instance: &InstanceId, lane: &LaneId, nonce: MessageNonce) -> Option<StorageKey> {
-				match *instance {
-					RIALTO_BRIDGE_INSTANCE => Some(millau_runtime::rialto_messages::message_key(lane, nonce)),
-					_ => None,
-				}
-			}
-
-			fn outbound_lane_data_key(&self, instance: &InstanceId, lane: &LaneId) -> Option<StorageKey> {
-				match *instance {
-					RIALTO_BRIDGE_INSTANCE => Some(millau_runtime::rialto_messages::outbound_lane_data_key(lane)),
-					_ => None,
-				}
-			}
-
-			fn inbound_lane_data_key(&self, instance: &InstanceId, lane: &LaneId) -> Option<StorageKey> {
-				match *instance {
-					RIALTO_BRIDGE_INSTANCE => Some(millau_runtime::rialto_messages::inbound_lane_data_key(lane)),
-					_ => None,
-				}
-			}
-		}
-
-		use pallet_bridge_messages_rpc::{MessagesApi, MessagesRpcHandler};
 		use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 		use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
 		use sc_rpc::DenyUnsafe;
@@ -259,7 +227,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		let shared_voter_state = sc_finality_grandpa::SharedVoterState::empty();
 
 		let finality_proof_provider =
-			GrandpaFinalityProofProvider::new_for_service(backend.clone(), Some(shared_authority_set.clone()));
+			GrandpaFinalityProofProvider::new_for_service(backend, Some(shared_authority_set.clone()));
 
 		Box::new(move |_, subscription_executor| {
 			let mut io = jsonrpc_core::IoHandler::default();
@@ -277,10 +245,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				justification_stream.clone(),
 				subscription_executor,
 				finality_proof_provider.clone(),
-			)));
-			io.extend_with(MessagesApi::to_delegate(MessagesRpcHandler::new(
-				backend.clone(),
-				Arc::new(MillauMessagesKeys),
 			)));
 			io
 		})

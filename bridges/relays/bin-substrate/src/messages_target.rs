@@ -26,15 +26,17 @@ use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::InstanceId;
 use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use codec::{Decode, Encode};
+use frame_support::traits::Instance;
 use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{TargetClient, TargetClientState},
 };
+use pallet_bridge_messages::Config as MessagesConfig;
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf};
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase};
 use sp_core::Bytes;
 use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
-use std::ops::RangeInclusive;
+use std::{marker::PhantomData, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesReceivingProof<C> = (
@@ -43,14 +45,15 @@ pub type SubstrateMessagesReceivingProof<C> = (
 );
 
 /// Substrate client as Substrate messages target.
-pub struct SubstrateMessagesTarget<C: Chain, P> {
+pub struct SubstrateMessagesTarget<C: Chain, P, R, I> {
 	client: Client<C>,
 	lane: P,
 	lane_id: LaneId,
 	instance: InstanceId,
+	_phantom: PhantomData<(R, I)>,
 }
 
-impl<C: Chain, P> SubstrateMessagesTarget<C, P> {
+impl<C: Chain, P, R, I> SubstrateMessagesTarget<C, P, R, I> {
 	/// Create new Substrate headers target.
 	pub fn new(client: Client<C>, lane: P, lane_id: LaneId, instance: InstanceId) -> Self {
 		SubstrateMessagesTarget {
@@ -58,23 +61,31 @@ impl<C: Chain, P> SubstrateMessagesTarget<C, P> {
 			lane,
 			lane_id,
 			instance,
+			_phantom: Default::default(),
 		}
 	}
 }
 
-impl<C: Chain, P: SubstrateMessageLane> Clone for SubstrateMessagesTarget<C, P> {
+impl<C: Chain, P: SubstrateMessageLane, R, I> Clone for SubstrateMessagesTarget<C, P, R, I> {
 	fn clone(&self) -> Self {
 		Self {
 			client: self.client.clone(),
 			lane: self.lane.clone(),
 			lane_id: self.lane_id,
 			instance: self.instance,
+			_phantom: Default::default(),
 		}
 	}
 }
 
 #[async_trait]
-impl<C: Chain, P: SubstrateMessageLane> RelayClient for SubstrateMessagesTarget<C, P> {
+impl<C, P, R, I> RelayClient for SubstrateMessagesTarget<C, P, R, I>
+where
+	C: Chain,
+	P: SubstrateMessageLane,
+	R: Send + Sync,
+	I: Send + Sync + Instance,
+{
 	type Error = SubstrateError;
 
 	async fn reconnect(&mut self) -> Result<(), SubstrateError> {
@@ -83,7 +94,7 @@ impl<C: Chain, P: SubstrateMessageLane> RelayClient for SubstrateMessagesTarget<
 }
 
 #[async_trait]
-impl<C, P> TargetClient<P> for SubstrateMessagesTarget<C, P>
+impl<C, P, R, I> TargetClient<P> for SubstrateMessagesTarget<C, P, R, I>
 where
 	C: Chain,
 	C::Header: DeserializeOwned,
@@ -97,6 +108,8 @@ where
 	>,
 	P::SourceHeaderNumber: Decode,
 	P::SourceHeaderHash: Decode,
+	R: Send + Sync + MessagesConfig<I>,
+	I: Send + Sync + Instance,
 {
 	async fn state(&self) -> Result<TargetClientState<P>, SubstrateError> {
 		// we can't continue to deliver messages if target node is out of sync, because
@@ -166,10 +179,13 @@ where
 		id: TargetHeaderIdOf<P>,
 	) -> Result<(TargetHeaderIdOf<P>, P::MessagesReceivingProof), SubstrateError> {
 		let (id, relayers_state) = self.unrewarded_relayers_state(id).await?;
+		let inbound_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key::<R, I>(&self.lane_id);
 		let proof = self
 			.client
-			.prove_messages_delivery(self.instance, self.lane_id, id.1)
-			.await?;
+			.prove_storage(vec![inbound_data_key], id.1)
+			.await?
+			.iter_nodes()
+			.collect();
 		let proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: id.1,
 			storage_proof: proof,

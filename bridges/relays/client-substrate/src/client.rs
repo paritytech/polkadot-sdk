@@ -17,12 +17,10 @@
 //! Substrate node client.
 
 use crate::chain::{Chain, ChainWithBalances};
-use crate::rpc::{Substrate, SubstrateMessages};
+use crate::rpc::Substrate;
 use crate::{ConnectionParams, Error, Result};
 
 use async_std::sync::{Arc, Mutex};
-use bp_messages::{LaneId, MessageNonce};
-use bp_runtime::InstanceId;
 use codec::Decode;
 use frame_system::AccountInfo;
 use jsonrpsee_types::{jsonrpc::DeserializeOwned, traits::SubscriptionClient};
@@ -32,7 +30,6 @@ use pallet_balances::AccountData;
 use sp_core::{storage::StorageKey, Bytes};
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
-use std::ops::RangeInclusive;
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
@@ -175,12 +172,12 @@ impl<C: Chain> Client<C> {
 
 	/// Return runtime version.
 	pub async fn runtime_version(&self) -> Result<RuntimeVersion> {
-		Ok(Substrate::<C>::runtime_version(&*self.client).await?)
+		Ok(Substrate::<C>::state_runtime_version(&*self.client).await?)
 	}
 
 	/// Read value from runtime storage.
 	pub async fn storage_value<T: Decode>(&self, storage_key: StorageKey) -> Result<Option<T>> {
-		Substrate::<C>::get_storage(&*self.client, storage_key)
+		Substrate::<C>::state_get_storage(&*self.client, storage_key)
 			.await?
 			.map(|encoded_value| T::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed))
 			.transpose()
@@ -192,7 +189,7 @@ impl<C: Chain> Client<C> {
 		C: ChainWithBalances,
 	{
 		let storage_key = C::account_info_storage_key(&account);
-		let encoded_account_data = Substrate::<C>::get_storage(&*self.client, storage_key)
+		let encoded_account_data = Substrate::<C>::state_get_storage(&*self.client, storage_key)
 			.await?
 			.ok_or(Error::AccountDoesNotExist)?;
 		let decoded_account_data =
@@ -255,45 +252,12 @@ impl<C: Chain> Client<C> {
 			.map_err(Into::into)
 	}
 
-	/// Returns proof-of-message(s) in given inclusive range.
-	pub async fn prove_messages(
-		&self,
-		instance: InstanceId,
-		lane: LaneId,
-		range: RangeInclusive<MessageNonce>,
-		include_outbound_lane_state: bool,
-		at_block: C::Hash,
-	) -> Result<StorageProof> {
-		let encoded_trie_nodes = SubstrateMessages::<C>::prove_messages(
-			&*self.client,
-			instance,
-			lane,
-			*range.start(),
-			*range.end(),
-			include_outbound_lane_state,
-			Some(at_block),
-		)
-		.await
-		.map_err(Error::RpcError)?;
-		let decoded_trie_nodes: Vec<Vec<u8>> =
-			Decode::decode(&mut &encoded_trie_nodes[..]).map_err(Error::ResponseParseFailed)?;
-		Ok(StorageProof::new(decoded_trie_nodes))
-	}
-
-	/// Returns proof-of-message(s) delivery.
-	pub async fn prove_messages_delivery(
-		&self,
-		instance: InstanceId,
-		lane: LaneId,
-		at_block: C::Hash,
-	) -> Result<Vec<Vec<u8>>> {
-		let encoded_trie_nodes =
-			SubstrateMessages::<C>::prove_messages_delivery(&*self.client, instance, lane, Some(at_block))
-				.await
-				.map_err(Error::RpcError)?;
-		let decoded_trie_nodes: Vec<Vec<u8>> =
-			Decode::decode(&mut &encoded_trie_nodes[..]).map_err(Error::ResponseParseFailed)?;
-		Ok(decoded_trie_nodes)
+	/// Returns storage proof of given storage keys.
+	pub async fn prove_storage(&self, keys: Vec<StorageKey>, at_block: C::Hash) -> Result<StorageProof> {
+		Substrate::<C>::state_prove_storage(&*self.client, keys, Some(at_block))
+			.await
+			.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.0).collect()))
+			.map_err(Into::into)
 	}
 
 	/// Return new justifications stream.
