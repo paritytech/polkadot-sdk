@@ -16,14 +16,35 @@
 
 use crate::messages_source::SubstrateMessagesProof;
 use crate::messages_target::SubstrateMessagesReceivingProof;
+use crate::on_demand_headers::OnDemandHeadersRelay;
 
-use bp_messages::MessageNonce;
+use bp_messages::{LaneId, MessageNonce};
 use frame_support::weights::Weight;
 use messages_relay::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use relay_substrate_client::{BlockNumberOf, Chain, Client, HashOf};
-use relay_utils::BlockNumberBase;
+use relay_utils::{metrics::MetricsParams, BlockNumberBase};
 use sp_core::Bytes;
 use std::ops::RangeInclusive;
+
+/// Substrate <-> Substrate messages relay parameters.
+pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS> {
+	/// Messages source client.
+	pub source_client: Client<SC>,
+	/// Sign parameters for messages source chain.
+	pub source_sign: SS,
+	/// Messages target client.
+	pub target_client: Client<TC>,
+	/// Sign parameters for messages target chain.
+	pub target_sign: TS,
+	/// Optional on-demand source to target headers relay.
+	pub source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
+	/// Optional on-demand target to source headers relay.
+	pub target_to_source_headers_relay: Option<OnDemandHeadersRelay<TC>>,
+	/// Identifier of lane that needs to be served.
+	pub lane_id: LaneId,
+	/// Metrics parameters.
+	pub metrics_params: MetricsParams,
+}
 
 /// Message sync pipeline for Substrate <-> Substrate relays.
 pub trait SubstrateMessageLane: MessageLane {

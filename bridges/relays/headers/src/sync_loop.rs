@@ -110,6 +110,11 @@ pub trait SyncMaintain<P: HeadersSyncPipeline>: Clone + Send + Sync {
 
 impl<P: HeadersSyncPipeline> SyncMaintain<P> for () {}
 
+/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs sync loop.
+pub fn metrics_prefix<P: HeadersSyncPipeline>() -> String {
+	format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME)
+}
+
 /// Run headers synchronization.
 #[allow(clippy::too_many_arguments)]
 pub async fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
@@ -124,9 +129,9 @@ pub async fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
-		.with_metrics(format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME), metrics_params)
-		.loop_metric(SyncLoopMetrics::default())?
-		.standalone_metric(GlobalMetrics::default())?
+		.with_metrics(Some(metrics_prefix::<P>()), metrics_params)
+		.loop_metric(|registry, prefix| SyncLoopMetrics::new(registry, prefix))?
+		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
 		.expose()
 		.await?
 		.run(|source_client, target_client, metrics| {

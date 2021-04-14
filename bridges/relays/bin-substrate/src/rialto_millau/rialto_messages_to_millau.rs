@@ -16,12 +16,13 @@
 
 //! Rialto-to-Millau messages sync entrypoint.
 
-use super::{MillauClient, RialtoClient};
-use crate::messages_lane::{select_delivery_transaction_limits, SubstrateMessageLane, SubstrateMessageLaneToSubstrate};
+use crate::messages_lane::{
+	select_delivery_transaction_limits, MessagesRelayParams, SubstrateMessageLane, SubstrateMessageLaneToSubstrate,
+};
 use crate::messages_source::SubstrateMessagesSource;
 use crate::messages_target::SubstrateMessagesTarget;
 
-use bp_messages::{LaneId, MessageNonce};
+use bp_messages::MessageNonce;
 use bp_runtime::{MILLAU_BRIDGE_INSTANCE, RIALTO_BRIDGE_INSTANCE};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::Encode;
@@ -33,12 +34,12 @@ use relay_substrate_client::{
 	metrics::{FloatStorageValueMetric, StorageProofOverheadMetric},
 	Chain, TransactionSignScheme,
 };
-use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
 use std::{ops::RangeInclusive, time::Duration};
 
 /// Rialto-to-Millau message lane.
-type RialtoMessagesToMillau = SubstrateMessageLaneToSubstrate<Rialto, RialtoSigningParams, Millau, MillauSigningParams>;
+pub type RialtoMessagesToMillau =
+	SubstrateMessageLaneToSubstrate<Rialto, RialtoSigningParams, Millau, MillauSigningParams>;
 
 impl SubstrateMessageLane for RialtoMessagesToMillau {
 	const OUTBOUND_LANE_MESSAGES_DISPATCH_WEIGHT_METHOD: &'static str =
@@ -143,21 +144,18 @@ type MillauTargetClient = SubstrateMessagesTarget<
 
 /// Run Rialto-to-Millau messages sync.
 pub async fn run(
-	rialto_client: RialtoClient,
-	rialto_sign: RialtoSigningParams,
-	millau_client: MillauClient,
-	millau_sign: MillauSigningParams,
-	lane_id: LaneId,
-	metrics_params: MetricsParams,
+	params: MessagesRelayParams<Rialto, RialtoSigningParams, Millau, MillauSigningParams>,
 ) -> Result<(), String> {
 	let stall_timeout = Duration::from_secs(5 * 60);
-	let relayer_id_at_rialto = (*rialto_sign.public().as_array_ref()).into();
+	let relayer_id_at_rialto = (*params.source_sign.public().as_array_ref()).into();
 
+	let lane_id = params.lane_id;
+	let source_client = params.source_client;
 	let lane = RialtoMessagesToMillau {
-		source_client: rialto_client.clone(),
-		source_sign: rialto_sign,
-		target_client: millau_client.clone(),
-		target_sign: millau_sign,
+		source_client: source_client.clone(),
+		source_sign: params.source_sign,
+		target_client: params.target_client.clone(),
+		target_sign: params.target_sign,
 		relayer_id_at_source: relayer_id_at_rialto,
 	};
 
@@ -197,24 +195,48 @@ pub async fn run(
 				max_messages_size_in_single_batch,
 			},
 		},
-		RialtoSourceClient::new(rialto_client.clone(), lane.clone(), lane_id, MILLAU_BRIDGE_INSTANCE),
-		MillauTargetClient::new(millau_client, lane, lane_id, RIALTO_BRIDGE_INSTANCE),
+		RialtoSourceClient::new(
+			source_client.clone(),
+			lane.clone(),
+			lane_id,
+			MILLAU_BRIDGE_INSTANCE,
+			params.target_to_source_headers_relay,
+		),
+		MillauTargetClient::new(
+			params.target_client,
+			lane,
+			lane_id,
+			RIALTO_BRIDGE_INSTANCE,
+			params.source_to_target_headers_relay,
+		),
 		relay_utils::relay_metrics(
-			messages_relay::message_lane_loop::metrics_prefix::<RialtoMessagesToMillau>(&lane_id),
-			metrics_params.address,
+			Some(messages_relay::message_lane_loop::metrics_prefix::<
+				RialtoMessagesToMillau,
+			>(&lane_id)),
+			params.metrics_params,
 		)
-		.standalone_metric(StorageProofOverheadMetric::new(
-			rialto_client.clone(),
-			"rialto_storage_proof_overhead".into(),
-			"Rialto storage proof overhead".into(),
-		))?
-		.standalone_metric(FloatStorageValueMetric::<_, sp_runtime::FixedU128>::new(
-			rialto_client,
-			sp_core::storage::StorageKey(rialto_runtime::millau_messages::MillauToRialtoConversionRate::key().to_vec()),
-			Some(rialto_runtime::millau_messages::INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE),
-			"rialto_millau_to_rialto_conversion_rate".into(),
-			"Millau to Rialto tokens conversion rate (used by Millau)".into(),
-		))?
+		.standalone_metric(|registry, prefix| {
+			StorageProofOverheadMetric::new(
+				registry,
+				prefix,
+				source_client.clone(),
+				"rialto_storage_proof_overhead".into(),
+				"Rialto storage proof overhead".into(),
+			)
+		})?
+		.standalone_metric(|registry, prefix| {
+			FloatStorageValueMetric::<_, sp_runtime::FixedU128>::new(
+				registry,
+				prefix,
+				source_client,
+				sp_core::storage::StorageKey(
+					rialto_runtime::millau_messages::MillauToRialtoConversionRate::key().to_vec(),
+				),
+				Some(rialto_runtime::millau_messages::INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE),
+				"rialto_millau_to_rialto_conversion_rate".into(),
+				"Millau to Rialto tokens conversion rate (used by Millau)".into(),
+			)
+		})?
 		.into_params(),
 		futures::future::pending(),
 	)

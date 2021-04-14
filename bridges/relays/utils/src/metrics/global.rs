@@ -16,7 +16,9 @@
 
 //! Global system-wide Prometheus metrics exposed by relays.
 
-use crate::metrics::{register, Gauge, GaugeVec, Metrics, Opts, Registry, StandaloneMetrics, F64, U64};
+use crate::metrics::{
+	metric_name, register, Gauge, GaugeVec, Opts, PrometheusError, Registry, StandaloneMetrics, F64, U64,
+};
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
@@ -35,12 +37,30 @@ pub struct GlobalMetrics {
 	process_memory_usage_bytes: Gauge<U64>,
 }
 
-impl Metrics for GlobalMetrics {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.system_average_load.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.process_cpu_usage_percentage.clone(), registry).map_err(|e| e.to_string())?;
-		register(self.process_memory_usage_bytes.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
+impl GlobalMetrics {
+	/// Create and register global metrics.
+	pub fn new(registry: &Registry, prefix: Option<&str>) -> Result<Self, PrometheusError> {
+		Ok(GlobalMetrics {
+			system: Arc::new(Mutex::new(System::new_with_specifics(RefreshKind::everything()))),
+			system_average_load: register(
+				GaugeVec::new(
+					Opts::new(metric_name(prefix, "system_average_load"), "System load average"),
+					&["over"],
+				)?,
+				registry,
+			)?,
+			process_cpu_usage_percentage: register(
+				Gauge::new(metric_name(prefix, "process_cpu_usage_percentage"), "Process CPU usage")?,
+				registry,
+			)?,
+			process_memory_usage_bytes: register(
+				Gauge::new(
+					metric_name(prefix, "process_memory_usage_bytes"),
+					"Process memory (resident set size) usage",
+				)?,
+				registry,
+			)?,
+		})
 	}
 }
 
@@ -87,22 +107,5 @@ impl StandaloneMetrics for GlobalMetrics {
 
 	fn update_interval(&self) -> Duration {
 		UPDATE_INTERVAL
-	}
-}
-
-impl Default for GlobalMetrics {
-	fn default() -> Self {
-		GlobalMetrics {
-			system: Arc::new(Mutex::new(System::new_with_specifics(RefreshKind::everything()))),
-			system_average_load: GaugeVec::new(Opts::new("system_average_load", "System load average"), &["over"])
-				.expect("metric is static and thus valid; qed"),
-			process_cpu_usage_percentage: Gauge::new("process_cpu_usage_percentage", "Process CPU usage")
-				.expect("metric is static and thus valid; qed"),
-			process_memory_usage_bytes: Gauge::new(
-				"process_memory_usage_bytes",
-				"Process memory (resident set size) usage",
-			)
-			.expect("metric is static and thus valid; qed"),
-		}
 	}
 }

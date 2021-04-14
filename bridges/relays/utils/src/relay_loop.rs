@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{Metrics, MetricsAddress, MetricsParams, StandaloneMetrics};
+use crate::metrics::{Metrics, MetricsAddress, MetricsParams, PrometheusError, StandaloneMetrics};
 use crate::{FailedClient, MaybeConnectionError};
 
 use async_trait::async_trait;
@@ -45,9 +45,7 @@ pub fn relay_loop<SC, TC>(source_client: SC, target_client: TC) -> Loop<SC, TC, 
 }
 
 /// Returns generic relay loop metrics that may be customized and used in one or several relay loops.
-pub fn relay_metrics(prefix: String, address: Option<MetricsAddress>) -> LoopMetrics<(), (), ()> {
-	assert!(!prefix.is_empty(), "Metrics prefix can not be empty");
-
+pub fn relay_metrics(prefix: Option<String>, params: MetricsParams) -> LoopMetrics<(), (), ()> {
 	LoopMetrics {
 		relay_loop: Loop {
 			reconnect_delay: RECONNECT_DELAY,
@@ -55,9 +53,9 @@ pub fn relay_metrics(prefix: String, address: Option<MetricsAddress>) -> LoopMet
 			target_client: (),
 			loop_metric: None,
 		},
-		address,
-		registry: Registry::new_custom(Some(prefix), None)
-			.expect("only fails if prefix is empty; prefix is not empty; qed"),
+		address: params.address,
+		registry: params.registry.unwrap_or_else(|| create_metrics_registry(prefix)),
+		metrics_prefix: params.metrics_prefix,
 		loop_metric: None,
 	}
 }
@@ -75,6 +73,7 @@ pub struct LoopMetrics<SC, TC, LM> {
 	relay_loop: Loop<SC, TC, ()>,
 	address: Option<MetricsAddress>,
 	registry: Registry,
+	metrics_prefix: Option<String>,
 	loop_metric: Option<LM>,
 }
 
@@ -86,11 +85,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 	}
 
 	/// Start building loop metrics using given prefix.
-	///
-	/// Panics if `prefix` is empty.
-	pub fn with_metrics(self, prefix: String, params: MetricsParams) -> LoopMetrics<SC, TC, ()> {
-		assert!(!prefix.is_empty(), "Metrics prefix can not be empty");
-
+	pub fn with_metrics(self, prefix: Option<String>, params: MetricsParams) -> LoopMetrics<SC, TC, ()> {
 		LoopMetrics {
 			relay_loop: Loop {
 				reconnect_delay: self.reconnect_delay,
@@ -99,11 +94,8 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 				loop_metric: None,
 			},
 			address: params.address,
-			registry: match params.registry {
-				Some(registry) => registry,
-				None => Registry::new_custom(Some(prefix), None)
-					.expect("only fails if prefix is empty; prefix is not empty; qed"),
-			},
+			registry: params.registry.unwrap_or_else(|| create_metrics_registry(prefix)),
+			metrics_prefix: params.metrics_prefix,
 			loop_metric: None,
 		}
 	}
@@ -177,21 +169,34 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 	/// Add relay loop metrics.
 	///
 	/// Loop metrics will be passed to the loop callback.
-	pub fn loop_metric<NewLM: Metrics>(self, loop_metric: NewLM) -> Result<LoopMetrics<SC, TC, NewLM>, String> {
-		loop_metric.register(&self.registry)?;
+	pub fn loop_metric<NewLM: Metrics>(
+		self,
+		create_metric: impl FnOnce(&Registry, Option<&str>) -> Result<NewLM, PrometheusError>,
+	) -> Result<LoopMetrics<SC, TC, NewLM>, String> {
+		let loop_metric = create_metric(&self.registry, self.metrics_prefix.as_deref()).map_err(|e| e.to_string())?;
 
 		Ok(LoopMetrics {
 			relay_loop: self.relay_loop,
 			address: self.address,
 			registry: self.registry,
+			metrics_prefix: self.metrics_prefix,
 			loop_metric: Some(loop_metric),
 		})
 	}
 
 	/// Add standalone metrics.
-	pub fn standalone_metric<M: StandaloneMetrics>(self, standalone_metrics: M) -> Result<Self, String> {
-		standalone_metrics.register(&self.registry)?;
-		standalone_metrics.spawn();
+	pub fn standalone_metric<M: StandaloneMetrics>(
+		self,
+		create_metric: impl FnOnce(&Registry, Option<&str>) -> Result<M, PrometheusError>,
+	) -> Result<Self, String> {
+		// since standalone metrics are updating themselves, we may just ignore the fact that the same
+		// standalone metric is exposed by several loops && only spawn single metric
+		match create_metric(&self.registry, self.metrics_prefix.as_deref()) {
+			Ok(standalone_metrics) => standalone_metrics.spawn(),
+			Err(PrometheusError::AlreadyReg) => (),
+			Err(e) => return Err(e.to_string()),
+		}
+
 		Ok(self)
 	}
 
@@ -200,6 +205,7 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 		MetricsParams {
 			address: self.address,
 			registry: Some(self.registry),
+			metrics_prefix: self.metrics_prefix,
 		}
 	}
 
@@ -235,5 +241,16 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 			target_client: self.relay_loop.target_client,
 			loop_metric: self.loop_metric,
 		})
+	}
+}
+
+/// Create new registry with global metrics.
+fn create_metrics_registry(prefix: Option<String>) -> Registry {
+	match prefix {
+		Some(prefix) => {
+			assert!(!prefix.is_empty(), "Metrics prefix can not be empty");
+			Registry::new_custom(Some(prefix), None).expect("only fails if prefix is empty; prefix is not empty; qed")
+		}
+		None => Registry::new(),
 	}
 }

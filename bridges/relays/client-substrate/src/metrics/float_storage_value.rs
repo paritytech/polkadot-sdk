@@ -19,7 +19,7 @@ use crate::client::Client;
 
 use async_trait::async_trait;
 use codec::Decode;
-use relay_utils::metrics::{register, Gauge, Metrics, Registry, StandaloneMetrics, F64};
+use relay_utils::metrics::{metric_name, register, Gauge, PrometheusError, Registry, StandaloneMetrics, F64};
 use sp_core::storage::StorageKey;
 use sp_runtime::{traits::UniqueSaturatedInto, FixedPointNumber};
 use std::time::Duration;
@@ -39,29 +39,20 @@ pub struct FloatStorageValueMetric<C: Chain, T: Clone> {
 impl<C: Chain, T: Decode + FixedPointNumber> FloatStorageValueMetric<C, T> {
 	/// Create new metric.
 	pub fn new(
+		registry: &Registry,
+		prefix: Option<&str>,
 		client: Client<C>,
 		storage_key: StorageKey,
 		maybe_default_value: Option<T>,
 		name: String,
 		help: String,
-	) -> Self {
-		FloatStorageValueMetric {
+	) -> Result<Self, PrometheusError> {
+		Ok(FloatStorageValueMetric {
 			client,
 			storage_key,
 			maybe_default_value,
-			metric: Gauge::new(name, help).expect(
-				"only fails if gauge options are customized;\
-					we use default options;\
-					qed",
-			),
-		}
-	}
-}
-
-impl<C: Chain, T: Clone + Send + Sync + 'static> Metrics for FloatStorageValueMetric<C, T> {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.metric.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
+			metric: register(Gauge::new(metric_name(prefix, &name), help)?, registry)?,
+		})
 	}
 }
 

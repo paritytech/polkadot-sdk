@@ -162,6 +162,15 @@ where
 		self.source_queue.is_empty()
 	}
 
+	fn required_source_header_at_target(
+		&self,
+		current_best: &HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+	) -> Option<HeaderId<SourceHeaderHash, SourceHeaderNumber>> {
+		self.source_queue
+			.back()
+			.and_then(|(h, _)| if h.0 > current_best.0 { Some(h.clone()) } else { None })
+	}
+
 	fn best_at_source(&self) -> Option<MessageNonce> {
 		let best_in_queue = self.source_queue.back().map(|(_, range)| range.end());
 		match (best_in_queue, self.best_target_nonce) {

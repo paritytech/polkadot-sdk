@@ -18,7 +18,7 @@ pub use float_json_value::FloatJsonValueMetric;
 pub use global::GlobalMetrics;
 pub use substrate_prometheus_endpoint::{
 	prometheus::core::{Atomic, Collector},
-	register, Counter, CounterVec, Gauge, GaugeVec, Opts, Registry, F64, U64,
+	register, Counter, CounterVec, Gauge, GaugeVec, Opts, PrometheusError, Registry, F64, U64,
 };
 
 use async_trait::async_trait;
@@ -43,13 +43,14 @@ pub struct MetricsParams {
 	pub address: Option<MetricsAddress>,
 	/// Metrics registry. May be `Some(_)` if several components share the same endpoint.
 	pub registry: Option<Registry>,
+	/// Prefix that must be used in metric names.
+	pub metrics_prefix: Option<String>,
 }
 
 /// Metrics API.
-pub trait Metrics: Clone + Send + Sync + 'static {
-	/// Register metrics in the registry.
-	fn register(&self, registry: &Registry) -> Result<(), String>;
-}
+pub trait Metrics: Clone + Send + Sync + 'static {}
+
+impl<T: Clone + Send + Sync + 'static> Metrics for T {}
 
 /// Standalone metrics API.
 ///
@@ -90,7 +91,20 @@ impl MetricsParams {
 		MetricsParams {
 			address: None,
 			registry: None,
+			metrics_prefix: None,
 		}
+	}
+
+	/// Do not expose metrics.
+	pub fn disable(mut self) -> Self {
+		self.address = None;
+		self
+	}
+
+	/// Set prefix to use in metric names.
+	pub fn metrics_prefix(mut self, prefix: String) -> Self {
+		self.metrics_prefix = Some(prefix);
+		self
 	}
 }
 
@@ -99,7 +113,17 @@ impl From<Option<MetricsAddress>> for MetricsParams {
 		MetricsParams {
 			address,
 			registry: None,
+			metrics_prefix: None,
 		}
+	}
+}
+
+/// Returns metric name optionally prefixed with given prefix.
+pub fn metric_name(prefix: Option<&str>, name: &str) -> String {
+	if let Some(prefix) = prefix {
+		format!("{}_{}", prefix, name)
+	} else {
+		name.into()
 	}
 }
 
