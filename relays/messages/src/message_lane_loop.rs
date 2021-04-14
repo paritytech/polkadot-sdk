@@ -140,8 +140,8 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 		proof: P::MessagesReceivingProof,
 	) -> Result<(), Self::Error>;
 
-	/// Activate (or deactivate) headers relay that relays target headers to source node.
-	async fn activate_target_to_source_headers_relay(&self, activate: bool);
+	/// We need given finalized target header on source to continue synchronization.
+	async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<P>);
 }
 
 /// Target client trait.
@@ -181,8 +181,8 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 		proof: P::MessagesProof,
 	) -> Result<RangeInclusive<MessageNonce>, Self::Error>;
 
-	/// Activate (or deactivate) headers relay that relays source headers to target node.
-	async fn activate_source_to_target_headers_relay(&self, activate: bool);
+	/// We need given finalized source header on target to continue synchronization.
+	async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<P>);
 }
 
 /// State of the client.
@@ -232,9 +232,9 @@ pub async fn run<P: MessageLane>(
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
 		.reconnect_delay(params.reconnect_delay)
-		.with_metrics(metrics_prefix::<P>(&params.lane), metrics_params)
-		.loop_metric(MessageLaneLoopMetrics::default())?
-		.standalone_metric(GlobalMetrics::default())?
+		.with_metrics(Some(metrics_prefix::<P>(&params.lane)), metrics_params)
+		.loop_metric(|registry, prefix| MessageLaneLoopMetrics::new(registry, prefix))?
+		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
 		.expose()
 		.await?
 		.run(|source_client, target_client, metrics| {
@@ -475,8 +475,10 @@ pub(crate) mod tests {
 		target_latest_received_nonce: MessageNonce,
 		target_latest_confirmed_received_nonce: MessageNonce,
 		submitted_messages_proofs: Vec<TestMessagesProof>,
-		is_target_to_source_headers_relay_activated: bool,
-		is_source_to_target_headers_relay_activated: bool,
+		target_to_source_header_required: Option<TestTargetHeaderId>,
+		target_to_source_header_requirements: Vec<TestTargetHeaderId>,
+		source_to_target_header_required: Option<TestSourceHeaderId>,
+		source_to_target_header_requirements: Vec<TestSourceHeaderId>,
 	}
 
 	#[derive(Clone)]
@@ -582,9 +584,10 @@ pub(crate) mod tests {
 			Ok(())
 		}
 
-		async fn activate_target_to_source_headers_relay(&self, activate: bool) {
+		async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<TestMessageLane>) {
 			let mut data = self.data.lock();
-			data.is_target_to_source_headers_relay_activated = activate;
+			data.target_to_source_header_required = Some(id);
+			data.target_to_source_header_requirements.push(id);
 			(self.tick)(&mut *data);
 		}
 	}
@@ -686,9 +689,10 @@ pub(crate) mod tests {
 			Ok(nonces)
 		}
 
-		async fn activate_source_to_target_headers_relay(&self, activate: bool) {
+		async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<TestMessageLane>) {
 			let mut data = self.data.lock();
-			data.is_source_to_target_headers_relay_activated = activate;
+			data.source_to_target_header_required = Some(id);
+			data.source_to_target_header_requirements.push(id);
 			(self.tick)(&mut *data);
 		}
 	}
@@ -806,16 +810,16 @@ pub(crate) mod tests {
 			},
 			Arc::new(|data: &mut TestClientData| {
 				// headers relay must only be started when we need new target headers at source node
-				if data.is_target_to_source_headers_relay_activated {
+				if data.target_to_source_header_required.is_some() {
 					assert!(data.source_state.best_finalized_peer_at_best_self.0 < data.target_state.best_self.0);
-					data.is_target_to_source_headers_relay_activated = false;
+					data.target_to_source_header_required = None;
 				}
 			}),
 			Arc::new(move |data: &mut TestClientData| {
 				// headers relay must only be started when we need new source headers at target node
-				if data.is_target_to_source_headers_relay_activated {
+				if data.source_to_target_header_required.is_some() {
 					assert!(data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_self.0);
-					data.is_target_to_source_headers_relay_activated = false;
+					data.source_to_target_header_required = None;
 				}
 				// syncing source headers -> target chain (all at once)
 				if data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_finalized_self.0 {
@@ -837,7 +841,7 @@ pub(crate) mod tests {
 						HeaderId(data.source_state.best_self.0 + 1, data.source_state.best_self.0 + 1);
 					data.source_state.best_finalized_self = data.source_state.best_self;
 				}
-				// if source has received all messages receiving confirmations => increase source block so that confirmations may be sent
+				// if source has received all messages receiving confirmations => stop
 				if data.source_latest_confirmed_received_nonce == 10 {
 					exit_sender.unbounded_send(()).unwrap();
 				}
@@ -853,5 +857,9 @@ pub(crate) mod tests {
 		assert_eq!(result.submitted_messages_proofs[1].0, 5..=8);
 		assert_eq!(result.submitted_messages_proofs[2].0, 9..=10);
 		assert!(!result.submitted_messages_receiving_proofs.is_empty());
+
+		// check that we have at least once required new source->target or target->source headers
+		assert!(!result.target_to_source_header_requirements.is_empty());
+		assert!(!result.source_to_target_header_requirements.is_empty());
 	}
 }

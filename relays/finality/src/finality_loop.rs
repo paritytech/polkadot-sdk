@@ -105,9 +105,9 @@ pub async fn run<P: FinalitySyncPipeline>(
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
-		.with_metrics(metrics_prefix::<P>(), metrics_params)
-		.loop_metric(SyncLoopMetrics::default())?
-		.standalone_metric(GlobalMetrics::default())?
+		.with_metrics(Some(metrics_prefix::<P>()), metrics_params)
+		.loop_metric(|registry, prefix| SyncLoopMetrics::new(registry, prefix))?
+		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
 		.expose()
 		.await?
 		.run(|source_client, target_client, metrics| {

@@ -159,8 +159,8 @@ where
 	type Error = C::Error;
 	type TargetNoncesData = ();
 
-	async fn require_more_source_headers(&self, activate: bool) {
-		self.client.activate_target_to_source_headers_relay(activate).await
+	async fn require_source_header(&self, id: TargetHeaderIdOf<P>) {
+		self.client.require_target_header_on_source(id).await
 	}
 
 	async fn nonces(

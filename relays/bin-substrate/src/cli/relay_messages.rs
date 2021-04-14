@@ -19,7 +19,9 @@ use crate::cli::{
 	HexLaneId, PrometheusParams, SourceConnectionParams, SourceSigningParams, TargetConnectionParams,
 	TargetSigningParams,
 };
+use crate::messages_lane::MessagesRelayParams;
 use crate::select_full_bridge;
+
 use structopt::StructOpt;
 
 /// Start messages relayer process.
@@ -52,14 +54,16 @@ impl RelayMessages {
 			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 
-			relay_messages(
+			relay_messages(MessagesRelayParams {
 				source_client,
 				source_sign,
 				target_client,
 				target_sign,
-				self.lane.into(),
-				self.prometheus_params.into(),
-			)
+				source_to_target_headers_relay: None,
+				target_to_source_headers_relay: None,
+				lane_id: self.lane.into(),
+				metrics_params: self.prometheus_params.into(),
+			})
 			.await
 			.map_err(|e| anyhow::format_err!("{}", e))
 		})

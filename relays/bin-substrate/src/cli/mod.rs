@@ -33,6 +33,7 @@ pub(crate) mod send_message;
 mod derive_account;
 mod init_bridge;
 mod relay_headers;
+mod relay_headers_and_messages;
 mod relay_messages;
 
 /// Parse relay CLI args.
@@ -54,6 +55,13 @@ pub enum Command {
 	/// Ties up to `Messages` pallets on both chains and starts relaying messages.
 	/// Requires the header relay to be already running.
 	RelayMessages(relay_messages::RelayMessages),
+	/// Start headers and messages relay between two Substrate chains.
+	///
+	/// This high-level relay internally starts four low-level relays: two `RelayHeaders`
+	/// and two `RelayMessages` relays. Headers are only relayed when they are required by
+	/// the message relays - i.e. when there are messages or confirmations that needs to be
+	/// relayed between chains.
+	RelayHeadersAndMessages(relay_headers_and_messages::RelayHeadersAndMessages),
 	/// Initialize on-chain bridge pallet with current header data.
 	///
 	/// Sends initialization transaction to bootstrap the bridge with current finalized block data.
@@ -86,6 +94,7 @@ impl Command {
 		match self {
 			Self::RelayHeaders(arg) => arg.run().await?,
 			Self::RelayMessages(arg) => arg.run().await?,
+			Self::RelayHeadersAndMessages(arg) => arg.run().await?,
 			Self::InitBridge(arg) => arg.run().await?,
 			Self::SendMessage(arg) => arg.run().await?,
 			Self::EncodeCall(arg) => arg.run().await?,

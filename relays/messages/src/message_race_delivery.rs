@@ -166,8 +166,8 @@ where
 	type Error = C::Error;
 	type TargetNoncesData = DeliveryRaceTargetNoncesData;
 
-	async fn require_more_source_headers(&self, activate: bool) {
-		self.client.activate_source_to_target_headers_relay(activate).await
+	async fn require_source_header(&self, id: SourceHeaderIdOf<P>) {
+		self.client.require_source_header_on_target(id).await
 	}
 
 	async fn nonces(
@@ -289,6 +289,10 @@ impl<P: MessageLane> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::M
 
 	fn is_empty(&self) -> bool {
 		self.strategy.is_empty()
+	}
+
+	fn required_source_header_at_target(&self, current_best: &SourceHeaderIdOf<P>) -> Option<SourceHeaderIdOf<P>> {
+		self.strategy.required_source_header_at_target(current_best)
 	}
 
 	fn best_at_source(&self) -> Option<MessageNonce> {
