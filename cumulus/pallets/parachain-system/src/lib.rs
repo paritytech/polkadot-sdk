@@ -336,9 +336,14 @@ decl_module! {
 				maximum_channels,
 			);
 
-			// Note conversion to the OutboundHrmpMessage isn't needed since the data that
+			// Note conversion to the `OutboundHrmpMessage` isn't needed since the data that
 			// `take_outbound_messages` returns encodes equivalently.
-			// If the following code breaks, then we'll need to revisit that assumption.
+			//
+			// The following code is a smoke test to check that the `OutboundHrmpMessage` type
+			// doesn't accidentally change (e.g. by having a field added to it). If the following
+			// line breaks, then we'll need to revisit the assumption that the result of
+			// `take_outbound_messages` can be placed into `HRMP_OUTBOUND_MESSAGES` directly without
+			// a decode/encode round-trip.
 			let _ = OutboundHrmpMessage { recipient: ParaId::from(0), data: vec![] };
 
 			storage::unhashed::put(well_known_keys::HRMP_OUTBOUND_MESSAGES, &outbound_messages);

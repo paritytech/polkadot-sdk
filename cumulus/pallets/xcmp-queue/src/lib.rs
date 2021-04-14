@@ -406,6 +406,31 @@ impl<T: Config> Module<T> {
 
 	/// Service the incoming XCMP message queue attempting to execute up to `max_weight` execution
 	/// weight of messages.
+	///
+	/// Channels are first shuffled and then processed in this random one page at a time, order over
+	/// and over until either `max_weight` is exhausted or no channel has messages that can be
+	/// processed any more.
+	///
+	/// There are two obvious "modes" that we could apportion `max_weight`: one would be to attempt
+	/// to spend it all on the first channel's first page, then use the leftover (if any) for the
+	/// second channel's first page and so on until finally we cycle back and the process messages
+	/// on the first channel's second page &c. The other mode would be to apportion only `1/N` of
+	/// `max_weight` for the first page (where `N` could be, perhaps, the number of channels to
+	/// service, using the remainder plus the next `1/N` for the next channel's page &c.
+	///
+	/// Both modes have good qualities, the first ensures that a channel with a large message (over
+	/// `1/N` does not get indefinitely blocked if other channels have continuous, light traffic.
+	/// The second is fairer, and ensures that channels with continuous light messages don't suffer
+	/// high latency.
+	///
+	/// The following code is a hybrid solution; we have a concept of `weight_available` which
+	/// incrementally approaches `max_weight` as more channels are attempted to be processed. We use
+	/// the parameter `weight_restrict_decay` to control the speed with which `weight_available`
+	/// approaches `max_weight`, with `0` being strictly equivalent to the first aforementioned
+	/// mode, and `N` approximating the second. A reasonable parameter may be `1`, which makes
+	/// half of the `max_weight` available for the first page, then a quarter plus the remainder
+	/// for the second &c. though empirical and or practical factors may give rise to adjusting it
+	/// further.
 	fn service_xcmp_queue(max_weight: Weight) -> Weight {
 		let mut status = InboundXcmpStatus::get(); // <- sorted.
 		if status.len() == 0 {
@@ -441,7 +466,7 @@ impl<T: Config> Module<T> {
 				// first round. For the second round we unlock all weight. If we come close enough
 				// on the first round to unlocking everything, then we do so.
 				if shuffle_index < status.len() {
-					weight_available += (max_weight - weight_available) / weight_restrict_decay;
+					weight_available += (max_weight - weight_available) / (weight_restrict_decay + 1);
 					if weight_available + threshold_weight > max_weight {
 						weight_available = max_weight;
 					}
