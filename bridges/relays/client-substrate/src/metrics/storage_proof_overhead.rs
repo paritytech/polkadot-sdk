@@ -19,12 +19,10 @@ use crate::client::Client;
 use crate::error::Error;
 
 use async_trait::async_trait;
-use bp_messages::LaneId;
-use bp_runtime::InstanceId;
 use relay_utils::metrics::{register, Gauge, Metrics, Registry, StandaloneMetrics, U64};
 use sp_core::storage::StorageKey;
 use sp_runtime::traits::Header as HeaderT;
-use sp_trie::StorageProof;
+use sp_storage::well_known_keys::CODE;
 use std::time::Duration;
 
 /// Storage proof overhead update interval (in blocks).
@@ -32,20 +30,11 @@ const UPDATE_INTERVAL_IN_BLOCKS: u32 = 100;
 
 /// Metric that represents extra size of storage proof as unsigned integer gauge.
 ///
-/// Regular Substrate node does not provide any RPC endpoints that return storage proofs.
-/// So here we're using our own `pallet-bridge-messages-rpc` RPC API, which returns proof
-/// of the inbound message lane state. Then we simply subtract size of this state from
-/// the size of storage proof to compute metric value.
-///
-/// There are two things to keep in mind when using this metric:
-///
-/// 1) it'll only work on inbound lanes that have already accepted at least one message;
-/// 2) the overhead may be slightly different for other values, but this metric gives a good estimation.
+/// There's one thing to keep in mind when using this metric: the overhead may be slightly
+/// different for other values, but this metric gives a good estimation.
 #[derive(Debug)]
 pub struct StorageProofOverheadMetric<C: Chain> {
 	client: Client<C>,
-	inbound_lane: (InstanceId, LaneId),
-	inbound_lane_data_key: StorageKey,
 	metric: Gauge<U64>,
 }
 
@@ -53,8 +42,6 @@ impl<C: Chain> Clone for StorageProofOverheadMetric<C> {
 	fn clone(&self) -> Self {
 		StorageProofOverheadMetric {
 			client: self.client.clone(),
-			inbound_lane: self.inbound_lane,
-			inbound_lane_data_key: self.inbound_lane_data_key.clone(),
 			metric: self.metric.clone(),
 		}
 	}
@@ -62,17 +49,9 @@ impl<C: Chain> Clone for StorageProofOverheadMetric<C> {
 
 impl<C: Chain> StorageProofOverheadMetric<C> {
 	/// Create new metric instance with given name and help.
-	pub fn new(
-		client: Client<C>,
-		inbound_lane: (InstanceId, LaneId),
-		inbound_lane_data_key: StorageKey,
-		name: String,
-		help: String,
-	) -> Self {
+	pub fn new(client: Client<C>, name: String, help: String) -> Self {
 		StorageProofOverheadMetric {
 			client,
-			inbound_lane,
-			inbound_lane_data_key,
 			metric: Gauge::new(name, help).expect(
 				"only fails if gauge options are customized;\
 					we use default options;\
@@ -82,32 +61,27 @@ impl<C: Chain> StorageProofOverheadMetric<C> {
 	}
 
 	/// Returns approximate storage proof size overhead.
-	///
-	/// Returs `Ok(None)` if inbound lane we're watching for has no state. This shouldn't be treated as error.
-	async fn compute_storage_proof_overhead(&self) -> Result<Option<usize>, Error> {
+	async fn compute_storage_proof_overhead(&self) -> Result<usize, Error> {
 		let best_header_hash = self.client.best_finalized_header_hash().await?;
 		let best_header = self.client.header_by_hash(best_header_hash).await?;
 
 		let storage_proof = self
 			.client
-			.prove_messages_delivery(self.inbound_lane.0, self.inbound_lane.1, best_header_hash)
+			.prove_storage(vec![StorageKey(CODE.to_vec())], best_header_hash)
 			.await?;
-		let storage_proof_size: usize = storage_proof.iter().map(|n| n.len()).sum();
+		let storage_proof_size: usize = storage_proof.clone().iter_nodes().map(|n| n.len()).sum();
 
-		let storage_value_reader = bp_runtime::StorageProofChecker::<C::Hasher>::new(
-			*best_header.state_root(),
-			StorageProof::new(storage_proof),
-		)
-		.map_err(Error::StorageProofError)?;
+		let storage_value_reader =
+			bp_runtime::StorageProofChecker::<C::Hasher>::new(*best_header.state_root(), storage_proof)
+				.map_err(Error::StorageProofError)?;
 		let maybe_encoded_storage_value = storage_value_reader
-			.read_value(&self.inbound_lane_data_key.0)
+			.read_value(CODE)
 			.map_err(Error::StorageProofError)?;
-		let encoded_storage_value_size = match maybe_encoded_storage_value {
-			Some(encoded_storage_value) => encoded_storage_value.len(),
-			None => return Ok(None),
-		};
+		let encoded_storage_value_size = maybe_encoded_storage_value
+			.ok_or(Error::MissingMandatoryCodeEntry)?
+			.len();
 
-		Ok(Some(storage_proof_size - encoded_storage_value_size))
+		Ok(storage_proof_size - encoded_storage_value_size)
 	}
 }
 
@@ -129,7 +103,7 @@ impl<C: Chain> StandaloneMetrics for StorageProofOverheadMetric<C> {
 			&self.metric,
 			self.compute_storage_proof_overhead()
 				.await
-				.map(|v| v.map(|overhead| overhead as u64)),
+				.map(|overhead| Some(overhead as u64)),
 		);
 	}
 }

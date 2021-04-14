@@ -351,7 +351,10 @@ parameter_types! {
 	pub const RootAccountForPayments: Option<AccountId> = None;
 }
 
-impl pallet_bridge_messages::Config for Runtime {
+/// Instance of the messages pallet used to relay messages to/from Rialto chain.
+pub type WithRialtoMessagesInstance = pallet_bridge_messages::DefaultInstance;
+
+impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type Event = Event;
 	// TODO: https://github.com/paritytech/parity-bridges-common/issues/390
 	type WeightInfo = pallet_bridge_messages::weights::RialtoWeight<Runtime>;

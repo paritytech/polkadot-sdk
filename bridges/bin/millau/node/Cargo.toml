@@ -20,7 +20,6 @@ bp-millau= { path = "../../../primitives/chain-millau" }
 bp-runtime = { path = "../../../primitives/runtime" }
 millau-runtime = { path = "../runtime" }
 pallet-bridge-messages = { path = "../../../modules/messages" }
-pallet-bridge-messages-rpc = { path = "../../../modules/messages/rpc" }
 
 # Substrate Dependencies
 

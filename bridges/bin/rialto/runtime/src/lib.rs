@@ -443,8 +443,10 @@ parameter_types! {
 	pub const RootAccountForPayments: Option<AccountId> = None;
 }
 
-pub(crate) type WithMillauMessagesInstance = pallet_bridge_messages::DefaultInstance;
-impl pallet_bridge_messages::Config for Runtime {
+/// Instance of the messages pallet used to relay messages to/from Millau chain.
+pub type WithMillauMessagesInstance = pallet_bridge_messages::DefaultInstance;
+
+impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 	type Event = Event;
 	type WeightInfo = pallet_bridge_messages::weights::RialtoWeight<Runtime>;
 	type Parameter = millau_messages::RialtoToMillauMessagesParameter;
