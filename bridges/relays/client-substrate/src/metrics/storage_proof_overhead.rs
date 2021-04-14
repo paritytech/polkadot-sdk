@@ -19,7 +19,7 @@ use crate::client::Client;
 use crate::error::Error;
 
 use async_trait::async_trait;
-use relay_utils::metrics::{register, Gauge, Metrics, Registry, StandaloneMetrics, U64};
+use relay_utils::metrics::{metric_name, register, Gauge, PrometheusError, Registry, StandaloneMetrics, U64};
 use sp_core::storage::StorageKey;
 use sp_runtime::traits::Header as HeaderT;
 use sp_storage::well_known_keys::CODE;
@@ -49,15 +49,17 @@ impl<C: Chain> Clone for StorageProofOverheadMetric<C> {
 
 impl<C: Chain> StorageProofOverheadMetric<C> {
 	/// Create new metric instance with given name and help.
-	pub fn new(client: Client<C>, name: String, help: String) -> Self {
-		StorageProofOverheadMetric {
+	pub fn new(
+		registry: &Registry,
+		prefix: Option<&str>,
+		client: Client<C>,
+		name: String,
+		help: String,
+	) -> Result<Self, PrometheusError> {
+		Ok(StorageProofOverheadMetric {
 			client,
-			metric: Gauge::new(name, help).expect(
-				"only fails if gauge options are customized;\
-					we use default options;\
-					qed",
-			),
-		}
+			metric: register(Gauge::new(metric_name(prefix, &name), help)?, registry)?,
+		})
 	}
 
 	/// Returns approximate storage proof size overhead.
@@ -82,13 +84,6 @@ impl<C: Chain> StorageProofOverheadMetric<C> {
 			.len();
 
 		Ok(storage_proof_size - encoded_storage_value_size)
-	}
-}
-
-impl<C: Chain> Metrics for StorageProofOverheadMetric<C> {
-	fn register(&self, registry: &Registry) -> Result<(), String> {
-		register(self.metric.clone(), registry).map_err(|e| e.to_string())?;
-		Ok(())
 	}
 }
 
