@@ -126,10 +126,20 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 }
 
 /// Rialto node as messages source.
-type RialtoSourceClient = SubstrateMessagesSource<Rialto, RialtoMessagesToMillau>;
+type RialtoSourceClient = SubstrateMessagesSource<
+	Rialto,
+	RialtoMessagesToMillau,
+	rialto_runtime::Runtime,
+	rialto_runtime::WithMillauMessagesInstance,
+>;
 
 /// Millau node as messages target.
-type MillauTargetClient = SubstrateMessagesTarget<Millau, RialtoMessagesToMillau>;
+type MillauTargetClient = SubstrateMessagesTarget<
+	Millau,
+	RialtoMessagesToMillau,
+	millau_runtime::Runtime,
+	millau_runtime::WithRialtoMessagesInstance,
+>;
 
 /// Run Rialto-to-Millau messages sync.
 pub async fn run(
@@ -195,8 +205,6 @@ pub async fn run(
 		)
 		.standalone_metric(StorageProofOverheadMetric::new(
 			rialto_client.clone(),
-			(bp_runtime::MILLAU_BRIDGE_INSTANCE, lane_id),
-			rialto_runtime::millau_messages::inbound_lane_data_key(&lane_id),
 			"rialto_storage_proof_overhead".into(),
 			"Rialto storage proof overhead".into(),
 		))?

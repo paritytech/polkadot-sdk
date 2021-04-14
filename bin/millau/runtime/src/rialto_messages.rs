@@ -24,14 +24,13 @@ use bp_messages::{
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
 };
 use bp_runtime::{InstanceId, RIALTO_BRIDGE_INSTANCE};
-use bridge_runtime_common::messages::{self, ChainWithMessages, MessageBridge, MessageTransaction};
+use bridge_runtime_common::messages::{self, MessageBridge, MessageTransaction};
 use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
 	weights::{DispatchClass, Weight},
 	RuntimeDebug,
 };
-use sp_core::storage::StorageKey;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
@@ -41,28 +40,6 @@ pub const INITIAL_RIALTO_TO_MILLAU_CONVERSION_RATE: FixedU128 = FixedU128::from_
 parameter_types! {
 	/// Rialto to Millau conversion rate. Initially we treat both tokens as equal.
 	pub storage RialtoToMillauConversionRate: FixedU128 = INITIAL_RIALTO_TO_MILLAU_CONVERSION_RATE;
-}
-
-/// Storage key of the Millau -> Rialto message in the runtime storage.
-pub fn message_key(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
-	pallet_bridge_messages::storage_keys::message_key::<Runtime, <Millau as ChainWithMessages>::MessagesInstance>(
-		lane, nonce,
-	)
-}
-
-/// Storage key of the Millau -> Rialto message lane state in the runtime storage.
-pub fn outbound_lane_data_key(lane: &LaneId) -> StorageKey {
-	pallet_bridge_messages::storage_keys::outbound_lane_data_key::<<Millau as ChainWithMessages>::MessagesInstance>(
-		lane,
-	)
-}
-
-/// Storage key of the Rialto -> Millau message lane state in the runtime storage.
-pub fn inbound_lane_data_key(lane: &LaneId) -> StorageKey {
-	pallet_bridge_messages::storage_keys::inbound_lane_data_key::<
-		Runtime,
-		<Millau as ChainWithMessages>::MessagesInstance,
-	>(lane)
 }
 
 /// Message payload for Millau -> Rialto messages.
@@ -120,7 +97,7 @@ impl messages::ChainWithMessages for Millau {
 	type Weight = Weight;
 	type Balance = bp_millau::Balance;
 
-	type MessagesInstance = pallet_bridge_messages::DefaultInstance;
+	type MessagesInstance = crate::WithRialtoMessagesInstance;
 }
 
 impl messages::ThisChainWithMessages for Millau {
