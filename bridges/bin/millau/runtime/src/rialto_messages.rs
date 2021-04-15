@@ -104,7 +104,7 @@ impl messages::ThisChainWithMessages for Millau {
 	type Call = crate::Call;
 
 	fn is_outbound_lane_enabled(lane: &LaneId) -> bool {
-		*lane == LaneId::default()
+		*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1]
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
