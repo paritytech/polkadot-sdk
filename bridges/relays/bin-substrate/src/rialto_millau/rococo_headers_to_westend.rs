@@ -14,48 +14,46 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Westend-to-Millau headers sync entrypoint.
+//! Rococo-to-Westend headers sync entrypoint.
 
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
 use bp_header_chain::justification::GrandpaJustification;
 use codec::Encode;
-use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
+use relay_rococo_client::{Rococo, SyncHeader as RococoSyncHeader};
 use relay_substrate_client::{Chain, TransactionSignScheme};
 use relay_utils::metrics::MetricsParams;
-use relay_westend_client::{SyncHeader as WestendSyncHeader, Westend};
+use relay_westend_client::{SigningParams as WestendSigningParams, Westend};
 use sp_core::{Bytes, Pair};
 
-/// Westend-to-Millau finality sync pipeline.
-pub(crate) type WestendFinalityToMillau = SubstrateFinalityToSubstrate<Westend, Millau, MillauSigningParams>;
+/// Rococo-to-Westend finality sync pipeline.
+pub(crate) type RococoFinalityToWestend = SubstrateFinalityToSubstrate<Rococo, Westend, WestendSigningParams>;
 
-impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
+impl SubstrateFinalitySyncPipeline for RococoFinalityToWestend {
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rococo::BEST_FINALIZED_ROCOCO_HEADER_METHOD;
 
-	type TargetChain = Millau;
+	type TargetChain = Westend;
 
 	fn customize_metrics(params: MetricsParams) -> anyhow::Result<MetricsParams> {
 		crate::rialto_millau::add_polkadot_kusama_price_metrics::<Self>(params)
 	}
 
-	fn transactions_author(&self) -> bp_millau::AccountId {
+	fn transactions_author(&self) -> bp_westend::AccountId {
 		(*self.target_sign.public().as_array_ref()).into()
 	}
 
 	fn make_submit_finality_proof_transaction(
 		&self,
-		transaction_nonce: <Millau as Chain>::Index,
-		header: WestendSyncHeader,
-		proof: GrandpaJustification<bp_westend::Header>,
+		transaction_nonce: <Westend as Chain>::Index,
+		header: RococoSyncHeader,
+		proof: GrandpaJustification<bp_rococo::Header>,
 	) -> Bytes {
-		let call = millau_runtime::BridgeGrandpaWestendCall::<
-			millau_runtime::Runtime,
-			millau_runtime::WestendGrandpaInstance,
-		>::submit_finality_proof(header.into_inner(), proof)
-		.into();
-
+		let call = bp_westend::Call::BridgeGrandpaRococo(bp_westend::BridgeGrandpaRococoCall::submit_finality_proof(
+			header.into_inner(),
+			proof,
+		));
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
+		let transaction = Westend::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
 
 		Bytes(transaction.encode())
 	}
