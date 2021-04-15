@@ -212,16 +212,19 @@ fn signed_precommit<H: HeaderT>(
 ///
 /// The correct parent hash will be used if given a non-zero header.
 pub fn test_header<H: HeaderT>(number: H::Number) -> H {
-	let mut header = H::new(
-		number,
-		Default::default(),
-		Default::default(),
-		Default::default(),
-		Default::default(),
-	);
+	let default = |num| {
+		H::new(
+			num,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		)
+	};
 
+	let mut header = default(number);
 	if number != Zero::zero() {
-		let parent_hash = test_header::<H>(number - One::one()).hash();
+		let parent_hash = default(number - One::one()).hash();
 		header.set_parent_hash(parent_hash);
 	}
 
