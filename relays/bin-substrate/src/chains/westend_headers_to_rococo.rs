@@ -14,46 +14,46 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Rococo-to-Westend headers sync entrypoint.
+//! Westend-to-Rococo headers sync entrypoint.
 
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
 use bp_header_chain::justification::GrandpaJustification;
 use codec::Encode;
-use relay_rococo_client::{Rococo, SyncHeader as RococoSyncHeader};
+use relay_rococo_client::{Rococo, SigningParams as RococoSigningParams};
 use relay_substrate_client::{Chain, TransactionSignScheme};
 use relay_utils::metrics::MetricsParams;
-use relay_westend_client::{SigningParams as WestendSigningParams, Westend};
+use relay_westend_client::{SyncHeader as WestendSyncHeader, Westend};
 use sp_core::{Bytes, Pair};
 
-/// Rococo-to-Westend finality sync pipeline.
-pub(crate) type RococoFinalityToWestend = SubstrateFinalityToSubstrate<Rococo, Westend, WestendSigningParams>;
+/// Westend-to-Rococo finality sync pipeline.
+pub(crate) type WestendFinalityToRococo = SubstrateFinalityToSubstrate<Westend, Rococo, RococoSigningParams>;
 
-impl SubstrateFinalitySyncPipeline for RococoFinalityToWestend {
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rococo::BEST_FINALIZED_ROCOCO_HEADER_METHOD;
+impl SubstrateFinalitySyncPipeline for WestendFinalityToRococo {
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
 
-	type TargetChain = Westend;
+	type TargetChain = Rococo;
 
 	fn customize_metrics(params: MetricsParams) -> anyhow::Result<MetricsParams> {
-		crate::rialto_millau::add_polkadot_kusama_price_metrics::<Self>(params)
+		crate::chains::add_polkadot_kusama_price_metrics::<Self>(params)
 	}
 
-	fn transactions_author(&self) -> bp_westend::AccountId {
+	fn transactions_author(&self) -> bp_rococo::AccountId {
 		(*self.target_sign.public().as_array_ref()).into()
 	}
 
 	fn make_submit_finality_proof_transaction(
 		&self,
-		transaction_nonce: <Westend as Chain>::Index,
-		header: RococoSyncHeader,
-		proof: GrandpaJustification<bp_rococo::Header>,
+		transaction_nonce: <Rococo as Chain>::Index,
+		header: WestendSyncHeader,
+		proof: GrandpaJustification<bp_westend::Header>,
 	) -> Bytes {
-		let call = bp_westend::Call::BridgeGrandpaRococo(bp_westend::BridgeGrandpaRococoCall::submit_finality_proof(
+		let call = bp_rococo::Call::BridgeGrandpaWestend(bp_rococo::BridgeGrandpaWestendCall::submit_finality_proof(
 			header.into_inner(),
 			proof,
 		));
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Westend::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
+		let transaction = Rococo::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
 
 		Bytes(transaction.encode())
 	}
