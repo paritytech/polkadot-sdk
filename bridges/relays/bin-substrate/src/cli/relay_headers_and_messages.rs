@@ -90,14 +90,14 @@ macro_rules! select_bridge {
 				type Left = relay_millau_client::Millau;
 				type Right = relay_rialto_client::Rialto;
 
-				type LeftToRightFinality = crate::rialto_millau::millau_headers_to_rialto::MillauFinalityToRialto;
-				type RightToLeftFinality = crate::rialto_millau::rialto_headers_to_millau::RialtoFinalityToMillau;
+				type LeftToRightFinality = crate::chains::millau_headers_to_rialto::MillauFinalityToRialto;
+				type RightToLeftFinality = crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
 
-				type LeftToRightMessages = crate::rialto_millau::millau_messages_to_rialto::MillauMessagesToRialto;
-				type RightToLeftMessages = crate::rialto_millau::rialto_messages_to_millau::RialtoMessagesToMillau;
+				type LeftToRightMessages = crate::chains::millau_messages_to_rialto::MillauMessagesToRialto;
+				type RightToLeftMessages = crate::chains::rialto_messages_to_millau::RialtoMessagesToMillau;
 
-				use crate::rialto_millau::millau_messages_to_rialto::run as left_to_right_messages;
-				use crate::rialto_millau::rialto_messages_to_millau::run as right_to_left_messages;
+				use crate::chains::millau_messages_to_rialto::run as left_to_right_messages;
+				use crate::chains::rialto_messages_to_millau::run as right_to_left_messages;
 
 				$generic
 			}

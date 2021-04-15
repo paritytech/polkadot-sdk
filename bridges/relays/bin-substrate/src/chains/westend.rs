@@ -14,28 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Substrate-to-substrate relay entrypoint.
+//! Westend chain specification for CLI.
 
-#![warn(missing_docs)]
+use crate::cli::{encode_message, CliChain};
+use frame_support::weights::Weight;
+use relay_westend_client::Westend;
+use sp_version::RuntimeVersion;
 
-use relay_utils::initialize::initialize_logger;
+impl CliChain for Westend {
+	const RUNTIME_VERSION: RuntimeVersion = bp_westend::VERSION;
 
-mod chains;
-mod cli;
-mod finality_pipeline;
-mod finality_target;
-mod headers_initialize;
-mod messages_lane;
-mod messages_source;
-mod messages_target;
-mod on_demand_headers;
+	type KeyPair = sp_core::sr25519::Pair;
+	type MessagePayload = ();
 
-fn main() {
-	initialize_logger(false);
-	let command = cli::parse_args();
-	let run = command.run();
-	let result = async_std::task::block_on(run);
-	if let Err(error) = result {
-		log::error!(target: "bridge", "Failed to start relay: {}", error);
+	fn ss58_format() -> u16 {
+		42
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		0
+	}
+
+	fn encode_message(_message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
+		Err("Sending messages from Westend is not yet supported.".into())
 	}
 }

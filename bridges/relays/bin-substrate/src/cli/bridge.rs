@@ -57,7 +57,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::rialto_millau::millau_messages_to_rialto::run as relay_messages;
+				use crate::chains::millau_messages_to_rialto::run as relay_messages;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -79,7 +79,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::rialto_millau::rialto_messages_to_millau::run as relay_messages;
+				use crate::chains::rialto_messages_to_millau::run as relay_messages;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
