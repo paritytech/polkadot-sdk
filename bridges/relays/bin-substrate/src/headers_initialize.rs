@@ -21,6 +21,7 @@
 //! and authorities set from source to target chain. The headers sync starts
 //! with this header.
 
+use bp_header_chain::InitializationData;
 use bp_header_chain::{
 	find_grandpa_authorities_scheduled_change,
 	justification::{verify_justification, GrandpaJustification},
@@ -28,7 +29,6 @@ use bp_header_chain::{
 use codec::Decode;
 use finality_grandpa::voter_set::VoterSet;
 use num_traits::{One, Zero};
-use pallet_bridge_grandpa::InitializationData;
 use relay_substrate_client::{Chain, Client};
 use sp_core::Bytes;
 use sp_finality_grandpa::AuthorityList as GrandpaAuthoritiesSet;
