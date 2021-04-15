@@ -39,16 +39,13 @@
 use crate::weights::WeightInfo;
 
 use bp_header_chain::justification::GrandpaJustification;
+use bp_header_chain::InitializationData;
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
-use codec::{Decode, Encode};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::ensure;
 use frame_system::{ensure_signed, RawOrigin};
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, Zero};
-use sp_runtime::RuntimeDebug;
 
 #[cfg(test)]
 mod mock;
@@ -509,22 +506,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Ok(parse(storage_proof_checker))
 	}
-}
-
-/// Data required for initializing the bridge pallet.
-///
-/// The bridge needs to know where to start its sync from, and this provides that initial context.
-#[derive(Default, Encode, Decode, RuntimeDebug, PartialEq, Clone)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct InitializationData<H: HeaderT> {
-	/// The header from which we should start syncing.
-	pub header: H,
-	/// The initial authorities of the pallet.
-	pub authority_list: sp_finality_grandpa::AuthorityList,
-	/// The ID of the initial authority set.
-	pub set_id: sp_finality_grandpa::SetId,
-	/// Should the pallet block transaction immediately after initialization.
-	pub is_halted: bool,
 }
 
 pub(crate) fn find_scheduled_change<H: HeaderT>(header: &H) -> Option<sp_finality_grandpa::ScheduledChange<H::Number>> {

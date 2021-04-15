@@ -21,6 +21,7 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
+use bp_runtime::Chain;
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
@@ -41,9 +42,33 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 6,
 };
 
+/// Rococo Runtime `Call` enum.
+///
+/// The enum represents a subset of possible `Call`s we can send to Rococo chain.
+/// Ideally this code would be auto-generated from Metadata, because we want to
+/// avoid depending directly on the ENTIRE runtime just to get the encoding of `Dispatchable`s.
+///
+/// All entries here (like pretty much in the entire file) must be kept in sync with Rococo
+/// `construct_runtime`, so that we maintain SCALE-compatibility.
+///
+/// See: https://github.com/paritytech/polkadot/blob/master/runtime/rococo/src/lib.rs
 #[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
 pub enum Call {
-	MockPallet,
+	/// Westend bridge pallet.
+	#[codec(index = 40)]
+	BridgeGrandpaWestend(BridgeGrandpaWestendCall),
+}
+
+#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
+#[allow(non_camel_case_types)]
+pub enum BridgeGrandpaWestendCall {
+	#[codec(index = 0)]
+	submit_finality_proof(
+		<PolkadotLike as Chain>::Header,
+		bp_header_chain::justification::GrandpaJustification<<PolkadotLike as Chain>::Header>,
+	),
+	#[codec(index = 1)]
+	initialize(bp_header_chain::InitializationData<<PolkadotLike as Chain>::Header>),
 }
 
 impl sp_runtime::traits::Dispatchable for Call {

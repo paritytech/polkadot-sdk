@@ -55,6 +55,22 @@ impl AuthoritySet {
 	}
 }
 
+/// Data required for initializing the bridge pallet.
+///
+/// The bridge needs to know where to start its sync from, and this provides that initial context.
+#[derive(Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct InitializationData<H: HeaderT> {
+	/// The header from which we should start syncing.
+	pub header: H,
+	/// The initial authorities of the pallet.
+	pub authority_list: AuthorityList,
+	/// The ID of the initial authority set.
+	pub set_id: SetId,
+	/// Should the pallet block transaction immediately after initialization.
+	pub is_halted: bool,
+}
+
 /// base trait for verifying transaction inclusion proofs.
 pub trait InclusionProofVerifier {
 	/// Transaction type.
