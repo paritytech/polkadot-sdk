@@ -259,6 +259,7 @@ mod rococo_tests {
 			extrinsics_root: Default::default(),
 			digest: sp_runtime::generic::Digest { logs: vec![] },
 		};
+
 		let justification = GrandpaJustification {
 			round: 0,
 			commit: finality_grandpa::Commit {
@@ -268,6 +269,7 @@ mod rococo_tests {
 			},
 			votes_ancestries: vec![],
 		};
+
 		let actual = bp_rococo::BridgeGrandpaWestendCall::submit_finality_proof(header.clone(), justification.clone());
 		let expected = millau_runtime::BridgeGrandpaRialtoCall::<millau_runtime::Runtime>::submit_finality_proof(
 			header,
@@ -281,7 +283,7 @@ mod rococo_tests {
 		// then
 		assert_eq!(
 			actual_encoded, expected_encoded,
-			"Encoding difference. Raw: {:?} vs {:?}",
+			"\n\nEncoding difference.\nGot {:#?} \nExpected: {:#?}",
 			actual, expected
 		);
 	}
@@ -302,6 +304,7 @@ mod westend_tests {
 			extrinsics_root: Default::default(),
 			digest: sp_runtime::generic::Digest { logs: vec![] },
 		};
+
 		let justification = GrandpaJustification {
 			round: 0,
 			commit: finality_grandpa::Commit {
@@ -311,6 +314,7 @@ mod westend_tests {
 			},
 			votes_ancestries: vec![],
 		};
+
 		let actual = bp_westend::BridgeGrandpaRococoCall::submit_finality_proof(header.clone(), justification.clone());
 		let expected = millau_runtime::BridgeGrandpaRialtoCall::<millau_runtime::Runtime>::submit_finality_proof(
 			header,
@@ -324,7 +328,7 @@ mod westend_tests {
 		// then
 		assert_eq!(
 			actual_encoded, expected_encoded,
-			"Encoding difference. Raw: {:?} vs {:?}",
+			"\n\nEncoding difference.\nGot {:#?} \nExpected: {:#?}",
 			actual, expected
 		);
 	}
