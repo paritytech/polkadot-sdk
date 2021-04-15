@@ -45,6 +45,7 @@ use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 /// Spec version type.
 pub type SpecVersion = u32;
 
+// TODO [#895] move to primitives
 /// Origin of a Call when it is dispatched on the target chain.
 ///
 /// The source chain can (and should) verify that the message can be dispatched on the target chain
@@ -89,6 +90,7 @@ pub enum CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainS
 	SourceAccount(SourceChainAccountId),
 }
 
+// TODO [#895] move to primitives
 /// Message payload type used by dispatch module.
 #[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq)]
 pub struct MessagePayload<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature, Call> {

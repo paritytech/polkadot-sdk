@@ -373,6 +373,7 @@ macro_rules! declare_chain_options {
 				/// Parse signing params into chain-specific KeyPair.
 				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Chain::KeyPair> {
 					use sp_core::crypto::Pair;
+
 					Chain::KeyPair::from_string(
 						&self.[<$chain_prefix _signer>],
 						self.[<$chain_prefix _signer_password>].as_deref()

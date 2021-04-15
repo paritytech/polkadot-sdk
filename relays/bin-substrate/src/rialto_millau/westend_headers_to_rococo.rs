@@ -14,48 +14,46 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Westend-to-Millau headers sync entrypoint.
+//! Westend-to-Rococo headers sync entrypoint.
 
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
 use bp_header_chain::justification::GrandpaJustification;
 use codec::Encode;
-use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
+use relay_rococo_client::{Rococo, SigningParams as RococoSigningParams};
 use relay_substrate_client::{Chain, TransactionSignScheme};
 use relay_utils::metrics::MetricsParams;
 use relay_westend_client::{SyncHeader as WestendSyncHeader, Westend};
 use sp_core::{Bytes, Pair};
 
-/// Westend-to-Millau finality sync pipeline.
-pub(crate) type WestendFinalityToMillau = SubstrateFinalityToSubstrate<Westend, Millau, MillauSigningParams>;
+/// Westend-to-Rococo finality sync pipeline.
+pub(crate) type WestendFinalityToRococo = SubstrateFinalityToSubstrate<Westend, Rococo, RococoSigningParams>;
 
-impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
+impl SubstrateFinalitySyncPipeline for WestendFinalityToRococo {
 	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
 
-	type TargetChain = Millau;
+	type TargetChain = Rococo;
 
 	fn customize_metrics(params: MetricsParams) -> anyhow::Result<MetricsParams> {
 		crate::rialto_millau::add_polkadot_kusama_price_metrics::<Self>(params)
 	}
 
-	fn transactions_author(&self) -> bp_millau::AccountId {
+	fn transactions_author(&self) -> bp_rococo::AccountId {
 		(*self.target_sign.public().as_array_ref()).into()
 	}
 
 	fn make_submit_finality_proof_transaction(
 		&self,
-		transaction_nonce: <Millau as Chain>::Index,
+		transaction_nonce: <Rococo as Chain>::Index,
 		header: WestendSyncHeader,
 		proof: GrandpaJustification<bp_westend::Header>,
 	) -> Bytes {
-		let call = millau_runtime::BridgeGrandpaWestendCall::<
-			millau_runtime::Runtime,
-			millau_runtime::WestendGrandpaInstance,
-		>::submit_finality_proof(header.into_inner(), proof)
-		.into();
-
+		let call = bp_rococo::Call::BridgeGrandpaWestend(bp_rococo::BridgeGrandpaWestendCall::submit_finality_proof(
+			header.into_inner(),
+			proof,
+		));
 		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
+		let transaction = Rococo::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
 
 		Bytes(transaction.encode())
 	}
