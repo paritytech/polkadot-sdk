@@ -18,6 +18,7 @@ members = [
 	"rococo-parachains/runtime",
 	"rococo-parachains/shell-runtime",
 	"test/runtime",
+	"test/runtime-upgrade",
 	"test/client",
 	"test/service",
 	"test/relay-sproof-builder",

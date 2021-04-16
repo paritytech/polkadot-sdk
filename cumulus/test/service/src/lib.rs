@@ -41,13 +41,21 @@ use sc_service::{
 	BasePath, ChainSpec, Configuration, Error as ServiceError, PartialComponents, Role,
 	RpcHandlers, TFullBackend, TFullClient, TaskExecutor, TaskManager,
 };
+use sp_arithmetic::traits::SaturatedConversion;
+use sp_blockchain::HeaderBackend;
 use sp_core::{Pair, H256};
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::{
+	codec::Encode,
+	generic,
+	traits::BlakeTwo256
+};
 use sp_state_machine::BasicExternalities;
 use sp_trie::PrefixedMemoryDB;
 use std::sync::Arc;
-use substrate_test_client::BlockchainEventsExt;
+use substrate_test_client::{
+	BlockchainEventsExt, RpcHandlersExt, RpcTransactionError, RpcTransactionOutput,
+};
 
 pub use chain_spec::*;
 pub use cumulus_test_runtime as runtime;
@@ -61,6 +69,9 @@ native_executor_instance!(
 	cumulus_test_runtime::native_version,
 );
 
+/// The client type being used by the test service.
+pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, RuntimeExecutor>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -69,11 +80,11 @@ pub fn new_partial(
 	config: &mut Configuration,
 ) -> Result<
 	PartialComponents<
-		TFullClient<Block, RuntimeApi, RuntimeExecutor>,
+		Client,
 		TFullBackend<Block>,
 		(),
 		sp_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
-		sc_transaction_pool::FullPool<Block, TFullClient<Block, RuntimeApi, RuntimeExecutor>>,
+		sc_transaction_pool::FullPool<Block, Client>,
 		(),
 	>,
 	sc_service::Error,
@@ -279,7 +290,7 @@ pub struct TestNode {
 	/// TaskManager's instance.
 	pub task_manager: TaskManager,
 	/// Client's instance.
-	pub client: Arc<TFullClient<Block, RuntimeApi, RuntimeExecutor>>,
+	pub client: Arc<Client>,
 	/// Node's network.
 	pub network: Arc<NetworkService<Block, H256>>,
 	/// The `MultiaddrWithPeerId` to this node. This is useful if you want to pass it as "boot node"
@@ -299,6 +310,8 @@ pub struct TestNodeBuilder {
 	parachain_nodes: Vec<MultiaddrWithPeerId>,
 	parachain_nodes_exclusive: bool,
 	relay_chain_nodes: Vec<MultiaddrWithPeerId>,
+	storage_update_func_parachain: Option<Box<dyn Fn()>>,
+	storage_update_func_relay_chain: Option<Box<dyn Fn()>>,
 }
 
 impl TestNodeBuilder {
@@ -316,6 +329,8 @@ impl TestNodeBuilder {
 			parachain_nodes: Vec::new(),
 			parachain_nodes_exclusive: false,
 			relay_chain_nodes: Vec::new(),
+			storage_update_func_parachain: None,
+			storage_update_func_relay_chain: None,
 		}
 	}
 
@@ -380,10 +395,28 @@ impl TestNodeBuilder {
 		self
 	}
 
+	/// Allows accessing the parachain storage before the test node is built.
+	pub fn update_storage_parachain(
+		mut self,
+		updater: impl Fn() + 'static,
+	) -> Self {
+		self.storage_update_func_parachain = Some(Box::new(updater));
+		self
+	}
+
+	/// Allows accessing the relay chain storage before the test node is built.
+	pub fn update_storage_relay_chain(
+		mut self,
+		updater: impl Fn() + 'static,
+	) -> Self {
+		self.storage_update_func_relay_chain = Some(Box::new(updater));
+		self
+	}
+
 	/// Build the [`TestNode`].
 	pub async fn build(self) -> TestNode {
 		let parachain_config = node_config(
-			|| (),
+			self.storage_update_func_parachain.unwrap_or_else(|| Box::new(|| ())),
 			self.task_executor.clone(),
 			self.key.clone(),
 			self.parachain_nodes,
@@ -393,7 +426,7 @@ impl TestNodeBuilder {
 		)
 		.expect("could not generate Configuration");
 		let mut relay_chain_config = polkadot_test_service::node_config(
-			|| (),
+			self.storage_update_func_relay_chain.unwrap_or_else(|| Box::new(|| ())),
 			self.task_executor,
 			self.key,
 			self.relay_chain_nodes,
@@ -546,6 +579,72 @@ impl TestNode {
 	pub fn wait_for_blocks(&self, count: usize) -> impl Future<Output = ()> {
 		self.client.wait_for_blocks(count)
 	}
+
+	/// Send an extrinsic to this node.
+	pub async fn send_extrinsic(
+		&self,
+		function: impl Into<runtime::Call>,
+		caller: Sr25519Keyring,
+	) -> Result<RpcTransactionOutput, RpcTransactionError> {
+		let extrinsic = construct_extrinsic(&*self.client, function, caller);
+
+		self.rpc_handlers.send_transaction(extrinsic.into()).await
+	}
+
+	/// Register a parachain at this relay chain.
+	pub async fn schedule_upgrade(&self, validation: Vec<u8>) -> Result<(), RpcTransactionError> {
+		let call = frame_system::Call::set_code_without_checks(validation);
+
+		self.send_extrinsic(
+			runtime::SudoCall::sudo_unchecked_weight(Box::new(call.into()), 1_000),
+			Sr25519Keyring::Alice,
+		).await.map(drop)
+	}
+}
+
+/// Construct an extrinsic that can be applied to the test runtime.
+pub fn construct_extrinsic(
+	client: &Client,
+	function: impl Into<runtime::Call>,
+	caller: Sr25519Keyring,
+) -> runtime::UncheckedExtrinsic {
+	let function = function.into();
+	let current_block_hash = client.info().best_hash;
+	let current_block = client.info().best_number.saturated_into();
+	let genesis_block = client.hash(0).unwrap().unwrap();
+	let nonce = 0;
+	let period = runtime::BlockHashCount::get()
+		.checked_next_power_of_two()
+		.map(|c| c / 2)
+		.unwrap_or(2) as u64;
+	let tip = 0;
+	let extra: runtime::SignedExtra = (
+		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
+		frame_system::CheckGenesis::<runtime::Runtime>::new(),
+		frame_system::CheckEra::<runtime::Runtime>::from(generic::Era::mortal(period, current_block)),
+		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
+		frame_system::CheckWeight::<runtime::Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
+	);
+	let raw_payload = runtime::SignedPayload::from_raw(
+		function.clone(),
+		extra.clone(),
+		(
+			runtime::VERSION.spec_version,
+			genesis_block,
+			current_block_hash,
+			(),
+			(),
+			(),
+		),
+	);
+	let signature = raw_payload.using_encoded(|e| caller.sign(e));
+	runtime::UncheckedExtrinsic::new_signed(
+		function.clone(),
+		caller.public().into(),
+		runtime::Signature::Sr25519(signature.clone()),
+		extra.clone(),
+	)
 }
 
 /// Run a relay-chain validator node.

@@ -1,4 +1,4 @@
-// Copyright 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright 2021 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -18,10 +18,15 @@ use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
 use futures::join;
 use sc_service::TaskExecutor;
+use sc_client_api::client::BlockchainEvents;
+use futures::StreamExt;
+use sp_api::ProvideRuntimeApi;
+use cumulus_test_runtime::GetUpgradeDetection;
+use sp_runtime::generic::BlockId;
 
 #[substrate_test_utils::test]
-async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExecutor) {
-	let mut builder = sc_cli::LoggerBuilder::new("");
+async fn test_runtime_upgrade(task_executor: TaskExecutor) {
+	let mut builder = sc_cli::LoggerBuilder::new("runtime=debug");
 	builder.with_colors(false);
 	let _ = builder.init();
 
@@ -53,7 +58,6 @@ async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExe
 			.connect_to_relay_chain_nodes(vec![&alice, &bob])
 			.build()
 			.await;
-	charlie.wait_for_blocks(5).await;
 
 	// run cumulus dave (a parachain full node) and wait for it to sync some blocks
 	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Dave)
@@ -61,7 +65,33 @@ async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExe
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])
 		.build()
 		.await;
-	dave.wait_for_blocks(7).await;
+
+	let mut import_notification_stream = charlie.client.import_notification_stream();
+
+	while let Some(notification) = import_notification_stream.next().await {
+		if notification.is_new_best {
+			let res = charlie.client.runtime_api()
+				.has_upgraded(&BlockId::Hash(notification.hash));
+			if matches!(res, Ok(false)) {
+				break;
+			}
+		}
+	}
+
+	// schedule runtime upgrade
+	charlie.schedule_upgrade(cumulus_test_runtime_upgrade::WASM_BINARY.unwrap().to_vec())
+		.await
+		.unwrap();
+
+	while let Some(notification) = import_notification_stream.next().await {
+		if notification.is_new_best {
+			let res = charlie.client.runtime_api()
+				.has_upgraded(&BlockId::Hash(notification.hash));
+			if res.unwrap_or(false) {
+				break;
+			}
+		}
+	}
 
 	join!(
 		alice.task_manager.clean_shutdown(),

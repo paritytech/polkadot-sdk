@@ -1674,6 +1674,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-test-runtime-upgrade"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polkadot-parachain",
+ "serde",
+ "sp-api",
+ "sp-block-builder",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-version",
+ "substrate-wasm-builder 3.0.0",
+]
+
+[[package]]
 name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
@@ -1683,8 +1714,11 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-test-relay-validation-worker-provider",
  "cumulus-test-runtime",
+ "cumulus-test-runtime-upgrade",
+ "frame-system",
  "futures 0.3.14",
  "jsonrpc-core",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "polkadot-overseer",
  "polkadot-primitives",
@@ -1705,7 +1739,9 @@ dependencies = [
  "sc-transaction-pool",
  "serde",
  "sp-api",
+ "sp-arithmetic",
  "sp-block-builder",
+ "sp-blockchain",
  "sp-consensus",
  "sp-core",
  "sp-inherents",
