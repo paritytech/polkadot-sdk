@@ -84,7 +84,12 @@ impl TransactionSignScheme for Rococo {
 		let signer: sp_runtime::MultiSigner = signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		bp_rococo::UncheckedExtrinsic::new_signed(call, signer.into_account(), signature.into(), extra)
+		bp_rococo::UncheckedExtrinsic::new_signed(
+			call,
+			sp_runtime::MultiAddress::Id(signer.into_account()),
+			signature.into(),
+			extra,
+		)
 	}
 }
 
