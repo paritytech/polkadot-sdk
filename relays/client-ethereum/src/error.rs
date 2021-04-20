@@ -18,7 +18,7 @@
 
 use crate::types::U256;
 
-use jsonrpsee_types::error::Error as RpcError;
+use jsonrpsee_ws_client::Error as RpcError;
 use relay_utils::MaybeConnectionError;
 
 /// Result type used by Ethereum client.
