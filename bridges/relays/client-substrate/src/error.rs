@@ -16,7 +16,7 @@
 
 //! Substrate node RPC errors.
 
-use jsonrpsee_types::error::Error as RpcError;
+use jsonrpsee_ws_client::Error as RpcError;
 use relay_utils::MaybeConnectionError;
 use sc_rpc_api::system::Health;
 

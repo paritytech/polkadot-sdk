@@ -23,8 +23,8 @@ use crate::{ConnectionParams, Error, Result};
 use async_std::sync::{Arc, Mutex};
 use codec::Decode;
 use frame_system::AccountInfo;
-use jsonrpsee_types::{jsonrpc::DeserializeOwned, traits::SubscriptionClient};
-use jsonrpsee_ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBuilder, WsSubscription as Subscription};
+use jsonrpsee_ws_client::{traits::SubscriptionClient, v2::params::JsonRpcParams, DeserializeOwned};
+use jsonrpsee_ws_client::{Subscription, WsClient as RpcClient, WsClientBuilder as RpcClientBuilder};
 use num_traits::Zero;
 use pallet_balances::AccountData;
 use sp_core::{storage::StorageKey, Bytes};
@@ -267,7 +267,7 @@ impl<C: Chain> Client<C> {
 			.client
 			.subscribe(
 				"grandpa_subscribeJustifications",
-				jsonrpsee_types::jsonrpc::Params::None,
+				JsonRpcParams::NoParams,
 				"grandpa_unsubscribeJustifications",
 			)
 			.await?)
