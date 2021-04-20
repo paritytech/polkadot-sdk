@@ -21,7 +21,7 @@ use crate::types::{
 };
 use crate::{ConnectionParams, Error, Result};
 
-use jsonrpsee_ws_client::{WsClient as RpcClient, WsConfig as RpcConfig};
+use jsonrpsee_ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBuilder};
 use std::sync::Arc;
 
 /// Number of headers missing from the Ethereum node for us to consider node not synced.
@@ -46,7 +46,7 @@ impl Client {
 	/// Build client to use in connection.
 	async fn build_client(params: &ConnectionParams) -> Result<Arc<RpcClient>> {
 		let uri = format!("ws://{}:{}", params.host, params.port);
-		let client = RpcClient::new(RpcConfig::with_url(&uri)).await?;
+		let client = RpcClientBuilder::default().build(&uri).await?;
 		Ok(Arc::new(client))
 	}
 
