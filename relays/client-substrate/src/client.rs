@@ -24,7 +24,7 @@ use async_std::sync::{Arc, Mutex};
 use codec::Decode;
 use frame_system::AccountInfo;
 use jsonrpsee_types::{jsonrpc::DeserializeOwned, traits::SubscriptionClient};
-use jsonrpsee_ws_client::{WsClient as RpcClient, WsConfig as RpcConfig, WsSubscription as Subscription};
+use jsonrpsee_ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBuilder, WsSubscription as Subscription};
 use num_traits::Zero;
 use pallet_balances::AccountData;
 use sp_core::{storage::StorageKey, Bytes};
@@ -105,9 +105,10 @@ impl<C: Chain> Client<C> {
 			params.host,
 			params.port,
 		);
-		let mut config = RpcConfig::with_url(&uri);
-		config.max_notifs_per_subscription = MAX_SUBSCRIPTION_CAPACITY;
-		let client = RpcClient::new(config).await?;
+		let client = RpcClientBuilder::default()
+			.max_notifs_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
+			.build(&uri)
+			.await?;
 
 		Ok(Arc::new(client))
 	}
