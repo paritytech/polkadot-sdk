@@ -227,7 +227,7 @@ pub async fn run<P: MessageLane>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	metrics_params: MetricsParams,
-	exit_signal: impl Future<Output = ()>,
+	exit_signal: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
@@ -237,15 +237,18 @@ pub async fn run<P: MessageLane>(
 		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
 		.expose()
 		.await?
-		.run(|source_client, target_client, metrics| {
-			run_until_connection_lost(
-				params.clone(),
-				source_client,
-				target_client,
-				metrics,
-				exit_signal.clone(),
-			)
-		})
+		.run(
+			metrics_prefix::<P>(&params.lane),
+			move |source_client, target_client, metrics| {
+				run_until_connection_lost(
+					params.clone(),
+					source_client,
+					target_client,
+					metrics,
+					exit_signal.clone(),
+				)
+			},
+		)
 		.await
 }
 
@@ -701,7 +704,7 @@ pub(crate) mod tests {
 		data: TestClientData,
 		source_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 		target_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
-		exit_signal: impl Future<Output = ()>,
+		exit_signal: impl Future<Output = ()> + 'static + Send,
 	) -> TestClientData {
 		async_std::task::block_on(async {
 			let data = Arc::new(Mutex::new(data));
