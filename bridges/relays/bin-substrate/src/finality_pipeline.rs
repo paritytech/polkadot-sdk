@@ -96,7 +96,7 @@ where
 	SourceChain: Clone + Chain + Debug,
 	BlockNumberOf<SourceChain>: BlockNumberBase,
 	TargetChain: Clone + Chain + Debug,
-	TargetSign: Clone + Send + Sync,
+	TargetSign: 'static + Clone + Send + Sync,
 {
 	const SOURCE_NAME: &'static str = SourceChain::NAME;
 	const TARGET_NAME: &'static str = TargetChain::NAME;

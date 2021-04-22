@@ -65,7 +65,7 @@ pub struct FinalitySyncParams {
 pub trait SourceClient<P: FinalitySyncPipeline>: RelayClient {
 	/// Stream of new finality proofs. The stream is allowed to miss proofs for some
 	/// headers, even if those headers are mandatory.
-	type FinalityProofsStream: Stream<Item = P::FinalityProof>;
+	type FinalityProofsStream: Stream<Item = P::FinalityProof> + Send;
 
 	/// Get best finalized block number.
 	async fn best_finalized_block_number(&self) -> Result<P::Number, Self::Error>;
@@ -101,7 +101,7 @@ pub async fn run<P: FinalitySyncPipeline>(
 	target_client: impl TargetClient<P>,
 	sync_params: FinalitySyncParams,
 	metrics_params: MetricsParams,
-	exit_signal: impl Future<Output = ()>,
+	exit_signal: impl Future<Output = ()> + 'static + Send,
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
@@ -110,7 +110,7 @@ pub async fn run<P: FinalitySyncPipeline>(
 		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
 		.expose()
 		.await?
-		.run(|source_client, target_client, metrics| {
+		.run(metrics_prefix::<P>(), move |source_client, target_client, metrics| {
 			run_until_connection_lost(
 				source_client,
 				target_client,
