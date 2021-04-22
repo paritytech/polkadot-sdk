@@ -158,20 +158,8 @@ pub mod pallet {
 			verify_justification::<T, I>(&justification, hash, *number, authority_set)?;
 
 			let _enacted = try_enact_authority_change::<T, I>(&finality_target, set_id)?;
-			let index = <ImportedHashesPointer<T, I>>::get();
-			let pruning = <ImportedHashes<T, I>>::try_get(index);
-			<BestFinalized<T, I>>::put(hash);
-			<ImportedHeaders<T, I>>::insert(hash, finality_target);
-			<ImportedHashes<T, I>>::insert(index, hash);
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
-
-			// Update ring buffer pointer and remove old header.
-			<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
-			if let Ok(hash) = pruning {
-				log::debug!(target: "runtime::bridge-grandpa", "Pruning old header: {:?}.", hash);
-				<ImportedHeaders<T, I>>::remove(hash);
-			}
-
+			insert_header::<T, I>(finality_target, hash);
 			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
 
 			Ok(().into())
@@ -427,6 +415,25 @@ pub mod pallet {
 		)
 	}
 
+	/// Import a previously verified header to the storage.
+	///
+	/// Note this function solely takes care of updating the storage and pruning old entries,
+	/// but does not verify the validaty of such import.
+	pub(crate) fn insert_header<T: Config<I>, I: 'static>(header: BridgedHeader<T, I>, hash: BridgedBlockHash<T, I>) {
+		let index = <ImportedHashesPointer<T, I>>::get();
+		let pruning = <ImportedHashes<T, I>>::try_get(index);
+		<BestFinalized<T, I>>::put(hash);
+		<ImportedHeaders<T, I>>::insert(hash, header);
+		<ImportedHashes<T, I>>::insert(index, hash);
+
+		// Update ring buffer pointer and remove old header.
+		<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
+		if let Ok(hash) = pruning {
+			log::debug!(target: "runtime::bridge-grandpa", "Pruning old header: {:?}.", hash);
+			<ImportedHeaders<T, I>>::remove(hash);
+		}
+	}
+
 	/// Since this writes to storage with no real checks this should only be used in functions that
 	/// were called by a trusted origin.
 	pub(crate) fn initialize_bridge<T: Config<I>, I: 'static>(
@@ -441,13 +448,36 @@ pub mod pallet {
 
 		let initial_hash = header.hash();
 		<InitialHash<T, I>>::put(initial_hash);
-		<BestFinalized<T, I>>::put(initial_hash);
-		<ImportedHeaders<T, I>>::insert(initial_hash, header);
+		<ImportedHashesPointer<T, I>>::put(0);
+		insert_header::<T, I>(header, initial_hash);
 
 		let authority_set = bp_header_chain::AuthoritySet::new(authority_list, set_id);
 		<CurrentAuthoritySet<T, I>>::put(authority_set);
 
 		<IsHalted<T, I>>::put(is_halted);
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub(crate) fn bootstrap_bridge<T: Config<I>, I: 'static>(
+		init_params: super::InitializationData<BridgedHeader<T, I>>,
+	) {
+		let start_number = *init_params.header.number();
+		let end_number = start_number + T::HeadersToKeep::get().into();
+		initialize_bridge::<T, I>(init_params);
+
+		let mut number = start_number;
+		while number < end_number {
+			number = number + sp_runtime::traits::One::one();
+			let header = <BridgedHeader<T, I>>::new(
+				number,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			);
+			let hash = header.hash();
+			insert_header::<T, I>(header, hash);
+		}
 	}
 
 	/// Ensure that the origin is either root, or `PalletOwner`.
