@@ -582,6 +582,9 @@ pub(crate) mod tests {
 		) -> Result<(), TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
+			data.source_state.best_self =
+				HeaderId(data.source_state.best_self.0 + 1, data.source_state.best_self.1 + 1);
+			data.source_state.best_finalized_self = data.source_state.best_self;
 			data.submitted_messages_receiving_proofs.push(proof);
 			data.source_latest_confirmed_received_nonce = proof;
 			Ok(())
@@ -684,6 +687,7 @@ pub(crate) mod tests {
 			}
 			data.target_state.best_self =
 				HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.1 + 1);
+			data.target_state.best_finalized_self = data.target_state.best_self;
 			data.target_latest_received_nonce = *proof.0.end();
 			if let Some(target_latest_confirmed_received_nonce) = proof.1 {
 				data.target_latest_confirmed_received_nonce = target_latest_confirmed_received_nonce;
@@ -812,37 +816,37 @@ pub(crate) mod tests {
 				..Default::default()
 			},
 			Arc::new(|data: &mut TestClientData| {
+				// blocks are produced on every tick
+				data.source_state.best_self =
+					HeaderId(data.source_state.best_self.0 + 1, data.source_state.best_self.1 + 1);
+				data.source_state.best_finalized_self = data.source_state.best_self;
 				// headers relay must only be started when we need new target headers at source node
 				if data.target_to_source_header_required.is_some() {
 					assert!(data.source_state.best_finalized_peer_at_best_self.0 < data.target_state.best_self.0);
 					data.target_to_source_header_required = None;
 				}
+				// syncing target headers -> source chain
+				if let Some(last_requirement) = data.target_to_source_header_requirements.last() {
+					if *last_requirement != data.source_state.best_finalized_peer_at_best_self {
+						data.source_state.best_finalized_peer_at_best_self = *last_requirement;
+					}
+				}
 			}),
 			Arc::new(move |data: &mut TestClientData| {
+				// blocks are produced on every tick
+				data.target_state.best_self =
+					HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.1 + 1);
+				data.target_state.best_finalized_self = data.target_state.best_self;
 				// headers relay must only be started when we need new source headers at target node
 				if data.source_to_target_header_required.is_some() {
 					assert!(data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_self.0);
 					data.source_to_target_header_required = None;
 				}
-				// syncing source headers -> target chain (all at once)
-				if data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_finalized_self.0 {
-					data.target_state.best_finalized_peer_at_best_self = data.source_state.best_finalized_self;
-				}
-				// syncing source headers -> target chain (all at once)
-				if data.source_state.best_finalized_peer_at_best_self.0 < data.target_state.best_finalized_self.0 {
-					data.source_state.best_finalized_peer_at_best_self = data.target_state.best_finalized_self;
-				}
-				// if target has received messages batch => increase blocks so that confirmations may be sent
-				if data.target_latest_received_nonce == 4
-					|| data.target_latest_received_nonce == 8
-					|| data.target_latest_received_nonce == 10
-				{
-					data.target_state.best_self =
-						HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.0 + 1);
-					data.target_state.best_finalized_self = data.target_state.best_self;
-					data.source_state.best_self =
-						HeaderId(data.source_state.best_self.0 + 1, data.source_state.best_self.0 + 1);
-					data.source_state.best_finalized_self = data.source_state.best_self;
+				// syncing source headers -> target chain
+				if let Some(last_requirement) = data.source_to_target_header_requirements.last() {
+					if *last_requirement != data.target_state.best_finalized_peer_at_best_self {
+						data.target_state.best_finalized_peer_at_best_self = *last_requirement;
+					}
 				}
 				// if source has received all messages receiving confirmations => stop
 				if data.source_latest_confirmed_received_nonce == 10 {
