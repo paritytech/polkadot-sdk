@@ -106,7 +106,7 @@ impl RelayClient for TestSourceClient {
 
 #[async_trait]
 impl SourceClient<TestFinalitySyncPipeline> for TestSourceClient {
-	type FinalityProofsStream = Pin<Box<dyn Stream<Item = TestFinalityProof>>>;
+	type FinalityProofsStream = Pin<Box<dyn Stream<Item = TestFinalityProof> + 'static + Send>>;
 
 	async fn best_finalized_block_number(&self) -> Result<TestNumber, TestError> {
 		let mut data = self.data.lock();
