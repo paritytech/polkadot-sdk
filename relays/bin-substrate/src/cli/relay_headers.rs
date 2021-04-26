@@ -102,6 +102,7 @@ impl RelayHeaders {
 				Finality::new(target_client.clone(), target_sign),
 				source_client,
 				target_client,
+				false,
 				metrics_params,
 			)
 			.await
