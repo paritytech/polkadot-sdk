@@ -300,15 +300,20 @@ fn select_on_demand_relay_action<C: Chain>(
 		.checked_sub(&best_finalized_source_header_at_target)
 		.unwrap_or_else(Zero::zero);
 	if current_headers_difference > maximal_headers_difference {
-		log::trace!(
-			target: "bridge",
-			"Too many {} headers missing at target in {} relay. Going to sync up to the {}",
-			C::NAME,
-			relay_task_name,
-			best_finalized_source_header_at_source,
-		);
-
 		required_source_header_at_target = best_finalized_source_header_at_source;
+
+		// don't log if relay is already running
+		if !is_active {
+			log::trace!(
+				target: "bridge",
+				"Too many {} headers missing at target in {} relay ({} vs {}). Going to sync up to the {}",
+				C::NAME,
+				relay_task_name,
+				best_finalized_source_header_at_source,
+				best_finalized_source_header_at_target,
+				best_finalized_source_header_at_source,
+			);
+		}
 	}
 
 	// now let's select what to do with relay
@@ -345,7 +350,7 @@ where
 	TargetSign: 'static,
 {
 	let headers_relay_future =
-		crate::finality_pipeline::run(pipeline, source_client, target_client, MetricsParams::disabled());
+		crate::finality_pipeline::run(pipeline, source_client, target_client, true, MetricsParams::disabled());
 	let closure_task_name = task_name.clone();
 	async_std::task::Builder::new()
 		.name(task_name.clone())
