@@ -314,7 +314,7 @@ impl<T: Config> Module<T> {
 			Ok(xcm) => {
 				let location = (
 					Junction::Parent,
-					Junction::Parachain { id: sender.into() },
+					Junction::Parachain(sender.into()),
 				);
 				match T::XcmExecutor::execute_xcm(
 					location.into(),
@@ -716,7 +716,7 @@ impl<T: Config> SendXcm for Module<T> {
 	fn send_xcm(dest: MultiLocation, msg: Xcm<()>) -> Result<(), XcmError> {
 		match &dest {
 			// An HRMP message for a sibling parachain.
-			MultiLocation::X2(Junction::Parent, Junction::Parachain { id }) => {
+			MultiLocation::X2(Junction::Parent, Junction::Parachain(id)) => {
 				let msg = VersionedXcm::<()>::from(msg);
 				let hash = T::Hashing::hash_of(&msg);
 				Self::send_fragment((*id).into(), XcmpMessageFormat::ConcatenatedVersionedXcm, msg)

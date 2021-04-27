@@ -101,7 +101,7 @@ pub mod pallet {
 			for (para, payload) in Targets::<T>::get().into_iter() {
 				let seq = PingCount::<T>::mutate(|seq| { *seq += 1; *seq });
 				match T::XcmSender::send_xcm(
-					MultiLocation::X2(Junction::Parent, Junction::Parachain { id: para.into() }),
+					MultiLocation::X2(Junction::Parent, Junction::Parachain(para.into())),
 					Xcm::Transact {
 						origin_type: OriginKind::Native,
 						require_weight_at_most: 1_000,
@@ -163,7 +163,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::Pinged(para, seq, payload.clone()));
 			match T::XcmSender::send_xcm(
-				MultiLocation::X2(Junction::Parent, Junction::Parachain { id: para.into() }),
+				MultiLocation::X2(Junction::Parent, Junction::Parachain(para.into())),
 				Xcm::Transact {
 					origin_type: OriginKind::Native,
 					require_weight_at_most: 1_000,
