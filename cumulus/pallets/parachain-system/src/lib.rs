@@ -32,7 +32,7 @@ use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::{DispatchResult, DispatchError, DispatchResultWithPostInfo},
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, storage,
 	traits::Get,
 	weights::{DispatchClass, Weight, PostDispatchInfo, Pays},
@@ -212,15 +212,16 @@ decl_module! {
 			}
 
 			let (host_config, relevant_messaging_state) =
-				relay_state_snapshot::extract_from_proof(
+				match relay_state_snapshot::extract_from_proof(
 					T::SelfParaId::get(),
 					vfp.relay_parent_storage_root,
 					relay_chain_state
-				)
-				.map_err(|err| {
-					log::debug!("invalid relay chain merkle proof: {:?}", err);
-					Error::<T>::InvalidRelayChainMerkleProof
-				})?;
+				) {
+					Ok(r) => r,
+					Err(err) => {
+						panic!("invalid relay chain merkle proof: {:?}", err);
+					}
+				};
 
 			ValidationData::put(&vfp);
 			RelevantMessagingState::put(relevant_messaging_state.clone());
@@ -233,11 +234,11 @@ decl_module! {
 			total_weight += Self::process_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
 				downward_messages,
-			)?;
+			);
 			total_weight += Self::process_inbound_horizontal_messages(
 				&relevant_messaging_state.ingress_channels,
 				horizontal_messages,
-			)?;
+			);
 
 			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
 		}
@@ -480,10 +481,13 @@ impl<T: Config> Module<T> {
 	///
 	/// Checks if the sequence of the messages is valid, dispatches them and communicates the number
 	/// of processed messages to the collator via a storage update.
+	///
+	/// **Panics** if it turns out that after processing all messages the Message Queue Chain hash
+	///            doesn't match the expected.
 	fn process_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: Vec<InboundDownwardMessage>,
-	) -> Result<Weight, DispatchError> {
+	) -> Weight {
 		let dm_count = downward_messages.len() as u32;
 		let mut weight_used = 0;
 
@@ -513,6 +517,9 @@ impl<T: Config> Module<T> {
 
 			// After hashing each message in the message queue chain submitted by the collator, we should
 			// arrive to the MQC head provided by the relay chain.
+			//
+			// A mismatch means that at least some of the submitted messages were altered, omitted or added
+			// improperly.
 			assert_eq!(result_mqc_head, expected_dmq_mqc_head);
 		} else {
 			assert_eq!(LastDmqMqcHead::get().0, expected_dmq_mqc_head);
@@ -522,25 +529,32 @@ impl<T: Config> Module<T> {
 		// PVF's `validate_block` wrapper and collation pipeline.
 		storage::unhashed::put(well_known_keys::PROCESSED_DOWNWARD_MESSAGES, &dm_count);
 
-		Ok(weight_used)
+		weight_used
 	}
 
 	/// Process all inbound horizontal messages relayed by the collator.
 	///
 	/// This is similar to [`process_inbound_downward_messages`], but works on multiple inbound
 	/// channels.
+	///
+	/// **Panics** if either any of horizontal messages submitted by the collator was sent from a
+	///            para which has no open channel to this parachain or if after processing messages
+	///            across all inbound channels MQCs were obtained which do not correspond to the
+	///            ones found on the relay-chain.
 	fn process_inbound_horizontal_messages(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
-	) -> Result<Weight, DispatchError> {
+	) -> Weight {
 		// First, check that all submitted messages are sent from channels that exist. The channel
 		// exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
 		for sender in horizontal_messages.keys() {
-			ensure!(
+			// A violation of the assertion below indicates that one of the messages submitted by
+			// the collator was sent from a sender that doesn't have a channel opened to this parachain,
+			// according to the relay-parent state.
+			assert!(
 				ingress_channels
 					.binary_search_by_key(sender, |&(s, _)| s)
 					.is_ok(),
-				Error::<T>::HrmpNoMqc,
 			);
 		}
 
@@ -605,8 +619,7 @@ impl<T: Config> Module<T> {
 				.or_insert_with(|| last_mqc_heads.get(&sender).cloned().unwrap_or_default())
 				.head();
 			let target_head = channel.mqc_head.unwrap_or_default();
-
-			ensure!(cur_head == target_head, Error::<T>::HrmpMqcMismatch);
+			assert!(cur_head == target_head);
 		}
 
 		LastHrmpMqcHeads::put(running_mqc_heads);
@@ -616,7 +629,7 @@ impl<T: Config> Module<T> {
 			storage::unhashed::put(well_known_keys::HRMP_WATERMARK, &hrmp_watermark);
 		}
 
-		Ok(weight_used)
+		weight_used
 	}
 
 	/// Put a new validation function into a particular location where polkadot
@@ -831,23 +844,6 @@ decl_error! {
 		ValidationDataNotAvailable,
 		/// The inherent which supplies the host configuration did not run this block
 		HostConfigurationNotAvailable,
-		/// Invalid relay-chain storage merkle proof
-		InvalidRelayChainMerkleProof,
-		/// The messages submitted by the collator in the system inherent when hashed sequentially
-		/// do not produce the hash that is produced by the relay-chain.
-		///
-		/// This means that at least some of the submitted messages were altered, omitted or added
-		/// illegaly.
-		DmpMqcMismatch,
-		/// The collator submitted a message that is received from a sender that doesn't have a
-		/// channel opened to this parachain, according to the relay-parent state.
-		HrmpNoMqc,
-		/// After processing all messages submitted by the collator and extending hash chains we
-		/// haven't arrived to the MQCs that were produced by the relay-chain.
-		///
-		/// That means that one or more channels had at least some of the submitted messages altered,
-		/// omitted or added illegaly.
-		HrmpMqcMismatch,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
 		/// No code upgrade has been authorized.
