@@ -42,7 +42,7 @@ use bp_header_chain::justification::GrandpaJustification;
 use bp_header_chain::InitializationData;
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf};
 use finality_grandpa::voter_set::VoterSet;
-use frame_support::ensure;
+use frame_support::{ensure, fail};
 use frame_system::{ensure_signed, RawOrigin};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, Zero};
@@ -143,11 +143,17 @@ pub mod pallet {
 			let (hash, number) = (finality_target.hash(), finality_target.number());
 			log::trace!(target: "runtime::bridge-grandpa", "Going to try and finalize header {:?}", finality_target);
 
-			let best_finalized = <ImportedHeaders<T, I>>::get(<BestFinalized<T, I>>::get()).expect(
-				"In order to reach this point the bridge must have been initialized. Afterwards,
-				every time `BestFinalized` is updated `ImportedHeaders` is also updated. Therefore
-				`ImportedHeaders` must contain an entry for `BestFinalized`.",
-			);
+			let best_finalized = match <ImportedHeaders<T, I>>::get(<BestFinalized<T, I>>::get()) {
+				Some(best_finalized) => best_finalized,
+				None => {
+					log::error!(
+						target: "runtime::bridge-grandpa",
+						"Cannot finalize header {:?} because pallet is not yet initialized",
+						finality_target,
+					);
+					fail!(<Error<T, I>>::NotInitialized);
+				}
+			};
 
 			// We do a quick check here to ensure that our header chain is making progress and isn't
 			// "travelling back in time" (which could be indicative of something bad, e.g a hard-fork).
@@ -334,6 +340,8 @@ pub mod pallet {
 		///
 		/// This is the case for non-standard (e.g forced) authority set changes.
 		UnsupportedScheduledChange,
+		/// The pallet is not yet initialized.
+		NotInitialized,
 		/// The pallet has already been initialized.
 		AlreadyInitialized,
 		/// All pallet operations are halted.
@@ -765,6 +773,13 @@ mod tests {
 
 			assert_noop!(submit_finality_proof(1), Error::<TestRuntime>::Halted,);
 		})
+	}
+
+	#[test]
+	fn pallet_rejects_header_if_not_initialized_yet() {
+		run_test(|| {
+			assert_noop!(submit_finality_proof(1), Error::<TestRuntime>::NotInitialized);
+		});
 	}
 
 	#[test]
