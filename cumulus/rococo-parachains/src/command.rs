@@ -30,7 +30,6 @@ use sc_cli::{
 };
 use sc_service::{
 	config::{BasePath, PrometheusConfig},
-	PartialComponents,
 };
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Block as BlockT;
@@ -51,6 +50,7 @@ fn load_spec(
 		"track" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/track.json")[..],
 		)?)),
+		"shell" => Ok(Box::new(chain_spec::get_shell_chain_spec(para_id))),
 		"" => Ok(Box::new(chain_spec::get_chain_spec(para_id))),
 		path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
 			path.into(),
@@ -146,6 +146,31 @@ fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<V
 		.ok_or_else(|| "Could not find wasm file in genesis state!".into())
 }
 
+fn use_shell_runtime(chain_spec: &Box<dyn ChainSpec>) -> bool {
+	chain_spec.id().starts_with("track") || chain_spec.id().starts_with("shell")
+}
+
+use crate::service::{new_partial, RuntimeExecutor, ShellRuntimeExecutor};
+
+macro_rules! construct_async_run {
+	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
+		let runner = $cli.create_runner($cmd)?;
+		if use_shell_runtime(&runner.config().chain_spec) {
+			runner.async_run(|$config| {
+				let $components = new_partial::<shell_runtime::RuntimeApi, ShellRuntimeExecutor>(&$config)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		} else {
+			runner.async_run(|$config| {
+				let $components = new_partial::<parachain_runtime::RuntimeApi, RuntimeExecutor>(&$config)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		}
+	}}
+}
+
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
 	let cli = Cli::from_args();
@@ -155,52 +180,18 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		}
-		Some(Subcommand::CheckBlock(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					import_queue,
-					..
-				} = crate::service::new_partial(&config)?;
-				Ok((cmd.run(client, import_queue), task_manager))
-			})
-		}
-		Some(Subcommand::ExportBlocks(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					..
-				} = crate::service::new_partial(&config)?;
-				Ok((cmd.run(client, config.database), task_manager))
-			})
-		}
-		Some(Subcommand::ExportState(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					..
-				} = crate::service::new_partial(&config)?;
-				Ok((cmd.run(client, config.chain_spec), task_manager))
-			})
-		}
-		Some(Subcommand::ImportBlocks(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					import_queue,
-					..
-				} = crate::service::new_partial(&config)?;
-				Ok((cmd.run(client, import_queue), task_manager))
-			})
-		}
+		Some(Subcommand::CheckBlock(cmd)) => construct_async_run! (|components, cli, cmd, config| {
+			Ok(cmd.run(components.client, components.import_queue))
+		}),
+		Some(Subcommand::ExportBlocks(cmd)) => construct_async_run! (|components, cli, cmd, config| {
+			Ok(cmd.run(components.client, config.database))
+		}),
+		Some(Subcommand::ExportState(cmd)) => construct_async_run! (|components, cli, cmd, config| {
+			Ok(cmd.run(components.client, config.chain_spec))
+		}),
+		Some(Subcommand::ImportBlocks(cmd)) => construct_async_run! (|components, cli, cmd, config| {
+			Ok(cmd.run(components.client, components.import_queue))
+		}),
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
@@ -222,18 +213,9 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		}
-		Some(Subcommand::Revert(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					backend,
-					..
-				} = crate::service::new_partial(&config)?;
-				Ok((cmd.run(client, backend), task_manager))
-			})
-		}
+		Some(Subcommand::Revert(cmd)) => construct_async_run! (|components, cli, cmd, config| {
+			Ok(cmd.run(components.client, components.backend))
+		}),
 		Some(Subcommand::ExportGenesisState(params)) => {
 			let mut builder = sc_cli::LoggerBuilder::new("");
 			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
@@ -281,6 +263,7 @@ pub fn run() -> Result<()> {
 		}
 		None => {
 			let runner = cli.create_runner(&*cli.run)?;
+			let use_shell = use_shell_runtime(&runner.config().chain_spec);
 
 			runner.run_node_until_exit(|config| async move {
 				// TODO
@@ -319,10 +302,17 @@ pub fn run() -> Result<()> {
 				info!("Parachain genesis state: {}", genesis_state);
 				info!("Is collating: {}", if collator { "yes" } else { "no" });
 
-				crate::service::start_node(config, key, polkadot_config, id, collator)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into)
+				if use_shell {
+					crate::service::start_shell_node(config, key, polkadot_config, id, collator)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into)
+				} else {
+					crate::service::start_node(config, key, polkadot_config, id, collator)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into)
+				}
 			})
 		}
 	}

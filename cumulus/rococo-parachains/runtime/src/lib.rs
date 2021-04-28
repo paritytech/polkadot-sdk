@@ -38,7 +38,7 @@ use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, parameter_types, match_type,
 	traits::{Randomness, IsInVec, All},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -304,17 +304,6 @@ parameter_types! {
 	pub UnitWeightCost: Weight = 1_000_000;
 	// One ROC buys 1 second of weight.
 	pub const WeightPrice: (MultiLocation, u128) = (X1(Parent), ROC);
-}
-
-macro_rules! match_type {
-	( pub type $n:ident: impl Contains<$t:ty> = { $phead:pat $( | $ptail:pat )* } ; ) => {
-		pub struct $n;
-		impl frame_support::traits::Contains<$t> for $n {
-			fn contains(l: &$t) -> bool {
-				matches!(l, $phead $( | $ptail )* )
-			}
-		}
-	}
 }
 
 match_type! {

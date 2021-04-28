@@ -26,6 +26,9 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<parachain_runtime::GenesisConfig, Extensions>;
 
+/// Specialized `ChainSpec` for the shell parachain runtime.
+pub type ShellChainSpec = sc_service::GenericChainSpec<shell_runtime::GenesisConfig, Extensions>;
+
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
@@ -96,6 +99,23 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 	)
 }
 
+pub fn get_shell_chain_spec(id: ParaId) -> ShellChainSpec {
+	ShellChainSpec::from_genesis(
+		"Shell Local Testnet",
+		"shell_local_testnet",
+		ChainType::Local,
+		move || shell_testnet_genesis(id),
+		vec![],
+		None,
+		None,
+		None,
+		Extensions {
+			relay_chain: "westend-dev".into(),
+			para_id: id.into(),
+		},
+	)
+}
+
 pub fn staging_test_net(id: ParaId) -> ChainSpec {
 	ChainSpec::from_genesis(
 		"Staging Testnet",
@@ -142,5 +162,18 @@ fn testnet_genesis(
 		},
 		pallet_sudo: parachain_runtime::SudoConfig { key: root_key },
 		parachain_info: parachain_runtime::ParachainInfoConfig { parachain_id: id },
+	}
+}
+
+fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::GenesisConfig {
+	shell_runtime::GenesisConfig {
+		frame_system: shell_runtime::SystemConfig {
+			code: shell_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
+			changes_trie_config: Default::default(),
+		},
+		pallet_balances: shell_runtime::BalancesConfig::default(),
+		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id },
 	}
 }
