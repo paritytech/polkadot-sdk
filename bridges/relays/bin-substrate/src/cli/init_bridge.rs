@@ -44,8 +44,6 @@ arg_enum! {
 		MillauToRialto,
 		RialtoToMillau,
 		WestendToMillau,
-		WestendToRococo,
-		RococoToWestend,
 	}
 }
 
@@ -98,30 +96,6 @@ macro_rules! select_bridge {
 						millau_runtime::WestendGrandpaInstance,
 					>::initialize(init_data)
 					.into()
-				}
-
-				$generic
-			}
-			InitBridgeName::WestendToRococo => {
-				type Source = relay_westend_client::Westend;
-				type Target = relay_rococo_client::Rococo;
-
-				fn encode_init_bridge(
-					init_data: InitializationData<<Source as ChainBase>::Header>,
-				) -> <Target as Chain>::Call {
-					bp_rococo::Call::BridgeGrandpaWestend(bp_rococo::BridgeGrandpaWestendCall::initialize(init_data))
-				}
-
-				$generic
-			}
-			InitBridgeName::RococoToWestend => {
-				type Source = relay_rococo_client::Rococo;
-				type Target = relay_westend_client::Westend;
-
-				fn encode_init_bridge(
-					init_data: InitializationData<<Source as ChainBase>::Header>,
-				) -> <Target as Chain>::Call {
-					bp_westend::Call::BridgeGrandpaRococo(bp_westend::BridgeGrandpaRococoCall::initialize(init_data))
 				}
 
 				$generic
