@@ -471,7 +471,7 @@ impl<T: Config> Module<T> {
 			assert_eq!(
 				params.relay_parent_storage_root,
 				validation_data.relay_parent_storage_root,
-				"Relay parent stoarage root doesn't match",
+				"Relay parent storage root doesn't match",
 			);
 		});
 	}
@@ -485,25 +485,38 @@ impl<T: Config> Module<T> {
 		downward_messages: Vec<InboundDownwardMessage>,
 	) -> Result<Weight, DispatchError> {
 		let dm_count = downward_messages.len() as u32;
-
 		let mut weight_used = 0;
 
-		// Reference fu to avoid the `move` capture.
-		let weight_used_mut_ref = &mut weight_used;
-		let result_mqc_head = LastDmqMqcHead::mutate(move |mqc| {
-			for downward_message in downward_messages {
-				mqc.extend_downward(&downward_message);
-				*weight_used_mut_ref += T::DownwardMessageHandlers::handle_downward_message(downward_message);
-			}
-			mqc.0
-		});
+		if dm_count != 0 {
+			let mut processed_count = 0;
 
-		// After hashing each message in the message queue chain submitted by the collator, we should
-		// arrive to the MQC head provided by the relay chain.
-		ensure!(
-			result_mqc_head == expected_dmq_mqc_head,
-			Error::<T>::DmpMqcMismatch
-		);
+			Self::deposit_event(RawEvent::DownwardMessagesReceived(dm_count));
+
+			// Reference fu to avoid the `move` capture.
+			let weight_used_ref = &mut weight_used;
+			let processed_count_ref = &mut processed_count;
+			let result_mqc_head = LastDmqMqcHead::mutate(move |mqc| {
+				for downward_message in downward_messages {
+					mqc.extend_downward(&downward_message);
+					*weight_used_ref += T::DownwardMessageHandlers::handle_downward_message(downward_message);
+					*processed_count_ref += 1;
+				}
+				mqc.0
+			});
+
+			Self::deposit_event(RawEvent::DownwardMessagesProcessed(
+				processed_count,
+				weight_used,
+				result_mqc_head.clone(),
+				expected_dmq_mqc_head.clone(),
+			));
+
+			// After hashing each message in the message queue chain submitted by the collator, we should
+			// arrive to the MQC head provided by the relay chain.
+			assert_eq!(result_mqc_head, expected_dmq_mqc_head);
+		} else {
+			assert_eq!(LastDmqMqcHead::get().0, expected_dmq_mqc_head);
+		}
 
 		// Store the processed_downward_messages here so that it will be accessible from
 		// PVF's `validate_block` wrapper and collation pipeline.
@@ -791,12 +804,18 @@ impl<T: Config> ProvideInherent for Module<T> {
 
 decl_event! {
 	pub enum Event<T> where Hash = <T as frame_system::Config>::Hash {
-		// The validation function has been scheduled to apply as of the contained relay chain block number.
+		/// The validation function has been scheduled to apply as of the contained relay chain block number.
 		ValidationFunctionStored(RelayChainBlockNumber),
-		// The validation function was applied as of the contained relay chain block number.
+		/// The validation function was applied as of the contained relay chain block number.
 		ValidationFunctionApplied(RelayChainBlockNumber),
-		// An upgrade has been authorized.
+		/// An upgrade has been authorized.
 		UpgradeAuthorized(Hash),
+		/// Downward messages were processed using the given weight.
+		/// \[ count, weight_used, result_mqc_head, expected_mqc_head \]
+		DownwardMessagesProcessed(u32, Weight, relay_chain::Hash, relay_chain::Hash),
+		/// Some downward messages have been received and will be processed.
+		/// \[ count \]
+		DownwardMessagesReceived(u32),
 	}
 }
 

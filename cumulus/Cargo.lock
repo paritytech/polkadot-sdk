@@ -1428,6 +1428,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "serde",
+ "sp-io",
  "sp-runtime",
  "sp-std",
  "xcm",
@@ -1528,6 +1529,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "hex-literal 0.3.1",
  "log",
  "pallet-balances",
  "pallet-randomness-collective-flip",
@@ -1598,7 +1600,10 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "hex",
+ "hex-literal 0.3.1",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "pallet-sudo",
@@ -3885,9 +3890,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-mdns"
-version = "0.30.1"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41e282f974c4bea56db8acca50387f05189406e346318cb30190b0bde662961e"
+checksum = "c221897b3fd7f215de7ecfec215c5eba598e5b61c605b5f8b56fe8a4fb507724"
 dependencies = [
  "async-io",
  "data-encoding",
@@ -4788,6 +4793,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
  "stable_deref_trait",
+]
+
+[[package]]
+name = "pallet-assets"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -9436,7 +9454,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-aura"
 version = "0.9.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#8060a437dc01cc247a757fb318a46f81c8e40d5c"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -9845,7 +9863,7 @@ dependencies = [
 [[package]]
 name = "sp-test-primitives"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#8060a437dc01cc247a757fb318a46f81c8e40d5c"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
 dependencies = [
  "parity-scale-codec",
  "parity-util-mem",
@@ -10170,7 +10188,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-runtime"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#8060a437dc01cc247a757fb318a46f81c8e40d5c"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
 dependencies = [
  "cfg-if 1.0.0",
  "frame-support",
@@ -10211,7 +10229,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-runtime-client"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#8060a437dc01cc247a757fb318a46f81c8e40d5c"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
 dependencies = [
  "futures 0.3.14",
  "parity-scale-codec",
@@ -10232,7 +10250,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-utils"
 version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#8060a437dc01cc247a757fb318a46f81c8e40d5c"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
 dependencies = [
  "futures 0.3.14",
  "substrate-test-utils-derive",
@@ -10242,7 +10260,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-utils-derive"
 version = "0.9.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#8060a437dc01cc247a757fb318a46f81c8e40d5c"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
 dependencies = [
  "proc-macro-crate 1.0.0",
  "quote 1.0.9",
@@ -10268,7 +10286,7 @@ dependencies = [
 [[package]]
 name = "substrate-wasm-builder"
 version = "4.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#8060a437dc01cc247a757fb318a46f81c8e40d5c"
+source = "git+https://github.com/paritytech/substrate?branch=master#282d57c0745b530fe7a9ebaffcd6ac36c09d0554"
 dependencies = [
  "ansi_term 0.12.1",
  "atty",
