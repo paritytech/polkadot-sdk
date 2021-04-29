@@ -436,6 +436,7 @@ parameter_types! {
 	pub const HeadersToKeep: u32 = 7 * bp_rialto::DAYS as u32;
 }
 
+pub type MillauGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
 	type MaxRequests = MaxRequests;
