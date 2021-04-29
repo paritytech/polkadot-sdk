@@ -214,7 +214,9 @@ impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau 
 	fn verify_messages_delivery_proof(
 		proof: Self::MessagesDeliveryProof,
 	) -> Result<(LaneId, InboundLaneData<bp_rialto::AccountId>), Self::Error> {
-		messages::source::verify_messages_delivery_proof::<WithMillauMessageBridge, Runtime>(proof)
+		messages::source::verify_messages_delivery_proof::<WithMillauMessageBridge, Runtime, crate::MillauGrandpaInstance>(
+			proof,
+		)
 	}
 }
 
@@ -231,7 +233,10 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 		proof: Self::MessagesProof,
 		messages_count: u32,
 	) -> Result<ProvedMessages<Message<bp_millau::Balance>>, Self::Error> {
-		messages::target::verify_messages_proof::<WithMillauMessageBridge, Runtime>(proof, messages_count)
+		messages::target::verify_messages_proof::<WithMillauMessageBridge, Runtime, crate::MillauGrandpaInstance>(
+			proof,
+			messages_count,
+		)
 	}
 }
 
