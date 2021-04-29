@@ -49,6 +49,11 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use relay_state_snapshot::MessagingStateSnapshot;
+use sp_runtime::transaction_validity::{
+	TransactionSource, TransactionValidity, InvalidTransaction, ValidTransaction,
+	TransactionLongevity,
+};
+use sp_runtime::DispatchError;
 
 mod relay_state_snapshot;
 #[macro_use]
@@ -261,10 +266,7 @@ decl_module! {
 		#[weight = 1_000_000]
 		fn enact_authorized_upgrade(_origin, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			// No ensure origin on purpose. We validate by checking the code vs hash in storage.
-			let required_hash = AuthorizedUpgrade::<T>::get()
-				.ok_or(Error::<T>::NothingAuthorized)?;
-			let actual_hash = T::Hashing::hash(&code[..]);
-			ensure!(actual_hash == required_hash, Error::<T>::Unauthorized);
+			Self::validate_authorized_upgrade(&code[..])?;
 			Self::set_code_impl(code)?;
 			AuthorizedUpgrade::<T>::kill();
 			Ok(Pays::No.into())
@@ -400,6 +402,35 @@ decl_module! {
 
 			weight
 		}
+	}
+}
+
+impl<T: Config> Module<T> {
+	fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
+		let required_hash = AuthorizedUpgrade::<T>::get()
+			.ok_or(Error::<T>::NothingAuthorized)?;
+		let actual_hash = T::Hashing::hash(&code[..]);
+		ensure!(actual_hash == required_hash, Error::<T>::Unauthorized);
+		Ok(actual_hash)
+	}
+}
+
+impl<T: Config> sp_runtime::traits::ValidateUnsigned for Module<T> {
+	type Call = Call<T>;
+
+	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		if let Call::enact_authorized_upgrade(ref code) = call {
+			if let Ok(hash) = Self::validate_authorized_upgrade(code) {
+				return Ok(ValidTransaction {
+					priority: 100,
+					requires: vec![],
+					provides: vec![hash.as_ref().to_vec()],
+					longevity: TransactionLongevity::max_value(),
+					propagate: true,
+				})
+			}
+		}
+		Err(InvalidTransaction::Call.into())
 	}
 }
 

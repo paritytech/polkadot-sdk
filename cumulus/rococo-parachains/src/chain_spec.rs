@@ -173,7 +173,6 @@ fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::GenesisConfig {
 				.to_vec(),
 			changes_trie_config: Default::default(),
 		},
-		pallet_balances: shell_runtime::BalancesConfig::default(),
 		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id },
 	}
 }
