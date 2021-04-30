@@ -457,7 +457,7 @@ impl<T: Config> Module<T> {
 		// send more, heavier messages.
 
 		let mut shuffle_index = 0;
-		while shuffle_index < shuffled.len() && max_weight.saturating_sub(weight_used) < threshold_weight {
+		while shuffle_index < shuffled.len() && max_weight.saturating_sub(weight_used) >= threshold_weight {
 			let index = shuffled[shuffle_index];
 			let sender = status[index].0;
 
