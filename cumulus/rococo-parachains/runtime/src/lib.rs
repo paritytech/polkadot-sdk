@@ -39,7 +39,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types, match_type,
-	traits::{Randomness, IsInVec, All},
+	traits::{Randomness, IsInVec},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, Weight,
@@ -65,6 +65,8 @@ use xcm_builder::{
 };
 use xcm_executor::{Config, XcmExecutor};
 use pallet_xcm::{XcmPassthrough, EnsureXcm, IsMajorityOfBody};
+use xcm::v0::Xcm;
+use frame_support::traits::Contains;
 
 pub type SessionHandlers = ();
 
@@ -77,7 +79,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("test-parachain"),
 	impl_name: create_runtime_str!("test-parachain"),
 	authoring_version: 1,
-	spec_version: 9,
+	spec_version: 11,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -230,14 +232,16 @@ impl pallet_sudo::Config for Runtime {
 
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
+	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type Event = Event;
 	type OnValidationData = ();
 	type SelfParaId = parachain_info::Module<Runtime>;
-	type DownwardMessageHandlers = CumulusXcm;
 	type OutboundXcmpMessageSource = XcmpQueue;
+	type DmpMessageHandler = DmpQueue;
+	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 }
@@ -335,10 +339,6 @@ impl Config for XcmConfig {
 	type ResponseHandler = ();	// Don't handle responses for now.
 }
 
-parameter_types! {
-	pub const MaxDownwardMessageWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
-}
-
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
 pub type LocalOriginToLocation = ();
 
@@ -351,25 +351,37 @@ pub type XcmRouter = (
 	XcmpQueue,
 );
 
+// TODO: Remove to frame_support::traits::All once substrate/8691 merged and bumped
+/// A `Contains` implementation which always returns `true`.
+pub struct All<T>(sp_std::marker::PhantomData<T>);
+impl<T> Contains<T> for All<T> {
+	fn contains(_: &T) -> bool { true }
+}
+
 impl pallet_xcm::Config for Runtime {
 	type Event = Event;
 	type SendXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	type ExecuteXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
-	type XcmExecuteFilter = All<(MultiLocation, xcm::v0::Xcm<Call>)>;
+	type XcmExecuteFilter = All<(MultiLocation, Xcm<Call>)>;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
 	type Event = Event;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type MaxWeight = MaxDownwardMessageWeight;
 }
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type Event = Event;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
+}
+
+impl cumulus_pallet_dmp_queue::Config for Runtime {
+	type Event = Event;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type ExecuteOverweightOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl cumulus_ping::Config for Runtime {
@@ -407,6 +419,16 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
+#[test]
+fn encode_call() {
+	let hash = hex_literal::hex!["0af9fef6f950ca3ac8ac4766200454b1039ffb7b2d0827fffd5e47bd43761437"].into();
+	let call = Call::ParachainSystem(cumulus_pallet_parachain_system::Call::authorize_upgrade(hash));
+	assert_eq!(
+		hex::encode(codec::Encode::encode(&call)),
+		"14030af9fef6f950ca3ac8ac4766200454b1039ffb7b2d0827fffd5e47bd43761437",
+	);
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -419,7 +441,7 @@ construct_runtime! {
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Call, Storage},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
-		ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Storage, Inherent, Event<T>} = 20,
+		ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Storage, Inherent, Event<T>, ValidateUnsigned} = 20,
 		ParachainInfo: parachain_info::{Pallet, Storage, Config} = 21,
 
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
@@ -429,6 +451,7 @@ construct_runtime! {
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 50,
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin} = 51,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 52,
+		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 53,
 
 		Spambot: cumulus_ping::{Pallet, Call, Storage, Event<T>} = 99,
 	}

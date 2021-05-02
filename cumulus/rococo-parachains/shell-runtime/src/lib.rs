@@ -155,15 +155,16 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	// We do anything the parent chain tells us in this runtime.
-	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT;
+	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 2;
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type Event = Event;
 	type OnValidationData = ();
 	type SelfParaId = parachain_info::Module<Runtime>;
-	type DownwardMessageHandlers = CumulusXcm;
 	type OutboundXcmpMessageSource = ();
+	type DmpMessageHandler = cumulus_pallet_xcm::UnlimitedDmpExecution<Runtime>;
+	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = ();
 	type ReservedXcmpWeight = ();
 }
@@ -198,16 +199,6 @@ parameter_types! {
 	pub UnitWeightCost: Weight = 1_000_000;
 }
 
-pub struct NoTrader;
-impl xcm_executor::traits::WeightTrader for NoTrader {
-	fn new() -> Self { NoTrader }
-	fn buy_weight(&mut self, _: Weight, _: xcm_executor::Assets)
-		-> Result<xcm_executor::Assets, xcm::v0::Error>
-	{
-		Err(xcm::v0::Error::Unimplemented)
-	}
-}
-
 pub struct XcmConfig;
 impl Config for XcmConfig {
 	type Call = Call;
@@ -219,18 +210,23 @@ impl Config for XcmConfig {
 	type LocationInverter = LocationInverter<Ancestry>;
 	type Barrier = AllowUnpaidExecutionFrom<JustTheParent>;
 	type Weigher = FixedWeightBounds<UnitWeightCost, Call>;		// balances not supported
-	type Trader = NoTrader;		// balances not supported
+	type Trader = ();		// balances not supported
 	type ResponseHandler = ();	// Don't handle responses for now.
-}
-
-parameter_types! {
-	pub const MaxDownwardMessageWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 2;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
 	type Event = Event;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type MaxWeight = MaxDownwardMessageWeight;
+}
+
+#[test]
+fn encode_call() {
+	let hash = hex_literal::hex!["0af9fef6f950ca3ac8ac4766200454b1039ffb7b2d0827fffd5e47bd43761437"].into();
+	let call = Call::ParachainSystem(cumulus_pallet_parachain_system::Call::authorize_upgrade(hash));
+	assert_eq!(
+		hex::encode(codec::Encode::encode(&call)),
+		"01030af9fef6f950ca3ac8ac4766200454b1039ffb7b2d0827fffd5e47bd43761437",
+	);
 }
 
 construct_runtime! {

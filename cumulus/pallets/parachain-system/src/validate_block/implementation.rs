@@ -20,7 +20,7 @@ use frame_support::traits::ExecuteBlock;
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT, NumberFor};
 
 use sp_io::KillChildStorageResult;
-use sp_std::{boxed::Box, vec::Vec};
+use sp_std::prelude::*;
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
@@ -35,13 +35,10 @@ use cumulus_primitives_core::{
 		HRMP_OUTBOUND_MESSAGES, HRMP_WATERMARK, NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES,
 		UPWARD_MESSAGES,
 	},
-	OutboundHrmpMessage, PersistedValidationData, UpwardMessage,
+	OutboundHrmpMessage, UpwardMessage,
 };
-use sp_core::storage::{ChildInfo, TrackedStorageKey};
-use sp_externalities::{
-	set_and_run_with_externalities, Error, Extension, ExtensionStore, Externalities,
-};
-use sp_std::any::{Any, TypeId};
+use sp_core::storage::ChildInfo;
+use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_trie::MemoryDB;
 
 type Ext<'a, B> = sp_state_machine::Ext<

@@ -38,6 +38,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
+cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue", default-features = false }
 cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
 cumulus-ping = { path = "../../rococo-parachains/pallets/ping", default-features = false }
@@ -84,6 +85,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"parachain-info/std",
 	"rococo-parachain-primitives/std",
+	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-pallet-xcm/std",
