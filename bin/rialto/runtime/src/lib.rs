@@ -889,7 +889,7 @@ impl_runtime_apis! {
 					params: MessageParams<Self::AccountId>,
 				) -> (millau_messages::ToMillauMessagePayload, Balance) {
 					let message_payload = vec![0; params.size as usize];
-					let dispatch_origin = pallet_bridge_dispatch::CallOrigin::SourceAccount(
+					let dispatch_origin = bp_message_dispatch::CallOrigin::SourceAccount(
 						params.sender_account,
 					);
 
@@ -959,10 +959,10 @@ impl_runtime_apis! {
 						make_millau_outbound_lane_data_key,
 						make_millau_header,
 						call_weight,
-						pallet_bridge_dispatch::MessagePayload {
+						bp_message_dispatch::MessagePayload {
 							spec_version: VERSION.spec_version,
 							weight: call_weight,
-							origin: pallet_bridge_dispatch::CallOrigin::<
+							origin: bp_message_dispatch::CallOrigin::<
 								bp_millau::AccountId,
 								MultiSigner,
 								Signature,
