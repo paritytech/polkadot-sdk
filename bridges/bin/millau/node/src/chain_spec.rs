@@ -71,6 +71,9 @@ impl Alternative {
 			serde_json::json!({
 				"tokenDecimals": 9,
 				"tokenSymbol": "MLAU",
+				"bridgeIds": {
+					"Rialto": bp_runtime::RIALTO_BRIDGE_INSTANCE,
+				}
 			})
 			.as_object()
 			.expect("Map given; qed")
@@ -90,6 +93,9 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Bob"),
 							get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+							derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Alice"),
+							)),
 						],
 						true,
 					)
@@ -136,7 +142,13 @@ impl Alternative {
 								pallet_bridge_messages::DefaultInstance,
 							>::relayer_fund_account_id(),
 							derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(
-								get_account_id_from_seed::<sr25519::Public>("Dave"),
+								get_account_id_from_seed::<sr25519::Public>("Alice"),
+							)),
+							derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Charlie"),
+							)),
+							derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Eve"),
 							)),
 						],
 						true,
@@ -168,7 +180,7 @@ fn testnet_genesis(
 			changes_trie_config: Default::default(),
 		},
 		pallet_balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 20)).collect(),
 		},
 		pallet_aura: AuraConfig {
 			authorities: Vec::new(),
