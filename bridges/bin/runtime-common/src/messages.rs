@@ -180,7 +180,7 @@ pub mod source {
 	pub type BridgedChainOpaqueCall = Vec<u8>;
 
 	/// Message payload for This -> Bridged chain messages.
-	pub type FromThisChainMessagePayload<B> = pallet_bridge_dispatch::MessagePayload<
+	pub type FromThisChainMessagePayload<B> = bp_message_dispatch::MessagePayload<
 		AccountIdOf<ThisChain<B>>,
 		SignerOf<BridgedChain<B>>,
 		SignatureOf<BridgedChain<B>>,
@@ -395,14 +395,14 @@ pub mod target {
 	use super::*;
 
 	/// Call origin for Bridged -> This chain messages.
-	pub type FromBridgedChainMessageCallOrigin<B> = pallet_bridge_dispatch::CallOrigin<
+	pub type FromBridgedChainMessageCallOrigin<B> = bp_message_dispatch::CallOrigin<
 		AccountIdOf<BridgedChain<B>>,
 		SignerOf<ThisChain<B>>,
 		SignatureOf<ThisChain<B>>,
 	>;
 
 	/// Decoded Bridged -> This message payload.
-	pub type FromBridgedChainMessagePayload<B> = pallet_bridge_dispatch::MessagePayload<
+	pub type FromBridgedChainMessagePayload<B> = bp_message_dispatch::MessagePayload<
 		AccountIdOf<BridgedChain<B>>,
 		SignerOf<ThisChain<B>>,
 		SignatureOf<ThisChain<B>>,
@@ -931,7 +931,7 @@ mod tests {
 		let message_on_bridged_chain = source::FromThisChainMessagePayload::<OnBridgedChainBridge> {
 			spec_version: 1,
 			weight: 100,
-			origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+			origin: bp_message_dispatch::CallOrigin::SourceRoot,
 			call: ThisChainCall::Transfer.encode(),
 		}
 		.encode();
@@ -945,7 +945,7 @@ mod tests {
 			target::FromBridgedChainMessagePayload::<OnThisChainBridge> {
 				spec_version: 1,
 				weight: 100,
-				origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				call: target::FromBridgedChainEncodedMessageCall::<OnThisChainBridge> {
 					encoded_call: ThisChainCall::Transfer.encode(),
 					_marker: PhantomData::default(),
@@ -962,7 +962,7 @@ mod tests {
 		source::FromThisChainMessagePayload::<OnThisChainBridge> {
 			spec_version: 1,
 			weight: 100,
-			origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+			origin: bp_message_dispatch::CallOrigin::SourceRoot,
 			call: vec![42],
 		}
 	}
@@ -1012,7 +1012,7 @@ mod tests {
 		let payload = source::FromThisChainMessagePayload::<OnThisChainBridge> {
 			spec_version: 1,
 			weight: 100,
-			origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+			origin: bp_message_dispatch::CallOrigin::SourceRoot,
 			call: vec![42],
 		};
 
@@ -1055,7 +1055,7 @@ mod tests {
 		let payload = source::FromThisChainMessagePayload::<OnThisChainBridge> {
 			spec_version: 1,
 			weight: 100,
-			origin: pallet_bridge_dispatch::CallOrigin::SourceAccount(ThisChainAccountId(1)),
+			origin: bp_message_dispatch::CallOrigin::SourceAccount(ThisChainAccountId(1)),
 			call: vec![42],
 		};
 
@@ -1122,7 +1122,7 @@ mod tests {
 			> {
 				spec_version: 1,
 				weight: 5,
-				origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				call: vec![1, 2, 3, 4, 5, 6],
 			},)
 			.is_err()
@@ -1137,7 +1137,7 @@ mod tests {
 			> {
 				spec_version: 1,
 				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT + 1,
-				origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				call: vec![1, 2, 3, 4, 5, 6],
 			},)
 			.is_err()
@@ -1152,7 +1152,7 @@ mod tests {
 			> {
 				spec_version: 1,
 				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
-				origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				call: vec![0; source::maximal_message_size::<OnThisChainBridge>() as usize + 1],
 			},)
 			.is_err()
@@ -1167,7 +1167,7 @@ mod tests {
 			> {
 				spec_version: 1,
 				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
-				origin: pallet_bridge_dispatch::CallOrigin::SourceRoot,
+				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				call: vec![0; source::maximal_message_size::<OnThisChainBridge>() as _],
 			},),
 			Ok(()),
