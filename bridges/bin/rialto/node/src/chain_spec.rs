@@ -181,7 +181,7 @@ fn testnet_genesis(
 			changes_trie_config: Default::default(),
 		},
 		pallet_balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 20)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 40)).collect(),
 		},
 		pallet_aura: AuraConfig {
 			authorities: Vec::new(),
