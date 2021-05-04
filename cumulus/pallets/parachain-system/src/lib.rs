@@ -27,33 +27,36 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
-use sp_std::{prelude::*, cmp, collections::btree_map::BTreeMap};
-use sp_runtime::traits::{BlakeTwo256, Hash};
-use sp_inherents::{InherentData, InherentIdentifier, ProvideInherent};
-use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage,
-	dispatch::{DispatchResult, DispatchResultWithPostInfo},
-	ensure, storage,
-	traits::Get,
-	weights::{DispatchClass, Weight, PostDispatchInfo, Pays},
-};
-use frame_system::{ensure_none, ensure_root};
-use polkadot_parachain::primitives::RelayChainBlockNumber;
 use cumulus_primitives_core::{
 	relay_chain,
 	well_known_keys::{self, NEW_VALIDATION_CODE},
-	AbridgedHostConfiguration, DmpMessageHandler, XcmpMessageHandler,
-	InboundDownwardMessage, InboundHrmpMessage, OnValidationData, OutboundHrmpMessage, ParaId,
-	PersistedValidationData, UpwardMessage, UpwardMessageSender, MessageSendError,
-	XcmpMessageSource, ChannelStatus, GetChannelInfo,
+	AbridgedHostConfiguration, ChannelStatus, DmpMessageHandler, GetChannelInfo,
+	InboundDownwardMessage, InboundHrmpMessage, MessageSendError, OnValidationData,
+	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
+	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
-use relay_state_snapshot::MessagingStateSnapshot;
-use sp_runtime::transaction_validity::{
-	TransactionSource, TransactionValidity, InvalidTransaction, ValidTransaction,
-	TransactionLongevity,
+use frame_support::{
+	decl_error, decl_event, decl_module, decl_storage,
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	ensure,
+	inherent::{InherentData, InherentIdentifier, ProvideInherent},
+	storage,
+	traits::Get,
+	weights::{DispatchClass, Pays, PostDispatchInfo, Weight},
 };
-use sp_runtime::DispatchError;
+use frame_system::{ensure_none, ensure_root};
+use polkadot_parachain::primitives::RelayChainBlockNumber;
+use relay_state_snapshot::MessagingStateSnapshot;
+use sp_runtime::{
+	traits::{BlakeTwo256, Hash},
+	transaction_validity::{
+		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
+		ValidTransaction,
+	},
+	DispatchError,
+};
+use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 
 mod relay_state_snapshot;
 #[macro_use]
@@ -414,8 +417,7 @@ decl_module! {
 
 impl<T: Config> Module<T> {
 	fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
-		let required_hash = AuthorizedUpgrade::<T>::get()
-			.ok_or(Error::<T>::NothingAuthorized)?;
+		let required_hash = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
 		let actual_hash = T::Hashing::hash(&code[..]);
 		ensure!(actual_hash == required_hash, Error::<T>::Unauthorized);
 		Ok(actual_hash)
@@ -434,11 +436,11 @@ impl<T: Config> sp_runtime::traits::ValidateUnsigned for Module<T> {
 					provides: vec![hash.as_ref().to_vec()],
 					longevity: TransactionLongevity::max_value(),
 					propagate: true,
-				})
+				});
 			}
 		}
 		if let Call::set_validation_data(..) = call {
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 		Err(InvalidTransaction::Call.into())
 	}
@@ -462,8 +464,8 @@ impl<T: Config> GetChannelInfo for Module<T> {
 		let channels = match Self::relevant_messaging_state() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
-				return ChannelStatus::Closed
-			},
+				return ChannelStatus::Closed;
+			}
 			Some(d) => d.egress_channels,
 		};
 		// ^^^ NOTE: This storage field should carry over from the previous block. So if it's None
@@ -504,15 +506,16 @@ impl<T: Config> Module<T> {
 	/// # Panics
 	fn validate_validation_data(validation_data: &PersistedValidationData) {
 		validate_block::with_validation_params(|params| {
-			assert_eq!(params.parent_head, validation_data.parent_head, "Parent head doesn't match");
 			assert_eq!(
-				params.relay_parent_number,
-				validation_data.relay_parent_number,
+				params.parent_head, validation_data.parent_head,
+				"Parent head doesn't match"
+			);
+			assert_eq!(
+				params.relay_parent_number, validation_data.relay_parent_number,
 				"Relay parent number doesn't match",
 			);
 			assert_eq!(
-				params.relay_parent_storage_root,
-				validation_data.relay_parent_storage_root,
+				params.relay_parent_storage_root, validation_data.relay_parent_storage_root,
 				"Relay parent storage root doesn't match",
 			);
 		});
@@ -535,10 +538,14 @@ impl<T: Config> Module<T> {
 		let mut weight_used = 0;
 		if dm_count != 0 {
 			Self::deposit_event(RawEvent::DownwardMessagesReceived(dm_count));
-			let max_weight = ReservedDmpWeightOverride::get().unwrap_or_else(T::ReservedDmpWeight::get);
+			let max_weight =
+				ReservedDmpWeightOverride::get().unwrap_or_else(T::ReservedDmpWeight::get);
 
-			let message_iter = downward_messages.into_iter()
-				.inspect(|m| { dmq_head.extend_downward(m); })
+			let message_iter = downward_messages
+				.into_iter()
+				.inspect(|m| {
+					dmq_head.extend_downward(m);
+				})
 				.map(|m| (m.sent_at, m.msg));
 			weight_used += T::DmpMessageHandler::handle_dmp_messages(message_iter, max_weight);
 			LastDmqMqcHead::put(&dmq_head);
@@ -579,11 +586,9 @@ impl<T: Config> Module<T> {
 			// A violation of the assertion below indicates that one of the messages submitted by
 			// the collator was sent from a sender that doesn't have a channel opened to this parachain,
 			// according to the relay-parent state.
-			assert!(
-				ingress_channels
-					.binary_search_by_key(sender, |&(s, _)| s)
-					.is_ok(),
-			);
+			assert!(ingress_channels
+				.binary_search_by_key(sender, |&(s, _)| s)
+				.is_ok(),);
 		}
 
 		// Second, prepare horizontal messages for a more convenient processing:
@@ -628,10 +633,12 @@ impl<T: Config> Module<T> {
 					.extend_hrmp(horizontal_message);
 			}
 		}
-		let message_iter = horizontal_messages.iter()
+		let message_iter = horizontal_messages
+			.iter()
 			.map(|&(sender, ref message)| (sender, message.sent_at, &message.data[..]));
 
-		let max_weight = ReservedXcmpWeightOverride::get().unwrap_or_else(T::ReservedXcmpWeight::get);
+		let max_weight =
+			ReservedXcmpWeightOverride::get().unwrap_or_else(T::ReservedXcmpWeight::get);
 		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(message_iter, max_weight);
 
 		// Check that the MQC heads for each channel provided by the relay chain match the MQC heads
@@ -888,8 +895,8 @@ mod tests {
 
 	use codec::Encode;
 	use cumulus_primitives_core::{
-		AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
-		relay_chain::BlockNumber as RelayBlockNumber,
+		relay_chain::BlockNumber as RelayBlockNumber, AbridgedHrmpChannel, InboundDownwardMessage,
+		InboundHrmpMessage, PersistedValidationData,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use frame_support::{
@@ -982,10 +989,7 @@ mod tests {
 		static SENT_MESSAGES: RefCell<Vec<(ParaId, Vec<u8>)>> = RefCell::new(Vec::new());
 	}
 
-	fn send_message(
-		dest: ParaId,
-		message: Vec<u8>,
-	) {
+	fn send_message(dest: ParaId, message: Vec<u8>) {
 		SENT_MESSAGES.with(|m| m.borrow_mut().push((dest, message)));
 	}
 
@@ -994,9 +998,9 @@ mod tests {
 			let mut ids = std::collections::BTreeSet::<ParaId>::new();
 			let mut taken = 0;
 			let mut result = Vec::new();
-			SENT_MESSAGES.with(|ms| ms.borrow_mut()
-				.retain(|m| {
-					let status = <Module::<Test> as GetChannelInfo>::get_channel_status(m.0);
+			SENT_MESSAGES.with(|ms| {
+				ms.borrow_mut().retain(|m| {
+					let status = <Module<Test> as GetChannelInfo>::get_channel_status(m.0);
 					let ready = matches!(status, ChannelStatus::Ready(..));
 					if ready && !ids.contains(&m.0) && taken < maximum_channels {
 						ids.insert(m.0);
@@ -1007,14 +1011,14 @@ mod tests {
 						true
 					}
 				})
-			);
+			});
 			result
 		}
 	}
 
 	impl DmpMessageHandler for SaveIntoThreadLocal {
 		fn handle_dmp_messages(
-			iter: impl Iterator<Item=(RelayBlockNumber, Vec<u8>)>,
+			iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
 			_max_weight: Weight,
 		) -> Weight {
 			HANDLED_DMP_MESSAGES.with(|m| {
@@ -1027,7 +1031,7 @@ mod tests {
 	}
 
 	impl XcmpMessageHandler for SaveIntoThreadLocal {
-		fn handle_xcmp_messages<'a, I: Iterator<Item=(ParaId, RelayBlockNumber, &'a [u8])>>(
+		fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 			iter: I,
 			_max_weight: Weight,
 		) -> Weight {
@@ -1284,16 +1288,15 @@ mod tests {
 			.add_with_post_test(
 				123,
 				|| {
-					assert_ok!(System::set_code(
-						RawOrigin::Root.into(),
-						Default::default()
-					));
+					assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 				},
 				|| {
 					let events = System::events();
 					assert_eq!(
 						events[0].event,
-						Event::parachain_system(crate::RawEvent::ValidationFunctionStored(1123).into())
+						Event::parachain_system(
+							crate::RawEvent::ValidationFunctionStored(1123).into()
+						)
 					);
 				},
 			)
@@ -1304,7 +1307,9 @@ mod tests {
 					let events = System::events();
 					assert_eq!(
 						events[0].event,
-						Event::parachain_system(crate::RawEvent::ValidationFunctionApplied(1234).into())
+						Event::parachain_system(
+							crate::RawEvent::ValidationFunctionApplied(1234).into()
+						)
 					);
 				},
 			);
@@ -1317,10 +1322,7 @@ mod tests {
 				builder.host_config.validation_upgrade_delay = 1000;
 			})
 			.add(123, || {
-				assert_ok!(System::set_code(
-					RawOrigin::Root.into(),
-					Default::default()
-				));
+				assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 			})
 			.add(234, || {
 				assert_eq!(
@@ -1338,10 +1340,7 @@ mod tests {
 					!PendingValidationFunction::exists(),
 					"validation function must not exist yet"
 				);
-				assert_ok!(System::set_code(
-					RawOrigin::Root.into(),
-					Default::default()
-				));
+				assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 				assert!(
 					PendingValidationFunction::exists(),
 					"validation function must now exist"
@@ -1511,14 +1510,8 @@ mod tests {
 			.add_with_post_test(
 				1,
 				|| {
-					send_message(
-						ParaId::from(300),
-						b"1".to_vec(),
-					);
-					send_message(
-						ParaId::from(400),
-						b"2".to_vec(),
-					);
+					send_message(ParaId::from(300), b"1".to_vec());
+					send_message(ParaId::from(400), b"2".to_vec());
 				},
 				|| {},
 			)

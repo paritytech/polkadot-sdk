@@ -89,8 +89,6 @@ pub fn new_partial(
 	>,
 	sc_service::Error,
 > {
-	let inherent_data_providers = sp_inherents::InherentDataProviders::new();
-
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, RuntimeExecutor>(&config, None)?;
 	let client = Arc::new(client);
@@ -108,7 +106,7 @@ pub fn new_partial(
 	let import_queue = cumulus_client_consensus_relay_chain::import_queue(
 		client.clone(),
 		client.clone(),
-		inherent_data_providers.clone(),
+		|_, _| async { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
 		&task_manager.spawn_essential_handle(),
 		registry.clone(),
 	)?;
@@ -120,7 +118,6 @@ pub fn new_partial(
 		keystore_container,
 		task_manager,
 		transaction_pool,
-		inherent_data_providers,
 		select_chain: (),
 		other: (),
 	};
@@ -158,10 +155,6 @@ where
 	let mut parachain_config = prepare_node_config(parachain_config);
 
 	let params = new_partial(&mut parachain_config)?;
-	params
-		.inherent_data_providers
-		.register_provider(sp_timestamp::InherentDataProvider)
-		.expect("Registers timestamp inherent data provider.");
 
 	let transaction_pool = params.transaction_pool.clone();
 	let mut task_manager = params.task_manager;
@@ -242,7 +235,7 @@ where
 		let parachain_consensus = cumulus_client_consensus_relay_chain::RelayChainConsensus::new(
 			para_id,
 			proposer_factory,
-			params.inherent_data_providers,
+			|_, _| async { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
 			client.clone(),
 			relay_chain_full_node.client.clone(),
 			relay_chain_full_node.backend.clone(),

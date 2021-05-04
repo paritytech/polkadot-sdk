@@ -39,7 +39,6 @@ use cumulus_primitives_core::{
 	ParaId, PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
-pub use import_queue::import_queue;
 use parking_lot::Mutex;
 use polkadot_service::ClientHandle;
 use sc_client_api::Backend;
@@ -48,32 +47,35 @@ use sp_consensus::{
 	BlockImport, BlockImportParams, BlockOrigin, EnableProofRecording, Environment,
 	ForkChoiceStrategy, ProofRecording, Proposal, Proposer,
 };
-use sp_inherents::{InherentData, InherentDataProviders};
+use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 mod import_queue;
+pub use import_queue::import_queue;
 
 const LOG_TARGET: &str = "cumulus-consensus-relay-chain";
 
 /// The implementation of the relay-chain provided consensus for parachains.
-pub struct RelayChainConsensus<B, PF, BI, RClient, RBackend> {
+pub struct RelayChainConsensus<B, PF, BI, RClient, RBackend, CIDP> {
 	para_id: ParaId,
 	_phantom: PhantomData<B>,
 	proposer_factory: Arc<Mutex<PF>>,
-	inherent_data_providers: InherentDataProviders,
+	create_inherent_data_providers: Arc<CIDP>,
 	block_import: Arc<futures::lock::Mutex<BI>>,
 	relay_chain_client: Arc<RClient>,
 	relay_chain_backend: Arc<RBackend>,
 }
 
-impl<B, PF, BI, RClient, RBackend> Clone for RelayChainConsensus<B, PF, BI, RClient, RBackend> {
+impl<B, PF, BI, RClient, RBackend, CIDP> Clone
+	for RelayChainConsensus<B, PF, BI, RClient, RBackend, CIDP>
+{
 	fn clone(&self) -> Self {
 		Self {
 			para_id: self.para_id,
 			_phantom: PhantomData,
 			proposer_factory: self.proposer_factory.clone(),
-			inherent_data_providers: self.inherent_data_providers.clone(),
+			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
 			block_import: self.block_import.clone(),
 			relay_chain_backend: self.relay_chain_backend.clone(),
 			relay_chain_client: self.relay_chain_client.clone(),
@@ -81,18 +83,19 @@ impl<B, PF, BI, RClient, RBackend> Clone for RelayChainConsensus<B, PF, BI, RCli
 	}
 }
 
-impl<B, PF, BI, RClient, RBackend> RelayChainConsensus<B, PF, BI, RClient, RBackend>
+impl<B, PF, BI, RClient, RBackend, CIDP> RelayChainConsensus<B, PF, BI, RClient, RBackend, CIDP>
 where
 	B: BlockT,
 	RClient: ProvideRuntimeApi<PBlock>,
 	RClient::Api: ParachainHost<PBlock>,
 	RBackend: Backend<PBlock>,
+	CIDP: CreateInherentDataProviders<B, ()>,
 {
 	/// Create a new instance of relay-chain provided consensus.
 	pub fn new(
 		para_id: ParaId,
 		proposer_factory: PF,
-		inherent_data_providers: InherentDataProviders,
+		create_inherent_data_providers: CIDP,
 		block_import: BI,
 		polkadot_client: Arc<RClient>,
 		polkadot_backend: Arc<RBackend>,
@@ -100,7 +103,7 @@ where
 		Self {
 			para_id,
 			proposer_factory: Arc::new(Mutex::new(proposer_factory)),
-			inherent_data_providers,
+			create_inherent_data_providers: Arc::new(create_inherent_data_providers),
 			block_import: Arc::new(futures::lock::Mutex::new(block_import)),
 			relay_chain_backend: polkadot_backend,
 			relay_chain_client: polkadot_client,
@@ -109,13 +112,26 @@ where
 	}
 
 	/// Get the inherent data with validation function parameters injected
-	fn inherent_data(
+	async fn inherent_data(
 		&self,
+		parent: B::Hash,
 		validation_data: &PersistedValidationData,
 		relay_parent: PHash,
 	) -> Option<InherentData> {
-		let mut inherent_data = self
-			.inherent_data_providers
+		let inherent_data_providers = self
+			.create_inherent_data_providers
+			.create_inherent_data_providers(parent, ())
+			.await
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed to create inherent data providers",
+				)
+			})
+			.ok()?;
+
+		let mut inherent_data = inherent_data_providers
 			.create_inherent_data()
 			.map_err(|e| {
 				tracing::error!(
@@ -153,8 +169,8 @@ where
 }
 
 #[async_trait::async_trait]
-impl<B, PF, BI, RClient, RBackend> ParachainConsensus<B>
-	for RelayChainConsensus<B, PF, BI, RClient, RBackend>
+impl<B, PF, BI, RClient, RBackend, CIDP> ParachainConsensus<B>
+	for RelayChainConsensus<B, PF, BI, RClient, RBackend, CIDP>
 where
 	B: BlockT,
 	RClient: ProvideRuntimeApi<PBlock> + Send + Sync,
@@ -168,6 +184,7 @@ where
 		ProofRecording = EnableProofRecording,
 		Proof = <EnableProofRecording as ProofRecording>::Proof,
 	>,
+	CIDP: CreateInherentDataProviders<B, ()>,
 {
 	async fn produce_candidate(
 		&mut self,
@@ -184,7 +201,7 @@ where
 			)
 			.ok()?;
 
-		let inherent_data = self.inherent_data(&validation_data, relay_parent)?;
+		let inherent_data = self.inherent_data(parent.hash(), &validation_data, relay_parent).await?;
 
 		let Proposal {
 			block,
@@ -236,10 +253,10 @@ where
 }
 
 /// Paramaters of [`build_relay_chain_consensus`].
-pub struct BuildRelayChainConsensusParams<PF, BI, RBackend> {
+pub struct BuildRelayChainConsensusParams<PF, BI, RBackend, CIDP> {
 	pub para_id: ParaId,
 	pub proposer_factory: PF,
-	pub inherent_data_providers: InherentDataProviders,
+	pub create_inherent_data_providers: CIDP,
 	pub block_import: BI,
 	pub relay_chain_client: polkadot_service::Client,
 	pub relay_chain_backend: Arc<RBackend>,
@@ -248,15 +265,15 @@ pub struct BuildRelayChainConsensusParams<PF, BI, RBackend> {
 /// Build the [`RelayChainConsensus`].
 ///
 /// Returns a boxed [`ParachainConsensus`].
-pub fn build_relay_chain_consensus<Block, PF, BI, RBackend>(
+pub fn build_relay_chain_consensus<Block, PF, BI, RBackend, CIDP>(
 	BuildRelayChainConsensusParams {
 		para_id,
 		proposer_factory,
-		inherent_data_providers,
+		create_inherent_data_providers,
 		block_import,
 		relay_chain_client,
 		relay_chain_backend,
-	}: BuildRelayChainConsensusParams<PF, BI, RBackend>,
+	}: BuildRelayChainConsensusParams<PF, BI, RBackend, CIDP>,
 ) -> Box<dyn ParachainConsensus<Block>>
 where
 	Block: BlockT,
@@ -271,12 +288,13 @@ where
 	RBackend: Backend<PBlock> + 'static,
 	// Rust bug: https://github.com/rust-lang/rust/issues/24159
 	sc_client_api::StateBackendFor<RBackend, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
+	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	RelayChainConsensusBuilder::new(
 		para_id,
 		proposer_factory,
 		block_import,
-		inherent_data_providers,
+		create_inherent_data_providers,
 		relay_chain_client,
 		relay_chain_backend,
 	)
@@ -289,17 +307,17 @@ where
 /// a concrete relay chain client instance, the builder takes a [`polkadot_service::Client`]
 /// that wraps this concrete instanace. By using [`polkadot_service::ExecuteWithClient`]
 /// the builder gets access to this concrete instance.
-struct RelayChainConsensusBuilder<Block, PF, BI, RBackend> {
+struct RelayChainConsensusBuilder<Block, PF, BI, RBackend, CIDP> {
 	para_id: ParaId,
 	_phantom: PhantomData<Block>,
 	proposer_factory: PF,
-	inherent_data_providers: InherentDataProviders,
+	create_inherent_data_providers: CIDP,
 	block_import: BI,
 	relay_chain_backend: Arc<RBackend>,
 	relay_chain_client: polkadot_service::Client,
 }
 
-impl<Block, PF, BI, RBackend> RelayChainConsensusBuilder<Block, PF, BI, RBackend>
+impl<Block, PF, BI, RBackend, CIDP> RelayChainConsensusBuilder<Block, PF, BI, RBackend, CIDP>
 where
 	Block: BlockT,
 	// Rust bug: https://github.com/rust-lang/rust/issues/24159
@@ -313,13 +331,14 @@ where
 	>,
 	BI: BlockImport<Block> + Send + Sync + 'static,
 	RBackend: Backend<PBlock> + 'static,
+	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	/// Create a new instance of the builder.
 	fn new(
 		para_id: ParaId,
 		proposer_factory: PF,
 		block_import: BI,
-		inherent_data_providers: InherentDataProviders,
+		create_inherent_data_providers: CIDP,
 		relay_chain_client: polkadot_service::Client,
 		relay_chain_backend: Arc<RBackend>,
 	) -> Self {
@@ -328,7 +347,7 @@ where
 			_phantom: PhantomData,
 			proposer_factory,
 			block_import,
-			inherent_data_providers,
+			create_inherent_data_providers,
 			relay_chain_backend,
 			relay_chain_client,
 		}
@@ -340,8 +359,8 @@ where
 	}
 }
 
-impl<Block, PF, BI, RBackend> polkadot_service::ExecuteWithClient
-	for RelayChainConsensusBuilder<Block, PF, BI, RBackend>
+impl<Block, PF, BI, RBackend, CIDP> polkadot_service::ExecuteWithClient
+	for RelayChainConsensusBuilder<Block, PF, BI, RBackend, CIDP>
 where
 	Block: BlockT,
 	// Rust bug: https://github.com/rust-lang/rust/issues/24159
@@ -355,6 +374,7 @@ where
 	>,
 	BI: BlockImport<Block> + Send + Sync + 'static,
 	RBackend: Backend<PBlock> + 'static,
+	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	type Output = Box<dyn ParachainConsensus<Block>>;
 
@@ -369,7 +389,7 @@ where
 		Box::new(RelayChainConsensus::new(
 			self.para_id,
 			self.proposer_factory,
-			self.inherent_data_providers,
+			self.create_inherent_data_providers,
 			self.block_import,
 			client.clone(),
 			self.relay_chain_backend,

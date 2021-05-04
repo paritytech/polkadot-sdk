@@ -24,7 +24,7 @@ use sp_consensus::{
 	import_queue::{BasicQueue, CacheKeyId, Verifier as VerifierT},
 	BlockImport, BlockImportParams, BlockOrigin, ForkChoiceStrategy,
 };
-use sp_inherents::InherentDataProviders;
+use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT},
@@ -32,18 +32,19 @@ use sp_runtime::{
 };
 
 /// A verifier that just checks the inherents.
-struct Verifier<Client, Block> {
+struct Verifier<Client, Block, CIDP> {
 	client: Arc<Client>,
-	inherent_data_providers: InherentDataProviders,
+	create_inherent_data_providers: CIDP,
 	_marker: PhantomData<Block>,
 }
 
 #[async_trait::async_trait]
-impl<Client, Block> VerifierT<Block> for Verifier<Client, Block>
+impl<Client, Block, CIDP> VerifierT<Block> for Verifier<Client, Block, CIDP>
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
 		&mut self,
@@ -59,10 +60,15 @@ where
 		String,
 	> {
 		if let Some(inner_body) = body.take() {
-			let inherent_data = self
-				.inherent_data_providers
+			let inherent_data_providers = self
+				.create_inherent_data_providers
+				.create_inherent_data_providers(*header.parent_hash(), ())
+				.await
+				.map_err(|e| format!("{:?}", e))?;
+
+			let inherent_data = inherent_data_providers
 				.create_inherent_data()
-				.map_err(|e| e.into_string())?;
+				.map_err(|e| format!("{:?}", e))?;
 
 			let block = Block::new(header.clone(), inner_body);
 
@@ -77,9 +83,15 @@ where
 				.map_err(|e| format!("{:?}", e))?;
 
 			if !inherent_res.ok() {
-				inherent_res.into_errors().try_for_each(|(i, e)| {
-					Err(self.inherent_data_providers.error_to_string(&i, &e))
-				})?;
+				for (i, e) in inherent_res.into_errors() {
+					match inherent_data_providers.try_handle_error(&i, &e).await {
+						Some(r) => r.map_err(|e| format!("{:?}", e))?,
+						None => Err(format!(
+							"Unhandled inherent error from `{}`.",
+							String::from_utf8_lossy(&i)
+						))?,
+					}
+				}
 			}
 
 			let (_, inner_body) = block.deconstruct();
@@ -103,10 +115,10 @@ where
 }
 
 /// Start an import queue for a Cumulus collator that does not uses any special authoring logic.
-pub fn import_queue<Client, Block: BlockT, I>(
+pub fn import_queue<Client, Block: BlockT, I, CIDP>(
 	client: Arc<Client>,
 	block_import: I,
-	inherent_data_providers: InherentDataProviders,
+	create_inherent_data_providers: CIDP,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&substrate_prometheus_endpoint::Registry>,
 ) -> ClientResult<BasicQueue<Block, I::Transaction>>
@@ -115,10 +127,11 @@ where
 	I::Transaction: Send,
 	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier {
 		client,
-		inherent_data_providers,
+		create_inherent_data_providers,
 		_marker: PhantomData,
 	};
 
