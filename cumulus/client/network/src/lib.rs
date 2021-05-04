@@ -37,7 +37,7 @@ use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_parachain::primitives::HeadData;
 use polkadot_primitives::v1::{
 	Block as PBlock, Hash as PHash, CandidateReceipt, CompactStatement, Id as ParaId,
-	OccupiedCoreAssumption, ParachainHost, SignedStatement, SigningContext,
+	OccupiedCoreAssumption, ParachainHost, UncheckedSigned, SigningContext,
 };
 use polkadot_service::ClientHandle;
 
@@ -77,7 +77,7 @@ impl fmt::Display for BlockAnnounceError {
 #[derive(Encode, Decode, Debug)]
 pub struct BlockAnnounceData {
 	receipt: CandidateReceipt,
-	statement: SignedStatement,
+	statement: UncheckedSigned<CompactStatement>,
 }
 
 impl BlockAnnounceData {
@@ -85,7 +85,7 @@ impl BlockAnnounceData {
 	///
 	/// This will not check the signature, for this you should use [`BlockAnnounceData::check_signature`].
 	fn validate(&self, encoded_header: Vec<u8>) -> Result<(), Validation> {
-		let candidate_hash = if let CompactStatement::Seconded(h) = self.statement.payload() {
+		let candidate_hash = if let CompactStatement::Seconded(h) = self.statement.unchecked_payload() {
 			h
 		} else {
 			tracing::debug!(
@@ -118,7 +118,7 @@ impl BlockAnnounceData {
 	///
 	/// Returns an `Err(_)` if it failed.
 	fn check_signature<P>(
-		&self,
+		self,
 		relay_chain_client: &Arc<P>,
 	) -> Result<Validation, BlockAnnounceError>
 	where
@@ -126,7 +126,7 @@ impl BlockAnnounceData {
 		P::Api: ParachainHost<PBlock>,
 	{
 		let runtime_api = relay_chain_client.runtime_api();
-		let validator_index = self.statement.validator_index();
+		let validator_index = self.statement.unchecked_validator_index();
 
 		let runtime_api_block_id = BlockId::Hash(self.receipt.descriptor.relay_parent);
 		let session_index = match runtime_api.session_index_for_child(&runtime_api_block_id) {
@@ -163,7 +163,7 @@ impl BlockAnnounceData {
 		// Check statement is correctly signed.
 		if self
 			.statement
-			.check_signature(&signing_context, &signer)
+			.try_into_checked(&signing_context, &signer)
 			.is_err()
 		{
 			tracing::debug!(
@@ -190,7 +190,7 @@ impl TryFrom<&'_ SignedFullStatement> for BlockAnnounceData {
 
 		Ok(BlockAnnounceData {
 			receipt,
-			statement: stmt.convert_payload(),
+			statement: stmt.convert_payload().into(),
 		})
 	}
 }

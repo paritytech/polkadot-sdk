@@ -282,7 +282,7 @@ fn check_statement_seconded() {
 
 	let data = BlockAnnounceData {
 		receipt: Default::default(),
-		statement: signed_statement.convert_payload(),
+		statement: signed_statement.convert_payload().into(),
 	}
 	.encode();
 
