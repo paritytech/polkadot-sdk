@@ -19,11 +19,17 @@
 #![warn(missing_docs)]
 
 use sc_cli;
+use sc_service::{
+	BasePath,
+	config::{TelemetryEndpoints, PrometheusConfig},
+	TransactionPoolOptions,
+};
 use std::{
 	fs,
 	io::{self, Write},
 };
 use structopt::StructOpt;
+use std::net::SocketAddr;
 
 /// The `purge-chain` command used to remove the whole chain: the parachain and the relaychain.
 #[derive(Debug, StructOpt)]
@@ -110,5 +116,136 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 
 	fn database_params(&self) -> Option<&sc_cli::DatabaseParams> {
 		Some(&self.base.database_params)
+	}
+}
+
+/// The `run` command used to run a node.
+#[derive(Debug, StructOpt)]
+pub struct RunCmd {
+	/// The cumulus RunCmd inherents from sc_cli's
+	#[structopt(flatten)]
+	pub base: sc_cli::RunCmd,
+
+	/// Id of the parachain this collator collates for.
+	#[structopt(long)]
+	pub parachain_id: Option<u32>,
+
+	/// Run node as collator.
+	///
+	/// Note that this is the same as running with `--validator`.
+	#[structopt(long, conflicts_with = "validator")]
+	pub collator: bool,
+}
+
+/// A non-redundant version of the `RunCmd` that sets the `validator` field when the
+/// original `RunCmd` had the `colaltor` field.
+/// This is how we make `--collator` imply `--validator`.
+pub struct NormalizedRunCmd {
+	/// The cumulus RunCmd inherents from sc_cli's
+	pub base: sc_cli::RunCmd,
+	/// Id of the parachain this collator collates for.
+	pub parachain_id: Option<u32>,
+}
+
+impl RunCmd {
+	/// Create a [`NormalizedRunCmd`] which merges the `collator` cli argument into `validator` to have only one.
+	pub fn normalize(&self) -> NormalizedRunCmd {
+		let mut new_base = self.base.clone();
+
+		 new_base.validator = self.base.validator || self.collator;
+
+		 NormalizedRunCmd { 
+			 base: new_base,
+			 parachain_id: self.parachain_id,
+		}
+	}
+}
+
+impl sc_cli::CliConfiguration for NormalizedRunCmd {
+	fn shared_params(&self) -> &sc_cli::SharedParams {
+		self.base.shared_params()
+	}
+
+	fn import_params(&self) -> Option<&sc_cli::ImportParams> {
+		self.base.import_params()
+	}
+
+	fn network_params(&self) -> Option<&sc_cli::NetworkParams> {
+		self.base.network_params()
+	}
+
+	fn keystore_params(&self) -> Option<&sc_cli::KeystoreParams> {
+		self.base.keystore_params()
+	}
+
+	fn offchain_worker_params(&self) -> Option<&sc_cli::OffchainWorkerParams> {
+		self.base.offchain_worker_params()
+	}
+
+	fn node_name(&self) -> sc_cli::Result<String> {
+		self.base.node_name()
+	}
+
+	fn dev_key_seed(&self, is_dev: bool) -> sc_cli::Result<Option<String>> {
+		self.base.dev_key_seed(is_dev)
+	}
+
+	fn telemetry_endpoints(
+		&self,
+		chain_spec: &Box<dyn sc_cli::ChainSpec>,
+	) -> sc_cli::Result<Option<TelemetryEndpoints>> {
+		self.base.telemetry_endpoints(chain_spec)
+	}
+
+	fn role(&self, is_dev: bool) -> sc_cli::Result<sc_cli::Role> {
+		self.base.role(is_dev)
+	}
+
+	fn force_authoring(&self) -> sc_cli::Result<bool> {
+		self.base.force_authoring()
+	}
+
+	fn prometheus_config(&self, default_listen_port: u16) -> sc_cli::Result<Option<PrometheusConfig>> {
+		self.base.prometheus_config(default_listen_port)
+	}
+
+	fn disable_grandpa(&self) -> sc_cli::Result<bool> {
+		self.base.disable_grandpa()
+	}
+
+	fn rpc_ws_max_connections(&self) -> sc_cli::Result<Option<usize>> {
+		self.base.rpc_ws_max_connections()
+	}
+
+	fn rpc_cors(&self, is_dev: bool) -> sc_cli::Result<Option<Vec<String>>> {
+		self.base.rpc_cors(is_dev)
+	}
+
+	fn rpc_http(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+		self.base.rpc_http(default_listen_port)
+	}
+
+	fn rpc_ipc(&self) -> sc_cli::Result<Option<String>> {
+		self.base.rpc_ipc()
+	}
+
+	fn rpc_ws(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+		self.base.rpc_ws(default_listen_port)
+	}
+
+	fn rpc_methods(&self) -> sc_cli::Result<sc_service::config::RpcMethods> {
+		self.base.rpc_methods()
+	}
+
+	fn transaction_pool(&self) -> sc_cli::Result<TransactionPoolOptions> {
+		self.base.transaction_pool()
+	}
+
+	fn max_runtime_instances(&self) -> sc_cli::Result<Option<usize>> {
+		self.base.max_runtime_instances()
+	}
+
+	fn base_path(&self) -> sc_cli::Result<Option<BasePath>> {
+		self.base.base_path()
 	}
 }

@@ -146,7 +146,6 @@ async fn start_node_impl<RuntimeApi, Executor, RB>(
 	collator_key: CollatorPair,
 	polkadot_config: Configuration,
 	id: ParaId,
-	validator: bool,
 	rpc_ext_builder: RB,
 ) -> sc_service::error::Result<(TaskManager, Arc<TFullClient<Block, RuntimeApi, Executor>>)>
 where
@@ -198,6 +197,7 @@ where
 		polkadot_full_node.backend.clone(),
 	);
 
+	let validator = parachain_config.role.is_authority();
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();
 	let transaction_pool = params.transaction_pool.clone();
 	let mut task_manager = params.task_manager;
@@ -295,17 +295,14 @@ pub async fn start_node(
 	collator_key: CollatorPair,
 	polkadot_config: Configuration,
 	id: ParaId,
-	validator: bool,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<TFullClient<Block, parachain_runtime::RuntimeApi, RuntimeExecutor>>,
-)> {
+) -> sc_service::error::Result<
+	(TaskManager, Arc<TFullClient<Block, parachain_runtime::RuntimeApi, RuntimeExecutor>>)
+> {
 	start_node_impl::<parachain_runtime::RuntimeApi, RuntimeExecutor, _>(
 		parachain_config,
 		collator_key,
 		polkadot_config,
 		id,
-		validator,
 		|_| Default::default(),
 	)
 	.await
@@ -317,17 +314,14 @@ pub async fn start_shell_node(
 	collator_key: CollatorPair,
 	polkadot_config: Configuration,
 	id: ParaId,
-	validator: bool,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<TFullClient<Block, shell_runtime::RuntimeApi, ShellRuntimeExecutor>>,
-)> {
+) -> sc_service::error::Result<
+	(TaskManager, Arc<TFullClient<Block, shell_runtime::RuntimeApi, ShellRuntimeExecutor>>)
+> {
 	start_node_impl::<shell_runtime::RuntimeApi, ShellRuntimeExecutor, _>(
 		parachain_config,
 		collator_key,
 		polkadot_config,
 		id,
-		validator,
 		|_| Default::default(),
 	)
 	.await
