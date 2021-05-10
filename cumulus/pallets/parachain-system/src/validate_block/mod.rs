@@ -69,7 +69,7 @@ fn set_and_run_with_validation_params<R>(mut params: ValidationParams, f: impl F
 /// ```
 #[macro_export]
 macro_rules! register_validate_block {
-	($runtime:ty, $block_executor:ty) => {
+	($runtime:ty, $block_executor:ty $( , )? ) => {
 		$crate::register_validate_block_impl!($runtime, $block_executor);
 	};
 }

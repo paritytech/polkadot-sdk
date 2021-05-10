@@ -26,6 +26,7 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
+use polkadot_service::{Client, ClientHandle, ExecuteWithClient};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::generic::BlockId;
@@ -210,7 +211,8 @@ impl ParachainInherentData {
 		PClient: ProvideRuntimeApi<PBlock>,
 		PClient::Api: ParachainHost<PBlock>,
 	{
-		let relay_chain_state = collect_relay_storage_proof(polkadot_backend, para_id, relay_parent)?;
+		let relay_chain_state =
+			collect_relay_storage_proof(polkadot_backend, para_id, relay_parent)?;
 		let downward_messages = retrieve_dmq_contents(polkadot_client, para_id, relay_parent)?;
 		let horizontal_messages =
 			retrieve_all_inbound_hrmp_channel_contents(polkadot_client, para_id, relay_parent)?;
@@ -221,5 +223,69 @@ impl ParachainInherentData {
 			validation_data: validation_data.clone(),
 			relay_chain_state,
 		})
+	}
+
+	/// Create the [`ParachainInherentData`] at the given `relay_parent`.
+	///
+	/// Returns `None` if the creation failed.
+	pub fn create_at_with_client(
+		relay_parent: PHash,
+		polkadot_client: &Client,
+		relay_chain_backend: &impl Backend<PBlock>,
+		validation_data: &PersistedValidationData,
+		para_id: ParaId,
+	) -> Option<ParachainInherentData> {
+		polkadot_client.execute_with(CreateAtWithClient {
+			relay_chain_backend,
+			validation_data,
+			para_id,
+			relay_parent,
+		})
+	}
+}
+
+#[async_trait::async_trait]
+impl sp_inherents::InherentDataProvider for ParachainInherentData {
+	fn provide_inherent_data(
+		&self,
+		inherent_data: &mut sp_inherents::InherentData,
+	) -> Result<(), sp_inherents::Error> {
+		inherent_data.put_data(crate::INHERENT_IDENTIFIER, &self)
+	}
+
+	async fn try_handle_error(
+		&self,
+		_: &sp_inherents::InherentIdentifier,
+		_: &[u8],
+	) -> Option<Result<(), sp_inherents::Error>> {
+		None
+	}
+}
+
+/// Special structure to run [`ParachainInherentData::create_at`] with a [`Client`].
+struct CreateAtWithClient<'a, B> {
+	relay_parent: PHash,
+	relay_chain_backend: &'a B,
+	validation_data: &'a PersistedValidationData,
+	para_id: ParaId,
+}
+
+impl<'a, B> ExecuteWithClient for CreateAtWithClient<'a, B>
+where
+	B: Backend<PBlock>,
+{
+	type Output = Option<ParachainInherentData>;
+
+	fn execute_with_client<Client, Api, Backend>(
+		self,
+		client: std::sync::Arc<Client>,
+	) -> Self::Output where Client: ProvideRuntimeApi<PBlock>, Client::Api: ParachainHost<PBlock> {
+		ParachainInherentData::create_at(
+			self.relay_parent,
+			&*client,
+			self.relay_chain_backend,
+			self.validation_data,
+			self.para_id,
+		)
 	}
 }

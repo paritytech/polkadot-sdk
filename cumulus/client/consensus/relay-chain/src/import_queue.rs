@@ -64,7 +64,7 @@ where
 				.create_inherent_data_providers
 				.create_inherent_data_providers(*header.parent_hash(), ())
 				.await
-				.map_err(|e| format!("{:?}", e))?;
+				.map_err(|e| e.to_string())?;
 
 			let inherent_data = inherent_data_providers
 				.create_inherent_data()

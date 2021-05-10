@@ -209,24 +209,14 @@ impl Config for XcmConfig {
 	type IsTeleporter = ();	// balances not supported
 	type LocationInverter = LocationInverter<Ancestry>;
 	type Barrier = AllowUnpaidExecutionFrom<JustTheParent>;
-	type Weigher = FixedWeightBounds<UnitWeightCost, Call>;		// balances not supported
-	type Trader = ();		// balances not supported
+	type Weigher = FixedWeightBounds<UnitWeightCost, Call>;	// balances not supported
+	type Trader = ();	// balances not supported
 	type ResponseHandler = ();	// Don't handle responses for now.
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
 	type Event = Event;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-#[test]
-fn encode_call() {
-	let hash = hex_literal::hex!["0af9fef6f950ca3ac8ac4766200454b1039ffb7b2d0827fffd5e47bd43761437"].into();
-	let call = Call::ParachainSystem(cumulus_pallet_parachain_system::Call::authorize_upgrade(hash));
-	assert_eq!(
-		hex::encode(codec::Encode::encode(&call)),
-		"01030af9fef6f950ca3ac8ac4766200454b1039ffb7b2d0827fffd5e47bd43761437",
-	);
 }
 
 construct_runtime! {

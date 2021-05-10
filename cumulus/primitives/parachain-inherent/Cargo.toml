@@ -15,16 +15,21 @@ sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "
 sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 
+# Polkadot dependencies
+polkadot-service = { git = "https://github.com/paritytech/polkadot", optional = true, branch = "master" }
+
 # Cumulus dependencies
 cumulus-primitives-core = { path = "../core", default-features = false }
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
 tracing = { version = "0.1.22", optional = true }
+async-trait = { version = "0.1.42", optional = true }
 
 [features]
 default = [ "std" ]
 std = [
+	"async-trait",
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"sp-inherents/std",
@@ -36,4 +41,5 @@ std = [
 	"sp-runtime",
 	"sc-client-api",
 	"sp-api",
+	"polkadot-service",
 ]

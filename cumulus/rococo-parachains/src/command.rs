@@ -19,8 +19,8 @@ use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 };
 use codec::Encode;
-use cumulus_primitives_core::ParaId;
 use cumulus_client_service::genesis::generate_genesis_block;
+use cumulus_primitives_core::ParaId;
 use log::info;
 use parachain_runtime::Block;
 use polkadot_parachain::primitives::AccountIdConversion;
@@ -28,9 +28,7 @@ use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
 };
-use sc_service::{
-	config::{BasePath, PrometheusConfig},
-};
+use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Block as BlockT;
 use std::{io::Write, net::SocketAddr};
@@ -157,13 +155,19 @@ macro_rules! construct_async_run {
 		let runner = $cli.create_runner($cmd)?;
 		if use_shell_runtime(&runner.config().chain_spec) {
 			runner.async_run(|$config| {
-				let $components = new_partial::<shell_runtime::RuntimeApi, ShellRuntimeExecutor>(&$config)?;
+				let $components = new_partial::<shell_runtime::RuntimeApi, ShellRuntimeExecutor, _>(
+					&$config,
+					crate::service::shell_build_import_queue,
+				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
 		} else {
 			runner.async_run(|$config| {
-				let $components = new_partial::<parachain_runtime::RuntimeApi, RuntimeExecutor>(&$config)?;
+				let $components = new_partial::<parachain_runtime::RuntimeApi, RuntimeExecutor, _>(
+					&$config,
+					crate::service::build_import_queue,
+				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
@@ -180,18 +184,26 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		}
-		Some(Subcommand::CheckBlock(cmd)) => construct_async_run! (|components, cli, cmd, config| {
-			Ok(cmd.run(components.client, components.import_queue))
-		}),
-		Some(Subcommand::ExportBlocks(cmd)) => construct_async_run! (|components, cli, cmd, config| {
-			Ok(cmd.run(components.client, config.database))
-		}),
-		Some(Subcommand::ExportState(cmd)) => construct_async_run! (|components, cli, cmd, config| {
-			Ok(cmd.run(components.client, config.chain_spec))
-		}),
-		Some(Subcommand::ImportBlocks(cmd)) => construct_async_run! (|components, cli, cmd, config| {
-			Ok(cmd.run(components.client, components.import_queue))
-		}),
+		Some(Subcommand::CheckBlock(cmd)) => {
+			construct_async_run!(|components, cli, cmd, config| {
+				Ok(cmd.run(components.client, components.import_queue))
+			})
+		}
+		Some(Subcommand::ExportBlocks(cmd)) => {
+			construct_async_run!(|components, cli, cmd, config| {
+				Ok(cmd.run(components.client, config.database))
+			})
+		}
+		Some(Subcommand::ExportState(cmd)) => {
+			construct_async_run!(|components, cli, cmd, config| {
+				Ok(cmd.run(components.client, config.chain_spec))
+			})
+		}
+		Some(Subcommand::ImportBlocks(cmd)) => {
+			construct_async_run!(|components, cli, cmd, config| {
+				Ok(cmd.run(components.client, components.import_queue))
+			})
+		}
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
@@ -213,7 +225,7 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		}
-		Some(Subcommand::Revert(cmd)) => construct_async_run! (|components, cli, cmd, config| {
+		Some(Subcommand::Revert(cmd)) => construct_async_run!(|components, cli, cmd, config| {
 			Ok(cmd.run(components.client, components.backend))
 		}),
 		Some(Subcommand::ExportGenesisState(params)) => {

@@ -38,7 +38,6 @@ use cumulus_primitives_core::{
 	relay_chain::v1::{Block as PBlock, Hash as PHash, ParachainHost},
 	ParaId, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use parking_lot::Mutex;
 use polkadot_service::ClientHandle;
 use sc_client_api::Backend;
@@ -89,7 +88,7 @@ where
 	RClient: ProvideRuntimeApi<PBlock>,
 	RClient::Api: ParachainHost<PBlock>,
 	RBackend: Backend<PBlock>,
-	CIDP: CreateInherentDataProviders<B, ()>,
+	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)>,
 {
 	/// Create a new instance of relay-chain provided consensus.
 	pub fn new(
@@ -120,18 +119,18 @@ where
 	) -> Option<InherentData> {
 		let inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent, ())
+			.create_inherent_data_providers(parent, (relay_parent, validation_data.clone()))
 			.await
 			.map_err(|e| {
 				tracing::error!(
 					target: LOG_TARGET,
 					error = ?e,
-					"Failed to create inherent data providers",
+					"Failed to create inherent data providers.",
 				)
 			})
 			.ok()?;
 
-		let mut inherent_data = inherent_data_providers
+		inherent_data_providers
 			.create_inherent_data()
 			.map_err(|e| {
 				tracing::error!(
@@ -140,31 +139,7 @@ where
 					"Failed to create inherent data.",
 				)
 			})
-			.ok()?;
-
-		let parachain_inherent_data = ParachainInherentData::create_at(
-			relay_parent,
-			&*self.relay_chain_client,
-			&*self.relay_chain_backend,
-			validation_data,
-			self.para_id,
-		)?;
-
-		inherent_data
-			.put_data(
-				cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
-				&parachain_inherent_data,
-			)
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Failed to put the system inherent into inherent data.",
-				)
-			})
-			.ok()?;
-
-		Some(inherent_data)
+			.ok()
 	}
 }
 
@@ -184,7 +159,7 @@ where
 		ProofRecording = EnableProofRecording,
 		Proof = <EnableProofRecording as ProofRecording>::Proof,
 	>,
-	CIDP: CreateInherentDataProviders<B, ()>,
+	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)>,
 {
 	async fn produce_candidate(
 		&mut self,
@@ -201,7 +176,9 @@ where
 			)
 			.ok()?;
 
-		let inherent_data = self.inherent_data(parent.hash(), &validation_data, relay_parent).await?;
+		let inherent_data = self
+			.inherent_data(parent.hash(), &validation_data, relay_parent)
+			.await?;
 
 		let Proposal {
 			block,
@@ -288,7 +265,7 @@ where
 	RBackend: Backend<PBlock> + 'static,
 	// Rust bug: https://github.com/rust-lang/rust/issues/24159
 	sc_client_api::StateBackendFor<RBackend, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+	CIDP: CreateInherentDataProviders<Block, (PHash, PersistedValidationData)> + 'static,
 {
 	RelayChainConsensusBuilder::new(
 		para_id,
@@ -331,7 +308,7 @@ where
 	>,
 	BI: BlockImport<Block> + Send + Sync + 'static,
 	RBackend: Backend<PBlock> + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+	CIDP: CreateInherentDataProviders<Block, (PHash, PersistedValidationData)> + 'static,
 {
 	/// Create a new instance of the builder.
 	fn new(
@@ -374,7 +351,7 @@ where
 	>,
 	BI: BlockImport<Block> + Send + Sync + 'static,
 	RBackend: Backend<PBlock> + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+	CIDP: CreateInherentDataProviders<Block, (PHash, PersistedValidationData)> + 'static,
 {
 	type Output = Box<dyn ParachainConsensus<Block>>;
 
