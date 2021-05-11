@@ -416,8 +416,12 @@ mod tests {
 
 	pub struct MockExec;
 	impl ExecuteXcm<Call> for MockExec {
-		type Call = Call;
-		fn execute_xcm(_origin: MultiLocation, message: Xcm, weight_limit: Weight) -> Outcome {
+		fn execute_xcm_in_credit(
+			_origin: MultiLocation,
+			message: Xcm,
+			weight_limit: Weight,
+			_credit: Weight,
+		) -> Outcome {
 			let o = match &message {
 				Xcm::Transact { require_weight_at_most, .. } => {
 					if *require_weight_at_most <= weight_limit {

@@ -39,7 +39,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types, match_type,
-	traits::{Randomness, IsInVec},
+	traits::{Randomness, IsInVec, All},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, Weight,
@@ -56,18 +56,17 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 // XCM imports
 use polkadot_parachain::primitives::Sibling;
-use xcm::v0::{Junction::*, MultiLocation, MultiLocation::*, NetworkId, BodyId};
+use xcm::v0::{MultiAsset, MultiLocation, MultiLocation::*, Junction::*, BodyId, NetworkId};
 use xcm_builder::{
 	AccountId32Aliases, CurrencyAdapter, LocationInverter, ParentIsDefault, RelayChainAsNative,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SovereignSignedViaLocation, EnsureXcmOrigin, AllowUnpaidExecutionFrom, ParentAsSuperuser,
 	AllowTopLevelPaidExecutionFrom, TakeWeightCredit, FixedWeightBounds, IsConcrete, NativeAsset,
-	UsingComponents,
+	UsingComponents, SignedToAccountId32,
 };
 use xcm_executor::{Config, XcmExecutor};
 use pallet_xcm::{XcmPassthrough, EnsureXcm, IsMajorityOfBody};
 use xcm::v0::Xcm;
-use frame_support::traits::Contains;
 
 pub type SessionHandlers = ();
 
@@ -82,7 +81,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("test-parachain"),
 	impl_name: create_runtime_str!("test-parachain"),
 	authoring_version: 1,
-	spec_version: 11,
+	spec_version: 14,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -345,7 +344,9 @@ impl Config for XcmConfig {
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
-pub type LocalOriginToLocation = ();
+pub type LocalOriginToLocation = (
+	SignedToAccountId32<Origin, AccountId, RococoNetwork>,
+);
 
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
@@ -356,13 +357,6 @@ pub type XcmRouter = (
 	XcmpQueue,
 );
 
-// TODO: Remove to frame_support::traits::All once substrate/8691 merged and bumped
-/// A `Contains` implementation which always returns `true`.
-pub struct All<T>(sp_std::marker::PhantomData<T>);
-impl<T> Contains<T> for All<T> {
-	fn contains(_: &T) -> bool { true }
-}
-
 impl pallet_xcm::Config for Runtime {
 	type Event = Event;
 	type SendXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
@@ -370,6 +364,8 @@ impl pallet_xcm::Config for Runtime {
 	type ExecuteXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
 	type XcmExecuteFilter = All<(MultiLocation, Xcm<Call>)>;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type XcmTeleportFilter = All<(MultiLocation, Vec<MultiAsset>)>;
+	type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

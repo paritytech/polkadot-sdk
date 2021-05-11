@@ -246,6 +246,7 @@ pub fn build_polkadot_full_node(
 			config,
 			polkadot_service::IsCollator::Yes(collator_pair),
 			None,
+			true,
 			None,
 			telemetry_worker_handle,
 		)
