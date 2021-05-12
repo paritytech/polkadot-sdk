@@ -47,6 +47,7 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", default-featu
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-executor-common = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 cumulus-test-client = { path = "../../test/client" }
 env_logger = "0.7.1"

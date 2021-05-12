@@ -184,17 +184,13 @@ fn new_test_ext() -> sp_io::TestExternalities {
 		.into()
 }
 
-struct CallInWasm(Vec<u8>);
+struct ReadRuntimeVersion(Vec<u8>);
 
-impl sp_core::traits::CallInWasm for CallInWasm {
-	fn call_in_wasm(
+impl sp_core::traits::ReadRuntimeVersion for ReadRuntimeVersion {
+	fn read_runtime_version(
 		&self,
 		_wasm_code: &[u8],
-		_code_hash: Option<Vec<u8>>,
-		_method: &str,
-		_call_data: &[u8],
 		_ext: &mut dyn sp_externalities::Externalities,
-		_missing_host_functions: sp_core::traits::MissingHostFunctions,
 	) -> Result<Vec<u8>, String> {
 		Ok(self.0.clone())
 	}
@@ -207,10 +203,11 @@ fn wasm_ext() -> sp_io::TestExternalities {
 		impl_version: 1,
 		..Default::default()
 	};
-	let call_in_wasm = CallInWasm(version.encode());
 
 	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::CallInWasmExt::new(call_in_wasm));
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(
+		ReadRuntimeVersion(version.encode()),
+	));
 	ext
 }
 
