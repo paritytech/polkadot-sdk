@@ -30,7 +30,7 @@ fn purge_chain_works() {
 
 		let base_path = tempfile::tempdir().unwrap();
 
-		let mut cmd = Command::new(cargo_bin("rococo-collator"))
+		let mut cmd = Command::new(cargo_bin("polkadot-collator"))
 			.args(&["-d"])
 			.arg(base_path.path())
 			.args(&["--"])
@@ -60,7 +60,7 @@ fn purge_chain_works() {
 		assert!(base_path.path().join("chains/local_testnet/db").exists());
 		assert!(base_path.path().join("polkadot/chains/westend_dev/db").exists());
 
-		let status = Command::new(cargo_bin("rococo-collator"))
+		let status = Command::new(cargo_bin("polkadot-collator"))
 			.args(&["purge-chain", "-d"])
 			.arg(base_path.path())
 			.arg("-y")

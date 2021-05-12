@@ -23,8 +23,7 @@ use cumulus_client_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
 use cumulus_primitives_core::ParaId;
-use polkadot_primitives::v0::CollatorPair;
-use rococo_parachain_primitives::{Block, Hash};
+use polkadot_primitives::v1::CollatorPair;
 
 use sc_client_api::ExecutorProvider;
 use sc_executor::native_executor_instance;
@@ -40,11 +39,16 @@ use substrate_prometheus_endpoint::Registry;
 
 pub use sc_executor::NativeExecutor;
 
+type BlockNumber = u32;
+type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::BlakeTwo256>;
+pub type Block = sp_runtime::generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
+type Hash = sp_core::H256;
+
 // Native executor instance.
 native_executor_instance!(
-	pub RuntimeExecutor,
-	parachain_runtime::api::dispatch,
-	parachain_runtime::native_version,
+	pub RococoParachainRuntimeExecutor,
+	rococo_parachain_runtime::api::dispatch,
+	rococo_parachain_runtime::native_version,
 );
 
 // Native executor instance.
@@ -320,16 +324,16 @@ where
 	Ok((task_manager, client))
 }
 
-/// Build the import queue for the "default" runtime.
-pub fn build_import_queue(
-	client: Arc<TFullClient<Block, parachain_runtime::RuntimeApi, RuntimeExecutor>>,
+/// Build the import queue for the rococo parachain runtime.
+pub fn rococo_parachain_build_import_queue(
+	client: Arc<TFullClient<Block, rococo_parachain_runtime::RuntimeApi, RococoParachainRuntimeExecutor>>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 ) -> Result<
 	sp_consensus::DefaultImportQueue<
 		Block,
-		TFullClient<Block, shell_runtime::RuntimeApi, ShellRuntimeExecutor>,
+		TFullClient<Block, rococo_parachain_runtime::RuntimeApi, RococoParachainRuntimeExecutor>,
 	>,
 	sc_service::Error,
 > {
@@ -372,22 +376,22 @@ pub fn build_import_queue(
 	.map_err(Into::into)
 }
 
-/// Start a rococo-test parachain node.
-pub async fn start_node(
+/// Start a rococo parachain node.
+pub async fn start_rococo_parachain_node(
 	parachain_config: Configuration,
 	collator_key: CollatorPair,
 	polkadot_config: Configuration,
 	id: ParaId,
 ) -> sc_service::error::Result<
-	(TaskManager, Arc<TFullClient<Block, parachain_runtime::RuntimeApi, RuntimeExecutor>>)
+	(TaskManager, Arc<TFullClient<Block, rococo_parachain_runtime::RuntimeApi, RococoParachainRuntimeExecutor>>)
 > {
-	start_node_impl::<parachain_runtime::RuntimeApi, RuntimeExecutor, _, _, _>(
+	start_node_impl::<rococo_parachain_runtime::RuntimeApi, RococoParachainRuntimeExecutor, _, _, _>(
 		parachain_config,
 		collator_key,
 		polkadot_config,
 		id,
 		|_| Default::default(),
-		build_import_queue,
+		rococo_parachain_build_import_queue,
 		|client,
 		 prometheus_registry,
 		 telemetry,

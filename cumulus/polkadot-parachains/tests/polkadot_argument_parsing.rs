@@ -21,7 +21,7 @@ mod common;
 
 #[test]
 #[cfg(unix)]
-fn running_the_node_works_and_can_be_interrupted() {
+fn polkadot_argument_parsing() {
 	use nix::{
 		sys::signal::{
 			kill,
@@ -31,13 +31,22 @@ fn running_the_node_works_and_can_be_interrupted() {
 	};
 
 	fn run_command_and_kill(signal: Signal) {
-		let _ = fs::remove_dir_all("interrupt_test");
-		let mut cmd = Command::new(cargo_bin("rococo-collator"))
-			.args(&["-d", "interrupt_test", "--", "--dev"])
+		let _ = fs::remove_dir_all("polkadot_argument_parsing");
+		let mut cmd = Command::new(cargo_bin("polkadot-collator"))
+			.args(&[
+				"-d",
+				"polkadot_argument_parsing",
+				"--",
+				"--dev",
+				"--bootnodes",
+				"/ip4/127.0.0.1/tcp/30333/p2p/Qmbx43psh7LVkrYTRXisUpzCubbgYojkejzAgj5mteDnxy",
+				"--bootnodes",
+				"/ip4/127.0.0.1/tcp/50500/p2p/Qma6SpS7tzfCrhtgEVKR9Uhjmuv55ovC3kY6y6rPBxpWde",
+			])
 			.spawn()
 			.unwrap();
 
-		thread::sleep(Duration::from_secs(30));
+		thread::sleep(Duration::from_secs(20));
 		assert!(
 			cmd.try_wait().unwrap().is_none(),
 			"the process should still be running"

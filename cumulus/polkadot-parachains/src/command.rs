@@ -22,7 +22,6 @@ use codec::Encode;
 use cumulus_client_service::genesis::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use log::info;
-use parachain_runtime::Block;
 use polkadot_parachain::primitives::AccountIdConversion;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
@@ -58,7 +57,7 @@ fn load_spec(
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Cumulus Test Parachain Collator".into()
+		"Polkadot collator".into()
 	}
 
 	fn impl_version() -> String {
@@ -67,7 +66,7 @@ impl SubstrateCli for Cli {
 
 	fn description() -> String {
 		format!(
-			"Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
+			"Polkadot collator\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relaychain node.\n\n\
 		{} [parachain-args] -- [relaychain-args]",
@@ -91,14 +90,18 @@ impl SubstrateCli for Cli {
 		load_spec(id, self.run.parachain_id.unwrap_or(100).into())
 	}
 
-	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&parachain_runtime::VERSION
+	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+		if use_shell_runtime(chain_spec) {
+			&shell_runtime::VERSION
+		} else {
+			&rococo_parachain_runtime::VERSION
+		}
 	}
 }
 
 impl SubstrateCli for RelayChainCli {
 	fn impl_name() -> String {
-		"Cumulus Test Parachain Collator".into()
+		"Polkadot collator".into()
 	}
 
 	fn impl_version() -> String {
@@ -106,11 +109,13 @@ impl SubstrateCli for RelayChainCli {
 	}
 
 	fn description() -> String {
-		"Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
+		format!(
+			"Polkadot collator\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relaychain node.\n\n\
-		rococo-collator [parachain-args] -- [relaychain-args]"
-			.into()
+		{} [parachain-args] -- [relaychain-args]",
+			Self::executable_name()
+		)
 	}
 
 	fn author() -> String {
@@ -148,7 +153,7 @@ fn use_shell_runtime(chain_spec: &Box<dyn ChainSpec>) -> bool {
 	chain_spec.id().starts_with("track") || chain_spec.id().starts_with("shell")
 }
 
-use crate::service::{new_partial, RuntimeExecutor, ShellRuntimeExecutor};
+use crate::service::{new_partial, RococoParachainRuntimeExecutor, ShellRuntimeExecutor};
 
 macro_rules! construct_async_run {
 	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
@@ -164,9 +169,13 @@ macro_rules! construct_async_run {
 			})
 		} else {
 			runner.async_run(|$config| {
-				let $components = new_partial::<parachain_runtime::RuntimeApi, RuntimeExecutor, _>(
+				let $components = new_partial::<
+					rococo_parachain_runtime::RuntimeApi,
+					RococoParachainRuntimeExecutor,
+					_
+				>(
 					&$config,
-					crate::service::build_import_queue,
+					crate::service::rococo_parachain_build_import_queue,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -233,7 +242,7 @@ pub fn run() -> Result<()> {
 			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
 			let _ = builder.init();
 
-			let block: Block = generate_genesis_block(&load_spec(
+			let block: crate::service::Block = generate_genesis_block(&load_spec(
 				&params.chain.clone().unwrap_or_default(),
 				params.parachain_id.unwrap_or(100).into(),
 			)?)?;
@@ -296,22 +305,26 @@ pub fn run() -> Result<()> {
 				let parachain_account =
 					AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
 
-				let block: Block =
+				let block: crate::service::Block =
 					generate_genesis_block(&config.chain_spec).map_err(|e| format!("{:?}", e))?;
 				let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
 				let task_executor = config.task_executor.clone();
-				let polkadot_config = SubstrateCli::create_configuration(
-					&polkadot_cli,
-					&polkadot_cli,
-					task_executor,
-				)
-				.map_err(|err| format!("Relay chain argument error: {}", err))?;
+				let polkadot_config =
+					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
+						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
 				info!("Parachain id: {:?}", id);
 				info!("Parachain Account: {}", parachain_account);
 				info!("Parachain genesis state: {}", genesis_state);
-				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
+				info!(
+					"Is collating: {}",
+					if config.role.is_authority() {
+						"yes"
+					} else {
+						"no"
+					}
+				);
 
 				if use_shell {
 					crate::service::start_shell_node(config, key, polkadot_config, id)
@@ -319,7 +332,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into)
 				} else {
-					crate::service::start_node(config, key, polkadot_config, id)
+					crate::service::start_rococo_parachain_node(config, key, polkadot_config, id)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into)
