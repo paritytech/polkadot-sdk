@@ -59,7 +59,7 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 	type SourceChain = Millau;
 	type TargetChain = Rialto;
 
-	fn source_transactions_author(&self) -> bp_rialto::AccountId {
+	fn source_transactions_author(&self) -> bp_millau::AccountId {
 		(*self.source_sign.public().as_array_ref()).into()
 	}
 
