@@ -40,9 +40,9 @@ pub enum RelayHeadersAndMessages {
 /// Parameters that have the same names across all bridges.
 #[derive(StructOpt)]
 pub struct HeadersAndMessagesSharedParams {
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
+	/// Hex-encoded lane identifiers that should be served by the complex relay.
 	#[structopt(long, default_value = "00000000")]
-	lane: HexLaneId,
+	lane: Vec<HexLaneId>,
 	#[structopt(flatten)]
 	prometheus_params: PrometheusParams,
 }
@@ -125,7 +125,7 @@ impl RelayHeadersAndMessages {
 			let right_client = params.right.to_client::<Right>().await?;
 			let right_sign = params.right_sign.to_keypair::<Right>()?;
 
-			let lane = params.shared.lane.into();
+			let lanes = params.shared.lane;
 
 			let metrics_params: MetricsParams = params.shared.prometheus_params.into();
 			let metrics_params = relay_utils::relay_metrics(None, metrics_params).into_params();
@@ -143,46 +143,49 @@ impl RelayHeadersAndMessages {
 				MAX_MISSING_RIGHT_HEADERS_AT_LEFT,
 			);
 
-			let left_to_right_messages = left_to_right_messages(MessagesRelayParams {
-				source_client: left_client.clone(),
-				source_sign: left_sign.clone(),
-				target_client: right_client.clone(),
-				target_sign: right_sign.clone(),
-				source_to_target_headers_relay: Some(left_to_right_on_demand_headers.clone()),
-				target_to_source_headers_relay: Some(right_to_left_on_demand_headers.clone()),
-				lane_id: lane,
-				metrics_params: metrics_params
-					.clone()
-					.disable()
-					.metrics_prefix(messages_relay::message_lane_loop::metrics_prefix::<LeftToRightMessages>(&lane)),
-			})
-			.map_err(|e| anyhow::format_err!("{}", e))
-			.boxed();
-			let right_to_left_messages = right_to_left_messages(MessagesRelayParams {
-				source_client: right_client,
-				source_sign: right_sign,
-				target_client: left_client.clone(),
-				target_sign: left_sign.clone(),
-				source_to_target_headers_relay: Some(right_to_left_on_demand_headers),
-				target_to_source_headers_relay: Some(left_to_right_on_demand_headers),
-				lane_id: lane,
-				metrics_params: metrics_params
-					.clone()
-					.disable()
-					.metrics_prefix(messages_relay::message_lane_loop::metrics_prefix::<RightToLeftMessages>(&lane)),
-			})
-			.map_err(|e| anyhow::format_err!("{}", e))
-			.boxed();
+			// Need 2x capacity since we consider both directions for each lane
+			let mut message_relays = Vec::with_capacity(lanes.len() * 2);
+			for lane in lanes {
+				let lane = lane.into();
+				let left_to_right_messages = left_to_right_messages(MessagesRelayParams {
+					source_client: left_client.clone(),
+					source_sign: left_sign.clone(),
+					target_client: right_client.clone(),
+					target_sign: right_sign.clone(),
+					source_to_target_headers_relay: Some(left_to_right_on_demand_headers.clone()),
+					target_to_source_headers_relay: Some(right_to_left_on_demand_headers.clone()),
+					lane_id: lane,
+					metrics_params: metrics_params.clone().disable().metrics_prefix(
+						messages_relay::message_lane_loop::metrics_prefix::<LeftToRightMessages>(&lane),
+					),
+				})
+				.map_err(|e| anyhow::format_err!("{}", e))
+				.boxed();
+				let right_to_left_messages = right_to_left_messages(MessagesRelayParams {
+					source_client: right_client.clone(),
+					source_sign: right_sign.clone(),
+					target_client: left_client.clone(),
+					target_sign: left_sign.clone(),
+					source_to_target_headers_relay: Some(right_to_left_on_demand_headers.clone()),
+					target_to_source_headers_relay: Some(left_to_right_on_demand_headers.clone()),
+					lane_id: lane,
+					metrics_params: metrics_params.clone().disable().metrics_prefix(
+						messages_relay::message_lane_loop::metrics_prefix::<RightToLeftMessages>(&lane),
+					),
+				})
+				.map_err(|e| anyhow::format_err!("{}", e))
+				.boxed();
+
+				message_relays.push(left_to_right_messages);
+				message_relays.push(right_to_left_messages);
+			}
 
 			relay_utils::relay_metrics(None, metrics_params)
 				.expose()
 				.await
 				.map_err(|e| anyhow::format_err!("{}", e))?;
 
-			futures::future::select(left_to_right_messages, right_to_left_messages)
-				.await
-				.factor_first()
-				.0
+			futures::future::select_all(message_relays).await.0
 		})
 	}
 }
