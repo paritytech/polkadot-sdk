@@ -642,7 +642,7 @@ impl_runtime_apis! {
 /// The byte vector returned by this function should be signed with a Rialto account private key.
 /// This way, the owner of `millau_account_id` on Millau proves that the Rialto account private key
 /// is also under his control.
-pub fn rialto_account_ownership_digest<Call, AccountId, SpecVersion>(
+pub fn millau_to_rialto_account_ownership_digest<Call, AccountId, SpecVersion>(
 	rialto_call: &Call,
 	millau_account_id: AccountId,
 	rialto_spec_version: SpecVersion,
@@ -656,7 +656,8 @@ where
 		rialto_call,
 		millau_account_id,
 		rialto_spec_version,
-		bp_runtime::MILLAU_BRIDGE_INSTANCE,
+		bp_runtime::MILLAU_CHAIN_ID,
+		bp_runtime::RIALTO_CHAIN_ID,
 	)
 }
 

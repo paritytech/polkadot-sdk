@@ -72,7 +72,7 @@ impl Alternative {
 				"tokenDecimals": 9,
 				"tokenSymbol": "MLAU",
 				"bridgeIds": {
-					"Rialto": bp_runtime::RIALTO_BRIDGE_INSTANCE,
+					"Rialto": bp_runtime::RIALTO_CHAIN_ID,
 				}
 			})
 			.as_object()

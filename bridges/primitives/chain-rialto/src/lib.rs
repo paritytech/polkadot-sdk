@@ -162,7 +162,7 @@ impl Convert<sp_core::H256, AccountId> for AccountIdConverter {
 //
 // Note that this should only be used for testing.
 pub fn derive_account_from_millau_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
-	let encoded_id = bp_runtime::derive_account_id(bp_runtime::MILLAU_BRIDGE_INSTANCE, id);
+	let encoded_id = bp_runtime::derive_account_id(bp_runtime::MILLAU_CHAIN_ID, id);
 	AccountIdConverter::convert(encoded_id)
 }
 
