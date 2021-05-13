@@ -86,7 +86,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		Bytes(transaction.encode())
 	}
 
-	fn target_transactions_author(&self) -> bp_rialto::AccountId {
+	fn target_transactions_author(&self) -> bp_millau::AccountId {
 		(*self.target_sign.public().as_array_ref()).into()
 	}
 
