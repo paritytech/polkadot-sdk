@@ -23,7 +23,7 @@ use crate::on_demand_headers::OnDemandHeadersRelay;
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce};
-use bp_runtime::InstanceId;
+use bp_runtime::ChainId;
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::{Decode, Encode};
 use frame_support::{traits::Instance, weights::Weight};
@@ -50,7 +50,7 @@ pub struct SubstrateMessagesSource<C: Chain, P: SubstrateMessageLane, R, I> {
 	client: Client<C>,
 	lane: P,
 	lane_id: LaneId,
-	instance: InstanceId,
+	instance: ChainId,
 	target_to_source_headers_relay: Option<OnDemandHeadersRelay<P::TargetChain>>,
 	_phantom: PhantomData<(R, I)>,
 }
@@ -61,7 +61,7 @@ impl<C: Chain, P: SubstrateMessageLane, R, I> SubstrateMessagesSource<C, P, R, I
 		client: Client<C>,
 		lane: P,
 		lane_id: LaneId,
-		instance: InstanceId,
+		instance: ChainId,
 		target_to_source_headers_relay: Option<OnDemandHeadersRelay<P::TargetChain>>,
 	) -> Self {
 		SubstrateMessagesSource {
