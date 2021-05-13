@@ -23,7 +23,7 @@ use bp_messages::{
 	target_chain::{ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
 };
-use bp_runtime::{InstanceId, RIALTO_BRIDGE_INSTANCE};
+use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_CHAIN_ID};
 use bridge_runtime_common::messages::{self, MessageBridge, MessageTransaction};
 use codec::{Decode, Encode};
 use frame_support::{
@@ -72,8 +72,6 @@ pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDi
 pub struct WithRialtoMessageBridge;
 
 impl MessageBridge for WithRialtoMessageBridge {
-	const INSTANCE: InstanceId = RIALTO_BRIDGE_INSTANCE;
-
 	const RELAYER_FEE_PERCENT: u32 = 10;
 
 	type ThisChain = Millau;
@@ -90,6 +88,8 @@ impl MessageBridge for WithRialtoMessageBridge {
 pub struct Millau;
 
 impl messages::ChainWithMessages for Millau {
+	const ID: ChainId = MILLAU_CHAIN_ID;
+
 	type Hash = bp_millau::Hash;
 	type AccountId = bp_millau::AccountId;
 	type Signer = bp_millau::AccountSigner;
@@ -141,6 +141,8 @@ impl messages::ThisChainWithMessages for Millau {
 pub struct Rialto;
 
 impl messages::ChainWithMessages for Rialto {
+	const ID: ChainId = RIALTO_CHAIN_ID;
+
 	type Hash = bp_rialto::Hash;
 	type AccountId = bp_rialto::AccountId;
 	type Signer = bp_rialto::AccountSigner;

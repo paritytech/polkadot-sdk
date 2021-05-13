@@ -86,7 +86,7 @@ mod tests {
 		let millau_public: bp_millau::AccountSigner = millau_sign.public().into();
 		let millau_account_id: bp_millau::AccountId = millau_public.into_account();
 
-		let digest = millau_runtime::rialto_account_ownership_digest(
+		let digest = millau_runtime::millau_to_rialto_account_ownership_digest(
 			&call,
 			millau_account_id,
 			rialto_runtime::VERSION.spec_version,
@@ -107,7 +107,7 @@ mod tests {
 		let rialto_public: bp_rialto::AccountSigner = rialto_sign.public().into();
 		let rialto_account_id: bp_rialto::AccountId = rialto_public.into_account();
 
-		let digest = rialto_runtime::millau_account_ownership_digest(
+		let digest = rialto_runtime::rialto_to_millau_account_ownership_digest(
 			&call,
 			rialto_account_id,
 			millau_runtime::VERSION.spec_version,

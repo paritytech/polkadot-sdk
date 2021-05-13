@@ -86,7 +86,7 @@ impl sp_runtime::traits::Dispatchable for Call {
 // We use this to get the account on Wococo (target) which is derived from Rococo's (source)
 // account.
 pub fn derive_account_from_rococo_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
-	let encoded_id = bp_runtime::derive_account_id(bp_runtime::ROCOCO_BRIDGE_INSTANCE, id);
+	let encoded_id = bp_runtime::derive_account_id(bp_runtime::ROCOCO_CHAIN_ID, id);
 	AccountIdConverter::convert(encoded_id)
 }
 

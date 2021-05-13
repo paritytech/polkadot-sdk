@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
-use bp_runtime::{InstanceId, Size};
+use bp_runtime::{ChainId, Size};
 use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use sp_std::prelude::*;
@@ -43,7 +43,8 @@ pub trait MessageDispatch<MessageId> {
 
 	/// Dispatches the message internally.
 	///
-	/// `bridge` indicates instance of deployed bridge where the message came from.
+	/// `source_chain` indicates the chain where the message came from.
+	/// `target_chain` indicates the chain where message dispatch happens.
 	///
 	/// `id` is a short unique identifier of the message.
 	///
@@ -51,7 +52,7 @@ pub trait MessageDispatch<MessageId> {
 	/// a sign that some other component has rejected the message even before it has
 	/// reached `dispatch` method (right now this may only be caused if we fail to decode
 	/// the whole message).
-	fn dispatch(bridge: InstanceId, id: MessageId, message: Result<Self::Message, ()>);
+	fn dispatch(source_chain: ChainId, target_chain: ChainId, id: MessageId, message: Result<Self::Message, ()>);
 }
 
 /// Origin of a Call when it is dispatched on the target chain.

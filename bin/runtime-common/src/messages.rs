@@ -26,7 +26,7 @@ use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages},
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
-use bp_runtime::{InstanceId, Size, StorageProofChecker};
+use bp_runtime::{ChainId, Size, StorageProofChecker};
 use codec::{Decode, Encode};
 use frame_support::{traits::Instance, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
@@ -39,9 +39,6 @@ use sp_trie::StorageProof;
 
 /// Bidirectional message bridge.
 pub trait MessageBridge {
-	/// Instance id of this bridge.
-	const INSTANCE: InstanceId;
-
 	/// Relayer interest (in percents).
 	const RELAYER_FEE_PERCENT: u32;
 
@@ -56,6 +53,9 @@ pub trait MessageBridge {
 
 /// Chain that has `pallet-bridge-messages` and `dispatch` modules.
 pub trait ChainWithMessages {
+	/// Identifier of this chain.
+	const ID: ChainId;
+
 	/// Hash used in the chain.
 	type Hash: Decode;
 	/// Accound id on the chain.
@@ -483,7 +483,8 @@ pub mod target {
 		fn dispatch(message: DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>) {
 			let message_id = (message.key.lane_id, message.key.nonce);
 			pallet_bridge_dispatch::Pallet::<ThisRuntime, ThisDispatchInstance>::dispatch(
-				B::INSTANCE,
+				B::BridgedChain::ID,
+				B::ThisChain::ID,
 				message_id,
 				message.data.payload.map_err(drop),
 			);
@@ -692,7 +693,6 @@ mod tests {
 	struct OnThisChainBridge;
 
 	impl MessageBridge for OnThisChainBridge {
-		const INSTANCE: InstanceId = *b"this";
 		const RELAYER_FEE_PERCENT: u32 = 10;
 
 		type ThisChain = ThisChain;
@@ -708,7 +708,6 @@ mod tests {
 	struct OnBridgedChainBridge;
 
 	impl MessageBridge for OnBridgedChainBridge {
-		const INSTANCE: InstanceId = *b"brdg";
 		const RELAYER_FEE_PERCENT: u32 = 20;
 
 		type ThisChain = BridgedChain;
@@ -809,6 +808,8 @@ mod tests {
 	struct ThisChain;
 
 	impl ChainWithMessages for ThisChain {
+		const ID: ChainId = *b"this";
+
 		type Hash = ();
 		type AccountId = ThisChainAccountId;
 		type Signer = ThisChainSigner;
@@ -866,6 +867,8 @@ mod tests {
 	struct BridgedChain;
 
 	impl ChainWithMessages for BridgedChain {
+		const ID: ChainId = *b"brdg";
+
 		type Hash = ();
 		type AccountId = BridgedChainAccountId;
 		type Signer = BridgedChainSigner;
