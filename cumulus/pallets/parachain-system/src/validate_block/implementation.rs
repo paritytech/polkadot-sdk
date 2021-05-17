@@ -24,19 +24,10 @@ use sp_std::prelude::*;
 
 use hash_db::{HashDB, EMPTY_PREFIX};
 
-use polkadot_parachain::primitives::{
-	HeadData, ValidationCode, ValidationParams, ValidationResult,
-};
+use polkadot_parachain::primitives::{HeadData, ValidationParams, ValidationResult};
 
 use codec::{Decode, Encode};
 
-use cumulus_primitives_core::{
-	well_known_keys::{
-		HRMP_OUTBOUND_MESSAGES, HRMP_WATERMARK, NEW_VALIDATION_CODE, PROCESSED_DOWNWARD_MESSAGES,
-		UPWARD_MESSAGES,
-	},
-	OutboundHrmpMessage, UpwardMessage,
-};
 use sp_core::storage::ChildInfo;
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_trie::MemoryDB;
@@ -51,8 +42,6 @@ type Ext<'a, B> = sp_state_machine::Ext<
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
-
-type ParachainSystem<PSC> = crate::Module::<PSC>;
 
 /// Validate a given parachain block on a validator.
 #[doc(hidden)]
@@ -126,59 +115,26 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 	);
 
-	let validation_data = set_and_run_with_externalities(&mut ext, || {
+	set_and_run_with_externalities(&mut ext, || {
 		super::set_and_run_with_validation_params(params, || {
 			E::execute_block(block);
 
-			ParachainSystem::<PSC>::validation_data()
-				.expect("`PersistedValidationData` should be set in every block!")
+			let new_validation_code = crate::NewValidationCode::<PSC>::get();
+			let upward_messages = crate::UpwardMessages::<PSC>::get();
+			let processed_downward_messages = crate::ProcessedDownwardMessages::<PSC>::get();
+			let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get();
+			let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+
+			ValidationResult {
+				head_data,
+				new_validation_code: new_validation_code.map(Into::into),
+				upward_messages,
+				processed_downward_messages,
+				horizontal_messages,
+				hrmp_watermark,
+			}
 		})
-	});
-
-	// If in the course of block execution new validation code was set, insert
-	// its scheduled upgrade so we can validate that block number later.
-	let new_validation_code = overlay
-		.storage(NEW_VALIDATION_CODE)
-		.flatten()
-		.map(|slice| slice.to_vec())
-		.map(ValidationCode);
-
-	// Extract potential upward messages from the storage.
-	let upward_messages = match overlay.storage(UPWARD_MESSAGES).flatten() {
-		Some(encoded) => Vec::<UpwardMessage>::decode(&mut &encoded[..])
-			.expect("Upward messages vec is not correctly encoded in the storage!"),
-		None => Vec::new(),
-	};
-
-	let processed_downward_messages = overlay
-		.storage(PROCESSED_DOWNWARD_MESSAGES)
-		.flatten()
-		.map(|v| {
-			Decode::decode(&mut &v[..])
-				.expect("Processed downward message count is not correctly encoded in the storage")
-		})
-		.unwrap_or_default();
-
-	let horizontal_messages = match overlay.storage(HRMP_OUTBOUND_MESSAGES).flatten() {
-		Some(encoded) => Vec::<OutboundHrmpMessage>::decode(&mut &encoded[..])
-			.expect("Outbound HRMP messages vec is not correctly encoded in the storage!"),
-		None => Vec::new(),
-	};
-
-	let hrmp_watermark = overlay
-		.storage(HRMP_WATERMARK)
-		.flatten()
-		.map(|v| Decode::decode(&mut &v[..]).expect("HRMP watermark is not encoded correctly"))
-		.unwrap_or(validation_data.relay_parent_number);
-
-	ValidationResult {
-		head_data,
-		new_validation_code,
-		upward_messages,
-		processed_downward_messages,
-		horizontal_messages,
-		hrmp_watermark,
-	}
+	})
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {

@@ -266,7 +266,6 @@ where
 			relay_chain_full_node.with_client(polkadot_test_service::TestClient);
 
 		let params = StartCollatorParams {
-			backend: params.backend,
 			block_status: client.clone(),
 			announce_block,
 			client: client.clone(),

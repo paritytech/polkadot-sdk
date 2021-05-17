@@ -19,7 +19,7 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_consensus_common::ParachainConsensus;
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 use futures::FutureExt;
 use polkadot_primitives::v1::{Block as PBlock, CollatorPair};
 use polkadot_service::{AbstractClient, Client as PClient, ClientHandle, RuntimeApiCollection};
@@ -28,6 +28,7 @@ use sc_client_api::{
 };
 use sc_service::{error::Result as ServiceResult, Configuration, Role, TaskManager};
 use sc_telemetry::TelemetryWorkerHandle;
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockImport;
 use sp_core::traits::SpawnNamed;
@@ -40,8 +41,7 @@ pub mod genesis;
 type RFullNode<C> = polkadot_service::NewFull<C>;
 
 /// Parameters given to [`start_collator`].
-pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, Backend, Spawner, RClient> {
-	pub backend: Arc<Backend>,
+pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, Spawner, RClient> {
 	pub block_status: Arc<BS>,
 	pub client: Arc<Client>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -60,7 +60,6 @@ pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, Backend, Spawner, 
 /// parachain validator for validation and inclusion into the relay chain.
 pub async fn start_collator<'a, Block, BS, Client, Backend, Spawner, RClient>(
 	StartCollatorParams {
-		backend,
 		block_status,
 		client,
 		announce_block,
@@ -70,7 +69,7 @@ pub async fn start_collator<'a, Block, BS, Client, Backend, Spawner, RClient>(
 		task_manager,
 		relay_chain_full_node,
 		parachain_consensus,
-	}: StartCollatorParams<'a, Block, BS, Client, Backend, Spawner, RClient>,
+	}: StartCollatorParams<'a, Block, BS, Client, Spawner, RClient>,
 ) -> sc_service::error::Result<()>
 where
 	Block: BlockT,
@@ -82,11 +81,13 @@ where
 		+ Sync
 		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>
+		+ ProvideRuntimeApi<Block>
 		+ 'static,
+	Client::Api: CollectCollationInfo<Block>,
 	for<'b> &'b Client: BlockImport<Block>,
-	Backend: BackendT<Block> + 'static,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
 	RClient: ClientHandle,
+	Backend: BackendT<Block> + 'static,
 {
 	relay_chain_full_node.client.execute_with(StartConsensus {
 		para_id,
@@ -97,7 +98,7 @@ where
 	})?;
 
 	cumulus_client_collator::start_collator(cumulus_client_collator::StartCollatorParams {
-		backend,
+		runtime_api: client.clone(),
 		block_status,
 		announce_block,
 		overseer_handler: relay_chain_full_node

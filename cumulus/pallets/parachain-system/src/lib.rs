@@ -28,8 +28,7 @@
 //! Users must ensure that they register this pallet as an inherent provider.
 
 use cumulus_primitives_core::{
-	relay_chain,
-	well_known_keys::{self, NEW_VALIDATION_CODE},
+	relay_chain, CollationInfo,
 	AbridgedHostConfiguration, ChannelStatus, DmpMessageHandler, GetChannelInfo,
 	InboundDownwardMessage, InboundHrmpMessage, MessageSendError, OnValidationData,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
@@ -162,7 +161,7 @@ pub mod pallet {
 
 				// TODO: #274 Return back messages that do not longer fit into the queue.
 
-				storage::unhashed::put(well_known_keys::UPWARD_MESSAGES, &up[0..num]);
+				UpwardMessages::<T>::put(&up[..num]);
 				*up = up.split_off(num);
 			});
 
@@ -180,39 +179,35 @@ pub mod pallet {
 				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
 
 			let outbound_messages =
-				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels);
+				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels)
+					.into_iter()
+					.map(|(recipient, data)| OutboundHrmpMessage {
+						recipient,
+						data,
+					}).collect::<Vec<_>>();
 
-			// Note conversion to the `OutboundHrmpMessage` isn't needed since the data that
-			// `take_outbound_messages` returns encodes equivalently.
-			//
-			// The following code is a smoke test to check that the `OutboundHrmpMessage` type
-			// doesn't accidentally change (e.g. by having a field added to it). If the following
-			// line breaks, then we'll need to revisit the assumption that the result of
-			// `take_outbound_messages` can be placed into `HRMP_OUTBOUND_MESSAGES` directly
-			// without a decode/encode round-trip.
-			let _ = OutboundHrmpMessage {
-				recipient: ParaId::from(0),
-				data: vec![],
-			};
-
-			storage::unhashed::put(well_known_keys::HRMP_OUTBOUND_MESSAGES, &outbound_messages);
+			HrmpOutboundMessages::<T>::put(outbound_messages);
 		}
 
 		fn on_initialize(_n: T::BlockNumber) -> Weight {
-			// To prevent removing `NEW_VALIDATION_CODE` that was set by another `on_initialize`
+			let mut weight = 0;
+
+			// To prevent removing `NewValidationCode` that was set by another `on_initialize`
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
-				storage::unhashed::kill(NEW_VALIDATION_CODE);
+				NewValidationCode::<T>::kill();
+				weight += T::DbWeight::get().writes(1);
 			}
 
 			// Remove the validation from the old block.
 			<ValidationData<T>>::kill();
+			ProcessedDownwardMessages::<T>::kill();
+			HrmpWatermark::<T>::kill();
+			UpwardMessages::<T>::kill();
+			HrmpOutboundMessages::<T>::kill();
 
-			let mut weight = T::DbWeight::get().writes(3);
-			storage::unhashed::kill(well_known_keys::HRMP_WATERMARK);
-			storage::unhashed::kill(well_known_keys::UPWARD_MESSAGES);
-			storage::unhashed::kill(well_known_keys::HRMP_OUTBOUND_MESSAGES);
+			weight += T::DbWeight::get().writes(5);
 
 			// Here, in `on_initialize` we must report the weight for both `on_initialize` and
 			// `on_finalize`.
@@ -306,9 +301,9 @@ pub mod pallet {
 			if let Some(apply_block) = <PendingRelayChainBlockNumber<T>>::get() {
 				if vfp.relay_parent_number >= apply_block {
 					<PendingRelayChainBlockNumber<T>>::kill();
-					let validation_function = <PendingValidationFunction<T>>::take();
+					let validation_code = <PendingValidationCode<T>>::take();
 					<LastUpgrade<T>>::put(&apply_block);
-					Self::put_parachain_code(&validation_function);
+					Self::put_parachain_code(&validation_code);
 					Self::deposit_event(Event::ValidationFunctionApplied(vfp.relay_parent_number));
 				}
 			}
@@ -340,6 +335,7 @@ pub mod pallet {
 			total_weight += Self::process_inbound_horizontal_messages(
 				&relevant_messaging_state.ingress_channels,
 				horizontal_messages,
+				vfp.relay_parent_number,
 			);
 
 			Ok(PostDispatchInfo {
@@ -419,7 +415,7 @@ pub mod pallet {
 
 	/// We need to store the new validation function for the span between
 	/// setting it and applying it. If it has a
-	/// value, then [`PendingValidationFunction`] must have a real value, and
+	/// value, then [`PendingValidationCode`] must have a real value, and
 	/// together will coordinate the block number where the upgrade will happen.
 	#[pallet::storage]
 	pub(super) type PendingRelayChainBlockNumber<T: Config> =
@@ -430,7 +426,7 @@ pub mod pallet {
 	/// exist here as long as [`PendingRelayChainBlockNumber`] is set.
 	#[pallet::storage]
 	#[pallet::getter(fn new_validation_function)]
-	pub(super) type PendingValidationFunction<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
+	pub(super) type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
 	#[pallet::storage]
@@ -481,6 +477,40 @@ pub mod pallet {
 	pub(super) type LastHrmpMqcHeads<T: Config> =
 		StorageValue<_, BTreeMap<ParaId, MessageQueueChain>, ValueQuery>;
 
+	/// Number of downward messages processed in a block.
+	///
+	/// This will be cleared in `on_initialize` of each new block.
+	#[pallet::storage]
+	pub(super) type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	/// New validation code that was set in a block.
+	///
+	/// This will be cleared in `on_initialize` of each new block if no other pallet already set
+	/// the value.
+	#[pallet::storage]
+	pub(super) type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+	/// HRMP watermark that was set in a block.
+	///
+	/// This will be cleared in `on_initialize` of each new block.
+	#[pallet::storage]
+	pub(super) type HrmpWatermark<T: Config> =
+		StorageValue<_, relay_chain::v1::BlockNumber, ValueQuery>;
+
+	/// HRMP messages that were sent in a block.
+	///
+	/// This will be cleared in `on_initialize` of each new block.
+	#[pallet::storage]
+	pub(super) type HrmpOutboundMessages<T: Config> =
+		StorageValue<_, Vec<OutboundHrmpMessage>, ValueQuery>;
+
+	/// Upward messages that were sent in a block.
+	///
+	/// This will be cleared in `on_initialize` of each new block.
+	#[pallet::storage]
+	pub(super) type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+
+	/// Upward messages that are still pending and not yet send to the relay chain.
 	#[pallet::storage]
 	pub(super) type PendingUpwardMessages<T: Config> =
 		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
@@ -673,9 +703,7 @@ impl<T: Config> Pallet<T> {
 		// added improperly.
 		assert_eq!(dmq_head.0, expected_dmq_mqc_head);
 
-		// Store the processed_downward_messages here so that it will be accessible from
-		// PVF's `validate_block` wrapper and collation pipeline.
-		storage::unhashed::put(well_known_keys::PROCESSED_DOWNWARD_MESSAGES, &dm_count);
+		ProcessedDownwardMessages::<T>::put(dm_count);
 
 		weight_used
 	}
@@ -692,6 +720,7 @@ impl<T: Config> Pallet<T> {
 	fn process_inbound_horizontal_messages(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
+		relay_parent_number: relay_chain::v1::BlockNumber,
 	) -> Weight {
 		// First, check that all submitted messages are sent from channels that exist. The
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
@@ -776,10 +805,9 @@ impl<T: Config> Pallet<T> {
 
 		<LastHrmpMqcHeads<T>>::put(running_mqc_heads);
 
-		// If we processed at least one message, then advance watermark to that location.
-		if let Some(hrmp_watermark) = hrmp_watermark {
-			storage::unhashed::put(well_known_keys::HRMP_WATERMARK, &hrmp_watermark);
-		}
+		// If we processed at least one message, then advance watermark to that location or if there
+		// were no messages, set it to the block number of the relay parent.
+		HrmpWatermark::<T>::put(hrmp_watermark.unwrap_or(relay_parent_number));
 
 		weight_used
 	}
@@ -788,7 +816,7 @@ impl<T: Config> Pallet<T> {
 	/// monitors for updates. Calling this function notifies polkadot that a new
 	/// upgrade has been scheduled.
 	fn notify_polkadot_of_pending_upgrade(code: &[u8]) {
-		storage::unhashed::put_raw(NEW_VALIDATION_CODE, code);
+		NewValidationCode::<T>::put(code);
 		<DidSetValidationCode<T>>::put(true);
 	}
 
@@ -831,7 +859,7 @@ impl<T: Config> Pallet<T> {
 	/// The implementation of the runtime upgrade functionality for parachains.
 	fn set_code_impl(validation_function: Vec<u8>) -> DispatchResult {
 		ensure!(
-			!<PendingValidationFunction<T>>::exists(),
+			!<PendingValidationCode<T>>::exists(),
 			Error::<T>::OverlappingUpgrades
 		);
 		let vfp = Self::validation_data().ok_or(Error::<T>::ValidationDataNotAvailable)?;
@@ -848,15 +876,29 @@ impl<T: Config> Pallet<T> {
 		// places, synchronized: both polkadot and the individual parachain
 		// have to upgrade on the same relay chain block.
 		//
-		// `notify_polkadot_of_pending_upgrade` notifies polkadot; the `PendingValidationFunction`
+		// `notify_polkadot_of_pending_upgrade` notifies polkadot; the `PendingValidationCode`
 		// storage keeps track locally for the parachain upgrade, which will
 		// be applied later.
 		Self::notify_polkadot_of_pending_upgrade(&validation_function);
 		<PendingRelayChainBlockNumber<T>>::put(apply_block);
-		<PendingValidationFunction<T>>::put(validation_function);
+		<PendingValidationCode<T>>::put(validation_function);
 		Self::deposit_event(Event::ValidationFunctionStored(apply_block));
 
 		Ok(())
+	}
+
+	/// Returns the [`CollationInfo`] of the current active block.
+	///
+	/// This is expected to be used by the
+	/// [`CollectCollationInfo`](cumulus_primitives_core::CollectCollationInfo) runtime api.
+	pub fn collect_collation_info() -> CollationInfo {
+		CollationInfo {
+			hrmp_watermark: HrmpWatermark::<T>::get(),
+			horizontal_messages: HrmpOutboundMessages::<T>::get(),
+			upward_messages: UpwardMessages::<T>::get(),
+			processed_downward_messages: ProcessedDownwardMessages::<T>::get(),
+			new_validation_code: NewValidationCode::<T>::get().map(Into::into),
+		}
 	}
 }
 

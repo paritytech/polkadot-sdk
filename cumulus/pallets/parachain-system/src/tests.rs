@@ -25,7 +25,6 @@ use frame_support::{
 	assert_ok,
 	dispatch::UnfilteredDispatchable,
 	parameter_types,
-	storage,
 	traits::{OnFinalize, OnInitialize},
 	weights::Weight,
 	inherent::{InherentData, ProvideInherent},
@@ -338,7 +337,7 @@ impl BlockTests {
 				}
 
 				<ValidationData<Test>>::put(&vfp);
-				storage::unhashed::kill(NEW_VALIDATION_CODE);
+				NewValidationCode::<Test>::kill();
 
 				// It is insufficient to push the validation function params
 				// to storage; they must also be included in the inherent data.
@@ -372,7 +371,7 @@ impl BlockTests {
 				ParachainSystem::on_finalize(*n);
 
 				// did block execution set new validation code?
-				if storage::unhashed::exists(NEW_VALIDATION_CODE) {
+				if NewValidationCode::<Test>::exists() {
 					if self.pending_upgrade.is_some() {
 						panic!("attempted to set validation code while upgrade was pending");
 					}
@@ -464,7 +463,7 @@ fn manipulates_storage() {
 	BlockTests::new()
 		.add(123, || {
 			assert!(
-				!<PendingValidationFunction<Test>>::exists(),
+				!<PendingValidationCode<Test>>::exists(),
 				"validation function must not exist yet"
 			);
 			assert_ok!(System::set_code(
@@ -472,7 +471,7 @@ fn manipulates_storage() {
 				Default::default()
 			));
 			assert!(
-				<PendingValidationFunction<Test>>::exists(),
+				<PendingValidationCode<Test>>::exists(),
 				"validation function must now exist"
 			);
 		})
@@ -481,7 +480,7 @@ fn manipulates_storage() {
 			|| {},
 			|| {
 				assert!(
-					!<PendingValidationFunction<Test>>::exists(),
+					!<PendingValidationCode<Test>>::exists(),
 					"validation function must have been unset"
 				);
 			},
@@ -516,18 +515,16 @@ fn send_upward_message_num_per_candidate() {
 				ParachainSystem::send_upward_message(b"message 2".to_vec()).unwrap();
 			},
 			|| {
-				let v: Option<Vec<Vec<u8>>> =
-					storage::unhashed::get(well_known_keys::UPWARD_MESSAGES);
-				assert_eq!(v, Some(vec![b"Mr F was here".to_vec()]),);
+				let v = UpwardMessages::<Test>::get();
+				assert_eq!(v, vec![b"Mr F was here".to_vec()]);
 			},
 		)
 		.add_with_post_test(
 			2,
 			|| { /* do nothing within block */ },
 			|| {
-				let v: Option<Vec<Vec<u8>>> =
-					storage::unhashed::get(well_known_keys::UPWARD_MESSAGES);
-				assert_eq!(v, Some(vec![b"message 2".to_vec()]),);
+				let v = UpwardMessages::<Test>::get();
+				assert_eq!(v, vec![b"message 2".to_vec()]);
 			},
 		);
 }
@@ -552,18 +549,16 @@ fn send_upward_message_relay_bottleneck() {
 			},
 			|| {
 				// The message won't be sent because there is already one message in queue.
-				let v: Option<Vec<Vec<u8>>> =
-					storage::unhashed::get(well_known_keys::UPWARD_MESSAGES);
-				assert_eq!(v, Some(vec![]),);
+				let v = UpwardMessages::<Test>::get();
+				assert!(v.is_empty());
 			},
 		)
 		.add_with_post_test(
 			2,
 			|| { /* do nothing within block */ },
 			|| {
-				let v: Option<Vec<Vec<u8>>> =
-					storage::unhashed::get(well_known_keys::UPWARD_MESSAGES);
-				assert_eq!(v, Some(vec![vec![0u8; 8]]),);
+				let v = UpwardMessages::<Test>::get();
+				assert_eq!(v, vec![vec![0u8; 8]]);
 			},
 		);
 }
@@ -656,23 +651,21 @@ fn send_hrmp_message_buffer_channel_close() {
 			|| {},
 			|| {
 				// both channels are at capacity so we do not expect any messages.
-				let v: Option<Vec<OutboundHrmpMessage>> =
-					storage::unhashed::get(well_known_keys::HRMP_OUTBOUND_MESSAGES);
-				assert_eq!(v, Some(vec![]));
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert!(v.is_empty());
 			},
 		)
 		.add_with_post_test(
 			3,
 			|| {},
 			|| {
-				let v: Option<Vec<OutboundHrmpMessage>> =
-					storage::unhashed::get(well_known_keys::HRMP_OUTBOUND_MESSAGES);
+				let v = HrmpOutboundMessages::<Test>::get();
 				assert_eq!(
 					v,
-					Some(vec![OutboundHrmpMessage {
+					vec![OutboundHrmpMessage {
 						recipient: ParaId::from(300),
 						data: b"1".to_vec(),
-					}])
+					}]
 				);
 			},
 		);

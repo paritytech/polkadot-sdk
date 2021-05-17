@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -21,7 +22,6 @@ xcm = { git = "https://github.com/paritytech/polkadot", default-features = false
 impl-trait-for-tuples = "0.2.1"
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
 
-
 [features]
 default = [ "std" ]
 std = [
@@ -32,5 +32,6 @@ std = [
 	"polkadot-core-primitives/std",
 	"sp-runtime/std",
 	"sp-trie/std",
+	"sp-api/std",
 	"frame-support/std",
 ]

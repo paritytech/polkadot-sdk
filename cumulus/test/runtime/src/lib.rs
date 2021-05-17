@@ -395,6 +395,12 @@ impl_runtime_apis! {
 			UpgradeDetection::get()
 		}
 	}
+
+	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
+		fn collect_collation_info() -> cumulus_primitives_core::CollationInfo {
+			ParachainSystem::collect_collation_info()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block!(Runtime, Executive);
