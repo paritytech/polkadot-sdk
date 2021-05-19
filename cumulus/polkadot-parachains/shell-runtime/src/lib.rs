@@ -59,6 +59,7 @@ use xcm_builder::{
 use xcm_executor::{Config, XcmExecutor};
 
 /// This runtime version.
+#[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("shell"),
 	impl_name: create_runtime_str!("shell"),

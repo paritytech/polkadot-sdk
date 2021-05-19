@@ -59,17 +59,38 @@ impl_opaque_keys! {
 	pub struct SessionKeys {}
 }
 
-const SPEC_VERSION: u32 = 3;
+// The only difference between the two declarations below is the `spec_version`. With the
+// `upgrade` feature enabled `spec_version` should be greater than the one of without the
+// `upgrade` feature.
+//
+// The duplication here is unfortunate necessity.
+//
+// runtime_version macro is dumb. It accepts a const item declaration, passes it through and
+// also emits runtime version custom section. It parses the expressions to extract the version
+// details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
+// Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
 
-/// This runtime version.
+#[cfg(feature = "upgrade")]
+#[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cumulus-test-parachain"),
 	impl_name: create_runtime_str!("cumulus-test-parachain"),
 	authoring_version: 1,
-	#[cfg(feature = "upgrade")]
-	spec_version: SPEC_VERSION + 1,
-	#[cfg(not(feature = "upgrade"))]
-	spec_version: SPEC_VERSION,
+	// Read the note above.
+	spec_version: 4,
+	impl_version: 1,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+};
+
+#[cfg(not(feature = "upgrade"))]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("cumulus-test-parachain"),
+	impl_name: create_runtime_str!("cumulus-test-parachain"),
+	authoring_version: 1,
+	// Read the note above.
+	spec_version: 3,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
