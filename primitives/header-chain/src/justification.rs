@@ -109,12 +109,8 @@ where
 		}
 	}
 
-	let ancestry_hashes = justification
-		.votes_ancestries
-		.iter()
-		.map(|h: &Header| h.hash())
-		.collect();
-	if visited_hashes != ancestry_hashes {
+	// both iterators are `BTree*` iterators, so have the same order => safe to compare
+	if !visited_hashes.iter().eq(ancestry_chain.ancestry.keys()) {
 		return Err(Error::InvalidPrecommitAncestries);
 	}
 
