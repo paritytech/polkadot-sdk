@@ -23,7 +23,9 @@
 //! For more information about AuRa, the Substrate crate should be checked.
 
 use codec::{Decode, Encode};
-use cumulus_client_consensus_common::{ParachainCandidate, ParachainConsensus};
+use cumulus_client_consensus_common::{
+	ParachainBlockImport, ParachainCandidate, ParachainConsensus,
+};
 use cumulus_primitives_core::{
 	relay_chain::v1::{Block as PBlock, Hash as PHash, ParachainHost},
 	PersistedValidationData,
@@ -48,9 +50,10 @@ use std::{convert::TryFrom, hash::Hash, marker::PhantomData, sync::Arc};
 
 mod import_queue;
 
-pub use import_queue::{import_queue, ImportQueueParams};
+pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
 pub use sc_consensus_aura::{
-	slot_duration, AuraBlockImport, BuildAuraWorkerParams, SlotDuration, SlotProportion,
+	slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotDuration,
+	SlotProportion,
 };
 pub use sc_consensus_slots::InherentDataProviderExt;
 
@@ -137,7 +140,7 @@ where
 		let worker =
 			sc_consensus_aura::build_aura_worker::<P, _, _, _, _, _, _, _>(BuildAuraWorkerParams {
 				client: para_client,
-				block_import: ParachainBlockImport(block_import),
+				block_import: ParachainBlockImport::new(block_import),
 				proposer_factory,
 				sync_oracle,
 				force_authoring,
@@ -231,43 +234,6 @@ where
 			block: res.block,
 			proof: res.storage_proof,
 		})
-	}
-}
-
-/// Parachain specific block import.
-///
-/// This is used to set `block_import_params.fork_choice` to `false` as long as the block origin is
-/// not `NetworkInitialSync`. The best block for parachains is determined by the relay chain. Meaning
-/// we will update the best block, as it is included by the relay-chain.
-struct ParachainBlockImport<I>(I);
-
-#[async_trait::async_trait]
-impl<Block, I> BlockImport<Block> for ParachainBlockImport<I>
-where
-	Block: BlockT,
-	I: BlockImport<Block> + Send,
-{
-	type Error = I::Error;
-	type Transaction = I::Transaction;
-
-	async fn check_block(
-		&mut self,
-		block: sp_consensus::BlockCheckParams<Block>,
-	) -> Result<sp_consensus::ImportResult, Self::Error> {
-		self.0.check_block(block).await
-	}
-
-	async fn import_block(
-		&mut self,
-		mut block_import_params: sp_consensus::BlockImportParams<Block, Self::Transaction>,
-		cache: std::collections::HashMap<sp_consensus::import_queue::CacheKeyId, Vec<u8>>,
-	) -> Result<sp_consensus::ImportResult, Self::Error> {
-		// Best block is determined by the relay chain, or if we are doing the intial sync
-		// we import all blocks as new best.
-		block_import_params.fork_choice = Some(sp_consensus::ForkChoiceStrategy::Custom(
-			block_import_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
-		));
-		self.0.import_block(block_import_params, cache).await
 	}
 }
 

@@ -17,8 +17,10 @@
 //! Parachain specific wrapper for the AuRa import queue.
 
 use codec::Codec;
-use sc_client_api::{backend::AuxStore, BlockOf};
+use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
+use sc_consensus_aura::AuraVerifier;
 use sc_consensus_slots::InherentDataProviderExt;
+use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, ProvideCache};
@@ -31,16 +33,15 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, DigestItemFor};
 use std::{fmt::Debug, hash::Hash, sync::Arc};
 use substrate_prometheus_endpoint::Registry;
-use sc_telemetry::TelemetryHandle;
 
 /// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, I, C, IDP, S, CAW> {
+pub struct ImportQueueParams<'a, I, C, CIDP, S, CAW> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
 	/// The inherent data providers, to create the inherent data.
-	pub create_inherent_data_providers: IDP,
+	pub create_inherent_data_providers: CIDP,
 	/// The spawner to spawn background tasks.
 	pub spawner: &'a S,
 	/// The prometheus registry.
@@ -52,7 +53,7 @@ pub struct ImportQueueParams<'a, I, C, IDP, S, CAW> {
 }
 
 /// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<'a, P, Block, I, C, S, CAW, IDP>(
+pub fn import_queue<'a, P, Block, I, C, S, CAW, CIDP>(
 	ImportQueueParams {
 		block_import,
 		client,
@@ -61,7 +62,7 @@ pub fn import_queue<'a, P, Block, I, C, S, CAW, IDP>(
 		registry,
 		can_author_with,
 		telemetry,
-	}: ImportQueueParams<'a, I, C, IDP, S, CAW>,
+	}: ImportQueueParams<'a, I, C, CIDP, S, CAW>,
 ) -> Result<DefaultImportQueue<Block, C>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -73,6 +74,7 @@ where
 		+ Send
 		+ Sync
 		+ AuxStore
+		+ UsageProvider<Block>
 		+ HeaderBackend<Block>,
 	I: BlockImport<Block, Error = ConsensusError, Transaction = sp_api::TransactionFor<C, Block>>
 		+ Send
@@ -84,11 +86,11 @@ where
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
 	CAW: CanAuthorWith<Block> + Send + Sync + 'static,
-	IDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
-	IDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	sc_consensus_aura::import_queue::<P, _, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {
-		block_import: crate::ParachainBlockImport(block_import),
+		block_import: cumulus_client_consensus_common::ParachainBlockImport::new(block_import),
 		justification_import: None,
 		client,
 		create_inherent_data_providers,
@@ -97,5 +99,35 @@ where
 		can_author_with,
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 		telemetry,
+	})
+}
+
+/// Parameters of [`build_verifier`].
+pub struct BuildVerifierParams<C, CIDP, CAW> {
+	/// The client to interact with the chain.
+	pub client: Arc<C>,
+	/// The inherent data providers, to create the inherent data.
+	pub create_inherent_data_providers: CIDP,
+	/// Can we author with the current node?
+	pub can_author_with: CAW,
+	/// The telemetry handle.
+	pub telemetry: Option<TelemetryHandle>,
+}
+
+/// Build the [`AuraVerifier`].
+pub fn build_verifier<P, C, CIDP, CAW>(
+	BuildVerifierParams {
+		client,
+		create_inherent_data_providers,
+		can_author_with,
+		telemetry,
+	}: BuildVerifierParams<C, CIDP, CAW>,
+) -> AuraVerifier<C, P, CAW, CIDP> {
+	sc_consensus_aura::build_verifier(sc_consensus_aura::BuildVerifierParams {
+		client,
+		create_inherent_data_providers,
+		can_author_with,
+		telemetry,
+		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 	})
 }

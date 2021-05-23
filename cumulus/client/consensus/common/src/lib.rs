@@ -561,6 +561,50 @@ impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send +
 	}
 }
 
+/// Parachain specific block import.
+///
+/// This is used to set `block_import_params.fork_choice` to `false` as long as the block origin is
+/// not `NetworkInitialSync`. The best block for parachains is determined by the relay chain. Meaning
+/// we will update the best block, as it is included by the relay-chain.
+pub struct ParachainBlockImport<I>(I);
+
+impl<I> ParachainBlockImport<I> {
+	/// Create a new instance.
+	pub fn new(inner: I) -> Self {
+		Self(inner)
+	}
+}
+
+#[async_trait::async_trait]
+impl<Block, I> BlockImport<Block> for ParachainBlockImport<I>
+where
+	Block: BlockT,
+	I: BlockImport<Block> + Send,
+{
+	type Error = I::Error;
+	type Transaction = I::Transaction;
+
+	async fn check_block(
+		&mut self,
+		block: sp_consensus::BlockCheckParams<Block>,
+	) -> Result<sp_consensus::ImportResult, Self::Error> {
+		self.0.check_block(block).await
+	}
+
+	async fn import_block(
+		&mut self,
+		mut block_import_params: sp_consensus::BlockImportParams<Block, Self::Transaction>,
+		cache: std::collections::HashMap<sp_consensus::import_queue::CacheKeyId, Vec<u8>>,
+	) -> Result<sp_consensus::ImportResult, Self::Error> {
+		// Best block is determined by the relay chain, or if we are doing the intial sync
+		// we import all blocks as new best.
+		block_import_params.fork_choice = Some(sp_consensus::ForkChoiceStrategy::Custom(
+			block_import_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
+		));
+		self.0.import_block(block_import_params, cache).await
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

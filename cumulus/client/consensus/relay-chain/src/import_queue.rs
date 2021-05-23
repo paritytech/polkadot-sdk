@@ -22,7 +22,7 @@ use sp_blockchain::Result as ClientResult;
 use sp_consensus::{
 	error::Error as ConsensusError,
 	import_queue::{BasicQueue, CacheKeyId, Verifier as VerifierT},
-	BlockImport, BlockImportParams, BlockOrigin, ForkChoiceStrategy,
+	BlockImport, BlockImportParams, BlockOrigin,
 };
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::{
@@ -32,10 +32,21 @@ use sp_runtime::{
 };
 
 /// A verifier that just checks the inherents.
-struct Verifier<Client, Block, CIDP> {
+pub struct Verifier<Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	_marker: PhantomData<Block>,
+}
+
+impl<Client, Block, CIDP> Verifier<Client, Block, CIDP> {
+	/// Create a new instance.
+	pub fn new(client: Arc<Client>, create_inherent_data_providers: CIDP) -> Self {
+		Self {
+			client,
+			create_inherent_data_providers,
+			_marker: PhantomData,
+		}
+	}
 }
 
 #[async_trait::async_trait]
@@ -103,11 +114,6 @@ where
 		block_import_params.body = body;
 		block_import_params.justifications = justifications;
 
-		// Best block is determined by the relay chain, or if we are doing the intial sync
-		// we import all blocks as new best.
-		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(
-			origin == BlockOrigin::NetworkInitialSync,
-		));
 		block_import_params.post_hash = post_hash;
 
 		Ok((block_import_params, None))
@@ -129,15 +135,13 @@ where
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
-	let verifier = Verifier {
-		client,
-		create_inherent_data_providers,
-		_marker: PhantomData,
-	};
+	let verifier = Verifier::new(client, create_inherent_data_providers);
 
 	Ok(BasicQueue::new(
 		verifier,
-		Box::new(block_import),
+		Box::new(cumulus_client_consensus_common::ParachainBlockImport::new(
+			block_import,
+		)),
 		None,
 		spawner,
 		registry,

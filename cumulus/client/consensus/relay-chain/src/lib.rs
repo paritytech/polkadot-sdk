@@ -33,7 +33,9 @@
 //!
 //! 5. After the parachain candidate got backed and included, all collators start at 1.
 
-use cumulus_client_consensus_common::{ParachainCandidate, ParachainConsensus};
+use cumulus_client_consensus_common::{
+	ParachainBlockImport, ParachainCandidate, ParachainConsensus,
+};
 use cumulus_primitives_core::{
 	relay_chain::v1::{Block as PBlock, Hash as PHash, ParachainHost},
 	ParaId, PersistedValidationData,
@@ -43,15 +45,15 @@ use polkadot_service::ClientHandle;
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::{
-	BlockImport, BlockImportParams, BlockOrigin, EnableProofRecording, Environment,
-	ForkChoiceStrategy, ProofRecording, Proposal, Proposer,
+	BlockImport, BlockImportParams, BlockOrigin, EnableProofRecording, Environment, ProofRecording,
+	Proposal, Proposer,
 };
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 mod import_queue;
-pub use import_queue::import_queue;
+pub use import_queue::{import_queue, Verifier};
 
 const LOG_TARGET: &str = "cumulus-consensus-relay-chain";
 
@@ -61,7 +63,7 @@ pub struct RelayChainConsensus<B, PF, BI, RClient, RBackend, CIDP> {
 	_phantom: PhantomData<B>,
 	proposer_factory: Arc<Mutex<PF>>,
 	create_inherent_data_providers: Arc<CIDP>,
-	block_import: Arc<futures::lock::Mutex<BI>>,
+	block_import: Arc<futures::lock::Mutex<ParachainBlockImport<BI>>>,
 	relay_chain_client: Arc<RClient>,
 	relay_chain_backend: Arc<RBackend>,
 }
@@ -103,7 +105,9 @@ where
 			para_id,
 			proposer_factory: Arc::new(Mutex::new(proposer_factory)),
 			create_inherent_data_providers: Arc::new(create_inherent_data_providers),
-			block_import: Arc::new(futures::lock::Mutex::new(block_import)),
+			block_import: Arc::new(futures::lock::Mutex::new(ParachainBlockImport::new(
+				block_import,
+			))),
 			relay_chain_backend: polkadot_backend,
 			relay_chain_client: polkadot_client,
 			_phantom: PhantomData,
@@ -204,8 +208,6 @@ where
 
 		let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, header);
 		block_import_params.body = Some(extrinsics);
-		// Best block is determined by the relay chain.
-		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(false));
 		block_import_params.storage_changes = Some(storage_changes);
 
 		if let Err(err) = self
