@@ -66,7 +66,7 @@ services:
     volumes:
       - "genesis-state:/data"
     command: >
-      rococo-collator
+      polkadot-collator
       export-genesis-state
       /data/genesis-state
 

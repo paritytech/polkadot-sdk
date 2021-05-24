@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# this script runs the rococo-collator after fetching
+# this script runs the polkadot-collator after fetching
 # appropriate bootnode IDs
 #
 # this is _not_ a general-purpose script; it is closely tied to the
@@ -8,7 +8,7 @@
 
 set -e -o pipefail
 
-ctpc="/usr/bin/rococo-collator"
+ctpc="/usr/bin/polkadot-collator"
 
 if [ ! -x "$ctpc" ]; then
     echo "FATAL: $ctpc does not exist or is not executable"
