@@ -197,7 +197,6 @@ fn run_sync_loop(state_function: impl Fn(&mut ClientsData) -> bool + Send + Sync
 		data: clients_data.clone(),
 	};
 	let sync_params = FinalitySyncParams {
-		is_on_demand_task: false,
 		tick: Duration::from_secs(0),
 		recent_finality_proofs_limit: 1024,
 		stall_timeout: Duration::from_secs(1),
