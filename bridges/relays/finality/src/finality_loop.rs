@@ -39,8 +39,6 @@ use std::{
 /// Finality proof synchronization loop parameters.
 #[derive(Debug, Clone)]
 pub struct FinalitySyncParams {
-	/// If `true`, then the separate async task for running finality loop is NOT spawned.
-	pub is_on_demand_task: bool,
 	/// Interval at which we check updates on both clients. Normally should be larger than
 	/// `min(source_block_time, target_block_time)`.
 	///
@@ -107,7 +105,6 @@ pub async fn run<P: FinalitySyncPipeline>(
 ) -> Result<(), String> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
-		.spawn_loop_task(!sync_params.is_on_demand_task)
 		.with_metrics(Some(metrics_prefix::<P>()), metrics_params)
 		.loop_metric(|registry, prefix| SyncLoopMetrics::new(registry, prefix))?
 		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
