@@ -26,12 +26,12 @@ use sp_core::Bytes;
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
 /// Default synchronization loop timeout.
-const STALL_TIMEOUT: Duration = Duration::from_secs(120);
+pub(crate) const STALL_TIMEOUT: Duration = Duration::from_secs(120);
 /// Default limit of recent finality proofs.
 ///
 /// Finality delay of 4096 blocks is unlikely to happen in practice in
 /// Substrate+GRANDPA based chains (good to know).
-const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
+pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 
 /// Headers sync pipeline for Substrate <-> Substrate relays.
 pub trait SubstrateFinalitySyncPipeline: FinalitySyncPipeline {
@@ -119,7 +119,6 @@ pub async fn run<SourceChain, TargetChain, P>(
 	pipeline: P,
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
-	is_on_demand_task: bool,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()>
 where
@@ -142,10 +141,9 @@ where
 	);
 
 	finality_relay::run(
-		FinalitySource::new(source_client),
+		FinalitySource::new(source_client, None),
 		SubstrateFinalityTarget::new(target_client, pipeline),
 		FinalitySyncParams {
-			is_on_demand_task,
 			tick: std::cmp::max(SourceChain::AVERAGE_BLOCK_INTERVAL, TargetChain::AVERAGE_BLOCK_INTERVAL),
 			recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 			stall_timeout: STALL_TIMEOUT,
