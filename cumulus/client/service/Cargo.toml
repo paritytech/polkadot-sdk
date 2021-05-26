@@ -8,6 +8,7 @@ edition = "2018"
 # Cumulus dependencies
 cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-client-collator = { path = "../collator" }
+cumulus-client-pov-recovery = { path = "../pov-recovery" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
 # Substrate dependencies
@@ -16,6 +17,7 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "mas
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -25,8 +27,9 @@ sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "mas
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Other deps
-futures = "0.3.6"
 tracing = "0.1.22"
 codec = { package = "parity-scale-codec", version = "2.0.0" }
+parking_lot = "0.10.2"

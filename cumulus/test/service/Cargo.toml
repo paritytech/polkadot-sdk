@@ -8,6 +8,7 @@ edition = "2018"
 codec = { package = "parity-scale-codec", version = "2.0.0" }
 rand = "0.7.3"
 serde = { version = "1.0.101", features = ["derive"] }
+async-trait = "0.1.42"
 
 # Substrate
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -49,6 +50,7 @@ polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "
 cumulus-client-consensus-relay-chain = { path = "../../client/consensus/relay-chain" }
 cumulus-client-network = { path = "../../client/network" }
 cumulus-client-service = { path = "../../client/service" }
+cumulus-client-consensus-common = { path = "../../client/consensus/common" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-test-runtime = { path = "../runtime" }

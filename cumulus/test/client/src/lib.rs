@@ -47,7 +47,8 @@ pub use local_executor::LocalExecutor;
 pub type Backend = substrate_test_client::Backend<Block>;
 
 /// Test client executor.
-pub type Executor = client::LocalCallExecutor<Backend, sc_executor::NativeExecutor<LocalExecutor>>;
+pub type Executor =
+	client::LocalCallExecutor<Block, Backend, sc_executor::NativeExecutor<LocalExecutor>>;
 
 /// Test client builder for Cumulus
 pub type TestClientBuilder =

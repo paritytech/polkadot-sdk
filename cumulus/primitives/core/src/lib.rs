@@ -215,6 +215,11 @@ impl<B: BlockT> ParachainBlockData<B> {
 		}
 	}
 
+	/// Convert `self` into the stored block.
+	pub fn into_block(self) -> B {
+		B::new(self.header, self.extrinsics)
+	}
+
 	/// Convert `self` into the stored header.
 	pub fn into_header(self) -> B::Header {
 		self.header

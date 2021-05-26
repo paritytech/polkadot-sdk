@@ -24,7 +24,6 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "m
 
 # Other deps
 futures = { version = "0.3.8", features = ["compat"] }
-tokio = "0.1.22"
 codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
 tracing = "0.1.25"
 async-trait = "0.1.42"
@@ -33,10 +32,19 @@ dyn-clone = "1.0.4"
 [dev-dependencies]
 # Substrate deps
 sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Cumulus dependencies
 cumulus-test-runtime = { path = "../../../test/runtime" }
 cumulus-test-client = { path = "../../../test/client" }
+cumulus-test-service = { path = "../../../test/service" }
+cumulus-primitives-core = { path = "../../../primitives/core" }
+
+# Polkadot deps
+polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Other deps
+tokio = { version = "0.2.21", features = ["macros"] }
 futures-timer = "3.0.2"
