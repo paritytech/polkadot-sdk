@@ -239,7 +239,7 @@ where
 
 	async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<P>) {
 		if let Some(ref target_to_source_headers_relay) = self.target_to_source_headers_relay {
-			target_to_source_headers_relay.require_finalized_header(id);
+			target_to_source_headers_relay.require_finalized_header(id).await;
 		}
 	}
 }
