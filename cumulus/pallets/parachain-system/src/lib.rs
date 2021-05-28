@@ -28,20 +28,19 @@
 //! Users must ensure that they register this pallet as an inherent provider.
 
 use cumulus_primitives_core::{
-	relay_chain, CollationInfo,
-	AbridgedHostConfiguration, ChannelStatus, DmpMessageHandler, GetChannelInfo,
-	InboundDownwardMessage, InboundHrmpMessage, MessageSendError, OnValidationData,
+	relay_chain, AbridgedHostConfiguration, ChannelStatus, CollationInfo, DmpMessageHandler,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError, OnValidationData,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use frame_support::{
-	ensure,
 	dispatch::{DispatchError, DispatchResult},
+	ensure,
+	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	storage,
 	traits::Get,
-	weights::{PostDispatchInfo, Weight, Pays},
-	inherent::{InherentData, InherentIdentifier, ProvideInherent},
+	weights::{Pays, PostDispatchInfo, Weight},
 };
 use frame_system::{ensure_none, ensure_root};
 use polkadot_parachain::primitives::RelayChainBlockNumber;
@@ -108,6 +107,11 @@ pub mod pallet {
 		fn on_finalize(_: T::BlockNumber) {
 			<DidSetValidationCode<T>>::kill();
 
+			assert!(
+				<ValidationData<T>>::exists(),
+				"set_validation_data inherent needs to be present in every block!"
+			);
+
 			let host_config = match Self::host_configuration() {
 				Some(ok) => ok,
 				None => {
@@ -118,18 +122,17 @@ pub mod pallet {
 					return;
 				}
 			};
-			let relevant_messaging_state =
-				match Self::relevant_messaging_state() {
-					Some(ok) => ok,
-					None => {
-						debug_assert!(
-							false,
-							"relevant messaging state is promised to be set until `on_finalize`; \
+			let relevant_messaging_state = match Self::relevant_messaging_state() {
+				Some(ok) => ok,
+				None => {
+					debug_assert!(
+						false,
+						"relevant messaging state is promised to be set until `on_finalize`; \
 							qed",
-						);
-						return;
-					}
-				};
+					);
+					return;
+				}
+			};
 
 			<PendingUpwardMessages<T>>::mutate(|up| {
 				let (count, size) = relevant_messaging_state.relay_dispatch_queue_size;
@@ -181,10 +184,8 @@ pub mod pallet {
 			let outbound_messages =
 				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels)
 					.into_iter()
-					.map(|(recipient, data)| OutboundHrmpMessage {
-						recipient,
-						data,
-					}).collect::<Vec<_>>();
+					.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
+					.collect::<Vec<_>>();
 
 			HrmpOutboundMessages::<T>::put(outbound_messages);
 		}
@@ -681,8 +682,8 @@ impl<T: Config> Pallet<T> {
 		let mut weight_used = 0;
 		if dm_count != 0 {
 			Self::deposit_event(Event::DownwardMessagesReceived(dm_count));
-			let max_weight = <ReservedDmpWeightOverride<T>>::get()
-				.unwrap_or_else(T::ReservedDmpWeight::get);
+			let max_weight =
+				<ReservedDmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedDmpWeight::get);
 
 			let message_iter = downward_messages
 				.into_iter()
@@ -728,11 +729,9 @@ impl<T: Config> Pallet<T> {
 			// A violation of the assertion below indicates that one of the messages submitted
 			// by the collator was sent from a sender that doesn't have a channel opened to
 			// this parachain, according to the relay-parent state.
-			assert!(
-				ingress_channels
-					.binary_search_by_key(sender, |&(s, _)| s)
-					.is_ok(),
-			);
+			assert!(ingress_channels
+				.binary_search_by_key(sender, |&(s, _)| s)
+				.is_ok(),);
 		}
 
 		// Second, prepare horizontal messages for a more convenient processing:
@@ -863,8 +862,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::OverlappingUpgrades
 		);
 		let vfp = Self::validation_data().ok_or(Error::<T>::ValidationDataNotAvailable)?;
-		let cfg =
-			Self::host_configuration().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
+		let cfg = Self::host_configuration().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
 		ensure!(
 			validation_function.len() <= cfg.max_code_size as usize,
 			Error::<T>::TooBig
