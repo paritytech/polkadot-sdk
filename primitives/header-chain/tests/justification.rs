@@ -23,7 +23,7 @@ type TestHeader = sp_runtime::testing::Header;
 
 #[test]
 fn valid_justification_accepted() {
-	let authorities = vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1), (EVE, 1)];
+	let authorities = vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1)];
 	let params = JustificationGeneratorParams {
 		header: test_header(1),
 		round: TEST_GRANDPA_ROUND,
@@ -129,7 +129,7 @@ fn justification_with_invalid_commit_rejected() {
 			&voter_set(),
 			&justification,
 		),
-		Err(Error::InvalidJustificationCommit),
+		Err(Error::ExtraHeadersInVotesAncestries),
 	);
 }
 
@@ -161,7 +161,7 @@ fn justification_with_invalid_precommit_ancestry() {
 			&voter_set(),
 			&justification,
 		),
-		Err(Error::InvalidPrecommitAncestries),
+		Err(Error::ExtraHeadersInVotesAncestries),
 	);
 }
 
@@ -186,6 +186,6 @@ fn justification_is_invalid_if_we_dont_meet_threshold() {
 			&voter_set(),
 			&make_justification_for_header::<TestHeader>(params)
 		),
-		Err(Error::InvalidJustificationCommit),
+		Err(Error::TooLowCumulativeWeight),
 	);
 }

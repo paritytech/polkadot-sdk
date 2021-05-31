@@ -177,7 +177,8 @@ fn generate_chain<H: HeaderT>(fork_id: u8, depth: u32, ancestor: &H) -> Vec<H> {
 	headers
 }
 
-fn signed_precommit<H: HeaderT>(
+/// Create signed precommit with given target.
+pub fn signed_precommit<H: HeaderT>(
 	signer: &Account,
 	target: (H::Hash, H::Number),
 	round: u64,
