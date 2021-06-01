@@ -17,6 +17,10 @@
 use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
+	service::{
+		StatemineRuntimeExecutor, StatemintRuntimeExecutor, WestmintRuntimeExecutor, new_partial,
+		RococoParachainRuntimeExecutor, ShellRuntimeExecutor, Block,
+	},
 };
 use codec::Encode;
 use cumulus_client_service::genesis::generate_genesis_block;
@@ -32,35 +36,83 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Block as BlockT;
 use std::{io::Write, net::SocketAddr};
 
+trait IdentifyChain {
+	fn is_shell(&self) -> bool;
+	fn is_statemint(&self) -> bool;
+	fn is_statemine(&self) -> bool;
+	fn is_westmint(&self) -> bool;
+}
+
+impl IdentifyChain for dyn sc_service::ChainSpec {
+	fn is_shell(&self) -> bool {
+		self.id().starts_with("shell")
+	}
+	fn is_statemint(&self) -> bool {
+		self.id().starts_with("statemint")
+	}
+	fn is_statemine(&self) -> bool {
+		self.id().starts_with("statemine")
+	}
+	fn is_westmint(&self) -> bool {
+		self.id().starts_with("westmint")
+	}
+}
+
+impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
+	fn is_shell(&self) -> bool {
+		<dyn sc_service::ChainSpec>::is_shell(self)
+	}
+	fn is_statemint(&self) -> bool {
+		<dyn sc_service::ChainSpec>::is_statemint(self)
+	}
+	fn is_statemine(&self) -> bool {
+		<dyn sc_service::ChainSpec>::is_statemine(self)
+	}
+	fn is_westmint(&self) -> bool {
+		<dyn sc_service::ChainSpec>::is_westmint(self)
+	}
+}
+
 fn load_spec(
 	id: &str,
 	para_id: ParaId,
 ) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-	match id {
-		"staging" => Ok(Box::new(chain_spec::staging_test_net(para_id))),
-		"tick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+	Ok(match id {
+		"staging" => Box::new(chain_spec::staging_test_net(para_id)),
+		"tick" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/tick.json")[..],
-		)?)),
-		"trick" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+		)?),
+		"trick" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/trick.json")[..],
-		)?)),
-		"track" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
+		)?),
+		"track" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/track.json")[..],
-		)?)),
-		"shell" => Ok(Box::new(chain_spec::get_shell_chain_spec(para_id))),
-		"" => Ok(Box::new(chain_spec::get_chain_spec(para_id))),
-		path => Ok({
-			let chain_spec = chain_spec::ChainSpec::from_json_file(
-			path.into(),
-		)?;
-
-			if use_shell_runtime(&chain_spec) {
+		)?),
+		"shell" => Box::new(chain_spec::get_shell_chain_spec(para_id)),
+		"statemint-dev" => Box::new(chain_spec::statemint_development_config(para_id)),
+		"statemint-local" => Box::new(chain_spec::statemint_local_config(para_id)),
+		"statemine-dev" => Box::new(chain_spec::statemine_development_config(para_id)),
+		"statemine-local" => Box::new(chain_spec::statemine_local_config(para_id)),
+		"statemine" => Box::new(chain_spec::statemine_config(para_id)),
+		"westmint-dev" => Box::new(chain_spec::westmint_development_config(para_id)),
+		"westmint-local" => Box::new(chain_spec::westmint_local_config(para_id)),
+		"westmint" => Box::new(chain_spec::westmint_config(para_id)),
+		"" => Box::new(chain_spec::get_chain_spec(para_id)),
+		path => {
+			let chain_spec = chain_spec::ChainSpec::from_json_file(path.into())?;
+			if chain_spec.is_statemint() {
+				Box::new(chain_spec::StatemintChainSpec::from_json_file(path.into())?)
+			} else if chain_spec.is_statemine() {
+				Box::new(chain_spec::StatemineChainSpec::from_json_file(path.into())?)
+			} else if chain_spec.is_westmint() {
+				Box::new(chain_spec::WestmintChainSpec::from_json_file(path.into())?)
+			} else if chain_spec.is_shell() {
 				Box::new(chain_spec::ShellChainSpec::from_json_file(path.into())?)
 			} else {
 				Box::new(chain_spec)
 			}
-		}),
-	}
+		}
+	})
 }
 
 impl SubstrateCli for Cli {
@@ -99,7 +151,13 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		if use_shell_runtime(&**chain_spec) {
+		if chain_spec.is_statemint() {
+			&statemint_runtime::VERSION
+		} else if chain_spec.is_statemine() {
+			&statemine_runtime::VERSION
+		} else if chain_spec.is_westmint() {
+			&westmint_runtime::VERSION
+		} else if chain_spec.is_shell() {
 			&shell_runtime::VERSION
 		} else {
 			&rococo_parachain_runtime::VERSION
@@ -157,16 +215,37 @@ fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<V
 		.ok_or_else(|| "Could not find wasm file in genesis state!".into())
 }
 
-fn use_shell_runtime(chain_spec: &dyn ChainSpec) -> bool {
-	chain_spec.id().starts_with("shell")
-}
-
-use crate::service::{new_partial, RococoParachainRuntimeExecutor, ShellRuntimeExecutor};
-
 macro_rules! construct_async_run {
 	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
 		let runner = $cli.create_runner($cmd)?;
-		if use_shell_runtime(&*runner.config().chain_spec) {
+		if runner.config().chain_spec.is_westmint() {
+			runner.async_run(|$config| {
+				let $components = new_partial::<westmint_runtime::RuntimeApi, WestmintRuntimeExecutor, _>(
+					&$config,
+					crate::service::statemint_build_import_queue,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		} else if runner.config().chain_spec.is_statemine() {
+			runner.async_run(|$config| {
+				let $components = new_partial::<statemine_runtime::RuntimeApi, StatemineRuntimeExecutor, _>(
+					&$config,
+					crate::service::statemint_build_import_queue,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		} else if runner.config().chain_spec.is_statemint() {
+			runner.async_run(|$config| {
+				let $components = new_partial::<statemint_runtime::RuntimeApi, StatemintRuntimeExecutor, _>(
+					&$config,
+					crate::service::statemint_build_import_queue,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		} else if runner.config().chain_spec.is_shell() {
 			runner.async_run(|$config| {
 				let $components = new_partial::<shell_runtime::RuntimeApi, ShellRuntimeExecutor, _>(
 					&$config,
@@ -290,9 +369,26 @@ pub fn run() -> Result<()> {
 
 			Ok(())
 		}
+		Some(Subcommand::Benchmark(cmd)) => {
+			if cfg!(feature = "runtime-benchmarks") {
+				let runner = cli.create_runner(cmd)?;
+				if runner.config().chain_spec.is_statemine() {
+					runner.sync_run(|config| cmd.run::<Block, StatemineRuntimeExecutor>(config))
+				} else if runner.config().chain_spec.is_westmint() {
+					runner.sync_run(|config| cmd.run::<Block, WestmintRuntimeExecutor>(config))
+				} else if runner.config().chain_spec.is_statemint() {
+					runner.sync_run(|config| cmd.run::<Block, StatemintRuntimeExecutor>(config))
+				} else {
+					Err("Chain doesn't support benchmarking".into())
+				}
+			} else {
+				Err("Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
+					.into())
+			}
+		}
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
-			let use_shell = use_shell_runtime(&*runner.config().chain_spec);
 
 			runner.run_node_until_exit(|config| async move {
 				// TODO
@@ -334,7 +430,37 @@ pub fn run() -> Result<()> {
 					}
 				);
 
-				if use_shell {
+				if config.chain_spec.is_statemint() {
+					crate::service::start_statemint_node::<statemint_runtime::RuntimeApi, StatemintRuntimeExecutor>(
+						config,
+						key,
+						polkadot_config,
+						id,
+					)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into)
+				} else if config.chain_spec.is_statemine() {
+					crate::service::start_statemint_node::<statemine_runtime::RuntimeApi, StatemineRuntimeExecutor>(
+						config,
+						key,
+						polkadot_config,
+						id,
+					)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into)
+				} else if config.chain_spec.is_westmint() {
+					crate::service::start_statemint_node::<westmint_runtime::RuntimeApi, WestmintRuntimeExecutor>(
+						config,
+						key,
+						polkadot_config,
+						id,
+					)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into)
+				} else if config.chain_spec.is_shell() {
 					crate::service::start_shell_node(config, key, polkadot_config, id)
 						.await
 						.map(|r| r.0)
