@@ -3,3 +3,5 @@
 .vscode
 .DS_Store
 /.cargo/config
+
+**/node_modules

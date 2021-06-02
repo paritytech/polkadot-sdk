@@ -1,0 +1,14 @@
+{
+  "name": "generate_genesis_values",
+  "version": "1.0.0",
+  "description": "filter genesis key-value pairs from a chain spec and store them",
+  "main": "index.js",
+  "scripts": {
+    "generate": "node index.js"
+  },
+  "author": "Parity Technologies <admin@parity.io>",
+  "license": "ISC",
+  "dependencies": {
+    "@polkadot/util-crypto": "^6.5.1"
+  }
+}
