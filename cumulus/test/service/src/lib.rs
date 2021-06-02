@@ -303,9 +303,11 @@ where
 			spawner: task_manager.spawn_handle(),
 			task_manager: &mut task_manager,
 			para_id,
-			collator_key,
 			parachain_consensus,
-			relay_chain_full_node,
+			relay_chain_full_node: cumulus_client_service::RFullNode {
+				relay_chain_full_node,
+				collator_key,
+			},
 			import_queue,
 		};
 
@@ -319,7 +321,10 @@ where
 			announce_block,
 			task_manager: &mut task_manager,
 			para_id,
-			relay_chain_full_node,
+			relay_chain_full_node: cumulus_client_service::RFullNode {
+				relay_chain_full_node,
+				collator_key: CollatorPair::generate().0,
+			},
 		};
 
 		start_full_node(params)?;

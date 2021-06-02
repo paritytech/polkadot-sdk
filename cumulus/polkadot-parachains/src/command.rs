@@ -391,9 +391,6 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 
 			runner.run_node_until_exit(|config| async move {
-				// TODO
-				let key = sp_core::Pair::generate().0;
-
 				let para_id =
 					chain_spec::Extensions::try_get(&*config.chain_spec).map(|e| e.para_id);
 
@@ -433,7 +430,6 @@ pub fn run() -> Result<()> {
 				if config.chain_spec.is_statemint() {
 					crate::service::start_statemint_node::<statemint_runtime::RuntimeApi, StatemintRuntimeExecutor>(
 						config,
-						key,
 						polkadot_config,
 						id,
 					)
@@ -443,7 +439,6 @@ pub fn run() -> Result<()> {
 				} else if config.chain_spec.is_statemine() {
 					crate::service::start_statemint_node::<statemine_runtime::RuntimeApi, StatemineRuntimeExecutor>(
 						config,
-						key,
 						polkadot_config,
 						id,
 					)
@@ -453,7 +448,6 @@ pub fn run() -> Result<()> {
 				} else if config.chain_spec.is_westmint() {
 					crate::service::start_statemint_node::<westmint_runtime::RuntimeApi, WestmintRuntimeExecutor>(
 						config,
-						key,
 						polkadot_config,
 						id,
 					)
@@ -461,12 +455,12 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into)
 				} else if config.chain_spec.is_shell() {
-					crate::service::start_shell_node(config, key, polkadot_config, id)
+					crate::service::start_shell_node(config, polkadot_config, id)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into)
 				} else {
-					crate::service::start_rococo_parachain_node(config, key, polkadot_config, id)
+					crate::service::start_rococo_parachain_node(config, polkadot_config, id)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into)
