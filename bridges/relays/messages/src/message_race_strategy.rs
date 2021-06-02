@@ -318,9 +318,9 @@ mod tests {
 	#[test]
 	fn strategy_is_empty_works() {
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
-		assert_eq!(strategy.is_empty(), true);
+		assert!(strategy.is_empty());
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
-		assert_eq!(strategy.is_empty(), false);
+		assert!(!strategy.is_empty());
 	}
 
 	#[test]
