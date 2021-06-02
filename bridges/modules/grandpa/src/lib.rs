@@ -693,7 +693,7 @@ mod tests {
 				CurrentAuthoritySet::<TestRuntime>::get().authorities,
 				init_data.authority_list
 			);
-			assert_eq!(IsHalted::<TestRuntime>::get(), false);
+			assert!(!IsHalted::<TestRuntime>::get());
 		})
 	}
 
