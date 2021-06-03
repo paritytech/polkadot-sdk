@@ -1,0 +1,58 @@
+name: Srtool build
+
+on: push
+
+jobs:
+  srtool:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chain: ["statemine", "westmint"]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Srtool build
+        id: srtool_build
+        uses: chevdor/srtool-actions@draft
+        with:
+          chain: ${{ matrix.chain }}
+          runtime_dir: polkadot-parachains/${{ matrix.chain }}-runtime
+      - name: Summary
+        run: |
+          echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.chain }}-srtool-digest.json
+          cat ${{ matrix.chain }}-srtool-digest.json
+          echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
+      - name: Archive Runtime
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.chain }}-runtime-${{ github.sha }}
+          path: |
+            ${{ steps.srtool_build.outputs.wasm }}
+            ${{ matrix.chain }}-srtool-digest.json
+      - name: Install subwasm
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: "--git https://gitlab.com/chevdor/subwasm"
+      - name: Show Runtime information
+        shell: bash
+        run: |
+          subwasm info ${{ steps.srtool_build.outputs.wasm }}
+          subwasm --json info ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-info.json
+      - name: Extract the metadata
+        shell: bash
+        run: |
+          subwasm meta ${{ steps.srtool_build.outputs.wasm }}
+          subwasm --json meta ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
+      - name: Check the metadata diff
+        shell: bash
+        run: |
+          subwasm diff ${{ steps.srtool_build.outputs.wasm }} --chain-b ${{ matrix.chain }} > ${{ matrix.chain }}-diff.txt
+          cat ${{ matrix.chain }}-diff.txt
+      - name: Archive Subwasm results
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.chain }}-runtime-${{ github.sha }}
+          path: |
+            ${{ matrix.chain }}-info.json
+            ${{ matrix.chain }}-metadata.json
+            ${{ matrix.chain }}-diff.txt
