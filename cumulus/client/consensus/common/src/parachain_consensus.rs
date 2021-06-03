@@ -80,7 +80,7 @@ where
 		let header = match Block::Header::decode(&mut &finalized_head[..]) {
 			Ok(header) => header,
 			Err(err) => {
-				tracing::warn!(
+				tracing::debug!(
 					target: "cumulus-consensus",
 					error = ?err,
 					"Could not decode parachain header while following finalized heads.",
@@ -286,7 +286,7 @@ async fn handle_new_best_parachain_head<Block, P>(
 	let parachain_head = match <<Block as BlockT>::Header>::decode(&mut &head[..]) {
 		Ok(header) => header,
 		Err(err) => {
-			tracing::warn!(
+			tracing::debug!(
 				target: "cumulus-consensus",
 				error = ?err,
 				"Could not decode Parachain header while following best heads.",
