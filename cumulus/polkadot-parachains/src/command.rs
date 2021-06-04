@@ -99,10 +99,9 @@ fn load_spec(
 		// the chain spec as used for generating the upgrade genesis values
 		"statemine-genesis" => Box::new(chain_spec::statemine_config(para_id)),
 		// the shell-based chain spec as used for syncing
-		// TODO: enable once the chain spec is ready and available
-		// "statemine" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-		// 	&include_bytes!("../res/statemine.json")[..],
-		// )?),
+		"statemine" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+			&include_bytes!("../res/statemine.json")[..],
+		)?),
 		"westmint-dev" => Box::new(chain_spec::westmint_development_config(para_id)),
 		"westmint-local" => Box::new(chain_spec::westmint_local_config(para_id)),
 		// the chain spec as used for generating the upgrade genesis values
