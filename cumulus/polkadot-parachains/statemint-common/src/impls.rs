@@ -102,6 +102,7 @@ mod tests {
 			.build_or_panic();
 		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
+		pub const MaxReserves: u32 = 50;
 	}
 
 	impl frame_system::Config for Test {
@@ -138,6 +139,8 @@ mod tests {
 		type AccountStore = System;
 		type MaxLocks = ();
 		type WeightInfo = ();
+		type MaxReserves = MaxReserves;
+		type ReserveIdentifier = [u8; 8];
 	}
 
 	pub struct OneAuthor;
