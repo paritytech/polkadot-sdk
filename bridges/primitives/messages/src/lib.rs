@@ -32,6 +32,30 @@ pub mod target_chain;
 // Weight is reexported to avoid additional frame-support dependencies in related crates.
 pub use frame_support::weights::Weight;
 
+/// Messages pallet operating mode.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum OperatingMode {
+	/// Normal mode, when all operations are allowed.
+	Normal,
+	/// The pallet is not accepting outbound messages. Inbound messages and receival proofs
+	/// are still accepted.
+	///
+	/// This mode may be used e.g. when bridged chain expects upgrade. Then to avoid dispatch
+	/// failures, the pallet owner may stop accepting new messages, while continuing to deliver
+	/// queued messages to the bridged chain. Once upgrade is completed, the mode may be switched
+	/// back to `Normal`.
+	RejectingOutboundMessages,
+	/// The pallet is halted. All operations (except operating mode change) are prohibited.
+	Halted,
+}
+
+impl Default for OperatingMode {
+	fn default() -> Self {
+		OperatingMode::Normal
+	}
+}
+
 /// Messages pallet parameter.
 pub trait Parameter: frame_support::Parameter {
 	/// Save parameter value in the runtime storage.
