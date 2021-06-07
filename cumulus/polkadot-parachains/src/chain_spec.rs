@@ -178,6 +178,7 @@ fn testnet_genesis(
 			authorities: initial_authorities,
 		},
 		cumulus_pallet_aura_ext: Default::default(),
+		cumulus_pallet_parachain_system: Default::default(),
 	}
 }
 
@@ -190,6 +191,7 @@ fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::GenesisConfig {
 			changes_trie_config: Default::default(),
 		},
 		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id },
+		cumulus_pallet_parachain_system: Default::default(),
 	}
 }
 
@@ -366,6 +368,7 @@ fn statemint_genesis(
 		// of this.
 		pallet_aura: Default::default(),
 		cumulus_pallet_aura_ext: Default::default(),
+		cumulus_pallet_parachain_system: Default::default(),
 	}
 }
 
@@ -540,6 +543,7 @@ fn statemine_genesis(
 		},
 		pallet_aura: Default::default(),
 		cumulus_pallet_aura_ext: Default::default(),
+		cumulus_pallet_parachain_system: Default::default(),
 	}
 }
 
@@ -722,5 +726,6 @@ fn westmint_genesis(
 		// of this.
 		pallet_aura: Default::default(),
 		cumulus_pallet_aura_ext: Default::default(),
+		cumulus_pallet_parachain_system: Default::default(),
 	}
 }

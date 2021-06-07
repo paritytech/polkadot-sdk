@@ -556,6 +556,18 @@ pub mod pallet {
 			matches!(call, Call::set_validation_data(_))
 		}
 	}
+
+	#[pallet::genesis_config]
+	#[derive(Default)]
+	pub struct GenesisConfig;
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig {
+		fn build(&self) {
+			//TODO: Remove after https://github.com/paritytech/cumulus/issues/479
+			sp_io::storage::set(b":c", &[]);
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {

@@ -111,6 +111,7 @@ fn testnet_genesis(
 				.to_vec(),
 			..Default::default()
 		},
+		cumulus_pallet_parachain_system: Default::default(),
 		pallet_balances: cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
