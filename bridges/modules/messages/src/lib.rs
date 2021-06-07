@@ -50,7 +50,7 @@ use bp_messages::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload,
-	OutboundLaneData, Parameter as MessagesParameter, UnrewardedRelayersState,
+	OperatingMode, OutboundLaneData, Parameter as MessagesParameter, UnrewardedRelayersState,
 };
 use bp_runtime::Size;
 use codec::{Decode, Encode};
@@ -198,8 +198,10 @@ decl_storage! {
 		/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
 		/// flag directly or call the `halt_operations`).
 		pub PalletOwner get(fn module_owner): Option<T::AccountId>;
-		/// If true, all pallet transactions are failed immediately.
-		pub IsHalted get(fn is_halted) config(): bool;
+		/// The current operating mode of the pallet.
+		///
+		/// Depending on the mode either all, some, or no transactions will be allowed.
+		pub PalletOperatingMode get(fn operating_mode) config(): OperatingMode;
 		/// Map of lane id => inbound lane data.
 		pub InboundLanes: map hasher(blake2_128_concat) LaneId => InboundLaneData<T::InboundRelayer>;
 		/// Map of lane id => outbound lane data.
@@ -266,19 +268,18 @@ decl_module! {
 			}
 		}
 
-		/// Halt or resume all pallet operations.
+		/// Halt or resume all/some pallet operations.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
 		#[weight = (T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational)]
-		pub fn set_operational(origin, operational: bool) {
+		pub fn set_operating_mode(origin, operating_mode: OperatingMode) {
 			ensure_owner_or_root::<T, I>(origin)?;
-			<IsHalted<I>>::put(operational);
-
-			if operational {
-				log::info!(target: "runtime::bridge-messages", "Resuming pallet operations.");
-			} else {
-				log::warn!(target: "runtime::bridge-messages", "Stopping pallet operations.");
-			}
+			<PalletOperatingMode<I>>::put(operating_mode);
+			log::info!(
+				target: "runtime::bridge-messages",
+				"Setting messages pallet operating mode to {:?}.",
+				operating_mode,
+			);
 		}
 
 		/// Update pallet parameter.
@@ -301,7 +302,7 @@ decl_module! {
 			payload: T::OutboundPayload,
 			delivery_and_dispatch_fee: T::OutboundMessageFee,
 		) -> DispatchResult {
-			ensure_operational::<T, I>()?;
+			ensure_normal_operating_mode::<T, I>()?;
 			let submitter = origin.into().map_err(|_| BadOrigin)?;
 
 			// let's first check if message can be delivered to target chain
@@ -384,6 +385,7 @@ decl_module! {
 			nonce: MessageNonce,
 			additional_fee: T::OutboundMessageFee,
 		) -> DispatchResult {
+			ensure_not_halted::<T, I>()?;
 			// if someone tries to pay for already-delivered message, we're rejecting this intention
 			// (otherwise this additional fee will be locked forever in relayers fund)
 			//
@@ -441,7 +443,7 @@ decl_module! {
 			messages_count: u32,
 			dispatch_weight: Weight,
 		) -> DispatchResult {
-			ensure_operational::<T, I>()?;
+			ensure_not_halted::<T, I>()?;
 			let _ = ensure_signed(origin)?;
 
 			// reject transactions that are declaring too many messages
@@ -532,7 +534,7 @@ decl_module! {
 			proof: MessagesDeliveryProofOf<T, I>,
 			relayers_state: UnrewardedRelayersState,
 		) -> DispatchResult {
-			ensure_operational::<T, I>()?;
+			ensure_not_halted::<T, I>()?;
 
 			let confirmation_relayer = ensure_signed(origin)?;
 			let (lane_id, lane_data) = T::TargetHeaderChain::verify_messages_delivery_proof(proof).map_err(|err| {
@@ -697,9 +699,18 @@ fn ensure_owner_or_root<T: Config<I>, I: Instance>(origin: T::Origin) -> Result<
 	}
 }
 
-/// Ensure that the pallet is in operational mode (not halted).
-fn ensure_operational<T: Config<I>, I: Instance>() -> Result<(), Error<T, I>> {
-	if IsHalted::<I>::get() {
+/// Ensure that the pallet is in normal operational mode.
+fn ensure_normal_operating_mode<T: Config<I>, I: Instance>() -> Result<(), Error<T, I>> {
+	if PalletOperatingMode::<I>::get() != OperatingMode::Normal {
+		Err(Error::<T, I>::Halted)
+	} else {
+		Ok(())
+	}
+}
+
+/// Ensure that the pallet is not halted.
+fn ensure_not_halted<T: Config<I>, I: Instance>() -> Result<(), Error<T, I>> {
+	if PalletOperatingMode::<I>::get() == OperatingMode::Halted {
 		Err(Error::<T, I>::Halted)
 	} else {
 		Ok(())
@@ -922,29 +933,41 @@ mod tests {
 
 			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::root(), Some(1)));
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(2), false),
+				Pallet::<TestRuntime>::set_operating_mode(Origin::signed(2), OperatingMode::Halted),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				OperatingMode::Halted
+			));
 
 			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::signed(1), None));
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operating_mode(Origin::signed(1), OperatingMode::Normal),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(2), true),
+				Pallet::<TestRuntime>::set_operating_mode(Origin::signed(2), OperatingMode::Normal),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				OperatingMode::Normal
+			));
 		});
 	}
 
 	#[test]
 	fn pallet_may_be_halted_by_root() {
 		run_test(|| {
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				OperatingMode::Halted
+			));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				OperatingMode::Normal
+			));
 		});
 	}
 
@@ -953,21 +976,30 @@ mod tests {
 		run_test(|| {
 			PalletOwner::<TestRuntime>::put(2);
 
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::signed(2),
+				OperatingMode::Halted
+			));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::signed(2),
+				OperatingMode::Normal
+			));
 
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), false),
+				Pallet::<TestRuntime>::set_operating_mode(Origin::signed(1), OperatingMode::Halted),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operating_mode(Origin::signed(1), OperatingMode::Normal),
 				DispatchError::BadOrigin,
 			);
 
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::signed(2),
+				OperatingMode::Halted
+			));
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operating_mode(Origin::signed(1), OperatingMode::Normal),
 				DispatchError::BadOrigin,
 			);
 		});
@@ -1074,7 +1106,7 @@ mod tests {
 			// send message first to be able to check that delivery_proof fails later
 			send_regular_message();
 
-			IsHalted::<DefaultInstance>::put(true);
+			PalletOperatingMode::<DefaultInstance>::put(OperatingMode::Halted);
 
 			assert_noop!(
 				Pallet::<TestRuntime>::send_message(
@@ -1083,6 +1115,11 @@ mod tests {
 					REGULAR_PAYLOAD,
 					REGULAR_PAYLOAD.1,
 				),
+				Error::<TestRuntime, DefaultInstance>::Halted,
+			);
+
+			assert_noop!(
+				Pallet::<TestRuntime>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 1,),
 				Error::<TestRuntime, DefaultInstance>::Halted,
 			);
 
@@ -1111,6 +1148,53 @@ mod tests {
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
 			);
+		});
+	}
+
+	#[test]
+	fn pallet_rejects_new_messages_in_rejecting_outbound_messages_operating_mode() {
+		run_test(|| {
+			// send message first to be able to check that delivery_proof fails later
+			send_regular_message();
+
+			PalletOperatingMode::<DefaultInstance>::put(OperatingMode::RejectingOutboundMessages);
+
+			assert_noop!(
+				Pallet::<TestRuntime>::send_message(
+					Origin::signed(1),
+					TEST_LANE_ID,
+					REGULAR_PAYLOAD,
+					REGULAR_PAYLOAD.1,
+				),
+				Error::<TestRuntime, DefaultInstance>::Halted,
+			);
+
+			assert_ok!(Pallet::<TestRuntime>::increase_message_fee(
+				Origin::signed(1),
+				TEST_LANE_ID,
+				1,
+				1,
+			));
+
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
+				Origin::signed(1),
+				TEST_RELAYER_A,
+				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
+				1,
+				REGULAR_PAYLOAD.1,
+			),);
+
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
+				Origin::signed(1),
+				TestMessagesDeliveryProof(Ok((
+					TEST_LANE_ID,
+					InboundLaneData {
+						last_confirmed_nonce: 1,
+						..Default::default()
+					},
+				))),
+				Default::default(),
+			));
 		});
 	}
 
