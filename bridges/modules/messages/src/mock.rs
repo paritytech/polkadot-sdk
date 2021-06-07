@@ -115,6 +115,8 @@ impl pallet_balances::Config for TestRuntime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Pallet<TestRuntime>;
 	type WeightInfo = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = ();
 }
 
 parameter_types! {
