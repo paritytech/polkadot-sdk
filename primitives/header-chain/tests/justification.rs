@@ -29,7 +29,7 @@ fn valid_justification_accepted() {
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
 		authorities: authorities.clone(),
-		votes: 7,
+		ancestors: 7,
 		forks: 3,
 	};
 
@@ -45,7 +45,7 @@ fn valid_justification_accepted() {
 	);
 
 	assert_eq!(justification.commit.precommits.len(), authorities.len());
-	assert_eq!(justification.votes_ancestries.len(), params.votes as usize);
+	assert_eq!(justification.votes_ancestries.len(), params.ancestors as usize);
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn valid_justification_accepted_with_single_fork() {
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
 		authorities: vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1), (EVE, 1)],
-		votes: 5,
+		ancestors: 5,
 		forks: 1,
 	};
 
@@ -83,7 +83,7 @@ fn valid_justification_accepted_with_arbitrary_number_of_authorities() {
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
 		authorities: authorities.clone(),
-		votes: n.into(),
+		ancestors: n.into(),
 		forks: n.into(),
 	};
 
@@ -175,7 +175,7 @@ fn justification_is_invalid_if_we_dont_meet_threshold() {
 		round: TEST_GRANDPA_ROUND,
 		set_id: TEST_GRANDPA_SET_ID,
 		authorities: authorities.clone(),
-		votes: 2 * authorities.len() as u32,
+		ancestors: 2 * authorities.len() as u32,
 		forks: 2,
 	};
 
