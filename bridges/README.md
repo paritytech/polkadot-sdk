@@ -31,7 +31,7 @@ rustup target add wasm32-unknown-unknown --toolchain nightly
 
 Once this is configured you can build and test the repo as follows:
 
-```bash
+```
 git clone https://github.com/paritytech/parity-bridges-common.git
 cd parity-bridges-common
 cargo build --all
@@ -49,7 +49,7 @@ and external processes called relayers. A bridge chain is one that is able to fo
 of a foreign chain independently. For example, consider the case below where we want to bridge two
 Substrate based chains.
 
-```bash
+```
 +---------------+                 +---------------+
 |               |                 |               |
 |     Rialto    |                 |    Millau     |
@@ -77,7 +77,7 @@ Here's an overview of how the project is laid out. The main bits are the `node`,
 "blockchain", the `modules` which are used to build the blockchain's logic (a.k.a the runtime) and
 the `relays` which are used to pass messages between chains.
 
-```bash
+```
 ├── bin             // Node and Runtime for the various Substrate chains
 │  └── ...
 ├── deployments     // Useful tools for deploying test networks
