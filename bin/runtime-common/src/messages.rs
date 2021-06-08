@@ -991,7 +991,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::Root,
 				&ThisChainBalance(1),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&test_lane_outbound_data(),
 				&payload,
 			),
@@ -1001,7 +1001,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::Root,
 				&ThisChainBalance(1_000_000),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&test_lane_outbound_data(),
 				&payload,
 			)
@@ -1024,7 +1024,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::Signed(ThisChainAccountId(0)),
 				&ThisChainBalance(1_000_000),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&test_lane_outbound_data(),
 				&payload,
 			),
@@ -1034,7 +1034,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::None,
 				&ThisChainBalance(1_000_000),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&test_lane_outbound_data(),
 				&payload,
 			),
@@ -1044,7 +1044,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::Root,
 				&ThisChainBalance(1_000_000),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&test_lane_outbound_data(),
 				&payload,
 			)
@@ -1067,7 +1067,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::Signed(ThisChainAccountId(0)),
 				&ThisChainBalance(1_000_000),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&test_lane_outbound_data(),
 				&payload,
 			),
@@ -1077,7 +1077,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::Signed(ThisChainAccountId(1)),
 				&ThisChainBalance(1_000_000),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&test_lane_outbound_data(),
 				&payload,
 			)
@@ -1105,7 +1105,7 @@ mod tests {
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&Sender::Root,
 				&ThisChainBalance(1_000_000),
-				&TEST_LANE_ID,
+				TEST_LANE_ID,
 				&OutboundLaneData {
 					latest_received_nonce: 100,
 					latest_generated_nonce: 100 + MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE + 1,
