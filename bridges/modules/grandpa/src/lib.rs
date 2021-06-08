@@ -415,9 +415,14 @@ pub mod pallet {
 		let set_id = authority_set.set_id;
 
 		Ok(
-			verify_justification::<BridgedHeader<T, I>>((hash, number), set_id, &voter_set, &justification).map_err(
+			verify_justification::<BridgedHeader<T, I>>((hash, number), set_id, &voter_set, justification).map_err(
 				|e| {
-					log::error!(target: "runtime::bridge-grandpa", "Received invalid justification for {:?}: {:?}", hash, e);
+					log::error!(
+						target: "runtime::bridge-grandpa",
+						"Received invalid justification for {:?}: {:?}",
+						hash,
+						e,
+					);
 					<Error<T, I>>::InvalidJustification
 				},
 			)?,
