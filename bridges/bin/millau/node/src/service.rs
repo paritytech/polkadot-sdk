@@ -87,7 +87,7 @@ pub fn new_partial(
 		.transpose()?;
 
 	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, RuntimeApi, Executor>(
-		&config,
+		config,
 		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 	)?;
 	let client = Arc::new(client);

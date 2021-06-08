@@ -80,7 +80,7 @@ impl SendMessage {
 			let target_sign = target_sign.to_keypair::<Target>()?;
 
 			encode_call::preprocess_call::<Source, Target>(message, bridge.bridge_instance_index());
-			let target_call = Target::encode_call(&message)?;
+			let target_call = Target::encode_call(message)?;
 
 			let payload = {
 				let target_call_weight = prepare_call_dispatch_weight(
