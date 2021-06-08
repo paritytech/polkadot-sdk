@@ -567,7 +567,7 @@ where
 		.as_ref()
 		.and_then(|best_finalized_source_header_id_at_best_target| {
 			strategy
-				.select_nonces_to_deliver(&race_state)
+				.select_nonces_to_deliver(race_state)
 				.map(|(nonces_range, proof_parameters)| {
 					(
 						best_finalized_source_header_id_at_best_target.clone(),
