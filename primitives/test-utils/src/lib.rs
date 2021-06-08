@@ -137,7 +137,7 @@ pub fn make_justification_for_header<H: HeaderT>(params: JustificationGeneratorP
 	for (i, (id, _weight)) in authorities.iter().enumerate() {
 		// Assign authorities to sign pre-commits in a round-robin fashion
 		let target = unsigned_precommits[i % forks as usize];
-		let precommit = signed_precommit::<H>(&id, target, round, set_id);
+		let precommit = signed_precommit::<H>(id, target, round, set_id);
 
 		precommits.push(precommit);
 	}

@@ -129,7 +129,7 @@ pub(crate) fn preprocess_call<Source: CliEncodeCall + CliChain, Target: CliEncod
 		} => {
 			if remark_payload.is_none() {
 				*remark_payload = Some(HexBytes(generate_remark_payload(
-					&remark_size,
+					remark_size,
 					compute_maximal_message_arguments_size(Source::max_extrinsic_size(), Target::max_extrinsic_size()),
 				)));
 			}

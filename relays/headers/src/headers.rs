@@ -295,7 +295,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 				&mut self.orphan,
 				&mut self.known_headers,
 				HeaderStatus::Orphan,
-				&id,
+				id,
 			);
 			return;
 		}
@@ -305,7 +305,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 			&mut self.maybe_extra,
 			&mut self.known_headers,
 			HeaderStatus::MaybeExtra,
-			&id,
+			id,
 		);
 	}
 
@@ -324,7 +324,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 			destination_queue,
 			&mut self.known_headers,
 			destination_status,
-			&id,
+			id,
 			|header| header,
 		);
 	}
@@ -654,7 +654,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		// remember that the header itself is synced
 		// (condition is here to avoid duplicate log messages)
 		if !id_processed {
-			set_header_status::<P>(&mut self.known_headers, &id, HeaderStatus::Synced);
+			set_header_status::<P>(&mut self.known_headers, id, HeaderStatus::Synced);
 		}
 
 		// now let's move all descendants from maybe_orphan && orphan queues to
