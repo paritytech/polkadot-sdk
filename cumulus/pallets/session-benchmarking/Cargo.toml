@@ -1,0 +1,44 @@
+[package]
+name = "pallet-session-benchmarking"
+version = "3.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://substrate.dev"
+repository = "https://github.com/paritytech/cumulus/"
+description = "FRAME sessions pallet benchmarking for statemint"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+sp-staking = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+frame-benchmarking = { default-features = false, optional = true, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+pallet-session = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+
+[dev-dependencies]
+serde = { version = "1.0.119" }
+codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
+sp-core = { git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+
+[features]
+default = ["std"]
+runtime-benchmarks = [
+	'frame-benchmarking',
+	'frame-support/runtime-benchmarks',
+	'frame-system/runtime-benchmarks',
+]
+std = [
+	"sp-std/std",
+	"sp-runtime/std",
+	"frame-system/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"pallet-session/std",
+]
