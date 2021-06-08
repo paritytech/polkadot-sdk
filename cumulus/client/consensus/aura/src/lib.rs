@@ -138,9 +138,10 @@ where
 		P::Signature: TryFrom<Vec<u8>> + Hash + Member + Encode + Decode,
 	{
 		let worker =
-			sc_consensus_aura::build_aura_worker::<P, _, _, _, _, _, _, _>(BuildAuraWorkerParams {
+			sc_consensus_aura::build_aura_worker::<P, _, _, _, _, _, _, _, _>(BuildAuraWorkerParams {
 				client: para_client,
 				block_import: ParachainBlockImport::new(block_import),
+				justification_sync_link: (),
 				proposer_factory,
 				sync_oracle,
 				force_authoring,

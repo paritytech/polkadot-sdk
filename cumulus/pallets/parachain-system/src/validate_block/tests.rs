@@ -86,7 +86,7 @@ fn create_test_client() -> (Client, LongestChain) {
 
 struct TestBlockData {
 	block: Block,
-	witness: sp_trie::StorageProof,
+	witness: sp_trie::CompactProof,
 	validation_data: PersistedValidationData,
 }
 
@@ -114,11 +114,15 @@ fn build_block_with_witness(
 
 	let built_block = builder.build().expect("Creates block");
 
+	let witness = built_block
+		.proof
+		.expect("We enabled proof recording before.")
+		.into_compact_proof::<<Header as HeaderT>::Hashing>(*parent_head.state_root())
+		.unwrap();
+
 	TestBlockData {
 		block: built_block.block,
-		witness: built_block
-			.proof
-			.expect("We enabled proof recording before."),
+		witness,
 		validation_data,
 	}
 }
