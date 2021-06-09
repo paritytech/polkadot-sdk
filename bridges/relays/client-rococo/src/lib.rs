@@ -47,11 +47,10 @@ impl Chain for Rococo {
 	type Index = bp_rococo::Index;
 	type SignedBlock = bp_rococo::SignedBlock;
 	type Call = bp_rococo::Call;
+	type Balance = bp_rococo::Balance;
 }
 
 impl ChainWithBalances for Rococo {
-	type NativeBalance = bp_rococo::Balance;
-
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
 		StorageKey(bp_rococo::account_info_storage_key(account_id))
 	}

@@ -47,11 +47,10 @@ impl Chain for Wococo {
 	type Index = bp_wococo::Index;
 	type SignedBlock = bp_wococo::SignedBlock;
 	type Call = bp_wococo::Call;
+	type Balance = bp_wococo::Balance;
 }
 
 impl ChainWithBalances for Wococo {
-	type NativeBalance = bp_wococo::Balance;
-
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
 		StorageKey(bp_wococo::account_info_storage_key(account_id))
 	}

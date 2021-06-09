@@ -130,11 +130,12 @@ impl SendMessage {
 			let fee = match self.fee {
 				Some(fee) => fee,
 				None => Balance(
-					estimate_message_delivery_and_dispatch_fee::<
-						<Source as relay_substrate_client::ChainWithBalances>::NativeBalance,
-						_,
-						_,
-					>(&source_client, ESTIMATE_MESSAGE_FEE_METHOD, lane, payload.clone())
+					estimate_message_delivery_and_dispatch_fee::<<Source as Chain>::Balance, _, _>(
+						&source_client,
+						ESTIMATE_MESSAGE_FEE_METHOD,
+						lane,
+						payload.clone(),
+					)
 					.await? as _,
 				),
 			};

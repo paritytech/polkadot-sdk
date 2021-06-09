@@ -208,7 +208,7 @@ impl<C: Chain> Client<C> {
 	}
 
 	/// Return native tokens balance of the account.
-	pub async fn free_native_balance(&self, account: C::AccountId) -> Result<C::NativeBalance>
+	pub async fn free_native_balance(&self, account: C::AccountId) -> Result<C::Balance>
 	where
 		C: ChainWithBalances,
 	{
@@ -217,7 +217,7 @@ impl<C: Chain> Client<C> {
 			.await?
 			.ok_or(Error::AccountDoesNotExist)?;
 		let decoded_account_data =
-			AccountInfo::<C::Index, AccountData<C::NativeBalance>>::decode(&mut &encoded_account_data.0[..])
+			AccountInfo::<C::Index, AccountData<C::Balance>>::decode(&mut &encoded_account_data.0[..])
 				.map_err(Error::ResponseParseFailed)?;
 		Ok(decoded_account_data.data.free)
 	}
