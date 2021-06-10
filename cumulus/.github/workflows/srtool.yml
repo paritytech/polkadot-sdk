@@ -1,6 +1,18 @@
 name: Srtool build
 
-on: push
+on:
+  push:
+    tags:
+      - "*"
+
+    paths-ignore:
+      - "docker"
+      - "docs"
+      - "scripts"
+      - "test"
+
+  schedule:
+    - cron: "00 02 * * 1" # 2AM weekly on monday
 
 jobs:
   srtool:
@@ -9,10 +21,12 @@ jobs:
       matrix:
         chain: ["statemine", "westmint"]
     steps:
+      - name: Get Timestamp
+        run: echo "TMSP=$(date '+%Y%m%d_%H%M%S')" >> $GITHUB_ENV
       - uses: actions/checkout@v2
       - name: Srtool build
         id: srtool_build
-        uses: chevdor/srtool-actions@draft
+        uses: chevdor/srtool-actions@v0.1.0
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: polkadot-parachains/${{ matrix.chain }}-runtime
@@ -24,7 +38,7 @@ jobs:
       - name: Archive Runtime
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.chain }}-runtime-${{ github.sha }}
+          name: ${{ matrix.chain }}-runtime-${{ env.TMSP }}-${{ github.sha }}
           path: |
             ${{ steps.srtool_build.outputs.wasm }}
             ${{ matrix.chain }}-srtool-digest.json
@@ -51,7 +65,7 @@ jobs:
       - name: Archive Subwasm results
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.chain }}-runtime-${{ github.sha }}
+          name: ${{ matrix.chain }}-runtime-${{ env.TMSP }}-${{ github.sha }}
           path: |
             ${{ matrix.chain }}-info.json
             ${{ matrix.chain }}-metadata.json
