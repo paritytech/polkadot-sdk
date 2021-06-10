@@ -96,7 +96,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		None,
 		None,
 		Extensions {
-			relay_chain: "westend-dev".into(),
+			relay_chain: "westend".into(),
 			para_id: id.into(),
 		},
 	)
@@ -113,7 +113,7 @@ pub fn get_shell_chain_spec(id: ParaId) -> ShellChainSpec {
 		None,
 		None,
 		Extensions {
-			relay_chain: "westend-dev".into(),
+			relay_chain: "westend".into(),
 			para_id: id.into(),
 		},
 	)
@@ -146,7 +146,7 @@ pub fn staging_test_net(id: ParaId) -> ChainSpec {
 		None,
 		None,
 		Extensions {
-			relay_chain: "westend-dev".into(),
+			relay_chain: "westend".into(),
 			para_id: id.into(),
 		},
 	)
@@ -159,39 +159,39 @@ fn testnet_genesis(
 	id: ParaId,
 ) -> rococo_parachain_runtime::GenesisConfig {
 	rococo_parachain_runtime::GenesisConfig {
-		frame_system: rococo_parachain_runtime::SystemConfig {
+		system: rococo_parachain_runtime::SystemConfig {
 			code: rococo_parachain_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 			changes_trie_config: Default::default(),
 		},
-		pallet_balances: rococo_parachain_runtime::BalancesConfig {
+		balances: rococo_parachain_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, 1 << 60))
 				.collect(),
 		},
-		pallet_sudo: rococo_parachain_runtime::SudoConfig { key: root_key },
+		sudo: rococo_parachain_runtime::SudoConfig { key: root_key },
 		parachain_info: rococo_parachain_runtime::ParachainInfoConfig { parachain_id: id },
-		pallet_aura: rococo_parachain_runtime::AuraConfig {
+		aura: rococo_parachain_runtime::AuraConfig {
 			authorities: initial_authorities,
 		},
-		cumulus_pallet_aura_ext: Default::default(),
-		cumulus_pallet_parachain_system: Default::default(),
+		aura_ext: Default::default(),
+		parachain_system: Default::default(),
 	}
 }
 
 fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::GenesisConfig {
 	shell_runtime::GenesisConfig {
-		frame_system: shell_runtime::SystemConfig {
+		system: shell_runtime::SystemConfig {
 			code: shell_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 			changes_trie_config: Default::default(),
 		},
 		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id },
-		cumulus_pallet_parachain_system: Default::default(),
+		parachain_system: Default::default(),
 	}
 }
 
@@ -338,13 +338,13 @@ fn statemint_genesis(
 	id: ParaId,
 ) -> statemint_runtime::GenesisConfig {
 	statemint_runtime::GenesisConfig {
-		frame_system: statemint_runtime::SystemConfig {
+		system: statemint_runtime::SystemConfig {
 			code: statemint_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 			changes_trie_config: Default::default(),
 		},
-		pallet_balances: statemint_runtime::BalancesConfig {
+		balances: statemint_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
@@ -352,12 +352,12 @@ fn statemint_genesis(
 				.collect(),
 		},
 		parachain_info: statemint_runtime::ParachainInfoConfig { parachain_id: id },
-		pallet_collator_selection: statemint_runtime::CollatorSelectionConfig {
+		collator_selection: statemint_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: STATEMINT_ED * 16,
 			..Default::default()
 		},
-		pallet_session: statemint_runtime::SessionConfig {
+		session: statemint_runtime::SessionConfig {
 			keys: invulnerables.iter().cloned().map(|(acc, aura)| (
 				acc.clone(), // account id
 				acc.clone(), // validator id
@@ -366,9 +366,9 @@ fn statemint_genesis(
 		},
 		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
 		// of this.
-		pallet_aura: Default::default(),
-		cumulus_pallet_aura_ext: Default::default(),
-		cumulus_pallet_parachain_system: Default::default(),
+		aura: Default::default(),
+		aura_ext: Default::default(),
+		parachain_system: Default::default(),
 	}
 }
 
@@ -515,13 +515,13 @@ fn statemine_genesis(
 	id: ParaId,
 ) -> statemine_runtime::GenesisConfig {
 	statemine_runtime::GenesisConfig {
-		frame_system: statemine_runtime::SystemConfig {
+		system: statemine_runtime::SystemConfig {
 			code: statemine_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 			changes_trie_config: Default::default(),
 		},
-		pallet_balances: statemine_runtime::BalancesConfig {
+		balances: statemine_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
@@ -529,21 +529,21 @@ fn statemine_genesis(
 				.collect(),
 		},
 		parachain_info: statemine_runtime::ParachainInfoConfig { parachain_id: id },
-		pallet_collator_selection: statemine_runtime::CollatorSelectionConfig {
+		collator_selection: statemine_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: STATEMINE_ED * 16,
 			..Default::default()
 		},
-		pallet_session: statemine_runtime::SessionConfig {
+		session: statemine_runtime::SessionConfig {
 			keys: invulnerables.iter().cloned().map(|(acc, aura)| (
 				acc.clone(), // account id
 				acc.clone(), // validator id
 				statemine_session_keys(aura), // session keys
 			)).collect()
 		},
-		pallet_aura: Default::default(),
-		cumulus_pallet_aura_ext: Default::default(),
-		cumulus_pallet_parachain_system: Default::default(),
+		aura: Default::default(),
+		aura_ext: Default::default(),
+		parachain_system: Default::default(),
 	}
 }
 
@@ -582,7 +582,7 @@ pub fn westmint_development_config(id: ParaId) -> WestmintChainSpec {
 		None,
 		Some(properties),
 		Extensions {
-			relay_chain: "westend-dev".into(),
+			relay_chain: "westend".into(),
 			para_id: id.into(),
 		},
 	)
@@ -695,27 +695,27 @@ fn westmint_genesis(
 	id: ParaId,
 ) -> westmint_runtime::GenesisConfig {
 	westmint_runtime::GenesisConfig {
-		frame_system: westmint_runtime::SystemConfig {
+		system: westmint_runtime::SystemConfig {
 			code: westmint_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 			changes_trie_config: Default::default(),
 		},
-		pallet_balances: westmint_runtime::BalancesConfig {
+		balances: westmint_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, WESTMINT_ED * 4096))
 				.collect(),
 		},
-		pallet_sudo: westmint_runtime::SudoConfig { key: root_key },
+		sudo: westmint_runtime::SudoConfig { key: root_key },
 		parachain_info: westmint_runtime::ParachainInfoConfig { parachain_id: id },
-		pallet_collator_selection: westmint_runtime::CollatorSelectionConfig {
+		collator_selection: westmint_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: WESTMINT_ED * 16,
 			..Default::default()
 		},
-		pallet_session: westmint_runtime::SessionConfig {
+		session: westmint_runtime::SessionConfig {
 			keys: invulnerables.iter().cloned().map(|(acc, aura)| (
 				acc.clone(), // account id
 				acc.clone(), // validator id
@@ -724,8 +724,8 @@ fn westmint_genesis(
 		},
 		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
 		// of this.
-		pallet_aura: Default::default(),
-		cumulus_pallet_aura_ext: Default::default(),
-		cumulus_pallet_parachain_system: Default::default(),
+		aura: Default::default(),
+		aura_ext: Default::default(),
+		parachain_system: Default::default(),
 	}
 }

@@ -38,8 +38,6 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 #[serde(deny_unknown_fields)]
 pub struct Extensions {
-	/// The relay chain of the Parachain.
-	pub relay_chain: String,
 	/// The id of the Parachain.
 	pub para_id: u32,
 }
@@ -73,7 +71,6 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		None,
 		None,
 		Extensions {
-			relay_chain: "westend-dev".into(),
 			para_id: id.into(),
 		},
 	)
@@ -105,20 +102,20 @@ fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 ) -> cumulus_test_runtime::GenesisConfig {
 	cumulus_test_runtime::GenesisConfig {
-		frame_system: cumulus_test_runtime::SystemConfig {
+		system: cumulus_test_runtime::SystemConfig {
 			code: cumulus_test_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 			..Default::default()
 		},
-		cumulus_pallet_parachain_system: Default::default(),
-		pallet_balances: cumulus_test_runtime::BalancesConfig {
+		parachain_system: Default::default(),
+		balances: cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, 1 << 60))
 				.collect(),
 		},
-		pallet_sudo: cumulus_test_runtime::SudoConfig { key: root_key },
+		sudo: cumulus_test_runtime::SudoConfig { key: root_key },
 	}
 }

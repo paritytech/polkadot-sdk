@@ -421,7 +421,7 @@ fn events() {
 				let events = System::events();
 				assert_eq!(
 					events[0].event,
-					Event::parachain_system(crate::Event::ValidationFunctionStored(1123).into())
+					Event::ParachainSystem(crate::Event::ValidationFunctionStored(1123).into())
 				);
 			},
 		)
@@ -432,7 +432,7 @@ fn events() {
 				let events = System::events();
 				assert_eq!(
 					events[0].event,
-					Event::parachain_system(crate::Event::ValidationFunctionApplied(1234).into())
+					Event::ParachainSystem(crate::Event::ValidationFunctionApplied(1234).into())
 				);
 			},
 		);
