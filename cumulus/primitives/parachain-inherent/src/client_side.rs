@@ -26,7 +26,7 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
-use polkadot_service::{Client, ClientHandle, ExecuteWithClient};
+use polkadot_client::{Client, ClientHandle, ExecuteWithClient};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::generic::BlockId;

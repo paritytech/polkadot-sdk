@@ -31,7 +31,7 @@ use cumulus_primitives_core::{
 	PersistedValidationData,
 };
 use futures::lock::Mutex;
-use polkadot_service::ClientHandle;
+use polkadot_client::ClientHandle;
 use sc_client_api::{backend::AuxStore, Backend, BlockOf};
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SlotInfo};
 use sc_telemetry::TelemetryHandle;
@@ -243,7 +243,7 @@ pub struct BuildAuraConsensusParams<PF, BI, RBackend, CIDP, Client, BS, SO> {
 	pub proposer_factory: PF,
 	pub create_inherent_data_providers: CIDP,
 	pub block_import: BI,
-	pub relay_chain_client: polkadot_service::Client,
+	pub relay_chain_client: polkadot_client::Client,
 	pub relay_chain_backend: Arc<RBackend>,
 	pub para_client: Arc<Client>,
 	pub backoff_authoring_blocks: Option<BS>,
@@ -334,8 +334,8 @@ where
 /// Aura consensus builder.
 ///
 /// Builds a [`AuraConsensus`] for a parachain. As this requires
-/// a concrete relay chain client instance, the builder takes a [`polkadot_service::Client`]
-/// that wraps this concrete instance. By using [`polkadot_service::ExecuteWithClient`]
+/// a concrete relay chain client instance, the builder takes a [`polkadot_client::Client`]
+/// that wraps this concrete instance. By using [`polkadot_client::ExecuteWithClient`]
 /// the builder gets access to this concrete instance.
 struct AuraConsensusBuilder<P, Block, PF, BI, RBackend, CIDP, Client, SO, BS, Error> {
 	_phantom: PhantomData<(Block, Error, P)>,
@@ -343,7 +343,7 @@ struct AuraConsensusBuilder<P, Block, PF, BI, RBackend, CIDP, Client, SO, BS, Er
 	create_inherent_data_providers: CIDP,
 	block_import: BI,
 	relay_chain_backend: Arc<RBackend>,
-	relay_chain_client: polkadot_service::Client,
+	relay_chain_client: polkadot_client::Client,
 	para_client: Arc<Client>,
 	backoff_authoring_blocks: Option<BS>,
 	sync_oracle: SO,
@@ -399,7 +399,7 @@ where
 		proposer_factory: PF,
 		block_import: BI,
 		create_inherent_data_providers: CIDP,
-		relay_chain_client: polkadot_service::Client,
+		relay_chain_client: polkadot_client::Client,
 		relay_chain_backend: Arc<RBackend>,
 		para_client: Arc<Client>,
 		backoff_authoring_blocks: Option<BS>,
@@ -434,7 +434,7 @@ where
 	}
 }
 
-impl<Block, PF, BI, RBackend, CIDP, Client, SO, BS, P, Error> polkadot_service::ExecuteWithClient
+impl<Block, PF, BI, RBackend, CIDP, Client, SO, BS, P, Error> polkadot_client::ExecuteWithClient
 	for AuraConsensusBuilder<P, Block, PF, BI, RBackend, CIDP, Client, SO, BS, Error>
 where
 	Block: BlockT,
@@ -481,8 +481,8 @@ where
 		<Api as sp_api::ApiExt<PBlock>>::StateBackend: sp_api::StateBackend<HashFor<PBlock>>,
 		PBackend: Backend<PBlock>,
 		PBackend::State: sp_api::StateBackend<sp_runtime::traits::BlakeTwo256>,
-		Api: polkadot_service::RuntimeApiCollection<StateBackend = PBackend::State>,
-		PClient: polkadot_service::AbstractClient<PBlock, PBackend, Api = Api> + 'static,
+		Api: polkadot_client::RuntimeApiCollection<StateBackend = PBackend::State>,
+		PClient: polkadot_client::AbstractClient<PBlock, PBackend, Api = Api> + 'static,
 	{
 		Box::new(AuraConsensus::new::<P, _, _, _, _, _, _>(
 			self.para_client,
