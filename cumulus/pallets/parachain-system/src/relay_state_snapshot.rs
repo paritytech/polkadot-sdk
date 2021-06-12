@@ -14,13 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Encode, Decode};
-use cumulus_primitives_core::{relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId};
-use hash_db::{HashDB, EMPTY_PREFIX};
+use codec::{Decode, Encode};
+use cumulus_primitives_core::{
+	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
+};
+use sp_trie::{MemoryDB, HashDBT, EMPTY_PREFIX};
 use sp_runtime::traits::HashFor;
 use sp_state_machine::{Backend, TrieBackend};
-use sp_trie::StorageProof;
 use sp_std::vec::Vec;
+use sp_trie::StorageProof;
 
 /// A snapshot of some messaging related state of relay chain pertaining to the current parachain.
 ///
@@ -61,6 +63,8 @@ pub struct MessagingStateSnapshot {
 pub enum Error {
 	/// The provided proof was created against unexpected storage root.
 	RootMismatch,
+	/// The slot cannot be extracted.
+	Slot(ReadEntryErr),
 	/// The host configuration cannot be extracted.
 	Config(ReadEntryErr),
 	/// The DMQ MQC head cannot be extracted.
@@ -105,94 +109,122 @@ where
 		.ok_or(ReadEntryErr::Absent)
 }
 
-/// Extract the relay chain state from the given storage proof. This function accepts the `para_id`
-/// of the current parachain and the expected storage root the proof should stem from.
-pub fn extract_from_proof(
+/// A state proof extracted from the relay chain.
+///
+/// This state proof is extracted from the relay chain block we are building on top of.
+pub struct RelayChainStateProof {
 	para_id: ParaId,
-	relay_parent_storage_root: relay_chain::v1::Hash,
-	proof: StorageProof,
-) -> Result<(AbridgedHostConfiguration, MessagingStateSnapshot), Error> {
-	let db = proof.into_memory_db::<HashFor<relay_chain::Block>>();
-	if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
-		return Err(Error::RootMismatch);
+	trie_backend: TrieBackend<MemoryDB<HashFor<relay_chain::Block>>, HashFor<relay_chain::Block>>,
+}
+
+impl RelayChainStateProof {
+	/// Create a new instance of `Self`.
+	///
+	/// Returns an error if the given `relay_parent_storage_root` is not the root of the given
+	/// `proof`.
+	pub fn new(
+		para_id: ParaId,
+		relay_parent_storage_root: relay_chain::v1::Hash,
+		proof: StorageProof,
+	) -> Result<Self, Error> {
+		let db = proof.into_memory_db::<HashFor<relay_chain::Block>>();
+		if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
+			return Err(Error::RootMismatch);
+		}
+		let trie_backend = TrieBackend::new(db, relay_parent_storage_root);
+
+		Ok(Self {
+			para_id,
+			trie_backend,
+		})
 	}
-	let backend = TrieBackend::new(db, relay_parent_storage_root);
 
-	let host_config: AbridgedHostConfiguration = read_entry(
-		&backend,
-		relay_chain::well_known_keys::ACTIVE_CONFIG,
-		None,
-	)
-	.map_err(Error::Config)?;
-
-	let dmq_mqc_head: relay_chain::Hash = read_entry(
-		&backend,
-		&relay_chain::well_known_keys::dmq_mqc_head(para_id),
-		Some(Default::default()),
-	)
-	.map_err(Error::DmqMqcHead)?;
-
-	let relay_dispatch_queue_size: (u32, u32) = read_entry(
-		&backend,
-		&relay_chain::well_known_keys::relay_dispatch_queue_size(para_id),
-		Some((0, 0)),
-	)
-	.map_err(Error::RelayDispatchQueueSize)?;
-
-	let ingress_channel_index: Vec<ParaId> = read_entry(
-		&backend,
-		&relay_chain::well_known_keys::hrmp_ingress_channel_index(para_id),
-		Some(Vec::new()),
-	)
-	.map_err(Error::HrmpIngressChannelIndex)?;
-
-	let egress_channel_index: Vec<ParaId> = read_entry(
-		&backend,
-		&relay_chain::well_known_keys::hrmp_egress_channel_index(para_id),
-		Some(Vec::new()),
-	)
-	.map_err(Error::HrmpEgressChannelIndex)?;
-
-	let mut ingress_channels = Vec::with_capacity(ingress_channel_index.len());
-	for sender in ingress_channel_index {
-		let channel_id = relay_chain::v1::HrmpChannelId {
-			sender,
-			recipient: para_id,
-		};
-		let hrmp_channel: AbridgedHrmpChannel = read_entry(
-			&backend,
-			&relay_chain::well_known_keys::hrmp_channels(channel_id),
-			None,
+	/// Read the [`MessagingStateSnapshot`] from the relay chain state proof.
+	///
+	/// Returns an error if anything failed at reading or decoding.
+	pub fn read_messaging_state_snapshot(&self) -> Result<MessagingStateSnapshot, Error> {
+		let dmq_mqc_head: relay_chain::Hash = read_entry(
+			&self.trie_backend,
+			&relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
+			Some(Default::default()),
 		)
-		.map_err(|read_err| Error::HrmpChannel(sender, para_id, read_err))?;
-		ingress_channels.push((sender, hrmp_channel));
-	}
+		.map_err(Error::DmqMqcHead)?;
 
-	let mut egress_channels = Vec::with_capacity(egress_channel_index.len());
-	for recipient in egress_channel_index {
-		let channel_id = relay_chain::v1::HrmpChannelId {
-			sender: para_id,
-			recipient,
-		};
-		let hrmp_channel: AbridgedHrmpChannel = read_entry(
-			&backend,
-			&relay_chain::well_known_keys::hrmp_channels(channel_id),
-			None,
+		let relay_dispatch_queue_size: (u32, u32) = read_entry(
+			&self.trie_backend,
+			&relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
+			Some((0, 0)),
 		)
-		.map_err(|read_err| Error::HrmpChannel(para_id, recipient, read_err))?;
-		egress_channels.push((recipient, hrmp_channel));
-	}
+		.map_err(Error::RelayDispatchQueueSize)?;
 
-	// NOTE that ingress_channels and egress_channels promise to be sorted. We satisfy this property
-	// by relying on the fact that `ingress_channel_index` and `egress_channel_index` are themselves sorted.
+		let ingress_channel_index: Vec<ParaId> = read_entry(
+			&self.trie_backend,
+			&relay_chain::well_known_keys::hrmp_ingress_channel_index(self.para_id),
+			Some(Vec::new()),
+		)
+		.map_err(Error::HrmpIngressChannelIndex)?;
 
-	Ok((
-		host_config,
-		MessagingStateSnapshot {
+		let egress_channel_index: Vec<ParaId> = read_entry(
+			&self.trie_backend,
+			&relay_chain::well_known_keys::hrmp_egress_channel_index(self.para_id),
+			Some(Vec::new()),
+		)
+		.map_err(Error::HrmpEgressChannelIndex)?;
+
+		let mut ingress_channels = Vec::with_capacity(ingress_channel_index.len());
+		for sender in ingress_channel_index {
+			let channel_id = relay_chain::v1::HrmpChannelId {
+				sender,
+				recipient: self.para_id,
+			};
+			let hrmp_channel: AbridgedHrmpChannel = read_entry(
+				&self.trie_backend,
+				&relay_chain::well_known_keys::hrmp_channels(channel_id),
+				None,
+			)
+			.map_err(|read_err| Error::HrmpChannel(sender, self.para_id, read_err))?;
+			ingress_channels.push((sender, hrmp_channel));
+		}
+
+		let mut egress_channels = Vec::with_capacity(egress_channel_index.len());
+		for recipient in egress_channel_index {
+			let channel_id = relay_chain::v1::HrmpChannelId {
+				sender: self.para_id,
+				recipient,
+			};
+			let hrmp_channel: AbridgedHrmpChannel = read_entry(
+				&self.trie_backend,
+				&relay_chain::well_known_keys::hrmp_channels(channel_id),
+				None,
+			)
+			.map_err(|read_err| Error::HrmpChannel(self.para_id, recipient, read_err))?;
+			egress_channels.push((recipient, hrmp_channel));
+		}
+
+		// NOTE that ingress_channels and egress_channels promise to be sorted. We satisfy this property
+		// by relying on the fact that `ingress_channel_index` and `egress_channel_index` are themselves sorted.
+		Ok(MessagingStateSnapshot {
 			dmq_mqc_head,
 			relay_dispatch_queue_size,
 			ingress_channels,
 			egress_channels,
-		},
-	))
+		})
+	}
+
+	/// Read the [`AbridgedHostConfiguration`] from the relay chain state proof.
+	///
+	/// Returns an error if anything failed at reading or decoding.
+	pub fn read_abridged_host_configuration(&self) -> Result<AbridgedHostConfiguration, Error> {
+		read_entry(&self.trie_backend, relay_chain::well_known_keys::ACTIVE_CONFIG, None)
+			.map_err(Error::Config)
+	}
+
+	/// Read the [`Slot`](relay_chain::v1::Slot) from the relay chain state proof.
+	///
+	/// The slot is slot of the relay chain block this state proof was extracted from.
+	///
+	/// Returns an error if anything failed at reading or decoding.
+	pub fn read_slot(&self) -> Result<relay_chain::v1::Slot, Error> {
+		read_entry(&self.trie_backend, relay_chain::well_known_keys::CURRENT_SLOT, None).map_err(Error::Slot)
+	}
 }

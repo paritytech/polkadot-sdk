@@ -369,4 +369,19 @@ impl_runtime_apis! {
 	}
 }
 
-cumulus_pallet_parachain_system::register_validate_block!(Runtime, Executive);
+struct CheckInherents;
+
+impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
+	fn check_inherents(
+		_: &[UncheckedExtrinsic],
+		_: &cumulus_pallet_parachain_system::RelayChainStateProof,
+	) -> sp_inherents::CheckInherentsResult {
+		sp_inherents::CheckInherentsResult::new()
+	}
+}
+
+cumulus_pallet_parachain_system::register_validate_block! {
+	Runtime = Runtime,
+	BlockExecutor = Executive,
+	CheckInherents = CheckInherents,
+}

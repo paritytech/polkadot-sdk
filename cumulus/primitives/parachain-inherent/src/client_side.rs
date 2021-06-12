@@ -166,6 +166,7 @@ fn collect_relay_storage_proof(
 		.unwrap_or_default();
 
 	let mut relevant_keys = vec![];
+	relevant_keys.push(relay_well_known_keys::CURRENT_SLOT.to_vec());
 	relevant_keys.push(relay_well_known_keys::ACTIVE_CONFIG.to_vec());
 	relevant_keys.push(relay_well_known_keys::dmq_mqc_head(para_id));
 	relevant_keys.push(relay_well_known_keys::relay_dispatch_queue_size(para_id));
@@ -279,7 +280,11 @@ where
 	fn execute_with_client<Client, Api, Backend>(
 		self,
 		client: std::sync::Arc<Client>,
-	) -> Self::Output where Client: ProvideRuntimeApi<PBlock>, Client::Api: ParachainHost<PBlock> {
+	) -> Self::Output
+	where
+		Client: ProvideRuntimeApi<PBlock>,
+		Client::Api: ParachainHost<PBlock>,
+	{
 		ParachainInherentData::create_at(
 			self.relay_parent,
 			&*client,

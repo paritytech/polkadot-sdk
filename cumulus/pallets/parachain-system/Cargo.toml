@@ -9,6 +9,7 @@ description = "Base pallet for cumulus-based parachains"
 # Cumulus dependencies
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
+cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, features = [ "wasm-api" ], branch = "master" }
@@ -31,10 +32,7 @@ sp-externalities = { git = "https://github.com/paritytech/substrate", default-fe
 # Other Dependencies
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
-hash-db = { version = "0.15.2", default-features = false }
 log = { version = "0.4.14", default-features = false }
-memory-db = { version = "0.26.0", default-features = false }
-trie-db = { version = "0.22.0", default-features = false }
 environmental = { version = "1.1.2", default-features = false }
 
 [dev-dependencies]
@@ -63,16 +61,14 @@ std = [
 	"sp-runtime/std",
 	"sp-io/std",
 	"sp-std/std",
-	"hash-db/std",
 	"log/std",
-	"memory-db/std",
-	"trie-db/std",
 	"sp-state-machine/std",
 	"sp-trie/std",
 	"sp-externalities/std",
 	"frame-system/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
+	"cumulus-pallet-parachain-system-proc-macro/std",
 	"environmental/std",
 	"xcm/std"
 ]

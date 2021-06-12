@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use cumulus_primitives_core::{relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId};
+use cumulus_primitives_core::{
+	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
+};
 use sp_runtime::traits::HashFor;
 use sp_state_machine::MemoryDB;
 use sp_std::collections::btree_map::BTreeMap;
@@ -38,6 +40,7 @@ pub struct RelayStateSproofBuilder {
 	pub hrmp_ingress_channel_index: Option<Vec<ParaId>>,
 	pub hrmp_egress_channel_index: Option<Vec<ParaId>>,
 	pub hrmp_channels: BTreeMap<relay_chain::v1::HrmpChannelId, AbridgedHrmpChannel>,
+	pub current_slot: relay_chain::v1::Slot,
 }
 
 impl Default for RelayStateSproofBuilder {
@@ -60,6 +63,7 @@ impl Default for RelayStateSproofBuilder {
 			hrmp_ingress_channel_index: None,
 			hrmp_egress_channel_index: None,
 			hrmp_channels: BTreeMap::new(),
+			current_slot: 0.into(),
 		}
 	}
 }
@@ -151,6 +155,11 @@ impl RelayStateSproofBuilder {
 					metadata.encode(),
 				);
 			}
+
+			insert(
+				relay_chain::well_known_keys::CURRENT_SLOT.to_vec(),
+				self.current_slot.encode(),
+			);
 		}
 
 		let root = backend.root().clone();
