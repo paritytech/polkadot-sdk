@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
 	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
@@ -33,8 +34,7 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT},
 };
-
-use codec::{Decode, Encode};
+use std::{env, process::Command};
 
 fn call_validate_block(
 	parent_head: Header,
@@ -187,74 +187,114 @@ fn validate_block_with_extra_extrinsics() {
 }
 
 #[test]
-#[should_panic(expected = "Calls `validate_block`: Other(\"Trap: Trap { kind: Unreachable }\")")]
 fn validate_block_invalid_parent_hash() {
 	let _ = env_logger::try_init();
 
-	let (client, longest_chain) = create_test_client();
-	let parent_head = longest_chain.best_chain().expect("Best block exists");
-	let TestBlockData {
-		block,
-		witness,
-		validation_data,
-	} = build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
-	let (mut header, extrinsics) = block.deconstruct();
-	header.set_parent_hash(Hash::from_low_u64_be(1));
+	if env::var("RUN_TEST").is_ok() {
+		let (client, longest_chain) = create_test_client();
+		let parent_head = longest_chain.best_chain().expect("Best block exists");
+		let TestBlockData {
+			block,
+			witness,
+			validation_data,
+		} = build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
+		let (mut header, extrinsics) = block.deconstruct();
+		header.set_parent_hash(Hash::from_low_u64_be(1));
 
-	let block_data = ParachainBlockData::new(header, extrinsics, witness);
-	call_validate_block(
-		parent_head,
-		block_data,
-		validation_data.relay_parent_storage_root,
-	)
-	.expect("Calls `validate_block`");
+		let block_data = ParachainBlockData::new(header, extrinsics, witness);
+		call_validate_block(
+			parent_head,
+			block_data,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(&["validate_block_invalid_parent_hash", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap()).contains("Invalid parent hash"));
+	}
 }
 
 #[test]
-#[should_panic(expected = "Calls `validate_block`: Other(\"Trap: Trap { kind: Unreachable }\")")]
 fn validate_block_fails_on_invalid_validation_data() {
 	let _ = env_logger::try_init();
 
-	let (client, longest_chain) = create_test_client();
-	let parent_head = longest_chain.best_chain().expect("Best block exists");
-	let TestBlockData { block, witness, .. } =
-		build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
-	let (header, extrinsics) = block.deconstruct();
+	if env::var("RUN_TEST").is_ok() {
+		let (client, longest_chain) = create_test_client();
+		let parent_head = longest_chain.best_chain().expect("Best block exists");
+		let TestBlockData { block, witness, .. } =
+			build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
+		let (header, extrinsics) = block.deconstruct();
 
-	let block_data = ParachainBlockData::new(header, extrinsics, witness);
-	call_validate_block(parent_head, block_data, Hash::random()).expect("Calls `validate_block`");
+		let block_data = ParachainBlockData::new(header, extrinsics, witness);
+		call_validate_block(parent_head, block_data, Hash::random()).unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(&[
+				"validate_block_fails_on_invalid_validation_data",
+				"--",
+				"--nocapture",
+			])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Relay parent storage root doesn't match"));
+	}
 }
 
 #[test]
-#[should_panic(expected = "Calls `validate_block`: Other(\"Trap: Trap { kind: Unreachable }\")")]
 fn check_inherent_fails_on_validate_block_as_expected() {
 	let _ = env_logger::try_init();
 
-	let (client, longest_chain) = create_test_client();
-	let parent_head = longest_chain.best_chain().expect("Best block exists");
+	if env::var("RUN_TEST").is_ok() {
+		let (client, longest_chain) = create_test_client();
+		let parent_head = longest_chain.best_chain().expect("Best block exists");
 
-	let TestBlockData {
-		block,
-		witness,
-		validation_data,
-	} = build_block_with_witness(
-		&client,
-		vec![],
-		parent_head.clone(),
-		RelayStateSproofBuilder {
-			current_slot: 1337.into(),
-			..Default::default()
-		},
-	);
-	let (header, extrinsics) = block.deconstruct();
+		let TestBlockData {
+			block,
+			witness,
+			validation_data,
+		} = build_block_with_witness(
+			&client,
+			vec![],
+			parent_head.clone(),
+			RelayStateSproofBuilder {
+				current_slot: 1337.into(),
+				..Default::default()
+			},
+		);
+		let (header, extrinsics) = block.deconstruct();
 
-	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
+		let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
 
-	let res_header = call_validate_block(
-		parent_head,
-		block_data,
-		validation_data.relay_parent_storage_root,
-	)
-	.expect("Calls `validate_block`");
-	assert_eq!(header, res_header);
+		call_validate_block(
+			parent_head,
+			block_data,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(&[
+				"check_inherent_fails_on_validate_block_as_expected",
+				"--",
+				"--nocapture",
+			])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(
+			dbg!(String::from_utf8(output.stderr).unwrap()).contains("Checking inherents failed")
+		);
+	}
 }
