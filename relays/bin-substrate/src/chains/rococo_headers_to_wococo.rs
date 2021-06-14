@@ -16,12 +16,13 @@
 
 //! Rococo-to-Wococo headers sync entrypoint.
 
+use crate::chains::wococo_headers_to_rococo::MAXIMAL_BALANCE_DECREASE_PER_DAY;
 use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
 
 use bp_header_chain::justification::GrandpaJustification;
 use codec::Encode;
 use relay_rococo_client::{Rococo, SyncHeader as RococoSyncHeader};
-use relay_substrate_client::{Chain, Client, TransactionSignScheme};
+use relay_substrate_client::{Chain, TransactionSignScheme};
 use relay_utils::metrics::MetricsParams;
 use relay_wococo_client::{SigningParams as WococoSigningParams, Wococo};
 use sp_core::{Bytes, Pair};
@@ -38,11 +39,16 @@ impl SubstrateFinalitySyncPipeline for RococoFinalityToWococo {
 		crate::chains::add_polkadot_kusama_price_metrics::<Self>(params)
 	}
 
-	fn start_relay_guards(target_client: &Client<Self::TargetChain>) {
+	fn start_relay_guards(&self) {
 		relay_substrate_client::guard::abort_on_spec_version_change(
-			target_client.clone(),
+			self.target_client.clone(),
 			bp_wococo::VERSION.spec_version,
-		)
+		);
+		relay_substrate_client::guard::abort_when_account_balance_decreased(
+			self.target_client.clone(),
+			self.transactions_author(),
+			MAXIMAL_BALANCE_DECREASE_PER_DAY,
+		);
 	}
 
 	fn transactions_author(&self) -> bp_wococo::AccountId {
