@@ -97,15 +97,10 @@ impl RelayHeaders {
 			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 			let metrics_params = Finality::customize_metrics(self.prometheus_params.into())?;
-			Finality::start_relay_guards(&target_client);
+			let finality = Finality::new(target_client.clone(), target_sign);
+			finality.start_relay_guards();
 
-			crate::finality_pipeline::run(
-				Finality::new(target_client.clone(), target_sign),
-				source_client,
-				target_client,
-				metrics_params,
-			)
-			.await
+			crate::finality_pipeline::run(finality, source_client, target_client, metrics_params).await
 		})
 	}
 }

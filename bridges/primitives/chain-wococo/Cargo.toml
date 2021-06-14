@@ -13,13 +13,13 @@ parity-scale-codec = { version = "2.0.0", default-features = false, features = [
 bp-header-chain = { path = "../header-chain", default-features = false }
 bp-messages = { path = "../messages", default-features = false }
 bp-polkadot-core = { path = "../polkadot-core", default-features = false }
+bp-rococo = { path = "../chain-rococo", default-features = false }
 bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Based Dependencies
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-version = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [features]
 default = ["std"]
@@ -28,9 +28,9 @@ std = [
 	"bp-messages/std",
 	"bp-polkadot-core/std",
 	"bp-runtime/std",
+	"bp-rococo/std",
 	"parity-scale-codec/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-version/std",
 ]
