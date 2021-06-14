@@ -49,8 +49,8 @@ use crate::weights::WeightInfo;
 use bp_messages::{
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, TargetHeaderChain},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
-	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload,
-	OperatingMode, OutboundLaneData, Parameter as MessagesParameter, UnrewardedRelayersState,
+	total_unrewarded_messages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, OperatingMode,
+	OutboundLaneData, Parameter as MessagesParameter, UnrewardedRelayersState,
 };
 use bp_runtime::Size;
 use codec::{Decode, Encode};
@@ -607,9 +607,9 @@ decl_module! {
 }
 
 impl<T: Config<I>, I: Instance> Pallet<T, I> {
-	/// Get payload of given outbound message.
-	pub fn outbound_message_payload(lane: LaneId, nonce: MessageNonce) -> Option<MessagePayload> {
-		OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce }).map(|message_data| message_data.payload)
+	/// Get stored data of the outbound message with given nonce.
+	pub fn outbound_message_data(lane: LaneId, nonce: MessageNonce) -> Option<MessageData<T::OutboundMessageFee>> {
+		OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce })
 	}
 
 	/// Get nonce of latest generated message at given outbound lane.

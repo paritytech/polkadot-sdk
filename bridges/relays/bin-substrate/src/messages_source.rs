@@ -176,13 +176,13 @@ where
 		let encoded_response = self
 			.client
 			.state_call(
-				P::OUTBOUND_LANE_MESSAGES_DISPATCH_WEIGHT_METHOD.into(),
+				P::OUTBOUND_LANE_MESSAGE_DETAILS_METHOD.into(),
 				Bytes((self.lane_id, nonces.start(), nonces.end()).encode()),
 				Some(id.1),
 			)
 			.await?;
 
-		make_message_weights_map::<C>(
+		make_message_details_map::<C>(
 			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?,
 			nonces,
 		)
@@ -287,8 +287,8 @@ where
 	})
 }
 
-fn make_message_weights_map<C: Chain>(
-	weights: Vec<(MessageNonce, Weight, u32)>,
+fn make_message_details_map<C: Chain>(
+	weights: Vec<bp_messages::MessageDetails<C::Balance>>,
 	nonces: RangeInclusive<MessageNonce>,
 ) -> Result<MessageWeightsMap, SubstrateError> {
 	let make_missing_nonce_error = |expected_nonce| {
@@ -308,7 +308,7 @@ fn make_message_weights_map<C: Chain>(
 	// check if last nonce is missing - loop below is not checking this
 	let last_nonce_is_missing = weights
 		.last()
-		.map(|(last_nonce, _, _)| last_nonce != nonces.end())
+		.map(|details| details.nonce != *nonces.end())
 		.unwrap_or(true);
 	if last_nonce_is_missing {
 		return make_missing_nonce_error(*nonces.end());
@@ -317,8 +317,8 @@ fn make_message_weights_map<C: Chain>(
 	let mut expected_nonce = *nonces.start();
 	let mut is_at_head = true;
 
-	for (nonce, weight, size) in weights {
-		match (nonce == expected_nonce, is_at_head) {
+	for details in weights {
+		match (details.nonce == expected_nonce, is_at_head) {
 			(true, _) => (),
 			(false, true) => {
 				// this may happen if some messages were already pruned from the source node
@@ -328,7 +328,7 @@ fn make_message_weights_map<C: Chain>(
 					target: "bridge",
 					"Some messages are missing from the {} node: {:?}. Target node may be out of sync?",
 					C::NAME,
-					expected_nonce..nonce,
+					expected_nonce..details.nonce,
 				);
 			}
 			(false, false) => {
@@ -340,13 +340,13 @@ fn make_message_weights_map<C: Chain>(
 		}
 
 		weights_map.insert(
-			nonce,
+			details.nonce,
 			MessageWeights {
-				weight,
-				size: size as _,
+				weight: details.dispatch_weight,
+				size: details.size as _,
 			},
 		);
-		expected_nonce = nonce + 1;
+		expected_nonce = details.nonce + 1;
 		is_at_head = false;
 	}
 
@@ -357,11 +357,24 @@ fn make_message_weights_map<C: Chain>(
 mod tests {
 	use super::*;
 
+	fn message_details_from_rpc(
+		nonces: RangeInclusive<MessageNonce>,
+	) -> Vec<bp_messages::MessageDetails<bp_rialto::Balance>> {
+		nonces
+			.into_iter()
+			.map(|nonce| bp_messages::MessageDetails {
+				nonce,
+				dispatch_weight: 0,
+				size: 0,
+				delivery_and_dispatch_fee: 0,
+			})
+			.collect()
+	}
+
 	#[test]
-	fn make_message_weights_map_succeeds_if_no_messages_are_missing() {
+	fn make_message_details_map_succeeds_if_no_messages_are_missing() {
 		assert_eq!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0, 0), (2, 0, 0), (3, 0, 0)], 1..=3,)
-				.unwrap(),
+			make_message_details_map::<relay_rialto_client::Rialto>(message_details_from_rpc(1..=3), 1..=3,).unwrap(),
 			vec![
 				(1, MessageWeights { weight: 0, size: 0 }),
 				(2, MessageWeights { weight: 0, size: 0 }),
@@ -373,9 +386,9 @@ mod tests {
 	}
 
 	#[test]
-	fn make_message_weights_map_succeeds_if_head_messages_are_missing() {
+	fn make_message_details_map_succeeds_if_head_messages_are_missing() {
 		assert_eq!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(2, 0, 0), (3, 0, 0)], 1..=3,).unwrap(),
+			make_message_details_map::<relay_rialto_client::Rialto>(message_details_from_rpc(2..=3), 1..=3,).unwrap(),
 			vec![
 				(2, MessageWeights { weight: 0, size: 0 }),
 				(3, MessageWeights { weight: 0, size: 0 }),
@@ -386,25 +399,27 @@ mod tests {
 	}
 
 	#[test]
-	fn make_message_weights_map_fails_if_mid_messages_are_missing() {
+	fn make_message_details_map_fails_if_mid_messages_are_missing() {
+		let mut message_details_from_rpc = message_details_from_rpc(1..=3);
+		message_details_from_rpc.remove(1);
 		assert!(matches!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0, 0), (3, 0, 0)], 1..=3,),
+			make_message_details_map::<relay_rialto_client::Rialto>(message_details_from_rpc, 1..=3,),
 			Err(SubstrateError::Custom(_))
 		));
 	}
 
 	#[test]
-	fn make_message_weights_map_fails_if_tail_messages_are_missing() {
+	fn make_message_details_map_fails_if_tail_messages_are_missing() {
 		assert!(matches!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![(1, 0, 0), (2, 0, 0)], 1..=3,),
+			make_message_details_map::<relay_rialto_client::Rialto>(message_details_from_rpc(1..=2), 1..=3,),
 			Err(SubstrateError::Custom(_))
 		));
 	}
 
 	#[test]
-	fn make_message_weights_map_fails_if_all_messages_are_missing() {
+	fn make_message_details_map_fails_if_all_messages_are_missing() {
 		assert!(matches!(
-			make_message_weights_map::<relay_rialto_client::Rialto>(vec![], 1..=3),
+			make_message_details_map::<relay_rialto_client::Rialto>(vec![], 1..=3),
 			Err(SubstrateError::Custom(_))
 		));
 	}
