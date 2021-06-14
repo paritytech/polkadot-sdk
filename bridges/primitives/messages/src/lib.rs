@@ -163,6 +163,19 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 	}
 }
 
+/// Message details, returned by runtime APIs.
+#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
+pub struct MessageDetails<OutboundMessageFee> {
+	/// Nonce assigned to the message.
+	pub nonce: MessageNonce,
+	/// Message dispatch weight, declared by the submitter.
+	pub dispatch_weight: Weight,
+	/// Size of the encoded message.
+	pub size: u32,
+	/// Delivery+dispatch fee paid by the message submitter at the source chain.
+	pub delivery_and_dispatch_fee: OutboundMessageFee,
+}
+
 /// Gist of `InboundLaneData::relayers` field used by runtime APIs.
 #[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
 pub struct UnrewardedRelayersState {
