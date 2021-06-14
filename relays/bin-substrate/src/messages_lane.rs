@@ -49,7 +49,7 @@ pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS> {
 /// Message sync pipeline for Substrate <-> Substrate relays.
 pub trait SubstrateMessageLane: MessageLane {
 	/// Name of the runtime method that returns dispatch weight of outbound messages at the source chain.
-	const OUTBOUND_LANE_MESSAGES_DISPATCH_WEIGHT_METHOD: &'static str;
+	const OUTBOUND_LANE_MESSAGE_DETAILS_METHOD: &'static str;
 	/// Name of the runtime method that returns latest generated nonce at the source chain.
 	const OUTBOUND_LANE_LATEST_GENERATED_NONCE_METHOD: &'static str;
 	/// Name of the runtime method that returns latest received (confirmed) nonce at the the source chain.
