@@ -328,12 +328,7 @@ impl InstanceFilter<Call> for ProxyType {
 			ProxyType::NonTransfer => !matches!(
 				c,
 				Call::Balances(..)
-					| Call::Assets(pallet_assets::Call::transfer(..))
-					| Call::Assets(pallet_assets::Call::transfer_keep_alive(..))
-					| Call::Assets(pallet_assets::Call::force_transfer(..))
-					| Call::Assets(pallet_assets::Call::transfer_ownership(..))
-					| Call::Assets(pallet_assets::Call::approve_transfer(..))
-					| Call::Assets(pallet_assets::Call::transfer_approved(..))
+					| Call::Assets(..)
 			),
 			ProxyType::CancelProxy => matches!(
 				c,
