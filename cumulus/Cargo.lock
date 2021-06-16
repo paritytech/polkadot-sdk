@@ -1693,6 +1693,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-session-benchmarking"
+version = "3.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+]
+
+[[package]]
 name = "cumulus-pallet-xcm"
 version = "0.1.0"
 dependencies = [
@@ -3942,7 +3959,7 @@ dependencies = [
  "pallet-recovery",
  "pallet-scheduler",
  "pallet-session",
- "pallet-session-benchmarking 3.0.0 (git+https://github.com/paritytech/substrate?branch=master)",
+ "pallet-session-benchmarking",
  "pallet-society",
  "pallet-staking",
  "pallet-staking-reward-fn",
@@ -5746,23 +5763,6 @@ dependencies = [
 [[package]]
 name = "pallet-session-benchmarking"
 version = "3.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-session",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-session-benchmarking"
-version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate?branch=master#a2f48bf96eecbb5cd1f45bd5319ba814595eaaef"
 dependencies = [
  "frame-benchmarking",
@@ -7226,7 +7226,7 @@ dependencies = [
  "pallet-randomness-collective-flip",
  "pallet-scheduler",
  "pallet-session",
- "pallet-session-benchmarking 3.0.0 (git+https://github.com/paritytech/substrate?branch=master)",
+ "pallet-session-benchmarking",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-timestamp",
@@ -10753,6 +10753,7 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
@@ -10779,7 +10780,6 @@ dependencies = [
  "pallet-proxy",
  "pallet-randomness-collective-flip",
  "pallet-session",
- "pallet-session-benchmarking 3.0.0",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -10842,6 +10842,7 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
@@ -10868,7 +10869,6 @@ dependencies = [
  "pallet-proxy",
  "pallet-randomness-collective-flip",
  "pallet-session",
- "pallet-session-benchmarking 3.0.0",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -12545,7 +12545,7 @@ dependencies = [
  "pallet-recovery",
  "pallet-scheduler",
  "pallet-session",
- "pallet-session-benchmarking 3.0.0 (git+https://github.com/paritytech/substrate?branch=master)",
+ "pallet-session-benchmarking",
  "pallet-society",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -12595,6 +12595,7 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
@@ -12621,7 +12622,6 @@ dependencies = [
  "pallet-proxy",
  "pallet-randomness-collective-flip",
  "pallet-session",
- "pallet-session-benchmarking 3.0.0",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",

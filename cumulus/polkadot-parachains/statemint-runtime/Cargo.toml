@@ -41,7 +41,6 @@ pallet-multisig = { git = "https://github.com/paritytech/substrate", default-fea
 pallet-proxy = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-session-benchmarking = { path = "../../pallets/session-benchmarking", default-features = false, version = "3.0.0" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -60,6 +59,7 @@ cumulus-primitives-utility = { path = "../../primitives/utility", default-featur
 cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue", default-features = false }
 cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
+cumulus-pallet-session-benchmarking = { path = "../../pallets/session-benchmarking", default-features = false, version = "3.0.0" }
 cumulus-ping = { path = "../pallets/ping", default-features = false }
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 statemint-common = { path = "../statemint-common", default-features = false }
@@ -93,7 +93,7 @@ runtime-benchmarks = [
 	'pallet-balances/runtime-benchmarks',
 	'pallet-multisig/runtime-benchmarks',
 	'pallet-proxy/runtime-benchmarks',
-	'pallet-session-benchmarking/runtime-benchmarks',
+	'cumulus-pallet-session-benchmarking/runtime-benchmarks',
 	'pallet-utility/runtime-benchmarks',
 	'pallet-timestamp/runtime-benchmarks',
 	'pallet-xcm/runtime-benchmarks',
