@@ -17,7 +17,7 @@
 use bp_runtime::Chain as ChainBase;
 use frame_support::Parameter;
 use jsonrpsee_ws_client::{DeserializeOwned, Serialize};
-use num_traits::{CheckedSub, Zero};
+use num_traits::{CheckedSub, SaturatingAdd, Zero};
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
@@ -58,7 +58,7 @@ pub trait Chain: ChainBase + Clone {
 	///
 	/// The chain may suport multiple tokens, but this particular type is for token that is used
 	/// to pay for transaction dispatch, to reward different relayers (headers, messages), etc.
-	type Balance: Parameter + Member + DeserializeOwned + Clone + Copy + CheckedSub + PartialOrd + Zero;
+	type Balance: Parameter + Member + DeserializeOwned + Clone + Copy + CheckedSub + PartialOrd + SaturatingAdd + Zero;
 }
 
 /// Substrate-based chain with `frame_system::Config::AccountData` set to
