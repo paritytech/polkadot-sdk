@@ -18,63 +18,30 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
 	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
-	transfer, Client, DefaultTestClientBuilderExt, InitBlockBuilder, LongestChain,
-	TestClientBuilder, TestClientBuilderExt,
+	transfer, BlockData, BuildParachainBlockData, Client, DefaultTestClientBuilderExt, HeadData,
+	InitBlockBuilder, LongestChain, TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-use polkadot_parachain::primitives::{BlockData, HeadData, ValidationParams, ValidationResult};
-use sc_executor::{
-	error::Result, sp_wasm_interface::HostFunctions, WasmExecutionMethod, WasmExecutor,
-};
-use sp_blockchain::HeaderBackend;
 use sp_consensus::SelectChain;
-use sp_io::TestExternalities;
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::traits::Header as HeaderT;
 use std::{env, process::Command};
 
 fn call_validate_block(
 	parent_head: Header,
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
-) -> Result<Header> {
-	use sc_executor_common::runtime_blob::RuntimeBlob;
-
-	let mut ext = TestExternalities::default();
-	let mut ext_ext = ext.ext();
-	let params = ValidationParams {
-		block_data: BlockData(block_data.encode()),
-		parent_head: HeadData(parent_head.encode()),
-		relay_parent_number: 1,
-		relay_parent_storage_root,
-	}
-	.encode();
-
-	let executor = WasmExecutor::new(
-		WasmExecutionMethod::Interpreted,
-		Some(1024),
-		sp_io::SubstrateHostFunctions::host_functions(),
-		1,
-		None,
-	);
-
-	executor
-		.uncached_call(
-			RuntimeBlob::uncompress_if_needed(
-				&WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
-			)
-			.expect("RuntimeBlob uncompress & parse"),
-			&mut ext_ext,
-			false,
-			"validate_block",
-			&params,
-		)
-		.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
-		.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decode `Header`."))
-		.map_err(|err| err.into())
+) -> cumulus_test_client::ExecutorResult<Header> {
+	cumulus_test_client::validate_block(
+		ValidationParams {
+			block_data: BlockData(block_data.encode()),
+			parent_head: HeadData(parent_head.encode()),
+			relay_parent_number: 1,
+			relay_parent_storage_root,
+		},
+		&WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
+	)
+	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
 }
 
 fn create_test_client() -> (Client, LongestChain) {
@@ -85,8 +52,7 @@ fn create_test_client() -> (Client, LongestChain) {
 }
 
 struct TestBlockData {
-	block: Block,
-	witness: sp_trie::CompactProof,
+	block: ParachainBlockData<Block>,
 	validation_data: PersistedValidationData,
 }
 
@@ -97,14 +63,12 @@ fn build_block_with_witness(
 	sproof_builder: RelayStateSproofBuilder,
 ) -> TestBlockData {
 	let (relay_parent_storage_root, _) = sproof_builder.clone().into_state_root_and_proof();
-	let block_id = BlockId::Hash(client.info().best_hash);
 	let mut validation_data = PersistedValidationData {
 		relay_parent_number: 1,
 		parent_head: parent_head.encode().into(),
 		..Default::default()
 	};
-	let mut builder =
-		client.init_block_builder_at(&block_id, Some(validation_data.clone()), sproof_builder);
+	let mut builder = client.init_block_builder(Some(validation_data.clone()), sproof_builder);
 
 	validation_data.relay_parent_storage_root = relay_parent_storage_root;
 
@@ -112,39 +76,29 @@ fn build_block_with_witness(
 		.into_iter()
 		.for_each(|e| builder.push(e).unwrap());
 
-	let built_block = builder.build().expect("Creates block");
-
-	let witness = built_block
-		.proof
-		.expect("We enabled proof recording before.")
-		.into_compact_proof::<<Header as HeaderT>::Hashing>(*parent_head.state_root())
-		.unwrap();
+	let block = builder.build_parachain_block(*parent_head.state_root());
 
 	TestBlockData {
-		block: built_block.block,
-		witness,
+		block,
 		validation_data,
 	}
 }
 
 #[test]
 fn validate_block_no_extra_extrinsics() {
-	let _ = env_logger::try_init();
+	sp_tracing::try_init_simple();
 
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
 	let TestBlockData {
 		block,
-		witness,
 		validation_data,
 	} = build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
-	let (header, extrinsics) = block.deconstruct();
-
-	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
+	let header = block.header().clone();
 
 	let res_header = call_validate_block(
 		parent_head,
-		block_data,
+		block,
 		validation_data.relay_parent_storage_root,
 	)
 	.expect("Calls `validate_block`");
@@ -153,7 +107,7 @@ fn validate_block_no_extra_extrinsics() {
 
 #[test]
 fn validate_block_with_extra_extrinsics() {
-	let _ = env_logger::try_init();
+	sp_tracing::try_init_simple();
 
 	let (client, longest_chain) = create_test_client();
 	let parent_head = longest_chain.best_chain().expect("Best block exists");
@@ -165,7 +119,6 @@ fn validate_block_with_extra_extrinsics() {
 
 	let TestBlockData {
 		block,
-		witness,
 		validation_data,
 	} = build_block_with_witness(
 		&client,
@@ -173,13 +126,11 @@ fn validate_block_with_extra_extrinsics() {
 		parent_head.clone(),
 		Default::default(),
 	);
-	let (header, extrinsics) = block.deconstruct();
-
-	let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
+	let header = block.header().clone();
 
 	let res_header = call_validate_block(
 		parent_head,
-		block_data,
+		block,
 		validation_data.relay_parent_storage_root,
 	)
 	.expect("Calls `validate_block`");
@@ -188,17 +139,16 @@ fn validate_block_with_extra_extrinsics() {
 
 #[test]
 fn validate_block_invalid_parent_hash() {
-	let _ = env_logger::try_init();
+	sp_tracing::try_init_simple();
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, longest_chain) = create_test_client();
 		let parent_head = longest_chain.best_chain().expect("Best block exists");
 		let TestBlockData {
 			block,
-			witness,
 			validation_data,
 		} = build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
-		let (mut header, extrinsics) = block.deconstruct();
+		let (mut header, extrinsics, witness) = block.deconstruct();
 		header.set_parent_hash(Hash::from_low_u64_be(1));
 
 		let block_data = ParachainBlockData::new(header, extrinsics, witness);
@@ -222,17 +172,15 @@ fn validate_block_invalid_parent_hash() {
 
 #[test]
 fn validate_block_fails_on_invalid_validation_data() {
-	let _ = env_logger::try_init();
+	sp_tracing::try_init_simple();
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, longest_chain) = create_test_client();
 		let parent_head = longest_chain.best_chain().expect("Best block exists");
-		let TestBlockData { block, witness, .. } =
+		let TestBlockData { block, .. } =
 			build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
-		let (header, extrinsics) = block.deconstruct();
 
-		let block_data = ParachainBlockData::new(header, extrinsics, witness);
-		call_validate_block(parent_head, block_data, Hash::random()).unwrap_err();
+		call_validate_block(parent_head, block, Hash::random()).unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
 			.args(&[
@@ -252,7 +200,7 @@ fn validate_block_fails_on_invalid_validation_data() {
 
 #[test]
 fn check_inherent_fails_on_validate_block_as_expected() {
-	let _ = env_logger::try_init();
+	sp_tracing::try_init_simple();
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, longest_chain) = create_test_client();
@@ -260,7 +208,6 @@ fn check_inherent_fails_on_validate_block_as_expected() {
 
 		let TestBlockData {
 			block,
-			witness,
 			validation_data,
 		} = build_block_with_witness(
 			&client,
@@ -271,13 +218,10 @@ fn check_inherent_fails_on_validate_block_as_expected() {
 				..Default::default()
 			},
 		);
-		let (header, extrinsics) = block.deconstruct();
-
-		let block_data = ParachainBlockData::new(header.clone(), extrinsics, witness);
 
 		call_validate_block(
 			parent_head,
-			block_data,
+			block,
 			validation_data.relay_parent_storage_root,
 		)
 		.unwrap_err();

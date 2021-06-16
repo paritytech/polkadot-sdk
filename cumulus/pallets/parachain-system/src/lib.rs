@@ -1034,7 +1034,7 @@ pub trait CheckInherents<Block: BlockT> {
 	/// This function gets passed all the extrinsics of the block, so it is up to the callee to
 	/// identify the inherents. The `validation_data` can be used to access the
 	fn check_inherents(
-		extrinsics: &[Block::Extrinsic],
+		block: &Block,
 		validation_data: &RelayChainStateProof,
 	) -> frame_support::inherent::CheckInherentsResult;
 }

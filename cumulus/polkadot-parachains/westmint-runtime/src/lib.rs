@@ -27,9 +27,9 @@ mod weights;
 
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -39,46 +39,44 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use frame_system::{
-	EnsureRoot, limits::{BlockLength, BlockWeights},
-};
-use statemint_common::{
-	BlockNumber, Signature, AccountId, Balance, Index, Hash, AuraId, Header,
-	NORMAL_DISPATCH_RATIO, AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT, SLOT_DURATION, HOURS,
-};
-pub use statemint_common as common;
-use statemint_common::impls::DealWithFees;
 use codec::{Decode, Encode};
 use constants::{currency::*, fee::WeightToFee};
 use frame_support::{
-	construct_runtime, parameter_types, match_type,
-	traits::{InstanceFilter, All, MaxEncodedLen},
+	construct_runtime, match_type, parameter_types,
+	traits::{All, InstanceFilter, MaxEncodedLen},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight},
 		DispatchClass, IdentityFee, Weight,
 	},
-	RuntimeDebug, PalletId,
+	PalletId, RuntimeDebug,
+};
+use frame_system::{
+	limits::{BlockLength, BlockWeights},
+	EnsureRoot,
 };
 use sp_runtime::Perbill;
+pub use statemint_common as common;
+use statemint_common::{
+	impls::DealWithFees, AccountId, AuraId, Balance, BlockNumber, Hash, Header, Index, Signature,
+	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
+use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
-use polkadot_runtime_common::{
-	BlockHashCount, RocksDbWeight, SlowAdjustingFeeUpdate,
-};
-use xcm::v0::{MultiAsset, Junction, MultiLocation, NetworkId, Xcm};
+use polkadot_runtime_common::{BlockHashCount, RocksDbWeight, SlowAdjustingFeeUpdate};
+use xcm::v0::{Junction, MultiAsset, MultiLocation, NetworkId, Xcm};
 use xcm_builder::{
-	AccountId32Aliases, CurrencyAdapter, LocationInverter, ParentIsDefault, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SovereignSignedViaLocation, EnsureXcmOrigin,
-	AllowTopLevelPaidExecutionFrom, TakeWeightCredit, FixedWeightBounds, IsConcrete, NativeAsset,
-	AllowUnpaidExecutionFrom, ParentAsSuperuser, SignedToAccountId32, UsingComponents,
+	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, CurrencyAdapter,
+	EnsureXcmOrigin, FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset,
+	ParentAsSuperuser, ParentIsDefault, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
 };
 use xcm_executor::{Config, XcmExecutor};
-use pallet_xcm::XcmPassthrough;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -297,7 +295,9 @@ parameter_types! {
 }
 
 /// The type used to represent the kinds of proxying allowed.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, MaxEncodedLen)]
+#[derive(
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, MaxEncodedLen,
+)]
 pub enum ProxyType {
 	/// Fully permissioned proxy. Can execute any call on behalf of _proxied_.
 	Any,
@@ -323,48 +323,48 @@ impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => !matches!(c,
-				Call::Balances(..) |
-				Call::Assets(pallet_assets::Call::transfer(..)) |
-				Call::Assets(pallet_assets::Call::transfer_keep_alive(..)) |
-				Call::Assets(pallet_assets::Call::force_transfer(..)) |
-				Call::Assets(pallet_assets::Call::transfer_ownership(..)) |
-				Call::Assets(pallet_assets::Call::approve_transfer(..)) |
-				Call::Assets(pallet_assets::Call::transfer_approved(..))
+			ProxyType::NonTransfer => !matches!(
+				c,
+				Call::Balances(..)
+					| Call::Assets(pallet_assets::Call::transfer(..))
+					| Call::Assets(pallet_assets::Call::transfer_keep_alive(..))
+					| Call::Assets(pallet_assets::Call::force_transfer(..))
+					| Call::Assets(pallet_assets::Call::transfer_ownership(..))
+					| Call::Assets(pallet_assets::Call::approve_transfer(..))
+					| Call::Assets(pallet_assets::Call::transfer_approved(..))
 			),
-			ProxyType::CancelProxy => matches!(c,
-				Call::Proxy(pallet_proxy::Call::reject_announcement(..)) |
-				Call::Utility(..) |
-				Call::Multisig(..)
+			ProxyType::CancelProxy => matches!(
+				c,
+				Call::Proxy(pallet_proxy::Call::reject_announcement(..))
+					| Call::Utility(..) | Call::Multisig(..)
 			),
 			ProxyType::Assets => {
 				matches!(c, Call::Assets(..) | Call::Utility(..) | Call::Multisig(..))
 			}
-			ProxyType::AssetOwner => matches!(c,
-				Call::Assets(pallet_assets::Call::create(..)) |
-				Call::Assets(pallet_assets::Call::destroy(..)) |
-				Call::Assets(pallet_assets::Call::transfer_ownership(..)) |
-				Call::Assets(pallet_assets::Call::set_team(..)) |
-				Call::Assets(pallet_assets::Call::set_metadata(..)) |
-				Call::Assets(pallet_assets::Call::clear_metadata(..)) |
-				Call::Utility(..) |
-				Call::Multisig(..)
+			ProxyType::AssetOwner => matches!(
+				c,
+				Call::Assets(pallet_assets::Call::create(..))
+					| Call::Assets(pallet_assets::Call::destroy(..))
+					| Call::Assets(pallet_assets::Call::transfer_ownership(..))
+					| Call::Assets(pallet_assets::Call::set_team(..))
+					| Call::Assets(pallet_assets::Call::set_metadata(..))
+					| Call::Assets(pallet_assets::Call::clear_metadata(..))
+					| Call::Utility(..) | Call::Multisig(..)
 			),
-			ProxyType::AssetManager => matches!(c,
-				Call::Assets(pallet_assets::Call::mint(..)) |
-				Call::Assets(pallet_assets::Call::burn(..)) |
-				Call::Assets(pallet_assets::Call::freeze(..)) |
-				Call::Assets(pallet_assets::Call::thaw(..)) |
-				Call::Assets(pallet_assets::Call::freeze_asset(..)) |
-				Call::Assets(pallet_assets::Call::thaw_asset(..)) |
-				Call::Utility(..) |
-				Call::Multisig(..)
+			ProxyType::AssetManager => matches!(
+				c,
+				Call::Assets(pallet_assets::Call::mint(..))
+					| Call::Assets(pallet_assets::Call::burn(..))
+					| Call::Assets(pallet_assets::Call::freeze(..))
+					| Call::Assets(pallet_assets::Call::thaw(..))
+					| Call::Assets(pallet_assets::Call::freeze_asset(..))
+					| Call::Assets(pallet_assets::Call::thaw_asset(..))
+					| Call::Utility(..) | Call::Multisig(..)
 			),
-			ProxyType::Collator => matches!(c,
-				Call::CollatorSelection(..) |
-				Call::Utility(..) |
-				Call::Multisig(..)
-			)
+			ProxyType::Collator => matches!(
+				c,
+				Call::CollatorSelection(..) | Call::Utility(..) | Call::Multisig(..)
+			),
 		}
 	}
 	fn is_superset(&self, o: &Self) -> bool {
@@ -497,12 +497,12 @@ impl Config for XcmConfig {
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = NativeAsset;
-	type IsTeleporter = NativeAsset;	// <- should be enough to allow teleportation of WND
+	type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation of WND
 	type LocationInverter = LocationInverter<Ancestry>;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
 	type Trader = UsingComponents<IdentityFee<Balance>, WestendLocation, AccountId, Balances, ()>;
-	type ResponseHandler = ();	// Don't handle responses for now.
+	type ResponseHandler = (); // Don't handle responses for now.
 }
 
 parameter_types! {
@@ -510,9 +510,7 @@ parameter_types! {
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
-pub type LocalOriginToLocation = (
-	SignedToAccountId32<Origin, AccountId, RelayNetwork>,
-);
+pub type LocalOriginToLocation = SignedToAccountId32<Origin, AccountId, RelayNetwork>;
 
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
@@ -567,7 +565,8 @@ impl pallet_session::Config for Runtime {
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionManager = CollatorSelection;
 	// Essentially just Aura, but lets be pedantic.
-	type SessionHandler = <opaque::SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
+	type SessionHandler =
+		<opaque::SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
@@ -665,7 +664,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPallets,
-	OnRuntimeUpgrade
+	OnRuntimeUpgrade,
 >;
 
 pub struct OnRuntimeUpgrade;
@@ -831,10 +830,22 @@ struct CheckInherents;
 
 impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 	fn check_inherents(
-		_: &[UncheckedExtrinsic],
-		_: &cumulus_pallet_parachain_system::RelayChainStateProof,
+		block: &Block,
+		relay_state_proof: &cumulus_pallet_parachain_system::RelayChainStateProof,
 	) -> sp_inherents::CheckInherentsResult {
-		sp_inherents::CheckInherentsResult::new()
+		let relay_chain_slot = relay_state_proof
+			.read_slot()
+			.expect("Could not read the relay chain slot from the proof");
+
+		let inherent_data =
+			cumulus_primitives_timestamp::InherentDataProvider::from_relay_chain_slot_and_duration(
+				relay_chain_slot,
+				sp_std::time::Duration::from_secs(6),
+			)
+			.create_inherent_data()
+			.expect("Could not create the timestamp inherent data");
+
+		inherent_data.check_extrinsics(&block)
 	}
 }
 

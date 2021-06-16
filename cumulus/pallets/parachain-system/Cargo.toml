@@ -36,19 +36,20 @@ log = { version = "0.4.14", default-features = false }
 environmental = { version = "1.1.2", default-features = false }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+# Other Dependencies
 hex-literal = "0.2.1"
 lazy_static = "1.4"
-sc-client-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+# Substrate dependencies
+sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-executor-common = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Cumulus dependencies
 cumulus-test-client = { path = "../../test/client" }
-env_logger = "0.7.1"
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 
 [features]
 default = [ "std" ]

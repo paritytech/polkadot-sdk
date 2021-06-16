@@ -1413,7 +1413,6 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-test-client",
  "cumulus-test-runtime",
- "env_logger 0.7.1",
  "futures 0.3.14",
  "parity-scale-codec",
  "parking_lot 0.10.2",
@@ -1431,6 +1430,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
+ "sp-tracing",
  "substrate-test-client",
  "tracing",
 ]
@@ -1656,7 +1656,6 @@ dependencies = [
  "cumulus-primitives-parachain-inherent",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
- "env_logger 0.7.1",
  "environmental",
  "frame-support",
  "frame-system",
@@ -1667,10 +1666,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain",
  "sc-client-api",
- "sc-executor",
- "sc-executor-common",
  "serde",
- "sp-blockchain",
  "sp-consensus",
  "sp-core",
  "sp-externalities",
@@ -1680,9 +1676,9 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-std",
+ "sp-tracing",
  "sp-trie",
  "sp-version",
- "substrate-test-runtime-client",
  "xcm",
 ]
 
@@ -1780,6 +1776,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-primitives-timestamp"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "cumulus-test-client",
+ "cumulus-test-relay-sproof-builder",
+ "futures 0.3.14",
+ "parity-scale-codec",
+ "sp-consensus",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-timestamp",
+ "sp-tracing",
+]
+
+[[package]]
 name = "cumulus-primitives-utility"
 version = "0.1.0"
 dependencies = [
@@ -1807,6 +1820,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
  "frame-executive",
  "frame-support",
@@ -1893,14 +1907,18 @@ dependencies = [
  "pallet-balances",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "polkadot-parachain",
  "polkadot-primitives",
  "sc-block-builder",
  "sc-consensus",
+ "sc-executor",
+ "sc-executor-common",
  "sc-service",
  "sp-api",
  "sp-blockchain",
  "sp-core",
  "sp-inherents",
+ "sp-io",
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
@@ -1934,6 +1952,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -1965,6 +1984,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6574,17 +6594,12 @@ dependencies = [
  "jsonrpc-core",
  "log",
  "nix",
- "pallet-sudo",
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "polkadot-cli",
  "polkadot-parachain",
  "polkadot-primitives",
- "polkadot-runtime-common",
  "polkadot-service",
- "polkadot-test-client",
- "polkadot-test-runtime",
- "polkadot-test-service",
  "rand 0.7.3",
  "sc-basic-authorship",
  "sc-chain-spec",
@@ -6620,8 +6635,6 @@ dependencies = [
  "structopt",
  "substrate-build-script-utils",
  "substrate-prometheus-endpoint",
- "substrate-test-client",
- "substrate-test-runtime-client",
  "tempfile",
  "tokio 0.2.24",
  "trie-root 0.15.2",
@@ -10744,6 +10757,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -10832,6 +10846,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -11092,68 +11107,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-state-machine",
-]
-
-[[package]]
-name = "substrate-test-runtime"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#5d89967d7cc12d620bda9c9c042dbf7fcc4beb89"
-dependencies = [
- "cfg-if 1.0.0",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "log",
- "memory-db",
- "pallet-babe",
- "pallet-timestamp",
- "parity-scale-codec",
- "parity-util-mem",
- "sc-service",
- "serde",
- "sp-api",
- "sp-application-crypto",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-babe",
- "sp-core",
- "sp-externalities",
- "sp-finality-grandpa",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-offchain",
- "sp-runtime",
- "sp-runtime-interface",
- "sp-session",
- "sp-state-machine",
- "sp-std",
- "sp-transaction-pool",
- "sp-trie",
- "sp-version",
- "substrate-wasm-builder 4.0.0",
- "trie-db",
-]
-
-[[package]]
-name = "substrate-test-runtime-client"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#5d89967d7cc12d620bda9c9c042dbf7fcc4beb89"
-dependencies = [
- "futures 0.3.14",
- "parity-scale-codec",
- "sc-block-builder",
- "sc-client-api",
- "sc-consensus",
- "sc-light",
- "sc-service",
- "sp-api",
- "sp-blockchain",
- "sp-consensus",
- "sp-core",
- "sp-runtime",
- "substrate-test-client",
- "substrate-test-runtime",
 ]
 
 [[package]]
@@ -12646,6 +12599,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",

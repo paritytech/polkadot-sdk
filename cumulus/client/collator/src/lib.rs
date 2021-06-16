@@ -390,7 +390,7 @@ mod tests {
 
 	#[test]
 	fn collates_produces_a_block_and_storage_proof_does_not_contains_code() {
-		let _ = env_logger::try_init();
+		sp_tracing::try_init_simple();
 
 		let spawner = TaskExecutor::new();
 		let para_id = ParaId::from(100);

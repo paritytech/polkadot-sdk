@@ -17,6 +17,7 @@ members = [
 	"pallets/xcmp-queue",
 	"primitives/core",
 	"primitives/parachain-inherent",
+	"primitives/timestamp",
 	"primitives/utility",
 	"polkadot-parachains/",
 	"polkadot-parachains/pallets/parachain-info",

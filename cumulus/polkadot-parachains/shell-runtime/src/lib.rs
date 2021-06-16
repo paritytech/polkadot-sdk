@@ -26,7 +26,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	create_runtime_str, generic,
-	traits::{BlakeTwo256, Block as BlockT, AccountIdLookup},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -37,8 +37,8 @@ use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, parameter_types, match_type,
-	traits::{Randomness, All, IsInVec},
+	construct_runtime, match_type, parameter_types,
+	traits::{All, IsInVec, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, Weight,
@@ -53,8 +53,8 @@ pub use sp_runtime::{Perbill, Permill};
 // XCM imports
 use xcm::v0::{Junction::*, MultiLocation, MultiLocation::*, NetworkId};
 use xcm_builder::{
-	LocationInverter, ParentIsDefault, FixedWeightBounds, AllowUnpaidExecutionFrom,
-	ParentAsSuperuser, SovereignSignedViaLocation,
+	AllowUnpaidExecutionFrom, FixedWeightBounds, LocationInverter, ParentAsSuperuser,
+	ParentIsDefault, SovereignSignedViaLocation,
 };
 use xcm_executor::{Config, XcmExecutor};
 
@@ -202,16 +202,16 @@ parameter_types! {
 pub struct XcmConfig;
 impl Config for XcmConfig {
 	type Call = Call;
-	type XcmSender = ();	// sending XCM not supported
-	type AssetTransactor = ();	// balances not supported
+	type XcmSender = (); // sending XCM not supported
+	type AssetTransactor = (); // balances not supported
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	type IsReserve = ();	// balances not supported
-	type IsTeleporter = ();	// balances not supported
+	type IsReserve = (); // balances not supported
+	type IsTeleporter = (); // balances not supported
 	type LocationInverter = LocationInverter<Ancestry>;
 	type Barrier = AllowUnpaidExecutionFrom<JustTheParent>;
-	type Weigher = FixedWeightBounds<UnitWeightCost, Call>;	// balances not supported
-	type Trader = ();	// balances not supported
-	type ResponseHandler = ();	// Don't handle responses for now.
+	type Weigher = FixedWeightBounds<UnitWeightCost, Call>; // balances not supported
+	type Trader = (); // balances not supported
+	type ResponseHandler = (); // Don't handle responses for now.
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
@@ -243,9 +243,9 @@ impl sp_runtime::traits::SignedExtension for DisallowSigned {
 	type Call = Call;
 	type AdditionalSigned = ();
 	type Pre = ();
-	fn additional_signed(&self)
-		-> sp_std::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError>
-	{
+	fn additional_signed(
+		&self,
+	) -> sp_std::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
 		Ok(())
 	}
 	fn validate(
@@ -373,7 +373,7 @@ struct CheckInherents;
 
 impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 	fn check_inherents(
-		_: &[UncheckedExtrinsic],
+		_: &Block,
 		_: &cumulus_pallet_parachain_system::RelayChainStateProof,
 	) -> sp_inherents::CheckInherentsResult {
 		sp_inherents::CheckInherentsResult::new()

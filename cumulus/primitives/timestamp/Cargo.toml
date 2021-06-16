@@ -1,0 +1,38 @@
+[package]
+name = "cumulus-primitives-timestamp"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+description = "Provides timestamp related functionality for parachains."
+
+[dependencies]
+# Substrate dependencies
+sp-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+# Cumulus dependencies
+cumulus-primitives-core = { path = "../core", default-features = false }
+
+[dev-dependencies]
+# Substrate dependencies
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Cumulus dependencies
+cumulus-test-client = { path = "../../test/client" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+
+# Other deps
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
+futures = "0.3.5"
+
+[features]
+default = [ "std" ]
+std = [
+	"sp-timestamp/std",
+	"sp-inherents/std",
+	"sp-std/std",
+	"cumulus-primitives-core/std",
+]

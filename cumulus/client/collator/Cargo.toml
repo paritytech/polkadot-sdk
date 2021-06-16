@@ -42,8 +42,8 @@ cumulus-test-client = { path = "../../test/client" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Other dependencies
-env_logger = "0.7.1"
 async-trait = "0.1.42"

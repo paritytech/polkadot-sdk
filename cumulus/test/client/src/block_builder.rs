@@ -15,14 +15,17 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{Backend, Client};
-use cumulus_primitives_core::PersistedValidationData;
+use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-use cumulus_test_runtime::{Block, GetLastTimestamp};
+use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::v1::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
 use sp_api::ProvideRuntimeApi;
-use sp_runtime::generic::BlockId;
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, Header as HeaderT},
+};
 
 /// An extension for the Cumulus test client to init a block builder.
 pub trait InitBlockBuilder {
@@ -49,6 +52,70 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
+
+	/// Init a specific block builder that works for the test runtime.
+	///
+	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes a
+	/// [`BlockId`] to say which should be the parent block of the block that is being build and
+	/// it will use the given `timestamp` as input for the timestamp inherent.
+	fn init_block_builder_with_timestamp(
+		&self,
+		at: &BlockId<Block>,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
+}
+
+fn init_block_builder<'a>(
+	client: &'a Client,
+	at: &BlockId<Block>,
+	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+	relay_sproof_builder: RelayStateSproofBuilder,
+	timestamp: u64,
+) -> BlockBuilder<'a, Block, Client, Backend> {
+	let mut block_builder = client
+		.new_block_at(at, Default::default(), true)
+		.expect("Creates new block builder for test runtime");
+
+	let mut inherent_data = sp_inherents::InherentData::new();
+
+	inherent_data
+		.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
+		.expect("Put timestamp failed");
+
+	let (relay_parent_storage_root, relay_chain_state) =
+		relay_sproof_builder.into_state_root_and_proof();
+
+	let mut validation_data = validation_data.unwrap_or_default();
+	assert_eq!(
+		validation_data.relay_parent_storage_root,
+		Default::default(),
+		"Overriding the relay storage root is not implemented",
+	);
+	validation_data.relay_parent_storage_root = relay_parent_storage_root;
+
+	inherent_data
+		.put_data(
+			INHERENT_IDENTIFIER,
+			&ParachainInherentData {
+				validation_data,
+				relay_chain_state,
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let inherents = block_builder
+		.create_inherents(inherent_data)
+		.expect("Creates inherents");
+
+	inherents
+		.into_iter()
+		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
+
+	block_builder
 }
 
 impl InitBlockBuilder for Client {
@@ -71,11 +138,6 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
-		let mut block_builder = self
-			.new_block_at(at, Default::default(), true)
-			.expect("Creates new block builder for test runtime");
-
-		let mut inherent_data = sp_inherents::InherentData::new();
 		let last_timestamp = self
 			.runtime_api()
 			.get_last_timestamp(&at)
@@ -83,41 +145,38 @@ impl InitBlockBuilder for Client {
 
 		let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
 
-		inherent_data
-			.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
-			.expect("Put timestamp failed");
+		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
+	}
 
-		let (relay_parent_storage_root, relay_chain_state) =
-			relay_sproof_builder.into_state_root_and_proof();
+	fn init_block_builder_with_timestamp(
+		&self,
+		at: &BlockId<Block>,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+	) -> sc_block_builder::BlockBuilder<Block, Client, Backend> {
+		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
+	}
+}
 
-		let mut validation_data = validation_data.unwrap_or_default();
-		assert_eq!(
-			validation_data.relay_parent_storage_root,
-			Default::default(),
-			"Overriding the relay storage root is not implemented",
-		);
-		validation_data.relay_parent_storage_root = relay_parent_storage_root;
+/// Extension trait for the [`BlockBuilder`](sc_block_builder::BlockBuilder) to build directly a
+/// [`ParachainBlockData`].
+pub trait BuildParachainBlockData {
+	/// Directly build the [`ParachainBlockData`] from the block that comes out of the block builder.
+	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block>;
+}
 
-		inherent_data
-			.put_data(
-				INHERENT_IDENTIFIER,
-				&ParachainInherentData {
-					validation_data,
-					relay_chain_state,
-					downward_messages: Default::default(),
-					horizontal_messages: Default::default(),
-				},
-			)
-			.expect("Put validation function params failed");
+impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client, Backend> {
+	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block> {
+		let built_block = self.build().expect("Builds the block");
 
-		let inherents = block_builder
-			.create_inherents(inherent_data)
-			.expect("Creates inherents");
+		let storage_proof = built_block
+			.proof
+			.expect("We enabled proof recording before.")
+			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
+			.expect("Creates the compact proof");
 
-		inherents
-			.into_iter()
-			.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
-
-		block_builder
+		let (header, extrinsics) = built_block.block.deconstruct();
+		ParachainBlockData::new(header, extrinsics, storage_proof)
 	}
 }

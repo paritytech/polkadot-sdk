@@ -96,7 +96,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 1000;
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
@@ -431,7 +431,7 @@ struct CheckInherents;
 
 impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 	fn check_inherents(
-		_: &[UncheckedExtrinsic],
+		block: &Block,
 		relay_state_proof: &cumulus_pallet_parachain_system::RelayChainStateProof,
 	) -> sp_inherents::CheckInherentsResult {
 		if relay_state_proof.read_slot().expect("Reads slot") == 1337u64 {
@@ -443,7 +443,17 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 			.expect("Puts error");
 			res
 		} else {
-			sp_inherents::CheckInherentsResult::new()
+			let relay_chain_slot = relay_state_proof
+				.read_slot()
+				.expect("Could not read the relay chain slot from the proof");
+
+			let inherent_data =
+				cumulus_primitives_timestamp::InherentDataProvider::from_relay_chain_slot_and_duration(
+					relay_chain_slot,
+					sp_std::time::Duration::from_secs(6),
+				).create_inherent_data().expect("Could not create the timestamp inherent data");
+
+			inherent_data.check_extrinsics(&block)
 		}
 	}
 }

@@ -140,7 +140,7 @@ where
 		)
 		.expect("Invalid relay chain state proof");
 
-		let res = CI::check_inherents(block.extrinsics(), &relay_chain_proof);
+		let res = CI::check_inherents(&block, &relay_chain_proof);
 
 		if !res.ok() {
 			if log::log_enabled!(log::Level::Error) {
