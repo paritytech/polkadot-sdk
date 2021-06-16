@@ -24,6 +24,9 @@ pub struct RelayHeaders {
 	/// A bridge instance to relay headers for.
 	#[structopt(possible_values = &RelayHeadersBridge::variants(), case_insensitive = true)]
 	bridge: RelayHeadersBridge,
+	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set) are relayed.
+	#[structopt(long)]
+	only_mandatory_headers: bool,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
 	#[structopt(flatten)]
@@ -100,7 +103,14 @@ impl RelayHeaders {
 			let finality = Finality::new(target_client.clone(), target_sign);
 			finality.start_relay_guards();
 
-			crate::finality_pipeline::run(finality, source_client, target_client, metrics_params).await
+			crate::finality_pipeline::run(
+				finality,
+				source_client,
+				target_client,
+				self.only_mandatory_headers,
+				metrics_params,
+			)
+			.await
 		})
 	}
 }

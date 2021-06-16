@@ -24,11 +24,11 @@ use crate::finality_target::SubstrateFinalityTarget;
 use async_std::sync::{Arc, Mutex};
 use bp_header_chain::justification::GrandpaJustification;
 use finality_relay::{
-	FinalitySyncParams, FinalitySyncPipeline, SourceClient as FinalitySourceClient,
+	FinalitySyncParams, FinalitySyncPipeline, SourceClient as FinalitySourceClient, SourceHeader,
 	TargetClient as FinalityTargetClient,
 };
 use futures::{select, FutureExt};
-use num_traits::{CheckedSub, Zero};
+use num_traits::{CheckedSub, One, Zero};
 use relay_substrate_client::{
 	finality_source::{FinalitySource as SubstrateFinalitySource, RequiredHeaderNumberRef},
 	BlockNumberOf, Chain, Client, HashOf, HeaderIdOf, SyncHeader,
@@ -139,6 +139,7 @@ async fn background_task<SourceChain, TargetChain, TargetSign>(
 		SubstrateFinalityToSubstrate<SourceChain, TargetChain, TargetSign>,
 	>::new(source_client.clone(), Some(required_header_number.clone()));
 	let mut finality_target = SubstrateFinalityTarget::new(target_client.clone(), pipeline.clone());
+	let mut latest_non_mandatory_at_source = Zero::zero();
 
 	let mut restart_relay = true;
 	let finality_relay_task = futures::future::Fuse::terminated();
@@ -181,15 +182,48 @@ async fn background_task<SourceChain, TargetChain, TargetSign>(
 			continue;
 		}
 
-		// update required header
-		update_required_header_number_if_too_many_are_missing::<SourceChain>(
+		// submit mandatory header if some headers are missing
+		let best_finalized_source_header_at_target_fmt = format!("{:?}", best_finalized_source_header_at_target);
+		let mandatory_scan_range = mandatory_headers_scan_range::<SourceChain>(
 			best_finalized_source_header_at_source.ok(),
 			best_finalized_source_header_at_target.ok(),
 			maximal_headers_difference,
 			&required_header_number,
-			&relay_task_name,
 		)
 		.await;
+		if let Some(mandatory_scan_range) = mandatory_scan_range {
+			let relay_mandatory_header_result = relay_mandatory_header_from_range(
+				&finality_source,
+				&required_header_number,
+				best_finalized_source_header_at_target_fmt,
+				(
+					std::cmp::max(mandatory_scan_range.0, latest_non_mandatory_at_source),
+					mandatory_scan_range.1,
+				),
+				&relay_task_name,
+			)
+			.await;
+			match relay_mandatory_header_result {
+				Ok(true) => (),
+				Ok(false) => {
+					// there are no (or we don't need to relay them) mandatory headers in the range
+					// => to avoid scanning the same headers over and over again, remember that
+					latest_non_mandatory_at_source = mandatory_scan_range.1;
+				}
+				Err(e) => {
+					if e.is_connection_error() {
+						relay_utils::relay_loop::reconnect_failed_client(
+							FailedClient::Source,
+							relay_utils::relay_loop::RECONNECT_DELAY,
+							&mut finality_source,
+							&mut finality_target,
+						)
+						.await;
+						continue;
+					}
+				}
+			}
+		}
 
 		// start/restart relay
 		if restart_relay {
@@ -201,6 +235,7 @@ async fn background_task<SourceChain, TargetChain, TargetSign>(
 						tick: std::cmp::max(SourceChain::AVERAGE_BLOCK_INTERVAL, TargetChain::AVERAGE_BLOCK_INTERVAL),
 						recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 						stall_timeout: STALL_TIMEOUT,
+						only_mandatory_headers: false,
 					},
 					MetricsParams::disabled(),
 					futures::future::pending(),
@@ -213,29 +248,29 @@ async fn background_task<SourceChain, TargetChain, TargetSign>(
 	}
 }
 
-/// If there are too many source headers missing at target, we ask for syncing more headers.
-async fn update_required_header_number_if_too_many_are_missing<C: Chain>(
+/// Returns `Some()` with inclusive range of headers which must be scanned for manadatory headers
+/// and the first of such headers must be submitted to the target node.
+async fn mandatory_headers_scan_range<C: Chain>(
 	best_finalized_source_header_at_source: Option<C::BlockNumber>,
 	best_finalized_source_header_at_target: Option<C::BlockNumber>,
 	maximal_headers_difference: C::BlockNumber,
 	required_header_number: &RequiredHeaderNumberRef<C>,
-	relay_task_name: &str,
-) {
-	let mut required_header_number = required_header_number.lock().await;
+) -> Option<(C::BlockNumber, C::BlockNumber)> {
+	let required_header_number = *required_header_number.lock().await;
 
 	// if we have been unable to read header number from the target, then let's assume
 	// that it is the same as required header number. Otherwise we risk submitting
 	// unneeded transactions
 	let best_finalized_source_header_at_target =
-		best_finalized_source_header_at_target.unwrap_or(*required_header_number);
+		best_finalized_source_header_at_target.unwrap_or(required_header_number);
 
 	// if we have been unable to read header number from the source, then let's assume
 	// that it is the same as at the target
 	let best_finalized_source_header_at_source =
 		best_finalized_source_header_at_source.unwrap_or(best_finalized_source_header_at_target);
 
-	// if there are too many source headers missing from the target node, require some
-	// new headers at target
+	// if there are too many source headers missing from the target node, sync mandatory
+	// headers to target
 	//
 	// why do we need that? When complex headers+messages relay is used, it'll normally only relay
 	// headers when there are undelivered messages/confirmations. But security model of the
@@ -245,22 +280,63 @@ async fn update_required_header_number_if_too_many_are_missing<C: Chain>(
 	let current_headers_difference = best_finalized_source_header_at_source
 		.checked_sub(&best_finalized_source_header_at_target)
 		.unwrap_or_else(Zero::zero);
-	if current_headers_difference > maximal_headers_difference {
-		// if relay is already asked to sync headers, don't log anything
-		if *required_header_number <= best_finalized_source_header_at_target {
-			log::trace!(
-				target: "bridge",
-				"Too many {} headers missing at target in {} relay ({} vs {}). Going to sync up to the {}",
-				C::NAME,
-				relay_task_name,
-				best_finalized_source_header_at_source,
-				best_finalized_source_header_at_target,
-				best_finalized_source_header_at_source,
-			);
-
-			*required_header_number = best_finalized_source_header_at_source;
-		}
+	if current_headers_difference <= maximal_headers_difference {
+		return None;
 	}
+
+	// if relay is already asked to sync headers, don't do anything yet
+	if required_header_number > best_finalized_source_header_at_target {
+		return None;
+	}
+
+	Some((
+		best_finalized_source_header_at_target + One::one(),
+		best_finalized_source_header_at_source,
+	))
+}
+
+/// Try to find mandatory header in the inclusive headers range and, if one is found, ask to relay it.
+///
+/// Returns `true` if header was found and (asked to be) relayed and `false` otherwise.
+async fn relay_mandatory_header_from_range<SourceChain: Chain, P>(
+	finality_source: &SubstrateFinalitySource<SourceChain, P>,
+	required_header_number: &RequiredHeaderNumberRef<SourceChain>,
+	best_finalized_source_header_at_target: String,
+	range: (SourceChain::BlockNumber, SourceChain::BlockNumber),
+	relay_task_name: &str,
+) -> Result<bool, relay_substrate_client::Error>
+where
+	SubstrateFinalitySource<SourceChain, P>: FinalitySourceClient<P>,
+	P: FinalitySyncPipeline<Number = SourceChain::BlockNumber>,
+{
+	// search for mandatory header first
+	let mandatory_source_header_number = find_mandatory_header_in_range(finality_source, range).await?;
+
+	// if there are no mandatory headers - we have nothing to do
+	let mandatory_source_header_number = match mandatory_source_header_number {
+		Some(mandatory_source_header_number) => mandatory_source_header_number,
+		None => return Ok(false),
+	};
+
+	// `find_mandatory_header` call may take a while => check if `required_header_number` is still
+	// less than our `mandatory_source_header_number` before logging anything
+	let mut required_header_number = required_header_number.lock().await;
+	if *required_header_number >= mandatory_source_header_number {
+		return Ok(false);
+	}
+
+	log::trace!(
+		target: "bridge",
+		"Too many {} headers missing at target in {} relay ({} vs {}). Going to sync up to the mandatory {}",
+		SourceChain::NAME,
+		relay_task_name,
+		best_finalized_source_header_at_target,
+		range.1,
+		mandatory_source_header_number,
+	);
+
+	*required_header_number = mandatory_source_header_number;
+	Ok(true)
 }
 
 /// Read best finalized source block number from source client.
@@ -315,6 +391,30 @@ where
 		})
 }
 
+/// Read first mandatory header in given inclusive range.
+///
+/// Returns `Ok(None)` if there were no mandatory headers in the range.
+async fn find_mandatory_header_in_range<SourceChain: Chain, P>(
+	finality_source: &SubstrateFinalitySource<SourceChain, P>,
+	range: (SourceChain::BlockNumber, SourceChain::BlockNumber),
+) -> Result<Option<SourceChain::BlockNumber>, relay_substrate_client::Error>
+where
+	SubstrateFinalitySource<SourceChain, P>: FinalitySourceClient<P>,
+	P: FinalitySyncPipeline<Number = SourceChain::BlockNumber>,
+{
+	let mut current = range.0;
+	while current <= range.1 {
+		let header: SyncHeader<SourceChain::Header> = finality_source.client().header_by_number(current).await?.into();
+		if header.is_mandatory() {
+			return Ok(Some(current));
+		}
+
+		current += One::one();
+	}
+
+	Ok(None)
+}
+
 /// On-demand headers relay task name.
 fn on_demand_headers_relay_name<SourceChain: Chain, TargetChain: Chain>() -> String {
 	format!("on-demand-{}-to-{}", SourceChain::NAME, TargetChain::NAME)
@@ -330,16 +430,18 @@ mod tests {
 	const AT_TARGET: Option<bp_millau::BlockNumber> = Some(1);
 
 	#[async_std::test]
-	async fn updates_required_header_when_too_many_headers_missing() {
-		let required_header_number = Arc::new(Mutex::new(0));
-		update_required_header_number_if_too_many_are_missing::<TestChain>(
-			AT_SOURCE,
-			AT_TARGET,
-			5,
-			&required_header_number,
-			"test",
-		)
-		.await;
-		assert_eq!(*required_header_number.lock().await, AT_SOURCE.unwrap());
+	async fn mandatory_headers_scan_range_selects_range_if_too_many_headers_are_missing() {
+		assert_eq!(
+			mandatory_headers_scan_range::<TestChain>(AT_SOURCE, AT_TARGET, 5, &Arc::new(Mutex::new(0))).await,
+			Some((AT_TARGET.unwrap() + 1, AT_SOURCE.unwrap())),
+		);
+	}
+
+	#[async_std::test]
+	async fn mandatory_headers_scan_range_selects_nothing_if_enough_headers_are_relayed() {
+		assert_eq!(
+			mandatory_headers_scan_range::<TestChain>(AT_SOURCE, AT_TARGET, 10, &Arc::new(Mutex::new(0))).await,
+			None,
+		);
 	}
 }
