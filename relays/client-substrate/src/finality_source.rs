@@ -51,6 +51,11 @@ impl<C: Chain, P> FinalitySource<C, P> {
 		}
 	}
 
+	/// Returns reference to the underlying RPC client.
+	pub fn client(&self) -> &Client<C> {
+		&self.client
+	}
+
 	/// Returns best finalized block number.
 	pub async fn on_chain_best_finalized_block_number(&self) -> Result<C::BlockNumber, Error> {
 		// we **CAN** continue to relay finality proofs if source node is out of sync, because
