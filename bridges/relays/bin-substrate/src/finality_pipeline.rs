@@ -119,6 +119,7 @@ pub async fn run<SourceChain, TargetChain, P>(
 	pipeline: P,
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
+	only_mandatory_headers: bool,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()>
 where
@@ -147,6 +148,7 @@ where
 			tick: std::cmp::max(SourceChain::AVERAGE_BLOCK_INTERVAL, TargetChain::AVERAGE_BLOCK_INTERVAL),
 			recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 			stall_timeout: STALL_TIMEOUT,
+			only_mandatory_headers,
 		},
 		metrics_params,
 		futures::future::pending(),
