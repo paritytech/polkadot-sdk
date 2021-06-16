@@ -30,7 +30,7 @@ use frame_support::{traits::Instance, weights::Weight};
 use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{
-		ClientState, MessageProofParameters, MessageWeights, MessageWeightsMap, SourceClient, SourceClientState,
+		ClientState, MessageDetails, MessageDetailsMap, MessageProofParameters, SourceClient, SourceClientState,
 	},
 };
 use pallet_bridge_messages::Config as MessagesConfig;
@@ -112,6 +112,7 @@ where
 	C::BlockNumber: BlockNumberBase,
 	P: SubstrateMessageLane<
 		MessagesProof = SubstrateMessagesProof<C>,
+		SourceChainBalance = C::Balance,
 		SourceHeaderNumber = <C::Header as HeaderT>::Number,
 		SourceHeaderHash = <C::Header as HeaderT>::Hash,
 		SourceChain = C,
@@ -168,11 +169,11 @@ where
 		Ok((id, latest_received_nonce))
 	}
 
-	async fn generated_messages_weights(
+	async fn generated_message_details(
 		&self,
 		id: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
-	) -> Result<MessageWeightsMap, SubstrateError> {
+	) -> Result<MessageDetailsMap<P::SourceChainBalance>, SubstrateError> {
 		let encoded_response = self
 			.client
 			.state_call(
@@ -242,6 +243,10 @@ where
 			target_to_source_headers_relay.require_finalized_header(id).await;
 		}
 	}
+
+	async fn estimate_confirmation_transaction(&self) -> P::SourceChainBalance {
+		num_traits::Zero::zero() // TODO: https://github.com/paritytech/parity-bridges-common/issues/997
+	}
 }
 
 pub async fn read_client_state<SelfChain, BridgedHeaderHash, BridgedHeaderNumber>(
@@ -290,7 +295,7 @@ where
 fn make_message_details_map<C: Chain>(
 	weights: Vec<bp_messages::MessageDetails<C::Balance>>,
 	nonces: RangeInclusive<MessageNonce>,
-) -> Result<MessageWeightsMap, SubstrateError> {
+) -> Result<MessageDetailsMap<C::Balance>, SubstrateError> {
 	let make_missing_nonce_error = |expected_nonce| {
 		Err(SubstrateError::Custom(format!(
 			"Missing nonce {} in messages_dispatch_weight call result. Expected all nonces from {:?}",
@@ -298,7 +303,7 @@ fn make_message_details_map<C: Chain>(
 		)))
 	};
 
-	let mut weights_map = MessageWeightsMap::new();
+	let mut weights_map = MessageDetailsMap::new();
 
 	// this is actually prevented by external logic
 	if nonces.is_empty() {
@@ -341,9 +346,11 @@ fn make_message_details_map<C: Chain>(
 
 		weights_map.insert(
 			details.nonce,
-			MessageWeights {
-				weight: details.dispatch_weight,
+			MessageDetails {
+				dispatch_weight: details.dispatch_weight,
 				size: details.size as _,
+				// TODO: https://github.com/paritytech/parity-bridges-common/issues/997
+				reward: num_traits::Zero::zero(),
 			},
 		);
 		expected_nonce = details.nonce + 1;
@@ -376,9 +383,30 @@ mod tests {
 		assert_eq!(
 			make_message_details_map::<relay_rialto_client::Rialto>(message_details_from_rpc(1..=3), 1..=3,).unwrap(),
 			vec![
-				(1, MessageWeights { weight: 0, size: 0 }),
-				(2, MessageWeights { weight: 0, size: 0 }),
-				(3, MessageWeights { weight: 0, size: 0 }),
+				(
+					1,
+					MessageDetails {
+						dispatch_weight: 0,
+						size: 0,
+						reward: 0
+					}
+				),
+				(
+					2,
+					MessageDetails {
+						dispatch_weight: 0,
+						size: 0,
+						reward: 0
+					}
+				),
+				(
+					3,
+					MessageDetails {
+						dispatch_weight: 0,
+						size: 0,
+						reward: 0
+					}
+				),
 			]
 			.into_iter()
 			.collect(),
@@ -390,8 +418,22 @@ mod tests {
 		assert_eq!(
 			make_message_details_map::<relay_rialto_client::Rialto>(message_details_from_rpc(2..=3), 1..=3,).unwrap(),
 			vec![
-				(2, MessageWeights { weight: 0, size: 0 }),
-				(3, MessageWeights { weight: 0, size: 0 }),
+				(
+					2,
+					MessageDetails {
+						dispatch_weight: 0,
+						size: 0,
+						reward: 0
+					}
+				),
+				(
+					3,
+					MessageDetails {
+						dispatch_weight: 0,
+						size: 0,
+						reward: 0
+					}
+				),
 			]
 			.into_iter()
 			.collect(),

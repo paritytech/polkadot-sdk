@@ -27,7 +27,7 @@ use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::ChainId;
 use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use codec::{Decode, Encode};
-use frame_support::traits::Instance;
+use frame_support::{traits::Instance, weights::Weight};
 use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{TargetClient, TargetClientState},
@@ -228,5 +228,14 @@ where
 		if let Some(ref source_to_target_headers_relay) = self.source_to_target_headers_relay {
 			source_to_target_headers_relay.require_finalized_header(id).await;
 		}
+	}
+
+	async fn estimate_delivery_transaction_in_source_tokens(
+		&self,
+		_nonces: RangeInclusive<MessageNonce>,
+		_total_dispatch_weight: Weight,
+		_total_size: u32,
+	) -> P::SourceChainBalance {
+		num_traits::Zero::zero() // TODO: https://github.com/paritytech/parity-bridges-common/issues/997
 	}
 }

@@ -139,6 +139,7 @@ where
 	type MessagesProof = SubstrateMessagesProof<Source>;
 	type MessagesReceivingProof = SubstrateMessagesReceivingProof<Target>;
 
+	type SourceChainBalance = Source::Balance;
 	type SourceHeaderNumber = BlockNumberOf<Source>;
 	type SourceHeaderHash = HashOf<Source>;
 
