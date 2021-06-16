@@ -58,6 +58,15 @@ pub struct Params {
 	pub delivery_params: MessageDeliveryParams,
 }
 
+/// Relayer operating mode.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RelayerMode {
+	/// The relayer doesn't care about rewards.
+	Altruistic,
+	/// The relayer will deliver all messages and confirmations as long as he's not losing any funds.
+	NoLosses,
+}
+
 /// Message delivery race parameters.
 #[derive(Debug, Clone)]
 pub struct MessageDeliveryParams {
@@ -74,20 +83,24 @@ pub struct MessageDeliveryParams {
 	/// Maximal cumulative dispatch weight of relayed messages in single delivery transaction.
 	pub max_messages_weight_in_single_batch: Weight,
 	/// Maximal cumulative size of relayed messages in single delivery transaction.
-	pub max_messages_size_in_single_batch: usize,
+	pub max_messages_size_in_single_batch: u32,
+	/// Relayer operating mode.
+	pub relayer_mode: RelayerMode,
 }
 
-/// Message weights.
+/// Message details.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MessageWeights {
+pub struct MessageDetails<SourceChainBalance> {
 	/// Message dispatch weight.
-	pub weight: Weight,
+	pub dispatch_weight: Weight,
 	/// Message size (number of bytes in encoded payload).
-	pub size: usize,
+	pub size: u32,
+	/// The relayer reward paid in the source chain tokens.
+	pub reward: SourceChainBalance,
 }
 
-/// Messages weights map.
-pub type MessageWeightsMap = BTreeMap<MessageNonce, MessageWeights>;
+/// Messages details map.
+pub type MessageDetailsMap<SourceChainBalance> = BTreeMap<MessageNonce, MessageDetails<SourceChainBalance>>;
 
 /// Message delivery race proof parameters.
 #[derive(Debug, PartialEq)]
@@ -117,13 +130,13 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 
 	/// Returns mapping of message nonces, generated on this client, to their weights.
 	///
-	/// Some weights may be missing from returned map, if corresponding messages were pruned at
+	/// Some messages may be missing from returned map, if corresponding messages were pruned at
 	/// the source chain.
-	async fn generated_messages_weights(
+	async fn generated_message_details(
 		&self,
 		id: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
-	) -> Result<MessageWeightsMap, Self::Error>;
+	) -> Result<MessageDetailsMap<P::SourceChainBalance>, Self::Error>;
 
 	/// Prove messages in inclusive range [begin; end].
 	async fn prove_messages(
@@ -142,6 +155,9 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 
 	/// We need given finalized target header on source to continue synchronization.
 	async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<P>);
+
+	/// Estimate cost of single message confirmation transaction in source chain tokens.
+	async fn estimate_confirmation_transaction(&self) -> P::SourceChainBalance;
 }
 
 /// Target client trait.
@@ -183,6 +199,17 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 
 	/// We need given finalized source header on target to continue synchronization.
 	async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<P>);
+
+	/// Estimate cost of messages delivery transaction in source chain tokens.
+	///
+	/// Please keep in mind that the returned cost must be converted to the source chain
+	/// tokens, even though the transaction fee will be paid in the target chain tokens.
+	async fn estimate_delivery_transaction_in_source_tokens(
+		&self,
+		nonces: RangeInclusive<MessageNonce>,
+		total_dispatch_weight: Weight,
+		total_size: u32,
+	) -> P::SourceChainBalance;
 }
 
 /// State of the client.
@@ -426,6 +453,10 @@ pub(crate) mod tests {
 		HeaderId(number, number)
 	}
 
+	pub const CONFIRMATION_TRANSACTION_COST: TestSourceChainBalance = 1;
+	pub const DELIVERY_TRANSACTION_COST: TestSourceChainBalance = 1;
+
+	pub type TestSourceChainBalance = u64;
 	pub type TestSourceHeaderId = HeaderId<TestSourceHeaderNumber, TestSourceHeaderHash>;
 	pub type TestTargetHeaderId = HeaderId<TestTargetHeaderNumber, TestTargetHeaderHash>;
 
@@ -457,6 +488,7 @@ pub(crate) mod tests {
 		type MessagesProof = TestMessagesProof;
 		type MessagesReceivingProof = TestMessagesReceivingProof;
 
+		type SourceChainBalance = TestSourceChainBalance;
 		type SourceHeaderNumber = TestSourceHeaderNumber;
 		type SourceHeaderHash = TestSourceHeaderHash;
 
@@ -488,6 +520,15 @@ pub(crate) mod tests {
 	pub struct TestSourceClient {
 		data: Arc<Mutex<TestClientData>>,
 		tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
+	}
+
+	impl Default for TestSourceClient {
+		fn default() -> Self {
+			TestSourceClient {
+				data: Arc::new(Mutex::new(TestClientData::default())),
+				tick: Arc::new(|_| {}),
+			}
+		}
 	}
 
 	#[async_trait]
@@ -536,13 +577,22 @@ pub(crate) mod tests {
 			Ok((id, data.source_latest_confirmed_received_nonce))
 		}
 
-		async fn generated_messages_weights(
+		async fn generated_message_details(
 			&self,
 			_id: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<MessageNonce>,
-		) -> Result<MessageWeightsMap, TestError> {
+		) -> Result<MessageDetailsMap<TestSourceChainBalance>, TestError> {
 			Ok(nonces
-				.map(|nonce| (nonce, MessageWeights { weight: 1, size: 1 }))
+				.map(|nonce| {
+					(
+						nonce,
+						MessageDetails {
+							dispatch_weight: 1,
+							size: 1,
+							reward: 1,
+						},
+					)
+				})
 				.collect())
 		}
 
@@ -596,12 +646,25 @@ pub(crate) mod tests {
 			data.target_to_source_header_requirements.push(id);
 			(self.tick)(&mut *data);
 		}
+
+		async fn estimate_confirmation_transaction(&self) -> TestSourceChainBalance {
+			CONFIRMATION_TRANSACTION_COST
+		}
 	}
 
 	#[derive(Clone)]
 	pub struct TestTargetClient {
 		data: Arc<Mutex<TestClientData>>,
 		tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
+	}
+
+	impl Default for TestTargetClient {
+		fn default() -> Self {
+			TestTargetClient {
+				data: Arc::new(Mutex::new(TestClientData::default())),
+				tick: Arc::new(|_| {}),
+			}
+		}
 	}
 
 	#[async_trait]
@@ -702,6 +765,15 @@ pub(crate) mod tests {
 			data.source_to_target_header_requirements.push(id);
 			(self.tick)(&mut *data);
 		}
+
+		async fn estimate_delivery_transaction_in_source_tokens(
+			&self,
+			_nonces: RangeInclusive<MessageNonce>,
+			_total_dispatch_weight: Weight,
+			total_size: u32,
+		) -> TestSourceChainBalance {
+			DELIVERY_TRANSACTION_COST * (total_size as TestSourceChainBalance)
+		}
 	}
 
 	fn run_loop_test(
@@ -734,6 +806,7 @@ pub(crate) mod tests {
 						max_messages_in_single_batch: 4,
 						max_messages_weight_in_single_batch: 4,
 						max_messages_size_in_single_batch: 4,
+						relayer_mode: RelayerMode::Altruistic,
 					},
 				},
 				source_client,
