@@ -65,7 +65,7 @@ where
 mod tests {
 	use super::*;
 	use frame_support::traits::FindAuthor;
-	use frame_support::{parameter_types, weights::DispatchClass, PalletId};
+	use frame_support::{parameter_types, PalletId};
 	use frame_system::{limits, EnsureRoot};
 	use polkadot_primitives::v1::AccountId;
 	use sp_core::H256;
@@ -92,14 +92,6 @@ mod tests {
 
 	parameter_types! {
 		pub const BlockHashCount: u64 = 250;
-		pub BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
-			.for_class(DispatchClass::all(), |weight| {
-				weight.base_extrinsic = 100;
-			})
-			.for_class(DispatchClass::non_mandatory(), |weight| {
-				weight.max_total = Some(1024);
-			})
-			.build_or_panic();
 		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 		pub const MaxReserves: u32 = 50;
@@ -119,7 +111,7 @@ mod tests {
 		type Event = Event;
 		type BlockHashCount = BlockHashCount;
 		type BlockLength = BlockLength;
-		type BlockWeights = BlockWeights;
+		type BlockWeights = ();
 		type DbWeight = ();
 		type Version = ();
 		type PalletInfo = PalletInfo;

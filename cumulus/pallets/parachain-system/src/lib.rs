@@ -373,7 +373,7 @@ pub mod pallet {
 		}
 
 		#[pallet::weight((1_000, DispatchClass::Operational))]
-		fn sudo_send_upward_message(
+		pub fn sudo_send_upward_message(
 			origin: OriginFor<T>,
 			message: UpwardMessage,
 		) -> DispatchResult {
@@ -383,7 +383,7 @@ pub mod pallet {
 		}
 
 		#[pallet::weight((1_000_000, DispatchClass::Operational))]
-		fn authorize_upgrade(origin: OriginFor<T>, code_hash: T::Hash) -> DispatchResult {
+		pub fn authorize_upgrade(origin: OriginFor<T>, code_hash: T::Hash) -> DispatchResult {
 			ensure_root(origin)?;
 
 			AuthorizedUpgrade::<T>::put(&code_hash);
@@ -393,7 +393,7 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(1_000_000)]
-		fn enact_authorized_upgrade(_: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
+		pub fn enact_authorized_upgrade(_: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			Self::validate_authorized_upgrade(&code[..])?;
 			Self::set_code_impl(code)?;
 			AuthorizedUpgrade::<T>::kill();

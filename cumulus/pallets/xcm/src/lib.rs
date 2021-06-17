@@ -72,6 +72,28 @@ pub mod pallet {
 		/// \[ id, outcome \]
 		ExecutedDownward([u8; 8], Outcome),
 	}
+
+	/// Origin for the parachains module.
+	#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(Debug))]
+	#[pallet::origin]
+	pub enum Origin {
+		/// It comes from the (parent) relay chain.
+		Relay,
+		/// It comes from a (sibling) parachain.
+		SiblingParachain(ParaId),
+	}
+
+	impl From<ParaId> for Origin {
+		fn from(id: ParaId) -> Origin {
+			Origin::SiblingParachain(id)
+		}
+	}
+	impl From<u32> for Origin {
+		fn from(id: u32) -> Origin {
+			Origin::SiblingParachain(id.into())
+		}
+	}
 }
 
 /// For an incoming downward message, this just adapts an XCM executor and executes DMP messages
@@ -134,27 +156,6 @@ impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
 			}
 		}
 		used
-	}
-}
-
-/// Origin for the parachains module.
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum Origin {
-	/// It comes from the (parent) relay chain.
-	Relay,
-	/// It comes from a (sibling) parachain.
-	SiblingParachain(ParaId),
-}
-
-impl From<ParaId> for Origin {
-	fn from(id: ParaId) -> Origin {
-		Origin::SiblingParachain(id)
-	}
-}
-impl From<u32> for Origin {
-	fn from(id: u32) -> Origin {
-		Origin::SiblingParachain(id.into())
 	}
 }
 

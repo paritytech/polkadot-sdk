@@ -123,14 +123,14 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(0)]
-		fn start(origin: OriginFor<T>, para: ParaId, payload: Vec<u8>) -> DispatchResult {
+		pub fn start(origin: OriginFor<T>, para: ParaId, payload: Vec<u8>) -> DispatchResult {
 			ensure_root(origin)?;
 			Targets::<T>::mutate(|t| t.push((para, payload)));
 			Ok(())
 		}
 
 		#[pallet::weight(0)]
-		fn start_many(origin: OriginFor<T>, para: ParaId, count: u32, payload: Vec<u8>) -> DispatchResult {
+		pub fn start_many(origin: OriginFor<T>, para: ParaId, count: u32, payload: Vec<u8>) -> DispatchResult {
 			ensure_root(origin)?;
 			for _ in 0..count {
 				Targets::<T>::mutate(|t| t.push((para, payload.clone())));
@@ -139,14 +139,14 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(0)]
-		fn stop(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+		pub fn stop(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
 			Targets::<T>::mutate(|t| if let Some(p) = t.iter().position(|(p, _)| p == &para) { t.swap_remove(p); });
 			Ok(())
 		}
 
 		#[pallet::weight(0)]
-		fn stop_all(origin: OriginFor<T>, maybe_para: Option<ParaId>) -> DispatchResult {
+		pub fn stop_all(origin: OriginFor<T>, maybe_para: Option<ParaId>) -> DispatchResult {
 			ensure_root(origin)?;
 			if let Some(para) = maybe_para {
 				Targets::<T>::mutate(|t| t.retain(|&(x, _)| x != para));
@@ -157,7 +157,7 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(0)]
-		fn ping(origin: OriginFor<T>, seq: u32, payload: Vec<u8>) -> DispatchResult {
+		pub fn ping(origin: OriginFor<T>, seq: u32, payload: Vec<u8>) -> DispatchResult {
 			// Only accept pings from other chains.
 			let para = ensure_sibling_para(<T as Config>::Origin::from(origin))?;
 
@@ -177,7 +177,7 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(0)]
-		fn pong(origin: OriginFor<T>, seq: u32, payload: Vec<u8>) -> DispatchResult {
+		pub fn pong(origin: OriginFor<T>, seq: u32, payload: Vec<u8>) -> DispatchResult {
 			// Only accept pings from other chains.
 			let para = ensure_sibling_para(<T as Config>::Origin::from(origin))?;
 
