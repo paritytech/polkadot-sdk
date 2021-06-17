@@ -531,7 +531,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageVersionSpecMismatch(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageVersionSpecMismatch(
 						SOURCE_CHAIN_ID,
 						id,
 						TEST_SPEC_VERSION,
@@ -558,7 +558,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageWeightMismatch(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageWeightMismatch(
 						SOURCE_CHAIN_ID,
 						id,
 						1345000,
@@ -588,7 +588,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageSignatureMismatch(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageSignatureMismatch(
 						SOURCE_CHAIN_ID,
 						id
 					)),
@@ -610,7 +610,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageRejected(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageRejected(
 						SOURCE_CHAIN_ID,
 						id
 					)),
@@ -636,7 +636,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageCallDecodeFailed(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageCallDecodeFailed(
 						SOURCE_CHAIN_ID,
 						id
 					)),
@@ -663,7 +663,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageCallRejected(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageCallRejected(
 						SOURCE_CHAIN_ID,
 						id
 					)),
@@ -686,7 +686,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
 						SOURCE_CHAIN_ID,
 						id,
 						Ok(())
@@ -712,7 +712,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
 						SOURCE_CHAIN_ID,
 						id,
 						Ok(())
@@ -738,7 +738,7 @@ mod tests {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
+					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
 						SOURCE_CHAIN_ID,
 						id,
 						Ok(())
