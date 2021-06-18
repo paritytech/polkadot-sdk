@@ -64,6 +64,7 @@ type ToRialtoMessagesDeliveryProof = messages::source::FromBridgedChainMessagesD
 pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
 	WithRialtoMessageBridge,
 	crate::Runtime,
+	pallet_balances::Pallet<Runtime>,
 	pallet_bridge_dispatch::DefaultInstance,
 >;
 
@@ -172,6 +173,7 @@ impl messages::BridgedChainWithMessages for Rialto {
 
 	fn estimate_delivery_transaction(
 		message_payload: &[u8],
+		include_pay_dispatch_fee_cost: bool,
 		message_dispatch_weight: Weight,
 	) -> MessageTransaction<Weight> {
 		let message_payload_len = u32::try_from(message_payload.len()).unwrap_or(u32::MAX);
@@ -182,6 +184,11 @@ impl messages::BridgedChainWithMessages for Rialto {
 			dispatch_weight: extra_bytes_in_payload
 				.saturating_mul(bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
 				.saturating_add(bp_rialto::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT)
+				.saturating_sub(if include_pay_dispatch_fee_cost {
+					0
+				} else {
+					bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT
+				})
 				.saturating_add(message_dispatch_weight),
 			size: message_payload_len
 				.saturating_add(bp_millau::EXTRA_STORAGE_PROOF_SIZE)
