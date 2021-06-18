@@ -29,6 +29,8 @@ pub use storage_proof::{Error as StorageProofError, StorageProofChecker};
 #[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;
 
+pub mod messages;
+
 mod chain;
 mod storage_proof;
 

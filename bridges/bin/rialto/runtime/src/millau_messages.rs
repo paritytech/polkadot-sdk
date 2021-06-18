@@ -58,6 +58,7 @@ pub type FromMillauEncodedCall = messages::target::FromBridgedChainEncodedMessag
 pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
 	WithMillauMessageBridge,
 	crate::Runtime,
+	pallet_balances::Pallet<Runtime>,
 	pallet_bridge_dispatch::DefaultInstance,
 >;
 
@@ -172,6 +173,7 @@ impl messages::BridgedChainWithMessages for Millau {
 
 	fn estimate_delivery_transaction(
 		message_payload: &[u8],
+		include_pay_dispatch_fee_cost: bool,
 		message_dispatch_weight: Weight,
 	) -> MessageTransaction<Weight> {
 		let message_payload_len = u32::try_from(message_payload.len()).unwrap_or(u32::MAX);
@@ -182,6 +184,11 @@ impl messages::BridgedChainWithMessages for Millau {
 			dispatch_weight: extra_bytes_in_payload
 				.saturating_mul(bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
 				.saturating_add(bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT)
+				.saturating_sub(if include_pay_dispatch_fee_cost {
+					0
+				} else {
+					bp_millau::PAY_INBOUND_DISPATCH_FEE_WEIGHT
+				})
 				.saturating_add(message_dispatch_weight),
 			size: message_payload_len
 				.saturating_add(bp_rialto::EXTRA_STORAGE_PROOF_SIZE)
@@ -256,5 +263,89 @@ impl MessagesParameter for RialtoToMillauMessagesParameter {
 				MillauToRialtoConversionRate::set(conversion_rate)
 			}
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{AccountId, Call, ExistentialDeposit, Runtime, SystemCall, SystemConfig, VERSION};
+	use bp_message_dispatch::CallOrigin;
+	use bp_messages::{
+		target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
+		MessageKey,
+	};
+	use bp_runtime::{derive_account_id, messages::DispatchFeePayment, SourceAccount};
+	use bridge_runtime_common::messages::target::{FromBridgedChainEncodedMessageCall, FromBridgedChainMessagePayload};
+	use frame_support::{
+		traits::Currency,
+		weights::{GetDispatchInfo, WeightToFeePolynomial},
+	};
+	use sp_runtime::traits::Convert;
+
+	#[test]
+	fn transfer_happens_when_dispatch_fee_is_paid_at_target_chain() {
+		// this test actually belongs to the `bridge-runtime-common` crate, but there we have no
+		// mock runtime. Making another one there just for this test, given that both crates
+		// live n single repo is an overkill
+		let mut ext: sp_io::TestExternalities = SystemConfig::default().build_storage::<Runtime>().unwrap().into();
+		ext.execute_with(|| {
+			let bridge = MILLAU_CHAIN_ID;
+			let call: Call = SystemCall::remark(vec![]).into();
+			let dispatch_weight = call.get_dispatch_info().weight;
+			let dispatch_fee = <Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&dispatch_weight);
+			assert!(dispatch_fee > 0);
+
+			// create relayer account with minimal balance
+			let relayer_account: AccountId = [1u8; 32].into();
+			let initial_amount = ExistentialDeposit::get();
+			let _ = <pallet_balances::Pallet<Runtime> as Currency<AccountId>>::deposit_creating(
+				&relayer_account,
+				initial_amount,
+			);
+
+			// create dispatch account with minimal balance + dispatch fee
+			let dispatch_account = derive_account_id::<<Runtime as pallet_bridge_dispatch::Config>::SourceChainAccountId>(
+				bridge,
+				SourceAccount::Root,
+			);
+			let dispatch_account =
+				<Runtime as pallet_bridge_dispatch::Config>::AccountIdConverter::convert(dispatch_account);
+			let _ = <pallet_balances::Pallet<Runtime> as Currency<AccountId>>::deposit_creating(
+				&dispatch_account,
+				initial_amount + dispatch_fee,
+			);
+
+			// dispatch message with intention to pay dispatch fee at the target chain
+			FromMillauMessageDispatch::dispatch(
+				&relayer_account,
+				DispatchMessage {
+					key: MessageKey {
+						lane_id: Default::default(),
+						nonce: 0,
+					},
+					data: DispatchMessageData {
+						payload: Ok(FromBridgedChainMessagePayload::<WithMillauMessageBridge> {
+							spec_version: VERSION.spec_version,
+							weight: dispatch_weight,
+							origin: CallOrigin::SourceRoot,
+							dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
+							call: FromBridgedChainEncodedMessageCall::new(call.encode()),
+						}),
+						fee: 1,
+					},
+				},
+			);
+
+			// ensure that fee has been transferred from dispatch to relayer account
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime> as Currency<AccountId>>::free_balance(&relayer_account),
+				initial_amount + dispatch_fee,
+			);
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime> as Currency<AccountId>>::free_balance(&dispatch_account),
+				initial_amount,
+			);
+		});
 	}
 }

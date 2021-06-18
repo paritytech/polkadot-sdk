@@ -42,7 +42,7 @@ pub use crate::weights_ext::{
 	EXPECTED_DEFAULT_MESSAGE_LENGTH,
 };
 
-use crate::inbound_lane::{InboundLane, InboundLaneStorage};
+use crate::inbound_lane::{InboundLane, InboundLaneStorage, ReceivalResult};
 use crate::outbound_lane::{OutboundLane, OutboundLaneStorage};
 use crate::weights::WeightInfo;
 
@@ -55,9 +55,11 @@ use bp_messages::{
 use bp_runtime::Size;
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure,
+	decl_error, decl_event, decl_module, decl_storage,
+	dispatch::DispatchResultWithPostInfo,
+	ensure,
 	traits::Get,
-	weights::{DispatchClass, Weight},
+	weights::{DispatchClass, Pays, PostDispatchInfo, Weight},
 	Parameter, StorageMap,
 };
 use frame_system::{ensure_signed, RawOrigin};
@@ -150,7 +152,11 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 	/// Source header chain, as it is represented on target chain.
 	type SourceHeaderChain: SourceHeaderChain<Self::InboundMessageFee>;
 	/// Message dispatch.
-	type MessageDispatch: MessageDispatch<Self::InboundMessageFee, DispatchPayload = Self::InboundPayload>;
+	type MessageDispatch: MessageDispatch<
+		Self::AccountId,
+		Self::InboundMessageFee,
+		DispatchPayload = Self::InboundPayload,
+	>;
 }
 
 /// Shortcut to messages proof type for Config.
@@ -438,19 +444,36 @@ decl_module! {
 		#[weight = T::WeightInfo::receive_messages_proof_weight(proof, *messages_count, *dispatch_weight)]
 		pub fn receive_messages_proof(
 			origin,
-			relayer_id: T::InboundRelayer,
+			relayer_id_at_bridged_chain: T::InboundRelayer,
 			proof: MessagesProofOf<T, I>,
 			messages_count: u32,
 			dispatch_weight: Weight,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_not_halted::<T, I>()?;
-			let _ = ensure_signed(origin)?;
+			let relayer_id_at_this_chain = ensure_signed(origin)?;
 
 			// reject transactions that are declaring too many messages
 			ensure!(
 				MessageNonce::from(messages_count) <= T::MaxUnconfirmedMessagesAtInboundLane::get(),
 				Error::<T, I>::TooManyMessagesInTheProof
 			);
+
+			// why do we need to know the weight of this (`receive_messages_proof`) call? Because
+			// we may want to return some funds for not-dispatching (or partially dispatching) some
+			// messages to the call origin (relayer). And this is done by returning actual weight
+			// from the call. But we only know dispatch weight of every messages. So to refund relayer
+			// because we have not dispatched Message, we need to:
+			//
+			// ActualWeight = DeclaredWeight - Message.DispatchWeight
+			//
+			// The DeclaredWeight is exactly what's computed here. Unfortunately it is impossible
+			// to get pre-computed value (and it has been already computed by the executive).
+			let declared_weight = T::WeightInfo::receive_messages_proof_weight(
+				&proof,
+				messages_count,
+				dispatch_weight,
+			);
+			let mut actual_weight = declared_weight;
 
 			// verify messages proof && convert proof into messages
 			let messages = verify_and_decode_messages_proof::<
@@ -511,20 +534,57 @@ decl_module! {
 					debug_assert_eq!(message.key.lane_id, lane_id);
 
 					total_messages += 1;
-					if lane.receive_message::<T::MessageDispatch>(relayer_id.clone(), message.key.nonce, message.data) {
-						valid_messages += 1;
-					}
+					let dispatch_weight = T::MessageDispatch::dispatch_weight(&message);
+					let receival_result = lane.receive_message::<T::MessageDispatch, T::AccountId>(
+						&relayer_id_at_bridged_chain,
+						&relayer_id_at_this_chain,
+						message.key.nonce,
+						message.data,
+					);
+
+					// note that we're returning unspent weight to relayer even if message has been
+					// rejected by the lane. This allows relayers to submit spam transactions with
+					// e.g. the same set of already delivered messages over and over again, without
+					// losing funds for messages dispatch. But keep in mind that relayer pays base
+					// delivery transaction cost anyway. And base cost covers everything except
+					// dispatch, so we have a balance here.
+					let (unspent_weight, refund_pay_dispatch_fee) = match receival_result {
+						ReceivalResult::Dispatched(dispatch_result) => {
+							valid_messages += 1;
+							(dispatch_result.unspent_weight, !dispatch_result.dispatch_fee_paid_during_dispatch)
+						},
+						ReceivalResult::InvalidNonce
+							| ReceivalResult::TooManyUnrewardedRelayers
+							| ReceivalResult::TooManyUnconfirmedMessages => (dispatch_weight, true),
+					};
+					actual_weight = actual_weight
+						.saturating_sub(sp_std::cmp::min(unspent_weight, dispatch_weight))
+						.saturating_sub(
+							// delivery call weight formula assumes that the fee is paid at
+							// this (target) chain. If the message is prepaid at the source
+							// chain, let's refund relayer with this extra cost.
+							if refund_pay_dispatch_fee {
+								T::WeightInfo::pay_inbound_dispatch_fee_overhead()
+							} else {
+								0
+							}
+						);
 				}
 			}
 
 			log::trace!(
 				target: "runtime::bridge-messages",
-				"Received messages: total={}, valid={}",
+				"Received messages: total={}, valid={}. Weight used: {}/{}",
 				total_messages,
 				valid_messages,
+				actual_weight,
+				declared_weight,
 			);
 
-			Ok(())
+			Ok(PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: Pays::Yes,
+			})
 		}
 
 		/// Receive messages delivery proof from bridged chain.
@@ -860,10 +920,9 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, Dispatch
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, run_test, Event as TestEvent, Origin, TestMessageDeliveryAndDispatchPayment,
-		TestMessagesDeliveryProof, TestMessagesParameter, TestMessagesProof, TestPayload, TestRuntime,
-		TokenConversionRate, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A,
-		TEST_RELAYER_B,
+		message, message_payload, run_test, Event as TestEvent, Origin, TestMessageDeliveryAndDispatchPayment,
+		TestMessagesDeliveryProof, TestMessagesParameter, TestMessagesProof, TestRuntime, TokenConversionRate,
+		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_messages::UnrewardedRelayersState;
 	use frame_support::{assert_noop, assert_ok};
@@ -883,7 +942,7 @@ mod tests {
 			Origin::signed(1),
 			TEST_LANE_ID,
 			REGULAR_PAYLOAD,
-			REGULAR_PAYLOAD.1,
+			REGULAR_PAYLOAD.declared_weight,
 		));
 
 		// check event with assigned nonce
@@ -897,7 +956,10 @@ mod tests {
 		);
 
 		// check that fee has been withdrawn from submitter
-		assert!(TestMessageDeliveryAndDispatchPayment::is_fee_paid(1, REGULAR_PAYLOAD.1));
+		assert!(TestMessageDeliveryAndDispatchPayment::is_fee_paid(
+			1,
+			REGULAR_PAYLOAD.declared_weight
+		));
 	}
 
 	fn receive_messages_delivery_proof() {
@@ -1113,7 +1175,7 @@ mod tests {
 					Origin::signed(1),
 					TEST_LANE_ID,
 					REGULAR_PAYLOAD,
-					REGULAR_PAYLOAD.1,
+					REGULAR_PAYLOAD.declared_weight,
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
 			);
@@ -1129,7 +1191,7 @@ mod tests {
 					TEST_RELAYER_A,
 					Ok(vec![message(2, REGULAR_PAYLOAD)]).into(),
 					1,
-					REGULAR_PAYLOAD.1,
+					REGULAR_PAYLOAD.declared_weight,
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
 			);
@@ -1164,7 +1226,7 @@ mod tests {
 					Origin::signed(1),
 					TEST_LANE_ID,
 					REGULAR_PAYLOAD,
-					REGULAR_PAYLOAD.1,
+					REGULAR_PAYLOAD.declared_weight,
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
 			);
@@ -1181,7 +1243,7 @@ mod tests {
 				TEST_RELAYER_A,
 				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
 				1,
-				REGULAR_PAYLOAD.1,
+				REGULAR_PAYLOAD.declared_weight,
 			),);
 
 			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
@@ -1214,7 +1276,7 @@ mod tests {
 					Origin::signed(1),
 					TEST_LANE_ID,
 					PAYLOAD_REJECTED_BY_TARGET_CHAIN,
-					PAYLOAD_REJECTED_BY_TARGET_CHAIN.1
+					PAYLOAD_REJECTED_BY_TARGET_CHAIN.declared_weight
 				),
 				Error::<TestRuntime, DefaultInstance>::MessageRejectedByChainVerifier,
 			);
@@ -1241,7 +1303,7 @@ mod tests {
 					Origin::signed(1),
 					TEST_LANE_ID,
 					REGULAR_PAYLOAD,
-					REGULAR_PAYLOAD.1
+					REGULAR_PAYLOAD.declared_weight
 				),
 				Error::<TestRuntime, DefaultInstance>::FailedToWithdrawMessageFee,
 			);
@@ -1256,7 +1318,7 @@ mod tests {
 				TEST_RELAYER_A,
 				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
 				1,
-				REGULAR_PAYLOAD.1,
+				REGULAR_PAYLOAD.declared_weight,
 			));
 
 			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 1);
@@ -1297,7 +1359,7 @@ mod tests {
 				TEST_RELAYER_A,
 				message_proof,
 				1,
-				REGULAR_PAYLOAD.1,
+				REGULAR_PAYLOAD.declared_weight,
 			));
 
 			assert_eq!(
@@ -1329,7 +1391,7 @@ mod tests {
 					TEST_RELAYER_A,
 					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
 					1,
-					REGULAR_PAYLOAD.1 - 1,
+					REGULAR_PAYLOAD.declared_weight - 1,
 				),
 				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
 			);
@@ -1551,7 +1613,7 @@ mod tests {
 				])
 				.into(),
 				3,
-				REGULAR_PAYLOAD.1 + REGULAR_PAYLOAD.1,
+				REGULAR_PAYLOAD.declared_weight + REGULAR_PAYLOAD.declared_weight,
 			),);
 
 			assert_eq!(
@@ -1603,9 +1665,9 @@ mod tests {
 	#[test]
 	fn actual_dispatch_weight_does_not_overlow() {
 		run_test(|| {
-			let message1 = message(1, TestPayload(0, Weight::MAX / 2));
-			let message2 = message(2, TestPayload(0, Weight::MAX / 2));
-			let message3 = message(2, TestPayload(0, Weight::MAX / 2));
+			let message1 = message(1, message_payload(0, Weight::MAX / 2));
+			let message2 = message(2, message_payload(0, Weight::MAX / 2));
+			let message3 = message(2, message_payload(0, Weight::MAX / 2));
 
 			assert_noop!(
 				Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
@@ -1670,6 +1732,63 @@ mod tests {
 				100,
 			),);
 			assert!(TestMessageDeliveryAndDispatchPayment::is_fee_paid(1, 100));
+		});
+	}
+
+	#[test]
+	fn weight_refund_from_receive_messages_proof_works() {
+		run_test(|| {
+			fn submit_with_unspent_weight(
+				nonce: MessageNonce,
+				unspent_weight: Weight,
+				is_prepaid: bool,
+			) -> (Weight, Weight) {
+				let mut payload = REGULAR_PAYLOAD;
+				payload.dispatch_result.unspent_weight = unspent_weight;
+				payload.dispatch_result.dispatch_fee_paid_during_dispatch = !is_prepaid;
+				let proof = Ok(vec![message(nonce, payload)]).into();
+				let messages_count = 1;
+				let pre_dispatch_weight = <TestRuntime as Config>::WeightInfo::receive_messages_proof_weight(
+					&proof,
+					messages_count,
+					REGULAR_PAYLOAD.declared_weight,
+				);
+				let post_dispatch_weight = Pallet::<TestRuntime>::receive_messages_proof(
+					Origin::signed(1),
+					TEST_RELAYER_A,
+					proof,
+					messages_count,
+					REGULAR_PAYLOAD.declared_weight,
+				)
+				.expect("delivery has failed")
+				.actual_weight
+				.expect("receive_messages_proof always returns Some");
+
+				(pre_dispatch_weight, post_dispatch_weight)
+			}
+
+			// when dispatch is returning `unspent_weight < declared_weight`
+			let (pre, post) = submit_with_unspent_weight(1, 1, false);
+			assert_eq!(post, pre - 1);
+
+			// when dispatch is returning `unspent_weight = declared_weight`
+			let (pre, post) = submit_with_unspent_weight(2, REGULAR_PAYLOAD.declared_weight, false);
+			assert_eq!(post, pre - REGULAR_PAYLOAD.declared_weight);
+
+			// when dispatch is returning `unspent_weight > declared_weight`
+			let (pre, post) = submit_with_unspent_weight(3, REGULAR_PAYLOAD.declared_weight + 1, false);
+			assert_eq!(post, pre - REGULAR_PAYLOAD.declared_weight);
+
+			// when there's no unspent weight
+			let (pre, post) = submit_with_unspent_weight(4, 0, false);
+			assert_eq!(post, pre);
+
+			// when dispatch is returning `unspent_weight < declared_weight` AND message is prepaid
+			let (pre, post) = submit_with_unspent_weight(5, 1, true);
+			assert_eq!(
+				post,
+				pre - 1 - <TestRuntime as Config>::WeightInfo::pay_inbound_dispatch_fee_overhead()
+			);
 		});
 	}
 }

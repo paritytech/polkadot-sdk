@@ -347,6 +347,23 @@ Both conditions are verified by `pallet_bridge_messages::ensure_weights_are_corr
 `pallet_bridge_messages::ensure_able_to_receive_messages` functions, which must be called from every
 runtime's tests.
 
+### Post-dispatch weight refunds of the `receive_messages_proof` call
+
+Weight formula of the `receive_messages_proof` call assumes that the dispatch fee of every message is
+paid at the target chain (where call is executed), that every message will be dispatched and that
+dispatch weight of the message will be exactly the weight that is returned from the
+`MessageDispatch::dispatch_weight` method call. This isn't true for all messages, so the call returns
+actual weight used to dispatch messages.
+
+This actual weight is the weight, returned by the weight formula, minus:
+- the weight of undispatched messages, if we have failed to dispatch because of different issues;
+- the unspent dispatch weight if the declared weight of some messages is less than their actual post-dispatch weight;
+- the pay-dispatch-fee weight for every message that had dispatch fee paid at the source chain.
+
+The last component is computed as a difference between two benchmarks results - the `receive_single_message_proof`
+benchmark (that assumes that the fee is paid during dispatch) and the `receive_single_prepaid_message_proof`
+(that assumes that the dispatch fee is already paid).
+
 ### Weight of `receive_messages_delivery_proof` call
 
 #### Related benchmarks
