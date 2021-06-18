@@ -27,7 +27,11 @@
 #![allow(clippy::unused_unit)]
 
 use bp_message_dispatch::{CallOrigin, MessageDispatch, MessagePayload, SpecVersion, Weight};
-use bp_runtime::{derive_account_id, ChainId, SourceAccount};
+use bp_runtime::{
+	derive_account_id,
+	messages::{DispatchFeePayment, MessageDispatchResult},
+	ChainId, SourceAccount,
+};
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_event, decl_module, decl_storage,
@@ -89,7 +93,8 @@ decl_storage! {
 
 decl_event!(
 	pub enum Event<T, I = DefaultInstance> where
-		<T as Config<I>>::MessageId
+		<T as Config<I>>::MessageId,
+		AccountId = <T as frame_system::Config>::AccountId,
 	{
 		/// Message has been rejected before reaching dispatch.
 		MessageRejected(ChainId, MessageId),
@@ -101,12 +106,14 @@ decl_event!(
 		MessageWeightMismatch(ChainId, MessageId, Weight, Weight),
 		/// Message signature mismatch.
 		MessageSignatureMismatch(ChainId, MessageId),
-		/// Message has been dispatched with given result.
-		MessageDispatched(ChainId, MessageId, DispatchResult),
 		/// We have failed to decode Call from the message.
 		MessageCallDecodeFailed(ChainId, MessageId),
 		/// The call from the message has been rejected by the call filter.
 		MessageCallRejected(ChainId, MessageId),
+		/// The origin account has failed to pay fee for dispatching the message.
+		MessageDispatchPaymentFailed(ChainId, MessageId, AccountId, Weight),
+		/// Message has been dispatched with given result.
+		MessageDispatched(ChainId, MessageId, DispatchResult),
 		/// Phantom member, never used. Needed to handle multiple pallet instances.
 		_Dummy(PhantomData<I>),
 	}
@@ -120,7 +127,7 @@ decl_module! {
 	}
 }
 
-impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
+impl<T: Config<I>, I: Instance> MessageDispatch<T::AccountId, T::MessageId> for Pallet<T, I> {
 	type Message =
 		MessagePayload<T::SourceChainAccountId, T::TargetChainAccountPublic, T::TargetChainSignature, T::EncodedCall>;
 
@@ -128,7 +135,13 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 		message.weight
 	}
 
-	fn dispatch(source_chain: ChainId, target_chain: ChainId, id: T::MessageId, message: Result<Self::Message, ()>) {
+	fn dispatch<P: FnOnce(&T::AccountId, Weight) -> Result<(), ()>>(
+		source_chain: ChainId,
+		target_chain: ChainId,
+		id: T::MessageId,
+		message: Result<Self::Message, ()>,
+		pay_dispatch_fee: P,
+	) -> MessageDispatchResult {
 		// emit special even if message has been rejected by external component
 		let message = match message {
 			Ok(message) => message,
@@ -140,12 +153,19 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 					id,
 				);
 				Self::deposit_event(RawEvent::MessageRejected(source_chain, id));
-				return;
+				return MessageDispatchResult {
+					unspent_weight: 0,
+					dispatch_fee_paid_during_dispatch: false,
+				};
 			}
 		};
 
 		// verify spec version
 		// (we want it to be the same, because otherwise we may decode Call improperly)
+		let mut dispatch_result = MessageDispatchResult {
+			unspent_weight: message.weight,
+			dispatch_fee_paid_during_dispatch: false,
+		};
 		let expected_version = <T as frame_system::Config>::Version::get().spec_version;
 		if message.spec_version != expected_version {
 			log::trace!(
@@ -161,7 +181,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 				expected_version,
 				message.spec_version,
 			));
-			return;
+			return dispatch_result;
 		}
 
 		// now that we have spec version checked, let's decode the call
@@ -175,7 +195,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 					id,
 				);
 				Self::deposit_event(RawEvent::MessageCallDecodeFailed(source_chain, id));
-				return;
+				return dispatch_result;
 			}
 		};
 
@@ -207,7 +227,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 						target_signature,
 					);
 					Self::deposit_event(RawEvent::MessageSignatureMismatch(source_chain, id));
-					return;
+					return dispatch_result;
 				}
 
 				log::trace!(target: "runtime::bridge-dispatch", "Target Account: {:?}", &target_account);
@@ -231,7 +251,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 				call,
 			);
 			Self::deposit_event(RawEvent::MessageCallRejected(source_chain, id));
-			return;
+			return dispatch_result;
 		}
 
 		// verify weight
@@ -254,21 +274,43 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 				expected_weight,
 				message.weight,
 			));
-			return;
+			return dispatch_result;
 		}
+
+		// pay dispatch fee right before dispatch
+		let pay_dispatch_fee_at_target_chain = message.dispatch_fee_payment == DispatchFeePayment::AtTargetChain;
+		if pay_dispatch_fee_at_target_chain && pay_dispatch_fee(&origin_account, message.weight).is_err() {
+			log::trace!(
+				target: "runtime::bridge-dispatch",
+				"Failed to pay dispatch fee for dispatching message {:?}/{:?} with weight {}",
+				source_chain,
+				id,
+				message.weight,
+			);
+			Self::deposit_event(RawEvent::MessageDispatchPaymentFailed(
+				source_chain,
+				id,
+				origin_account,
+				message.weight,
+			));
+			return dispatch_result;
+		}
+		dispatch_result.dispatch_fee_paid_during_dispatch = pay_dispatch_fee_at_target_chain;
 
 		// finally dispatch message
 		let origin = RawOrigin::Signed(origin_account).into();
+
 		log::trace!(target: "runtime::bridge-dispatch", "Message being dispatched is: {:.4096?}", &call);
-		let dispatch_result = call.dispatch(origin);
-		let actual_call_weight = extract_actual_weight(&dispatch_result, &dispatch_info);
+		let result = call.dispatch(origin);
+		let actual_call_weight = extract_actual_weight(&result, &dispatch_info);
+		dispatch_result.unspent_weight = message.weight.saturating_sub(actual_call_weight);
 
 		log::trace!(
 			target: "runtime::bridge-dispatch",
 			"Message {:?}/{:?} has been dispatched. Weight: {} of {}. Result: {:?}",
 			source_chain,
 			id,
-			actual_call_weight,
+			dispatch_result.unspent_weight,
 			message.weight,
 			dispatch_result,
 		);
@@ -276,8 +318,10 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::MessageId> for Pallet<T, I> {
 		Self::deposit_event(RawEvent::MessageDispatched(
 			source_chain,
 			id,
-			dispatch_result.map(drop).map_err(|e| e.error),
+			result.map(drop).map_err(|e| e.error),
 		));
+
+		dispatch_result
 	}
 }
 
@@ -485,31 +529,32 @@ mod tests {
 	fn prepare_message(
 		origin: CallOrigin<AccountId, TestAccountPublic, TestSignature>,
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
 		MessagePayload {
 			spec_version: TEST_SPEC_VERSION,
 			weight: TEST_WEIGHT,
 			origin,
+			dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 			call: EncodedCall(call.encode()),
 		}
 	}
 
 	fn prepare_root_message(
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
 		prepare_message(CallOrigin::SourceRoot, call)
 	}
 
 	fn prepare_target_message(
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
 		let origin = CallOrigin::TargetAccount(1, TestAccountPublic(1), TestSignature(1));
 		prepare_message(origin, call)
 	}
 
 	fn prepare_source_message(
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<<TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
 		let origin = CallOrigin::SourceAccount(1);
 		prepare_message(origin, call)
 	}
@@ -522,10 +567,12 @@ mod tests {
 			const BAD_SPEC_VERSION: SpecVersion = 99;
 			let mut message =
 				prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
+			let weight = message.weight;
 			message.spec_version = BAD_SPEC_VERSION;
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert_eq!(result.unspent_weight, weight);
 
 			assert_eq!(
 				System::events(),
@@ -549,10 +596,11 @@ mod tests {
 			let id = [0; 4];
 			let mut message =
 				prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
-			message.weight = 0;
+			message.weight = 7;
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert_eq!(result.unspent_weight, 7);
 
 			assert_eq!(
 				System::events(),
@@ -562,7 +610,7 @@ mod tests {
 						SOURCE_CHAIN_ID,
 						id,
 						1345000,
-						0,
+						7,
 					)),
 					topics: vec![],
 				}],
@@ -580,9 +628,11 @@ mod tests {
 				call_origin,
 				Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])),
 			);
+			let weight = message.weight;
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert_eq!(result.unspent_weight, weight);
 
 			assert_eq!(
 				System::events(),
@@ -604,7 +654,7 @@ mod tests {
 			let id = [0; 4];
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Err(()));
+			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Err(()), |_, _| unreachable!());
 
 			assert_eq!(
 				System::events(),
@@ -627,10 +677,12 @@ mod tests {
 
 			let mut message =
 				prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
+			let weight = message.weight;
 			message.call.0 = vec![];
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert_eq!(result.unspent_weight, weight);
 
 			assert_eq!(
 				System::events(),
@@ -657,7 +709,8 @@ mod tests {
 			message.weight = weight;
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert_eq!(result.unspent_weight, weight);
 
 			assert_eq!(
 				System::events(),
@@ -674,13 +727,75 @@ mod tests {
 	}
 
 	#[test]
+	fn should_emit_event_for_unpaid_calls() {
+		new_test_ext().execute_with(|| {
+			let id = [0; 4];
+
+			let mut message =
+				prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
+			let weight = message.weight;
+			message.dispatch_fee_payment = DispatchFeePayment::AtTargetChain;
+
+			System::set_block_number(1);
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| Err(()));
+			assert_eq!(result.unspent_weight, weight);
+
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatchPaymentFailed(
+						SOURCE_CHAIN_ID,
+						id,
+						AccountIdConverter::convert(derive_account_id::<AccountId>(
+							SOURCE_CHAIN_ID,
+							SourceAccount::Root
+						)),
+						TEST_WEIGHT,
+					)),
+					topics: vec![],
+				}],
+			);
+		});
+	}
+
+	#[test]
+	fn should_dispatch_calls_paid_at_target_chain() {
+		new_test_ext().execute_with(|| {
+			let id = [0; 4];
+
+			let mut message =
+				prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
+			message.dispatch_fee_payment = DispatchFeePayment::AtTargetChain;
+
+			System::set_block_number(1);
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| Ok(()));
+			assert!(result.dispatch_fee_paid_during_dispatch);
+
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: Event::call_dispatch(call_dispatch::Event::<TestRuntime>::MessageDispatched(
+						SOURCE_CHAIN_ID,
+						id,
+						Ok(())
+					)),
+					topics: vec![],
+				}],
+			);
+		});
+	}
+
+	#[test]
 	fn should_dispatch_bridge_message_from_root_origin() {
 		new_test_ext().execute_with(|| {
 			let id = [0; 4];
 			let message = prepare_root_message(Call::System(<frame_system::Call<TestRuntime>>::remark(vec![1, 2, 3])));
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert!(!result.dispatch_fee_paid_during_dispatch);
 
 			assert_eq!(
 				System::events(),
@@ -706,7 +821,8 @@ mod tests {
 			let message = prepare_target_message(call);
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert!(!result.dispatch_fee_paid_during_dispatch);
 
 			assert_eq!(
 				System::events(),
@@ -732,7 +848,8 @@ mod tests {
 			let message = prepare_source_message(call);
 
 			System::set_block_number(1);
-			Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message));
+			let result = Dispatch::dispatch(SOURCE_CHAIN_ID, TARGET_CHAIN_ID, id, Ok(message), |_, _| unreachable!());
+			assert!(!result.dispatch_fee_paid_during_dispatch);
 
 			assert_eq!(
 				System::events(),

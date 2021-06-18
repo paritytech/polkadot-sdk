@@ -862,6 +862,7 @@ impl_runtime_apis! {
 			}
 
 			use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
+			use bp_runtime::messages::DispatchFeePayment;
 			use bridge_runtime_common::messages;
 			use pallet_bridge_messages::benchmarking::{
 				Pallet as MessagesBench,
@@ -905,6 +906,7 @@ impl_runtime_apis! {
 						weight: params.size as _,
 						origin: dispatch_origin,
 						call: message_payload,
+						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 					};
 					(message, pallet_bridge_messages::benchmarking::MESSAGE_FEE.into())
 				}
@@ -921,7 +923,7 @@ impl_runtime_apis! {
 					use codec::Encode;
 					use frame_support::weights::GetDispatchInfo;
 					use pallet_bridge_messages::storage_keys;
-					use sp_runtime::traits::Header;
+					use sp_runtime::traits::{Header, IdentifyAccount};
 
 					let remark = match params.size {
 						MessagesProofSize::Minimal(ref size) => vec![0u8; *size as _],
@@ -934,11 +936,18 @@ impl_runtime_apis! {
 					let (rialto_raw_public, rialto_raw_signature) = ed25519_sign(
 						&call,
 						&millau_account_id,
+						VERSION.spec_version,
+						bp_runtime::MILLAU_CHAIN_ID,
+						bp_runtime::RIALTO_CHAIN_ID,
 					);
 					let rialto_public = MultiSigner::Ed25519(sp_core::ed25519::Public::from_raw(rialto_raw_public));
 					let rialto_signature = MultiSignature::Ed25519(sp_core::ed25519::Signature::from_raw(
 						rialto_raw_signature,
 					));
+
+					if params.dispatch_fee_payment == DispatchFeePayment::AtTargetChain {
+						Self::endow_account(&rialto_public.clone().into_account());
+					}
 
 					let make_millau_message_key = |message_key: MessageKey| storage_keys::message_key::<
 						Runtime,
@@ -960,6 +969,7 @@ impl_runtime_apis! {
 						Default::default(),
 					);
 
+					let dispatch_fee_payment = params.dispatch_fee_payment.clone();
 					prepare_message_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, (), _, _, _>(
 						params,
 						make_millau_message_key,
@@ -978,6 +988,7 @@ impl_runtime_apis! {
 								rialto_public,
 								rialto_signature,
 							),
+							dispatch_fee_payment,
 							call: call.encode(),
 						}.encode(),
 					)
@@ -1009,6 +1020,18 @@ impl_runtime_apis! {
 							Default::default(),
 						),
 					)
+				}
+
+				fn is_message_dispatched(nonce: bp_messages::MessageNonce) -> bool {
+					frame_system::Pallet::<Runtime>::events()
+						.into_iter()
+						.map(|event_record| event_record.event)
+						.any(|event| matches!(
+							event,
+							Event::pallet_bridge_dispatch(pallet_bridge_dispatch::Event::<Runtime, _>::MessageDispatched(
+								_, ([0, 0, 0, 0], nonce_from_event), _,
+							)) if nonce_from_event == nonce
+						))
 				}
 			}
 
@@ -1105,6 +1128,7 @@ mod tests {
 			bp_rialto::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,
 			bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT,
 			bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
+			bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT,
 		);
 
 		let max_incoming_message_proof_size = bp_millau::EXTRA_STORAGE_PROOF_SIZE.saturating_add(

@@ -22,6 +22,7 @@ use crate::cli::{
 	TargetSigningParams,
 };
 use bp_message_dispatch::{CallOrigin, MessagePayload};
+use bp_runtime::messages::DispatchFeePayment;
 use codec::Encode;
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
 use relay_substrate_client::{Chain, TransactionSignScheme};
@@ -211,6 +212,7 @@ where
 		spec_version,
 		weight,
 		origin,
+		dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 		call: HexBytes::encode(call),
 	};
 
@@ -222,12 +224,14 @@ where
 		spec_version,
 		weight,
 		origin,
+		dispatch_fee_payment,
 		call,
 	} = payload;
 	MessagePayload {
 		spec_version,
 		weight,
 		origin,
+		dispatch_fee_payment,
 		call: call.0,
 	}
 }
@@ -268,6 +272,7 @@ mod tests {
 				spec_version: relay_millau_client::Millau::RUNTIME_VERSION.spec_version,
 				weight: 1345000,
 				origin: CallOrigin::SourceAccount(sp_keyring::AccountKeyring::Alice.to_account_id()),
+				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 				call: hex!("0401081234").to_vec(),
 			}
 		);
@@ -311,6 +316,7 @@ mod tests {
 					sp_keyring::AccountKeyring::Bob.into(),
 					signature,
 				),
+				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 				call: hex!("0701081234").to_vec(),
 			}
 		);
