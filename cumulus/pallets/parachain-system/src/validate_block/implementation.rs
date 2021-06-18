@@ -79,6 +79,7 @@ where
 		Ok(root) => root,
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
+	sp_std::mem::drop(storage_proof);
 
 	let backend = sp_state_machine::TrieBackend::new(db, root);
 
