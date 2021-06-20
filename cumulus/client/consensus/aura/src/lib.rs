@@ -110,6 +110,7 @@ where
 		slot_duration: SlotDuration,
 		telemetry: Option<TelemetryHandle>,
 		block_proposal_slot_portion: SlotProportion,
+		max_block_proposal_slot_portion: Option<SlotProportion>,
 	) -> Self
 	where
 		Client: ProvideRuntimeApi<B>
@@ -149,6 +150,7 @@ where
 				keystore,
 				telemetry,
 				block_proposal_slot_portion,
+				max_block_proposal_slot_portion,
 			});
 
 		Self {
@@ -253,6 +255,7 @@ pub struct BuildAuraConsensusParams<PF, BI, RBackend, CIDP, Client, BS, SO> {
 	pub slot_duration: SlotDuration,
 	pub telemetry: Option<TelemetryHandle>,
 	pub block_proposal_slot_portion: SlotProportion,
+	pub max_block_proposal_slot_portion: Option<SlotProportion>,
 }
 
 /// Build the [`AuraConsensus`].
@@ -273,6 +276,7 @@ pub fn build_aura_consensus<P, Block, PF, BI, RBackend, CIDP, Client, SO, BS, Er
 		slot_duration,
 		telemetry,
 		block_proposal_slot_portion,
+		max_block_proposal_slot_portion,
 	}: BuildAuraConsensusParams<PF, BI, RBackend, CIDP, Client, BS, SO>,
 ) -> Box<dyn ParachainConsensus<Block>>
 where
@@ -327,6 +331,7 @@ where
 		slot_duration,
 		telemetry,
 		block_proposal_slot_portion,
+		max_block_proposal_slot_portion,
 	)
 	.build()
 }
@@ -352,6 +357,7 @@ struct AuraConsensusBuilder<P, Block, PF, BI, RBackend, CIDP, Client, SO, BS, Er
 	slot_duration: SlotDuration,
 	telemetry: Option<TelemetryHandle>,
 	block_proposal_slot_portion: SlotProportion,
+	max_block_proposal_slot_portion: Option<SlotProportion>,
 }
 
 impl<Block, PF, BI, RBackend, CIDP, Client, SO, BS, P, Error>
@@ -409,6 +415,7 @@ where
 		slot_duration: SlotDuration,
 		telemetry: Option<TelemetryHandle>,
 		block_proposal_slot_portion: SlotProportion,
+		max_block_proposal_slot_portion: Option<SlotProportion>,
 	) -> Self {
 		Self {
 			_phantom: PhantomData,
@@ -425,6 +432,7 @@ where
 			slot_duration,
 			telemetry,
 			block_proposal_slot_portion,
+			max_block_proposal_slot_portion,
 		}
 	}
 
@@ -498,6 +506,7 @@ where
 			self.slot_duration,
 			self.telemetry,
 			self.block_proposal_slot_portion,
+			self.max_block_proposal_slot_portion,
 		))
 	}
 }
