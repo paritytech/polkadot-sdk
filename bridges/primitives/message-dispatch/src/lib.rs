@@ -121,7 +121,7 @@ pub struct MessagePayload<SourceChainAccountId, TargetChainAccountPublic, Target
 	pub weight: Weight,
 	/// Call origin to be used during dispatch.
 	pub origin: CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature>,
-	/// Where message dispatch fee is paid?
+	/// Where the fee for dispatching message is paid?
 	pub dispatch_fee_payment: DispatchFeePayment,
 	/// The call itself.
 	pub call: Call,
