@@ -18,7 +18,7 @@
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData,
+	DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 };
 use bp_runtime::messages::MessageDispatchResult;
 use frame_support::RuntimeDebug;
@@ -89,7 +89,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		while data
 			.relayers
 			.front()
-			.map(|(_, nonce_high, _)| *nonce_high <= new_confirmed_nonce)
+			.map(|entry| entry.messages.end <= new_confirmed_nonce)
 			.unwrap_or(false)
 		{
 			data.relayers.pop_front();
@@ -97,8 +97,12 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		// Secondly, update the next record with lower nonce equal to new confirmed nonce if needed.
 		// Note: There will be max. 1 record to update as we don't allow messages from relayers to overlap.
 		match data.relayers.front_mut() {
-			Some((nonce_low, _, _)) if *nonce_low < new_confirmed_nonce => {
-				*nonce_low = new_confirmed_nonce + 1;
+			Some(entry) if entry.messages.begin < new_confirmed_nonce => {
+				entry.messages.dispatch_results = entry
+					.messages
+					.dispatch_results
+					.split_off((new_confirmed_nonce + 1 - entry.messages.begin) as _);
+				entry.messages.begin = new_confirmed_nonce + 1;
 			}
 			_ => {}
 		}
@@ -132,21 +136,10 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 			return ReceivalResult::TooManyUnconfirmedMessages;
 		}
 
-		let push_new = match data.relayers.back_mut() {
-			Some((_, nonce_high, last_relayer)) if last_relayer == relayer_at_bridged_chain => {
-				*nonce_high = nonce;
-				false
-			}
-			_ => true,
-		};
-		if push_new {
-			data.relayers
-				.push_back((nonce, nonce, (*relayer_at_bridged_chain).clone()));
-		}
-
-		self.storage.set_data(data);
-
-		ReceivalResult::Dispatched(P::dispatch(
+		// dispatch message before updating anything in the storage. If dispatch would panic,
+		// (which should not happen in the runtime) then we simply won't consider message as
+		// delivered (no changes to the inbound lane storage have been made).
+		let dispatch_result = P::dispatch(
 			relayer_at_this_chain,
 			DispatchMessage {
 				key: MessageKey {
@@ -155,7 +148,25 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 				},
 				data: message_data,
 			},
-		))
+		);
+
+		// now let's update inbound lane storage
+		let push_new = match data.relayers.back_mut() {
+			Some(entry) if entry.relayer == *relayer_at_bridged_chain => {
+				entry.messages.note_dispatched_message(dispatch_result.dispatch_result);
+				false
+			}
+			_ => true,
+		};
+		if push_new {
+			data.relayers.push_back(UnrewardedRelayer {
+				relayer: (*relayer_at_bridged_chain).clone(),
+				messages: DeliveredMessages::new(nonce, dispatch_result.dispatch_result),
+			});
+		}
+		self.storage.set_data(data);
+
+		ReceivalResult::Dispatched(dispatch_result)
 	}
 }
 
@@ -165,8 +176,8 @@ mod tests {
 	use crate::{
 		inbound_lane,
 		mock::{
-			dispatch_result, message_data, run_test, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID,
-			TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
+			dispatch_result, message_data, run_test, unrewarded_relayer, TestMessageDispatch, TestRuntime,
+			REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
 		},
 		DefaultInstance, RuntimeInboundLaneStorage,
 	};
@@ -238,7 +249,10 @@ mod tests {
 			receive_regular_message(&mut lane, 2);
 			receive_regular_message(&mut lane, 3);
 			assert_eq!(lane.storage.data().last_confirmed_nonce, 0);
-			assert_eq!(lane.storage.data().relayers, vec![(1, 3, TEST_RELAYER_A)]);
+			assert_eq!(
+				lane.storage.data().relayers,
+				vec![unrewarded_relayer(1, 3, TEST_RELAYER_A)]
+			);
 
 			assert_eq!(
 				lane.receive_state_update(OutboundLaneData {
@@ -248,7 +262,10 @@ mod tests {
 				Some(2),
 			);
 			assert_eq!(lane.storage.data().last_confirmed_nonce, 2);
-			assert_eq!(lane.storage.data().relayers, vec![(3, 3, TEST_RELAYER_A)]);
+			assert_eq!(
+				lane.storage.data().relayers,
+				vec![unrewarded_relayer(3, 3, TEST_RELAYER_A)]
+			);
 
 			assert_eq!(
 				lane.receive_state_update(OutboundLaneData {
@@ -269,10 +286,16 @@ mod tests {
 			let mut seed_storage_data = lane.storage.data();
 			// Prepare data
 			seed_storage_data.last_confirmed_nonce = 0;
-			seed_storage_data.relayers.push_back((1, 1, TEST_RELAYER_A));
+			seed_storage_data
+				.relayers
+				.push_back(unrewarded_relayer(1, 1, TEST_RELAYER_A));
 			// Simulate messages batch (2, 3, 4) from relayer #2
-			seed_storage_data.relayers.push_back((2, 4, TEST_RELAYER_B));
-			seed_storage_data.relayers.push_back((5, 5, TEST_RELAYER_C));
+			seed_storage_data
+				.relayers
+				.push_back(unrewarded_relayer(2, 4, TEST_RELAYER_B));
+			seed_storage_data
+				.relayers
+				.push_back(unrewarded_relayer(5, 5, TEST_RELAYER_C));
 			lane.storage.set_data(seed_storage_data);
 			// Check
 			assert_eq!(
@@ -285,7 +308,10 @@ mod tests {
 			assert_eq!(lane.storage.data().last_confirmed_nonce, 3);
 			assert_eq!(
 				lane.storage.data().relayers,
-				vec![(4, 4, TEST_RELAYER_B), (5, 5, TEST_RELAYER_C)]
+				vec![
+					unrewarded_relayer(4, 4, TEST_RELAYER_B),
+					unrewarded_relayer(5, 5, TEST_RELAYER_C)
+				]
 			);
 		});
 	}
@@ -418,7 +444,11 @@ mod tests {
 			);
 			assert_eq!(
 				lane.storage.data().relayers,
-				vec![(1, 1, TEST_RELAYER_A), (2, 2, TEST_RELAYER_B), (3, 3, TEST_RELAYER_A)]
+				vec![
+					unrewarded_relayer(1, 1, TEST_RELAYER_A),
+					unrewarded_relayer(2, 2, TEST_RELAYER_B),
+					unrewarded_relayer(3, 3, TEST_RELAYER_A)
+				]
 			);
 		});
 	}

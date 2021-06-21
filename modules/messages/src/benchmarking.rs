@@ -17,17 +17,25 @@
 //! Messages pallet benchmarking.
 
 use crate::weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH;
-use crate::{inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane, Call, Instance};
+use crate::{
+	inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane, outbound_lane::ReceivalConfirmationResult,
+	Call, Instance,
+};
 
 use bp_messages::{
-	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, InboundLaneData, LaneId, MessageData,
-	MessageNonce, OutboundLaneData, UnrewardedRelayersState,
+	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, DeliveredMessages, InboundLaneData, LaneId,
+	MessageData, MessageNonce, OutboundLaneData, UnrewardedRelayer, UnrewardedRelayersState,
 };
 use bp_runtime::messages::DispatchFeePayment;
 use frame_benchmarking::{account, benchmarks_instance};
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
-use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, ops::RangeInclusive, prelude::*};
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	convert::TryInto,
+	ops::RangeInclusive,
+	prelude::*,
+};
 
 /// Fee paid by submitter for single message delivery.
 pub const MESSAGE_FEE: u64 = 10_000_000_000;
@@ -471,7 +479,10 @@ benchmarks_instance! {
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
-				relayers: vec![(1, 1, relayer_id.clone())].into_iter().collect(),
+				relayers: vec![UnrewardedRelayer {
+					relayer: relayer_id.clone(),
+					messages: DeliveredMessages::new(1, true),
+				}].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
 			size: ProofSize::Minimal(0),
@@ -506,10 +517,15 @@ benchmarks_instance! {
 			messages_in_oldest_entry: 2,
 			total_messages: 2,
 		};
+		let mut delivered_messages = DeliveredMessages::new(1, true);
+		delivered_messages.note_dispatched_message(true);
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
-				relayers: vec![(1, 2, relayer_id.clone())].into_iter().collect(),
+				relayers: vec![UnrewardedRelayer {
+					relayer: relayer_id.clone(),
+					messages: delivered_messages,
+				}].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
 			size: ProofSize::Minimal(0),
@@ -547,8 +563,14 @@ benchmarks_instance! {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![
-					(1, 1, relayer1_id.clone()),
-					(2, 2, relayer2_id.clone()),
+					UnrewardedRelayer {
+						relayer: relayer1_id.clone(),
+						messages: DeliveredMessages::new(1, true),
+					},
+					UnrewardedRelayer {
+						relayer: relayer2_id.clone(),
+						messages: DeliveredMessages::new(2, true),
+					},
 				].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
@@ -783,10 +805,17 @@ benchmarks_instance! {
 			messages_in_oldest_entry: 1,
 			total_messages: i as MessageNonce,
 		};
+		let mut delivered_messages = DeliveredMessages::new(1, true);
+		for nonce in 2..=i {
+			delivered_messages.note_dispatched_message(true);
+		}
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
-				relayers: vec![(1, i as MessageNonce, relayer_id.clone())].into_iter().collect(),
+				relayers: vec![UnrewardedRelayer {
+					relayer: relayer_id.clone(),
+					messages: delivered_messages,
+				}].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
 			size: ProofSize::Minimal(0),
@@ -831,7 +860,10 @@ benchmarks_instance! {
 				relayers: relayers
 					.keys()
 					.enumerate()
-					.map(|(j, relayer_id)| (j as MessageNonce + 1, j as MessageNonce + 1, relayer_id.clone()))
+					.map(|(j, relayer)| UnrewardedRelayer {
+						relayer: relayer.clone(),
+						messages: DeliveredMessages::new(j as MessageNonce + 1, true),
+					})
 					.collect(),
 				last_confirmed_nonce: 0,
 			},
@@ -863,13 +895,29 @@ fn send_regular_message_with_payload<T: Config<I>, I: Instance>(payload: Vec<u8>
 
 fn confirm_message_delivery<T: Config<I>, I: Instance>(nonce: MessageNonce) {
 	let mut outbound_lane = outbound_lane::<T, I>(T::bench_lane_id());
-	assert!(outbound_lane.confirm_delivery(nonce).is_some());
+	let latest_received_nonce = outbound_lane.data().latest_received_nonce;
+	let mut relayers = VecDeque::with_capacity((nonce - latest_received_nonce) as usize);
+	for nonce in latest_received_nonce + 1..=nonce {
+		relayers.push_back(UnrewardedRelayer {
+			relayer: (),
+			messages: DeliveredMessages::new(nonce, true),
+		});
+	}
+	assert!(matches!(
+		outbound_lane.confirm_delivery(nonce, &relayers),
+		ReceivalConfirmationResult::ConfirmedMessages(_),
+	));
 }
 
 fn receive_messages<T: Config<I>, I: Instance>(nonce: MessageNonce) {
 	let mut inbound_lane_storage = inbound_lane_storage::<T, I>(T::bench_lane_id());
 	inbound_lane_storage.set_data(InboundLaneData {
-		relayers: vec![(1, nonce, T::bridged_relayer_id())].into_iter().collect(),
+		relayers: vec![UnrewardedRelayer {
+			relayer: T::bridged_relayer_id(),
+			messages: DeliveredMessages::new(nonce, true),
+		}]
+		.into_iter()
+		.collect(),
 		last_confirmed_nonce: 0,
 	});
 }

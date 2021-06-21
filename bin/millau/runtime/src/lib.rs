@@ -384,6 +384,7 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 		GetDeliveryConfirmationTransactionFee,
 		RootAccountForPayments,
 	>;
+	type OnDeliveryConfirmed = ();
 
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
@@ -702,6 +703,7 @@ mod tests {
 		let max_incoming_inbound_lane_data_proof_size = bp_messages::InboundLaneData::<()>::encoded_size_hint(
 			bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
 			bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE as _,
+			bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE as _,
 		)
 		.unwrap_or(u32::MAX);
 		pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights>(

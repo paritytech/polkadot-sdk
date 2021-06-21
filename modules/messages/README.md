@@ -101,7 +101,14 @@ the `MessageAccepted` event is emitted in the `send_message()` transaction. The 
 message lane identifier and nonce that has been assigned to the message. When a message is delivered
 to the target chain, the `MessagesDelivered` event is emitted from the
 `receive_messages_delivery_proof()` transaction. The `MessagesDelivered` contains the message lane
-identifier and inclusive range of delivered message nonces.
+identifier, inclusive range of delivered message nonces and their single-bit dispatch results.
+
+Please note that the meaning of the 'dispatch result' is determined by the message dispatcher at
+the target chain. For example, in case of immediate call dispatcher it will be the `true` if call
+has been successfully dispatched and `false` if it has only been delivered. This simple mechanism
+built into the messages module allows building basic bridge applications, which only care whether
+their messages have been successfully dispatched or not. More sophisticated applications may use
+their own dispatch result delivery mechanism to deliver something larger than single bit.
 
 ### How to plug-in Messages Module to Send Messages to the Bridged Chain?
 
