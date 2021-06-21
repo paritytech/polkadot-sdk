@@ -491,6 +491,7 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 		GetDeliveryConfirmationTransactionFee,
 		RootAccountForPayments,
 	>;
+	type OnDeliveryConfirmed = ();
 
 	type SourceHeaderChain = crate::millau_messages::Millau;
 	type MessageDispatch = crate::millau_messages::FromMillauMessageDispatch;
@@ -1028,7 +1029,7 @@ impl_runtime_apis! {
 						.map(|event_record| event_record.event)
 						.any(|event| matches!(
 							event,
-							Event::pallet_bridge_dispatch(pallet_bridge_dispatch::Event::<Runtime, _>::MessageDispatched(
+							Event::BridgeDispatch(pallet_bridge_dispatch::Event::<Runtime, _>::MessageDispatched(
 								_, ([0, 0, 0, 0], nonce_from_event), _,
 							)) if nonce_from_event == nonce
 						))
@@ -1144,6 +1145,7 @@ mod tests {
 		let max_incoming_inbound_lane_data_proof_size = bp_messages::InboundLaneData::<()>::encoded_size_hint(
 			bp_rialto::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
 			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE as _,
+			bp_millau::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE as _,
 		)
 		.unwrap_or(u32::MAX);
 		pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights>(

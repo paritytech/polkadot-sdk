@@ -19,13 +19,15 @@
 
 use crate::Config;
 
+use bitvec::prelude::*;
 use bp_messages::{
 	source_chain::{
-		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards, Sender, TargetHeaderChain,
+		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, OnDeliveryConfirmed, RelayersRewards, Sender,
+		TargetHeaderChain,
 	},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
-	Parameter as MessagesParameter,
+	DeliveredMessages, InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
+	Parameter as MessagesParameter, UnrewardedRelayer,
 };
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode};
@@ -169,6 +171,7 @@ impl Config for TestRuntime {
 	type TargetHeaderChain = TestTargetHeaderChain;
 	type LaneMessageVerifier = TestLaneMessageVerifier;
 	type MessageDeliveryAndDispatchPayment = TestMessageDeliveryAndDispatchPayment;
+	type OnDeliveryConfirmed = (TestOnDeliveryConfirmed1, TestOnDeliveryConfirmed2);
 
 	type SourceHeaderChain = TestSourceHeaderChain;
 	type MessageDispatch = TestMessageDispatch;
@@ -345,6 +348,44 @@ impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee> for TestMessag
 	}
 }
 
+/// First on-messages-delivered callback.
+#[derive(Debug)]
+pub struct TestOnDeliveryConfirmed1;
+
+impl TestOnDeliveryConfirmed1 {
+	/// Verify that the callback has been called with given delivered messages.
+	pub fn ensure_called(lane: &LaneId, messages: &DeliveredMessages) {
+		let key = (b"TestOnDeliveryConfirmed1", lane, messages).encode();
+		assert_eq!(frame_support::storage::unhashed::get(&key), Some(true));
+	}
+}
+
+impl OnDeliveryConfirmed for TestOnDeliveryConfirmed1 {
+	fn on_messages_delivered(lane: &LaneId, messages: &DeliveredMessages) {
+		let key = (b"TestOnDeliveryConfirmed1", lane, messages).encode();
+		frame_support::storage::unhashed::put(&key, &true);
+	}
+}
+
+/// Seconde on-messages-delivered callback.
+#[derive(Debug)]
+pub struct TestOnDeliveryConfirmed2;
+
+impl TestOnDeliveryConfirmed2 {
+	/// Verify that the callback has been called with given delivered messages.
+	pub fn ensure_called(lane: &LaneId, messages: &DeliveredMessages) {
+		let key = (b"TestOnDeliveryConfirmed2", lane, messages).encode();
+		assert_eq!(frame_support::storage::unhashed::get(&key), Some(true));
+	}
+}
+
+impl OnDeliveryConfirmed for TestOnDeliveryConfirmed2 {
+	fn on_messages_delivered(lane: &LaneId, messages: &DeliveredMessages) {
+		let key = (b"TestOnDeliveryConfirmed2", lane, messages).encode();
+		frame_support::storage::unhashed::put(&key, &true);
+	}
+}
+
 /// Source header chain that is used in tests.
 #[derive(Debug)]
 pub struct TestSourceHeaderChain;
@@ -421,8 +462,29 @@ pub fn message_data(payload: TestPayload) -> MessageData<TestMessageFee> {
 /// Returns message dispatch result with given unspent weight.
 pub const fn dispatch_result(unspent_weight: Weight) -> MessageDispatchResult {
 	MessageDispatchResult {
+		dispatch_result: true,
 		unspent_weight,
 		dispatch_fee_paid_during_dispatch: true,
+	}
+}
+
+/// Constructs unrewarded relayer entry from nonces range and relayer id.
+pub fn unrewarded_relayer(
+	begin: MessageNonce,
+	end: MessageNonce,
+	relayer: TestRelayer,
+) -> UnrewardedRelayer<TestRelayer> {
+	UnrewardedRelayer {
+		relayer,
+		messages: DeliveredMessages {
+			begin,
+			end,
+			dispatch_results: if end >= begin {
+				bitvec![Msb0, u8; 1; (end - begin + 1) as _]
+			} else {
+				Default::default()
+			},
+		},
 	}
 }
 
