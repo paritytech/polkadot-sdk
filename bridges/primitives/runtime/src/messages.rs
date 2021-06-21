@@ -36,6 +36,12 @@ pub enum DispatchFeePayment {
 /// Message dispatch result.
 #[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq)]
 pub struct MessageDispatchResult {
+	/// Dispatch result flag. This flag is relayed back to the source chain and, generally
+	/// speaking, may bring any (that fits in single bit) information from the dispatcher at
+	/// the target chain to the message submitter at the source chain. If you're using immediate
+	/// call dispatcher, then it'll be result of the dispatch - `true` if dispatch has succeeded
+	/// and `false` otherwise.
+	pub dispatch_result: bool,
 	/// Unspent dispatch weight. This weight that will be deducted from total delivery transaction
 	/// weight, thus reducing the transaction cost. This shall not be zero in (at least) two cases:
 	///

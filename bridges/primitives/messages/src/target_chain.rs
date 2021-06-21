@@ -164,6 +164,7 @@ impl<AccountId, Fee> MessageDispatch<AccountId, Fee> for ForbidInboundMessages {
 
 	fn dispatch(_: &AccountId, _: DispatchMessage<Self::DispatchPayload, Fee>) -> MessageDispatchResult {
 		MessageDispatchResult {
+			dispatch_result: false,
 			unspent_weight: 0,
 			dispatch_fee_paid_during_dispatch: false,
 		}
