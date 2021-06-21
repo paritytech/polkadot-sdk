@@ -363,6 +363,7 @@ fn make_message_details_map<C: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_runtime::messages::DispatchFeePayment;
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
@@ -374,6 +375,7 @@ mod tests {
 				dispatch_weight: 0,
 				size: 0,
 				delivery_and_dispatch_fee: 0,
+				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 			})
 			.collect()
 	}
