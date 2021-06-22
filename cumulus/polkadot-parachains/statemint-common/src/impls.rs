@@ -65,7 +65,7 @@ where
 mod tests {
 	use super::*;
 	use frame_support::traits::FindAuthor;
-	use frame_support::{parameter_types, PalletId};
+	use frame_support::{parameter_types, PalletId, traits::ValidatorRegistration};
 	use frame_system::{limits, EnsureRoot};
 	use polkadot_primitives::v1::AccountId;
 	use sp_core::H256;
@@ -74,6 +74,7 @@ mod tests {
 		traits::{BlakeTwo256, IdentityLookup},
 		Perbill,
 	};
+	use pallet_collator_selection::IdentityCollator;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -145,10 +146,18 @@ mod tests {
 		}
 	}
 
+	pub struct IsRegistered;
+	impl ValidatorRegistration<AccountId> for IsRegistered {
+		fn is_registered(_id: &AccountId) -> bool {
+			true
+		}
+	}
+
 	parameter_types! {
 		pub const PotId: PalletId = PalletId(*b"PotStake");
 		pub const MaxCandidates: u32 = 20;
 		pub const MaxInvulnerables: u32 = 20;
+		pub const MinCandidates: u32 = 1;
 	}
 
 	impl pallet_collator_selection::Config for Test {
@@ -157,7 +166,11 @@ mod tests {
 		type UpdateOrigin = EnsureRoot<AccountId>;
 		type PotId = PotId;
 		type MaxCandidates = MaxCandidates;
+		type MinCandidates = MinCandidates;
 		type MaxInvulnerables = MaxInvulnerables;
+		type ValidatorId = <Self as frame_system::Config>::AccountId;
+		type ValidatorIdOf = IdentityCollator;
+		type ValidatorRegistration = IsRegistered;
 		type KickThreshold = ();
 		type WeightInfo = ();
 	}

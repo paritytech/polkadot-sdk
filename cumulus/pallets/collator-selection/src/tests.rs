@@ -107,6 +107,21 @@ fn cannot_register_candidate_if_too_many() {
 }
 
 #[test]
+fn cannot_unregister_candidate_if_too_few() {
+	new_test_ext().execute_with(|| {
+		// reset desired candidates:
+		<crate::DesiredCandidates<Test>>::put(1);
+		assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(4)));
+
+		// can not remove too few
+		assert_noop!(
+			CollatorSelection::leave_intent(Origin::signed(4)),
+			Error::<Test>::TooFewCandidates,
+		);
+	})
+}
+
+#[test]
 fn cannot_register_as_candidate_if_invulnerable() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
@@ -115,6 +130,17 @@ fn cannot_register_as_candidate_if_invulnerable() {
 		assert_noop!(
 			CollatorSelection::register_as_candidate(Origin::signed(1)),
 			Error::<Test>::AlreadyInvulnerable,
+		);
+	})
+}
+
+#[test]
+fn cannot_register_as_candidate_if_keys_not_registered() {
+	new_test_ext().execute_with(|| {
+		// can't 7 because keys not registered.
+		assert_noop!(
+			CollatorSelection::register_as_candidate(Origin::signed(7)),
+			Error::<Test>::ValidatorNotRegistered
 		);
 	})
 }
@@ -183,6 +209,10 @@ fn leave_intent() {
 		// register a candidate.
 		assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
 		assert_eq!(Balances::free_balance(3), 90);
+
+		// register too so can leave above min candidates
+		assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(5)));
+		assert_eq!(Balances::free_balance(5), 90);
 
 		// cannot leave if not candidate.
 		assert_noop!(
@@ -313,6 +343,34 @@ fn kick_mechanism() {
 		initialize_to_block(30);
 		// 3 gets kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 4]);
+		// kicked collator gets funds back
+		assert_eq!(Balances::free_balance(3), 100);
+	});
+}
+
+#[test]
+fn should_not_kick_mechanism_too_few() {
+	new_test_ext().execute_with(|| {
+		// add a new collator
+		assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
+		assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(5)));
+		initialize_to_block(10);
+		assert_eq!(CollatorSelection::candidates().len(), 2);
+		initialize_to_block(20);
+		assert_eq!(SessionChangeBlock::get(), 20);
+		// 4 authored this block, 5 gets to stay too few 3 was kicked
+		assert_eq!(CollatorSelection::candidates().len(), 1);
+		// 3 will be kicked after 1 session delay
+		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 3, 5]);
+		let collator = CandidateInfo {
+			who: 5,
+			deposit: 10,
+		};
+		assert_eq!(CollatorSelection::candidates(), vec![collator]);
+		assert_eq!(CollatorSelection::last_authored_block(4), 20);
+		initialize_to_block(30);
+		// 3 gets kicked after 1 session delay
+		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 5]);
 		// kicked collator gets funds back
 		assert_eq!(Balances::free_balance(3), 100);
 	});

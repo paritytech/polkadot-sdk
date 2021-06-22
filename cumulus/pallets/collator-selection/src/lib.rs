@@ -41,6 +41,9 @@
 //! The current implementation resolves congestion of [`Candidates`] in a first-come-first-serve
 //! manner.
 //!
+//! Candidates will not be allowed to get kicked or leave_intent if the total number of candidates
+//! fall below MinCandidates. This is for potential disaster recovery scenarios.
+//!
 //! ### Rewards
 //!
 //! The Collator Selection pallet maintains an on-chain account (the "Pot"). In each block, the
@@ -76,7 +79,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		inherent::Vec,
 		traits::{
-			Currency, ReservableCurrency, EnsureOrigin, ExistenceRequirement::KeepAlive,
+			Currency, ReservableCurrency, EnsureOrigin, ExistenceRequirement::KeepAlive, ValidatorRegistration
 		},
 		PalletId,
 	};
@@ -89,6 +92,7 @@ pub mod pallet {
 		},
 		weights::DispatchClass,
 	};
+	use sp_runtime::traits::Convert;
 	use core::ops::Div;
 	use pallet_session::SessionManager;
 	use sp_staking::SessionIndex;
@@ -127,6 +131,12 @@ pub mod pallet {
 		/// This does not take into account the invulnerables.
 		type MaxCandidates: Get<u32>;
 
+		/// Minimum number of candidates that we should have. This is used for disaster recovery.
+		///
+		/// This does not take into account the invulnerables.
+		type MinCandidates: Get<u32>;
+
+
 		/// Maximum number of invulnerables.
 		///
 		/// Used only for benchmarking.
@@ -134,6 +144,18 @@ pub mod pallet {
 
 		// Will be kicked if block is not produced in threshold.
 		type KickThreshold: Get<Self::BlockNumber>;
+
+		/// A stable ID for a validator.
+		type ValidatorId: Member + Parameter;
+
+		/// A conversion from account ID to validator ID.
+		///
+		/// Its cost must be at most one storage read.
+		type ValidatorIdOf: Convert<Self::AccountId, Option<Self::ValidatorId>>;
+
+		/// Validate a user is registered
+		type ValidatorRegistration: ValidatorRegistration<Self::ValidatorId>;
+
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
@@ -238,13 +260,24 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Too many candidates
 		TooManyCandidates,
+		/// Too few candidates
+		TooFewCandidates,
+		/// Unknown error
 		Unknown,
+		/// Permission issue
 		Permission,
+		/// User is already a candidate
 		AlreadyCandidate,
+		/// User is not a candidate
 		NotCandidate,
+		/// User is already an Invulnerable
 		AlreadyInvulnerable,
-		InvalidProof,
+		/// Account has no associated validator ID
+		NoAssociatedValidatorId,
+		/// Validator ID is not yet registered
+		ValidatorNotRegistered
 	}
 
 	#[pallet::hooks]
@@ -300,6 +333,9 @@ pub mod pallet {
 			ensure!((length as u32) < Self::desired_candidates(), Error::<T>::TooManyCandidates);
 			ensure!(!Self::invulnerables().contains(&who), Error::<T>::AlreadyInvulnerable);
 
+			let validator_key = T::ValidatorIdOf::convert(who.clone()).ok_or(Error::<T>::NoAssociatedValidatorId)?;
+			ensure!(T::ValidatorRegistration::is_registered(&validator_key), Error::<T>::ValidatorNotRegistered);
+
 			let deposit = Self::candidacy_bond();
 			// First authored block is current block plus kick threshold to handle session delay
 			let incoming = CandidateInfo { who: who.clone(), deposit };
@@ -323,7 +359,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::leave_intent(T::MaxCandidates::get()))]
 		pub fn leave_intent(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-
+			ensure!(Self::candidates().len() as u32 > T::MinCandidates::get(), Error::<T>::TooFewCandidates);
 			let current_count = Self::try_remove_candidate(&who)?;
 
 			Ok(Some(T::WeightInfo::leave_intent(current_count as u32)).into())
@@ -365,7 +401,7 @@ pub mod pallet {
 			let new_candidates = candidates.into_iter().filter_map(|c| {
 				let last_block = <LastAuthoredBlock<T>>::get(c.who.clone());
 				let since_last = now.saturating_sub(last_block);
-				if since_last < kick_threshold {
+				if since_last < kick_threshold || Self::candidates().len() as u32 <= T::MinCandidates::get() {
 					Some(c.who)
 				} else {
 					let outcome = Self::try_remove_candidate(&c.who);
