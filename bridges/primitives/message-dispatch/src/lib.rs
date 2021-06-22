@@ -102,7 +102,7 @@ pub enum CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainS
 	/// Call is sent by the `SourceChainAccountId` on the source chain. On the target chain it is
 	/// dispatched from a derived account ID.
 	///
-	/// The account ID on the target chain is derived from the source account ID This is useful if
+	/// The account ID on the target chain is derived from the source account ID. This is useful if
 	/// you need a way to represent foreign accounts on this chain for call dispatch purposes.
 	///
 	/// Note that the derived account does not need to have a private key on the target chain. This
