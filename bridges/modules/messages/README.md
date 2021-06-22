@@ -159,7 +159,7 @@ all required traits and will simply reject all transactions, related to outbound
 
 The `pallet_bridge_messages::Config` trait has 2 main associated types that are used to work with
 inbound messages. The `pallet_bridge_messages::Config::SourceHeaderChain` defines how we see the
-bridged chain as the source or our inbound messages. When relayer sends us a  delivery transaction,
+bridged chain as the source or our inbound messages. When relayer sends us a delivery transaction,
 this implementation must be able to parse and verify the proof of messages wrapped in this
 transaction. Normally, you would reuse the same (configurable) type on all chains that are sending
 messages to the same bridged chain.
@@ -201,7 +201,7 @@ message needs to be read. So there's another
 When choosing values for these parameters, you must also keep in mind that if proof in your scheme
 is based on finality of headers (and it is the most obvious option for Substrate-based chains with
 finality notion), then choosing too small values for these parameters may cause significant delays
-in message delivery. That's because there too many actors involved in this scheme: 1) authorities
+in message delivery. That's because there are too many actors involved in this scheme: 1) authorities
 that are finalizing headers of the target chain need to finalize header with non-empty map; 2) the
 headers relayer then needs to submit this header and its finality proof to the source chain; 3) the
 messages relayer must then send confirmation transaction (storage proof of this map) to the source

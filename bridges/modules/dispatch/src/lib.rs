@@ -355,7 +355,7 @@ where
 		}
 		CallOrigin::SourceAccount(ref source_account_id) => {
 			ensure!(
-				sender_origin == &RawOrigin::Signed(source_account_id.clone()),
+				sender_origin == &RawOrigin::Signed(source_account_id.clone()) || sender_origin == &RawOrigin::Root,
 				BadOrigin
 			);
 			Ok(Some(source_account_id.clone()))
@@ -964,10 +964,7 @@ mod tests {
 			Err(BadOrigin)
 		));
 
-		// If we try and send the message from Root, it is also rejected
-		assert!(matches!(
-			verify_message_origin(&RawOrigin::Root, &message),
-			Err(BadOrigin)
-		));
+		// The Root account is allowed to assume any expected origin account
+		assert!(matches!(verify_message_origin(&RawOrigin::Root, &message), Ok(Some(1))));
 	}
 }
