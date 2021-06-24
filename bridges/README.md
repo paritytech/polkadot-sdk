@@ -94,7 +94,7 @@ the `relays` which are used to pass messages between chains.
 │  └──  ...
 ├── relays          // Application for sending headers and messages between chains
 │  └──  ...
-└── scripts         // Useful development and maintenence scripts
+└── scripts         // Useful development and maintenance scripts
 ```
 
 ## Running the Bridge

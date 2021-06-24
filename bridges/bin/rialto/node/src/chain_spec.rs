@@ -143,10 +143,19 @@ impl Alternative {
 								pallet_bridge_messages::DefaultInstance,
 							>::relayer_fund_account_id(),
 							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Alice"),
+							)),
+							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
 								get_account_id_from_seed::<sr25519::Public>("Bob"),
 							)),
 							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Charlie"),
+							)),
+							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
 								get_account_id_from_seed::<sr25519::Public>("Dave"),
+							)),
+							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
+								get_account_id_from_seed::<sr25519::Public>("Eve"),
 							)),
 							derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
 								get_account_id_from_seed::<sr25519::Public>("Ferdie"),

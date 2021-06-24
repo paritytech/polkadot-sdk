@@ -310,12 +310,13 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::AccountId, T::MessageId> for 
 
 		log::trace!(
 			target: "runtime::bridge-dispatch",
-			"Message {:?}/{:?} has been dispatched. Weight: {} of {}. Result: {:?}",
+			"Message {:?}/{:?} has been dispatched. Weight: {} of {}. Result: {:?}. Call dispatch result: {:?}",
 			source_chain,
 			id,
 			dispatch_result.unspent_weight,
 			message.weight,
 			dispatch_result,
+			result,
 		);
 
 		Self::deposit_event(RawEvent::MessageDispatched(
