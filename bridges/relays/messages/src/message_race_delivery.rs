@@ -28,6 +28,7 @@ use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
 use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
+use bp_runtime::messages::DispatchFeePayment;
 use futures::stream::FusedStream;
 use num_traits::{SaturatingAdd, Zero};
 use relay_utils::FailedClient;
@@ -560,6 +561,7 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 	let mut soft_selected_count = 0;
 
 	let mut selected_weight: Weight = 0;
+	let mut selected_unpaid_weight: Weight = 0;
 	let mut selected_size: u32 = 0;
 	let mut selected_count: MessageNonce = 0;
 
@@ -627,6 +629,18 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 			break;
 		}
 
+		// If dispatch fee has been paid at the source chain, it means that it is **relayer** who's
+		// paying for dispatch at the target chain AND reward must cover this dispatch fee.
+		//
+		// If dispatch fee is paid at the target chain, it means that it'll be withdrawn from the
+		// dispatch origin account AND reward is not covering this fee.
+		//
+		// So in the latter case we're not adding the dispatch weight to the delivery transaction weight.
+		let new_selected_unpaid_weight = match details.dispatch_fee_payment {
+			DispatchFeePayment::AtSourceChain => selected_unpaid_weight.saturating_add(details.dispatch_weight),
+			DispatchFeePayment::AtTargetChain => selected_unpaid_weight,
+		};
+
 		// now the message has passed all 'strong' checks, and we CAN deliver it. But do we WANT
 		// to deliver it? It depends on the relayer strategy.
 		match relayer_mode {
@@ -637,7 +651,7 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 				let delivery_transaction_cost = lane_target_client
 					.estimate_delivery_transaction_in_source_tokens(
 						0..=(new_selected_count as MessageNonce - 1),
-						new_selected_weight,
+						new_selected_unpaid_weight,
 						new_selected_size as u32,
 					)
 					.await;
@@ -685,6 +699,7 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 
 		hard_selected_count = index + 1;
 		selected_weight = new_selected_weight;
+		selected_unpaid_weight = new_selected_unpaid_weight;
 		selected_size = new_selected_size;
 		selected_count = new_selected_count;
 	}
@@ -740,13 +755,19 @@ mod tests {
 	use crate::message_lane_loop::{
 		tests::{
 			header_id, TestMessageLane, TestMessagesProof, TestSourceChainBalance, TestSourceClient,
-			TestSourceHeaderId, TestTargetClient, TestTargetHeaderId, CONFIRMATION_TRANSACTION_COST,
-			DELIVERY_TRANSACTION_COST,
+			TestSourceHeaderId, TestTargetClient, TestTargetHeaderId, BASE_MESSAGE_DELIVERY_TRANSACTION_COST,
+			CONFIRMATION_TRANSACTION_COST,
 		},
 		MessageDetails,
 	};
+	use bp_runtime::messages::DispatchFeePayment::*;
 
-	const DEFAULT_REWARD: TestSourceChainBalance = CONFIRMATION_TRANSACTION_COST + DELIVERY_TRANSACTION_COST;
+	const DEFAULT_DISPATCH_WEIGHT: Weight = 1;
+	const DEFAULT_SIZE: u32 = 1;
+	const DEFAULT_REWARD: TestSourceChainBalance = CONFIRMATION_TRANSACTION_COST
+		+ BASE_MESSAGE_DELIVERY_TRANSACTION_COST
+		+ DEFAULT_DISPATCH_WEIGHT
+		+ (DEFAULT_SIZE as TestSourceChainBalance);
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
 	type TestStrategy = MessageDeliveryStrategy<TestMessageLane, TestSourceClient, TestTargetClient>;
@@ -755,6 +776,7 @@ mod tests {
 		new_nonces: RangeInclusive<MessageNonce>,
 		confirmed_nonce: MessageNonce,
 		reward: TestSourceChainBalance,
+		dispatch_fee_payment: DispatchFeePayment,
 	) -> SourceClientNonces<MessageDetailsMap<TestSourceChainBalance>> {
 		SourceClientNonces {
 			new_nonces: new_nonces
@@ -763,9 +785,10 @@ mod tests {
 					(
 						nonce,
 						MessageDetails {
-							dispatch_weight: 1,
-							size: 1,
+							dispatch_weight: DEFAULT_DISPATCH_WEIGHT,
+							size: DEFAULT_SIZE,
 							reward,
+							dispatch_fee_payment,
 						},
 					)
 				})
@@ -811,7 +834,7 @@ mod tests {
 
 		race_strategy
 			.strategy
-			.source_nonces_updated(header_id(1), source_nonces(20..=23, 19, DEFAULT_REWARD));
+			.source_nonces_updated(header_id(1), source_nonces(20..=23, 19, DEFAULT_REWARD, AtSourceChain));
 
 		let target_nonces = TargetClientNonces {
 			latest_nonce: 19,
@@ -845,6 +868,7 @@ mod tests {
 							dispatch_weight: idx,
 							size: idx as _,
 							reward: idx as _,
+							dispatch_fee_payment: AtSourceChain,
 						},
 					)
 				})
@@ -1135,7 +1159,12 @@ mod tests {
 	#[async_std::test]
 	async fn no_losses_relayer_is_not_delivering_messages_if_cost_is_larger_than_reward() {
 		let (mut state, mut strategy) = prepare_strategy();
-		let nonces = source_nonces(24..=25, 19, DEFAULT_REWARD - DELIVERY_TRANSACTION_COST);
+		let nonces = source_nonces(
+			24..=25,
+			19,
+			DEFAULT_REWARD - BASE_MESSAGE_DELIVERY_TRANSACTION_COST,
+			AtSourceChain,
+		);
 		strategy.strategy.source_nonces_updated(header_id(2), nonces);
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
 		strategy.relayer_mode = RelayerMode::NoLosses;
@@ -1151,6 +1180,46 @@ mod tests {
 	}
 
 	#[async_std::test]
+	async fn no_losses_relayer_is_delivering_unpaid_messages() {
+		async fn test_with_dispatch_fee_payment(
+			dispatch_fee_payment: DispatchFeePayment,
+		) -> Option<(RangeInclusive<MessageNonce>, MessageProofParameters)> {
+			let (mut state, mut strategy) = prepare_strategy();
+			let nonces = source_nonces(
+				24..=24,
+				19,
+				DEFAULT_REWARD - DEFAULT_DISPATCH_WEIGHT,
+				dispatch_fee_payment,
+			);
+			strategy.strategy.source_nonces_updated(header_id(2), nonces);
+			state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
+			strategy.max_unrewarded_relayer_entries_at_target = 100;
+			strategy.max_unconfirmed_nonces_at_target = 100;
+			strategy.max_messages_in_single_batch = 100;
+			strategy.max_messages_weight_in_single_batch = 100;
+			strategy.max_messages_size_in_single_batch = 100;
+			strategy.relayer_mode = RelayerMode::NoLosses;
+
+			// so now we have:
+			// - 20..=23 with reward = cost
+			// - 24..=24 with reward less than cost, but we're deducting `DEFAULT_DISPATCH_WEIGHT` from the
+			//   cost, so it should be fine;
+			// => when MSG#24 fee is paid at the target chain, strategy shall select all 20..=24
+			// => when MSG#25 fee is paid at the source chain, strategy shall only select 20..=23
+			strategy.select_nonces_to_deliver(state).await
+		}
+
+		assert_eq!(
+			test_with_dispatch_fee_payment(AtTargetChain).await,
+			Some(((20..=24), proof_parameters(false, 5)))
+		);
+		assert_eq!(
+			test_with_dispatch_fee_payment(AtSourceChain).await,
+			Some(((20..=23), proof_parameters(false, 4)))
+		);
+	}
+
+	#[async_std::test]
 	async fn relayer_uses_flattened_view_of_the_source_queue_to_select_nonces() {
 		// Real scenario that has happened on test deployments:
 		// 1) relayer witnessed M1 at block 1 => it has separate entry in the `source_queue`
@@ -1161,7 +1230,7 @@ mod tests {
 		// This was happening because selector (`select_nonces_for_delivery_transaction`) has been called
 		// for every `source_queue` entry separately without preserving any context.
 		let (mut state, mut strategy) = prepare_strategy();
-		let nonces = source_nonces(24..=25, 19, DEFAULT_REWARD - DELIVERY_TRANSACTION_COST);
+		let nonces = source_nonces(24..=25, 19, DEFAULT_REWARD, AtSourceChain);
 		strategy.strategy.source_nonces_updated(header_id(2), nonces);
 		strategy.max_unrewarded_relayer_entries_at_target = 100;
 		strategy.max_unconfirmed_nonces_at_target = 100;

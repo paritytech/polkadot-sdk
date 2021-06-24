@@ -23,7 +23,7 @@ use crate::on_demand_headers::OnDemandHeadersRelay;
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce};
-use bp_runtime::ChainId;
+use bp_runtime::{messages::DispatchFeePayment, ChainId};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::{Decode, Encode};
 use frame_support::{traits::Instance, weights::Weight};
@@ -351,6 +351,7 @@ fn make_message_details_map<C: Chain>(
 				size: details.size as _,
 				// TODO: https://github.com/paritytech/parity-bridges-common/issues/997
 				reward: num_traits::Zero::zero(),
+				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 			},
 		);
 		expected_nonce = details.nonce + 1;
@@ -363,7 +364,6 @@ fn make_message_details_map<C: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_runtime::messages::DispatchFeePayment;
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
@@ -390,7 +390,8 @@ mod tests {
 					MessageDetails {
 						dispatch_weight: 0,
 						size: 0,
-						reward: 0
+						reward: 0,
+						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 					}
 				),
 				(
@@ -398,7 +399,8 @@ mod tests {
 					MessageDetails {
 						dispatch_weight: 0,
 						size: 0,
-						reward: 0
+						reward: 0,
+						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 					}
 				),
 				(
@@ -406,7 +408,8 @@ mod tests {
 					MessageDetails {
 						dispatch_weight: 0,
 						size: 0,
-						reward: 0
+						reward: 0,
+						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 					}
 				),
 			]
@@ -425,7 +428,8 @@ mod tests {
 					MessageDetails {
 						dispatch_weight: 0,
 						size: 0,
-						reward: 0
+						reward: 0,
+						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 					}
 				),
 				(
@@ -433,7 +437,8 @@ mod tests {
 					MessageDetails {
 						dispatch_weight: 0,
 						size: 0,
-						reward: 0
+						reward: 0,
+						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 					}
 				),
 			]

@@ -31,6 +31,7 @@ use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
+use bp_runtime::messages::DispatchFeePayment;
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
 use relay_utils::{
 	interval,
@@ -97,6 +98,8 @@ pub struct MessageDetails<SourceChainBalance> {
 	pub size: u32,
 	/// The relayer reward paid in the source chain tokens.
 	pub reward: SourceChainBalance,
+	/// Where the fee for dispatching message is paid?
+	pub dispatch_fee_payment: DispatchFeePayment,
 }
 
 /// Messages details map.
@@ -454,7 +457,7 @@ pub(crate) mod tests {
 	}
 
 	pub const CONFIRMATION_TRANSACTION_COST: TestSourceChainBalance = 1;
-	pub const DELIVERY_TRANSACTION_COST: TestSourceChainBalance = 1;
+	pub const BASE_MESSAGE_DELIVERY_TRANSACTION_COST: TestSourceChainBalance = 1;
 
 	pub type TestSourceChainBalance = u64;
 	pub type TestSourceHeaderId = HeaderId<TestSourceHeaderNumber, TestSourceHeaderHash>;
@@ -590,6 +593,7 @@ pub(crate) mod tests {
 							dispatch_weight: 1,
 							size: 1,
 							reward: 1,
+							dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 						},
 					)
 				})
@@ -768,11 +772,13 @@ pub(crate) mod tests {
 
 		async fn estimate_delivery_transaction_in_source_tokens(
 			&self,
-			_nonces: RangeInclusive<MessageNonce>,
-			_total_dispatch_weight: Weight,
+			nonces: RangeInclusive<MessageNonce>,
+			total_dispatch_weight: Weight,
 			total_size: u32,
 		) -> TestSourceChainBalance {
-			DELIVERY_TRANSACTION_COST * (total_size as TestSourceChainBalance)
+			BASE_MESSAGE_DELIVERY_TRANSACTION_COST * (nonces.end() - nonces.start() + 1)
+				+ total_dispatch_weight
+				+ total_size as TestSourceChainBalance
 		}
 	}
 
