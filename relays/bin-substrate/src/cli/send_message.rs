@@ -24,7 +24,7 @@ use crate::cli::{
 use bp_message_dispatch::{CallOrigin, MessagePayload};
 use bp_runtime::messages::DispatchFeePayment;
 use codec::Encode;
-use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+use frame_support::weights::Weight;
 use relay_substrate_client::{Chain, TransactionSignScheme};
 use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSignature, MultiSigner};
@@ -89,7 +89,7 @@ impl SendMessage {
 			let payload = {
 				let target_call_weight = prepare_call_dispatch_weight(
 					dispatch_weight,
-					ExplicitOrMaximal::Explicit(target_call.get_dispatch_info().weight),
+					ExplicitOrMaximal::Explicit(Target::get_dispatch_info(&target_call)?.weight),
 					compute_maximal_message_dispatch_weight(Target::max_extrinsic_weight()),
 				);
 				let source_sender_public: MultiSigner = source_sign.public().into();

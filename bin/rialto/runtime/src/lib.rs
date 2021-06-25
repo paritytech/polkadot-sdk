@@ -915,10 +915,10 @@ impl_runtime_apis! {
 				fn prepare_message_proof(
 					params: MessageProofParams,
 				) -> (millau_messages::FromMillauMessagesProof, Weight) {
-					use crate::millau_messages::{Millau, WithMillauMessageBridge};
+					use crate::millau_messages::WithMillauMessageBridge;
 					use bp_messages::MessageKey;
 					use bridge_runtime_common::{
-						messages::ChainWithMessages,
+						messages::MessageBridge,
 						messages_benchmarking::{ed25519_sign, prepare_message_proof},
 					};
 					use codec::Encode;
@@ -951,13 +951,12 @@ impl_runtime_apis! {
 					}
 
 					let make_millau_message_key = |message_key: MessageKey| storage_keys::message_key::<
-						Runtime,
-						<Millau as ChainWithMessages>::MessagesInstance,
+						<WithMillauMessageBridge as MessageBridge>::BridgedMessagesInstance,
 					>(
 						&message_key.lane_id, message_key.nonce,
 					).0;
 					let make_millau_outbound_lane_data_key = |lane_id| storage_keys::outbound_lane_data_key::<
-						<Millau as ChainWithMessages>::MessagesInstance,
+						<WithMillauMessageBridge as MessageBridge>::BridgedMessagesInstance,
 					>(
 						&lane_id,
 					).0;
@@ -998,18 +997,14 @@ impl_runtime_apis! {
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<Self::AccountId>,
 				) -> millau_messages::ToMillauMessagesDeliveryProof {
-					use crate::millau_messages::{Millau, WithMillauMessageBridge};
-					use bridge_runtime_common::{
-						messages::ChainWithMessages,
-						messages_benchmarking::prepare_message_delivery_proof,
-					};
+					use crate::millau_messages::WithMillauMessageBridge;
+					use bridge_runtime_common::{messages_benchmarking::prepare_message_delivery_proof};
 					use sp_runtime::traits::Header;
 
 					prepare_message_delivery_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, (), _, _>(
 						params,
 						|lane_id| pallet_bridge_messages::storage_keys::inbound_lane_data_key::<
-							Runtime,
-							<Millau as ChainWithMessages>::MessagesInstance,
+							<WithMillauMessageBridge as MessageBridge>::BridgedMessagesInstance,
 						>(
 							&lane_id,
 						).0,

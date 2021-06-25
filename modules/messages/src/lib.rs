@@ -755,24 +755,38 @@ impl<T: Config<I>, I: Instance> Pallet<T, I> {
 /// trying to avoid here) - by using strings like "Instance2", "OutboundMessages", etc.
 pub mod storage_keys {
 	use super::*;
-	use frame_support::storage::generator::StorageMap;
+	use frame_support::{traits::Instance, StorageHasher};
 	use sp_core::storage::StorageKey;
 
 	/// Storage key of the outbound message in the runtime storage.
-	pub fn message_key<T: Config<I>, I: Instance>(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
-		let message_key = MessageKey { lane_id: *lane, nonce };
-		let raw_storage_key = OutboundMessages::<T, I>::storage_map_final_key(message_key);
-		StorageKey(raw_storage_key)
+	pub fn message_key<I: Instance>(lane: &LaneId, nonce: MessageNonce) -> StorageKey {
+		storage_map_final_key::<I>("OutboundMessages", &MessageKey { lane_id: *lane, nonce }.encode())
 	}
 
 	/// Storage key of the outbound message lane state in the runtime storage.
 	pub fn outbound_lane_data_key<I: Instance>(lane: &LaneId) -> StorageKey {
-		StorageKey(OutboundLanes::<I>::storage_map_final_key(*lane))
+		storage_map_final_key::<I>("OutboundLanes", lane)
 	}
 
 	/// Storage key of the inbound message lane state in the runtime storage.
-	pub fn inbound_lane_data_key<T: Config<I>, I: Instance>(lane: &LaneId) -> StorageKey {
-		StorageKey(InboundLanes::<T, I>::storage_map_final_key(*lane))
+	pub fn inbound_lane_data_key<I: Instance>(lane: &LaneId) -> StorageKey {
+		storage_map_final_key::<I>("InboundLanes", lane)
+	}
+
+	/// This is a copypaste of the `frame_support::storage::generator::StorageMap::storage_map_final_key`.
+	fn storage_map_final_key<I: Instance>(map_name: &str, key: &[u8]) -> StorageKey {
+		let module_prefix_hashed = frame_support::Twox128::hash(I::PREFIX.as_bytes());
+		let storage_prefix_hashed = frame_support::Twox128::hash(map_name.as_bytes());
+		let key_hashed = frame_support::Blake2_128Concat::hash(key);
+
+		let mut final_key =
+			Vec::with_capacity(module_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.len());
+
+		final_key.extend_from_slice(&module_prefix_hashed[..]);
+		final_key.extend_from_slice(&storage_prefix_hashed[..]);
+		final_key.extend_from_slice(key_hashed.as_ref());
+
+		StorageKey(final_key)
 	}
 }
 
@@ -1685,7 +1699,7 @@ mod tests {
 	fn storage_message_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking all
 		// previously crafted messages proofs.
-		let storage_key = storage_keys::message_key::<TestRuntime, DefaultInstance>(&*b"test", 42).0;
+		let storage_key = storage_keys::message_key::<DefaultInstance>(&*b"test", 42).0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed018a395e6242c6813b196ca31ed0547ea79446af0e09063bd4a7874aef8a997cec746573742a00000000000000").to_vec(),
@@ -1711,7 +1725,7 @@ mod tests {
 	fn inbound_lane_data_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking all
 		// previously crafted inbound lane state proofs.
-		let storage_key = storage_keys::inbound_lane_data_key::<TestRuntime, DefaultInstance>(&*b"test").0;
+		let storage_key = storage_keys::inbound_lane_data_key::<DefaultInstance>(&*b"test").0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed01e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374").to_vec(),

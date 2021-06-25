@@ -22,6 +22,8 @@ use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
 
+pub mod runtime;
+
 /// Rococo header id.
 pub type HeaderId = relay_utils::HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>;
 
@@ -46,7 +48,7 @@ impl Chain for Rococo {
 	type AccountId = bp_rococo::AccountId;
 	type Index = bp_rococo::Index;
 	type SignedBlock = bp_rococo::SignedBlock;
-	type Call = bp_rococo::Call;
+	type Call = crate::runtime::Call;
 	type Balance = bp_rococo::Balance;
 }
 
@@ -59,7 +61,7 @@ impl ChainWithBalances for Rococo {
 impl TransactionSignScheme for Rococo {
 	type Chain = Rococo;
 	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction = bp_rococo::UncheckedExtrinsic;
+	type SignedTransaction = crate::runtime::UncheckedExtrinsic;
 
 	fn sign_transaction(
 		genesis_hash: <Self::Chain as ChainBase>::Hash,

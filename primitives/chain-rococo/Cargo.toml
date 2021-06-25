@@ -11,7 +11,6 @@ parity-scale-codec = { version = "2.0.0", default-features = false, features = [
 smallvec = "1.6"
 
 # Bridge Dependencies
-bp-header-chain = { path = "../header-chain", default-features = false }
 bp-messages = { path = "../messages", default-features = false }
 bp-polkadot-core = { path = "../polkadot-core", default-features = false }
 bp-runtime = { path = "../runtime", default-features = false }
@@ -26,7 +25,6 @@ sp-version = { git = "https://github.com/paritytech/substrate", branch = "master
 [features]
 default = ["std"]
 std = [
-	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-polkadot-core/std",
 	"bp-runtime/std",

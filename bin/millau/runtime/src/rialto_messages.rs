@@ -52,7 +52,7 @@ pub type ToRialtoMessageVerifier = messages::source::FromThisChainMessageVerifie
 pub type FromRialtoMessagePayload = messages::target::FromBridgedChainMessagePayload<WithRialtoMessageBridge>;
 
 /// Encoded Millau Call as it comes from Rialto.
-pub type FromRialtoEncodedCall = messages::target::FromBridgedChainEncodedMessageCall<WithRialtoMessageBridge>;
+pub type FromRialtoEncodedCall = messages::target::FromBridgedChainEncodedMessageCall<crate::Call>;
 
 /// Messages proof for Rialto -> Millau messages.
 type FromRialtoMessagesProof = messages::target::FromBridgedChainMessagesProof<bp_rialto::Hash>;
@@ -74,9 +74,12 @@ pub struct WithRialtoMessageBridge;
 
 impl MessageBridge for WithRialtoMessageBridge {
 	const RELAYER_FEE_PERCENT: u32 = 10;
+	const THIS_CHAIN_ID: ChainId = MILLAU_CHAIN_ID;
+	const BRIDGED_CHAIN_ID: ChainId = RIALTO_CHAIN_ID;
 
 	type ThisChain = Millau;
 	type BridgedChain = Rialto;
+	type BridgedMessagesInstance = crate::WithRialtoMessagesInstance;
 
 	fn bridged_balance_to_this_balance(bridged_balance: bp_rialto::Balance) -> bp_millau::Balance {
 		bp_millau::Balance::try_from(RialtoToMillauConversionRate::get().saturating_mul_int(bridged_balance))
@@ -89,16 +92,12 @@ impl MessageBridge for WithRialtoMessageBridge {
 pub struct Millau;
 
 impl messages::ChainWithMessages for Millau {
-	const ID: ChainId = MILLAU_CHAIN_ID;
-
 	type Hash = bp_millau::Hash;
 	type AccountId = bp_millau::AccountId;
 	type Signer = bp_millau::AccountSigner;
 	type Signature = bp_millau::Signature;
 	type Weight = Weight;
 	type Balance = bp_millau::Balance;
-
-	type MessagesInstance = crate::WithRialtoMessagesInstance;
 }
 
 impl messages::ThisChainWithMessages for Millau {
@@ -145,16 +144,12 @@ impl messages::ThisChainWithMessages for Millau {
 pub struct Rialto;
 
 impl messages::ChainWithMessages for Rialto {
-	const ID: ChainId = RIALTO_CHAIN_ID;
-
 	type Hash = bp_rialto::Hash;
 	type AccountId = bp_rialto::AccountId;
 	type Signer = bp_rialto::AccountSigner;
 	type Signature = bp_rialto::Signature;
 	type Weight = Weight;
 	type Balance = bp_rialto::Balance;
-
-	type MessagesInstance = pallet_bridge_messages::DefaultInstance;
 }
 
 impl messages::BridgedChainWithMessages for Rialto {

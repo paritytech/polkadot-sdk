@@ -21,7 +21,6 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
-use bp_runtime::Chain;
 use frame_support::weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
@@ -31,7 +30,12 @@ pub use bp_polkadot_core::*;
 /// Rococo Chain
 pub type Rococo = PolkadotLike;
 
-pub type UncheckedExtrinsic = bp_polkadot_core::UncheckedExtrinsic<Call>;
+/// The target length of a session (how often authorities change) on Westend measured in of number of
+/// blocks.
+///
+/// Note that since this is a target sessions may change before/after this time depending on network
+/// conditions.
+pub const SESSION_LENGTH: BlockNumber = 10 * time_units::MINUTES;
 
 // NOTE: This needs to be kept up to date with the Rococo runtime found in the Polkadot repo.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -61,44 +65,11 @@ impl WeightToFeePolynomial for WeightToFee {
 	}
 }
 
-/// Rococo Runtime `Call` enum.
-///
-/// The enum represents a subset of possible `Call`s we can send to Rococo chain.
-/// Ideally this code would be auto-generated from Metadata, because we want to
-/// avoid depending directly on the ENTIRE runtime just to get the encoding of `Dispatchable`s.
-///
-/// All entries here (like pretty much in the entire file) must be kept in sync with Rococo
-/// `construct_runtime`, so that we maintain SCALE-compatibility.
-///
-/// See: https://github.com/paritytech/polkadot/blob/master/runtime/rococo/src/lib.rs
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
-pub enum Call {
-	/// Wococo bridge pallet.
-	#[codec(index = 41)]
-	BridgeGrandpaWococo(BridgeGrandpaWococoCall),
-}
-
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
-#[allow(non_camel_case_types)]
-pub enum BridgeGrandpaWococoCall {
-	#[codec(index = 0)]
-	submit_finality_proof(
-		<PolkadotLike as Chain>::Header,
-		bp_header_chain::justification::GrandpaJustification<<PolkadotLike as Chain>::Header>,
-	),
-	#[codec(index = 1)]
-	initialize(bp_header_chain::InitializationData<<PolkadotLike as Chain>::Header>),
-}
-
-impl sp_runtime::traits::Dispatchable for Call {
-	type Origin = ();
-	type Config = ();
-	type Info = ();
-	type PostInfo = ();
-
-	fn dispatch(self, _origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
-		unimplemented!("The Call is not expected to be dispatched.")
-	}
+// We use this to get the account on Rococo (target) which is derived from Wococo's (source)
+// account.
+pub fn derive_account_from_wococo_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
+	let encoded_id = bp_runtime::derive_account_id(bp_runtime::WOCOCO_CHAIN_ID, id);
+	AccountIdConverter::convert(encoded_id)
 }
 
 /// Name of the `RococoFinalityApi::best_finalized` runtime method.
