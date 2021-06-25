@@ -32,7 +32,6 @@ use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{TargetClient, TargetClientState},
 };
-use pallet_bridge_messages::Config as MessagesConfig;
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf};
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase};
 use sp_core::Bytes;
@@ -46,16 +45,16 @@ pub type SubstrateMessagesReceivingProof<C> = (
 );
 
 /// Substrate client as Substrate messages target.
-pub struct SubstrateMessagesTarget<C: Chain, P: SubstrateMessageLane, R, I> {
+pub struct SubstrateMessagesTarget<C: Chain, P: SubstrateMessageLane, I> {
 	client: Client<C>,
 	lane: P,
 	lane_id: LaneId,
 	instance: ChainId,
 	source_to_target_headers_relay: Option<OnDemandHeadersRelay<P::SourceChain>>,
-	_phantom: PhantomData<(R, I)>,
+	_phantom: PhantomData<I>,
 }
 
-impl<C: Chain, P: SubstrateMessageLane, R, I> SubstrateMessagesTarget<C, P, R, I> {
+impl<C: Chain, P: SubstrateMessageLane, I> SubstrateMessagesTarget<C, P, I> {
 	/// Create new Substrate headers target.
 	pub fn new(
 		client: Client<C>,
@@ -75,7 +74,7 @@ impl<C: Chain, P: SubstrateMessageLane, R, I> SubstrateMessagesTarget<C, P, R, I
 	}
 }
 
-impl<C: Chain, P: SubstrateMessageLane, R, I> Clone for SubstrateMessagesTarget<C, P, R, I> {
+impl<C: Chain, P: SubstrateMessageLane, I> Clone for SubstrateMessagesTarget<C, P, I> {
 	fn clone(&self) -> Self {
 		Self {
 			client: self.client.clone(),
@@ -89,11 +88,10 @@ impl<C: Chain, P: SubstrateMessageLane, R, I> Clone for SubstrateMessagesTarget<
 }
 
 #[async_trait]
-impl<C, P, R, I> RelayClient for SubstrateMessagesTarget<C, P, R, I>
+impl<C, P, I> RelayClient for SubstrateMessagesTarget<C, P, I>
 where
 	C: Chain,
 	P: SubstrateMessageLane,
-	R: 'static + Send + Sync,
 	I: Send + Sync + Instance,
 {
 	type Error = SubstrateError;
@@ -104,7 +102,7 @@ where
 }
 
 #[async_trait]
-impl<C, P, R, I> TargetClient<P> for SubstrateMessagesTarget<C, P, R, I>
+impl<C, P, I> TargetClient<P> for SubstrateMessagesTarget<C, P, I>
 where
 	C: Chain,
 	C::Header: DeserializeOwned,
@@ -119,7 +117,6 @@ where
 	P::SourceChain: Chain<Hash = P::SourceHeaderHash, BlockNumber = P::SourceHeaderNumber>,
 	P::SourceHeaderNumber: Decode,
 	P::SourceHeaderHash: Decode,
-	R: Send + Sync + MessagesConfig<I>,
 	I: Send + Sync + Instance,
 {
 	async fn state(&self) -> Result<TargetClientState<P>, SubstrateError> {
@@ -190,7 +187,7 @@ where
 		id: TargetHeaderIdOf<P>,
 	) -> Result<(TargetHeaderIdOf<P>, P::MessagesReceivingProof), SubstrateError> {
 		let (id, relayers_state) = self.unrewarded_relayers_state(id).await?;
-		let inbound_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key::<R, I>(&self.lane_id);
+		let inbound_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key::<I>(&self.lane_id);
 		let proof = self
 			.client
 			.prove_storage(vec![inbound_data_key], id.1)
