@@ -278,7 +278,7 @@ mod tests {
 			payload,
 			MessagePayload {
 				spec_version: relay_millau_client::Millau::RUNTIME_VERSION.spec_version,
-				weight: 1345000,
+				weight: 1038000,
 				origin: CallOrigin::SourceAccount(sp_keyring::AccountKeyring::Alice.to_account_id()),
 				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 				call: hex!("0401081234").to_vec(),
@@ -318,7 +318,7 @@ mod tests {
 			payload,
 			MessagePayload {
 				spec_version: relay_millau_client::Millau::RUNTIME_VERSION.spec_version,
-				weight: 1345000,
+				weight: 1038000,
 				origin: CallOrigin::TargetAccount(
 					sp_keyring::AccountKeyring::Alice.to_account_id(),
 					sp_keyring::AccountKeyring::Bob.into(),
