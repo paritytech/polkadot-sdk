@@ -49,10 +49,17 @@ pub trait MessageBridge {
 	/// Relayer interest (in percents).
 	const RELAYER_FEE_PERCENT: u32;
 
+	/// Identifier of this chain.
+	const THIS_CHAIN_ID: ChainId;
+	/// Identifier of the Bridged chain.
+	const BRIDGED_CHAIN_ID: ChainId;
+
 	/// This chain in context of message bridge.
 	type ThisChain: ThisChainWithMessages;
 	/// Bridged chain in context of message bridge.
 	type BridgedChain: BridgedChainWithMessages;
+	/// Instance of the `pallet-bridge-messages` pallet at the Bridged chain.
+	type BridgedMessagesInstance: Instance;
 
 	/// Convert Bridged chain balance into This chain balance.
 	fn bridged_balance_to_this_balance(bridged_balance: BalanceOf<BridgedChain<Self>>) -> BalanceOf<ThisChain<Self>>;
@@ -60,9 +67,6 @@ pub trait MessageBridge {
 
 /// Chain that has `pallet-bridge-messages` and `dispatch` modules.
 pub trait ChainWithMessages {
-	/// Identifier of this chain.
-	const ID: ChainId;
-
 	/// Hash used in the chain.
 	type Hash: Decode;
 	/// Accound id on the chain.
@@ -78,9 +82,6 @@ pub trait ChainWithMessages {
 	type Weight: From<frame_support::weights::Weight> + PartialOrd;
 	/// Type of balances that is used on the chain.
 	type Balance: Encode + Decode + CheckedAdd + CheckedDiv + CheckedMul + PartialOrd + From<u32> + Copy;
-
-	/// Instance of the `pallet-bridge-messages` pallet.
-	type MessagesInstance: Instance;
 }
 
 /// Message related transaction parameters estimation.
@@ -147,7 +148,6 @@ pub(crate) type SignerOf<C> = <C as ChainWithMessages>::Signer;
 pub(crate) type SignatureOf<C> = <C as ChainWithMessages>::Signature;
 pub(crate) type WeightOf<C> = <C as ChainWithMessages>::Weight;
 pub(crate) type BalanceOf<C> = <C as ChainWithMessages>::Balance;
-pub(crate) type MessagesInstanceOf<C> = <C as ChainWithMessages>::MessagesInstance;
 
 pub(crate) type CallOf<C> = <C as ThisChainWithMessages>::Call;
 
@@ -376,7 +376,6 @@ pub mod source {
 	) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<B>, &'static str>
 	where
 		ThisRuntime: pallet_bridge_grandpa::Config<GrandpaInstance>,
-		ThisRuntime: pallet_bridge_messages::Config<MessagesInstanceOf<BridgedChain<B>>>,
 		HashOf<BridgedChain<B>>:
 			Into<bp_runtime::HashOf<<ThisRuntime as pallet_bridge_grandpa::Config<GrandpaInstance>>::BridgedChain>>,
 	{
@@ -391,10 +390,8 @@ pub mod source {
 			|storage| {
 				// Messages delivery proof is just proof of single storage key read => any error
 				// is fatal.
-				let storage_inbound_lane_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key::<
-					ThisRuntime,
-					MessagesInstanceOf<BridgedChain<B>>,
-				>(&lane);
+				let storage_inbound_lane_data_key =
+					pallet_bridge_messages::storage_keys::inbound_lane_data_key::<B::BridgedMessagesInstance>(&lane);
 				let raw_inbound_lane_data = storage
 					.read_value(storage_inbound_lane_data_key.0.as_ref())
 					.map_err(|_| "Failed to read inbound lane state from storage proof")?
@@ -425,7 +422,7 @@ pub mod target {
 		AccountIdOf<BridgedChain<B>>,
 		SignerOf<ThisChain<B>>,
 		SignatureOf<ThisChain<B>>,
-		FromBridgedChainEncodedMessageCall<B>,
+		FromBridgedChainEncodedMessageCall<CallOf<ThisChain<B>>>,
 	>;
 
 	/// Messages proof from bridged chain:
@@ -463,12 +460,12 @@ pub mod target {
 	/// Our Call is opaque (`Vec<u8>`) for Bridged chain. So it is encoded, prefixed with
 	/// vector length. Custom decode implementation here is exactly to deal with this.
 	#[derive(Decode, Encode, RuntimeDebug, PartialEq)]
-	pub struct FromBridgedChainEncodedMessageCall<B> {
+	pub struct FromBridgedChainEncodedMessageCall<DecodedCall> {
 		encoded_call: Vec<u8>,
-		_marker: PhantomData<B>,
+		_marker: PhantomData<DecodedCall>,
 	}
 
-	impl<B: MessageBridge> FromBridgedChainEncodedMessageCall<B> {
+	impl<DecodedCall> FromBridgedChainEncodedMessageCall<DecodedCall> {
 		/// Create encoded call.
 		pub fn new(encoded_call: Vec<u8>) -> Self {
 			FromBridgedChainEncodedMessageCall {
@@ -478,9 +475,9 @@ pub mod target {
 		}
 	}
 
-	impl<B: MessageBridge> From<FromBridgedChainEncodedMessageCall<B>> for Result<CallOf<ThisChain<B>>, ()> {
-		fn from(encoded_call: FromBridgedChainEncodedMessageCall<B>) -> Self {
-			CallOf::<ThisChain<B>>::decode(&mut &encoded_call.encoded_call[..]).map_err(drop)
+	impl<DecodedCall: Decode> From<FromBridgedChainEncodedMessageCall<DecodedCall>> for Result<DecodedCall, ()> {
+		fn from(encoded_call: FromBridgedChainEncodedMessageCall<DecodedCall>) -> Self {
+			DecodedCall::decode(&mut &encoded_call.encoded_call[..]).map_err(drop)
 		}
 	}
 
@@ -523,8 +520,8 @@ pub mod target {
 		) -> MessageDispatchResult {
 			let message_id = (message.key.lane_id, message.key.nonce);
 			pallet_bridge_dispatch::Pallet::<ThisRuntime, ThisDispatchInstance>::dispatch(
-				B::BridgedChain::ID,
-				B::ThisChain::ID,
+				B::BRIDGED_CHAIN_ID,
+				B::THIS_CHAIN_ID,
 				message_id,
 				message.data.payload.map_err(drop),
 				|dispatch_origin, dispatch_weight| {
@@ -561,7 +558,7 @@ pub mod target {
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, &'static str>
 	where
 		ThisRuntime: pallet_bridge_grandpa::Config<GrandpaInstance>,
-		ThisRuntime: pallet_bridge_messages::Config<MessagesInstanceOf<BridgedChain<B>>>,
+		ThisRuntime: pallet_bridge_messages::Config<B::BridgedMessagesInstance>,
 		HashOf<BridgedChain<B>>:
 			Into<bp_runtime::HashOf<<ThisRuntime as pallet_bridge_grandpa::Config<GrandpaInstance>>::BridgedChain>>,
 	{
@@ -574,7 +571,7 @@ pub mod target {
 					StorageProof::new(bridged_storage_proof),
 					|storage_adapter| storage_adapter,
 				)
-				.map(|storage| StorageProofCheckerAdapter::<_, B, ThisRuntime> {
+				.map(|storage| StorageProofCheckerAdapter::<_, B> {
 					storage,
 					_dummy: Default::default(),
 				})
@@ -614,31 +611,29 @@ pub mod target {
 		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>>;
 	}
 
-	struct StorageProofCheckerAdapter<H: Hasher, B, ThisRuntime> {
+	struct StorageProofCheckerAdapter<H: Hasher, B> {
 		storage: StorageProofChecker<H>,
-		_dummy: sp_std::marker::PhantomData<(B, ThisRuntime)>,
+		_dummy: sp_std::marker::PhantomData<B>,
 	}
 
-	impl<H, B, ThisRuntime> MessageProofParser for StorageProofCheckerAdapter<H, B, ThisRuntime>
+	impl<H, B> MessageProofParser for StorageProofCheckerAdapter<H, B>
 	where
 		H: Hasher,
 		B: MessageBridge,
-		ThisRuntime: pallet_bridge_messages::Config<MessagesInstanceOf<BridgedChain<B>>>,
 	{
 		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>> {
-			let storage_outbound_lane_data_key = pallet_bridge_messages::storage_keys::outbound_lane_data_key::<
-				MessagesInstanceOf<BridgedChain<B>>,
-			>(lane_id);
+			let storage_outbound_lane_data_key =
+				pallet_bridge_messages::storage_keys::outbound_lane_data_key::<B::BridgedMessagesInstance>(lane_id);
 			self.storage
 				.read_value(storage_outbound_lane_data_key.0.as_ref())
 				.ok()?
 		}
 
 		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>> {
-			let storage_message_key = pallet_bridge_messages::storage_keys::message_key::<
-				ThisRuntime,
-				MessagesInstanceOf<BridgedChain<B>>,
-			>(&message_key.lane_id, message_key.nonce);
+			let storage_message_key = pallet_bridge_messages::storage_keys::message_key::<B::BridgedMessagesInstance>(
+				&message_key.lane_id,
+				message_key.nonce,
+			);
 			self.storage.read_value(storage_message_key.0.as_ref()).ok()?
 		}
 	}
@@ -743,9 +738,12 @@ mod tests {
 
 	impl MessageBridge for OnThisChainBridge {
 		const RELAYER_FEE_PERCENT: u32 = 10;
+		const THIS_CHAIN_ID: ChainId = *b"this";
+		const BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 
 		type ThisChain = ThisChain;
 		type BridgedChain = BridgedChain;
+		type BridgedMessagesInstance = pallet_bridge_messages::DefaultInstance;
 
 		fn bridged_balance_to_this_balance(bridged_balance: BridgedChainBalance) -> ThisChainBalance {
 			ThisChainBalance(bridged_balance.0 * BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE as u32)
@@ -758,9 +756,12 @@ mod tests {
 
 	impl MessageBridge for OnBridgedChainBridge {
 		const RELAYER_FEE_PERCENT: u32 = 20;
+		const THIS_CHAIN_ID: ChainId = *b"brdg";
+		const BRIDGED_CHAIN_ID: ChainId = *b"this";
 
 		type ThisChain = BridgedChain;
 		type BridgedChain = ThisChain;
+		type BridgedMessagesInstance = pallet_bridge_messages::DefaultInstance;
 
 		fn bridged_balance_to_this_balance(_this_balance: ThisChainBalance) -> BridgedChainBalance {
 			unreachable!()
@@ -857,16 +858,12 @@ mod tests {
 	struct ThisChain;
 
 	impl ChainWithMessages for ThisChain {
-		const ID: ChainId = *b"this";
-
 		type Hash = ();
 		type AccountId = ThisChainAccountId;
 		type Signer = ThisChainSigner;
 		type Signature = ThisChainSignature;
 		type Weight = frame_support::weights::Weight;
 		type Balance = ThisChainBalance;
-
-		type MessagesInstance = pallet_bridge_messages::DefaultInstance;
 	}
 
 	impl ThisChainWithMessages for ThisChain {
@@ -917,16 +914,12 @@ mod tests {
 	struct BridgedChain;
 
 	impl ChainWithMessages for BridgedChain {
-		const ID: ChainId = *b"brdg";
-
 		type Hash = ();
 		type AccountId = BridgedChainAccountId;
 		type Signer = BridgedChainSigner;
 		type Signature = BridgedChainSignature;
 		type Weight = frame_support::weights::Weight;
 		type Balance = BridgedChainBalance;
-
-		type MessagesInstance = pallet_bridge_messages::DefaultInstance;
 	}
 
 	impl ThisChainWithMessages for BridgedChain {
@@ -1002,7 +995,7 @@ mod tests {
 				weight: 100,
 				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
-				call: target::FromBridgedChainEncodedMessageCall::<OnThisChainBridge>::new(
+				call: target::FromBridgedChainEncodedMessageCall::<ThisChainCall>::new(
 					ThisChainCall::Transfer.encode(),
 				),
 			}

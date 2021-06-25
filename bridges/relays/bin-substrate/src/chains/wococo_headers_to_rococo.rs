@@ -67,10 +67,9 @@ impl SubstrateFinalitySyncPipeline for WococoFinalityToRococo {
 		header: WococoSyncHeader,
 		proof: GrandpaJustification<bp_wococo::Header>,
 	) -> Bytes {
-		let call = bp_rococo::Call::BridgeGrandpaWococo(bp_rococo::BridgeGrandpaWococoCall::submit_finality_proof(
-			header.into_inner(),
-			proof,
-		));
+		let call = relay_rococo_client::runtime::Call::BridgeGrandpaWococo(
+			relay_rococo_client::runtime::BridgeGrandpaWococoCall::submit_finality_proof(header.into_inner(), proof),
+		);
 		let genesis_hash = *self.target_client.genesis_hash();
 		let transaction = Rococo::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
 

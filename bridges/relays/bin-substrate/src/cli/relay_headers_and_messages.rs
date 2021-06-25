@@ -35,6 +35,7 @@ use structopt::StructOpt;
 #[derive(StructOpt)]
 pub enum RelayHeadersAndMessages {
 	MillauRialto(MillauRialtoHeadersAndMessages),
+	RococoWococo(RococoWococoHeadersAndMessages),
 }
 
 /// Parameters that have the same names across all bridges.
@@ -104,6 +105,26 @@ macro_rules! select_bridge {
 
 				$generic
 			}
+			RelayHeadersAndMessages::RococoWococo(_) => {
+				type Params = RococoWococoHeadersAndMessages;
+
+				type Left = relay_rococo_client::Rococo;
+				type Right = relay_wococo_client::Wococo;
+
+				type LeftToRightFinality = crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo;
+				type RightToLeftFinality = crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
+
+				type LeftToRightMessages = crate::chains::rococo_messages_to_wococo::RococoMessagesToWococo;
+				type RightToLeftMessages = crate::chains::wococo_messages_to_rococo::WococoMessagesToRococo;
+
+				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_rococo::BlockNumber = bp_rococo::SESSION_LENGTH;
+				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_wococo::BlockNumber = bp_wococo::SESSION_LENGTH;
+
+				use crate::chains::rococo_messages_to_wococo::run as left_to_right_messages;
+				use crate::chains::wococo_messages_to_rococo::run as right_to_left_messages;
+
+				$generic
+			}
 		}
 	};
 }
@@ -111,8 +132,11 @@ macro_rules! select_bridge {
 // All supported chains.
 declare_chain_options!(Millau, millau);
 declare_chain_options!(Rialto, rialto);
+declare_chain_options!(Rococo, rococo);
+declare_chain_options!(Wococo, wococo);
 // All supported bridges.
 declare_bridge_options!(Millau, Rialto);
+declare_bridge_options!(Rococo, Wococo);
 
 impl RelayHeadersAndMessages {
 	/// Run the command.
