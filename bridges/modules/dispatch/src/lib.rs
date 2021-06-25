@@ -615,7 +615,7 @@ mod tests {
 					event: Event::Dispatch(call_dispatch::Event::<TestRuntime>::MessageWeightMismatch(
 						SOURCE_CHAIN_ID,
 						id,
-						1345000,
+						1038000,
 						7,
 					)),
 					topics: vec![],
