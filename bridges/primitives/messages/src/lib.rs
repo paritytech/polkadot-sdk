@@ -64,6 +64,10 @@ pub trait Parameter: frame_support::Parameter {
 	fn save(&self);
 }
 
+impl Parameter for () {
+	fn save(&self) {}
+}
+
 /// Lane identifier.
 pub type LaneId = [u8; 4];
 

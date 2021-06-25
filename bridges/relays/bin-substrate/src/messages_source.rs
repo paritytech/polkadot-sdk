@@ -33,7 +33,6 @@ use messages_relay::{
 		ClientState, MessageDetails, MessageDetailsMap, MessageProofParameters, SourceClient, SourceClientState,
 	},
 };
-use pallet_bridge_messages::Config as MessagesConfig;
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf, HeaderIdOf};
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase, HeaderId};
 use sp_core::Bytes;
@@ -46,16 +45,16 @@ use std::{marker::PhantomData, ops::RangeInclusive};
 pub type SubstrateMessagesProof<C> = (Weight, FromBridgedChainMessagesProof<HashOf<C>>);
 
 /// Substrate client as Substrate messages source.
-pub struct SubstrateMessagesSource<C: Chain, P: SubstrateMessageLane, R, I> {
+pub struct SubstrateMessagesSource<C: Chain, P: SubstrateMessageLane, I> {
 	client: Client<C>,
 	lane: P,
 	lane_id: LaneId,
 	instance: ChainId,
 	target_to_source_headers_relay: Option<OnDemandHeadersRelay<P::TargetChain>>,
-	_phantom: PhantomData<(R, I)>,
+	_phantom: PhantomData<I>,
 }
 
-impl<C: Chain, P: SubstrateMessageLane, R, I> SubstrateMessagesSource<C, P, R, I> {
+impl<C: Chain, P: SubstrateMessageLane, I> SubstrateMessagesSource<C, P, I> {
 	/// Create new Substrate headers source.
 	pub fn new(
 		client: Client<C>,
@@ -75,7 +74,7 @@ impl<C: Chain, P: SubstrateMessageLane, R, I> SubstrateMessagesSource<C, P, R, I
 	}
 }
 
-impl<C: Chain, P: SubstrateMessageLane, R, I> Clone for SubstrateMessagesSource<C, P, R, I> {
+impl<C: Chain, P: SubstrateMessageLane, I> Clone for SubstrateMessagesSource<C, P, I> {
 	fn clone(&self) -> Self {
 		Self {
 			client: self.client.clone(),
@@ -89,11 +88,10 @@ impl<C: Chain, P: SubstrateMessageLane, R, I> Clone for SubstrateMessagesSource<
 }
 
 #[async_trait]
-impl<C, P, R, I> RelayClient for SubstrateMessagesSource<C, P, R, I>
+impl<C, P, I> RelayClient for SubstrateMessagesSource<C, P, I>
 where
 	C: Chain,
 	P: SubstrateMessageLane,
-	R: 'static + Send + Sync,
 	I: Send + Sync + Instance,
 {
 	type Error = SubstrateError;
@@ -104,7 +102,7 @@ where
 }
 
 #[async_trait]
-impl<C, P, R, I> SourceClient<P> for SubstrateMessagesSource<C, P, R, I>
+impl<C, P, I> SourceClient<P> for SubstrateMessagesSource<C, P, I>
 where
 	C: Chain,
 	C::Header: DeserializeOwned,
@@ -120,7 +118,6 @@ where
 	P::TargetChain: Chain<Hash = P::TargetHeaderHash, BlockNumber = P::TargetHeaderNumber>,
 	P::TargetHeaderNumber: Decode,
 	P::TargetHeaderHash: Decode,
-	R: Send + Sync + MessagesConfig<I>,
 	I: Send + Sync + Instance,
 {
 	async fn state(&self) -> Result<SourceClientState<P>, SubstrateError> {
@@ -198,7 +195,7 @@ where
 		let mut storage_keys = Vec::with_capacity(nonces.end().saturating_sub(*nonces.start()) as usize + 1);
 		let mut message_nonce = *nonces.start();
 		while message_nonce <= *nonces.end() {
-			let message_key = pallet_bridge_messages::storage_keys::message_key::<R, I>(&self.lane_id, message_nonce);
+			let message_key = pallet_bridge_messages::storage_keys::message_key::<I>(&self.lane_id, message_nonce);
 			storage_keys.push(message_key);
 			message_nonce += 1;
 		}
