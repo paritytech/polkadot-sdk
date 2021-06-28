@@ -208,7 +208,9 @@ where
 
 		let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, header);
 		block_import_params.body = Some(extrinsics);
-		block_import_params.storage_changes = Some(storage_changes);
+		block_import_params.state_action = sp_consensus::StateAction::ApplyChanges(
+			sp_consensus::StorageChanges::Changes(storage_changes)
+		);
 
 		if let Err(err) = self
 			.block_import
