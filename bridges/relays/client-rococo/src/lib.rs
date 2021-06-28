@@ -44,6 +44,8 @@ impl ChainBase for Rococo {
 impl Chain for Rococo {
 	const NAME: &'static str = "Rococo";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
+	const STORAGE_PROOF_OVERHEAD: u32 = bp_rococo::EXTRA_STORAGE_PROOF_SIZE;
+	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_rococo::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type AccountId = bp_rococo::AccountId;
 	type Index = bp_rococo::Index;
