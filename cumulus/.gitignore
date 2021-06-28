@@ -3,5 +3,5 @@
 .vscode
 .DS_Store
 /.cargo/config
-
+polkadot_argument_parsing
 **/node_modules

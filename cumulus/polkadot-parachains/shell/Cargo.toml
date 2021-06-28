@@ -1,9 +1,8 @@
 [package]
-name = 'cumulus-rococo-parachain-runtime'
+name = 'shell-runtime'
 version = '0.1.0'
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = '2018'
-description = "Simple runtime used by the rococo parachain(s)"
 
 [dependencies]
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
@@ -23,40 +22,27 @@ sp-offchain = { git = "https://github.com/paritytech/substrate", default-feature
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus dependencies
-cumulus-pallet-aura-ext = { path = "../../pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
-cumulus-primitives-timestamp = { path = "../../primitives/timestamp", default-features = false }
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
 cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue", default-features = false }
 cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
-cumulus-ping = { path = "../pallets/ping", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 [dev-dependencies]
-hex-literal = "0.3.1"
 hex = "0.4.3"
+hex-literal = "0.3.1"
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -81,25 +67,13 @@ std = [
 	"frame-support/std",
 	"frame-executive/std",
 	"frame-system/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
-	"pallet-randomness-collective-flip/std",
-	"pallet-timestamp/std",
-	"pallet-sudo/std",
-	"pallet-transaction-payment/std",
 	"parachain-info/std",
-	"cumulus-pallet-aura-ext/std",
-	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
-	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-primitives-core/std",
-	"cumulus-primitives-timestamp/std",
 	"cumulus-primitives-utility/std",
-	"cumulus-ping/std",
 	"xcm/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"pallet-aura/std",
-	"sp-consensus-aura/std",
 ]
