@@ -39,6 +39,8 @@ impl ChainBase for Millau {
 impl Chain for Millau {
 	const NAME: &'static str = "Millau";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
+	const STORAGE_PROOF_OVERHEAD: u32 = bp_millau::EXTRA_STORAGE_PROOF_SIZE;
+	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type AccountId = millau_runtime::AccountId;
 	type Index = millau_runtime::Index;

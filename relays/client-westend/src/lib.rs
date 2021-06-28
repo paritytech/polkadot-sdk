@@ -42,6 +42,8 @@ impl ChainBase for Westend {
 impl Chain for Westend {
 	const NAME: &'static str = "Westend";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
+	const STORAGE_PROOF_OVERHEAD: u32 = bp_westend::EXTRA_STORAGE_PROOF_SIZE;
+	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_westend::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type AccountId = bp_westend::AccountId;
 	type Index = bp_westend::Nonce;

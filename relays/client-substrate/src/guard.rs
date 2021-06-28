@@ -185,6 +185,8 @@ mod tests {
 	impl Chain for TestChain {
 		const NAME: &'static str = "Test";
 		const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(1);
+		const STORAGE_PROOF_OVERHEAD: u32 = 0;
+		const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 0;
 
 		type AccountId = u32;
 		type Index = u32;
