@@ -51,6 +51,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
+	offchain::storage_lock::BlockNumberProvider,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 
@@ -1037,4 +1038,19 @@ pub trait CheckInherents<Block: BlockT> {
 		block: &Block,
 		validation_data: &RelayChainStateProof,
 	) -> frame_support::inherent::CheckInherentsResult;
+}
+
+/// Implements [`BlockNumberProvider`] that returns relaychain block number fetched from
+/// validation data.
+/// NTOE: When validation data is not available (e.g. within on_initialize), 0 will be returned.
+pub struct RelaychainBlockNumberProvider<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> BlockNumberProvider for RelaychainBlockNumberProvider<T> {
+	type BlockNumber = relay_chain::BlockNumber;
+
+	fn current_block_number() -> relay_chain::BlockNumber {
+		Pallet::<T>::validation_data()
+			.map(|d| d.relay_parent_number)
+			.unwrap_or_default()
+	}
 }
