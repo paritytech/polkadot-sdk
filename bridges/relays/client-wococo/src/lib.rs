@@ -44,6 +44,8 @@ impl ChainBase for Wococo {
 impl Chain for Wococo {
 	const NAME: &'static str = "Wococo";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
+	const STORAGE_PROOF_OVERHEAD: u32 = bp_wococo::EXTRA_STORAGE_PROOF_SIZE;
+	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_wococo::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type AccountId = bp_wococo::AccountId;
 	type Index = bp_wococo::Index;

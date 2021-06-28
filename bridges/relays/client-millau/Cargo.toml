@@ -13,6 +13,7 @@ relay-utils = { path = "../utils" }
 
 # Supported Chains
 
+bp-millau = { path = "../../primitives/chain-millau" }
 millau-runtime = { path = "../../bin/millau/runtime" }
 
 # Substrate Dependencies
