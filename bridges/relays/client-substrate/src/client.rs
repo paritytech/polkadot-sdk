@@ -25,12 +25,14 @@ use codec::Decode;
 use frame_system::AccountInfo;
 use jsonrpsee_ws_client::{traits::SubscriptionClient, v2::params::JsonRpcParams, DeserializeOwned};
 use jsonrpsee_ws_client::{Subscription, WsClient as RpcClient, WsClientBuilder as RpcClientBuilder};
-use num_traits::Zero;
+use num_traits::{Bounded, Zero};
 use pallet_balances::AccountData;
+use pallet_transaction_payment::InclusionFee;
 use relay_utils::relay_loop::RECONNECT_DELAY;
 use sp_core::{storage::StorageKey, Bytes};
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
+use std::convert::TryFrom;
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
@@ -256,6 +258,26 @@ impl<C: Chain> Client<C> {
 		let tx_hash = Substrate::<C>::author_submit_extrinsic(&*self.client, extrinsic).await?;
 		log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 		Ok(tx_hash)
+	}
+
+	/// Estimate fee that will be spent on given extrinsic.
+	pub async fn estimate_extrinsic_fee(&self, transaction: Bytes) -> Result<C::Balance> {
+		let fee_details = Substrate::<C>::payment_query_fee_details(&*self.client, transaction, None).await?;
+		let inclusion_fee = fee_details
+			.inclusion_fee
+			.map(|inclusion_fee| {
+				InclusionFee {
+					base_fee: C::Balance::try_from(inclusion_fee.base_fee.into_u256())
+						.unwrap_or_else(|_| C::Balance::max_value()),
+					len_fee: C::Balance::try_from(inclusion_fee.len_fee.into_u256())
+						.unwrap_or_else(|_| C::Balance::max_value()),
+					adjusted_weight_fee: C::Balance::try_from(inclusion_fee.adjusted_weight_fee.into_u256())
+						.unwrap_or_else(|_| C::Balance::max_value()),
+				}
+				.inclusion_fee()
+			})
+			.unwrap_or_else(Zero::zero);
+		Ok(inclusion_fee)
 	}
 
 	/// Get the GRANDPA authority set at given block.
