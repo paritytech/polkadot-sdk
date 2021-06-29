@@ -292,7 +292,7 @@ pub async fn run(params: EthereumSyncParams) -> Result<(), RpcError> {
 		futures::future::pending(),
 	)
 	.await
-	.map_err(RpcError::SyncLoop)?;
+	.map_err(|e| RpcError::SyncLoop(e.to_string()))?;
 
 	Ok(())
 }

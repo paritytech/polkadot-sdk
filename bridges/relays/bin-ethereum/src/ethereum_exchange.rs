@@ -355,7 +355,7 @@ async fn run_single_transaction_relay(params: EthereumExchangeParams, eth_tx_has
 async fn run_auto_transactions_relay_loop(
 	params: EthereumExchangeParams,
 	eth_start_with_block_number: Option<u64>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
 	let EthereumExchangeParams {
 		eth_params,
 		sub_params,
@@ -375,7 +375,7 @@ async fn run_auto_transactions_relay_loop(
 				.best_ethereum_finalized_block()
 				.await
 				.map_err(|err| {
-					format!(
+					anyhow::format_err!(
 						"Error retrieving best finalized Ethereum block from Substrate node: {:?}",
 						err
 					)
