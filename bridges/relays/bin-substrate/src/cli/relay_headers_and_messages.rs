@@ -100,8 +100,12 @@ macro_rules! select_bridge {
 				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_millau::BlockNumber = bp_millau::SESSION_LENGTH;
 				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_rialto::BlockNumber = bp_rialto::SESSION_LENGTH;
 
-				use crate::chains::millau_messages_to_rialto::run as left_to_right_messages;
-				use crate::chains::rialto_messages_to_millau::run as right_to_left_messages;
+				use crate::chains::millau_messages_to_rialto::{
+					add_standalone_metrics as add_left_to_right_standalone_metrics, run as left_to_right_messages,
+				};
+				use crate::chains::rialto_messages_to_millau::{
+					add_standalone_metrics as add_right_to_left_standalone_metrics, run as right_to_left_messages,
+				};
 
 				$generic
 			}
@@ -120,8 +124,12 @@ macro_rules! select_bridge {
 				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_rococo::BlockNumber = bp_rococo::SESSION_LENGTH;
 				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_wococo::BlockNumber = bp_wococo::SESSION_LENGTH;
 
-				use crate::chains::rococo_messages_to_wococo::run as left_to_right_messages;
-				use crate::chains::wococo_messages_to_rococo::run as right_to_left_messages;
+				use crate::chains::rococo_messages_to_wococo::{
+					add_standalone_metrics as add_left_to_right_standalone_metrics, run as left_to_right_messages,
+				};
+				use crate::chains::wococo_messages_to_rococo::{
+					add_standalone_metrics as add_right_to_left_standalone_metrics, run as right_to_left_messages,
+				};
 
 				$generic
 			}
@@ -153,6 +161,8 @@ impl RelayHeadersAndMessages {
 
 			let metrics_params: MetricsParams = params.shared.prometheus_params.into();
 			let metrics_params = relay_utils::relay_metrics(None, metrics_params).into_params();
+			let (metrics_params, _) = add_left_to_right_standalone_metrics(metrics_params, left_client.clone())?;
+			let (metrics_params, _) = add_right_to_left_standalone_metrics(metrics_params, right_client.clone())?;
 
 			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new(
 				left_client.clone(),
