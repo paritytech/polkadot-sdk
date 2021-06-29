@@ -17,7 +17,8 @@
 //! Rococo-to-Wococo messages sync entrypoint.
 
 use crate::messages_lane::{
-	select_delivery_transaction_limits, MessagesRelayParams, SubstrateMessageLane, SubstrateMessageLaneToSubstrate,
+	select_delivery_transaction_limits, MessagesRelayParams, StandaloneMessagesMetrics, SubstrateMessageLane,
+	SubstrateMessageLaneToSubstrate,
 };
 use crate::messages_source::SubstrateMessagesSource;
 use crate::messages_target::SubstrateMessagesTarget;
@@ -28,7 +29,8 @@ use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::Encode;
 use messages_relay::message_lane::MessageLane;
 use relay_rococo_client::{HeaderId as RococoHeaderId, Rococo, SigningParams as RococoSigningParams};
-use relay_substrate_client::{metrics::StorageProofOverheadMetric, Chain, TransactionSignScheme};
+use relay_substrate_client::{Chain, Client, TransactionSignScheme};
+use relay_utils::metrics::MetricsParams;
 use relay_wococo_client::{HeaderId as WococoHeaderId, SigningParams as WococoSigningParams, Wococo};
 use sp_core::{Bytes, Pair};
 use std::{ops::RangeInclusive, time::Duration};
@@ -142,7 +144,7 @@ type WococoTargetClient = SubstrateMessagesTarget<
 /// Run Rococo-to-Wococo messages sync.
 pub async fn run(
 	params: MessagesRelayParams<Rococo, RococoSigningParams, Wococo, WococoSigningParams>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
 	let stall_timeout = Duration::from_secs(5 * 60);
 	let relayer_id_at_rococo = (*params.source_sign.public().as_array_ref()).into();
 
@@ -183,6 +185,7 @@ pub async fn run(
 		max_messages_weight_in_single_batch,
 	);
 
+	let (metrics_params, _) = add_standalone_metrics(params.metrics_params, source_client.clone())?;
 	messages_relay::message_lane_loop::run(
 		messages_relay::message_lane_loop::Params {
 			lane: lane_id,
@@ -213,23 +216,22 @@ pub async fn run(
 			ROCOCO_CHAIN_ID,
 			params.source_to_target_headers_relay,
 		),
-		relay_utils::relay_metrics(
-			Some(messages_relay::message_lane_loop::metrics_prefix::<
-				RococoMessagesToWococo,
-			>(&lane_id)),
-			params.metrics_params,
-		)
-		.standalone_metric(|registry, prefix| {
-			StorageProofOverheadMetric::new(
-				registry,
-				prefix,
-				source_client.clone(),
-				"rococo_storage_proof_overhead".into(),
-				"Rococo storage proof overhead".into(),
-			)
-		})?
-		.into_params(),
+		metrics_params,
 		futures::future::pending(),
 	)
 	.await
+}
+
+/// Add standalone metrics for the Rococo -> Wococo messages loop.
+pub(crate) fn add_standalone_metrics(
+	metrics_params: MetricsParams,
+	source_client: Client<Rococo>,
+) -> anyhow::Result<(MetricsParams, StandaloneMessagesMetrics)> {
+	crate::messages_lane::add_standalone_metrics::<RococoMessagesToWococo>(
+		metrics_params,
+		source_client,
+		None,
+		None,
+		None,
+	)
 }

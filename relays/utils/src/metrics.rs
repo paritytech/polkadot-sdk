@@ -21,11 +21,15 @@ pub use substrate_prometheus_endpoint::{
 	register, Counter, CounterVec, Gauge, GaugeVec, Opts, PrometheusError, Registry, F64, U64,
 };
 
+use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 use std::{fmt::Debug, time::Duration};
 
 mod float_json_value;
 mod global;
+
+/// Shared reference to `f64` value that is updated by the metric.
+pub type F64SharedRef = Arc<RwLock<Option<f64>>>;
 
 /// Unparsed address that needs to be used to expose Prometheus metrics.
 #[derive(Debug, Clone)]

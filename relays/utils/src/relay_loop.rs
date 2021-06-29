@@ -105,7 +105,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 	/// This function represents an outer loop, which in turn calls provided `run_loop` function to do
 	/// actual job. When `run_loop` returns, this outer loop reconnects to failed client (source,
 	/// target or both) and calls `run_loop` again.
-	pub async fn run<R, F>(mut self, loop_name: String, run_loop: R) -> Result<(), String>
+	pub async fn run<R, F>(mut self, loop_name: String, run_loop: R) -> anyhow::Result<()>
 	where
 		R: 'static + Send + Fn(SC, TC, Option<LM>) -> F,
 		F: 'static + Send + Future<Output = Result<(), FailedClient>>,
@@ -151,8 +151,8 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 	pub fn loop_metric<NewLM: Metrics>(
 		self,
 		create_metric: impl FnOnce(&Registry, Option<&str>) -> Result<NewLM, PrometheusError>,
-	) -> Result<LoopMetrics<SC, TC, NewLM>, String> {
-		let loop_metric = create_metric(&self.registry, self.metrics_prefix.as_deref()).map_err(|e| e.to_string())?;
+	) -> anyhow::Result<LoopMetrics<SC, TC, NewLM>> {
+		let loop_metric = create_metric(&self.registry, self.metrics_prefix.as_deref())?;
 
 		Ok(LoopMetrics {
 			relay_loop: self.relay_loop,
@@ -167,13 +167,13 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 	pub fn standalone_metric<M: StandaloneMetrics>(
 		self,
 		create_metric: impl FnOnce(&Registry, Option<&str>) -> Result<M, PrometheusError>,
-	) -> Result<Self, String> {
+	) -> anyhow::Result<Self> {
 		// since standalone metrics are updating themselves, we may just ignore the fact that the same
 		// standalone metric is exposed by several loops && only spawn single metric
 		match create_metric(&self.registry, self.metrics_prefix.as_deref()) {
 			Ok(standalone_metrics) => standalone_metrics.spawn(),
 			Err(PrometheusError::AlreadyReg) => (),
-			Err(e) => return Err(e.to_string()),
+			Err(e) => anyhow::bail!(e),
 		}
 
 		Ok(self)
@@ -191,13 +191,14 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 	/// Expose metrics using address passed at creation.
 	///
 	/// If passed `address` is `None`, metrics are not exposed.
-	pub async fn expose(self) -> Result<Loop<SC, TC, LM>, String> {
+	pub async fn expose(self) -> anyhow::Result<Loop<SC, TC, LM>> {
 		if let Some(address) = self.address {
 			let socket_addr = SocketAddr::new(
 				address.host.parse().map_err(|err| {
-					format!(
+					anyhow::format_err!(
 						"Invalid host {} is used to expose Prometheus metrics: {}",
-						address.host, err,
+						address.host,
+						err,
 					)
 				})?,
 				address.port,

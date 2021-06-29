@@ -126,7 +126,7 @@ pub async fn run<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 	sync_params: HeadersSyncParams,
 	metrics_params: MetricsParams,
 	exit_signal: impl Future<Output = ()> + 'static + Send,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
 		.with_metrics(Some(metrics_prefix::<P>()), metrics_params)
