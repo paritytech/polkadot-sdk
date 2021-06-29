@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{metric_name, register, Gauge, PrometheusError, Registry, StandaloneMetrics, F64};
+use crate::metrics::{metric_name, register, F64SharedRef, Gauge, PrometheusError, Registry, StandaloneMetrics, F64};
 
+use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 use std::time::Duration;
 
@@ -28,6 +29,7 @@ pub struct FloatJsonValueMetric {
 	url: String,
 	json_path: String,
 	metric: Gauge<F64>,
+	shared_value_ref: F64SharedRef,
 }
 
 impl FloatJsonValueMetric {
@@ -40,11 +42,18 @@ impl FloatJsonValueMetric {
 		name: String,
 		help: String,
 	) -> Result<Self, PrometheusError> {
+		let shared_value_ref = Arc::new(RwLock::new(None));
 		Ok(FloatJsonValueMetric {
 			url,
 			json_path,
 			metric: register(Gauge::new(metric_name(prefix, &name), help)?, registry)?,
+			shared_value_ref,
 		})
+	}
+
+	/// Get shared reference to metric value.
+	pub fn shared_value_ref(&self) -> F64SharedRef {
+		self.shared_value_ref.clone()
 	}
 
 	/// Read value from HTTP service.
@@ -79,7 +88,9 @@ impl StandaloneMetrics for FloatJsonValueMetric {
 	}
 
 	async fn update(&self) {
-		crate::metrics::set_gauge_value(&self.metric, self.read_value().await.map(Some));
+		let value = self.read_value().await;
+		crate::metrics::set_gauge_value(&self.metric, value.clone().map(Some));
+		*self.shared_value_ref.write().await = value.ok();
 	}
 }
 
