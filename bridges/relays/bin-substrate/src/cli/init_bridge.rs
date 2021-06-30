@@ -20,13 +20,14 @@ use bp_runtime::Chain as ChainBase;
 use codec::Encode;
 use relay_substrate_client::{Chain, TransactionSignScheme};
 use sp_core::{Bytes, Pair};
-use structopt::{clap::arg_enum, StructOpt};
+use structopt::StructOpt;
+use strum::{EnumString, EnumVariantNames, VariantNames};
 
 /// Initialize bridge pallet.
 #[derive(StructOpt)]
 pub struct InitBridge {
 	/// A bridge instance to initalize.
-	#[structopt(possible_values = &InitBridgeName::variants(), case_insensitive = true)]
+	#[structopt(possible_values = InitBridgeName::VARIANTS, case_insensitive = true)]
 	bridge: InitBridgeName,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -36,17 +37,15 @@ pub struct InitBridge {
 	target_sign: TargetSigningParams,
 }
 
-// TODO [#851] Use kebab-case.
-arg_enum! {
-	#[derive(Debug)]
-	/// Bridge to initialize.
-	pub enum InitBridgeName {
-		MillauToRialto,
-		RialtoToMillau,
-		WestendToMillau,
-		RococoToWococo,
-		WococoToRococo,
-	}
+#[derive(Debug, EnumString, EnumVariantNames)]
+#[strum(serialize_all = "kebab_case")]
+/// Bridge to initialize.
+pub enum InitBridgeName {
+	MillauToRialto,
+	RialtoToMillau,
+	WestendToMillau,
+	RococoToWococo,
+	WococoToRococo,
 }
 
 macro_rules! select_bridge {

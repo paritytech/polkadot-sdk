@@ -20,12 +20,13 @@ use crate::select_full_bridge;
 use codec::{Decode, Encode};
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
+use strum::VariantNames;
 
 /// Estimate Delivery & Dispatch Fee command.
 #[derive(StructOpt, Debug, PartialEq, Eq)]
 pub struct EstimateFee {
 	/// A bridge instance to encode call for.
-	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
 	bridge: FullBridge,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -93,7 +94,7 @@ mod tests {
 		// when
 		let res = EstimateFee::from_iter(vec![
 			"estimate_fee",
-			"RialtoToMillau",
+			"rialto-to-millau",
 			"--source-port",
 			"1234",
 			"call",

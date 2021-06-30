@@ -14,17 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use structopt::clap::arg_enum;
+use strum::{EnumString, EnumVariantNames};
 
-arg_enum! {
-	#[derive(Debug, PartialEq, Eq)]
-	/// Supported full bridges (headers + messages).
-	pub enum FullBridge {
-		MillauToRialto,
-		RialtoToMillau,
-		RococoToWococo,
-		WococoToRococo,
-	}
+#[derive(Debug, PartialEq, Eq, EnumString, EnumVariantNames)]
+#[strum(serialize_all = "kebab_case")]
+/// Supported full bridges (headers + messages).
+pub enum FullBridge {
+	MillauToRialto,
+	RialtoToMillau,
+	RococoToWococo,
+	WococoToRococo,
 }
 
 impl FullBridge {

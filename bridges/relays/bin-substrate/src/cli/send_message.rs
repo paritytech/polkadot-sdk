@@ -30,12 +30,13 @@ use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSignature, MultiSigner};
 use std::fmt::Debug;
 use structopt::StructOpt;
+use strum::VariantNames;
 
 /// Send bridge message.
 #[derive(StructOpt)]
 pub struct SendMessage {
 	/// A bridge instance to encode call for.
-	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
 	bridge: FullBridge,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -260,7 +261,7 @@ mod tests {
 		// given
 		let mut send_message = SendMessage::from_iter(vec![
 			"send-message",
-			"RialtoToMillau",
+			"rialto-to-millau",
 			"--source-port",
 			"1234",
 			"--source-signer",
@@ -291,7 +292,7 @@ mod tests {
 		// given
 		let mut send_message = SendMessage::from_iter(vec![
 			"send-message",
-			"MillauToRialto",
+			"millau-to-rialto",
 			"--source-port",
 			"1234",
 			"--source-signer",
@@ -335,7 +336,7 @@ mod tests {
 		// given
 		let send_message = SendMessage::from_iter_safe(vec![
 			"send-message",
-			"MillauToRialto",
+			"rialto-to-millau",
 			"--source-port",
 			"1234",
 			"--source-signer",

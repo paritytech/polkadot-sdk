@@ -18,6 +18,7 @@ use crate::cli::{bridge::FullBridge, AccountId};
 use crate::select_full_bridge;
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
+use strum::VariantNames;
 
 /// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
 ///
@@ -28,7 +29,7 @@ use structopt::StructOpt;
 #[derive(StructOpt)]
 pub struct DeriveAccount {
 	/// A bridge instance to initalize.
-	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
 	bridge: FullBridge,
 	/// Source-chain address to derive Target-chain address from.
 	account: AccountId,
@@ -80,9 +81,9 @@ mod tests {
 		let millau = "752paRyW1EGfq9YLTSSqcSJ5hqnBDidBmaftGhBo8fy6ypW9";
 
 		// when
-		let (rialto_parsed, rialto_derived) = derive_account_cli("RialtoToMillau", rialto);
-		let (millau_parsed, millau_derived) = derive_account_cli("MillauToRialto", millau);
-		let (millau2_parsed, millau2_derived) = derive_account_cli("MillauToRialto", rialto);
+		let (rialto_parsed, rialto_derived) = derive_account_cli("rialto-to-millau", rialto);
+		let (millau_parsed, millau_derived) = derive_account_cli("millau-to-rialto", millau);
+		let (millau2_parsed, millau2_derived) = derive_account_cli("millau-to-rialto", rialto);
 
 		// then
 		assert_eq!(format!("{}", rialto_parsed), rialto);

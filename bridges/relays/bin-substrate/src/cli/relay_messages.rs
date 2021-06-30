@@ -21,14 +21,14 @@ use crate::cli::{
 };
 use crate::messages_lane::MessagesRelayParams;
 use crate::select_full_bridge;
-
 use structopt::StructOpt;
+use strum::VariantNames;
 
 /// Start messages relayer process.
 #[derive(StructOpt)]
 pub struct RelayMessages {
 	/// A bridge instance to relay messages for.
-	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
 	bridge: FullBridge,
 	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
