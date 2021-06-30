@@ -17,6 +17,7 @@ num-format = "0.4"
 num-traits = "0.2"
 paste = "1.0"
 structopt = "0.3"
+strum = { version = "0.21.0", features = ["derive"] }
 
 # Bridge dependencies
 

@@ -17,6 +17,7 @@
 use crate::cli::{bridge::FullBridge, AccountId, CliChain, HexBytes};
 use crate::select_full_bridge;
 use structopt::StructOpt;
+use strum::VariantNames;
 
 /// Generic message payload.
 #[derive(StructOpt, Debug, PartialEq, Eq)]
@@ -41,7 +42,7 @@ pub enum MessagePayload {
 #[derive(StructOpt)]
 pub struct EncodeMessage {
 	/// A bridge instance to initalize.
-	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
 	bridge: FullBridge,
 	#[structopt(flatten)]
 	payload: MessagePayload,
@@ -73,7 +74,7 @@ mod tests {
 	fn should_encode_raw_message() {
 		// given
 		let msg = "01000000e88514000000000002d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d003c040130000000000000000000000000";
-		let encode_message = EncodeMessage::from_iter(vec!["encode-message", "MillauToRialto", "raw", msg]);
+		let encode_message = EncodeMessage::from_iter(vec!["encode-message", "rialto-to-millau", "raw", msg]);
 
 		// when
 		let hex = encode_message.encode().unwrap();
@@ -88,7 +89,7 @@ mod tests {
 		let sender = sp_keyring::AccountKeyring::Alice.to_account_id().to_ss58check();
 		let encode_message = EncodeMessage::from_iter(vec![
 			"encode-message",
-			"RialtoToMillau",
+			"rialto-to-millau",
 			"call",
 			"--sender",
 			&sender,

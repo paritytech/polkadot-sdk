@@ -20,12 +20,13 @@ use crate::select_full_bridge;
 use frame_support::weights::DispatchInfo;
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
+use strum::VariantNames;
 
 /// Encode source chain runtime call.
 #[derive(StructOpt, Debug)]
 pub struct EncodeCall {
 	/// A bridge instance to encode call for.
-	#[structopt(possible_values = &FullBridge::variants(), case_insensitive = true)]
+	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
 	bridge: FullBridge,
 	#[structopt(flatten)]
 	call: Call,
@@ -194,7 +195,7 @@ mod tests {
 		// given
 		let mut encode_call = EncodeCall::from_iter(vec![
 			"encode-call",
-			"RialtoToMillau",
+			"rialto-to-millau",
 			"transfer",
 			"--amount",
 			"12345",
@@ -215,7 +216,7 @@ mod tests {
 	#[test]
 	fn should_encode_remark_with_default_payload() {
 		// given
-		let mut encode_call = EncodeCall::from_iter(vec!["encode-call", "RialtoToMillau", "remark"]);
+		let mut encode_call = EncodeCall::from_iter(vec!["encode-call", "rialto-to-millau", "remark"]);
 
 		// when
 		let hex = encode_call.encode().unwrap();
@@ -229,7 +230,7 @@ mod tests {
 		// given
 		let mut encode_call = EncodeCall::from_iter(vec![
 			"encode-call",
-			"RialtoToMillau",
+			"rialto-to-millau",
 			"remark",
 			"--remark-payload",
 			"1234",
@@ -246,7 +247,7 @@ mod tests {
 	fn should_encode_remark_with_size() {
 		// given
 		let mut encode_call =
-			EncodeCall::from_iter(vec!["encode-call", "RialtoToMillau", "remark", "--remark-size", "12"]);
+			EncodeCall::from_iter(vec!["encode-call", "rialto-to-millau", "remark", "--remark-size", "12"]);
 
 		// when
 		let hex = encode_call.encode().unwrap();
@@ -260,7 +261,7 @@ mod tests {
 		// when
 		let err = EncodeCall::from_iter_safe(vec![
 			"encode-call",
-			"RialtoToMillau",
+			"rialto-to-millau",
 			"remark",
 			"--remark-payload",
 			"1234",
