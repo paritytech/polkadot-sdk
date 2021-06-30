@@ -16,13 +16,14 @@
 
 use crate::cli::{PrometheusParams, SourceConnectionParams, TargetConnectionParams, TargetSigningParams};
 use crate::finality_pipeline::SubstrateFinalitySyncPipeline;
-use structopt::{clap::arg_enum, StructOpt};
+use structopt::StructOpt;
+use strum::{EnumString, EnumVariantNames, VariantNames};
 
 /// Start headers relayer process.
 #[derive(StructOpt)]
 pub struct RelayHeaders {
 	/// A bridge instance to relay headers for.
-	#[structopt(possible_values = &RelayHeadersBridge::variants(), case_insensitive = true)]
+	#[structopt(possible_values = RelayHeadersBridge::VARIANTS, case_insensitive = true)]
 	bridge: RelayHeadersBridge,
 	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set) are relayed.
 	#[structopt(long)]
@@ -37,17 +38,15 @@ pub struct RelayHeaders {
 	prometheus_params: PrometheusParams,
 }
 
-// TODO [#851] Use kebab-case.
-arg_enum! {
-	#[derive(Debug)]
-	/// Headers relay bridge.
-	pub enum RelayHeadersBridge {
-		MillauToRialto,
-		RialtoToMillau,
-		WestendToMillau,
-		RococoToWococo,
-		WococoToRococo,
-	}
+#[derive(Debug, EnumString, EnumVariantNames)]
+#[strum(serialize_all = "kebab_case")]
+/// Headers relay bridge.
+pub enum RelayHeadersBridge {
+	MillauToRialto,
+	RialtoToMillau,
+	WestendToMillau,
+	RococoToWococo,
+	WococoToRococo,
 }
 
 macro_rules! select_bridge {
