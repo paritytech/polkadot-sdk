@@ -654,7 +654,15 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 						new_selected_unpaid_weight,
 						new_selected_size as u32,
 					)
-					.await;
+					.await
+					.map_err(|err| {
+						log::debug!(
+							target: "bridge",
+							"Failed to estimate delivery transaction cost: {:?}. No nonces selected for delivery",
+							err,
+						);
+					})
+					.ok()?;
 
 				// if it is the first message that makes reward less than cost, let's log it
 				// if this message makes batch profitable again, let's log it
