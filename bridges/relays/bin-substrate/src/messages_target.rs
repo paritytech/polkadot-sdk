@@ -18,7 +18,7 @@
 //! runtime that implements `<BridgedChainName>HeaderApi` to allow bridging with
 //! <BridgedName> chain.
 
-use crate::messages_lane::SubstrateMessageLane;
+use crate::messages_lane::{StandaloneMessagesMetrics, SubstrateMessageLane};
 use crate::messages_source::{read_client_state, SubstrateMessagesProof};
 use crate::on_demand_headers::OnDemandHeadersRelay;
 
@@ -34,7 +34,7 @@ use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{TargetClient, TargetClientState},
 };
-use num_traits::{Bounded, One, Zero};
+use num_traits::{Bounded, Zero};
 use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf};
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase, HeaderId};
 use sp_core::Bytes;
@@ -53,6 +53,7 @@ pub struct SubstrateMessagesTarget<SC: Chain, TC: Chain, P: SubstrateMessageLane
 	lane: P,
 	lane_id: LaneId,
 	instance: ChainId,
+	metric_values: StandaloneMessagesMetrics,
 	source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
 	_phantom: PhantomData<I>,
 }
@@ -64,6 +65,7 @@ impl<SC: Chain, TC: Chain, P: SubstrateMessageLane, I> SubstrateMessagesTarget<S
 		lane: P,
 		lane_id: LaneId,
 		instance: ChainId,
+		metric_values: StandaloneMessagesMetrics,
 		source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
 	) -> Self {
 		SubstrateMessagesTarget {
@@ -71,6 +73,7 @@ impl<SC: Chain, TC: Chain, P: SubstrateMessageLane, I> SubstrateMessagesTarget<S
 			lane,
 			lane_id,
 			instance,
+			metric_values,
 			source_to_target_headers_relay,
 			_phantom: Default::default(),
 		}
@@ -84,6 +87,7 @@ impl<SC: Chain, TC: Chain, P: SubstrateMessageLane, I> Clone for SubstrateMessag
 			lane: self.lane.clone(),
 			lane_id: self.lane_id,
 			instance: self.instance,
+			metric_values: self.metric_values.clone(),
 			source_to_target_headers_relay: self.source_to_target_headers_relay.clone(),
 			_phantom: Default::default(),
 		}
@@ -239,10 +243,20 @@ where
 		nonces: RangeInclusive<MessageNonce>,
 		total_dispatch_weight: Weight,
 		total_size: u32,
-	) -> P::SourceChainBalance {
-		// TODO: use actual rate (https://github.com/paritytech/parity-bridges-common/issues/997)
-		convert_target_tokens_to_source_tokens::<SC, TC>(
-			FixedU128::one(),
+	) -> Result<P::SourceChainBalance, SubstrateError> {
+		let conversion_rate = self
+			.metric_values
+			.target_to_source_conversion_rate()
+			.await
+			.ok_or_else(|| {
+				SubstrateError::Custom(format!(
+					"Failed to compute conversion rate from {} to {}",
+					TC::NAME,
+					SC::NAME,
+				))
+			})?;
+		Ok(convert_target_tokens_to_source_tokens::<SC, TC>(
+			FixedU128::from_float(conversion_rate),
 			self.client
 				.estimate_extrinsic_fee(self.lane.make_messages_delivery_transaction(
 					Zero::zero(),
@@ -252,7 +266,7 @@ where
 				))
 				.await
 				.unwrap_or_else(|_| TC::Balance::max_value()),
-		)
+		))
 	}
 }
 

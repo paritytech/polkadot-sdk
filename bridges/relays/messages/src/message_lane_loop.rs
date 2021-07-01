@@ -212,7 +212,7 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 		nonces: RangeInclusive<MessageNonce>,
 		total_dispatch_weight: Weight,
 		total_size: u32,
-	) -> P::SourceChainBalance;
+	) -> Result<P::SourceChainBalance, Self::Error>;
 }
 
 /// State of the client.
@@ -775,10 +775,12 @@ pub(crate) mod tests {
 			nonces: RangeInclusive<MessageNonce>,
 			total_dispatch_weight: Weight,
 			total_size: u32,
-		) -> TestSourceChainBalance {
-			BASE_MESSAGE_DELIVERY_TRANSACTION_COST * (nonces.end() - nonces.start() + 1)
-				+ total_dispatch_weight
-				+ total_size as TestSourceChainBalance
+		) -> Result<TestSourceChainBalance, TestError> {
+			Ok(
+				BASE_MESSAGE_DELIVERY_TRANSACTION_COST * (nonces.end() - nonces.start() + 1)
+					+ total_dispatch_weight
+					+ total_size as TestSourceChainBalance,
+			)
 		}
 	}
 
