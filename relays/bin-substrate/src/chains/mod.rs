@@ -35,11 +35,12 @@ mod wococo;
 use relay_utils::metrics::{FloatJsonValueMetric, MetricsParams, PrometheusError, Registry};
 
 pub(crate) fn add_polkadot_kusama_price_metrics<T: finality_relay::FinalitySyncPipeline>(
+	prefix: Option<String>,
 	params: MetricsParams,
 ) -> anyhow::Result<MetricsParams> {
 	// Polkadot/Kusama prices are added as metrics here, because atm we don't have Polkadot <-> Kusama
 	// relays, but we want to test metrics/dashboards in advance
-	Ok(relay_utils::relay_metrics(None, params)
+	Ok(relay_utils::relay_metrics(prefix, params)
 		.standalone_metric(|registry, prefix| token_price_metric(registry, prefix, "polkadot"))?
 		.standalone_metric(|registry, prefix| token_price_metric(registry, prefix, "kusama"))?
 		.into_params())

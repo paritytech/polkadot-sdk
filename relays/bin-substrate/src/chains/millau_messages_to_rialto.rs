@@ -171,7 +171,13 @@ pub async fn run(
 		max_messages_weight_in_single_batch,
 	);
 
-	let (metrics_params, _) = add_standalone_metrics(params.metrics_params, source_client.clone())?;
+	let (metrics_params, _) = add_standalone_metrics(
+		Some(messages_relay::message_lane_loop::metrics_prefix::<
+			MillauMessagesToRialto,
+		>(&lane_id)),
+		params.metrics_params,
+		source_client.clone(),
+	)?;
 	messages_relay::message_lane_loop::run(
 		messages_relay::message_lane_loop::Params {
 			lane: lane_id,
@@ -210,10 +216,12 @@ pub async fn run(
 
 /// Add standalone metrics for the Millau -> Rialto messages loop.
 pub(crate) fn add_standalone_metrics(
+	metrics_prefix: Option<String>,
 	metrics_params: MetricsParams,
 	source_client: Client<Millau>,
 ) -> anyhow::Result<(MetricsParams, StandaloneMessagesMetrics)> {
 	crate::messages_lane::add_standalone_metrics::<MillauMessagesToRialto>(
+		metrics_prefix,
 		metrics_params,
 		source_client,
 		None,

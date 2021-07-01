@@ -161,8 +161,8 @@ impl RelayHeadersAndMessages {
 
 			let metrics_params: MetricsParams = params.shared.prometheus_params.into();
 			let metrics_params = relay_utils::relay_metrics(None, metrics_params).into_params();
-			let (metrics_params, _) = add_left_to_right_standalone_metrics(metrics_params, left_client.clone())?;
-			let (metrics_params, _) = add_right_to_left_standalone_metrics(metrics_params, right_client.clone())?;
+			let (metrics_params, _) = add_left_to_right_standalone_metrics(None, metrics_params, left_client.clone())?;
+			let (metrics_params, _) = add_right_to_left_standalone_metrics(None, metrics_params, right_client.clone())?;
 
 			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new(
 				left_client.clone(),
