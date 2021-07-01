@@ -170,7 +170,7 @@ pub async fn run(
 		max_messages_weight_in_single_batch,
 	);
 
-	let (metrics_params, _) = add_standalone_metrics(
+	let (metrics_params, metrics_values) = add_standalone_metrics(
 		Some(messages_relay::message_lane_loop::metrics_prefix::<
 			RialtoMessagesToMillau,
 		>(&lane_id)),
@@ -205,6 +205,7 @@ pub async fn run(
 			lane,
 			lane_id,
 			RIALTO_CHAIN_ID,
+			metrics_values,
 			params.source_to_target_headers_relay,
 		),
 		metrics_params,
