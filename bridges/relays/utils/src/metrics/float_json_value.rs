@@ -24,6 +24,9 @@ use std::time::Duration;
 const UPDATE_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Metric that represents float value received from HTTP service as float gauge.
+///
+/// The float value returned by the service is assumed to be normal (`f64::is_normal`
+/// should return `true`) and strictly positive.
 #[derive(Debug, Clone)]
 pub struct FloatJsonValueMetric {
 	url: String,
@@ -114,6 +117,12 @@ fn parse_service_response(json_path: &str, response: &str) -> Result<f64, String
 		.first()
 		.and_then(|v| v.as_f64())
 		.ok_or_else(|| format!("Missing required value from response: {:?}", response,))?;
+	if !selected_value.is_normal() || selected_value < 0.0 {
+		return Err(format!(
+			"Failed to parse float value {:?} from response. It is assumed to be positive and normal",
+			selected_value,
+		));
+	}
 
 	Ok(selected_value)
 }
@@ -128,5 +137,20 @@ mod tests {
 			parse_service_response("$.kusama.usd", r#"{"kusama":{"usd":433.05}}"#).map_err(drop),
 			Ok(433.05),
 		);
+	}
+
+	#[test]
+	fn parse_service_response_rejects_negative_numbers() {
+		assert!(parse_service_response("$.kusama.usd", r#"{"kusama":{"usd":-433.05}}"#).is_err());
+	}
+
+	#[test]
+	fn parse_service_response_rejects_zero_numbers() {
+		assert!(parse_service_response("$.kusama.usd", r#"{"kusama":{"usd":0.0}}"#).is_err());
+	}
+
+	#[test]
+	fn parse_service_response_rejects_nan() {
+		assert!(parse_service_response("$.kusama.usd", r#"{"kusama":{"usd":NaN}}"#).is_err());
 	}
 }
