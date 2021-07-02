@@ -1125,6 +1125,7 @@ mod tests {
 			bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT,
 			bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
 			bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT,
+			DbWeight::get(),
 		);
 
 		let max_incoming_message_proof_size = bp_millau::EXTRA_STORAGE_PROOF_SIZE.saturating_add(
@@ -1149,6 +1150,7 @@ mod tests {
 			max_incoming_inbound_lane_data_proof_size,
 			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
 			bp_millau::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
+			DbWeight::get(),
 		);
 	}
 

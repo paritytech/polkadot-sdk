@@ -19,7 +19,7 @@
 use crate::{DeliveredMessages, InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
 
 use bp_runtime::Size;
-use frame_support::{Parameter, RuntimeDebug};
+use frame_support::{weights::Weight, Parameter, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug};
 
 /// The sender of the message on the source chain.
@@ -136,12 +136,33 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 }
 
 /// Handler for messages delivery confirmation.
-#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait OnDeliveryConfirmed {
 	/// Called when we receive confirmation that our messages have been delivered to the
 	/// target chain. The confirmation also has single bit dispatch result for every
-	/// confirmed message (see `DeliveredMessages` for details).
-	fn on_messages_delivered(_lane: &LaneId, _messages: &DeliveredMessages) {}
+	/// confirmed message (see `DeliveredMessages` for details). Guaranteed to be called
+	/// only when at least one message is delivered.
+	///
+	/// Should return total weight consumed by the call.
+	///
+	/// NOTE: messages pallet assumes that maximal weight that may be spent on processing
+	/// single message is single DB read + single DB write. So this function shall never
+	/// return weight that is larger than total number of messages * (db read + db write).
+	/// If your pallet needs more time for processing single message, please do it
+	/// from `on_initialize` call(s) of the next block(s).
+	fn on_messages_delivered(_lane: &LaneId, _messages: &DeliveredMessages) -> Weight;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl OnDeliveryConfirmed for Tuple {
+	fn on_messages_delivered(lane: &LaneId, messages: &DeliveredMessages) -> Weight {
+		let mut total_weight: Weight = 0;
+		for_tuples!(
+			#(
+				total_weight = total_weight.saturating_add(Tuple::on_messages_delivered(lane, messages));
+			)*
+		);
+		total_weight
+	}
 }
 
 /// Structure that may be used in place of `TargetHeaderChain`, `LaneMessageVerifier` and

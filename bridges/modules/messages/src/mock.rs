@@ -31,7 +31,10 @@ use bp_messages::{
 };
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode};
-use frame_support::{parameter_types, weights::Weight};
+use frame_support::{
+	parameter_types,
+	weights::{RuntimeDbWeight, Weight},
+};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -87,6 +90,7 @@ parameter_types! {
 	pub const MaximumBlockWeight: Weight = 1024;
 	pub const MaximumBlockLength: u32 = 2 * 1024;
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
+	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
 }
 
 impl frame_system::Config for TestRuntime {
@@ -110,7 +114,7 @@ impl frame_system::Config for TestRuntime {
 	type SystemWeightInfo = ();
 	type BlockWeights = ();
 	type BlockLength = ();
-	type DbWeight = ();
+	type DbWeight = DbWeight;
 	type SS58Prefix = ();
 	type OnSetCode = ();
 }
@@ -358,12 +362,25 @@ impl TestOnDeliveryConfirmed1 {
 		let key = (b"TestOnDeliveryConfirmed1", lane, messages).encode();
 		assert_eq!(frame_support::storage::unhashed::get(&key), Some(true));
 	}
+
+	/// Set consumed weight returned by the callback.
+	pub fn set_consumed_weight_per_message(weight: Weight) {
+		frame_support::storage::unhashed::put(b"TestOnDeliveryConfirmed1_Weight", &weight);
+	}
+
+	/// Get consumed weight returned by the callback.
+	pub fn get_consumed_weight_per_message() -> Option<Weight> {
+		frame_support::storage::unhashed::get(b"TestOnDeliveryConfirmed1_Weight")
+	}
 }
 
 impl OnDeliveryConfirmed for TestOnDeliveryConfirmed1 {
-	fn on_messages_delivered(lane: &LaneId, messages: &DeliveredMessages) {
+	fn on_messages_delivered(lane: &LaneId, messages: &DeliveredMessages) -> Weight {
 		let key = (b"TestOnDeliveryConfirmed1", lane, messages).encode();
 		frame_support::storage::unhashed::put(&key, &true);
+		Self::get_consumed_weight_per_message()
+			.unwrap_or_else(|| DbWeight::get().reads_writes(1, 1))
+			.saturating_mul(messages.total_messages())
 	}
 }
 
@@ -380,9 +397,10 @@ impl TestOnDeliveryConfirmed2 {
 }
 
 impl OnDeliveryConfirmed for TestOnDeliveryConfirmed2 {
-	fn on_messages_delivered(lane: &LaneId, messages: &DeliveredMessages) {
+	fn on_messages_delivered(lane: &LaneId, messages: &DeliveredMessages) -> Weight {
 		let key = (b"TestOnDeliveryConfirmed2", lane, messages).encode();
 		frame_support::storage::unhashed::put(&key, &true);
+		0
 	}
 }
 
