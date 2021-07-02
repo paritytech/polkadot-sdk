@@ -226,6 +226,15 @@ impl DeliveredMessages {
 		}
 	}
 
+	/// Return total count of delivered messages.
+	pub fn total_messages(&self) -> MessageNonce {
+		if self.end >= self.begin {
+			self.end - self.begin + 1
+		} else {
+			0
+		}
+	}
+
 	/// Note new dispatched message.
 	pub fn note_dispatched_message(&mut self, dispatch_result: bool) {
 		self.end += 1;
