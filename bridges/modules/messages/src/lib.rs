@@ -594,13 +594,34 @@ decl_module! {
 		}
 
 		/// Receive messages delivery proof from bridged chain.
-		#[weight = T::WeightInfo::receive_messages_delivery_proof_weight(proof, relayers_state)]
+		#[weight = T::WeightInfo::receive_messages_delivery_proof_weight(
+			proof,
+			relayers_state,
+			T::DbWeight::get(),
+		)]
 		pub fn receive_messages_delivery_proof(
 			origin,
 			proof: MessagesDeliveryProofOf<T, I>,
 			relayers_state: UnrewardedRelayersState,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_not_halted::<T, I>()?;
+
+			// why do we need to know the weight of this (`receive_messages_delivery_proof`) call? Because
+			// we may want to return some funds for messages that are not processed by the delivery callback,
+			// or if their actual processing weight is less than accounted by weight formula.
+			// So to refund relayer, we need to:
+			//
+			// ActualWeight = DeclaredWeight - UnspentCallbackWeight
+			//
+			// The DeclaredWeight is exactly what's computed here. Unfortunately it is impossible
+			// to get pre-computed value (and it has been already computed by the executive).
+			let single_message_callback_overhead = T::WeightInfo::single_message_callback_overhead(T::DbWeight::get());
+			let declared_weight = T::WeightInfo::receive_messages_delivery_proof_weight(
+				&proof,
+				&relayers_state,
+				T::DbWeight::get(),
+			);
+			let mut actual_weight = declared_weight;
 
 			let confirmation_relayer = ensure_signed(origin)?;
 			let (lane_id, lane_data) = T::TargetHeaderChain::verify_messages_delivery_proof(proof).map_err(|err| {
@@ -641,7 +662,37 @@ decl_module! {
 			};
 			if let Some(confirmed_messages) = confirmed_messages {
 				// handle messages delivery confirmation
-				T::OnDeliveryConfirmed::on_messages_delivered(&lane_id, &confirmed_messages);
+				let preliminary_callback_overhead = relayers_state.total_messages.saturating_mul(
+					single_message_callback_overhead
+				);
+				let actual_callback_weight = T::OnDeliveryConfirmed::on_messages_delivered(
+					&lane_id,
+					&confirmed_messages,
+				);
+				match preliminary_callback_overhead.checked_sub(actual_callback_weight) {
+					Some(difference) if difference == 0 => (),
+					Some(difference) => {
+						log::trace!(
+							target: "runtime::bridge-messages",
+							"Messages delivery callback has returned unspent weight to refund the submitter: \
+							{} - {} = {}",
+							preliminary_callback_overhead,
+							actual_callback_weight,
+							difference,
+						);
+						actual_weight -= difference;
+					},
+					None => {
+						debug_assert!(false, "The delivery confirmation callback is wrong");
+						log::trace!(
+							target: "runtime::bridge-messages",
+							"Messages delivery callback has returned more weight that it may spent: \
+							{} vs {}",
+							preliminary_callback_overhead,
+							actual_callback_weight,
+						);
+					}
+				}
 
 				// emit 'delivered' event
 				let received_range = confirmed_messages.begin..=confirmed_messages.end;
@@ -684,7 +735,10 @@ decl_module! {
 				lane_id,
 			);
 
-			Ok(())
+			Ok(PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: Pays::Yes,
+			})
 		}
 	}
 }
@@ -962,8 +1016,8 @@ mod tests {
 	use crate::mock::{
 		message, message_payload, run_test, unrewarded_relayer, Event as TestEvent, Origin,
 		TestMessageDeliveryAndDispatchPayment, TestMessagesDeliveryProof, TestMessagesParameter, TestMessagesProof,
-		TestRuntime, TokenConversionRate, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID,
-		TEST_RELAYER_A, TEST_RELAYER_B,
+		TestOnDeliveryConfirmed1, TestOnDeliveryConfirmed2, TestRuntime, TokenConversionRate,
+		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_messages::{UnrewardedRelayer, UnrewardedRelayersState};
 	use frame_support::{assert_noop, assert_ok};
@@ -1260,10 +1314,14 @@ mod tests {
 						TEST_LANE_ID,
 						InboundLaneData {
 							last_confirmed_nonce: 1,
-							..Default::default()
+							relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)].into_iter().collect(),
 						},
 					))),
-					Default::default(),
+					UnrewardedRelayersState {
+						unrewarded_relayer_entries: 1,
+						messages_in_oldest_entry: 1,
+						total_messages: 1,
+					},
 				),
 				Error::<TestRuntime, DefaultInstance>::Halted,
 			);
@@ -1309,10 +1367,14 @@ mod tests {
 					TEST_LANE_ID,
 					InboundLaneData {
 						last_confirmed_nonce: 1,
-						..Default::default()
+						relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)].into_iter().collect(),
 					},
 				))),
-				Default::default(),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
+					total_messages: 1,
+				},
 			));
 		});
 	}
@@ -1923,10 +1985,70 @@ mod tests {
 			));
 
 			// ensure that both callbacks have been called twice: for 1+2, then for 3
-			crate::mock::TestOnDeliveryConfirmed1::ensure_called(&TEST_LANE_ID, &delivered_messages_1_and_2);
-			crate::mock::TestOnDeliveryConfirmed1::ensure_called(&TEST_LANE_ID, &delivered_message_3);
-			crate::mock::TestOnDeliveryConfirmed2::ensure_called(&TEST_LANE_ID, &delivered_messages_1_and_2);
-			crate::mock::TestOnDeliveryConfirmed2::ensure_called(&TEST_LANE_ID, &delivered_message_3);
+			TestOnDeliveryConfirmed1::ensure_called(&TEST_LANE_ID, &delivered_messages_1_and_2);
+			TestOnDeliveryConfirmed1::ensure_called(&TEST_LANE_ID, &delivered_message_3);
+			TestOnDeliveryConfirmed2::ensure_called(&TEST_LANE_ID, &delivered_messages_1_and_2);
+			TestOnDeliveryConfirmed2::ensure_called(&TEST_LANE_ID, &delivered_message_3);
+		});
+	}
+
+	fn confirm_3_messages_delivery() -> (Weight, Weight) {
+		send_regular_message();
+		send_regular_message();
+		send_regular_message();
+
+		let proof = TestMessagesDeliveryProof(Ok((
+			TEST_LANE_ID,
+			InboundLaneData {
+				last_confirmed_nonce: 0,
+				relayers: vec![unrewarded_relayer(1, 3, TEST_RELAYER_A)].into_iter().collect(),
+			},
+		)));
+		let relayers_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			total_messages: 3,
+			..Default::default()
+		};
+		let pre_dispatch_weight = <TestRuntime as Config>::WeightInfo::receive_messages_delivery_proof_weight(
+			&proof,
+			&relayers_state,
+			crate::mock::DbWeight::get(),
+		);
+		let post_dispatch_weight =
+			Pallet::<TestRuntime>::receive_messages_delivery_proof(Origin::signed(1), proof, relayers_state)
+				.expect("confirmation has failed")
+				.actual_weight
+				.expect("receive_messages_delivery_proof always returns Some");
+		(pre_dispatch_weight, post_dispatch_weight)
+	}
+
+	#[test]
+	fn receive_messages_delivery_proof_refunds_zero_weight() {
+		run_test(|| {
+			let (pre_dispatch_weight, post_dispatch_weight) = confirm_3_messages_delivery();
+			assert_eq!(pre_dispatch_weight, post_dispatch_weight);
+		});
+	}
+
+	#[test]
+	fn receive_messages_delivery_proof_refunds_non_zero_weight() {
+		run_test(|| {
+			TestOnDeliveryConfirmed1::set_consumed_weight_per_message(crate::mock::DbWeight::get().writes(1));
+
+			let (pre_dispatch_weight, post_dispatch_weight) = confirm_3_messages_delivery();
+			assert_eq!(
+				pre_dispatch_weight.saturating_sub(post_dispatch_weight),
+				crate::mock::DbWeight::get().reads(1) * 3
+			);
+		});
+	}
+
+	#[test]
+	#[should_panic]
+	fn receive_messages_panics_in_debug_mode_if_callback_is_wrong() {
+		run_test(|| {
+			TestOnDeliveryConfirmed1::set_consumed_weight_per_message(crate::mock::DbWeight::get().reads_writes(2, 2));
+			confirm_3_messages_delivery()
 		});
 	}
 }
