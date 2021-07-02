@@ -224,8 +224,8 @@ pub(crate) fn add_standalone_metrics(
 		metrics_prefix,
 		metrics_params,
 		source_client,
-		None,
-		None,
+		Some(crate::chains::RIALTO_ASSOCIATED_TOKEN_ID),
+		Some(crate::chains::MILLAU_ASSOCIATED_TOKEN_ID),
 		Some((
 			sp_core::storage::StorageKey(rialto_runtime::millau_messages::MillauToRialtoConversionRate::key().to_vec()),
 			rialto_runtime::millau_messages::INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE,
