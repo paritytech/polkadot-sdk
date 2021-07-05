@@ -197,7 +197,10 @@ decl_error! {
 		/// The message someone is trying to work with (i.e. increase fee) is already-delivered.
 		MessageIsAlreadyDelivered,
 		/// The message someone is trying to work with (i.e. increase fee) is not yet sent.
-		MessageIsNotYetSent
+		MessageIsNotYetSent,
+		/// The number of actually confirmed messages is going to be larger than the number of messages in the proof.
+		/// This may mean that this or bridged chain storage is corrupted.
+		TryingToConfirmMoreMessagesThanExpected,
 	}
 }
 
@@ -647,9 +650,23 @@ decl_module! {
 			let mut lane = outbound_lane::<T, I>(lane_id);
 			let mut relayers_rewards: RelayersRewards<_, T::OutboundMessageFee> = RelayersRewards::new();
 			let last_delivered_nonce = lane_data.last_delivered_nonce();
-			let confirmed_messages = match lane.confirm_delivery(last_delivered_nonce, &lane_data.relayers) {
+			let confirmed_messages = match lane.confirm_delivery(
+				relayers_state.total_messages,
+				last_delivered_nonce,
+				&lane_data.relayers,
+			) {
 				ReceivalConfirmationResult::ConfirmedMessages(confirmed_messages) => Some(confirmed_messages),
 				ReceivalConfirmationResult::NoNewConfirmations => None,
+				ReceivalConfirmationResult::TryingToConfirmMoreMessagesThanExpected(to_confirm_messages_count) => {
+					log::trace!(
+						target: "runtime::bridge-messages",
+						"Messages delivery proof contains too many messages to confirm: {} vs declared {}",
+						to_confirm_messages_count,
+						relayers_state.total_messages,
+					);
+
+					fail!(Error::<T, I>::TryingToConfirmMoreMessagesThanExpected);
+				},
 				error => {
 					log::trace!(
 						target: "runtime::bridge-messages",
@@ -660,6 +677,7 @@ decl_module! {
 					fail!(Error::<T, I>::InvalidUnrewardedRelayers);
 				},
 			};
+
 			if let Some(confirmed_messages) = confirmed_messages {
 				// handle messages delivery confirmation
 				let preliminary_callback_overhead = relayers_state.total_messages.saturating_mul(
@@ -2049,6 +2067,35 @@ mod tests {
 		run_test(|| {
 			TestOnDeliveryConfirmed1::set_consumed_weight_per_message(crate::mock::DbWeight::get().reads_writes(2, 2));
 			confirm_3_messages_delivery()
+		});
+	}
+
+	#[test]
+	fn receive_messages_delivery_proof_rejects_proof_if_trying_to_confirm_more_messages_than_expected() {
+		run_test(|| {
+			// send message first to be able to check that delivery_proof fails later
+			send_regular_message();
+
+			// 1) InboundLaneData declares that the `last_confirmed_nonce` is 1;
+			// 2) InboundLaneData has no entries => `InboundLaneData::last_delivered_nonce()`
+			//    returns `last_confirmed_nonce`;
+			// 3) it means that we're going to confirm delivery of messages 1..=1;
+			// 4) so the number of declared messages (see `UnrewardedRelayersState`) is `0` and
+			//    numer of actually confirmed messages is `1`.
+			assert_noop!(
+				Pallet::<TestRuntime>::receive_messages_delivery_proof(
+					Origin::signed(1),
+					TestMessagesDeliveryProof(Ok((
+						TEST_LANE_ID,
+						InboundLaneData {
+							last_confirmed_nonce: 1,
+							relayers: Default::default(),
+						},
+					))),
+					UnrewardedRelayersState::default(),
+				),
+				Error::<TestRuntime, DefaultInstance>::TryingToConfirmMoreMessagesThanExpected,
+			);
 		});
 	}
 }
