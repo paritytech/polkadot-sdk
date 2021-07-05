@@ -55,12 +55,15 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 		let (tx, rx) = oneshot::channel();
 
 		self.overseer_handler
-			.send_msg(AvailabilityRecoveryMessage::RecoverAvailableData(
-				pending_candidate.receipt,
-				pending_candidate.session_index,
-				None,
-				tx,
-			))
+			.send_msg(
+				AvailabilityRecoveryMessage::RecoverAvailableData(
+					pending_candidate.receipt,
+					pending_candidate.session_index,
+					None,
+					tx,
+				),
+				"ActiveCandidateRecovery",
+			)
 			.await;
 
 		self.candidates.insert(block_hash);

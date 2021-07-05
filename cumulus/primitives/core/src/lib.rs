@@ -268,7 +268,6 @@ sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	pub trait CollectCollationInfo {
 		/// Collect information about a collation.
-		#[skip_initialize_block]
 		fn collect_collation_info() -> CollationInfo;
 	}
 }

@@ -25,6 +25,7 @@ use cumulus_test_runtime::GetUpgradeDetection;
 use sp_runtime::generic::BlockId;
 
 #[substrate_test_utils::test]
+#[ignore]
 async fn test_runtime_upgrade(task_executor: TaskExecutor) {
 	let mut builder = sc_cli::LoggerBuilder::new("runtime=debug");
 	builder.with_colors(false);
