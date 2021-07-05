@@ -63,6 +63,8 @@ pub enum ReceivalConfirmationResult {
 	/// The unrewarded relayers vec contains entry with mismatched number of dispatch results. May be
 	/// a result of invalid bridged chain storage.
 	InvalidNumberOfDispatchResults,
+	/// The chain has more messages that need to be confirmed than there is in the proof.
+	TryingToConfirmMoreMessagesThanExpected(MessageNonce),
 }
 
 /// Outbound messages lane.
@@ -98,6 +100,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	/// Confirm messages delivery.
 	pub fn confirm_delivery<RelayerId>(
 		&mut self,
+		max_allowed_messages: MessageNonce,
 		latest_received_nonce: MessageNonce,
 		relayers: &VecDeque<UnrewardedRelayer<RelayerId>>,
 	) -> ReceivalConfirmationResult {
@@ -107,6 +110,16 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 		}
 		if latest_received_nonce > data.latest_generated_nonce {
 			return ReceivalConfirmationResult::FailedToConfirmFutureMessages;
+		}
+		if latest_received_nonce - data.latest_received_nonce > max_allowed_messages {
+			// that the relayer has declared correct number of messages that the proof contains (it is
+			// checked outside of the function). But it may happen (but only if this/bridged chain storage is
+			// corrupted, though) that the actual number of confirmed messages if larger than declared.
+			// This would mean that 'reward loop' will take more time than the weight formula accounts,
+			// so we can't allow that.
+			return ReceivalConfirmationResult::TryingToConfirmMoreMessagesThanExpected(
+				latest_received_nonce - data.latest_received_nonce,
+			);
 		}
 
 		let dispatch_results =
@@ -245,7 +258,7 @@ mod tests {
 			lane.send_message(message_data(REGULAR_PAYLOAD));
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
-			let result = lane.confirm_delivery(latest_received_nonce, relayers);
+			let result = lane.confirm_delivery(3, latest_received_nonce, relayers);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			result
@@ -273,7 +286,7 @@ mod tests {
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			assert_eq!(
-				lane.confirm_delivery(3, &unrewarded_relayers(1..=3)),
+				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
 				ReceivalConfirmationResult::ConfirmedMessages(delivered_messages(1..=3)),
 			);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
@@ -291,18 +304,18 @@ mod tests {
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			assert_eq!(
-				lane.confirm_delivery(3, &unrewarded_relayers(1..=3)),
+				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
 				ReceivalConfirmationResult::ConfirmedMessages(delivered_messages(1..=3)),
 			);
 			assert_eq!(
-				lane.confirm_delivery(3, &unrewarded_relayers(1..=3)),
+				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
 				ReceivalConfirmationResult::NoNewConfirmations,
 			);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
 
 			assert_eq!(
-				lane.confirm_delivery(2, &unrewarded_relayers(1..=1)),
+				lane.confirm_delivery(1, 2, &unrewarded_relayers(1..=1)),
 				ReceivalConfirmationResult::NoNewConfirmations,
 			);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
@@ -393,18 +406,40 @@ mod tests {
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			// after confirmation, some messages are received
 			assert_eq!(
-				lane.confirm_delivery(2, &unrewarded_relayers(1..=2)),
+				lane.confirm_delivery(2, 2, &unrewarded_relayers(1..=2)),
 				ReceivalConfirmationResult::ConfirmedMessages(delivered_messages(1..=2)),
 			);
 			assert_eq!(lane.prune_messages(100), 2);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 3);
 			// after last message is confirmed, everything is pruned
 			assert_eq!(
-				lane.confirm_delivery(3, &unrewarded_relayers(3..=3)),
+				lane.confirm_delivery(1, 3, &unrewarded_relayers(3..=3)),
 				ReceivalConfirmationResult::ConfirmedMessages(delivered_messages(3..=3)),
 			);
 			assert_eq!(lane.prune_messages(100), 1);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
+		});
+	}
+
+	#[test]
+	fn confirm_delivery_detects_when_more_than_expected_messages_are_confirmed() {
+		run_test(|| {
+			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			lane.send_message(message_data(REGULAR_PAYLOAD));
+			lane.send_message(message_data(REGULAR_PAYLOAD));
+			lane.send_message(message_data(REGULAR_PAYLOAD));
+			assert_eq!(
+				lane.confirm_delivery(0, 3, &unrewarded_relayers(1..=3)),
+				ReceivalConfirmationResult::TryingToConfirmMoreMessagesThanExpected(3),
+			);
+			assert_eq!(
+				lane.confirm_delivery(2, 3, &unrewarded_relayers(1..=3)),
+				ReceivalConfirmationResult::TryingToConfirmMoreMessagesThanExpected(3),
+			);
+			assert_eq!(
+				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
+				ReceivalConfirmationResult::ConfirmedMessages(delivered_messages(1..=3)),
+			);
 		});
 	}
 }
