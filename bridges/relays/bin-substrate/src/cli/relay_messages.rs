@@ -22,7 +22,26 @@ use crate::cli::{
 use crate::messages_lane::MessagesRelayParams;
 use crate::select_full_bridge;
 use structopt::StructOpt;
-use strum::VariantNames;
+use strum::{EnumString, EnumVariantNames, VariantNames};
+
+/// Relayer operating mode.
+#[derive(Debug, EnumString, EnumVariantNames, Clone, Copy, PartialEq)]
+#[strum(serialize_all = "kebab_case")]
+pub enum RelayerMode {
+	/// The relayer doesn't care about rewards.
+	Altruistic,
+	/// The relayer will deliver all messages and confirmations as long as he's not losing any funds.
+	Rational,
+}
+
+impl From<RelayerMode> for messages_relay::message_lane_loop::RelayerMode {
+	fn from(mode: RelayerMode) -> Self {
+		match mode {
+			RelayerMode::Altruistic => Self::Altruistic,
+			RelayerMode::Rational => Self::Rational,
+		}
+	}
+}
 
 /// Start messages relayer process.
 #[derive(StructOpt)]
@@ -33,6 +52,8 @@ pub struct RelayMessages {
 	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
+	#[structopt(long, possible_values = RelayerMode::VARIANTS, case_insensitive = true, default_value = "rational")]
+	relayer_mode: RelayerMode,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
 	#[structopt(flatten)]
@@ -62,10 +83,51 @@ impl RelayMessages {
 				source_to_target_headers_relay: None,
 				target_to_source_headers_relay: None,
 				lane_id: self.lane.into(),
+				relayer_mode: self.relayer_mode.into(),
 				metrics_params: self.prometheus_params.into(),
 			})
 			.await
 			.map_err(|e| anyhow::format_err!("{}", e))
 		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn should_use_rational_relayer_mode_by_default() {
+		assert_eq!(
+			RelayMessages::from_iter(vec![
+				"relay-messages",
+				"rialto-to-millau",
+				"--source-port=0",
+				"--source-signer=//Alice",
+				"--target-port=0",
+				"--target-signer=//Alice",
+				"--lane=00000000",
+			])
+			.relayer_mode,
+			RelayerMode::Rational,
+		);
+	}
+
+	#[test]
+	fn should_accept_altruistic_relayer_mode() {
+		assert_eq!(
+			RelayMessages::from_iter(vec![
+				"relay-messages",
+				"rialto-to-millau",
+				"--source-port=0",
+				"--source-signer=//Alice",
+				"--target-port=0",
+				"--target-signer=//Alice",
+				"--lane=00000000",
+				"--relayer-mode=altruistic",
+			])
+			.relayer_mode,
+			RelayerMode::Altruistic,
+		);
 	}
 }
