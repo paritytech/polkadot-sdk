@@ -1783,16 +1783,21 @@ dependencies = [
 name = "cumulus-pallet-xcmp-queue"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "parity-scale-codec",
  "rand 0.8.3",
  "rand_chacha 0.3.1",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
  "xcm",
+ "xcm-builder",
  "xcm-executor",
 ]
 

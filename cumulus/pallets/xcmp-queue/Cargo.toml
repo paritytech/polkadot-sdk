@@ -24,6 +24,13 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", default-feature
 # Cumulus Dependencies
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
+[dev-dependencies]
+sp-core = { git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+sp-io = { git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+cumulus-pallet-parachain-system = { path = "../parachain-system" }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+pallet-balances = { git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+
 [features]
 default = [ "std" ]
 std = [
