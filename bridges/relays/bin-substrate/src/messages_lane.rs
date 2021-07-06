@@ -49,6 +49,8 @@ pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS> {
 	pub target_to_source_headers_relay: Option<OnDemandHeadersRelay<TC>>,
 	/// Identifier of lane that needs to be served.
 	pub lane_id: LaneId,
+	/// Relayer operating mode.
+	pub relayer_mode: messages_relay::message_lane_loop::RelayerMode,
 	/// Metrics parameters.
 	pub metrics_params: MetricsParams,
 }
