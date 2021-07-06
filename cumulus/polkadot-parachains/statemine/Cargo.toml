@@ -7,7 +7,7 @@ description = "Kusama variant of Statemint parachain runtime"
 
 [dependencies]
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 log = { version = "0.4.14", default-features = false }
 parachain-info = { path = "../pallets/parachain-info", default-features = false }
 smallvec = "1.6.1"
@@ -49,7 +49,6 @@ pallet-uniques = { git = "https://github.com/paritytech/substrate", default-feat
 pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 node-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-max-encoded-len = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus dependencies
 cumulus-pallet-aura-ext = { path = "../../pallets/aura-ext", default-features = false }

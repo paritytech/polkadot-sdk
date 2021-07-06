@@ -16,16 +16,12 @@
 
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
-use futures::join;
+use futures::{join, StreamExt};
 use sc_service::TaskExecutor;
-use sc_client_api::client::BlockchainEvents;
-use futures::StreamExt;
-use sp_api::ProvideRuntimeApi;
-use cumulus_test_runtime::GetUpgradeDetection;
 use sp_runtime::generic::BlockId;
+use sc_client_api::BlockchainEvents;
 
 #[substrate_test_utils::test]
-#[ignore]
 async fn test_runtime_upgrade(task_executor: TaskExecutor) {
 	let mut builder = sc_cli::LoggerBuilder::new("runtime=debug");
 	builder.with_colors(false);
@@ -60,35 +56,44 @@ async fn test_runtime_upgrade(task_executor: TaskExecutor) {
 			.build()
 			.await;
 
-	// run cumulus dave (a parachain full node) and wait for it to sync some blocks
+	// run cumulus dave (a parachain full node)
 	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Dave)
 		.connect_to_parachain_node(&charlie)
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])
 		.build()
 		.await;
 
-	let mut import_notification_stream = charlie.client.import_notification_stream();
+	// Wait for 2 blocks to be produced
+	charlie.wait_for_blocks(2).await;
 
-	while let Some(notification) = import_notification_stream.next().await {
-		if notification.is_new_best {
-			let res = charlie.client.runtime_api()
-				.has_upgraded(&BlockId::Hash(notification.hash));
-			if matches!(res, Ok(false)) {
-				break;
-			}
-		}
-	}
+	let mut expected_runtime_version = charlie
+		.client
+		.runtime_version_at(&BlockId::number(0))
+		.expect("Runtime version exists");
+	expected_runtime_version.spec_version += 1;
+
+	// Replace the runtime version in the WASM blob to make it look like a new runtime.
+	let wasm = sp_maybe_compressed_blob::decompress(
+		cumulus_test_runtime_upgrade::WASM_BINARY.unwrap(),
+		sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
+	)
+	.expect("Decompressing the WASM blob works");
+	let wasm = sp_version::embed::embed_runtime_version(&wasm, expected_runtime_version.clone())
+		.expect("Embedding the runtime version works");
 
 	// schedule runtime upgrade
-	charlie.schedule_upgrade(cumulus_test_runtime_upgrade::WASM_BINARY.unwrap().to_vec())
-		.await
-		.unwrap();
+	charlie.schedule_upgrade(wasm).await.unwrap();
 
-	while let Some(notification) = import_notification_stream.next().await {
+	let mut import_stream = dave.client.import_notification_stream();
+
+	while let Some(notification) = import_stream.next().await {
 		if notification.is_new_best {
-			let res = charlie.client.runtime_api()
-				.has_upgraded(&BlockId::Hash(notification.hash));
-			if res.unwrap_or(false) {
+			let runtime_version = dave
+				.client
+				.runtime_version_at(&BlockId::Hash(notification.hash))
+				.expect("Runtime version exists");
+
+			if expected_runtime_version == runtime_version {
 				break;
 			}
 		}
