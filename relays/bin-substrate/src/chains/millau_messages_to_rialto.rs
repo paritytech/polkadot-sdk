@@ -164,11 +164,13 @@ pub async fn run(
 			Millau relayer account id: {:?}\n\t\
 			Max messages in single transaction: {}\n\t\
 			Max messages size in single transaction: {}\n\t\
-			Max messages weight in single transaction: {}",
+			Max messages weight in single transaction: {}\n\t\
+			Relayer mode: {:?}",
 		lane.relayer_id_at_source,
 		max_messages_in_single_batch,
 		max_messages_size_in_single_batch,
 		max_messages_weight_in_single_batch,
+		params.relayer_mode,
 	);
 
 	let (metrics_params, metrics_values) = add_standalone_metrics(
@@ -191,7 +193,7 @@ pub async fn run(
 				max_messages_in_single_batch,
 				max_messages_weight_in_single_batch,
 				max_messages_size_in_single_batch,
-				relayer_mode: messages_relay::message_lane_loop::RelayerMode::Altruistic,
+				relayer_mode: params.relayer_mode,
 			},
 		},
 		MillauSourceClient::new(
