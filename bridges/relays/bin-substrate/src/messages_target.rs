@@ -255,6 +255,13 @@ where
 					SC::NAME,
 				))
 			})?;
+		log::trace!(
+			target: "bridge",
+			"Using conversion rate {} when converting from {} tokens to {} tokens",
+			conversion_rate,
+			TC::NAME,
+			SC::NAME
+		);
 		Ok(convert_target_tokens_to_source_tokens::<SC, TC>(
 			FixedU128::from_float(conversion_rate),
 			self.client

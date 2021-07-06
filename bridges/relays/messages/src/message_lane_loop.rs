@@ -65,7 +65,7 @@ pub enum RelayerMode {
 	/// The relayer doesn't care about rewards.
 	Altruistic,
 	/// The relayer will deliver all messages and confirmations as long as he's not losing any funds.
-	NoLosses,
+	Rational,
 }
 
 /// Message delivery race parameters.
