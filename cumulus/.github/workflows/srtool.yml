@@ -14,59 +14,78 @@ on:
   schedule:
     - cron: "00 02 * * 1" # 2AM weekly on monday
 
+  workflow_dispatch:
+
 jobs:
   srtool:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        chain: ["statemine", "westmint"]
+        chain: ["statemine", "westmint", "statemint", "rococo", "shell"]
     steps:
-      - name: Get Timestamp
-        run: echo "TMSP=$(date '+%Y%m%d_%H%M%S')" >> $GITHUB_ENV
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
       - name: Srtool build
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.1.0
+        uses: chevdor/srtool-actions@v0.3.0
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: polkadot-parachains/${{ matrix.chain }}
+
       - name: Summary
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.chain }}-srtool-digest.json
           cat ${{ matrix.chain }}-srtool-digest.json
-          echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
-      - name: Archive Runtime
+          echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
+          echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
+
+      # it takes a while to build the runtime, so let's save the artifact as soon as we have it
+      - name: Archive Artifacts for ${{ matrix.chain }}
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.chain }}-runtime-${{ env.TMSP }}-${{ github.sha }}
+          name: ${{ matrix.chain }}-runtime
           path: |
             ${{ steps.srtool_build.outputs.wasm }}
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
             ${{ matrix.chain }}-srtool-digest.json
+
+      # We now get extra information thanks to subwasm
       - name: Install subwasm
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: "--git https://gitlab.com/chevdor/subwasm"
+        run: |
+          wget https://github.com/chevdor/subwasm/releases/download/v0.12.0/subwasm_linux_amd64_v0.12.0.deb
+          sudo dpkg -i subwasm_linux_amd64_v0.12.0.deb
+          subwasm --version
+
       - name: Show Runtime information
         shell: bash
         run: |
           subwasm info ${{ steps.srtool_build.outputs.wasm }}
+          subwasm info ${{ steps.srtool_build.outputs.wasm_compressed }}
           subwasm --json info ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-info.json
+          subwasm --json info ${{ steps.srtool_build.outputs.wasm_compressed }} > ${{ matrix.chain }}-compressed-info.json
+
       - name: Extract the metadata
         shell: bash
         run: |
           subwasm meta ${{ steps.srtool_build.outputs.wasm }}
           subwasm --json meta ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
+
       - name: Check the metadata diff
         shell: bash
+        # the following subwasm call will error for chains that are not known and/or live, that includes shell for instance
         run: |
-          subwasm diff ${{ steps.srtool_build.outputs.wasm }} --chain-b ${{ matrix.chain }} > ${{ matrix.chain }}-diff.txt
-          cat ${{ matrix.chain }}-diff.txt
+          subwasm diff ${{ steps.srtool_build.outputs.wasm }} --chain-b ${{ matrix.chain }} || \
+            echo "Subwasm call failed, check the logs. This is likely because ${{ matrix.chain }} is not known by subwasm" | \
+            tee ${{ matrix.chain }}-diff.txt
+
       - name: Archive Subwasm results
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.chain }}-runtime-${{ env.TMSP }}-${{ github.sha }}
+          name: ${{ matrix.chain }}-runtime
           path: |
             ${{ matrix.chain }}-info.json
+            ${{ matrix.chain }}-compressed-info.json
             ${{ matrix.chain }}-metadata.json
             ${{ matrix.chain }}-diff.txt
