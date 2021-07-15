@@ -49,7 +49,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		ParachainSystem: parachain_system::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		ParachainSystem: parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned},
 	}
 );
 
