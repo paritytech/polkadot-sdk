@@ -146,6 +146,7 @@ mod tests {
 			call.get_dispatch_info().weight,
 			bp_message_dispatch::CallOrigin::SourceRoot,
 			&call,
+			send_message::DispatchFeePayment::AtSourceChain,
 		);
 		assert_eq!(Millau::verify_message(&payload), Ok(()));
 
@@ -156,6 +157,7 @@ mod tests {
 			call.get_dispatch_info().weight,
 			bp_message_dispatch::CallOrigin::SourceRoot,
 			&call,
+			send_message::DispatchFeePayment::AtSourceChain,
 		);
 		assert!(Millau::verify_message(&payload).is_err());
 	}
@@ -183,6 +185,7 @@ mod tests {
 			maximal_dispatch_weight,
 			bp_message_dispatch::CallOrigin::SourceRoot,
 			&call,
+			send_message::DispatchFeePayment::AtSourceChain,
 		);
 		assert_eq!(Millau::verify_message(&payload), Ok(()));
 
@@ -191,6 +194,7 @@ mod tests {
 			maximal_dispatch_weight + 1,
 			bp_message_dispatch::CallOrigin::SourceRoot,
 			&call,
+			send_message::DispatchFeePayment::AtSourceChain,
 		);
 		assert!(Millau::verify_message(&payload).is_err());
 	}
@@ -208,6 +212,7 @@ mod tests {
 			maximal_dispatch_weight,
 			bp_message_dispatch::CallOrigin::SourceRoot,
 			&call,
+			send_message::DispatchFeePayment::AtSourceChain,
 		);
 		assert_eq!(Rialto::verify_message(&payload), Ok(()));
 
@@ -216,6 +221,7 @@ mod tests {
 			maximal_dispatch_weight + 1,
 			bp_message_dispatch::CallOrigin::SourceRoot,
 			&call,
+			send_message::DispatchFeePayment::AtSourceChain,
 		);
 		assert!(Rialto::verify_message(&payload).is_err());
 	}
