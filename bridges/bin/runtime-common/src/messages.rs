@@ -38,7 +38,7 @@ use frame_support::{
 };
 use hash_db::Hasher;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul},
+	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul, Saturating, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128,
 };
 use sp_std::{cmp::PartialOrd, convert::TryFrom, fmt::Debug, marker::PhantomData, ops::RangeInclusive, vec::Vec};
@@ -491,6 +491,7 @@ pub mod target {
 		MessageDispatch<AccountIdOf<ThisChain<B>>, BalanceOf<BridgedChain<B>>>
 		for FromBridgedChainMessageDispatch<B, ThisRuntime, ThisCurrency, ThisDispatchInstance>
 	where
+		BalanceOf<ThisChain<B>>: Saturating + FixedPointOperand,
 		ThisDispatchInstance: frame_support::traits::Instance,
 		ThisRuntime: pallet_bridge_dispatch::Config<ThisDispatchInstance, MessageId = (LaneId, MessageNonce)>
 			+ pallet_transaction_payment::Config,
@@ -525,13 +526,20 @@ pub mod target {
 				message_id,
 				message.data.payload.map_err(drop),
 				|dispatch_origin, dispatch_weight| {
-					ThisCurrency::transfer(
-						dispatch_origin,
-						relayer_account,
-						ThisRuntime::WeightToFee::calc(&dispatch_weight),
-						ExistenceRequirement::AllowDeath,
-					)
-					.map_err(drop)
+					let unadjusted_weight_fee = ThisRuntime::WeightToFee::calc(&dispatch_weight);
+					let fee_multiplier = pallet_transaction_payment::Pallet::<ThisRuntime>::next_fee_multiplier();
+					let adjusted_weight_fee = fee_multiplier.saturating_mul_int(unadjusted_weight_fee);
+					if !adjusted_weight_fee.is_zero() {
+						ThisCurrency::transfer(
+							dispatch_origin,
+							relayer_account,
+							adjusted_weight_fee,
+							ExistenceRequirement::AllowDeath,
+						)
+						.map_err(drop)
+					} else {
+						Ok(())
+					}
 				},
 			)
 		}
