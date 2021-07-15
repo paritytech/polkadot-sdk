@@ -327,14 +327,20 @@ impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => !matches!(c, Call::Balances(..) | Call::Assets(..)),
+			ProxyType::NonTransfer => !matches!(
+				c,
+				Call::Balances(..) | Call::Assets(..) | Call::Uniques(..)
+			),
 			ProxyType::CancelProxy => matches!(
 				c,
 				Call::Proxy(pallet_proxy::Call::reject_announcement(..))
 					| Call::Utility(..) | Call::Multisig(..)
 			),
 			ProxyType::Assets => {
-				matches!(c, Call::Assets(..) | Call::Utility(..) | Call::Multisig(..))
+				matches!(
+					c,
+					Call::Assets(..) | Call::Utility(..) | Call::Multisig(..) | Call::Uniques(..)
+				)
 			}
 			ProxyType::AssetOwner => matches!(
 				c,
@@ -344,6 +350,16 @@ impl InstanceFilter<Call> for ProxyType {
 					| Call::Assets(pallet_assets::Call::set_team(..))
 					| Call::Assets(pallet_assets::Call::set_metadata(..))
 					| Call::Assets(pallet_assets::Call::clear_metadata(..))
+					| Call::Uniques(pallet_uniques::Call::create(..))
+					| Call::Uniques(pallet_uniques::Call::destroy(..))
+					| Call::Uniques(pallet_uniques::Call::transfer_ownership(..))
+					| Call::Uniques(pallet_uniques::Call::set_team(..))
+					| Call::Uniques(pallet_uniques::Call::set_metadata(..))
+					| Call::Uniques(pallet_uniques::Call::set_attribute(..))
+					| Call::Uniques(pallet_uniques::Call::set_class_metadata(..))
+					| Call::Uniques(pallet_uniques::Call::clear_metadata(..))
+					| Call::Uniques(pallet_uniques::Call::clear_attribute(..))
+					| Call::Uniques(pallet_uniques::Call::clear_class_metadata(..))
 					| Call::Utility(..) | Call::Multisig(..)
 			),
 			ProxyType::AssetManager => matches!(
@@ -354,6 +370,12 @@ impl InstanceFilter<Call> for ProxyType {
 					| Call::Assets(pallet_assets::Call::thaw(..))
 					| Call::Assets(pallet_assets::Call::freeze_asset(..))
 					| Call::Assets(pallet_assets::Call::thaw_asset(..))
+					| Call::Uniques(pallet_uniques::Call::mint(..))
+					| Call::Uniques(pallet_uniques::Call::burn(..))
+					| Call::Uniques(pallet_uniques::Call::freeze(..))
+					| Call::Uniques(pallet_uniques::Call::thaw(..))
+					| Call::Uniques(pallet_uniques::Call::freeze_class(..))
+					| Call::Uniques(pallet_uniques::Call::thaw_class(..))
 					| Call::Utility(..) | Call::Multisig(..)
 			),
 			ProxyType::Collator => matches!(
@@ -603,6 +625,34 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const ClassDeposit: Balance = UNITS; // 1 UNIT deposit to create asset class
+	pub const InstanceDeposit: Balance = UNITS / 100; // 1/100 UNIT deposit to create asset instance
+	pub const KeyLimit: u32 = 32;	// Max 32 bytes per key
+	pub const ValueLimit: u32 = 64;	// Max 64 bytes per value
+	pub const UniquesMetadataDepositBase: Balance = deposit(1, 129);
+	pub const AttributeDepositBase: Balance = deposit(1, 0);
+	pub const DepositPerByte: Balance = deposit(0, 1);
+	pub const UniquesStringLimit: u32 = 128;
+}
+
+impl pallet_uniques::Config for Runtime {
+	type Event = Event;
+	type ClassId = u32;
+	type InstanceId = u32;
+	type Currency = Balances;
+	type ForceOrigin = AssetsForceOrigin;
+	type ClassDeposit = ClassDeposit;
+	type InstanceDeposit = InstanceDeposit;
+	type MetadataDepositBase = UniquesMetadataDepositBase;
+	type AttributeDepositBase = AttributeDepositBase;
+	type DepositPerByte = DepositPerByte;
+	type StringLimit = UniquesStringLimit;
+	type KeyLimit = KeyLimit;
+	type ValueLimit = ValueLimit;
+	type WeightInfo = weights::pallet_uniques::WeightInfo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -643,6 +693,7 @@ construct_runtime!(
 
 		// The main stage. To include pallet-assets-freezer and pallet-uniques.
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 50,
+		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>} = 51,
 	}
 );
 

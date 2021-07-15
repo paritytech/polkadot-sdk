@@ -45,6 +45,7 @@ pallet-sudo = { git = "https://github.com/paritytech/substrate", default-feature
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-uniques = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 node-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -81,6 +82,7 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 [features]
 default = [ "std" ]
 runtime-benchmarks = [
+	'cumulus-pallet-session-benchmarking/runtime-benchmarks',
 	'hex-literal',
 	'sp-runtime/runtime-benchmarks',
 	'xcm-builder/runtime-benchmarks',
@@ -92,7 +94,7 @@ runtime-benchmarks = [
 	'pallet-balances/runtime-benchmarks',
 	'pallet-multisig/runtime-benchmarks',
 	'pallet-proxy/runtime-benchmarks',
-	'cumulus-pallet-session-benchmarking/runtime-benchmarks',
+	'pallet-uniques/runtime-benchmarks',
 	'pallet-utility/runtime-benchmarks',
 	'pallet-timestamp/runtime-benchmarks',
 	'pallet-xcm/runtime-benchmarks',
@@ -129,6 +131,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-uniques/std",
 	"pallet-utility/std",
 	"parachain-info/std",
 	"cumulus-pallet-aura-ext/std",

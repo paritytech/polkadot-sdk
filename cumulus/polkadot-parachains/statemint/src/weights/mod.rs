@@ -5,4 +5,5 @@ pub mod pallet_collator_selection;
 pub mod pallet_proxy;
 pub mod pallet_session;
 pub mod pallet_timestamp;
+pub mod pallet_uniques;
 pub mod pallet_utility;
