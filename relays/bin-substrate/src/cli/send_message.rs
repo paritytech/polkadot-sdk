@@ -22,7 +22,6 @@ use crate::cli::{
 	TargetSigningParams,
 };
 use bp_message_dispatch::{CallOrigin, MessagePayload};
-use bp_runtime::messages::DispatchFeePayment;
 use codec::Encode;
 use frame_support::weights::Weight;
 use relay_substrate_client::{Chain, TransactionSignScheme};
@@ -30,7 +29,26 @@ use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSignature, MultiSigner};
 use std::fmt::Debug;
 use structopt::StructOpt;
-use strum::VariantNames;
+use strum::{EnumString, EnumVariantNames, VariantNames};
+
+/// Relayer operating mode.
+#[derive(Debug, EnumString, EnumVariantNames, Clone, Copy, PartialEq, Eq)]
+#[strum(serialize_all = "kebab_case")]
+pub enum DispatchFeePayment {
+	/// The dispacth fee is paid at the source chain.
+	AtSourceChain,
+	/// The dispatch fee is paid at the target chain.
+	AtTargetChain,
+}
+
+impl From<DispatchFeePayment> for bp_runtime::messages::DispatchFeePayment {
+	fn from(dispatch_fee_payment: DispatchFeePayment) -> Self {
+		match dispatch_fee_payment {
+			DispatchFeePayment::AtSourceChain => Self::AtSourceChain,
+			DispatchFeePayment::AtTargetChain => Self::AtTargetChain,
+		}
+	}
+}
 
 /// Send bridge message.
 #[derive(StructOpt)]
@@ -51,6 +69,14 @@ pub struct SendMessage {
 	/// Hex-encoded lane id. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
+	/// Where dispatch fee is paid?
+	#[structopt(
+		long,
+		possible_values = DispatchFeePayment::VARIANTS,
+		case_insensitive = true,
+		default_value = "at-source-chain",
+	)]
+	dispatch_fee_payment: DispatchFeePayment,
 	/// Dispatch weight of the message. If not passed, determined automatically.
 	#[structopt(long)]
 	dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
@@ -76,6 +102,7 @@ impl SendMessage {
 				target_signer,
 				target_signer_password,
 				ref mut message,
+				dispatch_fee_payment,
 				dispatch_weight,
 				origin,
 				bridge,
@@ -124,6 +151,7 @@ impl SendMessage {
 						}
 					},
 					&target_call,
+					*dispatch_fee_payment,
 				)
 			};
 			Ok(payload)
@@ -212,6 +240,7 @@ pub(crate) fn message_payload<SAccountId, TPublic, TSignature>(
 	weight: Weight,
 	origin: CallOrigin<SAccountId, TPublic, TSignature>,
 	call: &impl Encode,
+	dispatch_fee_payment: DispatchFeePayment,
 ) -> MessagePayload<SAccountId, TPublic, TSignature, Vec<u8>>
 where
 	SAccountId: Encode + Debug,
@@ -223,7 +252,7 @@ where
 		spec_version,
 		weight,
 		origin,
-		dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
+		dispatch_fee_payment: dispatch_fee_payment.into(),
 		call: HexBytes::encode(call),
 	};
 
@@ -281,7 +310,7 @@ mod tests {
 				spec_version: relay_millau_client::Millau::RUNTIME_VERSION.spec_version,
 				weight: 1038000,
 				origin: CallOrigin::SourceAccount(sp_keyring::AccountKeyring::Alice.to_account_id()),
-				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
+				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtSourceChain,
 				call: hex!("0401081234").to_vec(),
 			}
 		);
@@ -325,7 +354,7 @@ mod tests {
 					sp_keyring::AccountKeyring::Bob.into(),
 					signature,
 				),
-				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
+				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtSourceChain,
 				call: hex!("0701081234").to_vec(),
 			}
 		);
@@ -349,5 +378,30 @@ mod tests {
 		]);
 
 		assert!(send_message.is_err());
+	}
+
+	#[test]
+	fn accepts_non_default_dispatch_fee_payment() {
+		// given
+		let mut send_message = SendMessage::from_iter(vec![
+			"send-message",
+			"rialto-to-millau",
+			"--source-port",
+			"1234",
+			"--source-signer",
+			"//Alice",
+			"--dispatch-fee-payment",
+			"at-target-chain",
+			"remark",
+		]);
+
+		// when
+		let payload = send_message.encode_payload().unwrap();
+
+		// then
+		assert_eq!(
+			payload.dispatch_fee_payment,
+			bp_runtime::messages::DispatchFeePayment::AtTargetChain
+		);
 	}
 }

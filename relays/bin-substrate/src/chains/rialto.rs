@@ -19,7 +19,9 @@
 use crate::cli::{
 	bridge,
 	encode_call::{self, Call, CliEncodeCall},
-	encode_message, send_message, CliChain,
+	encode_message,
+	send_message::{self, DispatchFeePayment},
+	CliChain,
 };
 use bp_message_dispatch::{CallOrigin, MessagePayload};
 use codec::Decode;
@@ -95,7 +97,13 @@ impl CliChain for Rialto {
 				let call = Target::encode_call(&call).map_err(|e| e.to_string())?;
 				let weight = call.get_dispatch_info().weight;
 
-				Ok(send_message::message_payload(spec_version, weight, origin, &call))
+				Ok(send_message::message_payload(
+					spec_version,
+					weight,
+					origin,
+					&call,
+					DispatchFeePayment::AtSourceChain,
+				))
 			}
 		}
 	}
