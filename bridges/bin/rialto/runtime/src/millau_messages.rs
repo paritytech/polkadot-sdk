@@ -31,15 +31,19 @@ use frame_support::{
 	weights::{DispatchClass, Weight},
 	RuntimeDebug,
 };
-use sp_runtime::{traits::Zero, FixedPointNumber, FixedU128};
+use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Initial value of `MillauToRialtoConversionRate` parameter.
 pub const INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE: FixedU128 = FixedU128::from_inner(FixedU128::DIV);
+/// Initial value of `MillauFeeMultiplier` parameter.
+pub const INITIAL_MILLAU_FEE_MULTIPLIER: FixedU128 = FixedU128::from_inner(FixedU128::DIV);
 
 parameter_types! {
 	/// Millau to Rialto conversion rate. Initially we treat both tokens as equal.
 	pub storage MillauToRialtoConversionRate: FixedU128 = INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE;
+	/// Fee multiplier value at Millau chain.
+	pub storage MillauFeeMultiplier: FixedU128 = INITIAL_MILLAU_FEE_MULTIPLIER;
 }
 
 /// Message payload for Rialto -> Millau messages.
@@ -128,11 +132,15 @@ impl messages::ThisChainWithMessages for Rialto {
 	}
 
 	fn transaction_payment(transaction: MessageTransaction<Weight>) -> bp_rialto::Balance {
+		// `transaction` may represent transaction from the future, when multiplier value will
+		// be larger, so let's use slightly increased value
+		let multiplier = FixedU128::saturating_from_rational(110, 100)
+			.saturating_mul(pallet_transaction_payment::Pallet::<Runtime>::next_fee_multiplier());
 		// in our testnets, both per-byte fee and weight-to-fee are 1:1
 		messages::transaction_payment(
 			bp_rialto::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
 			1,
-			FixedU128::zero(),
+			multiplier,
 			|weight| weight as _,
 			transaction,
 		)
@@ -195,11 +203,14 @@ impl messages::BridgedChainWithMessages for Millau {
 	}
 
 	fn transaction_payment(transaction: MessageTransaction<Weight>) -> bp_millau::Balance {
+		// we don't have a direct access to the value of multiplier at Millau chain
+		// => it is a messages module parameter
+		let multiplier = MillauFeeMultiplier::get();
 		// in our testnets, both per-byte fee and weight-to-fee are 1:1
 		messages::transaction_payment(
 			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
 			1,
-			FixedU128::zero(),
+			multiplier,
 			|weight| weight as _,
 			transaction,
 		)
