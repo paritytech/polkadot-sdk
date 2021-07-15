@@ -103,8 +103,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1,
-	impl_version: 1,
+	spec_version: 2,
+	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 };
@@ -143,16 +143,9 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 2;
 }
 
-// Don't allow permission-less asset creation.
 pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
-	fn filter(c: &Call) -> bool {
-		!matches!(
-			c,
-			Call::Assets(pallet_assets::Call::create(..))
-				| Call::Uniques(pallet_uniques::Call::create(..))
-		)
-	}
+	fn filter(_c: &Call) -> bool { true }
 }
 
 // Configure FRAME pallets to include in runtime.
