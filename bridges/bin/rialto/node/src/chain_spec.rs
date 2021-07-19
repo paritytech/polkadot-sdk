@@ -16,11 +16,11 @@
 
 use bp_rialto::derive_account_from_millau_id;
 use rialto_runtime::{
-	AccountId, AuraConfig, BalancesConfig, BridgeKovanConfig, BridgeRialtoPoaConfig, GenesisConfig, GrandpaConfig,
+	AccountId, BabeConfig, BalancesConfig, BridgeKovanConfig, BridgeRialtoPoaConfig, GenesisConfig, GrandpaConfig,
 	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use serde_json::json;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -56,11 +56,11 @@ where
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Helper function to generate an authority key for Aura
-pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
+/// Helper function to generate an authority key for Babe
+pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, BabeId, GrandpaId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
-		get_from_seed::<AuraId>(s),
+		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
 	)
 }
@@ -174,12 +174,12 @@ impl Alternative {
 	}
 }
 
-fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
-	SessionKeys { aura, grandpa }
+fn session_keys(babe: BabeId, grandpa: GrandpaId) -> SessionKeys {
+	SessionKeys { babe, grandpa }
 }
 
 fn testnet_genesis(
-	initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
+	initial_authorities: Vec<(AccountId, BabeId, GrandpaId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
@@ -192,8 +192,9 @@ fn testnet_genesis(
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
 		},
-		aura: AuraConfig {
+		babe: BabeConfig {
 			authorities: Vec::new(),
+			epoch_config: Some(rialto_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
 		bridge_rialto_poa: load_rialto_poa_bridge_config(),
 		bridge_kovan: load_kovan_bridge_config(),
