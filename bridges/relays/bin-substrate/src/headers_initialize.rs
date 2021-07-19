@@ -108,12 +108,18 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 		.map_err(|err| format!("Failed to subscribe to {} justifications: {:?}", SourceChain::NAME, err))?;
 
 	// Read next justification - the header that it finalizes will be used as initial header.
-	let justification = justifications.next().await.ok_or_else(|| {
-		format!(
-			"Failed to read {} justification from the stream: stream has ended unexpectedly",
-			SourceChain::NAME,
-		)
-	})?;
+	let justification = justifications
+		.next()
+		.await
+		.map_err(|err| err.to_string())
+		.and_then(|justification| justification.ok_or_else(|| "stream has ended unexpectedly".into()))
+		.map_err(|err| {
+			format!(
+				"Failed to read {} justification from the stream: {}",
+				SourceChain::NAME,
+				err,
+			)
+		})?;
 
 	// Read initial header.
 	let justification: GrandpaJustification<SourceChain::Header> = Decode::decode(&mut &justification.0[..])
