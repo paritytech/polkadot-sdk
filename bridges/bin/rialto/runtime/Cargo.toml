@@ -39,7 +39,7 @@ frame-executive = { git = "https://github.com/paritytech/substrate", branch = "m
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
-pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
+pallet-babe = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
@@ -50,7 +50,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
-sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
+sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
@@ -89,7 +89,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-aura/std",
+	"pallet-babe/std",
 	"pallet-balances/std",
 	"pallet-bridge-currency-exchange/std",
 	"pallet-bridge-dispatch/std",
@@ -106,7 +106,7 @@ std = [
 	"serde",
 	"sp-api/std",
 	"sp-block-builder/std",
-	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
 	"sp-core/std",
 	"sp-finality-grandpa/std",
 	"sp-inherents/std",
