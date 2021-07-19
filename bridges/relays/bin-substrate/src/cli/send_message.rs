@@ -60,12 +60,8 @@ pub struct SendMessage {
 	source: SourceConnectionParams,
 	#[structopt(flatten)]
 	source_sign: SourceSigningParams,
-	/// The SURI of secret key to use when transactions are submitted to the Target node.
-	#[structopt(long, required_if("origin", "Target"))]
-	target_signer: Option<String>,
-	/// The password for the SURI of secret key to use when transactions are submitted to the Target node.
-	#[structopt(long)]
-	target_signer_password: Option<String>,
+	#[structopt(flatten)]
+	target_sign: TargetSigningParams,
 	/// Hex-encoded lane id. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
@@ -99,8 +95,7 @@ impl SendMessage {
 		crate::select_full_bridge!(self.bridge, {
 			let SendMessage {
 				source_sign,
-				target_signer,
-				target_signer_password,
+				target_sign,
 				ref mut message,
 				dispatch_fee_payment,
 				dispatch_weight,
@@ -129,12 +124,6 @@ impl SendMessage {
 					match origin {
 						Origins::Source => CallOrigin::SourceAccount(source_account_id),
 						Origins::Target => {
-							let target_sign = TargetSigningParams {
-								target_signer: target_signer.clone().ok_or_else(|| {
-									anyhow::format_err!("The argument target_signer is not available")
-								})?,
-								target_signer_password: target_signer_password.clone(),
-							};
 							let target_sign = target_sign.to_keypair::<Target>()?;
 							let digest = account_ownership_digest(
 								&target_call,
@@ -361,7 +350,7 @@ mod tests {
 	}
 
 	#[test]
-	fn target_signer_must_exist_if_origin_is_target() {
+	fn accepts_send_message_command_without_target_sign_options() {
 		// given
 		let send_message = SendMessage::from_iter_safe(vec![
 			"send-message",
@@ -377,7 +366,7 @@ mod tests {
 			"1234",
 		]);
 
-		assert!(send_message.is_err());
+		assert!(send_message.is_ok());
 	}
 
 	#[test]
