@@ -209,7 +209,7 @@ mod tests {
 		// then
 		assert_eq!(
 			format!("{:?}", hex),
-			"0x0c00d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27de5c0"
+			"0x0400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27de5c0"
 		);
 	}
 
@@ -222,7 +222,7 @@ mod tests {
 		let hex = encode_call.encode().unwrap();
 
 		// then
-		assert!(format!("{:?}", hex).starts_with("0x070154556e69782074696d653a"));
+		assert!(format!("{:?}", hex).starts_with("0x000154556e69782074696d653a"));
 	}
 
 	#[test]
@@ -240,7 +240,7 @@ mod tests {
 		let hex = encode_call.encode().unwrap();
 
 		// then
-		assert_eq!(format!("{:?}", hex), "0x0701081234");
+		assert_eq!(format!("{:?}", hex), "0x0001081234");
 	}
 
 	#[test]
@@ -253,7 +253,7 @@ mod tests {
 		let hex = encode_call.encode().unwrap();
 
 		// then
-		assert_eq!(format!("{:?}", hex), "0x070130000000000000000000000000");
+		assert_eq!(format!("{:?}", hex), "0x000130000000000000000000000000");
 	}
 
 	#[test]
