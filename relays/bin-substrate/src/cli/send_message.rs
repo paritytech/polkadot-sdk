@@ -344,7 +344,7 @@ mod tests {
 					signature,
 				),
 				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtSourceChain,
-				call: hex!("0701081234").to_vec(),
+				call: hex!("0001081234").to_vec(),
 			}
 		);
 	}

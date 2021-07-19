@@ -105,7 +105,7 @@ pub use time_units::*;
 
 /// Human readable time units defined in terms of number of blocks.
 pub mod time_units {
-	use super::BlockNumber;
+	use super::{BlockNumber, SESSION_LENGTH};
 
 	pub const MILLISECS_PER_BLOCK: u64 = 6000;
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
@@ -113,6 +113,11 @@ pub mod time_units {
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 	pub const HOURS: BlockNumber = MINUTES * 60;
 	pub const DAYS: BlockNumber = HOURS * 24;
+
+	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = SESSION_LENGTH;
+
+	// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
+	pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 }
 
 /// Block number type used in Rialto.
@@ -139,6 +144,9 @@ pub type AccountSigner = MultiSigner;
 
 /// Balance of an account.
 pub type Balance = u128;
+
+/// An instant or duration in time.
+pub type Moment = u64;
 
 /// Rialto chain.
 #[derive(RuntimeDebug)]

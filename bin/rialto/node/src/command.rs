@@ -162,7 +162,9 @@ pub fn run() -> sc_cli::Result<()> {
 			runner
 				.run_node_until_exit(|config| async move {
 					match config.role {
-						Role::Light => service::new_light(config),
+						Role::Light => Err(sc_service::Error::Other(
+							"Light client is not supported by this node".into(),
+						)),
 						_ => service::new_full(config),
 					}
 				})
