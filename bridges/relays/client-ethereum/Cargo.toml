@@ -16,4 +16,5 @@ jsonrpsee-ws-client = "0.2"
 libsecp256k1 = { version = "0.3.4", default-features = false, features = ["hmac"] }
 log = "0.4.11"
 relay-utils = { path = "../utils" }
+tokio = "1.8"
 web3 = { git = "https://github.com/svyatonik/rust-web3.git", branch = "bump-deps" }

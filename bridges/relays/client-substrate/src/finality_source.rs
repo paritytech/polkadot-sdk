@@ -132,7 +132,7 @@ where
 	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, Error> {
 		Ok(unfold(
 			self.client.clone().subscribe_justifications().await?,
-			move |mut subscription| async move {
+			move |subscription| async move {
 				loop {
 					let log_error = |err| {
 						log::error!(

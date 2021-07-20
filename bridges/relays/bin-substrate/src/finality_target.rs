@@ -80,10 +80,11 @@ where
 	}
 
 	async fn submit_finality_proof(&self, header: P::Header, proof: P::FinalityProof) -> Result<(), SubstrateError> {
+		let transactions_author = self.pipeline.transactions_author();
+		let pipeline = self.pipeline.clone();
 		self.client
-			.submit_signed_extrinsic(self.pipeline.transactions_author(), move |transaction_nonce| {
-				self.pipeline
-					.make_submit_finality_proof_transaction(transaction_nonce, header, proof)
+			.submit_signed_extrinsic(transactions_author, move |transaction_nonce| {
+				pipeline.make_submit_finality_proof_transaction(transaction_nonce, header, proof)
 			})
 			.await
 			.map(drop)
