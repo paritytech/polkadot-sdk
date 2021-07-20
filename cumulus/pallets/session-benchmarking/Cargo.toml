@@ -13,19 +13,19 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
-sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
-sp-staking = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
-frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
-frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
-frame-benchmarking = { default-features = false, optional = true, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
-pallet-session = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
-sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
+sp-staking = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
+frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
+frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
+frame-benchmarking = { default-features = false, optional = true, git = 'https://github.com/paritytech/substrate', branch = "master" }
+pallet-session = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
+sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
 
 [dev-dependencies]
 serde = { version = "1.0.119" }
-codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
-sp-core = { git = 'https://github.com/paritytech/substrate', branch = "master", version = '3.0.0' }
+codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
+sp-core = { git = 'https://github.com/paritytech/substrate', branch = "master" }
 
 [features]
 default = ["std"]

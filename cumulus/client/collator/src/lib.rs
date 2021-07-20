@@ -33,7 +33,7 @@ use polkadot_node_primitives::{
 	BlockData, Collation, CollationGenerationConfig, CollationResult, PoV,
 };
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
-use polkadot_overseer::OverseerHandler;
+use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::v1::{CollatorPair, Hash as PHash, HeadData, Id as ParaId};
 
 use codec::{Decode, Encode};
@@ -275,7 +275,7 @@ pub struct StartCollatorParams<Block: BlockT, RA, BS, Spawner> {
 	pub runtime_api: Arc<RA>,
 	pub block_status: Arc<BS>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub overseer_handler: OverseerHandler,
+	pub overseer_handle: OverseerHandle,
 	pub spawner: Spawner,
 	pub key: CollatorPair,
 	pub parachain_consensus: Box<dyn ParachainConsensus<Block>>,
@@ -287,7 +287,7 @@ pub async fn start_collator<Block, RA, BS, Spawner>(
 		para_id,
 		block_status,
 		announce_block,
-		mut overseer_handler,
+		mut overseer_handle,
 		spawner,
 		key,
 		parachain_consensus,
@@ -321,14 +321,14 @@ pub async fn start_collator<Block, RA, BS, Spawner>(
 		}),
 	};
 
-	overseer_handler
+	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::Initialize(config),
 			"StartCollator",
 		)
 		.await;
 
-	overseer_handler
+	overseer_handle
 		.send_msg(CollatorProtocolMessage::CollateOn(para_id), "StartCollator")
 		.await;
 }
@@ -420,7 +420,7 @@ mod tests {
 			runtime_api: client.clone(),
 			block_status: client.clone(),
 			announce_block: Arc::new(announce_block),
-			overseer_handler: handler,
+			overseer_handle: handler,
 			spawner,
 			para_id,
 			key: CollatorPair::generate().0,

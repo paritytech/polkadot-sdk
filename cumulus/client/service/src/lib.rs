@@ -20,7 +20,7 @@
 
 use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
-use polkadot_overseer::OverseerHandler;
+use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::v1::{Block as PBlock, CollatorPair};
 use polkadot_service::{AbstractClient, Client as PClient, ClientHandle, RuntimeApiCollection};
 use sc_client_api::{
@@ -124,7 +124,7 @@ where
 				client: client.clone(),
 				import_queue,
 				task_manager,
-				overseer_handler: relay_chain_full_node
+				overseer_handle: relay_chain_full_node
 					.overseer_handler
 				.clone()
 				.ok_or_else(|| "Polkadot full node did not provided an `OverseerHandler`!")?,
@@ -135,7 +135,7 @@ where
 		runtime_api: client.clone(),
 		block_status,
 		announce_block,
-		overseer_handler: relay_chain_full_node
+		overseer_handle: relay_chain_full_node
 			.overseer_handler
 			.clone()
 			.ok_or_else(|| "Polkadot full node did not provided an `OverseerHandler`!")?,
@@ -248,7 +248,7 @@ struct StartPoVRecovery<'a, Block: BlockT, Client, IQ> {
 	para_id: ParaId,
 	client: Arc<Client>,
 	task_manager: &'a mut TaskManager,
-	overseer_handler: OverseerHandler,
+	overseer_handle: OverseerHandle,
 	import_queue: IQ,
 	_phantom: PhantomData<Block>,
 }
@@ -276,7 +276,7 @@ where
 		PClient: AbstractClient<PBlock, PBackend, Api = Api> + 'static,
 	{
 		let pov_recovery = cumulus_client_pov_recovery::PoVRecovery::new(
-			self.overseer_handler,
+			self.overseer_handle,
 			sc_consensus_babe::Config::get_or_compute(&*client)?.slot_duration(),
 			self.client,
 			self.import_queue,

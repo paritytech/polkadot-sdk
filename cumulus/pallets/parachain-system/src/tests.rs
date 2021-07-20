@@ -88,7 +88,7 @@ impl frame_system::Config for Test {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type DbWeight = ();
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::AllowAll;
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ParachainSetCode<Self>;
