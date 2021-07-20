@@ -27,6 +27,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// a Substrate node through RPC.
 #[derive(Debug)]
 pub enum Error {
+	/// IO error.
+	Io(std::io::Error),
 	/// An error that can occur when making a request to
 	/// an JSON-RPC server.
 	RpcError(RpcError),
@@ -49,6 +51,7 @@ pub enum Error {
 impl std::error::Error for Error {
 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 		match self {
+			Self::Io(ref e) => Some(e),
 			Self::RpcError(ref e) => Some(e),
 			Self::ResponseParseFailed(ref e) => Some(e),
 			Self::UninitializedBridgePallet => None,
@@ -67,6 +70,18 @@ impl From<RpcError> for Error {
 	}
 }
 
+impl From<std::io::Error> for Error {
+	fn from(error: std::io::Error) -> Self {
+		Error::Io(error)
+	}
+}
+
+impl From<tokio::task::JoinError> for Error {
+	fn from(error: tokio::task::JoinError) -> Self {
+		Error::Custom(format!("Failed to wait tokio task: {}", error))
+	}
+}
+
 impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
 		matches!(
@@ -82,6 +97,7 @@ impl MaybeConnectionError for Error {
 impl std::fmt::Display for Error {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		let s = match self {
+			Self::Io(e) => e.to_string(),
 			Self::RpcError(e) => e.to_string(),
 			Self::ResponseParseFailed(e) => e.to_string(),
 			Self::UninitializedBridgePallet => "The Substrate bridge pallet has not been initialized yet.".into(),

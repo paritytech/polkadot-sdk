@@ -39,7 +39,9 @@ pub async fn initialize<SourceChain: Chain, TargetChain: Chain>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	target_transactions_signer: TargetChain::AccountId,
-	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes,
+	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes
+		+ Send
+		+ 'static,
 ) {
 	let result = do_initialize(
 		source_client,
@@ -72,7 +74,9 @@ async fn do_initialize<SourceChain: Chain, TargetChain: Chain>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	target_transactions_signer: TargetChain::AccountId,
-	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes,
+	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes
+		+ Send
+		+ 'static,
 ) -> Result<TargetChain::Hash, String> {
 	let initialization_data = prepare_initialization_data(source_client).await?;
 	log::info!(
@@ -102,7 +106,7 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	// But now there are problems with this approach - `CurrentSetId` may return invalid value. So here
 	// we're waiting for the next justification, read the authorities set and then try to figure out
 	// the set id with bruteforce.
-	let mut justifications = source_client
+	let justifications = source_client
 		.subscribe_justifications()
 		.await
 		.map_err(|err| format!("Failed to subscribe to {} justifications: {:?}", SourceChain::NAME, err))?;

@@ -233,10 +233,10 @@ where
 		generated_at_block: TargetHeaderIdOf<P>,
 		proof: P::MessagesReceivingProof,
 	) -> Result<(), SubstrateError> {
+		let lane = self.lane.clone();
 		self.client
 			.submit_signed_extrinsic(self.lane.source_transactions_author(), move |transaction_nonce| {
-				self.lane
-					.make_messages_receiving_proof_transaction(transaction_nonce, generated_at_block, proof)
+				lane.make_messages_receiving_proof_transaction(transaction_nonce, generated_at_block, proof)
 			})
 			.await?;
 		Ok(())
