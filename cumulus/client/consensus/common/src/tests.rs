@@ -19,7 +19,7 @@ use crate::*;
 use codec::Encode;
 use cumulus_test_client::{
 	runtime::{Block, Header},
-	Client, InitBlockBuilder, TestClientBuilder, TestClientBuilderExt,
+	Backend, Client, InitBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
 use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
 use futures_timer::Delay;
@@ -101,18 +101,17 @@ impl crate::parachain_consensus::RelaychainClient for Relaychain {
 	}
 }
 
-fn build_and_import_block(mut client: Arc<Client>) -> Block {
+fn build_and_import_block(mut client: Arc<Client>, import_as_best: bool) -> Block {
 	let builder = client.init_block_builder(None, Default::default());
 
 	let block = builder.build().unwrap().block;
 	let (header, body) = block.clone().deconstruct();
 
 	let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, header);
-	block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+	block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(import_as_best));
 	block_import_params.body = Some(body);
 
 	block_on(client.import_block(block_import_params, Default::default())).unwrap();
-	assert_eq!(0, client.chain_info().best_number);
 
 	block
 }
@@ -123,7 +122,7 @@ fn follow_new_best_works() {
 
 	let client = Arc::new(TestClientBuilder::default().build());
 
-	let block = build_and_import_block(client.clone());
+	let block = build_and_import_block(client.clone(), false);
 	let relay_chain = Relaychain::new();
 	let new_best_heads_sender = relay_chain
 		.inner
@@ -164,7 +163,7 @@ fn follow_finalized_works() {
 
 	let client = Arc::new(TestClientBuilder::default().build());
 
-	let block = build_and_import_block(client.clone());
+	let block = build_and_import_block(client.clone(), false);
 	let relay_chain = Relaychain::new();
 	let finalized_sender = relay_chain
 		.inner
@@ -205,7 +204,7 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 
 	let client = Arc::new(TestClientBuilder::default().build());
 
-	let block = build_and_import_block(client.clone());
+	let block = build_and_import_block(client.clone(), false);
 
 	let unknown_block = {
 		let block_builder =
@@ -264,7 +263,7 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 
 	let mut client = Arc::new(TestClientBuilder::default().build());
 
-	let block = build_and_import_block(client.clone());
+	let block = build_and_import_block(client.clone(), false);
 
 	let unknown_block = {
 		let block_builder =
@@ -335,4 +334,62 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 			_ = work.fuse() => {},
 		}
 	});
+}
+
+/// When we import a new best relay chain block, we extract the best parachain block from it and set
+/// it. This works when we follow the relay chain and parachain at the tip of each other, but there
+/// can be race conditions when we are doing a full sync of both or just the relay chain.
+/// The problem is that we import parachain blocks as best as long as we are in major sync. So, we
+/// could import block 100 as best and then import a relay chain block that says that block 99 is
+/// the best parachain block. This should not happen, we should never set the best block to a lower
+/// block number.
+#[test]
+fn do_not_set_best_block_to_older_block() {
+	const NUM_BLOCKS: usize = 4;
+
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+
+	let client = Arc::new(TestClientBuilder::with_backend(backend).build());
+
+	let blocks = (0..NUM_BLOCKS)
+		.into_iter()
+		.map(|_| build_and_import_block(client.clone(), true))
+		.collect::<Vec<_>>();
+
+	assert_eq!(NUM_BLOCKS as u32, client.usage_info().chain.best_number);
+
+	let relay_chain = Relaychain::new();
+	let new_best_heads_sender = relay_chain
+		.inner
+		.lock()
+		.unwrap()
+		.new_best_heads_sender
+		.clone();
+
+	let consensus =
+		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}));
+
+	let client2 = client.clone();
+	let work = async move {
+		new_best_heads_sender
+			.unbounded_send(blocks[NUM_BLOCKS - 2].header().clone())
+			.unwrap();
+		// Wait for it to be processed.
+		Delay::new(Duration::from_millis(300)).await;
+	};
+
+	block_on(async move {
+		futures::pin_mut!(consensus);
+		futures::pin_mut!(work);
+
+		select! {
+			r = consensus.fuse() => panic!("Consensus should not end: {:?}", r),
+			_ = work.fuse() => {},
+		}
+	});
+
+	// Build and import a new best block.
+	build_and_import_block(client2.clone(), true);
 }

@@ -346,6 +346,18 @@ where
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
 	for<'a> &'a P: BlockImport<Block>,
 {
+	let best_number = parachain.usage_info().chain.best_number;
+	if *header.number() < best_number {
+		tracing::debug!(
+			target: "cumulus-consensus",
+			%best_number,
+			block_number = %header.number(),
+			"Skipping importing block as new best block, because there already exists a \
+			 best block with an higher number",
+		);
+		return;
+	}
+
 	// Make it the new best block
 	let mut block_import_params = BlockImportParams::new(BlockOrigin::ConsensusBroadcast, header);
 	block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(true));
