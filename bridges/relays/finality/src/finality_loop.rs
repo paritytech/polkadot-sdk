@@ -497,6 +497,9 @@ pub(crate) fn read_finality_proofs_from_stream<P: FinalitySyncPipeline, FPS: Str
 	finality_proofs_stream: &mut RestartableFinalityProofsStream<FPS>,
 	recent_finality_proofs: &mut FinalityProofs<P>,
 ) {
+	let mut proofs_count = 0;
+	let mut first_header_number = None;
+	let mut last_header_number = None;
 	loop {
 		let next_proof = finality_proofs_stream.stream.next();
 		let finality_proof = match next_proof.now_or_never() {
@@ -508,7 +511,25 @@ pub(crate) fn read_finality_proofs_from_stream<P: FinalitySyncPipeline, FPS: Str
 			None => break,
 		};
 
-		recent_finality_proofs.push((finality_proof.target_header_number(), finality_proof));
+		let target_header_number = finality_proof.target_header_number();
+		if first_header_number.is_none() {
+			first_header_number = Some(target_header_number);
+		}
+		last_header_number = Some(target_header_number);
+		proofs_count += 1;
+
+		recent_finality_proofs.push((target_header_number, finality_proof));
+	}
+
+	if proofs_count != 0 {
+		log::trace!(
+			target: "bridge",
+			"Read {} finality proofs from {} finality stream for headers in range [{:?}; {:?}]",
+			proofs_count,
+			P::SOURCE_NAME,
+			first_header_number,
+			last_header_number,
+		);
 	}
 }
 
@@ -520,6 +541,12 @@ pub(crate) fn select_better_recent_finality_proof<P: FinalitySyncPipeline>(
 	selected_finality_proof: Option<(P::Header, P::FinalityProof)>,
 ) -> Option<(P::Header, P::FinalityProof)> {
 	if unjustified_headers.is_empty() || recent_finality_proofs.is_empty() {
+		log::trace!(
+			target: "bridge",
+			"Can not improve selected {} finality proof {:?}. No unjustified headers and recent proofs",
+			P::SOURCE_NAME,
+			selected_finality_proof.as_ref().map(|(h, _)| h.number()),
+		);
 		return selected_finality_proof;
 	}
 
@@ -543,7 +570,21 @@ pub(crate) fn select_better_recent_finality_proof<P: FinalitySyncPipeline>(
 		.binary_search_by_key(intersection.end(), |(number, _)| *number)
 		.unwrap_or_else(|index| index.saturating_sub(1));
 	let (selected_header_number, finality_proof) = &recent_finality_proofs[selected_finality_proof_index];
-	if !intersection.contains(selected_header_number) {
+	let has_selected_finality_proof = intersection.contains(selected_header_number);
+	log::trace!(
+		target: "bridge",
+		"Trying to improve selected {} finality proof {:?}. Headers range: [{:?}; {:?}]. Proofs range: [{:?}; {:?}].\
+		Trying to improve to: {:?}. Result: {}",
+		P::SOURCE_NAME,
+		selected_finality_proof.as_ref().map(|(h, _)| h.number()),
+		unjustified_range_begin,
+		unjustified_range_end,
+		buffered_range_begin,
+		buffered_range_end,
+		selected_header_number,
+		if has_selected_finality_proof { "improved" } else { "failed" },
+	);
+	if !has_selected_finality_proof {
 		return selected_finality_proof;
 	}
 
