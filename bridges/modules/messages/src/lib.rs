@@ -316,9 +316,12 @@ decl_module! {
 			lane_id: LaneId,
 			payload: T::OutboundPayload,
 			delivery_and_dispatch_fee: T::OutboundMessageFee,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_normal_operating_mode::<T, I>()?;
 			let submitter = origin.into().map_err(|_| BadOrigin)?;
+
+			// initially, actual (post-dispatch) weight is equal to pre-dispatch weight
+			let mut actual_weight = T::WeightInfo::send_message_weight(&payload);
 
 			// let's first check if message can be delivered to target chain
 			T::TargetHeaderChain::verify_message(&payload)
@@ -377,7 +380,15 @@ decl_module! {
 				payload: encoded_payload,
 				fee: delivery_and_dispatch_fee,
 			});
-			lane.prune_messages(T::MaxMessagesToPruneAtOnce::get());
+
+			// message sender pays for pruning at most `MaxMessagesToPruneAtOnce` messages
+			// the cost of pruning every message is roughly single db write
+			// => lets refund sender if less than `MaxMessagesToPruneAtOnce` messages pruned
+			let max_messages_to_prune = T::MaxMessagesToPruneAtOnce::get();
+			let pruned_messages = lane.prune_messages(max_messages_to_prune);
+			if let Some(extra_messages) = max_messages_to_prune.checked_sub(pruned_messages) {
+				actual_weight = actual_weight.saturating_sub(T::DbWeight::get().writes(extra_messages));
+			}
 
 			log::trace!(
 				target: "runtime::bridge-messages",
@@ -389,7 +400,10 @@ decl_module! {
 
 			Self::deposit_event(RawEvent::MessageAccepted(lane_id, nonce));
 
-			Ok(())
+			Ok(PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: Pays::Yes,
+			})
 		}
 
 		/// Pay additional fee for the message.
@@ -1048,19 +1062,22 @@ mod tests {
 		System::<TestRuntime>::reset_events();
 	}
 
-	fn send_regular_message() {
+	fn send_regular_message() -> Weight {
 		get_ready_for_events();
 
 		let message_nonce = outbound_lane::<TestRuntime, DefaultInstance>(TEST_LANE_ID)
 			.data()
 			.latest_generated_nonce
 			+ 1;
-		assert_ok!(Pallet::<TestRuntime>::send_message(
+		let weight = Pallet::<TestRuntime>::send_message(
 			Origin::signed(1),
 			TEST_LANE_ID,
 			REGULAR_PAYLOAD,
 			REGULAR_PAYLOAD.declared_weight,
-		));
+		)
+		.expect("send_message has failed")
+		.actual_weight
+		.expect("send_message always returns Some");
 
 		// check event with assigned nonce
 		assert_eq!(
@@ -1077,6 +1094,8 @@ mod tests {
 			1,
 			REGULAR_PAYLOAD.declared_weight
 		));
+
+		weight
 	}
 
 	fn receive_messages_delivery_proof() {
@@ -2095,6 +2114,49 @@ mod tests {
 					UnrewardedRelayersState::default(),
 				),
 				Error::<TestRuntime, DefaultInstance>::TryingToConfirmMoreMessagesThanExpected,
+			);
+		});
+	}
+
+	#[test]
+	fn weight_is_refunded_for_messages_that_are_not_pruned() {
+		run_test(|| {
+			// send first MAX messages - no messages are pruned
+			let max_messages_to_prune = crate::mock::MaxMessagesToPruneAtOnce::get();
+			let when_zero_messages_are_pruned = send_regular_message();
+			let mut delivered_messages = DeliveredMessages::new(1, true);
+			for _ in 1..max_messages_to_prune {
+				assert_eq!(send_regular_message(), when_zero_messages_are_pruned);
+				delivered_messages.note_dispatched_message(true);
+			}
+
+			// confirm delivery of all sent messages
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
+				Origin::signed(1),
+				TestMessagesDeliveryProof(Ok((
+					TEST_LANE_ID,
+					InboundLaneData {
+						last_confirmed_nonce: 1,
+						relayers: vec![UnrewardedRelayer {
+							relayer: 0,
+							messages: delivered_messages,
+						}]
+						.into_iter()
+						.collect(),
+					},
+				))),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					total_messages: max_messages_to_prune,
+					..Default::default()
+				},
+			));
+
+			// when next message is sent, MAX messages are pruned
+			let weight_when_max_messages_are_pruned = send_regular_message();
+			assert_eq!(
+				weight_when_max_messages_are_pruned,
+				when_zero_messages_are_pruned + crate::mock::DbWeight::get().writes(max_messages_to_prune),
 			);
 		});
 	}
