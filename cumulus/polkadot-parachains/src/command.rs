@@ -575,6 +575,10 @@ impl CliConfiguration<Self> for RelayChainCli {
 		self.base.base.rpc_ws_max_connections()
 	}
 
+	fn rpc_http_threads(&self) -> Result<Option<usize>> {
+		self.base.base.rpc_http_threads()
+	}
+
 	fn rpc_cors(&self, is_dev: bool) -> Result<Option<Vec<String>>> {
 		self.base.base.rpc_cors(is_dev)
 	}
