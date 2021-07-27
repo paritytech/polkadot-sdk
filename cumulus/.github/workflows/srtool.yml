@@ -1,5 +1,8 @@
 name: Srtool build
 
+env:
+  SUBWASM_VERSION: 0.13.2
+
 on:
   push:
     tags:
@@ -54,8 +57,8 @@ jobs:
       # We now get extra information thanks to subwasm
       - name: Install subwasm
         run: |
-          wget https://github.com/chevdor/subwasm/releases/download/v0.12.0/subwasm_linux_amd64_v0.12.0.deb
-          sudo dpkg -i subwasm_linux_amd64_v0.12.0.deb
+          wget https://github.com/chevdor/subwasm/releases/download/v${{ env.SUBWASM_VERSION }}/subwasm_linux_amd64_v${{ env.SUBWASM_VERSION }}.deb
+          sudo dpkg -i subwasm_linux_amd64_v${{ env.SUBWASM_VERSION }}.deb
           subwasm --version
 
       - name: Show Runtime information
