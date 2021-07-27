@@ -405,7 +405,7 @@ mod tests {
 
 		let all_subsystems =
 			AllSubsystems::<()>::dummy().replace_collation_generation(ForwardSubsystem(sub_tx));
-		let (overseer, handler) = Overseer::new(
+		let (overseer, handle) = Overseer::new(
 			Vec::new(),
 			all_subsystems,
 			None,
@@ -420,7 +420,7 @@ mod tests {
 			runtime_api: client.clone(),
 			block_status: client.clone(),
 			announce_block: Arc::new(announce_block),
-			overseer_handle: handler,
+			overseer_handle: OverseerHandle::Connected(handle),
 			spawner,
 			para_id,
 			key: CollatorPair::generate().0,

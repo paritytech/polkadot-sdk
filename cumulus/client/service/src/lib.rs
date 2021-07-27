@@ -125,9 +125,9 @@ where
 				import_queue,
 				task_manager,
 				overseer_handle: relay_chain_full_node
-					.overseer_handler
+					.overseer_handle
 				.clone()
-				.ok_or_else(|| "Polkadot full node did not provided an `OverseerHandler`!")?,
+				.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
 				_phantom: PhantomData,
 			})?;
 
@@ -136,9 +136,9 @@ where
 		block_status,
 		announce_block,
 		overseer_handle: relay_chain_full_node
-			.overseer_handler
+			.overseer_handle
 			.clone()
-			.ok_or_else(|| "Polkadot full node did not provided an `OverseerHandler`!")?,
+			.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
 		spawner,
 		para_id,
 		key: relay_chain_full_node.collator_key.clone(),
