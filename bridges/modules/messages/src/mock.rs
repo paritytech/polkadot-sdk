@@ -56,6 +56,8 @@ pub struct TestPayload {
 	/// Note: in correct code `dispatch_result.unspent_weight` will always be <= `declared_weight`, but for test
 	/// purposes we'll be making it larger than `declared_weight` sometimes.
 	pub dispatch_result: MessageDispatchResult,
+	/// Extra bytes that affect payload size.
+	pub extra: Vec<u8>,
 }
 pub type TestMessageFee = u64;
 pub type TestRelayer = u64;
@@ -183,7 +185,7 @@ impl Config for TestRuntime {
 
 impl Size for TestPayload {
 	fn size_hint(&self) -> u32 {
-		16
+		16 + self.extra.len() as u32
 	}
 }
 
@@ -466,6 +468,7 @@ pub const fn message_payload(id: u64, declared_weight: Weight) -> TestPayload {
 		id,
 		declared_weight,
 		dispatch_result: dispatch_result(0),
+		extra: Vec::new(),
 	}
 }
 
