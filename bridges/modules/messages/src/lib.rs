@@ -186,8 +186,6 @@ decl_error! {
 		TooManyMessagesInTheProof,
 		/// Invalid messages has been submitted.
 		InvalidMessagesProof,
-		/// Invalid messages dispatch weight has been declared by the relayer.
-		InvalidMessagesDispatchWeight,
 		/// Invalid messages delivery proof has been submitted.
 		InvalidMessagesDeliveryProof,
 		/// The bridged chain has invalid `UnrewardedRelayers` in its storage (fatal for the lane).
@@ -524,30 +522,10 @@ decl_module! {
 					Error::<T, I>::InvalidMessagesProof
 				})?;
 
-			// verify that relayer is paying actual dispatch weight
-			let actual_dispatch_weight: Weight = messages
-				.values()
-				.map(|lane_messages| lane_messages
-					.messages
-					.iter()
-					.map(T::MessageDispatch::dispatch_weight)
-					.fold(0, |sum, weight| sum.saturating_add(&weight))
-				)
-				.fold(0, |sum, weight| sum.saturating_add(weight));
-			if dispatch_weight < actual_dispatch_weight {
-				log::trace!(
-					target: "runtime::bridge-messages",
-					"Rejecting messages proof because of dispatch weight mismatch: declared={}, expected={}",
-					dispatch_weight,
-					actual_dispatch_weight,
-				);
-
-				return Err(Error::<T, I>::InvalidMessagesDispatchWeight.into());
-			}
-
 			// dispatch messages and (optionally) update lane(s) state(s)
 			let mut total_messages = 0;
 			let mut valid_messages = 0;
+			let mut dispatch_weight_left = dispatch_weight;
 			for (lane_id, lane_data) in messages {
 				let mut lane = inbound_lane::<T, I>(lane_id);
 
@@ -566,8 +544,22 @@ decl_module! {
 				for message in lane_data.messages {
 					debug_assert_eq!(message.key.lane_id, lane_id);
 
-					total_messages += 1;
+					// ensure that relayer has declared enough weight for dispatching next message on
+					// this lane. We can't dispatch lane messages out-of-order, so if declared weight
+					// is not enough, let's move to next lane
 					let dispatch_weight = T::MessageDispatch::dispatch_weight(&message);
+					if dispatch_weight > dispatch_weight_left {
+						log::trace!(
+							target: "runtime::bridge-messages",
+							"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
+							lane_id,
+							dispatch_weight,
+							dispatch_weight_left,
+						);
+						break;
+					}
+					total_messages += 1;
+
 					let receival_result = lane.receive_message::<T::MessageDispatch, T::AccountId>(
 						&relayer_id_at_bridged_chain,
 						&relayer_id_at_this_chain,
@@ -590,8 +582,11 @@ decl_module! {
 							| ReceivalResult::TooManyUnrewardedRelayers
 							| ReceivalResult::TooManyUnconfirmedMessages => (dispatch_weight, true),
 					};
+
+					let unspent_weight = sp_std::cmp::min(unspent_weight, dispatch_weight);
+					dispatch_weight_left -= dispatch_weight - unspent_weight;
 					actual_weight = actual_weight
-						.saturating_sub(sp_std::cmp::min(unspent_weight, dispatch_weight))
+						.saturating_sub(unspent_weight)
 						.saturating_sub(
 							// delivery call weight formula assumes that the fee is paid at
 							// this (target) chain. If the message is prepaid at the source
@@ -1555,18 +1550,16 @@ mod tests {
 	}
 
 	#[test]
-	fn receive_messages_proof_rejects_invalid_dispatch_weight() {
+	fn receive_messages_proof_does_not_accept_message_if_dispatch_weight_is_not_enough() {
 		run_test(|| {
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_proof(
-					Origin::signed(1),
-					TEST_RELAYER_A,
-					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
-					1,
-					REGULAR_PAYLOAD.declared_weight - 1,
-				),
-				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
-			);
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
+				Origin::signed(1),
+				TEST_RELAYER_A,
+				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
+				1,
+				REGULAR_PAYLOAD.declared_weight - 1,
+			));
+			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 0);
 		});
 	}
 
@@ -1848,19 +1841,17 @@ mod tests {
 		run_test(|| {
 			let message1 = message(1, message_payload(0, Weight::MAX / 2));
 			let message2 = message(2, message_payload(0, Weight::MAX / 2));
-			let message3 = message(2, message_payload(0, Weight::MAX / 2));
+			let message3 = message(3, message_payload(0, Weight::MAX / 2));
 
-			assert_noop!(
-				Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
-					Origin::signed(1),
-					TEST_RELAYER_A,
-					// this may cause overflow if source chain storage is invalid
-					Ok(vec![message1, message2, message3]).into(),
-					3,
-					100,
-				),
-				Error::<TestRuntime, DefaultInstance>::InvalidMessagesDispatchWeight,
-			);
+			assert_ok!(Pallet::<TestRuntime, DefaultInstance>::receive_messages_proof(
+				Origin::signed(1),
+				TEST_RELAYER_A,
+				// this may cause overflow if source chain storage is invalid
+				Ok(vec![message1, message2, message3]).into(),
+				3,
+				Weight::MAX,
+			));
+			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 2);
 		});
 	}
 
