@@ -51,7 +51,8 @@ pub trait WeightInfo {
 	fn send_minimal_message_worst_case() -> Weight;
 	fn send_1_kb_message_worst_case() -> Weight;
 	fn send_16_kb_message_worst_case() -> Weight;
-	fn increase_message_fee() -> Weight;
+	fn maximal_increase_message_fee() -> Weight;
+	fn increase_message_fee(i: u32) -> Weight;
 	fn receive_single_message_proof() -> Weight;
 	fn receive_two_messages_proof() -> Weight;
 	fn receive_single_message_proof_with_outbound_lane_state() -> Weight;
@@ -88,8 +89,14 @@ impl<T: frame_system::Config> WeightInfo for RialtoWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(12 as Weight))
 	}
-	fn increase_message_fee() -> Weight {
-		(6_709_925_000 as Weight)
+	fn maximal_increase_message_fee() -> Weight {
+		(6_781_470_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(5 as Weight))
+			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+	}
+	fn increase_message_fee(i: u32) -> Weight {
+		(114_963_000 as Weight)
+			.saturating_add((6_000 as Weight).saturating_mul(i as Weight))
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
@@ -202,8 +209,14 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(12 as Weight))
 	}
-	fn increase_message_fee() -> Weight {
-		(6_709_925_000 as Weight)
+	fn maximal_increase_message_fee() -> Weight {
+		(6_781_470_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+	}
+	fn increase_message_fee(i: u32) -> Weight {
+		(114_963_000 as Weight)
+			.saturating_add((6_000 as Weight).saturating_mul(i as Weight))
 			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
 	}

@@ -66,7 +66,7 @@ use frame_support::{
 };
 use frame_system::{ensure_signed, RawOrigin};
 use num_traits::{SaturatingAdd, Zero};
-use sp_runtime::{traits::BadOrigin, DispatchResult};
+use sp_runtime::traits::BadOrigin;
 use sp_std::{cell::RefCell, cmp::PartialOrd, marker::PhantomData, prelude::*};
 
 mod inbound_lane;
@@ -407,13 +407,13 @@ decl_module! {
 		}
 
 		/// Pay additional fee for the message.
-		#[weight = T::WeightInfo::increase_message_fee()]
+		#[weight = T::WeightInfo::maximal_increase_message_fee()]
 		pub fn increase_message_fee(
 			origin,
 			lane_id: LaneId,
 			nonce: MessageNonce,
 			additional_fee: T::OutboundMessageFee,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_not_halted::<T, I>()?;
 			// if someone tries to pay for already-delivered message, we're rejecting this intention
 			// (otherwise this additional fee will be locked forever in relayers fund)
@@ -446,7 +446,7 @@ decl_module! {
 
 			// and finally update fee in the storage
 			let message_key = MessageKey { lane_id, nonce };
-			OutboundMessages::<T, I>::mutate(message_key, |message_data| {
+			let message_size = OutboundMessages::<T, I>::mutate(message_key, |message_data| {
 				// saturating_add is fine here - overflow here means that someone controls all
 				// chain funds, which shouldn't ever happen + `pay_delivery_and_dispatch_fee`
 				// above will fail before we reach here
@@ -454,9 +454,19 @@ decl_module! {
 					.as_mut()
 					.expect("the message is sent and not yet delivered; so it is in the storage; qed");
 				message_data.fee = message_data.fee.saturating_add(&additional_fee);
+				message_data.payload.len()
 			});
 
-			Ok(())
+			// compute actual dispatch weight that depends on the stored message size
+			let actual_weight = sp_std::cmp::min(
+				T::WeightInfo::maximal_increase_message_fee(),
+				T::WeightInfo::increase_message_fee(message_size as _),
+			);
+
+			Ok(PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: Pays::Yes,
+			})
 		}
 
 		/// Receive messages proof from bridged chain.
@@ -2114,6 +2124,46 @@ mod tests {
 					UnrewardedRelayersState::default(),
 				),
 				Error::<TestRuntime, DefaultInstance>::TryingToConfirmMoreMessagesThanExpected,
+			);
+		});
+	}
+
+	#[test]
+	fn increase_message_fee_weight_depends_on_message_size() {
+		run_test(|| {
+			let mut small_payload = message_payload(0, 100);
+			let mut large_payload = message_payload(1, 100);
+			small_payload.extra = vec![1; 100];
+			large_payload.extra = vec![2; 16_384];
+
+			assert_ok!(Pallet::<TestRuntime>::send_message(
+				Origin::signed(1),
+				TEST_LANE_ID,
+				small_payload,
+				100,
+			));
+			assert_ok!(Pallet::<TestRuntime>::send_message(
+				Origin::signed(1),
+				TEST_LANE_ID,
+				large_payload,
+				100,
+			));
+
+			let small_weight = Pallet::<TestRuntime>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 1, 1)
+				.expect("increase_message_fee has failed")
+				.actual_weight
+				.expect("increase_message_fee always returns Some");
+
+			let large_weight = Pallet::<TestRuntime>::increase_message_fee(Origin::signed(1), TEST_LANE_ID, 2, 1)
+				.expect("increase_message_fee has failed")
+				.actual_weight
+				.expect("increase_message_fee always returns Some");
+
+			assert!(
+				large_weight > small_weight,
+				"Actual post-dispatch weigth for larger message {} must be larger than {} for small message",
+				large_weight,
+				small_weight,
 			);
 		});
 	}

@@ -38,7 +38,7 @@ use sp_std::{
 };
 
 /// Fee paid by submitter for single message delivery.
-pub const MESSAGE_FEE: u64 = 10_000_000_000;
+pub const MESSAGE_FEE: u64 = 100_000_000_000;
 
 const SEED: u32 = 0;
 
@@ -237,7 +237,9 @@ benchmarks_instance! {
 	// Benchmark `increase_message_fee` with following conditions:
 	// * message has maximal message;
 	// * submitter account is killed because its balance is less than ED after payment.
-	increase_message_fee {
+	//
+	// Result of this benchmark is directly used by weight formula of the call.
+	maximal_increase_message_fee {
 		let sender = account("sender", 42, SEED);
 		T::endow_account(&sender);
 
@@ -246,6 +248,25 @@ benchmarks_instance! {
 		let nonce = 1;
 
 		send_regular_message_with_payload::<T, I>(vec![42u8; T::maximal_message_size() as _]);
+	}: increase_message_fee(RawOrigin::Signed(sender.clone()), lane_id, nonce, additional_fee)
+	verify {
+		assert_eq!(T::account_balance(&sender), 0.into());
+	}
+
+	// Benchmark `increase_message_fee` with following conditions:
+	// * message size varies from minimal to maximal;
+	// * submitter account is killed because its balance is less than ED after payment.
+	increase_message_fee {
+		let i in 0..T::maximal_message_size().try_into().unwrap_or_default();
+
+		let sender = account("sender", 42, SEED);
+		T::endow_account(&sender);
+
+		let additional_fee = T::account_balance(&sender);
+		let lane_id = T::bench_lane_id();
+		let nonce = 1;
+
+		send_regular_message_with_payload::<T, I>(vec![42u8; i as _]);
 	}: increase_message_fee(RawOrigin::Signed(sender.clone()), lane_id, nonce, additional_fee)
 	verify {
 		assert_eq!(T::account_balance(&sender), 0.into());
