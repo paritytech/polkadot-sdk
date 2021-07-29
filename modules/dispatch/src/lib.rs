@@ -313,7 +313,7 @@ impl<T: Config<I>, I: Instance> MessageDispatch<T::AccountId, T::MessageId> for 
 			"Message {:?}/{:?} has been dispatched. Weight: {} of {}. Result: {:?}. Call dispatch result: {:?}",
 			source_chain,
 			id,
-			dispatch_result.unspent_weight,
+			actual_call_weight,
 			message.weight,
 			dispatch_result,
 			result,
