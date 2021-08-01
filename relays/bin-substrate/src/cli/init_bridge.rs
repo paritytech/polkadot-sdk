@@ -26,7 +26,7 @@ use strum::{EnumString, EnumVariantNames, VariantNames};
 /// Initialize bridge pallet.
 #[derive(StructOpt)]
 pub struct InitBridge {
-	/// A bridge instance to initalize.
+	/// A bridge instance to initialize.
 	#[structopt(possible_values = InitBridgeName::VARIANTS, case_insensitive = true)]
 	bridge: InitBridgeName,
 	#[structopt(flatten)]

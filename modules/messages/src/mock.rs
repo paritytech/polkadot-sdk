@@ -386,7 +386,7 @@ impl OnDeliveryConfirmed for TestOnDeliveryConfirmed1 {
 	}
 }
 
-/// Seconde on-messages-delivered callback.
+/// Second on-messages-delivered callback.
 #[derive(Debug)]
 pub struct TestOnDeliveryConfirmed2;
 

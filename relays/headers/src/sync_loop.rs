@@ -80,7 +80,7 @@ pub trait SourceClient<P: HeadersSyncPipeline>: RelayClient {
 /// Target client trait.
 #[async_trait]
 pub trait TargetClient<P: HeadersSyncPipeline>: RelayClient {
-	/// Returns ID of best header known to the target node.
+	/// Returns ID of the best header known to the target node.
 	async fn best_header_id(&self) -> Result<HeaderIdOf<P>, Self::Error>;
 
 	/// Returns true if header is known to the target node.

@@ -76,7 +76,7 @@ pub struct SourceClientNonces<NoncesRange> {
 	/// New nonces range known to the client. `New` here means all nonces generated after
 	/// `prev_latest_nonce` passed to the `SourceClient::nonces` method.
 	pub new_nonces: NoncesRange,
-	/// Latest nonce that is confirmed to the bridged client. This nonce only makes
+	/// The latest nonce that is confirmed to the bridged client. This nonce only makes
 	/// sense in some races. In other races it is `None`.
 	pub confirmed_nonce: Option<MessageNonce>,
 }
@@ -84,7 +84,7 @@ pub struct SourceClientNonces<NoncesRange> {
 /// Nonces on the race target client.
 #[derive(Debug, Clone)]
 pub struct TargetClientNonces<TargetNoncesData> {
-	/// Latest nonce that is known to the target client.
+	/// The latest nonce that is known to the target client.
 	pub latest_nonce: MessageNonce,
 	/// Additional data from target node that may be used by the race.
 	pub nonces_data: TargetNoncesData,
@@ -93,7 +93,7 @@ pub struct TargetClientNonces<TargetNoncesData> {
 /// One of message lane clients, which is source client for the race.
 #[async_trait]
 pub trait SourceClient<P: MessageRace> {
-	/// Type of error this clients returns.
+	/// Type of error these clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 	/// Type of nonces range returned by the source client.
 	type NoncesRange: NoncesRange;
@@ -118,7 +118,7 @@ pub trait SourceClient<P: MessageRace> {
 /// One of message lane clients, which is target client for the race.
 #[async_trait]
 pub trait TargetClient<P: MessageRace> {
-	/// Type of error this clients returns.
+	/// Type of error these clients returns.
 	type Error: std::fmt::Debug + MaybeConnectionError;
 	/// Type of the additional data from the target client, used by the race.
 	type TargetNoncesData: std::fmt::Debug;
@@ -156,12 +156,12 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 	fn is_empty(&self) -> bool;
 	/// Return id of source header that is required to be on target to continue synchronization.
 	fn required_source_header_at_target(&self, current_best: &SourceHeaderId) -> Option<SourceHeaderId>;
-	/// Return best nonce at source node.
+	/// Return the best nonce at source node.
 	///
 	/// `Some` is returned only if we are sure that the value is greater or equal
 	/// than the result of `best_at_target`.
 	fn best_at_source(&self) -> Option<MessageNonce>;
-	/// Return best nonce at target node.
+	/// Return the best nonce at target node.
 	///
 	/// May return `None` if value is yet unknown.
 	fn best_at_target(&self) -> Option<MessageNonce>;
@@ -197,7 +197,7 @@ pub struct RaceState<SourceHeaderId, TargetHeaderId, Proof> {
 	/// Best finalized source header id at the best block on the target
 	/// client (at the `best_finalized_source_header_id_at_best_target`).
 	pub best_finalized_source_header_id_at_best_target: Option<SourceHeaderId>,
-	/// Best header id at the target client.
+	/// The best header id at the target client.
 	pub best_target_header_id: Option<TargetHeaderId>,
 	/// Best finalized header id at the target client.
 	pub best_finalized_target_header_id: Option<TargetHeaderId>,

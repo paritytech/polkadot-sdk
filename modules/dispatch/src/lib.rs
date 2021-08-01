@@ -19,7 +19,7 @@
 //! The messages are interpreted directly as runtime `Call`. We attempt to decode
 //! them and then dispatch as usual. To prevent compatibility issues, the Calls have
 //! to include a `spec_version`. This will be checked before dispatch. In the case of
-//! a succesful dispatch an event is emitted.
+//! a successful dispatch an event is emitted.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]

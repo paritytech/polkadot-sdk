@@ -370,7 +370,7 @@ parameter_types! {
 }
 
 impl pallet_timestamp::Config for Runtime {
-	/// A timestamp: milliseconds since the unix epoch.
+	/// A timestamp: milliseconds since the UNIX epoch.
 	type Moment = bp_rialto::Moment;
 	type OnTimestampSet = Babe;
 	type MinimumPeriod = MinimumPeriod;

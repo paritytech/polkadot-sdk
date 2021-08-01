@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-//! Message receiving race delivers proof-of-messages-delivery from lane.target to lane.source.
+//! Message receiving race delivers proof-of-messages-delivery from "lane.target" to "lane.source".
 
 use crate::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use crate::message_lane_loop::{

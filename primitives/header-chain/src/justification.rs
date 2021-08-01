@@ -168,7 +168,7 @@ where
 pub struct AncestryChain<Header: HeaderT> {
 	/// Header hash => parent header hash mapping.
 	pub parents: BTreeMap<Header::Hash, Header::Hash>,
-	/// Hashes of headers that weren't visited by `is_ancestor` method.
+	/// Hashes of headers that were not visited by `is_ancestor` method.
 	pub unvisited: BTreeSet<Header::Hash>,
 }
 

@@ -40,7 +40,7 @@ pub struct BasicStrategy<
 > {
 	/// All queued nonces.
 	source_queue: SourceRangesQueue<SourceHeaderHash, SourceHeaderNumber, SourceNoncesRange>,
-	/// Best nonce known to target node (at its best block). `None` if it has not been received yet.
+	/// The best nonce known to target node (at its best block). `None` if it has not been received yet.
 	best_target_nonce: Option<MessageNonce>,
 	/// Unused generic types dump.
 	_phantom: PhantomData<(TargetHeaderNumber, TargetHeaderHash, Proof)>,

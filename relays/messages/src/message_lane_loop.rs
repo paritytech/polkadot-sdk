@@ -175,7 +175,7 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 		id: TargetHeaderIdOf<P>,
 	) -> Result<(TargetHeaderIdOf<P>, MessageNonce), Self::Error>;
 
-	/// Get nonce of latest confirmed message.
+	/// Get nonce of the latest confirmed message.
 	async fn latest_confirmed_received_nonce(
 		&self,
 		id: TargetHeaderIdOf<P>,
@@ -218,7 +218,7 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 /// State of the client.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ClientState<SelfHeaderId, PeerHeaderId> {
-	/// Best header id of this chain.
+	/// The best header id of this chain.
 	pub best_self: SelfHeaderId,
 	/// Best finalized header id of this chain.
 	pub best_finalized_self: SelfHeaderId,

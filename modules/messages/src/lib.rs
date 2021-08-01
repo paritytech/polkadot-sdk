@@ -86,7 +86,7 @@ mod mock;
 pub trait Config<I = DefaultInstance>: frame_system::Config {
 	// General types
 
-	/// They overarching event type.
+	/// They are overarching event type.
 	type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
 	/// Benchmarks results from runtime we're plugged into.
 	type WeightInfo: WeightInfoExt;
@@ -786,22 +786,22 @@ impl<T: Config<I>, I: Instance> Pallet<T, I> {
 		OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce })
 	}
 
-	/// Get nonce of latest generated message at given outbound lane.
+	/// Get nonce of the latest generated message at given outbound lane.
 	pub fn outbound_latest_generated_nonce(lane: LaneId) -> MessageNonce {
 		OutboundLanes::<I>::get(&lane).latest_generated_nonce
 	}
 
-	/// Get nonce of latest confirmed message at given outbound lane.
+	/// Get nonce of the latest confirmed message at given outbound lane.
 	pub fn outbound_latest_received_nonce(lane: LaneId) -> MessageNonce {
 		OutboundLanes::<I>::get(&lane).latest_received_nonce
 	}
 
-	/// Get nonce of latest received message at given inbound lane.
+	/// Get nonce of the latest received message at given inbound lane.
 	pub fn inbound_latest_received_nonce(lane: LaneId) -> MessageNonce {
 		InboundLanes::<T, I>::get(&lane).last_delivered_nonce()
 	}
 
-	/// Get nonce of latest confirmed message at given inbound lane.
+	/// Get nonce of the latest confirmed message at given inbound lane.
 	pub fn inbound_latest_confirmed_nonce(lane: LaneId) -> MessageNonce {
 		InboundLanes::<T, I>::get(&lane).last_confirmed_nonce
 	}
