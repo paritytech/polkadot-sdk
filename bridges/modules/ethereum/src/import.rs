@@ -22,7 +22,7 @@ use crate::{AuraConfiguration, ChainTime, ChangeToEnact, PruningStrategy, Storag
 use bp_eth_poa::{AuraHeader, HeaderId, Receipt};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
-/// Imports bunch of headers and updates blocks finality.
+/// Imports a bunch of headers and updates blocks finality.
 ///
 /// Transactions receipts must be provided if `header_import_requires_receipts()`
 /// has returned true.

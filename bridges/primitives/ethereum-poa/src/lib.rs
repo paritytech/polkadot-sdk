@@ -323,7 +323,7 @@ impl UnsignedTransaction {
 		stream.out().to_vec()
 	}
 
-	/// Encode to given rlp stream.
+	/// Encode to given RLP stream.
 	pub fn rlp_to(&self, chain_id: Option<u64>, stream: &mut RlpStream) {
 		stream.append(&self.nonce);
 		stream.append(&self.gas_price);
@@ -405,7 +405,7 @@ impl SealedEmptyStep {
 		keccak_256(&message.out()).into()
 	}
 
-	/// Returns rlp for the vector of empty steps (we only do encoding in tests).
+	/// Returns RLP for the vector of empty steps (we only do encoding in tests).
 	pub fn rlp_of(empty_steps: &[SealedEmptyStep]) -> Bytes {
 		let mut s = RlpStream::new();
 		s.begin_list(empty_steps.len());

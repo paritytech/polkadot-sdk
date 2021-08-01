@@ -66,18 +66,18 @@ pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
 /// All polkadot-like chains are using same crypto.
 pub const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 32;
 
-/// All Polkadot-like chains allow normal extrinsics to fill block up to 75%.
+/// All Polkadot-like chains allow normal extrinsics to fill block up to 75 percent.
 ///
 /// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
-/// All Polkadot-like chains allow 2 seconds of compute with a 6 second average block time.
+/// All Polkadot-like chains allow 2 seconds of compute with a 6-second average block time.
 ///
 /// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 
-/// All Polkadot-like chains assume that an on-initialize consumes 1% of the weight on average,
-/// hence a single extrinsic will not be allowed to consume more than `AvailableBlockRatio - 1%`.
+/// All Polkadot-like chains assume that an on-initialize consumes 1 percent of the weight on average,
+/// hence a single extrinsic will not be allowed to consume more than `AvailableBlockRatio - 1 percent`.
 ///
 /// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
@@ -165,7 +165,7 @@ pub type Index = u32;
 /// Hashing type.
 pub type Hashing = BlakeTwo256;
 
-/// The type of an object that can produce hashes on Polkadot-like chains.
+/// The type of object that can produce hashes on Polkadot-like chains.
 pub type Hasher = BlakeTwo256;
 
 /// The header type used by Polkadot-like chains.
@@ -304,7 +304,7 @@ impl Convert<sp_core::H256, AccountId> for AccountIdConverter {
 /// Return a storage key for account data.
 ///
 /// This is based on FRAME storage-generation code from Substrate:
-/// https://github.com/paritytech/substrate/blob/c939ceba381b6313462d47334f775e128ea4e95d/frame/support/src/storage/generator/map.rs#L74
+/// [link](https://github.com/paritytech/substrate/blob/c939ceba381b6313462d47334f775e128ea4e95d/frame/support/src/storage/generator/map.rs#L74)
 /// The equivalent command to invoke in case full `Runtime` is known is this:
 /// `let key = frame_system::Account::<Runtime>::storage_map_final_key(&account_id);`
 pub fn account_info_storage_key(id: &AccountId) -> Vec<u8> {
