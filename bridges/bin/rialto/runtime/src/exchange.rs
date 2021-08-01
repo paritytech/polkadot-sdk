@@ -55,7 +55,7 @@ pub struct EthereumTransactionInclusionProof {
 ///
 /// The assumption is that this pair will never appear more than once in
 /// transactions included into finalized blocks. This is obviously true
-/// for any existing eth-like chain (that keep current tx format), because
+/// for any existing eth-like chain (that keep current TX format), because
 /// otherwise transaction can be replayed over and over.
 #[derive(Encode, Decode, PartialEq, RuntimeDebug)]
 pub struct EthereumTransactionTag {
@@ -65,7 +65,7 @@ pub struct EthereumTransactionTag {
 	pub nonce: sp_core::U256,
 }
 
-/// Eth transaction from runtime perspective.
+/// Ethereum transaction from runtime perspective.
 pub struct EthTransaction;
 
 impl MaybeLockFundsTransaction for EthTransaction {

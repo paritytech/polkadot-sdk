@@ -19,7 +19,7 @@
 //! Although the name implies that it is used by tests, it shouldn't be be used _directly_ by tests.
 //! Instead these utilities should be used by the Mock runtime, which in turn is used by tests.
 //!
-//! On the other hand, they may be used directly by the bechmarking module.
+//! On the other hand, they may be used directly by the benchmark module.
 
 // Since this is test code it's fine that not everything is used
 #![allow(dead_code)]

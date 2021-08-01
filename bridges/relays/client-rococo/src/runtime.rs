@@ -61,7 +61,7 @@ where
 /// All entries here (like pretty much in the entire file) must be kept in sync with Rococo
 /// `construct_runtime`, so that we maintain SCALE-compatibility.
 ///
-/// See: https://github.com/paritytech/polkadot/blob/master/runtime/rococo/src/lib.rs
+/// See: [link](https://github.com/paritytech/polkadot/blob/master/runtime/rococo/src/lib.rs)
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub enum Call {

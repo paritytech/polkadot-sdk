@@ -65,7 +65,7 @@ pub struct QueuedHeaders<P: HeadersSyncPipeline> {
 	/// Headers that are (we believe) currently submitted to target node by our,
 	/// not-yet mined transactions.
 	submitted: HeadersQueue<P>,
-	/// Synced headers childrens. We need it to support case when header is synced, but some of
+	/// Synced headers children. We need it to support case when header is synced, but some of
 	/// its parents are incomplete.
 	synced_children: SyncedChildren<P>,
 	/// Pointers to all headers that we ever seen and we believe we can touch in the future.
@@ -191,7 +191,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 			.unwrap_or(HeaderStatus::Unknown)
 	}
 
-	/// Get oldest header from given queue.
+	/// Get the oldest header from given queue.
 	pub fn header(&self, status: HeaderStatus) -> Option<&QueuedHeader<P>> {
 		match status {
 			HeaderStatus::Unknown | HeaderStatus::Synced => None,
@@ -205,7 +205,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		}
 	}
 
-	/// Get oldest headers from given queue until functor will return false.
+	/// Get the oldest headers from given queue until functor will return false.
 	pub fn headers(
 		&self,
 		status: HeaderStatus,
@@ -282,7 +282,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		);
 	}
 
-	/// Receive best header from the target node.
+	/// Receive the best header from the target node.
 	pub fn target_best_header_response(&mut self, id: &HeaderIdOf<P>) {
 		self.header_synced(id)
 	}
@@ -453,7 +453,7 @@ impl<P: HeadersSyncPipeline> QueuedHeaders<P> {
 		}
 	}
 
-	/// When incomplete headers ids are receved from target node.
+	/// When incomplete headers ids are received from target node.
 	pub fn incomplete_headers_response(&mut self, ids: HashSet<HeaderIdOf<P>>) {
 		// all new incomplete headers are marked Synced and all their descendants
 		// are moved from Ready/Submitted to Incomplete queue

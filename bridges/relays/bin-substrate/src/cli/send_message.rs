@@ -35,7 +35,7 @@ use strum::{EnumString, EnumVariantNames, VariantNames};
 #[derive(Debug, EnumString, EnumVariantNames, Clone, Copy, PartialEq, Eq)]
 #[strum(serialize_all = "kebab_case")]
 pub enum DispatchFeePayment {
-	/// The dispacth fee is paid at the source chain.
+	/// The dispatch fee is paid at the source chain.
 	AtSourceChain,
 	/// The dispatch fee is paid at the target chain.
 	AtTargetChain,

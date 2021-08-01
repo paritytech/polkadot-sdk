@@ -23,7 +23,7 @@
 //! 2. The number of `pre-commits` in the justification
 //!
 //! Vote ancestries are the headers between (`finality_target`, `head_of_chain`], where
-//! `header_of_chain` is a decendant of `finality_target`.
+//! `header_of_chain` is a descendant of `finality_target`.
 //!
 //! Pre-commits are messages which are signed by validators at the head of the chain they think is
 //! the best.
@@ -34,7 +34,7 @@
 //! [A] <- [B] <- [C]
 //!
 //! The common ancestor of both forks is block A, so this is what GRANDPA will finalize. In order to
-//! verify this we will have vote ancestries of [B, C, B', C'] and pre-commits [C, C'].
+//! verify this we will have vote ancestries of `[B, C, B', C']` and pre-commits `[C, C']`.
 //!
 //! Note that the worst case scenario here would be a justification where each validator has it's
 //! own fork which is `SESSION_LENGTH` blocks long.

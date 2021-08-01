@@ -74,9 +74,9 @@ pub type ChainId = [u8; 4];
 
 /// Type of accounts on the source chain.
 pub enum SourceAccount<T> {
-	/// An account that belongs to Root (priviledged origin).
+	/// An account that belongs to Root (privileged origin).
 	Root,
-	/// A non-priviledged account.
+	/// A non-privileged account.
 	///
 	/// The embedded account ID may or may not have a private key depending on the "owner" of the
 	/// account (private key, pallet, proxy, etc.).
@@ -86,7 +86,7 @@ pub enum SourceAccount<T> {
 /// Derive an account ID from a foreign account ID.
 ///
 /// This function returns an encoded Blake2 hash. It is the responsibility of the caller to ensure
-/// this can be succesfully decoded into an AccountId.
+/// this can be successfully decoded into an AccountId.
 ///
 /// The `bridge_id` is used to provide extra entropy when producing account IDs. This helps prevent
 /// AccountId collisions between different bridges on a single target chain.

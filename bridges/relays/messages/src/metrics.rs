@@ -87,21 +87,21 @@ impl MessageLaneLoopMetrics {
 			.set(source_latest_generated_nonce);
 	}
 
-	/// Update latest confirmed nonce at source.
+	/// Update the latest confirmed nonce at source.
 	pub fn update_source_latest_confirmed_nonce<P: MessageLane>(&self, source_latest_confirmed_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["source_latest_confirmed"])
 			.set(source_latest_confirmed_nonce);
 	}
 
-	/// Update latest received nonce at target.
+	/// Update the latest received nonce at target.
 	pub fn update_target_latest_received_nonce<P: MessageLane>(&self, target_latest_generated_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["target_latest_received"])
 			.set(target_latest_generated_nonce);
 	}
 
-	/// Update latest confirmed nonce at target.
+	/// Update the latest confirmed nonce at target.
 	pub fn update_target_latest_confirmed_nonce<P: MessageLane>(&self, target_latest_confirmed_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["target_latest_confirmed"])

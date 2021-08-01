@@ -49,7 +49,7 @@ pub trait SubstrateFinalitySyncPipeline: FinalitySyncPipeline {
 	/// Start finality relay guards.
 	///
 	/// Different finality bridges may have different set of guards - e.g. on ephemeral chains we
-	/// don't need version guards, on test chains we don't care that much about relayer account
+	/// don't need a version guards, on test chains we don't care that much about relayer account
 	/// balance, ... So the implementation is left to the specific bridges.
 	fn start_relay_guards(&self) {}
 

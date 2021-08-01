@@ -49,7 +49,7 @@ pub struct JustificationGeneratorParams<H> {
 	pub authorities: Vec<(Account, AuthorityWeight)>,
 	/// The total number of precommit ancestors in the `votes_ancestries` field our justification.
 	///
-	/// These may be distributed among many different forks.
+	/// These may be distributed among many forks.
 	pub ancestors: u32,
 	/// The number of forks.
 	///

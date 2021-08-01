@@ -41,13 +41,13 @@ type RpcResult<T> = std::result::Result<T, RpcError>;
 /// interactions involving, for example, an Ethereum bridge module.
 #[async_trait]
 pub trait SubstrateHighLevelRpc {
-	/// Returns best Ethereum block that Substrate runtime knows of.
+	/// Returns the best Ethereum block that Substrate runtime knows of.
 	async fn best_ethereum_block(&self) -> RpcResult<EthereumHeaderId>;
 	/// Returns best finalized Ethereum block that Substrate runtime knows of.
 	async fn best_ethereum_finalized_block(&self) -> RpcResult<EthereumHeaderId>;
-	/// Returns whether or not transactions receipts are required for Ethereum header submission.
+	/// Returns whether transactions receipts are required for Ethereum header submission.
 	async fn ethereum_receipts_required(&self, header: SubstrateEthereumHeader) -> RpcResult<bool>;
-	/// Returns whether or not the given Ethereum header is known to the Substrate runtime.
+	/// Returns whether the given Ethereum header is known to the Substrate runtime.
 	async fn ethereum_header_known(&self, header_id: EthereumHeaderId) -> RpcResult<bool>;
 }
 

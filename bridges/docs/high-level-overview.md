@@ -74,7 +74,7 @@ Referer to the [pallet documentation](../modules/substrate/src/lib.rs) for more 
 
 There is currently no reward strategy for the relayers at all. They also are not required to be
 staked or registered on-chain, unlike in other bridge designs. We consider the header sync to be
-an essential part of the bridge and the incentivisation should be happening on the higher layers.
+an essential part of the bridge and the incentivization should be happening on the higher layers.
 
 At the moment, signed transactions are the only way to submit headers to the header sync pallet.
 However, in the future we would like to use  unsigned transactions for headers delivery. This will
@@ -110,7 +110,7 @@ Users of the pallet add their messages to an "outbound lane" on the source chain
 finalized message relayers are responsible for reading the current queue of messages and submitting
 some (or all) of them to the "inbound lane" of the target chain. Each message has a `nonce`
 associated with it, which serves as the ordering of messages. The inbound lane stores the last
-delivered nonce to prevent replaying messages. To succesfuly deliver the message to the inbound lane
+delivered nonce to prevent replaying messages. To successfully deliver the message to the inbound lane
 on target chain the relayer has to present present a storage proof which shows that the message was
 part of the outbound lane on the source chain.
 

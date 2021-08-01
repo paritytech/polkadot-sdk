@@ -41,7 +41,7 @@ type RpcResult<T> = std::result::Result<T, RpcError>;
 /// interactions involving, for example, an Ethereum contract.
 #[async_trait]
 pub trait EthereumHighLevelRpc {
-	/// Returns best Substrate block that PoA chain knows of.
+	/// Returns the best Substrate block that PoA chain knows of.
 	async fn best_substrate_block(&self, contract_address: Address) -> RpcResult<RialtoHeaderId>;
 
 	/// Returns true if Substrate header is known to Ethereum node.

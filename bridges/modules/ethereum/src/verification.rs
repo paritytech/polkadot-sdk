@@ -43,7 +43,7 @@ pub fn is_importable_header<S: Storage>(storage: &S, header: &AuraHeader) -> Res
 	Ok((id, finalized_id))
 }
 
-/// Try accept unsigned aura header into transaction pool.
+/// Try to accept unsigned aura header into transaction pool.
 ///
 /// Returns required and provided tags.
 pub fn accept_aura_header_into_pool<S: Storage, CT: ChainTime>(
