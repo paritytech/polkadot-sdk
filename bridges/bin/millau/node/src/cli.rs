@@ -29,7 +29,7 @@ pub struct Cli {
 /// Possible subcommands of the main binary.
 #[derive(Debug, StructOpt)]
 pub enum Subcommand {
-	/// Key management cli utilities
+	/// Key management CLI utilities
 	Key(sc_cli::KeySubcommand),
 
 	/// Verify a signature for a message, provided on STDIN, with a given (public or secret) key.

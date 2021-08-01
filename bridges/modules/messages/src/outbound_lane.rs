@@ -49,7 +49,7 @@ pub enum ReceivalConfirmationResult {
 	/// New messages have been confirmed by the confirmation transaction.
 	ConfirmedMessages(DeliveredMessages),
 	/// Confirmation transaction brings no new confirmation. This may be a result of relayer
-	/// error or several relayers runnng.
+	/// error or several relayers running.
 	NoNewConfirmations,
 	/// Bridged chain is trying to confirm more messages than we have generated. May be a result
 	/// of invalid bridged chain storage.

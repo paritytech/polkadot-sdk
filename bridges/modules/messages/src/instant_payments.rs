@@ -31,14 +31,14 @@ use sp_std::fmt::Debug;
 
 /// Instant message payments made in given currency.
 ///
-/// The balance is initally reserved in a special `relayers-fund` account, and transferred
+/// The balance is initially reserved in a special `relayers-fund` account, and transferred
 /// to the relayer when message delivery is confirmed.
 ///
-/// Additionaly, confirmation transaction submitter (`confirmation_relayer`) is reimbursed
+/// Additionally, confirmation transaction submitter (`confirmation_relayer`) is reimbursed
 /// with the confirmation rewards (part of message fee, reserved to pay for delivery confirmation).
 ///
 /// NOTE The `relayers-fund` account must always exist i.e. be over Existential Deposit (ED; the
-/// pallet enforces that) to make sure that even if the message cost is below ED it is still payed
+/// pallet enforces that) to make sure that even if the message cost is below ED it is still paid
 /// to the relayer account.
 /// NOTE It's within relayer's interest to keep their balance above ED as well, to make sure they
 /// can receive the payment.
