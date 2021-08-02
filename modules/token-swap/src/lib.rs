@@ -362,7 +362,7 @@ pub mod pallet {
 		/// Return previously reserved `source_balance_at_this_chain` back to the `source_account_at_this_chain`.
 		///
 		/// This should be called only when transfer has failed at Bridged chain and we have received
-		/// notification about thate.
+		/// notification about that.
 		#[pallet::weight(0)]
 		pub fn cancel_swap(origin: OriginFor<T>, swap: TokenSwapOf<T, I>) -> DispatchResultWithPostInfo {
 			// ensure that the `origin` is the same account that is mentioned in the `swap` intention
