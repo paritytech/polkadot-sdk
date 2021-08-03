@@ -26,7 +26,8 @@ const PROJECT_NAME: &str = "validation-worker";
 const SKIP_ENV: &str = "SKIP_BUILD";
 
 fn main() {
-	if env::var(SKIP_ENV).is_ok() {		return
+	if env::var(SKIP_ENV).is_ok() {
+		return;
 	}
 
 	let out_dir = PathBuf::from(env::var("OUT_DIR").expect("`OUT_DIR` is set by cargo"));
@@ -42,11 +43,13 @@ fn main() {
 }
 
 fn find_cargo_lock() -> PathBuf {
-	let mut path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` is set by cargo"));
+	let mut path = PathBuf::from(
+		env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` is set by cargo"),
+	);
 
 	loop {
 		if path.join("Cargo.lock").exists() {
-			return path.join("Cargo.lock")
+			return path.join("Cargo.lock");
 		}
 
 		if !path.pop() {

@@ -99,7 +99,7 @@ pub fn new_partial(
 		Client,
 		TFullBackend<Block>,
 		(),
-		sp_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
+		sc_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
 		sc_transaction_pool::FullPool<Block, Client>,
 		(),
 	>,
@@ -213,6 +213,7 @@ where
 			import_queue: import_queue.clone(),
 			on_demand: None,
 			block_announce_validator_builder: Some(Box::new(block_announce_validator_builder)),
+			warp_sync: None,
 		})?;
 
 	let rpc_extensions_builder = {

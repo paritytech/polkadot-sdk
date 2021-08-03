@@ -43,11 +43,9 @@
 //! make sure that the blocks are imported in the correct order.
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
+use sc_consensus::import_queue::{ImportQueue, IncomingBlock};
 use sp_api::ProvideRuntimeApi;
-use sp_consensus::{
-	import_queue::{ImportQueue, IncomingBlock},
-	BlockOrigin, BlockStatus,
-};
+use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},

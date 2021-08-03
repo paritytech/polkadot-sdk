@@ -26,14 +26,15 @@ use polkadot_service::{AbstractClient, Client as PClient, ClientHandle, RuntimeA
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, UsageProvider,
 };
+use sc_consensus::{
+	import_queue::{ImportQueue, IncomingBlock, Link, Origin},
+	BlockImport,
+};
 use sc_service::{Configuration, Role, TaskManager};
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{
-	import_queue::{ImportQueue, IncomingBlock, Link, Origin},
-	BlockImport, BlockOrigin,
-};
+use sp_consensus::BlockOrigin;
 use sp_core::{traits::SpawnNamed, Pair};
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, NumberFor},
@@ -118,18 +119,18 @@ where
 	});
 
 	relay_chain_full_node
-			.client
-			.execute_with(StartPoVRecovery {
-				para_id,
-				client: client.clone(),
-				import_queue,
-				task_manager,
-				overseer_handle: relay_chain_full_node
-					.overseer_handle
+		.client
+		.execute_with(StartPoVRecovery {
+			para_id,
+			client: client.clone(),
+			import_queue,
+			task_manager,
+			overseer_handle: relay_chain_full_node
+				.overseer_handle
 				.clone()
 				.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
-				_phantom: PhantomData,
-			})?;
+			_phantom: PhantomData,
+		})?;
 
 	cumulus_client_collator::start_collator(cumulus_client_collator::StartCollatorParams {
 		runtime_api: client.clone(),

@@ -25,8 +25,9 @@ use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, Stre
 use futures_timer::Delay;
 use polkadot_primitives::v1::{Block as PBlock, Id as ParaId};
 use sc_client_api::UsageProvider;
+use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
-use sp_consensus::{BlockImport, BlockImportParams, BlockOrigin, ForkChoiceStrategy};
+use sp_consensus::BlockOrigin;
 use sp_runtime::generic::BlockId;
 use std::{
 	sync::{Arc, Mutex},

@@ -33,13 +33,14 @@ use cumulus_primitives_core::{
 use futures::lock::Mutex;
 use polkadot_client::ClientHandle;
 use sc_client_api::{backend::AuxStore, Backend, BlockOf};
+use sc_consensus::BlockImport;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SlotInfo};
 use sc_telemetry::TelemetryHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::{HeaderBackend, ProvideCache};
 use sp_consensus::{
-	BlockImport, EnableProofRecording, Environment, ProofRecording, Proposer, SlotData, SyncOracle,
+	EnableProofRecording, Environment, ProofRecording, Proposer, SlotData, SyncOracle,
 };
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
@@ -52,8 +53,7 @@ mod import_queue;
 
 pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
 pub use sc_consensus_aura::{
-	slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotDuration,
-	SlotProportion,
+	slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotDuration, SlotProportion,
 };
 pub use sc_consensus_slots::InherentDataProviderExt;
 
@@ -138,8 +138,8 @@ where
 		P::Public: AppPublic + Hash + Member + Encode + Decode,
 		P::Signature: TryFrom<Vec<u8>> + Hash + Member + Encode + Decode,
 	{
-		let worker =
-			sc_consensus_aura::build_aura_worker::<P, _, _, _, _, _, _, _, _>(BuildAuraWorkerParams {
+		let worker = sc_consensus_aura::build_aura_worker::<P, _, _, _, _, _, _, _, _>(
+			BuildAuraWorkerParams {
 				client: para_client,
 				block_import: ParachainBlockImport::new(block_import),
 				justification_sync_link: (),
@@ -151,7 +151,8 @@ where
 				telemetry,
 				block_proposal_slot_portion,
 				max_block_proposal_slot_portion,
-			});
+			},
+		);
 
 		Self {
 			create_inherent_data_providers: Arc::new(create_inherent_data_providers),

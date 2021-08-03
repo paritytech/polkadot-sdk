@@ -43,10 +43,10 @@ use cumulus_primitives_core::{
 use parking_lot::Mutex;
 use polkadot_client::ClientHandle;
 use sc_client_api::Backend;
+use sc_consensus::{BlockImport, BlockImportParams};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::{
-	BlockImport, BlockImportParams, BlockOrigin, EnableProofRecording, Environment, ProofRecording,
-	Proposal, Proposer,
+	BlockOrigin, EnableProofRecording, Environment, ProofRecording, Proposal, Proposer,
 };
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT};
@@ -208,8 +208,8 @@ where
 
 		let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, header);
 		block_import_params.body = Some(extrinsics);
-		block_import_params.state_action = sp_consensus::StateAction::ApplyChanges(
-			sp_consensus::StorageChanges::Changes(storage_changes)
+		block_import_params.state_action = sc_consensus::StateAction::ApplyChanges(
+			sc_consensus::StorageChanges::Changes(storage_changes),
 		);
 
 		if let Err(err) = self

@@ -18,15 +18,14 @@
 
 use codec::Codec;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
+use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
 use sc_consensus_aura::AuraVerifier;
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, ProvideCache};
-use sp_consensus::{
-	import_queue::DefaultImportQueue, BlockImport, CanAuthorWith, Error as ConsensusError,
-};
+use sp_consensus::{CanAuthorWith, Error as ConsensusError};
 use sp_consensus_aura::{digests::CompatibleDigestItem, AuraApi};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;

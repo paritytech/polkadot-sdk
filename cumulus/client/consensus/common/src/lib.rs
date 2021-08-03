@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_primitives::v1::{Hash as PHash, PersistedValidationData};
-use sp_consensus::BlockImport;
+use sc_consensus::BlockImport;
 use sp_runtime::traits::Block as BlockT;
 
 mod parachain_consensus;
@@ -96,19 +96,19 @@ where
 
 	async fn check_block(
 		&mut self,
-		block: sp_consensus::BlockCheckParams<Block>,
-	) -> Result<sp_consensus::ImportResult, Self::Error> {
+		block: sc_consensus::BlockCheckParams<Block>,
+	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		self.0.check_block(block).await
 	}
 
 	async fn import_block(
 		&mut self,
-		mut block_import_params: sp_consensus::BlockImportParams<Block, Self::Transaction>,
-		cache: std::collections::HashMap<sp_consensus::import_queue::CacheKeyId, Vec<u8>>,
-	) -> Result<sp_consensus::ImportResult, Self::Error> {
+		mut block_import_params: sc_consensus::BlockImportParams<Block, Self::Transaction>,
+		cache: std::collections::HashMap<sp_consensus::CacheKeyId, Vec<u8>>,
+	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		// Best block is determined by the relay chain, or if we are doing the intial sync
 		// we import all blocks as new best.
-		block_import_params.fork_choice = Some(sp_consensus::ForkChoiceStrategy::Custom(
+		block_import_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
 			block_import_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
 		));
 		self.0.import_block(block_import_params, cache).await
