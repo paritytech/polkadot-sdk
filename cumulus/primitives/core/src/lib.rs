@@ -19,12 +19,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::weights::Weight;
 use sp_runtime::{traits::Block as BlockT, RuntimeDebug};
 use sp_std::prelude::*;
 
 pub use polkadot_core_primitives::InboundDownwardMessage;
-pub use polkadot_parachain::primitives::{Id as ParaId, UpwardMessage, ValidationParams};
+pub use polkadot_parachain::primitives::{
+	DmpMessageHandler, Id as ParaId, UpwardMessage, ValidationParams, XcmpMessageFormat,
+	XcmpMessageHandler,
+};
 pub use polkadot_primitives::v1::{
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
@@ -34,7 +36,6 @@ pub mod relay_chain {
 	pub use polkadot_core_primitives::*;
 	pub use polkadot_primitives::{v1, v1::well_known_keys};
 }
-use relay_chain::BlockNumber as RelayBlockNumber;
 
 /// An inbound HRMP message.
 pub type InboundHrmpMessage = polkadot_primitives::v1::InboundHrmpMessage<relay_chain::BlockNumber>;
@@ -86,47 +87,6 @@ pub struct ChannelInfo {
 pub trait GetChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus;
 	fn get_channel_max(id: ParaId) -> Option<usize>;
-}
-
-/// Something that should be called when a downward message is received.
-pub trait DmpMessageHandler {
-	/// Handle some incoming DMP messages (note these are individual XCM messages).
-	///
-	/// Also, process messages up to some `max_weight`.
-	fn handle_dmp_messages(
-		iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
-		max_weight: Weight,
-	) -> Weight;
-}
-impl DmpMessageHandler for () {
-	fn handle_dmp_messages(
-		iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
-		_max_weight: Weight,
-	) -> Weight {
-		iter.for_each(drop);
-		0
-	}
-}
-
-/// Something that should be called for each batch of messages received over XCMP.
-pub trait XcmpMessageHandler {
-	/// Handle some incoming XCMP messages (note these are the big one-per-block aggregate
-	/// messages).
-	///
-	/// Also, process messages up to some `max_weight`.
-	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
-		iter: I,
-		max_weight: Weight,
-	) -> Weight;
-}
-impl XcmpMessageHandler for () {
-	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
-		iter: I,
-		_max_weight: Weight,
-	) -> Weight {
-		for _ in iter {}
-		0
-	}
 }
 
 /// Something that should be called when sending an upward message.

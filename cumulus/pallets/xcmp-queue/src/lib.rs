@@ -34,7 +34,7 @@ mod tests;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
-	ParaId, XcmpMessageHandler, XcmpMessageSource,
+	ParaId, XcmpMessageHandler, XcmpMessageSource, XcmpMessageFormat,
 };
 use frame_support::weights::Weight;
 use rand_chacha::{
@@ -206,18 +206,6 @@ pub struct QueueConfigData {
 pub enum ChannelSignal {
 	Suspend,
 	Resume,
-}
-
-/// The aggregate XCMP message format.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug)]
-pub enum XcmpMessageFormat {
-	/// Encoded `VersionedXcm` messages, all concatenated.
-	ConcatenatedVersionedXcm,
-	/// Encoded `Vec<u8>` messages, all concatenated.
-	ConcatenatedEncodedBlob,
-	/// One or more channel control signals; these should be interpreted immediately upon receipt
-	/// from the relay-chain.
-	Signals,
 }
 
 impl<T: Config> Pallet<T> {
