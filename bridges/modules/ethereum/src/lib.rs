@@ -111,7 +111,7 @@ pub struct StoredHeader<Submitter> {
 pub struct ValidatorsSet {
 	/// Validators of this set.
 	pub validators: Vec<Address>,
-	/// Hash of the block where this set has been signalled. None if this is the first set.
+	/// Hash of the block where this set has been signaled. None if this is the first set.
 	pub signal_block: Option<HeaderId>,
 	/// Hash of the block where this set has been enacted.
 	pub enact_block: HeaderId,

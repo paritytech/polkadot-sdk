@@ -379,7 +379,7 @@ pub mod pallet {
 				Some(TokenSwapState::Started) => fail!(Error::<T, I>::SwapIsPending),
 				Some(TokenSwapState::Confirmed) => fail!(Error::<T, I>::SwapIsConfirmed),
 				Some(TokenSwapState::Failed) => {
-					// we allow cancelling swap even before lock period is over - the `source_account_at_this_chain`
+					// we allow canceling swap even before lock period is over - the `source_account_at_this_chain`
 					// has already paid for nothing and it is up to him to decide whether he want to try again
 				}
 				None => fail!(Error::<T, I>::SwapIsInactive),
