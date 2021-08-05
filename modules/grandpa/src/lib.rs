@@ -567,7 +567,7 @@ pub(crate) fn find_scheduled_change<H: HeaderT>(header: &H) -> Option<sp_finalit
 	header.digest().convert_first(|l| l.try_to(id).and_then(filter_log))
 }
 
-/// Checks the given header for a consensus digest signalling a **forced** scheduled change and
+/// Checks the given header for a consensus digest signaling a **forced** scheduled change and
 /// extracts it.
 pub(crate) fn find_forced_change<H: HeaderT>(
 	header: &H,
