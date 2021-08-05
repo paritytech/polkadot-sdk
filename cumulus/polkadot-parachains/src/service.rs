@@ -223,7 +223,7 @@ where
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 	RB: Fn(
 			Arc<TFullClient<Block, RuntimeApi, Executor>>,
-		) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+		) -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, sc_service::Error>
 		+ Send
 		+ 'static,
 	BIQ: FnOnce(
@@ -418,7 +418,7 @@ pub async fn start_rococo_parachain_node(
 		parachain_config,
 		polkadot_config,
 		id,
-		|_| Default::default(),
+		|_| Ok(Default::default()),
 		rococo_parachain_build_import_queue,
 		|client,
 		 prometheus_registry,
@@ -536,7 +536,7 @@ pub async fn start_shell_node(
 		parachain_config,
 		polkadot_config,
 		id,
-		|_| Default::default(),
+		|_| Ok(Default::default()),
 		shell_build_import_queue,
 		|client,
 		 prometheus_registry,
@@ -809,7 +809,7 @@ where
 		parachain_config,
 		polkadot_config,
 		id,
-		|_| Default::default(),
+		|_| Ok(Default::default()),
 		statemint_build_import_queue,
 		|client,
 		 prometheus_registry,

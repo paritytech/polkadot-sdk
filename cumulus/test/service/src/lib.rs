@@ -162,7 +162,7 @@ async fn start_node_impl<RB>(
 where
 	RB: Fn(
 			Arc<TFullClient<Block, RuntimeApi, RuntimeExecutor>>,
-		) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+		) -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, sc_service::Error>
 		+ Send
 		+ 'static,
 {
@@ -516,7 +516,7 @@ impl TestNodeBuilder {
 			relay_chain_config,
 			self.para_id,
 			self.wrap_announce_block,
-			|_| Default::default(),
+			|_| Ok(Default::default()),
 			self.consensus,
 		)
 		.await

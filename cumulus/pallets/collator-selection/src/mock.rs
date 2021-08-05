@@ -126,6 +126,7 @@ impl pallet_timestamp::Config for Test {
 
 impl pallet_aura::Config for Test {
 	type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
+	type DisabledValidators = ();
 }
 
 sp_runtime::impl_opaque_keys! {

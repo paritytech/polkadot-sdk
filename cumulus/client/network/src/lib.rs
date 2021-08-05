@@ -33,7 +33,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashFor, Header as HeaderT},
 };
 
-use polkadot_node_primitives::{SignedFullStatement, Statement};
+use polkadot_node_primitives::{SignedFullStatement, Statement, CollationSecondedSignal};
 use polkadot_parachain::primitives::HeadData;
 use polkadot_primitives::v1::{
 	Block as PBlock, Hash as PHash, CandidateReceipt, CompactStatement, Id as ParaId,
@@ -530,7 +530,7 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 	pub fn wait_to_announce(
 		&mut self,
 		block_hash: <Block as BlockT>::Hash,
-		signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
+		signed_stmt_recv: oneshot::Receiver<CollationSecondedSignal>,
 	) {
 		let announce_block = self.announce_block.clone();
 
@@ -557,10 +557,10 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 async fn wait_to_announce<Block: BlockT>(
 	block_hash: <Block as BlockT>::Hash,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	signed_stmt_recv: oneshot::Receiver<SignedFullStatement>,
+	signed_stmt_recv: oneshot::Receiver<CollationSecondedSignal>,
 ) {
 	let statement = match signed_stmt_recv.await {
-		Ok(s) => s,
+		Ok(s) => s.statement,
 		Err(_) => {
 			tracing::debug!(
 				target: "cumulus-network",
