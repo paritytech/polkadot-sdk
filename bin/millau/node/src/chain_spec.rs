@@ -70,10 +70,7 @@ impl Alternative {
 		let properties = Some(
 			serde_json::json!({
 				"tokenDecimals": 9,
-				"tokenSymbol": "MLAU",
-				"bridgeIds": {
-					"Rialto": bp_runtime::RIALTO_CHAIN_ID,
-				}
+				"tokenSymbol": "MLAU"
 			})
 			.as_object()
 			.expect("Map given; qed")

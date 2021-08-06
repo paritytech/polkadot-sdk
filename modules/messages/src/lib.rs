@@ -54,7 +54,7 @@ use bp_messages::{
 	total_unrewarded_messages, DeliveredMessages, InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce,
 	OperatingMode, OutboundLaneData, Parameter as MessagesParameter, UnrewardedRelayersState,
 };
-use bp_runtime::Size;
+use bp_runtime::{ChainId, Size};
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
@@ -161,6 +161,9 @@ pub trait Config<I = DefaultInstance>: frame_system::Config {
 		Self::InboundMessageFee,
 		DispatchPayload = Self::InboundPayload,
 	>;
+
+	/// Chain Id for the bridged chain.
+	type BridgedChainId: Get<ChainId>;
 }
 
 /// Shortcut to messages proof type for Config.
@@ -254,6 +257,9 @@ decl_module! {
 	pub struct Module<T: Config<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
 		/// Deposit one of this module's events by using the default implementation.
 		fn deposit_event() = default;
+
+		/// Gets the chain id value from the instance.
+		const BridgedChainId: ChainId = T::BridgedChainId::get();
 
 		/// Ensure runtime invariants.
 		fn on_runtime_upgrade() -> Weight {

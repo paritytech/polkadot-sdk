@@ -71,10 +71,7 @@ impl Alternative {
 		let properties = Some(
 			json!({
 				"tokenDecimals": 9,
-				"tokenSymbol": "RLT",
-				"bridgeIds": {
-					"Millau": bp_runtime::MILLAU_CHAIN_ID,
-				}
+				"tokenSymbol": "RLT"
 			})
 			.as_object()
 			.expect("Map given; qed")
