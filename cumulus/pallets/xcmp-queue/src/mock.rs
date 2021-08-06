@@ -17,10 +17,7 @@ use super::*;
 use crate as xcmp_queue;
 use sp_core::H256;
 use frame_support::parameter_types;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	testing::{Header},
-};
+use sp_runtime::{traits::{BlakeTwo256, IdentityLookup}, testing::Header};
 use xcm_builder::{
 	FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, CurrencyAdapter,
 	ParentIsDefault,
@@ -107,10 +104,8 @@ impl cumulus_pallet_parachain_system::Config for Test {
 }
 
 parameter_types! {
-	pub const RelayChain: MultiLocation = MultiLocation::X1(Junction::Parent);
-	pub Ancestry: MultiLocation = MultiLocation::X1(
-		Junction::Parachain(1u32.into())
-	);
+	pub const RelayChain: MultiLocation = X1(Parent);
+	pub Ancestry: MultiLocation = X1(Parachain(1u32.into()));
 	pub UnitWeightCost: Weight = 1_000_000;
 }
 
@@ -157,6 +152,7 @@ impl Config for Test {
 	type Event = Event;
 	type XcmExecutor = xcm_executor::XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
+	type VersionWrapper = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
