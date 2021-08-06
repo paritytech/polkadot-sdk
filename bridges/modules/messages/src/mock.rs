@@ -142,6 +142,7 @@ parameter_types! {
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: u64 = 16;
 	pub const MaxUnconfirmedMessagesAtInboundLane: u64 = 32;
 	pub storage TokenConversionRate: FixedU128 = 1.into();
+  pub const TestBridgedChainId: bp_runtime::ChainId = *b"test";
 }
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
@@ -181,6 +182,7 @@ impl Config for TestRuntime {
 
 	type SourceHeaderChain = TestSourceHeaderChain;
 	type MessageDispatch = TestMessageDispatch;
+	type BridgedChainId = TestBridgedChainId;
 }
 
 impl Size for TestPayload {
