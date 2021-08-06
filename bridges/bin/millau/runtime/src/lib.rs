@@ -362,6 +362,7 @@ parameter_types! {
 	pub const GetDeliveryConfirmationTransactionFee: Balance =
 		bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT as _;
 	pub const RootAccountForPayments: Option<AccountId> = None;
+  pub const BridgedChainId: bp_runtime::ChainId = bp_runtime::RIALTO_CHAIN_ID;
 }
 
 /// Instance of the messages pallet used to relay messages to/from Rialto chain.
@@ -397,6 +398,7 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
+	type BridgedChainId = BridgedChainId;
 }
 
 construct_runtime!(
