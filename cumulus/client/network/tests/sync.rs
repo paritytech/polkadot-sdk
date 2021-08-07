@@ -20,6 +20,7 @@ use futures::join;
 use sc_service::TaskExecutor;
 
 #[substrate_test_utils::test]
+#[ignore]
 async fn sync_blocks_from_tip_without_being_connected_to_a_collator(task_executor: TaskExecutor) {
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);

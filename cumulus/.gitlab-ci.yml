@@ -91,7 +91,7 @@ test-linux-stable:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo test --all --release --locked
+    - time cargo test --all --release --locked -- --include-ignored
     # It's almost free to produce a binary here, please refrain from using it in production since
     # it goes with the debug assertions.
     - if [ "${ARE_WE_RELEASING_YET}" ]; then

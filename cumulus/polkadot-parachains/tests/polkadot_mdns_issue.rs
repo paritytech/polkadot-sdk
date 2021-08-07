@@ -21,6 +21,7 @@ mod common;
 
 #[test]
 #[cfg(unix)]
+#[ignore]
 fn interrupt_polkadot_mdns_issue_test() {
 	use nix::{
 		sys::signal::{

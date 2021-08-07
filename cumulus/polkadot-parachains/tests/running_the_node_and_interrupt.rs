@@ -21,6 +21,7 @@ mod common;
 
 #[test]
 #[cfg(unix)]
+#[ignore]
 fn running_the_node_works_and_can_be_interrupted() {
 	use nix::{
 		sys::signal::{

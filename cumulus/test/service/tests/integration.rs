@@ -20,6 +20,7 @@ use futures::join;
 use sc_service::TaskExecutor;
 
 #[substrate_test_utils::test]
+#[ignore]
 async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExecutor) {
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);

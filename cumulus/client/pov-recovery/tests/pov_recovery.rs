@@ -26,6 +26,7 @@ use std::sync::Arc;
 /// the parachain network, we need to recover the PoV from the relay chain. Using this PoV we can
 /// recover the block, import it and share it with the other nodes of the parachain network.
 #[substrate_test_utils::test]
+#[ignore]
 async fn pov_recovery(task_executor: TaskExecutor) {
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);
