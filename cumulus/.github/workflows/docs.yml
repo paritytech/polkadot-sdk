@@ -1,0 +1,39 @@
+name: Publish Rust Docs
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy-docs:
+    name: Deploy docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/actions/checkout@v2.3.4
+
+      - name: Rust show versions
+        run: rustup show
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v1
+
+      - name: Build rustdocs
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --all --no-deps
+
+      # Make an index.html file that redirects to the cumulus-client-collator page
+      # Copied from https://github.com/substrate-developer-hub/rustdocs/blob/master/index.html
+      - name: Make index.html
+        run: echo "<meta http-equiv=refresh content=0;url=cumulus_client_collator/index.html>" > ./target/doc/index.html
+
+      - name: Deploy documentation
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./target/doc
