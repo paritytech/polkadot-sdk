@@ -12,10 +12,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/actions/checkout@v2.3.4
+        uses: actions/checkout@v2.3.4
 
-      - name: Rust show versions
-        run: rustup show
+      - name: Rust toolchains and versions
+        run:  |
+          rustup toolchain install nightly --target wasm32-unknown-unknown
+          rustup show
+          rustup +nightly show
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v1
@@ -26,10 +29,8 @@ jobs:
           command: doc
           args: --all --no-deps
 
-      # Make an index.html file that redirects to the cumulus-client-collator page
-      # Copied from https://github.com/substrate-developer-hub/rustdocs/blob/master/index.html
       - name: Make index.html
-        run: echo "<meta http-equiv=refresh content=0;url=cumulus_client_collator/index.html>" > ./target/doc/index.html
+        run:  echo "<meta http-equiv=refresh content=0;url=cumulus_client_collator/index.html>" > ./target/doc/index.html
 
       - name: Deploy documentation
         uses: peaceiris/actions-gh-pages@v3
