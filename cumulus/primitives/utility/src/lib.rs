@@ -36,7 +36,7 @@ impl<T: UpwardMessageSender, W: WrapVersion> SendXcm for ParentAsUmp<T, W> {
 	fn send_xcm(dest: MultiLocation, msg: Xcm<()>) -> Result<(), XcmError> {
 		match &dest {
 			// An upward message for the relay chain.
-			MultiLocation::X1(Parent) => {
+			X1(Parent) => {
 				let versioned_xcm = W::wrap_version(&dest, msg)
 					.map_err(|()| XcmError::DestinationUnsupported)?;
 				let data = versioned_xcm.encode();
