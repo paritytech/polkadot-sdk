@@ -1,11 +1,9 @@
 name: Publish Rust Docs
 
 on:
-  pull_request:
-  # FIXME: debug
-  # push:
-  #   branches:
-  #     - master
+  push:
+    branches:
+      - master
 
 jobs:
   deploy-docs:
