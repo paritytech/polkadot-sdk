@@ -1,9 +1,11 @@
 name: Publish Rust Docs
 
 on:
-  push:
-    branches:
-      - master
+  pull_request:
+  # FIXME: debug
+  # push:
+  #   branches:
+  #     - master
 
 jobs:
   deploy-docs:
@@ -14,20 +16,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2.3.4
 
-      - name: Rust toolchains and versions
-        run:  |
-          rustup toolchain install nightly --target wasm32-unknown-unknown
-          rustup show
-          rustup +nightly show
+      - name: Rust versions
+        run:  rustup show
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v1
 
       - name: Build rustdocs
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --all --no-deps
+        run:  SKIP_WASM_BUILD=1 cargo doc --all --no-deps
 
       - name: Make index.html
         run:  echo "<meta http-equiv=refresh content=0;url=cumulus_client_collator/index.html>" > ./target/doc/index.html
