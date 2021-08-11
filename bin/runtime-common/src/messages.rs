@@ -492,15 +492,12 @@ pub mod target {
 		for FromBridgedChainMessageDispatch<B, ThisRuntime, ThisCurrency, ThisDispatchInstance>
 	where
 		BalanceOf<ThisChain<B>>: Saturating + FixedPointOperand,
-		ThisDispatchInstance: frame_support::traits::Instance,
+		ThisDispatchInstance: 'static,
 		ThisRuntime: pallet_bridge_dispatch::Config<ThisDispatchInstance, MessageId = (LaneId, MessageNonce)>
 			+ pallet_transaction_payment::Config,
 		<ThisRuntime as pallet_transaction_payment::Config>::OnChargeTransaction:
 			pallet_transaction_payment::OnChargeTransaction<ThisRuntime, Balance = BalanceOf<ThisChain<B>>>,
 		ThisCurrency: Currency<AccountIdOf<ThisChain<B>>, Balance = BalanceOf<ThisChain<B>>>,
-		<ThisRuntime as pallet_bridge_dispatch::Config<ThisDispatchInstance>>::Event: From<
-			pallet_bridge_dispatch::RawEvent<(LaneId, MessageNonce), AccountIdOf<ThisChain<B>>, ThisDispatchInstance>,
-		>,
 		pallet_bridge_dispatch::Pallet<ThisRuntime, ThisDispatchInstance>: bp_message_dispatch::MessageDispatch<
 			AccountIdOf<ThisChain<B>>,
 			(LaneId, MessageNonce),
