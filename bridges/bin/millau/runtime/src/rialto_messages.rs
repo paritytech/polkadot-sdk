@@ -69,7 +69,7 @@ pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDi
 	WithRialtoMessageBridge,
 	crate::Runtime,
 	pallet_balances::Pallet<Runtime>,
-	pallet_bridge_dispatch::DefaultInstance,
+	(),
 >;
 
 /// Millau <-> Rialto message bridge.
