@@ -63,7 +63,7 @@ pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDi
 	WithMillauMessageBridge,
 	crate::Runtime,
 	pallet_balances::Pallet<Runtime>,
-	pallet_bridge_dispatch::DefaultInstance,
+	(),
 >;
 
 /// Messages proof for Millau -> Rialto messages.
