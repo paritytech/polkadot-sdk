@@ -19,22 +19,33 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_module, decl_storage};
 use sp_std::prelude::*;
 
-/// The module configuration trait.
-pub trait Config: pallet_session::Config {}
+pub use pallet::*;
 
-decl_module! {
-	/// Shift session manager pallet.
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {}
-}
+#[frame_support::pallet]
+pub mod pallet {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
-decl_storage! {
-	trait Store for Pallet<T: Config> as ShiftSessionManager {
-		/// Validators of first two sessions.
-		InitialValidators: Option<Vec<T::ValidatorId>>;
-	}
+	#[pallet::config]
+	#[pallet::disable_frame_system_supertrait_check]
+	pub trait Config: pallet_session::Config {}
+
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T>(PhantomData<T>);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
+	/// Validators of first two sessions.
+	#[pallet::storage]
+	pub(super) type InitialValidators<T: Config> = StorageValue<_, Vec<T::ValidatorId>>;
 }
 
 impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
