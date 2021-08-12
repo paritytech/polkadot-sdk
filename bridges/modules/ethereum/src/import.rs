@@ -176,9 +176,7 @@ mod tests {
 		validators_change_receipt, HeaderBuilder, KeepSomeHeadersBehindBest, TestRuntime, GAS_LIMIT,
 	};
 	use crate::validators::ValidatorsSource;
-	use crate::DefaultInstance;
 	use crate::{BlocksToPrune, BridgeStorage, Headers, PruningRange};
-	use frame_support::{StorageMap, StorageValue};
 	use secp256k1::SecretKey;
 
 	const TOTAL_VALIDATORS: usize = 3;
@@ -367,7 +365,7 @@ mod tests {
 				step += 3;
 			}
 			assert_eq!(
-				BlocksToPrune::<DefaultInstance>::get(),
+				BlocksToPrune::<TestRuntime, ()>::get(),
 				PruningRange {
 					oldest_unpruned_block: 11,
 					oldest_block_to_keep: 14,
@@ -394,7 +392,7 @@ mod tests {
 			.unwrap();
 			assert_eq!(finalized_blocks, expected_blocks);
 			assert_eq!(
-				BlocksToPrune::<DefaultInstance>::get(),
+				BlocksToPrune::<TestRuntime, ()>::get(),
 				PruningRange {
 					oldest_unpruned_block: 15,
 					oldest_block_to_keep: 15,

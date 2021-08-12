@@ -284,7 +284,6 @@ mod tests {
 	use super::*;
 	use crate::mock::{insert_header, run_test, validator, validators_addresses, HeaderBuilder, TestRuntime};
 	use crate::{BridgeStorage, FinalityCache, HeaderToImport};
-	use frame_support::StorageMap;
 
 	const TOTAL_VALIDATORS: usize = 5;
 

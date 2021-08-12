@@ -22,10 +22,10 @@ use crate::test_utils::{
 };
 
 use bp_eth_poa::{compute_merkle_root, U256};
-use frame_benchmarking::benchmarks_instance;
+use frame_benchmarking::benchmarks_instance_pallet;
 use frame_system::RawOrigin;
 
-benchmarks_instance! {
+benchmarks_instance_pallet! {
 	// Benchmark `import_unsigned_header` extrinsic with the best possible conditions:
 	// * Parent header is finalized.
 	// * New header doesn't require receipts.
@@ -153,7 +153,7 @@ benchmarks_instance! {
 		let validators = validators(num_validators);
 
 		// Want to prune eligible blocks between [0, n)
-		BlocksToPrune::<I>::put(PruningRange {
+		BlocksToPrune::<T, I>::put(PruningRange {
 			oldest_unpruned_block: 0,
 			oldest_block_to_keep: n as u64,
 		});
@@ -172,8 +172,8 @@ benchmarks_instance! {
 		let storage = BridgeStorage::<T, I>::new();
 		let max_pruned: u64 = (n - 1) as _;
 		assert_eq!(storage.best_block().0.number, (n + 1) as u64);
-		assert!(HeadersByNumber::<I>::get(&0).is_none());
-		assert!(HeadersByNumber::<I>::get(&max_pruned).is_none());
+		assert!(HeadersByNumber::<T, I>::get(&0).is_none());
+		assert!(HeadersByNumber::<T, I>::get(&max_pruned).is_none());
 	}
 
 	// The goal of this bench is to import a block which contains a transaction receipt. The receipt
@@ -216,7 +216,7 @@ benchmarks_instance! {
 	}
 }
 
-fn initialize_bench<T: Config<I>, I: Instance>(num_validators: usize) -> AuraHeader {
+fn initialize_bench<T: Config<I>, I: 'static>(num_validators: usize) -> AuraHeader {
 	// Initialize storage with some initial header
 	let initial_header = build_genesis_header(&validator(0));
 	let initial_difficulty = initial_header.difficulty;
