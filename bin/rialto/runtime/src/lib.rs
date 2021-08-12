@@ -1102,6 +1102,7 @@ impl_runtime_apis! {
 				}
 			}
 
+			add_benchmark!(params, batches, pallet_bridge_eth_poa, BridgeRialtoPoa);
 			add_benchmark!(
 				params,
 				batches,

@@ -63,30 +63,28 @@ impl HeaderBuilder {
 	/// Creates default header on top of test parent with given hash.
 	#[cfg(test)]
 	pub fn with_parent_hash(parent_hash: H256) -> Self {
-		Self::with_parent_hash_on_runtime::<crate::mock::TestRuntime, crate::DefaultInstance>(parent_hash)
+		Self::with_parent_hash_on_runtime::<crate::mock::TestRuntime, ()>(parent_hash)
 	}
 
 	/// Creates default header on top of test parent with given number. First parent is selected.
 	#[cfg(test)]
 	pub fn with_parent_number(parent_number: u64) -> Self {
-		Self::with_parent_number_on_runtime::<crate::mock::TestRuntime, crate::DefaultInstance>(parent_number)
+		Self::with_parent_number_on_runtime::<crate::mock::TestRuntime, ()>(parent_number)
 	}
 
 	/// Creates default header on top of parent with given hash.
-	pub fn with_parent_hash_on_runtime<T: Config<I>, I: crate::Instance>(parent_hash: H256) -> Self {
+	pub fn with_parent_hash_on_runtime<T: Config<I>, I: 'static>(parent_hash: H256) -> Self {
 		use crate::Headers;
-		use frame_support::StorageMap;
 
 		let parent_header = Headers::<T, I>::get(&parent_hash).unwrap().header;
 		Self::with_parent(&parent_header)
 	}
 
 	/// Creates default header on top of parent with given number. First parent is selected.
-	pub fn with_parent_number_on_runtime<T: Config<I>, I: crate::Instance>(parent_number: u64) -> Self {
+	pub fn with_parent_number_on_runtime<T: Config<I>, I: 'static>(parent_number: u64) -> Self {
 		use crate::HeadersByNumber;
-		use frame_support::StorageMap;
 
-		let parent_hash = HeadersByNumber::<I>::get(parent_number).unwrap()[0];
+		let parent_hash = HeadersByNumber::<T, I>::get(parent_number).unwrap()[0];
 		Self::with_parent_hash_on_runtime::<T, I>(parent_hash)
 	}
 
