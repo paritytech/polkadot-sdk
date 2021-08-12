@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
 		log::debug!("Processing XCMP-XCM: {:?}", &hash);
 		let (result, event) = match Xcm::<T::Call>::try_from(xcm) {
 			Ok(xcm) => {
-				let location = (Parent, Parachain(sender.into()));
+				let location = (1, Parachain(sender.into()));
 				match T::XcmExecutor::execute_xcm(location.into(), xcm, max_weight) {
 					Outcome::Error(e) => (Err(e.clone()), Event::Fail(Some(hash), e)),
 					Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
@@ -777,7 +777,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 	fn send_xcm(dest: MultiLocation, msg: Xcm<()>) -> Result<(), XcmError> {
 		match &dest {
 			// An HRMP message for a sibling parachain.
-			X2(Parent, Parachain(id)) => {
+			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
 				let versioned_xcm = T::VersionWrapper::wrap_version(&dest, msg)
 					.map_err(|()| XcmError::DestinationUnsupported)?;
 				let hash = T::Hashing::hash_of(&versioned_xcm);

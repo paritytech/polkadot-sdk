@@ -34,20 +34,19 @@ use xcm::{WrapVersion, latest::prelude::*};
 pub struct ParentAsUmp<T, W>(PhantomData<(T, W)>);
 impl<T: UpwardMessageSender, W: WrapVersion> SendXcm for ParentAsUmp<T, W> {
 	fn send_xcm(dest: MultiLocation, msg: Xcm<()>) -> Result<(), XcmError> {
-		match &dest {
+		if dest.contains_parents_only(1) {
 			// An upward message for the relay chain.
-			X1(Parent) => {
-				let versioned_xcm = W::wrap_version(&dest, msg)
-					.map_err(|()| XcmError::DestinationUnsupported)?;
-				let data = versioned_xcm.encode();
+			let versioned_xcm = W::wrap_version(&dest, msg)
+				.map_err(|()| XcmError::DestinationUnsupported)?;
+			let data = versioned_xcm.encode();
 
-				T::send_upward_message(data)
-					.map_err(|e| XcmError::SendFailed(e.into()))?;
+			T::send_upward_message(data)
+				.map_err(|e| XcmError::SendFailed(e.into()))?;
 
-				Ok(())
-			}
+			Ok(())
+		} else {
 			// Anything else is unhandled. This includes a message this is meant for us.
-			_ => Err(XcmError::CannotReachDestination(dest, msg)),
+			Err(XcmError::CannotReachDestination(dest, msg))
 		}
 	}
 }

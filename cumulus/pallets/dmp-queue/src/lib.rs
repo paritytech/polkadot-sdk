@@ -26,7 +26,7 @@ use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use cumulus_primitives_core::DmpMessageHandler;
 use codec::{Encode, Decode};
 use sp_runtime::RuntimeDebug;
-use xcm::{VersionedXcm, latest::{Xcm, Junction, Outcome, ExecuteXcm, Error as XcmError}};
+use xcm::{VersionedXcm, latest::{Xcm, Outcome, Parent, ExecuteXcm, Error as XcmError}};
 use frame_support::{traits::EnsureOrigin, dispatch::Weight, weights::constants::WEIGHT_PER_MILLIS};
 pub use pallet::*;
 
@@ -245,7 +245,7 @@ pub mod pallet {
 					Ok(0)
 				},
 				Ok(Ok(x)) => {
-					let outcome = T::XcmExecutor::execute_xcm(Junction::Parent.into(), x, limit);
+					let outcome = T::XcmExecutor::execute_xcm(Parent.into(), x, limit);
 					match outcome {
 						Outcome::Error(XcmError::WeightLimitReached(required)) => Err((id, required)),
 						outcome => {

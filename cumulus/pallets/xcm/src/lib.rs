@@ -25,7 +25,7 @@ use cumulus_primitives_core::{ParaId, DmpMessageHandler};
 use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use codec::{Encode, Decode};
 use sp_runtime::traits::BadOrigin;
-use xcm::{VersionedXcm, latest::{Xcm, Junction, Outcome, ExecuteXcm}};
+use xcm::{VersionedXcm, latest::{Xcm, Outcome, Parent, ExecuteXcm}};
 use frame_support::dispatch::Weight;
 pub use pallet::*;
 
@@ -118,7 +118,7 @@ impl<T: Config> DmpMessageHandler for UnlimitedDmpExecution<T> {
 				Err(_) => Pallet::<T>::deposit_event(Event::InvalidFormat(id)),
 				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
 				Ok(Ok(x)) => {
-					let outcome = T::XcmExecutor::execute_xcm(Junction::Parent.into(), x, limit);
+					let outcome = T::XcmExecutor::execute_xcm(Parent.into(), x, limit);
 					used += outcome.weight_used();
 					Pallet::<T>::deposit_event(Event::ExecutedDownward(id, outcome));
 				}
@@ -149,7 +149,7 @@ impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
 				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
 				Ok(Ok(x)) => {
 					let weight_limit = limit.saturating_sub(used);
-					let outcome = T::XcmExecutor::execute_xcm(Junction::Parent.into(), x, weight_limit);
+					let outcome = T::XcmExecutor::execute_xcm(Parent.into(), x, weight_limit);
 					used += outcome.weight_used();
 					Pallet::<T>::deposit_event(Event::ExecutedDownward(id, outcome));
 				}

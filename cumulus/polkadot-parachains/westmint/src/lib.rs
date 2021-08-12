@@ -431,7 +431,7 @@ impl parachain_info::Config for Runtime {}
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
-	pub const WestendLocation: MultiLocation = X1(Parent);
+	pub const WestendLocation: MultiLocation = MultiLocation::parent();
 	pub RelayNetwork: NetworkId = NetworkId::Named(b"Westend".to_vec());
 	pub RelayChainOrigin: Origin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub Ancestry: MultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
@@ -493,8 +493,8 @@ parameter_types! {
 
 match_type! {
 	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
-		X1(Parent) |
-		X2(Parent, Plurality { .. })
+		MultiLocation { parents: 1, interior: Here } |
+		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
 	};
 }
 

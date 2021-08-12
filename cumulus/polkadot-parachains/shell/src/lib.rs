@@ -172,7 +172,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub const RococoLocation: MultiLocation = X1(Parent);
+	pub const RococoLocation: MultiLocation = MultiLocation::parent();
 	pub const RococoNetwork: NetworkId = NetworkId::Polkadot;
 	pub Ancestry: MultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 }
@@ -191,7 +191,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 match_type! {
-	pub type JustTheParent: impl Contains<MultiLocation> = { X1(Parent) };
+	pub type JustTheParent: impl Contains<MultiLocation> = { MultiLocation { parents:1, interior: Here } };
 }
 
 parameter_types! {

@@ -23,7 +23,7 @@ use sp_runtime::traits::Saturating;
 use frame_system::Config as SystemConfig;
 use cumulus_primitives_core::ParaId;
 use cumulus_pallet_xcm::{Origin as CumulusOrigin, ensure_sibling_para};
-use xcm::latest::{Xcm, Error as XcmError, SendXcm, OriginKind, MultiLocation, Junction};
+use xcm::latest::{Xcm, Error as XcmError, SendXcm, OriginKind, Junction};
 
 pub use pallet::*;
 
@@ -101,7 +101,7 @@ pub mod pallet {
 			for (para, payload) in Targets::<T>::get().into_iter() {
 				let seq = PingCount::<T>::mutate(|seq| { *seq += 1; *seq });
 				match T::XcmSender::send_xcm(
-					MultiLocation::X2(Junction::Parent, Junction::Parachain(para.into())),
+					(1, Junction::Parachain(para.into())).into(),
 					Xcm::Transact {
 						origin_type: OriginKind::Native,
 						require_weight_at_most: 1_000,
@@ -163,7 +163,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::Pinged(para, seq, payload.clone()));
 			match T::XcmSender::send_xcm(
-				MultiLocation::X2(Junction::Parent, Junction::Parachain(para.into())),
+				(1, Junction::Parachain(para.into())).into(),
 				Xcm::Transact {
 					origin_type: OriginKind::Native,
 					require_weight_at_most: 1_000,
