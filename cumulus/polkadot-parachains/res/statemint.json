@@ -13,7 +13,6 @@
   "relay_chain": "rococo",
   "para_id": 1,
   "consensusEngine": null,
-  "lightSyncState": null,
   "genesis": {
     "raw": {
       "top": {
