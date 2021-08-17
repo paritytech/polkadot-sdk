@@ -1,9 +1,9 @@
 [package]
-name = "statemint-common"
+name = "parachains-common"
 version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
-description = "Logic which is common to all Statemint variant runtimes"
+description = "Logic which is common to all parachain runtimes"
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']

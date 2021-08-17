@@ -16,12 +16,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod impls;
-pub use types::*;
 pub use constants::*;
-
-/// Common types of statemint and statemine.
+pub use opaque::*;
+pub use types::*;
+/// Common types of parachains.
 mod types {
-	use sp_runtime::traits::{Verify, IdentifyAccount, BlakeTwo256};
+	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	/// An index to a block.
 	pub type BlockNumber = u32;
@@ -46,21 +46,18 @@ mod types {
 	/// A hash of some data used by the chain.
 	pub type Hash = sp_core::H256;
 
-	/// Block header type as expected by this runtime.
-	pub type Header = sp_runtime::generic::Header<BlockNumber, BlakeTwo256>;
-
 	/// Digest item type.
 	pub type DigestItem = sp_runtime::generic::DigestItem<Hash>;
-	
+
 	// Aura consensus authority.
 	pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 }
 
-/// Common constants of statemint and statemine
+/// Common constants of parachains.
 mod constants {
 	use super::types::BlockNumber;
+	use frame_support::weights::{constants::WEIGHT_PER_SECOND, Weight};
 	use sp_runtime::Perbill;
-	use frame_support::weights::{Weight, constants::WEIGHT_PER_SECOND};
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
 	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
@@ -84,4 +81,21 @@ mod constants {
 
 	/// We allow for 0.5 seconds of compute with a 6 second average block time.
 	pub const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND / 2;
+}
+
+/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
+/// the specifics of the runtime. They can then be made to be agnostic over specific formats
+/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
+/// to even the core data structures.
+pub mod opaque {
+	use super::*;
+	use sp_runtime::{generic, traits::BlakeTwo256};
+
+	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+	/// Opaque block header type.
+	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+	/// Opaque block type.
+	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+	/// Opaque block identifier type.
+	pub type BlockId = generic::BlockId<Block>;
 }

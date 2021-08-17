@@ -28,7 +28,7 @@ shell-runtime = { path = "shell" }
 statemint-runtime = { path = "statemint" }
 statemine-runtime = { path = "statemine" }
 westmint-runtime = { path = "westmint" }
-statemint-common = { path = "statemint-common" }
+parachains-common = { path = "parachains-common" }
 
 # Substrate dependencies
 frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "master" }
@@ -64,6 +64,9 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate
 
 # RPC related dependencies
 jsonrpc-core = "15.1.0"
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Cumulus dependencies
 cumulus-client-cli = { path = "../client/cli" }

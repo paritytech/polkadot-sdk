@@ -6134,6 +6134,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "parachains-common"
+version = "1.0.0"
+dependencies = [
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "node-primitives",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "serde",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "parity-db"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6696,6 +6719,8 @@ dependencies = [
  "jsonrpc-core",
  "log",
  "nix",
+ "pallet-transaction-payment-rpc",
+ "parachains-common",
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "polkadot-cli",
@@ -6717,6 +6742,7 @@ dependencies = [
  "sc-telemetry",
  "sc-tracing",
  "sc-transaction-pool",
+ "sc-transaction-pool-api",
  "serde",
  "shell-runtime",
  "sp-api",
@@ -6734,10 +6760,10 @@ dependencies = [
  "sp-timestamp",
  "sp-transaction-pool",
  "statemine-runtime",
- "statemint-common",
  "statemint-runtime",
  "structopt",
  "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "tempfile",
  "tokio 0.2.24",
@@ -8649,6 +8675,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-rpc-runtime-api",
  "hex",
  "hex-literal 0.3.3",
  "log",
@@ -8659,6 +8686,7 @@ dependencies = [
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
  "pallet-xcm",
  "parachain-info",
  "parity-scale-codec",
@@ -11136,6 +11164,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "parachain-info",
+ "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain",
  "polkadot-runtime-common",
@@ -11153,34 +11182,10 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "statemint-common",
  "substrate-wasm-builder",
  "xcm",
  "xcm-builder",
  "xcm-executor",
-]
-
-[[package]]
-name = "statemint-common"
-version = "1.0.0"
-dependencies = [
- "frame-executive",
- "frame-support",
- "frame-system",
- "node-primitives",
- "pallet-authorship",
- "pallet-balances",
- "pallet-collator-selection",
- "parity-scale-codec",
- "polkadot-primitives",
- "polkadot-runtime-common",
- "serde",
- "sp-consensus-aura",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -11224,6 +11229,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "parachain-info",
+ "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain",
  "polkadot-runtime-common",
@@ -11241,7 +11247,6 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "statemint-common",
  "substrate-wasm-builder",
  "xcm",
  "xcm-builder",
@@ -12931,6 +12936,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "parachain-info",
+ "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain",
  "polkadot-runtime-common",
@@ -12948,7 +12954,6 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "statemint-common",
  "substrate-wasm-builder",
  "xcm",
  "xcm-builder",

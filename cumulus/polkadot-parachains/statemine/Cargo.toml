@@ -62,7 +62,7 @@ cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
 cumulus-pallet-session-benchmarking = {path = "../../pallets/session-benchmarking", default-features = false, version = "3.0.0"}
 cumulus-ping = { path = "../pallets/ping", default-features = false }
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
-statemint-common = { path = "../statemint-common", default-features = false }
+parachains-common = { path = "../parachains-common", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -149,5 +149,5 @@ std = [
 	"xcm-executor/std",
 	"sp-consensus-aura/std",
 	"node-primitives/std",
-	"statemint-common/std",
+	"parachains-common/std",
 ]
