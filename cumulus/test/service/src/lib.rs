@@ -31,8 +31,6 @@ use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use polkadot_primitives::v1::{CollatorPair, Hash as PHash, PersistedValidationData};
 use sc_client_api::execution_extensions::ExecutionStrategies;
-use sc_executor::native_executor_instance;
-pub use sc_executor::NativeExecutor;
 use sc_network::{config::TransportConfig, multiaddr, NetworkService};
 use sc_service::{
 	config::{
@@ -78,15 +76,27 @@ impl ParachainConsensus<Block> for NullConsensus {
 /// The signature of the announce block fn.
 pub type AnnounceBlockFn = Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>;
 
-// Native executor instance.
-native_executor_instance!(
-	pub RuntimeExecutor,
-	cumulus_test_runtime::api::dispatch,
-	cumulus_test_runtime::native_version,
-);
+/// Native executor instance.
+pub struct RuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for RuntimeExecutor {
+	type ExtendHostFunctions = ();
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		cumulus_test_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		cumulus_test_runtime::native_version()
+	}
+}
 
 /// The client type being used by the test service.
-pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, RuntimeExecutor>;
+pub type Client = TFullClient<
+	runtime::NodeBlock,
+	runtime::RuntimeApi,
+	sc_executor::NativeElseWasmExecutor<RuntimeExecutor>,
+>;
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -105,8 +115,14 @@ pub fn new_partial(
 	>,
 	sc_service::Error,
 > {
+	let executor = sc_executor::NativeElseWasmExecutor::<RuntimeExecutor>::new(
+		config.wasm_method,
+		config.default_heap_pages,
+		config.max_runtime_instances,
+	);
+
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, RuntimeExecutor>(&config, None)?;
+		sc_service::new_full_parts::<Block, RuntimeApi, _>(&config, None, executor)?;
 	let client = Arc::new(client);
 
 	let registry = config.prometheus_registry();
@@ -155,14 +171,12 @@ async fn start_node_impl<RB>(
 	consensus: Consensus,
 ) -> sc_service::error::Result<(
 	TaskManager,
-	Arc<TFullClient<Block, RuntimeApi, RuntimeExecutor>>,
+	Arc<Client>,
 	Arc<NetworkService<Block, H256>>,
 	RpcHandlers,
 )>
 where
-	RB: Fn(
-			Arc<TFullClient<Block, RuntimeApi, RuntimeExecutor>>,
-		) -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, sc_service::Error>
+	RB: Fn(Arc<Client>) -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, sc_service::Error>
 		+ Send
 		+ 'static,
 {
@@ -629,7 +643,6 @@ pub fn node_config(
 		rpc_max_payload: None,
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		telemetry_external_transport: None,
 		default_heap_pages: None,
 		offchain_worker: OffchainWorkerConfig {
 			enabled: true,

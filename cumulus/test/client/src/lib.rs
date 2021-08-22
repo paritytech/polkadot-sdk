@@ -17,7 +17,7 @@
 //! A Cumulus test client.
 
 mod block_builder;
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 use runtime::{
 	Balance, Block, BlockHashCount, Call, GenesisConfig, Runtime, Signature, SignedExtra,
 	SignedPayload, UncheckedExtrinsic, VERSION,
@@ -39,12 +39,20 @@ pub use substrate_test_client::*;
 pub type ParachainBlockData = cumulus_primitives_core::ParachainBlockData<Block>;
 
 mod local_executor {
-	use substrate_test_client::sc_executor::native_executor_instance;
-	native_executor_instance!(
-		pub LocalExecutor,
-		cumulus_test_runtime::api::dispatch,
-		cumulus_test_runtime::native_version,
-	);
+	/// Native executor instance.
+	pub struct LocalExecutor;
+
+	impl sc_executor::NativeExecutionDispatch for LocalExecutor {
+		type ExtendHostFunctions = ();
+
+		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+			cumulus_test_runtime::api::dispatch(method, data)
+		}
+
+		fn native_version() -> sc_executor::NativeVersion {
+			cumulus_test_runtime::native_version()
+		}
+	}
 }
 
 /// Native executor used for tests.
@@ -55,7 +63,7 @@ pub type Backend = substrate_test_client::Backend<Block>;
 
 /// Test client executor.
 pub type Executor =
-	client::LocalCallExecutor<Block, Backend, sc_executor::NativeExecutor<LocalExecutor>>;
+	client::LocalCallExecutor<Block, Backend, sc_executor::NativeElseWasmExecutor<LocalExecutor>>;
 
 /// Test client builder for Cumulus
 pub type TestClientBuilder =
