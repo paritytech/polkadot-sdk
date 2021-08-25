@@ -1,6 +1,6 @@
 [package]
 name = "substrate-bip39"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 edition = "2018"
@@ -9,12 +9,12 @@ documentation = "https://docs.rs/substrate-bip39"
 repository = "https://github.com/paritytech/substrate-bip39"
 
 [dependencies]
-pbkdf2 = { version = "0.3.0", default-features = false }
-sha2 = "0.8.0"
-hmac = "0.7.1"
-schnorrkel = "0.9.0"
+pbkdf2 = { version = "0.8.0", default-features = false }
+sha2 = "0.9.5"
+hmac = "0.11.0"
+schnorrkel = "0.10.1"
 zeroize = { version = "1.0.0", default-features = false }
 
 [dev-dependencies]
-tiny-bip39 = "0.6.2"
-rustc-hex = "2.0.1"
+tiny-bip39 = "0.8.0"
+rustc-hex = "2.1.0"
