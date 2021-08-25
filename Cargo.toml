@@ -1,6 +1,6 @@
 [package]
 name = "substrate-bip39"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 edition = "2018"
@@ -12,7 +12,7 @@ repository = "https://github.com/paritytech/substrate-bip39"
 pbkdf2 = { version = "0.8.0", default-features = false }
 sha2 = "0.9.5"
 hmac = "0.11.0"
-schnorrkel = "0.10.1"
+schnorrkel = "0.9.1"
 zeroize = { version = "1.0.0", default-features = false }
 
 [dev-dependencies]
