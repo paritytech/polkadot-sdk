@@ -48,27 +48,15 @@ High level sequence charts of the process can be found in [a separate document](
 
 ### Substrate (GRANDPA) Header Sync
 
-The header sync pallet (`pallet-substrate-bridge`) is an on-chain light client for chains which use
-GRANDPA finality. It is part of the target chain's runtime, and accepts headers from the source
-chain. Its main goals are to accept valid headers, track GRANDPA finality set changes, and verify
-GRANDPA finality proofs (a.k.a justifications).
+The header sync pallet (`pallet-bridge-grandpa`) is an on-chain light client for chains which use
+GRANDPA finality. It is part of the target chain's runtime, and accepts finality proofs from the source
+chain. Verify GRANDPA finality proofs (a.k.a justifications) and track GRANDPA finality set changes.
 
 The pallet does not care about what block production mechanism is used for the source chain
-(e.g Aura or BABE) as long as it uses the GRANDPA finality gadget. Due to this it is possible for
-the pallet to import (but not necessarily finalize) headers which are _not_ valid according to the
-source chain's block production mechanism.
+(e.g Aura or BABE) as long as it uses the GRANDPA finality gadget. In fact the pallet does not
+necessarily store all produced headers, we only import headers with valid GRANDPA justifications.
 
-The pallet has support for tracking forks and uses the longest chain rule to determine what the
-canonical chain is. The pallet allows headers to be imported on a different fork from the canonical
-one as long as the headers being imported don't conflict with already finalized headers (for
-example, it will not allow importing a header at a lower height than the best finalized header).
-
-When tracking authority set changes, the pallet - unlike the full GRANDPA protocol - does not
-support tracking multiple authority set changes across forks. Each fork can have at most one pending
-authority set change. This is done to prevent DoS attacks if GRANDPA on the source chain were to
-stall for a long time (the pallet would have to do a lot of expensive ancestry checks to catch up).
-
-Referer to the [pallet documentation](../modules/substrate/src/lib.rs) for more details.
+Referer to the [pallet documentation](../modules/grandpa/src/lib.rs) for more details.
 
 #### Header Relayer strategy
 
