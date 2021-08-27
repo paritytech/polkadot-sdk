@@ -16,30 +16,49 @@
 
 //! Westend-to-Millau headers sync entrypoint.
 
-use crate::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
-
-use bp_header_chain::justification::GrandpaJustification;
 use codec::Encode;
-use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
-use relay_substrate_client::{Chain, TransactionSignScheme};
-use relay_utils::metrics::MetricsParams;
-use relay_westend_client::{SyncHeader as WestendSyncHeader, Westend};
 use sp_core::{Bytes, Pair};
 
+use bp_header_chain::justification::GrandpaJustification;
+use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
+use relay_substrate_client::{Chain, Client, TransactionSignScheme};
+use relay_utils::metrics::MetricsParams;
+use relay_westend_client::{SyncHeader as WestendSyncHeader, Westend};
+use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
+
 /// Westend-to-Millau finality sync pipeline.
-pub(crate) type WestendFinalityToMillau = SubstrateFinalityToSubstrate<Westend, Millau, MillauSigningParams>;
+pub(crate) type FinalityPipelineWestendFinalityToMillau =
+	SubstrateFinalityToSubstrate<Westend, Millau, MillauSigningParams>;
+
+#[derive(Clone, Debug)]
+pub(crate) struct WestendFinalityToMillau {
+	finality_pipeline: FinalityPipelineWestendFinalityToMillau,
+}
+
+impl WestendFinalityToMillau {
+	pub fn new(target_client: Client<Millau>, target_sign: MillauSigningParams) -> Self {
+		Self {
+			finality_pipeline: FinalityPipelineWestendFinalityToMillau::new(target_client, target_sign),
+		}
+	}
+}
 
 impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
+	type FinalitySyncPipeline = FinalityPipelineWestendFinalityToMillau;
+
 	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
 
 	type TargetChain = Millau;
 
 	fn customize_metrics(params: MetricsParams) -> anyhow::Result<MetricsParams> {
-		crate::chains::add_polkadot_kusama_price_metrics::<Self>(Some(finality_relay::metrics_prefix::<Self>()), params)
+		crate::chains::add_polkadot_kusama_price_metrics::<Self::FinalitySyncPipeline>(
+			Some(finality_relay::metrics_prefix::<Self::FinalitySyncPipeline>()),
+			params,
+		)
 	}
 
 	fn transactions_author(&self) -> bp_millau::AccountId {
-		(*self.target_sign.public().as_array_ref()).into()
+		(*self.finality_pipeline.target_sign.public().as_array_ref()).into()
 	}
 
 	fn make_submit_finality_proof_transaction(
@@ -54,8 +73,13 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 		>::submit_finality_proof(header.into_inner(), proof)
 		.into();
 
-		let genesis_hash = *self.target_client.genesis_hash();
-		let transaction = Millau::sign_transaction(genesis_hash, &self.target_sign, transaction_nonce, call);
+		let genesis_hash = *self.finality_pipeline.target_client.genesis_hash();
+		let transaction = Millau::sign_transaction(
+			genesis_hash,
+			&self.finality_pipeline.target_sign,
+			transaction_nonce,
+			call,
+		);
 
 		Bytes(transaction.encode())
 	}

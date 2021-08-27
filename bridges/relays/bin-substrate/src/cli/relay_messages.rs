@@ -14,15 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use structopt::StructOpt;
+use strum::{EnumString, EnumVariantNames, VariantNames};
+
+use substrate_relay_helper::messages_lane::MessagesRelayParams;
+
 use crate::cli::bridge::FullBridge;
 use crate::cli::{
 	HexLaneId, PrometheusParams, SourceConnectionParams, SourceSigningParams, TargetConnectionParams,
 	TargetSigningParams,
 };
-use crate::messages_lane::MessagesRelayParams;
 use crate::select_full_bridge;
-use structopt::StructOpt;
-use strum::{EnumString, EnumVariantNames, VariantNames};
 
 /// Relayer operating mode.
 #[derive(Debug, EnumString, EnumVariantNames, Clone, Copy, PartialEq)]
