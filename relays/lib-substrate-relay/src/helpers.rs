@@ -14,18 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Substrate-to-substrate relay entrypoint.
+//! Substrate relay helpers
 
-#![warn(missing_docs)]
+use relay_utils::metrics::{FloatJsonValueMetric, PrometheusError, Registry};
 
-mod chains;
-mod cli;
-
-fn main() {
-	let command = cli::parse_args();
-	let run = command.run();
-	let result = async_std::task::block_on(run);
-	if let Err(error) = result {
-		log::error!(target: "bridge", "Failed to start relay: {}", error);
-	}
+/// Creates standalone token price metric.
+pub fn token_price_metric(
+	registry: &Registry,
+	prefix: Option<&str>,
+	token_id: &str,
+) -> Result<FloatJsonValueMetric, PrometheusError> {
+	FloatJsonValueMetric::new(
+		registry,
+		prefix,
+		format!(
+			"https://api.coingecko.com/api/v3/simple/price?ids={}&vs_currencies=btc",
+			token_id
+		),
+		format!("$.{}.btc", token_id),
+		format!("{}_to_base_conversion_rate", token_id.replace("-", "_")),
+		format!(
+			"Rate used to convert from {} to some BASE tokens",
+			token_id.to_uppercase()
+		),
+	)
 }

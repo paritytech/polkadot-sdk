@@ -22,15 +22,16 @@
 //! 2) add `declare_bridge_options!(...)` for the bridge;
 //! 3) add bridge support to the `select_bridge! { ... }` macro.
 
-use crate::cli::{relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams};
-use crate::declare_chain_options;
-use crate::messages_lane::MessagesRelayParams;
-use crate::on_demand_headers::OnDemandHeadersRelay;
-
 use futures::{FutureExt, TryFutureExt};
-use relay_utils::metrics::MetricsParams;
 use structopt::StructOpt;
 use strum::VariantNames;
+
+use relay_utils::metrics::MetricsParams;
+use substrate_relay_helper::messages_lane::{MessagesRelayParams, SubstrateMessageLane};
+use substrate_relay_helper::on_demand_headers::OnDemandHeadersRelay;
+
+use crate::cli::{relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams};
+use crate::declare_chain_options;
 
 /// Start headers+messages relayer process.
 #[derive(StructOpt)]
@@ -195,7 +196,9 @@ impl RelayHeadersAndMessages {
 					lane_id: lane,
 					relayer_mode,
 					metrics_params: metrics_params.clone().disable().metrics_prefix(
-						messages_relay::message_lane_loop::metrics_prefix::<LeftToRightMessages>(&lane),
+						messages_relay::message_lane_loop::metrics_prefix::<
+							<LeftToRightMessages as SubstrateMessageLane>::MessageLane,
+						>(&lane),
 					),
 				})
 				.map_err(|e| anyhow::format_err!("{}", e))
@@ -210,7 +213,9 @@ impl RelayHeadersAndMessages {
 					lane_id: lane,
 					relayer_mode,
 					metrics_params: metrics_params.clone().disable().metrics_prefix(
-						messages_relay::message_lane_loop::metrics_prefix::<RightToLeftMessages>(&lane),
+						messages_relay::message_lane_loop::metrics_prefix::<
+							<RightToLeftMessages as SubstrateMessageLane>::MessageLane,
+						>(&lane),
 					),
 				})
 				.map_err(|e| anyhow::format_err!("{}", e))

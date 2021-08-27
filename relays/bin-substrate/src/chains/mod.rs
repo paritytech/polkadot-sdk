@@ -41,7 +41,7 @@ pub(crate) const RIALTO_ASSOCIATED_TOKEN_ID: &str = "bitcoin";
 /// The identifier of token, which value is associated with Millau token value by relayer.
 pub(crate) const MILLAU_ASSOCIATED_TOKEN_ID: &str = "wrapped-bitcoin";
 
-use relay_utils::metrics::{FloatJsonValueMetric, MetricsParams, PrometheusError, Registry};
+use relay_utils::metrics::MetricsParams;
 
 pub(crate) fn add_polkadot_kusama_price_metrics<T: finality_relay::FinalitySyncPipeline>(
 	prefix: Option<String>,
@@ -50,31 +50,13 @@ pub(crate) fn add_polkadot_kusama_price_metrics<T: finality_relay::FinalitySyncP
 	// Polkadot/Kusama prices are added as metrics here, because atm we don't have Polkadot <-> Kusama
 	// relays, but we want to test metrics/dashboards in advance
 	Ok(relay_utils::relay_metrics(prefix, params)
-		.standalone_metric(|registry, prefix| token_price_metric(registry, prefix, "polkadot"))?
-		.standalone_metric(|registry, prefix| token_price_metric(registry, prefix, "kusama"))?
+		.standalone_metric(|registry, prefix| {
+			substrate_relay_helper::helpers::token_price_metric(registry, prefix, "polkadot")
+		})?
+		.standalone_metric(|registry, prefix| {
+			substrate_relay_helper::helpers::token_price_metric(registry, prefix, "kusama")
+		})?
 		.into_params())
-}
-
-/// Creates standalone token price metric.
-pub(crate) fn token_price_metric(
-	registry: &Registry,
-	prefix: Option<&str>,
-	token_id: &str,
-) -> Result<FloatJsonValueMetric, PrometheusError> {
-	FloatJsonValueMetric::new(
-		registry,
-		prefix,
-		format!(
-			"https://api.coingecko.com/api/v3/simple/price?ids={}&vs_currencies=btc",
-			token_id
-		),
-		format!("$.{}.btc", token_id),
-		format!("{}_to_base_conversion_rate", token_id.replace("-", "_")),
-		format!(
-			"Rate used to convert from {} to some BASE tokens",
-			token_id.to_uppercase()
-		),
-	)
 }
 
 #[cfg(test)]
