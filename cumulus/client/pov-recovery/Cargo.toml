@@ -32,7 +32,7 @@ tracing = "0.1.22"
 rand = "0.8.3"
 
 [dev-dependencies]
-tokio = { version = "0.2.21", features = ["macros"] }
+tokio = { version = "1.10", features = ["macros"] }
 
 # Cumulus deps
 cumulus-test-service = { path = "../../test/service" }

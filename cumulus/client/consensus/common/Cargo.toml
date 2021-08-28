@@ -47,5 +47,5 @@ cumulus-primitives-core = { path = "../../../primitives/core" }
 polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Other deps
-tokio = { version = "0.2.21", features = ["macros"] }
+tokio = { version = "1.10", features = ["macros"] }
 futures-timer = "3.0.2"

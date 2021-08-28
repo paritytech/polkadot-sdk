@@ -30,7 +30,7 @@ parking_lot = "0.10.2"
 derive_more = "0.99.2"
 
 [dev-dependencies]
-tokio = { version = "0.2.21", features = ["macros"] }
+tokio = { version = "1.10", features = ["macros"] }
 
 # Cumulus deps
 cumulus-test-service = { path = "../../test/service" }
