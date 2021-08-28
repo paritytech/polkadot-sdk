@@ -774,24 +774,24 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 
 /// Xcm sender for sending to a sibling parachain.
 impl<T: Config> SendXcm for Pallet<T> {
-	fn send_xcm(dest: MultiLocation, msg: Xcm<()>) -> Result<(), XcmError> {
+	fn send_xcm(dest: MultiLocation, msg: Xcm<()>) -> Result<(), SendError> {
 		match &dest {
 			// An HRMP message for a sibling parachain.
 			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
 				let versioned_xcm = T::VersionWrapper::wrap_version(&dest, msg)
-					.map_err(|()| XcmError::DestinationUnsupported)?;
+					.map_err(|()| SendError::DestinationUnsupported)?;
 				let hash = T::Hashing::hash_of(&versioned_xcm);
 				Self::send_fragment(
 					(*id).into(),
 					XcmpMessageFormat::ConcatenatedVersionedXcm,
 					versioned_xcm,
 				)
-				.map_err(|e| XcmError::SendFailed(<&'static str>::from(e)))?;
+				.map_err(|e| SendError::Transport(<&'static str>::from(e)))?;
 				Self::deposit_event(Event::XcmpMessageSent(Some(hash)));
 				Ok(())
 			}
 			// Anything else is unhandled. This includes a message this is meant for us.
-			_ => Err(XcmError::CannotReachDestination(dest, msg)),
+			_ => Err(SendError::CannotReachDestination(dest, msg)),
 		}
 	}
 }

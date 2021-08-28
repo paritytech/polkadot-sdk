@@ -19,11 +19,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_std::prelude::*;
+use xcm::latest::prelude::*;
 use sp_runtime::traits::Saturating;
 use frame_system::Config as SystemConfig;
 use cumulus_primitives_core::ParaId;
 use cumulus_pallet_xcm::{Origin as CumulusOrigin, ensure_sibling_para};
-use xcm::latest::{Xcm, Error as XcmError, SendXcm, OriginKind, Junction};
 
 pub use pallet::*;
 
@@ -85,8 +85,8 @@ pub mod pallet {
 		Pinged(ParaId, u32, Vec<u8>),
 		PongSent(ParaId, u32, Vec<u8>),
 		Ponged(ParaId, u32, Vec<u8>, T::BlockNumber),
-		ErrorSendingPing(XcmError, ParaId, u32, Vec<u8>),
-		ErrorSendingPong(XcmError, ParaId, u32, Vec<u8>),
+		ErrorSendingPing(SendError, ParaId, u32, Vec<u8>),
+		ErrorSendingPong(SendError, ParaId, u32, Vec<u8>),
 		UnknownPong(ParaId, u32, Vec<u8>),
 	}
 
@@ -102,11 +102,11 @@ pub mod pallet {
 				let seq = PingCount::<T>::mutate(|seq| { *seq += 1; *seq });
 				match T::XcmSender::send_xcm(
 					(1, Junction::Parachain(para.into())).into(),
-					Xcm::Transact {
+					Xcm(vec![Transact {
 						origin_type: OriginKind::Native,
 						require_weight_at_most: 1_000,
 						call: <T as Config>::Call::from(Call::<T>::ping(seq, payload.clone())).encode().into(),
-					},
+					}]),
 				) {
 					Ok(()) => {
 						Pings::<T>::insert(seq, n);
@@ -164,11 +164,11 @@ pub mod pallet {
 			Self::deposit_event(Event::Pinged(para, seq, payload.clone()));
 			match T::XcmSender::send_xcm(
 				(1, Junction::Parachain(para.into())).into(),
-				Xcm::Transact {
+				Xcm(vec![Transact {
 					origin_type: OriginKind::Native,
 					require_weight_at_most: 1_000,
 					call: <T as Config>::Call::from(Call::<T>::pong(seq, payload.clone())).encode().into(),
-				},
+				}]),
 			) {
 				Ok(()) => Self::deposit_event(Event::PongSent(para, seq, payload)),
 				Err(e) => Self::deposit_event(Event::ErrorSendingPong(e, para, seq, payload)),

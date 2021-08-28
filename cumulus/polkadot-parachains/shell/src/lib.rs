@@ -197,6 +197,7 @@ match_type! {
 parameter_types! {
 	// One XCM operation is 1_000_000 weight - almost certainly a conservative estimate.
 	pub UnitWeightCost: Weight = 1_000_000;
+	pub const MaxInstructions: u32 = 100;
 }
 
 pub struct XcmConfig;
@@ -209,7 +210,7 @@ impl Config for XcmConfig {
 	type IsTeleporter = (); // balances not supported
 	type LocationInverter = LocationInverter<Ancestry>;
 	type Barrier = AllowUnpaidExecutionFrom<JustTheParent>;
-	type Weigher = FixedWeightBounds<UnitWeightCost, Call>; // balances not supported
+	type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>; // balances not supported
 	type Trader = (); // balances not supported
 	type ResponseHandler = (); // Don't handle responses for now.
 }

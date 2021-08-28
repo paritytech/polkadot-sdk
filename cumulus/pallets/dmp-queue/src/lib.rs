@@ -26,7 +26,7 @@ use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use cumulus_primitives_core::DmpMessageHandler;
 use codec::{Encode, Decode};
 use sp_runtime::RuntimeDebug;
-use xcm::{VersionedXcm, latest::{Xcm, Outcome, Parent, ExecuteXcm, Error as XcmError}};
+use xcm::{VersionedXcm, latest::prelude::*};
 use frame_support::{traits::EnsureOrigin, dispatch::Weight, weights::constants::WEIGHT_PER_MILLIS};
 pub use pallet::*;
 
@@ -422,8 +422,8 @@ mod tests {
 			weight_limit: Weight,
 			_credit: Weight,
 		) -> Outcome {
-			let o = match &message {
-				Xcm::Transact { require_weight_at_most, .. } => {
+			let o = match (message.0.len(), &message.0.first()) {
+				(1, Some(Transact { require_weight_at_most, .. })) => {
 					if *require_weight_at_most <= weight_limit {
 						Outcome::Complete(*require_weight_at_most)
 					} else {
@@ -466,11 +466,11 @@ mod tests {
 	}
 
 	fn msg(weight: Weight) -> Xcm {
-		Xcm::Transact {
+		Xcm(vec![Transact {
 			origin_type: OriginKind::Native,
 			require_weight_at_most: weight,
 			call: vec![].into(),
-		}
+		}])
 	}
 
 	fn msg_complete(weight: Weight) -> (Xcm, Outcome) {
