@@ -298,6 +298,11 @@ fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>() -> SubstrateMes
 	)
 }
 
+/// Read best blocks from given client.
+///
+/// This function assumes that the chain that is followed by the `self_client` has
+/// bridge GRANDPA pallet deployed and it provides `best_finalized_header_id_method_name`
+/// runtime API to read best finalized Bridged chain header.
 pub async fn read_client_state<SelfChain, BridgedHeaderHash, BridgedHeaderNumber>(
 	self_client: &Client<SelfChain>,
 	best_finalized_header_id_method_name: &str,
