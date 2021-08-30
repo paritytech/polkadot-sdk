@@ -35,6 +35,7 @@ pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 
 /// Headers sync pipeline for Substrate <-> Substrate relays.
 pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
+	/// Pipeline for syncing finalized Source chain headers to Target chain.
 	type FinalitySyncPipeline: FinalitySyncPipeline;
 
 	/// Name of the runtime method that returns id of best finalized source header at target chain.

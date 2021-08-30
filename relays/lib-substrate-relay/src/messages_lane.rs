@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Tools for supporting message lanes between two Substrate-based chains.
+
 use crate::messages_source::SubstrateMessagesProof;
 use crate::messages_target::SubstrateMessagesReceivingProof;
 use crate::on_demand_headers::OnDemandHeadersRelay;
@@ -57,6 +59,7 @@ pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS> {
 
 /// Message sync pipeline for Substrate <-> Substrate relays.
 pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
+	/// Underlying generic message lane.
 	type MessageLane: MessageLane;
 
 	/// Name of the runtime method that returns dispatch weight of outbound messages at the source chain.
