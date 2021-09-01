@@ -494,7 +494,7 @@ parameter_types! {
 }
 
 /// Instance of the messages pallet used to relay messages to/from Millau chain.
-pub type WithMillauMessagesInstance = pallet_bridge_messages::DefaultInstance;
+pub type WithMillauMessagesInstance = ();
 
 impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 	type Event = Event;
@@ -1021,14 +1021,12 @@ impl_runtime_apis! {
 						Self::endow_account(&rialto_public.clone().into_account());
 					}
 
-					let make_millau_message_key = |message_key: MessageKey| storage_keys::message_key::<
-						<WithMillauMessageBridge as MessageBridge>::BridgedMessagesInstance,
-					>(
+					let make_millau_message_key = |message_key: MessageKey| storage_keys::message_key(
+						<WithMillauMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
 						&message_key.lane_id, message_key.nonce,
 					).0;
-					let make_millau_outbound_lane_data_key = |lane_id| storage_keys::outbound_lane_data_key::<
-						<WithMillauMessageBridge as MessageBridge>::BridgedMessagesInstance,
-					>(
+					let make_millau_outbound_lane_data_key = |lane_id| storage_keys::outbound_lane_data_key(
+						<WithMillauMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
 						&lane_id,
 					).0;
 
@@ -1074,9 +1072,8 @@ impl_runtime_apis! {
 
 					prepare_message_delivery_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, (), _, _>(
 						params,
-						|lane_id| pallet_bridge_messages::storage_keys::inbound_lane_data_key::<
-							<WithMillauMessageBridge as MessageBridge>::BridgedMessagesInstance,
-						>(
+						|lane_id| pallet_bridge_messages::storage_keys::inbound_lane_data_key(
+							<WithMillauMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
 							&lane_id,
 						).0,
 						|state_root| bp_millau::Header::new(
