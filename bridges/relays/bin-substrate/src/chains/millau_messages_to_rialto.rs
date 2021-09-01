@@ -245,3 +245,33 @@ pub(crate) fn add_standalone_metrics(
 		)),
 	)
 }
+
+/// Update Rialto -> Millau conversion rate, stored in Millau runtime storage.
+pub(crate) async fn update_rialto_to_millau_conversion_rate(
+	client: Client<Millau>,
+	signer: <Millau as TransactionSignScheme>::AccountKeyPair,
+	updated_rate: f64,
+) -> anyhow::Result<()> {
+	let genesis_hash = *client.genesis_hash();
+	let signer_id = (*signer.public().as_array_ref()).into();
+	client
+		.submit_signed_extrinsic(signer_id, move |transaction_nonce| {
+			Bytes(
+				Millau::sign_transaction(
+					genesis_hash,
+					&signer,
+					transaction_nonce,
+					millau_runtime::MessagesCall::update_pallet_parameter(
+						millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
+							sp_runtime::FixedU128::from_float(updated_rate),
+						),
+					)
+					.into(),
+				)
+				.encode(),
+			)
+		})
+		.await
+		.map(drop)
+		.map_err(|err| anyhow::format_err!("{:?}", err))
+}

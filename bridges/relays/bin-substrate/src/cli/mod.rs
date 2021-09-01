@@ -391,6 +391,17 @@ macro_rules! declare_chain_options {
 				pub [<$chain_prefix _signer_password_file>]: Option<std::path::PathBuf>,
 			}
 
+			#[doc = "Parameters required to sign transaction on behalf of owner of the messages pallet at " $chain "."]
+			#[derive(StructOpt, Debug, PartialEq, Eq)]
+			pub struct [<$chain MessagesPalletOwnerSigningParams>] {
+				#[doc = "The SURI of secret key to use when transactions are submitted to the " $chain " node."]
+				#[structopt(long)]
+				pub [<$chain_prefix _messages_pallet_owner>]: Option<String>,
+				#[doc = "The password for the SURI of secret key to use when transactions are submitted to the " $chain " node."]
+				#[structopt(long)]
+				pub [<$chain_prefix _messages_pallet_owner_password>]: Option<String>,
+			}
+
 			impl [<$chain SigningParams>] {
 				/// Parse signing params into chain-specific KeyPair.
 				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Chain::KeyPair> {
@@ -430,6 +441,23 @@ macro_rules! declare_chain_options {
 						&suri,
 						suri_password.as_deref()
 					).map_err(|e| anyhow::format_err!("{:?}", e))
+				}
+			}
+
+			#[allow(dead_code)]
+			impl [<$chain MessagesPalletOwnerSigningParams>] {
+				/// Parse signing params into chain-specific KeyPair.
+				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Option<Chain::KeyPair>> {
+					use sp_core::crypto::Pair;
+
+					let [<$chain_prefix _messages_pallet_owner>] = match self.[<$chain_prefix _messages_pallet_owner>] {
+						Some(ref messages_pallet_owner) => messages_pallet_owner,
+						None => return Ok(None),
+					};
+					Chain::KeyPair::from_string(
+						[<$chain_prefix _messages_pallet_owner>],
+						self.[<$chain_prefix _messages_pallet_owner_password>].as_deref()
+					).map_err(|e| anyhow::format_err!("{:?}", e)).map(Some)
 				}
 			}
 

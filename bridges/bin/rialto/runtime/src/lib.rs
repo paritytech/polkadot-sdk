@@ -559,7 +559,7 @@ construct_runtime!(
 		// Millau bridge modules.
 		BridgeMillauGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage},
 		BridgeDispatch: pallet_bridge_dispatch::{Pallet, Event<T>},
-		BridgeMillauMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>},
+		BridgeMillauMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
 	}
 );
 
