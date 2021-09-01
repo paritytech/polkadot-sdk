@@ -161,7 +161,7 @@ Finally, we can run the message relayers.
 
 ```bash
 ./deployments/local-scripts/relay-messages-millau-to-rialto.sh
-./deployments/local-scripts/relay-messages-millau-to-rialto.sh
+./deployments/local-scripts/relay-messages-rialto-to-millau.sh
 ```
 
 You will also see the message lane relayers listening for new messages.
