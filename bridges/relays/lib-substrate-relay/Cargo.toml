@@ -11,7 +11,6 @@ async-std = "1.9.0"
 async-trait = "0.1.42"
 codec = { package = "parity-scale-codec", version = "2.2.0" }
 futures = "0.3.12"
-num-format = "0.4"
 num-traits = "0.2"
 log = "0.4.14"
 
@@ -24,7 +23,6 @@ bridge-runtime-common = { path = "../../bin/runtime-common" }
 finality-grandpa = { version = "0.14.0" }
 finality-relay = { path = "../finality" }
 relay-utils = { path = "../utils" }
-headers-relay = { path = "../headers" }
 messages-relay = { path = "../messages" }
 relay-substrate-client = { path = "../client-substrate" }
 
@@ -40,8 +38,6 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "mas
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [dev-dependencies]
 relay-millau-client = { path = "../client-millau" }
