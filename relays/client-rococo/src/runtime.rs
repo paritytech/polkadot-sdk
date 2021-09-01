@@ -22,9 +22,6 @@ use bp_runtime::Chain;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 
-/// Instance of messages pallet that is used to bridge with Wococo chain.
-pub type WithWococoMessagesInstance = pallet_bridge_messages::Instance1;
-
 /// Unchecked Rococo extrinsic.
 pub type UncheckedExtrinsic = bp_polkadot_core::UncheckedExtrinsic<Call>;
 

@@ -81,6 +81,11 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 	/// Name of the runtime method that returns id of best finalized target header at source chain.
 	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str;
 
+	/// Name of the messages pallet as it is declared in the `construct_runtime!()` at source chain.
+	const MESSAGE_PALLET_NAME_AT_SOURCE: &'static str;
+	/// Name of the messages pallet as it is declared in the `construct_runtime!()` at target chain.
+	const MESSAGE_PALLET_NAME_AT_TARGET: &'static str;
+
 	/// Source chain.
 	type SourceChain: Chain;
 	/// Target chain.
