@@ -32,7 +32,7 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	traits::{Currency, ExistenceRequirement, Instance},
+	traits::{Currency, ExistenceRequirement},
 	weights::{Weight, WeightToFeePolynomial},
 	RuntimeDebug,
 };
@@ -53,13 +53,15 @@ pub trait MessageBridge {
 	const THIS_CHAIN_ID: ChainId;
 	/// Identifier of the Bridged chain.
 	const BRIDGED_CHAIN_ID: ChainId;
+	/// Name of the paired messages pallet instance at the Bridged chain.
+	///
+	/// Should be the name that is used in the `construct_runtime!()` macro.
+	const BRIDGED_MESSAGES_PALLET_NAME: &'static str;
 
 	/// This chain in context of message bridge.
 	type ThisChain: ThisChainWithMessages;
 	/// Bridged chain in context of message bridge.
 	type BridgedChain: BridgedChainWithMessages;
-	/// Instance of the `pallet-bridge-messages` pallet at the Bridged chain.
-	type BridgedMessagesInstance: Instance;
 
 	/// Convert Bridged chain balance into This chain balance.
 	fn bridged_balance_to_this_balance(bridged_balance: BalanceOf<BridgedChain<Self>>) -> BalanceOf<ThisChain<Self>>;
@@ -391,7 +393,7 @@ pub mod source {
 				// Messages delivery proof is just proof of single storage key read => any error
 				// is fatal.
 				let storage_inbound_lane_data_key =
-					pallet_bridge_messages::storage_keys::inbound_lane_data_key::<B::BridgedMessagesInstance>(&lane);
+					pallet_bridge_messages::storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &lane);
 				let raw_inbound_lane_data = storage
 					.read_value(storage_inbound_lane_data_key.0.as_ref())
 					.map_err(|_| "Failed to read inbound lane state from storage proof")?
@@ -563,7 +565,6 @@ pub mod target {
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, &'static str>
 	where
 		ThisRuntime: pallet_bridge_grandpa::Config<GrandpaInstance>,
-		ThisRuntime: pallet_bridge_messages::Config<B::BridgedMessagesInstance>,
 		HashOf<BridgedChain<B>>:
 			Into<bp_runtime::HashOf<<ThisRuntime as pallet_bridge_grandpa::Config<GrandpaInstance>>::BridgedChain>>,
 	{
@@ -628,14 +629,15 @@ pub mod target {
 	{
 		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>> {
 			let storage_outbound_lane_data_key =
-				pallet_bridge_messages::storage_keys::outbound_lane_data_key::<B::BridgedMessagesInstance>(lane_id);
+				pallet_bridge_messages::storage_keys::outbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, lane_id);
 			self.storage
 				.read_value(storage_outbound_lane_data_key.0.as_ref())
 				.ok()?
 		}
 
 		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>> {
-			let storage_message_key = pallet_bridge_messages::storage_keys::message_key::<B::BridgedMessagesInstance>(
+			let storage_message_key = pallet_bridge_messages::storage_keys::message_key(
+				B::BRIDGED_MESSAGES_PALLET_NAME,
 				&message_key.lane_id,
 				message_key.nonce,
 			);
@@ -745,10 +747,10 @@ mod tests {
 		const RELAYER_FEE_PERCENT: u32 = 10;
 		const THIS_CHAIN_ID: ChainId = *b"this";
 		const BRIDGED_CHAIN_ID: ChainId = *b"brdg";
+		const BRIDGED_MESSAGES_PALLET_NAME: &'static str = "";
 
 		type ThisChain = ThisChain;
 		type BridgedChain = BridgedChain;
-		type BridgedMessagesInstance = pallet_bridge_messages::DefaultInstance;
 
 		fn bridged_balance_to_this_balance(bridged_balance: BridgedChainBalance) -> ThisChainBalance {
 			ThisChainBalance(bridged_balance.0 * BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE as u32)
@@ -763,10 +765,10 @@ mod tests {
 		const RELAYER_FEE_PERCENT: u32 = 20;
 		const THIS_CHAIN_ID: ChainId = *b"brdg";
 		const BRIDGED_CHAIN_ID: ChainId = *b"this";
+		const BRIDGED_MESSAGES_PALLET_NAME: &'static str = "";
 
 		type ThisChain = BridgedChain;
 		type BridgedChain = ThisChain;
-		type BridgedMessagesInstance = pallet_bridge_messages::DefaultInstance;
 
 		fn bridged_balance_to_this_balance(_this_balance: ThisChainBalance) -> BridgedChainBalance {
 			unreachable!()

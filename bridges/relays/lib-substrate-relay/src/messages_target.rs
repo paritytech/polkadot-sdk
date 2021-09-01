@@ -24,12 +24,11 @@ use crate::on_demand_headers::OnDemandHeadersRelay;
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
-use bp_runtime::ChainId;
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
 use codec::{Decode, Encode};
-use frame_support::{traits::Instance, weights::Weight};
+use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
 use messages_relay::{
 	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
@@ -40,7 +39,7 @@ use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf};
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase, HeaderId};
 use sp_core::Bytes;
 use sp_runtime::{traits::Header as HeaderT, DeserializeOwned, FixedPointNumber, FixedU128};
-use std::{convert::TryFrom, marker::PhantomData, ops::RangeInclusive};
+use std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesReceivingProof<C> = (
@@ -49,23 +48,20 @@ pub type SubstrateMessagesReceivingProof<C> = (
 );
 
 /// Substrate client as Substrate messages target.
-pub struct SubstrateMessagesTarget<SC: Chain, TC: Chain, P: SubstrateMessageLane, I> {
+pub struct SubstrateMessagesTarget<SC: Chain, TC: Chain, P: SubstrateMessageLane> {
 	client: Client<TC>,
 	lane: P,
 	lane_id: LaneId,
-	instance: ChainId,
 	metric_values: StandaloneMessagesMetrics,
 	source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
-	_phantom: PhantomData<I>,
 }
 
-impl<SC: Chain, TC: Chain, P: SubstrateMessageLane, I> SubstrateMessagesTarget<SC, TC, P, I> {
+impl<SC: Chain, TC: Chain, P: SubstrateMessageLane> SubstrateMessagesTarget<SC, TC, P> {
 	/// Create new Substrate headers target.
 	pub fn new(
 		client: Client<TC>,
 		lane: P,
 		lane_id: LaneId,
-		instance: ChainId,
 		metric_values: StandaloneMessagesMetrics,
 		source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
 	) -> Self {
@@ -73,35 +69,30 @@ impl<SC: Chain, TC: Chain, P: SubstrateMessageLane, I> SubstrateMessagesTarget<S
 			client,
 			lane,
 			lane_id,
-			instance,
 			metric_values,
 			source_to_target_headers_relay,
-			_phantom: Default::default(),
 		}
 	}
 }
 
-impl<SC: Chain, TC: Chain, P: SubstrateMessageLane, I> Clone for SubstrateMessagesTarget<SC, TC, P, I> {
+impl<SC: Chain, TC: Chain, P: SubstrateMessageLane> Clone for SubstrateMessagesTarget<SC, TC, P> {
 	fn clone(&self) -> Self {
 		Self {
 			client: self.client.clone(),
 			lane: self.lane.clone(),
 			lane_id: self.lane_id,
-			instance: self.instance,
 			metric_values: self.metric_values.clone(),
 			source_to_target_headers_relay: self.source_to_target_headers_relay.clone(),
-			_phantom: Default::default(),
 		}
 	}
 }
 
 #[async_trait]
-impl<SC, TC, P, I> RelayClient for SubstrateMessagesTarget<SC, TC, P, I>
+impl<SC, TC, P> RelayClient for SubstrateMessagesTarget<SC, TC, P>
 where
 	SC: Chain,
 	TC: Chain,
 	P: SubstrateMessageLane,
-	I: Send + Sync + Instance,
 {
 	type Error = SubstrateError;
 
@@ -111,7 +102,7 @@ where
 }
 
 #[async_trait]
-impl<SC, TC, P, I> TargetClient<P::MessageLane> for SubstrateMessagesTarget<SC, TC, P, I>
+impl<SC, TC, P> TargetClient<P::MessageLane> for SubstrateMessagesTarget<SC, TC, P>
 where
 	SC: Chain<
 		Hash = <P::MessageLane as MessageLane>::SourceHeaderHash,
@@ -135,7 +126,6 @@ where
 	>,
 	<P::MessageLane as MessageLane>::SourceHeaderNumber: Decode,
 	<P::MessageLane as MessageLane>::SourceHeaderHash: Decode,
-	I: Send + Sync + Instance,
 {
 	async fn state(&self) -> Result<TargetClientState<P::MessageLane>, SubstrateError> {
 		// we can't continue to deliver messages if target node is out of sync, because
@@ -212,7 +202,10 @@ where
 		SubstrateError,
 	> {
 		let (id, relayers_state) = self.unrewarded_relayers_state(id).await?;
-		let inbound_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key::<I>(&self.lane_id);
+		let inbound_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key(
+			P::MESSAGE_PALLET_NAME_AT_TARGET,
+			&self.lane_id,
+		);
 		let proof = self
 			.client
 			.prove_storage(vec![inbound_data_key], id.1)
