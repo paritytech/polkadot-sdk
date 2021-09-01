@@ -20,7 +20,6 @@ use crate::messages::{source::FromThisChainMessagePayload, MessageBridge};
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce};
 use codec::Decode;
-use frame_support::traits::Instance;
 use sp_std::vec::Vec;
 
 /// Implementation of the `To*OutboundLaneApi::message_details`.
@@ -31,7 +30,7 @@ pub fn outbound_message_details<Runtime, MessagesPalletInstance, BridgeConfig>(
 ) -> Vec<MessageDetails<Runtime::OutboundMessageFee>>
 where
 	Runtime: pallet_bridge_messages::Config<MessagesPalletInstance>,
-	MessagesPalletInstance: Instance,
+	MessagesPalletInstance: 'static,
 	BridgeConfig: MessageBridge,
 {
 	(begin..=end)

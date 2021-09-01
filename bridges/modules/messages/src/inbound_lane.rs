@@ -179,11 +179,11 @@ mod tests {
 			dispatch_result, message_data, run_test, unrewarded_relayer, TestMessageDispatch, TestRuntime,
 			REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
 		},
-		DefaultInstance, RuntimeInboundLaneStorage,
+		RuntimeInboundLaneStorage,
 	};
 
 	fn receive_regular_message(
-		lane: &mut InboundLane<RuntimeInboundLaneStorage<TestRuntime, DefaultInstance>>,
+		lane: &mut InboundLane<RuntimeInboundLaneStorage<TestRuntime, ()>>,
 		nonce: MessageNonce,
 	) {
 		assert_eq!(
