@@ -16,8 +16,8 @@
 
 use bp_millau::derive_account_from_rialto_id;
 use millau_runtime::{
-	AccountId, AuraConfig, BalancesConfig, BridgeWestendGrandpaConfig, GenesisConfig, GrandpaConfig, SessionConfig,
-	SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, BalancesConfig, BridgeRialtoMessagesConfig, BridgeWestendGrandpaConfig, GenesisConfig,
+	GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
@@ -134,6 +134,7 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
+							get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner"),
 							pallet_bridge_messages::Pallet::<
 								millau_runtime::Runtime,
 								millau_runtime::WithRialtoMessagesInstance,
@@ -206,6 +207,10 @@ fn testnet_genesis(
 			// //Alice is already used to initialize Rialto<->Millau bridge
 			// => let's use //George to initialize Westend->Millau bridge
 			owner: Some(get_account_id_from_seed::<sr25519::Public>("George")),
+			..Default::default()
+		},
+		bridge_rialto_messages: BridgeRialtoMessagesConfig {
+			owner: Some(get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner")),
 			..Default::default()
 		},
 	}
