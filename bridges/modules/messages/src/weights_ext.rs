@@ -29,6 +29,11 @@ pub const EXPECTED_DEFAULT_MESSAGE_LENGTH: u32 = 128;
 /// we're checking here would fit 1KB.
 const SIGNED_EXTENSIONS_SIZE: u32 = 1024;
 
+/// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
+/// Rialto chain. This mostly depends on number of entries (and their density) in the storage trie.
+/// Some reserve is reserved to account future chain growth.
+pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
+
 /// Ensure that weights from `WeightInfoExt` implementation are looking correct.
 pub fn ensure_weights_are_correct<W: WeightInfoExt>(
 	expected_default_message_delivery_tx_weight: Weight,
@@ -344,12 +349,12 @@ pub trait WeightInfoExt: WeightInfo {
 
 impl WeightInfoExt for () {
 	fn expected_extra_storage_proof_size() -> u32 {
-		bp_rialto::EXTRA_STORAGE_PROOF_SIZE
+		EXTRA_STORAGE_PROOF_SIZE
 	}
 }
 
 impl<T: frame_system::Config> WeightInfoExt for crate::weights::RialtoWeight<T> {
 	fn expected_extra_storage_proof_size() -> u32 {
-		bp_rialto::EXTRA_STORAGE_PROOF_SIZE
+		EXTRA_STORAGE_PROOF_SIZE
 	}
 }

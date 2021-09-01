@@ -17,7 +17,6 @@ serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
 bp-message-dispatch = { path = "../../primitives/message-dispatch", default-features = false }
 bp-messages = { path = "../../primitives/messages", default-features = false }
-bp-rialto = { path = "../../primitives/chain-rialto", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 # Substrate Dependencies
@@ -41,7 +40,6 @@ std = [
 	"bp-message-dispatch/std",
 	"bp-messages/std",
 	"bp-runtime/std",
-	"bp-rialto/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
