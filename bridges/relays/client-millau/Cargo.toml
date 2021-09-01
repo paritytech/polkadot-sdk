@@ -7,7 +7,6 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.2.0" }
-headers-relay = { path = "../headers" }
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 
@@ -22,5 +21,4 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "mas
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
