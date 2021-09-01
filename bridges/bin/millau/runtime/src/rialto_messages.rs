@@ -80,10 +80,10 @@ impl MessageBridge for WithRialtoMessageBridge {
 	const RELAYER_FEE_PERCENT: u32 = 10;
 	const THIS_CHAIN_ID: ChainId = MILLAU_CHAIN_ID;
 	const BRIDGED_CHAIN_ID: ChainId = RIALTO_CHAIN_ID;
+	const BRIDGED_MESSAGES_PALLET_NAME: &'static str = bp_rialto::WITH_MILLAU_MESSAGES_PALLET_NAME;
 
 	type ThisChain = Millau;
 	type BridgedChain = Rialto;
-	type BridgedMessagesInstance = crate::WithRialtoMessagesInstance;
 
 	fn bridged_balance_to_this_balance(bridged_balance: bp_rialto::Balance) -> bp_millau::Balance {
 		bp_millau::Balance::try_from(RialtoToMillauConversionRate::get().saturating_mul_int(bridged_balance))

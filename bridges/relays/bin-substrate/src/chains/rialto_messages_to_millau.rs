@@ -23,7 +23,6 @@ use frame_support::dispatch::GetDispatchInfo;
 use sp_core::{Bytes, Pair};
 
 use bp_messages::MessageNonce;
-use bp_runtime::{MILLAU_CHAIN_ID, RIALTO_CHAIN_ID};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
@@ -61,6 +60,9 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 
 	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
 	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str = bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
+
+	const MESSAGE_PALLET_NAME_AT_SOURCE: &'static str = bp_rialto::WITH_MILLAU_MESSAGES_PALLET_NAME;
+	const MESSAGE_PALLET_NAME_AT_TARGET: &'static str = bp_millau::WITH_RIALTO_MESSAGES_PALLET_NAME;
 
 	type SourceChain = Rialto;
 	type TargetChain = Millau;
@@ -135,12 +137,10 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 }
 
 /// Rialto node as messages source.
-type RialtoSourceClient =
-	SubstrateMessagesSource<Rialto, Millau, RialtoMessagesToMillau, rialto_runtime::WithMillauMessagesInstance>;
+type RialtoSourceClient = SubstrateMessagesSource<Rialto, Millau, RialtoMessagesToMillau>;
 
 /// Millau node as messages target.
-type MillauTargetClient =
-	SubstrateMessagesTarget<Rialto, Millau, RialtoMessagesToMillau, millau_runtime::WithRialtoMessagesInstance>;
+type MillauTargetClient = SubstrateMessagesTarget<Rialto, Millau, RialtoMessagesToMillau>;
 
 /// Run Rialto-to-Millau messages sync.
 pub async fn run(
@@ -211,14 +211,12 @@ pub async fn run(
 			source_client.clone(),
 			lane.clone(),
 			lane_id,
-			MILLAU_CHAIN_ID,
 			params.target_to_source_headers_relay,
 		),
 		MillauTargetClient::new(
 			params.target_client,
 			lane,
 			lane_id,
-			RIALTO_CHAIN_ID,
 			metrics_values,
 			params.source_to_target_headers_relay,
 		),
