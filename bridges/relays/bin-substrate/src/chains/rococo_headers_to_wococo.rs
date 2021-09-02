@@ -77,6 +77,7 @@ impl SubstrateFinalitySyncPipeline for RococoFinalityToWococo {
 
 	fn make_submit_finality_proof_transaction(
 		&self,
+		era: bp_runtime::TransactionEraOf<Wococo>,
 		transaction_nonce: <Wococo as Chain>::Index,
 		header: RococoSyncHeader,
 		proof: GrandpaJustification<bp_rococo::Header>,
@@ -88,6 +89,7 @@ impl SubstrateFinalitySyncPipeline for RococoFinalityToWococo {
 		let transaction = Wococo::sign_transaction(
 			genesis_hash,
 			&self.finality_pipeline.target_sign,
+			era,
 			transaction_nonce,
 			call,
 		);

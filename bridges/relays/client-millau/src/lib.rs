@@ -66,6 +66,7 @@ impl TransactionSignScheme for Millau {
 	fn sign_transaction(
 		genesis_hash: <Self::Chain as ChainBase>::Hash,
 		signer: &Self::AccountKeyPair,
+		era: relay_substrate_client::TransactionEraOf<Self::Chain>,
 		signer_nonce: <Self::Chain as Chain>::Index,
 		call: <Self::Chain as Chain>::Call,
 	) -> Self::SignedTransaction {
@@ -75,7 +76,7 @@ impl TransactionSignScheme for Millau {
 				frame_system::CheckSpecVersion::<millau_runtime::Runtime>::new(),
 				frame_system::CheckTxVersion::<millau_runtime::Runtime>::new(),
 				frame_system::CheckGenesis::<millau_runtime::Runtime>::new(),
-				frame_system::CheckEra::<millau_runtime::Runtime>::from(sp_runtime::generic::Era::Immortal),
+				frame_system::CheckEra::<millau_runtime::Runtime>::from(era.frame_era()),
 				frame_system::CheckNonce::<millau_runtime::Runtime>::from(signer_nonce),
 				frame_system::CheckWeight::<millau_runtime::Runtime>::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::<millau_runtime::Runtime>::from(0),
@@ -84,7 +85,7 @@ impl TransactionSignScheme for Millau {
 				millau_runtime::VERSION.spec_version,
 				millau_runtime::VERSION.transaction_version,
 				genesis_hash,
-				genesis_hash,
+				era.signed_payload(genesis_hash),
 				(),
 				(),
 				(),

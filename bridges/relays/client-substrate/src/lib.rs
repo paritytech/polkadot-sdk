@@ -29,11 +29,13 @@ pub mod guard;
 pub mod headers_source;
 pub mod metrics;
 
+use std::time::Duration;
+
 pub use crate::chain::{BlockWithJustification, Chain, ChainWithBalances, TransactionSignScheme};
 pub use crate::client::{Client, JustificationsSubscription, OpaqueGrandpaAuthoritiesSet};
 pub use crate::error::{Error, Result};
 pub use crate::sync_header::SyncHeader;
-pub use bp_runtime::{BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf};
+pub use bp_runtime::{BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf, TransactionEra, TransactionEraOf};
 
 /// Header id used by the chain.
 pub type HeaderIdOf<C> = relay_utils::HeaderId<HashOf<C>, BlockNumberOf<C>>;
@@ -57,4 +59,15 @@ impl Default for ConnectionParams {
 			secure: false,
 		}
 	}
+}
+
+/// Returns stall timeout for relay loop.
+///
+/// Relay considers himself stalled if he has submitted transaction to the node, but it has not
+/// been mined for this period.
+///
+/// Returns `None` if mortality period is `None`
+pub fn transaction_stall_timeout(mortality_period: Option<u32>, average_block_interval: Duration) -> Option<Duration> {
+	// 1 extra block for transaction to reach the pool && 1 for relayer to awake after it is mined
+	mortality_period.map(|mortality_period| average_block_interval.saturating_mul(mortality_period + 1 + 1))
 }
