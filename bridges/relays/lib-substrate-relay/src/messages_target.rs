@@ -24,6 +24,7 @@ use crate::on_demand_headers::OnDemandHeadersRelay;
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
+
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
@@ -35,10 +36,12 @@ use messages_relay::{
 	message_lane_loop::{TargetClient, TargetClientState},
 };
 use num_traits::{Bounded, Zero};
-use relay_substrate_client::{Chain, Client, Error as SubstrateError, HashOf};
+use relay_substrate_client::{
+	BalanceOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf, HeaderOf, IndexOf,
+};
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase, HeaderId};
 use sp_core::Bytes;
-use sp_runtime::{traits::Header as HeaderT, DeserializeOwned, FixedPointNumber, FixedU128};
+use sp_runtime::{DeserializeOwned, FixedPointNumber, FixedU128};
 use std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
@@ -48,22 +51,22 @@ pub type SubstrateMessagesReceivingProof<C> = (
 );
 
 /// Substrate client as Substrate messages target.
-pub struct SubstrateMessagesTarget<SC: Chain, TC: Chain, P: SubstrateMessageLane> {
-	client: Client<TC>,
+pub struct SubstrateMessagesTarget<P: SubstrateMessageLane> {
+	client: Client<P::TargetChain>,
 	lane: P,
 	lane_id: LaneId,
 	metric_values: StandaloneMessagesMetrics,
-	source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
+	source_to_target_headers_relay: Option<OnDemandHeadersRelay<P::SourceChain>>,
 }
 
-impl<SC: Chain, TC: Chain, P: SubstrateMessageLane> SubstrateMessagesTarget<SC, TC, P> {
+impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 	/// Create new Substrate headers target.
 	pub fn new(
-		client: Client<TC>,
+		client: Client<P::TargetChain>,
 		lane: P,
 		lane_id: LaneId,
 		metric_values: StandaloneMessagesMetrics,
-		source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
+		source_to_target_headers_relay: Option<OnDemandHeadersRelay<P::SourceChain>>,
 	) -> Self {
 		SubstrateMessagesTarget {
 			client,
@@ -75,7 +78,7 @@ impl<SC: Chain, TC: Chain, P: SubstrateMessageLane> SubstrateMessagesTarget<SC, 
 	}
 }
 
-impl<SC: Chain, TC: Chain, P: SubstrateMessageLane> Clone for SubstrateMessagesTarget<SC, TC, P> {
+impl<P: SubstrateMessageLane> Clone for SubstrateMessagesTarget<P> {
 	fn clone(&self) -> Self {
 		Self {
 			client: self.client.clone(),
@@ -88,12 +91,7 @@ impl<SC: Chain, TC: Chain, P: SubstrateMessageLane> Clone for SubstrateMessagesT
 }
 
 #[async_trait]
-impl<SC, TC, P> RelayClient for SubstrateMessagesTarget<SC, TC, P>
-where
-	SC: Chain,
-	TC: Chain,
-	P: SubstrateMessageLane,
-{
+impl<P: SubstrateMessageLane> RelayClient for SubstrateMessagesTarget<P> {
 	type Error = SubstrateError;
 
 	async fn reconnect(&mut self) -> Result<(), SubstrateError> {
@@ -102,27 +100,28 @@ where
 }
 
 #[async_trait]
-impl<SC, TC, P> TargetClient<P::MessageLane> for SubstrateMessagesTarget<SC, TC, P>
+impl<P> TargetClient<P::MessageLane> for SubstrateMessagesTarget<P>
 where
-	SC: Chain<
+	P: SubstrateMessageLane,
+	P::SourceChain: Chain<
 		Hash = <P::MessageLane as MessageLane>::SourceHeaderHash,
 		BlockNumber = <P::MessageLane as MessageLane>::SourceHeaderNumber,
 		Balance = <P::MessageLane as MessageLane>::SourceChainBalance,
 	>,
-	SC::Balance: TryFrom<TC::Balance> + Bounded,
-	TC: Chain<
+	BalanceOf<P::SourceChain>: TryFrom<<P::TargetChain as Chain>::Balance> + Bounded,
+	P::TargetChain: Chain<
 		Hash = <P::MessageLane as MessageLane>::TargetHeaderHash,
 		BlockNumber = <P::MessageLane as MessageLane>::TargetHeaderNumber,
 	>,
-	TC::Hash: Copy,
-	TC::BlockNumber: Copy,
-	TC::Header: DeserializeOwned,
-	TC::Index: DeserializeOwned,
-	<TC::Header as HeaderT>::Number: BlockNumberBase,
-	P: SubstrateMessageLane<SourceChain = SC, TargetChain = TC>,
+	IndexOf<P::TargetChain>: DeserializeOwned,
+	HashOf<P::TargetChain>: Copy,
+	BlockNumberOf<P::TargetChain>: Copy,
+	HeaderOf<P::TargetChain>: DeserializeOwned,
+	BlockNumberOf<P::TargetChain>: BlockNumberBase,
+
 	P::MessageLane: MessageLane<
-		MessagesProof = SubstrateMessagesProof<SC>,
-		MessagesReceivingProof = SubstrateMessagesReceivingProof<TC>,
+		MessagesProof = SubstrateMessagesProof<P::SourceChain>,
+		MessagesReceivingProof = SubstrateMessagesReceivingProof<P::TargetChain>,
 	>,
 	<P::MessageLane as MessageLane>::SourceHeaderNumber: Decode,
 	<P::MessageLane as MessageLane>::SourceHeaderHash: Decode,
@@ -255,29 +254,31 @@ where
 			.ok_or_else(|| {
 				SubstrateError::Custom(format!(
 					"Failed to compute conversion rate from {} to {}",
-					TC::NAME,
-					SC::NAME,
+					P::TargetChain::NAME,
+					P::SourceChain::NAME,
 				))
 			})?;
 		log::trace!(
 			target: "bridge",
 			"Using conversion rate {} when converting from {} tokens to {} tokens",
 			conversion_rate,
-			TC::NAME,
-			SC::NAME
+			P::TargetChain::NAME,
+			P::SourceChain::NAME,
 		);
-		Ok(convert_target_tokens_to_source_tokens::<SC, TC>(
-			FixedU128::from_float(conversion_rate),
-			self.client
-				.estimate_extrinsic_fee(self.lane.make_messages_delivery_transaction(
-					Zero::zero(),
-					HeaderId(Default::default(), Default::default()),
-					nonces.clone(),
-					prepare_dummy_messages_proof::<SC>(nonces, total_dispatch_weight, total_size),
-				))
-				.await
-				.unwrap_or_else(|_| TC::Balance::max_value()),
-		))
+		Ok(
+			convert_target_tokens_to_source_tokens::<P::SourceChain, P::TargetChain>(
+				FixedU128::from_float(conversion_rate),
+				self.client
+					.estimate_extrinsic_fee(self.lane.make_messages_delivery_transaction(
+						Zero::zero(),
+						HeaderId(Default::default(), Default::default()),
+						nonces.clone(),
+						prepare_dummy_messages_proof::<P::SourceChain>(nonces, total_dispatch_weight, total_size),
+					))
+					.await
+					.unwrap_or_else(|_| <P::TargetChain as Chain>::Balance::max_value()),
+			),
+		)
 	}
 }
 
