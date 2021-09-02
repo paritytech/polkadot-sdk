@@ -54,6 +54,7 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 
 	fn make_submit_finality_proof_transaction(
 		&self,
+		era: bp_runtime::TransactionEraOf<Rialto>,
 		transaction_nonce: <Rialto as Chain>::Index,
 		header: MillauSyncHeader,
 		proof: GrandpaJustification<bp_millau::Header>,
@@ -64,6 +65,7 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 		let transaction = Rialto::sign_transaction(
 			genesis_hash,
 			&self.finality_pipeline.target_sign,
+			era,
 			transaction_nonce,
 			call,
 		);

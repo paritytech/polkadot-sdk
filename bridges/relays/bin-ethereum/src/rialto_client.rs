@@ -157,11 +157,12 @@ impl SubmitEthereumHeaders for SubstrateClient<Rialto> {
 		let ids = headers.iter().map(|header| header.id()).collect();
 		let genesis_hash = *self.genesis_hash();
 		let submission_result = async {
-			self.submit_signed_extrinsic((*params.public().as_array_ref()).into(), move |transaction_nonce| {
+			self.submit_signed_extrinsic((*params.public().as_array_ref()).into(), move |_, transaction_nonce| {
 				Bytes(
 					Rialto::sign_transaction(
 						genesis_hash,
 						&params,
+						relay_substrate_client::TransactionEra::immortal(),
 						transaction_nonce,
 						instance.build_signed_header_call(headers),
 					)
@@ -259,11 +260,12 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateClient<Rialto> {
 		proof: rialto_runtime::exchange::EthereumTransactionInclusionProof,
 	) -> RpcResult<()> {
 		let genesis_hash = *self.genesis_hash();
-		self.submit_signed_extrinsic((*params.public().as_array_ref()).into(), move |transaction_nonce| {
+		self.submit_signed_extrinsic((*params.public().as_array_ref()).into(), move |_, transaction_nonce| {
 			Bytes(
 				Rialto::sign_transaction(
 					genesis_hash,
 					&params,
+					relay_substrate_client::TransactionEra::immortal(),
 					transaction_nonce,
 					instance.build_currency_exchange_call(proof),
 				)

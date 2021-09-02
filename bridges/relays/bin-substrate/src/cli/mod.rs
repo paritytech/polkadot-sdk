@@ -389,6 +389,10 @@ macro_rules! declare_chain_options {
 				#[doc = "Path to the file, that password for the SURI of secret key to use when transactions are submitted to the " $chain " node. Can be overridden with " $chain_prefix "_signer_password option."]
 				#[structopt(long)]
 				pub [<$chain_prefix _signer_password_file>]: Option<std::path::PathBuf>,
+
+				#[doc = "Transactions mortality period, in blocks. MUST be a power of two in [4; 65536] range. MAY NOT be larger than `BlockHashCount` parameter of the chain system module."]
+				#[structopt(long)]
+				pub [<$chain_prefix _transactions_mortality>]: Option<u32>,
 			}
 
 			#[doc = "Parameters required to sign transaction on behalf of owner of the messages pallet at " $chain "."]
@@ -403,6 +407,25 @@ macro_rules! declare_chain_options {
 			}
 
 			impl [<$chain SigningParams>] {
+				/// Return transactions mortality.
+				#[allow(dead_code)]
+				pub fn transactions_mortality(&self) -> anyhow::Result<Option<u32>> {
+					self.[<$chain_prefix _transactions_mortality>]
+						.map(|transactions_mortality| {
+							if !(4..=65536).contains(&transactions_mortality)
+								|| !transactions_mortality.is_power_of_two()
+							{
+								Err(anyhow::format_err!(
+									"Transactions mortality {} is not a power of two in a [4; 65536] range",
+									transactions_mortality,
+								))
+							} else {
+								Ok(transactions_mortality)
+							}
+						})
+						.transpose()
+				}
+
 				/// Parse signing params into chain-specific KeyPair.
 				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Chain::KeyPair> {
 					let suri = match (self.[<$chain_prefix _signer>].as_ref(), self.[<$chain_prefix _signer_file>].as_ref()) {
@@ -550,6 +573,8 @@ mod tests {
 
 				target_signer_file: None,
 				target_signer_password_file: None,
+
+				target_transactions_mortality: None,
 			}
 			.to_keypair::<relay_rialto_client::Rialto>()
 			.map(|p| p.public())
@@ -565,6 +590,8 @@ mod tests {
 
 				target_signer_file: Some(suri_file_path.clone()),
 				target_signer_password_file: Some(password_file_path.clone()),
+
+				target_transactions_mortality: None,
 			}
 			.to_keypair::<relay_rialto_client::Rialto>()
 			.map(|p| p.public())
@@ -580,6 +607,8 @@ mod tests {
 
 				target_signer_file: Some(suri_file_path.clone()),
 				target_signer_password_file: Some(password_file_path.clone()),
+
+				target_transactions_mortality: None,
 			}
 			.to_keypair::<relay_rialto_client::Rialto>()
 			.map(|p| p.public())
@@ -595,6 +624,8 @@ mod tests {
 
 				target_signer_file: Some(suri_file_path),
 				target_signer_password_file: Some(password_file_path),
+
+				target_transactions_mortality: None,
 			}
 			.to_keypair::<relay_rialto_client::Rialto>()
 			.map(|p| p.public())

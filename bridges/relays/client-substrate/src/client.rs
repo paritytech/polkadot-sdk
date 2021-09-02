@@ -18,7 +18,7 @@
 
 use crate::chain::{Chain, ChainWithBalances};
 use crate::rpc::Substrate;
-use crate::{ConnectionParams, Error, Result};
+use crate::{ConnectionParams, Error, HeaderIdOf, Result};
 
 use async_std::sync::{Arc, Mutex};
 use codec::Decode;
@@ -29,8 +29,9 @@ use jsonrpsee_ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBui
 use num_traits::{Bounded, Zero};
 use pallet_balances::AccountData;
 use pallet_transaction_payment::InclusionFee;
-use relay_utils::relay_loop::RECONNECT_DELAY;
+use relay_utils::{relay_loop::RECONNECT_DELAY, HeaderId};
 use sp_core::{storage::StorageKey, Bytes};
+use sp_runtime::traits::Header as HeaderT;
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 use std::{convert::TryFrom, future::Future};
@@ -293,12 +294,14 @@ impl<C: Chain> Client<C> {
 	pub async fn submit_signed_extrinsic(
 		&self,
 		extrinsic_signer: C::AccountId,
-		prepare_extrinsic: impl FnOnce(C::Index) -> Bytes + Send + 'static,
+		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Bytes + Send + 'static,
 	) -> Result<C::Hash> {
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
+		let best_header = self.best_header().await?;
+		let best_header_id = HeaderId(*best_header.number(), best_header.hash());
 		self.jsonrpsee_execute(move |client| async move {
-			let extrinsic = prepare_extrinsic(transaction_nonce);
+			let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce);
 			let tx_hash = Substrate::<C>::author_submit_extrinsic(&*client, extrinsic).await?;
 			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(tx_hash)
