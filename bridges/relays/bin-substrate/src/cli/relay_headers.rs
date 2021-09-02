@@ -99,6 +99,7 @@ impl RelayHeaders {
 		select_bridge!(self.bridge, {
 			let source_client = self.source.to_client::<Source>().await?;
 			let target_client = self.target.to_client::<Target>().await?;
+			let target_transactions_mortality = self.target_sign.target_transactions_mortality;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 			let metrics_params = Finality::customize_metrics(self.prometheus_params.into())?;
 			let finality = Finality::new(target_client.clone(), target_sign);
@@ -109,6 +110,7 @@ impl RelayHeaders {
 				source_client,
 				target_client,
 				self.only_mandatory_headers,
+				target_transactions_mortality,
 				metrics_params,
 			)
 			.await

@@ -68,18 +68,13 @@ impl TransactionSignScheme for Rococo {
 	fn sign_transaction(
 		genesis_hash: <Self::Chain as ChainBase>::Hash,
 		signer: &Self::AccountKeyPair,
+		era: relay_substrate_client::TransactionEraOf<Self::Chain>,
 		signer_nonce: <Self::Chain as Chain>::Index,
 		call: <Self::Chain as Chain>::Call,
 	) -> Self::SignedTransaction {
 		let raw_payload = SignedPayload::new(
 			call,
-			bp_rococo::SignedExtensions::new(
-				bp_rococo::VERSION,
-				sp_runtime::generic::Era::Immortal,
-				genesis_hash,
-				signer_nonce,
-				0,
-			),
+			bp_rococo::SignedExtensions::new(bp_rococo::VERSION, era, genesis_hash, signer_nonce, 0),
 		)
 		.expect("SignedExtension never fails.");
 

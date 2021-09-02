@@ -88,7 +88,7 @@ async fn do_initialize<SourceChain: Chain, TargetChain: Chain>(
 	);
 
 	let initialization_tx_hash = target_client
-		.submit_signed_extrinsic(target_transactions_signer, move |transaction_nonce| {
+		.submit_signed_extrinsic(target_transactions_signer, move |_, transaction_nonce| {
 			prepare_initialize_transaction(transaction_nonce, initialization_data)
 		})
 		.await

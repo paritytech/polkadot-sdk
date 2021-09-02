@@ -178,10 +178,11 @@ impl SendMessage {
 
 			let source_genesis_hash = *source_client.genesis_hash();
 			source_client
-				.submit_signed_extrinsic(source_sign.public().into(), move |transaction_nonce| {
+				.submit_signed_extrinsic(source_sign.public().into(), move |_, transaction_nonce| {
 					let signed_source_call = Source::sign_transaction(
 						source_genesis_hash,
 						&source_sign,
+						relay_substrate_client::TransactionEra::immortal(),
 						transaction_nonce,
 						send_message_call,
 					)
