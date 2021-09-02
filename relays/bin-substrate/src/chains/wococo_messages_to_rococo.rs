@@ -147,10 +147,10 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 }
 
 /// Wococo node as messages source.
-type WococoSourceClient = SubstrateMessagesSource<Wococo, Rococo, WococoMessagesToRococo>;
+type WococoSourceClient = SubstrateMessagesSource<WococoMessagesToRococo>;
 
 /// Rococo node as messages target.
-type RococoTargetClient = SubstrateMessagesTarget<Wococo, Rococo, WococoMessagesToRococo>;
+type RococoTargetClient = SubstrateMessagesTarget<WococoMessagesToRococo>;
 
 /// Run Wococo-to-Rococo messages sync.
 pub async fn run(
