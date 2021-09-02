@@ -235,26 +235,26 @@ impl<Call> parity_scale_codec::Decode for SignedExtensions<Call> {
 impl<Call> SignedExtensions<Call> {
 	pub fn new(
 		version: sp_version::RuntimeVersion,
-		era: sp_runtime::generic::Era,
+		era: bp_runtime::TransactionEraOf<PolkadotLike>,
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
 	) -> Self {
 		Self {
 			encode_payload: (
-				(),           // spec version
-				(),           // tx version
-				(),           // genesis
-				era,          // era
-				nonce.into(), // nonce (compact encoding)
-				(),           // Check weight
-				tip.into(),   // transaction payment / tip (compact encoding)
+				(),              // spec version
+				(),              // tx version
+				(),              // genesis
+				era.frame_era(), // era
+				nonce.into(),    // nonce (compact encoding)
+				(),              // Check weight
+				tip.into(),      // transaction payment / tip (compact encoding)
 			),
 			additional_signed: (
 				version.spec_version,
 				version.transaction_version,
 				genesis_hash,
-				genesis_hash,
+				era.signed_payload(genesis_hash),
 				(),
 				(),
 				(),
