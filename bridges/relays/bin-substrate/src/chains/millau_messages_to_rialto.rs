@@ -265,11 +265,12 @@ pub(crate) async fn update_rialto_to_millau_conversion_rate(
 	let genesis_hash = *client.genesis_hash();
 	let signer_id = (*signer.public().as_array_ref()).into();
 	client
-		.submit_signed_extrinsic(signer_id, move |transaction_nonce| {
+		.submit_signed_extrinsic(signer_id, move |_, transaction_nonce| {
 			Bytes(
 				Millau::sign_transaction(
 					genesis_hash,
 					&signer,
+					relay_substrate_client::TransactionEra::immortal(),
 					transaction_nonce,
 					millau_runtime::MessagesCall::update_pallet_parameter(
 						millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
