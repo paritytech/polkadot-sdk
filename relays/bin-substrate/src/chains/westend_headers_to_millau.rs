@@ -63,6 +63,7 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 
 	fn make_submit_finality_proof_transaction(
 		&self,
+		era: bp_runtime::TransactionEraOf<Millau>,
 		transaction_nonce: <Millau as Chain>::Index,
 		header: WestendSyncHeader,
 		proof: GrandpaJustification<bp_westend::Header>,
@@ -77,6 +78,7 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 		let transaction = Millau::sign_transaction(
 			genesis_hash,
 			&self.finality_pipeline.target_sign,
+			era,
 			transaction_nonce,
 			call,
 		);

@@ -246,7 +246,7 @@ where
 	) -> Result<(), SubstrateError> {
 		let lane = self.lane.clone();
 		self.client
-			.submit_signed_extrinsic(self.lane.source_transactions_author(), move |transaction_nonce| {
+			.submit_signed_extrinsic(self.lane.source_transactions_author(), move |_, transaction_nonce| {
 				lane.make_messages_receiving_proof_transaction(transaction_nonce, generated_at_block, proof)
 			})
 			.await?;

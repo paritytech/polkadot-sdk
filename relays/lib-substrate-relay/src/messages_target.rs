@@ -229,7 +229,7 @@ where
 		let lane = self.lane.clone();
 		let nonces_clone = nonces.clone();
 		self.client
-			.submit_signed_extrinsic(self.lane.target_transactions_author(), move |transaction_nonce| {
+			.submit_signed_extrinsic(self.lane.target_transactions_author(), move |_, transaction_nonce| {
 				lane.make_messages_delivery_transaction(transaction_nonce, generated_at_header, nonces_clone, proof)
 			})
 			.await?;
