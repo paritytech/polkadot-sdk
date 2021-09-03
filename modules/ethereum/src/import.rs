@@ -29,7 +29,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 /// If successful, returns tuple where first element is the number of useful headers
 /// we have imported and the second element is the number of useless headers (duplicate)
 /// we have NOT imported.
-/// Returns error if fatal error has occured during import. Some valid headers may be
+/// Returns error if fatal error has occurred during import. Some valid headers may be
 /// imported in this case.
 /// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/415)
 #[allow(clippy::too_many_arguments)]

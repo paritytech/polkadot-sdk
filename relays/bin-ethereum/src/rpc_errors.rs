@@ -27,7 +27,7 @@ pub enum RpcError {
 	Serialization(serde_json::Error),
 	/// An error occurred when interacting with an Ethereum node.
 	Ethereum(EthereumNodeError),
-	/// An error occured when interacting with a Substrate node.
+	/// An error occurred when interacting with a Substrate node.
 	Substrate(SubstrateNodeError),
 	/// Error running relay loop.
 	SyncLoop(String),
