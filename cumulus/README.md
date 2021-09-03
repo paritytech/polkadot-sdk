@@ -121,3 +121,17 @@ cargo build --release
 ```
 ### Register the parachain
 ![image](https://user-images.githubusercontent.com/2915325/99548884-1be13580-2987-11eb-9a8b-20be658d34f9.png)
+
+## Build the docker image
+
+After building `polkadot-collator` with cargo as documented in [this chapter](#build--launch-rococo-collators), the following will allow producting a new docker image where the compiled binary is injected:
+
+```
+./docker/scripts/build-injected-image.sh
+```
+
+You may then start a new contaier:
+
+```
+docker run --rm -it $OWNER/$IMAGE_NAME --collator --tmp --parachain-id 1000 --execution wasm --chain /specs/westmint.json
+```

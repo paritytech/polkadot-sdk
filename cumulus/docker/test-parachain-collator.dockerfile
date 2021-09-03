@@ -19,7 +19,7 @@ WORKDIR /paritytech/cumulus
 # not the actual directory. We're stuck just enumerating them.
 COPY . .
 
-RUN cargo build --release -p polkadot-collator
+RUN cargo build --release --locked -p polkadot-collator
 
 # the collator stage is normally built once, cached, and then ignored, but can
 # be specified with the --target build flag. This adds some extra tooling to the
