@@ -159,7 +159,7 @@ pub struct SubmittedHeaders<Id, Error> {
 	/// IDs of ignored headers that we have decided not to submit (they are either rejected by
 	/// target node immediately, or their descendants of incomplete headers).
 	pub rejected: Vec<Id>,
-	/// Fatal target node error, if it has occured during submission.
+	/// Fatal target node error, if it has occurred during submission.
 	pub fatal_error: Option<Error>,
 }
 
