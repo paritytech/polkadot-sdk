@@ -63,7 +63,7 @@ const MAX_VALIDATOR_SET_SIZE: u32 = 1024;
 
 /// Returns number of first header to be imported.
 ///
-/// Since we boostrap the pallet with `HeadersToKeep` already imported headers,
+/// Since we bootstrap the pallet with `HeadersToKeep` already imported headers,
 /// this function computes the next expected header number to import.
 fn header_number<T: Config<I>, I: 'static, N: From<u32>>() -> N {
 	(T::HeadersToKeep::get() + 1).into()

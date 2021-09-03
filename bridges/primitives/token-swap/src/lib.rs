@@ -27,7 +27,7 @@ pub enum TokenSwapType<ThisBlockNumber> {
 	/// The `target_account_at_bridged_chain` is temporary and only have funds for single swap.
 	///
 	/// ***WARNING**: if `target_account_at_bridged_chain` still exists after the swap has been
-	/// completed (either by claiming or cancelling), the `source_account_at_this_chain` will be able
+	/// completed (either by claiming or canceling), the `source_account_at_this_chain` will be able
 	/// to restart the swap again and repeat the swap until `target_account_at_bridged_chain` depletes.
 	TemporaryTargetAccountAtBridgedChain,
 	/// This swap type prevents `source_account_at_this_chain` from restarting the swap after it has
