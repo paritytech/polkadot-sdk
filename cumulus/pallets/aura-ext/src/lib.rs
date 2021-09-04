@@ -62,7 +62,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: BlockNumberFor<T>) {
 			// Update to the latest AuRa authorities.
-			Authorities::<T>::put(Aura::<T>::authorities());
+			Authorities::<T>::put(Aura::<T>::authorities().into_inner());
 		}
 
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
@@ -98,7 +98,7 @@ pub mod pallet {
 				"AuRa authorities empty, maybe wrong order in `construct_runtime!`?",
 			);
 
-			Authorities::<T>::put(authorities);
+			Authorities::<T>::put(authorities.into_inner());
 		}
 	}
 }

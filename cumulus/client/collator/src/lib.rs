@@ -404,7 +404,7 @@ mod tests {
 		let (sub_tx, sub_rx) = mpsc::channel(64);
 
 		let all_subsystems =
-			AllSubsystems::<()>::dummy().replace_collation_generation(ForwardSubsystem(sub_tx));
+			AllSubsystems::<()>::dummy().replace_collation_generation(|_| ForwardSubsystem(sub_tx));
 		let (overseer, handle) = Overseer::new(
 			Vec::new(),
 			all_subsystems,
