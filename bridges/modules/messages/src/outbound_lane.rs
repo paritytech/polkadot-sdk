@@ -101,40 +101,40 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	pub fn confirm_delivery<RelayerId>(
 		&mut self,
 		max_allowed_messages: MessageNonce,
-		latest_received_nonce: MessageNonce,
+		latest_delivered_nonce: MessageNonce,
 		relayers: &VecDeque<UnrewardedRelayer<RelayerId>>,
 	) -> ReceivalConfirmationResult {
 		let mut data = self.storage.data();
-		if latest_received_nonce <= data.latest_received_nonce {
+		if latest_delivered_nonce <= data.latest_received_nonce {
 			return ReceivalConfirmationResult::NoNewConfirmations;
 		}
-		if latest_received_nonce > data.latest_generated_nonce {
+		if latest_delivered_nonce > data.latest_generated_nonce {
 			return ReceivalConfirmationResult::FailedToConfirmFutureMessages;
 		}
-		if latest_received_nonce - data.latest_received_nonce > max_allowed_messages {
+		if latest_delivered_nonce - data.latest_received_nonce > max_allowed_messages {
 			// that the relayer has declared correct number of messages that the proof contains (it is
 			// checked outside of the function). But it may happen (but only if this/bridged chain storage is
 			// corrupted, though) that the actual number of confirmed messages if larger than declared.
 			// This would mean that 'reward loop' will take more time than the weight formula accounts,
 			// so we can't allow that.
 			return ReceivalConfirmationResult::TryingToConfirmMoreMessagesThanExpected(
-				latest_received_nonce - data.latest_received_nonce,
+				latest_delivered_nonce - data.latest_received_nonce,
 			);
 		}
 
 		let dispatch_results =
-			match extract_dispatch_results(data.latest_received_nonce, latest_received_nonce, relayers) {
+			match extract_dispatch_results(data.latest_received_nonce, latest_delivered_nonce, relayers) {
 				Ok(dispatch_results) => dispatch_results,
 				Err(extract_error) => return extract_error,
 			};
 
 		let prev_latest_received_nonce = data.latest_received_nonce;
-		data.latest_received_nonce = latest_received_nonce;
+		data.latest_received_nonce = latest_delivered_nonce;
 		self.storage.set_data(data);
 
 		ReceivalConfirmationResult::ConfirmedMessages(DeliveredMessages {
 			begin: prev_latest_received_nonce + 1,
-			end: latest_received_nonce,
+			end: latest_delivered_nonce,
 			dispatch_results,
 		})
 	}
