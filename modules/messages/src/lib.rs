@@ -352,7 +352,7 @@ pub mod pallet {
 			// if someone tries to pay for already-delivered message, we're rejecting this intention
 			// (otherwise this additional fee will be locked forever in relayers fund)
 			//
-			// if someone tries to pay for not-yet-sent message, we're rejeting this intention, or
+			// if someone tries to pay for not-yet-sent message, we're rejecting this intention, or
 			// we're risking to have mess in the storage
 			let lane = outbound_lane::<T, I>(lane_id);
 			ensure!(
