@@ -310,23 +310,24 @@ impl<C: Chain> Client<C> {
 	}
 
 	/// Estimate fee that will be spent on given extrinsic.
-	pub async fn estimate_extrinsic_fee(&self, transaction: Bytes) -> Result<C::Balance> {
+	pub async fn estimate_extrinsic_fee(&self, transaction: Bytes) -> Result<InclusionFee<C::Balance>> {
 		self.jsonrpsee_execute(move |client| async move {
 			let fee_details = Substrate::<C>::payment_query_fee_details(&*client, transaction, None).await?;
 			let inclusion_fee = fee_details
 				.inclusion_fee
-				.map(|inclusion_fee| {
-					InclusionFee {
-						base_fee: C::Balance::try_from(inclusion_fee.base_fee.into_u256())
-							.unwrap_or_else(|_| C::Balance::max_value()),
-						len_fee: C::Balance::try_from(inclusion_fee.len_fee.into_u256())
-							.unwrap_or_else(|_| C::Balance::max_value()),
-						adjusted_weight_fee: C::Balance::try_from(inclusion_fee.adjusted_weight_fee.into_u256())
-							.unwrap_or_else(|_| C::Balance::max_value()),
-					}
-					.inclusion_fee()
+				.map(|inclusion_fee| InclusionFee {
+					base_fee: C::Balance::try_from(inclusion_fee.base_fee.into_u256())
+						.unwrap_or_else(|_| C::Balance::max_value()),
+					len_fee: C::Balance::try_from(inclusion_fee.len_fee.into_u256())
+						.unwrap_or_else(|_| C::Balance::max_value()),
+					adjusted_weight_fee: C::Balance::try_from(inclusion_fee.adjusted_weight_fee.into_u256())
+						.unwrap_or_else(|_| C::Balance::max_value()),
 				})
-				.unwrap_or_else(Zero::zero);
+				.unwrap_or_else(|| InclusionFee {
+					base_fee: Zero::zero(),
+					len_fee: Zero::zero(),
+					adjusted_weight_fee: Zero::zero(),
+				});
 			Ok(inclusion_fee)
 		})
 		.await

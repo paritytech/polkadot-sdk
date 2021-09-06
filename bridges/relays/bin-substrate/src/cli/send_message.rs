@@ -190,8 +190,9 @@ impl SendMessage {
 
 					log::info!(
 						target: "bridge",
-						"Sending message to {}. Size: {}. Dispatch weight: {}. Fee: {}",
+						"Sending message to {}. Lane: {:?}. Size: {}. Dispatch weight: {}. Fee: {}",
 						Target::NAME,
+						lane,
 						signed_source_call.len(),
 						dispatch_weight,
 						fee,

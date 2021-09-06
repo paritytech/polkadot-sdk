@@ -88,6 +88,13 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 	/// Name of the messages pallet as it is declared in the `construct_runtime!()` at target chain.
 	const MESSAGE_PALLET_NAME_AT_TARGET: &'static str;
 
+	/// Extra weight of the delivery transaction at the target chain, that is paid to cover
+	/// dispatch fee payment.
+	///
+	/// If dispatch fee is paid at the source chain, then this weight is refunded by the
+	/// delivery transaction.
+	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_TARGET_CHAIN: Weight;
+
 	/// Source chain.
 	type SourceChain: Chain;
 	/// Target chain.
