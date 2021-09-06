@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use bp_runtime::Chain as ChainBase;
-use frame_support::Parameter;
+use frame_support::{weights::WeightToFeePolynomial, Parameter};
 use jsonrpsee_ws_client::{DeserializeOwned, Serialize};
 use num_traits::{Bounded, CheckedSub, SaturatingAdd, Zero};
 use sp_core::{storage::StorageKey, Pair};
@@ -77,12 +77,17 @@ pub trait Chain: ChainBase + Clone {
 		+ SaturatingAdd
 		+ Zero
 		+ std::convert::TryFrom<sp_core::U256>;
+
+	/// Type that is used by the chain, to convert from weight to fee.
+	type WeightToFee: WeightToFeePolynomial<Balance = Self::Balance>;
 }
 
 /// Balance type used by the chain
 pub type BalanceOf<C> = <C as Chain>::Balance;
 /// Index type used by the chain
 pub type IndexOf<C> = <C as Chain>::Index;
+/// Weight-to-Fee type used by the chain
+pub type WeightToFeeOf<C> = <C as Chain>::WeightToFee;
 
 /// Substrate-based chain with `frame_system::Config::AccountData` set to
 /// the `pallet_balances::AccountData<Balance>`.

@@ -25,7 +25,7 @@ mod millau_hash;
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::Chain;
 use frame_support::{
-	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, Weight},
+	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
 	Parameter, RuntimeDebug,
 };
 use frame_system::limits;
@@ -148,6 +148,9 @@ pub type AccountSigner = MultiSigner;
 
 /// Balance of an account.
 pub type Balance = u64;
+
+/// Weight-to-Fee type used by Millau.
+pub type WeightToFee = IdentityFee<Balance>;
 
 /// Millau chain.
 #[derive(RuntimeDebug)]

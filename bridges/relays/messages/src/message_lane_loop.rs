@@ -210,6 +210,7 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 	async fn estimate_delivery_transaction_in_source_tokens(
 		&self,
 		nonces: RangeInclusive<MessageNonce>,
+		total_prepaid_nonces: MessageNonce,
 		total_dispatch_weight: Weight,
 		total_size: u32,
 	) -> Result<P::SourceChainBalance, Self::Error>;
@@ -773,6 +774,7 @@ pub(crate) mod tests {
 		async fn estimate_delivery_transaction_in_source_tokens(
 			&self,
 			nonces: RangeInclusive<MessageNonce>,
+			_total_prepaid_nonces: MessageNonce,
 			total_dispatch_weight: Weight,
 			total_size: u32,
 		) -> Result<TestSourceChainBalance, TestError> {

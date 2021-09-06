@@ -47,6 +47,7 @@ impl Chain for Rialto {
 	type SignedBlock = rialto_runtime::SignedBlock;
 	type Call = rialto_runtime::Call;
 	type Balance = rialto_runtime::Balance;
+	type WeightToFee = bp_rialto::WeightToFee;
 }
 
 impl ChainWithBalances for Rialto {

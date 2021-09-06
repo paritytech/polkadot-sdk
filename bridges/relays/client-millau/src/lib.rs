@@ -47,6 +47,7 @@ impl Chain for Millau {
 	type SignedBlock = millau_runtime::SignedBlock;
 	type Call = millau_runtime::Call;
 	type Balance = millau_runtime::Balance;
+	type WeightToFee = bp_millau::WeightToFee;
 }
 
 impl ChainWithBalances for Millau {
