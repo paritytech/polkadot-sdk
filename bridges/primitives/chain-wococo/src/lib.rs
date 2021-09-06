@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 
 pub use bp_polkadot_core::*;
 // Rococo runtime = Wococo runtime
-pub use bp_rococo::{WeightToFee, SESSION_LENGTH, VERSION};
+pub use bp_rococo::{WeightToFee, PAY_INBOUND_DISPATCH_FEE_WEIGHT, SESSION_LENGTH, VERSION};
 
 /// Wococo Chain
 pub type Wococo = PolkadotLike;
