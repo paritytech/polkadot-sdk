@@ -44,6 +44,7 @@ impl Chain for Polkadot {
 	type SignedBlock = bp_polkadot::SignedBlock;
 	type Call = ();
 	type Balance = bp_polkadot::Balance;
+	type WeightToFee = bp_polkadot::WeightToFee;
 }
 
 /// Polkadot header type used in headers sync.

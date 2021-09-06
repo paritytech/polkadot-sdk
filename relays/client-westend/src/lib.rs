@@ -50,6 +50,7 @@ impl Chain for Westend {
 	type SignedBlock = bp_westend::SignedBlock;
 	type Call = bp_westend::Call;
 	type Balance = bp_westend::Balance;
+	type WeightToFee = bp_westend::WeightToFee;
 }
 
 impl ChainWithBalances for Westend {

@@ -23,7 +23,7 @@
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::Chain;
 use frame_support::{
-	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, Weight},
+	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
 	Parameter, RuntimeDebug,
 };
 use frame_system::limits;
@@ -147,6 +147,9 @@ pub type Balance = u128;
 
 /// An instant or duration in time.
 pub type Moment = u64;
+
+/// Weight-to-Fee type used by Rialto.
+pub type WeightToFee = IdentityFee<Balance>;
 
 /// Rialto chain.
 #[derive(RuntimeDebug)]

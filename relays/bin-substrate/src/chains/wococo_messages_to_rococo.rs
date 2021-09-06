@@ -23,6 +23,7 @@ use sp_core::{Bytes, Pair};
 
 use bp_messages::MessageNonce;
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
+use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
 use relay_rococo_client::{HeaderId as RococoHeaderId, Rococo, SigningParams as RococoSigningParams};
 use relay_substrate_client::{Chain, Client, TransactionSignScheme};
@@ -61,6 +62,8 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 
 	const MESSAGE_PALLET_NAME_AT_SOURCE: &'static str = bp_wococo::WITH_ROCOCO_MESSAGES_PALLET_NAME;
 	const MESSAGE_PALLET_NAME_AT_TARGET: &'static str = bp_rococo::WITH_WOCOCO_MESSAGES_PALLET_NAME;
+
+	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_TARGET_CHAIN: Weight = bp_rococo::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
 
 	type SourceChain = Wococo;
 	type TargetChain = Rococo;

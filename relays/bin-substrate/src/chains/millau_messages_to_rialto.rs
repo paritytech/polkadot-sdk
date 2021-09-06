@@ -24,6 +24,7 @@ use sp_core::{Bytes, Pair};
 
 use bp_messages::MessageNonce;
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
+use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SigningParams as RialtoSigningParams};
@@ -63,6 +64,8 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 
 	const MESSAGE_PALLET_NAME_AT_SOURCE: &'static str = bp_millau::WITH_RIALTO_MESSAGES_PALLET_NAME;
 	const MESSAGE_PALLET_NAME_AT_TARGET: &'static str = bp_rialto::WITH_MILLAU_MESSAGES_PALLET_NAME;
+
+	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_TARGET_CHAIN: Weight = bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
 
 	type SourceChain = Millau;
 	type TargetChain = Rialto;

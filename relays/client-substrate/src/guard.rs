@@ -194,6 +194,7 @@ mod tests {
 			sp_runtime::generic::SignedBlock<sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>>;
 		type Call = ();
 		type Balance = u32;
+		type WeightToFee = frame_support::weights::IdentityFee<u32>;
 	}
 
 	impl ChainWithBalances for TestChain {

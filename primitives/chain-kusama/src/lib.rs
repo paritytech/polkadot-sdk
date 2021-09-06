@@ -21,12 +21,31 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
+use frame_support::weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial};
 use sp_std::prelude::*;
 
 pub use bp_polkadot_core::*;
 
 /// Kusama Chain
 pub type Kusama = PolkadotLike;
+
+// NOTE: This needs to be kept up to date with the Kusama runtime found in the Polkadot repo.
+pub struct WeightToFee;
+impl WeightToFeePolynomial for WeightToFee {
+	type Balance = Balance;
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		const CENTS: Balance = 1_000_000_000_000 / 30_000;
+		// in Kusama, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
+		let p = CENTS;
+		let q = 10 * Balance::from(ExtrinsicBaseWeight::get());
+		smallvec::smallvec![WeightToFeeCoefficient {
+			degree: 1,
+			negative: false,
+			coeff_frac: Perbill::from_rational(p % q, q),
+			coeff_integer: p / q,
+		}]
+	}
+}
 
 // We use this to get the account on Kusama (target) which is derived from Polkadot's (source)
 // account.

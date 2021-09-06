@@ -52,6 +52,7 @@ impl Chain for Wococo {
 	type SignedBlock = bp_wococo::SignedBlock;
 	type Call = crate::runtime::Call;
 	type Balance = bp_wococo::Balance;
+	type WeightToFee = bp_wococo::WeightToFee;
 }
 
 impl ChainWithBalances for Wococo {

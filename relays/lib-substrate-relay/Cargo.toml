@@ -40,8 +40,9 @@ sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch 
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [dev-dependencies]
-relay-millau-client = { path = "../client-millau" }
-relay-rialto-client = { path = "../client-rialto" }
-bp-rialto = { path = "../../primitives/chain-rialto" }
 bp-millau = { path = "../../primitives/chain-millau" }
+bp-rococo = { path = "../../primitives/chain-rococo" }
+bp-wococo = { path = "../../primitives/chain-wococo" }
+relay-rococo-client = { path = "../client-rococo" }
+relay-wococo-client = { path = "../client-wococo" }
 rialto-runtime = { path = "../../bin/rialto/runtime" }

@@ -52,6 +52,7 @@ impl Chain for Rococo {
 	type SignedBlock = bp_rococo::SignedBlock;
 	type Call = crate::runtime::Call;
 	type Balance = bp_rococo::Balance;
+	type WeightToFee = bp_rococo::WeightToFee;
 }
 
 impl ChainWithBalances for Rococo {
