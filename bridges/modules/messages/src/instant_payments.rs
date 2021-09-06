@@ -57,20 +57,15 @@ where
 {
 	type Error = &'static str;
 
-	fn initialize(relayer_fund_account: &T::AccountId) -> usize {
-		assert!(
-			frame_system::Pallet::<T>::account_exists(relayer_fund_account),
-			"The relayer fund account ({:?}) must exist for the message lanes pallet to work correctly.",
-			relayer_fund_account,
-		);
-		1
-	}
-
 	fn pay_delivery_and_dispatch_fee(
 		submitter: &Sender<T::AccountId>,
 		fee: &Currency::Balance,
 		relayer_fund_account: &T::AccountId,
 	) -> Result<(), Self::Error> {
+		if !frame_system::Pallet::<T>::account_exists(relayer_fund_account) {
+			return Err("The relayer fund account must exist for the message lanes pallet to work correctly.");
+		}
+
 		let root_account = RootAccount::get();
 		let account = match submitter {
 			Sender::Signed(submitter) => submitter,
