@@ -184,15 +184,6 @@ pub mod pallet {
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		/// Ensure runtime invariants.
-		fn on_runtime_upgrade() -> Weight {
-			let reads = T::MessageDeliveryAndDispatchPayment::initialize(&Self::relayer_fund_account_id());
-			T::DbWeight::get().reads(reads as u64)
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Change `PalletOwner`.
