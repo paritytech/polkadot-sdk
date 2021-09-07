@@ -54,6 +54,12 @@ pub fn derive_account_from_polkadot_id(id: bp_runtime::SourceAccount<AccountId>)
 	AccountIdConverter::convert(encoded_id)
 }
 
+/// Per-byte fee for Kusama transactions.
+pub const TRANSACTION_BYTE_FEE: Balance = 10 * 1_000_000_000_000 / 30_000 / 1_000;
+
+/// Name of the With-Polkadot messages pallet instance in the Kusama runtime.
+pub const WITH_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotMessages";
+
 /// Name of the `KusamaFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_KUSAMA_HEADER_METHOD: &str = "KusamaFinalityApi_best_finalized";
 /// Name of the `KusamaFinalityApi::is_known_header` runtime method.
