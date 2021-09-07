@@ -95,7 +95,7 @@ pub trait LaneMessageVerifier<Submitter, Payload, Fee> {
 /// submitter is paying (in source chain tokens/assets) for:
 ///
 /// 1) submit-message-transaction-fee itself. This fee is not included in the
-/// `delivery_and_dispatch_fee` and is witheld by the regular transaction payment mechanism;
+/// `delivery_and_dispatch_fee` and is withheld by the regular transaction payment mechanism;
 /// 2) message-delivery-transaction-fee. It is submitted to the target node by relayer;
 /// 3) message-dispatch fee. It is paid by relayer for processing message by target chain;
 /// 4) message-receiving-delivery-transaction-fee. It is submitted to the source node
