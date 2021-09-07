@@ -19,7 +19,7 @@
 use relay_utils::metrics::F64SharedRef;
 use std::{future::Future, time::Duration};
 
-/// Duration between updater wakeups.
+/// Duration between updater iterations.
 const SLEEP_DURATION: Duration = Duration::from_secs(60);
 
 /// Update-conversion-rate transaction status.

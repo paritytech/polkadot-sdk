@@ -53,7 +53,7 @@ pub enum ReceivalResult {
 	Dispatched(MessageDispatchResult),
 	/// Message has invalid nonce and lane has rejected to accept this message.
 	InvalidNonce,
-	/// There are too many unrewarded relayer entires at the lane.
+	/// There are too many unrewarded relayer entries at the lane.
 	TooManyUnrewardedRelayers,
 	/// There are too many unconfirmed messages at the lane.
 	TooManyUnconfirmedMessages,
