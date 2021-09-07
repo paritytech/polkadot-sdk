@@ -1713,7 +1713,7 @@ mod tests {
 	#[test]
 	fn receive_messages_delivery_proof_rejects_proof_if_declared_relayers_state_is_invalid() {
 		run_test(|| {
-			// when number of relayers entires is invalid
+			// when number of relayers entries is invalid
 			assert_noop!(
 				Pallet::<TestRuntime>::receive_messages_delivery_proof(
 					Origin::signed(1),
