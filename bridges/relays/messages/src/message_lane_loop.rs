@@ -125,6 +125,7 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 		&self,
 		id: SourceHeaderIdOf<P>,
 	) -> Result<(SourceHeaderIdOf<P>, MessageNonce), Self::Error>;
+
 	/// Get nonce of the latest message, which receiving has been confirmed by the target chain.
 	async fn latest_confirmed_received_nonce(
 		&self,
@@ -180,6 +181,7 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 		&self,
 		id: TargetHeaderIdOf<P>,
 	) -> Result<(TargetHeaderIdOf<P>, MessageNonce), Self::Error>;
+
 	/// Get state of unrewarded relayers set at the inbound lane.
 	async fn unrewarded_relayers_state(
 		&self,
