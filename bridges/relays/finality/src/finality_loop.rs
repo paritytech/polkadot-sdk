@@ -49,10 +49,10 @@ pub struct FinalitySyncParams {
 	/// to the target chain => bridge applications will run faster, but pallet storage may explode
 	/// (but if pruning is there, then it's fine).
 	pub tick: Duration,
-	/// Number of finality proofs to keep in internal buffer between loop wakeups.
+	/// Number of finality proofs to keep in internal buffer between loop iterations.
 	///
 	/// While in "major syncing" state, we still read finality proofs from the stream. They're stored
-	/// in the internal buffer between loop wakeups. When we're close to the tip of the chain, we may
+	/// in the internal buffer between loop iterations. When we're close to the tip of the chain, we may
 	/// meet finality delays if headers are not finalized frequently. So instead of waiting for next
 	/// finality proof to appear in the stream, we may use existing proof from that buffer.
 	pub recent_finality_proofs_limit: usize,
