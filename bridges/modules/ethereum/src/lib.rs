@@ -218,8 +218,8 @@ impl<Submitter> ImportContext<Submitter> {
 		&self.validators_set
 	}
 
-	/// Returns reference to the latest block which has signalled change of validators set.
-	/// This may point to parent if parent has signalled change.
+	/// Returns reference to the latest block which has signaled change of validators set.
+	/// This may point to parent if parent has signaled change.
 	pub fn last_signal_block(&self) -> Option<HeaderId> {
 		match self.parent_scheduled_change {
 			Some(_) => Some(HeaderId {
