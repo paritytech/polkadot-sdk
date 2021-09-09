@@ -164,12 +164,20 @@ pub mod pallet {
 			let set_id = authority_set.set_id;
 			verify_justification::<T, I>(&justification, hash, *number, authority_set)?;
 
-			let _enacted = try_enact_authority_change::<T, I>(&finality_target, set_id)?;
+			let is_authorities_change_enacted = try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
 			insert_header::<T, I>(finality_target, hash);
 			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
 
-			Ok(().into())
+			// mandatory header is a header that changes authorities set. The pallet can't go further
+			// without importing this header. So every bridge MUST import mandatory headers.
+			//
+			// We don't want to charge extra costs for mandatory operations. So relayer is not paying
+			// fee for mandatory headers import transactions.
+			let is_mandatory_header = is_authorities_change_enacted;
+			let pays_fee = if is_mandatory_header { Pays::No } else { Pays::Yes };
+
+			Ok(pays_fee.into())
 		}
 
 		/// Bootstrap the bridge pallet with an initial header and authority set from which to sync.
@@ -792,7 +800,13 @@ mod tests {
 	fn succesfully_imports_header_with_valid_finality() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1));
+			assert_ok!(
+				submit_finality_proof(1),
+				PostDispatchInfo {
+					actual_weight: None,
+					pays_fee: frame_support::weights::Pays::Yes,
+				},
+			);
 
 			let header = test_header(1);
 			assert_eq!(<BestFinalized<TestRuntime>>::get(), header.hash());
@@ -889,11 +903,13 @@ mod tests {
 			let justification = make_default_justification(&header);
 
 			// Let's import our test header
-			assert_ok!(Pallet::<TestRuntime>::submit_finality_proof(
-				Origin::signed(1),
-				header.clone(),
-				justification
-			));
+			assert_ok!(
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header.clone(), justification),
+				PostDispatchInfo {
+					actual_weight: None,
+					pays_fee: frame_support::weights::Pays::No,
+				},
+			);
 
 			// Make sure that our header is the best finalized
 			assert_eq!(<BestFinalized<TestRuntime>>::get(), header.hash());
