@@ -89,7 +89,7 @@ pub type AccountIndex = u32;
 pub type Balance = bp_millau::Balance;
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+pub type Index = bp_millau::Index;
 
 /// A hash of some data used by the chain.
 pub type Hash = bp_millau::Hash;

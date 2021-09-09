@@ -28,7 +28,7 @@ use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Chain, Client, TransactionSignScheme, UnsignedTransaction};
+use relay_substrate_client::{Chain, Client, IndexOf, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
 use substrate_relay_helper::messages_lane::{
 	select_delivery_transaction_limits, MessagesRelayParams, StandaloneMessagesMetrics, SubstrateMessageLane,
@@ -76,7 +76,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 
 	fn make_messages_receiving_proof_transaction(
 		&self,
-		transaction_nonce: <Rialto as Chain>::Index,
+		transaction_nonce: IndexOf<Rialto>,
 		_generated_at_block: MillauHeaderId,
 		proof: <Self::MessageLane as MessageLane>::MessagesReceivingProof,
 	) -> Bytes {
@@ -108,7 +108,7 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 
 	fn make_messages_delivery_transaction(
 		&self,
-		transaction_nonce: <Millau as Chain>::Index,
+		transaction_nonce: IndexOf<Millau>,
 		_generated_at_header: RialtoHeaderId,
 		_nonces: RangeInclusive<MessageNonce>,
 		proof: <Self::MessageLane as MessageLane>::MessagesProof,

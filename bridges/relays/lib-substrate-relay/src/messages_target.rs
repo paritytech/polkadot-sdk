@@ -108,7 +108,7 @@ where
 		BlockNumber = <P::MessageLane as MessageLane>::SourceHeaderNumber,
 		Balance = <P::MessageLane as MessageLane>::SourceChainBalance,
 	>,
-	BalanceOf<P::SourceChain>: TryFrom<<P::TargetChain as Chain>::Balance> + Bounded,
+	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>> + Bounded,
 	P::TargetChain: Chain<
 		Hash = <P::MessageLane as MessageLane>::TargetHeaderHash,
 		BlockNumber = <P::MessageLane as MessageLane>::TargetHeaderNumber,
@@ -454,7 +454,7 @@ mod tests {
 
 		fn make_messages_receiving_proof_transaction(
 			&self,
-			_transaction_nonce: <Rococo as Chain>::Index,
+			_transaction_nonce: IndexOf<Rococo>,
 			_generated_at_block: TargetHeaderIdOf<Self::MessageLane>,
 			_proof: <Self::MessageLane as MessageLane>::MessagesReceivingProof,
 		) -> Bytes {
@@ -467,7 +467,7 @@ mod tests {
 
 		fn make_messages_delivery_transaction(
 			&self,
-			_transaction_nonce: <Wococo as Chain>::Index,
+			_transaction_nonce: IndexOf<Wococo>,
 			_generated_at_header: SourceHeaderIdOf<Self::MessageLane>,
 			_nonces: RangeInclusive<MessageNonce>,
 			_proof: <Self::MessageLane as MessageLane>::MessagesProof,

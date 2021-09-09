@@ -31,6 +31,11 @@ impl ChainBase for Polkadot {
 	type Hash = bp_polkadot::Hash;
 	type Hasher = bp_polkadot::Hasher;
 	type Header = bp_polkadot::Header;
+
+	type AccountId = bp_polkadot::AccountId;
+	type Balance = bp_polkadot::Balance;
+	type Index = bp_polkadot::Nonce;
+	type Signature = bp_polkadot::Signature;
 }
 
 impl Chain for Polkadot {
@@ -39,11 +44,8 @@ impl Chain for Polkadot {
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_polkadot::EXTRA_STORAGE_PROOF_SIZE;
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_polkadot::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
-	type AccountId = bp_polkadot::AccountId;
-	type Index = bp_polkadot::Nonce;
 	type SignedBlock = bp_polkadot::SignedBlock;
 	type Call = ();
-	type Balance = bp_polkadot::Balance;
 	type WeightToFee = bp_polkadot::WeightToFee;
 }
 
