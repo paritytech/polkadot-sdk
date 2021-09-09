@@ -177,6 +177,18 @@ impl SendMessage {
 			})?;
 
 			let source_genesis_hash = *source_client.genesis_hash();
+			let estimated_transaction_fee = source_client
+				.estimate_extrinsic_fee(Bytes(
+					Source::sign_transaction(
+						source_genesis_hash,
+						&source_sign,
+						relay_substrate_client::TransactionEra::immortal(),
+						0,
+						send_message_call.clone(),
+					)
+					.encode(),
+				))
+				.await?;
 			source_client
 				.submit_signed_extrinsic(source_sign.public().into(), move |_, transaction_nonce| {
 					let signed_source_call = Source::sign_transaction(
@@ -196,6 +208,15 @@ impl SendMessage {
 						signed_source_call.len(),
 						dispatch_weight,
 						fee,
+					);
+					log::info!(
+						target: "bridge",
+						"The source account ({:?}) balance will be reduced by (at most) {} (message fee) + {} (tx fee	) = {} {} tokens",
+						AccountId32::from(source_sign.public()),
+						fee.0,
+						estimated_transaction_fee.inclusion_fee(),
+						fee.0.saturating_add(estimated_transaction_fee.inclusion_fee() as _),
+						Source::NAME,
 					);
 					log::info!(
 						target: "bridge",
