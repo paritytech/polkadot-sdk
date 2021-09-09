@@ -32,7 +32,8 @@ pub mod metrics;
 use std::time::Duration;
 
 pub use crate::chain::{
-	BalanceOf, BlockWithJustification, Chain, ChainWithBalances, IndexOf, TransactionSignScheme, WeightToFeeOf,
+	BalanceOf, BlockWithJustification, Chain, ChainWithBalances, IndexOf, TransactionSignScheme, UnsignedTransaction,
+	WeightToFeeOf,
 };
 pub use crate::client::{Client, JustificationsSubscription, OpaqueGrandpaAuthoritiesSet};
 pub use crate::error::{Error, Result};

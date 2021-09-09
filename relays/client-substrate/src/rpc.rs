@@ -43,6 +43,8 @@ jsonrpsee_proc_macros::rpc_client_api! {
 		fn system_account_next_index(account_id: C::AccountId) -> C::Index;
 		#[rpc(method = "author_submitExtrinsic", positional_params)]
 		fn author_submit_extrinsic(extrinsic: Bytes) -> C::Hash;
+		#[rpc(method = "author_pendingExtrinsics", positional_params)]
+		fn author_pending_extrinsics() -> Vec<Bytes>;
 		#[rpc(method = "state_call", positional_params)]
 		fn state_call(method: String, data: Bytes, at_block: Option<C::Hash>) -> Bytes;
 		#[rpc(method = "state_getStorage", positional_params)]

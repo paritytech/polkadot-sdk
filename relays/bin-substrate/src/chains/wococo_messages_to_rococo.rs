@@ -26,7 +26,7 @@ use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
 use relay_rococo_client::{HeaderId as RococoHeaderId, Rococo, SigningParams as RococoSigningParams};
-use relay_substrate_client::{Chain, Client, TransactionSignScheme};
+use relay_substrate_client::{Chain, Client, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
 use relay_wococo_client::{HeaderId as WococoHeaderId, SigningParams as WococoSigningParams, Wococo};
 use substrate_relay_helper::messages_lane::{
@@ -90,8 +90,7 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 			genesis_hash,
 			&self.message_lane.source_sign,
 			relay_substrate_client::TransactionEra::immortal(),
-			transaction_nonce,
-			call,
+			UnsignedTransaction::new(call, transaction_nonce),
 		);
 		log::trace!(
 			target: "bridge",
@@ -135,8 +134,7 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 			genesis_hash,
 			&self.message_lane.target_sign,
 			relay_substrate_client::TransactionEra::immortal(),
-			transaction_nonce,
-			call,
+			UnsignedTransaction::new(call, transaction_nonce),
 		);
 		log::trace!(
 			target: "bridge",

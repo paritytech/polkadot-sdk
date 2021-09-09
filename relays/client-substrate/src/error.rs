@@ -19,6 +19,7 @@
 use jsonrpsee_ws_client::Error as RpcError;
 use relay_utils::MaybeConnectionError;
 use sc_rpc_api::system::Health;
+use sp_runtime::transaction_validity::TransactionValidityError;
 
 /// Result type used by Substrate client.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -44,6 +45,8 @@ pub enum Error {
 	ClientNotSynced(Health),
 	/// An error has happened when we have tried to parse storage proof.
 	StorageProofError(bp_runtime::StorageProofError),
+	/// The Substrate transaction is invalid.
+	TransactionInvalid(TransactionValidityError),
 	/// Custom logic error.
 	Custom(String),
 }
@@ -59,6 +62,7 @@ impl std::error::Error for Error {
 			Self::MissingMandatoryCodeEntry => None,
 			Self::ClientNotSynced(_) => None,
 			Self::StorageProofError(_) => None,
+			Self::TransactionInvalid(_) => None,
 			Self::Custom(_) => None,
 		}
 	}
@@ -79,6 +83,12 @@ impl From<std::io::Error> for Error {
 impl From<tokio::task::JoinError> for Error {
 	fn from(error: tokio::task::JoinError) -> Self {
 		Error::Custom(format!("Failed to wait tokio task: {}", error))
+	}
+}
+
+impl From<TransactionValidityError> for Error {
+	fn from(error: TransactionValidityError) -> Self {
+		Error::TransactionInvalid(error)
 	}
 }
 
@@ -105,6 +115,7 @@ impl std::fmt::Display for Error {
 			Self::MissingMandatoryCodeEntry => "Mandatory :code: entry is missing from runtime storage".into(),
 			Self::StorageProofError(e) => format!("Error when parsing storage proof: {:?}", e),
 			Self::ClientNotSynced(health) => format!("Substrate client is not synced: {}", health),
+			Self::TransactionInvalid(e) => format!("Substrate transaction is invalid: {:?}", e),
 			Self::Custom(e) => e.clone(),
 		};
 

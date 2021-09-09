@@ -16,10 +16,8 @@
 
 //! Types used to connect to the Westend chain.
 
-use codec::Encode;
-use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, TransactionSignScheme};
-use sp_core::{storage::StorageKey, Pair};
-use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
+use relay_substrate_client::{Chain, ChainBase, ChainWithBalances};
+use sp_core::storage::StorageKey;
 use std::time::Duration;
 
 /// Westend header id.
@@ -58,37 +56,3 @@ impl ChainWithBalances for Westend {
 		StorageKey(bp_westend::account_info_storage_key(account_id))
 	}
 }
-
-impl TransactionSignScheme for Westend {
-	type Chain = Westend;
-	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction = bp_westend::UncheckedExtrinsic;
-
-	fn sign_transaction(
-		genesis_hash: <Self::Chain as ChainBase>::Hash,
-		signer: &Self::AccountKeyPair,
-		era: relay_substrate_client::TransactionEraOf<Self::Chain>,
-		signer_nonce: <Self::Chain as Chain>::Index,
-		call: <Self::Chain as Chain>::Call,
-	) -> Self::SignedTransaction {
-		let raw_payload = SignedPayload::new(
-			call,
-			bp_westend::SignedExtensions::new(bp_westend::VERSION, era, genesis_hash, signer_nonce, 0),
-		)
-		.expect("SignedExtension never fails.");
-
-		let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-		let signer: sp_runtime::MultiSigner = signer.public().into();
-		let (call, extra, _) = raw_payload.deconstruct();
-
-		bp_westend::UncheckedExtrinsic::new_signed(
-			call,
-			sp_runtime::MultiAddress::Id(signer.into_account()),
-			signature.into(),
-			extra,
-		)
-	}
-}
-
-/// Westend signing params.
-pub type SigningParams = sp_core::sr25519::Pair;

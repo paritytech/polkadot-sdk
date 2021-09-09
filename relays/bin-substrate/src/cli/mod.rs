@@ -35,6 +35,7 @@ mod init_bridge;
 mod relay_headers;
 mod relay_headers_and_messages;
 mod relay_messages;
+mod resubmit_transactions;
 
 /// Parse relay CLI args.
 pub fn parse_args() -> Command {
@@ -86,6 +87,8 @@ pub enum Command {
 	EstimateFee(estimate_fee::EstimateFee),
 	/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
 	DeriveAccount(derive_account::DeriveAccount),
+	/// Resubmit transactions with increased tip if they are stalled.
+	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
 }
 
 impl Command {
@@ -116,6 +119,7 @@ impl Command {
 			Self::EncodeMessage(arg) => arg.run().await?,
 			Self::EstimateFee(arg) => arg.run().await?,
 			Self::DeriveAccount(arg) => arg.run().await?,
+			Self::ResubmitTransactions(arg) => arg.run().await?,
 		}
 		Ok(())
 	}
@@ -360,7 +364,7 @@ macro_rules! declare_chain_options {
 	($chain:ident, $chain_prefix:ident) => {
 		paste::item! {
 			#[doc = $chain " connection params."]
-			#[derive(StructOpt, Debug, PartialEq, Eq)]
+			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
 			pub struct [<$chain ConnectionParams>] {
 				#[doc = "Connect to " $chain " node at given host."]
 				#[structopt(long, default_value = "127.0.0.1")]

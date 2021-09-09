@@ -28,7 +28,7 @@ use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
 use relay_millau_client::{HeaderId as MillauHeaderId, Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Chain, Client, TransactionSignScheme};
+use relay_substrate_client::{Chain, Client, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
 use substrate_relay_helper::messages_lane::{
 	select_delivery_transaction_limits, MessagesRelayParams, StandaloneMessagesMetrics, SubstrateMessageLane,
@@ -89,8 +89,7 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 			genesis_hash,
 			&self.message_lane.source_sign,
 			relay_substrate_client::TransactionEra::immortal(),
-			transaction_nonce,
-			call,
+			UnsignedTransaction::new(call, transaction_nonce),
 		);
 		log::trace!(
 			target: "bridge",
@@ -134,8 +133,7 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 			genesis_hash,
 			&self.message_lane.target_sign,
 			relay_substrate_client::TransactionEra::immortal(),
-			transaction_nonce,
-			call,
+			UnsignedTransaction::new(call, transaction_nonce),
 		);
 		log::trace!(
 			target: "bridge",
@@ -274,13 +272,15 @@ pub(crate) async fn update_rialto_to_millau_conversion_rate(
 					genesis_hash,
 					&signer,
 					relay_substrate_client::TransactionEra::immortal(),
-					transaction_nonce,
-					millau_runtime::MessagesCall::update_pallet_parameter(
-						millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
-							sp_runtime::FixedU128::from_float(updated_rate),
-						),
-					)
-					.into(),
+					UnsignedTransaction::new(
+						millau_runtime::MessagesCall::update_pallet_parameter(
+							millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
+								sp_runtime::FixedU128::from_float(updated_rate),
+							),
+						)
+						.into(),
+						transaction_nonce,
+					),
 				)
 				.encode(),
 			)
