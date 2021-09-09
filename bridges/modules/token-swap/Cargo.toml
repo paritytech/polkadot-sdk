@@ -21,12 +21,12 @@ pallet-bridge-dispatch = { path = "../dispatch", default-features = false }
 
 # Substrate Dependencies
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" , default-features = false, optional = true }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
