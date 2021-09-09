@@ -32,13 +32,14 @@ pub mod metrics;
 use std::time::Duration;
 
 pub use crate::chain::{
-	BalanceOf, BlockWithJustification, Chain, ChainWithBalances, IndexOf, TransactionSignScheme, UnsignedTransaction,
-	WeightToFeeOf,
+	BlockWithJustification, Chain, ChainWithBalances, TransactionSignScheme, UnsignedTransaction, WeightToFeeOf,
 };
 pub use crate::client::{Client, JustificationsSubscription, OpaqueGrandpaAuthoritiesSet};
 pub use crate::error::{Error, Result};
 pub use crate::sync_header::SyncHeader;
-pub use bp_runtime::{BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf, TransactionEra, TransactionEraOf};
+pub use bp_runtime::{
+	BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf, IndexOf, TransactionEra, TransactionEraOf,
+};
 
 /// Header id used by the chain.
 pub type HeaderIdOf<C> = relay_utils::HeaderId<HashOf<C>, BlockNumberOf<C>>;
