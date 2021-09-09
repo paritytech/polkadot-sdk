@@ -22,6 +22,7 @@ use crate::on_demand_headers::OnDemandHeadersRelay;
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce};
+use bp_runtime::{AccountIdOf, IndexOf};
 use frame_support::weights::Weight;
 use messages_relay::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
 use relay_substrate_client::{
@@ -101,24 +102,24 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 	type TargetChain: Chain;
 
 	/// Returns id of account that we're using to sign transactions at target chain (messages proof).
-	fn target_transactions_author(&self) -> <Self::TargetChain as Chain>::AccountId;
+	fn target_transactions_author(&self) -> AccountIdOf<Self::TargetChain>;
 
 	/// Make messages delivery transaction.
 	fn make_messages_delivery_transaction(
 		&self,
-		transaction_nonce: <Self::TargetChain as Chain>::Index,
+		transaction_nonce: IndexOf<Self::TargetChain>,
 		generated_at_header: SourceHeaderIdOf<Self::MessageLane>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: <Self::MessageLane as MessageLane>::MessagesProof,
 	) -> Bytes;
 
 	/// Returns id of account that we're using to sign transactions at source chain (delivery proof).
-	fn source_transactions_author(&self) -> <Self::SourceChain as Chain>::AccountId;
+	fn source_transactions_author(&self) -> AccountIdOf<Self::SourceChain>;
 
 	/// Make messages receiving proof transaction.
 	fn make_messages_receiving_proof_transaction(
 		&self,
-		transaction_nonce: <Self::SourceChain as Chain>::Index,
+		transaction_nonce: IndexOf<Self::SourceChain>,
 		generated_at_header: TargetHeaderIdOf<Self::MessageLane>,
 		proof: <Self::MessageLane as MessageLane>::MessagesReceivingProof,
 	) -> Bytes;
