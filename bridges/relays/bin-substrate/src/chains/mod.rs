@@ -67,7 +67,7 @@ mod tests {
 	use frame_support::dispatch::GetDispatchInfo;
 	use relay_millau_client::Millau;
 	use relay_rialto_client::Rialto;
-	use relay_substrate_client::TransactionSignScheme;
+	use relay_substrate_client::{TransactionSignScheme, UnsignedTransaction};
 	use sp_core::Pair;
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -215,8 +215,7 @@ mod tests {
 			Default::default(),
 			&sp_keyring::AccountKeyring::Alice.pair(),
 			relay_substrate_client::TransactionEra::immortal(),
-			0,
-			rialto_call.clone(),
+			UnsignedTransaction::new(rialto_call.clone(), 0),
 		);
 		let extra_bytes_in_transaction = rialto_tx.encode().len() - rialto_call.encode().len();
 		assert!(
@@ -234,8 +233,7 @@ mod tests {
 			Default::default(),
 			&sp_keyring::AccountKeyring::Alice.pair(),
 			relay_substrate_client::TransactionEra::immortal(),
-			0,
-			millau_call.clone(),
+			UnsignedTransaction::new(millau_call.clone(), 0),
 		);
 		let extra_bytes_in_transaction = millau_tx.encode().len() - millau_call.encode().len();
 		assert!(
