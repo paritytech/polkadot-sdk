@@ -32,7 +32,7 @@ pub mod types;
 /// Ethereum-over-websocket connection params.
 #[derive(Debug, Clone)]
 pub struct ConnectionParams {
-	/// Websocket server hostname.
+	/// Websocket server host name.
 	pub host: String,
 	/// Websocket server TCP port.
 	pub port: u16,
