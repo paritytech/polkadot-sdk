@@ -31,8 +31,8 @@ pub type AccountId = u64;
 pub type Balance = u64;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type BridgedAccountId = u64;
-pub type BridgedAccountPublic = u64;
-pub type BridgedAccountSignature = u64;
+pub type BridgedAccountPublic = sp_runtime::testing::UintAuthorityId;
+pub type BridgedAccountSignature = sp_runtime::testing::TestSignature;
 pub type BridgedBalance = u64;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
@@ -122,11 +122,22 @@ impl pallet_bridge_token_swap::Config for TestRuntime {
 	type ThisCurrency = pallet_balances::Pallet<TestRuntime>;
 	type FromSwapToThisAccountIdConverter = TestAccountConverter;
 
-	type BridgedBalance = BridgedBalance;
-	type BridgedAccountId = BridgedAccountId;
-	type BridgedAccountPublic = BridgedAccountPublic;
-	type BridgedAccountSignature = BridgedAccountSignature;
+	type BridgedChain = BridgedChain;
 	type FromBridgedToThisAccountIdConverter = TestAccountConverter;
+}
+
+pub struct BridgedChain;
+
+impl bp_runtime::Chain for BridgedChain {
+	type BlockNumber = u64;
+	type Hash = H256;
+	type Hasher = BlakeTwo256;
+	type Header = sp_runtime::generic::Header<u64, BlakeTwo256>;
+
+	type AccountId = BridgedAccountId;
+	type Balance = BridgedBalance;
+	type Index = u64;
+	type Signature = BridgedAccountSignature;
 }
 
 pub struct TestMessagesBridge;

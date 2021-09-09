@@ -18,7 +18,8 @@
 
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
-	Chain, ChainBase, ChainWithBalances, TransactionEraOf, TransactionSignScheme, UnsignedTransaction,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, IndexOf, TransactionEraOf, TransactionSignScheme,
+	UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -36,6 +37,11 @@ impl ChainBase for Millau {
 	type Hash = millau_runtime::Hash;
 	type Hasher = millau_runtime::Hashing;
 	type Header = millau_runtime::Header;
+
+	type AccountId = millau_runtime::AccountId;
+	type Balance = millau_runtime::Balance;
+	type Index = millau_runtime::Index;
+	type Signature = millau_runtime::Signature;
 }
 
 impl Chain for Millau {
@@ -44,11 +50,8 @@ impl Chain for Millau {
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_millau::EXTRA_STORAGE_PROOF_SIZE;
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
-	type AccountId = millau_runtime::AccountId;
-	type Index = millau_runtime::Index;
 	type SignedBlock = millau_runtime::SignedBlock;
 	type Call = millau_runtime::Call;
-	type Balance = millau_runtime::Balance;
 	type WeightToFee = bp_millau::WeightToFee;
 }
 
@@ -115,10 +118,10 @@ impl TransactionSignScheme for Millau {
 		let extra = &tx.signature.as_ref()?.2;
 		Some(UnsignedTransaction {
 			call: tx.function,
-			nonce: Compact::<<Self::Chain as Chain>::Index>::decode(&mut &extra.4.encode()[..])
+			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.4.encode()[..])
 				.ok()?
 				.into(),
-			tip: Compact::<<Self::Chain as Chain>::Balance>::decode(&mut &extra.6.encode()[..])
+			tip: Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.6.encode()[..])
 				.ok()?
 				.into(),
 		})

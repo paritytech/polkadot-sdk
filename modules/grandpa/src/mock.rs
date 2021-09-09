@@ -22,7 +22,7 @@ use frame_support::{construct_runtime, parameter_types, weights::Weight};
 use sp_runtime::{
 	testing::{Header, H256},
 	traits::{BlakeTwo256, IdentityLookup},
-	Perbill,
+	AnySignature, Perbill,
 };
 
 pub type AccountId = u64;
@@ -101,6 +101,11 @@ impl Chain for TestBridgedChain {
 	type Hash = <TestRuntime as frame_system::Config>::Hash;
 	type Hasher = <TestRuntime as frame_system::Config>::Hashing;
 	type Header = <TestRuntime as frame_system::Config>::Header;
+
+	type AccountId = AccountId;
+	type Balance = u64;
+	type Index = u64;
+	type Signature = AnySignature;
 }
 
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {

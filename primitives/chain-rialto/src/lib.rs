@@ -148,6 +148,9 @@ pub type Balance = u128;
 /// An instant or duration in time.
 pub type Moment = u64;
 
+/// Index of a transaction in the chain.
+pub type Index = u32;
+
 /// Weight-to-Fee type used by Rialto.
 pub type WeightToFee = IdentityFee<Balance>;
 
@@ -160,6 +163,11 @@ impl Chain for Rialto {
 	type Hash = Hash;
 	type Hasher = Hasher;
 	type Header = Header;
+
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Index = Index;
+	type Signature = Signature;
 }
 
 /// Convert a 256-bit hash into an AccountId.

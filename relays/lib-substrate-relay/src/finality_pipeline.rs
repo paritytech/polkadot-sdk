@@ -19,6 +19,7 @@
 use crate::finality_target::SubstrateFinalityTarget;
 
 use bp_header_chain::justification::GrandpaJustification;
+use bp_runtime::AccountIdOf;
 use finality_relay::{FinalitySyncParams, FinalitySyncPipeline};
 use relay_substrate_client::{finality_source::FinalitySource, BlockNumberOf, Chain, Client, HashOf, SyncHeader};
 use relay_utils::{metrics::MetricsParams, BlockNumberBase};
@@ -63,13 +64,13 @@ pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 	fn start_relay_guards(&self) {}
 
 	/// Returns id of account that we're using to sign transactions at target chain.
-	fn transactions_author(&self) -> <Self::TargetChain as Chain>::AccountId;
+	fn transactions_author(&self) -> AccountIdOf<Self::TargetChain>;
 
 	/// Make submit header transaction.
 	fn make_submit_finality_proof_transaction(
 		&self,
 		era: bp_runtime::TransactionEraOf<Self::TargetChain>,
-		transaction_nonce: <Self::TargetChain as Chain>::Index,
+		transaction_nonce: bp_runtime::IndexOf<Self::TargetChain>,
 		header: <Self::FinalitySyncPipeline as FinalitySyncPipeline>::Header,
 		proof: <Self::FinalitySyncPipeline as FinalitySyncPipeline>::FinalityProof,
 	) -> Bytes;

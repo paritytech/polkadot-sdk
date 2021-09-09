@@ -24,7 +24,10 @@ use sp_core::hash::H256;
 use sp_io::hashing::blake2_256;
 use sp_std::convert::TryFrom;
 
-pub use chain::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf, TransactionEraOf};
+pub use chain::{
+	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf, IndexOf, SignatureOf,
+	TransactionEraOf,
+};
 pub use storage_proof::{Error as StorageProofError, StorageProofChecker};
 
 #[cfg(feature = "std")]

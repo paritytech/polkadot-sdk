@@ -31,6 +31,11 @@ impl ChainBase for Kusama {
 	type Hash = bp_kusama::Hash;
 	type Hasher = bp_kusama::Hasher;
 	type Header = bp_kusama::Header;
+
+	type AccountId = bp_kusama::AccountId;
+	type Balance = bp_kusama::Balance;
+	type Index = bp_kusama::Nonce;
+	type Signature = bp_kusama::Signature;
 }
 
 impl Chain for Kusama {
@@ -39,11 +44,8 @@ impl Chain for Kusama {
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_kusama::EXTRA_STORAGE_PROOF_SIZE;
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_kusama::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
-	type AccountId = bp_kusama::AccountId;
-	type Index = bp_kusama::Nonce;
 	type SignedBlock = bp_kusama::SignedBlock;
 	type Call = ();
-	type Balance = bp_kusama::Balance;
 	type WeightToFee = bp_kusama::WeightToFee;
 }
 

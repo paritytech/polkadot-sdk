@@ -16,17 +16,14 @@
 
 use bp_runtime::{Chain as ChainBase, TransactionEraOf};
 use codec::{Codec, Encode};
-use frame_support::{weights::WeightToFeePolynomial, Parameter};
+use frame_support::weights::WeightToFeePolynomial;
 use jsonrpsee_ws_client::{DeserializeOwned, Serialize};
-use num_traits::{Bounded, CheckedSub, SaturatingAdd, Zero};
+use num_traits::Zero;
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{
-		AtLeast32Bit, AtLeast32BitUnsigned, Block as BlockT, Dispatchable, MaybeDisplay, MaybeSerialize,
-		MaybeSerializeDeserialize, Member,
-	},
-	EncodedJustification, FixedPointOperand,
+	traits::{Block as BlockT, Dispatchable, Member},
+	EncodedJustification,
 };
 use std::{fmt::Debug, time::Duration};
 
@@ -44,49 +41,15 @@ pub trait Chain: ChainBase + Clone {
 	/// Maximal size (in bytes) of SCALE-encoded account id on this chain.
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32;
 
-	/// The user account identifier type for the runtime.
-	type AccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
-	/// Index of a transaction used by the chain.
-	type Index: Parameter
-		+ Member
-		+ MaybeSerialize
-		+ Debug
-		+ Default
-		+ MaybeDisplay
-		+ DeserializeOwned
-		+ AtLeast32Bit
-		+ Copy;
 	/// Block type.
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
 	/// The aggregated `Call` type.
 	type Call: Clone + Dispatchable + Debug;
-	/// Balance of an account in native tokens.
-	///
-	/// The chain may support multiple tokens, but this particular type is for token that is used
-	/// to pay for transaction dispatch, to reward different relayers (headers, messages), etc.
-	type Balance: AtLeast32BitUnsigned
-		+ FixedPointOperand
-		+ Parameter
-		+ Parameter
-		+ Member
-		+ DeserializeOwned
-		+ Clone
-		+ Copy
-		+ Bounded
-		+ CheckedSub
-		+ PartialOrd
-		+ SaturatingAdd
-		+ Zero
-		+ std::convert::TryFrom<sp_core::U256>;
 
 	/// Type that is used by the chain, to convert from weight to fee.
 	type WeightToFee: WeightToFeePolynomial<Balance = Self::Balance>;
 }
 
-/// Balance type used by the chain
-pub type BalanceOf<C> = <C as Chain>::Balance;
-/// Index type used by the chain
-pub type IndexOf<C> = <C as Chain>::Index;
 /// Weight-to-Fee type used by the chain
 pub type WeightToFeeOf<C> = <C as Chain>::WeightToFee;
 

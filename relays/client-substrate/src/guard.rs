@@ -165,6 +165,7 @@ impl<C: ChainWithBalances> Environment<C> for Client<C> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::weights::IdentityFee;
 	use futures::{
 		channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
 		future::FutureExt,
@@ -180,6 +181,11 @@ mod tests {
 		type Hash = sp_core::H256;
 		type Hasher = sp_runtime::traits::BlakeTwo256;
 		type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
+
+		type AccountId = u32;
+		type Balance = u32;
+		type Index = u32;
+		type Signature = sp_runtime::testing::TestSignature;
 	}
 
 	impl Chain for TestChain {
@@ -188,13 +194,10 @@ mod tests {
 		const STORAGE_PROOF_OVERHEAD: u32 = 0;
 		const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 0;
 
-		type AccountId = u32;
-		type Index = u32;
 		type SignedBlock =
 			sp_runtime::generic::SignedBlock<sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>>;
 		type Call = ();
-		type Balance = u32;
-		type WeightToFee = frame_support::weights::IdentityFee<u32>;
+		type WeightToFee = IdentityFee<u32>;
 	}
 
 	impl ChainWithBalances for TestChain {
