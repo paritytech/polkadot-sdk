@@ -26,7 +26,7 @@ use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
 use relay_rococo_client::{HeaderId as RococoHeaderId, Rococo, SigningParams as RococoSigningParams};
-use relay_substrate_client::{Chain, Client, TransactionSignScheme, UnsignedTransaction};
+use relay_substrate_client::{Chain, Client, IndexOf, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
 use relay_wococo_client::{HeaderId as WococoHeaderId, SigningParams as WococoSigningParams, Wococo};
 use substrate_relay_helper::messages_lane::{
@@ -74,7 +74,7 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 
 	fn make_messages_receiving_proof_transaction(
 		&self,
-		transaction_nonce: <Wococo as Chain>::Index,
+		transaction_nonce: IndexOf<Wococo>,
 		_generated_at_block: RococoHeaderId,
 		proof: <Self::MessageLane as MessageLane>::MessagesReceivingProof,
 	) -> Bytes {
@@ -108,7 +108,7 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 
 	fn make_messages_delivery_transaction(
 		&self,
-		transaction_nonce: <Rococo as Chain>::Index,
+		transaction_nonce: IndexOf<Rococo>,
 		_generated_at_header: WococoHeaderId,
 		_nonces: RangeInclusive<MessageNonce>,
 		proof: <Self::MessageLane as MessageLane>::MessagesProof,

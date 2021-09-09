@@ -17,6 +17,7 @@
 use crate::cli::bridge::FullBridge;
 use crate::cli::{Balance, CliChain, HexBytes, HexLaneId, SourceConnectionParams};
 use crate::select_full_bridge;
+use bp_runtime::BalanceOf;
 use codec::{Decode, Encode};
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
@@ -53,7 +54,7 @@ impl EstimateFee {
 			let lane = lane.into();
 			let payload = Source::encode_message(payload).map_err(|e| anyhow::format_err!("{:?}", e))?;
 
-			let fee: <Source as Chain>::Balance =
+			let fee: BalanceOf<Source> =
 				estimate_message_delivery_and_dispatch_fee(&source_client, ESTIMATE_MESSAGE_FEE_METHOD, lane, payload)
 					.await?;
 
