@@ -233,6 +233,9 @@ pub type Balance = u128;
 pub type UncheckedExtrinsic<Call> =
 	generic::UncheckedExtrinsic<MultiAddress<AccountId, ()>, Call, Signature, SignedExtensions<Call>>;
 
+/// Account address, used by the Polkadot-like chain.
+pub type Address = MultiAddress<AccountId, ()>;
+
 /// A type of the data encoded as part of the transaction.
 pub type SignedExtra = (
 	(),
@@ -298,6 +301,18 @@ impl<Call> SignedExtensions<Call> {
 			),
 			_data: Default::default(),
 		}
+	}
+}
+
+impl<Call> SignedExtensions<Call> {
+	/// Return signer nonce, used to craft transaction.
+	pub fn nonce(&self) -> Nonce {
+		self.encode_payload.4.into()
+	}
+
+	/// Return transaction tip.
+	pub fn tip(&self) -> Balance {
+		self.encode_payload.6.into()
 	}
 }
 
