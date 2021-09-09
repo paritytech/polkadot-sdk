@@ -24,7 +24,7 @@ use crate::cli::{
 use bp_message_dispatch::{CallOrigin, MessagePayload};
 use codec::Encode;
 use frame_support::weights::Weight;
-use relay_substrate_client::{Chain, TransactionSignScheme};
+use relay_substrate_client::{Chain, TransactionSignScheme, UnsignedTransaction};
 use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSignature, MultiSigner};
 use std::fmt::Debug;
@@ -183,8 +183,7 @@ impl SendMessage {
 						source_genesis_hash,
 						&source_sign,
 						relay_substrate_client::TransactionEra::immortal(),
-						0,
-						send_message_call.clone(),
+						UnsignedTransaction::new(send_message_call.clone(), 0),
 					)
 					.encode(),
 				))
@@ -195,8 +194,7 @@ impl SendMessage {
 						source_genesis_hash,
 						&source_sign,
 						relay_substrate_client::TransactionEra::immortal(),
-						transaction_nonce,
-						send_message_call,
+						UnsignedTransaction::new(send_message_call, transaction_nonce),
 					)
 					.encode();
 

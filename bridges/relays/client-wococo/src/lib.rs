@@ -17,7 +17,9 @@
 //! Types used to connect to the Wococo-Substrate chain.
 
 use codec::Encode;
-use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, TransactionSignScheme};
+use relay_substrate_client::{
+	Chain, ChainBase, ChainWithBalances, TransactionEraOf, TransactionSignScheme, UnsignedTransaction,
+};
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
@@ -69,13 +71,12 @@ impl TransactionSignScheme for Wococo {
 	fn sign_transaction(
 		genesis_hash: <Self::Chain as ChainBase>::Hash,
 		signer: &Self::AccountKeyPair,
-		era: bp_runtime::TransactionEraOf<Self::Chain>,
-		signer_nonce: <Self::Chain as Chain>::Index,
-		call: <Self::Chain as Chain>::Call,
+		era: TransactionEraOf<Self::Chain>,
+		unsigned: UnsignedTransaction<Self::Chain>,
 	) -> Self::SignedTransaction {
 		let raw_payload = SignedPayload::new(
-			call,
-			bp_wococo::SignedExtensions::new(bp_wococo::VERSION, era, genesis_hash, signer_nonce, 0),
+			unsigned.call,
+			bp_wococo::SignedExtensions::new(bp_wococo::VERSION, era, genesis_hash, unsigned.nonce, unsigned.tip),
 		)
 		.expect("SignedExtension never fails.");
 
@@ -89,6 +90,26 @@ impl TransactionSignScheme for Wococo {
 			signature.into(),
 			extra,
 		)
+	}
+
+	fn is_signed(tx: &Self::SignedTransaction) -> bool {
+		tx.signature.is_some()
+	}
+
+	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
+		tx.signature
+			.as_ref()
+			.map(|(address, _, _)| *address == bp_wococo::AccountId::from(*signer.public().as_array_ref()).into())
+			.unwrap_or(false)
+	}
+
+	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>> {
+		let extra = &tx.signature.as_ref()?.2;
+		Some(UnsignedTransaction {
+			call: tx.function,
+			nonce: extra.nonce(),
+			tip: extra.tip(),
+		})
 	}
 }
 

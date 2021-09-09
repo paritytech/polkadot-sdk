@@ -34,6 +34,15 @@ pub trait Client: 'static + Clone + Send + Sync {
 	async fn reconnect(&mut self) -> Result<(), Self::Error>;
 }
 
+#[async_trait]
+impl Client for () {
+	type Error = crate::StringifiedMaybeConnectionError;
+
+	async fn reconnect(&mut self) -> Result<(), Self::Error> {
+		Ok(())
+	}
+}
+
 /// Returns generic loop that may be customized and started.
 pub fn relay_loop<SC, TC>(source_client: SC, target_client: TC) -> Loop<SC, TC, ()> {
 	Loop {
