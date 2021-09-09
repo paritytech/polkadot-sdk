@@ -217,7 +217,7 @@ pub fn max_extrinsic_size() -> u32 {
 	*BlockLength::get().max.get(DispatchClass::Normal)
 }
 
-/// Name of the With-Millau messages pallet instance in the Millau runtime.
+/// Name of the With-Millau messages pallet instance in the Rialto runtime.
 pub const WITH_MILLAU_MESSAGES_PALLET_NAME: &str = "BridgeMillauMessages";
 
 /// Name of the `RialtoFinalityApi::best_finalized` runtime method.
