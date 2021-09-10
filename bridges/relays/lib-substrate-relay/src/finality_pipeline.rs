@@ -30,7 +30,7 @@ use std::{fmt::Debug, marker::PhantomData, time::Duration};
 /// this timeout is used.
 ///
 /// There are no any strict requirements on block time in Substrate. But we assume here that all
-/// Substrate-based chains will be designed to produce relatively fast (compared to slowest
+/// Substrate-based chains will be designed to produce relatively fast (compared to the slowest
 /// blockchains) blocks. So 1 hour seems to be a good guess for (even congested) chains to mine
 /// transaction, or remove it from the pool.
 pub(crate) const STALL_TIMEOUT: Duration = Duration::from_secs(60 * 60);
