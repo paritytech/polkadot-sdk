@@ -124,7 +124,7 @@ where
 		Client::Api: AuraApi<B, P::Public>,
 		BI: BlockImport<B, Transaction = sp_api::TransactionFor<Client, B>> + Send + Sync + 'static,
 		SO: SyncOracle + Send + Sync + Clone + 'static,
-		BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + 'static,
+		BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 		PF: Environment<B, Error = Error> + Send + Sync + 'static,
 		PF::Proposer: Proposer<
 			B,
@@ -304,7 +304,7 @@ where
 		+ Sync
 		+ 'static,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
-	BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + 'static,
+	BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync + 'static,
 	PF: Environment<Block, Error = Error> + Send + Sync + 'static,
 	PF::Proposer: Proposer<
 		Block,
@@ -387,7 +387,7 @@ where
 		+ Sync
 		+ 'static,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
-	BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + 'static,
+	BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync + 'static,
 	PF: Environment<Block, Error = Error> + Send + Sync + 'static,
 	PF::Proposer: Proposer<
 		Block,
@@ -469,7 +469,7 @@ where
 		+ Sync
 		+ 'static,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
-	BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + 'static,
+	BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync + 'static,
 	PF: Environment<Block, Error = Error> + Send + Sync + 'static,
 	PF::Proposer: Proposer<
 		Block,
