@@ -148,7 +148,7 @@ impl Size for PreComputedSize {
 pub enum TransactionEra<BlockNumber, BlockHash> {
 	/// Transaction is immortal.
 	Immortal,
-	/// Transaction is valid for given number of blocks, starting from given block.
+	/// Transaction is valid for a given number of blocks, starting from given block.
 	Mortal(BlockNumber, BlockHash, u32),
 }
 
