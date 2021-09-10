@@ -377,7 +377,7 @@ where
 		.unwrap_or_else(|_| SC::Balance::max_value())
 }
 
-/// Compute fee multiplier that is used by the chain, given couple of fees for transactions
+/// Compute fee multiplier that is used by the chain, given a couple of fees for transactions
 /// that are only differ in dispatch weights.
 ///
 /// This function assumes that standard transaction payment pallet is used by the chain.
