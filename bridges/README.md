@@ -38,6 +38,25 @@ cargo build --all
 cargo test --all
 ```
 
+Also you can build the repo with 
+[Parity CI Docker image](https://github.com/paritytech/scripts/tree/master/dockerfiles/bridges-ci):
+
+```bash
+docker pull paritytech/bridges-ci:production
+mkdir ~/cache
+chown 1000:1000 ~/cache #processes in the container runs as "nonroot" user with UID 1000
+docker run --rm -it -w /shellhere/parity-bridges-common \
+                    -v /home/$(whoami)/cache/:/cache/    \
+                    -v "$(pwd)":/shellhere/parity-bridges-common \
+                    -e CARGO_HOME=/cache/cargo/ \
+                    -e SCCACHE_DIR=/cache/sccache/ \
+                    -e CARGO_TARGET_DIR=/cache/target/  paritytech/bridges-ci:production cargo build --all
+#artifacts can be found in ~/cache/target
+```
+
+If you want to reproduce other steps of CI process you can use the following 
+[guide](https://github.com/paritytech/scripts#reproduce-ci-locally).
+
 If you need more information about setting up your development environment Substrate's
 [Getting Started](https://substrate.dev/docs/en/knowledgebase/getting-started/) page is a good
 resource.
