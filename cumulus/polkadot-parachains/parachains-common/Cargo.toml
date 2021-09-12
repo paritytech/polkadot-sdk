@@ -32,7 +32,6 @@ polkadot-primitives = { git = 'https://github.com/paritytech/polkadot', branch =
 pallet-collator-selection = { path = '../../pallets/collator-selection', default-features = false }
 
 [dev-dependencies]
-serde = { version = "1.0.119" }
 sp-io = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 pallet-authorship = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 

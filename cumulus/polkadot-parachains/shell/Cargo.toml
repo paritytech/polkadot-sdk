@@ -33,16 +33,9 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
 cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
-
-# Polkadot dependencies
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-
-[dev-dependencies]
-hex = "0.4.3"
-hex-literal = "0.3.1"
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }

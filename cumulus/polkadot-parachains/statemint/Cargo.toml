@@ -74,7 +74,6 @@ pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features 
 
 [dev-dependencies]
 hex-literal = "0.3.1"
-hex = "0.4.3"
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }

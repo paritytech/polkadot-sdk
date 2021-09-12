@@ -14,7 +14,6 @@ async-trait = "0.1.42"
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -22,21 +21,15 @@ sc-executor = { git = "https://github.com/paritytech/substrate", branch = "maste
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
@@ -44,7 +37,6 @@ substrate-test-client = { git = "https://github.com/paritytech/substrate", branc
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus
 cumulus-client-consensus-relay-chain = { path = "../../client/consensus/relay-chain" }
@@ -64,7 +56,6 @@ futures = "0.3.5"
 tokio = { version = "1.10", features = ["macros"] }
 
 # Polkadot dependencies
-polkadot-test-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Substrate dependencies

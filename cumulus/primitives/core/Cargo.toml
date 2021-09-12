@@ -16,7 +16,6 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Other dependencies
 impl-trait-for-tuples = "0.2.1"

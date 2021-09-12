@@ -10,12 +10,8 @@ name = "polkadot-collator"
 path = "src/main.rs"
 
 [dependencies]
-derive_more = "0.15.0"
-exit-future = "0.1.4"
 futures = { version = "0.3.1", features = ["compat"] }
 log = "0.4.8"
-parking_lot = "0.10.2"
-trie-root = "0.15.2"
 codec = { package = "parity-scale-codec", version = "2.0.0" }
 structopt = "0.3.3"
 serde = { version = "1.0.101", features = ["derive"] }
@@ -53,7 +49,6 @@ sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "mast
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -73,7 +68,6 @@ cumulus-client-cli = { path = "../client/cli" }
 cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
 cumulus-client-consensus-common = { path = "../client/consensus/common" }
-cumulus-client-collator = { path = "../client/collator" }
 cumulus-client-service = { path = "../client/service" }
 cumulus-client-network = { path = "../client/network" }
 cumulus-primitives-core = { path = "../primitives/core" }
@@ -91,9 +85,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 [dev-dependencies]
 assert_cmd = "0.12"
 nix = "0.17"
-rand = "0.7.3"
 tempfile = "3.2.0"
-tokio = { version = "1.10", features = ["macros"] }
 
 [features]
 default = []

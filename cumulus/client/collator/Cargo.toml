@@ -8,7 +8,6 @@ edition = "2018"
 # Substrate dependencies
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -37,13 +36,10 @@ polkadot-node-subsystem-test-helpers = { git = "https://github.com/paritytech/po
 # Cumulus dependencies
 cumulus-test-runtime = { path = "../../test/runtime" }
 cumulus-test-client = { path = "../../test/client" }
-
 # Substrate dependencies
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
-substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Other dependencies
 async-trait = "0.1.42"
