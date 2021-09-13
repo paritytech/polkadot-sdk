@@ -59,6 +59,7 @@ impl<SourceChain: Chain> OnDemandHeadersRelay<SourceChain> {
 		target_transactions_mortality: Option<u32>,
 		pipeline: P,
 		maximal_headers_difference: SourceChain::BlockNumber,
+		only_mandatory_headers: bool,
 	) -> Self
 	where
 		SourceChain: Chain + Debug,
@@ -83,6 +84,7 @@ impl<SourceChain: Chain> OnDemandHeadersRelay<SourceChain> {
 				target_transactions_mortality,
 				pipeline,
 				maximal_headers_difference,
+				only_mandatory_headers,
 				required_header_number,
 			)
 			.await;
@@ -115,6 +117,7 @@ async fn background_task<SourceChain, TargetChain, TargetSign, P>(
 	target_transactions_mortality: Option<u32>,
 	pipeline: P,
 	maximal_headers_difference: SourceChain::BlockNumber,
+	only_mandatory_headers: bool,
 	required_header_number: RequiredHeaderNumberRef<SourceChain>,
 ) where
 	SourceChain: Chain + Debug,
@@ -230,7 +233,7 @@ async fn background_task<SourceChain, TargetChain, TargetSign, P>(
 						tick: std::cmp::max(SourceChain::AVERAGE_BLOCK_INTERVAL, TargetChain::AVERAGE_BLOCK_INTERVAL),
 						recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 						stall_timeout: STALL_TIMEOUT,
-						only_mandatory_headers: false,
+						only_mandatory_headers,
 					},
 					MetricsParams::disabled(),
 					futures::future::pending(),
