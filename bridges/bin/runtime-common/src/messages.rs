@@ -74,9 +74,9 @@ pub trait ChainWithMessages {
 	/// Accound id on the chain.
 	type AccountId: Encode + Decode;
 	/// Public key of the chain account that may be used to verify signatures.
-	type Signer: Decode;
+	type Signer: Encode + Decode;
 	/// Signature type used on the chain.
-	type Signature: Decode;
+	type Signature: Encode + Decode;
 	/// Type of weight that is used on the chain. This would almost always be a regular
 	/// `frame_support::weight::Weight`. But since the meaning of weight on different chains
 	/// may be different, the `WeightOf<>` construct is used to avoid confusion between
@@ -341,7 +341,7 @@ pub mod source {
 		// of the message dispatch in the delivery transaction cost
 		let pay_dispatch_fee_at_target_chain = payload.dispatch_fee_payment == DispatchFeePayment::AtTargetChain;
 		let delivery_transaction = BridgedChain::<B>::estimate_delivery_transaction(
-			&payload.call,
+			&payload.encode(),
 			pay_dispatch_fee_at_target_chain,
 			if pay_dispatch_fee_at_target_chain {
 				0.into()
