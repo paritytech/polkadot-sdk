@@ -209,7 +209,7 @@ mod tests {
 		// then
 		assert_eq!(
 			format!("{:?}", hex),
-			"0x0400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27de5c0"
+			"0x040000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27de5c0"
 		);
 	}
 
