@@ -54,8 +54,16 @@ macro_rules! select_bridge {
 				type Target = relay_millau_client::Millau;
 				type TargetSign = relay_millau_client::Millau;
 
-				const TIP_STEP: bp_millau::Balance = 1_000_000;
-				const TIP_LIMIT: bp_millau::Balance = 1_000_000_000;
+				// When large message is being sent from Millau to Rialto AND other transactions are blocking
+				// it from being mined, we'll see something like this in logs:
+				//
+				// Millau transaction priority with tip=0: 17800827994. Target priority: 526186677695
+				//
+				// So since fee multiplier in Millau is `1` and `WeightToFee` is `IdentityFee`, then we need
+				// tip around `526186677695 - 17800827994 = 508_385_849_701`. Let's round it up to `1_000_000_000_000`.
+
+				const TIP_STEP: bp_millau::Balance = 1_000_000_000;
+				const TIP_LIMIT: bp_millau::Balance = 1_000_000_000_000;
 
 				const STALLED_BLOCKS: bp_millau::BlockNumber = 5;
 
