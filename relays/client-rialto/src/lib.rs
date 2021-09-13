@@ -100,7 +100,7 @@ impl TransactionSignScheme for Rialto {
 		let signer: sp_runtime::MultiSigner = signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		rialto_runtime::UncheckedExtrinsic::new_signed(call, signer.into_account(), signature.into(), extra)
+		rialto_runtime::UncheckedExtrinsic::new_signed(call, signer.into_account().into(), signature.into(), extra)
 	}
 
 	fn is_signed(tx: &Self::SignedTransaction) -> bool {
@@ -110,7 +110,7 @@ impl TransactionSignScheme for Rialto {
 	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
 		tx.signature
 			.as_ref()
-			.map(|(address, _, _)| *address == rialto_runtime::Address::from(*signer.public().as_array_ref()))
+			.map(|(address, _, _)| *address == rialto_runtime::Address::Id(signer.public().into()))
 			.unwrap_or(false)
 	}
 
