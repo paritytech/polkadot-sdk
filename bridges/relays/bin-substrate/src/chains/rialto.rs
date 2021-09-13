@@ -40,9 +40,9 @@ impl CliEncodeCall for Rialto {
 			Call::Remark { remark_payload, .. } => rialto_runtime::Call::System(rialto_runtime::SystemCall::remark(
 				remark_payload.as_ref().map(|x| x.0.clone()).unwrap_or_default(),
 			)),
-			Call::Transfer { recipient, amount } => {
-				rialto_runtime::Call::Balances(rialto_runtime::BalancesCall::transfer(recipient.raw_id(), amount.0))
-			}
+			Call::Transfer { recipient, amount } => rialto_runtime::Call::Balances(
+				rialto_runtime::BalancesCall::transfer(recipient.raw_id().into(), amount.0),
+			),
 			Call::BridgeSendMessage {
 				lane,
 				payload,

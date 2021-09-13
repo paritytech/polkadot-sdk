@@ -15,11 +15,14 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use bp_rialto::derive_account_from_millau_id;
+use polkadot_primitives::v1::{AssignmentId, ValidatorId};
 use rialto_runtime::{
 	AccountId, BabeConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauMessagesConfig, BridgeRialtoPoaConfig,
-	GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	GenesisConfig, GrandpaConfig, ParachainsConfigurationConfig, SessionConfig, SessionKeys, Signature, SudoConfig,
+	SystemConfig, WASM_BINARY,
 };
 use serde_json::json;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -56,12 +59,24 @@ where
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Helper function to generate an authority key for Babe
-pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, BabeId, GrandpaId) {
+/// Helper function to generate authority keys.
+pub fn get_authority_keys_from_seed(
+	s: &str,
+) -> (
+	AccountId,
+	BabeId,
+	GrandpaId,
+	ValidatorId,
+	AssignmentId,
+	AuthorityDiscoveryId,
+) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
+		get_from_seed::<ValidatorId>(s),
+		get_from_seed::<AssignmentId>(s),
+		get_from_seed::<AuthorityDiscoveryId>(s),
 	)
 }
 
@@ -172,12 +187,31 @@ impl Alternative {
 	}
 }
 
-fn session_keys(babe: BabeId, grandpa: GrandpaId) -> SessionKeys {
-	SessionKeys { babe, grandpa }
+fn session_keys(
+	babe: BabeId,
+	grandpa: GrandpaId,
+	para_validator: ValidatorId,
+	para_assignment: AssignmentId,
+	authority_discovery: AuthorityDiscoveryId,
+) -> SessionKeys {
+	SessionKeys {
+		babe,
+		grandpa,
+		para_validator,
+		para_assignment,
+		authority_discovery,
+	}
 }
 
 fn testnet_genesis(
-	initial_authorities: Vec<(AccountId, BabeId, GrandpaId)>,
+	initial_authorities: Vec<(
+		AccountId,
+		BabeId,
+		GrandpaId,
+		ValidatorId,
+		AssignmentId,
+		AuthorityDiscoveryId,
+	)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
@@ -203,9 +237,62 @@ fn testnet_genesis(
 		session: SessionConfig {
 			keys: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), session_keys(x.1.clone(), x.2.clone())))
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						session_keys(x.1.clone(), x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+					)
+				})
 				.collect::<Vec<_>>(),
 		},
+		authority_discovery: Default::default(),
+		hrmp: Default::default(),
+		// this configuration is exact copy of configuration from Polkadot repo
+		// (see /node/service/src/chain_spec.rs:default_parachains_host_configuration)
+		parachains_configuration: ParachainsConfigurationConfig {
+			config: polkadot_runtime_parachains::configuration::HostConfiguration {
+				validation_upgrade_frequency: 1u32,
+				validation_upgrade_delay: 1,
+				code_retention_period: 1200,
+				max_code_size: polkadot_primitives::v1::MAX_CODE_SIZE,
+				max_pov_size: polkadot_primitives::v1::MAX_POV_SIZE,
+				max_head_data_size: 32 * 1024,
+				group_rotation_frequency: 20,
+				chain_availability_period: 4,
+				thread_availability_period: 4,
+				max_upward_queue_count: 8,
+				max_upward_queue_size: 1024 * 1024,
+				max_downward_message_size: 1024,
+				// this is approximatelly 4ms.
+				//
+				// Same as `4 * frame_support::weights::WEIGHT_PER_MILLIS`. We don't bother with
+				// an import since that's a made up number and should be replaced with a constant
+				// obtained by benchmarking anyway.
+				ump_service_total_weight: 4 * 1_000_000_000,
+				max_upward_message_size: 1024 * 1024,
+				max_upward_message_num_per_candidate: 5,
+				hrmp_open_request_ttl: 5,
+				hrmp_sender_deposit: 0,
+				hrmp_recipient_deposit: 0,
+				hrmp_channel_max_capacity: 8,
+				hrmp_channel_max_total_size: 8 * 1024,
+				hrmp_max_parachain_inbound_channels: 4,
+				hrmp_max_parathread_inbound_channels: 4,
+				hrmp_channel_max_message_size: 1024 * 1024,
+				hrmp_max_parachain_outbound_channels: 4,
+				hrmp_max_parathread_outbound_channels: 4,
+				hrmp_max_message_num_per_candidate: 5,
+				dispute_period: 6,
+				no_show_slots: 2,
+				n_delay_tranches: 25,
+				needed_approvals: 2,
+				relay_vrf_modulo_samples: 2,
+				zeroth_delay_tranche_width: 0,
+				..Default::default()
+			},
+		},
+		paras: Default::default(),
 		bridge_millau_messages: BridgeMillauMessagesConfig {
 			owner: Some(get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner")),
 			..Default::default()
