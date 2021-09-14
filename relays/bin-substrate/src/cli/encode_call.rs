@@ -189,6 +189,7 @@ pub(crate) fn compute_maximal_message_arguments_size(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::cli::send_message::SendMessage;
 
 	#[test]
 	fn should_encode_transfer_call() {
@@ -275,5 +276,64 @@ mod tests {
 
 		let info = err.info.unwrap();
 		assert!(info.contains(&"remark-payload".to_string()) | info.contains(&"remark-size".to_string()))
+	}
+
+	#[test]
+	fn should_encode_raw_call() {
+		// given
+		let mut encode_call = EncodeCall::from_iter(vec![
+			"encode-call",
+			"rialto-to-millau",
+			"raw",
+			"040000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27de5c0",
+		]);
+
+		// when
+		let hex = encode_call.encode().unwrap();
+
+		// then
+		assert_eq!(
+			format!("{:?}", hex),
+			"0x040000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27de5c0"
+		);
+	}
+
+	#[test]
+	fn should_encode_bridge_send_message_call() {
+		// given
+		let encode_message = SendMessage::from_iter(vec![
+			"send-message",
+			"millau-to-rialto",
+			"--source-port",
+			"10946",
+			"--source-signer",
+			"//Alice",
+			"--target-signer",
+			"//Alice",
+			"--origin",
+			"Target",
+			"remark",
+		])
+		.encode_payload()
+		.unwrap();
+
+		let mut encode_call = EncodeCall::from_iter(vec![
+			"encode-call",
+			"rialto-to-millau",
+			"bridge-send-message",
+			"--fee",
+			"12345",
+			"--payload",
+			format!("{:}", &HexBytes::encode(&encode_message)).as_str(),
+		]);
+
+		// when
+		let call_hex = encode_call.encode().unwrap();
+
+		// then
+		assert!(format!("{:?}", call_hex).starts_with(
+			"0x11030000000001000000b0d60f000000000001d43593c715fdd31c61141abd04a99fd6822c8558854cc\
+			de39a5684e7a56da27d01d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d01"
+		))
 	}
 }
