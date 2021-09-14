@@ -80,8 +80,6 @@ chain, and from the relay chain to its destination parachain.
 ```bash
 # Compile Polkadot with the real overseer feature
 git clone https://github.com/paritytech/polkadot
-git fetch
-git checkout rococo-v1
 cargo build --release
 
 # Generate a raw chain spec
@@ -99,8 +97,6 @@ cargo build --release
 ```bash
 # Compile
 git clone https://github.com/paritytech/cumulus
-git fetch
-git checkout rococo-v1
 cargo build --release
 
 # Export genesis state
