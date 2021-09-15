@@ -43,6 +43,8 @@ pub const MESSAGE_NONCE: MessageNonce = 3;
 pub const THIS_CHAIN_ACCOUNT: AccountId = 1;
 pub const THIS_CHAIN_ACCOUNT_BALANCE: Balance = 100_000;
 
+pub const SWAP_DELIVERY_AND_DISPATCH_FEE: Balance = 1;
+
 frame_support::construct_runtime! {
 	pub enum TestRuntime where
 		Block = Block,
@@ -106,18 +108,16 @@ impl pallet_balances::Config for TestRuntime {
 }
 
 frame_support::parameter_types! {
-	pub const BridgeChainId: ChainId = *b"inst";
+	pub const BridgedChainId: ChainId = *b"inst";
 	pub const OutboundMessageLaneId: LaneId = *b"lane";
-	pub const MessageDeliveryAndDispatchFee: Balance = 1;
 }
 
 impl pallet_bridge_token_swap::Config for TestRuntime {
 	type Event = Event;
 
-	type BridgeChainId = BridgeChainId;
+	type BridgedChainId = BridgedChainId;
 	type OutboundMessageLaneId = OutboundMessageLaneId;
 	type MessagesBridge = TestMessagesBridge;
-	type MessageDeliveryAndDispatchFee = MessageDeliveryAndDispatchFee;
 
 	type ThisCurrency = pallet_balances::Pallet<TestRuntime>;
 	type FromSwapToThisAccountIdConverter = TestAccountConverter;
@@ -146,14 +146,14 @@ impl MessagesBridge<AccountId, Balance, MessagePayloadOf<TestRuntime, ()>> for T
 	type Error = ();
 
 	fn send_message(
-		sender: AccountId,
+		sender: frame_system::RawOrigin<AccountId>,
 		lane: LaneId,
 		message: MessagePayloadOf<TestRuntime, ()>,
 		delivery_and_dispatch_fee: Balance,
 	) -> Result<MessageNonce, Self::Error> {
-		assert_ne!(sender, THIS_CHAIN_ACCOUNT);
+		assert_ne!(sender, frame_system::RawOrigin::Signed(THIS_CHAIN_ACCOUNT));
 		assert_eq!(lane, OutboundMessageLaneId::get());
-		assert_eq!(delivery_and_dispatch_fee, MessageDeliveryAndDispatchFee::get());
+		assert_eq!(delivery_and_dispatch_fee, SWAP_DELIVERY_AND_DISPATCH_FEE);
 		match message.call[0] {
 			OK_TRANSFER_CALL => Ok(MESSAGE_NONCE),
 			BAD_TRANSFER_CALL => Err(()),
