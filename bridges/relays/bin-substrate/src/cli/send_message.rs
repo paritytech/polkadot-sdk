@@ -323,7 +323,7 @@ mod tests {
 				weight: 1038000,
 				origin: CallOrigin::SourceAccount(sp_keyring::AccountKeyring::Alice.to_account_id()),
 				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtSourceChain,
-				call: hex!("0401081234").to_vec(),
+				call: hex!("0001081234").to_vec(),
 			}
 		);
 	}
