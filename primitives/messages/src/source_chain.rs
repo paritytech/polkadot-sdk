@@ -136,7 +136,7 @@ pub trait MessagesBridge<AccountId, Balance, Payload> {
 	///
 	/// Returns unique message nonce or error if send has failed.
 	fn send_message(
-		sender: AccountId,
+		sender: Sender<AccountId>,
 		lane: LaneId,
 		message: Payload,
 		delivery_and_dispatch_fee: Balance,

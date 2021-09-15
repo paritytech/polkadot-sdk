@@ -56,7 +56,11 @@ use bp_messages::{
 };
 use bp_runtime::{ChainId, Size};
 use codec::{Decode, Encode};
-use frame_support::{fail, traits::Get, weights::PostDispatchInfo};
+use frame_support::{
+	fail,
+	traits::Get,
+	weights::{Pays, PostDispatchInfo},
+};
 use frame_system::RawOrigin;
 use num_traits::{SaturatingAdd, Zero};
 use sp_runtime::traits::BadOrigin;
@@ -241,94 +245,13 @@ pub mod pallet {
 			payload: T::OutboundPayload,
 			delivery_and_dispatch_fee: T::OutboundMessageFee,
 		) -> DispatchResultWithPostInfo {
-			ensure_normal_operating_mode::<T, I>()?;
-			let submitter = origin.into().map_err(|_| BadOrigin)?;
-
-			// initially, actual (post-dispatch) weight is equal to pre-dispatch weight
-			let mut actual_weight = T::WeightInfo::send_message_weight(&payload);
-
-			// let's first check if message can be delivered to target chain
-			T::TargetHeaderChain::verify_message(&payload).map_err(|err| {
-				log::trace!(
-					target: "runtime::bridge-messages",
-					"Message to lane {:?} is rejected by target chain: {:?}",
-					lane_id,
-					err,
-				);
-
-				Error::<T, I>::MessageRejectedByChainVerifier
-			})?;
-
-			// now let's enforce any additional lane rules
-			let mut lane = outbound_lane::<T, I>(lane_id);
-			T::LaneMessageVerifier::verify_message(
-				&submitter,
-				&delivery_and_dispatch_fee,
-				&lane_id,
-				&lane.data(),
-				&payload,
-			)
-			.map_err(|err| {
-				log::trace!(
-					target: "runtime::bridge-messages",
-					"Message to lane {:?} is rejected by lane verifier: {:?}",
-					lane_id,
-					err,
-				);
-
-				Error::<T, I>::MessageRejectedByLaneVerifier
-			})?;
-
-			// let's withdraw delivery and dispatch fee from submitter
-			T::MessageDeliveryAndDispatchPayment::pay_delivery_and_dispatch_fee(
-				&submitter,
-				&delivery_and_dispatch_fee,
-				&Self::relayer_fund_account_id(),
-			)
-			.map_err(|err| {
-				log::trace!(
-					target: "runtime::bridge-messages",
-					"Message to lane {:?} is rejected because submitter {:?} is unable to pay fee {:?}: {:?}",
-					lane_id,
-					submitter,
-					delivery_and_dispatch_fee,
-					err,
-				);
-
-				Error::<T, I>::FailedToWithdrawMessageFee
-			})?;
-
-			// finally, save message in outbound storage and emit event
-			let encoded_payload = payload.encode();
-			let encoded_payload_len = encoded_payload.len();
-			let nonce = lane.send_message(MessageData {
-				payload: encoded_payload,
-				fee: delivery_and_dispatch_fee,
-			});
-
-			// message sender pays for pruning at most `MaxMessagesToPruneAtOnce` messages
-			// the cost of pruning every message is roughly single db write
-			// => lets refund sender if less than `MaxMessagesToPruneAtOnce` messages pruned
-			let max_messages_to_prune = T::MaxMessagesToPruneAtOnce::get();
-			let pruned_messages = lane.prune_messages(max_messages_to_prune);
-			if let Some(extra_messages) = max_messages_to_prune.checked_sub(pruned_messages) {
-				actual_weight = actual_weight.saturating_sub(T::DbWeight::get().writes(extra_messages));
-			}
-
-			log::trace!(
-				target: "runtime::bridge-messages",
-				"Accepted message {} to lane {:?}. Message size: {:?}",
-				nonce,
+			crate::send_message::<T, I>(
+				origin.into().map_err(|_| BadOrigin)?,
 				lane_id,
-				encoded_payload_len,
-			);
-
-			Self::deposit_event(Event::MessageAccepted(lane_id, nonce));
-
-			Ok(PostDispatchInfo {
-				actual_weight: Some(actual_weight),
-				pays_fee: Pays::Yes,
-			})
+				payload,
+				delivery_and_dispatch_fee,
+			)
+			.map(|sent_message| sent_message.post_dispatch_info)
 		}
 
 		/// Pay additional fee for the message.
@@ -897,6 +820,126 @@ pub mod storage_keys {
 
 		StorageKey(final_key)
 	}
+}
+
+impl<T, I> bp_messages::source_chain::MessagesBridge<T::AccountId, T::OutboundMessageFee, T::OutboundPayload>
+	for Pallet<T, I>
+where
+	T: Config<I>,
+	I: 'static,
+{
+	type Error = sp_runtime::DispatchErrorWithPostInfo<PostDispatchInfo>;
+
+	fn send_message(
+		sender: bp_messages::source_chain::Sender<T::AccountId>,
+		lane: LaneId,
+		message: T::OutboundPayload,
+		delivery_and_dispatch_fee: T::OutboundMessageFee,
+	) -> Result<MessageNonce, Self::Error> {
+		crate::send_message::<T, I>(sender, lane, message, delivery_and_dispatch_fee)
+			.map(|sent_message| sent_message.nonce)
+	}
+}
+
+/// Message that has been sent.
+struct SentMessage {
+	/// Nonce of the message.
+	pub nonce: MessageNonce,
+	/// Post-dispatch call info.
+	pub post_dispatch_info: PostDispatchInfo,
+}
+
+/// Function that actually sends message.
+fn send_message<T: Config<I>, I: 'static>(
+	submitter: bp_messages::source_chain::Sender<T::AccountId>,
+	lane_id: LaneId,
+	payload: T::OutboundPayload,
+	delivery_and_dispatch_fee: T::OutboundMessageFee,
+) -> sp_std::result::Result<SentMessage, sp_runtime::DispatchErrorWithPostInfo<PostDispatchInfo>> {
+	ensure_normal_operating_mode::<T, I>()?;
+
+	// initially, actual (post-dispatch) weight is equal to pre-dispatch weight
+	let mut actual_weight = T::WeightInfo::send_message_weight(&payload);
+
+	// let's first check if message can be delivered to target chain
+	T::TargetHeaderChain::verify_message(&payload).map_err(|err| {
+		log::trace!(
+			target: "runtime::bridge-messages",
+			"Message to lane {:?} is rejected by target chain: {:?}",
+			lane_id,
+			err,
+		);
+
+		Error::<T, I>::MessageRejectedByChainVerifier
+	})?;
+
+	// now let's enforce any additional lane rules
+	let mut lane = outbound_lane::<T, I>(lane_id);
+	T::LaneMessageVerifier::verify_message(&submitter, &delivery_and_dispatch_fee, &lane_id, &lane.data(), &payload)
+		.map_err(|err| {
+			log::trace!(
+				target: "runtime::bridge-messages",
+				"Message to lane {:?} is rejected by lane verifier: {:?}",
+				lane_id,
+				err,
+			);
+
+			Error::<T, I>::MessageRejectedByLaneVerifier
+		})?;
+
+	// let's withdraw delivery and dispatch fee from submitter
+	T::MessageDeliveryAndDispatchPayment::pay_delivery_and_dispatch_fee(
+		&submitter,
+		&delivery_and_dispatch_fee,
+		&Pallet::<T, I>::relayer_fund_account_id(),
+	)
+	.map_err(|err| {
+		log::trace!(
+			target: "runtime::bridge-messages",
+			"Message to lane {:?} is rejected because submitter {:?} is unable to pay fee {:?}: {:?}",
+			lane_id,
+			submitter,
+			delivery_and_dispatch_fee,
+			err,
+		);
+
+		Error::<T, I>::FailedToWithdrawMessageFee
+	})?;
+
+	// finally, save message in outbound storage and emit event
+	let encoded_payload = payload.encode();
+	let encoded_payload_len = encoded_payload.len();
+	let nonce = lane.send_message(MessageData {
+		payload: encoded_payload,
+		fee: delivery_and_dispatch_fee,
+	});
+
+	// message sender pays for pruning at most `MaxMessagesToPruneAtOnce` messages
+	// the cost of pruning every message is roughly single db write
+	// => lets refund sender if less than `MaxMessagesToPruneAtOnce` messages pruned
+	let max_messages_to_prune = T::MaxMessagesToPruneAtOnce::get();
+	let pruned_messages = lane.prune_messages(max_messages_to_prune);
+	if let Some(extra_messages) = max_messages_to_prune.checked_sub(pruned_messages) {
+		actual_weight = actual_weight.saturating_sub(T::DbWeight::get().writes(extra_messages));
+	}
+
+	log::trace!(
+		target: "runtime::bridge-messages",
+		"Accepted message {} to lane {:?}. Message size: {:?}",
+		nonce,
+		lane_id,
+		encoded_payload_len,
+	);
+
+	Pallet::<T, I>::deposit_event(Event::MessageAccepted(lane_id, nonce));
+
+	Ok(SentMessage {
+		nonce,
+		post_dispatch_info: PostDispatchInfo {
+			actual_weight: Some(actual_weight),
+			pays_fee: Pays::Yes,
+		},
+	})
 }
 
 /// Ensure that the origin is either root, or `PalletOwner`.
