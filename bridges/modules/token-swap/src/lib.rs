@@ -49,6 +49,8 @@
 //! While swap is pending, the `source_balance_at_this_chain` tokens are owned by the special
 //! temporary `swap_account_at_this_chain` account. It is destroyed upon swap completion.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use bp_messages::{
 	source_chain::{MessagesBridge, OnDeliveryConfirmed},
 	DeliveredMessages, LaneId, MessageNonce,
@@ -64,6 +66,7 @@ use frame_support::{
 use sp_core::H256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{Convert, Saturating};
+use sp_std::vec::Vec;
 
 #[cfg(test)]
 mod mock;
@@ -98,7 +101,7 @@ pub mod pallet {
 		type Event: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// Id of the bridge with the Bridged chain.
-		type BridgeChainId: Get<ChainId>;
+		type BridgedChainId: Get<ChainId>;
 		/// The identifier of outbound message lane on This chain used to send token transfer
 		/// messages to the Bridged chain.
 		///
@@ -114,8 +117,6 @@ pub mod pallet {
 			<Self::ThisCurrency as Currency<Self::AccountId>>::Balance,
 			MessagePayloadOf<Self, I>,
 		>;
-		/// Message delivery and dispatch fee for the tokens transfer message heading to the Bridged chain.
-		type MessageDeliveryAndDispatchFee: Get<<Self::ThisCurrency as Currency<Self::AccountId>>::Balance>;
 
 		/// This chain Currency used in the tokens swap.
 		type ThisCurrency: Currency<Self::AccountId>;
@@ -127,6 +128,10 @@ pub mod pallet {
 		/// Converter from raw hash (derived from Bridged chain account) to This chain account.
 		type FromBridgedToThisAccountIdConverter: Convert<H256, Self::AccountId>;
 	}
+
+	/// Tokens balance at This chain.
+	pub type ThisChainBalance<T, I> =
+		<<T as Config<I>>::ThisCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// Type of the Bridged chain.
 	pub type BridgedChainOf<T, I> = <T as Config<I>>::BridgedChain;
@@ -151,7 +156,7 @@ pub mod pallet {
 	/// Type of `TokenSwap` used by the pallet.
 	pub type TokenSwapOf<T, I> = TokenSwap<
 		BlockNumberFor<T>,
-		<<T as Config<I>>::ThisCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+		ThisChainBalance<T, I>,
 		<T as frame_system::Config>::AccountId,
 		BridgedBalanceOf<T, I>,
 		BridgedAccountIdOf<T, I>,
@@ -203,6 +208,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			swap: TokenSwapOf<T, I>,
 			target_public_at_bridged_chain: BridgedAccountPublicOf<T, I>,
+			swap_delivery_and_dispatch_fee: ThisChainBalance<T, I>,
 			bridged_chain_spec_version: u32,
 			bridged_currency_transfer: RawBridgedTransferCall,
 			bridged_currency_transfer_weight: Weight,
@@ -239,13 +245,12 @@ pub mod pallet {
 			let swap_account = swap_account_id::<T, I>(&swap);
 			frame_support::storage::with_transaction(|| {
 				// funds are transferred from This account to the temporary Swap account
-				let message_delivery_and_dispatch_fee = T::MessageDeliveryAndDispatchFee::get();
 				let transfer_result = T::ThisCurrency::transfer(
 					&swap.source_account_at_this_chain,
 					&swap_account,
 					// saturating_add is ok, or we have the chain where single holder owns all tokens
 					swap.source_balance_at_this_chain
-						.saturating_add(message_delivery_and_dispatch_fee),
+						.saturating_add(swap_delivery_and_dispatch_fee),
 					// if we'll allow account to die, then he'll be unable to `cancel_claim`
 					// if something won't work
 					ExistenceRequirement::KeepAlive,
@@ -268,7 +273,7 @@ pub mod pallet {
 				// `Currency::transfer` call on the bridged chain, but no checks are made - it is
 				// the transaction submitter to ensure it is valid.
 				let send_message_result = T::MessagesBridge::send_message(
-					swap_account.clone(),
+					bp_messages::source_chain::Sender::from(Some(swap_account.clone())),
 					T::OutboundMessageLaneId::get(),
 					bp_message_dispatch::MessagePayload {
 						spec_version: bridged_chain_spec_version,
@@ -281,7 +286,7 @@ pub mod pallet {
 						dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
 						call: bridged_currency_transfer,
 					},
-					message_delivery_and_dispatch_fee,
+					swap_delivery_and_dispatch_fee,
 				);
 				let transfer_message_nonce = match send_message_result {
 					Ok(transfer_message_nonce) => transfer_message_nonce,
@@ -493,7 +498,7 @@ pub mod pallet {
 	/// Expected target account representation on This chain (aka `target_account_at_this_chain`).
 	pub(crate) fn target_account_at_this_chain<T: Config<I>, I: 'static>(swap: &TokenSwapOf<T, I>) -> T::AccountId {
 		T::FromBridgedToThisAccountIdConverter::convert(bp_runtime::derive_account_id(
-			T::BridgeChainId::get(),
+			T::BridgedChainId::get(),
 			bp_runtime::SourceAccount::Account(swap.target_account_at_bridged_chain.clone()),
 		))
 	}
@@ -584,6 +589,7 @@ mod tests {
 			Origin::signed(THIS_CHAIN_ACCOUNT),
 			test_swap(),
 			bridged_chain_account_public(),
+			SWAP_DELIVERY_AND_DISPATCH_FEE,
 			BRIDGED_CHAIN_SPEC_VERSION,
 			test_transfer(),
 			BRIDGED_CHAIN_CALL_WEIGHT,
@@ -606,6 +612,7 @@ mod tests {
 					Origin::signed(THIS_CHAIN_ACCOUNT + 1),
 					test_swap(),
 					bridged_chain_account_public(),
+					SWAP_DELIVERY_AND_DISPATCH_FEE,
 					BRIDGED_CHAIN_SPEC_VERSION,
 					test_transfer(),
 					BRIDGED_CHAIN_CALL_WEIGHT,
@@ -626,6 +633,7 @@ mod tests {
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					swap,
 					bridged_chain_account_public(),
+					SWAP_DELIVERY_AND_DISPATCH_FEE,
 					BRIDGED_CHAIN_SPEC_VERSION,
 					test_transfer(),
 					BRIDGED_CHAIN_CALL_WEIGHT,
@@ -646,6 +654,7 @@ mod tests {
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					swap,
 					bridged_chain_account_public(),
+					SWAP_DELIVERY_AND_DISPATCH_FEE,
 					BRIDGED_CHAIN_SPEC_VERSION,
 					test_transfer(),
 					BRIDGED_CHAIN_CALL_WEIGHT,
@@ -666,6 +675,7 @@ mod tests {
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					test_swap(),
 					bridged_chain_account_public(),
+					SWAP_DELIVERY_AND_DISPATCH_FEE,
 					BRIDGED_CHAIN_SPEC_VERSION,
 					transfer,
 					BRIDGED_CHAIN_CALL_WEIGHT,
@@ -683,6 +693,7 @@ mod tests {
 				Origin::signed(THIS_CHAIN_ACCOUNT),
 				test_swap(),
 				bridged_chain_account_public(),
+				SWAP_DELIVERY_AND_DISPATCH_FEE,
 				BRIDGED_CHAIN_SPEC_VERSION,
 				test_transfer(),
 				BRIDGED_CHAIN_CALL_WEIGHT,
@@ -694,6 +705,7 @@ mod tests {
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					test_swap(),
 					bridged_chain_account_public(),
+					SWAP_DELIVERY_AND_DISPATCH_FEE,
 					BRIDGED_CHAIN_SPEC_VERSION,
 					test_transfer(),
 					BRIDGED_CHAIN_CALL_WEIGHT,
@@ -713,6 +725,7 @@ mod tests {
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					test_swap(),
 					bridged_chain_account_public(),
+					SWAP_DELIVERY_AND_DISPATCH_FEE,
 					BRIDGED_CHAIN_SPEC_VERSION,
 					test_transfer(),
 					BRIDGED_CHAIN_CALL_WEIGHT,
@@ -731,6 +744,7 @@ mod tests {
 				Origin::signed(THIS_CHAIN_ACCOUNT),
 				test_swap(),
 				bridged_chain_account_public(),
+				SWAP_DELIVERY_AND_DISPATCH_FEE,
 				BRIDGED_CHAIN_SPEC_VERSION,
 				test_transfer(),
 				BRIDGED_CHAIN_CALL_WEIGHT,
@@ -749,6 +763,7 @@ mod tests {
 				Origin::signed(THIS_CHAIN_ACCOUNT),
 				test_swap(),
 				bridged_chain_account_public(),
+				SWAP_DELIVERY_AND_DISPATCH_FEE,
 				BRIDGED_CHAIN_SPEC_VERSION,
 				test_transfer(),
 				BRIDGED_CHAIN_CALL_WEIGHT,
@@ -763,7 +778,7 @@ mod tests {
 			assert_eq!(PendingMessages::<TestRuntime>::get(MESSAGE_NONCE), Some(swap_hash));
 			assert_eq!(
 				pallet_balances::Pallet::<TestRuntime>::free_balance(&swap_account_id::<TestRuntime, ()>(&test_swap())),
-				test_swap().source_balance_at_this_chain + MessageDeliveryAndDispatchFee::get(),
+				test_swap().source_balance_at_this_chain + SWAP_DELIVERY_AND_DISPATCH_FEE,
 			);
 			assert!(
 				frame_system::Pallet::<TestRuntime>::events()
@@ -989,7 +1004,7 @@ mod tests {
 			);
 			assert_eq!(
 				pallet_balances::Pallet::<TestRuntime>::free_balance(&THIS_CHAIN_ACCOUNT),
-				THIS_CHAIN_ACCOUNT_BALANCE - MessageDeliveryAndDispatchFee::get(),
+				THIS_CHAIN_ACCOUNT_BALANCE - SWAP_DELIVERY_AND_DISPATCH_FEE,
 			);
 			assert!(
 				frame_system::Pallet::<TestRuntime>::events()

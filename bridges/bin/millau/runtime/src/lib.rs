@@ -362,7 +362,7 @@ parameter_types! {
 	pub const GetDeliveryConfirmationTransactionFee: Balance =
 		bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT as _;
 	pub const RootAccountForPayments: Option<AccountId> = None;
-  pub const BridgedChainId: bp_runtime::ChainId = bp_runtime::RIALTO_CHAIN_ID;
+	pub const RialtoChainId: bp_runtime::ChainId = bp_runtime::RIALTO_CHAIN_ID;
 }
 
 /// Instance of the messages pallet used to relay messages to/from Rialto chain.
@@ -394,11 +394,31 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 		GetDeliveryConfirmationTransactionFee,
 		RootAccountForPayments,
 	>;
-	type OnDeliveryConfirmed = ();
+	type OnDeliveryConfirmed = pallet_bridge_token_swap::Pallet<Runtime, WithRialtoTokenSwapInstance>;
 
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
-	type BridgedChainId = BridgedChainId;
+	type BridgedChainId = RialtoChainId;
+}
+
+parameter_types! {
+	pub const TokenSwapMessagesLane: bp_messages::LaneId = *b"swap";
+}
+
+/// Instance of the with-Rialto token swap pallet.
+pub type WithRialtoTokenSwapInstance = ();
+
+impl pallet_bridge_token_swap::Config<WithRialtoTokenSwapInstance> for Runtime {
+	type Event = Event;
+
+	type BridgedChainId = RialtoChainId;
+	type OutboundMessageLaneId = TokenSwapMessagesLane;
+	type MessagesBridge = pallet_bridge_messages::Pallet<Runtime, WithRialtoMessagesInstance>;
+	type ThisCurrency = pallet_balances::Pallet<Runtime>;
+	type FromSwapToThisAccountIdConverter = bp_rialto::AccountIdConverter;
+
+	type BridgedChain = bp_rialto::Rialto;
+	type FromBridgedToThisAccountIdConverter = bp_millau::AccountIdConverter;
 }
 
 construct_runtime!(
@@ -407,20 +427,30 @@ construct_runtime!(
 		NodeBlock = opaque::Block,
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
-		BridgeRialtoMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
-		BridgeDispatch: pallet_bridge_dispatch::{Pallet, Event<T>},
-		BridgeRialtoGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage},
-		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+
+		// Must be before session.
 		Aura: pallet_aura::{Pallet, Config<T>},
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
+
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
-		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+
+		// Consensus support.
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
 		ShiftSessionManager: pallet_shift_session_manager::{Pallet},
+		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
+
+		// Rialto bridge modules.
+		BridgeRialtoGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage},
+		BridgeDispatch: pallet_bridge_dispatch::{Pallet, Event<T>},
+		BridgeRialtoMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
+		BridgeRialtoTokenSwap: pallet_bridge_token_swap::{Pallet, Call, Storage, Event<T>},
+
+		// Westend bridge modules.
+		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
 	}
 );
 
