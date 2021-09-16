@@ -189,11 +189,14 @@ pub trait WeightInfoExt: WeightInfo {
 	// Functions that are directly mapped to extrinsics weights.
 
 	/// Weight of message send extrinsic.
-	fn send_message_weight(message: &impl Size) -> Weight {
+	fn send_message_weight(message: &impl Size, db_weight: RuntimeDbWeight) -> Weight {
 		let transaction_overhead = Self::send_message_overhead();
 		let message_size_overhead = Self::send_message_size_overhead(message.size_hint());
+		let call_back_overhead = Self::single_message_callback_overhead(db_weight);
 
-		transaction_overhead.saturating_add(message_size_overhead)
+		transaction_overhead
+			.saturating_add(message_size_overhead)
+			.saturating_add(call_back_overhead)
 	}
 
 	/// Weight of message delivery extrinsic.
@@ -341,7 +344,11 @@ pub trait WeightInfoExt: WeightInfo {
 		Self::receive_single_message_proof().saturating_sub(Self::receive_single_prepaid_message_proof())
 	}
 
-	/// Returns pre-dispatch weight of single message delivery callback call.
+	/// Returns pre-dispatch weight of single callback call.
+	///
+	/// When benchmarking the weight please take into consideration both the `OnMessageAccepted` and
+	/// `OnDeliveryConfirmed` callbacks. The method should return the greater of the two, because it's
+	/// used to estimate the weight in both contexts.
 	fn single_message_callback_overhead(db_weight: RuntimeDbWeight) -> Weight {
 		db_weight.reads_writes(1, 1)
 	}
