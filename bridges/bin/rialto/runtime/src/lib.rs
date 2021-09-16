@@ -528,6 +528,7 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 		GetDeliveryConfirmationTransactionFee,
 		RootAccountForPayments,
 	>;
+	type OnMessageAccepted = ();
 	type OnDeliveryConfirmed = ();
 
 	type SourceHeaderChain = crate::millau_messages::Millau;

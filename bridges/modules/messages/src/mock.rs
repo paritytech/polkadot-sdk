@@ -22,8 +22,8 @@ use crate::Config;
 use bitvec::prelude::*;
 use bp_messages::{
 	source_chain::{
-		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, OnDeliveryConfirmed, RelayersRewards, Sender,
-		TargetHeaderChain,
+		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, OnDeliveryConfirmed, OnMessageAccepted,
+		RelayersRewards, Sender, TargetHeaderChain,
 	},
 	target_chain::{DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	DeliveredMessages, InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
@@ -178,6 +178,7 @@ impl Config for TestRuntime {
 	type TargetHeaderChain = TestTargetHeaderChain;
 	type LaneMessageVerifier = TestLaneMessageVerifier;
 	type MessageDeliveryAndDispatchPayment = TestMessageDeliveryAndDispatchPayment;
+	type OnMessageAccepted = TestOnMessageAccepted;
 	type OnDeliveryConfirmed = (TestOnDeliveryConfirmed1, TestOnDeliveryConfirmed2);
 
 	type SourceHeaderChain = TestSourceHeaderChain;
@@ -353,6 +354,35 @@ impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee> for TestMessag
 			let key = (b":relayer-reward:", relayer, reward.reward).encode();
 			frame_support::storage::unhashed::put(&key, &true);
 		}
+	}
+}
+
+#[derive(Debug)]
+pub struct TestOnMessageAccepted;
+
+impl TestOnMessageAccepted {
+	/// Verify that the callback has been called when the message is accepted.
+	pub fn ensure_called(lane: &LaneId, message: &MessageNonce) {
+		let key = (b"TestOnMessageAccepted", lane, message).encode();
+		assert_eq!(frame_support::storage::unhashed::get(&key), Some(true));
+	}
+
+	/// Set consumed weight returned by the callback.
+	pub fn set_consumed_weight_per_message(weight: Weight) {
+		frame_support::storage::unhashed::put(b"TestOnMessageAccepted_Weight", &weight);
+	}
+
+	/// Get consumed weight returned by the callback.
+	pub fn get_consumed_weight_per_message() -> Option<Weight> {
+		frame_support::storage::unhashed::get(b"TestOnMessageAccepted_Weight")
+	}
+}
+
+impl OnMessageAccepted for TestOnMessageAccepted {
+	fn on_messages_accepted(lane: &LaneId, message: &MessageNonce) -> Weight {
+		let key = (b"TestOnMessageAccepted", lane, message).encode();
+		frame_support::storage::unhashed::put(&key, &true);
+		Self::get_consumed_weight_per_message().unwrap_or_else(|| DbWeight::get().reads_writes(1, 1))
 	}
 }
 
