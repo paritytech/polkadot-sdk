@@ -31,10 +31,7 @@ const TIMEOUT_IN_SECONDS: u64 = 6;
 /// Custom error type used by [`WaitOnRelayChainBlock`].
 #[derive(Debug, derive_more::Display)]
 pub enum Error {
-	#[display(
-		fmt = "Timeout while waiting for relay-chain block `{}` to be imported.",
-		_0
-	)]
+	#[display(fmt = "Timeout while waiting for relay-chain block `{}` to be imported.", _0)]
 	Timeout(PHash),
 	#[display(
 		fmt = "Import listener closed while waiting for relay-chain block `{}` to be imported.",
@@ -73,20 +70,14 @@ pub struct WaitOnRelayChainBlock<B, BCE> {
 
 impl<B, BCE> Clone for WaitOnRelayChainBlock<B, BCE> {
 	fn clone(&self) -> Self {
-		Self {
-			backend: self.backend.clone(),
-			block_chain_events: self.block_chain_events.clone(),
-		}
+		Self { backend: self.backend.clone(), block_chain_events: self.block_chain_events.clone() }
 	}
 }
 
 impl<B, BCE> WaitOnRelayChainBlock<B, BCE> {
 	/// Creates a new instance of `Self`.
 	pub fn new(backend: Arc<B>, block_chain_events: Arc<BCE>) -> Self {
-		Self {
-			backend,
-			block_chain_events,
-		}
+		Self { backend, block_chain_events }
 	}
 }
 
@@ -103,11 +94,9 @@ where
 	) -> impl Future<Output = Result<(), Error>> {
 		let _lock = self.backend.get_import_lock().read();
 		match self.backend.blockchain().status(BlockId::Hash(hash)) {
-			Ok(BlockStatus::InChain) => {
-				return ready(Ok(())).boxed();
-			}
+			Ok(BlockStatus::InChain) => return ready(Ok(())).boxed(),
 			Err(err) => return ready(Err(Error::BlockchainError(hash, err))).boxed(),
-			_ => {}
+			_ => {},
 		}
 
 		let mut listener = self.block_chain_events.import_notification_stream();
@@ -171,10 +160,7 @@ mod tests {
 
 		block_on(async move {
 			// Should be ready on the first poll
-			assert!(matches!(
-				poll!(wait.wait_on_relay_chain_block(hash)),
-				Poll::Ready(Ok(()))
-			));
+			assert!(matches!(poll!(wait.wait_on_relay_chain_block(hash)), Poll::Ready(Ok(()))));
 		});
 	}
 
@@ -191,10 +177,7 @@ mod tests {
 			assert!(poll!(&mut future).is_pending());
 
 			// Import the block that should fire the notification
-			client
-				.import(BlockOrigin::Own, block)
-				.await
-				.expect("Imports the block");
+			client.import(BlockOrigin::Own, block).await.expect("Imports the block");
 
 			// Now it should have received the notification and report that the block was imported
 			assert!(matches!(poll!(future), Poll::Ready(Ok(()))));
@@ -208,10 +191,7 @@ mod tests {
 
 		let wait = WaitOnRelayChainBlock::new(backend, client.clone());
 
-		assert!(matches!(
-			block_on(wait.wait_on_relay_chain_block(hash)),
-			Err(Error::Timeout(_))
-		));
+		assert!(matches!(block_on(wait.wait_on_relay_chain_block(hash)), Err(Error::Timeout(_))));
 	}
 
 	#[test]
@@ -227,9 +207,7 @@ mod tests {
 		);
 		let mut block_builder = client.init_polkadot_block_builder();
 		// Push an extrinsic to get a different block hash.
-		block_builder
-			.push_polkadot_extrinsic(ext)
-			.expect("Push extrinsic");
+		block_builder.push_polkadot_extrinsic(ext).expect("Push extrinsic");
 		let block2 = block_builder.build().expect("Build second block").block;
 		let hash2 = block2.hash();
 
@@ -243,20 +221,14 @@ mod tests {
 			assert!(poll!(&mut future2).is_pending());
 
 			// Import the block that should fire the notification
-			client
-				.import(BlockOrigin::Own, block2)
-				.await
-				.expect("Imports the second block");
+			client.import(BlockOrigin::Own, block2).await.expect("Imports the second block");
 
 			// The import notification of the second block should not make this one finish
 			assert!(poll!(&mut future).is_pending());
 			// Now it should have received the notification and report that the block was imported
 			assert!(matches!(poll!(future2), Poll::Ready(Ok(()))));
 
-			client
-				.import(BlockOrigin::Own, block)
-				.await
-				.expect("Imports the first block");
+			client.import(BlockOrigin::Own, block).await.expect("Imports the first block");
 
 			// Now it should be ready
 			assert!(matches!(poll!(future), Poll::Ready(Ok(()))));

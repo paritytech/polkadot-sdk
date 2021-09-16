@@ -34,7 +34,6 @@
 // --header=./file_header.txt
 // --output=./polkadot-parachains/statemine-runtime/src/weights/
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -54,7 +53,7 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
-	fn destroy(n: u32, m: u32, a: u32, ) -> Weight {
+	fn destroy(n: u32, m: u32, a: u32) -> Weight {
 		(0 as Weight)
 			// Standard Error: 14_000
 			.saturating_add((16_814_000 as Weight).saturating_mul(n as Weight))
@@ -84,7 +83,7 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
-	fn redeposit(i: u32, ) -> Weight {
+	fn redeposit(i: u32) -> Weight {
 		(0 as Weight)
 			// Standard Error: 11_000
 			.saturating_add((26_921_000 as Weight).saturating_mul(i as Weight))

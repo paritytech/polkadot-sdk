@@ -40,11 +40,7 @@ pub struct Verifier<Client, Block, CIDP> {
 impl<Client, Block, CIDP> Verifier<Client, Block, CIDP> {
 	/// Create a new instance.
 	pub fn new(client: Arc<Client>, create_inherent_data_providers: CIDP) -> Self {
-		Self {
-			client,
-			create_inherent_data_providers,
-			_marker: PhantomData,
-		}
+		Self { client, create_inherent_data_providers, _marker: PhantomData }
 	}
 }
 
@@ -59,13 +55,7 @@ where
 	async fn verify(
 		&mut self,
 		mut block_params: BlockImportParams<Block, ()>,
-	) -> Result<
-		(
-			BlockImportParams<Block, ()>,
-			Option<Vec<(CacheKeyId, Vec<u8>)>>,
-		),
-		String,
-	> {
+	) -> Result<(BlockImportParams<Block, ()>, Option<Vec<(CacheKeyId, Vec<u8>)>>), String> {
 		if let Some(inner_body) = block_params.body.take() {
 			let inherent_data_providers = self
 				.create_inherent_data_providers
@@ -73,9 +63,8 @@ where
 				.await
 				.map_err(|e| e.to_string())?;
 
-			let inherent_data = inherent_data_providers
-				.create_inherent_data()
-				.map_err(|e| format!("{:?}", e))?;
+			let inherent_data =
+				inherent_data_providers.create_inherent_data().map_err(|e| format!("{:?}", e))?;
 
 			let block = Block::new(block_params.header.clone(), inner_body);
 
@@ -130,9 +119,7 @@ where
 
 	Ok(BasicQueue::new(
 		verifier,
-		Box::new(cumulus_client_consensus_common::ParachainBlockImport::new(
-			block_import,
-		)),
+		Box::new(cumulus_client_consensus_common::ParachainBlockImport::new(block_import)),
 		None,
 		spawner,
 		registry,

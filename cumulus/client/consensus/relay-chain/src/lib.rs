@@ -180,15 +180,10 @@ where
 			)
 			.ok()?;
 
-		let inherent_data = self
-			.inherent_data(parent.hash(), &validation_data, relay_parent)
-			.await?;
+		let inherent_data =
+			self.inherent_data(parent.hash(), &validation_data, relay_parent).await?;
 
-		let Proposal {
-			block,
-			storage_changes,
-			proof,
-		} = proposer
+		let Proposal { block, storage_changes, proof } = proposer
 			.propose(
 				inherent_data,
 				Default::default(),
@@ -226,7 +221,7 @@ where
 				"Error importing build block.",
 			);
 
-			return None;
+			return None
 		}
 
 		Some(ParachainCandidate { block, proof })

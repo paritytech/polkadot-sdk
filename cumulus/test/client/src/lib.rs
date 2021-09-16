@@ -128,10 +128,8 @@ pub fn generate_extrinsic(
 	let current_block = client.info().best_number.saturated_into();
 	let genesis_block = client.hash(0).unwrap().unwrap();
 	let nonce = 0;
-	let period = BlockHashCount::get()
-		.checked_next_power_of_two()
-		.map(|c| c / 2)
-		.unwrap_or(2) as u64;
+	let period =
+		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
 	let extra: SignedExtra = (
 		frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -144,14 +142,7 @@ pub fn generate_extrinsic(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		extra.clone(),
-		(
-			VERSION.spec_version,
-			genesis_block,
-			current_block_hash,
-			(),
-			(),
-			(),
-		),
+		(VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
@@ -170,10 +161,8 @@ pub fn transfer(
 	dest: sp_keyring::AccountKeyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
-	let function = Call::Balances(pallet_balances::Call::transfer {
-		dest: dest.public().into(),
-		value,
-	});
+	let function =
+		Call::Balances(pallet_balances::Call::transfer { dest: dest.public().into(), value });
 
 	generate_extrinsic(client, origin, function)
 }

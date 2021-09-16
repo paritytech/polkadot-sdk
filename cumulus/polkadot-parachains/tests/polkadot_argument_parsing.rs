@@ -48,10 +48,7 @@ fn polkadot_argument_parsing() {
 			.unwrap();
 
 		thread::sleep(Duration::from_secs(20));
-		assert!(
-			cmd.try_wait().unwrap().is_none(),
-			"the process should still be running"
-		);
+		assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
 		kill(Pid::from_raw(cmd.id().try_into().unwrap()), signal).unwrap();
 		assert_eq!(
 			common::wait_for(&mut cmd, 30).map(|x| x.success()),

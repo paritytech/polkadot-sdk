@@ -79,16 +79,11 @@ fn build_block_with_witness(
 
 	validation_data.relay_parent_storage_root = relay_parent_storage_root;
 
-	extra_extrinsics
-		.into_iter()
-		.for_each(|e| builder.push(e).unwrap());
+	extra_extrinsics.into_iter().for_each(|e| builder.push(e).unwrap());
 
 	let block = builder.build_parachain_block(*parent_head.state_root());
 
-	TestBlockData {
-		block,
-		validation_data,
-	}
+	TestBlockData { block, validation_data }
 }
 
 #[test]
@@ -96,18 +91,13 @@ fn validate_block_no_extra_extrinsics() {
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_test_client();
-	let TestBlockData {
-		block,
-		validation_data,
-	} = build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
+	let TestBlockData { block, validation_data } =
+		build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
 	let header = block.header().clone();
 
-	let res_header = call_validate_block(
-		parent_head,
-		block,
-		validation_data.relay_parent_storage_root,
-	)
-	.expect("Calls `validate_block`");
+	let res_header =
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
 }
 
@@ -122,10 +112,7 @@ fn validate_block_with_extra_extrinsics() {
 		transfer(&client, Charlie, Alice, 500),
 	];
 
-	let TestBlockData {
-		block,
-		validation_data,
-	} = build_block_with_witness(
+	let TestBlockData { block, validation_data } = build_block_with_witness(
 		&client,
 		extra_extrinsics,
 		parent_head.clone(),
@@ -133,12 +120,9 @@ fn validate_block_with_extra_extrinsics() {
 	);
 	let header = block.header().clone();
 
-	let res_header = call_validate_block(
-		parent_head,
-		block,
-		validation_data.relay_parent_storage_root,
-	)
-	.expect("Calls `validate_block`");
+	let res_header =
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
 }
 
@@ -148,20 +132,14 @@ fn validate_block_invalid_parent_hash() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
-		let TestBlockData {
-			block,
-			validation_data,
-		} = build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
+		let TestBlockData { block, validation_data } =
+			build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
 		let (mut header, extrinsics, witness) = block.deconstruct();
 		header.set_parent_hash(Hash::from_low_u64_be(1));
 
 		let block_data = ParachainBlockData::new(header, extrinsics, witness);
-		call_validate_block(
-			parent_head,
-			block_data,
-			validation_data.relay_parent_storage_root,
-		)
-		.unwrap_err();
+		call_validate_block(parent_head, block_data, validation_data.relay_parent_storage_root)
+			.unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
 			.args(&["validate_block_invalid_parent_hash", "--", "--nocapture"])
@@ -186,11 +164,7 @@ fn validate_block_fails_on_invalid_validation_data() {
 		call_validate_block(parent_head, block, Hash::random()).unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
-			.args(&[
-				"validate_block_fails_on_invalid_validation_data",
-				"--",
-				"--nocapture",
-			])
+			.args(&["validate_block_fails_on_invalid_validation_data", "--", "--nocapture"])
 			.env("RUN_TEST", "1")
 			.output()
 			.expect("Runs the test");
@@ -208,32 +182,18 @@ fn check_inherent_fails_on_validate_block_as_expected() {
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
 
-		let TestBlockData {
-			block,
-			validation_data,
-		} = build_block_with_witness(
+		let TestBlockData { block, validation_data } = build_block_with_witness(
 			&client,
 			vec![],
 			parent_head.clone(),
-			RelayStateSproofBuilder {
-				current_slot: 1337.into(),
-				..Default::default()
-			},
+			RelayStateSproofBuilder { current_slot: 1337.into(), ..Default::default() },
 		);
 
-		call_validate_block(
-			parent_head,
-			block,
-			validation_data.relay_parent_storage_root,
-		)
-		.unwrap_err();
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
-			.args(&[
-				"check_inherent_fails_on_validate_block_as_expected",
-				"--",
-				"--nocapture",
-			])
+			.args(&["check_inherent_fails_on_validate_block_as_expected", "--", "--nocapture"])
 			.env("RUN_TEST", "1")
 			.output()
 			.expect("Runs the test");

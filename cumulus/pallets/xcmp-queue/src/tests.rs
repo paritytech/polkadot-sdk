@@ -14,25 +14,16 @@
 // limitations under the License.
 
 use super::*;
-use mock::{new_test_ext, XcmpQueue};
 use cumulus_primitives_core::XcmpMessageHandler;
+use mock::{new_test_ext, XcmpQueue};
 
 #[test]
 fn one_message_does_not_panic() {
 	new_test_ext().execute_with(|| {
 		let message_format = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
-		let messages = vec![
-			(
-				Default::default(),
-				1u32.into(),
-				message_format.as_slice(),
-			),
-		];
+		let messages = vec![(Default::default(), 1u32.into(), message_format.as_slice())];
 
 		// This shouldn't cause a panic
-		XcmpQueue::handle_xcmp_messages(
-			messages.into_iter(),
-			Weight::max_value(),
-		);
+		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::max_value());
 	})
 }

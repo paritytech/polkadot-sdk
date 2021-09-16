@@ -39,11 +39,7 @@ pub(crate) struct ActiveCandidateRecovery<Block: BlockT> {
 
 impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 	pub fn new(overseer_handle: OverseerHandle) -> Self {
-		Self {
-			recoveries: Default::default(),
-			candidates: Default::default(),
-			overseer_handle,
-		}
+		Self { recoveries: Default::default(), candidates: Default::default(), overseer_handle }
 	}
 
 	/// Recover the given `pending_candidate`.
@@ -80,14 +76,14 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 							"Availability recovery failed",
 						);
 						(block_hash, None)
-					}
+					},
 					Err(_) => {
 						tracing::debug!(
 							target: crate::LOG_TARGET,
 							"Availability recovery oneshot channel closed",
 						);
 						(block_hash, None)
-					}
+					},
 				}
 			}
 			.boxed(),
@@ -106,7 +102,7 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 		loop {
 			if let Some(res) = self.recoveries.next().await {
 				self.candidates.remove(&res.0);
-				return res;
+				return res
 			} else {
 				futures::pending!()
 			}

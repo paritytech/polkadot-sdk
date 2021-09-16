@@ -39,10 +39,7 @@ fn running_the_node_works_and_can_be_interrupted() {
 			.unwrap();
 
 		thread::sleep(Duration::from_secs(30));
-		assert!(
-			cmd.try_wait().unwrap().is_none(),
-			"the process should still be running"
-		);
+		assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
 		kill(Pid::from_raw(cmd.id().try_into().unwrap()), signal).unwrap();
 		assert_eq!(
 			common::wait_for(&mut cmd, 30).map(|x| x.success()),

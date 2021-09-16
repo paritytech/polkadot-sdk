@@ -113,10 +113,7 @@ pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
-	NativeVersion {
-		runtime_version: VERSION,
-		can_author_with: Default::default(),
-	}
+	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
 /// We assume that ~10% of the block weight is consumed by `on_initalize` handlers.
@@ -421,11 +418,8 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 	) -> sp_inherents::CheckInherentsResult {
 		if relay_state_proof.read_slot().expect("Reads slot") == 1337u64 {
 			let mut res = sp_inherents::CheckInherentsResult::new();
-			res.put_error(
-				[1u8; 8],
-				&sp_inherents::MakeFatalError::from("You are wrong"),
-			)
-			.expect("Puts error");
+			res.put_error([1u8; 8], &sp_inherents::MakeFatalError::from("You are wrong"))
+				.expect("Puts error");
 			res
 		} else {
 			let relay_chain_slot = relay_state_proof

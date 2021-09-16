@@ -144,8 +144,8 @@ pub mod pallet {
 						false,
 						"host configuration is promised to set until `on_finalize`; qed",
 					);
-					return;
-				}
+					return
+				},
 			};
 			let relevant_messaging_state = match Self::relevant_messaging_state() {
 				Some(ok) => ok,
@@ -155,8 +155,8 @@ pub mod pallet {
 						"relevant messaging state is promised to be set until `on_finalize`; \
 							qed",
 					);
-					return;
-				}
+					return
+				},
 			};
 
 			<PendingUpwardMessages<T>>::mutate(|up| {
@@ -172,19 +172,16 @@ pub mod pallet {
 				// available_capacity and available_size.
 				let num = up
 					.iter()
-					.scan(
-						(available_capacity as usize, available_size as usize),
-						|state, msg| {
-							let (cap_left, size_left) = *state;
-							match (cap_left.checked_sub(1), size_left.checked_sub(msg.len())) {
-								(Some(new_cap), Some(new_size)) => {
-									*state = (new_cap, new_size);
-									Some(())
-								}
-								_ => None,
-							}
-						},
-					)
+					.scan((available_capacity as usize, available_size as usize), |state, msg| {
+						let (cap_left, size_left) = *state;
+						match (cap_left.checked_sub(1), size_left.checked_sub(msg.len())) {
+							(Some(new_cap), Some(new_size)) => {
+								*state = (new_cap, new_size);
+								Some(())
+							},
+							_ => None,
+						}
+					})
 					.count();
 
 				// TODO: #274 Return back messages that do not longer fit into the queue.
@@ -366,10 +363,7 @@ pub mod pallet {
 				vfp.relay_parent_number,
 			);
 
-			Ok(PostDispatchInfo {
-				actual_weight: Some(total_weight),
-				pays_fee: Pays::No,
-			})
+			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
 		}
 
 		#[pallet::weight((1_000, DispatchClass::Operational))]
@@ -572,11 +566,10 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let data: ParachainInherentData = data
-				.get_data(&Self::INHERENT_IDENTIFIER)
-				.ok()
-				.flatten()
-				.expect("validation function params are always injected into inherent data; qed");
+			let data: ParachainInherentData =
+				data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect(
+					"validation function params are always injected into inherent data; qed",
+				);
 
 			Some(Call::set_validation_data { data })
 		}
@@ -611,11 +604,11 @@ pub mod pallet {
 						provides: vec![hash.as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
-					});
+					})
 				}
 			}
 			if let Call::set_validation_data { .. } = call {
-				return Ok(Default::default());
+				return Ok(Default::default())
 			}
 			Err(InvalidTransaction::Call.into())
 		}
@@ -650,8 +643,8 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let channels = match Self::relevant_messaging_state() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
-				return ChannelStatus::Closed;
-			}
+				return ChannelStatus::Closed
+			},
 			Some(d) => d.egress_channels,
 		};
 		// ^^^ NOTE: This storage field should carry over from the previous block. So if it's
@@ -667,7 +660,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let meta = &channels[index].1;
 		if meta.msg_count + 1 > meta.max_capacity {
 			// The channel is at its capacity. Skip it for now.
-			return ChannelStatus::Full;
+			return ChannelStatus::Full
 		}
 		let max_size_now = meta.max_total_size - meta.total_size;
 		let max_size_ever = meta.max_message_size;
@@ -771,9 +764,7 @@ impl<T: Config> Pallet<T> {
 			// A violation of the assertion below indicates that one of the messages submitted
 			// by the collator was sent from a sender that doesn't have a channel opened to
 			// this parachain, according to the relay-parent state.
-			assert!(ingress_channels
-				.binary_search_by_key(sender, |&(s, _)| s)
-				.is_ok(),);
+			assert!(ingress_channels.binary_search_by_key(sender, |&(s, _)| s).is_ok(),);
 		}
 
 		// Second, prepare horizontal messages for a more convenient processing:
@@ -787,9 +778,7 @@ impl<T: Config> Pallet<T> {
 		let mut horizontal_messages = horizontal_messages
 			.into_iter()
 			.flat_map(|(sender, channel_contents)| {
-				channel_contents
-					.into_iter()
-					.map(move |message| (sender, message))
+				channel_contents.into_iter().map(move |message| (sender, message))
 			})
 			.collect::<Vec<_>>();
 		horizontal_messages.sort_by(|a, b| {
@@ -806,10 +795,7 @@ impl<T: Config> Pallet<T> {
 
 		{
 			for (sender, ref horizontal_message) in &horizontal_messages {
-				if hrmp_watermark
-					.map(|w| w < horizontal_message.sent_at)
-					.unwrap_or(true)
-				{
+				if hrmp_watermark.map(|w| w < horizontal_message.sent_at).unwrap_or(true) {
 					hrmp_watermark = Some(horizontal_message.sent_at);
 				}
 
@@ -882,16 +868,15 @@ impl<T: Config> Pallet<T> {
 	) -> Option<relay_chain::BlockNumber> {
 		if <PendingRelayChainBlockNumber<T>>::get().is_some() {
 			// There is already upgrade scheduled. Upgrade is not allowed.
-			return None;
+			return None
 		}
 
-		let relay_blocks_since_last_upgrade = vfp
-			.relay_parent_number
-			.saturating_sub(<LastUpgrade<T>>::get());
+		let relay_blocks_since_last_upgrade =
+			vfp.relay_parent_number.saturating_sub(<LastUpgrade<T>>::get());
 
 		if relay_blocks_since_last_upgrade <= cfg.validation_upgrade_frequency {
 			// The cooldown after the last upgrade hasn't elapsed yet. Upgrade is not allowed.
-			return None;
+			return None
 		}
 
 		Some(vfp.relay_parent_number + cfg.validation_upgrade_delay)
@@ -899,16 +884,10 @@ impl<T: Config> Pallet<T> {
 
 	/// The implementation of the runtime upgrade functionality for parachains.
 	fn set_code_impl(validation_function: Vec<u8>) -> DispatchResult {
-		ensure!(
-			!<PendingValidationCode<T>>::exists(),
-			Error::<T>::OverlappingUpgrades
-		);
+		ensure!(!<PendingValidationCode<T>>::exists(), Error::<T>::OverlappingUpgrades);
 		let vfp = Self::validation_data().ok_or(Error::<T>::ValidationDataNotAvailable)?;
 		let cfg = Self::host_configuration().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
-		ensure!(
-			validation_function.len() <= cfg.max_code_size as usize,
-			Error::<T>::TooBig
-		);
+		ensure!(validation_function.len() <= cfg.max_code_size as usize, Error::<T>::TooBig);
 		let apply_block =
 			Self::code_upgrade_allowed(&vfp, &cfg).ok_or(Error::<T>::ProhibitedByPolkadot)?;
 
@@ -1002,11 +981,10 @@ impl<T: Config> Pallet<T> {
 		//
 		// However, changing this setting is expected to be rare.
 		match Self::host_configuration() {
-			Some(cfg) => {
+			Some(cfg) =>
 				if message.len() > cfg.max_upward_message_size as usize {
-					return Err(MessageSendError::TooBig);
-				}
-			}
+					return Err(MessageSendError::TooBig)
+				},
 			None => {
 				// This storage field should carry over from the previous block. So if it's None
 				// then it must be that this is an edge-case where a message is attempted to be
@@ -1017,7 +995,7 @@ impl<T: Config> Pallet<T> {
 				// returned back to the sender.
 				//
 				// Thus fall through here.
-			}
+			},
 		};
 		<PendingUpwardMessages<T>>::append(message);
 		Ok(0)

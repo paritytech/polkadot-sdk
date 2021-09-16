@@ -69,13 +69,13 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::CheckInherents) {
 				parse_inner::<keywords::CheckInherents>(input, &mut check_inherents)?;
 			} else {
-				return Err(lookahead.error());
+				return Err(lookahead.error())
 			}
 		}
 
 		let rest = input.parse::<TokenStream>()?;
 		if !rest.is_empty() {
-			return Err(Error::new(rest.span(), "Unexpected input data"));
+			return Err(Error::new(rest.span(), "Unexpected input data"))
 		}
 
 		Ok(Self {
@@ -88,10 +88,8 @@ impl Parse for Input {
 
 fn crate_() -> Result<Ident, Error> {
 	match crate_name("cumulus-pallet-parachain-system") {
-		Ok(FoundCrate::Itself) => Ok(syn::Ident::new(
-			"cumulus_pallet_parachain_system",
-			Span::call_site(),
-		)),
+		Ok(FoundCrate::Itself) =>
+			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site())),
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
 		Err(e) => Err(Error::new(Span::call_site(), e)),
 	}
@@ -99,11 +97,7 @@ fn crate_() -> Result<Ident, Error> {
 
 #[proc_macro]
 pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let Input {
-		runtime,
-		check_inherents,
-		block_executor,
-	} = match syn::parse(input) {
+	let Input { runtime, check_inherents, block_executor } = match syn::parse(input) {
 		Ok(t) => t,
 		Err(e) => return e.into_compile_error().into(),
 	};

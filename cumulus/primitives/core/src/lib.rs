@@ -165,11 +165,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 		extrinsics: sp_std::vec::Vec<<B as BlockT>::Extrinsic>,
 		storage_proof: sp_trie::CompactProof,
 	) -> Self {
-		Self {
-			header,
-			extrinsics,
-			storage_proof,
-		}
+		Self { header, extrinsics, storage_proof }
 	}
 
 	/// Convert `self` into the stored block.
@@ -198,13 +194,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 	}
 
 	/// Deconstruct into the inner parts.
-	pub fn deconstruct(
-		self,
-	) -> (
-		B::Header,
-		sp_std::vec::Vec<B::Extrinsic>,
-		sp_trie::CompactProof,
-	) {
+	pub fn deconstruct(self) -> (B::Header, sp_std::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
 		(self.header, self.extrinsics, self.storage_proof)
 	}
 }

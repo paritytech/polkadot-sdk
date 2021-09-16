@@ -173,16 +173,10 @@ fn collect_relay_storage_proof(
 	relevant_keys.push(relay_well_known_keys::hrmp_ingress_channel_index(para_id));
 	relevant_keys.push(relay_well_known_keys::hrmp_egress_channel_index(para_id));
 	relevant_keys.extend(ingress_channels.into_iter().map(|sender| {
-		relay_well_known_keys::hrmp_channels(HrmpChannelId {
-			sender,
-			recipient: para_id,
-		})
+		relay_well_known_keys::hrmp_channels(HrmpChannelId { sender, recipient: para_id })
 	}));
 	relevant_keys.extend(egress_channels.into_iter().map(|recipient| {
-		relay_well_known_keys::hrmp_channels(HrmpChannelId {
-			sender: para_id,
-			recipient,
-		})
+		relay_well_known_keys::hrmp_channels(HrmpChannelId { sender: para_id, recipient })
 	}));
 
 	sp_state_machine::prove_read(relay_parent_state_backend, relevant_keys)

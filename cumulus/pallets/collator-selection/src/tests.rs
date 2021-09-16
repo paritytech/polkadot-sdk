@@ -13,15 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use crate as collator_selection;
-use crate::{mock::*, Error, CandidateInfo};
+use crate::{mock::*, CandidateInfo, Error};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{OnInitialize, Currency, GenesisBuild},
+	traits::{Currency, GenesisBuild, OnInitialize},
 };
-use sp_runtime::traits::BadOrigin;
 use pallet_balances::Error as BalancesError;
+use sp_runtime::traits::BadOrigin;
 
 #[test]
 fn basic_setup_works() {
@@ -59,7 +58,10 @@ fn set_desired_candidates_works() {
 		assert_eq!(CollatorSelection::desired_candidates(), 2);
 
 		// can set
-		assert_ok!(CollatorSelection::set_desired_candidates(Origin::signed(RootAccount::get()), 7));
+		assert_ok!(CollatorSelection::set_desired_candidates(
+			Origin::signed(RootAccount::get()),
+			7
+		));
 		assert_eq!(CollatorSelection::desired_candidates(), 7);
 
 		// rejects bad origin
@@ -239,11 +241,7 @@ fn authorship_event_handler() {
 		// triggers `note_author`
 		Authorship::on_initialize(1);
 
-
-		let collator = CandidateInfo {
-			who: 4,
-			deposit: 10,
-		};
+		let collator = CandidateInfo { who: 4, deposit: 10 };
 
 		assert_eq!(CollatorSelection::candidates(), vec![collator]);
 		assert_eq!(CollatorSelection::last_authored_block(4), 0);
@@ -268,11 +266,7 @@ fn fees_edgecases() {
 		// triggers `note_author`
 		Authorship::on_initialize(1);
 
-
-		let collator = CandidateInfo {
-			who: 4,
-			deposit: 10,
-		};
+		let collator = CandidateInfo { who: 4, deposit: 10 };
 
 		assert_eq!(CollatorSelection::candidates(), vec![collator]);
 		assert_eq!(CollatorSelection::last_authored_block(4), 0);
@@ -334,10 +328,7 @@ fn kick_mechanism() {
 		assert_eq!(CollatorSelection::candidates().len(), 1);
 		// 3 will be kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 3, 4]);
-		let collator = CandidateInfo {
-			who: 4,
-			deposit: 10,
-		};
+		let collator = CandidateInfo { who: 4, deposit: 10 };
 		assert_eq!(CollatorSelection::candidates(), vec![collator]);
 		assert_eq!(CollatorSelection::last_authored_block(4), 20);
 		initialize_to_block(30);
@@ -362,10 +353,7 @@ fn should_not_kick_mechanism_too_few() {
 		assert_eq!(CollatorSelection::candidates().len(), 1);
 		// 3 will be kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 3, 5]);
-		let collator = CandidateInfo {
-			who: 5,
-			deposit: 10,
-		};
+		let collator = CandidateInfo { who: 5, deposit: 10 };
 		assert_eq!(CollatorSelection::candidates(), vec![collator]);
 		assert_eq!(CollatorSelection::last_authored_block(4), 20);
 		initialize_to_block(30);
@@ -375,7 +363,6 @@ fn should_not_kick_mechanism_too_few() {
 		assert_eq!(Balances::free_balance(3), 100);
 	});
 }
-
 
 #[test]
 #[should_panic = "duplicate invulnerables in genesis."]
@@ -391,5 +378,4 @@ fn cannot_set_genesis_value_twice() {
 	};
 	// collator selection must be initialized before session.
 	collator_selection.assimilate_storage(&mut t).unwrap();
-
 }

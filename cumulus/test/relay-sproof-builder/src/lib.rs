@@ -81,10 +81,7 @@ impl RelayStateSproofBuilder {
 		}
 
 		self.hrmp_channels
-			.entry(relay_chain::v1::HrmpChannelId {
-				sender,
-				recipient: self.para_id,
-			})
+			.entry(relay_chain::v1::HrmpChannelId { sender, recipient: self.para_id })
 			.or_insert_with(|| AbridgedHrmpChannel {
 				max_capacity: 0,
 				max_total_size: 0,
@@ -97,10 +94,7 @@ impl RelayStateSproofBuilder {
 
 	pub fn into_state_root_and_proof(
 		self,
-	) -> (
-		polkadot_primitives::v1::Hash,
-		sp_state_machine::StorageProof,
-	) {
+	) -> (polkadot_primitives::v1::Hash, sp_state_machine::StorageProof) {
 		let (db, root) = MemoryDB::<HashFor<polkadot_primitives::v1::Block>>::default_with_root();
 		let mut backend = sp_state_machine::TrieBackend::new(db, root);
 
@@ -113,10 +107,7 @@ impl RelayStateSproofBuilder {
 				backend.insert(vec![(None, vec![(key, Some(value))])]);
 			};
 
-			insert(
-				relay_chain::well_known_keys::ACTIVE_CONFIG.to_vec(),
-				self.host_config.encode(),
-			);
+			insert(relay_chain::well_known_keys::ACTIVE_CONFIG.to_vec(), self.host_config.encode());
 			if let Some(dmq_mqc_head) = self.dmq_mqc_head {
 				insert(
 					relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
@@ -150,16 +141,10 @@ impl RelayStateSproofBuilder {
 				);
 			}
 			for (channel, metadata) in self.hrmp_channels {
-				insert(
-					relay_chain::well_known_keys::hrmp_channels(channel),
-					metadata.encode(),
-				);
+				insert(relay_chain::well_known_keys::hrmp_channels(channel), metadata.encode());
 			}
 
-			insert(
-				relay_chain::well_known_keys::CURRENT_SLOT.to_vec(),
-				self.current_slot.encode(),
-			);
+			insert(relay_chain::well_known_keys::CURRENT_SLOT.to_vec(), self.current_slot.encode());
 		}
 
 		let root = backend.root().clone();

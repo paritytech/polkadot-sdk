@@ -118,19 +118,17 @@ where
 		_phantom: PhantomData,
 	});
 
-	relay_chain_full_node
-		.client
-		.execute_with(StartPoVRecovery {
-			para_id,
-			client: client.clone(),
-			import_queue,
-			task_manager,
-			overseer_handle: relay_chain_full_node
-				.overseer_handle
-				.clone()
-				.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
-			_phantom: PhantomData,
-		})?;
+	relay_chain_full_node.client.execute_with(StartPoVRecovery {
+		para_id,
+		client: client.clone(),
+		import_queue,
+		task_manager,
+		overseer_handle: relay_chain_full_node
+			.overseer_handle
+			.clone()
+			.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
+		_phantom: PhantomData,
+	})?;
 
 	cumulus_client_collator::start_collator(cumulus_client_collator::StartCollatorParams {
 		runtime_api: client.clone(),
@@ -239,9 +237,7 @@ where
 			self.announce_block,
 		);
 
-		self.task_manager
-			.spawn_essential_handle()
-			.spawn("cumulus-consensus", consensus);
+		self.task_manager.spawn_essential_handle().spawn("cumulus-consensus", consensus);
 	}
 }
 
@@ -311,9 +307,7 @@ pub fn build_polkadot_full_node(
 ) -> Result<RFullNode<PClient>, polkadot_service::Error> {
 	let is_light = matches!(config.role, Role::Light);
 	if is_light {
-		Err(polkadot_service::Error::Sub(
-			"Light client not supported.".into(),
-		))
+		Err(polkadot_service::Error::Sub("Light client not supported.".into()))
 	} else {
 		let collator_key = CollatorPair::generate().0;
 
@@ -327,10 +321,7 @@ pub fn build_polkadot_full_node(
 			polkadot_service::RealOverseerGen,
 		)?;
 
-		Ok(RFullNode {
-			relay_chain_full_node,
-			collator_key,
-		})
+		Ok(RFullNode { relay_chain_full_node, collator_key })
 	}
 }
 
@@ -359,9 +350,7 @@ impl<Block: BlockT> ImportQueue<Block> for SharedImportQueue<Block> {
 		number: NumberFor<Block>,
 		justifications: Justifications,
 	) {
-		self.0
-			.lock()
-			.import_justifications(who, hash, number, justifications)
+		self.0.lock().import_justifications(who, hash, number, justifications)
 	}
 
 	fn poll_actions(&mut self, cx: &mut std::task::Context, link: &mut dyn Link<Block>) {

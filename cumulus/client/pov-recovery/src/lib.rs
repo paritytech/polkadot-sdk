@@ -149,12 +149,12 @@ where
 					error = ?e,
 					"Failed to decode parachain header from pending candidate",
 				);
-				return;
-			}
+				return
+			},
 		};
 
 		if *header.number() <= self.parachain_client.usage_info().chain.finalized_number {
-			return;
+			return
 		}
 
 		let hash = header.hash();
@@ -169,8 +169,8 @@ where
 					block_hash = ?hash,
 					"Failed to get block status",
 				);
-				return;
-			}
+				return
+			},
 		}
 
 		if self
@@ -185,7 +185,7 @@ where
 			)
 			.is_some()
 		{
-			return;
+			return
 		}
 
 		// Wait some random time, with the maximum being the slot duration of the relay chain
@@ -207,8 +207,7 @@ where
 
 	/// Handle a finalized block with the given `block_number`.
 	fn handle_block_finalized(&mut self, block_number: NumberFor<Block>) {
-		self.pending_candidates
-			.retain(|_, pc| pc.block_number > block_number);
+		self.pending_candidates.retain(|_, pc| pc.block_number > block_number);
 	}
 
 	/// Recover the candidate for the given `block_hash`.
@@ -245,8 +244,8 @@ where
 			Some(data) => data,
 			None => {
 				self.clear_waiting_for_parent(block_hash);
-				return;
-			}
+				return
+			},
 		};
 
 		let raw_block_data = match sp_maybe_compressed_blob::decompress(
@@ -259,8 +258,8 @@ where
 
 				self.clear_waiting_for_parent(block_hash);
 
-				return;
-			}
+				return
+			},
 		};
 
 		let block_data = match ParachainBlockData::<Block>::decode(&mut &raw_block_data[..]) {
@@ -274,8 +273,8 @@ where
 
 				self.clear_waiting_for_parent(block_hash);
 
-				return;
-			}
+				return
+			},
 		};
 
 		let block = block_data.into_block();
@@ -292,11 +291,8 @@ where
 						"Parent is still being recovered, waiting.",
 					);
 
-					self.waiting_for_parent
-						.entry(parent)
-						.or_default()
-						.push(block);
-					return;
+					self.waiting_for_parent.entry(parent).or_default().push(block);
+					return
 				} else {
 					tracing::debug!(
 						target: "cumulus-consensus",
@@ -307,9 +303,9 @@ where
 
 					self.clear_waiting_for_parent(block_hash);
 
-					return;
+					return
 				}
-			}
+			},
 			Err(error) => {
 				tracing::debug!(
 					target: "cumulus-consensus",
@@ -320,8 +316,8 @@ where
 
 				self.clear_waiting_for_parent(block_hash);
 
-				return;
-			}
+				return
+			},
 			// Any other status is fine to "ignore/accept"
 			_ => (),
 		}
@@ -431,27 +427,25 @@ where
 	RC: ProvideRuntimeApi<PBlock> + BlockchainEvents<PBlock>,
 	RC::Api: ParachainHost<PBlock>,
 {
-	relay_chain_client
-		.import_notification_stream()
-		.filter_map(move |n| {
-			let runtime_api = relay_chain_client.runtime_api();
-			let res = runtime_api
-				.candidate_pending_availability(&BlockId::hash(n.hash), para_id)
-				.and_then(|pa| {
-					runtime_api
-						.session_index_for_child(&BlockId::hash(n.hash))
-						.map(|v| pa.map(|pa| (pa, v)))
-				})
-				.map_err(|e| {
-					tracing::error!(
-						target: LOG_TARGET,
-						error = ?e,
-						"Failed fetch pending candidates.",
-					)
-				})
-				.ok()
-				.flatten();
+	relay_chain_client.import_notification_stream().filter_map(move |n| {
+		let runtime_api = relay_chain_client.runtime_api();
+		let res = runtime_api
+			.candidate_pending_availability(&BlockId::hash(n.hash), para_id)
+			.and_then(|pa| {
+				runtime_api
+					.session_index_for_child(&BlockId::hash(n.hash))
+					.map(|v| pa.map(|pa| (pa, v)))
+			})
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed fetch pending candidates.",
+				)
+			})
+			.ok()
+			.flatten();
 
-			async move { res }
-		})
+		async move { res }
+	})
 }

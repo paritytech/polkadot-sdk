@@ -21,15 +21,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use scale_info::TypeInfo;
-use sp_std::{prelude::*, convert::TryFrom};
-use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
-use cumulus_primitives_core::DmpMessageHandler;
-use codec::{Encode, Decode};
-use sp_runtime::RuntimeDebug;
-use xcm::{VersionedXcm, latest::prelude::*};
-use frame_support::{traits::EnsureOrigin, dispatch::Weight, weights::constants::WEIGHT_PER_MILLIS};
+use codec::{Decode, Encode};
+use cumulus_primitives_core::{relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler};
+use frame_support::{
+	dispatch::Weight, traits::EnsureOrigin, weights::constants::WEIGHT_PER_MILLIS,
+};
 pub use pallet::*;
+use scale_info::TypeInfo;
+use sp_runtime::RuntimeDebug;
+use sp_std::{convert::TryFrom, prelude::*};
+use xcm::{latest::prelude::*, VersionedXcm};
 
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ConfigData {
@@ -42,7 +43,7 @@ pub struct ConfigData {
 impl Default for ConfigData {
 	fn default() -> Self {
 		Self {
-			max_individual: 10 * WEIGHT_PER_MILLIS,	// 10 ms of execution time maximum by default
+			max_individual: 10 * WEIGHT_PER_MILLIS, // 10 ms of execution time maximum by default
 		}
 	}
 }
@@ -100,23 +101,13 @@ pub mod pallet {
 
 	/// The queue pages.
 	#[pallet::storage]
-	pub(super) type Pages<T> = StorageMap<
-		_,
-		Blake2_128Concat,
-		PageCounter,
-		Vec<(RelayBlockNumber, Vec<u8>)>,
-		ValueQuery,
-	>;
+	pub(super) type Pages<T> =
+		StorageMap<_, Blake2_128Concat, PageCounter, Vec<(RelayBlockNumber, Vec<u8>)>, ValueQuery>;
 
 	/// The overweight messages.
 	#[pallet::storage]
-	pub(super) type Overweight<T> = StorageMap<
-		_,
-		Blake2_128Concat,
-		OverweightIndex,
-		(RelayBlockNumber, Vec<u8>),
-		OptionQuery,
-	>;
+	pub(super) type Overweight<T> =
+		StorageMap<_, Blake2_128Concat, OverweightIndex, (RelayBlockNumber, Vec<u8>), OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -203,13 +194,14 @@ pub mod pallet {
 			while page_index.begin_used < page_index.end_used {
 				let page = Pages::<T>::take(page_index.begin_used);
 				for (i, &(sent_at, ref data)) in page.iter().enumerate() {
-					match Self::try_service_message(limit.saturating_sub(used), sent_at, &data[..]) {
+					match Self::try_service_message(limit.saturating_sub(used), sent_at, &data[..])
+					{
 						Ok(w) => used += w,
 						Err(..) => {
 							// Too much weight needed - put the remaining messages back and bail
 							Pages::<T>::insert(page_index.begin_used, &page[i..]);
-							return used;
-						}
+							return used
+						},
 					}
 				}
 				page_index.begin_used += 1;
@@ -233,8 +225,8 @@ pub mod pallet {
 			data: &[u8],
 		) -> Result<Weight, (MessageId, Weight)> {
 			let id = sp_io::hashing::blake2_256(&data[..]);
-			let maybe_msg = VersionedXcm::<T::Call>::decode(&mut &data[..])
-				.map(Xcm::<T::Call>::try_from);
+			let maybe_msg =
+				VersionedXcm::<T::Call>::decode(&mut &data[..]).map(Xcm::<T::Call>::try_from);
 			match maybe_msg {
 				Err(_) => {
 					Self::deposit_event(Event::InvalidFormat(id));
@@ -247,14 +239,15 @@ pub mod pallet {
 				Ok(Ok(x)) => {
 					let outcome = T::XcmExecutor::execute_xcm(Parent.into(), x, limit);
 					match outcome {
-						Outcome::Error(XcmError::WeightLimitReached(required)) => Err((id, required)),
+						Outcome::Error(XcmError::WeightLimitReached(required)) =>
+							Err((id, required)),
 						outcome => {
 							let weight_used = outcome.weight_used();
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));
 							Ok(weight_used)
-						}
+						},
 					}
-				}
+				},
 			}
 		}
 	}
@@ -264,7 +257,7 @@ pub mod pallet {
 	/// the `Parent` location.
 	impl<T: Config> DmpMessageHandler for Pallet<T> {
 		fn handle_dmp_messages(
-			iter: impl Iterator<Item=(RelayBlockNumber, Vec<u8>)>,
+			iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
 			limit: Weight,
 		) -> Weight {
 			let mut page_index = PageIndex::<T>::get();
@@ -290,7 +283,8 @@ pub mod pallet {
 					match Self::try_service_message(remaining, sent_at, &data[..]) {
 						Ok(consumed) => used += consumed,
 						Err((id, required)) =>
-							// Too much weight required right now.
+						// Too much weight required right now.
+						{
 							if required > config.max_individual {
 								// overweight - add to overweight queue and continue with
 								// message execution.
@@ -300,14 +294,17 @@ pub mod pallet {
 								page_index.overweight_count += 1;
 								// Not needed for control flow, but only to ensure that the compiler
 								// understands that we won't attempt to re-use `data` later.
-								continue;
+								continue
 							} else {
 								// not overweight. stop executing inline and enqueue normally
 								// from here on.
 								let item_count_left = item_count.saturating_sub(i);
 								maybe_enqueue_page = Some(Vec::with_capacity(item_count_left));
-								Self::deposit_event(Event::WeightExhausted(id, remaining, required));
+								Self::deposit_event(Event::WeightExhausted(
+									id, remaining, required,
+								));
 							}
+						}
 					}
 				}
 				// Cannot be an `else` here since the `maybe_enqueue_page` may have changed.
@@ -333,14 +330,17 @@ mod tests {
 	use super::*;
 	use crate as dmp_queue;
 
-	use std::cell::RefCell;
 	use codec::Encode;
 	use cumulus_primitives_core::ParaId;
-	use frame_support::{parameter_types, assert_noop, traits::OnIdle};
+	use frame_support::{assert_noop, parameter_types, traits::OnIdle};
 	use sp_core::H256;
-	use sp_runtime::{testing::Header, traits::{IdentityLookup, BlakeTwo256}};
-	use sp_runtime::DispatchError::BadOrigin;
+	use sp_runtime::{
+		testing::Header,
+		traits::{BlakeTwo256, IdentityLookup},
+		DispatchError::BadOrigin,
+	};
 	use sp_version::RuntimeVersion;
+	use std::cell::RefCell;
 	use xcm::latest::{MultiLocation, OriginKind};
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -451,9 +451,12 @@ mod tests {
 	fn enqueue(enqueued: &[Xcm]) {
 		if !enqueued.is_empty() {
 			let mut index = PageIndex::<Test>::get();
-			Pages::<Test>::insert(index.end_used, enqueued.iter()
-				.map(|m| (0, VersionedXcm::<Call>::from(m.clone()).encode()))
-				.collect::<Vec<_>>()
+			Pages::<Test>::insert(
+				index.end_used,
+				enqueued
+					.iter()
+					.map(|m| (0, VersionedXcm::<Call>::from(m.clone()).encode()))
+					.collect::<Vec<_>>(),
 			);
 			index.end_used += 1;
 			PageIndex::<Test>::put(index);
@@ -508,7 +511,7 @@ mod tests {
 	#[test]
 	fn service_inline_complete_works() {
 		new_test_ext().execute_with(|| {
-			let incoming = vec![ msg(1000), msg(1001) ];
+			let incoming = vec![msg(1000), msg(1001)];
 			let weight_used = handle_messages(&incoming, 2500);
 			assert_eq!(weight_used, 2001);
 			assert_eq!(take_trace(), vec![msg_complete(1000), msg_complete(1001)]);
@@ -519,41 +522,40 @@ mod tests {
 	#[test]
 	fn service_enqueued_works() {
 		new_test_ext().execute_with(|| {
-			let enqueued = vec![ msg(1000), msg(1001), msg(1002) ];
+			let enqueued = vec![msg(1000), msg(1001), msg(1002)];
 			enqueue(&enqueued);
 			let weight_used = handle_messages(&[], 2500);
 			assert_eq!(weight_used, 2001);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_complete(1001),
-				msg_limit_reached(1002),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![msg_complete(1000), msg_complete(1001), msg_limit_reached(1002),]
+			);
 		});
 	}
 
 	#[test]
 	fn enqueue_works() {
 		new_test_ext().execute_with(|| {
-			let incoming = vec![ msg(1000), msg(1001), msg(1002) ];
+			let incoming = vec![msg(1000), msg(1001), msg(1002)];
 			let weight_used = handle_messages(&incoming, 999);
 			assert_eq!(weight_used, 0);
-			assert_eq!(PageIndex::<Test>::get(), PageIndexData { begin_used: 0, end_used: 1, overweight_count: 0});
+			assert_eq!(
+				PageIndex::<Test>::get(),
+				PageIndexData { begin_used: 0, end_used: 1, overweight_count: 0 }
+			);
 			assert_eq!(Pages::<Test>::get(0).len(), 3);
-			assert_eq!(take_trace(), vec![ msg_limit_reached(1000) ]);
+			assert_eq!(take_trace(), vec![msg_limit_reached(1000)]);
 
 			let weight_used = handle_messages(&[], 2500);
 			assert_eq!(weight_used, 2001);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_complete(1001),
-				msg_limit_reached(1002),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![msg_complete(1000), msg_complete(1001), msg_limit_reached(1002),]
+			);
 
 			let weight_used = handle_messages(&[], 2500);
 			assert_eq!(weight_used, 1002);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1002),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(1002),]);
 			assert!(queue_is_empty());
 		});
 	}
@@ -561,22 +563,16 @@ mod tests {
 	#[test]
 	fn service_inline_then_enqueue_works() {
 		new_test_ext().execute_with(|| {
-			let incoming = vec![ msg(1000), msg(1001), msg(1002) ];
+			let incoming = vec![msg(1000), msg(1001), msg(1002)];
 			let weight_used = handle_messages(&incoming, 1500);
 			assert_eq!(weight_used, 1000);
 			assert_eq!(pages_queued(), 1);
 			assert_eq!(Pages::<Test>::get(0).len(), 2);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_limit_reached(1001),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(1000), msg_limit_reached(1001),]);
 
 			let weight_used = handle_messages(&[], 2500);
 			assert_eq!(weight_used, 2003);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1001),
-				msg_complete(1002),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(1001), msg_complete(1002),]);
 			assert!(queue_is_empty());
 		});
 	}
@@ -584,17 +580,20 @@ mod tests {
 	#[test]
 	fn service_enqueued_and_inline_works() {
 		new_test_ext().execute_with(|| {
-			let enqueued = vec![ msg(1000), msg(1001) ];
-			let incoming = vec![ msg(1002), msg(1003) ];
+			let enqueued = vec![msg(1000), msg(1001)];
+			let incoming = vec![msg(1002), msg(1003)];
 			enqueue(&enqueued);
 			let weight_used = handle_messages(&incoming, 5000);
 			assert_eq!(weight_used, 4006);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_complete(1001),
-				msg_complete(1002),
-				msg_complete(1003),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![
+					msg_complete(1000),
+					msg_complete(1001),
+					msg_complete(1002),
+					msg_complete(1003),
+				]
+			);
 			assert!(queue_is_empty());
 		});
 	}
@@ -602,32 +601,26 @@ mod tests {
 	#[test]
 	fn service_enqueued_partially_and_then_enqueue_works() {
 		new_test_ext().execute_with(|| {
-			let enqueued = vec![ msg(1000), msg(10001) ];
-			let incoming = vec![ msg(1002), msg(1003) ];
+			let enqueued = vec![msg(1000), msg(10001)];
+			let incoming = vec![msg(1002), msg(1003)];
 			enqueue(&enqueued);
 			let weight_used = handle_messages(&incoming, 5000);
 			assert_eq!(weight_used, 1000);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_limit_reached(10001),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(1000), msg_limit_reached(10001),]);
 			assert_eq!(pages_queued(), 2);
 
 			// 5000 is not enough to process the 10001 blocker, so nothing happens.
 			let weight_used = handle_messages(&[], 5000);
 			assert_eq!(weight_used, 0);
-			assert_eq!(take_trace(), vec![
-				msg_limit_reached(10001),
-			]);
+			assert_eq!(take_trace(), vec![msg_limit_reached(10001),]);
 
 			// 20000 is now enough to process everything.
 			let weight_used = handle_messages(&[], 20000);
 			assert_eq!(weight_used, 12006);
-			assert_eq!(take_trace(), vec![
-				msg_complete(10001),
-				msg_complete(1002),
-				msg_complete(1003),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![msg_complete(10001), msg_complete(1002), msg_complete(1003),]
+			);
 			assert!(queue_is_empty());
 		});
 	}
@@ -635,25 +628,21 @@ mod tests {
 	#[test]
 	fn service_enqueued_completely_and_then_enqueue_works() {
 		new_test_ext().execute_with(|| {
-			let enqueued = vec![ msg(1000), msg(1001) ];
-			let incoming = vec![ msg(10002), msg(1003) ];
+			let enqueued = vec![msg(1000), msg(1001)];
+			let incoming = vec![msg(10002), msg(1003)];
 			enqueue(&enqueued);
 			let weight_used = handle_messages(&incoming, 5000);
 			assert_eq!(weight_used, 2001);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_complete(1001),
-				msg_limit_reached(10002),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![msg_complete(1000), msg_complete(1001), msg_limit_reached(10002),]
+			);
 			assert_eq!(pages_queued(), 1);
 
 			// 20000 is now enough to process everything.
 			let weight_used = handle_messages(&[], 20000);
 			assert_eq!(weight_used, 11005);
-			assert_eq!(take_trace(), vec![
-				msg_complete(10002),
-				msg_complete(1003),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(10002), msg_complete(1003),]);
 			assert!(queue_is_empty());
 		});
 	}
@@ -661,25 +650,26 @@ mod tests {
 	#[test]
 	fn service_enqueued_then_inline_then_enqueue_works() {
 		new_test_ext().execute_with(|| {
-			let enqueued = vec![ msg(1000), msg(1001) ];
-			let incoming = vec![ msg(1002), msg(10003) ];
+			let enqueued = vec![msg(1000), msg(1001)];
+			let incoming = vec![msg(1002), msg(10003)];
 			enqueue(&enqueued);
 			let weight_used = handle_messages(&incoming, 5000);
 			assert_eq!(weight_used, 3003);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_complete(1001),
-				msg_complete(1002),
-				msg_limit_reached(10003),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![
+					msg_complete(1000),
+					msg_complete(1001),
+					msg_complete(1002),
+					msg_limit_reached(10003),
+				]
+			);
 			assert_eq!(pages_queued(), 1);
 
 			// 20000 is now enough to process everything.
 			let weight_used = handle_messages(&[], 20000);
 			assert_eq!(weight_used, 10003);
-			assert_eq!(take_trace(), vec![
-				msg_complete(10003),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(10003),]);
 			assert!(queue_is_empty());
 		});
 	}
@@ -687,32 +677,23 @@ mod tests {
 	#[test]
 	fn page_crawling_works() {
 		new_test_ext().execute_with(|| {
-			let enqueued = vec![ msg(1000), msg(1001) ];
+			let enqueued = vec![msg(1000), msg(1001)];
 			enqueue(&enqueued);
-			let weight_used = handle_messages(&vec![ msg(1002) ], 1500);
+			let weight_used = handle_messages(&vec![msg(1002)], 1500);
 			assert_eq!(weight_used, 1000);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_limit_reached(1001),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(1000), msg_limit_reached(1001),]);
 			assert_eq!(pages_queued(), 2);
 			assert_eq!(PageIndex::<Test>::get().begin_used, 0);
 
-			let weight_used = handle_messages(&vec![ msg(1003) ], 1500);
+			let weight_used = handle_messages(&vec![msg(1003)], 1500);
 			assert_eq!(weight_used, 1001);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1001),
-				msg_limit_reached(1002),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(1001), msg_limit_reached(1002),]);
 			assert_eq!(pages_queued(), 2);
 			assert_eq!(PageIndex::<Test>::get().begin_used, 1);
 
-			let weight_used = handle_messages(&vec![ msg(1004) ], 1500);
+			let weight_used = handle_messages(&vec![msg(1004)], 1500);
 			assert_eq!(weight_used, 1002);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1002),
-				msg_limit_reached(1003),
-			]);
+			assert_eq!(take_trace(), vec![msg_complete(1002), msg_limit_reached(1003),]);
 			assert_eq!(pages_queued(), 2);
 			assert_eq!(PageIndex::<Test>::get().begin_used, 2);
 		});
@@ -724,15 +705,14 @@ mod tests {
 			// Set the overweight threshold to 9999.
 			Configuration::<Test>::put(ConfigData { max_individual: 9999 });
 
-			let incoming = vec![ msg(1000), msg(10001), msg(1002) ];
+			let incoming = vec![msg(1000), msg(10001), msg(1002)];
 			let weight_used = handle_messages(&incoming, 2500);
 			assert_eq!(weight_used, 2002);
 			assert!(queue_is_empty());
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_limit_reached(10001),
-				msg_complete(1002),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![msg_complete(1000), msg_limit_reached(10001), msg_complete(1002),]
+			);
 
 			assert_eq!(overweights(), vec![0]);
 		});
@@ -744,49 +724,60 @@ mod tests {
 			// Set the overweight threshold to 9999.
 			Configuration::<Test>::put(ConfigData { max_individual: 9999 });
 
-			let incoming = vec![ msg(10000) ];
+			let incoming = vec![msg(10000)];
 			let weight_used = handle_messages(&incoming, 2500);
 			assert_eq!(weight_used, 0);
-			assert_eq!(take_trace(), vec![ msg_limit_reached(10000) ]);
+			assert_eq!(take_trace(), vec![msg_limit_reached(10000)]);
 			assert_eq!(overweights(), vec![0]);
 
 			assert_noop!(DmpQueue::service_overweight(Origin::signed(1), 0, 20000), BadOrigin);
-			assert_noop!(DmpQueue::service_overweight(Origin::root(), 1, 20000), Error::<Test>::Unknown);
-			assert_noop!(DmpQueue::service_overweight(Origin::root(), 0, 9999), Error::<Test>::OverLimit);
-			assert_eq!(take_trace(), vec![ msg_limit_reached(10000) ]);
+			assert_noop!(
+				DmpQueue::service_overweight(Origin::root(), 1, 20000),
+				Error::<Test>::Unknown
+			);
+			assert_noop!(
+				DmpQueue::service_overweight(Origin::root(), 0, 9999),
+				Error::<Test>::OverLimit
+			);
+			assert_eq!(take_trace(), vec![msg_limit_reached(10000)]);
 
-			let base_weight = super::Call::<Test>::service_overweight {
-				index: 0,
-				weight_limit: 0,
-			}.get_dispatch_info().weight;
+			let base_weight = super::Call::<Test>::service_overweight { index: 0, weight_limit: 0 }
+				.get_dispatch_info()
+				.weight;
 			use frame_support::weights::GetDispatchInfo;
 			let info = DmpQueue::service_overweight(Origin::root(), 0, 20000).unwrap();
 			let actual_weight = info.actual_weight.unwrap();
 			assert_eq!(actual_weight, base_weight + 10000);
-			assert_eq!(take_trace(), vec![ msg_complete(10000) ]);
+			assert_eq!(take_trace(), vec![msg_complete(10000)]);
 			assert!(overweights().is_empty());
 
-			assert_noop!(DmpQueue::service_overweight(Origin::root(), 0, 20000), Error::<Test>::Unknown);
+			assert_noop!(
+				DmpQueue::service_overweight(Origin::root(), 0, 20000),
+				Error::<Test>::Unknown
+			);
 		});
 	}
 
 	#[test]
 	fn on_idle_should_service_queue() {
 		new_test_ext().execute_with(|| {
-			enqueue(&vec![ msg(1000), msg(1001) ]);
-			enqueue(&vec![ msg(1002), msg(1003) ]);
-			enqueue(&vec![ msg(1004), msg(1005) ]);
+			enqueue(&vec![msg(1000), msg(1001)]);
+			enqueue(&vec![msg(1002), msg(1003)]);
+			enqueue(&vec![msg(1004), msg(1005)]);
 
 			let weight_used = DmpQueue::on_idle(1, 6000);
 			assert_eq!(weight_used, 5010);
-			assert_eq!(take_trace(), vec![
-				msg_complete(1000),
-				msg_complete(1001),
-				msg_complete(1002),
-				msg_complete(1003),
-				msg_complete(1004),
-				msg_limit_reached(1005),
-			]);
+			assert_eq!(
+				take_trace(),
+				vec![
+					msg_complete(1000),
+					msg_complete(1001),
+					msg_complete(1002),
+					msg_complete(1003),
+					msg_complete(1004),
+					msg_limit_reached(1005),
+				]
+			);
 			assert_eq!(pages_queued(), 1);
 		});
 	}

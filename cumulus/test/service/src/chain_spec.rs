@@ -70,9 +70,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		None,
 		None,
 		None,
-		Extensions {
-			para_id: id.into(),
-		},
+		Extensions { para_id: id.into() },
 	)
 }
 
@@ -110,11 +108,7 @@ fn testnet_genesis(
 		},
 		parachain_system: Default::default(),
 		balances: cumulus_test_runtime::BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, 1 << 60))
-				.collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		sudo: cumulus_test_runtime::SudoConfig { key: root_key },
 	}

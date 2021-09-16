@@ -19,15 +19,15 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
-use sp_std::prelude::*;
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller, account};
-use frame_system::{RawOrigin, EventRecord};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_support::{
 	assert_ok,
-	traits::{Currency, Get, EnsureOrigin},
+	traits::{Currency, EnsureOrigin, Get},
 };
+use frame_system::{EventRecord, RawOrigin};
 use pallet_authorship::EventHandler;
 use pallet_session::SessionManager;
+use sp_std::prelude::*;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -38,7 +38,7 @@ const SEED: u32 = 0;
 macro_rules! whitelist {
 	($acc:ident) => {
 		frame_benchmarking::benchmarking::add_to_whitelist(
-			frame_system::Account::<T>::hashed_key_for(&$acc).into()
+			frame_system::Account::<T>::hashed_key_for(&$acc).into(),
 		);
 	};
 }

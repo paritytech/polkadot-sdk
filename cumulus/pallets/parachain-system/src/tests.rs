@@ -17,17 +17,17 @@ use super::*;
 
 use codec::Encode;
 use cumulus_primitives_core::{
-	AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
-	relay_chain::BlockNumber as RelayBlockNumber,
+	relay_chain::BlockNumber as RelayBlockNumber, AbridgedHrmpChannel, InboundDownwardMessage,
+	InboundHrmpMessage, PersistedValidationData,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	assert_ok,
 	dispatch::UnfilteredDispatchable,
+	inherent::{InherentData, ProvideInherent},
 	parameter_types,
 	traits::{OnFinalize, OnInitialize},
 	weights::Weight,
-	inherent::{InherentData, ProvideInherent},
 };
 use frame_system::{InitKind, RawOrigin};
 use hex_literal::hex;
@@ -113,10 +113,7 @@ std::thread_local! {
 	static SENT_MESSAGES: RefCell<Vec<(ParaId, Vec<u8>)>> = RefCell::new(Vec::new());
 }
 
-fn send_message(
-	dest: ParaId,
-	message: Vec<u8>,
-) {
+fn send_message(dest: ParaId, message: Vec<u8>) {
 	SENT_MESSAGES.with(|m| m.borrow_mut().push((dest, message)));
 }
 
@@ -125,9 +122,9 @@ impl XcmpMessageSource for FromThreadLocal {
 		let mut ids = std::collections::BTreeSet::<ParaId>::new();
 		let mut taken = 0;
 		let mut result = Vec::new();
-		SENT_MESSAGES.with(|ms| ms.borrow_mut()
-			.retain(|m| {
-				let status = <Pallet::<Test> as GetChannelInfo>::get_channel_status(m.0);
+		SENT_MESSAGES.with(|ms| {
+			ms.borrow_mut().retain(|m| {
+				let status = <Pallet<Test> as GetChannelInfo>::get_channel_status(m.0);
 				let ready = matches!(status, ChannelStatus::Ready(..));
 				if ready && !ids.contains(&m.0) && taken < maximum_channels {
 					ids.insert(m.0);
@@ -138,14 +135,14 @@ impl XcmpMessageSource for FromThreadLocal {
 					true
 				}
 			})
-		);
+		});
 		result
 	}
 }
 
 impl DmpMessageHandler for SaveIntoThreadLocal {
 	fn handle_dmp_messages(
-		iter: impl Iterator<Item=(RelayBlockNumber, Vec<u8>)>,
+		iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
 		_max_weight: Weight,
 	) -> Weight {
 		HANDLED_DMP_MESSAGES.with(|m| {
@@ -158,7 +155,7 @@ impl DmpMessageHandler for SaveIntoThreadLocal {
 }
 
 impl XcmpMessageHandler for SaveIntoThreadLocal {
-	fn handle_xcmp_messages<'a, I: Iterator<Item=(ParaId, RelayBlockNumber, &'a [u8])>>(
+	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 		iter: I,
 		_max_weight: Weight,
 	) -> Weight {
@@ -177,10 +174,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	HANDLED_DMP_MESSAGES.with(|m| m.borrow_mut().clear());
 	HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
 
-	frame_system::GenesisConfig::default()
-		.build_storage::<Test>()
-		.unwrap()
-		.into()
+	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
 }
 
 struct ReadRuntimeVersion(Vec<u8>);
@@ -204,9 +198,9 @@ fn wasm_ext() -> sp_io::TestExternalities {
 	};
 
 	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(
-		ReadRuntimeVersion(version.encode()),
-	));
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion(
+		version.encode(),
+	)));
 	ext
 }
 
@@ -247,11 +241,7 @@ impl BlockTests {
 	where
 		F: 'static + Fn(),
 	{
-		self.add_raw(BlockTest {
-			n,
-			within_block: Box::new(within_block),
-			after_block: None,
-		})
+		self.add_raw(BlockTest { n, within_block: Box::new(within_block), after_block: None })
 	}
 
 	fn add_with_post_test<F1, F2>(
@@ -299,12 +289,7 @@ impl BlockTests {
 	fn run(&mut self) {
 		self.ran = true;
 		wasm_ext().execute_with(|| {
-			for BlockTest {
-				n,
-				within_block,
-				after_block,
-			} in self.tests.iter()
-			{
+			for BlockTest { n, within_block, after_block } in self.tests.iter() {
 				// clear pending updates, as applicable
 				if let Some(upgrade_block) = self.pending_upgrade {
 					if n >= &upgrade_block.into() {
@@ -313,12 +298,7 @@ impl BlockTests {
 				}
 
 				// begin initialization
-				System::initialize(
-					&n,
-					&Default::default(),
-					&Default::default(),
-					InitKind::Full,
-				);
+				System::initialize(&n, &Default::default(), &Default::default(), InitKind::Full);
 
 				// now mess with the storage the way validate_block does
 				let mut sproof_builder = RelayStateSproofBuilder::default();
@@ -398,9 +378,7 @@ impl Drop for BlockTests {
 #[test]
 #[should_panic]
 fn block_tests_run_on_drop() {
-	BlockTests::new().add(123, || {
-		panic!("if this test passes, block tests run properly")
-	});
+	BlockTests::new().add(123, || panic!("if this test passes, block tests run properly"));
 }
 
 #[test]
@@ -412,10 +390,7 @@ fn events() {
 		.add_with_post_test(
 			123,
 			|| {
-				assert_ok!(System::set_code(
-					RawOrigin::Root.into(),
-					Default::default()
-				));
+				assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 			},
 			|| {
 				let events = System::events();
@@ -445,10 +420,7 @@ fn non_overlapping() {
 			builder.host_config.validation_upgrade_delay = 1000;
 		})
 		.add(123, || {
-			assert_ok!(System::set_code(
-				RawOrigin::Root.into(),
-				Default::default()
-			));
+			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 		})
 		.add(234, || {
 			assert_eq!(
@@ -466,14 +438,8 @@ fn manipulates_storage() {
 				!<PendingValidationCode<Test>>::exists(),
 				"validation function must not exist yet"
 			);
-			assert_ok!(System::set_code(
-				RawOrigin::Root.into(),
-				Default::default()
-			));
-			assert!(
-				<PendingValidationCode<Test>>::exists(),
-				"validation function must now exist"
-			);
+			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+			assert!(<PendingValidationCode<Test>>::exists(), "validation function must now exist");
 		})
 		.add_with_post_test(
 			1234,
@@ -573,10 +539,7 @@ fn send_hrmp_message_buffer_channel_close() {
 			sproof.para_id = ParaId::from(200);
 			sproof.hrmp_egress_channel_index = Some(vec![ParaId::from(300), ParaId::from(400)]);
 			sproof.hrmp_channels.insert(
-				HrmpChannelId {
-					sender: ParaId::from(200),
-					recipient: ParaId::from(300),
-				},
+				HrmpChannelId { sender: ParaId::from(200), recipient: ParaId::from(300) },
 				AbridgedHrmpChannel {
 					max_capacity: 1,
 					msg_count: 1, // <- 1/1 means the channel is full
@@ -587,10 +550,7 @@ fn send_hrmp_message_buffer_channel_close() {
 				},
 			);
 			sproof.hrmp_channels.insert(
-				HrmpChannelId {
-					sender: ParaId::from(200),
-					recipient: ParaId::from(400),
-				},
+				HrmpChannelId { sender: ParaId::from(200), recipient: ParaId::from(400) },
 				AbridgedHrmpChannel {
 					max_capacity: 1,
 					msg_count: 1,
@@ -605,8 +565,8 @@ fn send_hrmp_message_buffer_channel_close() {
 			// Adjustment according to block
 			//
 			match relay_block_num {
-				1 => {}
-				2 => {}
+				1 => {},
+				2 => {},
 				3 => {
 					// The channel 200->400 ceases to exist at the relay chain block 3
 					sproof
@@ -628,21 +588,15 @@ fn send_hrmp_message_buffer_channel_close() {
 						})
 						.unwrap()
 						.msg_count = 0;
-				}
+				},
 				_ => unreachable!(),
 			}
 		})
 		.add_with_post_test(
 			1,
 			|| {
-				send_message(
-					ParaId::from(300),
-					b"1".to_vec(),
-				);
-				send_message(
-					ParaId::from(400),
-					b"2".to_vec(),
-				);
+				send_message(ParaId::from(300), b"1".to_vec());
+				send_message(ParaId::from(400), b"2".to_vec());
 			},
 			|| {},
 		)
@@ -662,10 +616,7 @@ fn send_hrmp_message_buffer_channel_close() {
 				let v = HrmpOutboundMessages::<Test>::get();
 				assert_eq!(
 					v,
-					vec![OutboundHrmpMessage {
-						recipient: ParaId::from(300),
-						data: b"1".to_vec(),
-					}]
+					vec![OutboundHrmpMessage { recipient: ParaId::from(300), data: b"1".to_vec() }]
 				);
 			},
 		);
@@ -682,27 +633,15 @@ fn message_queue_chain() {
 	// These cases are taken from https://github.com/paritytech/polkadot/pull/2351
 	assert_eq!(
 		MessageQueueChain::default()
-			.extend_downward(&InboundDownwardMessage {
-				sent_at: 2,
-				msg: vec![1, 2, 3],
-			})
-			.extend_downward(&InboundDownwardMessage {
-				sent_at: 3,
-				msg: vec![4, 5, 6],
-			})
+			.extend_downward(&InboundDownwardMessage { sent_at: 2, msg: vec![1, 2, 3] })
+			.extend_downward(&InboundDownwardMessage { sent_at: 3, msg: vec![4, 5, 6] })
 			.head(),
 		hex!["88dc00db8cc9d22aa62b87807705831f164387dfa49f80a8600ed1cbe1704b6b"].into(),
 	);
 	assert_eq!(
 		MessageQueueChain::default()
-			.extend_hrmp(&InboundHrmpMessage {
-				sent_at: 2,
-				data: vec![1, 2, 3],
-			})
-			.extend_hrmp(&InboundHrmpMessage {
-				sent_at: 3,
-				data: vec![4, 5, 6],
-			})
+			.extend_hrmp(&InboundHrmpMessage { sent_at: 2, data: vec![1, 2, 3] })
+			.extend_hrmp(&InboundHrmpMessage { sent_at: 3, data: vec![4, 5, 6] })
 			.head(),
 		hex!["88dc00db8cc9d22aa62b87807705831f164387dfa49f80a8600ed1cbe1704b6b"].into(),
 	);
@@ -722,13 +661,13 @@ fn receive_dmp() {
 			1 => {
 				sproof.dmq_mqc_head =
 					Some(MessageQueueChain::default().extend_downward(&MSG).head());
-			}
+			},
 			_ => unreachable!(),
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
 				data.downward_messages.push(MSG.clone());
-			}
+			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
@@ -771,7 +710,7 @@ fn receive_hrmp() {
 				// 300 - one new message
 				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head =
 					Some(MessageQueueChain::default().extend_hrmp(&MSG_1).head());
-			}
+			},
 			2 => {
 				// 200 - two new messages
 				// 300 - now present with one message.
@@ -784,20 +723,19 @@ fn receive_hrmp() {
 						.extend_hrmp(&MSG_3)
 						.head(),
 				);
-			}
+			},
 			3 => {
 				// 200 - no new messages
 				// 300 - is gone
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
 					Some(MessageQueueChain::default().extend_hrmp(&MSG_4).head());
-			}
+			},
 			_ => unreachable!(),
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.horizontal_messages
-					.insert(ParaId::from(300), vec![MSG_1.clone()]);
-			}
+				data.horizontal_messages.insert(ParaId::from(300), vec![MSG_1.clone()]);
+			},
 			2 => {
 				data.horizontal_messages.insert(
 					ParaId::from(300),
@@ -809,10 +747,9 @@ fn receive_hrmp() {
 						MSG_3.clone(),
 					],
 				);
-				data.horizontal_messages
-					.insert(ParaId::from(200), vec![MSG_4.clone()]);
-			}
-			3 => {}
+				data.horizontal_messages.insert(ParaId::from(200), vec![MSG_4.clone()]);
+			},
+			3 => {},
 			_ => unreachable!(),
 		})
 		.add(1, || {
@@ -845,12 +782,12 @@ fn receive_hrmp_empty_channel() {
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			1 => {
 				// no channels
-			}
+			},
 			2 => {
 				// one new channel
 				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head =
 					Some(MessageQueueChain::default().head());
-			}
+			},
 			_ => unreachable!(),
 		})
 		.add(1, || {})
@@ -878,33 +815,30 @@ fn receive_hrmp_after_pause() {
 			1 => {
 				sproof.upsert_inbound_channel(ALICE).mqc_head =
 					Some(MessageQueueChain::default().extend_hrmp(&MSG_1).head());
-			}
+			},
 			2 => {
 				// 300 - no new messages, mqc stayed the same.
 				sproof.upsert_inbound_channel(ALICE).mqc_head =
 					Some(MessageQueueChain::default().extend_hrmp(&MSG_1).head());
-			}
+			},
 			3 => {
 				// 300 - new message.
 				sproof.upsert_inbound_channel(ALICE).mqc_head = Some(
-					MessageQueueChain::default()
-						.extend_hrmp(&MSG_1)
-						.extend_hrmp(&MSG_2)
-						.head(),
+					MessageQueueChain::default().extend_hrmp(&MSG_1).extend_hrmp(&MSG_2).head(),
 				);
-			}
+			},
 			_ => unreachable!(),
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
 				data.horizontal_messages.insert(ALICE, vec![MSG_1.clone()]);
-			}
+			},
 			2 => {
 				// no new messages
-			}
+			},
 			3 => {
 				data.horizontal_messages.insert(ALICE, vec![MSG_2.clone()]);
-			}
+			},
 			_ => unreachable!(),
 		})
 		.add(1, || {

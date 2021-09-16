@@ -72,10 +72,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		move || {
 			testnet_genesis(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				vec![
-					get_from_seed::<AuraId>("Alice"),
-					get_from_seed::<AuraId>("Bob"),
-				],
+				vec![get_from_seed::<AuraId>("Alice"), get_from_seed::<AuraId>("Bob")],
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -97,10 +94,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		None,
 		None,
 		None,
-		Extensions {
-			relay_chain: "westend".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "westend".into(), para_id: id.into() },
 	)
 }
 
@@ -114,10 +108,7 @@ pub fn get_shell_chain_spec(id: ParaId) -> ShellChainSpec {
 		None,
 		None,
 		None,
-		Extensions {
-			relay_chain: "westend".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "westend".into(), para_id: id.into() },
 	)
 }
 
@@ -138,7 +129,7 @@ pub fn staging_test_net(id: ParaId) -> ChainSpec {
 						.unchecked_into(),
 				],
 				vec![
-					hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+					hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into()
 				],
 				id,
 			)
@@ -147,10 +138,7 @@ pub fn staging_test_net(id: ParaId) -> ChainSpec {
 		None,
 		None,
 		None,
-		Extensions {
-			relay_chain: "westend".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "westend".into(), para_id: id.into() },
 	)
 }
 
@@ -168,17 +156,11 @@ fn testnet_genesis(
 			changes_trie_config: Default::default(),
 		},
 		balances: rococo_parachain_runtime::BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, 1 << 60))
-				.collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		sudo: rococo_parachain_runtime::SudoConfig { key: root_key },
 		parachain_info: rococo_parachain_runtime::ParachainInfoConfig { parachain_id: id },
-		aura: rococo_parachain_runtime::AuraConfig {
-			authorities: initial_authorities,
-		},
+		aura: rococo_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
 	}
@@ -277,10 +259,7 @@ pub fn statemint_development_config(id: ParaId) -> StatemintChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "polkadot-dev".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "polkadot-dev".into(), para_id: id.into() },
 	)
 }
 
@@ -329,10 +308,7 @@ pub fn statemint_local_config(id: ParaId) -> StatemintChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "polkadot-local".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "polkadot-local".into(), para_id: id.into() },
 	)
 }
 
@@ -349,11 +325,7 @@ fn statemint_genesis(
 			changes_trie_config: Default::default(),
 		},
 		balances: statemint_runtime::BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, STATEMINT_ED * 4096))
-				.collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, STATEMINT_ED * 4096)).collect(),
 		},
 		parachain_info: statemint_runtime::ParachainInfoConfig { parachain_id: id },
 		collator_selection: statemint_runtime::CollatorSelectionConfig {
@@ -413,10 +385,7 @@ pub fn statemine_development_config(id: ParaId) -> StatemineChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "kusama-dev".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "kusama-dev".into(), para_id: id.into() },
 	)
 }
 
@@ -465,10 +434,7 @@ pub fn statemine_local_config(id: ParaId) -> StatemineChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "kusama-local".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "kusama-local".into(), para_id: id.into() },
 	)
 }
 
@@ -520,10 +486,7 @@ pub fn statemine_config(id: ParaId) -> StatemineChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "kusama".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "kusama".into(), para_id: id.into() },
 	)
 }
 
@@ -540,11 +503,7 @@ fn statemine_genesis(
 			changes_trie_config: Default::default(),
 		},
 		balances: statemine_runtime::BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, STATEMINE_ED * 4096))
-				.collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, STATEMINE_ED * 4096)).collect(),
 		},
 		parachain_info: statemine_runtime::ParachainInfoConfig { parachain_id: id },
 		collator_selection: statemine_runtime::CollatorSelectionConfig {
@@ -603,10 +562,7 @@ pub fn westmint_development_config(id: ParaId) -> WestmintChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "westend".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "westend".into(), para_id: id.into() },
 	)
 }
 
@@ -656,10 +612,7 @@ pub fn westmint_local_config(id: ParaId) -> WestmintChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "westend-local".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "westend-local".into(), para_id: id.into() },
 	)
 }
 
@@ -713,10 +666,7 @@ pub fn westmint_config(id: ParaId) -> WestmintChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions {
-			relay_chain: "westend".into(),
-			para_id: id.into(),
-		},
+		Extensions { relay_chain: "westend".into(), para_id: id.into() },
 	)
 }
 
@@ -734,11 +684,7 @@ fn westmint_genesis(
 			changes_trie_config: Default::default(),
 		},
 		balances: westmint_runtime::BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, WESTMINT_ED * 4096))
-				.collect(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, WESTMINT_ED * 4096)).collect(),
 		},
 		sudo: westmint_runtime::SudoConfig { key: root_key },
 		parachain_info: westmint_runtime::ParachainInfoConfig { parachain_id: id },

@@ -308,7 +308,7 @@ where
 	) -> Result<Box<dyn ParachainConsensus<Block>>, sc_service::Error>,
 {
 	if matches!(parachain_config.role, Role::Light) {
-		return Err("Light client not supported!".into());
+		return Err("Light client not supported!".into())
 	}
 
 	let parachain_config = prepare_node_config(parachain_config);
@@ -486,7 +486,7 @@ where
 	) -> Result<Box<dyn ParachainConsensus<Block>>, sc_service::Error>,
 {
 	if matches!(parachain_config.role, Role::Light) {
-		return Err("Light client not supported!".into());
+		return Err("Light client not supported!".into())
 	}
 
 	let parachain_config = prepare_node_config(parachain_config);
@@ -800,13 +800,7 @@ pub async fn start_shell_node(
 		TFullClient<Block, shell_runtime::RuntimeApi, NativeElseWasmExecutor<ShellRuntimeExecutor>>,
 	>,
 )> {
-	start_shell_node_impl::<
-		shell_runtime::RuntimeApi,
-		ShellRuntimeExecutor,
-		_,
-		_,
-		_,
-	>(
+	start_shell_node_impl::<shell_runtime::RuntimeApi, ShellRuntimeExecutor, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		id,
@@ -832,17 +826,15 @@ pub async fn start_shell_node(
 			let relay_chain_backend = relay_chain_node.backend.clone();
 			let relay_chain_client = relay_chain_node.client.clone();
 
-			Ok(
-				cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
-					cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
-						para_id: id,
-						proposer_factory,
-						block_import: client.clone(),
-						relay_chain_client: relay_chain_node.client.clone(),
-						relay_chain_backend: relay_chain_node.backend.clone(),
-						create_inherent_data_providers:
-							move |_, (relay_parent, validation_data)| {
-								let parachain_inherent =
+			Ok(cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
+				cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
+					para_id: id,
+					proposer_factory,
+					block_import: client.clone(),
+					relay_chain_client: relay_chain_node.client.clone(),
+					relay_chain_backend: relay_chain_node.backend.clone(),
+					create_inherent_data_providers: move |_, (relay_parent, validation_data)| {
+						let parachain_inherent =
 					cumulus_primitives_parachain_inherent::ParachainInherentData::create_at_with_client(
 						relay_parent,
 						&relay_chain_client,
@@ -850,19 +842,17 @@ pub async fn start_shell_node(
 							&validation_data,
 							id,
 					);
-								async move {
-									let parachain_inherent =
-										parachain_inherent.ok_or_else(|| {
-											Box::<dyn std::error::Error + Send + Sync>::from(
-												"Failed to create parachain inherent",
-											)
-										})?;
-									Ok(parachain_inherent)
-								}
-							},
+						async move {
+							let parachain_inherent = parachain_inherent.ok_or_else(|| {
+								Box::<dyn std::error::Error + Send + Sync>::from(
+									"Failed to create parachain inherent",
+								)
+							})?;
+							Ok(parachain_inherent)
+						}
 					},
-				),
-			)
+				},
+			))
 		},
 	)
 	.await
@@ -879,7 +869,7 @@ impl<R> BuildOnAccess<R> {
 			match self {
 				Self::Uninitialized(f) => {
 					*self = Self::Initialized((f.take().unwrap())());
-				}
+				},
 				Self::Initialized(ref mut r) => return r,
 			}
 		}
@@ -954,13 +944,7 @@ where
 	async fn verify(
 		&mut self,
 		block_import: BlockImportParams<Block, ()>,
-	) -> Result<
-		(
-			BlockImportParams<Block, ()>,
-			Option<Vec<(CacheKeyId, Vec<u8>)>>,
-		),
-		String,
-	> {
+	) -> Result<(BlockImportParams<Block, ()>, Option<Vec<(CacheKeyId, Vec<u8>)>>), String> {
 		let block_id = BlockId::hash(*block_import.header.parent_hash());
 
 		if self
@@ -1036,9 +1020,8 @@ where
 		})) as Box<_>
 	};
 
-	let relay_chain_verifier = Box::new(RelayChainVerifier::new(client.clone(), |_, _| async {
-		Ok(())
-	})) as Box<_>;
+	let relay_chain_verifier =
+		Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) })) as Box<_>;
 
 	let verifier = Verifier {
 		client: client.clone(),

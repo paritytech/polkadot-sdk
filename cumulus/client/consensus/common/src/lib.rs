@@ -65,9 +65,7 @@ impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send +
 		relay_parent: PHash,
 		validation_data: &PersistedValidationData,
 	) -> Option<ParachainCandidate<B>> {
-		(*self)
-			.produce_candidate(parent, relay_parent, validation_data)
-			.await
+		(*self).produce_candidate(parent, relay_parent, validation_data).await
 	}
 }
 

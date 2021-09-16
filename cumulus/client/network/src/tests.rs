@@ -15,15 +15,16 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use cumulus_test_service::runtime::{Block, Header, Hash};
+use cumulus_test_service::runtime::{Block, Hash, Header};
 use futures::{executor::block_on, poll, task::Poll};
+use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::v1::{
 	Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash, HeadData, Id as ParaId,
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, ParachainHost,
-	PersistedValidationData, SessionIndex, SessionInfo, SigningContext, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex,
+	PersistedValidationData, SessionIndex, SessionInfo, SigningContext, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -37,7 +38,6 @@ use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};
 use sp_runtime::RuntimeAppPublic;
 use std::collections::BTreeMap;
-use parking_lot::Mutex;
 
 fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceError) -> bool) {
 	let error = *error
@@ -61,10 +61,8 @@ impl SyncOracle for DummyCollatorNetwork {
 	}
 }
 
-fn make_validator_and_api() -> (
-	BlockAnnounceValidator<Block, TestApi, PBackend, PClient>,
-	Arc<TestApi>,
-) {
+fn make_validator_and_api(
+) -> (BlockAnnounceValidator<Block, TestApi, PBackend, PClient>, Arc<TestApi>) {
 	let api = Arc::new(TestApi::new());
 
 	(
@@ -94,12 +92,7 @@ async fn make_gossip_message_and_header_using_genesis(
 	api: Arc<TestApi>,
 	validator_index: u32,
 ) -> (SignedFullStatement, Header) {
-	let relay_parent = api
-		.relay_client
-		.hash(0)
-		.ok()
-		.flatten()
-		.expect("Genesis hash exists");
+	let relay_parent = api.relay_client.hash(0).ok().flatten().expect("Genesis hash exists");
 
 	make_gossip_message_and_header(api, relay_parent, validator_index).await
 }
@@ -116,14 +109,9 @@ async fn make_gossip_message_and_header(
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	)
 	.unwrap();
-	let session_index = api
-		.runtime_api()
-		.session_index_for_child(&BlockId::Hash(relay_parent))
-		.unwrap();
-	let signing_context = SigningContext {
-		parent_hash: relay_parent,
-		session_index,
-	};
+	let session_index =
+		api.runtime_api().session_index_for_child(&BlockId::Hash(relay_parent)).unwrap();
+	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 	let header = default_header();
 	let candidate_receipt = CommittedCandidateReceipt {
@@ -156,10 +144,7 @@ async fn make_gossip_message_and_header(
 #[test]
 fn valid_if_no_data_and_less_than_best_known_number() {
 	let mut validator = make_validator_and_api().0;
-	let header = Header {
-		number: 0,
-		..default_header()
-	};
+	let header = Header { number: 0, ..default_header() };
 	let res = block_on(validator.validate(&header, &[]));
 
 	assert_eq!(
@@ -172,11 +157,7 @@ fn valid_if_no_data_and_less_than_best_known_number() {
 #[test]
 fn invalid_if_no_data_exceeds_best_known_number() {
 	let mut validator = make_validator_and_api().0;
-	let header = Header {
-		number: 1,
-		state_root: Hash::random(),
-		..default_header()
-	};
+	let header = Header { number: 1, state_root: Hash::random(), ..default_header() };
 	let res = block_on(validator.validate(&header, &[]));
 
 	assert_eq!(
@@ -219,9 +200,7 @@ fn check_signer_is_legit_validator() {
 	let (mut validator, api) = make_validator_and_api();
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-	let data = BlockAnnounceData::try_from(&signed_statement)
-		.unwrap()
-		.encode();
+	let data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
 
 	let res = block_on(validator.validate(&header, &data));
 	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
@@ -233,9 +212,7 @@ fn check_statement_is_correctly_signed() {
 
 	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
 
-	let mut data = BlockAnnounceData::try_from(&signed_statement)
-		.unwrap()
-		.encode();
+	let mut data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
 
 	// The signature comes at the end of the type, so change a bit to make the signature invalid.
 	let last = data.len() - 1;
@@ -258,14 +235,9 @@ fn check_statement_seconded() {
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	)
 	.unwrap();
-	let session_index = api
-		.runtime_api()
-		.session_index_for_child(&BlockId::Hash(relay_parent))
-		.unwrap();
-	let signing_context = SigningContext {
-		parent_hash: relay_parent,
-		session_index,
-	};
+	let session_index =
+		api.runtime_api().session_index_for_child(&BlockId::Hash(relay_parent)).unwrap();
+	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 	let statement = Statement::Valid(Default::default());
 
@@ -296,9 +268,7 @@ fn check_header_match_candidate_receipt_header() {
 
 	let (signed_statement, mut header) =
 		block_on(make_gossip_message_and_header_using_genesis(api, 0));
-	let data = BlockAnnounceData::try_from(&signed_statement)
-		.unwrap()
-		.encode();
+	let data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
 	header.number = 300;
 
 	let res = block_on(validator.validate(&header, &data));
@@ -315,17 +285,11 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 		let (mut validator, api) = make_validator_and_api();
 
 		let mut client = api.relay_client.clone();
-		let block = client
-			.init_polkadot_block_builder()
-			.build()
-			.expect("Build new block")
-			.block;
+		let block = client.init_polkadot_block_builder().build().expect("Build new block").block;
 
 		let (signed_statement, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
 
-		let data = BlockAnnounceData::try_from(&signed_statement)
-			.unwrap()
-			.encode();
+		let data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
 
 		let mut validation = validator.validate(&header, &data);
 
@@ -333,10 +297,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 		// that the future is still pending.
 		assert!(poll!(&mut validation).is_pending());
 
-		client
-			.import(BlockOrigin::Own, block)
-			.await
-			.expect("Imports the block");
+		client.import(BlockOrigin::Own, block).await.expect("Imports the block");
 
 		assert!(matches!(
 			poll!(validation),
@@ -357,10 +318,7 @@ fn block_announced_without_statement_and_block_only_backed() {
 
 		let validation = validator.validate(&header, &[]);
 
-		assert!(matches!(
-			validation.await,
-			Ok(Validation::Success { is_new_best: true })
-		));
+		assert!(matches!(validation.await, Ok(Validation::Success { is_new_best: true })));
 	});
 }
 
@@ -401,10 +359,7 @@ impl ProvideRuntimeApi<PBlock> for TestApi {
 	type Api = RuntimeApi;
 
 	fn runtime_api<'a>(&'a self) -> ApiRef<'a, Self::Api> {
-		RuntimeApi {
-			data: self.data.clone(),
-		}
-		.into()
+		RuntimeApi { data: self.data.clone() }.into()
 	}
 }
 

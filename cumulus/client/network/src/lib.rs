@@ -33,13 +33,13 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashFor, Header as HeaderT},
 };
 
-use polkadot_node_primitives::{SignedFullStatement, Statement, CollationSecondedSignal};
+use polkadot_client::ClientHandle;
+use polkadot_node_primitives::{CollationSecondedSignal, SignedFullStatement, Statement};
 use polkadot_parachain::primitives::HeadData;
 use polkadot_primitives::v1::{
-	Block as PBlock, Hash as PHash, CandidateReceipt, CompactStatement, Id as ParaId,
-	OccupiedCoreAssumption, ParachainHost, UncheckedSigned, SigningContext,
+	Block as PBlock, CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
+	OccupiedCoreAssumption, ParachainHost, SigningContext, UncheckedSigned,
 };
-use polkadot_client::ClientHandle;
 
 use codec::{Decode, Encode};
 use futures::{
@@ -85,14 +85,13 @@ impl BlockAnnounceData {
 	///
 	/// This will not check the signature, for this you should use [`BlockAnnounceData::check_signature`].
 	fn validate(&self, encoded_header: Vec<u8>) -> Result<(), Validation> {
-		let candidate_hash = if let CompactStatement::Seconded(h) = self.statement.unchecked_payload() {
+		let candidate_hash = if let CompactStatement::Seconded(h) =
+			self.statement.unchecked_payload()
+		{
 			h
 		} else {
-			tracing::debug!(
-				target: LOG_TARGET,
-				"`CompactStatement` isn't the candidate variant!",
-			);
-			return Err(Validation::Failure { disconnect: true });
+			tracing::debug!(target: LOG_TARGET, "`CompactStatement` isn't the candidate variant!",);
+			return Err(Validation::Failure { disconnect: true })
 		};
 
 		if *candidate_hash != self.receipt.hash() {
@@ -100,7 +99,7 @@ impl BlockAnnounceData {
 				target: LOG_TARGET,
 				"Receipt candidate hash doesn't match candidate hash in statement",
 			);
-			return Err(Validation::Failure { disconnect: true });
+			return Err(Validation::Failure { disconnect: true })
 		}
 
 		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head {
@@ -108,7 +107,7 @@ impl BlockAnnounceData {
 				target: LOG_TARGET,
 				"Receipt para head hash doesn't match the hash of the header in the block announcement",
 			);
-			return Err(Validation::Failure { disconnect: true });
+			return Err(Validation::Failure { disconnect: true })
 		}
 
 		Ok(())
@@ -131,22 +130,16 @@ impl BlockAnnounceData {
 		let runtime_api_block_id = BlockId::Hash(self.receipt.descriptor.relay_parent);
 		let session_index = match runtime_api.session_index_for_child(&runtime_api_block_id) {
 			Ok(r) => r,
-			Err(e) => {
-				return Err(BlockAnnounceError(format!("{:?}", e)));
-			}
+			Err(e) => return Err(BlockAnnounceError(format!("{:?}", e))),
 		};
 
-		let signing_context = SigningContext {
-			parent_hash: self.receipt.descriptor.relay_parent,
-			session_index,
-		};
+		let signing_context =
+			SigningContext { parent_hash: self.receipt.descriptor.relay_parent, session_index };
 
 		// Check that the signer is a legit validator.
 		let authorities = match runtime_api.validators(&runtime_api_block_id) {
 			Ok(r) => r,
-			Err(e) => {
-				return Err(BlockAnnounceError(format!("{:?}", e)));
-			}
+			Err(e) => return Err(BlockAnnounceError(format!("{:?}", e))),
 		};
 		let signer = match authorities.get(validator_index.0 as usize) {
 			Some(r) => r,
@@ -156,22 +149,18 @@ impl BlockAnnounceData {
 					"Block announcement justification signer is a validator index out of bound",
 				);
 
-				return Ok(Validation::Failure { disconnect: true });
-			}
+				return Ok(Validation::Failure { disconnect: true })
+			},
 		};
 
 		// Check statement is correctly signed.
-		if self
-			.statement
-			.try_into_checked(&signing_context, &signer)
-			.is_err()
-		{
+		if self.statement.try_into_checked(&signing_context, &signer).is_err() {
 			tracing::debug!(
 				target: LOG_TARGET,
 				"Block announcement justification signature is invalid.",
 			);
 
-			return Ok(Validation::Failure { disconnect: true });
+			return Ok(Validation::Failure { disconnect: true })
 		}
 
 		Ok(Validation::Success { is_new_best: true })
@@ -185,13 +174,10 @@ impl TryFrom<&'_ SignedFullStatement> for BlockAnnounceData {
 		let receipt = if let Statement::Seconded(receipt) = stmt.payload() {
 			receipt.to_plain()
 		} else {
-			return Err(());
+			return Err(())
 		};
 
-		Ok(BlockAnnounceData {
-			receipt,
-			statement: stmt.convert_payload().into(),
-		})
+		Ok(BlockAnnounceData { receipt, statement: stmt.convert_payload().into() })
 	}
 }
 
@@ -273,16 +259,13 @@ where
 			.persisted_validation_data(block_id, para_id, OccupiedCoreAssumption::TimedOut)
 			.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?
 			.ok_or_else(|| {
-				Box::new(BlockAnnounceError(
-					"Could not find parachain head in relay chain".into(),
-				)) as Box<_>
+				Box::new(BlockAnnounceError("Could not find parachain head in relay chain".into()))
+					as Box<_>
 			})?;
 		let para_head =
 			Block::Header::decode(&mut &validation_data.parent_head.0[..]).map_err(|e| {
-				Box::new(BlockAnnounceError(format!(
-					"Failed to decode parachain head: {:?}",
-					e
-				))) as Box<_>
+				Box::new(BlockAnnounceError(format!("Failed to decode parachain head: {:?}", e)))
+					as Box<_>
 			})?;
 
 		Ok(para_head)
@@ -320,21 +303,15 @@ where
 			let best_head =
 				Self::included_block(&*relay_chain_client, &runtime_api_block_id, para_id)?;
 			let known_best_number = best_head.number();
-			let backed_block = ||
-				Self::backed_block_hash(&*relay_chain_client, &runtime_api_block_id, para_id);
+			let backed_block =
+				|| Self::backed_block_hash(&*relay_chain_client, &runtime_api_block_id, para_id);
 
 			if best_head == header {
-				tracing::debug!(
-					target: LOG_TARGET,
-					"Announced block matches best block.",
-				);
+				tracing::debug!(target: LOG_TARGET, "Announced block matches best block.",);
 
 				Ok(Validation::Success { is_new_best: true })
 			} else if Some(HeadData(header.encode()).hash()) == backed_block()? {
-				tracing::debug!(
-					target: LOG_TARGET,
-					"Announced block matches latest backed block.",
-				);
+				tracing::debug!(target: LOG_TARGET, "Announced block matches latest backed block.",);
 
 				Ok(Validation::Success { is_new_best: true })
 			} else if block_number >= known_best_number {
@@ -367,23 +344,20 @@ where
 		mut data: &[u8],
 	) -> Pin<Box<dyn Future<Output = Result<Validation, BoxedError>> + Send>> {
 		if self.relay_chain_sync_oracle.is_major_syncing() {
-			return ready(Ok(Validation::Success { is_new_best: false })).boxed();
+			return ready(Ok(Validation::Success { is_new_best: false })).boxed()
 		}
 
 		if data.is_empty() {
-			return self
-				.handle_empty_block_announce_data(header.clone())
-				.boxed();
+			return self.handle_empty_block_announce_data(header.clone()).boxed()
 		}
 
 		let block_announce_data = match BlockAnnounceData::decode(&mut data) {
 			Ok(r) => r,
-			Err(_) => {
+			Err(_) =>
 				return ready(Err(Box::new(BlockAnnounceError(
 					"Can not decode the `BlockAnnounceData`".into(),
 				)) as Box<_>))
-				.boxed()
-			}
+				.boxed(),
 		};
 
 		let relay_chain_client = self.relay_chain_client.clone();
@@ -392,7 +366,7 @@ where
 
 		async move {
 			if let Err(e) = block_announce_data.validate(header_encoded) {
-				return Ok(e);
+				return Ok(e)
 			}
 
 			let relay_parent = block_announce_data.receipt.descriptor.relay_parent;
@@ -519,10 +493,7 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	) -> WaitToAnnounce<Block> {
-		WaitToAnnounce {
-			spawner,
-			announce_block,
-		}
+		WaitToAnnounce { spawner, announce_block }
 	}
 
 	/// Wait for a candidate message for the block, then announce the block. The candidate
@@ -567,8 +538,8 @@ async fn wait_to_announce<Block: BlockT>(
 				block = ?block_hash,
 				"Wait to announce stopped, because sender was dropped.",
 			);
-			return;
-		}
+			return
+		},
 	};
 
 	if let Ok(data) = BlockAnnounceData::try_from(&statement) {

@@ -16,15 +16,13 @@
 //! Benchmarking setup for pallet-session
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "runtime-benchmarks")]
-use sp_std::prelude::*;
-use sp_std::vec;
+use sp_std::{prelude::*, vec};
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
-use frame_system::{RawOrigin};
+use frame_system::RawOrigin;
 use pallet_session::*;
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
 pub trait Config: pallet_session::Config {}
-
 
 benchmarks! {
 	set_keys {
@@ -43,9 +41,4 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller))
 
 }
-impl_benchmark_test_suite!(
-	Pallet,
-	crate::mock::new_test_ext(),
-	crate::mock::Test,
-	extra = false,
-);
+impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test, extra = false,);

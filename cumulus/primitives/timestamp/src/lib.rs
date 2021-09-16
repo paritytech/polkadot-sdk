@@ -48,25 +48,21 @@ impl InherentDataProvider {
 		relay_chain_slot: Slot,
 		relay_chain_slot_duration: Duration,
 	) -> Self {
-		Self {
-			relay_chain_slot,
-			relay_chain_slot_duration,
-		}
+		Self { relay_chain_slot, relay_chain_slot_duration }
 	}
 
 	/// Create the inherent data.
 	pub fn create_inherent_data(&self) -> Result<InherentData, Error> {
 		let mut inherent_data = InherentData::new();
-		self.provide_inherent_data(&mut inherent_data)
-			.map(|_| inherent_data)
+		self.provide_inherent_data(&mut inherent_data).map(|_| inherent_data)
 	}
 
 	/// Provide the inherent data into the given `inherent_data`.
 	pub fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
 		// As the parachain starts building at around `relay_chain_slot + 1` we use that slot to
 		// calculate the timestamp.
-		let data: InherentType = ((*self.relay_chain_slot + 1)
-			* self.relay_chain_slot_duration.as_millis() as u64)
+		let data: InherentType = ((*self.relay_chain_slot + 1) *
+			self.relay_chain_slot_duration.as_millis() as u64)
 			.into();
 
 		inherent_data.put_data(INHERENT_IDENTIFIER, &data)
@@ -114,16 +110,10 @@ mod tests {
 		timestamp: u64,
 		relay_chain_slot: Slot,
 	) -> (ParachainBlockData, PHash) {
-		let sproof_builder = RelayStateSproofBuilder {
-			current_slot: relay_chain_slot,
-			..Default::default()
-		};
+		let sproof_builder =
+			RelayStateSproofBuilder { current_slot: relay_chain_slot, ..Default::default() };
 
-		let parent_header = client
-			.header(&at)
-			.ok()
-			.flatten()
-			.expect("Genesis header exists");
+		let parent_header = client.header(&at).ok().flatten().expect("Genesis header exists");
 
 		let relay_parent_storage_root = sproof_builder.clone().into_state_root_and_proof().0;
 
@@ -155,18 +145,13 @@ mod tests {
 			let timestamp = u64::from_str(&env::var("TIMESTAMP").expect("TIMESTAMP is set"))
 				.expect("TIMESTAMP is a valid `u64`");
 
-			let block = build_block(&client, BlockId::number(0), SLOT_DURATION, 1.into())
-				.0
-				.into_block();
+			let block =
+				build_block(&client, BlockId::number(0), SLOT_DURATION, 1.into()).0.into_block();
 			futures::executor::block_on(client.import(sp_consensus::BlockOrigin::Own, block))
 				.unwrap();
 
-			let (block, relay_chain_root) = build_block(
-				&client,
-				BlockId::number(1),
-				timestamp,
-				relay_chain_slot.into(),
-			);
+			let (block, relay_chain_root) =
+				build_block(&client, BlockId::number(1), timestamp, relay_chain_slot.into());
 
 			let header = call_validate_block(
 				client

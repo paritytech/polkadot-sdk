@@ -62,9 +62,7 @@ struct Relaychain {
 
 impl Relaychain {
 	fn new() -> Self {
-		Self {
-			inner: Arc::new(Mutex::new(RelaychainInner::new())),
-		}
+		Self { inner: Arc::new(Mutex::new(RelaychainInner::new())) }
 	}
 }
 
@@ -125,24 +123,17 @@ fn follow_new_best_works() {
 
 	let block = build_and_import_block(client.clone(), false);
 	let relay_chain = Relaychain::new();
-	let new_best_heads_sender = relay_chain
-		.inner
-		.lock()
-		.unwrap()
-		.new_best_heads_sender
-		.clone();
+	let new_best_heads_sender = relay_chain.inner.lock().unwrap().new_best_heads_sender.clone();
 
 	let consensus =
 		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}));
 
 	let work = async move {
-		new_best_heads_sender
-			.unbounded_send(block.header().clone())
-			.unwrap();
+		new_best_heads_sender.unbounded_send(block.header().clone()).unwrap();
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.best_hash {
-				break;
+				break
 			}
 		}
 	};
@@ -166,24 +157,17 @@ fn follow_finalized_works() {
 
 	let block = build_and_import_block(client.clone(), false);
 	let relay_chain = Relaychain::new();
-	let finalized_sender = relay_chain
-		.inner
-		.lock()
-		.unwrap()
-		.finalized_heads_sender
-		.clone();
+	let finalized_sender = relay_chain.inner.lock().unwrap().finalized_heads_sender.clone();
 
 	let consensus =
 		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}));
 
 	let work = async move {
-		finalized_sender
-			.unbounded_send(block.header().clone())
-			.unwrap();
+		finalized_sender.unbounded_send(block.header().clone()).unwrap();
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
-				break;
+				break
 			}
 		}
 	};
@@ -214,32 +198,23 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 	};
 
 	let relay_chain = Relaychain::new();
-	let finalized_sender = relay_chain
-		.inner
-		.lock()
-		.unwrap()
-		.finalized_heads_sender
-		.clone();
+	let finalized_sender = relay_chain.inner.lock().unwrap().finalized_heads_sender.clone();
 
 	let consensus =
 		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}));
 
 	let work = async move {
 		for _ in 0..3usize {
-			finalized_sender
-				.unbounded_send(unknown_block.header().clone())
-				.unwrap();
+			finalized_sender.unbounded_send(unknown_block.header().clone()).unwrap();
 
 			Delay::new(Duration::from_millis(100)).await;
 		}
 
-		finalized_sender
-			.unbounded_send(block.header().clone())
-			.unwrap();
+		finalized_sender.unbounded_send(block.header().clone()).unwrap();
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
-				break;
+				break
 			}
 		}
 	};
@@ -273,32 +248,23 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 	};
 
 	let relay_chain = Relaychain::new();
-	let new_best_heads_sender = relay_chain
-		.inner
-		.lock()
-		.unwrap()
-		.new_best_heads_sender
-		.clone();
+	let new_best_heads_sender = relay_chain.inner.lock().unwrap().new_best_heads_sender.clone();
 
 	let consensus =
 		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}));
 
 	let work = async move {
-		new_best_heads_sender
-			.unbounded_send(block.header().clone())
-			.unwrap();
+		new_best_heads_sender.unbounded_send(block.header().clone()).unwrap();
 
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.best_hash {
-				break;
+				break
 			}
 		}
 
 		// Announce the unknown block
-		new_best_heads_sender
-			.unbounded_send(unknown_block.header().clone())
-			.unwrap();
+		new_best_heads_sender.unbounded_send(unknown_block.header().clone()).unwrap();
 
 		// Do some iterations. As this is a local task executor, only one task can run at a time.
 		// Meaning that it should already have processed the unknown block.
@@ -313,15 +279,12 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 		block_import_params.body = Some(body);
 
 		// Now import the unkown block to make it "known"
-		client
-			.import_block(block_import_params, Default::default())
-			.await
-			.unwrap();
+		client.import_block(block_import_params, Default::default()).await.unwrap();
 
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if unknown_block.hash() == client.usage_info().chain.best_hash {
-				break;
+				break
 			}
 		}
 	};
@@ -362,12 +325,7 @@ fn do_not_set_best_block_to_older_block() {
 	assert_eq!(NUM_BLOCKS as u32, client.usage_info().chain.best_number);
 
 	let relay_chain = Relaychain::new();
-	let new_best_heads_sender = relay_chain
-		.inner
-		.lock()
-		.unwrap()
-		.new_best_heads_sender
-		.clone();
+	let new_best_heads_sender = relay_chain.inner.lock().unwrap().new_best_heads_sender.clone();
 
 	let consensus =
 		run_parachain_consensus(100.into(), client.clone(), relay_chain, Arc::new(|_, _| {}));

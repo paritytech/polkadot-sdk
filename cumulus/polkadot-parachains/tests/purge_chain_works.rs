@@ -40,16 +40,11 @@ fn purge_chain_works() {
 
 		// Let it produce some blocks.
 		thread::sleep(Duration::from_secs(30));
-		assert!(
-			cmd.try_wait().unwrap().is_none(),
-			"the process should still be running"
-		);
+		assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
 
 		// Stop the process
 		kill(Pid::from_raw(cmd.id().try_into().unwrap()), SIGINT).unwrap();
-		assert!(common::wait_for(&mut cmd, 30)
-			.map(|x| x.success())
-			.unwrap_or_default());
+		assert!(common::wait_for(&mut cmd, 30).map(|x| x.success()).unwrap_or_default());
 
 		base_path
 	}

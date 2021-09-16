@@ -32,13 +32,13 @@ pub mod currency {
 
 /// Fee-related.
 pub mod fee {
-	use node_primitives::Balance;
-	pub use sp_runtime::Perbill;
 	use frame_support::weights::{
 		constants::ExtrinsicBaseWeight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 		WeightToFeePolynomial,
 	};
+	use node_primitives::Balance;
 	use smallvec::smallvec;
+	pub use sp_runtime::Perbill;
 
 	/// The block saturation level. Fees will be updates based on this value.
 	pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);

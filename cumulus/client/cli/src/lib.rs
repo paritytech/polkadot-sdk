@@ -54,10 +54,8 @@ impl PurgeChainCmd {
 		relay_config: sc_service::Configuration,
 	) -> sc_cli::Result<()> {
 		let databases = match (self.parachain, self.relaychain) {
-			(true, true) | (false, false) => vec![
-				("parachain", para_config.database),
-				("relaychain", relay_config.database),
-			],
+			(true, true) | (false, false) =>
+				vec![("parachain", para_config.database), ("relaychain", relay_config.database)],
 			(true, false) => vec![("parachain", para_config.database)],
 			(false, true) => vec![("relaychain", relay_config.database)],
 		};
@@ -86,11 +84,11 @@ impl PurgeChainCmd {
 			let input = input.trim();
 
 			match input.chars().nth(0) {
-				Some('y') | Some('Y') => {}
+				Some('y') | Some('Y') => {},
 				_ => {
 					println!("Aborted");
-					return Ok(());
-				}
+					return Ok(())
+				},
 			}
 		}
 
@@ -98,10 +96,10 @@ impl PurgeChainCmd {
 			match fs::remove_dir_all(&db_path) {
 				Ok(_) => {
 					println!("{:?} removed.", &db_path);
-				}
+				},
 				Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
 					eprintln!("{:?} did not exist.", &db_path);
-				}
+				},
 				Err(err) => return Err(err.into()),
 			}
 		}
@@ -155,10 +153,7 @@ impl RunCmd {
 
 		new_base.validator = self.base.validator || self.collator;
 
-		NormalizedRunCmd {
-			base: new_base,
-			parachain_id: self.parachain_id,
-		}
+		NormalizedRunCmd { base: new_base, parachain_id: self.parachain_id }
 	}
 }
 
