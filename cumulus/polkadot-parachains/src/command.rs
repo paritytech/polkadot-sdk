@@ -18,8 +18,8 @@ use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{
-		StatemineRuntimeExecutor, StatemintRuntimeExecutor, WestmintRuntimeExecutor, new_partial,
-		RococoParachainRuntimeExecutor, ShellRuntimeExecutor, Block,
+		new_partial, Block, RococoParachainRuntimeExecutor, ShellRuntimeExecutor,
+		StatemineRuntimeExecutor, StatemintRuntimeExecutor, WestmintRuntimeExecutor,
 	},
 };
 use codec::Encode;
@@ -327,7 +327,7 @@ pub fn run() -> Result<()> {
 				let polkadot_config = SubstrateCli::create_configuration(
 					&polkadot_cli,
 					&polkadot_cli,
-					config.task_executor.clone(),
+					config.tokio_handle.clone(),
 				)
 				.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
@@ -423,9 +423,9 @@ pub fn run() -> Result<()> {
 					generate_genesis_block(&config.chain_spec).map_err(|e| format!("{:?}", e))?;
 				let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
-				let task_executor = config.task_executor.clone();
+				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
-					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
+					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
 				info!("Parachain id: {:?}", id);
@@ -441,32 +441,29 @@ pub fn run() -> Result<()> {
 				);
 
 				if config.chain_spec.is_statemint() {
-					crate::service::start_statemint_node::<statemint_runtime::RuntimeApi, StatemintRuntimeExecutor>(
-						config,
-						polkadot_config,
-						id,
-					)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
+					crate::service::start_statemint_node::<
+						statemint_runtime::RuntimeApi,
+						StatemintRuntimeExecutor,
+					>(config, polkadot_config, id)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into)
 				} else if config.chain_spec.is_statemine() {
-					crate::service::start_statemint_node::<statemine_runtime::RuntimeApi, StatemineRuntimeExecutor>(
-						config,
-						polkadot_config,
-						id,
-					)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
+					crate::service::start_statemint_node::<
+						statemine_runtime::RuntimeApi,
+						StatemineRuntimeExecutor,
+					>(config, polkadot_config, id)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into)
 				} else if config.chain_spec.is_westmint() {
-					crate::service::start_statemint_node::<westmint_runtime::RuntimeApi, WestmintRuntimeExecutor>(
-						config,
-						polkadot_config,
-						id,
-					)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
+					crate::service::start_statemint_node::<
+						westmint_runtime::RuntimeApi,
+						WestmintRuntimeExecutor,
+					>(config, polkadot_config, id)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into)
 				} else if config.chain_spec.is_shell() {
 					crate::service::start_shell_node(config, polkadot_config, id)
 						.await
@@ -573,10 +570,6 @@ impl CliConfiguration<Self> for RelayChainCli {
 
 	fn rpc_ws_max_connections(&self) -> Result<Option<usize>> {
 		self.base.base.rpc_ws_max_connections()
-	}
-
-	fn rpc_http_threads(&self) -> Result<Option<usize>> {
-		self.base.base.rpc_http_threads()
 	}
 
 	fn rpc_cors(&self, is_dev: bool) -> Result<Option<Vec<String>>> {

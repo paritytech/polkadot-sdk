@@ -9,6 +9,7 @@ codec = { package = "parity-scale-codec", version = "2.0.0" }
 rand = "0.7.3"
 serde = { version = "1.0.101", features = ["derive"] }
 async-trait = "0.1.42"
+tokio = { version = "1.10", features = ["macros"] }
 
 # Substrate
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -53,7 +54,6 @@ jsonrpc-core = "18.0.0"
 
 [dev-dependencies]
 futures = "0.3.5"
-tokio = { version = "1.10", features = ["macros"] }
 
 # Polkadot dependencies
 polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }

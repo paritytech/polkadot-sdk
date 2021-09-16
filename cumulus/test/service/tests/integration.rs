@@ -17,23 +17,24 @@
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
 use futures::join;
-use sc_service::TaskExecutor;
 
 #[substrate_test_utils::test]
 #[ignore]
-async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExecutor) {
+async fn test_collating_and_non_collator_mode_catching_up() {
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);
 	let _ = builder.init();
 
 	let para_id = ParaId::from(100);
 
+	let tokio_handle = tokio::runtime::Handle::current();
+
 	// start alice
-	let alice = run_relay_chain_validator_node(task_executor.clone(), Alice, || {}, vec![]);
+	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, vec![]);
 
 	// start bob
 	let bob =
-		run_relay_chain_validator_node(task_executor.clone(), Bob, || {}, vec![alice.addr.clone()]);
+		run_relay_chain_validator_node(tokio_handle.clone(), Bob, || {}, vec![alice.addr.clone()]);
 
 	// register parachain
 	alice
@@ -49,7 +50,7 @@ async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExe
 
 	// run cumulus charlie (a parachain collator)
 	let charlie =
-		cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Charlie)
+		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
 			.enable_collator()
 			.connect_to_relay_chain_nodes(vec![&alice, &bob])
 			.build()
@@ -57,7 +58,7 @@ async fn test_collating_and_non_collator_mode_catching_up(task_executor: TaskExe
 	charlie.wait_for_blocks(5).await;
 
 	// run cumulus dave (a parachain full node) and wait for it to sync some blocks
-	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Dave)
+	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Dave)
 		.connect_to_parachain_node(&charlie)
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])
 		.build()

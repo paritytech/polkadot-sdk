@@ -17,23 +17,23 @@
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
 use futures::join;
-use sc_service::TaskExecutor;
 
 #[substrate_test_utils::test]
 #[ignore]
-async fn sync_blocks_from_tip_without_being_connected_to_a_collator(task_executor: TaskExecutor) {
+async fn sync_blocks_from_tip_without_being_connected_to_a_collator() {
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);
 	let _ = builder.init();
 
 	let para_id = ParaId::from(100);
+	let tokio_handle = tokio::runtime::Handle::current();
 
 	// start alice
-	let alice = run_relay_chain_validator_node(task_executor.clone(), Alice, || {}, vec![]);
+	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, vec![]);
 
 	// start bob
 	let bob =
-		run_relay_chain_validator_node(task_executor.clone(), Bob, || {}, vec![alice.addr.clone()]);
+		run_relay_chain_validator_node(tokio_handle.clone(), Bob, || {}, vec![alice.addr.clone()]);
 
 	// register parachain
 	alice
@@ -49,21 +49,21 @@ async fn sync_blocks_from_tip_without_being_connected_to_a_collator(task_executo
 
 	// run charlie as parachain collator
 	let charlie =
-		cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Charlie)
+		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
 			.enable_collator()
 			.connect_to_relay_chain_nodes(vec![&alice, &bob])
 			.build()
 			.await;
 
 	// run dave as parachain full node
-	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Dave)
+	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Dave)
 		.connect_to_parachain_node(&charlie)
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])
 		.build()
 		.await;
 
 	// run eve as parachain full node that is only connected to dave
-	let eve = cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Eve)
+	let eve = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Eve)
 		.connect_to_parachain_node(&dave)
 		.exclusively_connect_to_registered_parachain_nodes()
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])

@@ -17,25 +17,25 @@
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
 use futures::{join, StreamExt};
-use sc_service::TaskExecutor;
 use sp_runtime::generic::BlockId;
 use sc_client_api::BlockchainEvents;
 
 #[substrate_test_utils::test]
 #[ignore]
-async fn test_runtime_upgrade(task_executor: TaskExecutor) {
+async fn test_runtime_upgrade() {
 	let mut builder = sc_cli::LoggerBuilder::new("runtime=debug");
 	builder.with_colors(false);
 	let _ = builder.init();
 
 	let para_id = ParaId::from(100);
+	let tokio_handle = tokio::runtime::Handle::current();
 
 	// start alice
-	let alice = run_relay_chain_validator_node(task_executor.clone(), Alice, || {}, vec![]);
+	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, vec![]);
 
 	// start bob
 	let bob =
-		run_relay_chain_validator_node(task_executor.clone(), Bob, || {}, vec![alice.addr.clone()]);
+		run_relay_chain_validator_node(tokio_handle.clone(), Bob, || {}, vec![alice.addr.clone()]);
 
 	// register parachain
 	alice
@@ -51,14 +51,14 @@ async fn test_runtime_upgrade(task_executor: TaskExecutor) {
 
 	// run cumulus charlie (a parachain collator)
 	let charlie =
-		cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Charlie)
+		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
 			.enable_collator()
 			.connect_to_relay_chain_nodes(vec![&alice, &bob])
 			.build()
 			.await;
 
 	// run cumulus dave (a parachain full node)
-	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Dave)
+	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Dave)
 		.connect_to_parachain_node(&charlie)
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])
 		.build()

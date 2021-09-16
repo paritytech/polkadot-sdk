@@ -38,7 +38,7 @@ use sc_service::{
 		OffchainWorkerConfig, PruningMode, TransactionStorageMode, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec, Configuration, Error as ServiceError, PartialComponents, Role,
-	RpcHandlers, TFullBackend, TFullClient, TaskExecutor, TaskManager,
+	RpcHandlers, TFullBackend, TFullClient, TaskManager,
 };
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
@@ -375,7 +375,7 @@ enum Consensus {
 /// A builder to create a [`TestNode`].
 pub struct TestNodeBuilder {
 	para_id: ParaId,
-	task_executor: TaskExecutor,
+	tokio_handle: tokio::runtime::Handle,
 	key: Sr25519Keyring,
 	collator_key: Option<CollatorPair>,
 	parachain_nodes: Vec<MultiaddrWithPeerId>,
@@ -393,11 +393,11 @@ impl TestNodeBuilder {
 	/// `para_id` - The parachain id this node is running for.
 	/// `task_executor` - The task executor to use.
 	/// `key` - The key that will be used to generate the name and that will be passed as `dev_seed`.
-	pub fn new(para_id: ParaId, task_executor: TaskExecutor, key: Sr25519Keyring) -> Self {
+	pub fn new(para_id: ParaId, tokio_handle: tokio::runtime::Handle, key: Sr25519Keyring) -> Self {
 		TestNodeBuilder {
 			key,
 			para_id,
-			task_executor,
+			tokio_handle,
 			collator_key: None,
 			parachain_nodes: Vec::new(),
 			parachain_nodes_exclusive: false,
@@ -503,7 +503,7 @@ impl TestNodeBuilder {
 		let parachain_config = node_config(
 			self.storage_update_func_parachain
 				.unwrap_or_else(|| Box::new(|| ())),
-			self.task_executor.clone(),
+			self.tokio_handle.clone(),
 			self.key.clone(),
 			self.parachain_nodes,
 			self.parachain_nodes_exclusive,
@@ -514,7 +514,7 @@ impl TestNodeBuilder {
 		let mut relay_chain_config = polkadot_test_service::node_config(
 			self.storage_update_func_relay_chain
 				.unwrap_or_else(|| Box::new(|| ())),
-			self.task_executor,
+			self.tokio_handle,
 			self.key,
 			self.relay_chain_nodes,
 			false,
@@ -557,7 +557,7 @@ impl TestNodeBuilder {
 /// adjustments to the runtime genesis.
 pub fn node_config(
 	storage_update_func: impl Fn(),
-	task_executor: TaskExecutor,
+	tokio_handle: tokio::runtime::Handle,
 	key: Sr25519Keyring,
 	nodes: Vec<MultiaddrWithPeerId>,
 	nodes_exlusive: bool,
@@ -609,7 +609,7 @@ pub fn node_config(
 		impl_name: "cumulus-test-node".to_string(),
 		impl_version: "0.1".to_string(),
 		role,
-		task_executor,
+		tokio_handle,
 		transaction_pool: Default::default(),
 		network: network_config,
 		keystore: KeystoreConfig::InMemory,
@@ -637,7 +637,6 @@ pub fn node_config(
 		rpc_ws: None,
 		rpc_ipc: None,
 		rpc_ws_max_connections: None,
-		rpc_http_threads: None,
 		rpc_cors: None,
 		rpc_methods: Default::default(),
 		rpc_max_payload: None,
@@ -747,13 +746,13 @@ pub fn construct_extrinsic(
 /// This is essentially a wrapper around
 /// [`run_validator_node`](polkadot_test_service::run_validator_node).
 pub fn run_relay_chain_validator_node(
-	task_executor: TaskExecutor,
+	tokio_handle: tokio::runtime::Handle,
 	key: Sr25519Keyring,
 	storage_update_func: impl Fn(),
 	boot_nodes: Vec<MultiaddrWithPeerId>,
 ) -> polkadot_test_service::PolkadotTestNode {
 	polkadot_test_service::run_validator_node(
-		task_executor,
+		tokio_handle,
 		key,
 		storage_update_func,
 		boot_nodes,

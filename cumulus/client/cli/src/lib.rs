@@ -217,10 +217,6 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_ws_max_connections()
 	}
 
-	fn rpc_http_threads(&self) -> sc_cli::Result<Option<usize>> {
-		self.base.rpc_http_threads()
-	}
-
 	fn rpc_cors(&self, is_dev: bool) -> sc_cli::Result<Option<Vec<String>>> {
 		self.base.rpc_cors(is_dev)
 	}

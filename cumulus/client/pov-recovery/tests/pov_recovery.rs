@@ -17,7 +17,6 @@
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, Keyring::*};
 use futures::join;
-use sc_service::TaskExecutor;
 use std::sync::Arc;
 
 /// Tests the PoV recovery.
@@ -27,16 +26,17 @@ use std::sync::Arc;
 /// recover the block, import it and share it with the other nodes of the parachain network.
 #[substrate_test_utils::test]
 #[ignore]
-async fn pov_recovery(task_executor: TaskExecutor) {
+async fn pov_recovery() {
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);
 	let _ = builder.init();
 
 	let para_id = ParaId::from(100);
+	let tokio_handle = tokio::runtime::Handle::current();
 
 	// Start alice
 	let alice = cumulus_test_service::run_relay_chain_validator_node(
-		task_executor.clone(),
+		tokio_handle.clone(),
 		Alice,
 		|| {},
 		vec![],
@@ -44,7 +44,7 @@ async fn pov_recovery(task_executor: TaskExecutor) {
 
 	// Start bob
 	let bob = cumulus_test_service::run_relay_chain_validator_node(
-		task_executor.clone(),
+		tokio_handle.clone(),
 		Bob,
 		|| {},
 		vec![alice.addr.clone()],
@@ -64,7 +64,7 @@ async fn pov_recovery(task_executor: TaskExecutor) {
 
 	// Run charlie as parachain collator
 	let charlie =
-		cumulus_test_service::TestNodeBuilder::new(para_id, task_executor.clone(), Charlie)
+		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
 			.enable_collator()
 			.connect_to_relay_chain_nodes(vec![&alice, &bob])
 			.wrap_announce_block(|_| {
@@ -77,7 +77,7 @@ async fn pov_recovery(task_executor: TaskExecutor) {
 	// Run dave as parachain full node
 	//
 	// It will need to recover the pov blocks through availability recovery.
-	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, task_executor, Dave)
+	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Dave)
 		.enable_collator()
 		.use_null_consensus()
 		.connect_to_parachain_node(&charlie)
