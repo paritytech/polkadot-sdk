@@ -391,7 +391,7 @@ impl TestNodeBuilder {
 	/// Create a new instance of `Self`.
 	///
 	/// `para_id` - The parachain id this node is running for.
-	/// `task_executor` - The task executor to use.
+	/// `tokio_handle` - The tokio handler to use.
 	/// `key` - The key that will be used to generate the name and that will be passed as `dev_seed`.
 	pub fn new(para_id: ParaId, tokio_handle: tokio::runtime::Handle, key: Sr25519Keyring) -> Self {
 		TestNodeBuilder {
@@ -682,10 +682,13 @@ impl TestNode {
 
 	/// Register a parachain at this relay chain.
 	pub async fn schedule_upgrade(&self, validation: Vec<u8>) -> Result<(), RpcTransactionError> {
-		let call = frame_system::Call::set_code(validation);
+		let call = frame_system::Call::set_code { code: validation };
 
 		self.send_extrinsic(
-			runtime::SudoCall::sudo_unchecked_weight(Box::new(call.into()), 1_000),
+			runtime::SudoCall::sudo_unchecked_weight {
+				call: Box::new(call.into()),
+				weight: 1_000,
+			},
 			Sr25519Keyring::Alice,
 		)
 		.await

@@ -128,7 +128,7 @@ where
 		.iter()
 		.filter_map(|e| e.call().is_sub_type())
 		.find_map(|c| match c {
-			crate::Call::set_validation_data(validation_data) => Some(validation_data.clone()),
+			crate::Call::set_validation_data { data: validation_data } => Some(validation_data.clone()),
 			_ => None,
 		})
 		.expect("Could not find `set_validation_data` inherent");

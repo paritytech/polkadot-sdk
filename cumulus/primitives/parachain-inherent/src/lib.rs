@@ -31,6 +31,7 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
+use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
@@ -47,7 +48,7 @@ pub use mock::MockValidationDataInherentDataProvider;
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
 
 /// The inherent data that is passed by the collator to the parachain runtime.
-#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq)]
+#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq, TypeInfo)]
 pub struct ParachainInherentData {
 	pub validation_data: PersistedValidationData,
 	/// A storage proof of a predefined set of keys from the relay-chain.

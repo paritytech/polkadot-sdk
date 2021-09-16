@@ -170,7 +170,10 @@ pub fn transfer(
 	dest: sp_keyring::AccountKeyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
-	let function = Call::Balances(pallet_balances::Call::transfer(dest.public().into(), value));
+	let function = Call::Balances(pallet_balances::Call::transfer {
+		dest: dest.public().into(),
+		value,
+	});
 
 	generate_extrinsic(client, origin, function)
 }

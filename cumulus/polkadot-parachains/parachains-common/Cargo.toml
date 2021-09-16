@@ -11,6 +11,7 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 # External dependencies
 codec = { package = 'parity-scale-codec', version = '2.0.0', features = ['derive'], default-features = false }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 
 # Substrate dependencies
 sp-consensus-aura = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
@@ -42,6 +43,7 @@ substrate-wasm-builder = { git = 'https://github.com/paritytech/substrate', bran
 default = ["std"]
 std = [
 	'codec/std',
+	'scale-info/std',
 	'sp-consensus-aura/std',
 	'sp-std/std',
 	'sp-io/std',

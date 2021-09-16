@@ -7,6 +7,7 @@ description = "Simple runtime used by the rococo parachain(s)"
 
 [dependencies]
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
 parachain-info = { path = "../pallets/parachain-info", default-features = false }
@@ -63,6 +64,7 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 default = [ "std" ]
 std = [
 	"codec/std",
+	"scale-info/std",
 	"serde",
 	"log/std",
 	"sp-api/std",

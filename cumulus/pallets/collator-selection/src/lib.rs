@@ -162,7 +162,7 @@ pub mod pallet {
 	}
 
 	/// Basic information about a collation candidate.
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
 	pub struct CandidateInfo<AccountId, Balance> {
 		/// Account identifier.
 		pub who: AccountId,
@@ -247,7 +247,6 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		NewInvulnerables(Vec<T::AccountId>),

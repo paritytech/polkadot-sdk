@@ -22,6 +22,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -241,7 +243,7 @@ construct_runtime! {
 }
 
 /// Simple implementation which fails any transaction which is signed.
-#[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, codec::Encode, codec::Decode)]
+#[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DisallowSigned;
 impl sp_runtime::traits::SignedExtension for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
@@ -319,7 +321,7 @@ impl_runtime_apis! {
 
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
-			Runtime::metadata().into()
+			OpaqueMetadata::new(Runtime::metadata().into())
 		}
 	}
 

@@ -20,16 +20,15 @@
 
 use sc_cli;
 use sc_service::{
-	BasePath,
-	config::{TelemetryEndpoints, PrometheusConfig},
-	TransactionPoolOptions,
+	config::{PrometheusConfig, TelemetryEndpoints},
+	BasePath, TransactionPoolOptions,
 };
 use std::{
 	fs,
 	io::{self, Write},
+	net::SocketAddr,
 };
 use structopt::StructOpt;
-use std::net::SocketAddr;
 
 /// The `purge-chain` command used to remove the whole chain: the parachain and the relaychain.
 #[derive(Debug, StructOpt)]
@@ -66,10 +65,12 @@ impl PurgeChainCmd {
 		let db_paths = databases
 			.iter()
 			.map(|(chain_label, database)| {
-				database.path().ok_or_else(|| sc_cli::Error::Input(format!(
-					"Cannot purge custom database implementation of: {}",
-					chain_label,
-				)))
+				database.path().ok_or_else(|| {
+					sc_cli::Error::Input(format!(
+						"Cannot purge custom database implementation of: {}",
+						chain_label,
+					))
+				})
 			})
 			.collect::<sc_cli::Result<Vec<_>>>()?;
 
@@ -152,11 +153,11 @@ impl RunCmd {
 	pub fn normalize(&self) -> NormalizedRunCmd {
 		let mut new_base = self.base.clone();
 
-		 new_base.validator = self.base.validator || self.collator;
+		new_base.validator = self.base.validator || self.collator;
 
-		 NormalizedRunCmd { 
-			 base: new_base,
-			 parachain_id: self.parachain_id,
+		NormalizedRunCmd {
+			base: new_base,
+			parachain_id: self.parachain_id,
 		}
 	}
 }
@@ -205,7 +206,10 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.force_authoring()
 	}
 
-	fn prometheus_config(&self, default_listen_port: u16) -> sc_cli::Result<Option<PrometheusConfig>> {
+	fn prometheus_config(
+		&self,
+		default_listen_port: u16,
+	) -> sc_cli::Result<Option<PrometheusConfig>> {
 		self.base.prometheus_config(default_listen_port)
 	}
 

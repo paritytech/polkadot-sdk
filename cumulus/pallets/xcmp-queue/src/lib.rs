@@ -41,6 +41,7 @@ use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
 };
+use scale_info::TypeInfo;
 use sp_runtime::{traits::Hash, RuntimeDebug};
 use sp_std::{prelude::*, convert::TryFrom};
 use xcm::{latest::prelude::*, WrapVersion, VersionedXcm};
@@ -96,7 +97,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	#[pallet::metadata(Option<T::Hash> = "Option<Hash>")]
 	pub enum Event<T: Config> {
 		/// Some XCM was executed ok.
 		Success(Option<T::Hash>),
@@ -172,19 +172,19 @@ pub mod pallet {
 	pub(super) type QueueConfig<T: Config> = StorageValue<_, QueueConfigData, ValueQuery>;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum InboundStatus {
 	Ok,
 	Suspended,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum OutboundStatus {
 	Ok,
 	Suspended,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct QueueConfigData {
 	/// The number of pages of messages which must be in the queue for the other side to be told to
 	/// suspend their sending.
@@ -195,14 +195,14 @@ pub struct QueueConfigData {
 	/// The number of pages of messages which the queue must be reduced to before it signals that
 	/// message sending may recommence after it has been suspended.
 	resume_threshold: u32,
-	// The amount of remaining weight under which we stop processing messages.
+	/// The amount of remaining weight under which we stop processing messages.
 	threshold_weight: Weight,
 	/// The speed to which the available weight approaches the maximum weight. A lower number
 	/// results in a faster progression. A value of 1 makes the entire weight available initially.
 	weight_restrict_decay: Weight,
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo)]
 pub enum ChannelSignal {
 	Suspend,
 	Resume,

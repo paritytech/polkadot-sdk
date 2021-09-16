@@ -24,6 +24,7 @@ use sp_std::{prelude::*, convert::TryFrom};
 use cumulus_primitives_core::{ParaId, DmpMessageHandler};
 use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use codec::{Encode, Decode};
+use scale_info::TypeInfo;
 use sp_runtime::traits::BadOrigin;
 use xcm::{VersionedXcm, latest::{Xcm, Outcome, Parent, ExecuteXcm}};
 use frame_support::dispatch::Weight;
@@ -60,7 +61,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	#[pallet::metadata(T::BlockNumber = "BlockNumber")]
 	pub enum Event<T: Config> {
 		/// Downward message is invalid XCM.
 		/// \[ id \]
@@ -74,7 +74,7 @@ pub mod pallet {
 	}
 
 	/// Origin for the parachains module.
-	#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 	#[cfg_attr(feature = "std", derive(Debug))]
 	#[pallet::origin]
 	pub enum Origin {

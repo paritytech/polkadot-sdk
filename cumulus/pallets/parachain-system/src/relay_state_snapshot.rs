@@ -18,6 +18,7 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
+use scale_info::TypeInfo;
 use sp_trie::{MemoryDB, HashDBT, EMPTY_PREFIX};
 use sp_runtime::traits::HashFor;
 use sp_state_machine::{Backend, TrieBackend};
@@ -29,7 +30,7 @@ use sp_trie::StorageProof;
 /// This data is essential for making sure that the parachain is aware of current resource use on
 /// the relay chain and that the candidates produced for this parachain do not exceed any of these
 /// limits.
-#[derive(Clone, Encode, Decode)]
+#[derive(Clone, Encode, Decode, TypeInfo)]
 pub struct MessagingStateSnapshot {
 	/// The current message queue chain head for downward message queue.
 	///

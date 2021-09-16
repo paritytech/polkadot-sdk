@@ -8,6 +8,7 @@ description = "Westend variant of Statemint parachain runtime"
 [dependencies]
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
 parachain-info = { path = "../pallets/parachain-info", default-features = false }
 smallvec = "1.6.1"
@@ -101,6 +102,7 @@ runtime-benchmarks = [
 ]
 std = [
 	"codec/std",
+	"scale-info/std",
 	"serde",
 	"log/std",
 	"sp-api/std",

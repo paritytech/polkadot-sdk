@@ -21,6 +21,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use scale_info::TypeInfo;
 use sp_std::{prelude::*, convert::TryFrom};
 use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use cumulus_primitives_core::DmpMessageHandler;
@@ -30,7 +31,7 @@ use xcm::{VersionedXcm, latest::prelude::*};
 use frame_support::{traits::EnsureOrigin, dispatch::Weight, weights::constants::WEIGHT_PER_MILLIS};
 pub use pallet::*;
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ConfigData {
 	/// The maximum amount of weight any individual message may consume. Messages above this weight
 	/// go into the overweight queue and may only be serviced explicitly by the
@@ -47,7 +48,7 @@ impl Default for ConfigData {
 }
 
 /// Information concerning our message pages.
-#[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct PageIndexData {
 	/// The lowest used page index.
 	begin_used: PageCounter,
@@ -166,7 +167,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	#[pallet::metadata(T::BlockNumber = "BlockNumber")]
 	pub enum Event<T: Config> {
 		/// Downward message is invalid XCM.
 		/// \[ id \]
@@ -755,7 +755,10 @@ mod tests {
 			assert_noop!(DmpQueue::service_overweight(Origin::root(), 0, 9999), Error::<Test>::OverLimit);
 			assert_eq!(take_trace(), vec![ msg_limit_reached(10000) ]);
 
-			let base_weight = super::Call::<Test>::service_overweight(0, 0).get_dispatch_info().weight;
+			let base_weight = super::Call::<Test>::service_overweight {
+				index: 0,
+				weight_limit: 0,
+			}.get_dispatch_info().weight;
 			use frame_support::weights::GetDispatchInfo;
 			let info = DmpQueue::service_overweight(Origin::root(), 0, 20000).unwrap();
 			let actual_weight = info.actual_weight.unwrap();

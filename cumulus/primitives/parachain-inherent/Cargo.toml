@@ -24,6 +24,7 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", 
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 tracing = { version = "0.1.22", optional = true }
 async-trait = { version = "0.1.42", optional = true }
 
@@ -32,6 +33,7 @@ default = [ "std" ]
 std = [
 	"async-trait",
 	"codec/std",
+	"scale-info/std",
 	"cumulus-primitives-core/std",
 	"sp-inherents/std",
 	"sp-core/std",
