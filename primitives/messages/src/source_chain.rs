@@ -173,6 +173,18 @@ impl OnDeliveryConfirmed for Tuple {
 	}
 }
 
+/// Handler for messages have been accepted
+pub trait OnMessageAccepted {
+	/// Called when a message has been accepted by message pallet.
+	fn on_messages_accepted(lane: &LaneId, message: &MessageNonce) -> Weight;
+}
+
+impl OnMessageAccepted for () {
+	fn on_messages_accepted(_lane: &LaneId, _message: &MessageNonce) -> Weight {
+		0
+	}
+}
+
 /// Structure that may be used in place of `TargetHeaderChain`, `LaneMessageVerifier` and
 /// `MessageDeliveryAndDispatchPayment` on chains, where outbound messages are forbidden.
 pub struct ForbidOutboundMessages;
