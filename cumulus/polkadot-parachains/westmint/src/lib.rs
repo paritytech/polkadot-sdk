@@ -375,8 +375,6 @@ impl InstanceFilter<Call> for ProxyType {
 				c,
 				Call::CollatorSelection { .. } | Call::Utility { .. } | Call::Multisig { .. }
 			),
-			ProxyType::Collator =>
-				matches!(c, Call::CollatorSelection(..) | Call::Utility(..) | Call::Multisig(..)),
 		}
 	}
 	fn is_superset(&self, o: &Self) -> bool {
