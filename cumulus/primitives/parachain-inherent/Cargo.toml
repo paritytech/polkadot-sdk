@@ -23,10 +23,10 @@ cumulus-primitives-core = { path = "../core", default-features = false }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true }
 
 # Other dependencies
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
+async-trait = { version = "0.1.42", optional = true }
+codec = { package = "parity-scale-codec", version = "2.3.0", default-features = false, features = [ "derive" ] }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 tracing = { version = "0.1.22", optional = true }
-async-trait = { version = "0.1.42", optional = true }
 
 [features]
 default = [ "std" ]

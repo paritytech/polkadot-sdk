@@ -24,7 +24,7 @@ cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
 # Other dependencies
-codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "2.3.0", features = [ "derive" ] }
 futures = { version = "0.3.1", features = ["compat"] }
 parking_lot = "0.10.2"
 tracing = "0.1.25"

@@ -19,7 +19,7 @@ polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", def
 
 # Other dependencies
 impl-trait-for-tuples = "0.2.1"
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "2.3.0", default-features = false, features = [ "derive" ] }
 
 [features]
 default = [ "std" ]

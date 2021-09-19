@@ -20,7 +20,7 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 
 # Other deps
 futures = { version = "0.3.8", features = ["compat"] }
-codec = { package = "parity-scale-codec", version = "2.0.0", features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "2.3.0", features = [ "derive" ] }
 tracing = "0.1.25"
 async-trait = "0.1.42"
 dyn-clone = "1.0.4"
