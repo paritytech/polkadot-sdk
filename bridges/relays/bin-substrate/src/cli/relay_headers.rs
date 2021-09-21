@@ -49,6 +49,8 @@ pub enum RelayHeadersBridge {
 	WestendToMillau,
 	RococoToWococo,
 	WococoToRococo,
+	KusamaToPolkadot,
+	PolkadotToKusama,
 }
 
 macro_rules! select_bridge {
@@ -86,6 +88,20 @@ macro_rules! select_bridge {
 				type Source = relay_wococo_client::Wococo;
 				type Target = relay_rococo_client::Rococo;
 				type Finality = crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
+
+				$generic
+			}
+			RelayHeadersBridge::KusamaToPolkadot => {
+				type Source = relay_kusama_client::Kusama;
+				type Target = relay_polkadot_client::Polkadot;
+				type Finality = crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot;
+
+				$generic
+			}
+			RelayHeadersBridge::PolkadotToKusama => {
+				type Source = relay_polkadot_client::Polkadot;
+				type Target = relay_kusama_client::Kusama;
+				type Finality = crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
 
 				$generic
 			}
