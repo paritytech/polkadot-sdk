@@ -16,8 +16,15 @@
 
 //! Types used to connect to the Kusama chain.
 
-use relay_substrate_client::{Chain, ChainBase};
+use codec::Encode;
+use relay_substrate_client::{
+	Chain, ChainBase, ChainWithBalances, TransactionEraOf, TransactionSignScheme, UnsignedTransaction,
+};
+use sp_core::{storage::StorageKey, Pair};
+use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
+
+pub mod runtime;
 
 /// Kusama header id.
 pub type HeaderId = relay_utils::HeaderId<bp_kusama::Hash, bp_kusama::BlockNumber>;
@@ -45,9 +52,68 @@ impl Chain for Kusama {
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_kusama::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type SignedBlock = bp_kusama::SignedBlock;
-	type Call = ();
+	type Call = crate::runtime::Call;
 	type WeightToFee = bp_kusama::WeightToFee;
+}
+
+impl ChainWithBalances for Kusama {
+	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
+		StorageKey(bp_kusama::account_info_storage_key(account_id))
+	}
+}
+
+impl TransactionSignScheme for Kusama {
+	type Chain = Kusama;
+	type AccountKeyPair = sp_core::sr25519::Pair;
+	type SignedTransaction = crate::runtime::UncheckedExtrinsic;
+
+	fn sign_transaction(
+		genesis_hash: <Self::Chain as ChainBase>::Hash,
+		signer: &Self::AccountKeyPair,
+		era: TransactionEraOf<Self::Chain>,
+		unsigned: UnsignedTransaction<Self::Chain>,
+	) -> Self::SignedTransaction {
+		let raw_payload = SignedPayload::new(
+			unsigned.call,
+			bp_kusama::SignedExtensions::new(bp_kusama::VERSION, era, genesis_hash, unsigned.nonce, unsigned.tip),
+		)
+		.expect("SignedExtension never fails.");
+
+		let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
+		let signer: sp_runtime::MultiSigner = signer.public().into();
+		let (call, extra, _) = raw_payload.deconstruct();
+
+		bp_kusama::UncheckedExtrinsic::new_signed(
+			call,
+			sp_runtime::MultiAddress::Id(signer.into_account()),
+			signature.into(),
+			extra,
+		)
+	}
+
+	fn is_signed(tx: &Self::SignedTransaction) -> bool {
+		tx.signature.is_some()
+	}
+
+	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
+		tx.signature
+			.as_ref()
+			.map(|(address, _, _)| *address == bp_kusama::AccountId::from(*signer.public().as_array_ref()).into())
+			.unwrap_or(false)
+	}
+
+	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>> {
+		let extra = &tx.signature.as_ref()?.2;
+		Some(UnsignedTransaction {
+			call: tx.function,
+			nonce: extra.nonce(),
+			tip: extra.tip(),
+		})
+	}
 }
 
 /// Kusama header type used in headers sync.
 pub type SyncHeader = relay_substrate_client::SyncHeader<bp_kusama::Header>;
+
+/// Kusama signing params.
+pub type SigningParams = sp_core::sr25519::Pair;
