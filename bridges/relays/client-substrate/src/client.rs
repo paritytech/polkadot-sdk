@@ -16,7 +16,7 @@
 
 //! Substrate node client.
 
-use crate::chain::{Chain, ChainWithBalances};
+use crate::chain::{Chain, ChainWithBalances, TransactionStatusOf};
 use crate::rpc::Substrate;
 use crate::{ConnectionParams, Error, HeaderIdOf, Result};
 
@@ -31,7 +31,7 @@ use num_traits::{Bounded, Zero};
 use pallet_balances::AccountData;
 use pallet_transaction_payment::InclusionFee;
 use relay_utils::{relay_loop::RECONNECT_DELAY, HeaderId};
-use sp_core::{storage::StorageKey, Bytes};
+use sp_core::{storage::StorageKey, Bytes, Hasher};
 use sp_runtime::{
 	traits::Header as HeaderT,
 	transaction_validity::{TransactionSource, TransactionValidity},
@@ -45,7 +45,7 @@ const SUB_API_TXPOOL_VALIDATE_TRANSACTION: &str = "TaggedTransactionQueue_valida
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
 /// Opaque justifications subscription type.
-pub struct JustificationsSubscription(Mutex<futures::channel::mpsc::Receiver<Option<Bytes>>>);
+pub struct Subscription<T>(Mutex<futures::channel::mpsc::Receiver<Option<T>>>);
 
 /// Opaque GRANDPA authorities set.
 pub type OpaqueGrandpaAuthoritiesSet = Vec<u8>;
@@ -190,6 +190,14 @@ impl<C: Chain> Client<C> {
 			.await
 	}
 
+	/// Return number of the best finalized block.
+	pub async fn best_finalized_header_number(&self) -> Result<C::BlockNumber> {
+		Ok(*self
+			.header_by_hash(self.best_finalized_header_hash().await?)
+			.await?
+			.number())
+	}
+
 	/// Returns the best Substrate header.
 	pub async fn best_header(&self) -> Result<C::Header>
 	where
@@ -243,9 +251,13 @@ impl<C: Chain> Client<C> {
 	}
 
 	/// Read value from runtime storage.
-	pub async fn storage_value<T: Send + Decode + 'static>(&self, storage_key: StorageKey) -> Result<Option<T>> {
+	pub async fn storage_value<T: Send + Decode + 'static>(
+		&self,
+		storage_key: StorageKey,
+		block_hash: Option<C::Hash>,
+	) -> Result<Option<T>> {
 		self.jsonrpsee_execute(move |client| async move {
-			Substrate::<C>::state_get_storage(&*client, storage_key)
+			Substrate::<C>::state_get_storage(&*client, storage_key, block_hash)
 				.await?
 				.map(|encoded_value| T::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed))
 				.transpose()
@@ -260,7 +272,7 @@ impl<C: Chain> Client<C> {
 	{
 		self.jsonrpsee_execute(move |client| async move {
 			let storage_key = C::account_info_storage_key(&account);
-			let encoded_account_data = Substrate::<C>::state_get_storage(&*client, storage_key)
+			let encoded_account_data = Substrate::<C>::state_get_storage(&*client, storage_key, None)
 				.await?
 				.ok_or(Error::AccountDoesNotExist)?;
 			let decoded_account_data =
@@ -316,6 +328,44 @@ impl<C: Chain> Client<C> {
 			Ok(tx_hash)
 		})
 		.await
+	}
+
+	/// Does exactly the same as `submit_signed_extrinsic`, but keeps watching for extrinsic status
+	/// after submission.
+	pub async fn submit_and_watch_signed_extrinsic(
+		&self,
+		extrinsic_signer: C::AccountId,
+		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Bytes + Send + 'static,
+	) -> Result<Subscription<TransactionStatusOf<C>>> {
+		let _guard = self.submit_signed_extrinsic_lock.lock().await;
+		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
+		let best_header = self.best_header().await?;
+		let best_header_id = HeaderId(*best_header.number(), best_header.hash());
+		let subscription = self
+			.jsonrpsee_execute(move |client| async move {
+				let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce);
+				let tx_hash = C::Hasher::hash(&extrinsic.0);
+				let subscription = client
+					.subscribe(
+						"author_submitAndWatchExtrinsic",
+						JsonRpcParams::Array(vec![
+							jsonrpsee_types::to_json_value(extrinsic).map_err(|e| Error::RpcError(e.into()))?
+						]),
+						"author_unwatchExtrinsic",
+					)
+					.await?;
+				log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+				Ok(subscription)
+			})
+			.await?;
+		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
+		self.tokio.spawn(Subscription::background_worker(
+			C::NAME.into(),
+			"extrinsic".into(),
+			subscription,
+			sender,
+		));
+		Ok(Subscription(Mutex::new(receiver)))
 	}
 
 	/// Returns pending extrinsics from transaction pool.
@@ -405,8 +455,8 @@ impl<C: Chain> Client<C> {
 	}
 
 	/// Return new justifications stream.
-	pub async fn subscribe_justifications(&self) -> Result<JustificationsSubscription> {
-		let mut subscription = self
+	pub async fn subscribe_justifications(&self) -> Result<Subscription<Bytes>> {
+		let subscription = self
 			.jsonrpsee_execute(move |client| async move {
 				Ok(client
 					.subscribe(
@@ -417,38 +467,14 @@ impl<C: Chain> Client<C> {
 					.await?)
 			})
 			.await?;
-		let (mut sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
-		self.tokio.spawn(async move {
-			loop {
-				match subscription.next().await {
-					Ok(Some(justification)) => {
-						if sender.send(Some(justification)).await.is_err() {
-							break;
-						}
-					}
-					Ok(None) => {
-						log::trace!(
-							target: "bridge",
-							"{} justifications subscription stream has returned None. Stream needs to be restarted.",
-							C::NAME,
-						);
-						let _ = sender.send(None).await;
-						break;
-					}
-					Err(e) => {
-						log::trace!(
-							target: "bridge",
-							"{} justifications subscription stream has returned '{:?}'. Stream needs to be restarted.",
-							C::NAME,
-							e,
-						);
-						let _ = sender.send(None).await;
-						break;
-					}
-				}
-			}
-		});
-		Ok(JustificationsSubscription(Mutex::new(receiver)))
+		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
+		self.tokio.spawn(Subscription::background_worker(
+			C::NAME.into(),
+			"justification".into(),
+			subscription,
+			sender,
+		));
+		Ok(Subscription(Mutex::new(receiver)))
 	}
 
 	/// Execute jsonrpsee future in tokio context.
@@ -465,11 +491,50 @@ impl<C: Chain> Client<C> {
 	}
 }
 
-impl JustificationsSubscription {
-	/// Return next justification from the subscription.
-	pub async fn next(&self) -> Result<Option<Bytes>> {
+impl<T: DeserializeOwned> Subscription<T> {
+	/// Return next item from the subscription.
+	pub async fn next(&self) -> Result<Option<T>> {
 		let mut receiver = self.0.lock().await;
-		let justification = receiver.next().await;
-		Ok(justification.unwrap_or(None))
+		let item = receiver.next().await;
+		Ok(item.unwrap_or(None))
+	}
+
+	/// Background worker that is executed in tokio context as `jsonrpsee` requires.
+	async fn background_worker(
+		chain_name: String,
+		item_type: String,
+		mut subscription: jsonrpsee_types::Subscription<T>,
+		mut sender: futures::channel::mpsc::Sender<Option<T>>,
+	) {
+		loop {
+			match subscription.next().await {
+				Ok(Some(item)) => {
+					if sender.send(Some(item)).await.is_err() {
+						break;
+					}
+				}
+				Ok(None) => {
+					log::trace!(
+						target: "bridge",
+						"{} {} subscription stream has returned None. Stream needs to be restarted.",
+						chain_name,
+						item_type,
+					);
+					let _ = sender.send(None).await;
+					break;
+				}
+				Err(e) => {
+					log::trace!(
+						target: "bridge",
+						"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted.",
+						chain_name,
+						item_type,
+						e,
+					);
+					let _ = sender.send(None).await;
+					break;
+				}
+			}
+		}
 	}
 }

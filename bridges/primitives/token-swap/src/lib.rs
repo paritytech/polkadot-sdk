@@ -20,6 +20,20 @@ use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use sp_core::U256;
 
+/// Pending token swap state.
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+pub enum TokenSwapState {
+	/// The swap has been started using the `start_claim` call, but we have no proof that it has
+	/// happened at the Bridged chain.
+	Started,
+	/// The swap has happened at the Bridged chain and may be claimed by the Bridged chain party using
+	/// the `claim_swap` call.
+	Confirmed,
+	/// The swap has failed at the Bridged chain and This chain party may cancel it using the
+	/// `cancel_swap` call.
+	Failed,
+}
+
 /// Token swap type.
 ///
 /// Different swap types give a different guarantees regarding possible swap

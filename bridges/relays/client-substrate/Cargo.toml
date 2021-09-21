@@ -10,6 +10,7 @@ async-std = { version = "1.6.5", features = ["attributes"] }
 async-trait = "0.1.40"
 codec = { package = "parity-scale-codec", version = "2.2.0" }
 jsonrpsee-proc-macros = "0.2"
+jsonrpsee-types = "0.2"
 jsonrpsee-ws-client = "0.2"
 log = "0.4.11"
 num-traits = "0.2"
@@ -37,6 +38,7 @@ sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch 
 sp-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-storage = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
 

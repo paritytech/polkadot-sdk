@@ -15,6 +15,7 @@ log = "0.4.14"
 num-format = "0.4"
 num-traits = "0.2"
 paste = "1.0"
+rand = "0.8"
 structopt = "0.3"
 strum = { version = "0.21.0", features = ["derive"] }
 
@@ -28,6 +29,7 @@ bp-millau = { path = "../../primitives/chain-millau" }
 bp-polkadot = { path = "../../primitives/chain-polkadot" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
 bp-rococo = { path = "../../primitives/chain-rococo" }
+bp-token-swap = { path = "../../primitives/token-swap" }
 bp-wococo = { path = "../../primitives/chain-wococo" }
 bp-runtime = { path = "../../primitives/runtime" }
 bp-westend = { path = "../../primitives/chain-westend" }
@@ -35,7 +37,9 @@ bridge-runtime-common = { path = "../../bin/runtime-common" }
 finality-relay = { path = "../finality" }
 messages-relay = { path = "../messages" }
 millau-runtime = { path = "../../bin/millau/runtime" }
+pallet-bridge-dispatch = { path = "../../modules/dispatch" }
 pallet-bridge-messages = { path = "../../modules/messages" }
+pallet-bridge-token-swap = { path = "../../modules/token-swap" }
 relay-kusama-client = { path = "../client-kusama" }
 relay-millau-client = { path = "../client-millau" }
 relay-polkadot-client = { path = "../client-polkadot" }
@@ -51,6 +55,7 @@ substrate-relay-helper = { path = "../lib-substrate-relay" }
 # Substrate Dependencies
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
