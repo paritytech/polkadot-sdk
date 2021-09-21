@@ -36,6 +36,7 @@ mod relay_headers;
 mod relay_headers_and_messages;
 mod relay_messages;
 mod resubmit_transactions;
+mod swap_tokens;
 
 /// Parse relay CLI args.
 pub fn parse_args() -> Command {
@@ -89,6 +90,8 @@ pub enum Command {
 	DeriveAccount(derive_account::DeriveAccount),
 	/// Resubmit transactions with increased tip if they are stalled.
 	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
+	/// Swap tokens using token-swap bridge.
+	SwapTokens(swap_tokens::SwapTokens),
 }
 
 impl Command {
@@ -120,6 +123,7 @@ impl Command {
 			Self::EstimateFee(arg) => arg.run().await?,
 			Self::DeriveAccount(arg) => arg.run().await?,
 			Self::ResubmitTransactions(arg) => arg.run().await?,
+			Self::SwapTokens(arg) => arg.run().await?,
 		}
 		Ok(())
 	}

@@ -135,6 +135,7 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
 							get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner"),
+							get_account_id_from_seed::<sr25519::Public>("WithRialtoTokenSwap"),
 							pallet_bridge_messages::relayer_fund_account_id::<
 								bp_millau::AccountId,
 								bp_millau::AccountIdConverter,

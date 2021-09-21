@@ -56,12 +56,11 @@ use bp_messages::{
 	DeliveredMessages, LaneId, MessageNonce,
 };
 use bp_runtime::{messages::DispatchFeePayment, ChainId};
-use bp_token_swap::{TokenSwap, TokenSwapType};
-use codec::{Decode, Encode};
+use bp_token_swap::{TokenSwap, TokenSwapState, TokenSwapType};
+use codec::Encode;
 use frame_support::{
 	fail,
 	traits::{Currency, ExistenceRequirement},
-	RuntimeDebug,
 };
 use sp_core::H256;
 use sp_io::hashing::blake2_256;
@@ -71,21 +70,10 @@ use sp_std::vec::Vec;
 #[cfg(test)]
 mod mock;
 
-/// Pending token swap state.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
-pub enum TokenSwapState {
-	/// The swap has been started using the `start_claim` call, but we have no proof that it has
-	/// happened at the Bridged chain.
-	Started,
-	/// The swap has happened at the Bridged chain and may be claimed by the Bridged chain party using
-	/// the `claim_swap` call.
-	Confirmed,
-	/// The swap has failed at the Bridged chain and This chain party may cancel it using the
-	/// `cancel_swap` call.
-	Failed,
-}
-
 pub use pallet::*;
+
+/// Name of the `PendingSwaps` storage map.
+pub const PENDING_SWAPS_MAP_NAME: &str = "PendingSwaps";
 
 // comes from #[pallet::event]
 #[allow(clippy::unused_unit)]
@@ -324,6 +312,13 @@ pub mod pallet {
 					return sp_runtime::TransactionOutcome::Rollback(Err(Error::<T, I>::SwapAlreadyStarted.into()));
 				}
 
+				log::trace!(
+					target: "runtime::bridge-token-swap",
+					"The swap {:?} (hash {:?}) has been started",
+					swap,
+					swap_hash,
+				);
+
 				// remember that we're waiting for the transfer message delivery confirmation
 				PendingMessages::<T, I>::insert(transfer_message_nonce, swap_hash);
 
@@ -475,14 +470,21 @@ pub mod pallet {
 				reads += 1;
 				if let Some(swap_hash) = PendingMessages::<T, I>::take(message_nonce) {
 					writes += 1;
-					PendingSwaps::<T, I>::insert(
+
+					let token_swap_state = if delivered_messages.message_dispatch_result(message_nonce) {
+						TokenSwapState::Confirmed
+					} else {
+						TokenSwapState::Failed
+					};
+
+					log::trace!(
+						target: "runtime::bridge-token-swap",
+						"The dispatch of swap {:?} has been completed with {:?} status",
 						swap_hash,
-						if delivered_messages.message_dispatch_result(message_nonce) {
-							TokenSwapState::Confirmed
-						} else {
-							TokenSwapState::Failed
-						},
+						token_swap_state,
 					);
+
+					PendingSwaps::<T, I>::insert(swap_hash, token_swap_state);
 				}
 			}
 
@@ -533,6 +535,18 @@ pub mod pallet {
 					Error::<T, I>::FailedToTransferFromSwapAccount.into()
 				));
 			}
+
+			log::trace!(
+				target: "runtime::bridge-token-swap",
+				"The swap {:?} (hash {:?}) has been completed with {} status",
+				swap,
+				swap_hash,
+				match event {
+					Event::SwapClaimed(_) => "claimed",
+					Event::SwapCancelled(_) => "cancelled",
+					_ => "<unknown>",
+				},
+			);
 
 			// forget about swap
 			PendingSwaps::<T, I>::remove(swap_hash);

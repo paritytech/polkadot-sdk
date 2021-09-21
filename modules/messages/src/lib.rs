@@ -777,12 +777,11 @@ pub mod pallet {
 /// messages and lanes states proofs.
 pub mod storage_keys {
 	use super::*;
-	use frame_support::StorageHasher;
 	use sp_core::storage::StorageKey;
 
 	/// Storage key of the outbound message in the runtime storage.
 	pub fn message_key(pallet_prefix: &str, lane: &LaneId, nonce: MessageNonce) -> StorageKey {
-		storage_map_final_key(
+		bp_runtime::storage_map_final_key_blake2_128concat(
 			pallet_prefix,
 			"OutboundMessages",
 			&MessageKey { lane_id: *lane, nonce }.encode(),
@@ -791,28 +790,12 @@ pub mod storage_keys {
 
 	/// Storage key of the outbound message lane state in the runtime storage.
 	pub fn outbound_lane_data_key(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
-		storage_map_final_key(pallet_prefix, "OutboundLanes", lane)
+		bp_runtime::storage_map_final_key_blake2_128concat(pallet_prefix, "OutboundLanes", lane)
 	}
 
 	/// Storage key of the inbound message lane state in the runtime storage.
 	pub fn inbound_lane_data_key(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
-		storage_map_final_key(pallet_prefix, "InboundLanes", lane)
-	}
-
-	/// This is a copypaste of the `frame_support::storage::generator::StorageMap::storage_map_final_key`.
-	fn storage_map_final_key(pallet_prefix: &str, map_name: &str, key: &[u8]) -> StorageKey {
-		let pallet_prefix_hashed = frame_support::Twox128::hash(pallet_prefix.as_bytes());
-		let storage_prefix_hashed = frame_support::Twox128::hash(map_name.as_bytes());
-		let key_hashed = frame_support::Blake2_128Concat::hash(key);
-
-		let mut final_key =
-			Vec::with_capacity(pallet_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.len());
-
-		final_key.extend_from_slice(&pallet_prefix_hashed[..]);
-		final_key.extend_from_slice(&storage_prefix_hashed[..]);
-		final_key.extend_from_slice(key_hashed.as_ref());
-
-		StorageKey(final_key)
+		bp_runtime::storage_map_final_key_blake2_128concat(pallet_prefix, "InboundLanes", lane)
 	}
 }
 
