@@ -79,7 +79,7 @@ where
 	async fn update(&self) {
 		let value = self
 			.client
-			.storage_value::<T>(self.storage_key.clone())
+			.storage_value::<T>(self.storage_key.clone(), None)
 			.await
 			.map(|maybe_storage_value| {
 				maybe_storage_value.or(self.maybe_default_value).map(|storage_value| {

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use bp_runtime::{Chain as ChainBase, TransactionEraOf};
+use bp_runtime::{Chain as ChainBase, HashOf, TransactionEraOf};
 use codec::{Codec, Encode};
 use frame_support::weights::WeightToFeePolynomial;
 use jsonrpsee_ws_client::{DeserializeOwned, Serialize};
@@ -25,6 +25,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Dispatchable, Member},
 	EncodedJustification,
 };
+use sp_transaction_pool::TransactionStatus;
 use std::{fmt::Debug, time::Duration};
 
 /// Substrate-based chain from minimal relay-client point of view.
@@ -50,8 +51,12 @@ pub trait Chain: ChainBase + Clone {
 	type WeightToFee: WeightToFeePolynomial<Balance = Self::Balance>;
 }
 
-/// Weight-to-Fee type used by the chain
+/// Call type used by the chain.
+pub type CallOf<C> = <C as Chain>::Call;
+/// Weight-to-Fee type used by the chain.
 pub type WeightToFeeOf<C> = <C as Chain>::WeightToFee;
+/// Transaction status of the chain.
+pub type TransactionStatusOf<C> = TransactionStatus<HashOf<C>, HashOf<C>>;
 
 /// Substrate-based chain with `frame_system::Config::AccountData` set to
 /// the `pallet_balances::AccountData<Balance>`.
