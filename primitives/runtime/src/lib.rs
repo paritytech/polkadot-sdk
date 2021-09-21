@@ -20,9 +20,9 @@
 
 use codec::Encode;
 use frame_support::RuntimeDebug;
-use sp_core::hash::H256;
+use sp_core::{hash::H256, storage::StorageKey};
 use sp_io::hashing::blake2_256;
-use sp_std::convert::TryFrom;
+use sp_std::{convert::TryFrom, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf, IndexOf, SignatureOf,
@@ -182,4 +182,16 @@ impl<BlockNumber: Copy + Into<u64>, BlockHash: Copy> TransactionEra<BlockNumber,
 			TransactionEra::Mortal(_, header_hash, _) => header_hash,
 		}
 	}
+}
+
+/// This is how a storage key of storage parameter (`parameter_types! { storage Param: bool = false; }`) is computed.
+///
+/// Copypaste from `frame_support::parameter_types` macro
+pub fn storage_parameter_key(parameter_name: &str) -> StorageKey {
+	let mut buffer = Vec::with_capacity(1 + parameter_name.len() + 1 + 1);
+	buffer.push(':' as u8);
+	buffer.extend_from_slice(parameter_name.as_bytes());
+	buffer.push(':' as u8);
+	buffer.push(0);
+	StorageKey(sp_io::hashing::twox_128(&buffer).to_vec())
 }

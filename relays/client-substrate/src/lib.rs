@@ -38,7 +38,8 @@ pub use crate::client::{Client, JustificationsSubscription, OpaqueGrandpaAuthori
 pub use crate::error::{Error, Result};
 pub use crate::sync_header::SyncHeader;
 pub use bp_runtime::{
-	BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf, IndexOf, TransactionEra, TransactionEraOf,
+	AccountIdOf, BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf, IndexOf, TransactionEra,
+	TransactionEraOf,
 };
 
 /// Header id used by the chain.

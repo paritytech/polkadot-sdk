@@ -11,6 +11,7 @@ relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 
 # Bridge dependencies
+
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-message-dispatch = { path = "../../primitives/message-dispatch" }
@@ -23,6 +24,7 @@ pallet-bridge-dispatch = { path = "../../modules/dispatch" }
 pallet-bridge-messages = { path = "../../modules/messages" }
 
 # Substrate Dependencies
+
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }

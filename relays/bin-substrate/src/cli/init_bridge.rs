@@ -46,6 +46,8 @@ pub enum InitBridgeName {
 	WestendToMillau,
 	RococoToWococo,
 	WococoToRococo,
+	KusamaToPolkadot,
+	PolkadotToKusama,
 }
 
 macro_rules! select_bridge {
@@ -124,6 +126,34 @@ macro_rules! select_bridge {
 				) -> <Target as Chain>::Call {
 					relay_rococo_client::runtime::Call::BridgeGrandpaWococo(
 						relay_rococo_client::runtime::BridgeGrandpaWococoCall::initialize(init_data),
+					)
+				}
+
+				$generic
+			}
+			InitBridgeName::KusamaToPolkadot => {
+				type Source = relay_kusama_client::Kusama;
+				type Target = relay_polkadot_client::Polkadot;
+
+				fn encode_init_bridge(
+					init_data: InitializationData<<Source as ChainBase>::Header>,
+				) -> <Target as Chain>::Call {
+					relay_polkadot_client::runtime::Call::BridgeKusamaGrandpa(
+						relay_polkadot_client::runtime::BridgeKusamaGrandpaCall::initialize(init_data),
+					)
+				}
+
+				$generic
+			}
+			InitBridgeName::PolkadotToKusama => {
+				type Source = relay_polkadot_client::Polkadot;
+				type Target = relay_kusama_client::Kusama;
+
+				fn encode_init_bridge(
+					init_data: InitializationData<<Source as ChainBase>::Header>,
+				) -> <Target as Chain>::Call {
+					relay_kusama_client::runtime::Call::BridgePolkadotGrandpa(
+						relay_kusama_client::runtime::BridgePolkadotGrandpaCall::initialize(init_data),
 					)
 				}
 
