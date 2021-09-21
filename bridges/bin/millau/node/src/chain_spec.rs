@@ -135,10 +135,10 @@ impl Alternative {
 							get_account_id_from_seed::<sr25519::Public>("George//stash"),
 							get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
 							get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner"),
-							pallet_bridge_messages::Pallet::<
-								millau_runtime::Runtime,
-								millau_runtime::WithRialtoMessagesInstance,
-							>::relayer_fund_account_id(),
+							pallet_bridge_messages::relayer_fund_account_id::<
+								bp_millau::AccountId,
+								bp_millau::AccountIdConverter,
+							>(),
 							derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(
 								get_account_id_from_seed::<sr25519::Public>("Alice"),
 							)),

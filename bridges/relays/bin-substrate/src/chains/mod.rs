@@ -16,8 +16,12 @@
 
 //! Chain-specific relayer configuration.
 
+pub mod kusama_headers_to_polkadot;
+pub mod kusama_messages_to_polkadot;
 pub mod millau_headers_to_rialto;
 pub mod millau_messages_to_rialto;
+pub mod polkadot_headers_to_kusama;
+pub mod polkadot_messages_to_kusama;
 pub mod rialto_headers_to_millau;
 pub mod rialto_messages_to_millau;
 pub mod rococo_headers_to_wococo;
@@ -26,7 +30,9 @@ pub mod westend_headers_to_millau;
 pub mod wococo_headers_to_rococo;
 pub mod wococo_messages_to_rococo;
 
+mod kusama;
 mod millau;
+mod polkadot;
 mod rialto;
 mod rococo;
 mod westend;
@@ -37,9 +43,9 @@ mod wococo;
 // Rialto as BTC and Millau as wBTC (only in relayer).
 
 /// The identifier of token, which value is associated with Rialto token value by relayer.
-pub(crate) const RIALTO_ASSOCIATED_TOKEN_ID: &str = "polkadot";
+pub(crate) const RIALTO_ASSOCIATED_TOKEN_ID: &str = polkadot::TOKEN_ID;
 /// The identifier of token, which value is associated with Millau token value by relayer.
-pub(crate) const MILLAU_ASSOCIATED_TOKEN_ID: &str = "kusama";
+pub(crate) const MILLAU_ASSOCIATED_TOKEN_ID: &str = kusama::TOKEN_ID;
 
 use relay_utils::metrics::MetricsParams;
 
