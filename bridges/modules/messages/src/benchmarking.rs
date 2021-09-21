@@ -484,7 +484,7 @@ benchmarks_instance_pallet! {
 	//
 	// This is base benchmark for all other confirmations delivery benchmarks.
 	receive_delivery_proof_for_single_message {
-		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
 		T::endow_account(&relayers_fund_id);
@@ -524,7 +524,7 @@ benchmarks_instance_pallet! {
 	// as `weight(receive_delivery_proof_for_two_messages_by_single_relayer)
 	//   - weight(receive_delivery_proof_for_single_message)`.
 	receive_delivery_proof_for_two_messages_by_single_relayer {
-		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
 		T::endow_account(&relayers_fund_id);
@@ -564,7 +564,7 @@ benchmarks_instance_pallet! {
 	// as `weight(receive_delivery_proof_for_two_messages_by_two_relayers)
 	//   - weight(receive_delivery_proof_for_two_messages_by_single_relayer)`.
 	receive_delivery_proof_for_two_messages_by_two_relayers {
-		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let relayer1_id: T::AccountId = account("relayer1", 1, SEED);
 		let relayer1_balance = T::account_balance(&relayer1_id);
 		let relayer2_id: T::AccountId = account("relayer2", 2, SEED);
@@ -811,7 +811,7 @@ benchmarks_instance_pallet! {
 			.try_into()
 			.expect("Value of MaxUnrewardedRelayerEntriesAtInboundLane is too large");
 
-		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
 		T::endow_account(&relayers_fund_id);
@@ -854,7 +854,7 @@ benchmarks_instance_pallet! {
 			.try_into()
 			.expect("Value of MaxUnconfirmedMessagesAtInboundLane is too large ");
 
-		let relayers_fund_id = crate::Pallet::<T, I>::relayer_fund_account_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let confirmation_relayer_id = account("relayer", 0, SEED);
 		let relayers: BTreeMap<T::AccountId, T::OutboundMessageFee> = (1..=i)
 			.map(|j| {
