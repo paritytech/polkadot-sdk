@@ -20,19 +20,22 @@
 // this warning comes from `polkadot_overseer::AllSubsystems` type
 #![allow(clippy::type_complexity)]
 
-use crate::service::Error;
+use crate::service::{AuthorityDiscoveryApi, Error};
+use rialto_runtime::{opaque::Block, Hash};
 
-use polkadot_network_bridge::RequestMultiplexer;
+use polkadot_availability_distribution::IncomingRequestReceivers;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
-use polkadot_overseer::{AllSubsystems, BlockInfo, Overseer, OverseerHandler};
-use polkadot_primitives::v1::{Block, Hash, ParachainHost};
+use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
+use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
+use polkadot_node_network_protocol::request_response::{v1 as request_v1, IncomingRequestReceiver};
+use polkadot_overseer::{AllSubsystems, BlockInfo, Overseer, OverseerHandle};
+use polkadot_primitives::v1::ParachainHost;
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_client_api::AuxStore;
 use sc_keystore::LocalKeystore;
 use sp_api::ProvideRuntimeApi;
-use sp_authority_discovery::AuthorityDiscoveryApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_babe::BabeApi;
 use sp_core::traits::SpawnNamed;
@@ -44,6 +47,7 @@ pub use polkadot_availability_bitfield_distribution::BitfieldDistribution as Bit
 pub use polkadot_availability_distribution::AvailabilityDistributionSubsystem;
 pub use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 pub use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
+pub use polkadot_dispute_distribution::DisputeDistributionSubsystem;
 pub use polkadot_gossip_support::GossipSupport as GossipSupportSubsystem;
 pub use polkadot_network_bridge::NetworkBridge as NetworkBridgeSubsystem;
 pub use polkadot_node_collation_generation::CollationGenerationSubsystem;
@@ -53,6 +57,9 @@ pub use polkadot_node_core_backing::CandidateBackingSubsystem;
 pub use polkadot_node_core_bitfield_signing::BitfieldSigningSubsystem;
 pub use polkadot_node_core_candidate_validation::CandidateValidationSubsystem;
 pub use polkadot_node_core_chain_api::ChainApiSubsystem;
+pub use polkadot_node_core_chain_selection::ChainSelectionSubsystem;
+pub use polkadot_node_core_dispute_coordinator::DisputeCoordinatorSubsystem;
+pub use polkadot_node_core_dispute_participation::DisputeParticipationSubsystem;
 pub use polkadot_node_core_provisioner::ProvisioningSubsystem as ProvisionerSubsystem;
 pub use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 pub use polkadot_statement_distribution::StatementDistribution as StatementDistributionSubsystem;
@@ -72,43 +79,58 @@ where
 	pub runtime_client: Arc<RuntimeClient>,
 	/// The underlying key value store for the parachains.
 	pub parachains_db: Arc<dyn kvdb::KeyValueDB>,
-	/// Configuration for the availability store subsystem.
-	pub availability_config: AvailabilityConfig,
-	/// Configuration for the approval voting subsystem.
-	pub approval_voting_config: ApprovalVotingConfig,
 	/// Underlying network service implementation.
 	pub network_service: Arc<sc_network::NetworkService<Block, Hash>>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
-	/// A multiplexer to arbitrate incoming `IncomingRequest`s from the network.
-	pub request_multiplexer: RequestMultiplexer,
+	/// POV request receiver
+	pub pov_req_receiver: IncomingRequestReceiver<request_v1::PoVFetchingRequest>,
+	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
+	pub collation_req_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
+	pub available_data_req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
+	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
 	pub registry: Option<&'a Registry>,
 	/// Task spawner to be used throughout the overseer and the APIs it provides.
 	pub spawner: Spawner,
+	/// Configuration for the approval voting subsystem.
+	pub approval_voting_config: ApprovalVotingConfig,
+	/// Configuration for the availability store subsystem.
+	pub availability_config: AvailabilityConfig,
 	/// Configuration for the candidate validation subsystem.
 	pub candidate_validation_config: CandidateValidationConfig,
+	/// Configuration for the chain selection subsystem.
+	pub chain_selection_config: ChainSelectionConfig,
+	/// Configuration for the dispute coordinator subsystem.
+	pub dispute_coordinator_config: DisputeCoordinatorConfig,
 }
 
 /// Create a default, unaltered set of subsystems.
 ///
 /// A convenience for usage with malus, to avoid
 /// repetitive code across multiple behavior strain implementations.
-pub fn create_default_subsystems<Spawner, RuntimeClient>(
+pub fn create_default_subsystems<'a, Spawner, RuntimeClient>(
 	OverseerGenArgs {
 		keystore,
 		runtime_client,
 		parachains_db,
-		availability_config,
-		approval_voting_config,
 		network_service,
 		authority_discovery_service,
-		request_multiplexer,
+		pov_req_receiver,
+		chunk_req_receiver,
+		available_data_req_receiver,
+		statement_req_receiver,
+		dispute_req_receiver,
 		registry,
 		spawner,
+		approval_voting_config,
+		availability_config,
 		candidate_validation_config,
+		chain_selection_config,
+		dispute_coordinator_config,
 		..
-	}: OverseerGenArgs<Spawner, RuntimeClient>,
+	}: OverseerGenArgs<'a, Spawner, RuntimeClient>,
 ) -> Result<
 	AllSubsystems<
 		CandidateValidationSubsystem,
@@ -128,6 +150,10 @@ pub fn create_default_subsystems<Spawner, RuntimeClient>(
 		ApprovalDistributionSubsystem,
 		ApprovalVotingSubsystem,
 		GossipSupportSubsystem,
+		DisputeCoordinatorSubsystem,
+		DisputeParticipationSubsystem,
+		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
+		ChainSelectionSubsystem,
 	>,
 	Error,
 >
@@ -141,9 +167,16 @@ where
 	let all_subsystems = AllSubsystems {
 		availability_distribution: AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
+			IncomingRequestReceivers {
+				pov_req_receiver,
+				chunk_req_receiver,
+			},
 			Metrics::register(registry)?,
 		),
-		availability_recovery: AvailabilityRecoverySubsystem::with_chunks_only(),
+		availability_recovery: AvailabilityRecoverySubsystem::with_chunks_only(
+			available_data_req_receiver,
+			Metrics::register(registry)?,
+		),
 		availability_store: AvailabilityStoreSubsystem::new(
 			parachains_db.clone(),
 			availability_config,
@@ -162,37 +195,51 @@ where
 		),
 		candidate_validation: CandidateValidationSubsystem::with_config(
 			candidate_validation_config,
-			Metrics::register(registry)?,
+			Metrics::register(registry)?, // candidate-validation metrics
+			Metrics::register(registry)?, // validation host metrics
 		),
 		chain_api: ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?),
 		collation_generation: CollationGenerationSubsystem::new(Metrics::register(registry)?),
-		collator_protocol: {
-			let side = ProtocolSide::Validator {
-				keystore: keystore.clone(),
-				eviction_policy: Default::default(),
-				metrics: Metrics::register(registry)?,
-			};
-			CollatorProtocolSubsystem::new(side)
-		},
+		collator_protocol: CollatorProtocolSubsystem::new(ProtocolSide::Validator {
+			keystore: keystore.clone(),
+			eviction_policy: Default::default(),
+			metrics: Metrics::register(registry)?,
+		}),
 		network_bridge: NetworkBridgeSubsystem::new(
 			network_service.clone(),
-			authority_discovery_service,
-			request_multiplexer,
+			authority_discovery_service.clone(),
 			Box::new(network_service.clone()),
 			Metrics::register(registry)?,
 		),
 		provisioner: ProvisionerSubsystem::new(spawner.clone(), (), Metrics::register(registry)?),
-		runtime_api: RuntimeApiSubsystem::new(runtime_client, Metrics::register(registry)?, spawner),
-		statement_distribution: StatementDistributionSubsystem::new(keystore.clone(), Metrics::register(registry)?),
+		runtime_api: RuntimeApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?, spawner.clone()),
+		statement_distribution: StatementDistributionSubsystem::new(
+			keystore.clone(),
+			statement_req_receiver,
+			Metrics::register(registry)?,
+		),
 		approval_distribution: ApprovalDistributionSubsystem::new(Metrics::register(registry)?),
 		approval_voting: ApprovalVotingSubsystem::with_config(
 			approval_voting_config,
-			parachains_db,
+			parachains_db.clone(),
 			keystore.clone(),
-			Box::new(network_service),
+			Box::new(network_service.clone()),
 			Metrics::register(registry)?,
 		),
-		gossip_support: GossipSupportSubsystem::new(keystore),
+		gossip_support: GossipSupportSubsystem::new(keystore.clone()),
+		dispute_coordinator: DisputeCoordinatorSubsystem::new(
+			parachains_db.clone(),
+			dispute_coordinator_config,
+			keystore.clone(),
+		),
+		dispute_participation: DisputeParticipationSubsystem::new(),
+		dispute_distribution: DisputeDistributionSubsystem::new(
+			keystore.clone(),
+			dispute_req_receiver,
+			authority_discovery_service.clone(),
+			Metrics::register(registry)?,
+		),
+		chain_selection: ChainSelectionSubsystem::new(chain_selection_config, parachains_db),
 	};
 	Ok(all_subsystems)
 }
@@ -203,10 +250,10 @@ where
 /// would do.
 pub trait OverseerGen {
 	/// Overwrite the full generation of the overseer, including the subsystems.
-	fn generate<Spawner, RuntimeClient>(
+	fn generate<'a, Spawner, RuntimeClient>(
 		&self,
-		args: OverseerGenArgs<Spawner, RuntimeClient>,
-	) -> Result<(Overseer<Spawner, Arc<RuntimeClient>>, OverseerHandler), Error>
+		args: OverseerGenArgs<'a, Spawner, RuntimeClient>,
+	) -> Result<(Overseer<Spawner, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
 		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
 		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
@@ -224,10 +271,10 @@ pub trait OverseerGen {
 pub struct RealOverseerGen;
 
 impl OverseerGen for RealOverseerGen {
-	fn generate<Spawner, RuntimeClient>(
+	fn generate<'a, Spawner, RuntimeClient>(
 		&self,
-		args: OverseerGenArgs<Spawner, RuntimeClient>,
-	) -> Result<(Overseer<Spawner, Arc<RuntimeClient>>, OverseerHandler), Error>
+		args: OverseerGenArgs<'a, Spawner, RuntimeClient>,
+	) -> Result<(Overseer<Spawner, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
 		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
 		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
@@ -236,7 +283,7 @@ impl OverseerGen for RealOverseerGen {
 		let spawner = args.spawner.clone();
 		let leaves = args.leaves.clone();
 		let runtime_client = args.runtime_client.clone();
-		let registry = args.registry;
+		let registry = args.registry.clone();
 
 		let all_subsystems = create_default_subsystems::<Spawner, RuntimeClient>(args)?;
 
