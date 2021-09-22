@@ -131,13 +131,13 @@ impl<P: HeadersSyncPipeline> HeadersSync<P> {
 		}
 
 		// if queue is empty and best header on target is > than best header on source,
-		// then we shoud reorg
+		// then we shoud reorganization
 		let best_queued_number = self.headers.best_queued_number();
 		if best_queued_number.is_zero() && source_best_number < target_best_header.0 {
 			return Some(source_best_number);
 		}
 
-		// we assume that there were no reorgs if we have already downloaded best header
+		// we assume that there were no reorganizations if we have already downloaded best header
 		let best_downloaded_number = std::cmp::max(
 			std::cmp::max(best_queued_number, self.headers.best_synced_number()),
 			target_best_header.0,
