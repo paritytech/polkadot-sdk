@@ -283,7 +283,7 @@ impl SwapTokens {
 				Some(bp_token_swap::TokenSwapState::Failed) => {
 					log::info!(
 						target: "bridge",
-						"Transfer has been dispatched with an error at the target chain. Swap can be cancelled",
+						"Transfer has been dispatched with an error at the target chain. Swap can be canceled",
 					);
 					false
 				}
@@ -294,7 +294,7 @@ impl SwapTokens {
 			let intermediate_balances = read_account_balances(&accounts, &source_client, &target_client).await?;
 			log::info!(target: "bridge", "Intermediate balances: {:?}", intermediate_balances);
 
-			// transfer has been dispatched, but we may need to wait until block where swap can be claimed/cancelled
+			// transfer has been dispatched, but we may need to wait until block where swap can be claimed/canceled
 			if let bp_token_swap::TokenSwapType::LockClaimUntilBlock(ref last_available_block_number, _) =
 				token_swap.swap_type
 			{
@@ -609,7 +609,7 @@ async fn wait_until_token_swap_state_is_changed<C: Chain>(
 	}
 }
 
-/// Waits until swap can be claimed or cancelled.
+/// Waits until swap can be claimed or canceled.
 async fn wait_until_swap_unlocked<C: Chain>(
 	client: &Client<C>,
 	required_block_number: BlockNumberOf<C>,
