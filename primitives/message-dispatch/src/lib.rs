@@ -34,7 +34,7 @@ pub type Weight = u64;
 pub type SpecVersion = u32;
 
 /// A generic trait to dispatch arbitrary messages delivered over the bridge.
-pub trait MessageDispatch<AccountId, MessageId> {
+pub trait MessageDispatch<AccountId, BridgeMessageId> {
 	/// A type of the message to be dispatched.
 	type Message: codec::Decode;
 
@@ -60,7 +60,7 @@ pub trait MessageDispatch<AccountId, MessageId> {
 	fn dispatch<P: FnOnce(&AccountId, Weight) -> Result<(), ()>>(
 		source_chain: ChainId,
 		target_chain: ChainId,
-		id: MessageId,
+		id: BridgeMessageId,
 		message: Result<Self::Message, ()>,
 		pay_dispatch_fee: P,
 	) -> MessageDispatchResult;

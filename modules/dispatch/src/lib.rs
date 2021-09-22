@@ -58,7 +58,7 @@ pub mod pallet {
 		/// Id of the message. Whenever message is passed to the dispatch module, it emits
 		/// event with this id + dispatch result. Could be e.g. (LaneId, MessageNonce) if
 		/// it comes from the messages module.
-		type MessageId: Parameter;
+		type BridgeMessageId: Parameter;
 		/// Type of account ID on source chain.
 		type SourceChainAccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
 		/// Type of account public key on target chain.
@@ -91,7 +91,7 @@ pub mod pallet {
 		type AccountIdConverter: sp_runtime::traits::Convert<sp_core::hash::H256, Self::AccountId>;
 	}
 
-	type MessageIdOf<T, I> = <T as Config<I>>::MessageId;
+	type BridgeMessageIdOf<T, I> = <T as Config<I>>::BridgeMessageId;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -105,37 +105,37 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	#[pallet::metadata(<T as frame_system::Config>::AccountId = "AccountId", MessageIdOf<T, I> = "MessageId")]
+	#[pallet::metadata(<T as frame_system::Config>::AccountId = "AccountId", BridgeMessageIdOf<T, I> = "BridgeMessageId")]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// Message has been rejected before reaching dispatch.
-		MessageRejected(ChainId, MessageIdOf<T, I>),
+		MessageRejected(ChainId, BridgeMessageIdOf<T, I>),
 		/// Message has been rejected by dispatcher because of spec version mismatch.
 		/// Last two arguments are: expected and passed spec version.
-		MessageVersionSpecMismatch(ChainId, MessageIdOf<T, I>, SpecVersion, SpecVersion),
+		MessageVersionSpecMismatch(ChainId, BridgeMessageIdOf<T, I>, SpecVersion, SpecVersion),
 		/// Message has been rejected by dispatcher because of weight mismatch.
 		/// Last two arguments are: expected and passed call weight.
-		MessageWeightMismatch(ChainId, MessageIdOf<T, I>, Weight, Weight),
+		MessageWeightMismatch(ChainId, BridgeMessageIdOf<T, I>, Weight, Weight),
 		/// Message signature mismatch.
-		MessageSignatureMismatch(ChainId, MessageIdOf<T, I>),
+		MessageSignatureMismatch(ChainId, BridgeMessageIdOf<T, I>),
 		/// We have failed to decode Call from the message.
-		MessageCallDecodeFailed(ChainId, MessageIdOf<T, I>),
+		MessageCallDecodeFailed(ChainId, BridgeMessageIdOf<T, I>),
 		/// The call from the message has been rejected by the call filter.
-		MessageCallRejected(ChainId, MessageIdOf<T, I>),
+		MessageCallRejected(ChainId, BridgeMessageIdOf<T, I>),
 		/// The origin account has failed to pay fee for dispatching the message.
 		MessageDispatchPaymentFailed(
 			ChainId,
-			MessageIdOf<T, I>,
+			BridgeMessageIdOf<T, I>,
 			<T as frame_system::Config>::AccountId,
 			Weight,
 		),
 		/// Message has been dispatched with given result.
-		MessageDispatched(ChainId, MessageIdOf<T, I>, DispatchResult),
+		MessageDispatched(ChainId, BridgeMessageIdOf<T, I>, DispatchResult),
 		/// Phantom member, never used. Needed to handle multiple pallet instances.
 		_Dummy(PhantomData<I>),
 	}
 }
 
-impl<T: Config<I>, I: 'static> MessageDispatch<T::AccountId, T::MessageId> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> MessageDispatch<T::AccountId, T::BridgeMessageId> for Pallet<T, I> {
 	type Message =
 		MessagePayload<T::SourceChainAccountId, T::TargetChainAccountPublic, T::TargetChainSignature, T::EncodedCall>;
 
@@ -146,7 +146,7 @@ impl<T: Config<I>, I: 'static> MessageDispatch<T::AccountId, T::MessageId> for P
 	fn dispatch<P: FnOnce(&T::AccountId, bp_message_dispatch::Weight) -> Result<(), ()>>(
 		source_chain: ChainId,
 		target_chain: ChainId,
-		id: T::MessageId,
+		id: T::BridgeMessageId,
 		message: Result<Self::Message, ()>,
 		pay_dispatch_fee: P,
 	) -> MessageDispatchResult {
@@ -416,7 +416,7 @@ mod tests {
 	};
 
 	type AccountId = u64;
-	type MessageId = [u8; 4];
+	type BridgeMessageId = [u8; 4];
 
 	const SOURCE_CHAIN_ID: ChainId = *b"srce";
 	const TARGET_CHAIN_ID: ChainId = *b"trgt";
@@ -502,7 +502,7 @@ mod tests {
 
 	impl Config for TestRuntime {
 		type Event = Event;
-		type MessageId = MessageId;
+		type BridgeMessageId = BridgeMessageId;
 		type SourceChainAccountId = AccountId;
 		type TargetChainAccountPublic = TestAccountPublic;
 		type TargetChainSignature = TestSignature;
@@ -542,7 +542,7 @@ mod tests {
 	fn prepare_message(
 		origin: CallOrigin<AccountId, TestAccountPublic, TestSignature>,
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::BridgeMessageId>>::Message {
 		MessagePayload {
 			spec_version: TEST_SPEC_VERSION,
 			weight: TEST_WEIGHT,
@@ -554,20 +554,20 @@ mod tests {
 
 	fn prepare_root_message(
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::BridgeMessageId>>::Message {
 		prepare_message(CallOrigin::SourceRoot, call)
 	}
 
 	fn prepare_target_message(
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::BridgeMessageId>>::Message {
 		let origin = CallOrigin::TargetAccount(1, TestAccountPublic(1), TestSignature(1));
 		prepare_message(origin, call)
 	}
 
 	fn prepare_source_message(
 		call: Call,
-	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::MessageId>>::Message {
+	) -> <Pallet<TestRuntime> as MessageDispatch<AccountId, <TestRuntime as Config>::BridgeMessageId>>::Message {
 		let origin = CallOrigin::SourceAccount(1);
 		prepare_message(origin, call)
 	}

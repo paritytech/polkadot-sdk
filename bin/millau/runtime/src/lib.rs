@@ -211,7 +211,7 @@ impl pallet_aura::Config for Runtime {
 }
 impl pallet_bridge_dispatch::Config for Runtime {
 	type Event = Event;
-	type MessageId = (bp_messages::LaneId, bp_messages::MessageNonce);
+	type BridgeMessageId = (bp_messages::LaneId, bp_messages::MessageNonce);
 	type Call = Call;
 	type CallFilter = ();
 	type EncodedCall = crate::rialto_messages::FromRialtoEncodedCall;

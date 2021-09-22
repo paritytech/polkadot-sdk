@@ -75,7 +75,7 @@ pub type LaneId = [u8; 4];
 pub type MessageNonce = u64;
 
 /// Message id as a tuple.
-pub type MessageId = (LaneId, MessageNonce);
+pub type BridgeMessageId = (LaneId, MessageNonce);
 
 /// Opaque message payload. We only decode this payload when it is dispatched.
 pub type MessagePayload = Vec<u8>;
