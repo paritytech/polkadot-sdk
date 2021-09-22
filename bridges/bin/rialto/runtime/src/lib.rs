@@ -167,7 +167,7 @@ parameter_types! {
 
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
@@ -244,6 +244,7 @@ impl pallet_babe::Config for Runtime {
 		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::IdentificationTuple;
 	type HandleEquivocation = ();
 
+	type DisabledValidators = ();
 	type WeightInfo = ();
 }
 
@@ -293,7 +294,7 @@ impl pallet_bridge_dispatch::Config for Runtime {
 	type Event = Event;
 	type BridgeMessageId = (bp_messages::LaneId, bp_messages::MessageNonce);
 	type Call = Call;
-	type CallFilter = ();
+	type CallFilter = frame_support::traits::Everything;
 	type EncodedCall = crate::millau_messages::FromMillauEncodedCall;
 	type SourceChainAccountId = bp_millau::AccountId;
 	type TargetChainAccountPublic = MultiSigner;
@@ -447,7 +448,13 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_authority_discovery::Config for Runtime {}
+parameter_types! {
+	pub const MaxAuthorities: u32 = 10;
+}
+
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = MaxAuthorities;
+}
 
 parameter_types! {
 	/// This is a pretty unscientific cap.
@@ -572,17 +579,17 @@ construct_runtime!(
 
 		// Parachain modules.
 		ParachainsOrigin: polkadot_runtime_parachains::origin::{Pallet, Origin},
-		ParachainsConfiguration: polkadot_runtime_parachains::configuration::{Pallet, Call, Storage, Config<T>},
+		Configuration: polkadot_runtime_parachains::configuration::{Pallet, Call, Storage, Config<T>},
 		Shared: polkadot_runtime_parachains::shared::{Pallet, Call, Storage},
 		Inclusion: polkadot_runtime_parachains::inclusion::{Pallet, Call, Storage, Event<T>},
 		ParasInherent: polkadot_runtime_parachains::paras_inherent::{Pallet, Call, Storage, Inherent},
-		Scheduler: polkadot_runtime_parachains::scheduler::{Pallet, Call, Storage},
+		Scheduler: polkadot_runtime_parachains::scheduler::{Pallet, Storage},
 		Paras: polkadot_runtime_parachains::paras::{Pallet, Call, Storage, Event, Config},
 		Initializer: polkadot_runtime_parachains::initializer::{Pallet, Call, Storage},
 		Dmp: polkadot_runtime_parachains::dmp::{Pallet, Call, Storage},
 		Ump: polkadot_runtime_parachains::ump::{Pallet, Call, Storage, Event},
-		Hrmp: polkadot_runtime_parachains::hrmp::{Pallet, Call, Storage, Event, Config},
-		SessionInfo: polkadot_runtime_parachains::session_info::{Pallet, Call, Storage},
+		Hrmp: polkadot_runtime_parachains::hrmp::{Pallet, Call, Storage, Event<T>, Config},
+		SessionInfo: polkadot_runtime_parachains::session_info::{Pallet, Storage},
 
 		// Parachain Onboarding Pallets
 		Registrar: polkadot_runtime_common::paras_registrar::{Pallet, Call, Storage, Event<T>},
@@ -911,6 +918,10 @@ impl_runtime_apis! {
 	}
 
 	impl fg_primitives::GrandpaApi<Block> for Runtime {
+		fn current_set_id() -> fg_primitives::SetId {
+			Grandpa::current_set_id()
+		}
+
 		fn grandpa_authorities() -> GrandpaAuthorityList {
 			Grandpa::grandpa_authorities()
 		}
@@ -989,6 +1000,32 @@ impl_runtime_apis! {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
+		fn benchmark_metadata(extra: bool) -> (
+			Vec<frame_benchmarking::BenchmarkList>,
+			Vec<frame_support::traits::StorageInfo>,
+		) {
+			use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+			use frame_support::traits::StorageInfoTrait;
+
+			use pallet_bridge_currency_exchange::benchmarking::Pallet as BridgeCurrencyExchangeBench;
+			use pallet_bridge_messages::benchmarking::Pallet as MessagesBench;
+
+			let mut list = Vec::<BenchmarkList>::new();
+
+			list_benchmark!(list, extra, pallet_bridge_eth_poa, BridgeRialtoPoa);
+			list_benchmark!(
+				list,
+				extra,
+				pallet_bridge_currency_exchange, BridgeCurrencyExchangeBench::<Runtime, KovanCurrencyExchange>
+			);
+			list_benchmark!(list, extra, pallet_bridge_messages, MessagesBench::<Runtime, WithMillauMessagesInstance>);
+			list_benchmark!(list, extra, pallet_bridge_grandpa, BridgeMillauGrandpa);
+
+			let storage_info = AllPalletsWithSystem::storage_info();
+
+			return (list, storage_info)
+		}
+
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {

@@ -38,13 +38,13 @@ use std::{
 
 /// When we submit headers to target node, but see no updates of best
 /// source block known to target node during STALL_SYNC_TIMEOUT seconds,
-/// we consider that our headers are rejected because there has been reorg in target chain.
-/// This reorg could invalidate our knowledge about sync process (i.e. we have asked if
-/// HeaderA is known to target, but then reorg happened and the answer is different
+/// we consider that our headers are rejected because there has been reorganization in target chain.
+/// This reorganization could invalidate our knowledge about sync process (i.e. we have asked if
+/// HeaderA is known to target, but then reorganization happened and the answer is different
 /// now) => we need to reset sync.
 /// The other option is to receive **EVERY** best target header and check if it is
 /// direct child of previous best header. But: (1) subscription doesn't guarantee that
-/// the subscriber will receive every best header (2) reorg won't always lead to sync
+/// the subscriber will receive every best header (2) reorganization won't always lead to sync
 /// stall and restart is a heavy operation (we forget all in-memory headers).
 const STALL_SYNC_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 /// Delay after we have seen update of best source header at target node,
