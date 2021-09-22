@@ -393,7 +393,7 @@ pub mod pallet {
 				None => fail!(Error::<T, I>::SwapIsInactive),
 			}
 
-			complete_claim::<T, I>(swap, swap_hash, origin_account, Event::SwapCancelled(swap_hash))
+			complete_claim::<T, I>(swap, swap_hash, origin_account, Event::SwapCanceled(swap_hash))
 		}
 	}
 
@@ -406,8 +406,8 @@ pub mod pallet {
 		SwapStarted(H256, MessageNonce),
 		/// Token swap has been claimed.
 		SwapClaimed(H256),
-		/// Token swap has been cancelled.
-		SwapCancelled(H256),
+		/// Token swap has been canceled.
+		SwapCanceled(H256),
 	}
 
 	#[pallet::error]
@@ -440,7 +440,7 @@ pub mod pallet {
 		SwapPeriodIsFinished,
 		/// Someone is trying to cancel swap that has been confirmed.
 		SwapIsConfirmed,
-		/// Someone is trying to claim/cancel swap that is either not started or already claimed/cancelled.
+		/// Someone is trying to claim/cancel swap that is either not started or already claimed/canceled.
 		SwapIsInactive,
 		/// The swap claimant is invalid.
 		InvalidClaimant,
@@ -543,7 +543,7 @@ pub mod pallet {
 				swap_hash,
 				match event {
 					Event::SwapClaimed(_) => "claimed",
-					Event::SwapCancelled(_) => "cancelled",
+					Event::SwapCanceled(_) => "canceled",
 					_ => "<unknown>",
 				},
 			);
@@ -1023,8 +1023,8 @@ mod tests {
 			assert!(
 				frame_system::Pallet::<TestRuntime>::events()
 					.iter()
-					.any(|e| e.event == crate::mock::Event::TokenSwap(crate::Event::SwapCancelled(swap_hash,))),
-				"Missing SwapCancelled event: {:?}",
+					.any(|e| e.event == crate::mock::Event::TokenSwap(crate::Event::SwapCanceled(swap_hash,))),
+				"Missing SwapCanceled event: {:?}",
 				frame_system::Pallet::<TestRuntime>::events(),
 			);
 		});
