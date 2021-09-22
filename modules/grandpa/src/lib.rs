@@ -46,7 +46,7 @@ use frame_support::{ensure, fail};
 use frame_system::{ensure_signed, RawOrigin};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, Zero};
-use sp_std::convert::TryInto;
+use sp_std::{boxed::Box, convert::TryInto};
 
 #[cfg(test)]
 mod mock;
@@ -130,7 +130,7 @@ pub mod pallet {
 		))]
 		pub fn submit_finality_proof(
 			origin: OriginFor<T>,
-			finality_target: BridgedHeader<T, I>,
+			finality_target: Box<BridgedHeader<T, I>>,
 			justification: GrandpaJustification<BridgedHeader<T, I>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_operational::<T, I>()?;
@@ -166,7 +166,7 @@ pub mod pallet {
 
 			let is_authorities_change_enacted = try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
-			insert_header::<T, I>(finality_target, hash);
+			insert_header::<T, I>(*finality_target, hash);
 			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
 
 			// mandatory header is a header that changes authorities set. The pallet can't go further
@@ -471,7 +471,7 @@ pub mod pallet {
 		let initial_hash = header.hash();
 		<InitialHash<T, I>>::put(initial_hash);
 		<ImportedHashesPointer<T, I>>::put(0);
-		insert_header::<T, I>(header, initial_hash);
+		insert_header::<T, I>(*header, initial_hash);
 
 		let authority_set = bp_header_chain::AuthoritySet::new(authority_list, set_id);
 		<CurrentAuthoritySet<T, I>>::put(authority_set);
@@ -598,7 +598,7 @@ pub(crate) fn find_forced_change<H: HeaderT>(
 #[cfg(feature = "runtime-benchmarks")]
 pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader<T, I>) {
 	initialize_bridge::<T, I>(InitializationData {
-		header,
+		header: Box::new(header),
 		authority_list: sp_std::vec::Vec::new(), // we don't verify any proofs in external benchmarks
 		set_id: 0,
 		is_halted: false,
@@ -628,7 +628,7 @@ mod tests {
 		let genesis = test_header(0);
 
 		let init_data = InitializationData {
-			header: genesis,
+			header: Box::new(genesis),
 			authority_list: authority_list(),
 			set_id: 1,
 			is_halted: false,
@@ -641,7 +641,7 @@ mod tests {
 		let header = test_header(header.into());
 		let justification = make_default_justification(&header);
 
-		Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification)
+		Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), Box::new(header), justification)
 	}
 
 	fn next_block() {
@@ -828,7 +828,7 @@ mod tests {
 			let justification = make_justification_for_header(params);
 
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), Box::new(header), justification,),
 				<Error<TestRuntime>>::InvalidJustification
 			);
 		})
@@ -844,7 +844,7 @@ mod tests {
 			justification.round = 42;
 
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), Box::new(header), justification,),
 				<Error<TestRuntime>>::InvalidJustification
 			);
 		})
@@ -857,7 +857,7 @@ mod tests {
 
 			let invalid_authority_list = vec![(ALICE.into(), u64::MAX), (BOB.into(), u64::MAX)];
 			let init_data = InitializationData {
-				header: genesis,
+				header: Box::new(genesis),
 				authority_list: invalid_authority_list,
 				set_id: 1,
 				is_halted: false,
@@ -869,7 +869,7 @@ mod tests {
 			let justification = make_default_justification(&header);
 
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification,),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), Box::new(header), justification,),
 				<Error<TestRuntime>>::InvalidAuthoritySet
 			);
 		})
@@ -904,7 +904,11 @@ mod tests {
 
 			// Let's import our test header
 			assert_ok!(
-				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header.clone(), justification),
+				Pallet::<TestRuntime>::submit_finality_proof(
+					Origin::signed(1),
+					Box::new(header.clone()),
+					justification
+				),
 				PostDispatchInfo {
 					actual_weight: None,
 					pays_fee: frame_support::weights::Pays::No,
@@ -938,7 +942,7 @@ mod tests {
 
 			// Should not be allowed to import this header
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), Box::new(header), justification),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
 		})
@@ -959,7 +963,7 @@ mod tests {
 
 			// Should not be allowed to import this header
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, justification),
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), Box::new(header), justification),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
 		})
@@ -1017,7 +1021,7 @@ mod tests {
 				let mut invalid_justification = make_default_justification(&header);
 				invalid_justification.round = 42;
 
-				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), header, invalid_justification)
+				Pallet::<TestRuntime>::submit_finality_proof(Origin::signed(1), Box::new(header), invalid_justification)
 			};
 
 			initialize_substrate_bridge();

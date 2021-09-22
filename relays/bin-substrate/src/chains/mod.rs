@@ -278,11 +278,11 @@ mod rococo_tests {
 		};
 
 		let actual = relay_rococo_client::runtime::BridgeGrandpaWococoCall::submit_finality_proof(
-			header.clone(),
+			Box::new(header.clone()),
 			justification.clone(),
 		);
 		let expected = millau_runtime::BridgeGrandpaRialtoCall::<millau_runtime::Runtime>::submit_finality_proof(
-			header,
+			Box::new(header),
 			justification,
 		);
 
@@ -327,7 +327,7 @@ mod westend_tests {
 
 		let actual = bp_westend::BridgeGrandpaRococoCall::submit_finality_proof(header.clone(), justification.clone());
 		let expected = millau_runtime::BridgeGrandpaRialtoCall::<millau_runtime::Runtime>::submit_finality_proof(
-			header,
+			Box::new(header),
 			justification,
 		);
 

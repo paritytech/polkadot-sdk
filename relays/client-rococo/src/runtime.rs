@@ -85,7 +85,7 @@ pub enum SystemCall {
 pub enum BridgeGrandpaWococoCall {
 	#[codec(index = 0)]
 	submit_finality_proof(
-		<PolkadotLike as Chain>::Header,
+		Box<<PolkadotLike as Chain>::Header>,
 		bp_header_chain::justification::GrandpaJustification<<PolkadotLike as Chain>::Header>,
 	),
 	#[codec(index = 1)]
