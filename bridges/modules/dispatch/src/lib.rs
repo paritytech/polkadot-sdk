@@ -36,7 +36,7 @@ use codec::Encode;
 use frame_support::{
 	dispatch::Dispatchable,
 	ensure,
-	traits::{Filter, Get},
+	traits::{Contains, Get},
 	weights::{extract_actual_weight, GetDispatchInfo},
 };
 use frame_system::RawOrigin;
@@ -77,7 +77,7 @@ pub mod pallet {
 		///
 		/// The pallet will filter all incoming calls right before they're dispatched. If this filter
 		/// rejects the call, special event (`Event::MessageCallRejected`) is emitted.
-		type CallFilter: Filter<<Self as Config<I>>::Call>;
+		type CallFilter: Contains<<Self as Config<I>>::Call>;
 		/// The type that is used to wrap the `Self::Call` when it is moved over bridge.
 		///
 		/// The idea behind this is to avoid `Call` conversion/decoding until we'll be sure
@@ -252,7 +252,7 @@ impl<T: Config<I>, I: 'static> MessageDispatch<T::AccountId, T::BridgeMessageId>
 		};
 
 		// filter the call
-		if !T::CallFilter::filter(&call) {
+		if !T::CallFilter::contains(&call) {
 			log::trace!(
 				target: "runtime::bridge-dispatch",
 				"Message {:?}/{:?}: the call ({:?}) is rejected by filter",
@@ -491,7 +491,7 @@ mod tests {
 		type AccountData = ();
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
-		type BaseCallFilter = ();
+		type BaseCallFilter = frame_support::traits::Everything;
 		type SystemWeightInfo = ();
 		type BlockWeights = ();
 		type BlockLength = ();
@@ -523,8 +523,8 @@ mod tests {
 
 	pub struct TestCallFilter;
 
-	impl Filter<Call> for TestCallFilter {
-		fn filter(call: &Call) -> bool {
+	impl Contains<Call> for TestCallFilter {
+		fn contains(call: &Call) -> bool {
 			!matches!(*call, Call::System(frame_system::Call::fill_block(_)))
 		}
 	}

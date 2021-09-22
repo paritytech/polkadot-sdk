@@ -39,10 +39,12 @@ pub trait Environment<C: ChainWithBalances>: Send + Sync + 'static {
 	fn now(&self) -> Instant {
 		Instant::now()
 	}
+
 	/// Sleep given amount of time.
 	async fn sleep(&mut self, duration: Duration) {
 		async_std::task::sleep(duration).await
 	}
+
 	/// Abort current process. Called when guard condition check fails.
 	async fn abort(&mut self) {
 		std::process::abort();

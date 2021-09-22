@@ -18,7 +18,7 @@
 
 use crate::chain::{Chain, ChainWithBalances, TransactionStatusOf};
 use crate::rpc::Substrate;
-use crate::{ConnectionParams, Error, HeaderIdOf, Result};
+use crate::{ConnectionParams, Error, HashOf, HeaderIdOf, Result};
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
@@ -61,7 +61,7 @@ pub struct Client<C: Chain> {
 	/// Substrate RPC client.
 	client: Arc<RpcClient>,
 	/// Genesis block hash.
-	genesis_hash: C::Hash,
+	genesis_hash: HashOf<C>,
 	/// If several tasks are submitting their transactions simultaneously using `submit_signed_extrinsic`
 	/// method, they may get the same transaction nonce. So one of transactions will be rejected
 	/// from the pool. This lock is here to prevent situations like that.

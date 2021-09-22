@@ -79,7 +79,7 @@ pub fn run() -> sc_cli::Result<()> {
 			if cfg!(feature = "runtime-benchmarks") {
 				let runner = cli.create_runner(cmd)?;
 
-				runner.sync_run(|config| cmd.run::<Block, service::Executor>(config))
+				runner.sync_run(|config| cmd.run::<Block, service::ExecutorDispatch>(config))
 			} else {
 				println!(
 					"Benchmarking wasn't enabled when building the node. \
@@ -156,7 +156,7 @@ pub fn run() -> sc_cli::Result<()> {
 		}
 		Some(Subcommand::Inspect(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, service::Executor>(config))
+			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, service::ExecutorDispatch>(config))
 		}
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
