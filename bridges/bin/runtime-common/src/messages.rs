@@ -495,7 +495,7 @@ pub mod target {
 	where
 		BalanceOf<ThisChain<B>>: Saturating + FixedPointOperand,
 		ThisDispatchInstance: 'static,
-		ThisRuntime: pallet_bridge_dispatch::Config<ThisDispatchInstance, MessageId = (LaneId, MessageNonce)>
+		ThisRuntime: pallet_bridge_dispatch::Config<ThisDispatchInstance, BridgeMessageId = (LaneId, MessageNonce)>
 			+ pallet_transaction_payment::Config,
 		<ThisRuntime as pallet_transaction_payment::Config>::OnChargeTransaction:
 			pallet_transaction_payment::OnChargeTransaction<ThisRuntime, Balance = BalanceOf<ThisChain<B>>>,
