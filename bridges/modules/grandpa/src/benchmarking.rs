@@ -80,7 +80,7 @@ fn prepare_benchmark_data<T: Config<I>, I: 'static>(
 		.collect::<Vec<_>>();
 
 	let init_data = InitializationData {
-		header: bp_test_utils::test_header(Zero::zero()),
+		header: Box::new(bp_test_utils::test_header(Zero::zero())),
 		authority_list,
 		set_id: TEST_GRANDPA_SET_ID,
 		is_halted: false,
@@ -109,7 +109,7 @@ benchmarks_instance_pallet! {
 		let v in 1..MAX_VOTE_ANCESTRIES;
 		let caller: T::AccountId = whitelisted_caller();
 		let (header, justification) = prepare_benchmark_data::<T, I>(p, v);
-	}: submit_finality_proof(RawOrigin::Signed(caller), header, justification)
+	}: submit_finality_proof(RawOrigin::Signed(caller), Box::new(header), justification)
 	verify {
 		let header: BridgedHeader<T, I> = bp_test_utils::test_header(header_number::<T, I, _>());
 		let expected_hash = header.hash();

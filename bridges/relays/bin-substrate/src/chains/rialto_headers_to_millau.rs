@@ -63,7 +63,7 @@ impl SubstrateFinalitySyncPipeline for RialtoFinalityToMillau {
 		let call = millau_runtime::BridgeGrandpaRialtoCall::<
 			millau_runtime::Runtime,
 			millau_runtime::RialtoGrandpaInstance,
-		>::submit_finality_proof(header.into_inner(), proof)
+		>::submit_finality_proof(Box::new(header.into_inner()), proof)
 		.into();
 
 		let genesis_hash = *self.finality_pipeline.target_client.genesis_hash();
