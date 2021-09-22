@@ -750,4 +750,12 @@ mod tests {
 			DbWeight::get(),
 		);
 	}
+
+	#[test]
+	fn call_size() {
+		// pallets that are (to be) used by polkadot runtime
+		const MAX_CALL_SIZE: usize = 230; // value from polkadot-runtime tests
+		assert!(core::mem::size_of::<pallet_bridge_grandpa::Call<Runtime>>() <= MAX_CALL_SIZE);
+		assert!(core::mem::size_of::<pallet_bridge_messages::Call<Runtime>>() <= MAX_CALL_SIZE);
+	}
 }

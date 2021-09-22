@@ -213,7 +213,7 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	}
 
 	Ok(InitializationData {
-		header: initial_header,
+		header: Box::new(initial_header),
 		authority_list: initial_authorities_set,
 		set_id: if schedules_change {
 			initial_authorities_set_id + 1

@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::RuntimeDebug;
 use sp_runtime::{generic::OpaqueDigestItemId, traits::Header as HeaderT};
+use sp_std::boxed::Box;
 
 pub mod justification;
 
@@ -62,7 +63,7 @@ impl AuthoritySet {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct InitializationData<H: HeaderT> {
 	/// The header from which we should start syncing.
-	pub header: H,
+	pub header: Box<H>,
 	/// The initial authorities of the pallet.
 	pub authority_list: AuthorityList,
 	/// The ID of the initial authority set.
