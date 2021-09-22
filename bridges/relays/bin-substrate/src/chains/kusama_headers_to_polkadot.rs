@@ -88,7 +88,10 @@ impl SubstrateFinalitySyncPipeline for KusamaFinalityToPolkadot {
 		proof: GrandpaJustification<bp_kusama::Header>,
 	) -> Bytes {
 		let call = relay_polkadot_client::runtime::Call::BridgeKusamaGrandpa(
-			relay_polkadot_client::runtime::BridgeKusamaGrandpaCall::submit_finality_proof(header.into_inner(), proof),
+			relay_polkadot_client::runtime::BridgeKusamaGrandpaCall::submit_finality_proof(
+				Box::new(header.into_inner()),
+				proof,
+			),
 		);
 		let genesis_hash = *self.finality_pipeline.target_client.genesis_hash();
 		let transaction = Polkadot::sign_transaction(
