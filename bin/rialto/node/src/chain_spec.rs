@@ -18,8 +18,8 @@ use bp_rialto::derive_account_from_millau_id;
 use polkadot_primitives::v1::{AssignmentId, ValidatorId};
 use rialto_runtime::{
 	AccountId, BabeConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauMessagesConfig, BridgeRialtoPoaConfig,
-	GenesisConfig, GrandpaConfig, ParachainsConfigurationConfig, SessionConfig, SessionKeys, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY,
+	ConfigurationConfig, GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig,
+	WASM_BINARY,
 };
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -251,7 +251,7 @@ fn testnet_genesis(
 		hrmp: Default::default(),
 		// this configuration is exact copy of configuration from Polkadot repo
 		// (see /node/service/src/chain_spec.rs:default_parachains_host_configuration)
-		parachains_configuration: ParachainsConfigurationConfig {
+		configuration: ConfigurationConfig {
 			config: polkadot_runtime_parachains::configuration::HostConfiguration {
 				validation_upgrade_frequency: 1u32,
 				validation_upgrade_delay: 1,
@@ -273,7 +273,7 @@ fn testnet_genesis(
 				ump_service_total_weight: 4 * 1_000_000_000,
 				max_upward_message_size: 1024 * 1024,
 				max_upward_message_num_per_candidate: 5,
-				hrmp_open_request_ttl: 5,
+				_hrmp_open_request_ttl: 5,
 				hrmp_sender_deposit: 0,
 				hrmp_recipient_deposit: 0,
 				hrmp_channel_max_capacity: 8,

@@ -19,13 +19,13 @@ use codec::{Codec, Encode};
 use frame_support::weights::WeightToFeePolynomial;
 use jsonrpsee_ws_client::{DeserializeOwned, Serialize};
 use num_traits::Zero;
+use sc_transaction_pool_api::TransactionStatus;
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
 	traits::{Block as BlockT, Dispatchable, Member},
 	EncodedJustification,
 };
-use sp_transaction_pool::TransactionStatus;
 use std::{fmt::Debug, time::Duration};
 
 /// Substrate-based chain from minimal relay-client point of view.

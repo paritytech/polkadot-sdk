@@ -59,6 +59,7 @@ impl parachains_hrmp::Config for Runtime {
 impl parachains_inclusion::Config for Runtime {
 	type Event = Event;
 	type RewardValidators = RewardValidators;
+	type DisputesHandler = ();
 }
 
 impl parachains_initializer::Config for Runtime {

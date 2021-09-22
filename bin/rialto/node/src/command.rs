@@ -77,7 +77,7 @@ pub fn run() -> sc_cli::Result<()> {
 			if cfg!(feature = "runtime-benchmarks") {
 				let runner = cli.create_runner(cmd)?;
 
-				runner.sync_run(|config| cmd.run::<Block, crate::service::Executor>(config))
+				runner.sync_run(|config| cmd.run::<Block, crate::service::ExecutorDispatch>(config))
 			} else {
 				println!(
 					"Benchmarking wasn't enabled when building the node. \
@@ -154,7 +154,7 @@ pub fn run() -> sc_cli::Result<()> {
 		}
 		Some(Subcommand::Inspect(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, crate::service::Executor>(config))
+			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, crate::service::ExecutorDispatch>(config))
 		}
 		Some(Subcommand::PvfPrepareWorker(cmd)) => {
 			let mut builder = sc_cli::LoggerBuilder::new("");

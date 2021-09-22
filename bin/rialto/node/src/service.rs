@@ -26,34 +26,51 @@
 
 use crate::overseer::{OverseerGen, OverseerGenArgs};
 
-use polkadot_network_bridge::RequestMultiplexer;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
-use polkadot_overseer::{BlockInfo, OverseerHandler};
+use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
+use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
+use polkadot_node_network_protocol::request_response::IncomingRequest;
+use polkadot_overseer::BlockInfo;
 use polkadot_primitives::v1::BlockId;
 use rialto_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::ExecutorProvider;
-use sc_executor::{native_executor_instance, NativeExecutionDispatch};
+use sc_executor::{NativeElseWasmExecutor, NativeExecutionDispatch};
 use sc_finality_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
 use sc_service::{config::PrometheusConfig, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_api::{ConstructRuntimeApi, HeaderT};
-use sp_blockchain::HeaderBackend;
 use sp_consensus::SelectChain;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
-pub use sc_executor::NativeExecutor;
+pub use {
+	polkadot_overseer::{Handle, Overseer, OverseerHandle},
+	polkadot_primitives::v1::ParachainHost,
+	sc_client_api::AuxStore,
+	sp_authority_discovery::AuthorityDiscoveryApi,
+	sp_blockchain::HeaderBackend,
+	sp_consensus_babe::BabeApi,
+};
+
+pub type Executor = NativeElseWasmExecutor<ExecutorDispatch>;
 
 // Our native executor instance.
-native_executor_instance!(
-	pub Executor,
-	rialto_runtime::api::dispatch,
-	rialto_runtime::native_version,
-	frame_benchmarking::benchmarking::HostFunctions,
-);
+pub struct ExecutorDispatch;
+
+impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		rialto_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		rialto_runtime::native_version()
+	}
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -153,13 +170,13 @@ pub fn new_partial(
 		FullClient,
 		FullBackend,
 		FullSelectChain,
-		sp_consensus::DefaultImportQueue<Block, FullClient>,
+		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		FullTransactionPool,
 		(
 			impl Fn(
 				sc_rpc::DenyUnsafe,
 				sc_rpc::SubscriptionTaskExecutor,
-			) -> jsonrpc_core::IoHandler<sc_service::RpcMetadata>,
+			) -> Result<jsonrpc_core::IoHandler<sc_service::RpcMetadata>, sc_service::Error>,
 			(FullBabeBlockImport, FullGrandpaLink, FullBabeLink),
 			sc_finality_grandpa::SharedVoterState,
 			std::time::Duration,
@@ -172,7 +189,7 @@ where
 	RuntimeApi: ConstructRuntimeApi<Block, FullClient> + Send + Sync + 'static,
 	<RuntimeApi as ConstructRuntimeApi<Block, FullClient>>::RuntimeApi:
 		RequiredApiCollection<StateBackend = sc_client_api::StateBackendFor<FullBackend, Block>>,
-	Executor: NativeExecutionDispatch + 'static,
+	ExecutorDispatch: NativeExecutionDispatch + 'static,
 {
 	set_prometheus_registry(config)?;
 
@@ -187,9 +204,16 @@ where
 		})
 		.transpose()?;
 
+	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
+		config.wasm_method,
+		config.default_heap_pages,
+		config.max_runtime_instances,
+	);
+
 	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, RuntimeApi, Executor>(
 		config,
 		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
 	)?;
 	let client = Arc::new(client);
 
@@ -260,7 +284,7 @@ where
 
 		move |deny_unsafe,
 		      subscription_executor: sc_rpc::SubscriptionTaskExecutor|
-		      -> jsonrpc_core::IoHandler<sc_service::RpcMetadata> {
+		      -> Result<jsonrpc_core::IoHandler<sc_service::RpcMetadata>, sc_service::Error> {
 			use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 			use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
 			use substrate_frame_rpc_system::{FullSystem, SystemApi};
@@ -289,7 +313,7 @@ where
 				finality_proof_provider,
 			)));
 
-			io
+			Ok(io)
 		}
 	};
 
@@ -314,7 +338,7 @@ where
 pub struct NewFull<C> {
 	pub task_manager: TaskManager,
 	pub client: C,
-	pub overseer_handler: Option<OverseerHandler>,
+	pub overseer_handle: Option<Handle>,
 	pub network: Arc<sc_network::NetworkService<Block, <Block as BlockT>::Hash>>,
 	pub rpc_handlers: sc_service::RpcHandlers,
 	pub backend: Arc<FullBackend>,
@@ -332,7 +356,7 @@ where
 	RuntimeApi: ConstructRuntimeApi<Block, FullClient> + Send + Sync + 'static,
 	<RuntimeApi as ConstructRuntimeApi<Block, FullClient>>::RuntimeApi:
 		RequiredApiCollection<StateBackend = sc_client_api::StateBackendFor<FullBackend, Block>>,
-	Executor: NativeExecutionDispatch + 'static,
+	ExecutorDispatch: NativeExecutionDispatch + 'static,
 {
 	let best_block = select_chain.best_chain().await?;
 
@@ -381,7 +405,7 @@ where
 	RuntimeApi: ConstructRuntimeApi<Block, FullClient> + Send + Sync + 'static,
 	<RuntimeApi as ConstructRuntimeApi<Block, FullClient>>::RuntimeApi:
 		RequiredApiCollection<StateBackend = sc_client_api::StateBackendFor<FullBackend, Block>>,
-	Executor: NativeExecutionDispatch + 'static,
+	ExecutorDispatch: NativeExecutionDispatch + 'static,
 {
 	let is_collator = false;
 
@@ -426,20 +450,23 @@ where
 		config.network.extra_sets.extend(peer_sets_info(is_authority));
 	}
 
-	config
-		.network
-		.request_response_protocols
-		.push(sc_finality_grandpa_warp_sync::request_response_config_for_chain(
-			&config,
-			task_manager.spawn_handle(),
-			backend.clone(),
-			import_setup.1.shared_authority_set().clone(),
-		));
-	let request_multiplexer = {
-		let (multiplexer, configs) = RequestMultiplexer::new();
-		config.network.request_response_protocols.extend(configs);
-		multiplexer
-	};
+	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver();
+	config.network.request_response_protocols.push(cfg);
+	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver();
+	config.network.request_response_protocols.push(cfg);
+	let (collation_req_receiver, cfg) = IncomingRequest::get_config_receiver();
+	config.network.request_response_protocols.push(cfg);
+	let (available_data_req_receiver, cfg) = IncomingRequest::get_config_receiver();
+	config.network.request_response_protocols.push(cfg);
+	let (statement_req_receiver, cfg) = IncomingRequest::get_config_receiver();
+	config.network.request_response_protocols.push(cfg);
+	let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver();
+	config.network.request_response_protocols.push(cfg);
+
+	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
+		backend.clone(),
+		import_setup.1.shared_authority_set().clone(),
+	));
 
 	let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
 		config: &config,
@@ -449,6 +476,7 @@ where
 		import_queue,
 		on_demand: None,
 		block_announce_validator_builder: None,
+		warp_sync: Some(warp_sync),
 	})?;
 
 	if config.offchain_worker.enabled {
@@ -481,6 +509,15 @@ where
 			None => std::env::current_exe()?,
 			Some(p) => p,
 		},
+	};
+
+	let chain_selection_config = ChainSelectionConfig {
+		col_data: crate::parachains_db::REAL_COLUMNS.col_chain_selection_data,
+		stagnant_check_interval: polkadot_node_core_chain_selection::StagnantCheckInterval::never(),
+	};
+
+	let dispute_coordinator_config = DisputeCoordinatorConfig {
+		col_data: crate::parachains_db::REAL_COLUMNS.col_dispute_coordinator_data,
 	};
 
 	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -545,8 +582,8 @@ where
 	let local_keystore = keystore_container.local_keystore();
 	let maybe_params = local_keystore.and_then(move |k| authority_discovery_service.map(|a| (a, k)));
 
-	let overseer_handler = if let Some((authority_discovery_service, keystore)) = maybe_params {
-		let (overseer, overseer_handler) =
+	let overseer_handle = if let Some((authority_discovery_service, keystore)) = maybe_params {
+		let (overseer, overseer_handle) =
 			overseer_gen.generate::<sc_service::SpawnTaskHandle, FullClient>(OverseerGenArgs {
 				leaves: active_leaves,
 				keystore,
@@ -556,19 +593,27 @@ where
 				approval_voting_config,
 				network_service: network.clone(),
 				authority_discovery_service,
-				request_multiplexer,
 				registry: prometheus_registry.as_ref(),
 				spawner,
 				candidate_validation_config,
+				available_data_req_receiver,
+				chain_selection_config,
+				chunk_req_receiver,
+				collation_req_receiver,
+				dispute_coordinator_config,
+				dispute_req_receiver,
+				pov_req_receiver,
+				statement_req_receiver,
 			})?;
-		let overseer_handler_clone = overseer_handler.clone();
+		let handle = Handle::Connected(overseer_handle.clone());
+		let handle_clone = handle.clone();
 
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"overseer",
 			Box::pin(async move {
 				use futures::{pin_mut, select, FutureExt};
 
-				let forward = polkadot_overseer::forward_events(overseer_client, overseer_handler_clone);
+				let forward = polkadot_overseer::forward_events(overseer_client, handle_clone);
 
 				let forward = forward.fuse();
 				let overseer_fut = overseer.run().fuse();
@@ -584,7 +629,7 @@ where
 			}),
 		);
 
-		Some(overseer_handler)
+		Some(handle)
 	} else {
 		None
 	};
@@ -601,7 +646,7 @@ where
 		);
 
 		let client_clone = client.clone();
-		let overseer_handler = overseer_handler
+		let overseer_handle = overseer_handle
 			.as_ref()
 			.ok_or(Error::AuthoritiesRequireRealOverseer)?
 			.clone();
@@ -616,11 +661,11 @@ where
 			justification_sync_link: network.clone(),
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
-				let overseer_handler = overseer_handler.clone();
+				let overseer_handle = overseer_handle.clone();
 				async move {
 					let parachain = polkadot_node_core_parachains_inherent::ParachainsInherentDataProvider::create(
 						&*client_clone,
-						overseer_handler,
+						overseer_handle,
 						parent,
 					)
 					.await
@@ -705,7 +750,7 @@ where
 	Ok(NewFull {
 		task_manager,
 		client,
-		overseer_handler,
+		overseer_handle,
 		network,
 		rpc_handlers,
 		backend,
