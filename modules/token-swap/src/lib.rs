@@ -192,6 +192,7 @@ pub mod pallet {
 		/// rules will lead to losing message fees for this and other transactions + losing fees for message
 		/// transfer.
 		#[pallet::weight(0)]
+		#[allow(clippy::too_many_arguments)]
 		pub fn create_swap(
 			origin: OriginFor<T>,
 			swap: TokenSwapOf<T, I>,

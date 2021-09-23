@@ -216,9 +216,9 @@ pub fn storage_map_final_key_identity(pallet_prefix: &str, map_name: &str, key_h
 /// Copypaste from `frame_support::parameter_types` macro
 pub fn storage_parameter_key(parameter_name: &str) -> StorageKey {
 	let mut buffer = Vec::with_capacity(1 + parameter_name.len() + 1 + 1);
-	buffer.push(':' as u8);
+	buffer.push(b':');
 	buffer.extend_from_slice(parameter_name.as_bytes());
-	buffer.push(':' as u8);
+	buffer.push(b':');
 	buffer.push(0);
 	StorageKey(sp_io::hashing::twox_128(&buffer).to_vec())
 }
