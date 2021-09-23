@@ -15,8 +15,6 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec;
-use cumulus_client_cli;
-use sc_cli;
 use std::path::PathBuf;
 use structopt::StructOpt;
 

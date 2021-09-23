@@ -77,7 +77,7 @@ pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 30_000;
 ///
 /// Note that since this is a target sessions may change before/after this time depending on network
 /// conditions.
-pub const SESSION_LENGTH: BlockNumber = 1 * time_units::HOURS;
+pub const SESSION_LENGTH: BlockNumber = time_units::HOURS;
 
 /// Name of the With-Polkadot messages pallet instance in the Kusama runtime.
 pub const WITH_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotMessages";

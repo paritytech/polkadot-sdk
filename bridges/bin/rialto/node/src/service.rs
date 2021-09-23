@@ -605,7 +605,7 @@ where
 				pov_req_receiver,
 				statement_req_receiver,
 			})?;
-		let handle = Handle::Connected(overseer_handle.clone());
+		let handle = Handle::Connected(overseer_handle);
 		let handle_clone = handle.clone();
 
 		task_manager.spawn_essential_handle().spawn_blocking(

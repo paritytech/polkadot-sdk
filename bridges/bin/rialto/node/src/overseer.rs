@@ -110,7 +110,7 @@ where
 ///
 /// A convenience for usage with malus, to avoid
 /// repetitive code across multiple behavior strain implementations.
-pub fn create_default_subsystems<'a, Spawner, RuntimeClient>(
+pub fn create_default_subsystems<Spawner, RuntimeClient>(
 	OverseerGenArgs {
 		keystore,
 		runtime_client,
@@ -130,7 +130,7 @@ pub fn create_default_subsystems<'a, Spawner, RuntimeClient>(
 		chain_selection_config,
 		dispute_coordinator_config,
 		..
-	}: OverseerGenArgs<'a, Spawner, RuntimeClient>,
+	}: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 ) -> Result<
 	AllSubsystems<
 		CandidateValidationSubsystem,
@@ -212,7 +212,7 @@ where
 			Metrics::register(registry)?,
 		),
 		provisioner: ProvisionerSubsystem::new(spawner.clone(), (), Metrics::register(registry)?),
-		runtime_api: RuntimeApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?, spawner.clone()),
+		runtime_api: RuntimeApiSubsystem::new(runtime_client, Metrics::register(registry)?, spawner),
 		statement_distribution: StatementDistributionSubsystem::new(
 			keystore.clone(),
 			statement_req_receiver,
@@ -223,7 +223,7 @@ where
 			approval_voting_config,
 			parachains_db.clone(),
 			keystore.clone(),
-			Box::new(network_service.clone()),
+			Box::new(network_service),
 			Metrics::register(registry)?,
 		),
 		gossip_support: GossipSupportSubsystem::new(keystore.clone()),
@@ -234,9 +234,9 @@ where
 		),
 		dispute_participation: DisputeParticipationSubsystem::new(),
 		dispute_distribution: DisputeDistributionSubsystem::new(
-			keystore.clone(),
+			keystore,
 			dispute_req_receiver,
-			authority_discovery_service.clone(),
+			authority_discovery_service,
 			Metrics::register(registry)?,
 		),
 		chain_selection: ChainSelectionSubsystem::new(chain_selection_config, parachains_db),
@@ -250,9 +250,9 @@ where
 /// would do.
 pub trait OverseerGen {
 	/// Overwrite the full generation of the overseer, including the subsystems.
-	fn generate<'a, Spawner, RuntimeClient>(
+	fn generate<Spawner, RuntimeClient>(
 		&self,
-		args: OverseerGenArgs<'a, Spawner, RuntimeClient>,
+		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 	) -> Result<(Overseer<Spawner, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
 		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
@@ -271,9 +271,9 @@ pub trait OverseerGen {
 pub struct RealOverseerGen;
 
 impl OverseerGen for RealOverseerGen {
-	fn generate<'a, Spawner, RuntimeClient>(
+	fn generate<Spawner, RuntimeClient>(
 		&self,
-		args: OverseerGenArgs<'a, Spawner, RuntimeClient>,
+		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 	) -> Result<(Overseer<Spawner, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
 		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
@@ -283,7 +283,7 @@ impl OverseerGen for RealOverseerGen {
 		let spawner = args.spawner.clone();
 		let leaves = args.leaves.clone();
 		let runtime_client = args.runtime_client.clone();
-		let registry = args.registry.clone();
+		let registry = args.registry;
 
 		let all_subsystems = create_default_subsystems::<Spawner, RuntimeClient>(args)?;
 

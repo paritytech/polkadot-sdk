@@ -263,10 +263,10 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 1 * MILLIUNIT;
-	pub const TransferFee: u128 = 1 * MILLIUNIT;
-	pub const CreationFee: u128 = 1 * MILLIUNIT;
-	pub const TransactionByteFee: u128 = 1 * MICROUNIT;
+	pub const ExistentialDeposit: u128 = MILLIUNIT;
+	pub const TransferFee: u128 = MILLIUNIT;
+	pub const CreationFee: u128 = MILLIUNIT;
+	pub const TransactionByteFee: u128 = MICROUNIT;
 	pub const MaxLocks: u32 = 50;
 	pub const MaxReserves: u32 = 50;
 }
@@ -671,7 +671,7 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 		.create_inherent_data()
 		.expect("Could not create the timestamp inherent data");
 
-		inherent_data.check_extrinsics(&block)
+		inherent_data.check_extrinsics(block)
 	}
 }
 
