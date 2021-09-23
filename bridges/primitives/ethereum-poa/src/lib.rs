@@ -458,6 +458,8 @@ impl PartialEq<Bloom> for Bloom {
 	}
 }
 
+// there's no default for [_; 256], but clippy still complains
+#[allow(clippy::derivable_impls)]
 impl Default for Bloom {
 	fn default() -> Self {
 		Bloom([0; 256])

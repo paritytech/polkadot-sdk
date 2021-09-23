@@ -556,6 +556,7 @@ pub mod pallet {
 		StorageMap<_, Identity, H256, AuraScheduledChange>;
 
 	#[pallet::genesis_config]
+	#[cfg_attr(feature = "std", derive(Default))]
 	pub struct GenesisConfig {
 		/// PoA header to start with.
 		pub initial_header: AuraHeader,
@@ -563,17 +564,6 @@ pub mod pallet {
 		pub initial_difficulty: U256,
 		/// Initial PoA validators set.
 		pub initial_validators: Vec<Address>,
-	}
-
-	#[cfg(feature = "std")]
-	impl Default for GenesisConfig {
-		fn default() -> Self {
-			Self {
-				initial_header: Default::default(),
-				initial_difficulty: Default::default(),
-				initial_validators: Default::default(),
-			}
-		}
 	}
 
 	#[pallet::genesis_build]
