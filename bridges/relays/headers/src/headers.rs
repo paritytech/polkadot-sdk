@@ -82,15 +82,6 @@ pub struct QueuedHeaders<P: HeadersSyncPipeline> {
 	prune_border: P::Number,
 }
 
-/// Header completion data.
-#[derive(Debug)]
-struct HeaderCompletion<Completion> {
-	/// Last time when we tried to upload completion data to target node, if ever.
-	pub last_upload_time: Option<Instant>,
-	/// Completion data.
-	pub completion: Completion,
-}
-
 impl<P: HeadersSyncPipeline> Default for QueuedHeaders<P> {
 	fn default() -> Self {
 		QueuedHeaders {
