@@ -150,10 +150,7 @@ pub(crate) mod tests {
 		// adjusted fee
 		let single_source_header_submit_tx_weight = single_source_header_submit_call_weight * 3 / 2;
 		let single_source_header_tx_cost = W::calc(&single_source_header_submit_tx_weight);
-		let maximal_expected_decrease =
-			single_source_header_tx_cost * B::from(expected_source_headers_per_day);
-
-		maximal_expected_decrease
+		single_source_header_tx_cost * B::from(expected_source_headers_per_day)
 	}
 
 	#[test]
