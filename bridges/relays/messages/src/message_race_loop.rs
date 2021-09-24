@@ -54,10 +54,12 @@ pub trait MessageRace {
 }
 
 /// State of race source client.
-type SourceClientState<P> = ClientState<<P as MessageRace>::SourceHeaderId, <P as MessageRace>::TargetHeaderId>;
+type SourceClientState<P> =
+	ClientState<<P as MessageRace>::SourceHeaderId, <P as MessageRace>::TargetHeaderId>;
 
 /// State of race target client.
-type TargetClientState<P> = ClientState<<P as MessageRace>::TargetHeaderId, <P as MessageRace>::SourceHeaderId>;
+type TargetClientState<P> =
+	ClientState<<P as MessageRace>::TargetHeaderId, <P as MessageRace>::SourceHeaderId>;
 
 /// Inclusive nonces range.
 pub trait NoncesRange: Debug + Sized {
@@ -155,7 +157,10 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 	/// Should return true if nothing has to be synced.
 	fn is_empty(&self) -> bool;
 	/// Return id of source header that is required to be on target to continue synchronization.
-	fn required_source_header_at_target(&self, current_best: &SourceHeaderId) -> Option<SourceHeaderId>;
+	fn required_source_header_at_target(
+		&self,
+		current_best: &SourceHeaderId,
+	) -> Option<SourceHeaderId>;
 	/// Return the best nonce at source node.
 	///
 	/// `Some` is returned only if we are sure that the value is greater or equal
@@ -167,7 +172,11 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 	fn best_at_target(&self) -> Option<MessageNonce>;
 
 	/// Called when nonces are updated at source node of the race.
-	fn source_nonces_updated(&mut self, at_block: SourceHeaderId, nonces: SourceClientNonces<Self::SourceNoncesRange>);
+	fn source_nonces_updated(
+		&mut self,
+		at_block: SourceHeaderId,
+		nonces: SourceClientNonces<Self::SourceNoncesRange>,
+	);
 	/// Called when best nonces are updated at target node of the race.
 	fn best_target_nonces_updated(
 		&mut self,
@@ -430,8 +439,10 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 				strategy,
 			);
 
-			return Err(FailedClient::Both);
-		} else if race_state.nonces_to_submit.is_none() && race_state.nonces_submitted.is_none() && strategy.is_empty()
+			return Err(FailedClient::Both)
+		} else if race_state.nonces_to_submit.is_none() &&
+			race_state.nonces_submitted.is_none() &&
+			strategy.is_empty()
 		{
 			stall_countdown = Instant::now();
 		}
@@ -439,7 +450,8 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 		if source_client_is_online {
 			source_client_is_online = false;
 
-			let nonces_to_deliver = select_nonces_to_deliver(race_state.clone(), &mut strategy).await;
+			let nonces_to_deliver =
+				select_nonces_to_deliver(race_state.clone(), &mut strategy).await;
 			let best_at_source = strategy.best_at_source();
 
 			if let Some((at_block, nonces_range, proof_parameters)) = nonces_to_deliver {
@@ -451,9 +463,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					at_block,
 				);
 				source_generate_proof.set(
-					race_source
-						.generate_proof(at_block, nonces_range, proof_parameters)
-						.fuse(),
+					race_source.generate_proof(at_block, nonces_range, proof_parameters).fuse(),
 				);
 			} else if source_nonces_required && best_at_source.is_some() {
 				log::debug!(target: "bridge", "Asking {} about message nonces", P::source_name());
@@ -516,7 +526,9 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 	}
 }
 
-impl<SourceHeaderId, TargetHeaderId, Proof> Default for RaceState<SourceHeaderId, TargetHeaderId, Proof> {
+impl<SourceHeaderId, TargetHeaderId, Proof> Default
+	for RaceState<SourceHeaderId, TargetHeaderId, Proof>
+{
 	fn default() -> Self {
 		RaceState {
 			best_finalized_source_header_id_at_source: None,
@@ -539,7 +551,7 @@ where
 
 	let need_update = now_time.saturating_duration_since(prev_time) > Duration::from_secs(10);
 	if !need_update {
-		return prev_time;
+		return prev_time
 	}
 
 	let now_best_nonce_at_source = strategy.best_at_source();
@@ -569,11 +581,7 @@ where
 		.select_nonces_to_deliver(race_state)
 		.await
 		.map(|(nonces_range, proof_parameters)| {
-			(
-				best_finalized_source_header_id_at_best_target,
-				nonces_range,
-				proof_parameters,
-			)
+			(best_finalized_source_header_id_at_best_target, nonces_range, proof_parameters)
 		})
 }
 
@@ -592,8 +600,14 @@ mod tests {
 		// target node only knows about source' BEST_AT_TARGET block
 		// source node has BEST_AT_SOURCE > BEST_AT_TARGET block
 		let mut race_state = RaceState::<_, _, ()> {
-			best_finalized_source_header_id_at_source: Some(HeaderId(BEST_AT_SOURCE, BEST_AT_SOURCE)),
-			best_finalized_source_header_id_at_best_target: Some(HeaderId(BEST_AT_TARGET, BEST_AT_TARGET)),
+			best_finalized_source_header_id_at_source: Some(HeaderId(
+				BEST_AT_SOURCE,
+				BEST_AT_SOURCE,
+			)),
+			best_finalized_source_header_id_at_best_target: Some(HeaderId(
+				BEST_AT_TARGET,
+				BEST_AT_TARGET,
+			)),
 			best_target_header_id: Some(HeaderId(0, 0)),
 			best_finalized_target_header_id: Some(HeaderId(0, 0)),
 			nonces_to_submit: None,
@@ -604,16 +618,10 @@ mod tests {
 		let mut strategy = BasicStrategy::new();
 		strategy.source_nonces_updated(
 			HeaderId(GENERATED_AT, GENERATED_AT),
-			SourceClientNonces {
-				new_nonces: 0..=10,
-				confirmed_nonce: None,
-			},
+			SourceClientNonces { new_nonces: 0..=10, confirmed_nonce: None },
 		);
 		strategy.best_target_nonces_updated(
-			TargetClientNonces {
-				latest_nonce: 5u64,
-				nonces_data: (),
-			},
+			TargetClientNonces { latest_nonce: 5u64, nonces_data: () },
 			&mut race_state,
 		);
 

@@ -14,11 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::error::Error;
-use crate::finality::finalize_blocks;
-use crate::validators::{Validators, ValidatorsConfiguration};
-use crate::verification::{is_importable_header, verify_aura_header};
-use crate::{AuraConfiguration, ChainTime, ChangeToEnact, PruningStrategy, Storage};
+use crate::{
+	error::Error,
+	finality::finalize_blocks,
+	validators::{Validators, ValidatorsConfiguration},
+	verification::{is_importable_header, verify_aura_header},
+	AuraConfiguration, ChainTime, ChangeToEnact, PruningStrategy, Storage,
+};
 use bp_eth_poa::{AuraHeader, HeaderId, Receipt};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -65,7 +67,7 @@ pub fn import_headers<S: Storage, PS: PruningStrategy, CT: ChainTime>(
 					}
 				}
 				useful += 1;
-			}
+			},
 			Err(Error::AncientHeader) | Err(Error::KnownHeader) => useless += 1,
 			Err(error) => return Err(error),
 		}
@@ -103,7 +105,8 @@ pub fn import_header<S: Storage, PS: PruningStrategy, CT: ChainTime>(
 
 	// check if block schedules new validators
 	let validators = Validators::new(validators_config);
-	let (scheduled_change, enacted_change) = validators.extract_validators_change(&header, receipts)?;
+	let (scheduled_change, enacted_change) =
+		validators.extract_validators_change(&header, receipts)?;
 
 	// check if block finalizes some other blocks and corresponding scheduled validators
 	let validators_set = import_context.validators_set();
@@ -117,11 +120,10 @@ pub fn import_header<S: Storage, PS: PruningStrategy, CT: ChainTime>(
 		aura_config.two_thirds_majority_transition,
 	)?;
 	let enacted_change = enacted_change
-		.map(|validators| ChangeToEnact {
-			signal_block: None,
-			validators,
-		})
-		.or_else(|| validators.finalize_validators_change(storage, &finalized_blocks.finalized_headers));
+		.map(|validators| ChangeToEnact { signal_block: None, validators })
+		.or_else(|| {
+			validators.finalize_validators_change(storage, &finalized_blocks.finalized_headers)
+		});
 
 	// NOTE: we can't return Err() from anywhere below this line
 	// (because otherwise we'll have inconsistent storage if transaction will fail)
@@ -145,9 +147,7 @@ pub fn import_header<S: Storage, PS: PruningStrategy, CT: ChainTime>(
 	let new_best_finalized_block_id = finalized_blocks.finalized_headers.last().map(|(id, _)| *id);
 	let pruning_upper_bound = pruning_strategy.pruning_upper_bound(
 		new_best_block_id.number,
-		new_best_finalized_block_id
-			.map(|id| id.number)
-			.unwrap_or(finalized_id.number),
+		new_best_finalized_block_id.map(|id| id.number).unwrap_or(finalized_id.number),
 	);
 
 	// now mark finalized headers && prune old headers
@@ -171,12 +171,15 @@ pub fn header_import_requires_receipts<S: Storage>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{
-		run_test, secret_to_address, test_aura_config, test_validators_config, validator, validators_addresses,
-		validators_change_receipt, HeaderBuilder, KeepSomeHeadersBehindBest, TestRuntime, GAS_LIMIT,
+	use crate::{
+		mock::{
+			run_test, secret_to_address, test_aura_config, test_validators_config, validator,
+			validators_addresses, validators_change_receipt, HeaderBuilder,
+			KeepSomeHeadersBehindBest, TestRuntime, GAS_LIMIT,
+		},
+		validators::ValidatorsSource,
+		BlocksToPrune, BridgeStorage, Headers, PruningRange,
 	};
-	use crate::validators::ValidatorsSource;
-	use crate::{BlocksToPrune, BridgeStorage, Headers, PruningRange};
 	use secp256k1::SecretKey;
 
 	const TOTAL_VALIDATORS: usize = 3;
@@ -186,10 +189,7 @@ mod tests {
 		run_test(TOTAL_VALIDATORS, |_| {
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 			storage.finalize_and_prune_headers(
-				Some(HeaderId {
-					number: 100,
-					..Default::default()
-				}),
+				Some(HeaderId { number: 100, ..Default::default() }),
 				0,
 			);
 			assert_eq!(
@@ -281,8 +281,10 @@ mod tests {
 	#[test]
 	fn headers_are_pruned_during_import() {
 		run_test(TOTAL_VALIDATORS, |ctx| {
-			let validators_config =
-				ValidatorsConfiguration::Single(ValidatorsSource::Contract([3; 20].into(), ctx.addresses.clone()));
+			let validators_config = ValidatorsConfiguration::Single(ValidatorsSource::Contract(
+				[3; 20].into(),
+				ctx.addresses.clone(),
+			));
 			let validators = vec![validator(0), validator(1), validator(2)];
 			let mut storage = BridgeStorage::<TestRuntime>::new();
 
@@ -305,7 +307,8 @@ mod tests {
 				)
 				.unwrap();
 				match i {
-					2..=10 => assert_eq!(finalized_blocks, vec![(parent_id, Some(100))], "At {}", i,),
+					2..=10 =>
+						assert_eq!(finalized_blocks, vec![(parent_id, Some(100))], "At {}", i,),
 					_ => assert_eq!(finalized_blocks, vec![], "At {}", i),
 				}
 				latest_block_id = rolling_last_block_id;
@@ -339,8 +342,8 @@ mod tests {
 			latest_block_id = rolling_last_block_id;
 
 			// and now let's say validators 1 && 2 went offline
-			// => in the range 12-25 no blocks are finalized, but we still continue to prune old headers
-			// until header#11 is met. we can't prune #11, because it schedules change
+			// => in the range 12-25 no blocks are finalized, but we still continue to prune old
+			// headers until header#11 is met. we can't prune #11, because it schedules change
 			let mut step = 56u64;
 			let mut expected_blocks = vec![(header11.compute_id(), Some(101))];
 			for i in 12..25 {
@@ -366,10 +369,7 @@ mod tests {
 			}
 			assert_eq!(
 				BlocksToPrune::<TestRuntime, ()>::get(),
-				PruningRange {
-					oldest_unpruned_block: 11,
-					oldest_block_to_keep: 14,
-				},
+				PruningRange { oldest_unpruned_block: 11, oldest_block_to_keep: 14 },
 			);
 
 			// now let's insert block signed by validator 1
@@ -393,10 +393,7 @@ mod tests {
 			assert_eq!(finalized_blocks, expected_blocks);
 			assert_eq!(
 				BlocksToPrune::<TestRuntime, ()>::get(),
-				PruningRange {
-					oldest_unpruned_block: 15,
-					oldest_block_to_keep: 15,
-				},
+				PruningRange { oldest_unpruned_block: 15, oldest_block_to_keep: 15 },
 			);
 		});
 	}
@@ -483,9 +480,7 @@ mod tests {
 			let header1 = import_custom_block(
 				&mut storage,
 				&ctx.validators,
-				HeaderBuilder::with_parent_number(0)
-					.step(2)
-					.sign_by_set(&ctx.validators),
+				HeaderBuilder::with_parent_number(0).step(2).sign_by_set(&ctx.validators),
 			)
 			.unwrap();
 			assert_eq!(storage.best_block().0, header1);
@@ -495,9 +490,7 @@ mod tests {
 			let header2 = import_custom_block(
 				&mut storage,
 				&ctx.validators,
-				HeaderBuilder::with_parent_number(1)
-					.step(3)
-					.sign_by_set(&ctx.validators),
+				HeaderBuilder::with_parent_number(1).step(3).sign_by_set(&ctx.validators),
 			)
 			.unwrap();
 			assert_eq!(storage.best_block().0, header2);
@@ -507,9 +500,7 @@ mod tests {
 			let header3 = import_custom_block(
 				&mut storage,
 				&ctx.validators,
-				HeaderBuilder::with_parent_number(2)
-					.step(4)
-					.sign_by_set(&ctx.validators),
+				HeaderBuilder::with_parent_number(2).step(4).sign_by_set(&ctx.validators),
 			)
 			.unwrap();
 			assert_eq!(storage.best_block().0, header3);
@@ -552,19 +543,19 @@ mod tests {
 			assert_eq!(storage.best_block().0, header5_1);
 			assert_eq!(storage.finalized_block(), header1);
 
-			// when we import header4 { parent = header3 }, authored by validator[0], header2 is finalized
+			// when we import header4 { parent = header3 }, authored by validator[0], header2 is
+			// finalized
 			let header4 = import_custom_block(
 				&mut storage,
 				&ctx.validators,
-				HeaderBuilder::with_parent_number(3)
-					.step(5)
-					.sign_by_set(&ctx.validators),
+				HeaderBuilder::with_parent_number(3).step(5).sign_by_set(&ctx.validators),
 			)
 			.unwrap();
 			assert_eq!(storage.best_block().0, header5_1);
 			assert_eq!(storage.finalized_block(), header2);
 
-			// when we import header5 { parent = header4 }, authored by validator[1], header3 is finalized
+			// when we import header5 { parent = header4 }, authored by validator[1], header3 is
+			// finalized
 			let header5 = import_custom_block(
 				&mut storage,
 				&ctx.validators,
@@ -576,7 +567,8 @@ mod tests {
 			assert_eq!(storage.best_block().0, header5);
 			assert_eq!(storage.finalized_block(), header3);
 
-			// import of header2'' { parent = header1 } fails, because it has number < best_finalized
+			// import of header2'' { parent = header1 } fails, because it has number <
+			// best_finalized
 			assert_eq!(
 				import_custom_block(
 					&mut storage,

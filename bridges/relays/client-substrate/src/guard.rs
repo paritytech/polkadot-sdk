@@ -52,7 +52,10 @@ pub trait Environment<C: ChainWithBalances>: Send + Sync + 'static {
 }
 
 /// Abort when runtime spec version is different from specified.
-pub fn abort_on_spec_version_change<C: ChainWithBalances>(mut env: impl Environment<C>, expected_spec_version: u32) {
+pub fn abort_on_spec_version_change<C: ChainWithBalances>(
+	mut env: impl Environment<C>,
+	expected_spec_version: u32,
+) {
 	async_std::task::spawn(async move {
 		loop {
 			let actual_spec_version = env.runtime_version().await;
@@ -68,7 +71,7 @@ pub fn abort_on_spec_version_change<C: ChainWithBalances>(mut env: impl Environm
 					);
 
 					env.abort().await;
-				}
+				},
 				Err(error) => log::warn!(
 					target: "bridge-guard",
 					"Failed to read {} runtime version: {:?}. Relay may need to be stopped manually",
@@ -83,7 +86,8 @@ pub fn abort_on_spec_version_change<C: ChainWithBalances>(mut env: impl Environm
 }
 
 /// Abort if, during 24 hours, free balance of given account is decreased at least by given value.
-/// Other components may increase (or decrease) balance of account and it WILL affect logic of the guard.
+/// Other components may increase (or decrease) balance of account and it WILL affect logic of the
+/// guard.
 pub fn abort_when_account_balance_decreased<C: ChainWithBalances>(
 	mut env: impl Environment<C>,
 	account_id: C::AccountId,
@@ -129,7 +133,7 @@ pub fn abort_when_account_balance_decreased<C: ChainWithBalances>(
 
 						env.abort().await;
 					}
-				}
+				},
 				Err(error) => {
 					log::warn!(
 						target: "bridge-guard",
@@ -138,7 +142,7 @@ pub fn abort_when_account_balance_decreased<C: ChainWithBalances>(
 						account_id,
 						error,
 					);
-				}
+				},
 			};
 
 			env.sleep(conditions_check_delay::<C>()).await;
@@ -158,9 +162,7 @@ impl<C: ChainWithBalances> Environment<C> for Client<C> {
 	}
 
 	async fn free_native_balance(&mut self, account: C::AccountId) -> Result<C::Balance, String> {
-		Client::<C>::free_native_balance(self, account)
-			.await
-			.map_err(|e| e.to_string())
+		Client::<C>::free_native_balance(self, account).await.map_err(|e| e.to_string())
 	}
 }
 
@@ -196,8 +198,9 @@ mod tests {
 		const STORAGE_PROOF_OVERHEAD: u32 = 0;
 		const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 0;
 
-		type SignedBlock =
-			sp_runtime::generic::SignedBlock<sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>>;
+		type SignedBlock = sp_runtime::generic::SignedBlock<
+			sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>,
+		>;
 		type Call = ();
 		type WeightToFee = IdentityFee<u32>;
 	}
@@ -257,10 +260,7 @@ mod tests {
 
 			// client responds with wrong version
 			runtime_version_tx
-				.send(RuntimeVersion {
-					spec_version: 42,
-					..Default::default()
-				})
+				.send(RuntimeVersion { spec_version: 42, ..Default::default() })
 				.await
 				.unwrap();
 
@@ -292,10 +292,7 @@ mod tests {
 
 			// client responds with the same version
 			runtime_version_tx
-				.send(RuntimeVersion {
-					spec_version: 42,
-					..Default::default()
-				})
+				.send(RuntimeVersion { spec_version: 42, ..Default::default() })
 				.await
 				.unwrap();
 

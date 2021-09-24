@@ -16,9 +16,11 @@
 
 //! Entrypoint for running headers synchronization loop.
 
-use crate::sync::{HeadersSync, HeadersSyncParams};
-use crate::sync_loop_metrics::SyncLoopMetrics;
-use crate::sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SubmittedHeaders};
+use crate::{
+	sync::{HeadersSync, HeadersSyncParams},
+	sync_loop_metrics::SyncLoopMetrics,
+	sync_types::{HeaderIdOf, HeaderStatus, HeadersSyncPipeline, QueuedHeader, SubmittedHeaders},
+};
 
 use async_trait::async_trait;
 use futures::{future::FutureExt, stream::StreamExt};
@@ -66,8 +68,10 @@ pub trait SourceClient<P: HeadersSyncPipeline>: RelayClient {
 	async fn header_by_number(&self, number: P::Number) -> Result<P::Header, Self::Error>;
 
 	/// Get completion data by header hash.
-	async fn header_completion(&self, id: HeaderIdOf<P>)
-		-> Result<(HeaderIdOf<P>, Option<P::Completion>), Self::Error>;
+	async fn header_completion(
+		&self,
+		id: HeaderIdOf<P>,
+	) -> Result<(HeaderIdOf<P>, Option<P::Completion>), Self::Error>;
 
 	/// Get extra data by header hash.
 	async fn header_extra(
@@ -84,20 +88,32 @@ pub trait TargetClient<P: HeadersSyncPipeline>: RelayClient {
 	async fn best_header_id(&self) -> Result<HeaderIdOf<P>, Self::Error>;
 
 	/// Returns true if header is known to the target node.
-	async fn is_known_header(&self, id: HeaderIdOf<P>) -> Result<(HeaderIdOf<P>, bool), Self::Error>;
+	async fn is_known_header(
+		&self,
+		id: HeaderIdOf<P>,
+	) -> Result<(HeaderIdOf<P>, bool), Self::Error>;
 
 	/// Submit headers.
-	async fn submit_headers(&self, headers: Vec<QueuedHeader<P>>) -> SubmittedHeaders<HeaderIdOf<P>, Self::Error>;
+	async fn submit_headers(
+		&self,
+		headers: Vec<QueuedHeader<P>>,
+	) -> SubmittedHeaders<HeaderIdOf<P>, Self::Error>;
 
 	/// Returns ID of headers that require to be 'completed' before children can be submitted.
 	async fn incomplete_headers_ids(&self) -> Result<HashSet<HeaderIdOf<P>>, Self::Error>;
 
 	/// Submit completion data for header.
-	async fn complete_header(&self, id: HeaderIdOf<P>, completion: P::Completion)
-		-> Result<HeaderIdOf<P>, Self::Error>;
+	async fn complete_header(
+		&self,
+		id: HeaderIdOf<P>,
+		completion: P::Completion,
+	) -> Result<HeaderIdOf<P>, Self::Error>;
 
 	/// Returns true if header requires extra data to be submitted.
-	async fn requires_extra(&self, header: QueuedHeader<P>) -> Result<(HeaderIdOf<P>, bool), Self::Error>;
+	async fn requires_extra(
+		&self,
+		header: QueuedHeader<P>,
+	) -> Result<(HeaderIdOf<P>, bool), Self::Error>;
 }
 
 /// Synchronization maintain procedure.
@@ -110,7 +126,8 @@ pub trait SyncMaintain<P: HeadersSyncPipeline>: 'static + Clone + Send + Sync {
 
 impl<P: HeadersSyncPipeline> SyncMaintain<P> for () {}
 
-/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs sync loop.
+/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
+/// sync loop.
 pub fn metrics_prefix<P: HeadersSyncPipeline>() -> String {
 	format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME)
 }
@@ -480,7 +497,8 @@ async fn run_until_connection_lost<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 					id,
 				);
 
-				target_complete_header_future.set(target_client.complete_header(id, completion.clone()).fuse());
+				target_complete_header_future
+					.set(target_client.complete_header(id, completion.clone()).fuse());
 			} else if let Some(header) = sync.headers().header(HeaderStatus::MaybeExtra) {
 				log::debug!(
 					target: "bridge",
@@ -501,8 +519,8 @@ async fn run_until_connection_lost<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 				);
 
 				target_existence_status_future.set(target_client.is_known_header(parent_id).fuse());
-			} else if let Some(headers) =
-				sync.select_headers_to_submit(last_update_time.elapsed() > BACKUP_STALL_SYNC_TIMEOUT)
+			} else if let Some(headers) = sync
+				.select_headers_to_submit(last_update_time.elapsed() > BACKUP_STALL_SYNC_TIMEOUT)
 			{
 				log::debug!(
 					target: "bridge",
@@ -580,7 +598,7 @@ async fn run_until_connection_lost<P: HeadersSyncPipeline, TC: TargetClient<P>>(
 						P::SOURCE_NAME,
 						P::TARGET_NAME,
 					);
-					return Ok(());
+					return Ok(())
 				}
 
 				log::debug!(
@@ -616,15 +634,14 @@ fn print_sync_progress<P: HeadersSyncPipeline>(
 	let now_time = Instant::now();
 	let (now_best_header, now_target_header) = eth_sync.status();
 
-	let need_update = now_time - prev_time > Duration::from_secs(10)
-		|| match (prev_best_header, now_best_header) {
-			(Some(prev_best_header), Some(now_best_header)) => {
-				now_best_header.0.saturating_sub(prev_best_header) > 10.into()
-			}
+	let need_update = now_time - prev_time > Duration::from_secs(10) ||
+		match (prev_best_header, now_best_header) {
+			(Some(prev_best_header), Some(now_best_header)) =>
+				now_best_header.0.saturating_sub(prev_best_header) > 10.into(),
 			_ => false,
 		};
 	if !need_update {
-		return (prev_time, prev_best_header, prev_target_header);
+		return (prev_time, prev_best_header, prev_target_header)
 	}
 
 	log::info!(

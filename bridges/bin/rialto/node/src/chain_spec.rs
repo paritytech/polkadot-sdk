@@ -17,9 +17,9 @@
 use bp_rialto::derive_account_from_millau_id;
 use polkadot_primitives::v1::{AssignmentId, ValidatorId};
 use rialto_runtime::{
-	AccountId, BabeConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauMessagesConfig, BridgeRialtoPoaConfig,
-	ConfigurationConfig, GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig,
-	WASM_BINARY,
+	AccountId, BabeConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauMessagesConfig,
+	BridgeRialtoPoaConfig, ConfigurationConfig, GenesisConfig, GrandpaConfig, SessionConfig,
+	SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -62,14 +62,7 @@ where
 /// Helper function to generate authority keys.
 pub fn get_authority_keys_from_seed(
 	s: &str,
-) -> (
-	AccountId,
-	BabeId,
-	GrandpaId,
-	ValidatorId,
-	AssignmentId,
-	AuthorityDiscoveryId,
-) {
+) -> (AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
 		get_from_seed::<BabeId>(s),
@@ -195,13 +188,7 @@ fn session_keys(
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
 ) -> SessionKeys {
-	SessionKeys {
-		babe,
-		grandpa,
-		para_validator,
-		para_assignment,
-		authority_discovery,
-	}
+	SessionKeys { babe, grandpa, para_validator, para_assignment, authority_discovery }
 }
 
 fn testnet_genesis(
@@ -231,9 +218,7 @@ fn testnet_genesis(
 		},
 		bridge_rialto_poa: load_rialto_poa_bridge_config(),
 		bridge_kovan: load_kovan_bridge_config(),
-		grandpa: GrandpaConfig {
-			authorities: Vec::new(),
-		},
+		grandpa: GrandpaConfig { authorities: Vec::new() },
 		sudo: SudoConfig { key: root_key },
 		session: SessionConfig {
 			keys: initial_authorities
@@ -242,7 +227,13 @@ fn testnet_genesis(
 					(
 						x.0.clone(),
 						x.0.clone(),
-						session_keys(x.1.clone(), x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+						session_keys(
+							x.1.clone(),
+							x.2.clone(),
+							x.3.clone(),
+							x.4.clone(),
+							x.5.clone(),
+						),
 					)
 				})
 				.collect::<Vec<_>>(),
@@ -320,9 +311,7 @@ fn load_kovan_bridge_config() -> BridgeKovanConfig {
 #[test]
 fn derived_dave_account_is_as_expected() {
 	let dave = get_account_id_from_seed::<sr25519::Public>("Dave");
-	let derived: AccountId = derive_account_from_millau_id(bp_runtime::SourceAccount::Account(dave));
-	assert_eq!(
-		derived.to_string(),
-		"5HZhdv53gSJmWWtD8XR5Ypu4PgbT5JNWwGw2mkE75cN61w9t".to_string()
-	);
+	let derived: AccountId =
+		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(dave));
+	assert_eq!(derived.to_string(), "5HZhdv53gSJmWWtD8XR5Ypu4PgbT5JNWwGw2mkE75cN61w9t".to_string());
 }

@@ -28,7 +28,8 @@
 //! 5) receive tokens by providing proof-of-inclusion of PoA transaction.
 
 use bp_currency_exchange::{
-	Error as ExchangeError, LockFundsTransaction, MaybeLockFundsTransaction, Result as ExchangeResult,
+	Error as ExchangeError, LockFundsTransaction, MaybeLockFundsTransaction,
+	Result as ExchangeResult,
 };
 use bp_eth_poa::{transaction_decode_rlp, RawTransaction, RawTransactionReceipt};
 use codec::{Decode, Encode};
@@ -87,7 +88,7 @@ impl MaybeLockFundsTransaction for EthTransaction {
 				tx.unsigned.to,
 			);
 
-			return Err(ExchangeError::InvalidTransaction);
+			return Err(ExchangeError::InvalidTransaction)
 		}
 
 		let mut recipient_raw = sp_core::H256::default();
@@ -100,8 +101,8 @@ impl MaybeLockFundsTransaction for EthTransaction {
 					len,
 				);
 
-				return Err(ExchangeError::InvalidRecipient);
-			}
+				return Err(ExchangeError::InvalidRecipient)
+			},
 		}
 		let amount = tx.unsigned.value.low_u128();
 
@@ -112,7 +113,7 @@ impl MaybeLockFundsTransaction for EthTransaction {
 				tx.unsigned.value,
 			);
 
-			return Err(ExchangeError::InvalidAmount);
+			return Err(ExchangeError::InvalidAmount)
 		}
 
 		Ok(LockFundsTransaction {
@@ -213,10 +214,7 @@ mod tests {
 
 	#[test]
 	fn invalid_transaction_rejected() {
-		assert_eq!(
-			EthTransaction::parse(&Vec::new()),
-			Err(ExchangeError::InvalidTransaction),
-		);
+		assert_eq!(EthTransaction::parse(&Vec::new()), Err(ExchangeError::InvalidTransaction),);
 	}
 
 	#[test]

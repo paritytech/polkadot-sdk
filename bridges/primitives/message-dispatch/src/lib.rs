@@ -112,7 +112,12 @@ pub enum CallOrigin<SourceChainAccountId, TargetChainAccountPublic, TargetChainS
 
 /// Message payload type used by dispatch module.
 #[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq)]
-pub struct MessagePayload<SourceChainAccountId, TargetChainAccountPublic, TargetChainSignature, Call> {
+pub struct MessagePayload<
+	SourceChainAccountId,
+	TargetChainAccountPublic,
+	TargetChainSignature,
+	Call,
+> {
 	/// Runtime specification version. We only dispatch messages that have the same
 	/// runtime version. Otherwise we risk to misinterpret encoded calls.
 	pub spec_version: SpecVersion,

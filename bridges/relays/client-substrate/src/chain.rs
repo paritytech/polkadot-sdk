@@ -92,11 +92,7 @@ pub struct UnsignedTransaction<C: Chain> {
 impl<C: Chain> UnsignedTransaction<C> {
 	/// Create new unsigned transaction with given call, nonce and zero tip.
 	pub fn new(call: C::Call, nonce: C::Index) -> Self {
-		Self {
-			call,
-			nonce,
-			tip: Zero::zero(),
-		}
+		Self { call, nonce, tip: Zero::zero() }
 	}
 
 	/// Set transaction tip.

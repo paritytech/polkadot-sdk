@@ -24,10 +24,12 @@
 //! finalized header. I.e. when talking about headers in lane context, we
 //! only care about finalized headers.
 
-use crate::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
-use crate::message_race_delivery::run as run_message_delivery_race;
-use crate::message_race_receiving::run as run_message_receiving_race;
-use crate::metrics::MessageLaneLoopMetrics;
+use crate::{
+	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
+	message_race_delivery::run as run_message_delivery_race,
+	message_race_receiving::run as run_message_receiving_race,
+	metrics::MessageLaneLoopMetrics,
+};
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
@@ -64,20 +66,22 @@ pub struct Params {
 pub enum RelayerMode {
 	/// The relayer doesn't care about rewards.
 	Altruistic,
-	/// The relayer will deliver all messages and confirmations as long as he's not losing any funds.
+	/// The relayer will deliver all messages and confirmations as long as he's not losing any
+	/// funds.
 	Rational,
 }
 
 /// Message delivery race parameters.
 #[derive(Debug, Clone)]
 pub struct MessageDeliveryParams {
-	/// Maximal number of unconfirmed relayer entries at the inbound lane. If there's that number of entries
-	/// in the `InboundLaneData::relayers` set, all new messages will be rejected until reward payment will
-	/// be proved (by including outbound lane state to the message delivery transaction).
+	/// Maximal number of unconfirmed relayer entries at the inbound lane. If there's that number
+	/// of entries in the `InboundLaneData::relayers` set, all new messages will be rejected until
+	/// reward payment will be proved (by including outbound lane state to the message delivery
+	/// transaction).
 	pub max_unrewarded_relayer_entries_at_target: MessageNonce,
-	/// Message delivery race will stop delivering messages if there are `max_unconfirmed_nonces_at_target`
-	/// unconfirmed nonces on the target node. The race would continue once they're confirmed by the
-	/// receiving race.
+	/// Message delivery race will stop delivering messages if there are
+	/// `max_unconfirmed_nonces_at_target` unconfirmed nonces on the target node. The race would
+	/// continue once they're confirmed by the receiving race.
 	pub max_unconfirmed_nonces_at_target: MessageNonce,
 	/// Maximal number of relayed messages in single delivery transaction.
 	pub max_messages_in_single_batch: MessageNonce,
@@ -103,7 +107,8 @@ pub struct MessageDetails<SourceChainBalance> {
 }
 
 /// Messages details map.
-pub type MessageDetailsMap<SourceChainBalance> = BTreeMap<MessageNonce, MessageDetails<SourceChainBalance>>;
+pub type MessageDetailsMap<SourceChainBalance> =
+	BTreeMap<MessageNonce, MessageDetails<SourceChainBalance>>;
 
 /// Message delivery race proof parameters.
 #[derive(Debug, PartialEq)]
@@ -225,7 +230,8 @@ pub struct ClientState<SelfHeaderId, PeerHeaderId> {
 	pub best_self: SelfHeaderId,
 	/// Best finalized header id of this chain.
 	pub best_finalized_self: SelfHeaderId,
-	/// Best finalized header id of the peer chain read at the best block of this chain (at `best_finalized_self`).
+	/// Best finalized header id of the peer chain read at the best block of this chain (at
+	/// `best_finalized_self`).
 	pub best_finalized_peer_at_best_self: PeerHeaderId,
 }
 
@@ -244,14 +250,10 @@ pub struct ClientsState<P: MessageLane> {
 	pub target: Option<TargetClientState<P>>,
 }
 
-/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs sync loop.
+/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
+/// sync loop.
 pub fn metrics_prefix<P: MessageLane>(lane: &LaneId) -> String {
-	format!(
-		"{}_to_{}_MessageLane_{}",
-		P::SOURCE_NAME,
-		P::TARGET_NAME,
-		hex::encode(lane)
-	)
+	format!("{}_to_{}_MessageLane_{}", P::SOURCE_NAME, P::TARGET_NAME, hex::encode(lane))
 }
 
 /// Run message lane service loop.
@@ -270,22 +272,20 @@ pub async fn run<P: MessageLane>(
 		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
 		.expose()
 		.await?
-		.run(
-			metrics_prefix::<P>(&params.lane),
-			move |source_client, target_client, metrics| {
-				run_until_connection_lost(
-					params.clone(),
-					source_client,
-					target_client,
-					metrics,
-					exit_signal.clone(),
-				)
-			},
-		)
+		.run(metrics_prefix::<P>(&params.lane), move |source_client, target_client, metrics| {
+			run_until_connection_lost(
+				params.clone(),
+				source_client,
+				target_client,
+				metrics,
+				exit_signal.clone(),
+			)
+		})
 		.await
 }
 
-/// Run one-way message delivery loop until connection with target or source node is lost, or exit signal is received.
+/// Run one-way message delivery loop until connection with target or source node is lost, or exit
+/// signal is received.
 async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: TargetClient<P>>(
 	params: Params,
 	source_client: SC,
@@ -557,7 +557,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_source_fails {
-				return Err(TestError);
+				return Err(TestError)
 			}
 			Ok(data.source_state.clone())
 		}
@@ -569,7 +569,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_source_fails {
-				return Err(TestError);
+				return Err(TestError)
 			}
 			Ok((id, data.source_latest_generated_nonce))
 		}
@@ -609,11 +609,7 @@ pub(crate) mod tests {
 			nonces: RangeInclusive<MessageNonce>,
 			proof_parameters: MessageProofParameters,
 		) -> Result<
-			(
-				SourceHeaderIdOf<TestMessageLane>,
-				RangeInclusive<MessageNonce>,
-				TestMessagesProof,
-			),
+			(SourceHeaderIdOf<TestMessageLane>, RangeInclusive<MessageNonce>, TestMessagesProof),
 			TestError,
 		> {
 			let mut data = self.data.lock();
@@ -694,7 +690,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
-				return Err(TestError);
+				return Err(TestError)
 			}
 			Ok(data.target_state.clone())
 		}
@@ -706,7 +702,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
-				return Err(TestError);
+				return Err(TestError)
 			}
 			Ok((id, data.target_latest_received_nonce))
 		}
@@ -732,7 +728,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
-				return Err(TestError);
+				return Err(TestError)
 			}
 			Ok((id, data.target_latest_confirmed_received_nonce))
 		}
@@ -753,14 +749,15 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut *data);
 			if data.is_target_fails {
-				return Err(TestError);
+				return Err(TestError)
 			}
 			data.target_state.best_self =
 				HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.1 + 1);
 			data.target_state.best_finalized_self = data.target_state.best_self;
 			data.target_latest_received_nonce = *proof.0.end();
 			if let Some(target_latest_confirmed_received_nonce) = proof.1 {
-				data.target_latest_confirmed_received_nonce = target_latest_confirmed_received_nonce;
+				data.target_latest_confirmed_received_nonce =
+					target_latest_confirmed_received_nonce;
 			}
 			data.submitted_messages_proofs.push(proof);
 			Ok(nonces)
@@ -780,11 +777,9 @@ pub(crate) mod tests {
 			total_dispatch_weight: Weight,
 			total_size: u32,
 		) -> Result<TestSourceChainBalance, TestError> {
-			Ok(
-				BASE_MESSAGE_DELIVERY_TRANSACTION_COST * (nonces.end() - nonces.start() + 1)
-					+ total_dispatch_weight
-					+ total_size as TestSourceChainBalance,
-			)
+			Ok(BASE_MESSAGE_DELIVERY_TRANSACTION_COST * (nonces.end() - nonces.start() + 1) +
+				total_dispatch_weight +
+				total_size as TestSourceChainBalance)
 		}
 	}
 
@@ -797,14 +792,8 @@ pub(crate) mod tests {
 		async_std::task::block_on(async {
 			let data = Arc::new(Mutex::new(data));
 
-			let source_client = TestSourceClient {
-				data: data.clone(),
-				tick: source_tick,
-			};
-			let target_client = TestTargetClient {
-				data: data.clone(),
-				tick: target_tick,
-			};
+			let source_client = TestSourceClient { data: data.clone(), tick: source_tick };
+			let target_client = TestTargetClient { data: data.clone(), tick: target_tick };
 			let _ = run(
 				Params {
 					lane: [0, 0, 0, 0],
@@ -907,7 +896,10 @@ pub(crate) mod tests {
 				data.source_state.best_finalized_self = data.source_state.best_self;
 				// headers relay must only be started when we need new target headers at source node
 				if data.target_to_source_header_required.is_some() {
-					assert!(data.source_state.best_finalized_peer_at_best_self.0 < data.target_state.best_self.0);
+					assert!(
+						data.source_state.best_finalized_peer_at_best_self.0 <
+							data.target_state.best_self.0
+					);
 					data.target_to_source_header_required = None;
 				}
 				// syncing target headers -> source chain
@@ -924,7 +916,10 @@ pub(crate) mod tests {
 				data.target_state.best_finalized_self = data.target_state.best_self;
 				// headers relay must only be started when we need new source headers at target node
 				if data.source_to_target_header_required.is_some() {
-					assert!(data.target_state.best_finalized_peer_at_best_self.0 < data.source_state.best_self.0);
+					assert!(
+						data.target_state.best_finalized_peer_at_best_self.0 <
+							data.source_state.best_self.0
+					);
 					data.source_to_target_header_required = None;
 				}
 				// syncing source headers -> target chain

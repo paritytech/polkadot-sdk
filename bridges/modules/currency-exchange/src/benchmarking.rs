@@ -18,7 +18,10 @@
 //! So we are giving runtime opportunity to prepare environment and construct proof
 //! before invoking module calls.
 
-use super::{Call, Config as CurrencyExchangeConfig, InclusionProofVerifier, Pallet as CurrencyExchangePallet};
+use super::{
+	Call, Config as CurrencyExchangeConfig, InclusionProofVerifier,
+	Pallet as CurrencyExchangePallet,
+};
 use sp_std::prelude::*;
 
 use frame_benchmarking::{account, benchmarks_instance_pallet};
@@ -37,8 +40,8 @@ pub struct ProofParams<Recipient> {
 	pub recipient: Recipient,
 	/// When true, recipient must exists before import.
 	pub recipient_exists: bool,
-	/// When 0, transaction should have minimal possible size. When this value has non-zero value n,
-	/// transaction size should be (if possible) near to MIN_SIZE + n * SIZE_FACTOR.
+	/// When 0, transaction should have minimal possible size. When this value has non-zero value
+	/// n, transaction size should be (if possible) near to MIN_SIZE + n * SIZE_FACTOR.
 	pub transaction_size_factor: u32,
 	/// When 0, proof should have minimal possible size. When this value has non-zero value n,
 	/// proof size should be (if possible) near to MIN_SIZE + n * SIZE_FACTOR.

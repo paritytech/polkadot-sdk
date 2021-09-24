@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain::Chain;
-use crate::client::Client;
+use crate::{chain::Chain, client::Client};
 
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
@@ -83,7 +82,8 @@ where
 			.await
 			.map(|maybe_storage_value| {
 				maybe_storage_value.or(self.maybe_default_value).map(|storage_value| {
-					storage_value.into_inner().unique_saturated_into() as f64 / T::DIV.unique_saturated_into() as f64
+					storage_value.into_inner().unique_saturated_into() as f64 /
+						T::DIV.unique_saturated_into() as f64
 				})
 			})
 			.map_err(drop);
