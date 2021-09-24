@@ -14,9 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::bridge::FullBridge;
-use crate::cli::{AccountId, Balance, CliChain, ExplicitOrMaximal, HexBytes, HexLaneId};
-use crate::select_full_bridge;
+use crate::{
+	cli::{
+		bridge::FullBridge, AccountId, Balance, CliChain, ExplicitOrMaximal, HexBytes, HexLaneId,
+	},
+	select_full_bridge,
+};
 use frame_support::weights::DispatchInfo;
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
@@ -126,31 +129,30 @@ pub(crate) fn preprocess_call<Source: CliEncodeCall + CliChain, Target: CliEncod
 	bridge_instance: u8,
 ) {
 	match *call {
-		Call::Raw { .. } => {}
-		Call::Remark {
-			ref remark_size,
-			ref mut remark_payload,
-		} => {
+		Call::Raw { .. } => {},
+		Call::Remark { ref remark_size, ref mut remark_payload } =>
 			if remark_payload.is_none() {
 				*remark_payload = Some(HexBytes(generate_remark_payload(
 					remark_size,
-					compute_maximal_message_arguments_size(Source::max_extrinsic_size(), Target::max_extrinsic_size()),
+					compute_maximal_message_arguments_size(
+						Source::max_extrinsic_size(),
+						Target::max_extrinsic_size(),
+					),
 				)));
-			}
-		}
+			},
 		Call::Transfer { ref mut recipient, .. } => {
 			recipient.enforce_chain::<Source>();
-		}
-		Call::BridgeSendMessage {
-			ref mut bridge_instance_index,
-			..
-		} => {
+		},
+		Call::BridgeSendMessage { ref mut bridge_instance_index, .. } => {
 			*bridge_instance_index = bridge_instance;
-		}
+		},
 	};
 }
 
-fn generate_remark_payload(remark_size: &Option<ExplicitOrMaximal<usize>>, maximal_allowed_size: u32) -> Vec<u8> {
+fn generate_remark_payload(
+	remark_size: &Option<ExplicitOrMaximal<usize>>,
+	maximal_allowed_size: u32,
+) -> Vec<u8> {
 	match remark_size {
 		Some(ExplicitOrMaximal::Explicit(remark_size)) => vec![0; *remark_size],
 		Some(ExplicitOrMaximal::Maximal) => vec![0; maximal_allowed_size as _],
@@ -172,9 +174,11 @@ pub(crate) fn compute_maximal_message_arguments_size(
 ) -> u32 {
 	// assume that both signed extensions and other arguments fit 1KB
 	let service_tx_bytes_on_source_chain = 1024;
-	let maximal_source_extrinsic_size = maximal_source_extrinsic_size - service_tx_bytes_on_source_chain;
-	let maximal_call_size =
-		bridge_runtime_common::messages::target::maximal_incoming_message_size(maximal_target_extrinsic_size);
+	let maximal_source_extrinsic_size =
+		maximal_source_extrinsic_size - service_tx_bytes_on_source_chain;
+	let maximal_call_size = bridge_runtime_common::messages::target::maximal_incoming_message_size(
+		maximal_target_extrinsic_size,
+	);
 	let maximal_call_size = if maximal_call_size > maximal_source_extrinsic_size {
 		maximal_source_extrinsic_size
 	} else {
@@ -217,7 +221,8 @@ mod tests {
 	#[test]
 	fn should_encode_remark_with_default_payload() {
 		// given
-		let mut encode_call = EncodeCall::from_iter(vec!["encode-call", "rialto-to-millau", "remark"]);
+		let mut encode_call =
+			EncodeCall::from_iter(vec!["encode-call", "rialto-to-millau", "remark"]);
 
 		// when
 		let hex = encode_call.encode().unwrap();
@@ -247,8 +252,13 @@ mod tests {
 	#[test]
 	fn should_encode_remark_with_size() {
 		// given
-		let mut encode_call =
-			EncodeCall::from_iter(vec!["encode-call", "rialto-to-millau", "remark", "--remark-size", "12"]);
+		let mut encode_call = EncodeCall::from_iter(vec![
+			"encode-call",
+			"rialto-to-millau",
+			"remark",
+			"--remark-size",
+			"12",
+		]);
 
 		// when
 		let hex = encode_call.encode().unwrap();
@@ -275,7 +285,10 @@ mod tests {
 		assert_eq!(err.kind, structopt::clap::ErrorKind::ArgumentConflict);
 
 		let info = err.info.unwrap();
-		assert!(info.contains(&"remark-payload".to_string()) | info.contains(&"remark-size".to_string()))
+		assert!(
+			info.contains(&"remark-payload".to_string()) |
+				info.contains(&"remark-size".to_string())
+		)
 	}
 
 	#[test]

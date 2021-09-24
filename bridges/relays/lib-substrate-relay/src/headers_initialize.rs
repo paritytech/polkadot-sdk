@@ -21,10 +21,10 @@
 //! and authorities set from source to target chain. The headers sync starts
 //! with this header.
 
-use bp_header_chain::InitializationData;
 use bp_header_chain::{
 	find_grandpa_authorities_scheduled_change,
 	justification::{verify_justification, GrandpaJustification},
+	InitializationData,
 };
 use codec::Decode;
 use finality_grandpa::voter_set::VoterSet;
@@ -103,31 +103,30 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	// In ideal world we just need to get best finalized header and then to read GRANDPA authorities
 	// set (`pallet_grandpa::CurrentSetId` + `GrandpaApi::grandpa_authorities()`) at this header.
 	//
-	// But now there are problems with this approach - `CurrentSetId` may return invalid value. So here
-	// we're waiting for the next justification, read the authorities set and then try to figure out
-	// the set id with bruteforce.
-	let justifications = source_client
-		.subscribe_justifications()
-		.await
-		.map_err(|err| format!("Failed to subscribe to {} justifications: {:?}", SourceChain::NAME, err))?;
+	// But now there are problems with this approach - `CurrentSetId` may return invalid value. So
+	// here we're waiting for the next justification, read the authorities set and then try to
+	// figure out the set id with bruteforce.
+	let justifications = source_client.subscribe_justifications().await.map_err(|err| {
+		format!("Failed to subscribe to {} justifications: {:?}", SourceChain::NAME, err)
+	})?;
 
 	// Read next justification - the header that it finalizes will be used as initial header.
 	let justification = justifications
 		.next()
 		.await
 		.map_err(|err| err.to_string())
-		.and_then(|justification| justification.ok_or_else(|| "stream has ended unexpectedly".into()))
+		.and_then(|justification| {
+			justification.ok_or_else(|| "stream has ended unexpectedly".into())
+		})
 		.map_err(|err| {
-			format!(
-				"Failed to read {} justification from the stream: {}",
-				SourceChain::NAME,
-				err,
-			)
+			format!("Failed to read {} justification from the stream: {}", SourceChain::NAME, err,)
 		})?;
 
 	// Read initial header.
-	let justification: GrandpaJustification<SourceChain::Header> = Decode::decode(&mut &justification.0[..])
-		.map_err(|err| format!("Failed to decode {} justification: {:?}", SourceChain::NAME, err))?;
+	let justification: GrandpaJustification<SourceChain::Header> =
+		Decode::decode(&mut &justification.0[..]).map_err(|err| {
+			format!("Failed to decode {} justification: {:?}", SourceChain::NAME, err)
+		})?;
 
 	let (initial_header_hash, initial_header_number) =
 		(justification.commit.target_hash, justification.commit.target_number);
@@ -140,7 +139,8 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	);
 
 	// Read GRANDPA authorities set at initial header.
-	let initial_authorities_set = source_authorities_set(&source_client, initial_header_hash).await?;
+	let initial_authorities_set =
+		source_authorities_set(&source_client, initial_header_hash).await?;
 	log::trace!(target: "bridge", "Selected {} initial authorities set: {:?}",
 		SourceChain::NAME,
 		initial_authorities_set,
@@ -159,7 +159,8 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	);
 	let schedules_change = scheduled_change.is_some();
 	if schedules_change {
-		authorities_for_verification = source_authorities_set(&source_client, *initial_header.parent_hash()).await?;
+		authorities_for_verification =
+			source_authorities_set(&source_client, *initial_header.parent_hash()).await?;
 		log::trace!(
 			target: "bridge",
 			"Selected {} header is scheduling GRANDPA authorities set changes. Using previous set: {:?}",
@@ -171,13 +172,14 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	// Now let's try to guess authorities set id by verifying justification.
 	let mut initial_authorities_set_id = 0;
 	let mut min_possible_block_number = SourceChain::BlockNumber::zero();
-	let authorities_for_verification = VoterSet::new(authorities_for_verification.clone()).ok_or_else(|| {
-		format!(
-			"Read invalid {} authorities set: {:?}",
-			SourceChain::NAME,
-			authorities_for_verification,
-		)
-	})?;
+	let authorities_for_verification = VoterSet::new(authorities_for_verification.clone())
+		.ok_or_else(|| {
+			format!(
+				"Read invalid {} authorities set: {:?}",
+				SourceChain::NAME,
+				authorities_for_verification,
+			)
+		})?;
 	loop {
 		log::trace!(
 			target: "bridge", "Trying {} GRANDPA authorities set id: {}",
@@ -194,21 +196,21 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 		.is_ok();
 
 		if is_valid_set_id {
-			break;
+			break
 		}
 
 		initial_authorities_set_id += 1;
 		min_possible_block_number += One::one();
 		if min_possible_block_number > initial_header_number {
-			// there can't be more authorities set changes than headers => if we have reached `initial_block_number`
-			// and still have not found correct value of `initial_authorities_set_id`, then something
-			// else is broken => fail
+			// there can't be more authorities set changes than headers => if we have reached
+			// `initial_block_number` and still have not found correct value of
+			// `initial_authorities_set_id`, then something else is broken => fail
 			return Err(format!(
 				"Failed to guess initial {} GRANDPA authorities set id: checked all\
 			possible ids in range [0; {}]",
 				SourceChain::NAME,
 				initial_header_number
-			));
+			))
 		}
 	}
 
@@ -244,10 +246,8 @@ async fn source_authorities_set<SourceChain: Chain>(
 	source_client: &Client<SourceChain>,
 	header_hash: SourceChain::Hash,
 ) -> Result<GrandpaAuthoritiesSet, String> {
-	let raw_authorities_set = source_client
-		.grandpa_authorities_set(header_hash)
-		.await
-		.map_err(|err| {
+	let raw_authorities_set =
+		source_client.grandpa_authorities_set(header_hash).await.map_err(|err| {
 			format!(
 				"Failed to retrive {} GRANDPA authorities set at header {}: {:?}",
 				SourceChain::NAME,

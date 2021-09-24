@@ -27,14 +27,20 @@ use structopt::StructOpt;
 use strum::VariantNames;
 
 use codec::Encode;
-use relay_substrate_client::{AccountIdOf, Chain, Client, TransactionSignScheme, UnsignedTransaction};
+use relay_substrate_client::{
+	AccountIdOf, Chain, Client, TransactionSignScheme, UnsignedTransaction,
+};
 use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
-use substrate_relay_helper::messages_lane::{MessagesRelayParams, SubstrateMessageLane};
-use substrate_relay_helper::on_demand_headers::OnDemandHeadersRelay;
+use substrate_relay_helper::{
+	messages_lane::{MessagesRelayParams, SubstrateMessageLane},
+	on_demand_headers::OnDemandHeadersRelay,
+};
 
-use crate::cli::{relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams};
-use crate::declare_chain_options;
+use crate::{
+	cli::{relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams},
+	declare_chain_options,
+};
 
 /// Maximal allowed conversion rate error ratio (abs(real - stored) / stored) that we allow.
 ///
@@ -63,16 +69,17 @@ pub struct HeadersAndMessagesSharedParams {
 	/// Create relayers fund accounts on both chains, if it does not exists yet.
 	#[structopt(long)]
 	create_relayers_fund_accounts: bool,
-	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set) are relayed.
+	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set)
+	/// are relayed.
 	#[structopt(long)]
 	only_mandatory_headers: bool,
 	#[structopt(flatten)]
 	prometheus_params: PrometheusParams,
 }
 
-// The reason behind this macro is that 'normal' relays are using source and target chains terminology,
-// which is unusable for both-way relays (if you're relaying headers from Rialto to Millau and from
-// Millau to Rialto, then which chain is source?).
+// The reason behind this macro is that 'normal' relays are using source and target chains
+// terminology, which is unusable for both-way relays (if you're relaying headers from Rialto to
+// Millau and from Millau to Rialto, then which chain is source?).
 macro_rules! declare_bridge_options {
 	($chain1:ident, $chain2:ident) => {
 		paste::item! {
@@ -116,25 +123,35 @@ macro_rules! select_bridge {
 				type Left = relay_millau_client::Millau;
 				type Right = relay_rialto_client::Rialto;
 
-				type LeftToRightFinality = crate::chains::millau_headers_to_rialto::MillauFinalityToRialto;
-				type RightToLeftFinality = crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
+				type LeftToRightFinality =
+					crate::chains::millau_headers_to_rialto::MillauFinalityToRialto;
+				type RightToLeftFinality =
+					crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
 
-				type LeftToRightMessages = crate::chains::millau_messages_to_rialto::MillauMessagesToRialto;
-				type RightToLeftMessages = crate::chains::rialto_messages_to_millau::RialtoMessagesToMillau;
+				type LeftToRightMessages =
+					crate::chains::millau_messages_to_rialto::MillauMessagesToRialto;
+				type RightToLeftMessages =
+					crate::chains::rialto_messages_to_millau::RialtoMessagesToMillau;
 
 				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
 				type RightAccountIdConverter = bp_rialto::AccountIdConverter;
 
-				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_millau::BlockNumber = bp_millau::SESSION_LENGTH;
-				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_rialto::BlockNumber = bp_rialto::SESSION_LENGTH;
+				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_millau::BlockNumber =
+					bp_millau::SESSION_LENGTH;
+				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_rialto::BlockNumber =
+					bp_rialto::SESSION_LENGTH;
 
-				use crate::chains::millau_messages_to_rialto::{
-					add_standalone_metrics as add_left_to_right_standalone_metrics, run as left_to_right_messages,
-					update_rialto_to_millau_conversion_rate as update_right_to_left_conversion_rate,
-				};
-				use crate::chains::rialto_messages_to_millau::{
-					add_standalone_metrics as add_right_to_left_standalone_metrics, run as right_to_left_messages,
-					update_millau_to_rialto_conversion_rate as update_left_to_right_conversion_rate,
+				use crate::chains::{
+					millau_messages_to_rialto::{
+						add_standalone_metrics as add_left_to_right_standalone_metrics,
+						run as left_to_right_messages,
+						update_rialto_to_millau_conversion_rate as update_right_to_left_conversion_rate,
+					},
+					rialto_messages_to_millau::{
+						add_standalone_metrics as add_right_to_left_standalone_metrics,
+						run as right_to_left_messages,
+						update_millau_to_rialto_conversion_rate as update_left_to_right_conversion_rate,
+					},
 				};
 
 				async fn left_create_account(
@@ -154,30 +171,40 @@ macro_rules! select_bridge {
 				}
 
 				$generic
-			}
+			},
 			RelayHeadersAndMessages::RococoWococo(_) => {
 				type Params = RococoWococoHeadersAndMessages;
 
 				type Left = relay_rococo_client::Rococo;
 				type Right = relay_wococo_client::Wococo;
 
-				type LeftToRightFinality = crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo;
-				type RightToLeftFinality = crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
+				type LeftToRightFinality =
+					crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo;
+				type RightToLeftFinality =
+					crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
 
-				type LeftToRightMessages = crate::chains::rococo_messages_to_wococo::RococoMessagesToWococo;
-				type RightToLeftMessages = crate::chains::wococo_messages_to_rococo::WococoMessagesToRococo;
+				type LeftToRightMessages =
+					crate::chains::rococo_messages_to_wococo::RococoMessagesToWococo;
+				type RightToLeftMessages =
+					crate::chains::wococo_messages_to_rococo::WococoMessagesToRococo;
 
 				type LeftAccountIdConverter = bp_rococo::AccountIdConverter;
 				type RightAccountIdConverter = bp_wococo::AccountIdConverter;
 
-				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_rococo::BlockNumber = bp_rococo::SESSION_LENGTH;
-				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_wococo::BlockNumber = bp_wococo::SESSION_LENGTH;
+				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_rococo::BlockNumber =
+					bp_rococo::SESSION_LENGTH;
+				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_wococo::BlockNumber =
+					bp_wococo::SESSION_LENGTH;
 
-				use crate::chains::rococo_messages_to_wococo::{
-					add_standalone_metrics as add_left_to_right_standalone_metrics, run as left_to_right_messages,
-				};
-				use crate::chains::wococo_messages_to_rococo::{
-					add_standalone_metrics as add_right_to_left_standalone_metrics, run as right_to_left_messages,
+				use crate::chains::{
+					rococo_messages_to_wococo::{
+						add_standalone_metrics as add_left_to_right_standalone_metrics,
+						run as left_to_right_messages,
+					},
+					wococo_messages_to_rococo::{
+						add_standalone_metrics as add_right_to_left_standalone_metrics,
+						run as right_to_left_messages,
+					},
 				};
 
 				async fn update_right_to_left_conversion_rate(
@@ -213,32 +240,42 @@ macro_rules! select_bridge {
 				}
 
 				$generic
-			}
+			},
 			RelayHeadersAndMessages::KusamaPolkadot(_) => {
 				type Params = KusamaPolkadotHeadersAndMessages;
 
 				type Left = relay_kusama_client::Kusama;
 				type Right = relay_polkadot_client::Polkadot;
 
-				type LeftToRightFinality = crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot;
-				type RightToLeftFinality = crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
+				type LeftToRightFinality =
+					crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot;
+				type RightToLeftFinality =
+					crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
 
-				type LeftToRightMessages = crate::chains::kusama_messages_to_polkadot::KusamaMessagesToPolkadot;
-				type RightToLeftMessages = crate::chains::polkadot_messages_to_kusama::PolkadotMessagesToKusama;
+				type LeftToRightMessages =
+					crate::chains::kusama_messages_to_polkadot::KusamaMessagesToPolkadot;
+				type RightToLeftMessages =
+					crate::chains::polkadot_messages_to_kusama::PolkadotMessagesToKusama;
 
 				type LeftAccountIdConverter = bp_kusama::AccountIdConverter;
 				type RightAccountIdConverter = bp_polkadot::AccountIdConverter;
 
-				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_kusama::BlockNumber = bp_kusama::SESSION_LENGTH;
-				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_polkadot::BlockNumber = bp_polkadot::SESSION_LENGTH;
+				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_kusama::BlockNumber =
+					bp_kusama::SESSION_LENGTH;
+				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_polkadot::BlockNumber =
+					bp_polkadot::SESSION_LENGTH;
 
-				use crate::chains::kusama_messages_to_polkadot::{
-					add_standalone_metrics as add_left_to_right_standalone_metrics, run as left_to_right_messages,
-					update_polkadot_to_kusama_conversion_rate as update_right_to_left_conversion_rate,
-				};
-				use crate::chains::polkadot_messages_to_kusama::{
-					add_standalone_metrics as add_right_to_left_standalone_metrics, run as right_to_left_messages,
-					update_kusama_to_polkadot_conversion_rate as update_left_to_right_conversion_rate,
+				use crate::chains::{
+					kusama_messages_to_polkadot::{
+						add_standalone_metrics as add_left_to_right_standalone_metrics,
+						run as left_to_right_messages,
+						update_polkadot_to_kusama_conversion_rate as update_right_to_left_conversion_rate,
+					},
+					polkadot_messages_to_kusama::{
+						add_standalone_metrics as add_right_to_left_standalone_metrics,
+						run as right_to_left_messages,
+						update_kusama_to_polkadot_conversion_rate as update_left_to_right_conversion_rate,
+					},
 				};
 
 				async fn left_create_account(
@@ -248,25 +285,24 @@ macro_rules! select_bridge {
 				) -> anyhow::Result<()> {
 					let left_genesis_hash = *left_client.genesis_hash();
 					left_client
-						.submit_signed_extrinsic(left_sign.public().into(), move |_, transaction_nonce| {
-							Bytes(
-								Left::sign_transaction(
-									left_genesis_hash,
-									&left_sign,
-									relay_substrate_client::TransactionEra::immortal(),
-									UnsignedTransaction::new(
-										relay_kusama_client::runtime::Call::Balances(
-											relay_kusama_client::runtime::BalancesCall::transfer(
-												bp_kusama::AccountAddress::Id(account_id),
-												bp_kusama::EXISTENTIAL_DEPOSIT.into(),
+						.submit_signed_extrinsic(
+							left_sign.public().into(),
+							move |_, transaction_nonce| {
+								Bytes(
+									Left::sign_transaction(left_genesis_hash, &left_sign, relay_substrate_client::TransactionEra::immortal(),
+										UnsignedTransaction::new(
+											relay_kusama_client::runtime::Call::Balances(
+												relay_kusama_client::runtime::BalancesCall::transfer(
+													bp_kusama::AccountAddress::Id(account_id),
+													bp_kusama::EXISTENTIAL_DEPOSIT.into(),
+												),
 											),
+											transaction_nonce,
 										),
-										transaction_nonce,
-									),
+									).encode()
 								)
-								.encode(),
-							)
-						})
+							},
+						)
 						.await
 						.map(drop)
 						.map_err(|e| anyhow::format_err!("{}", e))
@@ -279,32 +315,31 @@ macro_rules! select_bridge {
 				) -> anyhow::Result<()> {
 					let right_genesis_hash = *right_client.genesis_hash();
 					right_client
-						.submit_signed_extrinsic(right_sign.public().into(), move |_, transaction_nonce| {
-							Bytes(
-								Right::sign_transaction(
-									right_genesis_hash,
-									&right_sign,
-									relay_substrate_client::TransactionEra::immortal(),
-									UnsignedTransaction::new(
-										relay_polkadot_client::runtime::Call::Balances(
-											relay_polkadot_client::runtime::BalancesCall::transfer(
-												bp_polkadot::AccountAddress::Id(account_id),
-												bp_polkadot::EXISTENTIAL_DEPOSIT.into(),
+						.submit_signed_extrinsic(
+							right_sign.public().into(),
+							move |_, transaction_nonce| {
+								Bytes(
+									Right::sign_transaction(right_genesis_hash, &right_sign, relay_substrate_client::TransactionEra::immortal(),
+										UnsignedTransaction::new(
+											relay_polkadot_client::runtime::Call::Balances(
+												relay_polkadot_client::runtime::BalancesCall::transfer(
+													bp_polkadot::AccountAddress::Id(account_id),
+													bp_polkadot::EXISTENTIAL_DEPOSIT.into(),
+												),
 											),
+											transaction_nonce,
 										),
-										transaction_nonce,
-									),
+									).encode()
 								)
-								.encode(),
-							)
-						})
+							},
+						)
 						.await
 						.map(drop)
 						.map_err(|e| anyhow::format_err!("{}", e))
 				}
 
 				$generic
-			}
+			},
 		}
 	};
 }
@@ -330,16 +365,19 @@ impl RelayHeadersAndMessages {
 			let left_client = params.left.to_client::<Left>().await?;
 			let left_transactions_mortality = params.left_sign.transactions_mortality()?;
 			let left_sign = params.left_sign.to_keypair::<Left>()?;
-			let left_messages_pallet_owner = params.left_messages_pallet_owner.to_keypair::<Left>()?;
+			let left_messages_pallet_owner =
+				params.left_messages_pallet_owner.to_keypair::<Left>()?;
 			let right_client = params.right.to_client::<Right>().await?;
 			let right_transactions_mortality = params.right_sign.transactions_mortality()?;
 			let right_sign = params.right_sign.to_keypair::<Right>()?;
-			let right_messages_pallet_owner = params.right_messages_pallet_owner.to_keypair::<Right>()?;
+			let right_messages_pallet_owner =
+				params.right_messages_pallet_owner.to_keypair::<Right>()?;
 
 			let lanes = params.shared.lane;
 			let relayer_mode = params.shared.relayer_mode.into();
 
-			const METRIC_IS_SOME_PROOF: &str = "it is `None` when metric has been already registered; \
+			const METRIC_IS_SOME_PROOF: &str =
+				"it is `None` when metric has been already registered; \
 				this is the command entrypoint, so nothing has been registered yet; \
 				qed";
 
@@ -413,22 +451,40 @@ impl RelayHeadersAndMessages {
 			}
 
 			if params.shared.create_relayers_fund_accounts {
-				let relayer_fund_acount_id =
-					pallet_bridge_messages::relayer_fund_account_id::<AccountIdOf<Left>, LeftAccountIdConverter>();
+				let relayer_fund_acount_id = pallet_bridge_messages::relayer_fund_account_id::<
+					AccountIdOf<Left>,
+					LeftAccountIdConverter,
+				>();
 				let relayers_fund_account_balance =
 					left_client.free_native_balance(relayer_fund_acount_id.clone()).await;
-				if let Err(relay_substrate_client::Error::AccountDoesNotExist) = relayers_fund_account_balance {
+				if let Err(relay_substrate_client::Error::AccountDoesNotExist) =
+					relayers_fund_account_balance
+				{
 					log::info!(target: "bridge", "Going to create relayers fund account at {}.", Left::NAME);
-					left_create_account(left_client.clone(), left_sign.clone(), relayer_fund_acount_id).await?;
+					left_create_account(
+						left_client.clone(),
+						left_sign.clone(),
+						relayer_fund_acount_id,
+					)
+					.await?;
 				}
 
-				let relayer_fund_acount_id =
-					pallet_bridge_messages::relayer_fund_account_id::<AccountIdOf<Right>, RightAccountIdConverter>();
+				let relayer_fund_acount_id = pallet_bridge_messages::relayer_fund_account_id::<
+					AccountIdOf<Right>,
+					RightAccountIdConverter,
+				>();
 				let relayers_fund_account_balance =
 					right_client.free_native_balance(relayer_fund_acount_id.clone()).await;
-				if let Err(relay_substrate_client::Error::AccountDoesNotExist) = relayers_fund_account_balance {
+				if let Err(relay_substrate_client::Error::AccountDoesNotExist) =
+					relayers_fund_account_balance
+				{
 					log::info!(target: "bridge", "Going to create relayers fund account at {}.", Right::NAME);
-					right_create_account(right_client.clone(), right_sign.clone(), relayer_fund_acount_id).await?;
+					right_create_account(
+						right_client.clone(),
+						right_sign.clone(),
+						relayer_fund_acount_id,
+					)
+					.await?;
 				}
 			}
 

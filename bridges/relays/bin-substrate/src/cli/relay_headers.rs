@@ -19,7 +19,9 @@ use strum::{EnumString, EnumVariantNames, VariantNames};
 
 use substrate_relay_helper::finality_pipeline::SubstrateFinalitySyncPipeline;
 
-use crate::cli::{PrometheusParams, SourceConnectionParams, TargetConnectionParams, TargetSigningParams};
+use crate::cli::{
+	PrometheusParams, SourceConnectionParams, TargetConnectionParams, TargetSigningParams,
+};
 
 /// Start headers relayer process.
 #[derive(StructOpt)]
@@ -27,7 +29,8 @@ pub struct RelayHeaders {
 	/// A bridge instance to relay headers for.
 	#[structopt(possible_values = RelayHeadersBridge::VARIANTS, case_insensitive = true)]
 	bridge: RelayHeadersBridge,
-	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set) are relayed.
+	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set)
+	/// are relayed.
 	#[structopt(long)]
 	only_mandatory_headers: bool,
 	#[structopt(flatten)]
@@ -62,49 +65,49 @@ macro_rules! select_bridge {
 				type Finality = crate::chains::millau_headers_to_rialto::MillauFinalityToRialto;
 
 				$generic
-			}
+			},
 			RelayHeadersBridge::RialtoToMillau => {
 				type Source = relay_rialto_client::Rialto;
 				type Target = relay_millau_client::Millau;
 				type Finality = crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
 
 				$generic
-			}
+			},
 			RelayHeadersBridge::WestendToMillau => {
 				type Source = relay_westend_client::Westend;
 				type Target = relay_millau_client::Millau;
 				type Finality = crate::chains::westend_headers_to_millau::WestendFinalityToMillau;
 
 				$generic
-			}
+			},
 			RelayHeadersBridge::RococoToWococo => {
 				type Source = relay_rococo_client::Rococo;
 				type Target = relay_wococo_client::Wococo;
 				type Finality = crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo;
 
 				$generic
-			}
+			},
 			RelayHeadersBridge::WococoToRococo => {
 				type Source = relay_wococo_client::Wococo;
 				type Target = relay_rococo_client::Rococo;
 				type Finality = crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
 
 				$generic
-			}
+			},
 			RelayHeadersBridge::KusamaToPolkadot => {
 				type Source = relay_kusama_client::Kusama;
 				type Target = relay_polkadot_client::Polkadot;
 				type Finality = crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot;
 
 				$generic
-			}
+			},
 			RelayHeadersBridge::PolkadotToKusama => {
 				type Source = relay_polkadot_client::Polkadot;
 				type Target = relay_kusama_client::Kusama;
 				type Finality = crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
 
 				$generic
-			}
+			},
 		}
 	};
 }

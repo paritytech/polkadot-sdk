@@ -22,7 +22,9 @@
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
 use bp_runtime::Chain;
-use frame_support::weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial};
+use frame_support::weights::{
+	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
@@ -114,25 +116,31 @@ pub const BEST_FINALIZED_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_best_
 /// Name of the `WestendFinalityApi::is_known_header` runtime method.
 pub const IS_KNOWN_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_is_known_header";
 
-/// Name of the `ToWestendOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime method.
+/// Name of the `ToWestendOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
+/// method.
 pub const TO_WESTEND_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToWestendOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToWestendOutboundLaneApi::message_details` runtime method.
 pub const TO_WESTEND_MESSAGE_DETAILS_METHOD: &str = "ToWestendOutboundLaneApi_message_details";
 /// Name of the `ToWestendOutboundLaneApi::latest_generated_nonce` runtime method.
-pub const TO_WESTEND_LATEST_GENERATED_NONCE_METHOD: &str = "ToWestendOutboundLaneApi_latest_generated_nonce";
+pub const TO_WESTEND_LATEST_GENERATED_NONCE_METHOD: &str =
+	"ToWestendOutboundLaneApi_latest_generated_nonce";
 /// Name of the `ToWestendOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_WESTEND_LATEST_RECEIVED_NONCE_METHOD: &str = "ToWestendOutboundLaneApi_latest_received_nonce";
+pub const TO_WESTEND_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"ToWestendOutboundLaneApi_latest_received_nonce";
 
 /// Name of the `FromWestendInboundLaneApi::latest_received_nonce` runtime method.
-pub const FROM_WESTEND_LATEST_RECEIVED_NONCE_METHOD: &str = "FromWestendInboundLaneApi_latest_received_nonce";
+pub const FROM_WESTEND_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"FromWestendInboundLaneApi_latest_received_nonce";
 /// Name of the `FromWestendInboundLaneApi::latest_onfirmed_nonce` runtime method.
-pub const FROM_WESTEND_LATEST_CONFIRMED_NONCE_METHOD: &str = "FromWestendInboundLaneApi_latest_confirmed_nonce";
+pub const FROM_WESTEND_LATEST_CONFIRMED_NONCE_METHOD: &str =
+	"FromWestendInboundLaneApi_latest_confirmed_nonce";
 /// Name of the `FromWestendInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_WESTEND_UNREWARDED_RELAYERS_STATE: &str = "FromWestendInboundLaneApi_unrewarded_relayers_state";
+pub const FROM_WESTEND_UNREWARDED_RELAYERS_STATE: &str =
+	"FromWestendInboundLaneApi_unrewarded_relayers_state";
 
-/// The target length of a session (how often authorities change) on Westend measured in of number of
-/// blocks.
+/// The target length of a session (how often authorities change) on Westend measured in of number
+/// of blocks.
 ///
 /// Note that since this is a target sessions may change before/after this time depending on network
 /// conditions.

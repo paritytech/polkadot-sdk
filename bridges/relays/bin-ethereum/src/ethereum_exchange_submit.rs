@@ -22,7 +22,8 @@ use bp_eth_poa::{
 };
 use relay_ethereum_client::{
 	types::{CallRequest, U256},
-	Client as EthereumClient, ConnectionParams as EthereumConnectionParams, SigningParams as EthereumSigningParams,
+	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
+	SigningParams as EthereumSigningParams,
 };
 use rialto_runtime::exchange::LOCK_FUNDS_ADDRESS;
 
@@ -43,13 +44,8 @@ pub struct EthereumExchangeSubmitParams {
 
 /// Submit single Ethereum -> Substrate exchange transaction.
 pub async fn run(params: EthereumExchangeSubmitParams) {
-	let EthereumExchangeSubmitParams {
-		eth_params,
-		eth_sign,
-		eth_nonce,
-		eth_amount,
-		sub_recipient,
-	} = params;
+	let EthereumExchangeSubmitParams { eth_params, eth_sign, eth_nonce, eth_amount, sub_recipient } =
+		params;
 
 	let result: Result<_, String> = async move {
 		let eth_client = EthereumClient::try_connect(eth_params)
@@ -83,9 +79,8 @@ pub async fn run(params: EthereumExchangeSubmitParams) {
 			value: eth_amount,
 			payload: sub_recipient_encoded.to_vec(),
 		};
-		let eth_tx_signed = eth_tx_unsigned
-			.clone()
-			.sign_by(&eth_sign.signer, Some(eth_sign.chain_id));
+		let eth_tx_signed =
+			eth_tx_unsigned.clone().sign_by(&eth_sign.signer, Some(eth_sign.chain_id));
 		eth_client
 			.submit_transaction(eth_tx_signed)
 			.await
@@ -102,13 +97,13 @@ pub async fn run(params: EthereumExchangeSubmitParams) {
 				"Exchange transaction has been submitted to Ethereum node: {:?}",
 				eth_tx_unsigned,
 			);
-		}
+		},
 		Err(err) => {
 			log::error!(
 				target: "bridge",
 				"Error submitting exchange transaction to Ethereum node: {}",
 				err,
 			);
-		}
+		},
 	}
 }

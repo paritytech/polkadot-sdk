@@ -17,8 +17,8 @@
 use super::*;
 
 use crate::test_utils::{
-	build_custom_header, build_genesis_header, insert_header, validator_utils::*, validators_change_receipt,
-	HeaderBuilder,
+	build_custom_header, build_genesis_header, insert_header, validator_utils::*,
+	validators_change_receipt, HeaderBuilder,
 };
 
 use bp_eth_poa::{compute_merkle_root, U256};

@@ -18,7 +18,9 @@ use crate::cli::{TargetConnectionParams, TargetSigningParams};
 
 use codec::{Decode, Encode};
 use num_traits::{One, Zero};
-use relay_substrate_client::{BlockWithJustification, Chain, Client, Error as SubstrateError, TransactionSignScheme};
+use relay_substrate_client::{
+	BlockWithJustification, Chain, Client, Error as SubstrateError, TransactionSignScheme,
+};
 use relay_utils::FailedClient;
 use sp_core::Bytes;
 use sp_runtime::{
@@ -54,13 +56,15 @@ macro_rules! select_bridge {
 				type Target = relay_millau_client::Millau;
 				type TargetSign = relay_millau_client::Millau;
 
-				// When large message is being sent from Millau to Rialto AND other transactions are blocking
-				// it from being mined, we'll see something like this in logs:
+				// When large message is being sent from Millau to Rialto AND other transactions are
+				// blocking it from being mined, we'll see something like this in logs:
 				//
-				// Millau transaction priority with tip=0: 17800827994. Target priority: 526186677695
+				// Millau transaction priority with tip=0: 17800827994. Target priority:
+				// 526186677695
 				//
-				// So since fee multiplier in Millau is `1` and `WeightToFee` is `IdentityFee`, then we need
-				// tip around `526186677695 - 17800827994 = 508_385_849_701`. Let's round it up to `1_000_000_000_000`.
+				// So since fee multiplier in Millau is `1` and `WeightToFee` is `IdentityFee`, then
+				// we need tip around `526186677695 - 17800827994 = 508_385_849_701`. Let's round it
+				// up to `1_000_000_000_000`.
 
 				const TIP_STEP: bp_millau::Balance = 1_000_000_000;
 				const TIP_LIMIT: bp_millau::Balance = 1_000_000_000_000;
@@ -68,7 +72,7 @@ macro_rules! select_bridge {
 				const STALLED_BLOCKS: bp_millau::BlockNumber = 5;
 
 				$generic
-			}
+			},
 		}
 	};
 }
@@ -158,8 +162,8 @@ async fn run_until_connection_lost<C: Chain, S: TransactionSignScheme<Chain = C>
 					C::NAME,
 					error,
 				);
-				return Err(FailedClient::Target);
-			}
+				return Err(FailedClient::Target)
+			},
 		};
 	}
 }
@@ -174,8 +178,8 @@ async fn run_loop_iteration<C: Chain, S: TransactionSignScheme<Chain = C>>(
 		Some(original_transaction) => original_transaction,
 		None => {
 			log::trace!(target: "bridge", "No {} transactions from required signer in the txpool", C::NAME);
-			return Ok(context);
-		}
+			return Ok(context)
+		},
 	};
 	let original_transaction_hash = C::Hasher::hash(&original_transaction.encode());
 	let context = context.notice_transaction(original_transaction_hash);
@@ -189,15 +193,15 @@ async fn run_loop_iteration<C: Chain, S: TransactionSignScheme<Chain = C>>(
 			context.stalled_for,
 			context.stalled_for_limit,
 		);
-		return Ok(context);
+		return Ok(context)
 	}
 
 	let (best_block, target_priority) = match read_previous_best_priority::<C, S>(&client).await? {
 		Some((best_block, target_priority)) => (best_block, target_priority),
 		None => {
 			log::trace!(target: "bridge", "Failed to read priority of best {} transaction in its best block", C::NAME);
-			return Ok(context);
-		}
+			return Ok(context)
+		},
 	};
 
 	let (is_updated, updated_transaction) = select_transaction_tip::<C, S>(
@@ -213,7 +217,7 @@ async fn run_loop_iteration<C: Chain, S: TransactionSignScheme<Chain = C>>(
 
 	if !is_updated {
 		log::trace!(target: "bridge", "{} transaction tip can not be updated. Reached limit?", C::NAME);
-		return Ok(context);
+		return Ok(context)
 	}
 
 	let updated_transaction = updated_transaction.encode();
@@ -241,10 +245,10 @@ async fn lookup_signer_transaction<C: Chain, S: TransactionSignScheme<Chain = C>
 		let pending_transaction = S::SignedTransaction::decode(&mut &pending_transaction.0[..])
 			.map_err(SubstrateError::ResponseParseFailed)?;
 		if !S::is_signed_by(key_pair, &pending_transaction) {
-			continue;
+			continue
 		}
 
-		return Ok(Some(pending_transaction));
+		return Ok(Some(pending_transaction))
 	}
 
 	Ok(None)
@@ -286,14 +290,15 @@ async fn select_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 ) -> Result<(bool, S::SignedTransaction), SubstrateError> {
 	let stx = format!("{:?}", tx);
 	let mut current_priority = client.validate_transaction(at_block, tx.clone()).await??.priority;
-	let mut unsigned_tx = S::parse_transaction(tx)
-		.ok_or_else(|| SubstrateError::Custom(format!("Failed to parse {} transaction {}", C::NAME, stx,)))?;
+	let mut unsigned_tx = S::parse_transaction(tx).ok_or_else(|| {
+		SubstrateError::Custom(format!("Failed to parse {} transaction {}", C::NAME, stx,))
+	})?;
 	let old_tip = unsigned_tx.tip;
 
 	while current_priority < target_priority {
 		let next_tip = unsigned_tx.tip + tip_step;
 		if next_tip > tip_limit {
-			break;
+			break
 		}
 
 		log::trace!(
