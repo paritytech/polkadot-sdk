@@ -16,15 +16,15 @@
 
 //! Messages pallet benchmarking.
 
-use crate::weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH;
 use crate::{
-	inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane, outbound_lane::ReceivalConfirmationResult,
-	Call,
+	inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane,
+	outbound_lane::ReceivalConfirmationResult, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH, Call,
 };
 
 use bp_messages::{
-	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, DeliveredMessages, InboundLaneData, LaneId,
-	MessageData, MessageNonce, OutboundLaneData, UnrewardedRelayer, UnrewardedRelayersState,
+	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, DeliveredMessages,
+	InboundLaneData, LaneId, MessageData, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+	UnrewardedRelayersState,
 };
 use bp_runtime::messages::DispatchFeePayment;
 use frame_benchmarking::{account, benchmarks_instance_pallet};
@@ -50,11 +50,11 @@ pub enum ProofSize {
 	/// The proof is expected to be minimal. If value size may be changed, then it is expected to
 	/// have given size.
 	Minimal(u32),
-	/// The proof is expected to have at least given size and grow by increasing number of trie nodes
-	/// included in the proof.
+	/// The proof is expected to have at least given size and grow by increasing number of trie
+	/// nodes included in the proof.
 	HasExtraNodes(u32),
-	/// The proof is expected to have at least given size and grow by increasing value that is stored
-	/// in the trie.
+	/// The proof is expected to have at least given size and grow by increasing value that is
+	/// stored in the trie.
 	HasLargeLeaf(u32),
 }
 
@@ -900,18 +900,12 @@ benchmarks_instance_pallet! {
 
 fn send_regular_message<T: Config<I>, I: 'static>() {
 	let mut outbound_lane = outbound_lane::<T, I>(T::bench_lane_id());
-	outbound_lane.send_message(MessageData {
-		payload: vec![],
-		fee: MESSAGE_FEE.into(),
-	});
+	outbound_lane.send_message(MessageData { payload: vec![], fee: MESSAGE_FEE.into() });
 }
 
 fn send_regular_message_with_payload<T: Config<I>, I: 'static>(payload: Vec<u8>) {
 	let mut outbound_lane = outbound_lane::<T, I>(T::bench_lane_id());
-	outbound_lane.send_message(MessageData {
-		payload,
-		fee: MESSAGE_FEE.into(),
-	});
+	outbound_lane.send_message(MessageData { payload, fee: MESSAGE_FEE.into() });
 }
 
 fn confirm_message_delivery<T: Config<I>, I: 'static>(nonce: MessageNonce) {
@@ -943,7 +937,10 @@ fn receive_messages<T: Config<I>, I: 'static>(nonce: MessageNonce) {
 	});
 }
 
-fn ensure_relayer_rewarded<T: Config<I>, I: 'static>(relayer_id: &T::AccountId, old_balance: &T::OutboundMessageFee) {
+fn ensure_relayer_rewarded<T: Config<I>, I: 'static>(
+	relayer_id: &T::AccountId,
+	old_balance: &T::OutboundMessageFee,
+) {
 	let new_balance = T::account_balance(relayer_id);
 	assert!(
 		new_balance > *old_balance,

@@ -185,10 +185,7 @@ pub struct SealedEmptyStep {
 impl AuraHeader {
 	/// Compute id of this header.
 	pub fn compute_id(&self) -> HeaderId {
-		HeaderId {
-			number: self.number,
-			hash: self.compute_hash(),
-		}
+		HeaderId { number: self.number, hash: self.compute_hash() }
 	}
 
 	/// Compute hash of this header (keccak of the RLP with seal).
@@ -198,10 +195,9 @@ impl AuraHeader {
 
 	/// Get id of this header' parent. Returns None if this is genesis header.
 	pub fn parent_id(&self) -> Option<HeaderId> {
-		self.number.checked_sub(1).map(|parent_number| HeaderId {
-			number: parent_number,
-			hash: self.parent_hash,
-		})
+		self.number
+			.checked_sub(1)
+			.map(|parent_number| HeaderId { number: parent_number, hash: self.parent_hash })
 	}
 
 	/// Check if passed transactions receipts are matching receipts root in this header.
@@ -238,7 +234,7 @@ impl AuraHeader {
 				let mut message = self.compute_hash().as_bytes().to_vec();
 				message.extend_from_slice(self.seal.get(2)?);
 				keccak_256(&message).into()
-			}
+			},
 			false => keccak_256(&self.rlp(false)).into(),
 		})
 	}
@@ -255,9 +251,7 @@ impl AuraHeader {
 
 	/// Extracts the empty steps from the header seal.
 	pub fn empty_steps(&self) -> Option<Vec<SealedEmptyStep>> {
-		self.seal
-			.get(2)
-			.and_then(|x| Rlp::new(x).as_list::<SealedEmptyStep>().ok())
+		self.seal.get(2).and_then(|x| Rlp::new(x).as_list::<SealedEmptyStep>().ok())
 	}
 
 	/// Returns header RLP with or without seals.
@@ -368,15 +362,15 @@ impl Receipt {
 		match self.outcome {
 			TransactionOutcome::Unknown => {
 				s.begin_list(3);
-			}
+			},
 			TransactionOutcome::StateRoot(ref root) => {
 				s.begin_list(4);
 				s.append(root);
-			}
+			},
 			TransactionOutcome::StatusCode(ref status_code) => {
 				s.begin_list(4);
 				s.append(status_code);
-			}
+			},
 		}
 		s.append(&self.gas_used);
 		s.append(&EthBloom::from(self.log_bloom.0));
@@ -428,13 +422,13 @@ impl Decodable for SealedEmptyStep {
 impl LogEntry {
 	/// Calculates the bloom of this log entry.
 	pub fn bloom(&self) -> Bloom {
-		let eth_bloom =
-			self.topics
-				.iter()
-				.fold(EthBloom::from(BloomInput::Raw(self.address.as_bytes())), |mut b, t| {
-					b.accrue(BloomInput::Raw(t.as_bytes()));
-					b
-				});
+		let eth_bloom = self.topics.iter().fold(
+			EthBloom::from(BloomInput::Raw(self.address.as_bytes())),
+			|mut b, t| {
+				b.accrue(BloomInput::Raw(t.as_bytes()));
+				b
+			},
+		);
 		Bloom(*eth_bloom.data())
 	}
 }
@@ -498,14 +492,12 @@ pub fn transaction_decode_rlp(raw_tx: &[u8]) -> Result<Transaction, DecoderError
 	let message = unsigned.message(chain_id);
 
 	// recover tx sender
-	let sender_public = sp_io::crypto::secp256k1_ecdsa_recover(&signature, message.as_fixed_bytes())
-		.map_err(|_| rlp::DecoderError::Custom("Failed to recover transaction sender"))?;
+	let sender_public =
+		sp_io::crypto::secp256k1_ecdsa_recover(&signature, message.as_fixed_bytes())
+			.map_err(|_| rlp::DecoderError::Custom("Failed to recover transaction sender"))?;
 	let sender_address = public_to_address(&sender_public);
 
-	Ok(Transaction {
-		sender: sender_address,
-		unsigned,
-	})
+	Ok(Transaction { sender: sender_address, unsigned })
 }
 
 /// Convert public key into corresponding ethereum address.
@@ -519,7 +511,10 @@ pub fn public_to_address(public: &[u8; 64]) -> Address {
 /// Check ethereum merkle proof.
 /// Returns Ok(computed-root) if check succeeds.
 /// Returns Err(computed-root) if check fails.
-fn check_merkle_proof<T: AsRef<[u8]>>(expected_root: H256, items: impl Iterator<Item = T>) -> Result<H256, H256> {
+fn check_merkle_proof<T: AsRef<[u8]>>(
+	expected_root: H256,
+	items: impl Iterator<Item = T>,
+) -> Result<H256, H256> {
 	let computed_root = compute_merkle_root(items);
 	if computed_root == expected_root {
 		Ok(computed_root)

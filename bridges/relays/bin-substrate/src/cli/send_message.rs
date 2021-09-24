@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::bridge::FullBridge;
-use crate::cli::encode_call::{self, CliEncodeCall};
-use crate::cli::estimate_fee::estimate_message_delivery_and_dispatch_fee;
 use crate::cli::{
-	Balance, CliChain, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, SourceConnectionParams, SourceSigningParams,
-	TargetSigningParams,
+	bridge::FullBridge,
+	encode_call::{self, CliEncodeCall},
+	estimate_fee::estimate_message_delivery_and_dispatch_fee,
+	Balance, CliChain, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, SourceConnectionParams,
+	SourceSigningParams, TargetSigningParams,
 };
 use bp_message_dispatch::{CallOrigin, MessagePayload};
 use bp_runtime::BalanceOf;
@@ -77,7 +77,8 @@ pub struct SendMessage {
 	/// Dispatch weight of the message. If not passed, determined automatically.
 	#[structopt(long)]
 	dispatch_weight: Option<ExplicitOrMaximal<Weight>>,
-	/// Delivery and dispatch fee in source chain base currency units. If not passed, determined automatically.
+	/// Delivery and dispatch fee in source chain base currency units. If not passed, determined
+	/// automatically.
 	#[structopt(long)]
 	fee: Option<Balance>,
 	/// Message type.
@@ -138,7 +139,7 @@ impl SendMessage {
 								target_origin_public.into(),
 								digest_signature.into(),
 							)
-						}
+						},
 					},
 					&target_call,
 					*dispatch_fee_payment,
@@ -238,10 +239,7 @@ fn prepare_call_dispatch_weight(
 	weight_from_pre_dispatch_call: ExplicitOrMaximal<Weight>,
 	maximal_allowed_weight: Weight,
 ) -> Weight {
-	match user_specified_dispatch_weight
-		.clone()
-		.unwrap_or(weight_from_pre_dispatch_call)
-	{
+	match user_specified_dispatch_weight.clone().unwrap_or(weight_from_pre_dispatch_call) {
 		ExplicitOrMaximal::Explicit(weight) => weight,
 		ExplicitOrMaximal::Maximal => maximal_allowed_weight,
 	}
@@ -272,24 +270,14 @@ where
 	log::info!(target: "bridge", "Encoded Message Payload: {:?}", HexBytes::encode(&payload));
 
 	// re-pack to return `Vec<u8>`
-	let MessagePayload {
-		spec_version,
-		weight,
-		origin,
-		dispatch_fee_payment,
-		call,
-	} = payload;
-	MessagePayload {
-		spec_version,
-		weight,
-		origin,
-		dispatch_fee_payment,
-		call: call.0,
-	}
+	let MessagePayload { spec_version, weight, origin, dispatch_fee_payment, call } = payload;
+	MessagePayload { spec_version, weight, origin, dispatch_fee_payment, call: call.0 }
 }
 
 pub(crate) fn compute_maximal_message_dispatch_weight(maximal_extrinsic_weight: Weight) -> Weight {
-	bridge_runtime_common::messages::target::maximal_incoming_message_dispatch_weight(maximal_extrinsic_weight)
+	bridge_runtime_common::messages::target::maximal_incoming_message_dispatch_weight(
+		maximal_extrinsic_weight,
+	)
 }
 
 #[cfg(test)]
@@ -321,7 +309,9 @@ mod tests {
 			MessagePayload {
 				spec_version: relay_millau_client::Millau::RUNTIME_VERSION.spec_version,
 				weight: 576000,
-				origin: CallOrigin::SourceAccount(sp_keyring::AccountKeyring::Alice.to_account_id()),
+				origin: CallOrigin::SourceAccount(
+					sp_keyring::AccountKeyring::Alice.to_account_id()
+				),
 				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtSourceChain,
 				call: hex!("0001081234").to_vec(),
 			}

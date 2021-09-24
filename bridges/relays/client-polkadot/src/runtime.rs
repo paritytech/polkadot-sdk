@@ -128,7 +128,9 @@ pub enum BridgeKusamaMessagesCall {
 	),
 	#[codec(index = 6)]
 	receive_messages_delivery_proof(
-		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<bp_kusama::Hash>,
+		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<
+			bp_kusama::Hash,
+		>,
 		UnrewardedRelayersState,
 	),
 }

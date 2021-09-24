@@ -41,41 +41,41 @@ impl CliEncodeCall for Kusama {
 
 	fn encode_call(call: &Call) -> anyhow::Result<Self::Call> {
 		Ok(match call {
-			Call::Remark { remark_payload, .. } => {
-				relay_kusama_client::runtime::Call::System(relay_kusama_client::runtime::SystemCall::remark(
+			Call::Remark { remark_payload, .. } => relay_kusama_client::runtime::Call::System(
+				relay_kusama_client::runtime::SystemCall::remark(
 					remark_payload.as_ref().map(|x| x.0.clone()).unwrap_or_default(),
-				))
-			}
-			Call::BridgeSendMessage {
-				lane,
-				payload,
-				fee,
-				bridge_instance_index,
-			} => match *bridge_instance_index {
-				bridge::KUSAMA_TO_POLKADOT_INDEX => {
-					let payload = Decode::decode(&mut &*payload.0)?;
-					relay_kusama_client::runtime::Call::BridgePolkadotMessages(
-						relay_kusama_client::runtime::BridgePolkadotMessagesCall::send_message(lane.0, payload, fee.0),
-					)
-				}
-				_ => anyhow::bail!(
-					"Unsupported target bridge pallet with instance index: {}",
-					bridge_instance_index
 				),
-			},
+			),
+			Call::BridgeSendMessage { lane, payload, fee, bridge_instance_index } =>
+				match *bridge_instance_index {
+					bridge::KUSAMA_TO_POLKADOT_INDEX => {
+						let payload = Decode::decode(&mut &*payload.0)?;
+						relay_kusama_client::runtime::Call::BridgePolkadotMessages(
+							relay_kusama_client::runtime::BridgePolkadotMessagesCall::send_message(
+								lane.0, payload, fee.0,
+							),
+						)
+					},
+					_ => anyhow::bail!(
+						"Unsupported target bridge pallet with instance index: {}",
+						bridge_instance_index
+					),
+				},
 			_ => anyhow::bail!("Unsupported Kusama call: {:?}", call),
 		})
 	}
 
-	fn get_dispatch_info(call: &relay_kusama_client::runtime::Call) -> anyhow::Result<DispatchInfo> {
+	fn get_dispatch_info(
+		call: &relay_kusama_client::runtime::Call,
+	) -> anyhow::Result<DispatchInfo> {
 		match *call {
-			relay_kusama_client::runtime::Call::System(relay_kusama_client::runtime::SystemCall::remark(_)) => {
-				Ok(DispatchInfo {
-					weight: crate::chains::kusama::SYSTEM_REMARK_CALL_WEIGHT,
-					class: DispatchClass::Normal,
-					pays_fee: Pays::Yes,
-				})
-			}
+			relay_kusama_client::runtime::Call::System(
+				relay_kusama_client::runtime::SystemCall::remark(_),
+			) => Ok(DispatchInfo {
+				weight: crate::chains::kusama::SYSTEM_REMARK_CALL_WEIGHT,
+				class: DispatchClass::Normal,
+				pays_fee: Pays::Yes,
+			}),
 			_ => anyhow::bail!("Unsupported Kusama call: {:?}", call),
 		}
 	}
@@ -95,7 +95,9 @@ impl CliChain for Kusama {
 		bp_kusama::max_extrinsic_weight()
 	}
 
-	fn encode_message(_message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
+	fn encode_message(
+		_message: encode_message::MessagePayload,
+	) -> Result<Self::MessagePayload, String> {
 		Err("Sending messages from Kusama is not yet supported.".into())
 	}
 }

@@ -28,15 +28,16 @@ use strum::{EnumString, EnumVariantNames, VariantNames};
 
 use frame_support::dispatch::GetDispatchInfo;
 use relay_substrate_client::{
-	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, CallOf, Chain, ChainWithBalances, Client,
-	Error as SubstrateError, HashOf, SignatureOf, Subscription, TransactionSignScheme, TransactionStatusOf,
-	UnsignedTransaction,
+	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, CallOf, Chain, ChainWithBalances,
+	Client, Error as SubstrateError, HashOf, SignatureOf, Subscription, TransactionSignScheme,
+	TransactionStatusOf, UnsignedTransaction,
 };
 use sp_core::{blake2_256, storage::StorageKey, Bytes, Pair, H256, U256};
 use sp_runtime::traits::{Convert, Header as HeaderT};
 
 use crate::cli::{
-	Balance, CliChain, SourceConnectionParams, SourceSigningParams, TargetConnectionParams, TargetSigningParams,
+	Balance, CliChain, SourceConnectionParams, SourceSigningParams, TargetConnectionParams,
+	TargetSigningParams,
 };
 
 /// Swap tokens.
@@ -71,7 +72,8 @@ pub struct SwapTokens {
 pub enum TokenSwapType {
 	/// The `target_sign` is temporary and only have funds for single swap.
 	NoLock,
-	/// This swap type prevents `source_signer` from restarting the swap after it has been completed.
+	/// This swap type prevents `source_signer` from restarting the swap after it has been
+	/// completed.
 	LockUntilBlock {
 		/// Number of blocks before the swap expires.
 		#[structopt(long)]
@@ -119,7 +121,7 @@ macro_rules! select_bridge {
 				const TARGET_TO_SOURCE_LANE_ID: bp_messages::LaneId = [0, 0, 0, 0];
 
 				$generic
-			}
+			},
 		}
 	};
 }
@@ -133,7 +135,8 @@ impl SwapTokens {
 			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 
-			// names of variables in this function are matching names used by the `pallet-bridge-token-swap`
+			// names of variables in this function are matching names used by the
+			// `pallet-bridge-token-swap`
 
 			// prepare token swap intention
 			let token_swap = self
@@ -143,18 +146,25 @@ impl SwapTokens {
 			// group all accounts that will be used later
 			let accounts = TokenSwapAccounts {
 				source_account_at_bridged_chain: derive_target_account_from_source_account(
-					bp_runtime::SourceAccount::Account(token_swap.source_account_at_this_chain.clone()),
+					bp_runtime::SourceAccount::Account(
+						token_swap.source_account_at_this_chain.clone(),
+					),
 				),
 				target_account_at_this_chain: derive_source_account_from_target_account(
-					bp_runtime::SourceAccount::Account(token_swap.target_account_at_bridged_chain.clone()),
+					bp_runtime::SourceAccount::Account(
+						token_swap.target_account_at_bridged_chain.clone(),
+					),
 				),
 				source_account_at_this_chain: token_swap.source_account_at_this_chain.clone(),
 				target_account_at_bridged_chain: token_swap.target_account_at_bridged_chain.clone(),
-				swap_account: FromSwapToThisAccountIdConverter::convert(token_swap.using_encoded(blake2_256).into()),
+				swap_account: FromSwapToThisAccountIdConverter::convert(
+					token_swap.using_encoded(blake2_256).into(),
+				),
 			};
 
 			// account balances are used to demonstrate what's happening :)
-			let initial_balances = read_account_balances(&accounts, &source_client, &target_client).await?;
+			let initial_balances =
+				read_account_balances(&accounts, &source_client, &target_client).await?;
 
 			// before calling something that may fail, log what we're trying to do
 			log::info!(target: "bridge", "Starting swap: {:?}", token_swap);
@@ -171,7 +181,8 @@ impl SwapTokens {
 				token_swap.target_balance_at_bridged_chain,
 			)
 			.into();
-			let bridged_currency_transfer_weight = bridged_currency_transfer.get_dispatch_info().weight;
+			let bridged_currency_transfer_weight =
+				bridged_currency_transfer.get_dispatch_info().weight;
 
 			// sign message
 			let bridged_chain_spec_version = TARGET_SPEC_VERSION;
@@ -182,10 +193,12 @@ impl SwapTokens {
 				SOURCE_CHAIN_ID,
 				TARGET_CHAIN_ID,
 			);
-			let bridged_currency_transfer_signature: SignatureOf<Target> = target_sign.sign(&signature_payload).into();
+			let bridged_currency_transfer_signature: SignatureOf<Target> =
+				target_sign.sign(&signature_payload).into();
 
 			// prepare `create_swap` call
-			let target_public_at_bridged_chain: AccountPublicOf<Target> = target_sign.public().into();
+			let target_public_at_bridged_chain: AccountPublicOf<Target> =
+				target_sign.public().into();
 			let swap_delivery_and_dispatch_fee: BalanceOf<Source> =
 				crate::cli::estimate_fee::estimate_message_delivery_and_dispatch_fee(
 					&source_client,
@@ -199,7 +212,8 @@ impl SwapTokens {
 							target_public_at_bridged_chain.clone(),
 							bridged_currency_transfer_signature.clone(),
 						),
-						dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtTargetChain,
+						dispatch_fee_payment:
+							bp_runtime::messages::DispatchFeePayment::AtTargetChain,
 						call: bridged_currency_transfer.encode(),
 					},
 				)
@@ -245,19 +259,20 @@ impl SwapTokens {
 				pallet_bridge_token_swap::PENDING_SWAPS_MAP_NAME,
 				token_swap_hash.as_ref(),
 			);
-			match read_token_swap_state(&source_client, swap_created_at, &token_swap_storage_key).await? {
+			match read_token_swap_state(&source_client, swap_created_at, &token_swap_storage_key)
+				.await?
+			{
 				Some(bp_token_swap::TokenSwapState::Started) => {
 					log::info!(target: "bridge", "Swap has been successfully started");
 					let intermediate_balances =
 						read_account_balances(&accounts, &source_client, &target_client).await?;
 					log::info!(target: "bridge", "Intermediate balances: {:?}", intermediate_balances);
-				}
-				Some(token_swap_state) => {
+				},
+				Some(token_swap_state) =>
 					return Err(anyhow::format_err!(
 						"Fresh token swap has unexpected state: {:?}",
 						token_swap_state,
-					))
-				}
+					)),
 				None => return Err(anyhow::format_err!("Failed to start token swap")),
 			};
 
@@ -265,7 +280,8 @@ impl SwapTokens {
 			// Step 2: message is being relayed to the target chain and dispathed there
 			//
 
-			// wait until message is dispatched at the target chain and dispatch result delivered back to source chain
+			// wait until message is dispatched at the target chain and dispatch result delivered
+			// back to source chain
 			let token_swap_state = wait_until_token_swap_state_is_changed(
 				&source_client,
 				&token_swap_storage_key,
@@ -275,32 +291,37 @@ impl SwapTokens {
 			let is_transfer_succeeded = match token_swap_state {
 				Some(bp_token_swap::TokenSwapState::Started) => {
 					unreachable!("wait_until_token_swap_state_is_changed only returns if state is not Started; qed",)
-				}
-				None => return Err(anyhow::format_err!("Fresh token swap has disappeared unexpectedly")),
+				},
+				None =>
+					return Err(anyhow::format_err!("Fresh token swap has disappeared unexpectedly")),
 				Some(bp_token_swap::TokenSwapState::Confirmed) => {
 					log::info!(
 						target: "bridge",
 						"Transfer has been successfully dispatched at the target chain. Swap can be claimed",
 					);
 					true
-				}
+				},
 				Some(bp_token_swap::TokenSwapState::Failed) => {
 					log::info!(
 						target: "bridge",
 						"Transfer has been dispatched with an error at the target chain. Swap can be canceled",
 					);
 					false
-				}
+				},
 			};
 
-			// by this time: (1) token swap account has been created and (2) if transfer has been successfully
-			// dispatched, both target chain balances have changed
-			let intermediate_balances = read_account_balances(&accounts, &source_client, &target_client).await?;
+			// by this time: (1) token swap account has been created and (2) if transfer has been
+			// successfully dispatched, both target chain balances have changed
+			let intermediate_balances =
+				read_account_balances(&accounts, &source_client, &target_client).await?;
 			log::info!(target: "bridge", "Intermediate balances: {:?}", intermediate_balances);
 
-			// transfer has been dispatched, but we may need to wait until block where swap can be claimed/canceled
-			if let bp_token_swap::TokenSwapType::LockClaimUntilBlock(ref last_available_block_number, _) =
-				token_swap.swap_type
+			// transfer has been dispatched, but we may need to wait until block where swap can be
+			// claimed/canceled
+			if let bp_token_swap::TokenSwapType::LockClaimUntilBlock(
+				ref last_available_block_number,
+				_,
+			) = token_swap.swap_type
 			{
 				wait_until_swap_unlocked(
 					&source_client,
@@ -317,7 +338,8 @@ impl SwapTokens {
 				log::info!(target: "bridge", "Claiming the swap swap");
 
 				// prepare `claim_swap` message that will be sent over the bridge
-				let claim_swap_call: CallOf<Source> = pallet_bridge_token_swap::Call::claim_swap(token_swap).into();
+				let claim_swap_call: CallOf<Source> =
+					pallet_bridge_token_swap::Call::claim_swap(token_swap).into();
 				let claim_swap_message = bp_message_dispatch::MessagePayload {
 					spec_version: SOURCE_SPEC_VERSION,
 					weight: claim_swap_call.get_dispatch_info().weight,
@@ -354,7 +376,10 @@ impl SwapTokens {
 										target_genesis_hash,
 										&target_sign,
 										relay_substrate_client::TransactionEra::immortal(),
-										UnsignedTransaction::new(send_message_call, transaction_nonce),
+										UnsignedTransaction::new(
+											send_message_call,
+											transaction_nonce,
+										),
 									)
 									.encode(),
 								)
@@ -374,7 +399,7 @@ impl SwapTokens {
 				if token_swap_state != None {
 					return Err(anyhow::format_err!(
 						"Confirmed token swap state has been changed to {:?} unexpectedly"
-					));
+					))
 				}
 			} else {
 				log::info!(target: "bridge", "Cancelling the swap");
@@ -390,7 +415,10 @@ impl SwapTokens {
 										source_genesis_hash,
 										&source_sign,
 										relay_substrate_client::TransactionEra::immortal(),
-										UnsignedTransaction::new(cancel_swap_call, transaction_nonce),
+										UnsignedTransaction::new(
+											cancel_swap_call,
+											transaction_nonce,
+										),
 									)
 									.encode(),
 								)
@@ -402,7 +430,8 @@ impl SwapTokens {
 			}
 
 			// print final balances
-			let final_balances = read_account_balances(&accounts, &source_client, &target_client).await?;
+			let final_balances =
+				read_account_balances(&accounts, &source_client, &target_client).await?;
 			log::info!(target: "bridge", "Final account balances: {:?}", final_balances);
 
 			Ok(())
@@ -454,22 +483,18 @@ impl SwapTokens {
 		source_client: &Client<Source>,
 	) -> anyhow::Result<bp_token_swap::TokenSwapType<BlockNumberOf<Source>>> {
 		match self.swap_type {
-			TokenSwapType::NoLock => Ok(bp_token_swap::TokenSwapType::TemporaryTargetAccountAtBridgedChain),
-			TokenSwapType::LockUntilBlock {
-				blocks_before_expire,
-				ref swap_nonce,
-			} => {
+			TokenSwapType::NoLock =>
+				Ok(bp_token_swap::TokenSwapType::TemporaryTargetAccountAtBridgedChain),
+			TokenSwapType::LockUntilBlock { blocks_before_expire, ref swap_nonce } => {
 				let blocks_before_expire: BlockNumberOf<Source> = blocks_before_expire.into();
 				let current_source_block_number = *source_client.best_header().await?.number();
 				Ok(bp_token_swap::TokenSwapType::LockClaimUntilBlock(
 					current_source_block_number + blocks_before_expire,
 					swap_nonce.unwrap_or_else(|| {
-						U256::from(random::<u128>())
-							.overflowing_mul(U256::from(random::<u128>()))
-							.0
+						U256::from(random::<u128>()).overflowing_mul(U256::from(random::<u128>())).0
 					}),
 				))
-			}
+			},
 		}
 	}
 }
@@ -551,17 +576,16 @@ async fn wait_until_transaction_is_finalized<C: Chain>(
 	loop {
 		let transaction_status = subscription.next().await?;
 		match transaction_status {
-			Some(TransactionStatusOf::<C>::FinalityTimeout(_))
-			| Some(TransactionStatusOf::<C>::Usurped(_))
-			| Some(TransactionStatusOf::<C>::Dropped)
-			| Some(TransactionStatusOf::<C>::Invalid)
-			| None => {
+			Some(TransactionStatusOf::<C>::FinalityTimeout(_)) |
+			Some(TransactionStatusOf::<C>::Usurped(_)) |
+			Some(TransactionStatusOf::<C>::Dropped) |
+			Some(TransactionStatusOf::<C>::Invalid) |
+			None =>
 				return Err(anyhow::format_err!(
 					"We've been waiting for finalization of {} transaction, but it now has the {:?} status",
 					C::NAME,
 					transaction_status,
-				))
-			}
+				)),
 			Some(TransactionStatusOf::<C>::Finalized(block_hash)) => {
 				log::trace!(
 					target: "bridge",
@@ -569,8 +593,8 @@ async fn wait_until_transaction_is_finalized<C: Chain>(
 					C::NAME,
 					block_hash,
 				);
-				return Ok(block_hash);
-			}
+				return Ok(block_hash)
+			},
 			_ => {
 				log::trace!(
 					target: "bridge",
@@ -578,7 +602,7 @@ async fn wait_until_transaction_is_finalized<C: Chain>(
 					C::NAME,
 					transaction_status,
 				);
-			}
+			},
 		}
 	}
 }
@@ -597,9 +621,10 @@ async fn wait_until_token_swap_state_is_changed<C: Chain>(
 		let best_block_hash = client.block_hash_by_number(best_block).await?;
 		log::trace!(target: "bridge", "Inspecting {} block {}/{}", C::NAME, best_block, best_block_hash);
 
-		let token_swap_state = read_token_swap_state(client, best_block_hash, swap_state_storage_key).await?;
+		let token_swap_state =
+			read_token_swap_state(client, best_block_hash, swap_state_storage_key).await?;
 		match token_swap_state {
-			Some(new_token_swap_state) if new_token_swap_state == previous_token_swap_state => {}
+			Some(new_token_swap_state) if new_token_swap_state == previous_token_swap_state => {},
 			_ => {
 				log::trace!(
 					target: "bridge",
@@ -607,8 +632,8 @@ async fn wait_until_token_swap_state_is_changed<C: Chain>(
 					previous_token_swap_state,
 					token_swap_state,
 				);
-				return Ok(token_swap_state);
-			}
+				return Ok(token_swap_state)
+			},
 		}
 	}
 }
@@ -625,7 +650,7 @@ async fn wait_until_swap_unlocked<C: Chain>(
 		let best_block = client.best_finalized_header_number().await?;
 		let best_block_hash = client.block_hash_by_number(best_block).await?;
 		if best_block >= required_block_number {
-			return Ok(());
+			return Ok(())
 		}
 
 		log::trace!(target: "bridge", "Skipping {} block {}/{}", C::NAME, best_block, best_block_hash);
@@ -638,7 +663,5 @@ async fn read_token_swap_state<C: Chain>(
 	at_block: C::Hash,
 	swap_state_storage_key: &StorageKey,
 ) -> anyhow::Result<Option<bp_token_swap::TokenSwapState>> {
-	Ok(client
-		.storage_value(swap_state_storage_key.clone(), Some(at_block))
-		.await?)
+	Ok(client.storage_value(swap_state_storage_key.clone(), Some(at_block)).await?)
 }

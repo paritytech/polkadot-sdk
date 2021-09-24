@@ -71,7 +71,9 @@ pub trait MaybeLockFundsTransaction {
 
 	/// Parse lock funds transaction of the peer blockchain. Returns None if
 	/// transaction format is unknown, or it isn't a lock funds transaction.
-	fn parse(tx: &Self::Transaction) -> Result<LockFundsTransaction<Self::Id, Self::Recipient, Self::Amount>>;
+	fn parse(
+		tx: &Self::Transaction,
+	) -> Result<LockFundsTransaction<Self::Id, Self::Recipient, Self::Amount>>;
 }
 
 /// Map that maps recipients from peer blockchain to this blockchain recipients.

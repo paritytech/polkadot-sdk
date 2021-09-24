@@ -96,10 +96,10 @@ impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
 		matches!(
 			*self,
-			Error::RpcError(RpcError::Transport(_))
-				| Error::RpcError(RpcError::Internal(_))
-				| Error::RpcError(RpcError::RestartNeeded(_))
-				| Error::ClientNotSynced(_),
+			Error::RpcError(RpcError::Transport(_)) |
+				Error::RpcError(RpcError::Internal(_)) |
+				Error::RpcError(RpcError::RestartNeeded(_)) |
+				Error::ClientNotSynced(_),
 		)
 	}
 }
@@ -110,9 +110,11 @@ impl std::fmt::Display for Error {
 			Self::Io(e) => e.to_string(),
 			Self::RpcError(e) => e.to_string(),
 			Self::ResponseParseFailed(e) => e.to_string(),
-			Self::UninitializedBridgePallet => "The Substrate bridge pallet has not been initialized yet.".into(),
+			Self::UninitializedBridgePallet =>
+				"The Substrate bridge pallet has not been initialized yet.".into(),
 			Self::AccountDoesNotExist => "Account does not exist on the chain".into(),
-			Self::MissingMandatoryCodeEntry => "Mandatory :code: entry is missing from runtime storage".into(),
+			Self::MissingMandatoryCodeEntry =>
+				"Mandatory :code: entry is missing from runtime storage".into(),
 			Self::StorageProofError(e) => format!("Error when parsing storage proof: {:?}", e),
 			Self::ClientNotSynced(health) => format!("Substrate client is not synced: {}", health),
 			Self::TransactionInvalid(e) => format!("Substrate transaction is invalid: {:?}", e),

@@ -24,10 +24,10 @@
 // Since this is test code it's fine that not everything is used
 #![allow(dead_code)]
 
-use crate::finality::FinalityVotes;
-use crate::validators::CHANGE_EVENT_HASH;
-use crate::verification::calculate_score;
-use crate::{Config, HeaderToImport, Storage};
+use crate::{
+	finality::FinalityVotes, validators::CHANGE_EVENT_HASH, verification::calculate_score, Config,
+	HeaderToImport, Storage,
+};
 
 use bp_eth_poa::{
 	rlp_encode,
@@ -130,10 +130,7 @@ impl HeaderBuilder {
 		let sealed_empty_steps = empty_steps
 			.iter()
 			.map(|(author, step)| {
-				let mut empty_step = SealedEmptyStep {
-					step: *step,
-					signature: Default::default(),
-				};
+				let mut empty_step = SealedEmptyStep { step: *step, signature: Default::default() };
 				let message = empty_step.message(&self.header.parent_hash);
 				let signature: [u8; 65] = sign(author, message).into();
 				empty_step.signature = signature.into();
@@ -216,7 +213,11 @@ pub fn build_genesis_header(author: &SecretKey) -> AuraHeader {
 }
 
 /// Helper function for building a custom child header which has been signed by an authority.
-pub fn build_custom_header<F>(author: &SecretKey, previous: &AuraHeader, customize_header: F) -> AuraHeader
+pub fn build_custom_header<F>(
+	author: &SecretKey,
+	previous: &AuraHeader,
+	customize_header: F,
+) -> AuraHeader
 where
 	F: FnOnce(AuraHeader) -> AuraHeader,
 {
@@ -232,7 +233,8 @@ pub fn insert_header<S: Storage>(storage: &mut S, header: AuraHeader) {
 	let id = header.compute_id();
 	let best_finalized = storage.finalized_block();
 	let import_context = storage.import_context(None, &header.parent_hash).unwrap();
-	let parent_finality_votes = storage.cached_finality_votes(&header.parent_id().unwrap(), &best_finalized, |_| false);
+	let parent_finality_votes =
+		storage.cached_finality_votes(&header.parent_id().unwrap(), &best_finalized, |_| false);
 	let finality_votes = crate::finality::prepare_votes(
 		parent_finality_votes,
 		best_finalized,
@@ -284,9 +286,10 @@ pub fn validators_change_receipt(parent_hash: H256) -> Receipt {
 			address: [3; 20].into(),
 			topics: vec![CHANGE_EVENT_HASH.into(), parent_hash],
 			data: vec![
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 7, 7, 7,
-				7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+				7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
 			],
 		}],
 	}

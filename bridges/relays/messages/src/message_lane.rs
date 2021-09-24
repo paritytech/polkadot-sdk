@@ -61,7 +61,9 @@ pub trait MessageLane: 'static + Clone + Send + Sync {
 }
 
 /// Source header id within given one-way message lane.
-pub type SourceHeaderIdOf<P> = HeaderId<<P as MessageLane>::SourceHeaderHash, <P as MessageLane>::SourceHeaderNumber>;
+pub type SourceHeaderIdOf<P> =
+	HeaderId<<P as MessageLane>::SourceHeaderHash, <P as MessageLane>::SourceHeaderNumber>;
 
 /// Target header id within given one-way message lane.
-pub type TargetHeaderIdOf<P> = HeaderId<<P as MessageLane>::TargetHeaderHash, <P as MessageLane>::TargetHeaderNumber>;
+pub type TargetHeaderIdOf<P> =
+	HeaderId<<P as MessageLane>::TargetHeaderHash, <P as MessageLane>::TargetHeaderNumber>;
