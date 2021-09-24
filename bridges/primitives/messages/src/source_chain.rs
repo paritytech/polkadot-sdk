@@ -81,7 +81,8 @@ pub trait LaneMessageVerifier<Submitter, Payload, Fee> {
 	/// Error type.
 	type Error: Debug + Into<&'static str>;
 
-	/// Verify message payload and return Ok(()) if message is valid and allowed to be sent over the lane.
+	/// Verify message payload and return Ok(()) if message is valid and allowed to be sent over the
+	/// lane.
 	fn verify_message(
 		submitter: &Sender<Submitter>,
 		delivery_and_dispatch_fee: &Fee,
@@ -190,7 +191,8 @@ impl OnMessageAccepted for () {
 pub struct ForbidOutboundMessages;
 
 /// Error message that is used in `ForbidOutboundMessages` implementation.
-const ALL_OUTBOUND_MESSAGES_REJECTED: &str = "This chain is configured to reject all outbound messages";
+const ALL_OUTBOUND_MESSAGES_REJECTED: &str =
+	"This chain is configured to reject all outbound messages";
 
 impl<Payload, AccountId> TargetHeaderChain<Payload, AccountId> for ForbidOutboundMessages {
 	type Error = &'static str;
@@ -208,7 +210,9 @@ impl<Payload, AccountId> TargetHeaderChain<Payload, AccountId> for ForbidOutboun
 	}
 }
 
-impl<Submitter, Payload, Fee> LaneMessageVerifier<Submitter, Payload, Fee> for ForbidOutboundMessages {
+impl<Submitter, Payload, Fee> LaneMessageVerifier<Submitter, Payload, Fee>
+	for ForbidOutboundMessages
+{
 	type Error = &'static str;
 
 	fn verify_message(
@@ -222,7 +226,9 @@ impl<Submitter, Payload, Fee> LaneMessageVerifier<Submitter, Payload, Fee> for F
 	}
 }
 
-impl<AccountId, Balance> MessageDeliveryAndDispatchPayment<AccountId, Balance> for ForbidOutboundMessages {
+impl<AccountId, Balance> MessageDeliveryAndDispatchPayment<AccountId, Balance>
+	for ForbidOutboundMessages
+{
 	type Error = &'static str;
 
 	fn pay_delivery_and_dispatch_fee(

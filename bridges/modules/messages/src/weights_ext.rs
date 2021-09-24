@@ -25,8 +25,8 @@ use frame_support::weights::{RuntimeDbWeight, Weight};
 /// Size of the message being delivered in benchmarks.
 pub const EXPECTED_DEFAULT_MESSAGE_LENGTH: u32 = 128;
 
-/// We assume that size of signed extensions on all our chains and size of all 'small' arguments of calls
-/// we're checking here would fit 1KB.
+/// We assume that size of signed extensions on all our chains and size of all 'small' arguments of
+/// calls we're checking here would fit 1KB.
 const SIGNED_EXTENSIONS_SIZE: u32 = 1024;
 
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
@@ -54,12 +54,15 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>(
 
 	// verify that the hardcoded value covers `receive_messages_proof` weight
 	let actual_single_regular_message_delivery_tx_weight = W::receive_messages_proof_weight(
-		&PreComputedSize((EXPECTED_DEFAULT_MESSAGE_LENGTH + W::expected_extra_storage_proof_size()) as usize),
+		&PreComputedSize(
+			(EXPECTED_DEFAULT_MESSAGE_LENGTH + W::expected_extra_storage_proof_size()) as usize,
+		),
 		1,
 		0,
 	);
 	assert!(
-		actual_single_regular_message_delivery_tx_weight <= expected_default_message_delivery_tx_weight,
+		actual_single_regular_message_delivery_tx_weight <=
+			expected_default_message_delivery_tx_weight,
 		"Default message delivery transaction weight {} is larger than expected weight {}",
 		actual_single_regular_message_delivery_tx_weight,
 		expected_default_message_delivery_tx_weight,
@@ -91,7 +94,8 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>(
 		db_weight,
 	);
 	assert!(
-		actual_messages_delivery_confirmation_tx_weight <= expected_messages_delivery_confirmation_tx_weight,
+		actual_messages_delivery_confirmation_tx_weight <=
+			expected_messages_delivery_confirmation_tx_weight,
 		"Messages delivery confirmation transaction weight {} is larger than expected weight {}",
 		actual_messages_delivery_confirmation_tx_weight,
 		expected_messages_delivery_confirmation_tx_weight,
@@ -115,7 +119,8 @@ pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 	max_incoming_message_dispatch_weight: Weight,
 ) {
 	// verify that we're able to receive proof of maximal-size message
-	let max_delivery_transaction_size = max_incoming_message_proof_size.saturating_add(SIGNED_EXTENSIONS_SIZE);
+	let max_delivery_transaction_size =
+		max_incoming_message_proof_size.saturating_add(SIGNED_EXTENSIONS_SIZE);
 	assert!(
 		max_delivery_transaction_size <= max_extrinsic_size,
 		"Size of maximal message delivery transaction {} + {} is larger than maximal possible transaction size {}",
@@ -126,7 +131,9 @@ pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 
 	// verify that we're able to receive proof of maximal-size message with maximal dispatch weight
 	let max_delivery_transaction_dispatch_weight = W::receive_messages_proof_weight(
-		&PreComputedSize((max_incoming_message_proof_size + W::expected_extra_storage_proof_size()) as usize),
+		&PreComputedSize(
+			(max_incoming_message_proof_size + W::expected_extra_storage_proof_size()) as usize,
+		),
 		1,
 		max_incoming_message_dispatch_weight,
 	);
@@ -158,7 +165,8 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 		max_extrinsic_size,
 	);
 
-	// verify that we're able to reward maximal number of relayers that have delivered maximal number of messages
+	// verify that we're able to reward maximal number of relayers that have delivered maximal
+	// number of messages
 	let max_confirmation_transaction_dispatch_weight = W::receive_messages_delivery_proof_weight(
 		&PreComputedSize(max_inbound_lane_data_proof_size_from_peer_chain as usize),
 		&UnrewardedRelayersState {
@@ -200,10 +208,15 @@ pub trait WeightInfoExt: WeightInfo {
 	}
 
 	/// Weight of message delivery extrinsic.
-	fn receive_messages_proof_weight(proof: &impl Size, messages_count: u32, dispatch_weight: Weight) -> Weight {
+	fn receive_messages_proof_weight(
+		proof: &impl Size,
+		messages_count: u32,
+		dispatch_weight: Weight,
+	) -> Weight {
 		// basic components of extrinsic weight
 		let transaction_overhead = Self::receive_messages_proof_overhead();
-		let outbound_state_delivery_weight = Self::receive_messages_proof_outbound_lane_state_overhead();
+		let outbound_state_delivery_weight =
+			Self::receive_messages_proof_outbound_lane_state_overhead();
 		let messages_delivery_weight =
 			Self::receive_messages_proof_messages_overhead(MessageNonce::from(messages_count));
 		let messages_dispatch_weight = dispatch_weight;
@@ -213,8 +226,9 @@ pub trait WeightInfoExt: WeightInfo {
 			.saturating_mul(messages_count.saturating_sub(1))
 			.saturating_add(Self::expected_extra_storage_proof_size());
 		let actual_proof_size = proof.size_hint();
-		let proof_size_overhead =
-			Self::storage_proof_size_overhead(actual_proof_size.saturating_sub(expected_proof_size));
+		let proof_size_overhead = Self::storage_proof_size_overhead(
+			actual_proof_size.saturating_sub(expected_proof_size),
+		);
 
 		transaction_overhead
 			.saturating_add(outbound_state_delivery_weight)
@@ -231,17 +245,21 @@ pub trait WeightInfoExt: WeightInfo {
 	) -> Weight {
 		// basic components of extrinsic weight
 		let transaction_overhead = Self::receive_messages_delivery_proof_overhead();
-		let messages_overhead = Self::receive_messages_delivery_proof_messages_overhead(relayers_state.total_messages);
-		let relayers_overhead =
-			Self::receive_messages_delivery_proof_relayers_overhead(relayers_state.unrewarded_relayer_entries);
+		let messages_overhead =
+			Self::receive_messages_delivery_proof_messages_overhead(relayers_state.total_messages);
+		let relayers_overhead = Self::receive_messages_delivery_proof_relayers_overhead(
+			relayers_state.unrewarded_relayer_entries,
+		);
 
 		// proof size overhead weight
 		let expected_proof_size = Self::expected_extra_storage_proof_size();
 		let actual_proof_size = proof.size_hint();
-		let proof_size_overhead =
-			Self::storage_proof_size_overhead(actual_proof_size.saturating_sub(expected_proof_size));
+		let proof_size_overhead = Self::storage_proof_size_overhead(
+			actual_proof_size.saturating_sub(expected_proof_size),
+		);
 
-		// and cost of calling `OnDeliveryConfirmed::on_messages_delivered()` for every confirmed message
+		// and cost of calling `OnDeliveryConfirmed::on_messages_delivered()` for every confirmed
+		// message
 		let callback_overhead = relayers_state
 			.total_messages
 			.saturating_mul(Self::single_message_callback_overhead(db_weight));
@@ -260,22 +278,26 @@ pub trait WeightInfoExt: WeightInfo {
 		Self::send_minimal_message_worst_case()
 	}
 
-	/// Returns weight that needs to be accounted when message of given size is sent (`send_message`).
+	/// Returns weight that needs to be accounted when message of given size is sent
+	/// (`send_message`).
 	fn send_message_size_overhead(message_size: u32) -> Weight {
 		let message_size_in_kb = (1024u64 + message_size as u64) / 1024;
-		let single_kb_weight = (Self::send_16_kb_message_worst_case() - Self::send_1_kb_message_worst_case()) / 15;
+		let single_kb_weight =
+			(Self::send_16_kb_message_worst_case() - Self::send_1_kb_message_worst_case()) / 15;
 		message_size_in_kb * single_kb_weight
 	}
 
 	/// Returns weight overhead of message delivery transaction (`receive_messages_proof`).
 	fn receive_messages_proof_overhead() -> Weight {
-		let weight_of_two_messages_and_two_tx_overheads = Self::receive_single_message_proof().saturating_mul(2);
+		let weight_of_two_messages_and_two_tx_overheads =
+			Self::receive_single_message_proof().saturating_mul(2);
 		let weight_of_two_messages_and_single_tx_overhead = Self::receive_two_messages_proof();
-		weight_of_two_messages_and_two_tx_overheads.saturating_sub(weight_of_two_messages_and_single_tx_overhead)
+		weight_of_two_messages_and_two_tx_overheads
+			.saturating_sub(weight_of_two_messages_and_single_tx_overhead)
 	}
 
-	/// Returns weight that needs to be accounted when receiving given a number of messages with message
-	/// delivery transaction (`receive_messages_proof`).
+	/// Returns weight that needs to be accounted when receiving given a number of messages with
+	/// message delivery transaction (`receive_messages_proof`).
 	fn receive_messages_proof_messages_overhead(messages: MessageNonce) -> Weight {
 		let weight_of_two_messages_and_single_tx_overhead = Self::receive_two_messages_proof();
 		let weight_of_single_message_and_single_tx_overhead = Self::receive_single_message_proof();
@@ -284,27 +306,31 @@ pub trait WeightInfoExt: WeightInfo {
 			.saturating_mul(messages as Weight)
 	}
 
-	/// Returns weight that needs to be accounted when message delivery transaction (`receive_messages_proof`)
-	/// is carrying outbound lane state proof.
+	/// Returns weight that needs to be accounted when message delivery transaction
+	/// (`receive_messages_proof`) is carrying outbound lane state proof.
 	fn receive_messages_proof_outbound_lane_state_overhead() -> Weight {
-		let weight_of_single_message_and_lane_state = Self::receive_single_message_proof_with_outbound_lane_state();
+		let weight_of_single_message_and_lane_state =
+			Self::receive_single_message_proof_with_outbound_lane_state();
 		let weight_of_single_message = Self::receive_single_message_proof();
 		weight_of_single_message_and_lane_state.saturating_sub(weight_of_single_message)
 	}
 
-	/// Returns weight overhead of delivery confirmation transaction (`receive_messages_delivery_proof`).
+	/// Returns weight overhead of delivery confirmation transaction
+	/// (`receive_messages_delivery_proof`).
 	fn receive_messages_delivery_proof_overhead() -> Weight {
 		let weight_of_two_messages_and_two_tx_overheads =
 			Self::receive_delivery_proof_for_single_message().saturating_mul(2);
 		let weight_of_two_messages_and_single_tx_overhead =
 			Self::receive_delivery_proof_for_two_messages_by_single_relayer();
-		weight_of_two_messages_and_two_tx_overheads.saturating_sub(weight_of_two_messages_and_single_tx_overhead)
+		weight_of_two_messages_and_two_tx_overheads
+			.saturating_sub(weight_of_two_messages_and_single_tx_overhead)
 	}
 
 	/// Returns weight that needs to be accounted when receiving confirmations for given a number of
 	/// messages with delivery confirmation transaction (`receive_messages_delivery_proof`).
 	fn receive_messages_delivery_proof_messages_overhead(messages: MessageNonce) -> Weight {
-		let weight_of_two_messages = Self::receive_delivery_proof_for_two_messages_by_single_relayer();
+		let weight_of_two_messages =
+			Self::receive_delivery_proof_for_two_messages_by_single_relayer();
 		let weight_of_single_message = Self::receive_delivery_proof_for_single_message();
 		weight_of_two_messages
 			.saturating_sub(weight_of_single_message)
@@ -314,7 +340,8 @@ pub trait WeightInfoExt: WeightInfo {
 	/// Returns weight that needs to be accounted when receiving confirmations for given a number of
 	/// relayers entries with delivery confirmation transaction (`receive_messages_delivery_proof`).
 	fn receive_messages_delivery_proof_relayers_overhead(relayers: MessageNonce) -> Weight {
-		let weight_of_two_messages_by_two_relayers = Self::receive_delivery_proof_for_two_messages_by_two_relayers();
+		let weight_of_two_messages_by_two_relayers =
+			Self::receive_delivery_proof_for_two_messages_by_two_relayers();
 		let weight_of_two_messages_by_single_relayer =
 			Self::receive_delivery_proof_for_two_messages_by_single_relayer();
 		weight_of_two_messages_by_two_relayers
@@ -322,8 +349,8 @@ pub trait WeightInfoExt: WeightInfo {
 			.saturating_mul(relayers as Weight)
 	}
 
-	/// Returns weight that needs to be accounted when storage proof of given size is received (either in
-	/// `receive_messages_proof` or `receive_messages_delivery_proof`).
+	/// Returns weight that needs to be accounted when storage proof of given size is received
+	/// (either in `receive_messages_proof` or `receive_messages_delivery_proof`).
 	///
 	/// **IMPORTANT**: this overhead is already included in the 'base' transaction cost - e.g. proof
 	/// size depends on messages count or number of entries in the unrewarded relayers set. So this
@@ -332,23 +359,26 @@ pub trait WeightInfoExt: WeightInfo {
 	/// is less than that cost).
 	fn storage_proof_size_overhead(proof_size: u32) -> Weight {
 		let proof_size_in_bytes = proof_size as Weight;
-		let byte_weight =
-			(Self::receive_single_message_proof_16_kb() - Self::receive_single_message_proof_1_kb()) / (15 * 1024);
+		let byte_weight = (Self::receive_single_message_proof_16_kb() -
+			Self::receive_single_message_proof_1_kb()) /
+			(15 * 1024);
 		proof_size_in_bytes * byte_weight
 	}
 
 	/// Returns weight of the pay-dispatch-fee operation for inbound messages.
 	///
-	/// This function may return zero if runtime doesn't support pay-dispatch-fee-at-target-chain option.
+	/// This function may return zero if runtime doesn't support pay-dispatch-fee-at-target-chain
+	/// option.
 	fn pay_inbound_dispatch_fee_overhead() -> Weight {
-		Self::receive_single_message_proof().saturating_sub(Self::receive_single_prepaid_message_proof())
+		Self::receive_single_message_proof()
+			.saturating_sub(Self::receive_single_prepaid_message_proof())
 	}
 
 	/// Returns pre-dispatch weight of single callback call.
 	///
 	/// When benchmarking the weight please take into consideration both the `OnMessageAccepted` and
-	/// `OnDeliveryConfirmed` callbacks. The method should return the greater of the two, because it's
-	/// used to estimate the weight in both contexts.
+	/// `OnDeliveryConfirmed` callbacks. The method should return the greater of the two, because
+	/// it's used to estimate the weight in both contexts.
 	fn single_message_callback_overhead(db_weight: RuntimeDbWeight) -> Weight {
 		db_weight.reads_writes(1, 1)
 	}

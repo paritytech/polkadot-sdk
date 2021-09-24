@@ -18,8 +18,8 @@
 
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, IndexOf, TransactionEraOf, TransactionSignScheme,
-	UnsignedTransaction,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, IndexOf, TransactionEraOf,
+	TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -100,7 +100,12 @@ impl TransactionSignScheme for Rialto {
 		let signer: sp_runtime::MultiSigner = signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		rialto_runtime::UncheckedExtrinsic::new_signed(call, signer.into_account().into(), signature.into(), extra)
+		rialto_runtime::UncheckedExtrinsic::new_signed(
+			call,
+			signer.into_account().into(),
+			signature.into(),
+			extra,
+		)
 	}
 
 	fn is_signed(tx: &Self::SignedTransaction) -> bool {
@@ -118,9 +123,7 @@ impl TransactionSignScheme for Rialto {
 		let extra = &tx.signature.as_ref()?.2;
 		Some(UnsignedTransaction {
 			call: tx.function,
-			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.4.encode()[..])
-				.ok()?
-				.into(),
+			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.4.encode()[..]).ok()?.into(),
 			tip: Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.6.encode()[..])
 				.ok()?
 				.into(),

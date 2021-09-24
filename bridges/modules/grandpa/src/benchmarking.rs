@@ -42,7 +42,8 @@
 use crate::*;
 
 use bp_test_utils::{
-	accounts, make_justification_for_header, JustificationGeneratorParams, TEST_GRANDPA_ROUND, TEST_GRANDPA_SET_ID,
+	accounts, make_justification_for_header, JustificationGeneratorParams, TEST_GRANDPA_ROUND,
+	TEST_GRANDPA_SET_ID,
 };
 use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller};
 use frame_support::traits::Get;

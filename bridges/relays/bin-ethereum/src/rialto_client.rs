@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_sync_loop::QueuedEthereumHeader;
-use crate::instances::BridgeInstance;
-use crate::rpc_errors::RpcError;
+use crate::{
+	ethereum_sync_loop::QueuedEthereumHeader, instances::BridgeInstance, rpc_errors::RpcError,
+};
 
 use async_trait::async_trait;
 use bp_eth_poa::AuraHeader as SubstrateEthereumHeader;
@@ -24,7 +24,9 @@ use codec::{Decode, Encode};
 use headers_relay::sync_types::SubmittedHeaders;
 use relay_ethereum_client::types::HeaderId as EthereumHeaderId;
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
-use relay_substrate_client::{Client as SubstrateClient, TransactionSignScheme, UnsignedTransaction};
+use relay_substrate_client::{
+	Client as SubstrateClient, TransactionSignScheme, UnsignedTransaction,
+};
 use relay_utils::HeaderId;
 use sp_core::{crypto::Pair, Bytes};
 use std::{collections::VecDeque, sync::Arc};
@@ -33,7 +35,8 @@ const ETH_API_IMPORT_REQUIRES_RECEIPTS: &str = "RialtoPoAHeaderApi_is_import_req
 const ETH_API_IS_KNOWN_BLOCK: &str = "RialtoPoAHeaderApi_is_known_block";
 const ETH_API_BEST_BLOCK: &str = "RialtoPoAHeaderApi_best_block";
 const ETH_API_BEST_FINALIZED_BLOCK: &str = "RialtoPoAHeaderApi_finalized_block";
-const EXCH_API_FILTER_TRANSACTION_PROOF: &str = "RialtoCurrencyExchangeApi_filter_transaction_proof";
+const EXCH_API_FILTER_TRANSACTION_PROOF: &str =
+	"RialtoCurrencyExchangeApi_filter_transaction_proof";
 
 type RpcResult<T> = std::result::Result<T, RpcError>;
 
@@ -58,7 +61,8 @@ impl SubstrateHighLevelRpc for SubstrateClient<Rialto> {
 		let data = Bytes(Vec::new());
 
 		let encoded_response = self.state_call(call, data, None).await?;
-		let decoded_response: (u64, bp_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
+		let decoded_response: (u64, bp_eth_poa::H256) =
+			Decode::decode(&mut &encoded_response.0[..])?;
 
 		let best_header_id = HeaderId(decoded_response.0, decoded_response.1);
 		Ok(best_header_id)
@@ -69,7 +73,8 @@ impl SubstrateHighLevelRpc for SubstrateClient<Rialto> {
 		let data = Bytes(Vec::new());
 
 		let encoded_response = self.state_call(call, data, None).await?;
-		let decoded_response: (u64, bp_eth_poa::H256) = Decode::decode(&mut &encoded_response.0[..])?;
+		let decoded_response: (u64, bp_eth_poa::H256) =
+			Decode::decode(&mut &encoded_response.0[..])?;
 
 		let best_header_id = HeaderId(decoded_response.0, decoded_response.1);
 		Ok(best_header_id)
@@ -157,17 +162,23 @@ impl SubmitEthereumHeaders for SubstrateClient<Rialto> {
 		let ids = headers.iter().map(|header| header.id()).collect();
 		let genesis_hash = *self.genesis_hash();
 		let submission_result = async {
-			self.submit_signed_extrinsic((*params.public().as_array_ref()).into(), move |_, transaction_nonce| {
-				Bytes(
-					Rialto::sign_transaction(
-						genesis_hash,
-						&params,
-						relay_substrate_client::TransactionEra::immortal(),
-						UnsignedTransaction::new(instance.build_signed_header_call(headers), transaction_nonce),
+			self.submit_signed_extrinsic(
+				(*params.public().as_array_ref()).into(),
+				move |_, transaction_nonce| {
+					Bytes(
+						Rialto::sign_transaction(
+							genesis_hash,
+							&params,
+							relay_substrate_client::TransactionEra::immortal(),
+							UnsignedTransaction::new(
+								instance.build_signed_header_call(headers),
+								transaction_nonce,
+							),
+						)
+						.encode(),
 					)
-					.encode(),
-				)
-			})
+				},
+			)
 			.await?;
 			Ok(())
 		}
@@ -209,8 +220,8 @@ impl SubmitEthereumHeaders for SubstrateClient<Rialto> {
 					submitted_headers.rejected.push(id);
 					submitted_headers.rejected.extend(ids);
 					submitted_headers.fatal_error = Some(error.into());
-					break;
-				}
+					break
+				},
 			}
 		}
 
@@ -259,23 +270,31 @@ impl SubmitEthereumExchangeTransactionProof for SubstrateClient<Rialto> {
 		proof: rialto_runtime::exchange::EthereumTransactionInclusionProof,
 	) -> RpcResult<()> {
 		let genesis_hash = *self.genesis_hash();
-		self.submit_signed_extrinsic((*params.public().as_array_ref()).into(), move |_, transaction_nonce| {
-			Bytes(
-				Rialto::sign_transaction(
-					genesis_hash,
-					&params,
-					relay_substrate_client::TransactionEra::immortal(),
-					UnsignedTransaction::new(instance.build_currency_exchange_call(proof), transaction_nonce),
+		self.submit_signed_extrinsic(
+			(*params.public().as_array_ref()).into(),
+			move |_, transaction_nonce| {
+				Bytes(
+					Rialto::sign_transaction(
+						genesis_hash,
+						&params,
+						relay_substrate_client::TransactionEra::immortal(),
+						UnsignedTransaction::new(
+							instance.build_currency_exchange_call(proof),
+							transaction_nonce,
+						),
+					)
+					.encode(),
 				)
-				.encode(),
-			)
-		})
+			},
+		)
 		.await?;
 		Ok(())
 	}
 }
 
 /// Create unsigned Substrate transaction for submitting Ethereum header.
-fn create_unsigned_submit_transaction(call: rialto_runtime::Call) -> rialto_runtime::UncheckedExtrinsic {
+fn create_unsigned_submit_transaction(
+	call: rialto_runtime::Call,
+) -> rialto_runtime::UncheckedExtrinsic {
 	rialto_runtime::UncheckedExtrinsic::new_unsigned(call)
 }

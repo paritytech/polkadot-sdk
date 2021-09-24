@@ -23,10 +23,13 @@ use bp_header_chain::justification::GrandpaJustification;
 use relay_millau_client::{Millau, SyncHeader as MillauSyncHeader};
 use relay_rialto_client::{Rialto, SigningParams as RialtoSigningParams};
 use relay_substrate_client::{Client, IndexOf, TransactionSignScheme, UnsignedTransaction};
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
+use substrate_relay_helper::finality_pipeline::{
+	SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate,
+};
 
 /// Millau-to-Rialto finality sync pipeline.
-pub(crate) type FinalityPipelineMillauToRialto = SubstrateFinalityToSubstrate<Millau, Rialto, RialtoSigningParams>;
+pub(crate) type FinalityPipelineMillauToRialto =
+	SubstrateFinalityToSubstrate<Millau, Rialto, RialtoSigningParams>;
 
 #[derive(Clone, Debug)]
 pub(crate) struct MillauFinalityToRialto {
@@ -35,16 +38,15 @@ pub(crate) struct MillauFinalityToRialto {
 
 impl MillauFinalityToRialto {
 	pub fn new(target_client: Client<Rialto>, target_sign: RialtoSigningParams) -> Self {
-		Self {
-			finality_pipeline: FinalityPipelineMillauToRialto::new(target_client, target_sign),
-		}
+		Self { finality_pipeline: FinalityPipelineMillauToRialto::new(target_client, target_sign) }
 	}
 }
 
 impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 	type FinalitySyncPipeline = FinalityPipelineMillauToRialto;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str =
+		bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 
 	type TargetChain = Rialto;
 
@@ -59,8 +61,11 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 		header: MillauSyncHeader,
 		proof: GrandpaJustification<bp_millau::Header>,
 	) -> Bytes {
-		let call =
-			rialto_runtime::BridgeGrandpaMillauCall::submit_finality_proof(Box::new(header.into_inner()), proof).into();
+		let call = rialto_runtime::BridgeGrandpaMillauCall::submit_finality_proof(
+			Box::new(header.into_inner()),
+			proof,
+		)
+		.into();
 
 		let genesis_hash = *self.finality_pipeline.target_client.genesis_hash();
 		let transaction = Rialto::sign_transaction(

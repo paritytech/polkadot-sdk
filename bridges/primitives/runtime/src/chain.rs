@@ -18,8 +18,8 @@ use frame_support::Parameter;
 use num_traits::{AsPrimitive, Bounded, CheckedSub, SaturatingAdd, Zero};
 use sp_runtime::{
 	traits::{
-		AtLeast32Bit, AtLeast32BitUnsigned, Hash as HashT, Header as HeaderT, MaybeDisplay, MaybeMallocSizeOf,
-		MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps, Verify,
+		AtLeast32Bit, AtLeast32BitUnsigned, Hash as HashT, Header as HeaderT, MaybeDisplay,
+		MaybeMallocSizeOf, MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps, Verify,
 	},
 	FixedPointOperand,
 };
@@ -77,10 +77,18 @@ pub trait Chain: Send + Sync + 'static {
 	/// A type that fulfills the abstract idea of what a Substrate header is.
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html
-	type Header: Parameter + HeaderT<Number = Self::BlockNumber, Hash = Self::Hash> + MaybeSerializeDeserialize;
+	type Header: Parameter
+		+ HeaderT<Number = Self::BlockNumber, Hash = Self::Hash>
+		+ MaybeSerializeDeserialize;
 
 	/// The user account identifier type for the runtime.
-	type AccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
+	type AccountId: Parameter
+		+ Member
+		+ MaybeSerializeDeserialize
+		+ Debug
+		+ MaybeDisplay
+		+ Ord
+		+ Default;
 	/// Balance of an account in native tokens.
 	///
 	/// The chain may support multiple tokens, but this particular type is for token that is used

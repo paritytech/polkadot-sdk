@@ -18,8 +18,8 @@
 
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, IndexOf, TransactionEraOf, TransactionSignScheme,
-	UnsignedTransaction,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, IndexOf, TransactionEraOf,
+	TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -100,7 +100,12 @@ impl TransactionSignScheme for Millau {
 		let signer: sp_runtime::MultiSigner = signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		millau_runtime::UncheckedExtrinsic::new_signed(call, signer.into_account(), signature.into(), extra)
+		millau_runtime::UncheckedExtrinsic::new_signed(
+			call,
+			signer.into_account(),
+			signature.into(),
+			extra,
+		)
 	}
 
 	fn is_signed(tx: &Self::SignedTransaction) -> bool {
@@ -110,7 +115,9 @@ impl TransactionSignScheme for Millau {
 	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
 		tx.signature
 			.as_ref()
-			.map(|(address, _, _)| *address == millau_runtime::Address::from(*signer.public().as_array_ref()))
+			.map(|(address, _, _)| {
+				*address == millau_runtime::Address::from(*signer.public().as_array_ref())
+			})
 			.unwrap_or(false)
 	}
 
@@ -118,9 +125,7 @@ impl TransactionSignScheme for Millau {
 		let extra = &tx.signature.as_ref()?.2;
 		Some(UnsignedTransaction {
 			call: tx.function,
-			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.4.encode()[..])
-				.ok()?
-				.into(),
+			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.4.encode()[..]).ok()?.into(),
 			tip: Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.6.encode()[..])
 				.ok()?
 				.into(),

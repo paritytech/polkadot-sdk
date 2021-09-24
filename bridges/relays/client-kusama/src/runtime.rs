@@ -29,8 +29,8 @@ pub type UncheckedExtrinsic = bp_polkadot_core::UncheckedExtrinsic<Call>;
 /// Polkadot account ownership digest from Kusama.
 ///
 /// The byte vector returned by this function should be signed with a Polkadot account private key.
-/// This way, the owner of `kusama_account_id` on Kusama proves that the Polkadot account private key
-/// is also under his control.
+/// This way, the owner of `kusama_account_id` on Kusama proves that the Polkadot account private
+/// key is also under his control.
 pub fn kusama_to_polkadot_account_ownership_digest<Call, AccountId, SpecVersion>(
 	polkadot_call: &Call,
 	kusama_account_id: AccountId,
@@ -128,7 +128,9 @@ pub enum BridgePolkadotMessagesCall {
 	),
 	#[codec(index = 6)]
 	receive_messages_delivery_proof(
-		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<bp_polkadot::Hash>,
+		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<
+			bp_polkadot::Hash,
+		>,
 		UnrewardedRelayersState,
 	),
 }

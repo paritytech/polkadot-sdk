@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::{bridge::FullBridge, AccountId, CliChain, HexBytes};
-use crate::select_full_bridge;
+use crate::{
+	cli::{bridge::FullBridge, AccountId, CliChain, HexBytes},
+	select_full_bridge,
+};
 use structopt::StructOpt;
 use strum::VariantNames;
 
@@ -52,7 +54,8 @@ impl EncodeMessage {
 	/// Run the command.
 	pub fn encode(self) -> anyhow::Result<HexBytes> {
 		select_full_bridge!(self.bridge, {
-			let payload = Source::encode_message(self.payload).map_err(|e| anyhow::format_err!("{}", e))?;
+			let payload =
+				Source::encode_message(self.payload).map_err(|e| anyhow::format_err!("{}", e))?;
 			Ok(HexBytes::encode(&payload))
 		})
 	}
@@ -74,7 +77,8 @@ mod tests {
 	fn should_encode_raw_message() {
 		// given
 		let msg = "01000000e88514000000000002d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d003c040130000000000000000000000000";
-		let encode_message = EncodeMessage::from_iter(vec!["encode-message", "rialto-to-millau", "raw", msg]);
+		let encode_message =
+			EncodeMessage::from_iter(vec!["encode-message", "rialto-to-millau", "raw", msg]);
 
 		// when
 		let hex = encode_message.encode().unwrap();

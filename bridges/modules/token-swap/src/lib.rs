@@ -22,29 +22,30 @@
 //!
 //! There are four accounts participating in the swap:
 //!
-//! 1) account of This chain that has signed the `create_swap` transaction and has balance on This chain.
-//!    We'll be referring to this account as `source_account_at_this_chain`;
-//! 2) account of the Bridged chain that is sending the `claim_swap` message from the Bridged to This chain.
-//!    This account has balance on Bridged chain and is willing to swap these tokens to This chain tokens of
-//!    the `source_account_at_this_chain`. We'll be referring to this account as `target_account_at_bridged_chain`;
-//! 3) account of the Bridged chain that is indirectly controlled by the `source_account_at_this_chain`. We'll be
-//!    referring this account as `source_account_at_bridged_chain`;
-//! 4) account of This chain that is indirectly controlled by the `target_account_at_bridged_chain`. We'll be
-//!    referring this account as `target_account_at_this_chain`.
+//! 1) account of This chain that has signed the `create_swap` transaction and has balance on This
+//! chain.    We'll be referring to this account as `source_account_at_this_chain`;
+//! 2) account of the Bridged chain that is sending the `claim_swap` message from the Bridged to
+//! This chain.    This account has balance on Bridged chain and is willing to swap these tokens to
+//! This chain tokens of    the `source_account_at_this_chain`. We'll be referring to this account
+//! as `target_account_at_bridged_chain`; 3) account of the Bridged chain that is indirectly
+//! controlled by the `source_account_at_this_chain`. We'll be    referring this account as
+//! `source_account_at_bridged_chain`; 4) account of This chain that is indirectly controlled by the
+//! `target_account_at_bridged_chain`. We'll be    referring this account as
+//! `target_account_at_this_chain`.
 //!
-//! So the tokens swap is an intention of `source_account_at_this_chain` to swap his `source_balance_at_this_chain`
-//! tokens to the `target_balance_at_bridged_chain` tokens owned by `target_account_at_bridged_chain`. The swap
-//! process goes as follows:
+//! So the tokens swap is an intention of `source_account_at_this_chain` to swap his
+//! `source_balance_at_this_chain` tokens to the `target_balance_at_bridged_chain` tokens owned by
+//! `target_account_at_bridged_chain`. The swap process goes as follows:
 //!
-//! 1) the `source_account_at_this_chain` account submits the `create_swap` transaction on This chain;
-//! 2) the tokens transfer message that would transfer `target_balance_at_bridged_chain` tokens from the
-//!    `target_account_at_bridged_chain` to the `source_account_at_bridged_chain`, is sent over the bridge;
-//! 3) when transfer message is delivered and dispatched, the pallet receives notification;
-//! 4) if message has been successfully dispatched, the `target_account_at_bridged_chain` sends the message
-//!    that would transfer `source_balance_at_this_chain` tokens to his `target_account_at_this_chain`
-//!    account;
-//! 5) if message dispatch has failed, the `source_account_at_this_chain` may submit the `cancel_swap`
-//!    transaction and return his `source_balance_at_this_chain` back to his account.
+//! 1) the `source_account_at_this_chain` account submits the `create_swap` transaction on This
+//! chain; 2) the tokens transfer message that would transfer `target_balance_at_bridged_chain`
+//! tokens from the    `target_account_at_bridged_chain` to the `source_account_at_bridged_chain`,
+//! is sent over the bridge; 3) when transfer message is delivered and dispatched, the pallet
+//! receives notification; 4) if message has been successfully dispatched, the
+//! `target_account_at_bridged_chain` sends the message    that would transfer
+//! `source_balance_at_this_chain` tokens to his `target_account_at_this_chain`    account;
+//! 5) if message dispatch has failed, the `source_account_at_this_chain` may submit the
+//! `cancel_swap`    transaction and return his `source_balance_at_this_chain` back to his account.
 //!
 //! While swap is pending, the `source_balance_at_this_chain` tokens are owned by the special
 //! temporary `swap_account_at_this_chain` account. It is destroyed upon swap completion.
@@ -118,8 +119,9 @@ pub mod pallet {
 	}
 
 	/// Tokens balance at This chain.
-	pub type ThisChainBalance<T, I> =
-		<<T as Config<I>>::ThisCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	pub type ThisChainBalance<T, I> = <<T as Config<I>>::ThisCurrency as Currency<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 
 	/// Type of the Bridged chain.
 	pub type BridgedChainOf<T, I> = <T as Config<I>>::BridgedChain;
@@ -164,33 +166,40 @@ pub mod pallet {
 	{
 		/// Start token swap procedure.
 		///
-		/// The dispatch origin for this call must be exactly the `swap.source_account_at_this_chain` account.
+		/// The dispatch origin for this call must be exactly the
+		/// `swap.source_account_at_this_chain` account.
 		///
 		/// Method arguments are:
 		///
 		/// - `swap` - token swap intention;
-		/// - `target_public_at_bridged_chain` - the public key of the `swap.target_account_at_bridged_chain`
-		///   account used to verify `bridged_currency_transfer_signature`;
-		/// - `bridged_currency_transfer` - the SCALE-encoded tokens transfer call at the Bridged chain;
-		/// - `bridged_currency_transfer_signature` - the signature of the `swap.target_account_at_bridged_chain`
-		///   for the message returned by the `pallet_bridge_dispatch::account_ownership_digest()` function call.
+		/// - `target_public_at_bridged_chain` - the public key of the
+		///   `swap.target_account_at_bridged_chain` account used to verify
+		///   `bridged_currency_transfer_signature`;
+		/// - `bridged_currency_transfer` - the SCALE-encoded tokens transfer call at the Bridged
+		///   chain;
+		/// - `bridged_currency_transfer_signature` - the signature of the
+		///   `swap.target_account_at_bridged_chain` for the message returned by the
+		///   `pallet_bridge_dispatch::account_ownership_digest()` function call.
 		///
-		/// The `source_account_at_this_chain` MUST have enough balance to cover both token swap and message
-		/// transfer. Message fee may be estimated using corresponding `OutboundLaneApi` of This runtime.
+		/// The `source_account_at_this_chain` MUST have enough balance to cover both token swap and
+		/// message transfer. Message fee may be estimated using corresponding `OutboundLaneApi` of
+		/// This runtime.
 		///
 		/// **WARNING**: the submitter of this transaction is responsible for verifying:
 		///
-		/// 1) that the `bridged_currency_transfer` represents a valid token transfer call that transfers
-		///    `swap.target_balance_at_bridged_chain` to his `source_account_at_bridged_chain` account;
-		/// 2) that either the `source_account_at_bridged_chain` already exists, or the
-		///    `swap.target_balance_at_bridged_chain` is above existential deposit of the Bridged chain;
-		/// 3) the `target_public_at_bridged_chain` matches the `swap.target_account_at_bridged_chain`;
-		/// 4) the `bridged_currency_transfer_signature` is valid and generated by the owner of the
-		///    `target_public_at_bridged_chain` account (read more about [`CallOrigin::TargetAccount`]).
+		/// 1) that the `bridged_currency_transfer` represents a valid token transfer call that
+		/// transfers    `swap.target_balance_at_bridged_chain` to his
+		/// `source_account_at_bridged_chain` account; 2) that either the
+		/// `source_account_at_bridged_chain` already exists, or the
+		///    `swap.target_balance_at_bridged_chain` is above existential deposit of the Bridged
+		/// chain; 3) the `target_public_at_bridged_chain` matches the
+		/// `swap.target_account_at_bridged_chain`; 4) the `bridged_currency_transfer_signature` is
+		/// valid and generated by the owner of the    `target_public_at_bridged_chain` account
+		/// (read more about [`CallOrigin::TargetAccount`]).
 		///
-		/// Violating rule#1 will lead to losing your `source_balance_at_this_chain` tokens. Violating other
-		/// rules will lead to losing message fees for this and other transactions + losing fees for message
-		/// transfer.
+		/// Violating rule#1 will lead to losing your `source_balance_at_this_chain` tokens.
+		/// Violating other rules will lead to losing message fees for this and other transactions +
+		/// losing fees for message transfer.
 		#[pallet::weight(0)]
 		#[allow(clippy::too_many_arguments)]
 		pub fn create_swap(
@@ -203,7 +212,8 @@ pub mod pallet {
 			bridged_currency_transfer_weight: Weight,
 			bridged_currency_transfer_signature: BridgedAccountSignatureOf<T, I>,
 		) -> DispatchResultWithPostInfo {
-			// ensure that the `origin` is the same account that is mentioned in the `swap` intention
+			// ensure that the `origin` is the same account that is mentioned in the `swap`
+			// intention
 			let origin_account = ensure_signed(origin)?;
 			ensure!(
 				origin_account == swap.source_account_at_this_chain,
@@ -221,8 +231,8 @@ pub mod pallet {
 				Error::<T, I>::TooLowBalanceOnThisChain,
 			);
 
-			// if the swap is replay-protected, then we need to ensure that we have not yet passed the
-			// specified block yet
+			// if the swap is replay-protected, then we need to ensure that we have not yet passed
+			// the specified block yet
 			match swap.swap_type {
 				TokenSwapType::TemporaryTargetAccountAtBridgedChain => (),
 				TokenSwapType::LockClaimUntilBlock(block_number, _) => ensure!(
@@ -237,7 +247,8 @@ pub mod pallet {
 				let transfer_result = T::ThisCurrency::transfer(
 					&swap.source_account_at_this_chain,
 					&swap_account,
-					// saturating_add is ok, or we have the chain where single holder owns all tokens
+					// saturating_add is ok, or we have the chain where single holder owns all
+					// tokens
 					swap.source_balance_at_this_chain
 						.saturating_add(swap_delivery_and_dispatch_fee),
 					// if we'll allow account to die, then he'll be unable to `cancel_claim`
@@ -254,8 +265,8 @@ pub mod pallet {
 					);
 
 					return sp_runtime::TransactionOutcome::Rollback(Err(
-						Error::<T, I>::FailedToTransferToSwapAccount.into()
-					));
+						Error::<T, I>::FailedToTransferToSwapAccount.into(),
+					))
 				}
 
 				// the transfer message is sent over the bridge. The message is supposed to be a
@@ -289,20 +300,21 @@ pub mod pallet {
 
 						return sp_runtime::TransactionOutcome::Rollback(Err(
 							Error::<T, I>::FailedToSendTransferMessage.into(),
-						));
-					}
+						))
+					},
 				};
 
 				// remember that we have started the swap
 				let swap_hash = swap.using_encoded(blake2_256).into();
-				let insert_swap_result = PendingSwaps::<T, I>::try_mutate(swap_hash, |maybe_state| {
-					if maybe_state.is_some() {
-						return Err(());
-					}
+				let insert_swap_result =
+					PendingSwaps::<T, I>::try_mutate(swap_hash, |maybe_state| {
+						if maybe_state.is_some() {
+							return Err(())
+						}
 
-					*maybe_state = Some(TokenSwapState::Started);
-					Ok(())
-				});
+						*maybe_state = Some(TokenSwapState::Started);
+						Ok(())
+					});
 				if insert_swap_result.is_err() {
 					log::error!(
 						target: "runtime::bridge-token-swap",
@@ -310,7 +322,9 @@ pub mod pallet {
 						swap,
 					);
 
-					return sp_runtime::TransactionOutcome::Rollback(Err(Error::<T, I>::SwapAlreadyStarted.into()));
+					return sp_runtime::TransactionOutcome::Rollback(Err(
+						Error::<T, I>::SwapAlreadyStarted.into(),
+					))
 				}
 
 				log::trace!(
@@ -330,21 +344,23 @@ pub mod pallet {
 			})
 		}
 
-		/// Claim previously reserved `source_balance_at_this_chain` by `target_account_at_this_chain`.
+		/// Claim previously reserved `source_balance_at_this_chain` by
+		/// `target_account_at_this_chain`.
 		///
-		/// **WARNING**: the correct way to call this function is to call it over the messages bridge with
-		/// dispatch origin set to `pallet_bridge_dispatch::CallOrigin::SourceAccount(target_account_at_bridged_chain)`.
+		/// **WARNING**: the correct way to call this function is to call it over the messages
+		/// bridge with dispatch origin set to
+		/// `pallet_bridge_dispatch::CallOrigin::SourceAccount(target_account_at_bridged_chain)`.
 		///
 		/// This should be called only when successful transfer confirmation has been received.
 		#[pallet::weight(0)]
-		pub fn claim_swap(origin: OriginFor<T>, swap: TokenSwapOf<T, I>) -> DispatchResultWithPostInfo {
+		pub fn claim_swap(
+			origin: OriginFor<T>,
+			swap: TokenSwapOf<T, I>,
+		) -> DispatchResultWithPostInfo {
 			// ensure that the `origin` is controlled by the `swap.target_account_at_bridged_chain`
 			let origin_account = ensure_signed(origin)?;
 			let target_account_at_this_chain = target_account_at_this_chain::<T, I>(&swap);
-			ensure!(
-				origin_account == target_account_at_this_chain,
-				Error::<T, I>::InvalidClaimant,
-			);
+			ensure!(origin_account == target_account_at_this_chain, Error::<T, I>::InvalidClaimant,);
 
 			// ensure that the swap is confirmed
 			let swap_hash = swap.using_encoded(blake2_256).into();
@@ -354,13 +370,12 @@ pub mod pallet {
 				Some(TokenSwapState::Confirmed) => {
 					let is_claim_allowed = match swap.swap_type {
 						TokenSwapType::TemporaryTargetAccountAtBridgedChain => true,
-						TokenSwapType::LockClaimUntilBlock(block_number, _) => {
-							block_number < frame_system::Pallet::<T>::block_number()
-						}
+						TokenSwapType::LockClaimUntilBlock(block_number, _) =>
+							block_number < frame_system::Pallet::<T>::block_number(),
 					};
 
 					ensure!(is_claim_allowed, Error::<T, I>::SwapIsTemporaryLocked);
-				}
+				},
 				Some(TokenSwapState::Failed) => fail!(Error::<T, I>::SwapIsFailed),
 				None => fail!(Error::<T, I>::SwapIsInactive),
 			}
@@ -368,13 +383,18 @@ pub mod pallet {
 			complete_claim::<T, I>(swap, swap_hash, origin_account, Event::SwapClaimed(swap_hash))
 		}
 
-		/// Return previously reserved `source_balance_at_this_chain` back to the `source_account_at_this_chain`.
+		/// Return previously reserved `source_balance_at_this_chain` back to the
+		/// `source_account_at_this_chain`.
 		///
-		/// This should be called only when transfer has failed at Bridged chain and we have received
-		/// notification about that.
+		/// This should be called only when transfer has failed at Bridged chain and we have
+		/// received notification about that.
 		#[pallet::weight(0)]
-		pub fn cancel_swap(origin: OriginFor<T>, swap: TokenSwapOf<T, I>) -> DispatchResultWithPostInfo {
-			// ensure that the `origin` is the same account that is mentioned in the `swap` intention
+		pub fn cancel_swap(
+			origin: OriginFor<T>,
+			swap: TokenSwapOf<T, I>,
+		) -> DispatchResultWithPostInfo {
+			// ensure that the `origin` is the same account that is mentioned in the `swap`
+			// intention
 			let origin_account = ensure_signed(origin)?;
 			ensure!(
 				origin_account == swap.source_account_at_this_chain,
@@ -388,9 +408,10 @@ pub mod pallet {
 				Some(TokenSwapState::Started) => fail!(Error::<T, I>::SwapIsPending),
 				Some(TokenSwapState::Confirmed) => fail!(Error::<T, I>::SwapIsConfirmed),
 				Some(TokenSwapState::Failed) => {
-					// we allow canceling swap even before lock period is over - the `source_account_at_this_chain`
-					// has already paid for nothing and it is up to him to decide whether he want to try again
-				}
+					// we allow canceling swap even before lock period is over - the
+					// `source_account_at_this_chain` has already paid for nothing and it is up to
+					// him to decide whether he want to try again
+				},
 				None => fail!(Error::<T, I>::SwapIsInactive),
 			}
 
@@ -413,13 +434,15 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		/// The account that has submitted the `start_claim` doesn't match the `TokenSwap::source_account_at_this_chain`.
+		/// The account that has submitted the `start_claim` doesn't match the
+		/// `TokenSwap::source_account_at_this_chain`.
 		MismatchedSwapSourceOrigin,
 		/// The swap balance in This chain tokens is below existential deposit and can't be made.
 		TooLowBalanceOnThisChain,
 		/// Transfer from This chain account to temporary Swap account has failed.
 		FailedToTransferToSwapAccount,
-		/// Transfer from the temporary Swap account to the derived account of Bridged account has failed.
+		/// Transfer from the temporary Swap account to the derived account of Bridged account has
+		/// failed.
 		FailedToTransferFromSwapAccount,
 		/// The message to transfer tokens on Target chain can't be sent.
 		FailedToSendTransferMessage,
@@ -431,17 +454,18 @@ pub mod pallet {
 		SwapIsFailed,
 		/// Claiming swap is not allowed.
 		///
-		/// Now the only possible case when you may get this error, is when you're trying to claim swap with
-		/// `TokenSwapType::LockClaimUntilBlock` before lock period is over.
+		/// Now the only possible case when you may get this error, is when you're trying to claim
+		/// swap with `TokenSwapType::LockClaimUntilBlock` before lock period is over.
 		SwapIsTemporaryLocked,
 		/// Swap period is finished and you can not restart it.
 		///
-		/// Now the only possible case when you may get this error, is when you're trying to start swap with
-		/// `TokenSwapType::LockClaimUntilBlock` after lock period is over.
+		/// Now the only possible case when you may get this error, is when you're trying to start
+		/// swap with `TokenSwapType::LockClaimUntilBlock` after lock period is over.
 		SwapPeriodIsFinished,
 		/// Someone is trying to cancel swap that has been confirmed.
 		SwapIsConfirmed,
-		/// Someone is trying to claim/cancel swap that is either not started or already claimed/canceled.
+		/// Someone is trying to claim/cancel swap that is either not started or already
+		/// claimed/canceled.
 		SwapIsInactive,
 		/// The swap claimant is invalid.
 		InvalidClaimant,
@@ -449,17 +473,19 @@ pub mod pallet {
 
 	/// Pending token swaps states.
 	#[pallet::storage]
-	pub type PendingSwaps<T: Config<I>, I: 'static = ()> = StorageMap<_, Identity, H256, TokenSwapState>;
+	pub type PendingSwaps<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, H256, TokenSwapState>;
 
 	/// Pending transfer messages.
 	#[pallet::storage]
-	pub type PendingMessages<T: Config<I>, I: 'static = ()> = StorageMap<_, Identity, MessageNonce, H256>;
+	pub type PendingMessages<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, MessageNonce, H256>;
 
 	impl<T: Config<I>, I: 'static> OnDeliveryConfirmed for Pallet<T, I> {
 		fn on_messages_delivered(lane: &LaneId, delivered_messages: &DeliveredMessages) -> Weight {
 			// we're only interested in our lane messages
 			if *lane != T::OutboundMessageLaneId::get() {
-				return 0;
+				return 0
 			}
 
 			// so now we're dealing with our lane messages. Ideally we'll have dedicated lane
@@ -472,11 +498,12 @@ pub mod pallet {
 				if let Some(swap_hash) = PendingMessages::<T, I>::take(message_nonce) {
 					writes += 1;
 
-					let token_swap_state = if delivered_messages.message_dispatch_result(message_nonce) {
-						TokenSwapState::Confirmed
-					} else {
-						TokenSwapState::Failed
-					};
+					let token_swap_state =
+						if delivered_messages.message_dispatch_result(message_nonce) {
+							TokenSwapState::Confirmed
+						} else {
+							TokenSwapState::Failed
+						};
 
 					log::trace!(
 						target: "runtime::bridge-token-swap",
@@ -494,12 +521,16 @@ pub mod pallet {
 	}
 
 	/// Returns temporary account id used to lock funds during swap on This chain.
-	pub(crate) fn swap_account_id<T: Config<I>, I: 'static>(swap: &TokenSwapOf<T, I>) -> T::AccountId {
+	pub(crate) fn swap_account_id<T: Config<I>, I: 'static>(
+		swap: &TokenSwapOf<T, I>,
+	) -> T::AccountId {
 		T::FromSwapToThisAccountIdConverter::convert(swap.using_encoded(blake2_256).into())
 	}
 
 	/// Expected target account representation on This chain (aka `target_account_at_this_chain`).
-	pub(crate) fn target_account_at_this_chain<T: Config<I>, I: 'static>(swap: &TokenSwapOf<T, I>) -> T::AccountId {
+	pub(crate) fn target_account_at_this_chain<T: Config<I>, I: 'static>(
+		swap: &TokenSwapOf<T, I>,
+	) -> T::AccountId {
 		T::FromBridgedToThisAccountIdConverter::convert(bp_runtime::derive_account_id(
 			T::BridgedChainId::get(),
 			bp_runtime::SourceAccount::Account(swap.target_account_at_bridged_chain.clone()),
@@ -533,8 +564,8 @@ pub mod pallet {
 				);
 
 				return sp_runtime::TransactionOutcome::Rollback(Err(
-					Error::<T, I>::FailedToTransferFromSwapAccount.into()
-				));
+					Error::<T, I>::FailedToTransferFromSwapAccount.into(),
+				))
 			}
 
 			log::trace!(
@@ -786,20 +817,21 @@ mod tests {
 			));
 
 			let swap_hash = test_swap_hash();
-			assert_eq!(
-				PendingSwaps::<TestRuntime>::get(swap_hash),
-				Some(TokenSwapState::Started)
-			);
+			assert_eq!(PendingSwaps::<TestRuntime>::get(swap_hash), Some(TokenSwapState::Started));
 			assert_eq!(PendingMessages::<TestRuntime>::get(MESSAGE_NONCE), Some(swap_hash));
 			assert_eq!(
-				pallet_balances::Pallet::<TestRuntime>::free_balance(&swap_account_id::<TestRuntime, ()>(&test_swap())),
+				pallet_balances::Pallet::<TestRuntime>::free_balance(&swap_account_id::<
+					TestRuntime,
+					(),
+				>(&test_swap())),
 				test_swap().source_balance_at_this_chain + SWAP_DELIVERY_AND_DISPATCH_FEE,
 			);
 			assert!(
-				frame_system::Pallet::<TestRuntime>::events()
-					.iter()
-					.any(|e| e.event
-						== crate::mock::Event::TokenSwap(crate::Event::SwapStarted(swap_hash, MESSAGE_NONCE,))),
+				frame_system::Pallet::<TestRuntime>::events().iter().any(|e| e.event ==
+					crate::mock::Event::TokenSwap(crate::Event::SwapStarted(
+						swap_hash,
+						MESSAGE_NONCE,
+					))),
 				"Missing SwapStarted event: {:?}",
 				frame_system::Pallet::<TestRuntime>::events(),
 			);
@@ -811,7 +843,9 @@ mod tests {
 		run_test(|| {
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_swap(
-					Origin::signed(1 + target_account_at_this_chain::<TestRuntime, ()>(&test_swap())),
+					Origin::signed(
+						1 + target_account_at_this_chain::<TestRuntime, ()>(&test_swap())
+					),
 					test_swap(),
 				),
 				Error::<TestRuntime, ()>::InvalidClaimant
@@ -913,19 +947,21 @@ mod tests {
 			let swap_hash = test_swap_hash();
 			assert_eq!(PendingSwaps::<TestRuntime>::get(swap_hash), None);
 			assert_eq!(
-				pallet_balances::Pallet::<TestRuntime>::free_balance(&swap_account_id::<TestRuntime, ()>(&test_swap())),
+				pallet_balances::Pallet::<TestRuntime>::free_balance(&swap_account_id::<
+					TestRuntime,
+					(),
+				>(&test_swap())),
 				0,
 			);
 			assert_eq!(
-				pallet_balances::Pallet::<TestRuntime>::free_balance(&target_account_at_this_chain::<TestRuntime, ()>(
-					&test_swap()
-				),),
+				pallet_balances::Pallet::<TestRuntime>::free_balance(
+					&target_account_at_this_chain::<TestRuntime, ()>(&test_swap()),
+				),
 				test_swap().source_balance_at_this_chain,
 			);
 			assert!(
-				frame_system::Pallet::<TestRuntime>::events()
-					.iter()
-					.any(|e| e.event == crate::mock::Event::TokenSwap(crate::Event::SwapClaimed(swap_hash,))),
+				frame_system::Pallet::<TestRuntime>::events().iter().any(|e| e.event ==
+					crate::mock::Event::TokenSwap(crate::Event::SwapClaimed(swap_hash,))),
 				"Missing SwapClaimed event: {:?}",
 				frame_system::Pallet::<TestRuntime>::events(),
 			);
@@ -939,7 +975,10 @@ mod tests {
 			receive_test_swap_confirmation(false);
 
 			assert_noop!(
-				Pallet::<TestRuntime>::cancel_swap(Origin::signed(THIS_CHAIN_ACCOUNT + 1), test_swap()),
+				Pallet::<TestRuntime>::cancel_swap(
+					Origin::signed(THIS_CHAIN_ACCOUNT + 1),
+					test_swap()
+				),
 				Error::<TestRuntime, ()>::MismatchedSwapSourceOrigin
 			);
 		});
@@ -1014,7 +1053,10 @@ mod tests {
 			let swap_hash = test_swap_hash();
 			assert_eq!(PendingSwaps::<TestRuntime>::get(swap_hash), None);
 			assert_eq!(
-				pallet_balances::Pallet::<TestRuntime>::free_balance(&swap_account_id::<TestRuntime, ()>(&test_swap())),
+				pallet_balances::Pallet::<TestRuntime>::free_balance(&swap_account_id::<
+					TestRuntime,
+					(),
+				>(&test_swap())),
 				0,
 			);
 			assert_eq!(
@@ -1022,9 +1064,8 @@ mod tests {
 				THIS_CHAIN_ACCOUNT_BALANCE - SWAP_DELIVERY_AND_DISPATCH_FEE,
 			);
 			assert!(
-				frame_system::Pallet::<TestRuntime>::events()
-					.iter()
-					.any(|e| e.event == crate::mock::Event::TokenSwap(crate::Event::SwapCanceled(swap_hash,))),
+				frame_system::Pallet::<TestRuntime>::events().iter().any(|e| e.event ==
+					crate::mock::Event::TokenSwap(crate::Event::SwapCanceled(swap_hash,))),
 				"Missing SwapCanceled event: {:?}",
 				frame_system::Pallet::<TestRuntime>::events(),
 			);
@@ -1047,7 +1088,10 @@ mod tests {
 			// when unrelated messages are delivered
 			let mut messages = DeliveredMessages::new(MESSAGE_NONCE - 2, true);
 			messages.note_dispatched_message(false);
-			Pallet::<TestRuntime, ()>::on_messages_delivered(&OutboundMessageLaneId::get(), &messages);
+			Pallet::<TestRuntime, ()>::on_messages_delivered(
+				&OutboundMessageLaneId::get(),
+				&messages,
+			);
 			assert_eq!(
 				PendingMessages::<TestRuntime, ()>::get(MESSAGE_NONCE),
 				Some(test_swap_hash())
@@ -1061,7 +1105,10 @@ mod tests {
 			let mut messages = DeliveredMessages::new(MESSAGE_NONCE - 1, false);
 			messages.note_dispatched_message(true);
 			messages.note_dispatched_message(false);
-			Pallet::<TestRuntime, ()>::on_messages_delivered(&OutboundMessageLaneId::get(), &messages);
+			Pallet::<TestRuntime, ()>::on_messages_delivered(
+				&OutboundMessageLaneId::get(),
+				&messages,
+			);
 			assert_eq!(PendingMessages::<TestRuntime, ()>::get(MESSAGE_NONCE), None);
 			assert_eq!(
 				PendingSwaps::<TestRuntime, ()>::get(test_swap_hash()),

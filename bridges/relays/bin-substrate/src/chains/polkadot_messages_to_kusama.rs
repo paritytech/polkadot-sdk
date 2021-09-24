@@ -25,17 +25,23 @@ use bp_messages::MessageNonce;
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use frame_support::weights::Weight;
 use messages_relay::message_lane::MessageLane;
-use relay_kusama_client::{HeaderId as KusamaHeaderId, Kusama, SigningParams as KusamaSigningParams};
-use relay_polkadot_client::{HeaderId as PolkadotHeaderId, Polkadot, SigningParams as PolkadotSigningParams};
+use relay_kusama_client::{
+	HeaderId as KusamaHeaderId, Kusama, SigningParams as KusamaSigningParams,
+};
+use relay_polkadot_client::{
+	HeaderId as PolkadotHeaderId, Polkadot, SigningParams as PolkadotSigningParams,
+};
 use relay_substrate_client::{Chain, Client, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
 use sp_runtime::{FixedPointNumber, FixedU128};
-use substrate_relay_helper::messages_lane::{
-	select_delivery_transaction_limits, MessagesRelayParams, StandaloneMessagesMetrics, SubstrateMessageLane,
-	SubstrateMessageLaneToSubstrate,
+use substrate_relay_helper::{
+	messages_lane::{
+		select_delivery_transaction_limits, MessagesRelayParams, StandaloneMessagesMetrics,
+		SubstrateMessageLane, SubstrateMessageLaneToSubstrate,
+	},
+	messages_source::SubstrateMessagesSource,
+	messages_target::SubstrateMessagesTarget,
 };
-use substrate_relay_helper::messages_source::SubstrateMessagesSource;
-use substrate_relay_helper::messages_target::SubstrateMessagesTarget;
 
 /// Polkadot-to-Kusama message lane.
 pub type MessageLanePolkadotMessagesToKusama =
@@ -48,24 +54,32 @@ pub struct PolkadotMessagesToKusama {
 
 impl SubstrateMessageLane for PolkadotMessagesToKusama {
 	type MessageLane = MessageLanePolkadotMessagesToKusama;
-	const OUTBOUND_LANE_MESSAGE_DETAILS_METHOD: &'static str = bp_kusama::TO_KUSAMA_MESSAGE_DETAILS_METHOD;
+	const OUTBOUND_LANE_MESSAGE_DETAILS_METHOD: &'static str =
+		bp_kusama::TO_KUSAMA_MESSAGE_DETAILS_METHOD;
 	const OUTBOUND_LANE_LATEST_GENERATED_NONCE_METHOD: &'static str =
 		bp_kusama::TO_KUSAMA_LATEST_GENERATED_NONCE_METHOD;
-	const OUTBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str = bp_kusama::TO_KUSAMA_LATEST_RECEIVED_NONCE_METHOD;
+	const OUTBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str =
+		bp_kusama::TO_KUSAMA_LATEST_RECEIVED_NONCE_METHOD;
 
 	const INBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str =
 		bp_polkadot::FROM_POLKADOT_LATEST_RECEIVED_NONCE_METHOD;
 	const INBOUND_LANE_LATEST_CONFIRMED_NONCE_METHOD: &'static str =
 		bp_polkadot::FROM_POLKADOT_LATEST_CONFIRMED_NONCE_METHOD;
-	const INBOUND_LANE_UNREWARDED_RELAYERS_STATE: &'static str = bp_polkadot::FROM_POLKADOT_UNREWARDED_RELAYERS_STATE;
+	const INBOUND_LANE_UNREWARDED_RELAYERS_STATE: &'static str =
+		bp_polkadot::FROM_POLKADOT_UNREWARDED_RELAYERS_STATE;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_polkadot::BEST_FINALIZED_POLKADOT_HEADER_METHOD;
-	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str = bp_kusama::BEST_FINALIZED_KUSAMA_HEADER_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str =
+		bp_polkadot::BEST_FINALIZED_POLKADOT_HEADER_METHOD;
+	const BEST_FINALIZED_TARGET_HEADER_ID_AT_SOURCE: &'static str =
+		bp_kusama::BEST_FINALIZED_KUSAMA_HEADER_METHOD;
 
-	const MESSAGE_PALLET_NAME_AT_SOURCE: &'static str = bp_polkadot::WITH_KUSAMA_MESSAGES_PALLET_NAME;
-	const MESSAGE_PALLET_NAME_AT_TARGET: &'static str = bp_kusama::WITH_POLKADOT_MESSAGES_PALLET_NAME;
+	const MESSAGE_PALLET_NAME_AT_SOURCE: &'static str =
+		bp_polkadot::WITH_KUSAMA_MESSAGES_PALLET_NAME;
+	const MESSAGE_PALLET_NAME_AT_TARGET: &'static str =
+		bp_kusama::WITH_POLKADOT_MESSAGES_PALLET_NAME;
 
-	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_TARGET_CHAIN: Weight = bp_kusama::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
+	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_TARGET_CHAIN: Weight =
+		bp_kusama::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
 
 	type SourceChain = Polkadot;
 	type TargetChain = Kusama;
@@ -116,11 +130,7 @@ impl SubstrateMessageLane for PolkadotMessagesToKusama {
 		proof: <Self::MessageLane as MessageLane>::MessagesProof,
 	) -> Bytes {
 		let (dispatch_weight, proof) = proof;
-		let FromBridgedChainMessagesProof {
-			ref nonces_start,
-			ref nonces_end,
-			..
-		} = proof;
+		let FromBridgedChainMessagesProof { ref nonces_start, ref nonces_end, .. } = proof;
 		let messages_count = nonces_end - nonces_start + 1;
 
 		let call = relay_kusama_client::runtime::Call::BridgePolkadotMessages(
@@ -179,14 +189,14 @@ pub async fn run(
 	// we don't know exact weights of the Kusama runtime. So to guess weights we'll be using
 	// weights from Rialto and then simply dividing it by x2.
 	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
-		select_delivery_transaction_limits::<pallet_bridge_messages::weights::RialtoWeight<rialto_runtime::Runtime>>(
+		select_delivery_transaction_limits::<
+			pallet_bridge_messages::weights::RialtoWeight<rialto_runtime::Runtime>,
+		>(
 			bp_kusama::max_extrinsic_weight(),
 			bp_kusama::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
 		);
-	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) = (
-		max_messages_in_single_batch / 2,
-		max_messages_weight_in_single_batch / 2,
-	);
+	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
+		(max_messages_in_single_batch / 2, max_messages_weight_in_single_batch / 2);
 
 	log::info!(
 		target: "bridge",
@@ -218,8 +228,10 @@ pub async fn run(
 			reconnect_delay: relay_utils::relay_loop::RECONNECT_DELAY,
 			stall_timeout,
 			delivery_params: messages_relay::message_lane_loop::MessageDeliveryParams {
-				max_unrewarded_relayer_entries_at_target: bp_kusama::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
-				max_unconfirmed_nonces_at_target: bp_kusama::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
+				max_unrewarded_relayer_entries_at_target:
+					bp_kusama::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
+				max_unconfirmed_nonces_at_target:
+					bp_kusama::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE,
 				max_messages_in_single_batch,
 				max_messages_weight_in_single_batch,
 				max_messages_size_in_single_batch,
@@ -251,8 +263,10 @@ pub(crate) fn add_standalone_metrics(
 	metrics_params: MetricsParams,
 	source_client: Client<Polkadot>,
 ) -> anyhow::Result<(MetricsParams, StandaloneMessagesMetrics)> {
-	let kusama_to_polkadot_conversion_rate_key =
-		bp_runtime::storage_parameter_key(bp_polkadot::KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME).0;
+	let kusama_to_polkadot_conversion_rate_key = bp_runtime::storage_parameter_key(
+		bp_polkadot::KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME,
+	)
+	.0;
 
 	substrate_relay_helper::messages_lane::add_standalone_metrics::<PolkadotMessagesToKusama>(
 		metrics_prefix,

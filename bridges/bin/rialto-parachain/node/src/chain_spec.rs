@@ -23,7 +23,8 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<rialto_parachain_runtime::GenesisConfig, Extensions>;
+pub type ChainSpec =
+	sc_service::GenericChainSpec<rialto_parachain_runtime::GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -157,9 +158,7 @@ fn testnet_genesis(
 		},
 		sudo: rialto_parachain_runtime::SudoConfig { key: root_key },
 		parachain_info: rialto_parachain_runtime::ParachainInfoConfig { parachain_id: id },
-		aura: rialto_parachain_runtime::AuraConfig {
-			authorities: initial_authorities,
-		},
+		aura: rialto_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
 		// parachain_system: Default::default(),
 	}

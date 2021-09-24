@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::{Cli, Subcommand};
-use crate::service::new_partial;
+use crate::{
+	cli::{Cli, Subcommand},
+	service::new_partial,
+};
 use rialto_runtime::{Block, RuntimeApi};
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
@@ -73,7 +75,7 @@ pub fn run() -> sc_cli::Result<()> {
 	));
 
 	match &cli.subcommand {
-		Some(Subcommand::Benchmark(cmd)) => {
+		Some(Subcommand::Benchmark(cmd)) =>
 			if cfg!(feature = "runtime-benchmarks") {
 				let runner = cli.create_runner(cmd)?;
 
@@ -84,8 +86,7 @@ pub fn run() -> sc_cli::Result<()> {
 				You can enable it with `--features runtime-benchmarks`."
 				);
 				Ok(())
-			}
-		}
+			},
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
 		Some(Subcommand::Sign(cmd)) => cmd.run(),
 		Some(Subcommand::Verify(cmd)) => cmd.run(),
@@ -93,69 +94,57 @@ pub fn run() -> sc_cli::Result<()> {
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-		}
+		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|mut config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					import_queue,
-					..
-				} = new_partial(&mut config).map_err(service_error)?;
+				let PartialComponents { client, task_manager, import_queue, .. } =
+					new_partial(&mut config).map_err(service_error)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
-		}
+		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|mut config| {
-				let PartialComponents {
-					client, task_manager, ..
-				} = new_partial(&mut config).map_err(service_error)?;
+				let PartialComponents { client, task_manager, .. } =
+					new_partial(&mut config).map_err(service_error)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
-		}
+		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|mut config| {
-				let PartialComponents {
-					client, task_manager, ..
-				} = new_partial(&mut config).map_err(service_error)?;
+				let PartialComponents { client, task_manager, .. } =
+					new_partial(&mut config).map_err(service_error)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
-		}
+		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|mut config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					import_queue,
-					..
-				} = new_partial(&mut config).map_err(service_error)?;
+				let PartialComponents { client, task_manager, import_queue, .. } =
+					new_partial(&mut config).map_err(service_error)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
-		}
+		},
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.database))
-		}
+		},
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|mut config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					backend,
-					..
-				} = new_partial(&mut config).map_err(service_error)?;
+				let PartialComponents { client, task_manager, backend, .. } =
+					new_partial(&mut config).map_err(service_error)?;
 				Ok((cmd.run(client, backend), task_manager))
 			})
-		}
+		},
 		Some(Subcommand::Inspect(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, crate::service::ExecutorDispatch>(config))
-		}
+			runner.sync_run(|config| {
+				cmd.run::<Block, RuntimeApi, crate::service::ExecutorDispatch>(config)
+			})
+		},
 		Some(Subcommand::PvfPrepareWorker(cmd)) => {
 			let mut builder = sc_cli::LoggerBuilder::new("");
 			builder.with_colors(false);
@@ -163,7 +152,7 @@ pub fn run() -> sc_cli::Result<()> {
 
 			polkadot_node_core_pvf::prepare_worker_entrypoint(&cmd.socket_path);
 			Ok(())
-		}
+		},
 		Some(crate::cli::Subcommand::PvfExecuteWorker(cmd)) => {
 			let mut builder = sc_cli::LoggerBuilder::new("");
 			builder.with_colors(false);
@@ -171,7 +160,7 @@ pub fn run() -> sc_cli::Result<()> {
 
 			polkadot_node_core_pvf::execute_worker_entrypoint(&cmd.socket_path);
 			Ok(())
-		}
+		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 
@@ -192,7 +181,7 @@ pub fn run() -> sc_cli::Result<()> {
 						.map_err(service_error),
 				}
 			})
-		}
+		},
 	}
 }
 

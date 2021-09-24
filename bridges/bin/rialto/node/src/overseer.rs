@@ -87,7 +87,8 @@ where
 	pub pov_req_receiver: IncomingRequestReceiver<request_v1::PoVFetchingRequest>,
 	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
 	pub collation_req_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
-	pub available_data_req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+	pub available_data_req_receiver:
+		IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
@@ -143,7 +144,10 @@ pub fn create_default_subsystems<Spawner, RuntimeClient>(
 		ProvisionerSubsystem<Spawner>,
 		RuntimeApiSubsystem<RuntimeClient>,
 		AvailabilityStoreSubsystem,
-		NetworkBridgeSubsystem<Arc<sc_network::NetworkService<Block, Hash>>, AuthorityDiscoveryService>,
+		NetworkBridgeSubsystem<
+			Arc<sc_network::NetworkService<Block, Hash>>,
+			AuthorityDiscoveryService,
+		>,
 		ChainApiSubsystem<RuntimeClient>,
 		CollationGenerationSubsystem,
 		CollatorProtocolSubsystem,
@@ -167,10 +171,7 @@ where
 	let all_subsystems = AllSubsystems {
 		availability_distribution: AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
-			IncomingRequestReceivers {
-				pov_req_receiver,
-				chunk_req_receiver,
-			},
+			IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
 			Metrics::register(registry)?,
 		),
 		availability_recovery: AvailabilityRecoverySubsystem::with_chunks_only(
@@ -212,7 +213,11 @@ where
 			Metrics::register(registry)?,
 		),
 		provisioner: ProvisionerSubsystem::new(spawner.clone(), (), Metrics::register(registry)?),
-		runtime_api: RuntimeApiSubsystem::new(runtime_client, Metrics::register(registry)?, spawner),
+		runtime_api: RuntimeApiSubsystem::new(
+			runtime_client,
+			Metrics::register(registry)?,
+			spawner,
+		),
 		statement_distribution: StatementDistributionSubsystem::new(
 			keystore.clone(),
 			statement_req_receiver,
@@ -287,6 +292,7 @@ impl OverseerGen for RealOverseerGen {
 
 		let all_subsystems = create_default_subsystems::<Spawner, RuntimeClient>(args)?;
 
-		Overseer::new(leaves, all_subsystems, registry, runtime_client, spawner).map_err(|e| e.into())
+		Overseer::new(leaves, all_subsystems, registry, runtime_client, spawner)
+			.map_err(|e| e.into())
 	}
 }

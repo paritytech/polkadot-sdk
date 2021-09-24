@@ -38,9 +38,9 @@ mod rococo;
 mod westend;
 mod wococo;
 
-// Millau/Rialto tokens have no any real value, so the conversion rate we use is always 1:1. But we want to
-// test our code that is intended to work with real-value chains. So to keep it close to 1:1, we'll be treating
-// Rialto as BTC and Millau as wBTC (only in relayer).
+// Millau/Rialto tokens have no any real value, so the conversion rate we use is always 1:1. But we
+// want to test our code that is intended to work with real-value chains. So to keep it close to
+// 1:1, we'll be treating Rialto as BTC and Millau as wBTC (only in relayer).
 
 /// The identifier of token, which value is associated with Rialto token value by relayer.
 pub(crate) const RIALTO_ASSOCIATED_TOKEN_ID: &str = polkadot::TOKEN_ID;
@@ -53,8 +53,8 @@ pub(crate) fn add_polkadot_kusama_price_metrics<T: finality_relay::FinalitySyncP
 	prefix: Option<String>,
 	params: MetricsParams,
 ) -> anyhow::Result<MetricsParams> {
-	// Polkadot/Kusama prices are added as metrics here, because atm we don't have Polkadot <-> Kusama
-	// relays, but we want to test metrics/dashboards in advance
+	// Polkadot/Kusama prices are added as metrics here, because atm we don't have Polkadot <->
+	// Kusama relays, but we want to test metrics/dashboards in advance
 	Ok(relay_utils::relay_metrics(prefix, params)
 		.standalone_metric(|registry, prefix| {
 			substrate_relay_helper::helpers::token_price_metric(registry, prefix, "polkadot")
@@ -92,7 +92,8 @@ mod tests {
 			rialto_runtime::VERSION.spec_version,
 		);
 
-		let rialto_signer = relay_rialto_client::SigningParams::from_string("//Dave", None).unwrap();
+		let rialto_signer =
+			relay_rialto_client::SigningParams::from_string("//Dave", None).unwrap();
 		let signature = rialto_signer.sign(&digest);
 
 		assert!(signature.verify(&digest[..], &rialto_signer.public()));
@@ -113,7 +114,8 @@ mod tests {
 			millau_runtime::VERSION.spec_version,
 		);
 
-		let millau_signer = relay_millau_client::SigningParams::from_string("//Dave", None).unwrap();
+		let millau_signer =
+			relay_millau_client::SigningParams::from_string("//Dave", None).unwrap();
 		let signature = millau_signer.sign(&digest);
 
 		assert!(signature.verify(&digest[..], &millau_signer.public()));
@@ -128,7 +130,8 @@ mod tests {
 			bp_millau::max_extrinsic_size(),
 		);
 
-		let call: millau_runtime::Call = millau_runtime::SystemCall::remark(vec![42; maximal_remark_size as _]).into();
+		let call: millau_runtime::Call =
+			millau_runtime::SystemCall::remark(vec![42; maximal_remark_size as _]).into();
 		let payload = send_message::message_payload(
 			Default::default(),
 			call.get_dispatch_info().weight,
@@ -164,8 +167,9 @@ mod tests {
 	fn maximal_rialto_to_millau_message_dispatch_weight_is_computed_correctly() {
 		use rialto_runtime::millau_messages::Millau;
 
-		let maximal_dispatch_weight =
-			send_message::compute_maximal_message_dispatch_weight(bp_millau::max_extrinsic_weight());
+		let maximal_dispatch_weight = send_message::compute_maximal_message_dispatch_weight(
+			bp_millau::max_extrinsic_weight(),
+		);
 		let call: millau_runtime::Call = rialto_runtime::SystemCall::remark(vec![]).into();
 
 		let payload = send_message::message_payload(
@@ -191,8 +195,9 @@ mod tests {
 	fn maximal_weight_fill_block_to_rialto_is_generated_correctly() {
 		use millau_runtime::rialto_messages::Rialto;
 
-		let maximal_dispatch_weight =
-			send_message::compute_maximal_message_dispatch_weight(bp_rialto::max_extrinsic_weight());
+		let maximal_dispatch_weight = send_message::compute_maximal_message_dispatch_weight(
+			bp_rialto::max_extrinsic_weight(),
+		);
 		let call: rialto_runtime::Call = millau_runtime::SystemCall::remark(vec![]).into();
 
 		let payload = send_message::message_payload(
@@ -325,7 +330,10 @@ mod westend_tests {
 			votes_ancestries: vec![],
 		};
 
-		let actual = bp_westend::BridgeGrandpaRococoCall::submit_finality_proof(header.clone(), justification.clone());
+		let actual = bp_westend::BridgeGrandpaRococoCall::submit_finality_proof(
+			header.clone(),
+			justification.clone(),
+		);
 		let expected = millau_runtime::BridgeGrandpaRialtoCall::<millau_runtime::Runtime>::submit_finality_proof(
 			Box::new(header),
 			justification,

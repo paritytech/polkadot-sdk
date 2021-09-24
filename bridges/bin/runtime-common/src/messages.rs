@@ -41,7 +41,10 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul, Saturating, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128,
 };
-use sp_std::{cmp::PartialOrd, convert::TryFrom, fmt::Debug, marker::PhantomData, ops::RangeInclusive, vec::Vec};
+use sp_std::{
+	cmp::PartialOrd, convert::TryFrom, fmt::Debug, marker::PhantomData, ops::RangeInclusive,
+	vec::Vec,
+};
 use sp_trie::StorageProof;
 
 /// Bidirectional message bridge.
@@ -64,7 +67,9 @@ pub trait MessageBridge {
 	type BridgedChain: BridgedChainWithMessages;
 
 	/// Convert Bridged chain balance into This chain balance.
-	fn bridged_balance_to_this_balance(bridged_balance: BalanceOf<BridgedChain<Self>>) -> BalanceOf<ThisChain<Self>>;
+	fn bridged_balance_to_this_balance(
+		bridged_balance: BalanceOf<BridgedChain<Self>>,
+	) -> BalanceOf<ThisChain<Self>>;
 }
 
 /// Chain that has `pallet-bridge-messages` and `dispatch` modules.
@@ -83,7 +88,14 @@ pub trait ChainWithMessages {
 	/// different weights.
 	type Weight: From<frame_support::weights::Weight> + PartialOrd;
 	/// Type of balances that is used on the chain.
-	type Balance: Encode + Decode + CheckedAdd + CheckedDiv + CheckedMul + PartialOrd + From<u32> + Copy;
+	type Balance: Encode
+		+ Decode
+		+ CheckedAdd
+		+ CheckedDiv
+		+ CheckedMul
+		+ PartialOrd
+		+ From<u32>
+		+ Copy;
 }
 
 /// Message related transaction parameters estimation.
@@ -138,7 +150,8 @@ pub trait BridgedChainWithMessages: ChainWithMessages {
 		message_dispatch_weight: WeightOf<Self>,
 	) -> MessageTransaction<WeightOf<Self>>;
 
-	/// Returns minimal transaction fee that must be paid for given transaction at the Bridged chain.
+	/// Returns minimal transaction fee that must be paid for given transaction at the Bridged
+	/// chain.
 	fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
 }
 
@@ -158,10 +171,11 @@ type RawStorageProof = Vec<Vec<u8>>;
 
 /// Compute fee of transaction at runtime where regular transaction payment pallet is being used.
 ///
-/// The value of `multiplier` parameter is the expected value of `pallet_transaction_payment::NextFeeMultiplier`
-/// at the moment when transaction is submitted. If you're charging this payment in advance (and that's what
-/// happens with delivery and confirmation transaction in this crate), then there's a chance that the actual
-/// fee will be larger than what is paid in advance. So the value must be chosen carefully.
+/// The value of `multiplier` parameter is the expected value of
+/// `pallet_transaction_payment::NextFeeMultiplier` at the moment when transaction is submitted. If
+/// you're charging this payment in advance (and that's what happens with delivery and confirmation
+/// transaction in this crate), then there's a chance that the actual fee will be larger than what
+/// is paid in advance. So the value must be chosen carefully.
 pub fn transaction_payment<Balance: AtLeast32BitUnsigned + FixedPointOperand>(
 	base_extrinsic_weight: Weight,
 	per_byte_fee: Balance,
@@ -224,7 +238,8 @@ pub mod source {
 	}
 
 	/// 'Parsed' message delivery proof - inbound lane id and its state.
-	pub type ParsedMessagesDeliveryProofFromBridgedChain<B> = (LaneId, InboundLaneData<AccountIdOf<ThisChain<B>>>);
+	pub type ParsedMessagesDeliveryProofFromBridgedChain<B> =
+		(LaneId, InboundLaneData<AccountIdOf<ThisChain<B>>>);
 
 	/// Message verifier that is doing all basic checks.
 	///
@@ -236,19 +251,27 @@ pub mod source {
 	/// Following checks are made:
 	///
 	/// - message is rejected if its lane is currently blocked;
-	/// - message is rejected if there are too many pending (undelivered) messages at the outbound lane;
-	/// - check that the sender has rights to dispatch the call on target chain using provided dispatch origin;
+	/// - message is rejected if there are too many pending (undelivered) messages at the outbound
+	///   lane;
+	/// - check that the sender has rights to dispatch the call on target chain using provided
+	///   dispatch origin;
 	/// - check that the sender has paid enough funds for both message delivery and dispatch.
 	#[derive(RuntimeDebug)]
 	pub struct FromThisChainMessageVerifier<B>(PhantomData<B>);
 
 	pub(crate) const OUTBOUND_LANE_DISABLED: &str = "The outbound message lane is disabled.";
 	pub(crate) const TOO_MANY_PENDING_MESSAGES: &str = "Too many pending messages at the lane.";
-	pub(crate) const BAD_ORIGIN: &str = "Unable to match the source origin to expected target origin.";
-	pub(crate) const TOO_LOW_FEE: &str = "Provided fee is below minimal threshold required by the lane.";
+	pub(crate) const BAD_ORIGIN: &str =
+		"Unable to match the source origin to expected target origin.";
+	pub(crate) const TOO_LOW_FEE: &str =
+		"Provided fee is below minimal threshold required by the lane.";
 
-	impl<B> LaneMessageVerifier<AccountIdOf<ThisChain<B>>, FromThisChainMessagePayload<B>, BalanceOf<ThisChain<B>>>
-		for FromThisChainMessageVerifier<B>
+	impl<B>
+		LaneMessageVerifier<
+			AccountIdOf<ThisChain<B>>,
+			FromThisChainMessagePayload<B>,
+			BalanceOf<ThisChain<B>>,
+		> for FromThisChainMessageVerifier<B>
 	where
 		B: MessageBridge,
 		AccountIdOf<ThisChain<B>>: PartialEq + Clone,
@@ -264,7 +287,7 @@ pub mod source {
 		) -> Result<(), Self::Error> {
 			// reject message if lane is blocked
 			if !ThisChain::<B>::is_outbound_lane_enabled(lane) {
-				return Err(OUTBOUND_LANE_DISABLED);
+				return Err(OUTBOUND_LANE_DISABLED)
 			}
 
 			// reject message if there are too many pending messages at this lane
@@ -273,19 +296,20 @@ pub mod source {
 				.latest_generated_nonce
 				.saturating_sub(lane_outbound_data.latest_received_nonce);
 			if pending_messages > max_pending_messages {
-				return Err(TOO_MANY_PENDING_MESSAGES);
+				return Err(TOO_MANY_PENDING_MESSAGES)
 			}
 
 			// Do the dispatch-specific check. We assume that the target chain uses
 			// `Dispatch`, so we verify the message accordingly.
-			pallet_bridge_dispatch::verify_message_origin(submitter, payload).map_err(|_| BAD_ORIGIN)?;
+			pallet_bridge_dispatch::verify_message_origin(submitter, payload)
+				.map_err(|_| BAD_ORIGIN)?;
 
 			let minimal_fee_in_this_tokens =
 				estimate_message_dispatch_and_delivery_fee::<B>(payload, B::RELAYER_FEE_PERCENT)?;
 
 			// compare with actual fee paid
 			if *delivery_and_dispatch_fee < minimal_fee_in_this_tokens {
-				return Err(TOO_LOW_FEE);
+				return Err(TOO_LOW_FEE)
 			}
 
 			Ok(())
@@ -307,13 +331,13 @@ pub mod source {
 	) -> Result<(), &'static str> {
 		let weight_limits = BridgedChain::<B>::message_weight_limits(&payload.call);
 		if !weight_limits.contains(&payload.weight.into()) {
-			return Err("Incorrect message weight declared");
+			return Err("Incorrect message weight declared")
 		}
 
 		// The maximal size of extrinsic at Substrate-based chain depends on the
-		// `frame_system::Config::MaximumBlockLength` and `frame_system::Config::AvailableBlockRatio`
-		// constants. This check is here to be sure that the lane won't stuck because message is too
-		// large to fit into delivery transaction.
+		// `frame_system::Config::MaximumBlockLength` and
+		// `frame_system::Config::AvailableBlockRatio` constants. This check is here to be sure that
+		// the lane won't stuck because message is too large to fit into delivery transaction.
 		//
 		// **IMPORTANT NOTE**: the delivery transaction contains storage proof of the message, not
 		// the message itself. The proof is always larger than the message. But unless chain state
@@ -321,16 +345,17 @@ pub mod source {
 		// transaction also contains signatures and signed extensions. Because of this, we reserve
 		// 1/3 of the the maximal extrinsic weight for this data.
 		if payload.call.len() > maximal_message_size::<B>() as usize {
-			return Err("The message is too large to be sent over the lane");
+			return Err("The message is too large to be sent over the lane")
 		}
 
 		Ok(())
 	}
 
-	/// Estimate delivery and dispatch fee that must be paid for delivering a message to the Bridged chain.
+	/// Estimate delivery and dispatch fee that must be paid for delivering a message to the Bridged
+	/// chain.
 	///
-	/// The fee is paid in This chain Balance, but we use Bridged chain balance to avoid additional conversions.
-	/// Returns `None` if overflow has happened.
+	/// The fee is paid in This chain Balance, but we use Bridged chain balance to avoid additional
+	/// conversions. Returns `None` if overflow has happened.
 	pub fn estimate_message_dispatch_and_delivery_fee<B: MessageBridge>(
 		payload: &FromThisChainMessagePayload<B>,
 		relayer_fee_percent: u32,
@@ -339,25 +364,23 @@ pub mod source {
 		//
 		// if we're going to pay dispatch fee at the target chain, then we don't include weight
 		// of the message dispatch in the delivery transaction cost
-		let pay_dispatch_fee_at_target_chain = payload.dispatch_fee_payment == DispatchFeePayment::AtTargetChain;
+		let pay_dispatch_fee_at_target_chain =
+			payload.dispatch_fee_payment == DispatchFeePayment::AtTargetChain;
 		let delivery_transaction = BridgedChain::<B>::estimate_delivery_transaction(
 			&payload.encode(),
 			pay_dispatch_fee_at_target_chain,
-			if pay_dispatch_fee_at_target_chain {
-				0.into()
-			} else {
-				payload.weight.into()
-			},
+			if pay_dispatch_fee_at_target_chain { 0.into() } else { payload.weight.into() },
 		);
 		let delivery_transaction_fee = BridgedChain::<B>::transaction_payment(delivery_transaction);
 
 		// the fee (in This tokens) of all transactions that are made on This chain
 		let confirmation_transaction = ThisChain::<B>::estimate_delivery_confirmation_transaction();
-		let confirmation_transaction_fee = ThisChain::<B>::transaction_payment(confirmation_transaction);
+		let confirmation_transaction_fee =
+			ThisChain::<B>::transaction_payment(confirmation_transaction);
 
 		// minimal fee (in This tokens) is a sum of all required fees
-		let minimal_fee =
-			B::bridged_balance_to_this_balance(delivery_transaction_fee).checked_add(&confirmation_transaction_fee);
+		let minimal_fee = B::bridged_balance_to_this_balance(delivery_transaction_fee)
+			.checked_add(&confirmation_transaction_fee);
 
 		// before returning, add extra fee that is paid to the relayer (relayer interest)
 		minimal_fee
@@ -378,14 +401,14 @@ pub mod source {
 	) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<B>, &'static str>
 	where
 		ThisRuntime: pallet_bridge_grandpa::Config<GrandpaInstance>,
-		HashOf<BridgedChain<B>>:
-			Into<bp_runtime::HashOf<<ThisRuntime as pallet_bridge_grandpa::Config<GrandpaInstance>>::BridgedChain>>,
+		HashOf<BridgedChain<B>>: Into<
+			bp_runtime::HashOf<
+				<ThisRuntime as pallet_bridge_grandpa::Config<GrandpaInstance>>::BridgedChain,
+			>,
+		>,
 	{
-		let FromBridgedChainMessagesDeliveryProof {
-			bridged_header_hash,
-			storage_proof,
-			lane,
-		} = proof;
+		let FromBridgedChainMessagesDeliveryProof { bridged_header_hash, storage_proof, lane } =
+			proof;
 		pallet_bridge_grandpa::Pallet::<ThisRuntime, GrandpaInstance>::parse_finalized_storage_proof(
 			bridged_header_hash.into(),
 			StorageProof::new(storage_proof),
@@ -470,14 +493,13 @@ pub mod target {
 	impl<DecodedCall> FromBridgedChainEncodedMessageCall<DecodedCall> {
 		/// Create encoded call.
 		pub fn new(encoded_call: Vec<u8>) -> Self {
-			FromBridgedChainEncodedMessageCall {
-				encoded_call,
-				_marker: PhantomData::default(),
-			}
+			FromBridgedChainEncodedMessageCall { encoded_call, _marker: PhantomData::default() }
 		}
 	}
 
-	impl<DecodedCall: Decode> From<FromBridgedChainEncodedMessageCall<DecodedCall>> for Result<DecodedCall, ()> {
+	impl<DecodedCall: Decode> From<FromBridgedChainEncodedMessageCall<DecodedCall>>
+		for Result<DecodedCall, ()>
+	{
 		fn from(encoded_call: FromBridgedChainEncodedMessageCall<DecodedCall>) -> Self {
 			DecodedCall::decode(&mut &encoded_call.encoded_call[..]).map_err(drop)
 		}
@@ -495,16 +517,22 @@ pub mod target {
 	where
 		BalanceOf<ThisChain<B>>: Saturating + FixedPointOperand,
 		ThisDispatchInstance: 'static,
-		ThisRuntime: pallet_bridge_dispatch::Config<ThisDispatchInstance, BridgeMessageId = (LaneId, MessageNonce)>
-			+ pallet_transaction_payment::Config,
+		ThisRuntime: pallet_bridge_dispatch::Config<
+				ThisDispatchInstance,
+				BridgeMessageId = (LaneId, MessageNonce),
+			> + pallet_transaction_payment::Config,
 		<ThisRuntime as pallet_transaction_payment::Config>::OnChargeTransaction:
-			pallet_transaction_payment::OnChargeTransaction<ThisRuntime, Balance = BalanceOf<ThisChain<B>>>,
+			pallet_transaction_payment::OnChargeTransaction<
+				ThisRuntime,
+				Balance = BalanceOf<ThisChain<B>>,
+			>,
 		ThisCurrency: Currency<AccountIdOf<ThisChain<B>>, Balance = BalanceOf<ThisChain<B>>>,
-		pallet_bridge_dispatch::Pallet<ThisRuntime, ThisDispatchInstance>: bp_message_dispatch::MessageDispatch<
-			AccountIdOf<ThisChain<B>>,
-			(LaneId, MessageNonce),
-			Message = FromBridgedChainMessagePayload<B>,
-		>,
+		pallet_bridge_dispatch::Pallet<ThisRuntime, ThisDispatchInstance>:
+			bp_message_dispatch::MessageDispatch<
+				AccountIdOf<ThisChain<B>>,
+				(LaneId, MessageNonce),
+				Message = FromBridgedChainMessagePayload<B>,
+			>,
 	{
 		type DispatchPayload = FromBridgedChainMessagePayload<B>;
 
@@ -526,8 +554,10 @@ pub mod target {
 				message.data.payload.map_err(drop),
 				|dispatch_origin, dispatch_weight| {
 					let unadjusted_weight_fee = ThisRuntime::WeightToFee::calc(&dispatch_weight);
-					let fee_multiplier = pallet_transaction_payment::Pallet::<ThisRuntime>::next_fee_multiplier();
-					let adjusted_weight_fee = fee_multiplier.saturating_mul_int(unadjusted_weight_fee);
+					let fee_multiplier =
+						pallet_transaction_payment::Pallet::<ThisRuntime>::next_fee_multiplier();
+					let adjusted_weight_fee =
+						fee_multiplier.saturating_mul_int(unadjusted_weight_fee);
 					if !adjusted_weight_fee.is_zero() {
 						ThisCurrency::transfer(
 							dispatch_origin,
@@ -565,8 +595,11 @@ pub mod target {
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, &'static str>
 	where
 		ThisRuntime: pallet_bridge_grandpa::Config<GrandpaInstance>,
-		HashOf<BridgedChain<B>>:
-			Into<bp_runtime::HashOf<<ThisRuntime as pallet_bridge_grandpa::Config<GrandpaInstance>>::BridgedChain>>,
+		HashOf<BridgedChain<B>>: Into<
+			bp_runtime::HashOf<
+				<ThisRuntime as pallet_bridge_grandpa::Config<GrandpaInstance>>::BridgedChain,
+			>,
+		>,
 	{
 		verify_messages_proof_with_parser::<B, _, _>(
 			proof,
@@ -601,12 +634,13 @@ pub mod target {
 		fn from(err: MessageProofError) -> &'static str {
 			match err {
 				MessageProofError::Empty => "Messages proof is empty",
-				MessageProofError::MessagesCountMismatch => "Declared messages count doesn't match actual value",
+				MessageProofError::MessagesCountMismatch =>
+					"Declared messages count doesn't match actual value",
 				MessageProofError::MissingRequiredMessage => "Message is missing from the proof",
-				MessageProofError::FailedToDecodeMessage => "Failed to decode message from the proof",
-				MessageProofError::FailedToDecodeOutboundLaneState => {
-					"Failed to decode outbound lane data from the proof"
-				}
+				MessageProofError::FailedToDecodeMessage =>
+					"Failed to decode message from the proof",
+				MessageProofError::FailedToDecodeOutboundLaneState =>
+					"Failed to decode outbound lane data from the proof",
 				MessageProofError::Custom(err) => err,
 			}
 		}
@@ -629,10 +663,11 @@ pub mod target {
 	{
 		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>> {
 			let storage_outbound_lane_data_key =
-				pallet_bridge_messages::storage_keys::outbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, lane_id);
-			self.storage
-				.read_value(storage_outbound_lane_data_key.0.as_ref())
-				.ok()?
+				pallet_bridge_messages::storage_keys::outbound_lane_data_key(
+					B::BRIDGED_MESSAGES_PALLET_NAME,
+					lane_id,
+				);
+			self.storage.read_value(storage_outbound_lane_data_key.0.as_ref()).ok()?
 		}
 
 		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>> {
@@ -652,7 +687,8 @@ pub mod target {
 		build_parser: BuildParser,
 	) -> Result<ProvedMessages<Message<BalanceOf<BridgedChain<B>>>>, MessageProofError>
 	where
-		BuildParser: FnOnce(HashOf<BridgedChain<B>>, RawStorageProof) -> Result<Parser, MessageProofError>,
+		BuildParser:
+			FnOnce(HashOf<BridgedChain<B>>, RawStorageProof) -> Result<Parser, MessageProofError>,
 		Parser: MessageProofParser,
 	{
 		let FromBridgedChainMessagesProof {
@@ -664,18 +700,19 @@ pub mod target {
 		} = proof;
 
 		// receiving proofs where end < begin is ok (if proof includes outbound lane state)
-		let messages_in_the_proof = if let Some(nonces_difference) = nonces_end.checked_sub(nonces_start) {
-			// let's check that the user (relayer) has passed correct `messages_count`
-			// (this bounds maximal capacity of messages vec below)
-			let messages_in_the_proof = nonces_difference.saturating_add(1);
-			if messages_in_the_proof != MessageNonce::from(messages_count) {
-				return Err(MessageProofError::MessagesCountMismatch);
-			}
+		let messages_in_the_proof =
+			if let Some(nonces_difference) = nonces_end.checked_sub(nonces_start) {
+				// let's check that the user (relayer) has passed correct `messages_count`
+				// (this bounds maximal capacity of messages vec below)
+				let messages_in_the_proof = nonces_difference.saturating_add(1);
+				if messages_in_the_proof != MessageNonce::from(messages_count) {
+					return Err(MessageProofError::MessagesCountMismatch)
+				}
 
-			messages_in_the_proof
-		} else {
-			0
-		};
+				messages_in_the_proof
+			} else {
+				0
+			};
 
 		let parser = build_parser(bridged_header_hash, storage_proof)?;
 
@@ -689,20 +726,15 @@ pub mod target {
 			let raw_message_data = parser
 				.read_raw_message(&message_key)
 				.ok_or(MessageProofError::MissingRequiredMessage)?;
-			let message_data = MessageData::<BalanceOf<BridgedChain<B>>>::decode(&mut &raw_message_data[..])
-				.map_err(|_| MessageProofError::FailedToDecodeMessage)?;
-			messages.push(Message {
-				key: message_key,
-				data: message_data,
-			});
+			let message_data =
+				MessageData::<BalanceOf<BridgedChain<B>>>::decode(&mut &raw_message_data[..])
+					.map_err(|_| MessageProofError::FailedToDecodeMessage)?;
+			messages.push(Message { key: message_key, data: message_data });
 		}
 
 		// Now let's check if proof contains outbound lane state proof. It is optional, so we
 		// simply ignore `read_value` errors and missing value.
-		let mut proved_lane_messages = ProvedLaneMessages {
-			lane_state: None,
-			messages,
-		};
+		let mut proved_lane_messages = ProvedLaneMessages { lane_state: None, messages };
 		let raw_outbound_lane_data = parser.read_raw_outbound_lane_data(&lane);
 		if let Some(raw_outbound_lane_data) = raw_outbound_lane_data {
 			proved_lane_messages.lane_state = Some(
@@ -713,7 +745,7 @@ pub mod target {
 
 		// Now we may actually check if the proof is empty or not.
 		if proved_lane_messages.lane_state.is_none() && proved_lane_messages.messages.is_empty() {
-			return Err(MessageProofError::Empty);
+			return Err(MessageProofError::Empty)
 		}
 
 		// We only support single lane messages in this schema
@@ -739,7 +771,8 @@ mod tests {
 	const BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT: Weight = 2048;
 	const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
-	/// Bridge that is deployed on ThisChain and allows sending/receiving messages to/from BridgedChain;
+	/// Bridge that is deployed on ThisChain and allows sending/receiving messages to/from
+	/// BridgedChain;
 	#[derive(Debug, PartialEq, Eq)]
 	struct OnThisChainBridge;
 
@@ -752,12 +785,15 @@ mod tests {
 		type ThisChain = ThisChain;
 		type BridgedChain = BridgedChain;
 
-		fn bridged_balance_to_this_balance(bridged_balance: BridgedChainBalance) -> ThisChainBalance {
+		fn bridged_balance_to_this_balance(
+			bridged_balance: BridgedChainBalance,
+		) -> ThisChainBalance {
 			ThisChainBalance(bridged_balance.0 * BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE as u32)
 		}
 	}
 
-	/// Bridge that is deployed on BridgedChain and allows sending/receiving messages to/from ThisChain;
+	/// Bridge that is deployed on BridgedChain and allows sending/receiving messages to/from
+	/// ThisChain;
 	#[derive(Debug, PartialEq, Eq)]
 	struct OnBridgedChainBridge;
 
@@ -892,7 +928,9 @@ mod tests {
 		}
 
 		fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
-			ThisChainBalance(transaction.dispatch_weight as u32 * THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
+			ThisChainBalance(
+				transaction.dispatch_weight as u32 * THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u32,
+			)
 		}
 	}
 
@@ -913,7 +951,9 @@ mod tests {
 			unreachable!()
 		}
 
-		fn transaction_payment(_transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(
+			_transaction: MessageTransaction<WeightOf<Self>>,
+		) -> BalanceOf<Self> {
 			unreachable!()
 		}
 	}
@@ -944,7 +984,9 @@ mod tests {
 			unreachable!()
 		}
 
-		fn transaction_payment(_transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(
+			_transaction: MessageTransaction<WeightOf<Self>>,
+		) -> BalanceOf<Self> {
 			unreachable!()
 		}
 	}
@@ -955,7 +997,8 @@ mod tests {
 		}
 
 		fn message_weight_limits(message_payload: &[u8]) -> RangeInclusive<Self::Weight> {
-			let begin = std::cmp::min(BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT, message_payload.len() as Weight);
+			let begin =
+				std::cmp::min(BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT, message_payload.len() as Weight);
 			begin..=BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT
 		}
 
@@ -971,7 +1014,9 @@ mod tests {
 		}
 
 		fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
-			BridgedChainBalance(transaction.dispatch_weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32)
+			BridgedChainBalance(
+				transaction.dispatch_weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32,
+			)
 		}
 	}
 
@@ -982,19 +1027,22 @@ mod tests {
 	#[test]
 	fn message_from_bridged_chain_is_decoded() {
 		// the message is encoded on the bridged chain
-		let message_on_bridged_chain = source::FromThisChainMessagePayload::<OnBridgedChainBridge> {
-			spec_version: 1,
-			weight: 100,
-			origin: bp_message_dispatch::CallOrigin::SourceRoot,
-			dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
-			call: ThisChainCall::Transfer.encode(),
-		}
-		.encode();
+		let message_on_bridged_chain =
+			source::FromThisChainMessagePayload::<OnBridgedChainBridge> {
+				spec_version: 1,
+				weight: 100,
+				origin: bp_message_dispatch::CallOrigin::SourceRoot,
+				dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
+				call: ThisChainCall::Transfer.encode(),
+			}
+			.encode();
 
 		// and sent to this chain where it is decoded
 		let message_on_this_chain =
-			target::FromBridgedChainMessagePayload::<OnThisChainBridge>::decode(&mut &message_on_bridged_chain[..])
-				.unwrap();
+			target::FromBridgedChainMessagePayload::<OnThisChainBridge>::decode(
+				&mut &message_on_bridged_chain[..],
+			)
+			.unwrap();
 		assert_eq!(
 			message_on_this_chain,
 			target::FromBridgedChainMessagePayload::<OnThisChainBridge> {
@@ -1013,7 +1061,8 @@ mod tests {
 	const TEST_LANE_ID: &LaneId = b"test";
 	const MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE: MessageNonce = 32;
 
-	fn regular_outbound_message_payload() -> source::FromThisChainMessagePayload<OnThisChainBridge> {
+	fn regular_outbound_message_payload() -> source::FromThisChainMessagePayload<OnThisChainBridge>
+	{
 		source::FromThisChainMessagePayload::<OnThisChainBridge> {
 			spec_version: 1,
 			weight: 100,
@@ -1042,11 +1091,14 @@ mod tests {
 		// let's check if estimation is less than hardcoded, if dispatch is paid at target chain
 		let mut payload_with_pay_on_target = regular_outbound_message_payload();
 		payload_with_pay_on_target.dispatch_fee_payment = DispatchFeePayment::AtTargetChain;
-		let fee_at_source = source::estimate_message_dispatch_and_delivery_fee::<OnThisChainBridge>(
-			&payload_with_pay_on_target,
-			OnThisChainBridge::RELAYER_FEE_PERCENT,
-		)
-		.expect("estimate_message_dispatch_and_delivery_fee failed for pay-at-target-chain message");
+		let fee_at_source =
+			source::estimate_message_dispatch_and_delivery_fee::<OnThisChainBridge>(
+				&payload_with_pay_on_target,
+				OnThisChainBridge::RELAYER_FEE_PERCENT,
+			)
+			.expect(
+				"estimate_message_dispatch_and_delivery_fee failed for pay-at-target-chain message",
+			);
 		assert!(
 			fee_at_source < EXPECTED_MINIMAL_FEE.into(),
 			"Computed fee {:?} without prepaid dispatch must be less than the fee with prepaid dispatch {}",
@@ -1065,16 +1117,14 @@ mod tests {
 			),
 			Err(source::TOO_LOW_FEE)
 		);
-		assert!(
-			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
-				&Sender::Root,
-				&ThisChainBalance(1_000_000),
-				TEST_LANE_ID,
-				&test_lane_outbound_data(),
-				&payload,
-			)
-			.is_ok(),
-		);
+		assert!(source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
+			&Sender::Root,
+			&ThisChainBalance(1_000_000),
+			TEST_LANE_ID,
+			&test_lane_outbound_data(),
+			&payload,
+		)
+		.is_ok(),);
 	}
 
 	#[test]
@@ -1109,16 +1159,14 @@ mod tests {
 			),
 			Err(source::BAD_ORIGIN)
 		);
-		assert!(
-			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
-				&Sender::Root,
-				&ThisChainBalance(1_000_000),
-				TEST_LANE_ID,
-				&test_lane_outbound_data(),
-				&payload,
-			)
-			.is_ok(),
-		);
+		assert!(source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
+			&Sender::Root,
+			&ThisChainBalance(1_000_000),
+			TEST_LANE_ID,
+			&test_lane_outbound_data(),
+			&payload,
+		)
+		.is_ok(),);
 	}
 
 	#[test]
@@ -1143,16 +1191,14 @@ mod tests {
 			),
 			Err(source::BAD_ORIGIN)
 		);
-		assert!(
-			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
-				&Sender::Signed(ThisChainAccountId(1)),
-				&ThisChainBalance(1_000_000),
-				TEST_LANE_ID,
-				&test_lane_outbound_data(),
-				&payload,
-			)
-			.is_ok(),
-		);
+		assert!(source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
+			&Sender::Signed(ThisChainAccountId(1)),
+			&ThisChainBalance(1_000_000),
+			TEST_LANE_ID,
+			&test_lane_outbound_data(),
+			&payload,
+		)
+		.is_ok(),);
 	}
 
 	#[test]
@@ -1189,64 +1235,58 @@ mod tests {
 
 	#[test]
 	fn verify_chain_message_rejects_message_with_too_small_declared_weight() {
-		assert!(
-			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
-				OnThisChainBridge,
-			> {
+		assert!(source::verify_chain_message::<OnThisChainBridge>(
+			&source::FromThisChainMessagePayload::<OnThisChainBridge> {
 				spec_version: 1,
 				weight: 5,
 				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 				call: vec![1, 2, 3, 4, 5, 6],
-			},)
-			.is_err()
-		);
+			},
+		)
+		.is_err());
 	}
 
 	#[test]
 	fn verify_chain_message_rejects_message_with_too_large_declared_weight() {
-		assert!(
-			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
-				OnThisChainBridge,
-			> {
+		assert!(source::verify_chain_message::<OnThisChainBridge>(
+			&source::FromThisChainMessagePayload::<OnThisChainBridge> {
 				spec_version: 1,
 				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT + 1,
 				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 				call: vec![1, 2, 3, 4, 5, 6],
-			},)
-			.is_err()
-		);
+			},
+		)
+		.is_err());
 	}
 
 	#[test]
 	fn verify_chain_message_rejects_message_too_large_message() {
-		assert!(
-			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
-				OnThisChainBridge,
-			> {
+		assert!(source::verify_chain_message::<OnThisChainBridge>(
+			&source::FromThisChainMessagePayload::<OnThisChainBridge> {
 				spec_version: 1,
 				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
 				origin: bp_message_dispatch::CallOrigin::SourceRoot,
 				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 				call: vec![0; source::maximal_message_size::<OnThisChainBridge>() as usize + 1],
-			},)
-			.is_err()
-		);
+			},
+		)
+		.is_err());
 	}
 
 	#[test]
 	fn verify_chain_message_accepts_maximal_message() {
 		assert_eq!(
-			source::verify_chain_message::<OnThisChainBridge>(&source::FromThisChainMessagePayload::<
-				OnThisChainBridge,
-			> {
-				spec_version: 1,
-				weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
-				origin: bp_message_dispatch::CallOrigin::SourceRoot,
-				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
-				call: vec![0; source::maximal_message_size::<OnThisChainBridge>() as _],
-			},),
+			source::verify_chain_message::<OnThisChainBridge>(
+				&source::FromThisChainMessagePayload::<OnThisChainBridge> {
+					spec_version: 1,
+					weight: BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT,
+					origin: bp_message_dispatch::CallOrigin::SourceRoot,
+					dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
+					call: vec![0; source::maximal_message_size::<OnThisChainBridge>() as _],
+				},
+			),
 			Ok(()),
 		);
 	}
@@ -1338,13 +1378,15 @@ mod tests {
 	#[test]
 	fn message_proof_is_rejected_if_required_message_is_missing() {
 		assert_eq!(
-			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(messages_proof(10), 10, |_, _| Ok(
-				TestMessageProofParser {
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				messages_proof(10),
+				10,
+				|_, _| Ok(TestMessageProofParser {
 					failing: false,
 					messages: 1..=5,
 					outbound_lane_data: None,
-				}
-			),),
+				}),
+			),
 			Err(target::MessageProofError::MissingRequiredMessage),
 		);
 	}
@@ -1352,13 +1394,15 @@ mod tests {
 	#[test]
 	fn message_proof_is_rejected_if_message_decode_fails() {
 		assert_eq!(
-			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(messages_proof(10), 10, |_, _| Ok(
-				TestMessageProofParser {
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				messages_proof(10),
+				10,
+				|_, _| Ok(TestMessageProofParser {
 					failing: true,
 					messages: 1..=10,
 					outbound_lane_data: None,
-				}
-			),),
+				}),
+			),
 			Err(target::MessageProofError::FailedToDecodeMessage),
 		);
 	}
@@ -1366,8 +1410,10 @@ mod tests {
 	#[test]
 	fn message_proof_is_rejected_if_outbound_lane_state_decode_fails() {
 		assert_eq!(
-			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(messages_proof(0), 0, |_, _| Ok(
-				TestMessageProofParser {
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				messages_proof(0),
+				0,
+				|_, _| Ok(TestMessageProofParser {
 					failing: true,
 					messages: no_messages_range(),
 					outbound_lane_data: Some(OutboundLaneData {
@@ -1375,8 +1421,8 @@ mod tests {
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
 					}),
-				}
-			),),
+				}),
+			),
 			Err(target::MessageProofError::FailedToDecodeOutboundLaneState),
 		);
 	}
@@ -1384,13 +1430,15 @@ mod tests {
 	#[test]
 	fn message_proof_is_rejected_if_it_is_empty() {
 		assert_eq!(
-			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(messages_proof(0), 0, |_, _| Ok(
-				TestMessageProofParser {
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				messages_proof(0),
+				0,
+				|_, _| Ok(TestMessageProofParser {
 					failing: false,
 					messages: no_messages_range(),
 					outbound_lane_data: None,
-				}
-			),),
+				}),
+			),
 			Err(target::MessageProofError::Empty),
 		);
 	}
@@ -1398,8 +1446,10 @@ mod tests {
 	#[test]
 	fn non_empty_message_proof_without_messages_is_accepted() {
 		assert_eq!(
-			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(messages_proof(0), 0, |_, _| Ok(
-				TestMessageProofParser {
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				messages_proof(0),
+				0,
+				|_, _| Ok(TestMessageProofParser {
 					failing: false,
 					messages: no_messages_range(),
 					outbound_lane_data: Some(OutboundLaneData {
@@ -1407,8 +1457,8 @@ mod tests {
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
 					}),
-				}
-			),),
+				}),
+			),
 			Ok(vec![(
 				Default::default(),
 				ProvedLaneMessages {
@@ -1428,8 +1478,10 @@ mod tests {
 	#[test]
 	fn non_empty_message_proof_is_accepted() {
 		assert_eq!(
-			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(messages_proof(1), 1, |_, _| Ok(
-				TestMessageProofParser {
+			target::verify_messages_proof_with_parser::<OnThisChainBridge, _, _>(
+				messages_proof(1),
+				1,
+				|_, _| Ok(TestMessageProofParser {
 					failing: false,
 					messages: 1..=1,
 					outbound_lane_data: Some(OutboundLaneData {
@@ -1437,8 +1489,8 @@ mod tests {
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
 					}),
-				}
-			),),
+				}),
+			),
 			Ok(vec![(
 				Default::default(),
 				ProvedLaneMessages {
@@ -1448,14 +1500,8 @@ mod tests {
 						latest_generated_nonce: 1,
 					}),
 					messages: vec![Message {
-						key: MessageKey {
-							lane_id: Default::default(),
-							nonce: 1
-						},
-						data: MessageData {
-							payload: 1u64.encode(),
-							fee: BridgedChainBalance(0)
-						},
+						key: MessageKey { lane_id: Default::default(), nonce: 1 },
+						data: MessageData { payload: 1u64.encode(), fee: BridgedChainBalance(0) },
 					}],
 				},
 			)]
@@ -1494,10 +1540,7 @@ mod tests {
 				10,
 				FixedU128::zero(),
 				|weight| weight,
-				MessageTransaction {
-					size: 50,
-					dispatch_weight: 777
-				},
+				MessageTransaction { size: 50, dispatch_weight: 777 },
 			),
 			100 + 50 * 10,
 		);
@@ -1513,10 +1556,7 @@ mod tests {
 				10,
 				FixedU128::one(),
 				|weight| weight,
-				MessageTransaction {
-					size: 50,
-					dispatch_weight: 777
-				},
+				MessageTransaction { size: 50, dispatch_weight: 777 },
 			),
 			100 + 50 * 10 + 777,
 		);

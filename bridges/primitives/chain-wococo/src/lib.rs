@@ -45,22 +45,28 @@ pub const BEST_FINALIZED_WOCOCO_HEADER_METHOD: &str = "WococoFinalityApi_best_fi
 /// Name of the `WococoFinalityApi::is_known_header` runtime method.
 pub const IS_KNOWN_WOCOCO_HEADER_METHOD: &str = "WococoFinalityApi_is_known_header";
 
-/// Name of the `ToWococoOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime method.
+/// Name of the `ToWococoOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
+/// method.
 pub const TO_WOCOCO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToWococoOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToWococoOutboundLaneApi::message_details` runtime method.
 pub const TO_WOCOCO_MESSAGE_DETAILS_METHOD: &str = "ToWococoOutboundLaneApi_message_details";
 /// Name of the `ToWococoOutboundLaneApi::latest_generated_nonce` runtime method.
-pub const TO_WOCOCO_LATEST_GENERATED_NONCE_METHOD: &str = "ToWococoOutboundLaneApi_latest_generated_nonce";
+pub const TO_WOCOCO_LATEST_GENERATED_NONCE_METHOD: &str =
+	"ToWococoOutboundLaneApi_latest_generated_nonce";
 /// Name of the `ToWococoOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_WOCOCO_LATEST_RECEIVED_NONCE_METHOD: &str = "ToWococoOutboundLaneApi_latest_received_nonce";
+pub const TO_WOCOCO_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"ToWococoOutboundLaneApi_latest_received_nonce";
 
 /// Name of the `FromWococoInboundLaneApi::latest_received_nonce` runtime method.
-pub const FROM_WOCOCO_LATEST_RECEIVED_NONCE_METHOD: &str = "FromWococoInboundLaneApi_latest_received_nonce";
+pub const FROM_WOCOCO_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"FromWococoInboundLaneApi_latest_received_nonce";
 /// Name of the `FromWococoInboundLaneApi::latest_onfirmed_nonce` runtime method.
-pub const FROM_WOCOCO_LATEST_CONFIRMED_NONCE_METHOD: &str = "FromWococoInboundLaneApi_latest_confirmed_nonce";
+pub const FROM_WOCOCO_LATEST_CONFIRMED_NONCE_METHOD: &str =
+	"FromWococoInboundLaneApi_latest_confirmed_nonce";
 /// Name of the `FromWococoInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_WOCOCO_UNREWARDED_RELAYERS_STATE: &str = "FromWococoInboundLaneApi_unrewarded_relayers_state";
+pub const FROM_WOCOCO_UNREWARDED_RELAYERS_STATE: &str =
+	"FromWococoInboundLaneApi_unrewarded_relayers_state";
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Wococo headers.

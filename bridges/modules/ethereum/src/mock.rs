@@ -17,11 +17,15 @@
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
-pub use crate::test_utils::{insert_header, validator_utils::*, validators_change_receipt, HeaderBuilder, GAS_LIMIT};
+pub use crate::test_utils::{
+	insert_header, validator_utils::*, validators_change_receipt, HeaderBuilder, GAS_LIMIT,
+};
 pub use bp_eth_poa::signatures::secret_to_address;
 
-use crate::validators::{ValidatorsConfiguration, ValidatorsSource};
-use crate::{AuraConfiguration, ChainTime, Config, GenesisConfig as CrateGenesisConfig, PruningStrategy};
+use crate::{
+	validators::{ValidatorsConfiguration, ValidatorsSource},
+	AuraConfiguration, ChainTime, Config, GenesisConfig as CrateGenesisConfig, PruningStrategy,
+};
 use bp_eth_poa::{Address, AuraHeader, H256, U256};
 use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight};
 use secp256k1::SecretKey;
@@ -154,14 +158,7 @@ pub fn run_test_with_genesis<T>(
 		})
 		.unwrap(),
 	)
-	.execute_with(|| {
-		test(TestContext {
-			genesis,
-			total_validators,
-			validators,
-			addresses,
-		})
-	})
+	.execute_with(|| test(TestContext { genesis, total_validators, validators, addresses }))
 }
 
 /// Pruning strategy that keeps 10 headers behind best block.

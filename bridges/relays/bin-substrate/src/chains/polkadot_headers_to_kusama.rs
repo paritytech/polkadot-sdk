@@ -24,13 +24,15 @@ use relay_kusama_client::{Kusama, SigningParams as KusamaSigningParams};
 use relay_polkadot_client::{Polkadot, SyncHeader as PolkadotSyncHeader};
 use relay_substrate_client::{Client, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
+use substrate_relay_helper::finality_pipeline::{
+	SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate,
+};
 
 /// Maximal saturating difference between `balance(now)` and `balance(now-24h)` to treat
 /// relay as gone wild.
 ///
-/// Actual value, returned by `maximal_balance_decrease_per_day_is_sane` test is approximately 0.001 KSM,
-/// but let's round up to 0.1 KSM here.
+/// Actual value, returned by `maximal_balance_decrease_per_day_is_sane` test is approximately 0.001
+/// KSM, but let's round up to 0.1 KSM here.
 pub(crate) const MAXIMAL_BALANCE_DECREASE_PER_DAY: bp_polkadot::Balance = 100_000_000_000;
 
 /// Polkadot-to-Kusama finality sync pipeline.
@@ -45,7 +47,10 @@ pub(crate) struct PolkadotFinalityToKusama {
 impl PolkadotFinalityToKusama {
 	pub fn new(target_client: Client<Kusama>, target_sign: KusamaSigningParams) -> Self {
 		Self {
-			finality_pipeline: FinalityPipelinePolkadotFinalityToKusama::new(target_client, target_sign),
+			finality_pipeline: FinalityPipelinePolkadotFinalityToKusama::new(
+				target_client,
+				target_sign,
+			),
 		}
 	}
 }
@@ -53,7 +58,8 @@ impl PolkadotFinalityToKusama {
 impl SubstrateFinalitySyncPipeline for PolkadotFinalityToKusama {
 	type FinalitySyncPipeline = FinalityPipelinePolkadotFinalityToKusama;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_polkadot::BEST_FINALIZED_POLKADOT_HEADER_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str =
+		bp_polkadot::BEST_FINALIZED_POLKADOT_HEADER_METHOD;
 
 	type TargetChain = Kusama;
 

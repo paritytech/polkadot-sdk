@@ -34,15 +34,19 @@ pub mod rialto_messages;
 
 use crate::rialto_messages::{ToRialtoMessagePayload, WithRialtoMessageBridge};
 
-use bridge_runtime_common::messages::{source::estimate_message_dispatch_and_delivery_fee, MessageBridge};
-use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use bridge_runtime_common::messages::{
+	source::estimate_message_dispatch_and_delivery_fee, MessageBridge,
+};
+use pallet_grandpa::{
+	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
 use pallet_transaction_payment::{FeeDetails, Multiplier, RuntimeDispatchInfo};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::traits::{Block as BlockT, IdentityLookup, NumberFor, OpaqueKeys};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
+	traits::{Block as BlockT, IdentityLookup, NumberFor, OpaqueKeys},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, MultiSignature, MultiSigner, Perquintill,
 };
@@ -61,8 +65,9 @@ pub use frame_support::{
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
-pub use pallet_bridge_grandpa::Call as BridgeGrandpaRialtoCall;
-pub use pallet_bridge_grandpa::Call as BridgeGrandpaWestendCall;
+pub use pallet_bridge_grandpa::{
+	Call as BridgeGrandpaRialtoCall, Call as BridgeGrandpaWestendCall,
+};
 pub use pallet_bridge_messages::Call as MessagesCall;
 pub use pallet_sudo::Call as SudoCall;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -138,10 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
-	NativeVersion {
-		runtime_version: VERSION,
-		can_author_with: Default::default(),
-	}
+	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
 parameter_types! {
@@ -231,9 +233,12 @@ impl pallet_grandpa::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
 	type KeyOwnerProofSystem = ();
-	type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-	type KeyOwnerIdentification =
-		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
+	type KeyOwnerProof =
+		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+		KeyTypeId,
+		GrandpaId,
+	)>>::IdentificationTuple;
 	type HandleEquivocation = ();
 	// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 	type WeightInfo = ();
@@ -394,14 +399,16 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 
 	type TargetHeaderChain = crate::rialto_messages::Rialto;
 	type LaneMessageVerifier = crate::rialto_messages::ToRialtoMessageVerifier;
-	type MessageDeliveryAndDispatchPayment = pallet_bridge_messages::instant_payments::InstantCurrencyPayments<
-		Runtime,
-		pallet_balances::Pallet<Runtime>,
-		GetDeliveryConfirmationTransactionFee,
-		RootAccountForPayments,
-	>;
+	type MessageDeliveryAndDispatchPayment =
+		pallet_bridge_messages::instant_payments::InstantCurrencyPayments<
+			Runtime,
+			pallet_balances::Pallet<Runtime>,
+			GetDeliveryConfirmationTransactionFee,
+			RootAccountForPayments,
+		>;
 	type OnMessageAccepted = ();
-	type OnDeliveryConfirmed = pallet_bridge_token_swap::Pallet<Runtime, WithRialtoTokenSwapInstance>;
+	type OnDeliveryConfirmed =
+		pallet_bridge_token_swap::Pallet<Runtime, WithRialtoTokenSwapInstance>;
 
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
@@ -488,8 +495,13 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPallets>;
+pub type Executive = frame_executive::Executive<
+	Runtime,
+	Block,
+	frame_system::ChainContext<Runtime>,
+	Runtime,
+	AllPallets,
+>;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -742,15 +754,18 @@ mod tests {
 			bp_millau::max_extrinsic_size(),
 			bp_millau::max_extrinsic_weight(),
 			max_incoming_message_proof_size,
-			messages::target::maximal_incoming_message_dispatch_weight(bp_millau::max_extrinsic_weight()),
+			messages::target::maximal_incoming_message_dispatch_weight(
+				bp_millau::max_extrinsic_weight(),
+			),
 		);
 
-		let max_incoming_inbound_lane_data_proof_size = bp_messages::InboundLaneData::<()>::encoded_size_hint(
-			bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
-			bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE as _,
-			bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE as _,
-		)
-		.unwrap_or(u32::MAX);
+		let max_incoming_inbound_lane_data_proof_size =
+			bp_messages::InboundLaneData::<()>::encoded_size_hint(
+				bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
+				bp_rialto::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE as _,
+				bp_rialto::MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE as _,
+			)
+			.unwrap_or(u32::MAX);
 		pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights>(
 			bp_millau::max_extrinsic_size(),
 			bp_millau::max_extrinsic_weight(),

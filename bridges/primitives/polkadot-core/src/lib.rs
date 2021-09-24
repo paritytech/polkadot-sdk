@@ -76,8 +76,9 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 pub const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 
-/// All Polkadot-like chains assume that an on-initialize consumes 1 percent of the weight on average,
-/// hence a single extrinsic will not be allowed to consume more than `AvailableBlockRatio - 1 percent`.
+/// All Polkadot-like chains assume that an on-initialize consumes 1 percent of the weight on
+/// average, hence a single extrinsic will not be allowed to consume more than
+/// `AvailableBlockRatio - 1 percent`.
 ///
 /// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
@@ -113,7 +114,8 @@ parameter_types! {
 		.build_or_panic();
 }
 
-/// Get the maximum weight (compute time) that a Normal extrinsic on the Polkadot-like chain can use.
+/// Get the maximum weight (compute time) that a Normal extrinsic on the Polkadot-like chain can
+/// use.
 pub fn max_extrinsic_weight() -> Weight {
 	BlockWeights::get()
 		.get(DispatchClass::Normal)
@@ -144,18 +146,21 @@ pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 8192;
 
 /// Maximal weight of single message delivery confirmation transaction on Polkadot-like chain.
 ///
-/// This value is a result of `pallet_bridge_messages::Pallet::receive_messages_delivery_proof` weight formula
-/// computation for the case when single message is confirmed. The result then must be rounded up to account possible
-/// future runtime upgrades.
+/// This value is a result of `pallet_bridge_messages::Pallet::receive_messages_delivery_proof`
+/// weight formula computation for the case when single message is confirmed. The result then must
+/// be rounded up to account possible future runtime upgrades.
 pub const MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT: Weight = 2_000_000_000;
 
-/// Increase of delivery transaction weight on Polkadot-like chain with every additional message byte.
+/// Increase of delivery transaction weight on Polkadot-like chain with every additional message
+/// byte.
 ///
-/// This value is a result of `pallet_bridge_messages::WeightInfoExt::storage_proof_size_overhead(1)` call. The
-/// result then must be rounded up to account possible future runtime upgrades.
+/// This value is a result of
+/// `pallet_bridge_messages::WeightInfoExt::storage_proof_size_overhead(1)` call. The result then
+/// must be rounded up to account possible future runtime upgrades.
 pub const ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT: Weight = 25_000;
 
-/// Maximal number of bytes, included in the signed Polkadot-like transaction apart from the encoded call itself.
+/// Maximal number of bytes, included in the signed Polkadot-like transaction apart from the encoded
+/// call itself.
 ///
 /// Can be computed by subtracting encoded call size from raw transaction size.
 pub const TX_EXTRA_BYTES: u32 = 256;
@@ -163,16 +168,18 @@ pub const TX_EXTRA_BYTES: u32 = 256;
 /// Weight of single regular message delivery transaction on Polkadot-like chain.
 ///
 /// This value is a result of `pallet_bridge_messages::Pallet::receive_messages_proof_weight()` call
-/// for the case when single message of `pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH` bytes is delivered.
-/// The message must have dispatch weight set to zero. The result then must be rounded up to account
-/// possible future runtime upgrades.
+/// for the case when single message of `pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH`
+/// bytes is delivered. The message must have dispatch weight set to zero. The result then must be
+/// rounded up to account possible future runtime upgrades.
 pub const DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT: Weight = 1_500_000_000;
 
 /// Weight of pay-dispatch-fee operation for inbound messages at Polkadot-like chain.
 ///
-/// This value corresponds to the result of `pallet_bridge_messages::WeightInfoExt::pay_inbound_dispatch_fee_overhead()`
-/// call for your chain. Don't put too much reserve there, because it is used to **decrease**
-/// `DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT` cost. So putting large reserve would make delivery transactions cheaper.
+/// This value corresponds to the result of
+/// `pallet_bridge_messages::WeightInfoExt::pay_inbound_dispatch_fee_overhead()` call for your
+/// chain. Don't put too much reserve there, because it is used to **decrease**
+/// `DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT` cost. So putting large reserve would make delivery
+/// transactions cheaper.
 pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = 600_000_000;
 
 /// Re-export `time_units` to make usage easier.
@@ -240,15 +247,7 @@ pub type UncheckedExtrinsic<Call> =
 pub type Address = MultiAddress<AccountId, ()>;
 
 /// A type of the data encoded as part of the transaction.
-pub type SignedExtra = (
-	(),
-	(),
-	(),
-	sp_runtime::generic::Era,
-	Compact<Nonce>,
-	(),
-	Compact<Balance>,
-);
+pub type SignedExtra = ((), (), (), sp_runtime::generic::Era, Compact<Nonce>, (), Compact<Balance>);
 
 /// Parameters which are part of the payload used to produce transaction signature,
 /// but don't end up in the transaction itself (i.e. inherent part of the runtime).
@@ -270,7 +269,9 @@ impl<Call> parity_scale_codec::Encode for SignedExtensions<Call> {
 }
 
 impl<Call> parity_scale_codec::Decode for SignedExtensions<Call> {
-	fn decode<I: parity_scale_codec::Input>(_input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: parity_scale_codec::Input>(
+		_input: &mut I,
+	) -> Result<Self, parity_scale_codec::Error> {
 		unimplemented!("SignedExtensions are never meant to be decoded, they are only used to create transaction");
 	}
 }
@@ -331,7 +332,9 @@ where
 	type AdditionalSigned = AdditionalSigned;
 	type Pre = ();
 
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, frame_support::unsigned::TransactionValidityError> {
+	fn additional_signed(
+		&self,
+	) -> Result<Self::AdditionalSigned, frame_support::unsigned::TransactionValidityError> {
 		Ok(self.additional_signed)
 	}
 }
@@ -372,7 +375,9 @@ pub fn account_info_storage_key(id: &AccountId) -> Vec<u8> {
 	let storage_prefix_hashed = Twox128::hash(b"Account");
 	let key_hashed = parity_scale_codec::Encode::using_encoded(id, Blake2_128Concat::hash);
 
-	let mut final_key = Vec::with_capacity(module_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.len());
+	let mut final_key = Vec::with_capacity(
+		module_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.len(),
+	);
 
 	final_key.extend_from_slice(&module_prefix_hashed[..]);
 	final_key.extend_from_slice(&storage_prefix_hashed[..]);
@@ -400,8 +405,8 @@ mod tests {
 	#[test]
 	fn should_generate_storage_key() {
 		let acc = [
-			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-			30, 31, 32,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+			25, 26, 27, 28, 29, 30, 31, 32,
 		]
 		.into();
 		let key = account_info_storage_key(&acc);

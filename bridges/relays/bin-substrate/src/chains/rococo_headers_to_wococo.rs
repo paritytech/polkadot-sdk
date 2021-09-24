@@ -24,7 +24,9 @@ use relay_rococo_client::{Rococo, SyncHeader as RococoSyncHeader};
 use relay_substrate_client::{Client, IndexOf, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
 use relay_wococo_client::{SigningParams as WococoSigningParams, Wococo};
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
+use substrate_relay_helper::finality_pipeline::{
+	SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate,
+};
 
 use crate::chains::wococo_headers_to_rococo::MAXIMAL_BALANCE_DECREASE_PER_DAY;
 
@@ -40,7 +42,10 @@ pub(crate) struct RococoFinalityToWococo {
 impl RococoFinalityToWococo {
 	pub fn new(target_client: Client<Wococo>, target_sign: WococoSigningParams) -> Self {
 		Self {
-			finality_pipeline: FinalityPipelineRococoFinalityToWococo::new(target_client, target_sign),
+			finality_pipeline: FinalityPipelineRococoFinalityToWococo::new(
+				target_client,
+				target_sign,
+			),
 		}
 	}
 }
@@ -48,7 +53,8 @@ impl RococoFinalityToWococo {
 impl SubstrateFinalitySyncPipeline for RococoFinalityToWococo {
 	type FinalitySyncPipeline = FinalityPipelineRococoFinalityToWococo;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rococo::BEST_FINALIZED_ROCOCO_HEADER_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str =
+		bp_rococo::BEST_FINALIZED_ROCOCO_HEADER_METHOD;
 
 	type TargetChain = Wococo;
 

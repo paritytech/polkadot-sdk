@@ -23,7 +23,9 @@ use bp_header_chain::justification::GrandpaJustification;
 use relay_millau_client::{Millau, SigningParams as MillauSigningParams};
 use relay_rialto_client::{Rialto, SyncHeader as RialtoSyncHeader};
 use relay_substrate_client::{Client, IndexOf, TransactionSignScheme, UnsignedTransaction};
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
+use substrate_relay_helper::finality_pipeline::{
+	SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate,
+};
 
 /// Rialto-to-Millau finality sync pipeline.
 pub(crate) type FinalityPipelineRialtoFinalityToMillau =
@@ -37,7 +39,10 @@ pub struct RialtoFinalityToMillau {
 impl RialtoFinalityToMillau {
 	pub fn new(target_client: Client<Millau>, target_sign: MillauSigningParams) -> Self {
 		Self {
-			finality_pipeline: FinalityPipelineRialtoFinalityToMillau::new(target_client, target_sign),
+			finality_pipeline: FinalityPipelineRialtoFinalityToMillau::new(
+				target_client,
+				target_sign,
+			),
 		}
 	}
 }
@@ -45,7 +50,8 @@ impl RialtoFinalityToMillau {
 impl SubstrateFinalitySyncPipeline for RialtoFinalityToMillau {
 	type FinalitySyncPipeline = FinalityPipelineRialtoFinalityToMillau;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str =
+		bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
 
 	type TargetChain = Millau;
 
