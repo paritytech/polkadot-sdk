@@ -54,7 +54,7 @@ impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 	fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
 		// we don't want to add even more fields to genesis config => just return None
 		if session_index == 0 || session_index == 1 {
-			return None;
+			return None
 		}
 
 		// the idea that on first call (i.e. when session 1 ends) we're reading current
@@ -101,13 +101,17 @@ mod tests {
 	#![allow(clippy::from_over_into)]
 
 	use super::*;
-	use frame_support::sp_io::TestExternalities;
-	use frame_support::sp_runtime::{
-		testing::{Header, UintAuthorityId},
-		traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-		Perbill, RuntimeAppPublic,
+	use frame_support::{
+		parameter_types,
+		sp_io::TestExternalities,
+		sp_runtime::{
+			testing::{Header, UintAuthorityId},
+			traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+			Perbill, RuntimeAppPublic,
+		},
+		weights::Weight,
+		BasicExternalities,
 	};
-	use frame_support::{parameter_types, weights::Weight, BasicExternalities};
 	use sp_core::H256;
 
 	type AccountId = u64;
@@ -183,17 +187,21 @@ mod tests {
 	impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
 		const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[UintAuthorityId::ID];
 
-		fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
+		fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {
+		}
 
-		fn on_new_session<Ks: sp_runtime::traits::OpaqueKeys>(_: bool, _: &[(AccountId, Ks)], _: &[(AccountId, Ks)]) {}
+		fn on_new_session<Ks: sp_runtime::traits::OpaqueKeys>(
+			_: bool,
+			_: &[(AccountId, Ks)],
+			_: &[(AccountId, Ks)],
+		) {
+		}
 
 		fn on_disabled(_: usize) {}
 	}
 
 	fn new_test_ext() -> TestExternalities {
-		let mut t = frame_system::GenesisConfig::default()
-			.build_storage::<TestRuntime>()
-			.unwrap();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
 		let keys = vec![
 			(1, 1, UintAuthorityId(1)),

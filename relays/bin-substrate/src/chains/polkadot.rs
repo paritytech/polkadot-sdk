@@ -41,41 +41,41 @@ impl CliEncodeCall for Polkadot {
 
 	fn encode_call(call: &Call) -> anyhow::Result<Self::Call> {
 		Ok(match call {
-			Call::Remark { remark_payload, .. } => {
-				relay_polkadot_client::runtime::Call::System(relay_polkadot_client::runtime::SystemCall::remark(
+			Call::Remark { remark_payload, .. } => relay_polkadot_client::runtime::Call::System(
+				relay_polkadot_client::runtime::SystemCall::remark(
 					remark_payload.as_ref().map(|x| x.0.clone()).unwrap_or_default(),
-				))
-			}
-			Call::BridgeSendMessage {
-				lane,
-				payload,
-				fee,
-				bridge_instance_index,
-			} => match *bridge_instance_index {
-				bridge::POLKADOT_TO_KUSAMA_INDEX => {
-					let payload = Decode::decode(&mut &*payload.0)?;
-					relay_polkadot_client::runtime::Call::BridgeKusamaMessages(
-						relay_polkadot_client::runtime::BridgeKusamaMessagesCall::send_message(lane.0, payload, fee.0),
-					)
-				}
-				_ => anyhow::bail!(
-					"Unsupported target bridge pallet with instance index: {}",
-					bridge_instance_index
 				),
-			},
+			),
+			Call::BridgeSendMessage { lane, payload, fee, bridge_instance_index } =>
+				match *bridge_instance_index {
+					bridge::POLKADOT_TO_KUSAMA_INDEX => {
+						let payload = Decode::decode(&mut &*payload.0)?;
+						relay_polkadot_client::runtime::Call::BridgeKusamaMessages(
+							relay_polkadot_client::runtime::BridgeKusamaMessagesCall::send_message(
+								lane.0, payload, fee.0,
+							),
+						)
+					},
+					_ => anyhow::bail!(
+						"Unsupported target bridge pallet with instance index: {}",
+						bridge_instance_index
+					),
+				},
 			_ => anyhow::bail!("Unsupported Polkadot call: {:?}", call),
 		})
 	}
 
-	fn get_dispatch_info(call: &relay_polkadot_client::runtime::Call) -> anyhow::Result<DispatchInfo> {
+	fn get_dispatch_info(
+		call: &relay_polkadot_client::runtime::Call,
+	) -> anyhow::Result<DispatchInfo> {
 		match *call {
-			relay_polkadot_client::runtime::Call::System(relay_polkadot_client::runtime::SystemCall::remark(_)) => {
-				Ok(DispatchInfo {
-					weight: crate::chains::polkadot::SYSTEM_REMARK_CALL_WEIGHT,
-					class: DispatchClass::Normal,
-					pays_fee: Pays::Yes,
-				})
-			}
+			relay_polkadot_client::runtime::Call::System(
+				relay_polkadot_client::runtime::SystemCall::remark(_),
+			) => Ok(DispatchInfo {
+				weight: crate::chains::polkadot::SYSTEM_REMARK_CALL_WEIGHT,
+				class: DispatchClass::Normal,
+				pays_fee: Pays::Yes,
+			}),
 			_ => anyhow::bail!("Unsupported Polkadot call: {:?}", call),
 		}
 	}
@@ -95,7 +95,9 @@ impl CliChain for Polkadot {
 		bp_polkadot::max_extrinsic_weight()
 	}
 
-	fn encode_message(_message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
+	fn encode_message(
+		_message: encode_message::MessagePayload,
+	) -> Result<Self::MessagePayload, String> {
 		Err("Sending messages from Polkadot is not yet supported.".into())
 	}
 }

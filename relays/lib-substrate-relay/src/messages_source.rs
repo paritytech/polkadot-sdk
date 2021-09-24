@@ -18,9 +18,10 @@
 //! runtime that implements `<BridgedChainName>HeaderApi` to allow bridging with
 //! <BridgedName> chain.
 
-use crate::messages_lane::SubstrateMessageLane;
-use crate::messages_target::SubstrateMessagesReceivingProof;
-use crate::on_demand_headers::OnDemandHeadersRelay;
+use crate::{
+	messages_lane::SubstrateMessageLane, messages_target::SubstrateMessagesReceivingProof,
+	on_demand_headers::OnDemandHeadersRelay,
+};
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
@@ -29,16 +30,17 @@ use bridge_runtime_common::messages::{
 };
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
-use messages_relay::message_lane::MessageLane;
 use messages_relay::{
-	message_lane::{SourceHeaderIdOf, TargetHeaderIdOf},
+	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{
-		ClientState, MessageDetails, MessageDetailsMap, MessageProofParameters, SourceClient, SourceClientState,
+		ClientState, MessageDetails, MessageDetailsMap, MessageProofParameters, SourceClient,
+		SourceClientState,
 	},
 };
 use num_traits::{Bounded, Zero};
 use relay_substrate_client::{
-	BalanceOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf, HeaderIdOf, HeaderOf, IndexOf,
+	BalanceOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf, HeaderIdOf, HeaderOf,
+	IndexOf,
 };
 use relay_utils::{relay_loop::Client as RelayClient, BlockNumberBase, HeaderId};
 use sp_core::Bytes;
@@ -69,12 +71,7 @@ impl<P: SubstrateMessageLane> SubstrateMessagesSource<P> {
 		lane_id: LaneId,
 		target_to_source_headers_relay: Option<OnDemandHeadersRelay<P::TargetChain>>,
 	) -> Self {
-		SubstrateMessagesSource {
-			client,
-			lane,
-			lane_id,
-			target_to_source_headers_relay,
-		}
+		SubstrateMessagesSource { client, lane, lane_id, target_to_source_headers_relay }
 	}
 }
 
@@ -150,8 +147,8 @@ where
 				Some(id.1),
 			)
 			.await?;
-		let latest_generated_nonce: MessageNonce =
-			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
+		let latest_generated_nonce: MessageNonce = Decode::decode(&mut &encoded_response.0[..])
+			.map_err(SubstrateError::ResponseParseFailed)?;
 		Ok((id, latest_generated_nonce))
 	}
 
@@ -167,8 +164,8 @@ where
 				Some(id.1),
 			)
 			.await?;
-		let latest_received_nonce: MessageNonce =
-			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
+		let latest_received_nonce: MessageNonce = Decode::decode(&mut &encoded_response.0[..])
+			.map_err(SubstrateError::ResponseParseFailed)?;
 		Ok((id, latest_received_nonce))
 	}
 
@@ -176,7 +173,10 @@ where
 		&self,
 		id: SourceHeaderIdOf<P::MessageLane>,
 		nonces: RangeInclusive<MessageNonce>,
-	) -> Result<MessageDetailsMap<<P::MessageLane as MessageLane>::SourceChainBalance>, SubstrateError> {
+	) -> Result<
+		MessageDetailsMap<<P::MessageLane as MessageLane>::SourceChainBalance>,
+		SubstrateError,
+	> {
 		let encoded_response = self
 			.client
 			.state_call(
@@ -187,7 +187,8 @@ where
 			.await?;
 
 		make_message_details_map::<P::SourceChain>(
-			Decode::decode(&mut &encoded_response.0[..]).map_err(SubstrateError::ResponseParseFailed)?,
+			Decode::decode(&mut &encoded_response.0[..])
+				.map_err(SubstrateError::ResponseParseFailed)?,
 			nonces,
 		)
 	}
@@ -205,7 +206,8 @@ where
 		),
 		SubstrateError,
 	> {
-		let mut storage_keys = Vec::with_capacity(nonces.end().saturating_sub(*nonces.start()) as usize + 1);
+		let mut storage_keys =
+			Vec::with_capacity(nonces.end().saturating_sub(*nonces.start()) as usize + 1);
 		let mut message_nonce = *nonces.start();
 		while message_nonce <= *nonces.end() {
 			let message_key = pallet_bridge_messages::storage_keys::message_key(
@@ -223,12 +225,7 @@ where
 			));
 		}
 
-		let proof = self
-			.client
-			.prove_storage(storage_keys, id.1)
-			.await?
-			.iter_nodes()
-			.collect();
+		let proof = self.client.prove_storage(storage_keys, id.1).await?.iter_nodes().collect();
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
 			storage_proof: proof,
@@ -246,9 +243,16 @@ where
 	) -> Result<(), SubstrateError> {
 		let lane = self.lane.clone();
 		self.client
-			.submit_signed_extrinsic(self.lane.source_transactions_author(), move |_, transaction_nonce| {
-				lane.make_messages_receiving_proof_transaction(transaction_nonce, generated_at_block, proof)
-			})
+			.submit_signed_extrinsic(
+				self.lane.source_transactions_author(),
+				move |_, transaction_nonce| {
+					lane.make_messages_receiving_proof_transaction(
+						transaction_nonce,
+						generated_at_block,
+						proof,
+					)
+				},
+			)
 			.await?;
 		Ok(())
 	}
@@ -259,7 +263,9 @@ where
 		}
 	}
 
-	async fn estimate_confirmation_transaction(&self) -> <P::MessageLane as MessageLane>::SourceChainBalance {
+	async fn estimate_confirmation_transaction(
+		&self,
+	) -> <P::MessageLane as MessageLane>::SourceChainBalance {
 		self.client
 			.estimate_extrinsic_fee(self.lane.make_messages_receiving_proof_transaction(
 				Zero::zero(),
@@ -276,10 +282,14 @@ where
 ///
 /// We don't care about proof actually being the valid proof, because its validity doesn't
 /// affect the call weight - we only care about its size.
-fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>() -> SubstrateMessagesReceivingProof<TC> {
-	let single_message_confirmation_size =
-		bp_messages::InboundLaneData::<()>::encoded_size_hint(SC::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE, 1, 1)
-			.unwrap_or(u32::MAX);
+fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>(
+) -> SubstrateMessagesReceivingProof<TC> {
+	let single_message_confirmation_size = bp_messages::InboundLaneData::<()>::encoded_size_hint(
+		SC::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
+		1,
+		1,
+	)
+	.unwrap_or(u32::MAX);
 	let proof_size = TC::STORAGE_PROOF_OVERHEAD.saturating_add(single_message_confirmation_size);
 	(
 		UnrewardedRelayersState {
@@ -303,7 +313,10 @@ fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>() -> SubstrateMes
 pub async fn read_client_state<SelfChain, BridgedHeaderHash, BridgedHeaderNumber>(
 	self_client: &Client<SelfChain>,
 	best_finalized_header_id_method_name: &str,
-) -> Result<ClientState<HeaderIdOf<SelfChain>, HeaderId<BridgedHeaderHash, BridgedHeaderNumber>>, SubstrateError>
+) -> Result<
+	ClientState<HeaderIdOf<SelfChain>, HeaderId<BridgedHeaderHash, BridgedHeaderNumber>>,
+	SubstrateError,
+>
 where
 	SelfChain: Chain,
 	SelfChain::Header: DeserializeOwned,
@@ -313,8 +326,10 @@ where
 {
 	// let's read our state first: we need best finalized header hash on **this** chain
 	let self_best_finalized_header_hash = self_client.best_finalized_header_hash().await?;
-	let self_best_finalized_header = self_client.header_by_hash(self_best_finalized_header_hash).await?;
-	let self_best_finalized_id = HeaderId(*self_best_finalized_header.number(), self_best_finalized_header_hash);
+	let self_best_finalized_header =
+		self_client.header_by_hash(self_best_finalized_header_hash).await?;
+	let self_best_finalized_id =
+		HeaderId(*self_best_finalized_header.number(), self_best_finalized_header_hash);
 
 	// now let's read our best header on **this** chain
 	let self_best_header = self_client.best_header().await?;
@@ -330,11 +345,10 @@ where
 		)
 		.await?;
 	let decoded_best_finalized_peer_on_self: (BridgedHeaderNumber, BridgedHeaderHash) =
-		Decode::decode(&mut &encoded_best_finalized_peer_on_self.0[..]).map_err(SubstrateError::ResponseParseFailed)?;
-	let peer_on_self_best_finalized_id = HeaderId(
-		decoded_best_finalized_peer_on_self.0,
-		decoded_best_finalized_peer_on_self.1,
-	);
+		Decode::decode(&mut &encoded_best_finalized_peer_on_self.0[..])
+			.map_err(SubstrateError::ResponseParseFailed)?;
+	let peer_on_self_best_finalized_id =
+		HeaderId(decoded_best_finalized_peer_on_self.0, decoded_best_finalized_peer_on_self.1);
 
 	Ok(ClientState {
 		best_self: self_best_id,
@@ -358,16 +372,14 @@ fn make_message_details_map<C: Chain>(
 
 	// this is actually prevented by external logic
 	if nonces.is_empty() {
-		return Ok(weights_map);
+		return Ok(weights_map)
 	}
 
 	// check if last nonce is missing - loop below is not checking this
-	let last_nonce_is_missing = weights
-		.last()
-		.map(|details| details.nonce != *nonces.end())
-		.unwrap_or(true);
+	let last_nonce_is_missing =
+		weights.last().map(|details| details.nonce != *nonces.end()).unwrap_or(true);
 	if last_nonce_is_missing {
-		return make_missing_nonce_error(*nonces.end());
+		return make_missing_nonce_error(*nonces.end())
 	}
 
 	let mut expected_nonce = *nonces.start();
@@ -379,20 +391,21 @@ fn make_message_details_map<C: Chain>(
 			(false, true) => {
 				// this may happen if some messages were already pruned from the source node
 				//
-				// this is not critical error and will be auto-resolved by messages lane (and target node)
+				// this is not critical error and will be auto-resolved by messages lane (and target
+				// node)
 				log::info!(
 					target: "bridge",
 					"Some messages are missing from the {} node: {:?}. Target node may be out of sync?",
 					C::NAME,
 					expected_nonce..details.nonce,
 				);
-			}
+			},
 			(false, false) => {
 				// some nonces are missing from the middle/tail of the range
 				//
 				// this is critical error, because we can't miss any nonces
-				return make_missing_nonce_error(expected_nonce);
-			}
+				return make_missing_nonce_error(expected_nonce)
+			},
 		}
 
 		weights_map.insert(
@@ -528,7 +541,8 @@ mod tests {
 
 	#[test]
 	fn prepare_dummy_messages_delivery_proof_works() {
-		let expected_minimal_size = Wococo::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE + Rococo::STORAGE_PROOF_OVERHEAD;
+		let expected_minimal_size =
+			Wococo::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE + Rococo::STORAGE_PROOF_OVERHEAD;
 		let dummy_proof = prepare_dummy_messages_delivery_proof::<Wococo, Rococo>();
 		assert!(
 			dummy_proof.1.encode().len() as u32 > expected_minimal_size,

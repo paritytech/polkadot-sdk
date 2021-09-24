@@ -14,17 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ethereum_client::{bridge_contract, EthereumHighLevelRpc};
-use crate::rpc_errors::RpcError;
+use crate::{
+	ethereum_client::{bridge_contract, EthereumHighLevelRpc},
+	rpc_errors::RpcError,
+};
 
 use codec::{Decode, Encode};
 use num_traits::Zero;
 use relay_ethereum_client::{
-	Client as EthereumClient, ConnectionParams as EthereumConnectionParams, SigningParams as EthereumSigningParams,
+	Client as EthereumClient, ConnectionParams as EthereumConnectionParams,
+	SigningParams as EthereumSigningParams,
 };
 use relay_rialto_client::{HeaderId as RialtoHeaderId, Rialto};
 use relay_substrate_client::{
-	Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams, OpaqueGrandpaAuthoritiesSet,
+	Client as SubstrateClient, ConnectionParams as SubstrateConnectionParams,
+	OpaqueGrandpaAuthoritiesSet,
 };
 use relay_utils::HeaderId;
 
@@ -102,19 +106,18 @@ async fn prepare_initial_header(
 	sub_initial_header: Option<Vec<u8>>,
 ) -> Result<(RialtoHeaderId, Vec<u8>), String> {
 	match sub_initial_header {
-		Some(raw_initial_header) => match rialto_runtime::Header::decode(&mut &raw_initial_header[..]) {
-			Ok(initial_header) => Ok((
-				HeaderId(initial_header.number, initial_header.hash()),
-				raw_initial_header,
-			)),
-			Err(error) => Err(format!("Error decoding initial header: {}", error)),
-		},
+		Some(raw_initial_header) =>
+			match rialto_runtime::Header::decode(&mut &raw_initial_header[..]) {
+				Ok(initial_header) =>
+					Ok((HeaderId(initial_header.number, initial_header.hash()), raw_initial_header)),
+				Err(error) => Err(format!("Error decoding initial header: {}", error)),
+			},
 		None => {
 			let initial_header = sub_client.header_by_number(Zero::zero()).await;
 			initial_header
 				.map(|header| (HeaderId(Zero::zero(), header.hash()), header.encode()))
 				.map_err(|error| format!("Error reading Substrate genesis header: {:?}", error))
-		}
+		},
 	}
 }
 
@@ -129,7 +132,8 @@ async fn prepare_initial_authorities_set(
 		None => sub_client.grandpa_authorities_set(sub_initial_header_hash).await,
 	};
 
-	initial_authorities_set.map_err(|error| format!("Error reading GRANDPA authorities set: {:?}", error))
+	initial_authorities_set
+		.map_err(|error| format!("Error reading GRANDPA authorities set: {:?}", error))
 }
 
 /// Deploy bridge contract to Ethereum chain.
@@ -147,7 +151,12 @@ async fn deploy_bridge_contract(
 			None,
 			None,
 			false,
-			bridge_contract::constructor(contract_code, initial_header, initial_set_id, initial_authorities),
+			bridge_contract::constructor(
+				contract_code,
+				initial_header,
+				initial_set_id,
+				initial_authorities,
+			),
 		)
 		.await
 		.map_err(|error| format!("Error deploying contract: {:?}", error))

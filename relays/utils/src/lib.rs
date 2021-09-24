@@ -168,12 +168,12 @@ pub fn format_ids<Id: std::fmt::Debug>(mut ids: impl ExactSizeIterator<Item = Id
 			let id0 = ids.next().expect(NTH_PROOF);
 			let id1 = ids.next().expect(NTH_PROOF);
 			format!("[{:?}, {:?}]", id0, id1)
-		}
+		},
 		len => {
 			let id0 = ids.next().expect(NTH_PROOF);
 			let id_last = ids.last().expect(NTH_PROOF);
 			format!("{}:[{:?} ... {:?}]", len, id0, id_last)
-		}
+		},
 	}
 }
 
@@ -220,7 +220,10 @@ impl ProcessFutureResult {
 	/// Returns Ok(true) if future has succeeded.
 	/// Returns Ok(false) if future has failed with non-connection error.
 	/// Returns Err if future is `ConnectionFailed`.
-	pub fn fail_if_connection_error(self, failed_client: FailedClient) -> Result<bool, FailedClient> {
+	pub fn fail_if_connection_error(
+		self,
+		failed_client: FailedClient,
+	) -> Result<bool, FailedClient> {
 		match self {
 			ProcessFutureResult::Success => Ok(true),
 			ProcessFutureResult::Failed => Ok(false),
@@ -247,7 +250,7 @@ where
 			on_success(result);
 			retry_backoff.reset();
 			ProcessFutureResult::Success
-		}
+		},
 		Err(error) if error.is_connection_error() => {
 			log::error!(
 				target: "bridge",
@@ -259,7 +262,7 @@ where
 			retry_backoff.reset();
 			go_offline_future.set(go_offline(CONNECTION_ERROR_DELAY).fuse());
 			ProcessFutureResult::ConnectionFailed
-		}
+		},
 		Err(error) => {
 			let retry_delay = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
 			log::error!(
@@ -272,6 +275,6 @@ where
 
 			go_offline_future.set(go_offline(retry_delay).fuse());
 			ProcessFutureResult::Failed
-		}
+		},
 	}
 }

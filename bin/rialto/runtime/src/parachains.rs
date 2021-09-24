@@ -17,25 +17,21 @@
 //! Parachains support in Rialto runtime.
 
 use crate::{
-	AccountId, Balance, Balances, BlockNumber, Event, Origin, RandomnessCollectiveFlip, Registrar, Runtime, Slots,
+	AccountId, Balance, Balances, BlockNumber, Event, Origin, RandomnessCollectiveFlip, Registrar,
+	Runtime, Slots,
 };
 
 use frame_support::{parameter_types, weights::Weight};
 use frame_system::EnsureRoot;
 use polkadot_primitives::v1::ValidatorIndex;
 use polkadot_runtime_common::{paras_registrar, paras_sudo_wrapper, slots};
-use polkadot_runtime_parachains::configuration as parachains_configuration;
-use polkadot_runtime_parachains::dmp as parachains_dmp;
-use polkadot_runtime_parachains::hrmp as parachains_hrmp;
-use polkadot_runtime_parachains::inclusion as parachains_inclusion;
-use polkadot_runtime_parachains::initializer as parachains_initializer;
-use polkadot_runtime_parachains::origin as parachains_origin;
-use polkadot_runtime_parachains::paras as parachains_paras;
-use polkadot_runtime_parachains::paras_inherent as parachains_paras_inherent;
-use polkadot_runtime_parachains::scheduler as parachains_scheduler;
-use polkadot_runtime_parachains::session_info as parachains_session_info;
-use polkadot_runtime_parachains::shared as parachains_shared;
-use polkadot_runtime_parachains::ump as parachains_ump;
+use polkadot_runtime_parachains::{
+	configuration as parachains_configuration, dmp as parachains_dmp, hrmp as parachains_hrmp,
+	inclusion as parachains_inclusion, initializer as parachains_initializer,
+	origin as parachains_origin, paras as parachains_paras,
+	paras_inherent as parachains_paras_inherent, scheduler as parachains_scheduler,
+	session_info as parachains_session_info, shared as parachains_shared, ump as parachains_ump,
+};
 
 /// Special `RewardValidators` that does nothing ;)
 pub struct RewardValidators;

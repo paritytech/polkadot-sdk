@@ -21,7 +21,9 @@ use crate::finality_target::SubstrateFinalityTarget;
 use bp_header_chain::justification::GrandpaJustification;
 use bp_runtime::AccountIdOf;
 use finality_relay::{FinalitySyncParams, FinalitySyncPipeline};
-use relay_substrate_client::{finality_source::FinalitySource, BlockNumberOf, Chain, Client, HashOf, SyncHeader};
+use relay_substrate_client::{
+	finality_source::FinalitySource, BlockNumberOf, Chain, Client, HashOf, SyncHeader,
+};
 use relay_utils::{metrics::MetricsParams, BlockNumberBase};
 use sp_core::Bytes;
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
@@ -97,14 +99,12 @@ impl<SourceChain, TargetChain: Chain, TargetSign> Debug
 	}
 }
 
-impl<SourceChain, TargetChain: Chain, TargetSign> SubstrateFinalityToSubstrate<SourceChain, TargetChain, TargetSign> {
+impl<SourceChain, TargetChain: Chain, TargetSign>
+	SubstrateFinalityToSubstrate<SourceChain, TargetChain, TargetSign>
+{
 	/// Create new Substrate-to-Substrate headers pipeline.
 	pub fn new(target_client: Client<TargetChain>, target_sign: TargetSign) -> Self {
-		SubstrateFinalityToSubstrate {
-			target_client,
-			target_sign,
-			_marker: Default::default(),
-		}
+		SubstrateFinalityToSubstrate { target_client, target_sign, _marker: Default::default() }
 	}
 }
 
@@ -157,7 +157,10 @@ where
 		FinalitySource::new(source_client, None),
 		SubstrateFinalityTarget::new(target_client, pipeline, transactions_mortality),
 		FinalitySyncParams {
-			tick: std::cmp::max(SourceChain::AVERAGE_BLOCK_INTERVAL, TargetChain::AVERAGE_BLOCK_INTERVAL),
+			tick: std::cmp::max(
+				SourceChain::AVERAGE_BLOCK_INTERVAL,
+				TargetChain::AVERAGE_BLOCK_INTERVAL,
+			),
 			recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 			stall_timeout: relay_substrate_client::transaction_stall_timeout(
 				transactions_mortality,

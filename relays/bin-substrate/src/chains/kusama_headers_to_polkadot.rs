@@ -24,13 +24,15 @@ use relay_kusama_client::{Kusama, SyncHeader as KusamaSyncHeader};
 use relay_polkadot_client::{Polkadot, SigningParams as PolkadotSigningParams};
 use relay_substrate_client::{Client, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
+use substrate_relay_helper::finality_pipeline::{
+	SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate,
+};
 
 /// Maximal saturating difference between `balance(now)` and `balance(now-24h)` to treat
 /// relay as gone wild.
 ///
-/// Actual value, returned by `maximal_balance_decrease_per_day_is_sane` test is approximately 21 DOT,
-/// but let's round up to 30 DOT here.
+/// Actual value, returned by `maximal_balance_decrease_per_day_is_sane` test is approximately 21
+/// DOT, but let's round up to 30 DOT here.
 pub(crate) const MAXIMAL_BALANCE_DECREASE_PER_DAY: bp_polkadot::Balance = 30_000_000_000;
 
 /// Kusama-to-Polkadot finality sync pipeline.
@@ -45,7 +47,10 @@ pub(crate) struct KusamaFinalityToPolkadot {
 impl KusamaFinalityToPolkadot {
 	pub fn new(target_client: Client<Polkadot>, target_sign: PolkadotSigningParams) -> Self {
 		Self {
-			finality_pipeline: FinalityPipelineKusamaFinalityToPolkadot::new(target_client, target_sign),
+			finality_pipeline: FinalityPipelineKusamaFinalityToPolkadot::new(
+				target_client,
+				target_sign,
+			),
 		}
 	}
 }
@@ -53,7 +58,8 @@ impl KusamaFinalityToPolkadot {
 impl SubstrateFinalitySyncPipeline for KusamaFinalityToPolkadot {
 	type FinalitySyncPipeline = FinalityPipelineKusamaFinalityToPolkadot;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_kusama::BEST_FINALIZED_KUSAMA_HEADER_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str =
+		bp_kusama::BEST_FINALIZED_KUSAMA_HEADER_METHOD;
 
 	type TargetChain = Polkadot;
 
@@ -116,29 +122,36 @@ pub(crate) mod tests {
 		B: From<u32> + std::ops::Mul<Output = B>,
 		W: WeightToFeePolynomial<Balance = B>,
 	{
-		// we assume that the GRANDPA is not lagging here => ancestry length will be near to 0 (let's round up to 2)
+		// we assume that the GRANDPA is not lagging here => ancestry length will be near to 0
+		// (let's round up to 2)
 		const AVG_VOTES_ANCESTRIES_LEN: u32 = 2;
-		// let's assume number of validators is 1024 (more than on any existing well-known chain atm)
-		// => number of precommits is *2/3 + 1
+		// let's assume number of validators is 1024 (more than on any existing well-known chain
+		// atm) => number of precommits is *2/3 + 1
 		const AVG_PRECOMMITS_LEN: u32 = 1024 * 2 / 3 + 1;
 
 		// GRANDPA pallet weights. We're now using Rialto weights everywhere.
 		//
-		// Using Rialto runtime is slightly incorrect, because `DbWeight` of other runtimes may differ
-		// from the `DbWeight` of Rialto runtime. But now (and most probably forever) it is the same.
-		type GrandpaPalletWeights = pallet_bridge_grandpa::weights::RialtoWeight<rialto_runtime::Runtime>;
+		// Using Rialto runtime is slightly incorrect, because `DbWeight` of other runtimes may
+		// differ from the `DbWeight` of Rialto runtime. But now (and most probably forever) it is
+		// the same.
+		type GrandpaPalletWeights =
+			pallet_bridge_grandpa::weights::RialtoWeight<rialto_runtime::Runtime>;
 
-		// The following formula shall not be treated as super-accurate - guard is to protect from mad relays,
-		// not to protect from over-average loses.
+		// The following formula shall not be treated as super-accurate - guard is to protect from
+		// mad relays, not to protect from over-average loses.
 
 		// increase number of headers a bit
 		let expected_source_headers_per_day = expected_source_headers_per_day * 110 / 100;
-		let single_source_header_submit_call_weight =
-			GrandpaPalletWeights::submit_finality_proof(AVG_VOTES_ANCESTRIES_LEN, AVG_PRECOMMITS_LEN);
-		// for simplicity - add extra weight for base tx fee + fee that is paid for the tx size + adjusted fee
+		let single_source_header_submit_call_weight = GrandpaPalletWeights::submit_finality_proof(
+			AVG_VOTES_ANCESTRIES_LEN,
+			AVG_PRECOMMITS_LEN,
+		);
+		// for simplicity - add extra weight for base tx fee + fee that is paid for the tx size +
+		// adjusted fee
 		let single_source_header_submit_tx_weight = single_source_header_submit_call_weight * 3 / 2;
 		let single_source_header_tx_cost = W::calc(&single_source_header_submit_tx_weight);
-		let maximal_expected_decrease = single_source_header_tx_cost * B::from(expected_source_headers_per_day);
+		let maximal_expected_decrease =
+			single_source_header_tx_cost * B::from(expected_source_headers_per_day);
 
 		maximal_expected_decrease
 	}

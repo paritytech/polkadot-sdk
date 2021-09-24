@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::metrics::{metric_name, register, F64SharedRef, Gauge, PrometheusError, Registry, StandaloneMetrics, F64};
+use crate::metrics::{
+	metric_name, register, F64SharedRef, Gauge, PrometheusError, Registry, StandaloneMetrics, F64,
+};
 
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
@@ -100,18 +102,12 @@ impl StandaloneMetrics for FloatJsonValueMetric {
 /// Parse HTTP service response.
 fn parse_service_response(json_path: &str, response: &str) -> Result<f64, String> {
 	let json = serde_json::from_str(response).map_err(|err| {
-		format!(
-			"Failed to parse HTTP service response: {:?}. Response: {:?}",
-			err, response,
-		)
+		format!("Failed to parse HTTP service response: {:?}. Response: {:?}", err, response,)
 	})?;
 
 	let mut selector = jsonpath_lib::selector(&json);
 	let maybe_selected_value = selector(json_path).map_err(|err| {
-		format!(
-			"Failed to select value from response: {:?}. Response: {:?}",
-			err, response,
-		)
+		format!("Failed to select value from response: {:?}. Response: {:?}", err, response,)
 	})?;
 	let selected_value = maybe_selected_value
 		.first()
@@ -121,7 +117,7 @@ fn parse_service_response(json_path: &str, response: &str) -> Result<f64, String
 		return Err(format!(
 			"Failed to parse float value {:?} from response. It is assumed to be positive and normal",
 			selected_value,
-		));
+		))
 	}
 
 	Ok(selected_value)

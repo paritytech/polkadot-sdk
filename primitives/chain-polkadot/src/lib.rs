@@ -21,7 +21,9 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
-use frame_support::weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial};
+use frame_support::weights::{
+	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
@@ -72,8 +74,8 @@ pub const TRANSACTION_BYTE_FEE: Balance = 10 * 10_000_000_000 / 100 / 1_000;
 /// Existential deposit on Polkadot.
 pub const EXISTENTIAL_DEPOSIT: Balance = 10_000_000_000;
 
-/// The target length of a session (how often authorities change) on Polkadot measured in of number of
-/// blocks.
+/// The target length of a session (how often authorities change) on Polkadot measured in of number
+/// of blocks.
 ///
 /// Note that since this is a target sessions may change before/after this time depending on network
 /// conditions.
@@ -83,29 +85,36 @@ pub const SESSION_LENGTH: BlockNumber = 4 * time_units::HOURS;
 pub const WITH_KUSAMA_MESSAGES_PALLET_NAME: &str = "BridgeKusamaMessages";
 
 /// Name of the KSM->DOT conversion rate stored in the Polkadot runtime.
-pub const KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME: &str = "KusamaToPolkadotConversionRate";
+pub const KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME: &str =
+	"KusamaToPolkadotConversionRate";
 
 /// Name of the `PolkadotFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_POLKADOT_HEADER_METHOD: &str = "PolkadotFinalityApi_best_finalized";
 /// Name of the `PolkadotFinalityApi::is_known_header` runtime method.
 pub const IS_KNOWN_POLKADOT_HEADER_METHOD: &str = "PolkadotFinalityApi_is_known_header";
 
-/// Name of the `ToPolkadotOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime method.
+/// Name of the `ToPolkadotOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
+/// method.
 pub const TO_POLKADOT_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToPolkadotOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToPolkadotOutboundLaneApi::message_details` runtime method.
 pub const TO_POLKADOT_MESSAGE_DETAILS_METHOD: &str = "ToPolkadotOutboundLaneApi_message_details";
 /// Name of the `ToPolkadotOutboundLaneApi::latest_generated_nonce` runtime method.
-pub const TO_POLKADOT_LATEST_GENERATED_NONCE_METHOD: &str = "ToPolkadotOutboundLaneApi_latest_generated_nonce";
+pub const TO_POLKADOT_LATEST_GENERATED_NONCE_METHOD: &str =
+	"ToPolkadotOutboundLaneApi_latest_generated_nonce";
 /// Name of the `ToPolkadotOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_POLKADOT_LATEST_RECEIVED_NONCE_METHOD: &str = "ToPolkadotOutboundLaneApi_latest_received_nonce";
+pub const TO_POLKADOT_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"ToPolkadotOutboundLaneApi_latest_received_nonce";
 
 /// Name of the `FromPolkadotInboundLaneApi::latest_received_nonce` runtime method.
-pub const FROM_POLKADOT_LATEST_RECEIVED_NONCE_METHOD: &str = "FromPolkadotInboundLaneApi_latest_received_nonce";
+pub const FROM_POLKADOT_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"FromPolkadotInboundLaneApi_latest_received_nonce";
 /// Name of the `FromPolkadotInboundLaneApi::latest_onfirmed_nonce` runtime method.
-pub const FROM_POLKADOT_LATEST_CONFIRMED_NONCE_METHOD: &str = "FromPolkadotInboundLaneApi_latest_confirmed_nonce";
+pub const FROM_POLKADOT_LATEST_CONFIRMED_NONCE_METHOD: &str =
+	"FromPolkadotInboundLaneApi_latest_confirmed_nonce";
 /// Name of the `FromPolkadotInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_POLKADOT_UNREWARDED_RELAYERS_STATE: &str = "FromPolkadotInboundLaneApi_unrewarded_relayers_state";
+pub const FROM_POLKADOT_UNREWARDED_RELAYERS_STATE: &str =
+	"FromPolkadotInboundLaneApi_unrewarded_relayers_state";
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Polkadot headers.

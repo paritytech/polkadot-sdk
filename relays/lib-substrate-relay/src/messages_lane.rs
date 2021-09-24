@@ -16,9 +16,10 @@
 
 //! Tools for supporting message lanes between two Substrate-based chains.
 
-use crate::messages_source::SubstrateMessagesProof;
-use crate::messages_target::SubstrateMessagesReceivingProof;
-use crate::on_demand_headers::OnDemandHeadersRelay;
+use crate::{
+	messages_source::SubstrateMessagesProof, messages_target::SubstrateMessagesReceivingProof,
+	on_demand_headers::OnDemandHeadersRelay,
+};
 
 use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce};
@@ -65,18 +66,22 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 	/// Underlying generic message lane.
 	type MessageLane: MessageLane;
 
-	/// Name of the runtime method that returns dispatch weight of outbound messages at the source chain.
+	/// Name of the runtime method that returns dispatch weight of outbound messages at the source
+	/// chain.
 	const OUTBOUND_LANE_MESSAGE_DETAILS_METHOD: &'static str;
 	/// Name of the runtime method that returns latest generated nonce at the source chain.
 	const OUTBOUND_LANE_LATEST_GENERATED_NONCE_METHOD: &'static str;
-	/// Name of the runtime method that returns latest received (confirmed) nonce at the the source chain.
+	/// Name of the runtime method that returns latest received (confirmed) nonce at the the source
+	/// chain.
 	const OUTBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str;
 
 	/// Name of the runtime method that returns latest received nonce at the target chain.
 	const INBOUND_LANE_LATEST_RECEIVED_NONCE_METHOD: &'static str;
-	/// Name of the runtime method that returns the latest confirmed (reward-paid) nonce at the target chain.
+	/// Name of the runtime method that returns the latest confirmed (reward-paid) nonce at the
+	/// target chain.
 	const INBOUND_LANE_LATEST_CONFIRMED_NONCE_METHOD: &'static str;
-	/// Number of the runtime method that returns state of "unrewarded relayers" set at the target chain.
+	/// Number of the runtime method that returns state of "unrewarded relayers" set at the target
+	/// chain.
 	const INBOUND_LANE_UNREWARDED_RELAYERS_STATE: &'static str;
 
 	/// Name of the runtime method that returns id of best finalized source header at target chain.
@@ -101,7 +106,8 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 	/// Target chain.
 	type TargetChain: Chain;
 
-	/// Returns id of account that we're using to sign transactions at target chain (messages proof).
+	/// Returns id of account that we're using to sign transactions at target chain (messages
+	/// proof).
 	fn target_transactions_author(&self) -> AccountIdOf<Self::TargetChain>;
 
 	/// Make messages delivery transaction.
@@ -113,7 +119,8 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 		proof: <Self::MessageLane as MessageLane>::MessagesProof,
 	) -> Bytes;
 
-	/// Returns id of account that we're using to sign transactions at source chain (delivery proof).
+	/// Returns id of account that we're using to sign transactions at source chain (delivery
+	/// proof).
 	fn source_transactions_author(&self) -> AccountIdOf<Self::SourceChain>;
 
 	/// Make messages receiving proof transaction.
@@ -127,7 +134,12 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 
 /// Substrate-to-Substrate message lane.
 #[derive(Debug)]
-pub struct SubstrateMessageLaneToSubstrate<Source: Chain, SourceSignParams, Target: Chain, TargetSignParams> {
+pub struct SubstrateMessageLaneToSubstrate<
+	Source: Chain,
+	SourceSignParams,
+	Target: Chain,
+	TargetSignParams,
+> {
 	/// Client for the source Substrate chain.
 	pub source_client: Client<Source>,
 	/// Parameters required to sign transactions for source chain.
@@ -194,8 +206,8 @@ pub fn select_delivery_transaction_limits<W: pallet_bridge_messages::WeightInfoE
 	let weight_for_delivery_tx = max_extrinsic_weight / 3;
 	let weight_for_messages_dispatch = max_extrinsic_weight - weight_for_delivery_tx;
 
-	let delivery_tx_base_weight =
-		W::receive_messages_proof_overhead() + W::receive_messages_proof_outbound_lane_state_overhead();
+	let delivery_tx_base_weight = W::receive_messages_proof_overhead() +
+		W::receive_messages_proof_outbound_lane_state_overhead();
 	let delivery_tx_weight_rest = weight_for_delivery_tx - delivery_tx_base_weight;
 	let max_number_of_messages = std::cmp::min(
 		delivery_tx_weight_rest / W::receive_messages_proof_messages_overhead(1),
@@ -221,15 +233,18 @@ pub struct StandaloneMessagesMetrics {
 	pub target_to_base_conversion_rate: Option<F64SharedRef>,
 	/// Shared reference to the actual source -> <base> chain token conversion rate.
 	pub source_to_base_conversion_rate: Option<F64SharedRef>,
-	/// Shared reference to the stored (in the source chain runtime storage) target -> source chain conversion rate.
+	/// Shared reference to the stored (in the source chain runtime storage) target -> source chain
+	/// conversion rate.
 	pub target_to_source_conversion_rate: Option<F64SharedRef>,
 }
 
 impl StandaloneMessagesMetrics {
 	/// Return conversion rate from target to source tokens.
 	pub async fn target_to_source_conversion_rate(&self) -> Option<f64> {
-		let target_to_base_conversion_rate = (*self.target_to_base_conversion_rate.as_ref()?.read().await)?;
-		let source_to_base_conversion_rate = (*self.source_to_base_conversion_rate.as_ref()?.read().await)?;
+		let target_to_base_conversion_rate =
+			(*self.target_to_base_conversion_rate.as_ref()?.read().await)?;
+		let source_to_base_conversion_rate =
+			(*self.source_to_base_conversion_rate.as_ref()?.read().await)?;
 		Some(source_to_base_conversion_rate / target_to_base_conversion_rate)
 	}
 }
@@ -246,8 +261,8 @@ pub fn add_standalone_metrics<P: SubstrateMessageLane>(
 	let mut target_to_source_conversion_rate = None;
 	let mut source_to_base_conversion_rate = None;
 	let mut target_to_base_conversion_rate = None;
-	let mut metrics_params =
-		relay_utils::relay_metrics(metrics_prefix, metrics_params).standalone_metric(|registry, prefix| {
+	let mut metrics_params = relay_utils::relay_metrics(metrics_prefix, metrics_params)
+		.standalone_metric(|registry, prefix| {
 			StorageProofOverheadMetric::new(
 				registry,
 				prefix,
@@ -256,8 +271,10 @@ pub fn add_standalone_metrics<P: SubstrateMessageLane>(
 				format!("{} storage proof overhead", P::SourceChain::NAME),
 			)
 		})?;
-	if let Some((target_to_source_conversion_rate_storage_key, initial_target_to_source_conversion_rate)) =
-		target_to_source_conversion_rate_params
+	if let Some((
+		target_to_source_conversion_rate_storage_key,
+		initial_target_to_source_conversion_rate,
+	)) = target_to_source_conversion_rate_params
 	{
 		metrics_params = metrics_params.standalone_metric(|registry, prefix| {
 			let metric = FloatStorageValueMetric::<_, sp_runtime::FixedU128>::new(
@@ -285,14 +302,16 @@ pub fn add_standalone_metrics<P: SubstrateMessageLane>(
 	}
 	if let Some(source_chain_token_id) = source_chain_token_id {
 		metrics_params = metrics_params.standalone_metric(|registry, prefix| {
-			let metric = crate::helpers::token_price_metric(registry, prefix, source_chain_token_id)?;
+			let metric =
+				crate::helpers::token_price_metric(registry, prefix, source_chain_token_id)?;
 			source_to_base_conversion_rate = Some(metric.shared_value_ref());
 			Ok(metric)
 		})?;
 	}
 	if let Some(target_chain_token_id) = target_chain_token_id {
 		metrics_params = metrics_params.standalone_metric(|registry, prefix| {
-			let metric = crate::helpers::token_price_metric(registry, prefix, target_chain_token_id)?;
+			let metric =
+				crate::helpers::token_price_metric(registry, prefix, target_chain_token_id)?;
 			target_to_base_conversion_rate = Some(metric.shared_value_ref());
 			Ok(metric)
 		})?;
@@ -312,19 +331,21 @@ mod tests {
 	use super::*;
 	use async_std::sync::{Arc, RwLock};
 
-	type RialtoToMillauMessagesWeights = pallet_bridge_messages::weights::RialtoWeight<rialto_runtime::Runtime>;
+	type RialtoToMillauMessagesWeights =
+		pallet_bridge_messages::weights::RialtoWeight<rialto_runtime::Runtime>;
 
 	#[test]
 	fn select_delivery_transaction_limits_works() {
-		let (max_count, max_weight) = select_delivery_transaction_limits::<RialtoToMillauMessagesWeights>(
-			bp_millau::max_extrinsic_weight(),
-			bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
-		);
+		let (max_count, max_weight) =
+			select_delivery_transaction_limits::<RialtoToMillauMessagesWeights>(
+				bp_millau::max_extrinsic_weight(),
+				bp_millau::MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE,
+			);
 		assert_eq!(
 			(max_count, max_weight),
 			// We don't actually care about these values, so feel free to update them whenever test
-			// fails. The only thing to do before that is to ensure that new values looks sane: i.e. weight
-			// reserved for messages dispatch allows dispatch of non-trivial messages.
+			// fails. The only thing to do before that is to ensure that new values looks sane:
+			// i.e. weight reserved for messages dispatch allows dispatch of non-trivial messages.
 			//
 			// Any significant change in this values should attract additional attention.
 			(782, 216_583_333_334),

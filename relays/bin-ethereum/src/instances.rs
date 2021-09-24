@@ -18,16 +18,18 @@
 //! synchronizing a Substrate chain which can include multiple instances of the bridge pallet we
 //! must somehow decide which of the instances to sync.
 //!
-//! Note that each instance of the bridge pallet is coupled with an instance of the currency exchange
-//! pallet. We must also have a way to create `Call`s for the correct currency exchange instance.
+//! Note that each instance of the bridge pallet is coupled with an instance of the currency
+//! exchange pallet. We must also have a way to create `Call`s for the correct currency exchange
+//! instance.
 //!
 //! This module helps by preparing the correct `Call`s for each of the different pallet instances.
 
-use crate::ethereum_sync_loop::QueuedEthereumHeader;
-use crate::substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts};
+use crate::{
+	ethereum_sync_loop::QueuedEthereumHeader,
+	substrate_types::{into_substrate_ethereum_header, into_substrate_ethereum_receipts},
+};
 
-use rialto_runtime::exchange::EthereumTransactionInclusionProof as Proof;
-use rialto_runtime::Call;
+use rialto_runtime::{exchange::EthereumTransactionInclusionProof as Proof, Call};
 
 /// Interface for `Calls` which are needed to correctly sync the bridge.
 ///
@@ -73,7 +75,8 @@ impl BridgeInstance for RialtoPoA {
 	}
 
 	fn build_currency_exchange_call(&self, proof: Proof) -> Call {
-		let pallet_call = rialto_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
+		let pallet_call =
+			rialto_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
 		rialto_runtime::Call::BridgeRialtoCurrencyExchange(pallet_call)
 	}
 }
@@ -109,7 +112,8 @@ impl BridgeInstance for Kovan {
 	}
 
 	fn build_currency_exchange_call(&self, proof: Proof) -> Call {
-		let pallet_call = rialto_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
+		let pallet_call =
+			rialto_runtime::BridgeCurrencyExchangeCall::import_peer_transaction(proof);
 		rialto_runtime::Call::BridgeKovanCurrencyExchange(pallet_call)
 	}
 }

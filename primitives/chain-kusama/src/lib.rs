@@ -21,7 +21,9 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
-use frame_support::weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial};
+use frame_support::weights::{
+	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
@@ -83,29 +85,36 @@ pub const SESSION_LENGTH: BlockNumber = time_units::HOURS;
 pub const WITH_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotMessages";
 
 /// Name of the DOT->KSM conversion rate stored in the Kusama runtime.
-pub const POLKADOT_TO_KUSAMA_CONVERSION_RATE_PARAMETER_NAME: &str = "PolkadotToKusamaConversionRate";
+pub const POLKADOT_TO_KUSAMA_CONVERSION_RATE_PARAMETER_NAME: &str =
+	"PolkadotToKusamaConversionRate";
 
 /// Name of the `KusamaFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_KUSAMA_HEADER_METHOD: &str = "KusamaFinalityApi_best_finalized";
 /// Name of the `KusamaFinalityApi::is_known_header` runtime method.
 pub const IS_KNOWN_KUSAMA_HEADER_METHOD: &str = "KusamaFinalityApi_is_known_header";
 
-/// Name of the `ToKusamaOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime method.
+/// Name of the `ToKusamaOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
+/// method.
 pub const TO_KUSAMA_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToKusamaOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToKusamaOutboundLaneApi::message_details` runtime method.
 pub const TO_KUSAMA_MESSAGE_DETAILS_METHOD: &str = "ToKusamaOutboundLaneApi_message_details";
 /// Name of the `ToKusamaOutboundLaneApi::latest_generated_nonce` runtime method.
-pub const TO_KUSAMA_LATEST_GENERATED_NONCE_METHOD: &str = "ToKusamaOutboundLaneApi_latest_generated_nonce";
+pub const TO_KUSAMA_LATEST_GENERATED_NONCE_METHOD: &str =
+	"ToKusamaOutboundLaneApi_latest_generated_nonce";
 /// Name of the `ToKusamaOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_KUSAMA_LATEST_RECEIVED_NONCE_METHOD: &str = "ToKusamaOutboundLaneApi_latest_received_nonce";
+pub const TO_KUSAMA_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"ToKusamaOutboundLaneApi_latest_received_nonce";
 
 /// Name of the `FromKusamaInboundLaneApi::latest_received_nonce` runtime method.
-pub const FROM_KUSAMA_LATEST_RECEIVED_NONCE_METHOD: &str = "FromKusamaInboundLaneApi_latest_received_nonce";
+pub const FROM_KUSAMA_LATEST_RECEIVED_NONCE_METHOD: &str =
+	"FromKusamaInboundLaneApi_latest_received_nonce";
 /// Name of the `FromKusamaInboundLaneApi::latest_onfirmed_nonce` runtime method.
-pub const FROM_KUSAMA_LATEST_CONFIRMED_NONCE_METHOD: &str = "FromKusamaInboundLaneApi_latest_confirmed_nonce";
+pub const FROM_KUSAMA_LATEST_CONFIRMED_NONCE_METHOD: &str =
+	"FromKusamaInboundLaneApi_latest_confirmed_nonce";
 /// Name of the `FromKusamaInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_KUSAMA_UNREWARDED_RELAYERS_STATE: &str = "FromKusamaInboundLaneApi_unrewarded_relayers_state";
+pub const FROM_KUSAMA_UNREWARDED_RELAYERS_STATE: &str =
+	"FromKusamaInboundLaneApi_unrewarded_relayers_state";
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Kusama headers.

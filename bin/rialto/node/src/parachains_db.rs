@@ -17,7 +17,8 @@
 //! This is almost 1:1 copy of `node/service/parachains_db/mod.rs` file from Polkadot repository.
 //! The only exception is that we don't support db upgrades => no `upgrade.rs` module.
 
-use {kvdb::KeyValueDB, std::io, std::path::PathBuf, std::sync::Arc};
+use kvdb::KeyValueDB;
+use std::{io, path::PathBuf, sync::Arc};
 
 mod columns {
 	pub const NUM_COLUMNS: u32 = 5;
@@ -66,11 +67,7 @@ pub struct CacheSizes {
 
 impl Default for CacheSizes {
 	fn default() -> Self {
-		CacheSizes {
-			availability_data: 25,
-			availability_meta: 1,
-			approval_data: 5,
-		}
+		CacheSizes { availability_data: 25, availability_meta: 1, approval_data: 5 }
 	}
 }
 

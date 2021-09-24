@@ -16,8 +16,9 @@
 
 use bp_millau::derive_account_from_rialto_id;
 use millau_runtime::{
-	AccountId, AuraConfig, BalancesConfig, BridgeRialtoMessagesConfig, BridgeWestendGrandpaConfig, GenesisConfig,
-	GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, BalancesConfig, BridgeRialtoMessagesConfig, BridgeWestendGrandpaConfig,
+	GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig,
+	WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
@@ -190,12 +191,8 @@ fn testnet_genesis(
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
 		},
-		aura: AuraConfig {
-			authorities: Vec::new(),
-		},
-		grandpa: GrandpaConfig {
-			authorities: Vec::new(),
-		},
+		aura: AuraConfig { authorities: Vec::new() },
+		grandpa: GrandpaConfig { authorities: Vec::new() },
 		sudo: SudoConfig { key: root_key },
 		session: SessionConfig {
 			keys: initial_authorities
@@ -220,9 +217,7 @@ fn testnet_genesis(
 #[test]
 fn derived_dave_account_is_as_expected() {
 	let dave = get_account_id_from_seed::<sr25519::Public>("Dave");
-	let derived: AccountId = derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(dave));
-	assert_eq!(
-		derived.to_string(),
-		"5DNW6UVnb7TN6wX5KwXtDYR3Eccecbdzuw89HqjyNfkzce6J".to_string()
-	);
+	let derived: AccountId =
+		derive_account_from_rialto_id(bp_runtime::SourceAccount::Account(dave));
+	assert_eq!(derived.to_string(), "5DNW6UVnb7TN6wX5KwXtDYR3Eccecbdzuw89HqjyNfkzce6J".to_string());
 }

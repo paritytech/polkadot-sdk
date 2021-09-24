@@ -172,9 +172,7 @@ impl sp_runtime::traits::Convert<H256, AccountId> for TestAccountConverter {
 
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	let mut t = frame_system::GenesisConfig::default()
-		.build_storage::<TestRuntime>()
-		.unwrap();
+	let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 	pallet_balances::GenesisConfig::<TestRuntime> {
 		balances: vec![(THIS_CHAIN_ACCOUNT, THIS_CHAIN_ACCOUNT_BALANCE)],
 	}

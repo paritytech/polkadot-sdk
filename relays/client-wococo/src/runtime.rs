@@ -115,7 +115,9 @@ pub enum BridgeMessagesRococoCall {
 	),
 	#[codec(index = 6)]
 	receive_messages_delivery_proof(
-		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<bp_rococo::Hash>,
+		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<
+			bp_rococo::Hash,
+		>,
 		UnrewardedRelayersState,
 	),
 }

@@ -33,7 +33,8 @@ enum TransactionStatus {
 
 /// Run infinite conversion rate updater loop.
 ///
-/// The loop is maintaining the Left -> Right conversion rate, used as `RightTokens = LeftTokens * Rate`.
+/// The loop is maintaining the Left -> Right conversion rate, used as `RightTokens = LeftTokens *
+/// Rate`.
 pub fn run_conversion_rate_update_loop<
 	SubmitConversionRateFuture: Future<Output = anyhow::Result<()>> + Send + 'static,
 >(
@@ -60,10 +61,10 @@ pub fn run_conversion_rate_update_loop<
 				match submit_conversion_rate_future.await {
 					Ok(()) => {
 						transaction_status = TransactionStatus::Submitted(prev_conversion_rate);
-					}
+					},
 					Err(error) => {
 						log::trace!(target: "bridge", "Failed to submit conversion rate update transaction: {:?}", error);
-					}
+					},
 				}
 			}
 		}
@@ -78,41 +79,43 @@ async fn maybe_select_new_conversion_rate(
 	right_to_base_conversion_rate: &F64SharedRef,
 	max_difference_ratio: f64,
 ) -> Option<(f64, f64)> {
-	let left_to_right_stored_conversion_rate = (*left_to_right_stored_conversion_rate.read().await)?;
+	let left_to_right_stored_conversion_rate =
+		(*left_to_right_stored_conversion_rate.read().await)?;
 	match *transaction_status {
 		TransactionStatus::Idle => (),
 		TransactionStatus::Submitted(previous_left_to_right_stored_conversion_rate) => {
-			// we can't compare float values from different sources directly, so we only care whether the
-			// stored rate has been changed or not. If it has been changed, then we assume that our proposal
-			// has been accepted.
+			// we can't compare float values from different sources directly, so we only care
+			// whether the stored rate has been changed or not. If it has been changed, then we
+			// assume that our proposal has been accepted.
 			//
-			// float comparison is ok here, because we compare same-origin (stored in runtime storage) values
-			// and if they are different, it means that the value has actually been updated
+			// float comparison is ok here, because we compare same-origin (stored in runtime
+			// storage) values and if they are different, it means that the value has actually been
+			// updated
 			#[allow(clippy::float_cmp)]
-			if previous_left_to_right_stored_conversion_rate == left_to_right_stored_conversion_rate {
-				// the rate has not been changed => we won't submit any transactions until it is accepted,
-				// or the rate is changed by someone else
-				return None;
+			if previous_left_to_right_stored_conversion_rate == left_to_right_stored_conversion_rate
+			{
+				// the rate has not been changed => we won't submit any transactions until it is
+				// accepted, or the rate is changed by someone else
+				return None
 			}
 
 			*transaction_status = TransactionStatus::Idle;
-		}
+		},
 	}
 
 	let left_to_base_conversion_rate = (*left_to_base_conversion_rate.read().await)?;
 	let right_to_base_conversion_rate = (*right_to_base_conversion_rate.read().await)?;
-	let actual_left_to_right_conversion_rate = right_to_base_conversion_rate / left_to_base_conversion_rate;
+	let actual_left_to_right_conversion_rate =
+		right_to_base_conversion_rate / left_to_base_conversion_rate;
 
-	let rate_difference = (actual_left_to_right_conversion_rate - left_to_right_stored_conversion_rate).abs();
+	let rate_difference =
+		(actual_left_to_right_conversion_rate - left_to_right_stored_conversion_rate).abs();
 	let rate_difference_ratio = rate_difference / left_to_right_stored_conversion_rate;
 	if rate_difference_ratio < max_difference_ratio {
-		return None;
+		return None
 	}
 
-	Some((
-		left_to_right_stored_conversion_rate,
-		actual_left_to_right_conversion_rate,
-	))
+	Some((left_to_right_stored_conversion_rate, actual_left_to_right_conversion_rate))
 }
 
 #[cfg(test)]
@@ -171,7 +174,13 @@ mod tests {
 	#[test]
 	fn transaction_is_not_submitted_when_left_to_base_rate_is_unknown() {
 		assert_eq!(
-			test_maybe_select_new_conversion_rate(TransactionStatus::Idle, Some(10.0), None, Some(1.0), 0.0),
+			test_maybe_select_new_conversion_rate(
+				TransactionStatus::Idle,
+				Some(10.0),
+				None,
+				Some(1.0),
+				0.0
+			),
 			(None, TransactionStatus::Idle),
 		);
 	}
@@ -179,7 +188,13 @@ mod tests {
 	#[test]
 	fn transaction_is_not_submitted_when_right_to_base_rate_is_unknown() {
 		assert_eq!(
-			test_maybe_select_new_conversion_rate(TransactionStatus::Idle, Some(10.0), Some(1.0), None, 0.0),
+			test_maybe_select_new_conversion_rate(
+				TransactionStatus::Idle,
+				Some(10.0),
+				Some(1.0),
+				None,
+				0.0
+			),
 			(None, TransactionStatus::Idle),
 		);
 	}
@@ -187,7 +202,13 @@ mod tests {
 	#[test]
 	fn transaction_is_not_submitted_when_stored_rate_is_unknown() {
 		assert_eq!(
-			test_maybe_select_new_conversion_rate(TransactionStatus::Idle, None, Some(1.0), Some(1.0), 0.0),
+			test_maybe_select_new_conversion_rate(
+				TransactionStatus::Idle,
+				None,
+				Some(1.0),
+				Some(1.0),
+				0.0
+			),
 			(None, TransactionStatus::Idle),
 		);
 	}
@@ -195,7 +216,13 @@ mod tests {
 	#[test]
 	fn transaction_is_not_submitted_when_difference_is_below_threshold() {
 		assert_eq!(
-			test_maybe_select_new_conversion_rate(TransactionStatus::Idle, Some(1.0), Some(1.0), Some(1.01), 0.02),
+			test_maybe_select_new_conversion_rate(
+				TransactionStatus::Idle,
+				Some(1.0),
+				Some(1.0),
+				Some(1.01),
+				0.02
+			),
 			(None, TransactionStatus::Idle),
 		);
 	}
@@ -203,7 +230,13 @@ mod tests {
 	#[test]
 	fn transaction_is_submitted_when_difference_is_above_threshold() {
 		assert_eq!(
-			test_maybe_select_new_conversion_rate(TransactionStatus::Idle, Some(1.0), Some(1.0), Some(1.03), 0.02),
+			test_maybe_select_new_conversion_rate(
+				TransactionStatus::Idle,
+				Some(1.0),
+				Some(1.0),
+				Some(1.03),
+				0.02
+			),
 			(Some((1.0, 1.03)), TransactionStatus::Idle),
 		);
 	}

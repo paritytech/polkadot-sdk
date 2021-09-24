@@ -38,41 +38,41 @@ impl CliEncodeCall for Rococo {
 
 	fn encode_call(call: &Call) -> anyhow::Result<Self::Call> {
 		Ok(match call {
-			Call::Remark { remark_payload, .. } => {
-				relay_rococo_client::runtime::Call::System(relay_rococo_client::runtime::SystemCall::remark(
+			Call::Remark { remark_payload, .. } => relay_rococo_client::runtime::Call::System(
+				relay_rococo_client::runtime::SystemCall::remark(
 					remark_payload.as_ref().map(|x| x.0.clone()).unwrap_or_default(),
-				))
-			}
-			Call::BridgeSendMessage {
-				lane,
-				payload,
-				fee,
-				bridge_instance_index,
-			} => match *bridge_instance_index {
-				bridge::ROCOCO_TO_WOCOCO_INDEX => {
-					let payload = Decode::decode(&mut &*payload.0)?;
-					relay_rococo_client::runtime::Call::BridgeMessagesWococo(
-						relay_rococo_client::runtime::BridgeMessagesWococoCall::send_message(lane.0, payload, fee.0),
-					)
-				}
-				_ => anyhow::bail!(
-					"Unsupported target bridge pallet with instance index: {}",
-					bridge_instance_index
 				),
-			},
+			),
+			Call::BridgeSendMessage { lane, payload, fee, bridge_instance_index } =>
+				match *bridge_instance_index {
+					bridge::ROCOCO_TO_WOCOCO_INDEX => {
+						let payload = Decode::decode(&mut &*payload.0)?;
+						relay_rococo_client::runtime::Call::BridgeMessagesWococo(
+							relay_rococo_client::runtime::BridgeMessagesWococoCall::send_message(
+								lane.0, payload, fee.0,
+							),
+						)
+					},
+					_ => anyhow::bail!(
+						"Unsupported target bridge pallet with instance index: {}",
+						bridge_instance_index
+					),
+				},
 			_ => anyhow::bail!("The call is not supported"),
 		})
 	}
 
-	fn get_dispatch_info(call: &relay_rococo_client::runtime::Call) -> anyhow::Result<DispatchInfo> {
+	fn get_dispatch_info(
+		call: &relay_rococo_client::runtime::Call,
+	) -> anyhow::Result<DispatchInfo> {
 		match *call {
-			relay_rococo_client::runtime::Call::System(relay_rococo_client::runtime::SystemCall::remark(_)) => {
-				Ok(DispatchInfo {
-					weight: SYSTEM_REMARK_CALL_WEIGHT,
-					class: DispatchClass::Normal,
-					pays_fee: Pays::Yes,
-				})
-			}
+			relay_rococo_client::runtime::Call::System(
+				relay_rococo_client::runtime::SystemCall::remark(_),
+			) => Ok(DispatchInfo {
+				weight: SYSTEM_REMARK_CALL_WEIGHT,
+				class: DispatchClass::Normal,
+				pays_fee: Pays::Yes,
+			}),
 			_ => anyhow::bail!("Unsupported Rococo call: {:?}", call),
 		}
 	}
@@ -92,7 +92,9 @@ impl CliChain for Rococo {
 		bp_wococo::max_extrinsic_weight()
 	}
 
-	fn encode_message(_message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
+	fn encode_message(
+		_message: encode_message::MessagePayload,
+	) -> Result<Self::MessagePayload, String> {
 		Err("Sending messages from Rococo is not yet supported.".into())
 	}
 }

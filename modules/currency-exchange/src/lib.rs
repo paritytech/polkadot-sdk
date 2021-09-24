@@ -19,7 +19,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_currency_exchange::{
-	CurrencyConverter, DepositInto, Error as ExchangeError, MaybeLockFundsTransaction, RecipientsMap,
+	CurrencyConverter, DepositInto, Error as ExchangeError, MaybeLockFundsTransaction,
+	RecipientsMap,
 };
 use bp_header_chain::InclusionProofVerifier;
 use frame_support::ensure;
@@ -92,7 +93,8 @@ pub mod pallet {
 			{
 				// if any changes were made to the storage, we can't just return error here, because
 				// otherwise the same proof may be imported again
-				let deposit_result = T::DepositInto::deposit_into(deposit.recipient, deposit.amount);
+				let deposit_result =
+					T::DepositInto::deposit_into(deposit.recipient, deposit.amount);
 				match deposit_result {
 					Ok(_) => (),
 					Err(ExchangeError::DepositPartiallyFailed) => (),
@@ -160,7 +162,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				err,
 			);
 
-			return false;
+			return false
 		}
 
 		true
@@ -205,23 +207,16 @@ fn prepare_deposit_details<T: Config<I>, I: 'static>(
 		.ok_or(Error::<T, I>::UnfinalizedTransaction)?;
 
 	// parse transaction
-	let transaction =
-		<T as Config<I>>::PeerMaybeLockFundsTransaction::parse(&transaction).map_err(Error::<T, I>::from)?;
+	let transaction = <T as Config<I>>::PeerMaybeLockFundsTransaction::parse(&transaction)
+		.map_err(Error::<T, I>::from)?;
 	let transfer_id = transaction.id;
-	ensure!(
-		!Transfers::<T, I>::contains_key(&transfer_id),
-		Error::<T, I>::AlreadyClaimed
-	);
+	ensure!(!Transfers::<T, I>::contains_key(&transfer_id), Error::<T, I>::AlreadyClaimed);
 
 	// grant recipient
 	let recipient = T::RecipientsMap::map(transaction.recipient).map_err(Error::<T, I>::from)?;
 	let amount = T::CurrencyConverter::convert(transaction.amount).map_err(Error::<T, I>::from)?;
 
-	Ok(DepositDetails {
-		transfer_id,
-		recipient,
-		amount,
-	})
+	Ok(DepositDetails { transfer_id, recipient, amount })
 }
 
 #[cfg(test)]
@@ -231,7 +226,9 @@ mod tests {
 
 	use super::*;
 	use bp_currency_exchange::LockFundsTransaction;
-	use frame_support::{assert_noop, assert_ok, construct_runtime, parameter_types, weights::Weight};
+	use frame_support::{
+		assert_noop, assert_ok, construct_runtime, parameter_types, weights::Weight,
+	};
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
@@ -264,7 +261,9 @@ mod tests {
 		type Transaction = RawTransaction;
 		type TransactionInclusionProof = (bool, RawTransaction);
 
-		fn verify_transaction_inclusion_proof(proof: &Self::TransactionInclusionProof) -> Option<RawTransaction> {
+		fn verify_transaction_inclusion_proof(
+			proof: &Self::TransactionInclusionProof,
+		) -> Option<RawTransaction> {
 			if proof.0 {
 				Some(proof.1.clone())
 			} else {
@@ -295,7 +294,9 @@ mod tests {
 		type PeerRecipient = AccountId;
 		type Recipient = AccountId;
 
-		fn map(peer_recipient: Self::PeerRecipient) -> bp_currency_exchange::Result<Self::Recipient> {
+		fn map(
+			peer_recipient: Self::PeerRecipient,
+		) -> bp_currency_exchange::Result<Self::Recipient> {
 			match peer_recipient {
 				UNKNOWN_RECIPIENT_ID => Err(ExchangeError::FailedToMapRecipients),
 				_ => Ok(peer_recipient * 10),
@@ -323,10 +324,14 @@ mod tests {
 		type Recipient = AccountId;
 		type Amount = u64;
 
-		fn deposit_into(_recipient: Self::Recipient, amount: Self::Amount) -> bp_currency_exchange::Result<()> {
+		fn deposit_into(
+			_recipient: Self::Recipient,
+			amount: Self::Amount,
+		) -> bp_currency_exchange::Result<()> {
 			match amount {
 				amount if amount < MAX_DEPOSIT_AMOUNT * 10 => Ok(()),
-				amount if amount == MAX_DEPOSIT_AMOUNT * 10 => Err(ExchangeError::DepositPartiallyFailed),
+				amount if amount == MAX_DEPOSIT_AMOUNT * 10 =>
+					Err(ExchangeError::DepositPartiallyFailed),
 				_ => Err(ExchangeError::DepositFailed),
 			}
 		}
@@ -391,25 +396,22 @@ mod tests {
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::default()
-			.build_storage::<TestRuntime>()
-			.unwrap();
+		let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 		sp_io::TestExternalities::new(t)
 	}
 
 	fn transaction(id: u64) -> RawTransaction {
-		RawTransaction {
-			id,
-			recipient: 1,
-			amount: 2,
-		}
+		RawTransaction { id, recipient: 1, amount: 2 }
 	}
 
 	#[test]
 	fn unfinalized_transaction_rejected() {
 		new_test_ext().execute_with(|| {
 			assert_noop!(
-				Exchange::import_peer_transaction(Origin::signed(SUBMITTER), (false, transaction(0))),
+				Exchange::import_peer_transaction(
+					Origin::signed(SUBMITTER),
+					(false, transaction(0))
+				),
 				Error::<TestRuntime, ()>::UnfinalizedTransaction,
 			);
 		});

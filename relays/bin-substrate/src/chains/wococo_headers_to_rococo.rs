@@ -24,7 +24,9 @@ use relay_rococo_client::{Rococo, SigningParams as RococoSigningParams};
 use relay_substrate_client::{Client, IndexOf, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
 use relay_wococo_client::{SyncHeader as WococoSyncHeader, Wococo};
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate};
+use substrate_relay_helper::finality_pipeline::{
+	SubstrateFinalitySyncPipeline, SubstrateFinalityToSubstrate,
+};
 
 /// Maximal saturating difference between `balance(now)` and `balance(now-24h)` to treat
 /// relay as gone wild.
@@ -45,7 +47,10 @@ pub(crate) struct WococoFinalityToRococo {
 impl WococoFinalityToRococo {
 	pub fn new(target_client: Client<Rococo>, target_sign: RococoSigningParams) -> Self {
 		Self {
-			finality_pipeline: FinalityPipelineWococoFinalityToRococo::new(target_client, target_sign),
+			finality_pipeline: FinalityPipelineWococoFinalityToRococo::new(
+				target_client,
+				target_sign,
+			),
 		}
 	}
 }
@@ -53,7 +58,8 @@ impl WococoFinalityToRococo {
 impl SubstrateFinalitySyncPipeline for WococoFinalityToRococo {
 	type FinalitySyncPipeline = FinalityPipelineWococoFinalityToRococo;
 
-	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str = bp_wococo::BEST_FINALIZED_WOCOCO_HEADER_METHOD;
+	const BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET: &'static str =
+		bp_wococo::BEST_FINALIZED_WOCOCO_HEADER_METHOD;
 
 	type TargetChain = Rococo;
 
@@ -113,8 +119,10 @@ mod tests {
 	#[test]
 	fn maximal_balance_decrease_per_day_is_sane() {
 		// we expect Wococo -> Rococo relay to be running in all-headers mode
-		let maximal_balance_decrease =
-			compute_maximal_balance_decrease_per_day::<bp_kusama::Balance, bp_kusama::WeightToFee>(bp_wococo::DAYS);
+		let maximal_balance_decrease = compute_maximal_balance_decrease_per_day::<
+			bp_kusama::Balance,
+			bp_kusama::WeightToFee,
+		>(bp_wococo::DAYS);
 		assert!(
 			MAXIMAL_BALANCE_DECREASE_PER_DAY >= maximal_balance_decrease,
 			"Maximal expected loss per day {} is larger than hardcoded {}",

@@ -86,7 +86,8 @@ pub enum Command {
 	EncodeMessage(encode_message::EncodeMessage),
 	/// Estimate Delivery and Dispatch Fee required for message submission to messages pallet.
 	EstimateFee(estimate_fee::EstimateFee),
-	/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target chain.
+	/// Given a source chain `AccountId`, derive the corresponding `AccountId` for the target
+	/// chain.
 	DeriveAccount(derive_account::DeriveAccount),
 	/// Resubmit transactions with increased tip if they are stalled.
 	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
@@ -100,12 +101,15 @@ impl Command {
 		use relay_utils::initialize::{initialize_logger, initialize_relay};
 
 		match self {
-			Self::RelayHeaders(_) | Self::RelayMessages(_) | Self::RelayHeadersAndMessages(_) | Self::InitBridge(_) => {
+			Self::RelayHeaders(_) |
+			Self::RelayMessages(_) |
+			Self::RelayHeadersAndMessages(_) |
+			Self::InitBridge(_) => {
 				initialize_relay();
-			}
+			},
 			_ => {
 				initialize_logger(false);
-			}
+			},
 		}
 	}
 
@@ -195,10 +199,7 @@ const SS58_FORMAT_PROOF: &str = "u16 -> Ss58Format is infallible; qed";
 impl AccountId {
 	/// Create new SS58-formatted address from raw account id.
 	pub fn from_raw<T: CliChain>(account: sp_runtime::AccountId32) -> Self {
-		Self {
-			account,
-			ss58_format: T::ss58_format().try_into().expect(SS58_FORMAT_PROOF),
-		}
+		Self { account, ss58_format: T::ss58_format().try_into().expect(SS58_FORMAT_PROOF) }
 	}
 
 	/// Enforces formatting account to be for given [`CliChain`] type.
@@ -236,7 +237,7 @@ pub trait CliChain: relay_substrate_client::Chain {
 	/// Chain's current version of the runtime.
 	const RUNTIME_VERSION: sp_version::RuntimeVersion;
 
-	/// Crypto keypair type used to send messages.
+	/// Crypto KeyPair type used to send messages.
 	///
 	/// In case of chains supporting multiple cryptos, pick one used by the CLI.
 	type KeyPair: sp_core::crypto::Pair;
@@ -250,7 +251,9 @@ pub trait CliChain: relay_substrate_client::Chain {
 	fn ss58_format() -> u16;
 
 	/// Construct message payload to be sent over the bridge.
-	fn encode_message(message: crate::cli::encode_message::MessagePayload) -> Result<Self::MessagePayload, String>;
+	fn encode_message(
+		message: crate::cli::encode_message::MessagePayload,
+	) -> Result<Self::MessagePayload, String>;
 
 	/// Maximal extrinsic weight (from the runtime).
 	fn max_extrinsic_weight() -> Weight;
@@ -352,7 +355,7 @@ where
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if s.to_lowercase() == "max" {
-			return Ok(ExplicitOrMaximal::Maximal);
+			return Ok(ExplicitOrMaximal::Maximal)
 		}
 
 		V::from_str(s)
@@ -531,10 +534,7 @@ mod tests {
 		let expected = vec![rialto1, rialto2, millau1, millau2];
 
 		// when
-		let parsed = expected
-			.iter()
-			.map(|s| AccountId::from_str(s).unwrap())
-			.collect::<Vec<_>>();
+		let parsed = expected.iter().map(|s| AccountId::from_str(s).unwrap()).collect::<Vec<_>>();
 
 		let actual = parsed.iter().map(|a| format!("{}", a)).collect::<Vec<_>>();
 
@@ -563,7 +563,8 @@ mod tests {
 
 		let alice = sp_core::sr25519::Pair::from_string(ALICE, Some(ALICE_PASSWORD)).unwrap();
 		let bob = sp_core::sr25519::Pair::from_string(BOB, Some(BOB_PASSWORD)).unwrap();
-		let bob_with_alice_password = sp_core::sr25519::Pair::from_string(BOB, Some(ALICE_PASSWORD)).unwrap();
+		let bob_with_alice_password =
+			sp_core::sr25519::Pair::from_string(BOB, Some(ALICE_PASSWORD)).unwrap();
 
 		let temp_dir = tempdir::TempDir::new("reads_suri_from_file").unwrap();
 		let mut suri_file_path = temp_dir.path().to_path_buf();

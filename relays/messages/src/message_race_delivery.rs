@@ -13,18 +13,20 @@
 
 //! Message delivery race delivers proof-of-messages from "lane.source" to "lane.target".
 
-use crate::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
-use crate::message_lane_loop::{
-	MessageDeliveryParams, MessageDetailsMap, MessageProofParameters, RelayerMode,
-	SourceClient as MessageLaneSourceClient, SourceClientState, TargetClient as MessageLaneTargetClient,
-	TargetClientState,
+use crate::{
+	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
+	message_lane_loop::{
+		MessageDeliveryParams, MessageDetailsMap, MessageProofParameters, RelayerMode,
+		SourceClient as MessageLaneSourceClient, SourceClientState,
+		TargetClient as MessageLaneTargetClient, TargetClientState,
+	},
+	message_race_loop::{
+		MessageRace, NoncesRange, RaceState, RaceStrategy, SourceClient, SourceClientNonces,
+		TargetClient, TargetClientNonces,
+	},
+	message_race_strategy::{BasicStrategy, SourceRangesQueue},
+	metrics::MessageLaneLoopMetrics,
 };
-use crate::message_race_loop::{
-	MessageRace, NoncesRange, RaceState, RaceStrategy, SourceClient, SourceClientNonces, TargetClient,
-	TargetClientNonces,
-};
-use crate::message_race_strategy::{BasicStrategy, SourceRangesQueue};
-use crate::metrics::MessageLaneLoopMetrics;
 
 use async_trait::async_trait;
 use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
@@ -66,7 +68,8 @@ pub async fn run<P: MessageLane>(
 		MessageDeliveryStrategy::<P, _, _> {
 			lane_source_client: source_client,
 			lane_target_client: target_client,
-			max_unrewarded_relayer_entries_at_target: params.max_unrewarded_relayer_entries_at_target,
+			max_unrewarded_relayer_entries_at_target: params
+				.max_unrewarded_relayer_entries_at_target,
 			max_unconfirmed_nonces_at_target: params.max_unconfirmed_nonces_at_target,
 			max_messages_in_single_batch: params.max_messages_in_single_batch,
 			max_messages_weight_in_single_batch: params.max_messages_weight_in_single_batch,
@@ -121,8 +124,10 @@ where
 		at_block: SourceHeaderIdOf<P>,
 		prev_latest_nonce: MessageNonce,
 	) -> Result<(SourceHeaderIdOf<P>, SourceClientNonces<Self::NoncesRange>), Self::Error> {
-		let (at_block, latest_generated_nonce) = self.client.latest_generated_nonce(at_block).await?;
-		let (at_block, latest_confirmed_nonce) = self.client.latest_confirmed_received_nonce(at_block).await?;
+		let (at_block, latest_generated_nonce) =
+			self.client.latest_generated_nonce(at_block).await?;
+		let (at_block, latest_confirmed_nonce) =
+			self.client.latest_confirmed_received_nonce(at_block).await?;
 
 		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
 			metrics_msg.update_source_latest_generated_nonce::<P>(latest_generated_nonce);
@@ -131,7 +136,10 @@ where
 
 		let new_nonces = if latest_generated_nonce > prev_latest_nonce {
 			self.client
-				.generated_message_details(at_block.clone(), prev_latest_nonce + 1..=latest_generated_nonce)
+				.generated_message_details(
+					at_block.clone(),
+					prev_latest_nonce + 1..=latest_generated_nonce,
+				)
 				.await?
 		} else {
 			MessageDetailsMap::new()
@@ -139,10 +147,7 @@ where
 
 		Ok((
 			at_block,
-			SourceClientNonces {
-				new_nonces,
-				confirmed_nonce: Some(latest_confirmed_nonce),
-			},
+			SourceClientNonces { new_nonces, confirmed_nonce: Some(latest_confirmed_nonce) },
 		))
 	}
 
@@ -151,7 +156,8 @@ where
 		at_block: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof_parameters: Self::ProofParameters,
-	) -> Result<(SourceHeaderIdOf<P>, RangeInclusive<MessageNonce>, P::MessagesProof), Self::Error> {
+	) -> Result<(SourceHeaderIdOf<P>, RangeInclusive<MessageNonce>, P::MessagesProof), Self::Error>
+	{
 		self.client.prove_messages(at_block, nonces, proof_parameters).await
 	}
 }
@@ -180,10 +186,13 @@ where
 		&self,
 		at_block: TargetHeaderIdOf<P>,
 		update_metrics: bool,
-	) -> Result<(TargetHeaderIdOf<P>, TargetClientNonces<DeliveryRaceTargetNoncesData>), Self::Error> {
+	) -> Result<(TargetHeaderIdOf<P>, TargetClientNonces<DeliveryRaceTargetNoncesData>), Self::Error>
+	{
 		let (at_block, latest_received_nonce) = self.client.latest_received_nonce(at_block).await?;
-		let (at_block, latest_confirmed_nonce) = self.client.latest_confirmed_received_nonce(at_block).await?;
-		let (at_block, unrewarded_relayers) = self.client.unrewarded_relayers_state(at_block).await?;
+		let (at_block, latest_confirmed_nonce) =
+			self.client.latest_confirmed_received_nonce(at_block).await?;
+		let (at_block, unrewarded_relayers) =
+			self.client.unrewarded_relayers_state(at_block).await?;
 
 		if update_metrics {
 			if let Some(metrics_msg) = self.metrics_msg.as_ref() {
@@ -210,9 +219,7 @@ where
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
 	) -> Result<RangeInclusive<MessageNonce>, Self::Error> {
-		self.client
-			.submit_messages_proof(generated_at_block, nonces, proof)
-			.await
+		self.client.submit_messages_proof(generated_at_block, nonces, proof).await
 	}
 }
 
@@ -245,7 +252,8 @@ struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
 	max_messages_size_in_single_batch: u32,
 	/// Relayer operating mode.
 	relayer_mode: RelayerMode,
-	/// Latest confirmed nonces at the source client + the header id where we have first met this nonce.
+	/// Latest confirmed nonces at the source client + the header id where we have first met this
+	/// nonce.
 	latest_confirmed_nonces_at_source: VecDeque<(SourceHeaderIdOf<P>, MessageNonce)>,
 	/// Target nonces from the source client.
 	target_nonces: Option<TargetClientNonces<DeliveryRaceTargetNoncesData>>,
@@ -269,23 +277,11 @@ impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, 
 				"max_unrewarded_relayer_entries_at_target",
 				&self.max_unrewarded_relayer_entries_at_target,
 			)
-			.field(
-				"max_unconfirmed_nonces_at_target",
-				&self.max_unconfirmed_nonces_at_target,
-			)
+			.field("max_unconfirmed_nonces_at_target", &self.max_unconfirmed_nonces_at_target)
 			.field("max_messages_in_single_batch", &self.max_messages_in_single_batch)
-			.field(
-				"max_messages_weight_in_single_batch",
-				&self.max_messages_weight_in_single_batch,
-			)
-			.field(
-				"max_messages_size_in_single_batch",
-				&self.max_messages_size_in_single_batch,
-			)
-			.field(
-				"latest_confirmed_nonces_at_source",
-				&self.latest_confirmed_nonces_at_source,
-			)
+			.field("max_messages_weight_in_single_batch", &self.max_messages_weight_in_single_batch)
+			.field("max_messages_size_in_single_batch", &self.max_messages_size_in_single_batch)
+			.field("latest_confirmed_nonces_at_source", &self.latest_confirmed_nonces_at_source)
 			.field("target_nonces", &self.target_nonces)
 			.field("strategy", &self.strategy)
 			.finish()
@@ -319,8 +315,12 @@ where
 		self.strategy.is_empty()
 	}
 
-	fn required_source_header_at_target(&self, current_best: &SourceHeaderIdOf<P>) -> Option<SourceHeaderIdOf<P>> {
-		let header_required_for_messages_delivery = self.strategy.required_source_header_at_target(current_best);
+	fn required_source_header_at_target(
+		&self,
+		current_best: &SourceHeaderIdOf<P>,
+	) -> Option<SourceHeaderIdOf<P>> {
+		let header_required_for_messages_delivery =
+			self.strategy.required_source_header_at_target(current_best);
 		let header_required_for_reward_confirmations_delivery =
 			self.latest_confirmed_nonces_at_source.back().map(|(id, _)| id.clone());
 		match (
@@ -371,10 +371,7 @@ where
 		self.target_nonces = Some(target_nonces);
 
 		self.strategy.best_target_nonces_updated(
-			TargetClientNonces {
-				latest_nonce: nonces.latest_nonce,
-				nonces_data: (),
-			},
+			TargetClientNonces { latest_nonce: nonces.latest_nonce, nonces_data: () },
 			race_state,
 		)
 	}
@@ -399,14 +396,12 @@ where
 		}
 
 		if let Some(ref mut target_nonces) = self.target_nonces {
-			target_nonces.latest_nonce = std::cmp::max(target_nonces.latest_nonce, nonces.latest_nonce);
+			target_nonces.latest_nonce =
+				std::cmp::max(target_nonces.latest_nonce, nonces.latest_nonce);
 		}
 
 		self.strategy.finalized_target_nonces_updated(
-			TargetClientNonces {
-				latest_nonce: nonces.latest_nonce,
-				nonces_data: (),
-			},
+			TargetClientNonces { latest_nonce: nonces.latest_nonce, nonces_data: () },
 			race_state,
 		)
 	}
@@ -428,12 +423,15 @@ where
 		// There's additional condition in the message delivery race: target would reject messages
 		// if there are too much unconfirmed messages at the inbound lane.
 
-		// The receiving race is responsible to deliver confirmations back to the source chain. So if
-		// there's a lot of unconfirmed messages, let's wait until it'll be able to do its job.
+		// The receiving race is responsible to deliver confirmations back to the source chain. So
+		// if there's a lot of unconfirmed messages, let's wait until it'll be able to do its job.
 		let latest_received_nonce_at_target = target_nonces.latest_nonce;
-		let confirmations_missing = latest_received_nonce_at_target.checked_sub(latest_confirmed_nonce_at_source);
+		let confirmations_missing =
+			latest_received_nonce_at_target.checked_sub(latest_confirmed_nonce_at_source);
 		match confirmations_missing {
-			Some(confirmations_missing) if confirmations_missing >= self.max_unconfirmed_nonces_at_target => {
+			Some(confirmations_missing)
+				if confirmations_missing >= self.max_unconfirmed_nonces_at_target =>
+			{
 				log::debug!(
 					target: "bridge",
 					"Cannot deliver any more messages from {} to {}. Too many unconfirmed nonces \
@@ -445,50 +443,55 @@ where
 					self.max_unconfirmed_nonces_at_target,
 				);
 
-				return None;
+				return None
 			}
 			_ => (),
 		}
 
-		// Ok - we may have new nonces to deliver. But target may still reject new messages, because we haven't
-		// notified it that (some) messages have been confirmed. So we may want to include updated
-		// `source.latest_confirmed` in the proof.
+		// Ok - we may have new nonces to deliver. But target may still reject new messages, because
+		// we haven't notified it that (some) messages have been confirmed. So we may want to
+		// include updated `source.latest_confirmed` in the proof.
 		//
-		// Important note: we're including outbound state lane proof whenever there are unconfirmed nonces
-		// on the target chain. Other strategy is to include it only if it's absolutely necessary.
+		// Important note: we're including outbound state lane proof whenever there are unconfirmed
+		// nonces on the target chain. Other strategy is to include it only if it's absolutely
+		// necessary.
 		let latest_confirmed_nonce_at_target = target_nonces.nonces_data.confirmed_nonce;
-		let outbound_state_proof_required = latest_confirmed_nonce_at_target < latest_confirmed_nonce_at_source;
+		let outbound_state_proof_required =
+			latest_confirmed_nonce_at_target < latest_confirmed_nonce_at_source;
 
 		// The target node would also reject messages if there are too many entries in the
 		// "unrewarded relayers" set. If we are unable to prove new rewards to the target node, then
 		// we should wait for confirmations race.
 		let unrewarded_relayer_entries_limit_reached =
-			target_nonces.nonces_data.unrewarded_relayers.unrewarded_relayer_entries
-				>= self.max_unrewarded_relayer_entries_at_target;
+			target_nonces.nonces_data.unrewarded_relayers.unrewarded_relayer_entries >=
+				self.max_unrewarded_relayer_entries_at_target;
 		if unrewarded_relayer_entries_limit_reached {
 			// so there are already too many unrewarded relayer entries in the set
 			//
-			// => check if we can prove enough rewards. If not, we should wait for more rewards to be paid
+			// => check if we can prove enough rewards. If not, we should wait for more rewards to
+			// be paid
 			let number_of_rewards_being_proved =
 				latest_confirmed_nonce_at_source.saturating_sub(latest_confirmed_nonce_at_target);
-			let enough_rewards_being_proved = number_of_rewards_being_proved
-				>= target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
+			let enough_rewards_being_proved = number_of_rewards_being_proved >=
+				target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
 			if !enough_rewards_being_proved {
-				return None;
+				return None
 			}
 		}
 
-		// If we're here, then the confirmations race did its job && sending side now knows that messages
-		// have been delivered. Now let's select nonces that we want to deliver.
+		// If we're here, then the confirmations race did its job && sending side now knows that
+		// messages have been delivered. Now let's select nonces that we want to deliver.
 		//
 		// We may deliver at most:
 		//
-		// max_unconfirmed_nonces_at_target - (latest_received_nonce_at_target - latest_confirmed_nonce_at_target)
+		// max_unconfirmed_nonces_at_target - (latest_received_nonce_at_target -
+		// latest_confirmed_nonce_at_target)
 		//
-		// messages in the batch. But since we're including outbound state proof in the batch, then it
-		// may be increased to:
+		// messages in the batch. But since we're including outbound state proof in the batch, then
+		// it may be increased to:
 		//
-		// max_unconfirmed_nonces_at_target - (latest_received_nonce_at_target - latest_confirmed_nonce_at_source)
+		// max_unconfirmed_nonces_at_target - (latest_received_nonce_at_target -
+		// latest_confirmed_nonce_at_source)
 		let future_confirmed_nonce_at_target = if outbound_state_proof_required {
 			latest_confirmed_nonce_at_source
 		} else {
@@ -505,7 +508,8 @@ where
 		let lane_source_client = self.lane_source_client.clone();
 		let lane_target_client = self.lane_target_client.clone();
 
-		let maximal_source_queue_index = self.strategy.maximal_available_source_queue_index(race_state)?;
+		let maximal_source_queue_index =
+			self.strategy.maximal_available_source_queue_index(race_state)?;
 		let previous_total_dispatch_weight = self.total_queued_dispatch_weight();
 		let source_queue = self.strategy.source_queue();
 		let range_end = select_nonces_for_delivery_transaction(
@@ -529,10 +533,7 @@ where
 
 		Some((
 			selected_nonces,
-			MessageProofParameters {
-				outbound_state_proof_required,
-				dispatch_weight,
-			},
+			MessageProofParameters { outbound_state_proof_required, dispatch_weight },
 		))
 	}
 }
@@ -595,9 +596,9 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 
 		// limit messages in the batch by weight
 		let new_selected_weight = match selected_weight.checked_add(details.dispatch_weight) {
-			Some(new_selected_weight) if new_selected_weight <= max_messages_weight_in_single_batch => {
-				new_selected_weight
-			}
+			Some(new_selected_weight)
+				if new_selected_weight <= max_messages_weight_in_single_batch =>
+				new_selected_weight,
 			new_selected_weight if selected_count == 0 => {
 				log::warn!(
 					target: "bridge",
@@ -607,13 +608,14 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 					max_messages_weight_in_single_batch,
 				);
 				new_selected_weight.unwrap_or(Weight::MAX)
-			}
+			},
 			_ => break,
 		};
 
 		// limit messages in the batch by size
 		let new_selected_size = match selected_size.checked_add(details.size) {
-			Some(new_selected_size) if new_selected_size <= max_messages_size_in_single_batch => new_selected_size,
+			Some(new_selected_size) if new_selected_size <= max_messages_size_in_single_batch =>
+				new_selected_size,
 			new_selected_size if selected_count == 0 => {
 				log::warn!(
 					target: "bridge",
@@ -623,14 +625,14 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 					max_messages_size_in_single_batch,
 				);
 				new_selected_size.unwrap_or(u32::MAX)
-			}
+			},
 			_ => break,
 		};
 
 		// limit number of messages in the batch
 		let new_selected_count = selected_count + 1;
 		if new_selected_count > max_messages_in_this_batch {
-			break;
+			break
 		}
 
 		// If dispatch fee has been paid at the source chain, it means that it is **relayer** who's
@@ -639,13 +641,14 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 		// If dispatch fee is paid at the target chain, it means that it'll be withdrawn from the
 		// dispatch origin account AND reward is not covering this fee.
 		//
-		// So in the latter case we're not adding the dispatch weight to the delivery transaction weight.
+		// So in the latter case we're not adding the dispatch weight to the delivery transaction
+		// weight.
 		let mut new_selected_prepaid_nonces = selected_prepaid_nonces;
 		let new_selected_unpaid_weight = match details.dispatch_fee_payment {
 			DispatchFeePayment::AtSourceChain => {
 				new_selected_prepaid_nonces += 1;
 				selected_unpaid_weight.saturating_add(details.dispatch_weight)
-			}
+			},
 			DispatchFeePayment::AtTargetChain => selected_unpaid_weight,
 		};
 
@@ -654,11 +657,12 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 		match relayer_mode {
 			RelayerMode::Altruistic => {
 				soft_selected_count = index + 1;
-			}
+			},
 			RelayerMode::Rational => {
 				let delivery_transaction_cost = lane_target_client
 					.estimate_delivery_transaction_in_source_tokens(
-						hard_selected_begin_nonce..=(hard_selected_begin_nonce + index as MessageNonce),
+						hard_selected_begin_nonce..=
+							(hard_selected_begin_nonce + index as MessageNonce),
 						new_selected_prepaid_nonces,
 						new_selected_unpaid_weight,
 						new_selected_size as u32,
@@ -678,7 +682,8 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 				let is_total_reward_less_than_cost = total_reward < total_cost;
 				let prev_total_cost = total_cost;
 				let prev_total_reward = total_reward;
-				total_confirmations_cost = total_confirmations_cost.saturating_add(&confirmation_transaction_cost);
+				total_confirmations_cost =
+					total_confirmations_cost.saturating_add(&confirmation_transaction_cost);
 				total_reward = total_reward.saturating_add(&details.reward);
 				total_cost = total_confirmations_cost.saturating_add(&delivery_transaction_cost);
 				if !is_total_reward_less_than_cost && total_reward < total_cost {
@@ -713,7 +718,7 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 					selected_reward = total_reward;
 					selected_cost = total_cost;
 				}
-			}
+			},
 		}
 
 		hard_selected_count = index + 1;
@@ -725,9 +730,11 @@ async fn select_nonces_for_delivery_transaction<P: MessageLane>(
 	}
 
 	if hard_selected_count != soft_selected_count {
-		let hard_selected_end_nonce = hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
+		let hard_selected_end_nonce =
+			hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
 		let soft_selected_begin_nonce = hard_selected_begin_nonce;
-		let soft_selected_end_nonce = soft_selected_begin_nonce + soft_selected_count as MessageNonce - 1;
+		let soft_selected_end_nonce =
+			soft_selected_begin_nonce + soft_selected_count as MessageNonce - 1;
 		log::warn!(
 			target: "bridge",
 			"Relayer may deliver nonces [{:?}; {:?}], but because of its strategy ({:?}) it has selected \
@@ -785,9 +792,9 @@ mod tests {
 	use super::*;
 	use crate::message_lane_loop::{
 		tests::{
-			header_id, TestMessageLane, TestMessagesProof, TestSourceChainBalance, TestSourceClient,
-			TestSourceHeaderId, TestTargetClient, TestTargetHeaderId, BASE_MESSAGE_DELIVERY_TRANSACTION_COST,
-			CONFIRMATION_TRANSACTION_COST,
+			header_id, TestMessageLane, TestMessagesProof, TestSourceChainBalance,
+			TestSourceClient, TestSourceHeaderId, TestTargetClient, TestTargetHeaderId,
+			BASE_MESSAGE_DELIVERY_TRANSACTION_COST, CONFIRMATION_TRANSACTION_COST,
 		},
 		MessageDetails,
 	};
@@ -795,13 +802,14 @@ mod tests {
 
 	const DEFAULT_DISPATCH_WEIGHT: Weight = 1;
 	const DEFAULT_SIZE: u32 = 1;
-	const DEFAULT_REWARD: TestSourceChainBalance = CONFIRMATION_TRANSACTION_COST
-		+ BASE_MESSAGE_DELIVERY_TRANSACTION_COST
-		+ DEFAULT_DISPATCH_WEIGHT
-		+ (DEFAULT_SIZE as TestSourceChainBalance);
+	const DEFAULT_REWARD: TestSourceChainBalance = CONFIRMATION_TRANSACTION_COST +
+		BASE_MESSAGE_DELIVERY_TRANSACTION_COST +
+		DEFAULT_DISPATCH_WEIGHT +
+		(DEFAULT_SIZE as TestSourceChainBalance);
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
-	type TestStrategy = MessageDeliveryStrategy<TestMessageLane, TestSourceClient, TestTargetClient>;
+	type TestStrategy =
+		MessageDeliveryStrategy<TestMessageLane, TestSourceClient, TestTargetClient>;
 
 	fn source_nonces(
 		new_nonces: RangeInclusive<MessageNonce>,
@@ -863,14 +871,12 @@ mod tests {
 			strategy: BasicStrategy::new(),
 		};
 
-		race_strategy
-			.strategy
-			.source_nonces_updated(header_id(1), source_nonces(20..=23, 19, DEFAULT_REWARD, AtSourceChain));
+		race_strategy.strategy.source_nonces_updated(
+			header_id(1),
+			source_nonces(20..=23, 19, DEFAULT_REWARD, AtSourceChain),
+		);
 
-		let target_nonces = TargetClientNonces {
-			latest_nonce: 19,
-			nonces_data: (),
-		};
+		let target_nonces = TargetClientNonces { latest_nonce: 19, nonces_data: () };
 		race_strategy
 			.strategy
 			.best_target_nonces_updated(target_nonces.clone(), &mut race_state);
@@ -890,7 +896,9 @@ mod tests {
 
 	#[test]
 	fn weights_map_works_as_nonces_range() {
-		fn build_map(range: RangeInclusive<MessageNonce>) -> MessageDetailsMap<TestSourceChainBalance> {
+		fn build_map(
+			range: RangeInclusive<MessageNonce>,
+		) -> MessageDetailsMap<TestSourceChainBalance> {
 			range
 				.map(|idx| {
 					(
@@ -937,7 +945,8 @@ mod tests {
 		// we need to wait until confirmations will be delivered by receiving race
 		strategy.latest_confirmed_nonces_at_source = vec![(
 			header_id(1),
-			strategy.target_nonces.as_ref().unwrap().latest_nonce - strategy.max_unconfirmed_nonces_at_target,
+			strategy.target_nonces.as_ref().unwrap().latest_nonce -
+				strategy.max_unconfirmed_nonces_at_target,
 		)]
 		.into_iter()
 		.collect();
@@ -945,13 +954,16 @@ mod tests {
 	}
 
 	#[async_std::test]
-	async fn message_delivery_strategy_includes_outbound_state_proof_when_new_nonces_are_available() {
+	async fn message_delivery_strategy_includes_outbound_state_proof_when_new_nonces_are_available()
+	{
 		let (state, mut strategy) = prepare_strategy();
 
 		// if there are new confirmed nonces on source, we want to relay this information
 		// to target to prune rewards queue
-		let prev_confirmed_nonce_at_source = strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
-		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 1;
+		let prev_confirmed_nonce_at_source =
+			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
+		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
+			prev_confirmed_nonce_at_source - 1;
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=23), proof_parameters(true, 4)))
@@ -965,8 +977,10 @@ mod tests {
 		// if there are already `max_unrewarded_relayer_entries_at_target` entries at target,
 		// we need to wait until rewards will be paid
 		{
-			let mut unrewarded_relayers = &mut strategy.target_nonces.as_mut().unwrap().nonces_data.unrewarded_relayers;
-			unrewarded_relayers.unrewarded_relayer_entries = strategy.max_unrewarded_relayer_entries_at_target;
+			let mut unrewarded_relayers =
+				&mut strategy.target_nonces.as_mut().unwrap().nonces_data.unrewarded_relayers;
+			unrewarded_relayers.unrewarded_relayer_entries =
+				strategy.max_unrewarded_relayer_entries_at_target;
 			unrewarded_relayers.messages_in_oldest_entry = 4;
 		}
 		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
@@ -979,12 +993,14 @@ mod tests {
 
 		// if there are already `max_unrewarded_relayer_entries_at_target` entries at target,
 		// we need to prove at least `messages_in_oldest_entry` rewards
-		let prev_confirmed_nonce_at_source = strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
+		let prev_confirmed_nonce_at_source =
+			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
 		{
 			let mut nonces_data = &mut strategy.target_nonces.as_mut().unwrap().nonces_data;
 			nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 1;
 			let mut unrewarded_relayers = &mut nonces_data.unrewarded_relayers;
-			unrewarded_relayers.unrewarded_relayer_entries = strategy.max_unrewarded_relayer_entries_at_target;
+			unrewarded_relayers.unrewarded_relayer_entries =
+				strategy.max_unrewarded_relayer_entries_at_target;
 			unrewarded_relayers.messages_in_oldest_entry = 4;
 		}
 		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
@@ -996,12 +1012,14 @@ mod tests {
 
 		// if there are already `max_unrewarded_relayer_entries_at_target` entries at target,
 		// we need to prove at least `messages_in_oldest_entry` rewards
-		let prev_confirmed_nonce_at_source = strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
+		let prev_confirmed_nonce_at_source =
+			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
 		{
 			let mut nonces_data = &mut strategy.target_nonces.as_mut().unwrap().nonces_data;
 			nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 3;
 			let mut unrewarded_relayers = &mut nonces_data.unrewarded_relayers;
-			unrewarded_relayers.unrewarded_relayer_entries = strategy.max_unrewarded_relayer_entries_at_target;
+			unrewarded_relayers.unrewarded_relayer_entries =
+				strategy.max_unrewarded_relayer_entries_at_target;
 			unrewarded_relayers.messages_in_oldest_entry = 3;
 		}
 		assert_eq!(
@@ -1023,15 +1041,13 @@ mod tests {
 	}
 
 	#[async_std::test]
-	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_weight() {
+	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_weight(
+	) {
 		let (state, mut strategy) = prepare_strategy();
 
-		// first message doesn't fit in the batch, because it has weight (10) that overflows max weight (4)
-		strategy.strategy.source_queue_mut()[0]
-			.1
-			.get_mut(&20)
-			.unwrap()
-			.dispatch_weight = 10;
+		// first message doesn't fit in the batch, because it has weight (10) that overflows max
+		// weight (4)
+		strategy.strategy.source_queue_mut()[0].1.get_mut(&20).unwrap().dispatch_weight = 10;
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=20), proof_parameters(false, 10)))
@@ -1051,10 +1067,12 @@ mod tests {
 	}
 
 	#[async_std::test]
-	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_size() {
+	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_size(
+	) {
 		let (state, mut strategy) = prepare_strategy();
 
-		// first message doesn't fit in the batch, because it has weight (10) that overflows max weight (4)
+		// first message doesn't fit in the batch, because it has weight (10) that overflows max
+		// weight (4)
 		strategy.strategy.source_queue_mut()[0].1.get_mut(&20).unwrap().size = 10;
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
@@ -1066,7 +1084,8 @@ mod tests {
 	async fn message_delivery_strategy_limits_batch_by_messages_count_when_there_is_upper_limit() {
 		let (state, mut strategy) = prepare_strategy();
 
-		// not all queued messages may fit in the batch, because batch has max number of messages limit
+		// not all queued messages may fit in the batch, because batch has max number of messages
+		// limit
 		strategy.max_messages_in_single_batch = 3;
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
@@ -1075,16 +1094,18 @@ mod tests {
 	}
 
 	#[async_std::test]
-	async fn message_delivery_strategy_limits_batch_by_messages_count_when_there_are_unconfirmed_nonces() {
+	async fn message_delivery_strategy_limits_batch_by_messages_count_when_there_are_unconfirmed_nonces(
+	) {
 		let (state, mut strategy) = prepare_strategy();
 
 		// 1 delivery confirmation from target to source is still missing, so we may only
 		// relay 3 new messages
-		let prev_confirmed_nonce_at_source = strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
-		strategy.latest_confirmed_nonces_at_source = vec![(header_id(1), prev_confirmed_nonce_at_source - 1)]
-			.into_iter()
-			.collect();
-		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 1;
+		let prev_confirmed_nonce_at_source =
+			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
+		strategy.latest_confirmed_nonces_at_source =
+			vec![(header_id(1), prev_confirmed_nonce_at_source - 1)].into_iter().collect();
+		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
+			prev_confirmed_nonce_at_source - 1;
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=22), proof_parameters(false, 3)))
@@ -1099,30 +1120,35 @@ mod tests {
 		//
 		// => so we can't deliver more than 3 messages
 		let (mut state, mut strategy) = prepare_strategy();
-		let prev_confirmed_nonce_at_source = strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
+		let prev_confirmed_nonce_at_source =
+			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
 		strategy.latest_confirmed_nonces_at_source = vec![
 			(header_id(1), prev_confirmed_nonce_at_source - 1),
 			(header_id(2), prev_confirmed_nonce_at_source),
 		]
 		.into_iter()
 		.collect();
-		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 1;
+		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
+			prev_confirmed_nonce_at_source - 1;
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(1));
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=22), proof_parameters(false, 3)))
 		);
 
-		// the same situation, but the header 2 is known to the target node, so we may deliver reward confirmation
+		// the same situation, but the header 2 is known to the target node, so we may deliver
+		// reward confirmation
 		let (mut state, mut strategy) = prepare_strategy();
-		let prev_confirmed_nonce_at_source = strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
+		let prev_confirmed_nonce_at_source =
+			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
 		strategy.latest_confirmed_nonces_at_source = vec![
 			(header_id(1), prev_confirmed_nonce_at_source - 1),
 			(header_id(2), prev_confirmed_nonce_at_source),
 		]
 		.into_iter()
 		.collect();
-		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 1;
+		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
+			prev_confirmed_nonce_at_source - 1;
 		state.best_finalized_source_header_id_at_source = Some(header_id(2));
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
 		assert_eq!(
@@ -1136,8 +1162,9 @@ mod tests {
 		// let's prepare situation when:
 		// - all messages [20; 23] have been generated at source block#1;
 		let (mut state, mut strategy) = prepare_strategy();
-		// - messages [20; 21] have been delivered, but messages [11; 20] can't be delivered because of unrewarded
-		//   relayers vector capacity;
+		//
+		// - messages [20; 21] have been delivered, but messages [11; 20] can't be delivered because
+		//   of unrewarded relayers vector capacity;
 		strategy.max_unconfirmed_nonces_at_target = 2;
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state.clone()).await,
@@ -1158,19 +1185,15 @@ mod tests {
 			&mut state,
 		);
 		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
+		//
 		// - messages [1; 10] receiving confirmation has been delivered at source block#2;
 		strategy.source_nonces_updated(
 			header_id(2),
-			SourceClientNonces {
-				new_nonces: MessageDetailsMap::new(),
-				confirmed_nonce: Some(21),
-			},
+			SourceClientNonces { new_nonces: MessageDetailsMap::new(), confirmed_nonce: Some(21) },
 		);
+		//
 		// - so now we'll need to relay source block#11 to be able to accept messages [11; 20].
-		assert_eq!(
-			strategy.required_source_header_at_target(&header_id(1)),
-			Some(header_id(2))
-		);
+		assert_eq!(strategy.required_source_header_at_target(&header_id(1)), Some(header_id(2)));
 	}
 
 	#[async_std::test]
@@ -1233,8 +1256,8 @@ mod tests {
 
 			// so now we have:
 			// - 20..=23 with reward = cost
-			// - 24..=24 with reward less than cost, but we're deducting `DEFAULT_DISPATCH_WEIGHT` from the
-			//   cost, so it should be fine;
+			// - 24..=24 with reward less than cost, but we're deducting `DEFAULT_DISPATCH_WEIGHT`
+			//   from the cost, so it should be fine;
 			// => when MSG#24 fee is paid at the target chain, strategy shall select all 20..=24
 			// => when MSG#25 fee is paid at the source chain, strategy shall only select 20..=23
 			strategy.select_nonces_to_deliver(state).await
@@ -1255,11 +1278,11 @@ mod tests {
 		// Real scenario that has happened on test deployments:
 		// 1) relayer witnessed M1 at block 1 => it has separate entry in the `source_queue`
 		// 2) relayer witnessed M2 at block 2 => it has separate entry in the `source_queue`
-		// 3) if block 2 is known to the target node, then both M1 and M2 are selected for single delivery,
-		//    even though weight(M1+M2) > larger than largest allowed weight
+		// 3) if block 2 is known to the target node, then both M1 and M2 are selected for single
+		// delivery,    even though weight(M1+M2) > larger than largest allowed weight
 		//
-		// This was happening because selector (`select_nonces_for_delivery_transaction`) has been called
-		// for every `source_queue` entry separately without preserving any context.
+		// This was happening because selector (`select_nonces_for_delivery_transaction`) has been
+		// called for every `source_queue` entry separately without preserving any context.
 		let (mut state, mut strategy) = prepare_strategy();
 		let nonces = source_nonces(24..=25, 19, DEFAULT_REWARD, AtSourceChain);
 		strategy.strategy.source_nonces_updated(header_id(2), nonces);

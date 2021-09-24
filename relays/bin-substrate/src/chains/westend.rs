@@ -35,7 +35,9 @@ impl CliChain for Westend {
 		0
 	}
 
-	fn encode_message(_message: encode_message::MessagePayload) -> Result<Self::MessagePayload, String> {
+	fn encode_message(
+		_message: encode_message::MessagePayload,
+	) -> Result<Self::MessagePayload, String> {
 		Err("Sending messages from Westend is not yet supported.".into())
 	}
 }

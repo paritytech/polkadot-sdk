@@ -19,7 +19,8 @@
 //! The code is mostly copy of `service/src/lib.rs` file from Polkadot repository
 //! without optional functions.
 
-// this warning comes from Error enum (sc_cli::Error in particular) && it isn't easy to use box there
+// this warning comes from Error enum (sc_cli::Error in particular) && it isn't easy to use box
+// there
 #![allow(clippy::large_enum_variant)]
 // this warning comes from `sc_service::PartialComponents` type
 #![allow(clippy::type_complexity)]
@@ -46,14 +47,12 @@ use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
-pub use {
-	polkadot_overseer::{Handle, Overseer, OverseerHandle},
-	polkadot_primitives::v1::ParachainHost,
-	sc_client_api::AuxStore,
-	sp_authority_discovery::AuthorityDiscoveryApi,
-	sp_blockchain::HeaderBackend,
-	sp_consensus_babe::BabeApi,
-};
+pub use polkadot_overseer::{Handle, Overseer, OverseerHandle};
+pub use polkadot_primitives::v1::ParachainHost;
+pub use sc_client_api::AuxStore;
+pub use sp_authority_discovery::AuthorityDiscoveryApi;
+pub use sp_blockchain::HeaderBackend;
+pub use sp_consensus_babe::BabeApi;
 
 pub type Executor = NativeElseWasmExecutor<ExecutorDispatch>;
 
@@ -108,9 +107,11 @@ pub enum Error {
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-type FullGrandpaBlockImport = sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
+type FullGrandpaBlockImport =
+	sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 type FullTransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
-type FullBabeBlockImport = sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>;
+type FullBabeBlockImport =
+	sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>;
 type FullBabeLink = sc_consensus_babe::BabeLink<Block>;
 type FullGrandpaLink = sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
 
@@ -125,8 +126,11 @@ pub trait RequiredApiCollection:
 	+ sp_finality_grandpa::GrandpaApi<Block>
 	+ polkadot_primitives::v1::ParachainHost<Block>
 	+ sp_block_builder::BlockBuilder<Block>
-	+ frame_system_rpc_runtime_api::AccountNonceApi<Block, bp_rialto::AccountId, rialto_runtime::Index>
-	+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, bp_rialto::Balance>
+	+ frame_system_rpc_runtime_api::AccountNonceApi<
+		Block,
+		bp_rialto::AccountId,
+		rialto_runtime::Index,
+	> + pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, bp_rialto::Balance>
 	+ sp_api::Metadata<Block>
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
@@ -144,8 +148,11 @@ where
 		+ sp_finality_grandpa::GrandpaApi<Block>
 		+ polkadot_primitives::v1::ParachainHost<Block>
 		+ sp_block_builder::BlockBuilder<Block>
-		+ frame_system_rpc_runtime_api::AccountNonceApi<Block, bp_rialto::AccountId, rialto_runtime::Index>
-		+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, bp_rialto::Balance>
+		+ frame_system_rpc_runtime_api::AccountNonceApi<
+			Block,
+			bp_rialto::AccountId,
+			rialto_runtime::Index,
+		> + pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, bp_rialto::Balance>
 		+ sp_api::Metadata<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
@@ -210,11 +217,12 @@ where
 		config.max_runtime_instances,
 	);
 
-	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, RuntimeApi, Executor>(
-		config,
-		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-		executor,
-	)?;
+	let (client, backend, keystore_container, task_manager) =
+		sc_service::new_full_parts::<Block, RuntimeApi, Executor>(
+			config,
+			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+			executor,
+		)?;
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -232,13 +240,14 @@ where
 		client.clone(),
 	);
 
-	let (grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import_with_authority_set_hard_forks(
-		client.clone(),
-		&(client.clone() as Arc<_>),
-		select_chain.clone(),
-		Vec::new(),
-		telemetry.as_ref().map(|x| x.handle()),
-	)?;
+	let (grandpa_block_import, grandpa_link) =
+		sc_finality_grandpa::block_import_with_authority_set_hard_forks(
+			client.clone(),
+			&(client.clone() as Arc<_>),
+			select_chain.clone(),
+			Vec::new(),
+			telemetry.as_ref().map(|x| x.handle()),
+		)?;
 	let justification_import = grandpa_block_import.clone();
 
 	let babe_config = sc_consensus_babe::Config::get_or_compute(&*client)?;
@@ -255,10 +264,11 @@ where
 		move |_, ()| async move {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-			let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
-				*timestamp,
-				slot_duration,
-			);
+			let slot =
+				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+					*timestamp,
+					slot_duration,
+				);
 
 			Ok((timestamp, slot))
 		},
@@ -295,8 +305,10 @@ where
 
 			let shared_voter_state = shared_voter_state.clone();
 
-			let finality_proof_provider =
-				GrandpaFinalityProofProvider::new_for_service(backend, Some(shared_authority_set.clone()));
+			let finality_proof_provider = GrandpaFinalityProofProvider::new_for_service(
+				backend,
+				Some(shared_authority_set.clone()),
+			);
 
 			let mut io = jsonrpc_core::IoHandler::default();
 			io.extend_with(SystemApi::to_delegate(FullSystem::new(
@@ -325,13 +337,7 @@ where
 		select_chain,
 		import_queue,
 		transaction_pool,
-		other: (
-			rpc_extensions_builder,
-			import_setup,
-			rpc_setup,
-			slot_duration,
-			telemetry,
-		),
+		other: (rpc_extensions_builder, import_setup, rpc_setup, slot_duration, telemetry),
 	})
 }
 
@@ -344,7 +350,7 @@ pub struct NewFull<C> {
 	pub backend: Arc<FullBackend>,
 }
 
-/// The maximum number of active leaves we forward to the [`Overseer`] on startup.
+/// The maximum number of active leaves we forward to the [`Overseer`] on start up.
 const MAX_ACTIVE_LEAVES: usize = 4;
 
 /// Returns the active leaves the overseer should start with.
@@ -370,16 +376,12 @@ where
 
 			// Only consider leaves that are in maximum an uncle of the best block.
 			if number < best_block.number().saturating_sub(1) || hash == best_block.hash() {
-				return None;
+				return None
 			}
 
 			let parent_hash = client.header(&BlockId::Hash(hash)).ok()??.parent_hash;
 
-			Some(BlockInfo {
-				hash,
-				parent_hash,
-				number,
-			})
+			Some(BlockInfo { hash, parent_hash, number })
 		})
 		.collect::<Vec<_>>();
 
@@ -411,7 +413,8 @@ where
 
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks = Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
+	let backoff_authoring_blocks =
+		Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
 
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
@@ -435,18 +438,11 @@ where
 	// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
-	config
-		.network
-		.extra_sets
-		.push(sc_finality_grandpa::grandpa_peers_set_config());
+	config.network.extra_sets.push(sc_finality_grandpa::grandpa_peers_set_config());
 
 	{
 		use polkadot_network_bridge::{peer_sets_info, IsAuthority};
-		let is_authority = if role.is_authority() {
-			IsAuthority::Yes
-		} else {
-			IsAuthority::No
-		};
+		let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
 		config.network.extra_sets.extend(peer_sets_info(is_authority));
 	}
 
@@ -468,20 +464,25 @@ where
 		import_setup.1.shared_authority_set().clone(),
 	));
 
-	let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
-		config: &config,
-		client: client.clone(),
-		transaction_pool: transaction_pool.clone(),
-		spawn_handle: task_manager.spawn_handle(),
-		import_queue,
-		on_demand: None,
-		block_announce_validator_builder: None,
-		warp_sync: Some(warp_sync),
-	})?;
+	let (network, system_rpc_tx, network_starter) =
+		sc_service::build_network(sc_service::BuildNetworkParams {
+			config: &config,
+			client: client.clone(),
+			transaction_pool: transaction_pool.clone(),
+			spawn_handle: task_manager.spawn_handle(),
+			import_queue,
+			on_demand: None,
+			block_announce_validator_builder: None,
+			warp_sync: Some(warp_sync),
+		})?;
 
 	if config.offchain_worker.enabled {
-		let _ =
-			sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());
+		let _ = sc_service::build_offchain_workers(
+			&config,
+			task_manager.spawn_handle(),
+			client.clone(),
+			network.clone(),
+		);
 	}
 
 	let parachains_db = crate::parachains_db::open_creating(
@@ -551,12 +552,13 @@ where
 			// don't publish our addresses when we're only a collator
 			sc_authority_discovery::Role::Discover
 		};
-		let dht_event_stream = network.event_stream("authority-discovery").filter_map(|e| async move {
-			match e {
-				Event::Dht(e) => Some(e),
-				_ => None,
-			}
-		});
+		let dht_event_stream =
+			network.event_stream("authority-discovery").filter_map(|e| async move {
+				match e {
+					Event::Dht(e) => Some(e),
+					_ => None,
+				}
+			});
 		let (worker, service) = sc_authority_discovery::new_worker_and_service_with_config(
 			sc_authority_discovery::WorkerConfig {
 				publish_non_global_ips: auth_disc_publish_non_global_ips,
@@ -569,22 +571,22 @@ where
 			prometheus_registry.clone(),
 		);
 
-		task_manager
-			.spawn_handle()
-			.spawn("authority-discovery-worker", worker.run());
+		task_manager.spawn_handle().spawn("authority-discovery-worker", worker.run());
 		Some(service)
 	} else {
 		None
 	};
 
-	// we'd say let overseer_handler = authority_discovery_service.map(|authority_discovery_service|, ...),
-	// but in that case we couldn't use ? to propagate errors
+	// we'd say let overseer_handler =
+	// authority_discovery_service.map(|authority_discovery_service|, ...), but in that case we
+	// couldn't use ? to propagate errors
 	let local_keystore = keystore_container.local_keystore();
-	let maybe_params = local_keystore.and_then(move |k| authority_discovery_service.map(|a| (a, k)));
+	let maybe_params =
+		local_keystore.and_then(move |k| authority_discovery_service.map(|a| (a, k)));
 
 	let overseer_handle = if let Some((authority_discovery_service, keystore)) = maybe_params {
-		let (overseer, overseer_handle) =
-			overseer_gen.generate::<sc_service::SpawnTaskHandle, FullClient>(OverseerGenArgs {
+		let (overseer, overseer_handle) = overseer_gen
+			.generate::<sc_service::SpawnTaskHandle, FullClient>(OverseerGenArgs {
 				leaves: active_leaves,
 				keystore,
 				runtime_client: overseer_client.clone(),
@@ -635,7 +637,8 @@ where
 	};
 
 	if role.is_authority() {
-		let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
+		let can_author_with =
+			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -646,10 +649,8 @@ where
 		);
 
 		let client_clone = client.clone();
-		let overseer_handle = overseer_handle
-			.as_ref()
-			.ok_or(Error::AuthoritiesRequireRealOverseer)?
-			.clone();
+		let overseer_handle =
+			overseer_handle.as_ref().ok_or(Error::AuthoritiesRequireRealOverseer)?.clone();
 		let slot_duration = babe_link.config().slot_duration();
 		let babe_config = sc_consensus_babe::BabeParams {
 			keystore: keystore_container.sync_keystore(),
@@ -671,7 +672,10 @@ where
 					.await
 					.map_err(Box::new)?;
 
-					let uncles = sc_consensus_uncles::create_uncles_inherent_data_provider(&*client_clone, parent)?;
+					let uncles = sc_consensus_uncles::create_uncles_inherent_data_provider(
+						&*client_clone,
+						parent,
+					)?;
 
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
@@ -698,11 +702,8 @@ where
 
 	// if the node isn't actively participating in consensus then it doesn't
 	// need a keystore, regardless of which protocol we use below.
-	let keystore_opt = if role.is_authority() {
-		Some(keystore_container.sync_keystore())
-	} else {
-		None
-	};
+	let keystore_opt =
+		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
 	let config = sc_finality_grandpa::Config {
 		// FIXME substrate#1578 make this available through chainspec
@@ -740,23 +741,20 @@ where
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 		};
 
-		task_manager
-			.spawn_essential_handle()
-			.spawn_blocking("grandpa-voter", sc_finality_grandpa::run_grandpa_voter(grandpa_config)?);
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"grandpa-voter",
+			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
+		);
 	}
 
 	network_starter.start_network();
 
-	Ok(NewFull {
-		task_manager,
-		client,
-		overseer_handle,
-		network,
-		rpc_handlers,
-		backend,
-	})
+	Ok(NewFull { task_manager, client, overseer_handle, network, rpc_handlers, backend })
 }
 
-pub fn build_full(config: Configuration, overseer_gen: impl OverseerGen) -> Result<NewFull<Arc<FullClient>>, Error> {
+pub fn build_full(
+	config: Configuration,
+	overseer_gen: impl OverseerGen,
+) -> Result<NewFull<Arc<FullClient>>, Error> {
 	new_full(config, None, overseer_gen)
 }

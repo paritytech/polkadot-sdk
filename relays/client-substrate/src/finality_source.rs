@@ -16,10 +16,12 @@
 
 //! Default generic implementation of finality source for basic Substrate client.
 
-use crate::chain::{BlockWithJustification, Chain};
-use crate::client::Client;
-use crate::error::Error;
-use crate::sync_header::SyncHeader;
+use crate::{
+	chain::{BlockWithJustification, Chain},
+	client::Client,
+	error::Error,
+	sync_header::SyncHeader,
+};
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
@@ -43,12 +45,11 @@ pub struct FinalitySource<C: Chain, P> {
 
 impl<C: Chain, P> FinalitySource<C, P> {
 	/// Create new headers source using given client.
-	pub fn new(client: Client<C>, maximal_header_number: Option<RequiredHeaderNumberRef<C>>) -> Self {
-		FinalitySource {
-			client,
-			maximal_header_number,
-			_phantom: Default::default(),
-		}
+	pub fn new(
+		client: Client<C>,
+		maximal_header_number: Option<RequiredHeaderNumberRef<C>>,
+	) -> Self {
+		FinalitySource { client, maximal_header_number, _phantom: Default::default() }
 	}
 
 	/// Returns reference to the underlying RPC client.
@@ -122,7 +123,9 @@ where
 
 		let justification = signed_block
 			.justification()
-			.map(|raw_justification| GrandpaJustification::<C::Header>::decode(&mut raw_justification.as_slice()))
+			.map(|raw_justification| {
+				GrandpaJustification::<C::Header>::decode(&mut raw_justification.as_slice())
+			})
 			.transpose()
 			.map_err(Error::ResponseParseFailed)?;
 
@@ -155,11 +158,11 @@ where
 						Ok(j) => j,
 						Err(err) => {
 							log_error(format!("decode failed with error {:?}", err));
-							continue;
-						}
+							continue
+						},
 					};
 
-					return Some((justification, subscription));
+					return Some((justification, subscription))
 				}
 			},
 		)
