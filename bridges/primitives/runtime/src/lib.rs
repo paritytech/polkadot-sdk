@@ -192,7 +192,7 @@ impl<BlockNumber: Copy + Into<u64>, BlockHash: Copy> TransactionEra<BlockNumber,
 	}
 }
 
-/// This is a copypaste of the
+/// This is a copy of the
 /// `frame_support::storage::generator::StorageMap::storage_map_final_key` for `Blake2_128Concat`
 /// maps.
 ///
@@ -210,7 +210,7 @@ pub fn storage_map_final_key_blake2_128concat(
 	)
 }
 
-/// This is a copypaste of the
+/// This is a copy of the
 /// `frame_support::storage::generator::StorageMap::storage_map_final_key` for `Identity` maps.
 ///
 /// We're using it because to call `storage_map_final_key` directly, we need access to the runtime
@@ -237,7 +237,7 @@ pub fn storage_map_final_key_identity(
 /// This is how a storage key of storage parameter (`parameter_types! { storage Param: bool = false;
 /// }`) is computed.
 ///
-/// Copypaste from `frame_support::parameter_types` macro
+/// Copied from `frame_support::parameter_types` macro
 pub fn storage_parameter_key(parameter_name: &str) -> StorageKey {
 	let mut buffer = Vec::with_capacity(1 + parameter_name.len() + 1 + 1);
 	buffer.push(b':');
