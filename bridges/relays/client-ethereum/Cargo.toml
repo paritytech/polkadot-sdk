@@ -10,8 +10,8 @@ async-std = "1.6.5"
 bp-eth-poa = { path = "../../primitives/ethereum-poa" }
 headers-relay = { path = "../headers" }
 hex-literal = "0.3"
-jsonrpsee-proc-macros = "0.2"
-jsonrpsee-ws-client = "0.2"
+jsonrpsee-proc-macros = "0.3.1"
+jsonrpsee-ws-client = "0.3.1"
 libsecp256k1 = { version = "0.3.4", default-features = false, features = ["hmac"] }
 log = "0.4.11"
 relay-utils = { path = "../utils" }
