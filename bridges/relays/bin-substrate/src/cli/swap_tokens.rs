@@ -41,7 +41,7 @@ use crate::cli::{
 };
 
 /// Swap tokens.
-#[derive(StructOpt)]
+#[derive(StructOpt, Debug, PartialEq)]
 pub struct SwapTokens {
 	/// A bridge instance to use in token swap.
 	#[structopt(possible_values = SwapTokensBridge::VARIANTS, case_insensitive = true)]
@@ -85,7 +85,7 @@ pub enum TokenSwapType {
 }
 
 /// Swap tokens bridge.
-#[derive(Debug, EnumString, EnumVariantNames)]
+#[derive(Debug, EnumString, EnumVariantNames, PartialEq)]
 #[strum(serialize_all = "kebab_case")]
 pub enum SwapTokensBridge {
 	/// Use token-swap pallet deployed at Millau to swap tokens with Rialto.
@@ -664,4 +664,132 @@ async fn read_token_swap_state<C: Chain>(
 	swap_state_storage_key: &StorageKey,
 ) -> anyhow::Result<Option<bp_token_swap::TokenSwapState>> {
 	Ok(client.storage_value(swap_state_storage_key.clone(), Some(at_block)).await?)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn swap_tokens_millau_to_rialto_no_lock() {
+		let swap_tokens = SwapTokens::from_iter(vec![
+			"swap-tokens",
+			"millau-to-rialto",
+			"--source-host",
+			"127.0.0.1",
+			"--source-port",
+			"9000",
+			"--source-signer",
+			"//Alice",
+			"--source-balance",
+			"8000000000",
+			"--target-host",
+			"127.0.0.1",
+			"--target-port",
+			"9001",
+			"--target-signer",
+			"//Bob",
+			"--target-balance",
+			"9000000000",
+			"no-lock",
+		]);
+
+		assert_eq!(
+			swap_tokens,
+			SwapTokens {
+				bridge: SwapTokensBridge::MillauToRialto,
+				source: SourceConnectionParams {
+					source_host: "127.0.0.1".into(),
+					source_port: 9000,
+					source_secure: false,
+				},
+				source_sign: SourceSigningParams {
+					source_signer: Some("//Alice".into()),
+					source_signer_password: None,
+					source_signer_file: None,
+					source_signer_password_file: None,
+					source_transactions_mortality: None,
+				},
+				target: TargetConnectionParams {
+					target_host: "127.0.0.1".into(),
+					target_port: 9001,
+					target_secure: false,
+				},
+				target_sign: TargetSigningParams {
+					target_signer: Some("//Bob".into()),
+					target_signer_password: None,
+					target_signer_file: None,
+					target_signer_password_file: None,
+					target_transactions_mortality: None,
+				},
+				swap_type: TokenSwapType::NoLock,
+				source_balance: Balance(8000000000),
+				target_balance: Balance(9000000000),
+			}
+		);
+	}
+
+	#[test]
+	fn swap_tokens_millau_to_rialto_lock_until() {
+		let swap_tokens = SwapTokens::from_iter(vec![
+			"swap-tokens",
+			"millau-to-rialto",
+			"--source-host",
+			"127.0.0.1",
+			"--source-port",
+			"9000",
+			"--source-signer",
+			"//Alice",
+			"--source-balance",
+			"8000000000",
+			"--target-host",
+			"127.0.0.1",
+			"--target-port",
+			"9001",
+			"--target-signer",
+			"//Bob",
+			"--target-balance",
+			"9000000000",
+			"lock-until-block",
+			"--blocks-before-expire",
+			"1",
+		]);
+
+		assert_eq!(
+			swap_tokens,
+			SwapTokens {
+				bridge: SwapTokensBridge::MillauToRialto,
+				source: SourceConnectionParams {
+					source_host: "127.0.0.1".into(),
+					source_port: 9000,
+					source_secure: false,
+				},
+				source_sign: SourceSigningParams {
+					source_signer: Some("//Alice".into()),
+					source_signer_password: None,
+					source_signer_file: None,
+					source_signer_password_file: None,
+					source_transactions_mortality: None,
+				},
+				target: TargetConnectionParams {
+					target_host: "127.0.0.1".into(),
+					target_port: 9001,
+					target_secure: false,
+				},
+				target_sign: TargetSigningParams {
+					target_signer: Some("//Bob".into()),
+					target_signer_password: None,
+					target_signer_file: None,
+					target_signer_password_file: None,
+					target_transactions_mortality: None,
+				},
+				swap_type: TokenSwapType::LockUntilBlock {
+					blocks_before_expire: 1,
+					swap_nonce: None,
+				},
+				source_balance: Balance(8000000000),
+				target_balance: Balance(9000000000),
+			}
+		);
+	}
 }
