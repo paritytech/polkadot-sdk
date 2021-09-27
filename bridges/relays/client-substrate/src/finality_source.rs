@@ -151,8 +151,9 @@ where
 						.await
 						.map_err(|err| log_error(err.to_string()))
 						.ok()??;
+
 					let decoded_justification =
-						GrandpaJustification::<C::Header>::decode(&mut &next_justification.0[..]);
+						GrandpaJustification::<C::Header>::decode(&mut &next_justification[..]);
 
 					let justification = match decoded_justification {
 						Ok(j) => j,

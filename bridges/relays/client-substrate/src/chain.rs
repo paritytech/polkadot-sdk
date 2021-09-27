@@ -17,7 +17,7 @@
 use bp_runtime::{Chain as ChainBase, HashOf, TransactionEraOf};
 use codec::{Codec, Encode};
 use frame_support::weights::WeightToFeePolynomial;
-use jsonrpsee_ws_client::{DeserializeOwned, Serialize};
+use jsonrpsee_ws_client::types::{DeserializeOwned, Serialize};
 use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
 use sp_core::{storage::StorageKey, Pair};
