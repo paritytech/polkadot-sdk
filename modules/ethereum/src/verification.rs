@@ -332,7 +332,7 @@ fn verify_empty_step(parent_hash: &H256, step: &SealedEmptyStep, validators: &[A
 	verify_signature(&expected_validator, &step.signature, &message)
 }
 
-/// Chain scoring: total weight is sqrt(U256::max_value())*height - step
+/// Chain scoring: total `weight is sqrt(U256::max_value())*height - step`.
 pub(crate) fn calculate_score(
 	parent_step: u64,
 	current_step: u64,
