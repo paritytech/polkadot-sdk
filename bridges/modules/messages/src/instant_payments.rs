@@ -19,15 +19,17 @@
 //! The payment is first transferred to a special `relayers-fund` account and only transferred
 //! to the actual relayer in case confirmation is received.
 
+use crate::OutboundMessages;
+
 use bp_messages::{
 	source_chain::{MessageDeliveryAndDispatchPayment, RelayersRewards, Sender},
-	MessageNonce,
+	LaneId, MessageKey, MessageNonce, UnrewardedRelayer,
 };
 use codec::Encode;
 use frame_support::traits::{Currency as CurrencyT, ExistenceRequirement, Get};
-use num_traits::Zero;
+use num_traits::{SaturatingAdd, Zero};
 use sp_runtime::traits::Saturating;
-use sp_std::fmt::Debug;
+use sp_std::{collections::vec_deque::VecDeque, fmt::Debug, ops::RangeInclusive};
 
 /// Instant message payments made in given currency.
 ///
@@ -42,16 +44,17 @@ use sp_std::fmt::Debug;
 /// to the relayer account.
 /// NOTE It's within relayer's interest to keep their balance above ED as well, to make sure they
 /// can receive the payment.
-pub struct InstantCurrencyPayments<T, Currency, GetConfirmationFee, RootAccount> {
-	_phantom: sp_std::marker::PhantomData<(T, Currency, GetConfirmationFee, RootAccount)>,
+pub struct InstantCurrencyPayments<T, I, Currency, GetConfirmationFee, RootAccount> {
+	_phantom: sp_std::marker::PhantomData<(T, I, Currency, GetConfirmationFee, RootAccount)>,
 }
 
-impl<T, Currency, GetConfirmationFee, RootAccount>
+impl<T, I, Currency, GetConfirmationFee, RootAccount>
 	MessageDeliveryAndDispatchPayment<T::AccountId, Currency::Balance>
-	for InstantCurrencyPayments<T, Currency, GetConfirmationFee, RootAccount>
+	for InstantCurrencyPayments<T, I, Currency, GetConfirmationFee, RootAccount>
 where
-	T: frame_system::Config,
-	Currency: CurrencyT<T::AccountId>,
+	T: frame_system::Config + crate::Config<I>,
+	I: 'static,
+	Currency: CurrencyT<T::AccountId, Balance = T::OutboundMessageFee>,
 	Currency::Balance: From<MessageNonce>,
 	GetConfirmationFee: Get<Currency::Balance>,
 	RootAccount: Get<Option<T::AccountId>>,
@@ -86,17 +89,53 @@ where
 	}
 
 	fn pay_relayers_rewards(
+		lane_id: LaneId,
+		messages_relayers: VecDeque<UnrewardedRelayer<T::AccountId>>,
 		confirmation_relayer: &T::AccountId,
-		relayers_rewards: RelayersRewards<T::AccountId, Currency::Balance>,
+		received_range: &RangeInclusive<MessageNonce>,
 		relayer_fund_account: &T::AccountId,
 	) {
-		pay_relayers_rewards::<Currency, _>(
-			confirmation_relayer,
-			relayers_rewards,
-			relayer_fund_account,
-			GetConfirmationFee::get(),
-		);
+		let relayers_rewards =
+			cal_relayers_rewards::<T, I>(lane_id, messages_relayers, received_range);
+		if !relayers_rewards.is_empty() {
+			pay_relayers_rewards::<Currency, _>(
+				confirmation_relayer,
+				relayers_rewards,
+				relayer_fund_account,
+				GetConfirmationFee::get(),
+			);
+		}
 	}
+}
+
+/// Calculate the relayers rewards
+pub(crate) fn cal_relayers_rewards<T, I>(
+	lane_id: LaneId,
+	messages_relayers: VecDeque<UnrewardedRelayer<T::AccountId>>,
+	received_range: &RangeInclusive<MessageNonce>,
+) -> RelayersRewards<T::AccountId, T::OutboundMessageFee>
+where
+	T: frame_system::Config + crate::Config<I>,
+	I: 'static,
+{
+	// remember to reward relayers that have delivered messages
+	// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
+	let mut relayers_rewards: RelayersRewards<_, T::OutboundMessageFee> = RelayersRewards::new();
+	for entry in messages_relayers {
+		let nonce_begin = sp_std::cmp::max(entry.messages.begin, *received_range.start());
+		let nonce_end = sp_std::cmp::min(entry.messages.end, *received_range.end());
+
+		// loop won't proceed if current entry is ahead of received range (begin > end).
+		// this loop is bound by `T::MaxUnconfirmedMessagesAtInboundLane` on the bridged chain
+		let mut relayer_reward = relayers_rewards.entry(entry.relayer).or_default();
+		for nonce in nonce_begin..nonce_end + 1 {
+			let message_data = OutboundMessages::<T, I>::get(MessageKey { lane_id, nonce })
+				.expect("message was just confirmed; we never prune unconfirmed messages; qed");
+			relayer_reward.reward = relayer_reward.reward.saturating_add(&message_data.fee);
+			relayer_reward.messages += 1;
+		}
+	}
+	relayers_rewards
 }
 
 /// Pay rewards to given relayers, optionally rewarding confirmation relayer.
