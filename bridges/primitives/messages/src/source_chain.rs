@@ -18,9 +18,14 @@
 
 use crate::{DeliveredMessages, InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
 
+use crate::UnrewardedRelayer;
 use bp_runtime::Size;
 use frame_support::{weights::Weight, Parameter, RuntimeDebug};
-use sp_std::{collections::btree_map::BTreeMap, fmt::Debug};
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	fmt::Debug,
+	ops::RangeInclusive,
+};
 
 /// The sender of the message on the source chain.
 pub type Sender<AccountId> = frame_system::RawOrigin<AccountId>;
@@ -122,8 +127,10 @@ pub trait MessageDeliveryAndDispatchPayment<AccountId, Balance> {
 	/// The implementation may also choose to pay reward to the `confirmation_relayer`, which is
 	/// a relayer that has submitted delivery confirmation transaction.
 	fn pay_relayers_rewards(
+		lane_id: LaneId,
+		messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
 		confirmation_relayer: &AccountId,
-		relayers_rewards: RelayersRewards<AccountId, Balance>,
+		received_range: &RangeInclusive<MessageNonce>,
 		relayer_fund_account: &AccountId,
 	);
 }
@@ -240,8 +247,10 @@ impl<AccountId, Balance> MessageDeliveryAndDispatchPayment<AccountId, Balance>
 	}
 
 	fn pay_relayers_rewards(
+		_lane_id: LaneId,
+		_messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
 		_confirmation_relayer: &AccountId,
-		_relayers_rewards: RelayersRewards<AccountId, Balance>,
+		_received_range: &RangeInclusive<MessageNonce>,
 		_relayer_fund_account: &AccountId,
 	) {
 	}
