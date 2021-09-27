@@ -17,13 +17,13 @@
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
-use crate::Config;
+use crate::{instant_payments::cal_relayers_rewards, Config};
 
 use bitvec::prelude::*;
 use bp_messages::{
 	source_chain::{
 		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, OnDeliveryConfirmed,
-		OnMessageAccepted, RelayersRewards, Sender, TargetHeaderChain,
+		OnMessageAccepted, Sender, TargetHeaderChain,
 	},
 	target_chain::{
 		DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
@@ -43,7 +43,10 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	FixedU128, Perbill,
 };
-use std::collections::BTreeMap;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	ops::RangeInclusive,
+};
 
 pub type AccountId = u64;
 pub type Balance = u64;
@@ -350,11 +353,15 @@ impl MessageDeliveryAndDispatchPayment<AccountId, TestMessageFee>
 	}
 
 	fn pay_relayers_rewards(
+		lane_id: LaneId,
+		message_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
 		_confirmation_relayer: &AccountId,
-		relayers_rewards: RelayersRewards<AccountId, TestMessageFee>,
+		received_range: &RangeInclusive<MessageNonce>,
 		_relayer_fund_account: &AccountId,
 	) {
-		for (relayer, reward) in relayers_rewards {
+		let relayers_rewards =
+			cal_relayers_rewards::<TestRuntime, ()>(lane_id, message_relayers, received_range);
+		for (relayer, reward) in &relayers_rewards {
 			let key = (b":relayer-reward:", relayer, reward.reward).encode();
 			frame_support::storage::unhashed::put(&key, &true);
 		}
