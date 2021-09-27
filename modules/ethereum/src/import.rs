@@ -307,8 +307,9 @@ mod tests {
 				)
 				.unwrap();
 				match i {
-					2..=10 =>
-						assert_eq!(finalized_blocks, vec![(parent_id, Some(100))], "At {}", i,),
+					2..=10 => {
+						assert_eq!(finalized_blocks, vec![(parent_id, Some(100))], "At {}", i,)
+					},
 					_ => assert_eq!(finalized_blocks, vec![], "At {}", i),
 				}
 				latest_block_id = rolling_last_block_id;

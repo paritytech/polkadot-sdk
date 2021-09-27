@@ -106,12 +106,13 @@ async fn prepare_initial_header(
 	sub_initial_header: Option<Vec<u8>>,
 ) -> Result<(RialtoHeaderId, Vec<u8>), String> {
 	match sub_initial_header {
-		Some(raw_initial_header) =>
+		Some(raw_initial_header) => {
 			match rialto_runtime::Header::decode(&mut &raw_initial_header[..]) {
 				Ok(initial_header) =>
 					Ok((HeaderId(initial_header.number, initial_header.hash()), raw_initial_header)),
 				Err(error) => Err(format!("Error decoding initial header: {}", error)),
-			},
+			}
+		},
 		None => {
 			let initial_header = sub_client.header_by_number(Zero::zero()).await;
 			initial_header

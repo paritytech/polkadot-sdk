@@ -18,7 +18,7 @@
 
 use crate::types::U256;
 
-use jsonrpsee_ws_client::Error as RpcError;
+use jsonrpsee_ws_client::types::Error as RpcError;
 use relay_utils::MaybeConnectionError;
 
 /// Result type used by Ethereum client.
@@ -73,10 +73,12 @@ impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
 		matches!(
 			*self,
-			Error::RpcError(RpcError::Transport(_)) |
-				Error::RpcError(RpcError::Internal(_)) |
-				Error::RpcError(RpcError::RestartNeeded(_)) |
-				Error::ClientNotSynced(_),
+			Error::RpcError(RpcError::Transport(_))
+				// right now if connection to the ws server is dropped (after it is already established),
+				// we're getting this error
+				| Error::RpcError(RpcError::Internal(_))
+				| Error::RpcError(RpcError::RestartNeeded(_))
+				| Error::ClientNotSynced(_),
 		)
 	}
 }

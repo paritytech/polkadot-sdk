@@ -28,8 +28,11 @@ use codec::{Decode, Encode};
 use frame_system::AccountInfo;
 use futures::{SinkExt, StreamExt};
 use jsonrpsee_ws_client::{
-	traits::SubscriptionClient, v2::params::JsonRpcParams, DeserializeOwned, WsClient as RpcClient,
-	WsClientBuilder as RpcClientBuilder,
+	types::{
+		self as jsonrpsee_types, traits::SubscriptionClient, v2::params::JsonRpcParams,
+		DeserializeOwned,
+	},
+	WsClient as RpcClient, WsClientBuilder as RpcClientBuilder,
 };
 use num_traits::{Bounded, Zero};
 use pallet_balances::AccountData;
