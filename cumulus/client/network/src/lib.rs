@@ -30,7 +30,7 @@ use sp_consensus::{
 use sp_core::traits::SpawnNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, HashFor, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT},
 };
 
 use polkadot_client::ClientHandle;
@@ -245,8 +245,6 @@ where
 	R: ProvideRuntimeApi<PBlock> + Send + Sync + 'static,
 	R::Api: ParachainHost<PBlock>,
 	B: Backend<PBlock> + 'static,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<B, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 {
 	/// Get the included block of the given parachain in the relay chain.
 	fn included_block(
@@ -335,8 +333,6 @@ where
 	P::Api: ParachainHost<PBlock>,
 	B: Backend<PBlock> + 'static,
 	BCE: BlockchainEvents<PBlock> + 'static + Send + Sync,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<B, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 {
 	fn validate(
 		&mut self,
@@ -395,8 +391,6 @@ pub fn build_block_announce_validator<Block: BlockT, B>(
 ) -> Box<dyn BlockAnnounceValidatorT<Block> + Send>
 where
 	B: Backend<PBlock> + Send + 'static,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<B, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 {
 	BlockAnnounceValidatorBuilder::new(
 		relay_chain_client,
@@ -424,8 +418,6 @@ struct BlockAnnounceValidatorBuilder<Block, B> {
 impl<Block: BlockT, B> BlockAnnounceValidatorBuilder<Block, B>
 where
 	B: Backend<PBlock> + Send + 'static,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<B, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 {
 	/// Create a new instance of the builder.
 	fn new(
@@ -453,8 +445,6 @@ impl<Block: BlockT, B> polkadot_client::ExecuteWithClient
 	for BlockAnnounceValidatorBuilder<Block, B>
 where
 	B: Backend<PBlock> + Send + 'static,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<B, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 {
 	type Output = Box<dyn BlockAnnounceValidatorT<Block> + Send>;
 

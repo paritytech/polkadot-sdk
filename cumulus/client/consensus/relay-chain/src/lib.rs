@@ -262,8 +262,6 @@ where
 	>,
 	BI: BlockImport<Block> + Send + Sync + 'static,
 	RBackend: Backend<PBlock> + 'static,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<RBackend, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 	CIDP: CreateInherentDataProviders<Block, (PHash, PersistedValidationData)> + 'static,
 {
 	RelayChainConsensusBuilder::new(
@@ -296,8 +294,6 @@ struct RelayChainConsensusBuilder<Block, PF, BI, RBackend, CIDP> {
 impl<Block, PF, BI, RBackend, CIDP> RelayChainConsensusBuilder<Block, PF, BI, RBackend, CIDP>
 where
 	Block: BlockT,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<RBackend, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 	PF: Environment<Block> + Send + Sync + 'static,
 	PF::Proposer: Proposer<
 		Block,
@@ -339,8 +335,6 @@ impl<Block, PF, BI, RBackend, CIDP> polkadot_client::ExecuteWithClient
 	for RelayChainConsensusBuilder<Block, PF, BI, RBackend, CIDP>
 where
 	Block: BlockT,
-	// Rust bug: https://github.com/rust-lang/rust/issues/24159
-	sc_client_api::StateBackendFor<RBackend, PBlock>: sc_client_api::StateBackend<HashFor<PBlock>>,
 	PF: Environment<Block> + Send + Sync + 'static,
 	PF::Proposer: Proposer<
 		Block,
