@@ -240,7 +240,7 @@ pub mod pallet {
 					Ok(0)
 				},
 				Ok(Ok(x)) => {
-					let outcome = T::XcmExecutor::execute_xcm(Parent.into(), x, limit);
+					let outcome = T::XcmExecutor::execute_xcm(Parent, x, limit);
 					match outcome {
 						Outcome::Error(XcmError::WeightLimitReached(required)) =>
 							Err((id, required)),
@@ -420,7 +420,7 @@ mod tests {
 	pub struct MockExec;
 	impl ExecuteXcm<Call> for MockExec {
 		fn execute_xcm_in_credit(
-			_origin: MultiLocation,
+			_origin: impl Into<MultiLocation>,
 			message: Xcm,
 			weight_limit: Weight,
 			_credit: Weight,

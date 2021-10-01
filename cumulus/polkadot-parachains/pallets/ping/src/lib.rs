@@ -89,7 +89,7 @@ pub mod pallet {
 					*seq
 				});
 				match T::XcmSender::send_xcm(
-					(1, Junction::Parachain(para.into())).into(),
+					(1, Junction::Parachain(para.into())),
 					Xcm(vec![Transact {
 						origin_type: OriginKind::Native,
 						require_weight_at_most: 1_000,
@@ -165,7 +165,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::Pinged(para, seq, payload.clone()));
 			match T::XcmSender::send_xcm(
-				(1, Junction::Parachain(para.into())).into(),
+				(1, Junction::Parachain(para.into())),
 				Xcm(vec![Transact {
 					origin_type: OriginKind::Native,
 					require_weight_at_most: 1_000,

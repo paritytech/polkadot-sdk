@@ -327,7 +327,7 @@ mod tests {
 	use cumulus_test_runtime::{Block, Header};
 	use futures::{channel::mpsc, executor::block_on, StreamExt};
 	use polkadot_node_subsystem_test_helpers::ForwardSubsystem;
-	use polkadot_overseer::{AllSubsystems, HeadSupportsParachains, Overseer};
+	use polkadot_overseer::{dummy::dummy_overseer_builder, HeadSupportsParachains};
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, Pair};
 	use sp_runtime::traits::BlakeTwo256;
@@ -383,16 +383,12 @@ mod tests {
 
 		let (sub_tx, sub_rx) = mpsc::channel(64);
 
-		let all_subsystems =
-			AllSubsystems::<()>::dummy().replace_collation_generation(|_| ForwardSubsystem(sub_tx));
-		let (overseer, handle) = Overseer::new(
-			Vec::new(),
-			all_subsystems,
-			None,
-			AlwaysSupportsParachains,
-			spawner.clone(),
-		)
-		.expect("Creates overseer");
+		let (overseer, handle) =
+			dummy_overseer_builder(spawner.clone(), AlwaysSupportsParachains, None)
+				.expect("Creates overseer builder")
+				.replace_collation_generation(|_| ForwardSubsystem(sub_tx))
+				.build()
+				.expect("Builds overseer");
 
 		spawner.spawn("overseer", overseer.run().then(|_| async { () }).boxed());
 
@@ -400,7 +396,7 @@ mod tests {
 			runtime_api: client.clone(),
 			block_status: client.clone(),
 			announce_block: Arc::new(announce_block),
-			overseer_handle: OverseerHandle::Connected(handle),
+			overseer_handle: OverseerHandle::new(handle),
 			spawner,
 			para_id,
 			key: CollatorPair::generate().0,

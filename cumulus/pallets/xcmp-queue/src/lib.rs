@@ -348,7 +348,7 @@ impl<T: Config> Pallet<T> {
 		let (result, event) = match Xcm::<T::Call>::try_from(xcm) {
 			Ok(xcm) => {
 				let location = (1, Parachain(sender.into()));
-				match T::XcmExecutor::execute_xcm(location.into(), xcm, max_weight) {
+				match T::XcmExecutor::execute_xcm(location, xcm, max_weight) {
 					Outcome::Error(e) => (Err(e.clone()), Event::Fail(Some(hash), e)),
 					Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
 					// As far as the caller is concerned, this was dispatched without error, so
@@ -754,7 +754,9 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 
 /// Xcm sender for sending to a sibling parachain.
 impl<T: Config> SendXcm for Pallet<T> {
-	fn send_xcm(dest: MultiLocation, msg: Xcm<()>) -> Result<(), SendError> {
+	fn send_xcm(dest: impl Into<MultiLocation>, msg: Xcm<()>) -> Result<(), SendError> {
+		let dest = dest.into();
+
 		match &dest {
 			// An HRMP message for a sibling parachain.
 			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
