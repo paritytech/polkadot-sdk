@@ -220,7 +220,7 @@ impl pallet_sudo::Config for Runtime {
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 parameter_types! {
-	pub const AssetDeposit: Balance = 100 * UNITS; // 100 WND deposit to create asset
+	pub const AssetDeposit: Balance = 1 * UNITS; // 1 WND deposit to create asset
 	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const AssetsStringLimit: u32 = 50;
 	/// Key = 32 bytes, Value = 36 bytes (32+1+1+1+1)
