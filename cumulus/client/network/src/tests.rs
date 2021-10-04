@@ -91,7 +91,7 @@ fn default_header() -> Header {
 async fn make_gossip_message_and_header_using_genesis(
 	api: Arc<TestApi>,
 	validator_index: u32,
-) -> (SignedFullStatement, Header) {
+) -> (CollationSecondedSignal, Header) {
 	let relay_parent = api.relay_client.hash(0).ok().flatten().expect("Genesis hash exists");
 
 	make_gossip_message_and_header(api, relay_parent, validator_index).await
@@ -101,7 +101,7 @@ async fn make_gossip_message_and_header(
 	api: Arc<TestApi>,
 	relay_parent: H256,
 	validator_index: u32,
-) -> (SignedFullStatement, Header) {
+) -> (CollationSecondedSignal, Header) {
 	let keystore: SyncCryptoStorePtr = Arc::new(KeyStore::new());
 	let alice_public = SyncCryptoStore::sr25519_generate_new(
 		&*keystore,
@@ -138,7 +138,7 @@ async fn make_gossip_message_and_header(
 	.flatten()
 	.expect("Signing statement");
 
-	(signed, header)
+	(CollationSecondedSignal { statement: signed, relay_parent }, header)
 }
 
 #[test]
@@ -184,8 +184,7 @@ fn check_statement_is_encoded_correctly() {
 	let mut validator = make_validator_and_api().0;
 	let header = default_header();
 	let res = block_on(validator.validate(&header, &[0x42]))
-		.err()
-		.expect("Should fail on invalid encoded statement");
+		.expect_err("Should fail on invalid encoded statement");
 
 	check_error(res, |error| {
 		matches!(
@@ -196,11 +195,62 @@ fn check_statement_is_encoded_correctly() {
 }
 
 #[test]
+fn block_announce_data_decoding_should_reject_extra_data() {
+	let (mut validator, api) = make_validator_and_api();
+
+	let (signal, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
+	let mut data = BlockAnnounceData::try_from(&signal).unwrap().encode();
+	data.push(0x42);
+
+	let res = block_on(validator.validate(&header, &data)).expect_err("Should return an error ");
+
+	check_error(res, |error| {
+		matches!(
+			error,
+			BlockAnnounceError(x) if x.contains("Input buffer has still data left after decoding!")
+		)
+	});
+}
+
+#[derive(Encode, Decode, Debug)]
+struct LegacyBlockAnnounceData {
+	receipt: CandidateReceipt,
+	statement: UncheckedSigned<CompactStatement>,
+}
+
+#[test]
+fn legacy_block_announce_data_handling() {
+	let (_, api) = make_validator_and_api();
+
+	let (signal, _) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
+
+	let receipt = if let Statement::Seconded(receipt) = signal.statement.payload() {
+		receipt.to_plain()
+	} else {
+		panic!("Invalid")
+	};
+
+	let legacy = LegacyBlockAnnounceData {
+		receipt: receipt.clone(),
+		statement: signal.statement.convert_payload().into(),
+	};
+
+	let data = legacy.encode();
+
+	let block_data =
+		BlockAnnounceData::decode(&mut &data[..]).expect("Decoding works from legacy works");
+	assert_eq!(receipt.descriptor.relay_parent, block_data.relay_parent);
+
+	let data = block_data.encode();
+	LegacyBlockAnnounceData::decode(&mut &data[..]).expect("Decoding works");
+}
+
+#[test]
 fn check_signer_is_legit_validator() {
 	let (mut validator, api) = make_validator_and_api();
 
-	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-	let data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
+	let (signal, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
+	let data = BlockAnnounceData::try_from(&signal).unwrap().encode();
 
 	let res = block_on(validator.validate(&header, &data));
 	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
@@ -210,9 +260,9 @@ fn check_signer_is_legit_validator() {
 fn check_statement_is_correctly_signed() {
 	let (mut validator, api) = make_validator_and_api();
 
-	let (signed_statement, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
+	let (signal, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
 
-	let mut data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
+	let mut data = BlockAnnounceData::try_from(&signal).unwrap().encode();
 
 	// The signature comes at the end of the type, so change a bit to make the signature invalid.
 	let last = data.len() - 1;
@@ -255,6 +305,7 @@ fn check_statement_seconded() {
 	let data = BlockAnnounceData {
 		receipt: Default::default(),
 		statement: signed_statement.convert_payload().into(),
+		relay_parent,
 	}
 	.encode();
 
@@ -266,9 +317,8 @@ fn check_statement_seconded() {
 fn check_header_match_candidate_receipt_header() {
 	let (mut validator, api) = make_validator_and_api();
 
-	let (signed_statement, mut header) =
-		block_on(make_gossip_message_and_header_using_genesis(api, 0));
-	let data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
+	let (signal, mut header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
+	let data = BlockAnnounceData::try_from(&signal).unwrap().encode();
 	header.number = 300;
 
 	let res = block_on(validator.validate(&header, &data));
@@ -287,9 +337,9 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 		let mut client = api.relay_client.clone();
 		let block = client.init_polkadot_block_builder().build().expect("Build new block").block;
 
-		let (signed_statement, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
+		let (signal, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
 
-		let data = BlockAnnounceData::try_from(&signed_statement).unwrap().encode();
+		let data = BlockAnnounceData::try_from(&signal).unwrap().encode();
 
 		let mut validation = validator.validate(&header, &data);
 

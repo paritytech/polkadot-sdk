@@ -34,14 +34,14 @@ use sp_runtime::{
 };
 
 use polkadot_client::ClientHandle;
-use polkadot_node_primitives::{CollationSecondedSignal, SignedFullStatement, Statement};
+use polkadot_node_primitives::{CollationSecondedSignal, Statement};
 use polkadot_parachain::primitives::HeadData;
 use polkadot_primitives::v1::{
 	Block as PBlock, CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
 	OccupiedCoreAssumption, ParachainHost, SigningContext, UncheckedSigned,
 };
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use futures::{
 	channel::oneshot,
 	future::{ready, FutureExt},
@@ -74,10 +74,29 @@ impl fmt::Display for BlockAnnounceError {
 ///
 /// This will be used to prove that a header belongs to a block that is probably being backed by
 /// the relay chain.
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Debug)]
 pub struct BlockAnnounceData {
+	/// The receipt identifying the candidate.
 	receipt: CandidateReceipt,
+	/// The seconded statement issued by a relay chain validator that approves the candidate.
 	statement: UncheckedSigned<CompactStatement>,
+	/// The relay parent that was used as context to sign the [`Self::statement`].
+	relay_parent: PHash,
+}
+
+impl Decode for BlockAnnounceData {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let receipt = CandidateReceipt::decode(input)?;
+		let statement = UncheckedSigned::<CompactStatement>::decode(input)?;
+
+		let relay_parent = match PHash::decode(input) {
+			Ok(p) => p,
+			// For being backwards compatible, we support missing relay-chain parent.
+			Err(_) => receipt.descriptor.relay_parent,
+		};
+
+		Ok(Self { receipt, statement, relay_parent })
+	}
 }
 
 impl BlockAnnounceData {
@@ -127,14 +146,13 @@ impl BlockAnnounceData {
 		let runtime_api = relay_chain_client.runtime_api();
 		let validator_index = self.statement.unchecked_validator_index();
 
-		let runtime_api_block_id = BlockId::Hash(self.receipt.descriptor.relay_parent);
+		let runtime_api_block_id = BlockId::Hash(self.relay_parent);
 		let session_index = match runtime_api.session_index_for_child(&runtime_api_block_id) {
 			Ok(r) => r,
 			Err(e) => return Err(BlockAnnounceError(format!("{:?}", e))),
 		};
 
-		let signing_context =
-			SigningContext { parent_hash: self.receipt.descriptor.relay_parent, session_index };
+		let signing_context = SigningContext { parent_hash: self.relay_parent, session_index };
 
 		// Check that the signer is a legit validator.
 		let authorities = match runtime_api.validators(&runtime_api_block_id) {
@@ -167,17 +185,21 @@ impl BlockAnnounceData {
 	}
 }
 
-impl TryFrom<&'_ SignedFullStatement> for BlockAnnounceData {
+impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 	type Error = ();
 
-	fn try_from(stmt: &SignedFullStatement) -> Result<BlockAnnounceData, ()> {
-		let receipt = if let Statement::Seconded(receipt) = stmt.payload() {
+	fn try_from(signal: &CollationSecondedSignal) -> Result<BlockAnnounceData, ()> {
+		let receipt = if let Statement::Seconded(receipt) = signal.statement.payload() {
 			receipt.to_plain()
 		} else {
 			return Err(())
 		};
 
-		Ok(BlockAnnounceData { receipt, statement: stmt.convert_payload().into() })
+		Ok(BlockAnnounceData {
+			receipt,
+			statement: signal.statement.convert_payload().into(),
+			relay_parent: signal.relay_parent,
+		})
 	}
 }
 
@@ -347,12 +369,15 @@ where
 			return self.handle_empty_block_announce_data(header.clone()).boxed()
 		}
 
-		let block_announce_data = match BlockAnnounceData::decode(&mut data) {
+		let block_announce_data = match BlockAnnounceData::decode_all(&mut data) {
 			Ok(r) => r,
-			Err(_) =>
-				return ready(Err(Box::new(BlockAnnounceError(
-					"Can not decode the `BlockAnnounceData`".into(),
-				)) as Box<_>))
+			Err(err) =>
+				return async move {
+					Err(Box::new(BlockAnnounceError(format!(
+						"Can not decode the `BlockAnnounceData`: {:?}",
+						err
+					))) as Box<_>)
+				}
 				.boxed(),
 		};
 
@@ -520,8 +545,8 @@ async fn wait_to_announce<Block: BlockT>(
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	signed_stmt_recv: oneshot::Receiver<CollationSecondedSignal>,
 ) {
-	let statement = match signed_stmt_recv.await {
-		Ok(s) => s.statement,
+	let signal = match signed_stmt_recv.await {
+		Ok(s) => s,
 		Err(_) => {
 			tracing::debug!(
 				target: "cumulus-network",
@@ -532,12 +557,12 @@ async fn wait_to_announce<Block: BlockT>(
 		},
 	};
 
-	if let Ok(data) = BlockAnnounceData::try_from(&statement) {
+	if let Ok(data) = BlockAnnounceData::try_from(&signal) {
 		announce_block(block_hash, Some(data.encode()));
 	} else {
 		tracing::debug!(
 			target: "cumulus-network",
-			statement = ?statement,
+			?signal,
 			block = ?block_hash,
 			"Received invalid statement while waiting to announce block.",
 		);
