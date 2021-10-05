@@ -28,6 +28,8 @@ node-primitives = { git = 'https://github.com/paritytech/substrate', branch = "m
 # Polkadot dependencies
 polkadot-runtime-common = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
 polkadot-primitives = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
+xcm = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
+xcm-executor = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
 
 # Local dependencies
 pallet-collator-selection = { path = '../../pallets/collator-selection', default-features = false }
