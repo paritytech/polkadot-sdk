@@ -231,6 +231,12 @@ pub fn max_extrinsic_size() -> u32 {
 /// Name of the With-Millau messages pallet instance in the Rialto runtime.
 pub const WITH_MILLAU_MESSAGES_PALLET_NAME: &str = "BridgeMillauMessages";
 
+/// Name of the parachain registrar pallet in the Rialto runtime.
+pub const PARAS_REGISTRAR_PALLET_NAME: &str = "Registrar";
+
+/// Name of the parachains pallet in the Rialto runtime.
+pub const PARAS_PALLET_NAME: &str = "Paras";
+
 /// Name of the `RialtoFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_RIALTO_HEADER_METHOD: &str = "RialtoFinalityApi_best_finalized";
 

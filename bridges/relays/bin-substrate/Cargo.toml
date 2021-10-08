@@ -28,6 +28,7 @@ bp-message-dispatch = { path = "../../primitives/message-dispatch" }
 bp-millau = { path = "../../primitives/chain-millau" }
 bp-polkadot = { path = "../../primitives/chain-polkadot" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
+bp-rialto-parachain = { path = "../../primitives/chain-rialto-parachain" }
 bp-rococo = { path = "../../primitives/chain-rococo" }
 bp-token-swap = { path = "../../primitives/token-swap" }
 bp-wococo = { path = "../../primitives/chain-wococo" }
@@ -44,11 +45,13 @@ relay-kusama-client = { path = "../client-kusama" }
 relay-millau-client = { path = "../client-millau" }
 relay-polkadot-client = { path = "../client-polkadot" }
 relay-rialto-client = { path = "../client-rialto" }
+relay-rialto-parachain-client = { path = "../client-rialto-parachain" }
 relay-rococo-client = { path = "../client-rococo" }
 relay-wococo-client = { path = "../client-wococo" }
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 relay-westend-client = { path = "../client-westend" }
+rialto-parachain-runtime = { path = "../../bin/rialto-parachain/runtime" }
 rialto-runtime = { path = "../../bin/rialto/runtime" }
 substrate-relay-helper = { path = "../lib-substrate-relay" }
 
@@ -60,6 +63,13 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Polkadot Dependencies
+
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 [dev-dependencies]
 hex-literal = "0.3"
