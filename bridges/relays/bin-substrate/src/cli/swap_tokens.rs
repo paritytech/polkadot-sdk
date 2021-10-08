@@ -570,7 +570,7 @@ async fn read_account_balance<C: ChainWithBalances>(
 /// Wait until transaction is included into finalized block.
 ///
 /// Returns the hash of the finalized block with transaction.
-async fn wait_until_transaction_is_finalized<C: Chain>(
+pub(crate) async fn wait_until_transaction_is_finalized<C: Chain>(
 	subscription: Subscription<TransactionStatusOf<C>>,
 ) -> anyhow::Result<HashOf<C>> {
 	loop {
