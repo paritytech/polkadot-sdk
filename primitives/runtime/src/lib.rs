@@ -28,6 +28,7 @@ pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf,
 	IndexOf, SignatureOf, TransactionEraOf,
 };
+pub use frame_support::storage::storage_prefix as storage_value_final_key;
 pub use storage_proof::{Error as StorageProofError, StorageProofChecker};
 
 #[cfg(feature = "std")]
@@ -214,6 +215,15 @@ pub fn storage_map_final_key_blake2_128concat(
 		map_name,
 		&frame_support::Blake2_128Concat::hash(key),
 	)
+}
+
+///
+pub fn storage_map_final_key_twox64_concat(
+	pallet_prefix: &str,
+	map_name: &str,
+	key: &[u8],
+) -> StorageKey {
+	storage_map_final_key_identity(pallet_prefix, map_name, &frame_support::Twox64Concat::hash(key))
 }
 
 /// This is a copy of the
