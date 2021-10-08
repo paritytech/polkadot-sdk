@@ -425,10 +425,14 @@ pub type WithRialtoTokenSwapInstance = ();
 
 impl pallet_bridge_token_swap::Config<WithRialtoTokenSwapInstance> for Runtime {
 	type Event = Event;
+	type WeightInfo = ();
 
 	type BridgedChainId = RialtoChainId;
 	type OutboundMessageLaneId = TokenSwapMessagesLane;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MessagesBridge = pallet_bridge_messages::Pallet<Runtime, WithRialtoMessagesInstance>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessagesBridge = bp_messages::source_chain::NoopMessagesBridge;
 	type ThisCurrency = pallet_balances::Pallet<Runtime>;
 	type FromSwapToThisAccountIdConverter = bp_rialto::AccountIdConverter;
 
@@ -702,6 +706,67 @@ impl_runtime_apis! {
 
 		fn unrewarded_relayers_state(lane: bp_messages::LaneId) -> bp_messages::UnrewardedRelayersState {
 			BridgeRialtoMessages::inbound_unrewarded_relayers_state(lane)
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl frame_benchmarking::Benchmark<Block> for Runtime {
+		fn benchmark_metadata(extra: bool) -> (
+			Vec<frame_benchmarking::BenchmarkList>,
+			Vec<frame_support::traits::StorageInfo>,
+		) {
+			use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+			use frame_support::traits::StorageInfoTrait;
+
+			let mut list = Vec::<BenchmarkList>::new();
+
+			list_benchmark!(list, extra, pallet_bridge_token_swap, BridgeRialtoTokenSwap);
+
+			let storage_info = AllPalletsWithSystem::storage_info();
+
+			return (list, storage_info)
+		}
+
+		fn dispatch_benchmark(
+			config: frame_benchmarking::BenchmarkConfig,
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey, add_benchmark};
+
+			let whitelist: Vec<TrackedStorageKey> = vec![
+				// Block Number
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+				// Execution Phase
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+				// Event Count
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+				// System Events
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+				// Caller 0 Account
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da946c154ffd9992e395af90b5b13cc6f295c77033fce8a9045824a6690bbf99c6db269502f0a8d1d2a008542d5690a0749").to_vec().into(),
+			];
+
+			let mut batches = Vec::<BenchmarkBatch>::new();
+			let params = (&config, &whitelist);
+
+			use pallet_bridge_token_swap::benchmarking::Config as TokenSwapConfig;
+
+			impl TokenSwapConfig<WithRialtoTokenSwapInstance> for Runtime {
+				fn initialize_environment() {
+					let relayers_fund_account = pallet_bridge_messages::relayer_fund_account_id::<
+						bp_millau::AccountId,
+						bp_millau::AccountIdConverter,
+					>();
+					pallet_balances::Pallet::<Runtime>::make_free_balance_be(
+						&relayers_fund_account,
+						Balance::MAX / 100,
+					);
+				}
+			}
+
+			add_benchmark!(params, batches, pallet_bridge_token_swap, BridgeRialtoTokenSwap);
+
+			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+			Ok(batches)
 		}
 	}
 }
