@@ -18,9 +18,11 @@ bp-messages = { path = "../../primitives/messages", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
 bp-token-swap = { path = "../../primitives/token-swap", default-features = false }
 pallet-bridge-dispatch = { path = "../dispatch", default-features = false }
+pallet-bridge-messages = { path = "../messages", default-features = false }
 
 # Substrate Dependencies
 
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -43,9 +45,13 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-bridge-dispatch/std",
+	"pallet-bridge-messages/std",
 	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
 ]
