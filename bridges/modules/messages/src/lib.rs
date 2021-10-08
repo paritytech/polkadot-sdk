@@ -51,7 +51,7 @@ use crate::{
 use bp_messages::{
 	source_chain::{
 		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, OnDeliveryConfirmed,
-		OnMessageAccepted, TargetHeaderChain,
+		OnMessageAccepted, SendMessageArtifacts, TargetHeaderChain,
 	},
 	target_chain::{
 		DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
@@ -281,7 +281,10 @@ pub mod pallet {
 				payload,
 				delivery_and_dispatch_fee,
 			)
-			.map(|sent_message| sent_message.post_dispatch_info)
+			.map(|sent_message| PostDispatchInfo {
+				actual_weight: Some(sent_message.weight),
+				pays_fee: Pays::Yes,
+			})
 		}
 
 		/// Pay additional fee for the message.
@@ -853,18 +856,9 @@ where
 		lane: LaneId,
 		message: T::OutboundPayload,
 		delivery_and_dispatch_fee: T::OutboundMessageFee,
-	) -> Result<MessageNonce, Self::Error> {
+	) -> Result<SendMessageArtifacts, Self::Error> {
 		crate::send_message::<T, I>(sender, lane, message, delivery_and_dispatch_fee)
-			.map(|sent_message| sent_message.nonce)
 	}
-}
-
-/// Message that has been sent.
-struct SentMessage {
-	/// Nonce of the message.
-	pub nonce: MessageNonce,
-	/// Post-dispatch call info.
-	pub post_dispatch_info: PostDispatchInfo,
 }
 
 /// Function that actually sends message.
@@ -873,7 +867,10 @@ fn send_message<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
 	payload: T::OutboundPayload,
 	delivery_and_dispatch_fee: T::OutboundMessageFee,
-) -> sp_std::result::Result<SentMessage, sp_runtime::DispatchErrorWithPostInfo<PostDispatchInfo>> {
+) -> sp_std::result::Result<
+	SendMessageArtifacts,
+	sp_runtime::DispatchErrorWithPostInfo<PostDispatchInfo>,
+> {
 	ensure_normal_operating_mode::<T, I>()?;
 
 	// initially, actual (post-dispatch) weight is equal to pre-dispatch weight
@@ -986,13 +983,7 @@ fn send_message<T: Config<I>, I: 'static>(
 
 	Pallet::<T, I>::deposit_event(Event::MessageAccepted(lane_id, nonce));
 
-	Ok(SentMessage {
-		nonce,
-		post_dispatch_info: PostDispatchInfo {
-			actual_weight: Some(actual_weight),
-			pays_fee: Pays::Yes,
-		},
-	})
+	Ok(SendMessageArtifacts { nonce, weight: actual_weight })
 }
 
 /// Ensure that the origin is either root, or `PalletOwner`.

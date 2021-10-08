@@ -54,9 +54,6 @@ frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", bran
 
 [features]
 default = []
-
-# TODO: https://github.com/paritytech/parity-bridges-common/issues/390
-# I've left the feature flag here to test our CI configuration
 runtime-benchmarks = [
-	# "millau-runtime/runtime-benchmarks",
+	"millau-runtime/runtime-benchmarks",
 ]

@@ -131,6 +131,12 @@ pub trait Size {
 	fn size_hint(&self) -> u32;
 }
 
+impl Size for &[u8] {
+	fn size_hint(&self) -> u32 {
+		self.len() as _
+	}
+}
+
 impl Size for () {
 	fn size_hint(&self) -> u32 {
 		0
