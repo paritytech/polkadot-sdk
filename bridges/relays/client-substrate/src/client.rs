@@ -38,7 +38,10 @@ use num_traits::{Bounded, Zero};
 use pallet_balances::AccountData;
 use pallet_transaction_payment::InclusionFee;
 use relay_utils::{relay_loop::RECONNECT_DELAY, HeaderId};
-use sp_core::{storage::StorageKey, Bytes, Hasher};
+use sp_core::{
+	storage::{StorageData, StorageKey},
+	Bytes, Hasher,
+};
 use sp_runtime::{
 	traits::Header as HeaderT,
 	transaction_validity::{TransactionSource, TransactionValidity},
@@ -269,13 +272,22 @@ impl<C: Chain> Client<C> {
 		storage_key: StorageKey,
 		block_hash: Option<C::Hash>,
 	) -> Result<Option<T>> {
+		self.raw_storage_value(storage_key, block_hash)
+			.await?
+			.map(|encoded_value| {
+				T::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed)
+			})
+			.transpose()
+	}
+
+	/// Read raw value from runtime storage.
+	pub async fn raw_storage_value(
+		&self,
+		storage_key: StorageKey,
+		block_hash: Option<C::Hash>,
+	) -> Result<Option<StorageData>> {
 		self.jsonrpsee_execute(move |client| async move {
-			Substrate::<C>::state_get_storage(&*client, storage_key, block_hash)
-				.await?
-				.map(|encoded_value| {
-					T::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed)
-				})
-				.transpose()
+			Ok(Substrate::<C>::state_get_storage(&*client, storage_key, block_hash).await?)
 		})
 		.await
 	}

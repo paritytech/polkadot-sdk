@@ -32,6 +32,7 @@ pub(crate) mod send_message;
 
 mod derive_account;
 mod init_bridge;
+mod register_parachain;
 mod relay_headers;
 mod relay_headers_and_messages;
 mod relay_messages;
@@ -93,6 +94,8 @@ pub enum Command {
 	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
 	/// Swap tokens using token-swap bridge.
 	SwapTokens(swap_tokens::SwapTokens),
+	/// Register parachain.
+	RegisterParachain(register_parachain::RegisterParachain),
 }
 
 impl Command {
@@ -128,6 +131,7 @@ impl Command {
 			Self::DeriveAccount(arg) => arg.run().await?,
 			Self::ResubmitTransactions(arg) => arg.run().await?,
 			Self::SwapTokens(arg) => arg.run().await?,
+			Self::RegisterParachain(arg) => arg.run().await?,
 		}
 		Ok(())
 	}
@@ -438,6 +442,7 @@ macro_rules! declare_chain_options {
 				}
 
 				/// Parse signing params into chain-specific KeyPair.
+				#[allow(dead_code)]
 				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Chain::KeyPair> {
 					let suri = match (self.[<$chain_prefix _signer>].as_ref(), self.[<$chain_prefix _signer_file>].as_ref()) {
 						(Some(suri), _) => suri.to_owned(),
@@ -515,6 +520,8 @@ macro_rules! declare_chain_options {
 
 declare_chain_options!(Source, source);
 declare_chain_options!(Target, target);
+declare_chain_options!(Relaychain, relaychain);
+declare_chain_options!(Parachain, parachain);
 
 #[cfg(test)]
 mod tests {
