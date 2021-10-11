@@ -62,6 +62,7 @@ cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue", default-feature
 cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
 cumulus-pallet-session-benchmarking = {path = "../../pallets/session-benchmarking", default-features = false, version = "3.0.0"}
 cumulus-ping = { path = "../pallets/ping", default-features = false }
+pallet-asset-tx-payment = { path = "../../pallets/asset-tx-payment", default-features = false }
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 parachains-common = { path = "../parachains-common", default-features = false }
 
@@ -136,6 +137,7 @@ std = [
 	"pallet-utility/std",
 	"parachain-info/std",
 	"cumulus-pallet-aura-ext/std",
+	"pallet-asset-tx-payment/std",
 	"pallet-collator-selection/std",
 	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
