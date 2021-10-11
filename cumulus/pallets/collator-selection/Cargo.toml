@@ -15,8 +15,10 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 log = { version = "0.4.0", default-features = false }
 codec = { default-features = false, features = ['derive'], package = 'parity-scale-codec', version = '2.3.0' }
+rand = { version = "0.7.2", default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.119", default-features = false }
+
 sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
 sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
 sp-staking = { default-features = false, git = 'https://github.com/paritytech/substrate', branch = "master" }
@@ -48,6 +50,7 @@ std = [
 	'codec/std',
 	'log/std',
 	'scale-info/std',
+	'rand/std',
 	'sp-runtime/std',
 	'sp-staking/std',
 	'sp-std/std',

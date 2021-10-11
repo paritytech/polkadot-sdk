@@ -23,8 +23,8 @@ use polkadot_primitives::v1::{
 	Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash, HeadData, Id as ParaId,
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, ParachainHost,
-	PersistedValidationData, SessionIndex, SessionInfo, SigningContext, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex,
+	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -485,6 +485,10 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn validation_code_by_hash(_: ValidationCodeHash) -> Option<ValidationCode> {
+			None
+		}
+
+		fn on_chain_votes() -> Option<ScrapedOnChainVotes<Hash>> {
 			None
 		}
 	}
