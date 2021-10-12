@@ -384,8 +384,10 @@ fn block_tests_run_on_drop() {
 #[test]
 fn events() {
 	BlockTests::new()
-		.with_relay_sproof_builder(|_, _, builder| {
-			builder.host_config.validation_upgrade_delay = 1000;
+		.with_relay_sproof_builder(|_, block_number, builder| {
+			if block_number > 123 {
+				builder.upgrade_go_ahead = Some(relay_chain::v1::UpgradeGoAhead::GoAhead);
+			}
 		})
 		.add_with_post_test(
 			123,
@@ -396,7 +398,7 @@ fn events() {
 				let events = System::events();
 				assert_eq!(
 					events[0].event,
-					Event::ParachainSystem(crate::Event::ValidationFunctionStored(1123).into())
+					Event::ParachainSystem(crate::Event::ValidationFunctionStored.into())
 				);
 			},
 		)
@@ -433,6 +435,11 @@ fn non_overlapping() {
 #[test]
 fn manipulates_storage() {
 	BlockTests::new()
+		.with_relay_sproof_builder(|_, block_number, builder| {
+			if block_number > 123 {
+				builder.upgrade_go_ahead = Some(relay_chain::v1::UpgradeGoAhead::GoAhead);
+			}
+		})
 		.add(123, || {
 			assert!(
 				!<PendingValidationCode<Test>>::exists(),
@@ -448,6 +455,34 @@ fn manipulates_storage() {
 				assert!(
 					!<PendingValidationCode<Test>>::exists(),
 					"validation function must have been unset"
+				);
+			},
+		);
+}
+
+#[test]
+fn aborted_upgrade() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, block_number, builder| {
+			if block_number > 123 {
+				builder.upgrade_go_ahead = Some(relay_chain::v1::UpgradeGoAhead::Abort);
+			}
+		})
+		.add(123, || {
+			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+		})
+		.add_with_post_test(
+			1234,
+			|| {},
+			|| {
+				assert!(
+					!<PendingValidationCode<Test>>::exists(),
+					"validation function must have been unset"
+				);
+				let events = System::events();
+				assert_eq!(
+					events[0].event,
+					Event::ParachainSystem(crate::Event::ValidationFunctionDiscarded.into())
 				);
 			},
 		);
