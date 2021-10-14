@@ -4,7 +4,7 @@ authors = ["Anonymous"]
 description = "FRAME pallet template for defining custom runtime logic."
 version = "0.1.0"
 license = "Unlicense"
-homepage = "https://substrate.dev"
+homepage = "https://substrate.io"
 repository = "https://github.com/paritytech/substrate/"
 edition = "2018"
 

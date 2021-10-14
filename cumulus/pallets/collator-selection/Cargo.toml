@@ -2,7 +2,7 @@
 authors = ['Anonymous']
 description = 'Simple staking pallet with a fixed stake.'
 edition = '2018'
-homepage = 'https://substrate.dev'
+homepage = 'https://substrate.io'
 license = 'Apache-2.0'
 name = 'pallet-collator-selection'
 readme = 'README.md'
