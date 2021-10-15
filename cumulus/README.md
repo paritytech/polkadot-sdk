@@ -30,6 +30,30 @@ and treat as best.
 A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for the parachain is
 implemented by [`cumulus-collator`](collator).
 
+# Statemint 🪙
+
+This repository also contains the Statemint runtime (as well as the canary runtime Statemine and the
+test runtime Westmint).
+Statemint is a common good parachain providing an asset store for the Polkadot ecosystem.
+
+## Build & Launch a Node
+
+To run a Statemine or Westmint node (Statemint is not deployed, yet) you will need to compile the
+`polkadot-collator` binary:
+
+```sh
+cargo build --release --locked -p polkadot-collator
+```
+
+Once the executable is built, launch the parachain node via:
+
+```sh
+CHAIN=westmint # or statemine
+./target/release/polkadot-collator --chain $CHAIN
+```
+
+Refer to the [setup instructions below](#local-setup) to run a local network for development.
+
 # Rococo :crown:
 
 [Rococo](https://polkadot.js.org/apps/?rpc=wss://rococo-rpc.polkadot.io) is the testnet for
@@ -86,7 +110,9 @@ The network uses horizontal message passing (HRMP) to enable communication betwe
 the relay chain and, in turn, between parachains. This means that every message is sent to the relay
 chain, and from the relay chain to its destination parachain.
 
-## Launch a local setup including a Relay Chain and a Parachain
+## Local Setup
+
+Launch a local setup including a Relay Chain and a Parachain.
 
 ### Launch the Relay Chain
 
