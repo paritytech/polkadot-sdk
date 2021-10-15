@@ -203,8 +203,7 @@ benchmarks! {
 		assert_eq!(frame_system::Pallet::<T>::block_number(), new_block);
 	}
 
-	// worse case is on new session.
-	// TODO review this benchmark
+	// worst case for new session.
 	new_session {
 		let r in 1 .. T::MaxCandidates::get();
 		let c in 1 .. T::MaxCandidates::get();
