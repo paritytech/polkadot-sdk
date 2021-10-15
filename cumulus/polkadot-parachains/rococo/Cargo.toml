@@ -90,6 +90,7 @@ std = [
 	"pallet-sudo/std",
 	"pallet-transaction-payment/std",
 	"parachain-info/std",
+	"parachains-common/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
