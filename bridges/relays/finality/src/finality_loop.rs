@@ -484,6 +484,14 @@ pub(crate) async fn read_missing_headers<
 		header_number = header_number + One::one();
 	}
 
+	log::trace!(
+		target: "bridge",
+		"Read {} {} headers. Selected finality proof for header: {:?}",
+		best_number_at_source.saturating_sub(best_number_at_target),
+		P::SOURCE_NAME,
+		selected_finality_proof.as_ref().map(|(header, _)| header),
+	);
+
 	Ok(match selected_finality_proof {
 		Some((header, proof)) => SelectedFinalityProof::Regular(unjustified_headers, header, proof),
 		None => SelectedFinalityProof::None(unjustified_headers),
@@ -584,7 +592,7 @@ pub(crate) fn select_better_recent_finality_proof<P: FinalitySyncPipeline>(
 		buffered_range_begin,
 		buffered_range_end,
 		selected_header_number,
-		if has_selected_finality_proof { "improved" } else { "failed" },
+		if has_selected_finality_proof { "improved" } else { "not improved" },
 	);
 	if !has_selected_finality_proof {
 		return selected_finality_proof
