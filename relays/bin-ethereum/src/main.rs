@@ -34,11 +34,11 @@ use ethereum_sync_loop::EthereumSyncParams;
 use headers_relay::sync::TargetTransactionMode;
 use hex_literal::hex;
 use instances::{BridgeInstance, Kovan, RialtoPoA};
+use libsecp256k1::SecretKey;
 use relay_utils::{
 	initialize::initialize_relay,
 	metrics::{MetricsAddress, MetricsParams},
 };
-use secp256k1::SecretKey;
 use sp_core::crypto::Pair;
 use substrate_sync_loop::SubstrateSyncParams;
 

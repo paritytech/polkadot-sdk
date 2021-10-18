@@ -34,7 +34,7 @@ use bp_eth_poa::{
 	signatures::{secret_to_address, sign, SignHeader},
 	Address, AuraHeader, Bloom, Receipt, SealedEmptyStep, H256, U256,
 };
-use secp256k1::SecretKey;
+use libsecp256k1::SecretKey;
 use sp_std::prelude::*;
 
 /// Gas limit valid in test environment.
