@@ -401,7 +401,7 @@ mod tests {
 	};
 	use bp_eth_poa::{compute_merkle_root, rlp_encode, TransactionOutcome, H520, U256};
 	use hex_literal::hex;
-	use secp256k1::SecretKey;
+	use libsecp256k1::SecretKey;
 	use sp_runtime::transaction_validity::TransactionTag;
 
 	const GENESIS_STEP: u64 = 42;

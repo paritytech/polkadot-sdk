@@ -180,7 +180,7 @@ mod tests {
 		validators::ValidatorsSource,
 		BlocksToPrune, BridgeStorage, Headers, PruningRange,
 	};
-	use secp256k1::SecretKey;
+	use libsecp256k1::SecretKey;
 
 	const TOTAL_VALIDATORS: usize = 3;
 

@@ -20,7 +20,7 @@ use crate::{
 };
 use bp_eth_poa::signatures::{secret_to_address, SignTransaction};
 use hex_literal::hex;
-use secp256k1::SecretKey;
+use libsecp256k1::SecretKey;
 
 /// Ethereum signing params.
 #[derive(Clone, Debug)]

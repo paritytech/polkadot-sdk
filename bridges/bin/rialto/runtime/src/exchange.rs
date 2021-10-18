@@ -162,7 +162,7 @@ pub(crate) fn prepare_ethereum_transaction(
 	// chain id is 0x11
 	// sender secret is 0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
 	let chain_id = 0x11;
-	let signer = secp256k1::SecretKey::parse(&hex!(
+	let signer = libsecp256k1::SecretKey::parse(&hex!(
 		"4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7"
 	))
 	.unwrap();

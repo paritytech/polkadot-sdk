@@ -573,7 +573,7 @@ mod tests {
 		let bob_with_alice_password =
 			sp_core::sr25519::Pair::from_string(BOB, Some(ALICE_PASSWORD)).unwrap();
 
-		let temp_dir = tempdir::TempDir::new("reads_suri_from_file").unwrap();
+		let temp_dir = tempfile::tempdir().unwrap();
 		let mut suri_file_path = temp_dir.path().to_path_buf();
 		let mut password_file_path = temp_dir.path().to_path_buf();
 		suri_file_path.push("suri");
