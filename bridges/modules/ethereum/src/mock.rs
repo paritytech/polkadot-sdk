@@ -28,7 +28,7 @@ use crate::{
 };
 use bp_eth_poa::{Address, AuraHeader, H256, U256};
 use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight};
-use secp256k1::SecretKey;
+use libsecp256k1::SecretKey;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
 	traits::{BlakeTwo256, IdentityLookup},

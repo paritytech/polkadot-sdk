@@ -75,5 +75,5 @@ polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", 
 hex-literal = "0.3"
 pallet-bridge-grandpa = { path = "../../modules/grandpa" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-tempdir = "0.3"
+tempfile = "3.2"
 finality-grandpa = { version = "0.14.0" }
