@@ -220,12 +220,14 @@ impl SwapTokens {
 				.await?;
 			let create_swap_call: CallOf<Source> = pallet_bridge_token_swap::Call::create_swap(
 				token_swap.clone(),
-				target_public_at_bridged_chain,
-				swap_delivery_and_dispatch_fee,
-				bridged_chain_spec_version,
-				bridged_currency_transfer.encode(),
-				bridged_currency_transfer_weight,
-				bridged_currency_transfer_signature,
+				Box::new(bp_token_swap::TokenSwapCreation {
+					target_public_at_bridged_chain,
+					swap_delivery_and_dispatch_fee,
+					bridged_chain_spec_version,
+					bridged_currency_transfer: bridged_currency_transfer.encode(),
+					bridged_currency_transfer_weight,
+					bridged_currency_transfer_signature,
+				}),
 			)
 			.into();
 
