@@ -46,7 +46,7 @@ benchmarks_instance_pallet! {
 				header
 			},
 		);
-	}: import_unsigned_header(RawOrigin::None, header, None)
+	}: import_unsigned_header(RawOrigin::None, Box::new(header), None)
 	verify {
 		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, 1);
@@ -91,7 +91,7 @@ benchmarks_instance_pallet! {
 		// Need to make sure that the header we're going to import hasn't been inserted
 		// into storage already
 		let header = HeaderBuilder::with_parent(&last_header).sign_by(&last_authority);
-	}: import_unsigned_header(RawOrigin::None, header, None)
+	}: import_unsigned_header(RawOrigin::None, Box::new(header), None)
 	verify {
 		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, (num_blocks + 1) as u64);
@@ -132,7 +132,7 @@ benchmarks_instance_pallet! {
 		// Need to make sure that the header we're going to import hasn't been inserted
 		// into storage already
 		let header = HeaderBuilder::with_parent(&last_header).sign_by(&last_authority);
-	}: import_unsigned_header(RawOrigin::None, header, None)
+	}: import_unsigned_header(RawOrigin::None, Box::new(header), None)
 	verify {
 		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, (num_blocks + 1) as u64);
@@ -167,7 +167,7 @@ benchmarks_instance_pallet! {
 		}
 
 		let header = HeaderBuilder::with_parent(&parent).sign_by_set(&validators);
-	}: import_unsigned_header(RawOrigin::None, header, None)
+	}: import_unsigned_header(RawOrigin::None, Box::new(header), None)
 	verify {
 		let storage = BridgeStorage::<T, I>::new();
 		let max_pruned: u64 = (n - 1) as _;
@@ -209,7 +209,7 @@ benchmarks_instance_pallet! {
 				header
 			},
 		);
-	}: import_unsigned_header(RawOrigin::None, header, Some(receipts))
+	}: import_unsigned_header(RawOrigin::None, Box::new(header), Some(receipts))
 	verify {
 		let storage = BridgeStorage::<T, I>::new();
 		assert_eq!(storage.best_block().0.number, 2);

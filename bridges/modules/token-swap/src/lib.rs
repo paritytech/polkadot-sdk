@@ -23,29 +23,39 @@
 //! There are four accounts participating in the swap:
 //!
 //! 1) account of This chain that has signed the `create_swap` transaction and has balance on This
-//! chain.    We'll be referring to this account as `source_account_at_this_chain`;
+//! chain. We'll be referring to this account as `source_account_at_this_chain`;
+//!
 //! 2) account of the Bridged chain that is sending the `claim_swap` message from the Bridged to
-//! This chain.    This account has balance on Bridged chain and is willing to swap these tokens to
-//! This chain tokens of    the `source_account_at_this_chain`. We'll be referring to this account
-//! as `target_account_at_bridged_chain`; 3) account of the Bridged chain that is indirectly
-//! controlled by the `source_account_at_this_chain`. We'll be    referring this account as
-//! `source_account_at_bridged_chain`; 4) account of This chain that is indirectly controlled by the
-//! `target_account_at_bridged_chain`. We'll be    referring this account as
-//! `target_account_at_this_chain`.
+//! This chain. This account has balance on Bridged chain and is willing to swap these tokens to
+//! This chain tokens of the `source_account_at_this_chain`. We'll be referring to this account
+//! as `target_account_at_bridged_chain`;
+//!
+//! 3) account of the Bridged chain that is indirectly controlled by the
+//! `source_account_at_this_chain`. We'll be referring this account as
+//! `source_account_at_bridged_chain`;
+//!
+//! 4) account of This chain that is indirectly controlled by the `target_account_at_bridged_chain`.
+//! We'll be referring this account as `target_account_at_this_chain`.
 //!
 //! So the tokens swap is an intention of `source_account_at_this_chain` to swap his
 //! `source_balance_at_this_chain` tokens to the `target_balance_at_bridged_chain` tokens owned by
 //! `target_account_at_bridged_chain`. The swap process goes as follows:
 //!
 //! 1) the `source_account_at_this_chain` account submits the `create_swap` transaction on This
-//! chain; 2) the tokens transfer message that would transfer `target_balance_at_bridged_chain`
-//! tokens from the    `target_account_at_bridged_chain` to the `source_account_at_bridged_chain`,
-//! is sent over the bridge; 3) when transfer message is delivered and dispatched, the pallet
-//! receives notification; 4) if message has been successfully dispatched, the
-//! `target_account_at_bridged_chain` sends the message    that would transfer
-//! `source_balance_at_this_chain` tokens to his `target_account_at_this_chain`    account;
+//! chain;
+//!
+//! 2) the tokens transfer message that would transfer `target_balance_at_bridged_chain`
+//! tokens from the `target_account_at_bridged_chain` to the `source_account_at_bridged_chain`,
+//! is sent over the bridge;
+//!
+//! 3) when transfer message is delivered and dispatched, the pallet receives notification;
+//!
+//! 4) if message has been successfully dispatched, the `target_account_at_bridged_chain` sends the
+//! message that would transfer `source_balance_at_this_chain` tokens to his
+//! `target_account_at_this_chain` account;
+//!
 //! 5) if message dispatch has failed, the `source_account_at_this_chain` may submit the
-//! `cancel_swap`    transaction and return his `source_balance_at_this_chain` back to his account.
+//! `cancel_swap` transaction and return his `source_balance_at_this_chain` back to his account.
 //!
 //! While swap is pending, the `source_balance_at_this_chain` tokens are owned by the special
 //! temporary `swap_account_at_this_chain` account. It is destroyed upon swap completion.
@@ -57,7 +67,9 @@ use bp_messages::{
 	DeliveredMessages, LaneId, MessageNonce,
 };
 use bp_runtime::{messages::DispatchFeePayment, ChainId};
-use bp_token_swap::{TokenSwap, TokenSwapState, TokenSwapType};
+use bp_token_swap::{
+	RawBridgedTransferCall, TokenSwap, TokenSwapCreation, TokenSwapState, TokenSwapType,
+};
 use codec::Encode;
 use frame_support::{
 	fail,
@@ -67,7 +79,7 @@ use frame_support::{
 use sp_core::H256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{Convert, Saturating};
-use sp_std::vec::Vec;
+use sp_std::boxed::Box;
 use weights::WeightInfo;
 
 pub use weights_ext::WeightInfoExt;
@@ -146,8 +158,6 @@ pub mod pallet {
 	/// Account signature type at the Bridged chain.
 	pub type BridgedAccountSignatureOf<T, I> = bp_runtime::SignatureOf<BridgedChainOf<T, I>>;
 
-	/// SCALE-encoded `Currency::transfer` call on the bridged chain.
-	pub type RawBridgedTransferCall = Vec<u8>;
 	/// Bridge message payload used by the pallet.
 	pub type MessagePayloadOf<T, I> = bp_message_dispatch::MessagePayload<
 		<T as frame_system::Config>::AccountId,
@@ -162,6 +172,12 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId,
 		BridgedBalanceOf<T, I>,
 		BridgedAccountIdOf<T, I>,
+	>;
+	/// Type of `TokenSwapCreation` used by the pallet.
+	pub type TokenSwapCreationOf<T, I> = TokenSwapCreation<
+		BridgedAccountPublicOf<T, I>,
+		ThisChainBalance<T, I>,
+		BridgedAccountSignatureOf<T, I>,
 	>;
 
 	#[pallet::pallet]
@@ -184,14 +200,7 @@ pub mod pallet {
 		/// Method arguments are:
 		///
 		/// - `swap` - token swap intention;
-		/// - `target_public_at_bridged_chain` - the public key of the
-		///   `swap.target_account_at_bridged_chain` account used to verify
-		///   `bridged_currency_transfer_signature`;
-		/// - `bridged_currency_transfer` - the SCALE-encoded tokens transfer call at the Bridged
-		///   chain;
-		/// - `bridged_currency_transfer_signature` - the signature of the
-		///   `swap.target_account_at_bridged_chain` for the message returned by the
-		///   `pallet_bridge_dispatch::account_ownership_digest()` function call.
+		/// - `swap_creation_params` - additional parameters required to start tokens swap.
 		///
 		/// The `source_account_at_this_chain` MUST have enough balance to cover both token swap and
 		/// message transfer. Message fee may be estimated using corresponding `OutboundLaneApi` of
@@ -199,15 +208,20 @@ pub mod pallet {
 		///
 		/// **WARNING**: the submitter of this transaction is responsible for verifying:
 		///
-		/// 1) that the `bridged_currency_transfer` represents a valid token transfer call that
-		/// transfers    `swap.target_balance_at_bridged_chain` to his
-		/// `source_account_at_bridged_chain` account; 2) that either the
-		/// `source_account_at_bridged_chain` already exists, or the
-		///    `swap.target_balance_at_bridged_chain` is above existential deposit of the Bridged
-		/// chain; 3) the `target_public_at_bridged_chain` matches the
-		/// `swap.target_account_at_bridged_chain`; 4) the `bridged_currency_transfer_signature` is
-		/// valid and generated by the owner of the    `target_public_at_bridged_chain` account
-		/// (read more about [`CallOrigin::TargetAccount`]).
+		/// 1) that the `swap_creation_params.bridged_currency_transfer` represents a valid token
+		/// transfer call that transfers `swap.target_balance_at_bridged_chain` to his
+		/// `swap.source_account_at_bridged_chain` account;
+		///
+		/// 2) that either the `swap.source_account_at_bridged_chain` already exists, or the
+		/// `swap.target_balance_at_bridged_chain` is above existential deposit of the Bridged
+		/// chain;
+		///
+		/// 3) the `swap_creation_params.target_public_at_bridged_chain` matches the
+		/// `swap.target_account_at_bridged_chain`;
+		///
+		/// 4) the `bridged_currency_transfer_signature` is valid and generated by the owner of
+		/// the `swap_creation_params.target_public_at_bridged_chain` account (read more
+		/// about [`CallOrigin::TargetAccount`]).
 		///
 		/// Violating rule#1 will lead to losing your `source_balance_at_this_chain` tokens.
 		/// Violating other rules will lead to losing message fees for this and other transactions +
@@ -215,21 +229,24 @@ pub mod pallet {
 		#[pallet::weight(
 			T::WeightInfo::create_swap()
 				.saturating_add(T::WeightInfo::send_message_weight(
-					&&bridged_currency_transfer[..],
+					&&swap_creation_params.bridged_currency_transfer[..],
 					T::DbWeight::get(),
 				))
 			)]
-		#[allow(clippy::too_many_arguments)]
 		pub fn create_swap(
 			origin: OriginFor<T>,
 			swap: TokenSwapOf<T, I>,
-			target_public_at_bridged_chain: BridgedAccountPublicOf<T, I>,
-			swap_delivery_and_dispatch_fee: ThisChainBalance<T, I>,
-			bridged_chain_spec_version: u32,
-			bridged_currency_transfer: RawBridgedTransferCall,
-			bridged_currency_transfer_weight: Weight,
-			bridged_currency_transfer_signature: BridgedAccountSignatureOf<T, I>,
+			swap_creation_params: Box<TokenSwapCreationOf<T, I>>,
 		) -> DispatchResultWithPostInfo {
+			let TokenSwapCreation {
+				target_public_at_bridged_chain,
+				swap_delivery_and_dispatch_fee,
+				bridged_chain_spec_version,
+				bridged_currency_transfer,
+				bridged_currency_transfer_weight,
+				bridged_currency_transfer_signature,
+			} = *swap_creation_params;
+
 			// ensure that the `origin` is the same account that is mentioned in the `swap`
 			// intention
 			let origin_account = ensure_signed(origin)?;
@@ -648,6 +665,17 @@ mod tests {
 		}
 	}
 
+	fn test_swap_creation() -> TokenSwapCreationOf<TestRuntime, ()> {
+		TokenSwapCreation {
+			target_public_at_bridged_chain: bridged_chain_account_public(),
+			swap_delivery_and_dispatch_fee: SWAP_DELIVERY_AND_DISPATCH_FEE,
+			bridged_chain_spec_version: BRIDGED_CHAIN_SPEC_VERSION,
+			bridged_currency_transfer: test_transfer(),
+			bridged_currency_transfer_weight: BRIDGED_CHAIN_CALL_WEIGHT,
+			bridged_currency_transfer_signature: bridged_chain_account_signature(),
+		}
+	}
+
 	fn test_swap_hash() -> H256 {
 		test_swap().using_encoded(blake2_256).into()
 	}
@@ -660,12 +688,14 @@ mod tests {
 		assert_ok!(Pallet::<TestRuntime>::create_swap(
 			Origin::signed(THIS_CHAIN_ACCOUNT),
 			test_swap(),
-			bridged_chain_account_public(),
-			SWAP_DELIVERY_AND_DISPATCH_FEE,
-			BRIDGED_CHAIN_SPEC_VERSION,
-			test_transfer(),
-			BRIDGED_CHAIN_CALL_WEIGHT,
-			bridged_chain_account_signature(),
+			Box::new(TokenSwapCreation {
+				target_public_at_bridged_chain: bridged_chain_account_public(),
+				swap_delivery_and_dispatch_fee: SWAP_DELIVERY_AND_DISPATCH_FEE,
+				bridged_chain_spec_version: BRIDGED_CHAIN_SPEC_VERSION,
+				bridged_currency_transfer: test_transfer(),
+				bridged_currency_transfer_weight: BRIDGED_CHAIN_CALL_WEIGHT,
+				bridged_currency_transfer_signature: bridged_chain_account_signature(),
+			}),
 		));
 	}
 
@@ -683,12 +713,7 @@ mod tests {
 				Pallet::<TestRuntime>::create_swap(
 					Origin::signed(THIS_CHAIN_ACCOUNT + 1),
 					test_swap(),
-					bridged_chain_account_public(),
-					SWAP_DELIVERY_AND_DISPATCH_FEE,
-					BRIDGED_CHAIN_SPEC_VERSION,
-					test_transfer(),
-					BRIDGED_CHAIN_CALL_WEIGHT,
-					bridged_chain_account_signature(),
+					Box::new(test_swap_creation()),
 				),
 				Error::<TestRuntime, ()>::MismatchedSwapSourceOrigin
 			);
@@ -704,12 +729,7 @@ mod tests {
 				Pallet::<TestRuntime>::create_swap(
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					swap,
-					bridged_chain_account_public(),
-					SWAP_DELIVERY_AND_DISPATCH_FEE,
-					BRIDGED_CHAIN_SPEC_VERSION,
-					test_transfer(),
-					BRIDGED_CHAIN_CALL_WEIGHT,
-					bridged_chain_account_signature(),
+					Box::new(test_swap_creation()),
 				),
 				Error::<TestRuntime, ()>::TooLowBalanceOnThisChain
 			);
@@ -725,12 +745,7 @@ mod tests {
 				Pallet::<TestRuntime>::create_swap(
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					swap,
-					bridged_chain_account_public(),
-					SWAP_DELIVERY_AND_DISPATCH_FEE,
-					BRIDGED_CHAIN_SPEC_VERSION,
-					test_transfer(),
-					BRIDGED_CHAIN_CALL_WEIGHT,
-					bridged_chain_account_signature(),
+					Box::new(test_swap_creation()),
 				),
 				Error::<TestRuntime, ()>::FailedToTransferToSwapAccount
 			);
@@ -742,16 +757,13 @@ mod tests {
 		run_test(|| {
 			let mut transfer = test_transfer();
 			transfer[0] = BAD_TRANSFER_CALL;
+			let mut swap_creation = test_swap_creation();
+			swap_creation.bridged_currency_transfer = transfer;
 			assert_noop!(
 				Pallet::<TestRuntime>::create_swap(
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					test_swap(),
-					bridged_chain_account_public(),
-					SWAP_DELIVERY_AND_DISPATCH_FEE,
-					BRIDGED_CHAIN_SPEC_VERSION,
-					transfer,
-					BRIDGED_CHAIN_CALL_WEIGHT,
-					bridged_chain_account_signature(),
+					Box::new(swap_creation),
 				),
 				Error::<TestRuntime, ()>::FailedToSendTransferMessage
 			);
@@ -764,24 +776,14 @@ mod tests {
 			assert_ok!(Pallet::<TestRuntime>::create_swap(
 				Origin::signed(THIS_CHAIN_ACCOUNT),
 				test_swap(),
-				bridged_chain_account_public(),
-				SWAP_DELIVERY_AND_DISPATCH_FEE,
-				BRIDGED_CHAIN_SPEC_VERSION,
-				test_transfer(),
-				BRIDGED_CHAIN_CALL_WEIGHT,
-				bridged_chain_account_signature(),
+				Box::new(test_swap_creation()),
 			));
 
 			assert_noop!(
 				Pallet::<TestRuntime>::create_swap(
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					test_swap(),
-					bridged_chain_account_public(),
-					SWAP_DELIVERY_AND_DISPATCH_FEE,
-					BRIDGED_CHAIN_SPEC_VERSION,
-					test_transfer(),
-					BRIDGED_CHAIN_CALL_WEIGHT,
-					bridged_chain_account_signature(),
+					Box::new(test_swap_creation()),
 				),
 				Error::<TestRuntime, ()>::SwapAlreadyStarted
 			);
@@ -796,12 +798,7 @@ mod tests {
 				Pallet::<TestRuntime>::create_swap(
 					Origin::signed(THIS_CHAIN_ACCOUNT),
 					test_swap(),
-					bridged_chain_account_public(),
-					SWAP_DELIVERY_AND_DISPATCH_FEE,
-					BRIDGED_CHAIN_SPEC_VERSION,
-					test_transfer(),
-					BRIDGED_CHAIN_CALL_WEIGHT,
-					bridged_chain_account_signature(),
+					Box::new(test_swap_creation()),
 				),
 				Error::<TestRuntime, ()>::SwapPeriodIsFinished
 			);
@@ -815,12 +812,7 @@ mod tests {
 			assert_ok!(Pallet::<TestRuntime>::create_swap(
 				Origin::signed(THIS_CHAIN_ACCOUNT),
 				test_swap(),
-				bridged_chain_account_public(),
-				SWAP_DELIVERY_AND_DISPATCH_FEE,
-				BRIDGED_CHAIN_SPEC_VERSION,
-				test_transfer(),
-				BRIDGED_CHAIN_CALL_WEIGHT,
-				bridged_chain_account_signature(),
+				Box::new(test_swap_creation()),
 			));
 		});
 	}
@@ -834,12 +826,7 @@ mod tests {
 			assert_ok!(Pallet::<TestRuntime>::create_swap(
 				Origin::signed(THIS_CHAIN_ACCOUNT),
 				test_swap(),
-				bridged_chain_account_public(),
-				SWAP_DELIVERY_AND_DISPATCH_FEE,
-				BRIDGED_CHAIN_SPEC_VERSION,
-				test_transfer(),
-				BRIDGED_CHAIN_CALL_WEIGHT,
-				bridged_chain_account_signature(),
+				Box::new(test_swap_creation()),
 			));
 
 			let swap_hash = test_swap_hash();
