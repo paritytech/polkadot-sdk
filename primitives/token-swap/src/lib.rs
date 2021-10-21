@@ -17,8 +17,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::RuntimeDebug;
+use frame_support::{weights::Weight, RuntimeDebug};
 use sp_core::U256;
+use sp_std::vec::Vec;
 
 /// Pending token swap state.
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
@@ -81,4 +82,27 @@ pub struct TokenSwap<ThisBlockNumber, ThisBalance, ThisAccountId, BridgedBalance
 	/// Account id of the party acting at the Bridged chain and owning the
 	/// `target_balance_at_bridged_chain`.
 	pub target_account_at_bridged_chain: BridgedAccountId,
+}
+
+/// SCALE-encoded `Currency::transfer` call on the bridged chain.
+pub type RawBridgedTransferCall = Vec<u8>;
+
+/// Token swap creation parameters.
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+pub struct TokenSwapCreation<BridgedAccountPublic, ThisChainBalance, BridgedAccountSignature> {
+	/// Public key of the `target_account_at_bridged_chain` account used to verify
+	/// `bridged_currency_transfer_signature`.
+	pub target_public_at_bridged_chain: BridgedAccountPublic,
+	/// Fee that the `source_account_at_this_chain` is ready to pay for the tokens
+	/// transfer message delivery and dispatch.
+	pub swap_delivery_and_dispatch_fee: ThisChainBalance,
+	/// Specification version of the Bridged chain.
+	pub bridged_chain_spec_version: u32,
+	/// SCALE-encoded tokens transfer call at the Bridged chain.
+	pub bridged_currency_transfer: RawBridgedTransferCall,
+	/// Dispatch weight of the tokens transfer call at the Bridged chain.
+	pub bridged_currency_transfer_weight: Weight,
+	/// The signature of the `target_account_at_bridged_chain` for the message
+	/// returned by the `pallet_bridge_dispatch::account_ownership_digest()` function call.
+	pub bridged_currency_transfer_signature: BridgedAccountSignature,
 }

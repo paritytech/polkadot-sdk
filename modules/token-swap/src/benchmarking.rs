@@ -18,10 +18,11 @@
 
 use crate::{
 	swap_account_id, target_account_at_this_chain, BridgedAccountIdOf, BridgedAccountPublicOf,
-	BridgedAccountSignatureOf, BridgedBalanceOf, Call, Pallet, ThisChainBalance, TokenSwapOf,
+	BridgedAccountSignatureOf, BridgedBalanceOf, Call, Pallet, ThisChainBalance,
+	TokenSwapCreationOf, TokenSwapOf,
 };
 
-use bp_token_swap::{TokenSwap, TokenSwapState, TokenSwapType};
+use bp_token_swap::{TokenSwap, TokenSwapCreation, TokenSwapState, TokenSwapType};
 use codec::Encode;
 use frame_benchmarking::{account, benchmarks_instance_pallet};
 use frame_support::{traits::Currency, Parameter};
@@ -62,21 +63,11 @@ benchmarks_instance_pallet! {
 
 		let sender = funded_account::<T, I>("source_account_at_this_chain", 0);
 		let swap: TokenSwapOf<T, I> = test_swap::<T, I>(sender.clone(), true);
-		let target_public_at_bridged_chain = target_public_at_bridged_chain::<T, I>();
-		let swap_delivery_and_dispatch_fee = swap_delivery_and_dispatch_fee::<T, I>();
-		let bridged_chain_spec_version = 0;
-		let bridged_currency_transfer = Vec::new();
-		let bridged_currency_transfer_weight = 0;
-		let bridged_currency_transfer_signature = bridged_currency_transfer_signature::<T, I>();
+		let swap_creation: TokenSwapCreationOf<T, I> = test_swap_creation::<T, I>();
 	}: create_swap(
 		RawOrigin::Signed(sender.clone()),
 		swap,
-		target_public_at_bridged_chain,
-		swap_delivery_and_dispatch_fee,
-		bridged_chain_spec_version,
-		bridged_currency_transfer,
-		bridged_currency_transfer_weight,
-		bridged_currency_transfer_signature
+		Box::new(swap_creation)
 	)
 	verify {
 		assert!(crate::PendingSwaps::<T, I>::contains_key(test_swap_hash::<T, I>(sender, true)));
@@ -142,6 +133,22 @@ fn test_swap<T: Config<I>, I: 'static>(sender: T::AccountId, is_create: bool) ->
 /// Returns test token swap hash.
 fn test_swap_hash<T: Config<I>, I: 'static>(sender: T::AccountId, is_create: bool) -> H256 {
 	test_swap::<T, I>(sender, is_create).using_encoded(blake2_256).into()
+}
+
+/// Returns test token swap creation params.
+fn test_swap_creation<T: Config<I>, I: 'static>() -> TokenSwapCreationOf<T, I>
+where
+	BridgedAccountPublicOf<T, I>: Default,
+	BridgedAccountSignatureOf<T, I>: Default,
+{
+	TokenSwapCreation {
+		target_public_at_bridged_chain: target_public_at_bridged_chain::<T, I>(),
+		swap_delivery_and_dispatch_fee: swap_delivery_and_dispatch_fee::<T, I>(),
+		bridged_chain_spec_version: 0,
+		bridged_currency_transfer: Vec::new(),
+		bridged_currency_transfer_weight: 0,
+		bridged_currency_transfer_signature: bridged_currency_transfer_signature::<T, I>(),
+	}
 }
 
 /// Account that has some balance.
