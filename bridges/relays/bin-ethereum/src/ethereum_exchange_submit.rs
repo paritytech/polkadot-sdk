@@ -16,6 +16,7 @@
 
 //! Submitting Ethereum -> Substrate exchange transactions.
 
+use anyhow::anyhow;
 use bp_eth_poa::{
 	signatures::{secret_to_address, SignTransaction},
 	UnsignedTransaction,
@@ -47,10 +48,10 @@ pub async fn run(params: EthereumExchangeSubmitParams) {
 	let EthereumExchangeSubmitParams { eth_params, eth_sign, eth_nonce, eth_amount, sub_recipient } =
 		params;
 
-	let result: Result<_, String> = async move {
+	let result: anyhow::Result<_> = async move {
 		let eth_client = EthereumClient::try_connect(eth_params)
 			.await
-			.map_err(|err| format!("error connecting to Ethereum node: {:?}", err))?;
+			.map_err(|err| anyhow!("error connecting to Ethereum node: {:?}", err))?;
 
 		let eth_signer_address = secret_to_address(&eth_sign.signer);
 		let sub_recipient_encoded = sub_recipient;
@@ -59,7 +60,7 @@ pub async fn run(params: EthereumExchangeSubmitParams) {
 			None => eth_client
 				.account_nonce(eth_signer_address)
 				.await
-				.map_err(|err| format!("error fetching acount nonce: {:?}", err))?,
+				.map_err(|err| anyhow!("error fetching acount nonce: {:?}", err))?,
 		};
 		let gas = eth_client
 			.estimate_gas(CallRequest {
@@ -70,7 +71,7 @@ pub async fn run(params: EthereumExchangeSubmitParams) {
 				..Default::default()
 			})
 			.await
-			.map_err(|err| format!("error estimating gas requirements: {:?}", err))?;
+			.map_err(|err| anyhow!("error estimating gas requirements: {:?}", err))?;
 		let eth_tx_unsigned = UnsignedTransaction {
 			nonce,
 			gas_price: eth_sign.gas_price,
@@ -84,7 +85,7 @@ pub async fn run(params: EthereumExchangeSubmitParams) {
 		eth_client
 			.submit_transaction(eth_tx_signed)
 			.await
-			.map_err(|err| format!("error submitting transaction: {:?}", err))?;
+			.map_err(|err| anyhow!("error submitting transaction: {:?}", err))?;
 
 		Ok(eth_tx_unsigned)
 	}

@@ -20,6 +20,7 @@ num-traits = "0.2"
 serde_json = "1.0"
 sysinfo = "0.15"
 time = "0.2"
+thiserror = "1.0.26"
 
 # Substrate dependencies
 

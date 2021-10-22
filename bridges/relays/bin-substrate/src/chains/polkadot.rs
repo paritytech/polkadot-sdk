@@ -97,7 +97,7 @@ impl CliChain for Polkadot {
 
 	fn encode_message(
 		_message: encode_message::MessagePayload,
-	) -> Result<Self::MessagePayload, String> {
-		Err("Sending messages from Polkadot is not yet supported.".into())
+	) -> anyhow::Result<Self::MessagePayload> {
+		anyhow::bail!("Sending messages from Polkadot is not yet supported.")
 	}
 }

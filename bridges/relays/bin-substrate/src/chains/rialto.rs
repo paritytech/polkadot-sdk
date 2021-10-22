@@ -23,6 +23,7 @@ use crate::cli::{
 	send_message::{self, DispatchFeePayment},
 	CliChain,
 };
+use anyhow::anyhow;
 use bp_message_dispatch::{CallOrigin, MessagePayload};
 use codec::Decode;
 use frame_support::weights::{DispatchInfo, GetDispatchInfo, Weight};
@@ -86,10 +87,10 @@ impl CliChain for Rialto {
 
 	fn encode_message(
 		message: encode_message::MessagePayload,
-	) -> Result<Self::MessagePayload, String> {
+	) -> anyhow::Result<Self::MessagePayload> {
 		match message {
 			encode_message::MessagePayload::Raw { data } => MessagePayload::decode(&mut &*data.0)
-				.map_err(|e| format!("Failed to decode Rialto's MessagePayload: {:?}", e)),
+				.map_err(|e| anyhow!("Failed to decode Rialto's MessagePayload: {:?}", e)),
 			encode_message::MessagePayload::Call { mut call, mut sender } => {
 				type Source = Rialto;
 				type Target = relay_millau_client::Millau;
@@ -101,7 +102,7 @@ impl CliChain for Rialto {
 					&mut call,
 					bridge::RIALTO_TO_MILLAU_INDEX,
 				);
-				let call = Target::encode_call(&call).map_err(|e| e.to_string())?;
+				let call = Target::encode_call(&call)?;
 				let weight = call.get_dispatch_info().weight;
 
 				Ok(send_message::message_payload(

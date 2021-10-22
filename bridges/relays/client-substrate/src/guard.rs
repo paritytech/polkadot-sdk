@@ -17,23 +17,30 @@
 //! Pallet provides a set of guard functions that are running in background threads
 //! and are aborting process if some condition fails.
 
-use crate::{Chain, ChainWithBalances, Client};
+use crate::{error::Error, Chain, ChainWithBalances, Client};
 
 use async_trait::async_trait;
 use num_traits::CheckedSub;
 use sp_version::RuntimeVersion;
 use std::{
 	collections::VecDeque,
+	fmt::Display,
 	time::{Duration, Instant},
 };
 
 /// Guards environment.
 #[async_trait]
 pub trait Environment<C: ChainWithBalances>: Send + Sync + 'static {
+	/// Error type.
+	type Error: Display + Send + Sync + 'static;
+
 	/// Return current runtime version.
-	async fn runtime_version(&mut self) -> Result<RuntimeVersion, String>;
+	async fn runtime_version(&mut self) -> Result<RuntimeVersion, Self::Error>;
 	/// Return free native balance of the account on the chain.
-	async fn free_native_balance(&mut self, account: C::AccountId) -> Result<C::Balance, String>;
+	async fn free_native_balance(
+		&mut self,
+		account: C::AccountId,
+	) -> Result<C::Balance, Self::Error>;
 
 	/// Return current time.
 	fn now(&self) -> Instant {
@@ -74,7 +81,7 @@ pub fn abort_on_spec_version_change<C: ChainWithBalances>(
 				},
 				Err(error) => log::warn!(
 					target: "bridge-guard",
-					"Failed to read {} runtime version: {:?}. Relay may need to be stopped manually",
+					"Failed to read {} runtime version: {}. Relay may need to be stopped manually",
 					C::NAME,
 					error,
 				),
@@ -137,7 +144,7 @@ pub fn abort_when_account_balance_decreased<C: ChainWithBalances>(
 				Err(error) => {
 					log::warn!(
 						target: "bridge-guard",
-						"Failed to read {} account {:?} balance: {:?}. Relay may need to be stopped manually",
+						"Failed to read {} account {:?} balance: {}. Relay may need to be stopped manually",
 						C::NAME,
 						account_id,
 						error,
@@ -157,12 +164,17 @@ fn conditions_check_delay<C: Chain>() -> Duration {
 
 #[async_trait]
 impl<C: ChainWithBalances> Environment<C> for Client<C> {
-	async fn runtime_version(&mut self) -> Result<RuntimeVersion, String> {
-		Client::<C>::runtime_version(self).await.map_err(|e| e.to_string())
+	type Error = Error;
+
+	async fn runtime_version(&mut self) -> Result<RuntimeVersion, Self::Error> {
+		Client::<C>::runtime_version(self).await
 	}
 
-	async fn free_native_balance(&mut self, account: C::AccountId) -> Result<C::Balance, String> {
-		Client::<C>::free_native_balance(self, account).await.map_err(|e| e.to_string())
+	async fn free_native_balance(
+		&mut self,
+		account: C::AccountId,
+	) -> Result<C::Balance, Self::Error> {
+		Client::<C>::free_native_balance(self, account).await
 	}
 }
 
@@ -220,11 +232,13 @@ mod tests {
 
 	#[async_trait]
 	impl Environment<TestChain> for TestEnvironment {
-		async fn runtime_version(&mut self) -> Result<RuntimeVersion, String> {
+		type Error = Error;
+
+		async fn runtime_version(&mut self) -> Result<RuntimeVersion, Self::Error> {
 			Ok(self.runtime_version_rx.next().await.unwrap_or_default())
 		}
 
-		async fn free_native_balance(&mut self, _account: u32) -> Result<u32, String> {
+		async fn free_native_balance(&mut self, _account: u32) -> Result<u32, Self::Error> {
 			Ok(self.free_native_balance_rx.next().await.unwrap_or_default())
 		}
 

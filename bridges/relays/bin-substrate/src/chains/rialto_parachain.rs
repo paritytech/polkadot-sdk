@@ -76,7 +76,7 @@ impl CliChain for RialtoParachain {
 
 	fn encode_message(
 		_message: encode_message::MessagePayload,
-	) -> Result<Self::MessagePayload, String> {
-		Err("Not supported".into())
+	) -> anyhow::Result<Self::MessagePayload> {
+		anyhow::bail!("Not supported")
 	}
 }

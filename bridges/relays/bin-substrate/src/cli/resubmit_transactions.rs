@@ -141,6 +141,7 @@ impl ResubmitTransactions {
 					)
 				})
 				.await
+				.map_err(Into::into)
 		})
 	}
 }
