@@ -17,3 +17,4 @@ log = "0.4.11"
 relay-utils = { path = "../utils" }
 tokio = "1.8"
 web3 = { git = "https://github.com/svyatonik/rust-web3.git", branch = "bump-deps" }
+thiserror = "1.0.26"

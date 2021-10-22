@@ -257,7 +257,7 @@ pub trait CliChain: relay_substrate_client::Chain {
 	/// Construct message payload to be sent over the bridge.
 	fn encode_message(
 		message: crate::cli::encode_message::MessagePayload,
-	) -> Result<Self::MessagePayload, String>;
+	) -> anyhow::Result<Self::MessagePayload>;
 
 	/// Maximal extrinsic weight (from the runtime).
 	fn max_extrinsic_weight() -> Weight;
