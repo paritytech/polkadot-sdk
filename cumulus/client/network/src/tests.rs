@@ -484,6 +484,13 @@ sp_api::mock_impl_runtime_apis! {
 			BTreeMap::new()
 		}
 
+		fn assumed_validation_data(
+			_: ParaId,
+			_: Hash,
+		) -> Option<(PersistedValidationData<Hash, BlockNumber>, ValidationCodeHash)> {
+			None
+		}
+
 		fn validation_code_by_hash(_: ValidationCodeHash) -> Option<ValidationCode> {
 			None
 		}
