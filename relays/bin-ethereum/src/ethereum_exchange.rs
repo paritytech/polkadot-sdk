@@ -339,7 +339,7 @@ pub async fn run(params: EthereumExchangeParams) {
 async fn run_single_transaction_relay(
 	params: EthereumExchangeParams,
 	eth_tx_hash: H256,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
 	let EthereumExchangeParams { eth_params, sub_params, sub_sign, instance, .. } = params;
 
 	let eth_client = EthereumClient::try_connect(eth_params).await.map_err(RpcError::Ethereum)?;
@@ -354,7 +354,9 @@ async fn run_single_transaction_relay(
 		bridge_instance: instance,
 	};
 
-	relay_single_transaction_proof(&source, &target, eth_tx_hash).await
+	relay_single_transaction_proof(&source, &target, eth_tx_hash)
+		.await
+		.map_err(Into::into)
 }
 
 async fn run_auto_transactions_relay_loop(

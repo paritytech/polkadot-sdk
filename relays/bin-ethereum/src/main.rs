@@ -16,6 +16,7 @@
 
 #![recursion_limit = "1024"]
 
+mod error;
 mod ethereum_client;
 mod ethereum_deploy_contract;
 mod ethereum_exchange;
@@ -27,6 +28,7 @@ mod rpc_errors;
 mod substrate_sync_loop;
 mod substrate_types;
 
+use anyhow::anyhow;
 use ethereum_deploy_contract::EthereumDeployContractParams;
 use ethereum_exchange::EthereumExchangeParams;
 use ethereum_exchange_submit::EthereumExchangeSubmitParams;
@@ -136,58 +138,58 @@ async fn run_command(matches: &clap::ArgMatches<'_>) {
 
 fn ethereum_connection_params(
 	matches: &clap::ArgMatches,
-) -> Result<EthereumConnectionParams, String> {
+) -> anyhow::Result<EthereumConnectionParams> {
 	let mut params = EthereumConnectionParams::default();
 	if let Some(eth_host) = matches.value_of("eth-host") {
 		params.host = eth_host.into();
 	}
 	if let Some(eth_port) = matches.value_of("eth-port") {
-		params.port = eth_port.parse().map_err(|e| format!("Failed to parse eth-port: {}", e))?;
+		params.port = eth_port.parse().map_err(|e| anyhow!("Failed to parse eth-port: {}", e))?;
 	}
 	Ok(params)
 }
 
-fn ethereum_signing_params(matches: &clap::ArgMatches) -> Result<EthereumSigningParams, String> {
+fn ethereum_signing_params(matches: &clap::ArgMatches) -> anyhow::Result<EthereumSigningParams> {
 	let mut params = EthereumSigningParams::default();
 	if let Some(eth_signer) = matches.value_of("eth-signer") {
 		params.signer = SecretKey::parse_slice(
-			&hex::decode(eth_signer).map_err(|e| format!("Failed to parse eth-signer: {}", e))?,
+			&hex::decode(eth_signer).map_err(|e| anyhow!("Failed to parse eth-signer: {}", e))?,
 		)
-		.map_err(|e| format!("Invalid eth-signer: {}", e))?;
+		.map_err(|e| anyhow!("Invalid eth-signer: {}", e))?;
 	}
 	if let Some(eth_chain_id) = matches.value_of("eth-chain-id") {
 		params.chain_id = eth_chain_id
 			.parse::<u64>()
-			.map_err(|e| format!("Failed to parse eth-chain-id: {}", e))?;
+			.map_err(|e| anyhow!("Failed to parse eth-chain-id: {}", e))?;
 	}
 	Ok(params)
 }
 
 fn substrate_connection_params(
 	matches: &clap::ArgMatches,
-) -> Result<SubstrateConnectionParams, String> {
+) -> anyhow::Result<SubstrateConnectionParams> {
 	let mut params = SubstrateConnectionParams::default();
 	if let Some(sub_host) = matches.value_of("sub-host") {
 		params.host = sub_host.into();
 	}
 	if let Some(sub_port) = matches.value_of("sub-port") {
-		params.port = sub_port.parse().map_err(|e| format!("Failed to parse sub-port: {}", e))?;
+		params.port = sub_port.parse().map_err(|e| anyhow!("Failed to parse sub-port: {}", e))?;
 	}
 	Ok(params)
 }
 
-fn rialto_signing_params(matches: &clap::ArgMatches) -> Result<RialtoSigningParams, String> {
+fn rialto_signing_params(matches: &clap::ArgMatches) -> anyhow::Result<RialtoSigningParams> {
 	let mut params = sp_keyring::AccountKeyring::Alice.pair();
 
 	if let Some(sub_signer) = matches.value_of("sub-signer") {
 		let sub_signer_password = matches.value_of("sub-signer-password");
 		params = sp_core::sr25519::Pair::from_string(sub_signer, sub_signer_password)
-			.map_err(|e| format!("Failed to parse sub-signer: {:?}", e))?;
+			.map_err(|e| anyhow!("Failed to parse sub-signer: {:?}", e))?;
 	}
 	Ok(params)
 }
 
-fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams, String> {
+fn ethereum_sync_params(matches: &clap::ArgMatches) -> anyhow::Result<EthereumSyncParams> {
 	use crate::ethereum_sync_loop::consts::*;
 
 	let mut sync_params = HeadersSyncParams {
@@ -208,7 +210,7 @@ fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams
 			sync_params.max_headers_in_submitted_status = 10;
 		},
 		Some("backup") => sync_params.target_tx_mode = TargetTransactionMode::Backup,
-		Some(mode) => return Err(format!("Invalid sub-tx-mode: {}", mode)),
+		Some(mode) => return Err(anyhow!("Invalid sub-tx-mode: {}", mode)),
 		None => sync_params.target_tx_mode = TargetTransactionMode::Signed,
 	}
 
@@ -226,12 +228,12 @@ fn ethereum_sync_params(matches: &clap::ArgMatches) -> Result<EthereumSyncParams
 	Ok(params)
 }
 
-fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncParams, String> {
+fn substrate_sync_params(matches: &clap::ArgMatches) -> anyhow::Result<SubstrateSyncParams> {
 	use crate::substrate_sync_loop::consts::*;
 
 	let eth_contract_address: relay_ethereum_client::types::Address =
 		if let Some(eth_contract) = matches.value_of("eth-contract") {
-			eth_contract.parse().map_err(|e| format!("{}", e))?
+			eth_contract.parse()?
 		} else {
 			"731a10897d267e19b34503ad902d0a29173ba4b1"
 				.parse()
@@ -261,7 +263,7 @@ fn substrate_sync_params(matches: &clap::ArgMatches) -> Result<SubstrateSyncPara
 
 fn ethereum_deploy_contract_params(
 	matches: &clap::ArgMatches,
-) -> Result<EthereumDeployContractParams, String> {
+) -> anyhow::Result<EthereumDeployContractParams> {
 	let eth_contract_code =
 		parse_hex_argument(matches, "eth-contract-code")?.unwrap_or_else(|| {
 			hex::decode(include_str!("../res/substrate-bridge-bytecode.hex"))
@@ -271,7 +273,7 @@ fn ethereum_deploy_contract_params(
 		.value_of("sub-authorities-set-id")
 		.map(|set| {
 			set.parse()
-				.map_err(|e| format!("Failed to parse sub-authorities-set-id: {}", e))
+				.map_err(|e| anyhow!("Failed to parse sub-authorities-set-id: {}", e))
 		})
 		.transpose()?;
 	let sub_initial_authorities_set = parse_hex_argument(matches, "sub-authorities-set")?;
@@ -294,19 +296,19 @@ fn ethereum_deploy_contract_params(
 
 fn ethereum_exchange_submit_params(
 	matches: &clap::ArgMatches,
-) -> Result<EthereumExchangeSubmitParams, String> {
+) -> anyhow::Result<EthereumExchangeSubmitParams> {
 	let eth_nonce = matches
 		.value_of("eth-nonce")
 		.map(|eth_nonce| {
 			relay_ethereum_client::types::U256::from_dec_str(eth_nonce)
-				.map_err(|e| format!("Failed to parse eth-nonce: {}", e))
+				.map_err(|e| anyhow!("Failed to parse eth-nonce: {}", e))
 		})
 		.transpose()?;
 
 	let eth_amount = matches
 		.value_of("eth-amount")
 		.map(|eth_amount| {
-			eth_amount.parse().map_err(|e| format!("Failed to parse eth-amount: {}", e))
+			eth_amount.parse().map_err(|e| anyhow!("Failed to parse eth-amount: {}", e))
 		})
 		.transpose()?
 		.unwrap_or_else(|| {
@@ -331,7 +333,7 @@ fn ethereum_exchange_submit_params(
 					Ok(sub_recipient)
 				}
 			})
-			.map_err(|e| format!("Failed to parse sub-recipient: {}", e))?
+			.map_err(|e| anyhow!("Failed to parse sub-recipient: {}", e))?
 	} else {
 		default_recepient
 	};
@@ -349,10 +351,10 @@ fn ethereum_exchange_submit_params(
 	Ok(params)
 }
 
-fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchangeParams, String> {
+fn ethereum_exchange_params(matches: &clap::ArgMatches) -> anyhow::Result<EthereumExchangeParams> {
 	let mode = match matches.value_of("eth-tx-hash") {
 		Some(eth_tx_hash) => ethereum_exchange::ExchangeRelayMode::Single(
-			eth_tx_hash.parse().map_err(|e| format!("Failed to parse eth-tx-hash: {}", e))?,
+			eth_tx_hash.parse().map_err(|e| anyhow!("Failed to parse eth-tx-hash: {}", e))?,
 		),
 		None => ethereum_exchange::ExchangeRelayMode::Auto(
 			matches
@@ -360,7 +362,7 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchan
 				.map(|eth_start_with_block| {
 					eth_start_with_block
 						.parse()
-						.map_err(|e| format!("Failed to parse eth-start-with-block: {}", e))
+						.map_err(|e| anyhow!("Failed to parse eth-start-with-block: {}", e))
 				})
 				.transpose()?,
 		),
@@ -380,7 +382,7 @@ fn ethereum_exchange_params(matches: &clap::ArgMatches) -> Result<EthereumExchan
 	Ok(params)
 }
 
-fn metrics_params(matches: &clap::ArgMatches) -> Result<MetricsParams, String> {
+fn metrics_params(matches: &clap::ArgMatches) -> anyhow::Result<MetricsParams> {
 	if matches.is_present("no-prometheus") {
 		return Ok(None.into())
 	}
@@ -393,18 +395,18 @@ fn metrics_params(matches: &clap::ArgMatches) -> Result<MetricsParams, String> {
 	if let Some(prometheus_port) = matches.value_of("prometheus-port") {
 		metrics_params.port = prometheus_port
 			.parse()
-			.map_err(|e| format!("Failed to parse prometheus-port: {}", e))?;
+			.map_err(|e| anyhow!("Failed to parse prometheus-port: {}", e))?;
 	}
 
 	Ok(Some(metrics_params).into())
 }
 
-fn instance_params(matches: &clap::ArgMatches) -> Result<Arc<dyn BridgeInstance>, String> {
+fn instance_params(matches: &clap::ArgMatches) -> anyhow::Result<Arc<dyn BridgeInstance>> {
 	let instance = if let Some(instance) = matches.value_of("sub-pallet-instance") {
 		match instance.to_lowercase().as_str() {
 			"rialto" => Arc::new(RialtoPoA) as Arc<dyn BridgeInstance>,
 			"kovan" => Arc::new(Kovan),
-			_ => return Err("Unsupported bridge pallet instance".to_string()),
+			_ => return Err(anyhow!("Unsupported bridge pallet instance")),
 		}
 	} else {
 		unreachable!("CLI config enforces a default instance, can never be None")
@@ -413,10 +415,10 @@ fn instance_params(matches: &clap::ArgMatches) -> Result<Arc<dyn BridgeInstance>
 	Ok(instance)
 }
 
-fn parse_hex_argument(matches: &clap::ArgMatches, arg: &str) -> Result<Option<Vec<u8>>, String> {
+fn parse_hex_argument(matches: &clap::ArgMatches, arg: &str) -> anyhow::Result<Option<Vec<u8>>> {
 	match matches.value_of(arg) {
 		Some(value) =>
-			Ok(Some(hex::decode(value).map_err(|e| format!("Failed to parse {}: {}", arg, e))?)),
+			Ok(Some(hex::decode(value).map_err(|e| anyhow!("Failed to parse {}: {}", arg, e))?)),
 		None => Ok(None),
 	}
 }

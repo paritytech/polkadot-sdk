@@ -17,6 +17,7 @@
 //! Relaying proofs of exchange transactions.
 
 use crate::{
+	error::Error,
 	exchange::{
 		relay_block_transactions, BlockNumberOf, RelayedBlockTransactions, SourceClient,
 		TargetClient, TransactionProofPipeline,
@@ -24,6 +25,7 @@ use crate::{
 	exchange_loop_metrics::ExchangeLoopMetrics,
 };
 
+use crate::error::ErrorOf;
 use backoff::backoff::Backoff;
 use futures::{future::FutureExt, select};
 use num_traits::One;
@@ -92,7 +94,7 @@ pub async fn run<P: TransactionProofPipeline>(
 	target_client: impl TargetClient<P>,
 	metrics_params: MetricsParams,
 	exit_signal: impl Future<Output = ()> + 'static + Send,
-) -> anyhow::Result<()> {
+) -> Result<(), ErrorOf<P>> {
 	let exit_signal = exit_signal.shared();
 
 	relay_utils::relay_loop(source_client, target_client)
@@ -111,6 +113,7 @@ pub async fn run<P: TransactionProofPipeline>(
 			)
 		})
 		.await
+		.map_err(Error::Utils)
 }
 
 /// Run proofs synchronization.

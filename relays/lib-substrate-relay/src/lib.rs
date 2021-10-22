@@ -19,6 +19,7 @@
 #![warn(missing_docs)]
 
 pub mod conversion_rate_update;
+pub mod error;
 pub mod finality_pipeline;
 pub mod finality_target;
 pub mod headers_initialize;
