@@ -15,6 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
+	error::{Error, Result},
 	ethereum_client::{bridge_contract, EthereumHighLevelRpc},
 	rpc_errors::RpcError,
 };
@@ -104,20 +105,20 @@ pub async fn run(params: EthereumDeployContractParams) {
 async fn prepare_initial_header(
 	sub_client: &SubstrateClient<Rialto>,
 	sub_initial_header: Option<Vec<u8>>,
-) -> Result<(RialtoHeaderId, Vec<u8>), String> {
+) -> Result<(RialtoHeaderId, Vec<u8>)> {
 	match sub_initial_header {
 		Some(raw_initial_header) => {
 			match rialto_runtime::Header::decode(&mut &raw_initial_header[..]) {
 				Ok(initial_header) =>
 					Ok((HeaderId(initial_header.number, initial_header.hash()), raw_initial_header)),
-				Err(error) => Err(format!("Error decoding initial header: {}", error)),
+				Err(error) => Err(Error::DecodeInitialHeader(error)),
 			}
 		},
 		None => {
 			let initial_header = sub_client.header_by_number(Zero::zero()).await;
 			initial_header
 				.map(|header| (HeaderId(Zero::zero(), header.hash()), header.encode()))
-				.map_err(|error| format!("Error reading Substrate genesis header: {:?}", error))
+				.map_err(|error| Error::ReadGenesisHeader(error))
 		},
 	}
 }
@@ -127,14 +128,13 @@ async fn prepare_initial_authorities_set(
 	sub_client: &SubstrateClient<Rialto>,
 	sub_initial_header_hash: rialto_runtime::Hash,
 	sub_initial_authorities_set: Option<Vec<u8>>,
-) -> Result<OpaqueGrandpaAuthoritiesSet, String> {
+) -> Result<OpaqueGrandpaAuthoritiesSet> {
 	let initial_authorities_set = match sub_initial_authorities_set {
 		Some(initial_authorities_set) => Ok(initial_authorities_set),
 		None => sub_client.grandpa_authorities_set(sub_initial_header_hash).await,
 	};
 
-	initial_authorities_set
-		.map_err(|error| format!("Error reading GRANDPA authorities set: {:?}", error))
+	initial_authorities_set.map_err(|error| Error::ReadAuthorities(error))
 }
 
 /// Deploy bridge contract to Ethereum chain.
@@ -145,7 +145,7 @@ async fn deploy_bridge_contract(
 	initial_header: Vec<u8>,
 	initial_set_id: u64,
 	initial_authorities: Vec<u8>,
-) -> Result<(), String> {
+) -> Result<()> {
 	eth_client
 		.submit_ethereum_transaction(
 			params,
@@ -160,5 +160,5 @@ async fn deploy_bridge_contract(
 			),
 		)
 		.await
-		.map_err(|error| format!("Error deploying contract: {:?}", error))
+		.map_err(|error| Error::DeployContract(error))
 }

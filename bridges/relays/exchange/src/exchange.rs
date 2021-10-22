@@ -16,11 +16,11 @@
 
 //! Relaying proofs of exchange transaction.
 
+use crate::error::{Error, ErrorOf};
+
+use anyhow::anyhow;
 use async_trait::async_trait;
-use relay_utils::{
-	relay_loop::Client as RelayClient, FailedClient, MaybeConnectionError,
-	StringifiedMaybeConnectionError,
-};
+use relay_utils::{relay_loop::Client as RelayClient, FailedClient, MaybeConnectionError};
 use std::{
 	fmt::{Debug, Display},
 	string::ToString,
@@ -67,7 +67,7 @@ pub trait SourceBlock: 'static + Send + Sync {
 /// Transaction that is participating in exchange.
 pub trait SourceTransaction: 'static + Send {
 	/// Transaction hash type.
-	type Hash: Debug + Display;
+	type Hash: Debug + Display + Clone;
 
 	/// Return transaction hash.
 	fn hash(&self) -> Self::Hash;
@@ -117,7 +117,7 @@ pub trait TargetClient<P: TransactionProofPipeline>: RelayClient {
 	/// Sleep until exchange-related data is (probably) updated.
 	async fn tick(&self);
 	/// Returns `Ok(true)` if header is known to the target node.
-	async fn is_header_known(&self, id: &HeaderId<P>) -> Result<bool, Self::Error>;
+	async fn is_header_known(&self, id: &HeaderId<P>) -> std::result::Result<bool, Self::Error>;
 	/// Returns `Ok(true)` if header is finalized by the target node.
 	async fn is_header_finalized(&self, id: &HeaderId<P>) -> Result<bool, Self::Error>;
 	/// Returns best finalized header id.
@@ -178,9 +178,9 @@ pub async fn relay_block_transactions<P: TransactionProofPipeline>(
 				target_client.filter_transaction_proof(&source_tx_proof).await.map_err(|err| {
 					(
 						FailedClient::Target,
-						StringifiedMaybeConnectionError::new(
+						Error::TransactionFiltering(
+							anyhow!("{:?}", err),
 							err.is_connection_error(),
-							format!("Transaction filtering has failed with {:?}", err),
 						),
 					)
 				})?;
@@ -256,20 +256,14 @@ pub async fn relay_single_transaction_proof<P: TransactionProofPipeline>(
 	source_client: &impl SourceClient<P>,
 	target_client: &impl TargetClient<P>,
 	source_tx_hash: TransactionHashOf<P>,
-) -> Result<(), String> {
+) -> Result<(), ErrorOf<P>> {
 	// wait for transaction and header on source node
 	let (source_header_id, source_tx_index) =
 		wait_transaction_mined(source_client, &source_tx_hash).await?;
 	let source_block = source_client.block_by_hash(source_header_id.1.clone()).await;
 	let source_block = source_block.map_err(|err| {
-		format!(
-			"Error retrieving block {} from {} node: {:?}",
-			source_header_id.1,
-			P::SOURCE_NAME,
-			err,
-		)
+		Error::RetrievingBlock(source_header_id.1.clone(), P::SOURCE_NAME, anyhow!("{:?}", err))
 	})?;
-
 	// wait for transaction and header on target node
 	wait_header_imported(target_client, &source_header_id).await?;
 	wait_header_finalized(target_client, &source_header_id).await?;
@@ -280,11 +274,10 @@ pub async fn relay_single_transaction_proof<P: TransactionProofPipeline>(
 		target_client,
 		&source_tx_id,
 		prepare_transaction_proof(source_client, &source_tx_id, &source_block, source_tx_index)
-			.await
-			.map_err(|err| err.to_string())?,
+			.await?,
 	)
 	.await
-	.map_err(|err| err.to_string())
+	.map_err(Into::into)
 }
 
 /// Prepare transaction proof.
@@ -293,19 +286,16 @@ async fn prepare_transaction_proof<P: TransactionProofPipeline>(
 	source_tx_id: &str,
 	source_block: &P::Block,
 	source_tx_index: usize,
-) -> Result<P::TransactionProof, StringifiedMaybeConnectionError> {
+) -> Result<P::TransactionProof, ErrorOf<P>> {
 	source_client
 		.transaction_proof(source_block, source_tx_index)
 		.await
 		.map_err(|err| {
-			StringifiedMaybeConnectionError::new(
+			Error::BuildTransactionProof(
+				source_tx_id.to_owned(),
+				P::SOURCE_NAME,
+				anyhow!("{:?}", err),
 				err.is_connection_error(),
-				format!(
-					"Error building transaction {} proof on {} node: {:?}",
-					source_tx_id,
-					P::SOURCE_NAME,
-					err,
-				),
 			)
 		})
 }
@@ -315,16 +305,13 @@ async fn relay_ready_transaction_proof<P: TransactionProofPipeline>(
 	target_client: &impl TargetClient<P>,
 	source_tx_id: &str,
 	source_tx_proof: P::TransactionProof,
-) -> Result<(), StringifiedMaybeConnectionError> {
+) -> Result<(), ErrorOf<P>> {
 	target_client.submit_transaction_proof(source_tx_proof).await.map_err(|err| {
-		StringifiedMaybeConnectionError::new(
+		Error::SubmitTransactionProof(
+			source_tx_id.to_owned(),
+			P::TARGET_NAME,
+			anyhow!("{:?}", err),
 			err.is_connection_error(),
-			format!(
-				"Error submitting transaction {} proof to {} node: {:?}",
-				source_tx_id,
-				P::TARGET_NAME,
-				err,
-			),
 		)
 	})
 }
@@ -333,15 +320,14 @@ async fn relay_ready_transaction_proof<P: TransactionProofPipeline>(
 async fn wait_transaction_mined<P: TransactionProofPipeline>(
 	source_client: &impl SourceClient<P>,
 	source_tx_hash: &TransactionHashOf<P>,
-) -> Result<(HeaderId<P>, usize), String> {
+) -> Result<(HeaderId<P>, usize), ErrorOf<P>> {
 	loop {
 		let source_header_and_tx =
 			source_client.transaction_block(source_tx_hash).await.map_err(|err| {
-				format!(
-					"Error retrieving transaction {} from {} node: {:?}",
-					source_tx_hash,
+				Error::RetrievingTransaction(
+					source_tx_hash.clone(),
 					P::SOURCE_NAME,
-					err,
+					anyhow!("{:?}", err),
 				)
 			})?;
 		match source_header_and_tx {
@@ -373,16 +359,15 @@ async fn wait_transaction_mined<P: TransactionProofPipeline>(
 async fn wait_header_imported<P: TransactionProofPipeline>(
 	target_client: &impl TargetClient<P>,
 	source_header_id: &HeaderId<P>,
-) -> Result<(), String> {
+) -> Result<(), ErrorOf<P>> {
 	loop {
 		let is_header_known =
 			target_client.is_header_known(source_header_id).await.map_err(|err| {
-				format!(
-					"Failed to check existence of header {}/{} on {} node: {:?}",
+				Error::CheckHeaderExistence(
 					source_header_id.0,
-					source_header_id.1,
+					source_header_id.1.clone(),
 					P::TARGET_NAME,
-					err,
+					anyhow!("{:?}", err),
 				)
 			})?;
 		match is_header_known {
@@ -416,16 +401,15 @@ async fn wait_header_imported<P: TransactionProofPipeline>(
 async fn wait_header_finalized<P: TransactionProofPipeline>(
 	target_client: &impl TargetClient<P>,
 	source_header_id: &HeaderId<P>,
-) -> Result<(), String> {
+) -> Result<(), ErrorOf<P>> {
 	loop {
 		let is_header_finalized =
 			target_client.is_header_finalized(source_header_id).await.map_err(|err| {
-				format!(
-					"Failed to check finality of header {}/{} on {} node: {:?}",
+				Error::Finality(
 					source_header_id.0,
-					source_header_id.1,
+					source_header_id.1.clone(),
 					P::TARGET_NAME,
-					err,
+					anyhow!("{:?}", err),
 				)
 			})?;
 		match is_header_finalized {
@@ -691,14 +675,12 @@ pub(crate) mod tests {
 		source: &TestTransactionsSource,
 		target: &TestTransactionsTarget,
 	) {
-		assert_eq!(
-			async_std::task::block_on(relay_single_transaction_proof(
-				source,
-				target,
-				test_transaction_hash(0),
-			)),
-			Ok(()),
-		);
+		assert!(async_std::task::block_on(relay_single_transaction_proof(
+			source,
+			target,
+			test_transaction_hash(0)
+		))
+		.is_ok());
 		assert_eq!(
 			target.data.lock().submitted_proofs,
 			vec![TestTransactionProof(test_transaction_hash(0))],
@@ -711,7 +693,7 @@ pub(crate) mod tests {
 			&target,
 			test_transaction_hash(0),
 		))
-		.is_err(),);
+		.is_err());
 		assert!(target.data.lock().submitted_proofs.is_empty());
 	}
 
