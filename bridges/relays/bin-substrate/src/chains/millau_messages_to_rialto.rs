@@ -95,7 +95,7 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 	) -> Bytes {
 		let (relayers_state, proof) = proof;
 		let call: millau_runtime::Call =
-			millau_runtime::MessagesCall::receive_messages_delivery_proof(proof, relayers_state)
+			millau_runtime::MessagesCall::receive_messages_delivery_proof { proof, relayers_state }
 				.into();
 		let call_weight = call.get_dispatch_info().weight;
 		let genesis_hash = *self.message_lane.source_client.genesis_hash();
@@ -130,12 +130,12 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 		let (dispatch_weight, proof) = proof;
 		let FromBridgedChainMessagesProof { ref nonces_start, ref nonces_end, .. } = proof;
 		let messages_count = nonces_end - nonces_start + 1;
-		let call: rialto_runtime::Call = rialto_runtime::MessagesCall::receive_messages_proof(
-			self.message_lane.relayer_id_at_source.clone(),
+		let call: rialto_runtime::Call = rialto_runtime::MessagesCall::receive_messages_proof {
+			relayer_id_at_bridged_chain: self.message_lane.relayer_id_at_source.clone(),
 			proof,
-			messages_count as _,
+			messages_count: messages_count as _,
 			dispatch_weight,
-		)
+		}
 		.into();
 		let call_weight = call.get_dispatch_info().weight;
 		let genesis_hash = *self.message_lane.target_client.genesis_hash();
@@ -290,11 +290,11 @@ pub(crate) async fn update_rialto_to_millau_conversion_rate(
 					&signer,
 					relay_substrate_client::TransactionEra::immortal(),
 					UnsignedTransaction::new(
-						millau_runtime::MessagesCall::update_pallet_parameter(
-							millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
+						millau_runtime::MessagesCall::update_pallet_parameter {
+							parameter: millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
 								sp_runtime::FixedU128::from_float(updated_rate),
 							),
-						)
+						}
 						.into(),
 						transaction_nonce,
 					),

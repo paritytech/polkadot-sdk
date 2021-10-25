@@ -21,10 +21,10 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
-use bp_runtime::Chain;
 use frame_support::weights::{
 	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
+use scale_info::TypeInfo;
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
@@ -51,8 +51,6 @@ impl WeightToFeePolynomial for WeightToFee {
 	}
 }
 
-pub type UncheckedExtrinsic = bp_polkadot_core::UncheckedExtrinsic<Call>;
-
 // NOTE: This needs to be kept up to date with the Westend runtime found in the Polkadot repo.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_version::create_runtime_str!("westend"),
@@ -66,32 +64,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 /// Westend Runtime `Call` enum.
 ///
-/// The enum represents a subset of possible `Call`s we can send to Westend chain.
-/// Ideally this code would be auto-generated from metadata, because we want to
-/// avoid depending directly on the ENTIRE runtime just to get the encoding of `Dispatchable`s.
-///
-/// All entries here (like pretty much in the entire file) must be kept in sync with Westend
-/// `construct_runtime`, so that we maintain SCALE-compatibility.
-///
-/// See: [link](https://github.com/paritytech/polkadot/blob/master/runtime/westend/src/lib.rs)
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
-pub enum Call {
-	/// Rococo bridge pallet.
-	#[codec(index = 40)]
-	BridgeGrandpaRococo(BridgeGrandpaRococoCall),
-}
-
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone)]
-#[allow(non_camel_case_types)]
-pub enum BridgeGrandpaRococoCall {
-	#[codec(index = 0)]
-	submit_finality_proof(
-		<PolkadotLike as Chain>::Header,
-		bp_header_chain::justification::GrandpaJustification<<PolkadotLike as Chain>::Header>,
-	),
-	#[codec(index = 1)]
-	initialize(bp_header_chain::InitializationData<<PolkadotLike as Chain>::Header>),
-}
+/// We are not currently submitting any Westend transactions => it is empty.
+#[derive(
+	parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, PartialEq, Eq, Clone, TypeInfo,
+)]
+pub enum Call {}
 
 impl sp_runtime::traits::Dispatchable for Call {
 	type Origin = ();
