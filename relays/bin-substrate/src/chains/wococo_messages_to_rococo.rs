@@ -16,7 +16,7 @@
 
 //! Wococo-to-Rococo messages sync entrypoint.
 
-use std::{ops::RangeInclusive, time::Duration};
+use std::ops::RangeInclusive;
 
 use codec::Encode;
 use sp_core::{Bytes, Pair};
@@ -40,6 +40,7 @@ use substrate_relay_helper::{
 	},
 	messages_source::SubstrateMessagesSource,
 	messages_target::SubstrateMessagesTarget,
+	STALL_TIMEOUT,
 };
 
 /// Wococo-to-Rococo message lane.
@@ -87,6 +88,7 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 
 	fn make_messages_receiving_proof_transaction(
 		&self,
+		best_block_id: WococoHeaderId,
 		transaction_nonce: IndexOf<Wococo>,
 		_generated_at_block: RococoHeaderId,
 		proof: <Self::MessageLane as MessageLane>::MessagesReceivingProof,
@@ -102,7 +104,10 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 		let transaction = Wococo::sign_transaction(
 			genesis_hash,
 			&self.message_lane.source_sign,
-			relay_substrate_client::TransactionEra::immortal(),
+			relay_substrate_client::TransactionEra::new(
+				best_block_id,
+				self.message_lane.source_transactions_mortality,
+			),
 			UnsignedTransaction::new(call, transaction_nonce),
 		);
 		log::trace!(
@@ -121,6 +126,7 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 
 	fn make_messages_delivery_transaction(
 		&self,
+		best_block_id: WococoHeaderId,
 		transaction_nonce: IndexOf<Rococo>,
 		_generated_at_header: WococoHeaderId,
 		_nonces: RangeInclusive<MessageNonce>,
@@ -142,7 +148,10 @@ impl SubstrateMessageLane for WococoMessagesToRococo {
 		let transaction = Rococo::sign_transaction(
 			genesis_hash,
 			&self.message_lane.target_sign,
-			relay_substrate_client::TransactionEra::immortal(),
+			relay_substrate_client::TransactionEra::new(
+				best_block_id,
+				self.message_lane.target_transactions_mortality,
+			),
 			UnsignedTransaction::new(call, transaction_nonce),
 		);
 		log::trace!(
@@ -166,7 +175,13 @@ type RococoTargetClient = SubstrateMessagesTarget<WococoMessagesToRococo>;
 pub async fn run(
 	params: MessagesRelayParams<Wococo, WococoSigningParams, Rococo, RococoSigningParams>,
 ) -> anyhow::Result<()> {
-	let stall_timeout = Duration::from_secs(5 * 60);
+	let stall_timeout = relay_substrate_client::bidirectional_transaction_stall_timeout(
+		params.source_transactions_mortality,
+		params.target_transactions_mortality,
+		Wococo::AVERAGE_BLOCK_INTERVAL,
+		Rococo::AVERAGE_BLOCK_INTERVAL,
+		STALL_TIMEOUT,
+	);
 	let relayer_id_at_wococo = (*params.source_sign.public().as_array_ref()).into();
 
 	let lane_id = params.lane_id;
@@ -175,8 +190,10 @@ pub async fn run(
 		message_lane: SubstrateMessageLaneToSubstrate {
 			source_client: source_client.clone(),
 			source_sign: params.source_sign,
+			source_transactions_mortality: params.source_transactions_mortality,
 			target_client: params.target_client.clone(),
 			target_sign: params.target_sign,
+			target_transactions_mortality: params.target_transactions_mortality,
 			relayer_id_at_source: relayer_id_at_wococo,
 		},
 	};
@@ -202,12 +219,17 @@ pub async fn run(
 			Max messages in single transaction: {}\n\t\
 			Max messages size in single transaction: {}\n\t\
 			Max messages weight in single transaction: {}\n\t\
-			Relayer mode: {:?}",
+			Relayer mode: {:?}\n\t\
+			Tx mortality: {:?}/{:?}\n\t\
+			Stall timeout: {:?}",
 		lane.message_lane.relayer_id_at_source,
 		max_messages_in_single_batch,
 		max_messages_size_in_single_batch,
 		max_messages_weight_in_single_batch,
 		params.relayer_mode,
+		params.source_transactions_mortality,
+		params.target_transactions_mortality,
+		stall_timeout,
 	);
 
 	let (metrics_params, metrics_values) = add_standalone_metrics(

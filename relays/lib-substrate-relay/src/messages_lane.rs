@@ -44,10 +44,14 @@ pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS> {
 	pub source_client: Client<SC>,
 	/// Sign parameters for messages source chain.
 	pub source_sign: SS,
+	/// Mortality of source transactions.
+	pub source_transactions_mortality: Option<u32>,
 	/// Messages target client.
 	pub target_client: Client<TC>,
 	/// Sign parameters for messages target chain.
 	pub target_sign: TS,
+	/// Mortality of target transactions.
+	pub target_transactions_mortality: Option<u32>,
 	/// Optional on-demand source to target headers relay.
 	pub source_to_target_headers_relay: Option<OnDemandHeadersRelay<SC>>,
 	/// Optional on-demand target to source headers relay.
@@ -113,6 +117,7 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 	/// Make messages delivery transaction.
 	fn make_messages_delivery_transaction(
 		&self,
+		best_block_id: TargetHeaderIdOf<Self::MessageLane>,
 		transaction_nonce: IndexOf<Self::TargetChain>,
 		generated_at_header: SourceHeaderIdOf<Self::MessageLane>,
 		nonces: RangeInclusive<MessageNonce>,
@@ -126,6 +131,7 @@ pub trait SubstrateMessageLane: 'static + Clone + Send + Sync {
 	/// Make messages receiving proof transaction.
 	fn make_messages_receiving_proof_transaction(
 		&self,
+		best_block_id: SourceHeaderIdOf<Self::MessageLane>,
 		transaction_nonce: IndexOf<Self::SourceChain>,
 		generated_at_header: TargetHeaderIdOf<Self::MessageLane>,
 		proof: <Self::MessageLane as MessageLane>::MessagesReceivingProof,
@@ -144,10 +150,14 @@ pub struct SubstrateMessageLaneToSubstrate<
 	pub source_client: Client<Source>,
 	/// Parameters required to sign transactions for source chain.
 	pub source_sign: SourceSignParams,
+	/// Source transactions mortality.
+	pub source_transactions_mortality: Option<u32>,
 	/// Client for the target Substrate chain.
 	pub target_client: Client<Target>,
 	/// Parameters required to sign transactions for target chain.
 	pub target_sign: TargetSignParams,
+	/// Target transactions mortality.
+	pub target_transactions_mortality: Option<u32>,
 	/// Account id of relayer at the source chain.
 	pub relayer_id_at_source: Source::AccountId,
 }
@@ -159,8 +169,10 @@ impl<Source: Chain, SourceSignParams: Clone, Target: Chain, TargetSignParams: Cl
 		Self {
 			source_client: self.source_client.clone(),
 			source_sign: self.source_sign.clone(),
+			source_transactions_mortality: self.source_transactions_mortality,
 			target_client: self.target_client.clone(),
 			target_sign: self.target_sign.clone(),
+			target_transactions_mortality: self.target_transactions_mortality,
 			relayer_id_at_source: self.relayer_id_at_source.clone(),
 		}
 	}

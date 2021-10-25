@@ -69,6 +69,10 @@ pub const ACCOUNT_DERIVATION_PREFIX: &[u8] = b"pallet-bridge/account-derivation/
 /// A unique prefix for entropy when generating a cross-chain account ID for the Root account.
 pub const ROOT_ACCOUNT_DERIVATION_PREFIX: &[u8] = b"pallet-bridge/account-derivation/root";
 
+/// Generic header Id.
+#[derive(RuntimeDebug, Default, Clone, Copy, Eq, Hash, PartialEq)]
+pub struct HeaderId<Hash, Number>(pub Number, pub Hash);
+
 /// Unique identifier of the chain.
 ///
 /// In addition to its main function (identifying the chain), this type may also be used to
@@ -159,20 +163,17 @@ pub enum TransactionEra<BlockNumber, BlockHash> {
 	/// Transaction is immortal.
 	Immortal,
 	/// Transaction is valid for a given number of blocks, starting from given block.
-	Mortal(BlockNumber, BlockHash, u32),
+	Mortal(HeaderId<BlockHash, BlockNumber>, u32),
 }
 
 impl<BlockNumber: Copy + Into<u64>, BlockHash: Copy> TransactionEra<BlockNumber, BlockHash> {
 	/// Prepare transaction era, based on mortality period and current best block number.
 	pub fn new(
-		best_block_number: BlockNumber,
-		best_block_hash: BlockHash,
+		best_block_id: HeaderId<BlockHash, BlockNumber>,
 		mortality_period: Option<u32>,
 	) -> Self {
 		mortality_period
-			.map(|mortality_period| {
-				TransactionEra::Mortal(best_block_number, best_block_hash, mortality_period)
-			})
+			.map(|mortality_period| TransactionEra::Mortal(best_block_id, mortality_period))
 			.unwrap_or(TransactionEra::Immortal)
 	}
 
@@ -185,8 +186,8 @@ impl<BlockNumber: Copy + Into<u64>, BlockHash: Copy> TransactionEra<BlockNumber,
 	pub fn frame_era(&self) -> sp_runtime::generic::Era {
 		match *self {
 			TransactionEra::Immortal => sp_runtime::generic::Era::immortal(),
-			TransactionEra::Mortal(header_number, _, period) =>
-				sp_runtime::generic::Era::mortal(period as _, header_number.into()),
+			TransactionEra::Mortal(header_id, period) =>
+				sp_runtime::generic::Era::mortal(period as _, header_id.0.into()),
 		}
 	}
 
@@ -194,7 +195,7 @@ impl<BlockNumber: Copy + Into<u64>, BlockHash: Copy> TransactionEra<BlockNumber,
 	pub fn signed_payload(&self, genesis_hash: BlockHash) -> BlockHash {
 		match *self {
 			TransactionEra::Immortal => genesis_hash,
-			TransactionEra::Mortal(_, header_hash, _) => header_hash,
+			TransactionEra::Mortal(header_id, _) => header_id.1,
 		}
 	}
 }
