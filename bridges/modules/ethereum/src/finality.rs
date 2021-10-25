@@ -17,6 +17,7 @@
 use crate::{error::Error, Storage};
 use bp_eth_poa::{public_to_address, Address, AuraHeader, HeaderId, SealedEmptyStep, H256};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_runtime::RuntimeDebug;
 use sp_std::{
@@ -55,7 +56,7 @@ pub struct FinalityEffects<Submitter> {
 }
 
 /// Finality votes for given block.
-#[derive(RuntimeDebug, Decode, Encode)]
+#[derive(RuntimeDebug, Decode, Encode, TypeInfo)]
 #[cfg_attr(test, derive(Clone, PartialEq))]
 pub struct FinalityVotes<Submitter> {
 	/// Number of votes per each validator.
@@ -66,7 +67,7 @@ pub struct FinalityVotes<Submitter> {
 }
 
 /// Information about block ancestor that is used in computations.
-#[derive(RuntimeDebug, Decode, Encode)]
+#[derive(RuntimeDebug, Decode, Encode, TypeInfo)]
 #[cfg_attr(test, derive(Clone, Default, PartialEq))]
 pub struct FinalityAncestor<Submitter> {
 	/// Bock id.

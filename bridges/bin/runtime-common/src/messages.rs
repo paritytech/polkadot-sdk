@@ -37,6 +37,7 @@ use frame_support::{
 	RuntimeDebug,
 };
 use hash_db::Hasher;
+use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul, Saturating, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128,
@@ -216,7 +217,7 @@ pub mod source {
 	/// - hash of finalized header;
 	/// - storage proof of inbound lane state;
 	/// - lane id.
-	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
 		/// Hash of the bridge header the proof is for.
 		pub bridged_header_hash: BridgedHeaderHash,
@@ -456,7 +457,7 @@ pub mod target {
 	/// - storage proof of messages and (optionally) outbound lane state;
 	/// - lane id;
 	/// - nonces (inclusive range) of messages which are included in this proof.
-	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 		/// Hash of the finalized bridged header the proof is for.
 		pub bridged_header_hash: BridgedHeaderHash,
