@@ -76,14 +76,18 @@ impl RelayMessages {
 		select_full_bridge!(self.bridge, {
 			let source_client = self.source.to_client::<Source>().await?;
 			let source_sign = self.source_sign.to_keypair::<Source>()?;
+			let source_transactions_mortality = self.source_sign.transactions_mortality()?;
 			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
+			let target_transactions_mortality = self.target_sign.transactions_mortality()?;
 
 			relay_messages(MessagesRelayParams {
 				source_client,
 				source_sign,
+				source_transactions_mortality,
 				target_client,
 				target_sign,
+				target_transactions_mortality,
 				source_to_target_headers_relay: None,
 				target_to_source_headers_relay: None,
 				lane_id: self.lane.into(),
