@@ -444,7 +444,7 @@ where
 				);
 
 				return None
-			}
+			},
 			_ => (),
 		}
 
