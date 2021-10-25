@@ -34,7 +34,7 @@ use num_traits::{One, Zero};
 use relay_substrate_client::{Chain, Client};
 use sp_core::Bytes;
 use sp_finality_grandpa::AuthorityList as GrandpaAuthoritiesSet;
-use sp_runtime::traits::{Header as HeaderT, Header};
+use sp_runtime::traits::Header as HeaderT;
 
 /// Submit headers-bridge initialization transaction.
 pub async fn initialize<SourceChain: Chain, TargetChain: Chain>(
@@ -79,7 +79,7 @@ async fn do_initialize<SourceChain: Chain, TargetChain: Chain>(
 	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes
 		+ Send
 		+ 'static,
-) -> Result<TargetChain::Hash, Error<SourceChain::Hash, <SourceChain::Header as Header>::Number>> {
+) -> Result<TargetChain::Hash, Error<SourceChain::Hash, <SourceChain::Header as HeaderT>::Number>> {
 	let initialization_data = prepare_initialization_data(source_client).await?;
 	log::info!(
 		target: "bridge",
@@ -103,7 +103,7 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	source_client: Client<SourceChain>,
 ) -> Result<
 	InitializationData<SourceChain::Header>,
-	Error<SourceChain::Hash, <SourceChain::Header as Header>::Number>,
+	Error<SourceChain::Hash, <SourceChain::Header as HeaderT>::Number>,
 > {
 	// In ideal world we just need to get best finalized header and then to read GRANDPA authorities
 	// set (`pallet_grandpa::CurrentSetId` + `GrandpaApi::grandpa_authorities()`) at this header.
@@ -121,7 +121,7 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 		.await
 		.map_err(|e| Error::ReadJustification(SourceChain::NAME, e))
 		.and_then(|justification| {
-			justification.ok_or_else(|| Error::ReadJustificationStreamEnded(SourceChain::NAME))
+			justification.ok_or(Error::ReadJustificationStreamEnded(SourceChain::NAME))
 		})?;
 
 	// Read initial header.
@@ -174,9 +174,7 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 	let mut initial_authorities_set_id = 0;
 	let mut min_possible_block_number = SourceChain::BlockNumber::zero();
 	let authorities_for_verification = VoterSet::new(authorities_for_verification.clone())
-		.ok_or_else(|| {
-			Error::ReadInvalidAuthorities(SourceChain::NAME, authorities_for_verification)
-		})?;
+		.ok_or(Error::ReadInvalidAuthorities(SourceChain::NAME, authorities_for_verification))?;
 	loop {
 		log::trace!(
 			target: "bridge", "Trying {} GRANDPA authorities set id: {}",
@@ -222,7 +220,7 @@ async fn prepare_initialization_data<SourceChain: Chain>(
 async fn source_header<SourceChain: Chain>(
 	source_client: &Client<SourceChain>,
 	header_hash: SourceChain::Hash,
-) -> Result<SourceChain::Header, Error<SourceChain::Hash, <SourceChain::Header as Header>::Number>>
+) -> Result<SourceChain::Header, Error<SourceChain::Hash, <SourceChain::Header as HeaderT>::Number>>
 {
 	source_client
 		.header_by_hash(header_hash)
@@ -234,7 +232,7 @@ async fn source_header<SourceChain: Chain>(
 async fn source_authorities_set<SourceChain: Chain>(
 	source_client: &Client<SourceChain>,
 	header_hash: SourceChain::Hash,
-) -> Result<GrandpaAuthoritiesSet, Error<SourceChain::Hash, <SourceChain::Header as Header>::Number>>
+) -> Result<GrandpaAuthoritiesSet, Error<SourceChain::Hash, <SourceChain::Header as HeaderT>::Number>>
 {
 	let raw_authorities_set = source_client
 		.grandpa_authorities_set(header_hash)
