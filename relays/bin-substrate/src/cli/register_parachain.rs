@@ -112,7 +112,7 @@ impl RegisterParachain {
 
 			// step 1: reserve a parachain id
 			let relay_genesis_hash = *relay_client.genesis_hash();
-			let relay_sudo_account: AccountIdOf<Relaychain> = relay_sign.public().clone().into();
+			let relay_sudo_account: AccountIdOf<Relaychain> = relay_sign.public().into();
 			let reserve_parachain_id_call: CallOf<Relaychain> = ParaRegistrarCall::reserve().into();
 			let reserve_parachain_signer = relay_sign.clone();
 			wait_until_transaction_is_finalized::<Relaychain>(

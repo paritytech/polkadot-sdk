@@ -134,9 +134,9 @@ impl ResubmitTransactions {
 							transaction: None,
 							resubmitted: 0,
 							stalled_for: Zero::zero(),
-							stalled_for_limit: self.stalled_blocks.into(),
-							tip_step: self.tip_step.cast().into(),
-							tip_limit: self.tip_limit.cast().into(),
+							stalled_for_limit: self.stalled_blocks as _,
+							tip_step: self.tip_step.cast() as _,
+							tip_limit: self.tip_limit.cast() as _,
 						},
 					)
 				})
