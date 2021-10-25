@@ -226,6 +226,7 @@ pub mod pallet {
 		/// Violating rule#1 will lead to losing your `source_balance_at_this_chain` tokens.
 		/// Violating other rules will lead to losing message fees for this and other transactions +
 		/// losing fees for message transfer.
+		#[allow(clippy::boxed_local)]
 		#[pallet::weight(
 			T::WeightInfo::create_swap()
 				.saturating_add(T::WeightInfo::send_message_weight(

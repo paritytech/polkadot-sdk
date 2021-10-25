@@ -132,6 +132,7 @@ impl<'a> Validators<'a> {
 		}
 
 		let receipts = receipts.ok_or(Error::MissingTransactionsReceipts)?;
+		#[allow(clippy::question_mark)]
 		if header.check_receipts_root(&receipts).is_err() {
 			return Err(Error::TransactionsReceiptsMismatch)
 		}

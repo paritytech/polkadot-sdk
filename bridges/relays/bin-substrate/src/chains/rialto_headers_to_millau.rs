@@ -66,7 +66,7 @@ impl SubstrateFinalitySyncPipeline for RialtoFinalityToMillau {
 		header: RialtoSyncHeader,
 		proof: GrandpaJustification<bp_rialto::Header>,
 	) -> Bytes {
-		let call = millau_runtime::BridgeGrandpaRialtoCall::<
+		let call = millau_runtime::BridgeGrandpaCall::<
 			millau_runtime::Runtime,
 			millau_runtime::RialtoGrandpaInstance,
 		>::submit_finality_proof(Box::new(header.into_inner()), proof)
