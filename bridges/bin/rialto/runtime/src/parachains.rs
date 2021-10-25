@@ -39,7 +39,9 @@ impl polkadot_runtime_parachains::inclusion::RewardValidators for RewardValidato
 
 // all required parachain modules from `polkadot-runtime-parachains` crate
 
-impl parachains_configuration::Config for Runtime {}
+impl parachains_configuration::Config for Runtime {
+	type WeightInfo = parachains_configuration::TestWeightInfo;
+}
 
 impl parachains_dmp::Config for Runtime {}
 
@@ -58,6 +60,7 @@ impl parachains_inclusion::Config for Runtime {
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 impl parachains_origin::Config for Runtime {}
@@ -65,6 +68,7 @@ impl parachains_origin::Config for Runtime {}
 impl parachains_paras::Config for Runtime {
 	type Origin = Origin;
 	type Event = Event;
+	type WeightInfo = parachains_paras::TestWeightInfo;
 }
 
 impl parachains_paras_inherent::Config for Runtime {}
@@ -83,6 +87,7 @@ impl parachains_ump::Config for Runtime {
 	type Event = Event;
 	type UmpSink = ();
 	type FirstMessageFactorPercent = FirstMessageFactorPercent;
+	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 }
 
 // required onboarding pallets. We're not going to use auctions or crowdloans, so they're missing
@@ -112,6 +117,7 @@ impl slots::Config for Runtime {
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
 	type WeightInfo = slots::TestWeightInfo;
+	type LeaseOffset = ();
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
