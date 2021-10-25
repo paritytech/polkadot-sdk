@@ -16,6 +16,7 @@
 
 //! Utilities used by different relays.
 
+pub use bp_runtime::HeaderId;
 pub use error::Error;
 pub use relay_loop::{relay_loop, relay_metrics};
 
@@ -102,10 +103,6 @@ macro_rules! bail_on_arg_error {
 		}
 	};
 }
-
-/// Ethereum header Id.
-#[derive(Debug, Default, Clone, Copy, Eq, Hash, PartialEq)]
-pub struct HeaderId<Hash, Number>(pub Number, pub Hash);
 
 /// Error type that can signal connection errors.
 pub trait MaybeConnectionError {
