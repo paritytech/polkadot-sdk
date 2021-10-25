@@ -109,6 +109,7 @@ mod tests {
 			traits::{BlakeTwo256, ConvertInto, IdentityLookup},
 			Perbill, RuntimeAppPublic,
 		},
+		traits::GenesisBuild,
 		weights::Weight,
 		BasicExternalities,
 	};
@@ -177,7 +178,6 @@ mod tests {
 		type SessionManager = ();
 		type SessionHandler = TestSessionHandler;
 		type Keys = UintAuthorityId;
-		type DisabledValidatorsThreshold = ();
 		type WeightInfo = ();
 	}
 
@@ -197,7 +197,7 @@ mod tests {
 		) {
 		}
 
-		fn on_disabled(_: usize) {}
+		fn on_disabled(_: u32) {}
 	}
 
 	fn new_test_ext() -> TestExternalities {

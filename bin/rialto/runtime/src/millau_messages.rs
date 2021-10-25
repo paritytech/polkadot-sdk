@@ -31,6 +31,7 @@ use frame_support::{
 	weights::{DispatchClass, Weight},
 	RuntimeDebug,
 };
+use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
@@ -272,7 +273,7 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 }
 
 /// Rialto -> Millau message lane pallet parameters.
-#[derive(RuntimeDebug, Clone, Encode, Decode, PartialEq, Eq)]
+#[derive(RuntimeDebug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub enum RialtoToMillauMessagesParameter {
 	/// The conversion formula we use is: `RialtoTokens = MillauTokens * conversion_rate`.
 	MillauToRialtoConversionRate(FixedU128),
@@ -315,7 +316,7 @@ mod tests {
 			SystemConfig::default().build_storage::<Runtime>().unwrap().into();
 		ext.execute_with(|| {
 			let bridge = MILLAU_CHAIN_ID;
-			let call: Call = SystemCall::remark(vec![]).into();
+			let call: Call = SystemCall::remark { remark: vec![] }.into();
 			let dispatch_weight = call.get_dispatch_info().weight;
 			let dispatch_fee = <Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(
 				&dispatch_weight,

@@ -29,6 +29,7 @@ use frame_support::{
 	Parameter, RuntimeDebug,
 };
 use frame_system::limits;
+use scale_info::TypeInfo;
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
 	traits::{Convert, IdentifyAccount, Verify},
@@ -174,7 +175,7 @@ impl Chain for Millau {
 }
 
 /// Millau Hasher (Blake2-256 ++ Keccak-256) implementation.
-#[derive(PartialEq, Eq, Clone, Copy, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Copy, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BlakeTwoAndKeccak256;
 

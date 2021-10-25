@@ -82,7 +82,8 @@ mod tests {
 	fn millau_signature_is_valid_on_rialto() {
 		let millau_sign = relay_millau_client::SigningParams::from_string("//Dave", None).unwrap();
 
-		let call = rialto_runtime::Call::System(rialto_runtime::SystemCall::remark(vec![]));
+		let call =
+			rialto_runtime::Call::System(rialto_runtime::SystemCall::remark { remark: vec![] });
 
 		let millau_public: bp_millau::AccountSigner = millau_sign.public().into();
 		let millau_account_id: bp_millau::AccountId = millau_public.into_account();
@@ -104,7 +105,8 @@ mod tests {
 	fn rialto_signature_is_valid_on_millau() {
 		let rialto_sign = relay_rialto_client::SigningParams::from_string("//Dave", None).unwrap();
 
-		let call = millau_runtime::Call::System(millau_runtime::SystemCall::remark(vec![]));
+		let call =
+			millau_runtime::Call::System(millau_runtime::SystemCall::remark { remark: vec![] });
 
 		let rialto_public: bp_rialto::AccountSigner = rialto_sign.public().into();
 		let rialto_account_id: bp_rialto::AccountId = rialto_public.into_account();
@@ -132,7 +134,8 @@ mod tests {
 		);
 
 		let call: millau_runtime::Call =
-			millau_runtime::SystemCall::remark(vec![42; maximal_remark_size as _]).into();
+			millau_runtime::SystemCall::remark { remark: vec![42; maximal_remark_size as _] }
+				.into();
 		let payload = send_message::message_payload(
 			Default::default(),
 			call.get_dispatch_info().weight,
@@ -143,7 +146,8 @@ mod tests {
 		assert_eq!(Millau::verify_message(&payload), Ok(()));
 
 		let call: millau_runtime::Call =
-			millau_runtime::SystemCall::remark(vec![42; (maximal_remark_size + 1) as _]).into();
+			millau_runtime::SystemCall::remark { remark: vec![42; (maximal_remark_size + 1) as _] }
+				.into();
 		let payload = send_message::message_payload(
 			Default::default(),
 			call.get_dispatch_info().weight,
@@ -171,7 +175,8 @@ mod tests {
 		let maximal_dispatch_weight = send_message::compute_maximal_message_dispatch_weight(
 			bp_millau::max_extrinsic_weight(),
 		);
-		let call: millau_runtime::Call = rialto_runtime::SystemCall::remark(vec![]).into();
+		let call: millau_runtime::Call =
+			rialto_runtime::SystemCall::remark { remark: vec![] }.into();
 
 		let payload = send_message::message_payload(
 			Default::default(),
@@ -199,7 +204,8 @@ mod tests {
 		let maximal_dispatch_weight = send_message::compute_maximal_message_dispatch_weight(
 			bp_rialto::max_extrinsic_weight(),
 		);
-		let call: rialto_runtime::Call = millau_runtime::SystemCall::remark(vec![]).into();
+		let call: rialto_runtime::Call =
+			millau_runtime::SystemCall::remark { remark: vec![] }.into();
 
 		let payload = send_message::message_payload(
 			Default::default(),
@@ -222,7 +228,8 @@ mod tests {
 
 	#[test]
 	fn rialto_tx_extra_bytes_constant_is_correct() {
-		let rialto_call = rialto_runtime::Call::System(rialto_runtime::SystemCall::remark(vec![]));
+		let rialto_call =
+			rialto_runtime::Call::System(rialto_runtime::SystemCall::remark { remark: vec![] });
 		let rialto_tx = Rialto::sign_transaction(
 			Default::default(),
 			&sp_keyring::AccountKeyring::Alice.pair(),
@@ -240,7 +247,8 @@ mod tests {
 
 	#[test]
 	fn millau_tx_extra_bytes_constant_is_correct() {
-		let millau_call = millau_runtime::Call::System(millau_runtime::SystemCall::remark(vec![]));
+		let millau_call =
+			millau_runtime::Call::System(millau_runtime::SystemCall::remark { remark: vec![] });
 		let millau_tx = Millau::sign_transaction(
 			Default::default(),
 			&sp_keyring::AccountKeyring::Alice.pair(),
@@ -288,10 +296,10 @@ mod rococo_tests {
 			justification.clone(),
 		);
 		let expected =
-			millau_runtime::BridgeGrandpaCall::<millau_runtime::Runtime>::submit_finality_proof(
-				Box::new(header),
+			millau_runtime::BridgeGrandpaCall::<millau_runtime::Runtime>::submit_finality_proof {
+				finality_target: Box::new(header),
 				justification,
-			);
+			};
 
 		// when
 		let actual_encoded = actual.encode();
@@ -332,15 +340,15 @@ mod westend_tests {
 			votes_ancestries: vec![],
 		};
 
-		let actual = bp_westend::BridgeGrandpaRococoCall::submit_finality_proof(
-			header.clone(),
+		let actual = relay_kusama_client::runtime::BridgePolkadotGrandpaCall::submit_finality_proof(
+			Box::new(header.clone()),
 			justification.clone(),
 		);
 		let expected =
-			millau_runtime::BridgeGrandpaCall::<millau_runtime::Runtime>::submit_finality_proof(
-				Box::new(header),
+			millau_runtime::BridgeGrandpaCall::<millau_runtime::Runtime>::submit_finality_proof {
+				finality_target: Box::new(header),
 				justification,
-			);
+			};
 
 		// when
 		let actual_encoded = actual.encode();

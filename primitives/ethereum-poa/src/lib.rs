@@ -28,6 +28,7 @@ use codec::{Decode, Encode};
 use ethbloom::{Bloom as EthBloom, Input as BloomInput};
 use fixed_hash::construct_fixed_hash;
 use rlp::{Decodable, DecoderError, Rlp, RlpStream};
+use scale_info::TypeInfo;
 use sp_io::hashing::keccak_256;
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
@@ -57,7 +58,7 @@ pub type Address = H160;
 pub mod signatures;
 
 /// Complete header id.
-#[derive(Encode, Decode, Default, RuntimeDebug, PartialEq, Clone, Copy)]
+#[derive(Encode, Decode, Default, RuntimeDebug, PartialEq, Clone, Copy, TypeInfo)]
 pub struct HeaderId {
 	/// Header number.
 	pub number: u64,
@@ -66,7 +67,7 @@ pub struct HeaderId {
 }
 
 /// An Aura header.
-#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AuraHeader {
 	/// Parent block hash.
@@ -129,7 +130,7 @@ pub struct UnsignedTransaction {
 }
 
 /// Information describing execution of a transaction.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Receipt {
 	/// The total gas used in the block following execution of the transaction.
 	pub gas_used: U256,
@@ -142,7 +143,7 @@ pub struct Receipt {
 }
 
 /// Transaction outcome store in the receipt.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum TransactionOutcome {
 	/// Status and state root are unknown under EIP-98 rules.
 	Unknown,
@@ -153,7 +154,7 @@ pub enum TransactionOutcome {
 }
 
 /// A record of execution for a `LOG` operation.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct LogEntry {
 	/// The address of the contract executing at the point of the `LOG` operation.
 	pub address: Address,
@@ -164,7 +165,7 @@ pub struct LogEntry {
 }
 
 /// Logs bloom.
-#[derive(Clone, Encode, Decode)]
+#[derive(Clone, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Bloom(#[cfg_attr(feature = "std", serde(with = "BigArray"))] [u8; 256]);
 

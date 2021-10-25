@@ -22,6 +22,7 @@
 
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{Parameter, RuntimeDebug};
+use scale_info::TypeInfo;
 use sp_api::decl_runtime_apis;
 use sp_std::marker::PhantomData;
 
@@ -48,7 +49,7 @@ pub enum Error {
 pub type Result<T> = sp_std::result::Result<T, Error>;
 
 /// Peer blockchain lock funds transaction.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 pub struct LockFundsTransaction<TransferId, Recipient, Amount> {
 	/// Something that uniquely identifies this transfer.
 	pub id: TransferId,
@@ -63,7 +64,7 @@ pub trait MaybeLockFundsTransaction {
 	/// Transaction type.
 	type Transaction;
 	/// Identifier that uniquely identifies this transfer.
-	type Id: Decode + Encode + EncodeLike + sp_std::fmt::Debug;
+	type Id: Decode + Encode + TypeInfo + EncodeLike + sp_std::fmt::Debug;
 	/// Peer recipient type.
 	type Recipient;
 	/// Peer currency amount type.

@@ -21,6 +21,7 @@ use bp_polkadot_core::{AccountAddress, Balance, PolkadotLike};
 use bp_runtime::Chain;
 use codec::{Compact, Decode, Encode};
 use frame_support::weights::Weight;
+use scale_info::TypeInfo;
 use sp_runtime::FixedU128;
 
 /// Unchecked Kusama extrinsic.
@@ -61,7 +62,7 @@ where
 ///
 /// See: [link](https://github.com/paritytech/polkadot/blob/master/runtime/kusama/src/lib.rs)
 #[allow(clippy::large_enum_variant)]
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum Call {
 	/// System pallet.
 	#[codec(index = 0)]
@@ -77,21 +78,21 @@ pub enum Call {
 	BridgePolkadotMessages(BridgePolkadotMessagesCall),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum SystemCall {
 	#[codec(index = 1)]
 	remark(Vec<u8>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BalancesCall {
 	#[codec(index = 0)]
 	transfer(AccountAddress, Compact<Balance>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgePolkadotGrandpaCall {
 	#[codec(index = 0)]
@@ -103,7 +104,7 @@ pub enum BridgePolkadotGrandpaCall {
 	initialize(bp_header_chain::InitializationData<<PolkadotLike as Chain>::Header>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgePolkadotMessagesCall {
 	#[codec(index = 2)]
@@ -135,7 +136,7 @@ pub enum BridgePolkadotMessagesCall {
 	),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum BridgePolkadotMessagesParameter {
 	#[codec(index = 0)]
 	PolkadotToKusamaConversionRate(FixedU128),

@@ -652,7 +652,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	#[pallet::metadata(T::Parameter = "Parameter")]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// Pallet parameter has been updated.
 		ParameterUpdated(T::Parameter),
