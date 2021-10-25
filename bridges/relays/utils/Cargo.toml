@@ -22,6 +22,10 @@ sysinfo = "0.15"
 time = "0.2"
 thiserror = "1.0.26"
 
+# Bridge dependencies
+
+bp-runtime = { path = "../../primitives/runtime" }
+
 # Substrate dependencies
 
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }

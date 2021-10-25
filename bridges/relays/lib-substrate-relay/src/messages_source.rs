@@ -245,8 +245,9 @@ where
 		self.client
 			.submit_signed_extrinsic(
 				self.lane.source_transactions_author(),
-				move |_, transaction_nonce| {
+				move |best_block_id, transaction_nonce| {
 					lane.make_messages_receiving_proof_transaction(
+						best_block_id,
 						transaction_nonce,
 						generated_at_block,
 						proof,
@@ -268,6 +269,7 @@ where
 	) -> <P::MessageLane as MessageLane>::SourceChainBalance {
 		self.client
 			.estimate_extrinsic_fee(self.lane.make_messages_receiving_proof_transaction(
+				HeaderId(Default::default(), Default::default()),
 				Zero::zero(),
 				HeaderId(Default::default(), Default::default()),
 				prepare_dummy_messages_delivery_proof::<P::SourceChain, P::TargetChain>(),

@@ -227,8 +227,9 @@ where
 		self.client
 			.submit_signed_extrinsic(
 				self.lane.target_transactions_author(),
-				move |_, transaction_nonce| {
+				move |best_block_id, transaction_nonce| {
 					lane.make_messages_delivery_transaction(
+						best_block_id,
 						transaction_nonce,
 						generated_at_header,
 						nonces_clone,
@@ -264,6 +265,7 @@ where
 
 		// Prepare 'dummy' delivery transaction - we only care about its length and dispatch weight.
 		let delivery_tx = self.lane.make_messages_delivery_transaction(
+			HeaderId(Default::default(), Default::default()),
 			Zero::zero(),
 			HeaderId(Default::default(), Default::default()),
 			nonces.clone(),
@@ -299,6 +301,7 @@ where
 			let larger_delivery_tx_fee = self
 				.client
 				.estimate_extrinsic_fee(self.lane.make_messages_delivery_transaction(
+					HeaderId(Default::default(), Default::default()),
 					Zero::zero(),
 					HeaderId(Default::default(), Default::default()),
 					nonces.clone(),
@@ -473,6 +476,7 @@ mod tests {
 
 		fn make_messages_receiving_proof_transaction(
 			&self,
+			_best_block_id: SourceHeaderIdOf<Self::MessageLane>,
 			_transaction_nonce: IndexOf<Rococo>,
 			_generated_at_block: TargetHeaderIdOf<Self::MessageLane>,
 			_proof: <Self::MessageLane as MessageLane>::MessagesReceivingProof,
@@ -486,6 +490,7 @@ mod tests {
 
 		fn make_messages_delivery_transaction(
 			&self,
+			_best_block_id: TargetHeaderIdOf<Self::MessageLane>,
 			_transaction_nonce: IndexOf<Wococo>,
 			_generated_at_header: SourceHeaderIdOf<Self::MessageLane>,
 			_nonces: RangeInclusive<MessageNonce>,
