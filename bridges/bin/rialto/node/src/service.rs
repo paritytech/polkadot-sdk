@@ -33,7 +33,7 @@ use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::request_response::IncomingRequest;
-use polkadot_overseer::BlockInfo;
+use polkadot_overseer::{BlockInfo, OverseerConnector};
 use polkadot_primitives::v1::BlockId;
 use rialto_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::ExecutorProvider;
@@ -47,7 +47,7 @@ use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
-pub use polkadot_overseer::{Handle, Overseer, OverseerHandle};
+pub use polkadot_overseer::Handle;
 pub use polkadot_primitives::v1::ParachainHost;
 pub use sc_client_api::AuxStore;
 pub use sp_authority_discovery::AuthorityDiscoveryApi;
@@ -432,6 +432,8 @@ where
 
 	let prometheus_registry = config.prometheus_registry().cloned();
 
+	let overseer_connector = OverseerConnector::default();
+
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 
@@ -462,6 +464,7 @@ where
 	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		import_setup.1.shared_authority_set().clone(),
+		vec![],
 	));
 
 	let (network, system_rpc_tx, network_starter) =
@@ -586,50 +589,55 @@ where
 
 	let overseer_handle = if let Some((authority_discovery_service, keystore)) = maybe_params {
 		let (overseer, overseer_handle) = overseer_gen
-			.generate::<sc_service::SpawnTaskHandle, FullClient>(OverseerGenArgs {
-				leaves: active_leaves,
-				keystore,
-				runtime_client: overseer_client.clone(),
-				parachains_db,
-				availability_config,
-				approval_voting_config,
-				network_service: network.clone(),
-				authority_discovery_service,
-				registry: prometheus_registry.as_ref(),
-				spawner,
-				candidate_validation_config,
-				available_data_req_receiver,
-				chain_selection_config,
-				chunk_req_receiver,
-				collation_req_receiver,
-				dispute_coordinator_config,
-				dispute_req_receiver,
-				pov_req_receiver,
-				statement_req_receiver,
-			})?;
-		let handle = Handle::Connected(overseer_handle);
-		let handle_clone = handle.clone();
+			.generate::<sc_service::SpawnTaskHandle, FullClient>(
+				overseer_connector,
+				OverseerGenArgs {
+					leaves: active_leaves,
+					keystore,
+					runtime_client: overseer_client.clone(),
+					parachains_db,
+					availability_config,
+					approval_voting_config,
+					network_service: network.clone(),
+					authority_discovery_service,
+					registry: prometheus_registry.as_ref(),
+					spawner,
+					candidate_validation_config,
+					available_data_req_receiver,
+					chain_selection_config,
+					chunk_req_receiver,
+					collation_req_receiver,
+					dispute_coordinator_config,
+					dispute_req_receiver,
+					pov_req_receiver,
+					statement_req_receiver,
+				},
+			)?;
+		let handle = Handle::new(overseer_handle.clone());
 
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"overseer",
-			Box::pin(async move {
-				use futures::{pin_mut, select, FutureExt};
+		{
+			let handle = handle.clone();
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"overseer",
+				Box::pin(async move {
+					use futures::{pin_mut, select, FutureExt};
 
-				let forward = polkadot_overseer::forward_events(overseer_client, handle_clone);
+					let forward = polkadot_overseer::forward_events(overseer_client, handle);
 
-				let forward = forward.fuse();
-				let overseer_fut = overseer.run().fuse();
+					let forward = forward.fuse();
+					let overseer_fut = overseer.run().fuse();
 
-				pin_mut!(overseer_fut);
-				pin_mut!(forward);
+					pin_mut!(overseer_fut);
+					pin_mut!(forward);
 
-				select! {
-					_ = forward => (),
-					_ = overseer_fut => (),
-					complete => (),
-				}
-			}),
-		);
+					select! {
+						_ = forward => (),
+						_ = overseer_fut => (),
+						complete => (),
+					}
+				}),
+			);
+		}
 
 		Some(handle)
 	} else {

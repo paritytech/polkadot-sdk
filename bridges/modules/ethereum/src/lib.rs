@@ -24,6 +24,7 @@ use bp_eth_poa::{
 };
 use codec::{Decode, Encode};
 use frame_support::traits::Get;
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::{boxed::Box, cmp::Ord, collections::btree_map::BTreeMap, prelude::*};
 
@@ -81,7 +82,7 @@ pub struct PoolConfiguration {
 }
 
 /// Block header as it is stored in the runtime storage.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct StoredHeader<Submitter> {
 	/// Submitter of this header. May be `None` if header has been submitted
 	/// using unsigned transaction.
@@ -102,7 +103,7 @@ pub struct StoredHeader<Submitter> {
 }
 
 /// Validators set as it is stored in the runtime storage.
-#[derive(Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 #[cfg_attr(test, derive(Clone))]
 pub struct ValidatorsSet {
 	/// Validators of this set.
@@ -114,7 +115,7 @@ pub struct ValidatorsSet {
 }
 
 /// Validators set change as it is stored in the runtime storage.
-#[derive(Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 #[cfg_attr(test, derive(Clone))]
 pub struct AuraScheduledChange {
 	/// Validators of this set.
@@ -158,7 +159,7 @@ pub struct ChangeToEnact {
 }
 
 /// Blocks range that we want to prune.
-#[derive(Encode, Decode, Default, RuntimeDebug, Clone, PartialEq)]
+#[derive(Encode, Decode, Default, RuntimeDebug, Clone, PartialEq, TypeInfo)]
 struct PruningRange {
 	/// Number of the oldest unpruned block(s). This might be the block that we do not
 	/// want to prune now (then it is equal to `oldest_block_to_keep`), or block that we
@@ -478,7 +479,7 @@ pub mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match *call {
-				Self::Call::import_unsigned_header(ref header, ref receipts) => {
+				Self::Call::import_unsigned_header { ref header, ref receipts } => {
 					let accept_result = verification::accept_aura_header_into_pool(
 						&BridgeStorage::<T, I>::new(),
 						&T::AuraConfiguration::get(),

@@ -113,7 +113,8 @@ impl RegisterParachain {
 			// step 1: reserve a parachain id
 			let relay_genesis_hash = *relay_client.genesis_hash();
 			let relay_sudo_account: AccountIdOf<Relaychain> = relay_sign.public().into();
-			let reserve_parachain_id_call: CallOf<Relaychain> = ParaRegistrarCall::reserve().into();
+			let reserve_parachain_id_call: CallOf<Relaychain> =
+				ParaRegistrarCall::reserve {}.into();
 			let reserve_parachain_signer = relay_sign.clone();
 			wait_until_transaction_is_finalized::<Relaychain>(
 				relay_client
@@ -155,11 +156,11 @@ impl RegisterParachain {
 				para_genesis_header.encode().len(),
 				para_code.len(),
 			);
-			let register_parathread_call: CallOf<Relaychain> = ParaRegistrarCall::register(
-				para_id,
-				ParaHeadData(para_genesis_header.encode()),
-				ParaValidationCode(para_code),
-			)
+			let register_parathread_call: CallOf<Relaychain> = ParaRegistrarCall::register {
+				id: para_id,
+				genesis_head: ParaHeadData(para_genesis_header.encode()),
+				validation_code: ParaValidationCode(para_code),
+			}
 			.into();
 			let register_parathread_signer = relay_sign.clone();
 			wait_until_transaction_is_finalized::<Relaychain>(
@@ -211,16 +212,18 @@ impl RegisterParachain {
 				lease_begin,
 				lease_end,
 			);
-			let force_lease_call: CallOf<Relaychain> = SudoCall::sudo(Box::new(
-				ParaSlotsCall::force_lease(
-					para_id,
-					relay_sudo_account.clone(),
-					para_deposit,
-					lease_begin,
-					lease_end,
-				)
-				.into(),
-			))
+			let force_lease_call: CallOf<Relaychain> = SudoCall::sudo {
+				call: Box::new(
+					ParaSlotsCall::force_lease {
+						para: para_id,
+						leaser: relay_sudo_account.clone(),
+						amount: para_deposit,
+						period_begin: lease_begin,
+						period_count: lease_end.saturating_sub(lease_begin).saturating_add(1),
+					}
+					.into(),
+				),
+			}
 			.into();
 			let force_lease_signer = relay_sign.clone();
 			relay_client

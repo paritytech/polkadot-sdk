@@ -35,13 +35,14 @@ use bp_eth_poa::{transaction_decode_rlp, RawTransaction, RawTransactionReceipt};
 use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use hex_literal::hex;
+use scale_info::TypeInfo;
 use sp_std::vec::Vec;
 
 /// Ethereum address where locked PoA funds must be sent to.
 pub const LOCK_FUNDS_ADDRESS: [u8; 20] = hex!("DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF");
 
 /// Ethereum transaction inclusion proof.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct EthereumTransactionInclusionProof {
 	/// Hash of the block with transaction.
 	pub block: sp_core::H256,
@@ -58,7 +59,7 @@ pub struct EthereumTransactionInclusionProof {
 /// transactions included into finalized blocks. This is obviously true
 /// for any existing eth-like chain (that keep current TX format), because
 /// otherwise transaction can be replayed over and over.
-#[derive(Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct EthereumTransactionTag {
 	/// Account that has locked funds.
 	pub account: [u8; 20],

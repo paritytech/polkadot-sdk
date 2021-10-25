@@ -21,6 +21,7 @@ use bp_polkadot_core::{AccountAddress, Balance, PolkadotLike};
 use bp_runtime::Chain;
 use codec::{Compact, Decode, Encode};
 use frame_support::weights::Weight;
+use scale_info::TypeInfo;
 use sp_runtime::FixedU128;
 
 /// Unchecked Polkadot extrinsic.
@@ -61,7 +62,7 @@ where
 ///
 /// See: [link](https://github.com/paritytech/kusama/blob/master/runtime/kusam/src/lib.rs)
 #[allow(clippy::large_enum_variant)]
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum Call {
 	/// System pallet.
 	#[codec(index = 0)]
@@ -77,21 +78,21 @@ pub enum Call {
 	BridgeKusamaMessages(BridgeKusamaMessagesCall),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum SystemCall {
 	#[codec(index = 1)]
 	remark(Vec<u8>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BalancesCall {
 	#[codec(index = 0)]
 	transfer(AccountAddress, Compact<Balance>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgeKusamaGrandpaCall {
 	#[codec(index = 0)]
@@ -103,7 +104,7 @@ pub enum BridgeKusamaGrandpaCall {
 	initialize(bp_header_chain::InitializationData<<PolkadotLike as Chain>::Header>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgeKusamaMessagesCall {
 	#[codec(index = 2)]
@@ -135,7 +136,7 @@ pub enum BridgeKusamaMessagesCall {
 	),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum BridgeKusamaMessagesParameter {
 	#[codec(index = 0)]
 	KusamaToPolkadotConversionRate(FixedU128),

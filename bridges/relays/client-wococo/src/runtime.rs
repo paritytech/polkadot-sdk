@@ -21,6 +21,7 @@ use bp_polkadot_core::PolkadotLike;
 use bp_runtime::Chain;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
+use scale_info::TypeInfo;
 
 /// Unchecked Wococo extrinsic.
 pub type UncheckedExtrinsic = bp_polkadot_core::UncheckedExtrinsic<Call>;
@@ -60,7 +61,7 @@ where
 ///
 /// See: [link](https://github.com/paritytech/polkadot/blob/master/runtime/rococo/src/lib.rs)
 #[allow(clippy::large_enum_variant)]
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum Call {
 	/// System pallet.
 	#[codec(index = 0)]
@@ -73,14 +74,14 @@ pub enum Call {
 	BridgeMessagesRococo(BridgeMessagesRococoCall),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum SystemCall {
 	#[codec(index = 1)]
 	remark(Vec<u8>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgeGrandpaRococoCall {
 	#[codec(index = 0)]
@@ -92,7 +93,7 @@ pub enum BridgeGrandpaRococoCall {
 	initialize(bp_header_chain::InitializationData<<PolkadotLike as Chain>::Header>),
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgeMessagesRococoCall {
 	#[codec(index = 3)]

@@ -31,6 +31,7 @@ use frame_support::{
 	weights::{DispatchClass, Weight},
 	RuntimeDebug,
 };
+use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 use sp_std::{convert::TryFrom, ops::RangeInclusive};
 
@@ -274,7 +275,7 @@ impl SourceHeaderChain<bp_rialto::Balance> for Rialto {
 }
 
 /// Millau -> Rialto message lane pallet parameters.
-#[derive(RuntimeDebug, Clone, Encode, Decode, PartialEq, Eq)]
+#[derive(RuntimeDebug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub enum MillauToRialtoMessagesParameter {
 	/// The conversion formula we use is: `MillauTokens = RialtoTokens * conversion_rate`.
 	RialtoToMillauConversionRate(FixedU128),

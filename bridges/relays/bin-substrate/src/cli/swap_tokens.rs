@@ -176,10 +176,10 @@ impl SwapTokens {
 			//
 
 			// prepare `Currency::transfer` call that will happen at the target chain
-			let bridged_currency_transfer: CallOf<Target> = pallet_balances::Call::transfer(
-				accounts.source_account_at_bridged_chain.clone().into(),
-				token_swap.target_balance_at_bridged_chain,
-			)
+			let bridged_currency_transfer: CallOf<Target> = pallet_balances::Call::transfer {
+				dest: accounts.source_account_at_bridged_chain.clone().into(),
+				value: token_swap.target_balance_at_bridged_chain,
+			}
 			.into();
 			let bridged_currency_transfer_weight =
 				bridged_currency_transfer.get_dispatch_info().weight;
@@ -218,9 +218,9 @@ impl SwapTokens {
 					},
 				)
 				.await?;
-			let create_swap_call: CallOf<Source> = pallet_bridge_token_swap::Call::create_swap(
-				token_swap.clone(),
-				Box::new(bp_token_swap::TokenSwapCreation {
+			let create_swap_call: CallOf<Source> = pallet_bridge_token_swap::Call::create_swap {
+				swap: token_swap.clone(),
+				swap_creation_params: Box::new(bp_token_swap::TokenSwapCreation {
 					target_public_at_bridged_chain,
 					swap_delivery_and_dispatch_fee,
 					bridged_chain_spec_version,
@@ -228,7 +228,7 @@ impl SwapTokens {
 					bridged_currency_transfer_weight,
 					bridged_currency_transfer_signature,
 				}),
-			)
+			}
 			.into();
 
 			// start tokens swap
@@ -341,7 +341,7 @@ impl SwapTokens {
 
 				// prepare `claim_swap` message that will be sent over the bridge
 				let claim_swap_call: CallOf<Source> =
-					pallet_bridge_token_swap::Call::claim_swap(token_swap).into();
+					pallet_bridge_token_swap::Call::claim_swap { swap: token_swap }.into();
 				let claim_swap_message = bp_message_dispatch::MessagePayload {
 					spec_version: SOURCE_SPEC_VERSION,
 					weight: claim_swap_call.get_dispatch_info().weight,
@@ -359,12 +359,13 @@ impl SwapTokens {
 						claim_swap_message.clone(),
 					)
 					.await?;
-				let send_message_call: CallOf<Target> = pallet_bridge_messages::Call::send_message(
-					TARGET_TO_SOURCE_LANE_ID,
-					claim_swap_message,
-					claim_swap_delivery_and_dispatch_fee,
-				)
-				.into();
+				let send_message_call: CallOf<Target> =
+					pallet_bridge_messages::Call::send_message {
+						lane_id: TARGET_TO_SOURCE_LANE_ID,
+						payload: claim_swap_message,
+						delivery_and_dispatch_fee: claim_swap_delivery_and_dispatch_fee,
+					}
+					.into();
 
 				// send `claim_swap` message
 				let target_genesis_hash = *target_client.genesis_hash();
@@ -406,7 +407,7 @@ impl SwapTokens {
 			} else {
 				log::info!(target: "bridge", "Cancelling the swap");
 				let cancel_swap_call: CallOf<Source> =
-					pallet_bridge_token_swap::Call::cancel_swap(token_swap.clone()).into();
+					pallet_bridge_token_swap::Call::cancel_swap { swap: token_swap.clone() }.into();
 				let _ = wait_until_transaction_is_finalized::<Source>(
 					source_client
 						.submit_and_watch_signed_extrinsic(
