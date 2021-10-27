@@ -60,7 +60,10 @@ use parachains_common::{
 	impls::{AssetsFrom, NonZeroIssuance},
 	AssetId,
 };
-use xcm_builder::{AsPrefixedGeneralIndex, ConvertedConcreteAssetId, FungiblesAdapter};
+use xcm_builder::{
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AsPrefixedGeneralIndex,
+	ConvertedConcreteAssetId, FungiblesAdapter,
+};
 use xcm_executor::traits::JustTry;
 
 // XCM imports
@@ -376,6 +379,10 @@ pub type Barrier = (
 	AllowUnpaidExecutionFrom<ParentOrParentsUnitPlurality>,
 	// ^^^ Parent & its unit plurality gets free execution
 	AllowUnpaidExecutionFrom<Statemint>,
+	// Expected responses are OK.
+	AllowKnownQueryResponses<PolkadotXcm>,
+	// Subscriptions for version tracking are OK.
+	AllowSubscriptionsFrom<Everything>,
 );
 
 parameter_types! {
