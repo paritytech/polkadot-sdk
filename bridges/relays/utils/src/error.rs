@@ -26,7 +26,7 @@ pub enum Error {
 	/// Failed to parse the response from HTTP service.
 	#[error("Failed to parse HTTP service response: {0:?}. Response: {1:?}")]
 	ParseHttp(serde_json::Error, String),
-	/// Failed to select response value from the JSON response.
+	/// Failed to select response value from the Json response.
 	#[error("Failed to select value from response: {0:?}. Response: {1:?}")]
 	SelectResponseValue(jsonpath_lib::JsonPathError, String),
 	/// Failed to parse float value from the selected value.
