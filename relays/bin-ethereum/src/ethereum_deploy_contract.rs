@@ -118,7 +118,7 @@ async fn prepare_initial_header(
 			let initial_header = sub_client.header_by_number(Zero::zero()).await;
 			initial_header
 				.map(|header| (HeaderId(Zero::zero(), header.hash()), header.encode()))
-				.map_err(|error| Error::ReadGenesisHeader(error))
+				.map_err(Error::ReadGenesisHeader)
 		},
 	}
 }
@@ -134,7 +134,7 @@ async fn prepare_initial_authorities_set(
 		None => sub_client.grandpa_authorities_set(sub_initial_header_hash).await,
 	};
 
-	initial_authorities_set.map_err(|error| Error::ReadAuthorities(error))
+	initial_authorities_set.map_err(Error::ReadAuthorities)
 }
 
 /// Deploy bridge contract to Ethereum chain.
@@ -160,5 +160,5 @@ async fn deploy_bridge_contract(
 			),
 		)
 		.await
-		.map_err(|error| Error::DeployContract(error))
+		.map_err(Error::DeployContract)
 }
