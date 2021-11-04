@@ -99,8 +99,8 @@ pub async fn run<P: TransactionProofPipeline>(
 
 	relay_utils::relay_loop(source_client, target_client)
 		.with_metrics(Some(metrics_prefix::<P>()), metrics_params)
-		.loop_metric(|registry, prefix| ExchangeLoopMetrics::new(registry, prefix))?
-		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
+		.loop_metric(ExchangeLoopMetrics::new)?
+		.standalone_metric(GlobalMetrics::new)?
 		.expose()
 		.await?
 		.run(metrics_prefix::<P>(), move |source_client, target_client, metrics| {

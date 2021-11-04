@@ -268,8 +268,8 @@ pub async fn run<P: MessageLane>(
 	relay_utils::relay_loop(source_client, target_client)
 		.reconnect_delay(params.reconnect_delay)
 		.with_metrics(Some(metrics_prefix::<P>(&params.lane)), metrics_params)
-		.loop_metric(|registry, prefix| MessageLaneLoopMetrics::new(registry, prefix))?
-		.standalone_metric(|registry, prefix| GlobalMetrics::new(registry, prefix))?
+		.loop_metric(MessageLaneLoopMetrics::new)?
+		.standalone_metric(GlobalMetrics::new)?
 		.expose()
 		.await?
 		.run(metrics_prefix::<P>(&params.lane), move |source_client, target_client, metrics| {

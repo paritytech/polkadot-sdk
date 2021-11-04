@@ -613,7 +613,7 @@ where
 					statement_req_receiver,
 				},
 			)?;
-		let handle = Handle::new(overseer_handle.clone());
+		let handle = Handle::new(overseer_handle);
 
 		{
 			let handle = handle.clone();
