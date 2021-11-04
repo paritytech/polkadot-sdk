@@ -552,7 +552,7 @@ mod tests {
 		// when we resubmit tx for the second time, 1/9 of queue is skipped
 		context = context.notice_resubmitted_transaction(Hash::from([3; 32]));
 		assert_eq!(
-			select_transaction_from_queue(queued_transactions.clone(), &context),
+			select_transaction_from_queue(queued_transactions, &context),
 			Some(Bytes(vec![1])),
 		);
 	}
