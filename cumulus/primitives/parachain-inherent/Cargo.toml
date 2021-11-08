@@ -8,12 +8,12 @@ edition = "2018"
 # Substrate dependencies
 sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
+sc-client-api = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
+sp-api = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
 
 # Polkadot dependencies
 polkadot-client = { git = "https://github.com/paritytech/polkadot", optional = true, branch = "master" }

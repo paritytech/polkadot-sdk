@@ -15,6 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [dependencies]
+hex-literal = { version = '0.3.1', optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
 log = { version = "0.4.14", default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
@@ -69,6 +70,7 @@ cumulus-primitives-timestamp = { path = "../../primitives/timestamp", default-fe
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 parachain-info = { path = "../../polkadot-parachains/pallets/parachain-info", default-features = false }
+cumulus-pallet-session-benchmarking = {path = "../../pallets/session-benchmarking", default-features = false, version = "3.0.0"}
 
 # Polkadot Dependencies
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
@@ -130,6 +132,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	'hex-literal',
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"frame-benchmarking",
@@ -141,4 +144,5 @@ runtime-benchmarks = [
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	'cumulus-pallet-session-benchmarking/runtime-benchmarks',
 ]

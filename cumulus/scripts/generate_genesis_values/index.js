@@ -45,10 +45,10 @@ fs.readFile(input, "utf8", (err, data) => {
 
   const spec = JSON.parse(data);
 
-  const genesis = Object.fromEntries(
+  const genesis =
     Object.entries(spec.genesis.raw.top).filter(
       ([key, value]) => !startsWith(key, filter_prefixes)
-    )
-  );
+    );
+
   fs.writeFileSync(output, JSON.stringify(genesis));
 });

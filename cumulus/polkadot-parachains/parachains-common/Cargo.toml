@@ -27,18 +27,18 @@ sp-runtime = { git = 'https://github.com/paritytech/substrate', branch = "master
 sp-core = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 
 # Polkadot dependencies
-polkadot-runtime-common = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
-polkadot-primitives = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
-xcm = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
-xcm-executor = { git = 'https://github.com/paritytech/polkadot', branch = "master", default-features = false }
+polkadot-runtime-common = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+polkadot-primitives = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+xcm = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+xcm-executor = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
 
 # Local dependencies
 pallet-asset-tx-payment = { path = '../../pallets/asset-tx-payment', default-features = false }
 pallet-collator-selection = { path = '../../pallets/collator-selection', default-features = false }
 
 [dev-dependencies]
-sp-io = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
-pallet-authorship = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
+sp-io = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+pallet-authorship = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
 
 [build-dependencies]
 substrate-wasm-builder = { git = 'https://github.com/paritytech/substrate', branch = "master" }
