@@ -52,7 +52,6 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate"
 pallet-aura = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
@@ -108,7 +107,6 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
-	"pallet-randomness-collective-flip/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-template/std",
