@@ -27,6 +27,7 @@ use structopt::StructOpt;
 use strum::VariantNames;
 
 use codec::Encode;
+use messages_relay::relay_strategy::MixStrategy;
 use relay_substrate_client::{
 	AccountIdOf, Chain, Client, TransactionSignScheme, UnsignedTransaction,
 };
@@ -375,6 +376,7 @@ impl RelayHeadersAndMessages {
 
 			let lanes = params.shared.lane;
 			let relayer_mode = params.shared.relayer_mode.into();
+			let relay_strategy = MixStrategy::new(relayer_mode);
 
 			const METRIC_IS_SOME_PROOF: &str =
 				"it is `None` when metric has been already registered; \
@@ -519,12 +521,12 @@ impl RelayHeadersAndMessages {
 					source_to_target_headers_relay: Some(left_to_right_on_demand_headers.clone()),
 					target_to_source_headers_relay: Some(right_to_left_on_demand_headers.clone()),
 					lane_id: lane,
-					relayer_mode,
 					metrics_params: metrics_params.clone().disable().metrics_prefix(
 						messages_relay::message_lane_loop::metrics_prefix::<
 							<LeftToRightMessages as SubstrateMessageLane>::MessageLane,
 						>(&lane),
 					),
+					relay_strategy: relay_strategy.clone(),
 				})
 				.map_err(|e| anyhow::format_err!("{}", e))
 				.boxed();
@@ -538,12 +540,12 @@ impl RelayHeadersAndMessages {
 					source_to_target_headers_relay: Some(right_to_left_on_demand_headers.clone()),
 					target_to_source_headers_relay: Some(left_to_right_on_demand_headers.clone()),
 					lane_id: lane,
-					relayer_mode,
 					metrics_params: metrics_params.clone().disable().metrics_prefix(
 						messages_relay::message_lane_loop::metrics_prefix::<
 							<RightToLeftMessages as SubstrateMessageLane>::MessageLane,
 						>(&lane),
 					),
+					relay_strategy: relay_strategy.clone(),
 				})
 				.map_err(|e| anyhow::format_err!("{}", e))
 				.boxed();

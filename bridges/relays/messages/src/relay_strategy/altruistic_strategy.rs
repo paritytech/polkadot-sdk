@@ -14,24 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Relaying [`pallet-bridge-messages`](../pallet_bridge_messages/index.html) application specific
-//! data. Message lane allows sending arbitrary messages between bridged chains. This
-//! module provides entrypoint that starts reading messages from given message lane
-//! of source chain and submits proof-of-message-at-source-chain transactions to the
-//! target chain. Additionally, proofs-of-messages-delivery are sent back from the
-//! target chain to the source chain.
+//! Altruistic relay strategy
 
-// required for futures::select!
-#![recursion_limit = "1024"]
-#![warn(missing_docs)]
+use async_trait::async_trait;
 
-mod metrics;
+use crate::{
+	message_lane::MessageLane,
+	message_lane_loop::{
+		SourceClient as MessageLaneSourceClient, TargetClient as MessageLaneTargetClient,
+	},
+	relay_strategy::{RelayReference, RelayStrategy},
+};
 
-pub mod message_lane;
-pub mod message_lane_loop;
-pub mod relay_strategy;
+/// The relayer doesn't care about rewards.
+#[derive(Clone)]
+pub struct AltruisticStrategy;
 
-mod message_race_delivery;
-mod message_race_loop;
-mod message_race_receiving;
-mod message_race_strategy;
+#[async_trait]
+impl RelayStrategy for AltruisticStrategy {
+	async fn decide<
+		P: MessageLane,
+		SourceClient: MessageLaneSourceClient<P>,
+		TargetClient: MessageLaneTargetClient<P>,
+	>(
+		&self,
+		_reference: &mut RelayReference<P, SourceClient, TargetClient>,
+	) -> bool {
+		true
+	}
+}
