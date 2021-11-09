@@ -22,6 +22,12 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod wasm_spec_version_incremented {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
+}
+
+use frame_support::traits::OnRuntimeUpgrade;
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -59,9 +65,13 @@ impl_opaque_keys! {
 	pub struct SessionKeys {}
 }
 
+/// Some key that we set in genesis and only read in [`TestRuntimeUpgrade`] to ensure that
+/// [`OnRuntimeUpgrade`] works as expected.
+pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
+
 // The only difference between the two declarations below is the `spec_version`. With the
-// `upgrade` feature enabled `spec_version` should be greater than the one of without the
-// `upgrade` feature.
+// `increment-spec-version` feature enabled `spec_version` should be greater than the one of without the
+// `increment-spec-version` feature.
 //
 // The duplication here is unfortunate necessity.
 //
@@ -70,27 +80,27 @@ impl_opaque_keys! {
 // details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
 
-#[cfg(feature = "upgrade")]
+#[cfg(not(feature = "increment-spec-version"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cumulus-test-parachain"),
 	impl_name: create_runtime_str!("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
-	spec_version: 4,
+	spec_version: 1,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 };
 
-#[cfg(not(feature = "upgrade"))]
+#[cfg(feature = "increment-spec-version")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("cumulus-test-parachain"),
 	impl_name: create_runtime_str!("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
-	spec_version: 3,
+	spec_version: 2,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -321,9 +331,20 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPallets,
+	TestOnRuntimeUpgrade,
 >;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
+
+pub struct TestOnRuntimeUpgrade;
+
+impl OnRuntimeUpgrade for TestOnRuntimeUpgrade {
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		assert_eq!(sp_io::storage::get(TEST_RUNTIME_UPGRADE_KEY), Some(vec![1, 2, 3, 4]));
+
+		1
+	}
+}
 
 decl_runtime_apis! {
 	pub trait GetLastTimestamp {

@@ -25,7 +25,24 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<cumulus_test_runtime::GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisExt, Extensions>;
+
+/// Extension for the genesis config to add custom keys easily.
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct GenesisExt {
+	/// The runtime genesis config.
+	runtime_genesis_config: cumulus_test_runtime::GenesisConfig,
+}
+
+impl sp_runtime::BuildStorage for GenesisExt {
+	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
+		sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
+			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, &vec![1, 2, 3, 4]);
+		});
+
+		self.runtime_genesis_config.assimilate_storage(storage)
+	}
+}
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -65,7 +82,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		"Local Testnet",
 		"local_testnet",
 		ChainType::Local,
-		move || local_testnet_genesis(),
+		move || GenesisExt { runtime_genesis_config: local_testnet_genesis() },
 		vec![],
 		None,
 		None,

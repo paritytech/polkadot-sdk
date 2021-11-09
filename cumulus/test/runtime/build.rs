@@ -21,5 +21,12 @@ fn main() {
 		.with_current_project()
 		.export_heap_base()
 		.import_memory()
-		.build()
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("increment-spec-version")
+		.import_memory()
+		.set_file_name("wasm_binary_spec_version_incremented.rs")
+		.build();
 }

@@ -35,7 +35,6 @@ members = [
 	"test/relay-sproof-builder",
 	"test/relay-validation-worker-provider",
 	"test/runtime",
-	"test/runtime-upgrade",
 	"test/service",
 ]
 

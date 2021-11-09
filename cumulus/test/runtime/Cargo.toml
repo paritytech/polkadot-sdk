@@ -67,4 +67,4 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 ]
-upgrade = []
+increment-spec-version = []
