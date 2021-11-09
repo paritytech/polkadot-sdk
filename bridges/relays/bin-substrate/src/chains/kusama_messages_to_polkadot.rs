@@ -19,12 +19,13 @@
 use std::ops::RangeInclusive;
 
 use codec::Encode;
+use frame_support::weights::Weight;
 use sp_core::{Bytes, Pair};
+use sp_runtime::{FixedPointNumber, FixedU128};
 
 use bp_messages::MessageNonce;
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
-use frame_support::weights::Weight;
-use messages_relay::message_lane::MessageLane;
+use messages_relay::{message_lane::MessageLane, relay_strategy::MixStrategy};
 use relay_kusama_client::{
 	HeaderId as KusamaHeaderId, Kusama, SigningParams as KusamaSigningParams,
 };
@@ -33,7 +34,6 @@ use relay_polkadot_client::{
 };
 use relay_substrate_client::{Chain, Client, TransactionSignScheme, UnsignedTransaction};
 use relay_utils::metrics::MetricsParams;
-use sp_runtime::{FixedPointNumber, FixedU128};
 use substrate_relay_helper::{
 	messages_lane::{
 		select_delivery_transaction_limits, MessagesRelayParams, StandaloneMessagesMetrics,
@@ -177,7 +177,13 @@ type PolkadotTargetClient = SubstrateMessagesTarget<KusamaMessagesToPolkadot>;
 
 /// Run Kusama-to-Polkadot messages sync.
 pub async fn run(
-	params: MessagesRelayParams<Kusama, KusamaSigningParams, Polkadot, PolkadotSigningParams>,
+	params: MessagesRelayParams<
+		Kusama,
+		KusamaSigningParams,
+		Polkadot,
+		PolkadotSigningParams,
+		MixStrategy,
+	>,
 ) -> anyhow::Result<()> {
 	let stall_timeout = relay_substrate_client::bidirectional_transaction_stall_timeout(
 		params.source_transactions_mortality,
@@ -223,14 +229,12 @@ pub async fn run(
 			Max messages in single transaction: {}\n\t\
 			Max messages size in single transaction: {}\n\t\
 			Max messages weight in single transaction: {}\n\t\
-			Relayer mode: {:?}\n\t\
 			Tx mortality: {:?}/{:?}\n\t\
 			Stall timeout: {:?}",
 		lane.message_lane.relayer_id_at_source,
 		max_messages_in_single_batch,
 		max_messages_size_in_single_batch,
 		max_messages_weight_in_single_batch,
-		params.relayer_mode,
 		params.source_transactions_mortality,
 		params.target_transactions_mortality,
 		stall_timeout,
@@ -258,7 +262,7 @@ pub async fn run(
 				max_messages_in_single_batch,
 				max_messages_weight_in_single_batch,
 				max_messages_size_in_single_batch,
-				relayer_mode: params.relayer_mode,
+				relay_strategy: params.relay_strategy,
 			},
 		},
 		KusamaSourceClient::new(
@@ -332,7 +336,7 @@ pub(crate) async fn update_polkadot_to_kusama_conversion_rate(
 						transaction_nonce,
 					),
 				)
-				.encode(),
+					.encode(),
 			)
 		})
 		.await
