@@ -25,7 +25,10 @@ use async_trait::async_trait;
 use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::{AccountIdOf, IndexOf};
 use frame_support::weights::Weight;
-use messages_relay::message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf};
+use messages_relay::{
+	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
+	relay_strategy::RelayStrategy,
+};
 use relay_substrate_client::{
 	metrics::{FloatStorageValueMetric, StorageProofOverheadMetric},
 	BlockNumberOf, Chain, Client, HashOf,
@@ -39,7 +42,7 @@ use sp_runtime::FixedU128;
 use std::ops::RangeInclusive;
 
 /// Substrate <-> Substrate messages relay parameters.
-pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS> {
+pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS, Strategy: RelayStrategy> {
 	/// Messages source client.
 	pub source_client: Client<SC>,
 	/// Sign parameters for messages source chain.
@@ -58,10 +61,10 @@ pub struct MessagesRelayParams<SC: Chain, SS, TC: Chain, TS> {
 	pub target_to_source_headers_relay: Option<OnDemandHeadersRelay<TC>>,
 	/// Identifier of lane that needs to be served.
 	pub lane_id: LaneId,
-	/// Relayer operating mode.
-	pub relayer_mode: messages_relay::message_lane_loop::RelayerMode,
 	/// Metrics parameters.
 	pub metrics_params: MetricsParams,
+	/// Relay strategy
+	pub relay_strategy: Strategy,
 }
 
 /// Message sync pipeline for Substrate <-> Substrate relays.

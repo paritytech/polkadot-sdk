@@ -13,10 +13,18 @@
 
 //! Message delivery race delivers proof-of-messages from "lane.source" to "lane.target".
 
+use std::{collections::VecDeque, marker::PhantomData, ops::RangeInclusive, time::Duration};
+
+use async_trait::async_trait;
+use futures::stream::FusedStream;
+
+use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
+use relay_utils::FailedClient;
+
 use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{
-		MessageDeliveryParams, MessageDetailsMap, MessageProofParameters, RelayerMode,
+		MessageDeliveryParams, MessageDetailsMap, MessageProofParameters,
 		SourceClient as MessageLaneSourceClient, SourceClientState,
 		TargetClient as MessageLaneTargetClient, TargetClientState,
 	},
@@ -24,32 +32,20 @@ use crate::{
 		MessageRace, NoncesRange, RaceState, RaceStrategy, SourceClient, SourceClientNonces,
 		TargetClient, TargetClientNonces,
 	},
-	message_race_strategy::{BasicStrategy, SourceRangesQueue},
+	message_race_strategy::BasicStrategy,
 	metrics::MessageLaneLoopMetrics,
-};
-
-use async_trait::async_trait;
-use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
-use bp_runtime::messages::DispatchFeePayment;
-use futures::stream::FusedStream;
-use num_traits::{SaturatingAdd, Zero};
-use relay_utils::FailedClient;
-use std::{
-	collections::VecDeque,
-	marker::PhantomData,
-	ops::{Range, RangeInclusive},
-	time::Duration,
+	relay_strategy::{EnforcementStrategy, RelayMessagesBatchReference, RelayStrategy},
 };
 
 /// Run message delivery race.
-pub async fn run<P: MessageLane>(
+pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 	source_client: impl MessageLaneSourceClient<P>,
 	source_state_updates: impl FusedStream<Item = SourceClientState<P>>,
 	target_client: impl MessageLaneTargetClient<P>,
 	target_state_updates: impl FusedStream<Item = TargetClientState<P>>,
 	stall_timeout: Duration,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
-	params: MessageDeliveryParams,
+	params: MessageDeliveryParams<Strategy>,
 ) -> Result<(), FailedClient> {
 	crate::message_race_loop::run(
 		MessageDeliveryRaceSource {
@@ -65,7 +61,7 @@ pub async fn run<P: MessageLane>(
 		},
 		target_state_updates,
 		stall_timeout,
-		MessageDeliveryStrategy::<P, _, _> {
+		MessageDeliveryStrategy::<P, Strategy, _, _> {
 			lane_source_client: source_client,
 			lane_target_client: target_client,
 			max_unrewarded_relayer_entries_at_target: params
@@ -74,7 +70,7 @@ pub async fn run<P: MessageLane>(
 			max_messages_in_single_batch: params.max_messages_in_single_batch,
 			max_messages_weight_in_single_batch: params.max_messages_weight_in_single_batch,
 			max_messages_size_in_single_batch: params.max_messages_size_in_single_batch,
-			relayer_mode: params.relayer_mode,
+			relay_strategy: params.relay_strategy,
 			latest_confirmed_nonces_at_source: VecDeque::new(),
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
@@ -235,7 +231,7 @@ struct DeliveryRaceTargetNoncesData {
 }
 
 /// Messages delivery strategy.
-struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
+struct MessageDeliveryStrategy<P: MessageLane, Strategy: RelayStrategy, SC, TC> {
 	/// The client that is connected to the message lane source node.
 	lane_source_client: SC,
 	/// The client that is connected to the message lane target node.
@@ -251,7 +247,7 @@ struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
 	/// Maximal messages size in the single delivery transaction.
 	max_messages_size_in_single_batch: u32,
 	/// Relayer operating mode.
-	relayer_mode: RelayerMode,
+	relay_strategy: Strategy,
 	/// Latest confirmed nonces at the source client + the header id where we have first met this
 	/// nonce.
 	latest_confirmed_nonces_at_source: VecDeque<(SourceHeaderIdOf<P>, MessageNonce)>,
@@ -270,7 +266,9 @@ type MessageDeliveryStrategyBase<P> = BasicStrategy<
 	<P as MessageLane>::MessagesProof,
 >;
 
-impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, TC> {
+impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> std::fmt::Debug
+	for MessageDeliveryStrategy<P, Strategy, SC, TC>
+{
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		fmt.debug_struct("MessageDeliveryStrategy")
 			.field(
@@ -288,7 +286,7 @@ impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, 
 	}
 }
 
-impl<P: MessageLane, SC, TC> MessageDeliveryStrategy<P, SC, TC> {
+impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> MessageDeliveryStrategy<P, Strategy, SC, TC> {
 	/// Returns total weight of all undelivered messages.
 	fn total_queued_dispatch_weight(&self) -> Weight {
 		self.strategy
@@ -300,8 +298,9 @@ impl<P: MessageLane, SC, TC> MessageDeliveryStrategy<P, SC, TC> {
 }
 
 #[async_trait]
-impl<P, SC, TC> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
-	for MessageDeliveryStrategy<P, SC, TC>
+impl<P, Strategy: RelayStrategy, SC, TC>
+	RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
+	for MessageDeliveryStrategy<P, Strategy, SC, TC>
 where
 	P: MessageLane,
 	SC: MessageLaneSourceClient<P>,
@@ -504,7 +503,6 @@ where
 		let max_nonces = std::cmp::min(max_nonces, self.max_messages_in_single_batch);
 		let max_messages_weight_in_single_batch = self.max_messages_weight_in_single_batch;
 		let max_messages_size_in_single_batch = self.max_messages_size_in_single_batch;
-		let relayer_mode = self.relayer_mode;
 		let lane_source_client = self.lane_source_client.clone();
 		let lane_target_client = self.lane_target_client.clone();
 
@@ -512,17 +510,19 @@ where
 			self.strategy.maximal_available_source_queue_index(race_state)?;
 		let previous_total_dispatch_weight = self.total_queued_dispatch_weight();
 		let source_queue = self.strategy.source_queue();
-		let range_end = select_nonces_for_delivery_transaction(
-			relayer_mode,
-			max_nonces,
+
+		let reference = RelayMessagesBatchReference {
+			max_messages_in_this_batch: max_nonces,
 			max_messages_weight_in_single_batch,
 			max_messages_size_in_single_batch,
-			lane_source_client.clone(),
-			lane_target_client.clone(),
-			source_queue,
-			0..maximal_source_queue_index + 1,
-		)
-		.await?;
+			lane_source_client: lane_source_client.clone(),
+			lane_target_client: lane_target_client.clone(),
+			nonces_queue: source_queue.clone(),
+			nonces_queue_range: 0..maximal_source_queue_index + 1,
+		};
+
+		let strategy = EnforcementStrategy::new(self.relay_strategy.clone());
+		let range_end = strategy.decide(reference).await?;
 
 		let range_begin = source_queue[0].1.begin();
 		let selected_nonces = range_begin..=range_end;
@@ -535,236 +535,6 @@ where
 			selected_nonces,
 			MessageProofParameters { outbound_state_proof_required, dispatch_weight },
 		))
-	}
-}
-
-/// From given set of source nonces, that are ready to be delivered, select nonces
-/// to fit into single delivery transaction.
-///
-/// The function returns last nonce that must be delivered to the target chain.
-#[allow(clippy::too_many_arguments)]
-async fn select_nonces_for_delivery_transaction<P: MessageLane>(
-	relayer_mode: RelayerMode,
-	max_messages_in_this_batch: MessageNonce,
-	max_messages_weight_in_single_batch: Weight,
-	max_messages_size_in_single_batch: u32,
-	lane_source_client: impl MessageLaneSourceClient<P>,
-	lane_target_client: impl MessageLaneTargetClient<P>,
-	nonces_queue: &SourceRangesQueue<
-		P::SourceHeaderHash,
-		P::SourceHeaderNumber,
-		MessageDetailsMap<P::SourceChainBalance>,
-	>,
-	nonces_queue_range: Range<usize>,
-) -> Option<MessageNonce> {
-	let mut hard_selected_count = 0;
-	let mut soft_selected_count = 0;
-
-	let mut selected_weight: Weight = 0;
-	let mut selected_unpaid_weight: Weight = 0;
-	let mut selected_prepaid_nonces = 0;
-	let mut selected_size: u32 = 0;
-	let mut selected_count: MessageNonce = 0;
-	let mut selected_reward = P::SourceChainBalance::zero();
-	let mut selected_cost = P::SourceChainBalance::zero();
-
-	let mut total_reward = P::SourceChainBalance::zero();
-	let mut total_confirmations_cost = P::SourceChainBalance::zero();
-	let mut total_cost = P::SourceChainBalance::zero();
-
-	let hard_selected_begin_nonce = nonces_queue[nonces_queue_range.start].1.begin();
-
-	// technically, multiple confirmations will be delivered in a single transaction,
-	// meaning less loses for relayer. But here we don't know the final relayer yet, so
-	// we're adding a separate transaction for every message. Normally, this cost is covered
-	// by the message sender. Probably reconsider this?
-	let confirmation_transaction_cost = if relayer_mode != RelayerMode::Altruistic {
-		lane_source_client.estimate_confirmation_transaction().await
-	} else {
-		Zero::zero()
-	};
-
-	let all_ready_nonces = nonces_queue
-		.range(nonces_queue_range.clone())
-		.flat_map(|(_, ready_nonces)| ready_nonces.iter())
-		.enumerate();
-	for (index, (nonce, details)) in all_ready_nonces {
-		// Since we (hopefully) have some reserves in `max_messages_weight_in_single_batch`
-		// and `max_messages_size_in_single_batch`, we may still try to submit transaction
-		// with single message if message overflows these limits. The worst case would be if
-		// transaction will be rejected by the target runtime, but at least we have tried.
-
-		// limit messages in the batch by weight
-		let new_selected_weight = match selected_weight.checked_add(details.dispatch_weight) {
-			Some(new_selected_weight)
-				if new_selected_weight <= max_messages_weight_in_single_batch =>
-				new_selected_weight,
-			new_selected_weight if selected_count == 0 => {
-				log::warn!(
-					target: "bridge",
-					"Going to submit message delivery transaction with declared dispatch \
-					weight {:?} that overflows maximal configured weight {}",
-					new_selected_weight,
-					max_messages_weight_in_single_batch,
-				);
-				new_selected_weight.unwrap_or(Weight::MAX)
-			},
-			_ => break,
-		};
-
-		// limit messages in the batch by size
-		let new_selected_size = match selected_size.checked_add(details.size) {
-			Some(new_selected_size) if new_selected_size <= max_messages_size_in_single_batch =>
-				new_selected_size,
-			new_selected_size if selected_count == 0 => {
-				log::warn!(
-					target: "bridge",
-					"Going to submit message delivery transaction with message \
-					size {:?} that overflows maximal configured size {}",
-					new_selected_size,
-					max_messages_size_in_single_batch,
-				);
-				new_selected_size.unwrap_or(u32::MAX)
-			},
-			_ => break,
-		};
-
-		// limit number of messages in the batch
-		let new_selected_count = selected_count + 1;
-		if new_selected_count > max_messages_in_this_batch {
-			break
-		}
-
-		// If dispatch fee has been paid at the source chain, it means that it is **relayer** who's
-		// paying for dispatch at the target chain AND reward must cover this dispatch fee.
-		//
-		// If dispatch fee is paid at the target chain, it means that it'll be withdrawn from the
-		// dispatch origin account AND reward is not covering this fee.
-		//
-		// So in the latter case we're not adding the dispatch weight to the delivery transaction
-		// weight.
-		let mut new_selected_prepaid_nonces = selected_prepaid_nonces;
-		let new_selected_unpaid_weight = match details.dispatch_fee_payment {
-			DispatchFeePayment::AtSourceChain => {
-				new_selected_prepaid_nonces += 1;
-				selected_unpaid_weight.saturating_add(details.dispatch_weight)
-			},
-			DispatchFeePayment::AtTargetChain => selected_unpaid_weight,
-		};
-
-		// now the message has passed all 'strong' checks, and we CAN deliver it. But do we WANT
-		// to deliver it? It depends on the relayer strategy.
-		match relayer_mode {
-			RelayerMode::Altruistic => {
-				soft_selected_count = index + 1;
-			},
-			RelayerMode::Rational => {
-				let delivery_transaction_cost = lane_target_client
-					.estimate_delivery_transaction_in_source_tokens(
-						hard_selected_begin_nonce..=
-							(hard_selected_begin_nonce + index as MessageNonce),
-						new_selected_prepaid_nonces,
-						new_selected_unpaid_weight,
-						new_selected_size as u32,
-					)
-					.await
-					.map_err(|err| {
-						log::debug!(
-							target: "bridge",
-							"Failed to estimate delivery transaction cost: {:?}. No nonces selected for delivery",
-							err,
-						);
-					})
-					.ok()?;
-
-				// if it is the first message that makes reward less than cost, let's log it
-				// if this message makes batch profitable again, let's log it
-				let is_total_reward_less_than_cost = total_reward < total_cost;
-				let prev_total_cost = total_cost;
-				let prev_total_reward = total_reward;
-				total_confirmations_cost =
-					total_confirmations_cost.saturating_add(&confirmation_transaction_cost);
-				total_reward = total_reward.saturating_add(&details.reward);
-				total_cost = total_confirmations_cost.saturating_add(&delivery_transaction_cost);
-				if !is_total_reward_less_than_cost && total_reward < total_cost {
-					log::debug!(
-						target: "bridge",
-						"Message with nonce {} (reward = {:?}) changes total cost {:?}->{:?} and makes it larger than \
-						total reward {:?}->{:?}",
-						nonce,
-						details.reward,
-						prev_total_cost,
-						total_cost,
-						prev_total_reward,
-						total_reward,
-					);
-				} else if is_total_reward_less_than_cost && total_reward >= total_cost {
-					log::debug!(
-						target: "bridge",
-						"Message with nonce {} (reward = {:?}) changes total cost {:?}->{:?} and makes it less than or \
-						equal to the total reward {:?}->{:?} (again)",
-						nonce,
-						details.reward,
-						prev_total_cost,
-						total_cost,
-						prev_total_reward,
-						total_reward,
-					);
-				}
-
-				// Rational relayer never want to lose his funds
-				if total_reward >= total_cost {
-					soft_selected_count = index + 1;
-					selected_reward = total_reward;
-					selected_cost = total_cost;
-				}
-			},
-		}
-
-		hard_selected_count = index + 1;
-		selected_weight = new_selected_weight;
-		selected_unpaid_weight = new_selected_unpaid_weight;
-		selected_prepaid_nonces = new_selected_prepaid_nonces;
-		selected_size = new_selected_size;
-		selected_count = new_selected_count;
-	}
-
-	if hard_selected_count != soft_selected_count {
-		let hard_selected_end_nonce =
-			hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
-		let soft_selected_begin_nonce = hard_selected_begin_nonce;
-		let soft_selected_end_nonce =
-			soft_selected_begin_nonce + soft_selected_count as MessageNonce - 1;
-		log::warn!(
-			target: "bridge",
-			"Relayer may deliver nonces [{:?}; {:?}], but because of its strategy ({:?}) it has selected \
-			nonces [{:?}; {:?}].",
-			hard_selected_begin_nonce,
-			hard_selected_end_nonce,
-			relayer_mode,
-			soft_selected_begin_nonce,
-			soft_selected_end_nonce,
-		);
-
-		hard_selected_count = soft_selected_count;
-	}
-
-	if hard_selected_count != 0 {
-		if relayer_mode != RelayerMode::Altruistic {
-			log::trace!(
-				target: "bridge",
-				"Expected reward from delivering nonces [{:?}; {:?}] is: {:?} - {:?} = {:?}",
-				hard_selected_begin_nonce,
-				hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1,
-				selected_reward,
-				selected_cost,
-				selected_reward - selected_cost,
-			);
-		}
-
-		Some(hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1)
-	} else {
-		None
 	}
 }
 
@@ -789,16 +559,21 @@ impl<SourceChainBalance: std::fmt::Debug> NoncesRange for MessageDetailsMap<Sour
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-	use crate::message_lane_loop::{
-		tests::{
-			header_id, TestMessageLane, TestMessagesProof, TestSourceChainBalance,
-			TestSourceClient, TestSourceHeaderId, TestTargetClient, TestTargetHeaderId,
-			BASE_MESSAGE_DELIVERY_TRANSACTION_COST, CONFIRMATION_TRANSACTION_COST,
+	use bp_runtime::messages::DispatchFeePayment;
+
+	use crate::{
+		message_lane_loop::{
+			tests::{
+				header_id, TestMessageLane, TestMessagesProof, TestSourceChainBalance,
+				TestSourceClient, TestSourceHeaderId, TestTargetClient, TestTargetHeaderId,
+				BASE_MESSAGE_DELIVERY_TRANSACTION_COST, CONFIRMATION_TRANSACTION_COST,
+			},
+			MessageDetails, RelayerMode,
 		},
-		MessageDetails,
+		relay_strategy::MixStrategy,
 	};
-	use bp_runtime::messages::DispatchFeePayment::*;
+
+	use super::*;
 
 	const DEFAULT_DISPATCH_WEIGHT: Weight = 1;
 	const DEFAULT_SIZE: u32 = 1;
@@ -809,7 +584,7 @@ mod tests {
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
 	type TestStrategy =
-		MessageDeliveryStrategy<TestMessageLane, TestSourceClient, TestTargetClient>;
+		MessageDeliveryStrategy<TestMessageLane, MixStrategy, TestSourceClient, TestTargetClient>;
 
 	fn source_nonces(
 		new_nonces: RangeInclusive<MessageNonce>,
@@ -848,7 +623,6 @@ mod tests {
 		};
 
 		let mut race_strategy = TestStrategy {
-			relayer_mode: RelayerMode::Altruistic,
 			max_unrewarded_relayer_entries_at_target: 4,
 			max_unconfirmed_nonces_at_target: 4,
 			max_messages_in_single_batch: 4,
@@ -869,11 +643,12 @@ mod tests {
 				},
 			}),
 			strategy: BasicStrategy::new(),
+			relay_strategy: MixStrategy::new(RelayerMode::Altruistic),
 		};
 
 		race_strategy.strategy.source_nonces_updated(
 			header_id(1),
-			source_nonces(20..=23, 19, DEFAULT_REWARD, AtSourceChain),
+			source_nonces(20..=23, 19, DEFAULT_REWARD, DispatchFeePayment::AtSourceChain),
 		);
 
 		let target_nonces = TargetClientNonces { latest_nonce: 19, nonces_data: () };
@@ -907,7 +682,7 @@ mod tests {
 							dispatch_weight: idx,
 							size: idx as _,
 							reward: idx as _,
-							dispatch_fee_payment: AtSourceChain,
+							dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 						},
 					)
 				})
@@ -1199,7 +974,7 @@ mod tests {
 	#[async_std::test]
 	async fn rational_relayer_is_delivering_messages_if_cost_is_equal_to_reward() {
 		let (state, mut strategy) = prepare_strategy();
-		strategy.relayer_mode = RelayerMode::Rational;
+		strategy.relay_strategy = MixStrategy::new(RelayerMode::Rational);
 
 		// so now we have:
 		// - 20..=23 with reward = cost
@@ -1217,11 +992,11 @@ mod tests {
 			24..=25,
 			19,
 			DEFAULT_REWARD - BASE_MESSAGE_DELIVERY_TRANSACTION_COST,
-			AtSourceChain,
+			DispatchFeePayment::AtSourceChain,
 		);
 		strategy.strategy.source_nonces_updated(header_id(2), nonces);
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
-		strategy.relayer_mode = RelayerMode::Rational;
+		strategy.relay_strategy = MixStrategy::new(RelayerMode::Rational);
 
 		// so now we have:
 		// - 20..=23 with reward = cost
@@ -1252,7 +1027,7 @@ mod tests {
 			strategy.max_messages_in_single_batch = 100;
 			strategy.max_messages_weight_in_single_batch = 100;
 			strategy.max_messages_size_in_single_batch = 100;
-			strategy.relayer_mode = RelayerMode::Rational;
+			strategy.relay_strategy = MixStrategy::new(RelayerMode::Rational);
 
 			// so now we have:
 			// - 20..=23 with reward = cost
@@ -1264,11 +1039,11 @@ mod tests {
 		}
 
 		assert_eq!(
-			test_with_dispatch_fee_payment(AtTargetChain).await,
+			test_with_dispatch_fee_payment(DispatchFeePayment::AtTargetChain).await,
 			Some(((20..=24), proof_parameters(false, 5)))
 		);
 		assert_eq!(
-			test_with_dispatch_fee_payment(AtSourceChain).await,
+			test_with_dispatch_fee_payment(DispatchFeePayment::AtSourceChain).await,
 			Some(((20..=23), proof_parameters(false, 4)))
 		);
 	}
@@ -1284,7 +1059,7 @@ mod tests {
 		// This was happening because selector (`select_nonces_for_delivery_transaction`) has been
 		// called for every `source_queue` entry separately without preserving any context.
 		let (mut state, mut strategy) = prepare_strategy();
-		let nonces = source_nonces(24..=25, 19, DEFAULT_REWARD, AtSourceChain);
+		let nonces = source_nonces(24..=25, 19, DEFAULT_REWARD, DispatchFeePayment::AtSourceChain);
 		strategy.strategy.source_nonces_updated(header_id(2), nonces);
 		strategy.max_unrewarded_relayer_entries_at_target = 100;
 		strategy.max_unconfirmed_nonces_at_target = 100;
