@@ -322,7 +322,7 @@ pub enum ProxyType {
 	AssetOwner,
 	/// Asset manager. Can execute calls related to asset management.
 	AssetManager,
-	// Collator selection proxy. Can execute calls related to collator selection mechanism.
+	/// Collator selection proxy. Can execute calls related to collator selection mechanism.
 	Collator,
 }
 impl Default for ProxyType {
@@ -505,7 +505,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
 	// foreign chains who want to have a local sovereign account on this chain which they control.
 	SovereignSignedViaLocation<LocationToAccountId, Origin>,
-	// Native converter for Relay-chain (Parent) location; will converts to a `Relay` origin when
+	// Native converter for Relay-chain (Parent) location; will convert to a `Relay` origin when
 	// recognised.
 	RelayChainAsNative<RelayChainOrigin, Origin>,
 	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
@@ -543,8 +543,8 @@ match_type! {
 pub type Barrier = (
 	TakeWeightCredit,
 	AllowTopLevelPaidExecutionFrom<Everything>,
+	// Parent and its exec plurality get free execution
 	AllowUnpaidExecutionFrom<ParentOrParentsExecutivePlurality>,
-	// ^^^ Parent and its exec plurality get free execution
 	// Expected responses are OK.
 	AllowKnownQueryResponses<PolkadotXcm>,
 	// Subscriptions for version tracking are OK.

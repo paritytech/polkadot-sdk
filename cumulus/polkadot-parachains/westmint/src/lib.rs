@@ -213,13 +213,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
-impl pallet_sudo::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
-}
-
-pub type AssetsForceOrigin = EnsureRoot<AccountId>;
-
 parameter_types! {
 	pub const AssetDeposit: Balance = 1 * UNITS; // 1 WND deposit to create asset
 	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
@@ -229,6 +222,8 @@ parameter_types! {
 	pub const MetadataDepositBase: Balance = deposit(1, 68);
 	pub const MetadataDepositPerByte: Balance = deposit(0, 1);
 }
+
+pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Runtime {
 	type Event = Event;
@@ -300,7 +295,7 @@ parameter_types! {
 pub enum ProxyType {
 	/// Fully permissioned proxy. Can execute any call on behalf of _proxied_.
 	Any,
-	/// Can execute any call that does not transfer funds, including asset transfers.
+	/// Can execute any call that does not transfer funds or assets.
 	NonTransfer,
 	/// Proxy with the ability to reject time-delay proxy announcements.
 	CancelProxy,
@@ -525,8 +520,8 @@ match_type! {
 pub type Barrier = (
 	TakeWeightCredit,
 	AllowTopLevelPaidExecutionFrom<Everything>,
+	// Parent and its plurality get free execution
 	AllowUnpaidExecutionFrom<ParentOrParentsPlurality>,
-	// ^^^ Parent & its plurality gets free execution
 	// Expected responses are OK.
 	AllowKnownQueryResponses<PolkadotXcm>,
 	// Subscriptions for version tracking are OK.
@@ -580,7 +575,6 @@ impl pallet_xcm::Config for Runtime {
 	type LocationInverter = LocationInverter<Ancestry>;
 	type Origin = Origin;
 	type Call = Call;
-
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 }
@@ -637,10 +631,12 @@ parameter_types! {
 	pub const MaxInvulnerables: u32 = 100;
 }
 
+pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;
+
 impl pallet_collator_selection::Config for Runtime {
 	type Event = Event;
 	type Currency = Balances;
-	type UpdateOrigin = EnsureRoot<AccountId>;
+	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type PotId = PotId;
 	type MaxCandidates = MaxCandidates;
 	type MinCandidates = MinCandidates;
@@ -687,6 +683,11 @@ impl pallet_uniques::Config for Runtime {
 	type KeyLimit = KeyLimit;
 	type ValueLimit = ValueLimit;
 	type WeightInfo = weights::pallet_uniques::WeightInfo<Runtime>;
+}
+
+impl pallet_sudo::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
