@@ -36,9 +36,6 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Block as BlockT;
 use std::{io::Write, net::SocketAddr};
 
-// default to the Statemint/Statemine/Westmint id
-const DEFAULT_PARA_ID: u32 = 1000;
-
 trait IdentifyChain {
 	fn is_shell(&self) -> bool;
 	fn is_statemint(&self) -> bool;
@@ -76,12 +73,9 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
 	}
 }
 
-fn load_spec(
-	id: &str,
-	para_id: ParaId,
-) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 	Ok(match id {
-		"staging" => Box::new(chain_spec::staging_test_net(para_id)),
+		"staging" => Box::new(chain_spec::staging_test_net()),
 		"tick" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/tick.json")[..],
 		)?),
@@ -91,26 +85,26 @@ fn load_spec(
 		"track" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/track.json")[..],
 		)?),
-		"shell" => Box::new(chain_spec::get_shell_chain_spec(para_id)),
-		"statemint-dev" => Box::new(chain_spec::statemint_development_config(para_id)),
-		"statemint-local" => Box::new(chain_spec::statemint_local_config(para_id)),
-		"statemine-dev" => Box::new(chain_spec::statemine_development_config(para_id)),
-		"statemine-local" => Box::new(chain_spec::statemine_local_config(para_id)),
+		"shell" => Box::new(chain_spec::get_shell_chain_spec()),
+		"statemint-dev" => Box::new(chain_spec::statemint_development_config()),
+		"statemint-local" => Box::new(chain_spec::statemint_local_config()),
+		"statemine-dev" => Box::new(chain_spec::statemine_development_config()),
+		"statemine-local" => Box::new(chain_spec::statemine_local_config()),
 		// the chain spec as used for generating the upgrade genesis values
-		"statemine-genesis" => Box::new(chain_spec::statemine_config(para_id)),
+		"statemine-genesis" => Box::new(chain_spec::statemine_config()),
 		// the shell-based chain spec as used for syncing
 		"statemine" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/statemine.json")[..],
 		)?),
-		"westmint-dev" => Box::new(chain_spec::westmint_development_config(para_id)),
-		"westmint-local" => Box::new(chain_spec::westmint_local_config(para_id)),
+		"westmint-dev" => Box::new(chain_spec::westmint_development_config()),
+		"westmint-local" => Box::new(chain_spec::westmint_local_config()),
 		// the chain spec as used for generating the upgrade genesis values
-		"westmint-genesis" => Box::new(chain_spec::westmint_config(para_id)),
+		"westmint-genesis" => Box::new(chain_spec::westmint_config()),
 		// the shell-based chain spec as used for syncing
 		"westmint" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/westmint.json")[..],
 		)?),
-		"" => Box::new(chain_spec::get_chain_spec(para_id)),
+		"" => Box::new(chain_spec::get_chain_spec()),
 		path => {
 			let chain_spec = chain_spec::ChainSpec::from_json_file(path.into())?;
 			if chain_spec.is_statemint() {
@@ -160,7 +154,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		load_spec(id, self.run.parachain_id.unwrap_or(DEFAULT_PARA_ID).into())
+		load_spec(id)
 	}
 
 	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -342,10 +336,8 @@ pub fn run() -> Result<()> {
 			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
 			let _ = builder.init();
 
-			let block: crate::service::Block = generate_genesis_block(&load_spec(
-				&params.chain.clone().unwrap_or_default(),
-				params.parachain_id.unwrap_or(DEFAULT_PARA_ID).into(),
-			)?)?;
+			let block: crate::service::Block =
+				generate_genesis_block(&load_spec(&params.chain.clone().unwrap_or_default())?)?;
 			let raw_header = block.header().encode();
 			let output_buf = if params.raw {
 				raw_header
@@ -404,8 +396,9 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 
 			runner.run_node_until_exit(|config| async move {
-				let para_id =
-					chain_spec::Extensions::try_get(&*config.chain_spec).map(|e| e.para_id);
+				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
+					.map(|e| e.para_id)
+					.ok_or_else(|| "Could not find parachain extension in chain-spec.")?;
 
 				let polkadot_cli = RelayChainCli::new(
 					&config,
@@ -414,7 +407,7 @@ pub fn run() -> Result<()> {
 						.chain(cli.relaychain_args.iter()),
 				);
 
-				let id = ParaId::from(cli.run.parachain_id.or(para_id).unwrap_or(DEFAULT_PARA_ID));
+				let id = ParaId::from(para_id);
 
 				let parachain_account =
 					AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);

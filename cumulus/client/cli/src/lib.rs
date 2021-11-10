@@ -125,10 +125,6 @@ pub struct RunCmd {
 	#[structopt(flatten)]
 	pub base: sc_cli::RunCmd,
 
-	/// Id of the parachain this collator collates for.
-	#[structopt(long)]
-	pub parachain_id: Option<u32>,
-
 	/// Run node as collator.
 	///
 	/// Note that this is the same as running with `--validator`.
@@ -142,8 +138,6 @@ pub struct RunCmd {
 pub struct NormalizedRunCmd {
 	/// The cumulus RunCmd inherents from sc_cli's
 	pub base: sc_cli::RunCmd,
-	/// Id of the parachain this collator collates for.
-	pub parachain_id: Option<u32>,
 }
 
 impl RunCmd {
@@ -153,7 +147,7 @@ impl RunCmd {
 
 		new_base.validator = self.base.validator || self.collator;
 
-		NormalizedRunCmd { base: new_base, parachain_id: self.parachain_id }
+		NormalizedRunCmd { base: new_base }
 	}
 }
 
