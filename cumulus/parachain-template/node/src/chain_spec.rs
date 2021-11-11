@@ -11,7 +11,7 @@ pub type ChainSpec =
 	sc_service::GenericChainSpec<parachain_template_runtime::GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_pair_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+pub fn get_public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
@@ -40,7 +40,7 @@ type AccountPublic = <Signature as Verify>::Signer;
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
 pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
-	get_pair_from_seed::<AuraId>(seed)
+	get_public_from_seed::<AuraId>(seed)
 }
 
 /// Helper function to generate an account ID from seed
@@ -48,7 +48,7 @@ pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
-	AccountPublic::from(get_pair_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(get_public_from_seed::<TPublic>(seed)).into_account()
 }
 
 /// Generate the session keys from individual elements.
@@ -61,7 +61,7 @@ pub fn template_session_keys(keys: AuraId) -> parachain_template_runtime::Sessio
 pub fn development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenSymbol".into(), "UNIT".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	properties.insert("ss58Format".into(), 42.into());
 
@@ -101,7 +101,7 @@ pub fn development_config() -> ChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		None,
@@ -115,7 +115,7 @@ pub fn development_config() -> ChainSpec {
 pub fn local_testnet_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenSymbol".into(), "UNIT".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	properties.insert("ss58Format".into(), 42.into());
 
@@ -156,7 +156,7 @@ pub fn local_testnet_config() -> ChainSpec {
 			)
 		},
 		// Bootnodes
-		vec![],
+		Vec::new(),
 		// Telemetry
 		None,
 		// Protocol ID
@@ -194,8 +194,7 @@ fn testnet_genesis(
 		},
 		session: parachain_template_runtime::SessionConfig {
 			keys: invulnerables
-				.iter()
-				.cloned()
+				.into_iter()
 				.map(|(acc, aura)| {
 					(
 						acc.clone(),                 // account id

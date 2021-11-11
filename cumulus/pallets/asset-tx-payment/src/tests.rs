@@ -255,7 +255,7 @@ impl ExtBuilder {
 					(6, 60 * self.balance_factor),
 				]
 			} else {
-				vec![]
+				Vec::new()
 			},
 		}
 		.assimilate_storage(&mut t)

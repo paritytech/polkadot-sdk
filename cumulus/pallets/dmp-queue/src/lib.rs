@@ -475,7 +475,7 @@ mod tests {
 		Xcm(vec![Transact {
 			origin_type: OriginKind::Native,
 			require_weight_at_most: weight,
-			call: vec![].into(),
+			call: Vec::new().into(),
 		}])
 	}
 
@@ -506,7 +506,7 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let weight_used = handle_messages(&[], 1000);
 			assert_eq!(weight_used, 0);
-			assert_eq!(take_trace(), vec![]);
+			assert_eq!(take_trace(), Vec::new());
 			assert!(queue_is_empty());
 		});
 	}

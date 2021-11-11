@@ -185,8 +185,8 @@ impl SubstrateCli for RelayChainCli {
 		format!(
 			"Polkadot collator\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]",
+		to the relay chain node.\n\n\
+		{} [parachain-args] -- [relay_chain-args]",
 			Self::executable_name()
 		)
 	}

@@ -165,7 +165,7 @@ fn collect_relay_storage_proof(
 		.ok()?
 		.unwrap_or_default();
 
-	let mut relevant_keys = vec![];
+	let mut relevant_keys = Vec::new();
 	relevant_keys.push(relay_well_known_keys::CURRENT_SLOT.to_vec());
 	relevant_keys.push(relay_well_known_keys::ACTIVE_CONFIG.to_vec());
 	relevant_keys.push(relay_well_known_keys::dmq_mqc_head(para_id));

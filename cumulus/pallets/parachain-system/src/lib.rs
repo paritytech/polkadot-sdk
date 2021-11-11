@@ -609,7 +609,7 @@ pub mod pallet {
 				if let Ok(hash) = Self::validate_authorized_upgrade(code) {
 					return Ok(ValidTransaction {
 						priority: 100,
-						requires: vec![],
+						requires: Vec::new(),
 						provides: vec![hash.as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
@@ -1008,7 +1008,7 @@ pub trait CheckInherents<Block: BlockT> {
 	) -> frame_support::inherent::CheckInherentsResult;
 }
 
-/// Implements [`BlockNumberProvider`] that returns relaychain block number fetched from
+/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from
 /// validation data.
 /// NTOE: When validation data is not available (e.g. within on_initialize), 0 will be returned.
 pub struct RelaychainBlockNumberProvider<T>(sp_std::marker::PhantomData<T>);

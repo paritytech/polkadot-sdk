@@ -83,7 +83,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		"local_testnet",
 		ChainType::Local,
 		move || GenesisExt { runtime_genesis_config: local_testnet_genesis() },
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		None,

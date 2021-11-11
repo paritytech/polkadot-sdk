@@ -29,7 +29,7 @@ async fn sync_blocks_from_tip_without_being_connected_to_a_collator() {
 	let tokio_handle = tokio::runtime::Handle::current();
 
 	// start alice
-	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, vec![]);
+	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, Vec::new());
 
 	// start bob
 	let bob =

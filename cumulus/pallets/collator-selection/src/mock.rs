@@ -145,7 +145,7 @@ impl From<UintAuthorityId> for MockSessionKeys {
 }
 
 parameter_types! {
-	pub static SessionHandlerCollators: Vec<u64> = vec![];
+	pub static SessionHandlerCollators: Vec<u64> = Vec::new();
 	pub static SessionChangeBlock: u64 = 0;
 }
 

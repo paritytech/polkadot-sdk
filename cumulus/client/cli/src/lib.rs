@@ -30,7 +30,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-/// The `purge-chain` command used to remove the whole chain: the parachain and the relaychain.
+/// The `purge-chain` command used to remove the whole chain: the parachain and the relay chain.
 #[derive(Debug, StructOpt)]
 pub struct PurgeChainCmd {
 	/// The base struct of the purge-chain command.

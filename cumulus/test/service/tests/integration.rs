@@ -30,7 +30,7 @@ async fn test_collating_and_non_collator_mode_catching_up() {
 	let tokio_handle = tokio::runtime::Handle::current();
 
 	// start alice
-	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, vec![]);
+	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, Vec::new());
 
 	// start bob
 	let bob =

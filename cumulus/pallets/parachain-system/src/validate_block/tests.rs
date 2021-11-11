@@ -92,7 +92,7 @@ fn validate_block_no_extra_extrinsics() {
 
 	let (client, parent_head) = create_test_client();
 	let TestBlockData { block, validation_data } =
-		build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
+		build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 	let header = block.header().clone();
 
 	let res_header =
@@ -133,7 +133,7 @@ fn validate_block_invalid_parent_hash() {
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
 		let TestBlockData { block, validation_data } =
-			build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
+			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 		let (mut header, extrinsics, witness) = block.deconstruct();
 		header.set_parent_hash(Hash::from_low_u64_be(1));
 
@@ -159,7 +159,7 @@ fn validate_block_fails_on_invalid_validation_data() {
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
 		let TestBlockData { block, .. } =
-			build_block_with_witness(&client, vec![], parent_head.clone(), Default::default());
+			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 
 		call_validate_block(parent_head, block, Hash::random()).unwrap_err();
 	} else {
@@ -184,7 +184,7 @@ fn check_inherent_fails_on_validate_block_as_expected() {
 
 		let TestBlockData { block, validation_data } = build_block_with_witness(
 			&client,
-			vec![],
+			Vec::new(),
 			parent_head.clone(),
 			RelayStateSproofBuilder { current_slot: 1337.into(), ..Default::default() },
 		);

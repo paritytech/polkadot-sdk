@@ -188,7 +188,7 @@ fn register_as_candidate_works() {
 		// given
 		assert_eq!(CollatorSelection::desired_candidates(), 2);
 		assert_eq!(CollatorSelection::candidacy_bond(), 10);
-		assert_eq!(CollatorSelection::candidates(), vec![]);
+		assert_eq!(CollatorSelection::candidates(), Vec::new());
 		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
 
 		// take two endowed, non-invulnerables accounts.

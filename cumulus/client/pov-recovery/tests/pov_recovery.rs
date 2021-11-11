@@ -39,7 +39,7 @@ async fn pov_recovery() {
 		tokio_handle.clone(),
 		Alice,
 		|| {},
-		vec![],
+		Vec::new(),
 	);
 
 	// Start bob

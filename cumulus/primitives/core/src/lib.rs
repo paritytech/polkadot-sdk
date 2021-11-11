@@ -122,7 +122,7 @@ pub trait XcmpMessageSource {
 
 impl XcmpMessageSource for () {
 	fn take_outbound_messages(_maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
-		vec![]
+		Vec::new()
 	}
 }
 

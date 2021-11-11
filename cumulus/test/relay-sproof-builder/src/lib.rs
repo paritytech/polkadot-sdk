@@ -120,7 +120,7 @@ impl RelayStateSproofBuilder {
 		let (db, root) = MemoryDB::<HashFor<polkadot_primitives::v1::Block>>::default_with_root();
 		let mut backend = sp_state_machine::TrieBackend::new(db, root);
 
-		let mut relevant_keys = vec![];
+		let mut relevant_keys = Vec::new();
 		{
 			use codec::Encode as _;
 

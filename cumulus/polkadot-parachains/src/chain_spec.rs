@@ -90,7 +90,7 @@ pub fn get_chain_spec() -> ChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		None,
@@ -104,7 +104,7 @@ pub fn get_shell_chain_spec() -> ShellChainSpec {
 		"shell_local_testnet",
 		ChainType::Local,
 		move || shell_testnet_genesis(1000.into()),
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		None,
@@ -194,7 +194,7 @@ const STATEMINE_ED: StatemintBalance = statemine_runtime::constants::currency::E
 const WESTMINT_ED: StatemintBalance = westmint_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_pair_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+pub fn get_public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
@@ -204,7 +204,7 @@ pub fn get_pair_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
 pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
-	get_pair_from_seed::<AuraId>(seed)
+	get_public_from_seed::<AuraId>(seed)
 }
 
 /// Generate the session keys from individual elements.
@@ -255,7 +255,7 @@ pub fn statemint_development_config() -> StatemintChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -304,7 +304,7 @@ pub fn statemint_local_config() -> StatemintChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -335,12 +335,11 @@ fn statemint_genesis(
 		},
 		session: statemint_runtime::SessionConfig {
 			keys: invulnerables
-				.iter()
-				.cloned()
+				.into_iter()
 				.map(|(acc, aura)| {
 					(
 						acc.clone(),                  // account id
-						acc.clone(),                  // validator id
+						acc,                          // validator id
 						statemint_session_keys(aura), // session keys
 					)
 				})
@@ -381,7 +380,7 @@ pub fn statemine_development_config() -> StatemineChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -430,7 +429,7 @@ pub fn statemine_local_config() -> StatemineChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -478,11 +477,11 @@ pub fn statemine_config() -> StatemineChainSpec {
 							.unchecked_into(),
 					),
 				],
-				vec![],
+				Vec::new(),
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -513,12 +512,11 @@ fn statemine_genesis(
 		},
 		session: statemine_runtime::SessionConfig {
 			keys: invulnerables
-				.iter()
-				.cloned()
+				.into_iter()
 				.map(|(acc, aura)| {
 					(
 						acc.clone(),                  // account id
-						acc.clone(),                  // validator id
+						acc,                          // validator id
 						statemine_session_keys(aura), // session keys
 					)
 				})
@@ -558,7 +556,7 @@ pub fn westmint_development_config() -> WestmintChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -608,7 +606,7 @@ pub fn westmint_local_config() -> WestmintChainSpec {
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -656,13 +654,13 @@ pub fn westmint_config() -> WestmintChainSpec {
 							.unchecked_into(),
 					),
 				],
-				vec![],
+				Vec::new(),
 				// re-use the Westend sudo key
 				hex!("6648d7f3382690650c681aba1b993cd11e54deb4df21a3a18c3e2177de9f7342").into(),
 				1000.into(),
 			)
 		},
-		vec![],
+		Vec::new(),
 		None,
 		None,
 		Some(properties),
@@ -695,12 +693,11 @@ fn westmint_genesis(
 		},
 		session: westmint_runtime::SessionConfig {
 			keys: invulnerables
-				.iter()
-				.cloned()
+				.into_iter()
 				.map(|(acc, aura)| {
 					(
 						acc.clone(),                 // account id
-						acc.clone(),                 // validator id
+						acc,                         // validator id
 						westmint_session_keys(aura), // session keys
 					)
 				})
