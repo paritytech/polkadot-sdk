@@ -522,6 +522,7 @@ impl<Block: BlockT> WaitToAnnounce<Block> {
 
 		self.spawner.spawn(
 			"cumulus-wait-to-announce",
+			None,
 			async move {
 				tracing::debug!(
 					target: "cumulus-network",

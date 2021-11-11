@@ -237,7 +237,9 @@ where
 			self.announce_block,
 		);
 
-		self.task_manager.spawn_essential_handle().spawn("cumulus-consensus", consensus);
+		self.task_manager
+			.spawn_essential_handle()
+			.spawn("cumulus-consensus", None, consensus);
 	}
 }
 
@@ -281,9 +283,11 @@ where
 			self.para_id,
 		);
 
-		self.task_manager
-			.spawn_essential_handle()
-			.spawn("cumulus-pov-recovery", pov_recovery.run());
+		self.task_manager.spawn_essential_handle().spawn(
+			"cumulus-pov-recovery",
+			None,
+			pov_recovery.run(),
+		);
 
 		Ok(())
 	}

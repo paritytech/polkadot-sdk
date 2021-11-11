@@ -390,7 +390,7 @@ mod tests {
 				.build()
 				.expect("Builds overseer");
 
-		spawner.spawn("overseer", overseer.run().then(|_| async { () }).boxed());
+		spawner.spawn("overseer", None, overseer.run().then(|_| async { () }).boxed());
 
 		let collator_start = start_collator(StartCollatorParams {
 			runtime_api: client.clone(),
