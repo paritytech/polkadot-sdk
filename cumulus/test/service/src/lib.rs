@@ -29,7 +29,9 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
+use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_primitives::v1::{CollatorPair, Hash as PHash, PersistedValidationData};
+use polkadot_service::ProvideRuntimeApi;
 use sc_client_api::execution_extensions::ExecutionStrategies;
 use sc_network::{config::TransportConfig, multiaddr, NetworkService};
 use sc_service::{
@@ -97,6 +99,9 @@ pub type Client = TFullClient<
 	runtime::RuntimeApi,
 	sc_executor::NativeElseWasmExecutor<RuntimeExecutor>,
 >;
+
+/// Transaction pool type used by the test service
+pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -174,6 +179,7 @@ async fn start_node_impl<RB>(
 	Arc<Client>,
 	Arc<NetworkService<Block, H256>>,
 	RpcHandlers,
+	TransactionPool,
 )>
 where
 	RB: Fn(Arc<Client>) -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, sc_service::Error>
@@ -266,7 +272,7 @@ where
 				let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 					task_manager.spawn_handle(),
 					client.clone(),
-					transaction_pool,
+					transaction_pool.clone(),
 					prometheus_registry.as_ref(),
 					None,
 				);
@@ -345,7 +351,7 @@ where
 
 	start_network.start_network();
 
-	Ok((task_manager, client, network, rpc_handlers))
+	Ok((task_manager, client, network, rpc_handlers, transaction_pool))
 }
 
 /// A Cumulus test node instance used for testing.
@@ -361,6 +367,8 @@ pub struct TestNode {
 	pub addr: MultiaddrWithPeerId,
 	/// RPCHandlers to make RPC queries.
 	pub rpc_handlers: RpcHandlers,
+	/// Node's transaction pool
+	pub transaction_pool: TransactionPool,
 }
 
 enum Consensus {
@@ -519,7 +527,7 @@ impl TestNodeBuilder {
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
 		let multiaddr = parachain_config.network.listen_addresses[0].clone();
-		let (task_manager, client, network, rpc_handlers) = start_node_impl(
+		let (task_manager, client, network, rpc_handlers, transaction_pool) = start_node_impl(
 			parachain_config,
 			self.collator_key,
 			relay_chain_config,
@@ -534,7 +542,7 @@ impl TestNodeBuilder {
 		let peer_id = network.local_peer_id().clone();
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
-		TestNode { task_manager, client, network, addr, rpc_handlers }
+		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool }
 	}
 }
 
@@ -651,7 +659,7 @@ impl TestNode {
 		function: impl Into<runtime::Call>,
 		caller: Sr25519Keyring,
 	) -> Result<RpcTransactionOutput, RpcTransactionError> {
-		let extrinsic = construct_extrinsic(&*self.client, function, caller);
+		let extrinsic = construct_extrinsic(&*self.client, function, caller.pair(), Some(0));
 
 		self.rpc_handlers.send_transaction(extrinsic.into()).await
 	}
@@ -669,17 +677,27 @@ impl TestNode {
 	}
 }
 
+/// Fetch account nonce for key pair
+pub fn fetch_nonce(client: &Client, account: sp_core::sr25519::Public) -> u32 {
+	let best_hash = client.chain_info().best_hash;
+	client
+		.runtime_api()
+		.account_nonce(&generic::BlockId::Hash(best_hash), account.into())
+		.expect("Fetching account nonce works; qed")
+}
+
 /// Construct an extrinsic that can be applied to the test runtime.
 pub fn construct_extrinsic(
 	client: &Client,
 	function: impl Into<runtime::Call>,
-	caller: Sr25519Keyring,
+	caller: sp_core::sr25519::Pair,
+	nonce: Option<u32>,
 ) -> runtime::UncheckedExtrinsic {
 	let function = function.into();
 	let current_block_hash = client.info().best_hash;
 	let current_block = client.info().best_number.saturated_into();
 	let genesis_block = client.hash(0).unwrap().unwrap();
-	let nonce = 0;
+	let nonce = nonce.unwrap_or_else(|| fetch_nonce(client, caller.public()));
 	let period = runtime::BlockHashCount::get()
 		.checked_next_power_of_two()
 		.map(|c| c / 2)
