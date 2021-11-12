@@ -17,7 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
-use sp_runtime::traits::{Block as BlockT, Extrinsic, HashFor, Header as HeaderT, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Extrinsic, HashFor, Header as HeaderT};
 
 use sp_io::KillStorageResult;
 use sp_std::prelude::*;
@@ -32,7 +32,7 @@ use sp_trie::MemoryDB;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<MemoryDB<HashFor<B>>, HashFor<B>>;
 
-type Ext<'a, B> = sp_state_machine::Ext<'a, HashFor<B>, NumberFor<B>, TrieBackend<B>>;
+type Ext<'a, B> = sp_state_machine::Ext<'a, HashFor<B>, TrieBackend<B>>;
 
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
@@ -89,7 +89,6 @@ where
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
 		sp_io::storage::host_root.replace_implementation(host_storage_root),
 		sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
-		sp_io::storage::host_changes_root.replace_implementation(host_storage_changes_root),
 		sp_io::storage::host_append.replace_implementation(host_storage_append),
 		sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
 		sp_io::storage::host_start_transaction
@@ -227,10 +226,6 @@ fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageRe
 			false => KillStorageResult::SomeRemaining(num_removed),
 		}
 	})
-}
-
-fn host_storage_changes_root(parent_hash: &[u8]) -> Option<Vec<u8>> {
-	with_externalities(|ext| ext.storage_changes_root(parent_hash).ok().flatten())
 }
 
 fn host_storage_append(key: &[u8], value: Vec<u8>) {

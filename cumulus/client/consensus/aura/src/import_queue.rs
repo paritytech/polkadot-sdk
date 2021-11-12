@@ -24,12 +24,12 @@ use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_blockchain::{HeaderBackend, ProvideCache};
+use sp_blockchain::HeaderBackend;
 use sp_consensus::{CanAuthorWith, Error as ConsensusError};
-use sp_consensus_aura::{digests::CompatibleDigestItem, AuraApi};
+use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::traits::{Block as BlockT, DigestItemFor};
+use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, hash::Hash, sync::Arc};
 use substrate_prometheus_endpoint::Registry;
 
@@ -69,7 +69,6 @@ where
 	C: 'static
 		+ ProvideRuntimeApi<Block>
 		+ BlockOf
-		+ ProvideCache<Block>
 		+ Send
 		+ Sync
 		+ AuxStore
@@ -79,7 +78,6 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	DigestItemFor<Block>: CompatibleDigestItem<P::Signature>,
 	P: Pair + Send + Sync + 'static,
 	P::Public: Clone + Eq + Send + Sync + Hash + Debug + Codec,
 	P::Signature: Codec,

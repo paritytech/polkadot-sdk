@@ -38,7 +38,7 @@ use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SlotInfo};
 use sc_telemetry::TelemetryHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
-use sp_blockchain::{HeaderBackend, ProvideCache};
+use sp_blockchain::HeaderBackend;
 use sp_consensus::{
 	EnableProofRecording, Environment, ProofRecording, Proposer, SlotData, SyncOracle,
 };
@@ -113,14 +113,8 @@ where
 		max_block_proposal_slot_portion: Option<SlotProportion>,
 	) -> Self
 	where
-		Client: ProvideRuntimeApi<B>
-			+ BlockOf
-			+ ProvideCache<B>
-			+ AuxStore
-			+ HeaderBackend<B>
-			+ Send
-			+ Sync
-			+ 'static,
+		Client:
+			ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
 		Client::Api: AuraApi<B, P::Public>,
 		BI: BlockImport<B, Transaction = sp_api::TransactionFor<Client, B>> + Send + Sync + 'static,
 		SO: SyncOracle + Send + Sync + Clone + 'static,
@@ -286,7 +280,6 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	Client: ProvideRuntimeApi<Block>
 		+ BlockOf
-		+ ProvideCache<Block>
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ Send
@@ -367,7 +360,6 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	Client: ProvideRuntimeApi<Block>
 		+ BlockOf
-		+ ProvideCache<Block>
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ Send
@@ -447,7 +439,6 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	Client: ProvideRuntimeApi<Block>
 		+ BlockOf
-		+ ProvideCache<Block>
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ Send
