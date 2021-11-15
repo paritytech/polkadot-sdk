@@ -17,9 +17,9 @@
 use bp_rialto::derive_account_from_millau_id;
 use polkadot_primitives::v1::{AssignmentId, ValidatorId};
 use rialto_runtime::{
-	AccountId, BabeConfig, BalancesConfig, BridgeKovanConfig, BridgeMillauMessagesConfig,
-	BridgeRialtoPoaConfig, ConfigurationConfig, GenesisConfig, GrandpaConfig, SessionConfig,
-	SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, BabeConfig, BalancesConfig, BridgeMillauMessagesConfig, ConfigurationConfig,
+	GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig,
+	WASM_BINARY,
 };
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -216,8 +216,6 @@ fn testnet_genesis(
 			authorities: Vec::new(),
 			epoch_config: Some(rialto_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		bridge_rialto_poa: load_rialto_poa_bridge_config(),
-		bridge_kovan: load_kovan_bridge_config(),
 		grandpa: GrandpaConfig { authorities: Vec::new() },
 		sudo: SudoConfig { key: root_key },
 		session: SessionConfig {
@@ -288,22 +286,6 @@ fn testnet_genesis(
 			owner: Some(get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner")),
 			..Default::default()
 		},
-	}
-}
-
-fn load_rialto_poa_bridge_config() -> BridgeRialtoPoaConfig {
-	BridgeRialtoPoaConfig {
-		initial_header: rialto_runtime::rialto_poa::genesis_header(),
-		initial_difficulty: 0.into(),
-		initial_validators: rialto_runtime::rialto_poa::genesis_validators(),
-	}
-}
-
-fn load_kovan_bridge_config() -> BridgeKovanConfig {
-	BridgeKovanConfig {
-		initial_header: rialto_runtime::kovan::genesis_header(),
-		initial_difficulty: 0.into(),
-		initial_validators: rialto_runtime::kovan::genesis_validators(),
 	}
 }
 
