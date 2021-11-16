@@ -16,12 +16,6 @@
 
 //! Metrics for headers synchronization relay loop.
 
-use crate::{
-	sync::HeadersSync,
-	sync_types::{HeaderStatus, HeadersSyncPipeline},
-};
-
-use num_traits::Zero;
 use relay_utils::metrics::{metric_name, register, GaugeVec, Opts, PrometheusError, Registry, U64};
 
 /// Headers sync metrics.
@@ -29,8 +23,6 @@ use relay_utils::metrics::{metric_name, register, GaugeVec, Opts, PrometheusErro
 pub struct SyncLoopMetrics {
 	/// Best syncing headers at "source" and "target" nodes.
 	best_block_numbers: GaugeVec<U64>,
-	/// Number of headers in given states (see `HeaderStatus`).
-	blocks_in_state: GaugeVec<U64>,
 }
 
 impl SyncLoopMetrics {
@@ -44,16 +36,6 @@ impl SyncLoopMetrics {
 						"Best block numbers on source and target nodes",
 					),
 					&["node"],
-				)?,
-				registry,
-			)?,
-			blocks_in_state: register(
-				GaugeVec::new(
-					Opts::new(
-						metric_name(prefix, "blocks_in_state"),
-						"Number of blocks in given state",
-					),
-					&["state"],
 				)?,
 				registry,
 			)?,
@@ -74,38 +56,5 @@ impl SyncLoopMetrics {
 		self.best_block_numbers
 			.with_label_values(&["target"])
 			.set(target_best_number.into());
-	}
-
-	/// Update metrics.
-	pub fn update<P: HeadersSyncPipeline>(&self, sync: &HeadersSync<P>) {
-		let headers = sync.headers();
-		let source_best_number = sync.source_best_number().unwrap_or_else(Zero::zero);
-		let target_best_number =
-			sync.target_best_header().map(|id| id.0).unwrap_or_else(Zero::zero);
-
-		self.update_best_block_at_source(source_best_number);
-		self.update_best_block_at_target(target_best_number);
-
-		self.blocks_in_state
-			.with_label_values(&["maybe_orphan"])
-			.set(headers.headers_in_status(HeaderStatus::MaybeOrphan) as _);
-		self.blocks_in_state
-			.with_label_values(&["orphan"])
-			.set(headers.headers_in_status(HeaderStatus::Orphan) as _);
-		self.blocks_in_state
-			.with_label_values(&["maybe_extra"])
-			.set(headers.headers_in_status(HeaderStatus::MaybeExtra) as _);
-		self.blocks_in_state
-			.with_label_values(&["extra"])
-			.set(headers.headers_in_status(HeaderStatus::Extra) as _);
-		self.blocks_in_state
-			.with_label_values(&["ready"])
-			.set(headers.headers_in_status(HeaderStatus::Ready) as _);
-		self.blocks_in_state
-			.with_label_values(&["incomplete"])
-			.set(headers.headers_in_status(HeaderStatus::Incomplete) as _);
-		self.blocks_in_state
-			.with_label_values(&["submitted"])
-			.set(headers.headers_in_status(HeaderStatus::Submitted) as _);
 	}
 }
