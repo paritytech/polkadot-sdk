@@ -3,7 +3,7 @@ name = "cumulus-client-network"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Cumulus-specific networking protocol"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 # Substrate deps

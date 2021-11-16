@@ -65,7 +65,7 @@ fn create_project(out_dir: &Path) -> PathBuf {
 			name = "{project_name}"
 			version = "0.1.0"
 			authors = ["Parity Technologies <admin@parity.io>"]
-			edition = "2018"
+			edition = "2021"
 
 			[dependencies]
 			cumulus-test-relay-validation-worker-provider = {{ path = "{provider_path}" }}
