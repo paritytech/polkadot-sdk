@@ -47,10 +47,10 @@ where
 		let numeric_amount = amount.peek();
 		let staking_pot = <pallet_collator_selection::Pallet<R>>::account_id();
 		<pallet_balances::Pallet<R>>::resolve_creating(&staking_pot, amount);
-		<frame_system::Pallet<R>>::deposit_event(pallet_balances::Event::Deposit(
-			staking_pot,
-			numeric_amount,
-		));
+		<frame_system::Pallet<R>>::deposit_event(pallet_balances::Event::Deposit {
+			who: staking_pot,
+			amount: numeric_amount,
+		});
 	}
 }
 
