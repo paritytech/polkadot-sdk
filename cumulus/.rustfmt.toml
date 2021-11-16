@@ -1,4 +1,5 @@
 # Basic
+edition = "2021"
 hard_tabs = true
 max_width = 100
 use_small_heuristics = "Max"
