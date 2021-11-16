@@ -19,12 +19,13 @@
 //! is the mandatory headers, which we always submit to the target node. For such headers, we
 //! assume that the persistent proof either exists, or will eventually become available.
 
-use crate::{FinalityProof, FinalitySyncPipeline, SourceHeader};
+use crate::{
+	sync_loop_metrics::SyncLoopMetrics, FinalityProof, FinalitySyncPipeline, SourceHeader,
+};
 
 use async_trait::async_trait;
 use backoff::backoff::Backoff;
 use futures::{select, Future, FutureExt, Stream, StreamExt};
-use headers_relay::sync_loop_metrics::SyncLoopMetrics;
 use num_traits::{One, Saturating};
 use relay_utils::{
 	metrics::{GlobalMetrics, MetricsParams},
