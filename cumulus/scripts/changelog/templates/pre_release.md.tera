@@ -1,0 +1,9 @@
+{%- if env.PRE_RELEASE == "true" -%}
+-----
+⚠️  Howdy! Beware, this is a **pre-release**
+
+-----
+
+{%- else -%}
+<!-- NOT a pre-release-->
+{%- endif %}

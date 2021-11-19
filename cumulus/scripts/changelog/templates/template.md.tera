@@ -1,0 +1,28 @@
+{# This is the entry point of the template -#}
+<!-- repository: {{ cumulus.repository.name }} -->
+This release contains the changes from `{{ env.REF1 }}` to `{{ env.REF2 }}`.
+
+{%- set changes = cumulus.changes | concat(with=substrate.changes) -%}
+{%- set changes = changes | concat(with=polkadot.changes) -%}
+{%- include "debug.md.tera" -%}
+
+{%- set CML = "[C]" -%}
+{%- set DOT = "[P]" -%}
+{%- set SUB = "[S]" -%}
+
+{# header warning and important notices -#}
+{% include "pre_release.md.tera" -%}
+
+{% include "global_priority.md.tera" -%}
+
+{% include "host_functions.md.tera" -%}
+
+{% include "compiler.md.tera" -%}
+
+{% include "migrations.md.tera" -%}
+
+{% include "runtimes.md.tera" -%}
+
+{% include "changes.md.tera" -%}
+
+{% include "docker_image.md.tera" -%}

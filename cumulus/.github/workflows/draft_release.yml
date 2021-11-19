@@ -1,0 +1,207 @@
+name: Publish draft release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref1:
+        description: The 'from' tag to use for the diff
+        default: statemine-v5.0.0
+        required: true
+      ref2:
+        description: The 'to' tag to use for the diff
+        default: HEAD
+        required: true
+      pre_release:
+        description: For pre-releases
+        default: "true"
+        required: true
+
+jobs:
+  get-rust-versions:
+    runs-on: ubuntu-latest
+    container:
+      image: paritytech/ci-linux:production
+    outputs:
+      rustc-stable: ${{ steps.get-rust-versions.outputs.stable }}
+      rustc-nightly: ${{ steps.get-rust-versions.outputs.nightly }}
+    steps:
+      - id: get-rust-versions
+        run: |
+          echo "::set-output name=stable::$(rustc +stable --version)"
+          echo "::set-output name=nightly::$(rustc +nightly --version)"
+
+  build-runtimes:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: ["shell", "statemine", "statemint", "westmint", "rococo"]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Cache target dir
+        uses: actions/cache@v2
+        with:
+          path: "${{ github.workspace }}/runtime/${{ matrix.runtime }}/target"
+          key: srtool-target-${{ matrix.runtime }}-${{ github.sha }}
+          restore-keys: |
+            srtool-target-${{ matrix.runtime }}-
+            srtool-target-
+
+      - name: Build ${{ matrix.runtime }} runtime
+        id: srtool_build
+        uses: chevdor/srtool-actions@v0.3.0
+        with:
+          image: paritytech/srtool
+          chain: ${{ matrix.runtime }}
+          runtime_dir: polkadot-parachains/${{ matrix.runtime }}
+
+      - name: Store srtool digest to disk
+        run: |
+          echo '${{ steps.srtool_build.outputs.json }}' | \
+            jq > ${{ matrix.runtime }}_srtool_output.json
+
+      - name: Upload ${{ matrix.runtime }} srtool json
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.runtime }}-srtool-json
+          path: ${{ matrix.runtime }}_srtool_output.json
+
+      - name: Upload ${{ matrix.runtime }} runtime
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.runtime }}-runtime
+          path: |
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
+
+  publish-draft-release:
+    runs-on: ubuntu-latest
+    needs: ["get-rust-versions", "build-runtimes"]
+    outputs:
+      release_url: ${{ steps.create-release.outputs.html_url }}
+      asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          path: cumulus
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.0.0
+
+      - name: Download srtool json output
+        uses: actions/download-artifact@v2
+
+      - name: Prepare tooling
+        run: |
+          cd cumulus/scripts/changelog
+          gem install bundler changelogerator
+          bundle install
+          changelogerator --help
+
+          URL=https://github.com/chevdor/tera-cli/releases/download/v0.2.1/tera-cli_linux_amd64.deb
+          wget $URL -O tera.deb
+          sudo dpkg -i tera.deb
+          tera --version
+
+      - name: Generate release notes
+        env:
+          RUSTC_STABLE: ${{ needs.get-rust-versions.outputs.rustc-stable }}
+          RUSTC_NIGHTLY: ${{ needs.get-rust-versions.outputs.rustc-nightly }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NO_CACHE: 1
+          DEBUG: 1
+          SHELL_DIGEST: ${{ github.workspace}}/shell-srtool-json/shell_srtool_output.json
+          WESTMINT_DIGEST: ${{ github.workspace}}/westmint-srtool-json/westmint_srtool_output.json
+          STATEMINE_DIGEST: ${{ github.workspace}}/statemine-srtool-json/statemine_srtool_output.json
+          STATEMINT_DIGEST: ${{ github.workspace}}/statemint-srtool-json/statemint_srtool_output.json
+          ROCOCO_DIGEST: ${{ github.workspace}}/rococo-srtool-json/rococo_srtool_output.json
+          REF1: ${{ github.event.inputs.ref1 }}
+          REF2: ${{ github.event.inputs.ref2 }}
+          PRE_RELEASE: ${{ github.event.inputs.pre_release }}
+          HIDE_SRTOOL_ROCOCO: false
+          HIDE_SRTOOL_SHELL: false
+        run: |
+          find ${{env.GITHUB_WORKSPACE}} -type f -name "*_srtool_output.json"
+          ls -al $SHELL_DIGEST
+          ls -al $WESTMINT_DIGEST
+          ls -al $STATEMINE_DIGEST
+          ls -al $STATEMINT_DIGEST
+          ls -al $ROCOCO_DIGEST
+
+          echo "The diff will be computed from $REF1 to $REF2"
+          cd cumulus/scripts/changelog
+          ./bin/changelog $REF1 $REF2 release-notes.md
+          ls -al release-notes.md
+
+      - name: Create draft release
+        id: create-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: parachains-${{ github.ref }}
+          release_name: Parachains ${{ github.ref }}
+          body_path: ./cumulus/scripts/changelog/release-notes.md
+          draft: true
+
+  publish-runtimes:
+    runs-on: ubuntu-latest
+    needs: ["publish-draft-release"]
+    env:
+      RUNTIME_DIR: polkadot-parachains
+    strategy:
+      matrix:
+        runtime: ["shell", "statemine", "statemint", "westmint", "rococo"]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.0.0
+
+      - name: Get runtime version for ${{ matrix.runtime }}
+        id: get-runtime-ver
+        run: |
+          echo "require './scripts/github/runtime-version.rb'" > script.rb
+          echo "puts get_runtime(runtime: \"${{ matrix.runtime }}\", runtime_dir: \"$RUNTIME_DIR\")" >> script.rb
+
+          echo "Current folder: $PWD"
+          ls "$RUNTIME_DIR/${{ matrix.runtime }}"
+          runtime_ver=$(ruby script.rb)
+          echo "Found version: >$runtime_ver<"
+          echo "::set-output name=runtime_ver::$runtime_ver"
+
+      - name: Upload compressed ${{ matrix.runtime }} wasm
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.publish-draft-release.outputs.asset_upload_url }}
+          asset_path: "${{ matrix.runtime }}-runtime/${{ matrix.runtime }}_runtime.compact.compressed.wasm"
+          asset_name: ${{ matrix.runtime }}_runtime-v${{ steps.get-runtime-ver.outputs.runtime_ver }}.compact.compressed.wasm
+          asset_content_type: application/wasm
+
+  post_to_matrix:
+    runs-on: ubuntu-latest
+    needs: publish-draft-release
+    steps:
+      - name: Internal polkadot channel
+        uses: s3krit/matrix-message-action@v0.0.3
+        with:
+          room_id: ${{ secrets.INTERNAL_POLKADOT_MATRIX_ROOM_ID }}
+          access_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          message: |
+            **New draft for ${{ github.repository }}**: ${{ github.ref }}<br/>
+
+            Draft release created: [draft](${{ needs.publish-draft-release.outputs.release_url }})
+
+            NOTE: The link above will no longer be valid if the draft is edited. You can then use the following link:
+            [${{ github.server_url }}/${{ github.repository }}/releases](${{ github.server_url }}/${{ github.repository }}/releases)
+          server: "matrix.parity.io"
