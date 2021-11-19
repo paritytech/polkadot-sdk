@@ -20,6 +20,7 @@ sp-io = { git = 'https://github.com/paritytech/substrate', branch = "master", de
 frame-executive = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 frame-support = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 frame-system = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
+pallet-asset-tx-payment = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 pallet-assets = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 pallet-authorship = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 pallet-balances = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
@@ -33,7 +34,6 @@ xcm = { git = 'https://github.com/paritytech/polkadot', default-features = false
 xcm-executor = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
 
 # Local dependencies
-pallet-asset-tx-payment = { path = '../../pallets/asset-tx-payment', default-features = false }
 pallet-collator-selection = { path = '../../pallets/collator-selection', default-features = false }
 
 [dev-dependencies]

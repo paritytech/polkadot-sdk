@@ -34,6 +34,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-asset-tx-payment = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
 pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -61,7 +62,6 @@ cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue", default-feature
 cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "../../pallets/session-benchmarking", default-features = false, version = "3.0.0" }
 cumulus-ping = { path = "../pallets/ping", default-features = false }
-pallet-asset-tx-payment = { path = "../../pallets/asset-tx-payment", default-features = false }
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 parachains-common = { path = "../parachains-common", default-features = false }
 

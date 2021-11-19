@@ -7,7 +7,6 @@ members = [
 	"client/network",
 	"client/pov-recovery",
 	"client/service",
-	"pallets/asset-tx-payment",
 	"pallets/aura-ext",
 	"pallets/collator-selection",
 	"pallets/dmp-queue",
