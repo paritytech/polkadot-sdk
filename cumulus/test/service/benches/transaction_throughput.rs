@@ -238,15 +238,6 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 			)
 		},
 	);
-
-	runtime.block_on(async {
-		join!(
-			alice.task_manager.clean_shutdown(),
-			bob.task_manager.clean_shutdown(),
-			charlie.task_manager.clean_shutdown(),
-			dave.task_manager.clean_shutdown(),
-		)
-	});
 }
 
 criterion_group!(benches, transaction_throughput_benchmarks);

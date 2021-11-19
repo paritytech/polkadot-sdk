@@ -16,7 +16,6 @@
 
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, Keyring::*};
-use futures::join;
 use std::sync::Arc;
 
 /// Tests the PoV recovery.
@@ -86,11 +85,4 @@ async fn pov_recovery() {
 		.await;
 
 	dave.wait_for_blocks(7).await;
-
-	join!(
-		alice.task_manager.clean_shutdown(),
-		bob.task_manager.clean_shutdown(),
-		charlie.task_manager.clean_shutdown(),
-		dave.task_manager.clean_shutdown(),
-	);
 }

@@ -15,7 +15,9 @@
 
 use super::*;
 use cumulus_primitives_core::XcmpMessageHandler;
-use mock::{new_test_ext, Test, XcmpQueue};
+#[cfg(debug_assertions)]
+use mock::Test;
+use mock::{new_test_ext, XcmpQueue};
 
 #[test]
 fn one_message_does_not_panic() {
@@ -30,6 +32,7 @@ fn one_message_does_not_panic() {
 
 #[test]
 #[should_panic = "Invalid incoming blob message data"]
+#[cfg(debug_assertions)]
 fn bad_message_is_handled() {
 	new_test_ext().execute_with(|| {
 		let bad_data = vec![
@@ -46,6 +49,7 @@ fn bad_message_is_handled() {
 
 #[test]
 #[should_panic = "Invalid incoming blob message data"]
+#[cfg(debug_assertions)]
 fn other_bad_message_is_handled() {
 	new_test_ext().execute_with(|| {
 		let bad_data = vec![

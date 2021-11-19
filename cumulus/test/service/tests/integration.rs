@@ -16,7 +16,6 @@
 
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
-use futures::join;
 
 #[substrate_test_utils::test]
 #[ignore]
@@ -64,11 +63,4 @@ async fn test_collating_and_non_collator_mode_catching_up() {
 		.build()
 		.await;
 	dave.wait_for_blocks(7).await;
-
-	join!(
-		alice.task_manager.clean_shutdown(),
-		bob.task_manager.clean_shutdown(),
-		charlie.task_manager.clean_shutdown(),
-		dave.task_manager.clean_shutdown(),
-	);
 }
