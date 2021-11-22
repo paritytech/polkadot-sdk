@@ -22,3 +22,6 @@
 /scripts/ci @paritytech/ci
 /scripts/github @paritytech/ci @chevdor
 /scripts/extrinsic-ordering-filter.sh @paritytech/ci @chevdor
+
+# CHANGELOG
+/scripts/changelog @chevdor
