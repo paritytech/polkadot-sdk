@@ -120,7 +120,7 @@ jobs:
           WESTMINT_DIGEST: ${{ github.workspace}}/westmint-srtool-json/westmint_srtool_output.json
           STATEMINE_DIGEST: ${{ github.workspace}}/statemine-srtool-json/statemine_srtool_output.json
           STATEMINT_DIGEST: ${{ github.workspace}}/statemint-srtool-json/statemint_srtool_output.json
-          ROCOCO_DIGEST: ${{ github.workspace}}/rococo-srtool-json/rococo_srtool_output.json
+          ROCOCO_DIGEST: ${{ github.workspace}}/rococo-parachain-srtool-json/rococo-parachain_srtool_output.json
           REF1: ${{ github.event.inputs.ref1 }}
           REF2: ${{ github.event.inputs.ref2 }}
           PRE_RELEASE: ${{ github.event.inputs.pre_release }}

@@ -79,8 +79,8 @@ end
 SHELL_DIGEST = ENV['SHELL_DIGEST'] || 'digests/shell-srtool-digest.json'
 WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json'
 STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
-STATEMINT_DIGEST = ENV['STATEMINT_DIGEST'] || 'digests/rococo-srtool-digest.json'
-ROCOCO_DIGEST = ENV['ROCOCO_DIGEST'] || 'digests/rococo-srtool-digest.json'
+STATEMINT_DIGEST = ENV['STATEMINT_DIGEST'] || 'digests/statemint-srtool-digest.json'
+ROCOCO_DIGEST = ENV['ROCOCO_DIGEST'] || 'digests/rococo-parachain-srtool-digest.json'
 
 # Here we compose all the pieces together into one
 # single big json file.
