@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        chain: ["statemine", "westmint", "statemint", "rococo", "shell"]
+        chain: ["statemine", "westmint", "statemint", "rococo-parachain", "shell"]
     steps:
       - uses: actions/checkout@v2
         with:

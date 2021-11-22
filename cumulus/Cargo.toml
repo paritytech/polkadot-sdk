@@ -24,7 +24,7 @@ members = [
 	"polkadot-parachains/",
 	"polkadot-parachains/pallets/parachain-info",
 	"polkadot-parachains/pallets/ping",
-	"polkadot-parachains/rococo",
+	"polkadot-parachains/rococo-parachain",
 	"polkadot-parachains/shell",
 	"polkadot-parachains/parachains-common",
 	"polkadot-parachains/statemint",
