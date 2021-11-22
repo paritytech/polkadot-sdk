@@ -14,6 +14,10 @@ on:
       - "scripts"
       - "test"
 
+    branches:
+      - "release*"
+      - "master"
+
   schedule:
     - cron: "00 02 * * 1" # 2AM weekly on monday
 
