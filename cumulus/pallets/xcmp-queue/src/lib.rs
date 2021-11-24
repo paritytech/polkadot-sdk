@@ -382,7 +382,7 @@ impl<T: Config> Pallet<T> {
 						let weight = max_weight - weight_used;
 						match Self::handle_xcm_message(sender, sent_at, xcm, weight) {
 							Ok(used) => weight_used = weight_used.saturating_add(used),
-							Err(XcmError::TooMuchWeightRequired) => {
+							Err(XcmError::WeightLimitReached(required)) if required <= max_weight => {
 								// That message didn't get processed this time because of being
 								// too heavy. We leave it around for next time and bail.
 								remaining_fragments = last_remaining_fragments;
