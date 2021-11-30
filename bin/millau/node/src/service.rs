@@ -21,9 +21,10 @@
 // =====================================================================================
 // UPDATE GUIDE:
 // 1) replace everything with node-template/src/service.rs contents (found in main Substrate repo);
-// 2) the only thing to keep from old code, is `rpc_extensions_builder` - we use our own custom
-// RPCs; 3) fix compilation errors;
-// 4) test :)
+// 2) from old code keep `rpc_extensions_builder` - we use our own custom RPCs;
+// 3) from old code keep the Beefy gadget;
+// 4) fix compilation errors;
+// 5) test :)
 // =====================================================================================
 // =====================================================================================
 // =====================================================================================
@@ -209,6 +210,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	}
 
 	config.network.extra_sets.push(sc_finality_grandpa::grandpa_peers_set_config());
+	config.network.extra_sets.push(beefy_gadget::beefy_peers_set_config());
 	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
@@ -242,6 +244,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let shared_voter_state = SharedVoterState::empty();
+	let (signed_commitment_sender, signed_commitment_stream) =
+		beefy_gadget::notification::BeefySignedCommitmentStream::channel();
 
 	let rpc_extensions_builder = {
 		use sc_finality_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
@@ -264,7 +268,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			Some(shared_authority_set.clone()),
 		);
 
-		Box::new(move |_, subscription_executor| {
+		Box::new(move |_, subscription_executor: sc_rpc::SubscriptionTaskExecutor| {
 			let mut io = jsonrpc_core::IoHandler::default();
 			io.extend_with(SystemApi::to_delegate(FullSystem::new(
 				client.clone(),
@@ -278,8 +282,17 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				shared_authority_set.clone(),
 				shared_voter_state.clone(),
 				justification_stream.clone(),
-				subscription_executor,
+				subscription_executor.clone(),
 				finality_proof_provider.clone(),
+			)));
+			io.extend_with(beefy_gadget_rpc::BeefyApi::to_delegate(
+				beefy_gadget_rpc::BeefyRpcHandler::new(
+					signed_commitment_stream.clone(),
+					subscription_executor,
+				),
+			));
+			io.extend_with(pallet_mmr_rpc::MmrApi::to_delegate(pallet_mmr_rpc::Mmr::new(
+				client.clone(),
 			)));
 			Ok(io)
 		})
@@ -292,7 +305,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
 		rpc_extensions_builder,
-		backend,
+		backend: backend.clone(),
 		system_rpc_tx,
 		config,
 		telemetry: telemetry.as_mut(),
@@ -354,6 +367,23 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	// need a keystore, regardless of which protocol we use below.
 	let keystore =
 		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
+
+	let beefy_params = beefy_gadget::BeefyParams {
+		client,
+		backend,
+		key_store: keystore.clone(),
+		network: network.clone(),
+		signed_commitment_sender,
+		min_block_delta: 4,
+		prometheus_registry: prometheus_registry.clone(),
+	};
+
+	// Start the BEEFY bridge gadget.
+	task_manager.spawn_essential_handle().spawn_blocking(
+		"beefy-gadget",
+		None,
+		beefy_gadget::start_beefy_gadget::<_, _, _, _>(beefy_params),
+	);
 
 	let grandpa_config = sc_finality_grandpa::Config {
 		// FIXME #1578 make this available through chainspec
