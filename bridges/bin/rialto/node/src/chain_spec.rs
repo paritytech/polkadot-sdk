@@ -14,12 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use beefy_primitives::crypto::AuthorityId as BeefyId;
 use bp_rialto::derive_account_from_millau_id;
 use polkadot_primitives::v1::{AssignmentId, ValidatorId};
 use rialto_runtime::{
-	AccountId, BabeConfig, BalancesConfig, BridgeMillauMessagesConfig, ConfigurationConfig,
-	GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig,
-	WASM_BINARY,
+	AccountId, BabeConfig, BalancesConfig, BeefyConfig, BridgeMillauMessagesConfig,
+	ConfigurationConfig, GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature,
+	SudoConfig, SystemConfig, WASM_BINARY,
 };
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -62,10 +63,11 @@ where
 /// Helper function to generate authority keys.
 pub fn get_authority_keys_from_seed(
 	s: &str,
-) -> (AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
+) -> (AccountId, BabeId, BeefyId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
 		get_from_seed::<BabeId>(s),
+		get_from_seed::<BeefyId>(s),
 		get_from_seed::<GrandpaId>(s),
 		get_from_seed::<ValidatorId>(s),
 		get_from_seed::<AssignmentId>(s),
@@ -183,18 +185,20 @@ impl Alternative {
 
 fn session_keys(
 	babe: BabeId,
+	beefy: BeefyId,
 	grandpa: GrandpaId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
 ) -> SessionKeys {
-	SessionKeys { babe, grandpa, para_validator, para_assignment, authority_discovery }
+	SessionKeys { babe, beefy, grandpa, para_validator, para_assignment, authority_discovery }
 }
 
 fn testnet_genesis(
 	initial_authorities: Vec<(
 		AccountId,
 		BabeId,
+		BeefyId,
 		GrandpaId,
 		ValidatorId,
 		AssignmentId,
@@ -215,6 +219,7 @@ fn testnet_genesis(
 			authorities: Vec::new(),
 			epoch_config: Some(rialto_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
+		beefy: BeefyConfig { authorities: Vec::new() },
 		grandpa: GrandpaConfig { authorities: Vec::new() },
 		sudo: SudoConfig { key: root_key },
 		session: SessionConfig {
@@ -230,6 +235,7 @@ fn testnet_genesis(
 							x.3.clone(),
 							x.4.clone(),
 							x.5.clone(),
+							x.6.clone(),
 						),
 					)
 				})
