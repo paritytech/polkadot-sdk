@@ -101,9 +101,6 @@ pub type Hash = bp_rialto::Hash;
 /// Hashing algorithm used by the chain.
 pub type Hashing = bp_rialto::Hasher;
 
-/// Digest item type.
-pub type DigestItem = generic::DigestItem<Hash>;
-
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
 /// of data like extrinsics, allowing for them to continue syncing the network through upgrades
@@ -673,6 +670,13 @@ impl_runtime_apis! {
 		)
 			-> Option<polkadot_primitives::v1::PersistedValidationData<Hash, BlockNumber>> {
 			polkadot_runtime_parachains::runtime_api_impl::v1::persisted_validation_data::<Runtime>(para_id, assumption)
+		}
+
+		fn assumed_validation_data(
+			para_id: polkadot_primitives::v1::Id,
+			expected_persisted_validation_data_hash: Hash,
+		) -> Option<(polkadot_primitives::v1::PersistedValidationData<Hash, BlockNumber>, polkadot_primitives::v1::ValidationCodeHash)> {
+			polkadot_runtime_parachains::runtime_api_impl::v1::assumed_validation_data::<Runtime>(para_id, expected_persisted_validation_data_hash)
 		}
 
 		fn check_validation_outputs(

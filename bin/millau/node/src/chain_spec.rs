@@ -186,7 +186,6 @@ fn testnet_genesis(
 	GenesisConfig {
 		system: SystemConfig {
 			code: WASM_BINARY.expect("Millau development WASM not available").to_vec(),
-			changes_trie_config: Default::default(),
 		},
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
