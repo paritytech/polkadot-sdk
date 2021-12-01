@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [dependencies]
-hex-literal = { version = '0.3.1', optional = true }
+hex-literal = { version = "0.3.1", optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
 log = { version = "0.4.14", default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
@@ -130,7 +130,7 @@ std = [
 ]
 
 runtime-benchmarks = [
-	'hex-literal',
+	"hex-literal",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
@@ -142,5 +142,5 @@ runtime-benchmarks = [
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	'cumulus-pallet-session-benchmarking/runtime-benchmarks',
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 ]

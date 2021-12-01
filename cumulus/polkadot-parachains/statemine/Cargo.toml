@@ -1,13 +1,13 @@
 [package]
-name = 'statemine-runtime'
-version = '2.0.0'
+name = "statemine-runtime"
+version = "2.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 description = "Kusama variant of Statemint parachain runtime"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.3.0", default-features = false, features = ["derive", "max-encoded-len"] }
-hex-literal = { version = '0.3.1', optional = true }
+hex-literal = { version = "0.3.1", optional = true }
 log = { version = "0.4.14", default-features = false }
 parachain-info = { path = "../pallets/parachain-info", default-features = false }
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
@@ -34,7 +34,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-asset-tx-payment = { git = 'https://github.com/paritytech/substrate', branch = "master", default-features = false }
+pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -82,23 +82,23 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 [features]
 default = [ "std" ]
 runtime-benchmarks = [
-	'hex-literal',
-	'sp-runtime/runtime-benchmarks',
-	'xcm-builder/runtime-benchmarks',
-	'frame-benchmarking/runtime-benchmarks',
-	'frame-system-benchmarking',
-	'frame-support/runtime-benchmarks',
-	'frame-system/runtime-benchmarks',
-	'pallet-assets/runtime-benchmarks',
-	'pallet-balances/runtime-benchmarks',
-	'pallet-multisig/runtime-benchmarks',
-	'pallet-proxy/runtime-benchmarks',
-	'cumulus-pallet-session-benchmarking/runtime-benchmarks',
-	'pallet-uniques/runtime-benchmarks',
-	'pallet-utility/runtime-benchmarks',
-	'pallet-timestamp/runtime-benchmarks',
-	'pallet-xcm/runtime-benchmarks',
-	'pallet-collator-selection/runtime-benchmarks',
+	"hex-literal",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-system-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"pallet-uniques/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
 ]
 std = [
 	"codec/std",

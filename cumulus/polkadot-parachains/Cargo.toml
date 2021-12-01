@@ -27,8 +27,8 @@ westmint-runtime = { path = "westmint" }
 parachains-common = { path = "parachains-common" }
 
 # Substrate dependencies
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "master" }
-frame-benchmarking-cli = { git = 'https://github.com/paritytech/substrate', branch = "master" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -90,8 +90,8 @@ tempfile = "3.2.0"
 [features]
 default = []
 runtime-benchmarks = [
-	'polkadot-service/runtime-benchmarks',
-	'statemint-runtime/runtime-benchmarks',
-	'statemine-runtime/runtime-benchmarks',
-	'westmint-runtime/runtime-benchmarks',
+	"polkadot-service/runtime-benchmarks",
+	"statemint-runtime/runtime-benchmarks",
+	"statemine-runtime/runtime-benchmarks",
+	"westmint-runtime/runtime-benchmarks",
 ]

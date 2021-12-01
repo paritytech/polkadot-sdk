@@ -1,6 +1,6 @@
 [package]
-name = 'rococo-parachain-runtime'
-version = '0.1.0'
+name = "rococo-parachain-runtime"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 description = "Simple runtime used by the rococo parachain(s)"
