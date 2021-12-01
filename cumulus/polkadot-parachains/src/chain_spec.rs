@@ -498,7 +498,11 @@ fn statemine_genesis(
 				.to_vec(),
 		},
 		balances: statemine_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, STATEMINE_ED * 4096)).collect(),
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, STATEMINE_ED * 524_288))
+				.collect(),
 		},
 		parachain_info: statemine_runtime::ParachainInfoConfig { parachain_id: id },
 		collator_selection: statemine_runtime::CollatorSelectionConfig {
