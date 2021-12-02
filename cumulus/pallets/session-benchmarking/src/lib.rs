@@ -18,7 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use sp_std::{prelude::*, vec};
 
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use pallet_session::*;
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
@@ -39,6 +39,4 @@ benchmarks! {
 		let proof: Vec<u8> = vec![0,1,2,3];
 		let _t = pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof);
 	}: _(RawOrigin::Signed(caller))
-
 }
-impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test, extra = false,);

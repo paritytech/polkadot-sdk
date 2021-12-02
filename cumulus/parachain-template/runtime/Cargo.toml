@@ -42,6 +42,7 @@ sp-version = { git = "https://github.com/paritytech/substrate", default-features
 
 ## Substrate FRAME Dependencies
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true , branch = "master" }
+frame-try-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true , branch = "master" }
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
@@ -143,4 +144,9 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+]
+
+try-runtime = [
+	"frame-try-runtime",
+	"frame-executive/try-runtime",
 ]

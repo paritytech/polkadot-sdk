@@ -88,7 +88,7 @@ fn register_validators<T: Config + session::Config>(count: u32) {
 	let validators = (0..count).map(|c| validator::<T>(c)).collect::<Vec<_>>();
 
 	for (who, keys) in validators {
-		<session::Module<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
 	}
 }
 

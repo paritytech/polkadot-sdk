@@ -28,6 +28,9 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
+# try-runtime stuff.
+frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
+
 # Cumulus dependencies
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
@@ -71,4 +74,8 @@ std = [
 	"xcm/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+]
+try-runtime = [
+	"frame-try-runtime",
+	"frame-executive/try-runtime",
 ]

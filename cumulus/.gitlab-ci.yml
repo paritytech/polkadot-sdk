@@ -107,6 +107,22 @@ test-linux-stable:
       fi
     - sccache -s
 
+check-runtime-benchmarks:
+  stage:                           test
+  <<:                              *docker-env
+  script:
+    # Check that the node will compile with `runtime-benchmarks` feature flag.
+    - time cargo check --features runtime-benchmarks
+    - sccache -s
+
+cargo-check-try-runtime:
+  stage:                           test
+  <<:                              *docker-env
+  script:
+    # Check that the node will compile with `try-runtime` feature flag.
+    - time cargo check --features try-runtime
+    - sccache -s
+
 #### stage:                        publish
 
 publish-s3:

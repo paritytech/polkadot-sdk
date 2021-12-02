@@ -133,7 +133,7 @@ pub struct RunCmd {
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the
-/// original `RunCmd` had the `colaltor` field.
+/// original `RunCmd` had the `collator` field.
 /// This is how we make `--collator` imply `--validator`.
 pub struct NormalizedRunCmd {
 	/// The cumulus RunCmd inherents from sc_cli's

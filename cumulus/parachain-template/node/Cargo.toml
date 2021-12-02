@@ -21,6 +21,7 @@ path = "src/main.rs"
 
 [features]
 runtime-benchmarks = ["parachain-template-runtime/runtime-benchmarks"]
+try-runtime = [ "parachain-template-runtime/try-runtime" ]
 
 [dependencies]
 derive_more = "0.99.2"
@@ -39,6 +40,7 @@ parachain-template-runtime = { path = "../runtime" }
 # Substrate Dependencies
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
+try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
@@ -92,3 +94,4 @@ polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "maste
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
