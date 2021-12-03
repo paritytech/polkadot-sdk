@@ -14,7 +14,20 @@ jobs:
     steps:
     - uses: actions/checkout@v2.4.0
     - run: mdbook build
-    - uses: peaceiris/actions-gh-pages@v3
+    - uses: actions/upload-artifact@v2
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./book
+        name: book
+        path: ./book
+
+  upload-book:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    needs: build-book
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: ./book
+      - uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./book
