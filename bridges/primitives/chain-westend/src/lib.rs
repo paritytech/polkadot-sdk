@@ -90,8 +90,6 @@ pub fn derive_account_from_rococo_id(id: bp_runtime::SourceAccount<AccountId>) -
 
 /// Name of the `WestendFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_best_finalized";
-/// Name of the `WestendFinalityApi::is_known_header` runtime method.
-pub const IS_KNOWN_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_is_known_header";
 
 /// Name of the `ToWestendOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
 /// method.
@@ -131,8 +129,6 @@ sp_api::decl_runtime_apis! {
 	pub trait WestendFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
 		fn best_finalized() -> (BlockNumber, Hash);
-		/// Returns true if the header is known to the runtime.
-		fn is_known_header(hash: Hash) -> bool;
 	}
 
 	/// Outbound message lane API for messages that are sent to Westend chain.

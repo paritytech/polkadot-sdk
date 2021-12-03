@@ -46,6 +46,8 @@ impl ChainBase for Millau {
 
 impl Chain for Millau {
 	const NAME: &'static str = "Millau";
+	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
+		bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_millau::EXTRA_STORAGE_PROOF_SIZE;
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;

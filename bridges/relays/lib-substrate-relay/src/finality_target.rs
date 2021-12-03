@@ -15,70 +15,78 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Substrate client as Substrate finality proof target. The chain we connect to should have
-//! runtime that implements `<BridgedChainName>FinalityApi` to allow bridging with
-//! <BridgedName> chain.
+//! bridge GRANDPA pallet deployed and provide `<BridgedChainName>FinalityApi` to allow bridging
+//! with <BridgedName> chain.
 
-use crate::finality_pipeline::SubstrateFinalitySyncPipeline;
+use crate::finality_pipeline::{
+	FinalitySyncPipelineAdapter, SubmitFinalityProofCallBuilder, SubstrateFinalitySyncPipeline,
+	TransactionParams,
+};
 
 use async_trait::async_trait;
-use codec::Decode;
-use finality_relay::{FinalitySyncPipeline, TargetClient};
-use relay_substrate_client::{Chain, Client, Error as SubstrateError};
+use bp_header_chain::justification::GrandpaJustification;
+use codec::Encode;
+use finality_relay::TargetClient;
+use relay_substrate_client::{
+	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error, HashOf, HeaderOf,
+	SyncHeader, TransactionEra, TransactionSignScheme, UnsignedTransaction,
+};
 use relay_utils::relay_loop::Client as RelayClient;
+use sp_core::{Bytes, Pair};
 
 /// Substrate client as Substrate finality target.
-pub struct SubstrateFinalityTarget<C: Chain, P> {
-	client: Client<C>,
-	pipeline: P,
-	transactions_mortality: Option<u32>,
+pub struct SubstrateFinalityTarget<P: SubstrateFinalitySyncPipeline> {
+	client: Client<P::TargetChain>,
+	transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
 }
 
-impl<C: Chain, P> SubstrateFinalityTarget<C, P> {
+impl<P: SubstrateFinalitySyncPipeline> SubstrateFinalityTarget<P> {
 	/// Create new Substrate headers target.
-	pub fn new(client: Client<C>, pipeline: P, transactions_mortality: Option<u32>) -> Self {
-		SubstrateFinalityTarget { client, pipeline, transactions_mortality }
+	pub fn new(
+		client: Client<P::TargetChain>,
+		transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+	) -> Self {
+		SubstrateFinalityTarget { client, transaction_params }
 	}
 }
 
-impl<C: Chain, P: SubstrateFinalitySyncPipeline> Clone for SubstrateFinalityTarget<C, P> {
+impl<P: SubstrateFinalitySyncPipeline> Clone for SubstrateFinalityTarget<P> {
 	fn clone(&self) -> Self {
 		SubstrateFinalityTarget {
 			client: self.client.clone(),
-			pipeline: self.pipeline.clone(),
-			transactions_mortality: self.transactions_mortality,
+			transaction_params: self.transaction_params.clone(),
 		}
 	}
 }
 
 #[async_trait]
-impl<C: Chain, P: SubstrateFinalitySyncPipeline> RelayClient for SubstrateFinalityTarget<C, P> {
-	type Error = SubstrateError;
+impl<P: SubstrateFinalitySyncPipeline> RelayClient for SubstrateFinalityTarget<P> {
+	type Error = Error;
 
-	async fn reconnect(&mut self) -> Result<(), SubstrateError> {
+	async fn reconnect(&mut self) -> Result<(), Error> {
 		self.client.reconnect().await
 	}
 }
 
 #[async_trait]
-impl<C, P> TargetClient<P::FinalitySyncPipeline> for SubstrateFinalityTarget<C, P>
+impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<P>>
+	for SubstrateFinalityTarget<P>
 where
-	C: Chain,
-	P: SubstrateFinalitySyncPipeline<TargetChain = C>,
-	<P::FinalitySyncPipeline as FinalitySyncPipeline>::Number: Decode,
-	<P::FinalitySyncPipeline as FinalitySyncPipeline>::Hash: Decode,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
+	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
 	async fn best_finalized_source_block_number(
 		&self,
-	) -> Result<<P::FinalitySyncPipeline as FinalitySyncPipeline>::Number, SubstrateError> {
+	) -> Result<BlockNumberOf<P::SourceChain>, Error> {
 		// we can't continue to relay finality if target node is out of sync, because
 		// it may have already received (some of) headers that we're going to relay
 		self.client.ensure_synced().await?;
 
 		Ok(crate::messages_source::read_client_state::<
-			C,
-			<P::FinalitySyncPipeline as FinalitySyncPipeline>::Hash,
-			<P::FinalitySyncPipeline as FinalitySyncPipeline>::Number,
-		>(&self.client, P::BEST_FINALIZED_SOURCE_HEADER_ID_AT_TARGET)
+			P::TargetChain,
+			HashOf<P::SourceChain>,
+			BlockNumberOf<P::SourceChain>,
+		>(&self.client, P::SourceChain::BEST_FINALIZED_HEADER_ID_METHOD)
 		.await?
 		.best_finalized_peer_at_best_self
 		.0)
@@ -86,24 +94,28 @@ where
 
 	async fn submit_finality_proof(
 		&self,
-		header: <P::FinalitySyncPipeline as FinalitySyncPipeline>::Header,
-		proof: <P::FinalitySyncPipeline as FinalitySyncPipeline>::FinalityProof,
-	) -> Result<(), SubstrateError> {
-		let transactions_author = self.pipeline.transactions_author();
-		let pipeline = self.pipeline.clone();
-		let transactions_mortality = self.transactions_mortality;
+		header: SyncHeader<HeaderOf<P::SourceChain>>,
+		proof: GrandpaJustification<HeaderOf<P::SourceChain>>,
+	) -> Result<(), Error> {
+		let genesis_hash = *self.client.genesis_hash();
+		let transaction_params = self.transaction_params.clone();
+		let call =
+			P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
 		self.client
 			.submit_signed_extrinsic(
-				transactions_author,
+				self.transaction_params.transactions_signer.public().into(),
 				move |best_block_id, transaction_nonce| {
-					pipeline.make_submit_finality_proof_transaction(
-						relay_substrate_client::TransactionEra::new(
-							best_block_id,
-							transactions_mortality,
-						),
-						transaction_nonce,
-						header,
-						proof,
+					Bytes(
+						P::TransactionSignScheme::sign_transaction(
+							genesis_hash,
+							&transaction_params.transactions_signer,
+							TransactionEra::new(
+								best_block_id,
+								transaction_params.transactions_mortality,
+							),
+							UnsignedTransaction::new(call, transaction_nonce),
+						)
+						.encode(),
 					)
 				},
 			)
