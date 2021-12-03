@@ -44,7 +44,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_version::create_runtime_str!("rococo"),
 	impl_name: sp_version::create_runtime_str!("parity-rococo-v1.6"),
 	authoring_version: 0,
-	spec_version: 9100,
+	spec_version: 9130,
 	impl_version: 0,
 	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 0,
@@ -104,6 +104,9 @@ pub const FROM_ROCOCO_LATEST_CONFIRMED_NONCE_METHOD: &str =
 /// Name of the `FromRococoInboundLaneApi::unrewarded_relayers_state` runtime method.
 pub const FROM_ROCOCO_UNREWARDED_RELAYERS_STATE: &str =
 	"FromRococoInboundLaneApi_unrewarded_relayers_state";
+
+/// Existential deposit on Rococo.
+pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 100;
 
 /// Weight of pay-dispatch-fee operation for inbound messages at Rococo chain.
 ///
