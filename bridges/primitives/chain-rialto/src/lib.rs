@@ -271,8 +271,6 @@ sp_api::decl_runtime_apis! {
 	pub trait RialtoFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
 		fn best_finalized() -> (BlockNumber, Hash);
-		/// Returns true if the header is known to the runtime.
-		fn is_known_header(hash: Hash) -> bool;
 	}
 
 	/// Outbound message lane API for messages that are sent to Rialto chain.
