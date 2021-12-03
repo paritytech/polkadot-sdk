@@ -29,12 +29,13 @@ use strum::VariantNames;
 use codec::Encode;
 use messages_relay::relay_strategy::MixStrategy;
 use relay_substrate_client::{
-	AccountIdOf, Chain, Client, TransactionSignScheme, UnsignedTransaction,
+	AccountIdOf, CallOf, Chain, Client, TransactionSignScheme, UnsignedTransaction,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
 use substrate_relay_helper::{
-	messages_lane::MessagesRelayParams, on_demand_headers::OnDemandHeadersRelay,
+	finality_pipeline::SubstrateFinalitySyncPipeline, messages_lane::MessagesRelayParams,
+	on_demand_headers::OnDemandHeadersRelay,
 };
 
 use crate::{
@@ -138,8 +139,8 @@ macro_rules! select_bridge {
 
 				use crate::chains::{
 					millau_messages_to_rialto::{
-						standalone_metrics as left_to_right_standalone_metrics,
 						run as left_to_right_messages,
+						standalone_metrics as left_to_right_standalone_metrics,
 						update_rialto_to_millau_conversion_rate as update_right_to_left_conversion_rate,
 					},
 					rialto_messages_to_millau::{
@@ -187,12 +188,10 @@ macro_rules! select_bridge {
 
 				use crate::chains::{
 					rococo_messages_to_wococo::{
-						standalone_metrics as left_to_right_standalone_metrics,
 						run as left_to_right_messages,
+						standalone_metrics as left_to_right_standalone_metrics,
 					},
-					wococo_messages_to_rococo::{
-						run as right_to_left_messages,
-					},
+					wococo_messages_to_rococo::run as right_to_left_messages,
 				};
 
 				async fn update_right_to_left_conversion_rate(
@@ -212,19 +211,39 @@ macro_rules! select_bridge {
 				}
 
 				async fn left_create_account(
-					_left_client: Client<Left>,
-					_left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
-					_account_id: AccountIdOf<Left>,
+					left_client: Client<Left>,
+					left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
+					account_id: AccountIdOf<Left>,
 				) -> anyhow::Result<()> {
-					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
+					submit_signed_extrinsic(
+						left_client,
+						left_sign,
+						relay_rococo_client::runtime::Call::Balances(
+							relay_rococo_client::runtime::BalancesCall::transfer(
+								bp_rococo::AccountAddress::Id(account_id),
+								bp_rococo::EXISTENTIAL_DEPOSIT.into(),
+							),
+						),
+					)
+					.await
 				}
 
 				async fn right_create_account(
-					_right_client: Client<Right>,
-					_right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
-					_account_id: AccountIdOf<Right>,
+					right_client: Client<Right>,
+					right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
+					account_id: AccountIdOf<Right>,
 				) -> anyhow::Result<()> {
-					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
+					submit_signed_extrinsic(
+						right_client,
+						right_sign,
+						relay_wococo_client::runtime::Call::Balances(
+							relay_wococo_client::runtime::BalancesCall::transfer(
+								bp_wococo::AccountAddress::Id(account_id),
+								bp_wococo::EXISTENTIAL_DEPOSIT.into(),
+							),
+						),
+					)
+					.await
 				}
 
 				$generic
@@ -250,8 +269,8 @@ macro_rules! select_bridge {
 
 				use crate::chains::{
 					kusama_messages_to_polkadot::{
-						standalone_metrics as left_to_right_standalone_metrics,
 						run as left_to_right_messages,
+						standalone_metrics as left_to_right_standalone_metrics,
 						update_polkadot_to_kusama_conversion_rate as update_right_to_left_conversion_rate,
 					},
 					polkadot_messages_to_kusama::{
@@ -265,29 +284,17 @@ macro_rules! select_bridge {
 					left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
 					account_id: AccountIdOf<Left>,
 				) -> anyhow::Result<()> {
-					let left_genesis_hash = *left_client.genesis_hash();
-					left_client
-						.submit_signed_extrinsic(
-							left_sign.public().into(),
-							move |_, transaction_nonce| {
-								Bytes(
-									Left::sign_transaction(left_genesis_hash, &left_sign, relay_substrate_client::TransactionEra::immortal(),
-										UnsignedTransaction::new(
-											relay_kusama_client::runtime::Call::Balances(
-												relay_kusama_client::runtime::BalancesCall::transfer(
-													bp_kusama::AccountAddress::Id(account_id),
-													bp_kusama::EXISTENTIAL_DEPOSIT.into(),
-												),
-											),
-											transaction_nonce,
-										),
-									).encode()
-								)
-							},
-						)
-						.await
-						.map(drop)
-						.map_err(|e| anyhow::format_err!("{}", e))
+					submit_signed_extrinsic(
+						left_client,
+						left_sign,
+						relay_kusama_client::runtime::Call::Balances(
+							relay_kusama_client::runtime::BalancesCall::transfer(
+								bp_kusama::AccountAddress::Id(account_id),
+								bp_kusama::EXISTENTIAL_DEPOSIT.into(),
+							),
+						),
+					)
+					.await
 				}
 
 				async fn right_create_account(
@@ -295,29 +302,17 @@ macro_rules! select_bridge {
 					right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
 					account_id: AccountIdOf<Right>,
 				) -> anyhow::Result<()> {
-					let right_genesis_hash = *right_client.genesis_hash();
-					right_client
-						.submit_signed_extrinsic(
-							right_sign.public().into(),
-							move |_, transaction_nonce| {
-								Bytes(
-									Right::sign_transaction(right_genesis_hash, &right_sign, relay_substrate_client::TransactionEra::immortal(),
-										UnsignedTransaction::new(
-											relay_polkadot_client::runtime::Call::Balances(
-												relay_polkadot_client::runtime::BalancesCall::transfer(
-													bp_polkadot::AccountAddress::Id(account_id),
-													bp_polkadot::EXISTENTIAL_DEPOSIT.into(),
-												),
-											),
-											transaction_nonce,
-										),
-									).encode()
-								)
-							},
-						)
-						.await
-						.map(drop)
-						.map_err(|e| anyhow::format_err!("{}", e))
+					submit_signed_extrinsic(
+						right_client,
+						right_sign,
+						relay_polkadot_client::runtime::Call::Balances(
+							relay_polkadot_client::runtime::BalancesCall::transfer(
+								bp_polkadot::AccountAddress::Id(account_id),
+								bp_polkadot::EXISTENTIAL_DEPOSIT.into(),
+							),
+						),
+					)
+					.await
 				}
 
 				$generic
@@ -494,11 +489,17 @@ impl RelayHeadersAndMessages {
 			}
 
 			// start on-demand header relays
+			let left_to_right_finality =
+				LeftToRightFinality::new(right_client.clone(), right_sign.clone());
+			let right_to_left_finality =
+				RightToLeftFinality::new(left_client.clone(), left_sign.clone());
+			left_to_right_finality.start_relay_guards();
+			right_to_left_finality.start_relay_guards();
 			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new(
 				left_client.clone(),
 				right_client.clone(),
 				right_transactions_mortality,
-				LeftToRightFinality::new(right_client.clone(), right_sign.clone()),
+				left_to_right_finality,
 				MAX_MISSING_LEFT_HEADERS_AT_RIGHT,
 				params.shared.only_mandatory_headers,
 			);
@@ -506,7 +507,7 @@ impl RelayHeadersAndMessages {
 				right_client.clone(),
 				left_client.clone(),
 				left_transactions_mortality,
-				RightToLeftFinality::new(left_client.clone(), left_sign.clone()),
+				right_to_left_finality,
 				MAX_MISSING_RIGHT_HEADERS_AT_LEFT,
 				params.shared.only_mandatory_headers,
 			);
@@ -560,4 +561,32 @@ impl RelayHeadersAndMessages {
 			futures::future::select_all(message_relays).await.0
 		})
 	}
+}
+
+/// Sign and submit transaction with given call to the chain.
+async fn submit_signed_extrinsic<C: Chain + TransactionSignScheme<Chain = C>>(
+	client: Client<C>,
+	sign: C::AccountKeyPair,
+	call: CallOf<C>,
+) -> anyhow::Result<()>
+where
+	AccountIdOf<C>: From<<<C as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
+	CallOf<C>: Send,
+{
+	let genesis_hash = *client.genesis_hash();
+	client
+		.submit_signed_extrinsic(sign.public().into(), move |_, transaction_nonce| {
+			Bytes(
+				C::sign_transaction(
+					genesis_hash,
+					&sign,
+					relay_substrate_client::TransactionEra::immortal(),
+					UnsignedTransaction::new(call, transaction_nonce),
+				)
+				.encode(),
+			)
+		})
+		.await
+		.map(drop)
+		.map_err(|e| anyhow::format_err!("{}", e))
 }
