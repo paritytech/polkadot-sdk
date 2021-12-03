@@ -34,6 +34,7 @@
     - [extrinsic_v1_submitAndWatch](api/extrinsic_v1_submitAndWatch.md)
     - [extrinsic_v1_unwatch](api/extrinsic_v1_unwatch.md)
   - [rpc](api/rpc.md)
+    - [rpc_methods](api/rpc_methods.md)
   - [sudo](api/sudo.md)
     - [sudo_v1_addReservedPeer](api/sudo_v1_addReservedPeer.md)
     - [sudo_v1_pendingExtrinsics](api/sudo_v1_pendingExtrinsics.md)
