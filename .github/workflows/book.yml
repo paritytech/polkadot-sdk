@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v2
         with:
-          name: ./book
+          name: book
       - uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
