@@ -24,7 +24,6 @@ mod error;
 mod rpc;
 mod sync_header;
 
-pub mod finality_source;
 pub mod guard;
 pub mod metrics;
 
@@ -32,8 +31,8 @@ use std::time::Duration;
 
 pub use crate::{
 	chain::{
-		BlockWithJustification, CallOf, Chain, ChainWithBalances, TransactionSignScheme,
-		TransactionStatusOf, UnsignedTransaction, WeightToFeeOf,
+		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
+		TransactionSignScheme, TransactionStatusOf, UnsignedTransaction, WeightToFeeOf,
 	},
 	client::{Client, OpaqueGrandpaAuthoritiesSet, Subscription},
 	error::{Error, Result},

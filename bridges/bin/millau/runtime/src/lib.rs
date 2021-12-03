@@ -731,20 +731,12 @@ impl_runtime_apis! {
 			let header = BridgeRialtoGrandpa::best_finalized();
 			(header.number, header.hash())
 		}
-
-		fn is_known_header(hash: bp_rialto::Hash) -> bool {
-			BridgeRialtoGrandpa::is_known_header(hash)
-		}
 	}
 
 	impl bp_westend::WestendFinalityApi<Block> for Runtime {
 		fn best_finalized() -> (bp_westend::BlockNumber, bp_westend::Hash) {
 			let header = BridgeWestendGrandpa::best_finalized();
 			(header.number, header.hash())
-		}
-
-		fn is_known_header(hash: bp_westend::Hash) -> bool {
-			BridgeWestendGrandpa::is_known_header(hash)
 		}
 	}
 

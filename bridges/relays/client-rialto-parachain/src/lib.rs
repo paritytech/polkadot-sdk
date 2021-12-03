@@ -41,6 +41,8 @@ impl ChainBase for RialtoParachain {
 
 impl Chain for RialtoParachain {
 	const NAME: &'static str = "RialtoParachain";
+	// should be fixed/changed in https://github.com/paritytech/parity-bridges-common/pull/1199
+	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "<UNIMPLEMENTED>";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_rialto::EXTRA_STORAGE_PROOF_SIZE;
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_rialto::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
