@@ -18,7 +18,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use cumulus_test_runtime::{AccountId, BalancesCall, SudoCall};
-use futures::{future, join, StreamExt};
+use futures::{future, StreamExt};
 use polkadot_service::polkadot_runtime::constants::currency::DOLLARS;
 use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
 use sp_core::{crypto::Pair, sr25519};

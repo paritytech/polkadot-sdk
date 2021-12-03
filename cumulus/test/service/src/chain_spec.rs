@@ -128,5 +128,6 @@ fn testnet_genesis(
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		sudo: cumulus_test_runtime::SudoConfig { key: root_key },
+		transaction_payment: Default::default(),
 	}
 }

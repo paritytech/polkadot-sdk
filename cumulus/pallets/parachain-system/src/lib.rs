@@ -236,8 +236,9 @@ pub mod pallet {
 			HrmpWatermark::<T>::kill();
 			UpwardMessages::<T>::kill();
 			HrmpOutboundMessages::<T>::kill();
+			CustomValidationHeadData::<T>::kill();
 
-			weight += T::DbWeight::get().writes(5);
+			weight += T::DbWeight::get().writes(6);
 
 			// Here, in `on_initialize` we must report the weight for both `on_initialize` and
 			// `on_finalize`.
@@ -567,6 +568,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type AuthorizedUpgrade<T: Config> = StorageValue<_, T::Hash>;
 
+	/// A custom head data that should be returned as result of `validate_block`.
+	///
+	/// See [`Pallet::set_custom_validation_head_data`] for more information.
+	#[pallet::storage]
+	pub(super) type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
 		type Call = Call<T>;
@@ -692,6 +699,9 @@ impl<T: Config> Pallet<T> {
 	/// import, this is a no-op.
 	///
 	/// # Panics
+	///
+	/// Panics while validating the `PoV` on the relay chain if the [`PersistedValidationData`]
+	/// passed by the block author was incorrect.
 	fn validate_validation_data(validation_data: &PersistedValidationData) {
 		validate_block::with_validation_params(|params| {
 			assert_eq!(
@@ -714,8 +724,10 @@ impl<T: Config> Pallet<T> {
 	/// Checks if the sequence of the messages is valid, dispatches them and communicates the
 	/// number of processed messages to the collator via a storage update.
 	///
-	/// **Panics** if it turns out that after processing all messages the Message Queue Chain
-	///            hash doesn't match the expected.
+	/// # Panics
+	///
+	/// If it turns out that after processing all messages the Message Queue Chain
+	/// hash doesn't match the expected.
 	fn process_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: Vec<InboundDownwardMessage>,
@@ -906,6 +918,22 @@ impl<T: Config> Pallet<T> {
 			processed_downward_messages: ProcessedDownwardMessages::<T>::get(),
 			new_validation_code: NewValidationCode::<T>::get().map(Into::into),
 		}
+	}
+
+	/// Set a custom head data that should be returned as result of `validate_block`.
+	///
+	/// This will overwrite the head data that is returned as result of `validate_block` while
+	/// validating a `PoV` on the relay chain. Normally the head data that is being returned
+	/// by `validate_block` is the header of the block that is validated, thus it can be
+	/// enacted as the new best block. However, for features like forking it can be useful
+	/// to overwrite the head data with a custom header.
+	///
+	/// # Attention
+	///
+	/// This should only be used when you are sure what you are doing as this can brick
+	/// your Parachain.
+	pub fn set_custom_validation_head_data(head_data: Vec<u8>) {
+		CustomValidationHeadData::<T>::put(head_data);
 	}
 }
 

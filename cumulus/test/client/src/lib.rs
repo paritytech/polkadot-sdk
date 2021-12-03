@@ -122,7 +122,7 @@ fn genesis_config() -> GenesisConfig {
 pub fn generate_extrinsic(
 	client: &Client,
 	origin: sp_keyring::AccountKeyring,
-	function: Call,
+	function: impl Into<Call>,
 ) -> UncheckedExtrinsic {
 	let current_block_hash = client.info().best_hash;
 	let current_block = client.info().best_number.saturated_into();
@@ -139,6 +139,9 @@ pub fn generate_extrinsic(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 	);
+
+	let function = function.into();
+
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		extra.clone(),

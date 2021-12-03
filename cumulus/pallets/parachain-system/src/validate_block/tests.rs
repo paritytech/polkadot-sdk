@@ -17,7 +17,8 @@
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
-	runtime::{Block, Hash, Header, UncheckedExtrinsic, WASM_BINARY},
+	generate_extrinsic,
+	runtime::{Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY},
 	transfer, BlockData, BuildParachainBlockData, Client, DefaultTestClientBuilderExt, HeadData,
 	InitBlockBuilder, TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
@@ -26,11 +27,11 @@ use sp_keyring::AccountKeyring::*;
 use sp_runtime::{generic::BlockId, traits::Header as HeaderT};
 use std::{env, process::Command};
 
-fn call_validate_block(
+fn call_validate_block_encoded_header(
 	parent_head: Header,
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
-) -> cumulus_test_client::ExecutorResult<Header> {
+) -> cumulus_test_client::ExecutorResult<Vec<u8>> {
 	cumulus_test_client::validate_block(
 		ValidationParams {
 			block_data: BlockData(block_data.encode()),
@@ -40,7 +41,16 @@ fn call_validate_block(
 		},
 		&WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 	)
-	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
+	.map(|v| v.head_data.0)
+}
+
+fn call_validate_block(
+	parent_head: Header,
+	block_data: ParachainBlockData<Block>,
+	relay_parent_storage_root: Hash,
+) -> cumulus_test_client::ExecutorResult<Header> {
+	call_validate_block_encoded_header(parent_head, block_data, relay_parent_storage_root)
+		.map(|v| Header::decode(&mut &v[..]).expect("Decodes `Header`."))
 }
 
 fn create_test_client() -> (Client, Header) {
@@ -124,6 +134,43 @@ fn validate_block_with_extra_extrinsics() {
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
+}
+
+#[test]
+fn validate_block_returns_custom_head_data() {
+	sp_tracing::try_init_simple();
+
+	let expected_header = vec![1, 3, 3, 7, 4, 5, 6];
+
+	let (client, parent_head) = create_test_client();
+	let extra_extrinsics = vec![
+		transfer(&client, Alice, Bob, 69),
+		generate_extrinsic(
+			&client,
+			Charlie,
+			TestPalletCall::set_custom_validation_head_data {
+				custom_header: expected_header.clone(),
+			},
+		),
+		transfer(&client, Bob, Charlie, 100),
+	];
+
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		extra_extrinsics,
+		parent_head.clone(),
+		Default::default(),
+	);
+	let header = block.header().clone();
+	assert_ne!(expected_header, header.encode());
+
+	let res_header = call_validate_block_encoded_header(
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+	assert_eq!(expected_header, res_header);
 }
 
 #[test]

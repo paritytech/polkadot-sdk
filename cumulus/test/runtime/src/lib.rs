@@ -27,6 +27,8 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+mod test_pallet;
+
 use frame_support::traits::OnRuntimeUpgrade;
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 use sp_core::OpaqueMetadata;
@@ -58,6 +60,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+pub use test_pallet::Call as TestPalletCall;
 
 pub type SessionHandlers = ();
 
@@ -265,20 +268,21 @@ parameter_types! {
 	pub storage ParachainId: cumulus_primitives_core::ParaId = 100.into();
 }
 
+impl test_pallet::Config for Runtime {}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
 		NodeBlock = NodeBlock,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned,
-		},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+		System: frame_system,
+		ParachainSystem: cumulus_pallet_parachain_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Sudo: pallet_sudo,
+		TransactionPayment: pallet_transaction_payment,
+		TestPallet: test_pallet,
 	}
 }
 

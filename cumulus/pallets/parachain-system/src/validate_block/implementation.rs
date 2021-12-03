@@ -161,6 +161,13 @@ where
 			let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get();
 			let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
+			let head_data =
+				if let Some(custom_head_data) = crate::CustomValidationHeadData::<PSC>::get() {
+					HeadData(custom_head_data)
+				} else {
+					head_data
+				};
+
 			ValidationResult {
 				head_data,
 				new_validation_code: new_validation_code.map(Into::into),
