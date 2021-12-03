@@ -15,7 +15,7 @@ This specification can be modified (in a backwards-compatible way) by opening pu
 
 ## Note
 
-*Creating this repository is the first point.*
+*This section should be removed in the future.*
 
 At the moment, this specification isn't implemented by Substrate or any other client implementation.
 It is planned to be implemented in Substrate once this specification has been fully fleshed out.
