@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-    - `extrinsic`: String containing the hexadecimal-encoded SCALE-encoded extrinsic to try to include in a block.
+ - `extrinsic`: String containing the hexadecimal-encoded SCALE-encoded extrinsic to try to include in a block.
 
 **Return value**: String representing the subscription.
 
