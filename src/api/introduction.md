@@ -4,15 +4,12 @@ Note that all parameters are mandatory unless specified otherwise. All functions
 
 Any missing parameter, or parameter with an invalid format, should result in a JSON-RPC error being returned, as described in the JSON-RPC specification.
 
-List of prefixes:
+## Glossary
 
-- `archive_v1`: Functions that allow examining the history of the chain, in other words the latest finalized block and its ancestors.
-- `chainHead_v1`: Functions that allow tracking the head of the chain (in other words the latest new and finalized blocks) and their storage.
-- `chainSpec_v1`: Functions that return information found or calculated from the chain specification.
-- `extrinsic_v1`: Functions that allow submitting a transaction to the chain. **TODO**: what about `transaction` instead?
-- `sudo_v1`: Functions that manage the node client itself and should only ever be called by the owner of the node. These functions are expected to be called on a specific node, and not on a load-balanced endpoint.
+- "Hex-encoded" designates a binary value encoded as hexadecimal. The value must start with `"0x"` and contain an even number of characters.
+- "SCALE-encoded" designates a value encoded using [the SCALE codec](https://docs.substrate.io/v3/advanced/scale-codec/).
 
-# The `networkConfig` parameter
+## The `networkConfig` parameter
 
 Many functions below have an optional parameter named `networkConfig`. This parameter is used when a function needs to request an information from its peers.
 
