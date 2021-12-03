@@ -36,8 +36,8 @@ If everything is successful, `result` will be:
 ```
 
 Where `value` is:
-- If `type` was `value`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hex-encoded value of the storage entry.
-- If `type` was `hash`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hex-encoded hash of the value of the storage item. The hashing algorithm is the same as the one used by the trie of the chain.
+- If `type` was `value`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hexadecimal-encoded value of the storage entry.
+- If `type` was `hash`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hexadecimal-encoded hash of the value of the storage item. The hashing algorithm is the same as the one used by the trie of the chain.
 - If `type` was `size`, either `null` if the storage doesn't contain a value at the given key, or a string containing the number of bytes of the storage entry. Note that a string is used rather than a number in order to prevent JavaScript clients from accidentally rounding the value.
 
 Alternatively, if  `result` can also be:

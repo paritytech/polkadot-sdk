@@ -32,7 +32,7 @@ Where `result` can be:
 }
 ```
 
-Where `output` is the hex-encoded output of the runtime function call.
+Where `output` is the hexadecimal-encoded output of the runtime function call.
 
 Alternatively, `result` can also be:
 

@@ -1,8 +1,12 @@
 # extrinsic_v1_submitAndWatch
 
 **Parameters**:
-    - `extrinsic`: A hexadecimal-encoded SCALE-encoded extrinsic to try to include in a block.
-**Return value**: An opaque string representing the subscription.
+
+    - `extrinsic`: String containing the hexadecimal-encoded SCALE-encoded extrinsic to try to include in a block.
+
+**Return value**: String representing the subscription.
+
+The string returned by this function is opaque and its meaning can't be interpreted by the JSON-RPC client. It is only meant to be potentially passed to `extrinsic_v1_unwatch`.
 
 This function is similar to the current `author_submitAndWatchExtrinsic`. Note that `author_submitExtrinsic` is gone because it seems not useful.
 

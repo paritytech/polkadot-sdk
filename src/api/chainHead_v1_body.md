@@ -30,7 +30,7 @@ If everything is successful, `result` will be:
 }
 ```
 
-Where `value` is an array of strings containing the hex-encoded SCALE-encoded extrinsics found in this block.
+Where `value` is an array of strings containing the hexadecimal-encoded SCALE-encoded extrinsics found in this block.
 
 Alternatively, `result` can also be:
 
