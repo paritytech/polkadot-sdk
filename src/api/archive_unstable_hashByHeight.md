@@ -1,4 +1,4 @@
-# archive_v1_hashByHeight
+# archive_unstable_hashByHeight
 
 **Parameters**:
 
@@ -14,7 +14,7 @@ This function will later generate a notification looking like this:
 ```json
 {
     "jsonrpc": "2.0",
-    "method": "archive_v1_hashByHeightEvent",
+    "method": "archive_unstable_hashByHeightEvent",
     "params": {
         "subscriptionId": "...",
         "result": ...

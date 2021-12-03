@@ -1,8 +1,8 @@
-# chainHead_v1_call
+# chainHead_unstable_call
 
 **Parameters**:
 
-- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_unstable_follow`.
 - `hash`: String containing the hexadecimal-encoded hash of the header of the block to make the call against.
 - `function`: Name of the runtime entry point to call as a string.
 - `callParameters`: Array containing a list of hexadecimal-encoded SCALE-encoded parameters to pass to the runtime function.
@@ -17,7 +17,7 @@ This function will later generate a notification looking like this:
 ```json
 {
     "jsonrpc": "2.0",
-    "method": "chainHead_v1_callEvent",
+    "method": "chainHead_unstable_callEvent",
     "params": {
         "subscriptionId": "...",
         "result": ...

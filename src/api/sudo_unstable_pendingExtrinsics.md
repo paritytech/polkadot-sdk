@@ -1,4 +1,4 @@
-# sudo_v1_pendingExtrinsics
+# sudo_unstable_pendingExtrinsics
 
 **Parameters**: *none*
 

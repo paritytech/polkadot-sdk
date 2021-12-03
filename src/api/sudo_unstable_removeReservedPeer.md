@@ -1,4 +1,4 @@
-# sudo_v1_removeReservedPeer
+# sudo_unstable_removeReservedPeer
 
 **TODO**: same as `system_removeReservedPeer` but properly defined
 

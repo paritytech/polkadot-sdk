@@ -1,4 +1,4 @@
-# archive_v1_genesisHash
+# chainHead_unstable_genesisHash
 
 **Parameters**: *none*
 

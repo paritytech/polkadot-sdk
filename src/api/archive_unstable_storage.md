@@ -1,4 +1,4 @@
-# archive_v1_storage
+# archive_unstable_storage
 
 **Parameters**:
 
@@ -10,6 +10,6 @@
 
 **Return value**: An opaque string that identifies the storage fetch in progress.
 
-This function works the same way as `chainHead_v1_storage`, except that it is not connected to a chain head follow, and no `disjoint` event can be generated.
+This function works the same way as `chainHead_unstable_storage`, except that it is not connected to a chain head follow, and no `disjoint` event can be generated.
 
-Note that `chainHead_v1_storage` and `archive_v1_storage` should be treated as two completely separate functions. It is forbidden to call `archive_v1_stopStorage` with a storage fetch started with `chainHead_v1_storage`, and vice versa. Some JSON-RPC servers might support only one of these functions.
+Note that `chainHead_unstable_storage` and `archive_unstable_storage` should be treated as two completely separate functions. It is forbidden to call `archive_unstable_stopStorage` with a storage fetch started with `chainHead_unstable_storage`, and vice versa. Some JSON-RPC servers might support only one of these functions.

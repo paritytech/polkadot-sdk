@@ -1,4 +1,4 @@
-# archive_v1_header
+# archive_unstable_header
 
 **Parameters**:
 
@@ -12,7 +12,7 @@ This function will later generate a notification looking like this:
 ```json
 {
     "jsonrpc": "2.0",
-    "method": "archive_v1_headerEvent",
+    "method": "archive_unstable_headerEvent",
     "params":{
         "subscriptionId": "...",
         "result": ...

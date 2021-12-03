@@ -1,4 +1,4 @@
-# chainSpec_v1_chainName
+# chainSpec_unstable_chainName
 
 **Parameters**: *none*
 

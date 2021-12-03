@@ -1,8 +1,8 @@
-# chainHead_v1_storage
+# chainHead_unstable_storage
 
 **Parameters**:
 
-- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_unstable_follow`.
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
 - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
 - `childKey`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the trie key of the trie that `key` refers to. **TODO**: I don't know enough about child tries to design this properly
@@ -20,7 +20,7 @@ This function will later generate notifications looking like this:
 ```json
 {
     "jsonrpc": "2.0",
-    "method": "chainHead_v1_storageEvent",
+    "method": "chainHead_unstable_storageEvent",
     "params": {
         "subscriptionId": "...",
         "result": ...
@@ -70,5 +70,5 @@ After an `"event": "done"`, `"event": "failed"`, or `"event": "disjoint"` is rec
 - If the networking part of the behaviour fails, then a `{"event": "failed"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the `followSubscriptionId` is invalid.
 - If the `followSubscriptionId` is dead, then a `{"event": "disjoint"}` notification is generated (as explained above).
-- A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_v1_follow`.
+- A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.

@@ -1,8 +1,8 @@
-# extrinsic_v1_unwatch
+# extrinsic_unstable_unwatch
 
 **Parameters**:
 
-- `subscription`: An opaque string equal to the value returned by `extrinsic_v1_submitAndWatch`
+- `subscription`: An opaque string equal to the value returned by `extrinsic_unstable_submitAndWatch`
 
 **Return value**: *null*
 

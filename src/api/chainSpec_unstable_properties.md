@@ -1,4 +1,4 @@
-# chainSpec_v1_properties
+# chainSpec_unstable_properties
 
 **Parameters**: *none*
 
