@@ -20,7 +20,7 @@ jobs:
         path: ./book
 
   upload-book:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: build-book
     runs-on: ubuntu-latest
     steps:
