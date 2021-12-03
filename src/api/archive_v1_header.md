@@ -1,8 +1,10 @@
 # archive_v1_header
 
 **Parameters**:
-    - `hash`: String containing the hexadecimal-encoded hash of the header to retreive.
-    - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
+- `hash`: String containing the hexadecimal-encoded hash of the header to retreive.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
 **Return value**: An opaque string that identifies the query in progress.
 
 This function will later generate a notification looking like this:

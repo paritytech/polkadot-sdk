@@ -1,12 +1,14 @@
 # chainHead_v1_storage
 
 **Parameters**:
-    - `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
-    - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
-    - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
-    - `childKey`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the trie key of the trie that `key` refers to. **TODO**: I don't know enough about child tries to design this properly
-    - `type`: String that must be equal to one of: `value`, `hash`, or `size`.
-    - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+- `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
+- `key`: String containing the hexadecimal-encoded key to fetch in the storage.
+- `childKey`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the trie key of the trie that `key` refers to. **TODO**: I don't know enough about child tries to design this properly
+- `type`: String that must be equal to one of: `value`, `hash`, or `size`.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
 **Return value**: An opaque string that identifies the storage fetch in progress.
 
 The JSON-RPC server must start obtaining the value of the entry with the given `key` (and possibly `childKey`) from the storage.

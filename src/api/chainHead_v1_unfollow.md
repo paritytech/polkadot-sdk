@@ -1,7 +1,9 @@
 # chainHead_v1_unfollow
 
 **Parameters**:
-    - `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+
 **Return value**: *null*
 
 Stops a subscription started with `chainHead_v1_follow`.

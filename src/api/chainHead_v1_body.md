@@ -1,9 +1,11 @@
 # chainHead_v1_body
 
 **Parameters**:
-    - `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
-    - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose body to fetch.
-    - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+- `hash`: String containing an hexadecimal-encoded hash of the header of the block whose body to fetch.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
 **Return value**: An opaque string that identifies the body fetch in progress.
 
 The JSON-RPC server must start obtaining the body (in other words the list of transactions) of the given block.

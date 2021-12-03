@@ -1,7 +1,9 @@
 # chainHead_v1_follow
 
 **Parameters**:
-    - `runtimeUpdates`: A boolean indicating whether the events should report changes to the runtime.
+
+- `runtimeUpdates`: A boolean indicating whether the events should report changes to the runtime.
+
 **Return value**: String containing an opaque value representing the subscription.
 
 This function works as follows:

@@ -1,11 +1,14 @@
 # chainHead_v1_header
 
 **Parameters**:
-    - `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
-    - `hash`: String containing the hexadecimal-encoded hash of the header to retrieve.
+
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+- `hash`: String containing the hexadecimal-encoded hash of the header to retrieve.
+
 **Return value**:
-    - If the `followSubscriptionId` is still alive (the vast majority of the time), the hexadecimal-encoded SCALE-encoded header of the block.
-    - If the `followSubscriptionId` is dead, *null*.
+
+- If the `followSubscriptionId` is still alive (the vast majority of the time), the hexadecimal-encoded SCALE-encoded header of the block.
+- If the `followSubscriptionId` is dead, *null*.
 
 Retrieves the header of a pinned block.
 

@@ -1,7 +1,9 @@
 # archive_v1_stopHeader
 
 **Parameters**:
-    - `subscriptionId`: An opaque string that was returned by `archive_v1_header`.
+
+- `subscriptionId`: An opaque string that was returned by `archive_v1_header`.
+
 **Return value**: *null*
 
 Stops a query started with `archive_v1_header`. If the query was still in progress, this interrupts it. If the query was already finished, this call has no effect.

@@ -1,11 +1,13 @@
 # chainHead_v1_call
 
 **Parameters**:
-    - `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
-    - `hash`: String containing the hexadecimal-encoded hash of the header of the block to make the call against.
-    - `function`: Name of the runtime entry point to call as a string.
-    - `callParameters`: Array containing a list of hexadecimal-encoded SCALE-encoded parameters to pass to the runtime function.
-    - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+- `hash`: String containing the hexadecimal-encoded hash of the header of the block to make the call against.
+- `function`: Name of the runtime entry point to call as a string.
+- `callParameters`: Array containing a list of hexadecimal-encoded SCALE-encoded parameters to pass to the runtime function.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
 **Return value**: An opaque string that identifies the call in progress.
 
 **TODO**: in order to perform the runtime call, the implementation of this function will simply concatenate all the parameters (without any separator), so does it make sense for the JSON-RPC function to require to split them into an array?

@@ -1,7 +1,9 @@
 # archive_v1_stopStorage
 
 **Parameters**:
-    - `subscriptionId`: An opaque string that was returned by `archive_v1_storage`.
+
+- `subscriptionId`: An opaque string that was returned by `archive_v1_storage`.
+
 **Return value**: *null*
 
 Stops a storage fetch started with `archive_v1_storage`. If the storage fetch was still in progress, this interrupts it. If the storage fetch was already finished, this call has no effect.

@@ -1,8 +1,10 @@
 # chainHead_v1_unpin
 
 **Parameters**:
-    - `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
-    - `hash`: String containing the hexadecimal-encoded hash of the header of the block to unpin.
+
+- `followSubscriptionId`: An opaque string that was returned by `chainHead_v1_follow`.
+- `hash`: String containing the hexadecimal-encoded hash of the header of the block to unpin.
+
 **Return value**: *null*
 
 See explanations in the documentation of `chainHead_v1_follow`.

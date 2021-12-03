@@ -1,7 +1,9 @@
 # chainHead_v1_stopBody
 
 **Parameters**:
-    - `subscriptionId`: An opaque string that was returned by `chainHead_v1_body`.
+
+- `subscriptionId`: An opaque string that was returned by `chainHead_v1_body`.
+
 **Return value**: *null*
 
 Stops a body fetch started with `chainHead_v1_body`. If the body fetch was still in progress, this interrupts it. If the body fetch was already finished, this call has no effect.
