@@ -1,0 +1,9 @@
+# chainHead_v1_stopCall
+
+**Parameters**:
+    - `subscriptionId`: An opaque string that was returned by `chainHead_v1_call`.
+**Return value**: *null*
+
+Stops a call started with `chainHead_v1_call`. If the call was still in progress, this interrupts it. If the call was already finished, this call has no effect.
+
+JSON-RPC client implementations must be aware that, due to the asynchronous nature of JSON-RPC client <-> server communication, they might still receive a notification about this call, for example because this notification was already in the process of being sent back by the JSON-RPC server.
