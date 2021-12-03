@@ -662,10 +662,6 @@ impl_runtime_apis! {
 			let header = BridgeMillauGrandpa::best_finalized();
 			(header.number, header.hash())
 		}
-
-		fn is_known_header(hash: bp_millau::Hash) -> bool {
-			BridgeMillauGrandpa::is_known_header(hash)
-		}
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {

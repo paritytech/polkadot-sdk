@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::Parameter;
-use num_traits::{AsPrimitive, Bounded, CheckedSub, SaturatingAdd, Zero};
+use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
 	traits::{
 		AtLeast32Bit, AtLeast32BitUnsigned, Hash as HashT, Header as HeaderT, MaybeDisplay,
@@ -46,6 +46,7 @@ pub trait Chain: Send + Sync + 'static {
 		+ MaybeMallocSizeOf
 		+ AsPrimitive<usize>
 		+ Default
+		+ Saturating
 		// original `sp_runtime::traits::Header::BlockNumber` doesn't have this trait, but
 		// `sp_runtime::generic::Era` requires block number -> `u64` conversion.
 		+ Into<u64>;

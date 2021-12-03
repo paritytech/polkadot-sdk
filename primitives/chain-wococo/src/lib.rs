@@ -44,8 +44,6 @@ pub const WITH_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
 
 /// Name of the `WococoFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_WOCOCO_HEADER_METHOD: &str = "WococoFinalityApi_best_finalized";
-/// Name of the `WococoFinalityApi::is_known_header` runtime method.
-pub const IS_KNOWN_WOCOCO_HEADER_METHOD: &str = "WococoFinalityApi_is_known_header";
 
 /// Name of the `ToWococoOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
 /// method.
@@ -78,8 +76,6 @@ sp_api::decl_runtime_apis! {
 	pub trait WococoFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
 		fn best_finalized() -> (BlockNumber, Hash);
-		/// Returns true if the header is known to the runtime.
-		fn is_known_header(hash: Hash) -> bool;
 	}
 
 	/// Outbound message lane API for messages that are sent to Wococo chain.

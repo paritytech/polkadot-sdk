@@ -48,6 +48,8 @@ impl ChainBase for Polkadot {
 
 impl Chain for Polkadot {
 	const NAME: &'static str = "Polkadot";
+	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
+		bp_polkadot::BEST_FINALIZED_POLKADOT_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_polkadot::EXTRA_STORAGE_PROOF_SIZE;
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_polkadot::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;

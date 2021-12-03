@@ -489,25 +489,35 @@ impl RelayHeadersAndMessages {
 			}
 
 			// start on-demand header relays
-			let left_to_right_finality =
-				LeftToRightFinality::new(right_client.clone(), right_sign.clone());
-			let right_to_left_finality =
-				RightToLeftFinality::new(left_client.clone(), left_sign.clone());
-			left_to_right_finality.start_relay_guards();
-			right_to_left_finality.start_relay_guards();
-			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new(
+			let left_to_right_transaction_params =
+				substrate_relay_helper::finality_pipeline::TransactionParams {
+					transactions_mortality: right_transactions_mortality,
+					transactions_signer: right_sign.clone(),
+				};
+			let right_to_left_transaction_params =
+				substrate_relay_helper::finality_pipeline::TransactionParams {
+					transactions_mortality: left_transactions_mortality,
+					transactions_signer: left_sign.clone(),
+				};
+			LeftToRightFinality::start_relay_guards(
+				&right_client,
+				&left_to_right_transaction_params,
+			);
+			RightToLeftFinality::start_relay_guards(
+				&left_client,
+				&right_to_left_transaction_params,
+			);
+			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LeftToRightFinality>(
 				left_client.clone(),
 				right_client.clone(),
-				right_transactions_mortality,
-				left_to_right_finality,
+				left_to_right_transaction_params,
 				MAX_MISSING_LEFT_HEADERS_AT_RIGHT,
 				params.shared.only_mandatory_headers,
 			);
-			let right_to_left_on_demand_headers = OnDemandHeadersRelay::new(
+			let right_to_left_on_demand_headers = OnDemandHeadersRelay::new::<RightToLeftFinality>(
 				right_client.clone(),
 				left_client.clone(),
-				left_transactions_mortality,
-				right_to_left_finality,
+				right_to_left_transaction_params,
 				MAX_MISSING_RIGHT_HEADERS_AT_LEFT,
 				params.shared.only_mandatory_headers,
 			);

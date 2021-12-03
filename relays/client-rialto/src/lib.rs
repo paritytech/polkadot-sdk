@@ -46,6 +46,8 @@ impl ChainBase for Rialto {
 
 impl Chain for Rialto {
 	const NAME: &'static str = "Rialto";
+	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
+		bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_rialto::EXTRA_STORAGE_PROOF_SIZE;
 	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_rialto::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
