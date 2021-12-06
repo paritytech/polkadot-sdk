@@ -161,7 +161,7 @@ If the `broadcasted` field is `true`, then this extrinsic has been sent to other
 
 This can happen for example if the JSON-RPC server's extrinsics pool is full, if the JSON-RPC server's resources have reached their limit, if the block the extrinsic is included in takes too long to be finalized, or the syncing requires a gap in the chain that prevents the JSON-RPC server from knowing whether the extrinsic has been included and/or finalized.
 
-`error` is a human-readable error message indicating why the extrinsic is invalid. This string isn't meant to be shown to end users, but is for developers to understand the problem.
+`error` is a human-readable error message indicating why the extrinsic has been dropped. This string isn't meant to be shown to end users, but is for developers to understand the problem.
 
 No more event will be generated about this extrinsic.
 
