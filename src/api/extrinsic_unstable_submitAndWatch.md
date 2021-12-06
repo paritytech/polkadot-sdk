@@ -89,6 +89,8 @@ The `bestChainBlockIncluded` event indicates which block of the best chain the e
 
 If multiple `bestChainBlockIncluded` events happen in a row, the JSON-RPC server is allowed to skip all but the last.
 
+**Note**: Please note that these is no guarantee that the mentioned block matches any of the blocks returned by `chainHead_unstable_follow`.
+
 ### finalized
 
 ```json
