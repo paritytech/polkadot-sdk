@@ -34,7 +34,7 @@ If `runtimeUpdates` is `false`, then the `initialized` event must be sent back q
 
 For this reason, blocks might be reported more quickly when `runtimeUpdates` is `false`.
 
-**Note**: It is unlikely that high-level UIs built on top of a JSON-RPC client can do anything before the JSON-RPC server has access to the runtime. Consequently, they should consider the time before the `initialized` event is generated as a loading time. During this loading time, the JSON-RPC server might be performing downloads and CPU-intensive operations.
+**Note**: It is unlikely that high-level UIs built on top of a JSON-RPC client can do anything before the JSON-RPC server has access to the runtime. Consequently, they should consider the time before the `initialized` event is generated as a loading time. During this loading time, the JSON-RPC server might be performing downloads and CPU-intensive operations. This loading time can be considered as a replacement for the `isSyncing` field of the legacy `system_health` JSON-RPC call.
 
 If a JSON-RPC client wants to be sure to receive an `initialized` event quickly but is also interested in the runtime, it is encouraged to create two subscriptions: one with `runtimeUpdates: true` and one with `runtimeUpdates: false`.
 
