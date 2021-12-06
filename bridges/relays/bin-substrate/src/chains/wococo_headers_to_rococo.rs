@@ -17,7 +17,7 @@
 //! Wococo-to-Rococo headers sync entrypoint.
 
 use sp_core::Pair;
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, TransactionParams};
+use substrate_relay_helper::{finality_pipeline::SubstrateFinalitySyncPipeline, TransactionParams};
 
 /// Maximal saturating difference between `balance(now)` and `balance(now-24h)` to treat
 /// relay as gone wild.
@@ -53,7 +53,7 @@ impl SubstrateFinalitySyncPipeline for WococoFinalityToRococo {
 		);
 		relay_substrate_client::guard::abort_when_account_balance_decreased(
 			target_client.clone(),
-			transaction_params.transactions_signer.public().into(),
+			transaction_params.signer.public().into(),
 			MAXIMAL_BALANCE_DECREASE_PER_DAY,
 		);
 	}

@@ -12,6 +12,7 @@ relay-utils = { path = "../utils" }
 
 # Bridge dependencies
 
+bp-messages = { path = "../../primitives/messages" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
 rialto-runtime = { path = "../../bin/rialto/runtime" }
 

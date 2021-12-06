@@ -16,9 +16,11 @@
 
 //! Types used to connect to the Rialto-Substrate chain.
 
+use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
+use frame_support::weights::Weight;
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, IndexOf, TransactionEraOf,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithMessages, IndexOf, TransactionEraOf,
 	TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
@@ -42,10 +44,20 @@ impl ChainBase for Rialto {
 	type Balance = rialto_runtime::Balance;
 	type Index = rialto_runtime::Index;
 	type Signature = rialto_runtime::Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		bp_rialto::Rialto::max_extrinsic_size()
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		bp_rialto::Rialto::max_extrinsic_weight()
+	}
 }
 
 impl Chain for Rialto {
 	const NAME: &'static str = "Rialto";
+	// Rialto token has no value, but we associate it with DOT token
+	const TOKEN_ID: Option<&'static str> = Some("polkadot");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
@@ -55,6 +67,30 @@ impl Chain for Rialto {
 	type SignedBlock = rialto_runtime::SignedBlock;
 	type Call = rialto_runtime::Call;
 	type WeightToFee = bp_rialto::WeightToFee;
+}
+
+impl ChainWithMessages for Rialto {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		bp_rialto::WITH_RIALTO_MESSAGES_PALLET_NAME;
+	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
+		bp_rialto::TO_RIALTO_MESSAGE_DETAILS_METHOD;
+	const TO_CHAIN_LATEST_GENERATED_NONCE_METHOD: &'static str =
+		bp_rialto::TO_RIALTO_LATEST_GENERATED_NONCE_METHOD;
+	const TO_CHAIN_LATEST_RECEIVED_NONCE_METHOD: &'static str =
+		bp_rialto::TO_RIALTO_LATEST_RECEIVED_NONCE_METHOD;
+	const FROM_CHAIN_LATEST_RECEIVED_NONCE_METHOD: &'static str =
+		bp_rialto::FROM_RIALTO_LATEST_RECEIVED_NONCE_METHOD;
+	const FROM_CHAIN_LATEST_CONFIRMED_NONCE_METHOD: &'static str =
+		bp_rialto::FROM_RIALTO_LATEST_CONFIRMED_NONCE_METHOD;
+	const FROM_CHAIN_UNREWARDED_RELAYERS_STATE: &'static str =
+		bp_rialto::FROM_RIALTO_UNREWARDED_RELAYERS_STATE;
+	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight =
+		bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		bp_rialto::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		bp_rialto::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+	type WeightInfo = ();
 }
 
 impl ChainWithBalances for Rialto {

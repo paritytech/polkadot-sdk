@@ -42,6 +42,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 
 [dev-dependencies]
 bp-millau = { path = "../../primitives/chain-millau" }
+bp-rialto = { path = "../../primitives/chain-rialto" }
 bp-rococo = { path = "../../primitives/chain-rococo" }
 bp-wococo = { path = "../../primitives/chain-wococo" }
 relay-rococo-client = { path = "../client-rococo" }

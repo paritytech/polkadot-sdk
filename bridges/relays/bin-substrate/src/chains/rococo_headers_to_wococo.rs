@@ -19,7 +19,7 @@
 use crate::chains::wococo_headers_to_rococo::MAXIMAL_BALANCE_DECREASE_PER_DAY;
 
 use sp_core::Pair;
-use substrate_relay_helper::finality_pipeline::{SubstrateFinalitySyncPipeline, TransactionParams};
+use substrate_relay_helper::{finality_pipeline::SubstrateFinalitySyncPipeline, TransactionParams};
 
 /// Description of Rococo -> Wococo finalized headers bridge.
 #[derive(Clone, Debug)]
@@ -48,7 +48,7 @@ impl SubstrateFinalitySyncPipeline for RococoFinalityToWococo {
 		);
 		relay_substrate_client::guard::abort_when_account_balance_decreased(
 			target_client.clone(),
-			transaction_params.transactions_signer.public().into(),
+			transaction_params.signer.public().into(),
 			MAXIMAL_BALANCE_DECREASE_PER_DAY,
 		);
 	}
