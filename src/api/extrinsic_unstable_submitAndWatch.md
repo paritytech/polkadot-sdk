@@ -10,7 +10,7 @@ The string returned by this function is opaque and its meaning can't be interpre
 
 ## Notifications format
 
-This function will later generate a notification in the following format:
+This function will later generate one or more notifications in the following format:
 
 ```json
 {
