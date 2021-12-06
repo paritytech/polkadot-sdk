@@ -8,7 +8,7 @@
 
 This functions lets the JSON-RPC client track the state of the head of the chain: the finalized, non-finalized, and best blocks.
 
-## Usage
+## Usage
 
 This function works as follows:
 
