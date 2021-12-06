@@ -17,8 +17,17 @@ This function works as follows:
 
 **Note**: This list of notifications makes it very easy for a JSON-RPC client to follow just the best block updates (listening to just `bestBlockChanged` events) or follow just the finalized block updates (listening to just `initialized` and `finalized` events). It is however not possible to easily figure out whether the runtime has been modified when these updates happen. This is not problematic, as anyone using the JSON-RPC interface naively propably doesn't need to account for runtime changes anyway.
 
-If `runtimeUpdates` is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the new block. This means that blocks might be reported more quickly when `runtimeUpdates` is `false`.
+## The `runtimeUpdates` parameter
+
+If the `runtimeUpdates` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized block reported in the `initialized` event.
+
 If `runtimeUpdates` is `false`, then the `initialized` event must be sent back quickly after the function returns. If `runtimeUpdates` is `true`, then the JSON-RPC server can take as much time as it wants to send back the `initialized` event.
+
+For this reason, blocks might be reported more quickly when `runtimeUpdates` is `false`.
+
+**Note**: It is unlikely that high-level UIs built on top of a JSON-RPC client can do anything before the JSON-RPC server has access to the runtime. Consequently, they should consider the time before the `initialized` event is generated as a loading time. During this loading time, the JSON-RPC server might be performing downloads and CPU-intensive operations.
+
+If a JSON-RPC client wants to be sure to receive an `initialized` event quickly but is also interested in the runtime, it is encouraged to create two subscriptions: one with `runtimeUpdates: true` and one with `runtimeUpdates: false`.
 
 ## Notifications format
 
@@ -84,7 +93,7 @@ The `bestBlockChanged` event indicates that the given block is now considered to
 
 `bestBlockHash` is guaranteed to be equal either to the current finalized block hash, or to a block reported in an earlier `newBlock` event.
 
-### finalized
+### finalized
 
 ```json
 {
