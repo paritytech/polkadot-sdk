@@ -13,6 +13,8 @@
 
 The JSON-RPC server must start obtaining the value of the entry with the given `key` (and possibly `childKey`) from the storage.
 
+This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_storage` if instead you want to retrieve the storage of an arbitrary block.
+
 For optimization purposes, the JSON-RPC server is allowed to wait a little bit (e.g. up to 100ms) before starting to try fulfill the storage request, in order to batch multiple storage requests together.
 
 ## Notifications format
