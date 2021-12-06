@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use bp_messages::MessageNonce;
 use bp_runtime::{Chain as ChainBase, HashOf, TransactionEraOf};
 use codec::{Codec, Encode};
-use frame_support::weights::WeightToFeePolynomial;
+use frame_support::weights::{Weight, WeightToFeePolynomial};
 use jsonrpsee_ws_client::types::{DeserializeOwned, Serialize};
 use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
@@ -32,6 +33,11 @@ use std::{fmt::Debug, time::Duration};
 pub trait Chain: ChainBase + Clone {
 	/// Chain name.
 	const NAME: &'static str;
+	/// Identifier of the basic token of the chain (if applicable).
+	///
+	/// This identifier is used to fetch token price. In case of testnets, you may either
+	/// set it to `None`, or associate testnet with one of the existing tokens.
+	const TOKEN_ID: Option<&'static str>;
 	/// Name of the runtime API method that is returning best known finalized header number
 	/// and hash (as tuple).
 	///
@@ -52,10 +58,54 @@ pub trait Chain: ChainBase + Clone {
 	/// Block type.
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
 	/// The aggregated `Call` type.
-	type Call: Clone + Dispatchable + Debug + Send;
+	type Call: Clone + Codec + Dispatchable + Debug + Send;
 
 	/// Type that is used by the chain, to convert from weight to fee.
 	type WeightToFee: WeightToFeePolynomial<Balance = Self::Balance>;
+}
+
+/// Substrate-based chain with messaging support from minimal relay-client point of view.
+pub trait ChainWithMessages: Chain {
+	/// Name of the bridge messages pallet (used in `construct_runtime` macro call) that is deployed
+	/// at some other chain to bridge with this `ChainWithMessages`.
+	///
+	/// We assume that all chains that are bridging with this `ChainWithMessages` are using
+	/// the same name.
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str;
+
+	/// Name of the `To<ChainWithMessages>OutboundLaneApi::message_details` runtime API method.
+	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
+	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str;
+	/// Name of the `To<ChainWithMessages>OutboundLaneApi::latest_generated_nonce` runtime API
+	/// method. The method is provided by the runtime that is bridged with this `ChainWithMessages`.
+	const TO_CHAIN_LATEST_GENERATED_NONCE_METHOD: &'static str;
+	/// Name of the `To<ChainWithMessages>OutboundLaneApi::latest_received_nonce` runtime API
+	/// method. The method is provided by the runtime that is bridged with this `ChainWithMessages`.
+	const TO_CHAIN_LATEST_RECEIVED_NONCE_METHOD: &'static str;
+
+	/// Name of the `From<ChainWithMessages>InboundLaneApi::latest_received_nonce` runtime method.
+	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
+	const FROM_CHAIN_LATEST_RECEIVED_NONCE_METHOD: &'static str;
+	/// Name of the `From<ChainWithMessages>InboundLaneApi::latest_confirmed_nonce` runtime method.
+	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
+	const FROM_CHAIN_LATEST_CONFIRMED_NONCE_METHOD: &'static str;
+	/// Name of the `From<ChainWithMessages>InboundLaneApi::unrewarded_relayers_state` runtime
+	/// method. The method is provided by the runtime that is bridged with this `ChainWithMessages`.
+	const FROM_CHAIN_UNREWARDED_RELAYERS_STATE: &'static str;
+
+	/// Additional weight of the dispatch fee payment if dispatch is paid at the target chain
+	/// and this `ChainWithMessages` is the target chain.
+	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight;
+
+	/// Maximal number of unrewarded relayers in a single confirmation transaction at this
+	/// `ChainWithMessages`.
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce;
+	/// Maximal number of unconfirmed messages in a single confirmation transaction at this
+	/// `ChainWithMessages`.
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
+
+	/// Weights of message pallet calls.
+	type WeightInfo: pallet_bridge_messages::WeightInfoExt;
 }
 
 /// Call type used by the chain.

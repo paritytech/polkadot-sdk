@@ -35,7 +35,7 @@ use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
 use substrate_relay_helper::{
 	finality_pipeline::SubstrateFinalitySyncPipeline, messages_lane::MessagesRelayParams,
-	on_demand_headers::OnDemandHeadersRelay,
+	on_demand_headers::OnDemandHeadersRelay, TransactionParams,
 };
 
 use crate::{
@@ -139,13 +139,12 @@ macro_rules! select_bridge {
 
 				use crate::chains::{
 					millau_messages_to_rialto::{
-						run as left_to_right_messages,
-						standalone_metrics as left_to_right_standalone_metrics,
 						update_rialto_to_millau_conversion_rate as update_right_to_left_conversion_rate,
+						MillauMessagesToRialto as LeftToRightMessageLane,
 					},
 					rialto_messages_to_millau::{
-						run as right_to_left_messages,
 						update_millau_to_rialto_conversion_rate as update_left_to_right_conversion_rate,
+						RialtoMessagesToMillau as RightToLeftMessageLane,
 					},
 				};
 
@@ -187,11 +186,8 @@ macro_rules! select_bridge {
 					bp_wococo::SESSION_LENGTH;
 
 				use crate::chains::{
-					rococo_messages_to_wococo::{
-						run as left_to_right_messages,
-						standalone_metrics as left_to_right_standalone_metrics,
-					},
-					wococo_messages_to_rococo::run as right_to_left_messages,
+					rococo_messages_to_wococo::RococoMessagesToWococo as LeftToRightMessageLane,
+					wococo_messages_to_rococo::WococoMessagesToRococo as RightToLeftMessageLane,
 				};
 
 				async fn update_right_to_left_conversion_rate(
@@ -269,13 +265,12 @@ macro_rules! select_bridge {
 
 				use crate::chains::{
 					kusama_messages_to_polkadot::{
-						run as left_to_right_messages,
-						standalone_metrics as left_to_right_standalone_metrics,
 						update_polkadot_to_kusama_conversion_rate as update_right_to_left_conversion_rate,
+						KusamaMessagesToPolkadot as LeftToRightMessageLane,
 					},
 					polkadot_messages_to_kusama::{
-						run as right_to_left_messages,
 						update_kusama_to_polkadot_conversion_rate as update_left_to_right_conversion_rate,
+						PolkadotMessagesToKusama as RightToLeftMessageLane,
 					},
 				};
 
@@ -358,7 +353,9 @@ impl RelayHeadersAndMessages {
 			let metrics_params: MetricsParams = params.shared.prometheus_params.into();
 			let metrics_params = relay_utils::relay_metrics(metrics_params).into_params();
 			let left_to_right_metrics =
-				left_to_right_standalone_metrics(left_client.clone(), right_client.clone())?;
+				substrate_relay_helper::messages_metrics::standalone_metrics::<
+					LeftToRightMessageLane,
+				>(left_client.clone(), right_client.clone())?;
 			let right_to_left_metrics = left_to_right_metrics.clone().reverse();
 
 			// start conversion rate update loops for left/right chains
@@ -489,16 +486,14 @@ impl RelayHeadersAndMessages {
 			}
 
 			// start on-demand header relays
-			let left_to_right_transaction_params =
-				substrate_relay_helper::finality_pipeline::TransactionParams {
-					transactions_mortality: right_transactions_mortality,
-					transactions_signer: right_sign.clone(),
-				};
-			let right_to_left_transaction_params =
-				substrate_relay_helper::finality_pipeline::TransactionParams {
-					transactions_mortality: left_transactions_mortality,
-					transactions_signer: left_sign.clone(),
-				};
+			let left_to_right_transaction_params = TransactionParams {
+				mortality: right_transactions_mortality,
+				signer: right_sign.clone(),
+			};
+			let right_to_left_transaction_params = TransactionParams {
+				mortality: left_transactions_mortality,
+				signer: left_sign.clone(),
+			};
 			LeftToRightFinality::start_relay_guards(
 				&right_client,
 				&left_to_right_transaction_params,
@@ -526,13 +521,19 @@ impl RelayHeadersAndMessages {
 			let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 			for lane in lanes {
 				let lane = lane.into();
-				let left_to_right_messages = left_to_right_messages(MessagesRelayParams {
+				let left_to_right_messages = substrate_relay_helper::messages_lane::run::<
+					LeftToRightMessageLane,
+				>(MessagesRelayParams {
 					source_client: left_client.clone(),
-					source_sign: left_sign.clone(),
-					source_transactions_mortality: left_transactions_mortality,
+					source_transaction_params: TransactionParams {
+						signer: left_sign.clone(),
+						mortality: left_transactions_mortality,
+					},
 					target_client: right_client.clone(),
-					target_sign: right_sign.clone(),
-					target_transactions_mortality: right_transactions_mortality,
+					target_transaction_params: TransactionParams {
+						signer: right_sign.clone(),
+						mortality: right_transactions_mortality,
+					},
 					source_to_target_headers_relay: Some(left_to_right_on_demand_headers.clone()),
 					target_to_source_headers_relay: Some(right_to_left_on_demand_headers.clone()),
 					lane_id: lane,
@@ -542,13 +543,19 @@ impl RelayHeadersAndMessages {
 				})
 				.map_err(|e| anyhow::format_err!("{}", e))
 				.boxed();
-				let right_to_left_messages = right_to_left_messages(MessagesRelayParams {
+				let right_to_left_messages = substrate_relay_helper::messages_lane::run::<
+					RightToLeftMessageLane,
+				>(MessagesRelayParams {
 					source_client: right_client.clone(),
-					source_sign: right_sign.clone(),
-					source_transactions_mortality: right_transactions_mortality,
+					source_transaction_params: TransactionParams {
+						signer: right_sign.clone(),
+						mortality: right_transactions_mortality,
+					},
 					target_client: left_client.clone(),
-					target_sign: left_sign.clone(),
-					target_transactions_mortality: left_transactions_mortality,
+					target_transaction_params: TransactionParams {
+						signer: left_sign.clone(),
+						mortality: left_transactions_mortality,
+					},
 					source_to_target_headers_relay: Some(right_to_left_on_demand_headers.clone()),
 					target_to_source_headers_relay: Some(left_to_right_on_demand_headers.clone()),
 					lane_id: lane,

@@ -74,7 +74,7 @@ pub enum Call {
 	BridgeGrandpaWococo(BridgeGrandpaWococoCall),
 	/// Wococo messages pallet.
 	#[codec(index = 44)]
-	BridgeMessagesWococo(BridgeMessagesWococoCall),
+	BridgeWococoMessages(BridgeWococoMessagesCall),
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -105,7 +105,7 @@ pub enum BridgeGrandpaWococoCall {
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
-pub enum BridgeMessagesWococoCall {
+pub enum BridgeWococoMessagesCall {
 	#[codec(index = 3)]
 	send_message(
 		LaneId,

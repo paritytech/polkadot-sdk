@@ -20,7 +20,9 @@ thiserror = "1.0.26"
 # Bridge dependencies
 
 bp-header-chain = { path = "../../primitives/header-chain" }
+bp-messages = { path = "../../primitives/messages" }
 bp-runtime = { path = "../../primitives/runtime" }
+pallet-bridge-messages = { path = "../../modules/messages" }
 finality-relay = { path = "../finality" }
 relay-utils = { path = "../utils" }
 

@@ -74,8 +74,8 @@ pub fn derive_account_from_wococo_id(id: bp_runtime::SourceAccount<AccountId>) -
 	AccountIdConverter::convert(encoded_id)
 }
 
-/// Name of the With-Wococo messages pallet instance in the Rococo runtime.
-pub const WITH_WOCOCO_MESSAGES_PALLET_NAME: &str = "BridgeWococoMessages";
+/// Name of the With-Rococo messages pallet instance that is deployed at bridged chains.
+pub const WITH_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
 
 /// Name of the `RococoFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_ROCOCO_HEADER_METHOD: &str = "RococoFinalityApi_best_finalized";
