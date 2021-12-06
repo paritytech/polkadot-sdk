@@ -25,18 +25,6 @@ This function will later generate a notification in the following format:
 
 Where `result` can be one of:
 
-### queued
-
-```json
-{
-    "event": "queued"
-}
-```
-
-The `queued` event indicates that this extrinsic has been received by the JSON-RPC server and is now queued for processing.
-
-This event is only ever generated once per extrinsic, and if so is always the first event. It is illegal for a JSON-RPC server to send it if any other event has already been generated. However, this event is optional and the JSON-RPC server might not send it as any other event also implicitly implies `queued`.
-
 ### validated
 
 ```json
@@ -51,7 +39,7 @@ This extrinsic might still become invalid in the future, for example because a c
 
 Multiple `validated` events can be generated during the lifetime of an extrinsic. If multiple `validated` events happen in a row, the JSON-RPC server is allowed to skip all but the last one.
 
-> **Note**: In theory, this event could include a field indicating the block against which this extrinsic was validated. It has been decided to not include this field for pragmatic reasons: implementing it might be complicated, and it is not very useful for a JSON-RPC client to know this information.
+**Note**: In theory, this event could include a field indicating the block against which this extrinsic was validated. It has been decided to not include this field for pragmatic reasons: implementing it might be complicated, and it is not very useful for a JSON-RPC client to know this information.
 
 ### broadcasted
 
@@ -68,7 +56,7 @@ The ̀`broadcasted` event indicates the number of other peers this extrinsic has
 
 The JSON-RPC server doesn't (and can't) offer any guarantee that these peers have received the extrinsic or have saved it in their own transactions pool. In other words, no matter how large the value in `numPeers` is, no guarantee is offered that shutting down the local node will lead to the extrinsic being included.
 
-> **Note**: In principle, a value of `numPeers` equal to 0 guarantees that shutting down the local node will lead to the extrinsic _not_ being included, assuming that no other node has submitted the same extrinsic. However, because JSON-RPC servers are allowed to delay or skip events, the JSON-RPC client can never be sure that `numPeers` was still equal to 0 when shutting down the node.
+**Note**: In principle, a value of `numPeers` equal to 0 guarantees that shutting down the local node will lead to the extrinsic _not_ being included, assuming that no other node has submitted the same extrinsic. However, because JSON-RPC servers are allowed to delay or skip events, the JSON-RPC client can never be sure that `numPeers` was still equal to 0 when shutting down the node.
 
 If multiple `broadcasted` events happen in a row, the JSON-RPC server is allowed to skip all but the last.
 
