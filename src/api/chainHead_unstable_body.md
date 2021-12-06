@@ -10,7 +10,7 @@
 
 The JSON-RPC server must start obtaining the body (in other words the list of transactions) of the given block.
 
-This function will later generate notifications looking like this:
+This function will later generate notifications in the following format:
 
 ```json
 {

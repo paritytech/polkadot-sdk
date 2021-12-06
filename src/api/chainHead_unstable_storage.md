@@ -15,7 +15,9 @@ The JSON-RPC server must start obtaining the value of the entry with the given `
 
 For optimization purposes, the JSON-RPC server is allowed to wait a little bit (e.g. up to 100ms) before starting to try fulfill the storage request, in order to batch multiple storage requests together.
 
-This function will later generate notifications looking like this:
+## Notifications format
+
+This function will later generate notifications in the following format:
 
 ```json
 {
@@ -28,7 +30,9 @@ This function will later generate notifications looking like this:
 }
 ```
 
-If everything is successful, `result` will be:
+Where `subscriptionId` is equal to the value returned by this function, and `result` can be one of:
+
+### done
 
 ```json
 {
@@ -37,12 +41,15 @@ If everything is successful, `result` will be:
 }
 ```
 
+The `done` event indicates that everything went well. The `value` field contains the requested value.
+
 Where `value` is:
+
 - If `type` was `value`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hexadecimal-encoded value of the storage entry.
 - If `type` was `hash`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hexadecimal-encoded hash of the value of the storage item. The hashing algorithm is the same as the one used by the trie of the chain.
 - If `type` was `size`, either `null` if the storage doesn't contain a value at the given key, or a string containing the number of bytes of the storage entry. Note that a string is used rather than a number in order to prevent JavaScript clients from accidentally rounding the value.
 
-Alternatively, if  `result` can also be:
+### failed
 
 ```json
 {
@@ -50,9 +57,9 @@ Alternatively, if  `result` can also be:
 }
 ```
 
-Which indicates that the storage value has failed to be retrieved from the network.
+The `failed` event indicates that the storage value has failed to be retrieved from the network.
 
-Alternatively, if the `followSubscriptionId` is dead, then `result` can also be:
+### disjoint
 
 ```json
 {
@@ -60,7 +67,7 @@ Alternatively, if the `followSubscriptionId` is dead, then `result` can also be:
 }
 ```
 
-After an `"event": "done"`, `"event": "failed"`, or `"event": "disjoint"` is received, no more notification will be generated.
+The `disjoint` event indicates that the provided `followSubscriptionId` is dead.
 
 **Note**: Other events might be added in the future, such as reports on the progress of the fetch.
 

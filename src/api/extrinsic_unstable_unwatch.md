@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `subscription`: An opaque string equal to the value returned by `extrinsic_unstable_submitAndWatch`
+- `subscription`: Opaque string equal to the value returned by `extrinsic_unstable_submitAndWatch`
 
 **Return value**: *null*
 
