@@ -3,11 +3,11 @@
 **Parameters**:
 
 - `hash`: String containing the hexadecimal-encoded hash of the header to retreive.
-- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
 **Return value**: An opaque string that identifies the query in progress.
 
-This function will later generate a notification looking like this:
+This function will later generate a notification in the following format:
 
 ```json
 {
@@ -45,7 +45,8 @@ Only one notification will ever be generated.
 
 ## Possible errors
 
-- If the block hash passed as parameter doesn't correspond to any known block, then a `{"event": "failed"}` notification is generated (as explained above).
-- If the networking part of the behaviour fails, then a `{"event": "failed"}` notification is generated (as explained above).
+If the block hash passed as parameter doesn't correspond to any known block, then a `{"event": "failed"}` notification is generated (as explained above).
+
+If the networking part of the behaviour fails, then a `{"event": "failed"}` notification is generated (as explained above).
 
 Due to the way blockchains work, it is never possible to be certain that a block doesn't exist. For this reason, networking-related errors and unknown block errors are reported in the same way.

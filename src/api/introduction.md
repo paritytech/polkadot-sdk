@@ -11,7 +11,7 @@ Any missing parameter, or parameter with an invalid format, should result in a J
 
 ## The `networkConfig` parameter
 
-Many functions below have an optional parameter named `networkConfig`. This parameter is used when a function needs to request an information from its peers.
+Many functions in the API have an optional parameter named `networkConfig`. This parameter is used when a function needs to request an information from its peers.
 
 Requesting an information from a peer involves sending a request to this peer. This request can fail for various reasons: the peer is non responsive, the peer is overwhelmed, the peer is malicious, the peer has a bug in its implementation, etc. Because the request can fail, multiple requests should be attempted towards different peers before the information retrieval fails altogether.
 

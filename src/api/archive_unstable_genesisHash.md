@@ -6,4 +6,4 @@
 
 This function is a simple getter. The JSON-RPC server is expected to keep in its memory the hash of the genesis block.
 
-The value returned by this function must never change.
+The value returned by this function must never change for the lifetime of the connection between the JSON-RPC client and server.

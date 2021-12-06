@@ -3,13 +3,13 @@
 **Parameters**:
 
 - `height`: String containing an hexadecimal-encoded integer.
-- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See above for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
 **Return value**: An opaque string that identifies the query in progress.
 
 The JSON-RPC client must find the blocks (zero, one, or more) whose height is the one passed as parameter. If the `height` is inferior or equal to the finalized block height, then only finalized blocks must be fetched and returned.
 
-This function will later generate a notification looking like this:
+This function will later generate a notification in the following format:
 
 ```json
 {
