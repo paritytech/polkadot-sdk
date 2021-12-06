@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::Parameter;
+use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
 	traits::{
@@ -120,6 +120,11 @@ pub trait Chain: Send + Sync + 'static {
 		+ Copy;
 	/// Signature type, used on this chain.
 	type Signature: Parameter + Verify;
+
+	/// Get the maximum size (in bytes) of a Normal extrinsic at this chain.
+	fn max_extrinsic_size() -> u32;
+	/// Get the maximum weight (compute time) that a Normal extrinsic at this chain can use.
+	fn max_extrinsic_weight() -> Weight;
 }
 
 /// Block number used by the chain.

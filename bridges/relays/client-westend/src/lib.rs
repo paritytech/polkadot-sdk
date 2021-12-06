@@ -16,6 +16,7 @@
 
 //! Types used to connect to the Westend chain.
 
+use frame_support::weights::Weight;
 use relay_substrate_client::{Chain, ChainBase, ChainWithBalances};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
@@ -40,10 +41,19 @@ impl ChainBase for Westend {
 	type Balance = bp_westend::Balance;
 	type Index = bp_westend::Nonce;
 	type Signature = bp_westend::Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		bp_westend::Westend::max_extrinsic_size()
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		bp_westend::Westend::max_extrinsic_weight()
+	}
 }
 
 impl Chain for Westend {
 	const NAME: &'static str = "Westend";
+	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);

@@ -16,9 +16,11 @@
 
 //! Types used to connect to the Millau-Substrate chain.
 
+use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
+use frame_support::weights::Weight;
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, IndexOf, TransactionEraOf,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithMessages, IndexOf, TransactionEraOf,
 	TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
@@ -42,10 +44,44 @@ impl ChainBase for Millau {
 	type Balance = millau_runtime::Balance;
 	type Index = millau_runtime::Index;
 	type Signature = millau_runtime::Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		bp_millau::Millau::max_extrinsic_size()
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		bp_millau::Millau::max_extrinsic_weight()
+	}
+}
+
+impl ChainWithMessages for Millau {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		bp_millau::WITH_MILLAU_MESSAGES_PALLET_NAME;
+	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
+		bp_millau::TO_MILLAU_MESSAGE_DETAILS_METHOD;
+	const TO_CHAIN_LATEST_GENERATED_NONCE_METHOD: &'static str =
+		bp_millau::TO_MILLAU_LATEST_GENERATED_NONCE_METHOD;
+	const TO_CHAIN_LATEST_RECEIVED_NONCE_METHOD: &'static str =
+		bp_millau::TO_MILLAU_LATEST_RECEIVED_NONCE_METHOD;
+	const FROM_CHAIN_LATEST_RECEIVED_NONCE_METHOD: &'static str =
+		bp_millau::FROM_MILLAU_LATEST_RECEIVED_NONCE_METHOD;
+	const FROM_CHAIN_LATEST_CONFIRMED_NONCE_METHOD: &'static str =
+		bp_millau::FROM_MILLAU_LATEST_CONFIRMED_NONCE_METHOD;
+	const FROM_CHAIN_UNREWARDED_RELAYERS_STATE: &'static str =
+		bp_millau::FROM_MILLAU_UNREWARDED_RELAYERS_STATE;
+	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight =
+		bp_millau::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		bp_millau::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+	type WeightInfo = ();
 }
 
 impl Chain for Millau {
 	const NAME: &'static str = "Millau";
+	// Rialto token has no value, but we associate it with KSM token
+	const TOKEN_ID: Option<&'static str> = Some("kusama");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);

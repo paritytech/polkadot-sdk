@@ -81,8 +81,8 @@ pub const EXISTENTIAL_DEPOSIT: Balance = 10_000_000_000;
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = 4 * time_units::HOURS;
 
-/// Name of the With-Kusama messages pallet instance in the Polkadot runtime.
-pub const WITH_KUSAMA_MESSAGES_PALLET_NAME: &str = "BridgeKusamaMessages";
+/// Name of the With-Polkadot messages pallet instance that is deployed at bridged chains.
+pub const WITH_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotMessages";
 
 /// Name of the KSM->DOT conversion rate stored in the Polkadot runtime.
 pub const KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME: &str =
