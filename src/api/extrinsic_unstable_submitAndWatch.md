@@ -85,7 +85,7 @@ The `bestChainBlockIncluded` event indicates which block of the best chain the e
 
 `null` can be sent back in case the block is no longer in any block of the best chain. This is the state an extrinsic starts in.
 
-`hash` is a string containing the hex-encoded hash of the header of the block. `index` is a string containing an integer indicating the 0-based index of this extrinsic within the body of this block.
+`hash` is a string containing the hexadecimal-encoded hash of the header of the block. `index` is a string containing an integer indicating the 0-based index of this extrinsic within the body of this block.
 
 If multiple `bestChainBlockIncluded` events happen in a row, the JSON-RPC server is allowed to skip all but the last.
 
@@ -105,7 +105,7 @@ If multiple `bestChainBlockIncluded` events happen in a row, the JSON-RPC server
 
 The `finalized` event indicates that this extrinsic is present in a block of the chain that is finalized.
 
-`hash` is a string containing the hex-encoded hash of the header of the block. `index` is a string containing an integer indicating the 0-based index of this extrinsic within the body of this block.
+`hash` is a string containing the hexadecimal-encoded hash of the header of the block. `index` is a string containing an integer indicating the 0-based index of this extrinsic within the body of this block.
 
 No more event will be generated about this extrinsic.
 

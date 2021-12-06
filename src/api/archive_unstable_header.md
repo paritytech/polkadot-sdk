@@ -5,7 +5,7 @@
 - `hash`: String containing the hexadecimal-encoded hash of the header to retreive.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
-**Return value**: An opaque string that identifies the query in progress.
+**Return value**: String containing an opaque value representing the operation.
 
 This function will later generate a notification in the following format:
 

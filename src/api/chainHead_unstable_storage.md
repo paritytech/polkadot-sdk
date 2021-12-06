@@ -9,7 +9,7 @@
 - `type`: String that must be equal to one of: `value`, `hash`, or `size`.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
-**Return value**: An opaque string that identifies the storage fetch in progress.
+**Return value**: String containing an opaque value representing the operation.
 
 The JSON-RPC server must start obtaining the value of the entry with the given `key` (and possibly `childKey`) from the storage.
 

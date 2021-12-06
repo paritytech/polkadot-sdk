@@ -6,13 +6,15 @@
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose body to fetch.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
-**Return value**: An opaque string that identifies the body fetch in progress.
+**Return value**: String containing an opaque value representing the operation.
 
 The JSON-RPC server must start obtaining the body (in other words the list of transactions) of the given block.
 
 This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_body` if instead you want to retrieve the body of an arbitrary block.
 
-This function will later generate notifications in the following format:
+## Notifications format
+
+This function will later generate a notification in the following format:
 
 ```json
 {
@@ -25,7 +27,9 @@ This function will later generate notifications in the following format:
 }
 ```
 
-If everything is successful, `result` will be:
+Where `subscriptionId` is the value returned by this function, and `result` can be one of:
+
+### done
 
 ```json
 {
@@ -34,9 +38,15 @@ If everything is successful, `result` will be:
 }
 ```
 
-Where `value` is an array of strings containing the hexadecimal-encoded SCALE-encoded extrinsics found in this block.
+The `done` event indicates that everything was successful.
 
-Alternatively, `result` can also be:
+`value` is an array of strings containing the hexadecimal-encoded SCALE-encoded extrinsics found in this block.
+
+**Note**: Note that the order of extrinsics is important. Extrinsics in the chain are uniquely identified by a `(blockHash, index)` tuple.
+
+No more event will be generated with this `subscriptionId`.
+
+### inaccessible
 
 ```json
 {
@@ -44,9 +54,13 @@ Alternatively, `result` can also be:
 }
 ```
 
-Which indicates that the body has failed to be retrieved from the network.
+The `inaccessible` event indicates that the body has failed to be retrieved from the network.
 
-Alternatively, if the `followSubscriptionId` is dead, then `result` can also be:
+Trying again later might succeed.
+
+No more event will be generated with this `subscriptionId`.
+
+### disjoint
 
 ```json
 {
@@ -54,9 +68,9 @@ Alternatively, if the `followSubscriptionId` is dead, then `result` can also be:
 }
 ```
 
-After an `"event": "done"`, `"event": "inaccessible"`, or `"event": "disjoint"` is received, no more notification will be generated.
+The `disjoint` event indicates that the `followSubscriptionId` is dead.
 
-**Note**: Other events might be added in the future, such as reports on the progress of the fetch.
+No more event will be generated with this `subscriptionId`.
 
 ## Possible errors
 

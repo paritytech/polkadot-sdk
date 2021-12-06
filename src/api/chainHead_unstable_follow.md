@@ -196,7 +196,7 @@ The fields of `spec` are:
 
 - `transactionVersion`: Opaque integer. Necessary when building the bytes of an extrinsic. Extrinsics that have been generated with a different `transactionVersion` are incompatible.
 
-- `apis`: Object containing a list of "entry point APIs" supported by the runtime. Each key is a string containing the hex-encoded 8-bytes blake2 hash of the name of the API, and each value is an integer version number. Before making a runtime call (using `chainHead_unstable_call`), you should make sure that this list contains the entry point API corresponding to the call and with a known version number.
+- `apis`: Object containing a list of "entry point APIs" supported by the runtime. Each key is a string containing the hexadecimal-encoded 8-bytes blake2 hash of the name of the API, and each value is an integer version number. Before making a runtime call (using `chainHead_unstable_call`), you should make sure that this list contains the entry point API corresponding to the call and with a known version number.
 
 **Note**: The format of `apis` is not the same as in the legacy JSON-RPC API.
 
