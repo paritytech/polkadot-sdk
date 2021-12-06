@@ -52,6 +52,7 @@ This function will later generate one or more notifications in the following for
     }
 }
 ```
+
 Where `subscriptionId` is the value returned by this function, and `result` can be one of:
 
 ### initialized
