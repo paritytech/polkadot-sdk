@@ -6,13 +6,22 @@
 
 **Return value**: String containing an opaque value representing the subscription.
 
+This functions lets the JSON-RPC client track the state of the head of the chain: the finalized, non-finalized, and best blocks.
+
+## Usage
+
 This function works as follows:
 
-- When called, returns a subscription id.
-- Later, generates an `initialized` notification containing the hash of the current finalized block, and if `runtimeUpdates` is `true` the runtime specification of the runtime of the current finalized block.
+- When called, returns an opaque `followSubscriptionId` that can used to match events and in various other `chainHead`-prefixed functions.
+
+- Later, generates an `initialized` notification (see below) containing the hash of the current finalized block, and, if `runtimeUpdates` is `true`, the runtime specification of the runtime of the current finalized block.
+
 - Afterwards, generates one `newBlock` notification (see below) for each non-finalized block currently in the node's memory (including all forks), then a `bestBlockChanged` notification. The notifications must be sent in an ordered way such that the parent of each block either can be found in an earlier notification or is the current finalized block.
+
 - When a new block arrives, generates a `newBlock` notification. If the new block is also the new best block of the node, also generates a `bestBlockChanged` notification.
-- When the node finalizes a block, generates a `finalized` notification indicating which blocks have been finalized (both directly and indirectly) ordered by ascending height, and which blocks have been pruned (without any ordering). The latest notified best block must *not* be in the list of pruned blocks. If that would happen, a `bestBlockChanged` notification needs to be generated beforehand.
+
+- When the node finalizes a block, generates a `finalized` notification indicating which blocks have been finalized and which blocks have been pruned.
+
 - If the node is overloaded and cannot avoid a gap in the notifications, or in case of a warp syncing, or if the maximum number of pinned blocks is reached (see below), generates a `stop` notification indicating that the subscription is now dead and must be re-created. No more notifications will be sent out on this subscription.
 
 **Note**: This list of notifications makes it very easy for a JSON-RPC client to follow just the best block updates (listening to just `bestBlockChanged` events) or follow just the finalized block updates (listening to just `initialized` and `finalized` events). It is however not possible to easily figure out whether the runtime has been modified when these updates happen. This is not problematic, as anyone using the JSON-RPC interface naively propably doesn't need to account for runtime changes anyway.
@@ -140,6 +149,8 @@ A block is pinned only in the context of a specific subscription. If multiple `c
 The JSON-RPC server is strongly encouraged to enforce a limit to the maximum number of pinned blocks. If this limit is reached, it should then stop the subscription by emitting a `stop` event. This specification does not mention any specific limit, but it should be large enough for clients to be able to pin all existing non-finalized blocks and a few finalized blocks.
 
 **Note**: A JSON-RPC client should call `chainHead_unstable_unpin` only after it is sure to no longer be interested in a certain block. This typically happens after the block has been finalized or pruned. There is no requirement to call `chainHead_unstable_unpin` as quickly as possible.
+
+## Multiple subscriptions
 
 If a JSON-RPC client maintains mutiple `chainHead_unstable_follow` subscriptions at the same time, it has no guarantee that the blocks reported by the various subscriptions are the same. While the finalized blocks reported should eventually be the same, it is possible that in the short term some subscriptions lag behind others.
 
