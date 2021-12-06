@@ -84,9 +84,6 @@ pub enum Call {
 }
 
 pub trait CliEncodeCall: Chain {
-	/// Maximal size (in bytes) of any extrinsic (from the runtime).
-	fn max_extrinsic_size() -> u32;
-
 	/// Encode a CLI call.
 	fn encode_call(call: &Call) -> anyhow::Result<Self::Call>;
 

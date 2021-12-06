@@ -17,7 +17,10 @@
 //! Types and functions intended to ease adding of new Substrate -> Substrate
 //! finality proofs synchronization pipelines.
 
-use crate::{finality_source::SubstrateFinalitySource, finality_target::SubstrateFinalityTarget};
+use crate::{
+	finality_source::SubstrateFinalitySource, finality_target::SubstrateFinalityTarget,
+	TransactionParams,
+};
 
 use bp_header_chain::justification::GrandpaJustification;
 use finality_relay::FinalitySyncPipeline;
@@ -35,15 +38,6 @@ use std::{fmt::Debug, marker::PhantomData};
 /// Finality delay of 4096 blocks is unlikely to happen in practice in
 /// Substrate+GRANDPA based chains (good to know).
 pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
-
-/// Submit-finality-proofs transaction creation parameters.
-#[derive(Clone, Debug)]
-pub struct TransactionParams<TS> {
-	/// Transactions author.
-	pub transactions_signer: TS,
-	/// Transactions mortality.
-	pub transactions_mortality: Option<u32>,
-}
 
 /// Substrate -> Substrate finality proofs synchronization pipeline.
 pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
@@ -67,7 +61,7 @@ pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 
 /// Adapter that allows all `SubstrateFinalitySyncPipeline` to act as `FinalitySyncPipeline`.
 #[derive(Clone, Debug)]
-pub struct FinalitySyncPipelineAdapter<P: SubstrateFinalitySyncPipeline> {
+pub(crate) struct FinalitySyncPipelineAdapter<P: SubstrateFinalitySyncPipeline> {
 	_phantom: PhantomData<P>,
 }
 
@@ -179,7 +173,7 @@ where
 			),
 			recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 			stall_timeout: transaction_stall_timeout(
-				transaction_params.transactions_mortality,
+				transaction_params.mortality,
 				P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 				crate::STALL_TIMEOUT,
 			),
