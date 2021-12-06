@@ -14,11 +14,11 @@ This beginner guide shows how to use the `chainHead` functions in order to know 
 
 1. Call `chainHead_unstable_follow` with `runtimeUpdates: true` to obtain a `followSubscriptionId`. This `followSubscriptionId` will need to be passed when calling most of the other `chainHead`-prefixed functions. If at any point in the future the JSON-RPC server sends back a `{"event": "stop"}` notification, jump back to step 1.
 
-2. When the JSON-RPC server sends back a `{"event": "initialized"}` notification with `subscriptionId` equal to your `followSubscriptionId`, store the value of `finalizedBlockHash` in that notification. **TODO** must check metadata api version
+2. When the JSON-RPC server sends back a `{"event": "initialized"}` notification with `subscriptionId` equal to your `followSubscriptionId`, store the value of `finalizedBlockHash` in that notification.
 
-3. Call `chainHead_unstable_call` with `hash` equal to the `finalizedBlockHash` you've just retrieved, `function` equal to `Metadata_metadata`, and an empty `callParameters`.
+3. Call `chainHead_unstable_call` with `hash` equal to the `finalizedBlockHash` you've just retrieved, `function` equal to `Metadata_metadata`, and an empty `callParameters`. **TODO** must check metadata api version
 
-4. If the JSON-RPC server sends back a `{"event": "inaccessible"}` notification, jump back to step 3. If the JSON-RPC server sends back a `{"event": "error"}` notification, enter panic mode. If the JSON-RPC server sends back a `{"event": "disjoint"}` notification, jump back to step 1. If the JSON-RPC server instead sends back a `{"event": "done"}` notification, save the return value.
+4. If the JSON-RPC server sends back a `{"event": "inaccessible"}` notification, jump back to step 3. If the JSON-RPC server sends back a `{"event": "error"}` notification, enter panic mode as the client software is incompatible with the current state of the blockchain. If the JSON-RPC server sends back a `{"event": "disjoint"}` notification, jump back to step 1. If the JSON-RPC server instead sends back a `{"event": "done"}` notification, save the return value.
 
 5. The return value you've just saved is called the metadata, prefixed with its SCALE-compact-encoded length. You must decode and parse this metadata. How to do this is out of scope of this small guide. The metadata contains information about the layout of the storage of the chain. Inspect it to determine how to find the storage item you're looking for.
 
