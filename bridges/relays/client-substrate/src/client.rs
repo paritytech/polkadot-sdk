@@ -34,7 +34,7 @@ use jsonrpsee_ws_client::{
 	},
 	WsClient as RpcClient, WsClientBuilder as RpcClientBuilder,
 };
-use num_traits::{Bounded, Zero};
+use num_traits::{Bounded, CheckedSub, One, Zero};
 use pallet_balances::AccountData;
 use pallet_transaction_payment::InclusionFee;
 use relay_utils::{relay_loop::RECONNECT_DELAY, HeaderId};
@@ -349,7 +349,17 @@ impl<C: Chain> Client<C> {
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
 		let best_header = self.best_header().await?;
-		let best_header_id = HeaderId(*best_header.number(), best_header.hash());
+
+		// By using parent of best block here, we are protecing again best-block reorganizations.
+		// E.g. transaction my have been submitted when the best block was `A[num=100]`. Then it has
+		// been changed to `B[num=100]`. Hash of `A` has been included into transaction signature
+		// payload. So when signature will be checked, the check will fail and transaction will be
+		// dropped from the pool.
+		let best_header_id = match best_header.number().checked_sub(&One::one()) {
+			Some(parent_block_number) => HeaderId(parent_block_number, *best_header.parent_hash()),
+			None => HeaderId(*best_header.number(), best_header.hash()),
+		};
+
 		self.jsonrpsee_execute(move |client| async move {
 			let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce);
 			let tx_hash = Substrate::<C>::author_submit_extrinsic(&*client, extrinsic).await?;
