@@ -50,7 +50,7 @@ Multiple `validated` events can be generated during the lifetime of an extrinsic
 }
 ```
 
-The ̀`broadcasted` event indicates the number of other peers this extrinsic has been broadcasted to.
+The `broadcasted` event indicates the number of other peers this extrinsic has been broadcasted to.
 
 `numPeers` is the total number of individual peers this extrinsic has been broadcasted to.
 
