@@ -8,9 +8,9 @@ These functions are the functions most of the JSON-RPC clients will most commonl
 
 ## Usage
 
-_This section contains a small guide destined for JSON-RPC client users._
+_This section contains a small beginner guide destined for JSON-RPC client users._
 
-This high-level guide shows how to use the `chainHead` functions in order to know the value of a certain storage item.
+This beginner guide shows how to use the `chainHead` functions in order to know the value of a certain storage item.
 
 1. Call `chainHead_unstable_follow` with `runtimeUpdates: true` to obtain a `followSubscriptionId`. This `followSubscriptionId` will need to be passed when calling most of the other `chainHead`-prefixed functions. If at any point in the future the JSON-RPC server sends back a `{"event": "stop"}` notification, jump back to step 1.
 
@@ -28,6 +28,6 @@ This high-level guide shows how to use the `chainHead` functions in order to kno
 
 8. Whenever a `{"event": "finalized"}` notification is received with `subscriptionId` equal to your `followSubcriptionId`, call `chainHead_unstable_unpin` once with your current `finalizedBlockHash` and once for each value in `finalizedBlocksHashes` except for the last one. The last value in `finalizedBlocksHashes` becomes your new `finalizedBlockHash`. If one or more entries of `finalizedBlockHashes` is found in your `Set` (see step 6), remove them from the set and jump to step 3 as the metadata has likely been modified. Otherwise, jump to step 6.
 
-Note that these steps are a bit complicated. Any serious user of the JSON-RPC interface is expected to implement high-level wrappers around the various functionalities.
+Note that these steps are a bit complicated. Any serious user of the JSON-RPC interface is expected to implement high-level wrappers around the various JSON-RPC functions.
 
 For example, if multiple storage values are desired, only step 6 should be repeated once per storage item. All other steps are application-wide.
