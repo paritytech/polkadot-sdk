@@ -116,6 +116,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
 	let relay_task_name = on_demand_headers_relay_name::<P::SourceChain, P::TargetChain>();
+	let target_transactions_mortality = target_transaction_params.transactions_mortality;
 	let mut finality_source = SubstrateFinalitySource::<P>::new(
 		source_client.clone(),
 		Some(required_header_number.clone()),
@@ -222,7 +223,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 						recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 						stall_timeout: relay_substrate_client::transaction_stall_timeout(
 							target_transactions_mortality,
-							TargetChain::AVERAGE_BLOCK_INTERVAL,
+							P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 							STALL_TIMEOUT,
 						),
 						only_mandatory_headers,
