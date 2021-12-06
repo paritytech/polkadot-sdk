@@ -22,15 +22,11 @@ use crate::cli::{
 };
 use bp_message_dispatch::MessagePayload;
 use codec::Decode;
-use frame_support::weights::{DispatchInfo, GetDispatchInfo, Weight};
+use frame_support::weights::{DispatchInfo, GetDispatchInfo};
 use relay_rialto_parachain_client::RialtoParachain;
 use sp_version::RuntimeVersion;
 
 impl CliEncodeCall for RialtoParachain {
-	fn max_extrinsic_size() -> u32 {
-		bp_rialto_parachain::max_extrinsic_size()
-	}
-
 	fn encode_call(call: &Call) -> anyhow::Result<Self::Call> {
 		Ok(match call {
 			Call::Raw { data } => Decode::decode(&mut &*data.0)?,
@@ -69,10 +65,6 @@ impl CliChain for RialtoParachain {
 
 	fn ss58_format() -> u16 {
 		rialto_parachain_runtime::SS58Prefix::get() as u16
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		bp_rialto_parachain::max_extrinsic_weight()
 	}
 
 	fn encode_message(

@@ -59,11 +59,11 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// Represents the portion of a block that will be used by Normal extrinsics.
 pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
-/// Maximal number of unrewarded relayer entries at inbound lane.
-pub const MAX_UNREWARDED_RELAYER_ENTRIES_AT_INBOUND_LANE: MessageNonce = 128;
+/// Maximal number of unrewarded relayer entries in Rialto confirmation transaction.
+pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
 
-/// Maximal number of unconfirmed messages at inbound lane.
-pub const MAX_UNCONFIRMED_MESSAGES_AT_INBOUND_LANE: MessageNonce = 128;
+/// Maximal number of unconfirmed messages in Rialto confirmation transaction.
+pub const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1024;
 
 /// Weight of single regular message delivery transaction on Rialto chain.
 ///
@@ -171,6 +171,17 @@ impl Chain for Rialto {
 	type Balance = Balance;
 	type Index = Index;
 	type Signature = Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		*BlockLength::get().max.get(DispatchClass::Normal)
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_extrinsic
+			.unwrap_or(Weight::MAX)
+	}
 }
 
 /// Convert a 256-bit hash into an AccountId.
@@ -215,21 +226,11 @@ frame_support::parameter_types! {
 		.build_or_panic();
 }
 
-/// Get the maximum weight (compute time) that a Normal extrinsic on the Millau chain can use.
-pub fn max_extrinsic_weight() -> Weight {
-	BlockWeights::get()
-		.get(DispatchClass::Normal)
-		.max_extrinsic
-		.unwrap_or(Weight::MAX)
-}
+/// Name of the With-Rialto messages pallet instance that is deployed at bridged chains.
+pub const WITH_RIALTO_MESSAGES_PALLET_NAME: &str = "BridgeRialtoMessages";
 
-/// Get the maximum length in bytes that a Normal extrinsic on the Millau chain requires.
-pub fn max_extrinsic_size() -> u32 {
-	*BlockLength::get().max.get(DispatchClass::Normal)
-}
-
-/// Name of the With-Millau messages pallet instance in the Rialto runtime.
-pub const WITH_MILLAU_MESSAGES_PALLET_NAME: &str = "BridgeMillauMessages";
+/// Name of the Millau->Rialto (actually KSM->DOT) conversion rate stored in the Rialto runtime.
+pub const MILLAU_TO_RIALTO_CONVERSION_RATE_PARAMETER_NAME: &str = "MillauToRialtoConversionRate";
 
 /// Name of the parachain registrar pallet in the Rialto runtime.
 pub const PARAS_REGISTRAR_PALLET_NAME: &str = "Registrar";

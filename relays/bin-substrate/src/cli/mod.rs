@@ -20,7 +20,6 @@ use std::convert::TryInto;
 
 use bp_messages::LaneId;
 use codec::{Decode, Encode};
-use frame_support::weights::Weight;
 use sp_runtime::app_crypto::Ss58Codec;
 use structopt::{clap::arg_enum, StructOpt};
 
@@ -258,9 +257,6 @@ pub trait CliChain: relay_substrate_client::Chain {
 	fn encode_message(
 		message: crate::cli::encode_message::MessagePayload,
 	) -> anyhow::Result<Self::MessagePayload>;
-
-	/// Maximal extrinsic weight (from the runtime).
-	fn max_extrinsic_weight() -> Weight;
 }
 
 /// Lane id.

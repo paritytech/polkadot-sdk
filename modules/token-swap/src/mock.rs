@@ -142,6 +142,13 @@ impl bp_runtime::Chain for BridgedChain {
 	type Balance = BridgedBalance;
 	type Index = u64;
 	type Signature = BridgedAccountSignature;
+
+	fn max_extrinsic_size() -> u32 {
+		unreachable!()
+	}
+	fn max_extrinsic_weight() -> Weight {
+		unreachable!()
+	}
 }
 
 pub struct TestMessagesBridge;

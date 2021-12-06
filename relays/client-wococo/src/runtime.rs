@@ -74,7 +74,7 @@ pub enum Call {
 	BridgeGrandpaRococo(BridgeGrandpaRococoCall),
 	/// Rococo messages pallet.
 	#[codec(index = 43)]
-	BridgeMessagesRococo(BridgeMessagesRococoCall),
+	BridgeRococoMessages(BridgeRococoMessagesCall),
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -105,7 +105,7 @@ pub enum BridgeGrandpaRococoCall {
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
-pub enum BridgeMessagesRococoCall {
+pub enum BridgeRococoMessagesCall {
 	#[codec(index = 3)]
 	send_message(
 		LaneId,

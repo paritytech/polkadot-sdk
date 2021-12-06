@@ -30,12 +30,10 @@ use relay_utils::{
 };
 
 use crate::{
-	finality_pipeline::{
-		SubstrateFinalitySyncPipeline, TransactionParams, RECENT_FINALITY_PROOFS_LIMIT,
-	},
+	finality_pipeline::{SubstrateFinalitySyncPipeline, RECENT_FINALITY_PROOFS_LIMIT},
 	finality_source::{RequiredHeaderNumberRef, SubstrateFinalitySource},
 	finality_target::SubstrateFinalityTarget,
-	STALL_TIMEOUT,
+	TransactionParams, STALL_TIMEOUT,
 };
 
 /// On-demand Substrate <-> Substrate headers relay.
@@ -116,7 +114,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
 	let relay_task_name = on_demand_headers_relay_name::<P::SourceChain, P::TargetChain>();
-	let target_transactions_mortality = target_transaction_params.transactions_mortality;
+	let target_transactions_mortality = target_transaction_params.mortality;
 	let mut finality_source = SubstrateFinalitySource::<P>::new(
 		source_client.clone(),
 		Some(required_header_number.clone()),
