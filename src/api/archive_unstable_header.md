@@ -35,7 +35,7 @@ Alternatively, `result` can also be:
 
 ```json
 {
-    "event": "failed"
+    "event": "inaccessible"
 }
 ```
 
@@ -45,8 +45,8 @@ Only one notification will ever be generated.
 
 ## Possible errors
 
-If the block hash passed as parameter doesn't correspond to any known block, then a `{"event": "failed"}` notification is generated (as explained above).
+If the block hash passed as parameter doesn't correspond to any known block, then a `{"event": "inaccessible"}` notification is generated (as explained above).
 
-If the networking part of the behaviour fails, then a `{"event": "failed"}` notification is generated (as explained above).
+If the networking part of the behaviour fails, then a `{"event": "inaccessible"}` notification is generated (as explained above).
 
 Due to the way blockchains work, it is never possible to be certain that a block doesn't exist. For this reason, networking-related errors and unknown block errors are reported in the same way.

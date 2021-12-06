@@ -40,7 +40,7 @@ Alternatively, `result` can also be:
 
 ```json
 {
-    "event": "failed"
+    "event": "inaccessible"
 }
 ```
 
@@ -54,13 +54,13 @@ Alternatively, if the `followSubscriptionId` is dead, then `result` can also be:
 }
 ```
 
-After an `"event": "done"`, `"event": "failed"`, or `"event": "disjoint"` is received, no more notification will be generated.
+After an `"event": "done"`, `"event": "inaccessible"`, or `"event": "disjoint"` is received, no more notification will be generated.
 
 **Note**: Other events might be added in the future, such as reports on the progress of the fetch.
 
 ## Possible errors
 
-- If the networking part of the behaviour fails, then a `{"event": "failed"}` notification is generated (as explained above).
+- If the networking part of the behaviour fails, then a `{"event": "inaccessible"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the `followSubscriptionId` is invalid.
 - If the `followSubscriptionId` is dead, then a `{"event": "disjoint"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.

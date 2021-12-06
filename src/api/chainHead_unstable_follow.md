@@ -141,6 +141,8 @@ The `stop` event indicates that the JSON-RPC server was unable to provide a cons
 
 **Note**: In particular, warp syncing algorithms create a "jump" in the chain from a block to a much later block. Any subscription that is active when the warp syncing happens will receive a `stop` event.
 
+No more event will be generated with this `subscriptionId`.
+
 ## Pinning
 
 The current finalized block reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, is automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
