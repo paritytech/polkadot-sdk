@@ -81,7 +81,7 @@ Or
 }
 ```
 
-The ̀`bestChainBlockIncluded` event indicates which block of the best chain the extrinsic is included in.
+The `bestChainBlockIncluded` event indicates which block of the best chain the extrinsic is included in.
 
 `null` can be sent back in case the block is no longer in any block of the best chain. This is the state an extrinsic starts in.
 
@@ -118,7 +118,7 @@ No more event will be generated about this extrinsic.
 
 The `error` event indicates that an internal error within the client has happened.
 
-Examples include: the runtime crashes, the runtime is missing the function to validate a extrinsic, the format of the value returned by the runtime is invalid, etc.
+Examples include: the runtime crashes, the runtime is missing the function to validate an extrinsic, the format of the value returned by the runtime is invalid, etc.
 
 This typically indicates a bug in the runtime of the chain or an incompatibility between the client and the runtime of the chain, and there is nothing the end user can do to fix the problem.
 
@@ -157,7 +157,7 @@ No more event will be generated about this extrinsic.
 
 The `dropped` event indicates that the client wasn't capable of keeping track of this extrinsic.
 
-If the `broadcasted` field is `true`, then this extrinsic has been sent to other peers and might still be included in the chain in the future. No guarantee is offered that the extrinsic will be included in the chain even if `broadcasted` is ̀`true`. However, if `broadcasted` is `false`, then it is guaranteed that this extrinsic will not be included, unless it has been sent in parallel on a different node.
+If the `broadcasted` field is `true`, then this extrinsic has been sent to other peers and might still be included in the chain in the future. No guarantee is offered that the extrinsic will be included in the chain even if `broadcasted` is `true`. However, if `broadcasted` is `false`, then it is guaranteed that this extrinsic will not be included, unless it has been submitted in parallel on a different node.
 
 This can happen for example if the JSON-RPC server's extrinsics pool is full, if the JSON-RPC server's resources have reached their limit, if the block the extrinsic is included in takes too long to be finalized, or the syncing requires a gap in the chain that prevents the JSON-RPC server from knowing whether the extrinsic has been included and/or finalized.
 
@@ -167,9 +167,9 @@ No more event will be generated about this extrinsic.
 
 ## Extrinsic state
 
-While an extrinsic is being watched, it has the following properties:
+One can build a mental model in order to understand which events can be generated. While an extrinsic is being watched, it has the following properties:
 
-- `isValidated`: `yes` or `not-yet`. An extrinsic is initially `not-yet` validated. A `validated` event indicates that the extrinsic has now been validated. After a certain number of blocks, an extrinsic will automatically become `not-yet` validated again and needs to be validated again. No event is generated to indicate that an extrinsic is no longer validated, however a `validated` event will be generated again when an extrinsic is validated again.
+- `isValidated`: `yes` or `not-yet`. An extrinsic is initially `not-yet` validated. A `validated` event indicates that the extrinsic has now been validated. After a certain number of blocks or in case of retractation, an extrinsic automatically becomes `not-yet` validated and needs to be validated again. No event is generated to indicate that an extrinsic is no longer validated, however a `validated` event will be generated again when an extrinsic is validated again.
 
 - `bestChainBlockIncluded`: an optional block hash and index. An extrinsic is initially included in no block. It can automatically become included in a block of the best chain. A `bestChainBlockIncluded` event reports updates to this property.
 
