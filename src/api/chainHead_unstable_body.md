@@ -62,7 +62,7 @@ Trying again later might succeed.
 
 No more event will be generated with this `subscriptionId`.
 
-### disjoint
+### disjoint
 
 ```json
 {

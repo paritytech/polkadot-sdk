@@ -8,7 +8,7 @@ The objective of this JSON-RPC interface is to accomodate multiple kinds of audi
 - Oracles or bridges need to be able to read and interface with the blockchain.
 - Archivers want to look at past data.
 
-## End-user-facing applications
+## End-user-facing applications
 
 End-user-facing applications, such as a wallet or an unstoppable application, need to be able to read the storage of the blockchain and submit transactions.
 
@@ -46,7 +46,7 @@ In order to accomodate this audience, it should be relatively easy to perform a 
 
 The target of the JSON-RPC function calls is either their own node, or a specific node that has encountered an issue, and the bandwidth consumption and latency of the JSON-RPC functions isn't very important for this usage.
 
-## Oracles and bridges
+## Oracles and bridges
 
 Oracles and bridges consist for example in cryptocurencies exchanges or any software that programmatically interacts with a chain.
 

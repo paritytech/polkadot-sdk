@@ -36,7 +36,7 @@ This function will later generate notifications in the following format:
 
 Where `subscriptionId` is equal to the value returned by this function, and `result` can be one of:
 
-### done
+### done
 
 ```json
 {
