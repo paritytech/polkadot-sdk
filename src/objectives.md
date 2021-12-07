@@ -22,7 +22,9 @@ End-user-facing applications would normally not directly use the JSON-RPC interf
 
 An end-user-facing application is typically a website that the end-user visits. Both in the case of a locally-run node and in the case of a remote node, the JSON-RPC server is subject to attacks by malicious applications as an application can ask the end-user's browser to send millions of requests to the server. For this reason, it is important for the JSON-RPC server to resist to some degree to attacks (both DoS attacks and vulnerabilities), and thus for the JSON-RPC interface to not require behaviors that contradict DoS resilience.
 
-When calls are made against a node run locally, the bandwidth consumption and latency of the JSON-RPC functions isn't very important. When calls are made against a trusted JSON-RPC server, the bandwidth consumption and latency are more important. However, one should keep in mind that we would like to discourage trusted JSON-RPC servers.
+When calls are made against a node run locally, the bandwidth consumption and latency of the JSON-RPC functions isn't very important. However, the JSON-RPC functions have a very precise behavior, in order to avoid situations where an ambiguity in what the JSON-RPC client desires leads the JSON-RPC server to use more bandwidth than is strictly required.
+
+When calls are made against a trusted JSON-RPC server, the bandwidth consumption and latency are more important. However, one should keep in mind that we would like to discourage trusted JSON-RPC servers.
 
 ## Node operators
 
