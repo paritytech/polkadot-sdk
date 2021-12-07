@@ -37,7 +37,7 @@ The `validated` event indicates that this transaction has been checked and is co
 
 This transaction might still become invalid in the future, for example because a conflicting transaction is included in the chain in-between.
 
-Multiple `validated` events can be generated during the lifetime of an transaction. If multiple `validated` events happen in a row, the JSON-RPC server is allowed to skip all but the last one.
+Multiple `validated` events can be generated during the lifetime of a transaction. If multiple `validated` events happen in a row, the JSON-RPC server is allowed to skip all but the last one.
 
 **Note**: In theory, this event could include a field indicating the block against which this transaction was validated. It has been decided to not include this field for pragmatic reasons: implementing it might be complicated, and it is not very useful for a JSON-RPC client to know this information.
 
@@ -83,7 +83,7 @@ Or
 
 The `bestChainBlockIncluded` event indicates which block of the best chain the transaction is included in.
 
-`null` can be sent back in case the block is no longer in any block of the best chain. This is the state an transaction starts in.
+`null` can be sent back in case the block is no longer in any block of the best chain. This is the state a transaction starts in.
 
 `hash` is a string containing the hexadecimal-encoded hash of the header of the block. `index` is a string containing an integer indicating the 0-based index of this transaction within the body of this block.
 
@@ -120,7 +120,7 @@ No more event will be generated about this transaction.
 
 The `error` event indicates that an internal error within the client has happened.
 
-Examples include: the runtime crashes, the runtime is missing the function to validate an transaction, the format of the value returned by the runtime is invalid, etc.
+Examples include: the runtime crashes, the runtime is missing the function to validate a transaction, the format of the value returned by the runtime is invalid, etc.
 
 This typically indicates a bug in the runtime of the chain or an incompatibility between the client and the runtime of the chain, and there is nothing the end user can do to fix the problem.
 
@@ -169,15 +169,15 @@ No more event will be generated about this transaction.
 
 ## Transaction state
 
-One can build a mental model in order to understand which events can be generated. While an transaction is being watched, it has the following properties:
+One can build a mental model in order to understand which events can be generated. While a transaction is being watched, it has the following properties:
 
-- `isValidated`: `yes` or `not-yet`. An transaction is initially `not-yet` validated. A `validated` event indicates that the transaction has now been validated. After a certain number of blocks or in case of retractation, an transaction automatically becomes `not-yet` validated and needs to be validated again. No event is generated to indicate that an transaction is no longer validated, however a `validated` event will be generated again when an transaction is validated again.
+- `isValidated`: `yes` or `not-yet`. A transaction is initially `not-yet` validated. A `validated` event indicates that the transaction has now been validated. After a certain number of blocks or in case of retractation, a transaction automatically becomes `not-yet` validated and needs to be validated again. No event is generated to indicate that a transaction is no longer validated, however a `validated` event will be generated again when a transaction is validated again.
 
-- `bestChainBlockIncluded`: an optional block hash and index. An transaction is initially included in no block. It can automatically become included in a block of the best chain. A `bestChainBlockIncluded` event reports updates to this property.
+- `bestChainBlockIncluded`: an optional block hash and index. A transaction is initially included in no block. It can automatically become included in a block of the best chain. A `bestChainBlockIncluded` event reports updates to this property.
 
-- `numBroadcastedPeers`: _integer_. An transaction is initially broadcasted to 0 other peers. After an transaction is in the `isValidated: yes` and `bestChainBlockIncluded: none` states, the number of broadcaster peers can increase. This number never decreases and is never reset to 0, even if an transaction becomes `isValidated: not-yet`. The `broadcasted` event is used to report about updates to this value.
+- `numBroadcastedPeers`: _integer_. A transaction is initially broadcasted to 0 other peers. After a transaction is in the `isValidated: yes` and `bestChainBlockIncluded: none` states, the number of broadcaster peers can increase. This number never decreases and is never reset to 0, even if a transaction becomes `isValidated: not-yet`. The `broadcasted` event is used to report about updates to this value.
 
-Note that these three properties are orthogonal to each other, except for the fact that `numBroadcastedPeers` can only increase when `isValidated: yes` and `bestChainBlockIncluded: none`. In particular, an transaction can be included in a block before being validated or broadcasted.
+Note that these three properties are orthogonal to each other, except for the fact that `numBroadcastedPeers` can only increase when `isValidated: yes` and `bestChainBlockIncluded: none`. In particular, a transaction can be included in a block before being validated or broadcasted.
 
 The `finalized`, `error`, `invalid`, and `dropped` event indicate that the transaction is no longer being watched. The state of the transaction is entirely discarded.
 
