@@ -1,9 +1,11 @@
 # JSON-RPC interface specification
 
 - [Introduction](introduction.md)
+  - [Objectives](objectives.md)
   - [Why JSON-RPC?](why-json-rpc.md)
   - [Groups](groups.md)
   - [DoS attacks resilience](dos-attacks-resilience.md)
+  - [Load balancers](load-balancers.md)
 - [API specification](api/introduction.md)
   - [archive](api/archive.md)
     - [archive_unstable_body](api/archive_unstable_body.md)
