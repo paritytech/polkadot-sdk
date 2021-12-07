@@ -9,6 +9,8 @@
 
 See explanations in the documentation of `chainHead_unstable_follow`.
 
+On-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
+
 ## Possible errors
 
 - A JSON-RPC error is generated if the `followSubscriptionId` doesn't correspond to any active subscription.

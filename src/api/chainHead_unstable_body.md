@@ -10,6 +10,8 @@
 
 The JSON-RPC server must start obtaining the body (in other words the list of transactions) of the given block.
 
+The operation will continue even if the given block is unpinned while it is in progress.
+
 This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_body` if instead you want to retrieve the body of an arbitrary block.
 
 ## Notifications format

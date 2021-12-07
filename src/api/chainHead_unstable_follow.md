@@ -143,9 +143,13 @@ The `stop` event indicates that the JSON-RPC server was unable to provide a cons
 
 No more event will be generated with this `subscriptionId`.
 
+Calling `chainHead_unstable_unfollow` on a subscription that has produced a `stop` event is optional.
+
 ## Pinning
 
 The current finalized block reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, is automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
+
+When a block is unpinned, on-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
 
 A block is pinned only in the context of a specific subscription. If multiple `chainHead_unstable_follow` subscriptions exist, then each `(subscription, block)` tuple must be unpinned individually. Blocks stay pinned even if they have been pruned from the blockchain, and must always be unpinned by the JSON-RPC client.
 

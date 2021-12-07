@@ -10,6 +10,12 @@
 
 **Return value**: String containing an opaque value representing the operation.
 
+The JSON-RPC server must invoke the entry point of the runtime of the given block using the storage of the given block.
+
+**Note**: Calls are idempotent and never have any side effect. For example they can't be used to modify the storage of the chain. The only motivation for performing a call is to obtain the return value.
+
+The operation will continue even if the given block is unpinned while it is in progress.
+
 This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_call` if instead you want to call the runtime of an arbitrary block.
 
 **TODO**: in order to perform the runtime call, the implementation of this function will simply concatenate all the parameters (without any separator), so does it make sense for the JSON-RPC function to require to split them into an array?
