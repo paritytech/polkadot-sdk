@@ -36,6 +36,8 @@ RUN apt-get update && \
 
 # add polkadot-collator binary to the docker image
 COPY ./target/release/polkadot-collator /usr/local/bin
+COPY ./target/release/polkadot-collator.asc /usr/local/bin
+COPY ./target/release/polkadot-collator.sha256 /usr/local/bin
 COPY ./polkadot-parachains/res/*.json /specs/
 
 USER polkadot

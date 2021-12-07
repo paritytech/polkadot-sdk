@@ -1,0 +1,121 @@
+name: Release - Docker
+
+# This workflow listens to pubished releases.
+# It includes releases and pre-releases.
+# It fetches the binaries, checks sha256 and GPG
+# signatures, then builds an injected docker
+# image and publishes it.
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  docker_build_publish:
+    env:
+      BINARY: polkadot-collator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Fetch files from release
+        run: |
+          echo Repo: ${{ github.event.repository.full_name }}
+
+          echo Name: ${{ github.event.release.name }}
+          echo Tag: ${{ github.event.release.tag_name }}
+          echo Draft: ${{ github.event.release.draft }}
+          echo Prerelease: ${{ github.event.release.prerelease }}
+          echo Assets: ${{ github.event.release.assets }}
+
+          for f in $BINARY $BINARY.asc $BINARY.sha256; do
+            URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.release.tag_name }}/$f"
+            echo " - Fetching $f from $URL"
+            wget $URL -O $f
+          done
+          chmod a+x $BINARY
+          ls -al
+
+      - name: Check files
+        run: |
+          ls -al *collator*
+          shasum -a 256 -c $BINARY.sha256
+          sha_result=$?
+
+          KEY_PARITY_SEC=9D4B2B6EB8F97156D19669A9FF0812D491B96798
+          KEY_CHEVDOR=2835EAF92072BC01D188AF2C4A092B93E97CE1E2
+
+          gpg --receive-keys $KEY_PARITY_SEC
+          if [[ ${{ github.event.release.prerelease }} == "true" ]]; then
+              gpg --receive-keys $KEY_CHEVDOR
+          fi
+
+          gpg --verify $BINARY.asc
+          gpg_result=$?
+
+          echo sha_result: $sha_result
+          echo gpg_result: $gpg_result
+
+          # If it fails, it would fail earlier but a second check
+          # does not hurt in case of refactoring...
+          if [[ $sha_result -ne 0 || $gpg_result -ne 0 ]]; then
+            echo "Check failed, exiting with error"
+            exit 1
+          else
+            echo "Checks passed"
+          fi
+
+      - name: Build injected image
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          export OWNER=$DOCKERHUB_USERNAME
+          mkdir -p target/release
+          cp -f $BINARY* target/release/
+          ./docker/scripts/build-injected-image.sh
+
+      - name: Login to Dockerhub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag and Publish
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          docker run --pull never --rm $DOCKERHUB_USERNAME/$BINARY --version
+          VERSION=$(docker run --pull never --rm $DOCKERHUB_USERNAME/$BINARY --version | awk '{ print $2 }' )
+          SEMVER=$( echo $VERSION | cut -f1 -d- )
+          GITREF=$( echo $VERSION | cut -f2 -d- )
+          PRE=${{ github.event.release.prerelease }}
+          PRE_STR=""
+
+          echo "SEMVER=$SEMVER"
+          echo "GITREF=$GITREF"
+          echo "PRE=$PRE"
+
+          # Build a tag such as:
+          # 1.2.3-8a1201273 or
+          # 1.2.3-pre-8a1201273 for pre-releases
+          [[ $PRE == "true" ]] && PRE_STR="-pre"
+          TAG=${SEMVER}${PRE_STR}-${GITREF}
+          echo "PRE_STR=$PRE_STR"
+          echo "TAG=$TAG"
+
+          docker tag $DOCKERHUB_USERNAME/$BINARY $DOCKERHUB_USERNAME/$BINARY:$TAG
+          docker push $DOCKERHUB_USERNAME/$BINARY:$TAG
+
+          if [[ $PRE != "true" ]]; then
+            docker tag $DOCKERHUB_USERNAME/$BINARY $DOCKERHUB_USERNAME/$BINARY:latest
+            docker tag $DOCKERHUB_USERNAME/$BINARY $DOCKERHUB_USERNAME/$BINARY:$SEMVER
+
+            docker push $DOCKERHUB_USERNAME/$BINARY:latest
+            docker push $DOCKERHUB_USERNAME/$BINARY:$SEMVER
+          fi
+
+          docker images | grep $DOCKERHUB_USERNAME/$BINARY
