@@ -8,7 +8,7 @@ Because the resources of the target are bounded, it is fundamentally impossible 
 
 Additionally, and maybe more importantly, it is important to guarantee a good quality of service even when under heavy load.
 
-## Bounded queues
+## Bounded queues
 
 In order to provide a good quality of service, the time between the moment a request is received by the server and the moment the response is sent back must be short. In order to achieve this, all queues should be small and bounded. The number of simultaneous I/O operations such as disk accesses must be small and bounded as well. As an example, if you try to read 5000 files at once, some of these file reads will take a long time, and the only way to guarantee that a file read will be short is to not start too many at the same time.
 
