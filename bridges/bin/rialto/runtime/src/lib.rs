@@ -1229,10 +1229,19 @@ mod tests {
 
 	#[test]
 	fn call_size() {
-		const DOT_MAX_CALL_SZ: usize = 230;
-		assert!(core::mem::size_of::<pallet_bridge_grandpa::Call<Runtime>>() <= DOT_MAX_CALL_SZ);
-		// FIXME: get this down to 230. https://github.com/paritytech/grandpa-bridge-gadget/issues/359
-		const BEEFY_MAX_CALL_SZ: usize = 232;
-		assert!(core::mem::size_of::<pallet_bridge_messages::Call<Runtime>>() <= BEEFY_MAX_CALL_SZ);
+		const BRIDGES_PALLETS_MAX_CALL_SIZE: usize = 200;
+		assert!(
+			core::mem::size_of::<pallet_bridge_grandpa::Call<Runtime>>() <=
+				BRIDGES_PALLETS_MAX_CALL_SIZE
+		);
+		assert!(
+			core::mem::size_of::<pallet_bridge_messages::Call<Runtime>>() <=
+				BRIDGES_PALLETS_MAX_CALL_SIZE
+		);
+		// Largest inner Call is `pallet_session::Call` with a size of 224 bytes. This size is a
+		// result of large `SessionKeys` struct.
+		// Total size of Rialto runtime Call is 232.
+		const MAX_CALL_SIZE: usize = 232;
+		assert!(core::mem::size_of::<Call>() <= MAX_CALL_SIZE);
 	}
 }
