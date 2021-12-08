@@ -922,6 +922,15 @@ mod tests {
 
 	#[test]
 	fn call_size() {
+		const BRIDGES_PALLETS_MAX_CALL_SIZE: usize = 200;
+		assert!(
+			core::mem::size_of::<pallet_bridge_grandpa::Call<Runtime>>() <=
+				BRIDGES_PALLETS_MAX_CALL_SIZE
+		);
+		assert!(
+			core::mem::size_of::<pallet_bridge_messages::Call<Runtime>>() <=
+				BRIDGES_PALLETS_MAX_CALL_SIZE
+		);
 		const MAX_CALL_SIZE: usize = 230; // value from polkadot-runtime tests
 		assert!(core::mem::size_of::<Call>() <= MAX_CALL_SIZE);
 	}
