@@ -1,9 +1,11 @@
 {%- if env.PRE_RELEASE == "true" -%}
------
-⚠️  Howdy! Beware, this is a **pre-release**
+<details><summary>⚠️ This is a pre-release</summary>
 
------
-
-{%- else -%}
+**Release candidates** are **pre-releases** may not be final.
+Although they are reasonably tested, there may be additional changes or issues
+before an official release is tagged. Use at your own discretion, and consider
+only using published releases on critical production infrastructure.
+</details>
+{% else -%}
 <!-- NOT a pre-release-->
 {%- endif %}

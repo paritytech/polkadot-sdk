@@ -1,4 +1,4 @@
-{% import "priority.md.tera" as m_p -%}
+{% import "high_priority.md.tera" as m_p -%}
 ## Global Priority
 
 {%- set cumulus_prio = 0 -%}
@@ -26,7 +26,7 @@
 {%- endif -%}
 
 {# We show the result #}
-{{ m_p::priority(p=global_prio) }}
+{{ m_p::high_priority(p=global_prio, changes=changes) }}
 
 <!--
 - Cumulus: {{ cumulus_prio }}

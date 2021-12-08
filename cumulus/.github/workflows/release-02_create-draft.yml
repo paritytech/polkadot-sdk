@@ -1,4 +1,4 @@
-name: Publish draft release
+name: Release - Create draft
 
 on:
   workflow_dispatch:
@@ -138,6 +138,15 @@ jobs:
           cd cumulus/scripts/changelog
           ./bin/changelog $REF1 $REF2 release-notes.md
           ls -al release-notes.md
+          ls -al context.json
+
+      - name: Archive artifact context.json
+        uses: actions/upload-artifact@v2
+        with:
+          name: release-notes-context
+          path: |
+            context.json
+            **/*_srtool_output.json
 
       - name: Create draft release
         id: create-release

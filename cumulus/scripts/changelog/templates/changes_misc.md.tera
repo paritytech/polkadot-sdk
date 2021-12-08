@@ -17,8 +17,8 @@
 ### Misc
 
 {% if misc_count > 10 %}
-There are {{ misc_count }} other misc. changes. You can expand the list below to view them all.
-<details><summary>{{ misc_count }} misc. changes</summary>
+There are other misc. changes. You can expand the list below to view them all.
+<details><summary>Other misc. changes</summary>
 {% endif -%}
 
 {#- The changes are sorted by merge date #}

@@ -80,7 +80,7 @@ SHELL_DIGEST = ENV['SHELL_DIGEST'] || 'digests/shell-srtool-digest.json'
 WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json'
 STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
 STATEMINT_DIGEST = ENV['STATEMINT_DIGEST'] || 'digests/statemint-srtool-digest.json'
-ROCOCO_DIGEST = ENV['ROCOCO_DIGEST'] || 'digests/rococo-parachain-srtool-digest.json'
+ROCOCO_PARA_DIGEST = ENV['ROCOCO_PARA_DIGEST'] || 'digests/rococo-parachain-srtool-digest.json'
 
 # Here we compose all the pieces together into one
 # single big json file.
@@ -92,13 +92,13 @@ cmd = format('jq \
     --slurpfile srtool_westmint %s \
     --slurpfile srtool_statemine %s \
     --slurpfile srtool_statemint %s \
-    --slurpfile srtool_rococo %s \
+    --slurpfile srtool_rococo_parachain %s \
     -n \'{
             cumulus: $cumulus[0],
             substrate: $substrate[0],
             polkadot: $polkadot[0],
         srtool: [
-        { name: "rococo", data: $srtool_rococo[0] },
+        { name: "rococo", data: $srtool_rococo_parachain[0] },
         { name: "shell", data: $srtool_shell[0] },
         { name: "westmint", data: $srtool_westmint[0] },
         { name: "statemint", data: $srtool_statemint[0] },
@@ -108,7 +108,7 @@ cmd = format('jq \
              WESTMINT_DIGEST,
              STATEMINE_DIGEST,
              STATEMINT_DIGEST,
-             ROCOCO_DIGEST)
+             ROCOCO_PARA_DIGEST)
 system(cmd)
 
 cmd = format('tera --env --env-key env --include-path templates \

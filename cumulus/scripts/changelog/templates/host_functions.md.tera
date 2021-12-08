@@ -1,8 +1,6 @@
 {%- import "change.md.tera" as m_c -%}
 {%- set_global host_fn_count = 0 -%}
 
-## Host functions
-
 {% for pr in changes | sort(attribute="merged_at") -%}
 
 {%- if pr.meta.B and pr.meta.B.value == 0 -%}
@@ -18,8 +16,10 @@
 <!-- {{ host_fn_count }} host functions were detected -->
 
 {% if host_fn_count == 0 -%}
-ℹ️ This release does not contain any new host functions.
+<!-- ℹ️ This release does not contain any new host functions. -->
 {% elif host_fn_count == 1 -%}
+## Host functions
+
 ⚠️ The runtimes in this release contain one new **host function**.
 
 ⚠️ It is critical that you update your client before the chain switches to the new runtimes.
