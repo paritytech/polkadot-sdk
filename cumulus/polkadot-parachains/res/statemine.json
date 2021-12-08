@@ -10,6 +10,7 @@
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {
+    "ss58Format": 2,
     "tokenDecimals": 12,
     "tokenSymbol": "KSM"
   },
