@@ -18,8 +18,9 @@ use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{
-		new_partial, Block, RococoParachainRuntimeExecutor, ShellRuntimeExecutor,
-		StatemineRuntimeExecutor, StatemintRuntimeExecutor, WestmintRuntimeExecutor,
+		new_partial, Block, RococoParachainRuntimeExecutor, SeedlingRuntimeExecutor,
+		ShellRuntimeExecutor, StatemineRuntimeExecutor, StatemintRuntimeExecutor,
+		WestmintRuntimeExecutor,
 	},
 };
 use codec::Encode;
@@ -41,6 +42,7 @@ use std::{io::Write, net::SocketAddr};
 
 trait IdentifyChain {
 	fn is_shell(&self) -> bool;
+	fn is_seedling(&self) -> bool;
 	fn is_statemint(&self) -> bool;
 	fn is_statemine(&self) -> bool;
 	fn is_westmint(&self) -> bool;
@@ -49,6 +51,9 @@ trait IdentifyChain {
 impl IdentifyChain for dyn sc_service::ChainSpec {
 	fn is_shell(&self) -> bool {
 		self.id().starts_with("shell")
+	}
+	fn is_seedling(&self) -> bool {
+		self.id().starts_with("seedling")
 	}
 	fn is_statemint(&self) -> bool {
 		self.id().starts_with("statemint")
@@ -64,6 +69,9 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
 impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
 	fn is_shell(&self) -> bool {
 		<dyn sc_service::ChainSpec>::is_shell(self)
+	}
+	fn is_seedling(&self) -> bool {
+		<dyn sc_service::ChainSpec>::is_seedling(self)
 	}
 	fn is_statemint(&self) -> bool {
 		<dyn sc_service::ChainSpec>::is_statemint(self)
@@ -89,6 +97,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 			&include_bytes!("../res/track.json")[..],
 		)?),
 		"shell" => Box::new(chain_spec::get_shell_chain_spec()),
+		"seedling" => Box::new(chain_spec::get_seedling_chain_spec()),
 		"statemint-dev" => Box::new(chain_spec::statemint_development_config()),
 		"statemint-local" => Box::new(chain_spec::statemint_local_config()),
 		"statemine-dev" => Box::new(chain_spec::statemine_development_config()),
@@ -118,6 +127,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 				Box::new(chain_spec::WestmintChainSpec::from_json_file(path.into())?)
 			} else if chain_spec.is_shell() {
 				Box::new(chain_spec::ShellChainSpec::from_json_file(path.into())?)
+			} else if chain_spec.is_seedling() {
+				Box::new(chain_spec::SeedlingChainSpec::from_json_file(path.into())?)
 			} else {
 				Box::new(chain_spec)
 			}
@@ -169,6 +180,8 @@ impl SubstrateCli for Cli {
 			&westmint_runtime::VERSION
 		} else if chain_spec.is_shell() {
 			&shell_runtime::VERSION
+		} else if chain_spec.is_seedling() {
+			&seedling_runtime::VERSION
 		} else {
 			&rococo_parachain_runtime::VERSION
 		}
@@ -258,6 +271,15 @@ macro_rules! construct_async_run {
 		} else if runner.config().chain_spec.is_shell() {
 			runner.async_run(|$config| {
 				let $components = new_partial::<shell_runtime::RuntimeApi, ShellRuntimeExecutor, _>(
+					&$config,
+					crate::service::shell_build_import_queue,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		} else if runner.config().chain_spec.is_seedling() {
+			runner.async_run(|$config| {
+				let $components = new_partial::<seedling_runtime::RuntimeApi, SeedlingRuntimeExecutor, _>(
 					&$config,
 					crate::service::shell_build_import_queue,
 				)?;
@@ -485,10 +507,21 @@ pub fn run() -> Result<()> {
 					.map(|r| r.0)
 					.map_err(Into::into)
 				} else if config.chain_spec.is_shell() {
-					crate::service::start_shell_node(config, polkadot_config, id)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
+					crate::service::start_shell_node::<
+						shell_runtime::RuntimeApi,
+						ShellRuntimeExecutor,
+					>(config, polkadot_config, id)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into)
+				} else if config.chain_spec.is_seedling() {
+					crate::service::start_shell_node::<
+						seedling_runtime::RuntimeApi,
+						SeedlingRuntimeExecutor,
+					>(config, polkadot_config, id)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into)
 				} else {
 					crate::service::start_rococo_parachain_node(config, polkadot_config, id)
 						.await

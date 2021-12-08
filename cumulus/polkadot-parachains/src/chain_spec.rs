@@ -30,6 +30,10 @@ pub type ChainSpec =
 /// Specialized `ChainSpec` for the shell parachain runtime.
 pub type ShellChainSpec = sc_service::GenericChainSpec<shell_runtime::GenesisConfig, Extensions>;
 
+/// Specialized `ChainSpec` for the seedling parachain runtime.
+pub type SeedlingChainSpec =
+	sc_service::GenericChainSpec<seedling_runtime::GenesisConfig, Extensions>;
+
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
@@ -112,6 +116,25 @@ pub fn get_shell_chain_spec() -> ShellChainSpec {
 	)
 }
 
+pub fn get_seedling_chain_spec() -> SeedlingChainSpec {
+	SeedlingChainSpec::from_genesis(
+		"Seedling Local Testnet",
+		"seedling_local_testnet",
+		ChainType::Local,
+		move || {
+			seedling_testnet_genesis(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				2000.into(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Extensions { relay_chain: "westend".into(), para_id: 2000 },
+	)
+}
+
 pub fn staging_test_net() -> ChainSpec {
 	ChainSpec::from_genesis(
 		"Staging Testnet",
@@ -173,6 +196,22 @@ fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::GenesisConfig {
 				.to_vec(),
 		},
 		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id },
+		parachain_system: Default::default(),
+	}
+}
+
+fn seedling_testnet_genesis(
+	root_key: AccountId,
+	parachain_id: ParaId,
+) -> seedling_runtime::GenesisConfig {
+	seedling_runtime::GenesisConfig {
+		system: seedling_runtime::SystemConfig {
+			code: seedling_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
+		},
+		sudo: seedling_runtime::SudoConfig { key: root_key },
+		parachain_info: seedling_runtime::ParachainInfoConfig { parachain_id },
 		parachain_system: Default::default(),
 	}
 }
