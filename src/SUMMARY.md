@@ -3,7 +3,7 @@
 - [Introduction](introduction.md)
   - [Objectives](objectives.md)
   - [Why JSON-RPC?](why-json-rpc.md)
-  - [Grouping functions and node capabilities](grouping-functgions-and-node-capabilities.md)
+  - [Grouping functions and node capabilities](grouping-functions-and-node-capabilities.md)
   - [DoS attacks resilience](dos-attacks-resilience.md)
   - [Load balancers](load-balancers.md)
 - [API specification](api/introduction.md)
