@@ -15,9 +15,10 @@
 
 use super::*;
 use cumulus_primitives_core::XcmpMessageHandler;
+use frame_support::assert_noop;
 #[cfg(debug_assertions)]
 use mock::Test;
-use mock::{new_test_ext, XcmpQueue};
+use mock::{new_test_ext, Origin, XcmpQueue};
 
 #[test]
 fn one_message_does_not_panic() {
@@ -43,7 +44,7 @@ fn bad_message_is_handled() {
 		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, bad_data);
 		let format = XcmpMessageFormat::ConcatenatedEncodedBlob;
 		// This should exit with an error.
-		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000);
+		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000, 10_000_000_000);
 	});
 }
 
@@ -60,6 +61,26 @@ fn other_bad_message_is_handled() {
 		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, bad_data);
 		let format = XcmpMessageFormat::ConcatenatedEncodedBlob;
 		// This should exit with an error.
-		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000);
+		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000, 10_000_000_000);
+	});
+}
+
+#[test]
+fn service_overweight_unknown() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			XcmpQueue::service_overweight(Origin::root(), 0, 1000),
+			Error::<Test>::BadOverweightIndex,
+		);
+	});
+}
+
+#[test]
+fn service_overweight_bad_xcm_format() {
+	new_test_ext().execute_with(|| {
+		let bad_xcm = vec![255];
+		Overweight::<Test>::insert(0, (ParaId::from(1000), 0, bad_xcm));
+
+		assert_noop!(XcmpQueue::service_overweight(Origin::root(), 0, 1000), Error::<Test>::BadXcm);
 	});
 }
