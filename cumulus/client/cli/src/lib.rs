@@ -198,8 +198,9 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 	fn prometheus_config(
 		&self,
 		default_listen_port: u16,
+		chain_spec: &Box<dyn sc_cli::ChainSpec>,
 	) -> sc_cli::Result<Option<PrometheusConfig>> {
-		self.base.prometheus_config(default_listen_port)
+		self.base.prometheus_config(default_listen_port, chain_spec)
 	}
 
 	fn disable_grandpa(&self) -> sc_cli::Result<bool> {

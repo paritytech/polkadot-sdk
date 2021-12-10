@@ -16,9 +16,7 @@
 use super::*;
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::assert_noop;
-#[cfg(debug_assertions)]
-use mock::Test;
-use mock::{new_test_ext, Origin, XcmpQueue};
+use mock::{new_test_ext, Origin, Test, XcmpQueue};
 
 #[test]
 fn one_message_does_not_panic() {

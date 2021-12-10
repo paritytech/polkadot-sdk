@@ -185,6 +185,7 @@ pub fn validate_block(
 		sp_io::SubstrateHostFunctions::host_functions(),
 		1,
 		None,
+		2,
 	);
 
 	executor
