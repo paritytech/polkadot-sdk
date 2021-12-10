@@ -21,10 +21,10 @@ use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::v1::{
 	Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
-	CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash, HeadData, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, ParachainHost,
-	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	CollatorPair, CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash, HeadData,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	ParachainHost, PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -33,7 +33,7 @@ use polkadot_test_client::{
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_core::H256;
+use sp_core::{Pair, H256};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};
 use sp_runtime::RuntimeAppPublic;
@@ -120,9 +120,15 @@ async fn make_gossip_message_and_header(
 			..Default::default()
 		},
 		descriptor: CandidateDescriptor {
+			para_id: 0u32.into(),
 			relay_parent,
+			collator: CollatorPair::generate().0.public(),
+			persisted_validation_data_hash: PHash::random().into(),
+			pov_hash: PHash::random(),
+			erasure_root: PHash::random(),
+			signature: sp_core::sr25519::Signature([0u8; 64]).into(),
 			para_head: polkadot_parachain::primitives::HeadData(header.encode()).hash(),
-			..Default::default()
+			validation_code_hash: ValidationCodeHash::from(PHash::random()),
 		},
 	};
 	let statement = Statement::Seconded(candidate_receipt);
@@ -303,7 +309,20 @@ fn check_statement_seconded() {
 	.expect("Signs statement");
 
 	let data = BlockAnnounceData {
-		receipt: Default::default(),
+		receipt: CandidateReceipt {
+			commitments_hash: PHash::random(),
+			descriptor: CandidateDescriptor {
+				para_head: HeadData(Vec::new()).hash(),
+				para_id: 0u32.into(),
+				relay_parent: PHash::random(),
+				collator: CollatorPair::generate().0.public(),
+				persisted_validation_data_hash: PHash::random().into(),
+				pov_hash: PHash::random(),
+				erasure_root: PHash::random(),
+				signature: sp_core::sr25519::Signature([0u8; 64]).into(),
+				validation_code_hash: ValidationCodeHash::from(PHash::random()),
+			},
+		},
 		statement: signed_statement.convert_payload().into(),
 		relay_parent,
 	}
@@ -450,12 +469,26 @@ sp_api::mock_impl_runtime_apis! {
 			if self.data.lock().has_pending_availability {
 				Some(CommittedCandidateReceipt {
 					descriptor: CandidateDescriptor {
-						para_head: polkadot_parachain::primitives::HeadData(
+						para_head: HeadData(
 							default_header().encode(),
 						).hash(),
-						..Default::default()
+						para_id: 0u32.into(),
+						relay_parent: PHash::random(),
+						collator: CollatorPair::generate().0.public(),
+						persisted_validation_data_hash: PHash::random().into(),
+						pov_hash: PHash::random(),
+						erasure_root: PHash::random(),
+						signature: sp_core::sr25519::Signature([0u8; 64]).into(),
+						validation_code_hash: ValidationCodeHash::from(PHash::random()),
 					},
-					..Default::default()
+					commitments: CandidateCommitments {
+						upward_messages: Vec::new(),
+						horizontal_messages: Vec::new(),
+						new_validation_code: None,
+						head_data: HeadData(Vec::new()),
+						processed_downward_messages: 0,
+						hrmp_watermark: 0
+					}
 				})
 			} else {
 				None
