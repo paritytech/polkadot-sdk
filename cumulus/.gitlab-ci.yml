@@ -112,7 +112,7 @@ check-runtime-benchmarks:
   <<:                              *docker-env
   script:
     # Check that the node will compile with `runtime-benchmarks` feature flag.
-    - time cargo check --features runtime-benchmarks
+    - time cargo check --all --features runtime-benchmarks
     - sccache -s
 
 cargo-check-try-runtime:
@@ -120,7 +120,14 @@ cargo-check-try-runtime:
   <<:                              *docker-env
   script:
     # Check that the node will compile with `try-runtime` feature flag.
-    - time cargo check --features try-runtime
+    - time cargo check --all --features try-runtime
+    - sccache -s
+
+cargo-check-benches:
+  stage:                           test
+  <<:                              *docker-env
+  script:
+    - time cargo check --all --benches
     - sccache -s
 
 #### stage:                        publish

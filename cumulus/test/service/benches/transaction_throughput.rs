@@ -17,9 +17,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use cumulus_test_runtime::{AccountId, BalancesCall, SudoCall};
+use cumulus_test_runtime::{AccountId, BalancesCall, ExistentialDeposit, SudoCall};
 use futures::{future, StreamExt};
-use polkadot_service::polkadot_runtime::constants::currency::DOLLARS;
 use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
 use sp_core::{crypto::Pair, sr25519};
 use sp_runtime::{generic::BlockId, OpaqueExtrinsic};
@@ -72,7 +71,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 						call: Box::new(
 							BalancesCall::set_balance {
 								who: AccountId::from(a.public()).into(),
-								new_free: 1_000_000 * DOLLARS,
+								new_free: 1_000_000 * ExistentialDeposit::get(),
 								new_reserved: 0,
 							}
 							.into(),
@@ -99,7 +98,10 @@ fn create_benchmark_extrinsics(
 			(0..extrinsics_per_account).map(move |nonce| {
 				construct_extrinsic(
 					client,
-					BalancesCall::transfer { dest: Bob.to_account_id().into(), value: 1 * DOLLARS },
+					BalancesCall::transfer {
+						dest: Bob.to_account_id().into(),
+						value: 1 * ExistentialDeposit::get(),
+					},
 					account.clone(),
 					Some(nonce as u32),
 				)
