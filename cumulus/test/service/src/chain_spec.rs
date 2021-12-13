@@ -32,12 +32,15 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisExt, Extensions>;
 pub struct GenesisExt {
 	/// The runtime genesis config.
 	runtime_genesis_config: cumulus_test_runtime::GenesisConfig,
+	/// The parachain id.
+	para_id: ParaId,
 }
 
 impl sp_runtime::BuildStorage for GenesisExt {
 	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
 		sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
 			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, &vec![1, 2, 3, 4]);
+			cumulus_test_runtime::ParachainId::set(&self.para_id);
 		});
 
 		self.runtime_genesis_config.assimilate_storage(storage)
@@ -82,7 +85,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 		"Local Testnet",
 		"local_testnet",
 		ChainType::Local,
-		move || GenesisExt { runtime_genesis_config: local_testnet_genesis() },
+		move || GenesisExt { runtime_genesis_config: local_testnet_genesis(), para_id: id },
 		Vec::new(),
 		None,
 		None,
