@@ -763,6 +763,7 @@ impl_runtime_apis! {
 
 			list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
 			list_benchmark!(list, extra, pallet_balances, Balances);
+			list_benchmark!(list, extra, pallet_session, SessionBench::<Runtime>);
 			list_benchmark!(list, extra, pallet_timestamp, Timestamp);
 			list_benchmark!(list, extra, pallet_collator_selection, CollatorSelection);
 
