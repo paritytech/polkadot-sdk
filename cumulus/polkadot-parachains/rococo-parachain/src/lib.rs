@@ -312,7 +312,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	ConvertedConcreteAssetId<
 		AssetId,
 		u64,
-		AsPrefixedGeneralIndex<StatemintLocation, AssetId, JustTry>,
+		AsPrefixedGeneralIndex<StatemintAssetsPalletLocation, AssetId, JustTry>,
 		JustTry,
 	>,
 	// Convert an XCM MultiLocation into a local account id:
@@ -386,6 +386,10 @@ pub type Barrier = (
 
 parameter_types! {
 	pub StatemintLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
+	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
+	// Statemint's Assets pallet index
+	pub StatemintAssetsPalletLocation: MultiLocation =
+		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
 }
 
 pub type Reserves = (NativeAsset, AssetsFrom<StatemintLocation>);
