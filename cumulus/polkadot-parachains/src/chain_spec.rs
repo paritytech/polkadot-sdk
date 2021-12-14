@@ -180,7 +180,7 @@ fn testnet_genesis(
 		balances: rococo_parachain_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		sudo: rococo_parachain_runtime::SudoConfig { key: root_key },
+		sudo: rococo_parachain_runtime::SudoConfig { key: Some(root_key) },
 		parachain_info: rococo_parachain_runtime::ParachainInfoConfig { parachain_id: id },
 		aura: rococo_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
@@ -210,7 +210,7 @@ fn seedling_testnet_genesis(
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 		},
-		sudo: seedling_runtime::SudoConfig { key: root_key },
+		sudo: seedling_runtime::SudoConfig { key: Some(root_key) },
 		parachain_info: seedling_runtime::ParachainInfoConfig { parachain_id },
 		parachain_system: Default::default(),
 	}
@@ -725,7 +725,7 @@ fn westmint_genesis(
 		balances: westmint_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, WESTMINT_ED * 4096)).collect(),
 		},
-		sudo: westmint_runtime::SudoConfig { key: root_key },
+		sudo: westmint_runtime::SudoConfig { key: Some(root_key) },
 		parachain_info: westmint_runtime::ParachainInfoConfig { parachain_id: id },
 		collator_selection: westmint_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),

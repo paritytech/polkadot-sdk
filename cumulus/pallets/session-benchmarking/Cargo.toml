@@ -13,6 +13,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+parity-scale-codec = { version = "2.3.1", default-features = false }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -28,6 +29,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 ]
 std = [
+	"parity-scale-codec/std",
 	"sp-std/std",
 	"sp-runtime/std",
 	"frame-system/std",
