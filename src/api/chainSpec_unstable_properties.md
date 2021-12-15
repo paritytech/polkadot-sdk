@@ -6,6 +6,8 @@
 
 Returns the JSON payload found in the chain specification under the key `properties`. No guarantee is offered about the content of this object.
 
+The JSON-RPC server is allowed to re-format the JSON payload found in the chain specification. In other words, whitespaces aren't necessarily preserved.
+
 The value returned by this function must never change for the lifetime of the connection between the JSON-RPC client and server.
 
 ## Usage
