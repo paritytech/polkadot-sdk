@@ -22,7 +22,7 @@ use runtime::{
 	Balance, Block, BlockHashCount, Call, GenesisConfig, Runtime, Signature, SignedExtra,
 	SignedPayload, UncheckedExtrinsic, VERSION,
 };
-use sc_executor::{sp_wasm_interface::HostFunctions, WasmExecutionMethod, WasmExecutor};
+use sc_executor::{WasmExecutionMethod, WasmExecutor};
 use sc_executor_common::runtime_blob::RuntimeBlob;
 use sc_service::client;
 use sp_blockchain::HeaderBackend;
@@ -179,10 +179,9 @@ pub fn validate_block(
 	let mut ext = TestExternalities::default();
 	let mut ext_ext = ext.ext();
 
-	let executor = WasmExecutor::new(
+	let executor = WasmExecutor::<sp_io::SubstrateHostFunctions>::new(
 		WasmExecutionMethod::Interpreted,
 		Some(1024),
-		sp_io::SubstrateHostFunctions::host_functions(),
 		1,
 		None,
 		2,
