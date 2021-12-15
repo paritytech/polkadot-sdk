@@ -2,7 +2,7 @@
 
 **Parameters**: *none*
 
-**Return value**: String containing the hexadecimal-encoded hash of the genesis block of the chain.
+**Return value**: String containing the hexadecimal-encoded hash of the header of the genesis block of the chain.
 
 This function is a simple getter. The JSON-RPC server is expected to keep in its memory the hash of the genesis block.
 
