@@ -31,7 +31,7 @@ use codec::Encode;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error, HashOf, HeaderOf,
-	SyncHeader, TransactionEra, TransactionSignScheme, UnsignedTransaction,
+	SignParam, SyncHeader, TransactionEra, TransactionSignScheme, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::{Bytes, Pair};
@@ -103,17 +103,20 @@ where
 		let transaction_params = self.transaction_params.clone();
 		let call =
 			P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
+		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 		self.client
 			.submit_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				move |best_block_id, transaction_nonce| {
 					Bytes(
-						P::TransactionSignScheme::sign_transaction(
+						P::TransactionSignScheme::sign_transaction(SignParam {
+							spec_version,
+							transaction_version,
 							genesis_hash,
-							&transaction_params.signer,
-							TransactionEra::new(best_block_id, transaction_params.mortality),
-							UnsignedTransaction::new(call, transaction_nonce),
-						)
+							signer: transaction_params.signer.clone(),
+							era: TransactionEra::new(best_block_id, transaction_params.mortality),
+							unsigned: UnsignedTransaction::new(call, transaction_nonce),
+						})
 						.encode(),
 					)
 				},

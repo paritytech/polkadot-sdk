@@ -22,7 +22,7 @@ use sp_core::{Bytes, Pair};
 use messages_relay::relay_strategy::MixStrategy;
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
-use relay_substrate_client::{Client, TransactionSignScheme, UnsignedTransaction};
+use relay_substrate_client::{Client, SignParam, TransactionSignScheme, UnsignedTransaction};
 use substrate_relay_helper::messages_lane::{
 	DirectReceiveMessagesDeliveryProofCallBuilder, DirectReceiveMessagesProofCallBuilder,
 	SubstrateMessageLane,
@@ -66,23 +66,26 @@ pub(crate) async fn update_rialto_to_millau_conversion_rate(
 ) -> anyhow::Result<()> {
 	let genesis_hash = *client.genesis_hash();
 	let signer_id = (*signer.public().as_array_ref()).into();
+	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
 	client
 		.submit_signed_extrinsic(signer_id, move |_, transaction_nonce| {
 			Bytes(
-				Millau::sign_transaction(
+				Millau::sign_transaction(SignParam {
+					spec_version,
+					transaction_version,
 					genesis_hash,
-					&signer,
-					relay_substrate_client::TransactionEra::immortal(),
-					UnsignedTransaction::new(
+					signer,
+					era: relay_substrate_client::TransactionEra::immortal(),
+					unsigned: UnsignedTransaction::new(
 						millau_runtime::MessagesCall::update_pallet_parameter {
 							parameter: millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
 								sp_runtime::FixedU128::from_float(updated_rate),
 							),
 						}
-						.into(),
+							.into(),
 						transaction_nonce,
 					),
-				)
+				})
 				.encode(),
 			)
 		})

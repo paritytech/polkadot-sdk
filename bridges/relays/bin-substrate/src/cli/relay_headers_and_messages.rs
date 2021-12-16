@@ -29,7 +29,8 @@ use strum::VariantNames;
 use codec::Encode;
 use messages_relay::relay_strategy::MixStrategy;
 use relay_substrate_client::{
-	AccountIdOf, CallOf, Chain, Client, TransactionSignScheme, UnsignedTransaction,
+	AccountIdOf, CallOf, Chain, ChainRuntimeVersion, Client, SignParam, TransactionSignScheme,
+	UnsignedTransaction,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
@@ -39,7 +40,7 @@ use substrate_relay_helper::{
 };
 
 use crate::{
-	cli::{relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams},
+	cli::{relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams, RuntimeVersionType},
 	declare_chain_options,
 };
 
@@ -136,6 +137,10 @@ macro_rules! select_bridge {
 					bp_millau::SESSION_LENGTH;
 				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_rialto::BlockNumber =
 					bp_rialto::SESSION_LENGTH;
+				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(millau_runtime::VERSION);
+				const RIGHT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(rialto_runtime::VERSION);
 
 				use crate::chains::{
 					millau_messages_to_rialto::{
@@ -184,6 +189,11 @@ macro_rules! select_bridge {
 					bp_rococo::SESSION_LENGTH;
 				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_wococo::BlockNumber =
 					bp_wococo::SESSION_LENGTH;
+
+				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(bp_rococo::VERSION);
+				const RIGHT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(bp_wococo::VERSION);
 
 				use crate::chains::{
 					rococo_messages_to_wococo::RococoMessagesToWococo as LeftToRightMessageLane,
@@ -263,6 +273,11 @@ macro_rules! select_bridge {
 				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_polkadot::BlockNumber =
 					bp_polkadot::SESSION_LENGTH;
 
+				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(bp_kusama::VERSION);
+				const RIGHT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(bp_polkadot::VERSION);
+
 				use crate::chains::{
 					kusama_messages_to_polkadot::{
 						update_polkadot_to_kusama_conversion_rate as update_right_to_left_conversion_rate,
@@ -334,12 +349,12 @@ impl RelayHeadersAndMessages {
 		select_bridge!(self, {
 			let params: Params = self.into();
 
-			let left_client = params.left.to_client::<Left>().await?;
+			let left_client = params.left.to_client::<Left>(LEFT_RUNTIME_VERSION).await?;
 			let left_transactions_mortality = params.left_sign.transactions_mortality()?;
 			let left_sign = params.left_sign.to_keypair::<Left>()?;
 			let left_messages_pallet_owner =
 				params.left_messages_pallet_owner.to_keypair::<Left>()?;
-			let right_client = params.right.to_client::<Right>().await?;
+			let right_client = params.right.to_client::<Right>(RIGHT_RUNTIME_VERSION).await?;
 			let right_transactions_mortality = params.right_sign.transactions_mortality()?;
 			let right_sign = params.right_sign.to_keypair::<Right>()?;
 			let right_messages_pallet_owner =
@@ -591,15 +606,18 @@ where
 	CallOf<C>: Send,
 {
 	let genesis_hash = *client.genesis_hash();
+	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
 	client
 		.submit_signed_extrinsic(sign.public().into(), move |_, transaction_nonce| {
 			Bytes(
-				C::sign_transaction(
+				C::sign_transaction(SignParam {
+					spec_version,
+					transaction_version,
 					genesis_hash,
-					&sign,
-					relay_substrate_client::TransactionEra::immortal(),
-					UnsignedTransaction::new(call, transaction_nonce),
-				)
+					signer: sign,
+					era: relay_substrate_client::TransactionEra::immortal(),
+					unsigned: UnsignedTransaction::new(call, transaction_nonce),
+				})
 				.encode(),
 			)
 		})
