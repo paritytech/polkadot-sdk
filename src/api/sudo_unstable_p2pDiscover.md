@@ -15,6 +15,10 @@ An example of a valid multiaddress is `/ip4/10.2.83.208/tcp/30333/p2p/12D3KooWSN
 
 A JSON-RPC error should be returned if the JSON-RPC server doesn't support the protocols in the address. In this example, the JSON-RPC server should return an error if it doesn't support plain TCP connections.
 
+Because a JSON-RPC server is also free to completely ignore the address, it is not strictly mandatory to return a JSON-RPC error when its protocols are not supported.
+
+However, a JSON-RPC server must always return a JSON-RPC error if it couldn't parse the address. A JSON-RPC client can rely on this behavior to validate user-provided multiaddresses.
+
 ## Possible errors
 
 - A JSON-RPC error is generated if the JSON-RPC couldn't parse `multiaddr`.
