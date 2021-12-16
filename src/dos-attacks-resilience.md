@@ -10,19 +10,19 @@ Additionally, and maybe more importantly, it is important to guarantee a good qu
 
 ## Bounded queues
 
-In order to provide a good quality of service, the time between the moment a request is received by the server and the moment the response is sent back must be short. In order to achieve this, the CPU operations and I/O operations needed to handle the request must not take too much time. The only way to guarantee this is by limiting the number of CPU or I/O operations that can be performed concurrently. As an example, if you try to read 5000 files at once, some of these file reads will take a long time, and the only way to guarantee that a file read will be short is to not start too many at the same time.
+In order to provide a good quality of service, the time between the moment a request is received by the server and the moment the response is sent back must be short. In order to achieve this, the CPU operations and I/O operations needed to handle the request must not take too much time. The only way to guarantee this is by limiting the number of CPU or I/O operations that can be performed concurrently. As an example, if you try to read 5000 files at once, some of these file reads will take a long time, and the only way to guarantee that any file read is always short is to not start too many at the same time.
 
-This is generally achieved by creating a certain number of threads (lightweight or not) dedicated to handling a specific CPU or I/O operations. By doing so, you are guaranteed that the number of these CPU or I/O operations that are being executed simultaneously will never exceed the number of threads. In turn, this means that when an operation needs to be performed, it is put in a FIFO queue in order to be picked up by these threads. It is important for the sizes of all queues to be bounded, in order for memory usage to be bounded as well, and as otherwise operations could take a long time being stuck in a queue.
+This is generally achieved by creating a certain number of threads (lightweight or not) dedicated to handling a specific CPU or I/O operation. By doing so, you are guaranteed that the number of these CPU or I/O operations that are being executed simultaneously will never exceed the number of threads dedicated to them. When an operation needs to be performed, it is put in a FIFO queue in order to be picked up by these threads. It is important for the sizes of all queues to be bounded, in order for memory usage to be bounded as well, and as otherwise operations could take a long time being stuck in a queue.
+
+Queues should be bounded such that, even when they are nearly full, the time between the moment when an operation enters the queue and the moment when it is processed is reasonable. A bound that is too low can potentially lead to a decrease in performance due to an excess of context switches, but this is in practice rarely a problem.
 
 When a queue of operations is full, the dispatcher should simply wait for some space to be available. This is called _back-pressure_, as the dispatcher is intentionally slowed down as well. If the dispatcher is itself responsible for processing some operations in a queue, this processing is paused, and that queue is slowed down as well, which might cause more back-pressure to be propagated elsewhere.
-
-Queues should be bounded such that, even when they are full, the time between the moment when an operation enters the queue and the moment when it is processed is reasonable. A bound that is too low can potentially lead to a decrease in performance due to an excess of context switches, but this is in practice rarely a problem.
 
 This back-pressure must be propagated all the way to the TCP socket. When the code receiving requests from the TCP socket is unable to move forward because a queue is full, it should in turn stop receiving data from the TCP socket. This will in turn cause the Linux kernel to not increase the TCP window size, which propagates the back-pressure to the JSON-RPC client, slowing down this JSON-RPC client.
 
 In multiplexing situations, where multiple threads (lightweight or not) all try to insert elements in a single bounded queue, it is important for the distribution of items to have an acceptable distribution. It must not happen that some threads are able to insert elements very quickly while some others need to sleep for a long time before their element is inserted.
 
-Thanks to all these mechanisms, the amount of CPU and I/O consumed by all JSON-RPC clients combined is bounded and uniformly distributed between each JSON-RPC client, guaranteeing that they are equally slowed down. In order to guarantee a good quality of service to these clients, the final step is simply to limit the number of JSON-RPC clients that are allowed to connect. The precise limit depends on the capabilities of the machine running the JSON-RPC server.
+Thanks to all these mechanisms, the amount of CPU and I/O consumed by all JSON-RPC clients connected to the server combined is bounded and uniformly distributed between each JSON-RPC client, guaranteeing that they are equally slowed down. In order to guarantee a good quality of service to these clients, the final step is simply to limit the number of JSON-RPC clients that are allowed to connect. The precise limit depends on the capabilities of the machine running the JSON-RPC server.
 
 ## Dispatching a notification shouldn't wait
 
@@ -40,7 +40,7 @@ Consequently, all functions that consist in sending notifications must be design
 
 When implementing bounded queues, one should avoid a situation where some elements in the queue are very quick to be processed while some others very slow.
 
-During normal operations one will decide on the size of the queue and number of processing threads based on the time it takes to process an average queue element, but during a DoS attack the attacker can deliberately push a larger number of elements that are heavy to process. For example, with a single queue of incoming JSON-RPC requests, an attacker can intentionally submit requests that take a long time to process, in order to fill the queue more quickly.
+During normal operations one will decide on the size of the queue and number of processing threads based on the average time it takes to process a queue element, but during a DoS attack the attacker can deliberately push a larger number of elements that are heavy to process. For example, with a single queue of incoming JSON-RPC requests, an attacker can intentionally submit requests that take a long time to process, in order to fill the queue more quickly.
 
 For this reason, it is a good idea to sometimes split some queues, where light operations go on one queue and heavy operations on a different one.
 
