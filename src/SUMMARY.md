@@ -29,7 +29,6 @@
     - [chainHead_unstable_storage](api/chainHead_unstable_storage.md)
     - [chainHead_unstable_unfollow](api/chainHead_unstable_unfollow.md)
     - [chainHead_unstable_unpin](api/chainHead_unstable_unpin.md)
-    - [chainHead_unstable_wasmQuery](api/chainHead_unstable_wasmQuery.md)
   - [chainSpec](api/chainSpec.md)
     - [chainSpec_unstable_chainName](api/chainSpec_unstable_chainName.md)
     - [chainSpec_unstable_genesisHash](api/chainSpec_unstable_genesisHash.md)
