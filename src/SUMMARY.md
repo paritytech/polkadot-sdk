@@ -38,6 +38,7 @@
     - [rpc_methods](api/rpc_methods.md)
   - [sudo](api/sudo.md)
     - [sudo_unstable_addReservedPeer](api/sudo_unstable_addReservedPeer.md)
+    - [sudo_unstable_p2pDiscover](api/sudo_unstable_p2pDiscover.md)
     - [sudo_unstable_pendingTransactions](api/sudo_unstable_pendingTransactions.md)
     - [sudo_unstable_removeReservedPeer](api/sudo_unstable_removeReservedPeer.md)
     - [sudo_unstable_rotateKeys](api/sudo_unstable_rotateKeys.md)
