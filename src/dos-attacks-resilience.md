@@ -2,7 +2,7 @@
 
 _This page is at the same time a small guide explaining how to handle DoS attacks, and explains the motivation behind some design decisions._
 
-A denial-of-service (DoS) attack consists in consuming all the resources (bandwidth, CPU, or memory) of the target in order to prevent the target from properly serving legitimate users. It is possible to mitigate a DoS attack by identifying the attackers and filtering them out, but this is never done by the final JSON-RPC server that actually processes requests. From the point of view of the final JSON-RPC server, a DoS attack is the same thing as being under very heavy load.
+A denial-of-service (DoS) attack consists in consuming all the resources (bandwidth, disk I/O, CPU, or memory) of the target in order to prevent the target from properly serving legitimate users. It is possible to mitigate a DoS attack by identifying the attackers and filtering them out, but this is never done by the final JSON-RPC server that actually processes requests. From the point of view of the final JSON-RPC server, a DoS attack is the same thing as being under very heavy load.
 
 Because the resources available to the target are bounded, it is fundamentally impossible to claim to be able to resist to all DoS attacks. It is, however, possible to optimize and properly distribute resources consumption in order to increase the load that the target is capable of handling.
 
