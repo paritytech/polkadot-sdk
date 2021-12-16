@@ -20,7 +20,7 @@ use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
 use frame_support::weights::Weight;
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithMessages, IndexOf, TransactionEraOf,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithMessages, IndexOf, SignParam,
 	TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
@@ -107,35 +107,30 @@ impl TransactionSignScheme for Rialto {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction = rialto_runtime::UncheckedExtrinsic;
 
-	fn sign_transaction(
-		genesis_hash: <Self::Chain as ChainBase>::Hash,
-		signer: &Self::AccountKeyPair,
-		era: TransactionEraOf<Self::Chain>,
-		unsigned: UnsignedTransaction<Self::Chain>,
-	) -> Self::SignedTransaction {
+	fn sign_transaction(param: SignParam<Self>) -> Self::SignedTransaction {
 		let raw_payload = SignedPayload::from_raw(
-			unsigned.call,
+			param.unsigned.call.clone(),
 			(
 				frame_system::CheckSpecVersion::<rialto_runtime::Runtime>::new(),
 				frame_system::CheckTxVersion::<rialto_runtime::Runtime>::new(),
 				frame_system::CheckGenesis::<rialto_runtime::Runtime>::new(),
-				frame_system::CheckEra::<rialto_runtime::Runtime>::from(era.frame_era()),
-				frame_system::CheckNonce::<rialto_runtime::Runtime>::from(unsigned.nonce),
+				frame_system::CheckEra::<rialto_runtime::Runtime>::from(param.era.frame_era()),
+				frame_system::CheckNonce::<rialto_runtime::Runtime>::from(param.unsigned.nonce),
 				frame_system::CheckWeight::<rialto_runtime::Runtime>::new(),
-				pallet_transaction_payment::ChargeTransactionPayment::<rialto_runtime::Runtime>::from(unsigned.tip),
+				pallet_transaction_payment::ChargeTransactionPayment::<rialto_runtime::Runtime>::from(param.unsigned.tip),
 			),
 			(
-				rialto_runtime::VERSION.spec_version,
-				rialto_runtime::VERSION.transaction_version,
-				genesis_hash,
-				era.signed_payload(genesis_hash),
+				param.spec_version,
+				param.transaction_version,
+				param.genesis_hash,
+				param.era.signed_payload(param.genesis_hash),
 				(),
 				(),
 				(),
 			),
 		);
-		let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-		let signer: sp_runtime::MultiSigner = signer.public().into();
+		let signature = raw_payload.using_encoded(|payload| param.signer.sign(payload));
+		let signer: sp_runtime::MultiSigner = param.signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
 		rialto_runtime::UncheckedExtrinsic::new_signed(
