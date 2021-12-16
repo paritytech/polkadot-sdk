@@ -46,7 +46,7 @@ impl EstimateFee {
 		let Self { source, bridge, lane, payload } = self;
 
 		select_full_bridge!(bridge, {
-			let source_client = source.to_client::<Source>().await?;
+			let source_client = source.to_client::<Source>(SOURCE_RUNTIME_VERSION).await?;
 			let lane = lane.into();
 			let payload =
 				Source::encode_message(payload).map_err(|e| anyhow::format_err!("{:?}", e))?;
@@ -86,7 +86,7 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<Fee: Decode, C: C
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::cli::encode_call;
+	use crate::cli::{encode_call, RuntimeVersionType, SourceRuntimeVersionParams};
 	use sp_core::crypto::Ss58Codec;
 
 	#[test]
@@ -118,6 +118,11 @@ mod tests {
 					source_host: "127.0.0.1".into(),
 					source_port: 1234,
 					source_secure: false,
+					source_runtime_version: SourceRuntimeVersionParams {
+						source_version_mode: RuntimeVersionType::Bundle,
+						source_spec_version: None,
+						source_transaction_version: None,
+					}
 				},
 				payload: crate::cli::encode_message::MessagePayload::Call {
 					sender: alice.parse().unwrap(),

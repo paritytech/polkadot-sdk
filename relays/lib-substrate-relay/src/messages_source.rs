@@ -44,8 +44,8 @@ use messages_relay::{
 use num_traits::{Bounded, Zero};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithMessages, Client,
-	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, TransactionEra, TransactionSignScheme,
-	UnsignedTransaction,
+	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam, TransactionEra,
+	TransactionSignScheme, UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -230,11 +230,14 @@ where
 	) -> Result<(), SubstrateError> {
 		let genesis_hash = *self.client.genesis_hash();
 		let transaction_params = self.transaction_params.clone();
+		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 		self.client
 			.submit_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				move |best_block_id, transaction_nonce| {
 					make_messages_delivery_proof_transaction::<P>(
+						spec_version,
+						transaction_version,
 						&genesis_hash,
 						&transaction_params,
 						best_block_id,
@@ -257,8 +260,14 @@ where
 	async fn estimate_confirmation_transaction(
 		&self,
 	) -> <MessageLaneAdapter<P> as MessageLane>::SourceChainBalance {
+		let runtime_version = match self.client.runtime_version().await {
+			Ok(v) => v,
+			Err(_) => return BalanceOf::<P::SourceChain>::max_value(),
+		};
 		self.client
 			.estimate_extrinsic_fee(make_messages_delivery_proof_transaction::<P>(
+				runtime_version.spec_version,
+				runtime_version.transaction_version,
 				self.client.genesis_hash(),
 				&self.transaction_params,
 				HeaderId(Default::default(), Default::default()),
@@ -274,6 +283,8 @@ where
 
 /// Make messages delivery proof transaction from given proof.
 fn make_messages_delivery_proof_transaction<P: SubstrateMessageLane>(
+	spec_version: u32,
+	transaction_version: u32,
 	source_genesis_hash: &HashOf<P::SourceChain>,
 	source_transaction_params: &TransactionParams<AccountKeyPairOf<P::SourceTransactionSignScheme>>,
 	source_best_block_id: HeaderIdOf<P::SourceChain>,
@@ -289,12 +300,14 @@ where
 			proof, trace_call,
 		);
 	Bytes(
-		P::SourceTransactionSignScheme::sign_transaction(
-			*source_genesis_hash,
-			&source_transaction_params.signer,
-			TransactionEra::new(source_best_block_id, source_transaction_params.mortality),
-			UnsignedTransaction::new(call, transaction_nonce),
-		)
+		P::SourceTransactionSignScheme::sign_transaction(SignParam {
+			spec_version,
+			transaction_version,
+			genesis_hash: *source_genesis_hash,
+			signer: source_transaction_params.signer.clone(),
+			era: TransactionEra::new(source_best_block_id, source_transaction_params.mortality),
+			unsigned: UnsignedTransaction::new(call, transaction_nonce),
+		})
 		.encode(),
 	)
 }

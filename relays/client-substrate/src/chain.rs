@@ -172,12 +172,9 @@ pub trait TransactionSignScheme {
 	type SignedTransaction: Clone + Debug + Codec + Send + 'static;
 
 	/// Create transaction for given runtime call, signed by given account.
-	fn sign_transaction(
-		genesis_hash: <Self::Chain as ChainBase>::Hash,
-		signer: &Self::AccountKeyPair,
-		era: TransactionEraOf<Self::Chain>,
-		unsigned: UnsignedTransaction<Self::Chain>,
-	) -> Self::SignedTransaction;
+	fn sign_transaction(param: SignParam<Self>) -> Self::SignedTransaction
+	where
+		Self: Sized;
 
 	/// Returns true if transaction is signed.
 	fn is_signed(tx: &Self::SignedTransaction) -> bool;
@@ -189,6 +186,22 @@ pub trait TransactionSignScheme {
 	///
 	/// Returns `None` if signed transaction has unsupported format.
 	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>>;
+}
+
+/// Sign transaction parameters
+pub struct SignParam<T: TransactionSignScheme> {
+	/// Version of the runtime specification.
+	pub spec_version: u32,
+	/// Transaction version
+	pub transaction_version: u32,
+	/// Hash of the genesis block.
+	pub genesis_hash: <T::Chain as ChainBase>::Hash,
+	/// Signer account
+	pub signer: T::AccountKeyPair,
+	/// Transaction era used by the chain.
+	pub era: TransactionEraOf<T::Chain>,
+	/// Transaction before it is signed.
+	pub unsigned: UnsignedTransaction<T::Chain>,
 }
 
 impl<Block: BlockT> BlockWithJustification<Block::Header> for SignedBlock<Block> {

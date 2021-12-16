@@ -77,6 +77,11 @@ macro_rules! select_full_bridge {
 				#[allow(unused_imports)]
 				use millau_runtime::millau_to_rialto_account_ownership_digest as account_ownership_digest;
 
+				#[allow(dead_code)]
+				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(millau_runtime::VERSION);
+				#[allow(dead_code)]
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(rialto_runtime::VERSION);
+
 				$generic
 			}
 			FullBridge::RialtoToMillau => {
@@ -100,6 +105,11 @@ macro_rules! select_full_bridge {
 				#[allow(unused_imports)]
 				use rialto_runtime::rialto_to_millau_account_ownership_digest as account_ownership_digest;
 
+				#[allow(dead_code)]
+				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(rialto_runtime::VERSION);
+				#[allow(dead_code)]
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(millau_runtime::VERSION);
+
 				$generic
 			}
 			FullBridge::RococoToWococo => {
@@ -121,6 +131,11 @@ macro_rules! select_full_bridge {
 				// Send-message
 				#[allow(unused_imports)]
 				use relay_rococo_client::runtime::rococo_to_wococo_account_ownership_digest as account_ownership_digest;
+
+				#[allow(dead_code)]
+				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_rococo::VERSION);
+				#[allow(dead_code)]
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_wococo::VERSION);
 
 				$generic
 			}
@@ -144,6 +159,11 @@ macro_rules! select_full_bridge {
 				#[allow(unused_imports)]
 				use relay_wococo_client::runtime::wococo_to_rococo_account_ownership_digest as account_ownership_digest;
 
+				#[allow(dead_code)]
+				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_wococo::VERSION);
+				#[allow(dead_code)]
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_rococo::VERSION);
+
 				$generic
 			}
 			FullBridge::KusamaToPolkadot => {
@@ -166,6 +186,11 @@ macro_rules! select_full_bridge {
 				#[allow(unused_imports)]
 				use relay_kusama_client::runtime::kusama_to_polkadot_account_ownership_digest as account_ownership_digest;
 
+				#[allow(dead_code)]
+				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_kusama::VERSION);
+				#[allow(dead_code)]
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_polkadot::VERSION);
+
 				$generic
 			}
 			FullBridge::PolkadotToKusama => {
@@ -187,6 +212,11 @@ macro_rules! select_full_bridge {
 				// Send-message
 				#[allow(unused_imports)]
 				use relay_polkadot_client::runtime::polkadot_to_kusama_account_ownership_digest as account_ownership_digest;
+
+				#[allow(dead_code)]
+				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_polkadot::VERSION);
+				#[allow(dead_code)]
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> = Some(bp_kusama::VERSION);
 
 				$generic
 			}

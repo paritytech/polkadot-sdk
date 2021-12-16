@@ -48,7 +48,7 @@ mod tests {
 	use frame_support::dispatch::GetDispatchInfo;
 	use relay_millau_client::Millau;
 	use relay_rialto_client::Rialto;
-	use relay_substrate_client::{TransactionSignScheme, UnsignedTransaction};
+	use relay_substrate_client::{SignParam, TransactionSignScheme, UnsignedTransaction};
 	use sp_core::Pair;
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -204,12 +204,14 @@ mod tests {
 	fn rialto_tx_extra_bytes_constant_is_correct() {
 		let rialto_call =
 			rialto_runtime::Call::System(rialto_runtime::SystemCall::remark { remark: vec![] });
-		let rialto_tx = Rialto::sign_transaction(
-			Default::default(),
-			&sp_keyring::AccountKeyring::Alice.pair(),
-			relay_substrate_client::TransactionEra::immortal(),
-			UnsignedTransaction::new(rialto_call.clone(), 0),
-		);
+		let rialto_tx = Rialto::sign_transaction(SignParam {
+			spec_version: 1,
+			transaction_version: 1,
+			genesis_hash: Default::default(),
+			signer: sp_keyring::AccountKeyring::Alice.pair(),
+			era: relay_substrate_client::TransactionEra::immortal(),
+			unsigned: UnsignedTransaction::new(rialto_call.clone(), 0),
+		});
 		let extra_bytes_in_transaction = rialto_tx.encode().len() - rialto_call.encode().len();
 		assert!(
 			bp_rialto::TX_EXTRA_BYTES as usize >= extra_bytes_in_transaction,
@@ -223,12 +225,14 @@ mod tests {
 	fn millau_tx_extra_bytes_constant_is_correct() {
 		let millau_call =
 			millau_runtime::Call::System(millau_runtime::SystemCall::remark { remark: vec![] });
-		let millau_tx = Millau::sign_transaction(
-			Default::default(),
-			&sp_keyring::AccountKeyring::Alice.pair(),
-			relay_substrate_client::TransactionEra::immortal(),
-			UnsignedTransaction::new(millau_call.clone(), 0),
-		);
+		let millau_tx = Millau::sign_transaction(SignParam {
+			spec_version: 0,
+			transaction_version: 0,
+			genesis_hash: Default::default(),
+			signer: sp_keyring::AccountKeyring::Alice.pair(),
+			era: relay_substrate_client::TransactionEra::immortal(),
+			unsigned: UnsignedTransaction::new(millau_call.clone(), 0),
+		});
 		let extra_bytes_in_transaction = millau_tx.encode().len() - millau_call.encode().len();
 		assert!(
 			bp_millau::TX_EXTRA_BYTES as usize >= extra_bytes_in_transaction,
