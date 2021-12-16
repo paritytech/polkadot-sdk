@@ -29,7 +29,7 @@ use polkadot_runtime_common::{
 };
 use polkadot_runtime_parachains::paras::ParaLifecycle;
 use relay_substrate_client::{
-	AccountIdOf, CallOf, Chain, Client, TransactionSignScheme, UnsignedTransaction,
+	AccountIdOf, CallOf, Chain, Client, SignParam, TransactionSignScheme, UnsignedTransaction,
 };
 use rialto_runtime::SudoCall;
 use sp_core::{
@@ -83,6 +83,11 @@ macro_rules! select_bridge {
 
 				use bp_rialto::{PARAS_PALLET_NAME, PARAS_REGISTRAR_PALLET_NAME};
 
+				const RELAY_CHAIN_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(rialto_runtime::VERSION);
+				const PARA_CHAIN_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(rialto_parachain_runtime::VERSION);
+
 				$generic
 			},
 		}
@@ -93,9 +98,13 @@ impl RegisterParachain {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.parachain, {
-			let relay_client = self.relay_connection.to_client::<Relaychain>().await?;
+			let relay_client = self
+				.relay_connection
+				.to_client::<Relaychain>(RELAY_CHAIN_RUNTIME_VERSION)
+				.await?;
 			let relay_sign = self.relay_sign.to_keypair::<Relaychain>()?;
-			let para_client = self.para_connection.to_client::<Parachain>().await?;
+			let para_client =
+				self.para_connection.to_client::<Parachain>(PARA_CHAIN_RUNTIME_VERSION).await?;
 
 			// hopefully we're the only actor that is registering parachain right now
 			// => read next parachain id
@@ -116,21 +125,24 @@ impl RegisterParachain {
 			let reserve_parachain_id_call: CallOf<Relaychain> =
 				ParaRegistrarCall::reserve {}.into();
 			let reserve_parachain_signer = relay_sign.clone();
+			let (spec_version, transaction_version) = relay_client.simple_runtime_version().await?;
 			wait_until_transaction_is_finalized::<Relaychain>(
 				relay_client
 					.submit_and_watch_signed_extrinsic(
 						relay_sudo_account.clone(),
 						move |_, transaction_nonce| {
 							Bytes(
-								Relaychain::sign_transaction(
-									relay_genesis_hash,
-									&reserve_parachain_signer,
-									relay_substrate_client::TransactionEra::immortal(),
-									UnsignedTransaction::new(
+								Relaychain::sign_transaction(SignParam {
+									spec_version,
+									transaction_version,
+									genesis_hash: relay_genesis_hash,
+									signer: reserve_parachain_signer,
+									era: relay_substrate_client::TransactionEra::immortal(),
+									unsigned: UnsignedTransaction::new(
 										reserve_parachain_id_call,
 										transaction_nonce,
 									),
-								)
+								})
 								.encode(),
 							)
 						},
@@ -169,15 +181,17 @@ impl RegisterParachain {
 						relay_sudo_account.clone(),
 						move |_, transaction_nonce| {
 							Bytes(
-								Relaychain::sign_transaction(
-									relay_genesis_hash,
-									&register_parathread_signer,
-									relay_substrate_client::TransactionEra::immortal(),
-									UnsignedTransaction::new(
+								Relaychain::sign_transaction(SignParam {
+									spec_version,
+									transaction_version,
+									genesis_hash: relay_genesis_hash,
+									signer: register_parathread_signer,
+									era: relay_substrate_client::TransactionEra::immortal(),
+									unsigned: UnsignedTransaction::new(
 										register_parathread_call,
 										transaction_nonce,
 									),
-								)
+								})
 								.encode(),
 							)
 						},
@@ -229,12 +243,14 @@ impl RegisterParachain {
 			relay_client
 				.submit_signed_extrinsic(relay_sudo_account.clone(), move |_, transaction_nonce| {
 					Bytes(
-						Relaychain::sign_transaction(
-							relay_genesis_hash,
-							&force_lease_signer,
-							relay_substrate_client::TransactionEra::immortal(),
-							UnsignedTransaction::new(force_lease_call, transaction_nonce),
-						)
+						Relaychain::sign_transaction(SignParam {
+							spec_version,
+							transaction_version,
+							genesis_hash: relay_genesis_hash,
+							signer: force_lease_signer,
+							era: relay_substrate_client::TransactionEra::immortal(),
+							unsigned: UnsignedTransaction::new(force_lease_call, transaction_nonce),
+						})
 						.encode(),
 					)
 				})
@@ -292,6 +308,9 @@ async fn wait_para_state<Relaychain: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::cli::{
+		ParachainRuntimeVersionParams, RelaychainRuntimeVersionParams, RuntimeVersionType,
+	};
 
 	#[test]
 	fn register_rialto_parachain() {
@@ -327,6 +346,11 @@ mod tests {
 					relaychain_host: "127.0.0.1".into(),
 					relaychain_port: 9944,
 					relaychain_secure: false,
+					relaychain_runtime_version: RelaychainRuntimeVersionParams {
+						relaychain_version_mode: RuntimeVersionType::Bundle,
+						relaychain_spec_version: None,
+						relaychain_transaction_version: None,
+					}
 				},
 				relay_sign: RelaychainSigningParams {
 					relaychain_signer: Some("//Alice".into()),
@@ -339,6 +363,11 @@ mod tests {
 					parachain_host: "127.0.0.1".into(),
 					parachain_port: 11949,
 					parachain_secure: false,
+					parachain_runtime_version: ParachainRuntimeVersionParams {
+						parachain_version_mode: RuntimeVersionType::Bundle,
+						parachain_spec_version: None,
+						parachain_transaction_version: None,
+					}
 				},
 			}
 		);

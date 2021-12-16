@@ -32,10 +32,10 @@ use std::time::Duration;
 pub use crate::{
 	chain::{
 		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
-		ChainWithMessages, TransactionSignScheme, TransactionStatusOf, UnsignedTransaction,
-		WeightToFeeOf,
+		ChainWithMessages, SignParam, TransactionSignScheme, TransactionStatusOf,
+		UnsignedTransaction, WeightToFeeOf,
 	},
-	client::{Client, OpaqueGrandpaAuthoritiesSet, Subscription},
+	client::{ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription},
 	error::{Error, Result},
 	sync_header::SyncHeader,
 };
@@ -56,11 +56,18 @@ pub struct ConnectionParams {
 	pub port: u16,
 	/// Use secure websocket connection.
 	pub secure: bool,
+	/// Defined chain runtime version
+	pub chain_runtime_version: ChainRuntimeVersion,
 }
 
 impl Default for ConnectionParams {
 	fn default() -> Self {
-		ConnectionParams { host: "localhost".into(), port: 9944, secure: false }
+		ConnectionParams {
+			host: "localhost".into(),
+			port: 9944,
+			secure: false,
+			chain_runtime_version: ChainRuntimeVersion::Auto,
+		}
 	}
 }
 

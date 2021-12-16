@@ -23,7 +23,7 @@ use frame_support::weights::Weight;
 use messages_relay::relay_strategy::MixStrategy;
 use relay_kusama_client::Kusama;
 use relay_polkadot_client::Polkadot;
-use relay_substrate_client::{Client, TransactionSignScheme, UnsignedTransaction};
+use relay_substrate_client::{Client, SignParam, TransactionSignScheme, UnsignedTransaction};
 use substrate_relay_helper::messages_lane::SubstrateMessageLane;
 
 /// Description of Polkadot -> Kusama messages bridge.
@@ -69,14 +69,17 @@ pub(crate) async fn update_kusama_to_polkadot_conversion_rate(
 ) -> anyhow::Result<()> {
 	let genesis_hash = *client.genesis_hash();
 	let signer_id = (*signer.public().as_array_ref()).into();
+	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
 	client
 		.submit_signed_extrinsic(signer_id, move |_, transaction_nonce| {
 			Bytes(
-				Polkadot::sign_transaction(
+				Polkadot::sign_transaction(SignParam {
+					spec_version,
+					transaction_version,
 					genesis_hash,
-					&signer,
-					relay_substrate_client::TransactionEra::immortal(),
-					UnsignedTransaction::new(
+					signer,
+					era: relay_substrate_client::TransactionEra::immortal(),
+					unsigned: UnsignedTransaction::new(
 						relay_polkadot_client::runtime::Call::BridgeKusamaMessages(
 							relay_polkadot_client::runtime::BridgeKusamaMessagesCall::update_pallet_parameter(
 								relay_polkadot_client::runtime::BridgeKusamaMessagesParameter::KusamaToPolkadotConversionRate(
@@ -85,8 +88,8 @@ pub(crate) async fn update_kusama_to_polkadot_conversion_rate(
 							)
 						),
 						transaction_nonce,
-					),
-				)
+					)
+				})
 				.encode(),
 			)
 		})
