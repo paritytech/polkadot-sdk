@@ -23,3 +23,13 @@ Contrary to most other JSON-RPC functions that perform runtime function calls wh
 - `{"error":"..."}` is returned if the runtime doesn't support the given API.
 - `{"error":"..."}` is returned if a problem happens during the call, such as a Wasm trap.
 - `{"error":"..."}` is returned if the runtime attempts to modify the storage of the block.
+
+## About the behavior of `SessionKeys_generate_session_keys`
+
+The objective of this JSON-RPC function is to call the `SessionKeys_generate_session_keys` runtime function. This paragraph describes how this runtime function behaves.
+
+The `SessionKeys_generate_session_keys` runtime function generates a serie of keys, inserts these keys in the so-called keystore, and returns all the keys concatenated together.
+
+Because the newly-generated keys are inserted in the keystore of the JSON-RPC server, it will automatically start performing duties such as authoring blocks or emitting Grandpa votes if one of the generated public keys corresponds to a key that is given the rights by the blockchain to do so. Most of the time, the keystore is configured to write the keys on disk, meaning that these newly-generated keys remain in the keystore even after the JSON-RPC server has been restarted.
+
+The value returned by this function, which is the concatenation of all newly-generated public keys, is called the session keys. The session keys are meant to be submitted to the blockchain via a transaction by the JSON-RPC client or its user. Before this is done, the newly-generated keys normally don't automatically obtain the right to, for example, generate blocks. Submitting the session keys to the blockchain is out of scope of this function.
