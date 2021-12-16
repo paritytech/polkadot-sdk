@@ -26,6 +26,6 @@ It could be useful for a JSON-RPC client to be able to distinguish between addre
 
 A better API for this function would consist in returning a JSON-RPC error only if the address if malformed, and a successful response containing a boolean equal to `false` if the address contains unsupported protocols.
 
-However, this would force JSON-RPC servers to support parsing all the protocols currently defined in the multiaddress specification. Because the multiaddress specification doesn't use any versioning and is constantly getting new protocols, this would be impossible to enforce.
+However, this would force JSON-RPC servers to support parsing all the protocols currently defined in the multiaddress specification. Because the multiaddress specification doesn't use proper versioning and is constantly getting new protocol additions, this would be impossible to enforce.
 
-Instead, an unsupported protocol and an unrecognized protocol lead to the same JSON-RPC error so that JSON-RPC servers only need to be able to parse the protocols they support.
+Instead, an unsupported protocol and an unsupported protocol lead to the same JSON-RPC error so that JSON-RPC servers only need to be able to parse the protocols they support.
