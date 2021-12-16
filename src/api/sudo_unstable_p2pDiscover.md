@@ -21,7 +21,7 @@ However, a JSON-RPC server must always return a JSON-RPC error if it couldn't pa
 
 ## Possible errors
 
-- A JSON-RPC error is generated if the JSON-RPC couldn't parse `multiaddr`.
+- A JSON-RPC error is generated if the JSON-RPC server couldn't parse `multiaddr`.
 - A JSON-RPC error is generated if the JSON-RPC server doesn't support some of the protocols in the `multiaddr`.
 
 ## About errors
