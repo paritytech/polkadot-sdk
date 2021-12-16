@@ -15,7 +15,7 @@ Many functions in the API have an optional parameter named `networkConfig`. This
 
 Requesting an information from a peer involves sending a request to this peer. This request can fail for various reasons: the peer is non responsive, the peer is overwhelmed, the peer is malicious, the peer has a bug in its implementation, etc. Because the request can fail, multiple requests should be attempted towards different peers before the information retrieval fails altogether.
 
-The passed passed for the `networkConfig` parameter is a struct defined as:
+The value to provide for the `networkConfig` parameter is an object defined as:
 
 ```json
 {
@@ -33,4 +33,3 @@ These values can be tweaked depending on the urgency of the JSON-RPC function ca
 A JSON-RPC function call that is passed a `networkConfig` can take, in the worst case scenario, a bit more than `timeoutMs * totalAttempts / maxParallel` milliseconds.
 
 The JSON-RPC server implementation is allowed and strongly encouraged to put hard a limit on the values in the `networkConfig`.
-
