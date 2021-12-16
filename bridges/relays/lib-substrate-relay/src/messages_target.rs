@@ -40,8 +40,8 @@ use messages_relay::{
 use num_traits::{Bounded, Zero};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithMessages, Client,
-	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, TransactionEra, TransactionSignScheme,
-	UnsignedTransaction, WeightToFeeOf,
+	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam, TransactionEra,
+	TransactionSignScheme, UnsignedTransaction, WeightToFeeOf,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -218,11 +218,14 @@ where
 		let transaction_params = self.transaction_params.clone();
 		let relayer_id_at_source = self.relayer_id_at_source.clone();
 		let nonces_clone = nonces.clone();
+		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 		self.client
 			.submit_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				move |best_block_id, transaction_nonce| {
 					make_messages_delivery_transaction::<P>(
+						spec_version,
+						transaction_version,
 						&genesis_hash,
 						&transaction_params,
 						best_block_id,
@@ -260,8 +263,11 @@ where
 				))
 			})?;
 
+		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 		// Prepare 'dummy' delivery transaction - we only care about its length and dispatch weight.
 		let delivery_tx = make_messages_delivery_transaction::<P>(
+			spec_version,
+			transaction_version,
 			self.client.genesis_hash(),
 			&self.transaction_params,
 			HeaderId(Default::default(), Default::default()),
@@ -297,10 +303,13 @@ where
 		let expected_refund_in_target_tokens = if total_prepaid_nonces != 0 {
 			const WEIGHT_DIFFERENCE: Weight = 100;
 
+			let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 			let larger_dispatch_weight = total_dispatch_weight.saturating_add(WEIGHT_DIFFERENCE);
 			let larger_delivery_tx_fee = self
 				.client
 				.estimate_extrinsic_fee(make_messages_delivery_transaction::<P>(
+					spec_version,
+					transaction_version,
 					self.client.genesis_hash(),
 					&self.transaction_params,
 					HeaderId(Default::default(), Default::default()),
@@ -365,6 +374,8 @@ where
 /// Make messages delivery transaction from given proof.
 #[allow(clippy::too_many_arguments)]
 fn make_messages_delivery_transaction<P: SubstrateMessageLane>(
+	spec_version: u32,
+	transaction_version: u32,
 	target_genesis_hash: &HashOf<P::TargetChain>,
 	target_transaction_params: &TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
 	target_best_block_id: HeaderIdOf<P::TargetChain>,
@@ -387,12 +398,14 @@ where
 		trace_call,
 	);
 	Bytes(
-		P::TargetTransactionSignScheme::sign_transaction(
-			*target_genesis_hash,
-			&target_transaction_params.signer,
-			TransactionEra::new(target_best_block_id, target_transaction_params.mortality),
-			UnsignedTransaction::new(call, transaction_nonce),
-		)
+		P::TargetTransactionSignScheme::sign_transaction(SignParam {
+			spec_version,
+			transaction_version,
+			genesis_hash: *target_genesis_hash,
+			signer: target_transaction_params.signer.clone(),
+			era: TransactionEra::new(target_best_block_id, target_transaction_params.mortality),
+			unsigned: UnsignedTransaction::new(call, transaction_nonce),
+		})
 		.encode(),
 	)
 }

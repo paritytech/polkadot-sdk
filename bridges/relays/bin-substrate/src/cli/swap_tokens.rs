@@ -29,8 +29,8 @@ use strum::{EnumString, EnumVariantNames, VariantNames};
 use frame_support::dispatch::GetDispatchInfo;
 use relay_substrate_client::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, CallOf, Chain, ChainWithBalances,
-	Client, Error as SubstrateError, HashOf, SignatureOf, Subscription, TransactionSignScheme,
-	TransactionStatusOf, UnsignedTransaction,
+	Client, Error as SubstrateError, HashOf, SignParam, SignatureOf, Subscription,
+	TransactionSignScheme, TransactionStatusOf, UnsignedTransaction,
 };
 use sp_core::{blake2_256, storage::StorageKey, Bytes, Pair, H256, U256};
 use sp_runtime::traits::{Convert, Header as HeaderT};
@@ -98,6 +98,13 @@ macro_rules! select_bridge {
 			SwapTokensBridge::MillauToRialto => {
 				type Source = relay_millau_client::Millau;
 				type Target = relay_rialto_client::Rialto;
+				const SOURCE_SPEC_VERSION: u32 = millau_runtime::VERSION.spec_version;
+				const TARGET_SPEC_VERSION: u32 = rialto_runtime::VERSION.spec_version;
+
+				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(millau_runtime::VERSION);
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(rialto_runtime::VERSION);
 
 				type FromSwapToThisAccountIdConverter = bp_rialto::AccountIdConverter;
 
@@ -114,9 +121,6 @@ macro_rules! select_bridge {
 				const SOURCE_CHAIN_ID: bp_runtime::ChainId = bp_runtime::MILLAU_CHAIN_ID;
 				const TARGET_CHAIN_ID: bp_runtime::ChainId = bp_runtime::RIALTO_CHAIN_ID;
 
-				const SOURCE_SPEC_VERSION: u32 = millau_runtime::VERSION.spec_version;
-				const TARGET_SPEC_VERSION: u32 = rialto_runtime::VERSION.spec_version;
-
 				const SOURCE_TO_TARGET_LANE_ID: bp_messages::LaneId = *b"swap";
 				const TARGET_TO_SOURCE_LANE_ID: bp_messages::LaneId = [0, 0, 0, 0];
 
@@ -130,9 +134,9 @@ impl SwapTokens {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.bridge, {
-			let source_client = self.source.to_client::<Source>().await?;
+			let source_client = self.source.to_client::<Source>(SOURCE_RUNTIME_VERSION).await?;
 			let source_sign = self.source_sign.to_keypair::<Target>()?;
-			let target_client = self.target.to_client::<Target>().await?;
+			let target_client = self.target.to_client::<Target>(TARGET_RUNTIME_VERSION).await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 
 			// names of variables in this function are matching names used by the
@@ -234,18 +238,25 @@ impl SwapTokens {
 			// start tokens swap
 			let source_genesis_hash = *source_client.genesis_hash();
 			let create_swap_signer = source_sign.clone();
+			let (spec_version, transaction_version) =
+				source_client.simple_runtime_version().await?;
 			let swap_created_at = wait_until_transaction_is_finalized::<Source>(
 				source_client
 					.submit_and_watch_signed_extrinsic(
 						accounts.source_account_at_this_chain.clone(),
 						move |_, transaction_nonce| {
 							Bytes(
-								Source::sign_transaction(
-									source_genesis_hash,
-									&create_swap_signer,
-									relay_substrate_client::TransactionEra::immortal(),
-									UnsignedTransaction::new(create_swap_call, transaction_nonce),
-								)
+								Source::sign_transaction(SignParam {
+									spec_version,
+									transaction_version,
+									genesis_hash: source_genesis_hash,
+									signer: create_swap_signer,
+									era: relay_substrate_client::TransactionEra::immortal(),
+									unsigned: UnsignedTransaction::new(
+										create_swap_call,
+										transaction_nonce,
+									),
+								})
 								.encode(),
 							)
 						},
@@ -369,21 +380,25 @@ impl SwapTokens {
 
 				// send `claim_swap` message
 				let target_genesis_hash = *target_client.genesis_hash();
+				let (spec_version, transaction_version) =
+					target_client.simple_runtime_version().await?;
 				let _ = wait_until_transaction_is_finalized::<Target>(
 					target_client
 						.submit_and_watch_signed_extrinsic(
 							accounts.target_account_at_bridged_chain.clone(),
 							move |_, transaction_nonce| {
 								Bytes(
-									Target::sign_transaction(
-										target_genesis_hash,
-										&target_sign,
-										relay_substrate_client::TransactionEra::immortal(),
-										UnsignedTransaction::new(
+									Target::sign_transaction(SignParam {
+										spec_version,
+										transaction_version,
+										genesis_hash: target_genesis_hash,
+										signer: target_sign,
+										era: relay_substrate_client::TransactionEra::immortal(),
+										unsigned: UnsignedTransaction::new(
 											send_message_call,
 											transaction_nonce,
 										),
-									)
+									})
 									.encode(),
 								)
 							},
@@ -409,21 +424,25 @@ impl SwapTokens {
 				log::info!(target: "bridge", "Cancelling the swap");
 				let cancel_swap_call: CallOf<Source> =
 					pallet_bridge_token_swap::Call::cancel_swap { swap: token_swap.clone() }.into();
+				let (spec_version, transaction_version) =
+					source_client.simple_runtime_version().await?;
 				let _ = wait_until_transaction_is_finalized::<Source>(
 					source_client
 						.submit_and_watch_signed_extrinsic(
 							accounts.source_account_at_this_chain.clone(),
 							move |_, transaction_nonce| {
 								Bytes(
-									Source::sign_transaction(
-										source_genesis_hash,
-										&source_sign,
-										relay_substrate_client::TransactionEra::immortal(),
-										UnsignedTransaction::new(
+									Source::sign_transaction(SignParam {
+										spec_version,
+										transaction_version,
+										genesis_hash: source_genesis_hash,
+										signer: source_sign,
+										era: relay_substrate_client::TransactionEra::immortal(),
+										unsigned: UnsignedTransaction::new(
 											cancel_swap_call,
 											transaction_nonce,
 										),
-									)
+									})
 									.encode(),
 								)
 							},
@@ -673,6 +692,7 @@ async fn read_token_swap_state<C: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::cli::{RuntimeVersionType, SourceRuntimeVersionParams, TargetRuntimeVersionParams};
 
 	#[test]
 	fn swap_tokens_millau_to_rialto_no_lock() {
@@ -706,6 +726,11 @@ mod tests {
 					source_host: "127.0.0.1".into(),
 					source_port: 9000,
 					source_secure: false,
+					source_runtime_version: SourceRuntimeVersionParams {
+						source_version_mode: RuntimeVersionType::Bundle,
+						source_spec_version: None,
+						source_transaction_version: None,
+					}
 				},
 				source_sign: SourceSigningParams {
 					source_signer: Some("//Alice".into()),
@@ -718,6 +743,11 @@ mod tests {
 					target_host: "127.0.0.1".into(),
 					target_port: 9001,
 					target_secure: false,
+					target_runtime_version: TargetRuntimeVersionParams {
+						target_version_mode: RuntimeVersionType::Bundle,
+						target_spec_version: None,
+						target_transaction_version: None,
+					}
 				},
 				target_sign: TargetSigningParams {
 					target_signer: Some("//Bob".into()),
@@ -767,6 +797,11 @@ mod tests {
 					source_host: "127.0.0.1".into(),
 					source_port: 9000,
 					source_secure: false,
+					source_runtime_version: SourceRuntimeVersionParams {
+						source_version_mode: RuntimeVersionType::Bundle,
+						source_spec_version: None,
+						source_transaction_version: None,
+					}
 				},
 				source_sign: SourceSigningParams {
 					source_signer: Some("//Alice".into()),
@@ -779,6 +814,11 @@ mod tests {
 					target_host: "127.0.0.1".into(),
 					target_port: 9001,
 					target_secure: false,
+					target_runtime_version: TargetRuntimeVersionParams {
+						target_version_mode: RuntimeVersionType::Bundle,
+						target_spec_version: None,
+						target_transaction_version: None,
+					}
 				},
 				target_sign: TargetSigningParams {
 					target_signer: Some("//Bob".into()),

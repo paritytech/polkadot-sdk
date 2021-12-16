@@ -19,7 +19,8 @@ use crate::cli::{Balance, TargetConnectionParams, TargetSigningParams};
 use codec::{Decode, Encode};
 use num_traits::{One, Zero};
 use relay_substrate_client::{
-	BlockWithJustification, Chain, Client, Error as SubstrateError, HeaderOf, TransactionSignScheme,
+	BlockWithJustification, Chain, Client, Error as SubstrateError, HeaderOf, SignParam,
+	TransactionSignScheme,
 };
 use relay_utils::FailedClient;
 use sp_core::Bytes;
@@ -90,18 +91,24 @@ macro_rules! select_bridge {
 			RelayChain::Millau => {
 				type Target = relay_millau_client::Millau;
 				type TargetSign = relay_millau_client::Millau;
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(millau_runtime::VERSION);
 
 				$generic
 			},
 			RelayChain::Kusama => {
 				type Target = relay_kusama_client::Kusama;
 				type TargetSign = relay_kusama_client::Kusama;
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(bp_kusama::VERSION);
 
 				$generic
 			},
 			RelayChain::Polkadot => {
 				type Target = relay_polkadot_client::Polkadot;
 				type TargetSign = relay_polkadot_client::Polkadot;
+				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
+					Some(bp_polkadot::VERSION);
 
 				$generic
 			},
@@ -114,7 +121,7 @@ impl ResubmitTransactions {
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.chain, {
 			let relay_loop_name = format!("ResubmitTransactions{}", Target::NAME);
-			let client = self.target.to_client::<Target>().await?;
+			let client = self.target.to_client::<Target>(TARGET_RUNTIME_VERSION).await?;
 			let key_pair = self.target_sign.to_keypair::<Target>()?;
 
 			relay_utils::relay_loop((), client)
@@ -411,6 +418,7 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 	})?;
 	let old_tip = unsigned_tx.tip;
 
+	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
 	while current_priority < target_priority {
 		let next_tip = unsigned_tx.tip + tip_step;
 		if next_tip > tip_limit {
@@ -430,12 +438,14 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 		current_priority = client
 			.validate_transaction(
 				at_block,
-				S::sign_transaction(
-					*client.genesis_hash(),
-					key_pair,
-					relay_substrate_client::TransactionEra::immortal(),
-					unsigned_tx.clone(),
-				),
+				S::sign_transaction(SignParam {
+					spec_version,
+					transaction_version,
+					genesis_hash: *client.genesis_hash(),
+					signer: key_pair.clone(),
+					era: relay_substrate_client::TransactionEra::immortal(),
+					unsigned: unsigned_tx.clone(),
+				}),
 			)
 			.await??
 			.priority;
@@ -451,12 +461,14 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 
 	Ok((
 		old_tip != unsigned_tx.tip,
-		S::sign_transaction(
-			*client.genesis_hash(),
-			key_pair,
-			relay_substrate_client::TransactionEra::immortal(),
-			unsigned_tx,
-		),
+		S::sign_transaction(SignParam {
+			spec_version,
+			transaction_version,
+			genesis_hash: *client.genesis_hash(),
+			signer: key_pair.clone(),
+			era: relay_substrate_client::TransactionEra::immortal(),
+			unsigned: unsigned_tx,
+		}),
 	))
 }
 

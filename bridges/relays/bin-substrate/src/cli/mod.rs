@@ -18,10 +18,13 @@
 
 use std::convert::TryInto;
 
-use bp_messages::LaneId;
 use codec::{Decode, Encode};
+use relay_substrate_client::ChainRuntimeVersion;
 use sp_runtime::app_crypto::Ss58Codec;
 use structopt::{clap::arg_enum, StructOpt};
+use strum::{EnumString, EnumVariantNames};
+
+use bp_messages::LaneId;
 
 pub(crate) mod bridge;
 pub(crate) mod encode_call;
@@ -364,6 +367,17 @@ where
 	}
 }
 
+#[doc = "Runtime version params."]
+#[derive(StructOpt, Debug, PartialEq, Eq, Clone, EnumString, EnumVariantNames)]
+pub enum RuntimeVersionType {
+	/// Auto query version from chain
+	Auto,
+	/// Custom `spec_version` and `transaction_version`
+	Custom,
+	/// Read version from bundle dependencies directly.
+	Bundle,
+}
+
 /// Create chain-specific set of configuration objects: connection parameters,
 /// signing parameters and bridge initialization parameters.
 #[macro_export]
@@ -382,6 +396,23 @@ macro_rules! declare_chain_options {
 				#[doc = "Use secure websocket connection."]
 				#[structopt(long)]
 				pub [<$chain_prefix _secure>]: bool,
+				#[doc = "Custom runtime version"]
+				#[structopt(flatten)]
+				pub [<$chain_prefix _runtime_version>]: [<$chain RuntimeVersionParams>],
+			}
+
+			#[doc = $chain " runtime version params."]
+			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
+			pub struct [<$chain RuntimeVersionParams>] {
+				#[doc = "The type of runtime version for chain " $chain]
+				#[structopt(long, default_value = "Bundle")]
+				pub [<$chain_prefix _version_mode>]: RuntimeVersionType,
+				#[doc = "The custom sepc_version for chain " $chain]
+				#[structopt(long)]
+				pub [<$chain_prefix _spec_version>]: Option<u32>,
+				#[doc = "The custom transaction_version for chain " $chain]
+				#[structopt(long)]
+				pub [<$chain_prefix _transaction_version>]: Option<u32>,
 			}
 
 			#[doc = $chain " signing params."]
@@ -500,11 +531,36 @@ macro_rules! declare_chain_options {
 				/// Convert connection params into Substrate client.
 				pub async fn to_client<Chain: CliChain>(
 					&self,
+					bundle_runtime_version: Option<sp_version::RuntimeVersion>
 				) -> anyhow::Result<relay_substrate_client::Client<Chain>> {
+					let runtime_version_params = &self.[<$chain_prefix _runtime_version>];
+					let chain_runtime_version = match runtime_version_params.[<$chain_prefix _version_mode>] {
+						RuntimeVersionType::Auto => ChainRuntimeVersion::Auto,
+						RuntimeVersionType::Custom => {
+							let except_spec_version = runtime_version_params.[<$chain_prefix _spec_version>]
+								.ok_or(anyhow::Error::msg(format!("The {}-spec-version is required when choose custom mode", stringify!($chain_prefix))))?;
+							let except_transaction_version = runtime_version_params.[<$chain_prefix _transaction_version>]
+								.ok_or(anyhow::Error::msg(format!("The {}-transaction-version is required when choose custom mode", stringify!($chain_prefix))))?;
+							ChainRuntimeVersion::Custom(
+								except_spec_version,
+								except_transaction_version
+							)
+						}
+						RuntimeVersionType::Bundle => {
+							match bundle_runtime_version {
+								Some(runtime_version) => ChainRuntimeVersion::Custom(
+									runtime_version.spec_version,
+									runtime_version.transaction_version
+								),
+								None => ChainRuntimeVersion::Auto
+							}
+						}
+ 					};
 					Ok(relay_substrate_client::Client::new(relay_substrate_client::ConnectionParams {
 						host: self.[<$chain_prefix _host>].clone(),
 						port: self.[<$chain_prefix _port>],
 						secure: self.[<$chain_prefix _secure>],
+						chain_runtime_version,
 					})
 					.await
 					)
@@ -521,8 +577,9 @@ declare_chain_options!(Parachain, parachain);
 
 #[cfg(test)]
 mod tests {
-	use sp_core::Pair;
 	use std::str::FromStr;
+
+	use sp_core::Pair;
 
 	use super::*;
 
