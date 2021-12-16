@@ -20,7 +20,7 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 
 **TODO**: in order to perform the runtime call, the implementation of this function will simply concatenate all the parameters (without any separator), so does it make sense for the JSON-RPC function to require to split them into an array?
 
-**Note**: This can be used as a replacement for the legacy `state_getMetadata`, `system_accountNextIndex`, and `payment_queryInfo`.
+**Note**: This can be used as a replacement for the legacy `state_getMetadata`, `system_accountNextIndex`, and `payment_queryInfo` functions.
 
 ## Notifications format
 
@@ -110,3 +110,4 @@ No more event will be generated with this `subscriptionId`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
 - If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "error"}` notification is generated.
 - If the runtime call fails (e.g. because it triggers a panic in the runtime, running out of memory, etc., or if the runtime call takes too much time), then an `{"event": "error"}` notification is generated.
+- If the runtime call calls a host function that has a side effect, then an `{"event": "error"}` notification is generated.
