@@ -6,7 +6,7 @@
   - [Grouping functions and node capabilities](grouping-functions-and-node-capabilities.md)
   - [DoS attacks resilience](dos-attacks-resilience.md)
   - [Load balancers](load-balancers.md)
-- [API specification](api/introduction.md)
+- [API specification](api.md)
   - [archive](api/archive.md)
     - [archive_unstable_body](api/archive_unstable_body.md)
     - [archive_unstable_genesisHash](api/archive_unstable_genesisHash.md)
