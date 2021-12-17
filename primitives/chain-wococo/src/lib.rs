@@ -21,6 +21,7 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
+use sp_runtime::FixedU128;
 use sp_std::prelude::*;
 
 pub use bp_polkadot_core::*;
@@ -95,6 +96,7 @@ sp_api::decl_runtime_apis! {
 		fn estimate_message_delivery_and_dispatch_fee(
 			lane_id: LaneId,
 			payload: OutboundPayload,
+			wococo_to_this_conversion_rate: Option<FixedU128>,
 		) -> Option<OutboundMessageFee>;
 		/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
 		/// messages in given inclusive range.
