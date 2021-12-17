@@ -21,7 +21,12 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+
+[dev-dependencies]
+hex = "0.4"
+hex-literal = "0.3"
 
 [features]
 default = ["std"]
@@ -32,5 +37,6 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"serde",
+	"sp-core/std",
 	"sp-std/std"
 ]

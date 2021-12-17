@@ -190,7 +190,7 @@ where
 		SubstrateError,
 	> {
 		let (id, relayers_state) = self.unrewarded_relayers_state(id).await?;
-		let inbound_data_key = pallet_bridge_messages::storage_keys::inbound_lane_data_key(
+		let inbound_data_key = bp_messages::storage_keys::inbound_lane_data_key(
 			P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 			&self.lane_id,
 		);

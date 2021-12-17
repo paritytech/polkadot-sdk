@@ -32,7 +32,7 @@ use relay_substrate_client::{
 	Client, Error as SubstrateError, HashOf, SignParam, SignatureOf, Subscription,
 	TransactionSignScheme, TransactionStatusOf, UnsignedTransaction,
 };
-use sp_core::{blake2_256, storage::StorageKey, Bytes, Pair, H256, U256};
+use sp_core::{blake2_256, storage::StorageKey, Bytes, Pair, U256};
 use sp_runtime::traits::{Convert, Header as HeaderT};
 
 use crate::cli::{
@@ -266,11 +266,10 @@ impl SwapTokens {
 			.await?;
 
 			// read state of swap after it has been created
-			let token_swap_hash: H256 = token_swap.using_encoded(blake2_256).into();
-			let token_swap_storage_key = bp_runtime::storage_map_final_key_identity(
+			let token_swap_hash = token_swap.hash();
+			let token_swap_storage_key = bp_token_swap::storage_keys::pending_swaps_key(
 				TOKEN_SWAP_PALLET_NAME,
-				pallet_bridge_token_swap::PENDING_SWAPS_MAP_NAME,
-				token_swap_hash.as_ref(),
+				token_swap_hash,
 			);
 			match read_token_swap_state(&source_client, swap_created_at, &token_swap_storage_key)
 				.await?

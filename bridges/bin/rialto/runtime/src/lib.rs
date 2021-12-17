@@ -1030,14 +1030,13 @@ impl_runtime_apis! {
 					params: MessageProofParams,
 				) -> (millau_messages::FromMillauMessagesProof, Weight) {
 					use crate::millau_messages::WithMillauMessageBridge;
-					use bp_messages::MessageKey;
+					use bp_messages::{MessageKey, storage_keys};
 					use bridge_runtime_common::{
 						messages::MessageBridge,
 						messages_benchmarking::{ed25519_sign, prepare_message_proof},
 					};
 					use codec::Encode;
 					use frame_support::weights::GetDispatchInfo;
-					use pallet_bridge_messages::storage_keys;
 					use sp_runtime::traits::{Header, IdentifyAccount};
 
 					let remark = match params.size {
@@ -1115,7 +1114,7 @@ impl_runtime_apis! {
 
 					prepare_message_delivery_proof::<WithMillauMessageBridge, bp_millau::Hasher, Runtime, (), _, _>(
 						params,
-						|lane_id| pallet_bridge_messages::storage_keys::inbound_lane_data_key(
+						|lane_id| bp_messages::storage_keys::inbound_lane_data_key(
 							<WithMillauMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
 							&lane_id,
 						).0,

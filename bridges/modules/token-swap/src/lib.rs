@@ -95,9 +95,6 @@ pub mod weights_ext;
 
 pub use pallet::*;
 
-/// Name of the `PendingSwaps` storage map.
-pub const PENDING_SWAPS_MAP_NAME: &str = "PendingSwaps";
-
 // comes from #[pallet::event]
 #[allow(clippy::unused_unit)]
 #[frame_support::pallet]
@@ -639,7 +636,7 @@ pub mod pallet {
 mod tests {
 	use super::*;
 	use crate::mock::*;
-	use frame_support::{assert_noop, assert_ok};
+	use frame_support::{assert_noop, assert_ok, storage::generator::StorageMap};
 
 	const CAN_START_BLOCK_NUMBER: u64 = 10;
 	const CAN_CLAIM_BLOCK_NUMBER: u64 = CAN_START_BLOCK_NUMBER + 1;
@@ -1129,5 +1126,13 @@ mod tests {
 				Some(TokenSwapState::Confirmed)
 			);
 		});
+	}
+
+	#[test]
+	fn storage_keys_computed_properly() {
+		assert_eq!(
+			PendingSwaps::<TestRuntime>::storage_map_final_key(test_swap_hash()),
+			bp_token_swap::storage_keys::pending_swaps_key("TokenSwap", test_swap_hash()).0,
+		);
 	}
 }

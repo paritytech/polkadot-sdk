@@ -20,6 +20,7 @@ use crate::cli::{
 };
 
 use codec::Encode;
+use frame_support::Twox64Concat;
 use num_traits::Zero;
 use polkadot_parachain::primitives::{
 	HeadData as ParaHeadData, Id as ParaId, ValidationCode as ParaValidationCode,
@@ -202,7 +203,7 @@ impl RegisterParachain {
 			log::info!(target: "bridge", "Registered parachain: {:?}. Waiting for onboarding", para_id);
 
 			// wait until parathread is onboarded
-			let para_state_key = bp_runtime::storage_map_final_key_twox64_concat(
+			let para_state_key = bp_runtime::storage_map_final_key::<Twox64Concat>(
 				PARAS_PALLET_NAME,
 				PARAS_LIFECYCLES_STORAGE_NAME,
 				&para_id.encode(),
