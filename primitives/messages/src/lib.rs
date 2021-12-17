@@ -30,6 +30,7 @@ use scale_info::TypeInfo;
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
 pub mod source_chain;
+pub mod storage_keys;
 pub mod target_chain;
 
 // Weight is reexported to avoid additional frame-support dependencies in related crates.

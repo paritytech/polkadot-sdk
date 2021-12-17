@@ -201,47 +201,22 @@ impl<BlockNumber: Copy + Into<u64>, BlockHash: Copy> TransactionEra<BlockNumber,
 }
 
 /// This is a copy of the
-/// `frame_support::storage::generator::StorageMap::storage_map_final_key` for `Blake2_128Concat`
-/// maps.
+/// `frame_support::storage::generator::StorageMap::storage_map_final_key` for maps based
+/// on selected hasher.
 ///
 /// We're using it because to call `storage_map_final_key` directly, we need access to the runtime
 /// and pallet instance, which (sometimes) is impossible.
-pub fn storage_map_final_key_blake2_128concat(
+pub fn storage_map_final_key<H: StorageHasher>(
 	pallet_prefix: &str,
 	map_name: &str,
 	key: &[u8],
 ) -> StorageKey {
-	storage_map_final_key_identity(
-		pallet_prefix,
-		map_name,
-		&frame_support::Blake2_128Concat::hash(key),
-	)
-}
-
-///
-pub fn storage_map_final_key_twox64_concat(
-	pallet_prefix: &str,
-	map_name: &str,
-	key: &[u8],
-) -> StorageKey {
-	storage_map_final_key_identity(pallet_prefix, map_name, &frame_support::Twox64Concat::hash(key))
-}
-
-/// This is a copy of the
-/// `frame_support::storage::generator::StorageMap::storage_map_final_key` for `Identity` maps.
-///
-/// We're using it because to call `storage_map_final_key` directly, we need access to the runtime
-/// and pallet instance, which (sometimes) is impossible.
-pub fn storage_map_final_key_identity(
-	pallet_prefix: &str,
-	map_name: &str,
-	key_hashed: &[u8],
-) -> StorageKey {
+	let key_hashed = H::hash(key);
 	let pallet_prefix_hashed = frame_support::Twox128::hash(pallet_prefix.as_bytes());
 	let storage_prefix_hashed = frame_support::Twox128::hash(map_name.as_bytes());
 
 	let mut final_key = Vec::with_capacity(
-		pallet_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.len(),
+		pallet_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.as_ref().len(),
 	);
 
 	final_key.extend_from_slice(&pallet_prefix_hashed[..]);
