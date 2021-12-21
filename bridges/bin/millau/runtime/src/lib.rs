@@ -768,10 +768,6 @@ impl_runtime_apis! {
 		fn latest_received_nonce(lane: bp_messages::LaneId) -> bp_messages::MessageNonce {
 			BridgeRialtoMessages::outbound_latest_received_nonce(lane)
 		}
-
-		fn latest_generated_nonce(lane: bp_messages::LaneId) -> bp_messages::MessageNonce {
-			BridgeRialtoMessages::outbound_latest_generated_nonce(lane)
-		}
 	}
 
 	impl bp_rialto::FromRialtoInboundLaneApi<Block> for Runtime {
