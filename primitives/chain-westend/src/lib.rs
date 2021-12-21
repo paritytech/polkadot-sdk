@@ -90,29 +90,6 @@ pub fn derive_account_from_rococo_id(id: bp_runtime::SourceAccount<AccountId>) -
 /// Name of the `WestendFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_best_finalized";
 
-/// Name of the `ToWestendOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
-/// method.
-pub const TO_WESTEND_ESTIMATE_MESSAGE_FEE_METHOD: &str =
-	"ToWestendOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
-/// Name of the `ToWestendOutboundLaneApi::message_details` runtime method.
-pub const TO_WESTEND_MESSAGE_DETAILS_METHOD: &str = "ToWestendOutboundLaneApi_message_details";
-/// Name of the `ToWestendOutboundLaneApi::latest_generated_nonce` runtime method.
-pub const TO_WESTEND_LATEST_GENERATED_NONCE_METHOD: &str =
-	"ToWestendOutboundLaneApi_latest_generated_nonce";
-/// Name of the `ToWestendOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_WESTEND_LATEST_RECEIVED_NONCE_METHOD: &str =
-	"ToWestendOutboundLaneApi_latest_received_nonce";
-
-/// Name of the `FromWestendInboundLaneApi::latest_received_nonce` runtime method.
-pub const FROM_WESTEND_LATEST_RECEIVED_NONCE_METHOD: &str =
-	"FromWestendInboundLaneApi_latest_received_nonce";
-/// Name of the `FromWestendInboundLaneApi::latest_onfirmed_nonce` runtime method.
-pub const FROM_WESTEND_LATEST_CONFIRMED_NONCE_METHOD: &str =
-	"FromWestendInboundLaneApi_latest_confirmed_nonce";
-/// Name of the `FromWestendInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_WESTEND_UNREWARDED_RELAYERS_STATE: &str =
-	"FromWestendInboundLaneApi_unrewarded_relayers_state";
-
 /// The target length of a session (how often authorities change) on Westend measured in of number
 /// of blocks.
 ///
