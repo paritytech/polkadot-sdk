@@ -43,9 +43,9 @@ pub const SESSION_LENGTH: BlockNumber = 10 * time_units::MINUTES;
 // NOTE: This needs to be kept up to date with the Rococo runtime found in the Polkadot repo.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_version::create_runtime_str!("rococo"),
-	impl_name: sp_version::create_runtime_str!("parity-rococo-v1.6"),
+	impl_name: sp_version::create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 9130,
+	spec_version: 9140,
 	impl_version: 0,
 	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 0,
