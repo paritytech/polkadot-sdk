@@ -23,8 +23,9 @@ use polkadot_primitives::v1::{
 	Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CollatorPair, CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash, HeadData,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	ParachainHost, PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ParachainHost, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -530,6 +531,12 @@ sp_api::mock_impl_runtime_apis! {
 
 		fn on_chain_votes() -> Option<ScrapedOnChainVotes<Hash>> {
 			None
+		}
+
+		fn submit_pvf_check_statement(_: PvfCheckStatement, _: ValidatorSignature) {}
+
+		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {
+			Vec::new()
 		}
 	}
 }
