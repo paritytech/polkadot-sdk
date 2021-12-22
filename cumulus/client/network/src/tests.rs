@@ -15,30 +15,33 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use async_trait::async_trait;
+use cumulus_relay_chain_interface::WaitError;
+use cumulus_relay_chain_local::{check_block_in_chain, BlockCheckStatus};
 use cumulus_test_service::runtime::{Block, Hash, Header};
-use futures::{executor::block_on, poll, task::Poll};
+use futures::{executor::block_on, poll, task::Poll, FutureExt, StreamExt};
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::v1::{
-	Block as PBlock, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
-	CollatorPair, CommittedCandidateReceipt, CoreState, GroupRotationInfo, Hash as PHash, HeadData,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	ParachainHost, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	Block as PBlock, CandidateCommitments, CandidateDescriptor, CollatorPair,
+	CommittedCandidateReceipt, Hash as PHash, HeadData, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCodeHash, ValidatorId,
 };
+use polkadot_service::Handle;
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
 	InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
-use sp_api::{ApiRef, ProvideRuntimeApi};
+use sc_client_api::{Backend, BlockchainEvents};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{Pair, H256};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::KeyStore, SyncCryptoStore, SyncCryptoStorePtr};
 use sp_runtime::RuntimeAppPublic;
-use std::collections::BTreeMap;
+use sp_state_machine::StorageValue;
+use std::{collections::BTreeMap, time::Duration};
 
 fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceError) -> bool) {
 	let error = *error
@@ -50,31 +53,190 @@ fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceErro
 }
 
 #[derive(Clone)]
-struct DummyCollatorNetwork;
+struct DummyRelayChainInterface {
+	data: Arc<Mutex<ApiData>>,
+	relay_client: Arc<PClient>,
+	relay_backend: Arc<PBackend>,
+}
 
-impl SyncOracle for DummyCollatorNetwork {
-	fn is_major_syncing(&mut self) -> bool {
+impl DummyRelayChainInterface {
+	fn new() -> Self {
+		let builder = TestClientBuilder::new();
+		let relay_backend = builder.backend();
+
+		Self {
+			data: Arc::new(Mutex::new(ApiData {
+				validators: vec![Sr25519Keyring::Alice.public().into()],
+				has_pending_availability: false,
+			})),
+			relay_client: Arc::new(builder.build()),
+			relay_backend,
+		}
+	}
+}
+
+#[async_trait]
+impl RelayChainInterface for DummyRelayChainInterface {
+	fn validators(
+		&self,
+		_: &cumulus_primitives_core::relay_chain::BlockId,
+	) -> Result<Vec<ValidatorId>, sp_api::ApiError> {
+		Ok(self.data.lock().validators.clone())
+	}
+
+	fn block_status(
+		&self,
+		block_id: cumulus_primitives_core::relay_chain::BlockId,
+	) -> Result<sp_blockchain::BlockStatus, sp_blockchain::Error> {
+		self.relay_backend.blockchain().status(block_id)
+	}
+
+	fn best_block_hash(&self) -> PHash {
+		self.relay_backend.blockchain().info().best_hash
+	}
+
+	fn retrieve_dmq_contents(&self, _: ParaId, _: PHash) -> Option<Vec<InboundDownwardMessage>> {
+		unimplemented!("Not needed for test")
+	}
+
+	fn retrieve_all_inbound_hrmp_channel_contents(
+		&self,
+		_: ParaId,
+		_: PHash,
+	) -> Option<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
+		Some(BTreeMap::new())
+	}
+
+	fn persisted_validation_data(
+		&self,
+		_: &cumulus_primitives_core::relay_chain::BlockId,
+		_: ParaId,
+		_: OccupiedCoreAssumption,
+	) -> Result<Option<PersistedValidationData>, sp_api::ApiError> {
+		Ok(Some(PersistedValidationData {
+			parent_head: HeadData(default_header().encode()),
+			..Default::default()
+		}))
+	}
+
+	fn candidate_pending_availability(
+		&self,
+		_: &cumulus_primitives_core::relay_chain::BlockId,
+		_: ParaId,
+	) -> Result<Option<CommittedCandidateReceipt>, sp_api::ApiError> {
+		if self.data.lock().has_pending_availability {
+			Ok(Some(CommittedCandidateReceipt {
+				descriptor: CandidateDescriptor {
+					para_head: polkadot_parachain::primitives::HeadData(default_header().encode())
+						.hash(),
+					para_id: 0u32.into(),
+					relay_parent: PHash::random(),
+					collator: CollatorPair::generate().0.public(),
+					persisted_validation_data_hash: PHash::random().into(),
+					pov_hash: PHash::random(),
+					erasure_root: PHash::random(),
+					signature: sp_core::sr25519::Signature([0u8; 64]).into(),
+					validation_code_hash: ValidationCodeHash::from(PHash::random()),
+				},
+				commitments: CandidateCommitments {
+					upward_messages: Vec::new(),
+					horizontal_messages: Vec::new(),
+					new_validation_code: None,
+					head_data: HeadData(Vec::new()),
+					processed_downward_messages: 0,
+					hrmp_watermark: 0,
+				},
+			}))
+		} else {
+			Ok(None)
+		}
+	}
+
+	fn session_index_for_child(
+		&self,
+		_: &cumulus_primitives_core::relay_chain::BlockId,
+	) -> Result<SessionIndex, sp_api::ApiError> {
+		Ok(0)
+	}
+
+	fn import_notification_stream(&self) -> sc_client_api::ImportNotifications<PBlock> {
+		self.relay_client.import_notification_stream()
+	}
+
+	fn finality_notification_stream(&self) -> sc_client_api::FinalityNotifications<PBlock> {
+		self.relay_client.finality_notification_stream()
+	}
+
+	fn storage_changes_notification_stream(
+		&self,
+		filter_keys: Option<&[sc_client_api::StorageKey]>,
+		child_filter_keys: Option<
+			&[(sc_client_api::StorageKey, Option<Vec<sc_client_api::StorageKey>>)],
+		>,
+	) -> sc_client_api::blockchain::Result<sc_client_api::StorageEventStream<PHash>> {
+		self.relay_client
+			.storage_changes_notification_stream(filter_keys, child_filter_keys)
+	}
+
+	fn is_major_syncing(&self) -> bool {
 		false
 	}
 
-	fn is_offline(&mut self) -> bool {
-		unimplemented!("Not required in tests")
+	fn overseer_handle(&self) -> Option<Handle> {
+		unimplemented!("Not needed for test")
+	}
+
+	fn get_storage_by_key(
+		&self,
+		_: &polkadot_service::BlockId,
+		_: &[u8],
+	) -> Result<Option<StorageValue>, sp_blockchain::Error> {
+		unimplemented!("Not needed for test")
+	}
+
+	fn prove_read(
+		&self,
+		_: &polkadot_service::BlockId,
+		_: &Vec<Vec<u8>>,
+	) -> Result<Option<sc_client_api::StorageProof>, Box<dyn sp_state_machine::Error>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn wait_for_block(
+		&self,
+		hash: PHash,
+	) -> Result<(), cumulus_relay_chain_interface::WaitError> {
+		let mut listener = match check_block_in_chain(
+			self.relay_backend.clone(),
+			self.relay_client.clone(),
+			hash,
+		)? {
+			BlockCheckStatus::InChain => return Ok(()),
+			BlockCheckStatus::Unknown(listener) => listener,
+		};
+
+		let mut timeout = futures_timer::Delay::new(Duration::from_secs(10)).fuse();
+
+		loop {
+			futures::select! {
+				_ = timeout => return Err(WaitError::Timeout(hash)),
+				evt = listener.next() => match evt {
+					Some(evt) if evt.hash == hash => return Ok(()),
+					// Not the event we waited on.
+					Some(_) => continue,
+					None => return Err(WaitError::ImportListenerClosed(hash)),
+				}
+			}
+		}
 	}
 }
 
 fn make_validator_and_api(
-) -> (BlockAnnounceValidator<Block, TestApi, PBackend, PClient>, Arc<TestApi>) {
-	let api = Arc::new(TestApi::new());
-
+) -> (BlockAnnounceValidator<Block, Arc<DummyRelayChainInterface>>, Arc<DummyRelayChainInterface>) {
+	let relay_chain_interface = Arc::new(DummyRelayChainInterface::new());
 	(
-		BlockAnnounceValidator::new(
-			api.clone(),
-			ParaId::from(56),
-			Box::new(DummyCollatorNetwork),
-			api.relay_backend.clone(),
-			api.relay_client.clone(),
-		),
-		api,
+		BlockAnnounceValidator::new(relay_chain_interface.clone(), ParaId::from(56)),
+		relay_chain_interface,
 	)
 }
 
@@ -90,7 +252,7 @@ fn default_header() -> Header {
 
 /// Same as [`make_gossip_message_and_header`], but using the genesis header as relay parent.
 async fn make_gossip_message_and_header_using_genesis(
-	api: Arc<TestApi>,
+	api: Arc<DummyRelayChainInterface>,
 	validator_index: u32,
 ) -> (CollationSecondedSignal, Header) {
 	let relay_parent = api.relay_client.hash(0).ok().flatten().expect("Genesis hash exists");
@@ -99,7 +261,7 @@ async fn make_gossip_message_and_header_using_genesis(
 }
 
 async fn make_gossip_message_and_header(
-	api: Arc<TestApi>,
+	relay_chain_interface: Arc<DummyRelayChainInterface>,
 	relay_parent: H256,
 	validator_index: u32,
 ) -> (CollationSecondedSignal, Header) {
@@ -110,8 +272,9 @@ async fn make_gossip_message_and_header(
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	)
 	.unwrap();
-	let session_index =
-		api.runtime_api().session_index_for_child(&BlockId::Hash(relay_parent)).unwrap();
+	let session_index = relay_chain_interface
+		.session_index_for_child(&BlockId::Hash(relay_parent))
+		.unwrap();
 	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 	let header = default_header();
@@ -292,8 +455,7 @@ fn check_statement_seconded() {
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	)
 	.unwrap();
-	let session_index =
-		api.runtime_api().session_index_for_child(&BlockId::Hash(relay_parent)).unwrap();
+	let session_index = api.session_index_for_child(&BlockId::Hash(relay_parent)).unwrap();
 	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 	let statement = Statement::Valid(Default::default());
@@ -396,147 +558,4 @@ fn block_announced_without_statement_and_block_only_backed() {
 struct ApiData {
 	validators: Vec<ValidatorId>,
 	has_pending_availability: bool,
-}
-
-struct TestApi {
-	data: Arc<Mutex<ApiData>>,
-	relay_client: Arc<PClient>,
-	relay_backend: Arc<PBackend>,
-}
-
-impl TestApi {
-	fn new() -> Self {
-		let builder = TestClientBuilder::new();
-		let relay_backend = builder.backend();
-
-		Self {
-			data: Arc::new(Mutex::new(ApiData {
-				validators: vec![Sr25519Keyring::Alice.public().into()],
-				has_pending_availability: false,
-			})),
-			relay_client: Arc::new(builder.build()),
-			relay_backend,
-		}
-	}
-}
-
-#[derive(Default)]
-struct RuntimeApi {
-	data: Arc<Mutex<ApiData>>,
-}
-
-impl ProvideRuntimeApi<PBlock> for TestApi {
-	type Api = RuntimeApi;
-
-	fn runtime_api<'a>(&'a self) -> ApiRef<'a, Self::Api> {
-		RuntimeApi { data: self.data.clone() }.into()
-	}
-}
-
-sp_api::mock_impl_runtime_apis! {
-	impl ParachainHost<PBlock> for RuntimeApi {
-		fn validators(&self) -> Vec<ValidatorId> {
-			self.data.lock().validators.clone()
-		}
-
-		fn validator_groups(&self) -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumber>) {
-			(Vec::new(), GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 0, now: 0 })
-		}
-
-		fn availability_cores(&self) -> Vec<CoreState<PHash>> {
-			Vec::new()
-		}
-
-		fn persisted_validation_data(
-			&self,
-			_: ParaId,
-			_: OccupiedCoreAssumption,
-		) -> Option<PersistedValidationData<PHash, BlockNumber>> {
-			Some(PersistedValidationData {
-				parent_head: HeadData(default_header().encode()),
-				..Default::default()
-			})
-		}
-
-		fn session_index_for_child(&self) -> SessionIndex {
-			0
-		}
-
-		fn validation_code(&self, _: ParaId, _: OccupiedCoreAssumption) -> Option<ValidationCode> {
-			None
-		}
-
-		fn candidate_pending_availability(&self, _: ParaId) -> Option<CommittedCandidateReceipt<PHash>> {
-			if self.data.lock().has_pending_availability {
-				Some(CommittedCandidateReceipt {
-					descriptor: CandidateDescriptor {
-						para_head: HeadData(
-							default_header().encode(),
-						).hash(),
-						para_id: 0u32.into(),
-						relay_parent: PHash::random(),
-						collator: CollatorPair::generate().0.public(),
-						persisted_validation_data_hash: PHash::random().into(),
-						pov_hash: PHash::random(),
-						erasure_root: PHash::random(),
-						signature: sp_core::sr25519::Signature([0u8; 64]).into(),
-						validation_code_hash: ValidationCodeHash::from(PHash::random()),
-					},
-					commitments: CandidateCommitments {
-						upward_messages: Vec::new(),
-						horizontal_messages: Vec::new(),
-						new_validation_code: None,
-						head_data: HeadData(Vec::new()),
-						processed_downward_messages: 0,
-						hrmp_watermark: 0
-					}
-				})
-			} else {
-				None
-			}
-		}
-
-		fn candidate_events(&self) -> Vec<CandidateEvent<PHash>> {
-			Vec::new()
-		}
-
-		fn session_info(_: SessionIndex) -> Option<SessionInfo> {
-			None
-		}
-
-		fn check_validation_outputs(_: ParaId, _: CandidateCommitments) -> bool {
-			false
-		}
-
-		fn dmq_contents(_: ParaId) -> Vec<InboundDownwardMessage<BlockNumber>> {
-			Vec::new()
-		}
-
-		fn inbound_hrmp_channels_contents(
-			_: ParaId,
-		) -> BTreeMap<ParaId, Vec<InboundHrmpMessage<BlockNumber>>> {
-			BTreeMap::new()
-		}
-
-		fn assumed_validation_data(
-			_: ParaId,
-			_: Hash,
-		) -> Option<(PersistedValidationData<Hash, BlockNumber>, ValidationCodeHash)> {
-			None
-		}
-
-		fn validation_code_by_hash(_: ValidationCodeHash) -> Option<ValidationCode> {
-			None
-		}
-
-		fn on_chain_votes() -> Option<ScrapedOnChainVotes<Hash>> {
-			None
-		}
-
-		fn submit_pvf_check_statement(_: PvfCheckStatement, _: ValidatorSignature) {}
-
-		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {
-			Vec::new()
-		}
-	}
 }

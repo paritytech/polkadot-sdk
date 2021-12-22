@@ -1,0 +1,21 @@
+[package]
+authors = ["Parity Technologies <admin@parity.io>"]
+name = "cumulus-relay-chain-interface"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+cumulus-primitives-core = { path = "../../primitives/core" }
+
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+parking_lot = "0.11.1"
+derive_more = "0.99.2"
+async-trait = "0.1.52"

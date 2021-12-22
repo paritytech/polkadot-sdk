@@ -44,7 +44,6 @@
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
 use sc_consensus::import_queue::{ImportQueue, IncomingBlock};
-use sp_api::ProvideRuntimeApi;
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::{
 	generic::BlockId,
@@ -54,11 +53,11 @@ use sp_runtime::{
 use polkadot_node_primitives::{AvailableData, POV_BOMB_LIMIT};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::v1::{
-	Block as PBlock, CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, ParachainHost,
-	SessionIndex,
+	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
 };
 
 use cumulus_primitives_core::ParachainBlockData;
+use cumulus_relay_chain_interface::RelayChainInterface;
 
 use codec::Decode;
 use futures::{select, stream::FuturesUnordered, Future, FutureExt, Stream, StreamExt};
@@ -102,15 +101,14 @@ pub struct PoVRecovery<Block: BlockT, PC, IQ, RC> {
 	relay_chain_slot_duration: Duration,
 	parachain_client: Arc<PC>,
 	parachain_import_queue: IQ,
-	relay_chain_client: Arc<RC>,
+	relay_chain_interface: RC,
 	para_id: ParaId,
 }
 
-impl<Block: BlockT, PC, IQ, RC> PoVRecovery<Block, PC, IQ, RC>
+impl<Block: BlockT, PC, IQ, RCInterface> PoVRecovery<Block, PC, IQ, RCInterface>
 where
 	PC: BlockBackend<Block> + BlockchainEvents<Block> + UsageProvider<Block>,
-	RC: ProvideRuntimeApi<PBlock> + BlockchainEvents<PBlock>,
-	RC::Api: ParachainHost<PBlock>,
+	RCInterface: RelayChainInterface + Clone,
 	IQ: ImportQueue<Block>,
 {
 	/// Create a new instance.
@@ -119,7 +117,7 @@ where
 		relay_chain_slot_duration: Duration,
 		parachain_client: Arc<PC>,
 		parachain_import_queue: IQ,
-		relay_chain_client: Arc<RC>,
+		relay_chain_interface: RCInterface,
 		para_id: ParaId,
 	) -> Self {
 		Self {
@@ -130,7 +128,7 @@ where
 			waiting_for_parent: HashMap::new(),
 			parachain_client,
 			parachain_import_queue,
-			relay_chain_client,
+			relay_chain_interface,
 			para_id,
 		}
 	}
@@ -365,7 +363,7 @@ where
 		let mut imported_blocks = self.parachain_client.import_notification_stream().fuse();
 		let mut finalized_blocks = self.parachain_client.finality_notification_stream().fuse();
 		let pending_candidates =
-			pending_candidates(self.relay_chain_client.clone(), self.para_id).fuse();
+			pending_candidates(self.relay_chain_interface.clone(), self.para_id).fuse();
 		futures::pin_mut!(pending_candidates);
 
 		loop {
@@ -419,20 +417,15 @@ where
 }
 
 /// Returns a stream over pending candidates for the parachain corresponding to `para_id`.
-fn pending_candidates<RC>(
-	relay_chain_client: Arc<RC>,
+fn pending_candidates(
+	relay_chain_client: impl RelayChainInterface,
 	para_id: ParaId,
-) -> impl Stream<Item = (CommittedCandidateReceipt, SessionIndex)>
-where
-	RC: ProvideRuntimeApi<PBlock> + BlockchainEvents<PBlock>,
-	RC::Api: ParachainHost<PBlock>,
-{
+) -> impl Stream<Item = (CommittedCandidateReceipt, SessionIndex)> {
 	relay_chain_client.import_notification_stream().filter_map(move |n| {
-		let runtime_api = relay_chain_client.runtime_api();
-		let res = runtime_api
+		let res = relay_chain_client
 			.candidate_pending_availability(&BlockId::hash(n.hash), para_id)
 			.and_then(|pa| {
-				runtime_api
+				relay_chain_client
 					.session_index_for_child(&BlockId::hash(n.hash))
 					.map(|v| pa.map(|pa| (pa, v)))
 			})

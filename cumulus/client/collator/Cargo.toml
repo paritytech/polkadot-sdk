@@ -22,6 +22,7 @@ polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", bran
 cumulus-client-network = { path = "../network" }
 cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "2.3.0", features = [ "derive" ] }

@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use cumulus_relay_chain_interface::RelayChainInterface;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, Finalizer, UsageProvider,
 };
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::{
@@ -26,9 +26,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 };
 
-use polkadot_primitives::v1::{
-	Block as PBlock, Id as ParaId, OccupiedCoreAssumption, ParachainHost,
-};
+use polkadot_primitives::v1::{Block as PBlock, Id as ParaId, OccupiedCoreAssumption};
 
 use codec::Decode;
 use futures::{future, select, FutureExt, Stream, StreamExt};
@@ -370,10 +368,9 @@ where
 	}
 }
 
-impl<T> RelaychainClient for Arc<T>
+impl<RCInterface> RelaychainClient for RCInterface
 where
-	T: sc_client_api::BlockchainEvents<PBlock> + ProvideRuntimeApi<PBlock> + 'static + Send + Sync,
-	<T as ProvideRuntimeApi<PBlock>>::Api: ParachainHost<PBlock>,
+	RCInterface: RelayChainInterface + Clone + 'static,
 {
 	type Error = ClientError;
 
@@ -410,8 +407,7 @@ where
 		at: &BlockId<PBlock>,
 		para_id: ParaId,
 	) -> ClientResult<Option<Vec<u8>>> {
-		self.runtime_api()
-			.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
+		self.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
 			.map(|s| s.map(|s| s.parent_head.0))
 			.map_err(Into::into)
 	}

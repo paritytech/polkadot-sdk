@@ -17,7 +17,9 @@
 //! Cumulus Collator implementation for Substrate.
 
 use cumulus_client_network::WaitToAnnounce;
-use cumulus_primitives_core::{CollectCollationInfo, ParachainBlockData, PersistedValidationData};
+use cumulus_primitives_core::{
+	relay_chain::Hash as PHash, CollectCollationInfo, ParachainBlockData, PersistedValidationData,
+};
 
 use sc_client_api::BlockBackend;
 use sp_api::ProvideRuntimeApi;
@@ -34,7 +36,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::v1::{CollatorPair, Hash as PHash, HeadData, Id as ParaId};
+use polkadot_primitives::v1::{CollatorPair, HeadData, Id as ParaId};
 
 use codec::{Decode, Encode};
 use futures::{channel::oneshot, FutureExt};

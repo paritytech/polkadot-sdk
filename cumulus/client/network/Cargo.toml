@@ -13,20 +13,23 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot deps
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 
 # other deps
 codec = { package = "parity-scale-codec", version = "2.3.0", features = [ "derive" ] }
 futures = { version = "0.3.1", features = ["compat"] }
 futures-timer = "3.0.2"
 tracing = "0.1.22"
-parking_lot = "0.10.2"
+parking_lot = "0.11.1"
 derive_more = "0.99.2"
+async-trait = "0.1.52"
 
 [dev-dependencies]
 tokio = { version = "1.10", features = ["macros"] }
@@ -34,9 +37,12 @@ tokio = { version = "1.10", features = ["macros"] }
 # Cumulus deps
 cumulus-test-service = { path = "../../test/service" }
 cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-local = { path = "../relay-chain-local" }
 
 # Polkadot deps
 polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # substrate deps
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -15,12 +15,10 @@ sp-state-machine = { git = "https://github.com/paritytech/substrate", optional =
 sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
 
-# Polkadot dependencies
-polkadot-client = { git = "https://github.com/paritytech/polkadot", optional = true, branch = "master" }
-
 # Cumulus dependencies
 cumulus-primitives-core = { path = "../core", default-features = false }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true }
+cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface", optional = true }
 
 # Other dependencies
 async-trait = { version = "0.1.42", optional = true }
@@ -44,6 +42,6 @@ std = [
 	"sp-runtime",
 	"sc-client-api",
 	"sp-api",
-	"polkadot-client",
+	"cumulus-relay-chain-interface",
 	"cumulus-test-relay-sproof-builder"
 ]

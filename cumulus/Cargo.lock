@@ -1426,6 +1426,7 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
  "cumulus-test-client",
  "cumulus-test-runtime",
  "futures 0.3.19",
@@ -1455,7 +1456,6 @@ dependencies = [
  "cumulus-primitives-core",
  "futures 0.3.19",
  "parity-scale-codec",
- "polkadot-client",
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-aura",
@@ -1480,6 +1480,7 @@ name = "cumulus-client-consensus-common"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "cumulus-relay-chain-interface",
  "cumulus-test-client",
  "dyn-clone",
  "futures 0.3.19",
@@ -1504,9 +1505,9 @@ dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
  "futures 0.3.19",
  "parking_lot 0.10.2",
- "polkadot-client",
  "sc-client-api",
  "sc-consensus",
  "sp-api",
@@ -1524,17 +1525,21 @@ dependencies = [
 name = "cumulus-client-network"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-local",
  "cumulus-test-service",
  "derive_more",
  "futures 0.3.19",
  "futures-timer 3.0.2",
  "parity-scale-codec",
- "parking_lot 0.10.2",
+ "parking_lot 0.11.2",
  "polkadot-client",
  "polkadot-node-primitives",
  "polkadot-parachain",
  "polkadot-primitives",
+ "polkadot-service",
  "polkadot-test-client",
  "sc-cli",
  "sc-client-api",
@@ -1546,6 +1551,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
+ "sp-state-machine",
  "substrate-test-utils",
  "tokio",
  "tracing",
@@ -1556,6 +1562,7 @@ name = "cumulus-client-pov-recovery"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
  "cumulus-test-service",
  "futures 0.3.19",
  "futures-timer 3.0.2",
@@ -1586,11 +1593,11 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-pov-recovery",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "polkadot-overseer",
  "polkadot-primitives",
- "polkadot-service",
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus",
@@ -1777,9 +1784,9 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
  "cumulus-test-relay-sproof-builder",
  "parity-scale-codec",
- "polkadot-client",
  "sc-client-api",
  "scale-info",
  "sp-api",
@@ -1823,6 +1830,54 @@ dependencies = [
  "sp-std",
  "sp-trie",
  "xcm",
+]
+
+[[package]]
+name = "cumulus-relay-chain-interface"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cumulus-primitives-core",
+ "derive_more",
+ "parking_lot 0.11.2",
+ "polkadot-overseer",
+ "sc-client-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
+]
+
+[[package]]
+name = "cumulus-relay-chain-local"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
+ "cumulus-test-service",
+ "futures 0.3.19",
+ "futures-timer 3.0.2",
+ "parking_lot 0.11.2",
+ "polkadot-client",
+ "polkadot-primitives",
+ "polkadot-service",
+ "polkadot-test-client",
+ "sc-client-api",
+ "sc-consensus-babe",
+ "sc-network",
+ "sc-service",
+ "sc-telemetry",
+ "sc-tracing",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-state-machine",
+ "tracing",
 ]
 
 [[package]]
@@ -1919,6 +1974,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-local",
  "cumulus-test-relay-validation-worker-provider",
  "cumulus-test-runtime",
  "frame-system",
@@ -1927,6 +1983,7 @@ dependencies = [
  "jsonrpc-core",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "parking_lot 0.11.2",
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-service",
@@ -6026,6 +6083,8 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-local",
  "derive_more",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -6670,6 +6729,8 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-local",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures 0.3.19",

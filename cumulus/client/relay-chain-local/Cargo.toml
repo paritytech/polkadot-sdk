@@ -1,0 +1,43 @@
+[package]
+authors = ["Parity Technologies <admin@parity.io>"]
+name = "cumulus-relay-chain-local"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+polkadot-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
+
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+parking_lot = "0.11.1"
+tracing = "0.1.25"
+async-trait = "0.1.52"
+futures = { version = "0.3.1", features = ["compat"] }
+futures-timer = "3.0.2"
+
+[dev-dependencies]
+# Cumulus deps
+cumulus-test-service = { path = "../../test/service" }
+
+# Polkadot deps
+polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+# substrate deps
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
