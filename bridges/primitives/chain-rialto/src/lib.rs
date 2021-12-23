@@ -247,9 +247,6 @@ pub const TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToRialtoOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToRialtoOutboundLaneApi::message_details` runtime method.
 pub const TO_RIALTO_MESSAGE_DETAILS_METHOD: &str = "ToRialtoOutboundLaneApi_message_details";
-/// Name of the `ToRialtoOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_RIALTO_LATEST_RECEIVED_NONCE_METHOD: &str =
-	"ToRialtoOutboundLaneApi_latest_received_nonce";
 
 /// Name of the `FromRialtoInboundLaneApi::latest_received_nonce` runtime method.
 pub const FROM_RIALTO_LATEST_RECEIVED_NONCE_METHOD: &str =
@@ -300,8 +297,6 @@ sp_api::decl_runtime_apis! {
 			begin: MessageNonce,
 			end: MessageNonce,
 		) -> Vec<MessageDetails<OutboundMessageFee>>;
-		/// Returns nonce of the latest message, received by bridged chain.
-		fn latest_received_nonce(lane: LaneId) -> MessageNonce;
 	}
 
 	/// Inbound message lane API for messages sent by Rialto chain.
