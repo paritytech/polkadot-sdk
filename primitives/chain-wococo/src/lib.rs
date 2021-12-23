@@ -52,9 +52,6 @@ pub const TO_WOCOCO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToWococoOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToWococoOutboundLaneApi::message_details` runtime method.
 pub const TO_WOCOCO_MESSAGE_DETAILS_METHOD: &str = "ToWococoOutboundLaneApi_message_details";
-/// Name of the `ToWococoOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_WOCOCO_LATEST_RECEIVED_NONCE_METHOD: &str =
-	"ToWococoOutboundLaneApi_latest_received_nonce";
 
 /// Name of the `FromWococoInboundLaneApi::latest_received_nonce` runtime method.
 pub const FROM_WOCOCO_LATEST_RECEIVED_NONCE_METHOD: &str =
@@ -105,8 +102,6 @@ sp_api::decl_runtime_apis! {
 			begin: MessageNonce,
 			end: MessageNonce,
 		) -> Vec<MessageDetails<OutboundMessageFee>>;
-		/// Returns nonce of the latest message, received by bridged chain.
-		fn latest_received_nonce(lane: LaneId) -> MessageNonce;
 	}
 
 	/// Inbound message lane API for messages sent by Wococo chain.
