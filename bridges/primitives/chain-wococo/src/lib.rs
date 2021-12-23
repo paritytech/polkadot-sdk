@@ -55,9 +55,6 @@ pub const TO_WOCOCO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToWococoOutboundLaneApi::message_details` runtime method.
 pub const TO_WOCOCO_MESSAGE_DETAILS_METHOD: &str = "ToWococoOutboundLaneApi_message_details";
 
-/// Name of the `FromWococoInboundLaneApi::latest_received_nonce` runtime method.
-pub const FROM_WOCOCO_LATEST_RECEIVED_NONCE_METHOD: &str =
-	"FromWococoInboundLaneApi_latest_received_nonce";
 /// Name of the `FromWococoInboundLaneApi::latest_onfirmed_nonce` runtime method.
 pub const FROM_WOCOCO_LATEST_CONFIRMED_NONCE_METHOD: &str =
 	"FromWococoInboundLaneApi_latest_confirmed_nonce";
@@ -111,8 +108,6 @@ sp_api::decl_runtime_apis! {
 	/// This API is implemented by runtimes that are receiving messages from Wococo chain, not the
 	/// Wococo runtime itself.
 	pub trait FromWococoInboundLaneApi {
-		/// Returns nonce of the latest message, received by given lane.
-		fn latest_received_nonce(lane: LaneId) -> MessageNonce;
 		/// Nonce of the latest message that has been confirmed to the bridged chain.
 		fn latest_confirmed_nonce(lane: LaneId) -> MessageNonce;
 		/// State of the unrewarded relayers set at given lane.
