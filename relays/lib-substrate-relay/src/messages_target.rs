@@ -27,7 +27,10 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState};
+use bp_messages::{
+	storage_keys::inbound_lane_data_key, InboundLaneData, LaneId, MessageNonce,
+	UnrewardedRelayersState,
+};
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
@@ -130,16 +133,19 @@ where
 		&self,
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, MessageNonce), SubstrateError> {
-		let encoded_response = self
+		let inbound_lane_data: Option<InboundLaneData<AccountIdOf<P::SourceChain>>> = self
 			.client
-			.state_call(
-				P::SourceChain::FROM_CHAIN_LATEST_RECEIVED_NONCE_METHOD.into(),
-				Bytes(self.lane_id.encode()),
+			.storage_value(
+				inbound_lane_data_key(
+					P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+					&self.lane_id,
+				),
 				Some(id.1),
 			)
 			.await?;
-		let latest_received_nonce: MessageNonce = Decode::decode(&mut &encoded_response.0[..])
-			.map_err(SubstrateError::ResponseParseFailed)?;
+		// lane data missing from the storage is fine until first message is received
+		let latest_received_nonce =
+			inbound_lane_data.map(|data| data.last_delivered_nonce()).unwrap_or(0);
 		Ok((id, latest_received_nonce))
 	}
 

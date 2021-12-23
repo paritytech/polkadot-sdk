@@ -155,7 +155,7 @@ benchmarks_instance_pallet! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::OutboundLanes::<T, I>::get(&T::bench_lane_id()).latest_generated_nonce,
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -192,7 +192,7 @@ benchmarks_instance_pallet! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::OutboundLanes::<T, I>::get(&T::bench_lane_id()).latest_generated_nonce,
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -229,7 +229,7 @@ benchmarks_instance_pallet! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::OutboundLanes::<T, I>::get(&T::bench_lane_id()).latest_generated_nonce,
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -297,7 +297,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
 		assert!(T::is_message_dispatched(21));
@@ -331,7 +331,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 2, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			22,
 		);
 		assert!(T::is_message_dispatched(22));
@@ -369,7 +369,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
 		assert_eq!(
@@ -405,7 +405,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
 		assert!(T::is_message_dispatched(21));
@@ -439,7 +439,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
 		assert!(T::is_message_dispatched(21));
@@ -472,7 +472,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
 		assert!(T::is_message_dispatched(21));
@@ -634,7 +634,7 @@ benchmarks_instance_pallet! {
 	}: send_message(RawOrigin::Signed(sender), lane_id, payload, fee)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::outbound_latest_generated_nonce(T::bench_lane_id()),
+			crate::OutboundLanes::<T, I>::get(&T::bench_lane_id()).latest_generated_nonce,
 			T::MaxMessagesToPruneAtOnce::get() + 1,
 		);
 	}
@@ -674,7 +674,7 @@ benchmarks_instance_pallet! {
 	)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			20 + i as MessageNonce,
 		);
 	}
@@ -712,7 +712,7 @@ benchmarks_instance_pallet! {
 	)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
 	}
@@ -750,7 +750,7 @@ benchmarks_instance_pallet! {
 	)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
 	}
@@ -794,7 +794,7 @@ benchmarks_instance_pallet! {
 	)
 	verify {
 		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_received_nonce(T::bench_lane_id()),
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			20 + i as MessageNonce,
 		);
 		assert_eq!(

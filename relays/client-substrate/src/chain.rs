@@ -91,9 +91,6 @@ pub trait ChainWithMessages: Chain {
 	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str;
 
-	/// Name of the `From<ChainWithMessages>InboundLaneApi::latest_received_nonce` runtime method.
-	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
-	const FROM_CHAIN_LATEST_RECEIVED_NONCE_METHOD: &'static str;
 	/// Name of the `From<ChainWithMessages>InboundLaneApi::latest_confirmed_nonce` runtime method.
 	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
 	const FROM_CHAIN_LATEST_CONFIRMED_NONCE_METHOD: &'static str;
