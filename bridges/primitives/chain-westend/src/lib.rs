@@ -87,6 +87,9 @@ pub fn derive_account_from_rococo_id(id: bp_runtime::SourceAccount<AccountId>) -
 	AccountIdConverter::convert(encoded_id)
 }
 
+/// Name of the With-Westend GRANDPA pallet instance that is deployed at bridged chains.
+pub const WITH_WESTEND_GRANDPA_PALLET_NAME: &str = "BridgeWestendGrandpa";
+
 /// Name of the `WestendFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_best_finalized";
 

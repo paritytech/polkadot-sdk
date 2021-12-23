@@ -20,8 +20,8 @@ use bp_messages::MessageNonce;
 use codec::Encode;
 use frame_support::weights::Weight;
 use relay_substrate_client::{
-	Chain, ChainBase, ChainWithBalances, ChainWithMessages, SignParam, TransactionSignScheme,
-	UnsignedTransaction,
+	Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages, SignParam,
+	TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -68,6 +68,11 @@ impl Chain for Polkadot {
 	type SignedBlock = bp_polkadot::SignedBlock;
 	type Call = crate::runtime::Call;
 	type WeightToFee = bp_polkadot::WeightToFee;
+}
+
+impl ChainWithGrandpa for Polkadot {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
+		bp_polkadot::WITH_POLKADOT_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithMessages for Polkadot {

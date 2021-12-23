@@ -226,6 +226,8 @@ frame_support::parameter_types! {
 		.build_or_panic();
 }
 
+/// Name of the With-Rialto GRANDPA pallet instance that is deployed at bridged chains.
+pub const WITH_RIALTO_GRANDPA_PALLET_NAME: &str = "BridgeRialtoGrandpa";
 /// Name of the With-Rialto messages pallet instance that is deployed at bridged chains.
 pub const WITH_RIALTO_MESSAGES_PALLET_NAME: &str = "BridgeRialtoMessages";
 

@@ -82,6 +82,8 @@ pub const EXISTENTIAL_DEPOSIT: Balance = 10_000_000_000;
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = 4 * time_units::HOURS;
 
+/// Name of the With-Polkadot GRANDPA pallet instance that is deployed at bridged chains.
+pub const WITH_POLKADOT_GRANDPA_PALLET_NAME: &str = "BridgePolkadotGrandpa";
 /// Name of the With-Polkadot messages pallet instance that is deployed at bridged chains.
 pub const WITH_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotMessages";
 

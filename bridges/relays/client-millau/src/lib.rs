@@ -20,8 +20,8 @@ use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
 use frame_support::weights::Weight;
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithMessages, IndexOf, SignParam,
-	TransactionSignScheme, UnsignedTransaction,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages, IndexOf,
+	SignParam, TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -52,6 +52,10 @@ impl ChainBase for Millau {
 	fn max_extrinsic_weight() -> Weight {
 		bp_millau::Millau::max_extrinsic_weight()
 	}
+}
+
+impl ChainWithGrandpa for Millau {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = bp_millau::WITH_MILLAU_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithMessages for Millau {

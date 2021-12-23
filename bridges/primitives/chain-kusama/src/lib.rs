@@ -82,6 +82,8 @@ pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 30_000;
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = time_units::HOURS;
 
+/// Name of the With-Kusama GRANDPA pallet instance that is deployed at bridged chains.
+pub const WITH_KUSAMA_GRANDPA_PALLET_NAME: &str = "BridgeKusamaGrandpa";
 /// Name of the With-Kusama messages pallet instance that is deployed at bridged chains.
 pub const WITH_KUSAMA_MESSAGES_PALLET_NAME: &str = "BridgeKusamaMessages";
 
