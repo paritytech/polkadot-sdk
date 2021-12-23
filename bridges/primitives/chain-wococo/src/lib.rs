@@ -40,6 +40,8 @@ pub fn derive_account_from_rococo_id(id: bp_runtime::SourceAccount<AccountId>) -
 	AccountIdConverter::convert(encoded_id)
 }
 
+/// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
+pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
 /// Name of the With-Wococo messages pallet instance that is deployed at bridged chains.
 pub const WITH_WOCOCO_MESSAGES_PALLET_NAME: &str = "BridgeWococoMessages";
 
