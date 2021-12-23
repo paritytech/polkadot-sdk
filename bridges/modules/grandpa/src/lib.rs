@@ -626,7 +626,10 @@ mod tests {
 		JustificationGeneratorParams, ALICE, BOB,
 	};
 	use codec::Encode;
-	use frame_support::{assert_err, assert_noop, assert_ok, weights::PostDispatchInfo};
+	use frame_support::{
+		assert_err, assert_noop, assert_ok, storage::generator::StorageValue,
+		weights::PostDispatchInfo,
+	};
 	use sp_runtime::{Digest, DigestItem, DispatchError};
 
 	fn initialize_substrate_bridge() {
@@ -1144,5 +1147,13 @@ mod tests {
 				"First header should be pruned."
 			);
 		})
+	}
+
+	#[test]
+	fn storage_keys_computed_properly() {
+		assert_eq!(
+			BestFinalized::<TestRuntime>::storage_value_final_key().to_vec(),
+			bp_header_chain::storage_keys::best_finalized_hash_key("Grandpa").0,
+		);
 	}
 }

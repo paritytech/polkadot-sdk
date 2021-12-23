@@ -257,6 +257,8 @@ frame_support::parameter_types! {
 		.build_or_panic();
 }
 
+/// Name of the With-Millau GRANDPA pallet instance that is deployed at bridged chains.
+pub const WITH_MILLAU_GRANDPA_PALLET_NAME: &str = "BridgeMillauGrandpa";
 /// Name of the With-Millau messages pallet instance that is deployed at bridged chains.
 pub const WITH_MILLAU_MESSAGES_PALLET_NAME: &str = "BridgeMillauMessages";
 
