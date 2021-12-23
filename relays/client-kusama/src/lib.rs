@@ -20,8 +20,8 @@ use bp_messages::MessageNonce;
 use codec::Encode;
 use frame_support::weights::Weight;
 use relay_substrate_client::{
-	Chain, ChainBase, ChainWithBalances, ChainWithMessages, SignParam, TransactionSignScheme,
-	UnsignedTransaction,
+	Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages, SignParam,
+	TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -68,6 +68,10 @@ impl Chain for Kusama {
 	type SignedBlock = bp_kusama::SignedBlock;
 	type Call = crate::runtime::Call;
 	type WeightToFee = bp_kusama::WeightToFee;
+}
+
+impl ChainWithGrandpa for Kusama {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = bp_kusama::WITH_KUSAMA_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithMessages for Kusama {
