@@ -769,11 +769,6 @@ pub mod pallet {
 			OutboundLanes::<T, I>::get(&lane).latest_generated_nonce
 		}
 
-		/// Get nonce of the latest confirmed message at given outbound lane.
-		pub fn outbound_latest_received_nonce(lane: LaneId) -> MessageNonce {
-			OutboundLanes::<T, I>::get(&lane).latest_received_nonce
-		}
-
 		/// Get nonce of the latest received message at given inbound lane.
 		pub fn inbound_latest_received_nonce(lane: LaneId) -> MessageNonce {
 			InboundLanes::<T, I>::get(&lane).last_delivered_nonce()

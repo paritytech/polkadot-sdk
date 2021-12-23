@@ -149,16 +149,19 @@ where
 		&self,
 		id: SourceHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(SourceHeaderIdOf<MessageLaneAdapter<P>>, MessageNonce), SubstrateError> {
-		let encoded_response = self
+		let outbound_lane_data: Option<OutboundLaneData> = self
 			.client
-			.state_call(
-				P::TargetChain::TO_CHAIN_LATEST_RECEIVED_NONCE_METHOD.into(),
-				Bytes(self.lane_id.encode()),
+			.storage_value(
+				outbound_lane_data_key(
+					P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+					&self.lane_id,
+				),
 				Some(id.1),
 			)
 			.await?;
-		let latest_received_nonce: MessageNonce = Decode::decode(&mut &encoded_response.0[..])
-			.map_err(SubstrateError::ResponseParseFailed)?;
+		// lane data missing from the storage is fine until first message is sent
+		let latest_received_nonce =
+			outbound_lane_data.map(|data| data.latest_received_nonce).unwrap_or(0);
 		Ok((id, latest_received_nonce))
 	}
 
