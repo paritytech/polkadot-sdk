@@ -98,9 +98,6 @@ pub const TO_POLKADOT_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToPolkadotOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToPolkadotOutboundLaneApi::message_details` runtime method.
 pub const TO_POLKADOT_MESSAGE_DETAILS_METHOD: &str = "ToPolkadotOutboundLaneApi_message_details";
-/// Name of the `ToPolkadotOutboundLaneApi::latest_received_nonce` runtime method.
-pub const TO_POLKADOT_LATEST_RECEIVED_NONCE_METHOD: &str =
-	"ToPolkadotOutboundLaneApi_latest_received_nonce";
 
 /// Name of the `FromPolkadotInboundLaneApi::latest_received_nonce` runtime method.
 pub const FROM_POLKADOT_LATEST_RECEIVED_NONCE_METHOD: &str =
@@ -151,8 +148,6 @@ sp_api::decl_runtime_apis! {
 			begin: MessageNonce,
 			end: MessageNonce,
 		) -> Vec<MessageDetails<OutboundMessageFee>>;
-		/// Returns nonce of the latest message, received by bridged chain.
-		fn latest_received_nonce(lane: LaneId) -> MessageNonce;
 	}
 
 	/// Inbound message lane API for messages sent by Polkadot chain.
