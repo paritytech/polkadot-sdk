@@ -430,8 +430,8 @@ mod tests {
 		assert_eq!(1, *block.header().number());
 
 		// Ensure that we did not include `:code` in the proof.
-		let db = block
-			.storage_proof()
+		let proof = block.storage_proof();
+		let db = proof
 			.to_storage_proof::<BlakeTwo256>(Some(header.state_root()))
 			.unwrap()
 			.0

@@ -26,7 +26,7 @@ use polkadot_parachain::primitives::{HeadData, ValidationParams, ValidationResul
 
 use codec::{Decode, Encode};
 
-use sp_core::storage::ChildInfo;
+use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_trie::MemoryDB;
 
@@ -68,7 +68,7 @@ where
 
 	// Uncompress
 	let mut db = MemoryDB::default();
-	let root = match sp_trie::decode_compact::<sp_trie::Layout<HashFor<B>>, _, _>(
+	let root = match sp_trie::decode_compact::<sp_trie::LayoutV1<HashFor<B>>, _, _>(
 		&mut db,
 		storage_proof.iter_compact_encoded_nodes(),
 		Some(parent_head.state_root()),
@@ -221,8 +221,8 @@ fn host_storage_clear(key: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), None))
 }
 
-fn host_storage_root() -> Vec<u8> {
-	with_externalities(|ext| ext.storage_root())
+fn host_storage_root(version: StateVersion) -> Vec<u8> {
+	with_externalities(|ext| ext.storage_root(version))
 }
 
 fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageResult {
@@ -327,9 +327,9 @@ fn host_default_child_storage_clear_prefix(
 	})
 }
 
-fn host_default_child_storage_root(storage_key: &[u8]) -> Vec<u8> {
+fn host_default_child_storage_root(storage_key: &[u8], version: StateVersion) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.child_storage_root(&child_info))
+	with_externalities(|ext| ext.child_storage_root(&child_info, version))
 }
 
 fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
