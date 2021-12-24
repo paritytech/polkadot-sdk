@@ -14,6 +14,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-state-machine = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
+sp-storage = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
 
 # Cumulus dependencies
 cumulus-primitives-core = { path = "../core", default-features = false }
@@ -42,6 +43,8 @@ std = [
 	"sp-runtime",
 	"sc-client-api",
 	"sp-api",
+	"sp-storage",
+	"cumulus-test-relay-sproof-builder",
 	"cumulus-relay-chain-interface",
 	"cumulus-test-relay-sproof-builder"
 ]

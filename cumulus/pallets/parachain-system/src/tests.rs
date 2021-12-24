@@ -33,7 +33,10 @@ use frame_system::{InitKind, RawOrigin};
 use hex_literal::hex;
 use relay_chain::v1::HrmpChannelId;
 use sp_core::H256;
-use sp_runtime::{testing::Header, traits::IdentityLookup};
+use sp_runtime::{
+	testing::Header,
+	traits::{BlakeTwo256, IdentityLookup},
+};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 
