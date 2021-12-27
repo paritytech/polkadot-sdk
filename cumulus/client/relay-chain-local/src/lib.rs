@@ -19,10 +19,8 @@ use std::{sync::Arc, time::Duration};
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		v1::{
-			CommittedCandidateReceipt, OccupiedCoreAssumption, ParachainHost, SessionIndex,
-			ValidatorId,
-		},
+		v1::{CommittedCandidateReceipt, OccupiedCoreAssumption, SessionIndex, ValidatorId},
+		v2::ParachainHost,
 		Block as PBlock, BlockId, Hash as PHash, InboundHrmpMessage,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
