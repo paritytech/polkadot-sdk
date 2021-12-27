@@ -21,7 +21,6 @@ use crate::{
 use bp_runtime::BalanceOf;
 use codec::{Decode, Encode};
 use relay_substrate_client::Chain;
-use sp_runtime::FixedU128;
 use structopt::StructOpt;
 use strum::VariantNames;
 
@@ -73,13 +72,8 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<Fee: Decode, C: C
 	lane: bp_messages::LaneId,
 	payload: P,
 ) -> anyhow::Result<Fee> {
-	let conversion_rate_override: Option<FixedU128> = None;
 	let encoded_response = client
-		.state_call(
-			estimate_fee_method.into(),
-			(lane, payload, conversion_rate_override).encode().into(),
-			None,
-		)
+		.state_call(estimate_fee_method.into(), (lane, payload).encode().into(), None)
 		.await?;
 	let decoded_response: Option<Fee> = Decode::decode(&mut &encoded_response.0[..])
 		.map_err(relay_substrate_client::Error::ResponseParseFailed)?;
