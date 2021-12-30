@@ -56,7 +56,7 @@ impl Default for RelayStateSproofBuilder {
 				max_upward_message_size: 256,
 				max_upward_message_num_per_candidate: 5,
 				hrmp_max_message_num_per_candidate: 5,
-				validation_upgrade_frequency: 6,
+				validation_upgrade_cooldown: 6,
 				validation_upgrade_delay: 6,
 			},
 			dmq_mqc_head: None,
