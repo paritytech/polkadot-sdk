@@ -720,6 +720,69 @@ fn receive_dmp() {
 }
 
 #[test]
+fn receive_dmp_after_pause() {
+	lazy_static::lazy_static! {
+		static ref MSG_1: InboundDownwardMessage = InboundDownwardMessage {
+			sent_at: 1,
+			msg: b"down1".to_vec(),
+		};
+		static ref MSG_2: InboundDownwardMessage = InboundDownwardMessage {
+			sent_at: 3,
+			msg: b"down2".to_vec(),
+		};
+	}
+
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
+			1 => {
+				sproof.dmq_mqc_head =
+					Some(MessageQueueChain::default().extend_downward(&MSG_1).head());
+			},
+			2 => {
+				// no new messages, mqc stayed the same.
+				sproof.dmq_mqc_head =
+					Some(MessageQueueChain::default().extend_downward(&MSG_1).head());
+			},
+			3 => {
+				sproof.dmq_mqc_head = Some(
+					MessageQueueChain::default()
+						.extend_downward(&MSG_1)
+						.extend_downward(&MSG_2)
+						.head(),
+				);
+			},
+			_ => unreachable!(),
+		})
+		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
+			1 => {
+				data.downward_messages.push(MSG_1.clone());
+			},
+			2 => {
+				// no new messages
+			},
+			3 => {
+				data.downward_messages.push(MSG_2.clone());
+			},
+			_ => unreachable!(),
+		})
+		.add(1, || {
+			HANDLED_DMP_MESSAGES.with(|m| {
+				let mut m = m.borrow_mut();
+				assert_eq!(&*m, &[(MSG_1.sent_at, MSG_1.msg.clone())]);
+				m.clear();
+			});
+		})
+		.add(2, || {})
+		.add(3, || {
+			HANDLED_DMP_MESSAGES.with(|m| {
+				let mut m = m.borrow_mut();
+				assert_eq!(&*m, &[(MSG_2.sent_at, MSG_2.msg.clone())]);
+				m.clear();
+			});
+		});
+}
+
+#[test]
 fn receive_hrmp() {
 	lazy_static::lazy_static! {
 		static ref MSG_1: InboundHrmpMessage = InboundHrmpMessage {
@@ -752,8 +815,8 @@ fn receive_hrmp() {
 					Some(MessageQueueChain::default().extend_hrmp(&MSG_1).head());
 			},
 			2 => {
-				// 200 - two new messages
-				// 300 - now present with one message.
+				// 200 - now present with one message
+				// 300 - two new messages
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
 					Some(MessageQueueChain::default().extend_hrmp(&MSG_4).head());
 				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head = Some(
