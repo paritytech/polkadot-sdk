@@ -23,6 +23,7 @@ use sp_state_machine::MemoryDB;
 use sp_std::collections::btree_map::BTreeMap;
 
 /// Builds a sproof (portmanteau of 'spoof' and 'proof') of the relay chain state.
+#[derive(Clone)]
 pub struct RelayStateSproofBuilder {
 	/// The para id of the current parachain.
 	///
@@ -66,26 +67,6 @@ impl Default for RelayStateSproofBuilder {
 			hrmp_egress_channel_index: None,
 			hrmp_channels: BTreeMap::new(),
 			current_slot: 0.into(),
-		}
-	}
-}
-
-// TODO: derive `Copy` and `Clone` for `UpgradeGoAhead` to avoid manual implementation.
-impl Clone for RelayStateSproofBuilder {
-	fn clone(&self) -> Self {
-		RelayStateSproofBuilder {
-			para_id: self.para_id,
-			host_config: self.host_config.clone(),
-			dmq_mqc_head: self.dmq_mqc_head.clone(),
-			upgrade_go_ahead: self.upgrade_go_ahead.as_ref().map(|u| match u {
-				UpgradeGoAhead::Abort => UpgradeGoAhead::Abort,
-				UpgradeGoAhead::GoAhead => UpgradeGoAhead::GoAhead,
-			}),
-			relay_dispatch_queue_size: self.relay_dispatch_queue_size,
-			hrmp_ingress_channel_index: self.hrmp_ingress_channel_index.clone(),
-			hrmp_egress_channel_index: self.hrmp_egress_channel_index.clone(),
-			hrmp_channels: self.hrmp_channels.clone(),
-			current_slot: self.current_slot.clone(),
 		}
 	}
 }
