@@ -15,6 +15,6 @@ Has no effect if the `followSubscriptionId` is invalid or stale.
 
 ## Possible errors
 
-- A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
+- A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
 - No error is generated if the `followSubscriptionId` is invalid or stale. The call is simply ignored.
