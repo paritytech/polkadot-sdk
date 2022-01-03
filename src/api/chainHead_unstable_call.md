@@ -96,16 +96,15 @@ No more event will be generated with this `subscriptionId`.
 }
 ```
 
-The `disjoint` event indicates that the provided `followSubscriptionId` is dead.
+The `disjoint` event indicates that the provided `followSubscriptionId` is invalid or stale.
 
 No more event will be generated with this `subscriptionId`.
 
 ## Possible errors
 
 - If the networking part of the behaviour fails, then an `{"event": "inaccessible"}` notification is generated (as explained above).
-- A JSON-RPC error is generated if the `followSubscriptionId` is invalid.
+- If the `followSubscriptionId` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the `followSubscriptionId` corresponds to a follow where `runtimeUpdates` was `̀false`.
-- If the `followSubscriptionId` is dead, then a `{"event": "disjoint"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
 - If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "error"}` notification is generated.

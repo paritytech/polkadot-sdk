@@ -8,7 +8,7 @@
 **Return value**:
 
 - If the `followSubscriptionId` is still alive (the vast majority of the time), the hexadecimal-encoded SCALE-encoded header of the block.
-- If the `followSubscriptionId` is dead, *null*.
+- If the `followSubscriptionId` is invalid or stale, *null*.
 
 Retrieves the header of a pinned block.
 
@@ -18,6 +18,5 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 
 ## Possible errors
 
-- A JSON-RPC error is generated if the `followSubscriptionId` is invalid.
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.

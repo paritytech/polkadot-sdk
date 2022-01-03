@@ -11,9 +11,10 @@ See explanations in the documentation of `chainHead_unstable_follow`.
 
 On-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
 
+Has no effect if the `followSubscriptionId` is invalid or stale.
+
 ## Possible errors
 
-- A JSON-RPC error is generated if the `followSubscriptionId` doesn't correspond to any active subscription.
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
-- No error is generated if the `followSubscriptionId` is dead. The call is simply ignored.
+- No error is generated if the `followSubscriptionId` is invalid or stale. The call is simply ignored.

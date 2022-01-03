@@ -70,14 +70,13 @@ No more event will be generated with this `subscriptionId`.
 }
 ```
 
-The `disjoint` event indicates that the `followSubscriptionId` is dead.
+The `disjoint` event indicates that the `followSubscriptionId` is invalid or stale.
 
 No more event will be generated with this `subscriptionId`.
 
 ## Possible errors
 
 - If the networking part of the behaviour fails, then a `{"event": "inaccessible"}` notification is generated (as explained above).
-- A JSON-RPC error is generated if the `followSubscriptionId` is invalid.
-- If the `followSubscriptionId` is dead, then a `{"event": "disjoint"}` notification is generated (as explained above).
+- If the `followSubscriptionId` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
