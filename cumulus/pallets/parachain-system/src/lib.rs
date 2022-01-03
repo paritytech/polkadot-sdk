@@ -27,6 +27,7 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
+use codec::Encode;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelStatus, CollationInfo, DmpMessageHandler,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError, OnValidationData,
@@ -908,15 +909,22 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the [`CollationInfo`] of the current active block.
 	///
+	/// The given `header` is the header of the built block we are collecting the collation info for.
+	///
 	/// This is expected to be used by the
 	/// [`CollectCollationInfo`](cumulus_primitives_core::CollectCollationInfo) runtime api.
-	pub fn collect_collation_info() -> CollationInfo {
+	pub fn collect_collation_info(header: &T::Header) -> CollationInfo {
 		CollationInfo {
 			hrmp_watermark: HrmpWatermark::<T>::get(),
 			horizontal_messages: HrmpOutboundMessages::<T>::get(),
 			upward_messages: UpwardMessages::<T>::get(),
 			processed_downward_messages: ProcessedDownwardMessages::<T>::get(),
 			new_validation_code: NewValidationCode::<T>::get().map(Into::into),
+			// Check if there is a custom header that will also be returned by the validation phase.
+			// If so, we need to also return it here.
+			head_data: CustomValidationHeadData::<T>::get()
+				.map_or_else(|| header.encode(), |v| v)
+				.into(),
 		}
 	}
 

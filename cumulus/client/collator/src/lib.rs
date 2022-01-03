@@ -18,11 +18,12 @@
 
 use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, CollectCollationInfo, ParachainBlockData, PersistedValidationData,
+	relay_chain::Hash as PHash, CollationInfo, CollectCollationInfo, ParachainBlockData,
+	PersistedValidationData,
 };
 
 use sc_client_api::BlockBackend;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::BlockStatus;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::{
@@ -36,7 +37,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::v1::{CollatorPair, HeadData, Id as ParaId};
+use polkadot_primitives::v1::{CollatorPair, Id as ParaId};
 
 use codec::{Decode, Encode};
 use futures::{channel::oneshot, FutureExt};
@@ -144,30 +145,59 @@ where
 		}
 	}
 
+	/// Fetch the collation info from the runtime.
+	///
+	/// Returns `Ok(Some(_))` on success, `Err(_)` on error or `Ok(None)` if the runtime api isn't implemented by the runtime.
+	fn fetch_collation_info(
+		&self,
+		block_hash: Block::Hash,
+		header: &Block::Header,
+	) -> Result<Option<CollationInfo>, sp_api::ApiError> {
+		let runtime_api = self.runtime_api.runtime_api();
+		let block_id = BlockId::Hash(block_hash);
+
+		let api_version =
+			match runtime_api.api_version::<dyn CollectCollationInfo<Block>>(&block_id)? {
+				Some(version) => version,
+				None => {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Could not fetch `CollectCollationInfo` runtime api version."
+					);
+					return Ok(None)
+				},
+			};
+
+		let collation_info = if api_version < 2 {
+			#[allow(deprecated)]
+			runtime_api
+				.collect_collation_info_before_version_2(&block_id)?
+				.into_latest(header.encode().into())
+		} else {
+			runtime_api.collect_collation_info(&block_id, header)?
+		};
+
+		Ok(Some(collation_info))
+	}
+
 	fn build_collation(
-		&mut self,
+		&self,
 		block: ParachainBlockData<Block>,
 		block_hash: Block::Hash,
 	) -> Option<Collation> {
 		let block_data = BlockData(block.encode());
-		let header = block.into_header();
-		let head_data = HeadData(header.encode());
 
-		let collation_info = match self
-			.runtime_api
-			.runtime_api()
-			.collect_collation_info(&BlockId::Hash(block_hash))
-		{
-			Ok(ci) => ci,
-			Err(e) => {
+		let collation_info = self
+			.fetch_collation_info(block_hash, block.header())
+			.map_err(|e| {
 				tracing::error!(
 					target: LOG_TARGET,
 					error = ?e,
 					"Failed to collect collation info.",
-				);
-				return None
-			},
-		};
+				)
+			})
+			.ok()
+			.flatten()?;
 
 		Some(Collation {
 			upward_messages: collation_info.upward_messages,
@@ -175,7 +205,7 @@ where
 			processed_downward_messages: collation_info.processed_downward_messages,
 			horizontal_messages: collation_info.horizontal_messages,
 			hrmp_watermark: collation_info.hrmp_watermark,
-			head_data,
+			head_data: collation_info.head_data,
 			proof_of_validity: PoV { block_data },
 		})
 	}

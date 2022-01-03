@@ -19,6 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use polkadot_parachain::primitives::HeadData;
 use sp_runtime::{traits::Block as BlockT, RuntimeDebug};
 use sp_std::prelude::*;
 
@@ -200,8 +201,10 @@ impl<B: BlockT> ParachainBlockData<B> {
 }
 
 /// Information about a collation.
+///
+/// This was used in version 1 of the [`CollectCollationInfo`] runtime api.
 #[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq)]
-pub struct CollationInfo {
+pub struct CollationInfoV1 {
 	/// Messages destined to be interpreted by the Relay chain itself.
 	pub upward_messages: Vec<UpwardMessage>,
 	/// The horizontal messages sent by the parachain.
@@ -214,10 +217,48 @@ pub struct CollationInfo {
 	pub hrmp_watermark: relay_chain::v1::BlockNumber,
 }
 
+impl CollationInfoV1 {
+	/// Convert into the latest version of the [`CollationInfo`] struct.
+	pub fn into_latest(self, head_data: HeadData) -> CollationInfo {
+		CollationInfo {
+			upward_messages: self.upward_messages,
+			horizontal_messages: self.horizontal_messages,
+			new_validation_code: self.new_validation_code,
+			processed_downward_messages: self.processed_downward_messages,
+			hrmp_watermark: self.hrmp_watermark,
+			head_data,
+		}
+	}
+}
+
+/// Information about a collation.
+#[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq)]
+pub struct CollationInfo {
+	/// Messages destined to be interpreted by the Relay chain itself.
+	pub upward_messages: Vec<UpwardMessage>,
+	/// The horizontal messages sent by the parachain.
+	pub horizontal_messages: Vec<OutboundHrmpMessage>,
+	/// New validation code.
+	pub new_validation_code: Option<relay_chain::v1::ValidationCode>,
+	/// The number of messages processed from the DMQ.
+	pub processed_downward_messages: u32,
+	/// The mark which specifies the block number up to which all inbound HRMP messages are processed.
+	pub hrmp_watermark: relay_chain::v1::BlockNumber,
+	/// The head data, aka encoded header, of the block that corresponds to the collation.
+	pub head_data: HeadData,
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
+	#[api_version(2)]
 	pub trait CollectCollationInfo {
 		/// Collect information about a collation.
-		fn collect_collation_info() -> CollationInfo;
+		#[changed_in(2)]
+		fn collect_collation_info() -> CollationInfoV1;
+		/// Collect information about a collation.
+		///
+		/// The given `header` is the header of the built block for that
+		/// we are collecting the collation info for.
+		fn collect_collation_info(header: &Block::Header) -> CollationInfo;
 	}
 }

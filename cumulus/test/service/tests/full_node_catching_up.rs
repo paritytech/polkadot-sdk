@@ -19,7 +19,7 @@ use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Ke
 
 #[substrate_test_utils::test]
 #[ignore]
-async fn test_collating_and_non_collator_mode_catching_up() {
+async fn test_full_node_catching_up() {
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);
 	let _ = builder.init();
