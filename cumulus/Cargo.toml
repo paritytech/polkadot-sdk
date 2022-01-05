@@ -8,6 +8,7 @@ members = [
 	"client/pov-recovery",
 	"client/service",
 	"client/relay-chain-interface",
+	"client/relay-chain-local",
 	"pallets/aura-ext",
 	"pallets/collator-selection",
 	"pallets/dmp-queue",
