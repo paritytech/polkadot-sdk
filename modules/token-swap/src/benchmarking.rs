@@ -30,7 +30,7 @@ use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::Bounded;
-use sp_std::vec::Vec;
+use sp_std::{boxed::Box, vec::Vec};
 
 const SEED: u32 = 0;
 

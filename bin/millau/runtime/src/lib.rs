@@ -374,12 +374,26 @@ parameter_types! {
 	// Note that once this is hit the pallet will essentially throttle incoming requests down to one
 	// call per block.
 	pub const MaxRequests: u32 = 50;
+}
 
-	// Number of headers to keep.
-	//
-	// Assuming the worst case of every header being finalized, we will keep headers for at least a
-	// week.
-	pub const HeadersToKeep: u32 = 7 * bp_millau::DAYS as u32;
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	/// Number of headers to keep in benchmarks.
+	///
+	/// In benchmarks we always populate with full number of `HeadersToKeep` to make sure that
+	/// pruning is taken into account.
+	///
+	/// Note: This is lower than regular value, to speed up benchmarking setup.
+	pub const HeadersToKeep: u32 = 1024;
+}
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+parameter_types! {
+	/// Number of headers to keep.
+	///
+	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
+	/// week.
+	pub const HeadersToKeep: u32 = 7 * bp_rialto::DAYS as u32;
 }
 
 pub type RialtoGrandpaInstance = ();
@@ -388,8 +402,7 @@ impl pallet_bridge_grandpa::Config for Runtime {
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;
 
-	// TODO [#391]: Use weights generated for the Millau runtime instead of Rialto ones.
-	type WeightInfo = pallet_bridge_grandpa::weights::RialtoWeight<Runtime>;
+	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
 }
 
 pub type WestendGrandpaInstance = pallet_bridge_grandpa::Instance1;
@@ -398,8 +411,7 @@ impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;
 
-	// TODO [#391]: Use weights generated for the Millau runtime instead of Rialto ones.
-	type WeightInfo = pallet_bridge_grandpa::weights::RialtoWeight<Runtime>;
+	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
 }
 
 impl pallet_shift_session_manager::Config for Runtime {}
@@ -422,8 +434,7 @@ pub type WithRialtoMessagesInstance = ();
 
 impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type Event = Event;
-	// TODO: https://github.com/paritytech/parity-bridges-common/issues/390
-	type WeightInfo = pallet_bridge_messages::weights::RialtoWeight<Runtime>;
+	type WeightInfo = pallet_bridge_messages::weights::MillauWeight<Runtime>;
 	type Parameter = rialto_messages::MillauToRialtoMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
@@ -783,9 +794,13 @@ impl_runtime_apis! {
 			use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 
+			use pallet_bridge_messages::benchmarking::Pallet as MessagesBench;
+
 			let mut list = Vec::<BenchmarkList>::new();
 
 			list_benchmark!(list, extra, pallet_bridge_token_swap, BridgeRialtoTokenSwap);
+			list_benchmark!(list, extra, pallet_bridge_messages, MessagesBench::<Runtime, WithRialtoMessagesInstance>);
+			list_benchmark!(list, extra, pallet_bridge_grandpa, BridgeRialtoGrandpa);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -813,6 +828,171 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 
+			use bp_runtime::messages::DispatchFeePayment;
+			use bridge_runtime_common::messages;
+			use pallet_bridge_messages::benchmarking::{
+				Pallet as MessagesBench,
+				Config as MessagesConfig,
+				MessageDeliveryProofParams,
+				MessageParams,
+				MessageProofParams,
+				ProofSize as MessagesProofSize,
+			};
+			use rialto_messages::{ToRialtoMessagePayload, WithRialtoMessageBridge};
+
+			impl MessagesConfig<WithRialtoMessagesInstance> for Runtime {
+				fn maximal_message_size() -> u32 {
+					messages::source::maximal_message_size::<WithRialtoMessageBridge>()
+				}
+
+				fn bridged_relayer_id() -> Self::InboundRelayer {
+					Default::default()
+				}
+
+				fn account_balance(account: &Self::AccountId) -> Self::OutboundMessageFee {
+					pallet_balances::Pallet::<Runtime>::free_balance(account)
+				}
+
+				fn endow_account(account: &Self::AccountId) {
+					pallet_balances::Pallet::<Runtime>::make_free_balance_be(
+						account,
+						Balance::MAX / 100,
+					);
+				}
+
+				fn prepare_outbound_message(
+					params: MessageParams<Self::AccountId>,
+				) -> (rialto_messages::ToRialtoMessagePayload, Balance) {
+					let message_payload = vec![0; params.size as usize];
+					let dispatch_origin = bp_message_dispatch::CallOrigin::SourceAccount(
+						params.sender_account,
+					);
+
+					let message = ToRialtoMessagePayload {
+						spec_version: 0,
+						weight: params.size as _,
+						origin: dispatch_origin,
+						call: message_payload,
+						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
+					};
+					(message, pallet_bridge_messages::benchmarking::MESSAGE_FEE.into())
+				}
+
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (rialto_messages::FromRialtoMessagesProof, Weight) {
+					use bp_messages::{MessageKey, storage_keys};
+					use bridge_runtime_common::{
+						messages::MessageBridge,
+						messages_benchmarking::{ed25519_sign, prepare_message_proof},
+					};
+					use codec::Encode;
+					use frame_support::weights::GetDispatchInfo;
+					use rialto_messages::WithRialtoMessageBridge;
+					use sp_runtime::traits::{Header, IdentifyAccount};
+
+					let remark = match params.size {
+						MessagesProofSize::Minimal(ref size) => vec![0u8; *size as _],
+						_ => vec![],
+					};
+					let call = Call::System(SystemCall::remark { remark });
+					let call_weight = call.get_dispatch_info().weight;
+
+					let rialto_account_id: bp_rialto::AccountId = Default::default();
+					let (millau_raw_public, millau_raw_signature) = ed25519_sign(
+						&call,
+						&rialto_account_id,
+						VERSION.spec_version,
+						bp_runtime::RIALTO_CHAIN_ID,
+						bp_runtime::MILLAU_CHAIN_ID,
+					);
+					let millau_public = MultiSigner::Ed25519(sp_core::ed25519::Public::from_raw(millau_raw_public));
+					let millau_signature = MultiSignature::Ed25519(sp_core::ed25519::Signature::from_raw(
+						millau_raw_signature,
+					));
+
+					if params.dispatch_fee_payment == DispatchFeePayment::AtTargetChain {
+						Self::endow_account(&millau_public.clone().into_account());
+					}
+
+					let make_rialto_message_key = |message_key: MessageKey| storage_keys::message_key(
+						<WithRialtoMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
+						&message_key.lane_id, message_key.nonce,
+					).0;
+					let make_rialto_outbound_lane_data_key = |lane_id| storage_keys::outbound_lane_data_key(
+						<WithRialtoMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
+						&lane_id,
+					).0;
+
+					let make_rialto_header = |state_root| bp_rialto::Header::new(
+						0,
+						Default::default(),
+						state_root,
+						Default::default(),
+						Default::default(),
+					);
+
+					let dispatch_fee_payment = params.dispatch_fee_payment.clone();
+					prepare_message_proof::<WithRialtoMessageBridge, bp_rialto::Hasher, Runtime, (), _, _, _>(
+						params,
+						make_rialto_message_key,
+						make_rialto_outbound_lane_data_key,
+						make_rialto_header,
+						call_weight,
+						bp_message_dispatch::MessagePayload {
+							spec_version: VERSION.spec_version,
+							weight: call_weight,
+							origin: bp_message_dispatch::CallOrigin::<
+								bp_rialto::AccountId,
+								MultiSigner,
+								Signature,
+							>::TargetAccount(
+								rialto_account_id,
+								millau_public,
+								millau_signature,
+							),
+							dispatch_fee_payment,
+							call: call.encode(),
+						}.encode(),
+					)
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<Self::AccountId>,
+				) -> rialto_messages::ToRialtoMessagesDeliveryProof {
+					use bridge_runtime_common::messages_benchmarking::prepare_message_delivery_proof;
+					use rialto_messages::WithRialtoMessageBridge;
+					use sp_runtime::traits::Header;
+
+					prepare_message_delivery_proof::<WithRialtoMessageBridge, bp_rialto::Hasher, Runtime, (), _, _>(
+						params,
+						|lane_id| bp_messages::storage_keys::inbound_lane_data_key(
+							<WithRialtoMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
+							&lane_id,
+						).0,
+						|state_root| bp_rialto::Header::new(
+							0,
+							Default::default(),
+							state_root,
+							Default::default(),
+							Default::default(),
+						),
+					)
+				}
+
+				fn is_message_dispatched(nonce: bp_messages::MessageNonce) -> bool {
+					frame_system::Pallet::<Runtime>::events()
+						.into_iter()
+						.map(|event_record| event_record.event)
+						.any(|event| matches!(
+							event,
+							Event::BridgeDispatch(pallet_bridge_dispatch::Event::<Runtime, _>::MessageDispatched(
+								_, ([0, 0, 0, 0], nonce_from_event), _,
+							)) if nonce_from_event == nonce
+						))
+				}
+			}
+
 			use pallet_bridge_token_swap::benchmarking::Config as TokenSwapConfig;
 
 			impl TokenSwapConfig<WithRialtoTokenSwapInstance> for Runtime {
@@ -828,6 +1008,13 @@ impl_runtime_apis! {
 				}
 			}
 
+			add_benchmark!(
+				params,
+				batches,
+				pallet_bridge_messages,
+				MessagesBench::<Runtime, WithRialtoMessagesInstance>
+			);
+			add_benchmark!(params, batches, pallet_bridge_grandpa, BridgeRialtoGrandpa);
 			add_benchmark!(params, batches, pallet_bridge_token_swap, BridgeRialtoTokenSwap);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
@@ -868,8 +1055,7 @@ mod tests {
 
 	#[test]
 	fn ensure_millau_message_lane_weights_are_correct() {
-		// TODO: https://github.com/paritytech/parity-bridges-common/issues/390
-		type Weights = pallet_bridge_messages::weights::RialtoWeight<Runtime>;
+		type Weights = pallet_bridge_messages::weights::MillauWeight<Runtime>;
 
 		pallet_bridge_messages::ensure_weights_are_correct::<Weights>(
 			bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,
