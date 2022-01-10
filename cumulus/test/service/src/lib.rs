@@ -732,11 +732,16 @@ pub fn run_relay_chain_validator_node(
 	storage_update_func: impl Fn(),
 	boot_nodes: Vec<MultiaddrWithPeerId>,
 ) -> polkadot_test_service::PolkadotTestNode {
-	polkadot_test_service::run_validator_node(
+	let config = polkadot_test_service::node_config(
+		storage_update_func,
 		tokio_handle,
 		key,
-		storage_update_func,
 		boot_nodes,
+		true,
+	);
+
+	polkadot_test_service::run_validator_node(
+		config,
 		Some(cumulus_test_relay_validation_worker_provider::VALIDATION_WORKER.into()),
 	)
 }
