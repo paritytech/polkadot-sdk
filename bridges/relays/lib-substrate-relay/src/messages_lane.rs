@@ -453,7 +453,7 @@ mod tests {
 	use bp_runtime::Chain;
 
 	type RialtoToMillauMessagesWeights =
-		pallet_bridge_messages::weights::RialtoWeight<rialto_runtime::Runtime>;
+		pallet_bridge_messages::weights::MillauWeight<rialto_runtime::Runtime>;
 
 	#[test]
 	fn select_delivery_transaction_limits_works() {
@@ -469,7 +469,7 @@ mod tests {
 			// i.e. weight reserved for messages dispatch allows dispatch of non-trivial messages.
 			//
 			// Any significant change in this values should attract additional attention.
-			(782, 216_583_333_334),
+			(958, 216_583_333_334),
 		);
 	}
 }

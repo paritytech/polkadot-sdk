@@ -103,7 +103,7 @@ pub const MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT: Weight = 2_000_000
 /// chain. Don't put too much reserve there, because it is used to **decrease**
 /// `DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT` cost. So putting large reserve would make delivery
 /// transactions cheaper.
-pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = 600_000_000;
+pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = 700_000_000;
 
 /// The target length of a session (how often authorities change) on Millau measured in of number of
 /// blocks.
