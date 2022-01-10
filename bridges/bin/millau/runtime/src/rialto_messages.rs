@@ -64,10 +64,10 @@ pub type FromRialtoMessagePayload =
 pub type FromRialtoEncodedCall = messages::target::FromBridgedChainEncodedMessageCall<crate::Call>;
 
 /// Messages proof for Rialto -> Millau messages.
-type FromRialtoMessagesProof = messages::target::FromBridgedChainMessagesProof<bp_rialto::Hash>;
+pub type FromRialtoMessagesProof = messages::target::FromBridgedChainMessagesProof<bp_rialto::Hash>;
 
 /// Messages delivery proof for Millau -> Rialto messages.
-type ToRialtoMessagesDeliveryProof =
+pub type ToRialtoMessagesDeliveryProof =
 	messages::source::FromBridgedChainMessagesDeliveryProof<bp_rialto::Hash>;
 
 /// Call-dispatch based message dispatch for Rialto -> Millau messages.

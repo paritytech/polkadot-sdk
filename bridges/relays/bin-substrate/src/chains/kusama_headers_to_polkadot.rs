@@ -83,7 +83,7 @@ pub(crate) mod tests {
 		// differ from the `DbWeight` of Rialto runtime. But now (and most probably forever) it is
 		// the same.
 		type GrandpaPalletWeights =
-			pallet_bridge_grandpa::weights::RialtoWeight<rialto_runtime::Runtime>;
+			pallet_bridge_grandpa::weights::MillauWeight<rialto_runtime::Runtime>;
 
 		// The following formula shall not be treated as super-accurate - guard is to protect from
 		// mad relays, not to protect from over-average loses.
