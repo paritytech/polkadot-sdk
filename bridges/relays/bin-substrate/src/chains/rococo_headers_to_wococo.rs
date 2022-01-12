@@ -18,7 +18,8 @@
 
 use crate::chains::wococo_headers_to_rococo::MAXIMAL_BALANCE_DECREASE_PER_DAY;
 
-use sp_core::Pair;
+use async_trait::async_trait;
+use relay_wococo_client::Wococo;
 use substrate_relay_helper::{finality_pipeline::SubstrateFinalitySyncPipeline, TransactionParams};
 
 /// Description of Rococo -> Wococo finalized headers bridge.
@@ -31,25 +32,25 @@ substrate_relay_helper::generate_mocked_submit_finality_proof_call_builder!(
 	relay_wococo_client::runtime::BridgeGrandpaRococoCall::submit_finality_proof
 );
 
+#[async_trait]
 impl SubstrateFinalitySyncPipeline for RococoFinalityToWococo {
 	type SourceChain = relay_rococo_client::Rococo;
-	type TargetChain = relay_wococo_client::Wococo;
+	type TargetChain = Wococo;
 
 	type SubmitFinalityProofCallBuilder = RococoFinalityToWococoCallBuilder;
-	type TransactionSignScheme = relay_wococo_client::Wococo;
+	type TransactionSignScheme = Wococo;
 
-	fn start_relay_guards(
-		target_client: &relay_substrate_client::Client<relay_wococo_client::Wococo>,
+	async fn start_relay_guards(
+		target_client: &relay_substrate_client::Client<Wococo>,
 		transaction_params: &TransactionParams<sp_core::sr25519::Pair>,
-	) {
-		relay_substrate_client::guard::abort_on_spec_version_change(
-			target_client.clone(),
-			bp_wococo::VERSION.spec_version,
-		);
-		relay_substrate_client::guard::abort_when_account_balance_decreased(
-			target_client.clone(),
-			transaction_params.signer.public().into(),
+		enable_version_guard: bool,
+	) -> relay_substrate_client::Result<()> {
+		substrate_relay_helper::finality_guards::start::<Wococo, Wococo>(
+			target_client,
+			transaction_params,
+			enable_version_guard,
 			MAXIMAL_BALANCE_DECREASE_PER_DAY,
-		);
+		)
+		.await
 	}
 }
