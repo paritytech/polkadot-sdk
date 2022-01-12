@@ -512,11 +512,15 @@ impl RelayHeadersAndMessages {
 			LeftToRightFinality::start_relay_guards(
 				&right_client,
 				&left_to_right_transaction_params,
-			);
+				params.right.can_start_version_guard(),
+			)
+			.await?;
 			RightToLeftFinality::start_relay_guards(
 				&left_client,
 				&right_to_left_transaction_params,
-			);
+				params.left.can_start_version_guard(),
+			)
+			.await?;
 			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LeftToRightFinality>(
 				left_client.clone(),
 				right_client.clone(),

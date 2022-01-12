@@ -16,7 +16,8 @@
 
 //! Polkadot-to-Kusama headers sync entrypoint.
 
-use sp_core::Pair;
+use async_trait::async_trait;
+use relay_kusama_client::Kusama;
 use substrate_relay_helper::{finality_pipeline::SubstrateFinalitySyncPipeline, TransactionParams};
 
 /// Maximal saturating difference between `balance(now)` and `balance(now-24h)` to treat
@@ -36,26 +37,26 @@ substrate_relay_helper::generate_mocked_submit_finality_proof_call_builder!(
 	relay_kusama_client::runtime::BridgePolkadotGrandpaCall::submit_finality_proof
 );
 
+#[async_trait]
 impl SubstrateFinalitySyncPipeline for PolkadotFinalityToKusama {
 	type SourceChain = relay_polkadot_client::Polkadot;
-	type TargetChain = relay_kusama_client::Kusama;
+	type TargetChain = Kusama;
 
 	type SubmitFinalityProofCallBuilder = PolkadotFinalityToKusamaCallBuilder;
-	type TransactionSignScheme = relay_kusama_client::Kusama;
+	type TransactionSignScheme = Kusama;
 
-	fn start_relay_guards(
-		target_client: &relay_substrate_client::Client<relay_kusama_client::Kusama>,
+	async fn start_relay_guards(
+		target_client: &relay_substrate_client::Client<Kusama>,
 		transaction_params: &TransactionParams<sp_core::sr25519::Pair>,
-	) {
-		relay_substrate_client::guard::abort_on_spec_version_change(
-			target_client.clone(),
-			bp_kusama::VERSION.spec_version,
-		);
-		relay_substrate_client::guard::abort_when_account_balance_decreased(
-			target_client.clone(),
-			transaction_params.signer.public().into(),
+		enable_version_guard: bool,
+	) -> relay_substrate_client::Result<()> {
+		substrate_relay_helper::finality_guards::start::<Kusama, Kusama>(
+			target_client,
+			transaction_params,
+			enable_version_guard,
 			MAXIMAL_BALANCE_DECREASE_PER_DAY,
-		);
+		)
+		.await
 	}
 }
 

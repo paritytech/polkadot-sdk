@@ -157,7 +157,12 @@ impl RelayHeaders {
 				signer: target_sign,
 				mortality: target_transactions_mortality,
 			};
-			Finality::start_relay_guards(&target_client, &target_transactions_params);
+			Finality::start_relay_guards(
+				&target_client,
+				&target_transactions_params,
+				self.target.can_start_version_guard(),
+			)
+			.await?;
 
 			substrate_relay_helper::finality_pipeline::run::<Finality>(
 				source_client,

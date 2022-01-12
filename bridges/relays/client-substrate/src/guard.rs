@@ -64,6 +64,13 @@ pub fn abort_on_spec_version_change<C: ChainWithBalances>(
 	expected_spec_version: u32,
 ) {
 	async_std::task::spawn(async move {
+		log::info!(
+			target: "bridge-guard",
+			"Starting spec_version guard for {}. Expected spec_version: {}",
+			C::NAME,
+			expected_spec_version,
+		);
+
 		loop {
 			let actual_spec_version = env.runtime_version().await;
 			match actual_spec_version {
@@ -103,6 +110,14 @@ pub fn abort_when_account_balance_decreased<C: ChainWithBalances>(
 	const DAY: Duration = Duration::from_secs(60 * 60 * 24);
 
 	async_std::task::spawn(async move {
+		log::info!(
+			target: "bridge-guard",
+			"Starting balance guard for {}/{:?}. Maximal decrease: {:?}",
+			C::NAME,
+			account_id,
+			maximal_decrease,
+		);
+
 		let mut balances = VecDeque::new();
 
 		loop {
