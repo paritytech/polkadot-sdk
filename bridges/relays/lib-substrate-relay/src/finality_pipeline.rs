@@ -22,6 +22,7 @@ use crate::{
 	TransactionParams,
 };
 
+use async_trait::async_trait;
 use bp_header_chain::justification::GrandpaJustification;
 use finality_relay::FinalitySyncPipeline;
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
@@ -40,6 +41,7 @@ use std::{fmt::Debug, marker::PhantomData};
 pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 
 /// Substrate -> Substrate finality proofs synchronization pipeline.
+#[async_trait]
 pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 	/// Headers of this chain are submitted to the `TargetChain`.
 	type SourceChain: Chain;
@@ -52,10 +54,12 @@ pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 	type TransactionSignScheme: TransactionSignScheme;
 
 	/// Add relay guards if required.
-	fn start_relay_guards(
+	async fn start_relay_guards(
 		_target_client: &Client<Self::TargetChain>,
 		_transaction_params: &TransactionParams<AccountKeyPairOf<Self::TransactionSignScheme>>,
-	) {
+		_enable_version_guard: bool,
+	) -> relay_substrate_client::Result<()> {
+		Ok(())
 	}
 }
 
