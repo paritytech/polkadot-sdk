@@ -528,6 +528,16 @@ macro_rules! declare_chain_options {
 			}
 
 			impl [<$chain ConnectionParams>] {
+				/// Returns `true` if version guard can be started.
+				///
+				/// There's no reason to run version guard when version mode is set to `Auto`. It can
+				/// lead to relay shutdown when chain is upgraded, even though we have explicitly
+				/// said that we don't want to shutdown.
+				#[allow(dead_code)]
+				pub fn can_start_version_guard(&self) -> bool {
+					self.[<$chain_prefix _runtime_version>].[<$chain_prefix _version_mode>] != RuntimeVersionType::Auto
+				}
+
 				/// Convert connection params into Substrate client.
 				pub async fn to_client<Chain: CliChain>(
 					&self,
