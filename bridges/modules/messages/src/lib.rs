@@ -764,11 +764,6 @@ pub mod pallet {
 			OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce })
 		}
 
-		/// Get nonce of the latest confirmed message at given inbound lane.
-		pub fn inbound_latest_confirmed_nonce(lane: LaneId) -> MessageNonce {
-			InboundLanes::<T, I>::get(&lane).last_confirmed_nonce
-		}
-
 		/// Get state of unrewarded relayers set.
 		pub fn inbound_unrewarded_relayers_state(
 			lane: bp_messages::LaneId,

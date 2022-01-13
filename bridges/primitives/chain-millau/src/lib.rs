@@ -278,9 +278,6 @@ pub const TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToMillauOutboundLaneApi::message_details` runtime method.
 pub const TO_MILLAU_MESSAGE_DETAILS_METHOD: &str = "ToMillauOutboundLaneApi_message_details";
 
-/// Name of the `FromMillauInboundLaneApi::latest_onfirmed_nonce` runtime method.
-pub const FROM_MILLAU_LATEST_CONFIRMED_NONCE_METHOD: &str =
-	"FromMillauInboundLaneApi_latest_confirmed_nonce";
 /// Name of the `FromMillauInboundLaneApi::unrewarded_relayers_state` runtime method.
 pub const FROM_MILLAU_UNREWARDED_RELAYERS_STATE: &str =
 	"FromMillauInboundLaneApi_unrewarded_relayers_state";
@@ -330,8 +327,6 @@ sp_api::decl_runtime_apis! {
 	/// This API is implemented by runtimes that are receiving messages from Millau chain, not the
 	/// Millau runtime itself.
 	pub trait FromMillauInboundLaneApi {
-		/// Nonce of the latest message that has been confirmed to the bridged chain.
-		fn latest_confirmed_nonce(lane: LaneId) -> MessageNonce;
 		/// State of the unrewarded relayers set at given lane.
 		fn unrewarded_relayers_state(lane: LaneId) -> UnrewardedRelayersState;
 	}

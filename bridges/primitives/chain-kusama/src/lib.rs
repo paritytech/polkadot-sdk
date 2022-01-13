@@ -100,9 +100,6 @@ pub const TO_KUSAMA_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToKusamaOutboundLaneApi::message_details` runtime method.
 pub const TO_KUSAMA_MESSAGE_DETAILS_METHOD: &str = "ToKusamaOutboundLaneApi_message_details";
 
-/// Name of the `FromKusamaInboundLaneApi::latest_onfirmed_nonce` runtime method.
-pub const FROM_KUSAMA_LATEST_CONFIRMED_NONCE_METHOD: &str =
-	"FromKusamaInboundLaneApi_latest_confirmed_nonce";
 /// Name of the `FromKusamaInboundLaneApi::unrewarded_relayers_state` runtime method.
 pub const FROM_KUSAMA_UNREWARDED_RELAYERS_STATE: &str =
 	"FromKusamaInboundLaneApi_unrewarded_relayers_state";
@@ -152,8 +149,6 @@ sp_api::decl_runtime_apis! {
 	/// This API is implemented by runtimes that are receiving messages from Kusama chain, not the
 	/// Kusama runtime itself.
 	pub trait FromKusamaInboundLaneApi {
-		/// Nonce of the latest message that has been confirmed to the bridged chain.
-		fn latest_confirmed_nonce(lane: LaneId) -> MessageNonce;
 		/// State of the unrewarded relayers set at given lane.
 		fn unrewarded_relayers_state(lane: LaneId) -> UnrewardedRelayersState;
 	}
