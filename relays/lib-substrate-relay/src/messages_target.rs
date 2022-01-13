@@ -84,6 +84,22 @@ impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 			source_to_target_headers_relay,
 		}
 	}
+
+	/// Read inbound lane state from the on-chain storage at given block.
+	async fn inbound_lane_data(
+		&self,
+		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
+	) -> Result<Option<InboundLaneData<AccountIdOf<P::SourceChain>>>, SubstrateError> {
+		self.client
+			.storage_value(
+				inbound_lane_data_key(
+					P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+					&self.lane_id,
+				),
+				Some(id.1),
+			)
+			.await
+	}
 }
 
 impl<P: SubstrateMessageLane> Clone for SubstrateMessagesTarget<P> {
@@ -133,19 +149,12 @@ where
 		&self,
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, MessageNonce), SubstrateError> {
-		let inbound_lane_data: Option<InboundLaneData<AccountIdOf<P::SourceChain>>> = self
-			.client
-			.storage_value(
-				inbound_lane_data_key(
-					P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
-					&self.lane_id,
-				),
-				Some(id.1),
-			)
-			.await?;
 		// lane data missing from the storage is fine until first message is received
-		let latest_received_nonce =
-			inbound_lane_data.map(|data| data.last_delivered_nonce()).unwrap_or(0);
+		let latest_received_nonce = self
+			.inbound_lane_data(id)
+			.await?
+			.map(|data| data.last_delivered_nonce())
+			.unwrap_or(0);
 		Ok((id, latest_received_nonce))
 	}
 
@@ -153,17 +162,13 @@ where
 		&self,
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, MessageNonce), SubstrateError> {
-		let encoded_response = self
-			.client
-			.state_call(
-				P::SourceChain::FROM_CHAIN_LATEST_CONFIRMED_NONCE_METHOD.into(),
-				Bytes(self.lane_id.encode()),
-				Some(id.1),
-			)
-			.await?;
-		let latest_received_nonce: MessageNonce = Decode::decode(&mut &encoded_response.0[..])
-			.map_err(SubstrateError::ResponseParseFailed)?;
-		Ok((id, latest_received_nonce))
+		// lane data missing from the storage is fine until first message is received
+		let last_confirmed_nonce = self
+			.inbound_lane_data(id)
+			.await?
+			.map(|data| data.last_confirmed_nonce)
+			.unwrap_or(0);
+		Ok((id, last_confirmed_nonce))
 	}
 
 	async fn unrewarded_relayers_state(
