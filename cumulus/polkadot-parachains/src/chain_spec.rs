@@ -603,7 +603,6 @@ pub fn westmint_development_config() -> WestmintChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 				],
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				1000.into(),
 			)
 		},
@@ -654,7 +653,6 @@ pub fn westmint_local_config() -> WestmintChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				1000.into(),
 			)
 		},
@@ -708,8 +706,6 @@ pub fn westmint_config() -> WestmintChainSpec {
 					),
 				],
 				Vec::new(),
-				// re-use the Westend sudo key
-				hex!("6648d7f3382690650c681aba1b993cd11e54deb4df21a3a18c3e2177de9f7342").into(),
 				1000.into(),
 			)
 		},
@@ -725,7 +721,6 @@ pub fn westmint_config() -> WestmintChainSpec {
 fn westmint_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
-	root_key: AccountId,
 	id: ParaId,
 ) -> westmint_runtime::GenesisConfig {
 	westmint_runtime::GenesisConfig {
@@ -737,7 +732,6 @@ fn westmint_genesis(
 		balances: westmint_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, WESTMINT_ED * 4096)).collect(),
 		},
-		sudo: westmint_runtime::SudoConfig { key: Some(root_key) },
 		parachain_info: westmint_runtime::ParachainInfoConfig { parachain_id: id },
 		collator_selection: westmint_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
