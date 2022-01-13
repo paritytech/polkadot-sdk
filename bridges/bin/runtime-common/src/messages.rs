@@ -176,7 +176,7 @@ pub type BalanceOf<C> = <C as ChainWithMessages>::Balance;
 pub type CallOf<C> = <C as ThisChainWithMessages>::Call;
 
 /// Raw storage proof type (just raw trie nodes).
-type RawStorageProof = Vec<Vec<u8>>;
+pub type RawStorageProof = Vec<Vec<u8>>;
 
 /// Compute fee of transaction at runtime where regular transaction payment pallet is being used.
 ///

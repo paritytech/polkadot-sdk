@@ -41,6 +41,7 @@ const SEED: u32 = 0;
 pub struct Pallet<T: Config<I>, I: 'static>(crate::Pallet<T, I>);
 
 /// Proof size requirements.
+#[derive(Clone, Copy, Debug)]
 pub enum ProofSize {
 	/// The proof is expected to be minimal. If value size may be changed, then it is expected to
 	/// have given size.
@@ -54,6 +55,7 @@ pub enum ProofSize {
 }
 
 /// Benchmark-specific message parameters.
+#[derive(Debug)]
 pub struct MessageParams<ThisAccountId> {
 	/// Size of the message payload.
 	pub size: u32,
@@ -62,6 +64,7 @@ pub struct MessageParams<ThisAccountId> {
 }
 
 /// Benchmark-specific message proof parameters.
+#[derive(Debug)]
 pub struct MessageProofParams {
 	/// Id of the lane.
 	pub lane: LaneId,
@@ -76,6 +79,7 @@ pub struct MessageProofParams {
 }
 
 /// Benchmark-specific message delivery proof parameters.
+#[derive(Debug)]
 pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 	/// Id of the lane.
 	pub lane: LaneId,

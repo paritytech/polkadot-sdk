@@ -828,7 +828,7 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 
-			use bp_runtime::messages::DispatchFeePayment;
+			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof, prepare_message_proof, prepare_outbound_message};
 			use bridge_runtime_common::messages;
 			use pallet_bridge_messages::benchmarking::{
 				Pallet as MessagesBench,
@@ -836,9 +836,8 @@ impl_runtime_apis! {
 				MessageDeliveryProofParams,
 				MessageParams,
 				MessageProofParams,
-				ProofSize as MessagesProofSize,
 			};
-			use rialto_messages::{ToRialtoMessagePayload, WithRialtoMessageBridge};
+			use rialto_messages::WithRialtoMessageBridge;
 
 			impl MessagesConfig<WithRialtoMessagesInstance> for Runtime {
 				fn maximal_message_size() -> u32 {
@@ -863,120 +862,24 @@ impl_runtime_apis! {
 				fn prepare_outbound_message(
 					params: MessageParams<Self::AccountId>,
 				) -> (rialto_messages::ToRialtoMessagePayload, Balance) {
-					let message_payload = vec![0; params.size as usize];
-					let dispatch_origin = bp_message_dispatch::CallOrigin::SourceAccount(
-						params.sender_account,
-					);
-
-					let message = ToRialtoMessagePayload {
-						spec_version: 0,
-						weight: params.size as _,
-						origin: dispatch_origin,
-						call: message_payload,
-						dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
-					};
-					(message, pallet_bridge_messages::benchmarking::MESSAGE_FEE.into())
+					prepare_outbound_message::<WithRialtoMessageBridge>(params)
 				}
 
 				fn prepare_message_proof(
 					params: MessageProofParams,
 				) -> (rialto_messages::FromRialtoMessagesProof, Weight) {
-					use bp_messages::{MessageKey, storage_keys};
-					use bridge_runtime_common::{
-						messages::MessageBridge,
-						messages_benchmarking::{ed25519_sign, prepare_message_proof},
-					};
-					use codec::Encode;
-					use frame_support::weights::GetDispatchInfo;
-					use rialto_messages::WithRialtoMessageBridge;
-					use sp_runtime::traits::{Header, IdentifyAccount};
-
-					let remark = match params.size {
-						MessagesProofSize::Minimal(ref size) => vec![0u8; *size as _],
-						_ => vec![],
-					};
-					let call = Call::System(SystemCall::remark { remark });
-					let call_weight = call.get_dispatch_info().weight;
-
-					let rialto_account_id: bp_rialto::AccountId = Default::default();
-					let (millau_raw_public, millau_raw_signature) = ed25519_sign(
-						&call,
-						&rialto_account_id,
-						VERSION.spec_version,
-						bp_runtime::RIALTO_CHAIN_ID,
-						bp_runtime::MILLAU_CHAIN_ID,
-					);
-					let millau_public = MultiSigner::Ed25519(sp_core::ed25519::Public::from_raw(millau_raw_public));
-					let millau_signature = MultiSignature::Ed25519(sp_core::ed25519::Signature::from_raw(
-						millau_raw_signature,
-					));
-
-					if params.dispatch_fee_payment == DispatchFeePayment::AtTargetChain {
-						Self::endow_account(&millau_public.clone().into_account());
-					}
-
-					let make_rialto_message_key = |message_key: MessageKey| storage_keys::message_key(
-						<WithRialtoMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
-						&message_key.lane_id, message_key.nonce,
-					).0;
-					let make_rialto_outbound_lane_data_key = |lane_id| storage_keys::outbound_lane_data_key(
-						<WithRialtoMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
-						&lane_id,
-					).0;
-
-					let make_rialto_header = |state_root| bp_rialto::Header::new(
-						0,
-						Default::default(),
-						state_root,
-						Default::default(),
-						Default::default(),
-					);
-
-					let dispatch_fee_payment = params.dispatch_fee_payment.clone();
-					prepare_message_proof::<WithRialtoMessageBridge, bp_rialto::Hasher, Runtime, (), _, _, _>(
+					prepare_message_proof::<Runtime, (), (), WithRialtoMessageBridge, bp_rialto::Header, bp_rialto::Hasher>(
 						params,
-						make_rialto_message_key,
-						make_rialto_outbound_lane_data_key,
-						make_rialto_header,
-						call_weight,
-						bp_message_dispatch::MessagePayload {
-							spec_version: VERSION.spec_version,
-							weight: call_weight,
-							origin: bp_message_dispatch::CallOrigin::<
-								bp_rialto::AccountId,
-								MultiSigner,
-								Signature,
-							>::TargetAccount(
-								rialto_account_id,
-								millau_public,
-								millau_signature,
-							),
-							dispatch_fee_payment,
-							call: call.encode(),
-						}.encode(),
+						&VERSION,
+						Balance::MAX / 100,
 					)
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<Self::AccountId>,
 				) -> rialto_messages::ToRialtoMessagesDeliveryProof {
-					use bridge_runtime_common::messages_benchmarking::prepare_message_delivery_proof;
-					use rialto_messages::WithRialtoMessageBridge;
-					use sp_runtime::traits::Header;
-
-					prepare_message_delivery_proof::<WithRialtoMessageBridge, bp_rialto::Hasher, Runtime, (), _, _>(
+					prepare_message_delivery_proof::<Runtime, (), WithRialtoMessageBridge, bp_rialto::Header, bp_rialto::Hasher>(
 						params,
-						|lane_id| bp_messages::storage_keys::inbound_lane_data_key(
-							<WithRialtoMessageBridge as MessageBridge>::BRIDGED_MESSAGES_PALLET_NAME,
-							&lane_id,
-						).0,
-						|state_root| bp_rialto::Header::new(
-							0,
-							Default::default(),
-							state_root,
-							Default::default(),
-							Default::default(),
-						),
 					)
 				}
 
