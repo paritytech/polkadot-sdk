@@ -30,7 +30,8 @@ use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+pub type ChainSpec =
+	sc_service::GenericChainSpec<GenesisConfig, polkadot_service::chain_spec::Extensions>;
 
 /// The chain specification option. This is expected to come in from the CLI and
 /// is little more than one of a number of alternatives which can easily be converted
@@ -104,7 +105,7 @@ impl Alternative {
 				None,
 				None,
 				properties,
-				None,
+				Default::default(),
 			),
 			Alternative::LocalTestnet => ChainSpec::from_genesis(
 				"Rialto Local",
@@ -128,7 +129,7 @@ impl Alternative {
 				None,
 				None,
 				properties,
-				None,
+				Default::default(),
 			),
 		}
 	}
