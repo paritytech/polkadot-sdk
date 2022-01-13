@@ -367,14 +367,9 @@ benchmarks_instance_pallet! {
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
-		assert_eq!(
-			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
-			21,
-		);
-		assert_eq!(
-			crate::Pallet::<T, I>::inbound_latest_confirmed_nonce(T::bench_lane_id()),
-			20,
-		);
+		let lane_state = crate::InboundLanes::<T, I>::get(&T::bench_lane_id());
+		assert_eq!(lane_state.last_delivered_nonce(), 21);
+		assert_eq!(lane_state.last_confirmed_nonce, 20);
 		assert!(T::is_message_dispatched(21));
 	}
 

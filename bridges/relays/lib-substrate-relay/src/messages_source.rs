@@ -83,6 +83,22 @@ impl<P: SubstrateMessageLane> SubstrateMessagesSource<P> {
 			target_to_source_headers_relay,
 		}
 	}
+
+	/// Read outbound lane state from the on-chain storage at given block.
+	async fn outbound_lane_data(
+		&self,
+		id: SourceHeaderIdOf<MessageLaneAdapter<P>>,
+	) -> Result<Option<OutboundLaneData>, SubstrateError> {
+		self.client
+			.storage_value(
+				outbound_lane_data_key(
+					P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+					&self.lane_id,
+				),
+				Some(id.1),
+			)
+			.await
+	}
 }
 
 impl<P: SubstrateMessageLane> Clone for SubstrateMessagesSource<P> {
@@ -129,19 +145,12 @@ where
 		&self,
 		id: SourceHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(SourceHeaderIdOf<MessageLaneAdapter<P>>, MessageNonce), SubstrateError> {
-		let outbound_lane_data: Option<OutboundLaneData> = self
-			.client
-			.storage_value(
-				outbound_lane_data_key(
-					P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
-					&self.lane_id,
-				),
-				Some(id.1),
-			)
-			.await?;
 		// lane data missing from the storage is fine until first message is sent
-		let latest_generated_nonce =
-			outbound_lane_data.map(|data| data.latest_generated_nonce).unwrap_or(0);
+		let latest_generated_nonce = self
+			.outbound_lane_data(id)
+			.await?
+			.map(|data| data.latest_generated_nonce)
+			.unwrap_or(0);
 		Ok((id, latest_generated_nonce))
 	}
 
@@ -149,19 +158,12 @@ where
 		&self,
 		id: SourceHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(SourceHeaderIdOf<MessageLaneAdapter<P>>, MessageNonce), SubstrateError> {
-		let outbound_lane_data: Option<OutboundLaneData> = self
-			.client
-			.storage_value(
-				outbound_lane_data_key(
-					P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
-					&self.lane_id,
-				),
-				Some(id.1),
-			)
-			.await?;
 		// lane data missing from the storage is fine until first message is sent
-		let latest_received_nonce =
-			outbound_lane_data.map(|data| data.latest_received_nonce).unwrap_or(0);
+		let latest_received_nonce = self
+			.outbound_lane_data(id)
+			.await?
+			.map(|data| data.latest_received_nonce)
+			.unwrap_or(0);
 		Ok((id, latest_received_nonce))
 	}
 
