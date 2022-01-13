@@ -418,7 +418,7 @@ pub fn run() -> Result<()> {
 				You can enable it with `--features runtime-benchmarks`."
 					.into())
 			},
-		Some(Subcommand::TryRuntime(cmd)) =>
+		Some(Subcommand::TryRuntime(cmd)) => {
 			if cfg!(feature = "try-runtime") {
 				// grab the task manager.
 				let runner = cli.create_runner(cmd)?;
@@ -448,7 +448,8 @@ pub fn run() -> Result<()> {
 				}
 			} else {
 				Err("Try-runtime must be enabled by `--features try-runtime`.".into())
-			},
+			}
+		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;

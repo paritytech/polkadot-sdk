@@ -54,8 +54,9 @@ impl PurgeChainCmd {
 		relay_config: sc_service::Configuration,
 	) -> sc_cli::Result<()> {
 		let databases = match (self.parachain, self.relaychain) {
-			(true, true) | (false, false) =>
-				vec![("parachain", para_config.database), ("relaychain", relay_config.database)],
+			(true, true) | (false, false) => {
+				vec![("parachain", para_config.database), ("relaychain", relay_config.database)]
+			},
 			(true, false) => vec![("parachain", para_config.database)],
 			(false, true) => vec![("relaychain", relay_config.database)],
 		};

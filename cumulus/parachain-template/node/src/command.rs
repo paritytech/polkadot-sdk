@@ -241,7 +241,7 @@ pub fn run() -> Result<()> {
 				You can enable it with `--features runtime-benchmarks`."
 					.into())
 			},
-		Some(Subcommand::TryRuntime(cmd)) =>
+		Some(Subcommand::TryRuntime(cmd)) => {
 			if cfg!(feature = "try-runtime") {
 				let runner = cli.create_runner(cmd)?;
 
@@ -256,7 +256,8 @@ pub fn run() -> Result<()> {
 				})
 			} else {
 				Err("Try-runtime must be enabled by `--features try-runtime`.".into())
-			},
+			}
+		},
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 
