@@ -5,7 +5,7 @@
 - `followSubscriptionId`: An opaque string that was returned by `chainHead_unstable_follow`. The `runtimeUpdates` parameter of the call must have been equal to `true`.
 - `hash`: String containing the hexadecimal-encoded hash of the header of the block to make the call against.
 - `function`: Name of the runtime entry point to call as a string.
-- `callParameters`: Array containing a list of hexadecimal-encoded SCALE-encoded parameters to pass to the runtime function.
+- `callParameters`: Hexadecimal-encoded SCALE-encoded value to pass as input to the runtime function.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
 **Return value**: String containing an opaque value representing the operation.
@@ -17,8 +17,6 @@ The JSON-RPC server must invoke the entry point of the runtime of the given bloc
 The operation will continue even if the given block is unpinned while it is in progress.
 
 This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_call` if instead you want to call the runtime of an arbitrary block.
-
-**TODO**: in order to perform the runtime call, the implementation of this function will simply concatenate all the parameters (without any separator), so does it make sense for the JSON-RPC function to require to split them into an array?
 
 **Note**: This can be used as a replacement for the legacy `state_getMetadata`, `system_accountNextIndex`, and `payment_queryInfo` functions.
 
@@ -110,3 +108,7 @@ No more event will be generated with this `subscriptionId`.
 - If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "error"}` notification is generated.
 - If the runtime call fails (e.g. because it triggers a panic in the runtime, running out of memory, etc., or if the runtime call takes too much time), then an `{"event": "error"}` notification is generated.
 - If the runtime call calls a host function that has a side effect, then an `{"event": "error"}` notification is generated.
+
+## About `callParameters`
+
+Runtime entry points typically accept multiple input parameters, but this JSON-RPC function accepts as parameter a single hexadecimal-encoded value. The reason is that all the parameters are concatenated together before performing the call anyway. There is no reason to force JSON-RPC clients to provide a proper division between the various parameters if they are all concatenated in the implementation anyway.
