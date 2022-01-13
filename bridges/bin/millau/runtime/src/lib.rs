@@ -776,10 +776,6 @@ impl_runtime_apis! {
 	}
 
 	impl bp_rialto::FromRialtoInboundLaneApi<Block> for Runtime {
-		fn latest_confirmed_nonce(lane: bp_messages::LaneId) -> bp_messages::MessageNonce {
-			BridgeRialtoMessages::inbound_latest_confirmed_nonce(lane)
-		}
-
 		fn unrewarded_relayers_state(lane: bp_messages::LaneId) -> bp_messages::UnrewardedRelayersState {
 			BridgeRialtoMessages::inbound_unrewarded_relayers_state(lane)
 		}
