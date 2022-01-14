@@ -1686,6 +1686,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.2.1",
+ "impl-trait-for-tuples",
  "lazy_static",
  "log",
  "pallet-balances",
@@ -1727,6 +1728,22 @@ dependencies = [
  "frame-system",
  "pallet-session",
  "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "cumulus-pallet-solo-to-para"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "pallet-sudo",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "scale-info",
  "sp-runtime",
  "sp-std",
 ]
@@ -1790,7 +1807,6 @@ name = "cumulus-primitives-core"
 version = "0.1.0"
 dependencies = [
  "frame-support",
- "impl-trait-for-tuples",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain",
@@ -9850,6 +9866,7 @@ name = "seedling-runtime"
 version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-solo-to-para",
  "cumulus-primitives-core",
  "frame-executive",
  "frame-support",

@@ -98,7 +98,7 @@ impl pallet_balances::Config for Test {
 
 impl cumulus_pallet_parachain_system::Config for Test {
 	type Event = Event;
-	type OnValidationData = ();
+	type OnSystemEvent = ();
 	type SelfParaId = ();
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type DmpMessageHandler = ();

@@ -32,6 +32,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", default-fea
 
 # Cumulus dependencies
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
+cumulus-pallet-solo-to-para = { path = "../../pallets/solo-to-para", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 [build-dependencies]
@@ -62,5 +63,6 @@ std = [
 	"pallet-balances/std",
 	"parachain-info/std",
 	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-solo-to-para/std",
 	"cumulus-primitives-core/std",
 ]

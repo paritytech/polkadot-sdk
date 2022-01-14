@@ -38,7 +38,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, match_type, parameter_types,
-	traits::{Contains, IsInVec, Randomness},
+	traits::{IsInVec, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, Weight,
@@ -103,23 +103,6 @@ parameter_types! {
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
 }
-
-pub struct BaseFilter;
-impl Contains<Call> for BaseFilter {
-	fn contains(c: &Call) -> bool {
-		// Disallow everything that is not set_validation_data or set_code
-		match c {
-			Call::ParachainSystem(cumulus_pallet_parachain_system::Call::set_validation_data {
-				..
-			}) => true,
-			Call::Sudo(pallet_sudo::Call::sudo_unchecked_weight { call: ref x, .. }) => {
-				matches!(x.as_ref(), &Call::System(frame_system::Call::set_code { .. }))
-			},
-			_ => false,
-		}
-	}
-}
-
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -151,7 +134,7 @@ impl frame_system::Config for Runtime {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type DbWeight = ();
-	type BaseCallFilter = BaseFilter;
+	type BaseCallFilter = frame_support::traits::Everything;
 	type SystemWeightInfo = ();
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
@@ -165,9 +148,13 @@ impl pallet_sudo::Config for Runtime {
 	type Event = Event;
 }
 
+impl cumulus_pallet_solo_to_para::Config for Runtime {
+	type Event = Event;
+}
+
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type Event = Event;
-	type OnValidationData = ();
+	type OnSystemEvent = cumulus_pallet_solo_to_para::Pallet<Runtime>;
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = ();
 	type DmpMessageHandler = ();
@@ -186,10 +173,12 @@ construct_runtime! {
 	{
 		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
+
 		ParachainSystem: cumulus_pallet_parachain_system::{
 			Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned,
 		},
 		ParachainInfo: parachain_info::{Pallet, Storage, Config},
+		SoloToPara: cumulus_pallet_solo_to_para::{Pallet, Call, Storage, Event},
 	}
 }
 
@@ -221,6 +210,7 @@ pub type SignedExtra = (
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
+	cumulus_pallet_solo_to_para::CheckSudo<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;

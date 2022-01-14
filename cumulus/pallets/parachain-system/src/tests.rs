@@ -100,7 +100,7 @@ impl frame_system::Config for Test {
 }
 impl Config for Test {
 	type Event = Event;
-	type OnValidationData = ();
+	type OnSystemEvent = ();
 	type SelfParaId = ParachainId;
 	type OutboundXcmpMessageSource = FromThreadLocal;
 	type DmpMessageHandler = SaveIntoThreadLocal;

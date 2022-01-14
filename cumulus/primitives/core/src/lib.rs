@@ -139,12 +139,6 @@ pub enum ServiceQuality {
 	Fast,
 }
 
-/// A trait which is called when the validation data is set.
-#[impl_trait_for_tuples::impl_for_tuples(30)]
-pub trait OnValidationData {
-	fn on_validation_data(data: &PersistedValidationData);
-}
-
 /// The parachain block that is created by a collator.
 ///
 /// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be

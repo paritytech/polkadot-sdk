@@ -29,7 +29,7 @@ sudo=$8
 binary="./target/release/polkadot-collator"
 
 # build the chain spec we'll manipulate
-$binary build-spec --chain seedling > seedling-spec-plain.json
+$binary build-spec --disable-default-bootnode --chain seedling > seedling-spec-plain.json
 
 # convert runtime to hex
 cat $runtime_path | od -A n -v -t x1 |  tr -d ' \n' > seedling-hex.txt
@@ -47,7 +47,7 @@ cat seedling-spec-plain.json | jq --rawfile code seedling-hex.txt '.genesis.runt
     > edited-seedling-plain.json
 
 # build a raw spec
-$binary build-spec --chain edited-seedling-plain.json --raw > seedling-spec-raw.json
+$binary build-spec --disable-default-bootnode --chain edited-seedling-plain.json --raw > seedling-spec-raw.json
 
 # build genesis data
 $binary export-genesis-state --parachain-id=$para_id --chain seedling-spec-raw.json > seedling-head-data
