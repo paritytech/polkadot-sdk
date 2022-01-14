@@ -308,8 +308,8 @@ mod tests {
 		);
 	}
 
-	#[test]
-	fn should_encode_bridge_send_message_call() {
+	#[async_std::test]
+	async fn should_encode_bridge_send_message_call() {
 		// given
 		let encode_message = SendMessage::from_iter(vec![
 			"send-message",
@@ -325,6 +325,7 @@ mod tests {
 			"remark",
 		])
 		.encode_payload()
+		.await
 		.unwrap();
 
 		let mut encode_call = EncodeCall::from_iter(vec![
