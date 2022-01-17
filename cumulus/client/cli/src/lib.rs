@@ -232,6 +232,14 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_methods()
 	}
 
+	fn rpc_max_payload(&self) -> sc_cli::Result<Option<usize>> {
+		self.base.rpc_max_payload()
+	}
+
+	fn ws_max_out_buffer_capacity(&self) -> sc_cli::Result<Option<usize>> {
+		self.base.ws_max_out_buffer_capacity()
+	}
+
 	fn transaction_pool(&self) -> sc_cli::Result<TransactionPoolOptions> {
 		self.base.transaction_pool()
 	}
