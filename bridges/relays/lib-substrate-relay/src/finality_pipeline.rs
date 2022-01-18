@@ -27,8 +27,8 @@ use bp_header_chain::justification::GrandpaJustification;
 use finality_relay::FinalitySyncPipeline;
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
-	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
-	HashOf, HeaderOf, SyncHeader, TransactionSignScheme,
+	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
+	ChainWithGrandpa, Client, HashOf, HeaderOf, SyncHeader, TransactionSignScheme,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
@@ -44,7 +44,7 @@ pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 #[async_trait]
 pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 	/// Headers of this chain are submitted to the `TargetChain`.
-	type SourceChain: Chain;
+	type SourceChain: ChainWithGrandpa;
 	/// Headers of the `SourceChain` are submitted to this chain.
 	type TargetChain: Chain;
 
