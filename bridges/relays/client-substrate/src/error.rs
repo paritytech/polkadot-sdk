@@ -51,6 +51,9 @@ pub enum Error {
 	/// The client we're connected to is not synced, so we can't rely on its state.
 	#[error("Substrate client is not synced {0}.")]
 	ClientNotSynced(Health),
+	/// The bridge pallet is halted and all transactions will be rejected.
+	#[error("Bridge pallet is halted.")]
+	BridgePalletIsHalted,
 	/// An error has happened when we have tried to parse storage proof.
 	#[error("Error when parsing storage proof: {0:?}.")]
 	StorageProofError(bp_runtime::StorageProofError),
