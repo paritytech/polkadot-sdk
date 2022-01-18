@@ -16,17 +16,30 @@
 
 //! Storage keys of bridge GRANDPA pallet.
 
-/// Name of the `BestFinalized` storage map.
-pub const BEST_FINALIZED_MAP_NAME: &str = "BestFinalized";
+/// Name of the `IsHalted` storage value.
+pub const IS_HALTED_VALUE_NAME: &str = "IsHalted";
+/// Name of the `BestFinalized` storage value.
+pub const BEST_FINALIZED_VALUE_NAME: &str = "BestFinalized";
 
 use sp_core::storage::StorageKey;
+
+/// Storage key of the `IsHalted` flag in the runtime storage.
+pub fn is_halted_key(pallet_prefix: &str) -> StorageKey {
+	StorageKey(
+		bp_runtime::storage_value_final_key(
+			pallet_prefix.as_bytes(),
+			IS_HALTED_VALUE_NAME.as_bytes(),
+		)
+		.to_vec(),
+	)
+}
 
 /// Storage key of the best finalized header hash value in the runtime storage.
 pub fn best_finalized_hash_key(pallet_prefix: &str) -> StorageKey {
 	StorageKey(
 		bp_runtime::storage_value_final_key(
 			pallet_prefix.as_bytes(),
-			BEST_FINALIZED_MAP_NAME.as_bytes(),
+			BEST_FINALIZED_VALUE_NAME.as_bytes(),
 		)
 		.to_vec(),
 	)
@@ -36,6 +49,19 @@ pub fn best_finalized_hash_key(pallet_prefix: &str) -> StorageKey {
 mod tests {
 	use super::*;
 	use hex_literal::hex;
+
+	#[test]
+	fn is_halted_key_computed_properly() {
+		// If this test fails, then something has been changed in module storage that is breaking
+		// compatibility with previous pallet.
+		let storage_key = is_halted_key("BridgeGrandpa").0;
+		assert_eq!(
+			storage_key,
+			hex!("0b06f475eddb98cf933a12262e0388de9611a984bbd04e2fd39f97bbc006115f").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
+		);
+	}
 
 	#[test]
 	fn best_finalized_hash_key_computed_properly() {
