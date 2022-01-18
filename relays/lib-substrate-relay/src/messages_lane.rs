@@ -34,8 +34,8 @@ use frame_support::weights::{GetDispatchInfo, Weight};
 use messages_relay::{message_lane::MessageLane, relay_strategy::RelayStrategy};
 use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
 use relay_substrate_client::{
-	AccountKeyPairOf, BalanceOf, BlockNumberOf, CallOf, Chain, ChainWithMessages, Client, HashOf,
-	TransactionSignScheme,
+	transaction_stall_timeout, AccountKeyPairOf, BalanceOf, BlockNumberOf, CallOf, Chain,
+	ChainWithMessages, Client, HashOf, TransactionSignScheme,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
@@ -173,7 +173,7 @@ where
 			Max messages in single transaction: {}\n\t\
 			Max messages size in single transaction: {}\n\t\
 			Max messages weight in single transaction: {}\n\t\
-			Tx mortality: {:?}/{:?}\n\t\
+			Tx mortality: {:?} (~{}m)/{:?} (~{}m)\n\t\
 			Stall timeout: {:?}",
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
@@ -183,7 +183,17 @@ where
 		max_messages_size_in_single_batch,
 		max_messages_weight_in_single_batch,
 		params.source_transaction_params.mortality,
+		transaction_stall_timeout(
+			params.source_transaction_params.mortality,
+			P::SourceChain::AVERAGE_BLOCK_INTERVAL,
+			STALL_TIMEOUT,
+		).as_secs_f64() / 60.0f64,
 		params.target_transaction_params.mortality,
+		transaction_stall_timeout(
+			params.target_transaction_params.mortality,
+			P::TargetChain::AVERAGE_BLOCK_INTERVAL,
+			STALL_TIMEOUT,
+		).as_secs_f64() / 60.0f64,
 		stall_timeout,
 	);
 
