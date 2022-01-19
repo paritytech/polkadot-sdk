@@ -46,10 +46,12 @@ fn bad_message_is_handled() {
 	});
 }
 
+/// Tests that a blob message is handled. Currently this isn't implemented and panics when debug assertions
+/// are enabled. When this feature is enabled, this test should be rewritten properly.
 #[test]
-#[should_panic = "Invalid incoming blob message data"]
+#[should_panic = "Blob messages not handled."]
 #[cfg(debug_assertions)]
-fn other_bad_message_is_handled() {
+fn handle_blob_message() {
 	new_test_ext().execute_with(|| {
 		let bad_data = vec![
 			1, 1, 1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 64, 239,
@@ -58,7 +60,6 @@ fn other_bad_message_is_handled() {
 		];
 		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, bad_data);
 		let format = XcmpMessageFormat::ConcatenatedEncodedBlob;
-		// This should exit with an error.
 		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000, 10_000_000_000);
 	});
 }
