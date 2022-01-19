@@ -11,6 +11,7 @@
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {
+    "ss58Format": 0,
     "tokenDecimals": 10,
     "tokenSymbol": "DOT"
   },

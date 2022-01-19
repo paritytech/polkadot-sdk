@@ -271,6 +271,7 @@ pub fn westmint_session_keys(keys: AuraId) -> westmint_runtime::SessionKeys {
 
 pub fn statemint_development_config() -> StatemintChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
@@ -307,6 +308,7 @@ pub fn statemint_development_config() -> StatemintChainSpec {
 
 pub fn statemint_local_config() -> StatemintChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
@@ -358,6 +360,7 @@ pub fn statemint_local_config() -> StatemintChainSpec {
 // Not used for syncing, but just to determine the genesis values set for the upgrade from shell.
 pub fn statemint_config() -> StatemintChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
