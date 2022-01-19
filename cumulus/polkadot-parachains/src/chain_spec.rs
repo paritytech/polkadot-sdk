@@ -355,6 +355,65 @@ pub fn statemint_local_config() -> StatemintChainSpec {
 	)
 }
 
+// Not used for syncing, but just to determine the genesis values set for the upgrade from shell.
+pub fn statemint_config() -> StatemintChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "DOT".into());
+	properties.insert("tokenDecimals".into(), 10.into());
+
+	StatemintChainSpec::from_genesis(
+		// Name
+		"Statemint",
+		// ID
+		"statemint",
+		ChainType::Live,
+		move || {
+			statemint_genesis(
+				// initial collators.
+				vec![
+					(
+						hex!("4c3d674d2a01060f0ded218e5dcc6f90c1726f43df79885eb3e22d97a20d5421")
+							.into(),
+						hex!("4c3d674d2a01060f0ded218e5dcc6f90c1726f43df79885eb3e22d97a20d5421")
+							.unchecked_into(),
+					),
+					(
+						hex!("c7d7d38d16bc23c6321152c50306212dc22c0efc04a2e52b5cccfc31ab3d7811")
+							.into(),
+						hex!("c7d7d38d16bc23c6321152c50306212dc22c0efc04a2e52b5cccfc31ab3d7811")
+							.unchecked_into(),
+					),
+					(
+						hex!("c5c07ba203d7375675f5c1ebe70f0a5bb729ae57b48bcc877fcc2ab21309b762")
+							.into(),
+						hex!("c5c07ba203d7375675f5c1ebe70f0a5bb729ae57b48bcc877fcc2ab21309b762")
+							.unchecked_into(),
+					),
+					(
+						hex!("0b2d0013fb974794bd7aa452465b567d48ef70373fe231a637c1fb7c547e85b3")
+							.into(),
+						hex!("0b2d0013fb974794bd7aa452465b567d48ef70373fe231a637c1fb7c547e85b3")
+							.unchecked_into(),
+					),
+				],
+				vec![],
+				1000u32.into(),
+			)
+		},
+		vec![
+			"/ip4/34.65.251.121/tcp/30334/p2p/12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa".parse().unwrap(),
+			"/ip4/34.65.35.228/tcp/30334/p2p/12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq".parse().unwrap(),
+			"/ip4/34.83.247.146/tcp/30334/p2p/12D3KooWE4jFh5FpJDkWVZhnWtFnbSqRhdjvC7Dp9b8b3FTuubQC".parse().unwrap(),
+			"/ip4/104.199.117.230/tcp/30334/p2p/12D3KooWG9R8pVXKumVo2rdkeVD4j5PVhRTqmYgLHY3a4yPYgLqM".parse().unwrap(),
+		],
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions { relay_chain: "polkadot".into(), para_id: 1000 },
+	)
+}
+
 fn statemint_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
