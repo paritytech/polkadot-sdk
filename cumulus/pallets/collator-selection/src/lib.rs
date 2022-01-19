@@ -194,7 +194,9 @@ pub mod pallet {
 	#[pallet::getter(fn desired_candidates)]
 	pub type DesiredCandidates<T> = StorageValue<_, u32, ValueQuery>;
 
-	/// Fixed deposit bond for each candidate.
+	/// Fixed amount to deposit to become a collator.
+	///
+	/// When a collator calls `leave_intent` they immediately receive the deposit back.
 	#[pallet::storage]
 	#[pallet::getter(fn candidacy_bond)]
 	pub type CandidacyBond<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
@@ -280,6 +282,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Set the list of invulnerable (fixed) collators.
 		#[pallet::weight(T::WeightInfo::set_invulnerables(new.len() as u32))]
 		pub fn set_invulnerables(
 			origin: OriginFor<T>,
@@ -297,6 +300,9 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Set the ideal number of collators (not including the invulnerables).
+		/// If lowering this number, then the number of running collators could be higher than this figure.
+		/// Aside from that edge case, there should be no other way to have more collators than the desired number.
 		#[pallet::weight(T::WeightInfo::set_desired_candidates())]
 		pub fn set_desired_candidates(
 			origin: OriginFor<T>,
@@ -312,6 +318,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Set the candidacy bond amount.
 		#[pallet::weight(T::WeightInfo::set_candidacy_bond())]
 		pub fn set_candidacy_bond(
 			origin: OriginFor<T>,
@@ -323,6 +330,10 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Register this account as a collator candidate. The account must (a) already have
+		/// registered session keys and (b) be able to reserve the `CandidacyBond`.
+		///
+		/// This call is not available to `Invulnerable` collators.
 		#[pallet::weight(T::WeightInfo::register_as_candidate(T::MaxCandidates::get()))]
 		pub fn register_as_candidate(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -362,6 +373,12 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::register_as_candidate(current_count as u32)).into())
 		}
 
+		/// Deregister `origin` as a collator candidate. Note that the collator can only leave on
+		/// session change. The `CandidacyBond` will be unreserved immediately.
+		///
+		/// This call will fail if the total number of candidates would drop below `MinCandidates`.
+		///
+		/// This call is not available to `Invulnerable` collators.
 		#[pallet::weight(T::WeightInfo::leave_intent(T::MaxCandidates::get()))]
 		pub fn leave_intent(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
