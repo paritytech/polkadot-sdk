@@ -29,8 +29,8 @@ use crate::{
 
 use async_trait::async_trait;
 use bp_messages::{
-	storage_keys::outbound_lane_data_key, LaneId, MessageNonce, OutboundLaneData,
-	UnrewardedRelayersState,
+	storage_keys::{operating_mode_key, outbound_lane_data_key},
+	LaneId, MessageNonce, OperatingMode, OutboundLaneData, UnrewardedRelayersState,
 };
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
@@ -99,6 +99,11 @@ impl<P: SubstrateMessageLane> SubstrateMessagesSource<P> {
 			)
 			.await
 	}
+
+	/// Ensure that the messages pallet at source chain is active.
+	async fn ensure_pallet_active(&self) -> Result<(), SubstrateError> {
+		ensure_messages_pallet_active::<P::SourceChain, P::TargetChain>(&self.client).await
+	}
 }
 
 impl<P: SubstrateMessageLane> Clone for SubstrateMessagesSource<P> {
@@ -132,6 +137,8 @@ where
 		// we can't continue to deliver confirmations if source node is out of sync, because
 		// it may have already received confirmations that we're going to deliver
 		self.client.ensure_synced().await?;
+		// we can't relay confirmations if messages pallet at source chain is halted
+		self.ensure_pallet_active().await?;
 
 		read_client_state::<
 			_,
@@ -289,6 +296,25 @@ where
 			.await
 			.map(|fee| fee.inclusion_fee())
 			.unwrap_or_else(|_| BalanceOf::<P::SourceChain>::max_value())
+	}
+}
+
+/// Ensure that the messages pallet at source chain is active.
+pub(crate) async fn ensure_messages_pallet_active<AtChain, WithChain>(
+	client: &Client<AtChain>,
+) -> Result<(), SubstrateError>
+where
+	AtChain: ChainWithMessages,
+	WithChain: ChainWithMessages,
+{
+	let operating_mode = client
+		.storage_value(operating_mode_key(WithChain::WITH_CHAIN_MESSAGES_PALLET_NAME), None)
+		.await?;
+	let is_halted = operating_mode == Some(OperatingMode::Halted);
+	if is_halted {
+		Err(SubstrateError::BridgePalletIsHalted)
+	} else {
+		Ok(())
 	}
 }
 
