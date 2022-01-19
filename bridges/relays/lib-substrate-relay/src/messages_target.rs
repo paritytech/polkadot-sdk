@@ -21,7 +21,7 @@
 use crate::{
 	messages_lane::{MessageLaneAdapter, ReceiveMessagesProofCallBuilder, SubstrateMessageLane},
 	messages_metrics::StandaloneMessagesMetrics,
-	messages_source::{read_client_state, SubstrateMessagesProof},
+	messages_source::{ensure_messages_pallet_active, read_client_state, SubstrateMessagesProof},
 	on_demand_headers::OnDemandHeadersRelay,
 	TransactionParams,
 };
@@ -100,6 +100,11 @@ impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 			)
 			.await
 	}
+
+	/// Ensure that the messages pallet at target chain is active.
+	async fn ensure_pallet_active(&self) -> Result<(), SubstrateError> {
+		ensure_messages_pallet_active::<P::TargetChain, P::SourceChain>(&self.client).await
+	}
 }
 
 impl<P: SubstrateMessageLane> Clone for SubstrateMessagesTarget<P> {
@@ -136,6 +141,8 @@ where
 		// we can't continue to deliver messages if target node is out of sync, because
 		// it may have already received (some of) messages that we're going to deliver
 		self.client.ensure_synced().await?;
+		// we can't relay messages if messages pallet at target chain is halted
+		self.ensure_pallet_active().await?;
 
 		read_client_state::<
 			_,

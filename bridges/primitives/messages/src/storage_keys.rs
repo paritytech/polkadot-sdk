@@ -16,6 +16,8 @@
 
 //! Storage keys of bridge messages pallet.
 
+/// Name of the `OPERATING_MODE_VALUE_NAME` storage value.
+pub const OPERATING_MODE_VALUE_NAME: &str = "PalletOperatingMode";
 /// Name of the `OutboundMessages` storage map.
 pub const OUTBOUND_MESSAGES_MAP_NAME: &str = "OutboundMessages";
 /// Name of the `OutboundLanes` storage map.
@@ -28,6 +30,17 @@ use crate::{LaneId, MessageKey, MessageNonce};
 use codec::Encode;
 use frame_support::Blake2_128Concat;
 use sp_core::storage::StorageKey;
+
+/// Storage key of the `PalletOperatingMode` value in the runtime storage.
+pub fn operating_mode_key(pallet_prefix: &str) -> StorageKey {
+	StorageKey(
+		bp_runtime::storage_value_final_key(
+			pallet_prefix.as_bytes(),
+			OPERATING_MODE_VALUE_NAME.as_bytes(),
+		)
+		.to_vec(),
+	)
+}
 
 /// Storage key of the outbound message in the runtime storage.
 pub fn message_key(pallet_prefix: &str, lane: &LaneId, nonce: MessageNonce) -> StorageKey {
@@ -60,6 +73,19 @@ pub fn inbound_lane_data_key(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
 mod tests {
 	use super::*;
 	use hex_literal::hex;
+
+	#[test]
+	fn operating_mode_key_computed_properly() {
+		// If this test fails, then something has been changed in module storage that is possibly
+		// breaking all existing message relays.
+		let storage_key = operating_mode_key("BridgeMessages").0;
+		assert_eq!(
+			storage_key,
+			hex!("dd16c784ebd3390a9bc0357c7511ed010f4cf0917788d791142ff6c1f216e7b3").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
+		);
+	}
 
 	#[test]
 	fn storage_message_key_computed_properly() {
