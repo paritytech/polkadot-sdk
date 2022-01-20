@@ -56,6 +56,7 @@ pub mod pallet {
 	pub trait Config: pallet_aura::Config + frame_system::Config {}
 
 	#[pallet::pallet]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
