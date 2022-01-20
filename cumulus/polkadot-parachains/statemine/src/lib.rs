@@ -782,7 +782,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	RemoveCollectiveFlip,
+	(RemoveCollectiveFlip, UniquesV1Migration),
 >;
 
 pub struct RemoveCollectiveFlip;
@@ -792,6 +792,13 @@ impl frame_support::traits::OnRuntimeUpgrade for RemoveCollectiveFlip {
 		// Remove the storage value `RandomMaterial` from removed pallet `RandomnessCollectiveFlip`
 		migration::remove_storage_prefix(b"RandomnessCollectiveFlip", b"RandomMaterial", b"");
 		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
+	}
+}
+
+pub struct UniquesV1Migration;
+impl frame_support::traits::OnRuntimeUpgrade for UniquesV1Migration {
+	fn on_runtime_upgrade() -> Weight {
+		pallet_uniques::migration::migrate_to_v1::<Runtime, _, Uniques>()
 	}
 }
 
