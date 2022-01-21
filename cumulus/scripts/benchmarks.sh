@@ -21,6 +21,7 @@ pallets=(
 	pallet_timestamp
 	pallet_utility
     pallet_uniques
+    frame_system
 )
 
 for p in ${pallets[@]}
