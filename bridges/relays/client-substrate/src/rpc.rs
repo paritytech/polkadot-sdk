@@ -31,6 +31,8 @@ jsonrpsee_proc_macros::rpc_client_api! {
 	pub(crate) Substrate<C: Chain> {
 		#[rpc(method = "system_health", positional_params)]
 		fn system_health() -> Health;
+		#[rpc(method = "system_properties", positional_params)]
+		fn system_properties() -> sc_chain_spec::Properties;
 		#[rpc(method = "chain_getHeader", positional_params)]
 		fn chain_get_header(block_hash: Option<C::Hash>) -> C::Header;
 		#[rpc(method = "chain_getFinalizedHead", positional_params)]
