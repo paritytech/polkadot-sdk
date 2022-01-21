@@ -541,6 +541,15 @@ impl<C: Chain> Client<C> {
 		.await
 	}
 
+	/// Return `tokenDecimals` property from the set of chain properties.
+	pub async fn token_decimals(&self) -> Result<Option<u64>> {
+		self.jsonrpsee_execute(move |client| async move {
+			let system_properties = Substrate::<C>::system_properties(&*client).await?;
+			Ok(system_properties.get("tokenDecimals").and_then(|v| v.as_u64()))
+		})
+		.await
+	}
+
 	/// Return new justifications stream.
 	pub async fn subscribe_justifications(&self) -> Result<Subscription<Bytes>> {
 		let subscription = self

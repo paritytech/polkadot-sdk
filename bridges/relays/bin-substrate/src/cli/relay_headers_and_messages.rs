@@ -374,7 +374,7 @@ impl RelayHeadersAndMessages {
 			let right_to_left_metrics = left_to_right_metrics.clone().reverse();
 
 			// start conversion rate update loops for left/right chains
-			if let Some(left_messages_pallet_owner) = left_messages_pallet_owner {
+			if let Some(left_messages_pallet_owner) = left_messages_pallet_owner.clone() {
 				let left_client = left_client.clone();
 				let format_err = || {
 					anyhow::format_err!(
@@ -417,7 +417,7 @@ impl RelayHeadersAndMessages {
 					},
 				);
 			}
-			if let Some(right_messages_pallet_owner) = right_messages_pallet_owner {
+			if let Some(right_messages_pallet_owner) = right_messages_pallet_owner.clone() {
 				let right_client = right_client.clone();
 				let format_err = || {
 					anyhow::format_err!(
@@ -499,6 +499,24 @@ impl RelayHeadersAndMessages {
 					.await?;
 				}
 			}
+
+			// add balance-related metrics
+			let metrics_params =
+				substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
+					left_client.clone(),
+					metrics_params,
+					Some(left_sign.public().into()),
+					left_messages_pallet_owner.map(|kp| kp.public().into()),
+				)
+				.await?;
+			let metrics_params =
+				substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
+					right_client.clone(),
+					metrics_params,
+					Some(right_sign.public().into()),
+					right_messages_pallet_owner.map(|kp| kp.public().into()),
+				)
+				.await?;
 
 			// start on-demand header relays
 			let left_to_right_transaction_params = TransactionParams {
