@@ -207,13 +207,13 @@ where
 		if let Some(ref key) = collator_key {
 			polkadot_service::IsCollator::Yes(key.clone())
 		} else {
-			polkadot_service::IsCollator::No
+			polkadot_service::IsCollator::Yes(CollatorPair::generate().0)
 		},
 		None,
 	)
 	.map_err(|e| match e {
 		polkadot_service::Error::Sub(x) => x,
-		s => format!("{}", s).into(),
+		s => s.to_string().into(),
 	})?;
 
 	let client = params.client.clone();
@@ -325,7 +325,7 @@ where
 			relay_chain_interface,
 			collator_key,
 			import_queue,
-			slot_duration: Duration::from_secs(6),
+			relay_chain_slot_duration: Duration::from_secs(6),
 		};
 
 		start_collator(params).await?;
@@ -336,6 +336,11 @@ where
 			task_manager: &mut task_manager,
 			para_id,
 			relay_chain_interface,
+			import_queue,
+			// The slot duration is currently used internally only to configure
+			// the recovery delay of pov-recovery. We don't want to wait for too
+			// long on the full node to recover, so we reduce this time here.
+			relay_chain_slot_duration: Duration::from_millis(6),
 		};
 
 		start_full_node(params)?;

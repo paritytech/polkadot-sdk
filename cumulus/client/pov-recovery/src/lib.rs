@@ -23,8 +23,7 @@
 //! several reasons, either a malicious collator that managed to include its own PoV and doesn't want
 //! to share it with the rest of the network or maybe a collator went down before it could distribute
 //! the block in the network. When something like this happens we can use the PoV recovery algorithm
-//! implemented in this crate to recover a PoV and to propagate it with the rest of the network. This
-//! protocol is only executed by the collators, to not overwhelm the relay chain validators.
+//! implemented in this crate to recover a PoV and to propagate it with the rest of the network.
 //!
 //! It works in the following way:
 //!
@@ -83,6 +82,26 @@ struct PendingCandidate<Block: BlockT> {
 	block_number: NumberFor<Block>,
 }
 
+/// The delay between observing an unknown block and recovering this block.
+#[derive(Clone, Copy)]
+pub enum RecoveryDelay {
+	/// Start recovering the block in maximum of the given delay.
+	WithMax { max: Duration },
+	/// Start recovering the block after at least `min` delay and in maximum `max` delay.
+	WithMinAndMax { min: Duration, max: Duration },
+}
+
+impl RecoveryDelay {
+	/// Return as [`Delay`].
+	fn as_delay(self) -> Delay {
+		match self {
+			Self::WithMax { max } => Delay::new(max.mul_f64(thread_rng().gen())),
+			Self::WithMinAndMax { min, max } =>
+				Delay::new(min + max.saturating_sub(min).mul_f64(thread_rng().gen())),
+		}
+	}
+}
+
 /// Encapsulates the logic of the pov recovery.
 pub struct PoVRecovery<Block: BlockT, PC, IQ, RC> {
 	/// All the pending candidates that we are waiting for to be imported or that need to be
@@ -98,7 +117,7 @@ pub struct PoVRecovery<Block: BlockT, PC, IQ, RC> {
 	///
 	/// Uses parent -> blocks mapping.
 	waiting_for_parent: HashMap<Block::Hash, Vec<Block>>,
-	relay_chain_slot_duration: Duration,
+	recovery_delay: RecoveryDelay,
 	parachain_client: Arc<PC>,
 	parachain_import_queue: IQ,
 	relay_chain_interface: RC,
@@ -114,7 +133,7 @@ where
 	/// Create a new instance.
 	pub fn new(
 		overseer_handle: OverseerHandle,
-		relay_chain_slot_duration: Duration,
+		recovery_delay: RecoveryDelay,
 		parachain_client: Arc<PC>,
 		parachain_import_queue: IQ,
 		relay_chain_interface: RCInterface,
@@ -124,7 +143,7 @@ where
 			pending_candidates: HashMap::new(),
 			next_candidate_to_recover: Default::default(),
 			active_candidate_recovery: ActiveCandidateRecovery::new(overseer_handle),
-			relay_chain_slot_duration,
+			recovery_delay,
 			waiting_for_parent: HashMap::new(),
 			parachain_client,
 			parachain_import_queue,
@@ -186,9 +205,8 @@ where
 			return
 		}
 
-		// Wait some random time, with the maximum being the slot duration of the relay chain
-		// before we start to recover the candidate.
-		let delay = Delay::new(self.relay_chain_slot_duration.mul_f64(thread_rng().gen()));
+		// Delay the recovery by some random time to not spam the relay chain.
+		let delay = self.recovery_delay.as_delay();
 		self.next_candidate_to_recover.push(
 			async move {
 				delay.await;

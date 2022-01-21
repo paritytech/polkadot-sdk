@@ -389,6 +389,8 @@ where
 		Arc::new(move |hash, data| network.announce_block(hash, data))
 	};
 
+	let relay_chain_slot_duration = Duration::from_secs(6);
+
 	if validator {
 		let parachain_consensus = build_consensus(
 			client.clone(),
@@ -415,7 +417,7 @@ where
 			parachain_consensus,
 			import_queue,
 			collator_key,
-			slot_duration: Duration::from_secs(6),
+			relay_chain_slot_duration,
 		};
 
 		start_collator(params).await?;
@@ -426,6 +428,8 @@ where
 			task_manager: &mut task_manager,
 			para_id: id,
 			relay_chain_interface,
+			relay_chain_slot_duration,
+			import_queue,
 		};
 
 		start_full_node(params)?;
@@ -576,6 +580,8 @@ where
 		Arc::new(move |hash, data| network.announce_block(hash, data))
 	};
 
+	let relay_chain_slot_duration = Duration::from_secs(6);
+
 	if validator {
 		let parachain_consensus = build_consensus(
 			client.clone(),
@@ -602,7 +608,7 @@ where
 			parachain_consensus,
 			import_queue,
 			collator_key,
-			slot_duration: Duration::from_secs(6),
+			relay_chain_slot_duration,
 		};
 
 		start_collator(params).await?;
@@ -613,6 +619,8 @@ where
 			task_manager: &mut task_manager,
 			para_id: id,
 			relay_chain_interface,
+			relay_chain_slot_duration,
+			import_queue,
 		};
 
 		start_full_node(params)?;

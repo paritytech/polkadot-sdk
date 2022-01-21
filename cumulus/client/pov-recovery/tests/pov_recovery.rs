@@ -73,16 +73,31 @@ async fn pov_recovery() {
 			.build()
 			.await;
 
-	// Run dave as parachain full node
+	// Run dave as parachain collator and eve as parachain full node
 	//
-	// It will need to recover the pov blocks through availability recovery.
-	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Dave)
+	// They will need to recover the pov blocks through availability recovery.
+	let dave = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Dave)
 		.enable_collator()
 		.use_null_consensus()
 		.connect_to_parachain_node(&charlie)
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])
+		.wrap_announce_block(|_| {
+			// Never announce any block
+			Arc::new(|_, _| {})
+		})
 		.build()
 		.await;
 
-	dave.wait_for_blocks(7).await;
+	let eve = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Eve)
+		.use_null_consensus()
+		.connect_to_parachain_node(&charlie)
+		.connect_to_relay_chain_nodes(vec![&alice, &bob])
+		.wrap_announce_block(|_| {
+			// Never announce any block
+			Arc::new(|_, _| {})
+		})
+		.build()
+		.await;
+
+	futures::future::join(dave.wait_for_blocks(7), eve.wait_for_blocks(7)).await;
 }
