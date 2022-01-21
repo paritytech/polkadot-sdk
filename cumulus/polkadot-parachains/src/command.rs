@@ -27,6 +27,7 @@ use codec::Encode;
 use cumulus_client_service::genesis::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use log::info;
+use parachains_common::{AuraId, StatemintAuraId};
 use polkadot_parachain::primitives::AccountIdConversion;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
@@ -254,7 +255,7 @@ macro_rules! construct_async_run {
 			runner.async_run(|$config| {
 				let $components = new_partial::<westmint_runtime::RuntimeApi, WestmintRuntimeExecutor, _>(
 					&$config,
-					crate::service::statemint_build_import_queue,
+					crate::service::statemint_build_import_queue::<_, _, AuraId>,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -263,7 +264,7 @@ macro_rules! construct_async_run {
 			runner.async_run(|$config| {
 				let $components = new_partial::<statemine_runtime::RuntimeApi, StatemineRuntimeExecutor, _>(
 					&$config,
-					crate::service::statemint_build_import_queue,
+					crate::service::statemint_build_import_queue::<_, _, AuraId>,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -272,7 +273,7 @@ macro_rules! construct_async_run {
 			runner.async_run(|$config| {
 				let $components = new_partial::<statemint_runtime::RuntimeApi, StatemintRuntimeExecutor, _>(
 					&$config,
-					crate::service::statemint_build_import_queue,
+					crate::service::statemint_build_import_queue::<_, _, StatemintAuraId>,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -502,6 +503,7 @@ pub fn run() -> Result<()> {
 					crate::service::start_statemint_node::<
 						statemint_runtime::RuntimeApi,
 						StatemintRuntimeExecutor,
+						StatemintAuraId,
 					>(config, polkadot_config, id)
 					.await
 					.map(|r| r.0)
@@ -510,6 +512,7 @@ pub fn run() -> Result<()> {
 					crate::service::start_statemint_node::<
 						statemine_runtime::RuntimeApi,
 						StatemineRuntimeExecutor,
+						AuraId,
 					>(config, polkadot_config, id)
 					.await
 					.map(|r| r.0)
@@ -518,6 +521,7 @@ pub fn run() -> Result<()> {
 					crate::service::start_statemint_node::<
 						westmint_runtime::RuntimeApi,
 						WestmintRuntimeExecutor,
+						AuraId,
 					>(config, polkadot_config, id)
 					.await
 					.map(|r| r.0)

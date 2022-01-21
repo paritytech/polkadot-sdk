@@ -220,7 +220,7 @@ fn seedling_testnet_genesis(
 	}
 }
 
-use parachains_common::Balance as StatemintBalance;
+use parachains_common::{Balance as StatemintBalance, StatemintAuraId};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type StatemintChainSpec =
@@ -244,14 +244,14 @@ pub fn get_public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pa
 /// Generate collator keys from seed.
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
+pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair as Pair>::Public {
 	get_public_from_seed::<AuraId>(seed)
 }
 
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn statemint_session_keys(keys: AuraId) -> statemint_runtime::SessionKeys {
+pub fn statemint_session_keys(keys: StatemintAuraId) -> statemint_runtime::SessionKeys {
 	statemint_runtime::SessionKeys { aura: keys }
 }
 
@@ -286,7 +286,7 @@ pub fn statemint_development_config() -> StatemintChainSpec {
 				// initial collators.
 				vec![(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
+					get_collator_keys_from_seed::<StatemintAuraId>("Alice"),
 				)],
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -324,11 +324,11 @@ pub fn statemint_local_config() -> StatemintChainSpec {
 				vec![
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed("Alice"),
+						get_collator_keys_from_seed::<StatemintAuraId>("Alice"),
 					),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed("Bob"),
+						get_collator_keys_from_seed::<StatemintAuraId>("Bob"),
 					),
 				],
 				vec![
@@ -418,7 +418,7 @@ pub fn statemint_config() -> StatemintChainSpec {
 }
 
 fn statemint_genesis(
-	invulnerables: Vec<(AccountId, AuraId)>,
+	invulnerables: Vec<(AccountId, StatemintAuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
 ) -> statemint_runtime::GenesisConfig {
@@ -474,7 +474,7 @@ pub fn statemine_development_config() -> StatemineChainSpec {
 				// initial collators.
 				vec![(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
 				)],
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -512,11 +512,11 @@ pub fn statemine_local_config() -> StatemineChainSpec {
 				vec![
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed("Alice"),
+						get_collator_keys_from_seed::<AuraId>("Alice"),
 					),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed("Bob"),
+						get_collator_keys_from_seed::<AuraId>("Bob"),
 					),
 				],
 				vec![
@@ -657,7 +657,7 @@ pub fn westmint_development_config() -> WestmintChainSpec {
 				// initial collators.
 				vec![(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
 				)],
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -694,11 +694,11 @@ pub fn westmint_local_config() -> WestmintChainSpec {
 				vec![
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed("Alice"),
+						get_collator_keys_from_seed::<AuraId>("Alice"),
 					),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed("Bob"),
+						get_collator_keys_from_seed::<AuraId>("Bob"),
 					),
 				],
 				vec![
