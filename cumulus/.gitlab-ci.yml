@@ -17,6 +17,7 @@ variables:                         &default-vars
   CI_IMAGE:                        "paritytech/ci-linux:production"
   DOCKER_OS:                       "debian:stretch"
   ARCH:                            "x86_64"
+  WASM_BUILD_WORKSPACE_HINT:       "/builds/parity/cumulus/"
 
 .rust-info-script:                 &rust-info-script
   - rustup show

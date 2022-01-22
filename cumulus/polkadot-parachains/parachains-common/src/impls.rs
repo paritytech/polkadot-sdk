@@ -135,6 +135,7 @@ mod tests {
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlock<Test>;
+	const TEST_ACCOUNT: AccountId = AccountId::new([1; 32]);
 
 	frame_support::construct_runtime!(
 		pub enum Test where
@@ -200,7 +201,7 @@ mod tests {
 		where
 			I: 'a,
 		{
-			Some(Default::default())
+			Some(TEST_ACCOUNT)
 		}
 	}
 
@@ -255,7 +256,7 @@ mod tests {
 			let fee = Balances::issue(10);
 			let tip = Balances::issue(20);
 
-			assert_eq!(Balances::free_balance(AccountId::default()), 0);
+			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
 
 			DealWithFees::on_unbalanceds(vec![fee, tip].into_iter());
 
