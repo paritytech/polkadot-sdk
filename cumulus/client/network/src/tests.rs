@@ -16,15 +16,15 @@
 
 use super::*;
 use async_trait::async_trait;
-use cumulus_relay_chain_interface::WaitError;
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use cumulus_relay_chain_local::{check_block_in_chain, BlockCheckStatus};
 use cumulus_test_service::runtime::{Block, Hash, Header};
-use futures::{executor::block_on, poll, task::Poll, FutureExt, StreamExt};
+use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::v1::{
-	Block as PBlock, CandidateCommitments, CandidateDescriptor, CollatorPair,
-	CommittedCandidateReceipt, Hash as PHash, HeadData, Id as ParaId, InboundDownwardMessage,
+	CandidateCommitments, CandidateDescriptor, CollatorPair, CommittedCandidateReceipt,
+	Hash as PHash, HeadData, Header as PHeader, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
 	SigningContext, ValidationCodeHash, ValidatorId,
 };
@@ -77,53 +77,60 @@ impl DummyRelayChainInterface {
 
 #[async_trait]
 impl RelayChainInterface for DummyRelayChainInterface {
-	fn validators(
+	async fn validators(
 		&self,
 		_: &cumulus_primitives_core::relay_chain::BlockId,
-	) -> Result<Vec<ValidatorId>, sp_api::ApiError> {
+	) -> RelayChainResult<Vec<ValidatorId>> {
 		Ok(self.data.lock().validators.clone())
 	}
 
-	fn block_status(
+	async fn block_status(
 		&self,
 		block_id: cumulus_primitives_core::relay_chain::BlockId,
-	) -> Result<sp_blockchain::BlockStatus, sp_blockchain::Error> {
-		self.relay_backend.blockchain().status(block_id)
+	) -> RelayChainResult<sp_blockchain::BlockStatus> {
+		self.relay_backend
+			.blockchain()
+			.status(block_id)
+			.map_err(RelayChainError::BlockchainError)
 	}
 
-	fn best_block_hash(&self) -> PHash {
-		self.relay_backend.blockchain().info().best_hash
+	async fn best_block_hash(&self) -> RelayChainResult<PHash> {
+		Ok(self.relay_backend.blockchain().info().best_hash)
 	}
 
-	fn retrieve_dmq_contents(&self, _: ParaId, _: PHash) -> Option<Vec<InboundDownwardMessage>> {
-		unimplemented!("Not needed for test")
-	}
-
-	fn retrieve_all_inbound_hrmp_channel_contents(
+	async fn retrieve_dmq_contents(
 		&self,
 		_: ParaId,
 		_: PHash,
-	) -> Option<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
-		Some(BTreeMap::new())
+	) -> RelayChainResult<Vec<InboundDownwardMessage>> {
+		unimplemented!("Not needed for test")
 	}
 
-	fn persisted_validation_data(
+	async fn retrieve_all_inbound_hrmp_channel_contents(
+		&self,
+		_: ParaId,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
+		Ok(BTreeMap::new())
+	}
+
+	async fn persisted_validation_data(
 		&self,
 		_: &cumulus_primitives_core::relay_chain::BlockId,
 		_: ParaId,
 		_: OccupiedCoreAssumption,
-	) -> Result<Option<PersistedValidationData>, sp_api::ApiError> {
+	) -> RelayChainResult<Option<PersistedValidationData>> {
 		Ok(Some(PersistedValidationData {
 			parent_head: HeadData(default_header().encode()),
 			..Default::default()
 		}))
 	}
 
-	fn candidate_pending_availability(
+	async fn candidate_pending_availability(
 		&self,
 		_: &cumulus_primitives_core::relay_chain::BlockId,
 		_: ParaId,
-	) -> Result<Option<CommittedCandidateReceipt>, sp_api::ApiError> {
+	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
 		if self.data.lock().has_pending_availability {
 			Ok(Some(CommittedCandidateReceipt {
 				descriptor: CandidateDescriptor {
@@ -152,60 +159,58 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		}
 	}
 
-	fn session_index_for_child(
+	async fn session_index_for_child(
 		&self,
 		_: &cumulus_primitives_core::relay_chain::BlockId,
-	) -> Result<SessionIndex, sp_api::ApiError> {
+	) -> RelayChainResult<SessionIndex> {
 		Ok(0)
 	}
 
-	fn import_notification_stream(&self) -> sc_client_api::ImportNotifications<PBlock> {
-		self.relay_client.import_notification_stream()
-	}
-
-	fn finality_notification_stream(&self) -> sc_client_api::FinalityNotifications<PBlock> {
-		self.relay_client.finality_notification_stream()
-	}
-
-	fn storage_changes_notification_stream(
+	async fn import_notification_stream(
 		&self,
-		filter_keys: Option<&[sc_client_api::StorageKey]>,
-		child_filter_keys: Option<
-			&[(sc_client_api::StorageKey, Option<Vec<sc_client_api::StorageKey>>)],
-		>,
-	) -> sc_client_api::blockchain::Result<sc_client_api::StorageEventStream<PHash>> {
-		self.relay_client
-			.storage_changes_notification_stream(filter_keys, child_filter_keys)
+	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+		Ok(Box::pin(
+			self.relay_client
+				.import_notification_stream()
+				.map(|notification| notification.header),
+		))
 	}
 
-	fn is_major_syncing(&self) -> bool {
-		false
+	async fn finality_notification_stream(
+		&self,
+	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+		Ok(Box::pin(
+			self.relay_client
+				.finality_notification_stream()
+				.map(|notification| notification.header),
+		))
 	}
 
-	fn overseer_handle(&self) -> Option<Handle> {
+	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
+		Ok(false)
+	}
+
+	fn overseer_handle(&self) -> RelayChainResult<Option<Handle>> {
 		unimplemented!("Not needed for test")
 	}
 
-	fn get_storage_by_key(
+	async fn get_storage_by_key(
 		&self,
 		_: &polkadot_service::BlockId,
 		_: &[u8],
-	) -> Result<Option<StorageValue>, sp_blockchain::Error> {
+	) -> RelayChainResult<Option<StorageValue>> {
 		unimplemented!("Not needed for test")
 	}
 
-	fn prove_read(
+	async fn prove_read(
 		&self,
 		_: &polkadot_service::BlockId,
 		_: &Vec<Vec<u8>>,
-	) -> Result<Option<sc_client_api::StorageProof>, Box<dyn sp_state_machine::Error>> {
+	) -> RelayChainResult<sc_client_api::StorageProof> {
 		unimplemented!("Not needed for test")
 	}
 
-	async fn wait_for_block(
-		&self,
-		hash: PHash,
-	) -> Result<(), cumulus_relay_chain_interface::WaitError> {
+	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {
 		let mut listener = match check_block_in_chain(
 			self.relay_backend.clone(),
 			self.relay_client.clone(),
@@ -219,15 +224,31 @@ impl RelayChainInterface for DummyRelayChainInterface {
 
 		loop {
 			futures::select! {
-				_ = timeout => return Err(WaitError::Timeout(hash)),
+				_ = timeout => return Err(RelayChainError::WaitTimeout(hash)),
 				evt = listener.next() => match evt {
 					Some(evt) if evt.hash == hash => return Ok(()),
 					// Not the event we waited on.
 					Some(_) => continue,
-					None => return Err(WaitError::ImportListenerClosed(hash)),
+					None => return Err(RelayChainError::ImportListenerClosed(hash)),
 				}
 			}
 		}
+	}
+
+	async fn new_best_notification_stream(
+		&self,
+	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+		let notifications_stream =
+			self.relay_client
+				.import_notification_stream()
+				.filter_map(|notification| async move {
+					if notification.is_new_best {
+						Some(notification.header)
+					} else {
+						None
+					}
+				});
+		Ok(Box::pin(notifications_stream))
 	}
 }
 
@@ -274,6 +295,7 @@ async fn make_gossip_message_and_header(
 	.unwrap();
 	let session_index = relay_chain_interface
 		.session_index_for_child(&BlockId::Hash(relay_parent))
+		.await
 		.unwrap();
 	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
@@ -442,9 +464,9 @@ fn check_statement_is_correctly_signed() {
 	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
 }
 
-#[test]
-fn check_statement_seconded() {
-	let (mut validator, api) = make_validator_and_api();
+#[tokio::test]
+async fn check_statement_seconded() {
+	let (mut validator, relay_chain_interface) = make_validator_and_api();
 	let header = default_header();
 	let relay_parent = H256::from_low_u64_be(1);
 
@@ -455,7 +477,10 @@ fn check_statement_seconded() {
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	)
 	.unwrap();
-	let session_index = api.session_index_for_child(&BlockId::Hash(relay_parent)).unwrap();
+	let session_index = relay_chain_interface
+		.session_index_for_child(&BlockId::Hash(relay_parent))
+		.await
+		.unwrap();
 	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 	let statement = Statement::Valid(Default::default());

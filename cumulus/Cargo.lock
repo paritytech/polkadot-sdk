@@ -1895,14 +1895,17 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "derive_more",
+ "futures 0.3.19",
  "parking_lot 0.11.2",
  "polkadot-overseer",
  "sc-client-api",
+ "sc-service",
  "sp-api",
  "sp-blockchain",
  "sp-core",
  "sp-runtime",
  "sp-state-machine",
+ "thiserror",
 ]
 
 [[package]]

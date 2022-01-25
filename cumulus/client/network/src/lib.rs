@@ -38,11 +38,7 @@ use polkadot_primitives::v1::{
 };
 
 use codec::{Decode, DecodeAll, Encode};
-use futures::{
-	channel::oneshot,
-	future::{ready, FutureExt},
-	Future,
-};
+use futures::{channel::oneshot, future::FutureExt, Future};
 
 use std::{convert::TryFrom, fmt, marker::PhantomData, pin::Pin, sync::Arc};
 
@@ -128,7 +124,7 @@ impl BlockAnnounceData {
 	/// Check the signature of the statement.
 	///
 	/// Returns an `Err(_)` if it failed.
-	fn check_signature<RCInterface>(
+	async fn check_signature<RCInterface>(
 		self,
 		relay_chain_client: &RCInterface,
 	) -> Result<Validation, BlockAnnounceError>
@@ -138,16 +134,16 @@ impl BlockAnnounceData {
 		let validator_index = self.statement.unchecked_validator_index();
 
 		let runtime_api_block_id = BlockId::Hash(self.relay_parent);
-		let session_index = match relay_chain_client.session_index_for_child(&runtime_api_block_id)
-		{
-			Ok(r) => r,
-			Err(e) => return Err(BlockAnnounceError(format!("{:?}", e))),
-		};
+		let session_index =
+			match relay_chain_client.session_index_for_child(&runtime_api_block_id).await {
+				Ok(r) => r,
+				Err(e) => return Err(BlockAnnounceError(format!("{:?}", e))),
+			};
 
 		let signing_context = SigningContext { parent_hash: self.relay_parent, session_index };
 
 		// Check that the signer is a legit validator.
-		let authorities = match relay_chain_client.validators(&runtime_api_block_id) {
+		let authorities = match relay_chain_client.validators(&runtime_api_block_id).await {
 			Ok(r) => r,
 			Err(e) => return Err(BlockAnnounceError(format!("{:?}", e))),
 		};
@@ -222,6 +218,7 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 /// chain. If it is at the tip, it is required to provide a justification or otherwise we reject
 /// it. However, if the announcement is for a block below the tip the announcement is accepted
 /// as it probably comes from a node that is currently syncing the chain.
+#[derive(Clone)]
 pub struct BlockAnnounceValidator<Block, RCInterface> {
 	phantom: PhantomData<Block>,
 	relay_chain_interface: RCInterface,
@@ -247,13 +244,14 @@ where
 	RCInterface: RelayChainInterface + Clone,
 {
 	/// Get the included block of the given parachain in the relay chain.
-	fn included_block(
+	async fn included_block(
 		relay_chain_interface: &RCInterface,
 		block_id: &BlockId<PBlock>,
 		para_id: ParaId,
 	) -> Result<Block::Header, BoxedError> {
 		let validation_data = relay_chain_interface
 			.persisted_validation_data(block_id, para_id, OccupiedCoreAssumption::TimedOut)
+			.await
 			.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?
 			.ok_or_else(|| {
 				Box::new(BlockAnnounceError("Could not find parachain head in relay chain".into()))
@@ -269,56 +267,59 @@ where
 	}
 
 	/// Get the backed block hash of the given parachain in the relay chain.
-	fn backed_block_hash(
+	async fn backed_block_hash(
 		relay_chain_interface: &RCInterface,
 		block_id: &BlockId<PBlock>,
 		para_id: ParaId,
 	) -> Result<Option<PHash>, BoxedError> {
 		let candidate_receipt = relay_chain_interface
 			.candidate_pending_availability(block_id, para_id)
+			.await
 			.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
 
 		Ok(candidate_receipt.map(|cr| cr.descriptor.para_head))
 	}
 
 	/// Handle a block announcement with empty data (no statement) attached to it.
-	fn handle_empty_block_announce_data(
+	async fn handle_empty_block_announce_data(
 		&self,
 		header: Block::Header,
-	) -> impl Future<Output = Result<Validation, BoxedError>> {
+	) -> Result<Validation, BoxedError> {
 		let relay_chain_interface = self.relay_chain_interface.clone();
 		let para_id = self.para_id;
 
-		async move {
-			// Check if block is equal or higher than best (this requires a justification)
-			let relay_chain_best_hash = relay_chain_interface.best_block_hash();
-			let runtime_api_block_id = BlockId::Hash(relay_chain_best_hash);
-			let block_number = header.number();
+		// Check if block is equal or higher than best (this requires a justification)
+		let relay_chain_best_hash = relay_chain_interface
+			.best_block_hash()
+			.await
+			.map_err(|e| Box::new(e) as Box<_>)?;
+		let runtime_api_block_id = BlockId::Hash(relay_chain_best_hash);
+		let block_number = header.number();
 
-			let best_head =
-				Self::included_block(&relay_chain_interface, &runtime_api_block_id, para_id)?;
-			let known_best_number = best_head.number();
-			let backed_block =
-				|| Self::backed_block_hash(&relay_chain_interface, &runtime_api_block_id, para_id);
+		let best_head =
+			Self::included_block(&relay_chain_interface, &runtime_api_block_id, para_id).await?;
+		let known_best_number = best_head.number();
+		let backed_block = || async {
+			Self::backed_block_hash(&relay_chain_interface, &runtime_api_block_id, para_id).await
+		};
 
-			if best_head == header {
-				tracing::debug!(target: LOG_TARGET, "Announced block matches best block.",);
+		if best_head == header {
+			tracing::debug!(target: LOG_TARGET, "Announced block matches best block.",);
 
-				Ok(Validation::Success { is_new_best: true })
-			} else if Some(HeadData(header.encode()).hash()) == backed_block()? {
-				tracing::debug!(target: LOG_TARGET, "Announced block matches latest backed block.",);
+			Ok(Validation::Success { is_new_best: true })
+		} else if Some(HeadData(header.encode()).hash()) == backed_block().await? {
+			tracing::debug!(target: LOG_TARGET, "Announced block matches latest backed block.",);
 
-				Ok(Validation::Success { is_new_best: true })
-			} else if block_number >= known_best_number {
-				tracing::debug!(
+			Ok(Validation::Success { is_new_best: true })
+		} else if block_number >= known_best_number {
+			tracing::debug!(
 					target: LOG_TARGET,
 					"Validation failed because a justification is needed if the block at the top of the chain."
 				);
 
-				Ok(Validation::Failure { disconnect: false })
-			} else {
-				Ok(Validation::Success { is_new_best: false })
-			}
+			Ok(Validation::Failure { disconnect: false })
+		} else {
+			Ok(Validation::Success { is_new_best: false })
 		}
 	}
 }
@@ -331,32 +332,40 @@ where
 	fn validate(
 		&mut self,
 		header: &Block::Header,
-		mut data: &[u8],
+		data: &[u8],
 	) -> Pin<Box<dyn Future<Output = Result<Validation, BoxedError>> + Send>> {
-		if self.relay_chain_interface.is_major_syncing() {
-			return ready(Ok(Validation::Success { is_new_best: false })).boxed()
-		}
-
-		if data.is_empty() {
-			return self.handle_empty_block_announce_data(header.clone()).boxed()
-		}
-
-		let block_announce_data = match BlockAnnounceData::decode_all(&mut data) {
-			Ok(r) => r,
-			Err(err) =>
-				return async move {
-					Err(Box::new(BlockAnnounceError(format!(
-						"Can not decode the `BlockAnnounceData`: {:?}",
-						err
-					))) as Box<_>)
-				}
-				.boxed(),
-		};
-
 		let relay_chain_interface = self.relay_chain_interface.clone();
+		let mut data = data.to_vec();
+		let header = header.clone();
 		let header_encoded = header.encode();
+		let block_announce_validator = self.clone();
 
 		async move {
+			let relay_chain_is_syncing = relay_chain_interface
+				.is_major_syncing()
+				.await
+				.map_err(|e| {
+					tracing::error!(target: LOG_TARGET, "Unable to determine sync status. {}", e)
+				})
+				.unwrap_or(false);
+
+			if relay_chain_is_syncing {
+				return Ok(Validation::Success { is_new_best: false })
+			}
+
+			if data.is_empty() {
+				return block_announce_validator.handle_empty_block_announce_data(header).await
+			}
+
+			let block_announce_data = match BlockAnnounceData::decode_all(&mut data) {
+				Ok(r) => r,
+				Err(err) =>
+					return Err(Box::new(BlockAnnounceError(format!(
+						"Can not decode the `BlockAnnounceData`: {:?}",
+						err
+					))) as Box<_>),
+			};
+
 			if let Err(e) = block_announce_data.validate(header_encoded) {
 				return Ok(e)
 			}
@@ -370,6 +379,7 @@ where
 
 			block_announce_data
 				.check_signature(&relay_chain_interface)
+				.await
 				.map_err(|e| Box::new(e) as Box<_>)
 		}
 		.boxed()

@@ -176,7 +176,7 @@ where
 			.propose(
 				inherent_data,
 				Default::default(),
-				//TODO: Fix this.
+				// TODO: Fix this.
 				Duration::from_millis(500),
 				// Set the block limit to 50% of the maximum PoV size.
 				//

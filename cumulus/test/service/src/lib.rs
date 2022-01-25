@@ -31,9 +31,9 @@ use cumulus_client_service::{
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_local::RelayChainLocal;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
+use parking_lot::Mutex;
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
-use parking_lot::Mutex;
 use polkadot_primitives::v1::{CollatorPair, Hash as PHash, PersistedValidationData};
 use polkadot_service::ProvideRuntimeApi;
 use sc_client_api::execution_extensions::ExecutionStrategies;
@@ -288,15 +288,16 @@ where
 					para_id,
 					proposer_factory,
 					move |_, (relay_parent, validation_data)| {
-						let parachain_inherent =
+						let relay_chain_interface = relay_chain_interface_for_closure.clone();
+						async move {
+							let parachain_inherent =
 							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
 								relay_parent,
-								&relay_chain_interface_for_closure,
+								&relay_chain_interface,
 								&validation_data,
 								para_id,
-							);
+							).await;
 
-						async move {
 							let time = sp_timestamp::InherentDataProvider::from_system_time();
 
 							let parachain_inherent = parachain_inherent.ok_or_else(|| {

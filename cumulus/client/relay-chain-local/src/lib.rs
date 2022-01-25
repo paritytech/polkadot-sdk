@@ -14,19 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{sync::Arc, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
 		v1::{CommittedCandidateReceipt, OccupiedCoreAssumption, SessionIndex, ValidatorId},
 		v2::ParachainHost,
-		Block as PBlock, BlockId, Hash as PHash, InboundHrmpMessage,
+		Block as PBlock, BlockId, Hash as PHash, Header as PHeader, InboundHrmpMessage,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
-use cumulus_relay_chain_interface::{RelayChainInterface, WaitError};
-use futures::{FutureExt, StreamExt};
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use futures::{FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use polkadot_client::{ClientHandle, ExecuteWithClient, FullBackend};
 use polkadot_service::{
@@ -37,12 +37,11 @@ use sc_client_api::{
 	StorageProof, UsageProvider,
 };
 use sc_telemetry::TelemetryWorkerHandle;
-use sp_api::{ApiError, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
 use sp_state_machine::{Backend as StateBackend, StorageValue};
 
-const LOG_TARGET: &str = "relay-chain-local";
 /// The timeout in seconds after that the waiting for a block should be aborted.
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
@@ -88,158 +87,117 @@ where
 		+ Send,
 	Client::Api: ParachainHost<PBlock> + BabeApi<PBlock>,
 {
-	fn retrieve_dmq_contents(
+	async fn retrieve_dmq_contents(
 		&self,
 		para_id: ParaId,
 		relay_parent: PHash,
-	) -> Option<Vec<InboundDownwardMessage>> {
-		self.full_client
-			.runtime_api()
-			.dmq_contents_with_context(
-				&BlockId::hash(relay_parent),
-				sp_core::ExecutionContext::Importing,
-				para_id,
-			)
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					relay_parent = ?relay_parent,
-					error = ?e,
-					"An error occured during requesting the downward messages.",
-				);
-			})
-			.ok()
+	) -> RelayChainResult<Vec<InboundDownwardMessage>> {
+		Ok(self.full_client.runtime_api().dmq_contents_with_context(
+			&BlockId::hash(relay_parent),
+			sp_core::ExecutionContext::Importing,
+			para_id,
+		)?)
 	}
 
-	fn retrieve_all_inbound_hrmp_channel_contents(
+	async fn retrieve_all_inbound_hrmp_channel_contents(
 		&self,
 		para_id: ParaId,
 		relay_parent: PHash,
-	) -> Option<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
-		self.full_client
-			.runtime_api()
-			.inbound_hrmp_channels_contents_with_context(
-				&BlockId::hash(relay_parent),
-				sp_core::ExecutionContext::Importing,
-				para_id,
-			)
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					relay_parent = ?relay_parent,
-					error = ?e,
-					"An error occured during requesting the inbound HRMP messages.",
-				);
-			})
-			.ok()
+	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
+		Ok(self.full_client.runtime_api().inbound_hrmp_channels_contents_with_context(
+			&BlockId::hash(relay_parent),
+			sp_core::ExecutionContext::Importing,
+			para_id,
+		)?)
 	}
 
-	fn persisted_validation_data(
+	async fn persisted_validation_data(
 		&self,
 		block_id: &BlockId,
 		para_id: ParaId,
 		occupied_core_assumption: OccupiedCoreAssumption,
-	) -> Result<Option<PersistedValidationData>, ApiError> {
-		self.full_client.runtime_api().persisted_validation_data(
+	) -> RelayChainResult<Option<PersistedValidationData>> {
+		Ok(self.full_client.runtime_api().persisted_validation_data(
 			block_id,
 			para_id,
 			occupied_core_assumption,
-		)
+		)?)
 	}
 
-	fn candidate_pending_availability(
+	async fn candidate_pending_availability(
 		&self,
 		block_id: &BlockId,
 		para_id: ParaId,
-	) -> Result<Option<CommittedCandidateReceipt>, ApiError> {
-		self.full_client.runtime_api().candidate_pending_availability(block_id, para_id)
+	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
+		Ok(self
+			.full_client
+			.runtime_api()
+			.candidate_pending_availability(block_id, para_id)?)
 	}
 
-	fn session_index_for_child(&self, block_id: &BlockId) -> Result<SessionIndex, ApiError> {
-		self.full_client.runtime_api().session_index_for_child(block_id)
+	async fn session_index_for_child(&self, block_id: &BlockId) -> RelayChainResult<SessionIndex> {
+		Ok(self.full_client.runtime_api().session_index_for_child(block_id)?)
 	}
 
-	fn validators(&self, block_id: &BlockId) -> Result<Vec<ValidatorId>, ApiError> {
-		self.full_client.runtime_api().validators(block_id)
+	async fn validators(&self, block_id: &BlockId) -> RelayChainResult<Vec<ValidatorId>> {
+		Ok(self.full_client.runtime_api().validators(block_id)?)
 	}
 
-	fn import_notification_stream(&self) -> sc_client_api::ImportNotifications<PBlock> {
-		self.full_client.import_notification_stream()
-	}
-
-	fn finality_notification_stream(&self) -> sc_client_api::FinalityNotifications<PBlock> {
-		self.full_client.finality_notification_stream()
-	}
-
-	fn storage_changes_notification_stream(
+	async fn import_notification_stream(
 		&self,
-		filter_keys: Option<&[sc_client_api::StorageKey]>,
-		child_filter_keys: Option<
-			&[(sc_client_api::StorageKey, Option<Vec<sc_client_api::StorageKey>>)],
-		>,
-	) -> sc_client_api::blockchain::Result<sc_client_api::StorageEventStream<PHash>> {
-		self.full_client
-			.storage_changes_notification_stream(filter_keys, child_filter_keys)
+	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+		let notification_stream = self
+			.full_client
+			.import_notification_stream()
+			.map(|notification| notification.header);
+		Ok(Box::pin(notification_stream))
 	}
 
-	fn best_block_hash(&self) -> PHash {
-		self.backend.blockchain().info().best_hash
+	async fn finality_notification_stream(
+		&self,
+	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+		let notification_stream = self
+			.full_client
+			.finality_notification_stream()
+			.map(|notification| notification.header);
+		Ok(Box::pin(notification_stream))
 	}
 
-	fn block_status(&self, block_id: BlockId) -> Result<BlockStatus, sp_blockchain::Error> {
-		self.backend.blockchain().status(block_id)
+	async fn best_block_hash(&self) -> RelayChainResult<PHash> {
+		Ok(self.backend.blockchain().info().best_hash)
 	}
 
-	fn is_major_syncing(&self) -> bool {
+	async fn block_status(&self, block_id: BlockId) -> RelayChainResult<BlockStatus> {
+		Ok(self.backend.blockchain().status(block_id)?)
+	}
+
+	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		let mut network = self.sync_oracle.lock();
-		network.is_major_syncing()
+		Ok(network.is_major_syncing())
 	}
 
-	fn overseer_handle(&self) -> Option<Handle> {
-		self.overseer_handle.clone()
+	fn overseer_handle(&self) -> RelayChainResult<Option<Handle>> {
+		Ok(self.overseer_handle.clone())
 	}
 
-	fn get_storage_by_key(
+	async fn get_storage_by_key(
 		&self,
 		block_id: &BlockId,
 		key: &[u8],
-	) -> Result<Option<StorageValue>, sp_blockchain::Error> {
+	) -> RelayChainResult<Option<StorageValue>> {
 		let state = self.backend.state_at(*block_id)?;
-		state.storage(key).map_err(sp_blockchain::Error::Storage)
+		state.storage(key).map_err(RelayChainError::GenericError)
 	}
 
-	fn prove_read(
+	async fn prove_read(
 		&self,
 		block_id: &BlockId,
 		relevant_keys: &Vec<Vec<u8>>,
-	) -> Result<Option<StorageProof>, Box<dyn sp_state_machine::Error>> {
-		let state_backend = self
-			.backend
-			.state_at(*block_id)
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					relay_parent = ?block_id,
-					error = ?e,
-					"Cannot obtain the state of the relay chain.",
-				);
-			})
-			.ok();
+	) -> RelayChainResult<StorageProof> {
+		let state_backend = self.backend.state_at(*block_id)?;
 
-		match state_backend {
-			Some(state) => sp_state_machine::prove_read(state, relevant_keys)
-				.map_err(|e| {
-					tracing::error!(
-						target: LOG_TARGET,
-						relay_parent = ?block_id,
-						error = ?e,
-						"Failed to collect required relay chain state storage proof.",
-					);
-					e
-				})
-				.map(Some),
-			None => Ok(None),
-		}
+		sp_state_machine::prove_read(state_backend, relevant_keys)
+			.map_err(RelayChainError::StateMachineError)
 	}
 
 	/// Wait for a given relay chain block in an async way.
@@ -259,7 +217,7 @@ where
 	///
 	/// The timeout is set to 6 seconds. This should be enough time to import the block in the current
 	/// round and if not, the new round of the relay chain already started anyway.
-	async fn wait_for_block(&self, hash: PHash) -> Result<(), WaitError> {
+	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {
 		let mut listener =
 			match check_block_in_chain(self.backend.clone(), self.full_client.clone(), hash)? {
 				BlockCheckStatus::InChain => return Ok(()),
@@ -270,15 +228,27 @@ where
 
 		loop {
 			futures::select! {
-				_ = timeout => return Err(WaitError::Timeout(hash)),
+				_ = timeout => return Err(RelayChainError::WaitTimeout(hash)),
 				evt = listener.next() => match evt {
 					Some(evt) if evt.hash == hash => return Ok(()),
 					// Not the event we waited on.
 					Some(_) => continue,
-					None => return Err(WaitError::ImportListenerClosed(hash)),
+					None => return Err(RelayChainError::ImportListenerClosed(hash)),
 				}
 			}
 		}
+	}
+
+	async fn new_best_notification_stream(
+		&self,
+	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+		let notifications_stream =
+			self.full_client
+				.import_notification_stream()
+				.filter_map(|notification| async move {
+					notification.is_new_best.then(|| notification.header)
+				});
+		Ok(Box::pin(notifications_stream))
 	}
 }
 
@@ -294,16 +264,15 @@ pub fn check_block_in_chain<Client>(
 	backend: Arc<FullBackend>,
 	client: Arc<Client>,
 	hash: PHash,
-) -> Result<BlockCheckStatus, WaitError>
+) -> RelayChainResult<BlockCheckStatus>
 where
 	Client: BlockchainEvents<PBlock>,
 {
 	let _lock = backend.get_import_lock().read();
 
 	let block_id = BlockId::Hash(hash);
-	match backend.blockchain().status(block_id) {
-		Ok(BlockStatus::InChain) => return Ok(BlockCheckStatus::InChain),
-		Err(err) => return Err(WaitError::BlockchainError(hash, err)),
+	match backend.blockchain().status(block_id)? {
+		BlockStatus::InChain => return Ok(BlockCheckStatus::InChain),
 		_ => {},
 	}
 
@@ -495,7 +464,7 @@ mod tests {
 
 		assert!(matches!(
 			block_on(relay_chain_interface.wait_for_block(hash)),
-			Err(WaitError::Timeout(_))
+			Err(RelayChainError::WaitTimeout(_))
 		));
 	}
 

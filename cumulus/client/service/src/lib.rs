@@ -107,10 +107,13 @@ where
 		.spawn_essential_handle()
 		.spawn("cumulus-consensus", None, consensus);
 
+	let overseer_handle = relay_chain_interface
+		.overseer_handle()
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?
+		.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?;
+
 	let pov_recovery = cumulus_client_pov_recovery::PoVRecovery::new(
-		relay_chain_interface
-			.overseer_handle()
-			.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
+		overseer_handle.clone(),
 		// We want that collators wait at maximum the relay chain slot duration before starting
 		// to recover blocks.
 		cumulus_client_pov_recovery::RecoveryDelay::WithMax { max: relay_chain_slot_duration },
@@ -128,9 +131,7 @@ where
 		runtime_api: client.clone(),
 		block_status,
 		announce_block,
-		overseer_handle: relay_chain_interface
-			.overseer_handle()
-			.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
+		overseer_handle,
 		spawner,
 		para_id,
 		key: collator_key,
@@ -192,10 +193,13 @@ where
 		.spawn_essential_handle()
 		.spawn("cumulus-consensus", None, consensus);
 
+	let overseer_handle = relay_chain_interface
+		.overseer_handle()
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?
+		.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?;
+
 	let pov_recovery = cumulus_client_pov_recovery::PoVRecovery::new(
-		relay_chain_interface
-			.overseer_handle()
-			.ok_or_else(|| "Polkadot full node did not provide an `OverseerHandle`!")?,
+		overseer_handle,
 		// Full nodes should at least wait 2.5 minutes (assuming 6 seconds slot duration) and
 		// in maximum 5 minutes before starting to recover blocks. Collators should already start
 		// the recovery way before full nodes try to recover a certain block and then share the

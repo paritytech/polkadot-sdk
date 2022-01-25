@@ -15,7 +15,10 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
+futures = "0.3.1"
 parking_lot = "0.11.1"
 derive_more = "0.99.2"
 async-trait = "0.1.52"
+thiserror = "1.0.30"
