@@ -139,6 +139,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-uniques/std",
 	"pallet-utility/std",
+	"pallet-xcm/std",
 	"parachain-info/std",
 	"cumulus-pallet-aura-ext/std",
 	"pallet-asset-tx-payment/std",

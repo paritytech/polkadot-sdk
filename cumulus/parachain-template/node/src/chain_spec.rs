@@ -10,6 +10,9 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 pub type ChainSpec =
 	sc_service::GenericChainSpec<parachain_template_runtime::GenesisConfig, Extensions>;
 
+/// The default XCM version to set in genesis config.
+const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+
 /// Helper function to generate a crypto pair from seed
 pub fn get_public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
@@ -211,5 +214,8 @@ fn testnet_genesis(
 		aura: Default::default(),
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
+		polkadot_xcm: parachain_template_runtime::PolkadotXcmConfig {
+			safe_xcm_version: Some(SAFE_XCM_VERSION),
+		},
 	}
 }

@@ -89,6 +89,7 @@ std = [
 	"pallet-sudo/std",
 	"pallet-transaction-payment/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"cumulus-pallet-aura-ext/std",

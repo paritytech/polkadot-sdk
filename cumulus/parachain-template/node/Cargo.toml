@@ -96,3 +96,4 @@ polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "maste
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
