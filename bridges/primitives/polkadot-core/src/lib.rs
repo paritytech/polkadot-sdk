@@ -33,7 +33,8 @@ use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	traits::{BlakeTwo256, DispatchInfoOf, IdentifyAccount, Verify},
+	transaction_validity::TransactionValidityError,
 	MultiAddress, MultiSignature, OpaqueExtrinsic,
 };
 use sp_std::prelude::Vec;
@@ -332,6 +333,16 @@ where
 	) -> Result<Self::AdditionalSigned, frame_support::unsigned::TransactionValidityError> {
 		Ok(self.additional_signed)
 	}
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(self.validate(who, call, info, len).map(|_| ())?)
+	}
 }
 
 /// Polkadot-like chain.
@@ -399,7 +410,7 @@ mod tests {
 
 	#[test]
 	fn maximal_encoded_account_id_size_is_correct() {
-		let actual_size = AccountId::default().encode().len();
+		let actual_size = AccountId::from([0u8; 32]).encode().len();
 		assert!(
 			actual_size <= MAXIMAL_ENCODED_ACCOUNT_ID_SIZE as usize,
 			"Actual size of encoded account id for Polkadot-like chains ({}) is larger than expected {}",
