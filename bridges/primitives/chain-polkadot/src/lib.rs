@@ -41,6 +41,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 7,
+	state_version: 0,
 };
 
 // NOTE: This needs to be kept up to date with the Polkadot runtime found in the Polkadot repo.
