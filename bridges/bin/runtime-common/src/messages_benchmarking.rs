@@ -40,7 +40,7 @@ use pallet_bridge_messages::benchmarking::{
 use sp_core::Hasher;
 use sp_runtime::traits::{Header, IdentifyAccount, MaybeSerializeDeserialize, Zero};
 use sp_std::{fmt::Debug, prelude::*};
-use sp_trie::{record_all_keys, trie_types::TrieDBMut, Layout, MemoryDB, Recorder, TrieMut};
+use sp_trie::{record_all_keys, trie_types::TrieDBMutV1, LayoutV1, MemoryDB, Recorder, TrieMut};
 use sp_version::RuntimeVersion;
 
 /// Prepare outbound message for the `send_message` call.
@@ -177,7 +177,7 @@ where
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
 	{
-		let mut trie = TrieDBMut::<BHH>::new(&mut mdb, &mut root);
+		let mut trie = TrieDBMutV1::<BHH>::new(&mut mdb, &mut root);
 		trie.insert(&storage_key, &params.inbound_lane_data.encode())
 			.map_err(|_| "TrieMut::insert has failed")
 			.expect("TrieMut::insert should not fail in benchmarks");
@@ -186,7 +186,7 @@ where
 
 	// generate storage proof to be delivered to This chain
 	let mut proof_recorder = Recorder::<BHH::Out>::new();
-	record_all_keys::<Layout<BHH>, _>(&mdb, &root, &mut proof_recorder)
+	record_all_keys::<LayoutV1<BHH>, _>(&mdb, &root, &mut proof_recorder)
 		.map_err(|_| "record_all_keys has failed")
 		.expect("record_all_keys should not fail in benchmarks");
 	let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
@@ -220,7 +220,7 @@ where
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
 	{
-		let mut trie = TrieDBMut::<BHH>::new(&mut mdb, &mut root);
+		let mut trie = TrieDBMutV1::<BHH>::new(&mut mdb, &mut root);
 
 		// insert messages
 		for nonce in params.message_nonces.clone() {
@@ -256,7 +256,7 @@ where
 
 	// generate storage proof to be delivered to This chain
 	let mut proof_recorder = Recorder::<BHH::Out>::new();
-	record_all_keys::<Layout<BHH>, _>(&mdb, &root, &mut proof_recorder)
+	record_all_keys::<LayoutV1<BHH>, _>(&mdb, &root, &mut proof_recorder)
 		.map_err(|_| "record_all_keys has failed")
 		.expect("record_all_keys should not fail in benchmarks");
 	let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
@@ -339,7 +339,7 @@ fn grow_trie<H: Hasher>(mut root: H::Out, mdb: &mut MemoryDB<H>, trie_size: Proo
 	loop {
 		// generate storage proof to be delivered to This chain
 		let mut proof_recorder = Recorder::<H::Out>::new();
-		record_all_keys::<Layout<H>, _>(mdb, &root, &mut proof_recorder)
+		record_all_keys::<LayoutV1<H>, _>(mdb, &root, &mut proof_recorder)
 			.map_err(|_| "record_all_keys has failed")
 			.expect("record_all_keys should not fail in benchmarks");
 		let size: usize = proof_recorder.drain().into_iter().map(|n| n.data.len()).sum();
@@ -347,9 +347,9 @@ fn grow_trie<H: Hasher>(mut root: H::Out, mdb: &mut MemoryDB<H>, trie_size: Proo
 			return root
 		}
 
-		let mut trie = TrieDBMut::<H>::from_existing(mdb, &mut root)
-			.map_err(|_| "TrieDBMut::from_existing has failed")
-			.expect("TrieDBMut::from_existing should not fail in benchmarks");
+		let mut trie = TrieDBMutV1::<H>::from_existing(mdb, &mut root)
+			.map_err(|_| "TrieDBMutV1::from_existing has failed")
+			.expect("TrieDBMutV1::from_existing should not fail in benchmarks");
 		for _ in 0..iterations {
 			trie.insert(&key_index.encode(), &vec![42u8; leaf_size as _])
 				.map_err(|_| "TrieMut::insert has failed")

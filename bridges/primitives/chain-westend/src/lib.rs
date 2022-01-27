@@ -59,6 +59,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 5,
+	state_version: 0,
 };
 
 /// Westend Runtime `Call` enum.

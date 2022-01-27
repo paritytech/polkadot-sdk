@@ -290,7 +290,7 @@ where
 			&self.transaction_params,
 			HeaderId(Default::default(), Default::default()),
 			Zero::zero(),
-			Default::default(),
+			self.relayer_id_at_source.clone(),
 			nonces.clone(),
 			prepare_dummy_messages_proof::<P::SourceChain>(
 				nonces.clone(),
@@ -332,7 +332,7 @@ where
 					&self.transaction_params,
 					HeaderId(Default::default(), Default::default()),
 					Zero::zero(),
-					Default::default(),
+					self.relayer_id_at_source.clone(),
 					nonces.clone(),
 					prepare_dummy_messages_proof::<P::SourceChain>(
 						nonces.clone(),

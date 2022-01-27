@@ -30,7 +30,7 @@
 // =====================================================================================
 
 use millau_runtime::{self, opaque::Block, RuntimeApi};
-use sc_client_api::ExecutorProvider;
+use sc_client_api::{BlockBackend, ExecutorProvider};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
@@ -108,6 +108,7 @@ pub fn new_partial(
 		config.wasm_method,
 		config.default_heap_pages,
 		config.max_runtime_instances,
+		config.runtime_cache_size,
 	);
 
 	let (client, backend, keystore_container, task_manager) =
@@ -210,8 +211,27 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		};
 	}
 
-	config.network.extra_sets.push(sc_finality_grandpa::grandpa_peers_set_config());
-	config.network.extra_sets.push(beefy_gadget::beefy_peers_set_config());
+	// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
+	// anything in terms of behaviour, but makes the logs more consistent with the other
+	// Substrate nodes.
+	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
+		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
+		&config.chain_spec,
+	);
+	config
+		.network
+		.extra_sets
+		.push(sc_finality_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
+
+	let beefy_protocol_name = beefy_gadget::protocol_standard_name(
+		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
+		&config.chain_spec,
+	);
+	config
+		.network
+		.extra_sets
+		.push(beefy_gadget::beefy_peers_set_config(beefy_protocol_name.clone()));
+
 	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
@@ -245,8 +265,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let shared_voter_state = SharedVoterState::empty();
-	let (signed_commitment_sender, signed_commitment_stream) =
-		beefy_gadget::notification::BeefySignedCommitmentStream::channel();
+	let (beefy_commitment_link, beefy_commitment_stream) =
+		beefy_gadget::notification::BeefySignedCommitmentStream::<Block>::channel();
+	let (beefy_best_block_link, beefy_best_block_stream) =
+		beefy_gadget::notification::BeefyBestBlockStream::<Block>::channel();
 
 	let rpc_extensions_builder = {
 		use sc_finality_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
@@ -287,10 +309,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				finality_proof_provider.clone(),
 			)));
 			io.extend_with(beefy_gadget_rpc::BeefyApi::to_delegate(
-				beefy_gadget_rpc::BeefyRpcHandler::new(
-					signed_commitment_stream.clone(),
+				beefy_gadget_rpc::BeefyRpcHandler::<Block>::new(
+					beefy_commitment_stream.clone(),
+					beefy_best_block_stream.clone(),
 					subscription_executor,
-				),
+				)
+				.map_err(|e| sc_service::Error::Other(format!("{}", e)))?,
 			));
 			io.extend_with(pallet_mmr_rpc::MmrApi::to_delegate(pallet_mmr_rpc::Mmr::new(
 				client.clone(),
@@ -374,9 +398,11 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		backend,
 		key_store: keystore.clone(),
 		network: network.clone(),
-		signed_commitment_sender,
+		signed_commitment_sender: beefy_commitment_link,
+		beefy_best_block_sender: beefy_best_block_link,
 		min_block_delta: 4,
 		prometheus_registry: prometheus_registry.clone(),
+		protocol_name: beefy_protocol_name,
 	};
 
 	// Start the BEEFY bridge gadget.
@@ -395,6 +421,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		keystore,
 		local_role: role,
 		telemetry: telemetry.as_ref().map(|x| x.handle()),
+		protocol_name: grandpa_protocol_name,
 	};
 
 	if enable_grandpa {
