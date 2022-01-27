@@ -95,6 +95,7 @@ impl Alternative {
 				vec![],
 				None,
 				None,
+				None,
 				properties,
 				None,
 			),
@@ -117,6 +118,7 @@ impl Alternative {
 					)
 				},
 				vec![],
+				None,
 				None,
 				None,
 				properties,
@@ -195,7 +197,7 @@ fn testnet_genesis(
 		aura: AuraConfig { authorities: Vec::new() },
 		beefy: BeefyConfig { authorities: Vec::new() },
 		grandpa: GrandpaConfig { authorities: Vec::new() },
-		sudo: SudoConfig { key: root_key },
+		sudo: SudoConfig { key: Some(root_key) },
 		session: SessionConfig {
 			keys: initial_authorities
 				.iter()

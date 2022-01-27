@@ -312,9 +312,9 @@ mod tests {
 	#[test]
 	fn maximal_account_size_does_not_overflow_constant() {
 		assert!(
-			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE as usize >= AccountId::default().encode().len(),
+			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE as usize >= AccountId::from([0u8; 32]).encode().len(),
 			"Actual maximal size of encoded AccountId ({}) overflows expected ({})",
-			AccountId::default().encode().len(),
+			AccountId::from([0u8; 32]).encode().len(),
 			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
 		);
 	}

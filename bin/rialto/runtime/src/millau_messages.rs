@@ -316,7 +316,7 @@ mod tests {
 			SystemConfig::default().build_storage::<Runtime>().unwrap().into();
 		ext.execute_with(|| {
 			let bridge = MILLAU_CHAIN_ID;
-			let call: Call = SystemCall::remark { remark: vec![] }.into();
+			let call: Call = SystemCall::set_heap_pages { pages: 64 }.into();
 			let dispatch_weight = call.get_dispatch_info().weight;
 			let dispatch_fee = <Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(
 				&dispatch_weight,
