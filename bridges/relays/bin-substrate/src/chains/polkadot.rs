@@ -81,7 +81,10 @@ impl CliChain for Polkadot {
 	type MessagePayload = ();
 
 	fn ss58_format() -> u16 {
-		42
+		sp_core::crypto::Ss58AddressFormat::from(
+			sp_core::crypto::Ss58AddressFormatRegistry::PolkadotAccount,
+		)
+		.into()
 	}
 
 	fn encode_message(
