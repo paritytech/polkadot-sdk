@@ -202,9 +202,20 @@ where
 		return Ok(metrics)
 	}
 
-	let token_decimals = client.token_decimals().await?.ok_or_else(|| {
-		SubstrateError::Custom(format!("Missing token decimals from {} system properties", C::NAME))
-	})?;
+	// if `tokenDecimals` is missing from system properties, we'll be using
+	let token_decimals = client
+		.token_decimals()
+		.await?
+		.map(|token_decimals| {
+			log::info!(target: "bridge", "Read `tokenDecimals` for {}: {}", C::NAME, token_decimals);
+			token_decimals
+		})
+		.unwrap_or_else(|| {
+			// turns out it is normal not to have this property - e.g. when polkadot binary is
+			// started using `polkadot-local` chain. Let's use minimal nominal here
+			log::info!(target: "bridge", "Using default (zero) `tokenDecimals` value for {}", C::NAME);
+			0
+		});
 	let token_decimals = u32::try_from(token_decimals).map_err(|e| {
 		anyhow::format_err!(
 			"Token decimals value ({}) of {} doesn't fit into u32: {:?}",
