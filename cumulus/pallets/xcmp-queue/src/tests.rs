@@ -16,7 +16,7 @@
 use super::*;
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::assert_noop;
-use mock::{new_test_ext, Origin, Test, XcmpQueue};
+use mock::{new_test_ext, Call, Origin, Test, XcmpQueue};
 
 #[test]
 fn one_message_does_not_panic() {
@@ -81,5 +81,31 @@ fn service_overweight_bad_xcm_format() {
 		Overweight::<Test>::insert(0, (ParaId::from(1000), 0, bad_xcm));
 
 		assert_noop!(XcmpQueue::service_overweight(Origin::root(), 0, 1000), Error::<Test>::BadXcm);
+	});
+}
+
+#[test]
+fn suspend_xcm_execution_works() {
+	new_test_ext().execute_with(|| {
+		QueueSuspended::<Test>::put(true);
+
+		let xcm = VersionedXcm::from(Xcm::<Call>(vec![Instruction::<Call>::ClearOrigin])).encode();
+		let mut message_format = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
+		message_format.extend(xcm.clone());
+		let messages = vec![(ParaId::from(999), 1u32.into(), message_format.as_slice())];
+
+		// This should have executed the incoming XCM, because it came from a system parachain
+		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::max_value());
+
+		let queued_xcm = InboundXcmpMessages::<Test>::get(ParaId::from(999), 1u32);
+		assert!(queued_xcm.is_empty());
+
+		let messages = vec![(ParaId::from(2000), 1u32.into(), message_format.as_slice())];
+
+		// This shouldn't have executed the incoming XCM
+		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::max_value());
+
+		let queued_xcm = InboundXcmpMessages::<Test>::get(ParaId::from(2000), 1u32);
+		assert_eq!(queued_xcm, xcm);
 	});
 }

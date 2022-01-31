@@ -38,7 +38,10 @@ use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
 };
-use frame_support::weights::{constants::WEIGHT_PER_MILLIS, Weight};
+use frame_support::{
+	traits::EnsureOrigin,
+	weights::{constants::WEIGHT_PER_MILLIS, Weight},
+};
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
@@ -47,6 +50,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::Hash, RuntimeDebug};
 use sp_std::{convert::TryFrom, prelude::*};
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm_executor::traits::ConvertOrigin;
 
 pub use pallet::*;
 
@@ -82,6 +86,13 @@ pub mod pallet {
 
 		/// The origin that is allowed to execute overweight messages.
 		type ExecuteOverweightOrigin: EnsureOrigin<Self::Origin>;
+
+		/// The origin that is allowed to resume or suspend the XCMP queue.
+		type ControllerOrigin: EnsureOrigin<Self::Origin>;
+
+		/// The conversion function used to attempt to convert an XCM `MultiLocation` origin to a
+		/// superuser origin.
+		type ControllerOriginConverter: ConvertOrigin<Self::Origin>;
 	}
 
 	#[pallet::hooks]
@@ -129,6 +140,32 @@ pub mod pallet {
 			Overweight::<T>::remove(index);
 			Self::deposit_event(Event::OverweightServiced(index, used));
 			Ok(Some(used.saturating_add(1_000_000)).into())
+		}
+
+		/// Suspends all XCM executions for the XCMP queue, regardless of the sender's origin.
+		///
+		/// - `origin`: Must pass `ControllerOrigin`.
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn suspend_xcm_execution(origin: OriginFor<T>) -> DispatchResult {
+			T::ControllerOrigin::ensure_origin(origin)?;
+
+			QueueSuspended::<T>::put(true);
+
+			Ok(())
+		}
+
+		/// Resumes all XCM executions for the XCMP queue.
+		///
+		/// Note that this function doesn't change the status of the in/out bound channels.
+		///
+		/// - `origin`: Must pass `ControllerOrigin`.
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn resume_xcm_execution(origin: OriginFor<T>) -> DispatchResult {
+			T::ControllerOrigin::ensure_origin(origin)?;
+
+			QueueSuspended::<T>::put(false);
+
+			Ok(())
 		}
 	}
 
@@ -221,6 +258,10 @@ pub mod pallet {
 	/// available free overweight index.
 	#[pallet::storage]
 	pub(super) type OverweightCount<T: Config> = StorageValue<_, OverweightIndex, ValueQuery>;
+
+	/// Whether or not the XCMP queue is suspended from executing incoming XCMs or not.
+	#[pallet::storage]
+	pub(super) type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -618,6 +659,8 @@ impl<T: Config> Pallet<T> {
 	/// for the second &c. though empirical and or practical factors may give rise to adjusting it
 	/// further.
 	fn service_xcmp_queue(max_weight: Weight) -> Weight {
+		let suspended = QueueSuspended::<T>::get();
+
 		let mut status = <InboundXcmpStatus<T>>::get(); // <- sorted.
 		if status.len() == 0 {
 			return 0
@@ -649,6 +692,17 @@ impl<T: Config> Pallet<T> {
 		{
 			let index = shuffled[shuffle_index];
 			let sender = status[index].sender;
+			let sender_origin = T::ControllerOriginConverter::convert_origin(
+				(1, Parachain(sender.into())),
+				OriginKind::Superuser,
+			);
+			let is_controller = sender_origin
+				.map_or(false, |origin| T::ControllerOrigin::try_origin(origin).is_ok());
+
+			if suspended && !is_controller {
+				shuffle_index += 1;
+				continue
+			}
 
 			if weight_available != max_weight {
 				// Get incrementally closer to freeing up max_weight for message execution over the

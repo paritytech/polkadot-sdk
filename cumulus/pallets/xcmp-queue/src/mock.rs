@@ -15,16 +15,20 @@
 
 use super::*;
 use crate as xcmp_queue;
-use frame_support::parameter_types;
+use core::marker::PhantomData;
+use cumulus_primitives_core::{IsSystem, ParaId};
+use frame_support::{parameter_types, traits::OriginTrait};
 use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
+use xcm::prelude::*;
 use xcm_builder::{
 	CurrencyAdapter, FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, ParentIsPreset,
 };
+use xcm_executor::traits::ConvertOrigin;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -154,12 +158,36 @@ pub type XcmRouter = (
 	XcmpQueue,
 );
 
+pub struct SystemParachainAsSuperuser<Origin>(PhantomData<Origin>);
+impl<Origin: OriginTrait> ConvertOrigin<Origin> for SystemParachainAsSuperuser<Origin> {
+	fn convert_origin(
+		origin: impl Into<MultiLocation>,
+		kind: OriginKind,
+	) -> Result<Origin, MultiLocation> {
+		let origin = origin.into();
+		if kind == OriginKind::Superuser &&
+			matches!(
+				origin,
+				MultiLocation {
+					parents: 1,
+					interior: X1(Parachain(id)),
+				} if ParaId::from(id).is_system(),
+			) {
+			Ok(Origin::root())
+		} else {
+			Err(origin)
+		}
+	}
+}
+
 impl Config for Test {
 	type Event = Event;
 	type XcmExecutor = xcm_executor::XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type ControllerOrigin = EnsureRoot<AccountId>;
+	type ControllerOriginConverter = SystemParachainAsSuperuser<Origin>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

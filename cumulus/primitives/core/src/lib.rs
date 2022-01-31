@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain::primitives::{
-	DmpMessageHandler, Id as ParaId, UpwardMessage, ValidationParams, XcmpMessageFormat,
+	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::v1::{
