@@ -129,20 +129,19 @@ git clone https://github.com/paritytech/cumulus
 cargo build --release
 
 # Export genesis state
-# --parachain-id 200 as an example that can be chosen freely. Make sure to everywhere use the same parachain id
-./target/release/polkadot-collator export-genesis-state --parachain-id 200 > genesis-state
+./target/release/polkadot-collator export-genesis-state > genesis-state
 
 # Export genesis wasm
 ./target/release/polkadot-collator export-genesis-wasm > genesis-wasm
 
 # Collator1
-./target/release/polkadot-collator --collator --alice --force-authoring --tmp --parachain-id <parachain_id_u32_type_range> --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30335
+./target/release/polkadot-collator --collator --alice --force-authoring --tmp --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30335
 
 # Collator2
-./target/release/polkadot-collator --collator --bob --force-authoring --tmp --parachain-id <parachain_id_u32_type_range> --port 40336 --ws-port 9947 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30336
+./target/release/polkadot-collator --collator --bob --force-authoring --tmp --port 40336 --ws-port 9947 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30336
 
 # Parachain Full Node 1
-./target/release/polkadot-collator --tmp --parachain-id <parachain_id_u32_type_range> --port 40337 --ws-port 9948 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30337
+./target/release/polkadot-collator --tmp --port 40337 --ws-port 9948 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30337
 ```
 
 ### Register the parachain
@@ -166,5 +165,5 @@ docker build --tag $OWNER/$IMAGE_NAME --file ./docker/polkadot-collator_builder.
 You may then run your new container:
 
 ```bash
-docker run --rm -it $OWNER/$IMAGE_NAME --collator --tmp --parachain-id 1000 --execution wasm --chain /specs/westmint.json
+docker run --rm -it $OWNER/$IMAGE_NAME --collator --tmp --execution wasm --chain /specs/westmint.json
 ```

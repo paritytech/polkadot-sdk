@@ -70,12 +70,6 @@ pub struct ExportGenesisStateCommand {
 	#[clap(parse(from_os_str))]
 	pub output: Option<PathBuf>,
 
-	/// Id of the parachain this state is for.
-	///
-	/// Default: 100
-	#[clap(long)]
-	pub parachain_id: Option<u32>,
-
 	/// Write output in binary. Default is to write in hex.
 	#[clap(short, long)]
 	pub raw: bool,
