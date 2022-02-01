@@ -192,8 +192,25 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 					// there are no (or we don't need to relay them) mandatory headers in the range
 					// => to avoid scanning the same headers over and over again, remember that
 					latest_non_mandatory_at_source = mandatory_scan_range.1;
+
+					log::trace!(
+						target: "bridge",
+						"No mandatory {} headers in the range {:?} of {} relay",
+						P::SourceChain::NAME,
+						mandatory_scan_range,
+						relay_task_name,
+					);
 				},
-				Err(e) =>
+				Err(e) => {
+					log::warn!(
+						target: "bridge",
+						"Failed to scan mandatory {} headers range in {} relay (range: {:?}): {:?}",
+						P::SourceChain::NAME,
+						relay_task_name,
+						mandatory_scan_range,
+						e,
+					);
+
 					if e.is_connection_error() {
 						relay_utils::relay_loop::reconnect_failed_client(
 							FailedClient::Source,
@@ -203,7 +220,8 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 						)
 						.await;
 						continue
-					},
+					}
+				},
 			}
 		}
 
