@@ -25,12 +25,17 @@ use sp_std::prelude::*;
 
 pub use bp_polkadot_core::*;
 // Rococo runtime = Wococo runtime
-pub use bp_rococo::{
-	WeightToFee, EXISTENTIAL_DEPOSIT, PAY_INBOUND_DISPATCH_FEE_WEIGHT, SESSION_LENGTH, VERSION,
-};
+pub use bp_rococo::{WeightToFee, EXISTENTIAL_DEPOSIT, PAY_INBOUND_DISPATCH_FEE_WEIGHT, VERSION};
 
 /// Wococo Chain
 pub type Wococo = PolkadotLike;
+
+/// The target length of a session (how often authorities change) on Wococo measured in of number
+/// of blocks.
+///
+/// Note that since this is a target sessions may change before/after this time depending on network
+/// conditions.
+pub const SESSION_LENGTH: BlockNumber = 1 * time_units::MINUTES;
 
 // We use this to get the account on Wococo (target) which is derived from Rococo's (source)
 // account.

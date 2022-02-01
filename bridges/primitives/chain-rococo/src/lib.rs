@@ -32,12 +32,12 @@ pub use bp_polkadot_core::*;
 /// Rococo Chain
 pub type Rococo = PolkadotLike;
 
-/// The target length of a session (how often authorities change) on Westend measured in of number
+/// The target length of a session (how often authorities change) on Rococo measured in of number
 /// of blocks.
 ///
 /// Note that since this is a target sessions may change before/after this time depending on network
 /// conditions.
-pub const SESSION_LENGTH: BlockNumber = 10 * time_units::MINUTES;
+pub const SESSION_LENGTH: BlockNumber = 1 * time_units::HOURS;
 
 // NOTE: This needs to be kept up to date with the Rococo runtime found in the Polkadot repo.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
