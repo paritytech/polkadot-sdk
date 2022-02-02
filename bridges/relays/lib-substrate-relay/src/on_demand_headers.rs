@@ -18,7 +18,7 @@
 
 use async_std::sync::{Arc, Mutex};
 use futures::{select, FutureExt};
-use num_traits::{CheckedSub, One, Zero};
+use num_traits::{One, Zero};
 
 use finality_relay::{FinalitySyncParams, SourceHeader, TargetClient as FinalityTargetClient};
 use relay_substrate_client::{
@@ -55,7 +55,6 @@ impl<SourceChain: Chain> OnDemandHeadersRelay<SourceChain> {
 		source_client: Client<P::SourceChain>,
 		target_client: Client<P::TargetChain>,
 		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
-		maximal_headers_difference: BlockNumberOf<P::SourceChain>,
 		only_mandatory_headers: bool,
 	) -> Self
 	where
@@ -73,7 +72,6 @@ impl<SourceChain: Chain> OnDemandHeadersRelay<SourceChain> {
 				source_client,
 				target_client,
 				target_transaction_params,
-				maximal_headers_difference,
 				only_mandatory_headers,
 				required_header_number,
 			)
@@ -105,7 +103,6 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
 	target_client: Client<P::TargetChain>,
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
-	maximal_headers_difference: BlockNumberOf<P::SourceChain>,
 	only_mandatory_headers: bool,
 	required_header_number: RequiredHeaderNumberRef<P::SourceChain>,
 ) where
@@ -165,15 +162,28 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 		}
 
 		// submit mandatory header if some headers are missing
+		let best_finalized_source_header_at_source_fmt =
+			format!("{:?}", best_finalized_source_header_at_source);
 		let best_finalized_source_header_at_target_fmt =
 			format!("{:?}", best_finalized_source_header_at_target);
+		let required_header_number_value = *required_header_number.lock().await;
 		let mandatory_scan_range = mandatory_headers_scan_range::<P::SourceChain>(
 			best_finalized_source_header_at_source.ok(),
 			best_finalized_source_header_at_target.ok(),
-			maximal_headers_difference,
-			&required_header_number,
+			required_header_number_value,
 		)
 		.await;
+
+		log::trace!(
+			target: "bridge",
+			"Mandatory headers scan range in {}: ({:?}, {:?}, {:?}) -> {:?}",
+			relay_task_name,
+			required_header_number_value,
+			best_finalized_source_header_at_source_fmt,
+			best_finalized_source_header_at_target_fmt,
+			mandatory_scan_range,
+		);
+
 		if let Some(mandatory_scan_range) = mandatory_scan_range {
 			let relay_mandatory_header_result = relay_mandatory_header_from_range(
 				&finality_source,
@@ -227,6 +237,25 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 		// start/restart relay
 		if restart_relay {
+			let stall_timeout = relay_substrate_client::transaction_stall_timeout(
+				target_transactions_mortality,
+				P::TargetChain::AVERAGE_BLOCK_INTERVAL,
+				STALL_TIMEOUT,
+			);
+
+			log::info!(
+				target: "bridge",
+				"Starting {} relay\n\t\
+					Only mandatory headers: {}\n\t\
+					Tx mortality: {:?} (~{}m)\n\t\
+					Stall timeout: {:?}",
+				relay_task_name,
+				only_mandatory_headers,
+				target_transactions_mortality,
+				stall_timeout.as_secs_f64() / 60.0f64,
+				stall_timeout,
+			);
+
 			finality_relay_task.set(
 				finality_relay::run(
 					finality_source.clone(),
@@ -237,11 +266,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 							P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 						),
 						recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
-						stall_timeout: relay_substrate_client::transaction_stall_timeout(
-							target_transactions_mortality,
-							P::TargetChain::AVERAGE_BLOCK_INTERVAL,
-							STALL_TIMEOUT,
-						),
+						stall_timeout,
 						only_mandatory_headers,
 					},
 					MetricsParams::disabled(),
@@ -260,11 +285,8 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 async fn mandatory_headers_scan_range<C: Chain>(
 	best_finalized_source_header_at_source: Option<C::BlockNumber>,
 	best_finalized_source_header_at_target: Option<C::BlockNumber>,
-	maximal_headers_difference: C::BlockNumber,
-	required_header_number: &RequiredHeaderNumberRef<C>,
+	required_header_number: BlockNumberOf<C>,
 ) -> Option<(C::BlockNumber, C::BlockNumber)> {
-	let required_header_number = *required_header_number.lock().await;
-
 	// if we have been unable to read header number from the target, then let's assume
 	// that it is the same as required header number. Otherwise we risk submitting
 	// unneeded transactions
@@ -276,23 +298,8 @@ async fn mandatory_headers_scan_range<C: Chain>(
 	let best_finalized_source_header_at_source =
 		best_finalized_source_header_at_source.unwrap_or(best_finalized_source_header_at_target);
 
-	// if there are too many source headers missing from the target node, sync mandatory
-	// headers to target
-	//
-	// why do we need that? When complex headers+messages relay is used, it'll normally only relay
-	// headers when there are undelivered messages/confirmations. But security model of the
-	// `pallet-bridge-grandpa` module relies on the fact that headers are synced in real-time and
-	// that it'll see authorities-change header before unbonding period will end for previous
-	// authorities set.
-	let current_headers_difference = best_finalized_source_header_at_source
-		.checked_sub(&best_finalized_source_header_at_target)
-		.unwrap_or_else(Zero::zero);
-	if current_headers_difference <= maximal_headers_difference {
-		return None
-	}
-
-	// if relay is already asked to sync headers, don't do anything yet
-	if required_header_number > best_finalized_source_header_at_target {
+	// if relay is already asked to sync more headers than we have at source, don't do anything yet
+	if required_header_number >= best_finalized_source_header_at_source {
 		return None
 	}
 
@@ -423,29 +430,18 @@ mod tests {
 	const AT_TARGET: Option<bp_rococo::BlockNumber> = Some(1);
 
 	#[async_std::test]
-	async fn mandatory_headers_scan_range_selects_range_if_too_many_headers_are_missing() {
+	async fn mandatory_headers_scan_range_selects_range_if_some_headers_are_missing() {
 		assert_eq!(
-			mandatory_headers_scan_range::<TestChain>(
-				AT_SOURCE,
-				AT_TARGET,
-				5,
-				&Arc::new(Mutex::new(0))
-			)
-			.await,
+			mandatory_headers_scan_range::<TestChain>(AT_SOURCE, AT_TARGET, 0,).await,
 			Some((AT_TARGET.unwrap() + 1, AT_SOURCE.unwrap())),
 		);
 	}
 
 	#[async_std::test]
-	async fn mandatory_headers_scan_range_selects_nothing_if_enough_headers_are_relayed() {
+	async fn mandatory_headers_scan_range_selects_nothing_if_already_queued() {
 		assert_eq!(
-			mandatory_headers_scan_range::<TestChain>(
-				AT_SOURCE,
-				AT_TARGET,
-				10,
-				&Arc::new(Mutex::new(0))
-			)
-			.await,
+			mandatory_headers_scan_range::<TestChain>(AT_SOURCE, AT_TARGET, AT_SOURCE.unwrap(),)
+				.await,
 			None,
 		);
 	}

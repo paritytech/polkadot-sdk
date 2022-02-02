@@ -133,10 +133,6 @@ macro_rules! select_bridge {
 				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
 				type RightAccountIdConverter = bp_rialto::AccountIdConverter;
 
-				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_millau::BlockNumber =
-					bp_millau::SESSION_LENGTH;
-				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_rialto::BlockNumber =
-					bp_rialto::SESSION_LENGTH;
 				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
 					Some(millau_runtime::VERSION);
 				const RIGHT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
@@ -184,11 +180,6 @@ macro_rules! select_bridge {
 
 				type LeftAccountIdConverter = bp_rococo::AccountIdConverter;
 				type RightAccountIdConverter = bp_wococo::AccountIdConverter;
-
-				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_rococo::BlockNumber =
-					bp_rococo::SESSION_LENGTH;
-				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_wococo::BlockNumber =
-					bp_wococo::SESSION_LENGTH;
 
 				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
 					Some(bp_rococo::VERSION);
@@ -267,11 +258,6 @@ macro_rules! select_bridge {
 
 				type LeftAccountIdConverter = bp_kusama::AccountIdConverter;
 				type RightAccountIdConverter = bp_polkadot::AccountIdConverter;
-
-				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_kusama::BlockNumber =
-					bp_kusama::SESSION_LENGTH;
-				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_polkadot::BlockNumber =
-					bp_polkadot::SESSION_LENGTH;
 
 				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
 					Some(bp_kusama::VERSION);
@@ -543,14 +529,12 @@ impl RelayHeadersAndMessages {
 				left_client.clone(),
 				right_client.clone(),
 				left_to_right_transaction_params,
-				MAX_MISSING_LEFT_HEADERS_AT_RIGHT,
 				params.shared.only_mandatory_headers,
 			);
 			let right_to_left_on_demand_headers = OnDemandHeadersRelay::new::<RightToLeftFinality>(
 				right_client.clone(),
 				left_client.clone(),
 				right_to_left_transaction_params,
-				MAX_MISSING_RIGHT_HEADERS_AT_LEFT,
 				params.shared.only_mandatory_headers,
 			);
 
