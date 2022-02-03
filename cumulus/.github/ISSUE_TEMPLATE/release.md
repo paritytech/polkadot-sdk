@@ -146,7 +146,7 @@ Until #631 is done, running the benchmarks is a manual process:
 1. Connect to the bechmarking machine
 2. Make sure no one else is using the machine with `htop check`
 3. Pull in the branch of Cumulus that has the version of Statemine you want to release
-4. Recompile `cargo build --release --features runtime-benchmarks`
+4. Recompile `cargo build --profile production --locked --features runtime-benchmarks`
 5. From the root directory run `nohup ./scripts/benchmarks.sh &` (it will take quite a few hours)
 6. Checkout in your local machine to the branch of cumulus that has the version of Statemine you want to release
 7. `scp` from the host to your local machine the weights for Statemine, Westmint and Statemint you'll find in:
