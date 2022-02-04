@@ -860,7 +860,7 @@ impl_runtime_apis! {
 				fn prepare_outbound_message(
 					params: MessageParams<Self::AccountId>,
 				) -> (rialto_messages::ToRialtoMessagePayload, Balance) {
-					prepare_outbound_message::<WithRialtoMessageBridge>(params)
+					(prepare_outbound_message::<WithRialtoMessageBridge>(params), Self::message_fee())
 				}
 
 				fn prepare_message_proof(
