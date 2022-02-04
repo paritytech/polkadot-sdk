@@ -32,9 +32,6 @@ use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use sp_std::{collections::vec_deque::VecDeque, convert::TryInto, ops::RangeInclusive, prelude::*};
 
-/// Fee paid by submitter for single message delivery.
-pub const MESSAGE_FEE: u64 = 100_000_000_000;
-
 const SEED: u32 = 0;
 
 /// Pallet we're benchmarking here.
@@ -103,6 +100,10 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	fn account_balance(account: &Self::AccountId) -> Self::OutboundMessageFee;
 	/// Create given account and give it enough balance for test purposes.
 	fn endow_account(account: &Self::AccountId);
+	/// Fee paid by submitter for single message delivery.
+	fn message_fee() -> Self::OutboundMessageFee {
+		100_000_000_000_000.into()
+	}
 	/// Prepare message to send over lane.
 	fn prepare_outbound_message(
 		params: MessageParams<Self::AccountId>,
@@ -138,8 +139,10 @@ benchmarks_instance_pallet! {
 	// added.
 	send_minimal_message_worst_case {
 		let lane_id = T::bench_lane_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 0, SEED);
 		T::endow_account(&sender);
+		T::endow_account(&relayers_fund_id);
 
 		// 'send' messages that are to be pruned when our message is sent
 		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
@@ -169,8 +172,10 @@ benchmarks_instance_pallet! {
 	// `(send_16_kb_message_worst_case - send_1_kb_message_worst_case) / 15`.
 	send_1_kb_message_worst_case {
 		let lane_id = T::bench_lane_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 0, SEED);
 		T::endow_account(&sender);
+		T::endow_account(&relayers_fund_id);
 
 		// 'send' messages that are to be pruned when our message is sent
 		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
@@ -206,8 +211,10 @@ benchmarks_instance_pallet! {
 	// `(send_16_kb_message_worst_case - send_1_kb_message_worst_case) / 15`.
 	send_16_kb_message_worst_case {
 		let lane_id = T::bench_lane_id();
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 0, SEED);
 		T::endow_account(&sender);
+		T::endow_account(&relayers_fund_id);
 
 		// 'send' messages that are to be pruned when our message is sent
 		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
@@ -239,8 +246,10 @@ benchmarks_instance_pallet! {
 	//
 	// Result of this benchmark is directly used by weight formula of the call.
 	maximal_increase_message_fee {
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 42, SEED);
 		T::endow_account(&sender);
+		T::endow_account(&relayers_fund_id);
 
 		let additional_fee = T::account_balance(&sender);
 		let lane_id = T::bench_lane_id();
@@ -258,8 +267,10 @@ benchmarks_instance_pallet! {
 	increase_message_fee {
 		let i in 0..T::maximal_message_size().try_into().unwrap_or_default();
 
+		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 42, SEED);
 		T::endow_account(&sender);
+		T::endow_account(&relayers_fund_id);
 
 		let additional_fee = T::account_balance(&sender);
 		let lane_id = T::bench_lane_id();
@@ -506,7 +517,7 @@ benchmarks_instance_pallet! {
 	verify {
 		assert_eq!(
 			T::account_balance(&relayer_id),
-			relayer_balance + MESSAGE_FEE.into(),
+			relayer_balance + T::message_fee(),
 		);
 	}
 
@@ -600,12 +611,12 @@ benchmarks_instance_pallet! {
 
 fn send_regular_message<T: Config<I>, I: 'static>() {
 	let mut outbound_lane = outbound_lane::<T, I>(T::bench_lane_id());
-	outbound_lane.send_message(MessageData { payload: vec![], fee: MESSAGE_FEE.into() });
+	outbound_lane.send_message(MessageData { payload: vec![], fee: T::message_fee() });
 }
 
 fn send_regular_message_with_payload<T: Config<I>, I: 'static>(payload: Vec<u8>) {
 	let mut outbound_lane = outbound_lane::<T, I>(T::bench_lane_id());
-	outbound_lane.send_message(MessageData { payload, fee: MESSAGE_FEE.into() });
+	outbound_lane.send_message(MessageData { payload, fee: T::message_fee() });
 }
 
 fn confirm_message_delivery<T: Config<I>, I: 'static>(nonce: MessageNonce) {

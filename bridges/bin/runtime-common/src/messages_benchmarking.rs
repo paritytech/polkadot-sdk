@@ -46,7 +46,7 @@ use sp_version::RuntimeVersion;
 /// Prepare outbound message for the `send_message` call.
 pub fn prepare_outbound_message<B>(
 	params: MessageParams<AccountIdOf<ThisChain<B>>>,
-) -> (FromThisChainMessagePayload<B>, BalanceOf<ThisChain<B>>)
+) -> FromThisChainMessagePayload<B>
 where
 	B: MessageBridge,
 	BalanceOf<ThisChain<B>>: From<u64>,
@@ -54,14 +54,13 @@ where
 	let message_payload = vec![0; params.size as usize];
 	let dispatch_origin = bp_message_dispatch::CallOrigin::SourceAccount(params.sender_account);
 
-	let message = FromThisChainMessagePayload::<B> {
+	FromThisChainMessagePayload::<B> {
 		spec_version: 0,
 		weight: params.size as _,
 		origin: dispatch_origin,
 		call: message_payload,
 		dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
-	};
-	(message, pallet_bridge_messages::benchmarking::MESSAGE_FEE.into())
+	}
 }
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
