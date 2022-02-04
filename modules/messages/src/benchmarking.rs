@@ -293,6 +293,7 @@ benchmarks_instance_pallet! {
 	receive_single_message_proof {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		T::endow_account(&relayer_id_on_target);
 
 		// mark messages 1..=20 as delivered
 		receive_messages::<T, I>(20);
@@ -327,6 +328,7 @@ benchmarks_instance_pallet! {
 	receive_two_messages_proof {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		T::endow_account(&relayer_id_on_target);
 
 		// mark messages 1..=20 as delivered
 		receive_messages::<T, I>(20);
@@ -361,6 +363,7 @@ benchmarks_instance_pallet! {
 	receive_single_message_proof_with_outbound_lane_state {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		T::endow_account(&relayer_id_on_target);
 
 		// mark messages 1..=20 as delivered
 		receive_messages::<T, I>(20);
@@ -396,6 +399,7 @@ benchmarks_instance_pallet! {
 	receive_single_message_proof_1_kb {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		T::endow_account(&relayer_id_on_target);
 
 		// mark messages 1..=20 as delivered
 		receive_messages::<T, I>(20);
@@ -430,6 +434,7 @@ benchmarks_instance_pallet! {
 	receive_single_message_proof_16_kb {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		T::endow_account(&relayer_id_on_target);
 
 		// mark messages 1..=20 as delivered
 		receive_messages::<T, I>(20);
@@ -463,6 +468,7 @@ benchmarks_instance_pallet! {
 	receive_single_prepaid_message_proof {
 		let relayer_id_on_source = T::bridged_relayer_id();
 		let relayer_id_on_target = account("relayer", 0, SEED);
+		T::endow_account(&relayer_id_on_target);
 
 		// mark messages 1..=20 as delivered
 		receive_messages::<T, I>(20);
