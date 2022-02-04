@@ -43,6 +43,29 @@ use sp_std::{fmt::Debug, prelude::*};
 use sp_trie::{record_all_keys, trie_types::TrieDBMutV1, LayoutV1, MemoryDB, Recorder, TrieMut};
 use sp_version::RuntimeVersion;
 
+/// Return this chain account, used to dispatch message.
+pub fn dispatch_account<B>() -> AccountIdOf<ThisChain<B>>
+where
+	B: MessageBridge,
+	SignerOf<ThisChain<B>>:
+		From<sp_core::ed25519::Public> + IdentifyAccount<AccountId = AccountIdOf<ThisChain<B>>>,
+{
+	let this_raw_public = PublicKey::from(&dispatch_account_secret());
+	let this_public: SignerOf<ThisChain<B>> =
+		sp_core::ed25519::Public::from_raw(this_raw_public.to_bytes()).into();
+	this_public.into_account()
+}
+
+/// Return public key of this chain account, used to dispatch message.
+pub fn dispatch_account_secret() -> SecretKey {
+	// key from the repo example (https://docs.rs/ed25519-dalek/1.0.1/ed25519_dalek/struct.SecretKey.html)
+	SecretKey::from_bytes(&[
+		157, 097, 177, 157, 239, 253, 090, 096, 186, 132, 074, 244, 146, 236, 044, 196, 068, 073,
+		197, 105, 123, 050, 105, 025, 112, 059, 172, 003, 028, 174, 127, 096,
+	])
+	.expect("harcoded key is valid")
+}
+
 /// Prepare outbound message for the `send_message` call.
 pub fn prepare_outbound_message<B>(
 	params: MessageParams<AccountIdOf<ThisChain<B>>>,
@@ -82,6 +105,7 @@ where
 	FI: 'static,
 	BH: Header<Hash = HashOf<BridgedChain<B>>>,
 	BHH: Hasher<Out = HashOf<BridgedChain<B>>>,
+	AccountIdOf<ThisChain<B>>: PartialEq + sp_std::fmt::Debug,
 	AccountIdOf<BridgedChain<B>>: From<[u8; 32]>,
 	BalanceOf<ThisChain<B>>: Debug + MaybeSerializeDeserialize,
 	CallOf<ThisChain<B>>: From<frame_system::Call<R>> + GetDispatchInfo,
@@ -116,6 +140,7 @@ where
 
 	// if dispatch fee is paid at this chain, endow relayer account
 	if params.dispatch_fee_payment == DispatchFeePayment::AtTargetChain {
+		assert_eq!(this_public.clone().into_account(), dispatch_account::<B>());
 		pallet_balances::Pallet::<R, BI>::make_free_balance_be(
 			&this_public.clone().into_account(),
 			endow_amount,
@@ -298,12 +323,7 @@ fn ed25519_sign(
 	source_chain_id: ChainId,
 	target_chain_id: ChainId,
 ) -> ([u8; 32], [u8; 64]) {
-	// key from the repo example (https://docs.rs/ed25519-dalek/1.0.1/ed25519_dalek/struct.SecretKey.html)
-	let target_secret = SecretKey::from_bytes(&[
-		157, 097, 177, 157, 239, 253, 090, 096, 186, 132, 074, 244, 146, 236, 044, 196, 068, 073,
-		197, 105, 123, 050, 105, 025, 112, 059, 172, 003, 028, 174, 127, 096,
-	])
-	.expect("harcoded key is valid");
+	let target_secret = dispatch_account_secret();
 	let target_public: PublicKey = (&target_secret).into();
 
 	let mut target_pair_bytes = [0u8; KEYPAIR_LENGTH];
