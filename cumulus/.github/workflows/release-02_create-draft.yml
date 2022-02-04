@@ -192,6 +192,12 @@ jobs:
           echo "Found version: >$runtime_ver<"
           echo "::set-output name=runtime_ver::$runtime_ver"
 
+      - name: Fix parachain runtime name
+        id: fix-runtime-path
+        run: |
+          cd "$RUNTIME_DIR"
+          mv "$(sed 's/-parachain/_parachain/' <<< ${{ matrix.runtime }})_runtime.compact.compressed.wasm" "${{ matrix.runtime }}_runtime.compact.compressed.wasm" || true
+
       - name: Upload compressed ${{ matrix.runtime }} wasm
         uses: actions/upload-release-asset@v1
         env:
