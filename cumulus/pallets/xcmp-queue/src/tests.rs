@@ -15,8 +15,9 @@
 
 use super::*;
 use cumulus_primitives_core::XcmpMessageHandler;
-use frame_support::assert_noop;
+use frame_support::{assert_noop, assert_ok};
 use mock::{new_test_ext, Call, Origin, Test, XcmpQueue};
+use sp_runtime::traits::BadOrigin;
 
 #[test]
 fn one_message_does_not_panic() {
@@ -107,5 +108,89 @@ fn suspend_xcm_execution_works() {
 
 		let queued_xcm = InboundXcmpMessages::<Test>::get(ParaId::from(2000), 1u32);
 		assert_eq!(queued_xcm, xcm);
+	});
+}
+
+#[test]
+fn update_suspend_threshold_works() {
+	new_test_ext().execute_with(|| {
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(data.suspend_threshold, 2);
+		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 3));
+		assert_noop!(XcmpQueue::update_suspend_threshold(Origin::signed(2), 5), BadOrigin);
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+
+		assert_eq!(data.suspend_threshold, 3);
+	});
+}
+
+#[test]
+fn update_drop_threshold_works() {
+	new_test_ext().execute_with(|| {
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(data.drop_threshold, 5);
+		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 6));
+		assert_noop!(XcmpQueue::update_drop_threshold(Origin::signed(2), 7), BadOrigin);
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+
+		assert_eq!(data.drop_threshold, 6);
+	});
+}
+
+#[test]
+fn update_resume_threshold_works() {
+	new_test_ext().execute_with(|| {
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(data.resume_threshold, 1);
+		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 2));
+		assert_noop!(XcmpQueue::update_resume_threshold(Origin::signed(7), 3), BadOrigin);
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+
+		assert_eq!(data.resume_threshold, 2);
+	});
+}
+
+#[test]
+fn update_threshold_weight_works() {
+	new_test_ext().execute_with(|| {
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(data.threshold_weight, 100_000);
+		assert_ok!(XcmpQueue::update_threshold_weight(Origin::root(), 10_000));
+		assert_noop!(XcmpQueue::update_threshold_weight(Origin::signed(5), 10_000_000), BadOrigin);
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+
+		assert_eq!(data.threshold_weight, 10_000);
+	});
+}
+
+#[test]
+fn update_weight_restrict_decay_works() {
+	new_test_ext().execute_with(|| {
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(data.weight_restrict_decay, 2);
+		assert_ok!(XcmpQueue::update_weight_restrict_decay(Origin::root(), 5));
+		assert_noop!(XcmpQueue::update_weight_restrict_decay(Origin::signed(6), 4), BadOrigin);
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+
+		assert_eq!(data.weight_restrict_decay, 5);
+	});
+}
+
+#[test]
+fn update_xcmp_max_individual_weight() {
+	new_test_ext().execute_with(|| {
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(data.xcmp_max_individual_weight, 20 * WEIGHT_PER_MILLIS);
+		assert_ok!(XcmpQueue::update_xcmp_max_individual_weight(
+			Origin::root(),
+			30 * WEIGHT_PER_MILLIS
+		));
+		assert_noop!(
+			XcmpQueue::update_xcmp_max_individual_weight(Origin::signed(3), 10 * WEIGHT_PER_MILLIS),
+			BadOrigin
+		);
+		let data: QueueConfigData = <QueueConfig<Test>>::get();
+
+		assert_eq!(data.xcmp_max_individual_weight, 30 * WEIGHT_PER_MILLIS);
 	});
 }

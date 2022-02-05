@@ -167,6 +167,86 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Overwrites the number of pages of messages which must be in the queue for the other side to be told to
+		/// suspend their sending.
+		///
+		/// - `origin`: Must pass `Root`.
+		/// - `new`: Desired value for `QueueConfigData.suspend_value`
+		#[pallet::weight(10_000_000 as Weight + T::DbWeight::get().reads_writes(1, 1))]
+		pub fn update_suspend_threshold(origin: OriginFor<T>, new: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			QueueConfig::<T>::mutate(|data| data.suspend_threshold = new);
+
+			Ok(())
+		}
+
+		/// Overwrites the number of pages of messages which must be in the queue after which we drop any further
+		/// messages from the channel.
+		///
+		/// - `origin`: Must pass `Root`.
+		/// - `new`: Desired value for `QueueConfigData.drop_threshold`
+		#[pallet::weight(10_000_000 as Weight + T::DbWeight::get().reads_writes(1, 1))]
+		pub fn update_drop_threshold(origin: OriginFor<T>, new: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			QueueConfig::<T>::mutate(|data| data.drop_threshold = new);
+
+			Ok(())
+		}
+
+		/// Overwrites the number of pages of messages which the queue must be reduced to before it signals that
+		/// message sending may recommence after it has been suspended.
+		///
+		/// - `origin`: Must pass `Root`.
+		/// - `new`: Desired value for `QueueConfigData.resume_threshold`                                
+		#[pallet::weight(10_000_000 as Weight + T::DbWeight::get().reads_writes(1, 1))]
+		pub fn update_resume_threshold(origin: OriginFor<T>, new: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			QueueConfig::<T>::mutate(|data| data.resume_threshold = new);
+
+			Ok(())
+		}
+
+		/// Overwrites the amount of remaining weight under which we stop processing messages.
+		///
+		/// - `origin`: Must pass `Root`.
+		/// - `new`: Desired value for `QueueConfigData.threshold_weight`                                
+		#[pallet::weight(10_000_000 as Weight + T::DbWeight::get().reads_writes(1, 1))]
+		pub fn update_threshold_weight(origin: OriginFor<T>, new: Weight) -> DispatchResult {
+			ensure_root(origin)?;
+			QueueConfig::<T>::mutate(|data| data.threshold_weight = new);
+
+			Ok(())
+		}
+
+		/// Overwrites the speed to which the available weight approaches the maximum weight.
+		/// A lower number results in a faster progression. A value of 1 makes the entire weight available initially.
+		///
+		/// - `origin`: Must pass `Root`.
+		/// - `new`: Desired value for `QueueConfigData.weight_restrict_decay`.                                
+		#[pallet::weight(10_000_000 as Weight + T::DbWeight::get().reads_writes(1, 1))]
+		pub fn update_weight_restrict_decay(origin: OriginFor<T>, new: Weight) -> DispatchResult {
+			ensure_root(origin)?;
+			QueueConfig::<T>::mutate(|data| data.weight_restrict_decay = new);
+
+			Ok(())
+		}
+
+		/// Overwrite the maximum amount of weight any individual message may consume.
+		/// Messages above this weight go into the overweight queue and may only be serviced explicitly.
+		///
+		/// - `origin`: Must pass `Root`.
+		/// - `new`: Desired value for `QueueConfigData.xcmp_max_individual_weight`.                                
+		#[pallet::weight(10_000_000 as Weight + T::DbWeight::get().reads_writes(1, 1))]
+		pub fn update_xcmp_max_individual_weight(
+			origin: OriginFor<T>,
+			new: Weight,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			QueueConfig::<T>::mutate(|data| data.xcmp_max_individual_weight = new);
+
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
