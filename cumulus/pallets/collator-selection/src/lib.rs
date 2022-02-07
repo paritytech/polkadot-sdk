@@ -296,6 +296,17 @@ pub mod pallet {
 					"invulnerables > T::MaxInvulnerables; you might need to run benchmarks again"
 				);
 			}
+
+			// check if the invulnerables have associated validator keys before they are set
+			for account_id in &new {
+				let validator_key = T::ValidatorIdOf::convert(account_id.clone())
+					.ok_or(Error::<T>::NoAssociatedValidatorId)?;
+				ensure!(
+					T::ValidatorRegistration::is_registered(&validator_key),
+					Error::<T>::ValidatorNotRegistered
+				);
+			}
+
 			<Invulnerables<T>>::put(&new);
 			Self::deposit_event(Event::NewInvulnerables(new));
 			Ok(().into())

@@ -48,6 +48,16 @@ fn it_should_set_invulnerables() {
 			CollatorSelection::set_invulnerables(Origin::signed(1), new_set.clone()),
 			BadOrigin
 		);
+
+		// cannot set invulnerables without associated validator keys
+		let invulnerables = vec![7];
+		assert_noop!(
+			CollatorSelection::set_invulnerables(
+				Origin::signed(RootAccount::get()),
+				invulnerables.clone()
+			),
+			Error::<Test>::ValidatorNotRegistered
+		);
 	});
 }
 
