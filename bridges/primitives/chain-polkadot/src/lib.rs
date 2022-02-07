@@ -87,9 +87,14 @@ pub const WITH_POLKADOT_GRANDPA_PALLET_NAME: &str = "BridgePolkadotGrandpa";
 /// Name of the With-Polkadot messages pallet instance that is deployed at bridged chains.
 pub const WITH_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotMessages";
 
-/// Name of the KSM->DOT conversion rate stored in the Polkadot runtime.
+/// Name of the transaction payment pallet at the Polkadot runtime.
+pub const TRANSACTION_PAYMENT_PALLET_NAME: &str = "TransactionPayment";
+
+/// Name of the KSM->DOT conversion rate parameter, stored in the Polkadot runtime.
 pub const KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME: &str =
 	"KusamaToPolkadotConversionRate";
+/// Name of the Kusama fee multiplier parameter, stored in the Polkadot runtime.
+pub const KUSAMA_FEE_MULTIPLIER_PARAMETER_NAME: &str = "KusamaFeeMultiplier";
 
 /// Name of the `PolkadotFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_POLKADOT_HEADER_METHOD: &str = "PolkadotFinalityApi_best_finalized";

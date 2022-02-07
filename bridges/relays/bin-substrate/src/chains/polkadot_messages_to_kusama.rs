@@ -48,6 +48,16 @@ impl SubstrateMessageLane for PolkadotMessagesToKusama {
 	const TARGET_TO_SOURCE_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> =
 		Some(bp_polkadot::KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME);
 
+	const SOURCE_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> =
+		Some(bp_kusama::POLKADOT_FEE_MULTIPLIER_PARAMETER_NAME);
+	const TARGET_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> =
+		Some(bp_polkadot::KUSAMA_FEE_MULTIPLIER_PARAMETER_NAME);
+
+	const AT_SOURCE_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> =
+		Some(bp_polkadot::TRANSACTION_PAYMENT_PALLET_NAME);
+	const AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> =
+		Some(bp_kusama::TRANSACTION_PAYMENT_PALLET_NAME);
+
 	type SourceChain = Polkadot;
 	type TargetChain = Kusama;
 
