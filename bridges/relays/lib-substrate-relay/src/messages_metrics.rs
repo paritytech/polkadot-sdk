@@ -34,6 +34,9 @@ use sp_core::storage::StorageData;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
 
+/// Name of the `NextFeeMultiplier` storage value within the transaction payment pallet.
+const NEXT_FEE_MULTIPLIER_VALUE_NAME: &str = "NextFeeMultiplier";
+
 /// Shared references to the standalone metrics of the message lane relay loop.
 #[derive(Debug, Clone)]
 pub struct StandaloneMessagesMetrics<SC: Chain, TC: Chain> {
@@ -53,6 +56,15 @@ pub struct StandaloneMessagesMetrics<SC: Chain, TC: Chain> {
 	/// Target tokens to source tokens conversion rate metric. This rate is stored by the source
 	/// chain.
 	pub target_to_source_conversion_rate: Option<FloatStorageValueMetric<SC, FixedU128OrOne>>,
+
+	/// Actual source chain fee multiplier.
+	pub source_fee_multiplier: Option<FloatStorageValueMetric<SC, FixedU128OrOne>>,
+	/// Source chain fee multiplier, stored at the target chain.
+	pub source_fee_multiplier_at_target: Option<FloatStorageValueMetric<TC, FixedU128OrOne>>,
+	/// Actual target chain fee multiplier.
+	pub target_fee_multiplier: Option<FloatStorageValueMetric<TC, FixedU128OrOne>>,
+	/// Target chain fee multiplier, stored at the target chain.
+	pub target_fee_multiplier_at_source: Option<FloatStorageValueMetric<SC, FixedU128OrOne>>,
 }
 
 impl<SC: Chain, TC: Chain> StandaloneMessagesMetrics<SC, TC> {
@@ -66,6 +78,10 @@ impl<SC: Chain, TC: Chain> StandaloneMessagesMetrics<SC, TC> {
 			target_to_base_conversion_rate: self.source_to_base_conversion_rate,
 			source_to_target_conversion_rate: self.target_to_source_conversion_rate,
 			target_to_source_conversion_rate: self.source_to_target_conversion_rate,
+			source_fee_multiplier: self.target_fee_multiplier,
+			source_fee_multiplier_at_target: self.target_fee_multiplier_at_source,
+			target_fee_multiplier: self.source_fee_multiplier,
+			target_fee_multiplier_at_source: self.source_fee_multiplier_at_target,
 		}
 	}
 
@@ -84,6 +100,18 @@ impl<SC: Chain, TC: Chain> StandaloneMessagesMetrics<SC, TC> {
 			m.register_and_spawn(&metrics.registry)?;
 		}
 		if let Some(m) = self.target_to_source_conversion_rate {
+			m.register_and_spawn(&metrics.registry)?;
+		}
+		if let Some(m) = self.source_fee_multiplier {
+			m.register_and_spawn(&metrics.registry)?;
+		}
+		if let Some(m) = self.source_fee_multiplier_at_target {
+			m.register_and_spawn(&metrics.registry)?;
+		}
+		if let Some(m) = self.target_fee_multiplier {
+			m.register_and_spawn(&metrics.registry)?;
+		}
+		if let Some(m) = self.target_fee_multiplier_at_source {
 			m.register_and_spawn(&metrics.registry)?;
 		}
 		Ok(metrics)
@@ -144,7 +172,7 @@ pub fn standalone_metrics<P: SubstrateMessageLane>(
 			.map(|key| {
 				FloatStorageValueMetric::new(
 					FixedU128OrOne::default(),
-					target_client,
+					target_client.clone(),
 					key,
 					format!(
 						"{}_{}_to_{}_conversion_rate",
@@ -167,7 +195,7 @@ pub fn standalone_metrics<P: SubstrateMessageLane>(
 			.map(|key| {
 				FloatStorageValueMetric::new(
 					FixedU128OrOne::default(),
-					source_client,
+					source_client.clone(),
 					key,
 					format!(
 						"{}_{}_to_{}_conversion_rate",
@@ -180,6 +208,68 @@ pub fn standalone_metrics<P: SubstrateMessageLane>(
 						P::TargetChain::NAME,
 						P::SourceChain::NAME,
 						P::SourceChain::NAME
+					),
+				)
+				.map(Some)
+			})
+			.unwrap_or(Ok(None))?,
+		source_fee_multiplier: P::AT_SOURCE_TRANSACTION_PAYMENT_PALLET_NAME
+			.map(|pallet| bp_runtime::storage_value_key(pallet, NEXT_FEE_MULTIPLIER_VALUE_NAME))
+			.map(|key| {
+				log::trace!(target: "bridge", "{}_fee_multiplier", P::SourceChain::NAME);
+				FloatStorageValueMetric::new(
+					FixedU128OrOne::default(),
+					source_client.clone(),
+					key,
+					format!("{}_fee_multiplier", P::SourceChain::NAME,),
+					format!("{} fee multiplier", P::SourceChain::NAME,),
+				)
+				.map(Some)
+			})
+			.unwrap_or(Ok(None))?,
+		source_fee_multiplier_at_target: P::SOURCE_FEE_MULTIPLIER_PARAMETER_NAME
+			.map(bp_runtime::storage_parameter_key)
+			.map(|key| {
+				FloatStorageValueMetric::new(
+					FixedU128OrOne::default(),
+					target_client.clone(),
+					key,
+					format!("{}_{}_fee_multiplier", P::TargetChain::NAME, P::SourceChain::NAME,),
+					format!(
+						"{} fee multiplier stored at {}",
+						P::SourceChain::NAME,
+						P::TargetChain::NAME,
+					),
+				)
+				.map(Some)
+			})
+			.unwrap_or(Ok(None))?,
+		target_fee_multiplier: P::AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME
+			.map(|pallet| bp_runtime::storage_value_key(pallet, NEXT_FEE_MULTIPLIER_VALUE_NAME))
+			.map(|key| {
+				log::trace!(target: "bridge", "{}_fee_multiplier", P::TargetChain::NAME);
+				FloatStorageValueMetric::new(
+					FixedU128OrOne::default(),
+					target_client,
+					key,
+					format!("{}_fee_multiplier", P::TargetChain::NAME,),
+					format!("{} fee multiplier", P::TargetChain::NAME,),
+				)
+				.map(Some)
+			})
+			.unwrap_or(Ok(None))?,
+		target_fee_multiplier_at_source: P::TARGET_FEE_MULTIPLIER_PARAMETER_NAME
+			.map(bp_runtime::storage_parameter_key)
+			.map(|key| {
+				FloatStorageValueMetric::new(
+					FixedU128OrOne::default(),
+					source_client,
+					key,
+					format!("{}_{}_fee_multiplier", P::SourceChain::NAME, P::TargetChain::NAME,),
+					format!(
+						"{} fee multiplier stored at {}",
+						P::TargetChain::NAME,
+						P::SourceChain::NAME,
 					),
 				)
 				.map(Some)
@@ -286,6 +376,8 @@ fn convert_to_token_balance(balance: u128, token_decimals: u32) -> FixedU128 {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::storage::generator::StorageValue;
+	use sp_core::storage::StorageKey;
 
 	#[async_std::test]
 	async fn target_to_source_conversion_rate_works() {
@@ -301,5 +393,13 @@ mod tests {
 		let token_decimals = 10;
 		let dots = convert_to_token_balance(plancks, token_decimals);
 		assert_eq!(dots, FixedU128::saturating_from_rational(425, 10));
+	}
+
+	#[test]
+	fn next_fee_multiplier_storage_key_is_correct() {
+		assert_eq!(
+			bp_runtime::storage_value_key("TransactionPayment", NEXT_FEE_MULTIPLIER_VALUE_NAME),
+			StorageKey(pallet_transaction_payment::NextFeeMultiplier::<rialto_runtime::Runtime>::storage_value_final_key().to_vec()),
+		);
 	}
 }
