@@ -195,7 +195,7 @@ jobs:
       - name: Fix parachain runtime name
         id: fix-runtime-path
         run: |
-          cd "$RUNTIME_DIR"
+          cd "${{ matrix.runtime }}-runtime/"
           mv "$(sed 's/-parachain/_parachain/' <<< ${{ matrix.runtime }})_runtime.compact.compressed.wasm" "${{ matrix.runtime }}_runtime.compact.compressed.wasm" || true
 
       - name: Upload compressed ${{ matrix.runtime }} wasm
