@@ -12,7 +12,7 @@
 
 The JSON-RPC server must invoke the entry point of the runtime of the given block using the storage of the given block.
 
-**Note**: Calls are idempotent and never have any side effect. For example they can't be used to modify the storage of the chain. The only motivation for performing a call is to obtain the return value.
+**Note**: The runtime is still allowed to call host functions with side effects, however these side effects must be discarded. For example, a runtime function call can try to modify the storage of the chain, but this modification must not be actually applied. The only motivation for performing a call is to obtain the return value.
 
 The operation will continue even if the given block is unpinned while it is in progress.
 
@@ -107,7 +107,6 @@ No more event will be generated with this `subscriptionId`.
 - A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
 - If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "error"}` notification is generated.
 - If the runtime call fails (e.g. because it triggers a panic in the runtime, running out of memory, etc., or if the runtime call takes too much time), then an `{"event": "error"}` notification is generated.
-- If the runtime call calls a host function that has a side effect, then an `{"event": "error"}` notification is generated.
 
 ## About `callParameters`
 
