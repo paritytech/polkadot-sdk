@@ -37,10 +37,11 @@ polkadot-node-subsystem-test-helpers = { git = "https://github.com/paritytech/po
 # Cumulus dependencies
 cumulus-test-runtime = { path = "../../test/runtime" }
 cumulus-test-client = { path = "../../test/client" }
-# Substrate dependencies
 
+# Substrate dependencies
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-maybe-compressed-blob = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Other dependencies
 async-trait = "0.1.42"
