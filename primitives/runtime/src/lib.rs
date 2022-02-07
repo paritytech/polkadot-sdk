@@ -22,7 +22,7 @@ use codec::Encode;
 use frame_support::{RuntimeDebug, StorageHasher};
 use sp_core::{hash::H256, storage::StorageKey};
 use sp_io::hashing::blake2_256;
-use sp_std::{convert::TryFrom, vec::Vec};
+use sp_std::{convert::TryFrom, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf,
@@ -229,13 +229,27 @@ pub fn storage_map_final_key<H: StorageHasher>(
 /// This is how a storage key of storage parameter (`parameter_types! { storage Param: bool = false;
 /// }`) is computed.
 ///
-/// Copied from `frame_support::parameter_types` macro
+/// Copied from `frame_support::parameter_types` macro.
 pub fn storage_parameter_key(parameter_name: &str) -> StorageKey {
 	let mut buffer = Vec::with_capacity(1 + parameter_name.len() + 1);
 	buffer.push(b':');
 	buffer.extend_from_slice(parameter_name.as_bytes());
 	buffer.push(b':');
 	StorageKey(sp_io::hashing::twox_128(&buffer).to_vec())
+}
+
+/// This is how a storage key of storage value is computed.
+///
+/// Copied from `frame_support::storage::storage_prefix`.
+pub fn storage_value_key(pallet_prefix: &str, value_name: &str) -> StorageKey {
+	let pallet_hash = sp_io::hashing::twox_128(pallet_prefix.as_bytes());
+	let storage_hash = sp_io::hashing::twox_128(value_name.as_bytes());
+
+	let mut final_key = vec![0u8; 32];
+	final_key[..16].copy_from_slice(&pallet_hash);
+	final_key[16..].copy_from_slice(&storage_hash);
+
+	StorageKey(final_key)
 }
 
 #[cfg(test)]
@@ -247,6 +261,19 @@ mod tests {
 		assert_eq!(
 			storage_parameter_key("MillauToRialtoConversionRate"),
 			StorageKey(hex_literal::hex!("58942375551bb0af1682f72786b59d04").to_vec()),
+		);
+	}
+
+	#[test]
+	fn storage_value_key_works() {
+		assert_eq!(
+			storage_value_key("PalletTransactionPayment", "NextFeeMultiplier"),
+			StorageKey(
+				hex_literal::hex!(
+					"f0e954dfcca51a255ab12c60c789256a3f2edf3bdf381debe331ab7446addfdc"
+				)
+				.to_vec()
+			),
 		);
 	}
 }

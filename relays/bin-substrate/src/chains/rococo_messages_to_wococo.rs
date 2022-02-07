@@ -42,6 +42,11 @@ impl SubstrateMessageLane for RococoMessagesToWococo {
 	const SOURCE_TO_TARGET_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> = None;
 	const TARGET_TO_SOURCE_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> = None;
 
+	const SOURCE_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> = None;
+	const TARGET_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> = None;
+	const AT_SOURCE_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> = None;
+	const AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> = None;
+
 	type SourceChain = Rococo;
 	type TargetChain = Wococo;
 

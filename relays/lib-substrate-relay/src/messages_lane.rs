@@ -43,18 +43,36 @@ use std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
 
 /// Substrate -> Substrate messages synchronization pipeline.
 pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
-	/// Name of the source -> target tokens conversion rate parameter name.
+	/// Name of the source -> target tokens conversion rate parameter.
 	///
 	/// The parameter is stored at the target chain and the storage key is computed using
 	/// `bp_runtime::storage_parameter_key` function. If value is unknown, it is assumed
 	/// to be 1.
 	const SOURCE_TO_TARGET_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str>;
-	/// Name of the target -> source tokens conversion rate parameter name.
+	/// Name of the target -> source tokens conversion rate parameter.
 	///
 	/// The parameter is stored at the source chain and the storage key is computed using
 	/// `bp_runtime::storage_parameter_key` function. If value is unknown, it is assumed
 	/// to be 1.
 	const TARGET_TO_SOURCE_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str>;
+
+	/// Name of the source chain fee multiplier parameter.
+	///
+	/// The parameter is stored at the target chain and the storage key is computed using
+	/// `bp_runtime::storage_parameter_key` function. If value is unknown, it is assumed
+	/// to be 1.
+	const SOURCE_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str>;
+	/// Name of the target chain fee multiplier parameter.
+	///
+	/// The parameter is stored at the source chain and the storage key is computed using
+	/// `bp_runtime::storage_parameter_key` function. If value is unknown, it is assumed
+	/// to be 1.
+	const TARGET_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str>;
+
+	/// Name of the transaction payment pallet, deployed at the source chain.
+	const AT_SOURCE_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str>;
+	/// Name of the transaction payment pallet, deployed at the target chain.
+	const AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str>;
 
 	/// Messages of this chain are relayed to the `TargetChain`.
 	type SourceChain: ChainWithMessages;
