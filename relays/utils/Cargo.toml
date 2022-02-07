@@ -19,7 +19,7 @@ log = "0.4.11"
 num-traits = "0.2"
 serde_json = "1.0"
 sysinfo = "0.15"
-time = "0.2"
+time = { version = "0.3", features = ["formatting", "local-offset", "std"] }
 thiserror = "1.0.26"
 
 # Bridge dependencies
