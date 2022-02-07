@@ -38,6 +38,11 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 	const TARGET_TO_SOURCE_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> =
 		Some(bp_millau::RIALTO_TO_MILLAU_CONVERSION_RATE_PARAMETER_NAME);
 
+	const SOURCE_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> = None;
+	const TARGET_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> = None;
+	const AT_SOURCE_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> = None;
+	const AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> = None;
+
 	type SourceChain = Millau;
 	type TargetChain = Rialto;
 
