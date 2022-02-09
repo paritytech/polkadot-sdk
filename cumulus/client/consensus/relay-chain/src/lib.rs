@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The relay-chain provided consensus algoritm for parachains.
+//! The relay-chain provided consensus algorithm for parachains.
 //!
 //! This is the simplest consensus algorithm you can use when developing a parachain. It is a
 //! permission-less consensus algorithm that doesn't require any staking or similar to join as a
@@ -28,7 +28,7 @@
 //! 3. The parachain validators validate at most X different parachain candidates, where X is the
 //! total number of parachain validators.
 //!
-//! 4. The parachain candidate that is backed by the most validators is choosen by the relay-chain
+//! 4. The parachain candidate that is backed by the most validators is chosen by the relay-chain
 //! block producer to be added as backed candidate on chain.
 //!
 //! 5. After the parachain candidate got backed and included, all collators start at 1.
@@ -217,7 +217,7 @@ where
 	}
 }
 
-/// Paramaters of [`build_relay_chain_consensus`].
+/// Parameters of [`build_relay_chain_consensus`].
 pub struct BuildRelayChainConsensusParams<PF, BI, CIDP, RCInterface> {
 	pub para_id: ParaId,
 	pub proposer_factory: PF,

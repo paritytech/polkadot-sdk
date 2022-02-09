@@ -36,7 +36,7 @@ pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelayChainError {
-	#[error("Error occured while calling relay chain runtime: {0:?}")]
+	#[error("Error occurred while calling relay chain runtime: {0:?}")]
 	ApiError(#[from] ApiError),
 	#[error("Timeout while waiting for relay-chain block `{0}` to be imported.")]
 	WaitTimeout(PHash),
@@ -46,9 +46,9 @@ pub enum RelayChainError {
 	WaitBlockchainError(PHash, sp_blockchain::Error),
 	#[error("Blockchain returned an error: {0:?}")]
 	BlockchainError(#[from] sp_blockchain::Error),
-	#[error("State machine error occured: {0:?}")]
+	#[error("State machine error occurred: {0:?}")]
 	StateMachineError(Box<dyn sp_state_machine::Error>),
-	#[error("Unspecified error occured: {0:?}")]
+	#[error("Unspecified error occurred: {0:?}")]
 	GenericError(String),
 }
 

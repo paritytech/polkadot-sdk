@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The AuRa consensus algoritm for parachains.
+//! The AuRa consensus algorithm for parachains.
 //!
 //! This extends the Substrate provided AuRa consensus implementation to make it compatible for
-//! parachains. The main entry points for of this consensus algorithm are [`build_aura_consensus`]
+//! parachains. The main entry points for of this consensus algorithm are [`AuraConsensus::build`]
 //! and [`import_queue`].
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
@@ -216,7 +216,7 @@ where
 	}
 }
 
-/// Paramaters of [`build_aura_consensus`].
+/// Parameters of [`AuraConsensus:build`].
 pub struct BuildAuraConsensusParams<PF, BI, CIDP, Client, BS, SO> {
 	pub proposer_factory: PF,
 	pub create_inherent_data_providers: CIDP,

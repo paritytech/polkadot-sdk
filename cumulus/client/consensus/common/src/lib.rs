@@ -104,7 +104,7 @@ where
 		mut block_import_params: sc_consensus::BlockImportParams<Block, Self::Transaction>,
 		cache: std::collections::HashMap<sp_consensus::CacheKeyId, Vec<u8>>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		// Best block is determined by the relay chain, or if we are doing the intial sync
+		// Best block is determined by the relay chain, or if we are doing the initial sync
 		// we import all blocks as new best.
 		block_import_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
 			block_import_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,

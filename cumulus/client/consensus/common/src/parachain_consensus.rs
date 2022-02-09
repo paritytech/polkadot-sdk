@@ -123,7 +123,7 @@ where
 
 /// Run the parachain consensus.
 ///
-/// This will follow the given `relay_chain` to act as consesus for the parachain that corresponds
+/// This will follow the given `relay_chain` to act as consensus for the parachain that corresponds
 /// to the given `para_id`. It will set the new best block of the parachain as it gets aware of it.
 /// The same happens for the finalized block.
 ///
