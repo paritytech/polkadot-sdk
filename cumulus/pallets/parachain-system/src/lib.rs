@@ -45,7 +45,6 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root};
 use polkadot_parachain::primitives::RelayChainBlockNumber;
-use relay_state_snapshot::MessagingStateSnapshot;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
 	transaction_validity::{
@@ -85,7 +84,7 @@ mod tests;
 /// # fn main() {}
 /// ```
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
-pub use relay_state_snapshot::RelayChainStateProof;
+pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 
 pub use pallet::*;
 

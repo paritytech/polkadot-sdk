@@ -68,7 +68,7 @@ impl_opaque_keys! {
 	pub struct SessionKeys {}
 }
 
-/// Some key that we set in genesis and only read in [`TestRuntimeUpgrade`] to ensure that
+/// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 

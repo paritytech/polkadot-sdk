@@ -31,7 +31,7 @@
 //!
 //! ## Implementation
 //!
-//! The final [`Collators`] are aggregated from two individual lists:
+//! The final `Collators` are aggregated from two individual lists:
 //!
 //! 1. [`Invulnerables`]: a set of collators appointed by governance. These accounts will always be
 //!    collators.

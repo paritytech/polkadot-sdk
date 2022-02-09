@@ -18,7 +18,7 @@
 //!
 //! This extends the Substrate provided AuRa consensus implementation to make it compatible for
 //! parachains. The main entry points for of this consensus algorithm are [`AuraConsensus::build`]
-//! and [`import_queue`].
+//! and [`fn@import_queue`].
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
@@ -216,7 +216,7 @@ where
 	}
 }
 
-/// Parameters of [`AuraConsensus:build`].
+/// Parameters of [`AuraConsensus::build`].
 pub struct BuildAuraConsensusParams<PF, BI, CIDP, Client, BS, SO> {
 	pub proposer_factory: PF,
 	pub create_inherent_data_providers: CIDP,

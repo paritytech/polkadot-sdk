@@ -211,7 +211,7 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 /// will call this validator and provides the extra data that was attached to the announcement.
 /// We call this extra data `justification`.
 /// It is expected that the attached data is a SCALE encoded [`BlockAnnounceData`]. The
-/// statement is checked to be a [`CompactStatement::Candidate`] and that it is signed by an active
+/// statement is checked to be a [`CompactStatement::Seconded`] and that it is signed by an active
 /// parachain validator.
 ///
 /// If no justification was provided we check if the block announcement is at the tip of the known
