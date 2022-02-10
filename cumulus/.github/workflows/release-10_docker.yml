@@ -24,18 +24,18 @@ jobs:
 
       - name: Fetch files from release
         run: |
-          echo Repo: ${{ github.event.repository.full_name }}
+          echo "Repo: ${{ github.event.repository.full_name }}"
 
-          echo Name: ${{ github.event.release.name }}
-          echo Tag: ${{ github.event.release.tag_name }}
-          echo Draft: ${{ github.event.release.draft }}
-          echo Prerelease: ${{ github.event.release.prerelease }}
-          echo Assets: ${{ github.event.release.assets }}
+          echo "Name: ${{ github.event.release.name }}"
+          echo "Tag: ${{ github.event.release.tag_name }}
+          echo "Draft: ${{ github.event.release.draft }}"
+          echo "Prerelease: ${{ github.event.release.prerelease }}"
+          echo "Assets: ${{ github.event.release.assets }}"
 
           for f in $BINARY $BINARY.asc $BINARY.sha256; do
             URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.release.tag_name }}/$f"
             echo " - Fetching $f from $URL"
-            wget $URL -O $f
+            wget "$URL" -O "$f"
           done
           chmod a+x $BINARY
           ls -al
