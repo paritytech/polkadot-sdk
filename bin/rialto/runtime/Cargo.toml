@@ -73,7 +73,9 @@ polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", bran
 polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
 [dev-dependencies]
+bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
 libsecp256k1 = { version = "0.7", features = ["hmac"] }
+static_assertions = "1.1"
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
