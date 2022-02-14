@@ -29,7 +29,7 @@ codec = { package = "parity-scale-codec", version = "2.3.0", features = [ "deriv
 futures = { version = "0.3.1", features = ["compat"] }
 futures-timer = "3.0.2"
 tracing = "0.1.22"
-rand = "0.8.3"
+rand = "0.8.5"
 
 [dev-dependencies]
 tokio = { version = "1.10", features = ["macros"] }
