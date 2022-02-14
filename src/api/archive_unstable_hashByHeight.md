@@ -16,7 +16,7 @@ This function will later generate a notification in the following format:
     "jsonrpc": "2.0",
     "method": "archive_unstable_hashByHeightEvent",
     "params": {
-        "subscriptionId": "...",
+        "subscription": "...",
         "result": ...
     }
 }

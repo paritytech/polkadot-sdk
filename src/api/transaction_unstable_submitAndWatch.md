@@ -6,7 +6,7 @@
 
 **Return value**: String representing the subscription.
 
-The string returned by this function is opaque and its meaning can't be interpreted by the JSON-RPC client. It is only meant to be matched with the `subscriptionId` field of events and potentially passed to `transaction_unstable_unwatch`.
+The string returned by this function is opaque and its meaning can't be interpreted by the JSON-RPC client. It is only meant to be matched with the `subscription` field of events and potentially passed to `transaction_unstable_unwatch`.
 
 ## Notifications format
 
@@ -17,13 +17,13 @@ This function will later generate one or more notifications in the following for
     "jsonrpc": "2.0",
     "method": "transaction_unstable_watchEvent",
     "params": {
-        "subscriptionId": "...",
+        "subscription": "...",
         "result": ...
     }
 }
 ```
 
-Where `subscriptionId` is the value returned by this function, and `result` can be one of:
+Where `subscription` is the value returned by this function, and `result` can be one of:
 
 ### validated
 

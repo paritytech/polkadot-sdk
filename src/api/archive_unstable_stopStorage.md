@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `subscriptionId`: An opaque string that was returned by `archive_unstable_storage`.
+- `subscription`: An opaque string that was returned by `archive_unstable_storage`.
 
 **Return value**: *null*
 
@@ -12,4 +12,4 @@ JSON-RPC client implementations must be aware that, due to the asynchronous natu
 
 ## Possible errors
 
-A JSON-RPC error is generated if the `subscriptionId` doesn't correspond to any active subscription.
+A JSON-RPC error is generated if the `subscription` doesn't correspond to any active subscription.

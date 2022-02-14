@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `followSubscriptionId`: An opaque string that was returned by `chainHead_unstable_follow`.
+- `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose body to fetch.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
@@ -23,13 +23,13 @@ This function will later generate a notification in the following format:
     "jsonrpc": "2.0",
     "method": "chainHead_unstable_bodyEvent",
     "params": {
-        "subscriptionId": "...",
+        "subscription": "...",
         "result": ...
     }
 }
 ```
 
-Where `subscriptionId` is the value returned by this function, and `result` can be one of:
+Where `subscription` is the value returned by this function, and `result` can be one of:
 
 ### done
 
@@ -46,7 +46,7 @@ The `done` event indicates that everything was successful.
 
 **Note**: Note that the order of extrinsics is important. Extrinsics in the chain are uniquely identified by a `(blockHash, index)` tuple.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 ### inaccessible
 
@@ -60,7 +60,7 @@ The `inaccessible` event indicates that the body has failed to be retrieved from
 
 Trying again later might succeed.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 ### disjoint
 
@@ -70,13 +70,13 @@ No more event will be generated with this `subscriptionId`.
 }
 ```
 
-The `disjoint` event indicates that the `followSubscriptionId` is invalid or stale.
+The `disjoint` event indicates that the `followSubscription` is invalid or stale.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 ## Possible errors
 
 - If the networking part of the behaviour fails, then a `{"event": "inaccessible"}` notification is generated (as explained above).
-- If the `followSubscriptionId` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
+- If the `followSubscription` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
-- A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
+- A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
