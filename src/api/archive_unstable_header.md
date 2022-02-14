@@ -14,7 +14,7 @@ This function will later generate a notification in the following format:
     "jsonrpc": "2.0",
     "method": "archive_unstable_headerEvent",
     "params":{
-        "subscriptionId": "...",
+        "subscription": "...",
         "result": ...
     }
 }

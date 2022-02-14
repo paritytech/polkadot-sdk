@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `followSubscriptionId`: An opaque string that was returned by `chainHead_unstable_follow`. The `runtimeUpdates` parameter of the call must have been equal to `true`.
+- `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`. The `runtimeUpdates` parameter of the call must have been equal to `true`.
 - `hash`: String containing the hexadecimal-encoded hash of the header of the block to make the call against.
 - `function`: Name of the runtime entry point to call as a string.
 - `callParameters`: Hexadecimal-encoded SCALE-encoded value to pass as input to the runtime function.
@@ -29,13 +29,13 @@ This function will later generate a notification in the following format:
     "jsonrpc": "2.0",
     "method": "chainHead_unstable_callEvent",
     "params": {
-        "subscriptionId": "...",
+        "subscription": "...",
         "result": ...
     }
 }
 ```
 
-Where `subscriptionId` is the value returned by this function, and `result` can be one of:
+Where `subscription` is the value returned by this function, and `result` can be one of:
 
 ### done
 
@@ -50,7 +50,7 @@ The `done` event indicates that everything was successful.
 
 `output` is the hexadecimal-encoded output of the runtime function call.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 ### inaccessible
 
@@ -67,7 +67,7 @@ The `inaccessible` event is produced if the JSON-RPC server was incapable of obt
 
 Contrary to the `error` event, repeating the same call in the future might succeed.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 ### error
 
@@ -84,7 +84,7 @@ Contrary to the `inaccessible` event, repeating the same call in the future will
 
 `error` is a human-readable error message indicating why the call has failed. This string isn't meant to be shown to end users, but is for developers to understand the problem.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 ### disjoint
 
@@ -94,17 +94,17 @@ No more event will be generated with this `subscriptionId`.
 }
 ```
 
-The `disjoint` event indicates that the provided `followSubscriptionId` is invalid or stale.
+The `disjoint` event indicates that the provided `followSubscription` is invalid or stale.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 ## Possible errors
 
 - If the networking part of the behaviour fails, then an `{"event": "inaccessible"}` notification is generated (as explained above).
-- If the `followSubscriptionId` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
-- A JSON-RPC error is generated if the `followSubscriptionId` corresponds to a follow where `runtimeUpdates` was `̀false`.
+- If the `followSubscription` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
+- A JSON-RPC error is generated if the `followSubscription` corresponds to a follow where `runtimeUpdates` was `̀false`.
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
-- A JSON-RPC error is generated if the `followSubscriptionId` is valid but the block hash passed as parameter has already been unpinned.
+- A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
 - If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "error"}` notification is generated.
 - If the runtime call fails (e.g. because it triggers a panic in the runtime, running out of memory, etc., or if the runtime call takes too much time), then an `{"event": "error"}` notification is generated.
 - If the runtime call calls a host function that has a side effect, then an `{"event": "error"}` notification is generated.

@@ -12,7 +12,7 @@ This functions lets the JSON-RPC client track the state of the head of the chain
 
 This function works as follows:
 
-- When called, returns an opaque `followSubscriptionId` that can used to match events and in various other `chainHead`-prefixed functions.
+- When called, returns an opaque `followSubscription` that can used to match events and in various other `chainHead`-prefixed functions.
 
 - Later, generates an `initialized` notification (see below) containing the hash of the current finalized block, and, if `runtimeUpdates` is `true`, the runtime specification of the runtime of the current finalized block.
 
@@ -47,13 +47,13 @@ This function will later generate one or more notifications in the following for
     "jsonrpc": "2.0",
     "method": "chainHead_unstable_followEvent",
     "params": {
-        "subscriptionId": "...",
+        "subscription": "...",
         "result": ...
     }
 }
 ```
 
-Where `subscriptionId` is the value returned by this function, and `result` can be one of:
+Where `subscription` is the value returned by this function, and `result` can be one of:
 
 ### initialized
 
@@ -141,7 +141,7 @@ The `stop` event indicates that the JSON-RPC server was unable to provide a cons
 
 **Note**: In particular, warp syncing algorithms create a "jump" in the chain from a block to a much later block. Any subscription that is active when the warp syncing happens will receive a `stop` event.
 
-No more event will be generated with this `subscriptionId`.
+No more event will be generated with this `subscription`.
 
 Calling `chainHead_unstable_unfollow` on a subscription that has produced a `stop` event is optional.
 

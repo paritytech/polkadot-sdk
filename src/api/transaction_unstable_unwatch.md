@@ -10,4 +10,4 @@
 
 ## Possible errors
 
-A JSON-RPC error is generated if the `subscriptionId` doesn't correspond to any active subscription.
+A JSON-RPC error is generated if the `subscription` doesn't correspond to any active subscription.
