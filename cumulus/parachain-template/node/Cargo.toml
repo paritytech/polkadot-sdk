@@ -20,7 +20,10 @@ name = "parachain-collator"
 path = "src/main.rs"
 
 [features]
-runtime-benchmarks = ["parachain-template-runtime/runtime-benchmarks"]
+runtime-benchmarks = [
+	"parachain-template-runtime/runtime-benchmarks",
+	"polkadot-cli/runtime-benchmarks",
+]
 try-runtime = ["parachain-template-runtime/try-runtime"]
 
 [dependencies]

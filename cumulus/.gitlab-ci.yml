@@ -114,6 +114,8 @@ check-runtime-benchmarks:
   script:
     # Check that the node will compile with `runtime-benchmarks` feature flag.
     - time cargo check --all --features runtime-benchmarks
+    # Check that parachain-template will compile with `runtime-benchmarks` feature flag.
+    - time cargo check -p parachain-template-node --features runtime-benchmarks
     - sccache -s
 
 cargo-check-try-runtime:
@@ -122,6 +124,8 @@ cargo-check-try-runtime:
   script:
     # Check that the node will compile with `try-runtime` feature flag.
     - time cargo check --all --features try-runtime
+    # Check that parachain-template will compile with `try-runtime` feature flag.
+    - time cargo check -p parachain-template-node --features try-runtime
     - sccache -s
 
 cargo-check-benches:
