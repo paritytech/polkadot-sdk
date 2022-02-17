@@ -25,6 +25,7 @@ seedling-runtime = { path = "seedling" }
 statemint-runtime = { path = "statemint" }
 statemine-runtime = { path = "statemine" }
 westmint-runtime = { path = "westmint" }
+canvas-kusama-runtime = { path = "canvas-kusama" }
 parachains-common = { path = "parachains-common" }
 
 # Substrate dependencies
@@ -66,6 +67,7 @@ jsonrpc-core = "18.0.0"
 sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Cumulus dependencies
 cumulus-client-cli = { path = "../client/cli" }

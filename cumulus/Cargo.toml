@@ -32,6 +32,7 @@ members = [
 	"polkadot-parachains/statemint",
 	"polkadot-parachains/statemine",
 	"polkadot-parachains/westmint",
+	"polkadot-parachains/canvas-kusama",
 	"test/client",
 	"test/relay-sproof-builder",
 	"test/relay-validation-worker-provider",

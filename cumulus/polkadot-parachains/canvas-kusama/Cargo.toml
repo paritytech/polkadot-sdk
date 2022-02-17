@@ -1,0 +1,174 @@
+[package]
+name = "canvas-kusama-runtime"
+version = "0.2.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[build-dependencies]
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+[dependencies]
+hex-literal = { version = '0.3.1', optional = true }
+codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive']}
+log = { version = "0.4.14", default-features = false }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+serde = { version = '1.0.119', optional = true, features = ['derive'] }
+smallvec = "1.6.1"
+
+# Substrate Dependencies
+## Substrate Primitive Dependencies
+sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-block-builder = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-consensus-aura = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-core = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-inherents = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-io = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-offchain = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-session = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-std = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-transaction-pool = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+sp-version = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+node-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+## Substrate FRAME Dependencies
+frame-benchmarking = { git = 'https://github.com/paritytech/substrate', default-features = false, optional = true , branch = "master" }
+frame-try-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true , branch = "master" }
+frame-executive = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, branch = "master" }
+frame-system = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+frame-system-benchmarking = { git = 'https://github.com/paritytech/substrate', default-features = false, optional = true , branch = "master" }
+frame-system-rpc-runtime-api = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+
+## Substrate Pallet Dependencies
+pallet-aura = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+pallet-balances = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+pallet-multisig = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+pallet-timestamp = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+pallet-transaction-payment = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+pallet-transaction-payment-rpc-runtime-api = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
+pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+
+# Cumulus Dependencies
+cumulus-pallet-aura-ext = { path = "../../pallets/aura-ext", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-timestamp = { path = "../../primitives/timestamp", default-features = false }
+cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
+cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue", default-features = false }
+cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue", default-features = false }
+cumulus-pallet-xcm = { path = "../../pallets/xcm", default-features = false }
+cumulus-pallet-session-benchmarking = { path = "../../pallets/session-benchmarking", default-features = false }
+pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
+parachains-common = { path = "../parachains-common", default-features = false }
+parachain-info = { path = "../pallets/parachain-info", default-features = false }
+
+# Polkadot Dependencies
+polkadot-parachain = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+kusama-runtime-constants = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+xcm = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+xcm-builder = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+xcm-executor = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+pallet-xcm = { git = 'https://github.com/paritytech/polkadot', default-features = false , branch = "master" }
+
+# Contracts specific packages
+pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+[features]
+default = [
+	"std",
+]
+std = [
+	"codec/std",
+	"serde",
+	"scale-info/std",
+	"log/std",
+	"sp-api/std",
+	"sp-block-builder/std",
+	"sp-consensus-aura/std",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-io/std",
+	"sp-offchain/std",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-std/std",
+	"sp-transaction-pool/std",
+	"sp-version/std",
+	"node-primitives/std",
+	"frame-executive/std",
+	"frame-support/std",
+	"frame-system/std",
+	"frame-system-rpc-runtime-api/std",
+	"pallet-authorship/std",
+	"pallet-aura/std",
+	"pallet-sudo/std",
+	"pallet-balances/std",
+	"pallet-multisig/std",
+	"pallet-collator-selection/std",
+	"pallet-randomness-collective-flip/std",
+	"pallet-contracts-primitives/std",
+	"pallet-contracts-rpc-runtime-api/std",
+	"pallet-contracts/std",
+	"pallet-session/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-utility/std",
+	"pallet-xcm/std",
+	"cumulus-pallet-aura-ext/std",
+    "cumulus-pallet-dmp-queue/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-timestamp/std",
+	"cumulus-primitives-utility/std",
+	"parachains-common/std",
+	"parachain-info/std",
+	"polkadot-parachain/std",
+	"polkadot-runtime-common/std",
+	"kusama-runtime-constants/std",
+	"xcm/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+]
+
+# Make contract callable functions marked as __unstable__ available. Do not enable
+# on live chains as those are subject to change.
+contracts-unstable-interface = [
+	"pallet-contracts/unstable-interface"
+]
+
+runtime-benchmarks = [
+	"hex-literal",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-system-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-contracts/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+]
+
+try-runtime = [
+	"frame-try-runtime",
+	"frame-executive/try-runtime",
+]
