@@ -104,6 +104,7 @@ std = [
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
+	"frame-system-rpc-runtime-api/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
