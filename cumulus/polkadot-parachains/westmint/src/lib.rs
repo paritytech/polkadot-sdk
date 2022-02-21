@@ -594,15 +594,8 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	UniquesV1Migration,
+	(),
 >;
-
-pub struct UniquesV1Migration;
-impl frame_support::traits::OnRuntimeUpgrade for UniquesV1Migration {
-	fn on_runtime_upgrade() -> Weight {
-		pallet_uniques::migration::migrate_to_v1::<Runtime, _, Uniques>()
-	}
-}
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
