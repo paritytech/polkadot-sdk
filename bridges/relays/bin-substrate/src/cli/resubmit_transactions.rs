@@ -445,7 +445,7 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 					signer: key_pair.clone(),
 					era: relay_substrate_client::TransactionEra::immortal(),
 					unsigned: unsigned_tx.clone(),
-				}),
+				})?,
 			)
 			.await??
 			.priority;
@@ -468,7 +468,7 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 			signer: key_pair.clone(),
 			era: relay_substrate_client::TransactionEra::immortal(),
 			unsigned: unsigned_tx,
-		}),
+		})?,
 	))
 }
 

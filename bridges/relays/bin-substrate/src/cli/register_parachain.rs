@@ -132,7 +132,7 @@ impl RegisterParachain {
 					.submit_and_watch_signed_extrinsic(
 						relay_sudo_account.clone(),
 						move |_, transaction_nonce| {
-							Bytes(
+							Ok(Bytes(
 								Relaychain::sign_transaction(SignParam {
 									spec_version,
 									transaction_version,
@@ -140,12 +140,12 @@ impl RegisterParachain {
 									signer: reserve_parachain_signer,
 									era: relay_substrate_client::TransactionEra::immortal(),
 									unsigned: UnsignedTransaction::new(
-										reserve_parachain_id_call,
+										reserve_parachain_id_call.into(),
 										transaction_nonce,
 									),
-								})
+								})?
 								.encode(),
-							)
+							))
 						},
 					)
 					.await?,
@@ -181,7 +181,7 @@ impl RegisterParachain {
 					.submit_and_watch_signed_extrinsic(
 						relay_sudo_account.clone(),
 						move |_, transaction_nonce| {
-							Bytes(
+							Ok(Bytes(
 								Relaychain::sign_transaction(SignParam {
 									spec_version,
 									transaction_version,
@@ -189,12 +189,12 @@ impl RegisterParachain {
 									signer: register_parathread_signer,
 									era: relay_substrate_client::TransactionEra::immortal(),
 									unsigned: UnsignedTransaction::new(
-										register_parathread_call,
+										register_parathread_call.into(),
 										transaction_nonce,
 									),
-								})
+								})?
 								.encode(),
-							)
+							))
 						},
 					)
 					.await?,
@@ -243,17 +243,20 @@ impl RegisterParachain {
 			let force_lease_signer = relay_sign.clone();
 			relay_client
 				.submit_signed_extrinsic(relay_sudo_account.clone(), move |_, transaction_nonce| {
-					Bytes(
+					Ok(Bytes(
 						Relaychain::sign_transaction(SignParam {
 							spec_version,
 							transaction_version,
 							genesis_hash: relay_genesis_hash,
 							signer: force_lease_signer,
 							era: relay_substrate_client::TransactionEra::immortal(),
-							unsigned: UnsignedTransaction::new(force_lease_call, transaction_nonce),
-						})
+							unsigned: UnsignedTransaction::new(
+								force_lease_call.into(),
+								transaction_nonce,
+							),
+						})?
 						.encode(),
-					)
+					))
 				})
 				.await?;
 			log::info!(target: "bridge", "Registered parachain leases: {:?}. Waiting for onboarding", para_id);

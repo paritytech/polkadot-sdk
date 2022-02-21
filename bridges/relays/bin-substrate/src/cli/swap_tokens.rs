@@ -245,7 +245,7 @@ impl SwapTokens {
 					.submit_and_watch_signed_extrinsic(
 						accounts.source_account_at_this_chain.clone(),
 						move |_, transaction_nonce| {
-							Bytes(
+							Ok(Bytes(
 								Source::sign_transaction(SignParam {
 									spec_version,
 									transaction_version,
@@ -253,12 +253,12 @@ impl SwapTokens {
 									signer: create_swap_signer,
 									era: relay_substrate_client::TransactionEra::immortal(),
 									unsigned: UnsignedTransaction::new(
-										create_swap_call,
+										create_swap_call.into(),
 										transaction_nonce,
 									),
-								})
+								})?
 								.encode(),
-							)
+							))
 						},
 					)
 					.await?,
@@ -386,7 +386,7 @@ impl SwapTokens {
 						.submit_and_watch_signed_extrinsic(
 							accounts.target_account_at_bridged_chain.clone(),
 							move |_, transaction_nonce| {
-								Bytes(
+								Ok(Bytes(
 									Target::sign_transaction(SignParam {
 										spec_version,
 										transaction_version,
@@ -394,12 +394,12 @@ impl SwapTokens {
 										signer: target_sign,
 										era: relay_substrate_client::TransactionEra::immortal(),
 										unsigned: UnsignedTransaction::new(
-											send_message_call,
+											send_message_call.into(),
 											transaction_nonce,
 										),
-									})
+									})?
 									.encode(),
-								)
+								))
 							},
 						)
 						.await?,
@@ -430,7 +430,7 @@ impl SwapTokens {
 						.submit_and_watch_signed_extrinsic(
 							accounts.source_account_at_this_chain.clone(),
 							move |_, transaction_nonce| {
-								Bytes(
+								Ok(Bytes(
 									Source::sign_transaction(SignParam {
 										spec_version,
 										transaction_version,
@@ -438,12 +438,12 @@ impl SwapTokens {
 										signer: source_sign,
 										era: relay_substrate_client::TransactionEra::immortal(),
 										unsigned: UnsignedTransaction::new(
-											cancel_swap_call,
+											cancel_swap_call.into(),
 											transaction_nonce,
 										),
-									})
+									})?
 									.encode(),
-								)
+								))
 							},
 						)
 						.await?,
