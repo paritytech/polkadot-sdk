@@ -19,10 +19,10 @@ use crate::cli::{Balance, TargetConnectionParams, TargetSigningParams};
 use codec::{Decode, Encode};
 use num_traits::{One, Zero};
 use relay_substrate_client::{
-	BlockWithJustification, Chain, Client, Error as SubstrateError, HeaderOf, SignParam,
-	TransactionSignScheme,
+	BlockWithJustification, Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf,
+	SignParam, TransactionSignScheme,
 };
-use relay_utils::FailedClient;
+use relay_utils::{FailedClient, HeaderId};
 use sp_core::Bytes;
 use sp_runtime::{
 	traits::{Hash, Header as HeaderT},
@@ -30,6 +30,7 @@ use sp_runtime::{
 };
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
+use substrate_relay_helper::TransactionParams;
 
 /// Start resubmit transactions process.
 #[derive(StructOpt)]
@@ -122,13 +123,16 @@ impl ResubmitTransactions {
 		select_bridge!(self.chain, {
 			let relay_loop_name = format!("ResubmitTransactions{}", Target::NAME);
 			let client = self.target.to_client::<Target>(TARGET_RUNTIME_VERSION).await?;
-			let key_pair = self.target_sign.to_keypair::<Target>()?;
+			let transaction_params = TransactionParams {
+				signer: self.target_sign.to_keypair::<Target>()?,
+				mortality: self.target_sign.target_transactions_mortality,
+			};
 
 			relay_utils::relay_loop((), client)
 				.run(relay_loop_name, move |_, client, _| {
 					run_until_connection_lost::<Target, TargetSign>(
 						client,
-						key_pair.clone(),
+						transaction_params.clone(),
 						Context {
 							strategy: self.strategy,
 							best_header: HeaderOf::<Target>::new(
@@ -219,13 +223,14 @@ impl<C: Chain> Context<C> {
 /// Run resubmit transactions loop.
 async fn run_until_connection_lost<C: Chain, S: TransactionSignScheme<Chain = C>>(
 	client: Client<C>,
-	key_pair: S::AccountKeyPair,
+	transaction_params: TransactionParams<S::AccountKeyPair>,
 	mut context: Context<C>,
 ) -> Result<(), FailedClient> {
 	loop {
 		async_std::task::sleep(C::AVERAGE_BLOCK_INTERVAL).await;
 
-		let result = run_loop_iteration::<C, S>(client.clone(), key_pair.clone(), context).await;
+		let result =
+			run_loop_iteration::<C, S>(client.clone(), transaction_params.clone(), context).await;
 		context = match result {
 			Ok(context) => context,
 			Err(error) => {
@@ -244,20 +249,21 @@ async fn run_until_connection_lost<C: Chain, S: TransactionSignScheme<Chain = C>
 /// Run single loop iteration.
 async fn run_loop_iteration<C: Chain, S: TransactionSignScheme<Chain = C>>(
 	client: Client<C>,
-	key_pair: S::AccountKeyPair,
+	transaction_params: TransactionParams<S::AccountKeyPair>,
 	mut context: Context<C>,
 ) -> Result<Context<C>, SubstrateError> {
 	// correct best header is required for all other actions
 	context.best_header = client.best_header().await?;
 
 	// check if there's queued transaction, signed by given author
-	let original_transaction = match lookup_signer_transaction::<C, S>(&client, &key_pair).await? {
-		Some(original_transaction) => original_transaction,
-		None => {
-			log::trace!(target: "bridge", "No {} transactions from required signer in the txpool", C::NAME);
-			return Ok(context)
-		},
-	};
+	let original_transaction =
+		match lookup_signer_transaction::<C, S>(&client, &transaction_params.signer).await? {
+			Some(original_transaction) => original_transaction,
+			None => {
+				log::trace!(target: "bridge", "No {} transactions from required signer in the txpool", C::NAME);
+				return Ok(context)
+			},
+		};
 	let original_transaction_hash = C::Hasher::hash(&original_transaction.encode());
 	let context = context.notice_transaction(original_transaction_hash);
 
@@ -287,8 +293,8 @@ async fn run_loop_iteration<C: Chain, S: TransactionSignScheme<Chain = C>>(
 	// update transaction tip
 	let (is_updated, updated_transaction) = update_transaction_tip::<C, S>(
 		&client,
-		&key_pair,
-		context.best_header.hash(),
+		&transaction_params,
+		HeaderId(*context.best_header.number(), context.best_header.hash()),
 		original_transaction,
 		context.tip_step,
 		context.tip_limit,
@@ -404,15 +410,15 @@ fn select_transaction_from_queue<C: Chain>(
 /// Try to find appropriate tip for transaction so that its priority is larger than given.
 async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 	client: &Client<C>,
-	key_pair: &S::AccountKeyPair,
-	at_block: C::Hash,
+	transaction_params: &TransactionParams<S::AccountKeyPair>,
+	at_block: HeaderIdOf<C>,
 	tx: S::SignedTransaction,
 	tip_step: C::Balance,
 	tip_limit: C::Balance,
 	target_priority: TransactionPriority,
 ) -> Result<(bool, S::SignedTransaction), SubstrateError> {
 	let stx = format!("{:?}", tx);
-	let mut current_priority = client.validate_transaction(at_block, tx.clone()).await??.priority;
+	let mut current_priority = client.validate_transaction(at_block.1, tx.clone()).await??.priority;
 	let mut unsigned_tx = S::parse_transaction(tx).ok_or_else(|| {
 		SubstrateError::Custom(format!("Failed to parse {} transaction {}", C::NAME, stx,))
 	})?;
@@ -437,12 +443,12 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 		unsigned_tx.tip = next_tip;
 		current_priority = client
 			.validate_transaction(
-				at_block,
+				at_block.1,
 				S::sign_transaction(SignParam {
 					spec_version,
 					transaction_version,
 					genesis_hash: *client.genesis_hash(),
-					signer: key_pair.clone(),
+					signer: transaction_params.signer.clone(),
 					era: relay_substrate_client::TransactionEra::immortal(),
 					unsigned: unsigned_tx.clone(),
 				})?,
@@ -465,8 +471,11 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 			spec_version,
 			transaction_version,
 			genesis_hash: *client.genesis_hash(),
-			signer: key_pair.clone(),
-			era: relay_substrate_client::TransactionEra::immortal(),
+			signer: transaction_params.signer.clone(),
+			era: relay_substrate_client::TransactionEra::new(
+				at_block,
+				transaction_params.mortality,
+			),
 			unsigned: unsigned_tx,
 		})?,
 	))
