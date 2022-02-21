@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::{Decode, Encode};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
@@ -23,7 +24,69 @@ use sp_runtime::{
 	},
 	FixedPointOperand,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr};
+use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
+
+/// Chain call, that is either SCALE-encoded, or decoded.
+#[derive(Debug, Clone)]
+pub enum EncodedOrDecodedCall<ChainCall> {
+	/// The call that is SCALE-encoded.
+	///
+	/// This variant is used when we the chain runtime is not bundled with the relay, but
+	/// we still need the represent call in some RPC calls or transactions.
+	Encoded(Vec<u8>),
+	/// The decoded call.
+	Decoded(ChainCall),
+}
+
+impl<ChainCall: Clone + Decode> EncodedOrDecodedCall<ChainCall> {
+	/// Returns decoded call.
+	pub fn to_decoded(&self) -> Result<ChainCall, codec::Error> {
+		match self {
+			Self::Encoded(ref encoded_call) =>
+				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into),
+			Self::Decoded(ref decoded_call) => Ok(decoded_call.clone()),
+		}
+	}
+
+	/// Converts self to decoded call.
+	pub fn into_decoded(self) -> Result<ChainCall, codec::Error> {
+		match self {
+			Self::Encoded(encoded_call) =>
+				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into),
+			Self::Decoded(decoded_call) => Ok(decoded_call),
+		}
+	}
+}
+
+impl<ChainCall> From<ChainCall> for EncodedOrDecodedCall<ChainCall> {
+	fn from(call: ChainCall) -> EncodedOrDecodedCall<ChainCall> {
+		EncodedOrDecodedCall::Decoded(call)
+	}
+}
+
+impl<ChainCall: Decode> Decode for EncodedOrDecodedCall<ChainCall> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		// having encoded version is better than decoded, because decoding isn't required
+		// everywhere and for mocked calls it may lead to **unneeded** errors
+		match input.remaining_len()? {
+			Some(remaining_len) => {
+				let mut encoded_call = vec![0u8; remaining_len];
+				input.read(&mut encoded_call)?;
+				Ok(EncodedOrDecodedCall::Encoded(encoded_call))
+			},
+			None => Ok(EncodedOrDecodedCall::Decoded(ChainCall::decode(input)?)),
+		}
+	}
+}
+
+impl<ChainCall: Encode> Encode for EncodedOrDecodedCall<ChainCall> {
+	fn encode(&self) -> Vec<u8> {
+		match *self {
+			Self::Encoded(ref encoded_call) => encoded_call.clone(),
+			Self::Decoded(ref decoded_call) => decoded_call.encode(),
+		}
+	}
+}
 
 /// Minimal Substrate-based chain representation that may be used from no_std environment.
 pub trait Chain: Send + Sync + 'static {

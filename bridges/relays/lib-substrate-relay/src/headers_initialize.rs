@@ -31,7 +31,9 @@ use bp_header_chain::{
 use codec::Decode;
 use finality_grandpa::voter_set::VoterSet;
 use num_traits::{One, Zero};
-use relay_substrate_client::{BlockNumberOf, Chain, ChainWithGrandpa, Client, HashOf};
+use relay_substrate_client::{
+	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error as SubstrateError, HashOf,
+};
 use sp_core::Bytes;
 use sp_finality_grandpa::AuthorityList as GrandpaAuthoritiesSet;
 use sp_runtime::traits::Header as HeaderT;
@@ -41,7 +43,10 @@ pub async fn initialize<SourceChain: ChainWithGrandpa, TargetChain: Chain>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	target_transactions_signer: TargetChain::AccountId,
-	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes
+	prepare_initialize_transaction: impl FnOnce(
+			TargetChain::Index,
+			InitializationData<SourceChain::Header>,
+		) -> Result<Bytes, SubstrateError>
 		+ Send
 		+ 'static,
 ) {
@@ -77,7 +82,10 @@ async fn do_initialize<SourceChain: ChainWithGrandpa, TargetChain: Chain>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	target_transactions_signer: TargetChain::AccountId,
-	prepare_initialize_transaction: impl FnOnce(TargetChain::Index, InitializationData<SourceChain::Header>) -> Bytes
+	prepare_initialize_transaction: impl FnOnce(
+			TargetChain::Index,
+			InitializationData<SourceChain::Header>,
+		) -> Result<Bytes, SubstrateError>
 		+ Send
 		+ 'static,
 ) -> Result<

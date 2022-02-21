@@ -25,24 +25,27 @@ use crate::cli::{
 };
 use anyhow::anyhow;
 use bp_message_dispatch::{CallOrigin, MessagePayload};
+use bp_runtime::EncodedOrDecodedCall;
 use codec::Decode;
 use frame_support::weights::{DispatchInfo, GetDispatchInfo};
 use relay_millau_client::Millau;
 use sp_version::RuntimeVersion;
 
 impl CliEncodeCall for Millau {
-	fn encode_call(call: &Call) -> anyhow::Result<Self::Call> {
+	fn encode_call(call: &Call) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
 		Ok(match call {
-			Call::Raw { data } => Decode::decode(&mut &*data.0)?,
+			Call::Raw { data } => Self::Call::decode(&mut &*data.0)?.into(),
 			Call::Remark { remark_payload, .. } =>
 				millau_runtime::Call::System(millau_runtime::SystemCall::remark {
 					remark: remark_payload.as_ref().map(|x| x.0.clone()).unwrap_or_default(),
-				}),
+				})
+				.into(),
 			Call::Transfer { recipient, amount } =>
 				millau_runtime::Call::Balances(millau_runtime::BalancesCall::transfer {
 					dest: recipient.raw_id(),
 					value: amount.cast(),
-				}),
+				})
+				.into(),
 			Call::BridgeSendMessage { lane, payload, fee, bridge_instance_index } =>
 				match *bridge_instance_index {
 					bridge::MILLAU_TO_RIALTO_INDEX => {
@@ -54,6 +57,7 @@ impl CliEncodeCall for Millau {
 								delivery_and_dispatch_fee: fee.cast(),
 							},
 						)
+						.into()
 					},
 					_ => anyhow::bail!(
 						"Unsupported target bridge pallet with instance index: {}",
@@ -63,8 +67,8 @@ impl CliEncodeCall for Millau {
 		})
 	}
 
-	fn get_dispatch_info(call: &millau_runtime::Call) -> anyhow::Result<DispatchInfo> {
-		Ok(call.get_dispatch_info())
+	fn get_dispatch_info(call: &EncodedOrDecodedCall<Self::Call>) -> anyhow::Result<DispatchInfo> {
+		Ok(call.to_decoded()?.get_dispatch_info())
 	}
 }
 
@@ -90,7 +94,7 @@ impl CliChain for Millau {
 		match message {
 			encode_message::MessagePayload::Raw { data } => MessagePayload::decode(&mut &*data.0)
 				.map_err(|e| anyhow!("Failed to decode Millau's MessagePayload: {:?}", e)),
-			encode_message::MessagePayload::Call { mut call, mut sender } => {
+			encode_message::MessagePayload::Call { mut call, mut sender, dispatch_weight } => {
 				type Source = Millau;
 				type Target = relay_rialto_client::Rialto;
 
@@ -102,11 +106,13 @@ impl CliChain for Millau {
 					bridge::MILLAU_TO_RIALTO_INDEX,
 				);
 				let call = Target::encode_call(&call)?;
-				let weight = call.get_dispatch_info().weight;
+				let dispatch_weight = dispatch_weight.map(Ok).unwrap_or_else(|| {
+					call.to_decoded().map(|call| call.get_dispatch_info().weight)
+				})?;
 
 				Ok(send_message::message_payload(
 					spec_version,
-					weight,
+					dispatch_weight,
 					origin,
 					&call,
 					DispatchFeePayment::AtSourceChain,

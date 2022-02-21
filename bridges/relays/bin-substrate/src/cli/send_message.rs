@@ -124,9 +124,13 @@ impl SendMessage {
 			let payload = {
 				let target_call_weight = prepare_call_dispatch_weight(
 					dispatch_weight,
-					ExplicitOrMaximal::Explicit(Target::get_dispatch_info(&target_call)?.weight),
+					|| {
+						Ok(ExplicitOrMaximal::Explicit(
+							Target::get_dispatch_info(&target_call)?.weight,
+						))
+					},
 					compute_maximal_message_dispatch_weight(Target::max_extrinsic_weight()),
-				);
+				)?;
 				let source_sender_public: MultiSigner = source_sign.public().into();
 				let source_account_id = source_sender_public.into_account();
 
@@ -200,7 +204,7 @@ impl SendMessage {
 						signer: source_sign.clone(),
 						era: relay_substrate_client::TransactionEra::immortal(),
 						unsigned: UnsignedTransaction::new(send_message_call.clone(), 0),
-					})
+					})?
 					.encode(),
 				))
 				.await?;
@@ -213,7 +217,7 @@ impl SendMessage {
 						signer: source_sign.clone(),
 						era: relay_substrate_client::TransactionEra::immortal(),
 						unsigned: UnsignedTransaction::new(send_message_call, transaction_nonce),
-					})
+					})?
 					.encode();
 
 					log::info!(
@@ -241,7 +245,7 @@ impl SendMessage {
 						HexBytes::encode(&signed_source_call)
 					);
 
-					Bytes(signed_source_call)
+					Ok(Bytes(signed_source_call))
 				})
 				.await?;
 		});
@@ -252,12 +256,16 @@ impl SendMessage {
 
 fn prepare_call_dispatch_weight(
 	user_specified_dispatch_weight: &Option<ExplicitOrMaximal<Weight>>,
-	weight_from_pre_dispatch_call: ExplicitOrMaximal<Weight>,
+	weight_from_pre_dispatch_call: impl Fn() -> anyhow::Result<ExplicitOrMaximal<Weight>>,
 	maximal_allowed_weight: Weight,
-) -> Weight {
-	match user_specified_dispatch_weight.clone().unwrap_or(weight_from_pre_dispatch_call) {
-		ExplicitOrMaximal::Explicit(weight) => weight,
-		ExplicitOrMaximal::Maximal => maximal_allowed_weight,
+) -> anyhow::Result<Weight> {
+	match user_specified_dispatch_weight
+		.clone()
+		.map(Ok)
+		.unwrap_or_else(weight_from_pre_dispatch_call)?
+	{
+		ExplicitOrMaximal::Explicit(weight) => Ok(weight),
+		ExplicitOrMaximal::Maximal => Ok(maximal_allowed_weight),
 	}
 }
 

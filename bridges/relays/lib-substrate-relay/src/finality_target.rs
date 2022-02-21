@@ -123,17 +123,17 @@ where
 			.submit_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				move |best_block_id, transaction_nonce| {
-					Bytes(
+					Ok(Bytes(
 						P::TransactionSignScheme::sign_transaction(SignParam {
 							spec_version,
 							transaction_version,
 							genesis_hash,
 							signer: transaction_params.signer.clone(),
 							era: TransactionEra::new(best_block_id, transaction_params.mortality),
-							unsigned: UnsignedTransaction::new(call, transaction_nonce),
-						})
+							unsigned: UnsignedTransaction::new(call.into(), transaction_nonce),
+						})?
 						.encode(),
-					)
+					))
 				},
 			)
 			.await
