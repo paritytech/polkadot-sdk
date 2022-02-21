@@ -250,7 +250,11 @@ pub type AdditionalSigned = (u32, u32, Hash, Hash, (), (), ());
 #[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
 pub struct SignedExtensions<Call> {
 	encode_payload: SignedExtra,
-	additional_signed: AdditionalSigned,
+	// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
+	// (and it makes no sense to do that) => decoded version of `SignedExtensions` is only used to
+	// read fields of `encode_payload`. And when resigning transaction, we're reconstructing
+	// `SignedExtensions` from the scratch.
+	additional_signed: Option<AdditionalSigned>,
 	_data: sp_std::marker::PhantomData<Call>,
 }
 
@@ -262,9 +266,13 @@ impl<Call> parity_scale_codec::Encode for SignedExtensions<Call> {
 
 impl<Call> parity_scale_codec::Decode for SignedExtensions<Call> {
 	fn decode<I: parity_scale_codec::Input>(
-		_input: &mut I,
+		input: &mut I,
 	) -> Result<Self, parity_scale_codec::Error> {
-		unimplemented!("SignedExtensions are never meant to be decoded, they are only used to create transaction");
+		SignedExtra::decode(input).map(|encode_payload| SignedExtensions {
+			encode_payload,
+			additional_signed: None,
+			_data: Default::default(),
+		})
 	}
 }
 
@@ -287,7 +295,7 @@ impl<Call> SignedExtensions<Call> {
 				(),              // Check weight
 				tip.into(),      // transaction payment / tip (compact encoding)
 			),
-			additional_signed: (
+			additional_signed: Some((
 				spec_version,
 				transaction_version,
 				genesis_hash,
@@ -295,7 +303,7 @@ impl<Call> SignedExtensions<Call> {
 				(),
 				(),
 				(),
-			),
+			)),
 			_data: Default::default(),
 		}
 	}
@@ -335,7 +343,14 @@ where
 	fn additional_signed(
 		&self,
 	) -> Result<Self::AdditionalSigned, frame_support::unsigned::TransactionValidityError> {
-		Ok(self.additional_signed)
+		// we shall not ever see this error in relay, because we are never signing decoded
+		// transactions. Instead we're constructing and signing new transactions. So the error code
+		// is kinda random here
+		self.additional_signed.ok_or_else(|| {
+			frame_support::unsigned::TransactionValidityError::Unknown(
+				frame_support::unsigned::UnknownTransaction::Custom(0xFF),
+			)
+		})
 	}
 
 	fn pre_dispatch(
