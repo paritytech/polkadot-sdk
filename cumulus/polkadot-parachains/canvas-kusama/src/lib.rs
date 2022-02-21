@@ -372,6 +372,11 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = pallet_collator_selection::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_sudo::Config for Runtime {
+	type Call = Call;
+	type Event = Event;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -411,6 +416,9 @@ construct_runtime!(
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 50,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 51,
+
+		// Sudo
+		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Event<T>, Storage} = 100,
 	}
 );
 

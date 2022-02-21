@@ -1083,5 +1083,10 @@ fn canvas_kusama_genesis(
 		polkadot_xcm: canvas_kusama_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
+		sudo: canvas_kusama_runtime::SudoConfig {
+			key: Some(
+				hex!["2681a28014e7d3a5bfb32a003b3571f53c408acbc28d351d6bf58f5028c4ef14"].into(),
+			),
+		},
 	}
 }
