@@ -2,7 +2,11 @@ use crate::{
 	constants::currency::deposit, Balance, Balances, Call, Event, RandomnessCollectiveFlip,
 	Runtime, RuntimeBlockWeights, Timestamp,
 };
-use frame_support::{parameter_types, traits::Nothing, weights::Weight};
+use frame_support::{
+	parameter_types,
+	traits::{Nothing, OnRuntimeUpgrade},
+	weights::Weight,
+};
 use pallet_contracts::{
 	weights::{SubstrateWeight, WeightInfo},
 	Config, DefaultAddressGenerator, Frame, Schedule,
@@ -51,4 +55,11 @@ impl Config for Runtime {
 	type Schedule = MySchedule;
 	type CallStack = [Frame<Self>; 31];
 	type AddressGenerator = DefaultAddressGenerator;
+}
+
+pub struct Migrations;
+impl OnRuntimeUpgrade for Migrations {
+	fn on_runtime_upgrade() -> Weight {
+		pallet_contracts::migration::migrate::<Runtime>()
+	}
 }

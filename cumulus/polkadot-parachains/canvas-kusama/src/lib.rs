@@ -97,6 +97,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	contracts::Migrations,
 >;
 
 impl_opaque_keys! {
