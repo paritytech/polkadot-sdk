@@ -21,34 +21,37 @@ use crate::cli::{
 	encode_message, CliChain,
 };
 use bp_message_dispatch::MessagePayload;
+use bp_runtime::EncodedOrDecodedCall;
 use codec::Decode;
 use frame_support::weights::{DispatchInfo, GetDispatchInfo};
 use relay_rialto_parachain_client::RialtoParachain;
 use sp_version::RuntimeVersion;
 
 impl CliEncodeCall for RialtoParachain {
-	fn encode_call(call: &Call) -> anyhow::Result<Self::Call> {
+	fn encode_call(call: &Call) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
 		Ok(match call {
-			Call::Raw { data } => Decode::decode(&mut &*data.0)?,
+			Call::Raw { data } => Self::Call::decode(&mut &*data.0)?.into(),
 			Call::Remark { remark_payload, .. } => rialto_parachain_runtime::Call::System(
 				rialto_parachain_runtime::SystemCall::remark {
 					remark: remark_payload.as_ref().map(|x| x.0.clone()).unwrap_or_default(),
 				},
-			),
+			)
+			.into(),
 			Call::Transfer { recipient, amount } => rialto_parachain_runtime::Call::Balances(
 				rialto_parachain_runtime::BalancesCall::transfer {
 					dest: recipient.raw_id().into(),
 					value: amount.0,
 				},
-			),
+			)
+			.into(),
 			Call::BridgeSendMessage { .. } => {
 				anyhow::bail!("Bridge messages are not (yet) supported here",)
 			},
 		})
 	}
 
-	fn get_dispatch_info(call: &rialto_parachain_runtime::Call) -> anyhow::Result<DispatchInfo> {
-		Ok(call.get_dispatch_info())
+	fn get_dispatch_info(call: &EncodedOrDecodedCall<Self::Call>) -> anyhow::Result<DispatchInfo> {
+		Ok(call.to_decoded()?.get_dispatch_info())
 	}
 }
 
