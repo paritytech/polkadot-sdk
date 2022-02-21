@@ -82,7 +82,7 @@ pub(crate) async fn update_kusama_to_polkadot_conversion_rate(
 	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
 	client
 		.submit_signed_extrinsic(signer_id, move |_, transaction_nonce| {
-			Bytes(
+			Ok(Bytes(
 				Polkadot::sign_transaction(SignParam {
 					spec_version,
 					transaction_version,
@@ -96,12 +96,12 @@ pub(crate) async fn update_kusama_to_polkadot_conversion_rate(
 									sp_runtime::FixedU128::from_float(updated_rate),
 								)
 							)
-						),
+						).into(),
 						transaction_nonce,
 					)
-				})
+				})?
 				.encode(),
-			)
+			))
 		})
 		.await
 		.map(drop)

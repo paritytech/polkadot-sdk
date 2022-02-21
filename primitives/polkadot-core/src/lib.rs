@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_messages::MessageNonce;
-use bp_runtime::Chain;
+use bp_runtime::{Chain, EncodedOrDecodedCall};
 use frame_support::{
 	dispatch::Dispatchable,
 	parameter_types,
@@ -228,8 +228,12 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type Balance = u128;
 
 /// Unchecked Extrinsic type.
-pub type UncheckedExtrinsic<Call> =
-	generic::UncheckedExtrinsic<AccountAddress, Call, Signature, SignedExtensions<Call>>;
+pub type UncheckedExtrinsic<Call> = generic::UncheckedExtrinsic<
+	AccountAddress,
+	EncodedOrDecodedCall<Call>,
+	Signature,
+	SignedExtensions<Call>,
+>;
 
 /// Account address, used by the Polkadot-like chain.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -336,12 +340,12 @@ where
 
 	fn pre_dispatch(
 		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(self.validate(who, call, info, len).map(|_| ())?)
+		Ok(())
 	}
 }
 

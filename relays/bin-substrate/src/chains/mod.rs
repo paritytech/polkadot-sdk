@@ -210,8 +210,9 @@ mod tests {
 			genesis_hash: Default::default(),
 			signer: sp_keyring::AccountKeyring::Alice.pair(),
 			era: relay_substrate_client::TransactionEra::immortal(),
-			unsigned: UnsignedTransaction::new(rialto_call.clone(), 0),
-		});
+			unsigned: UnsignedTransaction::new(rialto_call.clone().into(), 0),
+		})
+		.unwrap();
 		let extra_bytes_in_transaction = rialto_tx.encode().len() - rialto_call.encode().len();
 		assert!(
 			bp_rialto::TX_EXTRA_BYTES as usize >= extra_bytes_in_transaction,
@@ -231,8 +232,9 @@ mod tests {
 			genesis_hash: Default::default(),
 			signer: sp_keyring::AccountKeyring::Alice.pair(),
 			era: relay_substrate_client::TransactionEra::immortal(),
-			unsigned: UnsignedTransaction::new(millau_call.clone(), 0),
-		});
+			unsigned: UnsignedTransaction::new(millau_call.clone().into(), 0),
+		})
+		.unwrap();
 		let extra_bytes_in_transaction = millau_tx.encode().len() - millau_call.encode().len();
 		assert!(
 			bp_millau::TX_EXTRA_BYTES as usize >= extra_bytes_in_transaction,

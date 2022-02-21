@@ -20,8 +20,8 @@ use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
 use frame_support::weights::Weight;
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages, IndexOf,
-	SignParam, TransactionSignScheme, UnsignedTransaction,
+	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
+	Error as SubstrateError, IndexOf, SignParam, TransactionSignScheme, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -103,7 +103,7 @@ impl TransactionSignScheme for Rialto {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction = rialto_runtime::UncheckedExtrinsic;
 
-	fn sign_transaction(param: SignParam<Self>) -> Self::SignedTransaction {
+	fn sign_transaction(param: SignParam<Self>) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::from_raw(
 			param.unsigned.call.clone(),
 			(
@@ -129,12 +129,12 @@ impl TransactionSignScheme for Rialto {
 		let signer: sp_runtime::MultiSigner = param.signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		rialto_runtime::UncheckedExtrinsic::new_signed(
-			call,
+		Ok(rialto_runtime::UncheckedExtrinsic::new_signed(
+			call.into_decoded()?,
 			signer.into_account().into(),
 			signature.into(),
 			extra,
-		)
+		))
 	}
 
 	fn is_signed(tx: &Self::SignedTransaction) -> bool {
@@ -151,7 +151,7 @@ impl TransactionSignScheme for Rialto {
 	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>> {
 		let extra = &tx.signature.as_ref()?.2;
 		Some(UnsignedTransaction {
-			call: tx.function,
+			call: tx.function.into(),
 			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.4.encode()[..]).ok()?.into(),
 			tip: Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.6.encode()[..])
 				.ok()?

@@ -222,7 +222,7 @@ impl InitBridge {
 				target_client.clone(),
 				target_sign.public().into(),
 				move |transaction_nonce, initialization_data| {
-					Bytes(
+					Ok(Bytes(
 						Target::sign_transaction(SignParam {
 							spec_version,
 							transaction_version,
@@ -230,12 +230,12 @@ impl InitBridge {
 							signer: target_sign,
 							era: relay_substrate_client::TransactionEra::immortal(),
 							unsigned: UnsignedTransaction::new(
-								encode_init_bridge(initialization_data),
+								encode_init_bridge(initialization_data).into(),
 								transaction_nonce,
 							),
-						})
+						})?
 						.encode(),
-					)
+					))
 				},
 			)
 			.await;

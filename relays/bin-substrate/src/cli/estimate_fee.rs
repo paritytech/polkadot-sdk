@@ -103,6 +103,8 @@ mod tests {
 			"call",
 			"--sender",
 			&alice,
+			"--dispatch-weight",
+			"42",
 			"remark",
 			"--remark-payload",
 			"1234",
@@ -129,7 +131,8 @@ mod tests {
 					call: encode_call::Call::Remark {
 						remark_payload: Some(HexBytes(vec![0x12, 0x34])),
 						remark_size: None,
-					}
+					},
+					dispatch_weight: Some(42),
 				}
 			}
 		);

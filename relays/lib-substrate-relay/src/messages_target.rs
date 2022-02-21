@@ -298,7 +298,7 @@ where
 				total_size,
 			),
 			false,
-		);
+		)?;
 		let delivery_tx_fee = self.client.estimate_extrinsic_fee(delivery_tx).await?;
 		let inclusion_fee_in_target_tokens = delivery_tx_fee.inclusion_fee();
 
@@ -323,25 +323,23 @@ where
 
 			let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 			let larger_dispatch_weight = total_dispatch_weight.saturating_add(WEIGHT_DIFFERENCE);
-			let larger_delivery_tx_fee = self
-				.client
-				.estimate_extrinsic_fee(make_messages_delivery_transaction::<P>(
-					spec_version,
-					transaction_version,
-					self.client.genesis_hash(),
-					&self.transaction_params,
-					HeaderId(Default::default(), Default::default()),
-					Zero::zero(),
-					self.relayer_id_at_source.clone(),
+			let dummy_tx = make_messages_delivery_transaction::<P>(
+				spec_version,
+				transaction_version,
+				self.client.genesis_hash(),
+				&self.transaction_params,
+				HeaderId(Default::default(), Default::default()),
+				Zero::zero(),
+				self.relayer_id_at_source.clone(),
+				nonces.clone(),
+				prepare_dummy_messages_proof::<P::SourceChain>(
 					nonces.clone(),
-					prepare_dummy_messages_proof::<P::SourceChain>(
-						nonces.clone(),
-						larger_dispatch_weight,
-						total_size,
-					),
-					false,
-				))
-				.await?;
+					larger_dispatch_weight,
+					total_size,
+				),
+				false,
+			)?;
+			let larger_delivery_tx_fee = self.client.estimate_extrinsic_fee(dummy_tx).await?;
 
 			compute_prepaid_messages_refund::<P::TargetChain>(
 				total_prepaid_nonces,
@@ -402,7 +400,7 @@ fn make_messages_delivery_transaction<P: SubstrateMessageLane>(
 	nonces: RangeInclusive<MessageNonce>,
 	proof: SubstrateMessagesProof<P::SourceChain>,
 	trace_call: bool,
-) -> Bytes
+) -> Result<Bytes, SubstrateError>
 where
 	P::TargetTransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
@@ -415,17 +413,17 @@ where
 		dispatch_weight,
 		trace_call,
 	);
-	Bytes(
+	Ok(Bytes(
 		P::TargetTransactionSignScheme::sign_transaction(SignParam {
 			spec_version,
 			transaction_version,
 			genesis_hash: *target_genesis_hash,
 			signer: target_transaction_params.signer.clone(),
 			era: TransactionEra::new(target_best_block_id, target_transaction_params.mortality),
-			unsigned: UnsignedTransaction::new(call, transaction_nonce),
-		})
+			unsigned: UnsignedTransaction::new(call.into(), transaction_nonce),
+		})?
 		.encode(),
-	)
+	))
 }
 
 /// Prepare 'dummy' messages proof that will compose the delivery transaction.

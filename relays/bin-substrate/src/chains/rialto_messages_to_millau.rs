@@ -74,7 +74,7 @@ pub(crate) async fn update_millau_to_rialto_conversion_rate(
 	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
 	client
 		.submit_signed_extrinsic(signer_id, move |_, transaction_nonce| {
-			Bytes(
+			Ok(Bytes(
 				Rialto::sign_transaction(SignParam {
 					spec_version,
 					transaction_version,
@@ -82,17 +82,16 @@ pub(crate) async fn update_millau_to_rialto_conversion_rate(
 					signer,
 					era: relay_substrate_client::TransactionEra::immortal(),
 					unsigned: UnsignedTransaction::new(
-						rialto_runtime::MessagesCall::update_pallet_parameter {
+						rialto_runtime::Call::from(rialto_runtime::MessagesCall::update_pallet_parameter {
 							parameter: rialto_runtime::millau_messages::RialtoToMillauMessagesParameter::MillauToRialtoConversionRate(
 								sp_runtime::FixedU128::from_float(updated_rate),
 							),
-						}
-						.into(),
+						}).into(),
 						transaction_nonce,
 					)
-				})
+				})?
 				.encode(),
-			)
+			))
 		})
 		.await
 		.map(drop)
