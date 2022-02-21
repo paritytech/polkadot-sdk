@@ -615,17 +615,17 @@ where
 	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
 	client
 		.submit_signed_extrinsic(sign.public().into(), move |_, transaction_nonce| {
-			Bytes(
+			Ok(Bytes(
 				C::sign_transaction(SignParam {
 					spec_version,
 					transaction_version,
 					genesis_hash,
 					signer: sign,
 					era: relay_substrate_client::TransactionEra::immortal(),
-					unsigned: UnsignedTransaction::new(call, transaction_nonce),
-				})
+					unsigned: UnsignedTransaction::new(call.into(), transaction_nonce),
+				})?
 				.encode(),
-			)
+			))
 		})
 		.await
 		.map(drop)

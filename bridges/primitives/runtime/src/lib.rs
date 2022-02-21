@@ -25,8 +25,8 @@ use sp_io::hashing::blake2_256;
 use sp_std::{convert::TryFrom, vec, vec::Vec};
 
 pub use chain::{
-	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf,
-	IndexOf, SignatureOf, TransactionEraOf,
+	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
+	HasherOf, HeaderOf, IndexOf, SignatureOf, TransactionEraOf,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 pub use storage_proof::{Error as StorageProofError, StorageProofChecker};
