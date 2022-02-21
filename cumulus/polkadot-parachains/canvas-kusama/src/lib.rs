@@ -111,17 +111,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("canvas-kusama"),
 	impl_name: create_runtime_str!("canvas-kusama"),
 	authoring_version: 1,
-	spec_version: 15,
+	spec_version: 16,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	// Since Canvas is a "live" chain (on Rococo anyways), we need to set this to `0` until a
-	// migration path to `state_version = 1` is ready.
-	//
-	// See the following PRs for more details:
-	// - https://github.com/paritytech/substrate/pull/9732
-	// - https://github.com/paritytech/substrate/pull/10073
-	state_version: 0,
+	state_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
