@@ -27,6 +27,6 @@ cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
 
 # Other deps
 futures = { version = "0.3.8", features = ["compat"] }
-tracing = "0.1.22"
+tracing = "0.1.31"
 async-trait = "0.1.42"
 parking_lot = "0.12.0"

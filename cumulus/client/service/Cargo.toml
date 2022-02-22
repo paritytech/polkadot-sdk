@@ -31,6 +31,6 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Other deps
-tracing = "0.1.22"
+tracing = "0.1.31"
 codec = { package = "parity-scale-codec", version = "2.3.0" }
 parking_lot = "0.12.0"

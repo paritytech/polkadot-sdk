@@ -31,5 +31,5 @@ cumulus-primitives-core = { path = "../../../primitives/core" }
 # Other deps
 futures = { version = "0.3.8", features = ["compat"] }
 codec = { package = "parity-scale-codec", version = "2.3.0", features = [ "derive" ] }
-tracing = "0.1.22"
+tracing = "0.1.31"
 async-trait = "0.1.42"

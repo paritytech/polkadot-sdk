@@ -24,7 +24,7 @@ cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
 # Other deps
 futures = { version = "0.3.8", features = ["compat"] }
 codec = { package = "parity-scale-codec", version = "2.3.0", features = [ "derive" ] }
-tracing = "0.1.25"
+tracing = "0.1.31"
 async-trait = "0.1.52"
 dyn-clone = "1.0.4"
 
