@@ -14,7 +14,7 @@
 // limitations under the License.
 
 pub mod currency {
-	use node_primitives::Balance;
+	use polkadot_core_primitives::Balance;
 	use westend_runtime_constants as constants;
 
 	/// The existential deposit. Set to 1/10 of its parent Relay Chain.
@@ -37,7 +37,7 @@ pub mod fee {
 		constants::ExtrinsicBaseWeight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 		WeightToFeePolynomial,
 	};
-	use node_primitives::Balance;
+	use polkadot_core_primitives::Balance;
 	use smallvec::smallvec;
 	pub use sp_runtime::Perbill;
 
