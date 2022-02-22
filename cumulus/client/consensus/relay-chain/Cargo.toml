@@ -29,4 +29,4 @@ cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
 futures = { version = "0.3.8", features = ["compat"] }
 tracing = "0.1.22"
 async-trait = "0.1.42"
-parking_lot = "0.10.2"
+parking_lot = "0.12.0"
