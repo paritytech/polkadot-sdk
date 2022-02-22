@@ -941,7 +941,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "kusama-runtime-constants",
  "log",
  "node-primitives",
@@ -1777,7 +1777,7 @@ dependencies = [
  "environmental",
  "frame-support",
  "frame-system",
- "hex-literal 0.2.1",
+ "hex-literal",
  "impl-trait-for-tuples",
  "lazy_static",
  "log",
@@ -3197,28 +3197,9 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hex-literal"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "961de220ec9a91af2e1e5bd80d02109155695e516771762381ef8581317066e0"
-dependencies = [
- "hex-literal-impl",
- "proc-macro-hack",
-]
-
-[[package]]
-name = "hex-literal"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ebdb29d2ea9ed0083cd8cece49bbd968021bd99b0849edb4a9a7ee0fdf6a4e0"
-
-[[package]]
-name = "hex-literal-impl"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "853f769599eb31de176303197b7ba4973299c38c7a7604a6bc88c3eef05b9b46"
-dependencies = [
- "proc-macro-hack",
-]
 
 [[package]]
 name = "hex_fmt"
@@ -3883,7 +3864,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "kusama-runtime-constants",
  "log",
  "pallet-authority-discovery",
@@ -6376,7 +6357,7 @@ dependencies = [
  "derive_more",
  "frame-benchmarking",
  "frame-benchmarking-cli",
- "hex-literal 0.3.4",
+ "hex-literal",
  "jsonrpc-core",
  "log",
  "pallet-transaction-payment-rpc",
@@ -6442,7 +6423,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -7045,7 +7026,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures 0.3.21",
- "hex-literal 0.2.1",
+ "hex-literal",
  "jsonrpc-core",
  "log",
  "nix",
@@ -7713,7 +7694,7 @@ source = "git+https://github.com/paritytech/polkadot?branch=master#a6394995871d4
 dependencies = [
  "bitvec",
  "frame-system",
- "hex-literal 0.3.4",
+ "hex-literal",
  "parity-scale-codec",
  "parity-util-mem",
  "polkadot-core-primitives",
@@ -7782,7 +7763,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -7974,7 +7955,7 @@ dependencies = [
  "beefy-primitives",
  "frame-system-rpc-runtime-api",
  "futures 0.3.21",
- "hex-literal 0.3.4",
+ "hex-literal",
  "kusama-runtime",
  "kvdb",
  "kvdb-rocksdb",
@@ -8359,12 +8340,6 @@ dependencies = [
  "quote",
  "version_check",
 ]
-
-[[package]]
-name = "proc-macro-hack"
-version = "0.5.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
@@ -8860,7 +8835,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -11307,7 +11282,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "kusama-runtime-constants",
  "log",
  "node-primitives",
@@ -11374,7 +11349,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "node-primitives",
  "pallet-asset-tx-payment",
@@ -12684,7 +12659,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -12788,7 +12763,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "node-primitives",
  "pallet-asset-tx-payment",

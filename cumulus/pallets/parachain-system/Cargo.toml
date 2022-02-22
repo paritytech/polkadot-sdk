@@ -39,7 +39,7 @@ impl-trait-for-tuples = "0.2.1"
 
 [dev-dependencies]
 # Other Dependencies
-hex-literal = "0.2.1"
+hex-literal = "0.3.4"
 lazy_static = "1.4"
 
 # Substrate dependencies
