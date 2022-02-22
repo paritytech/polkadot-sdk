@@ -92,7 +92,7 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [dev-dependencies]
-assert_cmd = "0.12"
+assert_cmd = "2.0"
 nix = "0.23"
 tempfile = "3.2.0"
 
