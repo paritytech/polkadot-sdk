@@ -46,7 +46,7 @@ use sc_network::NetworkService;
 use sc_service::{Configuration, PartialComponents, Role, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi};
-use sp_consensus::{CacheKeyId, SlotData};
+use sp_consensus::CacheKeyId;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_keystore::SyncCryptoStorePtr;
@@ -683,15 +683,15 @@ pub fn rococo_parachain_build_import_queue(
 		block_import: client.clone(),
 		client: client.clone(),
 		create_inherent_data_providers: move |_, _| async move {
-			let time = sp_timestamp::InherentDataProvider::from_system_time();
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 			let slot =
-				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-					*time,
-					slot_duration.slot_duration(),
+				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
 				);
 
-			Ok((time, slot))
+			Ok((timestamp, slot))
 		},
 		registry: config.prometheus_registry().clone(),
 		can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
@@ -753,29 +753,32 @@ pub async fn start_rococo_parachain_node(
 			>(BuildAuraConsensusParams {
 				proposer_factory,
 				create_inherent_data_providers: move |_, (relay_parent, validation_data)| {
-						let relay_chain_interface = relay_chain_interface.clone();
+					let relay_chain_interface = relay_chain_interface.clone();
+
 					async move {
-					let parachain_inherent =
-					cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
-						relay_parent,
-						&relay_chain_interface,
-						&validation_data,
-						id,
-					).await;
-						let time = sp_timestamp::InherentDataProvider::from_system_time();
+						let parachain_inherent =
+							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+								relay_parent,
+								&relay_chain_interface,
+								&validation_data,
+								id,
+							).await;
+
+						let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 						let slot =
-						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-							*time,
-							slot_duration.slot_duration(),
-						);
+							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+								*timestamp,
+								slot_duration,
+							);
 
 						let parachain_inherent = parachain_inherent.ok_or_else(|| {
 							Box::<dyn std::error::Error + Send + Sync>::from(
 								"Failed to create parachain inherent",
 							)
 						})?;
-						Ok((time, slot, parachain_inherent))
+
+						Ok((timestamp, slot, parachain_inherent))
 					}
 				},
 				block_import: client.clone(),
@@ -1064,15 +1067,15 @@ where
 				cumulus_client_consensus_aura::BuildVerifierParams {
 					client: client2.clone(),
 					create_inherent_data_providers: move |_, _| async move {
-						let time = sp_timestamp::InherentDataProvider::from_system_time();
+						let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 						let slot =
-					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-						*time,
-						slot_duration.slot_duration(),
-					);
+							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+								*timestamp,
+								slot_duration,
+							);
 
-						Ok((time, slot))
+						Ok((timestamp, slot))
 					},
 					can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(
 						client2.executor().clone(),
@@ -1177,20 +1180,21 @@ where
 								let relay_chain_for_aura = relay_chain_for_aura.clone();
 								async move {
 									let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
-								relay_parent,
-								&relay_chain_for_aura,
-								&validation_data,
-								id,
-							).await;
-									let time =
+										cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+											relay_parent,
+											&relay_chain_for_aura,
+											&validation_data,
+											id,
+										).await;
+
+									let timestamp =
 										sp_timestamp::InherentDataProvider::from_system_time();
 
 									let slot =
-									sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-										*time,
-										slot_duration.slot_duration(),
-									);
+										sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+											*timestamp,
+											slot_duration,
+										);
 
 									let parachain_inherent =
 										parachain_inherent.ok_or_else(|| {
@@ -1198,7 +1202,8 @@ where
 												"Failed to create parachain inherent",
 											)
 										})?;
-									Ok((time, slot, parachain_inherent))
+
+									Ok((timestamp, slot, parachain_inherent))
 								}
 							},
 						block_import: client2.clone(),
@@ -1494,15 +1499,15 @@ pub fn canvas_kusama_build_import_queue(
 		block_import: client.clone(),
 		client: client.clone(),
 		create_inherent_data_providers: move |_, _| async move {
-			let time = sp_timestamp::InherentDataProvider::from_system_time();
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 			let slot =
-				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-					*time,
-					slot_duration.slot_duration(),
+				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
 				);
 
-			Ok((time, slot))
+			Ok((timestamp, slot))
 		},
 		registry: config.prometheus_registry(),
 		can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
@@ -1565,26 +1570,28 @@ pub async fn start_canvas_kusama_node(
 						let relay_chain_interface = relay_chain_interface.clone();
 						async move {
 							let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
-								relay_parent,
-								&relay_chain_interface,
-								&validation_data,
-								id,
-							).await;
-							let time = sp_timestamp::InherentDataProvider::from_system_time();
+								cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+									relay_parent,
+									&relay_chain_interface,
+									&validation_data,
+									id,
+								).await;
+
+							let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 							let slot =
-						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-							*time,
-							slot_duration.slot_duration(),
-						);
+								sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+									*timestamp,
+									slot_duration,
+								);
 
 							let parachain_inherent = parachain_inherent.ok_or_else(|| {
 								Box::<dyn std::error::Error + Send + Sync>::from(
 									"Failed to create parachain inherent",
 								)
 							})?;
-							Ok((time, slot, parachain_inherent))
+
+							Ok((timestamp, slot, parachain_inherent))
 						}
 					},
 					block_import: client.clone(),

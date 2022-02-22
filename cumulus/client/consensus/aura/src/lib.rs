@@ -36,10 +36,8 @@ use sc_telemetry::TelemetryHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{
-	EnableProofRecording, Environment, ProofRecording, Proposer, SlotData, SyncOracle,
-};
-use sp_consensus_aura::AuraApi;
+use sp_consensus::{EnableProofRecording, Environment, ProofRecording, Proposer, SyncOracle};
+use sp_consensus_aura::{AuraApi, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::SyncCryptoStorePtr;
@@ -49,9 +47,7 @@ use std::{convert::TryFrom, hash::Hash, sync::Arc};
 mod import_queue;
 
 pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
-pub use sc_consensus_aura::{
-	slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotDuration, SlotProportion,
-};
+pub use sc_consensus_aura::{slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotProportion};
 pub use sc_consensus_slots::InherentDataProviderExt;
 
 const LOG_TARGET: &str = "aura::cumulus";
@@ -201,7 +197,7 @@ where
 			inherent_data_providers.slot(),
 			inherent_data_providers.timestamp(),
 			inherent_data,
-			self.slot_duration.slot_duration(),
+			self.slot_duration.as_duration(),
 			parent.clone(),
 			// Set the block limit to 50% of the maximum PoV size.
 			//
