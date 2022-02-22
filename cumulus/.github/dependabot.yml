@@ -19,5 +19,7 @@ updates:
       - dependency-name: "sub-tokens"
       - dependency-name: "polkadot-*"
       - dependency-name: "xcm*"
+      - dependency-name: "kusama-*"
+      - dependency-name: "westend-*"
     schedule:
       interval: "daily"
