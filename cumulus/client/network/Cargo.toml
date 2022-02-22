@@ -32,7 +32,7 @@ derive_more = "0.99.2"
 async-trait = "0.1.52"
 
 [dev-dependencies]
-tokio = { version = "1.10", features = ["macros"] }
+tokio = { version = "1.17.0", features = ["macros"] }
 
 # Cumulus deps
 cumulus-test-service = { path = "../../test/service" }
