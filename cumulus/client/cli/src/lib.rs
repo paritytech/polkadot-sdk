@@ -248,6 +248,10 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.max_runtime_instances()
 	}
 
+	fn runtime_cache_size(&self) -> sc_cli::Result<u8> {
+		self.base.runtime_cache_size()
+	}
+
 	fn base_path(&self) -> sc_cli::Result<Option<BasePath>> {
 		self.base.base_path()
 	}
