@@ -944,7 +944,6 @@ dependencies = [
  "hex-literal",
  "kusama-runtime-constants",
  "log",
- "node-primitives",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -5058,19 +5057,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "memoffset",
-]
-
-[[package]]
-name = "node-primitives"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#5cdbaa3e1caac94fa3ede30f9fb08fd1f031b3d4"
-dependencies = [
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-application-crypto",
- "sp-core",
- "sp-runtime",
 ]
 
 [[package]]

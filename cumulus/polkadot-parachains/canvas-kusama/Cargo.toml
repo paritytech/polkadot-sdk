@@ -32,7 +32,6 @@ sp-session = { git = 'https://github.com/paritytech/substrate', default-features
 sp-std = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
 sp-transaction-pool = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
 sp-version = { git = 'https://github.com/paritytech/substrate', default-features = false , branch = "master" }
-node-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 ## Substrate FRAME Dependencies
 frame-benchmarking = { git = 'https://github.com/paritytech/substrate', default-features = false, optional = true , branch = "master" }
@@ -106,7 +105,6 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"node-primitives/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -128,7 +126,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-xcm/std",
 	"cumulus-pallet-aura-ext/std",
-    "cumulus-pallet-dmp-queue/std",
+	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
