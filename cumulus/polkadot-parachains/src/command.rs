@@ -137,8 +137,13 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 		// -- Canvas on Rococo
 		"canvas-rococo-dev" => Box::new(chain_spec::canvas_rococo_development_config()),
 		"canvas-rococo-local" => Box::new(chain_spec::canvas_rococo_local_config()),
-		"canvas-rococo" => Box::new(chain_spec::canvas_rococo_config()),
+		"canvas-rococo-genesis" => Box::new(chain_spec::canvas_rococo_config()),
+		"canvas-rococo" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+			&include_bytes!("../res/canvas-rococo.json")[..],
+		)?),
+		// -- Fallback (generic chainspec)
 		"" => Box::new(chain_spec::get_chain_spec()),
+		// -- Loading a specific spec from disk
 		path => {
 			let chain_spec = chain_spec::ChainSpec::from_json_file(path.into())?;
 			if chain_spec.is_statemint() {
