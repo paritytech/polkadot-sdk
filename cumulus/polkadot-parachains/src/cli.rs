@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec;
-use clap::{AppSettings, Parser};
+use clap::Parser;
 use sc_cli;
 use std::path::PathBuf;
 
@@ -96,11 +96,11 @@ pub struct ExportGenesisWasmCommand {
 }
 
 #[derive(Debug, Parser)]
-#[clap(setting(
-	AppSettings::PropagateVersion |
-	AppSettings::ArgsNegateSubcommands |
-	AppSettings::SubcommandsNegateReqs
-))]
+#[clap(
+	propagate_version = true,
+	args_conflicts_with_subcommands = true,
+	subcommand_negates_reqs = true
+)]
 pub struct Cli {
 	#[clap(subcommand)]
 	pub subcommand: Option<Subcommand>,

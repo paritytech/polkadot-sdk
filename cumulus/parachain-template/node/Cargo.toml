@@ -27,7 +27,7 @@ runtime-benchmarks = [
 try-runtime = ["parachain-template-runtime/try-runtime"]
 
 [dependencies]
-clap = { version = "3.0", features = ["derive"] }
+clap = { version = "3.1", features = ["derive"] }
 derive_more = "0.99.2"
 log = "0.4.14"
 codec = { package = "parity-scale-codec", version = "2.0.0" }
