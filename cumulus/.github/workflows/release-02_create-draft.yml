@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain"]
+        runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain", "canvas-kusama"]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -121,6 +121,7 @@ jobs:
           STATEMINE_DIGEST: ${{ github.workspace}}/statemine-srtool-json/statemine_srtool_output.json
           STATEMINT_DIGEST: ${{ github.workspace}}/statemint-srtool-json/statemint_srtool_output.json
           ROCOCO_PARA_DIGEST: ${{ github.workspace}}/rococo-parachain-srtool-json/rococo-parachain_srtool_output.json
+          CANVAS_KUSAMA_DIGEST: ${{ github.workspace}}/canvas-kusama-srtool-json/canvas-kusama_srtool_output.json
           REF1: ${{ github.event.inputs.ref1 }}
           REF2: ${{ github.event.inputs.ref2 }}
           PRE_RELEASE: ${{ github.event.inputs.pre_release }}
@@ -133,6 +134,7 @@ jobs:
           ls -al $STATEMINE_DIGEST
           ls -al $STATEMINT_DIGEST
           ls -al $ROCOCO_PARA_DIGEST
+          ls -al $CANVAS_KUSAMA_DIGEST
 
           echo "The diff will be computed from $REF1 to $REF2"
           cd cumulus/scripts/changelog
@@ -166,7 +168,7 @@ jobs:
       RUNTIME_DIR: polkadot-parachains
     strategy:
       matrix:
-        runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain"]
+        runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain", "canvas-kusama"]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
