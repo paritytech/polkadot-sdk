@@ -57,7 +57,8 @@ pub type SubstrateMessagesDeliveryProof<C> =
 
 /// Substrate client as Substrate messages target.
 pub struct SubstrateMessagesTarget<P: SubstrateMessageLane> {
-	client: Client<P::TargetChain>,
+	target_client: Client<P::TargetChain>,
+	source_client: Client<P::SourceChain>,
 	lane_id: LaneId,
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
@@ -68,7 +69,8 @@ pub struct SubstrateMessagesTarget<P: SubstrateMessageLane> {
 impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 	/// Create new Substrate headers target.
 	pub fn new(
-		client: Client<P::TargetChain>,
+		target_client: Client<P::TargetChain>,
+		source_client: Client<P::SourceChain>,
 		lane_id: LaneId,
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
 		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
@@ -76,7 +78,8 @@ impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 		source_to_target_headers_relay: Option<OnDemandHeadersRelay<P::SourceChain>>,
 	) -> Self {
 		SubstrateMessagesTarget {
-			client,
+			target_client,
+			source_client,
 			lane_id,
 			relayer_id_at_source,
 			transaction_params,
@@ -90,7 +93,7 @@ impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 		&self,
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<Option<InboundLaneData<AccountIdOf<P::SourceChain>>>, SubstrateError> {
-		self.client
+		self.target_client
 			.storage_value(
 				inbound_lane_data_key(
 					P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
@@ -103,14 +106,15 @@ impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 
 	/// Ensure that the messages pallet at target chain is active.
 	async fn ensure_pallet_active(&self) -> Result<(), SubstrateError> {
-		ensure_messages_pallet_active::<P::TargetChain, P::SourceChain>(&self.client).await
+		ensure_messages_pallet_active::<P::TargetChain, P::SourceChain>(&self.target_client).await
 	}
 }
 
 impl<P: SubstrateMessageLane> Clone for SubstrateMessagesTarget<P> {
 	fn clone(&self) -> Self {
 		Self {
-			client: self.client.clone(),
+			target_client: self.target_client.clone(),
+			source_client: self.source_client.clone(),
 			lane_id: self.lane_id,
 			relayer_id_at_source: self.relayer_id_at_source.clone(),
 			transaction_params: self.transaction_params.clone(),
@@ -125,7 +129,8 @@ impl<P: SubstrateMessageLane> RelayClient for SubstrateMessagesTarget<P> {
 	type Error = SubstrateError;
 
 	async fn reconnect(&mut self) -> Result<(), SubstrateError> {
-		self.client.reconnect().await
+		self.target_client.reconnect().await?;
+		self.source_client.reconnect().await
 	}
 }
 
@@ -140,15 +145,15 @@ where
 	async fn state(&self) -> Result<TargetClientState<MessageLaneAdapter<P>>, SubstrateError> {
 		// we can't continue to deliver messages if target node is out of sync, because
 		// it may have already received (some of) messages that we're going to deliver
-		self.client.ensure_synced().await?;
+		self.target_client.ensure_synced().await?;
 		// we can't relay messages if messages pallet at target chain is halted
 		self.ensure_pallet_active().await?;
 
-		read_client_state::<
-			_,
-			<MessageLaneAdapter<P> as MessageLane>::SourceHeaderHash,
-			<MessageLaneAdapter<P> as MessageLane>::SourceHeaderNumber,
-		>(&self.client, P::SourceChain::BEST_FINALIZED_HEADER_ID_METHOD)
+		read_client_state(
+			&self.target_client,
+			Some(&self.source_client),
+			P::SourceChain::BEST_FINALIZED_HEADER_ID_METHOD,
+		)
 		.await
 	}
 
@@ -184,7 +189,7 @@ where
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, UnrewardedRelayersState), SubstrateError>
 	{
 		let encoded_response = self
-			.client
+			.target_client
 			.state_call(
 				P::SourceChain::FROM_CHAIN_UNREWARDED_RELAYERS_STATE.into(),
 				Bytes(self.lane_id.encode()),
@@ -213,7 +218,7 @@ where
 			&self.lane_id,
 		);
 		let proof = self
-			.client
+			.target_client
 			.prove_storage(vec![inbound_data_key], id.1)
 			.await?
 			.iter_nodes()
@@ -232,12 +237,13 @@ where
 		nonces: RangeInclusive<MessageNonce>,
 		proof: <MessageLaneAdapter<P> as MessageLane>::MessagesProof,
 	) -> Result<RangeInclusive<MessageNonce>, SubstrateError> {
-		let genesis_hash = *self.client.genesis_hash();
+		let genesis_hash = *self.target_client.genesis_hash();
 		let transaction_params = self.transaction_params.clone();
 		let relayer_id_at_source = self.relayer_id_at_source.clone();
 		let nonces_clone = nonces.clone();
-		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
-		self.client
+		let (spec_version, transaction_version) =
+			self.target_client.simple_runtime_version().await?;
+		self.target_client
 			.submit_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				move |best_block_id, transaction_nonce| {
@@ -281,12 +287,13 @@ where
 				))
 			})?;
 
-		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
+		let (spec_version, transaction_version) =
+			self.target_client.simple_runtime_version().await?;
 		// Prepare 'dummy' delivery transaction - we only care about its length and dispatch weight.
 		let delivery_tx = make_messages_delivery_transaction::<P>(
 			spec_version,
 			transaction_version,
-			self.client.genesis_hash(),
+			self.target_client.genesis_hash(),
 			&self.transaction_params,
 			HeaderId(Default::default(), Default::default()),
 			Zero::zero(),
@@ -299,7 +306,7 @@ where
 			),
 			false,
 		)?;
-		let delivery_tx_fee = self.client.estimate_extrinsic_fee(delivery_tx).await?;
+		let delivery_tx_fee = self.target_client.estimate_extrinsic_fee(delivery_tx).await?;
 		let inclusion_fee_in_target_tokens = delivery_tx_fee.inclusion_fee();
 
 		// The pre-dispatch cost of delivery transaction includes additional fee to cover dispatch
@@ -321,12 +328,13 @@ where
 		let expected_refund_in_target_tokens = if total_prepaid_nonces != 0 {
 			const WEIGHT_DIFFERENCE: Weight = 100;
 
-			let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
+			let (spec_version, transaction_version) =
+				self.target_client.simple_runtime_version().await?;
 			let larger_dispatch_weight = total_dispatch_weight.saturating_add(WEIGHT_DIFFERENCE);
 			let dummy_tx = make_messages_delivery_transaction::<P>(
 				spec_version,
 				transaction_version,
-				self.client.genesis_hash(),
+				self.target_client.genesis_hash(),
 				&self.transaction_params,
 				HeaderId(Default::default(), Default::default()),
 				Zero::zero(),
@@ -339,7 +347,8 @@ where
 				),
 				false,
 			)?;
-			let larger_delivery_tx_fee = self.client.estimate_extrinsic_fee(dummy_tx).await?;
+			let larger_delivery_tx_fee =
+				self.target_client.estimate_extrinsic_fee(dummy_tx).await?;
 
 			compute_prepaid_messages_refund::<P::TargetChain>(
 				total_prepaid_nonces,
