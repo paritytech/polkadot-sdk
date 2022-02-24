@@ -382,16 +382,20 @@ where
 		From<<AccountKeyPairOf<P::TransactionSignScheme> as sp_core::Pair>::Public>,
 	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
-	finality_target.best_finalized_source_block_number().await.map_err(|error| {
-		log::error!(
-			target: "bridge",
-			"Failed to read best finalized source header from target in {} relay: {:?}",
-			relay_task_name,
-			error,
-		);
+	finality_target
+		.best_finalized_source_block_id()
+		.await
+		.map_err(|error| {
+			log::error!(
+				target: "bridge",
+				"Failed to read best finalized source header from target in {} relay: {:?}",
+				relay_task_name,
+				error,
+			);
 
-		error
-	})
+			error
+		})
+		.map(|id| id.0)
 }
 
 /// Read first mandatory header in given inclusive range.

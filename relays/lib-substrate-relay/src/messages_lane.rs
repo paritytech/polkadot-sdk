@@ -234,13 +234,15 @@ where
 			},
 		},
 		SubstrateMessagesSource::<P>::new(
-			source_client,
+			source_client.clone(),
+			target_client.clone(),
 			params.lane_id,
 			params.source_transaction_params,
 			params.target_to_source_headers_relay,
 		),
 		SubstrateMessagesTarget::<P>::new(
 			target_client,
+			source_client,
 			params.lane_id,
 			relayer_id_at_source,
 			params.target_transaction_params,
