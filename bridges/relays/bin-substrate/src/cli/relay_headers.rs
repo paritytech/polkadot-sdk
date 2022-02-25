@@ -64,10 +64,6 @@ macro_rules! select_bridge {
 				type Source = relay_millau_client::Millau;
 				type Target = relay_rialto_client::Rialto;
 				type Finality = crate::chains::millau_headers_to_rialto::MillauFinalityToRialto;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(rialto_runtime::VERSION);
 
 				$generic
 			},
@@ -75,10 +71,6 @@ macro_rules! select_bridge {
 				type Source = relay_rialto_client::Rialto;
 				type Target = relay_millau_client::Millau;
 				type Finality = crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(rialto_runtime::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
 
 				$generic
 			},
@@ -86,10 +78,6 @@ macro_rules! select_bridge {
 				type Source = relay_westend_client::Westend;
 				type Target = relay_millau_client::Millau;
 				type Finality = crate::chains::westend_headers_to_millau::WestendFinalityToMillau;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_westend::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
 
 				$generic
 			},
@@ -97,10 +85,6 @@ macro_rules! select_bridge {
 				type Source = relay_rococo_client::Rococo;
 				type Target = relay_wococo_client::Wococo;
 				type Finality = crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_rococo::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_wococo::VERSION);
 
 				$generic
 			},
@@ -108,10 +92,6 @@ macro_rules! select_bridge {
 				type Source = relay_wococo_client::Wococo;
 				type Target = relay_rococo_client::Rococo;
 				type Finality = crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_wococo::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_rococo::VERSION);
 
 				$generic
 			},
@@ -119,10 +99,6 @@ macro_rules! select_bridge {
 				type Source = relay_kusama_client::Kusama;
 				type Target = relay_polkadot_client::Polkadot;
 				type Finality = crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_kusama::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_polkadot::VERSION);
 
 				$generic
 			},
@@ -130,10 +106,6 @@ macro_rules! select_bridge {
 				type Source = relay_polkadot_client::Polkadot;
 				type Target = relay_kusama_client::Kusama;
 				type Finality = crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_polkadot::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_kusama::VERSION);
 
 				$generic
 			},
@@ -145,8 +117,8 @@ impl RelayHeaders {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.bridge, {
-			let source_client = self.source.to_client::<Source>(SOURCE_RUNTIME_VERSION).await?;
-			let target_client = self.target.to_client::<Target>(TARGET_RUNTIME_VERSION).await?;
+			let source_client = self.source.to_client::<Source>().await?;
+			let target_client = self.target.to_client::<Target>().await?;
 			let target_transactions_mortality = self.target_sign.target_transactions_mortality;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 

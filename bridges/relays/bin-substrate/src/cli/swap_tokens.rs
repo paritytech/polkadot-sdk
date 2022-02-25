@@ -101,11 +101,6 @@ macro_rules! select_bridge {
 				const SOURCE_SPEC_VERSION: u32 = millau_runtime::VERSION.spec_version;
 				const TARGET_SPEC_VERSION: u32 = rialto_runtime::VERSION.spec_version;
 
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(rialto_runtime::VERSION);
-
 				type FromSwapToThisAccountIdConverter = bp_rialto::AccountIdConverter;
 
 				use bp_millau::{
@@ -134,9 +129,9 @@ impl SwapTokens {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.bridge, {
-			let source_client = self.source.to_client::<Source>(SOURCE_RUNTIME_VERSION).await?;
+			let source_client = self.source.to_client::<Source>().await?;
 			let source_sign = self.source_sign.to_keypair::<Target>()?;
-			let target_client = self.target.to_client::<Target>(TARGET_RUNTIME_VERSION).await?;
+			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 
 			// names of variables in this function are matching names used by the
