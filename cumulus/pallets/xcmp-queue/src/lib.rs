@@ -132,9 +132,11 @@ pub mod pallet {
 
 			let (sender, sent_at, data) =
 				Overweight::<T>::get(index).ok_or(Error::<T>::BadOverweightIndex)?;
-			let xcm =
-				VersionedXcm::<T::Call>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &data)
-					.map_err(|_| Error::<T>::BadXcm)?;
+			let xcm = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut data.as_slice(),
+			)
+			.map_err(|_| Error::<T>::BadXcm)?;
 			let used = Self::handle_xcm_message(sender, sent_at, xcm, weight_limit)
 				.map_err(|_| Error::<T>::WeightOverLimit)?;
 			Overweight::<T>::remove(index);
@@ -492,10 +494,8 @@ impl<T: Config> Pallet<T> {
 		let have_active = s[index].last_index > s[index].first_index;
 		let appended = have_active &&
 			<OutboundXcmpMessages<T>>::mutate(recipient, s[index].last_index - 1, |s| {
-				if XcmpMessageFormat::decode_and_advance_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut &s[..],
-				) != Ok(format)
+				if XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &s[..]) !=
+					Ok(format)
 				{
 					return false
 				}
@@ -619,7 +619,7 @@ impl<T: Config> Pallet<T> {
 			XcmpMessageFormat::ConcatenatedVersionedXcm => {
 				while !remaining_fragments.is_empty() {
 					last_remaining_fragments = remaining_fragments;
-					if let Ok(xcm) = VersionedXcm::<T::Call>::decode_and_advance_with_depth_limit(
+					if let Ok(xcm) = VersionedXcm::<T::Call>::decode_with_depth_limit(
 						MAX_XCM_DECODE_DEPTH,
 						&mut remaining_fragments,
 					) {
@@ -893,7 +893,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 		for (sender, sent_at, data) in iter {
 			// Figure out the message format.
 			let mut data_ref = data;
-			let format = match XcmpMessageFormat::decode_and_advance_with_depth_limit(
+			let format = match XcmpMessageFormat::decode_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut data_ref,
 			) {

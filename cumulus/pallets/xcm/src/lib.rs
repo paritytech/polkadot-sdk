@@ -117,7 +117,7 @@ impl<T: Config> DmpMessageHandler for UnlimitedDmpExecution<T> {
 			let id = sp_io::hashing::twox_64(&data[..]);
 			let msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
-				&mut &data[..],
+				&mut data.as_slice(),
 			)
 			.map(Xcm::<T::Call>::try_from);
 			match msg {
@@ -150,7 +150,7 @@ impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
 			let id = sp_io::hashing::twox_64(&data[..]);
 			let msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
-				&mut &data[..],
+				&mut data.as_slice(),
 			)
 			.map(Xcm::<T::Call>::try_from);
 			match msg {

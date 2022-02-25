@@ -223,12 +223,12 @@ pub mod pallet {
 		pub(crate) fn try_service_message(
 			limit: Weight,
 			_sent_at: RelayBlockNumber,
-			data: &[u8],
+			mut data: &[u8],
 		) -> Result<Weight, (MessageId, Weight)> {
-			let id = sp_io::hashing::blake2_256(&data[..]);
+			let id = sp_io::hashing::blake2_256(data);
 			let maybe_msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
-				&mut &data[..],
+				&mut data,
 			)
 			.map(Xcm::<T::Call>::try_from);
 			match maybe_msg {

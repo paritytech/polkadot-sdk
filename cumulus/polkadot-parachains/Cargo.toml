@@ -13,7 +13,7 @@ path = "src/main.rs"
 clap = { version = "3.1", features = ["derive"] }
 futures = { version = "0.3.1", features = ["compat"] }
 log = "0.4.8"
-codec = { package = "parity-scale-codec", version = "2.3.0" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.132", features = ["derive"] }
 hex-literal = "0.3.4"
 async-trait = "0.1.42"
