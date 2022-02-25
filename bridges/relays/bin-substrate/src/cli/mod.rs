@@ -541,11 +541,10 @@ macro_rules! declare_chain_options {
 				/// Convert connection params into Substrate client.
 				pub async fn to_client<Chain: CliChain>(
 					&self,
-					bundle_runtime_version: Option<sp_version::RuntimeVersion>
 				) -> anyhow::Result<relay_substrate_client::Client<Chain>> {
 					let chain_runtime_version = self
 						.[<$chain_prefix _runtime_version>]
-						.into_runtime_version(bundle_runtime_version)?;
+						.into_runtime_version(Some(Chain::RUNTIME_VERSION))?;
 					Ok(relay_substrate_client::Client::new(relay_substrate_client::ConnectionParams {
 						host: self.[<$chain_prefix _host>].clone(),
 						port: self.[<$chain_prefix _port>],
@@ -562,14 +561,13 @@ macro_rules! declare_chain_options {
 				#[allow(dead_code)]
 				pub async fn selected_chain_spec_version<Chain: CliChain>(
 					&self,
-					bundle_runtime_version: Option<sp_version::RuntimeVersion>,
 				) -> anyhow::Result<u32> {
 					let chain_runtime_version = self
 						.[<$chain_prefix _runtime_version>]
-						.into_runtime_version(bundle_runtime_version.clone())?;
+						.into_runtime_version(Some(Chain::RUNTIME_VERSION))?;
 					Ok(match chain_runtime_version {
 						ChainRuntimeVersion::Auto => self
-							.to_client::<Chain>(bundle_runtime_version)
+							.to_client::<Chain>()
 							.await?
 							.simple_runtime_version()
 							.await?

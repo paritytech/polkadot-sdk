@@ -46,7 +46,7 @@ impl EstimateFee {
 		let Self { source, bridge, lane, payload } = self;
 
 		select_full_bridge!(bridge, {
-			let source_client = source.to_client::<Source>(SOURCE_RUNTIME_VERSION).await?;
+			let source_client = source.to_client::<Source>().await?;
 			let lane = lane.into();
 			let payload =
 				Source::encode_message(payload).map_err(|e| anyhow::format_err!("{:?}", e))?;
