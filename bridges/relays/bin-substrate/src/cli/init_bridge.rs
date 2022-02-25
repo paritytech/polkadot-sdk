@@ -56,10 +56,6 @@ macro_rules! select_bridge {
 			InitBridgeName::MillauToRialto => {
 				type Source = relay_millau_client::Millau;
 				type Target = relay_rialto_client::Rialto;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(rialto_runtime::VERSION);
 
 				fn encode_init_bridge(
 					init_data: InitializationData<<Source as ChainBase>::Header>,
@@ -78,10 +74,6 @@ macro_rules! select_bridge {
 			InitBridgeName::RialtoToMillau => {
 				type Source = relay_rialto_client::Rialto;
 				type Target = relay_millau_client::Millau;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(rialto_runtime::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
 
 				fn encode_init_bridge(
 					init_data: InitializationData<<Source as ChainBase>::Header>,
@@ -100,10 +92,6 @@ macro_rules! select_bridge {
 			InitBridgeName::WestendToMillau => {
 				type Source = relay_westend_client::Westend;
 				type Target = relay_millau_client::Millau;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_westend::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
 
 				fn encode_init_bridge(
 					init_data: InitializationData<<Source as ChainBase>::Header>,
@@ -126,10 +114,6 @@ macro_rules! select_bridge {
 			InitBridgeName::RococoToWococo => {
 				type Source = relay_rococo_client::Rococo;
 				type Target = relay_wococo_client::Wococo;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_rococo::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_wococo::VERSION);
 
 				fn encode_init_bridge(
 					init_data: InitializationData<<Source as ChainBase>::Header>,
@@ -146,10 +130,6 @@ macro_rules! select_bridge {
 			InitBridgeName::WococoToRococo => {
 				type Source = relay_wococo_client::Wococo;
 				type Target = relay_rococo_client::Rococo;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_wococo::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_rococo::VERSION);
 
 				fn encode_init_bridge(
 					init_data: InitializationData<<Source as ChainBase>::Header>,
@@ -166,10 +146,6 @@ macro_rules! select_bridge {
 			InitBridgeName::KusamaToPolkadot => {
 				type Source = relay_kusama_client::Kusama;
 				type Target = relay_polkadot_client::Polkadot;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_kusama::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_polkadot::VERSION);
 
 				fn encode_init_bridge(
 					init_data: InitializationData<<Source as ChainBase>::Header>,
@@ -186,10 +162,6 @@ macro_rules! select_bridge {
 			InitBridgeName::PolkadotToKusama => {
 				type Source = relay_polkadot_client::Polkadot;
 				type Target = relay_kusama_client::Kusama;
-				const SOURCE_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_polkadot::VERSION);
-				const TARGET_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_kusama::VERSION);
 
 				fn encode_init_bridge(
 					init_data: InitializationData<<Source as ChainBase>::Header>,
@@ -211,8 +183,8 @@ impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.bridge, {
-			let source_client = self.source.to_client::<Source>(SOURCE_RUNTIME_VERSION).await?;
-			let target_client = self.target.to_client::<Target>(TARGET_RUNTIME_VERSION).await?;
+			let source_client = self.source.to_client::<Source>().await?;
+			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
 
 			let (spec_version, transaction_version) =
