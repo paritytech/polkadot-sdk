@@ -133,11 +133,6 @@ macro_rules! select_bridge {
 				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
 				type RightAccountIdConverter = bp_rialto::AccountIdConverter;
 
-				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(millau_runtime::VERSION);
-				const RIGHT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(rialto_runtime::VERSION);
-
 				use crate::chains::{
 					millau_messages_to_rialto::{
 						update_rialto_to_millau_conversion_rate as update_right_to_left_conversion_rate,
@@ -180,11 +175,6 @@ macro_rules! select_bridge {
 
 				type LeftAccountIdConverter = bp_rococo::AccountIdConverter;
 				type RightAccountIdConverter = bp_wococo::AccountIdConverter;
-
-				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_rococo::VERSION);
-				const RIGHT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_wococo::VERSION);
 
 				use crate::chains::{
 					rococo_messages_to_wococo::RococoMessagesToWococo as LeftToRightMessageLane,
@@ -259,11 +249,6 @@ macro_rules! select_bridge {
 				type LeftAccountIdConverter = bp_kusama::AccountIdConverter;
 				type RightAccountIdConverter = bp_polkadot::AccountIdConverter;
 
-				const LEFT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_kusama::VERSION);
-				const RIGHT_RUNTIME_VERSION: Option<sp_version::RuntimeVersion> =
-					Some(bp_polkadot::VERSION);
-
 				use crate::chains::{
 					kusama_messages_to_polkadot::{
 						update_polkadot_to_kusama_conversion_rate as update_right_to_left_conversion_rate,
@@ -335,12 +320,12 @@ impl RelayHeadersAndMessages {
 		select_bridge!(self, {
 			let params: Params = self.into();
 
-			let left_client = params.left.to_client::<Left>(LEFT_RUNTIME_VERSION).await?;
+			let left_client = params.left.to_client::<Left>().await?;
 			let left_transactions_mortality = params.left_sign.transactions_mortality()?;
 			let left_sign = params.left_sign.to_keypair::<Left>()?;
 			let left_messages_pallet_owner =
 				params.left_messages_pallet_owner.to_keypair::<Left>()?;
-			let right_client = params.right.to_client::<Right>(RIGHT_RUNTIME_VERSION).await?;
+			let right_client = params.right.to_client::<Right>().await?;
 			let right_transactions_mortality = params.right_sign.transactions_mortality()?;
 			let right_sign = params.right_sign.to_keypair::<Right>()?;
 			let right_messages_pallet_owner =
