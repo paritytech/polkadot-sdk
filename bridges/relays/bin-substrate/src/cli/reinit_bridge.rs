@@ -312,7 +312,7 @@ async fn best_source_block_number_at_target<P: SubstrateFinalitySyncPipeline>(
 	target_client: &Client<P::TargetChain>,
 ) -> anyhow::Result<BlockNumberOf<P::SourceChain>> {
 	Ok(read_client_state::<P::TargetChain, P::SourceChain>(
-		&target_client,
+		target_client,
 		None,
 		P::SourceChain::BEST_FINALIZED_HEADER_ID_METHOD,
 	)
@@ -346,7 +346,7 @@ async fn find_mandatory_headers_in_range<P: SubstrateFinalitySyncPipeline>(
 	let mut mandatory_headers = Vec::new();
 	let mut current = range.0;
 	while current <= range.1 {
-		let (header, proof) = finality_source.header_and_finality_proof(current).await?.into();
+		let (header, proof) = finality_source.header_and_finality_proof(current).await?;
 		if header.is_mandatory() {
 			match proof {
 				Some(proof) => mandatory_headers.push((header, proof)),
@@ -412,7 +412,7 @@ fn make_mandatory_headers_batches<
 		} else {
 			current_batch_size = new_batch_size;
 			current_batch_weight = new_batch_weight;
-			i = i + 1;
+			i += 1;
 		}
 	}
 	if !headers_to_submit.is_empty() {
