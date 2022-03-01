@@ -35,6 +35,7 @@ pub(crate) mod send_message;
 mod derive_account;
 mod init_bridge;
 mod register_parachain;
+mod reinit_bridge;
 mod relay_headers;
 mod relay_headers_and_messages;
 mod relay_messages;
@@ -71,6 +72,11 @@ pub enum Command {
 	///
 	/// Sends initialization transaction to bootstrap the bridge with current finalized block data.
 	InitBridge(init_bridge::InitBridge),
+	/// Reinitialize on-chain bridge pallet with current header data.
+	///
+	/// Sends all missing mandatory headers to bootstrap the bridge with current finalized block
+	/// data.
+	ReinitBridge(reinit_bridge::ReinitBridge),
 	/// Send custom message over the bridge.
 	///
 	/// Allows interacting with the bridge by sending messages over `Messages` component.
@@ -126,6 +132,7 @@ impl Command {
 			Self::RelayMessages(arg) => arg.run().await?,
 			Self::RelayHeadersAndMessages(arg) => arg.run().await?,
 			Self::InitBridge(arg) => arg.run().await?,
+			Self::ReinitBridge(arg) => arg.run().await?,
 			Self::SendMessage(arg) => arg.run().await?,
 			Self::EncodeCall(arg) => arg.run().await?,
 			Self::EncodeMessage(arg) => arg.run().await?,
