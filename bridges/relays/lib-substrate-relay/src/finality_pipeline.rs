@@ -65,7 +65,7 @@ pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 
 /// Adapter that allows all `SubstrateFinalitySyncPipeline` to act as `FinalitySyncPipeline`.
 #[derive(Clone, Debug)]
-pub(crate) struct FinalitySyncPipelineAdapter<P: SubstrateFinalitySyncPipeline> {
+pub struct FinalitySyncPipelineAdapter<P: SubstrateFinalitySyncPipeline> {
 	_phantom: PhantomData<P>,
 }
 
