@@ -23,7 +23,6 @@ use cumulus_primitives_core::{
 	ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use sp_runtime::generic::BlockId;
 
 const LOG_TARGET: &str = "parachain-inherent";
 
@@ -36,10 +35,9 @@ async fn collect_relay_storage_proof(
 ) -> Option<sp_state_machine::StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
 
-	let relay_parent_block_id = BlockId::Hash(relay_parent);
 	let ingress_channels = relay_chain_interface
 		.get_storage_by_key(
-			&relay_parent_block_id,
+			relay_parent,
 			&relay_well_known_keys::hrmp_ingress_channel_index(para_id),
 		)
 		.await
@@ -68,7 +66,7 @@ async fn collect_relay_storage_proof(
 
 	let egress_channels = relay_chain_interface
 		.get_storage_by_key(
-			&relay_parent_block_id,
+			relay_parent,
 			&relay_well_known_keys::hrmp_egress_channel_index(para_id),
 		)
 		.await
@@ -111,12 +109,12 @@ async fn collect_relay_storage_proof(
 	}));
 
 	relay_chain_interface
-		.prove_read(&relay_parent_block_id, &relevant_keys)
+		.prove_read(relay_parent, &relevant_keys)
 		.await
 		.map_err(|e| {
 			tracing::error!(
 				target: LOG_TARGET,
-				relay_parent = ?relay_parent_block_id,
+				relay_parent = ?relay_parent,
 				error = ?e,
 				"Cannot obtain read proof from relay chain.",
 			);

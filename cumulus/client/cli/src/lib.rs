@@ -19,7 +19,6 @@
 #![warn(missing_docs)]
 
 use clap::Parser;
-use sc_cli;
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
@@ -29,6 +28,7 @@ use std::{
 	io::{self, Write},
 	net::SocketAddr,
 };
+use url::Url;
 
 /// The `purge-chain` command used to remove the whole chain: the parachain and the relay chain.
 #[derive(Debug, Parser)]
@@ -119,6 +119,19 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
+fn validate_relay_chain_url(arg: &str) -> Result<(), String> {
+	let url = Url::parse(arg).map_err(|e| e.to_string())?;
+
+	if url.scheme() == "ws" {
+		Ok(())
+	} else {
+		Err(format!(
+			"'{}' URL scheme not supported. Only websocket RPC is currently supported",
+			url.scheme()
+		))
+	}
+}
+
 /// The `run` command used to run a node.
 #[derive(Debug, Parser)]
 pub struct RunCmd {
@@ -131,6 +144,23 @@ pub struct RunCmd {
 	/// Note that this is the same as running with `--validator`.
 	#[clap(long, conflicts_with = "validator")]
 	pub collator: bool,
+
+	/// EXPERIMENTAL: Specify an URL to a relay chain full node to communicate with.
+	#[clap(
+		long,
+		parse(try_from_str),
+		validator = validate_relay_chain_url,
+		conflicts_with = "collator",
+		conflicts_with = "validator"
+	)]
+	pub relay_chain_rpc_url: Option<Url>,
+}
+
+/// Options only relevant for collator nodes
+#[derive(Clone, Debug)]
+pub struct CollatorOptions {
+	/// Location of relay chain full node
+	pub relay_chain_rpc_url: Option<Url>,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the
@@ -149,6 +179,11 @@ impl RunCmd {
 		new_base.validator = self.base.validator || self.collator;
 
 		NormalizedRunCmd { base: new_base }
+	}
+
+	/// Create [`CollatorOptions`] representing options only relevant to parachain collator nodes
+	pub fn collator_options(&self) -> CollatorOptions {
+		CollatorOptions { relay_chain_rpc_url: self.relay_chain_rpc_url.clone() }
 	}
 }
 

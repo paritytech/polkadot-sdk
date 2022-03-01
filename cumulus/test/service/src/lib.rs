@@ -21,15 +21,23 @@
 mod chain_spec;
 mod genesis;
 
-use std::{future::Future, time::Duration};
+use std::{
+	future::Future,
+	net::{IpAddr, Ipv4Addr, SocketAddr},
+	time::Duration,
+};
+use url::Url;
 
+use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::{ParachainCandidate, ParachainConsensus};
 use cumulus_client_network::BlockAnnounceValidator;
 use cumulus_client_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
 use cumulus_primitives_core::ParaId;
-use cumulus_relay_chain_local::RelayChainLocal;
+use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_rpc_interface::RelayChainRPCInterface;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use parking_lot::Mutex;
 
@@ -167,6 +175,35 @@ pub fn new_partial(
 	Ok(params)
 }
 
+async fn build_relay_chain_interface(
+	relay_chain_config: Configuration,
+	collator_key: Option<CollatorPair>,
+	collator_options: CollatorOptions,
+	task_manager: &mut TaskManager,
+) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
+	if let Some(relay_chain_url) = collator_options.relay_chain_rpc_url {
+		return Ok(Arc::new(RelayChainRPCInterface::new(relay_chain_url).await?) as Arc<_>)
+	}
+
+	let relay_chain_full_node = polkadot_test_service::new_full(
+		relay_chain_config,
+		if let Some(ref key) = collator_key {
+			polkadot_service::IsCollator::Yes(key.clone())
+		} else {
+			polkadot_service::IsCollator::Yes(CollatorPair::generate().0)
+		},
+		None,
+	)?;
+
+	task_manager.add_child(relay_chain_full_node.task_manager);
+	Ok(Arc::new(RelayChainInProcessInterface::new(
+		relay_chain_full_node.client.clone(),
+		relay_chain_full_node.backend.clone(),
+		Arc::new(Mutex::new(Box::new(relay_chain_full_node.network.clone()))),
+		relay_chain_full_node.overseer_handle.clone(),
+	)) as Arc<_>)
+}
+
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
@@ -179,6 +216,7 @@ async fn start_node_impl<RB>(
 	wrap_announce_block: Option<Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn>>,
 	rpc_ext_builder: RB,
 	consensus: Consensus,
+	collator_options: CollatorOptions,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -202,30 +240,20 @@ where
 	let transaction_pool = params.transaction_pool.clone();
 	let mut task_manager = params.task_manager;
 
-	let relay_chain_full_node = polkadot_test_service::new_full(
-		relay_chain_config,
-		if let Some(ref key) = collator_key {
-			polkadot_service::IsCollator::Yes(key.clone())
-		} else {
-			polkadot_service::IsCollator::Yes(CollatorPair::generate().0)
-		},
-		None,
-	)
-	.map_err(|e| match e {
-		polkadot_service::Error::Sub(x) => x,
-		s => s.to_string().into(),
-	})?;
-
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let relay_chain_interface = Arc::new(RelayChainLocal::new(
-		relay_chain_full_node.client.clone(),
-		relay_chain_full_node.backend.clone(),
-		Arc::new(Mutex::new(Box::new(relay_chain_full_node.network.clone()))),
-		relay_chain_full_node.overseer_handle.clone(),
-	));
-	task_manager.add_child(relay_chain_full_node.task_manager);
+	let relay_chain_interface = build_relay_chain_interface(
+		relay_chain_config,
+		collator_key.clone(),
+		collator_options.clone(),
+		&mut task_manager,
+	)
+	.await
+	.map_err(|e| match e {
+		RelayChainError::ServiceError(polkadot_service::Error::Sub(x)) => x,
+		s => s.to_string().into(),
+	})?;
 
 	let block_announce_validator =
 		BlockAnnounceValidator::new(relay_chain_interface.clone(), para_id);
@@ -342,6 +370,7 @@ where
 			// the recovery delay of pov-recovery. We don't want to wait for too
 			// long on the full node to recover, so we reduce this time here.
 			relay_chain_slot_duration: Duration::from_millis(6),
+			collator_options,
 		};
 
 		start_full_node(params)?;
@@ -389,6 +418,7 @@ pub struct TestNodeBuilder {
 	storage_update_func_parachain: Option<Box<dyn Fn()>>,
 	storage_update_func_relay_chain: Option<Box<dyn Fn()>>,
 	consensus: Consensus,
+	relay_chain_full_node_url: Option<Url>,
 }
 
 impl TestNodeBuilder {
@@ -410,6 +440,7 @@ impl TestNodeBuilder {
 			storage_update_func_parachain: None,
 			storage_update_func_relay_chain: None,
 			consensus: Consensus::RelayChain,
+			relay_chain_full_node_url: None,
 		}
 	}
 
@@ -501,6 +532,21 @@ impl TestNodeBuilder {
 		self
 	}
 
+	/// Connect to full node via RPC.
+	pub fn use_external_relay_chain_node_at_url(mut self, network_address: Url) -> Self {
+		self.relay_chain_full_node_url = Some(network_address);
+		self
+	}
+
+	/// Connect to full node via RPC.
+	pub fn use_external_relay_chain_node_at_port(mut self, port: u16) -> Self {
+		let mut localhost_url =
+			Url::parse("ws://localhost").expect("Should be able to parse localhost Url");
+		localhost_url.set_port(Some(port)).expect("Should be able to set port");
+		self.relay_chain_full_node_url = Some(localhost_url);
+		self
+	}
+
 	/// Build the [`TestNode`].
 	pub async fn build(self) -> TestNode {
 		let parachain_config = node_config(
@@ -513,6 +559,7 @@ impl TestNodeBuilder {
 			self.collator_key.is_some(),
 		)
 		.expect("could not generate Configuration");
+
 		let mut relay_chain_config = polkadot_test_service::node_config(
 			self.storage_update_func_relay_chain.unwrap_or_else(|| Box::new(|| ())),
 			self.tokio_handle,
@@ -520,6 +567,9 @@ impl TestNodeBuilder {
 			self.relay_chain_nodes,
 			false,
 		);
+
+		let collator_options =
+			CollatorOptions { relay_chain_rpc_url: self.relay_chain_full_node_url };
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
@@ -533,6 +583,7 @@ impl TestNodeBuilder {
 			self.wrap_announce_block,
 			|_| Ok(Default::default()),
 			self.consensus,
+			collator_options,
 		)
 		.await
 		.expect("could not create Cumulus test service");
@@ -737,14 +788,19 @@ pub fn run_relay_chain_validator_node(
 	key: Sr25519Keyring,
 	storage_update_func: impl Fn(),
 	boot_nodes: Vec<MultiaddrWithPeerId>,
+	websocket_port: Option<u16>,
 ) -> polkadot_test_service::PolkadotTestNode {
-	let config = polkadot_test_service::node_config(
+	let mut config = polkadot_test_service::node_config(
 		storage_update_func,
 		tokio_handle,
 		key,
 		boot_nodes,
 		true,
 	);
+
+	if let Some(port) = websocket_port {
+		config.rpc_ws = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port));
+	}
 
 	polkadot_test_service::run_validator_node(
 		config,

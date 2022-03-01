@@ -388,6 +388,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "backoff"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
+dependencies = [
+ "futures-core",
+ "getrandom 0.2.3",
+ "instant",
+ "pin-project-lite 0.2.7",
+ "rand 0.8.5",
+ "tokio",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1575,6 +1589,7 @@ dependencies = [
  "clap 3.1.3",
  "sc-cli",
  "sc-service",
+ "url 2.2.2",
 ]
 
 [[package]]
@@ -1687,8 +1702,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
- "cumulus-relay-chain-local",
  "cumulus-test-service",
  "derive_more",
  "futures 0.3.21",
@@ -1701,6 +1716,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-client",
+ "portpicker",
  "sc-cli",
  "sc-client-api",
  "sc-service",
@@ -1715,6 +1731,7 @@ dependencies = [
  "substrate-test-utils",
  "tokio",
  "tracing",
+ "url 2.2.2",
 ]
 
 [[package]]
@@ -1749,6 +1766,7 @@ dependencies = [
 name = "cumulus-client-service"
 version = "0.1.0"
 dependencies = [
+ "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
  "cumulus-client-pov-recovery",
@@ -2010,27 +2028,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-relay-chain-interface"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "cumulus-primitives-core",
- "derive_more",
- "futures 0.3.21",
- "parking_lot 0.12.0",
- "polkadot-overseer",
- "sc-client-api",
- "sc-service",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-runtime",
- "sp-state-machine",
- "thiserror",
-]
-
-[[package]]
-name = "cumulus-relay-chain-local"
+name = "cumulus-relay-chain-inprocess-interface"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -2058,6 +2056,54 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "tracing",
+]
+
+[[package]]
+name = "cumulus-relay-chain-interface"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cumulus-primitives-core",
+ "derive_more",
+ "futures 0.3.21",
+ "jsonrpsee-core",
+ "parity-scale-codec",
+ "parking_lot 0.12.0",
+ "polkadot-overseer",
+ "polkadot-service",
+ "sc-client-api",
+ "sc-service",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
+ "thiserror",
+]
+
+[[package]]
+name = "cumulus-relay-chain-rpc-interface"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "backoff",
+ "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
+ "futures 0.3.21",
+ "futures-timer",
+ "jsonrpsee 0.8.0",
+ "parity-scale-codec",
+ "parking_lot 0.11.2",
+ "polkadot-service",
+ "sc-client-api",
+ "sc-rpc-api",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
+ "tracing",
+ "url 2.2.2",
 ]
 
 [[package]]
@@ -2148,13 +2194,16 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "criterion",
+ "cumulus-client-cli",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-network",
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
- "cumulus-relay-chain-local",
+ "cumulus-relay-chain-inprocess-interface",
+ "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-rpc-interface",
  "cumulus-test-relay-validation-worker-provider",
  "cumulus-test-runtime",
  "frame-system",
@@ -2167,6 +2216,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-service",
+ "portpicker",
  "rand 0.8.5",
  "sc-basic-authorship",
  "sc-chain-spec",
@@ -2194,6 +2244,7 @@ dependencies = [
  "substrate-test-client",
  "substrate-test-utils",
  "tokio",
+ "url 2.2.2",
 ]
 
 [[package]]
@@ -3459,6 +3510,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper-rustls"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d87c48c02e0dc5e3b849a2041db3029fd066650f8f717c07bf8ed78ccb895cac"
+dependencies = [
+ "http",
+ "hyper",
+ "log",
+ "rustls 0.20.2",
+ "rustls-native-certs 0.6.1",
+ "tokio",
+ "tokio-rustls 0.23.2",
+ "webpki-roots 0.22.2",
+]
+
+[[package]]
 name = "idna"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3812,6 +3879,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05fd8cd6c6b1bbd06881d2cf88f1fc83cc36c98f2219090f839115fb4a956cb9"
 dependencies = [
  "jsonrpsee-core",
+ "jsonrpsee-http-client",
  "jsonrpsee-proc-macros",
  "jsonrpsee-types 0.8.0",
  "jsonrpsee-ws-client 0.8.0",
@@ -3856,6 +3924,25 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-http-client"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dce69e96aa236cc2e3a20467420b31cbc8464703aa95bc33a163d25b0f56023"
+dependencies = [
+ "async-trait",
+ "hyper",
+ "hyper-rustls 0.23.0",
+ "jsonrpsee-core",
+ "jsonrpsee-types 0.8.0",
+ "rustc-hash",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",
@@ -6463,8 +6550,9 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
- "cumulus-relay-chain-local",
+ "cumulus-relay-chain-rpc-interface",
  "derive_more",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -7119,8 +7207,9 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
- "cumulus-relay-chain-local",
+ "cumulus-relay-chain-rpc-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures 0.3.21",
@@ -8350,6 +8439,15 @@ dependencies = [
  "cpufeatures 0.2.1",
  "opaque-debug 0.3.0",
  "universal-hash",
+]
+
+[[package]]
+name = "portpicker"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
+dependencies = [
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -9793,7 +9891,7 @@ dependencies = [
  "futures-timer",
  "hex",
  "hyper",
- "hyper-rustls",
+ "hyper-rustls 0.22.1",
  "num_cpus",
  "once_cell",
  "parity-scale-codec",

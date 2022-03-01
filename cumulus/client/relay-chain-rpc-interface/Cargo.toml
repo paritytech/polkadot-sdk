@@ -1,27 +1,30 @@
 [package]
 authors = ["Parity Technologies <admin@parity.io>"]
-name = "cumulus-relay-chain-interface"
+name = "cumulus-relay-chain-rpc-interface"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-storage = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 futures = "0.3.21"
-parking_lot = "0.12.0"
-derive_more = "0.99.2"
-async-trait = "0.1.52"
-thiserror = "1.0.30"
-jsonrpsee-core = "0.8.0"
+futures-timer = "3.0.2"
 parity-scale-codec = "3.0.0"
+parking_lot = "0.11.1"
+jsonrpsee = { version = "0.8.0", features = ["client"] }
+tracing = "0.1.25"
+async-trait = "0.1.52"
+url = "2.2.2"
+backoff = { version = "0.4.0", features = ["tokio"] }

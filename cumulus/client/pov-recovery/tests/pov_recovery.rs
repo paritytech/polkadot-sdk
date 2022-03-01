@@ -39,6 +39,7 @@ async fn pov_recovery() {
 		Alice,
 		|| {},
 		Vec::new(),
+		None,
 	);
 
 	// Start bob
@@ -47,6 +48,7 @@ async fn pov_recovery() {
 		Bob,
 		|| {},
 		vec![alice.addr.clone()],
+		None,
 	);
 
 	// Register parachain

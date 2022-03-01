@@ -18,6 +18,7 @@
 //!
 //! Provides functions for starting a collator node or a normal full node.
 
+use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -151,6 +152,7 @@ pub struct StartFullNodeParams<'a, Block: BlockT, Client, RCInterface, IQ> {
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	pub relay_chain_slot_duration: Duration,
 	pub import_queue: IQ,
+	pub collator_options: CollatorOptions,
 }
 
 /// Start a full node for a parachain.
@@ -166,6 +168,7 @@ pub fn start_full_node<Block, Client, Backend, RCInterface, IQ>(
 		para_id,
 		relay_chain_slot_duration,
 		import_queue,
+		collator_options,
 	}: StartFullNodeParams<Block, Client, RCInterface, IQ>,
 ) -> sc_service::error::Result<()>
 where
@@ -192,6 +195,14 @@ where
 	task_manager
 		.spawn_essential_handle()
 		.spawn("cumulus-consensus", None, consensus);
+
+	// PoV Recovery is currently not supported when we connect to the
+	// relay chain via RPC, so we return early. The node will work, but not be able to recover PoVs from the
+	// relay chain if blocks are not announced on parachain. This will be enabled again once
+	// https://github.com/paritytech/cumulus/issues/545 is finished.
+	if collator_options.relay_chain_rpc_url.is_some() {
+		return Ok(())
+	}
 
 	let overseer_handle = relay_chain_interface
 		.overseer_handle()

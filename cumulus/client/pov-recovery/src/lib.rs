@@ -451,9 +451,9 @@ async fn pending_candidates(
 	let filtered_stream = import_notification_stream.filter_map(move |n| {
 		let client_for_closure = relay_chain_client.clone();
 		async move {
-			let block_id = BlockId::hash(n.hash());
+			let hash = n.hash();
 			let pending_availability_result = client_for_closure
-				.candidate_pending_availability(&block_id, para_id)
+				.candidate_pending_availability(hash, para_id)
 				.await
 				.map_err(|e| {
 					tracing::error!(
@@ -463,7 +463,7 @@ async fn pending_candidates(
 					)
 				});
 			let session_index_result =
-				client_for_closure.session_index_for_child(&block_id).await.map_err(|e| {
+				client_for_closure.session_index_for_child(hash).await.map_err(|e| {
 					tracing::error!(
 						target: LOG_TARGET,
 						error = ?e,

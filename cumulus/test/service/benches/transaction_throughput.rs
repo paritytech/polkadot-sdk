@@ -151,6 +151,7 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 		Alice,
 		|| {},
 		vec![],
+		None,
 	);
 
 	// Start bob
@@ -159,6 +160,7 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 		Bob,
 		|| {},
 		vec![alice.addr.clone()],
+		None,
 	);
 
 	// Register parachain

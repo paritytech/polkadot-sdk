@@ -27,7 +27,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 };
 
-use polkadot_primitives::v1::{Block as PBlock, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::v1::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
 
 use codec::Decode;
 use futures::{select, FutureExt, Stream, StreamExt};
@@ -54,7 +54,7 @@ pub trait RelaychainClient: Clone + 'static {
 	/// Returns the parachain head for the given `para_id` at the given block id.
 	async fn parachain_head_at(
 		&self,
-		at: &BlockId<PBlock>,
+		at: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<Vec<u8>>>;
 }
@@ -402,13 +402,7 @@ where
 			.await?
 			.filter_map(move |n| {
 				let relay_chain = relay_chain.clone();
-				async move {
-					relay_chain
-						.parachain_head_at(&BlockId::hash(n.hash()), para_id)
-						.await
-						.ok()
-						.flatten()
-				}
+				async move { relay_chain.parachain_head_at(n.hash(), para_id).await.ok().flatten() }
 			})
 			.boxed();
 		Ok(new_best_notification_stream)
@@ -422,13 +416,7 @@ where
 			.await?
 			.filter_map(move |n| {
 				let relay_chain = relay_chain.clone();
-				async move {
-					relay_chain
-						.parachain_head_at(&BlockId::hash(n.hash()), para_id)
-						.await
-						.ok()
-						.flatten()
-				}
+				async move { relay_chain.parachain_head_at(n.hash(), para_id).await.ok().flatten() }
 			})
 			.boxed();
 		Ok(finality_notification_stream)
@@ -436,7 +424,7 @@ where
 
 	async fn parachain_head_at(
 		&self,
-		at: &BlockId<PBlock>,
+		at: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<Vec<u8>>> {
 		self.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)

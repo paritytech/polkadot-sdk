@@ -9,6 +9,7 @@ edition = "2021"
 cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-client-collator = { path = "../collator" }
 cumulus-client-pov-recovery = { path = "../pov-recovery" }
+cumulus-client-cli = { path = "../cli" }
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 

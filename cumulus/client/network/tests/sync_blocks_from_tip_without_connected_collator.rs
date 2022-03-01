@@ -16,6 +16,7 @@
 
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
+use futures::join;
 
 #[substrate_test_utils::test]
 #[ignore]
@@ -27,12 +28,24 @@ async fn sync_blocks_from_tip_without_being_connected_to_a_collator() {
 	let para_id = ParaId::from(100);
 	let tokio_handle = tokio::runtime::Handle::current();
 
+	let ws_port = portpicker::pick_unused_port().expect("No free ports");
 	// start alice
-	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, Vec::new());
+	let alice = run_relay_chain_validator_node(
+		tokio_handle.clone(),
+		Alice,
+		|| {},
+		Vec::new(),
+		Some(ws_port),
+	);
 
 	// start bob
-	let bob =
-		run_relay_chain_validator_node(tokio_handle.clone(), Bob, || {}, vec![alice.addr.clone()]);
+	let bob = run_relay_chain_validator_node(
+		tokio_handle.clone(),
+		Bob,
+		|| {},
+		vec![alice.addr.clone()],
+		None,
+	);
 
 	// register parachain
 	alice
@@ -62,12 +75,21 @@ async fn sync_blocks_from_tip_without_being_connected_to_a_collator() {
 		.await;
 
 	// run eve as parachain full node that is only connected to dave
-	let eve = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Eve)
+	let eve = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Eve)
 		.connect_to_parachain_node(&dave)
 		.exclusively_connect_to_registered_parachain_nodes()
 		.connect_to_relay_chain_nodes(vec![&alice, &bob])
 		.build()
 		.await;
 
-	eve.wait_for_blocks(7).await;
+	// run eve as parachain full node that is only connected to dave
+	let ferdie = cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle, Ferdie)
+		.connect_to_parachain_node(&dave)
+		.exclusively_connect_to_registered_parachain_nodes()
+		.connect_to_relay_chain_nodes(vec![&alice, &bob])
+		.use_external_relay_chain_node_at_port(ws_port)
+		.build()
+		.await;
+
+	join!(ferdie.wait_for_blocks(7), eve.wait_for_blocks(7));
 }

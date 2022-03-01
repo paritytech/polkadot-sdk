@@ -493,6 +493,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
+			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
 				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
@@ -534,7 +535,7 @@ pub fn run() -> Result<()> {
 						statemint_runtime::RuntimeApi,
 						StatemintRuntimeExecutor,
 						StatemintAuraId,
-					>(config, polkadot_config, id)
+					>(config, polkadot_config, collator_options, id)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
@@ -543,7 +544,7 @@ pub fn run() -> Result<()> {
 						statemine_runtime::RuntimeApi,
 						StatemineRuntimeExecutor,
 						AuraId,
-					>(config, polkadot_config, id)
+					>(config, polkadot_config, collator_options, id)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
@@ -552,7 +553,7 @@ pub fn run() -> Result<()> {
 						westmint_runtime::RuntimeApi,
 						WestmintRuntimeExecutor,
 						AuraId,
-					>(config, polkadot_config, id)
+					>(config, polkadot_config, collator_options, id)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
@@ -560,7 +561,7 @@ pub fn run() -> Result<()> {
 					crate::service::start_shell_node::<
 						shell_runtime::RuntimeApi,
 						ShellRuntimeExecutor,
-					>(config, polkadot_config, id)
+					>(config, polkadot_config, collator_options, id)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
@@ -568,20 +569,30 @@ pub fn run() -> Result<()> {
 					crate::service::start_shell_node::<
 						seedling_runtime::RuntimeApi,
 						SeedlingRuntimeExecutor,
-					>(config, polkadot_config, id)
+					>(config, polkadot_config, collator_options, id)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
 				} else if config.chain_spec.is_canvas_kusama() {
-					crate::service::start_canvas_kusama_node(config, polkadot_config, id)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
+					crate::service::start_canvas_kusama_node(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+					)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into)
 				} else {
-					crate::service::start_rococo_parachain_node(config, polkadot_config, id)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
+					crate::service::start_rococo_parachain_node(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+					)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into)
 				}
 			})
 		},

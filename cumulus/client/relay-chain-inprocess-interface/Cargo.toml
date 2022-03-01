@@ -1,6 +1,6 @@
 [package]
 authors = ["Parity Technologies <admin@parity.io>"]
-name = "cumulus-relay-chain-local"
+name = "cumulus-relay-chain-inprocess-interface"
 version = "0.1.0"
 edition = "2021"
 
@@ -28,7 +28,7 @@ sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master
 parking_lot = "0.12.0"
 tracing = "0.1.31"
 async-trait = "0.1.52"
-futures = { version = "0.3.1", features = ["compat"] }
+futures = "0.3.21"
 futures-timer = "3.0.2"
 
 [dev-dependencies]

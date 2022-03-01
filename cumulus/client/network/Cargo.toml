@@ -32,12 +32,14 @@ derive_more = "0.99.2"
 async-trait = "0.1.52"
 
 [dev-dependencies]
+portpicker = "0.1.1"
+url = "2.2.2"
 tokio = { version = "1.17.0", features = ["macros"] }
 
 # Cumulus deps
 cumulus-test-service = { path = "../../test/service" }
 cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-relay-chain-local = { path = "../relay-chain-local" }
+cumulus-relay-chain-inprocess-interface = { path = "../relay-chain-inprocess-interface" }
 
 # Polkadot deps
 polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }

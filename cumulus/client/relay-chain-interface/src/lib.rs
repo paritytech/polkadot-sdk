@@ -19,16 +19,18 @@ use std::{collections::BTreeMap, pin::Pin, sync::Arc};
 use cumulus_primitives_core::{
 	relay_chain::{
 		v1::{CommittedCandidateReceipt, OccupiedCoreAssumption, SessionIndex, ValidatorId},
-		BlockId, Hash as PHash, Header as PHeader, InboundHrmpMessage,
+		Hash as PHash, Header as PHeader, InboundHrmpMessage,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use sc_client_api::{blockchain::BlockStatus, StorageProof};
+use sc_client_api::StorageProof;
 
 use futures::Stream;
 
 use async_trait::async_trait;
+use jsonrpsee_core::Error as JsonRPSeeError;
+use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
 use sp_state_machine::StorageValue;
 
@@ -36,20 +38,34 @@ pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelayChainError {
-	#[error("Error occurred while calling relay chain runtime: {0:?}")]
+	#[error("Error occured while calling relay chain runtime: {0}")]
 	ApiError(#[from] ApiError),
 	#[error("Timeout while waiting for relay-chain block `{0}` to be imported.")]
 	WaitTimeout(PHash),
 	#[error("Import listener closed while waiting for relay-chain block `{0}` to be imported.")]
 	ImportListenerClosed(PHash),
-	#[error("Blockchain returned an error while waiting for relay-chain block `{0}` to be imported: {1:?}")]
+	#[error("Blockchain returned an error while waiting for relay-chain block `{0}` to be imported: {1}")]
 	WaitBlockchainError(PHash, sp_blockchain::Error),
-	#[error("Blockchain returned an error: {0:?}")]
+	#[error("Blockchain returned an error: {0}")]
 	BlockchainError(#[from] sp_blockchain::Error),
-	#[error("State machine error occurred: {0:?}")]
+	#[error("State machine error occured: {0}")]
 	StateMachineError(Box<dyn sp_state_machine::Error>),
-	#[error("Unspecified error occurred: {0:?}")]
+	#[error("Unable to call RPC method '{0}' due to error: {1}")]
+	RPCCallError(String, JsonRPSeeError),
+	#[error("RPC Error: '{0}'")]
+	JsonRPCError(#[from] JsonRPSeeError),
+	#[error("Scale codec deserialization error: {0}")]
+	DeserializationError(CodecError),
+	#[error("Scale codec deserialization error: {0}")]
+	ServiceError(#[from] polkadot_service::Error),
+	#[error("Unspecified error occured: {0}")]
 	GenericError(String),
+}
+
+impl From<CodecError> for RelayChainError {
+	fn from(e: CodecError) -> Self {
+		RelayChainError::DeserializationError(e)
+	}
 }
 
 /// Trait that provides all necessary methods for interaction between collator and relay chain.
@@ -58,15 +74,12 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Fetch a storage item by key.
 	async fn get_storage_by_key(
 		&self,
-		block_id: &BlockId,
+		relay_parent: PHash,
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>>;
 
 	/// Fetch a vector of current validators.
-	async fn validators(&self, block_id: &BlockId) -> RelayChainResult<Vec<ValidatorId>>;
-
-	/// Get the status of a given block.
-	async fn block_status(&self, block_id: BlockId) -> RelayChainResult<BlockStatus>;
+	async fn validators(&self, block_id: PHash) -> RelayChainResult<Vec<ValidatorId>>;
 
 	/// Get the hash of the current best block.
 	async fn best_block_hash(&self) -> RelayChainResult<PHash>;
@@ -98,7 +111,7 @@ pub trait RelayChainInterface: Send + Sync {
 	/// and the para already occupies a core.
 	async fn persisted_validation_data(
 		&self,
-		block_id: &BlockId,
+		block_id: PHash,
 		para_id: ParaId,
 		_: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>>;
@@ -107,12 +120,12 @@ pub trait RelayChainInterface: Send + Sync {
 	/// assigned to occupied cores in `availability_cores` and `None` otherwise.
 	async fn candidate_pending_availability(
 		&self,
-		block_id: &BlockId,
+		block_id: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>>;
 
 	/// Returns the session index expected at a child of the block.
-	async fn session_index_for_child(&self, block_id: &BlockId) -> RelayChainResult<SessionIndex>;
+	async fn session_index_for_child(&self, block_id: PHash) -> RelayChainResult<SessionIndex>;
 
 	/// Get a stream of import block notifications.
 	async fn import_notification_stream(
@@ -145,7 +158,7 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Generate a storage read proof.
 	async fn prove_read(
 		&self,
-		block_id: &BlockId,
+		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
 }
@@ -173,7 +186,7 @@ where
 
 	async fn persisted_validation_data(
 		&self,
-		block_id: &BlockId,
+		block_id: PHash,
 		para_id: ParaId,
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
@@ -184,17 +197,17 @@ where
 
 	async fn candidate_pending_availability(
 		&self,
-		block_id: &BlockId,
+		block_id: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
 		(**self).candidate_pending_availability(block_id, para_id).await
 	}
 
-	async fn session_index_for_child(&self, block_id: &BlockId) -> RelayChainResult<SessionIndex> {
+	async fn session_index_for_child(&self, block_id: PHash) -> RelayChainResult<SessionIndex> {
 		(**self).session_index_for_child(block_id).await
 	}
 
-	async fn validators(&self, block_id: &BlockId) -> RelayChainResult<Vec<ValidatorId>> {
+	async fn validators(&self, block_id: PHash) -> RelayChainResult<Vec<ValidatorId>> {
 		(**self).validators(block_id).await
 	}
 
@@ -214,10 +227,6 @@ where
 		(**self).best_block_hash().await
 	}
 
-	async fn block_status(&self, block_id: BlockId) -> RelayChainResult<BlockStatus> {
-		(**self).block_status(block_id).await
-	}
-
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		(**self).is_major_syncing().await
 	}
@@ -228,18 +237,18 @@ where
 
 	async fn get_storage_by_key(
 		&self,
-		block_id: &BlockId,
+		relay_parent: PHash,
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
-		(**self).get_storage_by_key(block_id, key).await
+		(**self).get_storage_by_key(relay_parent, key).await
 	}
 
 	async fn prove_read(
 		&self,
-		block_id: &BlockId,
+		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
-		(**self).prove_read(block_id, relevant_keys).await
+		(**self).prove_read(relay_parent, relevant_keys).await
 	}
 
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {

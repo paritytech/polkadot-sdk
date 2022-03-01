@@ -47,12 +47,15 @@ polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch
 cumulus-client-consensus-relay-chain = { path = "../../client/consensus/relay-chain" }
 cumulus-client-network = { path = "../../client/network" }
 cumulus-client-service = { path = "../../client/service" }
+cumulus-client-cli = { path = "../../client/cli" }
 cumulus-client-consensus-common = { path = "../../client/consensus/common" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-test-runtime = { path = "../runtime" }
 cumulus-test-relay-validation-worker-provider = { path = "../relay-validation-worker-provider" }
-cumulus-relay-chain-local = { path = "../../client/relay-chain-local" }
+cumulus-relay-chain-inprocess-interface = { path = "../../client/relay-chain-inprocess-interface" }
+cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface" }
+cumulus-relay-chain-rpc-interface = { path = "../../client/relay-chain-rpc-interface" }
 
 criterion = { version = "0.3.5", features = [ "async_tokio" ] }
 
@@ -60,9 +63,11 @@ parking_lot = "0.12.0"
 
 # RPC related dependencies
 jsonrpc-core = "18.0.0"
+url = "2.2.2"
 
 [dev-dependencies]
 futures = "0.3.5"
+portpicker = "0.1.1"
 
 # Polkadot dependencies
 polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }

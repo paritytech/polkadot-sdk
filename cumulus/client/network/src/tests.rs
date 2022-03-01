@@ -16,8 +16,8 @@
 
 use super::*;
 use async_trait::async_trait;
+use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
-use cumulus_relay_chain_local::{check_block_in_chain, BlockCheckStatus};
 use cumulus_test_service::runtime::{Block, Hash, Header};
 use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
@@ -77,21 +77,8 @@ impl DummyRelayChainInterface {
 
 #[async_trait]
 impl RelayChainInterface for DummyRelayChainInterface {
-	async fn validators(
-		&self,
-		_: &cumulus_primitives_core::relay_chain::BlockId,
-	) -> RelayChainResult<Vec<ValidatorId>> {
+	async fn validators(&self, _: PHash) -> RelayChainResult<Vec<ValidatorId>> {
 		Ok(self.data.lock().validators.clone())
-	}
-
-	async fn block_status(
-		&self,
-		block_id: cumulus_primitives_core::relay_chain::BlockId,
-	) -> RelayChainResult<sp_blockchain::BlockStatus> {
-		self.relay_backend
-			.blockchain()
-			.status(block_id)
-			.map_err(RelayChainError::BlockchainError)
 	}
 
 	async fn best_block_hash(&self) -> RelayChainResult<PHash> {
@@ -116,7 +103,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 
 	async fn persisted_validation_data(
 		&self,
-		_: &cumulus_primitives_core::relay_chain::BlockId,
+		_: PHash,
 		_: ParaId,
 		_: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
@@ -128,7 +115,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 
 	async fn candidate_pending_availability(
 		&self,
-		_: &cumulus_primitives_core::relay_chain::BlockId,
+		_: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
 		if self.data.lock().has_pending_availability {
@@ -159,10 +146,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		}
 	}
 
-	async fn session_index_for_child(
-		&self,
-		_: &cumulus_primitives_core::relay_chain::BlockId,
-	) -> RelayChainResult<SessionIndex> {
+	async fn session_index_for_child(&self, _: PHash) -> RelayChainResult<SessionIndex> {
 		Ok(0)
 	}
 
@@ -196,7 +180,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 
 	async fn get_storage_by_key(
 		&self,
-		_: &polkadot_service::BlockId,
+		_: PHash,
 		_: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
 		unimplemented!("Not needed for test")
@@ -204,7 +188,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 
 	async fn prove_read(
 		&self,
-		_: &polkadot_service::BlockId,
+		_: PHash,
 		_: &Vec<Vec<u8>>,
 	) -> RelayChainResult<sc_client_api::StorageProof> {
 		unimplemented!("Not needed for test")
@@ -293,10 +277,7 @@ async fn make_gossip_message_and_header(
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	)
 	.unwrap();
-	let session_index = relay_chain_interface
-		.session_index_for_child(&BlockId::Hash(relay_parent))
-		.await
-		.unwrap();
+	let session_index = relay_chain_interface.session_index_for_child(relay_parent).await.unwrap();
 	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 	let header = default_header();
@@ -477,10 +458,7 @@ async fn check_statement_seconded() {
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	)
 	.unwrap();
-	let session_index = relay_chain_interface
-		.session_index_for_child(&BlockId::Hash(relay_parent))
-		.await
-		.unwrap();
+	let session_index = relay_chain_interface.session_index_for_child(relay_parent).await.unwrap();
 	let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 	let statement = Statement::Valid(Default::default());

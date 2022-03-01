@@ -46,15 +46,15 @@ use sp_state_machine::{Backend as StateBackend, StorageValue};
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
 /// Provides an implementation of the [`RelayChainInterface`] using a local in-process relay chain node.
-pub struct RelayChainLocal<Client> {
+pub struct RelayChainInProcessInterface<Client> {
 	full_client: Arc<Client>,
 	backend: Arc<FullBackend>,
 	sync_oracle: Arc<Mutex<Box<dyn SyncOracle + Send + Sync>>>,
 	overseer_handle: Option<Handle>,
 }
 
-impl<Client> RelayChainLocal<Client> {
-	/// Create a new instance of [`RelayChainLocal`]
+impl<Client> RelayChainInProcessInterface<Client> {
+	/// Create a new instance of [`RelayChainInProcessInterface`]
 	pub fn new(
 		full_client: Arc<Client>,
 		backend: Arc<FullBackend>,
@@ -65,7 +65,7 @@ impl<Client> RelayChainLocal<Client> {
 	}
 }
 
-impl<T> Clone for RelayChainLocal<T> {
+impl<T> Clone for RelayChainInProcessInterface<T> {
 	fn clone(&self) -> Self {
 		Self {
 			full_client: self.full_client.clone(),
@@ -77,7 +77,7 @@ impl<T> Clone for RelayChainLocal<T> {
 }
 
 #[async_trait]
-impl<Client> RelayChainInterface for RelayChainLocal<Client>
+impl<Client> RelayChainInterface for RelayChainInProcessInterface<Client>
 where
 	Client: ProvideRuntimeApi<PBlock>
 		+ BlockchainEvents<PBlock>
@@ -113,12 +113,12 @@ where
 
 	async fn persisted_validation_data(
 		&self,
-		block_id: &BlockId,
+		hash: PHash,
 		para_id: ParaId,
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		Ok(self.full_client.runtime_api().persisted_validation_data(
-			block_id,
+			&BlockId::Hash(hash),
 			para_id,
 			occupied_core_assumption,
 		)?)
@@ -126,21 +126,21 @@ where
 
 	async fn candidate_pending_availability(
 		&self,
-		block_id: &BlockId,
+		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
 		Ok(self
 			.full_client
 			.runtime_api()
-			.candidate_pending_availability(block_id, para_id)?)
+			.candidate_pending_availability(&BlockId::Hash(hash), para_id)?)
 	}
 
-	async fn session_index_for_child(&self, block_id: &BlockId) -> RelayChainResult<SessionIndex> {
-		Ok(self.full_client.runtime_api().session_index_for_child(block_id)?)
+	async fn session_index_for_child(&self, hash: PHash) -> RelayChainResult<SessionIndex> {
+		Ok(self.full_client.runtime_api().session_index_for_child(&BlockId::Hash(hash))?)
 	}
 
-	async fn validators(&self, block_id: &BlockId) -> RelayChainResult<Vec<ValidatorId>> {
-		Ok(self.full_client.runtime_api().validators(block_id)?)
+	async fn validators(&self, hash: PHash) -> RelayChainResult<Vec<ValidatorId>> {
+		Ok(self.full_client.runtime_api().validators(&BlockId::Hash(hash))?)
 	}
 
 	async fn import_notification_stream(
@@ -167,10 +167,6 @@ where
 		Ok(self.backend.blockchain().info().best_hash)
 	}
 
-	async fn block_status(&self, block_id: BlockId) -> RelayChainResult<BlockStatus> {
-		Ok(self.backend.blockchain().status(block_id)?)
-	}
-
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		let mut network = self.sync_oracle.lock();
 		Ok(network.is_major_syncing())
@@ -182,19 +178,21 @@ where
 
 	async fn get_storage_by_key(
 		&self,
-		block_id: &BlockId,
+		relay_parent: PHash,
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
-		let state = self.backend.state_at(*block_id)?;
+		let block_id = BlockId::Hash(relay_parent);
+		let state = self.backend.state_at(block_id)?;
 		state.storage(key).map_err(RelayChainError::GenericError)
 	}
 
 	async fn prove_read(
 		&self,
-		block_id: &BlockId,
+		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
-		let state_backend = self.backend.state_at(*block_id)?;
+		let block_id = BlockId::Hash(relay_parent);
+		let state_backend = self.backend.state_at(block_id)?;
 
 		sp_state_machine::prove_read(state_backend, relevant_keys)
 			.map_err(RelayChainError::StateMachineError)
@@ -271,9 +269,9 @@ where
 	let _lock = backend.get_import_lock().read();
 
 	let block_id = BlockId::Hash(hash);
-	match backend.blockchain().status(block_id)? {
-		BlockStatus::InChain => return Ok(BlockCheckStatus::InChain),
-		_ => {},
+
+	if backend.blockchain().status(block_id)? == BlockStatus::InChain {
+		return Ok(BlockCheckStatus::InChain)
 	}
 
 	let listener = client.import_notification_stream();
@@ -282,25 +280,25 @@ where
 }
 
 /// Builder for a concrete relay chain interface, created from a full node. Builds
-/// a [`RelayChainLocal`] to access relay chain data necessary for parachain operation.
+/// a [`RelayChainInProcessInterface`] to access relay chain data necessary for parachain operation.
 ///
 /// The builder takes a [`polkadot_client::Client`]
 /// that wraps a concrete instance. By using [`polkadot_client::ExecuteWithClient`]
-/// the builder gets access to this concrete instance and instantiates a [`RelayChainLocal`] with it.
-struct RelayChainLocalBuilder {
+/// the builder gets access to this concrete instance and instantiates a [`RelayChainInProcessInterface`] with it.
+struct RelayChainInProcessInterfaceBuilder {
 	polkadot_client: polkadot_client::Client,
 	backend: Arc<FullBackend>,
 	sync_oracle: Arc<Mutex<Box<dyn SyncOracle + Send + Sync>>>,
 	overseer_handle: Option<Handle>,
 }
 
-impl RelayChainLocalBuilder {
+impl RelayChainInProcessInterfaceBuilder {
 	pub fn build(self) -> Arc<dyn RelayChainInterface> {
 		self.polkadot_client.clone().execute_with(self)
 	}
 }
 
-impl ExecuteWithClient for RelayChainLocalBuilder {
+impl ExecuteWithClient for RelayChainInProcessInterfaceBuilder {
 	type Output = Arc<dyn RelayChainInterface>;
 
 	fn execute_with_client<Client, Api, Backend>(self, client: Arc<Client>) -> Self::Output
@@ -314,7 +312,12 @@ impl ExecuteWithClient for RelayChainLocalBuilder {
 			+ Send,
 		Client::Api: ParachainHost<PBlock> + BabeApi<PBlock>,
 	{
-		Arc::new(RelayChainLocal::new(client, self.backend, self.sync_oracle, self.overseer_handle))
+		Arc::new(RelayChainInProcessInterface::new(
+			client,
+			self.backend,
+			self.sync_oracle,
+			self.overseer_handle,
+		))
 	}
 }
 
@@ -346,7 +349,7 @@ fn build_polkadot_full_node(
 }
 
 /// Builds a relay chain interface by constructing a full relay chain node
-pub fn build_relay_chain_interface(
+pub fn build_inprocess_relay_chain(
 	polkadot_config: Configuration,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	task_manager: &mut TaskManager,
@@ -361,7 +364,7 @@ pub fn build_relay_chain_interface(
 
 	let sync_oracle: Box<dyn SyncOracle + Send + Sync> = Box::new(full_node.network.clone());
 	let sync_oracle = Arc::new(Mutex::new(sync_oracle));
-	let relay_chain_interface_builder = RelayChainLocalBuilder {
+	let relay_chain_interface_builder = RelayChainInProcessInterfaceBuilder {
 		polkadot_client: full_node.client.clone(),
 		backend: full_node.backend.clone(),
 		sync_oracle,
@@ -402,7 +405,8 @@ mod tests {
 		}
 	}
 
-	fn build_client_backend_and_block() -> (Arc<Client>, PBlock, RelayChainLocal<Client>) {
+	fn build_client_backend_and_block(
+	) -> (Arc<Client>, PBlock, RelayChainInProcessInterface<Client>) {
 		let builder =
 			TestClientBuilder::new().set_execution_strategy(ExecutionStrategy::NativeWhenPossible);
 		let backend = builder.backend();
@@ -415,7 +419,7 @@ mod tests {
 		(
 			client.clone(),
 			block,
-			RelayChainLocal::new(
+			RelayChainInProcessInterface::new(
 				client,
 				backend.clone(),
 				Arc::new(Mutex::new(dummy_network)),
