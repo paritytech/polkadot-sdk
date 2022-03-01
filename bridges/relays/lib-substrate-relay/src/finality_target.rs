@@ -52,7 +52,7 @@ impl<P: SubstrateFinalitySyncPipeline> SubstrateFinalityTarget<P> {
 	}
 
 	/// Ensure that the GRANDPA pallet at target chain is active.
-	async fn ensure_pallet_active(&self) -> Result<(), Error> {
+	pub async fn ensure_pallet_active(&self) -> Result<(), Error> {
 		let is_halted = self
 			.client
 			.storage_value(is_halted_key(P::SourceChain::WITH_CHAIN_GRANDPA_PALLET_NAME), None)
