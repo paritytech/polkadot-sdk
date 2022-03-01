@@ -346,11 +346,10 @@ where
 		// we shall not ever see this error in relay, because we are never signing decoded
 		// transactions. Instead we're constructing and signing new transactions. So the error code
 		// is kinda random here
-		self.additional_signed.ok_or_else(|| {
-			frame_support::unsigned::TransactionValidityError::Unknown(
+		self.additional_signed
+			.ok_or(frame_support::unsigned::TransactionValidityError::Unknown(
 				frame_support::unsigned::UnknownTransaction::Custom(0xFF),
-			)
-		})
+			))
 	}
 
 	fn pre_dispatch(

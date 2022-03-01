@@ -334,6 +334,7 @@ where
 }
 
 /// Make messages delivery proof transaction from given proof.
+#[allow(clippy::too_many_arguments)]
 fn make_messages_delivery_proof_transaction<P: SubstrateMessageLane>(
 	spec_version: u32,
 	transaction_version: u32,
@@ -443,7 +444,7 @@ where
 				peer_client.header_by_number(peer_on_self_best_finalized_id.0).await?;
 			HeaderId(peer_on_self_best_finalized_id.0, actual_peer_on_self_best_finalized.hash())
 		},
-		None => peer_on_self_best_finalized_id.clone(),
+		None => peer_on_self_best_finalized_id,
 	};
 
 	Ok(ClientState {

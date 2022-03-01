@@ -35,7 +35,7 @@ pub type Wococo = PolkadotLike;
 ///
 /// Note that since this is a target sessions may change before/after this time depending on network
 /// conditions.
-pub const SESSION_LENGTH: BlockNumber = 1 * time_units::MINUTES;
+pub const SESSION_LENGTH: BlockNumber = time_units::MINUTES;
 
 // We use this to get the account on Wococo (target) which is derived from Rococo's (source)
 // account.

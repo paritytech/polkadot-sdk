@@ -23,7 +23,7 @@ pub fn token_price_metric(token_id: &str) -> Result<FloatJsonValueMetric, Promet
 	FloatJsonValueMetric::new(
 		format!("https://api.coingecko.com/api/v3/simple/price?ids={}&vs_currencies=btc", token_id),
 		format!("$.{}.btc", token_id),
-		format!("{}_to_base_conversion_rate", token_id.replace("-", "_")),
+		format!("{}_to_base_conversion_rate", token_id.replace('-', "_")),
 		format!("Rate used to convert from {} to some BASE tokens", token_id.to_uppercase()),
 	)
 }

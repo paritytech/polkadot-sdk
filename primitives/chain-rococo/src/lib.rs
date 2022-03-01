@@ -37,7 +37,7 @@ pub type Rococo = PolkadotLike;
 ///
 /// Note that since this is a target sessions may change before/after this time depending on network
 /// conditions.
-pub const SESSION_LENGTH: BlockNumber = 1 * time_units::HOURS;
+pub const SESSION_LENGTH: BlockNumber = time_units::HOURS;
 
 // NOTE: This needs to be kept up to date with the Rococo runtime found in the Polkadot repo.
 pub const VERSION: RuntimeVersion = RuntimeVersion {

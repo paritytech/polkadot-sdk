@@ -18,7 +18,7 @@ use crate::cli::{
 	bridge::FullBridge,
 	encode_call::{self, CliEncodeCall},
 	estimate_fee::estimate_message_delivery_and_dispatch_fee,
-	Balance, CliChain, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, SourceConnectionParams,
+	Balance, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, SourceConnectionParams,
 	SourceSigningParams, TargetConnectionParams, TargetSigningParams,
 };
 use bp_message_dispatch::{CallOrigin, MessagePayload};
@@ -304,6 +304,7 @@ pub(crate) fn compute_maximal_message_dispatch_weight(maximal_extrinsic_weight: 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::cli::CliChain;
 	use hex_literal::hex;
 
 	#[async_std::test]
