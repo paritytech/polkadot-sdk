@@ -33,7 +33,7 @@ use scale_info::TypeInfo;
 use sp_core::{storage::StateVersion, Hasher as HasherT};
 use sp_runtime::{
 	traits::{Convert, IdentifyAccount, Verify},
-	MultiSignature, MultiSigner, Perbill,
+	FixedU128, MultiSignature, MultiSigner, Perbill,
 };
 use sp_std::prelude::*;
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
@@ -315,6 +315,7 @@ sp_api::decl_runtime_apis! {
 		fn estimate_message_delivery_and_dispatch_fee(
 			lane_id: LaneId,
 			payload: OutboundPayload,
+			millau_to_this_conversion_rate: Option<FixedU128>,
 		) -> Option<OutboundMessageFee>;
 		/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
 		/// messages in given inclusive range.

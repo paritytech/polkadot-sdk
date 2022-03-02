@@ -91,11 +91,14 @@ impl MessageBridge for WithMillauMessageBridge {
 	type ThisChain = Rialto;
 	type BridgedChain = Millau;
 
-	fn bridged_balance_to_this_balance(bridged_balance: bp_millau::Balance) -> bp_rialto::Balance {
-		bp_rialto::Balance::try_from(
-			MillauToRialtoConversionRate::get().saturating_mul_int(bridged_balance),
-		)
-		.unwrap_or(bp_rialto::Balance::MAX)
+	fn bridged_balance_to_this_balance(
+		bridged_balance: bp_millau::Balance,
+		bridged_to_this_conversion_rate_override: Option<FixedU128>,
+	) -> bp_rialto::Balance {
+		let conversion_rate = bridged_to_this_conversion_rate_override
+			.unwrap_or_else(|| MillauToRialtoConversionRate::get());
+		bp_rialto::Balance::try_from(conversion_rate.saturating_mul_int(bridged_balance))
+			.unwrap_or(bp_rialto::Balance::MAX)
 	}
 }
 
