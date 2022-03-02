@@ -84,12 +84,14 @@ fn validator<T: Config + session::Config>(c: u32) -> (T::AccountId, <T as sessio
 	(create_funded_user::<T>("candidate", c, 1000), keys::<T>(c))
 }
 
-fn register_validators<T: Config + session::Config>(count: u32) {
+fn register_validators<T: Config + session::Config>(count: u32) -> Vec<T::AccountId> {
 	let validators = (0..count).map(|c| validator::<T>(c)).collect::<Vec<_>>();
 
-	for (who, keys) in validators {
+	for (who, keys) in validators.clone() {
 		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
 	}
+
+	validators.into_iter().map(|(who, _)| who).collect()
 }
 
 fn register_candidates<T: Config>(count: u32) {
@@ -107,7 +109,7 @@ benchmarks! {
 
 	set_invulnerables {
 		let b in 1 .. T::MaxInvulnerables::get();
-		let new_invulnerables = (0..b).map(|c| account("candidate", c, SEED)).collect::<Vec<_>>();
+		let new_invulnerables = register_validators::<T>(b);
 		let origin = T::UpdateOrigin::successful_origin();
 	}: {
 		assert_ok!(
