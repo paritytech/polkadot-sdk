@@ -17,12 +17,12 @@
 use crate::cli::{
 	bridge::FullBridge,
 	encode_call::{self, CliEncodeCall},
-	estimate_fee::estimate_message_delivery_and_dispatch_fee,
+	estimate_fee::{estimate_message_delivery_and_dispatch_fee, ConversionRateOverride},
 	Balance, ExplicitOrMaximal, HexBytes, HexLaneId, Origins, SourceConnectionParams,
 	SourceSigningParams, TargetConnectionParams, TargetSigningParams,
 };
 use bp_message_dispatch::{CallOrigin, MessagePayload};
-use bp_runtime::{BalanceOf, Chain as _};
+use bp_runtime::Chain as _;
 use codec::Encode;
 use frame_support::weights::Weight;
 use relay_substrate_client::{Chain, SignParam, TransactionSignScheme, UnsignedTransaction};
@@ -66,6 +66,12 @@ pub struct SendMessage {
 	/// Hex-encoded lane id. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
+	/// A way to override conversion rate between bridge tokens.
+	///
+	/// If not specified, conversion rate from runtime storage is used. It may be obsolete and
+	/// your message won't be relayed.
+	#[structopt(long)]
+	conversion_rate_override: Option<ConversionRateOverride>,
 	/// Where dispatch fee is paid?
 	#[structopt(
 		long,
@@ -169,11 +175,13 @@ impl SendMessage {
 			let source_sign = self.source_sign.to_keypair::<Source>()?;
 
 			let lane = self.lane.clone().into();
+			let conversion_rate_override = self.conversion_rate_override;
 			let fee = match self.fee {
 				Some(fee) => fee,
 				None => Balance(
-					estimate_message_delivery_and_dispatch_fee::<BalanceOf<Source>, _, _>(
+					estimate_message_delivery_and_dispatch_fee::<Source, Target, _>(
 						&source_client,
+						conversion_rate_override,
 						ESTIMATE_MESSAGE_FEE_METHOD,
 						lane,
 						payload.clone(),
@@ -317,6 +325,8 @@ mod tests {
 			"1234",
 			"--source-signer",
 			"//Alice",
+			"--conversion-rate-override",
+			"0.75",
 			"remark",
 			"--remark-payload",
 			"1234",
@@ -354,6 +364,8 @@ mod tests {
 			"Target",
 			"--target-signer",
 			"//Bob",
+			"--conversion-rate-override",
+			"metric",
 			"remark",
 			"--remark-payload",
 			"1234",

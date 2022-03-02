@@ -36,8 +36,8 @@ use sp_core::{blake2_256, storage::StorageKey, Bytes, Pair, U256};
 use sp_runtime::traits::{Convert, Header as HeaderT};
 
 use crate::cli::{
-	Balance, CliChain, SourceConnectionParams, SourceSigningParams, TargetConnectionParams,
-	TargetSigningParams,
+	estimate_fee::ConversionRateOverride, Balance, CliChain, SourceConnectionParams,
+	SourceSigningParams, TargetConnectionParams, TargetSigningParams,
 };
 
 /// Swap tokens.
@@ -65,6 +65,12 @@ pub struct SwapTokens {
 	/// Target chain balance that target signer wants to swap.
 	#[structopt(long)]
 	target_balance: Balance,
+	/// A way to override conversion rate between bridge tokens.
+	///
+	/// If not specified, conversion rate from runtime storage is used. It may be obsolete and
+	/// your message won't be relayed.
+	#[structopt(long)]
+	conversion_rate_override: Option<ConversionRateOverride>,
 }
 
 /// Token swap type.
@@ -133,6 +139,7 @@ impl SwapTokens {
 			let source_sign = self.source_sign.to_keypair::<Target>()?;
 			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
+			let conversion_rate_override = self.conversion_rate_override;
 
 			// names of variables in this function are matching names used by the
 			// `pallet-bridge-token-swap`
@@ -198,9 +205,14 @@ impl SwapTokens {
 			// prepare `create_swap` call
 			let target_public_at_bridged_chain: AccountPublicOf<Target> =
 				target_sign.public().into();
-			let swap_delivery_and_dispatch_fee: BalanceOf<Source> =
-				crate::cli::estimate_fee::estimate_message_delivery_and_dispatch_fee(
+			let swap_delivery_and_dispatch_fee =
+				crate::cli::estimate_fee::estimate_message_delivery_and_dispatch_fee::<
+					Source,
+					Target,
+					_,
+				>(
 					&source_client,
+					conversion_rate_override.clone(),
 					ESTIMATE_SOURCE_TO_TARGET_MESSAGE_FEE_METHOD,
 					SOURCE_TO_TARGET_LANE_ID,
 					bp_message_dispatch::MessagePayload {
@@ -356,9 +368,14 @@ impl SwapTokens {
 					dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtSourceChain,
 					call: claim_swap_call.encode(),
 				};
-				let claim_swap_delivery_and_dispatch_fee: BalanceOf<Target> =
-					crate::cli::estimate_fee::estimate_message_delivery_and_dispatch_fee(
+				let claim_swap_delivery_and_dispatch_fee =
+					crate::cli::estimate_fee::estimate_message_delivery_and_dispatch_fee::<
+						Target,
+						Source,
+						_,
+					>(
 						&target_client,
+						conversion_rate_override.clone(),
 						ESTIMATE_TARGET_TO_SOURCE_MESSAGE_FEE_METHOD,
 						TARGET_TO_SOURCE_LANE_ID,
 						claim_swap_message.clone(),
@@ -753,6 +770,7 @@ mod tests {
 				swap_type: TokenSwapType::NoLock,
 				source_balance: Balance(8000000000),
 				target_balance: Balance(9000000000),
+				conversion_rate_override: None,
 			}
 		);
 	}
@@ -778,6 +796,8 @@ mod tests {
 			"//Bob",
 			"--target-balance",
 			"9000000000",
+			"--conversion-rate-override",
+			"metric",
 			"lock-until-block",
 			"--blocks-before-expire",
 			"1",
@@ -827,6 +847,7 @@ mod tests {
 				},
 				source_balance: Balance(8000000000),
 				target_balance: Balance(9000000000),
+				conversion_rate_override: Some(ConversionRateOverride::Metric),
 			}
 		);
 	}
