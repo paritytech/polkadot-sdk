@@ -5,20 +5,23 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1.42"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
+criterion = { version = "0.3.5", features = [ "async_tokio" ] }
+jsonrpc-core = "18.0.0"
+parking_lot = "0.12.0"
 rand = "0.8.5"
 serde = { version = "1.0.132", features = ["derive"] }
-async-trait = "0.1.42"
 tokio = { version = "1.17.0", features = ["macros"] }
+url = "2.2.2"
 
 # Substrate
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master", features = ["wasmtime"] }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -26,6 +29,7 @@ sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master", features = [ "wasmtime" ] }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -34,8 +38,8 @@ sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
@@ -44,26 +48,18 @@ polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "m
 polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus
+cumulus-client-cli = { path = "../../client/cli" }
+cumulus-client-consensus-common = { path = "../../client/consensus/common" }
 cumulus-client-consensus-relay-chain = { path = "../../client/consensus/relay-chain" }
 cumulus-client-network = { path = "../../client/network" }
 cumulus-client-service = { path = "../../client/service" }
-cumulus-client-cli = { path = "../../client/cli" }
-cumulus-client-consensus-common = { path = "../../client/consensus/common" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
-cumulus-test-runtime = { path = "../runtime" }
-cumulus-test-relay-validation-worker-provider = { path = "../relay-validation-worker-provider" }
 cumulus-relay-chain-inprocess-interface = { path = "../../client/relay-chain-inprocess-interface" }
 cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface" }
 cumulus-relay-chain-rpc-interface = { path = "../../client/relay-chain-rpc-interface" }
-
-criterion = { version = "0.3.5", features = [ "async_tokio" ] }
-
-parking_lot = "0.12.0"
-
-# RPC related dependencies
-jsonrpc-core = "18.0.0"
-url = "2.2.2"
+cumulus-test-relay-validation-worker-provider = { path = "../relay-validation-worker-provider" }
+cumulus-test-runtime = { path = "../runtime" }
 
 [dev-dependencies]
 futures = "0.3.5"

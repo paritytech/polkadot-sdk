@@ -5,23 +5,22 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-# Other dependencies
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ], default-features = false }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 
-# Substrate Dependencies
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+# Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
-# Polkadot Dependencies
+# Polkadot
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
-# Cumulus Dependencies
+# Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
@@ -32,14 +31,14 @@ sp-version = { git = "https://github.com/paritytech/substrate", default-features
 default = [ "std" ]
 std = [
 	"codec/std",
-	"log/std",
 	"scale-info/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
-	"cumulus-primitives-core/std",
-	"xcm/std",
+	"log/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
 	"xcm-executor/std",
+	"xcm/std",
+	"cumulus-primitives-core/std",
 ]

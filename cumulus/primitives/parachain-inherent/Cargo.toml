@@ -5,27 +5,26 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-# Substrate dependencies
-sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
-sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
-sp-storage = { git = "https://github.com/paritytech/substrate", optional = true , branch = "master" }
-
-# Cumulus dependencies
-cumulus-primitives-core = { path = "../core", default-features = false }
-cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true }
-cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface", optional = true }
-
-# Other dependencies
 async-trait = { version = "0.1.42", optional = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 tracing = { version = "0.1.31", optional = true }
+
+# Substrate
+sc-client-api = { git = "https://github.com/paritytech/substrate", optional = true, branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", optional = true, branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", optional = true, branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", optional = true, branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-storage = { git = "https://github.com/paritytech/substrate", optional = true, branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+# Cumulus
+cumulus-primitives-core = { path = "../core", default-features = false }
+cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface", optional = true }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true }
 
 [features]
 default = [ "std" ]
@@ -33,18 +32,17 @@ std = [
 	"async-trait",
 	"codec/std",
 	"scale-info/std",
-	"cumulus-primitives-core/std",
-	"sp-inherents/std",
-	"sp-core/std",
-	"sp-trie/std",
-	"sp-std/std",
-	"sp-state-machine",
 	"tracing",
-	"sp-runtime",
 	"sc-client-api",
 	"sp-api",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-runtime",
+	"sp-state-machine",
+	"sp-std/std",
 	"sp-storage",
-	"cumulus-test-relay-sproof-builder",
+	"sp-trie/std",
+	"cumulus-primitives-core/std",
 	"cumulus-relay-chain-interface",
-	"cumulus-test-relay-sproof-builder"
+	"cumulus-test-relay-sproof-builder",
 ]

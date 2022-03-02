@@ -6,32 +6,32 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-# Substrate deps
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
-
-# Polkadot deps
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-
-# Cumulus deps
-cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
-
-# Other deps
 futures = { version = "0.3.8", features = ["compat"] }
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 tracing = "0.1.31"
 async-trait = "0.1.52"
 dyn-clone = "1.0.4"
 
+# Substrate
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Polkadot
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+# Cumulus
+cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
+
 [dev-dependencies]
-# Substrate deps
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
-# Cumulus dependencies
-cumulus-test-client = { path = "../../../test/client" }
-# Other deps
 futures-timer = "3.0.2"
+
+# Substrate
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Cumulus
+cumulus-test-client = { path = "../../../test/client" }

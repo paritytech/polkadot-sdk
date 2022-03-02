@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.1", features = ["derive"] }
 
-# Substrate dependencies
+# Substrate
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
 url = "2.2.2"

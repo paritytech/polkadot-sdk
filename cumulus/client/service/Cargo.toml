@@ -5,33 +5,32 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-# Cumulus dependencies
-cumulus-client-consensus-common = { path = "../consensus/common" }
-cumulus-client-collator = { path = "../collator" }
-cumulus-client-pov-recovery = { path = "../pov-recovery" }
-cumulus-client-cli = { path = "../cli" }
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
-cumulus-primitives-core = { path = "../../primitives/core" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+parking_lot = "0.12.0"
+tracing = "0.1.31"
 
-# Substrate dependencies
+# Substrate
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-# Polkadot dependencies
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+# Polkadot
 polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
-# Other deps
-codec = { package = "parity-scale-codec", version = "3.0.0" }
-tracing = "0.1.31"
-parking_lot = "0.12.0"
+# Cumulus
+cumulus-client-cli = { path = "../cli" }
+cumulus-client-collator = { path = "../collator" }
+cumulus-client-consensus-common = { path = "../consensus/common" }
+cumulus-client-pov-recovery = { path = "../pov-recovery" }
+cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }

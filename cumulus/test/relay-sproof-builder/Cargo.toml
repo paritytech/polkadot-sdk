@@ -5,26 +5,25 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-# Other dependencies
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
 
-# Substrate dependencies
-sp-state-machine = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+# Substrate
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
-# Polkadot dependencies
+# Polkadot
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
-# Cumulus dependencies
+# Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
 	"codec/std",
-	"sp-state-machine/std",
 	"sp-runtime/std",
+	"sp-state-machine/std",
 	"sp-std/std",
 	"cumulus-primitives-core/std",
 ]

@@ -10,15 +10,15 @@ name = "polkadot-collator"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "3.1", features = ["derive"] }
-futures = { version = "0.3.1", features = ["compat"] }
-log = "0.4.8"
-codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.132", features = ["derive"] }
-hex-literal = "0.3.4"
 async-trait = "0.1.42"
+clap = { version = "3.1", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+futures = { version = "0.3.1", features = ["compat"] }
+hex-literal = "0.3.4"
+log = "0.4.8"
+serde = { version = "1.0.132", features = ["derive"] }
 
-# Parachain runtimes
+# Local
 rococo-parachain-runtime = { path = "rococo-parachain" }
 shell-runtime = { path = "shell" }
 seedling-runtime = { path = "seedling" }
@@ -26,9 +26,10 @@ statemint-runtime = { path = "statemint" }
 statemine-runtime = { path = "statemine" }
 westmint-runtime = { path = "westmint" }
 canvas-kusama-runtime = { path = "canvas-kusama" }
+jsonrpc-core = "18.0.0"
 parachains-common = { path = "parachains-common" }
 
-# Substrate dependencies
+# Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -58,18 +59,20 @@ sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "maste
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
-
-# try-runtime stuff.
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-
-# RPC related dependencies
-jsonrpc-core = "18.0.0"
 sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-# Cumulus dependencies
+# Polkadot
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+# Cumulus
 cumulus-client-cli = { path = "../client/cli" }
 cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
@@ -81,14 +84,6 @@ cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inhere
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
 cumulus-relay-chain-inprocess-interface = { path = "../client/relay-chain-inprocess-interface" }
 cumulus-relay-chain-rpc-interface = { path = "../client/relay-chain-rpc-interface" }
-
-
-# Polkadot dependencies
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -107,8 +102,8 @@ runtime-benchmarks = [
 	"westmint-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	'statemint-runtime/try-runtime',
-	'statemine-runtime/try-runtime',
-	'westmint-runtime/try-runtime',
-	'shell-runtime/try-runtime',
+	"statemint-runtime/try-runtime",
+	"statemine-runtime/try-runtime",
+	"westmint-runtime/try-runtime",
+	"shell-runtime/try-runtime",
 ]

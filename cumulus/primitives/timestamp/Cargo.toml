@@ -6,33 +6,34 @@ edition = "2021"
 description = "Provides timestamp related functionality for parachains."
 
 [dependencies]
-# Substrate dependencies
-sp-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
+futures = "0.3.5"
+
+# Substrate
 sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
-# Cumulus dependencies
+# Cumulus
 cumulus-primitives-core = { path = "../core", default-features = false }
 
 [dev-dependencies]
-# Substrate dependencies
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-# Cumulus dependencies
+# Substrate
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Cumulus
 cumulus-test-client = { path = "../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 
-# Other deps
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
-futures = "0.3.5"
 
 [features]
 default = [ "std" ]
 std = [
-	"sp-timestamp/std",
 	"sp-inherents/std",
 	"sp-std/std",
+	"sp-timestamp/std",
 	"cumulus-primitives-core/std",
 ]

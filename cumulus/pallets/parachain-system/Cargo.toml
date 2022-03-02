@@ -6,72 +6,70 @@ edition = "2021"
 description = "Base pallet for cumulus-based parachains"
 
 [dependencies]
-# Cumulus dependencies
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
-cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
-cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+environmental = { version = "1.1.2", default-features = false }
+impl-trait-for-tuples = "0.2.1"
+log = { version = "0.4.14", default-features = false }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.132", optional = true, features = ["derive"] }
 
-# Polkadot dependencies
+# Substrate
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-externalities = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+# Polkadot
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, features = [ "wasm-api" ], branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
-# Substrate dependencies
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-externalities = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-
-# Other Dependencies
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.132", optional = true, features = ["derive"] }
-log = { version = "0.4.14", default-features = false }
-environmental = { version = "1.1.2", default-features = false }
-impl-trait-for-tuples = "0.2.1"
+# Cumulus
+cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
 
 [dev-dependencies]
-# Other Dependencies
 hex-literal = "0.3.4"
 lazy_static = "1.4"
 
-# Substrate dependencies
-sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
+# Substrate
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-# Cumulus dependencies
+# Cumulus
 cumulus-test-client = { path = "../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 
 [features]
 default = [ "std" ]
 std = [
-	"serde",
 	"codec/std",
-	"scale-info/std",
-	"frame-support/std",
-	"pallet-balances/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-io/std",
-	"sp-std/std",
+	"environmental/std",
 	"log/std",
-	"sp-state-machine/std",
-	"sp-trie/std",
-	"sp-externalities/std",
-	"frame-system/std",
+	"scale-info/std",
+	"serde",
+	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
-	"cumulus-pallet-parachain-system-proc-macro/std",
-	"environmental/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"sp-core/std",
+	"sp-externalities/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-std/std",
+	"sp-trie/std",
 	"xcm/std"
 ]
