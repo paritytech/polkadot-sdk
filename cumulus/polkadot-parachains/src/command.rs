@@ -18,8 +18,7 @@ use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{
-		new_partial, Block, CanvasKusamaRuntimeExecutor, RococoParachainRuntimeExecutor,
-		SeedlingRuntimeExecutor, ShellRuntimeExecutor, StatemineRuntimeExecutor,
+		new_partial, Block, ShellRuntimeExecutor, StatemineRuntimeExecutor,
 		StatemintRuntimeExecutor, WestmintRuntimeExecutor,
 	},
 };
@@ -274,34 +273,34 @@ macro_rules! construct_async_run {
 		let runner = $cli.create_runner($cmd)?;
 		if runner.config().chain_spec.is_westmint() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<westmint_runtime::RuntimeApi, WestmintRuntimeExecutor, _>(
+				let $components = new_partial::<westmint_runtime::RuntimeApi, _>(
 					&$config,
-					crate::service::statemint_build_import_queue::<_, _, AuraId>,
+					crate::service::statemint_build_import_queue::<_, AuraId>,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
 		} else if runner.config().chain_spec.is_statemine() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<statemine_runtime::RuntimeApi, StatemineRuntimeExecutor, _>(
+				let $components = new_partial::<statemine_runtime::RuntimeApi, _>(
 					&$config,
-					crate::service::statemint_build_import_queue::<_, _, AuraId>,
+					crate::service::statemint_build_import_queue::<_, AuraId>,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
 		} else if runner.config().chain_spec.is_statemint() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<statemint_runtime::RuntimeApi, StatemintRuntimeExecutor, _>(
+				let $components = new_partial::<statemint_runtime::RuntimeApi, _>(
 					&$config,
-					crate::service::statemint_build_import_queue::<_, _, StatemintAuraId>,
+					crate::service::statemint_build_import_queue::<_, StatemintAuraId>,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
 		} else if runner.config().chain_spec.is_shell() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<shell_runtime::RuntimeApi, ShellRuntimeExecutor, _>(
+				let $components = new_partial::<shell_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::shell_build_import_queue,
 				)?;
@@ -310,7 +309,7 @@ macro_rules! construct_async_run {
 			})
 		} else if runner.config().chain_spec.is_seedling() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<seedling_runtime::RuntimeApi, SeedlingRuntimeExecutor, _>(
+				let $components = new_partial::<seedling_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::shell_build_import_queue,
 				)?;
@@ -319,7 +318,7 @@ macro_rules! construct_async_run {
 			})
 		} else if runner.config().chain_spec.is_canvas_kusama() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<canvas_kusama_runtime::RuntimeApi, CanvasKusamaRuntimeExecutor, _>(
+				let $components = new_partial::<canvas_kusama_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::canvas_kusama_build_import_queue,
 				)?;
@@ -330,7 +329,6 @@ macro_rules! construct_async_run {
 			runner.async_run(|$config| {
 				let $components = new_partial::<
 					rococo_parachain_runtime::RuntimeApi,
-					RococoParachainRuntimeExecutor,
 					_
 				>(
 					&$config,
@@ -533,43 +531,48 @@ pub fn run() -> Result<()> {
 				if config.chain_spec.is_statemint() {
 					crate::service::start_statemint_node::<
 						statemint_runtime::RuntimeApi,
-						StatemintRuntimeExecutor,
 						StatemintAuraId,
 					>(config, polkadot_config, collator_options, id)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
 				} else if config.chain_spec.is_statemine() {
-					crate::service::start_statemint_node::<
-						statemine_runtime::RuntimeApi,
-						StatemineRuntimeExecutor,
-						AuraId,
-					>(config, polkadot_config, collator_options, id)
+					crate::service::start_statemint_node::<statemine_runtime::RuntimeApi, AuraId>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+					)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
 				} else if config.chain_spec.is_westmint() {
-					crate::service::start_statemint_node::<
-						westmint_runtime::RuntimeApi,
-						WestmintRuntimeExecutor,
-						AuraId,
-					>(config, polkadot_config, collator_options, id)
+					crate::service::start_statemint_node::<westmint_runtime::RuntimeApi, AuraId>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+					)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
 				} else if config.chain_spec.is_shell() {
-					crate::service::start_shell_node::<
-						shell_runtime::RuntimeApi,
-						ShellRuntimeExecutor,
-					>(config, polkadot_config, collator_options, id)
+					crate::service::start_shell_node::<shell_runtime::RuntimeApi>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+					)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
 				} else if config.chain_spec.is_seedling() {
-					crate::service::start_shell_node::<
-						seedling_runtime::RuntimeApi,
-						SeedlingRuntimeExecutor,
-					>(config, polkadot_config, collator_options, id)
+					crate::service::start_shell_node::<seedling_runtime::RuntimeApi>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+					)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
