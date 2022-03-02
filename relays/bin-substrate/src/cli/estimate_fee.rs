@@ -24,9 +24,10 @@ use relay_substrate_client::Chain;
 use sp_runtime::FixedU128;
 use structopt::StructOpt;
 use strum::VariantNames;
+use substrate_relay_helper::helpers::target_to_source_conversion_rate;
 
 /// Estimate Delivery & Dispatch Fee command.
-#[derive(StructOpt, Debug, PartialEq, Eq)]
+#[derive(StructOpt, Debug, PartialEq)]
 pub struct EstimateFee {
 	/// A bridge instance to encode call for.
 	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
@@ -36,15 +37,44 @@ pub struct EstimateFee {
 	/// Hex-encoded id of lane that will be delivering the message.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
+	/// A way to override conversion rate between bridge tokens.
+	///
+	/// If not specified, conversion rate from runtime storage is used. It may be obsolete and
+	/// your message won't be relayed.
+	#[structopt(long)]
+	conversion_rate_override: Option<ConversionRateOverride>,
 	/// Payload to send over the bridge.
 	#[structopt(flatten)]
 	payload: crate::cli::encode_message::MessagePayload,
 }
 
+/// A way to override conversion rate between bridge tokens.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ConversionRateOverride {
+	/// The actual conversion rate is computed in the same way how rate metric works.
+	Metric,
+	/// The actual conversion rate is specified explicitly.
+	Explicit(f64),
+}
+
+impl std::str::FromStr for ConversionRateOverride {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		if s.to_lowercase() == "metric" {
+			return Ok(ConversionRateOverride::Metric)
+		}
+
+		f64::from_str(s)
+			.map(ConversionRateOverride::Explicit)
+			.map_err(|e| format!("Failed to parse '{:?}'. Expected 'metric' or explicit value", e))
+	}
+}
+
 impl EstimateFee {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
-		let Self { source, bridge, lane, payload } = self;
+		let Self { source, bridge, lane, conversion_rate_override, payload } = self;
 
 		select_full_bridge!(bridge, {
 			let source_client = source.to_client::<Source>().await?;
@@ -52,8 +82,9 @@ impl EstimateFee {
 			let payload =
 				Source::encode_message(payload).map_err(|e| anyhow::format_err!("{:?}", e))?;
 
-			let fee: BalanceOf<Source> = estimate_message_delivery_and_dispatch_fee(
+			let fee = estimate_message_delivery_and_dispatch_fee::<Source, Target, _>(
 				&source_client,
+				conversion_rate_override,
 				ESTIMATE_MESSAGE_FEE_METHOD,
 				lane,
 				payload,
@@ -67,13 +98,70 @@ impl EstimateFee {
 	}
 }
 
-pub(crate) async fn estimate_message_delivery_and_dispatch_fee<Fee: Decode, C: Chain, P: Encode>(
-	client: &relay_substrate_client::Client<C>,
+pub(crate) async fn estimate_message_delivery_and_dispatch_fee<
+	Source: Chain,
+	Target: Chain,
+	P: Clone + Encode,
+>(
+	client: &relay_substrate_client::Client<Source>,
+	conversion_rate_override: Option<ConversionRateOverride>,
 	estimate_fee_method: &str,
 	lane: bp_messages::LaneId,
 	payload: P,
-) -> anyhow::Result<Fee> {
-	let conversion_rate_override: Option<FixedU128> = None;
+) -> anyhow::Result<BalanceOf<Source>> {
+	// actual conversion rate CAN be lesser than the rate stored in the runtime. So we may try to
+	// pay lesser fee for the message delivery. But in this case, message may be rejected by the
+	// lane. So we MUST use the larger of two fees - one computed with stored fee and the one
+	// computed with actual fee.
+
+	let conversion_rate_override = match (
+		conversion_rate_override,
+		Source::TOKEN_ID,
+		Target::TOKEN_ID,
+	) {
+		(Some(ConversionRateOverride::Explicit(v)), _, _) => {
+			let conversion_rate_override = FixedU128::from_float(v);
+			log::info!(target: "bridge", "Conversion rate override: {:?} (explicit)", conversion_rate_override.to_float());
+			Some(conversion_rate_override)
+		},
+		(Some(ConversionRateOverride::Metric), Some(source_token_id), Some(target_token_id)) => {
+			let conversion_rate_override = FixedU128::from_float(
+				target_to_source_conversion_rate(source_token_id, target_token_id).await?,
+			);
+			log::info!(target: "bridge", "Conversion rate override: {:?} (from metric)", conversion_rate_override.to_float());
+			Some(conversion_rate_override)
+		},
+		_ => None,
+	};
+
+	Ok(std::cmp::max(
+		do_estimate_message_delivery_and_dispatch_fee(
+			client,
+			estimate_fee_method,
+			lane,
+			payload.clone(),
+			None,
+		)
+		.await?,
+		do_estimate_message_delivery_and_dispatch_fee(
+			client,
+			estimate_fee_method,
+			lane,
+			payload.clone(),
+			conversion_rate_override,
+		)
+		.await?,
+	))
+}
+
+/// Estimate message delivery and dispatch fee with given conversion rate override.
+async fn do_estimate_message_delivery_and_dispatch_fee<Source: Chain, P: Encode>(
+	client: &relay_substrate_client::Client<Source>,
+	estimate_fee_method: &str,
+	lane: bp_messages::LaneId,
+	payload: P,
+	conversion_rate_override: Option<FixedU128>,
+) -> anyhow::Result<BalanceOf<Source>> {
 	let encoded_response = client
 		.state_call(
 			estimate_fee_method.into(),
@@ -81,7 +169,7 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<Fee: Decode, C: C
 			None,
 		)
 		.await?;
-	let decoded_response: Option<Fee> = Decode::decode(&mut &encoded_response.0[..])
+	let decoded_response: Option<BalanceOf<Source>> = Decode::decode(&mut &encoded_response.0[..])
 		.map_err(relay_substrate_client::Error::ResponseParseFailed)?;
 	let fee = decoded_response.ok_or_else(|| {
 		anyhow::format_err!("Unable to decode fee from: {:?}", HexBytes(encoded_response.to_vec()))
@@ -106,6 +194,8 @@ mod tests {
 			"rialto-to-millau",
 			"--source-port",
 			"1234",
+			"--conversion-rate-override",
+			"42.5",
 			"call",
 			"--sender",
 			&alice,
@@ -122,6 +212,7 @@ mod tests {
 			EstimateFee {
 				bridge: FullBridge::RialtoToMillau,
 				lane: HexLaneId([0, 0, 0, 0]),
+				conversion_rate_override: Some(ConversionRateOverride::Explicit(42.5)),
 				source: SourceConnectionParams {
 					source_host: "127.0.0.1".into(),
 					source_port: 1234,

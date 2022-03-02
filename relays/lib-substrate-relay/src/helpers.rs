@@ -16,7 +16,7 @@
 
 //! Substrate relay helpers
 
-use relay_utils::metrics::{FloatJsonValueMetric, PrometheusError};
+use relay_utils::metrics::{FloatJsonValueMetric, PrometheusError, StandaloneMetric};
 
 /// Creates standalone token price metric.
 pub fn token_price_metric(token_id: &str) -> Result<FloatJsonValueMetric, PrometheusError> {
@@ -26,4 +26,29 @@ pub fn token_price_metric(token_id: &str) -> Result<FloatJsonValueMetric, Promet
 		format!("{}_to_base_conversion_rate", token_id.replace('-', "_")),
 		format!("Rate used to convert from {} to some BASE tokens", token_id.to_uppercase()),
 	)
+}
+
+/// Compute conversion rate between two tokens immediately, without spawning any metrics.
+pub async fn target_to_source_conversion_rate(
+	source_token_id: &str,
+	target_token_id: &str,
+) -> anyhow::Result<f64> {
+	let source_token_metric = token_price_metric(source_token_id)?;
+	source_token_metric.update().await;
+	let target_token_metric = token_price_metric(target_token_id)?;
+	target_token_metric.update().await;
+
+	let source_token_value = *source_token_metric.shared_value_ref().read().await;
+	let target_token_value = *target_token_metric.shared_value_ref().read().await;
+	// `FloatJsonValueMetric` guarantees that the value is positive && normal, so no additional
+	// checks required here
+	match (source_token_value, target_token_value) {
+		(Some(source_token_value), Some(target_token_value)) =>
+			Ok(target_token_value / source_token_value),
+		_ => Err(anyhow::format_err!(
+			"Failed to compute conversion rate from {} to {}",
+			target_token_id,
+			source_token_id,
+		)),
+	}
 }
