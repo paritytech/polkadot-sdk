@@ -29,26 +29,78 @@ pub fn token_price_metric(token_id: &str) -> Result<FloatJsonValueMetric, Promet
 }
 
 /// Compute conversion rate between two tokens immediately, without spawning any metrics.
-pub async fn target_to_source_conversion_rate(
-	source_token_id: &str,
-	target_token_id: &str,
+///
+/// Returned rate may be used in expression: `from_tokens * rate -> to_tokens`.
+pub async fn tokens_conversion_rate_from_metrics(
+	from_token_id: &str,
+	to_token_id: &str,
 ) -> anyhow::Result<f64> {
-	let source_token_metric = token_price_metric(source_token_id)?;
-	source_token_metric.update().await;
-	let target_token_metric = token_price_metric(target_token_id)?;
-	target_token_metric.update().await;
+	let from_token_metric = token_price_metric(from_token_id)?;
+	from_token_metric.update().await;
+	let to_token_metric = token_price_metric(to_token_id)?;
+	to_token_metric.update().await;
 
-	let source_token_value = *source_token_metric.shared_value_ref().read().await;
-	let target_token_value = *target_token_metric.shared_value_ref().read().await;
+	let from_token_value = *from_token_metric.shared_value_ref().read().await;
+	let to_token_value = *to_token_metric.shared_value_ref().read().await;
 	// `FloatJsonValueMetric` guarantees that the value is positive && normal, so no additional
 	// checks required here
-	match (source_token_value, target_token_value) {
-		(Some(source_token_value), Some(target_token_value)) =>
-			Ok(target_token_value / source_token_value),
+	match (from_token_value, to_token_value) {
+		(Some(from_token_value), Some(to_token_value)) =>
+			Ok(tokens_conversion_rate(from_token_value, to_token_value)),
 		_ => Err(anyhow::format_err!(
 			"Failed to compute conversion rate from {} to {}",
-			target_token_id,
-			source_token_id,
+			from_token_id,
+			to_token_id,
 		)),
+	}
+}
+
+/// Compute conversion rate between two tokens, given token prices.
+///
+/// Returned rate may be used in expression: `from_tokens * rate -> to_tokens`.
+///
+/// Both prices are assumed to be normal and non-negative.
+pub fn tokens_conversion_rate(from_token_value: f64, to_token_value: f64) -> f64 {
+	from_token_value / to_token_value
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn rialto_to_millau_conversion_rate_is_correct() {
+		let rialto_price = 18.18;
+		let millau_price = 136.35;
+		assert!(rialto_price < millau_price);
+
+		let conversion_rate = tokens_conversion_rate(rialto_price, millau_price);
+		let rialto_amount = 100.0;
+		let millau_amount = rialto_amount * conversion_rate;
+		assert!(
+			rialto_amount > millau_amount,
+			"{} RLT * {} = {} MLU",
+			rialto_amount,
+			conversion_rate,
+			millau_amount,
+		);
+	}
+
+	#[test]
+	fn millau_to_rialto_conversion_rate_is_correct() {
+		let rialto_price = 18.18;
+		let millau_price = 136.35;
+		assert!(rialto_price < millau_price);
+
+		let conversion_rate = tokens_conversion_rate(millau_price, rialto_price);
+		let millau_amount = 100.0;
+		let rialto_amount = millau_amount * conversion_rate;
+		assert!(
+			rialto_amount > millau_amount,
+			"{} MLU * {} = {} RLT",
+			millau_amount,
+			conversion_rate,
+			rialto_amount,
+		);
 	}
 }
