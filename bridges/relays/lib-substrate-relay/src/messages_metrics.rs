@@ -16,7 +16,7 @@
 
 //! Tools for supporting message lanes between two Substrate-based chains.
 
-use crate::messages_lane::SubstrateMessageLane;
+use crate::{helpers::tokens_conversion_rate, messages_lane::SubstrateMessageLane};
 
 use codec::Decode;
 use frame_system::AccountInfo;
@@ -119,19 +119,11 @@ impl<SC: Chain, TC: Chain> StandaloneMessagesMetrics<SC, TC> {
 
 	/// Return conversion rate from target to source tokens.
 	pub async fn target_to_source_conversion_rate(&self) -> Option<f64> {
-		Self::compute_target_to_source_conversion_rate(
-			*self.target_to_base_conversion_rate.as_ref()?.shared_value_ref().read().await,
-			*self.source_to_base_conversion_rate.as_ref()?.shared_value_ref().read().await,
-		)
-	}
-
-	/// Return conversion rate from target to source tokens, given conversion rates from
-	/// target/source tokens to some base token.
-	fn compute_target_to_source_conversion_rate(
-		target_to_base_conversion_rate: Option<f64>,
-		source_to_base_conversion_rate: Option<f64>,
-	) -> Option<f64> {
-		Some(source_to_base_conversion_rate? / target_to_base_conversion_rate?)
+		let from_token_value =
+			(*self.target_to_base_conversion_rate.as_ref()?.shared_value_ref().read().await)?;
+		let to_token_value =
+			(*self.source_to_base_conversion_rate.as_ref()?.shared_value_ref().read().await)?;
+		Some(tokens_conversion_rate(from_token_value, to_token_value))
 	}
 }
 
@@ -378,14 +370,6 @@ mod tests {
 	use super::*;
 	use frame_support::storage::generator::StorageValue;
 	use sp_core::storage::StorageKey;
-
-	#[async_std::test]
-	async fn target_to_source_conversion_rate_works() {
-		assert_eq!(
-			StandaloneMessagesMetrics::<relay_rococo_client::Rococo, relay_wococo_client::Wococo>::compute_target_to_source_conversion_rate(Some(183.15), Some(12.32)),
-			Some(12.32 / 183.15),
-		);
-	}
 
 	#[test]
 	fn token_decimals_used_properly() {
