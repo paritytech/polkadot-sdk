@@ -403,13 +403,13 @@ impl RelayHeadersAndMessages {
 						.as_ref()
 						.ok_or_else(format_err)?
 						.shared_value_ref(),
-					left_to_right_metrics
-						.source_to_base_conversion_rate
+					right_to_left_metrics
+						.target_to_base_conversion_rate
 						.as_ref()
 						.ok_or_else(format_err)?
 						.shared_value_ref(),
-					left_to_right_metrics
-						.target_to_base_conversion_rate
+					right_to_left_metrics
+						.source_to_base_conversion_rate
 						.as_ref()
 						.ok_or_else(format_err)?
 						.shared_value_ref(),

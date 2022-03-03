@@ -24,7 +24,7 @@ use relay_substrate_client::Chain;
 use sp_runtime::FixedU128;
 use structopt::StructOpt;
 use strum::VariantNames;
-use substrate_relay_helper::helpers::target_to_source_conversion_rate;
+use substrate_relay_helper::helpers::tokens_conversion_rate_from_metrics;
 
 /// Estimate Delivery & Dispatch Fee command.
 #[derive(StructOpt, Debug, PartialEq)]
@@ -98,6 +98,8 @@ impl EstimateFee {
 	}
 }
 
+/// The caller may provide target to source tokens conversion rate override to use in fee
+/// computation.
 pub(crate) async fn estimate_message_delivery_and_dispatch_fee<
 	Source: Chain,
 	Target: Chain,
@@ -121,14 +123,14 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<
 	) {
 		(Some(ConversionRateOverride::Explicit(v)), _, _) => {
 			let conversion_rate_override = FixedU128::from_float(v);
-			log::info!(target: "bridge", "Conversion rate override: {:?} (explicit)", conversion_rate_override.to_float());
+			log::info!(target: "bridge", "{} -> {} conversion rate override: {:?} (explicit)", Target::NAME, Source::NAME, conversion_rate_override.to_float());
 			Some(conversion_rate_override)
 		},
 		(Some(ConversionRateOverride::Metric), Some(source_token_id), Some(target_token_id)) => {
 			let conversion_rate_override = FixedU128::from_float(
-				target_to_source_conversion_rate(source_token_id, target_token_id).await?,
+				tokens_conversion_rate_from_metrics(target_token_id, source_token_id).await?,
 			);
-			log::info!(target: "bridge", "Conversion rate override: {:?} (from metric)", conversion_rate_override.to_float());
+			log::info!(target: "bridge", "{} -> {} conversion rate override: {:?} (from metric)", Target::NAME, Source::NAME, conversion_rate_override.to_float());
 			Some(conversion_rate_override)
 		},
 		_ => None,
