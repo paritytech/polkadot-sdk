@@ -106,7 +106,7 @@ async fn maybe_select_new_conversion_rate(
 	let left_to_base_conversion_rate = (*left_to_base_conversion_rate.read().await)?;
 	let right_to_base_conversion_rate = (*right_to_base_conversion_rate.read().await)?;
 	let actual_left_to_right_conversion_rate =
-		right_to_base_conversion_rate / left_to_base_conversion_rate;
+		left_to_base_conversion_rate / right_to_base_conversion_rate;
 
 	let rate_difference =
 		(actual_left_to_right_conversion_rate - left_to_right_stored_conversion_rate).abs();
@@ -229,15 +229,27 @@ mod tests {
 
 	#[test]
 	fn transaction_is_submitted_when_difference_is_above_threshold() {
+		let left_to_right_stored_conversion_rate = 1.0;
+		let left_to_base_conversion_rate = 18f64;
+		let right_to_base_conversion_rate = 180f64;
+
+		assert!(left_to_base_conversion_rate < right_to_base_conversion_rate);
+
 		assert_eq!(
 			test_maybe_select_new_conversion_rate(
 				TransactionStatus::Idle,
-				Some(1.0),
-				Some(1.0),
-				Some(1.03),
+				Some(left_to_right_stored_conversion_rate),
+				Some(left_to_base_conversion_rate),
+				Some(right_to_base_conversion_rate),
 				0.02
 			),
-			(Some((1.0, 1.03)), TransactionStatus::Idle),
+			(
+				Some((
+					left_to_right_stored_conversion_rate,
+					left_to_base_conversion_rate / right_to_base_conversion_rate,
+				)),
+				TransactionStatus::Idle
+			),
 		);
 	}
 }
