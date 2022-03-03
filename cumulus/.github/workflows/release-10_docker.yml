@@ -27,7 +27,7 @@ jobs:
           echo "Repo: ${{ github.event.repository.full_name }}"
 
           echo "Name: ${{ github.event.release.name }}"
-          echo "Tag: ${{ github.event.release.tag_name }}
+          echo "Tag: ${{ github.event.release.tag_name }}"
           echo "Draft: ${{ github.event.release.draft }}"
           echo "Prerelease: ${{ github.event.release.prerelease }}"
           echo "Assets: ${{ github.event.release.assets }}"
