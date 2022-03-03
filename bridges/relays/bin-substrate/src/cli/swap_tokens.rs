@@ -65,12 +65,18 @@ pub struct SwapTokens {
 	/// Target chain balance that target signer wants to swap.
 	#[structopt(long)]
 	target_balance: Balance,
-	/// A way to override conversion rate between bridge tokens.
+	/// A way to override conversion rate from target to source tokens.
 	///
 	/// If not specified, conversion rate from runtime storage is used. It may be obsolete and
 	/// your message won't be relayed.
 	#[structopt(long)]
-	conversion_rate_override: Option<ConversionRateOverride>,
+	target_to_source_conversion_rate_override: Option<ConversionRateOverride>,
+	/// A way to override conversion rate from source to target tokens.
+	///
+	/// If not specified, conversion rate from runtime storage is used. It may be obsolete and
+	/// your message won't be relayed.
+	#[structopt(long)]
+	source_to_target_conversion_rate_override: Option<ConversionRateOverride>,
 }
 
 /// Token swap type.
@@ -139,7 +145,10 @@ impl SwapTokens {
 			let source_sign = self.source_sign.to_keypair::<Target>()?;
 			let target_client = self.target.to_client::<Target>().await?;
 			let target_sign = self.target_sign.to_keypair::<Target>()?;
-			let conversion_rate_override = self.conversion_rate_override;
+			let target_to_source_conversion_rate_override =
+				self.target_to_source_conversion_rate_override;
+			let source_to_target_conversion_rate_override =
+				self.source_to_target_conversion_rate_override;
 
 			// names of variables in this function are matching names used by the
 			// `pallet-bridge-token-swap`
@@ -212,7 +221,7 @@ impl SwapTokens {
 					_,
 				>(
 					&source_client,
-					conversion_rate_override.clone(),
+					target_to_source_conversion_rate_override.clone(),
 					ESTIMATE_SOURCE_TO_TARGET_MESSAGE_FEE_METHOD,
 					SOURCE_TO_TARGET_LANE_ID,
 					bp_message_dispatch::MessagePayload {
@@ -375,7 +384,7 @@ impl SwapTokens {
 						_,
 					>(
 						&target_client,
-						conversion_rate_override.clone(),
+						source_to_target_conversion_rate_override.clone(),
 						ESTIMATE_TARGET_TO_SOURCE_MESSAGE_FEE_METHOD,
 						TARGET_TO_SOURCE_LANE_ID,
 						claim_swap_message.clone(),
@@ -770,7 +779,8 @@ mod tests {
 				swap_type: TokenSwapType::NoLock,
 				source_balance: Balance(8000000000),
 				target_balance: Balance(9000000000),
-				conversion_rate_override: None,
+				target_to_source_conversion_rate_override: None,
+				source_to_target_conversion_rate_override: None,
 			}
 		);
 	}
@@ -796,8 +806,10 @@ mod tests {
 			"//Bob",
 			"--target-balance",
 			"9000000000",
-			"--conversion-rate-override",
+			"--target-to-source-conversion-rate-override",
 			"metric",
+			"--source-to-target-conversion-rate-override",
+			"84.56",
 			"lock-until-block",
 			"--blocks-before-expire",
 			"1",
@@ -847,7 +859,10 @@ mod tests {
 				},
 				source_balance: Balance(8000000000),
 				target_balance: Balance(9000000000),
-				conversion_rate_override: Some(ConversionRateOverride::Metric),
+				target_to_source_conversion_rate_override: Some(ConversionRateOverride::Metric),
+				source_to_target_conversion_rate_override: Some(ConversionRateOverride::Explicit(
+					84.56
+				)),
 			}
 		);
 	}
