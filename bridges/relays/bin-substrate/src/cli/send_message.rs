@@ -190,6 +190,7 @@ impl SendMessage {
 				),
 			};
 			let dispatch_weight = payload.weight;
+			let payload_len = payload.encode().len();
 			let send_message_call = Source::encode_call(&encode_call::Call::BridgeSendMessage {
 				bridge_instance_index: self.bridge.bridge_instance_index(),
 				lane: self.lane,
@@ -230,7 +231,7 @@ impl SendMessage {
 						"Sending message to {}. Lane: {:?}. Size: {}. Dispatch weight: {}. Fee: {}",
 						Target::NAME,
 						lane,
-						signed_source_call.len(),
+						payload_len,
 						dispatch_weight,
 						fee,
 					);
