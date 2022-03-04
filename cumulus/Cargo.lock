@@ -2093,7 +2093,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee 0.9.0",
  "parity-scale-codec",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.0",
  "polkadot-service",
  "sc-client-api",
  "sc-rpc-api",

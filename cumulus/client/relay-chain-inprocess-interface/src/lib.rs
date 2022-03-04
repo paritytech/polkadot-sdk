@@ -325,42 +325,44 @@ impl ExecuteWithClient for RelayChainInProcessInterfaceBuilder {
 #[sc_tracing::logging::prefix_logs_with("Relaychain")]
 fn build_polkadot_full_node(
 	config: Configuration,
+	parachain_config: &Configuration,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
-) -> Result<(NewFull<polkadot_client::Client>, CollatorPair), polkadot_service::Error> {
+) -> Result<(NewFull<polkadot_client::Client>, Option<CollatorPair>), polkadot_service::Error> {
 	let is_light = matches!(config.role, Role::Light);
 	if is_light {
 		Err(polkadot_service::Error::Sub("Light client not supported.".into()))
 	} else {
-		let collator_key = CollatorPair::generate().0;
+		let (is_collator, maybe_collator_key) = if parachain_config.role.is_authority() {
+			let collator_key = CollatorPair::generate().0;
+			(polkadot_service::IsCollator::Yes(collator_key.clone()), Some(collator_key))
+		} else {
+			(polkadot_service::IsCollator::No, None)
+		};
 
 		let relay_chain_full_node = polkadot_service::build_full(
 			config,
-			polkadot_service::IsCollator::Yes(collator_key.clone()),
+			is_collator,
 			None,
 			true,
 			None,
 			telemetry_worker_handle,
-			false,
+			true,
 			polkadot_service::RealOverseerGen,
 		)?;
 
-		Ok((relay_chain_full_node, collator_key))
+		Ok((relay_chain_full_node, maybe_collator_key))
 	}
 }
 
 /// Builds a relay chain interface by constructing a full relay chain node
 pub fn build_inprocess_relay_chain(
 	polkadot_config: Configuration,
+	parachain_config: &Configuration,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	task_manager: &mut TaskManager,
-) -> Result<(Arc<(dyn RelayChainInterface + 'static)>, CollatorPair), polkadot_service::Error> {
+) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let (full_node, collator_key) =
-		build_polkadot_full_node(polkadot_config, telemetry_worker_handle).map_err(
-			|e| match e {
-				polkadot_service::Error::Sub(x) => x,
-				s => format!("{}", s).into(),
-			},
-		)?;
+		build_polkadot_full_node(polkadot_config, parachain_config, telemetry_worker_handle)?;
 
 	let sync_oracle: Box<dyn SyncOracle + Send + Sync> = Box::new(full_node.network.clone());
 	let sync_oracle = Arc::new(Mutex::new(sync_oracle));
@@ -370,6 +372,7 @@ pub fn build_inprocess_relay_chain(
 		sync_oracle,
 		overseer_handle: full_node.overseer_handle.clone(),
 	};
+
 	task_manager.add_child(full_node.task_manager);
 
 	Ok((relay_chain_interface_builder.build(), collator_key))
