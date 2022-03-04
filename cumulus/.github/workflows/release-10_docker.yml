@@ -48,10 +48,11 @@ jobs:
 
           KEY_PARITY_SEC=9D4B2B6EB8F97156D19669A9FF0812D491B96798
           KEY_CHEVDOR=2835EAF92072BC01D188AF2C4A092B93E97CE1E2
+          KEYSERVER=keyserver.ubuntu.com
 
-          gpg --receive-keys $KEY_PARITY_SEC
+          gpg --keyserver $KEYSERVER --receive-keys $KEY_PARITY_SEC
           if [[ ${{ github.event.release.prerelease }} == "true" ]]; then
-              gpg --receive-keys $KEY_CHEVDOR
+              gpg --keyserver $KEYSERVER --receive-keys $KEY_CHEVDOR
           fi
 
           gpg --verify $BINARY.asc
