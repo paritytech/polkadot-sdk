@@ -15,7 +15,10 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	cli::{bridge::FullBridge, Balance, CliChain, HexBytes, HexLaneId, SourceConnectionParams},
+	cli::{
+		bridge::FullBridge, relay_headers_and_messages::CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
+		Balance, CliChain, HexBytes, HexLaneId, SourceConnectionParams,
+	},
 	select_full_bridge,
 };
 use bp_runtime::BalanceOf;
@@ -116,44 +119,78 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<
 	// lane. So we MUST use the larger of two fees - one computed with stored fee and the one
 	// computed with actual fee.
 
-	let conversion_rate_override = match (
-		conversion_rate_override,
-		Source::TOKEN_ID,
-		Target::TOKEN_ID,
-	) {
-		(Some(ConversionRateOverride::Explicit(v)), _, _) => {
-			let conversion_rate_override = FixedU128::from_float(v);
-			log::info!(target: "bridge", "{} -> {} conversion rate override: {:?} (explicit)", Target::NAME, Source::NAME, conversion_rate_override.to_float());
-			Some(conversion_rate_override)
-		},
-		(Some(ConversionRateOverride::Metric), Some(source_token_id), Some(target_token_id)) => {
-			let conversion_rate_override = FixedU128::from_float(
-				tokens_conversion_rate_from_metrics(target_token_id, source_token_id).await?,
-			);
-			log::info!(target: "bridge", "{} -> {} conversion rate override: {:?} (from metric)", Target::NAME, Source::NAME, conversion_rate_override.to_float());
-			Some(conversion_rate_override)
-		},
-		_ => None,
-	};
+	let conversion_rate_override =
+		match (conversion_rate_override, Source::TOKEN_ID, Target::TOKEN_ID) {
+			(Some(ConversionRateOverride::Explicit(v)), _, _) => {
+				let conversion_rate_override = FixedU128::from_float(v);
+				log::info!(
+					target: "bridge",
+					"{} -> {} conversion rate override: {:?} (explicit)",
+					Target::NAME,
+					Source::NAME,
+					conversion_rate_override.to_float(),
+				);
+				Some(conversion_rate_override)
+			},
+			(
+				Some(ConversionRateOverride::Metric),
+				Some(source_token_id),
+				Some(target_token_id),
+			) => {
+				let conversion_rate_override =
+					tokens_conversion_rate_from_metrics(target_token_id, source_token_id).await?;
+				// So we have current actual conversion rate and rate that is stored in the runtime.
+				// And we may simply choose the maximal of these. But what if right now there's
+				// rate update transaction on the way, that is updating rate to 10 seconds old
+				// actual rate, which is bigger than the current rate? Then our message will be
+				// rejected.
+				//
+				// So let's increase the actual rate by the same value that the conversion rate
+				// updater is using.
+				let increased_conversion_rate_override = FixedU128::from_float(
+					conversion_rate_override * (1.0 + CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO),
+				);
+				log::info!(
+					target: "bridge",
+					"{} -> {} conversion rate override: {} (value from metric - {})",
+					Target::NAME,
+					Source::NAME,
+					increased_conversion_rate_override.to_float(),
+					conversion_rate_override,
+				);
+				Some(increased_conversion_rate_override)
+			},
+			_ => None,
+		};
 
-	Ok(std::cmp::max(
-		do_estimate_message_delivery_and_dispatch_fee(
-			client,
-			estimate_fee_method,
-			lane,
-			payload.clone(),
-			None,
-		)
-		.await?,
-		do_estimate_message_delivery_and_dispatch_fee(
-			client,
-			estimate_fee_method,
-			lane,
-			payload.clone(),
-			conversion_rate_override,
-		)
-		.await?,
-	))
+	let without_override = do_estimate_message_delivery_and_dispatch_fee(
+		client,
+		estimate_fee_method,
+		lane,
+		payload.clone(),
+		None,
+	)
+	.await?;
+	let with_override = do_estimate_message_delivery_and_dispatch_fee(
+		client,
+		estimate_fee_method,
+		lane,
+		payload.clone(),
+		conversion_rate_override,
+	)
+	.await?;
+	let maximal_fee = std::cmp::max(without_override, with_override);
+
+	log::info!(
+		target: "bridge",
+		"Estimated message fee: {:?} = max of {:?} (without rate override) and {:?} (with override to {:?})",
+		maximal_fee,
+		without_override,
+		with_override,
+		conversion_rate_override,
+	);
+
+	Ok(maximal_fee)
 }
 
 /// Estimate message delivery and dispatch fee with given conversion rate override.
