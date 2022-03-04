@@ -363,7 +363,7 @@ impl SwapTokens {
 			//
 
 			if is_transfer_succeeded {
-				log::info!(target: "bridge", "Claiming the swap swap");
+				log::info!(target: "bridge", "Claiming the swap");
 
 				// prepare `claim_swap` message that will be sent over the bridge
 				let claim_swap_call: CallOf<Source> =
