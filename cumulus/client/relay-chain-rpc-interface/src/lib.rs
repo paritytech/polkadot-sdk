@@ -416,8 +416,7 @@ impl RelayChainInterface for RelayChainRPCInterface {
 			.state_get_read_proof(storage_keys, Some(relay_parent))
 			.await
 			.map(|read_proof| {
-				let bytes = read_proof.proof.into_iter().map(|bytes| bytes.to_vec()).collect();
-				StorageProof::new(bytes)
+				StorageProof::new(read_proof.proof.into_iter().map(|bytes| bytes.to_vec()))
 			})
 	}
 
