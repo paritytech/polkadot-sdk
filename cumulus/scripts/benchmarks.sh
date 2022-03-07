@@ -20,8 +20,9 @@ pallets=(
 	pallet_session
 	pallet_timestamp
 	pallet_utility
-    pallet_uniques
-    frame_system
+	pallet_uniques
+	cumulus_pallet_xcmp_queue
+	frame_system
 )
 
 for p in ${pallets[@]}

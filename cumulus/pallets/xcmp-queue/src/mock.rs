@@ -188,6 +188,7 @@ impl Config for Test {
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<Origin>;
+	type WeightInfo = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

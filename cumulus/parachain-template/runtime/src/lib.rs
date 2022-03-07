@@ -386,6 +386,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
+	type WeightInfo = ();
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -502,6 +503,7 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_xcmp_queue, XcmpQueue]
 	);
 }
 

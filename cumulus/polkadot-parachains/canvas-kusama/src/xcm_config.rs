@@ -195,6 +195,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 		EnsureXcm<IsMajorityOfBody<RelayLocation, ExecutiveBody>>,
 	>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
+	type WeightInfo = cumulus_pallet_xcmp_queue::weights::SubstrateWeight<Runtime>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {

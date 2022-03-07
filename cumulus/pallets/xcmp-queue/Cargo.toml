@@ -23,6 +23,9 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", default-feature
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
+# Optional import for benchmarking
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate", branch = "master" }
+
 [dev-dependencies]
 
 # Substrate
@@ -49,4 +52,10 @@ std = [
 	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",	
+	"frame-system/runtime-benchmarks",
 ]
