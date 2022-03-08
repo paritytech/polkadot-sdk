@@ -1196,9 +1196,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.5"
+version = "3.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced1892c55c910c1219e98d6fc8d71f6bddba7905866ce740066d8bfea859312"
+checksum = "d8c93436c21e4698bacadf42917db28b23017027a4deccb35dbe47a7e7840123"
 dependencies = [
  "atty",
  "bitflags",
@@ -1587,7 +1587,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.5",
+ "clap 3.1.6",
  "sc-cli",
  "sc-service",
  "url 2.2.2",
@@ -2833,7 +2833,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#f6679ddd31f6
 dependencies = [
  "Inflector",
  "chrono",
- "clap 3.1.5",
+ "clap 3.1.6",
  "frame-benchmarking",
  "frame-support",
  "handlebars",
@@ -6674,7 +6674,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.5",
+ "clap 3.1.6",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -7278,7 +7278,7 @@ name = "polkadot-cli"
 version = "0.9.17"
 source = "git+https://github.com/paritytech/polkadot?branch=master#a58b7745e2d4e72dfa378caaa87ff3caa2bf0dfb"
 dependencies = [
- "clap 3.1.5",
+ "clap 3.1.6",
  "frame-benchmarking-cli",
  "futures 0.3.21",
  "log",
@@ -7333,7 +7333,7 @@ dependencies = [
  "assert_cmd",
  "async-trait",
  "canvas-kusama-runtime",
- "clap 3.1.5",
+ "clap 3.1.6",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -9529,7 +9529,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#f6679ddd31f68e9f1578064d58a246130c27026b"
 dependencies = [
  "chrono",
- "clap 3.1.5",
+ "clap 3.1.6",
  "fdlimit",
  "futures 0.3.21",
  "hex",
@@ -12472,7 +12472,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#f6679ddd31f68e9f1578064d58a246130c27026b"
 dependencies = [
- "clap 3.1.5",
+ "clap 3.1.6",
  "jsonrpsee 0.4.1",
  "log",
  "parity-scale-codec",
