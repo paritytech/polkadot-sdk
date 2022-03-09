@@ -20,7 +20,7 @@
 // Runtime-generated DecodeLimit::decode_all_with_depth_limit
 #![allow(clippy::unnecessary_mut_passed)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
+use bp_messages::{LaneId, MessageDetails, MessageNonce};
 use frame_support::weights::{
 	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
@@ -107,10 +107,6 @@ pub const TO_KUSAMA_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToKusamaOutboundLaneApi::message_details` runtime method.
 pub const TO_KUSAMA_MESSAGE_DETAILS_METHOD: &str = "ToKusamaOutboundLaneApi_message_details";
 
-/// Name of the `FromKusamaInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_KUSAMA_UNREWARDED_RELAYERS_STATE: &str =
-	"FromKusamaInboundLaneApi_unrewarded_relayers_state";
-
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Kusama headers.
 	///
@@ -150,14 +146,5 @@ sp_api::decl_runtime_apis! {
 			begin: MessageNonce,
 			end: MessageNonce,
 		) -> Vec<MessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Kusama chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Kusama chain, not the
-	/// Kusama runtime itself.
-	pub trait FromKusamaInboundLaneApi {
-		/// State of the unrewarded relayers set at given lane.
-		fn unrewarded_relayers_state(lane: LaneId) -> UnrewardedRelayersState;
 	}
 }

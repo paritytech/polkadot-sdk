@@ -28,13 +28,13 @@ use crate::{
 
 use async_trait::async_trait;
 use bp_messages::{
-	storage_keys::inbound_lane_data_key, InboundLaneData, LaneId, MessageNonce,
-	UnrewardedRelayersState,
+	storage_keys::inbound_lane_data_key, total_unrewarded_messages, InboundLaneData, LaneId,
+	MessageNonce, UnrewardedRelayersState,
 };
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::weights::{Weight, WeightToFeePolynomial};
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -49,7 +49,7 @@ use relay_substrate_client::{
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
-use std::{convert::TryFrom, ops::RangeInclusive};
+use std::{collections::VecDeque, convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C> =
@@ -188,17 +188,19 @@ where
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, UnrewardedRelayersState), SubstrateError>
 	{
-		let encoded_response = self
-			.target_client
-			.state_call(
-				P::SourceChain::FROM_CHAIN_UNREWARDED_RELAYERS_STATE.into(),
-				Bytes(self.lane_id.encode()),
-				Some(id.1),
-			)
-			.await?;
-		let unrewarded_relayers_state: UnrewardedRelayersState =
-			Decode::decode(&mut &encoded_response.0[..])
-				.map_err(SubstrateError::ResponseParseFailed)?;
+		let relayers = self
+			.inbound_lane_data(id)
+			.await?
+			.map(|data| data.relayers)
+			.unwrap_or_else(|| VecDeque::new());
+		let unrewarded_relayers_state = bp_messages::UnrewardedRelayersState {
+			unrewarded_relayer_entries: relayers.len() as _,
+			messages_in_oldest_entry: relayers
+				.front()
+				.map(|entry| 1 + entry.messages.end - entry.messages.begin)
+				.unwrap_or(0),
+			total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
+		};
 		Ok((id, unrewarded_relayers_state))
 	}
 

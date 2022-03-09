@@ -20,7 +20,7 @@
 // Runtime-generated DecodeLimit::decode_all_with_depth_limit
 #![allow(clippy::unnecessary_mut_passed)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
+use bp_messages::{LaneId, MessageDetails, MessageNonce};
 use frame_support::weights::{
 	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
@@ -107,10 +107,6 @@ pub const TO_POLKADOT_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToPolkadotOutboundLaneApi::message_details` runtime method.
 pub const TO_POLKADOT_MESSAGE_DETAILS_METHOD: &str = "ToPolkadotOutboundLaneApi_message_details";
 
-/// Name of the `FromPolkadotInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_POLKADOT_UNREWARDED_RELAYERS_STATE: &str =
-	"FromPolkadotInboundLaneApi_unrewarded_relayers_state";
-
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Polkadot headers.
 	///
@@ -150,14 +146,5 @@ sp_api::decl_runtime_apis! {
 			begin: MessageNonce,
 			end: MessageNonce,
 		) -> Vec<MessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Polkadot chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Polkadot chain, not the
-	/// Polkadot runtime itself.
-	pub trait FromPolkadotInboundLaneApi {
-		/// State of the unrewarded relayers set at given lane.
-		fn unrewarded_relayers_state(lane: LaneId) -> UnrewardedRelayersState;
 	}
 }
