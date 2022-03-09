@@ -29,6 +29,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "mas
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
@@ -50,6 +51,7 @@ std = [
 	"pallet-bridge-messages/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
+	"sp-api/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
