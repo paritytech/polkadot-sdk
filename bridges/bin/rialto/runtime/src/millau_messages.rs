@@ -476,4 +476,69 @@ mod tests {
 			.0,
 		);
 	}
+
+	#[test]
+	#[ignore]
+	fn no_stack_overflow_when_decoding_nested_call_during_dispatch() {
+		// this test is normally ignored, because it only makes sense to run it in release mode
+
+		let mut ext: sp_io::TestExternalities =
+			SystemConfig::default().build_storage::<Runtime>().unwrap().into();
+		ext.execute_with(|| {
+			let bridge = MILLAU_CHAIN_ID;
+
+			let mut call: Call = SystemCall::set_heap_pages { pages: 64 }.into();
+
+			for _i in 0..3000 {
+				call = Call::Sudo(pallet_sudo::Call::sudo { call: Box::new(call) });
+			}
+
+			let dispatch_weight = 500;
+			let dispatch_fee = <Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(
+				&dispatch_weight,
+			);
+			assert!(dispatch_fee > 0);
+
+			// create relayer account with minimal balance
+			let relayer_account: AccountId = [1u8; 32].into();
+			let initial_amount = ExistentialDeposit::get();
+			let _ = <pallet_balances::Pallet<Runtime> as Currency<AccountId>>::deposit_creating(
+				&relayer_account,
+				initial_amount,
+			);
+
+			// create dispatch account with minimal balance + dispatch fee
+			let dispatch_account = derive_account_id::<
+				<Runtime as pallet_bridge_dispatch::Config>::SourceChainAccountId,
+			>(bridge, SourceAccount::Root);
+			let dispatch_account =
+				<Runtime as pallet_bridge_dispatch::Config>::AccountIdConverter::convert(
+					dispatch_account,
+				);
+			let _ = <pallet_balances::Pallet<Runtime> as Currency<AccountId>>::deposit_creating(
+				&dispatch_account,
+				initial_amount + dispatch_fee,
+			);
+
+			// dispatch message with intention to pay dispatch fee at the target chain
+			//
+			// this is where the stack overflow has happened before the fix has been applied
+			FromMillauMessageDispatch::dispatch(
+				&relayer_account,
+				DispatchMessage {
+					key: MessageKey { lane_id: Default::default(), nonce: 0 },
+					data: DispatchMessageData {
+						payload: Ok(FromBridgedChainMessagePayload::<WithMillauMessageBridge> {
+							spec_version: VERSION.spec_version,
+							weight: dispatch_weight,
+							origin: CallOrigin::SourceRoot,
+							dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
+							call: FromBridgedChainEncodedMessageCall::new(call.encode()),
+						}),
+						fee: 1,
+					},
+				},
+			);
+		});
+	}
 }
