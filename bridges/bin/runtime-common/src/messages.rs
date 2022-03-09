@@ -30,7 +30,7 @@ use bp_runtime::{
 	messages::{DispatchFeePayment, MessageDispatchResult},
 	ChainId, Size, StorageProofChecker,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 use frame_support::{
 	traits::{Currency, ExistenceRequirement},
 	weights::{Weight, WeightToFeePolynomial},
@@ -521,7 +521,11 @@ pub mod target {
 		for Result<DecodedCall, ()>
 	{
 		fn from(encoded_call: FromBridgedChainEncodedMessageCall<DecodedCall>) -> Self {
-			DecodedCall::decode(&mut &encoded_call.encoded_call[..]).map_err(drop)
+			DecodedCall::decode_with_depth_limit(
+				sp_api::MAX_EXTRINSIC_DEPTH,
+				&mut &encoded_call.encoded_call[..],
+			)
+			.map_err(drop)
 		}
 	}
 
