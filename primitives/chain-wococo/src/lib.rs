@@ -20,7 +20,7 @@
 // Runtime-generated DecodeLimit::decode_all_with_depth_limit
 #![allow(clippy::unnecessary_mut_passed)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
+use bp_messages::{LaneId, MessageDetails, MessageNonce};
 use sp_runtime::FixedU128;
 use sp_std::prelude::*;
 
@@ -59,10 +59,6 @@ pub const TO_WOCOCO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 	"ToWococoOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
 /// Name of the `ToWococoOutboundLaneApi::message_details` runtime method.
 pub const TO_WOCOCO_MESSAGE_DETAILS_METHOD: &str = "ToWococoOutboundLaneApi_message_details";
-
-/// Name of the `FromWococoInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_WOCOCO_UNREWARDED_RELAYERS_STATE: &str =
-	"FromWococoInboundLaneApi_unrewarded_relayers_state";
 
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Wococo headers.
@@ -103,14 +99,5 @@ sp_api::decl_runtime_apis! {
 			begin: MessageNonce,
 			end: MessageNonce,
 		) -> Vec<MessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Wococo chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Wococo chain, not the
-	/// Wococo runtime itself.
-	pub trait FromWococoInboundLaneApi {
-		/// State of the unrewarded relayers set at given lane.
-		fn unrewarded_relayers_state(lane: LaneId) -> UnrewardedRelayersState;
 	}
 }
