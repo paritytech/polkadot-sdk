@@ -17,6 +17,7 @@
 //! Tools for supporting message lanes between two Substrate-based chains.
 
 use crate::{
+	conversion_rate_update::UpdateConversionRateCallBuilder,
 	messages_metrics::StandaloneMessagesMetrics,
 	messages_source::{SubstrateMessagesProof, SubstrateMessagesSource},
 	messages_target::{SubstrateMessagesDeliveryProof, SubstrateMessagesTarget},
@@ -88,6 +89,13 @@ pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
 	type ReceiveMessagesProofCallBuilder: ReceiveMessagesProofCallBuilder<Self>;
 	/// How receive messages delivery proof call is built?
 	type ReceiveMessagesDeliveryProofCallBuilder: ReceiveMessagesDeliveryProofCallBuilder<Self>;
+
+	/// `TargetChain` tokens to `SourceChain` tokens conversion rate update builder.
+	///
+	/// If not applicable to this bridge, you may use `()` here.
+	type TargetToSourceChainConversionRateUpdateBuilder: UpdateConversionRateCallBuilder<
+		Self::SourceChain,
+	>;
 
 	/// Message relay strategy.
 	type RelayStrategy: RelayStrategy;
