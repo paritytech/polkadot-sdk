@@ -16,13 +16,9 @@
 
 //! Rialto-to-Millau messages sync entrypoint.
 
-use codec::Encode;
-use sp_core::{Bytes, Pair};
-
 use messages_relay::relay_strategy::MixStrategy;
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
-use relay_substrate_client::{Client, SignParam, TransactionSignScheme, UnsignedTransaction};
 use substrate_relay_helper::messages_lane::{
 	DirectReceiveMessagesDeliveryProofCallBuilder, DirectReceiveMessagesProofCallBuilder,
 	SubstrateMessageLane,
@@ -31,6 +27,13 @@ use substrate_relay_helper::messages_lane::{
 /// Description of Rialto -> Millau messages bridge.
 #[derive(Clone, Debug)]
 pub struct RialtoMessagesToMillau;
+substrate_relay_helper::generate_direct_update_conversion_rate_call_builder!(
+	Rialto,
+	RialtoMessagesToMillauUpdateConversionRateCallBuilder,
+	rialto_runtime::Runtime,
+	rialto_runtime::WithMillauMessagesInstance,
+	rialto_runtime::millau_messages::RialtoToMillauMessagesParameter::MillauToRialtoConversionRate
+);
 
 impl SubstrateMessageLane for RialtoMessagesToMillau {
 	const SOURCE_TO_TARGET_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> =
@@ -60,40 +63,8 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		rialto_runtime::WithMillauMessagesInstance,
 	>;
 
-	type RelayStrategy = MixStrategy;
-}
+	type TargetToSourceChainConversionRateUpdateBuilder =
+		RialtoMessagesToMillauUpdateConversionRateCallBuilder;
 
-/// Update Millau -> Rialto conversion rate, stored in Rialto runtime storage.
-pub(crate) async fn update_millau_to_rialto_conversion_rate(
-	client: Client<Rialto>,
-	signer: <Rialto as TransactionSignScheme>::AccountKeyPair,
-	updated_rate: f64,
-) -> anyhow::Result<()> {
-	let genesis_hash = *client.genesis_hash();
-	let signer_id = (*signer.public().as_array_ref()).into();
-	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
-	client
-		.submit_signed_extrinsic(signer_id, move |_, transaction_nonce| {
-			Ok(Bytes(
-				Rialto::sign_transaction(SignParam {
-					spec_version,
-					transaction_version,
-					genesis_hash,
-					signer,
-					era: relay_substrate_client::TransactionEra::immortal(),
-					unsigned: UnsignedTransaction::new(
-						rialto_runtime::Call::from(rialto_runtime::MessagesCall::update_pallet_parameter {
-							parameter: rialto_runtime::millau_messages::RialtoToMillauMessagesParameter::MillauToRialtoConversionRate(
-								sp_runtime::FixedU128::from_float(updated_rate),
-							),
-						}).into(),
-						transaction_nonce,
-					)
-				})?
-				.encode(),
-			))
-		})
-		.await
-		.map(drop)
-		.map_err(|err| anyhow::format_err!("{:?}", err))
+	type RelayStrategy = MixStrategy;
 }
