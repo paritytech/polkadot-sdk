@@ -16,14 +16,11 @@
 
 //! Kusama-to-Polkadot messages sync entrypoint.
 
-use codec::Encode;
 use frame_support::weights::Weight;
-use sp_core::{Bytes, Pair};
 
 use messages_relay::relay_strategy::MixStrategy;
 use relay_kusama_client::Kusama;
 use relay_polkadot_client::Polkadot;
-use relay_substrate_client::{Client, SignParam, TransactionSignScheme, UnsignedTransaction};
 use substrate_relay_helper::messages_lane::SubstrateMessageLane;
 
 /// Description of Kusama -> Polkadot messages bridge.
@@ -40,6 +37,13 @@ substrate_relay_helper::generate_mocked_receive_message_delivery_proof_call_buil
 	KusamaMessagesToPolkadotReceiveMessagesDeliveryProofCallBuilder,
 	relay_kusama_client::runtime::Call::BridgePolkadotMessages,
 	relay_kusama_client::runtime::BridgePolkadotMessagesCall::receive_messages_delivery_proof
+);
+substrate_relay_helper::generate_mocked_update_conversion_rate_call_builder!(
+	Kusama,
+	KusamaMessagesToPolkadotUpdateConversionRateCallBuilder,
+	relay_kusama_client::runtime::Call::BridgePolkadotMessages,
+	relay_kusama_client::runtime::BridgePolkadotMessagesCall::update_pallet_parameter,
+	relay_kusama_client::runtime::BridgePolkadotMessagesParameter::PolkadotToKusamaConversionRate
 );
 
 impl SubstrateMessageLane for KusamaMessagesToPolkadot {
@@ -68,42 +72,8 @@ impl SubstrateMessageLane for KusamaMessagesToPolkadot {
 	type ReceiveMessagesDeliveryProofCallBuilder =
 		KusamaMessagesToPolkadotReceiveMessagesDeliveryProofCallBuilder;
 
-	type RelayStrategy = MixStrategy;
-}
+	type TargetToSourceChainConversionRateUpdateBuilder =
+		KusamaMessagesToPolkadotUpdateConversionRateCallBuilder;
 
-/// Update Polkadot -> Kusama conversion rate, stored in Kusama runtime storage.
-pub(crate) async fn update_polkadot_to_kusama_conversion_rate(
-	client: Client<Kusama>,
-	signer: <Kusama as TransactionSignScheme>::AccountKeyPair,
-	updated_rate: f64,
-) -> anyhow::Result<()> {
-	let genesis_hash = *client.genesis_hash();
-	let signer_id = (*signer.public().as_array_ref()).into();
-	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
-	client
-		.submit_signed_extrinsic(signer_id, move |_, transaction_nonce| {
-			Ok(Bytes(
-				Kusama::sign_transaction(SignParam {
-					spec_version,
-					transaction_version,
-					genesis_hash,
-					signer,
-					era: relay_substrate_client::TransactionEra::immortal(),
-					unsigned: UnsignedTransaction::new(
-						relay_kusama_client::runtime::Call::BridgePolkadotMessages(
-							relay_kusama_client::runtime::BridgePolkadotMessagesCall::update_pallet_parameter(
-								relay_kusama_client::runtime::BridgePolkadotMessagesParameter::PolkadotToKusamaConversionRate(
-									sp_runtime::FixedU128::from_float(updated_rate),
-								)
-							)
-						).into(),
-						transaction_nonce,
-					),
-				})?
-				.encode(),
-			))
-		})
-		.await
-		.map(drop)
-		.map_err(|err| anyhow::format_err!("{:?}", err))
+	type RelayStrategy = MixStrategy;
 }
