@@ -903,12 +903,6 @@ impl_runtime_apis! {
 			>(lane, begin, end)
 		}
 	}
-
-	impl bp_millau::FromMillauInboundLaneApi<Block> for Runtime {
-		fn unrewarded_relayers_state(lane: bp_messages::LaneId) -> bp_messages::UnrewardedRelayersState {
-			BridgeMillauMessages::inbound_unrewarded_relayers_state(lane)
-		}
-	}
 }
 
 /// Millau account ownership digest from Rialto.

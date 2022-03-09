@@ -764,21 +764,6 @@ pub mod pallet {
 		) -> Option<MessageData<T::OutboundMessageFee>> {
 			OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce })
 		}
-
-		/// Get state of unrewarded relayers set.
-		pub fn inbound_unrewarded_relayers_state(
-			lane: bp_messages::LaneId,
-		) -> bp_messages::UnrewardedRelayersState {
-			let relayers = InboundLanes::<T, I>::get(&lane).relayers;
-			bp_messages::UnrewardedRelayersState {
-				unrewarded_relayer_entries: relayers.len() as _,
-				messages_in_oldest_entry: relayers
-					.front()
-					.map(|entry| 1 + entry.messages.end - entry.messages.begin)
-					.unwrap_or(0),
-				total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
-			}
-		}
 	}
 }
 
@@ -1125,6 +1110,20 @@ mod tests {
 	fn get_ready_for_events() {
 		System::<TestRuntime>::set_block_number(1);
 		System::<TestRuntime>::reset_events();
+	}
+
+	fn inbound_unrewarded_relayers_state(
+		lane: bp_messages::LaneId,
+	) -> bp_messages::UnrewardedRelayersState {
+		let relayers = InboundLanes::<TestRuntime, ()>::get(&lane).relayers;
+		bp_messages::UnrewardedRelayersState {
+			unrewarded_relayer_entries: relayers.len() as _,
+			messages_in_oldest_entry: relayers
+				.front()
+				.map(|entry| 1 + entry.messages.end - entry.messages.begin)
+				.unwrap_or(0),
+			total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
+		}
 	}
 
 	fn send_regular_message() -> Weight {
@@ -1571,7 +1570,7 @@ mod tests {
 				},
 			);
 			assert_eq!(
-				Pallet::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				inbound_unrewarded_relayers_state(TEST_LANE_ID),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,
@@ -1606,7 +1605,7 @@ mod tests {
 				},
 			);
 			assert_eq!(
-				Pallet::<TestRuntime>::inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				inbound_unrewarded_relayers_state(TEST_LANE_ID),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,

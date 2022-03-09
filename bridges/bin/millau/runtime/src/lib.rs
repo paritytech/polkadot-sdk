@@ -779,12 +779,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_rialto::FromRialtoInboundLaneApi<Block> for Runtime {
-		fn unrewarded_relayers_state(lane: bp_messages::LaneId) -> bp_messages::UnrewardedRelayersState {
-			BridgeRialtoMessages::inbound_unrewarded_relayers_state(lane)
-		}
-	}
-
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (

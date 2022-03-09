@@ -20,7 +20,7 @@
 // Runtime-generated DecodeLimit::decode_all_with_depth_limit
 #![allow(clippy::unnecessary_mut_passed)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce, UnrewardedRelayersState};
+use bp_messages::{LaneId, MessageDetails, MessageNonce};
 use frame_support::weights::{
 	Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
@@ -91,10 +91,6 @@ pub const TO_ROCOCO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToRococoOutboundLaneApi::message_details` runtime method.
 pub const TO_ROCOCO_MESSAGE_DETAILS_METHOD: &str = "ToRococoOutboundLaneApi_message_details";
 
-/// Name of the `FromRococoInboundLaneApi::unrewarded_relayers_state` runtime method.
-pub const FROM_ROCOCO_UNREWARDED_RELAYERS_STATE: &str =
-	"FromRococoInboundLaneApi_unrewarded_relayers_state";
-
 /// Existential deposit on Rococo.
 pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 100;
 
@@ -146,14 +142,5 @@ sp_api::decl_runtime_apis! {
 			begin: MessageNonce,
 			end: MessageNonce,
 		) -> Vec<MessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Rococo chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Rococo chain, not the
-	/// Rococo runtime itself.
-	pub trait FromRococoInboundLaneApi {
-		/// State of the unrewarded relayers set at given lane.
-		fn unrewarded_relayers_state(lane: LaneId) -> UnrewardedRelayersState;
 	}
 }
