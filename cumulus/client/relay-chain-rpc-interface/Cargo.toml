@@ -24,7 +24,7 @@ futures-timer = "3.0.2"
 parity-scale-codec = "3.0.0"
 parking_lot = "0.12.0"
 jsonrpsee = { version = "0.9.0", features = ["client"] }
-tracing = "0.1.25"
+tracing = "0.1.32"
 async-trait = "0.1.52"
 url = "2.2.2"
 backoff = { version = "0.4.0", features = ["tokio"] }

@@ -9,7 +9,7 @@ edition = "2021"
 async-trait = "0.1.42"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 futures = { version = "0.3.8", features = ["compat"] }
-tracing = "0.1.31"
+tracing = "0.1.32"
 
 # Substrate
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
