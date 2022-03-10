@@ -28,21 +28,21 @@ pub use polkadot_parachain::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
 	XcmpMessageHandler,
 };
-pub use polkadot_primitives::v1::{
+pub use polkadot_primitives::v2::{
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
 
 /// A module that re-exports relevant relay chain definitions.
 pub mod relay_chain {
 	pub use polkadot_core_primitives::*;
-	pub use polkadot_primitives::{v1, v1::well_known_keys, v2};
+	pub use polkadot_primitives::{v2, v2::well_known_keys};
 }
 
 /// An inbound HRMP message.
-pub type InboundHrmpMessage = polkadot_primitives::v1::InboundHrmpMessage<relay_chain::BlockNumber>;
+pub type InboundHrmpMessage = polkadot_primitives::v2::InboundHrmpMessage<relay_chain::BlockNumber>;
 
 /// And outbound HRMP message
-pub type OutboundHrmpMessage = polkadot_primitives::v1::OutboundHrmpMessage<ParaId>;
+pub type OutboundHrmpMessage = polkadot_primitives::v2::OutboundHrmpMessage<ParaId>;
 
 /// Error description of a message send failure.
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode)]
@@ -204,11 +204,11 @@ pub struct CollationInfoV1 {
 	/// The horizontal messages sent by the parachain.
 	pub horizontal_messages: Vec<OutboundHrmpMessage>,
 	/// New validation code.
-	pub new_validation_code: Option<relay_chain::v1::ValidationCode>,
+	pub new_validation_code: Option<relay_chain::v2::ValidationCode>,
 	/// The number of messages processed from the DMQ.
 	pub processed_downward_messages: u32,
 	/// The mark which specifies the block number up to which all inbound HRMP messages are processed.
-	pub hrmp_watermark: relay_chain::v1::BlockNumber,
+	pub hrmp_watermark: relay_chain::v2::BlockNumber,
 }
 
 impl CollationInfoV1 {
@@ -233,11 +233,11 @@ pub struct CollationInfo {
 	/// The horizontal messages sent by the parachain.
 	pub horizontal_messages: Vec<OutboundHrmpMessage>,
 	/// New validation code.
-	pub new_validation_code: Option<relay_chain::v1::ValidationCode>,
+	pub new_validation_code: Option<relay_chain::v2::ValidationCode>,
 	/// The number of messages processed from the DMQ.
 	pub processed_downward_messages: u32,
 	/// The mark which specifies the block number up to which all inbound HRMP messages are processed.
-	pub hrmp_watermark: relay_chain::v1::BlockNumber,
+	pub hrmp_watermark: relay_chain::v2::BlockNumber,
 	/// The head data, aka encoded header, of the block that corresponds to the collation.
 	pub head_data: HeadData,
 }

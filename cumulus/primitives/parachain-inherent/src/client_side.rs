@@ -19,7 +19,7 @@
 use crate::ParachainInherentData;
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain::{self, v1::HrmpChannelId, Hash as PHash},
+	relay_chain::{self, v2::HrmpChannelId, Hash as PHash},
 	ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;

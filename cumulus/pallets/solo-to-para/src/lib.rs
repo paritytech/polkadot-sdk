@@ -21,7 +21,7 @@ use cumulus_pallet_parachain_system as parachain_system;
 use frame_support::{dispatch::DispatchResult, pallet_prelude::*, weights::DispatchInfo};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use polkadot_primitives::v1::PersistedValidationData;
+use polkadot_primitives::v2::PersistedValidationData;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, SignedExtension},

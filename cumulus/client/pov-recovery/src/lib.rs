@@ -51,7 +51,7 @@ use sp_runtime::{
 
 use polkadot_node_primitives::{AvailableData, POV_BOMB_LIMIT};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::v1::{
+use polkadot_primitives::v2::{
 	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
 };
 

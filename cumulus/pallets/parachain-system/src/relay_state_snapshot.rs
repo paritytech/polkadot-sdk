@@ -145,7 +145,7 @@ impl RelayChainStateProof {
 	/// `proof`.
 	pub fn new(
 		para_id: ParaId,
-		relay_parent_storage_root: relay_chain::v1::Hash,
+		relay_parent_storage_root: relay_chain::v2::Hash,
 		proof: StorageProof,
 	) -> Result<Self, Error> {
 		let db = proof.into_memory_db::<HashFor<relay_chain::Block>>();
@@ -191,7 +191,7 @@ impl RelayChainStateProof {
 
 		let mut ingress_channels = Vec::with_capacity(ingress_channel_index.len());
 		for sender in ingress_channel_index {
-			let channel_id = relay_chain::v1::HrmpChannelId { sender, recipient: self.para_id };
+			let channel_id = relay_chain::v2::HrmpChannelId { sender, recipient: self.para_id };
 			let hrmp_channel: AbridgedHrmpChannel = read_entry(
 				&self.trie_backend,
 				&relay_chain::well_known_keys::hrmp_channels(channel_id),
@@ -203,7 +203,7 @@ impl RelayChainStateProof {
 
 		let mut egress_channels = Vec::with_capacity(egress_channel_index.len());
 		for recipient in egress_channel_index {
-			let channel_id = relay_chain::v1::HrmpChannelId { sender: self.para_id, recipient };
+			let channel_id = relay_chain::v2::HrmpChannelId { sender: self.para_id, recipient };
 			let hrmp_channel: AbridgedHrmpChannel = read_entry(
 				&self.trie_backend,
 				&relay_chain::well_known_keys::hrmp_channels(channel_id),
@@ -231,12 +231,12 @@ impl RelayChainStateProof {
 			.map_err(Error::Config)
 	}
 
-	/// Read the [`Slot`](relay_chain::v1::Slot) from the relay chain state proof.
+	/// Read the [`Slot`](relay_chain::v2::Slot) from the relay chain state proof.
 	///
 	/// The slot is slot of the relay chain block this state proof was extracted from.
 	///
 	/// Returns an error if anything failed at reading or decoding.
-	pub fn read_slot(&self) -> Result<relay_chain::v1::Slot, Error> {
+	pub fn read_slot(&self) -> Result<relay_chain::v2::Slot, Error> {
 		read_entry(&self.trie_backend, relay_chain::well_known_keys::CURRENT_SLOT, None)
 			.map_err(Error::Slot)
 	}
@@ -250,7 +250,7 @@ impl RelayChainStateProof {
 	/// Returns an error if anything failed at reading or decoding.
 	pub fn read_upgrade_go_ahead_signal(
 		&self,
-	) -> Result<Option<relay_chain::v1::UpgradeGoAhead>, Error> {
+	) -> Result<Option<relay_chain::v2::UpgradeGoAhead>, Error> {
 		read_optional_entry(
 			&self.trie_backend,
 			&relay_chain::well_known_keys::upgrade_go_ahead_signal(self.para_id),
@@ -266,7 +266,7 @@ impl RelayChainStateProof {
 	/// Returns an error if anything failed at reading or decoding.
 	pub fn read_upgrade_restriction_signal(
 		&self,
-	) -> Result<Option<relay_chain::v1::UpgradeRestriction>, Error> {
+	) -> Result<Option<relay_chain::v2::UpgradeRestriction>, Error> {
 		read_optional_entry(
 			&self.trie_backend,
 			&relay_chain::well_known_keys::upgrade_restriction_signal(self.para_id),

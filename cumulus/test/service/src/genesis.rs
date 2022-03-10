@@ -18,7 +18,7 @@ use codec::Encode;
 use cumulus_client_service::genesis::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::Block;
-use polkadot_primitives::v0::HeadData;
+use polkadot_primitives::v2::HeadData;
 use sp_runtime::traits::Block as BlockT;
 
 /// Returns the initial head data for a parachain ID.

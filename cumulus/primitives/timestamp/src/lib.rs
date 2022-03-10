@@ -27,7 +27,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cumulus_primitives_core::relay_chain::v1::Slot;
+use cumulus_primitives_core::relay_chain::v2::Slot;
 use sp_inherents::{Error, InherentData};
 use sp_std::time::Duration;
 

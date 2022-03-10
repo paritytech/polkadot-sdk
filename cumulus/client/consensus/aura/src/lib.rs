@@ -26,7 +26,7 @@ use codec::{Decode, Encode};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
-use cumulus_primitives_core::{relay_chain::v1::Hash as PHash, PersistedValidationData};
+use cumulus_primitives_core::{relay_chain::v2::Hash as PHash, PersistedValidationData};
 
 use futures::lock::Mutex;
 use sc_client_api::{backend::AuxStore, BlockOf};

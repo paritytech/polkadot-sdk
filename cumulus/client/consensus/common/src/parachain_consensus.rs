@@ -27,7 +27,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 };
 
-use polkadot_primitives::v1::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::v2::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
 
 use codec::Decode;
 use futures::{select, FutureExt, Stream, StreamExt};

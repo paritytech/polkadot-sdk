@@ -17,7 +17,7 @@
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
-use polkadot_primitives::v1::UpgradeGoAhead;
+use polkadot_primitives::v2::UpgradeGoAhead;
 use sp_runtime::traits::HashFor;
 use sp_state_machine::MemoryDB;
 use sp_std::collections::btree_map::BTreeMap;
@@ -41,8 +41,8 @@ pub struct RelayStateSproofBuilder {
 	pub relay_dispatch_queue_size: Option<(u32, u32)>,
 	pub hrmp_ingress_channel_index: Option<Vec<ParaId>>,
 	pub hrmp_egress_channel_index: Option<Vec<ParaId>>,
-	pub hrmp_channels: BTreeMap<relay_chain::v1::HrmpChannelId, AbridgedHrmpChannel>,
-	pub current_slot: relay_chain::v1::Slot,
+	pub hrmp_channels: BTreeMap<relay_chain::v2::HrmpChannelId, AbridgedHrmpChannel>,
+	pub current_slot: relay_chain::v2::Slot,
 }
 
 impl Default for RelayStateSproofBuilder {
@@ -84,7 +84,7 @@ impl RelayStateSproofBuilder {
 		}
 
 		self.hrmp_channels
-			.entry(relay_chain::v1::HrmpChannelId { sender, recipient: self.para_id })
+			.entry(relay_chain::v2::HrmpChannelId { sender, recipient: self.para_id })
 			.or_insert_with(|| AbridgedHrmpChannel {
 				max_capacity: 0,
 				max_total_size: 0,
@@ -97,8 +97,8 @@ impl RelayStateSproofBuilder {
 
 	pub fn into_state_root_and_proof(
 		self,
-	) -> (polkadot_primitives::v1::Hash, sp_state_machine::StorageProof) {
-		let (db, root) = MemoryDB::<HashFor<polkadot_primitives::v1::Block>>::default_with_root();
+	) -> (polkadot_primitives::v2::Hash, sp_state_machine::StorageProof) {
+		let (db, root) = MemoryDB::<HashFor<polkadot_primitives::v2::Block>>::default_with_root();
 		let state_version = Default::default(); // for test using default.
 		let mut backend = sp_state_machine::TrieBackend::new(db, root);
 

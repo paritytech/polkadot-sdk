@@ -31,7 +31,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use relay_chain::v1::HrmpChannelId;
+use relay_chain::v2::HrmpChannelId;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -392,7 +392,7 @@ fn events() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
 			if block_number > 123 {
-				builder.upgrade_go_ahead = Some(relay_chain::v1::UpgradeGoAhead::GoAhead);
+				builder.upgrade_go_ahead = Some(relay_chain::v2::UpgradeGoAhead::GoAhead);
 			}
 		})
 		.add_with_post_test(
@@ -443,7 +443,7 @@ fn manipulates_storage() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
 			if block_number > 123 {
-				builder.upgrade_go_ahead = Some(relay_chain::v1::UpgradeGoAhead::GoAhead);
+				builder.upgrade_go_ahead = Some(relay_chain::v2::UpgradeGoAhead::GoAhead);
 			}
 		})
 		.add(123, || {
@@ -471,7 +471,7 @@ fn aborted_upgrade() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
 			if block_number > 123 {
-				builder.upgrade_go_ahead = Some(relay_chain::v1::UpgradeGoAhead::Abort);
+				builder.upgrade_go_ahead = Some(relay_chain::v2::UpgradeGoAhead::Abort);
 			}
 		})
 		.add(123, || {
