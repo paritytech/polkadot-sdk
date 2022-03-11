@@ -67,7 +67,7 @@ use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
-use polkadot_runtime_common::{BlockHashCount, RocksDbWeight, SlowAdjustingFeeUpdate};
+use polkadot_runtime::{BlockHashCount, RocksDbWeight, SlowAdjustingFeeUpdate};
 use xcm_executor::XcmExecutor;
 
 impl_opaque_keys! {

@@ -65,7 +65,7 @@ pub use sp_runtime::BuildStorage;
 use frame_support::weights::Weight;
 
 // Polkadot imports
-use polkadot_runtime_common::{BlockHashCount, RocksDbWeight, SlowAdjustingFeeUpdate};
+use polkadot_runtime::{BlockHashCount, RocksDbWeight, SlowAdjustingFeeUpdate};
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
