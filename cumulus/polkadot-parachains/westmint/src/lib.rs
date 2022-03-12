@@ -45,10 +45,7 @@ use constants::{currency::*, fee::WeightToFee};
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{AsEnsureOriginWithArg, InstanceFilter},
-	weights::{
-		constants::{BlockExecutionWeight, ExtrinsicBaseWeight},
-		DispatchClass, Weight,
-	},
+	weights::{DispatchClass, Weight},
 	PalletId, RuntimeDebug,
 };
 use frame_system::{
@@ -67,8 +64,10 @@ use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
-use polkadot_runtime::{BlockHashCount, RocksDbWeight, SlowAdjustingFeeUpdate};
+use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm_executor::XcmExecutor;
+
+use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
