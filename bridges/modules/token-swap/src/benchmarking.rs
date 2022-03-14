@@ -18,7 +18,7 @@
 
 use crate::{
 	swap_account_id, target_account_at_this_chain, BridgedAccountIdOf, BridgedAccountPublicOf,
-	BridgedAccountSignatureOf, BridgedBalanceOf, Call, Pallet, ThisChainBalance,
+	BridgedAccountSignatureOf, BridgedBalanceOf, Call, Origin, Pallet, ThisChainBalance,
 	TokenSwapCreationOf, TokenSwapOf,
 };
 
@@ -43,6 +43,7 @@ pub trait Config<I: 'static>: crate::Config<I> {
 benchmarks_instance_pallet! {
 	where_clause {
 		where
+			Origin<T, I>: Into<T::Origin>,
 			BridgedAccountPublicOf<T, I>: Decode + Parameter,
 			BridgedAccountSignatureOf<T, I>: Decode,
 	}
