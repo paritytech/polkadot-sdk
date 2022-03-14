@@ -31,6 +31,7 @@ hex-literal = "0.3"
 [features]
 default = ["std"]
 std = [
+	"bitvec/std",
 	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",

@@ -457,10 +457,9 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 	type MessageDeliveryAndDispatchPayment =
 		pallet_bridge_messages::instant_payments::InstantCurrencyPayments<
 			Runtime,
-			(),
+			WithMillauMessagesInstance,
 			pallet_balances::Pallet<Runtime>,
 			GetDeliveryConfirmationTransactionFee,
-			RootAccountForPayments,
 		>;
 	type OnMessageAccepted = ();
 	type OnDeliveryConfirmed = ();

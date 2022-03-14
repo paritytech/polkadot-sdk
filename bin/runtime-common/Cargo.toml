@@ -26,7 +26,7 @@ pallet-bridge-messages = { path = "../../modules/messages", default-features = f
 # Substrate dependencies
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -45,6 +45,7 @@ std = [
 	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
+	"frame-system/std",
 	"hash-db/std",
 	"pallet-bridge-dispatch/std",
 	"pallet-bridge-grandpa/std",
@@ -60,7 +61,6 @@ std = [
 ]
 runtime-benchmarks = [
 	"ed25519-dalek/u64_backend",
-	"frame-system",
 	"pallet-balances",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
@@ -68,6 +68,5 @@ runtime-benchmarks = [
 	"sp-version",
 ]
 integrity-test = [
-	"frame-system",
 	"static_assertions",
 ]
