@@ -19,7 +19,7 @@
 use crate::Runtime;
 
 use bp_messages::{
-	source_chain::TargetHeaderChain,
+	source_chain::{SenderOrigin, TargetHeaderChain},
 	target_chain::{ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
 };
@@ -116,10 +116,11 @@ impl messages::ChainWithMessages for Rialto {
 }
 
 impl messages::ThisChainWithMessages for Rialto {
+	type Origin = crate::Origin;
 	type Call = crate::Call;
 
-	fn is_outbound_lane_enabled(lane: &LaneId) -> bool {
-		*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1]
+	fn is_message_accepted(send_origin: &Self::Origin, lane: &LaneId) -> bool {
+		send_origin.linked_account().is_some() && (*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1])
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
@@ -272,6 +273,19 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 			Runtime,
 			crate::MillauGrandpaInstance,
 		>(proof, messages_count)
+	}
+}
+
+impl SenderOrigin<crate::AccountId> for crate::Origin {
+	fn linked_account(&self) -> Option<crate::AccountId> {
+		match self.caller {
+			crate::OriginCaller::system(frame_system::RawOrigin::Signed(ref submitter)) =>
+				Some(submitter.clone()),
+			crate::OriginCaller::system(frame_system::RawOrigin::Root) |
+			crate::OriginCaller::system(frame_system::RawOrigin::None) =>
+				crate::RootAccountForPayments::get(),
+			_ => None,
+		}
 	}
 }
 
