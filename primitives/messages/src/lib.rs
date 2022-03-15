@@ -194,7 +194,7 @@ pub struct MessageDetails<OutboundMessageFee> {
 }
 
 /// Bit vector of message dispatch results.
-pub type DispatchResultsBitVec = BitVec<Msb0, u8>;
+pub type DispatchResultsBitVec = BitVec<u8, Msb0>;
 
 /// Unrewarded relayer entry stored in the inbound lane data.
 ///
@@ -225,11 +225,9 @@ impl DeliveredMessages {
 	/// Create new `DeliveredMessages` struct that confirms delivery of single nonce with given
 	/// dispatch result.
 	pub fn new(nonce: MessageNonce, dispatch_result: bool) -> Self {
-		DeliveredMessages {
-			begin: nonce,
-			end: nonce,
-			dispatch_results: bitvec![Msb0, u8; if dispatch_result { 1 } else { 0 }],
-		}
+		let mut dispatch_results = BitVec::with_capacity(1);
+		dispatch_results.push(if dispatch_result { true } else { false });
+		DeliveredMessages { begin: nonce, end: nonce, dispatch_results }
 	}
 
 	/// Return total count of delivered messages.
@@ -368,7 +366,7 @@ mod tests {
 							messages: DeliveredMessages::new(i as _, true),
 						};
 						entry.messages.dispatch_results = bitvec![
-							Msb0, u8;
+							u8, Msb0;
 							1;
 							(messages_count / relayer_entries) as _
 						];
@@ -394,7 +392,7 @@ mod tests {
 	#[test]
 	fn message_dispatch_result_works() {
 		let delivered_messages =
-			DeliveredMessages { begin: 100, end: 150, dispatch_results: bitvec![Msb0, u8; 1; 151] };
+			DeliveredMessages { begin: 100, end: 150, dispatch_results: bitvec![u8, Msb0; 1; 151] };
 
 		assert!(!delivered_messages.contains_message(99));
 		assert!(delivered_messages.contains_message(100));

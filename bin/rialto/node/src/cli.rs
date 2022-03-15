@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use clap::{AppSettings, Parser};
+use clap::Parser;
 use sc_cli::RunCmd;
 
 #[derive(Debug, Parser)]
@@ -70,11 +70,11 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
 	/// FOR INTERNAL USE: analog of the "prepare-worker" command of the polkadot binary.
-	#[clap(name = "prepare-worker", setting = AppSettings::Hidden)]
+	#[clap(name = "prepare-worker", hide = true)]
 	PvfPrepareWorker(ValidationWorkerCommand),
 
 	/// FOR INTERNAL USE: analog of the "execute-worker" command of the polkadot binary.
-	#[clap(name = "execute-worker", setting = AppSettings::Hidden)]
+	#[clap(name = "execute-worker", hide = true)]
 	PvfExecuteWorker(ValidationWorkerCommand),
 }
 

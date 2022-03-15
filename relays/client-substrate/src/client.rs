@@ -18,8 +18,9 @@
 
 use crate::{
 	chain::{Chain, ChainWithBalances, TransactionStatusOf},
-	rpc::Substrate,
-	ConnectionParams, Error, HashOf, HeaderIdOf, Result,
+	rpc::SubstrateClient,
+	AccountIdOf, BlockNumberOf, ConnectionParams, Error, HashOf, HeaderIdOf, HeaderOf, IndexOf,
+	Result,
 };
 
 use async_std::sync::{Arc, Mutex};
@@ -27,12 +28,10 @@ use async_trait::async_trait;
 use codec::{Decode, Encode};
 use frame_system::AccountInfo;
 use futures::{SinkExt, StreamExt};
-use jsonrpsee_ws_client::{
-	types::{
-		self as jsonrpsee_types, traits::SubscriptionClient, v2::params::JsonRpcParams,
-		DeserializeOwned,
-	},
-	WsClient as RpcClient, WsClientBuilder as RpcClientBuilder,
+use jsonrpsee::{
+	core::{client::SubscriptionClientT, DeserializeOwned},
+	types::params::ParamsSer,
+	ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBuilder},
 };
 use num_traits::{Bounded, CheckedSub, One, Zero};
 use pallet_balances::AccountData;
@@ -154,7 +153,15 @@ impl<C: Chain> Client<C> {
 		let genesis_hash_client = client.clone();
 		let genesis_hash = tokio
 			.spawn(async move {
-				Substrate::<C>::chain_get_block_hash(&*genesis_hash_client, number).await
+				SubstrateClient::<
+					AccountIdOf<C>,
+					BlockNumberOf<C>,
+					HashOf<C>,
+					HeaderOf<C>,
+					IndexOf<C>,
+					C::SignedBlock,
+				>::chain_get_block_hash(&*genesis_hash_client, Some(number))
+				.await
 			})
 			.await??;
 
@@ -210,7 +217,15 @@ impl<C: Chain> Client<C> {
 	/// Returns true if client is connected to at least one peer and is in synced state.
 	pub async fn ensure_synced(&self) -> Result<()> {
 		self.jsonrpsee_execute(|client| async move {
-			let health = Substrate::<C>::system_health(&*client).await?;
+			let health = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::system_health(&*client)
+			.await?;
 			let is_synced = !health.is_syncing && (!health.should_have_peers || health.peers > 0);
 			if is_synced {
 				Ok(())
@@ -229,7 +244,15 @@ impl<C: Chain> Client<C> {
 	/// Return hash of the best finalized block.
 	pub async fn best_finalized_header_hash(&self) -> Result<C::Hash> {
 		self.jsonrpsee_execute(|client| async move {
-			Ok(Substrate::<C>::chain_get_finalized_head(&*client).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::chain_get_finalized_head(&*client)
+			.await?)
 		})
 		.await
 	}
@@ -245,7 +268,15 @@ impl<C: Chain> Client<C> {
 		C::Header: DeserializeOwned,
 	{
 		self.jsonrpsee_execute(|client| async move {
-			Ok(Substrate::<C>::chain_get_header(&*client, None).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::chain_get_header(&*client, None)
+			.await?)
 		})
 		.await
 	}
@@ -253,7 +284,15 @@ impl<C: Chain> Client<C> {
 	/// Get a Substrate block from its hash.
 	pub async fn get_block(&self, block_hash: Option<C::Hash>) -> Result<C::SignedBlock> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(Substrate::<C>::chain_get_block(&*client, block_hash).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::chain_get_block(&*client, block_hash)
+			.await?)
 		})
 		.await
 	}
@@ -264,7 +303,15 @@ impl<C: Chain> Client<C> {
 		C::Header: DeserializeOwned,
 	{
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(Substrate::<C>::chain_get_header(&*client, block_hash).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::chain_get_header(&*client, Some(block_hash))
+			.await?)
 		})
 		.await
 	}
@@ -272,7 +319,15 @@ impl<C: Chain> Client<C> {
 	/// Get a Substrate block hash by its number.
 	pub async fn block_hash_by_number(&self, number: C::BlockNumber) -> Result<C::Hash> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(Substrate::<C>::chain_get_block_hash(&*client, number).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::chain_get_block_hash(&*client, Some(number))
+			.await?)
 		})
 		.await
 	}
@@ -290,7 +345,15 @@ impl<C: Chain> Client<C> {
 	/// Return runtime version.
 	pub async fn runtime_version(&self) -> Result<RuntimeVersion> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(Substrate::<C>::state_runtime_version(&*client).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::state_runtime_version(&*client)
+			.await?)
 		})
 		.await
 	}
@@ -316,7 +379,15 @@ impl<C: Chain> Client<C> {
 		block_hash: Option<C::Hash>,
 	) -> Result<Option<StorageData>> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(Substrate::<C>::state_get_storage(&*client, storage_key, block_hash).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::state_get_storage(&*client, storage_key, block_hash)
+			.await?)
 		})
 		.await
 	}
@@ -328,10 +399,16 @@ impl<C: Chain> Client<C> {
 	{
 		self.jsonrpsee_execute(move |client| async move {
 			let storage_key = C::account_info_storage_key(&account);
-			let encoded_account_data =
-				Substrate::<C>::state_get_storage(&*client, storage_key, None)
-					.await?
-					.ok_or(Error::AccountDoesNotExist)?;
+			let encoded_account_data = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::state_get_storage(&*client, storage_key, None)
+			.await?
+			.ok_or(Error::AccountDoesNotExist)?;
 			let decoded_account_data = AccountInfo::<C::Index, AccountData<C::Balance>>::decode(
 				&mut &encoded_account_data.0[..],
 			)
@@ -346,7 +423,15 @@ impl<C: Chain> Client<C> {
 	/// Note: It's the caller's responsibility to make sure `account` is a valid SS58 address.
 	pub async fn next_account_index(&self, account: C::AccountId) -> Result<C::Index> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(Substrate::<C>::system_account_next_index(&*client, account).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::system_account_next_index(&*client, account)
+			.await?)
 		})
 		.await
 	}
@@ -356,7 +441,15 @@ impl<C: Chain> Client<C> {
 	/// Note: The given transaction needs to be SCALE encoded beforehand.
 	pub async fn submit_unsigned_extrinsic(&self, transaction: Bytes) -> Result<C::Hash> {
 		self.jsonrpsee_execute(move |client| async move {
-			let tx_hash = Substrate::<C>::author_submit_extrinsic(&*client, transaction).await?;
+			let tx_hash = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::author_submit_extrinsic(&*client, transaction)
+			.await?;
 			log::trace!(target: "bridge", "Sent transaction to Substrate node: {:?}", tx_hash);
 			Ok(tx_hash)
 		})
@@ -391,7 +484,15 @@ impl<C: Chain> Client<C> {
 
 		self.jsonrpsee_execute(move |client| async move {
 			let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
-			let tx_hash = Substrate::<C>::author_submit_extrinsic(&*client, extrinsic).await?;
+			let tx_hash = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::author_submit_extrinsic(&*client, extrinsic)
+			.await?;
 			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(tx_hash)
 		})
@@ -416,8 +517,8 @@ impl<C: Chain> Client<C> {
 				let subscription = client
 					.subscribe(
 						"author_submitAndWatchExtrinsic",
-						JsonRpcParams::Array(vec![jsonrpsee_types::to_json_value(extrinsic)
-							.map_err(|e| Error::RpcError(e.into()))?]),
+						Some(ParamsSer::Array(vec![jsonrpsee::core::to_json_value(extrinsic)
+							.map_err(|e| Error::RpcError(e.into()))?])),
 						"author_unwatchExtrinsic",
 					)
 					.await?;
@@ -438,7 +539,15 @@ impl<C: Chain> Client<C> {
 	/// Returns pending extrinsics from transaction pool.
 	pub async fn pending_extrinsics(&self) -> Result<Vec<Bytes>> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(Substrate::<C>::author_pending_extrinsics(&*client).await?)
+			Ok(SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::author_pending_extrinsics(&*client)
+			.await?)
 		})
 		.await
 	}
@@ -453,8 +562,15 @@ impl<C: Chain> Client<C> {
 			let call = SUB_API_TXPOOL_VALIDATE_TRANSACTION.to_string();
 			let data = Bytes((TransactionSource::External, transaction, at_block).encode());
 
-			let encoded_response =
-				Substrate::<C>::state_call(&*client, call, data, Some(at_block)).await?;
+			let encoded_response = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::state_call(&*client, call, data, Some(at_block))
+			.await?;
 			let validity = TransactionValidity::decode(&mut &encoded_response.0[..])
 				.map_err(Error::ResponseParseFailed)?;
 
@@ -469,8 +585,15 @@ impl<C: Chain> Client<C> {
 		transaction: Bytes,
 	) -> Result<InclusionFee<C::Balance>> {
 		self.jsonrpsee_execute(move |client| async move {
-			let fee_details =
-				Substrate::<C>::payment_query_fee_details(&*client, transaction, None).await?;
+			let fee_details = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::payment_query_fee_details(&*client, transaction, None)
+			.await?;
 			let inclusion_fee = fee_details
 				.inclusion_fee
 				.map(|inclusion_fee| InclusionFee {
@@ -502,8 +625,15 @@ impl<C: Chain> Client<C> {
 			let call = SUB_API_GRANDPA_AUTHORITIES.to_string();
 			let data = Bytes(Vec::new());
 
-			let encoded_response =
-				Substrate::<C>::state_call(&*client, call, data, Some(block)).await?;
+			let encoded_response = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::state_call(&*client, call, data, Some(block))
+			.await?;
 			let authority_list = encoded_response.0;
 
 			Ok(authority_list)
@@ -519,9 +649,16 @@ impl<C: Chain> Client<C> {
 		at_block: Option<C::Hash>,
 	) -> Result<Bytes> {
 		self.jsonrpsee_execute(move |client| async move {
-			Substrate::<C>::state_call(&*client, method, data, at_block)
-				.await
-				.map_err(Into::into)
+			SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::state_call(&*client, method, data, at_block)
+			.await
+			.map_err(Into::into)
 		})
 		.await
 	}
@@ -533,10 +670,19 @@ impl<C: Chain> Client<C> {
 		at_block: C::Hash,
 	) -> Result<StorageProof> {
 		self.jsonrpsee_execute(move |client| async move {
-			Substrate::<C>::state_prove_storage(&*client, keys, Some(at_block))
-				.await
-				.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.0).collect()))
-				.map_err(Into::into)
+			SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::state_prove_storage(&*client, keys, Some(at_block))
+			.await
+			.map(|proof| {
+				StorageProof::new(proof.proof.into_iter().map(|b| b.0).collect::<Vec<_>>())
+			})
+			.map_err(Into::into)
 		})
 		.await
 	}
@@ -544,7 +690,15 @@ impl<C: Chain> Client<C> {
 	/// Return `tokenDecimals` property from the set of chain properties.
 	pub async fn token_decimals(&self) -> Result<Option<u64>> {
 		self.jsonrpsee_execute(move |client| async move {
-			let system_properties = Substrate::<C>::system_properties(&*client).await?;
+			let system_properties = SubstrateClient::<
+				AccountIdOf<C>,
+				BlockNumberOf<C>,
+				HashOf<C>,
+				HeaderOf<C>,
+				IndexOf<C>,
+				C::SignedBlock,
+			>::system_properties(&*client)
+			.await?;
 			Ok(system_properties.get("tokenDecimals").and_then(|v| v.as_u64()))
 		})
 		.await
@@ -557,7 +711,7 @@ impl<C: Chain> Client<C> {
 				Ok(client
 					.subscribe(
 						"grandpa_subscribeJustifications",
-						JsonRpcParams::NoParams,
+						None,
 						"grandpa_unsubscribeJustifications",
 					)
 					.await?)
@@ -597,32 +751,32 @@ impl<T: DeserializeOwned> Subscription<T> {
 	async fn background_worker(
 		chain_name: String,
 		item_type: String,
-		mut subscription: jsonrpsee_types::Subscription<T>,
+		mut subscription: jsonrpsee::core::client::Subscription<T>,
 		mut sender: futures::channel::mpsc::Sender<Option<T>>,
 	) {
 		loop {
 			match subscription.next().await {
-				Ok(Some(item)) =>
+				Some(Ok(item)) =>
 					if sender.send(Some(item)).await.is_err() {
 						break
 					},
-				Ok(None) => {
-					log::trace!(
-						target: "bridge",
-						"{} {} subscription stream has returned None. Stream needs to be restarted.",
-						chain_name,
-						item_type,
-					);
-					let _ = sender.send(None).await;
-					break
-				},
-				Err(e) => {
+				Some(Err(e)) => {
 					log::trace!(
 						target: "bridge",
 						"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted.",
 						chain_name,
 						item_type,
 						e,
+					);
+					let _ = sender.send(None).await;
+					break
+				},
+				None => {
+					log::trace!(
+						target: "bridge",
+						"{} {} subscription stream has returned None. Stream needs to be restarted.",
+						chain_name,
+						item_type,
 					);
 					let _ = sender.send(None).await;
 					break

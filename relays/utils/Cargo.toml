@@ -20,6 +20,7 @@ num-traits = "0.2"
 serde_json = "1.0"
 sysinfo = "0.15"
 time = { version = "0.3", features = ["formatting", "local-offset", "std"] }
+tokio = { version = "1.8", features = ["rt"] }
 thiserror = "1.0.26"
 
 # Bridge dependencies
