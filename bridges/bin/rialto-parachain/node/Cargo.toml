@@ -18,10 +18,10 @@ default = []
 runtime-benchmarks = ['rialto-parachain-runtime/runtime-benchmarks']
 
 [dependencies]
-clap = { version = "3.0", features = ["derive"] }
+clap = { version = "3.1", features = ["derive"] }
 derive_more = '0.99.2'
 log = '0.4.14'
-codec = { package = 'parity-scale-codec', version = '2.0.0' }
+codec = { package = 'parity-scale-codec', version = '3.0.0' }
 serde = { version = '1.0', features = ['derive'] }
 hex-literal = '0.3.1'
 
@@ -81,7 +81,7 @@ cumulus-client-service = { git = "https://github.com/paritytech/cumulus", branch
 cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "master" }
 cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/cumulus", branch = "master" }
 cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus", branch = "master" }
-cumulus-relay-chain-local = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-relay-chain-inprocess-interface = { git = "https://github.com/paritytech/cumulus", branch = "master" }
 
 # Polkadot dependencies
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }

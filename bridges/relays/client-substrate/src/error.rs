@@ -16,7 +16,7 @@
 
 //! Substrate node RPC errors.
 
-use jsonrpsee_ws_client::types::Error as RpcError;
+use jsonrpsee::core::Error as RpcError;
 use relay_utils::MaybeConnectionError;
 use sc_rpc_api::system::Health;
 use sp_runtime::transaction_validity::TransactionValidityError;
