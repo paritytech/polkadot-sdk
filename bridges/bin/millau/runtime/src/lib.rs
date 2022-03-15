@@ -21,8 +21,6 @@
 #![recursion_limit = "256"]
 // Runtime-generated enums
 #![allow(clippy::large_enum_variant)]
-// Runtime-generated DecodeLimit::decode_all_With_depth_limit
-#![allow(clippy::unnecessary_mut_passed)]
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
@@ -543,6 +541,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
+	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
@@ -913,7 +912,6 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_bridge_grandpa, BridgeRialtoGrandpa);
 			add_benchmark!(params, batches, pallet_bridge_token_swap, BridgeRialtoTokenSwap);
 
-			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
 		}
 	}

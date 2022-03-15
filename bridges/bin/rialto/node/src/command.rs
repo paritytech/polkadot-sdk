@@ -192,6 +192,7 @@ pub fn run() -> sc_cli::Result<()> {
 						let jaeger_agent = None;
 						let telemetry_worker_handle = None;
 						let program_path = None;
+						let overseer_enable_anyways = false;
 
 						polkadot_service::new_full::<rialto_runtime::RuntimeApi, ExecutorDispatch, _>(
 							config,
@@ -201,6 +202,7 @@ pub fn run() -> sc_cli::Result<()> {
 							jaeger_agent,
 							telemetry_worker_handle,
 							program_path,
+							overseer_enable_anyways,
 							overseer_gen,
 						)
 							.map(|full| full.task_manager)

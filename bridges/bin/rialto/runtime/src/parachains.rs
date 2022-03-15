@@ -23,7 +23,7 @@ use crate::{
 
 use frame_support::{parameter_types, weights::Weight};
 use frame_system::EnsureRoot;
-use polkadot_primitives::v1::ValidatorIndex;
+use polkadot_primitives::v2::ValidatorIndex;
 use polkadot_runtime_common::{paras_registrar, paras_sudo_wrapper, slots};
 use polkadot_runtime_parachains::{
 	configuration as parachains_configuration, dmp as parachains_dmp, hrmp as parachains_hrmp,
@@ -108,6 +108,7 @@ impl parachains_ump::Config for Runtime {
 	type UmpSink = ();
 	type FirstMessageFactorPercent = FirstMessageFactorPercent;
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = parachains_ump::TestWeightInfo;
 }
 
 // required onboarding pallets. We're not going to use auctions or crowdloans, so they're missing

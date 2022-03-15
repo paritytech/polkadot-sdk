@@ -10,18 +10,17 @@ anyhow = "1.0"
 thiserror = "1.0.26"
 async-std = "1.9.0"
 async-trait = "0.1.42"
-codec = { package = "parity-scale-codec", version = "2.2.0" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.12"
 num-traits = "0.2"
 log = "0.4.14"
-
 
 # Bridge dependencies
 
 bp-header-chain = { path = "../../primitives/header-chain" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 
-finality-grandpa = { version = "0.14.0" }
+finality-grandpa = { version = "0.15.0" }
 finality-relay = { path = "../finality" }
 relay-utils = { path = "../utils" }
 messages-relay = { path = "../messages" }
