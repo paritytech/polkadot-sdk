@@ -93,6 +93,9 @@ async fn collect_relay_storage_proof(
 		.unwrap_or_default();
 
 	let mut relevant_keys = Vec::new();
+	relevant_keys.push(relay_well_known_keys::CURRENT_BLOCK_RANDOMNESS.to_vec());
+	relevant_keys.push(relay_well_known_keys::ONE_EPOCH_AGO_RANDOMNESS.to_vec());
+	relevant_keys.push(relay_well_known_keys::TWO_EPOCHS_AGO_RANDOMNESS.to_vec());
 	relevant_keys.push(relay_well_known_keys::CURRENT_SLOT.to_vec());
 	relevant_keys.push(relay_well_known_keys::ACTIVE_CONFIG.to_vec());
 	relevant_keys.push(relay_well_known_keys::dmq_mqc_head(para_id));

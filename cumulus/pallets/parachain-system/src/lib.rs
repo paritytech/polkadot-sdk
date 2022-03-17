@@ -310,7 +310,7 @@ pub mod pallet {
 			let relay_state_proof = RelayChainStateProof::new(
 				T::SelfParaId::get(),
 				vfp.relay_parent_storage_root,
-				relay_chain_state,
+				relay_chain_state.clone(),
 			)
 			.expect("Invalid relay chain state proof");
 
@@ -352,6 +352,7 @@ pub mod pallet {
 				.expect("Invalid messaging state in relay chain state proof");
 
 			<ValidationData<T>>::put(&vfp);
+			<RelayStateProof<T>>::put(relay_chain_state);
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
@@ -483,6 +484,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type UpgradeRestrictionSignal<T: Config> =
 		StorageValue<_, Option<relay_chain::v2::UpgradeRestriction>, ValueQuery>;
+
+	/// The state proof for the last relay parent block.
+	///
+	/// This field is meant to be updated each block with the validation data inherent. Therefore,
+	/// before processing of the inherent, e.g. in `on_initialize` this data may be stale.
+	///
+	/// This data is also absent from the genesis.
+	#[pallet::storage]
+	#[pallet::getter(fn relay_state_proof)]
+	pub(super) type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.
