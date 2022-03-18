@@ -31,7 +31,7 @@ use std::time::Duration;
 pub type HeaderId = relay_utils::HeaderId<millau_runtime::Hash, millau_runtime::BlockNumber>;
 
 /// Millau chain definition.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Millau;
 
 impl ChainBase for Millau {
@@ -154,8 +154,8 @@ impl TransactionSignScheme for Millau {
 		let extra = &tx.signature.as_ref()?.2;
 		Some(UnsignedTransaction {
 			call: tx.function.into(),
-			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.4.encode()[..]).ok()?.into(),
-			tip: Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.6.encode()[..])
+			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.5.encode()[..]).ok()?.into(),
+			tip: Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.7.encode()[..])
 				.ok()?
 				.into(),
 		})
@@ -167,3 +167,32 @@ pub type SigningParams = sp_core::sr25519::Pair;
 
 /// Millau header type used in headers sync.
 pub type SyncHeader = relay_substrate_client::SyncHeader<millau_runtime::Header>;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use relay_substrate_client::TransactionEra;
+
+	#[test]
+	fn parse_transaction_works() {
+		let unsigned = UnsignedTransaction {
+			call: millau_runtime::Call::System(millau_runtime::SystemCall::remark {
+				remark: b"Hello world!".to_vec(),
+			})
+			.into(),
+			nonce: 777,
+			tip: 888,
+		};
+		let signed_transaction = Millau::sign_transaction(SignParam {
+			spec_version: 42,
+			transaction_version: 50000,
+			genesis_hash: [42u8; 64].into(),
+			signer: sp_core::sr25519::Pair::from_seed_slice(&[1u8; 32]).unwrap(),
+			era: TransactionEra::immortal(),
+			unsigned: unsigned.clone(),
+		})
+		.unwrap();
+		let parsed_transaction = Millau::parse_transaction(signed_transaction).unwrap();
+		assert_eq!(parsed_transaction, unsigned);
+	}
+}
