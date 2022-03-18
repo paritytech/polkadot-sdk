@@ -134,7 +134,7 @@ pub trait BlockWithJustification<Header> {
 }
 
 /// Transaction before it is signed.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UnsignedTransaction<C: Chain> {
 	/// Runtime call of this transaction.
 	pub call: EncodedOrDecodedCall<C::Call>,

@@ -27,7 +27,7 @@ use sp_runtime::{
 use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
 
 /// Chain call, that is either SCALE-encoded, or decoded.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EncodedOrDecodedCall<ChainCall> {
 	/// The call that is SCALE-encoded.
 	///
