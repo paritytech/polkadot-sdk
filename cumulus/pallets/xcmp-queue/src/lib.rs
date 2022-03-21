@@ -571,9 +571,7 @@ impl<T: Config> Pallet<T> {
 		let mut shuffled = (0..len).collect::<Vec<_>>();
 		for i in 0..len {
 			let j = (rng.next_u32() as usize) % len;
-			let a = shuffled[i];
-			shuffled[i] = shuffled[j];
-			shuffled[j] = a;
+			shuffled.as_mut_slice().swap(i, j);
 		}
 		shuffled
 	}
