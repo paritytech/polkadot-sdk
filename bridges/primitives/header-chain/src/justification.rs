@@ -113,7 +113,7 @@ where
 		// check if authority has already voted in the same round.
 		//
 		// there's a lot of code in `validate_commit` and `import_precommit` functions inside
-		// `finality-grandpa` crate (mostly related to reporing equivocations). But the only thing
+		// `finality-grandpa` crate (mostly related to reporting equivocations). But the only thing
 		// that we care about is that only first vote from the authority is accepted
 		if !votes.insert(signed.id.clone()) {
 			continue
@@ -121,11 +121,11 @@ where
 
 		// everything below this line can't just `continue`, because state is already altered
 
-		// all precommits must be for block higher than the target
+		// precommits aren't allowed for block lower than the target
 		if signed.precommit.target_number < justification.commit.target_number {
 			return Err(Error::PrecommitIsNotCommitDescendant)
 		}
-		// all precommits must be for target block descendents
+		// all precommits must be descendants of target block
 		chain = chain
 			.ensure_descendant(&justification.commit.target_hash, &signed.precommit.target_hash)?;
 		// since we know now that the precommit target is the descendant of the justification
@@ -193,8 +193,8 @@ impl<Header: HeaderT> AncestryChain<Header> {
 		AncestryChain { parents, unvisited }
 	}
 
-	/// Returns `Err(_)` if `precommit_target` is a descendant of the `commit_target` block and
-	/// `Ok(_)` otherwise.
+	/// Returns `Ok(_)` if `precommit_target` is a descendant of the `commit_target` block and
+	/// `Err(_)` otherwise.
 	pub fn ensure_descendant(
 		mut self,
 		commit_target: &Header::Hash,
@@ -213,7 +213,7 @@ impl<Header: HeaderT> AncestryChain<Header> {
 						// `Some(parent_hash)` means that the `current_hash` is in the `parents`
 						// container `is_visited_before` means that it has been visited before in
 						// some of previous calls => since we assume that previous call has finished
-						// with `true`, this also will    be finished with `true`
+						// with `true`, this also will be finished with `true`
 						return Ok(self)
 					}
 

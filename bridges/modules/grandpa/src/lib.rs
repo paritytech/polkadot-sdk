@@ -166,7 +166,7 @@ pub mod pallet {
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
 			insert_header::<T, I>(*finality_target, hash);
-			log::info!(target: "runtime::bridge-grandpa", "Succesfully imported finalized header with hash {:?}!", hash);
+			log::info!(target: "runtime::bridge-grandpa", "Successfully imported finalized header with hash {:?}!", hash);
 
 			// mandatory header is a header that changes authorities set. The pallet can't go
 			// further without importing this header. So every bridge MUST import mandatory headers.
