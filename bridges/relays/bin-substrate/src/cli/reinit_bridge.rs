@@ -178,7 +178,7 @@ impl ReinitBridge {
 				(current_number + 1, target_number),
 			)
 			.await?;
-			let latest_andatory_header_number = headers_to_submit.last().map(|(h, _)| h.number());
+			let latest_mandatory_header_number = headers_to_submit.last().map(|(h, _)| h.number());
 			log::info!(
 				target: "bridge",
 				"Missing {} mandatory {} headers at {}",
@@ -281,13 +281,13 @@ impl ReinitBridge {
 				ensure_pallet_operating_mode(&finality_target, is_last_batch).await?;
 			}
 
-			if let Some(latest_andatory_header_number) = latest_andatory_header_number {
+			if let Some(latest_mandatory_header_number) = latest_mandatory_header_number {
 				log::info!(
 					target: "bridge",
 					"Successfully updated best {} header at {} to {}. Pallet is now operational",
 					Source::NAME,
 					Target::NAME,
-					latest_andatory_header_number,
+					latest_mandatory_header_number,
 				);
 			}
 
