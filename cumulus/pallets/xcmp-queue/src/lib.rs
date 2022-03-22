@@ -495,13 +495,15 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut s = <OutboundXcmpStatus<T>>::get();
-		let index = s.iter().position(|item| item.recipient == recipient).unwrap_or_else(|| {
+		let details = if let Some(details) = s.iter_mut().find(|item| item.recipient == recipient) {
+			details
+		} else {
 			s.push(OutboundChannelDetails::new(recipient));
-			s.len() - 1
-		});
-		let have_active = s[index].last_index > s[index].first_index;
+			s.last_mut().expect("can't be empty; a new element was just pushed; qed")
+		};
+		let have_active = details.last_index > details.first_index;
 		let appended = have_active &&
-			<OutboundXcmpMessages<T>>::mutate(recipient, s[index].last_index - 1, |s| {
+			<OutboundXcmpMessages<T>>::mutate(recipient, details.last_index - 1, |s| {
 				if XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &s[..]) !=
 					Ok(format)
 				{
@@ -514,15 +516,15 @@ impl<T: Config> Pallet<T> {
 				return true
 			});
 		if appended {
-			Ok((s[index].last_index - s[index].first_index - 1) as u32)
+			Ok((details.last_index - details.first_index - 1) as u32)
 		} else {
 			// Need to add a new page.
-			let page_index = s[index].last_index;
-			s[index].last_index += 1;
+			let page_index = details.last_index;
+			details.last_index += 1;
 			let mut new_page = format.encode();
 			new_page.extend_from_slice(&data[..]);
 			<OutboundXcmpMessages<T>>::insert(recipient, page_index, new_page);
-			let r = (s[index].last_index - s[index].first_index - 1) as u32;
+			let r = (details.last_index - details.first_index - 1) as u32;
 			<OutboundXcmpStatus<T>>::put(s);
 			Ok(r)
 		}
@@ -532,8 +534,8 @@ impl<T: Config> Pallet<T> {
 	/// block.
 	fn send_signal(dest: ParaId, signal: ChannelSignal) -> Result<(), ()> {
 		let mut s = <OutboundXcmpStatus<T>>::get();
-		if let Some(index) = s.iter().position(|item| item.recipient == dest) {
-			s[index].signals_exist = true;
+		if let Some(details) = s.iter_mut().find(|item| item.recipient == dest) {
+			details.signals_exist = true;
 		} else {
 			s.push(OutboundChannelDetails::new(dest).with_signals());
 		}
@@ -598,7 +600,7 @@ impl<T: Config> Pallet<T> {
 			Ok(xcm) => {
 				let location = (1, Parachain(sender.into()));
 				match T::XcmExecutor::execute_xcm(location, xcm, max_weight) {
-					Outcome::Error(e) => (Err(e.clone()), Event::Fail(Some(hash), e)),
+					Outcome::Error(e) => (Err(e), Event::Fail(Some(hash), e)),
 					Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
 					// As far as the caller is concerned, this was dispatched without error, so
 					// we just report the weight used.
@@ -748,7 +750,7 @@ impl<T: Config> Pallet<T> {
 		let suspended = QueueSuspended::<T>::get();
 
 		let mut status = <InboundXcmpStatus<T>>::get(); // <- sorted.
-		if status.len() == 0 {
+		if status.is_empty() {
 			return 0
 		}
 
@@ -857,10 +859,10 @@ impl<T: Config> Pallet<T> {
 
 	fn suspend_channel(target: ParaId) {
 		<OutboundXcmpStatus<T>>::mutate(|s| {
-			if let Some(index) = s.iter().position(|item| item.recipient == target) {
-				let ok = s[index].state == OutboundState::Ok;
+			if let Some(details) = s.iter_mut().find(|item| item.recipient == target) {
+				let ok = details.state == OutboundState::Ok;
 				debug_assert!(ok, "WARNING: Attempt to suspend channel that was not Ok.");
-				s[index].state = OutboundState::Suspended;
+				details.state = OutboundState::Suspended;
 			} else {
 				s.push(OutboundChannelDetails::new(target).with_suspended_state());
 			}
