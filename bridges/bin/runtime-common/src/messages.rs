@@ -327,18 +327,16 @@ pub mod source {
 				frame_system::RawOrigin<AccountIdOf<ThisChain<B>>>,
 				OriginOf<ThisChain<B>>,
 			> = submitter.clone().into();
-			match raw_origin_or_err {
-				Ok(raw_origin) =>
-					pallet_bridge_dispatch::verify_message_origin(&raw_origin, payload)
-						.map(drop)
-						.map_err(|_| BAD_ORIGIN)?,
-				Err(_) => {
-					// so what it means that we've failed to convert origin to the
-					// `frame_system::RawOrigin`? now it means that the custom pallet origin has
-					// been used to send the message. Do we need to verify it? The answer is no,
-					// because pallet may craft any origin (e.g. root) && we can't verify whether it
-					// is valid, or not.
-				},
+			if let Ok(raw_origin) = raw_origin_or_err {
+				pallet_bridge_dispatch::verify_message_origin(&raw_origin, payload)
+					.map(drop)
+					.map_err(|_| BAD_ORIGIN)?;
+			} else {
+				// so what it means that we've failed to convert origin to the
+				// `frame_system::RawOrigin`? now it means that the custom pallet origin has
+				// been used to send the message. Do we need to verify it? The answer is no,
+				// because pallet may craft any origin (e.g. root) && we can't verify whether it
+				// is valid, or not.
 			};
 
 			let minimal_fee_in_this_tokens = estimate_message_dispatch_and_delivery_fee::<B>(
