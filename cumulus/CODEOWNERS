@@ -19,9 +19,5 @@
 # CI
 /.github/ @paritytech/ci @chevdor
 /.gitlab-ci.yml @paritytech/ci
-/scripts/ci/ @paritytech/ci
-/scripts/github/ @paritytech/ci @chevdor
-/scripts/extrinsic-ordering-filter.sh @paritytech/ci @chevdor
+/scripts/ci/ @paritytech/ci @chevdor
 
-# CHANGELOG
-/scripts/changelog/ @chevdor

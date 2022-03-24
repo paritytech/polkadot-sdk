@@ -1,4 +1,4 @@
-# This file is sourced from https://github.com/paritytech/polkadot/blob/master/scripts/dockerfiles/polkadot/polkadot_builder.Dockerfile
+# This file is sourced from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile
 # This is the build stage for Polkadot-collator. Here we create the binary in a temporary image.
 FROM docker.io/paritytech/ci-linux:production as builder
 
@@ -14,7 +14,7 @@ LABEL io.parity.image.type="builder" \
     io.parity.image.authors="devops-team@parity.io" \
     io.parity.image.vendor="Parity Technologies" \
     io.parity.image.description="Multistage Docker image for Polkadot-collator" \
-    io.parity.image.source="https://github.com/paritytech/polkadot/blob/${VCS_REF}/docker/test-parachain-collator.dockerfile" \
+    io.parity.image.source="https://github.com/paritytech/polkadot/blob/${VCS_REF}/scripts/ci/dockerfiles/polkadot/polkadot-collator_builder.Dockerfile" \
     io.parity.image.documentation="https://github.com/paritytech/cumulus"
 
 COPY --from=builder /cumulus/target/release/polkadot-collator /usr/local/bin

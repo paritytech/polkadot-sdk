@@ -99,7 +99,7 @@ jobs:
 
       - name: Prepare tooling
         run: |
-          cd cumulus/scripts/changelog
+          cd cumulus/scripts/ci/changelog
           gem install bundler changelogerator:0.9.1
           bundle install
           changelogerator --help
@@ -137,7 +137,7 @@ jobs:
           ls -al $CANVAS_KUSAMA_DIGEST
 
           echo "The diff will be computed from $REF1 to $REF2"
-          cd cumulus/scripts/changelog
+          cd cumulus/scripts/ci/changelog
           ./bin/changelog $REF1 $REF2 release-notes.md
           ls -al release-notes.md
           ls -al context.json
@@ -158,7 +158,7 @@ jobs:
         with:
           tag_name: parachains-${{ github.ref }}
           release_name: Parachains ${{ github.ref }}
-          body_path: ./cumulus/scripts/changelog/release-notes.md
+          body_path: ./cumulus/scripts/ci/changelog/release-notes.md
           draft: true
 
   publish-runtimes:
@@ -185,7 +185,7 @@ jobs:
       - name: Get runtime version for ${{ matrix.runtime }}
         id: get-runtime-ver
         run: |
-          echo "require './scripts/github/runtime-version.rb'" > script.rb
+          echo "require './scripts/ci/github/runtime-version.rb'" > script.rb
           echo "puts get_runtime(runtime: \"${{ matrix.runtime }}\", runtime_dir: \"$RUNTIME_DIR\")" >> script.rb
 
           echo "Current folder: $PWD"
