@@ -147,7 +147,7 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.async_run(|mut config| {
 				let (client, backend, _, task_manager) =
 					polkadot_service::new_chain_ops(&mut config, None).map_err(service_error)?;
-				Ok((cmd.run(client, backend), task_manager))
+				Ok((cmd.run(client, backend, None), task_manager))
 			})
 		},
 		Some(Subcommand::Inspect(cmd)) => {
