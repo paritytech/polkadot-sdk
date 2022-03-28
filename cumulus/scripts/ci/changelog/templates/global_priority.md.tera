@@ -1,4 +1,4 @@
-{% import "high_priority.md.tera" as m_p -%}
+{%- import "high_priority.md.tera" as m_p -%}
 ## Global Priority
 
 {%- set cumulus_prio = 0 -%}
@@ -23,10 +23,7 @@
 {%- endif -%}
 {%- if substrate_prio > global_prio -%}
     {%- set global_prio = substrate_prio -%}
-{%- endif -%}
-
-{# We show the result #}
-{{ m_p::high_priority(p=global_prio, changes=changes) }}
+{%- endif %}
 
 <!--
 - Cumulus: {{ cumulus_prio }}
@@ -34,4 +31,5 @@
 - Substrate: {{ substrate_prio }}
 -->
 
-{# todo: show high prio list here #}
+{# We show the result #}
+{{ m_p::high_priority(p=global_prio, changes=changes) }}

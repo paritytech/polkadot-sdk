@@ -5,14 +5,21 @@ on:
     inputs:
       ref1:
         description: The 'from' tag to use for the diff
-        default: statemine-v5.0.0
+        default: parachains-v7.0.0
         required: true
       ref2:
         description: The 'to' tag to use for the diff
-        default: release-statemine-v6
+        default: release-parachains-v8.0.0
         required: true
+      release_type:
+        description: Pass "client" for client releases, leave empty otherwise
+        required: false
       pre_release:
         description: For pre-releases
+        default: "true"
+        required: true
+      notification:
+        description: Whether or not to notify over Matrix
         default: "true"
         required: true
 
@@ -30,6 +37,8 @@ jobs:
           echo "::set-output name=stable::$(rustc +stable --version)"
           echo "::set-output name=nightly::$(rustc +nightly --version)"
 
+  # We do not skip the entire job for client builds (although we don't need it)
+  # because it is a dep of the next job. However we skip the time consuming steps.
   build-runtimes:
     runs-on: ubuntu-latest
     strategy:
@@ -37,11 +46,12 @@ jobs:
         runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain", "canvas-kusama"]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.inputs.ref2 }}
 
       - name: Cache target dir
+        if: ${{ github.event.inputs.release_type != 'client' }}
         uses: actions/cache@v2
         with:
           path: "${{ github.workspace }}/runtime/${{ matrix.runtime }}/target"
@@ -51,6 +61,7 @@ jobs:
             srtool-target-
 
       - name: Build ${{ matrix.runtime }} runtime
+        if: ${{ github.event.inputs.release_type != 'client' }}
         id: srtool_build
         uses: chevdor/srtool-actions@v0.3.0
         with:
@@ -59,18 +70,21 @@ jobs:
           runtime_dir: polkadot-parachains/${{ matrix.runtime }}
 
       - name: Store srtool digest to disk
+        if: ${{ github.event.inputs.release_type != 'client' }}
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | \
-            jq > ${{ matrix.runtime }}_srtool_output.json
+            jq > ${{ matrix.runtime }}-srtool-digest.json
 
       - name: Upload ${{ matrix.runtime }} srtool json
-        uses: actions/upload-artifact@v2
+        if: ${{ github.event.inputs.release_type != 'client' }}
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.runtime }}-srtool-json
-          path: ${{ matrix.runtime }}_srtool_output.json
+          path: ${{ matrix.runtime }}-srtool-digest.json
 
       - name: Upload ${{ matrix.runtime }} runtime
-        uses: actions/upload-artifact@v2
+        if: ${{ github.event.inputs.release_type != 'client' }}
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.runtime }}-runtime
           path: |
@@ -84,7 +98,7 @@ jobs:
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           path: cumulus
@@ -116,39 +130,47 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_CACHE: 1
           DEBUG: 1
-          SHELL_DIGEST: ${{ github.workspace}}/shell-srtool-json/shell_srtool_output.json
-          WESTMINT_DIGEST: ${{ github.workspace}}/westmint-srtool-json/westmint_srtool_output.json
-          STATEMINE_DIGEST: ${{ github.workspace}}/statemine-srtool-json/statemine_srtool_output.json
-          STATEMINT_DIGEST: ${{ github.workspace}}/statemint-srtool-json/statemint_srtool_output.json
-          ROCOCO_PARA_DIGEST: ${{ github.workspace}}/rococo-parachain-srtool-json/rococo-parachain_srtool_output.json
-          CANVAS_KUSAMA_DIGEST: ${{ github.workspace}}/canvas-kusama-srtool-json/canvas-kusama_srtool_output.json
+          SHELL_DIGEST: ${{ github.workspace}}/shell-srtool-json/shell-srtool-digest.json
+          WESTMINT_DIGEST: ${{ github.workspace}}/westmint-srtool-json/westmint-srtool-digest.json
+          STATEMINE_DIGEST: ${{ github.workspace}}/statemine-srtool-json/statemine-srtool-digest.json
+          STATEMINT_DIGEST: ${{ github.workspace}}/statemint-srtool-json/statemint-srtool-digest.json
+          ROCOCO_PARA_DIGEST: ${{ github.workspace}}/rococo-parachain-srtool-json/rococo-parachain-srtool-digest.json
+          CANVAS_KUSAMA_DIGEST: ${{ github.workspace}}/canvas-kusama-srtool-json/canvas-kusama-srtool-digest.json
           REF1: ${{ github.event.inputs.ref1 }}
           REF2: ${{ github.event.inputs.ref2 }}
           PRE_RELEASE: ${{ github.event.inputs.pre_release }}
-          HIDE_SRTOOL_ROCOCO: false
-          HIDE_SRTOOL_SHELL: false
+          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
         run: |
-          find ${{env.GITHUB_WORKSPACE}} -type f -name "*_srtool_output.json"
-          ls -al $SHELL_DIGEST
-          ls -al $WESTMINT_DIGEST
-          ls -al $STATEMINE_DIGEST
-          ls -al $STATEMINT_DIGEST
-          ls -al $ROCOCO_PARA_DIGEST
-          ls -al $CANVAS_KUSAMA_DIGEST
+          find ${{env.GITHUB_WORKSPACE}} -type f -name "*-srtool-digest.json"
+
+          if [ "$RELEASE_TYPE" == "client" ]; then
+            ls -al $SHELL_DIGEST || true
+            ls -al $WESTMINT_DIGEST || true
+            ls -al $STATEMINE_DIGEST || true
+            ls -al $STATEMINT_DIGEST || true
+            ls -al $ROCOCO_PARA_DIGEST || true
+            ls -al $CANVAS_KUSAMA_DIGEST || true
+          fi
 
           echo "The diff will be computed from $REF1 to $REF2"
           cd cumulus/scripts/ci/changelog
           ./bin/changelog $REF1 $REF2 release-notes.md
-          ls -al release-notes.md
-          ls -al context.json
+          ls -al {release-notes.md,context.json} || true
 
-      - name: Archive artifact context.json
-        uses: actions/upload-artifact@v2
+      - name: Archive srtool json
+        if: ${{ github.event.inputs.release_type != 'client' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: srtool-json
+          path: |
+            **/*-srtool-digest.json
+
+      - name: Archive context artifact
+        uses: actions/upload-artifact@v3
         with:
           name: release-notes-context
           path: |
             context.json
-            **/*_srtool_output.json
 
       - name: Create draft release
         id: create-release
@@ -156,12 +178,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: parachains-${{ github.ref }}
-          release_name: Parachains ${{ github.ref }}
           body_path: ./cumulus/scripts/ci/changelog/release-notes.md
+          tag_name: ${{ github.event.inputs.ref2 }}
+          release_name: ${{ github.event.inputs.ref2 }}
           draft: true
 
   publish-runtimes:
+    if: ${{ github.event.inputs.release_type != 'client' }}
     runs-on: ubuntu-latest
     needs: ["publish-draft-release"]
     env:
@@ -171,7 +194,7 @@ jobs:
         runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain", "canvas-kusama"]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.inputs.ref2 }}
 
@@ -194,11 +217,12 @@ jobs:
           echo "Found version: >$runtime_ver<"
           echo "::set-output name=runtime_ver::$runtime_ver"
 
-      - name: Fix parachain runtime name
+      - name: Fix runtime name
         id: fix-runtime-path
         run: |
           cd "${{ matrix.runtime }}-runtime/"
           mv "$(sed 's/-parachain/_parachain/' <<< ${{ matrix.runtime }})_runtime.compact.compressed.wasm" "${{ matrix.runtime }}_runtime.compact.compressed.wasm" || true
+          mv "$(sed 's/-kusama/_kusama/' <<< ${{ matrix.runtime }})_runtime.compact.compressed.wasm" "${{ matrix.runtime }}_runtime.compact.compressed.wasm" || true
 
       - name: Upload compressed ${{ matrix.runtime }} wasm
         uses: actions/upload-release-asset@v1
@@ -211,6 +235,7 @@ jobs:
           asset_content_type: application/wasm
 
   post_to_matrix:
+    if: ${{ github.event.inputs.notification == 'true' }}
     runs-on: ubuntu-latest
     needs: publish-draft-release
     steps:
@@ -220,7 +245,7 @@ jobs:
           room_id: ${{ secrets.INTERNAL_CUMULUS_MATRIX_ROOM_ID }}
           access_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
           message: |
-            **New draft for ${{ github.repository }}**: ${{ github.ref }}<br/>
+            **New draft for ${{ github.repository }}**: ${{ github.event.inputs.ref2 }}<br/>
 
             Draft release created: [draft](${{ needs.publish-draft-release.outputs.release_url }})
 

@@ -1,6 +1,6 @@
 {%- import "change.md.tera" as m_c %}
 
-## Migrations
+## Runtime Migrations
 
 {% for pr in changes | sort(attribute="merged_at") -%}
 

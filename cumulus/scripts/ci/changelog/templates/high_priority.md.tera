@@ -3,7 +3,23 @@
 {# This macro convert a priority level into readable output #}
 {%- macro high_priority(p, changes) -%}
 
-{%- if p >= 7 -%}
+{# real globals don't work so we count the number of host functions here as well #}
+{# unfortunately, the next snippet is duplicated in the host_functions.md.tera template #}
+{# as well #}
+{%- set_global host_fn_count = 0 -%}
+
+{# We loop first to count the number of host functions but we do not display anything yet #}
+{%- for pr in changes -%}
+{%- if pr.meta.B and pr.meta.B.value == 0 -%}
+{#- We skip silent ones -#}
+{%- else -%}
+    {%- if pr.meta.E and pr.meta.E.value == 4 -%}
+        {%- set_global host_fn_count = host_fn_count + 1 -%}
+    {%- endif -%}
+{%- endif -%}
+{%- endfor -%}
+
+{%- if p >= 7 or host_fn_count > 0 -%}
     {%- set prio = "‼️ HIGH" -%}
     {%- set text = "This is a **high priority** release and you must upgrade as as soon as possible." -%}
 {%- elif p >= 5 -%}
@@ -12,16 +28,17 @@
 {%- elif p >= 3 -%}
     {%- set prio = "Low" -%}
     {%- set text = "This is a low priority release and you may upgrade at your convenience." -%}
-{%- endif %}
+{%- endif -%}
 
-{%- if prio %}
+{%- if prio -%}
 {{prio}}: {{text}}
 {%- else -%}
 <!-- No relevant Priority label as been detected -->
-{% endif %}
+{%- endif %}
 
+{# We only show details if Medium or High #}
+{%- if p >= 5 -%}
 The changes motivating this priority level are:
-
 {% for pr in changes | sort(attribute="merged_at") -%}
     {%- if pr.meta.C -%}
         {%- if pr.meta.C.value == p %}
@@ -29,9 +46,10 @@ The changes motivating this priority level are:
 {%- if pr.meta.B and pr.meta.B.value == 7 %}
 (RUNTIME)
 {% endif %}
+
         {%- endif -%}
     {%- endif -%}
 {%- endfor %}
-
+{%- endif %}
 
 {%- endmacro priority -%}

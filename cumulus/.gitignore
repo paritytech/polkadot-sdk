@@ -7,3 +7,4 @@ polkadot_argument_parsing
 **/node_modules
 **/chains/
 *.iml
+.env
