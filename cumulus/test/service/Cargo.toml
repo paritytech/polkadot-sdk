@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-async-trait = "0.1.42"
+async-trait = "0.1.53"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.3.5", features = [ "async_tokio" ] }
 jsonrpc-core = "18.0.0"

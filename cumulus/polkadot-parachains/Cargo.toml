@@ -10,7 +10,7 @@ name = "polkadot-collator"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.42"
+async-trait = "0.1.53"
 clap = { version = "3.1", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = { version = "0.3.1", features = ["compat"] }
