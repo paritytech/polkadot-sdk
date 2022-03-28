@@ -135,7 +135,7 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, backend, .. } = new_partial(&config)?;
-				Ok((cmd.run(client, backend), task_manager))
+				Ok((cmd.run(client, backend, None), task_manager))
 			})
 		},
 		Some(Subcommand::Inspect(cmd)) => {
