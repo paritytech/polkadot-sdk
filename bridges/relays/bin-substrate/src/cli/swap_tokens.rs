@@ -221,7 +221,7 @@ impl SwapTokens {
 					_,
 				>(
 					&source_client,
-					target_to_source_conversion_rate_override.clone(),
+					target_to_source_conversion_rate_override,
 					ESTIMATE_SOURCE_TO_TARGET_MESSAGE_FEE_METHOD,
 					SOURCE_TO_TARGET_LANE_ID,
 					bp_message_dispatch::MessagePayload {
@@ -384,7 +384,7 @@ impl SwapTokens {
 						_,
 					>(
 						&target_client,
-						source_to_target_conversion_rate_override.clone(),
+						source_to_target_conversion_rate_override,
 						ESTIMATE_TARGET_TO_SOURCE_MESSAGE_FEE_METHOD,
 						TARGET_TO_SOURCE_LANE_ID,
 						claim_swap_message.clone(),

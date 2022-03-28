@@ -330,9 +330,9 @@ impl RelayHeadersAndMessages {
 					LeftToRightMessageLane,
 					Left,
 				>(
-					left_client.clone(),
+					left_client,
 					TransactionParams {
-						signer: left_messages_pallet_owner.clone(),
+						signer: left_messages_pallet_owner,
 						mortality: left_transactions_mortality,
 					},
 					left_to_right_metrics
@@ -366,9 +366,9 @@ impl RelayHeadersAndMessages {
 					RightToLeftMessageLane,
 					Right,
 				>(
-					right_client.clone(),
+					right_client,
 					TransactionParams {
-						signer: right_messages_pallet_owner.clone(),
+						signer: right_messages_pallet_owner,
 						mortality: right_transactions_mortality,
 					},
 					right_to_left_metrics
