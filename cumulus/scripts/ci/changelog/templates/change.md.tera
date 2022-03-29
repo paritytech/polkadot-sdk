@@ -25,7 +25,6 @@
 {%- set audit = "" -%}
 {%- endif -%}
 #}
-
 {%- if c.html_url is containing("polkadot") -%}
 {%- set repo = dot -%}
 {%- elif c.html_url is containing("cumulus") -%}
@@ -35,11 +34,11 @@
 {%- else -%}
 {%- set repo = "   " -%}
 {%- endif -%}
-
+{# #}
 {%- if c.meta.T and c.meta.T.value == 6 -%}
 {%- set xcm = " [✉️ XCM]" -%}
 {%- else -%}
 {%- set xcm = "" -%}
 {%- endif -%}
 {{- repo }} {{ audit }}[`#{{c.number}}`]({{c.html_url}}) {{- prio }} - {{ c.title | capitalize | truncate(length=60, end="…") }}{{xcm }}
-{%- endmacro change -%}
+{%- endmacro change %}

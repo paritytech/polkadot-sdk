@@ -1,4 +1,5 @@
 {%- import "change.md.tera" as m_c -%}
+
 {%- set_global host_fn_count = 0 -%}
 
 {# We loop first to count the number of host functions but we do not display anything yet #}
