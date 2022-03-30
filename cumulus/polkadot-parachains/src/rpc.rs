@@ -73,6 +73,7 @@ where
 pub fn create_canvas_kusama<C, P>(deps: FullDeps<C, P>) -> RpcExtension
 where
 	C: ProvideRuntimeApi<Block>
+		+ sc_client_api::BlockBackend<Block>
 		+ HeaderBackend<Block>
 		+ AuxStore
 		+ HeaderMetadata<Block, Error = BlockChainError>
@@ -93,7 +94,8 @@ where
 
 	io.extend_with(SystemApi::to_delegate(FullSystem::new(client.clone(), pool, deny_unsafe)));
 	io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(client.clone())));
-	io.extend_with(ContractsApi::to_delegate(Contracts::new(client)));
+	io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
+	io.extend_with(sc_rpc::dev::DevApi::to_delegate(sc_rpc::dev::Dev::new(client, deny_unsafe)));
 
 	io
 }
