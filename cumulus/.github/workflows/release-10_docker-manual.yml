@@ -72,8 +72,9 @@ jobs:
       - name: Build injected image
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ORG: parity
         run: |
-          export OWNER=$DOCKERHUB_USERNAME
+          export OWNER=$DOCKERHUB_ORG
           mkdir -p target/release
           cp -f $BINARY* target/release/
           ./docker/scripts/build-injected-image.sh
@@ -87,9 +88,10 @@ jobs:
       - name: Tag and Publish
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ORG: parity
         run: |
-          docker run --pull never --rm $DOCKERHUB_USERNAME/$BINARY --version
-          VERSION=$(docker run --pull never --rm $DOCKERHUB_USERNAME/$BINARY --version | awk '{ print $2 }' )
+          docker run --pull never --rm $DOCKERHUB_ORG/$BINARY --version
+          VERSION=$(docker run --pull never --rm $DOCKERHUB_ORG/$BINARY --version | awk '{ print $2 }' )
           SEMVER=$( echo $VERSION | cut -f1 -d- )
           GITREF=$( echo $VERSION | cut -f2 -d- )
           PRE=${{ github.event.inputs.prerelease }}
@@ -107,15 +109,15 @@ jobs:
           echo "PRE_STR=$PRE_STR"
           echo "TAG=$TAG"
 
-          docker tag $DOCKERHUB_USERNAME/$BINARY $DOCKERHUB_USERNAME/$BINARY:$TAG
-          docker push $DOCKERHUB_USERNAME/$BINARY:$TAG
+          docker tag $DOCKERHUB_ORG/$BINARY $DOCKERHUB_ORG/$BINARY:$TAG
+          docker push $DOCKERHUB_ORG/$BINARY:$TAG
 
           if [[ $PRE != "true" ]]; then
-            docker tag $DOCKERHUB_USERNAME/$BINARY $DOCKERHUB_USERNAME/$BINARY:latest
-            docker tag $DOCKERHUB_USERNAME/$BINARY $DOCKERHUB_USERNAME/$BINARY:$SEMVER
+            docker tag $DOCKERHUB_ORG/$BINARY $DOCKERHUB_ORG/$BINARY:latest
+            docker tag $DOCKERHUB_ORG/$BINARY $DOCKERHUB_ORG/$BINARY:$SEMVER
 
-            docker push $DOCKERHUB_USERNAME/$BINARY:latest
-            docker push $DOCKERHUB_USERNAME/$BINARY:$SEMVER
+            docker push $DOCKERHUB_ORG/$BINARY:latest
+            docker push $DOCKERHUB_ORG/$BINARY:$SEMVER
           fi
 
-          docker images | grep $DOCKERHUB_USERNAME/$BINARY
+          docker images | grep $DOCKERHUB_ORG/$BINARY
