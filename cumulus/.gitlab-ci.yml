@@ -13,11 +13,9 @@ variables:                         &default-vars
   GIT_STRATEGY:                    fetch
   GIT_DEPTH:                       100
   CARGO_INCREMENTAL:               0
-  CARGO_TARGET_DIR:                "/ci-cache/${CI_PROJECT_NAME}/targets/${CI_COMMIT_REF_NAME}/${CI_JOB_NAME}"
   CI_IMAGE:                        "paritytech/ci-linux:production"
   DOCKER_OS:                       "debian:stretch"
   ARCH:                            "x86_64"
-  WASM_BUILD_WORKSPACE_HINT:       "/builds/parity/cumulus/"
 
 .rust-info-script:                 &rust-info-script
   - rustup show
@@ -37,7 +35,6 @@ variables:                         &default-vars
   image:                           "${CI_IMAGE}"
   before_script:
     - *rust-info-script
-    - ./scripts/ci/pre_cache.sh
     - sccache -s
   retry:
     max: 2
