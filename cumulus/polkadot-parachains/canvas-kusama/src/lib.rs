@@ -44,7 +44,7 @@ use constants::{currency::*, fee::WeightToFee};
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Everything},
-	weights::DispatchClass,
+	weights::{ConstantMultiplier, DispatchClass},
 	PalletId,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
@@ -208,9 +208,9 @@ impl pallet_balances::Config for Runtime {
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction =
 		pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
-	/// Relay Chain `TransactionByteFee` / 10
-	type TransactionByteFee = ConstU128<MILLICENTS>;
 	type WeightToFee = WeightToFee;
+	/// Relay Chain `TransactionByteFee` / 10
+	type LengthToFee = ConstantMultiplier<Balance, ConstU128<MILLICENTS>>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 }
