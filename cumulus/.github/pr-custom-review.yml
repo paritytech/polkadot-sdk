@@ -1,0 +1,29 @@
+# 🔒 PROTECTED: Changes to locks-review-team should be approved by the current locks-review-team
+locks-review-team: cumulus-locks-review
+team-leads-team: polkadot-review
+action-review-team: ci
+
+rules:
+  - name: Runtime files
+    check_type: changed_files
+    condition: ^polkadot-parachains/(statemine|statemint)/src/[^/]+\.rs$
+    all_distinct:
+      - min_approvals: 1
+        teams:
+          - cumulus-locks-review
+      - min_approvals: 1
+        teams:
+          - polkadot-review
+
+  - name: Core developers
+    check_type: changed_files
+    condition:
+      include: .*
+      exclude: ^polkadot-parachains/(statemine|statemint)/src/[^/]+\.rs$
+    min_approvals: 2
+    teams:
+      - core-devs
+
+prevent_review_request:
+  teams:
+    - core-devs
