@@ -6,6 +6,7 @@ use crate::{
 use codec::Encode;
 use cumulus_client_service::genesis::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
+use frame_benchmarking_cli::BenchmarkCmd;
 use log::info;
 use parachain_template_runtime::{Block, RuntimeApi};
 use polkadot_parachain::primitives::AccountIdConversion;
@@ -231,16 +232,38 @@ pub fn run() -> Result<()> {
 
 			Ok(())
 		},
-		Some(Subcommand::Benchmark(cmd)) =>
-			if cfg!(feature = "runtime-benchmarks") {
-				let runner = cli.create_runner(cmd)?;
+		Some(Subcommand::Benchmark(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			// Switch on the concrete benchmark sub-command-
+			match cmd {
+				BenchmarkCmd::Pallet(cmd) =>
+					if cfg!(feature = "runtime-benchmarks") {
+						runner.sync_run(|config| cmd.run::<Block, TemplateRuntimeExecutor>(config))
+					} else {
+						Err("Benchmarking wasn't enabled when building the node. \
+					You can enable it with `--features runtime-benchmarks`."
+							.into())
+					},
+				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
+					let partials = new_partial::<RuntimeApi, TemplateRuntimeExecutor, _>(
+						&config,
+						crate::service::parachain_build_import_queue,
+					)?;
+					cmd.run(partials.client)
+				}),
+				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
+					let partials = new_partial::<RuntimeApi, TemplateRuntimeExecutor, _>(
+						&config,
+						crate::service::parachain_build_import_queue,
+					)?;
+					let db = partials.backend.expose_db();
+					let storage = partials.backend.expose_storage();
 
-				runner.sync_run(|config| cmd.run::<Block, TemplateRuntimeExecutor>(config))
-			} else {
-				Err("Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
-					.into())
-			},
+					cmd.run(config, partials.client.clone(), db, storage)
+				}),
+				BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
+			}
+		},
 		Some(Subcommand::TryRuntime(cmd)) => {
 			if cfg!(feature = "try-runtime") {
 				let runner = cli.create_runner(cmd)?;
