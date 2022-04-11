@@ -63,6 +63,10 @@ pub struct MessagingStateSnapshot {
 pub enum Error {
 	/// The provided proof was created against unexpected storage root.
 	RootMismatch,
+	/// The entry cannot be read.
+	ReadEntry(ReadEntryErr),
+	/// The optional entry cannot be read.
+	ReadOptionalEntry(ReadEntryErr),
 	/// The slot cannot be extracted.
 	Slot(ReadEntryErr),
 	/// The upgrade go-ahead signal cannot be read.
@@ -272,5 +276,29 @@ impl RelayChainStateProof {
 			&relay_chain::well_known_keys::upgrade_restriction_signal(self.para_id),
 		)
 		.map_err(Error::UpgradeRestriction)
+	}
+
+	/// Read an entry given by the key and try to decode it. If the value specified by the key according
+	/// to the proof is empty, the `fallback` value will be returned.
+	///
+	/// Returns `Err` in case the backend can't return the value under the specific key (likely due to
+	/// a malformed proof), in case the decoding fails, or in case where the value is empty in the relay
+	/// chain state and no fallback was provided.
+	pub fn read_entry<T>(&self, key: &[u8], fallback: Option<T>) -> Result<T, Error>
+	where
+		T: Decode,
+	{
+		read_entry(&self.trie_backend, key, fallback).map_err(Error::ReadEntry)
+	}
+
+	/// Read an optional entry given by the key and try to decode it.
+	///
+	/// Returns `Err` in case the backend can't return the value under the specific key (likely due to
+	/// a malformed proof) or if the value couldn't be decoded.
+	pub fn read_optional_entry<T>(&self, key: &[u8]) -> Result<Option<T>, Error>
+	where
+		T: Decode,
+	{
+		read_optional_entry(&self.trie_backend, key).map_err(Error::ReadOptionalEntry)
 	}
 }
