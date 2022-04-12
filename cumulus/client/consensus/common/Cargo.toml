@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 futures = { version = "0.3.8", features = ["compat"] }
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
-tracing = "0.1.32"
+tracing = "0.1.33"
 async-trait = "0.1.53"
 dyn-clone = "1.0.5"
 

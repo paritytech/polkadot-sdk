@@ -9,7 +9,7 @@ edition = "2021"
 async-trait = "0.1.53"
 futures = { version = "0.3.8", features = ["compat"] }
 parking_lot = "0.12.0"
-tracing = "0.1.32"
+tracing = "0.1.33"
 
 # Substrate
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
