@@ -66,6 +66,18 @@ fn handle_blob_message() {
 }
 
 #[test]
+#[should_panic = "Invalid incoming XCMP message data"]
+#[cfg(debug_assertions)]
+fn handle_invalid_data() {
+	new_test_ext().execute_with(|| {
+		let data = Xcm::<Test>(vec![]).encode();
+		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, data);
+		let format = XcmpMessageFormat::ConcatenatedVersionedXcm;
+		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000, 10_000_000_000);
+	});
+}
+
+#[test]
 fn service_overweight_unknown() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(

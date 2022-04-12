@@ -655,7 +655,11 @@ impl<T: Config> Pallet<T> {
 								remaining_fragments = last_remaining_fragments;
 								break
 							},
-							Err(_) => {
+							Err(error) => {
+								log::error!(
+									"Failed to process XCMP-XCM message, caused by {:?}",
+									error
+								);
 								// Message looks invalid; don't attempt to retry
 							},
 						}
