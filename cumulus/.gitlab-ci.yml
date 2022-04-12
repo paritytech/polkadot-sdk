@@ -8,8 +8,19 @@
 stages:
   - test
   - publish
+  - benchmarks-build
+  - benchmarks-run
 
-variables:                         &default-vars
+default:
+  interruptible:                   true
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - unknown_failure
+      - api_failure
+
+variables:
   GIT_STRATEGY:                    fetch
   GIT_DEPTH:                       100
   CARGO_INCREMENTAL:               0
@@ -17,13 +28,20 @@ variables:                         &default-vars
   DOCKER_OS:                       "debian:stretch"
   ARCH:                            "x86_64"
 
+.collect-artifacts:                &collect-artifacts
+  artifacts:
+    name:                          "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
+    when:                          on_success
+    expire_in:                     1 days
+    paths:
+      - ./artifacts/
+
 .rust-info-script:                 &rust-info-script
   - rustup show
   - cargo --version
   - rustup +nightly show
   - cargo +nightly --version
   - bash --version
-  - sccache -s
 
 .publish-refs:                     &publish-refs
   rules:
@@ -31,29 +49,27 @@ variables:                         &default-vars
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
 
+# run benchmarks manually only on release-parachains-v* branch
+.benchmarks-manual-refs:           &benchmarks-manual-refs
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9]+\.[0-9]+.*$/              # i.e. release-parachains-v1.0, release-parachains-v2.1rc1
+      when: manual
+
+# run benchmarks only on release-parachains-v* branch
+.benchmarks-refs:                  &benchmarks-refs
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9]+\.[0-9]+.*$/              # i.e. release-parachains-v1.0, release-parachains-v2.1rc1
+      when: manual
+
 .docker-env:                       &docker-env
   image:                           "${CI_IMAGE}"
   before_script:
     - *rust-info-script
-    - sccache -s
-  retry:
-    max: 2
-    when:
-      - runner_system_failure
-      - unknown_failure
-      - api_failure
-  interruptible:                   true
   tags:
     - linux-docker
 
 .kubernetes-env:                   &kubernetes-env
-  retry:
-    max: 2
-    when:
-      - runner_system_failure
-      - unknown_failure
-      - api_failure
-  interruptible:                   true
+  image:                           "${CI_IMAGE}"
   tags:
     - kubernetes-parity-build
 
@@ -84,7 +100,6 @@ test-linux-stable:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   <<:                              *collect-artifacts
   variables:
-    <<:                            *default-vars
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
@@ -136,7 +151,6 @@ check-rustdoc:
   stage:                           test
   <<:                              *docker-env
   variables:
-    <<:                            *default-vars
     SKIP_WASM_BUILD:               1
     RUSTDOCFLAGS:                  "-Dwarnings"
   script:
@@ -169,3 +183,48 @@ publish-s3:
   after_script:
     - aws s3 ls s3://${BUCKET}/${PREFIX}/latest/
         --recursive --human-readable --summarize
+
+#### stage:                        benchmarks
+# Work only on release-parachains-v* branches
+
+benchmarks-build:
+  stage:                           benchmarks-build
+  <<:                              *docker-env
+  <<:                              *collect-artifacts
+  <<:                              *benchmarks-manual-refs
+  script:
+    - time cargo build --profile production --locked --features runtime-benchmarks
+    - mkdir artifacts
+    - cp $CARGO_TARGET_DIR/production/polkadot-collator ./artifacts/
+
+benchmarks:
+  stage:                           benchmarks-run
+  before_script:
+    - *rust-info-script
+  <<:                              *collect-artifacts
+  <<:                              *benchmarks-refs
+  script:
+    - ./scripts/benchmarks-ci.sh statemine > ./artifacts/bench-statemine.log
+    - ./scripts/benchmarks-ci.sh statemint > ./artifacts/bench-statemint.log
+    - ./scripts/benchmarks-ci.sh westmint > ./artifacts/bench-westmint.log
+    - git status
+    - export BRANCHNAME="${CI_COMMIT_BRANCH}-weights"
+    # Set git config
+    - rm -rf .git/config
+    - git config --global user.email "${GITHUB_EMAIL}"
+    - git config --global user.name "${GITHUB_USER}"
+    - git config remote.origin.url "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com:/paritytech/${CI_PROJECT_NAME}.git"
+    - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+    # push results to github
+    - git checkout -b $BRANCHNAME
+    - git add polkadot-parachains/*
+    - git commit -m "[benchmarks] pr with wieghts"
+    - git push origin $BRANCHNAME
+    # create PR
+    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
+      -d '{"title":"[benchmarks] Update weights","body":"This PR is generated automatically by CI.","head":"'$BRANCHNAME'","base":"'${CI_COMMIT_BRANCH}'"}'
+      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+  after_script:
+    - rm -rf .git/config
+  tags:
+    - weights
