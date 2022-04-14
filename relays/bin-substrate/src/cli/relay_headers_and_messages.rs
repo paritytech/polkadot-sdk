@@ -35,7 +35,7 @@ use relay_substrate_client::{
 use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
 use substrate_relay_helper::{
-	finality_pipeline::SubstrateFinalitySyncPipeline, messages_lane::MessagesRelayParams,
+	finality::SubstrateFinalitySyncPipeline, messages_lane::MessagesRelayParams,
 	on_demand_headers::OnDemandHeadersRelay, TransactionParams,
 };
 
