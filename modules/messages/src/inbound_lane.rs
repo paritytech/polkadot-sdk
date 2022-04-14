@@ -71,6 +71,11 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		InboundLane { storage }
 	}
 
+	/// Get this lane data
+	pub fn data(&self) -> InboundLaneData<S::Relayer> {
+		self.storage.data()
+	}
+
 	/// Receive state of the corresponding outbound lane.
 	pub fn receive_state_update(
 		&mut self,
