@@ -16,9 +16,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod impls;
+pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;
 pub use types::*;
+
 /// Common types of parachains.
 mod types {
 	use sp_runtime::traits::{IdentifyAccount, Verify};
