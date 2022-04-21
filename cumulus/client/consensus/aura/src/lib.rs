@@ -31,7 +31,7 @@ use cumulus_primitives_core::{relay_chain::v2::Hash as PHash, PersistedValidatio
 use futures::lock::Mutex;
 use sc_client_api::{backend::AuxStore, BlockOf};
 use sc_consensus::BlockImport;
-use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SlotInfo};
+use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo};
 use sc_telemetry::TelemetryHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
@@ -42,7 +42,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use std::{convert::TryFrom, hash::Hash, sync::Arc};
+use std::{convert::TryFrom, hash::Hash, marker::PhantomData, sync::Arc};
 
 mod import_queue;
 
@@ -53,29 +53,25 @@ pub use sc_consensus_slots::InherentDataProviderExt;
 const LOG_TARGET: &str = "aura::cumulus";
 
 /// The implementation of the AURA consensus for parachains.
-pub struct AuraConsensus<B, CIDP> {
+pub struct AuraConsensus<B, CIDP, W> {
 	create_inherent_data_providers: Arc<CIDP>,
-	aura_worker: Arc<
-		Mutex<
-			dyn sc_consensus_slots::SlotWorker<B, <EnableProofRecording as ProofRecording>::Proof>
-				+ Send
-				+ 'static,
-		>,
-	>,
+	aura_worker: Arc<Mutex<W>>,
 	slot_duration: SlotDuration,
+	_phantom: PhantomData<B>,
 }
 
-impl<B, CIDP> Clone for AuraConsensus<B, CIDP> {
+impl<B, CIDP, W> Clone for AuraConsensus<B, CIDP, W> {
 	fn clone(&self) -> Self {
 		Self {
 			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
 			aura_worker: self.aura_worker.clone(),
 			slot_duration: self.slot_duration,
+			_phantom: PhantomData,
 		}
 	}
 }
 
-impl<B, CIDP> AuraConsensus<B, CIDP>
+impl<B, CIDP> AuraConsensus<B, CIDP, ()>
 where
 	B: BlockT,
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)> + 'static,
@@ -134,13 +130,21 @@ where
 			},
 		);
 
-		Box::new(Self {
+		Box::new(AuraConsensus {
 			create_inherent_data_providers: Arc::new(create_inherent_data_providers),
 			aura_worker: Arc::new(Mutex::new(worker)),
 			slot_duration,
+			_phantom: PhantomData,
 		})
 	}
+}
 
+impl<B, CIDP, W> AuraConsensus<B, CIDP, W>
+where
+	B: BlockT,
+	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)> + 'static,
+	CIDP::InherentDataProviders: InherentDataProviderExt,
+{
 	/// Create the inherent data.
 	///
 	/// Returns the created inherent data and the inherent data providers used.
@@ -178,11 +182,13 @@ where
 }
 
 #[async_trait::async_trait]
-impl<B, CIDP> ParachainConsensus<B> for AuraConsensus<B, CIDP>
+impl<B, CIDP, W> ParachainConsensus<B> for AuraConsensus<B, CIDP, W>
 where
 	B: BlockT,
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)> + Send + Sync + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
+	W: SimpleSlotWorker<B> + Send + Sync,
+	W::Proposer: Proposer<B, Proof = <EnableProofRecording as ProofRecording>::Proof>,
 {
 	async fn produce_candidate(
 		&mut self,
