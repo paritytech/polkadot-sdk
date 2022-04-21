@@ -73,3 +73,7 @@ std = [
 	"sp-trie/std",
 	"xcm/std"
 ]
+
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks"
+]
