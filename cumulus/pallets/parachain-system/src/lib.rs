@@ -1049,9 +1049,8 @@ impl<T: Config> BlockNumberProvider for RelaychainBlockNumberProvider<T> {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(block: Self::BlockNumber) {
-		if let Some(mut validation_data) = Pallet::<T>::validation_data() {
-			validation_data.relay_parent_number = block;
-			ValidationData::<T>::put(validation_data)
-		}
+		let mut validation_data = Pallet::<T>::validation_data().unwrap_or_default();
+		validation_data.relay_parent_number = block;
+		ValidationData::<T>::put(validation_data)
 	}
 }
