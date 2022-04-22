@@ -202,7 +202,7 @@ benchmarks-build:
   script:
     - time cargo build --profile production --locked --features runtime-benchmarks
     - mkdir artifacts
-    - cp $CARGO_TARGET_DIR/production/polkadot-collator ./artifacts/
+    - cp target/production/polkadot-collator ./artifacts/
 
 benchmarks:
   stage:                           benchmarks-run
@@ -220,7 +220,7 @@ benchmarks:
     - rm -rf .git/config
     - git config --global user.email "${GITHUB_EMAIL}"
     - git config --global user.name "${GITHUB_USER}"
-    - git config remote.origin.url "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com:/paritytech/${CI_PROJECT_NAME}.git"
+    - git config remote.origin.url "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/paritytech/${CI_PROJECT_NAME}.git"
     - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
     # push results to github
     - git checkout -b $BRANCHNAME
