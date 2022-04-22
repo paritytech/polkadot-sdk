@@ -2101,7 +2101,7 @@ dependencies = [
  "cumulus-primitives-core",
  "derive_more",
  "futures 0.3.21",
- "jsonrpsee-core 0.10.1",
+ "jsonrpsee-core 0.11.0",
  "parity-scale-codec",
  "parking_lot 0.12.0",
  "polkadot-overseer",
