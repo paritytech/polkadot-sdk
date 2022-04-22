@@ -90,7 +90,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 
 [dev-dependencies]
 assert_cmd = "2.0"
-nix = "0.23"
+nix = "0.24"
 tempfile = "3.2.0"
 
 [features]
