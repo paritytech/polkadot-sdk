@@ -1198,9 +1198,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.10"
+version = "3.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3124f3f75ce09e22d1410043e1e24f2ecc44fad3afe4f08408f1f7663d68da2b"
+checksum = "7c167e37342afc5f33fd87bbc870cedd020d2a6dffa05d45ccd9241fbdd146db"
 dependencies = [
  "atty",
  "bitflags",
@@ -1620,7 +1620,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.10",
+ "clap 3.1.12",
  "sc-cli",
  "sc-service",
  "url 2.2.2",
@@ -2885,7 +2885,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#6091c6ba5451
 dependencies = [
  "Inflector",
  "chrono",
- "clap 3.1.10",
+ "clap 3.1.12",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6714,7 +6714,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.10",
+ "clap 3.1.12",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -7308,7 +7308,7 @@ name = "polkadot-cli"
 version = "0.9.19"
 source = "git+https://github.com/paritytech/polkadot?branch=master#394446bb37e2ab53582cc92fbdecf1f254c1073d"
 dependencies = [
- "clap 3.1.10",
+ "clap 3.1.12",
  "frame-benchmarking-cli",
  "futures 0.3.21",
  "log",
@@ -7374,7 +7374,7 @@ dependencies = [
  "assert_cmd",
  "async-trait",
  "canvas-kusama-runtime",
- "clap 3.1.10",
+ "clap 3.1.12",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -9630,7 +9630,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#6091c6ba54516b65071095b146beee796372c59f"
 dependencies = [
  "chrono",
- "clap 3.1.10",
+ "clap 3.1.12",
  "fdlimit",
  "futures 0.3.21",
  "hex",
@@ -12663,7 +12663,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#6091c6ba54516b65071095b146beee796372c59f"
 dependencies = [
- "clap 3.1.10",
+ "clap 3.1.12",
  "jsonrpsee 0.10.1",
  "log",
  "parity-scale-codec",
