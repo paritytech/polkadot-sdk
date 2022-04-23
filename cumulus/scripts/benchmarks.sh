@@ -27,7 +27,7 @@ pallets=(
 
 for p in ${pallets[@]}
 do
-	./target/production/polkadot-collator benchmark \
+	./target/production/polkadot-collator benchmark pallet \
 		--chain=$statemineChain \
 		--execution=wasm \
 		--wasm-execution=compiled \
@@ -39,7 +39,7 @@ do
         --header=./file_header.txt \
 		--output=$statemineOutput
 
-	./target/production/polkadot-collator benchmark \
+	./target/production/polkadot-collator benchmark pallet \
 		--chain=$statemintChain \
 		--execution=wasm \
 		--wasm-execution=compiled \
@@ -51,7 +51,7 @@ do
         --header=./file_header.txt \
 		--output=$statemintOutput
 
-	./target/production/polkadot-collator benchmark \
+	./target/production/polkadot-collator benchmark pallet \
 		--chain=$westmintChain \
 		--execution=wasm \
 		--wasm-execution=compiled \

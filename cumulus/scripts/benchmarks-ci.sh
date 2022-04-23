@@ -23,7 +23,7 @@ pallets=(
 
 for p in ${pallets[@]}
 do
-	./artifacts/polkadot-collator benchmark \
+	./artifacts/polkadot-collator benchmark pallet \
 		--chain=$benhcmarkChainName \
 		--execution=wasm \
 		--wasm-execution=compiled \
