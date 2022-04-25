@@ -10,11 +10,6 @@ Substrate chains.
 
 🚧 The bridges are currently under construction - a hardhat is recommended beyond this point 🚧
 
-**IMPORTANT**: this documentation is outdated and it is mostly related to the previous version of our
-bridge. Right there's an ongoing work to make our bridge work with XCM messages. Old bridge is still
-available at [encoded-calls-messaging](https://github.com/paritytech/parity-bridges-common/releases/tag/encoded-calls-messaging)
-tag.
-
 ## Contents
 
 - [Installation](#installation)
