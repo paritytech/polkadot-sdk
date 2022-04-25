@@ -204,8 +204,11 @@ Launch a local setup including a Relay Chain and a Parachain.
 #### Launch the Relay Chain
 
 ```bash
-# Compile Polkadot with the real overseer feature
+# Clone
 git clone https://github.com/paritytech/polkadot
+cd polkadot
+
+# Compile Polkadot with the real overseer feature
 cargo build --release
 
 # Generate a raw chain spec
@@ -221,8 +224,11 @@ cargo build --release
 #### Launch the Parachain
 
 ```bash
-# Compile
+# Clone
 git clone https://github.com/paritytech/cumulus
+cd cumulus
+
+# Compile
 cargo build --release
 
 # Export genesis state
