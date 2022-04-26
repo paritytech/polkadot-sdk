@@ -215,7 +215,7 @@ benchmarks:
     - ./scripts/benchmarks-ci.sh statemint > ./artifacts/bench-statemint.log
     - ./scripts/benchmarks-ci.sh westmint > ./artifacts/bench-westmint.log
     - git status
-    - export BRANCHNAME="${CI_COMMIT_BRANCH}-weights"
+    - export BRANCHNAME="weights-${CI_COMMIT_BRANCH}"
     # Set git config
     - rm -rf .git/config
     - git config --global user.email "${GITHUB_EMAIL}"
@@ -225,7 +225,7 @@ benchmarks:
     # push results to github
     - git checkout -b $BRANCHNAME
     - git add polkadot-parachains/*
-    - git commit -m "[benchmarks] pr with wieghts"
+    - git commit -m "[benchmarks] pr with weights"
     - git push origin $BRANCHNAME
     # create PR
     - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
