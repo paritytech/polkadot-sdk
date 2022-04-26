@@ -170,6 +170,7 @@ async fn build_relay_chain_interface(
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	task_manager: &mut TaskManager,
 	collator_options: CollatorOptions,
+	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	match collator_options.relay_chain_rpc_url {
 		Some(relay_chain_url) =>
@@ -179,6 +180,7 @@ async fn build_relay_chain_interface(
 			parachain_config,
 			telemetry_worker_handle,
 			task_manager,
+			hwbench,
 		),
 	}
 }
@@ -195,6 +197,7 @@ async fn start_node_impl<RuntimeApi, Executor, RB, BIQ, BIC>(
 	_rpc_ext_builder: RB,
 	build_import_queue: BIQ,
 	build_consensus: BIC,
+	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<Executor>>>,
@@ -270,6 +273,7 @@ where
 		telemetry_worker_handle,
 		&mut task_manager,
 		collator_options.clone(),
+		hwbench.clone(),
 	)
 	.await
 	.map_err(|e| match e {
@@ -324,6 +328,19 @@ where
 		system_rpc_tx,
 		telemetry: telemetry.as_mut(),
 	})?;
+
+	if let Some(hwbench) = hwbench {
+		sc_sysinfo::print_hwbench(&hwbench);
+
+		if let Some(ref mut telemetry) = telemetry {
+			let telemetry_handle = telemetry.handle();
+			task_manager.spawn_handle().spawn(
+				"telemetry_hwbench",
+				None,
+				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
+			);
+		}
+	}
 
 	let announce_block = {
 		let network = network.clone();
@@ -434,6 +451,7 @@ pub async fn start_parachain_node(
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	id: ParaId,
+	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<TemplateRuntimeExecutor>>>,
@@ -508,6 +526,7 @@ pub async fn start_parachain_node(
 				},
 			))
 		},
+		hwbench,
 	)
 	.await
 }

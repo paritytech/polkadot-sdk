@@ -287,6 +287,15 @@ pub fn run() -> Result<()> {
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
+				let hwbench = if !cli.no_hardware_benchmarks {
+					config.database.path().map(|database_path| {
+						let _ = std::fs::create_dir_all(&database_path);
+						sc_sysinfo::gather_hwbench(Some(database_path))
+					})
+				} else {
+					None
+				};
+
 				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
 					.map(|e| e.para_id)
 					.ok_or_else(|| "Could not find parachain ID in chain-spec.")?;
@@ -317,10 +326,16 @@ pub fn run() -> Result<()> {
 				info!("Parachain genesis state: {}", genesis_state);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				crate::service::start_parachain_node(config, polkadot_config, collator_options, id)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into)
+				crate::service::start_parachain_node(
+					config,
+					polkadot_config,
+					collator_options,
+					id,
+					hwbench,
+				)
+				.await
+				.map(|r| r.0)
+				.map_err(Into::into)
 			})
 		},
 	}

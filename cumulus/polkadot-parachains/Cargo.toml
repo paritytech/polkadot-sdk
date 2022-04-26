@@ -58,6 +58,7 @@ sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
