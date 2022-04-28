@@ -12,7 +12,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 hex-literal = "0.3"
 libsecp256k1 = { version = "0.7", optional = true, default-features = false, features = ["hmac"] }
 log = { version = "0.4.14", default-features = false }
-scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 
 # Bridge dependencies
@@ -44,7 +44,6 @@ pallet-beefy = { git = "https://github.com/paritytech/substrate", branch = "mast
 pallet-beefy-mmr = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-mmr = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-pallet-mmr-primitives = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -58,6 +57,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", 
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-mmr-primitives = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-session = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -68,9 +68,9 @@ sp-version = { git = "https://github.com/paritytech/substrate", branch = "master
 
 # Polkadot (parachain) Dependencies
 
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
-polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 
 [dev-dependencies]
 bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
@@ -108,7 +108,7 @@ std = [
 	"pallet-bridge-messages/std",
 	"pallet-grandpa/std",
 	"pallet-mmr/std",
-	"pallet-mmr-primitives/std",
+	"sp-mmr-primitives/std",
 	"pallet-shift-session-manager/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",

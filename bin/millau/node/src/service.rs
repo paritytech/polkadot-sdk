@@ -392,8 +392,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
 	let beefy_params = beefy_gadget::BeefyParams {
-		client,
+		client: client.clone(),
 		backend,
+		runtime: client,
 		key_store: keystore.clone(),
 		network: network.clone(),
 		signed_commitment_sender: beefy_commitment_link,
@@ -407,7 +408,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"beefy-gadget",
 		None,
-		beefy_gadget::start_beefy_gadget::<_, _, _, _>(beefy_params),
+		beefy_gadget::start_beefy_gadget::<_, _, _, _, _>(beefy_params),
 	);
 
 	let grandpa_config = sc_finality_grandpa::Config {

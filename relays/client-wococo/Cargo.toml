@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
-scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
 # Bridge dependencies
 bridge-runtime-common = { path = "../../bin/runtime-common" }

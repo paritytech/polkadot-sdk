@@ -301,110 +301,112 @@ pub mod pallet {
 			}
 
 			let swap_account = swap_account_id::<T, I>(&swap);
-			let actual_send_message_weight = frame_support::storage::with_transaction(|| {
-				// funds are transferred from This account to the temporary Swap account
-				let transfer_result = T::ThisCurrency::transfer(
-					&swap.source_account_at_this_chain,
-					&swap_account,
-					// saturating_add is ok, or we have the chain where single holder owns all
-					// tokens
-					swap.source_balance_at_this_chain
-						.saturating_add(swap_delivery_and_dispatch_fee),
-					// if we'll allow account to die, then he'll be unable to `cancel_claim`
-					// if something won't work
-					ExistenceRequirement::KeepAlive,
-				);
-				if let Err(err) = transfer_result {
-					log::error!(
-						target: "runtime::bridge-token-swap",
-						"Failed to transfer This chain tokens for the swap {:?} to Swap account ({:?}): {:?}",
-						swap,
-						swap_account,
-						err,
+			let actual_send_message_weight = frame_support::storage::with_transaction(
+				|| -> sp_runtime::TransactionOutcome<Result<_, sp_runtime::DispatchError>> {
+					// funds are transferred from This account to the temporary Swap account
+					let transfer_result = T::ThisCurrency::transfer(
+						&swap.source_account_at_this_chain,
+						&swap_account,
+						// saturating_add is ok, or we have the chain where single holder owns all
+						// tokens
+						swap.source_balance_at_this_chain
+							.saturating_add(swap_delivery_and_dispatch_fee),
+						// if we'll allow account to die, then he'll be unable to `cancel_claim`
+						// if something won't work
+						ExistenceRequirement::KeepAlive,
 					);
-
-					return sp_runtime::TransactionOutcome::Rollback(Err(
-						Error::<T, I>::FailedToTransferToSwapAccount,
-					))
-				}
-
-				// the transfer message is sent over the bridge. The message is supposed to be a
-				// `Currency::transfer` call on the bridged chain, but no checks are made - it is
-				// the transaction submitter to ensure it is valid.
-				let send_message_result = T::MessagesBridge::send_message(
-					RawOrigin::TokenSwap {
-						source_account_at_this_chain: swap.source_account_at_this_chain.clone(),
-						swap_account_at_this_chain: swap_account.clone(),
-					}
-					.into(),
-					T::OutboundMessageLaneId::get(),
-					bp_message_dispatch::MessagePayload {
-						spec_version: bridged_chain_spec_version,
-						weight: bridged_currency_transfer_weight,
-						origin: bp_message_dispatch::CallOrigin::TargetAccount(
-							swap_account,
-							target_public_at_bridged_chain,
-							bridged_currency_transfer_signature,
-						),
-						dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
-						call: bridged_currency_transfer,
-					},
-					swap_delivery_and_dispatch_fee,
-				);
-				let sent_message = match send_message_result {
-					Ok(sent_message) => sent_message,
-					Err(err) => {
+					if let Err(err) = transfer_result {
 						log::error!(
 							target: "runtime::bridge-token-swap",
-							"Failed to send token transfer message for swap {:?} to the Bridged chain: {:?}",
+							"Failed to transfer This chain tokens for the swap {:?} to Swap account ({:?}): {:?}",
 							swap,
+							swap_account,
 							err,
 						);
 
 						return sp_runtime::TransactionOutcome::Rollback(Err(
-							Error::<T, I>::FailedToSendTransferMessage,
+							Error::<T, I>::FailedToTransferToSwapAccount.into(),
 						))
-					},
-				};
+					}
 
-				// remember that we have started the swap
-				let swap_hash = swap.using_encoded(blake2_256).into();
-				let insert_swap_result =
-					PendingSwaps::<T, I>::try_mutate(swap_hash, |maybe_state| {
-						if maybe_state.is_some() {
-							return Err(())
+					// the transfer message is sent over the bridge. The message is supposed to be a
+					// `Currency::transfer` call on the bridged chain, but no checks are made - it
+					// is the transaction submitter to ensure it is valid.
+					let send_message_result = T::MessagesBridge::send_message(
+						RawOrigin::TokenSwap {
+							source_account_at_this_chain: swap.source_account_at_this_chain.clone(),
+							swap_account_at_this_chain: swap_account.clone(),
 						}
+						.into(),
+						T::OutboundMessageLaneId::get(),
+						bp_message_dispatch::MessagePayload {
+							spec_version: bridged_chain_spec_version,
+							weight: bridged_currency_transfer_weight,
+							origin: bp_message_dispatch::CallOrigin::TargetAccount(
+								swap_account,
+								target_public_at_bridged_chain,
+								bridged_currency_transfer_signature,
+							),
+							dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
+							call: bridged_currency_transfer,
+						},
+						swap_delivery_and_dispatch_fee,
+					);
+					let sent_message = match send_message_result {
+						Ok(sent_message) => sent_message,
+						Err(err) => {
+							log::error!(
+								target: "runtime::bridge-token-swap",
+								"Failed to send token transfer message for swap {:?} to the Bridged chain: {:?}",
+								swap,
+								err,
+							);
 
-						*maybe_state = Some(TokenSwapState::Started);
-						Ok(())
-					});
-				if insert_swap_result.is_err() {
-					log::error!(
+							return sp_runtime::TransactionOutcome::Rollback(Err(
+								Error::<T, I>::FailedToSendTransferMessage.into(),
+							))
+						},
+					};
+
+					// remember that we have started the swap
+					let swap_hash = swap.using_encoded(blake2_256).into();
+					let insert_swap_result =
+						PendingSwaps::<T, I>::try_mutate(swap_hash, |maybe_state| {
+							if maybe_state.is_some() {
+								return Err(())
+							}
+
+							*maybe_state = Some(TokenSwapState::Started);
+							Ok(())
+						});
+					if insert_swap_result.is_err() {
+						log::error!(
+							target: "runtime::bridge-token-swap",
+							"Failed to start token swap {:?}: the swap is already started",
+							swap,
+						);
+
+						return sp_runtime::TransactionOutcome::Rollback(Err(
+							Error::<T, I>::SwapAlreadyStarted.into(),
+						))
+					}
+
+					log::trace!(
 						target: "runtime::bridge-token-swap",
-						"Failed to start token swap {:?}: the swap is already started",
+						"The swap {:?} (hash {:?}) has been started",
 						swap,
+						swap_hash,
 					);
 
-					return sp_runtime::TransactionOutcome::Rollback(Err(
-						Error::<T, I>::SwapAlreadyStarted,
-					))
-				}
+					// remember that we're waiting for the transfer message delivery confirmation
+					PendingMessages::<T, I>::insert(sent_message.nonce, swap_hash);
 
-				log::trace!(
-					target: "runtime::bridge-token-swap",
-					"The swap {:?} (hash {:?}) has been started",
-					swap,
-					swap_hash,
-				);
+					// finally - emit the event
+					Self::deposit_event(Event::SwapStarted(swap_hash, sent_message.nonce));
 
-				// remember that we're waiting for the transfer message delivery confirmation
-				PendingMessages::<T, I>::insert(sent_message.nonce, swap_hash);
-
-				// finally - emit the event
-				Self::deposit_event(Event::SwapStarted(swap_hash, sent_message.nonce));
-
-				sp_runtime::TransactionOutcome::Commit(Ok(sent_message.weight))
-			})?;
+					sp_runtime::TransactionOutcome::Commit(Ok(sent_message.weight))
+				},
+			)?;
 
 			Ok(PostDispatchInfo {
 				actual_weight: Some(base_weight.saturating_add(actual_send_message_weight)),
@@ -617,49 +619,51 @@ pub mod pallet {
 		event: Event<T, I>,
 	) -> DispatchResultWithPostInfo {
 		let swap_account = swap_account_id::<T, I>(&swap);
-		frame_support::storage::with_transaction(|| {
-			// funds are transferred from the temporary Swap account to the destination account
-			let transfer_result = T::ThisCurrency::transfer(
-				&swap_account,
-				&destination_account,
-				swap.source_balance_at_this_chain,
-				ExistenceRequirement::AllowDeath,
-			);
-			if let Err(err) = transfer_result {
-				log::error!(
+		frame_support::storage::with_transaction(
+			|| -> sp_runtime::TransactionOutcome<Result<_, sp_runtime::DispatchError>> {
+				// funds are transferred from the temporary Swap account to the destination account
+				let transfer_result = T::ThisCurrency::transfer(
+					&swap_account,
+					&destination_account,
+					swap.source_balance_at_this_chain,
+					ExistenceRequirement::AllowDeath,
+				);
+				if let Err(err) = transfer_result {
+					log::error!(
+						target: "runtime::bridge-token-swap",
+						"Failed to transfer This chain tokens for the swap {:?} from the Swap account {:?} to {:?}: {:?}",
+						swap,
+						swap_account,
+						destination_account,
+						err,
+					);
+
+					return sp_runtime::TransactionOutcome::Rollback(Err(
+						Error::<T, I>::FailedToTransferFromSwapAccount.into(),
+					))
+				}
+
+				log::trace!(
 					target: "runtime::bridge-token-swap",
-					"Failed to transfer This chain tokens for the swap {:?} from the Swap account {:?} to {:?}: {:?}",
+					"The swap {:?} (hash {:?}) has been completed with {} status",
 					swap,
-					swap_account,
-					destination_account,
-					err,
+					swap_hash,
+					match event {
+						Event::SwapClaimed(_) => "claimed",
+						Event::SwapCanceled(_) => "canceled",
+						_ => "<unknown>",
+					},
 				);
 
-				return sp_runtime::TransactionOutcome::Rollback(Err(
-					Error::<T, I>::FailedToTransferFromSwapAccount.into(),
-				))
-			}
+				// forget about swap
+				PendingSwaps::<T, I>::remove(swap_hash);
 
-			log::trace!(
-				target: "runtime::bridge-token-swap",
-				"The swap {:?} (hash {:?}) has been completed with {} status",
-				swap,
-				swap_hash,
-				match event {
-					Event::SwapClaimed(_) => "claimed",
-					Event::SwapCanceled(_) => "canceled",
-					_ => "<unknown>",
-				},
-			);
+				// finally - emit the event
+				Pallet::<T, I>::deposit_event(event);
 
-			// forget about swap
-			PendingSwaps::<T, I>::remove(swap_hash);
-
-			// finally - emit the event
-			Pallet::<T, I>::deposit_event(event);
-
-			sp_runtime::TransactionOutcome::Commit(Ok(().into()))
-		})
+				sp_runtime::TransactionOutcome::Commit(Ok(Ok(().into())))
+			},
+		)?
 	}
 }
 
