@@ -39,13 +39,13 @@ use bridge_runtime_common::messages::{
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_mmr_primitives::{
-	DataOrHash, EncodableOpaqueLeaf, Error as MmrError, LeafDataProvider, Proof as MmrProof,
-};
 use pallet_transaction_payment::{FeeDetails, Multiplier, RuntimeDispatchInfo};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_mmr_primitives::{
+	DataOrHash, EncodableOpaqueLeaf, Error as MmrError, LeafDataProvider, Proof as MmrProof,
+};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{Block as BlockT, IdentityLookup, Keccak256, NumberFor, OpaqueKeys},
@@ -61,7 +61,10 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{Currency, ExistenceRequirement, Imbalance, KeyOwnerProofSystem},
-	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, RuntimeDbWeight, Weight},
+	weights::{
+		constants::WEIGHT_PER_SECOND, ConstantMultiplier, DispatchClass, IdentityFee,
+		RuntimeDbWeight, Weight,
+	},
 	StorageValue,
 };
 
@@ -278,10 +281,19 @@ parameter_types! {
 	pub LeafVersion: MmrLeafVersion = MmrLeafVersion::new(0, 0);
 }
 
+pub struct BeefyDummyDataProvider;
+
+impl beefy_primitives::mmr::BeefyDataProvider<()> for BeefyDummyDataProvider {
+	fn extra_data() -> () {
+		()
+	}
+}
+
 impl pallet_beefy_mmr::Config for Runtime {
 	type LeafVersion = LeafVersion;
 	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
-	type ParachainHeads = ();
+	type LeafExtra = ();
+	type BeefyDataProvider = BeefyDummyDataProvider;
 }
 
 parameter_types! {
@@ -333,9 +345,9 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
-	type TransactionByteFee = TransactionByteFee;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = bp_millau::WeightToFee;
+	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = pallet_transaction_payment::TargetedFeeAdjustment<
 		Runtime,
 		TargetBlockFullness,
@@ -669,7 +681,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_mmr_primitives::MmrApi<Block, MmrHash> for Runtime {
+	impl sp_mmr_primitives::MmrApi<Block, MmrHash> for Runtime {
 		fn generate_proof(leaf_index: u64)
 			-> Result<(EncodableOpaqueLeaf, MmrProof<MmrHash>), MmrError>
 		{
@@ -699,6 +711,10 @@ impl_runtime_apis! {
 			type MmrHashing = <Runtime as pallet_mmr::Config>::Hashing;
 			let node = DataOrHash::Data(leaf.into_opaque_leaf());
 			pallet_mmr::verify_leaf_proof::<MmrHashing, _>(root, node, proof)
+		}
+
+		fn mmr_root() -> Result<MmrHash, MmrError> {
+			Ok(Mmr::mmr_root())
 		}
 	}
 
