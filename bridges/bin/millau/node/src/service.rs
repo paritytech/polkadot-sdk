@@ -399,7 +399,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		network: network.clone(),
 		signed_commitment_sender: beefy_commitment_link,
 		beefy_best_block_sender: beefy_best_block_link,
-		min_block_delta: 4,
+		min_block_delta: 2,
 		prometheus_registry: prometheus_registry.clone(),
 		protocol_name: beefy_protocol_name,
 	};
