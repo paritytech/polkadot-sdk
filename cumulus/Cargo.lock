@@ -1189,9 +1189,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.12"
+version = "3.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c167e37342afc5f33fd87bbc870cedd020d2a6dffa05d45ccd9241fbdd146db"
+checksum = "85a35a599b11c089a7f49105658d089b8f2cf0882993c17daf6de15285c2c35d"
 dependencies = [
  "atty",
  "bitflags",
@@ -1219,9 +1219,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d716edb7c26222b1b21de6e6d505b274f9f3db9e7bc2e06baf389d57ae842df8"
+checksum = "a37c35f1112dad5e6e0b1adaff798507497a18fceeb30cceb3bae7d1427b9213"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1611,7 +1611,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.12",
+ "clap 3.1.15",
  "sc-cli",
  "sc-service",
  "url 2.2.2",
@@ -2890,7 +2890,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#95067ccc3a76
 dependencies = [
  "Inflector",
  "chrono",
- "clap 3.1.12",
+ "clap 3.1.15",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5731,9 +5731,6 @@ name = "os_str_bytes"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "owning_ref"
@@ -6855,7 +6852,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.12",
+ "clap 3.1.15",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -7450,7 +7447,7 @@ name = "polkadot-cli"
 version = "0.9.19"
 source = "git+https://github.com/paritytech/polkadot?branch=master#c3db494f54531bbf29d8da94c8fc5bd434189040"
 dependencies = [
- "clap 3.1.12",
+ "clap 3.1.15",
  "frame-benchmarking-cli",
  "futures 0.3.21",
  "log",
@@ -7517,7 +7514,7 @@ dependencies = [
  "assert_cmd",
  "async-trait",
  "canvas-kusama-runtime",
- "clap 3.1.12",
+ "clap 3.1.15",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -9810,7 +9807,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#95067ccc3a7683768f8a10036785cde8d5f8a098"
 dependencies = [
  "chrono",
- "clap 3.1.12",
+ "clap 3.1.15",
  "fdlimit",
  "futures 0.3.21",
  "hex",
@@ -12830,7 +12827,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#95067ccc3a7683768f8a10036785cde8d5f8a098"
 dependencies = [
- "clap 3.1.12",
+ "clap 3.1.15",
  "jsonrpsee 0.10.1",
  "log",
  "parity-scale-codec",
