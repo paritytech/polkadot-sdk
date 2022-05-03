@@ -11,7 +11,7 @@ criterion = { version = "0.3.5", features = [ "async_tokio" ] }
 jsonrpc-core = "18.0.0"
 parking_lot = "0.12.0"
 rand = "0.8.5"
-serde = { version = "1.0.132", features = ["derive"] }
+serde = { version = "1.0.137", features = ["derive"] }
 tokio = { version = "1.18.0", features = ["macros"] }
 url = "2.2.2"
 
