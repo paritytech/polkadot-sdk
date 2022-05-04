@@ -50,7 +50,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{Block as BlockT, IdentityLookup, Keccak256, NumberFor, OpaqueKeys},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perquintill,
+	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perquintill,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -223,18 +223,6 @@ impl pallet_aura::Config for Runtime {
 
 impl pallet_beefy::Config for Runtime {
 	type BeefyId = BeefyId;
-}
-
-impl pallet_bridge_dispatch::Config for Runtime {
-	type Event = Event;
-	type BridgeMessageId = (bp_messages::LaneId, bp_messages::MessageNonce);
-	type Call = Call;
-	type CallFilter = frame_support::traits::Everything;
-	type EncodedCall = crate::rialto_messages::FromRialtoEncodedCall;
-	type SourceChainAccountId = bp_rialto::AccountId;
-	type TargetChainAccountPublic = MultiSigner;
-	type TargetChainSignature = MultiSignature;
-	type AccountIdConverter = bp_millau::AccountIdConverter;
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -471,36 +459,11 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 			GetDeliveryConfirmationTransactionFee,
 		>;
 	type OnMessageAccepted = ();
-	type OnDeliveryConfirmed =
-		pallet_bridge_token_swap::Pallet<Runtime, WithRialtoTokenSwapInstance>;
+	type OnDeliveryConfirmed = ();
 
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
 	type BridgedChainId = RialtoChainId;
-}
-
-parameter_types! {
-	pub const TokenSwapMessagesLane: bp_messages::LaneId = *b"swap";
-}
-
-/// Instance of the with-Rialto token swap pallet.
-pub type WithRialtoTokenSwapInstance = ();
-
-impl pallet_bridge_token_swap::Config<WithRialtoTokenSwapInstance> for Runtime {
-	type Event = Event;
-	type WeightInfo = ();
-
-	type BridgedChainId = RialtoChainId;
-	type OutboundMessageLaneId = TokenSwapMessagesLane;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type MessagesBridge = pallet_bridge_messages::Pallet<Runtime, WithRialtoMessagesInstance>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type MessagesBridge = bp_messages::source_chain::NoopMessagesBridge;
-	type ThisCurrency = pallet_balances::Pallet<Runtime>;
-	type FromSwapToThisAccountIdConverter = bp_rialto::AccountIdConverter;
-
-	type BridgedChain = bp_rialto::Rialto;
-	type FromBridgedToThisAccountIdConverter = bp_millau::AccountIdConverter;
 }
 
 construct_runtime!(
@@ -532,9 +495,7 @@ construct_runtime!(
 
 		// Rialto bridge modules.
 		BridgeRialtoGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage},
-		BridgeDispatch: pallet_bridge_dispatch::{Pallet, Event<T>},
 		BridgeRialtoMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
-		BridgeRialtoTokenSwap: pallet_bridge_token_swap::{Pallet, Call, Storage, Event<T>, Origin<T>},
 
 		// Westend bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
@@ -806,7 +767,6 @@ impl_runtime_apis! {
 
 			let mut list = Vec::<BenchmarkList>::new();
 
-			list_benchmark!(list, extra, pallet_bridge_token_swap, BridgeRialtoTokenSwap);
 			list_benchmark!(list, extra, pallet_bridge_messages, MessagesBench::<Runtime, WithRialtoMessagesInstance>);
 			list_benchmark!(list, extra, pallet_bridge_grandpa, BridgeRialtoGrandpa);
 
@@ -878,8 +838,6 @@ impl_runtime_apis! {
 				) -> (rialto_messages::FromRialtoMessagesProof, Weight) {
 					prepare_message_proof::<Runtime, (), (), WithRialtoMessageBridge, bp_rialto::Header, bp_rialto::Hasher>(
 						params,
-						&VERSION,
-						Balance::MAX / 100,
 					)
 				}
 
@@ -891,33 +849,11 @@ impl_runtime_apis! {
 					)
 				}
 
-				fn is_message_dispatched(nonce: bp_messages::MessageNonce) -> bool {
-					frame_system::Pallet::<Runtime>::events()
-						.into_iter()
-						.map(|event_record| event_record.event)
-						.any(|event| matches!(
-							event,
-							Event::BridgeDispatch(pallet_bridge_dispatch::Event::<Runtime, _>::MessageDispatched(
-								_, ([0, 0, 0, 0], nonce_from_event), _,
-							)) if nonce_from_event == nonce
-						))
+				fn is_message_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					true
 				}
 			}
 
-			use pallet_bridge_token_swap::benchmarking::Config as TokenSwapConfig;
-
-			impl TokenSwapConfig<WithRialtoTokenSwapInstance> for Runtime {
-				fn initialize_environment() {
-					let relayers_fund_account = pallet_bridge_messages::relayer_fund_account_id::<
-						bp_millau::AccountId,
-						bp_millau::AccountIdConverter,
-					>();
-					pallet_balances::Pallet::<Runtime>::make_free_balance_be(
-						&relayers_fund_account,
-						Balance::MAX / 100,
-					);
-				}
-			}
 
 			add_benchmark!(
 				params,
@@ -926,35 +862,10 @@ impl_runtime_apis! {
 				MessagesBench::<Runtime, WithRialtoMessagesInstance>
 			);
 			add_benchmark!(params, batches, pallet_bridge_grandpa, BridgeRialtoGrandpa);
-			add_benchmark!(params, batches, pallet_bridge_token_swap, BridgeRialtoTokenSwap);
 
 			Ok(batches)
 		}
 	}
-}
-
-/// Rialto account ownership digest from Millau.
-///
-/// The byte vector returned by this function should be signed with a Rialto account private key.
-/// This way, the owner of `millau_account_id` on Millau proves that the Rialto account private key
-/// is also under his control.
-pub fn millau_to_rialto_account_ownership_digest<Call, AccountId, SpecVersion>(
-	rialto_call: &Call,
-	millau_account_id: AccountId,
-	rialto_spec_version: SpecVersion,
-) -> sp_std::vec::Vec<u8>
-where
-	Call: codec::Encode,
-	AccountId: codec::Encode,
-	SpecVersion: codec::Encode,
-{
-	pallet_bridge_dispatch::account_ownership_digest(
-		rialto_call,
-		millau_account_id,
-		rialto_spec_version,
-		bp_runtime::MILLAU_CHAIN_ID,
-		bp_runtime::RIALTO_CHAIN_ID,
-	)
 }
 
 #[cfg(test)]
