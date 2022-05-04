@@ -15,13 +15,11 @@ scale-info = { version = "2.1.1", features = ["derive"] }
 
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-kusama = { path = "../../primitives/chain-kusama" }
-bp-message-dispatch = { path = "../../primitives/message-dispatch" }
 bp-messages = { path = "../../primitives/messages" }
 bp-polkadot = { path = "../../primitives/chain-polkadot" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-runtime = { path = "../../primitives/runtime" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
-pallet-bridge-dispatch = { path = "../../modules/dispatch" }
 
 # Substrate Dependencies
 
