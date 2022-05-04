@@ -16,7 +16,7 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "3.1", features = ["derive"] }
 derive_more = "0.99.2"
-log = "0.4.16"
+log = "0.4.17"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.137", features = ["derive"] }
 hex-literal = "0.3.4"
