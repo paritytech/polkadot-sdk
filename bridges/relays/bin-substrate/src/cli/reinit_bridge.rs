@@ -20,7 +20,7 @@ use crate::{
 		polkadot_headers_to_kusama::PolkadotFinalityToKusama,
 	},
 	cli::{
-		swap_tokens::wait_until_transaction_is_finalized, SourceConnectionParams,
+		register_parachain::wait_until_transaction_is_finalized, SourceConnectionParams,
 		TargetConnectionParams, TargetSigningParams,
 	},
 };
