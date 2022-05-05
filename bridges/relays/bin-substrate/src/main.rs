@@ -26,6 +26,6 @@ fn main() {
 	let run = command.run();
 	let result = async_std::task::block_on(run);
 	if let Err(error) = result {
-		log::error!(target: "bridge", "Failed to start relay: {}", error);
+		log::error!(target: "bridge", "substrate-relay: {}", error);
 	}
 }
