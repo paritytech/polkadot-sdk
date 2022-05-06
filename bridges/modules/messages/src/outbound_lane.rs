@@ -148,19 +148,17 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	/// Returns number of pruned messages.
 	pub fn prune_messages(&mut self, max_messages_to_prune: MessageNonce) -> MessageNonce {
 		let mut pruned_messages = 0;
-		let mut anything_changed = false;
 		let mut data = self.storage.data();
 		while pruned_messages < max_messages_to_prune &&
 			data.oldest_unpruned_nonce <= data.latest_received_nonce
 		{
 			self.storage.remove_message(&data.oldest_unpruned_nonce);
 
-			anything_changed = true;
 			pruned_messages += 1;
 			data.oldest_unpruned_nonce += 1;
 		}
 
-		if anything_changed {
+		if pruned_messages > 0 {
 			self.storage.set_data(data);
 		}
 
