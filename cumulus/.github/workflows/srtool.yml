@@ -1,7 +1,7 @@
 name: Srtool build
 
 env:
-  SUBWASM_VERSION: 0.15.0
+  SUBWASM_VERSION: 0.17.0
 
 on:
   push:
@@ -16,7 +16,6 @@ on:
 
     branches:
       - "release*"
-      - "master"
 
   schedule:
     - cron: "00 02 * * 1" # 2AM weekly on monday
@@ -30,13 +29,13 @@ jobs:
       matrix:
         chain: ["statemine", "westmint", "statemint", "rococo-parachain", "shell", "canvas-kusama"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Srtool build
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.3.0
+        uses: chevdor/srtool-actions@v0.4.0
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: polkadot-parachains/${{ matrix.chain }}

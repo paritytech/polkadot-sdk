@@ -63,7 +63,7 @@ jobs:
       - name: Build ${{ matrix.runtime }} runtime
         if: ${{ github.event.inputs.release_type != 'client' }}
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.3.0
+        uses: chevdor/srtool-actions@v0.4.0
         with:
           image: paritytech/srtool
           chain: ${{ matrix.runtime }}
