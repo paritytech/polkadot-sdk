@@ -656,7 +656,7 @@ pub fn node_config(
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		state_cache_size: 67108864,
 		state_cache_child_ratio: None,
-		state_pruning: PruningMode::ArchiveAll,
+		state_pruning: Some(PruningMode::ArchiveAll),
 		keep_blocks: KeepBlocks::All,
 		chain_spec: spec,
 		wasm_method: WasmExecutionMethod::Interpreted,

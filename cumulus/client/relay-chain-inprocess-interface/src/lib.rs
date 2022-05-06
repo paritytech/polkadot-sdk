@@ -349,6 +349,7 @@ fn build_polkadot_full_node(
 			telemetry_worker_handle,
 			true,
 			polkadot_service::RealOverseerGen,
+			None,
 			hwbench,
 		)?;
 
