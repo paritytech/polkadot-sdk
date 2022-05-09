@@ -8,8 +8,9 @@ use frame_support::{
 	weights::Weight,
 };
 use pallet_contracts::{
+	migration,
 	weights::{SubstrateWeight, WeightInfo},
-	Config, DefaultAddressGenerator, Frame, Schedule,
+	Config, DefaultAddressGenerator, DefaultContractAccessWeight, Frame, Schedule,
 };
 pub use parachains_common::AVERAGE_ON_INITIALIZE_RATIO;
 
@@ -55,11 +56,12 @@ impl Config for Runtime {
 	type Schedule = MySchedule;
 	type CallStack = [Frame<Self>; 31];
 	type AddressGenerator = DefaultAddressGenerator;
+	type ContractAccessWeight = DefaultContractAccessWeight<RuntimeBlockWeights>;
 }
 
 pub struct Migrations;
 impl OnRuntimeUpgrade for Migrations {
 	fn on_runtime_upgrade() -> Weight {
-		pallet_contracts::migration::migrate::<Runtime>()
+		migration::migrate::<Runtime>()
 	}
 }
