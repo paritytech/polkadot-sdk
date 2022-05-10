@@ -12,7 +12,7 @@ jsonrpsee = { version = "0.12.0", features = ["server"] }
 parking_lot = "0.12.0"
 rand = "0.8.5"
 serde = { version = "1.0.137", features = ["derive"] }
-tokio = { version = "1.18.1", features = ["macros"] }
+tokio = { version = "1.18.2", features = ["macros"] }
 url = "2.2.2"
 
 # Substrate
