@@ -18,7 +18,7 @@ use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Keyring::*};
 use futures::join;
 
-#[substrate_test_utils::test]
+#[substrate_test_utils::test(flavor = "multi_thread")]
 #[ignore]
 async fn sync_blocks_from_tip_without_being_connected_to_a_collator() {
 	let mut builder = sc_cli::LoggerBuilder::new("");

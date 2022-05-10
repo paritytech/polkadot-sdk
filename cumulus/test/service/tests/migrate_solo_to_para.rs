@@ -30,7 +30,7 @@ use cumulus_test_service::{initial_head_data, run_relay_chain_validator_node, Ke
 use sc_client_api::{BlockBackend, UsageProvider};
 use sp_runtime::generic::BlockId;
 
-#[substrate_test_utils::test]
+#[substrate_test_utils::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_migrate_solo_to_para() {
 	let mut builder = sc_cli::LoggerBuilder::new("");

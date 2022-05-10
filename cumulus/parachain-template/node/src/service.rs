@@ -3,6 +3,9 @@
 // std
 use std::{sync::Arc, time::Duration};
 
+// rpc
+use jsonrpsee::RpcModule;
+
 use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
 use parachain_template_runtime::{
@@ -222,7 +225,7 @@ where
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 	RB: Fn(
 			Arc<TFullClient<Block, RuntimeApi, Executor>>,
-		) -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, sc_service::Error>
+		) -> Result<RpcModule<()>, sc_service::Error>
 		+ Send
 		+ 'static,
 	BIQ: FnOnce(
@@ -301,7 +304,7 @@ where
 			warp_sync: None,
 		})?;
 
-	let rpc_extensions_builder = {
+	let rpc_builder = {
 		let client = client.clone();
 		let transaction_pool = transaction_pool.clone();
 
@@ -312,12 +315,12 @@ where
 				deny_unsafe,
 			};
 
-			Ok(crate::rpc::create_full(deps))
+			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
 
 	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		rpc_extensions_builder,
+		rpc_builder,
 		client: client.clone(),
 		transaction_pool: transaction_pool.clone(),
 		task_manager: &mut task_manager,
@@ -461,7 +464,7 @@ pub async fn start_parachain_node(
 		polkadot_config,
 		collator_options,
 		id,
-		|_| Ok(Default::default()),
+		|_| Ok(RpcModule::new(())),
 		parachain_build_import_queue,
 		|client,
 		 prometheus_registry,
