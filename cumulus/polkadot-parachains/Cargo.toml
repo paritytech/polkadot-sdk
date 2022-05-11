@@ -26,7 +26,7 @@ statemint-runtime = { path = "statemint" }
 statemine-runtime = { path = "statemine" }
 westmint-runtime = { path = "westmint" }
 canvas-kusama-runtime = { path = "canvas-kusama" }
-jsonrpsee = { version = "0.12.0", features = ["server"] }
+jsonrpsee = { version = "0.13.0", features = ["server"] }
 parachains-common = { path = "parachains-common" }
 
 # Substrate
