@@ -1161,9 +1161,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.17"
+version = "3.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47582c09be7c8b32c0ab3a6181825ababb713fde6fff20fc573a3870dd45c6a0"
+checksum = "d2dbdf4bdacb33466e854ce889eee8dfd5729abf7ccd7664d0a2d60cd384440b"
 dependencies = [
  "atty",
  "bitflags",
@@ -1178,9 +1178,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "3.1.7"
+version = "3.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3aab4734e083b809aaf5794e14e756d1c798d2c69c7f7de7a09a2f5214993c1"
+checksum = "25320346e922cffe59c0bbc5410c8d8784509efb321488971081313cb1e1a33c"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
@@ -1583,7 +1583,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.17",
+ "clap 3.1.18",
  "sc-cli",
  "sc-service",
  "url",
@@ -2862,7 +2862,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#e0ccd008fe8b
 dependencies = [
  "Inflector",
  "chrono",
- "clap 3.1.17",
+ "clap 3.1.18",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6574,7 +6574,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.17",
+ "clap 3.1.18",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -7132,7 +7132,7 @@ name = "polkadot-cli"
 version = "0.9.19"
 source = "git+https://github.com/paritytech/polkadot?branch=master#e7c4ac3fc8d56da14d695bd9736a2cb28aac8f83"
 dependencies = [
- "clap 3.1.17",
+ "clap 3.1.18",
  "frame-benchmarking-cli",
  "futures 0.3.21",
  "log",
@@ -7199,7 +7199,7 @@ dependencies = [
  "assert_cmd",
  "async-trait",
  "canvas-kusama-runtime",
- "clap 3.1.17",
+ "clap 3.1.18",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -9484,7 +9484,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#e0ccd008fe8bfaf29357ea87561e60f3baaae08c"
 dependencies = [
  "chrono",
- "clap 3.1.17",
+ "clap 3.1.18",
  "fdlimit",
  "futures 0.3.21",
  "hex",
@@ -12526,7 +12526,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#e0ccd008fe8bfaf29357ea87561e60f3baaae08c"
 dependencies = [
- "clap 3.1.17",
+ "clap 3.1.18",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
