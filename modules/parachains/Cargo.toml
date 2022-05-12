@@ -1,49 +1,50 @@
 [package]
-name = "bp-polkadot-core"
-description = "Primitives of Polkadot-like runtime."
+name = "pallet-bridge-parachains"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-parity-scale-codec = { version = "3.0.0", default-features = false, features = ["derive"] }
-parity-util-mem = { version = "0.11.0", optional = true }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+log = { version = "0.4.14", default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-serde = { version = "1.0", optional = true, features = ["derive"] }
+serde = { version = "1.0.101", optional = true }
 
 # Bridge Dependencies
 
-bp-messages = { path = "../messages", default-features = false }
-bp-runtime = { path = "../runtime", default-features = false }
+bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false }
+pallet-bridge-grandpa = { path = "../grandpa", default-features = false }
 
-# Substrate Based Dependencies
+# Substrate Dependencies
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-version = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [dev-dependencies]
-hex = "0.4"
+bp-header-chain = { path = "../../primitives/header-chain" }
+bp-test-utils = { path = "../../primitives/test-utils" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]
 default = ["std"]
 std = [
-	"bp-messages/std",
+	"bp-polkadot-core/std",
 	"bp-runtime/std",
+	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"parity-scale-codec/std",
-	"parity-util-mem",
+	"log/std",
+	"pallet-bridge-grandpa/std",
 	"scale-info/std",
 	"serde",
-	"sp-api/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-version/std",
+	"sp-trie/std",
 ]

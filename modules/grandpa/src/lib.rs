@@ -284,7 +284,7 @@ pub mod pallet {
 
 	/// Headers which have been imported into the pallet.
 	#[pallet::storage]
-	pub(super) type ImportedHeaders<T: Config<I>, I: 'static = ()> =
+	pub type ImportedHeaders<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, BridgedBlockHash<T, I>, BridgedHeader<T, I>>;
 
 	/// The current GRANDPA Authority set.
