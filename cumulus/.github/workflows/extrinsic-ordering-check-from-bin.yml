@@ -10,7 +10,7 @@ on:
         required: true
       binary_url:
         description: A url to a Linux binary for the node containing the runtime to test
-        default: https://github.com/paritytech/cumulus/releases/download/statemine_v3/polkadot-collator
+        default: https://releases.parity.io/cumulus/polkadot-v0.9.21/polkadot-parachain
         required: true
       chain:
         description: The name of the chain under test. Usually, you would pass a local chain
@@ -33,17 +33,17 @@ jobs:
         run: |
           echo Fetching $BIN_URL
           wget $BIN_URL
-          chmod a+x polkadot-collator
-          ./polkadot-collator --version
+          chmod a+x polkadot-parachain
+          ./polkadot-parachain --version
 
       - name: Start local node
         run: |
           echo Running on $CHAIN
-          ./polkadot-collator --chain=$CHAIN -- --chain polkadot-local &
+          ./polkadot-parachain --chain=$CHAIN -- --chain polkadot-local &
 
       - name: Prepare output
         run: |
-          VERSION=$(./polkadot-collator --version)
+          VERSION=$(./polkadot-parachain --version)
           echo "Metadata comparison:" >> output.txt
           echo "Date: $(date)" >> output.txt
           echo "Reference: $REF_URL" >> output.txt
@@ -71,7 +71,7 @@ jobs:
 
       - name: Stop our local node
         run: |
-          pkill polkadot-collator
+          pkill polkadot-parachain
         continue-on-error: true
 
       - name: Save output as artifact

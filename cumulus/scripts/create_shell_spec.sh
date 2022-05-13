@@ -10,7 +10,7 @@ set -e
 
 rt_path=$1
 
-binary="./target/release/polkadot-collator"
+binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
 $binary build-spec --chain shell > shell-spec-plain.json

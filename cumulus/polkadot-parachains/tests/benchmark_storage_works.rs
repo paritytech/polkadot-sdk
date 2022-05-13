@@ -28,7 +28,7 @@ fn benchmark_storage_works() {
 
 /// Invoke the `benchmark storage` sub-command for the given database and runtime.
 fn benchmark_storage(db: &str, runtime: &str, base_path: &Path) -> ExitStatus {
-	Command::new(cargo_bin("polkadot-collator"))
+	Command::new(cargo_bin("polkadot-parachain"))
 		.args(&["benchmark", "storage", "--chain", runtime])
 		.arg("--db")
 		.arg(db)

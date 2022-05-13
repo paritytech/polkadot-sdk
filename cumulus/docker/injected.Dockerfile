@@ -34,18 +34,18 @@ RUN apt-get update && \
 	ln -s /data /polkadot/.local/share/polkadot && \
 	mkdir -p /specs
 
-# add polkadot-collator binary to the docker image
-COPY ./target/release/polkadot-collator /usr/local/bin
-COPY ./target/release/polkadot-collator.asc /usr/local/bin
-COPY ./target/release/polkadot-collator.sha256 /usr/local/bin
+# add polkadot-parachain binary to the docker image
+COPY ./target/release/polkadot-parachain /usr/local/bin
+COPY ./target/release/polkadot-parachain.asc /usr/local/bin
+COPY ./target/release/polkadot-parachain.sha256 /usr/local/bin
 COPY ./polkadot-parachains/res/*.json /specs/
 
 USER polkadot
 
 # check if executable works in this container
-RUN /usr/local/bin/polkadot-collator --version
+RUN /usr/local/bin/polkadot-parachain --version
 
 EXPOSE 30333 9933 9944
 VOLUME ["/polkadot"]
 
-ENTRYPOINT ["/usr/local/bin/polkadot-collator"]
+ENTRYPOINT ["/usr/local/bin/polkadot-parachain"]

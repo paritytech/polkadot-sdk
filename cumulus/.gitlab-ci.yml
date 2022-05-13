@@ -116,10 +116,10 @@ test-linux-stable:
     # it goes with the debug assertions.
     - if [ "${ARE_WE_RELEASING_YET}" ]; then
         echo "___Building a binary___";
-        time cargo build --release --locked --bin polkadot-collator;
+        time cargo build --release --locked --bin polkadot-parachain;
         echo "___Packing the artifacts___";
         mkdir -p ./artifacts;
-        mv ${CARGO_TARGET_DIR}/release/polkadot-collator ./artifacts/.;
+        mv ${CARGO_TARGET_DIR}/release/polkadot-parachain ./artifacts/.;
         echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___";
         echo ${CI_COMMIT_REF_NAME} | tee ./artifacts/VERSION;
       else
@@ -179,7 +179,7 @@ publish-s3:
     # Job will fail if no artifacts were provided by test-linux-stable job. It's only possible for
     # this test to fail if the pipeline was triggered by web or schedule trigger without supplying
     # a nono-empty ARE_WE_RELEASING_YET variable.
-    - test -e ./artifacts/polkadot-collator ||
+    - test -e ./artifacts/polkadot-parachain ||
         ( echo "___No artifacts were provided by the previous job, please check the build there___"; exit 1 )
   script:
     - echo "___Publishing a binary with debug assertions!___"
@@ -202,7 +202,7 @@ benchmarks-build:
   script:
     - time cargo build --profile production --locked --features runtime-benchmarks
     - mkdir artifacts
-    - cp target/production/polkadot-collator ./artifacts/
+    - cp target/production/polkadot-parachain ./artifacts/
 
 benchmarks:
   stage:                           benchmarks-run

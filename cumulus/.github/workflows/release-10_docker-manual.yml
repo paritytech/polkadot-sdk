@@ -19,7 +19,7 @@ on:
 jobs:
   docker_build_publish:
     env:
-      BINARY: polkadot-collator
+      BINARY: polkadot-parachain
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources

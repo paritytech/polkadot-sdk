@@ -33,7 +33,7 @@ fn polkadot_argument_parsing() {
 
 	fn run_command_and_kill(signal: Signal) {
 		let _ = fs::remove_dir_all("polkadot_argument_parsing");
-		let mut cmd = Command::new(cargo_bin("polkadot-collator"))
+		let mut cmd = Command::new(cargo_bin("polkadot-parachain"))
 			.args(&[
 				"-d",
 				"polkadot_argument_parsing",

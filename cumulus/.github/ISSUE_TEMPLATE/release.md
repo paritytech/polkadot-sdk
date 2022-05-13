@@ -39,7 +39,7 @@ candidate branch or started an additional release candidate branch (rc-2, rc-3, 
 
 ### All Releases
 
-- [ ] Check that the new polkadot-collator versions have [run on the network](#burn-in)
+- [ ] Check that the new polkadot-parachain versions have [run on the network](#burn-in)
     without issue.
 - [ ] Check that a draft release has been created at
     https://github.com/paritytech/cumulus/releases with relevant [release

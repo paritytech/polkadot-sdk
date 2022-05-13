@@ -33,7 +33,7 @@ and treat as best.
 ### Collator
 
 A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for the parachain is
-implemented by the `polkadot-collator` binary.
+implemented by the `polkadot-parachain` binary (previously called `polkadot-collator`).
 
 ## Statemint 🪙
 
@@ -44,17 +44,17 @@ Statemint is a common good parachain providing an asset store for the Polkadot e
 ### Build & Launch a Node
 
 To run a Statemine or Westmint node (Statemint is not deployed, yet) you will need to compile the
-`polkadot-collator` binary:
+`polkadot-parachain` binary:
 
 ```bash
-cargo build --release --locked -p polkadot-collator
+cargo build --release --locked -p polkadot-parachain
 ```
 
 Once the executable is built, launch the parachain node via:
 
 ```bash
 CHAIN=westmint # or statemine
-./target/release/polkadot-collator --chain $CHAIN
+./target/release/polkadot-parachain --chain $CHAIN
 ```
 
 Refer to the [setup instructions below](#local-setup) to run a local network for development.
@@ -105,16 +105,16 @@ If you are looking for a quickstart, we can recommend
 ### Build & Launch a Node
 
 To run a Canvas node that connects to Rococo (Kusama and Polkadot parachains are not deployed, yet)
-you will need to compile the `polkadot-collator` binary:
+you will need to compile the `polkadot-parachain` binary:
 
 ```bash
-cargo build --release --locked -p polkadot-collator
+cargo build --release --locked -p polkadot-parachain
 ```
 
 Once the executable is built, launch the parachain node via:
 
 ```bash
-./target/release/polkadot-collator --chain rocanvas
+./target/release/polkadot-parachain --chain rocanvas
 ```
 
 Refer to the [setup instructions below](#local-setup) to run a local network for development.
@@ -164,7 +164,7 @@ eventually be included by the relay chain for a parachain.
 To run a Rococo collator you will need to compile the following binary:
 
 ```bash
-cargo build --release --locked -p polkadot-collator
+cargo build --release --locked -p polkadot-parachain
 ```
 
 Otherwise you can compile it with
@@ -173,7 +173,7 @@ Otherwise you can compile it with
 ```bash
 docker run --rm -it -w /shellhere/cumulus \
                     -v $(pwd):/shellhere/cumulus \
-                    paritytech/ci-linux:production cargo build --release --locked -p polkadot-collator
+                    paritytech/ci-linux:production cargo build --release --locked -p polkadot-parachain
 sudo chown -R $(id -u):$(id -g) target/
 ```
 
@@ -184,7 +184,7 @@ Once the executable is built, launch collators for each parachain (repeat once e
 `tick`, `trick`, `track`):
 
 ```bash
-./target/release/polkadot-collator --chain $CHAIN --validator
+./target/release/polkadot-parachain --chain $CHAIN --validator
 ```
 
 ### Parachains
@@ -232,19 +232,19 @@ cd cumulus
 cargo build --release
 
 # Export genesis state
-./target/release/polkadot-collator export-genesis-state > genesis-state
+./target/release/polkadot-parachain export-genesis-state > genesis-state
 
 # Export genesis wasm
-./target/release/polkadot-collator export-genesis-wasm > genesis-wasm
+./target/release/polkadot-parachain export-genesis-wasm > genesis-wasm
 
 # Collator1
-./target/release/polkadot-collator --collator --alice --force-authoring --tmp --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30335
+./target/release/polkadot-parachain --collator --alice --force-authoring --tmp --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30335
 
 # Collator2
-./target/release/polkadot-collator --collator --bob --force-authoring --tmp --port 40336 --ws-port 9947 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30336
+./target/release/polkadot-parachain --collator --bob --force-authoring --tmp --port 40336 --ws-port 9947 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30336
 
 # Parachain Full Node 1
-./target/release/polkadot-collator --tmp --port 40337 --ws-port 9948 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30337
+./target/release/polkadot-parachain --tmp --port 40337 --ws-port 9948 -- --execution wasm --chain ../polkadot/rococo-local-cfde.json --port 30337
 ```
 
 #### Register the parachain
@@ -253,7 +253,7 @@ cargo build --release
 
 ### Containerize
 
-After building `polkadot-collator` with cargo or with Parity CI image as documented in [this chapter](#build--launch-rococo-collators),
+After building `polkadot-parachain` with cargo or with Parity CI image as documented in [this chapter](#build--launch-rococo-collators),
 the following will allow producing a new docker image where the compiled binary is injected:
 
 ```bash
@@ -263,7 +263,7 @@ the following will allow producing a new docker image where the compiled binary 
 Alternatively, you can build an image with a builder pattern:
 
 ```bash
-docker build --tag $OWNER/$IMAGE_NAME --file ./docker/polkadot-collator_builder.Containerfile .
+docker build --tag $OWNER/$IMAGE_NAME --file ./docker/polkadot-parachain_builder.Containerfile .
 
 You may then run your new container:
 

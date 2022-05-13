@@ -33,7 +33,7 @@ fn interrupt_polkadot_mdns_issue_test() {
 
 	fn run_command_and_kill(signal: Signal) {
 		let _ = fs::remove_dir_all("interrupt_polkadot_mdns_issue_test");
-		let mut cmd = Command::new(cargo_bin("polkadot-collator"))
+		let mut cmd = Command::new(cargo_bin("polkadot-parachain"))
 			.args(&["-d", "interrupt_polkadot_mdns_issue_test", "--", "--dev"])
 			.spawn()
 			.unwrap();
