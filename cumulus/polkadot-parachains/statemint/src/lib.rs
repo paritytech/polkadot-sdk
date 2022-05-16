@@ -345,10 +345,10 @@ impl InstanceFilter<Call> for ProxyType {
 					Call::Uniques(pallet_uniques::Call::set_team { .. }) |
 					Call::Uniques(pallet_uniques::Call::set_metadata { .. }) |
 					Call::Uniques(pallet_uniques::Call::set_attribute { .. }) |
-					Call::Uniques(pallet_uniques::Call::set_class_metadata { .. }) |
+					Call::Uniques(pallet_uniques::Call::set_collection_metadata { .. }) |
 					Call::Uniques(pallet_uniques::Call::clear_metadata { .. }) |
 					Call::Uniques(pallet_uniques::Call::clear_attribute { .. }) |
-					Call::Uniques(pallet_uniques::Call::clear_class_metadata { .. }) |
+					Call::Uniques(pallet_uniques::Call::clear_collection_metadata { .. }) |
 					Call::Utility { .. } | Call::Multisig { .. }
 			),
 			ProxyType::AssetManager => matches!(
@@ -363,8 +363,8 @@ impl InstanceFilter<Call> for ProxyType {
 					Call::Uniques(pallet_uniques::Call::burn { .. }) |
 					Call::Uniques(pallet_uniques::Call::freeze { .. }) |
 					Call::Uniques(pallet_uniques::Call::thaw { .. }) |
-					Call::Uniques(pallet_uniques::Call::freeze_class { .. }) |
-					Call::Uniques(pallet_uniques::Call::thaw_class { .. }) |
+					Call::Uniques(pallet_uniques::Call::freeze_collection { .. }) |
+					Call::Uniques(pallet_uniques::Call::thaw_collection { .. }) |
 					Call::Utility { .. } | Call::Multisig { .. }
 			),
 			ProxyType::Collator => matches!(
@@ -501,8 +501,8 @@ impl pallet_asset_tx_payment::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ClassDeposit: Balance = UNITS; // 1 UNIT deposit to create asset class
-	pub const InstanceDeposit: Balance = UNITS / 100; // 1/100 UNIT deposit to create asset instance
+	pub const CollectionDeposit: Balance = UNITS; // 1 UNIT deposit to create asset class
+	pub const ItemDeposit: Balance = UNITS / 100; // 1/100 UNIT deposit to create asset instance
 	pub const KeyLimit: u32 = 32;	// Max 32 bytes per key
 	pub const ValueLimit: u32 = 64;	// Max 64 bytes per value
 	pub const UniquesMetadataDepositBase: Balance = deposit(1, 129);
@@ -513,12 +513,12 @@ parameter_types! {
 
 impl pallet_uniques::Config for Runtime {
 	type Event = Event;
-	type ClassId = u32;
-	type InstanceId = u32;
+	type CollectionId = u32;
+	type ItemId = u32;
 	type Currency = Balances;
 	type ForceOrigin = AssetsForceOrigin;
-	type ClassDeposit = ClassDeposit;
-	type InstanceDeposit = InstanceDeposit;
+	type CollectionDeposit = CollectionDeposit;
+	type ItemDeposit = ItemDeposit;
 	type MetadataDepositBase = UniquesMetadataDepositBase;
 	type AttributeDepositBase = AttributeDepositBase;
 	type DepositPerByte = DepositPerByte;

@@ -130,13 +130,13 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
-	fn freeze_class() -> Weight {
+	fn freeze_collection() -> Weight {
 		(13_277_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
-	fn thaw_class() -> Weight {
+	fn thaw_collection() -> Weight {
 		(12_984_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -157,7 +157,7 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques ClassAccount (r:0 w:1)
-	fn force_asset_status() -> Weight {
+	fn force_item_status() -> Weight {
 		(16_252_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
@@ -194,14 +194,14 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques ClassMetadataOf (r:1 w:1)
-	fn set_class_metadata() -> Weight {
+	fn set_collection_metadata() -> Weight {
 		(28_141_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
 	// Storage: Uniques Class (r:1 w:0)
 	// Storage: Uniques ClassMetadataOf (r:1 w:1)
-	fn clear_class_metadata() -> Weight {
+	fn clear_collection_metadata() -> Weight {
 		(26_122_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
