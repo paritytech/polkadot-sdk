@@ -16,7 +16,7 @@
 
 //! Everything required to serve Millau <-> Rialto messages.
 
-use crate::Runtime;
+use crate::{Call, OriginCaller, Runtime};
 
 use bp_messages::{
 	source_chain::{SenderOrigin, TargetHeaderChain},
@@ -40,6 +40,10 @@ pub const INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE: FixedU128 =
 	FixedU128::from_inner(FixedU128::DIV);
 /// Initial value of `MillauFeeMultiplier` parameter.
 pub const INITIAL_MILLAU_FEE_MULTIPLIER: FixedU128 = FixedU128::from_inner(FixedU128::DIV);
+/// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
+/// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
+/// tests, confirming that we don't break encoding somewhere between.
+pub const BASE_XCM_WEIGHT_TWICE: Weight = 2 * crate::xcm_config::BASE_XCM_WEIGHT;
 
 parameter_types! {
 	/// Millau to Rialto conversion rate. Initially we treat both tokens as equal.
@@ -56,14 +60,15 @@ pub type ToMillauMessageVerifier =
 	messages::source::FromThisChainMessageVerifier<WithMillauMessageBridge>;
 
 /// Message payload for Millau -> Rialto messages.
-pub type FromMillauMessagePayload = messages::target::FromBridgedChainMessagePayload;
+pub type FromMillauMessagePayload = messages::target::FromBridgedChainMessagePayload<Call>;
 
 /// Call-dispatch based message dispatch for Millau -> Rialto messages.
 pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
 	WithMillauMessageBridge,
-	crate::Runtime,
-	pallet_balances::Pallet<Runtime>,
-	(),
+	xcm_executor::XcmExecutor<crate::xcm_config::XcmConfig>,
+	crate::xcm_config::XcmWeigher,
+	//
+	frame_support::traits::ConstU64<BASE_XCM_WEIGHT_TWICE>,
 >;
 
 /// Messages proof for Millau -> Rialto messages.
@@ -115,7 +120,23 @@ impl messages::ThisChainWithMessages for Rialto {
 	type Call = crate::Call;
 
 	fn is_message_accepted(send_origin: &Self::Origin, lane: &LaneId) -> bool {
-		send_origin.linked_account().is_some() && (*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1])
+		let here_location =
+			xcm::v3::MultiLocation::from(crate::xcm_config::UniversalLocation::get());
+		match send_origin.caller {
+			OriginCaller::XcmPallet(pallet_xcm::Origin::Xcm(ref location))
+				if *location == here_location =>
+			{
+				log::trace!(target: "runtime::bridge", "Verifying message sent using XCM pallet to Millau");
+			},
+			_ => {
+				// keep in mind that in this case all messages are free (in term of fees)
+				// => it's just to keep testing bridge on our test deployments until we'll have a
+				// better option
+				log::trace!(target: "runtime::bridge", "Verifying message sent using messages pallet to Millau");
+			},
+		}
+
+		*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1]
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
@@ -262,14 +283,8 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 
 impl SenderOrigin<crate::AccountId> for crate::Origin {
 	fn linked_account(&self) -> Option<crate::AccountId> {
-		match self.caller {
-			crate::OriginCaller::system(frame_system::RawOrigin::Signed(ref submitter)) =>
-				Some(submitter.clone()),
-			crate::OriginCaller::system(frame_system::RawOrigin::Root) |
-			crate::OriginCaller::system(frame_system::RawOrigin::None) =>
-				crate::RootAccountForPayments::get(),
-			_ => None,
-		}
+		// XCM deals wit fees in our deployments
+		None
 	}
 }
 

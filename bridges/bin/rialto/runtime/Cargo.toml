@@ -66,12 +66,17 @@ sp-version = { git = "https://github.com/paritytech/substrate", branch = "master
 
 # Polkadot (parachain) Dependencies
 
+pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 
 [dev-dependencies]
 bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
+env_logger = "0.8"
 libsecp256k1 = { version = "0.7", features = ["hmac"] }
 static_assertions = "1.1"
 
@@ -104,6 +109,7 @@ std = [
 	"pallet-bridge-messages/std",
 	"pallet-grandpa/std",
 	"pallet-mmr/std",
+	"pallet-xcm/std",
 	"sp-mmr-primitives/std",
 	"pallet-shift-session-manager/std",
 	"pallet-sudo/std",
@@ -130,6 +136,9 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-trie/std",
 	"sp-version/std",
+	"xcm/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
 ]
 runtime-benchmarks = [
 	"bridge-runtime-common/runtime-benchmarks",
@@ -138,5 +147,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 ]

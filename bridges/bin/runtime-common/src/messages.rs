@@ -26,12 +26,12 @@ use bp_messages::{
 	InboundLaneData, LaneId, Message, MessageData, MessageKey, MessageNonce, OutboundLaneData,
 };
 use bp_runtime::{messages::MessageDispatchResult, ChainId, Size, StorageProofChecker};
-use codec::{Decode, Encode};
-use frame_support::{traits::Currency, weights::Weight, RuntimeDebug};
+use codec::{Decode, DecodeLimit, Encode};
+use frame_support::{traits::Get, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul, Saturating},
+	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul},
 	FixedPointNumber, FixedPointOperand, FixedU128,
 };
 use sp_std::{cmp::PartialOrd, convert::TryFrom, fmt::Debug, marker::PhantomData, vec::Vec};
@@ -430,7 +430,35 @@ pub mod target {
 	use super::*;
 
 	/// Decoded Bridged -> This message payload.
-	pub type FromBridgedChainMessagePayload = Vec<u8>;
+	#[derive(RuntimeDebug, PartialEq)]
+	pub struct FromBridgedChainMessagePayload<Call> {
+		/// Data that is actually sent over the wire.
+		pub xcm: (xcm::v3::MultiLocation, xcm::v3::Xcm<Call>),
+		/// Weight of the message, computed by the weigher. Unknown initially.
+		pub weight: Option<Weight>,
+	}
+
+	impl<Call: Decode> Decode for FromBridgedChainMessagePayload<Call> {
+		fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+			let _: codec::Compact<u32> = Decode::decode(input)?;
+			type XcmPairType<Call> = (xcm::v3::MultiLocation, xcm::v3::Xcm<Call>);
+			Ok(FromBridgedChainMessagePayload {
+				xcm: XcmPairType::<Call>::decode_with_depth_limit(
+					sp_api::MAX_EXTRINSIC_DEPTH,
+					input,
+				)?,
+				weight: None,
+			})
+		}
+	}
+
+	impl<Call> From<(xcm::v3::MultiLocation, xcm::v3::Xcm<Call>)>
+		for FromBridgedChainMessagePayload<Call>
+	{
+		fn from(xcm: (xcm::v3::MultiLocation, xcm::v3::Xcm<Call>)) -> Self {
+			FromBridgedChainMessagePayload { xcm, weight: None }
+		}
+	}
 
 	/// Messages proof from bridged chain:
 	///
@@ -464,38 +492,84 @@ pub mod target {
 
 	/// Dispatching Bridged -> This chain messages.
 	#[derive(RuntimeDebug, Clone, Copy)]
-	pub struct FromBridgedChainMessageDispatch<B, ThisRuntime, ThisCurrency, ThisDispatchInstance> {
-		_marker: PhantomData<(B, ThisRuntime, ThisCurrency, ThisDispatchInstance)>,
+	pub struct FromBridgedChainMessageDispatch<B, XcmExecutor, XcmWeigher, WeightCredit> {
+		_marker: PhantomData<(B, XcmExecutor, XcmWeigher, WeightCredit)>,
 	}
 
-	impl<B: MessageBridge, ThisRuntime, ThisCurrency, ThisDispatchInstance>
+	impl<B: MessageBridge, XcmExecutor, XcmWeigher, WeightCredit>
 		MessageDispatch<AccountIdOf<ThisChain<B>>, BalanceOf<BridgedChain<B>>>
-		for FromBridgedChainMessageDispatch<B, ThisRuntime, ThisCurrency, ThisDispatchInstance>
+		for FromBridgedChainMessageDispatch<B, XcmExecutor, XcmWeigher, WeightCredit>
 	where
-		BalanceOf<ThisChain<B>>: Saturating + FixedPointOperand,
-		ThisDispatchInstance: 'static,
-		ThisRuntime: pallet_transaction_payment::Config,
-		<ThisRuntime as pallet_transaction_payment::Config>::OnChargeTransaction:
-			pallet_transaction_payment::OnChargeTransaction<
-				ThisRuntime,
-				Balance = BalanceOf<ThisChain<B>>,
-			>,
-		ThisCurrency: Currency<AccountIdOf<ThisChain<B>>, Balance = BalanceOf<ThisChain<B>>>,
+		XcmExecutor: xcm::v3::ExecuteXcm<CallOf<ThisChain<B>>>,
+		XcmWeigher: xcm_executor::traits::WeightBounds<CallOf<ThisChain<B>>>,
+		WeightCredit: Get<Weight>,
 	{
-		type DispatchPayload = FromBridgedChainMessagePayload;
+		type DispatchPayload = FromBridgedChainMessagePayload<CallOf<ThisChain<B>>>;
 
 		fn dispatch_weight(
-			_message: &DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>,
+			message: &mut DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>,
 		) -> frame_support::weights::Weight {
-			0
+			match message.data.payload {
+				Ok(ref mut payload) => {
+					// I have no idea why this method takes `&mut` reference and there's nothing
+					// about that in documentation. Hope it'll only mutate iff error is returned.
+					let weight = XcmWeigher::weight(&mut payload.xcm.1);
+					let weight = weight.unwrap_or_else(|e| {
+						log::debug!(
+							target: "runtime::bridge-dispatch",
+							"Failed to compute dispatch weight of incoming XCM message {:?}/{}: {:?}",
+							message.key.lane_id,
+							message.key.nonce,
+							e,
+						);
+
+						// we shall return 0 and then the XCM executor will fail to execute XCM
+						// if we'll return something else (e.g. maximal value), the lane may stuck
+						0
+					});
+
+					payload.weight = Some(weight);
+					weight
+				},
+				_ => 0,
+			}
 		}
 
 		fn dispatch(
 			_relayer_account: &AccountIdOf<ThisChain<B>>,
 			message: DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>,
 		) -> MessageDispatchResult {
+			use xcm::latest::*;
+
 			let message_id = (message.key.lane_id, message.key.nonce);
-			log::trace!(target: "runtime::bridge-dispatch", "Incoming message {:?}: {:?}", message_id, message.data.payload);
+			let do_dispatch = move || -> sp_std::result::Result<Outcome, codec::Error> {
+				let FromBridgedChainMessagePayload { xcm: (location, xcm), weight: weight_limit } =
+					message.data.payload?;
+				log::trace!(
+					target: "runtime::bridge-dispatch",
+					"Going to execute message {:?} (weight limit: {:?}): {:?} {:?}",
+					message_id,
+					weight_limit,
+					location,
+					xcm,
+				);
+				let hash = message_id.using_encoded(sp_io::hashing::blake2_256);
+
+				// if this cod will end up in production, this most likely needs to be set to zero
+				let weight_credit = WeightCredit::get();
+
+				let xcm_outcome = XcmExecutor::execute_xcm_in_credit(
+					location,
+					xcm,
+					hash,
+					weight_limit.unwrap_or(0),
+					weight_credit,
+				);
+				Ok(xcm_outcome)
+			};
+
+			let xcm_outcome = do_dispatch();
+			log::trace!(target: "runtime::bridge-dispatch", "Incoming message {:?} dispatched with result: {:?}", message_id, xcm_outcome);
 			MessageDispatchResult {
 				dispatch_result: true,
 				unspent_weight: 0,
@@ -682,6 +756,112 @@ pub mod target {
 		proved_messages.insert(lane, proved_lane_messages);
 
 		Ok(proved_messages)
+	}
+}
+
+pub use xcm_copy::*;
+
+// copy of private types from xcm-builder/src/universal_exports.rs
+pub mod xcm_copy {
+	use codec::{Decode, Encode};
+	use frame_support::{ensure, traits::Get};
+	use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
+	use xcm::prelude::*;
+	use xcm_executor::traits::ExportXcm;
+
+	pub trait DispatchBlob {
+		/// Dispatches an incoming blob and returns the unexpectable weight consumed by the
+		/// dispatch.
+		fn dispatch_blob(blob: Vec<u8>) -> Result<(), DispatchBlobError>;
+	}
+
+	pub trait HaulBlob {
+		/// Sends a blob over some point-to-point link. This will generally be implemented by a
+		/// bridge.
+		fn haul_blob(blob: Vec<u8>);
+	}
+
+	#[derive(Clone, Encode, Decode)]
+	pub struct BridgeMessage {
+		/// The message destination as a *Universal Location*. This means it begins with a
+		/// `GlobalConsensus` junction describing the network under which global consensus happens.
+		/// If this does not match our global consensus then it's a fatal error.
+		universal_dest: VersionedInteriorMultiLocation,
+		message: VersionedXcm<()>,
+	}
+
+	pub enum DispatchBlobError {
+		Unbridgable,
+		InvalidEncoding,
+		UnsupportedLocationVersion,
+		UnsupportedXcmVersion,
+		RoutingError,
+		NonUniversalDestination,
+		WrongGlobal,
+	}
+
+	pub struct BridgeBlobDispatcher<Router, OurPlace>(PhantomData<(Router, OurPlace)>);
+	impl<Router: SendXcm, OurPlace: Get<InteriorMultiLocation>> DispatchBlob
+		for BridgeBlobDispatcher<Router, OurPlace>
+	{
+		fn dispatch_blob(blob: Vec<u8>) -> Result<(), DispatchBlobError> {
+			let our_universal = OurPlace::get();
+			let our_global =
+				our_universal.global_consensus().map_err(|()| DispatchBlobError::Unbridgable)?;
+			let BridgeMessage { universal_dest, message } =
+				Decode::decode(&mut &blob[..]).map_err(|_| DispatchBlobError::InvalidEncoding)?;
+			let universal_dest: InteriorMultiLocation = universal_dest
+				.try_into()
+				.map_err(|_| DispatchBlobError::UnsupportedLocationVersion)?;
+			// `universal_dest` is the desired destination within the universe: first we need to
+			// check we're in the right global consensus.
+			let intended_global = universal_dest
+				.global_consensus()
+				.map_err(|()| DispatchBlobError::NonUniversalDestination)?;
+			ensure!(intended_global == our_global, DispatchBlobError::WrongGlobal);
+			let dest = universal_dest.relative_to(&our_universal);
+			let message: Xcm<()> =
+				message.try_into().map_err(|_| DispatchBlobError::UnsupportedXcmVersion)?;
+			send_xcm::<Router>(dest, message).map_err(|_| DispatchBlobError::RoutingError)?;
+			Ok(())
+		}
+	}
+
+	pub struct HaulBlobExporter<Bridge, BridgedNetwork, Price>(
+		PhantomData<(Bridge, BridgedNetwork, Price)>,
+	);
+	impl<Bridge: HaulBlob, BridgedNetwork: Get<NetworkId>, Price: Get<MultiAssets>> ExportXcm
+		for HaulBlobExporter<Bridge, BridgedNetwork, Price>
+	{
+		type Ticket = (Vec<u8>, XcmHash);
+
+		fn validate(
+			network: NetworkId,
+			_channel: u32,
+			destination: &mut Option<InteriorMultiLocation>,
+			message: &mut Option<Xcm<()>>,
+		) -> Result<((Vec<u8>, XcmHash), MultiAssets), SendError> {
+			let bridged_network = BridgedNetwork::get();
+			ensure!(&network == &bridged_network, SendError::NotApplicable);
+			// We don't/can't use the `channel` for this adapter.
+			let dest = destination.take().ok_or(SendError::MissingArgument)?;
+			let universal_dest = match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
+				Ok(d) => d.into(),
+				Err((dest, _)) => {
+					*destination = Some(dest);
+					return Err(SendError::NotApplicable)
+				},
+			};
+			let message = VersionedXcm::from(message.take().ok_or(SendError::MissingArgument)?);
+			let hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let blob = BridgeMessage { universal_dest, message }.encode();
+			Ok(((blob, hash), Price::get()))
+		}
+
+		fn deliver((blob, hash): (Vec<u8>, XcmHash)) -> Result<XcmHash, SendError> {
+			Bridge::haul_blob(blob);
+			Ok(hash)
+		}
 	}
 }
 
