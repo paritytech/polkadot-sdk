@@ -45,10 +45,11 @@ use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, Zero};
 use sp_std::{boxed::Box, convert::TryInto};
 
+mod extension;
 #[cfg(test)]
 mod mock;
 
-/// Pallet containing weights for this pallet.
+/// Module, containing weights for this pallet.
 pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -269,7 +270,7 @@ pub mod pallet {
 
 	/// Hash of the best finalized header.
 	#[pallet::storage]
-	pub(super) type BestFinalized<T: Config<I>, I: 'static = ()> =
+	pub type BestFinalized<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BridgedBlockHash<T, I>, ValueQuery>;
 
 	/// A ring buffer of imported hashes. Ordered by the insertion time.

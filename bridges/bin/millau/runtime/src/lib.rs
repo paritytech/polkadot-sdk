@@ -500,6 +500,12 @@ construct_runtime!(
 	}
 );
 
+pallet_bridge_grandpa::declare_check_bridged_block_number_ext! {
+	Runtime,
+	Call::BridgeRialtoGrandpa => RialtoGrandpaInstance,
+	Call::BridgeWestendGrandpa => WestendGrandpaInstance
+}
+
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -520,6 +526,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	CheckBridgedBlockNumber,
 );
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
