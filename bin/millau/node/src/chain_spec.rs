@@ -217,6 +217,7 @@ fn testnet_genesis(
 			owner: Some(get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner")),
 			..Default::default()
 		},
+		xcm_pallet: Default::default(),
 	}
 }
 

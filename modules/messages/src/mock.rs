@@ -17,7 +17,7 @@
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
-use crate::{instant_payments::cal_relayers_rewards, Config};
+use crate::{calc_relayers_rewards, Config};
 
 use bitvec::prelude::*;
 use bp_messages::{
@@ -375,7 +375,7 @@ impl MessageDeliveryAndDispatchPayment<Origin, AccountId, TestMessageFee>
 		_relayer_fund_account: &AccountId,
 	) {
 		let relayers_rewards =
-			cal_relayers_rewards::<TestRuntime, ()>(lane_id, message_relayers, received_range);
+			calc_relayers_rewards::<TestRuntime, ()>(lane_id, message_relayers, received_range);
 		for (relayer, reward) in &relayers_rewards {
 			let key = (b":relayer-reward:", relayer, reward.reward).encode();
 			frame_support::storage::unhashed::put(&key, &true);
@@ -489,7 +489,7 @@ pub struct TestMessageDispatch;
 impl MessageDispatch<AccountId, TestMessageFee> for TestMessageDispatch {
 	type DispatchPayload = TestPayload;
 
-	fn dispatch_weight(message: &DispatchMessage<TestPayload, TestMessageFee>) -> Weight {
+	fn dispatch_weight(message: &mut DispatchMessage<TestPayload, TestMessageFee>) -> Weight {
 		match message.data.payload.as_ref() {
 			Ok(payload) => payload.declared_weight,
 			Err(_) => 0,

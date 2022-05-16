@@ -149,6 +149,29 @@ pub trait MessageDeliveryAndDispatchPayment<SenderOrigin, AccountId, Balance> {
 	);
 }
 
+impl<SenderOrigin, AccountId, Balance>
+	MessageDeliveryAndDispatchPayment<SenderOrigin, AccountId, Balance> for ()
+{
+	type Error = &'static str;
+
+	fn pay_delivery_and_dispatch_fee(
+		_submitter: &SenderOrigin,
+		_fee: &Balance,
+		_relayer_fund_account: &AccountId,
+	) -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn pay_relayers_rewards(
+		_lane_id: LaneId,
+		_messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
+		_confirmation_relayer: &AccountId,
+		_received_range: &RangeInclusive<MessageNonce>,
+		_relayer_fund_account: &AccountId,
+	) {
+	}
+}
+
 /// Send message artifacts.
 #[derive(RuntimeDebug, PartialEq)]
 pub struct SendMessageArtifacts {
