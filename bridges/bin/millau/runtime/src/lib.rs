@@ -29,6 +29,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod rialto_messages;
+pub mod xcm_config;
 
 use crate::rialto_messages::{ToRialtoMessagePayload, WithRialtoMessageBridge};
 
@@ -451,13 +452,7 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 
 	type TargetHeaderChain = crate::rialto_messages::Rialto;
 	type LaneMessageVerifier = crate::rialto_messages::ToRialtoMessageVerifier;
-	type MessageDeliveryAndDispatchPayment =
-		pallet_bridge_messages::instant_payments::InstantCurrencyPayments<
-			Runtime,
-			WithRialtoMessagesInstance,
-			pallet_balances::Pallet<Runtime>,
-			GetDeliveryConfirmationTransactionFee,
-		>;
+	type MessageDeliveryAndDispatchPayment = ();
 	type OnMessageAccepted = ();
 	type OnDeliveryConfirmed = ();
 
@@ -499,6 +494,9 @@ construct_runtime!(
 
 		// Westend bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
+
+		// Pallet for sending XCM.
+		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 99,
 	}
 );
 
@@ -750,6 +748,7 @@ impl_runtime_apis! {
 				Runtime,
 				WithRialtoMessagesInstance,
 				WithRialtoMessageBridge,
+				xcm_config::OutboundXcmWeigher,
 			>(lane, begin, end)
 		}
 	}

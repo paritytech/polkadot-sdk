@@ -16,13 +16,15 @@
 
 //! Helpers for implementing various message-related runtime API mthods.
 
-use crate::messages::MessageBridge;
+use crate::messages::{target::FromBridgedChainMessagePayload, MessageBridge};
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce};
+use bp_messages::{LaneId, MessageDetails, MessageKey, MessageNonce};
+use codec::Decode;
+use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 /// Implementation of the `To*OutboundLaneApi::message_details`.
-pub fn outbound_message_details<Runtime, MessagesPalletInstance, BridgeConfig>(
+pub fn outbound_message_details<Runtime, MessagesPalletInstance, BridgeConfig, XcmWeigher>(
 	lane: LaneId,
 	begin: MessageNonce,
 	end: MessageNonce,
@@ -31,6 +33,7 @@ where
 	Runtime: pallet_bridge_messages::Config<MessagesPalletInstance>,
 	MessagesPalletInstance: 'static,
 	BridgeConfig: MessageBridge,
+	XcmWeigher: xcm_executor::traits::WeightBounds<()>,
 {
 	(begin..=end)
 		.filter_map(|nonce| {
@@ -38,11 +41,43 @@ where
 				pallet_bridge_messages::Pallet::<Runtime, MessagesPalletInstance>::outbound_message_data(lane, nonce)?;
 			Some(MessageDetails {
 				nonce,
-				dispatch_weight: 0,
+				// this shall match the similar code in the `FromBridgedChainMessageDispatch` - if we have failed
+				// to decode or estimate dispatch weight, we'll just return 0 to disable actual execution
+				dispatch_weight: compute_message_weight::<XcmWeigher>(
+					MessageKey { lane_id: lane, nonce },
+					&message_data.payload,
+				).unwrap_or(0),
 				size: message_data.payload.len() as _,
 				delivery_and_dispatch_fee: message_data.fee,
 				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtTargetChain,
 			})
 		})
 		.collect()
+}
+
+// at the source chain we don't know the type of target chain `Call` => `()` is used (it is
+// similarly currently used in Polkadot codebase)
+fn compute_message_weight<XcmWeigher: xcm_executor::traits::WeightBounds<()>>(
+	message_key: MessageKey,
+	encoded_payload: &[u8],
+) -> Result<Weight, ()> {
+	let mut payload = FromBridgedChainMessagePayload::<()>::decode(&mut &encoded_payload[..])
+		.map_err(|e| {
+			log::debug!(
+				target: "runtime::bridge-dispatch",
+				"Failed to decode outbound XCM message {:?}: {:?}",
+				message_key,
+				e,
+			);
+		})?;
+	let weight = XcmWeigher::weight(&mut payload.xcm.1);
+	let weight = weight.map_err(|e| {
+		log::debug!(
+			target: "runtime::bridge-dispatch",
+			"Failed to compute dispatch weight of outbound XCM message {:?}: {:?}",
+			message_key,
+			e,
+		);
+	})?;
+	Ok(weight)
 }
