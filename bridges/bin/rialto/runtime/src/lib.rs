@@ -30,6 +30,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod millau_messages;
 pub mod parachains;
+pub mod xcm_config;
 
 use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
 
@@ -449,13 +450,7 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 
 	type TargetHeaderChain = crate::millau_messages::Millau;
 	type LaneMessageVerifier = crate::millau_messages::ToMillauMessageVerifier;
-	type MessageDeliveryAndDispatchPayment =
-		pallet_bridge_messages::instant_payments::InstantCurrencyPayments<
-			Runtime,
-			WithMillauMessagesInstance,
-			pallet_balances::Pallet<Runtime>,
-			GetDeliveryConfirmationTransactionFee,
-		>;
+	type MessageDeliveryAndDispatchPayment = ();
 	type OnMessageAccepted = ();
 	type OnDeliveryConfirmed = ();
 
@@ -513,6 +508,9 @@ construct_runtime!(
 		Registrar: polkadot_runtime_common::paras_registrar::{Pallet, Call, Storage, Event<T>},
 		Slots: polkadot_runtime_common::slots::{Pallet, Call, Storage, Event<T>},
 		ParasSudoWrapper: polkadot_runtime_common::paras_sudo_wrapper::{Pallet, Call},
+
+		// Pallet for sending XCM.
+		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 99,
 	}
 );
 
@@ -902,6 +900,7 @@ impl_runtime_apis! {
 				Runtime,
 				WithMillauMessagesInstance,
 				WithMillauMessageBridge,
+				xcm_config::OutboundXcmWeigher,
 			>(lane, begin, end)
 		}
 	}
