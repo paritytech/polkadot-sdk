@@ -2183,6 +2183,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "clap 3.1.17",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -2201,8 +2202,10 @@ dependencies = [
  "futures 0.3.21",
  "jsonrpsee",
  "pallet-transaction-payment",
+ "parachains-common",
  "parity-scale-codec",
  "parking_lot 0.12.0",
+ "polkadot-cli",
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-service",
@@ -2217,6 +2220,7 @@ dependencies = [
  "sc-network",
  "sc-rpc",
  "sc-service",
+ "sc-telemetry",
  "sc-tracing",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
@@ -2234,6 +2238,7 @@ dependencies = [
  "substrate-test-client",
  "substrate-test-utils",
  "tokio",
+ "tracing",
  "url",
 ]
 

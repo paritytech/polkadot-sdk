@@ -208,7 +208,7 @@ async fn build_relay_chain_interface(
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with(parachain_config.network.node_name.as_str())]
-async fn start_node_impl<RB>(
+pub async fn start_node_impl<RB>(
 	parachain_config: Configuration,
 	collator_key: Option<CollatorPair>,
 	relay_chain_config: Configuration,
@@ -396,7 +396,8 @@ pub struct TestNode {
 	pub transaction_pool: TransactionPool,
 }
 
-enum Consensus {
+#[allow(missing_docs)]
+pub enum Consensus {
 	/// Use the relay-chain provided consensus.
 	RelayChain,
 	/// Use the null consensus that will never produce any block.

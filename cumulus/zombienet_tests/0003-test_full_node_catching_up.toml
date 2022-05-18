@@ -1,0 +1,44 @@
+[relaychain]
+default_image = "docker.io/paritypr/polkadot-debug:master"
+default_command = "polkadot"
+default_args = [ "-lparachain=debug" ]
+
+chain = "rococo-local"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "bob"
+  image = "docker.io/paritypr/polkadot-debug:5236-0.9.18-c55660e9-be16bd72"
+  validator = true
+  args = ["--database=paritydb-experimental"]
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+
+  # run charlie as parachain collator
+  [[parachains.collators]]
+  name = "charlie"
+  validator = true
+  image = "docker.io/parity/polkadot-collator:latest"
+  command = "test-collator"
+  args = ["-lparachain=debug"]
+
+  # run cumulus dave (a parachain full node) and wait for it to sync some blocks
+  [[parachains.collators]]
+  name = "dave"
+  validator = false
+  image = "docker.io/parity/polkadot-collator:latest"
+  command = "test-collator"
+  args = ["--reserved-only", "--reserved-nodes {{'charlie'|zombie}}"]
+
+  # run cumulus eve (a parachain full node) and wait for it to sync some blocks
+  [[parachains.collators]]
+  name = "eve"
+  validator = false
+  image = "docker.io/parity/polkadot-collator:latest"
+  command = "test-collator"
+  args = ["--reserved-only", "--reserved-nodes {{'charlie'|zombie}}"]
