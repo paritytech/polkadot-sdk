@@ -158,18 +158,18 @@ impl sc_executor::NativeExecutionDispatch for WestmintRuntimeExecutor {
 	}
 }
 
-/// Native Canvas on Kusama executor instance.
-pub struct CanvasKusamaRuntimeExecutor;
+/// Native Contracts on Rococo executor instance.
+pub struct ContractsRococoRuntimeExecutor;
 
-impl sc_executor::NativeExecutionDispatch for CanvasKusamaRuntimeExecutor {
+impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		canvas_kusama_runtime::api::dispatch(method, data)
+		contracts_rococo_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		canvas_kusama_runtime::native_version()
+		contracts_rococo_runtime::native_version()
 	}
 }
 
@@ -1334,7 +1334,7 @@ where
 }
 
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_canvas_kusama_node_impl<RuntimeApi, RB, BIQ, BIC>(
+async fn start_contracts_rococo_node_impl<RuntimeApi, RB, BIQ, BIC>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -1457,7 +1457,7 @@ where
 				deny_unsafe,
 			};
 
-			crate::rpc::create_canvas_kusama(deps).map_err(Into::into)
+			crate::rpc::create_contracts_rococo(deps).map_err(Into::into)
 		})
 	};
 
@@ -1545,15 +1545,17 @@ where
 }
 
 #[allow(clippy::type_complexity)]
-pub fn canvas_kusama_build_import_queue(
-	client: Arc<TFullClient<Block, canvas_kusama_runtime::RuntimeApi, WasmExecutor<HostFunctions>>>,
+pub fn contracts_rococo_build_import_queue(
+	client: Arc<
+		TFullClient<Block, contracts_rococo_runtime::RuntimeApi, WasmExecutor<HostFunctions>>,
+	>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 ) -> Result<
 	sc_consensus::DefaultImportQueue<
 		Block,
-		TFullClient<Block, canvas_kusama_runtime::RuntimeApi, WasmExecutor<HostFunctions>>,
+		TFullClient<Block, contracts_rococo_runtime::RuntimeApi, WasmExecutor<HostFunctions>>,
 	>,
 	sc_service::Error,
 > {
@@ -1590,7 +1592,7 @@ pub fn canvas_kusama_build_import_queue(
 }
 
 /// Start a parachain node.
-pub async fn start_canvas_kusama_node(
+pub async fn start_contracts_rococo_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -1598,15 +1600,15 @@ pub async fn start_canvas_kusama_node(
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(
 	TaskManager,
-	Arc<TFullClient<Block, canvas_kusama_runtime::RuntimeApi, WasmExecutor<HostFunctions>>>,
+	Arc<TFullClient<Block, contracts_rococo_runtime::RuntimeApi, WasmExecutor<HostFunctions>>>,
 )> {
-	start_canvas_kusama_node_impl::<canvas_kusama_runtime::RuntimeApi, _, _, _>(
+	start_contracts_rococo_node_impl::<contracts_rococo_runtime::RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		id,
 		|_| Ok(RpcModule::new(())),
-		canvas_kusama_build_import_queue,
+		contracts_rococo_build_import_queue,
 		|client,
 		 prometheus_registry,
 		 telemetry,

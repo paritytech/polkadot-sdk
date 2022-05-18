@@ -46,7 +46,7 @@ trait IdentifyChain {
 	fn is_statemint(&self) -> bool;
 	fn is_statemine(&self) -> bool;
 	fn is_westmint(&self) -> bool;
-	fn is_canvas_kusama(&self) -> bool;
+	fn is_contracts_rococo(&self) -> bool;
 }
 
 impl IdentifyChain for dyn sc_service::ChainSpec {
@@ -65,9 +65,8 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
 	fn is_westmint(&self) -> bool {
 		self.id().starts_with("westmint")
 	}
-	fn is_canvas_kusama(&self) -> bool {
-		// we use the same runtime on rococo and kusama
-		self.id().starts_with("canvas-kusama") || self.id().starts_with("canvas-rococo")
+	fn is_contracts_rococo(&self) -> bool {
+		self.id().starts_with("contracts-rococo")
 	}
 }
 
@@ -87,8 +86,8 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
 	fn is_westmint(&self) -> bool {
 		<dyn sc_service::ChainSpec>::is_westmint(self)
 	}
-	fn is_canvas_kusama(&self) -> bool {
-		<dyn sc_service::ChainSpec>::is_canvas_kusama(self)
+	fn is_contracts_rococo(&self) -> bool {
+		<dyn sc_service::ChainSpec>::is_contracts_rococo(self)
 	}
 }
 
@@ -133,12 +132,12 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 		"westmint" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 			&include_bytes!("../res/westmint.json")[..],
 		)?),
-		// -- Canvas on Rococo
-		"canvas-rococo-dev" => Box::new(chain_spec::canvas_rococo_development_config()),
-		"canvas-rococo-local" => Box::new(chain_spec::canvas_rococo_local_config()),
-		"canvas-rococo-genesis" => Box::new(chain_spec::canvas_rococo_config()),
-		"canvas-rococo" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/canvas-rococo.json")[..],
+		// -- Contracts on Rococo
+		"contracts-rococo-dev" => Box::new(chain_spec::contracts_rococo_development_config()),
+		"contracts-rococo-local" => Box::new(chain_spec::contracts_rococo_local_config()),
+		"contracts-rococo-genesis" => Box::new(chain_spec::contracts_rococo_config()),
+		"contracts-rococo" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+			&include_bytes!("../res/contracts-rococo.json")[..],
 		)?),
 		// -- Fallback (generic chainspec)
 		"" => Box::new(chain_spec::get_chain_spec()),
@@ -155,8 +154,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 				Box::new(chain_spec::ShellChainSpec::from_json_file(path.into())?)
 			} else if chain_spec.is_seedling() {
 				Box::new(chain_spec::SeedlingChainSpec::from_json_file(path.into())?)
-			} else if chain_spec.is_canvas_kusama() {
-				Box::new(chain_spec::CanvasKusamaChainSpec::from_json_file(path.into())?)
+			} else if chain_spec.is_contracts_rococo() {
+				Box::new(chain_spec::ContractsRococoChainSpec::from_json_file(path.into())?)
 			} else {
 				Box::new(chain_spec)
 			}
@@ -210,8 +209,8 @@ impl SubstrateCli for Cli {
 			&shell_runtime::VERSION
 		} else if chain_spec.is_seedling() {
 			&seedling_runtime::VERSION
-		} else if chain_spec.is_canvas_kusama() {
-			&canvas_kusama_runtime::VERSION
+		} else if chain_spec.is_contracts_rococo() {
+			&contracts_rococo_runtime::VERSION
 		} else {
 			&rococo_parachain_runtime::VERSION
 		}
@@ -343,11 +342,11 @@ macro_rules! construct_async_run {
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
-		} else if runner.config().chain_spec.is_canvas_kusama() {
+		} else if runner.config().chain_spec.is_contracts_rococo() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<canvas_kusama_runtime::RuntimeApi, _>(
+				let $components = new_partial::<contracts_rococo_runtime::RuntimeApi, _>(
 					&$config,
-					crate::service::canvas_kusama_build_import_queue,
+					crate::service::contracts_rococo_build_import_queue,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -638,8 +637,8 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into)
-				} else if config.chain_spec.is_canvas_kusama() {
-					crate::service::start_canvas_kusama_node(
+				} else if config.chain_spec.is_contracts_rococo() {
+					crate::service::start_contracts_rococo_node(
 						config,
 						polkadot_config,
 						collator_options,

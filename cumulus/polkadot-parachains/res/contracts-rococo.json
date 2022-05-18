@@ -1,6 +1,6 @@
 {
-  "name": "Canvas on Rococo",
-  "id": "canvas-rococo",
+  "name": "Contracts on Rococo",
+  "id": "contracts-rococo",
   "chainType": "Live",
   "bootNodes": [
     "/ip4/34.90.191.237/tcp/30333/p2p/12D3KooWKg3Rpxcr9oJ8n6khoxpGKWztCZydtUZk2cojHqnfLrpj",

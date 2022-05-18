@@ -5,8 +5,8 @@
    viewBox="0 0 829 715"
    version="1.1"
    id="svg8"
-   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20, custom)"
-   sodipodi:docname="how-it-works.svg"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04, custom)"
+   sodipodi:docname="contracts-overview.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -18,6 +18,12 @@
    xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
   <defs
      id="defs2">
+    <rect
+       x="1884.4672"
+       y="1809.4276"
+       width="15.066266"
+       height="98.981716"
+       id="rect5129" />
     <marker
        style="overflow:visible"
        id="marker7726"
@@ -285,16 +291,16 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.12114248"
-     inkscape:cx="429.24663"
-     inkscape:cy="1943.9919"
+     inkscape:zoom="0.48456992"
+     inkscape:cx="1583.8788"
+     inkscape:cy="1657.1396"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
      showgrid="false"
      showguides="true"
-     inkscape:window-width="1471"
-     inkscape:window-height="1080"
+     inkscape:window-width="1918"
+     inkscape:window-height="1055"
      inkscape:window-x="0"
      inkscape:window-y="23"
      inkscape:window-maximized="1"
@@ -487,26 +493,26 @@
            x="649.55072"
            y="591.22406"
            id="text835-0-9"><tspan
-             sodipodi:role="line"
              x="649.55072"
              y="591.22406"
              style="font-size:14.1111px;line-height:1.25;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:0.264583"
-             id="tspan1075-9" /><tspan
-             sodipodi:role="line"
+             id="tspan1075-9"
+             sodipodi:role="line" /><tspan
              x="649.55072"
-             y="617.64673"
-             style="font-size:15.875px;line-height:0.72;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:0.264583"
-             id="tspan2428">The WebAssembly blob targets</tspan><tspan
-             sodipodi:role="line"
+             y="610.42358"
+             style="font-size:15.875px;line-height:1.25;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:0.264583"
+             id="tspan2428"
+             sodipodi:role="line">The WebAssembly blob targets</tspan><tspan
              x="649.55072"
-             y="640.50671"
-             style="font-size:15.875px;line-height:0.72;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:0.264583"
-             id="tspan2430">an API exposed by Substrate's</tspan><tspan
-             sodipodi:role="line"
+             y="630.26733"
+             style="font-size:15.875px;line-height:1.25;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:0.264583"
+             id="tspan2430"
+             sodipodi:role="line">an API exposed by Substrate's</tspan><tspan
              x="649.55072"
-             y="651.93671"
-             style="font-size:15.875px;line-height:0.72;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:0.264583"
-             id="tspan2432">contracts module.</tspan></text>
+             y="650.11108"
+             style="font-size:15.875px;line-height:1.25;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:0.264583"
+             id="tspan2432"
+             sodipodi:role="line">contracts module.</tspan></text>
         <g
            id="g1342">
           <g
@@ -709,56 +715,11 @@
              r="5.4990706" />
         </g>
       </g>
-      <g
-         id="g1493">
-        <text
-           xml:space="preserve"
-           style="font-style:normal;font-weight:normal;font-size:25.4px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583"
-           x="223.87091"
-           y="475.59076"
-           id="text1087-3"><tspan
-             sodipodi:role="line"
-             x="223.87091"
-             y="475.59076"
-             style="font-size:25.4px;text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.264583"
-             id="tspan2399-7">Canvas</tspan></text>
-        <g
-           id="g9297"
-           transform="translate(187.58423,255.21786)">
-          <circle
-             cx="-43.440742"
-             cy="211.92067"
-             r="26.458332"
-             fill="#000000"
-             id="circle9169"
-             style="stroke-width:0.264583" />
-          <path
-             d="m -48.732408,217.21233 h 10.583334 v 10.58333 h -10.583334 z"
-             fill="#ffffff"
-             id="path9171"
-             style="stroke-width:0.264583" />
-          <path
-             d="m -48.732408,196.04566 h 10.583334 V 206.629 h -10.583334 z"
-             fill="#ffffff"
-             id="path9173"
-             style="stroke-width:0.264583" />
-          <path
-             d="m -59.315741,206.629 h 10.583333 v 10.58333 h -10.583333 z"
-             fill="#ffffff"
-             id="path9175"
-             style="stroke-width:0.264583" />
-          <path
-             d="m -27.565741,206.629 c 0,-1.38983 -0.273844,-2.76604 -0.805656,-4.05006 -0.531813,-1.28405 -1.311275,-2.45073 -2.294202,-3.4335 -0.982663,-0.98274 -2.149475,-1.76231 -3.433498,-2.29417 -1.284023,-0.53187 -2.660121,-0.80561 -4.049977,-0.80561 V 206.629 Z"
-             fill="#ffffff"
-             id="path9177"
-             style="stroke-width:0.264583" />
-          <path
-             d="m -38.149074,227.79566 c 1.389856,0 2.765954,-0.27384 4.049977,-0.80565 1.284023,-0.53182 2.450835,-1.31128 3.433498,-2.29421 0.982927,-0.98266 1.762389,-2.14947 2.294202,-3.43349 0.531812,-1.28403 0.805656,-2.66012 0.805656,-4.04998 h -10.583333 z"
-             fill="#ffffff"
-             id="path9179"
-             style="stroke-width:0.264583" />
-        </g>
-      </g>
+      <text
+         xml:space="preserve"
+         transform="matrix(0.26458333,0,0,0.26458333,76.682965,41.563407)"
+         id="text5127"
+         style="fill:black;fill-opacity:1;stroke:none;font-family:sans-serif;font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;letter-spacing:0px;word-spacing:0px;white-space:pre;shape-inside:url(#rect5129)" />
     </g>
   </g>
 </svg>

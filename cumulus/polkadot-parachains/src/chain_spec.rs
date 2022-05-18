@@ -835,39 +835,38 @@ fn westmint_genesis(
 	}
 }
 
-/// We use the same runtime on kusama and rococo.
-pub type CanvasKusamaChainSpec =
-	sc_service::GenericChainSpec<canvas_kusama_runtime::GenesisConfig, Extensions>;
+pub type ContractsRococoChainSpec =
+	sc_service::GenericChainSpec<contracts_rococo_runtime::GenesisConfig, Extensions>;
 
 /// No relay chain suffix because the id is the same over all relay chains.
-const CANVAS_PARACHAIN_ID: u32 = 1002;
+const CONTRACTS_PARACHAIN_ID: u32 = 1002;
 
-/// The existential deposit is determined by the runtime "canvas-kusama".
-const CANVAS_KUSAMA_ED: canvas_kusama_runtime::Balance =
-	canvas_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+/// The existential deposit is determined by the runtime "contracts-rococo".
+const CONTRACTS_ROCOCO_ED: contracts_rococo_runtime::Balance =
+	contracts_rococo_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
 
-pub fn canvas_rococo_development_config() -> CanvasKusamaChainSpec {
+pub fn contracts_rococo_development_config() -> ContractsRococoChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	CanvasKusamaChainSpec::from_genesis(
+	ContractsRococoChainSpec::from_genesis(
 		// Name
-		"Canvas on Rococo Development",
+		"Contracts on Rococo Development",
 		// ID
-		"canvas-rococo-dev",
+		"contracts-rococo-dev",
 		ChainType::Development,
 		move || {
-			canvas_kusama_genesis(
+			contracts_rococo_genesis(
 				// initial collators.
 				vec![
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<canvas_kusama_runtime::AuraId>("Alice"),
+						get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Alice"),
 					),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<canvas_kusama_runtime::AuraId>("Bob"),
+						get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Bob"),
 					),
 				],
 				vec![
@@ -884,7 +883,7 @@ pub fn canvas_rococo_development_config() -> CanvasKusamaChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
-				CANVAS_PARACHAIN_ID.into(),
+				CONTRACTS_PARACHAIN_ID.into(),
 			)
 		},
 		Vec::new(),
@@ -894,33 +893,33 @@ pub fn canvas_rococo_development_config() -> CanvasKusamaChainSpec {
 		None,
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
-			para_id: CANVAS_PARACHAIN_ID,
+			para_id: CONTRACTS_PARACHAIN_ID,
 		},
 	)
 }
 
-pub fn canvas_rococo_local_config() -> CanvasKusamaChainSpec {
+pub fn contracts_rococo_local_config() -> ContractsRococoChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	CanvasKusamaChainSpec::from_genesis(
+	ContractsRococoChainSpec::from_genesis(
 		// Name
-		"Canvas on Rococo",
+		"Contracts on Rococo",
 		// ID
-		"canvas-rococo-local",
+		"contracts-rococo-local",
 		ChainType::Local,
 		move || {
-			canvas_kusama_genesis(
+			contracts_rococo_genesis(
 				// initial collators.
 				vec![
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<canvas_kusama_runtime::AuraId>("Alice"),
+						get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Alice"),
 					),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<canvas_kusama_runtime::AuraId>("Bob"),
+						get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Bob"),
 					),
 				],
 				vec![
@@ -937,7 +936,7 @@ pub fn canvas_rococo_local_config() -> CanvasKusamaChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
-				CANVAS_PARACHAIN_ID.into(),
+				CONTRACTS_PARACHAIN_ID.into(),
 			)
 		},
 		// Bootnodes
@@ -953,25 +952,25 @@ pub fn canvas_rococo_local_config() -> CanvasKusamaChainSpec {
 		// Extensions
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
-			para_id: CANVAS_PARACHAIN_ID,
+			para_id: CONTRACTS_PARACHAIN_ID,
 		},
 	)
 }
 
-pub fn canvas_rococo_config() -> CanvasKusamaChainSpec {
+pub fn contracts_rococo_config() -> ContractsRococoChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	CanvasKusamaChainSpec::from_genesis(
+	ContractsRococoChainSpec::from_genesis(
 		// Name
-		"Canvas on Rococo",
+		"Contracts on Rococo",
 		// ID
-		"canvas-rococo",
+		"contracts-rococo",
 		ChainType::Live,
 		move || {
-			canvas_kusama_genesis(
+			contracts_rococo_genesis(
 				vec![
 					// 5GKFbTTgrVS4Vz1UWWHPqMZQNFWZtqo7H2KpCDyYhEL3aS26
 					(
@@ -1012,7 +1011,7 @@ pub fn canvas_rococo_config() -> CanvasKusamaChainSpec {
 					// AccountId of an account which `ink-waterfall` uses for automated testing
 					hex!["0e47e2344d523c3cc5c34394b0d58b9a4200e813a038e6c5a6163cc07d70b069"].into(),
 				],
-				CANVAS_PARACHAIN_ID.into(),
+				CONTRACTS_PARACHAIN_ID.into(),
 			)
 		},
 		// Bootnodes
@@ -1039,38 +1038,38 @@ pub fn canvas_rococo_config() -> CanvasKusamaChainSpec {
 		// Properties
 		Some(properties),
 		// Extensions
-		Extensions { relay_chain: "rococo".into(), para_id: CANVAS_PARACHAIN_ID },
+		Extensions { relay_chain: "rococo".into(), para_id: CONTRACTS_PARACHAIN_ID },
 	)
 }
 
-fn canvas_kusama_genesis(
+fn contracts_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> canvas_kusama_runtime::GenesisConfig {
-	canvas_kusama_runtime::GenesisConfig {
-		system: canvas_kusama_runtime::SystemConfig {
-			code: canvas_kusama_runtime::WASM_BINARY
+) -> contracts_rococo_runtime::GenesisConfig {
+	contracts_rococo_runtime::GenesisConfig {
+		system: contracts_rococo_runtime::SystemConfig {
+			code: contracts_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 		},
-		balances: canvas_kusama_runtime::BalancesConfig {
+		balances: contracts_rococo_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		parachain_info: canvas_kusama_runtime::ParachainInfoConfig { parachain_id: id },
-		collator_selection: canvas_kusama_runtime::CollatorSelectionConfig {
+		parachain_info: contracts_rococo_runtime::ParachainInfoConfig { parachain_id: id },
+		collator_selection: contracts_rococo_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: CANVAS_KUSAMA_ED * 16,
+			candidacy_bond: CONTRACTS_ROCOCO_ED * 16,
 			..Default::default()
 		},
-		session: canvas_kusama_runtime::SessionConfig {
+		session: contracts_rococo_runtime::SessionConfig {
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),                                 // account id
-						acc,                                         // validator id
-						canvas_kusama_runtime::SessionKeys { aura }, // session keys
+						acc.clone(),                                    // account id
+						acc,                                            // validator id
+						contracts_rococo_runtime::SessionKeys { aura }, // session keys
 					)
 				})
 				.collect(),
@@ -1080,10 +1079,10 @@ fn canvas_kusama_genesis(
 		aura: Default::default(),
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
-		polkadot_xcm: canvas_kusama_runtime::PolkadotXcmConfig {
+		polkadot_xcm: contracts_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-		sudo: canvas_kusama_runtime::SudoConfig {
+		sudo: contracts_rococo_runtime::SudoConfig {
 			key: Some(
 				hex!["2681a28014e7d3a5bfb32a003b3571f53c408acbc28d351d6bf58f5028c4ef14"].into(),
 			),

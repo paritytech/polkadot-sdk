@@ -81,7 +81,7 @@ WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json
 STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
 STATEMINT_DIGEST = ENV['STATEMINT_DIGEST'] || 'digests/statemint-srtool-digest.json'
 ROCOCO_PARA_DIGEST = ENV['ROCOCO_PARA_DIGEST'] || 'digests/rococo-parachain-srtool-digest.json'
-CANVAS_KUSAMA_DIGEST = ENV['CANVAS_KUSAMA_DIGEST'] || 'digests/canvas-kusama-srtool-digest.json'
+CANVAS_KUSAMA_DIGEST = ENV['CANVAS_KUSAMA_DIGEST'] || 'digests/contracts-rococo-srtool-digest.json'
 
 logger.debug("Release type: #{ENV['RELEASE_TYPE']}")
 
@@ -111,7 +111,7 @@ else
       --slurpfile srtool_statemine %s \
       --slurpfile srtool_statemint %s \
       --slurpfile srtool_rococo_parachain %s \
-      --slurpfile srtool_canvas_kusama %s \
+      --slurpfile srtool_contracts_rococo %s \
       -n \'{
               cumulus: $cumulus[0],
               substrate: $substrate[0],
@@ -122,7 +122,7 @@ else
           { name: "westmint", data: $srtool_westmint[0] },
           { name: "statemint", data: $srtool_statemint[0] },
           { name: "statemine", data: $srtool_statemine[0] },
-          { name: "canvas", data: $srtool_canvas_kusama[0] }
+          { name: "contracts", data: $srtool_contracts_rococo[0] }
       ] }\' > context.json', cumulus_data, substrate_data, polkadot_data,
               SHELL_DIGEST,
               WESTMINT_DIGEST,
