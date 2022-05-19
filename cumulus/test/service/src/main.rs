@@ -121,7 +121,7 @@ fn main() -> Result<(), sc_cli::Error> {
 			);
 
 			let parachain_account =
-				AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account(
+				AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(
 					&parachain_id,
 				);
 
