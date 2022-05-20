@@ -13,6 +13,7 @@ serde = { version = "1.0.101", optional = true }
 
 # Bridge Dependencies
 
+bp-parachains = { path = "../../primitives/parachains", default-features = false }
 bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
 pallet-bridge-grandpa = { path = "../grandpa", default-features = false }
@@ -34,6 +35,7 @@ sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 [features]
 default = ["std"]
 std = [
+	"bp-parachains/std",
 	"bp-polkadot-core/std",
 	"bp-runtime/std",
 	"codec/std",
