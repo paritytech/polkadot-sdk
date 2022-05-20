@@ -27,6 +27,7 @@ bp-kusama = { path = "../../primitives/chain-kusama" }
 bp-messages = { path = "../../primitives/messages" }
 bp-millau = { path = "../../primitives/chain-millau" }
 bp-polkadot = { path = "../../primitives/chain-polkadot" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
 bp-rialto-parachain = { path = "../../primitives/chain-rialto-parachain" }
 bp-rococo = { path = "../../primitives/chain-rococo" }
@@ -39,6 +40,7 @@ messages-relay = { path = "../messages" }
 millau-runtime = { path = "../../bin/millau/runtime" }
 pallet-bridge-grandpa = { path = "../../modules/grandpa" }
 pallet-bridge-messages = { path = "../../modules/messages" }
+parachains-relay = { path = "../parachains" }
 relay-kusama-client = { path = "../client-kusama" }
 relay-millau-client = { path = "../client-millau" }
 relay-polkadot-client = { path = "../client-polkadot" }

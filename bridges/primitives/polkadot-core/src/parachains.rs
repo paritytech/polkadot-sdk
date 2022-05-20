@@ -79,4 +79,4 @@ impl ParaHead {
 pub type ParaHash = crate::Hash;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
-pub type ParachainHeadsProof = Vec<Vec<u8>>;
+pub type ParaHeadsProof = Vec<Vec<u8>>;

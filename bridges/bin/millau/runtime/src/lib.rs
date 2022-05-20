@@ -73,6 +73,7 @@ pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_bridge_grandpa::Call as BridgeGrandpaCall;
 pub use pallet_bridge_messages::Call as MessagesCall;
+pub use pallet_bridge_parachains::Call as BridgeParachainsCall;
 pub use pallet_sudo::Call as SudoCall;
 pub use pallet_timestamp::Call as TimestampCall;
 
@@ -461,6 +462,19 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type BridgedChainId = RialtoChainId;
 }
 
+parameter_types! {
+	pub const RialtoParasPalletName: &'static str = bp_rialto::PARAS_PALLET_NAME;
+}
+
+/// Instance of the with-Rialto parachains token swap pallet.
+pub type WitRialtoParachainsInstance = ();
+
+impl pallet_bridge_parachains::Config<WitRialtoParachainsInstance> for Runtime {
+	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
+	type ParasPalletName = RialtoParasPalletName;
+	type HeadsToKeep = HeadersToKeep;
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -494,6 +508,9 @@ construct_runtime!(
 
 		// Westend bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
+
+		// Rialto parachains bridge modules.
+		BridgeRialtoParachains: pallet_bridge_parachains::{Pallet, Call, Storage},
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 99,
