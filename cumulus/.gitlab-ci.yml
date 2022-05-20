@@ -224,7 +224,7 @@ benchmarks:
     - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
     # push results to github
     - git checkout -b $BRANCHNAME
-    - git add polkadot-parachains/*
+    - git add parachains/*
     - git commit -m "[benchmarks] pr with weights"
     - git push origin $BRANCHNAME
     # create PR

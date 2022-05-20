@@ -5,11 +5,11 @@ on:
     inputs:
       ref1:
         description: The 'from' tag to use for the diff
-        default: parachains-v7.0.0
+        default: parachains-v9.0.0
         required: true
       ref2:
         description: The 'to' tag to use for the diff
-        default: release-parachains-v8.0.0
+        default: release-parachains-v10.0.0
         required: true
       release_type:
         description: Pass "client" for client releases, leave empty otherwise
@@ -42,8 +42,22 @@ jobs:
   build-runtimes:
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain", "contracts-rococo"]
+       matrix:
+        include:
+          - category: assets
+            runtime: statemine
+          - category: assets
+            runtime: statemint
+          - category: assets
+            runtime: westmint
+          - category: contracts
+            runtime: contracts-rococo
+          - category: starters
+            runtime: seedling
+          - category: starters
+            runtime: shell
+          - category: testing
+            runtime: rococo-parachain
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -67,7 +81,7 @@ jobs:
         with:
           image: paritytech/srtool
           chain: ${{ matrix.runtime }}
-          runtime_dir: polkadot-parachains/${{ matrix.runtime }}
+          runtime_dir: parachains/runtimes/${{ matrix.category }}/${{ matrix.runtime }}
 
       - name: Store srtool digest to disk
         if: ${{ github.event.inputs.release_type != 'client' }}
@@ -188,10 +202,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: ["publish-draft-release"]
     env:
-      RUNTIME_DIR: polkadot-parachains
+      RUNTIME_DIR: parachains/runtimes
     strategy:
-      matrix:
-        runtime: ["shell", "statemine", "statemint", "westmint", "rococo-parachain", "contracts-rococo"]
+       matrix:
+        include:
+          - category: assets
+            runtime: statemine
+          - category: assets
+            runtime: statemint
+          - category: assets
+            runtime: westmint
+          - category: contracts
+            runtime: contracts-rococo
+          - category: starters
+            runtime: seedling
+          - category: starters
+            runtime: shell
+          - category: testing
+            runtime: rococo-parachain
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -209,10 +237,10 @@ jobs:
         id: get-runtime-ver
         run: |
           echo "require './scripts/ci/github/runtime-version.rb'" > script.rb
-          echo "puts get_runtime(runtime: \"${{ matrix.runtime }}\", runtime_dir: \"$RUNTIME_DIR\")" >> script.rb
+          echo "puts get_runtime(runtime: \"${{ matrix.runtime }}\", runtime_dir: \"$RUNTIME_DIR/${{ matrix.category }}\")" >> script.rb
 
           echo "Current folder: $PWD"
-          ls "$RUNTIME_DIR/${{ matrix.runtime }}"
+          ls "$RUNTIME_DIR/${{ matrix.category }}/${{ matrix.runtime }}"
           runtime_ver=$(ruby script.rb)
           echo "Found version: >$runtime_ver<"
           echo "::set-output name=runtime_ver::$runtime_ver"

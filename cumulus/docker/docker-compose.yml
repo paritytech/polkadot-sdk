@@ -9,7 +9,7 @@ services:
     volumes:
       - "polkadot-data-alice:/data"
       - type: bind
-        source: ./test/parachain/res/polkadot_chainspec.json
+        source: ./test/parachain/chain-specs/polkadot_chainspec.json
         target: /chainspec.json
         read_only: true
     command: >
@@ -38,7 +38,7 @@ services:
     volumes:
       - "polkadot-data-bob:/data"
       - type: bind
-        source: ./test/parachain/res/polkadot_chainspec.json
+        source: ./test/parachain/chain-specs/polkadot_chainspec.json
         target: /chainspec.json
         read_only: true
     command: >

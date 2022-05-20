@@ -95,13 +95,13 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 	Ok(match id {
 		"staging" => Box::new(chain_spec::staging_test_net()),
 		"tick" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/tick.json")[..],
+			&include_bytes!("../../parachains/chain-specs/tick.json")[..],
 		)?),
 		"trick" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/trick.json")[..],
+			&include_bytes!("../../parachains/chain-specs/trick.json")[..],
 		)?),
 		"track" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/track.json")[..],
+			&include_bytes!("../../parachains/chain-specs/track.json")[..],
 		)?),
 		"shell" => Box::new(chain_spec::get_shell_chain_spec()),
 		// -- Statemint
@@ -112,7 +112,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 		"statemint-genesis" => Box::new(chain_spec::statemint_config()),
 		// the shell-based chain spec as used for syncing
 		"statemint" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/statemint.json")[..],
+			&include_bytes!("../../parachains/chain-specs/statemint.json")[..],
 		)?),
 		// -- Statemine
 		"statemine-dev" => Box::new(chain_spec::statemine_development_config()),
@@ -121,7 +121,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 		"statemine-genesis" => Box::new(chain_spec::statemine_config()),
 		// the shell-based chain spec as used for syncing
 		"statemine" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/statemine.json")[..],
+			&include_bytes!("../../parachains/chain-specs/statemine.json")[..],
 		)?),
 		// -- Westmint
 		"westmint-dev" => Box::new(chain_spec::westmint_development_config()),
@@ -130,14 +130,14 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 		"westmint-genesis" => Box::new(chain_spec::westmint_config()),
 		// the shell-based chain spec as used for syncing
 		"westmint" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/westmint.json")[..],
+			&include_bytes!("../../parachains/chain-specs/westmint.json")[..],
 		)?),
 		// -- Contracts on Rococo
 		"contracts-rococo-dev" => Box::new(chain_spec::contracts_rococo_development_config()),
 		"contracts-rococo-local" => Box::new(chain_spec::contracts_rococo_local_config()),
 		"contracts-rococo-genesis" => Box::new(chain_spec::contracts_rococo_config()),
 		"contracts-rococo" => Box::new(chain_spec::ChainSpec::from_json_bytes(
-			&include_bytes!("../res/contracts-rococo.json")[..],
+			&include_bytes!("../../parachains/chain-specs/contracts-rococo.json")[..],
 		)?),
 		// -- Fallback (generic chainspec)
 		"" => Box::new(chain_spec::get_chain_spec()),

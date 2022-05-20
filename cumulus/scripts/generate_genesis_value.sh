@@ -41,7 +41,7 @@ set -e
 
 chain_id=$1
 rpc_endpoint=$2
-work_dir="polkadot-parachains/res"
+work_dir="parachains/chain-specs"
 chain_spec=$work_dir/$chain_id.json
 chain_values=$work_dir/${chain_id}_values.json
 chain_values_scale=$work_dir/${chain_id}_values.scale
@@ -58,7 +58,7 @@ if [[ "$rpc_endpoint" =~ "localhost" ]]; then
     check_collator
     echo -e "Make sure you have a collator running with the correct version at $rpc_endpoint."
     echo -e "If you don't, NOW is the time to start it with:"
-    echo -e "target/release/polkadot-parachain --chain polkadot-parachains/res/shell-statemint.json --tmp\n"
+    echo -e "target/release/polkadot-parachain --chain parachains/chain-specs/shell-statemint.json --tmp\n"
     read -p "You can abort with CTRL+C if this is not correct, otherwise press ENTER "
 fi
 
@@ -77,4 +77,4 @@ popd
 node scripts/scale_encode_genesis $chain_values $chain_values_scale $rpc_endpoint
 
 
-ls -al polkadot-parachains/res/${chain_id}_value*.*
+ls -al parachains/chain-specs/${chain_id}_value*.*

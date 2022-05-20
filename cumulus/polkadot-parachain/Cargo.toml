@@ -20,15 +20,15 @@ log = "0.4.17"
 serde = { version = "1.0.137", features = ["derive"] }
 
 # Local
-rococo-parachain-runtime = { path = "rococo-parachain" }
-shell-runtime = { path = "shell" }
-seedling-runtime = { path = "seedling" }
-statemint-runtime = { path = "statemint" }
-statemine-runtime = { path = "statemine" }
-westmint-runtime = { path = "westmint" }
-contracts-rococo-runtime = { path = "contracts-rococo" }
-jsonrpsee = { version = "0.13.0", features = ["server"] }
-parachains-common = { path = "parachains-common" }
+rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
+shell-runtime = { path = "../parachains/runtimes/starters/shell" }
+seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
+statemint-runtime = { path = "../parachains/runtimes/assets/statemint" }
+statemine-runtime = { path = "../parachains/runtimes/assets/statemine" }
+westmint-runtime = { path = "../parachains/runtimes/assets/westmint" }
+contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
+jsonrpsee = { version = "0.13", features = ["server"] }
+parachains-common = { path = "../parachains/common" }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }

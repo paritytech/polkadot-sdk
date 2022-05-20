@@ -4,7 +4,7 @@ steps=50
 repeat=20
 chainName=$1
 
-benhcmarkOutput=./polkadot-parachains/$chainName/src/weights
+benhcmarkOutput=./parachains/runtimes/$chainName/src/weights
 benhcmarkChainName="$chainName-dev"
 
 pallets=(

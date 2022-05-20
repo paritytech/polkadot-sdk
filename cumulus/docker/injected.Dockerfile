@@ -38,7 +38,7 @@ RUN apt-get update && \
 COPY ./target/release/polkadot-parachain /usr/local/bin
 COPY ./target/release/polkadot-parachain.asc /usr/local/bin
 COPY ./target/release/polkadot-parachain.sha256 /usr/local/bin
-COPY ./polkadot-parachains/res/*.json /specs/
+COPY ./parachains/chain-specs/*.json /specs/
 
 USER polkadot
 

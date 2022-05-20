@@ -8,11 +8,14 @@ on:
     tags:
       - "*"
 
-    paths-ignore:
-      - "docker"
-      - "docs"
-      - "scripts"
-      - "test"
+    # paths-ignore:
+    #   - "docker"
+    #   - "docs"
+    #   - "scripts"
+    #   - "test"
+    #   - "client"
+    paths:
+      - parachains/runtimes/**/*
 
     branches:
       - "release*"
@@ -27,7 +30,21 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        chain: ["statemine", "westmint", "statemint", "rococo-parachain", "shell", "contracts-rococo"]
+        include:
+          - category: assets
+            runtime: statemine
+          - category: assets
+            runtime: statemint
+          - category: assets
+            runtime: westmint
+          - category: contracts
+            runtime: contracts-rococo
+          - category: starters
+            runtime: seedling
+          - category: starters
+            runtime: shell
+          - category: testing
+            runtime: rococo-parachain
     steps:
       - uses: actions/checkout@v3
         with:
@@ -37,25 +54,25 @@ jobs:
         id: srtool_build
         uses: chevdor/srtool-actions@v0.4.0
         with:
-          chain: ${{ matrix.chain }}
-          runtime_dir: polkadot-parachains/${{ matrix.chain }}
+          chain: ${{ matrix.runtime }}
+          runtime_dir: parachains/runtimes/${{ matrix.category }}/${{ matrix.runtime }}
 
       - name: Summary
         run: |
-          echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.chain }}-srtool-digest.json
-          cat ${{ matrix.chain }}-srtool-digest.json
+          echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.runtime }}-srtool-digest.json
+          cat ${{ matrix.runtime }}-srtool-digest.json
           echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
           echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
 
       # it takes a while to build the runtime, so let's save the artifact as soon as we have it
-      - name: Archive Artifacts for ${{ matrix.chain }}
+      - name: Archive Artifacts for ${{ matrix.runtime }}
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.chain }}-runtime
+          name: ${{ matrix.runtime }}-runtime
           path: |
             ${{ steps.srtool_build.outputs.wasm }}
             ${{ steps.srtool_build.outputs.wasm_compressed }}
-            ${{ matrix.chain }}-srtool-digest.json
+            ${{ matrix.runtime }}-srtool-digest.json
 
       # We now get extra information thanks to subwasm
       - name: Install subwasm
@@ -69,29 +86,29 @@ jobs:
         run: |
           subwasm info ${{ steps.srtool_build.outputs.wasm }}
           subwasm info ${{ steps.srtool_build.outputs.wasm_compressed }}
-          subwasm --json info ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-info.json
-          subwasm --json info ${{ steps.srtool_build.outputs.wasm_compressed }} > ${{ matrix.chain }}-compressed-info.json
+          subwasm --json info ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.runtime }}-info.json
+          subwasm --json info ${{ steps.srtool_build.outputs.wasm_compressed }} > ${{ matrix.runtime }}-compressed-info.json
 
       - name: Extract the metadata
         shell: bash
         run: |
           subwasm meta ${{ steps.srtool_build.outputs.wasm }}
-          subwasm --json meta ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
+          subwasm --json meta ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.runtime }}-metadata.json
 
       - name: Check the metadata diff
         shell: bash
         # the following subwasm call will error for chains that are not known and/or live, that includes shell for instance
         run: |
-          subwasm diff ${{ steps.srtool_build.outputs.wasm }} --chain-b ${{ matrix.chain }} || \
-            echo "Subwasm call failed, check the logs. This is likely because ${{ matrix.chain }} is not known by subwasm" | \
-            tee ${{ matrix.chain }}-diff.txt
+          subwasm diff ${{ steps.srtool_build.outputs.wasm }} --chain-b ${{ matrix.runtime }} || \
+            echo "Subwasm call failed, check the logs. This is likely because ${{ matrix.runtime }} is not known by subwasm" | \
+            tee ${{ matrix.runtime }}-diff.txt
 
       - name: Archive Subwasm results
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.chain }}-runtime
+          name: ${{ matrix.runtime }}-runtime
           path: |
-            ${{ matrix.chain }}-info.json
-            ${{ matrix.chain }}-compressed-info.json
-            ${{ matrix.chain }}-metadata.json
-            ${{ matrix.chain }}-diff.txt
+            ${{ matrix.runtime }}-info.json
+            ${{ matrix.runtime }}-compressed-info.json
+            ${{ matrix.runtime }}-metadata.json
+            ${{ matrix.runtime }}-diff.txt

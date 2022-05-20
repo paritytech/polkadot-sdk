@@ -61,7 +61,7 @@ Refer to the [setup instructions below](#local-setup) to run a local network for
 
 ## Contracts 📝
 
-See [the `contracts-rococo` readme](polkadot-parachains/contracts-rococo/README.md) for details.
+See [the `contracts-rococo` readme](parachains/runtimes/contracts/contracts-rococo/README.md) for details.
 
 ## Rococo 👑
 
