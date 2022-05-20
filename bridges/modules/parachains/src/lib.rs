@@ -24,7 +24,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_parachains::parachain_head_storage_key_at_source;
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaHasher, ParaHead, ParaHeadsProof, ParaId};
 use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
@@ -67,6 +67,12 @@ pub mod pallet {
 		UnknownRelayChainBlock,
 		/// Invalid storage proof has been passed.
 		InvalidStorageProof,
+		/// Given parachain head is unknown.
+		UnknownParaHead,
+		/// The storage proof doesn't contains storage root. So it is invalid for given header.
+		StorageRootMismatch,
+		/// Failed to extract state root from given parachain head.
+		FailedToExtractStateRoot,
 	}
 
 	#[pallet::config]
@@ -190,6 +196,38 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Get best finalized header of the given parachain.
+		pub fn best_parachain_head(parachain: ParaId) -> Option<ParaHead> {
+			let best_para_head_hash = BestParaHeads::<T, I>::get(parachain)?.head_hash;
+			ImportedParaHeads::<T, I>::get(parachain, best_para_head_hash)
+		}
+
+		/// Get parachain head with given hash.
+		pub fn parachain_head(parachain: ParaId, hash: ParaHash) -> Option<ParaHead> {
+			ImportedParaHeads::<T, I>::get(parachain, hash)
+		}
+
+		/// Verify that the passed storage proof is valid, given it is crafted using
+		/// known finalized header. If the proof is valid, then the `parse` callback
+		/// is called and the function returns its result.
+		pub fn parse_finalized_storage_proof<R>(
+			parachain: ParaId,
+			hash: ParaHash,
+			storage_proof: sp_trie::StorageProof,
+			decode_state_root: impl FnOnce(ParaHead) -> Option<ParaHash>,
+			parse: impl FnOnce(bp_runtime::StorageProofChecker<ParaHasher>) -> R,
+		) -> Result<R, sp_runtime::DispatchError> {
+			let para_head =
+				Self::parachain_head(parachain, hash).ok_or(Error::<T, I>::UnknownParaHead)?;
+			let state_root =
+				decode_state_root(para_head).ok_or(Error::<T, I>::FailedToExtractStateRoot)?;
+			let storage_proof_checker =
+				bp_runtime::StorageProofChecker::new(state_root, storage_proof)
+					.map_err(|_| Error::<T, I>::StorageRootMismatch)?;
+
+			Ok(parse(storage_proof_checker))
+		}
+
 		/// Read parachain head from storage proof.
 		fn read_parachain_head(
 			storage: &bp_runtime::StorageProofChecker<RelayBlockHasher>,
@@ -329,7 +367,7 @@ mod tests {
 	}
 
 	fn prepare_parachain_heads_proof(
-		heads: Vec<(ParaId, ParaHead)>,
+		heads: Vec<(u32, ParaHead)>,
 	) -> (RelayBlockHash, ParaHeadsProof) {
 		let mut root = Default::default();
 		let mut mdb = MemoryDB::default();
@@ -337,7 +375,7 @@ mod tests {
 			let mut trie = TrieDBMutV1::<RelayBlockHasher>::new(&mut mdb, &mut root);
 			for (parachain, head) in heads {
 				let storage_key =
-					parachain_head_storage_key_at_source(PARAS_PALLET_NAME, parachain);
+					parachain_head_storage_key_at_source(PARAS_PALLET_NAME, ParaId(parachain));
 				trie.insert(&storage_key.0, &head.encode())
 					.map_err(|_| "TrieMut::insert has failed")
 					.expect("TrieMut::insert should not fail in tests");
@@ -385,10 +423,8 @@ mod tests {
 
 	#[test]
 	fn imports_initial_parachain_heads() {
-		let (state_root, proof) = prepare_parachain_heads_proof(vec![
-			(ParaId(1), head_data(1, 0)),
-			(ParaId(3), head_data(3, 10)),
-		]);
+		let (state_root, proof) =
+			prepare_parachain_heads_proof(vec![(1, head_data(1, 0)), (3, head_data(3, 10))]);
 		run_test(|| {
 			initialize(state_root);
 
@@ -429,10 +465,8 @@ mod tests {
 
 	#[test]
 	fn imports_parachain_heads_is_able_to_progress() {
-		let (state_root_5, proof_5) =
-			prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, 5))]);
-		let (state_root_10, proof_10) =
-			prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, 10))]);
+		let (state_root_5, proof_5) = prepare_parachain_heads_proof(vec![(1, head_data(1, 5))]);
+		let (state_root_10, proof_10) = prepare_parachain_heads_proof(vec![(1, head_data(1, 10))]);
 		run_test(|| {
 			// start with relay block #0 and import head#5 of parachain#1
 			initialize(state_root_5);
@@ -478,7 +512,7 @@ mod tests {
 
 	#[test]
 	fn does_nothing_when_already_imported_this_head_at_previous_relay_header() {
-		let (state_root, proof) = prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, 0))]);
+		let (state_root, proof) = prepare_parachain_heads_proof(vec![(1, head_data(1, 0))]);
 		run_test(|| {
 			// import head#0 of parachain#1 at relay block#0
 			initialize(state_root);
@@ -495,10 +529,8 @@ mod tests {
 
 	#[test]
 	fn does_nothing_when_already_imported_head_at_better_relay_header() {
-		let (state_root_5, proof_5) =
-			prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, 5))]);
-		let (state_root_10, proof_10) =
-			prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, 10))]);
+		let (state_root_5, proof_5) = prepare_parachain_heads_proof(vec![(1, head_data(1, 5))]);
+		let (state_root_10, proof_10) = prepare_parachain_heads_proof(vec![(1, head_data(1, 10))]);
 		run_test(|| {
 			// start with relay block #0
 			initialize(state_root_5);
@@ -536,8 +568,7 @@ mod tests {
 
 			// import exactly `HeadsToKeep` headers
 			for i in 0..heads_to_keep {
-				let (state_root, proof) =
-					prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, i))]);
+				let (state_root, proof) = prepare_parachain_heads_proof(vec![(1, head_data(1, i))]);
 				if i == 0 {
 					initialize(state_root);
 				} else {
@@ -554,7 +585,7 @@ mod tests {
 
 			// import next relay chain header and next parachain head
 			let (state_root, proof) =
-				prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, heads_to_keep))]);
+				prepare_parachain_heads_proof(vec![(1, head_data(1, heads_to_keep))]);
 			proceed(heads_to_keep, state_root);
 			assert_ok!(import_parachain_1_head(heads_to_keep, state_root, proof));
 
@@ -571,7 +602,7 @@ mod tests {
 
 	#[test]
 	fn fails_on_unknown_relay_chain_block() {
-		let (state_root, proof) = prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, 5))]);
+		let (state_root, proof) = prepare_parachain_heads_proof(vec![(1, head_data(1, 5))]);
 		run_test(|| {
 			// start with relay block #0
 			initialize(state_root);
@@ -586,8 +617,7 @@ mod tests {
 
 	#[test]
 	fn fails_on_invalid_storage_proof() {
-		let (_state_root, proof) =
-			prepare_parachain_heads_proof(vec![(ParaId(1), head_data(1, 5))]);
+		let (_state_root, proof) = prepare_parachain_heads_proof(vec![(1, head_data(1, 5))]);
 		run_test(|| {
 			// start with relay block #0
 			initialize(Default::default());

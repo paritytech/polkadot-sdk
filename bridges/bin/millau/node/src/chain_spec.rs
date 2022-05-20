@@ -18,8 +18,8 @@ use beefy_primitives::crypto::AuthorityId as BeefyId;
 use bp_millau::derive_account_from_rialto_id;
 use millau_runtime::{
 	AccountId, AuraConfig, BalancesConfig, BeefyConfig, BridgeRialtoMessagesConfig,
-	BridgeWestendGrandpaConfig, GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys,
-	Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	BridgeRialtoParachainMessagesConfig, BridgeWestendGrandpaConfig, GenesisConfig, GrandpaConfig,
+	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
@@ -151,7 +151,7 @@ fn endowed_accounts() -> Vec<AccountId> {
 		get_account_id_from_seed::<sr25519::Public>("George//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
 		get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner"),
-		get_account_id_from_seed::<sr25519::Public>("WithRialtoTokenSwap"),
+		get_account_id_from_seed::<sr25519::Public>("RialtoParachainMessagesOwner"),
 		pallet_bridge_messages::relayer_fund_account_id::<
 			bp_millau::AccountId,
 			bp_millau::AccountIdConverter,
@@ -215,6 +215,12 @@ fn testnet_genesis(
 		},
 		bridge_rialto_messages: BridgeRialtoMessagesConfig {
 			owner: Some(get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner")),
+			..Default::default()
+		},
+		bridge_rialto_parachain_messages: BridgeRialtoParachainMessagesConfig {
+			owner: Some(get_account_id_from_seed::<sr25519::Public>(
+				"RialtoParachainMessagesOwner",
+			)),
 			..Default::default()
 		},
 		xcm_pallet: Default::default(),

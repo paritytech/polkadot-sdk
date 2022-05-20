@@ -29,14 +29,21 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod rialto_messages;
+pub mod rialto_parachain_messages;
 pub mod xcm_config;
 
-use crate::rialto_messages::{ToRialtoMessagePayload, WithRialtoMessageBridge};
+use crate::{
+	rialto_messages::{ToRialtoMessagePayload, WithRialtoMessageBridge},
+	rialto_parachain_messages::{
+		ToRialtoParachainMessagePayload, WithRialtoParachainMessageBridge,
+	},
+};
 
 use beefy_primitives::{crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
 use bridge_runtime_common::messages::{
 	source::estimate_message_dispatch_and_delivery_fee, MessageBridge,
 };
+use codec::Decode;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -49,7 +56,9 @@ use sp_mmr_primitives::{
 };
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{Block as BlockT, IdentityLookup, Keccak256, NumberFor, OpaqueKeys},
+	traits::{
+		Block as BlockT, Header as HeaderT, IdentityLookup, Keccak256, NumberFor, OpaqueKeys,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perquintill,
 };
@@ -416,6 +425,15 @@ impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
 	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
 }
 
+pub type RialtoParachainGrandpaInstance = pallet_bridge_grandpa::Instance2;
+impl pallet_bridge_grandpa::Config<RialtoParachainGrandpaInstance> for Runtime {
+	type BridgedChain = bp_rialto_parachain::RialtoParachain;
+	type MaxRequests = MaxRequests;
+	type HeadersToKeep = HeadersToKeep;
+
+	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
+}
+
 impl pallet_shift_session_manager::Config for Runtime {}
 
 parameter_types! {
@@ -429,6 +447,7 @@ parameter_types! {
 		bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT as _;
 	pub const RootAccountForPayments: Option<AccountId> = None;
 	pub const RialtoChainId: bp_runtime::ChainId = bp_runtime::RIALTO_CHAIN_ID;
+	pub const RialtoParachainChainId: bp_runtime::ChainId = bp_runtime::RIALTO_PARACHAIN_CHAIN_ID;
 }
 
 /// Instance of the messages pallet used to relay messages to/from Rialto chain.
@@ -460,6 +479,37 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
 	type BridgedChainId = RialtoChainId;
+}
+
+/// Instance of the messages pallet used to relay messages to/from RialtoParachain chain.
+pub type WithRialtoParachainMessagesInstance = pallet_bridge_messages::Instance1;
+
+impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Runtime {
+	type Event = Event;
+	type WeightInfo = pallet_bridge_messages::weights::MillauWeight<Runtime>;
+	type Parameter = rialto_parachain_messages::MillauToRialtoParachainMessagesParameter;
+	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
+	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
+	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
+
+	type OutboundPayload = crate::rialto_parachain_messages::ToRialtoParachainMessagePayload;
+	type OutboundMessageFee = Balance;
+
+	type InboundPayload = crate::rialto_parachain_messages::FromRialtoParachainMessagePayload;
+	type InboundMessageFee = bp_rialto_parachain::Balance;
+	type InboundRelayer = bp_rialto_parachain::AccountId;
+
+	type AccountIdConverter = bp_millau::AccountIdConverter;
+
+	type TargetHeaderChain = crate::rialto_parachain_messages::RialtoParachain;
+	type LaneMessageVerifier = crate::rialto_parachain_messages::ToRialtoParachainMessageVerifier;
+	type MessageDeliveryAndDispatchPayment = ();
+	type OnMessageAccepted = ();
+	type OnDeliveryConfirmed = ();
+
+	type SourceHeaderChain = crate::rialto_parachain_messages::RialtoParachain;
+	type MessageDispatch = crate::rialto_parachain_messages::FromRialtoParachainMessageDispatch;
+	type BridgedChainId = RialtoParachainChainId;
 }
 
 parameter_types! {
@@ -509,8 +559,9 @@ construct_runtime!(
 		// Westend bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
 
-		// Rialto parachains bridge modules.
+		// RialtoParachain bridge modules.
 		BridgeRialtoParachains: pallet_bridge_parachains::{Pallet, Call, Storage},
+		BridgeRialtoParachainMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 99,
@@ -750,6 +801,23 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_rialto_parachain::RialtoParachainFinalityApi<Block> for Runtime {
+		fn best_finalized() -> (bp_rialto::BlockNumber, bp_rialto::Hash) {
+			// the parachains finality pallet is never decoding parachain heads, so it is
+			// only done in the integration code
+			use crate::rialto_parachain_messages::RIALTO_PARACHAIN_ID;
+			let best_rialto_parachain_head = pallet_bridge_parachains::Pallet::<
+				Runtime,
+				WitRialtoParachainsInstance,
+			>::best_parachain_head(RIALTO_PARACHAIN_ID.into())
+				.and_then(|encoded_header| bp_rialto_parachain::Header::decode(&mut &encoded_header.0[..]).ok());
+			match best_rialto_parachain_head {
+				Some(head) => (*head.number(), head.hash()),
+				None => (Default::default(), Default::default()),
+			}
+		}
+	}
+
 	impl bp_rialto::ToRialtoOutboundLaneApi<Block, Balance, ToRialtoMessagePayload> for Runtime {
 		fn estimate_message_delivery_and_dispatch_fee(
 			_lane_id: bp_messages::LaneId,
@@ -772,6 +840,33 @@ impl_runtime_apis! {
 				Runtime,
 				WithRialtoMessagesInstance,
 				WithRialtoMessageBridge,
+				xcm_config::OutboundXcmWeigher,
+			>(lane, begin, end)
+		}
+	}
+
+	impl bp_rialto_parachain::ToRialtoParachainOutboundLaneApi<Block, Balance, ToRialtoParachainMessagePayload> for Runtime {
+		fn estimate_message_delivery_and_dispatch_fee(
+			_lane_id: bp_messages::LaneId,
+			payload: ToRialtoParachainMessagePayload,
+			rialto_parachain_to_this_conversion_rate: Option<FixedU128>,
+		) -> Option<Balance> {
+			estimate_message_dispatch_and_delivery_fee::<WithRialtoParachainMessageBridge>(
+				&payload,
+				WithRialtoParachainMessageBridge::RELAYER_FEE_PERCENT,
+				rialto_parachain_to_this_conversion_rate,
+			).ok()
+		}
+
+		fn message_details(
+			lane: bp_messages::LaneId,
+			begin: bp_messages::MessageNonce,
+			end: bp_messages::MessageNonce,
+		) -> Vec<bp_messages::MessageDetails<Balance>> {
+			bridge_runtime_common::messages_api::outbound_message_details::<
+				Runtime,
+				WithRialtoParachainMessagesInstance,
+				WithRialtoParachainMessageBridge,
 				xcm_config::OutboundXcmWeigher,
 			>(lane, begin, end)
 		}

@@ -19,11 +19,14 @@
 pub mod kusama_headers_to_polkadot;
 pub mod kusama_messages_to_polkadot;
 pub mod millau_headers_to_rialto;
+pub mod millau_headers_to_rialto_parachain;
 pub mod millau_messages_to_rialto;
+pub mod millau_messages_to_rialto_parachain;
 pub mod polkadot_headers_to_kusama;
 pub mod polkadot_messages_to_kusama;
 pub mod rialto_headers_to_millau;
 pub mod rialto_messages_to_millau;
+pub mod rialto_parachain_messages_to_millau;
 pub mod rialto_parachains_to_millau;
 pub mod rococo_headers_to_wococo;
 pub mod rococo_messages_to_wococo;

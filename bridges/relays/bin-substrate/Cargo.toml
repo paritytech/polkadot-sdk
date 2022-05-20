@@ -26,6 +26,7 @@ bp-header-chain = { path = "../../primitives/header-chain" }
 bp-kusama = { path = "../../primitives/chain-kusama" }
 bp-messages = { path = "../../primitives/messages" }
 bp-millau = { path = "../../primitives/chain-millau" }
+bp-parachains = { path = "../../primitives/parachains" }
 bp-polkadot = { path = "../../primitives/chain-polkadot" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
