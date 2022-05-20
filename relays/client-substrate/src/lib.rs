@@ -26,6 +26,7 @@ mod sync_header;
 
 pub mod guard;
 pub mod metrics;
+pub mod test_chain;
 
 use std::time::Duration;
 
