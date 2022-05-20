@@ -66,7 +66,7 @@ jobs:
 
       # it takes a while to build the runtime, so let's save the artifact as soon as we have it
       - name: Archive Artifacts for ${{ matrix.runtime }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.runtime }}-runtime
           path: |
@@ -104,7 +104,7 @@ jobs:
             tee ${{ matrix.runtime }}-diff.txt
 
       - name: Archive Subwasm results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.runtime }}-runtime
           path: |

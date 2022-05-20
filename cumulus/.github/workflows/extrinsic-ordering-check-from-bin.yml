@@ -75,7 +75,7 @@ jobs:
         continue-on-error: true
 
       - name: Save output as artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ env.CHAIN }}
           path: |
