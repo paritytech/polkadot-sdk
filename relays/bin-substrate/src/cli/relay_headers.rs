@@ -55,6 +55,7 @@ pub enum RelayHeadersBridge {
 	WococoToRococo,
 	KusamaToPolkadot,
 	PolkadotToKusama,
+	MillauToRialtoParachain,
 }
 
 macro_rules! select_bridge {
@@ -108,6 +109,14 @@ macro_rules! select_bridge {
 				type Finality = crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
 
 				$generic
+			},
+			RelayHeadersBridge::MillauToRialtoParachain => {
+				type Source = relay_millau_client::Millau;
+				type Target = relay_rialto_parachain_client::RialtoParachain;
+				type Finality = crate::chains::millau_headers_to_rialto_parachain::MillauFinalityToRialtoParachain;
+
+				$generic
+
 			},
 		}
 	};

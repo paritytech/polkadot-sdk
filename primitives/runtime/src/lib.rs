@@ -45,6 +45,9 @@ pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
 /// Bridge-with-Rialto instance id.
 pub const RIALTO_CHAIN_ID: ChainId = *b"rlto";
 
+/// Bridge-with-RialtoParachain instance id.
+pub const RIALTO_PARACHAIN_CHAIN_ID: ChainId = *b"rlpa";
+
 /// Bridge-with-Millau instance id.
 pub const MILLAU_CHAIN_ID: ChainId = *b"mlau";
 
