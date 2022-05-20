@@ -66,7 +66,7 @@ jobs:
 
       - name: Cache target dir
         if: ${{ github.event.inputs.release_type != 'client' }}
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: "${{ github.workspace }}/runtime/${{ matrix.runtime }}/target"
           key: srtool-target-${{ matrix.runtime }}-${{ github.sha }}
