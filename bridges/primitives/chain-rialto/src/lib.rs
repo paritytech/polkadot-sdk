@@ -252,7 +252,7 @@ sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Rialto headers.
 	///
 	/// This API is implemented by runtimes that are bridging with the Rialto chain, not the
-	/// Millau runtime itself.
+	/// Rialto runtime itself.
 	pub trait RialtoFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
 		fn best_finalized() -> (BlockNumber, Hash);

@@ -55,6 +55,12 @@ use parity_util_mem::MallocSizeOf;
 )]
 pub struct ParaId(pub u32);
 
+impl From<u32> for ParaId {
+	fn from(id: u32) -> Self {
+		ParaId(id)
+	}
+}
+
 /// Parachain head.
 ///
 /// This is an equivalent of the `polkadot_parachain::HeadData`.
@@ -77,6 +83,9 @@ impl ParaHead {
 
 /// Parachain head hash.
 pub type ParaHash = crate::Hash;
+
+/// Parachain head hasher.
+pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
 pub type ParaHeadsProof = Vec<Vec<u8>>;

@@ -241,6 +241,21 @@ pub fn derive_account_from_rialto_id(id: bp_runtime::SourceAccount<AccountId>) -
 	AccountIdConverter::convert(encoded_id)
 }
 
+/// We use this to get the account on Millau (target) which is derived from RialtoParachain's
+/// (source) account. We do this so we can fund the derived account on Millau at Genesis to it can
+/// pay transaction fees.
+///
+/// The reason we can use the same `AccountId` type for both chains is because they share the same
+/// development seed phrase.
+///
+/// Note that this should only be used for testing.
+pub fn derive_account_from_rialto_parachain_id(
+	id: bp_runtime::SourceAccount<AccountId>,
+) -> AccountId {
+	let encoded_id = bp_runtime::derive_account_id(bp_runtime::RIALTO_PARACHAIN_CHAIN_ID, id);
+	AccountIdConverter::convert(encoded_id)
+}
+
 frame_support::parameter_types! {
 	pub BlockLength: limits::BlockLength =
 		limits::BlockLength::max_with_normal_ratio(2 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
