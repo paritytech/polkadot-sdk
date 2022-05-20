@@ -36,6 +36,7 @@ mod reinit_bridge;
 mod relay_headers;
 mod relay_headers_and_messages;
 mod relay_messages;
+mod relay_parachains;
 mod resubmit_transactions;
 
 /// Parse relay CLI args.
@@ -85,6 +86,8 @@ pub enum Command {
 	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
 	/// Register parachain.
 	RegisterParachain(register_parachain::RegisterParachain),
+	///
+	RelayParachains(relay_parachains::RelayParachains),
 }
 
 impl Command {
@@ -118,6 +121,7 @@ impl Command {
 			Self::EstimateFee(arg) => arg.run().await?,
 			Self::ResubmitTransactions(arg) => arg.run().await?,
 			Self::RegisterParachain(arg) => arg.run().await?,
+			Self::RelayParachains(arg) => arg.run().await?,
 		}
 		Ok(())
 	}

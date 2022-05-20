@@ -196,56 +196,13 @@ impl<C: ChainWithBalances> Environment<C> for Client<C> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::weights::{IdentityFee, Weight};
+	use crate::test_chain::TestChain;
 	use futures::{
 		channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
 		future::FutureExt,
 		stream::StreamExt,
 		SinkExt,
 	};
-
-	#[derive(Debug, Clone)]
-	struct TestChain;
-
-	impl bp_runtime::Chain for TestChain {
-		type BlockNumber = u32;
-		type Hash = sp_core::H256;
-		type Hasher = sp_runtime::traits::BlakeTwo256;
-		type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
-
-		type AccountId = u32;
-		type Balance = u32;
-		type Index = u32;
-		type Signature = sp_runtime::testing::TestSignature;
-
-		fn max_extrinsic_size() -> u32 {
-			unreachable!()
-		}
-		fn max_extrinsic_weight() -> Weight {
-			unreachable!()
-		}
-	}
-
-	impl Chain for TestChain {
-		const NAME: &'static str = "Test";
-		const TOKEN_ID: Option<&'static str> = None;
-		const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "BestTestHeader";
-		const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(1);
-		const STORAGE_PROOF_OVERHEAD: u32 = 0;
-		const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 0;
-
-		type SignedBlock = sp_runtime::generic::SignedBlock<
-			sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>,
-		>;
-		type Call = ();
-		type WeightToFee = IdentityFee<u32>;
-	}
-
-	impl ChainWithBalances for TestChain {
-		fn account_info_storage_key(_account_id: &u32) -> sp_core::storage::StorageKey {
-			unreachable!()
-		}
-	}
 
 	struct TestEnvironment {
 		runtime_version_rx: UnboundedReceiver<RuntimeVersion>,

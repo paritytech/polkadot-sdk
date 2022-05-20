@@ -26,6 +26,7 @@ bp-westend = { path = "../../../primitives/chain-westend", default-features = fa
 bridge-runtime-common = { path = "../../runtime-common", default-features = false }
 pallet-bridge-grandpa = { path = "../../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../modules/messages", default-features = false }
+pallet-bridge-parachains = { path = "../../../modules/parachains", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
 
 # Substrate Dependencies
@@ -102,6 +103,7 @@ std = [
 	"pallet-beefy-mmr/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
+	"pallet-bridge-parachains/std",
 	"pallet-grandpa/std",
 	"pallet-mmr/std",
 	"pallet-randomness-collective-flip/std",

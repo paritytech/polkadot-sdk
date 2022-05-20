@@ -23,7 +23,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId, ParachainHeadsProof};
+use bp_parachains::parachain_head_storage_key_at_source;
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use codec::{Decode, Encode};
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
@@ -73,11 +74,15 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>:
 		pallet_bridge_grandpa::Config<Self::BridgesGrandpaPalletInstance>
 	{
-		/// Instance of bridges GRANDPA pallet that this pallet is linked to.
+		/// Instance of bridges GRANDPA pallet (within this runtime) that this pallet is linked to.
 		///
 		/// The GRANDPA pallet instance must be configured to import headers of relay chain that
 		/// we're interested in.
 		type BridgesGrandpaPalletInstance: 'static;
+
+		/// Name of the `paras` pallet in the `construct_runtime!()` call at the bridged chain.
+		#[pallet::constant]
+		type ParasPalletName: Get<&'static str>;
 
 		/// Maximal number of single parachain heads to keep in the storage.
 		///
@@ -129,7 +134,7 @@ pub mod pallet {
 			_origin: OriginFor<T>,
 			relay_block_hash: RelayBlockHash,
 			parachains: Vec<ParaId>,
-			parachain_heads_proof: ParachainHeadsProof,
+			parachain_heads_proof: ParaHeadsProof,
 		) -> DispatchResult {
 			// we'll need relay chain header to verify that parachains heads are always increasing.
 			let relay_block = pallet_bridge_grandpa::ImportedHeaders::<
@@ -190,7 +195,8 @@ pub mod pallet {
 			storage: &bp_runtime::StorageProofChecker<RelayBlockHasher>,
 			parachain: ParaId,
 		) -> Option<ParaHead> {
-			let parachain_head_key = storage_keys::parachain_head_key(parachain);
+			let parachain_head_key =
+				parachain_head_storage_key_at_source(T::ParasPalletName::get(), parachain);
 			let parachain_head = storage.read_value(parachain_head_key.0.as_ref()).ok()??;
 			let parachain_head = ParaHead::decode(&mut &parachain_head[..]).ok()?;
 			Some(parachain_head)
@@ -257,6 +263,12 @@ pub mod pallet {
 				updated_head_hash,
 			);
 			ImportedParaHeads::<T, I>::insert(parachain, updated_head_hash, updated_head);
+			log::trace!(
+				target: "runtime::bridge-parachains",
+				"Updated head of parachain {:?} to {}",
+				parachain,
+				updated_head_hash,
+			);
 
 			// remove old head
 			if let Ok(head_hash_to_prune) = head_hash_to_prune {
@@ -274,22 +286,10 @@ pub mod pallet {
 	}
 }
 
-pub mod storage_keys {
-	use super::*;
-	use bp_runtime::storage_map_final_key;
-	use frame_support::Twox64Concat;
-	use sp_core::storage::StorageKey;
-
-	/// Storage key of the parachain head in the runtime storage of relay chain.
-	pub fn parachain_head_key(parachain: ParaId) -> StorageKey {
-		storage_map_final_key::<Twox64Concat>("Paras", "Heads", &parachain.encode())
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{run_test, test_relay_header, Origin, TestRuntime};
+	use crate::mock::{run_test, test_relay_header, Origin, TestRuntime, PARAS_PALLET_NAME};
 
 	use bp_test_utils::{authority_list, make_default_justification};
 	use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
@@ -330,13 +330,14 @@ mod tests {
 
 	fn prepare_parachain_heads_proof(
 		heads: Vec<(ParaId, ParaHead)>,
-	) -> (RelayBlockHash, ParachainHeadsProof) {
+	) -> (RelayBlockHash, ParaHeadsProof) {
 		let mut root = Default::default();
 		let mut mdb = MemoryDB::default();
 		{
 			let mut trie = TrieDBMutV1::<RelayBlockHasher>::new(&mut mdb, &mut root);
 			for (parachain, head) in heads {
-				let storage_key = storage_keys::parachain_head_key(parachain);
+				let storage_key =
+					parachain_head_storage_key_at_source(PARAS_PALLET_NAME, parachain);
 				trie.insert(&storage_key.0, &head.encode())
 					.map_err(|_| "TrieMut::insert has failed")
 					.expect("TrieMut::insert should not fail in tests");
@@ -372,7 +373,7 @@ mod tests {
 	fn import_parachain_1_head(
 		relay_chain_block: RelayBlockNumber,
 		relay_state_root: RelayBlockHash,
-		proof: ParachainHeadsProof,
+		proof: ParaHeadsProof,
 	) -> sp_runtime::DispatchResult {
 		Pallet::<TestRuntime>::submit_parachain_heads(
 			Origin::signed(1),
