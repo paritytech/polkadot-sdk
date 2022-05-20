@@ -6,12 +6,14 @@ edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0" }
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 
 # Bridge dependencies
 
-bp-rialto = { path = "../../primitives/chain-rialto" }
+bp-messages = { path = "../../primitives/messages" }
+bp-rialto-parachain = { path = "../../primitives/chain-rialto-parachain" }
 rialto-parachain-runtime = { path = "../../bin/rialto-parachain/runtime" }
 
 # Substrate Dependencies
@@ -19,3 +21,5 @@ rialto-parachain-runtime = { path = "../../bin/rialto-parachain/runtime" }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -298,6 +298,20 @@ fn select_parachains_to_update<P: ParachainsPipeline>(
 where
 	P::SourceChain: Chain<BlockNumber = RelayBlockNumber>,
 {
+	log::trace!(
+		target: "bridge",
+		"Selecting {} parachains to update at {} (relay block: {:?}):\n\t\
+			At {}: {:?}\n\t\
+			At {}: {:?}",
+		P::SourceChain::NAME,
+		P::TargetChain::NAME,
+		best_finalized_relay_block,
+		P::SourceChain::NAME,
+		heads_at_source,
+		P::TargetChain::NAME,
+		heads_at_target,
+	);
+
 	heads_at_source
 		.into_iter()
 		.zip(heads_at_target.into_iter())
