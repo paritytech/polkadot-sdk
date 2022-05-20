@@ -25,6 +25,11 @@ codec = { package = 'parity-scale-codec', version = '3.0.0' }
 serde = { version = '1.0', features = ['derive'] }
 hex-literal = '0.3.1'
 
+# Bridge dependencies
+
+bp-rialto-parachain = { path = "../../../primitives/chain-rialto-parachain" }
+pallet-bridge-messages = { path = "../../../modules/messages" }
+
 # RPC related Dependencies
 jsonrpc-core = '18.0'
 

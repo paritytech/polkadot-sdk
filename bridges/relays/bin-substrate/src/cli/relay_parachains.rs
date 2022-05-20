@@ -55,8 +55,8 @@ macro_rules! select_bridge {
 		match $bridge {
 			RelayParachainsBridge::RialtoToMillau => {
 				use crate::chains::rialto_parachains_to_millau::{
-					RialtoToMillauParachains as Pipeline,
-					RialtoToMillauParachainsSubmitParachainHeadsCallBuilder as SubmitParachainHeadsCallBuilder,
+					RialtoParachainsToMillau as Pipeline,
+					RialtoParachainsToMillauSubmitParachainHeadsCallBuilder as SubmitParachainHeadsCallBuilder,
 				};
 
 				use bp_millau::BRIDGE_PARAS_PALLET_NAME as BRIDGE_PARAS_PALLET_NAME_AT_TARGET;

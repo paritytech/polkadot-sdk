@@ -16,9 +16,41 @@
 
 //! Rialto parachain specification for CLI.
 
-use crate::cli::CliChain;
+use crate::cli::{
+	bridge,
+	encode_message::{CliEncodeMessage, RawMessage},
+	CliChain,
+};
+use bp_messages::LaneId;
+use bp_runtime::EncodedOrDecodedCall;
 use relay_rialto_parachain_client::RialtoParachain;
+use relay_substrate_client::BalanceOf;
 use sp_version::RuntimeVersion;
+
+impl CliEncodeMessage for RialtoParachain {
+	fn encode_send_message_call(
+		lane: LaneId,
+		payload: RawMessage,
+		fee: BalanceOf<Self>,
+		bridge_instance_index: u8,
+	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
+		Ok(match bridge_instance_index {
+			bridge::RIALTO_PARACHAIN_TO_MILLAU_INDEX =>
+				rialto_parachain_runtime::Call::BridgeMillauMessages(
+					rialto_parachain_runtime::MessagesCall::send_message {
+						lane_id: lane,
+						payload,
+						delivery_and_dispatch_fee: fee,
+					},
+				)
+				.into(),
+			_ => anyhow::bail!(
+				"Unsupported target bridge pallet with instance index: {}",
+				bridge_instance_index
+			),
+		})
+	}
+}
 
 impl CliChain for RialtoParachain {
 	const RUNTIME_VERSION: RuntimeVersion = rialto_parachain_runtime::VERSION;

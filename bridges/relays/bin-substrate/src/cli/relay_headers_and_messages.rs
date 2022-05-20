@@ -480,7 +480,6 @@ impl RelayHeadersAndMessages {
 				right_to_left_transaction_params,
 				params.shared.only_mandatory_headers,
 			);
-
 			// Need 2x capacity since we consider both directions for each lane
 			let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 			for lane in lanes {
