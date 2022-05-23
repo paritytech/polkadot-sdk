@@ -415,7 +415,10 @@ fn events() {
 				let events = System::events();
 				assert_eq!(
 					events[0].event,
-					Event::ParachainSystem(crate::Event::ValidationFunctionApplied(1234).into())
+					Event::ParachainSystem(
+						crate::Event::ValidationFunctionApplied { relay_chain_block_num: 1234 }
+							.into()
+					)
 				);
 			},
 		);

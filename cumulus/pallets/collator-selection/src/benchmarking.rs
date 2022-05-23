@@ -117,7 +117,7 @@ benchmarks! {
 		);
 	}
 	verify {
-		assert_last_event::<T>(Event::NewInvulnerables(new_invulnerables).into());
+		assert_last_event::<T>(Event::NewInvulnerables{invulnerables: new_invulnerables}.into());
 	}
 
 	set_desired_candidates {
@@ -129,19 +129,19 @@ benchmarks! {
 		);
 	}
 	verify {
-		assert_last_event::<T>(Event::NewDesiredCandidates(max).into());
+		assert_last_event::<T>(Event::NewDesiredCandidates{desired_candidates: max}.into());
 	}
 
 	set_candidacy_bond {
-		let bond: BalanceOf<T> = T::Currency::minimum_balance() * 10u32.into();
+		let bond_amount: BalanceOf<T> = T::Currency::minimum_balance() * 10u32.into();
 		let origin = T::UpdateOrigin::successful_origin();
 	}: {
 		assert_ok!(
-			<CollatorSelection<T>>::set_candidacy_bond(origin, bond.clone())
+			<CollatorSelection<T>>::set_candidacy_bond(origin, bond_amount.clone())
 		);
 	}
 	verify {
-		assert_last_event::<T>(Event::NewCandidacyBond(bond).into());
+		assert_last_event::<T>(Event::NewCandidacyBond{bond_amount}.into());
 	}
 
 	// worse case is when we have all the max-candidate slots filled except one, and we fill that
@@ -167,7 +167,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Signed(caller.clone()))
 	verify {
-		assert_last_event::<T>(Event::CandidateAdded(caller, bond / 2u32.into()).into());
+		assert_last_event::<T>(Event::CandidateAdded{account_id: caller, deposit: bond / 2u32.into()}.into());
 	}
 
 	// worse case is the last candidate leaving.
@@ -183,7 +183,7 @@ benchmarks! {
 		whitelist!(leaving);
 	}: _(RawOrigin::Signed(leaving.clone()))
 	verify {
-		assert_last_event::<T>(Event::CandidateRemoved(leaving).into());
+		assert_last_event::<T>(Event::CandidateRemoved{account_id: leaving}.into());
 	}
 
 	// worse case is paying a non-existing candidate account.

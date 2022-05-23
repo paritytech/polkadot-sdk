@@ -330,7 +330,9 @@ pub mod pallet {
 
 					Self::put_parachain_code(&validation_code);
 					<T::OnSystemEvent as OnSystemEvent>::on_validation_code_applied();
-					Self::deposit_event(Event::ValidationFunctionApplied(vfp.relay_parent_number));
+					Self::deposit_event(Event::ValidationFunctionApplied {
+						relay_chain_block_num: vfp.relay_parent_number,
+					});
 				},
 				Some(relay_chain::v2::UpgradeGoAhead::Abort) => {
 					<PendingValidationCode<T>>::kill();
@@ -389,7 +391,7 @@ pub mod pallet {
 
 			AuthorizedUpgrade::<T>::put(&code_hash);
 
-			Self::deposit_event(Event::UpgradeAuthorized(code_hash));
+			Self::deposit_event(Event::UpgradeAuthorized { code_hash });
 			Ok(())
 		}
 
@@ -411,17 +413,15 @@ pub mod pallet {
 		/// The validation function has been scheduled to apply.
 		ValidationFunctionStored,
 		/// The validation function was applied as of the contained relay chain block number.
-		ValidationFunctionApplied(RelayChainBlockNumber),
+		ValidationFunctionApplied { relay_chain_block_num: RelayChainBlockNumber },
 		/// The relay-chain aborted the upgrade process.
 		ValidationFunctionDiscarded,
 		/// An upgrade has been authorized.
-		UpgradeAuthorized(T::Hash),
+		UpgradeAuthorized { code_hash: T::Hash },
 		/// Some downward messages have been received and will be processed.
-		/// \[ count \]
-		DownwardMessagesReceived(u32),
+		DownwardMessagesReceived { count: u32 },
 		/// Downward messages were processed using the given weight.
-		/// \[ weight_used, result_mqc_head \]
-		DownwardMessagesProcessed(Weight, relay_chain::Hash),
+		DownwardMessagesProcessed { weight_used: Weight, dmq_head: relay_chain::Hash },
 	}
 
 	#[pallet::error]
@@ -750,7 +750,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut weight_used = 0;
 		if dm_count != 0 {
-			Self::deposit_event(Event::DownwardMessagesReceived(dm_count));
+			Self::deposit_event(Event::DownwardMessagesReceived { count: dm_count });
 			let max_weight =
 				<ReservedDmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedDmpWeight::get);
 
@@ -763,7 +763,10 @@ impl<T: Config> Pallet<T> {
 			weight_used += T::DmpMessageHandler::handle_dmp_messages(message_iter, max_weight);
 			<LastDmqMqcHead<T>>::put(&dmq_head);
 
-			Self::deposit_event(Event::DownwardMessagesProcessed(weight_used, dmq_head.head()));
+			Self::deposit_event(Event::DownwardMessagesProcessed {
+				weight_used,
+				dmq_head: dmq_head.head(),
+			});
 		}
 
 		// After hashing each message in the message queue chain submitted by the collator, we
