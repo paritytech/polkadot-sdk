@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright 2019-2022 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -13,6 +13,13 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
+//! # Shell Runtime
+//!
+//! The Shell runtime defines a minimal parachain. It can listen for a downward message authorizing
+//! an upgrade into another parachain.
+//!
+//! Generally (so far) only used as the first parachain on a Relay.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.

@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2021-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Statemint runtime.
+//! # Statemint Runtime
+//!
+//! Statemint is a parachain that provides an interface to create, manage, and use assets. Assets
+//! may be fungible or non-fungible.
+//!
+//! ## Assets
+//!
+//! - Fungibles: Configuration of `pallet-assets`.
+//! - Non-Fungibles (NFTs): Configuration of `pallet-uniques`.
+//!
+//! ## Other Functionality
+//!
+//! ### Native Balances
+//!
+//! Statemint uses its parent DOT token as its native asset.
+//!
+//! ### Governance
+//!
+//! As a common good parachain, Statemint defers its governance (namely, its `Root` origin), to its
+//! Relay Chain parent, Polkadot.
+//!
+//! ### Collator Selection
+//!
+//! Statemint uses `pallet-collator-selection`, a simple first-come-first-served registration
+//! system where collators can reserve a small bond to join the block producer set. There is no
+//! slashing.
+//!
+//! ### XCM
+//!
+//! Because Statemint is fully under the control of the Relay Chain, it is meant to be a
+//! `TrustedTeleporter`. It can also serve as a reserve location to other parachains for DOT as well
+//! as other local assets.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]

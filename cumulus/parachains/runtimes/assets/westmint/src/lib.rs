@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2021-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Westmint runtime.
+//! # Westmint Runtime
+//!
+//! Westmint is the testnet for Statemint.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
