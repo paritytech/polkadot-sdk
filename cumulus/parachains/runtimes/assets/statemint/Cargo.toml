@@ -29,7 +29,6 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", default-fea
 pallet-multisig = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-proxy = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -122,7 +121,6 @@ std = [
 	"pallet-multisig/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
-	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
