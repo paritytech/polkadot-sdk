@@ -20,7 +20,8 @@ use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 use substrate_relay_helper::{
-	parachains_source::ParachainsSource, parachains_target::ParachainsTarget, TransactionParams,
+	parachains::{source::ParachainsSource, target::ParachainsTarget},
+	TransactionParams,
 };
 
 use crate::cli::{
@@ -54,15 +55,7 @@ macro_rules! select_bridge {
 	($bridge: expr, $generic: tt) => {
 		match $bridge {
 			RelayParachainsBridge::RialtoToMillau => {
-				use crate::chains::rialto_parachains_to_millau::{
-					RialtoParachainsToMillau as Pipeline,
-					RialtoParachainsToMillauSubmitParachainHeadsCallBuilder as SubmitParachainHeadsCallBuilder,
-				};
-
-				use bp_millau::BRIDGE_PARAS_PALLET_NAME as BRIDGE_PARAS_PALLET_NAME_AT_TARGET;
-				use bp_rialto::PARAS_PALLET_NAME as PARAS_PALLET_NAME_AT_SOURCE;
-
-				use relay_millau_client::Millau as TargetTransactionSignScheme;
+				use crate::chains::rialto_parachains_to_millau::RialtoParachainsToMillau as Pipeline;
 
 				$generic
 			},
@@ -78,25 +71,15 @@ impl RelayParachains {
 			type TargetChain = <Pipeline as ParachainsPipeline>::TargetChain;
 
 			let source_client = self.source.to_client::<SourceChain>().await?;
-			let source_client = ParachainsSource::<Pipeline>::new(
-				source_client,
-				PARAS_PALLET_NAME_AT_SOURCE.into(),
-			);
+			let source_client = ParachainsSource::<Pipeline>::new(source_client, None);
 
 			let taret_transaction_params = TransactionParams {
 				signer: self.target_sign.to_keypair::<TargetChain>()?,
 				mortality: self.target_sign.target_transactions_mortality,
 			};
 			let target_client = self.target.to_client::<TargetChain>().await?;
-			let target_client = ParachainsTarget::<
-				Pipeline,
-				TargetTransactionSignScheme,
-				SubmitParachainHeadsCallBuilder,
-			>::new(
-				target_client.clone(),
-				taret_transaction_params,
-				BRIDGE_PARAS_PALLET_NAME_AT_TARGET.into(),
-			);
+			let target_client =
+				ParachainsTarget::<Pipeline>::new(target_client.clone(), taret_transaction_params);
 
 			let metrics_params: relay_utils::metrics::MetricsParams = self.prometheus_params.into();
 			GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
