@@ -704,6 +704,7 @@ impl RelayHeadersAndMessages {
 }
 
 /// Start bidirectional on-demand headers <> headers relay.
+#[allow(clippy::too_many_arguments)] // TODO: https://github.com/paritytech/parity-bridges-common/issues/1415
 async fn start_on_demand_relay_to_relay<LC, RC, LR, RL>(
 	left_client: Client<LC>,
 	right_client: Client<RC>,
@@ -762,6 +763,7 @@ where
 }
 
 /// Start bidirectional on-demand headers <> parachains relay.
+#[allow(clippy::too_many_arguments)] // TODO: https://github.com/paritytech/parity-bridges-common/issues/1415
 async fn start_on_demand_relay_to_parachain<LC, RC, RRC, LR, RRF, RL>(
 	left_client: Client<LC>,
 	right_client: Client<RC>,
