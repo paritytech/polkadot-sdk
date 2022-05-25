@@ -21,7 +21,8 @@ use codec::{Compact, Decode, Encode};
 use frame_support::weights::Weight;
 use relay_substrate_client::{
 	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
-	Error as SubstrateError, IndexOf, SignParam, TransactionSignScheme, UnsignedTransaction,
+	Error as SubstrateError, IndexOf, RelayChain, SignParam, TransactionSignScheme,
+	UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -67,6 +68,12 @@ impl Chain for Rialto {
 	type SignedBlock = rialto_runtime::SignedBlock;
 	type Call = rialto_runtime::Call;
 	type WeightToFee = bp_rialto::WeightToFee;
+}
+
+impl RelayChain for Rialto {
+	const PARAS_PALLET_NAME: &'static str = bp_rialto::PARAS_PALLET_NAME;
+	const PARACHAINS_FINALITY_PALLET_NAME: &'static str =
+		bp_rialto::WITH_RIALTO_BRIDGE_PARAS_PALLET_NAME;
 }
 
 impl ChainWithGrandpa for Rialto {

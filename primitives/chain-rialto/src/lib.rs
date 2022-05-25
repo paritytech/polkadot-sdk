@@ -228,6 +228,8 @@ frame_support::parameter_types! {
 pub const WITH_RIALTO_GRANDPA_PALLET_NAME: &str = "BridgeRialtoGrandpa";
 /// Name of the With-Rialto messages pallet instance that is deployed at bridged chains.
 pub const WITH_RIALTO_MESSAGES_PALLET_NAME: &str = "BridgeRialtoMessages";
+/// Name of the With-Rialto parachains bridge pallet instance that is deployed at bridged chains.
+pub const WITH_RIALTO_BRIDGE_PARAS_PALLET_NAME: &str = "BridgeRialtoParachains";
 
 /// Name of the Millau->Rialto (actually KSM->DOT) conversion rate stored in the Rialto runtime.
 pub const MILLAU_TO_RIALTO_CONVERSION_RATE_PARAMETER_NAME: &str = "MillauToRialtoConversionRate";

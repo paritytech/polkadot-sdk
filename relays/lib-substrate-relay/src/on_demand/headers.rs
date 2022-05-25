@@ -14,15 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! On-demand Substrate -> Substrate headers relay.
+//! On-demand Substrate -> Substrate header finality relay.
 
 use async_std::sync::{Arc, Mutex};
+use async_trait::async_trait;
 use futures::{select, FutureExt};
 use num_traits::{One, Zero};
 
 use finality_relay::{FinalitySyncParams, SourceHeader, TargetClient as FinalityTargetClient};
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, HeaderIdOf, HeaderOf, SyncHeader,
+	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, HeaderOf, SyncHeader,
 	TransactionSignScheme,
 };
 use relay_utils::{
@@ -35,10 +36,11 @@ use crate::{
 		target::SubstrateFinalityTarget,
 		SubstrateFinalitySyncPipeline, RECENT_FINALITY_PROOFS_LIMIT,
 	},
+	on_demand::OnDemandRelay,
 	TransactionParams, STALL_TIMEOUT,
 };
 
-/// On-demand Substrate <-> Substrate headers relay.
+/// On-demand Substrate <-> Substrate header finality relay.
 ///
 /// This relay may be requested to sync more headers, whenever some other relay (e.g. messages
 /// relay) needs it to continue its regular work. When enough headers are relayed, on-demand stops
@@ -82,20 +84,24 @@ impl<SourceChain: Chain> OnDemandHeadersRelay<SourceChain> {
 
 		this
 	}
+}
 
-	/// Someone is asking us to relay given finalized header.
-	pub async fn require_finalized_header(&self, header_id: HeaderIdOf<SourceChain>) {
+#[async_trait]
+impl<SourceChain: Chain> OnDemandRelay<BlockNumberOf<SourceChain>>
+	for OnDemandHeadersRelay<SourceChain>
+{
+	async fn require_more_headers(&self, required_header: BlockNumberOf<SourceChain>) {
 		let mut required_header_number = self.required_header_number.lock().await;
-		if header_id.0 > *required_header_number {
+		if required_header > *required_header_number {
 			log::trace!(
 				target: "bridge",
 				"More {} headers required in {} relay. Going to sync up to the {}",
 				SourceChain::NAME,
 				self.relay_task_name,
-				header_id.0,
+				required_header,
 			);
 
-			*required_header_number = header_id.0;
+			*required_header_number = required_header;
 		}
 	}
 }

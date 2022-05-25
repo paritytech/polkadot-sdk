@@ -26,17 +26,25 @@ use futures::{FutureExt, TryFutureExt};
 use structopt::StructOpt;
 use strum::VariantNames;
 
+use async_std::sync::Arc;
+use bp_polkadot_core::parachains::ParaHash;
 use codec::Encode;
 use messages_relay::relay_strategy::MixStrategy;
+use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use relay_substrate_client::{
-	AccountIdOf, CallOf, Chain, ChainRuntimeVersion, Client, SignParam, TransactionSignScheme,
-	UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, ChainRuntimeVersion, Client,
+	SignParam, TransactionSignScheme, UnsignedTransaction,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::{Bytes, Pair};
 use substrate_relay_helper::{
-	finality::SubstrateFinalitySyncPipeline, messages_lane::MessagesRelayParams,
-	on_demand_headers::OnDemandHeadersRelay, TransactionParams,
+	finality::SubstrateFinalitySyncPipeline,
+	messages_lane::MessagesRelayParams,
+	on_demand::{
+		headers::OnDemandHeadersRelay, parachains::OnDemandParachainsRelay, OnDemandRelay,
+	},
+	parachains::SubstrateParachainsPipeline,
+	TransactionParams,
 };
 
 use crate::{
@@ -56,6 +64,7 @@ pub(crate) const CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO: f64 = 0.05;
 #[derive(StructOpt)]
 pub enum RelayHeadersAndMessages {
 	MillauRialto(MillauRialtoHeadersAndMessages),
+	MillauRialtoParachain(MillauRialtoParachainHeadersAndMessages),
 	RococoWococo(RococoWococoHeadersAndMessages),
 	KusamaPolkadot(KusamaPolkadotHeadersAndMessages),
 }
@@ -83,6 +92,33 @@ pub struct HeadersAndMessagesSharedParams {
 // terminology, which is unusable for both-way relays (if you're relaying headers from Rialto to
 // Millau and from Millau to Rialto, then which chain is source?).
 macro_rules! declare_bridge_options {
+	// chain, parachain, relay-chain-of-parachain
+	($chain1:ident, $chain2:ident, $chain3:ident) => {
+		paste::item! {
+			#[doc = $chain1 ", " $chain2 " and " $chain3 " headers+messages relay params."]
+			#[derive(StructOpt)]
+			pub struct [<$chain1 $chain2 HeadersAndMessages>] {
+				#[structopt(flatten)]
+				shared: HeadersAndMessagesSharedParams,
+				#[structopt(flatten)]
+				left: [<$chain1 ConnectionParams>],
+				#[structopt(flatten)]
+				left_sign: [<$chain1 SigningParams>],
+				#[structopt(flatten)]
+				left_messages_pallet_owner: [<$chain1 MessagesPalletOwnerSigningParams>],
+				#[structopt(flatten)]
+				right: [<$chain2 ConnectionParams>],
+				#[structopt(flatten)]
+				right_sign: [<$chain2 SigningParams>],
+				#[structopt(flatten)]
+				right_messages_pallet_owner: [<$chain2 MessagesPalletOwnerSigningParams>],
+				#[structopt(flatten)]
+				right_relay: [<$chain3 ConnectionParams>],
+			}
+		}
+
+		declare_bridge_options!({ implement }, $chain1, $chain2);
+	};
 	($chain1:ident, $chain2:ident) => {
 		paste::item! {
 			#[doc = $chain1 " and " $chain2 " headers+messages relay params."]
@@ -103,7 +139,12 @@ macro_rules! declare_bridge_options {
 				#[structopt(flatten)]
 				right_messages_pallet_owner: [<$chain2 MessagesPalletOwnerSigningParams>],
 			}
+		}
 
+		declare_bridge_options!({ implement }, $chain1, $chain2);
+	};
+	({ implement }, $chain1:ident, $chain2:ident) => {
+		paste::item! {
 			impl From<RelayHeadersAndMessages> for [<$chain1 $chain2 HeadersAndMessages>] {
 				fn from(relay_params: RelayHeadersAndMessages) -> [<$chain1 $chain2 HeadersAndMessages>] {
 					match relay_params {
@@ -125,11 +166,6 @@ macro_rules! select_bridge {
 				type Left = relay_millau_client::Millau;
 				type Right = relay_rialto_client::Rialto;
 
-				type LeftToRightFinality =
-					crate::chains::millau_headers_to_rialto::MillauFinalityToRialto;
-				type RightToLeftFinality =
-					crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
-
 				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
 				type RightAccountIdConverter = bp_rialto::AccountIdConverter;
 
@@ -137,6 +173,106 @@ macro_rules! select_bridge {
 					millau_messages_to_rialto::MillauMessagesToRialto as LeftToRightMessageLane,
 					rialto_messages_to_millau::RialtoMessagesToMillau as RightToLeftMessageLane,
 				};
+
+				async fn start_on_demand_relays(
+					params: &Params,
+					left_client: Client<Left>,
+					right_client: Client<Right>,
+				) -> anyhow::Result<(
+					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
+					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
+				)> {
+					start_on_demand_relay_to_relay::<
+						Left,
+						Right,
+						crate::chains::millau_headers_to_rialto::MillauFinalityToRialto,
+						crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau,
+					>(
+						left_client,
+						right_client,
+						TransactionParams {
+							mortality: params.right_sign.transactions_mortality()?,
+							signer: params.right_sign.to_keypair::<Right>()?,
+						},
+						TransactionParams {
+							mortality: params.left_sign.transactions_mortality()?,
+							signer: params.left_sign.to_keypair::<Left>()?,
+						},
+						params.shared.only_mandatory_headers,
+						params.shared.only_mandatory_headers,
+						params.left.can_start_version_guard(),
+						params.right.can_start_version_guard(),
+					).await
+				}
+
+				async fn left_create_account(
+					_left_client: Client<Left>,
+					_left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
+					_account_id: AccountIdOf<Left>,
+				) -> anyhow::Result<()> {
+					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
+				}
+
+				async fn right_create_account(
+					_right_client: Client<Right>,
+					_right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
+					_account_id: AccountIdOf<Right>,
+				) -> anyhow::Result<()> {
+					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
+				}
+
+				$generic
+			},
+			RelayHeadersAndMessages::MillauRialtoParachain(_) => {
+				type Params = MillauRialtoParachainHeadersAndMessages;
+
+				type Left = relay_millau_client::Millau;
+				type Right = relay_rialto_parachain_client::RialtoParachain;
+
+				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
+				type RightAccountIdConverter = bp_rialto_parachain::AccountIdConverter;
+
+				use crate::chains::{
+					millau_messages_to_rialto_parachain::MillauMessagesToRialtoParachain as LeftToRightMessageLane,
+					rialto_parachain_messages_to_millau::RialtoParachainMessagesToMillau as RightToLeftMessageLane,
+				};
+
+				async fn start_on_demand_relays(
+					params: &Params,
+					left_client: Client<Left>,
+					right_client: Client<Right>,
+				) -> anyhow::Result<(
+					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
+					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
+				)> {
+					type RightRelayChain = relay_rialto_client::Rialto;
+					let rialto_relay_chain_client = params.right_relay.to_client::<RightRelayChain>().await?; // TODO: should be the relaychain connection params
+
+					start_on_demand_relay_to_parachain::<
+						Left,
+						Right,
+						RightRelayChain,
+						crate::chains::millau_headers_to_rialto_parachain::MillauFinalityToRialtoParachain,
+						crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau,
+						crate::chains::rialto_parachains_to_millau::RialtoParachainsToMillau,
+					>(
+						left_client,
+						right_client,
+						rialto_relay_chain_client,
+						TransactionParams {
+							mortality: params.right_sign.transactions_mortality()?,
+							signer: params.right_sign.to_keypair::<Right>()?,
+						},
+						TransactionParams {
+							mortality: params.left_sign.transactions_mortality()?,
+							signer: params.left_sign.to_keypair::<Left>()?,
+						},
+						params.shared.only_mandatory_headers,
+						params.shared.only_mandatory_headers,
+						params.left.can_start_version_guard(),
+						params.right.can_start_version_guard(),
+					).await
+				}
 
 				async fn left_create_account(
 					_left_client: Client<Left>,
@@ -162,11 +298,6 @@ macro_rules! select_bridge {
 				type Left = relay_rococo_client::Rococo;
 				type Right = relay_wococo_client::Wococo;
 
-				type LeftToRightFinality =
-					crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo;
-				type RightToLeftFinality =
-					crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
-
 				type LeftAccountIdConverter = bp_rococo::AccountIdConverter;
 				type RightAccountIdConverter = bp_wococo::AccountIdConverter;
 
@@ -174,6 +305,37 @@ macro_rules! select_bridge {
 					rococo_messages_to_wococo::RococoMessagesToWococo as LeftToRightMessageLane,
 					wococo_messages_to_rococo::WococoMessagesToRococo as RightToLeftMessageLane,
 				};
+
+				async fn start_on_demand_relays(
+					params: &Params,
+					left_client: Client<Left>,
+					right_client: Client<Right>,
+				) -> anyhow::Result<(
+					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
+					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
+				)> {
+					start_on_demand_relay_to_relay::<
+						Left,
+						Right,
+						crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo,
+						crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo,
+					>(
+						left_client,
+						right_client,
+						TransactionParams {
+							mortality: params.right_sign.transactions_mortality()?,
+							signer: params.right_sign.to_keypair::<Right>()?,
+						},
+						TransactionParams {
+							mortality: params.left_sign.transactions_mortality()?,
+							signer: params.left_sign.to_keypair::<Left>()?,
+						},
+						params.shared.only_mandatory_headers,
+						params.shared.only_mandatory_headers,
+						params.left.can_start_version_guard(),
+						params.right.can_start_version_guard(),
+					).await
+				}
 
 				async fn left_create_account(
 					left_client: Client<Left>,
@@ -219,11 +381,6 @@ macro_rules! select_bridge {
 				type Left = relay_kusama_client::Kusama;
 				type Right = relay_polkadot_client::Polkadot;
 
-				type LeftToRightFinality =
-					crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot;
-				type RightToLeftFinality =
-					crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
-
 				type LeftAccountIdConverter = bp_kusama::AccountIdConverter;
 				type RightAccountIdConverter = bp_polkadot::AccountIdConverter;
 
@@ -231,6 +388,37 @@ macro_rules! select_bridge {
 					kusama_messages_to_polkadot::KusamaMessagesToPolkadot as LeftToRightMessageLane,
 					polkadot_messages_to_kusama::PolkadotMessagesToKusama as RightToLeftMessageLane,
 				};
+
+				async fn start_on_demand_relays(
+					params: &Params,
+					left_client: Client<Left>,
+					right_client: Client<Right>,
+				) -> anyhow::Result<(
+					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
+					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
+				)> {
+					start_on_demand_relay_to_relay::<
+						Left,
+						Right,
+						crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot,
+						crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama,
+					>(
+						left_client,
+						right_client,
+						TransactionParams {
+							mortality: params.right_sign.transactions_mortality()?,
+							signer: params.right_sign.to_keypair::<Right>()?,
+						},
+						TransactionParams {
+							mortality: params.left_sign.transactions_mortality()?,
+							signer: params.left_sign.to_keypair::<Left>()?,
+						},
+						params.shared.only_mandatory_headers,
+						params.shared.only_mandatory_headers,
+						params.left.can_start_version_guard(),
+						params.right.can_start_version_guard(),
+					).await
+				}
 
 				async fn left_create_account(
 					left_client: Client<Left>,
@@ -277,12 +465,14 @@ macro_rules! select_bridge {
 // All supported chains.
 declare_chain_options!(Millau, millau);
 declare_chain_options!(Rialto, rialto);
+declare_chain_options!(RialtoParachain, rialto_parachain);
 declare_chain_options!(Rococo, rococo);
 declare_chain_options!(Wococo, wococo);
 declare_chain_options!(Kusama, kusama);
 declare_chain_options!(Polkadot, polkadot);
 // All supported bridges.
 declare_bridge_options!(Millau, Rialto);
+declare_bridge_options!(Millau, RialtoParachain, Rialto);
 declare_bridge_options!(Rococo, Wococo);
 declare_bridge_options!(Kusama, Polkadot);
 
@@ -303,12 +493,12 @@ impl RelayHeadersAndMessages {
 			let right_messages_pallet_owner =
 				params.right_messages_pallet_owner.to_keypair::<Right>()?;
 
-			let lanes = params.shared.lane;
+			let lanes = params.shared.lane.clone();
 			let relayer_mode = params.shared.relayer_mode.into();
 			let relay_strategy = MixStrategy::new(relayer_mode);
 
 			// create metrics registry and register standalone metrics
-			let metrics_params: MetricsParams = params.shared.prometheus_params.into();
+			let metrics_params: MetricsParams = params.shared.prometheus_params.clone().into();
 			let metrics_params = relay_utils::relay_metrics(metrics_params).into_params();
 			let left_to_right_metrics =
 				substrate_relay_helper::messages_metrics::standalone_metrics::<
@@ -448,38 +638,8 @@ impl RelayHeadersAndMessages {
 				.await?;
 
 			// start on-demand header relays
-			let left_to_right_transaction_params = TransactionParams {
-				mortality: right_transactions_mortality,
-				signer: right_sign.clone(),
-			};
-			let right_to_left_transaction_params = TransactionParams {
-				mortality: left_transactions_mortality,
-				signer: left_sign.clone(),
-			};
-			LeftToRightFinality::start_relay_guards(
-				&right_client,
-				&left_to_right_transaction_params,
-				params.right.can_start_version_guard(),
-			)
-			.await?;
-			RightToLeftFinality::start_relay_guards(
-				&left_client,
-				&right_to_left_transaction_params,
-				params.left.can_start_version_guard(),
-			)
-			.await?;
-			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LeftToRightFinality>(
-				left_client.clone(),
-				right_client.clone(),
-				left_to_right_transaction_params,
-				params.shared.only_mandatory_headers,
-			);
-			let right_to_left_on_demand_headers = OnDemandHeadersRelay::new::<RightToLeftFinality>(
-				right_client.clone(),
-				left_client.clone(),
-				right_to_left_transaction_params,
-				params.shared.only_mandatory_headers,
-			);
+			let (left_to_right_on_demand_headers, right_to_left_on_demand_headers) =
+				start_on_demand_relays(&params, left_client.clone(), right_client.clone()).await?;
 			// Need 2x capacity since we consider both directions for each lane
 			let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 			for lane in lanes {
@@ -541,6 +701,137 @@ impl RelayHeadersAndMessages {
 			futures::future::select_all(message_relays).await.0
 		})
 	}
+}
+
+/// Start bidirectional on-demand headers <> headers relay.
+async fn start_on_demand_relay_to_relay<LC, RC, LR, RL>(
+	left_client: Client<LC>,
+	right_client: Client<RC>,
+	left_to_right_transaction_params: TransactionParams<AccountKeyPairOf<RC>>,
+	right_to_left_transaction_params: TransactionParams<AccountKeyPairOf<LC>>,
+	left_to_right_only_mandatory_headers: bool,
+	right_to_left_only_mandatory_headers: bool,
+	left_can_start_version_guard: bool,
+	right_can_start_version_guard: bool,
+) -> anyhow::Result<(
+	Arc<dyn OnDemandRelay<BlockNumberOf<LC>>>,
+	Arc<dyn OnDemandRelay<BlockNumberOf<RC>>>,
+)>
+where
+	LC: Chain + TransactionSignScheme<Chain = LC>,
+	RC: Chain + TransactionSignScheme<Chain = RC>,
+	LR: SubstrateFinalitySyncPipeline<
+		SourceChain = LC,
+		TargetChain = RC,
+		TransactionSignScheme = RC,
+	>,
+	RL: SubstrateFinalitySyncPipeline<
+		SourceChain = RC,
+		TargetChain = LC,
+		TransactionSignScheme = LC,
+	>,
+	AccountIdOf<LC>: From<<<LC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
+	AccountIdOf<RC>: From<<<RC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
+{
+	LR::start_relay_guards(
+		&right_client,
+		&left_to_right_transaction_params,
+		right_can_start_version_guard,
+	)
+	.await?;
+	RL::start_relay_guards(
+		&left_client,
+		&right_to_left_transaction_params,
+		left_can_start_version_guard,
+	)
+	.await?;
+	let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LR>(
+		left_client.clone(),
+		right_client.clone(),
+		left_to_right_transaction_params,
+		left_to_right_only_mandatory_headers,
+	);
+	let right_to_left_on_demand_headers = OnDemandHeadersRelay::new::<RL>(
+		right_client.clone(),
+		left_client.clone(),
+		right_to_left_transaction_params,
+		right_to_left_only_mandatory_headers,
+	);
+
+	Ok((Arc::new(left_to_right_on_demand_headers), Arc::new(right_to_left_on_demand_headers)))
+}
+
+/// Start bidirectional on-demand headers <> parachains relay.
+async fn start_on_demand_relay_to_parachain<LC, RC, RRC, LR, RRF, RL>(
+	left_client: Client<LC>,
+	right_client: Client<RC>,
+	right_relay_client: Client<RRC>,
+	left_to_right_transaction_params: TransactionParams<AccountKeyPairOf<RC>>,
+	right_to_left_transaction_params: TransactionParams<AccountKeyPairOf<LC>>,
+	left_to_right_only_mandatory_headers: bool,
+	right_to_left_only_mandatory_headers: bool,
+	left_can_start_version_guard: bool,
+	right_can_start_version_guard: bool,
+) -> anyhow::Result<(
+	Arc<dyn OnDemandRelay<BlockNumberOf<LC>>>,
+	Arc<dyn OnDemandRelay<BlockNumberOf<RC>>>,
+)>
+where
+	LC: Chain + TransactionSignScheme<Chain = LC>,
+	RC: Chain<Hash = ParaHash> + TransactionSignScheme<Chain = RC>,
+	RRC: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
+		+ TransactionSignScheme<Chain = RRC>,
+	LR: SubstrateFinalitySyncPipeline<
+		SourceChain = LC,
+		TargetChain = RC,
+		TransactionSignScheme = RC,
+	>,
+	RRF: SubstrateFinalitySyncPipeline<
+		SourceChain = RRC,
+		TargetChain = LC,
+		TransactionSignScheme = LC,
+	>,
+	RL: SubstrateParachainsPipeline<
+		SourceRelayChain = RRC,
+		SourceParachain = RC,
+		TargetChain = LC,
+		TransactionSignScheme = LC,
+	>,
+	AccountIdOf<LC>: From<<<LC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
+	AccountIdOf<RC>: From<<<RC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
+{
+	LR::start_relay_guards(
+		&right_client,
+		&left_to_right_transaction_params,
+		right_can_start_version_guard,
+	)
+	.await?;
+	RRF::start_relay_guards(
+		&left_client,
+		&right_to_left_transaction_params,
+		left_can_start_version_guard,
+	)
+	.await?;
+	let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LR>(
+		left_client.clone(),
+		right_client,
+		left_to_right_transaction_params,
+		left_to_right_only_mandatory_headers,
+	);
+	let right_relay_to_left_on_demand_headers = OnDemandHeadersRelay::new::<RRF>(
+		right_relay_client.clone(),
+		left_client.clone(),
+		right_to_left_transaction_params.clone(),
+		right_to_left_only_mandatory_headers,
+	);
+	let right_to_left_on_demand_parachains = OnDemandParachainsRelay::new::<RL>(
+		right_relay_client,
+		left_client,
+		right_to_left_transaction_params,
+		Arc::new(right_relay_to_left_on_demand_headers),
+	);
+
+	Ok((Arc::new(left_to_right_on_demand_headers), Arc::new(right_to_left_on_demand_parachains)))
 }
 
 /// Sign and submit transaction with given call to the chain.

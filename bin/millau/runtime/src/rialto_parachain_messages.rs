@@ -19,7 +19,7 @@
 use crate::Runtime;
 
 use bp_messages::{
-	source_chain::{SenderOrigin, TargetHeaderChain},
+	source_chain::TargetHeaderChain,
 	target_chain::{ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
 };
@@ -36,13 +36,6 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 use sp_std::convert::TryFrom;
 
-/// Identifier of RialtoParachain in the Rialto relay chain.
-///
-/// This identifier is not something that is declared either by Rialto or RialtoParachain. This
-/// is an identifier of registration. So in theory it may be changed. But since bridge is going
-/// to be deployed after parachain registration AND since parachain de-registration is highly
-/// likely impossible, it is fine to declare this constant here.
-pub const RIALTO_PARACHAIN_ID: u32 = 2000;
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
@@ -109,7 +102,7 @@ impl MessageBridge for WithRialtoParachainMessageBridge {
 		bridged_to_this_conversion_rate_override: Option<FixedU128>,
 	) -> bp_millau::Balance {
 		let conversion_rate = bridged_to_this_conversion_rate_override
-			.unwrap_or_else(|| RialtoParachainToMillauConversionRate::get());
+			.unwrap_or_else(RialtoParachainToMillauConversionRate::get);
 		bp_millau::Balance::try_from(conversion_rate.saturating_mul_int(bridged_balance))
 			.unwrap_or(bp_millau::Balance::MAX)
 	}
@@ -132,8 +125,8 @@ impl messages::ThisChainWithMessages for Millau {
 	type Call = crate::Call;
 	type Origin = crate::Origin;
 
-	fn is_message_accepted(send_origin: &Self::Origin, lane: &LaneId) -> bool {
-		(*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1]) && send_origin.linked_account().is_some()
+	fn is_message_accepted(_send_origin: &Self::Origin, lane: &LaneId) -> bool {
+		*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1]
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
@@ -260,7 +253,7 @@ impl TargetHeaderChain<ToRialtoParachainMessagePayload, bp_rialto_parachain::Acc
 			bp_rialto_parachain::Header,
 			Runtime,
 			crate::WitRialtoParachainsInstance,
-		>(ParaId(RIALTO_PARACHAIN_ID), proof)
+		>(ParaId(bp_rialto_parachain::RIALTO_PARACHAIN_ID), proof)
 	}
 }
 
@@ -282,7 +275,7 @@ impl SourceHeaderChain<bp_rialto_parachain::Balance> for RialtoParachain {
 			bp_rialto_parachain::Header,
 			Runtime,
 			crate::WitRialtoParachainsInstance,
-		>(ParaId(RIALTO_PARACHAIN_ID), proof, messages_count)
+		>(ParaId(bp_rialto_parachain::RIALTO_PARACHAIN_ID), proof, messages_count)
 	}
 }
 

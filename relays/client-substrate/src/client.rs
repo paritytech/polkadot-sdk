@@ -262,6 +262,11 @@ impl<C: Chain> Client<C> {
 		Ok(*self.header_by_hash(self.best_finalized_header_hash().await?).await?.number())
 	}
 
+	/// Return header of the best finalized block.
+	pub async fn best_finalized_header(&self) -> Result<C::Header> {
+		self.header_by_hash(self.best_finalized_header_hash().await?).await
+	}
+
 	/// Returns the best Substrate header.
 	pub async fn best_header(&self) -> Result<C::Header>
 	where
