@@ -26,7 +26,7 @@ use frame_support::weights::{IdentityFee, Weight};
 use std::time::Duration;
 
 /// Chain that may be used in tests.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TestChain;
 
 impl bp_runtime::Chain for TestChain {

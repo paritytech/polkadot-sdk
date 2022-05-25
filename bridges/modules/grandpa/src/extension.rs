@@ -20,9 +20,9 @@
 ///
 /// ```nocompile
 /// pallet_bridge_grandpa::declare_check_bridged_block_number_ext!{
-/// 	Runtime,
-/// 	Call::BridgeRialtoGrandpa => RialtoGrandpaInstance,
-/// 	Call::BridgeWestendGrandpa => WestendGrandpaInstance,
+///     Runtime,
+///     Call::BridgeRialtoGrandpa => RialtoGrandpaInstance,
+///     Call::BridgeWestendGrandpa => WestendGrandpaInstance,
 /// }
 /// ```
 #[macro_export]

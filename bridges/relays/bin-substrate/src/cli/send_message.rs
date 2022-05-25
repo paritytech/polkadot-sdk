@@ -100,6 +100,7 @@ impl SendMessage {
 				),
 			};
 			let payload_len = payload.encode().len();
+			#[allow(clippy::useless_conversion)]
 			let send_message_call = Source::encode_send_message_call(
 				self.lane.0,
 				payload,

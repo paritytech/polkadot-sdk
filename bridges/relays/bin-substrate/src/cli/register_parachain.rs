@@ -46,7 +46,7 @@ const NEXT_FREE_PARA_ID_STORAGE_NAME: &str = "NextFreeParaId";
 const PARAS_LIFECYCLES_STORAGE_NAME: &str = "ParaLifecycles";
 
 /// Register parachain.
-#[derive(StructOpt, Debug, PartialEq)]
+#[derive(StructOpt, Debug, PartialEq, Eq)]
 pub struct RegisterParachain {
 	/// A parachain to register.
 	#[structopt(possible_values = Parachain::VARIANTS, case_insensitive = true)]
@@ -69,7 +69,7 @@ pub struct RegisterParachain {
 }
 
 /// Parachain to register.
-#[derive(Debug, EnumString, EnumVariantNames, PartialEq)]
+#[derive(Debug, EnumString, EnumVariantNames, PartialEq, Eq)]
 #[strum(serialize_all = "kebab_case")]
 pub enum Parachain {
 	RialtoParachain,
