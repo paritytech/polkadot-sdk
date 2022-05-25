@@ -101,7 +101,7 @@ impl MessageBridge for WithMillauMessageBridge {
 		bridged_to_this_conversion_rate_override: Option<FixedU128>,
 	) -> bp_rialto_parachain::Balance {
 		let conversion_rate = bridged_to_this_conversion_rate_override
-			.unwrap_or_else(|| MillauToRialtoParachainConversionRate::get());
+			.unwrap_or_else(MillauToRialtoParachainConversionRate::get);
 		bp_rialto_parachain::Balance::try_from(conversion_rate.saturating_mul_int(bridged_balance))
 			.unwrap_or(bp_rialto_parachain::Balance::MAX)
 	}

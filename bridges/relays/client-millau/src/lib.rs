@@ -31,7 +31,7 @@ use std::time::Duration;
 pub type HeaderId = relay_utils::HeaderId<millau_runtime::Hash, millau_runtime::BlockNumber>;
 
 /// Millau chain definition.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Millau;
 
 impl ChainBase for Millau {

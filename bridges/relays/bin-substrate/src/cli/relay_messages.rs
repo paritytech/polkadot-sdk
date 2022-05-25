@@ -29,7 +29,7 @@ use crate::{
 };
 
 /// Relayer operating mode.
-#[derive(Debug, EnumString, EnumVariantNames, Clone, Copy, PartialEq)]
+#[derive(Debug, EnumString, EnumVariantNames, Clone, Copy, PartialEq, Eq)]
 #[strum(serialize_all = "kebab_case")]
 pub enum RelayerMode {
 	/// The relayer doesn't care about rewards.

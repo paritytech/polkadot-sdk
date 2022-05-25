@@ -297,9 +297,7 @@ parameter_types! {
 pub struct BeefyDummyDataProvider;
 
 impl beefy_primitives::mmr::BeefyDataProvider<()> for BeefyDummyDataProvider {
-	fn extra_data() -> () {
-		()
-	}
+	fn extra_data() {}
 }
 
 impl pallet_beefy_mmr::Config for Runtime {

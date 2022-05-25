@@ -538,7 +538,7 @@ mod tests {
 		}
 	}
 
-	#[derive(Clone, Debug, PartialEq)]
+	#[derive(Clone, Debug, PartialEq, Eq)]
 	struct TestParachainsPipeline;
 
 	impl ParachainsPipeline for TestParachainsPipeline {
@@ -1022,13 +1022,13 @@ mod tests {
 			stall_timeout: Duration::from_secs(60),
 		};
 
-		assert_eq!(is_update_required(&sync_params, &[]), false);
-		assert_eq!(is_update_required(&sync_params, &[ParaId(PARA_ID)]), true);
-		assert_eq!(is_update_required(&sync_params, &[ParaId(PARA_ID), ParaId(PARA_1_ID)]), true);
+		assert!(!is_update_required(&sync_params, &[]));
+		assert!(is_update_required(&sync_params, &[ParaId(PARA_ID)]));
+		assert!(is_update_required(&sync_params, &[ParaId(PARA_ID), ParaId(PARA_1_ID)]));
 
 		sync_params.strategy = ParachainSyncStrategy::All;
-		assert_eq!(is_update_required(&sync_params, &[]), false);
-		assert_eq!(is_update_required(&sync_params, &[ParaId(PARA_ID)]), false);
-		assert_eq!(is_update_required(&sync_params, &[ParaId(PARA_ID), ParaId(PARA_1_ID)]), true);
+		assert!(!is_update_required(&sync_params, &[]));
+		assert!(!is_update_required(&sync_params, &[ParaId(PARA_ID)]));
+		assert!(is_update_required(&sync_params, &[ParaId(PARA_ID), ParaId(PARA_1_ID)]));
 	}
 }
