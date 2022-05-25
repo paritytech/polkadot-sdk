@@ -43,6 +43,15 @@ impl CliEncodeMessage for Millau {
 				},
 			)
 			.into(),
+			bridge::MILLAU_TO_RIALTO_PARACHAIN_INDEX =>
+				millau_runtime::Call::BridgeRialtoParachainMessages(
+					millau_runtime::MessagesCall::send_message {
+						lane_id: lane,
+						payload,
+						delivery_and_dispatch_fee: fee,
+					},
+				)
+				.into(),
 			_ => anyhow::bail!(
 				"Unsupported target bridge pallet with instance index: {}",
 				bridge_instance_index
