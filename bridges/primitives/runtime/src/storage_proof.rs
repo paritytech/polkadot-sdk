@@ -58,7 +58,7 @@ where
 	}
 }
 
-#[derive(RuntimeDebug, PartialEq)]
+#[derive(Eq, RuntimeDebug, PartialEq)]
 pub enum Error {
 	StorageRootMismatch,
 	StorageValueUnavailable,

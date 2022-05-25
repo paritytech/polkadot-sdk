@@ -481,7 +481,7 @@ pub mod target {
 	use super::*;
 
 	/// Decoded Bridged -> This message payload.
-	#[derive(RuntimeDebug, PartialEq)]
+	#[derive(RuntimeDebug, PartialEq, Eq)]
 	pub struct FromBridgedChainMessagePayload<Call> {
 		/// Data that is actually sent over the wire.
 		pub xcm: (xcm::v3::MultiLocation, xcm::v3::Xcm<Call>),
@@ -726,7 +726,7 @@ pub mod target {
 		.map_err(Into::into)
 	}
 
-	#[derive(Debug, PartialEq)]
+	#[derive(Debug, PartialEq, Eq)]
 	pub(crate) enum MessageProofError {
 		Empty,
 		MessagesCountMismatch,
@@ -944,7 +944,7 @@ pub mod xcm_copy {
 			message: &mut Option<Xcm<()>>,
 		) -> Result<((Vec<u8>, XcmHash), MultiAssets), SendError> {
 			let bridged_network = BridgedNetwork::get();
-			ensure!(&network == &bridged_network, SendError::NotApplicable);
+			ensure!(network == bridged_network, SendError::NotApplicable);
 			// We don't/can't use the `channel` for this adapter.
 			let dest = destination.take().ok_or(SendError::MissingArgument)?;
 			let universal_dest = match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
@@ -1030,13 +1030,13 @@ mod tests {
 		}
 	}
 
-	#[derive(Debug, PartialEq, Decode, Encode, Clone)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode, Clone)]
 	struct ThisChainAccountId(u32);
-	#[derive(Debug, PartialEq, Decode, Encode)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode)]
 	struct ThisChainSigner(u32);
-	#[derive(Debug, PartialEq, Decode, Encode)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode)]
 	struct ThisChainSignature(u32);
-	#[derive(Debug, PartialEq, Decode, Encode)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode)]
 	enum ThisChainCall {
 		#[codec(index = 42)]
 		Transfer,
@@ -1056,13 +1056,13 @@ mod tests {
 		}
 	}
 
-	#[derive(Debug, PartialEq, Decode, Encode)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode)]
 	struct BridgedChainAccountId(u32);
-	#[derive(Debug, PartialEq, Decode, Encode)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode)]
 	struct BridgedChainSigner(u32);
-	#[derive(Debug, PartialEq, Decode, Encode)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode)]
 	struct BridgedChainSignature(u32);
-	#[derive(Debug, PartialEq, Decode, Encode)]
+	#[derive(Debug, PartialEq, Eq, Decode, Encode)]
 	enum BridgedChainCall {}
 	#[derive(Clone, Debug)]
 	struct BridgedChainOrigin;
@@ -1079,7 +1079,7 @@ mod tests {
 
 	macro_rules! impl_wrapped_balance {
 		($name:ident) => {
-			#[derive(Debug, PartialEq, Decode, Encode, Clone, Copy)]
+			#[derive(Debug, PartialEq, Eq, Decode, Encode, Clone, Copy)]
 			struct $name(u32);
 
 			impl From<u32> for $name {
