@@ -19,7 +19,10 @@
 use parachains_relay::ParachainsPipeline;
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
-use substrate_relay_helper::parachains_target::DirectSubmitParachainHeadsCallBuilder;
+use relay_rialto_parachain_client::RialtoParachain;
+use substrate_relay_helper::parachains::{
+	DirectSubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline,
+};
 
 /// Rialto-to-Millau parachains sync description.
 #[derive(Clone, Debug)]
@@ -28,6 +31,17 @@ pub struct RialtoParachainsToMillau;
 impl ParachainsPipeline for RialtoParachainsToMillau {
 	type SourceChain = Rialto;
 	type TargetChain = Millau;
+}
+
+impl SubstrateParachainsPipeline for RialtoParachainsToMillau {
+	type SourceParachain = RialtoParachain;
+	type SourceRelayChain = Rialto;
+	type TargetChain = Millau;
+
+	type SubmitParachainHeadsCallBuilder = RialtoParachainsToMillauSubmitParachainHeadsCallBuilder;
+	type TransactionSignScheme = Millau;
+
+	const SOURCE_PARACHAIN_PARA_ID: u32 = bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 }
 
 /// `submit_parachain_heads` call builder for Rialto-to-Millau parachains sync pipeline.

@@ -22,10 +22,11 @@ use crate::{
 	messages_lane::{MessageLaneAdapter, ReceiveMessagesProofCallBuilder, SubstrateMessageLane},
 	messages_metrics::StandaloneMessagesMetrics,
 	messages_source::{ensure_messages_pallet_active, read_client_state, SubstrateMessagesProof},
-	on_demand_headers::OnDemandHeadersRelay,
+	on_demand::OnDemandRelay,
 	TransactionParams,
 };
 
+use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::inbound_lane_data_key, total_unrewarded_messages, InboundLaneData, LaneId,
@@ -42,7 +43,7 @@ use messages_relay::{
 };
 use num_traits::{Bounded, Zero};
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithMessages, Client,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages, Client,
 	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam, TransactionEra,
 	TransactionSignScheme, UnsignedTransaction, WeightToFeeOf,
 };
@@ -63,7 +64,7 @@ pub struct SubstrateMessagesTarget<P: SubstrateMessageLane> {
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
 	metric_values: StandaloneMessagesMetrics<P::SourceChain, P::TargetChain>,
-	source_to_target_headers_relay: Option<OnDemandHeadersRelay<P::SourceChain>>,
+	source_to_target_headers_relay: Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::SourceChain>>>>,
 }
 
 impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
@@ -75,7 +76,9 @@ impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
 		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
 		metric_values: StandaloneMessagesMetrics<P::SourceChain, P::TargetChain>,
-		source_to_target_headers_relay: Option<OnDemandHeadersRelay<P::SourceChain>>,
+		source_to_target_headers_relay: Option<
+			Arc<dyn OnDemandRelay<BlockNumberOf<P::SourceChain>>>,
+		>,
 	) -> Self {
 		SubstrateMessagesTarget {
 			target_client,
@@ -269,7 +272,7 @@ where
 
 	async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<MessageLaneAdapter<P>>) {
 		if let Some(ref source_to_target_headers_relay) = self.source_to_target_headers_relay {
-			source_to_target_headers_relay.require_finalized_header(id).await;
+			source_to_target_headers_relay.require_more_headers(id.0).await;
 		}
 	}
 

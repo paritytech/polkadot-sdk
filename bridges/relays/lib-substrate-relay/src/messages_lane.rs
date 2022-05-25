@@ -21,10 +21,11 @@ use crate::{
 	messages_metrics::StandaloneMessagesMetrics,
 	messages_source::{SubstrateMessagesProof, SubstrateMessagesSource},
 	messages_target::{SubstrateMessagesDeliveryProof, SubstrateMessagesTarget},
-	on_demand_headers::OnDemandHeadersRelay,
+	on_demand::OnDemandRelay,
 	TransactionParams, STALL_TIMEOUT,
 };
 
+use async_std::sync::Arc;
 use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::{AccountIdOf, Chain as _};
 use bridge_runtime_common::messages::{
@@ -135,9 +136,11 @@ pub struct MessagesRelayParams<P: SubstrateMessageLane> {
 	pub target_transaction_params:
 		TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
 	/// Optional on-demand source to target headers relay.
-	pub source_to_target_headers_relay: Option<OnDemandHeadersRelay<P::SourceChain>>,
+	pub source_to_target_headers_relay:
+		Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::SourceChain>>>>,
 	/// Optional on-demand target to source headers relay.
-	pub target_to_source_headers_relay: Option<OnDemandHeadersRelay<P::TargetChain>>,
+	pub target_to_source_headers_relay:
+		Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::TargetChain>>>>,
 	/// Identifier of lane that needs to be served.
 	pub lane_id: LaneId,
 	/// Metrics parameters.

@@ -23,10 +23,11 @@ use crate::{
 		MessageLaneAdapter, ReceiveMessagesDeliveryProofCallBuilder, SubstrateMessageLane,
 	},
 	messages_target::SubstrateMessagesDeliveryProof,
-	on_demand_headers::OnDemandHeadersRelay,
+	on_demand::OnDemandRelay,
 	TransactionParams,
 };
 
+use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
@@ -66,7 +67,7 @@ pub struct SubstrateMessagesSource<P: SubstrateMessageLane> {
 	target_client: Client<P::TargetChain>,
 	lane_id: LaneId,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::SourceTransactionSignScheme>>,
-	target_to_source_headers_relay: Option<OnDemandHeadersRelay<P::TargetChain>>,
+	target_to_source_headers_relay: Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::TargetChain>>>>,
 }
 
 impl<P: SubstrateMessageLane> SubstrateMessagesSource<P> {
@@ -76,7 +77,9 @@ impl<P: SubstrateMessageLane> SubstrateMessagesSource<P> {
 		target_client: Client<P::TargetChain>,
 		lane_id: LaneId,
 		transaction_params: TransactionParams<AccountKeyPairOf<P::SourceTransactionSignScheme>>,
-		target_to_source_headers_relay: Option<OnDemandHeadersRelay<P::TargetChain>>,
+		target_to_source_headers_relay: Option<
+			Arc<dyn OnDemandRelay<BlockNumberOf<P::TargetChain>>>,
+		>,
 	) -> Self {
 		SubstrateMessagesSource {
 			source_client,
@@ -282,7 +285,7 @@ where
 
 	async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<MessageLaneAdapter<P>>) {
 		if let Some(ref target_to_source_headers_relay) = self.target_to_source_headers_relay {
-			target_to_source_headers_relay.require_finalized_header(id).await;
+			target_to_source_headers_relay.require_more_headers(id.0).await;
 		}
 	}
 
@@ -424,18 +427,13 @@ where
 	let self_best_id = HeaderId(*self_best_header.number(), self_best_hash);
 
 	// now let's read id of best finalized peer header at our best finalized block
-	let encoded_best_finalized_peer_on_self = self_client
-		.state_call(
-			best_finalized_header_id_method_name.into(),
-			Bytes(Vec::new()),
-			Some(self_best_hash),
+	let peer_on_self_best_finalized_id =
+		best_finalized_peer_header_at_self::<SelfChain, PeerChain>(
+			self_client,
+			self_best_hash,
+			best_finalized_header_id_method_name,
 		)
 		.await?;
-	let decoded_best_finalized_peer_on_self: (BlockNumberOf<PeerChain>, HashOf<PeerChain>) =
-		Decode::decode(&mut &encoded_best_finalized_peer_on_self.0[..])
-			.map_err(SubstrateError::ResponseParseFailed)?;
-	let peer_on_self_best_finalized_id =
-		HeaderId(decoded_best_finalized_peer_on_self.0, decoded_best_finalized_peer_on_self.1);
 
 	// read actual header, matching the `peer_on_self_best_finalized_id` from the peer chain
 	let actual_peer_on_self_best_finalized_id = match peer_client {
@@ -453,6 +451,35 @@ where
 		best_finalized_peer_at_best_self: peer_on_self_best_finalized_id,
 		actual_best_finalized_peer_at_best_self: actual_peer_on_self_best_finalized_id,
 	})
+}
+
+/// Reads best `PeerChain` header known to the `SelfChain` using provided runtime API method.
+///
+/// Method is supposed to be the `<PeerChain>FinalityApi::best_finalized()` method.
+pub async fn best_finalized_peer_header_at_self<SelfChain, PeerChain>(
+	self_client: &Client<SelfChain>,
+	at_self_hash: HashOf<SelfChain>,
+	best_finalized_header_id_method_name: &str,
+) -> Result<HeaderIdOf<PeerChain>, SubstrateError>
+where
+	SelfChain: Chain,
+	PeerChain: Chain,
+{
+	// now let's read id of best finalized peer header at our best finalized block
+	let encoded_best_finalized_peer_on_self = self_client
+		.state_call(
+			best_finalized_header_id_method_name.into(),
+			Bytes(Vec::new()),
+			Some(at_self_hash),
+		)
+		.await?;
+	let decoded_best_finalized_peer_on_self: (BlockNumberOf<PeerChain>, HashOf<PeerChain>) =
+		Decode::decode(&mut &encoded_best_finalized_peer_on_self.0[..])
+			.map_err(SubstrateError::ResponseParseFailed)?;
+	let peer_on_self_best_finalized_id =
+		HeaderId(decoded_best_finalized_peer_on_self.0, decoded_best_finalized_peer_on_self.1);
+
+	Ok(peer_on_self_best_finalized_id)
 }
 
 fn make_message_details_map<C: Chain>(
