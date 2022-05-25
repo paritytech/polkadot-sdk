@@ -33,8 +33,8 @@ use std::time::Duration;
 pub use crate::{
 	chain::{
 		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
-		ChainWithGrandpa, ChainWithMessages, SignParam, TransactionSignScheme, TransactionStatusOf,
-		UnsignedTransaction, WeightToFeeOf,
+		ChainWithGrandpa, ChainWithMessages, RelayChain, SignParam, TransactionSignScheme,
+		TransactionStatusOf, UnsignedTransaction, WeightToFeeOf,
 	},
 	client::{ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription},
 	error::{Error, Result},

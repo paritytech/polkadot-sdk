@@ -32,6 +32,14 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
+/// Identifier of RialtoParachain in the Rialto relay chain.
+///
+/// This identifier is not something that is declared either by Rialto or RialtoParachain. This
+/// is an identifier of registration. So in theory it may be changed. But since bridge is going
+/// to be deployed after parachain registration AND since parachain de-registration is highly
+/// likely impossible, it is fine to declare this constant here.
+pub const RIALTO_PARACHAIN_ID: u32 = 2000;
+
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
 /// RialtoParachain chain. This mostly depends on number of entries (and their density) in the
 /// storage trie. Some reserve is reserved to account future chain growth.
