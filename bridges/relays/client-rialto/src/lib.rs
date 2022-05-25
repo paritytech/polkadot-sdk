@@ -32,7 +32,7 @@ use std::time::Duration;
 pub type HeaderId = relay_utils::HeaderId<rialto_runtime::Hash, rialto_runtime::BlockNumber>;
 
 /// Rialto chain definition
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rialto;
 
 impl ChainBase for Rialto {

@@ -74,7 +74,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::millau_messages_to_rialto::MillauMessagesToRialto as MessagesLane;
+				use $crate::chains::millau_messages_to_rialto::MillauMessagesToRialto as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -93,7 +93,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::rialto_messages_to_millau::RialtoMessagesToMillau as MessagesLane;
+				use $crate::chains::rialto_messages_to_millau::RialtoMessagesToMillau as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -112,7 +112,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::rococo_messages_to_wococo::RococoMessagesToWococo as MessagesLane;
+				use $crate::chains::rococo_messages_to_wococo::RococoMessagesToWococo as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -131,7 +131,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::wococo_messages_to_rococo::WococoMessagesToRococo as MessagesLane;
+				use $crate::chains::wococo_messages_to_rococo::WococoMessagesToRococo as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -150,7 +150,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::kusama_messages_to_polkadot::KusamaMessagesToPolkadot as MessagesLane;
+				use $crate::chains::kusama_messages_to_polkadot::KusamaMessagesToPolkadot as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -169,7 +169,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::polkadot_messages_to_kusama::PolkadotMessagesToKusama as MessagesLane;
+				use $crate::chains::polkadot_messages_to_kusama::PolkadotMessagesToKusama as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -188,7 +188,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::millau_messages_to_rialto_parachain::MillauMessagesToRialtoParachain as MessagesLane;
+				use $crate::chains::millau_messages_to_rialto_parachain::MillauMessagesToRialtoParachain as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
@@ -207,7 +207,7 @@ macro_rules! select_full_bridge {
 
 				// Relay-messages
 				#[allow(unused_imports)]
-				use crate::chains::rialto_parachain_messages_to_millau::RialtoParachainMessagesToMillau as MessagesLane;
+				use $crate::chains::rialto_parachain_messages_to_millau::RialtoParachainMessagesToMillau as MessagesLane;
 
 				// Send-message / Estimate-fee
 				#[allow(unused_imports)]
