@@ -70,7 +70,7 @@ impl FinalitySyncPipeline for TestFinalitySyncPipeline {
 	type FinalityProof = TestFinalityProof;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct TestSourceHeader(IsMandatory, TestNumber, TestHash);
 
 impl SourceHeader<TestHash, TestNumber> for TestSourceHeader {
@@ -87,7 +87,7 @@ impl SourceHeader<TestHash, TestNumber> for TestSourceHeader {
 	}
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct TestFinalityProof(TestNumber);
 
 impl FinalityProof<TestNumber> for TestFinalityProof {

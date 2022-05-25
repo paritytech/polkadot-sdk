@@ -201,7 +201,7 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 						},
 					};
 
-				let _ = runtime.block_on(async move {
+				runtime.block_on(async move {
 					log::trace!(
 						target: "bridge-metrics",
 						"Starting prometheus endpoint at: {:?}",

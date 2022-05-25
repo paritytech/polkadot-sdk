@@ -53,7 +53,7 @@ impl<H: HeaderT> crate::FinalityProof<H::Number> for GrandpaJustification<H> {
 }
 
 /// Justification verification error.
-#[derive(RuntimeDebug, PartialEq)]
+#[derive(Eq, RuntimeDebug, PartialEq)]
 pub enum Error {
 	/// Failed to decode justification.
 	JustificationDecode,

@@ -49,7 +49,7 @@ use substrate_relay_helper::{
 };
 
 /// Reinitialize bridge pallet.
-#[derive(Debug, PartialEq, StructOpt)]
+#[derive(Debug, PartialEq, Eq, StructOpt)]
 pub struct ReinitBridge {
 	/// A bridge instance to reinitialize.
 	#[structopt(possible_values = ReinitBridgeName::VARIANTS, case_insensitive = true)]
@@ -62,7 +62,7 @@ pub struct ReinitBridge {
 	target_sign: TargetSigningParams,
 }
 
-#[derive(Debug, EnumString, EnumVariantNames, PartialEq)]
+#[derive(Debug, EnumString, EnumVariantNames, PartialEq, Eq)]
 #[strum(serialize_all = "kebab_case")]
 /// Bridge to initialize.
 pub enum ReinitBridgeName {

@@ -83,11 +83,9 @@ pub(crate) fn compute_maximal_message_size(
 		bridge_runtime_common::messages::target::maximal_incoming_message_size(
 			maximal_target_extrinsic_size,
 		);
-	let maximal_message_size = if maximal_message_size > maximal_source_extrinsic_size {
+	if maximal_message_size > maximal_source_extrinsic_size {
 		maximal_source_extrinsic_size
 	} else {
 		maximal_message_size
-	};
-
-	maximal_message_size
+	}
 }

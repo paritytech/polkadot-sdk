@@ -297,8 +297,7 @@ mod tests {
 			let mut incoming_message = DispatchMessage {
 				key: MessageKey { lane_id: [0, 0, 0, 0], nonce: 1 },
 				data: DispatchMessageData { payload: Ok((location, xcm).into()), fee: 0 },
-			}
-			.into();
+			};
 
 			let dispatch_weight = MessageDispatcher::dispatch_weight(&mut incoming_message);
 			assert_eq!(dispatch_weight, 1_000_000_000);
