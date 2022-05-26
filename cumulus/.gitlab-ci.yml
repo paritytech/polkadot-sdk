@@ -56,17 +56,17 @@ variables:
 .benchmarks-manual-refs:           &benchmarks-manual-refs
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" &&
-          $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9]+\.[0-9]+.*$/              # run from web and on branch release-parachains-v* (i.e. 1.0, 2.1rc1)
+          $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9].*$/              # run from web and on branch release-parachains-v* (i.e. 1.0, 2.1rc1, 3)
       when: manual
-    - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9]+\.[0-9]+.*$/              # i.e. release-parachains-v1.0, release-parachains-v2.1rc1
+    - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9].*$/              # i.e. release-parachains-v1.0, release-parachains-v2.1rc1, release-parachains-v3000
       when: manual
 
 # run benchmarks only on release-parachains-v* branch
 .benchmarks-refs:                  &benchmarks-refs
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" &&
-          $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9]+\.[0-9]+.*$/              # run from web and on branch release-parachains-v* (i.e. 1.0, 2.1rc1)
-    - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9]+\.[0-9]+.*$/              # i.e. release-parachains-v1.0, release-parachains-v2.1rc1
+          $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9].*$/              # run from web and on branch release-parachains-v* (i.e. 1.0, 2.1rc1, 3)
+    - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9].*$/              # i.e. release-parachains-v1.0, release-parachains-v2.1rc1, release-parachains-v3000
 
 .docker-env:                       &docker-env
   image:                           "${CI_IMAGE}"
