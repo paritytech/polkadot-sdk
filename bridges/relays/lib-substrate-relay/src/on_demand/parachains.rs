@@ -111,10 +111,10 @@ where
 		if let Err(e) = self.required_header_number_sender.send(required_header).await {
 			log::trace!(
 				target: "bridge",
-				"Failed to request {} header {:?} in {:?}: {:?}",
+				"[{}] Failed to request {} header {:?}: {:?}",
+				self.relay_task_name,
 				SourceParachain::NAME,
 				required_header,
-				self.relay_task_name,
 				e,
 			);
 		}
@@ -164,7 +164,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					Err(e) => {
 						log::error!(
 							target: "bridge",
-							"Background task of {} has exited with error: {:?}",
+							"[{}] Background task has exited with error: {:?}",
 							relay_task_name,
 							e,
 						);
@@ -223,7 +223,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				relay_state = select_headers_to_relay(&relay_data, relay_state);
 				log::trace!(
 					target: "bridge",
-					"Selected new relay state in {}: {:?} using old state {:?} and data {:?}",
+					"[{}] Selected new relay state: {:?} using old state {:?} and data {:?}",
 					relay_task_name,
 					relay_state,
 					prev_relay_state,
@@ -266,7 +266,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 
 			log::info!(
 				target: "bridge",
-				"Starting {} relay\n\t\
+				"[{}] Starting on-demand-relay task\n\t\
 					Tx mortality: {:?} (~{}m)\n\t\
 					Stall timeout: {:?}",
 				relay_task_name,
@@ -297,7 +297,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 
 /// On-demand parachains relay task name.
 fn on_demand_parachains_relay_name<SourceChain: Chain, TargetChain: Chain>() -> String {
-	format!("on-demand-{}-to-{}", SourceChain::NAME, TargetChain::NAME)
+	format!("{}-to-{}-on-demand-parachain", SourceChain::NAME, TargetChain::NAME)
 }
 
 /// On-demand relay state.
@@ -349,7 +349,7 @@ where
 	let map_target_err = |e| {
 		log::error!(
 			target: "bridge",
-			"Failed to read {} relay data from {} client: {:?}",
+			"[{}] Failed to read relay data from {} client: {:?}",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::TargetChain::NAME,
 			e,
@@ -359,7 +359,7 @@ where
 	let map_source_err = |e| {
 		log::error!(
 			target: "bridge",
-			"Failed to read {} relay data from {} client: {:?}",
+			"[{}] Failed to read relay data from {} client: {:?}",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::SourceRelayChain::NAME,
 			e,

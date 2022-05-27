@@ -121,7 +121,7 @@ pub trait TargetClient<P: ParachainsPipeline>: RelayClient {
 /// Return prefix that will be used by default to expose Prometheus metrics of the parachains
 /// sync loop.
 pub fn metrics_prefix<P: ParachainsPipeline>() -> String {
-	format!("{}_to_{}_Sync", P::SourceChain::NAME, P::TargetChain::NAME)
+	format!("{}_to_{}_Parachains", P::SourceChain::NAME, P::TargetChain::NAME)
 }
 
 /// Run parachain heads synchronization.
