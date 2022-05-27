@@ -16,39 +16,38 @@
 
 //! Parachain heads source.
 
-use crate::{
-	finality::source::RequiredHeaderNumberRef,
-	parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline},
-};
+use crate::parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline};
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use codec::Decode;
-use parachains_relay::parachains_loop::SourceClient;
+use parachains_relay::parachains_loop::{ParaHashAtSource, SourceClient};
 use relay_substrate_client::{
 	Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf, RelayChain,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_runtime::traits::Header as HeaderT;
 
+/// Shared updatable reference to the maximal parachain header id that we want to sync from the
+/// source.
+pub type RequiredHeaderIdRef<C> = Arc<Mutex<Option<HeaderIdOf<C>>>>;
+
 /// Substrate client as parachain heads source.
 #[derive(Clone)]
 pub struct ParachainsSource<P: SubstrateParachainsPipeline> {
 	client: Client<P::SourceRelayChain>,
-	maximal_header_number: Option<RequiredHeaderNumberRef<P::SourceParachain>>,
-	previous_parachain_head: Arc<Mutex<Option<ParaHash>>>,
+	maximal_header_id: Option<RequiredHeaderIdRef<P::SourceParachain>>,
 }
 
 impl<P: SubstrateParachainsPipeline> ParachainsSource<P> {
 	/// Creates new parachains source client.
 	pub fn new(
 		client: Client<P::SourceRelayChain>,
-		maximal_header_number: Option<RequiredHeaderNumberRef<P::SourceParachain>>,
+		maximal_header_id: Option<RequiredHeaderIdRef<P::SourceParachain>>,
 	) -> Self {
-		let previous_parachain_head = Arc::new(Mutex::new(None));
-		ParachainsSource { client, maximal_header_number, previous_parachain_head }
+		ParachainsSource { client, maximal_header_id }
 	}
 
 	/// Returns reference to the underlying RPC client.
@@ -102,7 +101,7 @@ where
 		&self,
 		at_block: HeaderIdOf<P::SourceRelayChain>,
 		para_id: ParaId,
-	) -> Result<Option<ParaHash>, Self::Error> {
+	) -> Result<ParaHashAtSource, Self::Error> {
 		// we don't need to support many parachains now
 		if para_id.0 != P::SOURCE_PARACHAIN_PARA_ID {
 			return Err(SubstrateError::Custom(format!(
@@ -112,29 +111,33 @@ where
 			)))
 		}
 
-		let parachain_head = match self.on_chain_parachain_header(at_block, para_id).await? {
+		Ok(match self.on_chain_parachain_header(at_block, para_id).await? {
 			Some(parachain_header) => {
-				let mut parachain_head = Some(parachain_header.hash());
+				let mut parachain_head = ParaHashAtSource::Some(parachain_header.hash());
 				// never return head that is larger than requested. This way we'll never sync
-				// headers past `maximal_header_number`
-				if let Some(ref maximal_header_number) = self.maximal_header_number {
-					let maximal_header_number = *maximal_header_number.lock().await;
-					if *parachain_header.number() > maximal_header_number {
-						let previous_parachain_head = *self.previous_parachain_head.lock().await;
-						if let Some(previous_parachain_head) = previous_parachain_head {
-							parachain_head = Some(previous_parachain_head);
-						}
+				// headers past `maximal_header_id`
+				if let Some(ref maximal_header_id) = self.maximal_header_id {
+					let maximal_header_id = *maximal_header_id.lock().await;
+					match maximal_header_id {
+						Some(maximal_header_id)
+							if *parachain_header.number() > maximal_header_id.0 =>
+						{
+							// we don't want this header yet => let's report previously requested
+							// header
+							parachain_head = ParaHashAtSource::Some(maximal_header_id.1);
+						},
+						Some(_) => (),
+						None => {
+							// on-demand relay has not yet asked us to sync anything let's do that
+							parachain_head = ParaHashAtSource::Unavailable;
+						},
 					}
 				}
 
 				parachain_head
 			},
-			None => None,
-		};
-
-		*self.previous_parachain_head.lock().await = parachain_head;
-
-		Ok(parachain_head)
+			None => ParaHashAtSource::None,
+		})
 	}
 
 	async fn prove_parachain_heads(

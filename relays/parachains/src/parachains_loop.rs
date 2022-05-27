@@ -52,6 +52,23 @@ pub enum ParachainSyncStrategy {
 	All,
 }
 
+/// Parachain head hash, available at the source (relay) chain.
+#[derive(Clone, Copy, Debug)]
+pub enum ParaHashAtSource {
+	/// There's no parachain head at the source chain.
+	///
+	/// Normally it means that the parachain is not registered there.
+	None,
+	/// Parachain head with given hash is available at the source chain.
+	Some(ParaHash),
+	/// The source client refuses to report parachain head hash at this moment.
+	///
+	/// It is a "mild" error, which may appear when e.g. on-demand parachains relay is used.
+	/// This variant must be treated as "we don't want to update parachain head value at the
+	/// target chain at this moment".
+	Unavailable,
+}
+
 /// Source client used in parachain heads synchronization loop.
 #[async_trait]
 pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
@@ -63,7 +80,7 @@ pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
 		&self,
 		at_block: HeaderIdOf<P::SourceChain>,
 		para_id: ParaId,
-	) -> Result<Option<ParaHash>, Self::Error>;
+	) -> Result<ParaHashAtSource, Self::Error>;
 
 	/// Get parachain heads proof.
 	async fn prove_parachain_heads(
@@ -291,7 +308,7 @@ where
 
 /// Given heads at source and target clients, returns set of heads that are out of sync.
 fn select_parachains_to_update<P: ParachainsPipeline>(
-	heads_at_source: BTreeMap<ParaId, Option<ParaHash>>,
+	heads_at_source: BTreeMap<ParaId, ParaHashAtSource>,
 	heads_at_target: BTreeMap<ParaId, Option<BestParaHeadHash>>,
 	best_finalized_relay_block: HeaderIdOf<P::SourceChain>,
 ) -> Vec<ParaId>
@@ -317,7 +334,12 @@ where
 		.zip(heads_at_target.into_iter())
 		.filter(|((para, head_at_source), (_, head_at_target))| {
 			let needs_update = match (head_at_source, head_at_target) {
-				(Some(head_at_source), Some(head_at_target))
+				(ParaHashAtSource::Unavailable, _) => {
+					// source client has politely asked us not to update current parachain head
+					// at the target chain
+					false
+				},
+				(ParaHashAtSource::Some(head_at_source), Some(head_at_target))
 					if head_at_target.at_relay_block_number < best_finalized_relay_block.0 &&
 						head_at_target.head_hash != *head_at_source =>
 				{
@@ -325,22 +347,22 @@ where
 					// client
 					true
 				},
-				(Some(_), Some(_)) => {
+				(ParaHashAtSource::Some(_), Some(_)) => {
 					// this is normal case when relay has recently updated heads, when parachain is
 					// not progressing or when our source client is
 					false
 				},
-				(Some(_), None) => {
+				(ParaHashAtSource::Some(_), None) => {
 					// parachain is not yet known to the target client. This is true when parachain
 					// or bridge has been just onboarded/started
 					true
 				},
-				(None, Some(_)) => {
+				(ParaHashAtSource::None, Some(_)) => {
 					// parachain/parathread has been offboarded removed from the system. It needs to
 					// be propageted to the target client
 					true
 				},
-				(None, None) => {
+				(ParaHashAtSource::None, None) => {
 					// all's good - parachain is unknown to both clients
 					false
 				},
@@ -378,7 +400,7 @@ async fn read_heads_at_source<P: ParachainsPipeline>(
 	source_client: &impl SourceClient<P>,
 	at_relay_block: &HeaderIdOf<P::SourceChain>,
 	parachains: &[ParaId],
-) -> Result<BTreeMap<ParaId, Option<ParaHash>>, FailedClient> {
+) -> Result<BTreeMap<ParaId, ParaHashAtSource>, FailedClient> {
 	let mut para_head_hashes = BTreeMap::new();
 	for para in parachains {
 		let para_head = source_client.parachain_head(*at_relay_block, *para).await;
@@ -554,7 +576,7 @@ mod tests {
 	#[derive(Clone, Debug)]
 	struct TestClientData {
 		source_sync_status: Result<bool, TestError>,
-		source_heads: BTreeMap<u32, Result<ParaHash, TestError>>,
+		source_heads: BTreeMap<u32, Result<ParaHashAtSource, TestError>>,
 		source_proofs: BTreeMap<u32, Result<Vec<u8>, TestError>>,
 
 		target_best_block: Result<HeaderIdOf<TestChain>, TestError>,
@@ -569,7 +591,9 @@ mod tests {
 		pub fn minimal() -> Self {
 			TestClientData {
 				source_sync_status: Ok(true),
-				source_heads: vec![(PARA_ID, Ok(PARA_0_HASH))].into_iter().collect(),
+				source_heads: vec![(PARA_ID, Ok(ParaHashAtSource::Some(PARA_0_HASH)))]
+					.into_iter()
+					.collect(),
 				source_proofs: vec![(PARA_ID, Ok(PARA_0_HASH.encode()))].into_iter().collect(),
 
 				target_best_block: Ok(HeaderId(0, Default::default())),
@@ -615,8 +639,11 @@ mod tests {
 			&self,
 			_at_block: HeaderIdOf<TestChain>,
 			para_id: ParaId,
-		) -> Result<Option<ParaHash>, TestError> {
-			self.data.lock().await.source_heads.get(&para_id.0).cloned().transpose()
+		) -> Result<ParaHashAtSource, TestError> {
+			match self.data.lock().await.source_heads.get(&para_id.0).cloned() {
+				Some(result) => result,
+				None => Ok(ParaHashAtSource::None),
+			}
 		}
 
 		async fn prove_parachain_heads(
@@ -923,7 +950,7 @@ mod tests {
 	fn parachain_is_not_updated_if_it_is_unknown_to_both_clients() {
 		assert_eq!(
 			select_parachains_to_update::<TestParachainsPipeline>(
-				vec![(ParaId(PARA_ID), None)].into_iter().collect(),
+				vec![(ParaId(PARA_ID), ParaHashAtSource::None)].into_iter().collect(),
 				vec![(ParaId(PARA_ID), None)].into_iter().collect(),
 				HeaderId(10, Default::default()),
 			),
@@ -935,7 +962,9 @@ mod tests {
 	fn parachain_is_not_updated_if_it_has_been_updated_at_better_relay_block() {
 		assert_eq!(
 			select_parachains_to_update::<TestParachainsPipeline>(
-				vec![(ParaId(PARA_ID), Some(PARA_0_HASH))].into_iter().collect(),
+				vec![(ParaId(PARA_ID), ParaHashAtSource::Some(PARA_0_HASH))]
+					.into_iter()
+					.collect(),
 				vec![(
 					ParaId(PARA_ID),
 					Some(BestParaHeadHash { at_relay_block_number: 20, head_hash: PARA_1_HASH })
@@ -952,7 +981,9 @@ mod tests {
 	fn parachain_is_not_updated_if_hash_is_the_same_at_next_relay_block() {
 		assert_eq!(
 			select_parachains_to_update::<TestParachainsPipeline>(
-				vec![(ParaId(PARA_ID), Some(PARA_0_HASH))].into_iter().collect(),
+				vec![(ParaId(PARA_ID), ParaHashAtSource::Some(PARA_0_HASH))]
+					.into_iter()
+					.collect(),
 				vec![(
 					ParaId(PARA_ID),
 					Some(BestParaHeadHash { at_relay_block_number: 0, head_hash: PARA_0_HASH })
@@ -969,7 +1000,7 @@ mod tests {
 	fn parachain_is_updated_after_offboarding() {
 		assert_eq!(
 			select_parachains_to_update::<TestParachainsPipeline>(
-				vec![(ParaId(PARA_ID), None)].into_iter().collect(),
+				vec![(ParaId(PARA_ID), ParaHashAtSource::None)].into_iter().collect(),
 				vec![(
 					ParaId(PARA_ID),
 					Some(BestParaHeadHash {
@@ -989,7 +1020,9 @@ mod tests {
 	fn parachain_is_updated_after_onboarding() {
 		assert_eq!(
 			select_parachains_to_update::<TestParachainsPipeline>(
-				vec![(ParaId(PARA_ID), Some(PARA_0_HASH))].into_iter().collect(),
+				vec![(ParaId(PARA_ID), ParaHashAtSource::Some(PARA_0_HASH))]
+					.into_iter()
+					.collect(),
 				vec![(ParaId(PARA_ID), None)].into_iter().collect(),
 				HeaderId(10, Default::default()),
 			),
@@ -1001,7 +1034,9 @@ mod tests {
 	fn parachain_is_updated_if_newer_head_is_known() {
 		assert_eq!(
 			select_parachains_to_update::<TestParachainsPipeline>(
-				vec![(ParaId(PARA_ID), Some(PARA_1_HASH))].into_iter().collect(),
+				vec![(ParaId(PARA_ID), ParaHashAtSource::Some(PARA_1_HASH))]
+					.into_iter()
+					.collect(),
 				vec![(
 					ParaId(PARA_ID),
 					Some(BestParaHeadHash { at_relay_block_number: 0, head_hash: PARA_0_HASH })
@@ -1011,6 +1046,23 @@ mod tests {
 				HeaderId(10, Default::default()),
 			),
 			vec![ParaId(PARA_ID)],
+		);
+	}
+
+	#[test]
+	fn parachain_is_not_updated_if_source_head_is_unavailable() {
+		assert_eq!(
+			select_parachains_to_update::<TestParachainsPipeline>(
+				vec![(ParaId(PARA_ID), ParaHashAtSource::Unavailable)].into_iter().collect(),
+				vec![(
+					ParaId(PARA_ID),
+					Some(BestParaHeadHash { at_relay_block_number: 0, head_hash: PARA_0_HASH })
+				)]
+				.into_iter()
+				.collect(),
+				HeaderId(10, Default::default()),
+			),
+			vec![],
 		);
 	}
 
