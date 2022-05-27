@@ -95,9 +95,9 @@ impl<SourceChain: Chain> OnDemandRelay<BlockNumberOf<SourceChain>>
 		if required_header > *required_header_number {
 			log::trace!(
 				target: "bridge",
-				"More {} headers required in {} relay. Going to sync up to the {}",
-				SourceChain::NAME,
+				"[{}] More {} headers required. Going to sync up to the {}",
 				self.relay_task_name,
+				SourceChain::NAME,
 				required_header,
 			);
 
@@ -184,7 +184,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 		log::trace!(
 			target: "bridge",
-			"Mandatory headers scan range in {}: ({:?}, {:?}, {:?}) -> {:?}",
+			"[{}] Mandatory headers scan range: ({:?}, {:?}, {:?}) -> {:?}",
 			relay_task_name,
 			required_header_number_value,
 			best_finalized_source_header_at_source_fmt,
@@ -213,18 +213,18 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 					log::trace!(
 						target: "bridge",
-						"No mandatory {} headers in the range {:?} of {} relay",
+						"[{}] No mandatory {} headers in the range {:?}",
+						relay_task_name,
 						P::SourceChain::NAME,
 						mandatory_scan_range,
-						relay_task_name,
 					);
 				},
 				Err(e) => {
 					log::warn!(
 						target: "bridge",
-						"Failed to scan mandatory {} headers range in {} relay (range: {:?}): {:?}",
-						P::SourceChain::NAME,
+						"[{}] Failed to scan mandatory {} headers range ({:?}): {:?}",
 						relay_task_name,
+						P::SourceChain::NAME,
 						mandatory_scan_range,
 						e,
 					);
@@ -253,7 +253,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 			log::info!(
 				target: "bridge",
-				"Starting {} relay\n\t\
+				"[{}] Starting on-demand relay task\n\t\
 					Only mandatory headers: {}\n\t\
 					Tx mortality: {:?} (~{}m)\n\t\
 					Stall timeout: {:?}",
@@ -347,9 +347,9 @@ async fn relay_mandatory_header_from_range<P: SubstrateFinalitySyncPipeline>(
 
 	log::trace!(
 		target: "bridge",
-		"Too many {} headers missing at target in {} relay ({} vs {}). Going to sync up to the mandatory {}",
-		P::SourceChain::NAME,
+		"[{}] Too many {} headers missing at target ({} vs {}). Going to sync up to the mandatory {}",
 		relay_task_name,
+		P::SourceChain::NAME,
 		best_finalized_source_header_at_target,
 		range.1,
 		mandatory_source_header_number,
@@ -369,7 +369,7 @@ async fn best_finalized_source_header_at_source<P: SubstrateFinalitySyncPipeline
 	finality_source.on_chain_best_finalized_block_number().await.map_err(|error| {
 		log::error!(
 			target: "bridge",
-			"Failed to read best finalized source header from source in {} relay: {:?}",
+			"[{}] Failed to read best finalized source header from source: {:?}",
 			relay_task_name,
 			error,
 		);
@@ -396,7 +396,7 @@ where
 		.map_err(|error| {
 			log::error!(
 				target: "bridge",
-				"Failed to read best finalized source header from target in {} relay: {:?}",
+				"[{}] Failed to read best finalized source header from target: {:?}",
 				relay_task_name,
 				error,
 			);
@@ -429,7 +429,7 @@ async fn find_mandatory_header_in_range<P: SubstrateFinalitySyncPipeline>(
 
 /// On-demand headers relay task name.
 fn on_demand_headers_relay_name<SourceChain: Chain, TargetChain: Chain>() -> String {
-	format!("on-demand-{}-to-{}", SourceChain::NAME, TargetChain::NAME)
+	format!("{}-to-{}-on-demand-headers", SourceChain::NAME, TargetChain::NAME)
 }
 
 #[cfg(test)]
