@@ -187,6 +187,8 @@ impl<C: Chain> Client<C> {
 			params.host,
 			params.port,
 		);
+		log::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
+
 		let client = tokio
 			.spawn(async move {
 				RpcClientBuilder::default()
