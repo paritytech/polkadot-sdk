@@ -110,7 +110,11 @@ where
 }
 
 /// Returns `Ok(true)` if bridge has already been initialized.
-async fn is_initialized<E: Engine<SourceChain>, SourceChain: Chain, TargetChain: Chain>(
+pub(crate) async fn is_initialized<
+	E: Engine<SourceChain>,
+	SourceChain: Chain,
+	TargetChain: Chain,
+>(
 	target_client: &Client<TargetChain>,
 ) -> Result<bool, Error<HashOf<SourceChain>, BlockNumberOf<SourceChain>>> {
 	Ok(target_client
