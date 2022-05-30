@@ -27,7 +27,7 @@ use cumulus_primitives_core::{
 use frame_support::dispatch::Weight;
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_runtime::traits::BadOrigin;
+use sp_runtime::{traits::BadOrigin, RuntimeDebug};
 use sp_std::{convert::TryFrom, prelude::*};
 use xcm::{
 	latest::{ExecuteXcm, Outcome, Parent, Xcm},
@@ -77,8 +77,7 @@ pub mod pallet {
 	}
 
 	/// Origin for the parachains module.
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
-	#[cfg_attr(feature = "std", derive(Debug))]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// It comes from the (parent) relay chain.
