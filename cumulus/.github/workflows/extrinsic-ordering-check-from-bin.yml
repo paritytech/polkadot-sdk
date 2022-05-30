@@ -23,25 +23,31 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CHAIN: ${{github.event.inputs.chain}}
+      BIN: node-bin
+      BIN_PATH: ./tmp/$BIN
       BIN_URL: ${{github.event.inputs.binary_url}}
       REF_URL: ${{github.event.inputs.reference_url}}
 
-    steps:
+    steps:    
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
+
       - name: Fetch binary
         run: |
+          echo Creating a temp dir to download and run binary
+          mkdir -p tmp
           echo Fetching $BIN_URL
-          wget $BIN_URL
-          chmod a+x polkadot-parachain
-          ./polkadot-parachain --version
+          wget $BIN_URL -O $BIN_PATH
+          chmod a+x $BIN_PATH
+          $BIN_PATH --version
 
       - name: Start local node
         run: |
           echo Running on $CHAIN
-          ./polkadot-parachain --chain=$CHAIN -- --chain polkadot-local &
+          $BIN_PATH --chain=$CHAIN -- --chain polkadot-local &
 
       - name: Prepare output
         run: |
-          VERSION=$(./polkadot-parachain --version)
+          VERSION=$($BIN_PATH --version)
           echo "Metadata comparison:" >> output.txt
           echo "Date: $(date)" >> output.txt
           echo "Reference: $REF_URL" >> output.txt
@@ -69,7 +75,7 @@ jobs:
 
       - name: Stop our local node
         run: |
-          pkill polkadot-parachain
+          pkill $BIN
         continue-on-error: true
 
       - name: Save output as artifact
