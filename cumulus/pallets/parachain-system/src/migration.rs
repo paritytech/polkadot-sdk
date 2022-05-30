@@ -41,9 +41,11 @@ pub fn on_runtime_upgrade<T: Config>() -> Weight {
 /// mechanism now uses signals instead of block offsets.
 mod v1 {
 	use crate::{Config, Pallet};
+	#[allow(deprecated)]
 	use frame_support::{migration::remove_storage_prefix, pallet_prelude::*};
 
 	pub fn migrate<T: Config>() -> Weight {
+		#[allow(deprecated)]
 		remove_storage_prefix(<Pallet<T>>::name().as_bytes(), b"LastUpgrade", b"");
 		T::DbWeight::get().writes(1)
 	}
