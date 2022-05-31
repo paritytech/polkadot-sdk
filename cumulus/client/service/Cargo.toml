@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 tracing = "0.1.34"
 
 # Substrate

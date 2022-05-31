@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.53"
 futures = { version = "0.3.8", features = ["compat"] }
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 tracing = "0.1.34"
 
 # Substrate
