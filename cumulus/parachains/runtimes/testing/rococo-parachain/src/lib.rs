@@ -38,7 +38,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, match_types, parameter_types,
-	traits::{EnsureOneOf, Everything, IsInVec, Randomness},
+	traits::{EitherOfDiverse, Everything, IsInVec, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		ConstantMultiplier, DispatchClass, IdentityFee, Weight,
@@ -483,7 +483,7 @@ parameter_types! {
 
 /// A majority of the Unit body from Rococo over XCM is our required administration origin.
 pub type AdminOrigin =
-	EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<RocLocation, UnitBody>>>;
+	EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<RocLocation, UnitBody>>>;
 
 impl pallet_assets::Config for Runtime {
 	type Event = Event;
