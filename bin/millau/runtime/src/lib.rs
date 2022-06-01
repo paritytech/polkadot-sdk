@@ -520,6 +520,7 @@ pub type WitRialtoParachainsInstance = ();
 impl pallet_bridge_parachains::Config<WitRialtoParachainsInstance> for Runtime {
 	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
 	type ParasPalletName = RialtoParasPalletName;
+	type TrackedParachains = frame_support::traits::Everything;
 	type HeadsToKeep = HeadersToKeep;
 }
 
