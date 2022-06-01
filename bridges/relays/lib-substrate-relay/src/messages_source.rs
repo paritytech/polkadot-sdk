@@ -31,8 +31,10 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
-	LaneId, MessageNonce, OperatingMode, OutboundLaneData, UnrewardedRelayersState,
+	InboundMessageDetails, LaneId, MessageData, MessageNonce, OperatingMode, OutboundLaneData,
+	OutboundMessageDetails, UnrewardedRelayersState,
 };
+use bp_runtime::messages::DispatchFeePayment;
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
@@ -54,7 +56,7 @@ use relay_substrate_client::{
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
 use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
-use std::ops::RangeInclusive;
+use std::{collections::HashMap, ops::RangeInclusive};
 
 /// Intermediate message proof returned by the source Substrate node. Includes everything
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
@@ -199,11 +201,97 @@ where
 			)
 			.await?;
 
-		make_message_details_map::<P::SourceChain>(
+		let mut messages = make_message_details_map::<P::SourceChain>(
 			Decode::decode(&mut &encoded_response.0[..])
 				.map_err(SubstrateError::ResponseParseFailed)?,
 			nonces,
-		)
+		)?;
+
+		// prepare arguments of the inbound message details call (if we need it)
+		let mut messages_to_refine = HashMap::new();
+		for (message_nonce, message) in &messages {
+			if message.dispatch_fee_payment != DispatchFeePayment::AtTargetChain {
+				continue
+			}
+
+			// for pay-at-target messages we may want to ask target chain for
+			// refined dispatch weight
+			let message_key = bp_messages::storage_keys::message_key(
+				P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+				&self.lane_id,
+				*message_nonce,
+			);
+			let message_data: MessageData<BalanceOf<P::SourceChain>> =
+				self.source_client.storage_value(message_key, Some(id.1)).await?.ok_or_else(
+					|| {
+						SubstrateError::Custom(format!(
+							"Message to {} {:?}/{} is missing from runtime the storage of {} at {:?}",
+							P::TargetChain::NAME,
+							self.lane_id,
+							message_nonce,
+							P::SourceChain::NAME,
+							id,
+						))
+					},
+				)?;
+			let message_payload = message_data.payload;
+			messages_to_refine.insert(
+				*message_nonce,
+				(
+					message_payload,
+					OutboundMessageDetails {
+						nonce: *message_nonce,
+						dispatch_weight: message.dispatch_weight,
+						size: message.size,
+						delivery_and_dispatch_fee: message.reward,
+						dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
+					},
+				),
+			);
+		}
+
+		// request inbound message details from the target client
+		if !messages_to_refine.is_empty() {
+			let refined_messages_encoded = self
+				.target_client
+				.state_call(
+					P::SourceChain::FROM_CHAIN_MESSAGE_DETAILS_METHOD.into(),
+					Bytes((self.lane_id, messages_to_refine.values().collect::<Vec<_>>()).encode()),
+					None,
+				)
+				.await?;
+			let refined_messages =
+				Vec::<InboundMessageDetails>::decode(&mut &refined_messages_encoded.0[..])
+					.map_err(SubstrateError::ResponseParseFailed)?;
+			if refined_messages.len() != messages_to_refine.len() {
+				return Err(SubstrateError::Custom(format!(
+					"Call of {} at {} has returned {} entries instead of expected {}",
+					P::SourceChain::FROM_CHAIN_MESSAGE_DETAILS_METHOD,
+					P::TargetChain::NAME,
+					refined_messages.len(),
+					messages_to_refine.len(),
+				)))
+			}
+
+			for (nonce, refined_message) in messages_to_refine.keys().zip(refined_messages) {
+				let message = messages
+					.get_mut(nonce)
+					.expect("`messages_to_refine` is a subset of `messages`; qed");
+				log::trace!(
+					target: "bridge",
+					"Refined weight of {}->{} message {:?}/{}: at-source: {}, at-target: {}",
+					P::SourceChain::NAME,
+					P::TargetChain::NAME,
+					self.lane_id,
+					nonce,
+					message.dispatch_weight,
+					refined_message.dispatch_weight,
+				);
+				message.dispatch_weight = refined_message.dispatch_weight;
+			}
+		}
+
+		Ok(messages)
 	}
 
 	async fn prove_messages(
@@ -483,7 +571,7 @@ where
 }
 
 fn make_message_details_map<C: Chain>(
-	weights: Vec<bp_messages::MessageDetails<C::Balance>>,
+	weights: Vec<bp_messages::OutboundMessageDetails<C::Balance>>,
 	nonces: RangeInclusive<MessageNonce>,
 ) -> Result<MessageDetailsMap<C::Balance>, SubstrateError> {
 	let make_missing_nonce_error = |expected_nonce| {
@@ -558,10 +646,10 @@ mod tests {
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
-	) -> Vec<bp_messages::MessageDetails<bp_wococo::Balance>> {
+	) -> Vec<bp_messages::OutboundMessageDetails<bp_wococo::Balance>> {
 		nonces
 			.into_iter()
-			.map(|nonce| bp_messages::MessageDetails {
+			.map(|nonce| bp_messages::OutboundMessageDetails {
 				nonce,
 				dispatch_weight: 0,
 				size: 0,
