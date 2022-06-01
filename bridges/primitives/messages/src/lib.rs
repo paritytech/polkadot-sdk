@@ -176,12 +176,15 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 	}
 }
 
-/// Message details, returned by runtime APIs.
+/// Outbound message details, returned by runtime APIs.
 #[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
-pub struct MessageDetails<OutboundMessageFee> {
+pub struct OutboundMessageDetails<OutboundMessageFee> {
 	/// Nonce assigned to the message.
 	pub nonce: MessageNonce,
-	/// Message dispatch weight, declared by the submitter.
+	/// Message dispatch weight.
+	///
+	/// Depending on messages pallet configuration, it may be declared by the message submitter,
+	/// computed automatically or just be zero if dispatch fee is paid at the target chain.
 	pub dispatch_weight: Weight,
 	/// Size of the encoded message.
 	pub size: u32,
@@ -189,6 +192,18 @@ pub struct MessageDetails<OutboundMessageFee> {
 	pub delivery_and_dispatch_fee: OutboundMessageFee,
 	/// Where the fee for dispatching message is paid?
 	pub dispatch_fee_payment: DispatchFeePayment,
+}
+
+/// Inbound message details, returned by runtime APIs.
+#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
+pub struct InboundMessageDetails {
+	/// Computed message dispatch weight.
+	///
+	/// Runtime API guarantees that it will match the value, returned by
+	/// `target_chain::MessageDispatch::dispatch_weight`. This means that if the runtime
+	/// has failed to decode the message, it will be zero - that's because `undecodable`
+	/// message cannot be dispatched.
+	pub dispatch_weight: Weight,
 }
 
 /// Bit vector of message dispatch results.

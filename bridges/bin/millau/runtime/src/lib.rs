@@ -833,13 +833,23 @@ impl_runtime_apis! {
 			lane: bp_messages::LaneId,
 			begin: bp_messages::MessageNonce,
 			end: bp_messages::MessageNonce,
-		) -> Vec<bp_messages::MessageDetails<Balance>> {
+		) -> Vec<bp_messages::OutboundMessageDetails<Balance>> {
 			bridge_runtime_common::messages_api::outbound_message_details::<
 				Runtime,
 				WithRialtoMessagesInstance,
-				WithRialtoMessageBridge,
-				xcm_config::OutboundXcmWeigher,
 			>(lane, begin, end)
+		}
+	}
+
+	impl bp_rialto::FromRialtoInboundLaneApi<Block, bp_rialto::Balance> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails<bp_rialto::Balance>)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				WithRialtoMessagesInstance,
+			>(lane, messages)
 		}
 	}
 
@@ -860,13 +870,23 @@ impl_runtime_apis! {
 			lane: bp_messages::LaneId,
 			begin: bp_messages::MessageNonce,
 			end: bp_messages::MessageNonce,
-		) -> Vec<bp_messages::MessageDetails<Balance>> {
+		) -> Vec<bp_messages::OutboundMessageDetails<Balance>> {
 			bridge_runtime_common::messages_api::outbound_message_details::<
 				Runtime,
 				WithRialtoParachainMessagesInstance,
-				WithRialtoParachainMessageBridge,
-				xcm_config::OutboundXcmWeigher,
 			>(lane, begin, end)
+		}
+	}
+
+	impl bp_rialto_parachain::FromRialtoParachainInboundLaneApi<Block, bp_rialto_parachain::Balance> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails<bp_rialto_parachain::Balance>)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				WithRialtoParachainMessagesInstance,
+			>(lane, messages)
 		}
 	}
 

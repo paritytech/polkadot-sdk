@@ -18,7 +18,9 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce};
+use bp_messages::{
+	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
+};
 use frame_support::weights::{
 	Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
@@ -89,6 +91,9 @@ pub const TO_ROCOCO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToRococoOutboundLaneApi::message_details` runtime method.
 pub const TO_ROCOCO_MESSAGE_DETAILS_METHOD: &str = "ToRococoOutboundLaneApi_message_details";
 
+/// Name of the `FromRococoInboundLaneApi::message_details` runtime method.
+pub const FROM_ROCOCO_MESSAGE_DETAILS_METHOD: &str = "FromRococoInboundLaneApi_message_details";
+
 /// Existential deposit on Rococo.
 pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 100;
 
@@ -139,6 +144,21 @@ sp_api::decl_runtime_apis! {
 			lane: LaneId,
 			begin: MessageNonce,
 			end: MessageNonce,
-		) -> Vec<MessageDetails<OutboundMessageFee>>;
+		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
+	}
+
+	/// Inbound message lane API for messages sent by Rococo chain.
+	///
+	/// This API is implemented by runtimes that are receiving messages from Rococo chain, not the
+	/// Rococo runtime itself.
+	///
+	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
+	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
+	pub trait FromRococoInboundLaneApi<InboundMessageFee: Parameter> {
+		/// Return details of given inbound messages.
+		fn message_details(
+			lane: LaneId,
+			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
+		) -> Vec<InboundMessageDetails>;
 	}
 }
