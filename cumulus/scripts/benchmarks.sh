@@ -3,9 +3,9 @@
 steps=50
 repeat=20
 
-statemineOutput=./parachains/runtimes/statemine/src/weights
-statemintOutput=./parachains/runtimes/statemint/src/weights
-westmintOutput=./parachains/runtimes/westmint/src/weights
+statemineOutput=./parachains/runtimes/assets/statemine/src/weights
+statemintOutput=./parachains/runtimes/assets/statemint/src/weights
+westmintOutput=./parachains/runtimes/assets/westmint/src/weights
 
 statemineChain=statemine-dev
 statemintChain=statemint-dev
