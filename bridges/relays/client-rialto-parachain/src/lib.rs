@@ -88,6 +88,8 @@ impl ChainWithMessages for RialtoParachain {
 		bp_rialto_parachain::WITH_RIALTO_PARACHAIN_MESSAGES_PALLET_NAME;
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_rialto_parachain::TO_RIALTO_PARACHAIN_MESSAGE_DETAILS_METHOD;
+	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
+		bp_rialto_parachain::FROM_RIALTO_PARACHAIN_MESSAGE_DETAILS_METHOD;
 	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight =
 		bp_rialto_parachain::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =

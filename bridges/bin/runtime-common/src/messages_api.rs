@@ -16,68 +16,54 @@
 
 //! Helpers for implementing various message-related runtime API mthods.
 
-use crate::messages::{target::FromBridgedChainMessagePayload, MessageBridge};
-
-use bp_messages::{LaneId, MessageDetails, MessageKey, MessageNonce};
-use codec::Decode;
-use frame_support::weights::Weight;
+use bp_messages::{
+	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
+};
 use sp_std::vec::Vec;
 
 /// Implementation of the `To*OutboundLaneApi::message_details`.
-pub fn outbound_message_details<Runtime, MessagesPalletInstance, BridgeConfig, XcmWeigher>(
+pub fn outbound_message_details<Runtime, MessagesPalletInstance>(
 	lane: LaneId,
 	begin: MessageNonce,
 	end: MessageNonce,
-) -> Vec<MessageDetails<Runtime::OutboundMessageFee>>
+) -> Vec<OutboundMessageDetails<Runtime::OutboundMessageFee>>
 where
 	Runtime: pallet_bridge_messages::Config<MessagesPalletInstance>,
 	MessagesPalletInstance: 'static,
-	BridgeConfig: MessageBridge,
-	XcmWeigher: xcm_executor::traits::WeightBounds<()>,
 {
 	(begin..=end)
 		.filter_map(|nonce| {
 			let message_data =
 				pallet_bridge_messages::Pallet::<Runtime, MessagesPalletInstance>::outbound_message_data(lane, nonce)?;
-			Some(MessageDetails {
+			Some(OutboundMessageDetails {
 				nonce,
-				// this shall match the similar code in the `FromBridgedChainMessageDispatch` - if we have failed
-				// to decode or estimate dispatch weight, we'll just return 0 to disable actual execution
-				dispatch_weight: compute_message_weight::<XcmWeigher>(
-					MessageKey { lane_id: lane, nonce },
-					&message_data.payload,
-				).unwrap_or(0),
+				// dispatch message weight is always zero at the source chain, since we're paying for
+				// dispatch at the target chain
+				dispatch_weight: 0,
 				size: message_data.payload.len() as _,
 				delivery_and_dispatch_fee: message_data.fee,
+				// we're delivering XCM messages here, so fee is always paid at the target chain
 				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtTargetChain,
 			})
 		})
 		.collect()
 }
 
-// at the source chain we don't know the type of target chain `Call` => `()` is used (it is
-// similarly currently used in Polkadot codebase)
-fn compute_message_weight<XcmWeigher: xcm_executor::traits::WeightBounds<()>>(
-	message_key: MessageKey,
-	encoded_payload: &[u8],
-) -> Result<Weight, ()> {
-	let mut payload = FromBridgedChainMessagePayload::<()>::decode(&mut &encoded_payload[..])
-		.map_err(|e| {
-			log::debug!(
-				target: "runtime::bridge-dispatch",
-				"Failed to decode outbound XCM message {:?}: {:?}",
-				message_key,
-				e,
-			);
-		})?;
-	let weight = XcmWeigher::weight(&mut payload.xcm.1);
-	let weight = weight.map_err(|e| {
-		log::debug!(
-			target: "runtime::bridge-dispatch",
-			"Failed to compute dispatch weight of outbound XCM message {:?}: {:?}",
-			message_key,
-			e,
-		);
-	})?;
-	Ok(weight)
+/// Implementation of the `To*InboundLaneApi::message_details`.
+pub fn inbound_message_details<Runtime, MessagesPalletInstance>(
+	lane: LaneId,
+	messages: Vec<(MessagePayload, OutboundMessageDetails<Runtime::InboundMessageFee>)>,
+) -> Vec<InboundMessageDetails>
+where
+	Runtime: pallet_bridge_messages::Config<MessagesPalletInstance>,
+	MessagesPalletInstance: 'static,
+{
+	messages
+		.into_iter()
+		.map(|(payload, details)| {
+			pallet_bridge_messages::Pallet::<Runtime, MessagesPalletInstance>::inbound_message_data(
+				lane, payload, details,
+			)
+		})
+		.collect()
 }
