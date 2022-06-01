@@ -7,6 +7,7 @@
 
 stages:
   - test
+  - build
   - publish
   - benchmarks-build
   - benchmarks-run
@@ -42,6 +43,15 @@ variables:
   - rustup +nightly show
   - cargo +nightly --version
   - bash --version
+
+.common-refs:                      &common-refs
+  # these jobs run always*
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_REF_NAME == "master"
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
 
 .publish-refs:                     &publish-refs
   rules:
@@ -80,107 +90,130 @@ variables:
   tags:
     - kubernetes-parity-build
 
-.collect-artifacts:                &collect-artifacts
-  artifacts:
-    name:                          "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
-    when:                          on_success
-    expire_in:                     28 days
-    paths:
-      - ./artifacts/
-
 #### stage:                        test
 
 test-linux-stable:
   stage:                           test
   <<:                              *docker-env
-  rules:
-    - if: $CI_COMMIT_REF_NAME == "master"
-    - if: $CI_COMMIT_REF_NAME == "tags"
-    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
-    # It doesn't make sense to build on every commit, so we build on tags
-    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
-      variables:
-        ARE_WE_RELEASING_YET:      maybe!
-    # web and schedule triggers can be provided with the non-empty variable ARE_WE_RELEASING_YET
-    # to run building and publishing the binary.
-    - if: $CI_PIPELINE_SOURCE == "web"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  <<:                              *collect-artifacts
+  <<:                              *common-refs
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo test --all --release --locked -- --include-ignored
-    # It's almost free to produce a binary here, please refrain from using it in production since
-    # it goes with the debug assertions.
-    - if [ "${ARE_WE_RELEASING_YET}" ]; then
-        echo "___Building a binary___";
-        time cargo build --release --locked --bin polkadot-parachain;
-        echo "___Packing the artifacts___";
-        mkdir -p ./artifacts;
-        mv ${CARGO_TARGET_DIR}/release/polkadot-parachain ./artifacts/.;
-        echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___";
-        echo ${CI_COMMIT_REF_NAME} | tee ./artifacts/VERSION;
-      else
-        exit 0;
-      fi
-    - sccache -s
 
 check-runtime-benchmarks:
   stage:                           test
   <<:                              *docker-env
+  <<:                              *common-refs
   script:
     # Check that the node will compile with `runtime-benchmarks` feature flag.
     - time cargo check --all --features runtime-benchmarks
     # Check that parachain-template will compile with `runtime-benchmarks` feature flag.
     - time cargo check -p parachain-template-node --features runtime-benchmarks
-    - sccache -s
 
 cargo-check-try-runtime:
   stage:                           test
   <<:                              *docker-env
+  <<:                              *common-refs
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job:                         check-runtime-benchmarks
+      artifacts:                   false
   script:
     # Check that the node will compile with `try-runtime` feature flag.
     - time cargo check --all --features try-runtime
     # Check that parachain-template will compile with `try-runtime` feature flag.
     - time cargo check -p parachain-template-node --features try-runtime
-    - sccache -s
-
-cargo-check-benches:
-  stage:                           test
-  <<:                              *docker-env
-  script:
-    - time cargo check --all --benches
-    - sccache -s
 
 check-rustdoc:
   stage:                           test
   <<:                              *docker-env
+  <<:                              *common-refs
   variables:
     SKIP_WASM_BUILD:               1
     RUSTDOCFLAGS:                  "-Dwarnings"
   script:
     - time cargo +nightly doc --workspace --all-features --verbose --no-deps
-    - sccache -s
+
+cargo-check-benches:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *common-refs
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job:                         check-rustdoc
+      artifacts:                   false
+  script:
+    - time cargo check --all --benches
+
+#### stage:                        build
+
+build-linux-stable:
+  stage:                           build
+  <<:                              *docker-env
+  <<:                              *collect-artifacts
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job:                         check-rustdoc
+      artifacts:                   false
+  script:
+    - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
+    - time cargo build --release --locked --bin polkadot-parachain
+    - echo "___Packing the artifacts___"
+    - mkdir -p ./artifacts
+    - mv ./target/release/polkadot-parachain ./artifacts/.
+    - echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
+    - echo ${CI_COMMIT_REF_NAME} | tee ./artifacts/VERSION
 
 #### stage:                        publish
+
+build-push-image:
+  stage:                           publish
+  <<:                              *kubernetes-env
+  <<:                              *common-refs
+  image:                           quay.io/buildah/stable
+  needs:
+    - job:                         build-linux-stable
+      artifacts:                   true
+  variables:
+    DOCKERFILE:                    "docker/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+    IMAGE_NAME:                    docker.io/paritypr/polkadot-parachain-debug
+    VERSION:                       "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  script:
+    - test "$PARITYPR_USER" -a "$PARITYPR_PASS" ||
+        ( echo "no docker credentials provided"; exit 1 )
+    - buildah bud
+        --format=docker
+        --build-arg VCS_REF="${CI_COMMIT_SHA}"
+        --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        --build-arg IMAGE_NAME="${IMAGE_NAME}"
+        --tag "$IMAGE_NAME:$VERSION"
+        --file ${DOCKERFILE} .
+    - echo "$PARITYPR_PASS" |
+        buildah login --username "$PARITYPR_USER" --password-stdin docker.io
+    - buildah info
+    - buildah push --format=v2s2 "$IMAGE_NAME:$VERSION"
+  after_script:
+    - buildah logout --all
 
 publish-s3:
   stage:                           publish
   <<:                              *kubernetes-env
   image:                           paritytech/awscli:latest
   <<:                              *publish-refs
+  needs:
+    - job:                         build-linux-stable
+      artifacts:                   true
   variables:
     GIT_STRATEGY:                  none
     BUCKET:                        "releases.parity.io"
     PREFIX:                        "cumulus/${ARCH}-${DOCKER_OS}"
-  before_script:
-    # Job will fail if no artifacts were provided by test-linux-stable job. It's only possible for
-    # this test to fail if the pipeline was triggered by web or schedule trigger without supplying
-    # a nono-empty ARE_WE_RELEASING_YET variable.
-    - test -e ./artifacts/polkadot-parachain ||
-        ( echo "___No artifacts were provided by the previous job, please check the build there___"; exit 1 )
   script:
     - echo "___Publishing a binary with debug assertions!___"
     - echo "___VERSION = $(cat ./artifacts/VERSION) ___"
@@ -235,3 +268,22 @@ benchmarks:
     - rm -rf .git/config
   tags:
     - weights
+
+
+#### stage:                        .post
+
+# This job cancels the whole pipeline if any of provided jobs fail.
+# In a DAG, every jobs chain is executed independently of others. The `fail_fast` principle suggests
+# to fail the pipeline as soon as possible to shorten the feedback loop.
+cancel-pipeline:
+  stage:                           .post
+  needs:
+    - job:                         test-linux-stable
+      artifacts:                   false
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
+      when: on_failure
+  variables:
+    PROJECT_ID:                    "${CI_PROJECT_ID}"
+    PIPELINE_ID:                   "${CI_PIPELINE_ID}"
+  trigger:                         "parity/infrastructure/ci_cd/pipeline-stopper"
