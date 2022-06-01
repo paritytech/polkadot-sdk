@@ -25,8 +25,9 @@
 
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHasher, ParaHead, ParaHeadsProof, ParaId};
+use bp_runtime::StorageProofError;
 use codec::{Decode, Encode};
-use frame_support::RuntimeDebug;
+use frame_support::{traits::Contains, RuntimeDebug};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::vec::Vec;
@@ -90,11 +91,20 @@ pub mod pallet {
 		#[pallet::constant]
 		type ParasPalletName: Get<&'static str>;
 
+		/// Set of parachains that are tracked by this pallet.
+		///
+		/// The set may be extended easily, without requiring any runtime upgrades. Removing tracked
+		/// parachain requires special handling - pruning existing heads and cleaning related data
+		/// structures.
+		type TrackedParachains: Contains<ParaId>;
+
 		/// Maximal number of single parachain heads to keep in the storage.
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
 		/// the setting does not relate to parachain block numbers - we will simply keep as much
 		/// items in the storage, so it doesn't guarantee any fixed timeframe for heads.
+		///
+		/// Incautious change of this constant may lead to orphan entries in the runtime storage.
 		#[pallet::constant]
 		type HeadsToKeep: Get<u32>;
 	}
@@ -156,17 +166,40 @@ pub mod pallet {
 				sp_trie::StorageProof::new(parachain_heads_proof),
 				move |storage| {
 					for parachain in parachains {
-						// TODO: https://github.com/paritytech/parity-bridges-common/issues/1393
+						// if we're not tracking this parachain, we'll just ignore its head proof here
+						if !T::TrackedParachains::contains(&parachain) {
+							log::trace!(
+								target: "runtime::bridge-parachains",
+								"The head of parachain {:?} has been provided, but it is not tracked by the pallet",
+								parachain,
+							);
+							continue;
+						}
+
 						let parachain_head = match Pallet::<T, I>::read_parachain_head(&storage, parachain) {
-							Some(parachain_head) => parachain_head,
-							None => {
+							Ok(Some(parachain_head)) => parachain_head,
+							Ok(None) => {
 								log::trace!(
 									target: "runtime::bridge-parachains",
-									"The head of parachain {:?} has been declared, but is missing from the proof",
+									"The head of parachain {:?} is None. {}",
 									parachain,
+									if BestParaHeads::<T, I>::contains_key(&parachain) {
+										"Looks like it is not yet registered at the source relay chain"
+									} else {
+										"Looks like it has been deregistered from the source relay chain"
+									},
 								);
 								continue;
-							}
+							},
+							Err(e) => {
+								log::trace!(
+									target: "runtime::bridge-parachains",
+									"The read of head of parachain {:?} has failed: {:?}",
+									parachain,
+									e,
+								);
+								continue;
+							},
 						};
 
 						let _: Result<_, ()> = BestParaHeads::<T, I>::try_mutate(parachain, |stored_best_head| {
@@ -182,14 +215,6 @@ pub mod pallet {
 				},
 			)
 			.map_err(|_| Error::<T, I>::InvalidStorageProof)?;
-
-			// TODO: there may be parachains we are not interested in - so we only need to accept
-			// intersection of `parachains-interesting-to-us` and `parachains`
-			// https://github.com/paritytech/parity-bridges-common/issues/1392
-
-			// TODO: if some parachain is no more interesting to us, we should start pruning its
-			// heads
-			// https://github.com/paritytech/parity-bridges-common/issues/1392
 
 			Ok(())
 		}
@@ -232,12 +257,10 @@ pub mod pallet {
 		fn read_parachain_head(
 			storage: &bp_runtime::StorageProofChecker<RelayBlockHasher>,
 			parachain: ParaId,
-		) -> Option<ParaHead> {
+		) -> Result<Option<ParaHead>, StorageProofError> {
 			let parachain_head_key =
 				parachain_head_storage_key_at_source(T::ParasPalletName::get(), parachain);
-			let parachain_head = storage.read_value(parachain_head_key.0.as_ref()).ok()??;
-			let parachain_head = ParaHead::decode(&mut &parachain_head[..]).ok()?;
-			Some(parachain_head)
+			storage.read_and_decode_value(parachain_head_key.0.as_ref())
 		}
 
 		/// Try to update parachain head.
@@ -327,7 +350,9 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{run_test, test_relay_header, Origin, TestRuntime, PARAS_PALLET_NAME};
+	use crate::mock::{
+		run_test, test_relay_header, Origin, TestRuntime, PARAS_PALLET_NAME, UNTRACKED_PARACHAIN_ID,
+	};
 
 	use bp_test_utils::{authority_list, make_default_justification};
 	use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
@@ -506,6 +531,43 @@ mod tests {
 			assert_eq!(
 				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 10).hash()),
 				Some(head_data(1, 10))
+			);
+		});
+	}
+
+	#[test]
+	fn ignores_untracked_parachain() {
+		let (state_root, proof) = prepare_parachain_heads_proof(vec![
+			(1, head_data(1, 5)),
+			(UNTRACKED_PARACHAIN_ID, head_data(1, 5)),
+			(2, head_data(1, 5)),
+		]);
+		run_test(|| {
+			// start with relay block #0 and try to import head#5 of parachain#1 and untracked
+			// parachain
+			initialize(state_root);
+			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+				Origin::signed(1),
+				test_relay_header(0, state_root).hash(),
+				vec![ParaId(1), ParaId(UNTRACKED_PARACHAIN_ID), ParaId(2)],
+				proof,
+			));
+			assert_eq!(
+				BestParaHeads::<TestRuntime>::get(ParaId(1)),
+				Some(BestParaHead {
+					at_relay_block_number: 0,
+					head_hash: head_data(1, 5).hash(),
+					next_imported_hash_position: 1,
+				})
+			);
+			assert_eq!(BestParaHeads::<TestRuntime>::get(ParaId(UNTRACKED_PARACHAIN_ID)), None,);
+			assert_eq!(
+				BestParaHeads::<TestRuntime>::get(ParaId(2)),
+				Some(BestParaHead {
+					at_relay_block_number: 0,
+					head_hash: head_data(1, 5).hash(),
+					next_imported_hash_position: 1,
+				})
 			);
 		});
 	}

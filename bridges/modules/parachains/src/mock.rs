@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use bp_polkadot_core::parachains::ParaId;
 use bp_runtime::Chain;
-use frame_support::{construct_runtime, parameter_types, weights::Weight};
+use frame_support::{construct_runtime, parameter_types, traits::IsInVec, weights::Weight};
 use sp_runtime::{
 	testing::{Header, H256},
 	traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
@@ -34,6 +35,7 @@ type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
 pub const PARAS_PALLET_NAME: &str = "Paras";
+pub const UNTRACKED_PARACHAIN_ID: u32 = 10;
 
 construct_runtime! {
 	pub enum TestRuntime where
@@ -106,11 +108,13 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance2> for TestRun
 parameter_types! {
 	pub const HeadsToKeep: u32 = 4;
 	pub const ParasPalletName: &'static str = PARAS_PALLET_NAME;
+	pub GetTenFirstParachains: Vec<ParaId> = (0..10).map(ParaId).collect();
 }
 
 impl pallet_bridge_parachains::Config for TestRuntime {
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
 	type ParasPalletName = ParasPalletName;
+	type TrackedParachains = IsInVec<GetTenFirstParachains>;
 	type HeadsToKeep = HeadsToKeep;
 }
 
