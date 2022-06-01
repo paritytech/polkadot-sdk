@@ -105,6 +105,10 @@ pub trait ChainWithMessages: Chain {
 	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str;
 
+	/// Name of the `From<ChainWithMessages>InboundLaneApi::message_details` runtime API method.
+	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
+	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str;
+
 	/// Additional weight of the dispatch fee payment if dispatch is paid at the target chain
 	/// and this `ChainWithMessages` is the target chain.
 	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight;

@@ -18,7 +18,9 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce};
+use bp_messages::{
+	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
+};
 use bp_runtime::Chain;
 use frame_support::{
 	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
@@ -210,6 +212,10 @@ pub const TO_RIALTO_PARACHAIN_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 pub const TO_RIALTO_PARACHAIN_MESSAGE_DETAILS_METHOD: &str =
 	"ToRialtoParachainOutboundLaneApi_message_details";
 
+/// Name of the `FromRialtoParachainInboundLaneApi::message_details` runtime method.
+pub const FROM_RIALTO_PARACHAIN_MESSAGE_DETAILS_METHOD: &str =
+	"FromRialtoParachainInboundLaneApi_message_details";
+
 // We use this to get the account on RialtoParachain (target) which is derived from Millau's
 // (source) account. We do this so we can fund the derived account on RialtoParachain at Genesis to
 // it can pay transaction fees.
@@ -261,7 +267,22 @@ sp_api::decl_runtime_apis! {
 			lane: LaneId,
 			begin: MessageNonce,
 			end: MessageNonce,
-		) -> Vec<MessageDetails<OutboundMessageFee>>;
+		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
+	}
+
+	/// Inbound message lane API for messages sent by RialtoParachain chain.
+	///
+	/// This API is implemented by runtimes that are receiving messages from RialtoParachain chain, not the
+	/// RialtoParachain runtime itself.
+	///
+	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
+	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
+	pub trait FromRialtoParachainInboundLaneApi<InboundMessageFee: Parameter> {
+		/// Return details of given inbound messages.
+		fn message_details(
+			lane: LaneId,
+			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
+		) -> Vec<InboundMessageDetails>;
 	}
 }
 

@@ -893,13 +893,23 @@ impl_runtime_apis! {
 			lane: bp_messages::LaneId,
 			begin: bp_messages::MessageNonce,
 			end: bp_messages::MessageNonce,
-		) -> Vec<bp_messages::MessageDetails<Balance>> {
+		) -> Vec<bp_messages::OutboundMessageDetails<Balance>> {
 			bridge_runtime_common::messages_api::outbound_message_details::<
 				Runtime,
 				WithMillauMessagesInstance,
-				WithMillauMessageBridge,
-				xcm_config::OutboundXcmWeigher,
 			>(lane, begin, end)
+		}
+	}
+
+	impl bp_millau::FromMillauInboundLaneApi<Block, bp_millau::Balance> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails<bp_millau::Balance>)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				WithMillauMessagesInstance,
+			>(lane, messages)
 		}
 	}
 }

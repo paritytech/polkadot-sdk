@@ -18,7 +18,9 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce};
+use bp_messages::{
+	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
+};
 use bp_runtime::Chain;
 use frame_support::{
 	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
@@ -250,6 +252,9 @@ pub const TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToRialtoOutboundLaneApi::message_details` runtime method.
 pub const TO_RIALTO_MESSAGE_DETAILS_METHOD: &str = "ToRialtoOutboundLaneApi_message_details";
 
+/// Name of the `FromRialtoInboundLaneApi::message_details` runtime method.
+pub const FROM_RIALTO_MESSAGE_DETAILS_METHOD: &str = "FromRialtoInboundLaneApi_message_details";
+
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Rialto headers.
 	///
@@ -288,7 +293,22 @@ sp_api::decl_runtime_apis! {
 			lane: LaneId,
 			begin: MessageNonce,
 			end: MessageNonce,
-		) -> Vec<MessageDetails<OutboundMessageFee>>;
+		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
+	}
+
+	/// Inbound message lane API for messages sent by Rialto chain.
+	///
+	/// This API is implemented by runtimes that are receiving messages from Rialto chain, not the
+	/// Rialto runtime itself.
+	///
+	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
+	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
+	pub trait FromRialtoInboundLaneApi<InboundMessageFee: Parameter> {
+		/// Return details of given inbound messages.
+		fn message_details(
+			lane: LaneId,
+			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
+		) -> Vec<InboundMessageDetails>;
 	}
 }
 

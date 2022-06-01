@@ -18,7 +18,9 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use bp_messages::{LaneId, MessageDetails, MessageNonce};
+use bp_messages::{
+	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
+};
 use frame_support::weights::{
 	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
@@ -105,6 +107,9 @@ pub const TO_KUSAMA_ESTIMATE_MESSAGE_FEE_METHOD: &str =
 /// Name of the `ToKusamaOutboundLaneApi::message_details` runtime method.
 pub const TO_KUSAMA_MESSAGE_DETAILS_METHOD: &str = "ToKusamaOutboundLaneApi_message_details";
 
+/// Name of the `FromKusamaInboundLaneApi::message_details` runtime method.
+pub const FROM_KUSAMA_MESSAGE_DETAILS_METHOD: &str = "FromKusamaInboundLaneApi_message_details";
+
 sp_api::decl_runtime_apis! {
 	/// API for querying information about the finalized Kusama headers.
 	///
@@ -143,6 +148,21 @@ sp_api::decl_runtime_apis! {
 			lane: LaneId,
 			begin: MessageNonce,
 			end: MessageNonce,
-		) -> Vec<MessageDetails<OutboundMessageFee>>;
+		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
+	}
+
+	/// Inbound message lane API for messages sent by Kusama chain.
+	///
+	/// This API is implemented by runtimes that are receiving messages from Kusama chain, not the
+	/// Kusama runtime itself.
+	///
+	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
+	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
+	pub trait FromKusamaInboundLaneApi<InboundMessageFee: Parameter> {
+		/// Return details of given inbound messages.
+		fn message_details(
+			lane: LaneId,
+			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
+		) -> Vec<InboundMessageDetails>;
 	}
 }
