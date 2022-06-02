@@ -13,7 +13,7 @@ REPO=$(echo "$grv" | cut -d ' ' -f1 | cut -d$'\t' -f2 | cut -d '/' -f2 | cut -d 
 echo "[+] Detected repo: $REPO"
 
 BRANCH=$(git branch --show-current)
-if ! [[ "$BRANCH" =~ ^release.*$ ]]; then
+if ! [[ "$BRANCH" =~ ^release.*$ || "$BRANCH" =~ ^polkadot.*$ ]]; then
     echo "This script is meant to run only on a RELEASE branch."
     echo "Try one of the following branch:"
     git branch -r --format "%(refname:short)" --sort=-committerdate | grep -Ei '/?release' | head

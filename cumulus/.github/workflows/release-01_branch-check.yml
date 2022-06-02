@@ -4,6 +4,7 @@ on:
     branches:
       - release-**v[0-9]+.[0-9]+.[0-9]+ # client
       - release-**v[0-9]+               # runtimes
+      - polkadot-v[0-9]+.[0-9]+.[0-9]+  # cumulus code
 
   workflow_dispatch:
 
@@ -15,7 +16,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - name: Run check
         shell: bash
         run: ./scripts/ci/github/check-rel-br
