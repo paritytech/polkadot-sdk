@@ -171,19 +171,32 @@ build-linux-stable:
     - echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
     - echo ${CI_COMMIT_REF_NAME} | tee ./artifacts/VERSION
 
+build-test-parachain:
+  stage:                           build
+  <<:                              *docker-env
+  <<:                              *collect-artifacts
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job:                         check-rustdoc
+      artifacts:                   false
+  script:
+    - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
+    - time cargo +nightly build --release --locked --bin test-parachain
+    - echo "___Packing the artifacts___"
+    - mkdir -p ./artifacts
+    - mv ./target/release/test-parachain ./artifacts/.
+
 #### stage:                        publish
 
-build-push-image:
-  stage:                           publish
-  <<:                              *kubernetes-env
-  <<:                              *common-refs
+.build-push-image:                  &build-push-image
   image:                           quay.io/buildah/stable
-  needs:
-    - job:                         build-linux-stable
-      artifacts:                   true
   variables:
-    DOCKERFILE:                    "docker/polkadot-parachain-debug_unsigned_injected.Dockerfile"
-    IMAGE_NAME:                    docker.io/paritypr/polkadot-parachain-debug
+    DOCKERFILE:                    "" # docker/path-to.Dockerfile
+    IMAGE_NAME:                    "" # docker.io/paritypr/image_name
     VERSION:                       "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
   script:
     - test "$PARITYPR_USER" -a "$PARITYPR_PASS" ||
@@ -201,6 +214,32 @@ build-push-image:
     - buildah push --format=v2s2 "$IMAGE_NAME:$VERSION"
   after_script:
     - buildah logout --all
+
+build-push-image-polkadot-parachain-debug:
+  stage:                           publish
+  <<:                              *kubernetes-env
+  <<:                              *common-refs
+  <<:                              *build-push-image
+  needs:
+    - job:                         build-linux-stable
+      artifacts:                   true
+  variables:
+    DOCKERFILE:                    "docker/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+    IMAGE_NAME:                    "docker.io/paritypr/polkadot-parachain-debug"
+    VERSION:                       "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+
+build-push-image-test-parachain:
+  stage:                           publish
+  <<:                              *kubernetes-env
+  <<:                              *common-refs
+  <<:                              *build-push-image
+  needs:
+    - job:                         build-test-parachain
+      artifacts:                   true
+  variables:
+    DOCKERFILE:                    "docker/test-parachain_injected.Dockerfile"
+    IMAGE_NAME:                    "docker.io/paritypr/test-parachain"
+    VERSION:                       "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 publish-s3:
   stage:                           publish
