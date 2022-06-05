@@ -9,7 +9,7 @@ name = "test-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.53"
+async-trait = "0.1.54"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.3.5", features = [ "async_tokio" ] }
 jsonrpsee = { version = "0.13.1", features = ["server"] }
