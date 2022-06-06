@@ -264,7 +264,7 @@ pub mod pallet {
 		}
 
 		/// Try to update parachain head.
-		fn update_parachain_head(
+		pub(super) fn update_parachain_head(
 			parachain: ParaId,
 			stored_best_head: Option<BestParaHead>,
 			updated_at_relay_block_number: RelayBlockNumber,
@@ -688,6 +688,56 @@ mod tests {
 			assert_noop!(
 				import_parachain_1_head(0, Default::default(), proof),
 				Error::<TestRuntime>::InvalidStorageProof
+			);
+		});
+	}
+
+	#[test]
+	fn is_not_rewriting_existing_head_if_failed_to_read_updated_head() {
+		let (state_root_5, proof_5) = prepare_parachain_heads_proof(vec![(1, head_data(1, 5))]);
+		let (state_root_10_at_20, proof_10_at_20) =
+			prepare_parachain_heads_proof(vec![(2, head_data(2, 10))]);
+		let (state_root_10_at_30, proof_10_at_30) =
+			prepare_parachain_heads_proof(vec![(1, head_data(1, 10))]);
+		run_test(|| {
+			// we've already imported head#5 of parachain#1 at relay block#10
+			initialize(state_root_5);
+			import_parachain_1_head(0, state_root_5, proof_5).expect("ok");
+			assert_eq!(
+				Pallet::<TestRuntime>::best_parachain_head(ParaId(1)),
+				Some(head_data(1, 5))
+			);
+
+			// then if someone is pretending to provide updated head#10 of parachain#1 at relay
+			// block#20, but fails to do that
+			//
+			// => we'll leave previous value
+			proceed(20, state_root_10_at_20);
+			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+				Origin::signed(1),
+				test_relay_header(20, state_root_10_at_20).hash(),
+				vec![ParaId(1)],
+				proof_10_at_20,
+			),);
+			assert_eq!(
+				Pallet::<TestRuntime>::best_parachain_head(ParaId(1)),
+				Some(head_data(1, 5))
+			);
+
+			// then if someone is pretending to provide updated head#10 of parachain#1 at relay
+			// block#30, and actualy provides it
+			//
+			// => we'll update value
+			proceed(30, state_root_10_at_30);
+			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+				Origin::signed(1),
+				test_relay_header(30, state_root_10_at_30).hash(),
+				vec![ParaId(1)],
+				proof_10_at_30,
+			),);
+			assert_eq!(
+				Pallet::<TestRuntime>::best_parachain_head(ParaId(1)),
+				Some(head_data(1, 10))
 			);
 		});
 	}
