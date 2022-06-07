@@ -20,6 +20,7 @@ pallet-bridge-grandpa = { path = "../grandpa", default-features = false }
 
 # Substrate Dependencies
 
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -49,4 +50,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 ]

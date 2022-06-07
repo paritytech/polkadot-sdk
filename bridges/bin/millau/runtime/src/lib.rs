@@ -515,9 +515,10 @@ parameter_types! {
 }
 
 /// Instance of the with-Rialto parachains token swap pallet.
-pub type WitRialtoParachainsInstance = ();
+pub type WithRialtoParachainsInstance = ();
 
-impl pallet_bridge_parachains::Config<WitRialtoParachainsInstance> for Runtime {
+impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime {
+	type WeightInfo = pallet_bridge_parachains::weights::MillauWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
 	type ParasPalletName = RialtoParasPalletName;
 	type TrackedParachains = frame_support::traits::Everything;
@@ -807,7 +808,7 @@ impl_runtime_apis! {
 			use bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 			let best_rialto_parachain_head = pallet_bridge_parachains::Pallet::<
 				Runtime,
-				WitRialtoParachainsInstance,
+				WithRialtoParachainsInstance,
 			>::best_parachain_head(RIALTO_PARACHAIN_ID.into())
 				.and_then(|encoded_header| bp_rialto_parachain::Header::decode(&mut &encoded_header.0[..]).ok());
 			match best_rialto_parachain_head {
@@ -901,11 +902,13 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 
 			use pallet_bridge_messages::benchmarking::Pallet as MessagesBench;
+			use pallet_bridge_parachains::benchmarking::Pallet as ParachainsBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 
 			list_benchmark!(list, extra, pallet_bridge_messages, MessagesBench::<Runtime, WithRialtoMessagesInstance>);
 			list_benchmark!(list, extra, pallet_bridge_grandpa, BridgeRialtoGrandpa);
+			list_benchmark!(list, extra, pallet_bridge_parachains, ParachainsBench::<Runtime, WithRialtoMessagesInstance>);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -941,6 +944,10 @@ impl_runtime_apis! {
 				MessageDeliveryProofParams,
 				MessageParams,
 				MessageProofParams,
+			};
+			use pallet_bridge_parachains::benchmarking::{
+				Pallet as ParachainsBench,
+				Config as ParachainsConfig,
 			};
 			use rialto_messages::WithRialtoMessageBridge;
 
@@ -991,6 +998,19 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl ParachainsConfig<WithRialtoParachainsInstance> for Runtime {
+				fn prepare_parachain_heads_proof(
+					parachains: &[bp_polkadot_core::parachains::ParaId],
+					parachain_head_size: u32,
+					proof_size: bp_runtime::StorageProofSize,
+				) -> (pallet_bridge_parachains::RelayBlockHash, bp_polkadot_core::parachains::ParaHeadsProof) {
+					bridge_runtime_common::parachains_benchmarking::prepare_parachain_heads_proof::<Runtime, WithRialtoParachainsInstance>(
+						parachains,
+						parachain_head_size,
+						proof_size,
+					)
+				}
+			}
 
 			add_benchmark!(
 				params,
@@ -999,6 +1019,12 @@ impl_runtime_apis! {
 				MessagesBench::<Runtime, WithRialtoMessagesInstance>
 			);
 			add_benchmark!(params, batches, pallet_bridge_grandpa, BridgeRialtoGrandpa);
+			add_benchmark!(
+				params,
+				batches,
+				pallet_bridge_parachains,
+				ParachainsBench::<Runtime, WithRialtoParachainsInstance>
+			);
 
 			Ok(batches)
 		}
