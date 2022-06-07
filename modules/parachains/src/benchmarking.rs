@@ -37,7 +37,7 @@ pub trait Config<I: 'static>: crate::Config<I> {
 		parachains: &[ParaId],
 		parachain_head_size: u32,
 		proof_size: StorageProofSize,
-	) -> (RelayBlockHash, ParaHeadsProof);
+	) -> (RelayBlockNumber, RelayBlockHash, ParaHeadsProof);
 }
 
 benchmarks_instance_pallet! {
@@ -57,12 +57,13 @@ benchmarks_instance_pallet! {
 
 		let sender = account("sender", 0, 0);
 		let parachains = (1..=p).map(ParaId).collect::<Vec<_>>();
-		let (relay_block_hash, parachain_heads_proof) = T::prepare_parachain_heads_proof(
+		let (relay_block_number, relay_block_hash, parachain_heads_proof) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
 			StorageProofSize::Minimal(0),
 		);
-	}: submit_parachain_heads(RawOrigin::Signed(sender), relay_block_hash, parachains.clone(), parachain_heads_proof)
+		let at_relay_block = (relay_block_number, relay_block_hash);
+	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains.clone(), parachain_heads_proof)
 	verify {
 		for parachain in parachains {
 			assert!(crate::Pallet::<T, I>::best_parachain_head(parachain).is_some());
@@ -73,13 +74,13 @@ benchmarks_instance_pallet! {
 	submit_parachain_heads_with_1kb_proof {
 		let sender = account("sender", 0, 0);
 		let parachains = vec![ParaId(1)];
-		let (relay_block_hash, parachain_heads_proof) = T::prepare_parachain_heads_proof(
+		let (relay_block_number, relay_block_hash, parachain_heads_proof) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
 			StorageProofSize::HasExtraNodes(1024),
 		);
-
-	}: submit_parachain_heads(RawOrigin::Signed(sender), relay_block_hash, parachains.clone(), parachain_heads_proof)
+		let at_relay_block = (relay_block_number, relay_block_hash);
+	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains.clone(), parachain_heads_proof)
 	verify {
 		for parachain in parachains {
 			assert!(crate::Pallet::<T, I>::best_parachain_head(parachain).is_some());
@@ -90,13 +91,13 @@ benchmarks_instance_pallet! {
 	submit_parachain_heads_with_16kb_proof {
 		let sender = account("sender", 0, 0);
 		let parachains = vec![ParaId(1)];
-		let (relay_block_hash, parachain_heads_proof) = T::prepare_parachain_heads_proof(
+		let (relay_block_number, relay_block_hash, parachain_heads_proof) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
 			StorageProofSize::HasExtraNodes(16 * 1024),
 		);
-
-	}: submit_parachain_heads(RawOrigin::Signed(sender), relay_block_hash, parachains.clone(), parachain_heads_proof)
+		let at_relay_block = (relay_block_number, relay_block_hash);
+	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains.clone(), parachain_heads_proof)
 	verify {
 		for parachain in parachains {
 			assert!(crate::Pallet::<T, I>::best_parachain_head(parachain).is_some());

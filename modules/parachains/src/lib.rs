@@ -44,6 +44,7 @@ pub mod weights_ext;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+mod extension;
 #[cfg(test)]
 mod mock;
 
@@ -84,8 +85,10 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		/// Relay chain block is unknown to us.
+		/// Relay chain block hash is unknown to us.
 		UnknownRelayChainBlock,
+		/// The number of stored relay block is different from what the relayer has provided.
+		InvalidRelayChainBlockNumber,
 		/// Invalid storage proof has been passed.
 		InvalidStorageProof,
 		/// Given parachain head is unknown.
@@ -175,17 +178,21 @@ pub mod pallet {
 		))]
 		pub fn submit_parachain_heads(
 			_origin: OriginFor<T>,
-			relay_block_hash: RelayBlockHash,
+			at_relay_block: (RelayBlockNumber, RelayBlockHash),
 			parachains: Vec<ParaId>,
 			parachain_heads_proof: ParaHeadsProof,
 		) -> DispatchResultWithPostInfo {
 			// we'll need relay chain header to verify that parachains heads are always increasing.
+			let (relay_block_number, relay_block_hash) = at_relay_block;
 			let relay_block = pallet_bridge_grandpa::ImportedHeaders::<
 				T,
 				T::BridgesGrandpaPalletInstance,
 			>::get(relay_block_hash)
 			.ok_or(Error::<T, I>::UnknownRelayChainBlock)?;
-			let relay_block_number = *relay_block.number();
+			ensure!(
+				*relay_block.number() == relay_block_number,
+				Error::<T, I>::InvalidRelayChainBlockNumber,
+			);
 
 			// now parse storage proof and read parachain heads
 			let mut actual_weight = WeightInfoOf::<T, I>::submit_parachain_heads_weight(
@@ -484,7 +491,7 @@ mod tests {
 	) -> DispatchResultWithPostInfo {
 		Pallet::<TestRuntime>::submit_parachain_heads(
 			Origin::signed(1),
-			test_relay_header(relay_chain_block, relay_state_root).hash(),
+			(relay_chain_block, test_relay_header(relay_chain_block, relay_state_root).hash()),
 			vec![ParaId(1)],
 			proof,
 		)
@@ -510,7 +517,7 @@ mod tests {
 			// we're trying to update heads of parachains 1, 2 and 3
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
 				Origin::signed(1),
-				test_relay_header(0, state_root).hash(),
+				(0, test_relay_header(0, state_root).hash()),
 				vec![ParaId(1), ParaId(2), ParaId(3)],
 				proof,
 			),);
@@ -602,7 +609,7 @@ mod tests {
 			initialize(state_root);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
 				Origin::signed(1),
-				test_relay_header(0, state_root).hash(),
+				(0, test_relay_header(0, state_root).hash()),
 				vec![ParaId(1), ParaId(UNTRACKED_PARACHAIN_ID), ParaId(2)],
 				proof,
 			));
@@ -776,7 +783,7 @@ mod tests {
 			proceed(20, state_root_10_at_20);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
 				Origin::signed(1),
-				test_relay_header(20, state_root_10_at_20).hash(),
+				(20, test_relay_header(20, state_root_10_at_20).hash()),
 				vec![ParaId(1)],
 				proof_10_at_20,
 			),);
@@ -792,7 +799,7 @@ mod tests {
 			proceed(30, state_root_10_at_30);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
 				Origin::signed(1),
-				test_relay_header(30, state_root_10_at_30).hash(),
+				(30, test_relay_header(30, state_root_10_at_30).hash()),
 				vec![ParaId(1)],
 				proof_10_at_30,
 			),);

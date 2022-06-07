@@ -25,7 +25,7 @@ use bp_polkadot_core::parachains::{ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::StorageProofSize;
 use codec::Encode;
 use frame_support::traits::Get;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher};
+use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use sp_std::prelude::*;
 use sp_trie::{record_all_keys, trie_types::TrieDBMutV1, LayoutV1, MemoryDB, Recorder, TrieMut};
 
@@ -37,13 +37,13 @@ pub fn prepare_parachain_heads_proof<R, PI>(
 	parachains: &[ParaId],
 	parachain_head_size: u32,
 	size: StorageProofSize,
-) -> (RelayBlockHash, ParaHeadsProof)
+) -> (RelayBlockNumber, RelayBlockHash, ParaHeadsProof)
 where
 	R: pallet_bridge_parachains::Config<PI>
 		+ pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>,
 	PI: 'static,
 	<R as pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>>::BridgedChain:
-		bp_runtime::Chain<Hash = RelayBlockHash>,
+		bp_runtime::Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
 {
 	let parachain_head = ParaHead(vec![0u8; parachain_head_size as usize]);
 
@@ -73,8 +73,8 @@ where
 		.expect("record_all_keys should not fail in benchmarks");
 	let proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
 
-	let relay_block_hash =
+	let (relay_block_number, relay_block_hash) =
 		insert_header_to_grandpa_pallet::<R, R::BridgesGrandpaPalletInstance>(state_root);
 
-	(relay_block_hash, ParaHeadsProof(proof))
+	(relay_block_number, relay_block_hash, ParaHeadsProof(proof))
 }
