@@ -559,7 +559,7 @@ construct_runtime!(
 	}
 );
 
-pallet_bridge_grandpa::declare_check_bridged_block_number_ext! {
+pallet_bridge_grandpa::declare_bridge_reject_obsolete_grandpa_header! {
 	Runtime,
 	Call::BridgeRialtoGrandpa => RialtoGrandpaInstance,
 	Call::BridgeWestendGrandpa => WestendGrandpaInstance
@@ -585,7 +585,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	CheckBridgedBlockNumber,
+	BridgeRejectObsoleteGrandpaHeader,
 );
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
