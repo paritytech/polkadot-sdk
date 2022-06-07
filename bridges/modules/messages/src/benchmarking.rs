@@ -26,7 +26,7 @@ use bp_messages::{
 	InboundLaneData, LaneId, MessageData, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 	UnrewardedRelayersState,
 };
-use bp_runtime::messages::DispatchFeePayment;
+use bp_runtime::{messages::DispatchFeePayment, StorageProofSize};
 use frame_benchmarking::{account, benchmarks_instance_pallet};
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
@@ -36,20 +36,6 @@ const SEED: u32 = 0;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config<I>, I: 'static>(crate::Pallet<T, I>);
-
-/// Proof size requirements.
-#[derive(Clone, Copy, Debug)]
-pub enum ProofSize {
-	/// The proof is expected to be minimal. If value size may be changed, then it is expected to
-	/// have given size.
-	Minimal(u32),
-	/// The proof is expected to have at least given size and grow by increasing number of trie
-	/// nodes included in the proof.
-	HasExtraNodes(u32),
-	/// The proof is expected to have at least given size and grow by increasing value that is
-	/// stored in the trie.
-	HasLargeLeaf(u32),
-}
 
 /// Benchmark-specific message parameters.
 #[derive(Debug)]
@@ -70,7 +56,7 @@ pub struct MessageProofParams {
 	/// If `Some`, the proof needs to include this outbound lane data.
 	pub outbound_lane_data: Option<OutboundLaneData>,
 	/// Proof size requirements.
-	pub size: ProofSize,
+	pub size: StorageProofSize,
 	/// Where the fee for dispatching message is paid?
 	pub dispatch_fee_payment: DispatchFeePayment,
 }
@@ -83,7 +69,7 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 	/// The proof needs to include this inbound lane data.
 	pub inbound_lane_data: InboundLaneData<ThisChainAccountId>,
 	/// Proof size requirements.
-	pub size: ProofSize,
+	pub size: StorageProofSize,
 }
 
 /// Trait that must be implemented by runtime.
@@ -302,7 +288,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
-			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
+			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 			dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -337,7 +323,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=22,
 			outbound_lane_data: None,
-			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
+			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 			dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 2, dispatch_weight)
@@ -376,7 +362,7 @@ benchmarks_instance_pallet! {
 				latest_received_nonce: 20,
 				latest_generated_nonce: 21,
 			}),
-			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
+			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 			dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -408,7 +394,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
-			size: ProofSize::HasExtraNodes(1024),
+			size: StorageProofSize::HasExtraNodes(1024),
 			dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -443,7 +429,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
-			size: ProofSize::HasExtraNodes(16 * 1024),
+			size: StorageProofSize::HasExtraNodes(16 * 1024),
 			dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -477,7 +463,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
-			size: ProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
+			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 			dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -517,7 +503,7 @@ benchmarks_instance_pallet! {
 				}].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
-			size: ProofSize::Minimal(0),
+			size: StorageProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
@@ -560,7 +546,7 @@ benchmarks_instance_pallet! {
 				}].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
-			size: ProofSize::Minimal(0),
+			size: StorageProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
@@ -606,7 +592,7 @@ benchmarks_instance_pallet! {
 				].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
-			size: ProofSize::Minimal(0),
+			size: StorageProofSize::Minimal(0),
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof, relayers_state)
 	verify {
