@@ -16,7 +16,6 @@ sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -404,9 +404,9 @@ mod tests {
 		DefaultTestClientBuilderExt, ExecutionStrategy, InitPolkadotBlockBuilder,
 		TestClientBuilder, TestClientBuilderExt,
 	};
-	use sc_service::Arc;
 	use sp_consensus::{BlockOrigin, SyncOracle};
 	use sp_runtime::traits::Block as BlockT;
+	use std::sync::Arc;
 
 	use futures::{executor::block_on, poll, task::Poll};
 
