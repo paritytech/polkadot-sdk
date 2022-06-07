@@ -565,6 +565,11 @@ pallet_bridge_grandpa::declare_bridge_reject_obsolete_grandpa_header! {
 	Call::BridgeWestendGrandpa => WestendGrandpaInstance
 }
 
+pallet_bridge_parachains::declare_bridge_reject_obsolete_parachain_header! {
+	Runtime,
+	Call::BridgeRialtoParachains => WithRialtoParachainsInstance
+}
+
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -586,6 +591,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteGrandpaHeader,
+	BridgeRejectObsoleteParachainHeader,
 );
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
@@ -994,7 +1000,11 @@ impl_runtime_apis! {
 					parachains: &[bp_polkadot_core::parachains::ParaId],
 					parachain_head_size: u32,
 					proof_size: bp_runtime::StorageProofSize,
-				) -> (pallet_bridge_parachains::RelayBlockHash, bp_polkadot_core::parachains::ParaHeadsProof) {
+				) -> (
+					pallet_bridge_parachains::RelayBlockNumber,
+					pallet_bridge_parachains::RelayBlockHash,
+					bp_polkadot_core::parachains::ParaHeadsProof,
+				) {
 					bridge_runtime_common::parachains_benchmarking::prepare_parachain_heads_proof::<Runtime, WithRialtoParachainsInstance>(
 						parachains,
 						parachain_head_size,
