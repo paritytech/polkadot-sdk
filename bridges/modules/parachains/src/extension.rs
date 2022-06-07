@@ -14,32 +14,38 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-/// Declares a runtime-specific `BridgeRejectObsoleteGrandpaHeader` signed extension.
+/// Declares a runtime-specific `BridgeRejectObsoleteParachainHeader` signed extension.
 ///
 /// ## Example
 ///
 /// ```nocompile
-/// pallet_bridge_grandpa::declare_bridge_reject_obsolete_grandpa_header!{
+/// pallet_bridge_grandpa::declare_bridge_reject_obsolete_parachain_header!{
 ///     Runtime,
-///     Call::BridgeRialtoGrandpa => RialtoGrandpaInstance,
-///     Call::BridgeWestendGrandpa => WestendGrandpaInstance,
+///     Call::BridgeRialtoParachains => RialtoGrandpaInstance,
+///     Call::BridgeWestendParachains => WestendGrandpaInstance,
 /// }
 /// ```
 ///
 /// The goal of this extension is to avoid "mining" transactions that provide
-/// outdated bridged chain headers. Without that extension, even honest relayers
+/// outdated bridged parachain heads. Without that extension, even honest relayers
 /// may lose their funds if there are multiple relays running and submitting the
 /// same information.
+///
+/// This extension only works with transactions that are updating single parachain
+/// head. We can't use unbounded validation - it may take too long and either break
+/// block production, or "eat" significant portion of block production time literally
+/// for nothing. In addition, the single-parachain-head-per-transaction is how the
+/// pallet will be used in our environment.
 #[macro_export]
-macro_rules! declare_bridge_reject_obsolete_grandpa_header {
+macro_rules! declare_bridge_reject_obsolete_parachain_header {
 	($runtime:ident, $($call:path => $instance:ty),*) => {
-		/// Transaction-with-obsolete-bridged-header check that will reject transaction if
-		/// it submits obsolete bridged header.
+		/// Transaction-with-obsolete-bridged-parachain-header check that will reject transaction if
+		/// it submits obsolete bridged parachain header.
 		#[derive(Clone, codec::Decode, codec::Encode, Eq, PartialEq, frame_support::RuntimeDebug, scale_info::TypeInfo)]
-		pub struct BridgeRejectObsoleteGrandpaHeader;
+		pub struct BridgeRejectObsoleteParachainHeader;
 
-		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteGrandpaHeader {
-			const IDENTIFIER: &'static str = "BridgeRejectObsoleteGrandpaHeader";
+		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteParachainHeader {
+			const IDENTIFIER: &'static str = "BridgeRejectObsoleteParachainHeader";
 			type AccountId = <$runtime as frame_system::Config>::AccountId;
 			type Call = <$runtime as frame_system::Config>::Call;
 			type AdditionalSigned = ();
@@ -61,24 +67,21 @@ macro_rules! declare_bridge_reject_obsolete_grandpa_header {
 			) -> sp_runtime::transaction_validity::TransactionValidity {
 				match *call {
 					$(
-						$call($crate::Call::<$runtime, $instance>::submit_finality_proof { ref finality_target, ..}) => {
-							use sp_runtime::traits::Header as HeaderT;
+						$call($crate::Call::<$runtime, $instance>::submit_parachain_heads {
+							ref at_relay_block,
+							ref parachains,
+							..
+						}) if parachains.len() == 1 => {
+							let parachain = parachains.get(0).expect("verified by match condition; qed");
 
-							let bundled_block_number = *finality_target.number();
+							let bundled_relay_block_number = at_relay_block.0;
 
-							let best_finalized_hash = $crate::BestFinalized::<$runtime, $instance>::get();
-							let best_finalized_number = match $crate::ImportedHeaders::<
-								$runtime,
-								$instance,
-							>::get(best_finalized_hash) {
-								Some(best_finalized_header) => *best_finalized_header.number(),
-								None => return sp_runtime::transaction_validity::InvalidTransaction::Call.into(),
-							};
-
-							if best_finalized_number < bundled_block_number {
-								Ok(sp_runtime::transaction_validity::ValidTransaction::default())
-							} else {
-								sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
+							let best_parachain_head = $crate::BestParaHeads::<$runtime, $instance>::get(parachain);
+							match best_parachain_head {
+								Some(best_parachain_head) if best_parachain_head.at_relay_block_number
+									>= bundled_relay_block_number =>
+										sp_runtime::transaction_validity::InvalidTransaction::Stale.into(),
+								_ => Ok(sp_runtime::transaction_validity::ValidTransaction::default()),
 							}
 						},
 					)*
@@ -112,25 +115,26 @@ macro_rules! declare_bridge_reject_obsolete_grandpa_header {
 #[cfg(test)]
 mod tests {
 	use crate::{
-		mock::{run_test, test_header, Call, TestNumber, TestRuntime},
-		BestFinalized, ImportedHeaders,
+		mock::{run_test, Call, TestRuntime},
+		BestParaHead, BestParaHeads, RelayBlockNumber,
 	};
-	use bp_test_utils::make_default_justification;
+	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
 	use frame_support::weights::{DispatchClass, DispatchInfo, Pays};
 	use sp_runtime::traits::SignedExtension;
 
-	declare_bridge_reject_obsolete_grandpa_header! {
+	declare_bridge_reject_obsolete_parachain_header! {
 		TestRuntime,
-		Call::Grandpa => ()
+		Call::Parachains => ()
 	}
 
-	fn validate_block_submit(num: TestNumber) -> bool {
-		BridgeRejectObsoleteGrandpaHeader
+	fn validate_submit_parachain_heads(num: RelayBlockNumber, parachains: Vec<ParaId>) -> bool {
+		BridgeRejectObsoleteParachainHeader
 			.validate(
 				&42,
-				&Call::Grandpa(crate::Call::<TestRuntime, ()>::submit_finality_proof {
-					finality_target: Box::new(test_header(num)),
-					justification: make_default_justification(&test_header(num)),
+				&Call::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads {
+					at_relay_block: (num, Default::default()),
+					parachains,
+					parachain_heads_proof: ParaHeadsProof(Vec::new()),
 				}),
 				&DispatchInfo { weight: 0, class: DispatchClass::Operational, pays_fee: Pays::Yes },
 				0,
@@ -138,10 +142,15 @@ mod tests {
 			.is_ok()
 	}
 
-	fn sync_to_header_10() {
-		let header10_hash = sp_core::H256::default();
-		BestFinalized::<TestRuntime, ()>::put(header10_hash);
-		ImportedHeaders::<TestRuntime, ()>::insert(header10_hash, test_header(10));
+	fn sync_to_relay_header_10() {
+		BestParaHeads::<TestRuntime, ()>::insert(
+			ParaId(1),
+			BestParaHead {
+				at_relay_block_number: 10,
+				head_hash: Default::default(),
+				next_imported_hash_position: 0,
+			},
+		);
 	}
 
 	#[test]
@@ -149,8 +158,8 @@ mod tests {
 		run_test(|| {
 			// when current best finalized is #10 and we're trying to import header#5 => tx is
 			// rejected
-			sync_to_header_10();
-			assert!(!validate_block_submit(5));
+			sync_to_relay_header_10();
+			assert!(!validate_submit_parachain_heads(5, vec![ParaId(1)]));
 		});
 	}
 
@@ -159,8 +168,8 @@ mod tests {
 		run_test(|| {
 			// when current best finalized is #10 and we're trying to import header#10 => tx is
 			// rejected
-			sync_to_header_10();
-			assert!(!validate_block_submit(10));
+			sync_to_relay_header_10();
+			assert!(!validate_submit_parachain_heads(10, vec![ParaId(1)]));
 		});
 	}
 
@@ -169,8 +178,18 @@ mod tests {
 		run_test(|| {
 			// when current best finalized is #10 and we're trying to import header#15 => tx is
 			// accepted
-			sync_to_header_10();
-			assert!(validate_block_submit(15));
+			sync_to_relay_header_10();
+			assert!(validate_submit_parachain_heads(15, vec![ParaId(1)]));
+		});
+	}
+
+	#[test]
+	fn extension_accepts_if_more_than_one_parachain_is_submitted() {
+		run_test(|| {
+			// when current best finalized is #10 and we're trying to import header#5, but another
+			// parachain head is also supplied => tx is accepted
+			sync_to_relay_header_10();
+			assert!(validate_submit_parachain_heads(5, vec![ParaId(1), ParaId(2)]));
 		});
 	}
 }

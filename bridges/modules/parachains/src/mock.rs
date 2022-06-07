@@ -46,7 +46,7 @@ construct_runtime! {
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Grandpa1: pallet_bridge_grandpa::<Instance1>::{Pallet},
 		Grandpa2: pallet_bridge_grandpa::<Instance2>::{Pallet},
-		Parachains: pallet_bridge_parachains::{Pallet},
+		Parachains: pallet_bridge_parachains::{Call, Pallet},
 	}
 }
 
