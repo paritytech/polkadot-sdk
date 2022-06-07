@@ -423,15 +423,6 @@ impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
 	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
 }
 
-pub type RialtoParachainGrandpaInstance = pallet_bridge_grandpa::Instance2;
-impl pallet_bridge_grandpa::Config<RialtoParachainGrandpaInstance> for Runtime {
-	type BridgedChain = bp_rialto_parachain::RialtoParachain;
-	type MaxRequests = MaxRequests;
-	type HeadersToKeep = HeadersToKeep;
-
-	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
-}
-
 impl pallet_shift_session_manager::Config for Runtime {}
 
 parameter_types! {
