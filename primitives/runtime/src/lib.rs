@@ -29,7 +29,9 @@ pub use chain::{
 	HasherOf, HeaderOf, IndexOf, SignatureOf, TransactionEraOf,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
-pub use storage_proof::{Error as StorageProofError, StorageProofChecker};
+pub use storage_proof::{
+	Error as StorageProofError, ProofSize as StorageProofSize, StorageProofChecker,
+};
 
 #[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;

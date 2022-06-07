@@ -664,7 +664,7 @@ mod tests {
 						.ok_or(TestError::MissingParachainHeadProof)?,
 				);
 			}
-			Ok(proofs)
+			Ok(ParaHeadsProof(proofs))
 		}
 	}
 

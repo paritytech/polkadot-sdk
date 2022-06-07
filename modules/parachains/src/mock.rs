@@ -112,6 +112,7 @@ parameter_types! {
 }
 
 impl pallet_bridge_parachains::Config for TestRuntime {
+	type WeightInfo = ();
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
 	type ParasPalletName = ParasPalletName;
 	type TrackedParachains = IsInVec<GetTenFirstParachains>;

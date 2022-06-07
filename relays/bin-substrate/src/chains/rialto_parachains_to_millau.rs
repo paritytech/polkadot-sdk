@@ -49,5 +49,5 @@ pub type RialtoParachainsToMillauSubmitParachainHeadsCallBuilder =
 	DirectSubmitParachainHeadsCallBuilder<
 		RialtoParachainsToMillau,
 		millau_runtime::Runtime,
-		millau_runtime::WitRialtoParachainsInstance,
+		millau_runtime::WithRialtoParachainsInstance,
 	>;

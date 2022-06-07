@@ -23,17 +23,26 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use weights::WeightInfo;
+pub use weights_ext::WeightInfoExt;
+
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHasher, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::StorageProofError;
 use codec::{Decode, Encode};
-use frame_support::{traits::Contains, RuntimeDebug};
+use frame_support::{traits::Contains, weights::PostDispatchInfo, RuntimeDebug};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::vec::Vec;
 
 // Re-export in crate namespace for `construct_runtime!`.
 pub use pallet::*;
+
+pub mod weights;
+pub mod weights_ext;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 #[cfg(test)]
 mod mock;
@@ -56,11 +65,22 @@ pub struct BestParaHead {
 	pub next_imported_hash_position: u32,
 }
 
+/// Artifacts of the parachains head update.
+struct UpdateParachainHeadArtifacts {
+	/// New best head of the parachain.
+	pub best_head: BestParaHead,
+	/// If `true`, some old parachain head has been pruned during update.
+	pub prune_happened: bool,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+
+	/// Weight info of the given parachains pallet.
+	pub type WeightInfoOf<T, I> = <T as Config<I>>::WeightInfo;
 
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
@@ -81,6 +101,9 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>:
 		pallet_bridge_grandpa::Config<Self::BridgesGrandpaPalletInstance>
 	{
+		/// Benchmarks results from runtime we're plugged into.
+		type WeightInfo: WeightInfoExt;
+
 		/// Instance of bridges GRANDPA pallet (within this runtime) that this pallet is linked to.
 		///
 		/// The GRANDPA pallet instance must be configured to import headers of relay chain that
@@ -145,13 +168,17 @@ pub mod pallet {
 		/// `polkadot-runtime-parachains::paras` pallet instance, deployed at the bridged chain.
 		/// The proof is supposed to be crafted at the `relay_header_hash` that must already be
 		/// imported by corresponding GRANDPA pallet at this chain.
-		#[pallet::weight(0)] // TODO: https://github.com/paritytech/parity-bridges-common/issues/1391
+		#[pallet::weight(WeightInfoOf::<T, I>::submit_parachain_heads_weight(
+			T::DbWeight::get(),
+			parachain_heads_proof,
+			parachains.len() as _,
+		))]
 		pub fn submit_parachain_heads(
 			_origin: OriginFor<T>,
 			relay_block_hash: RelayBlockHash,
 			parachains: Vec<ParaId>,
 			parachain_heads_proof: ParaHeadsProof,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			// we'll need relay chain header to verify that parachains heads are always increasing.
 			let relay_block = pallet_bridge_grandpa::ImportedHeaders::<
 				T,
@@ -161,9 +188,14 @@ pub mod pallet {
 			let relay_block_number = *relay_block.number();
 
 			// now parse storage proof and read parachain heads
+			let mut actual_weight = WeightInfoOf::<T, I>::submit_parachain_heads_weight(
+				T::DbWeight::get(),
+				&parachain_heads_proof,
+				parachains.len() as _,
+			);
 			pallet_bridge_grandpa::Pallet::<T, T::BridgesGrandpaPalletInstance>::parse_finalized_storage_proof(
 				relay_block_hash,
-				sp_trie::StorageProof::new(parachain_heads_proof),
+				sp_trie::StorageProof::new(parachain_heads_proof.0),
 				move |storage| {
 					for parachain in parachains {
 						// if we're not tracking this parachain, we'll just ignore its head proof here
@@ -202,21 +234,27 @@ pub mod pallet {
 							},
 						};
 
-						let _: Result<_, ()> = BestParaHeads::<T, I>::try_mutate(parachain, |stored_best_head| {
-							*stored_best_head = Some(Pallet::<T, I>::update_parachain_head(
+						let prune_happened: Result<_, ()> = BestParaHeads::<T, I>::try_mutate(parachain, |stored_best_head| {
+							let artifacts = Pallet::<T, I>::update_parachain_head(
 								parachain,
 								stored_best_head.take(),
 								relay_block_number,
 								parachain_head,
-							)?);
-							Ok(())
+							)?;
+							*stored_best_head = Some(artifacts.best_head);
+							Ok(artifacts.prune_happened)
 						});
+
+						if matches!(prune_happened, Err(_) | Ok(false)) {
+							actual_weight = actual_weight
+								.saturating_sub(WeightInfoOf::<T, I>::parachain_head_pruning_weight(T::DbWeight::get()));
+						}
 					}
 				},
 			)
 			.map_err(|_| Error::<T, I>::InvalidStorageProof)?;
 
-			Ok(())
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
 		}
 	}
 
@@ -269,7 +307,7 @@ pub mod pallet {
 			stored_best_head: Option<BestParaHead>,
 			updated_at_relay_block_number: RelayBlockNumber,
 			updated_head: ParaHead,
-		) -> Result<BestParaHead, ()> {
+		) -> Result<UpdateParachainHeadArtifacts, ()> {
 			// check if head has been already updated at better relay chain block. Without this
 			// check, we may import heads in random order
 			let updated_head_hash = updated_head.hash();
@@ -332,6 +370,7 @@ pub mod pallet {
 			);
 
 			// remove old head
+			let prune_happened = head_hash_to_prune.is_ok();
 			if let Ok(head_hash_to_prune) = head_hash_to_prune {
 				log::trace!(
 					target: "runtime::bridge-parachains",
@@ -342,7 +381,7 @@ pub mod pallet {
 				ImportedParaHeads::<T, I>::remove(parachain, head_hash_to_prune);
 			}
 
-			Ok(updated_best_para_head)
+			Ok(UpdateParachainHeadArtifacts { best_head: updated_best_para_head, prune_happened })
 		}
 	}
 }
@@ -355,7 +394,12 @@ mod tests {
 	};
 
 	use bp_test_utils::{authority_list, make_default_justification};
-	use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
+	use frame_support::{
+		assert_noop, assert_ok,
+		dispatch::DispatchResultWithPostInfo,
+		traits::{Get, OnInitialize},
+		weights::Weight,
+	};
 	use sp_trie::{
 		record_all_keys, trie_types::TrieDBMutV1, LayoutV1, MemoryDB, Recorder, TrieMut,
 	};
@@ -414,7 +458,7 @@ mod tests {
 			.expect("record_all_keys should not fail in benchmarks");
 		let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
 
-		(root, storage_proof)
+		(root, ParaHeadsProof(storage_proof))
 	}
 
 	fn initial_best_head(parachain: u32) -> BestParaHead {
@@ -437,13 +481,23 @@ mod tests {
 		relay_chain_block: RelayBlockNumber,
 		relay_state_root: RelayBlockHash,
 		proof: ParaHeadsProof,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResultWithPostInfo {
 		Pallet::<TestRuntime>::submit_parachain_heads(
 			Origin::signed(1),
 			test_relay_header(relay_chain_block, relay_state_root).hash(),
 			vec![ParaId(1)],
 			proof,
 		)
+	}
+
+	fn weight_of_import_parachain_1_head(proof: &ParaHeadsProof, prune_expected: bool) -> Weight {
+		let db_weight = <TestRuntime as frame_system::Config>::DbWeight::get();
+		WeightInfoOf::<TestRuntime, ()>::submit_parachain_heads_weight(db_weight, proof, 1)
+			.saturating_sub(if prune_expected {
+				0
+			} else {
+				WeightInfoOf::<TestRuntime, ()>::parachain_head_pruning_weight(db_weight)
+			})
 	}
 
 	#[test]
@@ -636,7 +690,11 @@ mod tests {
 				} else {
 					proceed(i, state_root);
 				}
-				assert_ok!(import_parachain_1_head(i, state_root, proof));
+
+				let expected_weight = weight_of_import_parachain_1_head(&proof, false);
+				let result = import_parachain_1_head(i, state_root, proof);
+				assert_ok!(result);
+				assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
 			}
 
 			// nothing is pruned yet
@@ -649,7 +707,10 @@ mod tests {
 			let (state_root, proof) =
 				prepare_parachain_heads_proof(vec![(1, head_data(1, heads_to_keep))]);
 			proceed(heads_to_keep, state_root);
-			assert_ok!(import_parachain_1_head(heads_to_keep, state_root, proof));
+			let expected_weight = weight_of_import_parachain_1_head(&proof, true);
+			let result = import_parachain_1_head(heads_to_keep, state_root, proof);
+			assert_ok!(result);
+			assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
 
 			// and the head#0 is pruned
 			assert!(

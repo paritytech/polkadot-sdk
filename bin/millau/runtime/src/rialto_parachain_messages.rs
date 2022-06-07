@@ -252,7 +252,7 @@ impl TargetHeaderChain<ToRialtoParachainMessagePayload, bp_rialto_parachain::Acc
 			WithRialtoParachainMessageBridge,
 			bp_rialto_parachain::Header,
 			Runtime,
-			crate::WitRialtoParachainsInstance,
+			crate::WithRialtoParachainsInstance,
 		>(ParaId(bp_rialto_parachain::RIALTO_PARACHAIN_ID), proof)
 	}
 }
@@ -274,7 +274,7 @@ impl SourceHeaderChain<bp_rialto_parachain::Balance> for RialtoParachain {
 			WithRialtoParachainMessageBridge,
 			bp_rialto_parachain::Header,
 			Runtime,
-			crate::WitRialtoParachainsInstance,
+			crate::WithRialtoParachainsInstance,
 		>(ParaId(bp_rialto_parachain::RIALTO_PARACHAIN_ID), proof, messages_count)
 	}
 }

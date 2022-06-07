@@ -145,6 +145,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-bridge-parachains/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
