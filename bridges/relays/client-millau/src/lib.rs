@@ -115,7 +115,7 @@ impl TransactionSignScheme for Millau {
 				frame_system::CheckNonce::<millau_runtime::Runtime>::from(param.unsigned.nonce),
 				frame_system::CheckWeight::<millau_runtime::Runtime>::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::<millau_runtime::Runtime>::from(param.unsigned.tip),
-				millau_runtime::CheckBridgedBlockNumber, // TODO
+				millau_runtime::BridgeRejectObsoleteGrandpaHeader,
 			),
 			(
 				(),
