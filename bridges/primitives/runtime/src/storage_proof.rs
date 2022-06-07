@@ -22,6 +22,22 @@ use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 use sp_trie::{read_trie_value, LayoutV1, MemoryDB, StorageProof};
 
+/// Storage proof size requirements.
+///
+/// This is currently used by benchmarks when generating storage proofs.
+#[derive(Clone, Copy, Debug)]
+pub enum ProofSize {
+	/// The proof is expected to be minimal. If value size may be changed, then it is expected to
+	/// have given size.
+	Minimal(u32),
+	/// The proof is expected to have at least given size and grow by increasing number of trie
+	/// nodes included in the proof.
+	HasExtraNodes(u32),
+	/// The proof is expected to have at least given size and grow by increasing value that is
+	/// stored in the trie.
+	HasLargeLeaf(u32),
+}
+
 /// This struct is used to read storage values from a subset of a Merklized database. The "proof"
 /// is a subset of the nodes in the Merkle structure of the database, so that it provides
 /// authentication against a known Merkle root as well as the values in the database themselves.

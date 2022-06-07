@@ -161,6 +161,6 @@ where
 			.iter_nodes()
 			.collect();
 
-		Ok(parachain_heads_proof)
+		Ok(ParaHeadsProof(parachain_heads_proof))
 	}
 }
