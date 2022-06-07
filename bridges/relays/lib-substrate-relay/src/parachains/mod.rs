@@ -24,7 +24,7 @@ use pallet_bridge_parachains::{
 	RelayBlockHasher, RelayBlockNumber,
 };
 use parachains_relay::ParachainsPipeline;
-use relay_substrate_client::{CallOf, Chain, HashOf, RelayChain, TransactionSignScheme};
+use relay_substrate_client::{CallOf, Chain, HeaderIdOf, RelayChain, TransactionSignScheme};
 use std::{fmt::Debug, marker::PhantomData};
 
 pub mod source;
@@ -70,7 +70,7 @@ pub trait SubmitParachainHeadsCallBuilder<P: SubstrateParachainsPipeline>:
 	/// Given parachains and their heads proof, build call of `submit_parachain_heads`
 	/// function of bridge parachains module at the target chain.
 	fn build_submit_parachain_heads_call(
-		relay_block_hash: HashOf<P::SourceRelayChain>,
+		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<ParaId>,
 		parachain_heads_proof: ParaHeadsProof,
 	) -> CallOf<P::TargetChain>;
@@ -85,7 +85,7 @@ pub struct DirectSubmitParachainHeadsCallBuilder<P, R, I> {
 impl<P, R, I> SubmitParachainHeadsCallBuilder<P> for DirectSubmitParachainHeadsCallBuilder<P, R, I>
 where
 	P: SubstrateParachainsPipeline,
-	P::SourceRelayChain: Chain<Hash = RelayBlockHash>,
+	P::SourceRelayChain: Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber>,
 	R: BridgeParachainsConfig<I> + Send + Sync,
 	I: 'static + Send + Sync,
 	R::BridgedChain: bp_runtime::Chain<
@@ -96,12 +96,12 @@ where
 	CallOf<P::TargetChain>: From<BridgeParachainsCall<R, I>>,
 {
 	fn build_submit_parachain_heads_call(
-		relay_block_hash: HashOf<P::SourceRelayChain>,
+		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<ParaId>,
 		parachain_heads_proof: ParaHeadsProof,
 	) -> CallOf<P::TargetChain> {
 		BridgeParachainsCall::<R, I>::submit_parachain_heads {
-			relay_block_hash,
+			at_relay_block: (at_relay_block.0, at_relay_block.1),
 			parachains,
 			parachain_heads_proof,
 		}

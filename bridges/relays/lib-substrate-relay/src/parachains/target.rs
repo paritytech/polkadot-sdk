@@ -134,7 +134,7 @@ where
 		let transaction_params = self.transaction_params.clone();
 		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 		let call = P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
-			at_relay_block.1,
+			at_relay_block,
 			updated_parachains,
 			proof,
 		);
