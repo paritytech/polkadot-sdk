@@ -91,7 +91,7 @@ mod tests {
 	fn storage_message_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted messages proofs.
-		let storage_key = message_key("BridgeMessages", &*b"test", 42).0;
+		let storage_key = message_key("BridgeMessages", b"test", 42).0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed018a395e6242c6813b196ca31ed0547ea79446af0e09063bd4a7874aef8a997cec746573742a00000000000000").to_vec(),
@@ -104,7 +104,7 @@ mod tests {
 	fn outbound_lane_data_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted outbound lane state proofs.
-		let storage_key = outbound_lane_data_key("BridgeMessages", &*b"test").0;
+		let storage_key = outbound_lane_data_key("BridgeMessages", b"test").0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed0196c246acb9b55077390e3ca723a0ca1f44a8995dd50b6657a037a7839304535b74657374").to_vec(),
@@ -117,7 +117,7 @@ mod tests {
 	fn inbound_lane_data_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted inbound lane state proofs.
-		let storage_key = inbound_lane_data_key("BridgeMessages", &*b"test").0;
+		let storage_key = inbound_lane_data_key("BridgeMessages", b"test").0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed01e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374").to_vec(),
