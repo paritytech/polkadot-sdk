@@ -157,7 +157,7 @@ jobs:
         run: |
           find ${{env.GITHUB_WORKSPACE}} -type f -name "*-srtool-digest.json"
 
-          if [ "$RELEASE_TYPE" == "client" ]; then
+          if [ "$RELEASE_TYPE" != "client" ]; then
             ls -al $SHELL_DIGEST || true
             ls -al $WESTMINT_DIGEST || true
             ls -al $STATEMINE_DIGEST || true
