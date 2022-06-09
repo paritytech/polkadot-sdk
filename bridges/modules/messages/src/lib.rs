@@ -554,6 +554,12 @@ pub mod pallet {
 						relayers_state.unrewarded_relayer_entries,
 				Error::<T, I>::InvalidUnrewardedRelayersState
 			);
+			// the `last_delivered_nonce` field may also be used by the signed extension. Even
+			// though providing wrong value isn't critical, let's also check it here.
+			ensure!(
+				lane_data.last_delivered_nonce() == relayers_state.last_delivered_nonce,
+				Error::<T, I>::InvalidUnrewardedRelayersState
+			);
 
 			// mark messages as delivered
 			let mut lane = outbound_lane::<T, I>(lane_id);
@@ -1159,7 +1165,9 @@ mod tests {
 	fn inbound_unrewarded_relayers_state(
 		lane: bp_messages::LaneId,
 	) -> bp_messages::UnrewardedRelayersState {
-		let relayers = InboundLanes::<TestRuntime, ()>::get(&lane).relayers;
+		let inbound_lane_data = InboundLanes::<TestRuntime, ()>::get(&lane);
+		let last_delivered_nonce = inbound_lane_data.last_delivered_nonce();
+		let relayers = inbound_lane_data.relayers;
 		bp_messages::UnrewardedRelayersState {
 			unrewarded_relayer_entries: relayers.len() as _,
 			messages_in_oldest_entry: relayers
@@ -1167,6 +1175,7 @@ mod tests {
 				.map(|entry| 1 + entry.messages.end - entry.messages.begin)
 				.unwrap_or(0),
 			total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
+			last_delivered_nonce,
 		}
 	}
 
@@ -1225,6 +1234,7 @@ mod tests {
 			UnrewardedRelayersState {
 				unrewarded_relayer_entries: 1,
 				total_messages: 1,
+				last_delivered_nonce: 1,
 				..Default::default()
 			},
 		));
@@ -1467,6 +1477,7 @@ mod tests {
 						unrewarded_relayer_entries: 1,
 						messages_in_oldest_entry: 1,
 						total_messages: 1,
+						last_delivered_nonce: 1,
 					},
 				),
 				Error::<TestRuntime, ()>::Halted,
@@ -1522,6 +1533,7 @@ mod tests {
 					unrewarded_relayer_entries: 1,
 					messages_in_oldest_entry: 1,
 					total_messages: 1,
+					last_delivered_nonce: 1,
 				},
 			));
 		});
@@ -1619,6 +1631,7 @@ mod tests {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,
 					total_messages: 2,
+					last_delivered_nonce: 10,
 				},
 			);
 
@@ -1654,6 +1667,7 @@ mod tests {
 					unrewarded_relayer_entries: 2,
 					messages_in_oldest_entry: 1,
 					total_messages: 2,
+					last_delivered_nonce: 11,
 				},
 			);
 		});
@@ -1749,6 +1763,7 @@ mod tests {
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
 					total_messages: 1,
+					last_delivered_nonce: 1,
 					..Default::default()
 				},
 			));
@@ -1774,6 +1789,7 @@ mod tests {
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
 					total_messages: 2,
+					last_delivered_nonce: 2,
 					..Default::default()
 				},
 			));
@@ -1818,6 +1834,7 @@ mod tests {
 					UnrewardedRelayersState {
 						unrewarded_relayer_entries: 1,
 						total_messages: 2,
+						last_delivered_nonce: 2,
 						..Default::default()
 					},
 				),
@@ -1843,6 +1860,33 @@ mod tests {
 					UnrewardedRelayersState {
 						unrewarded_relayer_entries: 2,
 						total_messages: 1,
+						last_delivered_nonce: 2,
+						..Default::default()
+					},
+				),
+				Error::<TestRuntime, ()>::InvalidUnrewardedRelayersState,
+			);
+
+			// when last delivered nonce is invalid
+			assert_noop!(
+				Pallet::<TestRuntime>::receive_messages_delivery_proof(
+					Origin::signed(1),
+					TestMessagesDeliveryProof(Ok((
+						TEST_LANE_ID,
+						InboundLaneData {
+							relayers: vec![
+								unrewarded_relayer(1, 1, TEST_RELAYER_A),
+								unrewarded_relayer(2, 2, TEST_RELAYER_B)
+							]
+							.into_iter()
+							.collect(),
+							..Default::default()
+						}
+					))),
+					UnrewardedRelayersState {
+						unrewarded_relayer_entries: 2,
+						total_messages: 2,
+						last_delivered_nonce: 8,
 						..Default::default()
 					},
 				),
@@ -2079,6 +2123,7 @@ mod tests {
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
 					total_messages: 2,
+					last_delivered_nonce: 2,
 					..Default::default()
 				},
 			));
@@ -2089,6 +2134,7 @@ mod tests {
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
 					total_messages: 1,
+					last_delivered_nonce: 3,
 					..Default::default()
 				},
 			));
@@ -2116,6 +2162,7 @@ mod tests {
 		let relayers_state = UnrewardedRelayersState {
 			unrewarded_relayer_entries: 1,
 			total_messages: 3,
+			last_delivered_nonce: 3,
 			..Default::default()
 		};
 		let pre_dispatch_weight =
@@ -2190,7 +2237,7 @@ mod tests {
 						TEST_LANE_ID,
 						InboundLaneData { last_confirmed_nonce: 1, relayers: Default::default() },
 					))),
-					UnrewardedRelayersState::default(),
+					UnrewardedRelayersState { last_delivered_nonce: 1, ..Default::default() },
 				),
 				Error::<TestRuntime, ()>::TryingToConfirmMoreMessagesThanExpected,
 			);
@@ -2269,6 +2316,7 @@ mod tests {
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
 					total_messages: max_messages_to_prune,
+					last_delivered_nonce: max_messages_to_prune,
 					..Default::default()
 				},
 			));

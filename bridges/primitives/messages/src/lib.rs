@@ -289,6 +289,11 @@ pub struct UnrewardedRelayersState {
 	pub messages_in_oldest_entry: MessageNonce,
 	/// Total number of messages in the relayers vector.
 	pub total_messages: MessageNonce,
+	/// Nonce of the latest message that has been delivered to the target chain.
+	///
+	/// This corresponds to the result of the `InboundLaneData::last_delivered_nonce` call
+	/// at the bridged chain.
+	pub last_delivered_nonce: MessageNonce,
 }
 
 /// Outbound lane data.

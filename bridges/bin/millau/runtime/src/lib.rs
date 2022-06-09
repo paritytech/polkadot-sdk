@@ -67,6 +67,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+// to be able to use Millau runtime in `bridge-runtime-common` tests
+pub use bridge_runtime_common;
+
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
@@ -570,6 +573,12 @@ pallet_bridge_parachains::declare_bridge_reject_obsolete_parachain_header! {
 	Call::BridgeRialtoParachains => WithRialtoParachainsInstance
 }
 
+bridge_runtime_common::declare_bridge_reject_obsolete_messages! {
+	Runtime,
+	Call::BridgeRialtoMessages => WithRialtoMessagesInstance,
+	Call::BridgeRialtoParachainMessages => WithRialtoParachainMessagesInstance
+}
+
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -592,6 +601,7 @@ pub type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteGrandpaHeader,
 	BridgeRejectObsoleteParachainHeader,
+	BridgeRejectObsoleteMessages,
 );
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;

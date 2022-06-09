@@ -474,6 +474,7 @@ fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>(
 			unrewarded_relayer_entries: 1,
 			messages_in_oldest_entry: 1,
 			total_messages: 1,
+			last_delivered_nonce: 1,
 		},
 		FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: Default::default(),
