@@ -332,12 +332,11 @@ async fn ensure_pallet_operating_mode<P: SubstrateFinalitySyncPipeline>(
 	match (operational, finality_target.ensure_pallet_active().await) {
 		(true, Ok(())) => Ok(()),
 		(false, Err(SubstrateError::BridgePalletIsHalted)) => Ok(()),
-		_ =>
-			return Err(anyhow::format_err!(
-				"Bridge GRANDPA pallet at {} is expected to be {}, but it isn't",
-				P::TargetChain::NAME,
-				if operational { "operational" } else { "halted" },
-			)),
+		_ => Err(anyhow::format_err!(
+			"Bridge GRANDPA pallet at {} is expected to be {}, but it isn't",
+			P::TargetChain::NAME,
+			if operational { "operational" } else { "halted" },
+		)),
 	}
 }
 
