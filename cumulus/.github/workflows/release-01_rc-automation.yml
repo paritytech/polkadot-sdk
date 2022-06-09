@@ -1,4 +1,4 @@
-name: Release-candidate automation
+name: RC automation
 on:
   push:
     branches:
@@ -34,6 +34,7 @@ jobs:
             echo "::set-output name=new_tag::$version-rc1"
             echo "::set-output name=first_rc::true"
           fi
+
       - name: Apply new tag
         uses: tvdias/github-tagger@v0.0.2
         with:
@@ -42,22 +43,38 @@ jobs:
           # RELEASE_BRANCH_TOKEN requires public_repo OAuth scope
           repo-token: "${{ secrets.RELEASE_BRANCH_TOKEN }}"
           tag: ${{ steps.compute_tag.outputs.new_tag }}
-      - id: create-issue
-        uses: JasonEtco/create-an-issue@v2
+
+      - id: create-issue-checklist-client
+        uses: JasonEtco/create-an-issue@v9e6213aec58987fa7d2f4deb8b256b99e63107a2 # v2.6.0
         # Only create the issue if it's the first release candidate
         if: steps.compute_tag.outputs.first_rc == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.compute_tag.outputs.version }}
         with:
-          filename: .github/ISSUE_TEMPLATE/release.md
+          assignees: release-engineering
+          filename: .github/ISSUE_TEMPLATE/release-client.md
+
+      - id: create-issue-checklist-runtime
+        uses: JasonEtco/create-an-issue@v9e6213aec58987fa7d2f4deb8b256b99e63107a2 # v2.6.0
+        # Only create the issue if it's the first release candidate
+        if: steps.compute_tag.outputs.first_rc == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.compute_tag.outputs.version }}
+        with:
+          assignees: release-engineering
+          filename: .github/ISSUE_TEMPLATE/release-runtime.md
+
       - name: Send Matrix message
         uses: s3krit/matrix-message-action@v0.0.3
-        if: steps.create-issue.outputs.url != ''
+        if: steps.create-issue-checklist-client.outputs.url != '' && steps.create-issue-checklist-runtime.outputs.url != ''
         with:
           room_id: ${{ secrets.INTERNAL_CUMULUS_MATRIX_ROOM_ID }}
           access_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
           server: "matrix.parity.io"
           message: |
-            Release process for Cumulus ${{ steps.compute_tag.outputs.version }} has been started.
-            Tracking issue: ${{ steps.create-issue.outputs.url }}"
+            The Release Process for Cumulus ${{ steps.compute_tag.outputs.version }} has been started.
+            Tracking issues:
+              - client: ${{ steps.create-issue-checklist-client.outputs.url }}"
+              - runtime: ${{ steps.create-issue-checklist-runtime.outputs.url }}"
