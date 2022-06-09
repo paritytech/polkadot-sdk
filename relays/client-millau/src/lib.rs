@@ -117,6 +117,7 @@ impl TransactionSignScheme for Millau {
 				pallet_transaction_payment::ChargeTransactionPayment::<millau_runtime::Runtime>::from(param.unsigned.tip),
 				millau_runtime::BridgeRejectObsoleteGrandpaHeader,
 				millau_runtime::BridgeRejectObsoleteParachainHeader,
+				millau_runtime::BridgeRejectObsoleteMessages,
 			),
 			(
 				(),
@@ -124,6 +125,7 @@ impl TransactionSignScheme for Millau {
 				param.transaction_version,
 				param.genesis_hash,
 				param.era.signed_payload(param.genesis_hash),
+				(),
 				(),
 				(),
 				(),

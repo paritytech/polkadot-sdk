@@ -46,6 +46,9 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", d
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 
+[dev-dependencies]
+millau-runtime = { path = "../millau/runtime" }
+
 [features]
 default = ["std"]
 std = [

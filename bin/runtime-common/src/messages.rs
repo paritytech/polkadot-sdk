@@ -197,9 +197,6 @@ pub fn transaction_payment<Balance: AtLeast32BitUnsigned + FixedPointOperand>(
 pub mod source {
 	use super::*;
 
-	/// Encoded Call of the Bridged chain. We never try to decode it on This chain.
-	pub type BridgedChainOpaqueCall = Vec<u8>;
-
 	/// Message payload for This -> Bridged chain messages.
 	pub type FromThisChainMessagePayload = Vec<u8>;
 
@@ -523,6 +520,7 @@ pub mod target {
 		pub bridged_header_hash: BridgedHeaderHash,
 		/// A storage trie proof of messages being delivered.
 		pub storage_proof: RawStorageProof,
+		/// Messages in this proof are sent over this lane.
 		pub lane: LaneId,
 		/// Nonce of the first message being delivered.
 		pub nonces_start: MessageNonce,

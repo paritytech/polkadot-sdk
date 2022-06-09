@@ -493,6 +493,7 @@ benchmarks_instance_pallet! {
 			unrewarded_relayer_entries: 1,
 			messages_in_oldest_entry: 1,
 			total_messages: 1,
+			last_delivered_nonce: 1,
 		};
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
@@ -534,6 +535,7 @@ benchmarks_instance_pallet! {
 			unrewarded_relayer_entries: 1,
 			messages_in_oldest_entry: 2,
 			total_messages: 2,
+			last_delivered_nonce: 2,
 		};
 		let mut delivered_messages = DeliveredMessages::new(1, true);
 		delivered_messages.note_dispatched_message(true);
@@ -576,6 +578,7 @@ benchmarks_instance_pallet! {
 			unrewarded_relayer_entries: 2,
 			messages_in_oldest_entry: 1,
 			total_messages: 2,
+			last_delivered_nonce: 2,
 		};
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),

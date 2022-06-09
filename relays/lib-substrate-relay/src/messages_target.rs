@@ -191,11 +191,10 @@ where
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, UnrewardedRelayersState), SubstrateError>
 	{
-		let relayers = self
-			.inbound_lane_data(id)
-			.await?
-			.map(|data| data.relayers)
-			.unwrap_or_else(VecDeque::new);
+		let inbound_lane_data = self.inbound_lane_data(id).await?;
+		let last_delivered_nonce =
+			inbound_lane_data.as_ref().map(|data| data.last_delivered_nonce()).unwrap_or(0);
+		let relayers = inbound_lane_data.map(|data| data.relayers).unwrap_or_else(VecDeque::new);
 		let unrewarded_relayers_state = bp_messages::UnrewardedRelayersState {
 			unrewarded_relayer_entries: relayers.len() as _,
 			messages_in_oldest_entry: relayers
@@ -203,6 +202,7 @@ where
 				.map(|entry| 1 + entry.messages.end - entry.messages.begin)
 				.unwrap_or(0),
 			total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
+			last_delivered_nonce,
 		};
 		Ok((id, unrewarded_relayers_state))
 	}
