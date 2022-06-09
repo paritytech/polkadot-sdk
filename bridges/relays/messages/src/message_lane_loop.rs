@@ -729,6 +729,7 @@ pub(crate) mod tests {
 					unrewarded_relayer_entries: 0,
 					messages_in_oldest_entry: 0,
 					total_messages: 0,
+					last_delivered_nonce: 0,
 				},
 			))
 		}
