@@ -282,9 +282,17 @@ frame_support::parameter_types! {
 pub const WITH_MILLAU_GRANDPA_PALLET_NAME: &str = "BridgeMillauGrandpa";
 /// Name of the With-Millau messages pallet instance that is deployed at bridged chains.
 pub const WITH_MILLAU_MESSAGES_PALLET_NAME: &str = "BridgeMillauMessages";
+/// Name of the transaction payment pallet at the Millau runtime.
+pub const TRANSACTION_PAYMENT_PALLET_NAME: &str = "TransactionPayment";
 
 /// Name of the Rialto->Millau (actually DOT->KSM) conversion rate stored in the Millau runtime.
 pub const RIALTO_TO_MILLAU_CONVERSION_RATE_PARAMETER_NAME: &str = "RialtoToMillauConversionRate";
+/// Name of the RialtoParachain->Millau (actually DOT->KSM) conversion rate stored in the Millau
+/// runtime.
+pub const RIALTO_PARACHAIN_TO_MILLAU_CONVERSION_RATE_PARAMETER_NAME: &str =
+	"RialtoParachainToMillauConversionRate";
+/// Name of the RialtoParachain fee multiplier parameter, stored in the Millau runtime.
+pub const RIALTO_PARACHAIN_FEE_MULTIPLIER_PARAMETER_NAME: &str = "RialtoParachainFeeMultiplier";
 
 /// Name of the `MillauFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_MILLAU_HEADER_METHOD: &str = "MillauFinalityApi_best_finalized";

@@ -85,7 +85,7 @@ use xcm_builder::{
 };
 use xcm_executor::{Config, XcmExecutor};
 
-mod millau_messages;
+pub mod millau_messages;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;

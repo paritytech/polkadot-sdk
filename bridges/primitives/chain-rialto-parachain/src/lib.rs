@@ -195,10 +195,15 @@ frame_support::parameter_types! {
 
 /// Name of the With-Rialto-Parachain messages pallet instance that is deployed at bridged chains.
 pub const WITH_RIALTO_PARACHAIN_MESSAGES_PALLET_NAME: &str = "BridgeRialtoParachainMessages";
+/// Name of the transaction payment pallet at the Rialto parachain runtime.
+pub const TRANSACTION_PAYMENT_PALLET_NAME: &str = "TransactionPayment";
 
-/// Name of the Millau->Rialto (actually KSM->DOT) conversion rate stored in the Rialto parachain
-/// runtime.
-pub const MILLAU_TO_RIALTO_CONVERSION_RATE_PARAMETER_NAME: &str = "MillauToRialtoConversionRate";
+/// Name of the Millau->RialtoParachain (actually KSM->DOT) conversion rate stored in the Rialto
+/// parachain runtime.
+pub const MILLAU_TO_RIALTO_PARACHAIN_CONVERSION_RATE_PARAMETER_NAME: &str =
+	"MillauToRialtoParachainConversionRate";
+/// Name of the Millau fee multiplier parameter, stored in the Rialto parachain runtime.
+pub const MILLAU_FEE_MULTIPLIER_PARAMETER_NAME: &str = "MillauFeeMultiplier";
 
 /// Name of the `RialtoParachainFinalityApi::best_finalized` runtime method.
 pub const BEST_FINALIZED_RIALTO_PARACHAIN_HEADER_METHOD: &str =
