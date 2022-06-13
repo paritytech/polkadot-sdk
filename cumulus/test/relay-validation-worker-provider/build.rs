@@ -19,6 +19,7 @@ use std::{
 	path::{Path, PathBuf},
 	process::{self, Command},
 };
+use toml::value::Table;
 
 /// The name of the project we will building.
 const PROJECT_NAME: &str = "validation-worker";
@@ -59,25 +60,39 @@ fn create_project(out_dir: &Path) -> PathBuf {
 	let project_dir = out_dir.join(format!("{}-project", PROJECT_NAME));
 	fs::create_dir_all(project_dir.join("src")).expect("Creates project dir and project src dir");
 
-	let cargo_toml = format!(
-		r#"
-			[package]
-			name = "{project_name}"
-			version = "0.1.0"
-			authors = ["Parity Technologies <admin@parity.io>"]
-			edition = "2021"
+	let mut project_toml = Table::new();
 
-			[dependencies]
-			cumulus-test-relay-validation-worker-provider = {{ path = "{provider_path}" }}
+	let mut package = Table::new();
+	package.insert("name".into(), PROJECT_NAME.into());
+	package.insert("version".into(), "1.0.0".into());
+	package.insert("edition".into(), "2021".into());
 
-			[workspace]
-		"#,
-		project_name = PROJECT_NAME,
-		provider_path =
-			env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` is set by cargo"),
+	project_toml.insert("package".into(), package.into());
+
+	project_toml.insert("workspace".into(), Table::new().into());
+
+	let mut dependencies = Table::new();
+
+	let mut dependency_project = Table::new();
+	dependency_project.insert(
+		"path".into(),
+		env::var("CARGO_MANIFEST_DIR")
+			.expect("`CARGO_MANIFEST_DIR` is set by cargo")
+			.into(),
 	);
 
-	fs::write(project_dir.join("Cargo.toml"), cargo_toml).expect("Writes project `Cargo.toml`");
+	dependencies
+		.insert("cumulus-test-relay-validation-worker-provider".into(), dependency_project.into());
+
+	project_toml.insert("dependencies".into(), dependencies.into());
+
+	add_patches(&mut project_toml);
+
+	fs::write(
+		project_dir.join("Cargo.toml"),
+		toml::to_string_pretty(&project_toml).expect("Wasm workspace toml is valid; qed"),
+	)
+	.expect("Writes project `Cargo.toml`");
 
 	fs::write(
 		project_dir.join("src").join("main.rs"),
@@ -87,9 +102,46 @@ fn create_project(out_dir: &Path) -> PathBuf {
 	)
 	.expect("Writes `main.rs`");
 
-	fs::copy(find_cargo_lock(), project_dir.join("Cargo.lock")).expect("Copies `Cargo.lock`");
+	let cargo_lock = find_cargo_lock();
+	fs::copy(&cargo_lock, project_dir.join("Cargo.lock")).expect("Copies `Cargo.lock`");
+	println!("cargo:rerun-if-changed={}", cargo_lock.display());
 
 	project_dir
+}
+
+fn add_patches(project_toml: &mut Table) {
+	let workspace_toml_path = PathBuf::from(
+		env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` is set by cargo"),
+	)
+	.join("../../Cargo.toml");
+
+	let mut workspace_toml: Table = toml::from_str(
+		&fs::read_to_string(&workspace_toml_path).expect("Workspace root `Cargo.toml` exists; qed"),
+	)
+	.expect("Workspace root `Cargo.toml` is a valid toml file; qed");
+
+	while let Some(mut patch) =
+		workspace_toml.remove("patch").and_then(|p| p.try_into::<Table>().ok())
+	{
+		// Iterate over all patches and make the patch path absolute from the workspace root path.
+		patch
+			.iter_mut()
+			.filter_map(|p| {
+				p.1.as_table_mut().map(|t| t.iter_mut().filter_map(|t| t.1.as_table_mut()))
+			})
+			.flatten()
+			.for_each(|p| {
+				p.iter_mut().filter(|(k, _)| k == &"path").for_each(|(_, v)| {
+					if let Some(path) = v.as_str().map(PathBuf::from) {
+						if path.is_relative() {
+							*v = workspace_toml_path.join(path).display().to_string().into();
+						}
+					}
+				})
+			});
+
+		project_toml.insert("patch".into(), patch.into());
+	}
 }
 
 fn build_project(cargo_toml: &Path) {

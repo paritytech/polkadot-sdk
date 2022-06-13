@@ -2142,6 +2142,7 @@ name = "cumulus-test-relay-validation-worker-provider"
 version = "0.1.0"
 dependencies = [
  "polkadot-node-core-pvf",
+ "toml",
 ]
 
 [[package]]
