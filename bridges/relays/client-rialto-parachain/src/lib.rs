@@ -57,9 +57,8 @@ impl ChainBase for RialtoParachain {
 
 impl Chain for RialtoParachain {
 	const NAME: &'static str = "RialtoParachain";
-	const TOKEN_ID: Option<&'static str> = None;
-	// should be fixed/changed in https://github.com/paritytech/parity-bridges-common/pull/1199
-	// should be removed in https://github.com/paritytech/parity-bridges-common/issues/1246
+	// RialtoParachain token has no value, but we associate it with DOT token
+	const TOKEN_ID: Option<&'static str> = Some("polkadot");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_rialto_parachain::BEST_FINALIZED_RIALTO_PARACHAIN_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
