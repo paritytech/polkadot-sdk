@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_primitives_core::ParaId;
-use rialto_parachain_runtime::{AccountId, AuraId, Signature};
+use rialto_parachain_runtime::{AccountId, AuraId, BridgeMillauMessagesConfig, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -82,6 +82,7 @@ fn endowed_accounts() -> Vec<AccountId> {
 		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		get_account_id_from_seed::<sr25519::Public>("George//stash"),
+		get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner"),
 		pallet_bridge_messages::relayer_fund_account_id::<
 			bp_rialto_parachain::AccountId,
 			bp_rialto_parachain::AccountIdConverter,
@@ -172,7 +173,9 @@ fn testnet_genesis(
 		parachain_info: rialto_parachain_runtime::ParachainInfoConfig { parachain_id: id },
 		aura: rialto_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
-		bridge_millau_messages: Default::default(),
-		// parachain_system: Default::default(),
+		bridge_millau_messages: BridgeMillauMessagesConfig {
+			owner: Some(get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner")),
+			..Default::default()
+		},
 	}
 }
