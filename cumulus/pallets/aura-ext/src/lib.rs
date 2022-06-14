@@ -49,21 +49,19 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_std::vec::Vec;
 
 	/// The configuration trait.
 	#[pallet::config]
 	pub trait Config: pallet_aura::Config + frame_system::Config {}
 
 	#[pallet::pallet]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: BlockNumberFor<T>) {
 			// Update to the latest AuRa authorities.
-			Authorities::<T>::put(Aura::<T>::authorities().into_inner());
+			Authorities::<T>::put(Aura::<T>::authorities());
 		}
 
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
@@ -74,16 +72,17 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
 	/// Serves as cache for the authorities.
 	///
 	/// The authorities in AuRa are overwritten in `on_initialize` when we switch to a new session,
 	/// but we require the old authorities to verify the seal when validating a PoV. This will always
 	/// be updated to the latest AuRa authorities in `on_finalize`.
 	#[pallet::storage]
-	pub(crate) type Authorities<T: Config> = StorageValue<_, Vec<T::AuthorityId>, ValueQuery>;
+	pub(crate) type Authorities<T: Config> = StorageValue<
+		_,
+		BoundedVec<T::AuthorityId, <T as pallet_aura::Config>::MaxAuthorities>,
+		ValueQuery,
+	>;
 
 	#[pallet::genesis_config]
 	#[derive(Default)]
@@ -99,7 +98,7 @@ pub mod pallet {
 				"AuRa authorities empty, maybe wrong order in `construct_runtime!`?",
 			);
 
-			Authorities::<T>::put(authorities.into_inner());
+			Authorities::<T>::put(authorities);
 		}
 	}
 }
