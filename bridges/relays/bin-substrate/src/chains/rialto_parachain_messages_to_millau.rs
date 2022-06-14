@@ -68,7 +68,8 @@ impl SubstrateMessageLane for RialtoParachainMessagesToMillau {
 		rialto_parachain_runtime::WithMillauMessagesInstance,
 	>;
 
-	type TargetToSourceChainConversionRateUpdateBuilder = ();
+	type TargetToSourceChainConversionRateUpdateBuilder =
+		RialtoParachainMessagesToMillauUpdateConversionRateCallBuilder;
 
 	type RelayStrategy = MixStrategy;
 }
