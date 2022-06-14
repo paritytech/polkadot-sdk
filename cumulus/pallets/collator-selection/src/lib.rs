@@ -89,7 +89,7 @@ pub mod pallet {
 			ValidatorRegistration,
 		},
 		weights::DispatchClass,
-		PalletId,
+		BoundedVec, PalletId,
 	};
 	use frame_system::{pallet_prelude::*, Config as SystemConfig};
 	use pallet_session::SessionManager;
@@ -123,8 +123,7 @@ pub mod pallet {
 		/// Account Identifier from which the internal Pot is generated.
 		type PotId: Get<PalletId>;
 
-		/// Maximum number of candidates that we should have. This is used for benchmarking and is not
-		/// enforced.
+		/// Maximum number of candidates that we should have. This is enforced in code.
 		///
 		/// This does not take into account the invulnerables.
 		type MaxCandidates: Get<u32>;
@@ -134,9 +133,7 @@ pub mod pallet {
 		/// This does not take into account the invulnerables.
 		type MinCandidates: Get<u32>;
 
-		/// Maximum number of invulnerables.
-		///
-		/// Used only for benchmarking.
+		/// Maximum number of invulnerables. This is enforced in code.
 		type MaxInvulnerables: Get<u32>;
 
 		// Will be kicked if block is not produced in threshold.
@@ -158,7 +155,9 @@ pub mod pallet {
 	}
 
 	/// Basic information about a collation candidate.
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
+	#[derive(
+		PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+	)]
 	pub struct CandidateInfo<AccountId, Balance> {
 		/// Account identifier.
 		pub who: AccountId,
@@ -168,19 +167,22 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	/// The invulnerable, fixed collators.
 	#[pallet::storage]
 	#[pallet::getter(fn invulnerables)]
-	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+	pub type Invulnerables<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
 	/// The (community, limited) collation candidates.
 	#[pallet::storage]
 	#[pallet::getter(fn candidates)]
-	pub type Candidates<T: Config> =
-		StorageValue<_, Vec<CandidateInfo<T::AccountId, BalanceOf<T>>>, ValueQuery>;
+	pub type Candidates<T: Config> = StorageValue<
+		_,
+		BoundedVec<CandidateInfo<T::AccountId, BalanceOf<T>>, T::MaxCandidates>,
+		ValueQuery,
+	>;
 
 	/// Last block authored by collator.
 	#[pallet::storage]
@@ -230,10 +232,9 @@ pub mod pallet {
 				"duplicate invulnerables in genesis."
 			);
 
-			assert!(
-				T::MaxInvulnerables::get() >= (self.invulnerables.len() as u32),
-				"genesis invulnerables are more than T::MaxInvulnerables",
-			);
+			let bounded_invulnerables =
+				BoundedVec::<_, T::MaxInvulnerables>::try_from(self.invulnerables.clone())
+					.expect("genesis invulnerables are more than T::MaxInvulnerables");
 			assert!(
 				T::MaxCandidates::get() >= self.desired_candidates,
 				"genesis desired_candidates are more than T::MaxCandidates",
@@ -241,7 +242,7 @@ pub mod pallet {
 
 			<DesiredCandidates<T>>::put(&self.desired_candidates);
 			<CandidacyBond<T>>::put(&self.candidacy_bond);
-			<Invulnerables<T>>::put(&self.invulnerables);
+			<Invulnerables<T>>::put(bounded_invulnerables);
 		}
 	}
 
@@ -270,6 +271,8 @@ pub mod pallet {
 		AlreadyCandidate,
 		/// User is not a candidate
 		NotCandidate,
+		/// Too many invulnerables
+		TooManyInvulnerables,
 		/// User is already an Invulnerable
 		AlreadyInvulnerable,
 		/// Account has no associated validator ID
@@ -290,15 +293,11 @@ pub mod pallet {
 			new: Vec<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			T::UpdateOrigin::ensure_origin(origin)?;
-			// we trust origin calls, this is just a for more accurate benchmarking
-			if (new.len() as u32) > T::MaxInvulnerables::get() {
-				log::warn!(
-					"invulnerables > T::MaxInvulnerables; you might need to run benchmarks again"
-				);
-			}
+			let bounded_invulnerables = BoundedVec::<_, T::MaxInvulnerables>::try_from(new)
+				.map_err(|_| Error::<T>::TooManyInvulnerables)?;
 
 			// check if the invulnerables have associated validator keys before they are set
-			for account_id in &new {
+			for account_id in bounded_invulnerables.iter() {
 				let validator_key = T::ValidatorIdOf::convert(account_id.clone())
 					.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 				ensure!(
@@ -307,8 +306,10 @@ pub mod pallet {
 				);
 			}
 
-			<Invulnerables<T>>::put(&new);
-			Self::deposit_event(Event::NewInvulnerables { invulnerables: new });
+			<Invulnerables<T>>::put(&bounded_invulnerables);
+			Self::deposit_event(Event::NewInvulnerables {
+				invulnerables: bounded_invulnerables.to_vec(),
+			});
 			Ok(().into())
 		}
 
@@ -372,7 +373,7 @@ pub mod pallet {
 						Err(Error::<T>::AlreadyCandidate)?
 					} else {
 						T::Currency::reserve(&who, deposit)?;
-						candidates.push(incoming);
+						candidates.try_push(incoming).map_err(|_| Error::<T>::TooManyCandidates)?;
 						<LastAuthoredBlock<T>>::insert(
 							who.clone(),
 							frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
@@ -430,8 +431,10 @@ pub mod pallet {
 		/// Assemble the current set of candidates and invulnerables into the next collator set.
 		///
 		/// This is done on the fly, as frequent as we are told to do so, as the session manager.
-		pub fn assemble_collators(candidates: Vec<T::AccountId>) -> Vec<T::AccountId> {
-			let mut collators = Self::invulnerables();
+		pub fn assemble_collators(
+			candidates: BoundedVec<T::AccountId, T::MaxCandidates>,
+		) -> Vec<T::AccountId> {
+			let mut collators = Self::invulnerables().to_vec();
 			collators.extend(candidates);
 			collators
 		}
@@ -439,8 +442,8 @@ pub mod pallet {
 		/// Kicks out candidates that did not produce a block in the kick threshold
 		/// and refund their deposits.
 		pub fn kick_stale_candidates(
-			candidates: Vec<CandidateInfo<T::AccountId, BalanceOf<T>>>,
-		) -> Vec<T::AccountId> {
+			candidates: BoundedVec<CandidateInfo<T::AccountId, BalanceOf<T>>, T::MaxCandidates>,
+		) -> BoundedVec<T::AccountId, T::MaxCandidates> {
 			let now = frame_system::Pallet::<T>::block_number();
 			let kick_threshold = T::KickThreshold::get();
 			candidates
@@ -461,7 +464,9 @@ pub mod pallet {
 						None
 					}
 				})
-				.collect()
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("filter_map operation can't result in a bounded vec larger than its original; qed")
 		}
 	}
 
