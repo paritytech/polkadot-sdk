@@ -27,7 +27,7 @@ statemint-runtime = { path = "../parachains/runtimes/assets/statemint" }
 statemine-runtime = { path = "../parachains/runtimes/assets/statemine" }
 westmint-runtime = { path = "../parachains/runtimes/assets/westmint" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
-jsonrpsee = { version = "0.13", features = ["server"] }
+jsonrpsee = { version = "0.14.0", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
 
 # Substrate
