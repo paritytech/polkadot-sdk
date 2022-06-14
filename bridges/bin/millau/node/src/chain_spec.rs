@@ -142,6 +142,7 @@ fn endowed_accounts() -> Vec<AccountId> {
 		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
 		get_account_id_from_seed::<sr25519::Public>("George"),
 		get_account_id_from_seed::<sr25519::Public>("Harry"),
+		get_account_id_from_seed::<sr25519::Public>("Iden"),
 		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
@@ -150,6 +151,7 @@ fn endowed_accounts() -> Vec<AccountId> {
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		get_account_id_from_seed::<sr25519::Public>("George//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Iden//stash"),
 		get_account_id_from_seed::<sr25519::Public>("RialtoMessagesOwner"),
 		get_account_id_from_seed::<sr25519::Public>("RialtoParachainMessagesOwner"),
 		pallet_bridge_messages::relayer_fund_account_id::<
