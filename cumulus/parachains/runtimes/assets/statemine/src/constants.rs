@@ -26,8 +26,8 @@ pub mod currency {
 	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
-		// map to 1/10 of what the kusama relay chain charges (v9020)
-		constants::currency::deposit(items, bytes) / 10
+		// map to 1/100 of what the kusama relay chain charges (v9020)
+		constants::currency::deposit(items, bytes) / 100
 	}
 }
 

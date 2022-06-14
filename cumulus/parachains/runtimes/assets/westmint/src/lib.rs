@@ -208,8 +208,8 @@ impl pallet_transaction_payment::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = 1 * UNITS; // 1 WND deposit to create asset
-	pub const AssetAccountDeposit: Balance = 1 * UNITS; // 1 WND for an asset account
+	pub const AssetDeposit: Balance = UNITS / 10; // 1 / 10 WND deposit to create asset
+	pub const AssetAccountDeposit: Balance = deposit(1, 16);
 	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const AssetsStringLimit: u32 = 50;
 	/// Key = 32 bytes, Value = 36 bytes (32+1+1+1+1)
@@ -497,8 +497,8 @@ impl pallet_asset_tx_payment::Config for Runtime {
 }
 
 parameter_types! {
-	pub const CollectionDeposit: Balance = UNITS; // 1 UNIT deposit to create asset class
-	pub const ItemDeposit: Balance = UNITS / 100; // 1/100 UNIT deposit to create asset instance
+	pub const CollectionDeposit: Balance = UNITS / 10; // 1 / 10 UNIT deposit to create asset class
+	pub const ItemDeposit: Balance = UNITS / 1_000; // 1 / 1000 UNIT deposit to create asset instance
 	pub const KeyLimit: u32 = 32;	// Max 32 bytes per key
 	pub const ValueLimit: u32 = 64;	// Max 64 bytes per value
 	pub const UniquesMetadataDepositBase: Balance = deposit(1, 129);

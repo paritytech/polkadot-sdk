@@ -26,8 +26,8 @@ pub mod currency {
 	pub const GRAND: Balance = constants::currency::GRAND;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
-		// 1/10 of Westend testnet
-		constants::currency::deposit(items, bytes) / 10
+		// 1/100 of Westend testnet
+		constants::currency::deposit(items, bytes) / 100
 	}
 }
 
