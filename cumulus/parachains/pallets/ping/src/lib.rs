@@ -20,12 +20,18 @@
 
 use cumulus_pallet_xcm::{ensure_sibling_para, Origin as CumulusOrigin};
 use cumulus_primitives_core::ParaId;
+use frame_support::{parameter_types, BoundedVec};
 use frame_system::Config as SystemConfig;
 use sp_runtime::traits::Saturating;
 use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 
 pub use pallet::*;
+
+parameter_types! {
+	const MaxParachains: u32 = 100;
+	const MaxPayloadSize: u32 = 1024;
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -35,7 +41,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	/// The module configuration trait.
@@ -55,7 +60,11 @@ pub mod pallet {
 
 	/// The target parachains to ping.
 	#[pallet::storage]
-	pub(super) type Targets<T: Config> = StorageValue<_, Vec<(ParaId, Vec<u8>)>, ValueQuery>;
+	pub(super) type Targets<T: Config> = StorageValue<
+		_,
+		BoundedVec<(ParaId, BoundedVec<u8, MaxPayloadSize>), MaxParachains>,
+		ValueQuery,
+	>;
 
 	/// The total number of pings sent.
 	#[pallet::storage]
@@ -79,7 +88,12 @@ pub mod pallet {
 	}
 
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		/// Too many parachains have been added as a target.
+		TooManyTargets,
+		/// The payload provided is too large, limit is 1024 bytes.
+		PayloadTooLarge,
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -96,7 +110,7 @@ pub mod pallet {
 						require_weight_at_most: 1_000,
 						call: <T as Config>::Call::from(Call::<T>::ping {
 							seq,
-							payload: payload.clone(),
+							payload: payload.clone().to_vec(),
 						})
 						.encode()
 						.into(),
@@ -104,10 +118,15 @@ pub mod pallet {
 				) {
 					Ok(()) => {
 						Pings::<T>::insert(seq, n);
-						Self::deposit_event(Event::PingSent(para, seq, payload));
+						Self::deposit_event(Event::PingSent(para, seq, payload.to_vec()));
 					},
 					Err(e) => {
-						Self::deposit_event(Event::ErrorSendingPing(e, para, seq, payload));
+						Self::deposit_event(Event::ErrorSendingPing(
+							e,
+							para,
+							seq,
+							payload.to_vec(),
+						));
 					},
 				}
 			}
@@ -119,7 +138,11 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn start(origin: OriginFor<T>, para: ParaId, payload: Vec<u8>) -> DispatchResult {
 			ensure_root(origin)?;
-			Targets::<T>::mutate(|t| t.push((para, payload)));
+			let payload = BoundedVec::<u8, MaxPayloadSize>::try_from(payload)
+				.map_err(|_| Error::<T>::PayloadTooLarge)?;
+			Targets::<T>::try_mutate(|t| {
+				t.try_push((para, payload)).map_err(|_| Error::<T>::TooManyTargets)
+			})?;
 			Ok(())
 		}
 
@@ -131,8 +154,13 @@ pub mod pallet {
 			payload: Vec<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			let bounded_payload = BoundedVec::<u8, MaxPayloadSize>::try_from(payload)
+				.map_err(|_| Error::<T>::PayloadTooLarge)?;
 			for _ in 0..count {
-				Targets::<T>::mutate(|t| t.push((para, payload.clone())));
+				Targets::<T>::try_mutate(|t| {
+					t.try_push((para, bounded_payload.clone()))
+						.map_err(|_| Error::<T>::TooManyTargets)
+				})?;
 			}
 			Ok(())
 		}
