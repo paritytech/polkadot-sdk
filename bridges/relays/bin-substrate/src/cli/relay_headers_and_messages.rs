@@ -44,11 +44,14 @@ use substrate_relay_helper::{
 		headers::OnDemandHeadersRelay, parachains::OnDemandParachainsRelay, OnDemandRelay,
 	},
 	parachains::SubstrateParachainsPipeline,
-	TransactionParams,
+	TaggedAccount, TransactionParams,
 };
 
 use crate::{
-	cli::{relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams, RuntimeVersionType},
+	cli::{
+		relay_messages::RelayerMode, CliChain, HexLaneId, PrometheusParams, RuntimeVersionType,
+		TransactionParamsProvider,
+	},
 	declare_chain_options,
 };
 
@@ -61,7 +64,7 @@ use crate::{
 pub(crate) const CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO: f64 = 0.05;
 
 /// Start headers+messages relayer process.
-#[derive(StructOpt)]
+#[derive(Debug, PartialEq, StructOpt)]
 pub enum RelayHeadersAndMessages {
 	MillauRialto(MillauRialtoHeadersAndMessages),
 	MillauRialtoParachain(MillauRialtoParachainHeadersAndMessages),
@@ -70,7 +73,7 @@ pub enum RelayHeadersAndMessages {
 }
 
 /// Parameters that have the same names across all bridges.
-#[derive(StructOpt)]
+#[derive(Debug, PartialEq, StructOpt)]
 pub struct HeadersAndMessagesSharedParams {
 	/// Hex-encoded lane identifiers that should be served by the complex relay.
 	#[structopt(long, default_value = "00000000")]
@@ -95,21 +98,32 @@ macro_rules! declare_bridge_options {
 	// chain, parachain, relay-chain-of-parachain
 	($chain1:ident, $chain2:ident, $chain3:ident) => {
 		paste::item! {
-			#[doc = $chain1 ", " $chain2 " and " $chain3 " headers+messages relay params."]
-			#[derive(StructOpt)]
+			#[doc = $chain1 ", " $chain2 " and " $chain3 " headers+parachains+messages relay params."]
+			#[derive(Debug, PartialEq, StructOpt)]
 			pub struct [<$chain1 $chain2 HeadersAndMessages>] {
 				#[structopt(flatten)]
 				shared: HeadersAndMessagesSharedParams,
 				#[structopt(flatten)]
 				left: [<$chain1 ConnectionParams>],
+				// default signer, which is always used to sign messages relay transactions on the left chain
 				#[structopt(flatten)]
 				left_sign: [<$chain1 SigningParams>],
+				// override for right_relay->left headers signer
+				#[structopt(flatten)]
+				right_relay_headers_to_left_sign_override: [<$chain3 HeadersTo $chain1 SigningParams>],
+				// override for right->left parachains signer
+				#[structopt(flatten)]
+				right_parachains_to_left_sign_override: [<$chain3 ParachainsTo $chain1 SigningParams>],
 				#[structopt(flatten)]
 				left_messages_pallet_owner: [<$chain1 MessagesPalletOwnerSigningParams>],
 				#[structopt(flatten)]
 				right: [<$chain2 ConnectionParams>],
+				// default signer, which is always used to sign messages relay transactions on the right chain
 				#[structopt(flatten)]
 				right_sign: [<$chain2 SigningParams>],
+				// override for left->right headers signer
+				#[structopt(flatten)]
+				left_headers_to_right_sign_override: [<$chain1 HeadersTo $chain2 SigningParams>],
 				#[structopt(flatten)]
 				right_messages_pallet_owner: [<$chain2 MessagesPalletOwnerSigningParams>],
 				#[structopt(flatten)]
@@ -122,18 +136,26 @@ macro_rules! declare_bridge_options {
 	($chain1:ident, $chain2:ident) => {
 		paste::item! {
 			#[doc = $chain1 " and " $chain2 " headers+messages relay params."]
-			#[derive(StructOpt)]
+			#[derive(Debug, PartialEq, StructOpt)]
 			pub struct [<$chain1 $chain2 HeadersAndMessages>] {
 				#[structopt(flatten)]
 				shared: HeadersAndMessagesSharedParams,
+				// default signer, which is always used to sign messages relay transactions on the left chain
 				#[structopt(flatten)]
 				left: [<$chain1 ConnectionParams>],
+				// override for right->left headers signer
+				#[structopt(flatten)]
+				right_headers_to_left_sign_override: [<$chain2 HeadersTo $chain1 SigningParams>],
 				#[structopt(flatten)]
 				left_sign: [<$chain1 SigningParams>],
 				#[structopt(flatten)]
 				left_messages_pallet_owner: [<$chain1 MessagesPalletOwnerSigningParams>],
+				// default signer, which is always used to sign messages relay transactions on the right chain
 				#[structopt(flatten)]
 				right: [<$chain2 ConnectionParams>],
+				// override for left->right headers signer
+				#[structopt(flatten)]
+				left_headers_to_right_sign_override: [<$chain1 HeadersTo $chain2 SigningParams>],
 				#[structopt(flatten)]
 				right_sign: [<$chain2 SigningParams>],
 				#[structopt(flatten)]
@@ -178,6 +200,8 @@ macro_rules! select_bridge {
 					params: &Params,
 					left_client: Client<Left>,
 					right_client: Client<Right>,
+					at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Left>>>,
+					at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Right>>>,
 				) -> anyhow::Result<(
 					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
 					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
@@ -190,18 +214,14 @@ macro_rules! select_bridge {
 					>(
 						left_client,
 						right_client,
-						TransactionParams {
-							mortality: params.right_sign.transactions_mortality()?,
-							signer: params.right_sign.to_keypair::<Right>()?,
-						},
-						TransactionParams {
-							mortality: params.left_sign.transactions_mortality()?,
-							signer: params.left_sign.to_keypair::<Left>()?,
-						},
+						params.left_headers_to_right_sign_override.transaction_params_or::<Right, _>(&params.right_sign)?,
+						params.right_headers_to_left_sign_override.transaction_params_or::<Left, _>(&params.left_sign)?,
 						params.shared.only_mandatory_headers,
 						params.shared.only_mandatory_headers,
 						params.left.can_start_version_guard(),
 						params.right.can_start_version_guard(),
+						at_left_relay_accounts,
+						at_right_relay_accounts,
 					).await
 				}
 
@@ -241,12 +261,14 @@ macro_rules! select_bridge {
 					params: &Params,
 					left_client: Client<Left>,
 					right_client: Client<Right>,
+					at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Left>>>,
+					at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Right>>>,
 				) -> anyhow::Result<(
 					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
 					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
 				)> {
 					type RightRelayChain = relay_rialto_client::Rialto;
-					let rialto_relay_chain_client = params.right_relay.to_client::<RightRelayChain>().await?; // TODO: should be the relaychain connection params
+					let rialto_relay_chain_client = params.right_relay.to_client::<RightRelayChain>().await?;
 
 					start_on_demand_relay_to_parachain::<
 						Left,
@@ -259,18 +281,15 @@ macro_rules! select_bridge {
 						left_client,
 						right_client,
 						rialto_relay_chain_client,
-						TransactionParams {
-							mortality: params.right_sign.transactions_mortality()?,
-							signer: params.right_sign.to_keypair::<Right>()?,
-						},
-						TransactionParams {
-							mortality: params.left_sign.transactions_mortality()?,
-							signer: params.left_sign.to_keypair::<Left>()?,
-						},
+						params.left_headers_to_right_sign_override.transaction_params_or::<Right, _>(&params.right_sign)?,
+						params.right_relay_headers_to_left_sign_override.transaction_params_or::<Left, _>(&params.left_sign)?,
+						params.right_parachains_to_left_sign_override.transaction_params_or::<Left, _>(&params.left_sign)?,
 						params.shared.only_mandatory_headers,
 						params.shared.only_mandatory_headers,
 						params.left.can_start_version_guard(),
 						params.right.can_start_version_guard(),
+						at_left_relay_accounts,
+						at_right_relay_accounts,
 					).await
 				}
 
@@ -310,6 +329,8 @@ macro_rules! select_bridge {
 					params: &Params,
 					left_client: Client<Left>,
 					right_client: Client<Right>,
+					at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Left>>>,
+					at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Right>>>,
 				) -> anyhow::Result<(
 					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
 					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
@@ -322,18 +343,14 @@ macro_rules! select_bridge {
 					>(
 						left_client,
 						right_client,
-						TransactionParams {
-							mortality: params.right_sign.transactions_mortality()?,
-							signer: params.right_sign.to_keypair::<Right>()?,
-						},
-						TransactionParams {
-							mortality: params.left_sign.transactions_mortality()?,
-							signer: params.left_sign.to_keypair::<Left>()?,
-						},
+						params.left_headers_to_right_sign_override.transaction_params_or::<Right, _>(&params.right_sign)?,
+						params.right_headers_to_left_sign_override.transaction_params_or::<Left, _>(&params.left_sign)?,
 						params.shared.only_mandatory_headers,
 						params.shared.only_mandatory_headers,
 						params.left.can_start_version_guard(),
 						params.right.can_start_version_guard(),
+						at_left_relay_accounts,
+						at_right_relay_accounts,
 					).await
 				}
 
@@ -393,6 +410,8 @@ macro_rules! select_bridge {
 					params: &Params,
 					left_client: Client<Left>,
 					right_client: Client<Right>,
+					at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Left>>>,
+					at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Right>>>,
 				) -> anyhow::Result<(
 					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
 					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
@@ -405,18 +424,14 @@ macro_rules! select_bridge {
 					>(
 						left_client,
 						right_client,
-						TransactionParams {
-							mortality: params.right_sign.transactions_mortality()?,
-							signer: params.right_sign.to_keypair::<Right>()?,
-						},
-						TransactionParams {
-							mortality: params.left_sign.transactions_mortality()?,
-							signer: params.left_sign.to_keypair::<Left>()?,
-						},
+						params.left_headers_to_right_sign_override.transaction_params_or::<Right, _>(&params.right_sign)?,
+						params.right_headers_to_left_sign_override.transaction_params_or::<Left, _>(&params.left_sign)?,
 						params.shared.only_mandatory_headers,
 						params.shared.only_mandatory_headers,
 						params.left.can_start_version_guard(),
 						params.right.can_start_version_guard(),
+						at_left_relay_accounts,
+						at_right_relay_accounts,
 					).await
 				}
 
@@ -470,6 +485,15 @@ declare_chain_options!(Rococo, rococo);
 declare_chain_options!(Wococo, wococo);
 declare_chain_options!(Kusama, kusama);
 declare_chain_options!(Polkadot, polkadot);
+// Means to override signers of different layer transactions.
+declare_chain_options!(MillauHeadersToRialto, millau_headers_to_rialto);
+declare_chain_options!(MillauHeadersToRialtoParachain, millau_headers_to_rialto_parachain);
+declare_chain_options!(RialtoHeadersToMillau, rialto_headers_to_millau);
+declare_chain_options!(RialtoParachainsToMillau, rialto_parachains_to_millau);
+declare_chain_options!(WococoHeadersToRococo, wococo_headers_to_rococo);
+declare_chain_options!(RococoHeadersToWococo, rococo_headers_to_wococo);
+declare_chain_options!(KusamaHeadersToPolkadot, kusama_headers_to_polkadot);
+declare_chain_options!(PolkadotHeadersToKusama, polkadot_headers_to_kusama);
 // All supported bridges.
 declare_bridge_options!(Millau, Rialto);
 declare_bridge_options!(Millau, RialtoParachain, Rialto);
@@ -505,6 +529,14 @@ impl RelayHeadersAndMessages {
 					LeftToRightMessageLane,
 				>(left_client.clone(), right_client.clone())?;
 			let right_to_left_metrics = left_to_right_metrics.clone().reverse();
+			let mut at_left_relay_accounts = vec![TaggedAccount::Messages {
+				id: left_sign.public().into(),
+				bridged_chain: Right::NAME.to_string(),
+			}];
+			let mut at_right_relay_accounts = vec![TaggedAccount::Messages {
+				id: right_sign.public().into(),
+				bridged_chain: Left::NAME.to_string(),
+			}];
 
 			// start conversion rate update loops for left/right chains
 			if let Some(left_messages_pallet_owner) = left_messages_pallet_owner.clone() {
@@ -522,7 +554,7 @@ impl RelayHeadersAndMessages {
 				>(
 					left_client,
 					TransactionParams {
-						signer: left_messages_pallet_owner,
+						signer: left_messages_pallet_owner.clone(),
 						mortality: left_transactions_mortality,
 					},
 					left_to_right_metrics
@@ -542,6 +574,10 @@ impl RelayHeadersAndMessages {
 						.shared_value_ref(),
 					CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
 				);
+				at_left_relay_accounts.push(TaggedAccount::MessagesPalletOwner {
+					id: left_messages_pallet_owner.public().into(),
+					bridged_chain: Right::NAME.to_string(),
+				});
 			}
 			if let Some(right_messages_pallet_owner) = right_messages_pallet_owner.clone() {
 				let right_client = right_client.clone();
@@ -558,7 +594,7 @@ impl RelayHeadersAndMessages {
 				>(
 					right_client,
 					TransactionParams {
-						signer: right_messages_pallet_owner,
+						signer: right_messages_pallet_owner.clone(),
 						mortality: right_transactions_mortality,
 					},
 					right_to_left_metrics
@@ -578,6 +614,10 @@ impl RelayHeadersAndMessages {
 						.shared_value_ref(),
 					CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
 				);
+				at_right_relay_accounts.push(TaggedAccount::MessagesPalletOwner {
+					id: right_messages_pallet_owner.public().into(),
+					bridged_chain: Left::NAME.to_string(),
+				});
 			}
 
 			// optionally, create relayers fund account
@@ -619,27 +659,33 @@ impl RelayHeadersAndMessages {
 				}
 			}
 
+			// start on-demand header relays
+			let (left_to_right_on_demand_headers, right_to_left_on_demand_headers) =
+				start_on_demand_relays(
+					&params,
+					left_client.clone(),
+					right_client.clone(),
+					&mut at_left_relay_accounts,
+					&mut at_right_relay_accounts,
+				)
+				.await?;
+
 			// add balance-related metrics
 			let metrics_params =
 				substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
 					left_client.clone(),
 					metrics_params,
-					Some(left_sign.public().into()),
-					left_messages_pallet_owner.map(|kp| kp.public().into()),
+					at_left_relay_accounts,
 				)
 				.await?;
 			let metrics_params =
 				substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
 					right_client.clone(),
 					metrics_params,
-					Some(right_sign.public().into()),
-					right_messages_pallet_owner.map(|kp| kp.public().into()),
+					at_right_relay_accounts,
 				)
 				.await?;
 
-			// start on-demand header relays
-			let (left_to_right_on_demand_headers, right_to_left_on_demand_headers) =
-				start_on_demand_relays(&params, left_client.clone(), right_client.clone()).await?;
 			// Need 2x capacity since we consider both directions for each lane
 			let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 			for lane in lanes {
@@ -714,13 +760,15 @@ async fn start_on_demand_relay_to_relay<LC, RC, LR, RL>(
 	right_to_left_only_mandatory_headers: bool,
 	left_can_start_version_guard: bool,
 	right_can_start_version_guard: bool,
+	at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<LC>>>,
+	at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<RC>>>,
 ) -> anyhow::Result<(
 	Arc<dyn OnDemandRelay<BlockNumberOf<LC>>>,
 	Arc<dyn OnDemandRelay<BlockNumberOf<RC>>>,
 )>
 where
-	LC: Chain + TransactionSignScheme<Chain = LC>,
-	RC: Chain + TransactionSignScheme<Chain = RC>,
+	LC: Chain + TransactionSignScheme<Chain = LC> + CliChain<KeyPair = AccountKeyPairOf<LC>>,
+	RC: Chain + TransactionSignScheme<Chain = RC> + CliChain<KeyPair = AccountKeyPairOf<RC>>,
 	LR: SubstrateFinalitySyncPipeline<
 		SourceChain = LC,
 		TargetChain = RC,
@@ -734,6 +782,15 @@ where
 	AccountIdOf<LC>: From<<<LC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
 	AccountIdOf<RC>: From<<<RC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
 {
+	at_left_relay_accounts.push(TaggedAccount::Headers {
+		id: right_to_left_transaction_params.signer.public().into(),
+		bridged_chain: RC::NAME.to_string(),
+	});
+	at_right_relay_accounts.push(TaggedAccount::Headers {
+		id: left_to_right_transaction_params.signer.public().into(),
+		bridged_chain: LC::NAME.to_string(),
+	});
+
 	LR::start_relay_guards(
 		&right_client,
 		&left_to_right_transaction_params,
@@ -768,21 +825,27 @@ async fn start_on_demand_relay_to_parachain<LC, RC, RRC, LR, RRF, RL>(
 	left_client: Client<LC>,
 	right_client: Client<RC>,
 	right_relay_client: Client<RRC>,
-	left_to_right_transaction_params: TransactionParams<AccountKeyPairOf<RC>>,
-	right_to_left_transaction_params: TransactionParams<AccountKeyPairOf<LC>>,
+	left_headers_to_right_transaction_params: TransactionParams<AccountKeyPairOf<RC>>,
+	right_headers_to_left_transaction_params: TransactionParams<AccountKeyPairOf<LC>>,
+	right_parachains_to_left_transaction_params: TransactionParams<AccountKeyPairOf<LC>>,
 	left_to_right_only_mandatory_headers: bool,
 	right_to_left_only_mandatory_headers: bool,
 	left_can_start_version_guard: bool,
 	right_can_start_version_guard: bool,
+	at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<LC>>>,
+	at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<RC>>>,
 ) -> anyhow::Result<(
 	Arc<dyn OnDemandRelay<BlockNumberOf<LC>>>,
 	Arc<dyn OnDemandRelay<BlockNumberOf<RC>>>,
 )>
 where
-	LC: Chain + TransactionSignScheme<Chain = LC>,
-	RC: Chain<Hash = ParaHash> + TransactionSignScheme<Chain = RC>,
+	LC: Chain + TransactionSignScheme<Chain = LC> + CliChain<KeyPair = AccountKeyPairOf<LC>>,
+	RC: Chain<Hash = ParaHash>
+		+ TransactionSignScheme<Chain = RC>
+		+ CliChain<KeyPair = AccountKeyPairOf<RC>>,
 	RRC: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
-		+ TransactionSignScheme<Chain = RRC>,
+		+ TransactionSignScheme<Chain = RRC>
+		+ CliChain<KeyPair = AccountKeyPairOf<RRC>>,
 	LR: SubstrateFinalitySyncPipeline<
 		SourceChain = LC,
 		TargetChain = RC,
@@ -802,34 +865,47 @@ where
 	AccountIdOf<LC>: From<<<LC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
 	AccountIdOf<RC>: From<<<RC as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
 {
+	at_left_relay_accounts.push(TaggedAccount::Headers {
+		id: right_headers_to_left_transaction_params.signer.public().into(),
+		bridged_chain: RRC::NAME.to_string(),
+	});
+	at_left_relay_accounts.push(TaggedAccount::Parachains {
+		id: right_parachains_to_left_transaction_params.signer.public().into(),
+		bridged_chain: RRC::NAME.to_string(),
+	});
+	at_right_relay_accounts.push(TaggedAccount::Headers {
+		id: left_headers_to_right_transaction_params.signer.public().into(),
+		bridged_chain: LC::NAME.to_string(),
+	});
+
 	LR::start_relay_guards(
 		&right_client,
-		&left_to_right_transaction_params,
+		&left_headers_to_right_transaction_params,
 		right_can_start_version_guard,
 	)
 	.await?;
 	RRF::start_relay_guards(
 		&left_client,
-		&right_to_left_transaction_params,
+		&right_headers_to_left_transaction_params,
 		left_can_start_version_guard,
 	)
 	.await?;
 	let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LR>(
 		left_client.clone(),
 		right_client,
-		left_to_right_transaction_params,
+		left_headers_to_right_transaction_params,
 		left_to_right_only_mandatory_headers,
 	);
 	let right_relay_to_left_on_demand_headers = OnDemandHeadersRelay::new::<RRF>(
 		right_relay_client.clone(),
 		left_client.clone(),
-		right_to_left_transaction_params.clone(),
+		right_headers_to_left_transaction_params,
 		right_to_left_only_mandatory_headers,
 	);
 	let right_to_left_on_demand_parachains = OnDemandParachainsRelay::new::<RL>(
 		right_relay_client,
 		left_client,
-		right_to_left_transaction_params,
+		right_parachains_to_left_transaction_params,
 		Arc::new(right_relay_to_left_on_demand_headers),
 	);
 
@@ -865,4 +941,256 @@ where
 		.await
 		.map(drop)
 		.map_err(|e| anyhow::format_err!("{}", e))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn should_parse_relay_to_relay_options() {
+		// when
+		let res = RelayHeadersAndMessages::from_iter(vec![
+			"relay-headers-and-messages",
+			"millau-rialto",
+			"--millau-host",
+			"millau-node-alice",
+			"--millau-port",
+			"9944",
+			"--millau-signer",
+			"//Charlie",
+			"--millau-messages-pallet-owner",
+			"//RialtoMessagesOwner",
+			"--millau-transactions-mortality",
+			"64",
+			"--rialto-host",
+			"rialto-node-alice",
+			"--rialto-port",
+			"9944",
+			"--rialto-signer",
+			"//Charlie",
+			"--rialto-messages-pallet-owner",
+			"//MillauMessagesOwner",
+			"--rialto-transactions-mortality",
+			"64",
+			"--lane",
+			"00000000",
+			"--lane",
+			"73776170",
+			"--prometheus-host",
+			"0.0.0.0",
+		]);
+
+		// then
+		assert_eq!(
+			res,
+			RelayHeadersAndMessages::MillauRialto(MillauRialtoHeadersAndMessages {
+				shared: HeadersAndMessagesSharedParams {
+					lane: vec![
+						HexLaneId([0x00, 0x00, 0x00, 0x00]),
+						HexLaneId([0x73, 0x77, 0x61, 0x70])
+					],
+					relayer_mode: RelayerMode::Rational,
+					create_relayers_fund_accounts: false,
+					only_mandatory_headers: false,
+					prometheus_params: PrometheusParams {
+						no_prometheus: false,
+						prometheus_host: "0.0.0.0".into(),
+						prometheus_port: 9616,
+					},
+				},
+				left: MillauConnectionParams {
+					millau_host: "millau-node-alice".into(),
+					millau_port: 9944,
+					millau_secure: false,
+					millau_runtime_version: MillauRuntimeVersionParams {
+						millau_version_mode: RuntimeVersionType::Bundle,
+						millau_spec_version: None,
+						millau_transaction_version: None,
+					},
+				},
+				left_sign: MillauSigningParams {
+					millau_signer: Some("//Charlie".into()),
+					millau_signer_password: None,
+					millau_signer_file: None,
+					millau_signer_password_file: None,
+					millau_transactions_mortality: Some(64),
+				},
+				left_messages_pallet_owner: MillauMessagesPalletOwnerSigningParams {
+					millau_messages_pallet_owner: Some("//RialtoMessagesOwner".into()),
+					millau_messages_pallet_owner_password: None,
+				},
+				left_headers_to_right_sign_override: MillauHeadersToRialtoSigningParams {
+					millau_headers_to_rialto_signer: None,
+					millau_headers_to_rialto_signer_password: None,
+					millau_headers_to_rialto_signer_file: None,
+					millau_headers_to_rialto_signer_password_file: None,
+					millau_headers_to_rialto_transactions_mortality: None,
+				},
+				right: RialtoConnectionParams {
+					rialto_host: "rialto-node-alice".into(),
+					rialto_port: 9944,
+					rialto_secure: false,
+					rialto_runtime_version: RialtoRuntimeVersionParams {
+						rialto_version_mode: RuntimeVersionType::Bundle,
+						rialto_spec_version: None,
+						rialto_transaction_version: None,
+					},
+				},
+				right_sign: RialtoSigningParams {
+					rialto_signer: Some("//Charlie".into()),
+					rialto_signer_password: None,
+					rialto_signer_file: None,
+					rialto_signer_password_file: None,
+					rialto_transactions_mortality: Some(64),
+				},
+				right_messages_pallet_owner: RialtoMessagesPalletOwnerSigningParams {
+					rialto_messages_pallet_owner: Some("//MillauMessagesOwner".into()),
+					rialto_messages_pallet_owner_password: None,
+				},
+				right_headers_to_left_sign_override: RialtoHeadersToMillauSigningParams {
+					rialto_headers_to_millau_signer: None,
+					rialto_headers_to_millau_signer_password: None,
+					rialto_headers_to_millau_signer_file: None,
+					rialto_headers_to_millau_signer_password_file: None,
+					rialto_headers_to_millau_transactions_mortality: None,
+				},
+			}),
+		);
+	}
+
+	#[test]
+	fn should_parse_relay_to_parachain_options() {
+		// when
+		let res = RelayHeadersAndMessages::from_iter(vec![
+			"relay-headers-and-messages",
+			"millau-rialto-parachain",
+			"--millau-host",
+			"millau-node-alice",
+			"--millau-port",
+			"9944",
+			"--millau-signer",
+			"//Iden",
+			"--rialto-headers-to-millau-signer",
+			"//Ken",
+			"--millau-messages-pallet-owner",
+			"//RialtoParachainMessagesOwner",
+			"--millau-transactions-mortality",
+			"64",
+			"--rialto-parachain-host",
+			"rialto-parachain-collator-charlie",
+			"--rialto-parachain-port",
+			"9944",
+			"--rialto-parachain-signer",
+			"//George",
+			"--rialto-parachain-messages-pallet-owner",
+			"//MillauMessagesOwner",
+			"--rialto-parachain-transactions-mortality",
+			"64",
+			"--rialto-host",
+			"rialto-node-alice",
+			"--rialto-port",
+			"9944",
+			"--lane",
+			"00000000",
+			"--prometheus-host",
+			"0.0.0.0",
+		]);
+
+		// then
+		assert_eq!(
+			res,
+			RelayHeadersAndMessages::MillauRialtoParachain(
+				MillauRialtoParachainHeadersAndMessages {
+					shared: HeadersAndMessagesSharedParams {
+						lane: vec![HexLaneId([0x00, 0x00, 0x00, 0x00])],
+						relayer_mode: RelayerMode::Rational,
+						create_relayers_fund_accounts: false,
+						only_mandatory_headers: false,
+						prometheus_params: PrometheusParams {
+							no_prometheus: false,
+							prometheus_host: "0.0.0.0".into(),
+							prometheus_port: 9616,
+						},
+					},
+					left: MillauConnectionParams {
+						millau_host: "millau-node-alice".into(),
+						millau_port: 9944,
+						millau_secure: false,
+						millau_runtime_version: MillauRuntimeVersionParams {
+							millau_version_mode: RuntimeVersionType::Bundle,
+							millau_spec_version: None,
+							millau_transaction_version: None,
+						},
+					},
+					left_sign: MillauSigningParams {
+						millau_signer: Some("//Iden".into()),
+						millau_signer_password: None,
+						millau_signer_file: None,
+						millau_signer_password_file: None,
+						millau_transactions_mortality: Some(64),
+					},
+					left_messages_pallet_owner: MillauMessagesPalletOwnerSigningParams {
+						millau_messages_pallet_owner: Some("//RialtoParachainMessagesOwner".into()),
+						millau_messages_pallet_owner_password: None,
+					},
+					left_headers_to_right_sign_override:
+						MillauHeadersToRialtoParachainSigningParams {
+							millau_headers_to_rialto_parachain_signer: None,
+							millau_headers_to_rialto_parachain_signer_password: None,
+							millau_headers_to_rialto_parachain_signer_file: None,
+							millau_headers_to_rialto_parachain_signer_password_file: None,
+							millau_headers_to_rialto_parachain_transactions_mortality: None,
+						},
+					right: RialtoParachainConnectionParams {
+						rialto_parachain_host: "rialto-parachain-collator-charlie".into(),
+						rialto_parachain_port: 9944,
+						rialto_parachain_secure: false,
+						rialto_parachain_runtime_version: RialtoParachainRuntimeVersionParams {
+							rialto_parachain_version_mode: RuntimeVersionType::Bundle,
+							rialto_parachain_spec_version: None,
+							rialto_parachain_transaction_version: None,
+						},
+					},
+					right_sign: RialtoParachainSigningParams {
+						rialto_parachain_signer: Some("//George".into()),
+						rialto_parachain_signer_password: None,
+						rialto_parachain_signer_file: None,
+						rialto_parachain_signer_password_file: None,
+						rialto_parachain_transactions_mortality: Some(64),
+					},
+					right_messages_pallet_owner: RialtoParachainMessagesPalletOwnerSigningParams {
+						rialto_parachain_messages_pallet_owner: Some(
+							"//MillauMessagesOwner".into()
+						),
+						rialto_parachain_messages_pallet_owner_password: None,
+					},
+					right_relay_headers_to_left_sign_override: RialtoHeadersToMillauSigningParams {
+						rialto_headers_to_millau_signer: Some("//Ken".into()),
+						rialto_headers_to_millau_signer_password: None,
+						rialto_headers_to_millau_signer_file: None,
+						rialto_headers_to_millau_signer_password_file: None,
+						rialto_headers_to_millau_transactions_mortality: None,
+					},
+					right_parachains_to_left_sign_override: RialtoParachainsToMillauSigningParams {
+						rialto_parachains_to_millau_signer: None,
+						rialto_parachains_to_millau_signer_password: None,
+						rialto_parachains_to_millau_signer_file: None,
+						rialto_parachains_to_millau_signer_password_file: None,
+						rialto_parachains_to_millau_transactions_mortality: None,
+					},
+					right_relay: RialtoConnectionParams {
+						rialto_host: "rialto-node-alice".into(),
+						rialto_port: 9944,
+						rialto_secure: false,
+						rialto_runtime_version: RialtoRuntimeVersionParams {
+							rialto_version_mode: RuntimeVersionType::Bundle,
+							rialto_spec_version: None,
+							rialto_transaction_version: None,
+						},
+					},
+				}
+			),
+		);
+	}
 }
