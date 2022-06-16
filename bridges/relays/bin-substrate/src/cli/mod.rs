@@ -22,6 +22,7 @@ use codec::{Decode, Encode};
 use relay_substrate_client::ChainRuntimeVersion;
 use structopt::{clap::arg_enum, StructOpt};
 use strum::{EnumString, EnumVariantNames};
+use substrate_relay_helper::TransactionParams;
 
 use bp_messages::LaneId;
 
@@ -64,7 +65,7 @@ pub enum Command {
 	/// and two `RelayMessages` relays. Headers are only relayed when they are required by
 	/// the message relays - i.e. when there are messages or confirmations that needs to be
 	/// relayed between chains.
-	RelayHeadersAndMessages(relay_headers_and_messages::RelayHeadersAndMessages),
+	RelayHeadersAndMessages(Box<relay_headers_and_messages::RelayHeadersAndMessages>),
 	/// Initialize on-chain bridge pallet with current header data.
 	///
 	/// Sends initialization transaction to bootstrap the bridge with current finalized block data.
@@ -238,7 +239,7 @@ impl HexBytes {
 }
 
 /// Prometheus metrics params.
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, PartialEq, StructOpt)]
 pub struct PrometheusParams {
 	/// Do not expose a Prometheus metric endpoint.
 	#[structopt(long)]
@@ -300,6 +301,29 @@ pub enum RuntimeVersionType {
 	Custom,
 	/// Read version from bundle dependencies directly.
 	Bundle,
+}
+
+/// Helper trait to override transaction parameters differently.
+pub trait TransactionParamsProvider {
+	/// Returns `true` if transaction parameters are defined by this provider.
+	fn is_defined(&self) -> bool;
+	/// Returns transaction parameters.
+	fn transaction_params<Chain: CliChain>(
+		&self,
+	) -> anyhow::Result<TransactionParams<Chain::KeyPair>>;
+
+	/// Returns transaction parameters, defined by `self` provider or, if they're not defined,
+	/// defined by `other` provider.
+	fn transaction_params_or<Chain: CliChain, T: TransactionParamsProvider>(
+		&self,
+		other: &T,
+	) -> anyhow::Result<TransactionParams<Chain::KeyPair>> {
+		if self.is_defined() {
+			self.transaction_params::<Chain>()
+		} else {
+			other.transaction_params::<Chain>()
+		}
+	}
 }
 
 /// Create chain-specific set of configuration objects: connection parameters,
@@ -431,6 +455,20 @@ macro_rules! declare_chain_options {
 						&suri,
 						suri_password.as_deref()
 					).map_err(|e| anyhow::format_err!("{:?}", e))
+				}
+			}
+
+			#[allow(dead_code)]
+			impl TransactionParamsProvider for [<$chain SigningParams>] {
+				fn is_defined(&self) -> bool {
+					self.[<$chain_prefix _signer>].is_some() || self.[<$chain_prefix _signer_file>].is_some()
+				}
+
+				fn transaction_params<Chain: CliChain>(&self) -> anyhow::Result<TransactionParams<Chain::KeyPair>> {
+					Ok(TransactionParams {
+						mortality: self.transactions_mortality()?,
+						signer: self.to_keypair::<Chain>()?,
+					})
 				}
 			}
 
