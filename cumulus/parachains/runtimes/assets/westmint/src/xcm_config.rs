@@ -42,7 +42,8 @@ use xcm_executor::{traits::JustTry, XcmExecutor};
 
 parameter_types! {
 	pub const WestendLocation: MultiLocation = MultiLocation::parent();
-	pub RelayNetwork: NetworkId = NetworkId::Named(b"Westend".to_vec());
+	pub RelayNetwork: NetworkId =
+		NetworkId::Named(b"Westend".to_vec().try_into().expect("less than length limit; qed"));
 	pub RelayChainOrigin: Origin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub Ancestry: MultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	pub const Local: MultiLocation = Here.into();
