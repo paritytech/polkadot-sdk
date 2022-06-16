@@ -16,7 +16,7 @@
 
 //! Tools for supporting message lanes between two Substrate-based chains.
 
-use crate::{helpers::tokens_conversion_rate, messages_lane::SubstrateMessageLane};
+use crate::{helpers::tokens_conversion_rate, messages_lane::SubstrateMessageLane, TaggedAccount};
 
 use codec::Decode;
 use frame_system::AccountInfo;
@@ -274,13 +274,12 @@ pub fn standalone_metrics<P: SubstrateMessageLane>(
 pub async fn add_relay_balances_metrics<C: ChainWithBalances>(
 	client: Client<C>,
 	metrics: MetricsParams,
-	relay_account_id: Option<AccountIdOf<C>>,
-	messages_pallet_owner_account_id: Option<AccountIdOf<C>>,
+	relay_accounts: Vec<TaggedAccount<AccountIdOf<C>>>,
 ) -> anyhow::Result<MetricsParams>
 where
 	BalanceOf<C>: Into<u128> + std::fmt::Debug,
 {
-	if relay_account_id.is_none() && messages_pallet_owner_account_id.is_none() {
+	if relay_accounts.is_empty() {
 		return Ok(metrics)
 	}
 
@@ -306,26 +305,18 @@ where
 			e,
 		)
 	})?;
-	if let Some(relay_account_id) = relay_account_id {
+
+	for account in relay_accounts {
 		let relay_account_balance_metric = FloatStorageValueMetric::new(
 			FreeAccountBalance::<C> { token_decimals, _phantom: Default::default() },
 			client.clone(),
-			C::account_info_storage_key(&relay_account_id),
-			format!("at_{}_relay_balance", C::NAME),
-			format!("Balance of the relay account at the {}", C::NAME),
+			C::account_info_storage_key(account.id()),
+			format!("at_{}_relay_{}_balance", C::NAME, account.tag()),
+			format!("Balance of the {} relay account at the {}", account.tag(), C::NAME),
 		)?;
 		relay_account_balance_metric.register_and_spawn(&metrics.registry)?;
 	}
-	if let Some(messages_pallet_owner_account_id) = messages_pallet_owner_account_id {
-		let pallet_owner_account_balance_metric = FloatStorageValueMetric::new(
-			FreeAccountBalance::<C> { token_decimals, _phantom: Default::default() },
-			client.clone(),
-			C::account_info_storage_key(&messages_pallet_owner_account_id),
-			format!("at_{}_messages_pallet_owner_balance", C::NAME),
-			format!("Balance of the messages pallet owner at the {}", C::NAME),
-		)?;
-		pallet_owner_account_balance_metric.register_and_spawn(&metrics.registry)?;
-	}
+
 	Ok(metrics)
 }
 
