@@ -48,3 +48,61 @@ pub struct TransactionParams<TS> {
 	/// Transactions mortality.
 	pub mortality: Option<u32>,
 }
+
+/// Tagged relay account, which balance may be exposed as metrics by the relay.
+#[derive(Clone, Debug)]
+pub enum TaggedAccount<AccountId> {
+	/// Account, used to sign headers relay transactions from given bridged chain.
+	Headers {
+		/// Account id.
+		id: AccountId,
+		/// Name of the bridged chain, which headers are relayed.
+		bridged_chain: String,
+	},
+	/// Account, used to sign parachains relay transactions from given bridged relay chain.
+	Parachains {
+		/// Account id.
+		id: AccountId,
+		/// Name of the bridged relay chain with parachain heads.
+		bridged_chain: String,
+	},
+	/// Account, used to sign message relay transactions from given bridged chain.
+	Messages {
+		/// Account id.
+		id: AccountId,
+		/// Name of the bridged chain, which sends us messages or delivery confirmations.
+		bridged_chain: String,
+	},
+	/// Account, used to sign messages with-bridged-chain pallet parameters update transactions.
+	MessagesPalletOwner {
+		/// Account id.
+		id: AccountId,
+		/// Name of the chain, bridged using messages pallet at our chain.
+		bridged_chain: String,
+	},
+}
+
+impl<AccountId> TaggedAccount<AccountId> {
+	/// Returns reference to the account id.
+	pub fn id(&self) -> &AccountId {
+		match *self {
+			TaggedAccount::Headers { ref id, .. } => id,
+			TaggedAccount::Parachains { ref id, .. } => id,
+			TaggedAccount::Messages { ref id, .. } => id,
+			TaggedAccount::MessagesPalletOwner { ref id, .. } => id,
+		}
+	}
+
+	/// Returns stringified account tag.
+	pub fn tag(&self) -> String {
+		match *self {
+			TaggedAccount::Headers { ref bridged_chain, .. } => format!("{}Headers", bridged_chain),
+			TaggedAccount::Parachains { ref bridged_chain, .. } =>
+				format!("{}Parachains", bridged_chain),
+			TaggedAccount::Messages { ref bridged_chain, .. } =>
+				format!("{}Messages", bridged_chain),
+			TaggedAccount::MessagesPalletOwner { ref bridged_chain, .. } =>
+				format!("{}MessagesPalletOwner", bridged_chain),
+		}
+	}
+}
