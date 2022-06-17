@@ -270,6 +270,18 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_max_payload()
 	}
 
+	fn rpc_max_request_size(&self) -> sc_cli::Result<Option<usize>> {
+		Ok(self.base.rpc_max_request_size)
+	}
+
+	fn rpc_max_response_size(&self) -> sc_cli::Result<Option<usize>> {
+		Ok(self.base.rpc_max_response_size)
+	}
+
+	fn rpc_max_subscriptions_per_connection(&self) -> sc_cli::Result<Option<usize>> {
+		Ok(self.base.rpc_max_subscriptions_per_connection)
+	}
+
 	fn ws_max_out_buffer_capacity(&self) -> sc_cli::Result<Option<usize>> {
 		self.base.ws_max_out_buffer_capacity()
 	}
