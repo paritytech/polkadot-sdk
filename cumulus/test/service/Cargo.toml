@@ -47,7 +47,7 @@ sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "mast
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-clap = { version = "3.1", features = ["derive"] }
+clap = { version = "3.2.5", features = ["derive", "deprecated"] }
 tracing = "0.1.25"
 
 # Polkadot

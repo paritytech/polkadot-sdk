@@ -119,11 +119,11 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
-fn validate_relay_chain_url(arg: &str) -> Result<(), String> {
+fn validate_relay_chain_url(arg: &str) -> Result<Url, String> {
 	let url = Url::parse(arg).map_err(|e| e.to_string())?;
 
 	if url.scheme() == "ws" {
-		Ok(())
+		Ok(url)
 	} else {
 		Err(format!(
 			"'{}' URL scheme not supported. Only websocket RPC is currently supported",
@@ -148,8 +148,7 @@ pub struct RunCmd {
 	/// EXPERIMENTAL: Specify an URL to a relay chain full node to communicate with.
 	#[clap(
 		long,
-		parse(try_from_str),
-		validator = validate_relay_chain_url,
+		value_parser = validate_relay_chain_url,
 		conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "ferdie", "one", "two"]	)
 	]
 	pub relay_chain_rpc_url: Option<Url>,

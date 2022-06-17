@@ -29,34 +29,34 @@ pub struct ExportGenesisStateCommand {
 	pub parachain_id: u32,
 
 	/// Output file name or stdout if unspecified.
-	#[clap(parse(from_os_str))]
+	#[clap(action)]
 	pub output: Option<PathBuf>,
 
 	/// Write output in binary. Default is to write in hex.
-	#[clap(short, long)]
+	#[clap(short, long, action)]
 	pub raw: bool,
 
 	/// The name of the chain for that the genesis state should be exported.
-	#[clap(long)]
+	#[clap(long, action)]
 	pub chain: Option<String>,
 }
 
 /// Command for exporting the genesis wasm file.
 #[derive(Debug, Parser)]
 pub struct ExportGenesisWasmCommand {
-	#[clap(default_value_t = 2000u32)]
+	#[clap(default_value_t = 2000u32, action)]
 	pub parachain_id: u32,
 
 	/// Output file name or stdout if unspecified.
-	#[clap(parse(from_os_str))]
+	#[clap(action)]
 	pub output: Option<PathBuf>,
 
 	/// Write output in binary. Default is to write in hex.
-	#[clap(short, long)]
+	#[clap(short, long, action)]
 	pub raw: bool,
 
 	/// The name of the chain for that the genesis wasm file should be exported.
-	#[clap(long)]
+	#[clap(long, action)]
 	pub chain: Option<String>,
 }
 #[derive(Subcommand, Debug)]
