@@ -9,10 +9,6 @@ repository = "https://github.com/paritytech/cumulus/"
 edition = "2021"
 build = "build.rs"
 
-[[bin]]
-name = "parachain-collator"
-path = "src/main.rs"
-
 [dependencies]
 clap = { version = "3.2.5", features = ["derive"] }
 derive_more = "0.99.2"

@@ -6,10 +6,6 @@ build = "build.rs"
 edition = "2021"
 description = "Runs a polkadot parachain node which could be a collator."
 
-[[bin]]
-name = "polkadot-parachain"
-path = "src/main.rs"
-
 [dependencies]
 async-trait = "0.1.56"
 clap = { version = "3.2.5", features = ["derive", "deprecated"] }

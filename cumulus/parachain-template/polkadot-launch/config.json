@@ -17,7 +17,7 @@
 	},
 	"parachains": [
 		{
-			"bin": "../target/release/parachain-collator",
+			"bin": "../target/release/polkadot-parachain",
 			"id": "200",
 			"balance": "1000000000000000000000",
 			"nodes": [
