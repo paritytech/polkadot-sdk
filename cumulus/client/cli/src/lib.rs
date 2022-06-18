@@ -18,20 +18,28 @@
 
 #![warn(missing_docs)]
 
-use clap::Parser;
-use sc_service::{
-	config::{PrometheusConfig, TelemetryEndpoints},
-	BasePath, TransactionPoolOptions,
-};
 use std::{
 	fs,
 	io::{self, Write},
 	net::SocketAddr,
+	path::PathBuf,
+};
+
+use codec::Encode;
+use sc_chain_spec::ChainSpec;
+use sc_service::{
+	config::{PrometheusConfig, TelemetryEndpoints},
+	BasePath, TransactionPoolOptions,
+};
+use sp_core::hexdisplay::HexDisplay;
+use sp_runtime::{
+	traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero},
+	StateVersion,
 };
 use url::Url;
 
 /// The `purge-chain` command used to remove the whole chain: the parachain and the relay chain.
-#[derive(Debug, Parser)]
+#[derive(Debug, clap::Parser)]
 pub struct PurgeChainCmd {
 	/// The base struct of the purge-chain command.
 	#[clap(flatten)]
@@ -119,6 +127,140 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
+/// Command for exporting the genesis state of the parachain
+#[derive(Debug, clap::Parser)]
+pub struct ExportGenesisStateCommand {
+	/// Output file name or stdout if unspecified.
+	#[clap(action)]
+	pub output: Option<PathBuf>,
+
+	/// Write output in binary. Default is to write in hex.
+	#[clap(short, long)]
+	pub raw: bool,
+
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub shared_params: sc_cli::SharedParams,
+}
+
+impl ExportGenesisStateCommand {
+	/// Run the export-genesis-state command
+	pub fn run<Block: BlockT>(
+		&self,
+		chain_spec: &dyn ChainSpec,
+		genesis_state_version: StateVersion,
+	) -> sc_cli::Result<()> {
+		let block: Block = generate_genesis_block(chain_spec, genesis_state_version)?;
+		let raw_header = block.header().encode();
+		let output_buf = if self.raw {
+			raw_header
+		} else {
+			format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
+		};
+
+		if let Some(output) = &self.output {
+			fs::write(output, output_buf)?;
+		} else {
+			io::stdout().write_all(&output_buf)?;
+		}
+
+		Ok(())
+	}
+}
+
+/// Generate the genesis block from a given ChainSpec.
+pub fn generate_genesis_block<Block: BlockT>(
+	chain_spec: &dyn ChainSpec,
+	genesis_state_version: StateVersion,
+) -> Result<Block, String> {
+	let storage = chain_spec.build_storage()?;
+
+	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
+		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+			child_content.data.clone().into_iter().collect(),
+			genesis_state_version,
+		);
+		(sk.clone(), state_root.encode())
+	});
+	let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+		storage.top.clone().into_iter().chain(child_roots).collect(),
+		genesis_state_version,
+	);
+
+	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+		Vec::new(),
+		sp_runtime::StateVersion::V0,
+	);
+
+	Ok(Block::new(
+		<<Block as BlockT>::Header as HeaderT>::new(
+			Zero::zero(),
+			extrinsics_root,
+			state_root,
+			Default::default(),
+			Default::default(),
+		),
+		Default::default(),
+	))
+}
+
+impl sc_cli::CliConfiguration for ExportGenesisStateCommand {
+	fn shared_params(&self) -> &sc_cli::SharedParams {
+		&self.shared_params
+	}
+}
+
+/// Command for exporting the genesis wasm file.
+#[derive(Debug, clap::Parser)]
+pub struct ExportGenesisWasmCommand {
+	/// Output file name or stdout if unspecified.
+	#[clap(action)]
+	pub output: Option<PathBuf>,
+
+	/// Write output in binary. Default is to write in hex.
+	#[clap(short, long)]
+	pub raw: bool,
+
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub shared_params: sc_cli::SharedParams,
+}
+
+impl ExportGenesisWasmCommand {
+	/// Run the export-genesis-state command
+	pub fn run(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<()> {
+		let raw_wasm_blob = extract_genesis_wasm(chain_spec)?;
+		let output_buf = if self.raw {
+			raw_wasm_blob
+		} else {
+			format!("0x{:?}", HexDisplay::from(&raw_wasm_blob)).into_bytes()
+		};
+
+		if let Some(output) = &self.output {
+			fs::write(output, output_buf)?;
+		} else {
+			io::stdout().write_all(&output_buf)?;
+		}
+
+		Ok(())
+	}
+}
+
+/// Extract the genesis code from a given ChainSpec.
+pub fn extract_genesis_wasm(chain_spec: &dyn ChainSpec) -> sc_cli::Result<Vec<u8>> {
+	let mut storage = chain_spec.build_storage()?;
+	storage
+		.top
+		.remove(sp_core::storage::well_known_keys::CODE)
+		.ok_or_else(|| "Could not find wasm file in genesis state!".into())
+}
+
+impl sc_cli::CliConfiguration for ExportGenesisWasmCommand {
+	fn shared_params(&self) -> &sc_cli::SharedParams {
+		&self.shared_params
+	}
+}
+
 fn validate_relay_chain_url(arg: &str) -> Result<Url, String> {
 	let url = Url::parse(arg).map_err(|e| e.to_string())?;
 
@@ -133,7 +275,7 @@ fn validate_relay_chain_url(arg: &str) -> Result<Url, String> {
 }
 
 /// The `run` command used to run a node.
-#[derive(Debug, Parser)]
+#[derive(Debug, clap::Parser)]
 pub struct RunCmd {
 	/// The cumulus RunCmd inherents from sc_cli's
 	#[clap(flatten)]
@@ -154,21 +296,6 @@ pub struct RunCmd {
 	pub relay_chain_rpc_url: Option<Url>,
 }
 
-/// Options only relevant for collator nodes
-#[derive(Clone, Debug)]
-pub struct CollatorOptions {
-	/// Location of relay chain full node
-	pub relay_chain_rpc_url: Option<Url>,
-}
-
-/// A non-redundant version of the `RunCmd` that sets the `validator` field when the
-/// original `RunCmd` had the `collator` field.
-/// This is how we make `--collator` imply `--validator`.
-pub struct NormalizedRunCmd {
-	/// The cumulus RunCmd inherents from sc_cli's
-	pub base: sc_cli::RunCmd,
-}
-
 impl RunCmd {
 	/// Create a [`NormalizedRunCmd`] which merges the `collator` cli argument into `validator` to have only one.
 	pub fn normalize(&self) -> NormalizedRunCmd {
@@ -183,6 +310,21 @@ impl RunCmd {
 	pub fn collator_options(&self) -> CollatorOptions {
 		CollatorOptions { relay_chain_rpc_url: self.relay_chain_rpc_url.clone() }
 	}
+}
+
+/// Options only relevant for collator nodes
+#[derive(Clone, Debug)]
+pub struct CollatorOptions {
+	/// Location of relay chain full node
+	pub relay_chain_rpc_url: Option<Url>,
+}
+
+/// A non-redundant version of the `RunCmd` that sets the `validator` field when the
+/// original `RunCmd` had the `collator` field.
+/// This is how we make `--collator` imply `--validator`.
+pub struct NormalizedRunCmd {
+	/// The cumulus RunCmd inherents from sc_cli's
+	pub base: sc_cli::RunCmd,
 }
 
 impl sc_cli::CliConfiguration for NormalizedRunCmd {

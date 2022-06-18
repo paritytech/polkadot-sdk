@@ -1575,8 +1575,12 @@ name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
  "clap 3.2.5",
+ "parity-scale-codec",
+ "sc-chain-spec",
  "sc-cli",
  "sc-service",
+ "sp-core",
+ "sp-runtime",
  "url",
 ]
 
@@ -1758,11 +1762,9 @@ dependencies = [
  "cumulus-client-pov-recovery",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
- "parity-scale-codec",
  "parking_lot 0.12.1",
  "polkadot-overseer",
  "polkadot-primitives",
- "sc-chain-spec",
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-babe",

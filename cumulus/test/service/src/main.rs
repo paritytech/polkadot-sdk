@@ -13,27 +13,19 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
 mod cli;
 
-use clap::Parser;
-use cli::{Commands, RelayChainCli, TestCollatorCli};
-use cumulus_client_service::genesis::generate_genesis_block;
+use std::sync::Arc;
+
+use cli::{RelayChainCli, Subcommand, TestCollatorCli};
+use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::{relay_chain::v2::CollatorPair, ParaId};
 use cumulus_test_service::AnnounceBlockFn;
 use polkadot_service::runtime_traits::AccountIdConversion;
 use sc_cli::{CliConfiguration, SubstrateCli};
 use sp_core::{hexdisplay::HexDisplay, Encode, Pair};
 use sp_runtime::traits::Block;
-use std::{io::Write, sync::Arc};
-
-fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<Vec<u8>, String> {
-	let mut storage = chain_spec.build_storage()?;
-
-	storage
-		.top
-		.remove(sp_core::storage::well_known_keys::CODE)
-		.ok_or_else(|| "Could not find wasm file in genesis state!".into())
-}
 
 pub fn wrap_announce_block() -> Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn> {
 	tracing::info!("Block announcements disabled.");
@@ -44,59 +36,29 @@ pub fn wrap_announce_block() -> Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlock
 }
 
 fn main() -> Result<(), sc_cli::Error> {
-	let cli = TestCollatorCli::parse();
+	let cli = TestCollatorCli::from_args();
 
 	match &cli.subcommand {
-		Some(Commands::BuildSpec(cmd)) => {
+		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
-		Some(Commands::ExportGenesisState(params)) => {
-			let mut builder = sc_cli::LoggerBuilder::new("");
-			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
-			let _ = builder.init();
-
-			let parachain_id = ParaId::from(params.parachain_id);
-			let spec = Box::new(cumulus_test_service::get_chain_spec(parachain_id)) as Box<_>;
-			let state_version = cumulus_test_service::runtime::VERSION.state_version();
-
-			let block: parachains_common::Block = generate_genesis_block(&spec, state_version)?;
-			let raw_header = block.header().encode();
-			let output_buf = if params.raw {
-				raw_header
-			} else {
-				format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
-			};
-
-			if let Some(output) = &params.output {
-				std::fs::write(output, output_buf)?;
-			} else {
-				std::io::stdout().write_all(&output_buf)?;
-			}
-
-			Ok(())
+		Some(Subcommand::ExportGenesisState(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.sync_run(|_config| {
+				let parachain_id = ParaId::from(cmd.parachain_id);
+				let spec = cumulus_test_service::get_chain_spec(parachain_id);
+				let state_version = cumulus_test_service::runtime::VERSION.state_version();
+				cmd.base.run::<parachains_common::Block>(&spec, state_version)
+			})
 		},
-		Some(Commands::ExportGenesisWasm(params)) => {
-			let mut builder = sc_cli::LoggerBuilder::new("");
-			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
-			let _ = builder.init();
-
-			let parachain_id = ParaId::from(params.parachain_id);
-			let spec = Box::new(cumulus_test_service::get_chain_spec(parachain_id)) as Box<_>;
-			let raw_wasm_blob = extract_genesis_wasm(&spec)?;
-			let output_buf = if params.raw {
-				raw_wasm_blob
-			} else {
-				format!("0x{:?}", HexDisplay::from(&raw_wasm_blob)).into_bytes()
-			};
-
-			if let Some(output) = &params.output {
-				std::fs::write(output, output_buf)?;
-			} else {
-				std::io::stdout().write_all(&output_buf)?;
-			}
-
-			Ok(())
+		Some(Subcommand::ExportGenesisWasm(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.sync_run(|_config| {
+				let parachain_id = ParaId::from(cmd.parachain_id);
+				let spec = cumulus_test_service::get_chain_spec(parachain_id);
+				cmd.base.run(&spec)
+			})
 		},
 		None => {
 			let mut builder = sc_cli::LoggerBuilder::new("");
@@ -129,7 +91,7 @@ fn main() -> Result<(), sc_cli::Error> {
 				RelayChainCli::native_runtime_version(&config.chain_spec).state_version();
 
 			let block: parachains_common::Block =
-				generate_genesis_block(&config.chain_spec, state_version)
+				generate_genesis_block(&*config.chain_spec, state_version)
 					.map_err(|e| format!("{:?}", e))?;
 			let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 

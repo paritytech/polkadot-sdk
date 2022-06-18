@@ -41,8 +41,6 @@ use sp_runtime::{
 };
 use std::{sync::Arc, time::Duration};
 
-pub mod genesis;
-
 /// Parameters given to [`start_collator`].
 pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawner, IQ> {
 	pub block_status: Arc<BS>,

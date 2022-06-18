@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1.56"
+clap = { version = "3.2.5", features = ["derive", "deprecated"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.3.5", features = [ "async_tokio" ] }
 jsonrpsee = { version = "0.14.0", features = ["server"] }
@@ -17,6 +18,7 @@ parking_lot = "0.12.1"
 rand = "0.8.5"
 serde = { version = "1.0.137", features = ["derive"] }
 tokio = { version = "1.19.2", features = ["macros"] }
+tracing = "0.1.25"
 url = "2.2.2"
 
 # Substrate
@@ -47,8 +49,6 @@ sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "mast
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-clap = { version = "3.2.5", features = ["derive", "deprecated"] }
-tracing = "0.1.25"
 
 # Polkadot
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }

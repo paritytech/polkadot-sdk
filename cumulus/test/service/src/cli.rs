@@ -14,64 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use clap::{Parser, Subcommand};
+use std::{net::SocketAddr, path::PathBuf};
+
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	Result as CliResult, RuntimeVersion, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
-use std::{net::SocketAddr, path::PathBuf};
 
-#[derive(Debug, Parser)]
-pub struct ExportGenesisStateCommand {
-	#[clap(default_value_t = 2000u32)]
-	pub parachain_id: u32,
-
-	/// Output file name or stdout if unspecified.
-	#[clap(action)]
-	pub output: Option<PathBuf>,
-
-	/// Write output in binary. Default is to write in hex.
-	#[clap(short, long, action)]
-	pub raw: bool,
-
-	/// The name of the chain for that the genesis state should be exported.
-	#[clap(long, action)]
-	pub chain: Option<String>,
-}
-
-/// Command for exporting the genesis wasm file.
-#[derive(Debug, Parser)]
-pub struct ExportGenesisWasmCommand {
-	#[clap(default_value_t = 2000u32, action)]
-	pub parachain_id: u32,
-
-	/// Output file name or stdout if unspecified.
-	#[clap(action)]
-	pub output: Option<PathBuf>,
-
-	/// Write output in binary. Default is to write in hex.
-	#[clap(short, long, action)]
-	pub raw: bool,
-
-	/// The name of the chain for that the genesis wasm file should be exported.
-	#[clap(long, action)]
-	pub chain: Option<String>,
-}
-#[derive(Subcommand, Debug)]
-pub enum Commands {
-	#[clap(name = "export-genesis-wasm")]
-	ExportGenesisWasm(ExportGenesisWasmCommand),
-
-	#[clap(name = "export-genesis-state")]
-	ExportGenesisState(ExportGenesisStateCommand),
-
-	/// Build a chain specification.
-	BuildSpec(sc_cli::BuildSpecCmd),
-}
-
-#[derive(Debug, Parser)]
+#[derive(Debug, clap::Parser)]
 #[clap(
 	version,
 	propagate_version = true,
@@ -80,7 +32,7 @@ pub enum Commands {
 )]
 pub struct TestCollatorCli {
 	#[clap(subcommand)]
-	pub subcommand: Option<Commands>,
+	pub subcommand: Option<Subcommand>,
 
 	#[clap(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
@@ -97,6 +49,49 @@ pub struct TestCollatorCli {
 
 	#[clap(long)]
 	pub disable_block_announcements: bool,
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum Subcommand {
+	/// Build a chain specification.
+	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the genesis state of the parachain.
+	ExportGenesisState(ExportGenesisStateCommand),
+
+	/// Export the genesis wasm of the parachain.
+	ExportGenesisWasm(ExportGenesisWasmCommand),
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct ExportGenesisStateCommand {
+	#[clap(default_value_t = 2000u32)]
+	pub parachain_id: u32,
+
+	#[clap(flatten)]
+	pub base: cumulus_client_cli::ExportGenesisStateCommand,
+}
+
+impl CliConfiguration for ExportGenesisStateCommand {
+	fn shared_params(&self) -> &SharedParams {
+		&self.base.shared_params
+	}
+}
+
+/// Command for exporting the genesis wasm file.
+#[derive(Debug, clap::Parser)]
+pub struct ExportGenesisWasmCommand {
+	#[clap(default_value_t = 2000u32)]
+	pub parachain_id: u32,
+
+	#[clap(flatten)]
+	pub base: cumulus_client_cli::ExportGenesisWasmCommand,
+}
+
+impl CliConfiguration for ExportGenesisWasmCommand {
+	fn shared_params(&self) -> &SharedParams {
+		&self.base.shared_params
+	}
 }
 
 #[derive(Debug)]
@@ -118,7 +113,7 @@ impl RelayChainCli {
 		relay_chain_args: impl Iterator<Item = &'a String>,
 	) -> Self {
 		let base_path = para_config.base_path.as_ref().map(|x| x.path().join("polkadot"));
-		Self { base_path, chain_id: None, base: polkadot_cli::RunCmd::parse_from(relay_chain_args) }
+		Self { base_path, chain_id: None, base: clap::Parser::parse_from(relay_chain_args) }
 	}
 }
 
