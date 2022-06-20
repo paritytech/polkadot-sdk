@@ -148,7 +148,7 @@ pub mod pallet {
 			let used = Self::handle_xcm_message(sender, sent_at, xcm, weight_limit)
 				.map_err(|_| Error::<T>::WeightOverLimit)?;
 			Overweight::<T>::remove(index);
-			Self::deposit_event(Event::OverweightServiced(index, used));
+			Self::deposit_event(Event::OverweightServiced { index, used });
 			Ok(Some(used.saturating_add(1_000_000)).into())
 		}
 
@@ -263,21 +263,26 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Some XCM was executed ok.
-		Success(Option<T::Hash>),
+		Success { message_hash: Option<T::Hash>, weight: Weight },
 		/// Some XCM failed.
-		Fail(Option<T::Hash>, XcmError),
+		Fail { message_hash: Option<T::Hash>, error: XcmError, weight: Weight },
 		/// Bad XCM version used.
-		BadVersion(Option<T::Hash>),
+		BadVersion { message_hash: Option<T::Hash> },
 		/// Bad XCM format used.
-		BadFormat(Option<T::Hash>),
+		BadFormat { message_hash: Option<T::Hash> },
 		/// An upward message was sent to the relay chain.
-		UpwardMessageSent(Option<T::Hash>),
+		UpwardMessageSent { message_hash: Option<T::Hash> },
 		/// An HRMP message was sent to a sibling parachain.
-		XcmpMessageSent(Option<T::Hash>),
+		XcmpMessageSent { message_hash: Option<T::Hash> },
 		/// An XCM exceeded the individual message weight budget.
-		OverweightEnqueued(ParaId, RelayBlockNumber, OverweightIndex, Weight),
+		OverweightEnqueued {
+			sender: ParaId,
+			sent_at: RelayBlockNumber,
+			index: OverweightIndex,
+			required: Weight,
+		},
 		/// An XCM from the overweight queue was executed with the given actual weight used.
-		OverweightServiced(OverweightIndex, Weight),
+		OverweightServiced { index: OverweightIndex, used: Weight },
 	}
 
 	#[pallet::error]
@@ -599,15 +604,20 @@ impl<T: Config> Pallet<T> {
 		let (result, event) = match Xcm::<T::Call>::try_from(xcm) {
 			Ok(xcm) => {
 				let location = (1, Parachain(sender.into()));
+
 				match T::XcmExecutor::execute_xcm(location, xcm, max_weight) {
-					Outcome::Error(e) => (Err(e), Event::Fail(Some(hash), e)),
-					Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
+					Outcome::Error(e) =>
+						(Err(e), Event::Fail { message_hash: Some(hash), error: e, weight: 0 }),
+					Outcome::Complete(w) =>
+						(Ok(w), Event::Success { message_hash: Some(hash), weight: w }),
 					// As far as the caller is concerned, this was dispatched without error, so
 					// we just report the weight used.
-					Outcome::Incomplete(w, e) => (Ok(w), Event::Fail(Some(hash), e)),
+					Outcome::Incomplete(w, e) =>
+						(Ok(w), Event::Fail { message_hash: Some(hash), error: e, weight: w }),
 				}
 			},
-			Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
+			Err(()) =>
+				(Err(XcmError::UnhandledXcmVersion), Event::BadVersion { message_hash: Some(hash) }),
 		};
 		Self::deposit_event(event);
 		result
@@ -644,7 +654,8 @@ impl<T: Config> Pallet<T> {
 									.saturating_sub(remaining_fragments.len());
 								let overweight_xcm = last_remaining_fragments[..msg_len].to_vec();
 								let index = Self::stash_overweight(sender, sent_at, overweight_xcm);
-								let e = Event::OverweightEnqueued(sender, sent_at, index, required);
+								let e =
+									Event::OverweightEnqueued { sender, sent_at, index, required };
 								Self::deposit_event(e);
 							},
 							Err(XcmError::WeightLimitReached(required))
@@ -1098,7 +1109,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 					versioned_xcm,
 				)
 				.map_err(|e| SendError::Transport(<&'static str>::from(e)))?;
-				Self::deposit_event(Event::XcmpMessageSent(Some(hash)));
+				Self::deposit_event(Event::XcmpMessageSent { message_hash: Some(hash) });
 				Ok(())
 			},
 			// Anything else is unhandled. This includes a message this is meant for us.
