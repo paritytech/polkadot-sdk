@@ -1085,8 +1085,8 @@ where
 	}
 }
 
-/// Build the import queue for the statemint/statemine/westmine runtime.
-pub fn statemint_build_import_queue<RuntimeApi, AuraId: AppKey>(
+/// Build the import queue for Statemint and other Aura-based runtimes.
+pub fn aura_build_import_queue<RuntimeApi, AuraId: AppKey>(
 	client: Arc<TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>>,
 	config: &Configuration,
 	telemetry_handle: Option<TelemetryHandle>,
@@ -1203,7 +1203,7 @@ where
 		collator_options,
 		id,
 		|_| Ok(RpcModule::new(())),
-		statemint_build_import_queue::<_, AuraId>,
+		aura_build_import_queue::<_, AuraId>,
 		|client,
 		 prometheus_registry,
 		 telemetry,

@@ -263,21 +263,21 @@ macro_rules! construct_benchmark_partials {
 			Runtime::Statemine => {
 				let $partials = new_partial::<statemine_runtime::RuntimeApi, _>(
 					&$config,
-					crate::service::statemint_build_import_queue::<_, AuraId>,
+					crate::service::aura_build_import_queue::<_, AuraId>,
 				)?;
 				$code
 			},
 			Runtime::Westmint => {
 				let $partials = new_partial::<westmint_runtime::RuntimeApi, _>(
 					&$config,
-					crate::service::statemint_build_import_queue::<_, AuraId>,
+					crate::service::aura_build_import_queue::<_, AuraId>,
 				)?;
 				$code
 			},
 			Runtime::Statemint => {
 				let $partials = new_partial::<statemint_runtime::RuntimeApi, _>(
 					&$config,
-					crate::service::statemint_build_import_queue::<_, StatemintAuraId>,
+					crate::service::aura_build_import_queue::<_, StatemintAuraId>,
 				)?;
 				$code
 			},
@@ -294,7 +294,7 @@ macro_rules! construct_async_run {
 				runner.async_run(|$config| {
 					let $components = new_partial::<westmint_runtime::RuntimeApi, _>(
 						&$config,
-						crate::service::statemint_build_import_queue::<_, AuraId>,
+						crate::service::aura_build_import_queue::<_, AuraId>,
 					)?;
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
@@ -304,7 +304,7 @@ macro_rules! construct_async_run {
 				runner.async_run(|$config| {
 					let $components = new_partial::<statemine_runtime::RuntimeApi, _>(
 						&$config,
-						crate::service::statemint_build_import_queue::<_, AuraId>,
+						crate::service::aura_build_import_queue::<_, AuraId>,
 					)?;
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
@@ -314,7 +314,7 @@ macro_rules! construct_async_run {
 				runner.async_run(|$config| {
 					let $components = new_partial::<statemint_runtime::RuntimeApi, _>(
 						&$config,
-						crate::service::statemint_build_import_queue::<_, StatemintAuraId>,
+						crate::service::aura_build_import_queue::<_, StatemintAuraId>,
 					)?;
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
