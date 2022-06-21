@@ -456,8 +456,12 @@ impl<C: Chain> Client<C> {
 				IndexOf<C>,
 				C::SignedBlock,
 			>::author_submit_extrinsic(&*client, transaction)
-			.await?;
-			log::trace!(target: "bridge", "Sent transaction to Substrate node: {:?}", tx_hash);
+			.await
+			.map_err(|e| {
+				log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+				e
+			})?;
+			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(tx_hash)
 		})
 		.await
@@ -499,7 +503,11 @@ impl<C: Chain> Client<C> {
 				IndexOf<C>,
 				C::SignedBlock,
 			>::author_submit_extrinsic(&*client, extrinsic)
-			.await?;
+			.await
+			.map_err(|e| {
+				log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+				e
+			})?;
 			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(tx_hash)
 		})
@@ -528,7 +536,11 @@ impl<C: Chain> Client<C> {
 							.map_err(|e| Error::RpcError(e.into()))?])),
 						"author_unwatchExtrinsic",
 					)
-					.await?;
+					.await
+					.map_err(|e| {
+						log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+						e
+					})?;
 				log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 				Ok(subscription)
 			})

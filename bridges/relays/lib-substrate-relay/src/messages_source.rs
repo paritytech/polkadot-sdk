@@ -146,7 +146,11 @@ where
 	async fn state(&self) -> Result<SourceClientState<MessageLaneAdapter<P>>, SubstrateError> {
 		// we can't continue to deliver confirmations if source node is out of sync, because
 		// it may have already received confirmations that we're going to deliver
+		//
+		// we can't continue to deliver messages if target node is out of sync, because
+		// it may have already received (some of) messages that we're going to deliver
 		self.source_client.ensure_synced().await?;
+		self.target_client.ensure_synced().await?;
 		// we can't relay confirmations if messages pallet at source chain is halted
 		self.ensure_pallet_active().await?;
 
@@ -562,9 +566,13 @@ where
 			Some(at_self_hash),
 		)
 		.await?;
-	let decoded_best_finalized_peer_on_self: (BlockNumberOf<PeerChain>, HashOf<PeerChain>) =
-		Decode::decode(&mut &encoded_best_finalized_peer_on_self.0[..])
-			.map_err(SubstrateError::ResponseParseFailed)?;
+	let decoded_best_finalized_peer_on_self =
+		Option::<(BlockNumberOf<PeerChain>, HashOf<PeerChain>)>::decode(
+			&mut &encoded_best_finalized_peer_on_self.0[..],
+		)
+		.map_err(SubstrateError::ResponseParseFailed)?
+		.map(Ok)
+		.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))?;
 	let peer_on_self_best_finalized_id =
 		HeaderId(decoded_best_finalized_peer_on_self.0, decoded_best_finalized_peer_on_self.1);
 

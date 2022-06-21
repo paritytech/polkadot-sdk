@@ -795,33 +795,28 @@ impl_runtime_apis! {
 	}
 
 	impl bp_rialto::RialtoFinalityApi<Block> for Runtime {
-		fn best_finalized() -> (bp_rialto::BlockNumber, bp_rialto::Hash) {
-			let header = BridgeRialtoGrandpa::best_finalized();
-			(header.number, header.hash())
+		fn best_finalized() -> Option<(bp_rialto::BlockNumber, bp_rialto::Hash)> {
+			BridgeRialtoGrandpa::best_finalized().map(|header| (header.number, header.hash()))
 		}
 	}
 
 	impl bp_westend::WestendFinalityApi<Block> for Runtime {
-		fn best_finalized() -> (bp_westend::BlockNumber, bp_westend::Hash) {
-			let header = BridgeWestendGrandpa::best_finalized();
-			(header.number, header.hash())
+		fn best_finalized() -> Option<(bp_westend::BlockNumber, bp_westend::Hash)> {
+			BridgeWestendGrandpa::best_finalized().map(|header| (header.number, header.hash()))
 		}
 	}
 
 	impl bp_rialto_parachain::RialtoParachainFinalityApi<Block> for Runtime {
-		fn best_finalized() -> (bp_rialto::BlockNumber, bp_rialto::Hash) {
+		fn best_finalized() -> Option<(bp_rialto::BlockNumber, bp_rialto::Hash)> {
 			// the parachains finality pallet is never decoding parachain heads, so it is
 			// only done in the integration code
 			use bp_rialto_parachain::RIALTO_PARACHAIN_ID;
-			let best_rialto_parachain_head = pallet_bridge_parachains::Pallet::<
+			let encoded_head = pallet_bridge_parachains::Pallet::<
 				Runtime,
 				WithRialtoParachainsInstance,
-			>::best_parachain_head(RIALTO_PARACHAIN_ID.into())
-				.and_then(|encoded_header| bp_rialto_parachain::Header::decode(&mut &encoded_header.0[..]).ok());
-			match best_rialto_parachain_head {
-				Some(head) => (*head.number(), head.hash()),
-				None => (Default::default(), Default::default()),
-			}
+			>::best_parachain_head(RIALTO_PARACHAIN_ID.into())?;
+			let head = bp_rialto_parachain::Header::decode(&mut &encoded_head.0[..]).ok()?;
+			Some((*head.number(), head.hash()))
 		}
 	}
 

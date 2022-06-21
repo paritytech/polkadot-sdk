@@ -537,17 +537,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Returns a dummy header if there is no best header. This can only happen
 	/// if the pallet has not been initialized yet.
-	pub fn best_finalized() -> BridgedHeader<T, I> {
+	pub fn best_finalized() -> Option<BridgedHeader<T, I>> {
 		let hash = <BestFinalized<T, I>>::get();
-		<ImportedHeaders<T, I>>::get(hash).unwrap_or_else(|| {
-			<BridgedHeader<T, I>>::new(
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-			)
-		})
+		<ImportedHeaders<T, I>>::get(hash)
 	}
 
 	/// Check if a particular header is known to the bridge pallet.
@@ -718,7 +710,7 @@ mod tests {
 				BestFinalized::<TestRuntime>::get(),
 				BridgedBlockHash::<TestRuntime, ()>::default()
 			);
-			assert_eq!(Pallet::<TestRuntime>::best_finalized(), test_header(0));
+			assert_eq!(Pallet::<TestRuntime>::best_finalized(), None);
 
 			let init_data = init_with_origin(Origin::root()).unwrap();
 
@@ -1131,7 +1123,7 @@ mod tests {
 		run_test(|| {
 			initialize_substrate_bridge();
 			assert_ok!(submit_finality_proof(1));
-			let first_header = Pallet::<TestRuntime>::best_finalized();
+			let first_header = Pallet::<TestRuntime>::best_finalized().unwrap();
 			next_block();
 
 			assert_ok!(submit_finality_proof(2));
