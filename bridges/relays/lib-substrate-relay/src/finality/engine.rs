@@ -37,7 +37,7 @@ use std::marker::PhantomData;
 
 /// Finality enfine, used by the Substrate chain.
 #[async_trait]
-pub trait Engine<C: Chain> {
+pub trait Engine<C: Chain>: Send {
 	/// Unique consensus engine identifier.
 	const ID: ConsensusEngineId;
 	/// Type of finality proofs, used by consensus engine.
@@ -59,6 +59,23 @@ pub trait Engine<C: Chain> {
 	async fn prepare_initialization_data(
 		client: Client<C>,
 	) -> Result<Self::InitializationData, Error<HashOf<C>, BlockNumberOf<C>>>;
+
+	/// Returns `Ok(true)` if finality pallet at the bridged chain has already been initialized.
+	async fn is_initialized<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+	) -> Result<bool, SubstrateError> {
+		Ok(target_client
+			.raw_storage_value(Self::is_initialized_key(), None)
+			.await?
+			.is_some())
+	}
+
+	/// Returns `Ok(true)` if finality pallet at the bridged chain is halted.
+	async fn is_halted<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+	) -> Result<bool, SubstrateError> {
+		Ok(target_client.storage_value(Self::is_halted_key(), None).await?.unwrap_or(false))
+	}
 }
 
 /// GRANDPA finality engine.

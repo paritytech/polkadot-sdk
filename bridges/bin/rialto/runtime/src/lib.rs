@@ -640,9 +640,8 @@ impl_runtime_apis! {
 	}
 
 	impl bp_millau::MillauFinalityApi<Block> for Runtime {
-		fn best_finalized() -> (bp_millau::BlockNumber, bp_millau::Hash) {
-			let header = BridgeMillauGrandpa::best_finalized();
-			(header.number, header.hash())
+		fn best_finalized() -> Option<(bp_millau::BlockNumber, bp_millau::Hash)> {
+			BridgeMillauGrandpa::best_finalized().map(|header| (header.number, header.hash()))
 		}
 	}
 
