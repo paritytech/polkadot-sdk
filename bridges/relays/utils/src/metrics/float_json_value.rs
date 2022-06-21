@@ -27,7 +27,7 @@ use async_trait::async_trait;
 use std::time::Duration;
 
 /// Value update interval.
-const UPDATE_INTERVAL: Duration = Duration::from_secs(60);
+const UPDATE_INTERVAL: Duration = Duration::from_secs(300);
 
 /// Metric that represents float value received from HTTP service as float gauge.
 ///
