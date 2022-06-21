@@ -216,7 +216,7 @@ To run a Rialto node for example, you can use the following command:
 
 ```bash
 docker run -p 30333:30333 -p 9933:9933 -p 9944:9944 \
-  -it local/rialto-bridge-node --dev --tmp \
+  -it paritytech/rialto-bridge-node --dev --tmp \
   --rpc-cors=all --unsafe-rpc-external --unsafe-ws-external
 ```
 
