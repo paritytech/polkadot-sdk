@@ -23,7 +23,7 @@
 
 use crate::{error::Error, finality::engine::Engine};
 
-use relay_substrate_client::{BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf};
+use relay_substrate_client::{Chain, Client, Error as SubstrateError};
 use sp_core::Bytes;
 use sp_runtime::traits::Header as HeaderT;
 
@@ -80,7 +80,9 @@ where
 		+ Send
 		+ 'static,
 {
-	let is_initialized = is_initialized::<E, SourceChain, TargetChain>(&target_client).await?;
+	let is_initialized = E::is_initialized(&target_client)
+		.await
+		.map_err(|e| Error::IsInitializedRetrieve(SourceChain::NAME, TargetChain::NAME, e))?;
 	if is_initialized {
 		log::info!(
 			target: "bridge",
@@ -107,19 +109,4 @@ where
 		.await
 		.map_err(|err| Error::SubmitTransaction(TargetChain::NAME, err))?;
 	Ok(Some(initialization_tx_hash))
-}
-
-/// Returns `Ok(true)` if bridge has already been initialized.
-pub(crate) async fn is_initialized<
-	E: Engine<SourceChain>,
-	SourceChain: Chain,
-	TargetChain: Chain,
->(
-	target_client: &Client<TargetChain>,
-) -> Result<bool, Error<HashOf<SourceChain>, BlockNumberOf<SourceChain>>> {
-	Ok(target_client
-		.raw_storage_value(E::is_initialized_key(), None)
-		.await
-		.map_err(|err| Error::RetrieveBestFinalizedHeaderHash(SourceChain::NAME, err))?
-		.is_some())
 }

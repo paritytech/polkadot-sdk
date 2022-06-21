@@ -58,4 +58,9 @@ pub enum Error<Hash: Debug + MaybeDisplay, HeaderNumber: Debug + MaybeDisplay> {
 	/// Failed to retrieve best finalized source header hash from the target chain.
 	#[error("Failed to retrieve best finalized {0} header from the target chain: {1}")]
 	RetrieveBestFinalizedHeaderHash(&'static str, client::Error),
+	/// Failed to submit signed extrinsic from to the target chain.
+	#[error(
+		"Failed to retrieve `is_initialized` flag of the with-{0} finality pallet at {1}: {2:?}"
+	)]
+	IsInitializedRetrieve(&'static str, &'static str, client::Error),
 }
