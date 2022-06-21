@@ -113,7 +113,7 @@ sp_api::decl_runtime_apis! {
 	/// Rococo runtime itself.
 	pub trait RococoFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> (BlockNumber, Hash);
+		fn best_finalized() -> Option<(BlockNumber, Hash)>;
 	}
 
 	/// Outbound message lane API for messages that are sent to Rococo chain.

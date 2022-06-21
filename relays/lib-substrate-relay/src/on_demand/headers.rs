@@ -253,7 +253,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 			log::info!(
 				target: "bridge",
-				"[{}] Starting on-demand relay task\n\t\
+				"[{}] Starting on-demand headers relay task\n\t\
 					Only mandatory headers: {}\n\t\
 					Tx mortality: {:?} (~{}m)\n\t\
 					Stall timeout: {:?}",

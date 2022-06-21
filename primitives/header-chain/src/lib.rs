@@ -88,7 +88,7 @@ pub trait InclusionProofVerifier {
 /// A trait for pallets which want to keep track of finalized headers from a bridged chain.
 pub trait HeaderChain<H, E> {
 	/// Get the best finalized header known to the header chain.
-	fn best_finalized() -> H;
+	fn best_finalized() -> Option<H>;
 
 	/// Get the best authority set known to the header chain.
 	fn authority_set() -> AuthoritySet;
@@ -98,8 +98,8 @@ pub trait HeaderChain<H, E> {
 }
 
 impl<H: Default, E> HeaderChain<H, E> for () {
-	fn best_finalized() -> H {
-		H::default()
+	fn best_finalized() -> Option<H> {
+		None
 	}
 
 	fn authority_set() -> AuthoritySet {
