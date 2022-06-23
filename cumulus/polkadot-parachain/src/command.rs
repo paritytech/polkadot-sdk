@@ -548,21 +548,21 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.chain_spec.runtime() {
-					Runtime::Statemint => crate::service::start_statemint_node::<
+					Runtime::Statemint => crate::service::start_generic_aura_node::<
 						statemint_runtime::RuntimeApi,
 						StatemintAuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::Statemine => crate::service::start_statemint_node::<
+					Runtime::Statemine => crate::service::start_generic_aura_node::<
 						statemine_runtime::RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::Westmint => crate::service::start_statemint_node::<
+					Runtime::Westmint => crate::service::start_generic_aura_node::<
 						westmint_runtime::RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)

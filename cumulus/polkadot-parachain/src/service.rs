@@ -1165,8 +1165,9 @@ where
 	))
 }
 
-/// Start a statemint/statemine/westmint parachain node.
-pub async fn start_statemint_node<RuntimeApi, AuraId: AppKey>(
+/// Start an aura powered parachain node.
+/// (collective-polkadot and statemine/t use this)
+pub async fn start_generic_aura_node<RuntimeApi, AuraId: AppKey>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
