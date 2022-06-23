@@ -42,11 +42,13 @@ impl SubstrateCli for Cli {
 	}
 
 	fn description() -> String {
-		"Parachain Collator Template\n\nThe command-line arguments provided first will be \
+		format!(
+			"Parachain Collator Template\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relay chain node.\n\n\
-		parachain-collator <parachain-args> -- <relay-chain-args>"
-			.into()
+		{} <parachain-args> -- <relay-chain-args>",
+			Self::executable_name()
+		)
 	}
 
 	fn author() -> String {
@@ -80,11 +82,13 @@ impl SubstrateCli for RelayChainCli {
 	}
 
 	fn description() -> String {
-		"Parachain Collator Template\n\nThe command-line arguments provided first will be \
+		format!(
+			"Parachain Collator Template\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relay chain node.\n\n\
-		parachain-collator <parachain-args> -- <relay-chain-args>"
-			.into()
+		{} <parachain-args> -- <relay-chain-args>",
+			Self::executable_name()
+		)
 	}
 
 	fn author() -> String {
