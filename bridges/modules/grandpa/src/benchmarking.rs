@@ -115,7 +115,7 @@ benchmarks_instance_pallet! {
 		let header: BridgedHeader<T, I> = bp_test_utils::test_header(header_number::<T, I, _>());
 		let expected_hash = header.hash();
 
-		assert_eq!(<BestFinalized<T, I>>::get(), expected_hash);
+		assert_eq!(<BestFinalized<T, I>>::get().unwrap().1, expected_hash);
 		assert!(<ImportedHeaders<T, I>>::contains_key(expected_hash));
 	}
 }
