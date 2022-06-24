@@ -143,7 +143,10 @@ pub mod pallet {
 			let (hash, number) = (finality_target.hash(), finality_target.number());
 			log::trace!(target: "runtime::bridge-grandpa", "Going to try and finalize header {:?}", finality_target);
 
-			let best_finalized = match <ImportedHeaders<T, I>>::get(<BestFinalized<T, I>>::get()) {
+			let best_finalized = BestFinalized::<T, I>::get();
+			let best_finalized =
+				best_finalized.and_then(|(_, hash)| ImportedHeaders::<T, I>::get(hash));
+			let best_finalized = match best_finalized {
 				Some(best_finalized) => best_finalized,
 				None => {
 					log::error!(
@@ -273,7 +276,7 @@ pub mod pallet {
 	/// Hash of the best finalized header.
 	#[pallet::storage]
 	pub type BestFinalized<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BridgedBlockHash<T, I>, ValueQuery>;
+		StorageValue<_, (BridgedBlockNumber<T, I>, BridgedBlockHash<T, I>), OptionQuery>;
 
 	/// A ring buffer of imported hashes. Ordered by the insertion time.
 	#[pallet::storage]
@@ -458,7 +461,7 @@ pub mod pallet {
 	) {
 		let index = <ImportedHashesPointer<T, I>>::get();
 		let pruning = <ImportedHashes<T, I>>::try_get(index);
-		<BestFinalized<T, I>>::put(hash);
+		<BestFinalized<T, I>>::put((*header.number(), hash));
 		<ImportedHeaders<T, I>>::insert(hash, header);
 		<ImportedHashes<T, I>>::insert(index, hash);
 
@@ -538,7 +541,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Returns a dummy header if there is no best header. This can only happen
 	/// if the pallet has not been initialized yet.
 	pub fn best_finalized() -> Option<BridgedHeader<T, I>> {
-		let hash = <BestFinalized<T, I>>::get();
+		let (_, hash) = <BestFinalized<T, I>>::get()?;
 		<ImportedHeaders<T, I>>::get(hash)
 	}
 
@@ -706,16 +709,13 @@ mod tests {
 	#[test]
 	fn init_storage_entries_are_correctly_initialized() {
 		run_test(|| {
-			assert_eq!(
-				BestFinalized::<TestRuntime>::get(),
-				BridgedBlockHash::<TestRuntime, ()>::default()
-			);
+			assert_eq!(BestFinalized::<TestRuntime>::get(), None,);
 			assert_eq!(Pallet::<TestRuntime>::best_finalized(), None);
 
 			let init_data = init_with_origin(Origin::root()).unwrap();
 
 			assert!(<ImportedHeaders<TestRuntime>>::contains_key(init_data.header.hash()));
-			assert_eq!(BestFinalized::<TestRuntime>::get(), init_data.header.hash());
+			assert_eq!(BestFinalized::<TestRuntime>::get().unwrap().1, init_data.header.hash());
 			assert_eq!(
 				CurrentAuthoritySet::<TestRuntime>::get().authorities,
 				init_data.authority_list
@@ -826,7 +826,7 @@ mod tests {
 			);
 
 			let header = test_header(1);
-			assert_eq!(<BestFinalized<TestRuntime>>::get(), header.hash());
+			assert_eq!(<BestFinalized<TestRuntime>>::get().unwrap().1, header.hash());
 			assert!(<ImportedHeaders<TestRuntime>>::contains_key(header.hash()));
 		})
 	}
@@ -943,7 +943,7 @@ mod tests {
 			);
 
 			// Make sure that our header is the best finalized
-			assert_eq!(<BestFinalized<TestRuntime>>::get(), header.hash());
+			assert_eq!(<BestFinalized<TestRuntime>>::get().unwrap().1, header.hash());
 			assert!(<ImportedHeaders<TestRuntime>>::contains_key(header.hash()));
 
 			// Make sure that the authority set actually changed upon importing our header
@@ -1027,7 +1027,7 @@ mod tests {
 			header.set_state_root(state_root);
 
 			let hash = header.hash();
-			<BestFinalized<TestRuntime>>::put(hash);
+			<BestFinalized<TestRuntime>>::put((2, hash));
 			<ImportedHeaders<TestRuntime>>::insert(hash, header);
 
 			assert_ok!(
@@ -1153,7 +1153,7 @@ mod tests {
 
 		assert_eq!(
 			BestFinalized::<TestRuntime>::storage_value_final_key().to_vec(),
-			bp_header_chain::storage_keys::best_finalized_hash_key("Grandpa").0,
+			bp_header_chain::storage_keys::best_finalized_key("Grandpa").0,
 		);
 	}
 }

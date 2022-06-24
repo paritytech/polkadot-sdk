@@ -34,8 +34,8 @@ pub fn is_halted_key(pallet_prefix: &str) -> StorageKey {
 	)
 }
 
-/// Storage key of the best finalized header hash value in the runtime storage.
-pub fn best_finalized_hash_key(pallet_prefix: &str) -> StorageKey {
+/// Storage key of the best finalized header number and hash value in the runtime storage.
+pub fn best_finalized_key(pallet_prefix: &str) -> StorageKey {
 	StorageKey(
 		bp_runtime::storage_value_final_key(
 			pallet_prefix.as_bytes(),
@@ -64,10 +64,10 @@ mod tests {
 	}
 
 	#[test]
-	fn best_finalized_hash_key_computed_properly() {
+	fn best_finalized_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking
 		// compatibility with previous pallet.
-		let storage_key = best_finalized_hash_key("BridgeGrandpa").0;
+		let storage_key = best_finalized_key("BridgeGrandpa").0;
 		assert_eq!(
 			storage_key,
 			hex!("0b06f475eddb98cf933a12262e0388dea4ebafdd473c549fdb24c5c991c5591c").to_vec(),

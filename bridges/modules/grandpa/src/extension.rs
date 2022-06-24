@@ -66,12 +66,9 @@ macro_rules! declare_bridge_reject_obsolete_grandpa_header {
 
 							let bundled_block_number = *finality_target.number();
 
-							let best_finalized_hash = $crate::BestFinalized::<$runtime, $instance>::get();
-							let best_finalized_number = match $crate::ImportedHeaders::<
-								$runtime,
-								$instance,
-							>::get(best_finalized_hash) {
-								Some(best_finalized_header) => *best_finalized_header.number(),
+							let best_finalized = $crate::BestFinalized::<$runtime, $instance>::get();
+							let best_finalized_number = match best_finalized {
+								Some((best_finalized_number, _)) => best_finalized_number,
 								None => return sp_runtime::transaction_validity::InvalidTransaction::Call.into(),
 							};
 
@@ -113,7 +110,7 @@ macro_rules! declare_bridge_reject_obsolete_grandpa_header {
 mod tests {
 	use crate::{
 		mock::{run_test, test_header, Call, TestNumber, TestRuntime},
-		BestFinalized, ImportedHeaders,
+		BestFinalized,
 	};
 	use bp_test_utils::make_default_justification;
 	use frame_support::weights::{DispatchClass, DispatchInfo, Pays};
@@ -140,8 +137,7 @@ mod tests {
 
 	fn sync_to_header_10() {
 		let header10_hash = sp_core::H256::default();
-		BestFinalized::<TestRuntime, ()>::put(header10_hash);
-		ImportedHeaders::<TestRuntime, ()>::insert(header10_hash, test_header(10));
+		BestFinalized::<TestRuntime, ()>::put((10, header10_hash));
 	}
 
 	#[test]
