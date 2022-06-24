@@ -97,12 +97,15 @@ impl<AccountId> TaggedAccount<AccountId> {
 	pub fn tag(&self) -> String {
 		match *self {
 			TaggedAccount::Headers { ref bridged_chain, .. } => format!("{}Headers", bridged_chain),
-			TaggedAccount::Parachains { ref bridged_chain, .. } =>
-				format!("{}Parachains", bridged_chain),
-			TaggedAccount::Messages { ref bridged_chain, .. } =>
-				format!("{}Messages", bridged_chain),
-			TaggedAccount::MessagesPalletOwner { ref bridged_chain, .. } =>
-				format!("{}MessagesPalletOwner", bridged_chain),
+			TaggedAccount::Parachains { ref bridged_chain, .. } => {
+				format!("{}Parachains", bridged_chain)
+			},
+			TaggedAccount::Messages { ref bridged_chain, .. } => {
+				format!("{}Messages", bridged_chain)
+			},
+			TaggedAccount::MessagesPalletOwner { ref bridged_chain, .. } => {
+				format!("{}MessagesPalletOwner", bridged_chain)
+			},
 		}
 	}
 }
