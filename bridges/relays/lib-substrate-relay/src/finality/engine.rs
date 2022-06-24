@@ -118,7 +118,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	}
 
 	fn is_initialized_key() -> StorageKey {
-		bp_header_chain::storage_keys::best_finalized_hash_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
+		bp_header_chain::storage_keys::best_finalized_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
 	}
 
 	async fn finality_proofs(client: Client<C>) -> Result<Subscription<Bytes>, SubstrateError> {
