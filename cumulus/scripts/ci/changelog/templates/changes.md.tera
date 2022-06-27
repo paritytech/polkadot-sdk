@@ -7,8 +7,14 @@
 - {{ DOT }} Polkadot
 - {{ SUB }} Substrate
 
+{% if env.RELEASE_TYPE and env.RELEASE_TYPE == "client" %}
 {% include "changes_client.md.tera" %}
+{% else %}
+{% include "migrations-runtime.md.tera" -%}
 
 {% include "changes_runtime.md.tera" %}
+
+{% include "runtimes.md.tera" -%}
+{% endif %}
 
 {% include "changes_misc.md.tera" %}
