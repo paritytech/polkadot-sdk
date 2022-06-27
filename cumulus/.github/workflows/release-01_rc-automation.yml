@@ -45,7 +45,7 @@ jobs:
           tag: ${{ steps.compute_tag.outputs.new_tag }}
 
       - id: create-issue-checklist-client
-        uses: JasonEtco/create-an-issue@v9e6213aec58987fa7d2f4deb8b256b99e63107a2 # v2.6.0
+        uses: JasonEtco/create-an-issue@9e6213aec58987fa7d2f4deb8b256b99e63107a2 # v2.6.0
         # Only create the issue if it's the first release candidate
         if: steps.compute_tag.outputs.first_rc == 'true'
         env:
@@ -56,7 +56,7 @@ jobs:
           filename: .github/ISSUE_TEMPLATE/release-client.md
 
       - id: create-issue-checklist-runtime
-        uses: JasonEtco/create-an-issue@v9e6213aec58987fa7d2f4deb8b256b99e63107a2 # v2.6.0
+        uses: JasonEtco/create-an-issue@9e6213aec58987fa7d2f4deb8b256b99e63107a2 # v2.6.0
         # Only create the issue if it's the first release candidate
         if: steps.compute_tag.outputs.first_rc == 'true'
         env:
