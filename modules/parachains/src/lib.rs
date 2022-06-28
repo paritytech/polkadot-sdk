@@ -400,6 +400,7 @@ mod tests {
 		run_test, test_relay_header, Origin, TestRuntime, PARAS_PALLET_NAME, UNTRACKED_PARACHAIN_ID,
 	};
 
+	use bp_runtime::BasicOperatingMode;
 	use bp_test_utils::{authority_list, make_default_justification};
 	use frame_support::{
 		assert_noop, assert_ok,
@@ -420,7 +421,7 @@ mod tests {
 				header: Box::new(test_relay_header(0, state_root)),
 				authority_list: authority_list(),
 				set_id: 1,
-				is_halted: false,
+				operating_mode: BasicOperatingMode::Normal,
 			},
 		)
 		.unwrap();

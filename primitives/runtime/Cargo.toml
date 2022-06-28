@@ -11,6 +11,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 hash-db = { version = "0.15.2", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+serde = { version = "1.0", optional = true, features = ["derive"] }
 
 # Substrate Dependencies
 
@@ -35,6 +36,7 @@ std = [
 	"hash-db/std",
 	"num-traits/std",
 	"scale-info/std",
+	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
