@@ -71,6 +71,7 @@ pub type BridgedHeader<T, I> = HeaderOf<<T as Config<I>>::BridgedChain>;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use bp_runtime::BasicOperatingMode;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -119,14 +120,9 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {
 		const LOG_TARGET: &'static str = "runtime::bridge-grandpa";
-		const OPERATING_MODE_KEY: &'static str = "IsHalted";
 		type OwnerStorage = PalletOwner<T, I>;
-		type OperatingMode = bool;
-		type OperatingModeStorage = IsHalted<T, I>;
-
-		fn is_halted() -> bool {
-			Self::OperatingModeStorage::get()
-		}
+		type OperatingMode = BasicOperatingMode;
+		type OperatingModeStorage = PalletOperatingMode<T, I>;
 	}
 
 	#[pallet::call]
@@ -237,8 +233,11 @@ pub mod pallet {
 		///
 		/// May only be called either by root, or by `PalletOwner`.
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
-		pub fn set_operational(origin: OriginFor<T>, operational: bool) -> DispatchResult {
-			Self::set_operating_mode(origin, !operational)
+		pub fn set_operating_mode(
+			origin: OriginFor<T>,
+			operating_mode: BasicOperatingMode,
+		) -> DispatchResult {
+			<Self as OwnedBridgeModule<_>>::set_operating_mode(origin, operating_mode)
 		}
 	}
 
@@ -293,9 +292,12 @@ pub mod pallet {
 	pub type PalletOwner<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::AccountId, OptionQuery>;
 
-	/// If true, all pallet transactions are failed immediately.
+	/// The current operating mode of the pallet.
+	///
+	/// Depending on the mode either all, or no transactions will be allowed.
 	#[pallet::storage]
-	pub type IsHalted<T: Config<I>, I: 'static = ()> = StorageValue<_, bool, ValueQuery>;
+	pub type PalletOperatingMode<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -324,7 +326,7 @@ pub mod pallet {
 			} else {
 				// Since the bridge hasn't been initialized we shouldn't allow anyone to perform
 				// transactions.
-				<IsHalted<T, I>>::put(true);
+				<PalletOperatingMode<T, I>>::put(BasicOperatingMode::Halted);
 			}
 		}
 	}
@@ -463,7 +465,8 @@ pub mod pallet {
 	pub(crate) fn initialize_bridge<T: Config<I>, I: 'static>(
 		init_params: super::InitializationData<BridgedHeader<T, I>>,
 	) {
-		let super::InitializationData { header, authority_list, set_id, is_halted } = init_params;
+		let super::InitializationData { header, authority_list, set_id, operating_mode } =
+			init_params;
 
 		let initial_hash = header.hash();
 		<InitialHash<T, I>>::put(initial_hash);
@@ -473,7 +476,7 @@ pub mod pallet {
 		let authority_set = bp_header_chain::AuthoritySet::new(authority_list, set_id);
 		<CurrentAuthoritySet<T, I>>::put(authority_set);
 
-		<IsHalted<T, I>>::put(is_halted);
+		<PalletOperatingMode<T, I>>::put(operating_mode);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -576,7 +579,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 		authority_list: sp_std::vec::Vec::new(), /* we don't verify any proofs in external
 		                                          * benchmarks */
 		set_id: 0,
-		is_halted: false,
+		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	});
 }
 
@@ -584,6 +587,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 mod tests {
 	use super::*;
 	use crate::mock::{run_test, test_header, Origin, TestHeader, TestNumber, TestRuntime};
+	use bp_runtime::BasicOperatingMode;
 	use bp_test_utils::{
 		authority_list, make_default_justification, make_justification_for_header,
 		JustificationGeneratorParams, ALICE, BOB,
@@ -611,7 +615,7 @@ mod tests {
 			header: Box::new(genesis),
 			authority_list: authority_list(),
 			set_id: 1,
-			is_halted: false,
+			operating_mode: BasicOperatingMode::Normal,
 		};
 
 		Pallet::<TestRuntime>::initialize(origin, init_data.clone()).map(|_| init_data)
@@ -685,7 +689,7 @@ mod tests {
 				CurrentAuthoritySet::<TestRuntime>::get().authorities,
 				init_data.authority_list
 			);
-			assert!(!IsHalted::<TestRuntime>::get());
+			assert_eq!(PalletOperatingMode::<TestRuntime>::get(), BasicOperatingMode::Normal);
 		})
 	}
 
@@ -707,29 +711,50 @@ mod tests {
 
 			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::root(), Some(1)));
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(2), false),
+				Pallet::<TestRuntime>::set_operating_mode(
+					Origin::signed(2),
+					BasicOperatingMode::Halted
+				),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				BasicOperatingMode::Halted
+			));
 
 			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::signed(1), None));
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operating_mode(
+					Origin::signed(1),
+					BasicOperatingMode::Normal
+				),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(2), true),
+				Pallet::<TestRuntime>::set_operating_mode(
+					Origin::signed(2),
+					BasicOperatingMode::Normal
+				),
 				DispatchError::BadOrigin,
 			);
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				BasicOperatingMode::Normal
+			));
 		});
 	}
 
 	#[test]
 	fn pallet_may_be_halted_by_root() {
 		run_test(|| {
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				BasicOperatingMode::Halted
+			));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				BasicOperatingMode::Normal
+			));
 		});
 	}
 
@@ -738,21 +763,39 @@ mod tests {
 		run_test(|| {
 			PalletOwner::<TestRuntime>::put(2);
 
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::signed(2),
+				BasicOperatingMode::Halted
+			));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::signed(2),
+				BasicOperatingMode::Normal
+			));
 
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), false),
+				Pallet::<TestRuntime>::set_operating_mode(
+					Origin::signed(1),
+					BasicOperatingMode::Halted
+				),
 				DispatchError::BadOrigin,
 			);
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operating_mode(
+					Origin::signed(1),
+					BasicOperatingMode::Normal
+				),
 				DispatchError::BadOrigin,
 			);
 
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::signed(2), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::signed(2),
+				BasicOperatingMode::Halted
+			));
 			assert_noop!(
-				Pallet::<TestRuntime>::set_operational(Origin::signed(1), true),
+				Pallet::<TestRuntime>::set_operating_mode(
+					Origin::signed(1),
+					BasicOperatingMode::Normal
+				),
 				DispatchError::BadOrigin,
 			);
 		});
@@ -763,13 +806,19 @@ mod tests {
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), false));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				BasicOperatingMode::Halted
+			));
 			assert_noop!(
 				submit_finality_proof(1),
 				Error::<TestRuntime>::BridgeModule(bp_runtime::OwnedBridgeModuleError::Halted)
 			);
 
-			assert_ok!(Pallet::<TestRuntime>::set_operational(Origin::root(), true));
+			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
+				Origin::root(),
+				BasicOperatingMode::Normal
+			));
 			assert_ok!(submit_finality_proof(1));
 		})
 	}
@@ -851,7 +900,7 @@ mod tests {
 				header: Box::new(genesis),
 				authority_list: invalid_authority_list,
 				set_id: 1,
-				is_halted: false,
+				operating_mode: BasicOperatingMode::Normal,
 			};
 
 			assert_ok!(Pallet::<TestRuntime>::initialize(Origin::root(), init_data));
@@ -1115,8 +1164,8 @@ mod tests {
 	#[test]
 	fn storage_keys_computed_properly() {
 		assert_eq!(
-			IsHalted::<TestRuntime>::storage_value_final_key().to_vec(),
-			bp_header_chain::storage_keys::is_halted_key("Grandpa").0,
+			PalletOperatingMode::<TestRuntime>::storage_value_final_key().to_vec(),
+			bp_header_chain::storage_keys::pallet_operating_mode_key("Grandpa").0,
 		);
 
 		assert_eq!(

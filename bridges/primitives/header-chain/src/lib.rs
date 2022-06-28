@@ -19,6 +19,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use bp_runtime::BasicOperatingMode;
 use codec::{Codec, Decode, Encode, EncodeLike};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
 use scale_info::TypeInfo;
@@ -66,8 +67,8 @@ pub struct InitializationData<H: HeaderT> {
 	pub authority_list: AuthorityList,
 	/// The ID of the initial authority set.
 	pub set_id: SetId,
-	/// Should the pallet block transaction immediately after initialization.
-	pub is_halted: bool,
+	/// Pallet operating mode.
+	pub operating_mode: BasicOperatingMode,
 }
 
 /// base trait for verifying transaction inclusion proofs.

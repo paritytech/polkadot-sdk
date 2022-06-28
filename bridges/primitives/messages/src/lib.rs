@@ -32,14 +32,15 @@ pub mod storage_keys;
 pub mod target_chain;
 
 // Weight is reexported to avoid additional frame-support dependencies in related crates.
+use bp_runtime::{BasicOperatingMode, OperatingMode};
 pub use frame_support::weights::Weight;
 
 /// Messages pallet operating mode.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-pub enum OperatingMode {
-	/// Normal mode, when all operations are allowed.
-	Normal,
+pub enum MessagesOperatingMode {
+	/// Basic operating mode (Normal/Halted)
+	Basic(BasicOperatingMode),
 	/// The pallet is not accepting outbound messages. Inbound messages and receiving proofs
 	/// are still accepted.
 	///
@@ -48,13 +49,20 @@ pub enum OperatingMode {
 	/// queued messages to the bridged chain. Once upgrade is completed, the mode may be switched
 	/// back to `Normal`.
 	RejectingOutboundMessages,
-	/// The pallet is halted. All operations (except operating mode change) are prohibited.
-	Halted,
 }
 
-impl Default for OperatingMode {
+impl Default for MessagesOperatingMode {
 	fn default() -> Self {
-		OperatingMode::Normal
+		MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
+	}
+}
+
+impl OperatingMode for MessagesOperatingMode {
+	fn is_halted(&self) -> bool {
+		match self {
+			Self::Basic(operating_mode) => operating_mode.is_halted(),
+			_ => false,
+		}
 	}
 }
 

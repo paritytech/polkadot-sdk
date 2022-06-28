@@ -41,6 +41,7 @@
 
 use crate::*;
 
+use bp_runtime::BasicOperatingMode;
 use bp_test_utils::{
 	accounts, make_justification_for_header, JustificationGeneratorParams, TEST_GRANDPA_ROUND,
 	TEST_GRANDPA_SET_ID,
@@ -84,7 +85,7 @@ fn prepare_benchmark_data<T: Config<I>, I: 'static>(
 		header: Box::new(bp_test_utils::test_header(Zero::zero())),
 		authority_list,
 		set_id: TEST_GRANDPA_SET_ID,
-		is_halted: false,
+		operating_mode: BasicOperatingMode::Normal,
 	};
 
 	bootstrap_bridge::<T, I>(init_data);

@@ -31,10 +31,10 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
-	InboundMessageDetails, LaneId, MessageData, MessageNonce, OperatingMode, OutboundLaneData,
-	OutboundMessageDetails, UnrewardedRelayersState,
+	InboundMessageDetails, LaneId, MessageData, MessageNonce, MessagesOperatingMode,
+	OutboundLaneData, OutboundMessageDetails, UnrewardedRelayersState,
 };
-use bp_runtime::messages::DispatchFeePayment;
+use bp_runtime::{messages::DispatchFeePayment, BasicOperatingMode};
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
@@ -420,7 +420,8 @@ where
 	let operating_mode = client
 		.storage_value(operating_mode_key(WithChain::WITH_CHAIN_MESSAGES_PALLET_NAME), None)
 		.await?;
-	let is_halted = operating_mode == Some(OperatingMode::Halted);
+	let is_halted =
+		operating_mode == Some(MessagesOperatingMode::Basic(BasicOperatingMode::Halted));
 	if is_halted {
 		Err(SubstrateError::BridgePalletIsHalted)
 	} else {

@@ -269,18 +269,47 @@ pub enum OwnedBridgeModuleError {
 	Halted,
 }
 
+/// Operating mode for a bridge module.
+pub trait OperatingMode: Send + Copy + Debug + FullCodec {
+	// Returns true if the bridge module is halted.
+	fn is_halted(&self) -> bool;
+}
+
+/// Basic operating modes for a bridges module (Normal/Halted).
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum BasicOperatingMode {
+	/// Normal mode, when all operations are allowed.
+	Normal,
+	/// The pallet is halted. All operations (except operating mode change) are prohibited.
+	Halted,
+}
+
+impl Default for BasicOperatingMode {
+	fn default() -> Self {
+		Self::Normal
+	}
+}
+
+impl OperatingMode for BasicOperatingMode {
+	fn is_halted(&self) -> bool {
+		*self == BasicOperatingMode::Halted
+	}
+}
+
 /// Bridge module that has owner and operating mode
 pub trait OwnedBridgeModule<T: frame_system::Config> {
 	/// The target that will be used when publishing logs related to this module.
 	const LOG_TARGET: &'static str;
-	const OPERATING_MODE_KEY: &'static str;
 
 	type OwnerStorage: StorageValue<T::AccountId, Query = Option<T::AccountId>>;
-	type OperatingMode: Copy + Debug + FullCodec;
-	type OperatingModeStorage: StorageValue<Self::OperatingMode>;
+	type OperatingMode: OperatingMode;
+	type OperatingModeStorage: StorageValue<Self::OperatingMode, Query = Self::OperatingMode>;
 
 	/// Check if the module is halted.
-	fn is_halted() -> bool;
+	fn is_halted() -> bool {
+		Self::OperatingModeStorage::get().is_halted()
+	}
 
 	/// Ensure that the origin is either root, or `PalletOwner`.
 	fn ensure_owner_or_root(origin: T::Origin) -> Result<(), BadOrigin> {
@@ -325,12 +354,7 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 	) -> DispatchResult {
 		Self::ensure_owner_or_root(origin)?;
 		Self::OperatingModeStorage::put(operating_mode);
-		log::info!(
-			target: Self::LOG_TARGET,
-			"Setting operating mode ( {} = {:?}).",
-			Self::OPERATING_MODE_KEY,
-			operating_mode
-		);
+		log::info!(target: Self::LOG_TARGET, "Setting operating mode to {:?}.", operating_mode);
 		Ok(())
 	}
 }
