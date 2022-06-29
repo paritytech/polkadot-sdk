@@ -31,6 +31,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 [dev-dependencies]
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
+bp-test-utils = { path = "../../primitives/test-utils" }
 
 [features]
 default = ["std"]
