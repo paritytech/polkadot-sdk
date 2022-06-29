@@ -48,6 +48,9 @@ mod extension;
 #[cfg(test)]
 mod mock;
 
+/// The target that will be used when publishing logs related to this pallet.
+const LOG_TARGET: &str = "runtime::bridge-parachains";
+
 /// Block hash of the bridged relay chain.
 pub type RelayBlockHash = bp_polkadot_core::Hash;
 /// Block number of the bridged relay chain.
@@ -208,7 +211,7 @@ pub mod pallet {
 						// if we're not tracking this parachain, we'll just ignore its head proof here
 						if !T::TrackedParachains::contains(&parachain) {
 							log::trace!(
-								target: "runtime::bridge-parachains",
+								target: LOG_TARGET,
 								"The head of parachain {:?} has been provided, but it is not tracked by the pallet",
 								parachain,
 							);
@@ -219,7 +222,7 @@ pub mod pallet {
 							Ok(Some(parachain_head)) => parachain_head,
 							Ok(None) => {
 								log::trace!(
-									target: "runtime::bridge-parachains",
+									target: LOG_TARGET,
 									"The head of parachain {:?} is None. {}",
 									parachain,
 									if BestParaHeads::<T, I>::contains_key(&parachain) {
@@ -232,7 +235,7 @@ pub mod pallet {
 							},
 							Err(e) => {
 								log::trace!(
-									target: "runtime::bridge-parachains",
+									target: LOG_TARGET,
 									"The read of head of parachain {:?} has failed: {:?}",
 									parachain,
 									e,
@@ -325,7 +328,7 @@ pub mod pallet {
 					// check if this head has already been imported before
 					if updated_head_hash == stored_best_head.head_hash {
 						log::trace!(
-							target: "runtime::bridge-parachains",
+							target: LOG_TARGET,
 							"The head of parachain {:?} can't be updated to {}, because it has been already updated\
 							to the same value at previous relay chain block: {} < {}",
 							parachain,
@@ -341,7 +344,7 @@ pub mod pallet {
 				None => 0,
 				Some(stored_best_head) => {
 					log::trace!(
-						target: "runtime::bridge-parachains",
+						target: LOG_TARGET,
 						"The head of parachain {:?} can't be updated to {}, because it has been already updated\
 						to {} at better relay chain block: {} > {}",
 						parachain,
@@ -370,7 +373,7 @@ pub mod pallet {
 			);
 			ImportedParaHeads::<T, I>::insert(parachain, updated_head_hash, updated_head);
 			log::trace!(
-				target: "runtime::bridge-parachains",
+				target: LOG_TARGET,
 				"Updated head of parachain {:?} to {}",
 				parachain,
 				updated_head_hash,
@@ -380,7 +383,7 @@ pub mod pallet {
 			let prune_happened = head_hash_to_prune.is_ok();
 			if let Ok(head_hash_to_prune) = head_hash_to_prune {
 				log::trace!(
-					target: "runtime::bridge-parachains",
+					target: LOG_TARGET,
 					"Pruning old head of parachain {:?}: {}",
 					parachain,
 					head_hash_to_prune,
