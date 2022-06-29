@@ -9,7 +9,7 @@ on:
     inputs:
       tag:
         description: release tag to build image for
-        default: polkadot-v0.9.17
+        default: v0.9.230
         required: true
       prerelease:
         description: is prerelease
@@ -31,6 +31,7 @@ jobs:
         run: |
           echo "Repo: ${{ github.event.repository.full_name }}"
 
+          mkdir -p tmp; cd tmp
           for f in $BINARY $BINARY.asc $BINARY.sha256; do
             URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.inputs.tag }}/$f"
             echo " - Fetching $f from $URL"
@@ -41,7 +42,7 @@ jobs:
 
       - name: Check files
         run: |
-          ls -al *collator*
+          ls -al *$BINARY*
           shasum -a 256 -c $BINARY.sha256
           sha_result=$?
 

@@ -32,6 +32,7 @@ jobs:
           echo "Prerelease: ${{ github.event.release.prerelease }}"
           echo "Assets: ${{ github.event.release.assets }}"
 
+          mkdir -p tmp; cd tmp
           for f in $BINARY $BINARY.asc $BINARY.sha256; do
             URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.release.tag_name }}/$f"
             echo " - Fetching $f from $URL"
@@ -42,7 +43,7 @@ jobs:
 
       - name: Check files
         run: |
-          ls -al *collator*
+          ls -al *$BINARY*
           shasum -a 256 -c $BINARY.sha256
           sha_result=$?
 
