@@ -6,7 +6,15 @@
     "/ip4/34.65.251.121/tcp/30334/p2p/12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa",
     "/ip4/34.65.35.228/tcp/30334/p2p/12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq",
     "/ip4/34.83.247.146/tcp/30334/p2p/12D3KooWE4jFh5FpJDkWVZhnWtFnbSqRhdjvC7Dp9b8b3FTuubQC",
-    "/ip4/104.199.117.230/tcp/30334/p2p/12D3KooWG9R8pVXKumVo2rdkeVD4j5PVhRTqmYgLHY3a4yPYgLqM"
+    "/ip4/104.199.117.230/tcp/30334/p2p/12D3KooWG9R8pVXKumVo2rdkeVD4j5PVhRTqmYgLHY3a4yPYgLqM",
+    "/dns/statemint-connect-ew6-0.parity-polkadot-parachains.parity.io/tcp/30334/p2p/12D3KooWLHqbcQtoBygf7GJgVjVa3TaeLuf7VbicNdooaCmQM2JZ",
+    "/dns/statemint-connect-ew6-0.parity-polkadot-parachains.parity.io/tcp/443/wss/p2p/12D3KooWLHqbcQtoBygf7GJgVjVa3TaeLuf7VbicNdooaCmQM2JZ",
+    "/dns/statemint-connect-ew6-1.parity-polkadot-parachains.parity.io/tcp/30334/p2p/12D3KooWNDrKSayoZXGGE2dRSFW2g1iGPq3fTZE2U39ma9yZGKd3",
+    "/dns/statemint-connect-ew6-1.parity-polkadot-parachains.parity.io/tcp/443/wss/p2p/12D3KooWNDrKSayoZXGGE2dRSFW2g1iGPq3fTZE2U39ma9yZGKd3",
+    "/dns/statemint-connect-uw1-0.parity-polkadot-parachains.parity.io/tcp/30334/p2p/12D3KooWApa2JW4rbLtgzuK7fjLMupLS9HZheX9cdkQKyu6AnGrP",
+    "/dns/statemint-connect-uw1-0.parity-polkadot-parachains.parity.io/tcp/443/wss/p2p/12D3KooWApa2JW4rbLtgzuK7fjLMupLS9HZheX9cdkQKyu6AnGrP",
+    "/dns/statemint-connect-uw1-1.parity-polkadot-parachains.parity.io/tcp/30334/p2p/12D3KooWRsVeHqRs2iKmjLiguxp8myL4G2mDAWhtX2jHwyWujseV",
+    "/dns/statemint-connect-uw1-1.parity-polkadot-parachains.parity.io/tcp/443/wss/p2p/12D3KooWRsVeHqRs2iKmjLiguxp8myL4G2mDAWhtX2jHwyWujseV"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
