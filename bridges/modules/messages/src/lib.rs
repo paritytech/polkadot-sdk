@@ -90,6 +90,9 @@ mod mock;
 
 pub use pallet::*;
 
+/// The target that will be used when publishing logs related to this pallet.
+const LOG_TARGET: &str = "runtime::bridge-messages";
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -217,7 +220,7 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {
-		const LOG_TARGET: &'static str = "runtime::bridge-messages";
+		const LOG_TARGET: &'static str = LOG_TARGET;
 		type OwnerStorage = PalletOwner<T, I>;
 		type OperatingMode = MessagesOperatingMode;
 		type OperatingModeStorage = PalletOperatingMode<T, I>;
@@ -309,7 +312,7 @@ pub mod pallet {
 			)
 			.map_err(|err| {
 				log::trace!(
-					target: "runtime::bridge-messages",
+					target: LOG_TARGET,
 					"Submitter can't pay additional fee {:?} for the message {:?}/{:?} to {:?}: {:?}",
 					additional_fee,
 					lane_id,
@@ -389,11 +392,7 @@ pub mod pallet {
 				T::InboundPayload,
 			>(proof, messages_count)
 			.map_err(|err| {
-				log::trace!(
-					target: "runtime::bridge-messages",
-					"Rejecting invalid messages proof: {:?}",
-					err,
-				);
+				log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
 
 				Error::<T, I>::InvalidMessagesProof
 			})?;
@@ -409,7 +408,7 @@ pub mod pallet {
 					let updated_latest_confirmed_nonce = lane.receive_state_update(lane_state);
 					if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
 						log::trace!(
-							target: "runtime::bridge-messages",
+							target: LOG_TARGET,
 							"Received lane {:?} state update: latest_confirmed_nonce={}",
 							lane_id,
 							updated_latest_confirmed_nonce,
@@ -426,7 +425,7 @@ pub mod pallet {
 					let dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
 					if dispatch_weight > dispatch_weight_left {
 						log::trace!(
-							target: "runtime::bridge-messages",
+							target: LOG_TARGET,
 							"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
 							lane_id,
 							dispatch_weight,
@@ -478,7 +477,7 @@ pub mod pallet {
 			}
 
 			log::trace!(
-				target: "runtime::bridge-messages",
+				target: LOG_TARGET,
 				"Received messages: total={}, valid={}. Weight used: {}/{}",
 				total_messages,
 				valid_messages,
@@ -524,7 +523,7 @@ pub mod pallet {
 			let (lane_id, lane_data) = T::TargetHeaderChain::verify_messages_delivery_proof(proof)
 				.map_err(|err| {
 					log::trace!(
-						target: "runtime::bridge-messages",
+						target: LOG_TARGET,
 						"Rejecting invalid messages delivery proof: {:?}",
 						err,
 					);
@@ -564,7 +563,7 @@ pub mod pallet {
 					to_confirm_messages_count,
 				) => {
 					log::trace!(
-						target: "runtime::bridge-messages",
+						target: LOG_TARGET,
 						"Messages delivery proof contains too many messages to confirm: {} vs declared {}",
 						to_confirm_messages_count,
 						relayers_state.total_messages,
@@ -574,7 +573,7 @@ pub mod pallet {
 				},
 				error => {
 					log::trace!(
-						target: "runtime::bridge-messages",
+						target: LOG_TARGET,
 						"Messages delivery proof contains invalid unrewarded relayers vec: {:?}",
 						error,
 					);
@@ -593,7 +592,7 @@ pub mod pallet {
 					Some(difference) if difference == 0 => (),
 					Some(difference) => {
 						log::trace!(
-							target: "runtime::bridge-messages",
+							target: LOG_TARGET,
 							"T::OnDeliveryConfirmed callback has spent less weight than expected. Refunding: \
 							{} - {} = {}",
 							preliminary_callback_overhead,
@@ -608,7 +607,7 @@ pub mod pallet {
 							"T::OnDeliveryConfirmed callback consumed too much weight."
 						);
 						log::error!(
-							target: "runtime::bridge-messages",
+							target: LOG_TARGET,
 							"T::OnDeliveryConfirmed callback has spent more weight that it is allowed to: \
 							{} vs {}",
 							preliminary_callback_overhead,
@@ -634,7 +633,7 @@ pub mod pallet {
 			}
 
 			log::trace!(
-				target: "runtime::bridge-messages",
+				target: LOG_TARGET,
 				"Received messages delivery proof up to (and including) {} at lane {:?}",
 				last_delivered_nonce,
 				lane_id,
@@ -829,7 +828,7 @@ fn send_message<T: Config<I>, I: 'static>(
 	// let's first check if message can be delivered to target chain
 	T::TargetHeaderChain::verify_message(&payload).map_err(|err| {
 		log::trace!(
-			target: "runtime::bridge-messages",
+			target: LOG_TARGET,
 			"Message to lane {:?} is rejected by target chain: {:?}",
 			lane_id,
 			err,
@@ -849,7 +848,7 @@ fn send_message<T: Config<I>, I: 'static>(
 	)
 	.map_err(|err| {
 		log::trace!(
-			target: "runtime::bridge-messages",
+			target: LOG_TARGET,
 			"Message to lane {:?} is rejected by lane verifier: {:?}",
 			lane_id,
 			err,
@@ -866,7 +865,7 @@ fn send_message<T: Config<I>, I: 'static>(
 	)
 	.map_err(|err| {
 		log::trace!(
-			target: "runtime::bridge-messages",
+			target: LOG_TARGET,
 			"Message to lane {:?} is rejected because submitter is unable to pay fee {:?}: {:?}",
 			lane_id,
 			delivery_and_dispatch_fee,
@@ -892,7 +891,7 @@ fn send_message<T: Config<I>, I: 'static>(
 		Some(difference) if difference == 0 => (),
 		Some(difference) => {
 			log::trace!(
-				target: "runtime::bridge-messages",
+				target: LOG_TARGET,
 				"T::OnMessageAccepted callback has spent less weight than expected. Refunding: \
 				{} - {} = {}",
 				single_message_callback_overhead,
@@ -904,7 +903,7 @@ fn send_message<T: Config<I>, I: 'static>(
 		None => {
 			debug_assert!(false, "T::OnMessageAccepted callback consumed too much weight.");
 			log::error!(
-				target: "runtime::bridge-messages",
+				target: LOG_TARGET,
 				"T::OnMessageAccepted callback has spent more weight that it is allowed to: \
 				{} vs {}",
 				single_message_callback_overhead,
@@ -923,7 +922,7 @@ fn send_message<T: Config<I>, I: 'static>(
 	}
 
 	log::trace!(
-		target: "runtime::bridge-messages",
+		target: LOG_TARGET,
 		"Accepted message {} to lane {:?}. Message size: {:?}",
 		nonce,
 		lane_id,
