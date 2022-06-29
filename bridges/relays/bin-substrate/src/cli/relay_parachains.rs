@@ -49,6 +49,7 @@ pub struct RelayParachains {
 #[strum(serialize_all = "kebab_case")]
 pub enum RelayParachainsBridge {
 	RialtoToMillau,
+	WestendToMillau,
 }
 
 macro_rules! select_bridge {
@@ -56,6 +57,11 @@ macro_rules! select_bridge {
 		match $bridge {
 			RelayParachainsBridge::RialtoToMillau => {
 				use crate::chains::rialto_parachains_to_millau::RialtoParachainsToMillau as Pipeline;
+
+				$generic
+			},
+			RelayParachainsBridge::WestendToMillau => {
+				use crate::chains::westend_parachains_to_millau::WestendParachainsToMillau as Pipeline;
 
 				$generic
 			},
