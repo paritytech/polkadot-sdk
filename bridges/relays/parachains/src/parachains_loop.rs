@@ -76,9 +76,13 @@ pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
 	async fn ensure_synced(&self) -> Result<bool, Self::Error>;
 
 	/// Get parachain head hash at given block.
+	///
+	/// The implementation may call `ParachainsLoopMetrics::update_best_parachain_block_at_source`
+	/// on provided `metrics` object to update corresponding metric value.
 	async fn parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::SourceChain>,
+		metrics: Option<&ParachainsLoopMetrics>,
 		para_id: ParaId,
 	) -> Result<ParaHashAtSource, Self::Error>;
 
@@ -103,9 +107,13 @@ pub trait TargetClient<P: ParachainsPipeline>: RelayClient {
 	) -> Result<HeaderIdOf<P::SourceChain>, Self::Error>;
 
 	/// Get parachain head hash at given block.
+	///
+	/// The implementation may call `ParachainsLoopMetrics::update_best_parachain_block_at_target`
+	/// on provided `metrics` object to update corresponding metric value.
 	async fn parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::TargetChain>,
+		metrics: Option<&ParachainsLoopMetrics>,
 		para_id: ParaId,
 	) -> Result<Option<BestParaHeadHash>, Self::Error>;
 
@@ -158,7 +166,7 @@ async fn run_until_connection_lost<P: ParachainsPipeline>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	sync_params: ParachainSyncParams,
-	_metrics: Option<ParachainsLoopMetrics>,
+	metrics: Option<ParachainsLoopMetrics>,
 	exit_signal: impl Future<Output = ()> + Send,
 ) -> Result<(), FailedClient>
 where
@@ -213,9 +221,13 @@ where
 			log::warn!(target: "bridge", "Failed to read best {} block: {:?}", P::SourceChain::NAME, e);
 			FailedClient::Target
 		})?;
-		let heads_at_target =
-			read_heads_at_target(&target_client, &best_target_block, &sync_params.parachains)
-				.await?;
+		let heads_at_target = read_heads_at_target(
+			&target_client,
+			metrics.as_ref(),
+			&best_target_block,
+			&sync_params.parachains,
+		)
+		.await?;
 		tx_tracker = tx_tracker.take().and_then(|tx_tracker| tx_tracker.update(&heads_at_target));
 		if tx_tracker.is_some() {
 			continue
@@ -238,6 +250,7 @@ where
 			})?;
 		let heads_at_source = read_heads_at_source(
 			&source_client,
+			metrics.as_ref(),
 			&best_finalized_relay_block,
 			&sync_params.parachains,
 		)
@@ -398,12 +411,13 @@ fn is_update_required(sync_params: &ParachainSyncParams, updated_ids: &[ParaId])
 /// Guarantees that the returning map will have an entry for every parachain from `parachains`.
 async fn read_heads_at_source<P: ParachainsPipeline>(
 	source_client: &impl SourceClient<P>,
+	metrics: Option<&ParachainsLoopMetrics>,
 	at_relay_block: &HeaderIdOf<P::SourceChain>,
 	parachains: &[ParaId],
 ) -> Result<BTreeMap<ParaId, ParaHashAtSource>, FailedClient> {
 	let mut para_head_hashes = BTreeMap::new();
 	for para in parachains {
-		let para_head = source_client.parachain_head(*at_relay_block, *para).await;
+		let para_head = source_client.parachain_head(*at_relay_block, metrics, *para).await;
 		match para_head {
 			Ok(para_head) => {
 				para_head_hashes.insert(*para, para_head);
@@ -428,12 +442,13 @@ async fn read_heads_at_source<P: ParachainsPipeline>(
 /// Guarantees that the returning map will have an entry for every parachain from `parachains`.
 async fn read_heads_at_target<P: ParachainsPipeline>(
 	target_client: &impl TargetClient<P>,
+	metrics: Option<&ParachainsLoopMetrics>,
 	at_block: &HeaderIdOf<P::TargetChain>,
 	parachains: &[ParaId],
 ) -> Result<BTreeMap<ParaId, Option<BestParaHeadHash>>, FailedClient> {
 	let mut para_best_head_hashes = BTreeMap::new();
 	for para in parachains {
-		let para_best_head = target_client.parachain_head(*at_block, *para).await;
+		let para_best_head = target_client.parachain_head(*at_block, metrics, *para).await;
 		match para_best_head {
 			Ok(para_best_head) => {
 				para_best_head_hashes.insert(*para, para_best_head);
@@ -638,6 +653,7 @@ mod tests {
 		async fn parachain_head(
 			&self,
 			_at_block: HeaderIdOf<TestChain>,
+			_metrics: Option<&ParachainsLoopMetrics>,
 			para_id: ParaId,
 		) -> Result<ParaHashAtSource, TestError> {
 			match self.data.lock().await.source_heads.get(&para_id.0).cloned() {
@@ -684,6 +700,7 @@ mod tests {
 		async fn parachain_head(
 			&self,
 			_at_block: HeaderIdOf<TestChain>,
+			_metrics: Option<&ParachainsLoopMetrics>,
 			para_id: ParaId,
 		) -> Result<Option<BestParaHeadHash>, TestError> {
 			self.data.lock().await.target_heads.get(&para_id.0).cloned().transpose()
