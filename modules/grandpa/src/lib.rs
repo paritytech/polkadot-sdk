@@ -59,6 +59,9 @@ pub mod benchmarking;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+/// The target that will be used when publishing logs related to this pallet.
+const LOG_TARGET: &str = "runtime::bridge-grandpa";
+
 /// Block number of the bridged chain.
 pub type BridgedBlockNumber<T, I> = BlockNumberOf<<T as Config<I>>::BridgedChain>;
 /// Block hash of the bridged chain.
@@ -119,7 +122,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {
-		const LOG_TARGET: &'static str = "runtime::bridge-grandpa";
+		const LOG_TARGET: &'static str = LOG_TARGET;
 		type OwnerStorage = PalletOwner<T, I>;
 		type OperatingMode = BasicOperatingMode;
 		type OperatingModeStorage = PalletOperatingMode<T, I>;
@@ -149,7 +152,11 @@ pub mod pallet {
 			ensure!(Self::request_count() < T::MaxRequests::get(), <Error<T, I>>::TooManyRequests);
 
 			let (hash, number) = (finality_target.hash(), finality_target.number());
-			log::trace!(target: "runtime::bridge-grandpa", "Going to try and finalize header {:?}", finality_target);
+			log::trace!(
+				target: LOG_TARGET,
+				"Going to try and finalize header {:?}",
+				finality_target
+			);
 
 			let best_finalized = BestFinalized::<T, I>::get();
 			let best_finalized =
@@ -158,7 +165,7 @@ pub mod pallet {
 				Some(best_finalized) => best_finalized,
 				None => {
 					log::error!(
-						target: "runtime::bridge-grandpa",
+						target: LOG_TARGET,
 						"Cannot finalize header {:?} because pallet is not yet initialized",
 						finality_target,
 					);
@@ -179,7 +186,11 @@ pub mod pallet {
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
 			insert_header::<T, I>(*finality_target, hash);
-			log::info!(target: "runtime::bridge-grandpa", "Successfully imported finalized header with hash {:?}!", hash);
+			log::info!(
+				target: LOG_TARGET,
+				"Successfully imported finalized header with hash {:?}!",
+				hash
+			);
 
 			// mandatory header is a header that changes authorities set. The pallet can't go
 			// further without importing this header. So every bridge MUST import mandatory headers.
@@ -213,7 +224,7 @@ pub mod pallet {
 			initialize_bridge::<T, I>(init_data.clone());
 
 			log::info!(
-				target: "runtime::bridge-grandpa",
+				target: LOG_TARGET,
 				"Pallet has been initialized with the following parameters: {:?}",
 				init_data
 			);
@@ -392,7 +403,7 @@ pub mod pallet {
 			change_enacted = true;
 
 			log::info!(
-				target: "runtime::bridge-grandpa",
+				target: LOG_TARGET,
 				"Transitioned from authority set {} to {}! New authorities are: {:?}",
 				current_set_id,
 				current_set_id + 1,
@@ -429,7 +440,7 @@ pub mod pallet {
 		)
 		.map_err(|e| {
 			log::error!(
-				target: "runtime::bridge-grandpa",
+				target: LOG_TARGET,
 				"Received invalid justification for {:?}: {:?}",
 				hash,
 				e,
@@ -455,7 +466,7 @@ pub mod pallet {
 		// Update ring buffer pointer and remove old header.
 		<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
 		if let Ok(hash) = pruning {
-			log::debug!(target: "runtime::bridge-grandpa", "Pruning old header: {:?}.", hash);
+			log::debug!(target: LOG_TARGET, "Pruning old header: {:?}.", hash);
 			<ImportedHeaders<T, I>>::remove(hash);
 		}
 	}
