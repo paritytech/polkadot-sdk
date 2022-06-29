@@ -506,15 +506,27 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 
 parameter_types! {
 	pub const RialtoParasPalletName: &'static str = bp_rialto::PARAS_PALLET_NAME;
+	pub const WestendParasPalletName: &'static str = bp_westend::PARAS_PALLET_NAME;
 }
 
-/// Instance of the with-Rialto parachains token swap pallet.
+/// Instance of the with-Rialto parachains pallet.
 pub type WithRialtoParachainsInstance = ();
 
 impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime {
 	type WeightInfo = pallet_bridge_parachains::weights::MillauWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
 	type ParasPalletName = RialtoParasPalletName;
+	type TrackedParachains = frame_support::traits::Everything;
+	type HeadsToKeep = HeadersToKeep;
+}
+
+/// Instance of the with-Westend parachains pallet.
+pub type WithWestendParachainsInstance = pallet_bridge_parachains::Instance1;
+
+impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime {
+	type WeightInfo = pallet_bridge_parachains::weights::MillauWeight<Runtime>;
+	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
+	type ParasPalletName = WestendParasPalletName;
 	type TrackedParachains = frame_support::traits::Everything;
 	type HeadsToKeep = HeadersToKeep;
 }
@@ -552,6 +564,7 @@ construct_runtime!(
 
 		// Westend bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
+		BridgeWestendParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage},
 
 		// RialtoParachain bridge modules.
 		BridgeRialtoParachains: pallet_bridge_parachains::{Pallet, Call, Storage},
@@ -803,6 +816,20 @@ impl_runtime_apis! {
 	impl bp_westend::WestendFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<(bp_westend::BlockNumber, bp_westend::Hash)> {
 			BridgeWestendGrandpa::best_finalized().map(|header| (header.number, header.hash()))
+		}
+	}
+
+	impl bp_westend::WestmintFinalityApi<Block> for Runtime {
+		fn best_finalized() -> Option<(bp_westend::BlockNumber, bp_westend::Hash)> {
+			// the parachains finality pallet is never decoding parachain heads, so it is
+			// only done in the integration code
+			use bp_westend::WESTMINT_PARACHAIN_ID;
+			let encoded_head = pallet_bridge_parachains::Pallet::<
+				Runtime,
+				WithWestendParachainsInstance,
+			>::best_parachain_head(WESTMINT_PARACHAIN_ID.into())?;
+			let head = bp_westend::Header::decode(&mut &encoded_head.0[..]).ok()?;
+			Some((*head.number(), head.hash()))
 		}
 	}
 
