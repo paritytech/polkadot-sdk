@@ -405,6 +405,7 @@ mod tests {
 	use frame_support::{
 		assert_noop, assert_ok,
 		dispatch::DispatchResultWithPostInfo,
+		storage::generator::{StorageDoubleMap, StorageMap},
 		traits::{Get, OnInitialize},
 		weights::Weight,
 	};
@@ -809,5 +810,28 @@ mod tests {
 				Some(head_data(1, 10))
 			);
 		});
+	}
+
+	#[test]
+	fn storage_keys_computed_properly() {
+		assert_eq!(
+			BestParaHeads::<TestRuntime>::storage_map_final_key(ParaId(42)).to_vec(),
+			bp_parachains::best_parachain_head_hash_storage_key_at_target("Parachains", ParaId(42))
+				.0,
+		);
+
+		assert_eq!(
+			ImportedParaHeads::<TestRuntime>::storage_double_map_final_key(
+				ParaId(42),
+				ParaHash::from([21u8; 32])
+			)
+			.to_vec(),
+			bp_parachains::imported_parachain_head_storage_key_at_target(
+				"Parachains",
+				ParaId(42),
+				ParaHash::from([21u8; 32])
+			)
+			.0,
+		);
 	}
 }

@@ -236,6 +236,38 @@ pub fn storage_map_final_key<H: StorageHasher>(
 	StorageKey(final_key)
 }
 
+/// This is a copy of the
+/// `frame_support::storage::generator::StorageDoubleMap::storage_double_map_final_key` for maps
+/// based on selected hashers.
+///
+/// We're using it because to call `storage_double_map_final_key` directly, we need access to the
+/// runtime and pallet instance, which (sometimes) is impossible.
+pub fn storage_double_map_final_key<H1: StorageHasher, H2: StorageHasher>(
+	pallet_prefix: &str,
+	map_name: &str,
+	key1: &[u8],
+	key2: &[u8],
+) -> StorageKey {
+	let key1_hashed = H1::hash(key1);
+	let key2_hashed = H2::hash(key2);
+	let pallet_prefix_hashed = frame_support::Twox128::hash(pallet_prefix.as_bytes());
+	let storage_prefix_hashed = frame_support::Twox128::hash(map_name.as_bytes());
+
+	let mut final_key = Vec::with_capacity(
+		pallet_prefix_hashed.len() +
+			storage_prefix_hashed.len() +
+			key1_hashed.as_ref().len() +
+			key2_hashed.as_ref().len(),
+	);
+
+	final_key.extend_from_slice(&pallet_prefix_hashed[..]);
+	final_key.extend_from_slice(&storage_prefix_hashed[..]);
+	final_key.extend_from_slice(key1_hashed.as_ref());
+	final_key.extend_from_slice(key2_hashed.as_ref());
+
+	StorageKey(final_key)
+}
+
 /// This is how a storage key of storage parameter (`parameter_types! { storage Param: bool = false;
 /// }`) is computed.
 ///
