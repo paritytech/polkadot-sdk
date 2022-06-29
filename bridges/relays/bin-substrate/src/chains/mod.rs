@@ -31,6 +31,7 @@ pub mod rialto_parachains_to_millau;
 pub mod rococo_headers_to_wococo;
 pub mod rococo_messages_to_wococo;
 pub mod westend_headers_to_millau;
+pub mod westend_parachains_to_millau;
 pub mod wococo_headers_to_rococo;
 pub mod wococo_messages_to_rococo;
 
