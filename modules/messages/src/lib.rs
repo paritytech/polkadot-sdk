@@ -1120,6 +1120,7 @@ mod tests {
 		REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_messages::{UnrewardedRelayer, UnrewardedRelayersState};
+	use bp_test_utils::generate_owned_bridge_module_tests;
 	use frame_support::{
 		assert_noop, assert_ok,
 		storage::generator::{StorageMap, StorageValue},
@@ -1221,103 +1222,6 @@ mod tests {
 				topics: vec![],
 			}],
 		);
-	}
-
-	#[test]
-	fn pallet_owner_may_change_owner() {
-		run_test(|| {
-			PalletOwner::<TestRuntime>::put(2);
-
-			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::root(), Some(1)));
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(2),
-					MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
-			));
-
-			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::signed(1), None));
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(2),
-					MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
-			));
-		});
-	}
-
-	#[test]
-	fn pallet_may_be_halted_by_root() {
-		run_test(|| {
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
-			));
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
-			));
-		});
-	}
-
-	#[test]
-	fn pallet_may_be_halted_by_owner() {
-		run_test(|| {
-			PalletOwner::<TestRuntime>::put(2);
-
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::signed(2),
-				MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
-			));
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::signed(2),
-				MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
-			));
-
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
-				),
-				DispatchError::BadOrigin,
-			);
-
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::signed(2),
-				MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
-			));
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
-				),
-				DispatchError::BadOrigin,
-			);
-		});
 	}
 
 	#[test]
@@ -2411,4 +2315,9 @@ mod tests {
 			);
 		});
 	}
+
+	generate_owned_bridge_module_tests!(
+		MessagesOperatingMode::Basic(BasicOperatingMode::Normal),
+		MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
+	);
 }
