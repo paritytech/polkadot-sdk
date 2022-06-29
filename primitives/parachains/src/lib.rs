@@ -56,7 +56,7 @@ pub fn parachain_head_storage_key_at_source(
 /// Returns runtime storage key of best known parachain head at the target chain.
 ///
 /// The head is stored by the `pallet-bridge-parachains` pallet in the `BestParaHeads` map.
-pub fn parachain_head_storage_key_at_target(
+pub fn best_parachain_head_hash_storage_key_at_target(
 	bridge_parachains_pallet_name: &str,
 	para_id: ParaId,
 ) -> StorageKey {
@@ -64,5 +64,21 @@ pub fn parachain_head_storage_key_at_target(
 		bridge_parachains_pallet_name,
 		"BestParaHeads",
 		&para_id.encode(),
+	)
+}
+
+/// Returns runtime storage key of the parachain head with given hash at the target chain.
+///
+/// The head is stored by the `pallet-bridge-parachains` pallet in the `ImportedParaHeads` map.
+pub fn imported_parachain_head_storage_key_at_target(
+	bridge_parachains_pallet_name: &str,
+	para_id: ParaId,
+	head_hash: ParaHash,
+) -> StorageKey {
+	bp_runtime::storage_double_map_final_key::<Blake2_128Concat, Blake2_128Concat>(
+		bridge_parachains_pallet_name,
+		"ImportedParaHeads",
+		&para_id.encode(),
+		&head_hash.encode(),
 	)
 }
