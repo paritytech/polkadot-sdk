@@ -600,8 +600,8 @@ mod tests {
 	use crate::mock::{run_test, test_header, Origin, TestHeader, TestNumber, TestRuntime};
 	use bp_runtime::BasicOperatingMode;
 	use bp_test_utils::{
-		authority_list, make_default_justification, make_justification_for_header,
-		JustificationGeneratorParams, ALICE, BOB,
+		authority_list, generate_owned_bridge_module_tests, make_default_justification,
+		make_justification_for_header, JustificationGeneratorParams, ALICE, BOB,
 	};
 	use codec::Encode;
 	use frame_support::{
@@ -713,103 +713,6 @@ mod tests {
 				<Error<TestRuntime>>::AlreadyInitialized
 			);
 		})
-	}
-
-	#[test]
-	fn pallet_owner_may_change_owner() {
-		run_test(|| {
-			PalletOwner::<TestRuntime>::put(2);
-
-			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::root(), Some(1)));
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(2),
-					BasicOperatingMode::Halted
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				BasicOperatingMode::Halted
-			));
-
-			assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::signed(1), None));
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					BasicOperatingMode::Normal
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(2),
-					BasicOperatingMode::Normal
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				BasicOperatingMode::Normal
-			));
-		});
-	}
-
-	#[test]
-	fn pallet_may_be_halted_by_root() {
-		run_test(|| {
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				BasicOperatingMode::Halted
-			));
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::root(),
-				BasicOperatingMode::Normal
-			));
-		});
-	}
-
-	#[test]
-	fn pallet_may_be_halted_by_owner() {
-		run_test(|| {
-			PalletOwner::<TestRuntime>::put(2);
-
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::signed(2),
-				BasicOperatingMode::Halted
-			));
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::signed(2),
-				BasicOperatingMode::Normal
-			));
-
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					BasicOperatingMode::Halted
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					BasicOperatingMode::Normal
-				),
-				DispatchError::BadOrigin,
-			);
-
-			assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-				Origin::signed(2),
-				BasicOperatingMode::Halted
-			));
-			assert_noop!(
-				Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
-					BasicOperatingMode::Normal
-				),
-				DispatchError::BadOrigin,
-			);
-		});
 	}
 
 	#[test]
@@ -1184,4 +1087,6 @@ mod tests {
 			bp_header_chain::storage_keys::best_finalized_key("Grandpa").0,
 		);
 	}
+
+	generate_owned_bridge_module_tests!(BasicOperatingMode::Normal, BasicOperatingMode::Halted);
 }
