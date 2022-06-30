@@ -13,25 +13,34 @@ on:
         required: true
       prerelease:
         description: is prerelease
-        default: false
+        default: "false"
         required: true
 
 jobs:
   docker_build_publish:
     env:
       BINARY: polkadot-parachain
+      TMP: tmp
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.release.tag_name }}
 
+      - name: Prepare temp folder
+        run: |
+          mkdir ${TMP}
+          ls -al
+
       - name: Fetch files from release
+        working-directory: ${{ env.TMP }}
         run: |
           echo "Repo: ${{ github.event.repository.full_name }}"
+          echo "Working from folder $(pwd)"
+          ls -al
 
-          mkdir -p tmp; cd tmp
           for f in $BINARY $BINARY.asc $BINARY.sha256; do
             URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.inputs.tag }}/$f"
             echo " - Fetching $f from $URL"
@@ -41,6 +50,7 @@ jobs:
           ls -al
 
       - name: Check files
+        working-directory: ${{ env.TMP }}
         run: |
           ls -al *$BINARY*
           shasum -a 256 -c $BINARY.sha256
@@ -77,7 +87,7 @@ jobs:
         run: |
           export OWNER=$DOCKERHUB_ORG
           mkdir -p target/release
-          cp -f $BINARY* target/release/
+          cp -f ${TMP}/$BINARY* target/release/
           ./docker/scripts/build-injected-image.sh
 
       - name: Login to Dockerhub
