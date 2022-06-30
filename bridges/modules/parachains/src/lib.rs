@@ -450,7 +450,7 @@ mod tests {
 		run_test, test_relay_header, Origin, TestRuntime, PARAS_PALLET_NAME, UNTRACKED_PARACHAIN_ID,
 	};
 
-	use bp_runtime::BasicOperatingMode;
+	use bp_runtime::{BasicOperatingMode, OwnedBridgeModuleError};
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
 	};
@@ -560,6 +560,36 @@ mod tests {
 			} else {
 				WeightInfoOf::<TestRuntime, ()>::parachain_head_pruning_weight(db_weight)
 			})
+	}
+
+	#[test]
+	fn submit_parachain_heads_checks_operating_mode() {
+		let (state_root, proof) = prepare_parachain_heads_proof(vec![(1, head_data(1, 0))]);
+
+		run_test(|| {
+			initialize(state_root);
+
+			// `submit_parachain_heads()` should fail when the pallet is halted.
+			PalletOperatingMode::<TestRuntime>::put(BasicOperatingMode::Halted);
+			assert_noop!(
+				Pallet::<TestRuntime>::submit_parachain_heads(
+					Origin::signed(1),
+					(0, test_relay_header(0, state_root).hash()),
+					vec![ParaId(1), ParaId(2), ParaId(3)],
+					proof.clone(),
+				),
+				Error::<TestRuntime>::BridgeModule(OwnedBridgeModuleError::Halted)
+			);
+
+			// `submit_parachain_heads()` should succeed now that the pallet is resumed.
+			PalletOperatingMode::<TestRuntime>::put(BasicOperatingMode::Normal);
+			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+				Origin::signed(1),
+				(0, test_relay_header(0, state_root).hash()),
+				vec![ParaId(1)],
+				proof,
+			),);
+		});
 	}
 
 	#[test]
