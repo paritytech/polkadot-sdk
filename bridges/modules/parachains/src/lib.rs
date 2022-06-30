@@ -441,6 +441,37 @@ pub mod pallet {
 			Ok(UpdateParachainHeadArtifacts { best_head: updated_best_para_head, prune_happened })
 		}
 	}
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
+		/// Initial pallet operating mode.
+		pub operating_mode: BasicOperatingMode,
+		/// Initial pallet owner.
+		pub owner: Option<T::AccountId>,
+		/// Dummy marker.
+		pub phantom: sp_std::marker::PhantomData<I>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
+		fn default() -> Self {
+			Self {
+				operating_mode: Default::default(),
+				owner: Default::default(),
+				phantom: Default::default(),
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+		fn build(&self) {
+			PalletOperatingMode::<T, I>::put(&self.operating_mode);
+			if let Some(ref owner) = self.owner {
+				PalletOwner::<T, I>::put(owner);
+			}
+		}
+	}
 }
 
 #[cfg(test)]
