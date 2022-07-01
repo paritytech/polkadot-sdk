@@ -22,17 +22,17 @@ pallets=(
 	frame_system
 )
 
-for p in ${pallets[@]}
+for pallet in ${pallets[@]}
 do
 	./artifacts/polkadot-parachain benchmark pallet \
 		--chain=$benchmarkRuntimeName \
 		--execution=wasm \
 		--wasm-execution=compiled \
-		--pallet=$p  \
+		--pallet=$pallet  \
 		--extrinsic='*' \
 		--steps=$steps  \
 		--repeat=$repeat \
 		--json \
         --header=./file_header.txt \
-		--output=$benchmarkOutput
+		--output=$benchmarkOutput >> ./artifacts/${pallet}_benchmark.json
 done
