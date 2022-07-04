@@ -52,8 +52,6 @@ pub trait Chain: ChainBase + Clone {
 	const AVERAGE_BLOCK_INTERVAL: Duration;
 	/// Maximal expected storage proof overhead (in bytes).
 	const STORAGE_PROOF_OVERHEAD: u32;
-	/// Maximal size (in bytes) of SCALE-encoded account id on this chain.
-	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32;
 
 	/// Block type.
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;

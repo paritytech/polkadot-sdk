@@ -200,6 +200,15 @@ pub mod source {
 	/// Message payload for This -> Bridged chain messages.
 	pub type FromThisChainMessagePayload = Vec<u8>;
 
+	/// Maximal size of outbound message payload.
+	pub struct FromThisChainMaximalOutboundPayloadSize<B>(PhantomData<B>);
+
+	impl<B: MessageBridge> Get<u32> for FromThisChainMaximalOutboundPayloadSize<B> {
+		fn get() -> u32 {
+			maximal_message_size::<B>()
+		}
+	}
+
 	/// Messages delivery proof from bridged chain:
 	///
 	/// - hash of finalized header;
@@ -216,7 +225,7 @@ pub mod source {
 	}
 
 	impl<BridgedHeaderHash> Size for FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
-		fn size_hint(&self) -> u32 {
+		fn size(&self) -> u32 {
 			u32::try_from(
 				self.storage_proof
 					.iter()
@@ -529,7 +538,7 @@ pub mod target {
 	}
 
 	impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash> {
-		fn size_hint(&self) -> u32 {
+		fn size(&self) -> u32 {
 			u32::try_from(
 				self.storage_proof
 					.iter()

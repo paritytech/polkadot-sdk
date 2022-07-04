@@ -58,7 +58,6 @@ impl Chain for Westend {
 		bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_westend::EXTRA_STORAGE_PROOF_SIZE;
-	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_westend::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type SignedBlock = bp_westend::SignedBlock;
 	type Call = bp_westend::Call;
@@ -117,7 +116,6 @@ impl Chain for Westmint {
 		bp_westend::BEST_FINALIZED_WESTMINT_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_westend::EXTRA_STORAGE_PROOF_SIZE;
-	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_westend::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type SignedBlock = bp_westend::SignedBlock;
 	type Call = bp_westend::Call;

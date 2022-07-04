@@ -174,6 +174,7 @@ impl Config for TestRuntime {
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
+	type MaximalOutboundPayloadSize = frame_support::traits::ConstU32<MAX_OUTBOUND_PAYLOAD_SIZE>;
 	type OutboundPayload = TestPayload;
 	type OutboundMessageFee = TestMessageFee;
 
@@ -205,10 +206,13 @@ impl SenderOrigin<AccountId> for Origin {
 }
 
 impl Size for TestPayload {
-	fn size_hint(&self) -> u32 {
+	fn size(&self) -> u32 {
 		16 + self.extra.len() as u32
 	}
 }
+
+/// Maximal outbound payload size.
+pub const MAX_OUTBOUND_PAYLOAD_SIZE: u32 = 4096;
 
 /// Account that has balance to use in tests.
 pub const ENDOWED_ACCOUNT: AccountId = 0xDEAD;
@@ -244,7 +248,7 @@ pub struct TestMessagesProof {
 }
 
 impl Size for TestMessagesProof {
-	fn size_hint(&self) -> u32 {
+	fn size(&self) -> u32 {
 		0
 	}
 }
@@ -271,7 +275,7 @@ impl From<Result<Vec<Message<TestMessageFee>>, ()>> for TestMessagesProof {
 pub struct TestMessagesDeliveryProof(pub Result<(LaneId, InboundLaneData<TestRelayer>), ()>);
 
 impl Size for TestMessagesDeliveryProof {
-	fn size_hint(&self) -> u32 {
+	fn size(&self) -> u32 {
 		0
 	}
 }

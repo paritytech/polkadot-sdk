@@ -44,9 +44,6 @@ pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
 /// Can be computed by subtracting encoded call size from raw transaction size.
 pub const TX_EXTRA_BYTES: u32 = 104;
 
-/// Maximal size (in bytes) of encoded (using `Encode::encode()`) account id.
-pub const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 32;
-
 /// Maximal weight of single Rialto block.
 ///
 /// This represents two seconds of compute assuming a target block time of six seconds.
@@ -309,21 +306,5 @@ sp_api::decl_runtime_apis! {
 			lane: LaneId,
 			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
 		) -> Vec<InboundMessageDetails>;
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use sp_runtime::codec::Encode;
-
-	#[test]
-	fn maximal_account_size_does_not_overflow_constant() {
-		assert!(
-			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE as usize >= AccountId::from([0u8; 32]).encode().len(),
-			"Actual maximal size of encoded AccountId ({}) overflows expected ({})",
-			AccountId::from([0u8; 32]).encode().len(),
-			MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
-		);
 	}
 }

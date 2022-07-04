@@ -56,7 +56,7 @@ pub trait WeightInfoExt: WeightInfo {
 		let expected_proof_size = parachains_count
 			.saturating_mul(DEFAULT_PARACHAIN_HEAD_SIZE)
 			.saturating_add(Self::expected_extra_storage_proof_size());
-		let actual_proof_size = proof.size_hint();
+		let actual_proof_size = proof.size();
 		let proof_size_overhead = Self::storage_proof_size_overhead(
 			actual_proof_size.saturating_sub(expected_proof_size),
 		);
