@@ -84,6 +84,10 @@ pub type FromRialtoParachainMessageDispatch = messages::target::FromBridgedChain
 	frame_support::traits::ConstU64<BASE_XCM_WEIGHT_TWICE>,
 >;
 
+/// Maximal outbound payload size of Millau -> RialtoParachain messages.
+pub type ToRialtoParachainMaximalOutboundPayloadSize =
+	messages::source::FromThisChainMaximalOutboundPayloadSize<WithRialtoParachainMessageBridge>;
+
 /// Millau <-> RialtoParachain message bridge.
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct WithRialtoParachainMessageBridge;
@@ -134,12 +138,9 @@ impl messages::ThisChainWithMessages for Millau {
 	}
 
 	fn estimate_delivery_confirmation_transaction() -> MessageTransaction<Weight> {
-		let inbound_data_size = InboundLaneData::<bp_millau::AccountId>::encoded_size_hint(
-			bp_millau::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
-			1,
-			1,
-		)
-		.unwrap_or(u32::MAX);
+		let inbound_data_size = InboundLaneData::<bp_millau::AccountId>::encoded_size_hint(1, 1)
+			.and_then(|x| u32::try_from(x).ok())
+			.unwrap_or(u32::MAX);
 
 		MessageTransaction {
 			dispatch_weight: bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
