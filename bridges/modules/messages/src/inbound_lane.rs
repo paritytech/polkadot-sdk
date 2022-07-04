@@ -16,13 +16,17 @@
 
 //! Everything about incoming messages receival.
 
+use crate::Config;
+
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData,
 	UnrewardedRelayer,
 };
 use bp_runtime::messages::MessageDispatchResult;
-use frame_support::RuntimeDebug;
+use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use frame_support::{traits::Get, RuntimeDebug};
+use scale_info::{Type, TypeInfo};
 use sp_std::prelude::PartialEq;
 
 /// Inbound lane storage.
@@ -42,6 +46,76 @@ pub trait InboundLaneStorage {
 	fn data(&self) -> InboundLaneData<Self::Relayer>;
 	/// Update lane data in the storage.
 	fn set_data(&mut self, data: InboundLaneData<Self::Relayer>);
+}
+
+/// Inbound lane data wrapper that implements `MaxEncodedLen`.
+///
+/// We have already had `MaxEncodedLen`-like functionality before, but its usage has
+/// been localized and we haven't been passing bounds (maximal count of unrewarded relayer entries,
+/// maximal count of unconfirmed messages) everywhere. This wrapper allows us to avoid passing
+/// these generic bounds all over the code.
+///
+/// The encoding of this type matches encoding of the corresponding `MessageData`.
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(pub InboundLaneData<T::InboundRelayer>);
+
+impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredInboundLaneData<T, I> {
+	type Target = InboundLaneData<T::InboundRelayer>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<T: Config<I>, I: 'static> sp_std::ops::DerefMut for StoredInboundLaneData<T, I> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+impl<T: Config<I>, I: 'static> Default for StoredInboundLaneData<T, I> {
+	fn default() -> Self {
+		StoredInboundLaneData(Default::default())
+	}
+}
+
+impl<T: Config<I>, I: 'static> From<InboundLaneData<T::InboundRelayer>>
+	for StoredInboundLaneData<T, I>
+{
+	fn from(data: InboundLaneData<T::InboundRelayer>) -> Self {
+		StoredInboundLaneData(data)
+	}
+}
+
+impl<T: Config<I>, I: 'static> From<StoredInboundLaneData<T, I>>
+	for InboundLaneData<T::InboundRelayer>
+{
+	fn from(data: StoredInboundLaneData<T, I>) -> Self {
+		data.0
+	}
+}
+
+impl<T: Config<I>, I: 'static> EncodeLike<StoredInboundLaneData<T, I>>
+	for InboundLaneData<T::InboundRelayer>
+{
+}
+
+impl<T: Config<I>, I: 'static> TypeInfo for StoredInboundLaneData<T, I> {
+	type Identity = Self;
+
+	fn type_info() -> Type {
+		InboundLaneData::<T::InboundRelayer>::type_info()
+	}
+}
+
+impl<T: Config<I>, I: 'static> MaxEncodedLen for StoredInboundLaneData<T, I> {
+	fn max_encoded_len() -> usize {
+		InboundLaneData::<T::InboundRelayer>::encoded_size_hint(
+			T::MaxUnrewardedRelayerEntriesAtInboundLane::get() as usize,
+			T::MaxUnconfirmedMessagesAtInboundLane::get() as usize,
+		)
+		.unwrap_or(usize::MAX)
+	}
 }
 
 /// Result of single message receival.
@@ -333,7 +407,7 @@ mod tests {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
 			let max_nonce =
-				<TestRuntime as crate::Config>::MaxUnrewardedRelayerEntriesAtInboundLane::get();
+				<TestRuntime as Config>::MaxUnrewardedRelayerEntriesAtInboundLane::get();
 			for current_nonce in 1..max_nonce + 1 {
 				assert_eq!(
 					lane.receive_message::<TestMessageDispatch, _>(
@@ -372,8 +446,7 @@ mod tests {
 	fn fails_to_receive_messages_above_unconfirmed_messages_limit_per_lane() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce =
-				<TestRuntime as crate::Config>::MaxUnconfirmedMessagesAtInboundLane::get();
+			let max_nonce = <TestRuntime as Config>::MaxUnconfirmedMessagesAtInboundLane::get();
 			for current_nonce in 1..=max_nonce {
 				assert_eq!(
 					lane.receive_message::<TestMessageDispatch, _>(

@@ -55,7 +55,6 @@ impl Chain for TestChain {
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestMethod";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
 	const STORAGE_PROOF_OVERHEAD: u32 = 0;
-	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = 0;
 
 	type SignedBlock = sp_runtime::generic::SignedBlock<
 		sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>,

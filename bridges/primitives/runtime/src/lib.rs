@@ -18,7 +18,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, FullCodec};
+use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use frame_support::{
 	log, pallet_prelude::DispatchResult, PalletError, RuntimeDebug, StorageHasher, StorageValue,
 };
@@ -139,21 +139,18 @@ pub fn derive_relayer_fund_account_id(bridge_id: ChainId) -> H256 {
 
 /// Anything that has size.
 pub trait Size {
-	/// Return approximate size of this object (in bytes).
-	///
-	/// This function should be lightweight. The result should not necessary be absolutely
-	/// accurate.
-	fn size_hint(&self) -> u32;
+	/// Return size of this object (in bytes).
+	fn size(&self) -> u32;
 }
 
 impl Size for () {
-	fn size_hint(&self) -> u32 {
+	fn size(&self) -> u32 {
 		0
 	}
 }
 
 impl Size for Vec<u8> {
-	fn size_hint(&self) -> u32 {
+	fn size(&self) -> u32 {
 		self.len() as _
 	}
 }
@@ -162,7 +159,7 @@ impl Size for Vec<u8> {
 pub struct PreComputedSize(pub usize);
 
 impl Size for PreComputedSize {
-	fn size_hint(&self) -> u32 {
+	fn size(&self) -> u32 {
 		u32::try_from(self.0).unwrap_or(u32::MAX)
 	}
 }
@@ -308,7 +305,7 @@ pub trait OperatingMode: Send + Copy + Debug + FullCodec {
 }
 
 /// Basic operating modes for a bridges module (Normal/Halted).
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum BasicOperatingMode {
 	/// Normal mode, when all operations are allowed.
