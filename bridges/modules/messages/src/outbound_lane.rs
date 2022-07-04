@@ -16,12 +16,16 @@
 
 //! Everything about outgoing messages sending.
 
+use crate::Config;
+
 use bitvec::prelude::*;
 use bp_messages::{
 	DeliveredMessages, DispatchResultsBitVec, LaneId, MessageData, MessageNonce, OutboundLaneData,
 	UnrewardedRelayer,
 };
-use frame_support::RuntimeDebug;
+use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use frame_support::{traits::Get, RuntimeDebug};
+use scale_info::{Type, TypeInfo};
 use sp_std::collections::vec_deque::VecDeque;
 
 /// Outbound lane storage.
@@ -42,6 +46,66 @@ pub trait OutboundLaneStorage {
 	fn save_message(&mut self, nonce: MessageNonce, message_data: MessageData<Self::MessageFee>);
 	/// Remove outbound message from the storage.
 	fn remove_message(&mut self, nonce: &MessageNonce);
+}
+
+/// Outbound message data wrapper that implements `MaxEncodedLen`.
+///
+/// We have already had `MaxEncodedLen`-like functionality before, but its usage has
+/// been localized and we haven't been passing it everywhere. This wrapper allows us
+/// to avoid passing these generic bounds all over the code.
+///
+/// The encoding of this type matches encoding of the corresponding `MessageData`.
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+pub struct StoredMessageData<T: Config<I>, I: 'static>(pub MessageData<T::OutboundMessageFee>);
+
+impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredMessageData<T, I> {
+	type Target = MessageData<T::OutboundMessageFee>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<T: Config<I>, I: 'static> sp_std::ops::DerefMut for StoredMessageData<T, I> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+impl<T: Config<I>, I: 'static> From<MessageData<T::OutboundMessageFee>>
+	for StoredMessageData<T, I>
+{
+	fn from(data: MessageData<T::OutboundMessageFee>) -> Self {
+		StoredMessageData(data)
+	}
+}
+
+impl<T: Config<I>, I: 'static> From<StoredMessageData<T, I>>
+	for MessageData<T::OutboundMessageFee>
+{
+	fn from(data: StoredMessageData<T, I>) -> Self {
+		data.0
+	}
+}
+
+impl<T: Config<I>, I: 'static> TypeInfo for StoredMessageData<T, I> {
+	type Identity = Self;
+
+	fn type_info() -> Type {
+		MessageData::<T::OutboundMessageFee>::type_info()
+	}
+}
+
+impl<T: Config<I>, I: 'static> EncodeLike<StoredMessageData<T, I>>
+	for MessageData<T::OutboundMessageFee>
+{
+}
+
+impl<T: Config<I>, I: 'static> MaxEncodedLen for StoredMessageData<T, I> {
+	fn max_encoded_len() -> usize {
+		T::OutboundMessageFee::max_encoded_len()
+			.saturating_add(T::MaximalOutboundPayloadSize::get() as usize)
+	}
 }
 
 /// Result of messages receival confirmation.

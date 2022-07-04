@@ -199,7 +199,7 @@ pub trait WeightInfoExt: WeightInfo {
 	/// Weight of message send extrinsic.
 	fn send_message_weight(message: &impl Size, db_weight: RuntimeDbWeight) -> Weight {
 		let transaction_overhead = Self::send_message_overhead();
-		let message_size_overhead = Self::send_message_size_overhead(message.size_hint());
+		let message_size_overhead = Self::send_message_size_overhead(message.size());
 		let call_back_overhead = Self::single_message_callback_overhead(db_weight);
 
 		transaction_overhead
@@ -225,7 +225,7 @@ pub trait WeightInfoExt: WeightInfo {
 		let expected_proof_size = EXPECTED_DEFAULT_MESSAGE_LENGTH
 			.saturating_mul(messages_count.saturating_sub(1))
 			.saturating_add(Self::expected_extra_storage_proof_size());
-		let actual_proof_size = proof.size_hint();
+		let actual_proof_size = proof.size();
 		let proof_size_overhead = Self::storage_proof_size_overhead(
 			actual_proof_size.saturating_sub(expected_proof_size),
 		);
@@ -253,7 +253,7 @@ pub trait WeightInfoExt: WeightInfo {
 
 		// proof size overhead weight
 		let expected_proof_size = Self::expected_extra_storage_proof_size();
-		let actual_proof_size = proof.size_hint();
+		let actual_proof_size = proof.size();
 		let proof_size_overhead = Self::storage_proof_size_overhead(
 			actual_proof_size.saturating_sub(expected_proof_size),
 		);
