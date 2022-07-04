@@ -93,7 +93,7 @@ pub type ParaHasher = crate::Hasher;
 pub struct ParaHeadsProof(pub Vec<Vec<u8>>);
 
 impl Size for ParaHeadsProof {
-	fn size_hint(&self) -> u32 {
+	fn size(&self) -> u32 {
 		u32::try_from(self.0.iter().fold(0usize, |sum, node| sum.saturating_add(node.len())))
 			.unwrap_or(u32::MAX)
 	}

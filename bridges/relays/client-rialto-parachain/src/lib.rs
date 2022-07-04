@@ -63,8 +63,6 @@ impl Chain for RialtoParachain {
 		bp_rialto_parachain::BEST_FINALIZED_RIALTO_PARACHAIN_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_rialto_parachain::EXTRA_STORAGE_PROOF_SIZE;
-	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 =
-		bp_rialto_parachain::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type SignedBlock = rialto_parachain_runtime::SignedBlock;
 	type Call = rialto_parachain_runtime::Call;

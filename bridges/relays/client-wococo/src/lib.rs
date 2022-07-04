@@ -66,7 +66,6 @@ impl Chain for Wococo {
 		bp_wococo::BEST_FINALIZED_WOCOCO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_wococo::EXTRA_STORAGE_PROOF_SIZE;
-	const MAXIMAL_ENCODED_ACCOUNT_ID_SIZE: u32 = bp_wococo::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE;
 
 	type SignedBlock = bp_wococo::SignedBlock;
 	type Call = crate::runtime::Call;

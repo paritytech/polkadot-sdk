@@ -467,12 +467,10 @@ where
 /// affect the call weight - we only care about its size.
 fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>(
 ) -> SubstrateMessagesDeliveryProof<TC> {
-	let single_message_confirmation_size = bp_messages::InboundLaneData::<()>::encoded_size_hint(
-		SC::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE,
-		1,
-		1,
-	)
-	.unwrap_or(u32::MAX);
+	let single_message_confirmation_size =
+		bp_messages::InboundLaneData::<()>::encoded_size_hint(1, 1)
+			.and_then(|x| u32::try_from(x).ok())
+			.unwrap_or(u32::MAX);
 	let proof_size = TC::STORAGE_PROOF_OVERHEAD.saturating_add(single_message_confirmation_size);
 	(
 		UnrewardedRelayersState {
@@ -651,6 +649,7 @@ fn make_message_details_map<C: Chain>(
 mod tests {
 	use super::*;
 	use bp_runtime::messages::DispatchFeePayment;
+	use codec::MaxEncodedLen;
 	use relay_rococo_client::Rococo;
 	use relay_wococo_client::Wococo;
 
@@ -765,7 +764,7 @@ mod tests {
 	#[test]
 	fn prepare_dummy_messages_delivery_proof_works() {
 		let expected_minimal_size =
-			Wococo::MAXIMAL_ENCODED_ACCOUNT_ID_SIZE + Rococo::STORAGE_PROOF_OVERHEAD;
+			bp_wococo::AccountId::max_encoded_len() as u32 + Rococo::STORAGE_PROOF_OVERHEAD;
 		let dummy_proof = prepare_dummy_messages_delivery_proof::<Wococo, Rococo>();
 		assert!(
 			dummy_proof.1.encode().len() as u32 > expected_minimal_size,
