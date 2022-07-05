@@ -1,5 +1,7 @@
 # Cumulus ☁️
 
+[![Doc](https://img.shields.io/badge/cumulus%20docs-master-brightgreen)](https://paritytech.github.io/cumulus/)
+
 This repository contains both the Cumulus SDK and also specific chains implemented
 on top of this SDK.
 
