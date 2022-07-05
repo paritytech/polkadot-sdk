@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use async_trait::async_trait;
+use relay_substrate_client::{AccountKeyPairOf, ChainBase};
+use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 
@@ -21,6 +24,11 @@ use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use substrate_relay_helper::finality::SubstrateFinalitySyncPipeline;
 
 use crate::cli::{
+	bridge::{
+		CliBridge, KusamaToPolkadotCliBridge, MillauToRialtoCliBridge,
+		MillauToRialtoParachainCliBridge, PolkadotToKusamaCliBridge, RialtoToMillauCliBridge,
+		RococoToWococoCliBridge, WestendToMillauCliBridge, WococoToRococoCliBridge,
+	},
 	PrometheusParams, SourceConnectionParams, TargetConnectionParams, TargetSigningParams,
 };
 
@@ -58,101 +66,66 @@ pub enum RelayHeadersBridge {
 	MillauToRialtoParachain,
 }
 
-macro_rules! select_bridge {
-	($bridge: expr, $generic: tt) => {
-		match $bridge {
-			RelayHeadersBridge::MillauToRialto => {
-				type Source = relay_millau_client::Millau;
-				type Target = relay_rialto_client::Rialto;
-				type Finality = crate::chains::millau_headers_to_rialto::MillauFinalityToRialto;
+#[async_trait]
+trait HeadersRelayer: CliBridge
+where
+	<Self::Target as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
+{
+	/// Relay headers.
+	async fn relay_headers(data: RelayHeaders) -> anyhow::Result<()> {
+		let source_client = data.source.to_client::<Self::Source>().await?;
+		let target_client = data.target.to_client::<Self::Target>().await?;
+		let target_transactions_mortality = data.target_sign.target_transactions_mortality;
+		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 
-				$generic
-			},
-			RelayHeadersBridge::RialtoToMillau => {
-				type Source = relay_rialto_client::Rialto;
-				type Target = relay_millau_client::Millau;
-				type Finality = crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
+		let metrics_params: relay_utils::metrics::MetricsParams = data.prometheus_params.into();
+		GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
 
-				$generic
-			},
-			RelayHeadersBridge::WestendToMillau => {
-				type Source = relay_westend_client::Westend;
-				type Target = relay_millau_client::Millau;
-				type Finality = crate::chains::westend_headers_to_millau::WestendFinalityToMillau;
+		let target_transactions_params = substrate_relay_helper::TransactionParams {
+			signer: target_sign,
+			mortality: target_transactions_mortality,
+		};
+		Self::Finality::start_relay_guards(
+			&target_client,
+			&target_transactions_params,
+			data.target.can_start_version_guard(),
+		)
+		.await?;
 
-				$generic
-			},
-			RelayHeadersBridge::RococoToWococo => {
-				type Source = relay_rococo_client::Rococo;
-				type Target = relay_wococo_client::Wococo;
-				type Finality = crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo;
-
-				$generic
-			},
-			RelayHeadersBridge::WococoToRococo => {
-				type Source = relay_wococo_client::Wococo;
-				type Target = relay_rococo_client::Rococo;
-				type Finality = crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo;
-
-				$generic
-			},
-			RelayHeadersBridge::KusamaToPolkadot => {
-				type Source = relay_kusama_client::Kusama;
-				type Target = relay_polkadot_client::Polkadot;
-				type Finality = crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot;
-
-				$generic
-			},
-			RelayHeadersBridge::PolkadotToKusama => {
-				type Source = relay_polkadot_client::Polkadot;
-				type Target = relay_kusama_client::Kusama;
-				type Finality = crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama;
-
-				$generic
-			},
-			RelayHeadersBridge::MillauToRialtoParachain => {
-				type Source = relay_millau_client::Millau;
-				type Target = relay_rialto_parachain_client::RialtoParachain;
-				type Finality = crate::chains::millau_headers_to_rialto_parachain::MillauFinalityToRialtoParachain;
-
-				$generic
-
-			},
-		}
-	};
+		substrate_relay_helper::finality::run::<Self::Finality>(
+			source_client,
+			target_client,
+			data.only_mandatory_headers,
+			target_transactions_params,
+			metrics_params,
+		)
+		.await
+	}
 }
+
+impl HeadersRelayer for MillauToRialtoCliBridge {}
+impl HeadersRelayer for RialtoToMillauCliBridge {}
+impl HeadersRelayer for WestendToMillauCliBridge {}
+impl HeadersRelayer for RococoToWococoCliBridge {}
+impl HeadersRelayer for WococoToRococoCliBridge {}
+impl HeadersRelayer for KusamaToPolkadotCliBridge {}
+impl HeadersRelayer for PolkadotToKusamaCliBridge {}
+impl HeadersRelayer for MillauToRialtoParachainCliBridge {}
 
 impl RelayHeaders {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
-		select_bridge!(self.bridge, {
-			let source_client = self.source.to_client::<Source>().await?;
-			let target_client = self.target.to_client::<Target>().await?;
-			let target_transactions_mortality = self.target_sign.target_transactions_mortality;
-			let target_sign = self.target_sign.to_keypair::<Target>()?;
-
-			let metrics_params: relay_utils::metrics::MetricsParams = self.prometheus_params.into();
-			GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
-
-			let target_transactions_params = substrate_relay_helper::TransactionParams {
-				signer: target_sign,
-				mortality: target_transactions_mortality,
-			};
-			Finality::start_relay_guards(
-				&target_client,
-				&target_transactions_params,
-				self.target.can_start_version_guard(),
-			)
-			.await?;
-
-			substrate_relay_helper::finality::run::<Finality>(
-				source_client,
-				target_client,
-				self.only_mandatory_headers,
-				target_transactions_params,
-				metrics_params,
-			)
-			.await
-		})
+		match self.bridge {
+			RelayHeadersBridge::MillauToRialto => MillauToRialtoCliBridge::relay_headers(self),
+			RelayHeadersBridge::RialtoToMillau => RialtoToMillauCliBridge::relay_headers(self),
+			RelayHeadersBridge::WestendToMillau => WestendToMillauCliBridge::relay_headers(self),
+			RelayHeadersBridge::RococoToWococo => RococoToWococoCliBridge::relay_headers(self),
+			RelayHeadersBridge::WococoToRococo => WococoToRococoCliBridge::relay_headers(self),
+			RelayHeadersBridge::KusamaToPolkadot => KusamaToPolkadotCliBridge::relay_headers(self),
+			RelayHeadersBridge::PolkadotToKusama => PolkadotToKusamaCliBridge::relay_headers(self),
+			RelayHeadersBridge::MillauToRialtoParachain =>
+				MillauToRialtoParachainCliBridge::relay_headers(self),
+		}
+		.await
 	}
 }
