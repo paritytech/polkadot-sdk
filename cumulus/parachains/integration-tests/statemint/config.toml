@@ -1,0 +1,49 @@
+[relaychain]
+default_command = "./bin/polkadot"
+default_args = [ "-lparachain=debug" ]
+chain = "polkadot-local"
+
+	[[relaychain.nodes]]
+	name = "alice"
+	ws_port = 9900
+	validator = true
+
+	[[relaychain.nodes]]
+	name = "bob"
+	validator = true
+
+	[[relaychain.nodes]]
+	name = "charlie"
+	validator = true
+
+	[[relaychain.nodes]]
+	name = "dave"
+	validator = true
+
+[[parachains]]
+id = 1000
+chain = "statemint-local"
+cumulus_based = true
+
+	[[parachains.collators]]
+	name = "collator1"
+	ws_port = 9910
+	command = "./bin/polkadot-parachain"
+
+	[[parachains.collators]]
+	name = "collator2"
+	command = "./bin/polkadot-parachain"
+
+[[parachains]]
+id = 2000
+chain = "penpal-polkadot-2000"
+cumulus_based = true
+
+	[[parachains.collators]]
+	name = "collator3"
+	ws_port = 9920
+	command = "./bin/polkadot-parachain"
+
+	[[parachains.collators]]
+	name = "collator4"
+	command = "./bin/polkadot-parachain"

@@ -1,0 +1,400 @@
+---
+settings:
+  chains:
+    relay_chain: &relay_chain
+      wsPort: 9900
+    assets_parachain: &assets_parachain
+      wsPort: 9910
+      paraId: &ap_id 1000
+    penpal_parachain: &penpal_parachain
+      wsPort: 9920
+      paraId: &pp_id 2000
+  variables:
+    common:
+      amount: &amount 2000000000000
+      require_weight_at_most: &weight_at_most 1000000000
+      hrmp_channels:
+        proposed_max_capacity: &max_capacity 8
+        proposed_max_message_size: &max_message_size 8192
+        channel: &channel {
+          maxCapacity: 8,
+          maxTotalSize: 8192,
+          maxMessageSize: 8192,
+          msgCount: 0,
+          totalSize: 0,
+          mqcHead: null,
+          senderDeposit: 0,
+          recipientDeposit: 0
+        }
+    chains:
+      relay_chain:
+        signer: &rc_signer //Alice
+        assets_parachain_destination: &ap_dest { v1: { 0, interior: { x1: { parachain: *ap_id }}}}
+        ksm: &rc_ksm { concrete: { 0, interior: { here: true }}}
+        ksm_fungible: &rc_ksm_fungible { id: *rc_ksm, fun: { fungible: *amount }}
+      assets_parachain_account:
+        sovereign_account: &ap_sovereign F7fq1jSNVTPfJmaHaXCMtatT1EZefCUsa7rRiQVNR5efcah
+        relay_chain_destination: &rc_dest { v1: { parents: 1, interior: { here: true }}}
+      penpal_parachain:
+        sovereign_account: &pp_sovereign F7fq1jMZkfuCuoMTyiEVAP2DMpMt18WopgBqTJznLihLNbZ
+        signer: &pp_signer //Alice
+  decodedCalls:
+    init_open_channel_with_ap:
+      chain: *relay_chain
+      pallet: hrmp
+      call: hrmpInitOpenChannel
+      args: [
+        *ap_id, # recipient
+        *max_capacity, # proposedMaxCapacity
+        *max_message_size # proposedMaxMessageSize
+      ]
+    init_open_channel_with_cp:
+      chain: *relay_chain
+      pallet: hrmp
+      call: hrmpInitOpenChannel
+      args: [
+        *pp_id, # recipient
+        *max_capacity, # proposedMaxCapacity
+        *max_message_size # proposedMaxMessageSize
+      ]
+    accept_open_channel_with_ap:
+      chain: *relay_chain
+      pallet: hrmp
+      call: hrmpAcceptOpenChannel
+      args: [
+        *ap_id, # recipient
+      ]
+    accept_init_open_request_from_cp:
+      chain: *relay_chain
+      pallet: hrmp
+      call: hrmpAcceptOpenChannel
+      args: [
+        *pp_id, # sender
+      ]
+    xcm_accept_init_open_request_from_cp:
+      chain: *assets_parachain
+      pallet: polkadotXcm
+      call: send
+      args: [
+        *rc_dest, # destination
+        {
+          v2: [ #message
+            {
+              WithdrawAsset: [*rc_ksm_fungible]
+            },
+            {
+              BuyExecution: {
+                  fees: *rc_ksm_fungible,
+                  weightLimit: Unlimited
+              }
+            },
+            {
+              Transact: {
+                originType: Native,
+                requireWeightAtMost: *weight_at_most,
+                call: $accept_init_open_request_from_cp
+              }
+            }
+          ]
+        }
+      ]
+    xcm_init_open_channel_with_cp:
+      chain: *assets_parachain
+      pallet: polkadotXcm
+      call: send
+      args: [
+        *rc_dest, # destination
+        {
+          v2: [ #message
+            {
+              WithdrawAsset: [*rc_ksm_fungible]
+            },
+            {
+              BuyExecution: {
+                  fees: *rc_ksm_fungible,
+                  weightLimit: Unlimited
+              }
+            },
+            {
+              Transact: {
+                originType: Native,
+                requireWeightAtMost: *weight_at_most,
+                call: $init_open_channel_with_cp
+              }
+            }
+          ]
+        }
+      ]
+
+tests:
+  - name: HRMP
+    beforeEach:
+      - name: DEPENDANCY | Penpal Parachain Sovereign account in the Relay Chain needs to be funded
+        actions:
+          - extrinsics:
+            - chain: *relay_chain
+              signer: *rc_signer
+              pallet: balances
+              call: transfer
+              args: [
+                *pp_sovereign, # destination
+                *amount, # value
+              ]
+              events:
+                - name: balances.Transfer
+
+      - name: DEPENDANCY | Assets Parachain Sovereign account in the Relay Chain needs to be funded
+        actions:
+          - extrinsics:
+            - chain: *relay_chain
+              signer: *rc_signer
+              pallet: balances
+              call: transfer
+              args: [
+                *ap_sovereign, # destination
+                *amount, # value
+              ]
+              events:
+                - name: balances.Transfer
+    describes:
+      - name: hrmp.hrmpInitOpenChannel (Penpal Parachain → Assets Parachain)
+        its:
+          - name: Penpal Parachain sends a request to the Relay Chain to open a channel with the Assets Parchain
+            actions:
+              - extrinsics:
+                - chain: *penpal_parachain
+                  signer: *pp_signer
+                  sudo: true
+                  pallet: polkadotXcm
+                  call: send
+                  args: [
+                    *rc_dest, # destination
+                    {
+                      v2: [ #message
+                        {
+                          WithdrawAsset: [*rc_ksm_fungible]
+                        },
+                        {
+                          BuyExecution: {
+                              fees: *rc_ksm_fungible,
+                              weightLimit: Unlimited
+                          }
+                        },
+                        {
+                          Transact: {
+                            originType: Native,
+                            requireWeightAtMost: *weight_at_most,
+                            call: $init_open_channel_with_ap
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                  events:
+                    - name: sudo.Sudid
+                      attribute:
+                        type: Result<Null, SpRuntimeDispatchError>
+                        value: Ok
+                    - name: polkadotXcm.Sent
+                    - name: ump.ExecutedUpward
+                      chain: *relay_chain
+                      attributes:
+                        type: XcmV2TraitsOutcome
+                        isComplete: true
+                        value: 4,000,000
+                    - name: hrmp.OpenChannelRequested
+                      chain: *relay_chain
+              - queries:
+                  requested_channels:
+                    chain: *relay_chain
+                    pallet: hrmp
+                    call: hrmpOpenChannelRequestsList
+                    args: []
+              - asserts:
+                  equal:
+                    args: [
+                      $requested_channels,
+                      [
+                        {
+                          sender: *pp_id,
+                          recipient: *ap_id
+                        }
+                      ]
+                    ]
+
+      - name: hrmp.hrmpAcceptOpenChannel (Assets Parachain → Penpal Parachain)
+        its:
+          - name: Assets Parachain sends a response to the Relay Chain accepting the Penpal Parachain's request for openning a HRMP channel
+            actions:
+              - extrinsics:
+                - chain: *relay_chain
+                  signer: *rc_signer
+                  sudo: true
+                  pallet: xcmPallet
+                  call: send
+                  args: [
+                    *ap_dest, # destination
+                    {
+                      v2: [ #message
+                        {
+                          Transact: {
+                            originType: Superuser,
+                            requireWeightAtMost: *weight_at_most,
+                            call: $xcm_accept_init_open_request_from_cp
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                  events:
+                    - name: sudo.Sudid
+                      attribute:
+                        type: Result<Null, SpRuntimeDispatchError>
+                        value: Ok
+                    - name: xcmPallet.Sent
+                    - name: dmpQueue.ExecutedDownward
+                      chain: *assets_parachain
+                      attribute:
+                        type: XcmV2TraitsOutcome
+                        isComplete: true
+                        value: 2,000,000,000
+                    - name: polkadotXcm.Sent
+                      chain: *assets_parachain
+                    - name: ump.ExecutedUpward
+                      timeout: 40000
+                      attribute:
+                        type: XcmV2TraitsOutcome
+                        isComplete: true
+                        value: 4,000,000,000
+                    - name: hrmp.OpenChannelAccepted
+                      timeout: 40000
+              - queries:
+                  open_channels:
+                    chain: *relay_chain
+                    pallet: hrmp
+                    call: hrmpChannels
+                    delay: 80000
+                    args: [
+                      {
+                        sender: *pp_id,
+                        recipient: *ap_id
+                      }
+                    ]
+              - asserts:
+                  equal:
+                    args: [
+                      $open_channels,
+                      *channel
+                    ]
+
+      - name: hrmp.hrmpInitOpenChannel (Assets Parachain → Penpal Parachain)
+        its:
+          - name: Assets Parchain sends a request to the Relay Chain to open a channel with a Penpal Parachain
+            actions:
+              - extrinsics:
+                - chain: *relay_chain
+                  signer: *rc_signer
+                  sudo: true
+                  pallet: xcmPallet
+                  call: send
+                  args: [
+                    *ap_dest, # destination
+                    {
+                      v2: [ #message
+                        {
+                          Transact: {
+                            originType: Superuser,
+                            requireWeightAtMost: *weight_at_most,
+                            call: $xcm_init_open_channel_with_cp
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                  events:
+                    - name: sudo.Sudid
+                      attribute:
+                        type: Result<Null, SpRuntimeDispatchError>
+                        value: Ok
+                    - name: xcmPallet.Sent
+                    - name: dmpQueue.ExecutedDownward
+                      chain: *assets_parachain
+                      attribute:
+                        type: XcmV2TraitsOutcome
+                        isComplete: true
+                        value: 2,000,000,000
+                    - name: polkadotXcm.Sent
+                      chain: *assets_parachain
+                    - name: ump.ExecutedUpward
+                      timeout: 40000
+                      attribute:
+                        type: XcmV2TraitsOutcome
+                        isComplete: true
+                        value: 4,000,000,000
+                    - name: hrmp.OpenChannelRequested
+                      timeout: 40000
+              - queries:
+                  requested_channels:
+                    chain: *relay_chain
+                    pallet: hrmp
+                    call: hrmpOpenChannelRequestsList
+                    args: []
+              - asserts:
+                  equal:
+                    args: [
+                      $requested_channels,
+                      [
+                        {
+                          sender: *ap_id,
+                          recipient: *pp_id
+                        }
+                      ]
+                    ]
+
+      - name: hrmp.hrmpAcceptOpenChannel (Penpal Parachain → Assets Parachain)
+        its:
+          - name: Penpal Parachain sends a response to the Relay Chain accepting the Assets Parachain's request for openning a HRMP channel
+            actions:
+              - extrinsics:
+                - chain: *penpal_parachain
+                  signer: *pp_signer
+                  sudo: true
+                  pallet: polkadotXcm
+                  call: send
+                  args: [
+                    *rc_dest, # destination
+                    {
+                      v2: [ #message
+                        {
+                          WithdrawAsset: [*rc_ksm_fungible]
+                        },
+                        {
+                          BuyExecution: {
+                              fees: *rc_ksm_fungible,
+                              weightLimit: Unlimited
+                          }
+                        },
+                        {
+                          Transact: {
+                            originType: Native,
+                            requireWeightAtMost: *weight_at_most,
+                            call: $accept_open_channel_with_ap
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                  events:
+                    - name: sudo.Sudid
+                      attribute:
+                        type: Result<Null, SpRuntimeDispatchError>
+                        value: Ok
+                    - name: polkadotXcm.Sent
+                    - name: ump.ExecutedUpward
+                      chain: *relay_chain
+                      attributes:
+                        type: XcmV2TraitsOutcome
+                        isComplete: true
+                        value: 4,000,000
+                    - name: hrmp.OpenChannelAccepted
+                      chain: *relay_chain
