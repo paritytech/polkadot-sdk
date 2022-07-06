@@ -18,9 +18,8 @@ use async_trait::async_trait;
 
 use crate::cli::{
 	bridge::{
-		CliBridgeBase, KusamaToPolkadotCliBridge, MillauToRialtoCliBridge,
-		MillauToRialtoParachainCliBridge, PolkadotToKusamaCliBridge, RialtoToMillauCliBridge,
-		RococoToWococoCliBridge, WestendToMillauCliBridge, WococoToRococoCliBridge,
+		CliBridgeBase, MillauToRialtoCliBridge, MillauToRialtoParachainCliBridge,
+		RialtoToMillauCliBridge, WestendToMillauCliBridge,
 	},
 	SourceConnectionParams, TargetConnectionParams, TargetSigningParams,
 };
@@ -55,10 +54,6 @@ pub enum InitBridgeName {
 	MillauToRialto,
 	RialtoToMillau,
 	WestendToMillau,
-	RococoToWococo,
-	WococoToRococo,
-	KusamaToPolkadot,
-	PolkadotToKusama,
 	MillauToRialtoParachain,
 }
 
@@ -175,54 +170,6 @@ impl BridgeInitializer for WestendToMillauCliBridge {
 	}
 }
 
-impl BridgeInitializer for RococoToWococoCliBridge {
-	type Engine = GrandpaFinalityEngine<Self::Source>;
-
-	fn encode_init_bridge(
-		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
-	) -> <Self::Target as Chain>::Call {
-		relay_wococo_client::runtime::Call::BridgeGrandpaRococo(
-			relay_wococo_client::runtime::BridgeGrandpaRococoCall::initialize(init_data),
-		)
-	}
-}
-
-impl BridgeInitializer for WococoToRococoCliBridge {
-	type Engine = GrandpaFinalityEngine<Self::Source>;
-
-	fn encode_init_bridge(
-		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
-	) -> <Self::Target as Chain>::Call {
-		relay_rococo_client::runtime::Call::BridgeGrandpaWococo(
-			relay_rococo_client::runtime::BridgeGrandpaWococoCall::initialize(init_data),
-		)
-	}
-}
-
-impl BridgeInitializer for KusamaToPolkadotCliBridge {
-	type Engine = GrandpaFinalityEngine<Self::Source>;
-
-	fn encode_init_bridge(
-		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
-	) -> <Self::Target as Chain>::Call {
-		relay_polkadot_client::runtime::Call::BridgeKusamaGrandpa(
-			relay_polkadot_client::runtime::BridgeKusamaGrandpaCall::initialize(init_data),
-		)
-	}
-}
-
-impl BridgeInitializer for PolkadotToKusamaCliBridge {
-	type Engine = GrandpaFinalityEngine<Self::Source>;
-
-	fn encode_init_bridge(
-		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
-	) -> <Self::Target as Chain>::Call {
-		relay_kusama_client::runtime::Call::BridgePolkadotGrandpa(
-			relay_kusama_client::runtime::BridgePolkadotGrandpaCall::initialize(init_data),
-		)
-	}
-}
-
 impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
@@ -230,10 +177,6 @@ impl InitBridge {
 			InitBridgeName::MillauToRialto => MillauToRialtoCliBridge::init_bridge(self),
 			InitBridgeName::RialtoToMillau => RialtoToMillauCliBridge::init_bridge(self),
 			InitBridgeName::WestendToMillau => WestendToMillauCliBridge::init_bridge(self),
-			InitBridgeName::RococoToWococo => RococoToWococoCliBridge::init_bridge(self),
-			InitBridgeName::WococoToRococo => WococoToRococoCliBridge::init_bridge(self),
-			InitBridgeName::KusamaToPolkadot => KusamaToPolkadotCliBridge::init_bridge(self),
-			InitBridgeName::PolkadotToKusama => PolkadotToKusamaCliBridge::init_bridge(self),
 			InitBridgeName::MillauToRialtoParachain =>
 				MillauToRialtoParachainCliBridge::init_bridge(self),
 		}
