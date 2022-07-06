@@ -62,8 +62,6 @@ pub struct ResubmitTransactions {
 #[strum(serialize_all = "kebab_case")]
 pub enum RelayChain {
 	Millau,
-	Kusama,
-	Polkadot,
 }
 
 /// Strategy to use for priority selection.
@@ -92,18 +90,6 @@ macro_rules! select_bridge {
 			RelayChain::Millau => {
 				type Target = relay_millau_client::Millau;
 				type TargetSign = relay_millau_client::Millau;
-
-				$generic
-			},
-			RelayChain::Kusama => {
-				type Target = relay_kusama_client::Kusama;
-				type TargetSign = relay_kusama_client::Kusama;
-
-				$generic
-			},
-			RelayChain::Polkadot => {
-				type Target = relay_polkadot_client::Polkadot;
-				type TargetSign = relay_polkadot_client::Polkadot;
 
 				$generic
 			},
