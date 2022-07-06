@@ -14,18 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use async_trait::async_trait;
+use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 
 use messages_relay::relay_strategy::MixStrategy;
-use substrate_relay_helper::{messages_lane::MessagesRelayParams, TransactionParams};
+use relay_substrate_client::{AccountKeyPairOf, ChainBase, TransactionSignScheme};
+use substrate_relay_helper::{
+	messages_lane::{MessagesRelayParams, SubstrateMessageLane},
+	TransactionParams,
+};
 
-use crate::{
-	cli::{
-		bridge::FullBridge, HexLaneId, PrometheusParams, SourceConnectionParams,
-		SourceSigningParams, TargetConnectionParams, TargetSigningParams,
-	},
-	select_full_bridge,
+use crate::cli::{
+	bridge::*, CliChain, HexLaneId, PrometheusParams, SourceConnectionParams, SourceSigningParams,
+	TargetConnectionParams, TargetSigningParams,
 };
 
 /// Relayer operating mode.
@@ -71,40 +74,66 @@ pub struct RelayMessages {
 	prometheus_params: PrometheusParams,
 }
 
+#[async_trait]
+trait MessagesRelayer: MessagesCliBridge
+where
+	Self::Source: TransactionSignScheme<Chain = Self::Source>
+		+ CliChain<KeyPair = AccountKeyPairOf<Self::Source>>,
+	<Self::Source as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
+	<Self::Target as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
+	<Self::Source as ChainBase>::Balance: TryFrom<<Self::Target as ChainBase>::Balance>,
+	Self::MessagesLane: SubstrateMessageLane<RelayStrategy = MixStrategy>,
+{
+	async fn relay_messages(data: RelayMessages) -> anyhow::Result<()> {
+		let source_client = data.source.to_client::<Self::Source>().await?;
+		let source_sign = data.source_sign.to_keypair::<Self::Source>()?;
+		let source_transactions_mortality = data.source_sign.transactions_mortality()?;
+		let target_client = data.target.to_client::<Self::Target>().await?;
+		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
+		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
+		let relayer_mode = data.relayer_mode.into();
+		let relay_strategy = MixStrategy::new(relayer_mode);
+
+		substrate_relay_helper::messages_lane::run::<Self::MessagesLane>(MessagesRelayParams {
+			source_client,
+			source_transaction_params: TransactionParams {
+				signer: source_sign,
+				mortality: source_transactions_mortality,
+			},
+			target_client,
+			target_transaction_params: TransactionParams {
+				signer: target_sign,
+				mortality: target_transactions_mortality,
+			},
+			source_to_target_headers_relay: None,
+			target_to_source_headers_relay: None,
+			lane_id: data.lane.into(),
+			metrics_params: data.prometheus_params.into(),
+			standalone_metrics: None,
+			relay_strategy,
+		})
+		.await
+		.map_err(|e| anyhow::format_err!("{}", e))
+	}
+}
+
+impl MessagesRelayer for MillauToRialtoCliBridge {}
+impl MessagesRelayer for RialtoToMillauCliBridge {}
+impl MessagesRelayer for MillauToRialtoParachainCliBridge {}
+impl MessagesRelayer for RialtoParachainToMillauCliBridge {}
+
 impl RelayMessages {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
-		select_full_bridge!(self.bridge, {
-			let source_client = self.source.to_client::<Source>().await?;
-			let source_sign = self.source_sign.to_keypair::<Source>()?;
-			let source_transactions_mortality = self.source_sign.transactions_mortality()?;
-			let target_client = self.target.to_client::<Target>().await?;
-			let target_sign = self.target_sign.to_keypair::<Target>()?;
-			let target_transactions_mortality = self.target_sign.transactions_mortality()?;
-			let relayer_mode = self.relayer_mode.into();
-			let relay_strategy = MixStrategy::new(relayer_mode);
-
-			substrate_relay_helper::messages_lane::run::<MessagesLane>(MessagesRelayParams {
-				source_client,
-				source_transaction_params: TransactionParams {
-					signer: source_sign,
-					mortality: source_transactions_mortality,
-				},
-				target_client,
-				target_transaction_params: TransactionParams {
-					signer: target_sign,
-					mortality: target_transactions_mortality,
-				},
-				source_to_target_headers_relay: None,
-				target_to_source_headers_relay: None,
-				lane_id: self.lane.into(),
-				metrics_params: self.prometheus_params.into(),
-				standalone_metrics: None,
-				relay_strategy,
-			})
-			.await
-			.map_err(|e| anyhow::format_err!("{}", e))
-		})
+		match self.bridge {
+			FullBridge::MillauToRialto => MillauToRialtoCliBridge::relay_messages(self),
+			FullBridge::RialtoToMillau => RialtoToMillauCliBridge::relay_messages(self),
+			FullBridge::MillauToRialtoParachain =>
+				MillauToRialtoParachainCliBridge::relay_messages(self),
+			FullBridge::RialtoParachainToMillau =>
+				RialtoParachainToMillauCliBridge::relay_messages(self),
+		}
+		.await
 	}
 }
 
