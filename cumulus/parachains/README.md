@@ -7,6 +7,7 @@ The general internal structure is:
 
 - `chain-specs`: Chain specs for the runtimes contained in its sibling dir `runtimes`.
 - `common`: Common configurations, `impl`s, etc. used by several parachain runtimes.
+- `integration-tests`: Integration tests to test parachain interactions via XCM.
 - `pallets`: FRAME pallets that are specific to parachains.
 - `runtimes`: The entry point for parachain runtimes.
 
