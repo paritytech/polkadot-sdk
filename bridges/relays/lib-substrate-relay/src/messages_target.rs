@@ -522,6 +522,7 @@ fn compute_prepaid_messages_refund<C: ChainWithMessages>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use relay_rialto_client::Rialto;
 	use relay_rococo_client::Rococo;
 	use relay_wococo_client::Wococo;
 
@@ -581,10 +582,10 @@ mod tests {
 	#[test]
 	fn compute_prepaid_messages_refund_returns_sane_results() {
 		assert!(
-			compute_prepaid_messages_refund::<Wococo>(
+			compute_prepaid_messages_refund::<Rialto>(
 				10,
 				FixedU128::saturating_from_rational(110, 100),
-			) > (10 * Wococo::PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN).into()
+			) > (10 * Rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN).into()
 		);
 	}
 }

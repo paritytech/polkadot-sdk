@@ -16,18 +16,10 @@
 
 //! Types used to connect to the Rococo-Substrate chain.
 
-use bp_messages::MessageNonce;
-use codec::Encode;
 use frame_support::weights::Weight;
-use relay_substrate_client::{
-	Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
-	Error as SubstrateError, SignParam, TransactionSignScheme, UnsignedTransaction,
-};
-use sp_core::{storage::StorageKey, Pair};
-use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
+use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa};
+use sp_core::storage::StorageKey;
 use std::time::Duration;
-
-pub mod runtime;
 
 /// Rococo header id.
 pub type HeaderId = relay_utils::HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>;
@@ -68,7 +60,7 @@ impl Chain for Rococo {
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_rococo::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = bp_rococo::SignedBlock;
-	type Call = crate::runtime::Call;
+	type Call = ();
 	type WeightToFee = bp_rococo::WeightToFee;
 }
 
@@ -76,77 +68,8 @@ impl ChainWithGrandpa for Rococo {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = bp_rococo::WITH_ROCOCO_GRANDPA_PALLET_NAME;
 }
 
-impl ChainWithMessages for Rococo {
-	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
-		bp_rococo::WITH_ROCOCO_MESSAGES_PALLET_NAME;
-	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
-		bp_rococo::TO_ROCOCO_MESSAGE_DETAILS_METHOD;
-	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
-		bp_rococo::FROM_ROCOCO_MESSAGE_DETAILS_METHOD;
-	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight =
-		bp_rococo::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
-	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
-		bp_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
-	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
-		bp_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	type WeightInfo = ();
-}
-
 impl ChainWithBalances for Rococo {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
 		StorageKey(bp_rococo::account_info_storage_key(account_id))
 	}
 }
-
-impl TransactionSignScheme for Rococo {
-	type Chain = Rococo;
-	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction = crate::runtime::UncheckedExtrinsic;
-
-	fn sign_transaction(param: SignParam<Self>) -> Result<Self::SignedTransaction, SubstrateError> {
-		let raw_payload = SignedPayload::new(
-			param.unsigned.call.clone(),
-			bp_rococo::SignedExtensions::new(
-				param.spec_version,
-				param.transaction_version,
-				param.era,
-				param.genesis_hash,
-				param.unsigned.nonce,
-				param.unsigned.tip,
-			),
-		)
-		.expect("SignedExtension never fails.");
-
-		let signature = raw_payload.using_encoded(|payload| param.signer.sign(payload));
-		let signer: sp_runtime::MultiSigner = param.signer.public().into();
-		let (call, extra, _) = raw_payload.deconstruct();
-
-		Ok(bp_rococo::UncheckedExtrinsic::new_signed(
-			call,
-			sp_runtime::MultiAddress::Id(signer.into_account()),
-			signature.into(),
-			extra,
-		))
-	}
-
-	fn is_signed(tx: &Self::SignedTransaction) -> bool {
-		tx.signature.is_some()
-	}
-
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
-		tx.signature
-			.as_ref()
-			.map(|(address, _, _)| {
-				*address == bp_rococo::AccountId::from(*signer.public().as_array_ref()).into()
-			})
-			.unwrap_or(false)
-	}
-
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>> {
-		let extra = &tx.signature.as_ref()?.2;
-		Some(UnsignedTransaction { call: tx.function, nonce: extra.nonce(), tip: extra.tip() })
-	}
-}
-
-/// Rococo signing params.
-pub type SigningParams = sp_core::sr25519::Pair;

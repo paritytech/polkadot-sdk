@@ -16,33 +16,21 @@
 
 //! Chain-specific relayer configuration.
 
-pub mod kusama_headers_to_polkadot;
-pub mod kusama_messages_to_polkadot;
 pub mod millau_headers_to_rialto;
 pub mod millau_headers_to_rialto_parachain;
 pub mod millau_messages_to_rialto;
 pub mod millau_messages_to_rialto_parachain;
-pub mod polkadot_headers_to_kusama;
-pub mod polkadot_messages_to_kusama;
 pub mod rialto_headers_to_millau;
 pub mod rialto_messages_to_millau;
 pub mod rialto_parachain_messages_to_millau;
 pub mod rialto_parachains_to_millau;
-pub mod rococo_headers_to_wococo;
-pub mod rococo_messages_to_wococo;
 pub mod westend_headers_to_millau;
 pub mod westend_parachains_to_millau;
-pub mod wococo_headers_to_rococo;
-pub mod wococo_messages_to_rococo;
 
-mod kusama;
 mod millau;
-mod polkadot;
 mod rialto;
 mod rialto_parachain;
-mod rococo;
 mod westend;
-mod wococo;
 
 #[cfg(test)]
 mod tests {
@@ -120,104 +108,6 @@ mod tests {
 			"Hardcoded number of extra bytes in Millau transaction {} is lower than actual value: {}",
 			bp_millau::TX_EXTRA_BYTES,
 			extra_bytes_in_transaction,
-		);
-	}
-}
-
-#[cfg(test)]
-mod rococo_tests {
-	use bp_header_chain::justification::GrandpaJustification;
-	use codec::Encode;
-
-	#[test]
-	fn scale_compatibility_of_bridges_call() {
-		// given
-		let header = sp_runtime::generic::Header {
-			parent_hash: Default::default(),
-			number: Default::default(),
-			state_root: Default::default(),
-			extrinsics_root: Default::default(),
-			digest: sp_runtime::generic::Digest { logs: vec![] },
-		};
-
-		let justification = GrandpaJustification {
-			round: 0,
-			commit: finality_grandpa::Commit {
-				target_hash: Default::default(),
-				target_number: Default::default(),
-				precommits: vec![],
-			},
-			votes_ancestries: vec![],
-		};
-
-		let actual = relay_rococo_client::runtime::BridgeGrandpaWococoCall::submit_finality_proof(
-			Box::new(header.clone()),
-			justification.clone(),
-		);
-		let expected =
-			millau_runtime::BridgeGrandpaCall::<millau_runtime::Runtime>::submit_finality_proof {
-				finality_target: Box::new(header),
-				justification,
-			};
-
-		// when
-		let actual_encoded = actual.encode();
-		let expected_encoded = expected.encode();
-
-		// then
-		assert_eq!(
-			actual_encoded, expected_encoded,
-			"\n\nEncoding difference.\nGot {:#?} \nExpected: {:#?}",
-			actual, expected
-		);
-	}
-}
-
-#[cfg(test)]
-mod westend_tests {
-	use bp_header_chain::justification::GrandpaJustification;
-	use codec::Encode;
-
-	#[test]
-	fn scale_compatibility_of_bridges_call() {
-		// given
-		let header = sp_runtime::generic::Header {
-			parent_hash: Default::default(),
-			number: Default::default(),
-			state_root: Default::default(),
-			extrinsics_root: Default::default(),
-			digest: sp_runtime::generic::Digest { logs: vec![] },
-		};
-
-		let justification = GrandpaJustification {
-			round: 0,
-			commit: finality_grandpa::Commit {
-				target_hash: Default::default(),
-				target_number: Default::default(),
-				precommits: vec![],
-			},
-			votes_ancestries: vec![],
-		};
-
-		let actual = relay_kusama_client::runtime::BridgePolkadotGrandpaCall::submit_finality_proof(
-			Box::new(header.clone()),
-			justification.clone(),
-		);
-		let expected =
-			millau_runtime::BridgeGrandpaCall::<millau_runtime::Runtime>::submit_finality_proof {
-				finality_target: Box::new(header),
-				justification,
-			};
-
-		// when
-		let actual_encoded = actual.encode();
-		let expected_encoded = expected.encode();
-
-		// then
-		assert_eq!(
-			actual_encoded, expected_encoded,
-			"\n\nEncoding difference.\nGot {:#?} \nExpected: {:#?}",
-			actual, expected
 		);
 	}
 }
