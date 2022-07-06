@@ -24,11 +24,8 @@ use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use substrate_relay_helper::finality::SubstrateFinalitySyncPipeline;
 
 use crate::cli::{
-	bridge::{
-		CliBridge, MillauToRialtoCliBridge, MillauToRialtoParachainCliBridge,
-		RialtoToMillauCliBridge, WestendToMillauCliBridge,
-	},
-	PrometheusParams, SourceConnectionParams, TargetConnectionParams, TargetSigningParams,
+	bridge::*, PrometheusParams, SourceConnectionParams, TargetConnectionParams,
+	TargetSigningParams,
 };
 
 /// Start headers relayer process.
@@ -62,7 +59,7 @@ pub enum RelayHeadersBridge {
 }
 
 #[async_trait]
-trait HeadersRelayer: CliBridge
+trait HeadersRelayer: HeadersCliBridge
 where
 	<Self::Target as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
 {
