@@ -28,15 +28,14 @@ use strum::VariantNames;
 
 use async_std::sync::Arc;
 use bp_polkadot_core::parachains::ParaHash;
-use codec::Encode;
 use messages_relay::relay_strategy::MixStrategy;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, ChainRuntimeVersion, Client,
-	SignParam, TransactionSignScheme, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, ChainRuntimeVersion, Client,
+	TransactionSignScheme,
 };
 use relay_utils::metrics::MetricsParams;
-use sp_core::{Bytes, Pair};
+use sp_core::Pair;
 use substrate_relay_helper::{
 	finality::SubstrateFinalitySyncPipeline,
 	messages_lane::MessagesRelayParams,
@@ -68,8 +67,6 @@ pub(crate) const CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO: f64 = 0.05;
 pub enum RelayHeadersAndMessages {
 	MillauRialto(MillauRialtoHeadersAndMessages),
 	MillauRialtoParachain(MillauRialtoParachainHeadersAndMessages),
-	RococoWococo(RococoWococoHeadersAndMessages),
-	KusamaPolkadot(KusamaPolkadotHeadersAndMessages),
 }
 
 /// Parameters that have the same names across all bridges.
@@ -311,168 +308,6 @@ macro_rules! select_bridge {
 
 				$generic
 			},
-			RelayHeadersAndMessages::RococoWococo(_) => {
-				type Params = RococoWococoHeadersAndMessages;
-
-				type Left = relay_rococo_client::Rococo;
-				type Right = relay_wococo_client::Wococo;
-
-				type LeftAccountIdConverter = bp_rococo::AccountIdConverter;
-				type RightAccountIdConverter = bp_wococo::AccountIdConverter;
-
-				use crate::chains::{
-					rococo_messages_to_wococo::RococoMessagesToWococo as LeftToRightMessageLane,
-					wococo_messages_to_rococo::WococoMessagesToRococo as RightToLeftMessageLane,
-				};
-
-				async fn start_on_demand_relays(
-					params: &Params,
-					left_client: Client<Left>,
-					right_client: Client<Right>,
-					at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Left>>>,
-					at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Right>>>,
-				) -> anyhow::Result<(
-					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
-					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
-				)> {
-					start_on_demand_relay_to_relay::<
-						Left,
-						Right,
-						crate::chains::rococo_headers_to_wococo::RococoFinalityToWococo,
-						crate::chains::wococo_headers_to_rococo::WococoFinalityToRococo,
-					>(
-						left_client,
-						right_client,
-						params.left_headers_to_right_sign_override.transaction_params_or::<Right, _>(&params.right_sign)?,
-						params.right_headers_to_left_sign_override.transaction_params_or::<Left, _>(&params.left_sign)?,
-						params.shared.only_mandatory_headers,
-						params.shared.only_mandatory_headers,
-						params.left.can_start_version_guard(),
-						params.right.can_start_version_guard(),
-						at_left_relay_accounts,
-						at_right_relay_accounts,
-					).await
-				}
-
-				async fn left_create_account(
-					left_client: Client<Left>,
-					left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
-					account_id: AccountIdOf<Left>,
-				) -> anyhow::Result<()> {
-					submit_signed_extrinsic(
-						left_client,
-						left_sign,
-						relay_rococo_client::runtime::Call::Balances(
-							relay_rococo_client::runtime::BalancesCall::transfer(
-								bp_rococo::AccountAddress::Id(account_id),
-								bp_rococo::EXISTENTIAL_DEPOSIT.into(),
-							),
-						),
-					)
-					.await
-				}
-
-				async fn right_create_account(
-					right_client: Client<Right>,
-					right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
-					account_id: AccountIdOf<Right>,
-				) -> anyhow::Result<()> {
-					submit_signed_extrinsic(
-						right_client,
-						right_sign,
-						relay_wococo_client::runtime::Call::Balances(
-							relay_wococo_client::runtime::BalancesCall::transfer(
-								bp_wococo::AccountAddress::Id(account_id),
-								bp_wococo::EXISTENTIAL_DEPOSIT.into(),
-							),
-						),
-					)
-					.await
-				}
-
-				$generic
-			},
-			RelayHeadersAndMessages::KusamaPolkadot(_) => {
-				type Params = KusamaPolkadotHeadersAndMessages;
-
-				type Left = relay_kusama_client::Kusama;
-				type Right = relay_polkadot_client::Polkadot;
-
-				type LeftAccountIdConverter = bp_kusama::AccountIdConverter;
-				type RightAccountIdConverter = bp_polkadot::AccountIdConverter;
-
-				use crate::chains::{
-					kusama_messages_to_polkadot::KusamaMessagesToPolkadot as LeftToRightMessageLane,
-					polkadot_messages_to_kusama::PolkadotMessagesToKusama as RightToLeftMessageLane,
-				};
-
-				async fn start_on_demand_relays(
-					params: &Params,
-					left_client: Client<Left>,
-					right_client: Client<Right>,
-					at_left_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Left>>>,
-					at_right_relay_accounts: &mut Vec<TaggedAccount<AccountIdOf<Right>>>,
-				) -> anyhow::Result<(
-					Arc<dyn OnDemandRelay<BlockNumberOf<Left>>>,
-					Arc<dyn OnDemandRelay<BlockNumberOf<Right>>>,
-				)> {
-					start_on_demand_relay_to_relay::<
-						Left,
-						Right,
-						crate::chains::kusama_headers_to_polkadot::KusamaFinalityToPolkadot,
-						crate::chains::polkadot_headers_to_kusama::PolkadotFinalityToKusama,
-					>(
-						left_client,
-						right_client,
-						params.left_headers_to_right_sign_override.transaction_params_or::<Right, _>(&params.right_sign)?,
-						params.right_headers_to_left_sign_override.transaction_params_or::<Left, _>(&params.left_sign)?,
-						params.shared.only_mandatory_headers,
-						params.shared.only_mandatory_headers,
-						params.left.can_start_version_guard(),
-						params.right.can_start_version_guard(),
-						at_left_relay_accounts,
-						at_right_relay_accounts,
-					).await
-				}
-
-				async fn left_create_account(
-					left_client: Client<Left>,
-					left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
-					account_id: AccountIdOf<Left>,
-				) -> anyhow::Result<()> {
-					submit_signed_extrinsic(
-						left_client,
-						left_sign,
-						relay_kusama_client::runtime::Call::Balances(
-							relay_kusama_client::runtime::BalancesCall::transfer(
-								bp_kusama::AccountAddress::Id(account_id),
-								bp_kusama::EXISTENTIAL_DEPOSIT.into(),
-							),
-						),
-					)
-					.await
-				}
-
-				async fn right_create_account(
-					right_client: Client<Right>,
-					right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
-					account_id: AccountIdOf<Right>,
-				) -> anyhow::Result<()> {
-					submit_signed_extrinsic(
-						right_client,
-						right_sign,
-						relay_polkadot_client::runtime::Call::Balances(
-							relay_polkadot_client::runtime::BalancesCall::transfer(
-								bp_polkadot::AccountAddress::Id(account_id),
-								bp_polkadot::EXISTENTIAL_DEPOSIT.into(),
-							),
-						),
-					)
-					.await
-				}
-
-				$generic
-			},
 		}
 	};
 }
@@ -481,24 +316,14 @@ macro_rules! select_bridge {
 declare_chain_options!(Millau, millau);
 declare_chain_options!(Rialto, rialto);
 declare_chain_options!(RialtoParachain, rialto_parachain);
-declare_chain_options!(Rococo, rococo);
-declare_chain_options!(Wococo, wococo);
-declare_chain_options!(Kusama, kusama);
-declare_chain_options!(Polkadot, polkadot);
 // Means to override signers of different layer transactions.
 declare_chain_options!(MillauHeadersToRialto, millau_headers_to_rialto);
 declare_chain_options!(MillauHeadersToRialtoParachain, millau_headers_to_rialto_parachain);
 declare_chain_options!(RialtoHeadersToMillau, rialto_headers_to_millau);
 declare_chain_options!(RialtoParachainsToMillau, rialto_parachains_to_millau);
-declare_chain_options!(WococoHeadersToRococo, wococo_headers_to_rococo);
-declare_chain_options!(RococoHeadersToWococo, rococo_headers_to_wococo);
-declare_chain_options!(KusamaHeadersToPolkadot, kusama_headers_to_polkadot);
-declare_chain_options!(PolkadotHeadersToKusama, polkadot_headers_to_kusama);
 // All supported bridges.
 declare_bridge_options!(Millau, Rialto);
 declare_bridge_options!(Millau, RialtoParachain, Rialto);
-declare_bridge_options!(Rococo, Wococo);
-declare_bridge_options!(Kusama, Polkadot);
 
 impl RelayHeadersAndMessages {
 	/// Run the command.
@@ -910,37 +735,6 @@ where
 	);
 
 	Ok((Arc::new(left_to_right_on_demand_headers), Arc::new(right_to_left_on_demand_parachains)))
-}
-
-/// Sign and submit transaction with given call to the chain.
-async fn submit_signed_extrinsic<C: Chain + TransactionSignScheme<Chain = C>>(
-	client: Client<C>,
-	sign: C::AccountKeyPair,
-	call: CallOf<C>,
-) -> anyhow::Result<()>
-where
-	AccountIdOf<C>: From<<<C as TransactionSignScheme>::AccountKeyPair as Pair>::Public>,
-	CallOf<C>: Send,
-{
-	let genesis_hash = *client.genesis_hash();
-	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
-	client
-		.submit_signed_extrinsic(sign.public().into(), move |_, transaction_nonce| {
-			Ok(Bytes(
-				C::sign_transaction(SignParam {
-					spec_version,
-					transaction_version,
-					genesis_hash,
-					signer: sign,
-					era: relay_substrate_client::TransactionEra::immortal(),
-					unsigned: UnsignedTransaction::new(call.into(), transaction_nonce),
-				})?
-				.encode(),
-			))
-		})
-		.await
-		.map(drop)
-		.map_err(|e| anyhow::format_err!("{}", e))
 }
 
 #[cfg(test)]
