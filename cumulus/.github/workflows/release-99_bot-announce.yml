@@ -7,12 +7,24 @@ on:
 jobs:
   ping_matrix:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        channel:
+          - name: 'Cumulus Release Coordination'
+            room: '!ZrLPsivsytpkdJfVaa:matrix.parity.io'
+            pre-releases: true
+          - name: 'Ledger <> Polkadot Coordination'
+            room: '!EoIhaKfGPmFOBrNSHT:web3.foundation'
+            pre-release: true
+
     steps:
       - name: send message
         uses: s3krit/matrix-message-action@v0.0.3
         with:
-          room_id: ${{ secrets.MATRIX_ROOM_ID }}
+          # room_id: ${{ secrets.MATRIX_ROOM_ID }}
+          room_id: ${{ matrix.channel.room }}
           access_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          server: "matrix.parity.io"
           message: |
             A (pre)release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
             Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})
@@ -20,4 +32,3 @@ jobs:
             -----
 
             ${{github.event.release.body}}
-          server: "matrix.parity.io"
