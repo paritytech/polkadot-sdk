@@ -63,6 +63,16 @@ const MAX_VOTE_ANCESTRIES: u32 = 1000;
 // number of validators.
 const MAX_VALIDATOR_SET_SIZE: u32 = 1024;
 
+// `1..MAX_VALIDATOR_SET_SIZE` and `1..MAX_VOTE_ANCESTRIES` are too large && benchmarks are
+// running for almost 40m (steps=50, repeat=20) on a decent laptop, which is too much. Since
+// we're building linear function here, let's just select some limited subrange for benchmarking.
+const VALIDATOR_SET_SIZE_RANGE_BEGIN: u32 = MAX_VALIDATOR_SET_SIZE / 20;
+const VALIDATOR_SET_SIZE_RANGE_END: u32 =
+	VALIDATOR_SET_SIZE_RANGE_BEGIN + VALIDATOR_SET_SIZE_RANGE_BEGIN;
+const MAX_VOTE_ANCESTRIES_RANGE_BEGIN: u32 = MAX_VOTE_ANCESTRIES / 20;
+const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
+	MAX_VOTE_ANCESTRIES_RANGE_BEGIN + MAX_VOTE_ANCESTRIES_RANGE_BEGIN;
+
 /// Returns number of first header to be imported.
 ///
 /// Since we bootstrap the pallet with `HeadersToKeep` already imported headers,
@@ -107,8 +117,8 @@ benchmarks_instance_pallet! {
 	// This is the "gold standard" benchmark for this extrinsic, and it's what should be used to
 	// annotate the weight in the pallet.
 	submit_finality_proof {
-		let p in 1..MAX_VALIDATOR_SET_SIZE;
-		let v in 1..MAX_VOTE_ANCESTRIES;
+		let p in VALIDATOR_SET_SIZE_RANGE_BEGIN..VALIDATOR_SET_SIZE_RANGE_END;
+		let v in MAX_VOTE_ANCESTRIES_RANGE_BEGIN..MAX_VOTE_ANCESTRIES_RANGE_END;
 		let caller: T::AccountId = whitelisted_caller();
 		let (header, justification) = prepare_benchmark_data::<T, I>(p, v);
 	}: submit_finality_proof(RawOrigin::Signed(caller), Box::new(header), justification)
