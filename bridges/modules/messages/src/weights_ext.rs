@@ -79,9 +79,11 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>(
 
 	// verify `receive_messages_delivery_proof` weight components
 	assert_ne!(W::receive_messages_delivery_proof_overhead(), 0);
-	assert_ne!(W::receive_messages_delivery_proof_messages_overhead(1), 0);
-	assert_ne!(W::receive_messages_delivery_proof_relayers_overhead(1), 0);
 	assert_ne!(W::storage_proof_size_overhead(1), 0);
+
+	// `receive_messages_delivery_proof_messages_overhead` and
+	// `receive_messages_delivery_proof_relayers_overhead` may return zero if rewards are not paid
+	// during confirmations delivery, so we're not checking it here
 
 	// verify that the hardcoded value covers `receive_messages_delivery_proof` weight
 	let actual_messages_delivery_confirmation_tx_weight = W::receive_messages_delivery_proof_weight(
