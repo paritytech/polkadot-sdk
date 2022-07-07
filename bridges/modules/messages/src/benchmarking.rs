@@ -19,12 +19,13 @@
 use crate::{
 	inbound_lane::InboundLaneStorage, inbound_lane_storage, outbound_lane,
 	outbound_lane::ReceivalConfirmationResult, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH, Call,
+	OutboundLanes, OutboundMessages,
 };
 
 use bp_messages::{
 	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, DeliveredMessages,
-	InboundLaneData, LaneId, MessageData, MessageNonce, OutboundLaneData, UnrewardedRelayer,
-	UnrewardedRelayersState,
+	InboundLaneData, LaneId, MessageData, MessageKey, MessageNonce, OutboundLaneData,
+	UnrewardedRelayer, UnrewardedRelayersState,
 };
 use bp_runtime::{messages::DispatchFeePayment, StorageProofSize};
 use frame_benchmarking::{account, benchmarks_instance_pallet};
@@ -244,7 +245,10 @@ benchmarks_instance_pallet! {
 		send_regular_message_with_payload::<T, I>(vec![42u8; T::maximal_message_size() as _]);
 	}: increase_message_fee(RawOrigin::Signed(sender.clone()), lane_id, nonce, additional_fee)
 	verify {
-		assert_eq!(T::account_balance(&sender), 0.into());
+		assert_eq!(
+			OutboundMessages::<T, I>::get(MessageKey { lane_id: T::bench_lane_id(), nonce }).unwrap().fee,
+			T::message_fee() + additional_fee,
+		);
 	}
 
 	// Benchmark `increase_message_fee` with following conditions:
@@ -265,7 +269,10 @@ benchmarks_instance_pallet! {
 		send_regular_message_with_payload::<T, I>(vec![42u8; i as _]);
 	}: increase_message_fee(RawOrigin::Signed(sender.clone()), lane_id, nonce, additional_fee)
 	verify {
-		assert_eq!(T::account_balance(&sender), 0.into());
+		assert_eq!(
+			OutboundMessages::<T, I>::get(MessageKey { lane_id: T::bench_lane_id(), nonce }).unwrap().fee,
+			T::message_fee() + additional_fee,
+		);
 	}
 
 	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
@@ -508,10 +515,7 @@ benchmarks_instance_pallet! {
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
-		assert_eq!(
-			T::account_balance(&relayer_id),
-			relayer_balance + T::message_fee(),
-		);
+		assert_eq!(OutboundLanes::<T, I>::get(T::bench_lane_id()).latest_received_nonce, 1);
 	}
 
 	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
@@ -552,7 +556,7 @@ benchmarks_instance_pallet! {
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
-		ensure_relayer_rewarded::<T, I>(&relayer_id, &relayer_balance);
+		assert_eq!(OutboundLanes::<T, I>::get(T::bench_lane_id()).latest_received_nonce, 2);
 	}
 
 	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
@@ -599,8 +603,7 @@ benchmarks_instance_pallet! {
 		});
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof, relayers_state)
 	verify {
-		ensure_relayer_rewarded::<T, I>(&relayer1_id, &relayer1_balance);
-		ensure_relayer_rewarded::<T, I>(&relayer2_id, &relayer2_balance);
+		assert_eq!(OutboundLanes::<T, I>::get(T::bench_lane_id()).latest_received_nonce, 2);
 	}
 }
 
@@ -641,17 +644,4 @@ fn receive_messages<T: Config<I>, I: 'static>(nonce: MessageNonce) {
 		.collect(),
 		last_confirmed_nonce: 0,
 	});
-}
-
-fn ensure_relayer_rewarded<T: Config<I>, I: 'static>(
-	relayer_id: &T::AccountId,
-	old_balance: &T::OutboundMessageFee,
-) {
-	let new_balance = T::account_balance(relayer_id);
-	assert!(
-		new_balance > *old_balance,
-		"Relayer haven't received reward for relaying message: old balance = {:?}, new balance = {:?}",
-		old_balance,
-		new_balance,
-	);
 }
