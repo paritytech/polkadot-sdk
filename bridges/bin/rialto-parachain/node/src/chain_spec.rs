@@ -22,6 +22,17 @@ use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
+/// "Names" of the authorities accounts at local testnet.
+const LOCAL_AUTHORITIES_ACCOUNTS: [&str; 2] = ["Alice", "Bob"];
+/// "Names" of the authorities accounts at development testnet.
+const DEV_AUTHORITIES_ACCOUNTS: [&str; 2] = LOCAL_AUTHORITIES_ACCOUNTS;
+/// "Names" of all possible authorities accounts.
+const ALL_AUTHORITIES_ACCOUNTS: [&str; 2] = LOCAL_AUTHORITIES_ACCOUNTS;
+/// "Name" of the `sudo` account.
+const SUDO_ACCOUNT: &str = "Sudo";
+/// "Name" of the account, which owns the with-Millau messages pallet.
+const MILLAU_MESSAGES_PALLET_OWNER: &str = "Millau.MessagesOwner";
+
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec =
 	sc_service::GenericChainSpec<rialto_parachain_runtime::GenesisConfig, Extensions>;
@@ -67,27 +78,32 @@ where
 /// accounts used by relayers in our test deployments, accounts used for demonstration
 /// purposes), are all available on these chains.
 fn endowed_accounts() -> Vec<AccountId> {
+	let all_authorities = ALL_AUTHORITIES_ACCOUNTS.iter().flat_map(|x| {
+		[
+			get_account_id_from_seed::<sr25519::Public>(x),
+			get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", x)),
+		]
+	});
 	vec![
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		get_account_id_from_seed::<sr25519::Public>("Bob"),
+		// Sudo account
+		get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
+		// Regular (unused) accounts
 		get_account_id_from_seed::<sr25519::Public>("Charlie"),
 		get_account_id_from_seed::<sr25519::Public>("Dave"),
 		get_account_id_from_seed::<sr25519::Public>("Eve"),
 		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		get_account_id_from_seed::<sr25519::Public>("George"),
-		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("George//stash"),
-		get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner"),
-		pallet_bridge_messages::relayer_fund_account_id::<
-			bp_rialto_parachain::AccountId,
-			bp_rialto_parachain::AccountIdConverter,
-		>(),
+		// Accounts, used by RialtoParachain<>Millau bridge
+		get_account_id_from_seed::<sr25519::Public>(MILLAU_MESSAGES_PALLET_OWNER),
+		get_account_id_from_seed::<sr25519::Public>("Millau.HeadersAndMessagesRelay"),
+		get_account_id_from_seed::<sr25519::Public>("Millau.MessagesSender"),
 	]
+	.into_iter()
+	.chain(all_authorities)
+	.collect()
 }
 
 pub fn development_config(id: ParaId) -> ChainSpec {
@@ -104,8 +120,11 @@ pub fn development_config(id: ParaId) -> ChainSpec {
 		ChainType::Local,
 		move || {
 			testnet_genesis(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				vec![get_from_seed::<AuraId>("Alice"), get_from_seed::<AuraId>("Bob")],
+				get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
+				DEV_AUTHORITIES_ACCOUNTS
+					.into_iter()
+					.map(|x| get_from_seed::<AuraId>(x))
+					.collect(),
 				endowed_accounts(),
 				id,
 			)
@@ -136,8 +155,11 @@ pub fn local_testnet_config(id: ParaId) -> ChainSpec {
 		ChainType::Local,
 		move || {
 			testnet_genesis(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				vec![get_from_seed::<AuraId>("Alice"), get_from_seed::<AuraId>("Bob")],
+				get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
+				LOCAL_AUTHORITIES_ACCOUNTS
+					.into_iter()
+					.map(|x| get_from_seed::<AuraId>(x))
+					.collect(),
 				endowed_accounts(),
 				id,
 			)
@@ -174,7 +196,7 @@ fn testnet_genesis(
 		aura: rialto_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
 		bridge_millau_messages: BridgeMillauMessagesConfig {
-			owner: Some(get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner")),
+			owner: Some(get_account_id_from_seed::<sr25519::Public>(MILLAU_MESSAGES_PALLET_OWNER)),
 			..Default::default()
 		},
 	}
