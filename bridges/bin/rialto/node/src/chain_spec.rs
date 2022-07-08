@@ -15,7 +15,6 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use beefy_primitives::crypto::AuthorityId as BeefyId;
-use bp_rialto::derive_account_from_millau_id;
 use polkadot_primitives::v2::{AssignmentId, ValidatorId};
 use rialto_runtime::{
 	AccountId, BabeConfig, BalancesConfig, BeefyConfig, BridgeMillauMessagesConfig,
@@ -28,6 +27,17 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
+
+/// "Names" of the authorities accounts at local testnet.
+const LOCAL_AUTHORITIES_ACCOUNTS: [&str; 5] = ["Alice", "Bob", "Charlie", "Dave", "Eve"];
+/// "Names" of the authorities accounts at development testnet.
+const DEV_AUTHORITIES_ACCOUNTS: [&str; 1] = [LOCAL_AUTHORITIES_ACCOUNTS[0]];
+/// "Names" of all possible authorities accounts.
+const ALL_AUTHORITIES_ACCOUNTS: [&str; 5] = LOCAL_AUTHORITIES_ACCOUNTS;
+/// "Name" of the `sudo` account.
+const SUDO_ACCOUNT: &str = "Sudo";
+/// "Name" of the account, which owns the with-Millau messages pallet.
+const MILLAU_MESSAGES_PALLET_OWNER: &str = "Millau.MessagesOwner";
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec =
@@ -95,8 +105,11 @@ impl Alternative {
 				sc_service::ChainType::Development,
 				|| {
 					testnet_genesis(
-						vec![get_authority_keys_from_seed("Alice")],
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						DEV_AUTHORITIES_ACCOUNTS
+							.into_iter()
+							.map(get_authority_keys_from_seed)
+							.collect(),
+						get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
 						endowed_accounts(),
 						true,
 					)
@@ -114,14 +127,11 @@ impl Alternative {
 				sc_service::ChainType::Local,
 				|| {
 					testnet_genesis(
-						vec![
-							get_authority_keys_from_seed("Alice"),
-							get_authority_keys_from_seed("Bob"),
-							get_authority_keys_from_seed("Charlie"),
-							get_authority_keys_from_seed("Dave"),
-							get_authority_keys_from_seed("Eve"),
-						],
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						LOCAL_AUTHORITIES_ACCOUNTS
+							.into_iter()
+							.map(get_authority_keys_from_seed)
+							.collect(),
+						get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
 						endowed_accounts(),
 						true,
 					)
@@ -142,48 +152,28 @@ impl Alternative {
 /// accounts used by relayers in our test deployments, accounts used for demonstration
 /// purposes), are all available on these chains.
 fn endowed_accounts() -> Vec<AccountId> {
+	let all_authorities = ALL_AUTHORITIES_ACCOUNTS.iter().flat_map(|x| {
+		[
+			get_account_id_from_seed::<sr25519::Public>(x),
+			get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", x)),
+		]
+	});
 	vec![
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		get_account_id_from_seed::<sr25519::Public>("Bob"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie"),
-		get_account_id_from_seed::<sr25519::Public>("Dave"),
-		get_account_id_from_seed::<sr25519::Public>("Eve"),
+		// Sudo account
+		get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
+		// Regular (unused) accounts
 		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		get_account_id_from_seed::<sr25519::Public>("George"),
-		get_account_id_from_seed::<sr25519::Public>("Harry"),
-		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("George//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Harry//stash"),
-		get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner"),
-		get_account_id_from_seed::<sr25519::Public>("WithMillauTokenSwap"),
-		pallet_bridge_messages::relayer_fund_account_id::<
-			bp_rialto::AccountId,
-			bp_rialto::AccountIdConverter,
-		>(),
-		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-		)),
-		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-		)),
-		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-		)),
-		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-		)),
-		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-		)),
-		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		)),
+		// Accounts, used by Rialto<>Millau bridge
+		get_account_id_from_seed::<sr25519::Public>(MILLAU_MESSAGES_PALLET_OWNER),
+		get_account_id_from_seed::<sr25519::Public>("Millau.HeadersAndMessagesRelay"),
+		get_account_id_from_seed::<sr25519::Public>("Millau.OutboundMessagesRelay.Lane00000001"),
+		get_account_id_from_seed::<sr25519::Public>("Millau.InboundMessagesRelay.Lane00000001"),
+		get_account_id_from_seed::<sr25519::Public>("Millau.MessagesSender"),
 	]
+	.into_iter()
+	.chain(all_authorities)
+	.collect()
 }
 
 fn session_keys(
@@ -287,17 +277,9 @@ fn testnet_genesis(
 		},
 		paras: Default::default(),
 		bridge_millau_messages: BridgeMillauMessagesConfig {
-			owner: Some(get_account_id_from_seed::<sr25519::Public>("MillauMessagesOwner")),
+			owner: Some(get_account_id_from_seed::<sr25519::Public>(MILLAU_MESSAGES_PALLET_OWNER)),
 			..Default::default()
 		},
 		xcm_pallet: Default::default(),
 	}
-}
-
-#[test]
-fn derived_dave_account_is_as_expected() {
-	let dave = get_account_id_from_seed::<sr25519::Public>("Dave");
-	let derived: AccountId =
-		derive_account_from_millau_id(bp_runtime::SourceAccount::Account(dave));
-	assert_eq!(derived.to_string(), "5HZhdv53gSJmWWtD8XR5Ypu4PgbT5JNWwGw2mkE75cN61w9t".to_string());
 }
