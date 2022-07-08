@@ -754,7 +754,7 @@ mod tests {
 			"--millau-signer",
 			"//Charlie",
 			"--millau-messages-pallet-owner",
-			"//RialtoMessagesOwner",
+			"//Rialto.MessagesOwner",
 			"--millau-transactions-mortality",
 			"64",
 			"--rialto-host",
@@ -764,7 +764,7 @@ mod tests {
 			"--rialto-signer",
 			"//Charlie",
 			"--rialto-messages-pallet-owner",
-			"//MillauMessagesOwner",
+			"//Millau.MessagesOwner",
 			"--rialto-transactions-mortality",
 			"64",
 			"--lane",
@@ -811,7 +811,7 @@ mod tests {
 					millau_transactions_mortality: Some(64),
 				},
 				left_messages_pallet_owner: MillauMessagesPalletOwnerSigningParams {
-					millau_messages_pallet_owner: Some("//RialtoMessagesOwner".into()),
+					millau_messages_pallet_owner: Some("//Rialto.MessagesOwner".into()),
 					millau_messages_pallet_owner_password: None,
 				},
 				left_headers_to_right_sign_override: MillauHeadersToRialtoSigningParams {
@@ -839,7 +839,7 @@ mod tests {
 					rialto_transactions_mortality: Some(64),
 				},
 				right_messages_pallet_owner: RialtoMessagesPalletOwnerSigningParams {
-					rialto_messages_pallet_owner: Some("//MillauMessagesOwner".into()),
+					rialto_messages_pallet_owner: Some("//Millau.MessagesOwner".into()),
 					rialto_messages_pallet_owner_password: None,
 				},
 				right_headers_to_left_sign_override: RialtoHeadersToMillauSigningParams {
@@ -868,7 +868,7 @@ mod tests {
 			"--rialto-headers-to-millau-signer",
 			"//Ken",
 			"--millau-messages-pallet-owner",
-			"//RialtoParachainMessagesOwner",
+			"//RialtoParachain.MessagesOwner",
 			"--millau-transactions-mortality",
 			"64",
 			"--rialto-parachain-host",
@@ -878,7 +878,7 @@ mod tests {
 			"--rialto-parachain-signer",
 			"//George",
 			"--rialto-parachain-messages-pallet-owner",
-			"//MillauMessagesOwner",
+			"//Millau.MessagesOwner",
 			"--rialto-parachain-transactions-mortality",
 			"64",
 			"--rialto-host",
@@ -925,7 +925,9 @@ mod tests {
 						millau_transactions_mortality: Some(64),
 					},
 					left_messages_pallet_owner: MillauMessagesPalletOwnerSigningParams {
-						millau_messages_pallet_owner: Some("//RialtoParachainMessagesOwner".into()),
+						millau_messages_pallet_owner: Some(
+							"//RialtoParachain.MessagesOwner".into()
+						),
 						millau_messages_pallet_owner_password: None,
 					},
 					left_headers_to_right_sign_override:
@@ -955,7 +957,7 @@ mod tests {
 					},
 					right_messages_pallet_owner: RialtoParachainMessagesPalletOwnerSigningParams {
 						rialto_parachain_messages_pallet_owner: Some(
-							"//MillauMessagesOwner".into()
+							"//Millau.MessagesOwner".into()
 						),
 						rialto_parachain_messages_pallet_owner_password: None,
 					},
