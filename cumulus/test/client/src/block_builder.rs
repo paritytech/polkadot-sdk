@@ -136,8 +136,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
-		let last_timestamp =
-			self.runtime_api().get_last_timestamp(&at).expect("Get last timestamp");
+		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
 		let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
 

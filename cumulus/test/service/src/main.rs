@@ -77,9 +77,7 @@ fn main() -> Result<(), sc_cli::Error> {
 			let parachain_id = ParaId::from(cli.parachain_id);
 			let polkadot_cli = RelayChainCli::new(
 				&config,
-				[RelayChainCli::executable_name().to_string()]
-					.iter()
-					.chain(cli.relaychain_args.iter()),
+				[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
 			);
 
 			let parachain_account =

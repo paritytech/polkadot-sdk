@@ -218,7 +218,7 @@ where
 
 	/// Handle an imported block.
 	fn handle_block_imported(&mut self, hash: &Block::Hash) {
-		self.pending_candidates.remove(&hash);
+		self.pending_candidates.remove(hash);
 	}
 
 	/// Handle a finalized block with the given `block_number`.

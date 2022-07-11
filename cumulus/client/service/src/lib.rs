@@ -218,9 +218,9 @@ where
 			min: relay_chain_slot_duration * 25,
 			max: relay_chain_slot_duration * 50,
 		},
-		client.clone(),
+		client,
 		import_queue,
-		relay_chain_interface.clone(),
+		relay_chain_interface,
 		para_id,
 	);
 

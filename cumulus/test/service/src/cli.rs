@@ -327,10 +327,8 @@ impl SubstrateCli for RelayChainCli {
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		<polkadot_cli::Cli as SubstrateCli>::from_iter(
-			[RelayChainCli::executable_name().to_string()].iter(),
-		)
-		.load_spec(id)
+		<polkadot_cli::Cli as SubstrateCli>::from_iter([RelayChainCli::executable_name()].iter())
+			.load_spec(id)
 	}
 
 	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {

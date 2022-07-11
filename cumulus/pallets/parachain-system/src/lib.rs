@@ -898,7 +898,7 @@ impl<T: Config> Pallet<T> {
 
 				running_mqc_heads
 					.entry(sender)
-					.or_insert_with(|| last_mqc_heads.get(&sender).cloned().unwrap_or_default())
+					.or_insert_with(|| last_mqc_heads.get(sender).cloned().unwrap_or_default())
 					.extend_hrmp(horizontal_message);
 			}
 		}

@@ -151,10 +151,10 @@ pub fn generate_extrinsic(
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
 	UncheckedExtrinsic::new_signed(
-		function.clone(),
+		function,
 		origin.public().into(),
-		Signature::Sr25519(signature.clone()),
-		extra.clone(),
+		Signature::Sr25519(signature),
+		extra,
 	)
 }
 

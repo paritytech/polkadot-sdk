@@ -140,7 +140,7 @@ pub fn new_partial(
 	);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(&config, None, executor)?;
+		sc_service::new_full_parts::<Block, RuntimeApi, _>(config, None, executor)?;
 	let client = Arc::new(client);
 
 	let registry = config.prometheus_registry();
@@ -158,7 +158,7 @@ pub fn new_partial(
 		client.clone(),
 		|_, _| async { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
 		&task_manager.spawn_essential_handle(),
-		registry.clone(),
+		registry,
 	)?;
 
 	let params = PartialComponents {
@@ -200,7 +200,7 @@ async fn build_relay_chain_interface(
 		relay_chain_full_node.client.clone(),
 		relay_chain_full_node.backend.clone(),
 		Arc::new(Mutex::new(Box::new(relay_chain_full_node.network.clone()))),
-		relay_chain_full_node.overseer_handle.clone(),
+		relay_chain_full_node.overseer_handle,
 	)) as Arc<_>)
 }
 
@@ -621,7 +621,7 @@ pub fn node_config(
 	spec.set_storage(storage);
 
 	let mut network_config = NetworkConfiguration::new(
-		format!("{} (parachain)", key_seed.to_string()),
+		format!("{} (parachain)", key_seed),
 		"network/test/0.1",
 		Default::default(),
 		None,
@@ -774,10 +774,10 @@ pub fn construct_extrinsic(
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
-		function.clone(),
+		function,
 		caller.public().into(),
-		runtime::Signature::Sr25519(signature.clone()),
-		extra.clone(),
+		runtime::Signature::Sr25519(signature),
+		extra,
 	)
 }
 

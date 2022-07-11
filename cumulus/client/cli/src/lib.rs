@@ -227,7 +227,7 @@ pub struct ExportGenesisWasmCommand {
 }
 
 impl ExportGenesisWasmCommand {
-	/// Run the export-genesis-state command
+	/// Run the export-genesis-wasm command
 	pub fn run(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<()> {
 		let raw_wasm_blob = extract_genesis_wasm(chain_spec)?;
 		let output_buf = if self.raw {
