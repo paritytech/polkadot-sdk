@@ -68,14 +68,6 @@ pub struct TestPayload {
 pub type TestMessageFee = u64;
 pub type TestRelayer = u64;
 
-pub struct AccountIdConverter;
-
-impl sp_runtime::traits::Convert<H256, AccountId> for AccountIdConverter {
-	fn convert(hash: H256) -> AccountId {
-		hash.to_low_u64_ne()
-	}
-}
-
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
@@ -181,8 +173,6 @@ impl Config for TestRuntime {
 	type InboundPayload = TestPayload;
 	type InboundMessageFee = TestMessageFee;
 	type InboundRelayer = TestRelayer;
-
-	type AccountIdConverter = AccountIdConverter;
 
 	type TargetHeaderChain = TestTargetHeaderChain;
 	type LaneMessageVerifier = TestLaneMessageVerifier;
@@ -360,7 +350,6 @@ impl MessageDeliveryAndDispatchPayment<Origin, AccountId, TestMessageFee>
 	fn pay_delivery_and_dispatch_fee(
 		submitter: &Origin,
 		fee: &TestMessageFee,
-		_relayer_fund_account: &AccountId,
 	) -> Result<(), Self::Error> {
 		if frame_support::storage::unhashed::get(b":reject-message-fee:") == Some(true) {
 			return Err(TEST_ERROR)
@@ -376,7 +365,6 @@ impl MessageDeliveryAndDispatchPayment<Origin, AccountId, TestMessageFee>
 		message_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
 		_confirmation_relayer: &AccountId,
 		received_range: &RangeInclusive<MessageNonce>,
-		_relayer_fund_account: &AccountId,
 	) {
 		let relayers_rewards =
 			calc_relayers_rewards::<TestRuntime, ()>(lane_id, message_relayers, received_range);
