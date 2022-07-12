@@ -24,6 +24,7 @@ use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 pub mod contracts;
+pub mod penpal;
 pub mod seedling;
 pub mod shell;
 pub mod statemint;

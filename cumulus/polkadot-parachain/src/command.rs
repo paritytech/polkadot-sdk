@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::net::SocketAddr;
-
 use codec::Encode;
 use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
@@ -32,6 +30,7 @@ use sc_service::{
 };
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
+use std::net::SocketAddr;
 
 use crate::{
 	chain_spec,
@@ -50,6 +49,7 @@ enum Runtime {
 	Statemint,
 	Statemine,
 	Westmint,
+	Penpal(ParaId),
 	ContractsRococo,
 }
 
@@ -73,6 +73,7 @@ impl ChainType
 }
 
 fn runtime(id: &str) -> Runtime {
+	let (_, id, para_id) = extract_parachain_id(id);
 	if id.starts_with("shell") {
 		Runtime::Shell
 	} else if id.starts_with("seedling") {
@@ -83,6 +84,8 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::Statemine
 	} else if id.starts_with("westmint") {
 		Runtime::Westmint
+	} else if id.starts_with("penpal") {
+		Runtime::Penpal(para_id.unwrap_or(ParaId::new(0)))
 	} else if id.starts_with("contracts-rococo") {
 		Runtime::ContractsRococo
 	} else {
@@ -91,6 +94,7 @@ fn runtime(id: &str) -> Runtime {
 }
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+	let (id, _, para_id) = extract_parachain_id(id);
 	Ok(match id {
 		"staging" => Box::new(chain_spec::staging_test_net()),
 		"tick" => Box::new(chain_spec::ChainSpec::from_json_bytes(
@@ -142,6 +146,14 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		)?),
 		// -- Fallback (generic chainspec)
 		"" => Box::new(chain_spec::get_chain_spec()),
+		"penpal-kusama" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
+			para_id.expect("Must specify parachain id"),
+			"kusama-local",
+		)),
+		"penpal-polkadot" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
+			para_id.expect("Must specify parachain id"),
+			"polkadot-local",
+		)),
 		// -- Loading a specific spec from disk
 		path => {
 			let chain_spec = chain_spec::ChainSpec::from_json_file(path.into())?;
@@ -161,10 +173,34 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 				Runtime::ContractsRococo => Box::new(
 					chain_spec::contracts::ContractsRococoChainSpec::from_json_file(path.into())?,
 				),
+				Runtime::Penpal(_para_id) =>
+					Box::new(chain_spec::penpal::PenpalChainSpec::from_json_file(path.into())?),
 				Runtime::Generic => Box::new(chain_spec),
 			}
 		},
 	})
+}
+
+/// Extracts the normalized chain id and parachain id from the input chain id.
+/// (H/T to Phala for the idea)
+/// E.g. "penpal-kusama-2004" yields ("penpal-kusama", Some(2004))
+fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
+	const KUSAMA_TEST_PARA_PREFIX: &str = "penpal-kusama-";
+	const POLKADOT_TEST_PARA_PREFIX: &str = "penpal-polkadot-";
+
+	let (norm_id, orig_id, para) = if id.starts_with(KUSAMA_TEST_PARA_PREFIX) {
+		let suffix = &id[KUSAMA_TEST_PARA_PREFIX.len()..];
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..KUSAMA_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
+	} else if id.starts_with(POLKADOT_TEST_PARA_PREFIX) {
+		let suffix = &id[POLKADOT_TEST_PARA_PREFIX.len()..];
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..POLKADOT_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
+	} else {
+		(id, id, None)
+	};
+
+	(norm_id, orig_id, para.map(Into::into))
 }
 
 impl SubstrateCli for Cli {
@@ -210,6 +246,7 @@ impl SubstrateCli for Cli {
 			Runtime::Shell => &shell_runtime::VERSION,
 			Runtime::Seedling => &seedling_runtime::VERSION,
 			Runtime::ContractsRococo => &contracts_rococo_runtime::VERSION,
+			Runtime::Penpal(_) => &penpal_runtime::VERSION,
 			Runtime::Generic => &rococo_parachain_runtime::VERSION,
 		}
 	}
@@ -349,7 +386,7 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::Generic => {
+			Runtime::Penpal(_) | Runtime::Generic => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<
 						rococo_parachain_runtime::RuntimeApi,
@@ -591,16 +628,17 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::Generic => crate::service::start_rococo_parachain_node(
-						config,
-						polkadot_config,
-						collator_options,
-						id,
-						hwbench,
-					)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into),
+					Runtime::Penpal(_) | Runtime::Generic =>
+						crate::service::start_rococo_parachain_node(
+							config,
+							polkadot_config,
+							collator_options,
+							id,
+							hwbench,
+						)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
 				}
 			})
 		},
