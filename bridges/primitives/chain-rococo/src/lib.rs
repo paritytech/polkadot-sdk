@@ -69,13 +69,6 @@ impl WeightToFeePolynomial for WeightToFee {
 	}
 }
 
-// We use this to get the account on Rococo (target) which is derived from Wococo's (source)
-// account.
-pub fn derive_account_from_wococo_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
-	let encoded_id = bp_runtime::derive_account_id(bp_runtime::WOCOCO_CHAIN_ID, id);
-	AccountIdConverter::convert(encoded_id)
-}
-
 /// Name of the With-Rococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
 /// Name of the With-Rococo messages pallet instance that is deployed at bridged chains.

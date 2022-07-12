@@ -461,8 +461,6 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type InboundMessageFee = bp_rialto::Balance;
 	type InboundRelayer = bp_rialto::AccountId;
 
-	type AccountIdConverter = bp_millau::AccountIdConverter;
-
 	type TargetHeaderChain = crate::rialto_messages::Rialto;
 	type LaneMessageVerifier = crate::rialto_messages::ToRialtoMessageVerifier;
 	type MessageDeliveryAndDispatchPayment = ();
@@ -493,8 +491,6 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 	type InboundPayload = crate::rialto_parachain_messages::FromRialtoParachainMessagePayload;
 	type InboundMessageFee = bp_rialto_parachain::Balance;
 	type InboundRelayer = bp_rialto_parachain::AccountId;
-
-	type AccountIdConverter = bp_millau::AccountIdConverter;
 
 	type TargetHeaderChain = crate::rialto_parachain_messages::RialtoParachain;
 	type LaneMessageVerifier = crate::rialto_parachain_messages::ToRialtoParachainMessageVerifier;

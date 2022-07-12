@@ -105,8 +105,7 @@ macro_rules! assert_bridge_messages_pallet_types(
 	(
 		runtime: $r:path,
 		with_bridged_chain_messages_instance: $i:path,
-		bridge: $bridge:path,
-		this_chain_account_id_converter: $this_converter:path
+		bridge: $bridge:path
 	) => {
 		{
 			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
@@ -127,8 +126,6 @@ macro_rules! assert_bridge_messages_pallet_types(
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::InboundMessageFee, BalanceOf<BridgedChain<$bridge>>);
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::InboundRelayer, AccountIdOf<BridgedChain<$bridge>>);
 
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::AccountIdConverter, $this_converter);
-
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::TargetHeaderChain, BridgedChain<$bridge>);
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::SourceHeaderChain, BridgedChain<$bridge>);
 		}
@@ -148,7 +145,6 @@ macro_rules! assert_complete_bridge_types(
 		bridge: $bridge:path,
 		this_chain: $this:path,
 		bridged_chain: $bridged:path,
-		this_chain_account_id_converter: $this_converter:path
 	) => {
 		$crate::assert_chain_types!(runtime: $r, this_chain: $this);
 		$crate::assert_bridge_types!(bridge: $bridge, this_chain: $this, bridged_chain: $bridged);
@@ -160,8 +156,7 @@ macro_rules! assert_complete_bridge_types(
 		$crate::assert_bridge_messages_pallet_types!(
 			runtime: $r,
 			with_bridged_chain_messages_instance: $mi,
-			bridge: $bridge,
-			this_chain_account_id_converter: $this_converter
+			bridge: $bridge
 		);
 	}
 );
