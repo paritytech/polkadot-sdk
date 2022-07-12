@@ -38,13 +38,6 @@ pub type Wococo = PolkadotLike;
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = time_units::MINUTES;
 
-// We use this to get the account on Wococo (target) which is derived from Rococo's (source)
-// account.
-pub fn derive_account_from_rococo_id(id: bp_runtime::SourceAccount<AccountId>) -> AccountId {
-	let encoded_id = bp_runtime::derive_account_id(bp_runtime::ROCOCO_CHAIN_ID, id);
-	AccountIdConverter::convert(encoded_id)
-}
-
 /// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
 /// Name of the With-Wococo messages pallet instance that is deployed at bridged chains.

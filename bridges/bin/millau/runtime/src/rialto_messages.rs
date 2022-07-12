@@ -371,7 +371,6 @@ mod tests {
 			bridge: WithRialtoMessageBridge,
 			this_chain: bp_millau::Millau,
 			bridged_chain: bp_rialto::Rialto,
-			this_chain_account_id_converter: bp_millau::AccountIdConverter
 		);
 
 		assert_complete_bridge_constants::<

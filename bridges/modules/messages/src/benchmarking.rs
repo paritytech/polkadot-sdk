@@ -126,10 +126,8 @@ benchmarks_instance_pallet! {
 	// added.
 	send_minimal_message_worst_case {
 		let lane_id = T::bench_lane_id();
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 0, SEED);
 		T::endow_account(&sender);
-		T::endow_account(&relayers_fund_id);
 
 		// 'send' messages that are to be pruned when our message is sent
 		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
@@ -159,10 +157,8 @@ benchmarks_instance_pallet! {
 	// `(send_16_kb_message_worst_case - send_1_kb_message_worst_case) / 15`.
 	send_1_kb_message_worst_case {
 		let lane_id = T::bench_lane_id();
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 0, SEED);
 		T::endow_account(&sender);
-		T::endow_account(&relayers_fund_id);
 
 		// 'send' messages that are to be pruned when our message is sent
 		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
@@ -198,10 +194,8 @@ benchmarks_instance_pallet! {
 	// `(send_16_kb_message_worst_case - send_1_kb_message_worst_case) / 15`.
 	send_16_kb_message_worst_case {
 		let lane_id = T::bench_lane_id();
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 0, SEED);
 		T::endow_account(&sender);
-		T::endow_account(&relayers_fund_id);
 
 		// 'send' messages that are to be pruned when our message is sent
 		for _nonce in 1..=T::MaxMessagesToPruneAtOnce::get() {
@@ -233,10 +227,8 @@ benchmarks_instance_pallet! {
 	//
 	// Result of this benchmark is directly used by weight formula of the call.
 	maximal_increase_message_fee {
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 42, SEED);
 		T::endow_account(&sender);
-		T::endow_account(&relayers_fund_id);
 
 		let additional_fee = T::account_balance(&sender);
 		let lane_id = T::bench_lane_id();
@@ -257,10 +249,8 @@ benchmarks_instance_pallet! {
 	increase_message_fee {
 		let i in 0..T::maximal_message_size().try_into().unwrap_or_default();
 
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let sender = account("sender", 42, SEED);
 		T::endow_account(&sender);
-		T::endow_account(&relayers_fund_id);
 
 		let additional_fee = T::account_balance(&sender);
 		let lane_id = T::bench_lane_id();
@@ -488,10 +478,8 @@ benchmarks_instance_pallet! {
 	//
 	// This is base benchmark for all other confirmations delivery benchmarks.
 	receive_delivery_proof_for_single_message {
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
-		T::endow_account(&relayers_fund_id);
 
 		// send message that we're going to confirm
 		send_regular_message::<T, I>();
@@ -526,10 +514,8 @@ benchmarks_instance_pallet! {
 	// as `weight(receive_delivery_proof_for_two_messages_by_single_relayer)
 	//   - weight(receive_delivery_proof_for_single_message)`.
 	receive_delivery_proof_for_two_messages_by_single_relayer {
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let relayer_id: T::AccountId = account("relayer", 0, SEED);
 		let relayer_balance = T::account_balance(&relayer_id);
-		T::endow_account(&relayers_fund_id);
 
 		// send message that we're going to confirm
 		send_regular_message::<T, I>();
@@ -567,12 +553,10 @@ benchmarks_instance_pallet! {
 	// as `weight(receive_delivery_proof_for_two_messages_by_two_relayers)
 	//   - weight(receive_delivery_proof_for_two_messages_by_single_relayer)`.
 	receive_delivery_proof_for_two_messages_by_two_relayers {
-		let relayers_fund_id = crate::relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 		let relayer1_id: T::AccountId = account("relayer1", 1, SEED);
 		let relayer1_balance = T::account_balance(&relayer1_id);
 		let relayer2_id: T::AccountId = account("relayer2", 2, SEED);
 		let relayer2_balance = T::account_balance(&relayer2_id);
-		T::endow_account(&relayers_fund_id);
 
 		// send message that we're going to confirm
 		send_regular_message::<T, I>();
