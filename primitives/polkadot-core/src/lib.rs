@@ -390,15 +390,6 @@ impl Chain for PolkadotLike {
 	}
 }
 
-/// Convert a 256-bit hash into an AccountId.
-pub struct AccountIdConverter;
-
-impl Convert<sp_core::H256, AccountId> for AccountIdConverter {
-	fn convert(hash: sp_core::H256) -> AccountId {
-		hash.to_fixed_bytes().into()
-	}
-}
-
 /// Return a storage key for account data.
 ///
 /// This is based on FRAME storage-generation code from Substrate:

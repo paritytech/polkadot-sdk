@@ -71,8 +71,6 @@ use frame_support::{
 	weights::{Pays, PostDispatchInfo},
 };
 use num_traits::{SaturatingAdd, Zero};
-use sp_core::H256;
-use sp_runtime::traits::Convert;
 use sp_std::{
 	cell::RefCell, cmp::PartialOrd, collections::vec_deque::VecDeque, marker::PhantomData,
 	ops::RangeInclusive, prelude::*,
@@ -169,11 +167,6 @@ pub mod pallet {
 		/// Identifier of relayer that deliver messages to this chain. Relayer reward is paid on the
 		/// bridged chain.
 		type InboundRelayer: Parameter + MaxEncodedLen;
-
-		/// A type which can be turned into an AccountId from a 256-bit hash.
-		///
-		/// Used when deriving the shared relayer fund account.
-		type AccountIdConverter: sp_runtime::traits::Convert<sp_core::hash::H256, Self::AccountId>;
 
 		// Types that are used by outbound_lane (on source chain).
 
@@ -313,16 +306,14 @@ pub mod pallet {
 			T::MessageDeliveryAndDispatchPayment::pay_delivery_and_dispatch_fee(
 				&origin,
 				&additional_fee,
-				&relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>(),
 			)
 			.map_err(|err| {
 				log::trace!(
 					target: LOG_TARGET,
-					"Submitter can't pay additional fee {:?} for the message {:?}/{:?} to {:?}: {:?}",
+					"Submitter can't pay additional fee {:?} for the message {:?}/{:?}: {:?}",
 					additional_fee,
 					lane_id,
 					nonce,
-					relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>(),
 					err,
 				);
 
@@ -629,14 +620,11 @@ pub mod pallet {
 				});
 
 				// if some new messages have been confirmed, reward relayers
-				let relayer_fund_account =
-					relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>();
 				<T as Config<I>>::MessageDeliveryAndDispatchPayment::pay_relayers_rewards(
 					lane_id,
 					lane_data.relayers,
 					&confirmation_relayer,
 					&received_range,
-					&relayer_fund_account,
 				);
 			}
 
@@ -787,16 +775,6 @@ pub mod pallet {
 	}
 }
 
-/// AccountId of the shared relayer fund account.
-///
-/// This account is passed to `MessageDeliveryAndDispatchPayment` trait, and depending
-/// on the implementation it can be used to store relayers rewards.
-pub fn relayer_fund_account_id<AccountId, AccountIdConverter: Convert<H256, AccountId>>(
-) -> AccountId {
-	let encoded_id = bp_runtime::derive_relayer_fund_account_id(bp_runtime::NO_INSTANCE_ID);
-	AccountIdConverter::convert(encoded_id)
-}
-
 impl<T, I>
 	bp_messages::source_chain::MessagesBridge<
 		T::Origin,
@@ -877,7 +855,6 @@ fn send_message<T: Config<I>, I: 'static>(
 	T::MessageDeliveryAndDispatchPayment::pay_delivery_and_dispatch_fee(
 		&submitter,
 		&delivery_and_dispatch_fee,
-		&relayer_fund_account_id::<T::AccountId, T::AccountIdConverter>(),
 	)
 	.map_err(|err| {
 		log::trace!(
