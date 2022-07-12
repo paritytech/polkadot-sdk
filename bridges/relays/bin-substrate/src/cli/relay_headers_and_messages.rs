@@ -77,9 +77,6 @@ pub struct HeadersAndMessagesSharedParams {
 	lane: Vec<HexLaneId>,
 	#[structopt(long, possible_values = RelayerMode::VARIANTS, case_insensitive = true, default_value = "rational")]
 	relayer_mode: RelayerMode,
-	/// Create relayers fund accounts on both chains, if it does not exists yet.
-	#[structopt(long)]
-	create_relayers_fund_accounts: bool,
 	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set)
 	/// are relayed.
 	#[structopt(long)]
@@ -185,9 +182,6 @@ macro_rules! select_bridge {
 				type Left = relay_millau_client::Millau;
 				type Right = relay_rialto_client::Rialto;
 
-				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
-				type RightAccountIdConverter = bp_rialto::AccountIdConverter;
-
 				use crate::chains::{
 					millau_messages_to_rialto::MillauMessagesToRialto as LeftToRightMessageLane,
 					rialto_messages_to_millau::RialtoMessagesToMillau as RightToLeftMessageLane,
@@ -222,22 +216,6 @@ macro_rules! select_bridge {
 					).await
 				}
 
-				async fn left_create_account(
-					_left_client: Client<Left>,
-					_left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
-					_account_id: AccountIdOf<Left>,
-				) -> anyhow::Result<()> {
-					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
-				}
-
-				async fn right_create_account(
-					_right_client: Client<Right>,
-					_right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
-					_account_id: AccountIdOf<Right>,
-				) -> anyhow::Result<()> {
-					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
-				}
-
 				$generic
 			},
 			RelayHeadersAndMessages::MillauRialtoParachain(_) => {
@@ -245,9 +223,6 @@ macro_rules! select_bridge {
 
 				type Left = relay_millau_client::Millau;
 				type Right = relay_rialto_parachain_client::RialtoParachain;
-
-				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
-				type RightAccountIdConverter = bp_rialto_parachain::AccountIdConverter;
 
 				use crate::chains::{
 					millau_messages_to_rialto_parachain::MillauMessagesToRialtoParachain as LeftToRightMessageLane,
@@ -288,22 +263,6 @@ macro_rules! select_bridge {
 						at_left_relay_accounts,
 						at_right_relay_accounts,
 					).await
-				}
-
-				async fn left_create_account(
-					_left_client: Client<Left>,
-					_left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
-					_account_id: AccountIdOf<Left>,
-				) -> anyhow::Result<()> {
-					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
-				}
-
-				async fn right_create_account(
-					_right_client: Client<Right>,
-					_right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
-					_account_id: AccountIdOf<Right>,
-				) -> anyhow::Result<()> {
-					Err(anyhow::format_err!("Account creation is not supported by this bridge"))
 				}
 
 				$generic
@@ -443,45 +402,6 @@ impl RelayHeadersAndMessages {
 					id: right_messages_pallet_owner.public().into(),
 					bridged_chain: Left::NAME.to_string(),
 				});
-			}
-
-			// optionally, create relayers fund account
-			if params.shared.create_relayers_fund_accounts {
-				let relayer_fund_acount_id = pallet_bridge_messages::relayer_fund_account_id::<
-					AccountIdOf<Left>,
-					LeftAccountIdConverter,
-				>();
-				let relayers_fund_account_balance =
-					left_client.free_native_balance(relayer_fund_acount_id.clone()).await;
-				if let Err(relay_substrate_client::Error::AccountDoesNotExist) =
-					relayers_fund_account_balance
-				{
-					log::info!(target: "bridge", "Going to create relayers fund account at {}.", Left::NAME);
-					left_create_account(
-						left_client.clone(),
-						left_sign.clone(),
-						relayer_fund_acount_id,
-					)
-					.await?;
-				}
-
-				let relayer_fund_acount_id = pallet_bridge_messages::relayer_fund_account_id::<
-					AccountIdOf<Right>,
-					RightAccountIdConverter,
-				>();
-				let relayers_fund_account_balance =
-					right_client.free_native_balance(relayer_fund_acount_id.clone()).await;
-				if let Err(relay_substrate_client::Error::AccountDoesNotExist) =
-					relayers_fund_account_balance
-				{
-					log::info!(target: "bridge", "Going to create relayers fund account at {}.", Right::NAME);
-					right_create_account(
-						right_client.clone(),
-						right_sign.clone(),
-						relayer_fund_acount_id,
-					)
-					.await?;
-				}
 			}
 
 			// start on-demand header relays
@@ -785,7 +705,6 @@ mod tests {
 						HexLaneId([0x73, 0x77, 0x61, 0x70])
 					],
 					relayer_mode: RelayerMode::Rational,
-					create_relayers_fund_accounts: false,
 					only_mandatory_headers: false,
 					prometheus_params: PrometheusParams {
 						no_prometheus: false,
@@ -899,7 +818,6 @@ mod tests {
 					shared: HeadersAndMessagesSharedParams {
 						lane: vec![HexLaneId([0x00, 0x00, 0x00, 0x00])],
 						relayer_mode: RelayerMode::Rational,
-						create_relayers_fund_accounts: false,
 						only_mandatory_headers: false,
 						prometheus_params: PrometheusParams {
 							no_prometheus: false,
