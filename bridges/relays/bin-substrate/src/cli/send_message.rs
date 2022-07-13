@@ -14,12 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::{
-	bridge::{FullBridge, MessagesCliBridge, *},
-	chain_schema::*,
-	encode_message::{self, CliEncodeMessage},
-	estimate_fee::{estimate_message_delivery_and_dispatch_fee, ConversionRateOverride},
-	Balance, CliChain, HexBytes, HexLaneId,
+use crate::{
+	chains::{
+		millau_headers_to_rialto::MillauToRialtoCliBridge,
+		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+		rialto_headers_to_millau::RialtoToMillauCliBridge,
+		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+	},
+	cli::{
+		bridge::{FullBridge, MessagesCliBridge},
+		chain_schema::*,
+		encode_message::{self, CliEncodeMessage},
+		estimate_fee::{estimate_message_delivery_and_dispatch_fee, ConversionRateOverride},
+		Balance, CliChain, HexBytes, HexLaneId,
+	},
 };
 use async_trait::async_trait;
 use codec::Encode;
