@@ -16,8 +16,9 @@
 
 use crate::cli::{
 	bridge::{FullBridge, MessagesCliBridge, *},
+	chain_schema::*,
 	relay_headers_and_messages::CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
-	Balance, HexBytes, HexLaneId, SourceConnectionParams,
+	Balance, HexBytes, HexLaneId,
 };
 use async_trait::async_trait;
 use bp_runtime::BalanceOf;
@@ -80,7 +81,7 @@ where
 	<Self::Source as ChainBase>::Balance: Display + Into<u128>,
 {
 	async fn estimate_fee(data: EstimateFee) -> anyhow::Result<()> {
-		let source_client = data.source.to_client::<Self::Source>().await?;
+		let source_client = data.source.into_client::<Self::Source>().await?;
 		let lane = data.lane.into();
 		let payload =
 			crate::cli::encode_message::encode_message::<Self::Source, Self::Target>(&data.payload)
@@ -239,7 +240,6 @@ async fn do_estimate_message_delivery_and_dispatch_fee<Source: Chain, P: Encode>
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::cli::{RuntimeVersionType, SourceRuntimeVersionParams};
 
 	#[test]
 	fn should_parse_cli_options() {

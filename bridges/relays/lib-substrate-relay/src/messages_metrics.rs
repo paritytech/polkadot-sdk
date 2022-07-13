@@ -274,7 +274,7 @@ pub fn standalone_metrics<P: SubstrateMessageLane>(
 pub async fn add_relay_balances_metrics<C: ChainWithBalances>(
 	client: Client<C>,
 	metrics: MetricsParams,
-	relay_accounts: Vec<TaggedAccount<AccountIdOf<C>>>,
+	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
 ) -> anyhow::Result<MetricsParams>
 where
 	BalanceOf<C>: Into<u128> + std::fmt::Debug,

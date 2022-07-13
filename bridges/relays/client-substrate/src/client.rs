@@ -756,6 +756,15 @@ impl<C: Chain> Client<C> {
 		let client = self.client.clone();
 		self.tokio.spawn(async move { make_jsonrpsee_future(client).await }).await?
 	}
+
+	/// Returns `true` if version guard can be started.
+	///
+	/// There's no reason to run version guard when version mode is set to `Auto`. It can
+	/// lead to relay shutdown when chain is upgraded, even though we have explicitly
+	/// said that we don't want to shutdown.
+	pub fn can_start_version_guard(&self) -> bool {
+		!matches!(self.chain_runtime_version, ChainRuntimeVersion::Auto)
+	}
 }
 
 impl<T: DeserializeOwned> Subscription<T> {

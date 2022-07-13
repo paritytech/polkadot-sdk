@@ -16,15 +16,16 @@
 
 use crate::cli::{
 	bridge::{FullBridge, MessagesCliBridge, *},
+	chain_schema::*,
 	encode_message::{self, CliEncodeMessage},
 	estimate_fee::{estimate_message_delivery_and_dispatch_fee, ConversionRateOverride},
-	Balance, CliChain, HexBytes, HexLaneId, SourceConnectionParams, SourceSigningParams,
+	Balance, CliChain, HexBytes, HexLaneId,
 };
 use async_trait::async_trait;
-use bp_runtime::AccountIdOf;
 use codec::Encode;
 use relay_substrate_client::{
-	AccountKeyPairOf, Chain, ChainBase, SignParam, TransactionSignScheme, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, Chain, ChainBase, SignParam, TransactionSignScheme,
+	UnsignedTransaction,
 };
 use sp_core::{Bytes, Pair};
 use sp_runtime::AccountId32;
@@ -95,7 +96,7 @@ where
 	async fn send_message(data: SendMessage) -> anyhow::Result<()> {
 		let payload = encode_message::encode_message::<Self::Source, Self::Target>(&data.message)?;
 
-		let source_client = data.source.to_client::<Self::Source>().await?;
+		let source_client = data.source.into_client::<Self::Source>().await?;
 		let source_sign = data.source_sign.to_keypair::<Self::Source>()?;
 
 		let lane = data.lane.clone().into();

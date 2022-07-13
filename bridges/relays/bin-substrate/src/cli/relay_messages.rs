@@ -20,16 +20,10 @@ use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 
 use messages_relay::relay_strategy::MixStrategy;
-use relay_substrate_client::{AccountKeyPairOf, ChainBase, TransactionSignScheme};
-use substrate_relay_helper::{
-	messages_lane::{MessagesRelayParams, SubstrateMessageLane},
-	TransactionParams,
-};
+use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, BalanceOf, TransactionSignScheme};
+use substrate_relay_helper::{messages_lane::MessagesRelayParams, TransactionParams};
 
-use crate::cli::{
-	bridge::*, CliChain, HexLaneId, PrometheusParams, SourceConnectionParams, SourceSigningParams,
-	TargetConnectionParams, TargetSigningParams,
-};
+use crate::cli::{bridge::*, chain_schema::*, CliChain, HexLaneId, PrometheusParams};
 
 /// Relayer operating mode.
 #[derive(Debug, EnumString, EnumVariantNames, Clone, Copy, PartialEq, Eq)]
@@ -79,16 +73,15 @@ trait MessagesRelayer: MessagesCliBridge
 where
 	Self::Source: TransactionSignScheme<Chain = Self::Source>
 		+ CliChain<KeyPair = AccountKeyPairOf<Self::Source>>,
-	<Self::Source as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
-	<Self::Target as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
-	<Self::Source as ChainBase>::Balance: TryFrom<<Self::Target as ChainBase>::Balance>,
-	Self::MessagesLane: SubstrateMessageLane<RelayStrategy = MixStrategy>,
+	AccountIdOf<Self::Source>: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
+	AccountIdOf<Self::Target>: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
+	BalanceOf<Self::Source>: TryFrom<BalanceOf<Self::Target>>,
 {
 	async fn relay_messages(data: RelayMessages) -> anyhow::Result<()> {
-		let source_client = data.source.to_client::<Self::Source>().await?;
+		let source_client = data.source.into_client::<Self::Source>().await?;
 		let source_sign = data.source_sign.to_keypair::<Self::Source>()?;
 		let source_transactions_mortality = data.source_sign.transactions_mortality()?;
-		let target_client = data.target.to_client::<Self::Target>().await?;
+		let target_client = data.target.into_client::<Self::Target>().await?;
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
 		let relayer_mode = data.relayer_mode.into();
