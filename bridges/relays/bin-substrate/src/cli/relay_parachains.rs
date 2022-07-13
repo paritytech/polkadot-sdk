@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::chains::{
+	rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+	westend_parachains_to_millau::WestmintToMillauCliBridge,
+};
 use async_trait::async_trait;
 use bp_polkadot_core::parachains::ParaId;
 use parachains_relay::parachains_loop::{ParachainSyncParams, SourceClient, TargetClient};
@@ -25,14 +29,7 @@ use substrate_relay_helper::{
 	TransactionParams,
 };
 
-use crate::cli::{
-	bridge::{
-		ParachainToRelayHeadersCliBridge, RialtoParachainToMillauCliBridge,
-		WestmintToMillauCliBridge,
-	},
-	chain_schema::*,
-	PrometheusParams,
-};
+use crate::cli::{bridge::ParachainToRelayHeadersCliBridge, chain_schema::*, PrometheusParams};
 
 /// Start parachain heads relayer process.
 #[derive(StructOpt)]

@@ -16,6 +16,7 @@
 
 //! Rialto-to-Millau parachains sync entrypoint.
 
+use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge};
 use parachains_relay::ParachainsPipeline;
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
@@ -51,3 +52,24 @@ pub type RialtoParachainsToMillauSubmitParachainHeadsCallBuilder =
 		millau_runtime::Runtime,
 		millau_runtime::WithRialtoParachainsInstance,
 	>;
+
+//// `RialtoParachain` to `Millau` bridge definition.
+pub struct RialtoParachainToMillauCliBridge {}
+
+impl CliBridgeBase for RialtoParachainToMillauCliBridge {
+	type Source = RialtoParachain;
+	type Target = Millau;
+}
+
+impl ParachainToRelayHeadersCliBridge for RialtoParachainToMillauCliBridge {
+	type SourceRelay = Rialto;
+	type ParachainFinality = RialtoParachainsToMillau;
+	type RelayFinality = crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
+}
+
+impl MessagesCliBridge for RialtoParachainToMillauCliBridge {
+	const ESTIMATE_MESSAGE_FEE_METHOD: &'static str =
+		bp_millau::TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD;
+	type MessagesLane =
+		crate::chains::rialto_parachain_messages_to_millau::RialtoParachainMessagesToMillau;
+}

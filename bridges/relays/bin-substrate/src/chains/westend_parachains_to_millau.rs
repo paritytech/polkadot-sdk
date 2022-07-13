@@ -16,6 +16,7 @@
 
 //! Westend-to-Millau parachains sync entrypoint.
 
+use crate::cli::bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge};
 use parachains_relay::ParachainsPipeline;
 use relay_millau_client::Millau;
 use relay_westend_client::{Westend, Westmint};
@@ -50,3 +51,17 @@ pub type WestendParachainsToMillauSubmitParachainHeadsCallBuilder =
 		millau_runtime::Runtime,
 		millau_runtime::WithWestendParachainsInstance,
 	>;
+
+//// `WestendParachain` to `Millau` bridge definition.
+pub struct WestmintToMillauCliBridge {}
+
+impl ParachainToRelayHeadersCliBridge for WestmintToMillauCliBridge {
+	type SourceRelay = Westend;
+	type ParachainFinality = WestendParachainsToMillau;
+	type RelayFinality = crate::chains::westend_headers_to_millau::WestendFinalityToMillau;
+}
+
+impl CliBridgeBase for WestmintToMillauCliBridge {
+	type Source = Westmint;
+	type Target = Millau;
+}
