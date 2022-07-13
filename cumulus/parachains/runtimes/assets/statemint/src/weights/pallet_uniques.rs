@@ -235,4 +235,18 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
+	// Storage: Uniques CollectionMaxSupply (r:1 w:1)
+	// Storage: Uniques Class (r:1 w:0)
+	fn set_price() -> Weight {
+		(16_254_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(2 as Weight))
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+	// Storage: Uniques CollectionMaxSupply (r:1 w:1)
+	// Storage: Uniques Class (r:1 w:0)
+	fn buy_item() -> Weight {
+		(16_254_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(2 as Weight))
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
 }
