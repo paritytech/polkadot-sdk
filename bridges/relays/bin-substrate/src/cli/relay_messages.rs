@@ -19,6 +19,12 @@ use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 
+use crate::chains::{
+	millau_headers_to_rialto::MillauToRialtoCliBridge,
+	millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+	rialto_headers_to_millau::RialtoToMillauCliBridge,
+	rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+};
 use messages_relay::relay_strategy::MixStrategy;
 use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, BalanceOf, TransactionSignScheme};
 use substrate_relay_helper::{messages_lane::MessagesRelayParams, TransactionParams};

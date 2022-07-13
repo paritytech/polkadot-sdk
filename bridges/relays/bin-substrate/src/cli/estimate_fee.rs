@@ -14,11 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::{
-	bridge::{FullBridge, MessagesCliBridge, *},
-	chain_schema::*,
-	relay_headers_and_messages::CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
-	Balance, HexBytes, HexLaneId,
+use crate::{
+	chains::{
+		millau_headers_to_rialto::MillauToRialtoCliBridge,
+		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+		rialto_headers_to_millau::RialtoToMillauCliBridge,
+		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+	},
+	cli::{
+		bridge::{FullBridge, MessagesCliBridge},
+		chain_schema::*,
+		relay_headers_and_messages::CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
+		Balance, HexBytes, HexLaneId,
+	},
 };
 use async_trait::async_trait;
 use bp_runtime::BalanceOf;
