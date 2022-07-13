@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::{Balance, TargetConnectionParams, TargetSigningParams};
+use crate::cli::{chain_schema::*, Balance};
 
 use codec::{Decode, Encode};
 use num_traits::{One, Zero};
@@ -102,7 +102,7 @@ impl ResubmitTransactions {
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.chain, {
 			let relay_loop_name = format!("ResubmitTransactions{}", Target::NAME);
-			let client = self.target.to_client::<Target>().await?;
+			let client = self.target.into_client::<Target>().await?;
 			let transaction_params = TransactionParams {
 				signer: self.target_sign.to_keypair::<Target>()?,
 				mortality: self.target_sign.target_transactions_mortality,
