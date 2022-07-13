@@ -16,12 +16,14 @@
 
 use async_trait::async_trait;
 
-use crate::cli::{
-	bridge::{
-		CliBridgeBase, MillauToRialtoCliBridge, MillauToRialtoParachainCliBridge,
-		RialtoToMillauCliBridge, WestendToMillauCliBridge,
+use crate::{
+	chains::{
+		millau_headers_to_rialto::MillauToRialtoCliBridge,
+		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+		rialto_headers_to_millau::RialtoToMillauCliBridge,
+		westend_headers_to_millau::WestendToMillauCliBridge,
 	},
-	chain_schema::*,
+	cli::{bridge::CliBridgeBase, chain_schema::*},
 };
 use bp_runtime::Chain as ChainBase;
 use codec::Encode;
