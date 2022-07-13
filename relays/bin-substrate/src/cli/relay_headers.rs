@@ -20,6 +20,12 @@ use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 
+use crate::chains::{
+	millau_headers_to_rialto::MillauToRialtoCliBridge,
+	millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+	rialto_headers_to_millau::RialtoToMillauCliBridge,
+	westend_headers_to_millau::WestendToMillauCliBridge,
+};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use substrate_relay_helper::finality::SubstrateFinalitySyncPipeline;
 

@@ -38,12 +38,16 @@ use relay_to_parachain::*;
 use relay_to_relay::*;
 
 use crate::{
+	chains::{
+		millau_headers_to_rialto::MillauToRialtoCliBridge,
+		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+		rialto_headers_to_millau::RialtoToMillauCliBridge,
+		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+	},
 	cli::{
 		bridge::{
-			CliBridgeBase, MessagesCliBridge, MillauToRialtoCliBridge,
-			MillauToRialtoParachainCliBridge, ParachainToRelayHeadersCliBridge,
-			RelayToRelayHeadersCliBridge, RialtoParachainToMillauCliBridge,
-			RialtoToMillauCliBridge,
+			CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge,
+			RelayToRelayHeadersCliBridge,
 		},
 		chain_schema::*,
 		relay_messages::RelayerMode,
