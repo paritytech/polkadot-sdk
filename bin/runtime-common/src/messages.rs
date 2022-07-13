@@ -860,7 +860,7 @@ pub mod target {
 			return Err(MessageProofError::Empty)
 		}
 
-		// We only support single lane messages in this schema
+		// We only support single lane messages in this generated_schema
 		let mut proved_messages = ProvedMessages::new();
 		proved_messages.insert(lane, proved_lane_messages);
 

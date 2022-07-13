@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::{
-	Balance, ParachainConnectionParams, RelaychainConnectionParams, RelaychainSigningParams,
-};
+use crate::cli::{chain_schema::*, Balance};
 
 use codec::Encode;
 use frame_support::Twox64Concat;
@@ -94,9 +92,9 @@ impl RegisterParachain {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		select_bridge!(self.parachain, {
-			let relay_client = self.relay_connection.to_client::<Relaychain>().await?;
+			let relay_client = self.relay_connection.into_client::<Relaychain>().await?;
 			let relay_sign = self.relay_sign.to_keypair::<Relaychain>()?;
-			let para_client = self.para_connection.to_client::<Parachain>().await?;
+			let para_client = self.para_connection.into_client::<Parachain>().await?;
 
 			// hopefully we're the only actor that is registering parachain right now
 			// => read next parachain id
@@ -343,9 +341,6 @@ async fn wait_para_state<Relaychain: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::cli::{
-		ParachainRuntimeVersionParams, RelaychainRuntimeVersionParams, RuntimeVersionType,
-	};
 
 	#[test]
 	fn register_rialto_parachain() {

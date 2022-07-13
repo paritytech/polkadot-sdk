@@ -16,27 +16,22 @@
 
 use async_trait::async_trait;
 use bp_polkadot_core::parachains::ParaId;
-use pallet_bridge_parachains::RelayBlockNumber;
-use parachains_relay::{
-	parachains_loop::{ParachainSyncParams, SourceClient, TargetClient},
-	ParachainsPipeline,
-};
-use relay_substrate_client::{Chain, RelayChain};
+use parachains_relay::parachains_loop::{ParachainSyncParams, SourceClient, TargetClient};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 use substrate_relay_helper::{
-	parachains::{
-		source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter,
-		SubstrateParachainsPipeline,
-	},
+	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
 	TransactionParams,
 };
 
 use crate::cli::{
-	bridge::{CliBridgeBase, RialtoParachainToMillauCliBridge, WestmintToMillauCliBridge},
-	CliChain, PrometheusParams, SourceConnectionParams, TargetConnectionParams,
-	TargetSigningParams,
+	bridge::{
+		ParachainToRelayHeadersCliBridge, RialtoParachainToMillauCliBridge,
+		WestmintToMillauCliBridge,
+	},
+	chain_schema::*,
+	PrometheusParams,
 };
 
 /// Start parachain heads relayer process.
@@ -64,29 +59,23 @@ pub enum RelayParachainsBridge {
 }
 
 #[async_trait]
-trait ParachainsRelayer: CliBridgeBase
+trait ParachainsRelayer: ParachainToRelayHeadersCliBridge
 where
-	ParachainsSource<Self::Pipeline>: SourceClient<ParachainsPipelineAdapter<Self::Pipeline>>,
-	ParachainsTarget<Self::Pipeline>: TargetClient<ParachainsPipelineAdapter<Self::Pipeline>>,
+	ParachainsSource<Self::ParachainFinality>:
+		SourceClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
+	ParachainsTarget<Self::ParachainFinality>:
+		TargetClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
 {
-	type SourceRelay: Chain<BlockNumber = RelayBlockNumber> + CliChain + RelayChain;
-	type Pipeline: SubstrateParachainsPipeline<
-			SourceParachain = Self::Source,
-			TargetChain = Self::Target,
-			SourceRelayChain = Self::SourceRelay,
-			TransactionSignScheme = Self::Target,
-		> + ParachainsPipeline<SourceChain = Self::SourceRelay, TargetChain = Self::Target>;
-
 	async fn relay_headers(data: RelayParachains) -> anyhow::Result<()> {
-		let source_client = data.source.to_client::<Self::SourceRelay>().await?;
-		let source_client = ParachainsSource::<Self::Pipeline>::new(source_client, None);
+		let source_client = data.source.into_client::<Self::SourceRelay>().await?;
+		let source_client = ParachainsSource::<Self::ParachainFinality>::new(source_client, None);
 
 		let target_transaction_params = TransactionParams {
 			signer: data.target_sign.to_keypair::<Self::Target>()?,
 			mortality: data.target_sign.target_transactions_mortality,
 		};
-		let target_client = data.target.to_client::<Self::Target>().await?;
-		let target_client = ParachainsTarget::<Self::Pipeline>::new(
+		let target_client = data.target.into_client::<Self::Target>().await?;
+		let target_client = ParachainsTarget::<Self::ParachainFinality>::new(
 			target_client.clone(),
 			target_transaction_params,
 		);
@@ -110,15 +99,9 @@ where
 	}
 }
 
-impl ParachainsRelayer for RialtoParachainToMillauCliBridge {
-	type SourceRelay = relay_rialto_client::Rialto;
-	type Pipeline = crate::chains::rialto_parachains_to_millau::RialtoParachainsToMillau;
-}
+impl ParachainsRelayer for RialtoParachainToMillauCliBridge {}
 
-impl ParachainsRelayer for WestmintToMillauCliBridge {
-	type SourceRelay = relay_westend_client::Westend;
-	type Pipeline = crate::chains::westend_parachains_to_millau::WestendParachainsToMillau;
-}
+impl ParachainsRelayer for WestmintToMillauCliBridge {}
 
 impl RelayParachains {
 	/// Run the command.

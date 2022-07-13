@@ -21,7 +21,7 @@ use crate::cli::{
 		CliBridgeBase, MillauToRialtoCliBridge, MillauToRialtoParachainCliBridge,
 		RialtoToMillauCliBridge, WestendToMillauCliBridge,
 	},
-	SourceConnectionParams, TargetConnectionParams, TargetSigningParams,
+	chain_schema::*,
 };
 use bp_runtime::Chain as ChainBase;
 use codec::Encode;
@@ -71,8 +71,8 @@ where
 
 	/// Initialize the bridge.
 	async fn init_bridge(data: InitBridge) -> anyhow::Result<()> {
-		let source_client = data.source.to_client::<Self::Source>().await?;
-		let target_client = data.target.to_client::<Self::Target>().await?;
+		let source_client = data.source.into_client::<Self::Source>().await?;
+		let target_client = data.target.into_client::<Self::Target>().await?;
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 
 		let (spec_version, transaction_version) = target_client.simple_runtime_version().await?;

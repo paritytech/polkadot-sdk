@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use async_trait::async_trait;
-use relay_substrate_client::{AccountKeyPairOf, ChainBase};
+use relay_substrate_client::{AccountIdOf, AccountKeyPairOf};
 use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
@@ -23,10 +23,7 @@ use strum::{EnumString, EnumVariantNames, VariantNames};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use substrate_relay_helper::finality::SubstrateFinalitySyncPipeline;
 
-use crate::cli::{
-	bridge::*, PrometheusParams, SourceConnectionParams, TargetConnectionParams,
-	TargetSigningParams,
-};
+use crate::cli::{bridge::*, chain_schema::*, PrometheusParams};
 
 /// Start headers relayer process.
 #[derive(StructOpt)]
@@ -59,14 +56,14 @@ pub enum RelayHeadersBridge {
 }
 
 #[async_trait]
-trait HeadersRelayer: HeadersCliBridge
+trait HeadersRelayer: RelayToRelayHeadersCliBridge
 where
-	<Self::Target as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
+	AccountIdOf<Self::Target>: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
 {
 	/// Relay headers.
 	async fn relay_headers(data: RelayHeaders) -> anyhow::Result<()> {
-		let source_client = data.source.to_client::<Self::Source>().await?;
-		let target_client = data.target.to_client::<Self::Target>().await?;
+		let source_client = data.source.into_client::<Self::Source>().await?;
+		let target_client = data.target.into_client::<Self::Target>().await?;
 		let target_transactions_mortality = data.target_sign.target_transactions_mortality;
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 
@@ -80,7 +77,7 @@ where
 		Self::Finality::start_relay_guards(
 			&target_client,
 			&target_transactions_params,
-			data.target.can_start_version_guard(),
+			target_client.can_start_version_guard(),
 		)
 		.await?;
 
