@@ -1,0 +1,187 @@
+// Copyright 2019-2022 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
+
+// Parity Bridges Common is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Parity Bridges Common is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::cli::{
+	bridge::{CliBridgeBase, MessagesCliBridge, RelayToRelayHeadersCliBridge},
+	relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
+	CliChain,
+};
+use bp_runtime::BlockNumberOf;
+use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, Chain, TransactionSignScheme};
+use sp_core::Pair;
+use substrate_relay_helper::{
+	finality::SubstrateFinalitySyncPipeline,
+	on_demand::{headers::OnDemandHeadersRelay, OnDemandRelay},
+	TaggedAccount, TransactionParams,
+};
+
+pub struct RelayToRelayBridge<
+	L2R: MessagesCliBridge + RelayToRelayHeadersCliBridge,
+	R2L: MessagesCliBridge + RelayToRelayHeadersCliBridge,
+> {
+	pub common:
+		Full2WayBridgeCommonParams<<R2L as CliBridgeBase>::Target, <L2R as CliBridgeBase>::Target>,
+	// override for right->left headers signer
+	pub right_to_left_transaction_params:
+		TransactionParams<AccountKeyPairOf<<R2L as CliBridgeBase>::Target>>,
+	// override for left->right headers signer
+	pub left_to_right_transaction_params:
+		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
+}
+
+macro_rules! declare_relay_to_relay_bridge_schema {
+	($left_chain:ident, $right_chain:ident) => {
+		paste::item! {
+			#[doc = $left_chain " and " $right_chain " headers+messages relay params."]
+			#[derive(Debug, PartialEq, StructOpt)]
+			pub struct [<$left_chain $right_chain HeadersAndMessages>] {
+				#[structopt(flatten)]
+				shared: HeadersAndMessagesSharedParams,
+				// default signer, which is always used to sign messages relay transactions on the left chain
+				#[structopt(flatten)]
+				left: [<$left_chain ConnectionParams>],
+				// override for right->left headers signer
+				#[structopt(flatten)]
+				right_headers_to_left_sign_override: [<$right_chain HeadersTo $left_chain SigningParams>],
+				#[structopt(flatten)]
+				left_sign: [<$left_chain SigningParams>],
+				#[structopt(flatten)]
+				left_messages_pallet_owner: [<$left_chain MessagesPalletOwnerSigningParams>],
+				// default signer, which is always used to sign messages relay transactions on the right chain
+				#[structopt(flatten)]
+				right: [<$right_chain ConnectionParams>],
+				// override for left->right headers signer
+				#[structopt(flatten)]
+				left_headers_to_right_sign_override: [<$left_chain HeadersTo $right_chain SigningParams>],
+				#[structopt(flatten)]
+				right_sign: [<$right_chain SigningParams>],
+				#[structopt(flatten)]
+				right_messages_pallet_owner: [<$right_chain MessagesPalletOwnerSigningParams>],
+			}
+
+			impl [<$left_chain $right_chain HeadersAndMessages>] {
+				async fn into_bridge<
+					Left: TransactionSignScheme + CliChain<KeyPair = AccountKeyPairOf<Left>>,
+					Right: TransactionSignScheme + CliChain<KeyPair = AccountKeyPairOf<Right>>,
+					L2R: CliBridgeBase<Source = Left, Target = Right> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
+					R2L: CliBridgeBase<Source = Right, Target = Left> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
+				>(
+					self,
+				) -> anyhow::Result<RelayToRelayBridge<L2R, R2L>> {
+					Ok(RelayToRelayBridge {
+						common: Full2WayBridgeCommonParams {
+							shared: self.shared,
+							left: self.left.into_client::<Left>().await?,
+							left_sign: self.left_sign.to_keypair::<Left>()?,
+							left_transactions_mortality: self.left_sign.transactions_mortality()?,
+							left_messages_pallet_owner: self.left_messages_pallet_owner.to_keypair::<Left>()?,
+							at_left_accounts: vec![],
+							right: self.right.into_client::<Right>().await?,
+							right_sign: self.right_sign.to_keypair::<Right>()?,
+							right_transactions_mortality: self.right_sign.transactions_mortality()?,
+							right_messages_pallet_owner: self.right_messages_pallet_owner.to_keypair::<Right>()?,
+							at_right_accounts: vec![],
+						},
+
+						right_to_left_transaction_params: self
+							.right_headers_to_left_sign_override
+							.transaction_params_or::<Left, _>(&self.left_sign)?,
+						left_to_right_transaction_params: self
+							.left_headers_to_right_sign_override
+							.transaction_params_or::<Right, _>(&self.right_sign)?,
+					})
+				}
+			}
+		}
+	};
+}
+
+#[async_trait]
+impl<
+		Left: Chain + TransactionSignScheme<Chain = Left> + CliChain<KeyPair = AccountKeyPairOf<Left>>,
+		Right: Chain + TransactionSignScheme<Chain = Right> + CliChain<KeyPair = AccountKeyPairOf<Right>>,
+		L2R: CliBridgeBase<Source = Left, Target = Right>
+			+ MessagesCliBridge
+			+ RelayToRelayHeadersCliBridge,
+		R2L: CliBridgeBase<Source = Right, Target = Left>
+			+ MessagesCliBridge
+			+ RelayToRelayHeadersCliBridge,
+	> Full2WayBridgeBase for RelayToRelayBridge<L2R, R2L>
+where
+	AccountIdOf<Left>: From<<AccountKeyPairOf<Left> as Pair>::Public>,
+	AccountIdOf<Right>: From<<AccountKeyPairOf<Right> as Pair>::Public>,
+{
+	type Params = RelayToRelayBridge<L2R, R2L>;
+	type Left = Left;
+	type Right = Right;
+
+	fn common(&self) -> &Full2WayBridgeCommonParams<Left, Right> {
+		&self.common
+	}
+
+	fn mut_common(&mut self) -> &mut Full2WayBridgeCommonParams<Self::Left, Self::Right> {
+		&mut self.common
+	}
+
+	async fn start_on_demand_headers_relayers(
+		&mut self,
+	) -> anyhow::Result<(
+		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Left>>>,
+		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Right>>>,
+	)> {
+		self.common.at_right_accounts.push(TaggedAccount::Headers {
+			id: self.left_to_right_transaction_params.signer.public().into(),
+			bridged_chain: Self::Left::NAME.to_string(),
+		});
+		self.common.at_left_accounts.push(TaggedAccount::Headers {
+			id: self.right_to_left_transaction_params.signer.public().into(),
+			bridged_chain: Self::Right::NAME.to_string(),
+		});
+
+		<L2R as RelayToRelayHeadersCliBridge>::Finality::start_relay_guards(
+			&self.common.right,
+			&self.left_to_right_transaction_params,
+			self.common.right.can_start_version_guard(),
+		)
+		.await?;
+		<R2L as RelayToRelayHeadersCliBridge>::Finality::start_relay_guards(
+			&self.common.left,
+			&self.right_to_left_transaction_params,
+			self.common.left.can_start_version_guard(),
+		)
+		.await?;
+
+		let left_to_right_on_demand_headers =
+			OnDemandHeadersRelay::new::<<L2R as RelayToRelayHeadersCliBridge>::Finality>(
+				self.common.left.clone(),
+				self.common.right.clone(),
+				self.left_to_right_transaction_params.clone(),
+				self.common.shared.only_mandatory_headers,
+			);
+		let right_to_left_on_demand_headers =
+			OnDemandHeadersRelay::new::<<R2L as RelayToRelayHeadersCliBridge>::Finality>(
+				self.common.right.clone(),
+				self.common.left.clone(),
+				self.right_to_left_transaction_params.clone(),
+				self.common.shared.only_mandatory_headers,
+			);
+
+		Ok((Arc::new(left_to_right_on_demand_headers), Arc::new(right_to_left_on_demand_headers)))
+	}
+}
