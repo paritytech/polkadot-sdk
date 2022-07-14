@@ -189,7 +189,7 @@ pub fn generate_genesis_block<Block: BlockT>(
 
 	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
 		Vec::new(),
-		sp_runtime::StateVersion::V0,
+		genesis_state_version,
 	);
 
 	Ok(Block::new(
