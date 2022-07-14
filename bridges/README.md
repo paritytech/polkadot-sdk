@@ -62,8 +62,8 @@ docker run --rm -it -w /shellhere/parity-bridges-common \
 If you want to reproduce other steps of CI process you can use the following
 [guide](https://github.com/paritytech/scripts#reproduce-ci-locally).
 
-If you need more information about setting up your development environment Substrate's
-[Getting Started](https://substrate.dev/docs/en/knowledgebase/getting-started/) page is a good
+If you need more information about setting up your development environment [Substrate's
+Installation page](https://docs.substrate.io/main-docs/install/) is a good
 resource.
 
 ## High-Level Architecture
