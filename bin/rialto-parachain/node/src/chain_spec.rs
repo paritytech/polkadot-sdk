@@ -98,7 +98,8 @@ fn endowed_accounts() -> Vec<AccountId> {
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		// Accounts, used by RialtoParachain<>Millau bridge
 		get_account_id_from_seed::<sr25519::Public>(MILLAU_MESSAGES_PALLET_OWNER),
-		get_account_id_from_seed::<sr25519::Public>("Millau.HeadersAndMessagesRelay"),
+		get_account_id_from_seed::<sr25519::Public>("Millau.HeadersAndMessagesRelay1"),
+		get_account_id_from_seed::<sr25519::Public>("Millau.HeadersAndMessagesRelay2"),
 		get_account_id_from_seed::<sr25519::Public>("Millau.MessagesSender"),
 	]
 	.into_iter()
