@@ -32,6 +32,7 @@ use async_std::{
 };
 use async_trait::async_trait;
 use bp_polkadot_core::parachains::ParaHash;
+use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
 use num_traits::Zero;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
@@ -43,7 +44,6 @@ use relay_substrate_client::{
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient, HeaderId,
 };
-use sp_runtime::traits::Header as HeaderT;
 use std::fmt::Debug;
 
 /// On-demand Substrate <-> Substrate parachain finality relay.
@@ -387,8 +387,7 @@ where
 
 	let best_finalized_relay_header =
 		source.client().best_finalized_header().await.map_err(map_source_err)?;
-	let best_finalized_relay_block_id =
-		HeaderId(*best_finalized_relay_header.number(), best_finalized_relay_header.hash());
+	let best_finalized_relay_block_id = best_finalized_relay_header.id();
 	let para_header_at_source = source
 		.on_chain_parachain_header(
 			best_finalized_relay_block_id,
@@ -396,7 +395,7 @@ where
 		)
 		.await
 		.map_err(map_source_err)?
-		.map(|h| HeaderId(*h.number(), h.hash()));
+		.map(|h| h.id());
 
 	let relay_header_at_source = best_finalized_relay_block_id.0;
 	let relay_header_at_target =
@@ -412,7 +411,7 @@ where
 		.on_chain_parachain_header(relay_header_at_target, P::SOURCE_PARACHAIN_PARA_ID.into())
 		.await
 		.map_err(map_source_err)?
-		.map(|h| HeaderId(*h.number(), h.hash()));
+		.map(|h| h.id());
 
 	Ok(RelayData {
 		required_para_header: required_header_number,
