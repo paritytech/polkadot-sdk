@@ -72,15 +72,34 @@ macro_rules! declare_bridge_reject_obsolete_parachain_header {
 							ref parachains,
 							..
 						}) if parachains.len() == 1 => {
-							let parachain = parachains.get(0).expect("verified by match condition; qed");
+							let (parachain, parachain_head_hash) = parachains.get(0).expect("verified by match condition; qed");
 
 							let bundled_relay_block_number = at_relay_block.0;
 
 							let best_parachain_head = $crate::BestParaHeads::<$runtime, $instance>::get(parachain);
+
 							match best_parachain_head {
 								Some(best_parachain_head) if best_parachain_head.at_relay_block_number
-									>= bundled_relay_block_number =>
-										sp_runtime::transaction_validity::InvalidTransaction::Stale.into(),
+									>= bundled_relay_block_number => {
+									log::trace!(
+										target: $crate::LOG_TARGET,
+										"Rejecting obsolete parachain-head {:?} transaction: bundled relay block number: \
+										{:?} best relay block number: {:?}",
+										parachain,
+										bundled_relay_block_number,
+										best_parachain_head.at_relay_block_number,
+									);
+									sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
+								}
+								Some(best_parachain_head) if best_parachain_head.head_hash == *parachain_head_hash => {
+									log::trace!(
+										target: $crate::LOG_TARGET,
+										"Rejecting obsolete parachain-head {:?} transaction: head hash {:?}",
+										parachain,
+										best_parachain_head.head_hash,
+									);
+									sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
+								}
 								_ => Ok(sp_runtime::transaction_validity::ValidTransaction::default()),
 							}
 						},
@@ -118,7 +137,7 @@ mod tests {
 		mock::{run_test, Call, TestRuntime},
 		BestParaHead, BestParaHeads, RelayBlockNumber,
 	};
-	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
+	use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 	use frame_support::weights::{DispatchClass, DispatchInfo, Pays};
 	use sp_runtime::traits::SignedExtension;
 
@@ -127,7 +146,10 @@ mod tests {
 		Call::Parachains => ()
 	}
 
-	fn validate_submit_parachain_heads(num: RelayBlockNumber, parachains: Vec<ParaId>) -> bool {
+	fn validate_submit_parachain_heads(
+		num: RelayBlockNumber,
+		parachains: Vec<(ParaId, ParaHash)>,
+	) -> bool {
 		BridgeRejectObsoleteParachainHeader
 			.validate(
 				&42,
@@ -147,29 +169,39 @@ mod tests {
 			ParaId(1),
 			BestParaHead {
 				at_relay_block_number: 10,
-				head_hash: Default::default(),
+				head_hash: [1u8; 32].into(),
 				next_imported_hash_position: 0,
 			},
 		);
 	}
 
 	#[test]
-	fn extension_rejects_obsolete_header() {
+	fn extension_rejects_header_from_the_obsolete_relay_block() {
 		run_test(|| {
 			// when current best finalized is #10 and we're trying to import header#5 => tx is
 			// rejected
 			sync_to_relay_header_10();
-			assert!(!validate_submit_parachain_heads(5, vec![ParaId(1)]));
+			assert!(!validate_submit_parachain_heads(5, vec![(ParaId(1), [1u8; 32].into())]));
 		});
 	}
 
 	#[test]
-	fn extension_rejects_same_header() {
+	fn extension_rejects_header_from_the_same_relay_block() {
 		run_test(|| {
 			// when current best finalized is #10 and we're trying to import header#10 => tx is
 			// rejected
 			sync_to_relay_header_10();
-			assert!(!validate_submit_parachain_heads(10, vec![ParaId(1)]));
+			assert!(!validate_submit_parachain_heads(10, vec![(ParaId(1), [1u8; 32].into())]));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_header_from_new_relay_block_with_same_hash() {
+		run_test(|| {
+			// when current best finalized is #10 and we're trying to import header#10 => tx is
+			// rejected
+			sync_to_relay_header_10();
+			assert!(!validate_submit_parachain_heads(20, vec![(ParaId(1), [1u8; 32].into())]));
 		});
 	}
 
@@ -179,7 +211,7 @@ mod tests {
 			// when current best finalized is #10 and we're trying to import header#15 => tx is
 			// accepted
 			sync_to_relay_header_10();
-			assert!(validate_submit_parachain_heads(15, vec![ParaId(1)]));
+			assert!(validate_submit_parachain_heads(15, vec![(ParaId(1), [2u8; 32].into())]));
 		});
 	}
 
@@ -189,7 +221,10 @@ mod tests {
 			// when current best finalized is #10 and we're trying to import header#5, but another
 			// parachain head is also supplied => tx is accepted
 			sync_to_relay_header_10();
-			assert!(validate_submit_parachain_heads(5, vec![ParaId(1), ParaId(2)]));
+			assert!(validate_submit_parachain_heads(
+				5,
+				vec![(ParaId(1), [1u8; 32].into()), (ParaId(2), [1u8; 32].into())]
+			));
 		});
 	}
 }

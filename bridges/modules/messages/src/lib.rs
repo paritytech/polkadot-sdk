@@ -91,7 +91,7 @@ mod mock;
 pub use pallet::*;
 
 /// The target that will be used when publishing logs related to this pallet.
-const LOG_TARGET: &str = "runtime::bridge-messages";
+pub const LOG_TARGET: &str = "runtime::bridge-messages";
 
 #[frame_support::pallet]
 pub mod pallet {

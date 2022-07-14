@@ -28,7 +28,7 @@ use bp_parachains::{
 	best_parachain_head_hash_storage_key_at_target, imported_parachain_head_storage_key_at_target,
 	BestParaHeadHash,
 };
-use bp_polkadot_core::parachains::{ParaHead, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use codec::{Decode, Encode};
 use parachains_relay::{
 	parachains_loop::TargetClient, parachains_loop_metrics::ParachainsLoopMetrics,
@@ -166,7 +166,7 @@ where
 	async fn submit_parachain_heads_proof(
 		&self,
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
-		updated_parachains: Vec<ParaId>,
+		updated_parachains: Vec<(ParaId, ParaHash)>,
 		proof: ParaHeadsProof,
 	) -> Result<(), Self::Error> {
 		let genesis_hash = *self.client.genesis_hash();
