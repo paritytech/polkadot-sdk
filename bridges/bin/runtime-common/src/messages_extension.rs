@@ -70,6 +70,14 @@ macro_rules! declare_bridge_reject_obsolete_messages {
 
 							let inbound_lane_data = pallet_bridge_messages::InboundLanes::<$runtime, $instance>::get(&proof.lane);
 							if proof.nonces_end <= inbound_lane_data.last_delivered_nonce() {
+								log::trace!(
+									target: pallet_bridge_messages::LOG_TARGET,
+									"Rejecting obsolete messages delivery transaction: lane {:?}, bundled {:?}, best {:?}",
+									proof.lane,
+									proof.nonces_end,
+									inbound_lane_data.last_delivered_nonce(),
+								);
+
 								return sp_runtime::transaction_validity::InvalidTransaction::Stale.into();
 							}
 
@@ -84,6 +92,14 @@ macro_rules! declare_bridge_reject_obsolete_messages {
 
 							let outbound_lane_data = pallet_bridge_messages::OutboundLanes::<$runtime, $instance>::get(&proof.lane);
 							if latest_delivered_nonce <= outbound_lane_data.latest_received_nonce {
+								log::trace!(
+									target: pallet_bridge_messages::LOG_TARGET,
+									"Rejecting obsolete messages confirmation transaction: lane {:?}, bundled {:?}, best {:?}",
+									proof.lane,
+									latest_delivered_nonce,
+									outbound_lane_data.latest_received_nonce,
+								);
+
 								return sp_runtime::transaction_validity::InvalidTransaction::Stale.into();
 							}
 

@@ -60,7 +60,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// The target that will be used when publishing logs related to this pallet.
-const LOG_TARGET: &str = "runtime::bridge-grandpa";
+pub const LOG_TARGET: &str = "runtime::bridge-grandpa";
 
 /// Block number of the bridged chain.
 pub type BridgedBlockNumber<T, I> = BlockNumberOf<<T as Config<I>>::BridgedChain>;
