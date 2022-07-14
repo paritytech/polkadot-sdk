@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::HeaderIdProvider;
 use codec::{Decode, Encode};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
@@ -143,6 +144,7 @@ pub trait Chain: Send + Sync + 'static {
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html
 	type Header: Parameter
 		+ HeaderT<Number = Self::BlockNumber, Hash = Self::Hash>
+		+ HeaderIdProvider<Self::Header>
 		+ MaybeSerializeDeserialize;
 
 	/// The user account identifier type for the runtime.

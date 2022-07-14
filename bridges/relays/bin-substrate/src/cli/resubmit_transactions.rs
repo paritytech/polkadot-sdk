@@ -16,13 +16,14 @@
 
 use crate::cli::{chain_schema::*, Balance};
 
+use bp_runtime::HeaderIdProvider;
 use codec::{Decode, Encode};
 use num_traits::{One, Zero};
 use relay_substrate_client::{
 	BlockWithJustification, Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf,
 	SignParam, TransactionSignScheme,
 };
-use relay_utils::{FailedClient, HeaderId};
+use relay_utils::FailedClient;
 use sp_core::Bytes;
 use sp_runtime::{
 	traits::{Hash, Header as HeaderT},
@@ -274,7 +275,7 @@ async fn run_loop_iteration<C: Chain, S: TransactionSignScheme<Chain = C>>(
 	let (is_updated, updated_transaction) = update_transaction_tip::<C, S>(
 		&client,
 		&transaction_params,
-		HeaderId(*context.best_header.number(), context.best_header.hash()),
+		context.best_header.id(),
 		original_transaction,
 		context.tip_step,
 		context.tip_limit,
