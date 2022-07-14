@@ -69,6 +69,16 @@ pub enum ParaHashAtSource {
 	Unavailable,
 }
 
+impl ParaHashAtSource {
+	/// Return parachain head hash, if available.
+	pub fn hash(&self) -> Option<&ParaHash> {
+		match *self {
+			ParaHashAtSource::Some(ref para_hash) => Some(para_hash),
+			_ => None,
+		}
+	}
+}
+
 /// Source client used in parachain heads synchronization loop.
 #[async_trait]
 pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
@@ -87,11 +97,15 @@ pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
 	) -> Result<ParaHashAtSource, Self::Error>;
 
 	/// Get parachain heads proof.
+	///
+	/// The number and order of entries in the resulting parachain head hashes vector must match the
+	/// number and order of parachains in the `parachains` vector. The incorrect implementation will
+	/// result in panic.
 	async fn prove_parachain_heads(
 		&self,
 		at_block: HeaderIdOf<P::SourceChain>,
 		parachains: &[ParaId],
-	) -> Result<ParaHeadsProof, Self::Error>;
+	) -> Result<(ParaHeadsProof, Vec<ParaHash>), Self::Error>;
 }
 
 /// Target client used in parachain heads synchronization loop.
@@ -121,7 +135,7 @@ pub trait TargetClient<P: ParachainsPipeline>: RelayClient {
 	async fn submit_parachain_heads_proof(
 		&self,
 		at_source_block: HeaderIdOf<P::SourceChain>,
-		updated_parachains: Vec<ParaId>,
+		updated_parachains: Vec<(ParaId, ParaHash)>,
 		proof: ParaHeadsProof,
 	) -> Result<(), Self::Error>;
 }
@@ -274,7 +288,7 @@ where
 		);
 
 		if is_update_required {
-			let heads_proofs = source_client
+			let (heads_proofs, head_hashes) = source_client
 				.prove_parachain_heads(best_finalized_relay_block, &updated_ids)
 				.await
 				.map_err(|e| {
@@ -292,10 +306,17 @@ where
 				P::SourceChain::NAME,
 				P::TargetChain::NAME,
 			);
+
+			assert_eq!(
+				head_hashes.len(),
+				updated_ids.len(),
+				"Incorrect parachains SourceClient implementation"
+			);
+
 			target_client
 				.submit_parachain_heads_proof(
 					best_finalized_relay_block,
-					updated_ids.clone(),
+					updated_ids.iter().cloned().zip(head_hashes).collect(),
 					heads_proofs,
 				)
 				.await
@@ -394,7 +415,7 @@ where
 
 			needs_update
 		})
-		.map(|((para_id, _), _)| para_id)
+		.map(|((para, _), _)| para)
 		.collect()
 }
 
@@ -666,7 +687,7 @@ mod tests {
 			&self,
 			_at_block: HeaderIdOf<TestChain>,
 			parachains: &[ParaId],
-		) -> Result<ParaHeadsProof, TestError> {
+		) -> Result<(ParaHeadsProof, Vec<ParaHash>), TestError> {
 			let mut proofs = Vec::new();
 			for para_id in parachains {
 				proofs.push(
@@ -680,7 +701,7 @@ mod tests {
 						.ok_or(TestError::MissingParachainHeadProof)?,
 				);
 			}
-			Ok(ParaHeadsProof(proofs))
+			Ok((ParaHeadsProof(proofs), vec![Default::default(); parachains.len()]))
 		}
 	}
 
@@ -709,7 +730,7 @@ mod tests {
 		async fn submit_parachain_heads_proof(
 			&self,
 			_at_source_block: HeaderIdOf<TestChain>,
-			_updated_parachains: Vec<ParaId>,
+			_updated_parachains: Vec<(ParaId, ParaHash)>,
 			_proof: ParaHeadsProof,
 		) -> Result<(), Self::Error> {
 			self.data.lock().await.target_submit_result.clone()?;

@@ -75,6 +75,13 @@ macro_rules! declare_bridge_reject_obsolete_grandpa_header {
 							if best_finalized_number < bundled_block_number {
 								Ok(sp_runtime::transaction_validity::ValidTransaction::default())
 							} else {
+								log::trace!(
+									target: $crate::LOG_TARGET,
+									"Rejecting obsolete bridged header: bundled {:?}, best {:?}",
+									bundled_block_number,
+									best_finalized_number,
+								);
+
 								sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
 							}
 						},
