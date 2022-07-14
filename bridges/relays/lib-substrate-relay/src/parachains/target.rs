@@ -29,6 +29,7 @@ use bp_parachains::{
 	BestParaHeadHash,
 };
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
+use bp_runtime::HeaderIdProvider;
 use codec::{Decode, Encode};
 use parachains_relay::{
 	parachains_loop::TargetClient, parachains_loop_metrics::ParachainsLoopMetrics,
@@ -90,8 +91,7 @@ where
 {
 	async fn best_block(&self) -> Result<HeaderIdOf<P::TargetChain>, Self::Error> {
 		let best_header = self.client.best_header().await?;
-		let best_hash = best_header.hash();
-		let best_id = HeaderId(*best_header.number(), best_hash);
+		let best_id = best_header.id();
 
 		Ok(best_id)
 	}
