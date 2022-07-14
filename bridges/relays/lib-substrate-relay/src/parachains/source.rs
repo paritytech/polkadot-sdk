@@ -160,23 +160,46 @@ where
 		&self,
 		at_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: &[ParaId],
-	) -> Result<ParaHeadsProof, Self::Error> {
-		let storage_keys = parachains
-			.iter()
-			.map(|para_id| {
-				parachain_head_storage_key_at_source(
-					P::SourceRelayChain::PARAS_PALLET_NAME,
-					*para_id,
-				)
-			})
-			.collect();
+	) -> Result<(ParaHeadsProof, Vec<ParaHash>), Self::Error> {
+		if parachains.len() != 1 || parachains[0].0 != P::SOURCE_PARACHAIN_PARA_ID {
+			return Err(SubstrateError::Custom(format!(
+				"Trying to prove unexpected parachains {:?}. Expected {:?}",
+				parachains,
+				P::SOURCE_PARACHAIN_PARA_ID,
+			)))
+		}
+
+		let parachain = parachains[0];
+		let storage_key =
+			parachain_head_storage_key_at_source(P::SourceRelayChain::PARAS_PALLET_NAME, parachain);
 		let parachain_heads_proof = self
 			.client
-			.prove_storage(storage_keys, at_block.1)
+			.prove_storage(vec![storage_key.clone()], at_block.1)
 			.await?
 			.iter_nodes()
 			.collect();
 
-		Ok(ParaHeadsProof(parachain_heads_proof))
+		// why we're reading parachain head here once again (it has already been read at the
+		// `parachain_head`)? that's because `parachain_head` sometimes returns obsolete parachain
+		// head and loop sometimes asks to prove this obsolete head and gets other (actual) head
+		// instead
+		//
+		// => since we want to provide proper hashes in our `submit_parachain_heads` call, we're
+		// rereading actual value here
+		let parachain_head = self
+			.client
+			.raw_storage_value(storage_key, Some(at_block.1))
+			.await?
+			.map(|h| ParaHead::decode(&mut &h.0[..]))
+			.transpose()?
+			.ok_or_else(|| {
+				SubstrateError::Custom(format!(
+					"Failed to read expected parachain {:?} head at {:?}",
+					parachain, at_block
+				))
+			})?;
+		let parachain_head_hash = parachain_head.hash();
+
+		Ok((ParaHeadsProof(parachain_heads_proof), vec![parachain_head_hash]))
 	}
 }
