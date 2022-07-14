@@ -34,7 +34,7 @@ use bp_messages::{
 	InboundMessageDetails, LaneId, MessageData, MessageNonce, MessagesOperatingMode,
 	OutboundLaneData, OutboundMessageDetails, UnrewardedRelayersState,
 };
-use bp_runtime::{messages::DispatchFeePayment, BasicOperatingMode};
+use bp_runtime::{messages::DispatchFeePayment, BasicOperatingMode, HeaderIdProvider};
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
@@ -510,13 +510,12 @@ where
 	let self_best_finalized_header_hash = self_client.best_finalized_header_hash().await?;
 	let self_best_finalized_header =
 		self_client.header_by_hash(self_best_finalized_header_hash).await?;
-	let self_best_finalized_id =
-		HeaderId(*self_best_finalized_header.number(), self_best_finalized_header_hash);
+	let self_best_finalized_id = self_best_finalized_header.id();
 
 	// now let's read our best header on **this** chain
 	let self_best_header = self_client.best_header().await?;
 	let self_best_hash = self_best_header.hash();
-	let self_best_id = HeaderId(*self_best_header.number(), self_best_hash);
+	let self_best_id = self_best_header.id();
 
 	// now let's read id of best finalized peer header at our best finalized block
 	let peer_on_self_best_finalized_id =
@@ -532,7 +531,7 @@ where
 		Some(peer_client) => {
 			let actual_peer_on_self_best_finalized =
 				peer_client.header_by_number(peer_on_self_best_finalized_id.0).await?;
-			HeaderId(peer_on_self_best_finalized_id.0, actual_peer_on_self_best_finalized.hash())
+			actual_peer_on_self_best_finalized.id()
 		},
 		None => peer_on_self_best_finalized_id,
 	};
