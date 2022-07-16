@@ -925,9 +925,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.8"
+version = "3.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "190814073e85d238f31ff738fcb0bf6910cedeb73376c87cd69291028966fd83"
+checksum = "ab8b79fe3946ceb4a0b1c080b4018992b8d27e9ff363644c1c9b6387c854614d"
 dependencies = [
  "atty",
  "bitflags",
@@ -1431,7 +1431,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 3.2.8",
+ "clap 3.2.12",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -2041,7 +2041,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 3.2.8",
+ "clap 3.2.12",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -2711,7 +2711,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#9dad17f77b8a
 dependencies = [
  "Inflector",
  "chrono",
- "clap 3.2.8",
+ "clap 3.2.12",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -6327,7 +6327,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 3.2.8",
+ "clap 3.2.12",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -6925,7 +6925,7 @@ name = "polkadot-cli"
 version = "0.9.26"
 source = "git+https://github.com/paritytech/polkadot?branch=master#81cd489111830b8a60aa991113f41187c5e94fdf"
 dependencies = [
- "clap 3.2.8",
+ "clap 3.2.12",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -7574,7 +7574,7 @@ version = "0.9.220"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 3.2.8",
+ "clap 3.2.12",
  "contracts-rococo-runtime",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
@@ -9221,7 +9221,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#9dad17f77b8a56ccf0d289ae410ee1e61d9b12a1"
 dependencies = [
  "chrono",
- "clap 3.2.8",
+ "clap 3.2.12",
  "fdlimit",
  "futures",
  "hex",
@@ -12267,7 +12267,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#9dad17f77b8a56ccf0d289ae410ee1e61d9b12a1"
 dependencies = [
- "clap 3.2.8",
+ "clap 3.2.12",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
