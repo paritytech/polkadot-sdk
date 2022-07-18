@@ -79,14 +79,6 @@ impl<T: Config<I>, I: 'static> Default for StoredInboundLaneData<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> From<InboundLaneData<T::InboundRelayer>>
-	for StoredInboundLaneData<T, I>
-{
-	fn from(data: InboundLaneData<T::InboundRelayer>) -> Self {
-		StoredInboundLaneData(data)
-	}
-}
-
 impl<T: Config<I>, I: 'static> From<StoredInboundLaneData<T, I>>
 	for InboundLaneData<T::InboundRelayer>
 {

@@ -24,7 +24,9 @@ use bp_messages::{
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
 };
 use bp_runtime::{Chain, ChainId, MILLAU_CHAIN_ID, RIALTO_CHAIN_ID};
-use bridge_runtime_common::messages::{self, MessageBridge, MessageTransaction};
+use bridge_runtime_common::messages::{
+	self, BasicConfirmationTransactionEstimation, MessageBridge, MessageTransaction,
+};
 use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
@@ -123,6 +125,12 @@ impl messages::ChainWithMessages for Millau {
 impl messages::ThisChainWithMessages for Millau {
 	type Origin = crate::Origin;
 	type Call = crate::Call;
+	type ConfirmationTransactionEstimation = BasicConfirmationTransactionEstimation<
+		Self::AccountId,
+		{ bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT },
+		{ bp_rialto::EXTRA_STORAGE_PROOF_SIZE },
+		{ bp_millau::TX_EXTRA_BYTES },
+	>;
 
 	fn is_message_accepted(send_origin: &Self::Origin, lane: &LaneId) -> bool {
 		let here_location =
@@ -146,19 +154,6 @@ impl messages::ThisChainWithMessages for Millau {
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
 		MessageNonce::MAX
-	}
-
-	fn estimate_delivery_confirmation_transaction() -> MessageTransaction<Weight> {
-		let inbound_data_size = InboundLaneData::<bp_millau::AccountId>::encoded_size_hint(1, 1)
-			.and_then(|x| u32::try_from(x).ok())
-			.unwrap_or(u32::MAX);
-
-		MessageTransaction {
-			dispatch_weight: bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
-			size: inbound_data_size
-				.saturating_add(bp_rialto::EXTRA_STORAGE_PROOF_SIZE)
-				.saturating_add(bp_millau::TX_EXTRA_BYTES),
-		}
 	}
 
 	fn transaction_payment(transaction: MessageTransaction<Weight>) -> bp_millau::Balance {
@@ -346,12 +341,10 @@ mod tests {
 		);
 
 		let max_incoming_inbound_lane_data_proof_size =
-			bp_messages::InboundLaneData::<()>::encoded_size_hint(
+			bp_messages::InboundLaneData::<()>::encoded_size_hint_u32(
 				bp_millau::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX as _,
 				bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX as _,
-			)
-			.and_then(|x| u32::try_from(x).ok())
-			.unwrap_or(u32::MAX);
+			);
 		pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights>(
 			bp_millau::Millau::max_extrinsic_size(),
 			bp_millau::Millau::max_extrinsic_weight(),
