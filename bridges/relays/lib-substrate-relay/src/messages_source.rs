@@ -468,9 +468,7 @@ where
 fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>(
 ) -> SubstrateMessagesDeliveryProof<TC> {
 	let single_message_confirmation_size =
-		bp_messages::InboundLaneData::<()>::encoded_size_hint(1, 1)
-			.and_then(|x| u32::try_from(x).ok())
-			.unwrap_or(u32::MAX);
+		bp_messages::InboundLaneData::<()>::encoded_size_hint_u32(1, 1);
 	let proof_size = TC::STORAGE_PROOF_OVERHEAD.saturating_add(single_message_confirmation_size);
 	(
 		UnrewardedRelayersState {
