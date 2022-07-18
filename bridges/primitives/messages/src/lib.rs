@@ -174,6 +174,19 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 			.and_then(|result| result.checked_add(dispatch_result_size))
 	}
 
+	/// Returns the approximate size of the struct as u32, given a number of entries in the
+	/// `relayers` set and the size of each entry.
+	///
+	/// Returns `u32::MAX` if size overflows `u32` limits.
+	pub fn encoded_size_hint_u32(relayers_entries: usize, messages_count: usize) -> u32
+	where
+		RelayerId: MaxEncodedLen,
+	{
+		Self::encoded_size_hint(relayers_entries, messages_count)
+			.and_then(|x| u32::try_from(x).ok())
+			.unwrap_or(u32::MAX)
+	}
+
 	/// Nonce of the last message that has been delivered to this (target) chain.
 	pub fn last_delivered_nonce(&self) -> MessageNonce {
 		self.relayers

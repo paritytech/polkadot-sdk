@@ -72,14 +72,6 @@ impl<T: Config<I>, I: 'static> sp_std::ops::DerefMut for StoredMessageData<T, I>
 	}
 }
 
-impl<T: Config<I>, I: 'static> From<MessageData<T::OutboundMessageFee>>
-	for StoredMessageData<T, I>
-{
-	fn from(data: MessageData<T::OutboundMessageFee>) -> Self {
-		StoredMessageData(data)
-	}
-}
-
 impl<T: Config<I>, I: 'static> From<StoredMessageData<T, I>>
 	for MessageData<T::OutboundMessageFee>
 {
