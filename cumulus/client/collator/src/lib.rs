@@ -359,6 +359,7 @@ pub async fn start_collator<Block, RA, BS, Spawner>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use async_trait::async_trait;
 	use cumulus_client_consensus_common::ParachainCandidate;
 	use cumulus_test_client::{
 		Client, ClientBlockImportExt, DefaultTestClientBuilderExt, InitBlockBuilder,
@@ -374,8 +375,10 @@ mod tests {
 	use sp_state_machine::Backend;
 
 	struct AlwaysSupportsParachains;
+
+	#[async_trait]
 	impl HeadSupportsParachains for AlwaysSupportsParachains {
-		fn head_supports_parachains(&self, _head: &PHash) -> bool {
+		async fn head_supports_parachains(&self, _head: &PHash) -> bool {
 			true
 		}
 	}
