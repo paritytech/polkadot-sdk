@@ -20,6 +20,7 @@ bp-header-chain = { path = "../../../primitives/header-chain", default-features 
 bp-messages = { path = "../../../primitives/messages", default-features = false }
 bp-millau = { path = "../../../primitives/chain-millau", default-features = false }
 bp-polkadot-core = { path = "../../../primitives/polkadot-core", default-features = false }
+bp-relayers = { path = "../../../primitives/relayers", default-features = false }
 bp-rialto = { path = "../../../primitives/chain-rialto", default-features = false }
 bp-rialto-parachain = { path = "../../../primitives/chain-rialto-parachain", default-features = false }
 bp-runtime = { path = "../../../primitives/runtime", default-features = false }
@@ -28,6 +29,7 @@ bridge-runtime-common = { path = "../../runtime-common", default-features = fals
 pallet-bridge-grandpa = { path = "../../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "../../../modules/parachains", default-features = false }
+pallet-bridge-relayers = { path = "../../../modules/relayers", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
 
 # Substrate Dependencies
@@ -89,6 +91,7 @@ std = [
 	"bp-messages/std",
 	"bp-millau/std",
 	"bp-polkadot-core/std",
+	"bp-relayers/std",
 	"bp-rialto/std",
 	"bp-rialto-parachain/std",
 	"bp-runtime/std",
@@ -107,6 +110,7 @@ std = [
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
+	"pallet-bridge-relayers/std",
 	"pallet-grandpa/std",
 	"pallet-mmr/std",
 	"pallet-randomness-collective-flip/std",
@@ -145,6 +149,7 @@ runtime-benchmarks = [
 	"libsecp256k1",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-parachains/runtime-benchmarks",
+	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

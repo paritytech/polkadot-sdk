@@ -40,6 +40,7 @@
 #![allow(clippy::all)]
 #![allow(unused_parens)]
 #![allow(unused_imports)]
+#![allow(missing_docs)]
 
 use frame_support::{
 	traits::Get,
