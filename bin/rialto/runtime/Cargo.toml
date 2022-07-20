@@ -19,11 +19,13 @@ serde = { version = "1.0", optional = true, features = ["derive"] }
 bp-header-chain = { path = "../../../primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../primitives/messages", default-features = false }
 bp-millau = { path = "../../../primitives/chain-millau", default-features = false }
+bp-relayers = { path = "../../../primitives/relayers", default-features = false }
 bp-rialto = { path = "../../../primitives/chain-rialto", default-features = false }
 bp-runtime = { path = "../../../primitives/runtime", default-features = false }
 bridge-runtime-common = { path = "../../runtime-common", default-features = false }
 pallet-bridge-grandpa = { path = "../../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../modules/messages", default-features = false }
+pallet-bridge-relayers = { path = "../../../modules/relayers", default-features = false }
 pallet-shift-session-manager = { path = "../../../modules/shift-session-manager", default-features = false }
 
 # Substrate Dependencies
@@ -89,6 +91,7 @@ std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-millau/std",
+	"bp-relayers/std",
 	"bp-rialto/std",
 	"bp-runtime/std",
 	"bridge-runtime-common/std",
@@ -106,6 +109,7 @@ std = [
 	"pallet-beefy-mmr/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
+	"pallet-bridge-relayers/std",
 	"pallet-grandpa/std",
 	"pallet-mmr/std",
 	"pallet-xcm/std",
