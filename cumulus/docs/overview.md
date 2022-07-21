@@ -53,7 +53,7 @@ the notification the so-called candidate message. This candidate message is issu
 validator after approving a block. This proof of possible inclusion prevents spamming other collators
 of the network with useless blocks.
 The Collator joins the relay-chain network for two reasons. First, the Collator uses it to send the
-Parachain blocks to the Parachain validators. Secondly, the Collator participates as light/full-node
+Parachain blocks to the Parachain validators. Secondly, the Collator participates as a full-node
 of the relay chain to be informed of new relay-chain blocks. This information will be used for the
 consensus and the block production logic.
 

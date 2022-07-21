@@ -30,7 +30,7 @@ use futures::{FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use polkadot_client::{ClientHandle, ExecuteWithClient, FullBackend};
 use polkadot_service::{
-	AuxStore, BabeApi, CollatorPair, Configuration, Handle, NewFull, Role, TaskManager,
+	AuxStore, BabeApi, CollatorPair, Configuration, Handle, NewFull, TaskManager,
 };
 use sc_cli::SubstrateCli;
 use sc_client_api::{
@@ -330,33 +330,28 @@ fn build_polkadot_full_node(
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<(NewFull<polkadot_client::Client>, Option<CollatorPair>), polkadot_service::Error> {
-	let is_light = matches!(config.role, Role::Light);
-	if is_light {
-		Err(polkadot_service::Error::Sub("Light client not supported.".into()))
+	let (is_collator, maybe_collator_key) = if parachain_config.role.is_authority() {
+		let collator_key = CollatorPair::generate().0;
+		(polkadot_service::IsCollator::Yes(collator_key.clone()), Some(collator_key))
 	} else {
-		let (is_collator, maybe_collator_key) = if parachain_config.role.is_authority() {
-			let collator_key = CollatorPair::generate().0;
-			(polkadot_service::IsCollator::Yes(collator_key.clone()), Some(collator_key))
-		} else {
-			(polkadot_service::IsCollator::No, None)
-		};
+		(polkadot_service::IsCollator::No, None)
+	};
 
-		let relay_chain_full_node = polkadot_service::build_full(
-			config,
-			is_collator,
-			None,
-			// Disable BEEFY. It should not be required by the internal relay chain node.
-			false,
-			None,
-			telemetry_worker_handle,
-			true,
-			polkadot_service::RealOverseerGen,
-			None,
-			hwbench,
-		)?;
+	let relay_chain_full_node = polkadot_service::build_full(
+		config,
+		is_collator,
+		None,
+		// Disable BEEFY. It should not be required by the internal relay chain node.
+		false,
+		None,
+		telemetry_worker_handle,
+		true,
+		polkadot_service::RealOverseerGen,
+		None,
+		hwbench,
+	)?;
 
-		Ok((relay_chain_full_node, maybe_collator_key))
-	}
+	Ok((relay_chain_full_node, maybe_collator_key))
 }
 
 /// Builds a relay chain interface by constructing a full relay chain node
