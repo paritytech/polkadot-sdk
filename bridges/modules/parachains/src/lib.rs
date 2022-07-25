@@ -373,6 +373,48 @@ pub mod pallet {
 			storage.read_and_decode_value(parachain_head_key.0.as_ref())
 		}
 
+		/// Check if para head has been already updated at better relay chain block.
+		/// Without this check, we may import heads in random order.
+		pub fn validate_updated_parachain_head(
+			parachain: ParaId,
+			maybe_stored_best_head: &Option<BestParaHead>,
+			updated_at_relay_block_number: RelayBlockNumber,
+			updated_head_hash: ParaHash,
+			err_log_prefix: &str,
+		) -> TransactionValidity {
+			let stored_best_head = match maybe_stored_best_head {
+				Some(stored_best_head) => stored_best_head,
+				None => return Ok(ValidTransaction::default()),
+			};
+
+			if stored_best_head.at_relay_block_number >= updated_at_relay_block_number {
+				log::trace!(
+					target: LOG_TARGET,
+					"{}. The parachain head for {:?} was already updated at better relay chain block {} >= {}.",
+					err_log_prefix,
+					parachain,
+					stored_best_head.at_relay_block_number,
+					updated_at_relay_block_number
+				);
+				return InvalidTransaction::Stale.into()
+			}
+
+			if stored_best_head.head_hash == updated_head_hash {
+				log::trace!(
+					target: LOG_TARGET,
+					"{}. The parachain head hash for {:?} was already updated to {} at block {} < {}.",
+					err_log_prefix,
+					parachain,
+					updated_head_hash,
+					stored_best_head.at_relay_block_number,
+					updated_at_relay_block_number
+				);
+				return InvalidTransaction::Stale.into()
+			}
+
+			Ok(ValidTransaction::default())
+		}
+
 		/// Try to update parachain head.
 		pub(super) fn update_parachain_head(
 			parachain: ParaId,
@@ -383,41 +425,16 @@ pub mod pallet {
 		) -> Result<UpdateParachainHeadArtifacts, ()> {
 			// check if head has been already updated at better relay chain block. Without this
 			// check, we may import heads in random order
-			let next_imported_hash_position = match stored_best_head {
-				Some(stored_best_head)
-					if stored_best_head.at_relay_block_number <= updated_at_relay_block_number =>
-				{
-					// check if this head has already been imported before
-					if updated_head_hash == stored_best_head.head_hash {
-						log::trace!(
-							target: LOG_TARGET,
-							"The head of parachain {:?} can't be updated to {}, because it has been already updated \
-							to the same value at previous relay chain block: {} < {}",
-							parachain,
-							updated_head_hash,
-							stored_best_head.at_relay_block_number,
-							updated_at_relay_block_number,
-						);
-						return Err(())
-					}
-
-					stored_best_head.next_imported_hash_position
-				},
-				None => 0,
-				Some(stored_best_head) => {
-					log::trace!(
-						target: LOG_TARGET,
-						"The head of parachain {:?} can't be updated to {}, because it has been already updated \
-						to {} at better relay chain block: {} > {}",
-						parachain,
-						updated_head_hash,
-						stored_best_head.head_hash,
-						stored_best_head.at_relay_block_number,
-						updated_at_relay_block_number,
-					);
-					return Err(())
-				},
-			};
+			Self::validate_updated_parachain_head(
+				parachain,
+				&stored_best_head,
+				updated_at_relay_block_number,
+				updated_head_hash,
+				"The parachain head can't be updated",
+			)
+			.map_err(|_| ())?;
+			let next_imported_hash_position = stored_best_head
+				.map_or(0, |stored_best_head| stored_best_head.next_imported_hash_position);
 
 			// insert updated best parachain head
 			let head_hash_to_prune =
