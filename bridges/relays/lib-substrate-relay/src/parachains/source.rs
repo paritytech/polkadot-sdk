@@ -161,11 +161,11 @@ where
 		at_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: &[ParaId],
 	) -> Result<(ParaHeadsProof, Vec<ParaHash>), Self::Error> {
-		if parachains.len() != 1 || parachains[0].0 != P::SOURCE_PARACHAIN_PARA_ID {
+		let parachain = ParaId(P::SOURCE_PARACHAIN_PARA_ID);
+		if parachains != [parachain] {
 			return Err(SubstrateError::Custom(format!(
 				"Trying to prove unexpected parachains {:?}. Expected {:?}",
-				parachains,
-				P::SOURCE_PARACHAIN_PARA_ID,
+				parachains, parachain,
 			)))
 		}
 
