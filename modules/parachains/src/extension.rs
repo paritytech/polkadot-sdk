@@ -17,7 +17,7 @@
 use crate::{Config, Pallet, RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_runtime::FilterCall;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
+use sp_runtime::transaction_validity::{TransactionValidity, ValidTransaction};
 
 /// Validate parachain heads in order to avoid "mining" transactions that provide
 /// outdated bridged parachain heads. Without this validation, even honest relayers
@@ -43,45 +43,27 @@ where
 		>,
 {
 	fn validate(call: &Call) -> TransactionValidity {
-		let (bundled_relay_block_number, parachains) = match call.is_sub_type() {
+		let (updated_at_relay_block_number, parachains) = match call.is_sub_type() {
 			Some(crate::Call::<T, I>::submit_parachain_heads {
 				ref at_relay_block,
 				ref parachains,
 				..
-			}) if parachains.len() == 1 => (at_relay_block.0, parachains),
+			}) => (at_relay_block.0, parachains),
+			_ => return Ok(ValidTransaction::default()),
+		};
+		let (parachain, parachain_head_hash) = match parachains.as_slice() {
+			&[(parachain, parachain_head_hash)] => (parachain, parachain_head_hash),
 			_ => return Ok(ValidTransaction::default()),
 		};
 
-		let (parachain, parachain_head_hash) =
-			parachains.get(0).expect("verified by match condition; qed");
-		let best_parachain_head = crate::BestParaHeads::<T, I>::get(parachain);
-
-		match best_parachain_head {
-			Some(best_parachain_head)
-				if best_parachain_head.at_relay_block_number >= bundled_relay_block_number =>
-			{
-				log::trace!(
-					target: crate::LOG_TARGET,
-					"Rejecting obsolete parachain-head {:?} transaction: \
-										bundled relay block number: {:?} \
-										best relay block number: {:?}",
-					parachain,
-					bundled_relay_block_number,
-					best_parachain_head.at_relay_block_number,
-				);
-				InvalidTransaction::Stale.into()
-			},
-			Some(best_parachain_head) if best_parachain_head.head_hash == *parachain_head_hash => {
-				log::trace!(
-					target: crate::LOG_TARGET,
-					"Rejecting obsolete parachain-head {:?} transaction: head hash {:?}",
-					parachain,
-					best_parachain_head.head_hash,
-				);
-				InvalidTransaction::Stale.into()
-			},
-			_ => Ok(ValidTransaction::default()),
-		}
+		let maybe_stored_best_head = crate::BestParaHeads::<T, I>::get(parachain);
+		Self::validate_updated_parachain_head(
+			parachain,
+			&maybe_stored_best_head,
+			updated_at_relay_block_number,
+			parachain_head_hash,
+			"Rejecting obsolete parachain-head transaction",
+		)
 	}
 }
 
