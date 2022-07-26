@@ -184,7 +184,7 @@ jobs:
         with:
           name: release-notes-context
           path: |
-            context.json
+            cumulus/scripts/ci/changelog/context.json
 
       - name: Create draft release
         id: create-release
