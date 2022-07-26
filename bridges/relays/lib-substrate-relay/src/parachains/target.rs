@@ -138,21 +138,25 @@ where
 					&best_para_head_hash.head_hash,
 					Some(at_block.1),
 				)
-				.await?
-				.and_then(|h| match HeaderOf::<P::SourceParachain>::decode(&mut &h.0[..]) {
-					Ok(header) => Some(header),
-					Err(e) => {
-						log::error!(
-							target: "bridge-metrics",
-							"Failed to decode {} parachain header at {}: {:?}. Metric will have obsolete value",
-							P::SourceParachain::NAME,
-							P::TargetChain::NAME,
-							e,
-						);
-
-						None
-					},
-				});
+				.await
+				.and_then(|maybe_encoded_head| match maybe_encoded_head {
+					Some(encoded_head) =>
+						HeaderOf::<P::SourceParachain>::decode(&mut &encoded_head.0[..])
+							.map(|head| Some(head))
+							.map_err(Self::Error::ResponseParseFailed),
+					None => Ok(None),
+				})
+				.map_err(|e| {
+					log::error!(
+						target: "bridge-metrics",
+						"Failed to read or decode {} parachain header at {}: {:?}. Metric will have obsolete value",
+						P::SourceParachain::NAME,
+						P::TargetChain::NAME,
+						e,
+					);
+					e
+				})
+				.unwrap_or(None);
 			if let Some(imported_para_head) = imported_para_head {
 				metrics
 					.update_best_parachain_block_at_target(para_id, *imported_para_head.number());
