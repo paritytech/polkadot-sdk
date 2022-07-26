@@ -115,10 +115,11 @@ where
 			)))
 		}
 
+		let mut para_hash_at_source = ParaHashAtSource::None;
 		let mut para_header_number_at_source = None;
-		let para_hash_at_source = match self.on_chain_parachain_header(at_block, para_id).await? {
+		match self.on_chain_parachain_header(at_block, para_id).await? {
 			Some(parachain_header) => {
-				let mut parachain_head = ParaHashAtSource::Some(parachain_header.hash());
+				para_hash_at_source = ParaHashAtSource::Some(parachain_header.hash());
 				para_header_number_at_source = Some(*parachain_header.number());
 				// never return head that is larger than requested. This way we'll never sync
 				// headers past `maximal_header_id`
@@ -130,21 +131,19 @@ where
 						{
 							// we don't want this header yet => let's report previously requested
 							// header
-							parachain_head = ParaHashAtSource::Some(maximal_header_id.1);
+							para_hash_at_source = ParaHashAtSource::Some(maximal_header_id.1);
 							para_header_number_at_source = Some(maximal_header_id.0);
 						},
 						Some(_) => (),
 						None => {
 							// on-demand relay has not yet asked us to sync anything let's do that
-							parachain_head = ParaHashAtSource::Unavailable;
+							para_hash_at_source = ParaHashAtSource::Unavailable;
 							para_header_number_at_source = None;
 						},
 					}
 				}
-
-				parachain_head
 			},
-			None => ParaHashAtSource::None,
+			None => {},
 		};
 
 		if let (Some(metrics), Some(para_header_number_at_source)) =
