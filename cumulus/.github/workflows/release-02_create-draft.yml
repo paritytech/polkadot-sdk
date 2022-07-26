@@ -177,7 +177,7 @@ jobs:
         with:
           name: srtool-json
           path: |
-            **/context.json
+            cumulus/scripts/ci/changelog/context.json
             **/*-srtool-digest.json
 
       - name: Archive context artifact
