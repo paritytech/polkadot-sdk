@@ -25,10 +25,9 @@ use crate::{
 
 use async_trait::async_trait;
 use bp_parachains::{
-	best_parachain_head_hash_storage_key_at_target, imported_parachain_head_storage_key_at_target,
-	BestParaHeadHash,
+	best_parachain_head_hash_storage_key_at_target, BestParaHeadHash, ImportedParaHeadsKeyProvider,
 };
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::HeaderIdProvider;
 use codec::{Decode, Encode};
 use parachains_relay::{
@@ -131,14 +130,14 @@ where
 		let best_para_head_hash: Option<BestParaHeadHash> =
 			self.client.storage_value(best_para_head_hash_key, Some(at_block.1)).await?;
 		if let (Some(metrics), &Some(ref best_para_head_hash)) = (metrics, &best_para_head_hash) {
-			let imported_para_head_key = imported_parachain_head_storage_key_at_target(
-				P::SourceRelayChain::PARACHAINS_FINALITY_PALLET_NAME,
-				para_id,
-				best_para_head_hash.head_hash,
-			);
-			let imported_para_header = self
+			let imported_para_head = self
 				.client
-				.storage_value::<ParaHead>(imported_para_head_key, Some(at_block.1))
+				.storage_double_map_value::<ImportedParaHeadsKeyProvider>(
+					P::SourceRelayChain::PARACHAINS_FINALITY_PALLET_NAME,
+					&para_id,
+					&best_para_head_hash.head_hash,
+					Some(at_block.1),
+				)
 				.await?
 				.and_then(|h| match HeaderOf::<P::SourceParachain>::decode(&mut &h.0[..]) {
 					Ok(header) => Some(header),
@@ -154,9 +153,9 @@ where
 						None
 					},
 				});
-			if let Some(imported_para_header) = imported_para_header {
+			if let Some(imported_para_head) = imported_para_head {
 				metrics
-					.update_best_parachain_block_at_target(para_id, *imported_para_header.number());
+					.update_best_parachain_block_at_target(para_id, *imported_para_head.number());
 			}
 		}
 
