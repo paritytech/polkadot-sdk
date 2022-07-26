@@ -177,7 +177,6 @@ jobs:
         with:
           name: srtool-json
           path: |
-            context.json
             **/*-srtool-digest.json
 
       - name: Archive context artifact
