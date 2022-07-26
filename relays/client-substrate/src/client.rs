@@ -25,7 +25,7 @@ use crate::{
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use bp_runtime::HeaderIdProvider;
+use bp_runtime::{HeaderIdProvider, StorageDoubleMapKeyProvider};
 use codec::{Decode, Encode};
 use frame_system::AccountInfo;
 use futures::{SinkExt, StreamExt};
@@ -376,6 +376,24 @@ impl<C: Chain> Client<C> {
 			.await?
 			.map(|encoded_value| {
 				T::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed)
+			})
+			.transpose()
+	}
+
+	/// Read `DoubleMapStorage` value from runtime storage.
+	pub async fn storage_double_map_value<T: StorageDoubleMapKeyProvider>(
+		&self,
+		pallet_prefix: &str,
+		key1: &T::Key1,
+		key2: &T::Key2,
+		block_hash: Option<C::Hash>,
+	) -> Result<Option<T::Value>> {
+		let storage_key = T::final_key(pallet_prefix, key1, key2);
+
+		self.raw_storage_value(storage_key, block_hash)
+			.await?
+			.map(|encoded_value| {
+				T::Value::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed)
 			})
 			.transpose()
 	}

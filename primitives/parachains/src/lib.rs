@@ -19,9 +19,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_polkadot_core::{
-	parachains::{ParaHash, ParaId},
+	parachains::{ParaHash, ParaHead, ParaId},
 	BlockNumber as RelayBlockNumber,
 };
+use bp_runtime::StorageDoubleMapKeyProvider;
 use codec::{Decode, Encode};
 use frame_support::{Blake2_128Concat, RuntimeDebug, Twox64Concat};
 use scale_info::TypeInfo;
@@ -67,18 +68,16 @@ pub fn best_parachain_head_hash_storage_key_at_target(
 	)
 }
 
-/// Returns runtime storage key of the parachain head with given hash at the target chain.
+/// Can be use to access the runtime storage key of the parachain head at the target chain.
 ///
 /// The head is stored by the `pallet-bridge-parachains` pallet in the `ImportedParaHeads` map.
-pub fn imported_parachain_head_storage_key_at_target(
-	bridge_parachains_pallet_name: &str,
-	para_id: ParaId,
-	head_hash: ParaHash,
-) -> StorageKey {
-	bp_runtime::storage_double_map_final_key::<Blake2_128Concat, Blake2_128Concat>(
-		bridge_parachains_pallet_name,
-		"ImportedParaHeads",
-		&para_id.encode(),
-		&head_hash.encode(),
-	)
+pub struct ImportedParaHeadsKeyProvider;
+impl StorageDoubleMapKeyProvider for ImportedParaHeadsKeyProvider {
+	const MAP_NAME: &'static str = "ImportedParaHeads";
+
+	type Hasher1 = Blake2_128Concat;
+	type Key1 = ParaId;
+	type Hasher2 = Blake2_128Concat;
+	type Key2 = ParaHash;
+	type Value = ParaHead;
 }
