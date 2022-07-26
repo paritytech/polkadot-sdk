@@ -80,7 +80,8 @@ struct UpdateParachainHeadArtifacts {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use bp_runtime::{BasicOperatingMode, OwnedBridgeModule};
+	use bp_parachains::ImportedParaHeadsKeyProvider;
+	use bp_runtime::{BasicOperatingMode, OwnedBridgeModule, StorageDoubleMapKeyProvider};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -165,8 +166,14 @@ pub mod pallet {
 
 	/// Parachain heads which have been imported into the pallet.
 	#[pallet::storage]
-	pub type ImportedParaHeads<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Blake2_128Concat, ParaId, Blake2_128Concat, ParaHash, ParaHead>;
+	pub type ImportedParaHeads<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Hasher1,
+		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key1,
+		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Hasher2,
+		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key2,
+		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Value,
+	>;
 
 	/// A ring buffer of imported parachain head hashes. Ordered by the insertion time.
 	#[pallet::storage]
@@ -513,7 +520,8 @@ mod tests {
 		run_test, test_relay_header, Origin, TestRuntime, PARAS_PALLET_NAME, UNTRACKED_PARACHAIN_ID,
 	};
 
-	use bp_runtime::{BasicOperatingMode, OwnedBridgeModuleError};
+	use bp_parachains::ImportedParaHeadsKeyProvider;
+	use bp_runtime::{BasicOperatingMode, OwnedBridgeModuleError, StorageDoubleMapKeyProvider};
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
 	};
@@ -985,10 +993,10 @@ mod tests {
 				ParaHash::from([21u8; 32])
 			)
 			.to_vec(),
-			bp_parachains::imported_parachain_head_storage_key_at_target(
+			ImportedParaHeadsKeyProvider::final_key(
 				"Parachains",
-				ParaId(42),
-				ParaHash::from([21u8; 32])
+				&ParaId(42),
+				&ParaHash::from([21u8; 32])
 			)
 			.0,
 		);
