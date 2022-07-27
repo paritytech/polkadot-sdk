@@ -17,22 +17,16 @@
 //! XCM configurations for the Rialto runtime.
 
 use super::{
-	millau_messages::WithMillauMessageBridge, AccountId, AllPalletsWithSystem, Balances,
-	BridgeMillauMessages, Call, Event, Origin, Runtime, XcmPallet,
+	millau_messages::WithMillauMessageBridge, AccountId, AllPalletsWithSystem, Balances, Call,
+	Event, Origin, Runtime, WithMillauMessagesInstance, XcmPallet,
 };
-use bp_messages::source_chain::MessagesBridge;
-use bp_rialto::{Balance, WeightToFee};
-use bridge_runtime_common::messages::{
-	source::{estimate_message_dispatch_and_delivery_fee, FromThisChainMessagePayload},
-	MessageBridge,
-};
-use codec::Encode;
+use bp_rialto::WeightToFee;
+use bridge_runtime_common::messages::source::{XcmBridge, XcmBridgeAdapter};
 use frame_support::{
 	parameter_types,
 	traits::{Everything, Nothing},
 	weights::Weight,
 };
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom,
@@ -105,7 +99,7 @@ parameter_types! {
 /// individual routers.
 pub type XcmRouter = (
 	// Router to send messages to Millau.
-	ToMillauBridge<BridgeMillauMessages>,
+	XcmBridgeAdapter<ToMillauBridge>,
 );
 
 parameter_types! {
@@ -189,60 +183,29 @@ impl pallet_xcm::Config for Runtime {
 	type MaxLockers = frame_support::traits::ConstU32<8>;
 }
 
-/// With-rialto bridge.
-pub struct ToMillauBridge<MB>(PhantomData<MB>);
+/// With-Millau bridge.
+pub struct ToMillauBridge;
 
-impl<MB: MessagesBridge<Origin, AccountId, Balance, FromThisChainMessagePayload>> SendXcm
-	for ToMillauBridge<MB>
-{
-	type Ticket = (Balance, FromThisChainMessagePayload);
+impl XcmBridge for ToMillauBridge {
+	type MessageBridge = WithMillauMessageBridge;
+	type MessageSender = pallet_bridge_messages::Pallet<Runtime, WithMillauMessagesInstance>;
 
-	fn validate(
-		dest: &mut Option<MultiLocation>,
-		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<Self::Ticket> {
-		let d = dest.take().ok_or(SendError::MissingArgument)?;
-		if !matches!(d, MultiLocation { parents: 1, interior: X1(GlobalConsensus(r)) } if r == MillauNetwork::get())
-		{
-			*dest = Some(d);
-			return Err(SendError::NotApplicable)
-		};
-
-		let dest: InteriorMultiLocation = MillauNetwork::get().into();
-		let here = UniversalLocation::get();
-		let route = dest.relative_to(&here);
-		let msg = (route, msg.take().unwrap()).encode();
-
-		let fee = estimate_message_dispatch_and_delivery_fee::<WithMillauMessageBridge>(
-			&msg,
-			WithMillauMessageBridge::RELAYER_FEE_PERCENT,
-			None,
-		)
-		.map_err(SendError::Transport)?;
-		let fee_assets = MultiAssets::from((Here, fee));
-
-		Ok(((fee, msg), fee_assets))
+	fn universal_location() -> InteriorMultiLocation {
+		UniversalLocation::get()
 	}
 
-	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-		let lane = [0, 0, 0, 0];
-		let (fee, msg) = ticket;
-		let result = MB::send_message(
-			pallet_xcm::Origin::from(MultiLocation::from(UniversalLocation::get())).into(),
-			lane,
-			msg,
-			fee,
-		);
-		result
-			.map(|artifacts| {
-				let hash = (lane, artifacts.nonce).using_encoded(sp_io::hashing::blake2_256);
-				log::debug!(target: "runtime::bridge", "Sent XCM message {:?}/{} to Rialto: {:?}", lane, artifacts.nonce, hash);
-				hash
-			})
-			.map_err(|e| {
-				log::debug!(target: "runtime::bridge", "Failed to send XCM message over lane {:?} to Rialto: {:?}", lane, e);
-				SendError::Transport("Bridge has rejected the message")
-			})
+	fn verify_destination(dest: &MultiLocation) -> bool {
+		matches!(*dest, MultiLocation { parents: 1, interior: X1(GlobalConsensus(r)) } if r == MillauNetwork::get())
+	}
+
+	fn build_destination() -> MultiLocation {
+		let dest: InteriorMultiLocation = MillauNetwork::get().into();
+		let here = UniversalLocation::get();
+		dest.relative_to(&here)
+	}
+
+	fn xcm_lane() -> bp_messages::LaneId {
+		[0, 0, 0, 0]
 	}
 }
 
@@ -255,6 +218,7 @@ mod tests {
 	};
 	use bp_runtime::messages::MessageDispatchResult;
 	use bridge_runtime_common::messages::target::FromBridgedChainMessageDispatch;
+	use codec::Encode;
 
 	fn new_test_ext() -> sp_io::TestExternalities {
 		sp_io::TestExternalities::new(

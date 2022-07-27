@@ -812,7 +812,7 @@ fn send_message<T: Config<I>, I: 'static>(
 
 	// the most lightweigh check is the message size check
 	ensure!(
-		payload.size() < T::MaximalOutboundPayloadSize::get(),
+		payload.size() <= T::MaximalOutboundPayloadSize::get(),
 		Error::<T, I>::MessageIsTooLarge,
 	);
 
@@ -1109,12 +1109,12 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain<Fee>, Fee, Dispatch
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, message_payload, run_test, unrewarded_relayer, Event as TestEvent, Origin,
-		TestMessageDeliveryAndDispatchPayment, TestMessagesDeliveryProof, TestMessagesParameter,
-		TestMessagesProof, TestOnDeliveryConfirmed1, TestOnDeliveryConfirmed2,
-		TestOnMessageAccepted, TestRuntime, TokenConversionRate, MAX_OUTBOUND_PAYLOAD_SIZE,
-		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A,
-		TEST_RELAYER_B,
+		message, message_payload, run_test, unrewarded_relayer, Balance, Event as TestEvent,
+		Origin, TestMessageDeliveryAndDispatchPayment, TestMessagesDeliveryProof,
+		TestMessagesParameter, TestMessagesProof, TestOnDeliveryConfirmed1,
+		TestOnDeliveryConfirmed2, TestOnMessageAccepted, TestRuntime, TokenConversionRate,
+		MAX_OUTBOUND_PAYLOAD_SIZE, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID,
+		TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_messages::{UnrewardedRelayer, UnrewardedRelayersState};
 	use bp_test_utils::generate_owned_bridge_module_tests;
@@ -1456,11 +1456,23 @@ mod tests {
 				Pallet::<TestRuntime>::send_message(
 					Origin::signed(1),
 					TEST_LANE_ID,
-					message_payload,
-					0,
+					message_payload.clone(),
+					Balance::MAX,
 				),
 				Error::<TestRuntime, ()>::MessageIsTooLarge,
 			);
+
+			// let's check that we're able to send `MAX_OUTBOUND_PAYLOAD_SIZE` messages
+			while message_payload.size() > MAX_OUTBOUND_PAYLOAD_SIZE {
+				message_payload.extra.pop();
+			}
+			assert_eq!(message_payload.size(), MAX_OUTBOUND_PAYLOAD_SIZE);
+			assert_ok!(Pallet::<TestRuntime>::send_message(
+				Origin::signed(1),
+				TEST_LANE_ID,
+				message_payload,
+				Balance::MAX,
+			),);
 		})
 	}
 

@@ -37,6 +37,7 @@ use sp_runtime::{
 };
 use sp_std::{cmp::PartialOrd, convert::TryFrom, fmt::Debug, marker::PhantomData, vec::Vec};
 use sp_trie::StorageProof;
+use xcm::latest::prelude::*;
 
 /// Bidirectional message bridge.
 pub trait MessageBridge {
@@ -524,6 +525,111 @@ pub mod source {
 
 		Ok((lane, inbound_lane_data))
 	}
+
+	/// XCM bridge.
+	pub trait XcmBridge {
+		/// Runtime message bridge configuration.
+		type MessageBridge: MessageBridge;
+		/// Runtime message sender adapter.
+		type MessageSender: bp_messages::source_chain::MessagesBridge<
+			OriginOf<ThisChain<Self::MessageBridge>>,
+			AccountIdOf<ThisChain<Self::MessageBridge>>,
+			BalanceOf<ThisChain<Self::MessageBridge>>,
+			FromThisChainMessagePayload,
+		>;
+
+		/// Our location within the Consensus Universe.
+		fn universal_location() -> InteriorMultiLocation;
+		/// Verify that the adapter is responsible for handling given XCM destination.
+		fn verify_destination(dest: &MultiLocation) -> bool;
+		/// Build route from this chain to the XCM destination.
+		fn build_destination() -> MultiLocation;
+		/// Return message lane used to deliver XCM messages.
+		fn xcm_lane() -> LaneId;
+	}
+
+	/// XCM bridge adapter for `bridge-messages` pallet.
+	pub struct XcmBridgeAdapter<T>(PhantomData<T>);
+
+	impl<T: XcmBridge> SendXcm for XcmBridgeAdapter<T>
+	where
+		BalanceOf<ThisChain<T::MessageBridge>>: Into<Fungibility>,
+		OriginOf<ThisChain<T::MessageBridge>>: From<pallet_xcm::Origin>,
+	{
+		type Ticket = (BalanceOf<ThisChain<T::MessageBridge>>, FromThisChainMessagePayload);
+
+		fn validate(
+			dest: &mut Option<MultiLocation>,
+			msg: &mut Option<Xcm<()>>,
+		) -> SendResult<Self::Ticket> {
+			let d = dest.take().ok_or(SendError::MissingArgument)?;
+			if !T::verify_destination(&d) {
+				*dest = Some(d);
+				return Err(SendError::NotApplicable)
+			}
+
+			let route = T::build_destination();
+			let msg = (route, msg.take().unwrap()).encode();
+
+			let fee = estimate_message_dispatch_and_delivery_fee::<T::MessageBridge>(
+				&msg,
+				T::MessageBridge::RELAYER_FEE_PERCENT,
+				None,
+			);
+			let fee = match fee {
+				Ok(fee) => fee,
+				Err(e) => {
+					log::trace!(
+						target: "runtime::bridge",
+						"Failed to comupte fee for XCM message to {:?}: {:?}",
+						T::MessageBridge::BRIDGED_CHAIN_ID,
+						e,
+					);
+					*dest = Some(d);
+					return Err(SendError::Transport(e))
+				},
+			};
+			let fee_assets = MultiAssets::from((Here, fee));
+
+			Ok(((fee, msg), fee_assets))
+		}
+
+		fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+			use bp_messages::source_chain::MessagesBridge;
+
+			let lane = T::xcm_lane();
+			let (fee, msg) = ticket;
+			let result = T::MessageSender::send_message(
+				pallet_xcm::Origin::from(MultiLocation::from(T::universal_location())).into(),
+				lane,
+				msg,
+				fee,
+			);
+			result
+				.map(|artifacts| {
+					let hash = (lane, artifacts.nonce).using_encoded(sp_io::hashing::blake2_256);
+					log::debug!(
+						target: "runtime::bridge",
+						"Sent XCM message {:?}/{} to {:?}: {:?}",
+						lane,
+						artifacts.nonce,
+						T::MessageBridge::BRIDGED_CHAIN_ID,
+						hash,
+					);
+					hash
+				})
+				.map_err(|e| {
+					log::debug!(
+						target: "runtime::bridge",
+						"Failed to send XCM message over lane {:?} to {:?}: {:?}",
+						lane,
+						T::MessageBridge::BRIDGED_CHAIN_ID,
+						e,
+					);
+					SendError::Transport("Bridge has rejected the message")
+				})
+		}
+	}
 }
 
 /// Sub-module that is declaring types required for processing Bridged -> This chain messages.
@@ -641,8 +747,6 @@ pub mod target {
 			_relayer_account: &AccountIdOf<ThisChain<B>>,
 			message: DispatchMessage<Self::DispatchPayload, BalanceOf<BridgedChain<B>>>,
 		) -> MessageDispatchResult {
-			use xcm::latest::*;
-
 			let message_id = (message.key.lane_id, message.key.nonce);
 			let do_dispatch = move || -> sp_std::result::Result<Outcome, codec::Error> {
 				let FromBridgedChainMessagePayload { xcm: (location, xcm), weight: weight_limit } =
