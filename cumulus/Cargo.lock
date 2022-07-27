@@ -931,9 +931,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.13"
+version = "3.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac2bd7a1eb07da9ac757c923f69373deb7bc2ba5efc951b873bcb5e693992dca"
+checksum = "44bbe24bbd31a185bc2c4f7c2abe80bea13a20d57ee4e55be70ac512bdc76417"
 dependencies = [
  "atty",
  "bitflags",
@@ -948,9 +948,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "3.2.7"
+version = "3.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "759bf187376e1afa7b85b959e6a664a3e7a95203415dba952ad19139e798f902"
+checksum = "9ba52acd3b0a5c33aeada5cdaa3267cdc7c594a98731d4268cdc1532f4264cb4"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
@@ -1437,7 +1437,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 3.2.13",
+ "clap 3.2.15",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -2047,7 +2047,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 3.2.13",
+ "clap 3.2.15",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -2717,7 +2717,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#dbdbef95c846
 dependencies = [
  "Inflector",
  "chrono",
- "clap 3.2.13",
+ "clap 3.2.15",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -6334,7 +6334,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 3.2.13",
+ "clap 3.2.15",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -6932,7 +6932,7 @@ name = "polkadot-cli"
 version = "0.9.26"
 source = "git+https://github.com/paritytech/polkadot?branch=master#7e11707a55fcad806c71179c8cab6505cde65991"
 dependencies = [
- "clap 3.2.13",
+ "clap 3.2.15",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -7586,7 +7586,7 @@ version = "0.9.220"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 3.2.13",
+ "clap 3.2.15",
  "contracts-rococo-runtime",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
@@ -9233,7 +9233,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#dbdbef95c84644328bee60bd170d79814c04e32b"
 dependencies = [
  "chrono",
- "clap 3.2.13",
+ "clap 3.2.15",
  "fdlimit",
  "futures",
  "hex",
@@ -12277,7 +12277,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#dbdbef95c84644328bee60bd170d79814c04e32b"
 dependencies = [
- "clap 3.2.13",
+ "clap 3.2.15",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
