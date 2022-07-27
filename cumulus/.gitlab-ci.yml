@@ -274,6 +274,7 @@ benchmarks:
     - *rust-info-script
   <<:                              *collect-artifacts
   <<:                              *benchmarks-refs
+  timeout:                         1d
   script:
     - ./scripts/benchmarks-ci.sh assets statemine
     - ./scripts/benchmarks-ci.sh assets statemint
