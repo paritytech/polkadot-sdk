@@ -4,7 +4,7 @@
 
 - `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose body to fetch.
-- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./api.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
 **Return value**: String containing an opaque value representing the operation.
 
