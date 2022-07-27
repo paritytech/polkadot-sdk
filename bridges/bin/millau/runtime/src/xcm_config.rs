@@ -17,22 +17,22 @@
 //! XCM configurations for the Millau runtime.
 
 use super::{
-	rialto_messages::WithRialtoMessageBridge, AccountId, AllPalletsWithSystem, Balances,
-	BridgeRialtoMessages, Call, Event, Origin, Runtime, XcmPallet,
+	rialto_messages::{WithRialtoMessageBridge, DEFAULT_XCM_LANE_TO_RIALTO},
+	rialto_parachain_messages::{
+		WithRialtoParachainMessageBridge, DEFAULT_XCM_LANE_TO_RIALTO_PARACHAIN,
+	},
+	AccountId, AllPalletsWithSystem, Balances, Call, Event, Origin, Runtime,
+	WithRialtoMessagesInstance, WithRialtoParachainMessagesInstance, XcmPallet,
 };
-use bp_messages::source_chain::MessagesBridge;
-use bp_millau::{Balance, WeightToFee};
-use bridge_runtime_common::messages::{
-	source::{estimate_message_dispatch_and_delivery_fee, FromThisChainMessagePayload},
-	MessageBridge,
-};
-use codec::Encode;
+use bp_messages::LaneId;
+use bp_millau::WeightToFee;
+use bp_rialto_parachain::RIALTO_PARACHAIN_ID;
+use bridge_runtime_common::messages::source::{XcmBridge, XcmBridgeAdapter};
 use frame_support::{
 	parameter_types,
 	traits::{Everything, Nothing},
 	weights::Weight,
 };
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom,
@@ -49,6 +49,8 @@ parameter_types! {
 	pub const ThisNetwork: NetworkId = Kusama;
 	/// The Rialto network ID, associated with Polkadot.
 	pub const RialtoNetwork: NetworkId = Polkadot;
+	/// The RialtoParachain network ID, associated with Westend.
+	pub const RialtoParachainNetwork: NetworkId = Westend;
 
 	/// Our XCM location ancestry - i.e. our location within the Consensus Universe.
 	///
@@ -105,7 +107,9 @@ parameter_types! {
 /// individual routers.
 pub type XcmRouter = (
 	// Router to send messages to Rialto.
-	ToRialtoBridge<BridgeRialtoMessages>,
+	XcmBridgeAdapter<ToRialtoBridge>,
+	// Router to send messages to RialtoParachains.
+	XcmBridgeAdapter<ToRialtoParachainBridge>,
 );
 
 parameter_types! {
@@ -189,60 +193,56 @@ impl pallet_xcm::Config for Runtime {
 	type MaxLockers = frame_support::traits::ConstU32<8>;
 }
 
-/// With-rialto bridge.
-pub struct ToRialtoBridge<MB>(PhantomData<MB>);
+/// With-Rialto bridge.
+pub struct ToRialtoBridge;
 
-impl<MB: MessagesBridge<Origin, AccountId, Balance, FromThisChainMessagePayload>> SendXcm
-	for ToRialtoBridge<MB>
-{
-	type Ticket = (Balance, FromThisChainMessagePayload);
+impl XcmBridge for ToRialtoBridge {
+	type MessageBridge = WithRialtoMessageBridge;
+	type MessageSender = pallet_bridge_messages::Pallet<Runtime, WithRialtoMessagesInstance>;
 
-	fn validate(
-		dest: &mut Option<MultiLocation>,
-		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<Self::Ticket> {
-		let d = dest.take().ok_or(SendError::MissingArgument)?;
-		if !matches!(d, MultiLocation { parents: 1, interior: X1(GlobalConsensus(r)) } if r == RialtoNetwork::get())
-		{
-			*dest = Some(d);
-			return Err(SendError::NotApplicable)
-		};
-
-		let dest: InteriorMultiLocation = RialtoNetwork::get().into();
-		let here = UniversalLocation::get();
-		let route = dest.relative_to(&here);
-		let msg = (route, msg.take().unwrap()).encode();
-
-		let fee = estimate_message_dispatch_and_delivery_fee::<WithRialtoMessageBridge>(
-			&msg,
-			WithRialtoMessageBridge::RELAYER_FEE_PERCENT,
-			None,
-		)
-		.map_err(SendError::Transport)?;
-		let fee_assets = MultiAssets::from((Here, fee));
-
-		Ok(((fee, msg), fee_assets))
+	fn universal_location() -> InteriorMultiLocation {
+		UniversalLocation::get()
 	}
 
-	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-		let lane = [0, 0, 0, 0];
-		let (fee, msg) = ticket;
-		let result = MB::send_message(
-			pallet_xcm::Origin::from(MultiLocation::from(UniversalLocation::get())).into(),
-			lane,
-			msg,
-			fee,
-		);
-		result
-			.map(|artifacts| {
-				let hash = (lane, artifacts.nonce).using_encoded(sp_io::hashing::blake2_256);
-				log::debug!(target: "runtime::bridge", "Sent XCM message {:?}/{} to Millau: {:?}", lane, artifacts.nonce, hash);
-				hash
-			})
-			.map_err(|e| {
-				log::debug!(target: "runtime::bridge", "Failed to send XCM message over lane {:?} to Millau: {:?}", lane, e);
-				SendError::Transport("Bridge has rejected the message")
-			})
+	fn verify_destination(dest: &MultiLocation) -> bool {
+		matches!(*dest, MultiLocation { parents: 1, interior: X1(GlobalConsensus(r)) } if r == RialtoNetwork::get())
+	}
+
+	fn build_destination() -> MultiLocation {
+		let dest: InteriorMultiLocation = RialtoNetwork::get().into();
+		let here = UniversalLocation::get();
+		dest.relative_to(&here)
+	}
+
+	fn xcm_lane() -> LaneId {
+		DEFAULT_XCM_LANE_TO_RIALTO
+	}
+}
+
+/// With-RialtoParachain bridge.
+pub struct ToRialtoParachainBridge;
+
+impl XcmBridge for ToRialtoParachainBridge {
+	type MessageBridge = WithRialtoParachainMessageBridge;
+	type MessageSender =
+		pallet_bridge_messages::Pallet<Runtime, WithRialtoParachainMessagesInstance>;
+
+	fn universal_location() -> InteriorMultiLocation {
+		UniversalLocation::get()
+	}
+
+	fn verify_destination(dest: &MultiLocation) -> bool {
+		matches!(*dest, MultiLocation { parents: 1, interior: X2(GlobalConsensus(r), Parachain(RIALTO_PARACHAIN_ID)) } if r == RialtoNetwork::get())
+	}
+
+	fn build_destination() -> MultiLocation {
+		let dest: InteriorMultiLocation = RialtoParachainNetwork::get().into();
+		let here = UniversalLocation::get();
+		dest.relative_to(&here)
+	}
+
+	fn xcm_lane() -> LaneId {
+		DEFAULT_XCM_LANE_TO_RIALTO_PARACHAIN
 	}
 }
 
@@ -255,6 +255,7 @@ mod tests {
 	};
 	use bp_runtime::messages::MessageDispatchResult;
 	use bridge_runtime_common::messages::target::FromBridgedChainMessageDispatch;
+	use codec::Encode;
 
 	fn new_test_ext() -> sp_io::TestExternalities {
 		sp_io::TestExternalities::new(
@@ -263,17 +264,23 @@ mod tests {
 	}
 
 	#[test]
-	fn xcm_messages_to_rialto_are_sent() {
+	fn xcm_messages_are_sent_using_bridge_router() {
 		new_test_ext().execute_with(|| {
-			// the encoded message (origin ++ xcm) is 0x010109020419A8
-			let dest = (Parent, X1(GlobalConsensus(RialtoNetwork::get())));
 			let xcm: Xcm<()> = vec![Instruction::Trap(42)].into();
-
-			let send_result = send_xcm::<XcmRouter>(dest.into(), xcm);
 			let expected_fee = MultiAssets::from((Here, 4_345_002_552_u64));
 			let expected_hash =
 				([0u8, 0u8, 0u8, 0u8], 1u64).using_encoded(sp_io::hashing::blake2_256);
-			assert_eq!(send_result, Ok((expected_hash, expected_fee)),);
+
+			// message 1 to Rialto
+			let dest = (Parent, X1(GlobalConsensus(RialtoNetwork::get())));
+			let send_result = send_xcm::<XcmRouter>(dest.into(), xcm.clone());
+			assert_eq!(send_result, Ok((expected_hash, expected_fee.clone())));
+
+			// message 2 to RialtoParachain (expected hash is the same, since other lane is used)
+			let dest =
+				(Parent, X2(GlobalConsensus(RialtoNetwork::get()), Parachain(RIALTO_PARACHAIN_ID)));
+			let send_result = send_xcm::<XcmRouter>(dest.into(), xcm);
+			assert_eq!(send_result, Ok((expected_hash, expected_fee)));
 		})
 	}
 
