@@ -24,13 +24,13 @@ use crate::{
 	cli::{
 		bridge::{FullBridge, MessagesCliBridge},
 		chain_schema::*,
-		encode_message::{self, CliEncodeMessage},
+		encode_message::{self, CliEncodeMessage, RawMessage},
 		estimate_fee::{estimate_message_delivery_and_dispatch_fee, ConversionRateOverride},
 		Balance, CliChain, HexBytes, HexLaneId,
 	},
 };
 use async_trait::async_trait;
-use codec::Encode;
+use codec::{Decode, Encode};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainBase, SignParam, TransactionSignScheme,
 	UnsignedTransaction,
@@ -70,6 +70,10 @@ pub struct SendMessage {
 	source: SourceConnectionParams,
 	#[structopt(flatten)]
 	source_sign: SourceSigningParams,
+	/// Send message using XCM pallet instead. By default message is sent using
+	/// bridge messages pallet.
+	#[structopt(long)]
+	use_xcm_pallet: bool,
 	/// Hex-encoded lane id. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
@@ -124,12 +128,19 @@ where
 			),
 		};
 		let payload_len = payload.encode().len();
-		let send_message_call = Self::Source::encode_send_message_call(
-			data.lane.0,
-			payload,
-			fee.cast().into(),
-			data.bridge.bridge_instance_index(),
-		)?;
+		let send_message_call = if data.use_xcm_pallet {
+			Self::Source::encode_send_xcm(
+				decode_xcm(payload)?,
+				data.bridge.bridge_instance_index(),
+			)?
+		} else {
+			Self::Source::encode_send_message_call(
+				data.lane.0,
+				payload,
+				fee.cast().into(),
+				data.bridge.bridge_instance_index(),
+			)?
+		};
 
 		let source_genesis_hash = *source_client.genesis_hash();
 		let (spec_version, transaction_version) = source_client.simple_runtime_version().await?;
@@ -208,6 +219,12 @@ impl SendMessage {
 		}
 		.await
 	}
+}
+
+/// Decode SCALE encoded raw XCM message.
+fn decode_xcm(message: RawMessage) -> anyhow::Result<xcm::VersionedXcm<()>> {
+	Decode::decode(&mut &message[..])
+		.map_err(|e| anyhow::format_err!("Failed to decode XCM program: {:?}", e))
 }
 
 #[cfg(test)]

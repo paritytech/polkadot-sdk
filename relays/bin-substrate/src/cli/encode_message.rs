@@ -42,7 +42,13 @@ pub enum Message {
 pub type RawMessage = Vec<u8>;
 
 pub trait CliEncodeMessage: Chain {
-	/// Encode a send message call.
+	/// Encode a send XCM call of the XCM pallet.
+	fn encode_send_xcm(
+		message: xcm::VersionedXcm<()>,
+		bridge_instance_index: u8,
+	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>>;
+
+	/// Encode a send message call of the bridge-messages pallet.
 	fn encode_send_message_call(
 		lane: LaneId,
 		message: RawMessage,
