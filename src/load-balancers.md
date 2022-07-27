@@ -10,6 +10,6 @@ With the exception of the JSON-RPC functions prefixed with ̀`sudo`, none of the
 
 In the legacy JSON-RPC interface, a flag on the server renders some JSON-RPC functions inaccessible. This is important in order to prevent the general public from accessing the node's configuration and sensitive data. In this new JSON-RPC interface, all the functions that shouldn't be publicly-accessible are prefixed with `sudo`.
 
-This makes it possible to insert proxies that filter incoming requests. All such proxy has to do is parse JSON-RPC requests and detect whether the function name starts with `sudo_`.
+This makes it possible to insert proxies that filter incoming requests. All such proxy has to do is parse JSON-RPC requests and detect whether the function name starts with a prefix that isn't `sudo_`.
 
 In practice, however, such proxy doesn't seem to exist, and JSON-RPC server implementations should continue to provide a configuration option (such as a CLI flag) to disable `sudo`-prefixed functions.
