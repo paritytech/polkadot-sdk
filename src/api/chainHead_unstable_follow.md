@@ -108,11 +108,11 @@ The `bestBlockChanged` event indicates that the given block is now considered to
 ```json
 {
     "event": "finalized",
-    "finalizedBlocksHashes": [
+    "finalizedBlockHashes": [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     ],
-    "prunedBlocksHashes": [
+    "prunedBlockHashes": [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     ]
@@ -121,13 +121,13 @@ The `bestBlockChanged` event indicates that the given block is now considered to
 
 The `finalized` event indicates that some of the blocks that have earlier been reported with `newBlock` events are now either finalized or no longer relevant.
 
-`finalizedBlocksHashes` contains a list of blocks that are now part of the finalized block, ordered by increasing block number. The last element in this list is the current finalized block.
+`finalizedBlockHashes` contains a list of blocks that are now part of the finalized block, ordered by increasing block number. The last element in this list is the current finalized block.
 
-`prunedBlocksHashes` contains, in no particular order, a list of blocks that are not descendants of the latest finalized block. These blocks will never be finalized and can be discarded.
+`prunedBlockHashes` contains, in no particular order, a list of blocks that are not descendants of the latest finalized block. These blocks will never be finalized and can be discarded.
 
-All items in `finalizedBlocksHashes` and `prunedBlocksHashes` are guaranteed to have been reported through earlier `newBlock` events.
+All items in `finalizedBlockHashes` and `prunedBlockHashes` are guaranteed to have been reported through earlier `newBlock` events.
 
-The current best block, in other words the last block reported through a `bestBlockChanged` event, is guaranteed to either be the last item in `finalizedBlocksHashes`, or to not be present in either `finalizedBlocksHashes` or `prunedBlocksHashes`.
+The current best block, in other words the last block reported through a `bestBlockChanged` event, is guaranteed to either be the last item in `finalizedBlockHashes`, or to not be present in either `finalizedBlockHashes` or `prunedBlockHashes`.
 
 ### stop
 
