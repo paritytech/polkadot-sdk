@@ -41,6 +41,7 @@ sp-version = { git = "https://github.com/paritytech/substrate", branch = "master
 
 # Polkadot dependencies
 
+pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
@@ -65,6 +66,7 @@ std = [
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
 	"pallet-transaction-payment/std",
+	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-core/std",

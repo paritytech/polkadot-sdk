@@ -37,6 +37,8 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 use sp_std::convert::TryFrom;
 
+/// Default lane that is used to send messages to Rialto.
+pub const DEFAULT_XCM_LANE_TO_RIALTO: LaneId = [0, 0, 0, 0];
 /// Initial value of `RialtoToMillauConversionRate` parameter.
 pub const INITIAL_RIALTO_TO_MILLAU_CONVERSION_RATE: FixedU128 =
 	FixedU128::from_inner(FixedU128::DIV);
@@ -149,7 +151,7 @@ impl messages::ThisChainWithMessages for Millau {
 			},
 		}
 
-		*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1]
+		*lane == DEFAULT_XCM_LANE_TO_RIALTO || *lane == [0, 0, 0, 1]
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
