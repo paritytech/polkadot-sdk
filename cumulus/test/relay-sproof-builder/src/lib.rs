@@ -43,6 +43,7 @@ pub struct RelayStateSproofBuilder {
 	pub hrmp_egress_channel_index: Option<Vec<ParaId>>,
 	pub hrmp_channels: BTreeMap<relay_chain::v2::HrmpChannelId, AbridgedHrmpChannel>,
 	pub current_slot: relay_chain::v2::Slot,
+	pub current_epoch: u64,
 }
 
 impl Default for RelayStateSproofBuilder {
@@ -67,6 +68,7 @@ impl Default for RelayStateSproofBuilder {
 			hrmp_egress_channel_index: None,
 			hrmp_channels: BTreeMap::new(),
 			current_slot: 0.into(),
+			current_epoch: 0u64,
 		}
 	}
 }
@@ -153,7 +155,7 @@ impl RelayStateSproofBuilder {
 			for (channel, metadata) in self.hrmp_channels {
 				insert(relay_chain::well_known_keys::hrmp_channels(channel), metadata.encode());
 			}
-
+			insert(relay_chain::well_known_keys::EPOCH_INDEX.to_vec(), self.current_epoch.encode());
 			insert(relay_chain::well_known_keys::CURRENT_SLOT.to_vec(), self.current_slot.encode());
 		}
 
