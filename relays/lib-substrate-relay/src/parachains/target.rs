@@ -107,14 +107,13 @@ where
 				Some(at_block.1),
 			)
 			.await?;
-		let decoded_best_finalized_source_block =
-			Option::<(BlockNumberOf<P::SourceRelayChain>, HashOf<P::SourceRelayChain>)>::decode(
-				&mut &encoded_best_finalized_source_block.0[..],
-			)
-			.map_err(SubstrateError::ResponseParseFailed)?
-			.map(Ok)
-			.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))?;
-		Ok(HeaderId(decoded_best_finalized_source_block.0, decoded_best_finalized_source_block.1))
+
+		Option::<HeaderId<HashOf<P::SourceRelayChain>, BlockNumberOf<P::SourceRelayChain>>>::decode(
+			&mut &encoded_best_finalized_source_block.0[..],
+		)
+		.map_err(SubstrateError::ResponseParseFailed)?
+		.map(Ok)
+		.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))
 	}
 
 	async fn parachain_head(

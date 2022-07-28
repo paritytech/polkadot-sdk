@@ -104,7 +104,7 @@ sp_api::decl_runtime_apis! {
 	/// Westend runtime itself.
 	pub trait WestendFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<(BlockNumber, Hash)>;
+		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
 	}
 
 	/// API for querying information about the finalized Westmint headers.
@@ -113,7 +113,7 @@ sp_api::decl_runtime_apis! {
 	/// Westmint runtime itself.
 	pub trait WestmintFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<(BlockNumber, Hash)>;
+		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
 	}
 }
 
