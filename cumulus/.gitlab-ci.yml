@@ -93,7 +93,18 @@ test-linux-stable:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo test --all --release --locked -- --include-ignored
+    - time cargo nextest run --all --release --locked --run-ignored all
+
+test-doc:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *common-refs
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo test --doc
 
 check-runtime-benchmarks:
   stage:                           test
