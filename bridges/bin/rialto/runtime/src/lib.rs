@@ -35,6 +35,7 @@ pub mod xcm_config;
 use crate::millau_messages::{ToMillauMessagePayload, WithMillauMessageBridge};
 
 use beefy_primitives::{crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
+use bp_runtime::{HeaderId, HeaderIdProvider};
 use bridge_runtime_common::messages::{
 	source::estimate_message_dispatch_and_delivery_fee, MessageBridge,
 };
@@ -653,8 +654,8 @@ impl_runtime_apis! {
 	}
 
 	impl bp_millau::MillauFinalityApi<Block> for Runtime {
-		fn best_finalized() -> Option<(bp_millau::BlockNumber, bp_millau::Hash)> {
-			BridgeMillauGrandpa::best_finalized().map(|header| (header.number, header.hash()))
+		fn best_finalized() -> Option<HeaderId<bp_millau::Hash, bp_millau::BlockNumber>> {
+			BridgeMillauGrandpa::best_finalized().map(|header| header.id())
 		}
 	}
 

@@ -110,7 +110,7 @@ sp_api::decl_runtime_apis! {
 	/// Kusama runtime itself.
 	pub trait KusamaFinalityApi {
 		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<(BlockNumber, Hash)>;
+		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
 	}
 
 	/// Outbound message lane API for messages that are sent to Kusama chain.

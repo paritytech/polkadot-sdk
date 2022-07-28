@@ -562,17 +562,13 @@ where
 			Some(at_self_hash),
 		)
 		.await?;
-	let decoded_best_finalized_peer_on_self =
-		Option::<(BlockNumberOf<PeerChain>, HashOf<PeerChain>)>::decode(
-			&mut &encoded_best_finalized_peer_on_self.0[..],
-		)
-		.map_err(SubstrateError::ResponseParseFailed)?
-		.map(Ok)
-		.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))?;
-	let peer_on_self_best_finalized_id =
-		HeaderId(decoded_best_finalized_peer_on_self.0, decoded_best_finalized_peer_on_self.1);
 
-	Ok(peer_on_self_best_finalized_id)
+	Option::<HeaderId<HashOf<PeerChain>, BlockNumberOf<PeerChain>>>::decode(
+		&mut &encoded_best_finalized_peer_on_self.0[..],
+	)
+	.map_err(SubstrateError::ResponseParseFailed)?
+	.map(Ok)
+	.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))
 }
 
 fn make_message_details_map<C: Chain>(
