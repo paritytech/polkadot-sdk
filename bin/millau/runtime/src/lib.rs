@@ -847,11 +847,10 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<(bp_rialto::BlockNumber, bp_rialto::Hash)> {
 			// the parachains finality pallet is never decoding parachain heads, so it is
 			// only done in the integration code
-			use bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 			let encoded_head = pallet_bridge_parachains::Pallet::<
 				Runtime,
 				WithRialtoParachainsInstance,
-			>::best_parachain_head(RIALTO_PARACHAIN_ID.into())?;
+			>::best_parachain_head(bp_rialto_parachain::RIALTO_PARACHAIN_ID.into())?;
 			let head = bp_rialto_parachain::Header::decode(&mut &encoded_head.0[..]).ok()?;
 			Some((*head.number(), head.hash()))
 		}
