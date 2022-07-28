@@ -49,6 +49,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
+use bp_runtime::{HeaderId, HeaderIdProvider};
 pub use frame_support::{
 	construct_runtime, match_types, parameter_types,
 	traits::{Everything, IsInVec, Nothing, Randomness},
@@ -727,8 +728,8 @@ impl_runtime_apis! {
 	}
 
 	impl bp_millau::MillauFinalityApi<Block> for Runtime {
-		fn best_finalized() -> Option<(bp_millau::BlockNumber, bp_millau::Hash)> {
-			BridgeMillauGrandpa::best_finalized().map(|header| (header.number, header.hash()))
+		fn best_finalized() -> Option<HeaderId<bp_millau::Hash, bp_millau::BlockNumber>> {
+			BridgeMillauGrandpa::best_finalized().map(|header| header.id())
 		}
 	}
 
