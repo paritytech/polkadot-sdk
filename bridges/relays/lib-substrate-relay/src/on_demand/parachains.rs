@@ -433,42 +433,30 @@ where
 	ParaNumber: Copy + PartialOrd + Zero,
 	RelayNumber: Copy + Debug + Ord,
 {
-	// this switch is responsible for processing `RelayingRelayHeader` state
-	match state {
-		RelayState::Idle | RelayState::RelayingParaHeader(_) => (),
-		RelayState::RelayingRelayHeader(relay_header_number) => {
-			if data.relay_header_at_target < relay_header_number {
-				// required relay header hasn't yet been relayed
-				return RelayState::RelayingRelayHeader(relay_header_number)
-			}
+	// Process the `RelayingRelayHeader` state.
+	if let &RelayState::RelayingRelayHeader(relay_header_number) = &state {
+		if data.relay_header_at_target < relay_header_number {
+			// The required relay header hasn't yet been relayed. Ask / wait for it.
+			return state
+		}
 
-			// we may switch to `RelayingParaHeader` if parachain head is available
-			if let Some(para_header_at_relay_header_at_target) =
-				data.para_header_at_relay_header_at_target.clone()
-			{
-				state = RelayState::RelayingParaHeader(para_header_at_relay_header_at_target);
-			} else {
-				// otherwise, we'd need to restart (this may happen only if parachain has been
-				// deregistered)
-				state = RelayState::Idle;
-			}
-		},
+		// We may switch to `RelayingParaHeader` if parachain head is available.
+		state = data
+			.para_header_at_relay_header_at_target
+			.clone()
+			.map_or(RelayState::Idle, RelayState::RelayingParaHeader);
 	}
 
-	// this switch is responsible for processing `RelayingParaHeader` state
-	let para_header_at_target_or_zero = data.para_header_at_target.unwrap_or_else(Zero::zero);
-	match state {
-		RelayState::Idle => (),
-		RelayState::RelayingRelayHeader(_) => unreachable!("processed by previous match; qed"),
-		RelayState::RelayingParaHeader(para_header_id) => {
-			if para_header_at_target_or_zero < para_header_id.0 {
-				// parachain header hasn't yet been relayed
-				return RelayState::RelayingParaHeader(para_header_id)
-			}
-		},
+	// Process the `RelayingParaHeader` state.
+	if let RelayState::RelayingParaHeader(para_header_id) = &state {
+		let para_header_at_target_or_zero = data.para_header_at_target.unwrap_or_else(Zero::zero);
+		if para_header_at_target_or_zero < para_header_id.0 {
+			// The required parachain header hasn't yet been relayed. Ask / wait for it.
+			return state
+		}
 	}
 
-	// if we haven't read para head from the source, we can't yet do anyhting
+	// if we haven't read para head from the source, we can't yet do anything
 	let para_header_at_source = match data.para_header_at_source {
 		Some(ref para_header_at_source) => para_header_at_source.clone(),
 		None => return RelayState::Idle,
