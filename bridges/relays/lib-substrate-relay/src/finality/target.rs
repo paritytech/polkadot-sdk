@@ -56,9 +56,7 @@ impl<P: SubstrateFinalitySyncPipeline> SubstrateFinalityTarget<P> {
 			return Err(Error::BridgePalletIsHalted)
 		}
 
-		let is_initialized = P::FinalityEngine::is_initialized(&self.client)
-			.await
-			.map_err(|e| Error::Custom(e.to_string()))?;
+		let is_initialized = P::FinalityEngine::is_initialized(&self.client).await?;
 		if !is_initialized {
 			return Err(Error::BridgePalletIsNotInitialized)
 		}
