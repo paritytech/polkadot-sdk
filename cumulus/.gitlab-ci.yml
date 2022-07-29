@@ -332,6 +332,20 @@ publish-benchmarks-s3:
   after_script:
     - aws s3 ls s3://${BUCKET}/${PREFIX}/ --recursive --human-readable --summarize
 
+# Ref: https://github.com/paritytech/opstooling/issues/111
+update-parachain-template:
+  stage:                           publish
+  extends:                         .kubernetes-env
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^polkadot-v[0-9]+\.[0-9]+.*$/ # i.e. polkadot-v1.0.99, polkadot-v2.1rc1
+  script:
+    - git clone --depth=1 --branch="$PIPELINE_SCRIPTS_TAG" https://github.com/paritytech/pipeline-scripts
+    - ./pipeline-scripts/update_substrate_template.sh
+      --repo-name "substrate-parachain-template"
+      --template-path "parachain-template"
+      --github-api-token "$GITHUB_TOKEN"
+      --polkadot-branch "$CI_COMMIT_REF_NAME"
+
 #### stage:                        .post
 
 # This job cancels the whole pipeline if any of provided jobs fail.
