@@ -205,8 +205,8 @@ fn host_storage_set(key: &[u8], value: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), Some(value.to_vec())))
 }
 
-fn host_storage_get(key: &[u8]) -> Option<Vec<u8>> {
-	with_externalities(|ext| ext.storage(key).clone())
+fn host_storage_get(key: &[u8]) -> Option<bytes::Bytes> {
+	with_externalities(|ext| ext.storage(key).map(|value| value.into()))
 }
 
 fn host_storage_exists(key: &[u8]) -> bool {
