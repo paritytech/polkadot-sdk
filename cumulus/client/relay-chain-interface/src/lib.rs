@@ -29,7 +29,7 @@ use sc_client_api::StorageProof;
 use futures::Stream;
 
 use async_trait::async_trait;
-use jsonrpsee_core::Error as JsonRPSeeError;
+use jsonrpsee_core::Error as JsonRpcError;
 use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
 use sp_state_machine::StorageValue;
@@ -51,9 +51,11 @@ pub enum RelayChainError {
 	#[error("State machine error occured: {0}")]
 	StateMachineError(Box<dyn sp_state_machine::Error>),
 	#[error("Unable to call RPC method '{0}' due to error: {1}")]
-	RPCCallError(String, JsonRPSeeError),
+	RpcCallError(String, JsonRpcError),
 	#[error("RPC Error: '{0}'")]
-	JsonRPCError(#[from] JsonRPSeeError),
+	JsonRpcError(#[from] JsonRpcError),
+	#[error("Unable to reach RpcStreamWorker: {0}")]
+	WorkerCommunicationError(String),
 	#[error("Scale codec deserialization error: {0}")]
 	DeserializationError(CodecError),
 	#[error("Scale codec deserialization error: {0}")]
