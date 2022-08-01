@@ -383,7 +383,7 @@ where
 				},
 				(ParaHashAtSource::Some(_), Some(_)) => {
 					// this is normal case when relay has recently updated heads, when parachain is
-					// not progressing or when our source client is
+					// not progressing, or when our source client is still syncing
 					false
 				},
 				(ParaHashAtSource::Some(_), None) => {
