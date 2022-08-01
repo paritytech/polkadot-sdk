@@ -238,6 +238,7 @@ pub mod pallet {
 				&parachain_heads_proof,
 				parachains.len() as _,
 			);
+
 			pallet_bridge_grandpa::Pallet::<T, T::BridgesGrandpaPalletInstance>::parse_finalized_storage_proof(
 				relay_block_hash,
 				sp_trie::StorageProof::new(parachain_heads_proof.0),
@@ -293,7 +294,7 @@ pub mod pallet {
 							continue;
 						}
 
-						let prune_happened: Result<_, ()> = BestParaHeads::<T, I>::try_mutate(parachain, |stored_best_head| {
+						let update_result: Result<_, ()> = BestParaHeads::<T, I>::try_mutate(parachain, |stored_best_head| {
 							let artifacts = Pallet::<T, I>::update_parachain_head(
 								parachain,
 								stored_best_head.take(),
@@ -305,7 +306,14 @@ pub mod pallet {
 							Ok(artifacts.prune_happened)
 						});
 
-						if matches!(prune_happened, Err(_) | Ok(false)) {
+						// we're refunding weight if update has not happened and if pruning has not happened
+						let is_update_happened = matches!(update_result, Ok(_));
+						if !is_update_happened {
+							actual_weight = actual_weight
+								.saturating_sub(WeightInfoOf::<T, I>::parachain_head_storage_write_weight(T::DbWeight::get()));
+						}
+						let is_prune_happened = matches!(update_result, Ok(true));
+						if !is_prune_happened {
 							actual_weight = actual_weight
 								.saturating_sub(WeightInfoOf::<T, I>::parachain_head_pruning_weight(T::DbWeight::get()));
 						}
@@ -538,6 +546,8 @@ mod tests {
 	};
 
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
+	type WeightInfo = <TestRuntime as Config>::WeightInfo;
+	type DbWeight = <TestRuntime as frame_system::Config>::DbWeight;
 
 	fn initialize(state_root: RelayBlockHash) {
 		pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::initialize(
@@ -675,12 +685,16 @@ mod tests {
 			initialize(state_root);
 
 			// we're trying to update heads of parachains 1, 2 and 3
-			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+			let expected_weight =
+				WeightInfo::submit_parachain_heads_weight(DbWeight::get(), &proof, 2);
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
 				Origin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
-			),);
+			);
+			assert_ok!(result);
+			assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
 
 			// but only 1 and 2 are updated, because proof is missing head of parachain#2
 			assert_eq!(BestParaHeads::<TestRuntime>::get(ParaId(1)), Some(initial_best_head(1)));
@@ -768,13 +782,20 @@ mod tests {
 		run_test(|| {
 			// start with relay block #0 and try to import head#5 of parachain#1 and untracked
 			// parachain
+			let expected_weight =
+				WeightInfo::submit_parachain_heads_weight(DbWeight::get(), &proof, 3)
+					.saturating_sub(WeightInfo::parachain_head_storage_write_weight(
+						DbWeight::get(),
+					));
 			initialize(state_root);
-			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
 				Origin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
-			));
+			);
+			assert_ok!(result);
+			assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
 			assert_eq!(
 				BestParaHeads::<TestRuntime>::get(ParaId(1)),
 				Some(BestParaHead {
