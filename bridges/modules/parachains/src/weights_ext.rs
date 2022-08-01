@@ -68,6 +68,17 @@ pub trait WeightInfoExt: WeightInfo {
 		base_weight.saturating_add(proof_size_overhead).saturating_add(pruning_weight)
 	}
 
+	/// Returns weight of single parachain head storage update.
+	///
+	/// This weight only includes db write operations that happens if parachain head is actually
+	/// updated. All extra weights (weight of storage proof validation, additional checks, ...) is
+	/// not included.
+	fn parachain_head_storage_write_weight(db_weight: RuntimeDbWeight) -> Weight {
+		// it's just a couple of operations - we need to write the hash (`ImportedParaHashes`) and
+		// the head itself (`ImportedParaHeads`. Pruning is not included here
+		db_weight.writes(2)
+	}
+
 	/// Returns weight of single parachain head pruning.
 	fn parachain_head_pruning_weight(db_weight: RuntimeDbWeight) -> Weight {
 		// it's just one write operation, we don't want any benchmarks for that
