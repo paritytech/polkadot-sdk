@@ -10,7 +10,7 @@ async-std = { version = "1.6.5", features = ["attributes"] }
 async-trait = "0.1"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.7"
-jsonrpsee = { version = "0.8", features = ["macros", "ws-client"] }
+jsonrpsee = { version = "0.15", features = ["macros", "ws-client"] }
 log = "0.4.11"
 num-traits = "0.2"
 rand = "0.7"
