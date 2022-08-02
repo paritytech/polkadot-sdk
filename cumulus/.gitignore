@@ -9,3 +9,4 @@ polkadot_argument_parsing
 *.iml
 .env
 bin
+**/._*
