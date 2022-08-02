@@ -18,10 +18,14 @@ use crate::chains::{
 	rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
 	westend_parachains_to_millau::WestmintToMillauCliBridge,
 };
+use async_std::sync::Mutex;
 use async_trait::async_trait;
 use bp_polkadot_core::parachains::ParaId;
-use parachains_relay::parachains_loop::{ParachainSyncParams, SourceClient, TargetClient};
+use parachains_relay::parachains_loop::{
+	AvailableHeader, ParachainSyncParams, SourceClient, TargetClient,
+};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
+use std::sync::Arc;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 use substrate_relay_helper::{
@@ -65,7 +69,10 @@ where
 {
 	async fn relay_headers(data: RelayParachains) -> anyhow::Result<()> {
 		let source_client = data.source.into_client::<Self::SourceRelay>().await?;
-		let source_client = ParachainsSource::<Self::ParachainFinality>::new(source_client, None);
+		let source_client = ParachainsSource::<Self::ParachainFinality>::new(
+			source_client,
+			Arc::new(Mutex::new(AvailableHeader::Missing)),
+		);
 
 		let target_transaction_params = TransactionParams {
 			signer: data.target_sign.to_keypair::<Self::Target>()?,
