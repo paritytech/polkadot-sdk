@@ -27,7 +27,6 @@ use relay_substrate_client::{
 	BlockNumberOf, BlockWithJustification, Chain, Client, Error, HeaderOf,
 };
 use relay_utils::relay_loop::Client as RelayClient;
-use sp_runtime::traits::Header as HeaderT;
 use std::pin::Pin;
 
 /// Shared updatable reference to the maximal header number that we want to sync from the source.
@@ -76,9 +75,7 @@ impl<P: SubstrateFinalitySyncPipeline> SubstrateFinalitySource<P> {
 	) -> Result<BlockNumberOf<P::SourceChain>, Error> {
 		// we **CAN** continue to relay finality proofs if source node is out of sync, because
 		// target node may be missing proofs that are already available at the source
-		let finalized_header_hash = self.client.best_finalized_header_hash().await?;
-		let finalized_header = self.client.header_by_hash(finalized_header_hash).await?;
-		Ok(*finalized_header.number())
+		self.client.best_finalized_header_number().await
 	}
 }
 
