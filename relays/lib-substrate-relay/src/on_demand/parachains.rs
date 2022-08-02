@@ -36,7 +36,7 @@ use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
 use num_traits::Zero;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use parachains_relay::parachains_loop::{ParachainSyncParams, TargetClient};
+use parachains_relay::parachains_loop::{AvailableHeader, ParachainSyncParams, TargetClient};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
 	TransactionSignScheme,
@@ -143,7 +143,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 
 	let mut relay_state = RelayState::Idle;
 	let mut required_parachain_header_number = Zero::zero();
-	let required_para_header_number_ref = Arc::new(Mutex::new(None));
+	let required_para_header_number_ref = Arc::new(Mutex::new(AvailableHeader::Unavailable));
 
 	let mut restart_relay = true;
 	let parachains_relay_task = futures::future::Fuse::terminated();
@@ -151,7 +151,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 
 	let mut parachains_source = ParachainsSource::<P>::new(
 		source_relay_client.clone(),
-		Some(required_para_header_number_ref.clone()),
+		required_para_header_number_ref.clone(),
 	);
 	let mut parachains_target =
 		ParachainsTarget::<P>::new(target_client.clone(), target_transaction_params.clone());
@@ -253,7 +253,8 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					.await;
 			},
 			RelayState::RelayingParaHeader(required_para_header) => {
-				*required_para_header_number_ref.lock().await = Some(required_para_header);
+				*required_para_header_number_ref.lock().await =
+					AvailableHeader::Available(required_para_header);
 			},
 		}
 
@@ -389,13 +390,9 @@ where
 		source.client().best_finalized_header().await.map_err(map_source_err)?;
 	let best_finalized_relay_block_id = best_finalized_relay_header.id();
 	let para_header_at_source = source
-		.on_chain_parachain_header(
-			best_finalized_relay_block_id,
-			P::SOURCE_PARACHAIN_PARA_ID.into(),
-		)
+		.on_chain_para_head_id(best_finalized_relay_block_id, P::SOURCE_PARACHAIN_PARA_ID.into())
 		.await
-		.map_err(map_source_err)?
-		.map(|h| h.id());
+		.map_err(map_source_err)?;
 
 	let relay_header_at_source = best_finalized_relay_block_id.0;
 	let relay_header_at_target =
@@ -408,10 +405,9 @@ where
 		.map_err(map_target_err)?;
 
 	let para_header_at_relay_header_at_target = source
-		.on_chain_parachain_header(relay_header_at_target, P::SOURCE_PARACHAIN_PARA_ID.into())
+		.on_chain_para_head_id(relay_header_at_target, P::SOURCE_PARACHAIN_PARA_ID.into())
 		.await
-		.map_err(map_source_err)?
-		.map(|h| h.id());
+		.map_err(map_source_err)?;
 
 	Ok(RelayData {
 		required_para_header: required_header_number,
