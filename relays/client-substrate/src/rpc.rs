@@ -16,7 +16,7 @@
 
 //! The most generic Substrate node RPC interface.
 
-use crate::Chain;
+use crate::{Chain, TransactionStatusOf};
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use pallet_transaction_payment_rpc_runtime_api::FeeDetails;
@@ -28,52 +28,100 @@ use sp_core::{
 use sp_rpc::number::NumberOrHex;
 use sp_version::RuntimeVersion;
 
-#[rpc(client, client_bounds(C: Chain))]
-pub(crate) trait Substrate<C> {
-	#[method(name = "system_health", param_kind = array)]
-	async fn system_health(&self) -> RpcResult<Health>;
-	#[method(name = "system_properties", param_kind = array)]
-	async fn system_properties(&self) -> RpcResult<sc_chain_spec::Properties>;
-	#[method(name = "chain_getHeader", param_kind = array)]
-	async fn chain_get_header(&self, block_hash: Option<C::Hash>) -> RpcResult<C::Header>;
-	#[method(name = "chain_getFinalizedHead", param_kind = array)]
-	async fn chain_get_finalized_head(&self) -> RpcResult<C::Hash>;
-	#[method(name = "chain_getBlock", param_kind = array)]
-	async fn chain_get_block(&self, block_hash: Option<C::Hash>) -> RpcResult<C::SignedBlock>;
-	#[method(name = "chain_getBlockHash", param_kind = array)]
-	async fn chain_get_block_hash(
-		&self,
-		block_number: Option<C::BlockNumber>,
-	) -> RpcResult<C::Hash>;
-	#[method(name = "system_accountNextIndex", param_kind = array)]
-	async fn system_account_next_index(&self, account_id: C::AccountId) -> RpcResult<C::Index>;
-	#[method(name = "author_submitExtrinsic", param_kind = array)]
-	async fn author_submit_extrinsic(&self, extrinsic: Bytes) -> RpcResult<C::Hash>;
-	#[method(name = "author_pendingExtrinsics", param_kind = array)]
-	async fn author_pending_extrinsics(&self) -> RpcResult<Vec<Bytes>>;
-	#[method(name = "state_call", param_kind = array)]
-	async fn state_call(
+/// RPC methods of Substrate `system` namespace, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "system")]
+pub(crate) trait SubstrateSystem<C> {
+	/// Return node health.
+	#[method(name = "health")]
+	async fn health(&self) -> RpcResult<Health>;
+	/// Return system properties.
+	#[method(name = "properties")]
+	async fn properties(&self) -> RpcResult<sc_chain_spec::Properties>;
+}
+
+/// RPC methods of Substrate `chain` namespace, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "chain")]
+pub(crate) trait SubstrateChain<C> {
+	/// Get block hash by its number.
+	#[method(name = "getBlockHash")]
+	async fn block_hash(&self, block_number: Option<C::BlockNumber>) -> RpcResult<C::Hash>;
+	/// Return block header by its hash.
+	#[method(name = "getHeader")]
+	async fn header(&self, block_hash: Option<C::Hash>) -> RpcResult<C::Header>;
+	/// Return best finalized block hash.
+	#[method(name = "getFinalizedHead")]
+	async fn finalized_head(&self) -> RpcResult<C::Hash>;
+	/// Return signed block (with justifications) by its hash.
+	#[method(name = "getBlock")]
+	async fn block(&self, block_hash: Option<C::Hash>) -> RpcResult<C::SignedBlock>;
+}
+
+/// RPC methods of Substrate `author` namespace, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "author")]
+pub(crate) trait SubstrateAuthor<C> {
+	/// Submit extrinsic to the transaction pool.
+	#[method(name = "submitExtrinsic")]
+	async fn submit_extrinsic(&self, extrinsic: Bytes) -> RpcResult<C::Hash>;
+	/// Return vector of pending extrinsics from the transaction pool.
+	#[method(name = "pendingExtrinsics")]
+	async fn pending_extrinsics(&self) -> RpcResult<Vec<Bytes>>;
+	/// Submit and watch for extrinsic state.
+	#[subscription(name = "submitAndWatchExtrinsic", unsubscribe = "unwatchExtrinsic", item = TransactionStatusOf<C>)]
+	fn submit_and_watch_extrinsic(&self, extrinsic: Bytes);
+}
+
+/// RPC methods of Substrate `state` namespace, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "state")]
+pub(crate) trait SubstrateState<C> {
+	/// Get current runtime version.
+	#[method(name = "getRuntimeVersion")]
+	async fn runtime_version(&self) -> RpcResult<RuntimeVersion>;
+	/// Call given runtime method.
+	#[method(name = "call")]
+	async fn call(
 		&self,
 		method: String,
 		data: Bytes,
 		at_block: Option<C::Hash>,
 	) -> RpcResult<Bytes>;
-	#[method(name = "state_getStorage", param_kind = array)]
-	async fn state_get_storage(
+	/// Get value of the runtime storage.
+	#[method(name = "getStorage")]
+	async fn storage(
 		&self,
 		key: StorageKey,
 		at_block: Option<C::Hash>,
 	) -> RpcResult<Option<StorageData>>;
-	#[method(name = "state_getReadProof", param_kind = array)]
-	async fn state_prove_storage(
+	/// Get proof of the runtime storage value.
+	#[method(name = "getReadProof")]
+	async fn prove_storage(
 		&self,
 		keys: Vec<StorageKey>,
 		hash: Option<C::Hash>,
 	) -> RpcResult<ReadProof<C::Hash>>;
-	#[method(name = "state_getRuntimeVersion", param_kind = array)]
-	async fn state_runtime_version(&self) -> RpcResult<RuntimeVersion>;
-	#[method(name = "payment_queryFeeDetails", param_kind = array)]
-	async fn payment_query_fee_details(
+}
+
+/// RPC methods of Substrate `grandpa` namespace, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "grandpa")]
+pub(crate) trait SubstrateGrandpa<C> {
+	/// Subscribe to GRANDPA justifications.
+	#[subscription(name = "subscribeJustifications", unsubscribe = "unsubscribeJustifications", item = Bytes)]
+	fn subscribe_justifications(&self);
+}
+
+/// RPC methods of Substrate `system` frame pallet, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "system")]
+pub(crate) trait SubstrateFrameSystem<C> {
+	/// Return index of next account transaction.
+	#[method(name = "accountNextIndex")]
+	async fn account_next_index(&self, account_id: C::AccountId) -> RpcResult<C::Index>;
+}
+
+/// RPC methods of Substrate `pallet_transaction_payment` frame pallet, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "payment")]
+pub(crate) trait SubstrateTransactionPayment<C> {
+	/// Query transaction fee details.
+	#[method(name = "queryFeeDetails")]
+	async fn fee_details(
 		&self,
 		extrinsic: Bytes,
 		at_block: Option<C::Hash>,
