@@ -1,6 +1,6 @@
 # Releases
 
-## Versionning
+## Versioning
 
 ### Example #1
 
@@ -8,7 +8,7 @@
 | Polkadot   | v  0. 9.22    |
 | Client     | v  0. 9.22 0  |
 | Runtime    | v     9 22 0  |  =>  9220
-| senmver    |    0. 9.22 0  |
+| semver     |    0. 9.22 0  |
 ```
 
 ### Example #2
@@ -17,7 +17,7 @@
 | Polkadot   | v  0.10.42    |
 | Client     | v  0.10.42 0  |
 | Runtime    | v    10.42 0  |  => 10420
-| senmver    |    0.10.42 0  |
+| semver     |    0.10.42 0  |
 ```
 
 ### Example #3
@@ -26,7 +26,7 @@
 | Polkadot   | v  1. 2.18    |
 | Client     | v  1. 2.18 0  |
 | Runtime    | v  1  2 18 0  |  => 102180
-| senmver    |    1. 2.18 0  |
+| semver     |    1. 2.18 0  |
 ```
 
 
