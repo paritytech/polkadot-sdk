@@ -273,14 +273,14 @@ pub fn standalone_metrics<P: SubstrateMessageLane>(
 /// Add relay accounts balance metrics.
 pub async fn add_relay_balances_metrics<C: ChainWithBalances>(
 	client: Client<C>,
-	metrics: MetricsParams,
+	metrics: &mut MetricsParams,
 	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
-) -> anyhow::Result<MetricsParams>
+) -> anyhow::Result<()>
 where
 	BalanceOf<C>: Into<u128> + std::fmt::Debug,
 {
 	if relay_accounts.is_empty() {
-		return Ok(metrics)
+		return Ok(())
 	}
 
 	// if `tokenDecimals` is missing from system properties, we'll be using
@@ -317,7 +317,7 @@ where
 		relay_account_balance_metric.register_and_spawn(&metrics.registry)?;
 	}
 
-	Ok(metrics)
+	Ok(())
 }
 
 /// Adapter for `FloatStorageValueMetric` to decode account free balance.

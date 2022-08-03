@@ -106,19 +106,23 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 					self,
 				) -> anyhow::Result<RelayToParachainBridge<L2R, R2L>> {
 					Ok(RelayToParachainBridge {
-						common: Full2WayBridgeCommonParams {
-							shared: self.shared,
-							left: self.left.into_client::<Left>().await?,
-							left_sign: self.left_sign.to_keypair::<Left>()?,
-							left_transactions_mortality: self.left_sign.transactions_mortality()?,
-							left_messages_pallet_owner: self.left_messages_pallet_owner.to_keypair::<Left>()?,
-							at_left_accounts: vec![],
-							right: self.right.into_client::<Right>().await?,
-							right_sign: self.right_sign.to_keypair::<Right>()?,
-							right_transactions_mortality: self.right_sign.transactions_mortality()?,
-							right_messages_pallet_owner: self.right_messages_pallet_owner.to_keypair::<Right>()?,
-							at_right_accounts: vec![],
-						},
+						common: Full2WayBridgeCommonParams::new::<L2R>(
+							self.shared,
+							BridgeEndCommonParams {
+								client: self.left.into_client::<Left>().await?,
+								sign: self.left_sign.to_keypair::<Left>()?,
+								transactions_mortality: self.left_sign.transactions_mortality()?,
+								messages_pallet_owner: self.left_messages_pallet_owner.to_keypair::<Left>()?,
+								accounts: vec![],
+							},
+							BridgeEndCommonParams {
+								client: self.right.into_client::<Right>().await?,
+								sign: self.right_sign.to_keypair::<Right>()?,
+								transactions_mortality: self.right_sign.transactions_mortality()?,
+								messages_pallet_owner: self.right_messages_pallet_owner.to_keypair::<Right>()?,
+								accounts: vec![],
+							},
+						)?,
 						right_relay: self.right_relay.into_client::<RightRelay>().await?,
 						right_headers_to_left_transaction_params: self
 							.right_relay_headers_to_left_sign_override
@@ -178,43 +182,43 @@ where
 		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Left>>>,
 		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Right>>>,
 	)> {
-		self.common.at_left_accounts.push(TaggedAccount::Headers {
+		self.common.left.accounts.push(TaggedAccount::Headers {
 			id: self.right_headers_to_left_transaction_params.signer.public().into(),
 			bridged_chain: RightRelay::NAME.to_string(),
 		});
-		self.common.at_left_accounts.push(TaggedAccount::Parachains {
+		self.common.left.accounts.push(TaggedAccount::Parachains {
 			id: self.right_parachains_to_left_transaction_params.signer.public().into(),
 			bridged_chain: RightRelay::NAME.to_string(),
 		});
-		self.common.at_right_accounts.push(TaggedAccount::Headers {
+		self.common.right.accounts.push(TaggedAccount::Headers {
 			id: self.left_headers_to_right_transaction_params.signer.public().into(),
 			bridged_chain: Left::NAME.to_string(),
 		});
 
 		<L2R as RelayToRelayHeadersCliBridge>::Finality::start_relay_guards(
-			&self.common.right,
+			&self.common.right.client,
 			&self.left_headers_to_right_transaction_params,
-			self.common.right.can_start_version_guard(),
+			self.common.right.client.can_start_version_guard(),
 		)
 		.await?;
 		<R2L as ParachainToRelayHeadersCliBridge>::RelayFinality::start_relay_guards(
-			&self.common.left,
+			&self.common.left.client,
 			&self.right_headers_to_left_transaction_params,
-			self.common.left.can_start_version_guard(),
+			self.common.left.client.can_start_version_guard(),
 		)
 		.await?;
 
 		let left_to_right_on_demand_headers =
 			OnDemandHeadersRelay::new::<<L2R as RelayToRelayHeadersCliBridge>::Finality>(
-				self.common.left.clone(),
-				self.common.right.clone(),
+				self.common.left.client.clone(),
+				self.common.right.client.clone(),
 				self.left_headers_to_right_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
 			);
 		let right_relay_to_left_on_demand_headers =
 			OnDemandHeadersRelay::new::<<R2L as ParachainToRelayHeadersCliBridge>::RelayFinality>(
 				self.right_relay.clone(),
-				self.common.left.clone(),
+				self.common.left.client.clone(),
 				self.right_headers_to_left_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
 			);
@@ -222,7 +226,7 @@ where
 			<R2L as ParachainToRelayHeadersCliBridge>::ParachainFinality,
 		>(
 			self.right_relay.clone(),
-			self.common.left.clone(),
+			self.common.left.client.clone(),
 			self.right_parachains_to_left_transaction_params.clone(),
 			Arc::new(right_relay_to_left_on_demand_headers),
 		);
