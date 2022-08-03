@@ -166,6 +166,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 
 [[package]]
+name = "asset-test-utils"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-session",
+ "parachains-common",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "async-attributes"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1872,6 +1891,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
+ "log",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain 0.9.27",
@@ -1880,6 +1900,8 @@ dependencies = [
  "sp-std",
  "sp-trie",
  "xcm",
+ "xcm-builder",
+ "xcm-executor",
 ]
 
 [[package]]
@@ -6470,6 +6492,7 @@ dependencies = [
 name = "parachains-common"
 version = "1.0.0"
 dependencies = [
+ "cumulus-primitives-utility",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6489,6 +6512,7 @@ dependencies = [
  "sp-std",
  "substrate-wasm-builder",
  "xcm",
+ "xcm-builder",
  "xcm-executor",
 ]
 
@@ -11387,6 +11411,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "statemine-runtime"
 version = "2.0.0"
 dependencies = [
+ "asset-test-utils",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -11453,6 +11478,7 @@ dependencies = [
 name = "statemint-runtime"
 version = "1.0.0"
 dependencies = [
+ "asset-test-utils",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -12928,6 +12954,7 @@ dependencies = [
 name = "westmint-runtime"
 version = "1.0.0"
 dependencies = [
+ "asset-test-utils",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",

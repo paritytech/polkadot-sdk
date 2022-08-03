@@ -75,6 +75,7 @@ parachains-common = { path = "../../../common", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.3.4"
+asset-test-utils = { path = "../test-utils"}
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }

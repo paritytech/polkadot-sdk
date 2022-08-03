@@ -1,0 +1,45 @@
+[package]
+name = "asset-test-utils"
+version = "1.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+description = "Statemint parachain runtime"
+
+[dependencies]
+
+# Substrate
+
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+# Cumulus
+pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
+parachains-common = { path = "../../../common", default-features = false }
+
+[dev-dependencies]
+hex-literal = "0.3.4"
+
+[build-dependencies]
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+[features]
+default = [ "std" ]
+std = [
+    "frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-collator-selection/std",
+    "pallet-session/std",
+    "parachains-common/std",
+    "sp-consensus-aura/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+]

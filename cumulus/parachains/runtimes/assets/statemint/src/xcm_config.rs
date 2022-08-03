@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AssetId, Assets, Balance, Balances, Call, Event, Origin, ParachainInfo,
+	AccountId, AssetId, Assets, Authorship, Balance, Balances, Call, Event, Origin, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, WeightToFee, XcmpQueue,
 };
 use frame_support::{
@@ -129,6 +129,7 @@ parameter_types! {
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
 	pub UnitWeightCost: Weight = 1_000_000_000;
 	pub const MaxInstructions: u32 = 100;
+	pub XcmAssetFeesReceiver: Option<AccountId> = Authorship::author();
 }
 
 match_types! {
