@@ -29,7 +29,7 @@ mod relay_to_relay;
 mod relay_to_parachain;
 
 use async_trait::async_trait;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 use structopt::StructOpt;
 use strum::VariantNames;
 
@@ -55,6 +55,7 @@ use crate::{
 	},
 	declare_chain_cli_schema,
 };
+use bp_messages::LaneId;
 use bp_runtime::{BalanceOf, BlockNumberOf};
 use messages_relay::relay_strategy::MixStrategy;
 use relay_substrate_client::{
@@ -63,7 +64,8 @@ use relay_substrate_client::{
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
 use substrate_relay_helper::{
-	messages_lane::MessagesRelayParams, on_demand::OnDemandRelay, TaggedAccount, TransactionParams,
+	messages_lane::MessagesRelayParams, messages_metrics::StandaloneMessagesMetrics,
+	on_demand::OnDemandRelay, TaggedAccount, TransactionParams,
 };
 
 /// Maximal allowed conversion rate error ratio (abs(real - stored) / stored) that we allow.
@@ -95,20 +97,155 @@ pub struct Full2WayBridgeCommonParams<
 	Right: TransactionSignScheme + CliChain,
 > {
 	pub shared: HeadersAndMessagesSharedParams,
+	pub left: BridgeEndCommonParams<Left>,
+	pub right: BridgeEndCommonParams<Right>,
 
-	pub left: Client<Left>,
-	// default signer, which is always used to sign messages relay transactions on the left chain
-	pub left_sign: AccountKeyPairOf<Left>,
-	pub left_transactions_mortality: Option<u32>,
-	pub left_messages_pallet_owner: Option<AccountKeyPairOf<Left>>,
-	pub at_left_accounts: Vec<TaggedAccount<AccountIdOf<Left>>>,
+	pub metrics_params: MetricsParams,
+	pub left_to_right_metrics: StandaloneMessagesMetrics<Left, Right>,
+	pub right_to_left_metrics: StandaloneMessagesMetrics<Right, Left>,
+}
 
-	pub right: Client<Right>,
-	// default signer, which is always used to sign messages relay transactions on the right chain
-	pub right_sign: AccountKeyPairOf<Right>,
-	pub right_transactions_mortality: Option<u32>,
-	pub right_messages_pallet_owner: Option<AccountKeyPairOf<Right>>,
-	pub at_right_accounts: Vec<TaggedAccount<AccountIdOf<Right>>>,
+impl<Left: TransactionSignScheme + CliChain, Right: TransactionSignScheme + CliChain>
+	Full2WayBridgeCommonParams<Left, Right>
+{
+	pub fn new<L2R: MessagesCliBridge<Source = Left, Target = Right>>(
+		shared: HeadersAndMessagesSharedParams,
+		left: BridgeEndCommonParams<Left>,
+		right: BridgeEndCommonParams<Right>,
+	) -> anyhow::Result<Self> {
+		// Create metrics registry.
+		let metrics_params = shared.prometheus_params.clone().into();
+		let metrics_params = relay_utils::relay_metrics(metrics_params).into_params();
+		let left_to_right_metrics = substrate_relay_helper::messages_metrics::standalone_metrics::<
+			L2R::MessagesLane,
+		>(left.client.clone(), right.client.clone())?;
+		let right_to_left_metrics = left_to_right_metrics.clone().reverse();
+
+		Ok(Self {
+			shared,
+			left,
+			right,
+			metrics_params,
+			left_to_right_metrics,
+			right_to_left_metrics,
+		})
+	}
+}
+
+pub struct BridgeEndCommonParams<Chain: TransactionSignScheme + CliChain> {
+	pub client: Client<Chain>,
+	pub sign: AccountKeyPairOf<Chain>,
+	pub transactions_mortality: Option<u32>,
+	pub messages_pallet_owner: Option<AccountKeyPairOf<Chain>>,
+	pub accounts: Vec<TaggedAccount<AccountIdOf<Chain>>>,
+}
+
+struct FullBridge<
+	'a,
+	Source: TransactionSignScheme + CliChain,
+	Target: TransactionSignScheme + CliChain,
+	Bridge: MessagesCliBridge<Source = Source, Target = Target>,
+> {
+	shared: &'a HeadersAndMessagesSharedParams,
+	source: &'a mut BridgeEndCommonParams<Source>,
+	target: &'a mut BridgeEndCommonParams<Target>,
+	metrics_params: &'a MetricsParams,
+	metrics: &'a StandaloneMessagesMetrics<Source, Target>,
+	_phantom_data: PhantomData<Bridge>,
+}
+
+impl<
+		'a,
+		Source: TransactionSignScheme<Chain = Source> + CliChain,
+		Target: TransactionSignScheme<Chain = Target> + CliChain,
+		Bridge: MessagesCliBridge<Source = Source, Target = Target>,
+	> FullBridge<'a, Source, Target, Bridge>
+where
+	AccountIdOf<Source>: From<<AccountKeyPairOf<Source> as Pair>::Public>,
+	AccountIdOf<Target>: From<<AccountKeyPairOf<Target> as Pair>::Public>,
+	BalanceOf<Source>: TryFrom<BalanceOf<Target>> + Into<u128>,
+{
+	fn new(
+		shared: &'a HeadersAndMessagesSharedParams,
+		source: &'a mut BridgeEndCommonParams<Source>,
+		target: &'a mut BridgeEndCommonParams<Target>,
+		metrics_params: &'a MetricsParams,
+		metrics: &'a StandaloneMessagesMetrics<Source, Target>,
+	) -> Self {
+		Self { shared, source, target, metrics_params, metrics, _phantom_data: Default::default() }
+	}
+
+	fn start_conversion_rate_update_loop(&mut self) -> anyhow::Result<()> {
+		if let Some(ref messages_pallet_owner) = self.source.messages_pallet_owner {
+			let format_err = || {
+				anyhow::format_err!(
+					"Cannon run conversion rate updater: {} -> {}",
+					Target::NAME,
+					Source::NAME
+				)
+			};
+			substrate_relay_helper::conversion_rate_update::run_conversion_rate_update_loop::<
+				Bridge::MessagesLane,
+				Source,
+			>(
+				self.source.client.clone(),
+				TransactionParams {
+					signer: messages_pallet_owner.clone(),
+					mortality: self.source.transactions_mortality,
+				},
+				self.metrics
+					.target_to_source_conversion_rate
+					.as_ref()
+					.ok_or_else(format_err)?
+					.shared_value_ref(),
+				self.metrics
+					.target_to_base_conversion_rate
+					.as_ref()
+					.ok_or_else(format_err)?
+					.shared_value_ref(),
+				self.metrics
+					.source_to_base_conversion_rate
+					.as_ref()
+					.ok_or_else(format_err)?
+					.shared_value_ref(),
+				CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
+			);
+			self.source.accounts.push(TaggedAccount::MessagesPalletOwner {
+				id: messages_pallet_owner.public().into(),
+				bridged_chain: Target::NAME.to_string(),
+			});
+		}
+		Ok(())
+	}
+
+	fn messages_relay_params(
+		&self,
+		source_to_target_headers_relay: Arc<dyn OnDemandRelay<BlockNumberOf<Source>>>,
+		target_to_source_headers_relay: Arc<dyn OnDemandRelay<BlockNumberOf<Target>>>,
+		lane_id: LaneId,
+	) -> MessagesRelayParams<Bridge::MessagesLane> {
+		let relayer_mode = self.shared.relayer_mode.into();
+		let relay_strategy = MixStrategy::new(relayer_mode);
+
+		MessagesRelayParams {
+			source_client: self.source.client.clone(),
+			source_transaction_params: TransactionParams {
+				signer: self.source.sign.clone(),
+				mortality: self.source.transactions_mortality,
+			},
+			target_client: self.target.client.clone(),
+			target_transaction_params: TransactionParams {
+				signer: self.target.sign.clone(),
+				mortality: self.target.transactions_mortality,
+			},
+			source_to_target_headers_relay: Some(source_to_target_headers_relay),
+			target_to_source_headers_relay: Some(target_to_source_headers_relay),
+			lane_id,
+			metrics_params: self.metrics_params.clone().disable(),
+			standalone_metrics: Some(self.metrics.clone()),
+			relay_strategy,
+		}
+	}
 }
 
 // All supported chains.
@@ -179,195 +316,97 @@ where
 
 	fn mut_base(&mut self) -> &mut Self::Base;
 
+	fn left_to_right(&mut self) -> FullBridge<Self::Left, Self::Right, Self::L2R> {
+		let common = self.mut_base().mut_common();
+		FullBridge::<_, _, Self::L2R>::new(
+			&common.shared,
+			&mut common.left,
+			&mut common.right,
+			&common.metrics_params,
+			&common.left_to_right_metrics,
+		)
+	}
+
+	fn right_to_left(&mut self) -> FullBridge<Self::Right, Self::Left, Self::R2L> {
+		let common = self.mut_base().mut_common();
+		FullBridge::<_, _, Self::R2L>::new(
+			&common.shared,
+			&mut common.right,
+			&mut common.left,
+			&common.metrics_params,
+			&common.right_to_left_metrics,
+		)
+	}
+
 	async fn run(&mut self) -> anyhow::Result<()> {
-		let left_client = self.base().common().left.clone();
-		let left_transactions_mortality = self.base().common().left_transactions_mortality;
-		let left_sign = self.base().common().left_sign.clone();
-		let left_messages_pallet_owner = self.base().common().left_messages_pallet_owner.clone();
-		let right_client = self.base().common().right.clone();
-		let right_transactions_mortality = self.base().common().right_transactions_mortality;
-		let right_sign = self.base().common().right_sign.clone();
-		let right_messages_pallet_owner = self.base().common().right_messages_pallet_owner.clone();
-
-		let lanes = self.base().common().shared.lane.clone();
-		let relayer_mode = self.base().common().shared.relayer_mode.into();
-		let relay_strategy = MixStrategy::new(relayer_mode);
-
-		// create metrics registry and register standalone metrics
-		let metrics_params: MetricsParams =
-			self.base().common().shared.prometheus_params.clone().into();
-		let metrics_params = relay_utils::relay_metrics(metrics_params).into_params();
-		let left_to_right_metrics = substrate_relay_helper::messages_metrics::standalone_metrics::<
-			<Self::L2R as MessagesCliBridge>::MessagesLane,
-		>(left_client.clone(), right_client.clone())?;
-		let right_to_left_metrics = left_to_right_metrics.clone().reverse();
-		self.mut_base().mut_common().at_left_accounts.push(TaggedAccount::Messages {
-			id: left_sign.public().into(),
-			bridged_chain: Self::Right::NAME.to_string(),
-		});
-		self.mut_base().mut_common().at_right_accounts.push(TaggedAccount::Messages {
-			id: right_sign.public().into(),
-			bridged_chain: Self::Left::NAME.to_string(),
-		});
+		// Register standalone metrics.
+		{
+			let common = self.mut_base().mut_common();
+			common.left.accounts.push(TaggedAccount::Messages {
+				id: common.left.sign.public().into(),
+				bridged_chain: Self::Right::NAME.to_string(),
+			});
+			common.right.accounts.push(TaggedAccount::Messages {
+				id: common.right.sign.public().into(),
+				bridged_chain: Self::Left::NAME.to_string(),
+			});
+		}
 
 		// start conversion rate update loops for left/right chains
-		if let Some(left_messages_pallet_owner) = left_messages_pallet_owner.clone() {
-			let left_client = left_client.clone();
-			let format_err = || {
-				anyhow::format_err!(
-					"Cannon run conversion rate updater: {} -> {}",
-					Self::Right::NAME,
-					Self::Left::NAME
-				)
-			};
-			substrate_relay_helper::conversion_rate_update::run_conversion_rate_update_loop::<
-				<Self::L2R as MessagesCliBridge>::MessagesLane,
-				Self::Left,
-			>(
-				left_client,
-				TransactionParams {
-					signer: left_messages_pallet_owner.clone(),
-					mortality: left_transactions_mortality,
-				},
-				left_to_right_metrics
-					.target_to_source_conversion_rate
-					.as_ref()
-					.ok_or_else(format_err)?
-					.shared_value_ref(),
-				left_to_right_metrics
-					.target_to_base_conversion_rate
-					.as_ref()
-					.ok_or_else(format_err)?
-					.shared_value_ref(),
-				left_to_right_metrics
-					.source_to_base_conversion_rate
-					.as_ref()
-					.ok_or_else(format_err)?
-					.shared_value_ref(),
-				CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
-			);
-			self.mut_base().mut_common().at_left_accounts.push(
-				TaggedAccount::MessagesPalletOwner {
-					id: left_messages_pallet_owner.public().into(),
-					bridged_chain: Self::Right::NAME.to_string(),
-				},
-			);
-		}
-		if let Some(right_messages_pallet_owner) = right_messages_pallet_owner.clone() {
-			let right_client = right_client.clone();
-			let format_err = || {
-				anyhow::format_err!(
-					"Cannon run conversion rate updater: {} -> {}",
-					Self::Left::NAME,
-					Self::Right::NAME
-				)
-			};
-			substrate_relay_helper::conversion_rate_update::run_conversion_rate_update_loop::<
-				<Self::R2L as MessagesCliBridge>::MessagesLane,
-				Self::Right,
-			>(
-				right_client,
-				TransactionParams {
-					signer: right_messages_pallet_owner.clone(),
-					mortality: right_transactions_mortality,
-				},
-				right_to_left_metrics
-					.target_to_source_conversion_rate
-					.as_ref()
-					.ok_or_else(format_err)?
-					.shared_value_ref(),
-				right_to_left_metrics
-					.target_to_base_conversion_rate
-					.as_ref()
-					.ok_or_else(format_err)?
-					.shared_value_ref(),
-				right_to_left_metrics
-					.source_to_base_conversion_rate
-					.as_ref()
-					.ok_or_else(format_err)?
-					.shared_value_ref(),
-				CONVERSION_RATE_ALLOWED_DIFFERENCE_RATIO,
-			);
-			self.mut_base().mut_common().at_right_accounts.push(
-				TaggedAccount::MessagesPalletOwner {
-					id: right_messages_pallet_owner.public().into(),
-					bridged_chain: Self::Left::NAME.to_string(),
-				},
-			);
-		}
+		self.left_to_right().start_conversion_rate_update_loop()?;
+		self.right_to_left().start_conversion_rate_update_loop()?;
 
 		// start on-demand header relays
 		let (left_to_right_on_demand_headers, right_to_left_on_demand_headers) =
 			self.mut_base().start_on_demand_headers_relayers().await?;
 
 		// add balance-related metrics
-		let metrics_params = substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
-			left_client.clone(),
-			metrics_params,
-			&self.base().common().at_left_accounts,
-		)
-		.await?;
-		let metrics_params = substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
-			right_client.clone(),
-			metrics_params,
-			&self.base().common().at_right_accounts,
-		)
-		.await?;
+		{
+			let common = self.mut_base().mut_common();
+			substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
+				common.left.client.clone(),
+				&mut common.metrics_params,
+				&common.left.accounts,
+			)
+			.await?;
+			substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
+				common.right.client.clone(),
+				&mut common.metrics_params,
+				&common.right.accounts,
+			)
+			.await?;
+		}
 
+		let lanes = self.base().common().shared.lane.clone();
 		// Need 2x capacity since we consider both directions for each lane
 		let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 		for lane in lanes {
 			let lane = lane.into();
+
 			let left_to_right_messages = substrate_relay_helper::messages_lane::run::<
 				<Self::L2R as MessagesCliBridge>::MessagesLane,
-			>(MessagesRelayParams {
-				source_client: left_client.clone(),
-				source_transaction_params: TransactionParams {
-					signer: left_sign.clone(),
-					mortality: left_transactions_mortality,
-				},
-				target_client: right_client.clone(),
-				target_transaction_params: TransactionParams {
-					signer: right_sign.clone(),
-					mortality: right_transactions_mortality,
-				},
-				source_to_target_headers_relay: Some(left_to_right_on_demand_headers.clone()),
-				target_to_source_headers_relay: Some(right_to_left_on_demand_headers.clone()),
-				lane_id: lane,
-				metrics_params: metrics_params.clone().disable(),
-				standalone_metrics: Some(left_to_right_metrics.clone()),
-				relay_strategy: relay_strategy.clone(),
-			})
+			>(self.left_to_right().messages_relay_params(
+				left_to_right_on_demand_headers.clone(),
+				right_to_left_on_demand_headers.clone(),
+				lane,
+			))
 			.map_err(|e| anyhow::format_err!("{}", e))
 			.boxed();
+			message_relays.push(left_to_right_messages);
+
 			let right_to_left_messages = substrate_relay_helper::messages_lane::run::<
 				<Self::R2L as MessagesCliBridge>::MessagesLane,
-			>(MessagesRelayParams {
-				source_client: right_client.clone(),
-				source_transaction_params: TransactionParams {
-					signer: right_sign.clone(),
-					mortality: right_transactions_mortality,
-				},
-				target_client: left_client.clone(),
-				target_transaction_params: TransactionParams {
-					signer: left_sign.clone(),
-					mortality: left_transactions_mortality,
-				},
-				source_to_target_headers_relay: Some(right_to_left_on_demand_headers.clone()),
-				target_to_source_headers_relay: Some(left_to_right_on_demand_headers.clone()),
-				lane_id: lane,
-				metrics_params: metrics_params.clone().disable(),
-				standalone_metrics: Some(right_to_left_metrics.clone()),
-				relay_strategy: relay_strategy.clone(),
-			})
+			>(self.right_to_left().messages_relay_params(
+				right_to_left_on_demand_headers.clone(),
+				left_to_right_on_demand_headers.clone(),
+				lane,
+			))
 			.map_err(|e| anyhow::format_err!("{}", e))
 			.boxed();
-
-			message_relays.push(left_to_right_messages);
 			message_relays.push(right_to_left_messages);
 		}
 
-		relay_utils::relay_metrics(metrics_params)
+		relay_utils::relay_metrics(self.base().common().metrics_params.clone())
 			.expose()
 			.await
 			.map_err(|e| anyhow::format_err!("{}", e))?;
