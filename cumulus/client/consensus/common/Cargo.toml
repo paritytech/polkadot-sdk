@@ -10,7 +10,7 @@ async-trait = "0.1.57"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 dyn-clone = "1.0.9"
 futures = "0.3.21"
-tracing = "0.1.34"
+tracing = "0.1.36"
 
 # Substrate
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
