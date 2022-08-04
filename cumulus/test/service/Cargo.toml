@@ -9,7 +9,7 @@ name = "test-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.56"
+async-trait = "0.1.57"
 clap = { version = "3.2.16", features = ["derive", "deprecated"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.3.6", features = [ "async_tokio" ] }
