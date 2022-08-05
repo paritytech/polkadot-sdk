@@ -23,7 +23,7 @@ use crate::{
 	message_lane_loop::{
 		SourceClient as MessageLaneSourceClient, TargetClient as MessageLaneTargetClient,
 	},
-	relay_strategy::{RelayReference, RelayStrategy},
+	relay_strategy::{RationalStrategy, RelayReference, RelayStrategy},
 };
 
 /// The relayer doesn't care about rewards.
@@ -38,8 +38,36 @@ impl RelayStrategy for AltruisticStrategy {
 		TargetClient: MessageLaneTargetClient<P>,
 	>(
 		&mut self,
-		_reference: &mut RelayReference<P, SourceClient, TargetClient>,
+		reference: &mut RelayReference<P, SourceClient, TargetClient>,
 	) -> bool {
+		// we don't care about costs and rewards, but we want to report unprofitable transactions
+		// => let rational strategy fill required fields
+		let _ = RationalStrategy.decide(reference).await;
 		true
+	}
+
+	async fn final_decision<
+		P: MessageLane,
+		SourceClient: MessageLaneSourceClient<P>,
+		TargetClient: MessageLaneTargetClient<P>,
+	>(
+		&self,
+		reference: &RelayReference<P, SourceClient, TargetClient>,
+	) {
+		if let Some(ref metrics) = reference.metrics {
+			if reference.total_cost > reference.total_reward {
+				log::debug!(
+					target: "bridge",
+					"The relayer has submitted unprofitable {} -> {} message delivery trabsaction with {} messages: total cost = {:?}, total reward = {:?}",
+					P::SOURCE_NAME,
+					P::TARGET_NAME,
+					reference.index + 1,
+					reference.total_cost,
+					reference.total_reward,
+				);
+
+				metrics.note_unprofitable_delivery_transactions();
+			}
+		}
 	}
 }
