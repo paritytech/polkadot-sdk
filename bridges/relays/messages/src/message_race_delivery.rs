@@ -56,7 +56,7 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 		source_state_updates,
 		MessageDeliveryRaceTarget {
 			client: target_client.clone(),
-			metrics_msg,
+			metrics_msg: metrics_msg.clone(),
 			_phantom: Default::default(),
 		},
 		target_state_updates,
@@ -74,6 +74,7 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 			latest_confirmed_nonces_at_source: VecDeque::new(),
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
+			metrics_msg,
 		},
 	)
 	.await
@@ -255,6 +256,8 @@ struct MessageDeliveryStrategy<P: MessageLane, Strategy: RelayStrategy, SC, TC> 
 	target_nonces: Option<TargetClientNonces<DeliveryRaceTargetNoncesData>>,
 	/// Basic delivery strategy.
 	strategy: MessageDeliveryStrategyBase<P>,
+	/// Message lane metrics.
+	metrics_msg: Option<MessageLaneLoopMetrics>,
 }
 
 type MessageDeliveryStrategyBase<P> = BasicStrategy<
@@ -519,6 +522,7 @@ where
 			lane_target_client: lane_target_client.clone(),
 			nonces_queue: source_queue.clone(),
 			nonces_queue_range: 0..maximal_source_queue_index + 1,
+			metrics: self.metrics_msg.clone(),
 		};
 
 		let mut strategy = EnforcementStrategy::new(self.relay_strategy.clone());
@@ -631,6 +635,7 @@ mod tests {
 			latest_confirmed_nonces_at_source: vec![(header_id(1), 19)].into_iter().collect(),
 			lane_source_client: TestSourceClient::default(),
 			lane_target_client: TestTargetClient::default(),
+			metrics_msg: None,
 			target_nonces: Some(TargetClientNonces {
 				latest_nonce: 19,
 				nonces_data: DeliveryRaceTargetNoncesData {

@@ -271,7 +271,11 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 	relay_utils::relay_loop(source_client, target_client)
 		.reconnect_delay(params.reconnect_delay)
 		.with_metrics(metrics_params)
-		.loop_metric(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<P>(&params.lane)))?)?
+		.loop_metric(MessageLaneLoopMetrics::new(
+			Some(&metrics_prefix::<P>(&params.lane)),
+			P::SOURCE_NAME,
+			P::TARGET_NAME,
+		)?)?
 		.expose()
 		.await?
 		.run(metrics_prefix::<P>(&params.lane), move |source_client, target_client, metrics| {

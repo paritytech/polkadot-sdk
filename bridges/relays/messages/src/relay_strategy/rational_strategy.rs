@@ -44,37 +44,23 @@ impl RelayStrategy for RationalStrategy {
 		&mut self,
 		reference: &mut RelayReference<P, SourceClient, TargetClient>,
 	) -> bool {
-		// technically, multiple confirmations will be delivered in a single transaction,
-		// meaning less loses for relayer. But here we don't know the final relayer yet, so
-		// we're adding a separate transaction for every message. Normally, this cost is covered
-		// by the message sender. Probably reconsider this?
-		let confirmation_transaction_cost =
-			reference.lane_source_client.estimate_confirmation_transaction().await;
-
-		let delivery_transaction_cost = match reference
-			.lane_target_client
-			.estimate_delivery_transaction_in_source_tokens(
-				reference.hard_selected_begin_nonce..=
-					(reference.hard_selected_begin_nonce + reference.index as MessageNonce),
-				reference.selected_prepaid_nonces,
-				reference.selected_unpaid_weight,
-				reference.selected_size as u32,
-			)
-			.await
-		{
-			Ok(v) => v,
+		let total_cost = match estimate_messages_delivery_cost(reference).await {
+			Ok(total_cost) => total_cost,
 			Err(err) => {
 				log::debug!(
 					target: "bridge",
 					"Failed to estimate delivery transaction cost: {:?}. No nonces selected for delivery",
 					err,
 				);
+
 				return false
 			},
 		};
 
 		// if it is the first message that makes reward less than cost, let's log it
 		// if this message makes batch profitable again, let's log it
+		let MessagesDeliveryCost { confirmation_transaction_cost, delivery_transaction_cost } =
+			total_cost;
 		let is_total_reward_less_than_cost = reference.total_reward < reference.total_cost;
 		let prev_total_cost = reference.total_cost;
 		let prev_total_reward = reference.total_reward;
@@ -119,4 +105,53 @@ impl RelayStrategy for RationalStrategy {
 
 		false
 	}
+
+	async fn final_decision<
+		P: MessageLane,
+		SourceClient: MessageLaneSourceClient<P>,
+		TargetClient: MessageLaneTargetClient<P>,
+	>(
+		&self,
+		_reference: &RelayReference<P, SourceClient, TargetClient>,
+	) {
+		// rational relayer would never submit unprofitable transactions, so we don't need to do
+		// anything here
+	}
+}
+
+/// Total cost of mesage delivery and confirmation.
+struct MessagesDeliveryCost<SourceChainBalance> {
+	/// Cost of message delivery transaction.
+	pub delivery_transaction_cost: SourceChainBalance,
+	/// Cost of confirmation delivery transaction.
+	pub confirmation_transaction_cost: SourceChainBalance,
+}
+
+/// Returns cost of message delivery and confirmation delivery transactions
+async fn estimate_messages_delivery_cost<
+	P: MessageLane,
+	SourceClient: MessageLaneSourceClient<P>,
+	TargetClient: MessageLaneTargetClient<P>,
+>(
+	reference: &RelayReference<P, SourceClient, TargetClient>,
+) -> Result<MessagesDeliveryCost<P::SourceChainBalance>, TargetClient::Error> {
+	// technically, multiple confirmations will be delivered in a single transaction,
+	// meaning less loses for relayer. But here we don't know the final relayer yet, so
+	// we're adding a separate transaction for every message. Normally, this cost is covered
+	// by the message sender. Probably reconsider this?
+	let confirmation_transaction_cost =
+		reference.lane_source_client.estimate_confirmation_transaction().await;
+
+	let delivery_transaction_cost = reference
+		.lane_target_client
+		.estimate_delivery_transaction_in_source_tokens(
+			reference.hard_selected_begin_nonce..=
+				(reference.hard_selected_begin_nonce + reference.index as MessageNonce),
+			reference.selected_prepaid_nonces,
+			reference.selected_unpaid_weight,
+			reference.selected_size as u32,
+		)
+		.await?;
+
+	Ok(MessagesDeliveryCost { confirmation_transaction_cost, delivery_transaction_cost })
 }
