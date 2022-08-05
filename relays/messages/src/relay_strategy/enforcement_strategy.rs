@@ -65,6 +65,7 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 		let mut relay_reference = RelayReference {
 			lane_source_client: reference.lane_source_client.clone(),
 			lane_target_client: reference.lane_target_client.clone(),
+			metrics: reference.metrics.clone(),
 
 			selected_reward: P::SourceChainBalance::zero(),
 			selected_cost: P::SourceChainBalance::zero(),
@@ -211,7 +212,10 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 				);
 			}
 
-			Some(hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1)
+			let selected_max_nonce =
+				hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
+			self.strategy.final_decision(&relay_reference).await;
+			Some(selected_max_nonce)
 		} else {
 			None
 		}
