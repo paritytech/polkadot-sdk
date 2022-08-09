@@ -52,14 +52,14 @@ jobs:
         run: |
           echo Fetching $REF_URL
           curl $REF_URL -o $TMP/$BIN_REF
-          chmod a+x $BIN_REF
+          chmod a+x  $TMP/$BIN_REF
           $TMP/$BIN_REF --version
 
       - name: Fetch test binary
         run: |
           echo Fetching $BIN_URL
           curl $BIN_URL -o $TMP/$BIN_BASE
-          chmod a+x $BIN_BASE
+          chmod a+x  $TMP/$BIN_BASE
           $TMP/$BIN_BASE --version
 
       - name: Start local reference node
