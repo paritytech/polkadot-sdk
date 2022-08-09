@@ -22,6 +22,7 @@ jobs:
       REF_URL: ${{github.event.inputs.reference_binary_url}}
       BIN_BASE: polkadot-parachain
       BIN_REF: polkadot-parachain-ref
+      TMP: ./tmp
     strategy:
       fail-fast: false
       matrix:
@@ -40,34 +41,41 @@ jobs:
             local: contracts-rococo-local
 
     steps:
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
+
+      - name: Create tmp dir
+        run: |
+          mkdir -p $TMP
+          pwd
+
       - name: Fetch reference binary
         run: |
           echo Fetching $REF_URL
-          curl $REF_URL -o $BIN_REF
+          curl $REF_URL -o $TMP/$BIN_REF
           chmod a+x $BIN_REF
-          ./$BIN_REF --version
+          $TMP/$BIN_REF --version
 
       - name: Fetch test binary
         run: |
           echo Fetching $BIN_URL
-          curl $BIN_URL -o $BIN_BASE
+          curl $BIN_URL -o $TMP/$BIN_BASE
           chmod a+x $BIN_BASE
-          ./$BIN_BASE --version
+          $TMP/$BIN_BASE --version
 
       - name: Start local reference node
         run: |
           echo Running reference on ${{ matrix.local }}
-          ./$BIN_REF --chain=${{ matrix.local }} --rpc-port=9934 --ws-port=9945 --base-path=$BIN_REF-base/ &
+          $TMP/$BIN_REF --chain=${{ matrix.local }} --rpc-port=9934 --ws-port=9945 --base-path=$TMP/$BIN_REF-base/ &
 
       - name: Start local test node
         run: |
           echo Running test on ${{ matrix.local }}
-          ./$BIN_BASE --chain=${{ matrix.local }} &
+          $TMP/$BIN_BASE --chain=${{ matrix.local }} &
 
       - name: Prepare output
         run: |
-          REF_VERSION=$(./$BIN_REF --version)
-          BIN_VERSION=$(./$BIN_BASE --version)
+          REF_VERSION=$($TMP/$BIN_REF --version)
+          BIN_VERSION=$($TMP/$BIN_BASE --version)
           echo "Metadata comparison:" >> output.txt
           echo "Date: $(date)" >> output.txt
           echo "Ref. binary: $REF_URL" >> output.txt
