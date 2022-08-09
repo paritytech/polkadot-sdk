@@ -22,6 +22,7 @@ jobs:
       REF_URL: ${{github.event.inputs.reference_binary_url}}
       BIN_BASE: polkadot-parachain
       BIN_REF: polkadot-parachain-ref
+      TMP: ./tmp
     strategy:
       fail-fast: false
       matrix:
@@ -43,8 +44,15 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      - name: Create tmp folder
+        run: |
+          mkdir -p $TMP
+          cd $TMP
+          pwd
+
       - name: Fetch reference binary
         run: |
+          pwd
           echo Fetching $REF_URL
           curl $REF_URL -o $BIN_REF
           chmod a+x $BIN_REF
@@ -52,6 +60,7 @@ jobs:
 
       - name: Fetch test binary
         run: |
+          pwd
           echo Fetching $BIN_URL
           curl $BIN_URL -o $BIN_BASE
           chmod a+x $BIN_BASE
