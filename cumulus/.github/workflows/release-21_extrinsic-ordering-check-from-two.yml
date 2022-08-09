@@ -66,12 +66,12 @@ jobs:
       - name: Start local reference node
         run: |
           echo Running reference on ${{ matrix.local }}
-          $TMP/$BIN_REF --chain=${{ matrix.local }} --rpc-port=9934 --ws-port=9945 --base-path=$TMP/$BIN_REF-data/ &
+          $TMP/$BIN_REF --chain=${{ matrix.local }} --ws-port=9945 --base-path=$TMP/$BIN_REF-local/ -- --chain polkadot-local &
 
       - name: Start local test node
         run: |
           echo Running test on ${{ matrix.local }}
-          $TMP/$BIN_BASE --chain=${{ matrix.local }} --base-path=$TMP/$BIN_BASE-data/ -- --chain polkadot-local &
+          $TMP/$BIN_BASE --chain=${{ matrix.local }} --ws-port=9944 --base-path=$TMP/$BIN_BASE-data/  &
 
       - name: Prepare output
         run: |
