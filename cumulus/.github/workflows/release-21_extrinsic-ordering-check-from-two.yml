@@ -6,11 +6,11 @@ on:
     inputs:
       reference_binary_url:
         description: A url to a Linux binary for the node containing the reference runtime to test against
-        default: https://releases.parity.io/polkadot/x86_64-debian:stretch/v0.9.26/polkadot
+        default: https://releases.parity.io/cumulus/v0.9.230/polkadot-parachain
         required: true
       binary_url:
         description: A url to a Linux binary for the node containing the runtime to test
-        default: https://releases.parity.io/polkadot/x86_64-debian:stretch/v0.9.27-rc1/polkadot
+        default: https://releases.parity.io/cumulus/v0.9.270-rc3/polkadot-parachain
         required: true
 
 jobs:
@@ -20,10 +20,24 @@ jobs:
     env:
       BIN_URL: ${{github.event.inputs.binary_url}}
       REF_URL: ${{github.event.inputs.reference_binary_url}}
+      BIN_BASE: polkadot-parachain
+      BIN_REF: polkadot-parachain-ref
     strategy:
       fail-fast: false
       matrix:
-        chain: [polkadot, kusama, westend, rococo]
+        include:
+          - category: assets
+            runtime: statemine
+            local: statemine-local
+          - category: assets
+            runtime: statemint
+            local: statemint-local
+          - category: assets
+            runtime: westmint
+            local: westmint-local
+          - category: contracts
+            runtime: contracts-rococo
+            local: contracts-rococo-local
 
     steps:
       - name: Checkout sources
@@ -32,38 +46,38 @@ jobs:
       - name: Fetch reference binary
         run: |
           echo Fetching $REF_URL
-          curl $REF_URL -o polkadot-ref
-          chmod a+x polkadot-ref
-          ./polkadot-ref --version
+          curl $REF_URL -o $BIN_REF
+          chmod a+x $BIN_REF
+          ./$BIN_REF --version
 
       - name: Fetch test binary
         run: |
           echo Fetching $BIN_URL
-          curl $BIN_URL -o polkadot
-          chmod a+x polkadot
-          ./polkadot --version
+          curl $BIN_URL -o $BIN_BASE
+          chmod a+x $BIN_BASE
+          ./$BIN_BASE --version
 
       - name: Start local reference node
         run: |
-          echo Running reference on ${{ matrix.chain }}-local
-          ./polkadot-ref --chain=${{ matrix.chain }}-local --rpc-port=9934 --ws-port=9945 --base-path=polkadot-ref-base/ &
+          echo Running reference on ${{ matrix.local }}
+          ./$BIN_REF --chain=${{ matrix.local }} --rpc-port=9934 --ws-port=9945 --base-path=$BIN_REF-base/ &
 
       - name: Start local test node
         run: |
-          echo Running test on ${{ matrix.chain }}-local
-          ./polkadot --chain=${{ matrix.chain }}-local &
+          echo Running test on ${{ matrix.local }}
+          ./$BIN_BASE --chain=${{ matrix.local }} &
 
       - name: Prepare output
         run: |
-          REF_VERSION=$(./polkadot-ref --version)
-          BIN_VERSION=$(./polkadot --version)
+          REF_VERSION=$(./$BIN_REF --version)
+          BIN_VERSION=$(./BIN_BASE --version)
           echo "Metadata comparison:" >> output.txt
           echo "Date: $(date)" >> output.txt
           echo "Ref. binary: $REF_URL" >> output.txt
           echo "Test binary: $BIN_URL" >> output.txt
           echo "Ref. version: $REF_VERSION" >> output.txt
           echo "Test version: $BIN_VERSION" >> output.txt
-          echo "Chain: ${{ matrix.chain }}-local" >> output.txt
+          echo "Chain: ${{ matrix.local }}" >> output.txt
           echo "----------------------------------------------------------------------" >> output.txt
 
       - name: Pull polkadot-js-tools image
@@ -87,11 +101,11 @@ jobs:
       - name: Save output as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.chain }}
+          name: ${{ matrix.runtime }}
           path: |
             output.txt
 
       - name: Stop our local nodes
         run: |
-          pkill polkadot-ref
-          pkill polkadot
+          pkill $BIN_REF
+          pkill $BIN_BASE

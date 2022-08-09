@@ -1,4 +1,4 @@
-name: RC automation
+name: Release - RC automation
 on:
   push:
     branches:
