@@ -10,7 +10,7 @@ on:
         required: true
       binary_url:
         description: A url to a Linux binary for the node containing the runtime to test
-        default: https://releases.parity.io/cumulus/v0.9.270-rc3/polkadot-parachain
+        default: https://releases.parity.io/cumulus/v0.9.270-rc7/polkadot-parachain
         required: true
 
 jobs:
