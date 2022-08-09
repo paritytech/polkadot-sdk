@@ -276,7 +276,7 @@ benchmarks-build:
   <<:                              *benchmarks-manual-refs
   script:
     - time cargo build --profile production --locked --features runtime-benchmarks
-    - mkdir artifacts
+    - mkdir -p artifacts
     - cp target/production/polkadot-parachain ./artifacts/
 
 benchmarks:
