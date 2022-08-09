@@ -17,7 +17,7 @@ jobs:
   check:
     name: Run check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     env:
       BIN_URL: ${{github.event.inputs.binary_url}}
       REF_URL: ${{github.event.inputs.reference_binary_url}}
