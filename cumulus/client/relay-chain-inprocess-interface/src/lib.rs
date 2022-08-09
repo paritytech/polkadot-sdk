@@ -27,7 +27,6 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
-use parking_lot::Mutex;
 use polkadot_client::{ClientHandle, ExecuteWithClient, FullBackend};
 use polkadot_service::{
 	AuxStore, BabeApi, CollatorPair, Configuration, Handle, NewFull, TaskManager,
@@ -50,7 +49,7 @@ const TIMEOUT_IN_SECONDS: u64 = 6;
 pub struct RelayChainInProcessInterface<Client> {
 	full_client: Arc<Client>,
 	backend: Arc<FullBackend>,
-	sync_oracle: Arc<Mutex<Box<dyn SyncOracle + Send + Sync>>>,
+	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 	overseer_handle: Option<Handle>,
 }
 
@@ -59,7 +58,7 @@ impl<Client> RelayChainInProcessInterface<Client> {
 	pub fn new(
 		full_client: Arc<Client>,
 		backend: Arc<FullBackend>,
-		sync_oracle: Arc<Mutex<Box<dyn SyncOracle + Send + Sync>>>,
+		sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 		overseer_handle: Option<Handle>,
 	) -> Self {
 		Self { full_client, backend, sync_oracle, overseer_handle }
@@ -169,8 +168,7 @@ where
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
-		let mut network = self.sync_oracle.lock();
-		Ok(network.is_major_syncing())
+		Ok(self.sync_oracle.is_major_syncing())
 	}
 
 	fn overseer_handle(&self) -> RelayChainResult<Option<Handle>> {
@@ -289,7 +287,7 @@ where
 struct RelayChainInProcessInterfaceBuilder {
 	polkadot_client: polkadot_client::Client,
 	backend: Arc<FullBackend>,
-	sync_oracle: Arc<Mutex<Box<dyn SyncOracle + Send + Sync>>>,
+	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 	overseer_handle: Option<Handle>,
 }
 
@@ -375,8 +373,7 @@ pub fn build_inprocess_relay_chain(
 		hwbench,
 	)?;
 
-	let sync_oracle: Box<dyn SyncOracle + Send + Sync> = Box::new(full_node.network.clone());
-	let sync_oracle = Arc::new(Mutex::new(sync_oracle));
+	let sync_oracle: Arc<dyn SyncOracle + Send + Sync> = Arc::new(full_node.network.clone());
 	let relay_chain_interface_builder = RelayChainInProcessInterfaceBuilder {
 		polkadot_client: full_node.client.clone(),
 		backend: full_node.backend.clone(),
@@ -391,8 +388,6 @@ pub fn build_inprocess_relay_chain(
 
 #[cfg(test)]
 mod tests {
-	use parking_lot::Mutex;
-
 	use super::*;
 
 	use polkadot_primitives::v2::Block as PBlock;
@@ -410,11 +405,11 @@ mod tests {
 	struct DummyNetwork {}
 
 	impl SyncOracle for DummyNetwork {
-		fn is_major_syncing(&mut self) -> bool {
+		fn is_major_syncing(&self) -> bool {
 			unimplemented!("Not needed for test")
 		}
 
-		fn is_offline(&mut self) -> bool {
+		fn is_offline(&self) -> bool {
 			unimplemented!("Not needed for test")
 		}
 	}
@@ -428,17 +423,12 @@ mod tests {
 
 		let block_builder = client.init_polkadot_block_builder();
 		let block = block_builder.build().expect("Finalizes the block").block;
-		let dummy_network: Box<dyn SyncOracle + Sync + Send> = Box::new(DummyNetwork {});
+		let dummy_network: Arc<dyn SyncOracle + Sync + Send> = Arc::new(DummyNetwork {});
 
 		(
 			client.clone(),
 			block,
-			RelayChainInProcessInterface::new(
-				client,
-				backend.clone(),
-				Arc::new(Mutex::new(dummy_network)),
-				None,
-			),
+			RelayChainInProcessInterface::new(client, backend.clone(), dummy_network, None),
 		)
 	}
 

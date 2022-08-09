@@ -14,7 +14,6 @@ clap = { version = "3.2.16", features = ["derive", "deprecated"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.3.6", features = [ "async_tokio" ] }
 jsonrpsee = { version = "0.15.1", features = ["server"] }
-parking_lot = "0.12.1"
 rand = "0.8.5"
 serde = { version = "1.0.141", features = ["derive"] }
 tokio = { version = "1.19.2", features = ["macros"] }
@@ -31,6 +30,7 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "mas
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master", features = ["wasmtime"] }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master", features = [ "wasmtime" ] }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -47,6 +47,7 @@ use sc_consensus::{
 };
 use sc_executor::WasmExecutor;
 use sc_network::NetworkService;
+use sc_network_common::service::NetworkBlock;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi};

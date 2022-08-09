@@ -33,6 +33,7 @@ sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "mast
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master", features = ["wasmtime"] }
 sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master", features = ["wasmtime"] }
