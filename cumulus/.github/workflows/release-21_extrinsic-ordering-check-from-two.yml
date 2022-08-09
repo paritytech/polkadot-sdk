@@ -67,7 +67,7 @@ jobs:
       - name: Prepare output
         run: |
           REF_VERSION=$(./$BIN_REF --version)
-          BIN_VERSION=$(./BIN_BASE --version)
+          BIN_VERSION=$(./$BIN_BASE --version)
           echo "Metadata comparison:" >> output.txt
           echo "Date: $(date)" >> output.txt
           echo "Ref. binary: $REF_URL" >> output.txt
