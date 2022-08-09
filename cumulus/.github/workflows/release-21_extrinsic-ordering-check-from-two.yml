@@ -113,5 +113,5 @@ jobs:
 
       - name: Stop our local nodes
         run: |
-          pkill $BIN_REF
-          pkill $BIN_BASE
+          pkill $BIN_REF || true
+          pkill $BIN_BASE || true
