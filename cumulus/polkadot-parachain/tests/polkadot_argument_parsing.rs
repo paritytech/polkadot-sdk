@@ -14,50 +14,26 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use assert_cmd::cargo::cargo_bin;
-use std::{convert::TryInto, fs, process::Command, thread, time::Duration};
+use tempfile::tempdir;
 
 mod common;
 
-#[test]
+#[tokio::test]
 #[cfg(unix)]
 #[ignore]
-fn polkadot_argument_parsing() {
-	use nix::{
-		sys::signal::{
-			kill,
-			Signal::{self, SIGINT, SIGTERM},
-		},
-		unistd::Pid,
-	};
+async fn polkadot_argument_parsing() {
+	use nix::sys::signal::Signal::{SIGINT, SIGTERM};
+	let base_dir = tempdir().expect("could not create a temp dir");
 
-	fn run_command_and_kill(signal: Signal) {
-		let _ = fs::remove_dir_all("polkadot_argument_parsing");
-		let mut cmd = Command::new(cargo_bin("polkadot-parachain"))
-			.args(&[
-				"-d",
-				"polkadot_argument_parsing",
-				"--",
-				"--dev",
-				"--bootnodes",
-				"/ip4/127.0.0.1/tcp/30333/p2p/Qmbx43psh7LVkrYTRXisUpzCubbgYojkejzAgj5mteDnxy",
-				"--bootnodes",
-				"/ip4/127.0.0.1/tcp/50500/p2p/Qma6SpS7tzfCrhtgEVKR9Uhjmuv55ovC3kY6y6rPBxpWde",
-			])
-			.spawn()
-			.unwrap();
+	let args = &[
+		"--",
+		"--dev",
+		"--bootnodes",
+		"/ip4/127.0.0.1/tcp/30333/p2p/Qmbx43psh7LVkrYTRXisUpzCubbgYojkejzAgj5mteDnxy",
+		"--bootnodes",
+		"/ip4/127.0.0.1/tcp/50500/p2p/Qma6SpS7tzfCrhtgEVKR9Uhjmuv55ovC3kY6y6rPBxpWde",
+	];
 
-		thread::sleep(Duration::from_secs(20));
-		assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
-		kill(Pid::from_raw(cmd.id().try_into().unwrap()), signal).unwrap();
-		assert_eq!(
-			common::wait_for(&mut cmd, 30).map(|x| x.success()),
-			Some(true),
-			"the process must exit gracefully after signal {}",
-			signal,
-		);
-	}
-
-	run_command_and_kill(SIGINT);
-	run_command_and_kill(SIGTERM);
+	common::run_node_for_a_while(base_dir.path(), args, SIGINT).await;
+	common::run_node_for_a_while(base_dir.path(), args, SIGTERM).await;
 }

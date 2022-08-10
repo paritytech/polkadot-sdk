@@ -15,59 +15,38 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use assert_cmd::cargo::cargo_bin;
-use std::{convert::TryInto, process::Command, thread, time::Duration};
+use nix::sys::signal::SIGINT;
+use std::process::Command;
+use tempfile::tempdir;
 
 mod common;
 
-#[test]
+#[tokio::test]
 #[cfg(unix)]
 #[ignore]
-fn purge_chain_works() {
-	fn run_node_and_stop() -> tempfile::TempDir {
-		use nix::{
-			sys::signal::{kill, Signal::SIGINT},
-			unistd::Pid,
-		};
-
-		let base_path = tempfile::tempdir().unwrap();
-
-		let mut cmd = Command::new(cargo_bin("polkadot-parachain"))
-			.args(&["-d"])
-			.arg(base_path.path())
-			.args(&["--", "--dev"])
-			.spawn()
-			.unwrap();
-
-		// Let it produce some blocks.
-		thread::sleep(Duration::from_secs(30));
-		assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
-
-		// Stop the process
-		kill(Pid::from_raw(cmd.id().try_into().unwrap()), SIGINT).unwrap();
-		assert!(common::wait_for(&mut cmd, 30).map(|x| x.success()).unwrap_or_default());
-
-		base_path
-	}
-
+async fn purge_chain_works() {
 	// Check that both databases are deleted
-	{
-		let base_path = run_node_and_stop();
 
-		assert!(base_path.path().join("chains/local_testnet/db/full").exists());
-		assert!(base_path.path().join("polkadot/chains/dev/db/full").exists());
+	let base_dir = tempdir().expect("could not create a temp dir");
 
-		let status = Command::new(cargo_bin("polkadot-parachain"))
-			.args(&["purge-chain", "-d"])
-			.arg(base_path.path())
-			.arg("-y")
-			.status()
-			.unwrap();
-		assert!(status.success());
+	let args = &["--", "--dev"];
 
-		// Make sure that the `parachain_local_testnet` chain folder exists, but the `db` is deleted.
-		assert!(base_path.path().join("chains/local_testnet").exists());
-		assert!(!base_path.path().join("chains/local_testnet/db/full").exists());
-		// assert!(base_path.path().join("polkadot/chains/dev").exists());
-		// assert!(!base_path.path().join("polkadot/chains/dev/db").exists());
-	}
+	common::run_node_for_a_while(base_dir.path(), args, SIGINT).await;
+
+	assert!(base_dir.path().join("chains/local_testnet/db/full").exists());
+	assert!(base_dir.path().join("polkadot/chains/dev/db/full").exists());
+
+	let status = Command::new(cargo_bin("polkadot-parachain"))
+		.args(&["purge-chain", "-d"])
+		.arg(base_dir.path())
+		.arg("-y")
+		.status()
+		.unwrap();
+	assert!(status.success());
+
+	// Make sure that the `parachain_local_testnet` chain folder exists, but the `db` is deleted.
+	assert!(base_dir.path().join("chains/local_testnet").exists());
+	assert!(!base_dir.path().join("chains/local_testnet/db/full").exists());
+	// assert!(base_path.path().join("polkadot/chains/dev").exists());
+	// assert!(!base_path.path().join("polkadot/chains/dev/db").exists());
 }
