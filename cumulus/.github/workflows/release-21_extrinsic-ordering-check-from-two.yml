@@ -70,7 +70,7 @@ jobs:
       - name: Start local reference node for ${{ matrix.runtime }}
         run: |
           echo Running reference on ${{ matrix.local }}
-          $TMP/$BIN_REF --chain=${{ matrix.local }} --ws-port=9945 --tmp -- --chain ${{ matrix.relay }} &
+          $TMP/$BIN_REF --chain=${{ matrix.local }} --ws-port=9954 --tmp -- --chain ${{ matrix.relay }} &
           sleep 15
 
       - name: Start local test node for ${{ matrix.runtime }}
@@ -98,7 +98,7 @@ jobs:
 
       - name: Compare the metadata
         run: |
-          CMD="docker run --pull always --network host jacogr/polkadot-js-tools metadata ws://localhost:9945 ws://localhost:9944"
+          CMD="docker run --pull always --network host jacogr/polkadot-js-tools metadata ws://localhost:9954 ws://localhost:9944"
           echo -e "Running:\n$CMD"
           $CMD >> output.txt
           sed -z -i 's/\n\n/\n/g' output.txt
