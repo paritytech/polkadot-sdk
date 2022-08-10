@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      BIN_URL: ${{github.event.inputs.binary_url}}
       REF_URL: ${{github.event.inputs.reference_binary_url}}
-      BIN_BASE: polkadot-parachain
       BIN_REF: polkadot-parachain-ref
+      BIN_URL: ${{github.event.inputs.binary_url}}
+      BIN_BASE: polkadot-parachain
       TMP: ./tmp
     strategy:
       fail-fast: false
@@ -31,15 +31,19 @@ jobs:
           - category: assets
             runtime: statemine
             local: statemine-local
+            relay: polkadot-local
           - category: assets
             runtime: statemint
             local: statemint-local
+            relay: polkadot-local
           - category: assets
             runtime: westmint
             local: westmint-local
+            relay: polkadot-local
           - category: contracts
             runtime: contracts-rococo
             local: contracts-rococo-local
+            relay: polkadot-local
 
     steps:
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
@@ -49,29 +53,29 @@ jobs:
           mkdir -p $TMP
           pwd
 
-      - name: Fetch reference binary
+      - name: Fetch reference binary for ${{ matrix.runtime }}
         run: |
           echo Fetching $REF_URL
           curl $REF_URL -o $TMP/$BIN_REF
           chmod a+x  $TMP/$BIN_REF
           $TMP/$BIN_REF --version
 
-      - name: Fetch test binary
+      - name: Fetch test binary for ${{ matrix.runtime }}
         run: |
           echo Fetching $BIN_URL
           curl $BIN_URL -o $TMP/$BIN_BASE
           chmod a+x  $TMP/$BIN_BASE
           $TMP/$BIN_BASE --version
 
-      - name: Start local reference node
+      - name: Start local reference node for ${{ matrix.runtime }}
         run: |
           echo Running reference on ${{ matrix.local }}
-          $TMP/$BIN_REF --chain=${{ matrix.local }} --ws-port=9945 --base-path=$TMP/$BIN_REF-local/ -- --chain polkadot-local &
+          $TMP/$BIN_REF --chain=${{ matrix.local }} --ws-port=9945 --tmp -- --chain ${{ matrix.relay }} &
 
-      - name: Start local test node
+      - name: Start local test node for ${{ matrix.runtime }}
         run: |
           echo Running test on ${{ matrix.local }}
-          $TMP/$BIN_BASE --chain=${{ matrix.local }} --ws-port=9944 --base-path=$TMP/$BIN_BASE-data/ -- --chain polkadot-local &
+          $TMP/$BIN_BASE --chain=${{ matrix.local }} --ws-port=9944 --tmp -- --chain ${{ matrix.relay }} &
 
       - name: Prepare output
         run: |
@@ -84,6 +88,7 @@ jobs:
           echo "Ref. version: $REF_VERSION" >> output.txt
           echo "Test version: $BIN_VERSION" >> output.txt
           echo "Chain: ${{ matrix.local }}" >> output.txt
+          echo "Relay: ${{ matrix.relay }}" >> output.txt
           echo "----------------------------------------------------------------------" >> output.txt
 
       - name: Pull polkadot-js-tools image
