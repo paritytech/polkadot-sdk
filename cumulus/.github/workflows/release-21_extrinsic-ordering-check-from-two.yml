@@ -71,11 +71,13 @@ jobs:
         run: |
           echo Running reference on ${{ matrix.local }}
           $TMP/$BIN_REF --chain=${{ matrix.local }} --ws-port=9945 --tmp -- --chain ${{ matrix.relay }} &
+          sleep 15
 
       - name: Start local test node for ${{ matrix.runtime }}
         run: |
           echo Running test on ${{ matrix.local }}
           $TMP/$BIN_BASE --chain=${{ matrix.local }} --ws-port=9944 --tmp -- --chain ${{ matrix.relay }} &
+          sleep 15
 
       - name: Prepare output
         run: |
