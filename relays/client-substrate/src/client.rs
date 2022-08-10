@@ -545,6 +545,18 @@ impl<C: Chain> Client<C> {
 		.await
 	}
 
+	/// Execute runtime call at given block, provided the input and output types.
+	/// It also performs the input encode and output decode.
+	pub async fn typed_state_call<Input: codec::Encode, Output: codec::Decode>(
+		&self,
+		method_name: String,
+		input: Input,
+		at_block: Option<C::Hash>,
+	) -> Result<Output> {
+		let encoded_output = self.state_call(method_name, Bytes(input.encode()), at_block).await?;
+		Output::decode(&mut &encoded_output.0[..]).map_err(Error::ResponseParseFailed)
+	}
+
 	/// Execute runtime call at given block.
 	pub async fn state_call(
 		&self,
