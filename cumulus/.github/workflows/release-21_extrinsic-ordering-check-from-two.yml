@@ -28,20 +28,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - category: assets
-            runtime: statemine
+          - runtime: statemine
             local: statemine-local
             relay: polkadot-local
-          - category: assets
-            runtime: statemint
+          - runtime: statemint
             local: statemint-local
             relay: polkadot-local
-          - category: assets
-            runtime: westmint
+          - runtime: westmint
             local: westmint-local
             relay: polkadot-local
-          - category: contracts
-            runtime: contracts-rococo
+          - runtime: contracts-rococo
             local: contracts-rococo-local
             relay: polkadot-local
 
