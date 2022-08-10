@@ -1,7 +1,7 @@
 ---
-name: Release issue template
-about: Tracking issue for new releases
-title: Cumulus {{ env.VERSION }} Release checklist
+name: Release Checklist for Runtime
+about: Release Checklist for Runtime
+title: Release Checklist for Runtime {{ env.VERSION }}
 ---
 
 # Release Checklist - Runtimes
