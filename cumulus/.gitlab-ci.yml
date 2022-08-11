@@ -44,6 +44,19 @@ variables:
   - cargo +nightly --version
   - bash --version
 
+# collecting vars for pipeline stopper
+# they will be used if the job fails
+.pipeline-stopper-vars:            &pipeline-stopper-vars
+    - echo "FAILED_JOB_URL=${CI_JOB_URL}" > pipeline-stopper.env
+    - echo "FAILED_JOB_NAME=${CI_JOB_NAME}" >> pipeline-stopper.env
+    - echo "FAILED_JOB_NAME=${CI_JOB_NAME}" >> pipeline-stopper.env
+    - echo "PR_NUM=${CI_COMMIT_REF_NAME}" >> pipeline-stopper.env
+
+.pipeline-stopper-artifacts:       &pipeline-stopper-artifacts
+  artifacts:
+     reports:
+       dotenv: pipeline-stopper.env
+
 .common-refs:                      &common-refs
   # these jobs run always*
   rules:
@@ -88,6 +101,10 @@ test-linux-stable:
   stage:                           test
   <<:                              *docker-env
   <<:                              *common-refs
+  <<:                              *pipeline-stopper-artifacts
+  before_script:
+    - *rust-info-script
+    - *pipeline-stopper-vars
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -355,11 +372,17 @@ cancel-pipeline:
   stage:                           .post
   needs:
     - job:                         test-linux-stable
-      artifacts:                   false
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
       when: on_failure
   variables:
     PROJECT_ID:                    "${CI_PROJECT_ID}"
+    PROJECT_NAME:                  "${CI_PROJECT_NAME}"
     PIPELINE_ID:                   "${CI_PIPELINE_ID}"
-  trigger:                         "parity/infrastructure/ci_cd/pipeline-stopper"
+    FAILED_JOB_URL:                "${FAILED_JOB_URL}"
+    FAILED_JOB_NAME:               "${FAILED_JOB_NAME}"
+    PR_NUM:                        "${PR_NUM}"
+  trigger:
+    project:                       "parity/infrastructure/ci_cd/pipeline-stopper"
+    # remove branch, when pipeline-stopper for substrate and polakdot is updated to the same branch
+    branch:                        "as-improve"
