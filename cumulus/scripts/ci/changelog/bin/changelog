@@ -76,6 +76,7 @@ else
   logger.debug("Re-using:#{substrate_data}")
 end
 
+POLKADOT_COLLECTIVES_DIGEST = ENV['SHELL_DIGEST'] || 'digests/polkadot-collectives-srtool-digest.json'
 SHELL_DIGEST = ENV['SHELL_DIGEST'] || 'digests/shell-srtool-digest.json'
 WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json'
 STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
@@ -112,24 +113,31 @@ else
       --slurpfile srtool_statemint %s \
       --slurpfile srtool_rococo_parachain %s \
       --slurpfile srtool_contracts_rococo %s \
+      --slurpfile srtool_polkadot_collectives %s \
       -n \'{
-              cumulus: $cumulus[0],
-              substrate: $substrate[0],
-              polkadot: $polkadot[0],
+            cumulus: $cumulus[0],
+            substrate: $substrate[0],
+            polkadot: $polkadot[0],
           srtool: [
-          { name: "rococo", data: $srtool_rococo_parachain[0] },
-          { name: "shell", data: $srtool_shell[0] },
-          { name: "westmint", data: $srtool_westmint[0] },
-          { name: "statemint", data: $srtool_statemint[0] },
-          { name: "statemine", data: $srtool_statemine[0] },
-          { name: "contracts", data: $srtool_contracts_rococo[0] }
-      ] }\' > context.json', cumulus_data, substrate_data, polkadot_data,
-              SHELL_DIGEST,
-              WESTMINT_DIGEST,
-              STATEMINE_DIGEST,
-              STATEMINT_DIGEST,
-              ROCOCO_PARA_DIGEST,
-              CANVAS_KUSAMA_DIGEST)
+            { name: "shell", data: $srtool_shell[0] },
+            { name: "westmint", data: $srtool_westmint[0] },
+            { name: "statemine", data: $srtool_statemine[0] },
+            { name: "statemint", data: $srtool_statemint[0] },
+            { name: "rococo", data: $srtool_rococo_parachain[0] },
+            { name: "contracts", data: $srtool_contracts_rococo[0] }
+            { name: "polkadot-collectives", data: $srtool_polkadot_collectives[0] },
+      ] }\' > context.json',
+        cumulus_data,
+        substrate_data,
+        polkadot_data,
+        SHELL_DIGEST,
+        WESTMINT_DIGEST,
+        STATEMINE_DIGEST,
+        STATEMINT_DIGEST,
+        ROCOCO_PARA_DIGEST,
+        CANVAS_KUSAMA_DIGEST,
+        POLKADOT_COLLECTIVES_DIGEST
+  )
 end
 system(cmd)
 

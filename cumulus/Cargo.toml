@@ -34,6 +34,7 @@ members = [
 	"parachains/runtimes/assets/statemint",
 	"parachains/runtimes/assets/statemine",
 	"parachains/runtimes/assets/westmint",
+	"parachains/runtimes/collectives/collectives-polkadot",
 	"parachains/runtimes/contracts/contracts-rococo",
 	"parachains/runtimes/testing/penpal",
 	"test/client",
