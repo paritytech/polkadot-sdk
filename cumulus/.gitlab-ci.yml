@@ -65,6 +65,7 @@ variables:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
     - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9].*$/    # i.e. release-parachains-v1.0, release-parachains-v2.1rc1, release-parachains-v3000
+    - if: $CI_COMMIT_REF_NAME =~ /^polkadot-v[0-9]+\.[0-9]+.*$/     # i.e. polkadot-v1.0.99, polkadot-v2.1rc1
 
 .publish-refs:                     &publish-refs
   rules:
@@ -174,6 +175,7 @@ build-linux-stable:
   stage:                           build
   <<:                              *docker-env
   <<:                              *collect-artifacts
+  <<:                              *common-refs
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -195,6 +197,7 @@ build-test-parachain:
   stage:                           build
   <<:                              *docker-env
   <<:                              *collect-artifacts
+  <<:                              *common-refs
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
