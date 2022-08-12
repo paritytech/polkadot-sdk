@@ -19,7 +19,7 @@
 {%- endif -%}
 {%- endfor -%}
 
-{%- if p >= 7 or host_fn_count > 0 -%}
+{%- if p >= 5 or host_fn_count > 0 -%}
     {%- set prio = "‼️ HIGH" -%}
     {%- set text = "This is a **high priority** release and you must upgrade as as soon as possible." -%}
 {%- elif p >= 3 -%}
@@ -45,7 +45,7 @@ The changes motivating this priority level are:
     {%- if pr.meta.C -%}
         {%- if pr.meta.C.value == p %}
 - {{ m_c::change(c=pr) }}
-{%- if pr.meta.B and pr.meta.B.value == 7 %}
+{%- if pr.meta.B and pr.meta.X and pr.meta.B.value == 1 and pr.meta.X.value == 1 %}
 (RUNTIME)
 {% endif %}
 
