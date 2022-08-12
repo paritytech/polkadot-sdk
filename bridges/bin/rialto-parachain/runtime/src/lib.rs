@@ -78,6 +78,7 @@ pub use pallet_bridge_messages::Call as MessagesCall;
 pub use pallet_xcm::Call as XcmCall;
 
 // Polkadot & XCM imports
+use bridge_runtime_common::CustomNetworkId;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use xcm::latest::prelude::*;
@@ -304,13 +305,13 @@ impl pallet_randomness_collective_flip::Config for Runtime {}
 
 parameter_types! {
 	pub const RelayLocation: MultiLocation = MultiLocation::parent();
-	pub const RelayNetwork: NetworkId = NetworkId::Polkadot;
+	pub const RelayNetwork: NetworkId = CustomNetworkId::Rialto.as_network_id();
 	pub RelayOrigin: Origin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
-	/// The Millau network ID, associated with Kusama.
-	pub const MillauNetwork: NetworkId = Kusama;
-	/// The RialtoParachain network ID, associated with Westend.
-	pub const ThisNetwork: NetworkId = Westend;
+	/// The Millau network ID.
+	pub const MillauNetwork: NetworkId = CustomNetworkId::Millau.as_network_id();
+	/// The RialtoParachain network ID.
+	pub const ThisNetwork: NetworkId = CustomNetworkId::RialtoParachain.as_network_id();
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used

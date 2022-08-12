@@ -20,6 +20,7 @@
 
 use bp_runtime::FilterCall;
 use sp_runtime::transaction_validity::TransactionValidity;
+use xcm::v3::NetworkId;
 
 pub mod messages;
 pub mod messages_api;
@@ -117,6 +118,28 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			}
 		}
 	};
+}
+
+/// A mapping over `NetworkId`.
+/// Since `NetworkId` doesn't include `Millau`, `Rialto` and `RialtoParachain`, we create some
+/// synthetic associations between these chains and `NetworkId` chains.
+pub enum CustomNetworkId {
+	/// The Millau network ID, associated with Kusama.
+	Millau,
+	/// The Rialto network ID, associated with Polkadot.
+	Rialto,
+	/// The RialtoParachain network ID, associated with Westend.
+	RialtoParachain,
+}
+
+impl CustomNetworkId {
+	pub const fn as_network_id(&self) -> NetworkId {
+		match *self {
+			CustomNetworkId::Millau => NetworkId::Kusama,
+			CustomNetworkId::Rialto => NetworkId::Polkadot,
+			CustomNetworkId::RialtoParachain => NetworkId::Westend,
+		}
+	}
 }
 
 #[cfg(test)]
