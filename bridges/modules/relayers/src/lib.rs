@@ -34,6 +34,9 @@ mod payment_adapter;
 
 pub mod weights;
 
+/// The target that will be used when publishing logs related to this pallet.
+pub const LOG_TARGET: &str = "runtime::bridge-relayers";
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -67,7 +70,7 @@ pub mod pallet {
 				let reward = maybe_reward.take().ok_or(Error::<T>::NoRewardForRelayer)?;
 				T::PaymentProcedure::pay_reward(&relayer, reward).map_err(|e| {
 					log::trace!(
-						target: "runtime::bridge-relayers",
+						target: LOG_TARGET,
 						"Failed to pay rewards to {:?}: {:?}",
 						relayer,
 						e,
@@ -110,10 +113,17 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use mock::*;
+	use mock::{Event as TestEvent, *};
 
+	use crate::Event::RewardPaid;
 	use frame_support::{assert_noop, assert_ok, traits::fungible::Inspect};
+	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_runtime::DispatchError;
+
+	fn get_ready_for_events() {
+		System::<TestRuntime>::set_block_number(1);
+		System::<TestRuntime>::reset_events();
+	}
 
 	#[test]
 	fn root_cant_claim_anything() {
@@ -149,9 +159,24 @@ mod tests {
 	#[test]
 	fn relayer_can_claim_reward() {
 		run_test(|| {
+			get_ready_for_events();
+
 			RelayerRewards::<TestRuntime>::insert(REGULAR_RELAYER, 100);
 			assert_ok!(Pallet::<TestRuntime>::claim_rewards(Origin::signed(REGULAR_RELAYER)));
 			assert_eq!(RelayerRewards::<TestRuntime>::get(REGULAR_RELAYER), None);
+
+			//Check if the `RewardPaid` event was emitted.
+			assert_eq!(
+				System::<TestRuntime>::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::Relayers(RewardPaid {
+						relayer: REGULAR_RELAYER,
+						reward: 100
+					}),
+					topics: vec![],
+				}],
+			);
 		});
 	}
 
