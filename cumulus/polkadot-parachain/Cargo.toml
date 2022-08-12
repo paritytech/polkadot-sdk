@@ -13,7 +13,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.21"
 hex-literal = "0.3.4"
 log = "0.4.17"
-serde = { version = "1.0.141", features = ["derive"] }
+serde = { version = "1.0.143", features = ["derive"] }
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
