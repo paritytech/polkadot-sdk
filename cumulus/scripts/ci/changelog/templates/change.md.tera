@@ -1,7 +1,7 @@
 {# This macro shows ONE change #}
 {%- macro change(c, cml="[C]", dot="[P]", sub="[S]") -%}
 
-{%- if c.meta.C and c.meta.C.value >= 7 -%}
+{%- if c.meta.C and c.meta.C.value >= 5 -%}
 {%- set prio = " ‼️ HIGH" -%}
 {%- elif c.meta.C and c.meta.C.value >= 3 -%}
 {%- set prio = " ❗️ Medium" -%}
