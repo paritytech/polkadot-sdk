@@ -21,7 +21,10 @@ use super::{
 	Event, Origin, Runtime, WithMillauMessagesInstance, XcmPallet,
 };
 use bp_rialto::WeightToFee;
-use bridge_runtime_common::messages::source::{XcmBridge, XcmBridgeAdapter};
+use bridge_runtime_common::{
+	messages::source::{XcmBridge, XcmBridgeAdapter},
+	CustomNetworkId,
+};
 use frame_support::{
 	parameter_types,
 	traits::{Everything, Nothing},
@@ -39,10 +42,10 @@ parameter_types! {
 	/// chain, we make it synonymous with it and thus it is the `Here` location, which means "equivalent to
 	/// the context".
 	pub const TokenLocation: MultiLocation = Here.into_location();
-	/// The Rialto network ID, associated with Polkadot.
-	pub const ThisNetwork: NetworkId = Polkadot;
-	/// The Millau network ID, associated with Kusama.
-	pub const MillauNetwork: NetworkId = Kusama;
+	/// The Rialto network ID.
+	pub const ThisNetwork: NetworkId = CustomNetworkId::Rialto.as_network_id();
+	/// The Millau network ID.
+	pub const MillauNetwork: NetworkId = CustomNetworkId::Millau.as_network_id();
 
 	/// Our XCM location ancestry - i.e. our location within the Consensus Universe.
 	///
