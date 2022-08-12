@@ -100,7 +100,7 @@ where
 			data.conversion_rate_override,
 			Self::ESTIMATE_MESSAGE_FEE_METHOD,
 			lane,
-			payload,
+			&payload,
 		)
 		.await?;
 
@@ -141,7 +141,7 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<
 	conversion_rate_override: Option<ConversionRateOverride>,
 	estimate_fee_method: &str,
 	lane: bp_messages::LaneId,
-	payload: P,
+	payload: &P,
 ) -> anyhow::Result<BalanceOf<Source>> {
 	// actual conversion rate CAN be lesser than the rate stored in the runtime. So we may try to
 	// pay lesser fee for the message delivery. But in this case, message may be rejected by the
@@ -196,7 +196,7 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<
 		client,
 		estimate_fee_method,
 		lane,
-		payload.clone(),
+		payload,
 		None,
 	)
 	.await?;
@@ -204,7 +204,7 @@ pub(crate) async fn estimate_message_delivery_and_dispatch_fee<
 		client,
 		estimate_fee_method,
 		lane,
-		payload.clone(),
+		payload,
 		conversion_rate_override,
 	)
 	.await?;
@@ -227,7 +227,7 @@ async fn do_estimate_message_delivery_and_dispatch_fee<Source: Chain, P: Encode>
 	client: &relay_substrate_client::Client<Source>,
 	estimate_fee_method: &str,
 	lane: bp_messages::LaneId,
-	payload: P,
+	payload: &P,
 	conversion_rate_override: Option<FixedU128>,
 ) -> anyhow::Result<BalanceOf<Source>> {
 	let encoded_response = client

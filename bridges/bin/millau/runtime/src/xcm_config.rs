@@ -27,7 +27,10 @@ use super::{
 use bp_messages::LaneId;
 use bp_millau::WeightToFee;
 use bp_rialto_parachain::RIALTO_PARACHAIN_ID;
-use bridge_runtime_common::messages::source::{XcmBridge, XcmBridgeAdapter};
+use bridge_runtime_common::{
+	messages::source::{XcmBridge, XcmBridgeAdapter},
+	CustomNetworkId,
+};
 use frame_support::{
 	parameter_types,
 	traits::{Everything, Nothing},
@@ -45,12 +48,12 @@ parameter_types! {
 	/// chain, we make it synonymous with it and thus it is the `Here` location, which means "equivalent to
 	/// the context".
 	pub const TokenLocation: MultiLocation = Here.into_location();
-	/// The Millau network ID, associated with Kusama.
-	pub const ThisNetwork: NetworkId = Kusama;
-	/// The Rialto network ID, associated with Polkadot.
-	pub const RialtoNetwork: NetworkId = Polkadot;
-	/// The RialtoParachain network ID, associated with Westend.
-	pub const RialtoParachainNetwork: NetworkId = Westend;
+	/// The Millau network ID.
+	pub const ThisNetwork: NetworkId = CustomNetworkId::Millau.as_network_id();
+	/// The Rialto network ID.
+	pub const RialtoNetwork: NetworkId = CustomNetworkId::Rialto.as_network_id();
+	/// The RialtoParachain network ID.
+	pub const RialtoParachainNetwork: NetworkId = CustomNetworkId::RialtoParachain.as_network_id();
 
 	/// Our XCM location ancestry - i.e. our location within the Consensus Universe.
 	///
