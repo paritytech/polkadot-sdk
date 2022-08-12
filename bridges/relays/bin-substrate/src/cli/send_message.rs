@@ -121,13 +121,13 @@ where
 					conversion_rate_override,
 					Self::ESTIMATE_MESSAGE_FEE_METHOD,
 					lane,
-					payload.clone(),
+					&payload,
 				)
 				.await?
 				.into(),
 			),
 		};
-		let payload_len = payload.encode().len();
+		let payload_len = payload.encoded_size();
 		let send_message_call = if data.use_xcm_pallet {
 			Self::Source::encode_send_xcm(
 				decode_xcm(payload)?,

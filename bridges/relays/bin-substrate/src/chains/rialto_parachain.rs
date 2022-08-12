@@ -33,23 +33,20 @@ impl CliEncodeMessage for RialtoParachain {
 		message: xcm::VersionedXcm<()>,
 		bridge_instance_index: u8,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
-		Ok(match bridge_instance_index {
-			bridge::RIALTO_PARACHAIN_TO_MILLAU_INDEX => {
-				let dest =
-					(Parent, X1(GlobalConsensus(rialto_parachain_runtime::MillauNetwork::get())));
-				rialto_parachain_runtime::Call::PolkadotXcm(
-					rialto_parachain_runtime::XcmCall::send {
-						dest: Box::new(dest.into()),
-						message: Box::new(message),
-					},
-				)
-				.into()
-			},
+		let dest = match bridge_instance_index {
+			bridge::RIALTO_PARACHAIN_TO_MILLAU_INDEX =>
+				(Parent, X1(GlobalConsensus(rialto_parachain_runtime::MillauNetwork::get()))),
 			_ => anyhow::bail!(
 				"Unsupported target bridge pallet with instance index: {}",
 				bridge_instance_index
 			),
+		};
+
+		Ok(rialto_parachain_runtime::Call::PolkadotXcm(rialto_parachain_runtime::XcmCall::send {
+			dest: Box::new(dest.into()),
+			message: Box::new(message),
 		})
+		.into())
 	}
 
 	fn encode_send_message_call(

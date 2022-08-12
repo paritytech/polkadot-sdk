@@ -60,7 +60,6 @@ sp-version = { git = "https://github.com/paritytech/substrate", branch = "master
 
 # Polkadot Dependencies
 
-#pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
 polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
