@@ -34,35 +34,27 @@ impl CliEncodeMessage for Millau {
 		message: xcm::VersionedXcm<()>,
 		bridge_instance_index: u8,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
-		Ok(match bridge_instance_index {
-			bridge::MILLAU_TO_RIALTO_INDEX => {
-				let dest =
-					(Parent, X1(GlobalConsensus(millau_runtime::xcm_config::RialtoNetwork::get())));
-				millau_runtime::Call::XcmPallet(millau_runtime::XcmCall::send {
-					dest: Box::new(dest.into()),
-					message: Box::new(message),
-				})
-				.into()
-			},
-			bridge::MILLAU_TO_RIALTO_PARACHAIN_INDEX => {
-				let dest = (
-					Parent,
-					X2(
-						GlobalConsensus(millau_runtime::xcm_config::RialtoNetwork::get()),
-						Parachain(RIALTO_PARACHAIN_ID),
-					),
-				);
-				millau_runtime::Call::XcmPallet(millau_runtime::XcmCall::send {
-					dest: Box::new(dest.into()),
-					message: Box::new(message),
-				})
-				.into()
-			},
+		let dest = match bridge_instance_index {
+			bridge::MILLAU_TO_RIALTO_INDEX =>
+				(Parent, X1(GlobalConsensus(millau_runtime::xcm_config::RialtoNetwork::get()))),
+			bridge::MILLAU_TO_RIALTO_PARACHAIN_INDEX => (
+				Parent,
+				X2(
+					GlobalConsensus(millau_runtime::xcm_config::RialtoNetwork::get()),
+					Parachain(RIALTO_PARACHAIN_ID),
+				),
+			),
 			_ => anyhow::bail!(
 				"Unsupported target bridge pallet with instance index: {}",
 				bridge_instance_index
 			),
+		};
+
+		Ok(millau_runtime::Call::XcmPallet(millau_runtime::XcmCall::send {
+			dest: Box::new(dest.into()),
+			message: Box::new(message),
 		})
+		.into())
 	}
 
 	fn encode_send_message_call(
