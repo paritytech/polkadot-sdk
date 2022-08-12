@@ -947,7 +947,7 @@ where
 		// loop won't proceed if current entry is ahead of received range (begin > end).
 		// this loop is bound by `T::MaxUnconfirmedMessagesAtInboundLane` on the bridged chain
 		let mut relayer_reward = relayers_rewards.entry(entry.relayer).or_default();
-		for nonce in nonce_begin..nonce_end + 1 {
+		for nonce in nonce_begin..=nonce_end {
 			let key = MessageKey { lane_id, nonce };
 			let message_data = OutboundMessages::<T, I>::get(key)
 				.expect("message was just confirmed; we never prune unconfirmed messages; qed");
