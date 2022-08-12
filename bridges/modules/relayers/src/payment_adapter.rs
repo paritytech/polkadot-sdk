@@ -20,8 +20,8 @@
 use crate::{Config, RelayerRewards};
 
 use bp_messages::source_chain::{MessageDeliveryAndDispatchPayment, RelayersRewards};
-use frame_support::traits::Get;
-use sp_arithmetic::traits::{Bounded, Saturating, Zero};
+use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
+use sp_arithmetic::traits::{Saturating, Zero};
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 /// Adapter that allows relayers pallet to be used as a delivery+dispatch payment mechanism
@@ -60,18 +60,17 @@ where
 			messages_relayers,
 			received_range,
 		);
-		if !relayers_rewards.is_empty() {
-			schedule_relayers_rewards::<T>(
-				confirmation_relayer,
-				relayers_rewards,
-				GetConfirmationFee::get(),
-			);
-		}
+
+		register_relayers_rewards::<T>(
+			confirmation_relayer,
+			relayers_rewards,
+			GetConfirmationFee::get(),
+		);
 	}
 }
 
 // Update rewards to given relayers, optionally rewarding confirmation relayer.
-fn schedule_relayers_rewards<T: Config>(
+fn register_relayers_rewards<T: Config>(
 	confirmation_relayer: &T::AccountId,
 	relayers_rewards: RelayersRewards<T::AccountId, T::Reward>,
 	confirmation_fee: T::Reward,
@@ -87,44 +86,42 @@ fn schedule_relayers_rewards<T: Config>(
 			//
 			// If confirmation fee has been increased (or if it was the only component of message
 			// fee), then messages relayer may receive zero reward.
-			let mut confirmation_reward = T::Reward::try_from(reward.messages)
-				.unwrap_or_else(|_| Bounded::max_value())
-				.saturating_mul(confirmation_fee);
-			if confirmation_reward > relayer_reward {
-				confirmation_reward = relayer_reward;
-			}
+			let mut confirmation_reward =
+				T::Reward::saturated_from(reward.messages).saturating_mul(confirmation_fee);
+			confirmation_reward = sp_std::cmp::min(confirmation_reward, relayer_reward);
 			relayer_reward = relayer_reward.saturating_sub(confirmation_reward);
 			confirmation_relayer_reward =
 				confirmation_relayer_reward.saturating_add(confirmation_reward);
+
+			register_relayer_reward::<T>(&relayer, relayer_reward);
 		} else {
 			// If delivery confirmation is submitted by this relayer, let's add confirmation fee
 			// from other relayers to this relayer reward.
-			confirmation_relayer_reward = confirmation_relayer_reward.saturating_add(reward.reward);
-			continue
+			confirmation_relayer_reward =
+				confirmation_relayer_reward.saturating_add(relayer_reward);
 		}
-
-		schedule_relayer_reward::<T>(&relayer, relayer_reward);
 	}
 
 	// finally - pay reward to confirmation relayer
-	schedule_relayer_reward::<T>(confirmation_relayer, confirmation_relayer_reward);
+	register_relayer_reward::<T>(confirmation_relayer, confirmation_relayer_reward);
 }
 
 /// Remember that the reward shall be paid to the relayer.
-fn schedule_relayer_reward<T: Config>(relayer: &T::AccountId, reward: T::Reward) {
+fn register_relayer_reward<T: Config>(relayer: &T::AccountId, reward: T::Reward) {
 	if reward.is_zero() {
 		return
 	}
 
 	RelayerRewards::<T>::mutate(relayer, |old_reward: &mut Option<T::Reward>| {
 		let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward);
+		*old_reward = Some(new_reward);
+
 		log::trace!(
-			target: "T::bridge-relayers",
+			target: crate::LOG_TARGET,
 			"Relayer {:?} can now claim reward: {:?}",
 			relayer,
 			new_reward,
 		);
-		*old_reward = Some(new_reward);
 	});
 }
 
@@ -149,7 +146,7 @@ mod tests {
 	#[test]
 	fn confirmation_relayer_is_rewarded_if_it_has_also_delivered_messages() {
 		run_test(|| {
-			schedule_relayers_rewards::<TestRuntime>(&RELAYER_2, relayers_rewards(), 10);
+			register_relayers_rewards::<TestRuntime>(&RELAYER_2, relayers_rewards(), 10);
 
 			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_1), Some(80));
 			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_2), Some(120));
@@ -159,7 +156,7 @@ mod tests {
 	#[test]
 	fn confirmation_relayer_is_rewarded_if_it_has_not_delivered_any_delivered_messages() {
 		run_test(|| {
-			schedule_relayers_rewards::<TestRuntime>(&RELAYER_3, relayers_rewards(), 10);
+			register_relayers_rewards::<TestRuntime>(&RELAYER_3, relayers_rewards(), 10);
 
 			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_1), Some(80));
 			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_2), Some(70));
@@ -170,7 +167,7 @@ mod tests {
 	#[test]
 	fn only_confirmation_relayer_is_rewarded_if_confirmation_fee_has_significantly_increased() {
 		run_test(|| {
-			schedule_relayers_rewards::<TestRuntime>(&RELAYER_3, relayers_rewards(), 1000);
+			register_relayers_rewards::<TestRuntime>(&RELAYER_3, relayers_rewards(), 1000);
 
 			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_1), None);
 			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_2), None);
