@@ -67,6 +67,23 @@ The `inaccessible` event indicates that the storage value has failed to be retri
 
 No more event will be generated with this `subscription`.
 
+### error
+
+```json
+{
+    "event": "error",
+    "error": "..."
+}
+```
+
+The `error` event indicates a problem during the storage access, such as failing to parse the block header to obtain the state root hash.
+
+Contrary to the `inaccessible` event, querying the same storage value again in the future will not succeed.
+
+`error` is a human-readable error message indicating why the call has failed. This string isn't meant to be shown to end users, but is for developers to understand the problem.
+
+No more event will be generated with this `subscription`.
+
 ### disjoint
 
 ```json
