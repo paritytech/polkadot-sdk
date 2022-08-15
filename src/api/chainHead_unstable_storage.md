@@ -6,7 +6,6 @@
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
 - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
 - `childKey`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the trie key of the trie that `key` refers to. **TODO**: I don't know enough about child tries to design this properly
-- `type`: String that must be equal to one of: `value`, `hash`, or `size`.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./api.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
 **Return value**: String containing an opaque value representing the operation.
@@ -47,11 +46,7 @@ Where `subscription` is equal to the value returned by this function, and `resul
 
 The `done` event indicates that everything went well. The `value` field contains the requested value.
 
-Where `value` is:
-
-- If `type` was `value`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hexadecimal-encoded value of the storage entry.
-- If `type` was `hash`, either `null` if the storage doesn't contain a value at the given key, or a string containing the hexadecimal-encoded hash of the value of the storage item. The hashing algorithm is the same as the one used by the trie of the chain.
-- If `type` was `size`, either `null` if the storage doesn't contain a value at the given key, or a string containing the number of bytes of the storage entry. Note that a string is used rather than a number in order to prevent JavaScript clients from accidentally rounding the value.
+`value` is either `null` if the storage doesn't contain a value at the given key, or a string containing the hexadecimal-encoded value of the storage entry.
 
 No more event will be generated with this `subscription`.
 
