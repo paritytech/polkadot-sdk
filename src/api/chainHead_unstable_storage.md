@@ -6,7 +6,7 @@
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
 - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
 - `childKey`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the trie key of the trie that `key` refers to. **TODO**: I don't know enough about child tries to design this properly
-- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./introduction.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./api.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
 **Return value**: String containing an opaque value representing the operation.
 
@@ -59,6 +59,23 @@ No more event will be generated with this `subscription`.
 ```
 
 The `inaccessible` event indicates that the storage value has failed to be retrieved from the network.
+
+No more event will be generated with this `subscription`.
+
+### error
+
+```json
+{
+    "event": "error",
+    "error": "..."
+}
+```
+
+The `error` event indicates a problem during the storage access, such as failing to parse the block header to obtain the state root hash.
+
+Contrary to the `inaccessible` event, querying the same storage value again in the future will not succeed.
+
+`error` is a human-readable error message indicating why the call has failed. This string isn't meant to be shown to end users, but is for developers to understand the problem.
 
 No more event will be generated with this `subscription`.
 
