@@ -14,10 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, Extensions};
+use crate::chain_spec::{
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+};
 use cumulus_primitives_core::ParaId;
-// use rococo_parachain_runtime::{AuraId};
-use crate::chain_spec::{get_collator_keys_from_seed, SAFE_XCM_VERSION};
+use parachains_common::{AccountId, AuraId};
 use sc_service::ChainType;
 use sp_core::sr25519;
 /// Specialized `ChainSpec` for the normal parachain runtime.
@@ -42,11 +43,11 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> PenpalChainSpec {
 				vec![
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<penpal_runtime::AuraId>("Alice"),
+						get_collator_keys_from_seed::<AuraId>("Alice"),
 					),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<penpal_runtime::AuraId>("Bob"),
+						get_collator_keys_from_seed::<AuraId>("Bob"),
 					),
 				],
 				vec![
@@ -79,8 +80,8 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> PenpalChainSpec {
 }
 
 fn penpal_testnet_genesis(
-	invulnerables: Vec<(penpal_runtime::AccountId, penpal_runtime::AuraId)>,
-	endowed_accounts: Vec<penpal_runtime::AccountId>,
+	invulnerables: Vec<(AccountId, AuraId)>,
+	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
 ) -> penpal_runtime::GenesisConfig {
 	penpal_runtime::GenesisConfig {
@@ -131,6 +132,6 @@ fn penpal_testnet_genesis(
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn penpal_session_keys(keys: penpal_runtime::AuraId) -> penpal_runtime::SessionKeys {
+pub fn penpal_session_keys(keys: AuraId) -> penpal_runtime::SessionKeys {
 	penpal_runtime::SessionKeys { aura: keys }
 }

@@ -39,6 +39,7 @@ cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = fals
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
+parachains-common = { path = "../../../common", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }

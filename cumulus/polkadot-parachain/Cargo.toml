@@ -59,6 +59,7 @@ sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "maste
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-serializer = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -95,6 +96,8 @@ nix = "0.24"
 tempfile = "3.3.0"
 tokio = { version = "1.19.2", features = ["macros", "time", "parking_lot"] }
 wait-timeout = "0.2"
+# purge_chain_works works with rococo-local and needs to allow this
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master", features = ["rococo-native"] }
 
 [features]
 default = []

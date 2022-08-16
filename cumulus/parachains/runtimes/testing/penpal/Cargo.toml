@@ -74,6 +74,7 @@ cumulus-primitives-timestamp = { path = "../../../../primitives/timestamp", defa
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { path = "../../../../parachains/pallets/parachain-info", default-features = false }
+parachains-common = { path = "../../../common", default-features = false }
 
 [features]
 default = [

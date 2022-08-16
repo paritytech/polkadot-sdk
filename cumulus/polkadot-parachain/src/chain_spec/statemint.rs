@@ -19,8 +19,7 @@ use crate::chain_spec::{
 };
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use parachains_common::{Balance as StatemintBalance, StatemintAuraId};
-use rococo_parachain_runtime::{AccountId, AuraId};
+use parachains_common::{AccountId, AuraId, Balance as StatemintBalance, StatemintAuraId};
 use sc_service::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
 

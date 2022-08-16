@@ -70,21 +70,6 @@ type HostFunctions =
 	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
 
 /// Native executor instance.
-pub struct RococoParachainRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for RococoParachainRuntimeExecutor {
-	type ExtendHostFunctions = ();
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		rococo_parachain_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		rococo_parachain_runtime::native_version()
-	}
-}
-
-/// Native executor instance.
 pub struct ShellRuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for ShellRuntimeExecutor {
@@ -96,21 +81,6 @@ impl sc_executor::NativeExecutionDispatch for ShellRuntimeExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		shell_runtime::native_version()
-	}
-}
-
-/// Native executor instance.
-pub struct SeedlingRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for SeedlingRuntimeExecutor {
-	type ExtendHostFunctions = ();
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		seedling_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		seedling_runtime::native_version()
 	}
 }
 
@@ -171,21 +141,6 @@ impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor
 
 	fn native_version() -> sc_executor::NativeVersion {
 		collectives_polkadot_runtime::native_version()
-	}
-}
-
-/// Native Contracts on Rococo executor instance.
-pub struct ContractsRococoRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		contracts_rococo_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		contracts_rococo_runtime::native_version()
 	}
 }
 

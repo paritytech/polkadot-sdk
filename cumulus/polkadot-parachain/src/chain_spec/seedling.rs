@@ -16,7 +16,7 @@
 
 use crate::chain_spec::{get_account_id_from_seed, Extensions};
 use cumulus_primitives_core::ParaId;
-use rococo_parachain_runtime::AccountId;
+use parachains_common::AccountId;
 use sc_service::ChainType;
 use sp_core::sr25519;
 
