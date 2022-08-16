@@ -8,6 +8,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 parity-scale-codec = { version = "3.0.0", default-features = false, features = ["derive"] }
+paste = "1.0"
 smallvec = "1.7"
 
 # Bridge Dependencies
