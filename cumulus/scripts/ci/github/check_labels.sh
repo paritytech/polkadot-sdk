@@ -18,16 +18,15 @@ ensure_labels() {
 # Must have one of the following labels
 releasenotes_labels=(
   'B0-silent'
-  'B1-releasenotes'
-  'B7-runtimenoteworthy'
+  'B1-note_worthy'
 )
 
 # Must be an ordered list of priorities, lowest first
 priority_labels=(
-  'C1-low 📌'
-  'C3-medium 📣'
-  'C7-high ❗️'
-  'C9-critical ‼️'
+  'C1-low'
+  'C3-medium'
+  'C5-high'
+  'C7-critical'
 )
 
 audit_labels=(
@@ -38,12 +37,29 @@ audit_labels=(
   'D9-needsaudit 👮'
 )
 
+x_labels=(
+  'X0-node'
+  'X1-runtime'
+  'X2-API'
+  'X9-misc'
+)
+
 echo "[+] Checking release notes (B) labels for $CI_COMMIT_BRANCH"
 if ensure_labels "${releasenotes_labels[@]}";  then
   echo "[+] Release notes label detected. All is well."
 else
   echo "[!] Release notes label not detected. Please add one of: ${releasenotes_labels[*]}"
   exit 1
+fi
+
+if has_label  "$repo" "$pr" 'B1-note_worthy'; then
+  echo "[+] B1-note_worthy is chosen. Checking that there X-labels for $CI_COMMIT_BRANCH"
+  if ensure_labels "${x_labels[@]}";  then
+    echo "[+] X-label detected. All is well."
+  else
+    echo "[!] X-label not detected. Please add one of: ${x_labels[*]}"
+    exit 1
+  fi
 fi
 
 echo "[+] Checking release priority (C) labels for $CI_COMMIT_BRANCH"
