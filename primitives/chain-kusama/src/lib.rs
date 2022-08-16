@@ -29,6 +29,7 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
+use bp_runtime::declare_bridge_chain_runtime_apis;
 
 /// Kusama Chain
 pub type Kusama = PolkadotLike;
@@ -90,72 +91,4 @@ pub const POLKADOT_TO_KUSAMA_CONVERSION_RATE_PARAMETER_NAME: &str =
 /// Name of the Polkadot fee multiplier parameter, stored in the Polkadot runtime.
 pub const POLKADOT_FEE_MULTIPLIER_PARAMETER_NAME: &str = "PolkadotFeeMultiplier";
 
-/// Name of the `KusamaFinalityApi::best_finalized` runtime method.
-pub const BEST_FINALIZED_KUSAMA_HEADER_METHOD: &str = "KusamaFinalityApi_best_finalized";
-
-/// Name of the `ToKusamaOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
-/// method.
-pub const TO_KUSAMA_ESTIMATE_MESSAGE_FEE_METHOD: &str =
-	"ToKusamaOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
-/// Name of the `ToKusamaOutboundLaneApi::message_details` runtime method.
-pub const TO_KUSAMA_MESSAGE_DETAILS_METHOD: &str = "ToKusamaOutboundLaneApi_message_details";
-
-/// Name of the `FromKusamaInboundLaneApi::message_details` runtime method.
-pub const FROM_KUSAMA_MESSAGE_DETAILS_METHOD: &str = "FromKusamaInboundLaneApi_message_details";
-
-sp_api::decl_runtime_apis! {
-	/// API for querying information about the finalized Kusama headers.
-	///
-	/// This API is implemented by runtimes that are bridging with the Kusama chain, not the
-	/// Kusama runtime itself.
-	pub trait KusamaFinalityApi {
-		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
-	}
-
-	/// Outbound message lane API for messages that are sent to Kusama chain.
-	///
-	/// This API is implemented by runtimes that are sending messages to Kusama chain, not the
-	/// Kusama runtime itself.
-	pub trait ToKusamaOutboundLaneApi<OutboundMessageFee: Parameter, OutboundPayload: Parameter> {
-		/// Estimate message delivery and dispatch fee that needs to be paid by the sender on
-		/// this chain.
-		///
-		/// Returns `None` if message is too expensive to be sent to Kusama from this chain.
-		///
-		/// Please keep in mind that this method returns the lowest message fee required for message
-		/// to be accepted to the lane. It may be good idea to pay a bit over this price to account
-		/// future exchange rate changes and guarantee that relayer would deliver your message
-		/// to the target chain.
-		fn estimate_message_delivery_and_dispatch_fee(
-			lane_id: LaneId,
-			payload: OutboundPayload,
-			kusama_to_this_conversion_rate: Option<FixedU128>,
-		) -> Option<OutboundMessageFee>;
-		/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
-		/// messages in given inclusive range.
-		///
-		/// If some (or all) messages are missing from the storage, they'll also will
-		/// be missing from the resulting vector. The vector is ordered by the nonce.
-		fn message_details(
-			lane: LaneId,
-			begin: MessageNonce,
-			end: MessageNonce,
-		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Kusama chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Kusama chain, not the
-	/// Kusama runtime itself.
-	///
-	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
-	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
-	pub trait FromKusamaInboundLaneApi<InboundMessageFee: Parameter> {
-		/// Return details of given inbound messages.
-		fn message_details(
-			lane: LaneId,
-			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
-		) -> Vec<InboundMessageDetails>;
-	}
-}
+declare_bridge_chain_runtime_apis!(kusama);

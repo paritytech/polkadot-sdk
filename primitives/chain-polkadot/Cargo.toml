@@ -8,6 +8,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 smallvec = "1.7"
+paste = "1.0"
 
 # Bridge Dependencies
 

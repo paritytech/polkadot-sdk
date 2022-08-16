@@ -29,6 +29,7 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
+use bp_runtime::declare_bridge_chain_runtime_apis;
 
 /// Polkadot Chain
 pub type Polkadot = PolkadotLike;
@@ -90,73 +91,4 @@ pub const KUSAMA_TO_POLKADOT_CONVERSION_RATE_PARAMETER_NAME: &str =
 /// Name of the Kusama fee multiplier parameter, stored in the Polkadot runtime.
 pub const KUSAMA_FEE_MULTIPLIER_PARAMETER_NAME: &str = "KusamaFeeMultiplier";
 
-/// Name of the `PolkadotFinalityApi::best_finalized` runtime method.
-pub const BEST_FINALIZED_POLKADOT_HEADER_METHOD: &str = "PolkadotFinalityApi_best_finalized";
-
-/// Name of the `ToPolkadotOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
-/// method.
-pub const TO_POLKADOT_ESTIMATE_MESSAGE_FEE_METHOD: &str =
-	"ToPolkadotOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
-/// Name of the `ToPolkadotOutboundLaneApi::message_details` runtime method.
-pub const TO_POLKADOT_MESSAGE_DETAILS_METHOD: &str = "ToPolkadotOutboundLaneApi_message_details";
-
-/// Name of the `FromPolkadotInboundLaneApi::message_details` runtime method.
-pub const FROM_POLKADOT_MESSAGE_DETAILS_METHOD: &str =
-	"FromPolkadotOutboundLaneApi_message_details";
-
-sp_api::decl_runtime_apis! {
-	/// API for querying information about the finalized Polkadot headers.
-	///
-	/// This API is implemented by runtimes that are bridging with the Polkadot chain, not the
-	/// Polkadot runtime itself.
-	pub trait PolkadotFinalityApi {
-		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
-	}
-
-	/// Outbound message lane API for messages that are sent to Polkadot chain.
-	///
-	/// This API is implemented by runtimes that are sending messages to Polkadot chain, not the
-	/// Polkadot runtime itself.
-	pub trait ToPolkadotOutboundLaneApi<OutboundMessageFee: Parameter, OutboundPayload: Parameter> {
-		/// Estimate message delivery and dispatch fee that needs to be paid by the sender on
-		/// this chain.
-		///
-		/// Returns `None` if message is too expensive to be sent to Polkadot from this chain.
-		///
-		/// Please keep in mind that this method returns the lowest message fee required for message
-		/// to be accepted to the lane. It may be good idea to pay a bit over this price to account
-		/// future exchange rate changes and guarantee that relayer would deliver your message
-		/// to the target chain.
-		fn estimate_message_delivery_and_dispatch_fee(
-			lane_id: LaneId,
-			payload: OutboundPayload,
-			polkadot_to_this_conversion_rate: Option<FixedU128>,
-		) -> Option<OutboundMessageFee>;
-		/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
-		/// messages in given inclusive range.
-		///
-		/// If some (or all) messages are missing from the storage, they'll also will
-		/// be missing from the resulting vector. The vector is ordered by the nonce.
-		fn message_details(
-			lane: LaneId,
-			begin: MessageNonce,
-			end: MessageNonce,
-		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Polkadot chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Polkadot chain, not the
-	/// Polkadot runtime itself.
-	///
-	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
-	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
-	pub trait FromPolkadotInboundLaneApi<InboundMessageFee: Parameter> {
-		/// Return details of given inbound messages.
-		fn message_details(
-			lane: LaneId,
-			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
-		) -> Vec<InboundMessageDetails>;
-	}
-}
+declare_bridge_chain_runtime_apis!(polkadot);
