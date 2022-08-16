@@ -21,7 +21,7 @@
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
-use bp_runtime::Chain;
+use bp_runtime::{declare_bridge_chain_runtime_apis, Chain};
 use frame_support::{
 	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
 	Parameter, RuntimeDebug,
@@ -217,72 +217,4 @@ pub const PARAS_REGISTRAR_PALLET_NAME: &str = "Registrar";
 /// Name of the parachains pallet in the Rialto runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";
 
-/// Name of the `RialtoFinalityApi::best_finalized` runtime method.
-pub const BEST_FINALIZED_RIALTO_HEADER_METHOD: &str = "RialtoFinalityApi_best_finalized";
-
-/// Name of the `ToRialtoOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
-/// method.
-pub const TO_RIALTO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
-	"ToRialtoOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
-/// Name of the `ToRialtoOutboundLaneApi::message_details` runtime method.
-pub const TO_RIALTO_MESSAGE_DETAILS_METHOD: &str = "ToRialtoOutboundLaneApi_message_details";
-
-/// Name of the `FromRialtoInboundLaneApi::message_details` runtime method.
-pub const FROM_RIALTO_MESSAGE_DETAILS_METHOD: &str = "FromRialtoInboundLaneApi_message_details";
-
-sp_api::decl_runtime_apis! {
-	/// API for querying information about the finalized Rialto headers.
-	///
-	/// This API is implemented by runtimes that are bridging with the Rialto chain, not the
-	/// Rialto runtime itself.
-	pub trait RialtoFinalityApi {
-		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
-	}
-
-	/// Outbound message lane API for messages that are sent to Rialto chain.
-	///
-	/// This API is implemented by runtimes that are sending messages to Rialto chain, not the
-	/// Rialto runtime itself.
-	pub trait ToRialtoOutboundLaneApi<OutboundMessageFee: Parameter, OutboundPayload: Parameter> {
-		/// Estimate message delivery and dispatch fee that needs to be paid by the sender on
-		/// this chain.
-		///
-		/// Returns `None` if message is too expensive to be sent to Rialto from this chain.
-		///
-		/// Please keep in mind that this method returns the lowest message fee required for message
-		/// to be accepted to the lane. It may be good idea to pay a bit over this price to account
-		/// future exchange rate changes and guarantee that relayer would deliver your message
-		/// to the target chain.
-		fn estimate_message_delivery_and_dispatch_fee(
-			lane_id: LaneId,
-			payload: OutboundPayload,
-			rialto_to_this_conversion_rate: Option<FixedU128>,
-		) -> Option<OutboundMessageFee>;
-		/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
-		/// messages in given inclusive range.
-		///
-		/// If some (or all) messages are missing from the storage, they'll also will
-		/// be missing from the resulting vector. The vector is ordered by the nonce.
-		fn message_details(
-			lane: LaneId,
-			begin: MessageNonce,
-			end: MessageNonce,
-		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Rialto chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Rialto chain, not the
-	/// Rialto runtime itself.
-	///
-	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
-	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
-	pub trait FromRialtoInboundLaneApi<InboundMessageFee: Parameter> {
-		/// Return details of given inbound messages.
-		fn message_details(
-			lane: LaneId,
-			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
-		) -> Vec<InboundMessageDetails>;
-	}
-}
+declare_bridge_chain_runtime_apis!(rialto);

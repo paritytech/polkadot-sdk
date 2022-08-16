@@ -29,6 +29,7 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
+use bp_runtime::declare_bridge_chain_runtime_apis;
 
 /// Rococo Chain
 pub type Rococo = PolkadotLike;
@@ -74,19 +75,6 @@ pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
 /// Name of the With-Rococo messages pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
 
-/// Name of the `RococoFinalityApi::best_finalized` runtime method.
-pub const BEST_FINALIZED_ROCOCO_HEADER_METHOD: &str = "RococoFinalityApi_best_finalized";
-
-/// Name of the `ToRococoOutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
-/// method.
-pub const TO_ROCOCO_ESTIMATE_MESSAGE_FEE_METHOD: &str =
-	"ToRococoOutboundLaneApi_estimate_message_delivery_and_dispatch_fee";
-/// Name of the `ToRococoOutboundLaneApi::message_details` runtime method.
-pub const TO_ROCOCO_MESSAGE_DETAILS_METHOD: &str = "ToRococoOutboundLaneApi_message_details";
-
-/// Name of the `FromRococoInboundLaneApi::message_details` runtime method.
-pub const FROM_ROCOCO_MESSAGE_DETAILS_METHOD: &str = "FromRococoInboundLaneApi_message_details";
-
 /// Existential deposit on Rococo.
 pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 100;
 
@@ -99,59 +87,4 @@ pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 100;
 /// transactions cheaper.
 pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = 600_000_000;
 
-sp_api::decl_runtime_apis! {
-	/// API for querying information about the finalized Rococo headers.
-	///
-	/// This API is implemented by runtimes that are bridging with the Rococo chain, not the
-	/// Rococo runtime itself.
-	pub trait RococoFinalityApi {
-		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
-	}
-
-	/// Outbound message lane API for messages that are sent to Rococo chain.
-	///
-	/// This API is implemented by runtimes that are sending messages to Rococo chain, not the
-	/// Rococo runtime itself.
-	pub trait ToRococoOutboundLaneApi<OutboundMessageFee: Parameter, OutboundPayload: Parameter> {
-		/// Estimate message delivery and dispatch fee that needs to be paid by the sender on
-		/// this chain.
-		///
-		/// Returns `None` if message is too expensive to be sent to Rococo from this chain.
-		///
-		/// Please keep in mind that this method returns the lowest message fee required for message
-		/// to be accepted to the lane. It may be good idea to pay a bit over this price to account
-		/// future exchange rate changes and guarantee that relayer would deliver your message
-		/// to the target chain.
-		fn estimate_message_delivery_and_dispatch_fee(
-			lane_id: LaneId,
-			payload: OutboundPayload,
-			rococo_to_this_conversion_rate: Option<FixedU128>,
-		) -> Option<OutboundMessageFee>;
-		/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
-		/// messages in given inclusive range.
-		///
-		/// If some (or all) messages are missing from the storage, they'll also will
-		/// be missing from the resulting vector. The vector is ordered by the nonce.
-		fn message_details(
-			lane: LaneId,
-			begin: MessageNonce,
-			end: MessageNonce,
-		) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
-	}
-
-	/// Inbound message lane API for messages sent by Rococo chain.
-	///
-	/// This API is implemented by runtimes that are receiving messages from Rococo chain, not the
-	/// Rococo runtime itself.
-	///
-	/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
-	/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
-	pub trait FromRococoInboundLaneApi<InboundMessageFee: Parameter> {
-		/// Return details of given inbound messages.
-		fn message_details(
-			lane: LaneId,
-			messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
-		) -> Vec<InboundMessageDetails>;
-	}
-}
+declare_bridge_chain_runtime_apis!(rococo);
