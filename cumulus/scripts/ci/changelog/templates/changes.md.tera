@@ -14,7 +14,6 @@
 
 {% include "changes_runtime.md.tera" %}
 
-{% include "runtimes.md.tera" -%}
 {% endif %}
 
 {% include "changes_misc.md.tera" %}

@@ -20,15 +20,14 @@ This release contains the changes from `{{ env.REF1 }}` to `{{ env.REF2 }}`.
 {# we will force it to HIGH if at least one host function was detected. #}
 
 {% include "host_functions.md.tera" -%}
+
+{% if env.RELEASE_TYPE and env.RELEASE_TYPE == "client" -%}
 {% include "global_priority.md.tera" -%}
 {% include "compiler.md.tera" -%}
-{% include "migrations-db.md.tera" -%}
-
-{% if env.RELEASE_TYPE and env.RELEASE_TYPE == "client" %}
+{% include "migrations-db.md.tera" %}
 <!-- skipping runtime data for RELEASE_TYPE = {{ env.RELEASE_TYPE }} -->
 {% else %}
-{% include "migrations-runtime.md.tera" -%}
-
+{% include "migrations-runtime.md.tera" %}
 {% include "runtimes.md.tera" -%}
 {% endif %}
 
