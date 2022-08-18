@@ -112,9 +112,7 @@ impl BridgeInitializer for MillauToRialtoCliBridge {
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
 		rialto_runtime::SudoCall::sudo {
-			call: Box::new(
-				rialto_runtime::BridgeGrandpaMillauCall::initialize { init_data }.into(),
-			),
+			call: Box::new(rialto_runtime::BridgeGrandpaCall::initialize { init_data }.into()),
 		}
 		.into()
 	}

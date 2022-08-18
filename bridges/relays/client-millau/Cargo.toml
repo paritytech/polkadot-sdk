@@ -15,7 +15,6 @@ relay-utils = { path = "../utils" }
 bp-messages = { path = "../../primitives/messages" }
 bp-millau = { path = "../../primitives/chain-millau" }
 millau-runtime = { path = "../../bin/millau/runtime" }
-pallet-bridge-grandpa = { path = "../../modules/grandpa" }
 
 # Substrate Dependencies
 
