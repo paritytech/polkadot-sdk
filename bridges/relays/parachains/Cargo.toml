@@ -11,7 +11,7 @@ async-trait = "0.1.40"
 backoff = "0.2"
 futures = "0.3.5"
 linked-hash-map = "0.5.3"
-log = "0.4.11"
+log = "0.4.17"
 num-traits = "0.2"
 parking_lot = "0.11.0"
 relay-utils = { path = "../utils" }
