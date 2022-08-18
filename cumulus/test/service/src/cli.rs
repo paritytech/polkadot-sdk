@@ -191,8 +191,8 @@ impl CliConfiguration<Self> for RelayChainCli {
 		self.base.base.transaction_pool(is_dev)
 	}
 
-	fn state_cache_child_ratio(&self) -> CliResult<Option<usize>> {
-		self.base.base.state_cache_child_ratio()
+	fn trie_cache_maximum_size(&self) -> CliResult<Option<usize>> {
+		self.base.base.trie_cache_maximum_size()
 	}
 
 	fn rpc_methods(&self) -> CliResult<sc_service::config::RpcMethods> {
