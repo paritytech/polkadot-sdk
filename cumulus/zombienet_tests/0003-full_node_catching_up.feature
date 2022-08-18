@@ -1,7 +1,6 @@
-Description: Small Network test
-Network: ./0003-test_full_node_catching_up.toml
+Description: Full node catching up test
+Network: ./0003-full_node_catching_up.toml
 Creds: config
-
 
 alice: is up
 bob: is up

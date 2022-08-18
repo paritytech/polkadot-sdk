@@ -1,4 +1,4 @@
-Description: Small Network test
+Description: PoV recovery test
 Network: ./0002-pov_recovery.toml
 Creds: config
 

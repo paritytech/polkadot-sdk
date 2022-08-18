@@ -16,7 +16,7 @@
 
 mod cli;
 
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use cli::{RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_client_cli::generate_genesis_block;
@@ -43,14 +43,31 @@ fn main() -> Result<(), sc_cli::Error> {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
-		Some(Subcommand::ExportGenesisState(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|_config| {
-				let parachain_id = ParaId::from(cmd.parachain_id);
-				let spec = cumulus_test_service::get_chain_spec(parachain_id);
-				let state_version = cumulus_test_service::runtime::VERSION.state_version();
-				cmd.base.run::<parachains_common::Block>(&spec, state_version)
-			})
+
+		Some(Subcommand::ExportGenesisState(params)) => {
+			let mut builder = sc_cli::LoggerBuilder::new("");
+			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
+			let _ = builder.init();
+
+			let spec =
+				cli.load_spec(&params.base.shared_params.chain.clone().unwrap_or_default())?;
+			let state_version = cumulus_test_service::runtime::VERSION.state_version();
+
+			let block: parachains_common::Block = generate_genesis_block(&*spec, state_version)?;
+			let raw_header = block.header().encode();
+			let output_buf = if params.base.raw {
+				raw_header
+			} else {
+				format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
+			};
+
+			if let Some(output) = &params.base.output {
+				std::fs::write(output, output_buf)?;
+			} else {
+				std::io::stdout().write_all(&output_buf)?;
+			}
+
+			Ok(())
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -106,7 +123,7 @@ fn main() -> Result<(), sc_cli::Error> {
 				if config.role.is_authority() { "yes" } else { "no" }
 			);
 
-			let collator_key = Some(CollatorPair::generate().0);
+			let collator_key = config.role.is_authority().then(|| CollatorPair::generate().0);
 
 			let consensus = cli
 				.use_null_consensus

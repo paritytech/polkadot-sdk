@@ -1,5 +1,5 @@
 [relaychain]
-default_image = "docker.io/paritypr/polkadot-debug:master"
+default_image = "{{RELAY_IMAGE}}"
 default_command = "polkadot"
 default_args = [ "-lparachain=debug" ]
 
@@ -11,9 +11,7 @@ chain = "rococo-local"
 
   [[relaychain.nodes]]
   name = "bob"
-  image = "docker.io/paritypr/polkadot-debug:5236-0.9.18-c55660e9-be16bd72"
   validator = true
-  args = ["--database=paritydb-experimental"]
 
 [[parachains]]
 id = 2000
@@ -23,30 +21,30 @@ cumulus_based = true
   [[parachains.collators]]
   name = "charlie"
   validator = true
-  image = "docker.io/parity/polkadot-collator:latest"
-  command = "test-collator"
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
   args = ["-lparachain=debug"]
 
   # run dave as parachain full node
   [[parachains.collators]]
   name = "dave"
   validator = false
-  image = "docker.io/parity/polkadot-collator:latest"
-  command = "test-collator"
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
   args = ["-lparachain=debug"]
 
   # run eve as parachain full node that is only connected to dave
   [[parachains.collators]]
   name = "eve"
   validator = false
-  image = "docker.io/parity/polkadot-collator:latest"
-  command = "test-collator"
-  args = ["--reserved-only", "--reserved-nodes {{'dave'|zombie}}"]
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["--reserved-only", "--reserved-nodes {{'dave'|zombie('multiAddress')}}"]
 
   # run ferdie as parachain full node that is only connected to dave
   [[parachains.collators]]
   name = "ferdie"
   validator = false
-  image = "docker.io/parity/polkadot-collator:latest"
-  command = "test-collator"
-  args = ["--reserved-only", "--reserved-nodes {{'dave'|zombie}}"]
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["--reserved-only", "--reserved-nodes {{'dave'|zombie('multiAddress')}}", "--relay-chain-rpc-url {{'alice'|zombie('wsUri')}}"]

@@ -11,6 +11,7 @@ stages:
   - benchmarks-build
   - benchmarks-run
   - publish
+  - integration-test
 
 default:
   interruptible:                   true
@@ -28,6 +29,7 @@ variables:
   CI_IMAGE:                        "paritytech/ci-linux:production"
   DOCKER_OS:                       "debian:stretch"
   ARCH:                            "x86_64"
+  ZOMBIENET_IMAGE:                 "docker.io/paritytech/zombienet:v1.2.53"
 
 .collect-artifacts:                &collect-artifacts
   artifacts:
@@ -83,6 +85,15 @@ variables:
 .benchmarks-refs:                  &benchmarks-refs
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9].*$/              # i.e. release-parachains-v1.0, release-parachains-v2.1rc1, release-parachains-v3000
+
+.zombienet-refs:                   &zombienet-refs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
 
 .docker-env:                       &docker-env
   image:                           "${CI_IMAGE}"
@@ -212,6 +223,8 @@ build-test-parachain:
     - echo "___Packing the artifacts___"
     - mkdir -p ./artifacts
     - mv ./target/release/test-parachain ./artifacts/.
+    - mkdir -p ./artifacts/zombienet
+    - mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
 
 #### stage:                        publish
 
@@ -394,6 +407,161 @@ update-parachain-template:
       --template-path "parachain-template"
       --github-api-token "$GITHUB_TOKEN"
       --polkadot-branch "$CI_COMMIT_REF_NAME"
+
+#### stage:                        integration-test
+
+zombienet-0001-sync_blocks_from_tip_without_connected_collator:
+  stage:                           integration-test
+  image:                           "${ZOMBIENET_IMAGE}"
+  <<:                              *zombienet-refs
+  needs:
+    - job:                         build-push-image-test-parachain
+  variables:
+    POLKADOT_IMAGE:                "docker.io/paritypr/polkadot-debug:master"
+    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet_tests"
+    COL_IMAGE:                     "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  before_script:
+    - echo "Zombie-net Tests Config"
+    - echo "${ZOMBIENET_IMAGE}"
+    - echo "${RELAY_IMAGE}"
+    - echo "${COL_IMAGE}"
+    - echo "${GH_DIR}"
+    - export DEBUG=zombie
+    - export RELAY_IMAGE=${POLKADOT_IMAGE}
+    - export COL_IMAGE=${COL_IMAGE}
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
+        --github-remote-dir="${GH_DIR}"
+        --concurrency=1
+        --test="0001-sync_blocks_from_tip_without_connected_collator.feature"
+  allow_failure:                   true
+  retry: 2
+  tags:
+    - zombienet-polkadot-integration-test
+
+zombienet-0002-pov_recovery:
+  stage:                           integration-test
+  image:                           "${ZOMBIENET_IMAGE}"
+  <<:                              *zombienet-refs
+  needs:
+    - job:                         build-push-image-test-parachain
+  variables:
+    POLKADOT_IMAGE:                "docker.io/paritypr/polkadot-debug:master"
+    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet_tests"
+    COL_IMAGE:                     "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  before_script:
+    - echo "Zombie-net Tests Config"
+    - echo "${ZOMBIENET_IMAGE}"
+    - echo "${RELAY_IMAGE}"
+    - echo "${COL_IMAGE}"
+    - echo "${GH_DIR}"
+    - export DEBUG=zombie
+    - export RELAY_IMAGE=${POLKADOT_IMAGE}
+    - export COL_IMAGE=${COL_IMAGE}
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
+        --github-remote-dir="${GH_DIR}"
+        --concurrency=1
+        --test="0002-pov_recovery.feature"
+  allow_failure:                   true
+  retry: 2
+  tags:
+    - zombienet-polkadot-integration-test
+
+zombienet-0003-full_node_catching_up:
+  stage:                           integration-test
+  image:                           "${ZOMBIENET_IMAGE}"
+  <<:                              *zombienet-refs
+  needs:
+    - job:                         build-push-image-test-parachain
+  variables:
+    POLKADOT_IMAGE:                "docker.io/paritypr/polkadot-debug:master"
+    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet_tests"
+    COL_IMAGE:                     "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  before_script:
+    - echo "Zombie-net Tests Config"
+    - echo "${ZOMBIENET_IMAGE}"
+    - echo "${RELAY_IMAGE}"
+    - echo "${COL_IMAGE}"
+    - echo "${GH_DIR}"
+    - export DEBUG=zombie
+    - export RELAY_IMAGE=${POLKADOT_IMAGE}
+    - export COL_IMAGE=${COL_IMAGE}
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
+        --github-remote-dir="${GH_DIR}"
+        --concurrency=1
+        --test="0003-full_node_catching_up.feature"
+  allow_failure:                   true
+  retry: 2
+  tags:
+    - zombienet-polkadot-integration-test
+
+zombienet-0004-runtime_upgrade:
+  stage:                           integration-test
+  image:                           "${ZOMBIENET_IMAGE}"
+  <<:                              *zombienet-refs
+  needs:
+    - job:                         build-push-image-test-parachain
+    - job:                         build-test-parachain
+      artifacts:                   true
+  variables:
+    POLKADOT_IMAGE:                "docker.io/paritypr/polkadot-debug:master"
+    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet_tests"
+    COL_IMAGE:                     "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  before_script:
+    - ls -ltr *
+    - cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
+    - ls /tmp
+    - echo "Zombie-net Tests Config"
+    - echo "${ZOMBIENET_IMAGE}"
+    - echo "${RELAY_IMAGE}"
+    - echo "${COL_IMAGE}"
+    - echo "${GH_DIR}"
+    - export DEBUG=zombie
+    - export RELAY_IMAGE=${POLKADOT_IMAGE}
+    - export COL_IMAGE=${COL_IMAGE}
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
+        --github-remote-dir="${GH_DIR}"
+        --concurrency=1
+        --test="0004-runtime_upgrade.feature"
+  allow_failure:                   true
+  retry: 2
+  tags:
+    - zombienet-polkadot-integration-test
+
+zombienet-0005-migrate_solo_to_para:
+  stage:                           integration-test
+  image:                           "${ZOMBIENET_IMAGE}"
+  <<:                              *zombienet-refs
+  needs:
+    - job:                         build-push-image-test-parachain
+    - job:                         build-test-parachain
+      artifacts:                   true
+  variables:
+    POLKADOT_IMAGE:                "docker.io/paritypr/polkadot-debug:master"
+    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet_tests"
+    COL_IMAGE:                     "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  before_script:
+    - ls -ltr *
+    - echo "Zombie-net Tests Config"
+    - echo "${ZOMBIENET_IMAGE}"
+    - echo "${RELAY_IMAGE}"
+    - echo "${COL_IMAGE}"
+    - echo "${GH_DIR}"
+    - export DEBUG=zombie
+    - export RELAY_IMAGE=${POLKADOT_IMAGE}
+    - export COL_IMAGE=${COL_IMAGE}
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
+        --github-remote-dir="${GH_DIR}"
+        --concurrency=1
+        --test="0005-migrate_solo_to_para.feature"
+  allow_failure:                   true
+  retry: 2
+  tags:
+    - zombienet-polkadot-integration-test
 
 #### stage:                        .post
 
