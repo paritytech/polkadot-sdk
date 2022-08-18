@@ -214,7 +214,7 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 
 			let selected_max_nonce =
 				hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
-			self.strategy.final_decision(&relay_reference).await;
+			self.strategy.on_final_decision(&relay_reference);
 			Some(selected_max_nonce)
 		} else {
 			None
