@@ -12,7 +12,7 @@ async-trait = "0.1"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.12"
 hex = "0.4"
-log = "0.4.14"
+log = "0.4.17"
 num-format = "0.4"
 num-traits = "0.2"
 paste = "1.0"
@@ -35,7 +35,6 @@ bridge-runtime-common = { path = "../../bin/runtime-common" }
 finality-relay = { path = "../finality" }
 messages-relay = { path = "../messages" }
 millau-runtime = { path = "../../bin/millau/runtime" }
-pallet-bridge-grandpa = { path = "../../modules/grandpa" }
 pallet-bridge-messages = { path = "../../modules/messages" }
 pallet-bridge-parachains = { path = "../../modules/parachains" }
 parachains-relay = { path = "../parachains" }
@@ -70,7 +69,6 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", d
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }
 hex-literal = "0.3"
-pallet-bridge-grandpa = { path = "../../modules/grandpa" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 tempfile = "3.2"
 finality-grandpa = { version = "0.15.0" }
