@@ -18,6 +18,7 @@
 
 use bp_messages::MessageNonce;
 use bp_runtime::{Chain, EncodedOrDecodedCall};
+use codec::Compact;
 use frame_support::{
 	dispatch::Dispatchable,
 	parameter_types,
@@ -28,7 +29,6 @@ use frame_support::{
 	Blake2_128Concat, RuntimeDebug, StorageHasher, Twox128,
 };
 use frame_system::limits;
-use parity_scale_codec::Compact;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
@@ -256,16 +256,14 @@ pub struct SignedExtensions<Call> {
 	_data: sp_std::marker::PhantomData<Call>,
 }
 
-impl<Call> parity_scale_codec::Encode for SignedExtensions<Call> {
+impl<Call> codec::Encode for SignedExtensions<Call> {
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		self.encode_payload.using_encoded(f)
 	}
 }
 
-impl<Call> parity_scale_codec::Decode for SignedExtensions<Call> {
-	fn decode<I: parity_scale_codec::Input>(
-		input: &mut I,
-	) -> Result<Self, parity_scale_codec::Error> {
+impl<Call> codec::Decode for SignedExtensions<Call> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		SignedExtra::decode(input).map(|encode_payload| SignedExtensions {
 			encode_payload,
 			additional_signed: None,
@@ -323,14 +321,7 @@ impl<Call> SignedExtensions<Call> {
 
 impl<Call> sp_runtime::traits::SignedExtension for SignedExtensions<Call>
 where
-	Call: parity_scale_codec::Codec
-		+ sp_std::fmt::Debug
-		+ Sync
-		+ Send
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ StaticTypeInfo,
+	Call: codec::Codec + sp_std::fmt::Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	Call: Dispatchable,
 {
 	const IDENTIFIER: &'static str = "Not needed.";
@@ -399,7 +390,7 @@ impl Chain for PolkadotLike {
 pub fn account_info_storage_key(id: &AccountId) -> Vec<u8> {
 	let module_prefix_hashed = Twox128::hash(b"System");
 	let storage_prefix_hashed = Twox128::hash(b"Account");
-	let key_hashed = parity_scale_codec::Encode::using_encoded(id, Blake2_128Concat::hash);
+	let key_hashed = codec::Encode::using_encoded(id, Blake2_128Concat::hash);
 
 	let mut final_key = Vec::with_capacity(
 		module_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.len(),
