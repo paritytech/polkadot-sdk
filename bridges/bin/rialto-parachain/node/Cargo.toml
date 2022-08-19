@@ -20,7 +20,7 @@ runtime-benchmarks = ['rialto-parachain-runtime/runtime-benchmarks']
 clap = { version = "3.1", features = ["derive"] }
 derive_more = '0.99.2'
 log = '0.4.17'
-codec = { package = 'parity-scale-codec', version = '3.0.0' }
+codec = { package = 'parity-scale-codec', version = '3.1.5' }
 serde = { version = '1.0', features = ['derive'] }
 hex-literal = '0.3.1'
 
