@@ -23,8 +23,8 @@
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
 use bp_runtime::Size;
+use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use frame_support::RuntimeDebug;
-use parity_scale_codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
 use sp_std::vec::Vec;
