@@ -326,7 +326,7 @@ benchmarks-build:
   - git commit -m "[benchmarks] pr with weights"
   - git push origin $BRANCHNAME
 
-benchmarks-statemint:
+benchmarks-assets:
   stage:                           benchmarks-run
   before_script:
     - *rust-info-script
@@ -339,9 +339,24 @@ benchmarks-statemint:
     - ./scripts/benchmarks-ci.sh assets westmint ./artifacts
     - export BRANCHNAME="weights-statemint-${CI_COMMIT_BRANCH}"
     - *git-commit-push
-    # create PR
+    # create PR to release-parachains-v* branch
     - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
-      -d '{"title":"[benchmarks] Update weights for statemine/t","body":"This PR is generated automatically by CI.","head":"'$BRANCHNAME'","base":"'${CI_COMMIT_BRANCH}'"}'
+      -d '{"title":"[benchmarks] Update weights for statemine/t","body":"This PR is generated automatically by CI.","head":"'${BRANCHNAME}'","base":"'${CI_COMMIT_BRANCH}'"}'
+      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+    # create PR to master
+    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
+      -d '{"title":"[benchmarks] Update weights for statemine/t","body":"This PR is generated automatically by CI.","head":"'${BRANCHNAME}'","base":"master"}'
+      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+    # create PR to a branch with version number (e.g. v0.9.270) and release-v* (e.g. release-v0.9.270)
+    # transform release-parachains-v9270 to v0.9.270
+    - export BASEBRANCH=$(echo ${CI_COMMIT_BRANCH} | cut -d "-" -f 3 | sed -e "s/\(.\)\(.\)\(...\)/\10.\2.\3/")
+    # create PR to v* branch
+    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
+      -d '{"title":"[benchmarks] Update weights for statemine/t","body":"This PR is generated automatically by CI.","head":"'${BRANCHNAME}'","base":"'${BASEBRANCH}'"}'
+      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+    # create PR to release-v* branch
+    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
+      -d '{"title":"[benchmarks] Update weights for statemine/t","body":"This PR is generated automatically by CI.","head":"'${BRANCHNAME}'","base":"'release-${BASEBRANCH}'"}'
       -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
   after_script:
     - rm -rf .git/config
@@ -368,13 +383,13 @@ benchmarks-collectives:
   tags:
     - weights
 
-publish-benchmarks-statemint-s3:   &publish-benchmarks
+publish-benchmarks-assets-s3:      &publish-benchmarks
   stage:                           publish
   <<:                              *kubernetes-env
   image:                           paritytech/awscli:latest
   <<:                              *benchmarks-refs
   needs:
-    - job:                         benchmarks-statemint
+    - job:                         benchmarks-assets
       artifacts:                   true
   variables:
     GIT_STRATEGY:                  none
