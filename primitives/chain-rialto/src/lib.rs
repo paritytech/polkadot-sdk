@@ -21,7 +21,10 @@
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
-use bp_runtime::{declare_bridge_chain_runtime_apis, Chain};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, decl_bridge_runtime_apis,
+	Chain,
+};
 use frame_support::{
 	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
 	Parameter, RuntimeDebug,
@@ -217,4 +220,4 @@ pub const PARAS_REGISTRAR_PALLET_NAME: &str = "Registrar";
 /// Name of the parachains pallet in the Rialto runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";
 
-declare_bridge_chain_runtime_apis!(rialto);
+decl_bridge_runtime_apis!(rialto);

@@ -23,7 +23,10 @@ mod millau_hash;
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
-use bp_runtime::{declare_bridge_chain_runtime_apis, Chain};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, decl_bridge_runtime_apis,
+	Chain,
+};
 use frame_support::{
 	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
 	Parameter, RuntimeDebug,
@@ -254,4 +257,4 @@ pub const RIALTO_PARACHAIN_TO_MILLAU_CONVERSION_RATE_PARAMETER_NAME: &str =
 /// Name of the RialtoParachain fee multiplier parameter, stored in the Millau runtime.
 pub const RIALTO_PARACHAIN_FEE_MULTIPLIER_PARAMETER_NAME: &str = "RialtoParachainFeeMultiplier";
 
-declare_bridge_chain_runtime_apis!(millau);
+decl_bridge_runtime_apis!(millau);

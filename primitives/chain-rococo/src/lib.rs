@@ -29,7 +29,9 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
-use bp_runtime::declare_bridge_chain_runtime_apis;
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, decl_bridge_runtime_apis,
+};
 
 /// Rococo Chain
 pub type Rococo = PolkadotLike;
@@ -87,4 +89,4 @@ pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 100;
 /// transactions cheaper.
 pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = 600_000_000;
 
-declare_bridge_chain_runtime_apis!(rococo);
+decl_bridge_runtime_apis!(rococo);

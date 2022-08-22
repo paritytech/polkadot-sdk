@@ -215,94 +215,131 @@ pub type AccountPublicOf<C> = <SignatureOf<C> as Verify>::Signer;
 /// Transaction era used by the chain.
 pub type TransactionEraOf<C> = crate::TransactionEra<BlockNumberOf<C>, HashOf<C>>;
 
-/// Convenience macro that declares runtime apis and related constants for a bridge chain.
+/// Convenience macro that declares bridge finality runtime apis and related constants for a chain.
 /// This includes:
 /// - chain-specific bridge runtime APIs:
 ///     - `<ThisChain>FinalityApi`
+/// - constants that are stringified names of runtime API methods:
+///     - `BEST_FINALIZED_<THIS_CHAIN>_HEADER_METHOD`
+/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+#[macro_export]
+macro_rules! decl_bridge_finality_runtime_apis {
+	($chain: ident) => {
+		paste::item! {
+			mod [<$chain _finality_api>] {
+				use super::*;
+
+				/// Name of the `<ThisChain>FinalityApi::best_finalized` runtime method.
+				pub const [<BEST_FINALIZED_ $chain:upper _HEADER_METHOD>]: &str =
+					stringify!([<$chain:camel FinalityApi_best_finalized>]);
+
+				sp_api::decl_runtime_apis! {
+					/// API for querying information about the finalized chain headers.
+					///
+					/// This API is implemented by runtimes that are receiving messages from this chain, not by this
+					/// chain's runtime itself.
+					pub trait [<$chain:camel FinalityApi>] {
+						/// Returns number and hash of the best finalized header known to the bridge module.
+						fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
+					}
+				}
+			}
+
+			pub use [<$chain _finality_api>]::*;
+		}
+	};
+}
+
+/// Convenience macro that declares bridge messages runtime apis and related constants for a chain.
+/// This includes:
+/// - chain-specific bridge runtime APIs:
 ///     - `To<ThisChain>OutboundLaneApi`
 ///     - `From<ThisChain>InboundLaneApi`
 /// - constants that are stringified names of runtime API methods:
-///     - `BEST_FINALIZED_<THIS_CHAIN>_HEADER_METHOD`
 ///     - `TO_<THIS_CHAIN>_ESTIMATE_MESSAGE_FEE_METHOD`
 ///     - `TO_<THIS_CHAIN>_MESSAGE_DETAILS_METHOD`
 ///     - `FROM_<THIS_CHAIN>_MESSAGE_DETAILS_METHOD`,
 /// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
 #[macro_export]
-macro_rules! declare_bridge_chain_runtime_apis {
+macro_rules! decl_bridge_messages_runtime_apis {
 	($chain: ident) => {
 		paste::item! {
-			/// Name of the `<ThisChain>FinalityApi::best_finalized` runtime method.
-			pub const [<BEST_FINALIZED_ $chain:upper _HEADER_METHOD>]: &str =
-				stringify!([<$chain:camel FinalityApi_best_finalized>]);
+			mod [<$chain _messages_api>] {
+				use super::*;
 
-			/// Name of the `To<ThisChain>OutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
-			/// method.
-			pub const [<TO_ $chain:upper _ESTIMATE_MESSAGE_FEE_METHOD>]: &str =
-				stringify!([<To $chain:camel OutboundLaneApi_estimate_message_delivery_and_dispatch_fee>]);
-			/// Name of the `To<ThisChain>OutboundLaneApi::message_details` runtime method.
-			pub const [<TO_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
-				stringify!([<To $chain:camel OutboundLaneApi_message_details>]);
+				/// Name of the `To<ThisChain>OutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
+				/// method.
+				pub const [<TO_ $chain:upper _ESTIMATE_MESSAGE_FEE_METHOD>]: &str =
+					stringify!([<To $chain:camel OutboundLaneApi_estimate_message_delivery_and_dispatch_fee>]);
+				/// Name of the `To<ThisChain>OutboundLaneApi::message_details` runtime method.
+				pub const [<TO_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
+					stringify!([<To $chain:camel OutboundLaneApi_message_details>]);
 
-			/// Name of the `From<ThisChain>InboundLaneApi::message_details` runtime method.
-			pub const [<FROM_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
-				stringify!([<From $chain:camel InboundLaneApi_message_details>]);
+				/// Name of the `From<ThisChain>InboundLaneApi::message_details` runtime method.
+				pub const [<FROM_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
+					stringify!([<From $chain:camel InboundLaneApi_message_details>]);
 
-			sp_api::decl_runtime_apis! {
-				/// API for querying information about the finalized chain headers.
-				///
-				/// This API is implemented by runtimes that are receiving messages from this chain, not by this
-				/// chain's runtime itself.
-				pub trait [<$chain:camel FinalityApi>] {
-					/// Returns number and hash of the best finalized header known to the bridge module.
-					fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
-				}
-
-				/// Outbound message lane API for messages that are sent to this chain.
-				///
-				/// This API is implemented by runtimes that are receiving messages from this chain, not by this
-				/// chain's runtime itself.
-				pub trait [<To $chain:camel OutboundLaneApi>]<OutboundMessageFee: Parameter, OutboundPayload: Parameter> {
-					/// Estimate message delivery and dispatch fee that needs to be paid by the sender on
-					/// this chain.
+				sp_api::decl_runtime_apis! {
+					/// Outbound message lane API for messages that are sent to this chain.
 					///
-					/// Returns `None` if message is too expensive to be sent to this chain from the bridged chain.
-					///
-					/// Please keep in mind that this method returns the lowest message fee required for message
-					/// to be accepted to the lane. It may be a good idea to pay a bit over this price to account
-					/// for future exchange rate changes and guarantee that relayer would deliver your message
-					/// to the target chain.
-					fn estimate_message_delivery_and_dispatch_fee(
-						lane_id: LaneId,
-						payload: OutboundPayload,
-						[<$chain:lower _to_this_conversion_rate>]: Option<FixedU128>,
-					) -> Option<OutboundMessageFee>;
-					/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
-					/// messages in given inclusive range.
-					///
-					/// If some (or all) messages are missing from the storage, they'll also will
-					/// be missing from the resulting vector. The vector is ordered by the nonce.
-					fn message_details(
-						lane: LaneId,
-						begin: MessageNonce,
-						end: MessageNonce,
-					) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
-				}
+					/// This API is implemented by runtimes that are receiving messages from this chain, not by this
+					/// chain's runtime itself.
+					pub trait [<To $chain:camel OutboundLaneApi>]<OutboundMessageFee: Parameter, OutboundPayload: Parameter> {
+						/// Estimate message delivery and dispatch fee that needs to be paid by the sender on
+						/// this chain.
+						///
+						/// Returns `None` if message is too expensive to be sent to this chain from the bridged chain.
+						///
+						/// Please keep in mind that this method returns the lowest message fee required for message
+						/// to be accepted to the lane. It may be a good idea to pay a bit over this price to account
+						/// for future exchange rate changes and guarantee that relayer would deliver your message
+						/// to the target chain.
+						fn estimate_message_delivery_and_dispatch_fee(
+							lane_id: LaneId,
+							payload: OutboundPayload,
+							[<$chain:lower _to_this_conversion_rate>]: Option<FixedU128>,
+						) -> Option<OutboundMessageFee>;
+						/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
+						/// messages in given inclusive range.
+						///
+						/// If some (or all) messages are missing from the storage, they'll also will
+						/// be missing from the resulting vector. The vector is ordered by the nonce.
+						fn message_details(
+							lane: LaneId,
+							begin: MessageNonce,
+							end: MessageNonce,
+						) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
+					}
 
-				/// Inbound message lane API for messages sent by this chain.
-				///
-				/// This API is implemented by runtimes that are receiving messages from this chain, not by this
-				/// chain's runtime itself.
-				///
-				/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
-				/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
-				pub trait [<From $chain:camel InboundLaneApi>]<InboundMessageFee: Parameter> {
-					/// Return details of given inbound messages.
-					fn message_details(
-						lane: LaneId,
-						messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
-					) -> Vec<InboundMessageDetails>;
+					/// Inbound message lane API for messages sent by this chain.
+					///
+					/// This API is implemented by runtimes that are receiving messages from this chain, not by this
+					/// chain's runtime itself.
+					///
+					/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
+					/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
+					pub trait [<From $chain:camel InboundLaneApi>]<InboundMessageFee: Parameter> {
+						/// Return details of given inbound messages.
+						fn message_details(
+							lane: LaneId,
+							messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
+						) -> Vec<InboundMessageDetails>;
+					}
 				}
 			}
+
+			pub use [<$chain _messages_api>]::*;
 		}
 	}
+}
+
+/// Convenience macro that declares bridge finality runtime apis, bridge messages runtime apis
+/// and related constants for a chain.
+/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+#[macro_export]
+macro_rules! decl_bridge_runtime_apis {
+	($chain: ident) => {
+		decl_bridge_finality_runtime_apis!($chain);
+		decl_bridge_messages_runtime_apis!($chain);
+	};
 }
