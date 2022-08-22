@@ -26,6 +26,7 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
+use bp_runtime::decl_bridge_finality_runtime_apis;
 
 /// Westend Chain
 pub type Westend = PolkadotLike;
@@ -85,9 +86,6 @@ pub const WITH_WESTEND_GRANDPA_PALLET_NAME: &str = "BridgeWestendGrandpa";
 /// Name of the With-Westend parachains bridge pallet instance that is deployed at bridged chains.
 pub const WITH_WESTEND_BRIDGE_PARAS_PALLET_NAME: &str = "BridgeWestendParachains";
 
-/// Name of the `WestendFinalityApi::best_finalized` runtime method.
-pub const BEST_FINALIZED_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_best_finalized";
-
 /// The target length of a session (how often authorities change) on Westend measured in of number
 /// of blocks.
 ///
@@ -95,28 +93,9 @@ pub const BEST_FINALIZED_WESTEND_HEADER_METHOD: &str = "WestendFinalityApi_best_
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = 10 * time_units::MINUTES;
 
-sp_api::decl_runtime_apis! {
-	/// API for querying information about the finalized Westend headers.
-	///
-	/// This API is implemented by runtimes that are bridging with the Westend chain, not the
-	/// Westend runtime itself.
-	pub trait WestendFinalityApi {
-		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
-	}
-
-	/// API for querying information about the finalized Westmint headers.
-	///
-	/// This API is implemented by runtimes that are bridging with the Westmint chain, not the
-	/// Westmint runtime itself.
-	pub trait WestmintFinalityApi {
-		/// Returns number and hash of the best finalized header known to the bridge module.
-		fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
-	}
-}
-
 /// Identifier of Westmint parachain at the Westend relay chain.
 pub const WESTMINT_PARACHAIN_ID: u32 = 2000;
 
-/// Name of the `WestmintFinalityApi::best_finalized` runtime method.
-pub const BEST_FINALIZED_WESTMINT_HEADER_METHOD: &str = "WestmintFinalityApi_best_finalized";
+decl_bridge_finality_runtime_apis!(westend);
+
+decl_bridge_finality_runtime_apis!(westmint);

@@ -27,7 +27,9 @@ use sp_std::prelude::*;
 pub use bp_polkadot_core::*;
 // Rococo runtime = Wococo runtime
 pub use bp_rococo::{WeightToFee, EXISTENTIAL_DEPOSIT, PAY_INBOUND_DISPATCH_FEE_WEIGHT, VERSION};
-use bp_runtime::declare_bridge_chain_runtime_apis;
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, decl_bridge_runtime_apis,
+};
 
 /// Wococo Chain
 pub type Wococo = PolkadotLike;
@@ -44,4 +46,4 @@ pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
 /// Name of the With-Wococo messages pallet instance that is deployed at bridged chains.
 pub const WITH_WOCOCO_MESSAGES_PALLET_NAME: &str = "BridgeWococoMessages";
 
-declare_bridge_chain_runtime_apis!(wococo);
+decl_bridge_runtime_apis!(wococo);

@@ -29,7 +29,9 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
-use bp_runtime::declare_bridge_chain_runtime_apis;
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, decl_bridge_runtime_apis,
+};
 
 /// Kusama Chain
 pub type Kusama = PolkadotLike;
@@ -91,4 +93,4 @@ pub const POLKADOT_TO_KUSAMA_CONVERSION_RATE_PARAMETER_NAME: &str =
 /// Name of the Polkadot fee multiplier parameter, stored in the Polkadot runtime.
 pub const POLKADOT_FEE_MULTIPLIER_PARAMETER_NAME: &str = "PolkadotFeeMultiplier";
 
-declare_bridge_chain_runtime_apis!(kusama);
+decl_bridge_runtime_apis!(kusama);
