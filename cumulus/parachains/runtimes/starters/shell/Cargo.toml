@@ -74,6 +74,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
 	"parachain-info/std",
+	"parachains-common/std",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
