@@ -69,6 +69,11 @@ variables:
     - if: $CI_COMMIT_REF_NAME =~ /^release-parachains-v[0-9].*$/    # i.e. release-parachains-v1.0, release-parachains-v2.1rc1, release-parachains-v3000
     - if: $CI_COMMIT_REF_NAME =~ /^polkadot-v[0-9]+\.[0-9]+.*$/     # i.e. polkadot-v1.0.99, polkadot-v2.1rc1
 
+.pr-refs:                          &pr-refs
+  # these jobs run always*
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
+
 .publish-refs:                     &publish-refs
   rules:
     - if: $CI_COMMIT_REF_NAME == "master"
@@ -106,6 +111,23 @@ variables:
   image:                           "${CI_IMAGE}"
   tags:
     - kubernetes-parity-build
+
+#### stage:                        .pre
+
+# checks code format and fails if formatting is required
+# the code will be formatted automatically and the pipeline will be restarted
+cargo-fmt:
+  stage:                           .pre
+  <<:                              *pr-refs
+  <<:                              *kubernetes-env
+  before_script:
+    - echo PROJECT_NAME=$CI_PROJECT_NAME > fmt.env
+    - echo PR_BRANCH_NAME=$(curl -s https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls/${CI_COMMIT_REF_NAME} | jq -r ".head.ref") >> fmt.env
+  script:
+    - cargo +nightly fmt --check
+  artifacts:
+     reports:
+       dotenv: fmt.env
 
 #### stage:                        test
 
@@ -601,3 +623,17 @@ cancel-pipeline:
     project:                       "parity/infrastructure/ci_cd/pipeline-stopper"
     # remove branch, when pipeline-stopper for substrate and polakdot is updated to the same branch
     branch:                        "as-improve"
+
+# this job will automatically format code and rerun pipeline if cargo-fmt job fails
+auto-fmt:
+  stage:                           .post
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
+      when: on_failure
+  needs:
+    - job: cargo-fmt
+  variables:
+    PROJECT_NAME:                  "${CI_PROJECT_NAME}"
+    PR_BRANCH_NAME:                "${PR_BRANCH_NAME}"
+  trigger:
+    project:                       "parity/infrastructure/ci_cd/auto-fmt"
