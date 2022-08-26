@@ -38,7 +38,7 @@ pub enum RuntimeVersionType {
 #[macro_export]
 macro_rules! declare_chain_runtime_version_params_cli_schema {
 	($chain:ident, $chain_prefix:ident) => {
-		paste::item! {
+		bp_runtime::paste::item! {
 			#[doc = $chain " runtime version params."]
 			#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy)]
 			pub struct [<$chain RuntimeVersionParams>] {
@@ -89,7 +89,7 @@ macro_rules! declare_chain_runtime_version_params_cli_schema {
 #[macro_export]
 macro_rules! declare_chain_connection_params_cli_schema {
 	($chain:ident, $chain_prefix:ident) => {
-		paste::item! {
+		bp_runtime::paste::item! {
 			#[doc = $chain " connection params."]
 			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
 			pub struct [<$chain ConnectionParams>] {
@@ -157,7 +157,7 @@ pub trait TransactionParamsProvider {
 #[macro_export]
 macro_rules! declare_chain_signing_params_cli_schema {
 	($chain:ident, $chain_prefix:ident) => {
-		paste::item! {
+		bp_runtime::paste::item! {
 			#[doc = $chain " signing params."]
 			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
 			pub struct [<$chain SigningParams>] {
@@ -263,7 +263,7 @@ macro_rules! declare_chain_signing_params_cli_schema {
 #[macro_export]
 macro_rules! declare_chain_messages_pallet_owner_signing_params_cli_schema {
 	($chain:ident, $chain_prefix:ident) => {
-		paste::item! {
+		bp_runtime::paste::item! {
 			#[doc = "Parameters required to sign transaction on behalf of owner of the messages pallet at " $chain "."]
 			#[derive(StructOpt, Debug, PartialEq, Eq)]
 			pub struct [<$chain MessagesPalletOwnerSigningParams>] {
