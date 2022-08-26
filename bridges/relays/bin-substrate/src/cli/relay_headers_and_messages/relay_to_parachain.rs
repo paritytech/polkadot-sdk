@@ -60,7 +60,7 @@ pub struct RelayToParachainBridge<
 macro_rules! declare_relay_to_parachain_bridge_schema {
 	// chain, parachain, relay-chain-of-parachain
 	($left_chain:ident, $right_parachain:ident, $right_chain:ident) => {
-		paste::item! {
+		bp_runtime::paste::item! {
 			#[doc = $left_chain ", " $right_parachain " and " $right_chain " headers+parachains+messages relay params."]
 			#[derive(Debug, PartialEq, StructOpt)]
 			pub struct [<$left_chain $right_parachain HeadersAndMessages>] {

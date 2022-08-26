@@ -21,10 +21,7 @@
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
-use bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, decl_bridge_runtime_apis,
-	Chain,
-};
+use bp_runtime::{decl_bridge_runtime_apis, Chain};
 use frame_support::{
 	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, Weight},
 	Parameter, RuntimeDebug,
