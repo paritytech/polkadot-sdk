@@ -104,7 +104,7 @@ impl TransactionSignScheme for Millau {
 
 	fn sign_transaction(param: SignParam<Self>) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::from_raw(
-			param.unsigned.call.clone(),
+			param.unsigned.call,
 			(
 				frame_system::CheckNonZeroSender::<millau_runtime::Runtime>::new(),
 				frame_system::CheckSpecVersion::<millau_runtime::Runtime>::new(),

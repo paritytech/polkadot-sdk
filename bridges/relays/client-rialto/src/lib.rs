@@ -111,7 +111,7 @@ impl TransactionSignScheme for Rialto {
 
 	fn sign_transaction(param: SignParam<Self>) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::from_raw(
-			param.unsigned.call.clone(),
+			param.unsigned.call,
 			(
 				frame_system::CheckNonZeroSender::<rialto_runtime::Runtime>::new(),
 				frame_system::CheckSpecVersion::<rialto_runtime::Runtime>::new(),
