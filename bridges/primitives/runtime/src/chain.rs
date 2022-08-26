@@ -225,7 +225,7 @@ pub type TransactionEraOf<C> = crate::TransactionEra<BlockNumberOf<C>, HashOf<C>
 #[macro_export]
 macro_rules! decl_bridge_finality_runtime_apis {
 	($chain: ident) => {
-		paste::item! {
+		bp_runtime::paste::item! {
 			mod [<$chain _finality_api>] {
 				use super::*;
 
@@ -263,7 +263,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 #[macro_export]
 macro_rules! decl_bridge_messages_runtime_apis {
 	($chain: ident) => {
-		paste::item! {
+		bp_runtime::paste::item! {
 			mod [<$chain _messages_api>] {
 				use super::*;
 
@@ -339,7 +339,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 #[macro_export]
 macro_rules! decl_bridge_runtime_apis {
 	($chain: ident) => {
-		decl_bridge_finality_runtime_apis!($chain);
-		decl_bridge_messages_runtime_apis!($chain);
+		bp_runtime::decl_bridge_finality_runtime_apis!($chain);
+		bp_runtime::decl_bridge_messages_runtime_apis!($chain);
 	};
 }
