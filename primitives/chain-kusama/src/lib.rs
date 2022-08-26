@@ -29,9 +29,7 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
-use bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, decl_bridge_runtime_apis,
-};
+use bp_runtime::decl_bridge_runtime_apis;
 
 /// Kusama Chain
 pub type Kusama = PolkadotLike;

@@ -48,6 +48,9 @@ pub mod messages;
 mod chain;
 mod storage_proof;
 
+// Re-export macro to aviod include paste dependency everywhere
+pub use sp_runtime::paste;
+
 /// Use this when something must be shared among all instances.
 pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
 
