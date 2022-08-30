@@ -102,18 +102,21 @@ impl TransactionSignScheme for Millau {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction = millau_runtime::UncheckedExtrinsic;
 
-	fn sign_transaction(param: SignParam<Self>) -> Result<Self::SignedTransaction, SubstrateError> {
+	fn sign_transaction(
+		param: SignParam<Self>,
+		unsigned: UnsignedTransaction<Self::Chain>,
+	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::from_raw(
-			param.unsigned.call,
+			unsigned.call.clone(),
 			(
 				frame_system::CheckNonZeroSender::<millau_runtime::Runtime>::new(),
 				frame_system::CheckSpecVersion::<millau_runtime::Runtime>::new(),
 				frame_system::CheckTxVersion::<millau_runtime::Runtime>::new(),
 				frame_system::CheckGenesis::<millau_runtime::Runtime>::new(),
-				frame_system::CheckEra::<millau_runtime::Runtime>::from(param.era.frame_era()),
-				frame_system::CheckNonce::<millau_runtime::Runtime>::from(param.unsigned.nonce),
+				frame_system::CheckEra::<millau_runtime::Runtime>::from(unsigned.era.frame_era()),
+				frame_system::CheckNonce::<millau_runtime::Runtime>::from(unsigned.nonce),
 				frame_system::CheckWeight::<millau_runtime::Runtime>::new(),
-				pallet_transaction_payment::ChargeTransactionPayment::<millau_runtime::Runtime>::from(param.unsigned.tip),
+				pallet_transaction_payment::ChargeTransactionPayment::<millau_runtime::Runtime>::from(unsigned.tip),
 				millau_runtime::BridgeRejectObsoleteHeadersAndMessages,
 			),
 			(
@@ -121,7 +124,7 @@ impl TransactionSignScheme for Millau {
 				param.spec_version,
 				param.transaction_version,
 				param.genesis_hash,
-				param.era.signed_payload(param.genesis_hash),
+				unsigned.era.signed_payload(param.genesis_hash),
 				(),
 				(),
 				(),
@@ -155,13 +158,17 @@ impl TransactionSignScheme for Millau {
 
 	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>> {
 		let extra = &tx.signature.as_ref()?.2;
-		Some(UnsignedTransaction {
-			call: tx.function.into(),
-			nonce: Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.5.encode()[..]).ok()?.into(),
-			tip: Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.7.encode()[..])
-				.ok()?
-				.into(),
-		})
+		Some(
+			UnsignedTransaction::new(
+				tx.function.into(),
+				Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.5.encode()[..]).ok()?.into(),
+			)
+			.tip(
+				Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.7.encode()[..])
+					.ok()?
+					.into(),
+			),
+		)
 	}
 }
 
@@ -185,15 +192,17 @@ mod tests {
 			.into(),
 			nonce: 777,
 			tip: 888,
-		};
-		let signed_transaction = Millau::sign_transaction(SignParam {
-			spec_version: 42,
-			transaction_version: 50000,
-			genesis_hash: [42u8; 64].into(),
-			signer: sp_core::sr25519::Pair::from_seed_slice(&[1u8; 32]).unwrap(),
 			era: TransactionEra::immortal(),
-			unsigned: unsigned.clone(),
-		})
+		};
+		let signed_transaction = Millau::sign_transaction(
+			SignParam {
+				spec_version: 42,
+				transaction_version: 50000,
+				genesis_hash: [42u8; 64].into(),
+				signer: sp_core::sr25519::Pair::from_seed_slice(&[1u8; 32]).unwrap(),
+			},
+			unsigned.clone(),
+		)
 		.unwrap();
 		let parsed_transaction = Millau::parse_transaction(signed_transaction).unwrap();
 		assert_eq!(parsed_transaction, unsigned);

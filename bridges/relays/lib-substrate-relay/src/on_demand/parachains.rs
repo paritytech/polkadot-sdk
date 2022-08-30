@@ -263,7 +263,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 			let stall_timeout = relay_substrate_client::transaction_stall_timeout(
 				target_transactions_mortality,
 				P::TargetChain::AVERAGE_BLOCK_INTERVAL,
-				crate::STALL_TIMEOUT,
+				relay_utils::STALL_TIMEOUT,
 			);
 
 			log::info!(
