@@ -425,14 +425,15 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 		current_priority = client
 			.validate_transaction(
 				at_block.1,
-				S::sign_transaction(SignParam {
-					spec_version,
-					transaction_version,
-					genesis_hash: *client.genesis_hash(),
-					signer: transaction_params.signer.clone(),
-					era: relay_substrate_client::TransactionEra::immortal(),
-					unsigned: unsigned_tx.clone(),
-				})?,
+				S::sign_transaction(
+					SignParam {
+						spec_version,
+						transaction_version,
+						genesis_hash: *client.genesis_hash(),
+						signer: transaction_params.signer.clone(),
+					},
+					unsigned_tx.clone(),
+				)?,
 			)
 			.await??
 			.priority;
@@ -448,17 +449,18 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 
 	Ok((
 		old_tip != unsigned_tx.tip,
-		S::sign_transaction(SignParam {
-			spec_version,
-			transaction_version,
-			genesis_hash: *client.genesis_hash(),
-			signer: transaction_params.signer.clone(),
-			era: relay_substrate_client::TransactionEra::new(
+		S::sign_transaction(
+			SignParam {
+				spec_version,
+				transaction_version,
+				genesis_hash: *client.genesis_hash(),
+				signer: transaction_params.signer.clone(),
+			},
+			unsigned_tx.era(relay_substrate_client::TransactionEra::new(
 				at_block,
 				transaction_params.mortality,
-			),
-			unsigned: unsigned_tx,
-		})?,
+			)),
+		)?,
 	))
 }
 

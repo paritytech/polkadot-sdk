@@ -22,7 +22,7 @@ use crate::{
 	messages_source::{SubstrateMessagesProof, SubstrateMessagesSource},
 	messages_target::{SubstrateMessagesDeliveryProof, SubstrateMessagesTarget},
 	on_demand::OnDemandRelay,
-	TransactionParams, STALL_TIMEOUT,
+	TransactionParams,
 };
 
 use async_std::sync::Arc;
@@ -39,7 +39,7 @@ use relay_substrate_client::{
 	transaction_stall_timeout, AccountKeyPairOf, BalanceOf, BlockNumberOf, CallOf, Chain,
 	ChainWithMessages, Client, HashOf, TransactionSignScheme,
 };
-use relay_utils::metrics::MetricsParams;
+use relay_utils::{metrics::MetricsParams, STALL_TIMEOUT};
 use sp_core::Pair;
 use std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
 

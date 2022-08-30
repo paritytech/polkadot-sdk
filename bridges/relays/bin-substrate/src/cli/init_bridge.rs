@@ -26,11 +26,8 @@ use crate::{
 	cli::{bridge::CliBridgeBase, chain_schema::*},
 };
 use bp_runtime::Chain as ChainBase;
-use codec::Encode;
-use relay_substrate_client::{
-	AccountKeyPairOf, Chain, SignParam, TransactionSignScheme, UnsignedTransaction,
-};
-use sp_core::{Bytes, Pair};
+use relay_substrate_client::{AccountKeyPairOf, Chain, SignParam, UnsignedTransaction};
+use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 use substrate_relay_helper::finality::engine::{Engine, Grandpa as GrandpaFinalityEngine};
@@ -82,20 +79,16 @@ where
 			source_client,
 			target_client.clone(),
 			target_sign.public().into(),
+			SignParam {
+				spec_version,
+				transaction_version,
+				genesis_hash: *target_client.genesis_hash(),
+				signer: target_sign,
+			},
 			move |transaction_nonce, initialization_data| {
-				Ok(Bytes(
-					Self::Target::sign_transaction(SignParam {
-						spec_version,
-						transaction_version,
-						genesis_hash: *target_client.genesis_hash(),
-						signer: target_sign,
-						era: relay_substrate_client::TransactionEra::immortal(),
-						unsigned: UnsignedTransaction::new(
-							Self::encode_init_bridge(initialization_data).into(),
-							transaction_nonce,
-						),
-					})?
-					.encode(),
+				Ok(UnsignedTransaction::new(
+					Self::encode_init_bridge(initialization_data).into(),
+					transaction_nonce,
 				))
 			},
 		)

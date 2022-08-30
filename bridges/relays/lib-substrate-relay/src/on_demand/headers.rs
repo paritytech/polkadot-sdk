@@ -28,6 +28,7 @@ use relay_substrate_client::{
 };
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient, MaybeConnectionError,
+	STALL_TIMEOUT,
 };
 
 use crate::{
@@ -37,7 +38,7 @@ use crate::{
 		SubstrateFinalitySyncPipeline, RECENT_FINALITY_PROOFS_LIMIT,
 	},
 	on_demand::OnDemandRelay,
-	TransactionParams, STALL_TIMEOUT,
+	TransactionParams,
 };
 
 /// On-demand Substrate <-> Substrate header finality relay.

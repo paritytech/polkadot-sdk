@@ -27,13 +27,13 @@ use polkadot_runtime_common::{
 };
 use polkadot_runtime_parachains::paras::ParaLifecycle;
 use relay_substrate_client::{
-	AccountIdOf, CallOf, Chain, Client, HashOf, SignParam, Subscription, TransactionSignScheme,
-	TransactionStatusOf, UnsignedTransaction,
+	AccountIdOf, CallOf, Chain, Client, HashOf, SignParam, Subscription, TransactionStatusOf,
+	UnsignedTransaction,
 };
 use rialto_runtime::SudoCall;
 use sp_core::{
 	storage::{well_known_keys::CODE, StorageKey},
-	Bytes, Pair,
+	Pair,
 };
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
@@ -120,20 +120,16 @@ impl RegisterParachain {
 				relay_client
 					.submit_and_watch_signed_extrinsic(
 						relay_sudo_account.clone(),
+						SignParam::<Relaychain> {
+							spec_version,
+							transaction_version,
+							genesis_hash: relay_genesis_hash,
+							signer: reserve_parachain_signer,
+						},
 						move |_, transaction_nonce| {
-							Ok(Bytes(
-								Relaychain::sign_transaction(SignParam {
-									spec_version,
-									transaction_version,
-									genesis_hash: relay_genesis_hash,
-									signer: reserve_parachain_signer,
-									era: relay_substrate_client::TransactionEra::immortal(),
-									unsigned: UnsignedTransaction::new(
-										reserve_parachain_id_call.into(),
-										transaction_nonce,
-									),
-								})?
-								.encode(),
+							Ok(UnsignedTransaction::new(
+								reserve_parachain_id_call.into(),
+								transaction_nonce,
 							))
 						},
 					)
@@ -169,20 +165,16 @@ impl RegisterParachain {
 				relay_client
 					.submit_and_watch_signed_extrinsic(
 						relay_sudo_account.clone(),
+						SignParam::<Relaychain> {
+							spec_version,
+							transaction_version,
+							genesis_hash: relay_genesis_hash,
+							signer: register_parathread_signer,
+						},
 						move |_, transaction_nonce| {
-							Ok(Bytes(
-								Relaychain::sign_transaction(SignParam {
-									spec_version,
-									transaction_version,
-									genesis_hash: relay_genesis_hash,
-									signer: register_parathread_signer,
-									era: relay_substrate_client::TransactionEra::immortal(),
-									unsigned: UnsignedTransaction::new(
-										register_parathread_call.into(),
-										transaction_nonce,
-									),
-								})?
-								.encode(),
+							Ok(UnsignedTransaction::new(
+								register_parathread_call.into(),
+								transaction_nonce,
 							))
 						},
 					)
@@ -231,22 +223,18 @@ impl RegisterParachain {
 			.into();
 			let force_lease_signer = relay_sign.clone();
 			relay_client
-				.submit_signed_extrinsic(relay_sudo_account.clone(), move |_, transaction_nonce| {
-					Ok(Bytes(
-						Relaychain::sign_transaction(SignParam {
-							spec_version,
-							transaction_version,
-							genesis_hash: relay_genesis_hash,
-							signer: force_lease_signer,
-							era: relay_substrate_client::TransactionEra::immortal(),
-							unsigned: UnsignedTransaction::new(
-								force_lease_call.into(),
-								transaction_nonce,
-							),
-						})?
-						.encode(),
-					))
-				})
+				.submit_signed_extrinsic(
+					relay_sudo_account,
+					SignParam::<Relaychain> {
+						spec_version,
+						transaction_version,
+						genesis_hash: relay_genesis_hash,
+						signer: force_lease_signer,
+					},
+					move |_, transaction_nonce| {
+						Ok(UnsignedTransaction::new(force_lease_call.into(), transaction_nonce))
+					},
+				)
 				.await?;
 			log::info!(target: "bridge", "Registered parachain leases: {:?}. Waiting for onboarding", para_id);
 

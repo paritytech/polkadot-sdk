@@ -18,13 +18,12 @@
 
 use crate::{messages_lane::SubstrateMessageLane, TransactionParams};
 
-use codec::Encode;
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, CallOf, Chain, Client, SignParam,
 	TransactionEra, TransactionSignScheme, UnsignedTransaction,
 };
 use relay_utils::metrics::F64SharedRef;
-use sp_core::{Bytes, Pair};
+use sp_core::Pair;
 use std::time::{Duration, Instant};
 
 /// Duration between updater iterations.
@@ -272,19 +271,19 @@ where
 			updated_rate,
 		)?;
 	client
-		.submit_signed_extrinsic(signer_id, move |best_block_id, transaction_nonce| {
-			Ok(Bytes(
-				Sign::sign_transaction(SignParam {
-					spec_version,
-					transaction_version,
-					genesis_hash,
-					signer: transaction_params.signer,
-					era: TransactionEra::new(best_block_id, transaction_params.mortality),
-					unsigned: UnsignedTransaction::new(call.into(), transaction_nonce),
-				})?
-				.encode(),
-			))
-		})
+		.submit_signed_extrinsic(
+			signer_id,
+			SignParam::<Sign> {
+				spec_version,
+				transaction_version,
+				genesis_hash,
+				signer: transaction_params.signer,
+			},
+			move |best_block_id, transaction_nonce| {
+				Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
+					.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
+			},
+		)
 		.await
 		.map(drop)
 		.map_err(|err| anyhow::format_err!("{:?}", err))

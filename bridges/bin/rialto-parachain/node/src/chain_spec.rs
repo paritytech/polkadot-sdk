@@ -122,10 +122,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
 		move || {
 			testnet_genesis(
 				get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
-				DEV_AUTHORITIES_ACCOUNTS
-					.into_iter()
-					.map(|x| get_from_seed::<AuraId>(x))
-					.collect(),
+				DEV_AUTHORITIES_ACCOUNTS.into_iter().map(get_from_seed::<AuraId>).collect(),
 				endowed_accounts(),
 				id,
 			)
@@ -157,10 +154,7 @@ pub fn local_testnet_config(id: ParaId) -> ChainSpec {
 		move || {
 			testnet_genesis(
 				get_account_id_from_seed::<sr25519::Public>(SUDO_ACCOUNT),
-				LOCAL_AUTHORITIES_ACCOUNTS
-					.into_iter()
-					.map(|x| get_from_seed::<AuraId>(x))
-					.collect(),
+				LOCAL_AUTHORITIES_ACCOUNTS.into_iter().map(get_from_seed::<AuraId>).collect(),
 				endowed_accounts(),
 				id,
 			)

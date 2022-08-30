@@ -346,11 +346,14 @@ where
 		self.source_client
 			.submit_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
+				SignParam::<P::SourceTransactionSignScheme> {
+					spec_version,
+					transaction_version,
+					genesis_hash,
+					signer: self.transaction_params.signer.clone(),
+				},
 				move |best_block_id, transaction_nonce| {
 					make_messages_delivery_proof_transaction::<P>(
-						spec_version,
-						transaction_version,
-						&genesis_hash,
 						&transaction_params,
 						best_block_id,
 						transaction_nonce,
@@ -377,18 +380,24 @@ where
 			Err(_) => return BalanceOf::<P::SourceChain>::max_value(),
 		};
 		async {
-			let dummy_tx = make_messages_delivery_proof_transaction::<P>(
-				runtime_version.spec_version,
-				runtime_version.transaction_version,
-				self.source_client.genesis_hash(),
-				&self.transaction_params,
-				HeaderId(Default::default(), Default::default()),
-				Zero::zero(),
-				prepare_dummy_messages_delivery_proof::<P::SourceChain, P::TargetChain>(),
-				false,
-			)?;
+			let dummy_tx = P::SourceTransactionSignScheme::sign_transaction(
+				SignParam::<P::SourceTransactionSignScheme> {
+					spec_version: runtime_version.spec_version,
+					transaction_version: runtime_version.transaction_version,
+					genesis_hash: *self.source_client.genesis_hash(),
+					signer: self.transaction_params.signer.clone(),
+				},
+				make_messages_delivery_proof_transaction::<P>(
+					&self.transaction_params,
+					HeaderId(Default::default(), Default::default()),
+					Zero::zero(),
+					prepare_dummy_messages_delivery_proof::<P::SourceChain, P::TargetChain>(),
+					false,
+				)?,
+			)?
+			.encode();
 			self.source_client
-				.estimate_extrinsic_fee(dummy_tx)
+				.estimate_extrinsic_fee(Bytes(dummy_tx))
 				.await
 				.map(|fee| fee.inclusion_fee())
 		}
@@ -418,17 +427,13 @@ where
 }
 
 /// Make messages delivery proof transaction from given proof.
-#[allow(clippy::too_many_arguments)]
 fn make_messages_delivery_proof_transaction<P: SubstrateMessageLane>(
-	spec_version: u32,
-	transaction_version: u32,
-	source_genesis_hash: &HashOf<P::SourceChain>,
 	source_transaction_params: &TransactionParams<AccountKeyPairOf<P::SourceTransactionSignScheme>>,
 	source_best_block_id: HeaderIdOf<P::SourceChain>,
 	transaction_nonce: IndexOf<P::SourceChain>,
 	proof: SubstrateMessagesDeliveryProof<P::TargetChain>,
 	trace_call: bool,
-) -> Result<Bytes, SubstrateError>
+) -> Result<UnsignedTransaction<P::SourceChain>, SubstrateError>
 where
 	P::SourceTransactionSignScheme: TransactionSignScheme<Chain = P::SourceChain>,
 {
@@ -436,17 +441,8 @@ where
 		P::ReceiveMessagesDeliveryProofCallBuilder::build_receive_messages_delivery_proof_call(
 			proof, trace_call,
 		);
-	Ok(Bytes(
-		P::SourceTransactionSignScheme::sign_transaction(SignParam {
-			spec_version,
-			transaction_version,
-			genesis_hash: *source_genesis_hash,
-			signer: source_transaction_params.signer.clone(),
-			era: TransactionEra::new(source_best_block_id, source_transaction_params.mortality),
-			unsigned: UnsignedTransaction::new(call.into(), transaction_nonce),
-		})?
-		.encode(),
-	))
+	Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
+		.era(TransactionEra::new(source_best_block_id, source_transaction_params.mortality)))
 }
 
 /// Prepare 'dummy' messages delivery proof that will compose the delivery confirmation transaction.

@@ -194,7 +194,7 @@ where
 			stall_timeout: transaction_stall_timeout(
 				transaction_params.mortality,
 				P::TargetChain::AVERAGE_BLOCK_INTERVAL,
-				crate::STALL_TIMEOUT,
+				relay_utils::STALL_TIMEOUT,
 			),
 			only_mandatory_headers,
 		},

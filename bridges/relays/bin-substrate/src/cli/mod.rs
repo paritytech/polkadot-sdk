@@ -223,13 +223,6 @@ impl std::fmt::Display for HexBytes {
 	}
 }
 
-impl HexBytes {
-	/// Encode given object and wrap into nicely formatted bytes.
-	pub fn encode<T: Encode>(t: &T) -> Self {
-		Self(t.encode())
-	}
-}
-
 /// Prometheus metrics params.
 #[derive(Clone, Debug, PartialEq, StructOpt)]
 pub struct PrometheusParams {
