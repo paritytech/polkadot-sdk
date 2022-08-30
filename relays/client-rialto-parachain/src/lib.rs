@@ -101,31 +101,32 @@ impl TransactionSignScheme for RialtoParachain {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction = rialto_parachain_runtime::UncheckedExtrinsic;
 
-	fn sign_transaction(param: SignParam<Self>) -> Result<Self::SignedTransaction, SubstrateError> {
+	fn sign_transaction(
+		param: SignParam<Self>,
+		unsigned: UnsignedTransaction<Self::Chain>,
+	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::from_raw(
-			param.unsigned.call,
+			unsigned.call,
 			(
 				frame_system::CheckNonZeroSender::<rialto_parachain_runtime::Runtime>::new(),
 				frame_system::CheckSpecVersion::<rialto_parachain_runtime::Runtime>::new(),
 				frame_system::CheckTxVersion::<rialto_parachain_runtime::Runtime>::new(),
 				frame_system::CheckGenesis::<rialto_parachain_runtime::Runtime>::new(),
 				frame_system::CheckEra::<rialto_parachain_runtime::Runtime>::from(
-					param.era.frame_era(),
+					unsigned.era.frame_era(),
 				),
-				frame_system::CheckNonce::<rialto_parachain_runtime::Runtime>::from(
-					param.unsigned.nonce,
-				),
+				frame_system::CheckNonce::<rialto_parachain_runtime::Runtime>::from(unsigned.nonce),
 				frame_system::CheckWeight::<rialto_parachain_runtime::Runtime>::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::<
 					rialto_parachain_runtime::Runtime,
-				>::from(param.unsigned.tip),
+				>::from(unsigned.tip),
 			),
 			(
 				(),
 				param.spec_version,
 				param.transaction_version,
 				param.genesis_hash,
-				param.era.signed_payload(param.genesis_hash),
+				unsigned.era.signed_payload(param.genesis_hash),
 				(),
 				(),
 				(),

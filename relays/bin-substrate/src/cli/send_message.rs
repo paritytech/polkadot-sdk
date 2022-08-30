@@ -26,7 +26,7 @@ use crate::{
 		chain_schema::*,
 		encode_message::{self, CliEncodeMessage, RawMessage},
 		estimate_fee::{estimate_message_delivery_and_dispatch_fee, ConversionRateOverride},
-		Balance, CliChain, HexBytes, HexLaneId,
+		Balance, CliChain, HexLaneId,
 	},
 };
 use async_trait::async_trait;
@@ -146,55 +146,50 @@ where
 		let (spec_version, transaction_version) = source_client.simple_runtime_version().await?;
 		let estimated_transaction_fee = source_client
 			.estimate_extrinsic_fee(Bytes(
-				Self::Source::sign_transaction(SignParam {
-					spec_version,
-					transaction_version,
-					genesis_hash: source_genesis_hash,
-					signer: source_sign.clone(),
-					era: relay_substrate_client::TransactionEra::immortal(),
-					unsigned: UnsignedTransaction::new(send_message_call.clone(), 0),
-				})?
+				Self::Source::sign_transaction(
+					SignParam {
+						spec_version,
+						transaction_version,
+						genesis_hash: source_genesis_hash,
+						signer: source_sign.clone(),
+					},
+					UnsignedTransaction::new(send_message_call.clone(), 0),
+				)?
 				.encode(),
 			))
 			.await?;
 		source_client
-			.submit_signed_extrinsic(source_sign.public().into(), move |_, transaction_nonce| {
-				let signed_source_call = Self::Source::sign_transaction(SignParam {
+			.submit_signed_extrinsic(
+				source_sign.public().into(),
+				SignParam::<Self::Source> {
 					spec_version,
 					transaction_version,
 					genesis_hash: source_genesis_hash,
 					signer: source_sign.clone(),
-					era: relay_substrate_client::TransactionEra::immortal(),
-					unsigned: UnsignedTransaction::new(send_message_call, transaction_nonce),
-				})?
-				.encode();
+				},
+				move |_, transaction_nonce| {
+					let unsigned = UnsignedTransaction::new(send_message_call, transaction_nonce);
+					log::info!(
+						target: "bridge",
+						"Sending message to {}. Lane: {:?}. Size: {}. Fee: {}",
+						Self::Target::NAME,
+						lane,
+						payload_len,
+						fee,
+					);
+					log::info!(
+						target: "bridge",
+						"The source account ({:?}) balance will be reduced by (at most) {} (message fee)
+					+ {} (tx fee	) = {} {} tokens", 				AccountId32::from(source_sign.public()),
+						fee.0,
+						estimated_transaction_fee.inclusion_fee(),
+						fee.0.saturating_add(estimated_transaction_fee.inclusion_fee().into()),
+						Self::Source::NAME,
+					);
 
-				log::info!(
-					target: "bridge",
-					"Sending message to {}. Lane: {:?}. Size: {}. Fee: {}",
-					Self::Target::NAME,
-					lane,
-					payload_len,
-					fee,
-				);
-				log::info!(
-					target: "bridge",
-					"The source account ({:?}) balance will be reduced by (at most) {} (message fee)
-				+ {} (tx fee	) = {} {} tokens", 				AccountId32::from(source_sign.public()),
-					fee.0,
-					estimated_transaction_fee.inclusion_fee(),
-					fee.0.saturating_add(estimated_transaction_fee.inclusion_fee().into()),
-					Self::Source::NAME,
-				);
-				log::info!(
-					target: "bridge",
-					"Signed {} Call: {:?}",
-					Self::Source::NAME,
-					HexBytes::encode(&signed_source_call)
-				);
-
-				Ok(Bytes(signed_source_call))
-			})
+					Ok(unsigned)
+				},
+			)
 			.await?;
 
 		Ok(())
@@ -230,7 +225,7 @@ fn decode_xcm(message: RawMessage) -> anyhow::Result<xcm::VersionedXcm<()>> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::cli::ExplicitOrMaximal;
+	use crate::cli::{ExplicitOrMaximal, HexBytes};
 
 	#[test]
 	fn send_raw_rialto_to_millau() {

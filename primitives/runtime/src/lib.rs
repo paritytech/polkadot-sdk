@@ -183,7 +183,7 @@ impl Size for PreComputedSize {
 }
 
 /// Era of specific transaction.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(RuntimeDebug, Clone, Copy, PartialEq)]
 pub enum TransactionEra<BlockNumber, BlockHash> {
 	/// Transaction is immortal.
 	Immortal,
@@ -205,6 +205,14 @@ impl<BlockNumber: Copy + Into<u64>, BlockHash: Copy> TransactionEra<BlockNumber,
 	/// Create new immortal transaction era.
 	pub fn immortal() -> Self {
 		TransactionEra::Immortal
+	}
+
+	/// Returns mortality period if transaction is mortal.
+	pub fn mortality_period(&self) -> Option<u32> {
+		match *self {
+			TransactionEra::Immortal => None,
+			TransactionEra::Mortal(_, period) => Some(period),
+		}
 	}
 
 	/// Returns era that is used by FRAME-based runtimes.
