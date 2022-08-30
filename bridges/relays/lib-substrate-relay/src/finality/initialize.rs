@@ -23,18 +23,28 @@
 
 use crate::{error::Error, finality::engine::Engine};
 
-use relay_substrate_client::{Chain, Client, Error as SubstrateError};
-use sp_core::Bytes;
+use relay_substrate_client::{
+	Chain, Client, Error as SubstrateError, SignParam, TransactionSignScheme, UnsignedTransaction,
+};
 use sp_runtime::traits::Header as HeaderT;
 
 /// Submit headers-bridge initialization transaction.
-pub async fn initialize<E: Engine<SourceChain>, SourceChain: Chain, TargetChain: Chain, F>(
+pub async fn initialize<
+	E: Engine<SourceChain>,
+	SourceChain: Chain,
+	TargetChain: Chain + TransactionSignScheme<Chain = TargetChain>,
+	F,
+>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	target_transactions_signer: TargetChain::AccountId,
+	target_signing_data: SignParam<TargetChain>,
 	prepare_initialize_transaction: F,
 ) where
-	F: FnOnce(TargetChain::Index, E::InitializationData) -> Result<Bytes, SubstrateError>
+	F: FnOnce(
+			TargetChain::Index,
+			E::InitializationData,
+		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
 		+ Send
 		+ 'static,
 {
@@ -42,6 +52,7 @@ pub async fn initialize<E: Engine<SourceChain>, SourceChain: Chain, TargetChain:
 		source_client,
 		target_client,
 		target_transactions_signer,
+		target_signing_data,
 		prepare_initialize_transaction,
 	)
 	.await;
@@ -66,17 +77,26 @@ pub async fn initialize<E: Engine<SourceChain>, SourceChain: Chain, TargetChain:
 }
 
 /// Craft and submit initialization transaction, returning any error that may occur.
-async fn do_initialize<E: Engine<SourceChain>, SourceChain: Chain, TargetChain: Chain, F>(
+async fn do_initialize<
+	E: Engine<SourceChain>,
+	SourceChain: Chain,
+	TargetChain: Chain + TransactionSignScheme<Chain = TargetChain>,
+	F,
+>(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
 	target_transactions_signer: TargetChain::AccountId,
+	target_signing_data: SignParam<TargetChain>,
 	prepare_initialize_transaction: F,
 ) -> Result<
 	Option<TargetChain::Hash>,
 	Error<SourceChain::Hash, <SourceChain::Header as HeaderT>::Number>,
 >
 where
-	F: FnOnce(TargetChain::Index, E::InitializationData) -> Result<Bytes, SubstrateError>
+	F: FnOnce(
+			TargetChain::Index,
+			E::InitializationData,
+		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
 		+ Send
 		+ 'static,
 {
@@ -103,10 +123,15 @@ where
 	);
 
 	let initialization_tx_hash = target_client
-		.submit_signed_extrinsic(target_transactions_signer, move |_, transaction_nonce| {
-			prepare_initialize_transaction(transaction_nonce, initialization_data)
-		})
+		.submit_signed_extrinsic(
+			target_transactions_signer,
+			target_signing_data,
+			move |_, transaction_nonce| {
+				prepare_initialize_transaction(transaction_nonce, initialization_data)
+			},
+		)
 		.await
 		.map_err(|err| Error::SubmitTransaction(TargetChain::NAME, err))?;
+
 	Ok(Some(initialization_tx_hash))
 }
