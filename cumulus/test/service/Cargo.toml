@@ -72,7 +72,7 @@ cumulus-test-relay-validation-worker-provider = { path = "../relay-validation-wo
 cumulus-test-runtime = { path = "../runtime" }
 
 [dev-dependencies]
-futures = "0.3.23"
+futures = "0.3.24"
 portpicker = "0.1.1"
 
 # Polkadot dependencies

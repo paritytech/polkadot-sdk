@@ -9,7 +9,7 @@ edition = "2021"
 async-trait = "0.1.57"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 dyn-clone = "1.0.9"
-futures = "0.3.23"
+futures = "0.3.24"
 tracing = "0.1.36"
 
 # Substrate

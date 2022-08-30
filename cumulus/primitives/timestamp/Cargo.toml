@@ -7,7 +7,7 @@ description = "Provides timestamp related functionality for parachains."
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
-futures = "0.3.23"
+futures = "0.3.24"
 
 # Substrate
 sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }

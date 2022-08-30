@@ -10,7 +10,7 @@ description = "Runs a polkadot parachain node which could be a collator."
 async-trait = "0.1.57"
 clap = { version = "3.2.17", features = ["derive", "deprecated"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-futures = "0.3.23"
+futures = "0.3.24"
 hex-literal = "0.3.4"
 log = "0.4.17"
 serde = { version = "1.0.144", features = ["derive"] }

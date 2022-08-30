@@ -9,7 +9,7 @@ edition = "2021"
 async-trait = "0.1.57"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 derive_more = "0.99.2"
-futures = "0.3.23"
+futures = "0.3.24"
 futures-timer = "3.0.2"
 parking_lot = "0.12.1"
 tracing = "0.1.36"

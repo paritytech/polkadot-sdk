@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.57"
-futures = "0.3.23"
+futures = "0.3.24"
 parking_lot = "0.12.1"
 tracing = "0.1.36"
 
