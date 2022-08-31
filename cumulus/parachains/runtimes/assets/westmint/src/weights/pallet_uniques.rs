@@ -43,7 +43,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::Weight};
+use frame_support::{traits::Get, weights::{RefTimeWeight, Weight}};
 use sp_std::marker::PhantomData;
 
 /// Weight functions for `pallet_uniques`.
@@ -53,17 +53,17 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques ClassAccount (r:0 w:1)
 	fn create() -> Weight {
-		(27_462_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(27_462_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques NextCollectionId (r:1 w:1)
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques ClassAccount (r:0 w:1)
 	fn force_create() -> Weight {
-		(16_480_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(16_480_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques Asset (r:1 w:0)
@@ -77,191 +77,191 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 1000]`.
 	/// The range of component `a` is `[0, 1000]`.
 	fn destroy(n: u32, m: u32, a: u32, ) -> Weight {
-		(0 as Weight)
+		Weight::from_ref_time(0 as RefTimeWeight)
 			// Standard Error: 18_000
-			.saturating_add((10_956_000 as Weight).saturating_mul(n as Weight))
+			.saturating_add(Weight::from_ref_time(10_956_000 as RefTimeWeight).scalar_saturating_mul(n as RefTimeWeight))
 			// Standard Error: 18_000
-			.saturating_add((1_654_000 as Weight).saturating_mul(m as Weight))
+			.saturating_add(Weight::from_ref_time(1_654_000 as RefTimeWeight).scalar_saturating_mul(m as RefTimeWeight))
 			// Standard Error: 18_000
-			.saturating_add((1_572_000 as Weight).saturating_mul(a as Weight))
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().reads((1 as Weight).saturating_mul(n as Weight)))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(n as Weight)))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(m as Weight)))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(a as Weight)))
+			.saturating_add(Weight::from_ref_time(1_572_000 as RefTimeWeight).scalar_saturating_mul(a as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().reads((1 as RefTimeWeight).saturating_mul(n as RefTimeWeight)))
+			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes((2 as RefTimeWeight).saturating_mul(n as RefTimeWeight)))
+			.saturating_add(T::DbWeight::get().writes((1 as RefTimeWeight).saturating_mul(m as RefTimeWeight)))
+			.saturating_add(T::DbWeight::get().writes((1 as RefTimeWeight).saturating_mul(a as RefTimeWeight)))
 	}
 	// Storage: Uniques Asset (r:1 w:1)
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques CollectionMaxSupply (r:1 w:0)
 	// Storage: Uniques Account (r:0 w:1)
 	fn mint() -> Weight {
-		(36_074_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(36_074_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(3 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(3 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques Asset (r:1 w:1)
 	// Storage: Uniques Account (r:0 w:1)
 	// Storage: Uniques ItemPriceOf (r:0 w:1)
 	fn burn() -> Weight {
-		(37_583_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(37_583_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:0)
 	// Storage: Uniques Asset (r:1 w:1)
 	// Storage: Uniques Account (r:0 w:2)
 	// Storage: Uniques ItemPriceOf (r:0 w:1)
 	fn transfer() -> Weight {
-		(28_134_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(28_134_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques Asset (r:100 w:100)
 	/// The range of component `i` is `[0, 5000]`.
 	fn redeposit(i: u32, ) -> Weight {
-		(0 as Weight)
+		Weight::from_ref_time(0 as RefTimeWeight)
 			// Standard Error: 16_000
-			.saturating_add((12_715_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().reads((1 as Weight).saturating_mul(i as Weight)))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
+			.saturating_add(Weight::from_ref_time(12_715_000 as RefTimeWeight).scalar_saturating_mul(i as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().reads((1 as RefTimeWeight).saturating_mul(i as RefTimeWeight)))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes((1 as RefTimeWeight).saturating_mul(i as RefTimeWeight)))
 	}
 	// Storage: Uniques Asset (r:1 w:1)
 	// Storage: Uniques Class (r:1 w:0)
 	fn freeze() -> Weight {
-		(21_019_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(21_019_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Asset (r:1 w:1)
 	// Storage: Uniques Class (r:1 w:0)
 	fn thaw() -> Weight {
-		(21_907_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(21_907_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	fn freeze_collection() -> Weight {
-		(16_894_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(16_894_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	fn thaw_collection() -> Weight {
-		(16_650_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(16_650_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques OwnershipAcceptance (r:1 w:1)
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques ClassAccount (r:0 w:2)
 	fn transfer_ownership() -> Weight {
-		(25_095_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(25_095_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	fn set_team() -> Weight {
-		(17_428_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(17_428_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques ClassAccount (r:0 w:1)
 	fn force_item_status() -> Weight {
-		(20_018_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(20_018_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques InstanceMetadataOf (r:1 w:0)
 	// Storage: Uniques Attribute (r:1 w:1)
 	fn set_attribute() -> Weight {
-		(41_955_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(41_955_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(3 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques InstanceMetadataOf (r:1 w:0)
 	// Storage: Uniques Attribute (r:1 w:1)
 	fn clear_attribute() -> Weight {
-		(40_201_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(40_201_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(3 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques InstanceMetadataOf (r:1 w:1)
 	fn set_metadata() -> Weight {
-		(33_630_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(33_630_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques InstanceMetadataOf (r:1 w:1)
 	fn clear_metadata() -> Weight {
-		(34_054_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(34_054_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:1)
 	// Storage: Uniques ClassMetadataOf (r:1 w:1)
 	fn set_collection_metadata() -> Weight {
-		(33_283_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(33_283_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:0)
 	// Storage: Uniques ClassMetadataOf (r:1 w:1)
 	fn clear_collection_metadata() -> Weight {
-		(31_298_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(31_298_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:0)
 	// Storage: Uniques Asset (r:1 w:1)
 	fn approve_transfer() -> Weight {
-		(22_430_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(22_430_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Class (r:1 w:0)
 	// Storage: Uniques Asset (r:1 w:1)
 	fn cancel_approval() -> Weight {
-		(23_005_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(23_005_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques OwnershipAcceptance (r:1 w:1)
 	fn set_accept_ownership() -> Weight {
-		(20_468_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(20_468_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques CollectionMaxSupply (r:1 w:1)
 	// Storage: Uniques Class (r:1 w:0)
 	fn set_collection_max_supply() -> Weight {
-		(19_948_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(19_948_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Asset (r:1 w:0)
 	// Storage: Uniques ItemPriceOf (r:0 w:1)
 	fn set_price() -> Weight {
-		(19_487_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(19_487_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
 	// Storage: Uniques Asset (r:1 w:1)
 	// Storage: Uniques ItemPriceOf (r:1 w:1)
 	// Storage: Uniques Class (r:1 w:0)
 	// Storage: Uniques Account (r:0 w:2)
 	fn buy_item() -> Weight {
-		(39_973_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(39_973_000 as RefTimeWeight)
+			.saturating_add(T::DbWeight::get().reads(3 as RefTimeWeight))
+			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
 	}
 }

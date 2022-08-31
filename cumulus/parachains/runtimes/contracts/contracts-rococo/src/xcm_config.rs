@@ -20,7 +20,6 @@ use super::{
 use frame_support::{
 	match_types, parameter_types,
 	traits::{EitherOfDiverse, Everything, Nothing},
-	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
@@ -105,7 +104,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 
 parameter_types! {
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
-	pub UnitWeightCost: Weight = 1_000_000_000;
+	pub UnitWeightCost: u64 = 1_000_000_000;
 	pub const MaxInstructions: u32 = 100;
 }
 

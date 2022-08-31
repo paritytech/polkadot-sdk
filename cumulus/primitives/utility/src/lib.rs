@@ -28,7 +28,10 @@ use frame_support::{
 use sp_runtime::{traits::Saturating, SaturatedConversion};
 
 use sp_std::marker::PhantomData;
-use xcm::{latest::prelude::*, WrapVersion};
+use xcm::{
+	latest::{prelude::*, Weight as XCMWeight},
+	WrapVersion,
+};
 use xcm_builder::TakeRevenue;
 use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
 /// Xcm router which recognises the `Parent` destination and handles it by sending the message into
@@ -105,7 +108,7 @@ impl<
 	// If everything goes well, we charge.
 	fn buy_weight(
 		&mut self,
-		weight: Weight,
+		weight: XCMWeight,
 		payment: xcm_executor::Assets,
 	) -> Result<xcm_executor::Assets, XcmError> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}", weight, payment);
@@ -114,6 +117,8 @@ impl<
 		if self.0.is_some() {
 			return Err(XcmError::NotWithdrawable)
 		}
+
+		let weight = Weight::from_ref_time(weight);
 
 		// We take the very first multiasset from payment
 		let multiassets: MultiAssets = payment.clone().into();
@@ -155,14 +160,14 @@ impl<
 		Ok(unused)
 	}
 
-	fn refund_weight(&mut self, weight: Weight) -> Option<MultiAsset> {
+	fn refund_weight(&mut self, weight: XCMWeight) -> Option<MultiAsset> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::refund_weight weight: {:?}", weight);
 		if let Some(AssetTraderRefunder {
 			mut weight_outstanding,
 			outstanding_concrete_asset: MultiAsset { id, fun },
 		}) = self.0.clone()
 		{
-			let weight = weight.min(weight_outstanding);
+			let weight = Weight::from_ref_time(weight).min(weight_outstanding);
 
 			// Get the local asset id in which we can refund fees
 			let (local_asset_id, outstanding_balance) =

@@ -1,6 +1,8 @@
 use asset_test_utils::{ExtBuilder, RuntimeHelper};
 use frame_support::{
-	assert_noop, assert_ok, traits::PalletInfo, weights::WeightToFee as WeightToFeeT,
+	assert_noop, assert_ok,
+	traits::PalletInfo,
+	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{AccountId, StatemintAuraId as AuraId};
 pub use statemint_runtime::{
@@ -44,7 +46,7 @@ fn test_asset_xcm_trader_does_not_work_in_statemine() {
 			let bought = 400_000_000_000u64;
 
 			// lets calculate amount needed
-			let amount_needed = WeightToFee::weight_to_fee(&bought);
+			let amount_needed = WeightToFee::weight_to_fee(&Weight::from_ref_time(bought));
 
 			let asset_multilocation = MultiLocation::new(
 				0,

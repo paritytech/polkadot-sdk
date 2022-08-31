@@ -69,8 +69,8 @@ parameter_types! {
 		state_version: 1,
 	};
 	pub const ParachainId: ParaId = ParaId::new(200);
-	pub const ReservedXcmpWeight: Weight = 0;
-	pub const ReservedDmpWeight: Weight = 0;
+	pub const ReservedXcmpWeight: Weight = Weight::zero();
+	pub const ReservedDmpWeight: Weight = Weight::zero();
 }
 impl frame_system::Config for Test {
 	type Origin = Origin;
@@ -155,7 +155,7 @@ impl DmpMessageHandler for SaveIntoThreadLocal {
 			for i in iter {
 				m.borrow_mut().push(i);
 			}
-			0
+			Weight::zero()
 		})
 	}
 }
@@ -169,7 +169,7 @@ impl XcmpMessageHandler for SaveIntoThreadLocal {
 			for (sender, sent_at, message) in iter {
 				m.borrow_mut().push((sender, sent_at, message.to_vec()));
 			}
-			0
+			Weight::zero()
 		})
 	}
 }

@@ -130,7 +130,7 @@ pub mod pallet {
 		///
 		/// Events:
 		/// - `OverweightServiced`: On success.
-		#[pallet::weight((weight_limit.saturating_add(1_000_000), DispatchClass::Operational,))]
+		#[pallet::weight((weight_limit.saturating_add(Weight::from_ref_time(1_000_000)), DispatchClass::Operational,))]
 		pub fn service_overweight(
 			origin: OriginFor<T>,
 			index: OverweightIndex,
@@ -149,7 +149,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::WeightOverLimit)?;
 			Overweight::<T>::remove(index);
 			Self::deposit_event(Event::OverweightServiced { index, used });
-			Ok(Some(used.saturating_add(1_000_000)).into())
+			Ok(Some(used.saturating_add(Weight::from_ref_time(1_000_000))).into())
 		}
 
 		/// Suspends all XCM executions for the XCMP queue, regardless of the sender's origin.
@@ -449,8 +449,8 @@ impl Default for QueueConfigData {
 			suspend_threshold: 2,
 			drop_threshold: 5,
 			resume_threshold: 1,
-			threshold_weight: 100_000,
-			weight_restrict_decay: 2,
+			threshold_weight: Weight::from_ref_time(100_000),
+			weight_restrict_decay: Weight::from_ref_time(2),
 			xcmp_max_individual_weight: 20 * WEIGHT_PER_MILLIS,
 		}
 	}
@@ -605,15 +605,28 @@ impl<T: Config> Pallet<T> {
 			Ok(xcm) => {
 				let location = (1, Parachain(sender.into()));
 
-				match T::XcmExecutor::execute_xcm(location, xcm, max_weight) {
-					Outcome::Error(e) =>
-						(Err(e), Event::Fail { message_hash: Some(hash), error: e, weight: 0 }),
-					Outcome::Complete(w) =>
-						(Ok(w), Event::Success { message_hash: Some(hash), weight: w }),
+				match T::XcmExecutor::execute_xcm(location, xcm, max_weight.ref_time()) {
+					Outcome::Error(e) => (
+						Err(e),
+						Event::Fail { message_hash: Some(hash), error: e, weight: Weight::zero() },
+					),
+					Outcome::Complete(w) => (
+						Ok(Weight::from_ref_time(w)),
+						Event::Success {
+							message_hash: Some(hash),
+							weight: Weight::from_ref_time(w),
+						},
+					),
 					// As far as the caller is concerned, this was dispatched without error, so
 					// we just report the weight used.
-					Outcome::Incomplete(w, e) =>
-						(Ok(w), Event::Fail { message_hash: Some(hash), error: e, weight: w }),
+					Outcome::Incomplete(w, e) => (
+						Ok(Weight::from_ref_time(w)),
+						Event::Fail {
+							message_hash: Some(hash),
+							error: e,
+							weight: Weight::from_ref_time(w),
+						},
+					),
 				}
 			},
 			Err(()) =>
@@ -632,7 +645,7 @@ impl<T: Config> Pallet<T> {
 		let data = <InboundXcmpMessages<T>>::get(sender, sent_at);
 		let mut last_remaining_fragments;
 		let mut remaining_fragments = &data[..];
-		let mut weight_used = 0;
+		let mut weight_used = Weight::zero();
 		match format {
 			XcmpMessageFormat::ConcatenatedVersionedXcm => {
 				while !remaining_fragments.is_empty() {
@@ -645,7 +658,7 @@ impl<T: Config> Pallet<T> {
 						match Self::handle_xcm_message(sender, sent_at, xcm, weight) {
 							Ok(used) => weight_used = weight_used.saturating_add(used),
 							Err(XcmError::WeightLimitReached(required))
-								if required > max_individual_weight =>
+								if required > max_individual_weight.ref_time() =>
 							{
 								// overweight - add to overweight queue and continue with message
 								// execution consuming the message.
@@ -654,12 +667,16 @@ impl<T: Config> Pallet<T> {
 									.saturating_sub(remaining_fragments.len());
 								let overweight_xcm = last_remaining_fragments[..msg_len].to_vec();
 								let index = Self::stash_overweight(sender, sent_at, overweight_xcm);
-								let e =
-									Event::OverweightEnqueued { sender, sent_at, index, required };
+								let e = Event::OverweightEnqueued {
+									sender,
+									sent_at,
+									index,
+									required: Weight::from_ref_time(required),
+								};
 								Self::deposit_event(e);
 							},
 							Err(XcmError::WeightLimitReached(required))
-								if required <= max_weight =>
+								if required <= max_weight.ref_time() =>
 							{
 								// That message didn't get processed this time because of being
 								// too heavy. We leave it around for next time and bail.
@@ -766,7 +783,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut status = <InboundXcmpStatus<T>>::get(); // <- sorted.
 		if status.is_empty() {
-			return 0
+			return Weight::zero()
 		}
 
 		let QueueConfigData {
@@ -778,8 +795,8 @@ impl<T: Config> Pallet<T> {
 		} = <QueueConfig<T>>::get();
 
 		let mut shuffled = Self::create_shuffle(status.len());
-		let mut weight_used = 0;
-		let mut weight_available = 0;
+		let mut weight_used = Weight::new();
+		let mut weight_available = Weight::new();
 
 		// We don't want the possibility of a chain sending a series of really heavy messages and
 		// tying up the block's execution time from other chains. Therefore we execute any remaining
@@ -813,7 +830,7 @@ impl<T: Config> Pallet<T> {
 				// on the first round to unlocking everything, then we do so.
 				if shuffle_index < status.len() {
 					weight_available +=
-						(max_weight - weight_available) / (weight_restrict_decay + 1);
+						(max_weight - weight_available) / (weight_restrict_decay.ref_time() + 1);
 					if weight_available + threshold_weight > max_weight {
 						weight_available = max_weight;
 					}
@@ -824,7 +841,7 @@ impl<T: Config> Pallet<T> {
 
 			let weight_processed = if status[index].message_metadata.is_empty() {
 				debug_assert!(false, "channel exists in status; there must be messages; qed");
-				0
+				Weight::zero()
 			} else {
 				// Process up to one block's worth for now.
 				let weight_remaining = weight_available.saturating_sub(weight_used);
@@ -854,7 +871,7 @@ impl<T: Config> Pallet<T> {
 			// other channels a look in. If we've still not unlocked all weight, then we set them
 			// up for processing a second time anyway.
 			if !status[index].message_metadata.is_empty() &&
-				(weight_processed > 0 || weight_available != max_weight)
+				(weight_processed > Weight::zero() || weight_available != max_weight)
 			{
 				if shuffle_index + 1 == shuffled.len() {
 					// Only this queue left. Just run around this loop once more.

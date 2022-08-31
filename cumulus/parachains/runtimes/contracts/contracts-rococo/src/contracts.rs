@@ -26,9 +26,9 @@ parameter_types! {
 		RuntimeBlockWeights::get().max_block;
 	// The weight needed for decoding the queue should be less or equal than a fifth
 	// of the overall weight dedicated to the lazy deletion.
-	pub DeletionQueueDepth: u32 = ((DeletionWeightLimit::get() / (
-			<Runtime as Config>::WeightInfo::on_initialize_per_queue_item(1) -
-			<Runtime as Config>::WeightInfo::on_initialize_per_queue_item(0)
+	pub DeletionQueueDepth: u32 = ((DeletionWeightLimit::get().ref_time() / (
+			<Runtime as Config>::WeightInfo::on_initialize_per_queue_item(1).ref_time() -
+			<Runtime as Config>::WeightInfo::on_initialize_per_queue_item(0).ref_time()
 		)) / 5) as u32;
 	pub MySchedule: Schedule<Runtime> = Default::default();
 }

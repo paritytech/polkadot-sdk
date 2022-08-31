@@ -49,7 +49,7 @@ use constants::{currency::*, fee::WeightToFee};
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Everything},
-	weights::{ConstantMultiplier, DispatchClass},
+	weights::{ConstantMultiplier, DispatchClass, Weight},
 	PalletId,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
@@ -63,9 +63,6 @@ use xcm_config::CollatorSelectionUpdateOrigin;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-
-#[cfg(feature = "try-runtime")]
-use frame_support::weights::Weight;
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -245,15 +242,20 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.scalar_div(4);
+	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.scalar_div(4);
+}
+
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type Event = Event;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type DmpMessageHandler = DmpQueue;
-	type ReservedDmpWeight = ConstU64<{ MAXIMUM_BLOCK_WEIGHT / 4 }>;
+	type ReservedDmpWeight = ReservedDmpWeight;
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type XcmpMessageHandler = XcmpQueue;
-	type ReservedXcmpWeight = ConstU64<{ MAXIMUM_BLOCK_WEIGHT / 4 }>;
+	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
 }
 
@@ -515,7 +517,7 @@ impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, B
 				origin,
 				dest,
 				value,
-				gas_limit,
+				Weight::from_ref_time(gas_limit),
 				storage_deposit_limit,
 				input_data,
 				contracts::CONTRACTS_DEBUG_OUTPUT,
@@ -534,7 +536,7 @@ impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, B
 			Contracts::bare_instantiate(
 				origin,
 				value,
-				gas_limit,
+				Weight::from_ref_time(gas_limit),
 				storage_deposit_limit,
 				code,
 				data,

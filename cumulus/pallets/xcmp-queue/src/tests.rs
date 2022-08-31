@@ -26,7 +26,7 @@ fn one_message_does_not_panic() {
 		let messages = vec![(Default::default(), 1u32.into(), message_format.as_slice())];
 
 		// This shouldn't cause a panic
-		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::max_value());
+		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::MAX);
 	})
 }
 
@@ -43,7 +43,12 @@ fn bad_message_is_handled() {
 		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, bad_data);
 		let format = XcmpMessageFormat::ConcatenatedEncodedBlob;
 		// This should exit with an error.
-		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000, 10_000_000_000);
+		XcmpQueue::process_xcmp_message(
+			1000.into(),
+			(1, format),
+			Weight::from_ref_time(10_000_000_000),
+			Weight::from_ref_time(10_000_000_000),
+		);
 	});
 }
 
@@ -61,7 +66,12 @@ fn handle_blob_message() {
 		];
 		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, bad_data);
 		let format = XcmpMessageFormat::ConcatenatedEncodedBlob;
-		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000, 10_000_000_000);
+		XcmpQueue::process_xcmp_message(
+			1000.into(),
+			(1, format),
+			Weight::from_ref_time(10_000_000_000),
+			Weight::from_ref_time(10_000_000_000),
+		);
 	});
 }
 
@@ -73,7 +83,12 @@ fn handle_invalid_data() {
 		let data = Xcm::<Test>(vec![]).encode();
 		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, data);
 		let format = XcmpMessageFormat::ConcatenatedVersionedXcm;
-		XcmpQueue::process_xcmp_message(1000.into(), (1, format), 10_000_000_000, 10_000_000_000);
+		XcmpQueue::process_xcmp_message(
+			1000.into(),
+			(1, format),
+			Weight::from_ref_time(10_000_000_000),
+			Weight::from_ref_time(10_000_000_000),
+		);
 	});
 }
 
@@ -81,7 +96,7 @@ fn handle_invalid_data() {
 fn service_overweight_unknown() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			XcmpQueue::service_overweight(Origin::root(), 0, 1000),
+			XcmpQueue::service_overweight(Origin::root(), 0, Weight::from_ref_time(1000)),
 			Error::<Test>::BadOverweightIndex,
 		);
 	});
@@ -93,7 +108,10 @@ fn service_overweight_bad_xcm_format() {
 		let bad_xcm = vec![255];
 		Overweight::<Test>::insert(0, (ParaId::from(1000), 0, bad_xcm));
 
-		assert_noop!(XcmpQueue::service_overweight(Origin::root(), 0, 1000), Error::<Test>::BadXcm);
+		assert_noop!(
+			XcmpQueue::service_overweight(Origin::root(), 0, Weight::from_ref_time(1000)),
+			Error::<Test>::BadXcm
+		);
 	});
 }
 
@@ -108,7 +126,7 @@ fn suspend_xcm_execution_works() {
 		let messages = vec![(ParaId::from(999), 1u32.into(), message_format.as_slice())];
 
 		// This should have executed the incoming XCM, because it came from a system parachain
-		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::max_value());
+		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::MAX);
 
 		let queued_xcm = InboundXcmpMessages::<Test>::get(ParaId::from(999), 1u32);
 		assert!(queued_xcm.is_empty());
@@ -116,7 +134,7 @@ fn suspend_xcm_execution_works() {
 		let messages = vec![(ParaId::from(2000), 1u32.into(), message_format.as_slice())];
 
 		// This shouldn't have executed the incoming XCM
-		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::max_value());
+		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::MAX);
 
 		let queued_xcm = InboundXcmpMessages::<Test>::get(ParaId::from(2000), 1u32);
 		assert_eq!(queued_xcm, xcm);
@@ -166,12 +184,21 @@ fn update_resume_threshold_works() {
 fn update_threshold_weight_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.threshold_weight, 100_000);
-		assert_ok!(XcmpQueue::update_threshold_weight(Origin::root(), 10_000));
-		assert_noop!(XcmpQueue::update_threshold_weight(Origin::signed(5), 10_000_000), BadOrigin);
+		assert_eq!(data.threshold_weight, Weight::from_ref_time(100_000));
+		assert_ok!(XcmpQueue::update_threshold_weight(
+			Origin::root(),
+			Weight::from_ref_time(10_000)
+		));
+		assert_noop!(
+			XcmpQueue::update_threshold_weight(
+				Origin::signed(5),
+				Weight::from_ref_time(10_000_000)
+			),
+			BadOrigin
+		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 
-		assert_eq!(data.threshold_weight, 10_000);
+		assert_eq!(data.threshold_weight, Weight::from_ref_time(10_000));
 	});
 }
 
@@ -179,12 +206,18 @@ fn update_threshold_weight_works() {
 fn update_weight_restrict_decay_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.weight_restrict_decay, 2);
-		assert_ok!(XcmpQueue::update_weight_restrict_decay(Origin::root(), 5));
-		assert_noop!(XcmpQueue::update_weight_restrict_decay(Origin::signed(6), 4), BadOrigin);
+		assert_eq!(data.weight_restrict_decay, Weight::from_ref_time(2));
+		assert_ok!(XcmpQueue::update_weight_restrict_decay(
+			Origin::root(),
+			Weight::from_ref_time(5)
+		));
+		assert_noop!(
+			XcmpQueue::update_weight_restrict_decay(Origin::signed(6), Weight::from_ref_time(4)),
+			BadOrigin
+		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 
-		assert_eq!(data.weight_restrict_decay, 5);
+		assert_eq!(data.weight_restrict_decay, Weight::from_ref_time(5));
 	});
 }
 

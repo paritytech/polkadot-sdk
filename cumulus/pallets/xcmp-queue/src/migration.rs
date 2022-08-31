@@ -25,7 +25,7 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 /// Migrates the pallet storage to the most recent version, checking and setting the
 /// `StorageVersion`.
 pub fn migrate_to_latest<T: Config>() -> Weight {
-	let mut weight = 0;
+	let mut weight = Weight::new();
 
 	if StorageVersion::get::<Pallet<T>>() == 0 {
 		weight += migrate_to_v1::<T>();
@@ -54,8 +54,8 @@ mod v0 {
 				suspend_threshold: 2,
 				drop_threshold: 5,
 				resume_threshold: 1,
-				threshold_weight: 100_000,
-				weight_restrict_decay: 2,
+				threshold_weight: Weight::from_ref_time(100_000),
+				weight_restrict_decay: Weight::from_ref_time(2),
 			}
 		}
 	}
@@ -102,8 +102,8 @@ mod tests {
 			suspend_threshold: 5,
 			drop_threshold: 12,
 			resume_threshold: 3,
-			threshold_weight: 333_333,
-			weight_restrict_decay: 1,
+			threshold_weight: Weight::from_ref_time(333_333),
+			weight_restrict_decay: Weight::one(),
 		};
 
 		new_test_ext().execute_with(|| {
@@ -122,7 +122,7 @@ mod tests {
 			assert_eq!(v0.resume_threshold, v1.resume_threshold);
 			assert_eq!(v0.threshold_weight, v1.threshold_weight);
 			assert_eq!(v0.weight_restrict_decay, v1.weight_restrict_decay);
-			assert_eq!(v1.xcmp_max_individual_weight, 20_000_000_000);
+			assert_eq!(v1.xcmp_max_individual_weight, Weight::from_ref_time(20_000_000_000));
 		});
 	}
 }
