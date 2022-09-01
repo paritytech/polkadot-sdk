@@ -50,7 +50,7 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 	fn batch(c: u32, ) -> Weight {
 		Weight::from_ref_time(30_959_000 as RefTimeWeight)
 			// Standard Error: 6_000
-			.saturating_add(Weight::from_ref_time(3_220_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(3_220_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 	}
 	fn as_derivative() -> Weight {
 		Weight::from_ref_time(4_732_000 as RefTimeWeight)
@@ -59,7 +59,7 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 	fn batch_all(c: u32, ) -> Weight {
 		Weight::from_ref_time(16_465_000 as RefTimeWeight)
 			// Standard Error: 2_000
-			.saturating_add(Weight::from_ref_time(3_364_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(3_364_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 	}
 	fn dispatch_as() -> Weight {
 		Weight::from_ref_time(11_903_000 as RefTimeWeight)
@@ -68,6 +68,6 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 	fn force_batch(c: u32, ) -> Weight {
 		Weight::from_ref_time(22_621_000 as RefTimeWeight)
 			// Standard Error: 1_000
-			.saturating_add(Weight::from_ref_time(3_147_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(3_147_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 	}
 }

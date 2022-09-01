@@ -43,7 +43,7 @@ pub struct ConfigData {
 impl Default for ConfigData {
 	fn default() -> Self {
 		Self {
-			max_individual: 10 * WEIGHT_PER_MILLIS, // 10 ms of execution time maximum by default
+			max_individual: 10u64 * WEIGHT_PER_MILLIS, // 10 ms of execution time maximum by default
 		}
 	}
 }
@@ -189,7 +189,7 @@ pub mod pallet {
 		/// Exactly equivalent to `service_queue` but expects a mutable `page_index` to be passed
 		/// in and any changes stored.
 		fn do_service_queue(limit: Weight, page_index: &mut PageIndexData) -> Weight {
-			let mut used = Weight::new();
+			let mut used = Weight::zero();
 			while page_index.begin_used < page_index.end_used {
 				let page = Pages::<T>::take(page_index.begin_used);
 				for (i, &(sent_at, ref data)) in page.iter().enumerate() {

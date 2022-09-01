@@ -69,11 +69,11 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	fn destroy(c: u32, s: u32, a: u32, ) -> Weight {
 		Weight::from_ref_time(0 as RefTimeWeight)
 			// Standard Error: 46_000
-			.saturating_add(Weight::from_ref_time(16_382_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(16_382_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 			// Standard Error: 46_000
-			.saturating_add(Weight::from_ref_time(19_187_000 as RefTimeWeight).scalar_saturating_mul(s as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(19_187_000 as RefTimeWeight).saturating_mul(s as RefTimeWeight))
 			// Standard Error: 465_000
-			.saturating_add(Weight::from_ref_time(16_818_000 as RefTimeWeight).scalar_saturating_mul(a as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(16_818_000 as RefTimeWeight).saturating_mul(a as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(5 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads((2 as RefTimeWeight).saturating_mul(c as RefTimeWeight)))
 			.saturating_add(T::DbWeight::get().reads((2 as RefTimeWeight).saturating_mul(s as RefTimeWeight)))

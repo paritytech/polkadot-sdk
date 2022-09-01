@@ -25,7 +25,7 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 /// Migrates the pallet storage to the most recent version, checking and setting the
 /// `StorageVersion`.
 pub fn migrate_to_latest<T: Config>() -> Weight {
-	let mut weight = Weight::new();
+	let mut weight = Weight::zero();
 
 	if StorageVersion::get::<Pallet<T>>() == 0 {
 		weight += migrate_to_v1::<T>();
@@ -103,7 +103,7 @@ mod tests {
 			drop_threshold: 12,
 			resume_threshold: 3,
 			threshold_weight: Weight::from_ref_time(333_333),
-			weight_restrict_decay: Weight::one(),
+			weight_restrict_decay: Weight::from_ref_time(1),
 		};
 
 		new_test_ext().execute_with(|| {

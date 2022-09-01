@@ -111,7 +111,7 @@ impl<T: Config> DmpMessageHandler for UnlimitedDmpExecution<T> {
 		iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
 		limit: Weight,
 	) -> Weight {
-		let mut used = Weight::new();
+		let mut used = Weight::zero();
 		for (_sent_at, data) in iter {
 			let id = sp_io::hashing::twox_64(&data[..]);
 			let msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
@@ -144,7 +144,7 @@ impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
 		iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
 		limit: Weight,
 	) -> Weight {
-		let mut used = Weight::new();
+		let mut used = Weight::zero();
 		for (_sent_at, data) in iter {
 			let id = sp_io::hashing::twox_64(&data[..]);
 			let msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(

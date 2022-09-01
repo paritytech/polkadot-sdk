@@ -225,17 +225,20 @@ fn update_weight_restrict_decay_works() {
 fn update_xcmp_max_individual_weight() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.xcmp_max_individual_weight, 20 * WEIGHT_PER_MILLIS);
+		assert_eq!(data.xcmp_max_individual_weight, 20u64 * WEIGHT_PER_MILLIS);
 		assert_ok!(XcmpQueue::update_xcmp_max_individual_weight(
 			Origin::root(),
-			30 * WEIGHT_PER_MILLIS
+			30u64 * WEIGHT_PER_MILLIS
 		));
 		assert_noop!(
-			XcmpQueue::update_xcmp_max_individual_weight(Origin::signed(3), 10 * WEIGHT_PER_MILLIS),
+			XcmpQueue::update_xcmp_max_individual_weight(
+				Origin::signed(3),
+				10u64 * WEIGHT_PER_MILLIS
+			),
 			BadOrigin
 		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 
-		assert_eq!(data.xcmp_max_individual_weight, 30 * WEIGHT_PER_MILLIS);
+		assert_eq!(data.xcmp_max_individual_weight, 30u64 * WEIGHT_PER_MILLIS);
 	});
 }

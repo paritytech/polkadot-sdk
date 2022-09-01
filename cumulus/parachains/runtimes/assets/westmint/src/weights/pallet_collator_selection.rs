@@ -52,7 +52,7 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 	fn set_invulnerables(b: u32, ) -> Weight {
 		Weight::from_ref_time(6_669_000 as RefTimeWeight)
 			// Standard Error: 3_000
-			.saturating_add(Weight::from_ref_time(3_218_000 as RefTimeWeight).scalar_saturating_mul(b as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(3_218_000 as RefTimeWeight).saturating_mul(b as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads((1 as RefTimeWeight).saturating_mul(b as RefTimeWeight)))
 			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
@@ -76,7 +76,7 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 	fn register_as_candidate(c: u32, ) -> Weight {
 		Weight::from_ref_time(55_542_000 as RefTimeWeight)
 			// Standard Error: 1_000
-			.saturating_add(Weight::from_ref_time(92_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(92_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(5 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
@@ -86,7 +86,7 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 	fn leave_intent(c: u32, ) -> Weight {
 		Weight::from_ref_time(52_080_000 as RefTimeWeight)
 			// Standard Error: 1_000
-			.saturating_add(Weight::from_ref_time(109_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(109_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
 	}
@@ -108,9 +108,9 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 	fn new_session(r: u32, c: u32, ) -> Weight {
 		Weight::from_ref_time(0 as RefTimeWeight)
 			// Standard Error: 1_895_000
-			.saturating_add(Weight::from_ref_time(9_941_000 as RefTimeWeight).scalar_saturating_mul(r as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(9_941_000 as RefTimeWeight).saturating_mul(r as RefTimeWeight))
 			// Standard Error: 1_895_000
-			.saturating_add(Weight::from_ref_time(50_628_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(50_628_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads((2 as RefTimeWeight).saturating_mul(c as RefTimeWeight)))
 			.saturating_add(T::DbWeight::get().writes((1 as RefTimeWeight).saturating_mul(r as RefTimeWeight)))
 			.saturating_add(T::DbWeight::get().writes((1 as RefTimeWeight).saturating_mul(c as RefTimeWeight)))

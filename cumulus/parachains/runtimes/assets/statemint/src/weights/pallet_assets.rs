@@ -69,11 +69,11 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	fn destroy(c: u32, s: u32, a: u32, ) -> Weight {
 		Weight::from_ref_time(0 as RefTimeWeight)
 			// Standard Error: 45_000
-			.saturating_add(Weight::from_ref_time(15_904_000 as RefTimeWeight).scalar_saturating_mul(c as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(15_904_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight))
 			// Standard Error: 45_000
-			.saturating_add(Weight::from_ref_time(18_803_000 as RefTimeWeight).scalar_saturating_mul(s as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(18_803_000 as RefTimeWeight).saturating_mul(s as RefTimeWeight))
 			// Standard Error: 450_000
-			.saturating_add(Weight::from_ref_time(17_017_000 as RefTimeWeight).scalar_saturating_mul(a as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(17_017_000 as RefTimeWeight).saturating_mul(a as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(5 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads((2 as RefTimeWeight).saturating_mul(c as RefTimeWeight)))
 			.saturating_add(T::DbWeight::get().reads((2 as RefTimeWeight).saturating_mul(s as RefTimeWeight)))
@@ -167,9 +167,9 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	fn set_metadata(n: u32, s: u32, ) -> Weight {
 		Weight::from_ref_time(31_324_000 as RefTimeWeight)
 			// Standard Error: 0
-			.saturating_add(Weight::from_ref_time(1_000 as RefTimeWeight).scalar_saturating_mul(n as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(1_000 as RefTimeWeight).saturating_mul(n as RefTimeWeight))
 			// Standard Error: 0
-			.saturating_add(Weight::from_ref_time(3_000 as RefTimeWeight).scalar_saturating_mul(s as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(3_000 as RefTimeWeight).saturating_mul(s as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}
@@ -187,7 +187,7 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	fn force_set_metadata(_n: u32, s: u32, ) -> Weight {
 		Weight::from_ref_time(18_756_000 as RefTimeWeight)
 			// Standard Error: 0
-			.saturating_add(Weight::from_ref_time(2_000 as RefTimeWeight).scalar_saturating_mul(s as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(2_000 as RefTimeWeight).saturating_mul(s as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
 	}

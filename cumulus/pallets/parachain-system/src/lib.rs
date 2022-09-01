@@ -269,7 +269,7 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: T::BlockNumber) -> Weight {
-			let mut weight = Weight::new();
+			let mut weight = Weight::zero();
 
 			// To prevent removing `NewValidationCode` that was set by another `on_initialize`
 			// like for example from scheduler, we only kill the storage entry if it was not yet
@@ -808,7 +808,7 @@ impl<T: Config> Pallet<T> {
 		let dm_count = downward_messages.len() as u32;
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
-		let mut weight_used = Weight::new();
+		let mut weight_used = Weight::zero();
 		if dm_count != 0 {
 			Self::deposit_event(Event::DownwardMessagesReceived { count: dm_count });
 			let max_weight =

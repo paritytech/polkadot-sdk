@@ -79,11 +79,11 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 	fn destroy(n: u32, m: u32, a: u32, ) -> Weight {
 		Weight::from_ref_time(0 as RefTimeWeight)
 			// Standard Error: 18_000
-			.saturating_add(Weight::from_ref_time(10_956_000 as RefTimeWeight).scalar_saturating_mul(n as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(10_956_000 as RefTimeWeight).saturating_mul(n as RefTimeWeight))
 			// Standard Error: 18_000
-			.saturating_add(Weight::from_ref_time(1_654_000 as RefTimeWeight).scalar_saturating_mul(m as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(1_654_000 as RefTimeWeight).saturating_mul(m as RefTimeWeight))
 			// Standard Error: 18_000
-			.saturating_add(Weight::from_ref_time(1_572_000 as RefTimeWeight).scalar_saturating_mul(a as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(1_572_000 as RefTimeWeight).saturating_mul(a as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads((1 as RefTimeWeight).saturating_mul(n as RefTimeWeight)))
 			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
@@ -124,7 +124,7 @@ impl<T: frame_system::Config> pallet_uniques::WeightInfo for WeightInfo<T> {
 	fn redeposit(i: u32, ) -> Weight {
 		Weight::from_ref_time(0 as RefTimeWeight)
 			// Standard Error: 16_000
-			.saturating_add(Weight::from_ref_time(12_715_000 as RefTimeWeight).scalar_saturating_mul(i as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(12_715_000 as RefTimeWeight).saturating_mul(i as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
 			.saturating_add(T::DbWeight::get().reads((1 as RefTimeWeight).saturating_mul(i as RefTimeWeight)))
 			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))

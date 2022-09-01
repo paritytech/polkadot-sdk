@@ -138,7 +138,7 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for .5 seconds of compute with a 12 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND.scalar_div(2);
+const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND.saturating_div(2);
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
@@ -348,7 +348,7 @@ pub struct TestOnRuntimeUpgrade;
 impl OnRuntimeUpgrade for TestOnRuntimeUpgrade {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		assert_eq!(sp_io::storage::get(TEST_RUNTIME_UPGRADE_KEY), Some(vec![1, 2, 3, 4].into()));
-		Weight::one()
+		Weight::from_ref_time(1)
 	}
 }
 

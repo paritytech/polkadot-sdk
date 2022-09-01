@@ -451,7 +451,7 @@ impl Default for QueueConfigData {
 			resume_threshold: 1,
 			threshold_weight: Weight::from_ref_time(100_000),
 			weight_restrict_decay: Weight::from_ref_time(2),
-			xcmp_max_individual_weight: 20 * WEIGHT_PER_MILLIS,
+			xcmp_max_individual_weight: 20u64 * WEIGHT_PER_MILLIS,
 		}
 	}
 }
@@ -795,8 +795,8 @@ impl<T: Config> Pallet<T> {
 		} = <QueueConfig<T>>::get();
 
 		let mut shuffled = Self::create_shuffle(status.len());
-		let mut weight_used = Weight::new();
-		let mut weight_available = Weight::new();
+		let mut weight_used = Weight::zero();
+		let mut weight_available = Weight::zero();
 
 		// We don't want the possibility of a chain sending a series of really heavy messages and
 		// tying up the block's execution time from other chains. Therefore we execute any remaining
