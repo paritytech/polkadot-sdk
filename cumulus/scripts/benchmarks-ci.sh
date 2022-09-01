@@ -22,6 +22,8 @@ if [[ $runtimeName == "statemint" ]] || [[ $runtimeName == "statemine" ]] || [[ 
 		pallet_uniques
 		cumulus_pallet_xcmp_queue
 		frame_system
+		pallet_xcm_benchmarks::generic
+		pallet_xcm_benchmarks::fungible
 	)
 elif [[ $runtimeName == "collectives-polkadot" ]]; then
 		pallets=(
@@ -44,6 +46,11 @@ fi
 
 for pallet in ${pallets[@]}
 do
+	# a little hack for xcm benchmarks
+	output_file="${pallet//::/_}"
+  if [[ "$pallet" == *"xcm"* ]]; then
+		output_file="xcm/$output_file"
+  fi
 	$artifactsDir/polkadot-parachain benchmark pallet \
 		--chain=$benchmarkRuntimeName \
 		--execution=wasm \
@@ -53,7 +60,6 @@ do
 		--steps=$steps  \
 		--repeat=$repeat \
 		--json \
-        --header=./file_header.txt \
-		--output=$benchmarkOutput >> $artifactsDir/${pallet}_benchmark.json
-
+		--header=./file_header.txt \
+		--output="${benchmarkOutput}/${output_file}.rs" >> $artifactsDir/${pallet}_benchmark.json
 done

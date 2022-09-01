@@ -13,6 +13,7 @@ pub mod pallet_uniques;
 pub mod pallet_utility;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
+pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
