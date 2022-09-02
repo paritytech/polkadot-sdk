@@ -28,8 +28,9 @@ async fn purge_chain_works() {
 	// Check that both databases are deleted
 
 	let base_dir = tempdir().expect("could not create a temp dir");
+	let base_dir_path = format!("{}/polkadot", base_dir.path().display());
 
-	let args = &["--", "--dev"];
+	let args = &["--", "--dev", "-d", &base_dir_path];
 
 	common::run_node_for_a_while(base_dir.path(), args, SIGINT).await;
 

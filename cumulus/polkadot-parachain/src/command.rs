@@ -781,7 +781,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 	fn base_path(&self) -> Result<Option<BasePath>> {
 		Ok(self
 			.shared_params()
-			.base_path()
+			.base_path()?
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
