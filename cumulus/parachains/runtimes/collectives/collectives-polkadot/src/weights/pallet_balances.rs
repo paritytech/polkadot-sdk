@@ -40,7 +40,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{RefTimeWeight, Weight}};
+use frame_support::{traits::Get, weights::Weight};
 use sp_std::marker::PhantomData;
 
 /// Weight functions for `pallet_balances`.
@@ -48,44 +48,44 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn transfer() -> Weight {
-		Weight::from_ref_time(39_576_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(39_576_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:1 w:1)
 	fn transfer_keep_alive() -> Weight {
-		Weight::from_ref_time(30_212_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(30_212_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:1 w:1)
 	fn set_balance_creating() -> Weight {
-		Weight::from_ref_time(19_428_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(19_428_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:1 w:1)
 	fn set_balance_killing() -> Weight {
-		Weight::from_ref_time(22_526_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(22_526_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:2 w:2)
 	fn force_transfer() -> Weight {
-		Weight::from_ref_time(38_737_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
+		Weight::from_ref_time(38_737_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: System Account (r:1 w:1)
 	fn transfer_all() -> Weight {
-		Weight::from_ref_time(35_648_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(35_648_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:1 w:1)
 	fn force_unreserve() -> Weight {
-		Weight::from_ref_time(17_197_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(17_197_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }

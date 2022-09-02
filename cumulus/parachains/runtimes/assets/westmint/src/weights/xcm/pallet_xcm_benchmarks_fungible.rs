@@ -42,7 +42,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{RefTimeWeight, Weight}};
+use frame_support::{traits::Get, weights::Weight};
 use sp_std::marker::PhantomData;
 
 /// Weights for `pallet_xcm_benchmarks::fungible`.
@@ -50,15 +50,15 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	pub(crate) fn withdraw_asset() -> Weight {
-		Weight::from_ref_time(28_725_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(28_725_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:2 w:2)
 	pub(crate) fn transfer_asset() -> Weight {
-		Weight::from_ref_time(33_865_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(2 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
+		Weight::from_ref_time(33_865_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: System Account (r:2 w:2)
 	// Storage: ParachainInfo ParachainId (r:1 w:0)
@@ -68,18 +68,18 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: ParachainSystem HostConfiguration (r:1 w:0)
 	// Storage: ParachainSystem PendingUpwardMessages (r:1 w:1)
 	pub(crate) fn transfer_reserve_asset() -> Weight {
-		Weight::from_ref_time(48_839_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(8 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
+		Weight::from_ref_time(48_839_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(8 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	pub(crate) fn receive_teleported_asset() -> Weight {
-		Weight::from_ref_time(4_849_000 as RefTimeWeight)
+		Weight::from_ref_time(4_849_000 as u64)
 	}
 	// Storage: System Account (r:1 w:1)
 	pub(crate) fn deposit_asset() -> Weight {
-		Weight::from_ref_time(29_778_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(29_778_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:1 w:1)
 	// Storage: ParachainInfo ParachainId (r:1 w:0)
@@ -89,9 +89,9 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: ParachainSystem HostConfiguration (r:1 w:0)
 	// Storage: ParachainSystem PendingUpwardMessages (r:1 w:1)
 	pub(crate) fn deposit_reserve_asset() -> Weight {
-		Weight::from_ref_time(45_355_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(7 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(3 as RefTimeWeight))
+		Weight::from_ref_time(45_355_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(7 as u64))
+			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: ParachainInfo ParachainId (r:1 w:0)
 	// Storage: PolkadotXcm SupportedVersion (r:1 w:0)
@@ -100,8 +100,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: ParachainSystem HostConfiguration (r:1 w:0)
 	// Storage: ParachainSystem PendingUpwardMessages (r:1 w:1)
 	pub(crate) fn initiate_teleport() -> Weight {
-		Weight::from_ref_time(23_451_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(6 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
+		Weight::from_ref_time(23_451_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(6 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 }

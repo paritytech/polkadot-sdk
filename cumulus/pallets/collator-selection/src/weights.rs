@@ -20,7 +20,7 @@
 
 use frame_support::{
 	traits::Get,
-	weights::{constants::RocksDbWeight, RefTimeWeight, Weight},
+	weights::{constants::RocksDbWeight, Weight},
 };
 use sp_std::marker::PhantomData;
 
@@ -39,137 +39,93 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_invulnerables(b: u32) -> Weight {
-		Weight::from_ref_time(18_563_000 as RefTimeWeight)
+		Weight::from_ref_time(18_563_000 as u64)
 			// Standard Error: 0
-			.saturating_add(
-				Weight::from_ref_time(68_000 as RefTimeWeight).saturating_mul(b as RefTimeWeight),
-			)
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(68_000 as u64).saturating_mul(b as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	fn set_desired_candidates() -> Weight {
-		Weight::from_ref_time(16_363_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(16_363_000 as u64).saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	fn set_candidacy_bond() -> Weight {
-		Weight::from_ref_time(16_840_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(16_840_000 as u64).saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
-		Weight::from_ref_time(71_196_000 as RefTimeWeight)
+		Weight::from_ref_time(71_196_000 as u64)
 			// Standard Error: 0
-			.saturating_add(
-				Weight::from_ref_time(198_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight),
-			)
-			.saturating_add(T::DbWeight::get().reads(4 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(198_000 as u64).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads(4 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	fn leave_intent(c: u32) -> Weight {
-		Weight::from_ref_time(55_336_000 as RefTimeWeight)
+		Weight::from_ref_time(55_336_000 as u64)
 			// Standard Error: 0
-			.saturating_add(
-				Weight::from_ref_time(151_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight),
-			)
-			.saturating_add(T::DbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(2 as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(151_000 as u64).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	fn note_author() -> Weight {
-		Weight::from_ref_time(71_461_000 as RefTimeWeight)
-			.saturating_add(T::DbWeight::get().reads(3 as RefTimeWeight))
-			.saturating_add(T::DbWeight::get().writes(4 as RefTimeWeight))
+		Weight::from_ref_time(71_461_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	fn new_session(r: u32, c: u32) -> Weight {
-		Weight::from_ref_time(0 as RefTimeWeight)
+		Weight::from_ref_time(0 as u64)
 			// Standard Error: 1_010_000
-			.saturating_add(
-				Weight::from_ref_time(109_961_000 as RefTimeWeight)
-					.saturating_mul(r as RefTimeWeight),
-			)
+			.saturating_add(Weight::from_ref_time(109_961_000 as u64).saturating_mul(r as u64))
 			// Standard Error: 1_010_000
-			.saturating_add(
-				Weight::from_ref_time(151_952_000 as RefTimeWeight)
-					.saturating_mul(c as RefTimeWeight),
-			)
-			.saturating_add(
-				T::DbWeight::get().reads((1 as RefTimeWeight).saturating_mul(r as RefTimeWeight)),
-			)
-			.saturating_add(
-				T::DbWeight::get().reads((2 as RefTimeWeight).saturating_mul(c as RefTimeWeight)),
-			)
-			.saturating_add(
-				T::DbWeight::get().writes((2 as RefTimeWeight).saturating_mul(r as RefTimeWeight)),
-			)
-			.saturating_add(
-				T::DbWeight::get().writes((2 as RefTimeWeight).saturating_mul(c as RefTimeWeight)),
-			)
+			.saturating_add(Weight::from_ref_time(151_952_000 as u64).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(r as u64)))
+			.saturating_add(T::DbWeight::get().reads((2 as u64).saturating_mul(c as u64)))
+			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(r as u64)))
+			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(c as u64)))
 	}
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
 	fn set_invulnerables(b: u32) -> Weight {
-		Weight::from_ref_time(18_563_000 as RefTimeWeight)
+		Weight::from_ref_time(18_563_000 as u64)
 			// Standard Error: 0
-			.saturating_add(
-				Weight::from_ref_time(68_000 as RefTimeWeight).saturating_mul(b as RefTimeWeight),
-			)
-			.saturating_add(RocksDbWeight::get().writes(1 as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(68_000 as u64).saturating_mul(b as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	fn set_desired_candidates() -> Weight {
-		Weight::from_ref_time(16_363_000 as RefTimeWeight)
-			.saturating_add(RocksDbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(16_363_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	fn set_candidacy_bond() -> Weight {
-		Weight::from_ref_time(16_840_000 as RefTimeWeight)
-			.saturating_add(RocksDbWeight::get().writes(1 as RefTimeWeight))
+		Weight::from_ref_time(16_840_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
-		Weight::from_ref_time(71_196_000 as RefTimeWeight)
+		Weight::from_ref_time(71_196_000 as u64)
 			// Standard Error: 0
-			.saturating_add(
-				Weight::from_ref_time(198_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight),
-			)
-			.saturating_add(RocksDbWeight::get().reads(4 as RefTimeWeight))
-			.saturating_add(RocksDbWeight::get().writes(2 as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(198_000 as u64).saturating_mul(c as u64))
+			.saturating_add(RocksDbWeight::get().reads(4 as u64))
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	fn leave_intent(c: u32) -> Weight {
-		Weight::from_ref_time(55_336_000 as RefTimeWeight)
+		Weight::from_ref_time(55_336_000 as u64)
 			// Standard Error: 0
-			.saturating_add(
-				Weight::from_ref_time(151_000 as RefTimeWeight).saturating_mul(c as RefTimeWeight),
-			)
-			.saturating_add(RocksDbWeight::get().reads(1 as RefTimeWeight))
-			.saturating_add(RocksDbWeight::get().writes(2 as RefTimeWeight))
+			.saturating_add(Weight::from_ref_time(151_000 as u64).saturating_mul(c as u64))
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	fn note_author() -> Weight {
-		Weight::from_ref_time(71_461_000 as RefTimeWeight)
-			.saturating_add(RocksDbWeight::get().reads(3 as RefTimeWeight))
-			.saturating_add(RocksDbWeight::get().writes(4 as RefTimeWeight))
+		Weight::from_ref_time(71_461_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(3 as u64))
+			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
 	fn new_session(r: u32, c: u32) -> Weight {
-		Weight::from_ref_time(0 as RefTimeWeight)
+		Weight::from_ref_time(0 as u64)
 			// Standard Error: 1_010_000
-			.saturating_add(
-				Weight::from_ref_time(109_961_000 as RefTimeWeight)
-					.saturating_mul(r as RefTimeWeight),
-			)
+			.saturating_add(Weight::from_ref_time(109_961_000 as u64).saturating_mul(r as u64))
 			// Standard Error: 1_010_000
-			.saturating_add(
-				Weight::from_ref_time(151_952_000 as RefTimeWeight)
-					.saturating_mul(c as RefTimeWeight),
-			)
-			.saturating_add(
-				RocksDbWeight::get().reads((1 as RefTimeWeight).saturating_mul(r as RefTimeWeight)),
-			)
-			.saturating_add(
-				RocksDbWeight::get().reads((2 as RefTimeWeight).saturating_mul(c as RefTimeWeight)),
-			)
-			.saturating_add(
-				RocksDbWeight::get()
-					.writes((2 as RefTimeWeight).saturating_mul(r as RefTimeWeight)),
-			)
-			.saturating_add(
-				RocksDbWeight::get()
-					.writes((2 as RefTimeWeight).saturating_mul(c as RefTimeWeight)),
-			)
+			.saturating_add(Weight::from_ref_time(151_952_000 as u64).saturating_mul(c as u64))
+			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(r as u64)))
+			.saturating_add(RocksDbWeight::get().reads((2 as u64).saturating_mul(c as u64)))
+			.saturating_add(RocksDbWeight::get().writes((2 as u64).saturating_mul(r as u64)))
+			.saturating_add(RocksDbWeight::get().writes((2 as u64).saturating_mul(c as u64)))
 	}
 }
