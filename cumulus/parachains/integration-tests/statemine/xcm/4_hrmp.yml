@@ -165,16 +165,16 @@ tests:
                   ]
                   events:
                     - name: polkadotXcm.Attempted
-                      attributes:
+                      attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
                         value: 1,000,000,000
                     - name: assets.Transferred
-                      attributes:
+                      attribute:
                         type: AccountId32
                         value: *pp_sovereign_sibl
                     - name: assets.Transferred
-                      attributes:
+                      attribute:
                         type: u128
                         value: *amount_to_send
 
@@ -212,16 +212,16 @@ tests:
                   ]
                   events:
                     - name: polkadotXcm.Attempted
-                      attributes:
+                      attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
                         value: 1,000,000,000
                     - name: balances.Endowed
-                      attributes:
+                      attribute:
                         type: AccountId32
                         value: *pp_sovereign_sibl
                     - name: balances.Endowed
-                      attributes:
+                      attribute:
                         type: u128
                         value: *amount
 
@@ -278,17 +278,17 @@ tests:
                     - name: polkadotXcm.Sent
                     - name: assets.Burned
                       chain: *assets_parachain
-                      attributes:
+                      attribute:
                         type: AccountId32
                         value: *pp_sovereign_sibl
                     - name: assets.Issued
                       chain: *assets_parachain
-                      attributes:
+                      attribute:
                         type: u32
                         value: *asset_id
                     - name: system.Remarked
                       chain: *assets_parachain
-                      attributes:
+                      attribute:
                         type: AccountId32
                         value: *pp_sovereign_sibl
               - queries:
@@ -348,6 +348,6 @@ tests:
                   events:
                     - name: xcmpQueue.Fail
                       chain: *assets_parachain
-                      attributes:
+                      attribute:
                         type: XcmV2TraitsError
                         value: FailedToTransactAsset

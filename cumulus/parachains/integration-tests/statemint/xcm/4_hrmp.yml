@@ -33,7 +33,7 @@ settings:
         suff_asset_fungible: &ap_suff_asset_fungible { id: *suff_asset, fun: { fungible: *weight_at_most }}
         suff_asset_fungible_fail: &ap_suff_asset_fungible_fail { id: *suff_asset_fail, fun: { fungible: *weight_at_most }}
       penpal_parachain:
-        sovereign_account: &pp_sovereign_sibl FBeL7EAeUroLWXW1yfKboiqTqVfbRBcsUKd6QqVf4kGBySS
+        sovereign_account: &pp_sovereign_sibl 13cKp89Msu7M2PiaCuuGr1BzAsD5V3vaVbDMs3YtjMZHdGwR
         signer: &pp_signer //Alice
         penpal_parachain_account: &pp_acc '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
   decodedCalls:
@@ -164,16 +164,16 @@ tests:
                   ]
                   events:
                     - name: polkadotXcm.Attempted
-                      attributes:
+                      attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
                         value: 1,000,000,000
                     - name: assets.Transferred
-                      attributes:
+                      attribute:
                         type: AccountId32
                         value: *pp_sovereign_sibl
                     - name: assets.Transferred
-                      attributes:
+                      attribute:
                         type: u128
                         value: *amount_to_send
 
@@ -211,142 +211,15 @@ tests:
                   ]
                   events:
                     - name: polkadotXcm.Attempted
-                      attributes:
+                      attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
                         value: 1,000,000,000
                     - name: balances.Endowed
-                      attributes:
+                      attribute:
                         type: AccountId32
                         value: *pp_sovereign_sibl
                     - name: balances.Endowed
-                      attributes:
+                      attribute:
                         type: u128
                         value: *amount
-
-      - name: polkadotXcm.send( system.remarkWithEvent() ) | Penpal Parachain -> Assets Parachain
-        before:
-          - name: Get the asset balance of the Penpal Parachain Sovereign account in Assets Parachain
-            actions:
-              - queries:
-                  assets_balance_pp_sovereign_before:
-                    chain: *assets_parachain
-                    pallet: assets
-                    call: account
-                    args: [
-                      *asset_id,
-                      *pp_sovereign_sibl
-                    ]
-        its:
-          - name: Penpal Parachain should be able to send XCM message paying its fee with sufficient asset[2] in Assets Parachain
-            actions:
-              - extrinsics:
-                - chain: *penpal_parachain
-                  signer: *pp_signer
-                  sudo: true
-                  pallet: polkadotXcm
-                  call: send
-                  args: [
-                    *ap_dest_routed, # destination
-                    {
-                      v2: [ #message
-                        {
-                          WithdrawAsset: [*ap_suff_asset_fungible]
-                        },
-                        {
-                          BuyExecution: {
-                              fees: *ap_suff_asset_fungible,
-                              weightLimit: Unlimited
-                          }
-                        },
-                        {
-                          Transact: {
-                            originType: SovereignAccount,
-                            requireWeightAtMost: *weight_at_most,
-                            call: $system_remark_with_event
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                  events:
-                    - name: sudo.Sudid
-                      attribute:
-                        type: Result<Null, SpRuntimeDispatchError>
-                        value: Ok
-                    - name: polkadotXcm.Sent
-                    - name: assets.Burned
-                      chain: *assets_parachain
-                      attributes:
-                        type: AccountId32
-                        value: *pp_sovereign_sibl
-                    - name: assets.Issued
-                      chain: *assets_parachain
-                      attributes:
-                        type: u32
-                        value: *asset_id
-                    - name: system.Remarked
-                      chain: *assets_parachain
-                      attributes:
-                        type: AccountId32
-                        value: *pp_sovereign_sibl
-              - queries:
-                  assets_balance_pp_sovereign_after:
-                    chain: *assets_parachain
-                    pallet: assets
-                    call: account
-                    args: [
-                      *asset_id,
-                      *pp_sovereign_sibl
-                    ]
-
-          - name: Should reduce the asset[2] balance of the Penpal Parachain's SovereignAccount in the Assets Parachain
-            actions:
-              - asserts:
-                  assetsDecreased:
-                    args: [
-                      {
-                        balances: {
-                          before: $assets_balance_pp_sovereign_before,
-                          after: $assets_balance_pp_sovereign_after,
-                        },
-                      }
-                    ]
-
-          - name: Penpal Parachain SHOULD NOT be able to send XCM message paying its fee with sufficient asset[3] if not balance
-            actions:
-              - extrinsics:
-                - chain: *penpal_parachain
-                  signer: *pp_signer
-                  sudo: true
-                  pallet: polkadotXcm
-                  call: send
-                  args: [
-                    *ap_dest_routed, # destination
-                    {
-                      v2: [ #message
-                        {
-                          WithdrawAsset: [*ap_suff_asset_fungible_fail]
-                        },
-                        {
-                          BuyExecution: {
-                              fees: *ap_suff_asset_fungible_fail,
-                              weightLimit: Unlimited
-                          }
-                        },
-                        {
-                          Transact: {
-                            originType: SovereignAccount,
-                            requireWeightAtMost: *weight_at_most,
-                            call: $system_remark_with_event
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                  events:
-                    - name: xcmpQueue.Fail
-                      chain: *assets_parachain
-                      attributes:
-                        type: XcmV2TraitsError
-                        value: FailedToTransactAsset

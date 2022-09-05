@@ -56,7 +56,7 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
+                  attribute:
                     type: Result<Null, SpRuntimeDispatchError>
                     value: Ok
                 - name: xcmPallet.SupportedVersionChanged
@@ -82,7 +82,7 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
+                  attribute:
                     type: Result<Null, SpRuntimeDispatchError>
                     value: Ok
                 - name: xcmPallet.SupportedVersionChanged

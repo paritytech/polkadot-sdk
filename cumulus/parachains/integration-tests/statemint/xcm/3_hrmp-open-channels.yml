@@ -198,10 +198,10 @@ tests:
                     - name: polkadotXcm.Sent
                     - name: ump.ExecutedUpward
                       chain: *relay_chain
-                      attributes:
+                      attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 4,000,000
+                        value: 4,000,000,000
                     - name: hrmp.OpenChannelRequested
                       chain: *relay_chain
               - queries:
@@ -392,9 +392,9 @@ tests:
                     - name: polkadotXcm.Sent
                     - name: ump.ExecutedUpward
                       chain: *relay_chain
-                      attributes:
+                      attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 4,000,000
+                        value: 4,000,000,000
                     - name: hrmp.OpenChannelAccepted
                       chain: *relay_chain
