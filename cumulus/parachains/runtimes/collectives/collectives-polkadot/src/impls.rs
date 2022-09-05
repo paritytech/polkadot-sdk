@@ -134,12 +134,4 @@ where
 	fn proposal_of(proposal_hash: HashOf<T>) -> Option<ProposalOf<T, I>> {
 		pallet_collective::Pallet::<T, I>::proposal_of(proposal_hash)
 	}
-
-	fn proposals() -> Vec<HashOf<T>> {
-		pallet_collective::Pallet::<T, I>::proposals().into_inner()
-	}
-
-	fn proposals_count() -> u32 {
-		pallet_collective::Proposals::<T, I>::decode_len().unwrap_or(0) as u32
-	}
 }
