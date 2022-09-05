@@ -285,20 +285,42 @@ pub fn storage_value_key(pallet_prefix: &str, value_name: &str) -> StorageKey {
 	StorageKey(final_key)
 }
 
-/// Can be use to access the runtime storage key of a `StorageDoubleMap`.
-pub trait StorageDoubleMapKeyProvider {
-	// The name of the variable that holds the `StorageDoubleMap`
+/// Can be use to access the runtime storage key of a `StorageMap`.
+pub trait StorageMapKeyProvider {
+	/// The name of the variable that holds the `StorageMap`.
 	const MAP_NAME: &'static str;
 
-	// The same as `StorageDoubleMap::Hasher1`
+	/// The same as `StorageMap::Hasher1`.
+	type Hasher: StorageHasher;
+	/// The same as `StorageMap::Key1`.
+	type Key: FullCodec;
+	/// The same as `StorageMap::Value`.
+	type Value: FullCodec;
+
+	/// This is a copy of the
+	/// `frame_support::storage::generator::StorageMap::storage_map_final_key`.
+	///
+	/// We're using it because to call `storage_map_final_key` directly, we need access
+	/// to the runtime and pallet instance, which (sometimes) is impossible.
+	fn final_key(pallet_prefix: &str, key: &Self::Key) -> StorageKey {
+		storage_map_final_key::<Self::Hasher>(pallet_prefix, Self::MAP_NAME, &key.encode())
+	}
+}
+
+/// Can be use to access the runtime storage key of a `StorageDoubleMap`.
+pub trait StorageDoubleMapKeyProvider {
+	/// The name of the variable that holds the `StorageDoubleMap`.
+	const MAP_NAME: &'static str;
+
+	/// The same as `StorageDoubleMap::Hasher1`.
 	type Hasher1: StorageHasher;
-	// The same as `StorageDoubleMap::Key1`
+	/// The same as `StorageDoubleMap::Key1`.
 	type Key1: FullCodec;
-	// The same as `StorageDoubleMap::Hasher2`
+	/// The same as `StorageDoubleMap::Hasher2`.
 	type Hasher2: StorageHasher;
-	// The same as `StorageDoubleMap::Key2`
+	/// The same as `StorageDoubleMap::Key2`.
 	type Key2: FullCodec;
-	// The same as `StorageDoubleMap::Value`
+	/// The same as `StorageDoubleMap::Value`.
 	type Value: FullCodec;
 
 	/// This is a copy of the
