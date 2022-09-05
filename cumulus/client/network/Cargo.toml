@@ -33,7 +33,7 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 
 [dev-dependencies]
 portpicker = "0.1.1"
-tokio = { version = "1.19.2", features = ["macros"] }
+tokio = { version = "1.21.0", features = ["macros"] }
 url = "2.2.2"
 
 # Substrate

@@ -31,7 +31,7 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = {path = "../relay-chain-interface"}
 
 [dev-dependencies]
-tokio = { version = "1.19.2", features = ["macros"] }
+tokio = { version = "1.21.0", features = ["macros"] }
 
 # Cumulus
 cumulus-test-service = { path = "../../test/service" }
