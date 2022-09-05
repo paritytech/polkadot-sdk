@@ -91,7 +91,9 @@ where
 			source_client,
 			target_client,
 			ParachainSyncParams {
-				parachains: vec![ParaId(2000)],
+				parachains: vec![
+					ParaId(<Self::ParachainFinality as substrate_relay_helper::parachains::SubstrateParachainsPipeline>::SOURCE_PARACHAIN_PARA_ID)
+				],
 				stall_timeout: std::time::Duration::from_secs(60),
 				strategy: parachains_relay::parachains_loop::ParachainSyncStrategy::Any,
 			},
