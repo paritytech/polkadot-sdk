@@ -29,7 +29,7 @@ use crate::{
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use bp_runtime::{HeaderIdProvider, StorageDoubleMapKeyProvider};
+use bp_runtime::{HeaderIdProvider, StorageDoubleMapKeyProvider, StorageMapKeyProvider};
 use codec::{Decode, Encode};
 use frame_system::AccountInfo;
 use futures::{SinkExt, StreamExt};
@@ -316,6 +316,23 @@ impl<C: Chain> Client<C> {
 			.await?
 			.map(|encoded_value| {
 				T::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed)
+			})
+			.transpose()
+	}
+
+	/// Read `MapStorage` value from runtime storage.
+	pub async fn storage_map_value<T: StorageMapKeyProvider>(
+		&self,
+		pallet_prefix: &str,
+		key: &T::Key,
+		block_hash: Option<C::Hash>,
+	) -> Result<Option<T::Value>> {
+		let storage_key = T::final_key(pallet_prefix, key);
+
+		self.raw_storage_value(storage_key, block_hash)
+			.await?
+			.map(|encoded_value| {
+				T::Value::decode(&mut &encoded_value.0[..]).map_err(Error::ResponseParseFailed)
 			})
 			.transpose()
 	}

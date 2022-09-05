@@ -22,7 +22,7 @@ use bp_polkadot_core::{
 	parachains::{ParaHash, ParaHead, ParaId},
 	BlockNumber as RelayBlockNumber,
 };
-use bp_runtime::StorageDoubleMapKeyProvider;
+use bp_runtime::{StorageDoubleMapKeyProvider, StorageMapKeyProvider};
 use codec::{Decode, Encode};
 use frame_support::{Blake2_128Concat, RuntimeDebug, Twox64Concat};
 use scale_info::TypeInfo;
@@ -44,6 +44,15 @@ pub struct BestParaHeadHash {
 	pub head_hash: ParaHash,
 }
 
+/// Best known parachain head as it is stored in the runtime storage.
+#[derive(Decode, Encode, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct ParaInfo {
+	/// Best known parachain head hash.
+	pub best_head_hash: BestParaHeadHash,
+	/// Current ring buffer position for this parachain.
+	pub next_imported_hash_position: u32,
+}
+
 /// Returns runtime storage key of given parachain head at the source chain.
 ///
 /// The head is stored by the `paras` pallet in the `Heads` map.
@@ -54,18 +63,16 @@ pub fn parachain_head_storage_key_at_source(
 	bp_runtime::storage_map_final_key::<Twox64Concat>(paras_pallet_name, "Heads", &para_id.encode())
 }
 
-/// Returns runtime storage key of best known parachain head at the target chain.
+/// Can be use to access the runtime storage key of the parachains info at the target chain.
 ///
-/// The head is stored by the `pallet-bridge-parachains` pallet in the `BestParaHeads` map.
-pub fn best_parachain_head_hash_storage_key_at_target(
-	bridge_parachains_pallet_name: &str,
-	para_id: ParaId,
-) -> StorageKey {
-	bp_runtime::storage_map_final_key::<Blake2_128Concat>(
-		bridge_parachains_pallet_name,
-		"BestParaHeads",
-		&para_id.encode(),
-	)
+/// The info is stored by the `pallet-bridge-parachains` pallet in the `ParasInfo` map.
+pub struct ParasInfoKeyProvider;
+impl StorageMapKeyProvider for ParasInfoKeyProvider {
+	const MAP_NAME: &'static str = "ParasInfo";
+
+	type Hasher = Blake2_128Concat;
+	type Key = ParaId;
+	type Value = ParaInfo;
 }
 
 /// Can be use to access the runtime storage key of the parachain head at the target chain.
