@@ -56,7 +56,7 @@ where
 			_ => return Ok(ValidTransaction::default()),
 		};
 
-		let maybe_stored_best_head = crate::BestParaHeads::<T, I>::get(parachain);
+		let maybe_stored_best_head = crate::ParasInfo::<T, I>::get(parachain);
 		Self::validate_updated_parachain_head(
 			parachain,
 			&maybe_stored_best_head,
@@ -72,8 +72,9 @@ mod tests {
 	use crate::{
 		extension::FilterCall,
 		mock::{run_test, Call, TestRuntime},
-		BestParaHead, BestParaHeads, RelayBlockNumber,
+		ParaInfo, ParasInfo, RelayBlockNumber,
 	};
+	use bp_parachains::BestParaHeadHash;
 	use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 
 	fn validate_submit_parachain_heads(
@@ -91,11 +92,13 @@ mod tests {
 	}
 
 	fn sync_to_relay_header_10() {
-		BestParaHeads::<TestRuntime, ()>::insert(
+		ParasInfo::<TestRuntime, ()>::insert(
 			ParaId(1),
-			BestParaHead {
-				at_relay_block_number: 10,
-				head_hash: [1u8; 32].into(),
+			ParaInfo {
+				best_head_hash: BestParaHeadHash {
+					at_relay_block_number: 10,
+					head_hash: [1u8; 32].into(),
+				},
 				next_imported_hash_position: 0,
 			},
 		);
