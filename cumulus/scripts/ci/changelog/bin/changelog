@@ -76,7 +76,7 @@ else
   logger.debug("Re-using:#{substrate_data}")
 end
 
-POLKADOT_COLLECTIVES_DIGEST = ENV['SHELL_DIGEST'] || 'digests/polkadot-collectives-srtool-digest.json'
+POLKADOT_COLLECTIVES_DIGEST = ENV['COLLECTIVES_POLKADOT_DIGEST'] || 'digests/polkadot-collectives-srtool-digest.json'
 SHELL_DIGEST = ENV['SHELL_DIGEST'] || 'digests/shell-srtool-digest.json'
 WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json'
 STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
