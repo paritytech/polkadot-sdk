@@ -124,8 +124,8 @@ else
             { name: "statemine", data: $srtool_statemine[0] },
             { name: "statemint", data: $srtool_statemint[0] },
             { name: "rococo", data: $srtool_rococo_parachain[0] },
-            { name: "contracts", data: $srtool_contracts_rococo[0] }
-            { name: "polkadot-collectives", data: $srtool_polkadot_collectives[0] },
+            { name: "contracts", data: $srtool_contracts_rococo[0] },
+            { name: "polkadot-collectives", data: $srtool_polkadot_collectives[0] }
       ] }\' > context.json',
         cumulus_data,
         substrate_data,
