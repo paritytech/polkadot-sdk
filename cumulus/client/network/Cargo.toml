@@ -34,7 +34,7 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 [dev-dependencies]
 portpicker = "0.1.1"
 tokio = { version = "1.21.0", features = ["macros"] }
-url = "2.2.2"
+url = "2.3.0"
 
 # Substrate
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.2.20", features = ["derive", "deprecated"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-url = "2.2.2"
+url = "2.3.0"
 
 # Substrate
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }

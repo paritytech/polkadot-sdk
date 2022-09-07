@@ -18,7 +18,7 @@ rand = "0.8.5"
 serde = { version = "1.0.144", features = ["derive"] }
 tokio = { version = "1.21.0", features = ["macros"] }
 tracing = "0.1.36"
-url = "2.2.2"
+url = "2.3.0"
 
 # Substrate
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
