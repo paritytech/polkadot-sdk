@@ -287,7 +287,7 @@ pub mod pallet {
 						Err((message_id, required_weight)) =>
 						// Too much weight required right now.
 						{
-							if required_weight > config.max_individual {
+							if required_weight.any_gt(config.max_individual) {
 								// overweight - add to overweight queue and continue with
 								// message execution.
 								let overweight_index = page_index.overweight_count;

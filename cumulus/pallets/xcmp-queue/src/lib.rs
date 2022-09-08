@@ -808,7 +808,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut shuffle_index = 0;
 		while shuffle_index < shuffled.len() &&
-			max_weight.saturating_sub(weight_used) >= threshold_weight
+			max_weight.saturating_sub(weight_used).all_gte(threshold_weight)
 		{
 			let index = shuffled[shuffle_index];
 			let sender = status[index].sender;
@@ -831,7 +831,7 @@ impl<T: Config> Pallet<T> {
 				if shuffle_index < status.len() {
 					weight_available +=
 						(max_weight - weight_available) / (weight_restrict_decay.ref_time() + 1);
-					if weight_available + threshold_weight > max_weight {
+					if (weight_available + threshold_weight).any_gt(max_weight) {
 						weight_available = max_weight;
 					}
 				} else {
@@ -871,7 +871,7 @@ impl<T: Config> Pallet<T> {
 			// other channels a look in. If we've still not unlocked all weight, then we set them
 			// up for processing a second time anyway.
 			if !status[index].message_metadata.is_empty() &&
-				(weight_processed > Weight::zero() || weight_available != max_weight)
+				(weight_processed.any_gt(Weight::zero()) || weight_available != max_weight)
 			{
 				if shuffle_index + 1 == shuffled.len() {
 					// Only this queue left. Just run around this loop once more.
