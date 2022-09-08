@@ -42,7 +42,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 /// in addition to the messages themselves, you must provide some information about
 /// your parachain's configuration in order to mock the MQC heads properly.
 /// See [`MockXcmConfig`] for more information
-pub struct MockValidationDataInherentDataProvider {
+pub struct MockValidationDataInherentDataProvider<R = ()> {
 	/// The current block number of the local block chain (the parachain)
 	pub current_para_block: u32,
 	/// The relay block in which this parachain appeared to start. This will be the relay block
@@ -51,12 +51,31 @@ pub struct MockValidationDataInherentDataProvider {
 	/// The number of relay blocks that elapses between each parablock. Probably set this to 1 or 2
 	/// to simulate optimistic or realistic relay chain behavior.
 	pub relay_blocks_per_para_block: u32,
+	/// Number of parachain blocks per relay chain epoch
+	/// Mock epoch is computed by dividing `current_para_block` by this value.
+	pub para_blocks_per_relay_epoch: u32,
+	/// Function to mock BABE one epoch ago randomness
+	pub relay_randomness_config: R,
 	/// XCM messages and associated configuration information.
 	pub xcm_config: MockXcmConfig,
 	/// Inbound downward XCM messages to be injected into the block.
 	pub raw_downward_messages: Vec<Vec<u8>>,
 	// Inbound Horizontal messages sorted by channel
 	pub raw_horizontal_messages: Vec<(ParaId, Vec<u8>)>,
+}
+
+pub trait GenerateRandomness<I> {
+	fn generate_randomness(&self, input: I) -> relay_chain::Hash;
+}
+
+impl GenerateRandomness<u64> for () {
+	/// Default implementation uses relay epoch as randomness value
+	/// A more seemingly random implementation may hash the relay epoch instead
+	fn generate_randomness(&self, input: u64) -> relay_chain::Hash {
+		let mut mock_randomness: [u8; 32] = [0u8; 32];
+		mock_randomness[..8].copy_from_slice(&input.to_be_bytes());
+		mock_randomness.into()
+	}
 }
 
 /// Parameters for how the Mock inherent data provider should inject XCM messages.
@@ -130,7 +149,9 @@ impl MockXcmConfig {
 }
 
 #[async_trait::async_trait]
-impl InherentDataProvider for MockValidationDataInherentDataProvider {
+impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
+	for MockValidationDataInherentDataProvider<R>
+{
 	fn provide_inherent_data(
 		&self,
 		inherent_data: &mut InherentData,
@@ -177,6 +198,17 @@ impl InherentDataProvider for MockValidationDataInherentDataProvider {
 			}
 			sproof_builder.upsert_inbound_channel(*para_id).mqc_head = Some(channel_mqc.head());
 		}
+
+		// Epoch is set equal to current para block / blocks per epoch
+		sproof_builder.current_epoch = if self.para_blocks_per_relay_epoch == 0 {
+			// do not divide by 0 => set epoch to para block number
+			self.current_para_block.into()
+		} else {
+			(self.current_para_block / self.para_blocks_per_relay_epoch).into()
+		};
+		// Randomness is set by randomness generator
+		sproof_builder.randomness =
+			self.relay_randomness_config.generate_randomness(self.current_para_block.into());
 
 		let (relay_parent_storage_root, proof) = sproof_builder.into_state_root_and_proof();
 
