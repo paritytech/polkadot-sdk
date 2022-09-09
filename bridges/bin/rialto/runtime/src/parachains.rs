@@ -18,7 +18,7 @@
 
 use crate::{
 	AccountId, Babe, Balance, Balances, BlockNumber, Call, Event, Origin, Registrar, Runtime,
-	Slots, UncheckedExtrinsic,
+	ShiftSessionManager, Slots, UncheckedExtrinsic,
 };
 
 use frame_support::{parameter_types, weights::Weight};
@@ -95,7 +95,9 @@ impl parachains_paras_inherent::Config for Runtime {
 
 impl parachains_scheduler::Config for Runtime {}
 
-impl parachains_session_info::Config for Runtime {}
+impl parachains_session_info::Config for Runtime {
+	type ValidatorSet = ShiftSessionManager;
+}
 
 impl parachains_shared::Config for Runtime {}
 
