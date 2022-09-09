@@ -42,8 +42,8 @@ use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 // Substrate Imports
 use sc_client_api::ExecutorProvider;
 use sc_executor::{NativeElseWasmExecutor, NativeExecutionDispatch};
-use sc_network::NetworkService;
-use sc_service::{Configuration, PartialComponents, Role, TFullBackend, TFullClient, TaskManager};
+use sc_network::{NetworkBlock, NetworkService};
+use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::ConstructRuntimeApi;
 use sp_keystore::SyncCryptoStorePtr;
@@ -229,8 +229,9 @@ where
 					TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<Executor>>,
 				>,
 			>,
-		) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+		) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>
 		+ Send
+		+ Clone
 		+ 'static,
 	BIQ: FnOnce(
 		Arc<TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<Executor>>>,
@@ -261,10 +262,6 @@ where
 		bool,
 	) -> Result<Box<dyn ParachainConsensus<Block>>, sc_service::Error>,
 {
-	if matches!(parachain_config.role, Role::Light) {
-		return Err("Light client not supported!".into())
-	}
-
 	let parachain_config = prepare_node_config(parachain_config);
 
 	let params = new_partial::<RuntimeApi, Executor, BIQ>(&parachain_config, build_import_queue)?;
@@ -276,6 +273,7 @@ where
 		&parachain_config,
 		telemetry_worker_handle,
 		&mut task_manager,
+		None,
 	)
 	.map_err(|e| match e {
 		RelayChainError::ServiceError(polkadot_service::Error::Sub(x)) => x,
@@ -307,11 +305,11 @@ where
 	let rpc_client = client.clone();
 	let rpc_transaction_pool = transaction_pool.clone();
 	let rpc_extensions_builder = Box::new(move |deny_unsafe, _| {
-		Ok(rpc_ext_builder(deny_unsafe, rpc_client.clone(), rpc_transaction_pool.clone()))
+		rpc_ext_builder(deny_unsafe, rpc_client.clone(), rpc_transaction_pool.clone())
 	});
 
 	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		rpc_extensions_builder,
+		rpc_builder: rpc_extensions_builder.clone(),
 		client: client.clone(),
 		transaction_pool: transaction_pool.clone(),
 		task_manager: &mut task_manager,
@@ -441,18 +439,17 @@ pub async fn start_node(
 		polkadot_config,
 		collator_options,
 		id,
-		|deny_unsafe, client, pool| {
-			use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-			use substrate_frame_rpc_system::{FullSystem, SystemApi};
+		|_deny_unsafe, client, pool| {
+			use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+			use sc_rpc::DenyUnsafe;
+			use substrate_frame_rpc_system::{System, SystemApiServer};
 
-			let mut io = jsonrpc_core::IoHandler::default();
-			io.extend_with(SystemApi::to_delegate(FullSystem::new(
-				client.clone(),
-				pool,
-				deny_unsafe,
-			)));
-			io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(client)));
-			io
+			let mut io = jsonrpsee::RpcModule::new(());
+			let map_err = |e| sc_service::Error::Other(format!("{}", e));
+			io.merge(System::new(client.clone(), pool, DenyUnsafe::No).into_rpc())
+				.map_err(map_err)?;
+			io.merge(TransactionPayment::new(client).into_rpc()).map_err(map_err)?;
+			Ok(io)
 		},
 		parachain_build_import_queue,
 		|client,

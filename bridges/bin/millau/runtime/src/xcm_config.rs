@@ -156,6 +156,7 @@ impl xcm_executor::Config for XcmConfig {
 	type FeeManager = ();
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
+	type CallDispatcher = Call;
 }
 
 /// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
@@ -270,7 +271,7 @@ mod tests {
 	fn xcm_messages_are_sent_using_bridge_router() {
 		new_test_ext().execute_with(|| {
 			let xcm: Xcm<()> = vec![Instruction::Trap(42)].into();
-			let expected_fee = MultiAssets::from((Here, 4_345_002_552_u64));
+			let expected_fee = MultiAssets::from((Here, 4_259_858_152_u64));
 			let expected_hash =
 				([0u8, 0u8, 0u8, 0u8], 1u64).using_encoded(sp_io::hashing::blake2_256);
 
