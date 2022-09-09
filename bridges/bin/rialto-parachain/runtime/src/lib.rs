@@ -34,6 +34,7 @@ use bridge_runtime_common::messages::{
 	source::{estimate_message_dispatch_and_delivery_fee, XcmBridge, XcmBridgeAdapter},
 	MessageBridge,
 };
+use cumulus_pallet_parachain_system::AnyRelayNumber;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -274,6 +275,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
+	type Event = Event;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -295,6 +297,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
+	type CheckAssociatedRelayNumber = AnyRelayNumber;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -419,6 +422,7 @@ impl Config for XcmConfig {
 	type FeeManager = ();
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
+	type CallDispatcher = Call;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
@@ -596,7 +600,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 
 		ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Storage, Inherent, Event<T>} = 20,
 		ParachainInfo: parachain_info::{Pallet, Storage, Config} = 21,
@@ -860,7 +864,7 @@ mod tests {
 			let xcm: Xcm<()> = vec![Instruction::Trap(42)].into();
 
 			let send_result = send_xcm::<XcmRouter>(dest.into(), xcm);
-			let expected_fee = MultiAssets::from((Here, Fungibility::Fungible(4_345_002_552_u128)));
+			let expected_fee = MultiAssets::from((Here, Fungibility::Fungible(4_259_858_152_u128)));
 			let expected_hash =
 				([0u8, 0u8, 0u8, 0u8], 1u64).using_encoded(sp_io::hashing::blake2_256);
 			assert_eq!(send_result, Ok((expected_hash, expected_fee)),);

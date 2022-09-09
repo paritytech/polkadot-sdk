@@ -741,7 +741,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
 		fn build(&self) {
-			PalletOperatingMode::<T, I>::put(&self.operating_mode);
+			PalletOperatingMode::<T, I>::put(self.operating_mode);
 			if let Some(ref owner) = self.owner {
 				PalletOwner::<T, I>::put(owner);
 			}
@@ -1022,7 +1022,7 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 			Some(data) => data,
 			None => {
 				let data: InboundLaneData<T::InboundRelayer> =
-					InboundLanes::<T, I>::get(&self.lane_id).into();
+					InboundLanes::<T, I>::get(self.lane_id).into();
 				*self.cached_data.try_borrow_mut().expect(
 					"we're in the single-threaded environment;\
 						we have no recursive borrows; qed",
@@ -1037,7 +1037,7 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 			"we're in the single-threaded environment;\
 				we have no recursive borrows; qed",
 		) = Some(data.clone());
-		InboundLanes::<T, I>::insert(&self.lane_id, StoredInboundLaneData::<T, I>(data))
+		InboundLanes::<T, I>::insert(self.lane_id, StoredInboundLaneData::<T, I>(data))
 	}
 }
 
@@ -1055,11 +1055,11 @@ impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorag
 	}
 
 	fn data(&self) -> OutboundLaneData {
-		OutboundLanes::<T, I>::get(&self.lane_id)
+		OutboundLanes::<T, I>::get(self.lane_id)
 	}
 
 	fn set_data(&mut self, data: OutboundLaneData) {
-		OutboundLanes::<T, I>::insert(&self.lane_id, data)
+		OutboundLanes::<T, I>::insert(self.lane_id, data)
 	}
 
 	#[cfg(test)]
@@ -1134,7 +1134,7 @@ mod tests {
 	fn inbound_unrewarded_relayers_state(
 		lane: bp_messages::LaneId,
 	) -> bp_messages::UnrewardedRelayersState {
-		let inbound_lane_data = InboundLanes::<TestRuntime, ()>::get(&lane).0;
+		let inbound_lane_data = InboundLanes::<TestRuntime, ()>::get(lane).0;
 		let last_delivered_nonce = inbound_lane_data.last_delivered_nonce();
 		let relayers = inbound_lane_data.relayers;
 		bp_messages::UnrewardedRelayersState {
@@ -1656,7 +1656,7 @@ mod tests {
 			receive_messages_delivery_proof();
 
 			assert_eq!(
-				OutboundLanes::<TestRuntime, ()>::get(&TEST_LANE_ID).latest_received_nonce,
+				OutboundLanes::<TestRuntime, ()>::get(TEST_LANE_ID).latest_received_nonce,
 				1,
 			);
 		});
@@ -1839,7 +1839,7 @@ mod tests {
 				0, // weight may be zero in this case (all messages are improperly encoded)
 			),);
 
-			assert_eq!(InboundLanes::<TestRuntime>::get(&TEST_LANE_ID).last_delivered_nonce(), 1,);
+			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 1,);
 		});
 	}
 
@@ -1860,7 +1860,7 @@ mod tests {
 				REGULAR_PAYLOAD.declared_weight + REGULAR_PAYLOAD.declared_weight,
 			),);
 
-			assert_eq!(InboundLanes::<TestRuntime>::get(&TEST_LANE_ID).last_delivered_nonce(), 3,);
+			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 3,);
 		});
 	}
 

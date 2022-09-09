@@ -148,8 +148,8 @@ mod tests {
 		run_test(|| {
 			register_relayers_rewards::<TestRuntime>(&RELAYER_2, relayers_rewards(), 10);
 
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_1), Some(80));
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_2), Some(120));
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_1), Some(80));
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_2), Some(120));
 		});
 	}
 
@@ -158,9 +158,9 @@ mod tests {
 		run_test(|| {
 			register_relayers_rewards::<TestRuntime>(&RELAYER_3, relayers_rewards(), 10);
 
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_1), Some(80));
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_2), Some(70));
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_3), Some(50));
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_1), Some(80));
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_2), Some(70));
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_3), Some(50));
 		});
 	}
 
@@ -169,9 +169,9 @@ mod tests {
 		run_test(|| {
 			register_relayers_rewards::<TestRuntime>(&RELAYER_3, relayers_rewards(), 1000);
 
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_1), None);
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_2), None);
-			assert_eq!(RelayerRewards::<TestRuntime>::get(&RELAYER_3), Some(200));
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_1), None);
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_2), None);
+			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_3), Some(200));
 		});
 	}
 }
