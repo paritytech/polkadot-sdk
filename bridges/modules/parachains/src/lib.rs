@@ -132,7 +132,11 @@ pub mod pallet {
 		/// we're interested in.
 		type BridgesGrandpaPalletInstance: 'static;
 
-		/// Name of the `paras` pallet in the `construct_runtime!()` call at the bridged chain.
+		/// Name of the original `paras` pallet in the `construct_runtime!()` call at the bridged
+		/// chain.
+		///
+		/// Please keep in mind that this should be the name of the `runtime_parachains::paras`
+		/// pallet from polkadot repository, not the `pallet-bridge-parachains`.
 		#[pallet::constant]
 		type ParasPalletName: Get<&'static str>;
 
