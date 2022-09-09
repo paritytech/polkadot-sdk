@@ -30,7 +30,7 @@ bp-rialto-parachain = { path = "../../../primitives/chain-rialto-parachain" }
 pallet-bridge-messages = { path = "../../../modules/messages" }
 
 # RPC related Dependencies
-jsonrpc-core = '18.0'
+jsonrpsee = { version = "0.15.1", features = ["server"] }
 
 # Local Dependencies
 rialto-parachain-runtime = { path = '../runtime' }

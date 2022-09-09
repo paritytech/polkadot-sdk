@@ -19,6 +19,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::traits::{ValidatorSet, ValidatorSetWithIdentification};
 use sp_std::prelude::*;
 
 pub use pallet::*;
@@ -47,6 +48,24 @@ pub mod pallet {
 	/// Validators of first two sessions.
 	#[pallet::storage]
 	pub(super) type InitialValidators<T: Config> = StorageValue<_, Vec<T::ValidatorId>>;
+}
+
+impl<T: pallet_session::Config + Config> ValidatorSet<T::AccountId> for Pallet<T> {
+	type ValidatorId = T::ValidatorId;
+	type ValidatorIdOf = T::ValidatorIdOf;
+
+	fn session_index() -> sp_staking::SessionIndex {
+		pallet_session::Pallet::<T>::current_index()
+	}
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		pallet_session::Pallet::<T>::validators()
+	}
+}
+
+impl<T: Config> ValidatorSetWithIdentification<T::AccountId> for Pallet<T> {
+	type Identification = ();
+	type IdentificationOf = ();
 }
 
 impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {

@@ -52,7 +52,7 @@ impl<
 				..
 			}) => {
 				let inbound_lane_data =
-					pallet_bridge_messages::InboundLanes::<T, I>::get(&proof.lane);
+					pallet_bridge_messages::InboundLanes::<T, I>::get(proof.lane);
 				if proof.nonces_end <= inbound_lane_data.last_delivered_nonce() {
 					log::trace!(
 						target: pallet_bridge_messages::LOG_TARGET,
@@ -74,7 +74,7 @@ impl<
 				let latest_delivered_nonce = relayers_state.last_delivered_nonce;
 
 				let outbound_lane_data =
-					pallet_bridge_messages::OutboundLanes::<T, I>::get(&proof.lane);
+					pallet_bridge_messages::OutboundLanes::<T, I>::get(proof.lane);
 				if latest_delivered_nonce <= outbound_lane_data.latest_received_nonce {
 					log::trace!(
 						target: pallet_bridge_messages::LOG_TARGET,

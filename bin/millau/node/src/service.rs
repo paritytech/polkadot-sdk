@@ -16,19 +16,7 @@
 
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-// =====================================================================================
-// =====================================================================================
-// =====================================================================================
-// UPDATE GUIDE:
-// 1) replace everything with node-template/src/service.rs contents (found in main Substrate repo);
-// 2) from old code keep `rpc_extensions_builder` - we use our own custom RPCs;
-// 3) from old code keep the Beefy gadget;
-// 4) fix compilation errors;
-// 5) test :)
-// =====================================================================================
-// =====================================================================================
-// =====================================================================================
-
+use jsonrpsee::RpcModule;
 use millau_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{BlockBackend, ExecutorProvider};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
@@ -83,6 +71,8 @@ pub fn new_partial(
 				FullSelectChain,
 			>,
 			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
+			beefy_gadget::BeefyVoterLinks<Block>,
+			beefy_gadget::BeefyRPCLinks<Block>,
 			Option<Telemetry>,
 		),
 	>,
@@ -140,11 +130,18 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
+	let (beefy_block_import, beefy_voter_links, beefy_rpc_links) =
+		beefy_gadget::beefy_block_import_and_links(
+			grandpa_block_import.clone(),
+			backend.clone(),
+			client.clone(),
+		);
+
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 
 	let import_queue =
 		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
-			block_import: grandpa_block_import.clone(),
+			block_import: beefy_block_import,
 			justification_import: Some(Box::new(grandpa_block_import.clone())),
 			client: client.clone(),
 			create_inherent_data_providers: move |_, ()| async move {
@@ -175,7 +172,7 @@ pub fn new_partial(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (grandpa_block_import, grandpa_link, telemetry),
+		other: (grandpa_block_import, grandpa_link, beefy_voter_links, beefy_rpc_links, telemetry),
 	})
 }
 
@@ -196,7 +193,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (block_import, grandpa_link, mut telemetry),
+		other: (block_import, grandpa_link, beefy_voter_links, beefy_rpc_links, mut telemetry),
 	} = new_partial(&config)?;
 
 	if let Some(url) = &config.keystore_remote {
@@ -264,18 +261,16 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let shared_voter_state = SharedVoterState::empty();
-	let (beefy_commitment_link, beefy_commitment_stream) =
-		beefy_gadget::notification::BeefySignedCommitmentStream::<Block>::channel();
-	let (beefy_best_block_link, beefy_best_block_stream) =
-		beefy_gadget::notification::BeefyBestBlockStream::<Block>::channel();
 
 	let rpc_extensions_builder = {
 		use sc_finality_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
 
-		use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-		use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
+		use beefy_gadget_rpc::{Beefy, BeefyApiServer};
+		use pallet_mmr_rpc::{Mmr, MmrApiServer};
+		use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+		use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
 		use sc_rpc::DenyUnsafe;
-		use substrate_frame_rpc_system::{FullSystem, SystemApi};
+		use substrate_frame_rpc_system::{System, SystemApiServer};
 
 		let backend = backend.clone();
 		let client = client.clone();
@@ -291,33 +286,33 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		);
 
 		Box::new(move |_, subscription_executor: sc_rpc::SubscriptionTaskExecutor| {
-			let mut io = jsonrpc_core::IoHandler::default();
-			io.extend_with(SystemApi::to_delegate(FullSystem::new(
-				client.clone(),
-				pool.clone(),
-				DenyUnsafe::No,
-			)));
-			io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
-				client.clone(),
-			)));
-			io.extend_with(GrandpaApi::to_delegate(GrandpaRpcHandler::new(
-				shared_authority_set.clone(),
-				shared_voter_state.clone(),
-				justification_stream.clone(),
-				subscription_executor.clone(),
-				finality_proof_provider.clone(),
-			)));
-			io.extend_with(beefy_gadget_rpc::BeefyApi::to_delegate(
-				beefy_gadget_rpc::BeefyRpcHandler::<Block>::new(
-					beefy_commitment_stream.clone(),
-					beefy_best_block_stream.clone(),
+			let mut io = RpcModule::new(());
+			let map_err = |e| sc_service::Error::Other(format!("{}", e));
+			io.merge(System::new(client.clone(), pool.clone(), DenyUnsafe::No).into_rpc())
+				.map_err(map_err)?;
+			io.merge(TransactionPayment::new(client.clone()).into_rpc()).map_err(map_err)?;
+			io.merge(
+				Grandpa::new(
+					subscription_executor.clone(),
+					shared_authority_set.clone(),
+					shared_voter_state.clone(),
+					justification_stream.clone(),
+					finality_proof_provider.clone(),
+				)
+				.into_rpc(),
+			)
+			.map_err(map_err)?;
+			io.merge(
+				Beefy::<Block>::new(
+					beefy_rpc_links.from_voter_justif_stream.clone(),
+					beefy_rpc_links.from_voter_best_beefy_stream.clone(),
 					subscription_executor,
 				)
-				.map_err(|e| sc_service::Error::Other(format!("{}", e)))?,
-			));
-			io.extend_with(pallet_mmr_rpc::MmrApi::to_delegate(pallet_mmr_rpc::Mmr::new(
-				client.clone(),
-			)));
+				.map_err(|e| sc_service::Error::Other(format!("{}", e)))?
+				.into_rpc(),
+			)
+			.map_err(map_err)?;
+			io.merge(Mmr::new(client.clone()).into_rpc()).map_err(map_err)?;
 			Ok(io)
 		})
 	};
@@ -328,7 +323,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		keystore: keystore_container.sync_keystore(),
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
-		rpc_extensions_builder,
+		rpc_builder: rpc_extensions_builder.clone(),
 		backend: backend.clone(),
 		system_rpc_tx,
 		config,
@@ -397,11 +392,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		runtime: client,
 		key_store: keystore.clone(),
 		network: network.clone(),
-		signed_commitment_sender: beefy_commitment_link,
-		beefy_best_block_sender: beefy_best_block_link,
 		min_block_delta: 2,
 		prometheus_registry: prometheus_registry.clone(),
 		protocol_name: beefy_protocol_name,
+		links: beefy_voter_links,
 	};
 
 	// Start the BEEFY bridge gadget.

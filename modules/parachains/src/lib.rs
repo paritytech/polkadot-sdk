@@ -258,7 +258,7 @@ pub mod pallet {
 									target: LOG_TARGET,
 									"The head of parachain {:?} is None. {}",
 									parachain,
-									if ParasInfo::<T, I>::contains_key(&parachain) {
+									if ParasInfo::<T, I>::contains_key(parachain) {
 										"Looks like it is not yet registered at the source relay chain"
 									} else {
 										"Looks like it has been deregistered from the source relay chain"
@@ -514,7 +514,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
 		fn build(&self) {
-			PalletOperatingMode::<T, I>::put(&self.operating_mode);
+			PalletOperatingMode::<T, I>::put(self.operating_mode);
 			if let Some(ref owner) = self.owner {
 				PalletOwner::<T, I>::put(owner);
 			}
@@ -532,8 +532,8 @@ mod tests {
 
 	use bp_parachains::{BestParaHeadHash, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider};
 	use bp_runtime::{
-		BasicOperatingMode, OwnedBridgeModuleError, StorageDoubleMapKeyProvider,
-		StorageMapKeyProvider,
+		record_all_trie_keys, BasicOperatingMode, OwnedBridgeModuleError,
+		StorageDoubleMapKeyProvider, StorageMapKeyProvider,
 	};
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
@@ -546,9 +546,7 @@ mod tests {
 		weights::Weight,
 	};
 	use sp_runtime::DispatchError;
-	use sp_trie::{
-		record_all_keys, trie_types::TrieDBMutV1, LayoutV1, MemoryDB, Recorder, TrieMut,
-	};
+	use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
 
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
 	type WeightInfo = <TestRuntime as Config>::WeightInfo;
@@ -590,7 +588,7 @@ mod tests {
 		let mut root = Default::default();
 		let mut mdb = MemoryDB::default();
 		{
-			let mut trie = TrieDBMutV1::<RelayBlockHasher>::new(&mut mdb, &mut root);
+			let mut trie = TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mut mdb, &mut root).build();
 			for (parachain, head) in heads {
 				let storage_key =
 					parachain_head_storage_key_at_source(PARAS_PALLET_NAME, ParaId(parachain));
@@ -602,10 +600,10 @@ mod tests {
 		}
 
 		// generate storage proof to be delivered to This chain
-		let mut proof_recorder = Recorder::<RelayBlockHash>::new();
-		record_all_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &root, &mut proof_recorder)
-			.map_err(|_| "record_all_keys has failed")
-			.expect("record_all_keys should not fail in benchmarks");
+		let mut proof_recorder = Recorder::<LayoutV1<RelayBlockHasher>>::new();
+		record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &root, &mut proof_recorder)
+			.map_err(|_| "record_all_trie_keys has failed")
+			.expect("record_all_trie_keys should not fail in benchmarks");
 		let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
 
 		(root, ParaHeadsProof(storage_proof), parachains)

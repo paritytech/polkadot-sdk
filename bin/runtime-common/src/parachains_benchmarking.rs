@@ -22,12 +22,12 @@ use crate::messages_benchmarking::{grow_trie, insert_header_to_grandpa_pallet};
 
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::StorageProofSize;
+use bp_runtime::{record_all_trie_keys, StorageProofSize};
 use codec::Encode;
 use frame_support::traits::Get;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use sp_std::prelude::*;
-use sp_trie::{record_all_keys, trie_types::TrieDBMutV1, LayoutV1, MemoryDB, Recorder, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
@@ -53,7 +53,8 @@ where
 	let mut state_root = Default::default();
 	let mut mdb = MemoryDB::default();
 	{
-		let mut trie = TrieDBMutV1::<RelayBlockHasher>::new(&mut mdb, &mut state_root);
+		let mut trie =
+			TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mut mdb, &mut state_root).build();
 
 		// insert parachain heads
 		for parachain in parachains {
@@ -69,10 +70,10 @@ where
 	state_root = grow_trie(state_root, &mut mdb, size);
 
 	// generate heads storage proof
-	let mut proof_recorder = Recorder::<RelayBlockHash>::new();
-	record_all_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &state_root, &mut proof_recorder)
-		.map_err(|_| "record_all_keys has failed")
-		.expect("record_all_keys should not fail in benchmarks");
+	let mut proof_recorder = Recorder::<LayoutV1<RelayBlockHasher>>::new();
+	record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &state_root, &mut proof_recorder)
+		.map_err(|_| "record_all_trie_keys has failed")
+		.expect("record_all_trie_keys should not fail in benchmarks");
 	let proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
 
 	let (relay_block_number, relay_block_hash) =

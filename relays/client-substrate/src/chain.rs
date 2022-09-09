@@ -19,7 +19,7 @@ use bp_runtime::{
 	Chain as ChainBase, EncodedOrDecodedCall, HashOf, TransactionEra, TransactionEraOf,
 };
 use codec::{Codec, Encode};
-use frame_support::weights::{Weight, WeightToFeePolynomial};
+use frame_support::weights::{Weight, WeightToFee};
 use jsonrpsee::core::{DeserializeOwned, Serialize};
 use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
@@ -61,7 +61,7 @@ pub trait Chain: ChainBase + Clone {
 	type Call: Clone + Codec + Dispatchable + Debug + Send;
 
 	/// Type that is used by the chain, to convert from weight to fee.
-	type WeightToFee: WeightToFeePolynomial<Balance = Self::Balance>;
+	type WeightToFee: WeightToFee<Balance = Self::Balance>;
 }
 
 /// Substrate-based relay chain that supports parachains.

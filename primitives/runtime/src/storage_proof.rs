@@ -19,8 +19,11 @@
 use codec::Decode;
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_runtime::RuntimeDebug;
-use sp_std::vec::Vec;
-use sp_trie::{read_trie_value, LayoutV1, MemoryDB, StorageProof};
+use sp_std::{boxed::Box, vec::Vec};
+use sp_trie::{
+	read_trie_value, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieConfiguration,
+	TrieDBBuilder, TrieError, TrieHash,
+};
 
 /// Storage proof size requirements.
 ///
@@ -70,7 +73,7 @@ where
 	/// incomplete or otherwise invalid proof, this function returns an error.
 	pub fn read_value(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
-		read_trie_value::<LayoutV1<H>, _>(&self.db, &self.root, key)
+		read_trie_value::<LayoutV1<H>, _>(&self.db, &self.root, key, None, None)
 			.map_err(|_| Error::StorageValueUnavailable)
 	}
 
@@ -122,6 +125,24 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, StorageProof) {
 	);
 
 	(root, proof)
+}
+
+/// Record all keys for a given root.
+pub fn record_all_keys<L: TrieConfiguration, DB>(
+	db: &DB,
+	root: &TrieHash<L>,
+	recorder: &mut Recorder<L>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let trie = TrieDBBuilder::<L>::new(db, root).with_recorder(recorder).build();
+	for x in trie.iter()? {
+		let (key, _) = x?;
+		trie.get(&key)?;
+	}
+
+	Ok(())
 }
 
 #[cfg(test)]

@@ -17,7 +17,7 @@
 use crate::cli::{Cli, Subcommand};
 use frame_benchmarking_cli::BenchmarkCmd;
 use rialto_runtime::{Block, RuntimeApi};
-use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
+use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -186,34 +186,30 @@ pub fn run() -> sc_cli::Result<()> {
 			// let is_collator = crate::service::IsCollator::No;
 			let overseer_gen = polkadot_service::overseer::RealOverseerGen;
 			runner.run_node_until_exit(|config| async move {
-				match config.role {
-					Role::Light => Err(sc_cli::Error::Service(sc_service::Error::Other(
-						"Light client is not supported by this node".into(),
-					))),
-					_ => {
-						let is_collator = polkadot_service::IsCollator::No;
-						let grandpa_pause = None;
-						let enable_beefy = true;
-						let jaeger_agent = None;
-						let telemetry_worker_handle = None;
-						let program_path = None;
-						let overseer_enable_anyways = false;
+				let is_collator = polkadot_service::IsCollator::No;
+				let grandpa_pause = None;
+				let enable_beefy = true;
+				let jaeger_agent = None;
+				let telemetry_worker_handle = None;
+				let program_path = None;
+				let overseer_enable_anyways = false;
 
-						polkadot_service::new_full::<rialto_runtime::RuntimeApi, ExecutorDispatch, _>(
-							config,
-							is_collator,
-							grandpa_pause,
-							enable_beefy,
-							jaeger_agent,
-							telemetry_worker_handle,
-							program_path,
-							overseer_enable_anyways,
-							overseer_gen,
-						)
-							.map(|full| full.task_manager)
-							.map_err(service_error)
-					},
-				}
+				polkadot_service::new_full::<rialto_runtime::RuntimeApi, ExecutorDispatch, _>(
+					config,
+					is_collator,
+					grandpa_pause,
+					enable_beefy,
+					jaeger_agent,
+					telemetry_worker_handle,
+					program_path,
+					overseer_enable_anyways,
+					overseer_gen,
+					None,
+					None,
+					None,
+				)
+				.map(|full| full.task_manager)
+				.map_err(service_error)
 			})
 		},
 	}
