@@ -46,7 +46,7 @@ construct_runtime! {
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Grandpa1: pallet_bridge_grandpa::<Instance1>::{Pallet},
 		Grandpa2: pallet_bridge_grandpa::<Instance2>::{Pallet},
-		Parachains: pallet_bridge_parachains::{Call, Pallet},
+		Parachains: pallet_bridge_parachains::{Call, Pallet, Event<T>},
 	}
 }
 
@@ -67,7 +67,7 @@ impl frame_system::Config for TestRuntime {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -112,6 +112,7 @@ parameter_types! {
 }
 
 impl pallet_bridge_parachains::Config for TestRuntime {
+	type Event = Event;
 	type WeightInfo = ();
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
 	type ParasPalletName = ParasPalletName;
@@ -166,7 +167,11 @@ impl Chain for OtherBridgedChain {
 }
 
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	sp_io::TestExternalities::new(Default::default()).execute_with(test)
+	sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+		System::set_block_number(1);
+		System::reset_events();
+		test()
+	})
 }
 
 pub fn test_relay_header(
