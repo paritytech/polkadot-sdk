@@ -540,6 +540,7 @@ parameter_types! {
 pub type WithRialtoParachainsInstance = ();
 
 impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime {
+	type Event = Event;
 	type WeightInfo = pallet_bridge_parachains::weights::MillauWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
 	type ParasPalletName = RialtoParasPalletName;
@@ -551,6 +552,7 @@ impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime 
 pub type WithWestendParachainsInstance = pallet_bridge_parachains::Instance1;
 
 impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime {
+	type Event = Event;
 	type WeightInfo = pallet_bridge_parachains::weights::MillauWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
 	type ParasPalletName = WestendParasPalletName;
@@ -592,10 +594,10 @@ construct_runtime!(
 
 		// Westend bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
-		BridgeWestendParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage},
+		BridgeWestendParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>},
 
 		// RialtoParachain bridge modules.
-		BridgeRialtoParachains: pallet_bridge_parachains::{Pallet, Call, Storage},
+		BridgeRialtoParachains: pallet_bridge_parachains::{Pallet, Call, Storage, Event<T>},
 		BridgeRialtoParachainMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
 
 		// Pallet for sending XCM.
