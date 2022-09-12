@@ -40,7 +40,7 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + parachain_system::Config + pallet_sudo::Config
 	{
-		type Event: From<Event> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
 	#[pallet::pallet]
@@ -133,10 +133,10 @@ pub mod pallet {
 
 	impl<T: Config + Send + Sync> SignedExtension for CheckSudo<T>
 	where
-		<T as frame_system::Config>::Call: Dispatchable<Info = DispatchInfo>,
+		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
 		type AccountId = T::AccountId;
-		type Call = <T as frame_system::Config>::Call;
+		type Call = <T as frame_system::Config>::RuntimeCall;
 		type AdditionalSigned = ();
 		type Pre = ();
 		const IDENTIFIER: &'static str = "CheckSudo";

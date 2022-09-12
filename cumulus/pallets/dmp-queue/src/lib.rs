@@ -84,9 +84,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type XcmExecutor: ExecuteXcm<Self::Call>;
+		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 
 		/// Origin which is allowed to execute overweight messages.
 		type ExecuteOverweightOrigin: EnsureOrigin<Self::Origin>;
@@ -224,11 +224,11 @@ pub mod pallet {
 			mut data: &[u8],
 		) -> Result<Weight, (MessageId, Weight)> {
 			let message_id = sp_io::hashing::blake2_256(data);
-			let maybe_msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
+			let maybe_msg = VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut data,
 			)
-			.map(Xcm::<T::Call>::try_from);
+			.map(Xcm::<T::RuntimeCall>::try_from);
 			match maybe_msg {
 				Err(_) => {
 					Self::deposit_event(Event::InvalidFormat { message_id });
@@ -353,7 +353,7 @@ mod tests {
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlock<Test>;
-	type Xcm = xcm::latest::Xcm<Call>;
+	type Xcm = xcm::latest::Xcm<RuntimeCall>;
 
 	frame_support::construct_runtime!(
 		pub enum Test where
@@ -387,7 +387,7 @@ mod tests {
 
 	impl frame_system::Config for Test {
 		type Origin = Origin;
-		type Call = Call;
+		type RuntimeCall = RuntimeCall;
 		type Index = u64;
 		type BlockNumber = u64;
 		type Hash = H256;
@@ -395,7 +395,7 @@ mod tests {
 		type AccountId = AccountId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
-		type Event = Event;
+		type RuntimeEvent = RuntimeEvent;
 		type BlockHashCount = BlockHashCount;
 		type BlockLength = ();
 		type BlockWeights = ();
@@ -425,7 +425,7 @@ mod tests {
 	}
 
 	pub struct MockExec;
-	impl ExecuteXcm<Call> for MockExec {
+	impl ExecuteXcm<RuntimeCall> for MockExec {
 		fn execute_xcm_in_credit(
 			_origin: impl Into<MultiLocation>,
 			message: Xcm,
@@ -449,7 +449,7 @@ mod tests {
 	}
 
 	impl Config for Test {
-		type Event = Event;
+		type RuntimeEvent = RuntimeEvent;
 		type XcmExecutor = MockExec;
 		type ExecuteOverweightOrigin = frame_system::EnsureRoot<AccountId>;
 	}
@@ -465,7 +465,7 @@ mod tests {
 				index.end_used,
 				enqueued
 					.iter()
-					.map(|m| (0, VersionedXcm::<Call>::from(m.clone()).encode()))
+					.map(|m| (0, VersionedXcm::<RuntimeCall>::from(m.clone()).encode()))
 					.collect::<Vec<_>>(),
 			);
 			index.end_used += 1;
@@ -474,7 +474,9 @@ mod tests {
 	}
 
 	fn handle_messages(incoming: &[Xcm], limit: Weight) -> Weight {
-		let iter = incoming.iter().map(|m| (0, VersionedXcm::<Call>::from(m.clone()).encode()));
+		let iter = incoming
+			.iter()
+			.map(|m| (0, VersionedXcm::<RuntimeCall>::from(m.clone()).encode()));
 		DmpQueue::handle_dmp_messages(iter, limit)
 	}
 

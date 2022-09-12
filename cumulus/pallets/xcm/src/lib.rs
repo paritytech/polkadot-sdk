@@ -48,9 +48,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type XcmExecutor: ExecuteXcm<Self::Call>;
+		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
 
 	#[pallet::error]
@@ -114,11 +114,11 @@ impl<T: Config> DmpMessageHandler for UnlimitedDmpExecution<T> {
 		let mut used = Weight::zero();
 		for (_sent_at, data) in iter {
 			let id = sp_io::hashing::twox_64(&data[..]);
-			let msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
+			let msg = VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut data.as_slice(),
 			)
-			.map(Xcm::<T::Call>::try_from);
+			.map(Xcm::<T::RuntimeCall>::try_from);
 			match msg {
 				Err(_) => Pallet::<T>::deposit_event(Event::InvalidFormat(id)),
 				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
@@ -147,11 +147,11 @@ impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
 		let mut used = Weight::zero();
 		for (_sent_at, data) in iter {
 			let id = sp_io::hashing::twox_64(&data[..]);
-			let msg = VersionedXcm::<T::Call>::decode_all_with_depth_limit(
+			let msg = VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut data.as_slice(),
 			)
-			.map(Xcm::<T::Call>::try_from);
+			.map(Xcm::<T::RuntimeCall>::try_from);
 			match msg {
 				Err(_) => Pallet::<T>::deposit_event(Event::InvalidFormat(id)),
 				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
