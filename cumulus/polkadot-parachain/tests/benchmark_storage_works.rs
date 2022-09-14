@@ -1,3 +1,5 @@
+#![cfg(feature = "runtime-benchmarks")]
+
 use assert_cmd::cargo::cargo_bin;
 use std::{
 	path::Path,
