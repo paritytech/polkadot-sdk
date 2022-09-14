@@ -28,7 +28,7 @@ use async_trait::async_trait;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SignParam,
-	SyncHeader, TransactionEra, TransactionSignScheme, UnsignedTransaction,
+	SyncHeader, TransactionEra, TransactionSignScheme, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
@@ -89,6 +89,8 @@ where
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
 	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
+	type TransactionTracker = TransactionTracker<P::TargetChain>;
+
 	async fn best_finalized_source_block_id(&self) -> Result<HeaderIdOf<P::SourceChain>, Error> {
 		// we can't continue to relay finality if target node is out of sync, because
 		// it may have already received (some of) headers that we're going to relay
@@ -109,14 +111,14 @@ where
 		&self,
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: SubstrateFinalityProof<P>,
-	) -> Result<(), Error> {
+	) -> Result<Self::TransactionTracker, Error> {
 		let genesis_hash = *self.client.genesis_hash();
 		let transaction_params = self.transaction_params.clone();
 		let call =
 			P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
 		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 		self.client
-			.submit_signed_extrinsic(
+			.submit_and_watch_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				SignParam::<P::TransactionSignScheme> {
 					spec_version,
@@ -130,6 +132,5 @@ where
 				},
 			)
 			.await
-			.map(drop)
 	}
 }
