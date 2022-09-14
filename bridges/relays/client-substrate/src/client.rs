@@ -23,8 +23,8 @@ use crate::{
 		SubstrateGrandpaClient, SubstrateStateClient, SubstrateSystemClient,
 		SubstrateTransactionPaymentClient,
 	},
-	ConnectionParams, Error, HashOf, HeaderIdOf, Result, SignParam, TransactionSignScheme,
-	TransactionStatusOf, UnsignedTransaction,
+	transaction_stall_timeout, ConnectionParams, Error, HashOf, HeaderIdOf, Result, SignParam,
+	TransactionSignScheme, TransactionTracker, UnsignedTransaction,
 };
 
 use async_std::sync::{Arc, Mutex};
@@ -40,7 +40,7 @@ use jsonrpsee::{
 use num_traits::{Bounded, Zero};
 use pallet_balances::AccountData;
 use pallet_transaction_payment::InclusionFee;
-use relay_utils::relay_loop::RECONNECT_DELAY;
+use relay_utils::{relay_loop::RECONNECT_DELAY, STALL_TIMEOUT};
 use sp_core::{
 	storage::{StorageData, StorageKey},
 	Bytes, Hasher,
@@ -58,7 +58,7 @@ const SUB_API_TXPOOL_VALIDATE_TRANSACTION: &str = "TaggedTransactionQueue_valida
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
 /// Opaque justifications subscription type.
-pub struct Subscription<T>(Mutex<futures::channel::mpsc::Receiver<Option<T>>>);
+pub struct Subscription<T>(pub(crate) Mutex<futures::channel::mpsc::Receiver<Option<T>>>);
 
 /// Opaque GRANDPA authorities set.
 pub type OpaqueGrandpaAuthoritiesSet = Vec<u8>;
@@ -467,14 +467,20 @@ impl<C: Chain> Client<C> {
 		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Result<UnsignedTransaction<C>>
 			+ Send
 			+ 'static,
-	) -> Result<Subscription<TransactionStatusOf<C>>> {
+	) -> Result<TransactionTracker<C>> {
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
 		let best_header = self.best_header().await?;
 		let best_header_id = best_header.id();
-		let subscription = self
+		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
+		let (tracker, subscription) = self
 			.jsonrpsee_execute(move |client| async move {
 				let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
+				let stall_timeout = transaction_stall_timeout(
+					extrinsic.era.mortality_period(),
+					C::AVERAGE_BLOCK_INTERVAL,
+					STALL_TIMEOUT,
+				);
 				let signed_extrinsic = S::sign_transaction(signing_data, extrinsic)?.encode();
 				let tx_hash = C::Hasher::hash(&signed_extrinsic);
 				let subscription = SubstrateAuthorClient::<C>::submit_and_watch_extrinsic(
@@ -487,17 +493,21 @@ impl<C: Chain> Client<C> {
 					e
 				})?;
 				log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
-				Ok(subscription)
+				let tracker = TransactionTracker::new(
+					stall_timeout,
+					tx_hash,
+					Subscription(Mutex::new(receiver)),
+				);
+				Ok((tracker, subscription))
 			})
 			.await?;
-		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
 		self.tokio.spawn(Subscription::background_worker(
 			C::NAME.into(),
 			"extrinsic".into(),
 			subscription,
 			sender,
 		));
-		Ok(Subscription(Mutex::new(receiver)))
+		Ok(tracker)
 	}
 
 	/// Returns pending extrinsics from transaction pool.
@@ -669,6 +679,14 @@ impl<C: Chain> Client<C> {
 }
 
 impl<T: DeserializeOwned> Subscription<T> {
+	/// Consumes subscription and returns future statuses stream.
+	pub fn into_stream(self) -> impl futures::Stream<Item = T> {
+		futures::stream::unfold(self, |this| async {
+			let item = this.0.lock().await.next().await.unwrap_or(None);
+			item.map(|i| (i, this))
+		})
+	}
+
 	/// Return next item from the subscription.
 	pub async fn next(&self) -> Result<Option<T>> {
 		let mut receiver = self.0.lock().await;

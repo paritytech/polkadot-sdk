@@ -23,6 +23,7 @@ mod client;
 mod error;
 mod rpc;
 mod sync_header;
+mod transaction_tracker;
 
 pub mod guard;
 pub mod metrics;
@@ -39,6 +40,7 @@ pub use crate::{
 	client::{ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription},
 	error::{Error, Result},
 	sync_header::SyncHeader,
+	transaction_tracker::TransactionTracker,
 };
 pub use bp_runtime::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf,
