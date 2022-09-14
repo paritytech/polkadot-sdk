@@ -710,7 +710,6 @@ pub fn rococo_parachain_build_import_queue(
 		_,
 		_,
 		_,
-		_,
 	>(cumulus_client_consensus_aura::ImportQueueParams {
 		block_import: client.clone(),
 		client,
@@ -726,7 +725,6 @@ pub fn rococo_parachain_build_import_queue(
 			Ok((timestamp, slot))
 		},
 		registry: config.prometheus_registry(),
-		can_author_with: sp_consensus::AlwaysCanAuthor,
 		spawner: &task_manager.spawn_essential_handle(),
 		telemetry,
 	})
@@ -1086,26 +1084,23 @@ where
 	let aura_verifier = move || {
 		let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client2).unwrap();
 
-		Box::new(
-			cumulus_client_consensus_aura::build_verifier::<<AuraId as AppKey>::Pair, _, _, _>(
-				cumulus_client_consensus_aura::BuildVerifierParams {
-					client: client2.clone(),
-					create_inherent_data_providers: move |_, _| async move {
-						let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+		Box::new(cumulus_client_consensus_aura::build_verifier::<<AuraId as AppKey>::Pair, _, _>(
+			cumulus_client_consensus_aura::BuildVerifierParams {
+				client: client2.clone(),
+				create_inherent_data_providers: move |_, _| async move {
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-						let slot =
+					let slot =
 							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 								*timestamp,
 								slot_duration,
 							);
 
-						Ok((timestamp, slot))
-					},
-					can_author_with: sp_consensus::AlwaysCanAuthor,
-					telemetry: telemetry_handle,
+					Ok((timestamp, slot))
 				},
-			),
-		) as Box<_>
+				telemetry: telemetry_handle,
+			},
+		)) as Box<_>
 	};
 
 	let relay_chain_verifier =
@@ -1530,7 +1525,6 @@ pub fn contracts_rococo_build_import_queue(
 		_,
 		_,
 		_,
-		_,
 	>(cumulus_client_consensus_aura::ImportQueueParams {
 		block_import: client.clone(),
 		client,
@@ -1546,7 +1540,6 @@ pub fn contracts_rococo_build_import_queue(
 			Ok((timestamp, slot))
 		},
 		registry: config.prometheus_registry(),
-		can_author_with: sp_consensus::AlwaysCanAuthor,
 		spawner: &task_manager.spawn_essential_handle(),
 		telemetry,
 	})

@@ -77,7 +77,7 @@ pub mod pallet {
 	pub use crate::weights::WeightInfo;
 	use core::ops::Div;
 	use frame_support::{
-		dispatch::DispatchResultWithPostInfo,
+		dispatch::{DispatchClass, DispatchResultWithPostInfo},
 		inherent::Vec,
 		pallet_prelude::*,
 		sp_runtime::{
@@ -88,7 +88,6 @@ pub mod pallet {
 			Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency,
 			ValidatorRegistration,
 		},
-		weights::DispatchClass,
 		BoundedVec, PalletId,
 	};
 	use frame_system::{pallet_prelude::*, Config as SystemConfig};

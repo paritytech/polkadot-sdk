@@ -24,7 +24,8 @@
 use codec::{Decode, DecodeLimit, Encode};
 use cumulus_primitives_core::{relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler};
 use frame_support::{
-	dispatch::Weight, traits::EnsureOrigin, weights::constants::WEIGHT_PER_MILLIS,
+	traits::EnsureOrigin,
+	weights::{constants::WEIGHT_PER_MILLIS, Weight},
 };
 pub use pallet::*;
 use scale_info::TypeInfo;
@@ -760,7 +761,7 @@ mod tests {
 				super::Call::<Test>::service_overweight { index: 0, weight_limit: Weight::zero() }
 					.get_dispatch_info()
 					.weight;
-			use frame_support::weights::GetDispatchInfo;
+			use frame_support::dispatch::GetDispatchInfo;
 			let info =
 				DmpQueue::service_overweight(Origin::root(), 0, Weight::from_ref_time(20000))
 					.unwrap();

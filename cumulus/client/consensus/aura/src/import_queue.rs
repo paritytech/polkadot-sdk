@@ -25,7 +25,7 @@ use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{CanAuthorWith, Error as ConsensusError};
+use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
@@ -34,7 +34,7 @@ use std::{fmt::Debug, hash::Hash, sync::Arc};
 use substrate_prometheus_endpoint::Registry;
 
 /// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, I, C, CIDP, S, CAW> {
+pub struct ImportQueueParams<'a, I, C, CIDP, S> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The client to interact with the chain.
@@ -45,23 +45,20 @@ pub struct ImportQueueParams<'a, I, C, CIDP, S, CAW> {
 	pub spawner: &'a S,
 	/// The prometheus registry.
 	pub registry: Option<&'a Registry>,
-	/// Can we author with the current node?
-	pub can_author_with: CAW,
 	/// The telemetry handle.
 	pub telemetry: Option<TelemetryHandle>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<'a, P, Block, I, C, S, CAW, CIDP>(
+pub fn import_queue<'a, P, Block, I, C, S, CIDP>(
 	ImportQueueParams {
 		block_import,
 		client,
 		create_inherent_data_providers,
 		spawner,
 		registry,
-		can_author_with,
 		telemetry,
-	}: ImportQueueParams<'a, I, C, CIDP, S, CAW>,
+	}: ImportQueueParams<'a, I, C, CIDP, S>,
 ) -> Result<DefaultImportQueue<Block, C>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -82,48 +79,41 @@ where
 	P::Public: Clone + Eq + Send + Sync + Hash + Debug + Codec,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CAW: CanAuthorWith<Block> + Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-	sc_consensus_aura::import_queue::<P, _, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {
+	sc_consensus_aura::import_queue::<P, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {
 		block_import: cumulus_client_consensus_common::ParachainBlockImport::new(block_import),
 		justification_import: None,
 		client,
 		create_inherent_data_providers,
 		spawner,
 		registry,
-		can_author_with,
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 		telemetry,
 	})
 }
 
 /// Parameters of [`build_verifier`].
-pub struct BuildVerifierParams<C, CIDP, CAW> {
+pub struct BuildVerifierParams<C, CIDP> {
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
 	/// The inherent data providers, to create the inherent data.
 	pub create_inherent_data_providers: CIDP,
-	/// Can we author with the current node?
-	pub can_author_with: CAW,
 	/// The telemetry handle.
 	pub telemetry: Option<TelemetryHandle>,
 }
 
 /// Build the [`AuraVerifier`].
-pub fn build_verifier<P, C, CIDP, CAW>(
-	BuildVerifierParams {
-		client,
-		create_inherent_data_providers,
-		can_author_with,
-		telemetry,
-	}: BuildVerifierParams<C, CIDP, CAW>,
-) -> AuraVerifier<C, P, CAW, CIDP> {
+pub fn build_verifier<P, C, CIDP>(
+	BuildVerifierParams { client, create_inherent_data_providers, telemetry }: BuildVerifierParams<
+		C,
+		CIDP,
+	>,
+) -> AuraVerifier<C, P, CIDP> {
 	sc_consensus_aura::build_verifier(sc_consensus_aura::BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
-		can_author_with,
 		telemetry,
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 	})

@@ -18,7 +18,10 @@
 
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system as parachain_system;
-use frame_support::{dispatch::DispatchResult, pallet_prelude::*, weights::DispatchInfo};
+use frame_support::{
+	dispatch::{DispatchInfo, DispatchResult},
+	pallet_prelude::*,
+};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use polkadot_primitives::v2::PersistedValidationData;
