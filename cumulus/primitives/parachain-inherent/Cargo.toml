@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 async-trait = { version = "0.1.57", optional = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
 tracing = { version = "0.1.36", optional = true }
 
 # Substrate
