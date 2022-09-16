@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1.57"
-clap = { version = "3.2.20", features = ["derive", "deprecated"] }
+clap = { version = "3.2.21", features = ["derive", "deprecated"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.4.0", features = [ "async_tokio" ] }
 jsonrpsee = { version = "0.15.1", features = ["server"] }
