@@ -57,7 +57,7 @@ impl<Call> XcmWeightInfo<Call> for WestmintXcmWeight<Call> {
 	}
 	// Currently there is no trusted reserve
 	fn reserve_asset_deposited(_assets: &MultiAssets) -> XCMWeight {
-		unimplemented!()
+		u64::MAX
 	}
 	fn receive_teleported_asset(assets: &MultiAssets) -> XCMWeight {
 		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
