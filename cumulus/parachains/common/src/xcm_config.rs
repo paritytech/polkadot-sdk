@@ -119,17 +119,3 @@ impl<Location: Get<MultiLocation>> FilterAssetLocation for ConcreteNativeAssetFr
 		matches!(asset.id, Concrete(ref id) if id == origin && origin == &Location::get())
 	}
 }
-
-/// A generic function to use for MultiAssetFilter implementations, currently used to differentiate
-/// between reserve operations and the rest of them.
-pub fn weigh_multi_assets_generic(
-	filter: &MultiAssetFilter,
-	weight: Weight,
-	max_assets: u32,
-) -> XCMWeight {
-	let multiplier = match filter {
-		MultiAssetFilter::Definite(assets) => assets.len() as u64,
-		MultiAssetFilter::Wild(_) => max_assets as u64,
-	};
-	weight.saturating_mul(multiplier).ref_time()
-}
