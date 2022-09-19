@@ -58,7 +58,6 @@ impl Config for Runtime {
 	type AddressGenerator = DefaultAddressGenerator;
 	type ContractAccessWeight = DefaultContractAccessWeight<RuntimeBlockWeights>;
 	type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
-	type RelaxedMaxCodeLen = ConstU32<{ 256 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
 }
 
