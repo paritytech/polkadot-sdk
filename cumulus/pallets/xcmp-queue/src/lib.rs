@@ -90,14 +90,14 @@ pub mod pallet {
 		type VersionWrapper: WrapVersion;
 
 		/// The origin that is allowed to execute overweight messages.
-		type ExecuteOverweightOrigin: EnsureOrigin<Self::Origin>;
+		type ExecuteOverweightOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The origin that is allowed to resume or suspend the XCMP queue.
-		type ControllerOrigin: EnsureOrigin<Self::Origin>;
+		type ControllerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The conversion function used to attempt to convert an XCM `MultiLocation` origin to a
 		/// superuser origin.
-		type ControllerOriginConverter: ConvertOrigin<Self::Origin>;
+		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;

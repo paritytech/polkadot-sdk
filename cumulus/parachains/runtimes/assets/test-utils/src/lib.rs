@@ -96,7 +96,7 @@ pub struct RuntimeHelper<Runtime>(PhantomData<Runtime>);
 impl<Runtime: frame_system::Config> RuntimeHelper<Runtime>
 where
 	AccountIdOf<Runtime>:
-		Into<<<Runtime as frame_system::Config>::Origin as OriginTrait>::AccountId>,
+		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 {
 	pub fn run_to_block(n: u32, author: Option<AccountId>) {
 		while frame_system::Pallet::<Runtime>::block_number() < n.into() {
@@ -122,13 +122,13 @@ where
 		}
 	}
 
-	pub fn root_origin() -> <Runtime as frame_system::Config>::Origin {
-		<Runtime as frame_system::Config>::Origin::root()
+	pub fn root_origin() -> <Runtime as frame_system::Config>::RuntimeOrigin {
+		<Runtime as frame_system::Config>::RuntimeOrigin::root()
 	}
 
 	pub fn origin_of(
 		account_id: AccountIdOf<Runtime>,
-	) -> <Runtime as frame_system::Config>::Origin {
-		<Runtime as frame_system::Config>::Origin::signed(account_id.into())
+	) -> <Runtime as frame_system::Config>::RuntimeOrigin {
+		<Runtime as frame_system::Config>::RuntimeOrigin::signed(account_id.into())
 	}
 }

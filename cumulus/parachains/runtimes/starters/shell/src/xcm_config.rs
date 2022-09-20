@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{AccountId, Origin, ParachainInfo, Runtime, RuntimeCall, RuntimeEvent};
+use super::{AccountId, ParachainInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 use frame_support::{match_types, parameter_types};
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -34,10 +34,10 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
 	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
 	// foreign chains who want to have a local sovereign account on this chain which they control.
-	SovereignSignedViaLocation<ParentIsPreset<AccountId>, Origin>,
+	SovereignSignedViaLocation<ParentIsPreset<AccountId>, RuntimeOrigin>,
 	// Superuser converter for the Relay-chain (Parent) location. This will allow it to issue a
 	// transaction from the Root origin.
-	ParentAsSuperuser<Origin>,
+	ParentAsSuperuser<RuntimeOrigin>,
 );
 
 match_types! {

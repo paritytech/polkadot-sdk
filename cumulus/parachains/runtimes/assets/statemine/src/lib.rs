@@ -139,7 +139,7 @@ impl frame_system::Config for Runtime {
 	type Hashing = BlakeTwo256;
 	type Header = Header;
 	type RuntimeEvent = RuntimeEvent;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type BlockHashCount = BlockHashCount;
 	type DbWeight = RocksDbWeight;
 	type Version = Version;

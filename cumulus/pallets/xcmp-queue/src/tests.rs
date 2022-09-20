@@ -16,7 +16,7 @@
 use super::*;
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{assert_noop, assert_ok};
-use mock::{new_test_ext, Origin, RuntimeCall, Test, XcmpQueue};
+use mock::{new_test_ext, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
@@ -96,7 +96,7 @@ fn handle_invalid_data() {
 fn service_overweight_unknown() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			XcmpQueue::service_overweight(Origin::root(), 0, Weight::from_ref_time(1000)),
+			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_ref_time(1000)),
 			Error::<Test>::BadOverweightIndex,
 		);
 	});
@@ -109,7 +109,7 @@ fn service_overweight_bad_xcm_format() {
 		Overweight::<Test>::insert(0, (ParaId::from(1000), 0, bad_xcm));
 
 		assert_noop!(
-			XcmpQueue::service_overweight(Origin::root(), 0, Weight::from_ref_time(1000)),
+			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_ref_time(1000)),
 			Error::<Test>::BadXcm
 		);
 	});
@@ -148,8 +148,8 @@ fn update_suspend_threshold_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.suspend_threshold, 2);
-		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 3));
-		assert_noop!(XcmpQueue::update_suspend_threshold(Origin::signed(2), 5), BadOrigin);
+		assert_ok!(XcmpQueue::update_suspend_threshold(RuntimeOrigin::root(), 3));
+		assert_noop!(XcmpQueue::update_suspend_threshold(RuntimeOrigin::signed(2), 5), BadOrigin);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 
 		assert_eq!(data.suspend_threshold, 3);
@@ -161,8 +161,8 @@ fn update_drop_threshold_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.drop_threshold, 5);
-		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 6));
-		assert_noop!(XcmpQueue::update_drop_threshold(Origin::signed(2), 7), BadOrigin);
+		assert_ok!(XcmpQueue::update_drop_threshold(RuntimeOrigin::root(), 6));
+		assert_noop!(XcmpQueue::update_drop_threshold(RuntimeOrigin::signed(2), 7), BadOrigin);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 
 		assert_eq!(data.drop_threshold, 6);
@@ -174,8 +174,8 @@ fn update_resume_threshold_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.resume_threshold, 1);
-		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 2));
-		assert_noop!(XcmpQueue::update_resume_threshold(Origin::signed(7), 3), BadOrigin);
+		assert_ok!(XcmpQueue::update_resume_threshold(RuntimeOrigin::root(), 2));
+		assert_noop!(XcmpQueue::update_resume_threshold(RuntimeOrigin::signed(7), 3), BadOrigin);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 
 		assert_eq!(data.resume_threshold, 2);
@@ -188,12 +188,12 @@ fn update_threshold_weight_works() {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.threshold_weight, Weight::from_ref_time(100_000));
 		assert_ok!(XcmpQueue::update_threshold_weight(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			Weight::from_ref_time(10_000)
 		));
 		assert_noop!(
 			XcmpQueue::update_threshold_weight(
-				Origin::signed(5),
+				RuntimeOrigin::signed(5),
 				Weight::from_ref_time(10_000_000)
 			),
 			BadOrigin
@@ -210,11 +210,14 @@ fn update_weight_restrict_decay_works() {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.weight_restrict_decay, Weight::from_ref_time(2));
 		assert_ok!(XcmpQueue::update_weight_restrict_decay(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			Weight::from_ref_time(5)
 		));
 		assert_noop!(
-			XcmpQueue::update_weight_restrict_decay(Origin::signed(6), Weight::from_ref_time(4)),
+			XcmpQueue::update_weight_restrict_decay(
+				RuntimeOrigin::signed(6),
+				Weight::from_ref_time(4)
+			),
 			BadOrigin
 		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
@@ -229,12 +232,12 @@ fn update_xcmp_max_individual_weight() {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.xcmp_max_individual_weight, 20u64 * WEIGHT_PER_MILLIS);
 		assert_ok!(XcmpQueue::update_xcmp_max_individual_weight(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			30u64 * WEIGHT_PER_MILLIS
 		));
 		assert_noop!(
 			XcmpQueue::update_xcmp_max_individual_weight(
-				Origin::signed(3),
+				RuntimeOrigin::signed(3),
 				10u64 * WEIGHT_PER_MILLIS
 			),
 			BadOrigin
