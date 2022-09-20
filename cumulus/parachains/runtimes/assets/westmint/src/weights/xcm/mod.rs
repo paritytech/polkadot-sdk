@@ -21,7 +21,7 @@ use crate::Runtime;
 use frame_support::weights::Weight;
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
-use sp_std::prelude::*;
+use sp_std::{cmp, prelude::*};
 use xcm::{
 	latest::{prelude::*, Weight as XCMWeight},
 	DoubleEncoded,
@@ -142,7 +142,10 @@ impl<Call> XcmWeightInfo<Call> for WestmintXcmWeight<Call> {
 		_dest: &MultiLocation,
 		_xcm: &Xcm<()>,
 	) -> XCMWeight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
+		// Hardcoded till the XCM pallet is fixed
+		let hardcoded_weight = Weight::from_ref_time(200_000_000 as u64).ref_time();
+		let weight = assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_teleport());
+		cmp::min(hardcoded_weight, weight)
 	}
 	fn query_holding(
 		_query_id: &u64,
