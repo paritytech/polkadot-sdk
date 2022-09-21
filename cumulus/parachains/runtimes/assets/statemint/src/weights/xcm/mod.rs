@@ -117,7 +117,10 @@ impl<Call> XcmWeightInfo<Call> for StatemintXcmWeight<Call> {
 		_max_assets: &u32,
 		_dest: &MultiLocation,
 	) -> XCMWeight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_asset())
+		// Hardcoded till the XCM pallet is fixed
+		let hardcoded_weight = Weight::from_ref_time(1_000_000_000 as u64).ref_time();
+		let weight = assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_asset());
+		cmp::min(hardcoded_weight, weight)
 	}
 	fn deposit_reserve_asset(
 		assets: &MultiAssetFilter,
