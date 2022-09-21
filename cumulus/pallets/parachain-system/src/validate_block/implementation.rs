@@ -118,6 +118,11 @@ where
 	let inherent_data = block
 		.extrinsics()
 		.iter()
+		// Inherents are at the front of the block and are unsigned.
+		//
+		// If `is_signed` is returning `None`, we keep it safe and assume that it is "signed".
+		// We are searching for unsigned transactions anyway.
+		.take_while(|e| !e.is_signed().unwrap_or(true))
 		.filter_map(|e| e.call().is_sub_type())
 		.find_map(|c| match c {
 			crate::Call::set_validation_data { data: validation_data } =>

@@ -251,3 +251,40 @@ fn check_inherent_fails_on_validate_block_as_expected() {
 		);
 	}
 }
+
+#[test]
+fn check_inherents_are_unsigned_and_before_all_other_extrinsics() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+
+		let TestBlockData { block, validation_data } =
+			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
+
+		let (header, mut extrinsics, proof) = block.deconstruct();
+
+		extrinsics.insert(0, transfer(&client, Alice, Bob, 69));
+
+		call_validate_block(
+			parent_head,
+			ParachainBlockData::new(header, extrinsics, proof),
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(&[
+				"check_inherents_are_unsigned_and_before_all_other_extrinsics",
+				"--",
+				"--nocapture",
+			])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(String::from_utf8(output.stderr).unwrap()
+			.contains("Could not find `set_validation_data` inherent"));
+	}
+}
