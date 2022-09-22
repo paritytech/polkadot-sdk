@@ -50,7 +50,7 @@ pub enum Subcommand {
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
 
-	/// The custom benchmark subcommmand benchmarking runtime pallets.
+	/// The custom benchmark subcommand benchmarking runtime pallets.
 	#[clap(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
@@ -116,7 +116,7 @@ pub struct Cli {
 
 #[derive(Debug)]
 pub struct RelayChainCli {
-	/// The actual relay chain cli object.
+	/// The actual relay chain CLI object.
 	pub base: polkadot_cli::RunCmd,
 
 	/// Optional chain id that should be passed to the relay chain.
