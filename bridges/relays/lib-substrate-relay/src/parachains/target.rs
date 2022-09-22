@@ -34,7 +34,7 @@ use parachains_relay::{
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
 	HeaderIdOf, HeaderOf, RelayChain, SignParam, TransactionEra, TransactionSignScheme,
-	UnsignedTransaction,
+	TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -86,6 +86,8 @@ where
 	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
 {
+	type TransactionTracker = TransactionTracker<P::TargetChain>;
+
 	async fn best_block(&self) -> Result<HeaderIdOf<P::TargetChain>, Self::Error> {
 		let best_header = self.client.best_header().await?;
 		let best_id = best_header.id();
@@ -172,7 +174,7 @@ where
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		updated_parachains: Vec<(ParaId, ParaHash)>,
 		proof: ParaHeadsProof,
-	) -> Result<(), Self::Error> {
+	) -> Result<Self::TransactionTracker, Self::Error> {
 		let genesis_hash = *self.client.genesis_hash();
 		let transaction_params = self.transaction_params.clone();
 		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
@@ -182,7 +184,7 @@ where
 			proof,
 		);
 		self.client
-			.submit_signed_extrinsic(
+			.submit_and_watch_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				SignParam::<P::TransactionSignScheme> {
 					spec_version,
@@ -196,6 +198,5 @@ where
 				},
 			)
 			.await
-			.map(drop)
 	}
 }
