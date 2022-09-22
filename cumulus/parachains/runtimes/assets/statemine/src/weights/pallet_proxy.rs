@@ -138,7 +138,7 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 	// Storage: unknown [0x3a65787472696e7369635f696e646578] (r:1 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	/// The range of component `p` is `[1, 31]`.
-	fn anonymous(p: u32, ) -> Weight {
+	fn create_pure(p: u32, ) -> Weight {
 		Weight::from_ref_time(31_472_000 as u64)
 			// Standard Error: 2_000
 			.saturating_add(Weight::from_ref_time(21_000 as u64).saturating_mul(p as u64))
@@ -147,7 +147,7 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 	}
 	// Storage: Proxy Proxies (r:1 w:1)
 	/// The range of component `p` is `[0, 30]`.
-	fn kill_anonymous(p: u32, ) -> Weight {
+	fn kill_pure(p: u32, ) -> Weight {
 		Weight::from_ref_time(24_620_000 as u64)
 			// Standard Error: 2_000
 			.saturating_add(Weight::from_ref_time(85_000 as u64).saturating_mul(p as u64))
