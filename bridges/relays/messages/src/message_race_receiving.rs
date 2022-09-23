@@ -16,7 +16,7 @@
 use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{
-		SourceClient as MessageLaneSourceClient, SourceClientState,
+		NoncesSubmitArtifacts, SourceClient as MessageLaneSourceClient, SourceClientState,
 		TargetClient as MessageLaneTargetClient, TargetClientState,
 	},
 	message_race_loop::{
@@ -31,7 +31,7 @@ use async_trait::async_trait;
 use bp_messages::MessageNonce;
 use futures::stream::FusedStream;
 use relay_utils::FailedClient;
-use std::{marker::PhantomData, ops::RangeInclusive, time::Duration};
+use std::{marker::PhantomData, ops::RangeInclusive};
 
 /// Message receiving confirmations delivery strategy.
 type ReceivingConfirmationsBasicStrategy<P> = BasicStrategy<
@@ -49,7 +49,6 @@ pub async fn run<P: MessageLane>(
 	source_state_updates: impl FusedStream<Item = SourceClientState<P>>,
 	target_client: impl MessageLaneTargetClient<P>,
 	target_state_updates: impl FusedStream<Item = TargetClientState<P>>,
-	stall_timeout: Duration,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
 ) -> Result<(), FailedClient> {
 	crate::message_race_loop::run(
@@ -65,7 +64,6 @@ pub async fn run<P: MessageLane>(
 			_phantom: Default::default(),
 		},
 		source_state_updates,
-		stall_timeout,
 		ReceivingConfirmationsBasicStrategy::<P>::new(),
 	)
 	.await
@@ -157,6 +155,7 @@ where
 {
 	type Error = C::Error;
 	type TargetNoncesData = ();
+	type TransactionTracker = C::TransactionTracker;
 
 	async fn require_source_header(&self, id: TargetHeaderIdOf<P>) {
 		self.client.require_target_header_on_source(id).await
@@ -182,9 +181,10 @@ where
 		generated_at_block: TargetHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesReceivingProof,
-	) -> Result<RangeInclusive<MessageNonce>, Self::Error> {
-		self.client.submit_messages_receiving_proof(generated_at_block, proof).await?;
-		Ok(nonces)
+	) -> Result<NoncesSubmitArtifacts<Self::TransactionTracker>, Self::Error> {
+		let tx_tracker =
+			self.client.submit_messages_receiving_proof(generated_at_block, proof).await?;
+		Ok(NoncesSubmitArtifacts { nonces, tx_tracker })
 	}
 }
 
