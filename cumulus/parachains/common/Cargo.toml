@@ -63,5 +63,7 @@ std = [
 	"sp-std/std",
 	"pallet-collator-selection/std",
 	"cumulus-primitives-utility/std",
+	"xcm/std",
+	"xcm-executor/std",
 	"xcm-builder/std"
 ]

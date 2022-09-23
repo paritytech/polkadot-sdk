@@ -125,9 +125,8 @@ where
 	task_manager
 		.spawn_essential_handle()
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
-
 	cumulus_client_collator::start_collator(cumulus_client_collator::StartCollatorParams {
-		runtime_api: client.clone(),
+		runtime_api: client,
 		block_status,
 		announce_block,
 		overseer_handle,

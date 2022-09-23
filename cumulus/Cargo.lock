@@ -1989,7 +1989,6 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
- "cumulus-test-service",
  "futures",
  "futures-timer",
  "polkadot-cli",

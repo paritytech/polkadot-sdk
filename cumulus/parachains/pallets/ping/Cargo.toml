@@ -30,4 +30,5 @@ std = [
 	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
+	"xcm/std",
 ]

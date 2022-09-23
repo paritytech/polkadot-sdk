@@ -38,5 +38,7 @@ std = [
 	"polkadot-parachain/std",
 	"polkadot-primitives/std",
 	"cumulus-primitives-core/std",
+	"xcm/std",
+	"xcm-builder/std",
 	"xcm-executor/std",
 ]
