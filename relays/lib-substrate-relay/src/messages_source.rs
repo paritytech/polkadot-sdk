@@ -51,7 +51,7 @@ use num_traits::{Bounded, Zero};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages, Client,
 	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam, TransactionEra,
-	TransactionSignScheme, UnsignedTransaction,
+	TransactionSignScheme, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -144,6 +144,8 @@ where
 		From<<AccountKeyPairOf<P::SourceTransactionSignScheme> as Pair>::Public>,
 	P::SourceTransactionSignScheme: TransactionSignScheme<Chain = P::SourceChain>,
 {
+	type TransactionTracker = TransactionTracker<P::SourceChain>;
+
 	async fn state(&self) -> Result<SourceClientState<MessageLaneAdapter<P>>, SubstrateError> {
 		// we can't continue to deliver confirmations if source node is out of sync, because
 		// it may have already received confirmations that we're going to deliver
@@ -338,13 +340,13 @@ where
 		&self,
 		_generated_at_block: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 		proof: <MessageLaneAdapter<P> as MessageLane>::MessagesReceivingProof,
-	) -> Result<(), SubstrateError> {
+	) -> Result<Self::TransactionTracker, SubstrateError> {
 		let genesis_hash = *self.source_client.genesis_hash();
 		let transaction_params = self.transaction_params.clone();
 		let (spec_version, transaction_version) =
 			self.source_client.simple_runtime_version().await?;
 		self.source_client
-			.submit_signed_extrinsic(
+			.submit_and_watch_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				SignParam::<P::SourceTransactionSignScheme> {
 					spec_version,
@@ -362,8 +364,7 @@ where
 					)
 				},
 			)
-			.await?;
-		Ok(())
+			.await
 	}
 
 	async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<MessageLaneAdapter<P>>) {

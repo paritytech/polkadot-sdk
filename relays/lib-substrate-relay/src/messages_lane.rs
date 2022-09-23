@@ -164,13 +164,6 @@ where
 {
 	let source_client = params.source_client;
 	let target_client = params.target_client;
-	let stall_timeout = relay_substrate_client::bidirectional_transaction_stall_timeout(
-		params.source_transaction_params.mortality,
-		params.target_transaction_params.mortality,
-		P::SourceChain::AVERAGE_BLOCK_INTERVAL,
-		P::TargetChain::AVERAGE_BLOCK_INTERVAL,
-		STALL_TIMEOUT,
-	);
 	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
 		params.source_transaction_params.signer.public().into();
 
@@ -202,8 +195,7 @@ where
 			Max messages in single transaction: {}\n\t\
 			Max messages size in single transaction: {}\n\t\
 			Max messages weight in single transaction: {}\n\t\
-			Tx mortality: {:?} (~{}m)/{:?} (~{}m)\n\t\
-			Stall timeout: {:?}",
+			Tx mortality: {:?} (~{}m)/{:?} (~{}m)",
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
 		P::SourceChain::NAME,
@@ -223,7 +215,6 @@ where
 			P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 			STALL_TIMEOUT,
 		).as_secs_f64() / 60.0f64,
-		stall_timeout,
 	);
 
 	messages_relay::message_lane_loop::run(
@@ -232,7 +223,6 @@ where
 			source_tick: P::SourceChain::AVERAGE_BLOCK_INTERVAL,
 			target_tick: P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 			reconnect_delay: relay_utils::relay_loop::RECONNECT_DELAY,
-			stall_timeout,
 			delivery_params: messages_relay::message_lane_loop::MessageDeliveryParams {
 				max_unrewarded_relayer_entries_at_target:
 					P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,

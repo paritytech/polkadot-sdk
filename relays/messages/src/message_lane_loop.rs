@@ -33,7 +33,7 @@ use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
 use bp_runtime::messages::DispatchFeePayment;
 use relay_utils::{
 	interval, metrics::MetricsParams, process_future_result, relay_loop::Client as RelayClient,
-	retry_backoff, FailedClient,
+	retry_backoff, FailedClient, TransactionTracker,
 };
 
 use crate::{
@@ -55,8 +55,6 @@ pub struct Params<Strategy: RelayStrategy> {
 	pub target_tick: Duration,
 	/// Delay between moments when connection error happens and our reconnect attempt.
 	pub reconnect_delay: Duration,
-	/// The loop will auto-restart if there has been no updates during this period.
-	pub stall_timeout: Duration,
 	/// Message delivery race parameters.
 	pub delivery_params: MessageDeliveryParams<Strategy>,
 }
@@ -119,9 +117,20 @@ pub struct MessageProofParameters {
 	pub dispatch_weight: Weight,
 }
 
+/// Artifacts of submitting nonces proof.
+pub struct NoncesSubmitArtifacts<T> {
+	/// Submitted nonces range.
+	pub nonces: RangeInclusive<MessageNonce>,
+	/// Submitted transaction tracker.
+	pub tx_tracker: T,
+}
+
 /// Source client trait.
 #[async_trait]
 pub trait SourceClient<P: MessageLane>: RelayClient {
+	/// Transaction tracker to track submitted transactions.
+	type TransactionTracker: TransactionTracker;
+
 	/// Returns state of the client.
 	async fn state(&self) -> Result<SourceClientState<P>, Self::Error>;
 
@@ -160,7 +169,7 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 		&self,
 		generated_at_block: TargetHeaderIdOf<P>,
 		proof: P::MessagesReceivingProof,
-	) -> Result<(), Self::Error>;
+	) -> Result<Self::TransactionTracker, Self::Error>;
 
 	/// We need given finalized target header on source to continue synchronization.
 	async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<P>);
@@ -172,6 +181,9 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 /// Target client trait.
 #[async_trait]
 pub trait TargetClient<P: MessageLane>: RelayClient {
+	/// Transaction tracker to track submitted transactions.
+	type TransactionTracker: TransactionTracker;
+
 	/// Returns state of the client.
 	async fn state(&self) -> Result<TargetClientState<P>, Self::Error>;
 
@@ -205,7 +217,7 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 		generated_at_header: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
-	) -> Result<RangeInclusive<MessageNonce>, Self::Error>;
+	) -> Result<NoncesSubmitArtifacts<Self::TransactionTracker>, Self::Error>;
 
 	/// We need given finalized source header on target to continue synchronization.
 	async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<P>);
@@ -327,7 +339,6 @@ async fn run_until_connection_lost<
 		delivery_source_state_receiver,
 		target_client.clone(),
 		delivery_target_state_receiver,
-		params.stall_timeout,
 		metrics_msg.clone(),
 		params.delivery_params,
 	)
@@ -342,7 +353,6 @@ async fn run_until_connection_lost<
 		receiving_source_state_receiver,
 		target_client.clone(),
 		receiving_target_state_receiver,
-		params.stall_timeout,
 		metrics_msg.clone(),
 	)
 	.fuse();
@@ -465,7 +475,7 @@ pub(crate) mod tests {
 	use futures::stream::StreamExt;
 	use parking_lot::Mutex;
 
-	use relay_utils::{HeaderId, MaybeConnectionError};
+	use relay_utils::{HeaderId, MaybeConnectionError, TrackedTransactionStatus};
 
 	use crate::relay_strategy::AltruisticStrategy;
 
@@ -518,24 +528,67 @@ pub(crate) mod tests {
 		type TargetHeaderHash = TestTargetHeaderHash;
 	}
 
-	#[derive(Debug, Default, Clone)]
+	#[derive(Clone, Debug)]
+	pub struct TestTransactionTracker(TrackedTransactionStatus);
+
+	impl Default for TestTransactionTracker {
+		fn default() -> TestTransactionTracker {
+			TestTransactionTracker(TrackedTransactionStatus::Finalized)
+		}
+	}
+
+	#[async_trait]
+	impl TransactionTracker for TestTransactionTracker {
+		async fn wait(self) -> TrackedTransactionStatus {
+			self.0
+		}
+	}
+
+	#[derive(Debug, Clone)]
 	pub struct TestClientData {
 		is_source_fails: bool,
 		is_source_reconnected: bool,
 		source_state: SourceClientState<TestMessageLane>,
 		source_latest_generated_nonce: MessageNonce,
 		source_latest_confirmed_received_nonce: MessageNonce,
+		source_tracked_transaction_status: TrackedTransactionStatus,
 		submitted_messages_receiving_proofs: Vec<TestMessagesReceivingProof>,
 		is_target_fails: bool,
 		is_target_reconnected: bool,
 		target_state: SourceClientState<TestMessageLane>,
 		target_latest_received_nonce: MessageNonce,
 		target_latest_confirmed_received_nonce: MessageNonce,
+		target_tracked_transaction_status: TrackedTransactionStatus,
 		submitted_messages_proofs: Vec<TestMessagesProof>,
 		target_to_source_header_required: Option<TestTargetHeaderId>,
 		target_to_source_header_requirements: Vec<TestTargetHeaderId>,
 		source_to_target_header_required: Option<TestSourceHeaderId>,
 		source_to_target_header_requirements: Vec<TestSourceHeaderId>,
+	}
+
+	impl Default for TestClientData {
+		fn default() -> TestClientData {
+			TestClientData {
+				is_source_fails: false,
+				is_source_reconnected: false,
+				source_state: Default::default(),
+				source_latest_generated_nonce: 0,
+				source_latest_confirmed_received_nonce: 0,
+				source_tracked_transaction_status: TrackedTransactionStatus::Finalized,
+				submitted_messages_receiving_proofs: Vec::new(),
+				is_target_fails: false,
+				is_target_reconnected: false,
+				target_state: Default::default(),
+				target_latest_received_nonce: 0,
+				target_latest_confirmed_received_nonce: 0,
+				target_tracked_transaction_status: TrackedTransactionStatus::Finalized,
+				submitted_messages_proofs: Vec::new(),
+				target_to_source_header_required: None,
+				target_to_source_header_requirements: Vec::new(),
+				source_to_target_header_required: None,
+				source_to_target_header_requirements: Vec::new(),
+			}
+		}
 	}
 
 	#[derive(Clone)]
@@ -569,6 +622,8 @@ pub(crate) mod tests {
 
 	#[async_trait]
 	impl SourceClient<TestMessageLane> for TestSourceClient {
+		type TransactionTracker = TestTransactionTracker;
+
 		async fn state(&self) -> Result<SourceClientState<TestMessageLane>, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
@@ -648,7 +703,7 @@ pub(crate) mod tests {
 			&self,
 			_generated_at_block: TargetHeaderIdOf<TestMessageLane>,
 			proof: TestMessagesReceivingProof,
-		) -> Result<(), TestError> {
+		) -> Result<Self::TransactionTracker, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			data.source_state.best_self =
@@ -656,7 +711,7 @@ pub(crate) mod tests {
 			data.source_state.best_finalized_self = data.source_state.best_self;
 			data.submitted_messages_receiving_proofs.push(proof);
 			data.source_latest_confirmed_received_nonce = proof;
-			Ok(())
+			Ok(TestTransactionTracker(data.source_tracked_transaction_status))
 		}
 
 		async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<TestMessageLane>) {
@@ -702,6 +757,8 @@ pub(crate) mod tests {
 
 	#[async_trait]
 	impl TargetClient<TestMessageLane> for TestTargetClient {
+		type TransactionTracker = TestTransactionTracker;
+
 		async fn state(&self) -> Result<TargetClientState<TestMessageLane>, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
@@ -762,7 +819,7 @@ pub(crate) mod tests {
 			_generated_at_header: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<MessageNonce>,
 			proof: TestMessagesProof,
-		) -> Result<RangeInclusive<MessageNonce>, TestError> {
+		) -> Result<NoncesSubmitArtifacts<Self::TransactionTracker>, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
@@ -777,7 +834,10 @@ pub(crate) mod tests {
 					target_latest_confirmed_received_nonce;
 			}
 			data.submitted_messages_proofs.push(proof);
-			Ok(nonces)
+			Ok(NoncesSubmitArtifacts {
+				nonces,
+				tx_tracker: TestTransactionTracker(data.target_tracked_transaction_status),
+			})
 		}
 
 		async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<TestMessageLane>) {
@@ -817,7 +877,6 @@ pub(crate) mod tests {
 					source_tick: Duration::from_millis(100),
 					target_tick: Duration::from_millis(100),
 					reconnect_delay: Duration::from_millis(0),
-					stall_timeout: Duration::from_millis(60 * 1000),
 					delivery_params: MessageDeliveryParams {
 						max_unrewarded_relayer_entries_at_target: 4,
 						max_unconfirmed_nonces_at_target: 4,
@@ -887,6 +946,54 @@ pub(crate) mod tests {
 		);
 
 		assert_eq!(result.submitted_messages_proofs, vec![(1..=1, None)],);
+	}
+
+	#[test]
+	fn message_lane_loop_is_able_to_recover_from_race_stall() {
+		// with this configuration, both source and target clients will lose their transactions =>
+		// reconnect will happen
+		let (source_exit_sender, exit_receiver) = unbounded();
+		let target_exit_sender = source_exit_sender.clone();
+		let result = run_loop_test(
+			TestClientData {
+				source_state: ClientState {
+					best_self: HeaderId(0, 0),
+					best_finalized_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
+					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+				},
+				source_latest_generated_nonce: 1,
+				source_tracked_transaction_status: TrackedTransactionStatus::Lost,
+				target_state: ClientState {
+					best_self: HeaderId(0, 0),
+					best_finalized_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
+					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+				},
+				target_latest_received_nonce: 0,
+				target_tracked_transaction_status: TrackedTransactionStatus::Lost,
+				..Default::default()
+			},
+			Arc::new(move |data: &mut TestClientData| {
+				if data.is_source_reconnected {
+					data.source_tracked_transaction_status = TrackedTransactionStatus::Finalized;
+				}
+				if data.is_source_reconnected && data.is_target_reconnected {
+					source_exit_sender.unbounded_send(()).unwrap();
+				}
+			}),
+			Arc::new(move |data: &mut TestClientData| {
+				if data.is_target_reconnected {
+					data.target_tracked_transaction_status = TrackedTransactionStatus::Finalized;
+				}
+				if data.is_source_reconnected && data.is_target_reconnected {
+					target_exit_sender.unbounded_send(()).unwrap();
+				}
+			}),
+			exit_receiver.into_future().map(|(_, _)| ()),
+		);
+
+		assert!(result.is_source_reconnected);
 	}
 
 	#[test]

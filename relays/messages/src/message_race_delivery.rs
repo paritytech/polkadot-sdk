@@ -13,7 +13,7 @@
 
 //! Message delivery race delivers proof-of-messages from "lane.source" to "lane.target".
 
-use std::{collections::VecDeque, marker::PhantomData, ops::RangeInclusive, time::Duration};
+use std::{collections::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 use async_trait::async_trait;
 use futures::stream::FusedStream;
@@ -24,7 +24,7 @@ use relay_utils::FailedClient;
 use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{
-		MessageDeliveryParams, MessageDetailsMap, MessageProofParameters,
+		MessageDeliveryParams, MessageDetailsMap, MessageProofParameters, NoncesSubmitArtifacts,
 		SourceClient as MessageLaneSourceClient, SourceClientState,
 		TargetClient as MessageLaneTargetClient, TargetClientState,
 	},
@@ -43,7 +43,6 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 	source_state_updates: impl FusedStream<Item = SourceClientState<P>>,
 	target_client: impl MessageLaneTargetClient<P>,
 	target_state_updates: impl FusedStream<Item = TargetClientState<P>>,
-	stall_timeout: Duration,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
 	params: MessageDeliveryParams<Strategy>,
 ) -> Result<(), FailedClient> {
@@ -60,7 +59,6 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 			_phantom: Default::default(),
 		},
 		target_state_updates,
-		stall_timeout,
 		MessageDeliveryStrategy::<P, Strategy, _, _> {
 			lane_source_client: source_client,
 			lane_target_client: target_client,
@@ -174,6 +172,7 @@ where
 {
 	type Error = C::Error;
 	type TargetNoncesData = DeliveryRaceTargetNoncesData;
+	type TransactionTracker = C::TransactionTracker;
 
 	async fn require_source_header(&self, id: SourceHeaderIdOf<P>) {
 		self.client.require_source_header_on_target(id).await
@@ -215,7 +214,7 @@ where
 		generated_at_block: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
-	) -> Result<RangeInclusive<MessageNonce>, Self::Error> {
+	) -> Result<NoncesSubmitArtifacts<Self::TransactionTracker>, Self::Error> {
 		self.client.submit_messages_proof(generated_at_block, nonces, proof).await
 	}
 }
