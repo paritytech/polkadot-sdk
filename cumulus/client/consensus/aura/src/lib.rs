@@ -201,7 +201,6 @@ where
 
 		let info = SlotInfo::new(
 			inherent_data_providers.slot(),
-			inherent_data_providers.timestamp(),
 			inherent_data,
 			self.slot_duration.as_duration(),
 			parent.clone(),

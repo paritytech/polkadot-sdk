@@ -427,15 +427,15 @@ pub fn parachain_build_import_queue(
 		block_import: client.clone(),
 		client: client.clone(),
 		create_inherent_data_providers: move |_, _| async move {
-			let time = sp_timestamp::InherentDataProvider::from_system_time();
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 			let slot =
 				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-					*time,
+					*timestamp,
 					slot_duration,
 				);
 
-			Ok((time, slot))
+			Ok((slot, timestamp))
 		},
 		registry: config.prometheus_registry(),
 		spawner: &task_manager.spawn_essential_handle(),
@@ -494,11 +494,11 @@ pub async fn start_parachain_node(
 								&validation_data,
 								id,
 							).await;
-							let time = sp_timestamp::InherentDataProvider::from_system_time();
+							let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 							let slot =
 						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*time,
+							*timestamp,
 							slot_duration,
 						);
 
@@ -507,7 +507,7 @@ pub async fn start_parachain_node(
 									"Failed to create parachain inherent",
 								)
 							})?;
-							Ok((time, slot, parachain_inherent))
+							Ok((slot, timestamp, parachain_inherent))
 						}
 					},
 					block_import: client.clone(),
