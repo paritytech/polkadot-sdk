@@ -39,13 +39,13 @@ use codec::Encode;
 use frame_support::weights::{Weight, WeightToFee};
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
-	message_lane_loop::{TargetClient, TargetClientState},
+	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
 };
 use num_traits::{Bounded, Zero};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages, Client,
 	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam, TransactionEra,
-	TransactionSignScheme, UnsignedTransaction, WeightToFeeOf,
+	TransactionSignScheme, TransactionTracker, UnsignedTransaction, WeightToFeeOf,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -145,6 +145,8 @@ where
 	P::TargetTransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
 {
+	type TransactionTracker = TransactionTracker<P::TargetChain>;
+
 	async fn state(&self) -> Result<TargetClientState<MessageLaneAdapter<P>>, SubstrateError> {
 		// we can't continue to deliver confirmations if source node is out of sync, because
 		// it may have already received confirmations that we're going to deliver
@@ -245,15 +247,16 @@ where
 		_generated_at_header: SourceHeaderIdOf<MessageLaneAdapter<P>>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: <MessageLaneAdapter<P> as MessageLane>::MessagesProof,
-	) -> Result<RangeInclusive<MessageNonce>, SubstrateError> {
+	) -> Result<NoncesSubmitArtifacts<Self::TransactionTracker>, SubstrateError> {
 		let genesis_hash = *self.target_client.genesis_hash();
 		let transaction_params = self.transaction_params.clone();
 		let relayer_id_at_source = self.relayer_id_at_source.clone();
 		let nonces_clone = nonces.clone();
 		let (spec_version, transaction_version) =
 			self.target_client.simple_runtime_version().await?;
-		self.target_client
-			.submit_signed_extrinsic(
+		let tx_tracker = self
+			.target_client
+			.submit_and_watch_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
 				SignParam::<P::TargetTransactionSignScheme> {
 					spec_version,
@@ -274,7 +277,7 @@ where
 				},
 			)
 			.await?;
-		Ok(nonces)
+		Ok(NoncesSubmitArtifacts { nonces, tx_tracker })
 	}
 
 	async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<MessageLaneAdapter<P>>) {
