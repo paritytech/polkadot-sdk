@@ -236,6 +236,16 @@ impl ProcessFutureResult {
 		}
 	}
 
+	/// Returns `Ok(())` if future has succeeded.
+	/// Returns `Err(failed_client)` otherwise.
+	pub fn fail_if_error(self, failed_client: FailedClient) -> Result<(), FailedClient> {
+		if self.is_ok() {
+			Ok(())
+		} else {
+			Err(failed_client)
+		}
+	}
+
 	/// Returns Ok(true) if future has succeeded.
 	/// Returns Ok(false) if future has failed with non-connection error.
 	/// Returns Err if future is `ConnectionFailed`.

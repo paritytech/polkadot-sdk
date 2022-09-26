@@ -416,7 +416,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					&mut target_go_offline_future,
 					async_std::task::sleep,
 					|| format!("Error submitting proof {}", P::target_name()),
-				).fail_if_connection_error(FailedClient::Target)?;
+				).fail_if_error(FailedClient::Target).map(|_| true)?;
 			},
 			target_transaction_status = target_tx_tracker => {
 				if target_transaction_status == TrackedTransactionStatus::Lost {
