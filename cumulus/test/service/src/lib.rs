@@ -45,8 +45,8 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_primitives::v2::{CollatorPair, Hash as PHash, PersistedValidationData};
 use polkadot_service::ProvideRuntimeApi;
 use sc_client_api::execution_extensions::ExecutionStrategies;
-use sc_network::{config::TransportConfig, multiaddr, NetworkService};
-use sc_network_common::service::{NetworkBlock, NetworkStateInfo};
+use sc_network::{multiaddr, NetworkBlock, NetworkService};
+use sc_network_common::{config::TransportConfig, service::NetworkStateInfo};
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
@@ -257,7 +257,7 @@ where
 
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();
 	let import_queue = cumulus_client_service::SharedImportQueue::new(params.import_queue);
-	let (network, system_rpc_tx, start_network) =
+	let (network, system_rpc_tx, tx_handler_controller, start_network) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &parachain_config,
 			client: client.clone(),
@@ -284,6 +284,7 @@ where
 		backend,
 		network: network.clone(),
 		system_rpc_tx,
+		tx_handler_controller,
 		telemetry: None,
 	})?;
 
@@ -628,7 +629,7 @@ pub fn node_config(
 	if nodes_exlusive {
 		network_config.default_peers_set.reserved_nodes = nodes;
 		network_config.default_peers_set.non_reserved_mode =
-			sc_network::config::NonReservedPeerMode::Deny;
+			sc_network_common::config::NonReservedPeerMode::Deny;
 	} else {
 		network_config.boot_nodes = nodes;
 	}
