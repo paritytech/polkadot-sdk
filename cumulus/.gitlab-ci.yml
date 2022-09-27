@@ -407,7 +407,8 @@ benchmarks-assets:
     - ./scripts/benchmarks-ci.sh assets statemine ./artifacts
     - ./scripts/benchmarks-ci.sh assets statemint ./artifacts
     - ./scripts/benchmarks-ci.sh assets westmint ./artifacts
-    - export BRANCHNAME="weights-statemint-${CI_COMMIT_BRANCH}"
+    - export CURRENT_TIME=$(date '+%s')
+    - export BRANCHNAME="weights-statemint-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
     - *git-commit-push
     # create PR to release-parachains-v* branch
     - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
@@ -427,7 +428,8 @@ benchmarks-collectives:
   script:
     - ./scripts/benchmarks-ci.sh collectives collectives-polkadot ./artifacts
     - git status
-    - export BRANCHNAME="weights-collectives-${CI_COMMIT_BRANCH}"
+    - export CURRENT_TIME=$(date '+%s')
+    - export BRANCHNAME="weights-collectives-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
     - *git-commit-push
     # create PR
     - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
