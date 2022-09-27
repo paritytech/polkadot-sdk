@@ -9,7 +9,7 @@ description = "Statemint parachain runtime"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.3.4", optional = true }
 log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.144", optional = true, features = ["derive"] }
+serde = { version = "1.0.145", optional = true, features = ["derive"] }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
 smallvec = "1.9.0"
 
