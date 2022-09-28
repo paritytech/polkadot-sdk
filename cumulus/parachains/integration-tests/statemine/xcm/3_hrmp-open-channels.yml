@@ -203,6 +203,7 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
+                        threshold: [10, 10]
                         value: 1,160,892,000
                     - name: hrmp.OpenChannelRequested
                       chain: *relay_chain
@@ -259,7 +260,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 2,000,000,000
+                        threshold: [10, 10]
+                        value: 1,021,258,000
                     - name: polkadotXcm.Sent
                       chain: *assets_parachain
                     - name: ump.ExecutedUpward
@@ -267,6 +269,7 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
+                        threshold: [10, 10]
                         value: 1,160,892,000
                     - name: hrmp.OpenChannelAccepted
                       timeout: 40000
@@ -324,7 +327,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 2,000,000,000
+                        threshold: [10, 10]
+                        value: 1,021,258,000
                     - name: polkadotXcm.Sent
                       chain: *assets_parachain
                     - name: ump.ExecutedUpward
@@ -332,6 +336,7 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
+                        threshold: [10, 10]
                         value: 1,160,892,000
                     - name: hrmp.OpenChannelRequested
                       timeout: 40000
@@ -397,6 +402,7 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
+                        threshold: [10, 10]
                         value: 1,160,892,000
                     - name: hrmp.OpenChannelAccepted
                       chain: *relay_chain

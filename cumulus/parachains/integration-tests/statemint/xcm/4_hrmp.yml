@@ -87,7 +87,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 2,000,000,000
+                        threshold: [10, 10]
+                        value: 1,020,807,000
               - queries:
                   forced_created_asset:
                     chain: *assets_parachain
@@ -167,7 +168,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 1,000,000,000
+                        threshold: [10, 10]
+                        value: 654,404,000
                     - name: assets.Transferred
                       attribute:
                         type: AccountId32
@@ -214,7 +216,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 1,000,000,000
+                        threshold: [10, 10]
+                        value: 654,404,000
                     - name: balances.Endowed
                       attribute:
                         type: AccountId32

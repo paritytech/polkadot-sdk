@@ -77,7 +77,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 4,000,000,000
+                        threshold: [10, 10]
+                        value: 1,021,635,000
               - queries:
                   balance_rc_sender_after:
                     chain: *relay_chain
@@ -148,7 +149,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 2,000,000,000
+                        threshold: [10, 10]
+                        value: 1,020,807,000
               - queries:
                   forced_created_asset:
                     chain: *assets_parachain
@@ -215,8 +217,8 @@ tests:
                       chain: *assets_parachain
                       attribute:
                         type: XcmV2TraitsOutcome
-                        isIncomplete: true
-                        value: ['1,000,000,000' , UntrustedReserveLocation]
+                        isError: true
+                        value: "WeightNotComputable"
               - queries:
                   balance_rc_sender_after:
                     chain: *relay_chain

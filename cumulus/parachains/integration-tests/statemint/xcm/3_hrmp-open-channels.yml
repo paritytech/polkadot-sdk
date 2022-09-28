@@ -257,7 +257,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 2,000,000,000
+                        threshold: [10, 10]
+                        value: 1,020,807,000
                     - name: polkadotXcm.Sent
                       chain: *assets_parachain
                     - name: ump.ExecutedUpward
@@ -322,7 +323,8 @@ tests:
                       attribute:
                         type: XcmV2TraitsOutcome
                         isComplete: true
-                        value: 2,000,000,000
+                        threshold: [10, 10]
+                        value: 1,020,807,000
                     - name: polkadotXcm.Sent
                       chain: *assets_parachain
                     - name: ump.ExecutedUpward
