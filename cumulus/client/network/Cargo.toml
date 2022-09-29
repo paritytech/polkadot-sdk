@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.57"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
-derive_more = "0.99.2"
 futures = "0.3.24"
 futures-timer = "3.0.2"
 parking_lot = "0.12.1"
@@ -16,7 +15,6 @@ tracing = "0.1.36"
 
 # Substrate
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }

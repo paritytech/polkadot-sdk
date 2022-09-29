@@ -8,7 +8,6 @@ edition = "2021"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -23,7 +22,6 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-
 default = [ "std" ]
 std = [
 	"codec/std",
-	"frame-support/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-std/std",

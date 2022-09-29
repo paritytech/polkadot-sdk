@@ -12,12 +12,10 @@ environmental = { version = "1.1.2", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.145", optional = true, features = ["derive"] }
 
 # Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-externalities = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -30,7 +28,6 @@ sp-version = { git = "https://github.com/paritytech/substrate", default-features
 
 # Polkadot
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, features = [ "wasm-api" ], branch = "master" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
@@ -58,13 +55,11 @@ std = [
 	"environmental/std",
 	"log/std",
 	"scale-info/std",
-	"serde",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-balances/std",
 	"sp-core/std",
 	"sp-externalities/std",
 	"sp-io/std",
@@ -72,7 +67,6 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-trie/std",
-	"xcm/std"
 ]
 
 runtime-benchmarks = [

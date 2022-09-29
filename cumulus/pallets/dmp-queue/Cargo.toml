@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ], default-features = false }
-log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
 
 # Substrate
@@ -18,7 +17,6 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 
 # Polkadot
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
@@ -34,11 +32,9 @@ std = [
 	"scale-info/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"xcm-executor/std",
 	"xcm/std",
 	"cumulus-primitives-core/std",
 ]

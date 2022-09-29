@@ -7,7 +7,7 @@ description = "Adds functionality to migrate from a Solo to a Parachain"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -21,7 +21,6 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-
 
 # Cumulus
 cumulus-pallet-parachain-system = { default-features = false, path = "../parachain-system" }
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -29,7 +28,6 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"cumulus-pallet-parachain-system/std",
-	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-sudo/std",

@@ -12,7 +12,6 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -23,7 +22,6 @@ tokio = { version = "1.21.1", features = ["sync"] }
 futures = "0.3.24"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.2.1"
-parking_lot = "0.12.1"
 jsonrpsee = { version = "0.15.1", features = ["ws-client"] }
 tracing = "0.1.36"
 async-trait = "0.1.57"

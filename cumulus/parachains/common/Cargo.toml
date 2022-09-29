@@ -13,7 +13,6 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-executive = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -28,10 +27,8 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 
 # Polkadot
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
@@ -47,9 +44,6 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"scale-info/std",
-	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-asset-tx-payment/std",
@@ -57,7 +51,6 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"polkadot-primitives/std",
-	"polkadot-runtime-common/std",
 	"sp-consensus-aura/std",
 	"sp-io/std",
 	"sp-std/std",
@@ -65,5 +58,4 @@ std = [
 	"cumulus-primitives-utility/std",
 	"xcm/std",
 	"xcm-executor/std",
-	"xcm-builder/std"
 ]
