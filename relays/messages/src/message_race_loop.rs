@@ -395,7 +395,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					&mut source_go_offline_future,
 					async_std::task::sleep,
 					|| format!("Error generating proof at {}", P::source_name()),
-				).fail_if_connection_error(FailedClient::Source)?;
+				).fail_if_error(FailedClient::Source).map(|_| true)?;
 			},
 			proof_submit_result = target_submit_proof => {
 				target_client_is_online = process_future_result(
