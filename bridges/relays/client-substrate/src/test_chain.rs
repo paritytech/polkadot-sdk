@@ -22,7 +22,7 @@
 #![cfg(any(feature = "test-helpers", test))]
 
 use crate::{Chain, ChainWithBalances};
-use frame_support::weights::{IdentityFee, Weight};
+use frame_support::weights::Weight;
 use std::time::Duration;
 
 /// Chain that may be used in tests.
@@ -60,7 +60,6 @@ impl Chain for TestChain {
 		sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>,
 	>;
 	type Call = ();
-	type WeightToFee = IdentityFee<u32>;
 }
 
 impl ChainWithBalances for TestChain {

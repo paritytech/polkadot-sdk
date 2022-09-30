@@ -61,7 +61,6 @@ impl Chain for Westend {
 
 	type SignedBlock = bp_westend::SignedBlock;
 	type Call = bp_westend::Call;
-	type WeightToFee = bp_westend::WeightToFee;
 }
 
 impl RelayChain for Westend {
@@ -119,5 +118,4 @@ impl Chain for Westmint {
 
 	type SignedBlock = bp_westend::SignedBlock;
 	type Call = bp_westend::Call;
-	type WeightToFee = bp_westend::WeightToFee;
 }

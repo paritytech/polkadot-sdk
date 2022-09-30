@@ -61,7 +61,6 @@ impl Chain for Rococo {
 
 	type SignedBlock = bp_rococo::SignedBlock;
 	type Call = ();
-	type WeightToFee = bp_rococo::WeightToFee;
 }
 
 impl ChainWithGrandpa for Rococo {

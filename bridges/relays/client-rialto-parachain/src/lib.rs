@@ -66,7 +66,6 @@ impl Chain for RialtoParachain {
 
 	type SignedBlock = rialto_parachain_runtime::SignedBlock;
 	type Call = rialto_parachain_runtime::Call;
-	type WeightToFee = bp_rialto_parachain::WeightToFee;
 }
 
 impl ChainWithBalances for RialtoParachain {
@@ -93,6 +92,7 @@ impl ChainWithMessages for RialtoParachain {
 		bp_rialto_parachain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
 		bp_rialto_parachain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+	type WeightToFee = bp_rialto_parachain::WeightToFee;
 	type WeightInfo = ();
 }
 
