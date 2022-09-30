@@ -61,7 +61,6 @@ impl Chain for Wococo {
 
 	type SignedBlock = bp_wococo::SignedBlock;
 	type Call = ();
-	type WeightToFee = bp_wococo::WeightToFee;
 }
 
 impl ChainWithGrandpa for Wococo {
