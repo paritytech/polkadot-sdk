@@ -74,7 +74,7 @@ impl CliEncodeMessage for RialtoParachain {
 }
 
 impl CliChain for RialtoParachain {
-	const RUNTIME_VERSION: RuntimeVersion = rialto_parachain_runtime::VERSION;
+	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(rialto_parachain_runtime::VERSION);
 
 	type KeyPair = sp_core::sr25519::Pair;
 	type MessagePayload = Vec<u8>;

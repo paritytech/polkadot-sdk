@@ -497,7 +497,7 @@ where
 /// **WARNING**: this functions will only be accurate if weight-to-fee conversion function
 /// is linear. For non-linear polynomials the error will grow with `weight_difference` growth.
 /// So better to use smaller differences.
-fn compute_fee_multiplier<C: Chain>(
+fn compute_fee_multiplier<C: ChainWithMessages>(
 	smaller_adjusted_weight_fee: BalanceOf<C>,
 	smaller_tx_weight: Weight,
 	larger_adjusted_weight_fee: BalanceOf<C>,
@@ -563,17 +563,17 @@ mod tests {
 
 	#[test]
 	fn compute_fee_multiplier_returns_sane_results() {
-		let multiplier: FixedU128 = bp_rococo::WeightToFee::weight_to_fee(&1).into();
+		let multiplier: FixedU128 = bp_rialto::WeightToFee::weight_to_fee(&1).into();
 
 		let smaller_weight = 1_000_000;
 		let smaller_adjusted_weight_fee =
-			multiplier.saturating_mul_int(WeightToFeeOf::<Rococo>::weight_to_fee(&smaller_weight));
+			multiplier.saturating_mul_int(WeightToFeeOf::<Rialto>::weight_to_fee(&smaller_weight));
 
 		let larger_weight = smaller_weight + 200_000;
 		let larger_adjusted_weight_fee =
-			multiplier.saturating_mul_int(WeightToFeeOf::<Rococo>::weight_to_fee(&larger_weight));
+			multiplier.saturating_mul_int(WeightToFeeOf::<Rialto>::weight_to_fee(&larger_weight));
 		assert_eq!(
-			compute_fee_multiplier::<Rococo>(
+			compute_fee_multiplier::<Rialto>(
 				smaller_adjusted_weight_fee,
 				smaller_weight,
 				larger_adjusted_weight_fee,

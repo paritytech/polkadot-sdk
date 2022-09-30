@@ -71,6 +71,7 @@ impl ChainWithMessages for Millau {
 		bp_millau::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
 		bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+	type WeightToFee = bp_millau::WeightToFee;
 	type WeightInfo = ();
 }
 
@@ -85,7 +86,6 @@ impl Chain for Millau {
 
 	type SignedBlock = millau_runtime::SignedBlock;
 	type Call = millau_runtime::Call;
-	type WeightToFee = bp_millau::WeightToFee;
 }
 
 impl ChainWithBalances for Millau {
