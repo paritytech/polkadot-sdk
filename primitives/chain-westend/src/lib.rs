@@ -18,48 +18,13 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use frame_support::weights::{
-	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
-use sp_version::RuntimeVersion;
 
 pub use bp_polkadot_core::*;
 use bp_runtime::decl_bridge_finality_runtime_apis;
 
 /// Westend Chain
 pub type Westend = PolkadotLike;
-
-// NOTE: This needs to be kept up to date with the Westend runtime found in the Polkadot repo.
-pub struct WeightToFee;
-impl WeightToFeePolynomial for WeightToFee {
-	type Balance = Balance;
-	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		const CENTS: Balance = 1_000_000_000_000 / 1_000;
-		// in Westend, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-		let p = CENTS;
-		let q = 10 * Balance::from(ExtrinsicBaseWeight::get());
-		smallvec::smallvec![WeightToFeeCoefficient {
-			degree: 1,
-			negative: false,
-			coeff_frac: Perbill::from_rational(p % q, q),
-			coeff_integer: p / q,
-		}]
-	}
-}
-
-// NOTE: This needs to be kept up to date with the Westend runtime found in the Polkadot repo.
-pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: sp_version::create_runtime_str!("westend"),
-	impl_name: sp_version::create_runtime_str!("parity-westend"),
-	authoring_version: 2,
-	spec_version: 9140,
-	impl_version: 0,
-	apis: sp_version::create_apis_vec![[]],
-	transaction_version: 8,
-	state_version: 0,
-};
 
 /// Westend Runtime `Call` enum.
 ///

@@ -58,7 +58,6 @@ impl Chain for Polkadot {
 
 	type SignedBlock = bp_polkadot::SignedBlock;
 	type Call = ();
-	type WeightToFee = bp_polkadot::WeightToFee;
 }
 
 impl ChainWithGrandpa for Polkadot {

@@ -58,7 +58,6 @@ impl Chain for Kusama {
 
 	type SignedBlock = bp_kusama::SignedBlock;
 	type Call = ();
-	type WeightToFee = bp_kusama::WeightToFee;
 }
 
 impl ChainWithGrandpa for Kusama {

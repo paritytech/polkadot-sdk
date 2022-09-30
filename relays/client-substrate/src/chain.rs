@@ -59,9 +59,6 @@ pub trait Chain: ChainBase + Clone {
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
 	/// The aggregated `Call` type.
 	type Call: Clone + Codec + Dispatchable + Debug + Send;
-
-	/// Type that is used by the chain, to convert from weight to fee.
-	type WeightToFee: WeightToFee<Balance = Self::Balance>;
 }
 
 /// Substrate-based relay chain that supports parachains.
@@ -120,6 +117,8 @@ pub trait ChainWithMessages: Chain {
 	/// `ChainWithMessages`.
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
 
+	/// Type that is used by the chain, to convert from weight to fee.
+	type WeightToFee: WeightToFee<Balance = Self::Balance>;
 	/// Weights of message pallet calls.
 	type WeightInfo: pallet_bridge_messages::WeightInfoExt;
 }
@@ -127,7 +126,7 @@ pub trait ChainWithMessages: Chain {
 /// Call type used by the chain.
 pub type CallOf<C> = <C as Chain>::Call;
 /// Weight-to-Fee type used by the chain.
-pub type WeightToFeeOf<C> = <C as Chain>::WeightToFee;
+pub type WeightToFeeOf<C> = <C as ChainWithMessages>::WeightToFee;
 /// Transaction status of the chain.
 pub type TransactionStatusOf<C> = TransactionStatus<HashOf<C>, HashOf<C>>;
 

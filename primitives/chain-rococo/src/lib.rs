@@ -18,18 +18,8 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use bp_messages::{
-	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
-};
-use frame_support::weights::{
-	Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-};
-use sp_runtime::FixedU128;
-use sp_std::prelude::*;
-use sp_version::RuntimeVersion;
-
 pub use bp_polkadot_core::*;
-use bp_runtime::decl_bridge_runtime_apis;
+use bp_runtime::decl_bridge_finality_runtime_apis;
 
 /// Rococo Chain
 pub type Rococo = PolkadotLike;
@@ -41,50 +31,7 @@ pub type Rococo = PolkadotLike;
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = time_units::HOURS;
 
-// NOTE: This needs to be kept up to date with the Rococo runtime found in the Polkadot repo.
-pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: sp_version::create_runtime_str!("rococo"),
-	impl_name: sp_version::create_runtime_str!("parity-rococo-v2.0"),
-	authoring_version: 0,
-	spec_version: 9200,
-	impl_version: 0,
-	apis: sp_version::create_apis_vec![[]],
-	transaction_version: 0,
-	state_version: 0,
-};
-
-// NOTE: This needs to be kept up to date with the Rococo runtime found in the Polkadot repo.
-pub struct WeightToFee;
-impl WeightToFeePolynomial for WeightToFee {
-	type Balance = Balance;
-	fn polynomial() -> WeightToFeeCoefficients<Balance> {
-		const CENTS: Balance = 1_000_000_000_000 / 100;
-		let p = CENTS;
-		let q = 10 * Balance::from(ExtrinsicBaseWeight::get());
-		smallvec::smallvec![WeightToFeeCoefficient {
-			degree: 1,
-			negative: false,
-			coeff_frac: Perbill::from_rational(p % q, q),
-			coeff_integer: p / q,
-		}]
-	}
-}
-
 /// Name of the With-Rococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
-/// Name of the With-Rococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
 
-/// Existential deposit on Rococo.
-pub const EXISTENTIAL_DEPOSIT: Balance = 1_000_000_000_000 / 100;
-
-/// Weight of pay-dispatch-fee operation for inbound messages at Rococo chain.
-///
-/// This value corresponds to the result of
-/// `pallet_bridge_messages::WeightInfoExt::pay_inbound_dispatch_fee_overhead()` call for your
-/// chain. Don't put too much reserve there, because it is used to **decrease**
-/// `DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT` cost. So putting large reserve would make delivery
-/// transactions cheaper.
-pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = 600_000_000;
-
-decl_bridge_runtime_apis!(rococo);
+decl_bridge_finality_runtime_apis!(rococo);
