@@ -10,7 +10,6 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 # Bridge Dependencies
 bp-polkadot-core = { path = "../polkadot-core", default-features = false }
-bp-rococo = { path = "../chain-rococo", default-features = false }
 bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Based Dependencies
@@ -21,6 +20,5 @@ default = ["std"]
 std = [
 	"bp-polkadot-core/std",
 	"bp-runtime/std",
-	"bp-rococo/std",
 	"sp-api/std",
 ]
