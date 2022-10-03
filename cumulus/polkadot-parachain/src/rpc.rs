@@ -20,7 +20,7 @@
 
 use std::sync::Arc;
 
-use parachains_common::{AccountId, Balance, Block, BlockNumber, Hash, Index as Nonce};
+use parachains_common::{AccountId, Balance, Block, Index as Nonce};
 use sc_client_api::AuxStore;
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sc_transaction_pool_api::TransactionPool;
@@ -85,12 +85,10 @@ where
 		+ 'static,
 	C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber, Hash>,
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + Sync + Send + 'static,
 {
 	use frame_rpc_system::{System, SystemApiServer};
-	use pallet_contracts_rpc::{Contracts, ContractsApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use sc_rpc::dev::{Dev, DevApiServer};
 
@@ -99,7 +97,6 @@ where
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	module.merge(Contracts::new(client.clone()).into_rpc())?;
 	module.merge(Dev::new(client, deny_unsafe).into_rpc())?;
 
 	Ok(module)

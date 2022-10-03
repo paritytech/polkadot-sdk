@@ -1325,8 +1325,7 @@ where
 		+ sp_block_builder::BlockBuilder<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
-		+ pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber, Hash>,
+		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	sc_client_api::StateBackendFor<TFullBackend<Block>, Block>: sp_api::StateBackend<BlakeTwo256>,
 	RB: Fn(
 			Arc<TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>>,

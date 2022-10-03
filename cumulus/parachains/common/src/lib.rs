@@ -92,7 +92,8 @@ mod constants {
 	pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 	/// We allow for 0.5 seconds of compute with a 6 second average block time.
-	pub const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND.saturating_div(2);
+	pub const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND.saturating_div(2)
+		.set_proof_size(polkadot_primitives::v2::MAX_POV_SIZE as u64);
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
