@@ -89,7 +89,7 @@ where
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
 	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
-	type TransactionTracker = TransactionTracker<P::TargetChain>;
+	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
 
 	async fn best_finalized_source_block_id(&self) -> Result<HeaderIdOf<P::SourceChain>, Error> {
 		// we can't continue to relay finality if target node is out of sync, because
