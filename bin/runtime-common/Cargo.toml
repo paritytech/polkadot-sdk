@@ -10,7 +10,6 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive"] }
 hash-db = { version = "0.15.2", default-features = false }
 log = { version = "0.4.17", default-features = false }
-num-traits = { version = "0.2", default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 static_assertions = { version = "1.1", optional = true }
 
@@ -29,15 +28,12 @@ pallet-bridge-parachains = { path = "../../modules/parachains", default-features
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-version = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 
 # Polkadot dependencies
 
@@ -61,18 +57,15 @@ std = [
 	"frame-system/std",
 	"hash-db/std",
 	"log/std",
-	"num-traits/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
-	"pallet-transaction-payment/std",
 	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-trie/std",
 	"xcm/std",
@@ -83,8 +76,6 @@ runtime-benchmarks = [
 	"pallet-balances",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
-	"sp-state-machine",
-	"sp-version",
 	"xcm-builder/runtime-benchmarks",
 ]
 integrity-test = [

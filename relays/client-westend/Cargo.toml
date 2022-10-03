@@ -17,4 +17,3 @@ bp-westend = { path = "../../primitives/chain-westend" }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }

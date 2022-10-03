@@ -8,15 +8,11 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive"] }
-hex-literal = "0.3"
-libsecp256k1 = { version = "0.7", optional = true, default-features = false, features = ["hmac"] }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-serde = { version = "1.0", optional = true, features = ["derive"] }
 
 # Bridge dependencies
 
-bp-header-chain = { path = "../../../primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../primitives/messages", default-features = false }
 bp-millau = { path = "../../../primitives/chain-millau", default-features = false }
 bp-relayers = { path = "../../../primitives/relayers", default-features = false }
@@ -53,7 +49,6 @@ sp-authority-discovery = { git = "https://github.com/paritytech/substrate", bran
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-mmr-primitives = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -62,7 +57,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-session = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 # Polkadot (parachain) Dependencies
@@ -78,7 +72,6 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "gav-x
 [dev-dependencies]
 bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
 env_logger = "0.8"
-libsecp256k1 = { version = "0.7", features = ["hmac"] }
 static_assertions = "1.1"
 
 [build-dependencies]
@@ -88,7 +81,6 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 default = ["std"]
 std = [
 	"beefy-primitives/std",
-	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-millau/std",
 	"bp-relayers/std",
@@ -123,13 +115,11 @@ std = [
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
-	"serde",
 	"sp-api/std",
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
 	"sp-core/std",
-	"sp-finality-grandpa/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-offchain/std",
@@ -137,7 +127,6 @@ std = [
 	"sp-session/std",
 	"sp-std/std",
 	"sp-transaction-pool/std",
-	"sp-trie/std",
 	"sp-version/std",
 	"xcm/std",
 	"xcm-builder/std",
@@ -148,7 +137,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"libsecp256k1",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

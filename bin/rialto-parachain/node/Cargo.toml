@@ -18,16 +18,9 @@ runtime-benchmarks = ['rialto-parachain-runtime/runtime-benchmarks']
 
 [dependencies]
 clap = { version = "3.1", features = ["derive"] }
-derive_more = '0.99.2'
 log = '0.4.17'
 codec = { package = 'parity-scale-codec', version = '3.1.5' }
 serde = { version = '1.0', features = ['derive'] }
-hex-literal = '0.3.1'
-
-# Bridge dependencies
-
-bp-rialto-parachain = { path = "../../../primitives/chain-rialto-parachain" }
-pallet-bridge-messages = { path = "../../../modules/messages" }
 
 # RPC related Dependencies
 jsonrpsee = { version = "0.15.1", features = ["server"] }
@@ -52,7 +45,6 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "mas
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master", features = ['wasmtime'] }
@@ -63,11 +55,9 @@ sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master
 ## Substrate Primitive Dependencies
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -78,7 +68,6 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 # Cumulus dependencies
 cumulus-client-consensus-aura = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
 cumulus-client-consensus-common = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-client-collator = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
 cumulus-client-cli = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
 cumulus-client-network = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
 cumulus-client-service = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
@@ -89,7 +78,5 @@ cumulus-relay-chain-inprocess-interface = { git = "https://github.com/paritytech
 
 # Polkadot dependencies
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }

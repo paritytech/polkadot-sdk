@@ -14,7 +14,6 @@ jsonrpsee = { version = "0.15", features = ["macros", "ws-client"] }
 log = "0.4.17"
 num-traits = "0.2"
 rand = "0.7"
-serde = { version = "1.0" }
 tokio = { version = "1.8", features = ["rt-multi-thread"] }
 thiserror = "1.0.26"
 
