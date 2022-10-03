@@ -467,7 +467,8 @@ impl<C: Chain> Client<C> {
 		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Result<UnsignedTransaction<C>>
 			+ Send
 			+ 'static,
-	) -> Result<TransactionTracker<C>> {
+	) -> Result<TransactionTracker<C, Self>> {
+		let self_clone = self.clone();
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
 		let best_header = self.best_header().await?;
@@ -494,6 +495,7 @@ impl<C: Chain> Client<C> {
 				})?;
 				log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 				let tracker = TransactionTracker::new(
+					self_clone,
 					stall_timeout,
 					tx_hash,
 					Subscription(Mutex::new(receiver)),

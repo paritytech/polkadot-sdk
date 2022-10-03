@@ -145,7 +145,7 @@ where
 	P::TargetTransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
 {
-	type TransactionTracker = TransactionTracker<P::TargetChain>;
+	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
 
 	async fn state(&self) -> Result<TargetClientState<MessageLaneAdapter<P>>, SubstrateError> {
 		// we can't continue to deliver confirmations if source node is out of sync, because
