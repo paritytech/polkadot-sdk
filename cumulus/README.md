@@ -11,7 +11,7 @@ A set of tools for writing [Substrate](https://substrate.io/)-based
 [Polkadot](https://wiki.polkadot.network/en/)
 [parachains](https://wiki.polkadot.network/docs/en/learn-parachains). Refer to the included
 [overview](docs/overview.md) for architectural details, and the
-[Cumulus tutorial](https://docs.substrate.io/tutorials/v3/cumulus/start-relay) for a
+[Connect to relay and  parachain tutorials](https://docs.substrate.io/tutorials/connect-relay-and-parachains/) for a
 guided walk-through of using these tools.
 
 It's easy to write blockchains using Substrate, and the overhead of writing parachains'
