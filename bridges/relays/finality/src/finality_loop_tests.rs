@@ -48,17 +48,19 @@ type TestNumber = u64;
 type TestHash = u64;
 
 #[derive(Clone, Debug)]
-struct TestTransactionTracker(TrackedTransactionStatus);
+struct TestTransactionTracker(TrackedTransactionStatus<HeaderId<TestHash, TestNumber>>);
 
 impl Default for TestTransactionTracker {
 	fn default() -> TestTransactionTracker {
-		TestTransactionTracker(TrackedTransactionStatus::Finalized)
+		TestTransactionTracker(TrackedTransactionStatus::Finalized(Default::default()))
 	}
 }
 
 #[async_trait]
 impl TransactionTracker for TestTransactionTracker {
-	async fn wait(self) -> TrackedTransactionStatus {
+	type HeaderId = HeaderId<TestHash, TestNumber>;
+
+	async fn wait(self) -> TrackedTransactionStatus<HeaderId<TestHash, TestNumber>> {
 		self.0
 	}
 }
@@ -224,7 +226,9 @@ fn prepare_test_clients(
 
 		target_best_block_id: HeaderId(5, 5),
 		target_headers: vec![],
-		target_transaction_tracker: TestTransactionTracker(TrackedTransactionStatus::Finalized),
+		target_transaction_tracker: TestTransactionTracker(TrackedTransactionStatus::Finalized(
+			Default::default(),
+		)),
 	}));
 	(
 		TestSourceClient {
@@ -575,6 +579,16 @@ fn different_forks_at_source_and_at_target_are_detected() {
 fn stalls_when_transaction_tracker_returns_error() {
 	let (_, result) = run_sync_loop(|data| {
 		data.target_transaction_tracker = TestTransactionTracker(TrackedTransactionStatus::Lost);
+		data.target_best_block_id = HeaderId(5, 5);
+		data.target_best_block_id.0 == 16
+	});
+
+	assert_eq!(result, Err(FailedClient::Both));
+}
+
+#[test]
+fn stalls_when_transaction_tracker_returns_finalized_but_transaction_fails() {
+	let (_, result) = run_sync_loop(|data| {
 		data.target_best_block_id = HeaderId(5, 5);
 		data.target_best_block_id.0 == 16
 	});

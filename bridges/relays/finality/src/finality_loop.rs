@@ -290,15 +290,55 @@ pub(crate) async fn run_until_connection_lost<P: FinalitySyncPipeline>(
 		// wait till exit signal, or new source block
 		select! {
 			transaction_status = last_transaction_tracker => {
-				if transaction_status == TrackedTransactionStatus::Lost {
-					log::error!(
-						target: "bridge",
-						"Finality synchronization from {} to {} has stalled. Going to restart",
-						P::SOURCE_NAME,
-						P::TARGET_NAME,
-					);
+				match transaction_status {
+					TrackedTransactionStatus::Finalized(_) => {
+						// transaction has been finalized, but it may have been finalized in the "failed" state. So
+						// let's check if the block number has been actually updated. If it is not, then we are stalled.
+						//
+						// please also note that we're restarting the loop if we have failed to read required data
+						// from the target client - that's the best we can do here to avoid actual stall.
+						target_client
+							.best_finalized_source_block_id()
+							.await
+							.map_err(|e| format!("failed to read best block from target node: {:?}", e))
+							.and_then(|best_id_at_target| {
+								let last_submitted_header_number = last_submitted_header_number
+									.expect("always Some when last_transaction_tracker is set;\
+									last_transaction_tracker is set;\
+									qed");
+								if last_submitted_header_number > best_id_at_target.0 {
+									Err(format!(
+										"best block at target after tx is {:?} and we've submitted {:?}",
+										best_id_at_target,
+										last_submitted_header_number,
+									))
+								} else {
+									Ok(())
+								}
+							})
+							.map_err(|e| {
+								log::error!(
+									target: "bridge",
+									"Failed Finality synchronization from {} to {} has stalled. Transaction failed: {}. \
+									Going to restart",
+									P::SOURCE_NAME,
+									P::TARGET_NAME,
+									e,
+								);
 
-					return Err(FailedClient::Both);
+								FailedClient::Both
+							})?;
+					},
+					TrackedTransactionStatus::Lost => {
+						log::error!(
+							target: "bridge",
+							"Finality synchronization from {} to {} has stalled. Going to restart",
+							P::SOURCE_NAME,
+							P::TARGET_NAME,
+						);
+
+						return Err(FailedClient::Both);
+					},
 				}
 			},
 			_ = async_std::task::sleep(next_tick).fuse() => {},

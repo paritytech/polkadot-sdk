@@ -86,7 +86,7 @@ where
 	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
 {
-	type TransactionTracker = TransactionTracker<P::TargetChain>;
+	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
 
 	async fn best_block(&self) -> Result<HeaderIdOf<P::TargetChain>, Self::Error> {
 		let best_header = self.client.best_header().await?;

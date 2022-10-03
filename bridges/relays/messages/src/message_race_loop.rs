@@ -128,7 +128,7 @@ pub trait TargetClient<P: MessageRace> {
 	/// Type of the additional data from the target client, used by the race.
 	type TargetNoncesData: std::fmt::Debug;
 	/// Transaction tracker to track submitted transactions.
-	type TransactionTracker: TransactionTracker;
+	type TransactionTracker: TransactionTracker<HeaderId = P::TargetHeaderId>;
 
 	/// Ask headers relay to relay finalized headers up to (and including) given header
 	/// from race source to race target.
@@ -419,17 +419,49 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 				).fail_if_error(FailedClient::Target).map(|_| true)?;
 			},
 			target_transaction_status = target_tx_tracker => {
-				if target_transaction_status == TrackedTransactionStatus::Lost {
-					log::warn!(
-						target: "bridge",
-						"{} -> {} race has stalled. State: {:?}. Strategy: {:?}",
-						P::source_name(),
-						P::target_name(),
-						race_state,
-						strategy,
-					);
+				match (target_transaction_status, race_state.nonces_submitted.as_ref()) {
+					(TrackedTransactionStatus::Finalized(at_block), Some(nonces_submitted)) => {
+						// our transaction has been mined, but was it successful or not? let's check the best
+						// nonce at the target node.
+						race_target.nonces(at_block, false)
+							.await
+							.map_err(|e| format!("failed to read nonces from target node: {:?}", e))
+							.and_then(|(_, nonces_at_target)| {
+								if nonces_at_target.latest_nonce < *nonces_submitted.end() {
+									Err(format!(
+										"best nonce at target after tx is {:?} and we've submitted {:?}",
+										nonces_at_target.latest_nonce,
+										nonces_submitted.end(),
+									))
+								} else {
+									Ok(())
+								}
+							})
+							.map_err(|e| {
+								log::error!(
+									target: "bridge",
+									"{} -> {} race has stalled. Transaction failed: {}. Going to restart",
+									P::source_name(),
+									P::target_name(),
+									e,
+								);
 
-					return Err(FailedClient::Both);
+								FailedClient::Both
+							})?;
+					},
+					(TrackedTransactionStatus::Lost, _) => {
+						log::warn!(
+							target: "bridge",
+							"{} -> {} race has stalled. State: {:?}. Strategy: {:?}",
+							P::source_name(),
+							P::target_name(),
+							race_state,
+							strategy,
+						);
+
+						return Err(FailedClient::Both);
+					},
+					_ => (),
 				}
 			},
 
