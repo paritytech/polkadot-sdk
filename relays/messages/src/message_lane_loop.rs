@@ -129,7 +129,7 @@ pub struct NoncesSubmitArtifacts<T> {
 #[async_trait]
 pub trait SourceClient<P: MessageLane>: RelayClient {
 	/// Transaction tracker to track submitted transactions.
-	type TransactionTracker: TransactionTracker;
+	type TransactionTracker: TransactionTracker<HeaderId = SourceHeaderIdOf<P>>;
 
 	/// Returns state of the client.
 	async fn state(&self) -> Result<SourceClientState<P>, Self::Error>;
@@ -182,7 +182,7 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 #[async_trait]
 pub trait TargetClient<P: MessageLane>: RelayClient {
 	/// Transaction tracker to track submitted transactions.
-	type TransactionTracker: TransactionTracker;
+	type TransactionTracker: TransactionTracker<HeaderId = TargetHeaderIdOf<P>>;
 
 	/// Returns state of the client.
 	async fn state(&self) -> Result<TargetClientState<P>, Self::Error>;
@@ -529,17 +529,19 @@ pub(crate) mod tests {
 	}
 
 	#[derive(Clone, Debug)]
-	pub struct TestTransactionTracker(TrackedTransactionStatus);
+	pub struct TestTransactionTracker(TrackedTransactionStatus<TestTargetHeaderId>);
 
 	impl Default for TestTransactionTracker {
 		fn default() -> TestTransactionTracker {
-			TestTransactionTracker(TrackedTransactionStatus::Finalized)
+			TestTransactionTracker(TrackedTransactionStatus::Finalized(Default::default()))
 		}
 	}
 
 	#[async_trait]
 	impl TransactionTracker for TestTransactionTracker {
-		async fn wait(self) -> TrackedTransactionStatus {
+		type HeaderId = TestTargetHeaderId;
+
+		async fn wait(self) -> TrackedTransactionStatus<TestTargetHeaderId> {
 			self.0
 		}
 	}
@@ -551,14 +553,14 @@ pub(crate) mod tests {
 		source_state: SourceClientState<TestMessageLane>,
 		source_latest_generated_nonce: MessageNonce,
 		source_latest_confirmed_received_nonce: MessageNonce,
-		source_tracked_transaction_status: TrackedTransactionStatus,
+		source_tracked_transaction_status: TrackedTransactionStatus<TestTargetHeaderId>,
 		submitted_messages_receiving_proofs: Vec<TestMessagesReceivingProof>,
 		is_target_fails: bool,
 		is_target_reconnected: bool,
 		target_state: SourceClientState<TestMessageLane>,
 		target_latest_received_nonce: MessageNonce,
 		target_latest_confirmed_received_nonce: MessageNonce,
-		target_tracked_transaction_status: TrackedTransactionStatus,
+		target_tracked_transaction_status: TrackedTransactionStatus<TestTargetHeaderId>,
 		submitted_messages_proofs: Vec<TestMessagesProof>,
 		target_to_source_header_required: Option<TestTargetHeaderId>,
 		target_to_source_header_requirements: Vec<TestTargetHeaderId>,
@@ -574,14 +576,20 @@ pub(crate) mod tests {
 				source_state: Default::default(),
 				source_latest_generated_nonce: 0,
 				source_latest_confirmed_received_nonce: 0,
-				source_tracked_transaction_status: TrackedTransactionStatus::Finalized,
+				source_tracked_transaction_status: TrackedTransactionStatus::Finalized(HeaderId(
+					0,
+					Default::default(),
+				)),
 				submitted_messages_receiving_proofs: Vec::new(),
 				is_target_fails: false,
 				is_target_reconnected: false,
 				target_state: Default::default(),
 				target_latest_received_nonce: 0,
 				target_latest_confirmed_received_nonce: 0,
-				target_tracked_transaction_status: TrackedTransactionStatus::Finalized,
+				target_tracked_transaction_status: TrackedTransactionStatus::Finalized(HeaderId(
+					0,
+					Default::default(),
+				)),
 				submitted_messages_proofs: Vec::new(),
 				target_to_source_header_required: None,
 				target_to_source_header_requirements: Vec::new(),
@@ -595,6 +603,7 @@ pub(crate) mod tests {
 	pub struct TestSourceClient {
 		data: Arc<Mutex<TestClientData>>,
 		tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
+		post_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 	}
 
 	impl Default for TestSourceClient {
@@ -602,6 +611,7 @@ pub(crate) mod tests {
 			TestSourceClient {
 				data: Arc::new(Mutex::new(TestClientData::default())),
 				tick: Arc::new(|_| {}),
+				post_tick: Arc::new(|_| {}),
 			}
 		}
 	}
@@ -615,6 +625,7 @@ pub(crate) mod tests {
 				let mut data = self.data.lock();
 				(self.tick)(&mut data);
 				data.is_source_reconnected = true;
+				(self.post_tick)(&mut data);
 			}
 			Ok(())
 		}
@@ -630,6 +641,7 @@ pub(crate) mod tests {
 			if data.is_source_fails {
 				return Err(TestError)
 			}
+			(self.post_tick)(&mut data);
 			Ok(data.source_state.clone())
 		}
 
@@ -642,6 +654,7 @@ pub(crate) mod tests {
 			if data.is_source_fails {
 				return Err(TestError)
 			}
+			(self.post_tick)(&mut data);
 			Ok((id, data.source_latest_generated_nonce))
 		}
 
@@ -651,6 +664,7 @@ pub(crate) mod tests {
 		) -> Result<(SourceHeaderIdOf<TestMessageLane>, MessageNonce), TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
+			(self.post_tick)(&mut data);
 			Ok((id, data.source_latest_confirmed_received_nonce))
 		}
 
@@ -685,6 +699,7 @@ pub(crate) mod tests {
 		> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
+			(self.post_tick)(&mut data);
 			Ok((
 				id,
 				nonces.clone(),
@@ -711,6 +726,7 @@ pub(crate) mod tests {
 			data.source_state.best_finalized_self = data.source_state.best_self;
 			data.submitted_messages_receiving_proofs.push(proof);
 			data.source_latest_confirmed_received_nonce = proof;
+			(self.post_tick)(&mut data);
 			Ok(TestTransactionTracker(data.source_tracked_transaction_status))
 		}
 
@@ -719,6 +735,7 @@ pub(crate) mod tests {
 			data.target_to_source_header_required = Some(id);
 			data.target_to_source_header_requirements.push(id);
 			(self.tick)(&mut data);
+			(self.post_tick)(&mut data);
 		}
 
 		async fn estimate_confirmation_transaction(&self) -> TestSourceChainBalance {
@@ -730,6 +747,7 @@ pub(crate) mod tests {
 	pub struct TestTargetClient {
 		data: Arc<Mutex<TestClientData>>,
 		tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
+		post_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 	}
 
 	impl Default for TestTargetClient {
@@ -737,6 +755,7 @@ pub(crate) mod tests {
 			TestTargetClient {
 				data: Arc::new(Mutex::new(TestClientData::default())),
 				tick: Arc::new(|_| {}),
+				post_tick: Arc::new(|_| {}),
 			}
 		}
 	}
@@ -750,6 +769,7 @@ pub(crate) mod tests {
 				let mut data = self.data.lock();
 				(self.tick)(&mut data);
 				data.is_target_reconnected = true;
+				(self.post_tick)(&mut data);
 			}
 			Ok(())
 		}
@@ -765,6 +785,7 @@ pub(crate) mod tests {
 			if data.is_target_fails {
 				return Err(TestError)
 			}
+			(self.post_tick)(&mut data);
 			Ok(data.target_state.clone())
 		}
 
@@ -777,6 +798,7 @@ pub(crate) mod tests {
 			if data.is_target_fails {
 				return Err(TestError)
 			}
+			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_received_nonce))
 		}
 
@@ -804,6 +826,7 @@ pub(crate) mod tests {
 			if data.is_target_fails {
 				return Err(TestError)
 			}
+			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_confirmed_received_nonce))
 		}
 
@@ -834,6 +857,7 @@ pub(crate) mod tests {
 					target_latest_confirmed_received_nonce;
 			}
 			data.submitted_messages_proofs.push(proof);
+			(self.post_tick)(&mut data);
 			Ok(NoncesSubmitArtifacts {
 				nonces,
 				tx_tracker: TestTransactionTracker(data.target_tracked_transaction_status),
@@ -845,6 +869,7 @@ pub(crate) mod tests {
 			data.source_to_target_header_required = Some(id);
 			data.source_to_target_header_requirements.push(id);
 			(self.tick)(&mut data);
+			(self.post_tick)(&mut data);
 		}
 
 		async fn estimate_delivery_transaction_in_source_tokens(
@@ -863,14 +888,24 @@ pub(crate) mod tests {
 	fn run_loop_test(
 		data: TestClientData,
 		source_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
+		source_post_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 		target_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
+		target_post_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 		exit_signal: impl Future<Output = ()> + 'static + Send,
 	) -> TestClientData {
 		async_std::task::block_on(async {
 			let data = Arc::new(Mutex::new(data));
 
-			let source_client = TestSourceClient { data: data.clone(), tick: source_tick };
-			let target_client = TestTargetClient { data: data.clone(), tick: target_tick };
+			let source_client = TestSourceClient {
+				data: data.clone(),
+				tick: source_tick,
+				post_tick: source_post_tick,
+			};
+			let target_client = TestTargetClient {
+				data: data.clone(),
+				tick: target_tick,
+				post_tick: target_post_tick,
+			};
 			let _ = run(
 				Params {
 					lane: [0, 0, 0, 0],
@@ -928,6 +963,7 @@ pub(crate) mod tests {
 					data.is_target_fails = true;
 				}
 			}),
+			Arc::new(|_| {}),
 			Arc::new(move |data: &mut TestClientData| {
 				if data.is_target_reconnected {
 					data.is_target_fails = false;
@@ -942,6 +978,7 @@ pub(crate) mod tests {
 					exit_sender.unbounded_send(()).unwrap();
 				}
 			}),
+			Arc::new(|_| {}),
 			exit_receiver.into_future().map(|(_, _)| ()),
 		);
 
@@ -976,24 +1013,104 @@ pub(crate) mod tests {
 			},
 			Arc::new(move |data: &mut TestClientData| {
 				if data.is_source_reconnected {
-					data.source_tracked_transaction_status = TrackedTransactionStatus::Finalized;
+					data.source_tracked_transaction_status =
+						TrackedTransactionStatus::Finalized(Default::default());
 				}
 				if data.is_source_reconnected && data.is_target_reconnected {
 					source_exit_sender.unbounded_send(()).unwrap();
 				}
 			}),
+			Arc::new(|_| {}),
 			Arc::new(move |data: &mut TestClientData| {
 				if data.is_target_reconnected {
-					data.target_tracked_transaction_status = TrackedTransactionStatus::Finalized;
+					data.target_tracked_transaction_status =
+						TrackedTransactionStatus::Finalized(Default::default());
 				}
 				if data.is_source_reconnected && data.is_target_reconnected {
 					target_exit_sender.unbounded_send(()).unwrap();
+				}
+			}),
+			Arc::new(|_| {}),
+			exit_receiver.into_future().map(|(_, _)| ()),
+		);
+
+		assert!(result.is_source_reconnected);
+	}
+
+	#[test]
+	fn message_lane_loop_is_able_to_recover_from_unsuccessful_transaction() {
+		// with this configuration, both source and target clients will mine their transactions, but
+		// their corresponding nonce won't be udpated => reconnect will happen
+		let (exit_sender, exit_receiver) = unbounded();
+		let result = run_loop_test(
+			TestClientData {
+				source_state: ClientState {
+					best_self: HeaderId(0, 0),
+					best_finalized_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
+					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+				},
+				source_latest_generated_nonce: 1,
+				target_state: ClientState {
+					best_self: HeaderId(0, 0),
+					best_finalized_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: HeaderId(0, 0),
+					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+				},
+				target_latest_received_nonce: 0,
+				..Default::default()
+			},
+			Arc::new(move |data: &mut TestClientData| {
+				// blocks are produced on every tick
+				data.source_state.best_self =
+					HeaderId(data.source_state.best_self.0 + 1, data.source_state.best_self.1 + 1);
+				data.source_state.best_finalized_self = data.source_state.best_self;
+				// syncing target headers -> source chain
+				if let Some(last_requirement) = data.target_to_source_header_requirements.last() {
+					if *last_requirement != data.source_state.best_finalized_peer_at_best_self {
+						data.source_state.best_finalized_peer_at_best_self = *last_requirement;
+					}
+				}
+			}),
+			Arc::new(move |data: &mut TestClientData| {
+				// if it is the first time we're submitting delivery proof, let's revert changes
+				// to source status => then the delivery confirmation transaction is "finalized",
+				// but the state is not altered
+				if data.submitted_messages_receiving_proofs.len() == 1 {
+					data.source_latest_confirmed_received_nonce = 0;
+				}
+			}),
+			Arc::new(move |data: &mut TestClientData| {
+				// blocks are produced on every tick
+				data.target_state.best_self =
+					HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.1 + 1);
+				data.target_state.best_finalized_self = data.target_state.best_self;
+				// syncing source headers -> target chain
+				if let Some(last_requirement) = data.source_to_target_header_requirements.last() {
+					if *last_requirement != data.target_state.best_finalized_peer_at_best_self {
+						data.target_state.best_finalized_peer_at_best_self = *last_requirement;
+					}
+				}
+				// if source has received all messages receiving confirmations => stop
+				if data.source_latest_confirmed_received_nonce == 1 {
+					exit_sender.unbounded_send(()).unwrap();
+				}
+			}),
+			Arc::new(move |data: &mut TestClientData| {
+				// if it is the first time we're submitting messages proof, let's revert changes
+				// to target status => then the messages delivery transaction is "finalized", but
+				// the state is not altered
+				if data.submitted_messages_proofs.len() == 1 {
+					data.target_latest_received_nonce = 0;
+					data.target_latest_confirmed_received_nonce = 0;
 				}
 			}),
 			exit_receiver.into_future().map(|(_, _)| ()),
 		);
 
 		assert!(result.is_source_reconnected);
+		assert_eq!(result.submitted_messages_proofs.len(), 2);
+		assert_eq!(result.submitted_messages_receiving_proofs.len(), 2);
 	}
 
 	#[test]
@@ -1037,6 +1154,7 @@ pub(crate) mod tests {
 					}
 				}
 			}),
+			Arc::new(|_| {}),
 			Arc::new(move |data: &mut TestClientData| {
 				// blocks are produced on every tick
 				data.target_state.best_self =
@@ -1061,6 +1179,7 @@ pub(crate) mod tests {
 					exit_sender.unbounded_send(()).unwrap();
 				}
 			}),
+			Arc::new(|_| {}),
 			exit_receiver.into_future().map(|(_, _)| ()),
 		);
 

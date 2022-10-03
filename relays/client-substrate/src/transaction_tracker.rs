@@ -16,12 +16,27 @@
 
 //! Helper for tracking transaction invalidation events.
 
-use crate::{Chain, HashOf, Subscription, TransactionStatusOf};
+use crate::{Chain, Client, Error, HashOf, HeaderIdOf, Subscription, TransactionStatusOf};
 
 use async_trait::async_trait;
 use futures::{future::Either, Future, FutureExt, Stream, StreamExt};
-use relay_utils::TrackedTransactionStatus;
+use relay_utils::{HeaderId, TrackedTransactionStatus};
+use sp_runtime::traits::Header as _;
 use std::time::Duration;
+
+/// Transaction tracker environment.
+#[async_trait]
+pub trait Environment<C: Chain>: Send + Sync {
+	/// Returns header id by its hash.
+	async fn header_id_by_hash(&self, hash: HashOf<C>) -> Result<HeaderIdOf<C>, Error>;
+}
+
+#[async_trait]
+impl<C: Chain> Environment<C> for Client<C> {
+	async fn header_id_by_hash(&self, hash: HashOf<C>) -> Result<HeaderIdOf<C>, Error> {
+		self.header_by_hash(hash).await.map(|h| HeaderId(*h.number(), hash))
+	}
+}
 
 /// Substrate transaction tracker implementation.
 ///
@@ -43,20 +58,22 @@ use std::time::Duration;
 ///    it is lost.
 ///
 /// This struct implements third option as it seems to be the most optimal.
-pub struct TransactionTracker<C: Chain> {
+pub struct TransactionTracker<C: Chain, E> {
+	environment: E,
 	transaction_hash: HashOf<C>,
 	stall_timeout: Duration,
 	subscription: Subscription<TransactionStatusOf<C>>,
 }
 
-impl<C: Chain> TransactionTracker<C> {
+impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 	/// Create transaction tracker.
 	pub fn new(
+		environment: E,
 		stall_timeout: Duration,
 		transaction_hash: HashOf<C>,
 		subscription: Subscription<TransactionStatusOf<C>>,
 	) -> Self {
-		Self { stall_timeout, transaction_hash, subscription }
+		Self { environment, stall_timeout, transaction_hash, subscription }
 	}
 
 	/// Wait for final transaction status and return it along with last known internal invalidation
@@ -65,10 +82,11 @@ impl<C: Chain> TransactionTracker<C> {
 		self,
 		wait_for_stall_timeout: impl Future<Output = ()>,
 		wait_for_stall_timeout_rest: impl Future<Output = ()>,
-	) -> (TrackedTransactionStatus, Option<InvalidationStatus>) {
+	) -> (TrackedTransactionStatus<HeaderIdOf<C>>, Option<InvalidationStatus<HeaderIdOf<C>>>) {
 		// sometimes we want to wait for the rest of the stall timeout even if
 		// `wait_for_invalidation` has been "select"ed first => it is shared
-		let wait_for_invalidation = watch_transaction_status::<C, _>(
+		let wait_for_invalidation = watch_transaction_status::<_, C, _>(
+			self.environment,
 			self.transaction_hash,
 			self.subscription.into_stream(),
 		);
@@ -86,8 +104,8 @@ impl<C: Chain> TransactionTracker<C> {
 				(TrackedTransactionStatus::Lost, None)
 			},
 			Either::Right((invalidation_status, _)) => match invalidation_status {
-				InvalidationStatus::Finalized =>
-					(TrackedTransactionStatus::Finalized, Some(invalidation_status)),
+				InvalidationStatus::Finalized(at_block) =>
+					(TrackedTransactionStatus::Finalized(at_block), Some(invalidation_status)),
 				InvalidationStatus::Invalid =>
 					(TrackedTransactionStatus::Lost, Some(invalidation_status)),
 				InvalidationStatus::Lost => {
@@ -111,8 +129,10 @@ impl<C: Chain> TransactionTracker<C> {
 }
 
 #[async_trait]
-impl<C: Chain> relay_utils::TransactionTracker for TransactionTracker<C> {
-	async fn wait(self) -> TrackedTransactionStatus {
+impl<C: Chain, E: Environment<C>> relay_utils::TransactionTracker for TransactionTracker<C, E> {
+	type HeaderId = HeaderIdOf<C>;
+
+	async fn wait(self) -> TrackedTransactionStatus<HeaderIdOf<C>> {
 		let wait_for_stall_timeout = async_std::task::sleep(self.stall_timeout).shared();
 		let wait_for_stall_timeout_rest = wait_for_stall_timeout.clone();
 		self.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).await.0
@@ -125,9 +145,9 @@ impl<C: Chain> relay_utils::TransactionTracker for TransactionTracker<C> {
 /// ignored - relay loops are detecting the mining/finalization using their own
 /// techniques. That's why we're using `InvalidationStatus` here.
 #[derive(Debug, PartialEq)]
-enum InvalidationStatus {
-	/// Transaction has been included into block and finalized.
-	Finalized,
+enum InvalidationStatus<BlockId> {
+	/// Transaction has been included into block and finalized at given block.
+	Finalized(BlockId),
 	/// Transaction has been invalidated.
 	Invalid,
 	/// We have lost track of transaction status.
@@ -135,10 +155,15 @@ enum InvalidationStatus {
 }
 
 /// Watch for transaction status until transaction is finalized or we lose track of its status.
-async fn watch_transaction_status<C: Chain, S: Stream<Item = TransactionStatusOf<C>>>(
+async fn watch_transaction_status<
+	E: Environment<C>,
+	C: Chain,
+	S: Stream<Item = TransactionStatusOf<C>>,
+>(
+	environment: E,
 	transaction_hash: HashOf<C>,
 	subscription: S,
-) -> InvalidationStatus {
+) -> InvalidationStatus<HeaderIdOf<C>> {
 	futures::pin_mut!(subscription);
 
 	loop {
@@ -153,7 +178,23 @@ async fn watch_transaction_status<C: Chain, S: Stream<Item = TransactionStatusOf
 					transaction_hash,
 					block_hash,
 				);
-				return InvalidationStatus::Finalized
+
+				let header_id = match environment.header_id_by_hash(block_hash).await {
+					Ok(header_id) => header_id,
+					Err(e) => {
+						log::error!(
+							target: "bridge",
+							"Failed to read header {:?} when watching for {} transaction {:?}: {:?}",
+							block_hash,
+							C::NAME,
+							transaction_hash,
+							e,
+						);
+						// that's the best option we have here
+						return InvalidationStatus::Lost
+					},
+				};
+				return InvalidationStatus::Finalized(header_id)
 			},
 			Some(TransactionStatusOf::<C>::Invalid) => {
 				// if node says that the transaction is invalid, there are still chances that
@@ -247,11 +288,27 @@ mod tests {
 	use futures::{FutureExt, SinkExt};
 	use sc_transaction_pool_api::TransactionStatus;
 
+	struct TestEnvironment(Result<HeaderIdOf<TestChain>, Error>);
+
+	#[async_trait]
+	impl Environment<TestChain> for TestEnvironment {
+		async fn header_id_by_hash(
+			&self,
+			_hash: HashOf<TestChain>,
+		) -> Result<HeaderIdOf<TestChain>, Error> {
+			self.0.as_ref().map_err(|_| Error::UninitializedBridgePallet).cloned()
+		}
+	}
+
 	async fn on_transaction_status(
 		status: TransactionStatus<HashOf<TestChain>, HashOf<TestChain>>,
-	) -> Option<(TrackedTransactionStatus, InvalidationStatus)> {
+	) -> Option<(
+		TrackedTransactionStatus<HeaderIdOf<TestChain>>,
+		InvalidationStatus<HeaderIdOf<TestChain>>,
+	)> {
 		let (mut sender, receiver) = futures::channel::mpsc::channel(1);
-		let tx_tracker = TransactionTracker::<TestChain>::new(
+		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(
+			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
 			Subscription(async_std::sync::Mutex::new(receiver)),
@@ -270,7 +327,23 @@ mod tests {
 	async fn returns_finalized_on_finalized() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Finalized(Default::default())).await,
-			Some((TrackedTransactionStatus::Finalized, InvalidationStatus::Finalized)),
+			Some((
+				TrackedTransactionStatus::Finalized(Default::default()),
+				InvalidationStatus::Finalized(Default::default())
+			)),
+		);
+	}
+
+	#[async_std::test]
+	async fn returns_lost_on_finalized_and_environment_error() {
+		assert_eq!(
+			watch_transaction_status::<_, TestChain, _>(
+				TestEnvironment(Err(Error::UninitializedBridgePallet)),
+				Default::default(),
+				futures::stream::iter([TransactionStatus::Finalized(Default::default())])
+			)
+			.now_or_never(),
+			Some(InvalidationStatus::Lost),
 		);
 	}
 
@@ -343,8 +416,12 @@ mod tests {
 	#[async_std::test]
 	async fn lost_on_subscription_error() {
 		assert_eq!(
-			watch_transaction_status::<TestChain, _>(Default::default(), futures::stream::iter([]))
-				.now_or_never(),
+			watch_transaction_status::<_, TestChain, _>(
+				TestEnvironment(Ok(HeaderId(0, Default::default()))),
+				Default::default(),
+				futures::stream::iter([])
+			)
+			.now_or_never(),
 			Some(InvalidationStatus::Lost),
 		);
 	}
@@ -352,7 +429,8 @@ mod tests {
 	#[async_std::test]
 	async fn lost_on_timeout_when_waiting_for_invalidation_status() {
 		let (_sender, receiver) = futures::channel::mpsc::channel(1);
-		let tx_tracker = TransactionTracker::<TestChain>::new(
+		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(
+			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
 			Subscription(async_std::sync::Mutex::new(receiver)),
