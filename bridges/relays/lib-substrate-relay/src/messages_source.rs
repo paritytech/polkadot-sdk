@@ -144,7 +144,7 @@ where
 		From<<AccountKeyPairOf<P::SourceTransactionSignScheme> as Pair>::Public>,
 	P::SourceTransactionSignScheme: TransactionSignScheme<Chain = P::SourceChain>,
 {
-	type TransactionTracker = TransactionTracker<P::SourceChain>;
+	type TransactionTracker = TransactionTracker<P::SourceChain, Client<P::SourceChain>>;
 
 	async fn state(&self) -> Result<SourceClientState<MessageLaneAdapter<P>>, SubstrateError> {
 		// we can't continue to deliver confirmations if source node is out of sync, because
