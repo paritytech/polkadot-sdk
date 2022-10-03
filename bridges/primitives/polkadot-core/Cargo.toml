@@ -21,11 +21,9 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-version = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [dev-dependencies]
 hex = "0.4"
@@ -41,9 +39,7 @@ std = [
 	"parity-util-mem",
 	"scale-info/std",
 	"serde",
-	"sp-api/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-version/std",
 ]
