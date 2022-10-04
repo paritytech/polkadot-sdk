@@ -392,7 +392,7 @@ impl WeightInfoExt for () {
 	}
 }
 
-impl<T: frame_system::Config> WeightInfoExt for crate::weights::MillauWeight<T> {
+impl<T: frame_system::Config> WeightInfoExt for crate::weights::BridgeWeight<T> {
 	fn expected_extra_storage_proof_size() -> u32 {
 		EXTRA_STORAGE_PROOF_SIZE
 	}
