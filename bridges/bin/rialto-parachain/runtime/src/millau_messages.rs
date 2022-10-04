@@ -243,7 +243,7 @@ impl messages::BridgedChainWithMessages for Millau {
 	}
 }
 
-impl TargetHeaderChain<ToMillauMessagePayload, bp_millau::AccountId> for Millau {
+impl TargetHeaderChain<ToMillauMessagePayload, bp_rialto_parachain::AccountId> for Millau {
 	type Error = &'static str;
 	// The proof is:
 	// - hash of the header this proof has been created with;

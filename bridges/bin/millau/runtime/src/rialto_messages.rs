@@ -236,7 +236,7 @@ impl messages::BridgedChainWithMessages for Rialto {
 	}
 }
 
-impl TargetHeaderChain<ToRialtoMessagePayload, bp_rialto::AccountId> for Rialto {
+impl TargetHeaderChain<ToRialtoMessagePayload, bp_millau::AccountId> for Rialto {
 	type Error = &'static str;
 	// The proof is:
 	// - hash of the header this proof has been created with;
