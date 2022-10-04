@@ -315,7 +315,7 @@ mod tests {
 
 	#[test]
 	fn ensure_rialto_message_lane_weights_are_correct() {
-		type Weights = pallet_bridge_messages::weights::MillauWeight<Runtime>;
+		type Weights = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
 
 		pallet_bridge_messages::ensure_weights_are_correct::<Weights>(
 			bp_rialto::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,

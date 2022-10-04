@@ -484,7 +484,7 @@ mod tests {
 	use bp_runtime::Chain;
 
 	type RialtoToMillauMessagesWeights =
-		pallet_bridge_messages::weights::MillauWeight<rialto_runtime::Runtime>;
+		pallet_bridge_messages::weights::BridgeWeight<rialto_runtime::Runtime>;
 
 	#[test]
 	fn select_delivery_transaction_limits_works() {
