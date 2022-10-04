@@ -432,7 +432,7 @@ impl pallet_bridge_grandpa::Config for Runtime {
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;
 
-	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
+	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
 
 pub type WestendGrandpaInstance = pallet_bridge_grandpa::Instance1;
@@ -441,7 +441,7 @@ impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;
 
-	type WeightInfo = pallet_bridge_grandpa::weights::MillauWeight<Runtime>;
+	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
 
 impl pallet_shift_session_manager::Config for Runtime {}
@@ -465,7 +465,7 @@ pub type WithRialtoMessagesInstance = ();
 
 impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type Event = Event;
-	type WeightInfo = pallet_bridge_messages::weights::MillauWeight<Runtime>;
+	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
 	type Parameter = rialto_messages::MillauToRialtoMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
@@ -500,7 +500,7 @@ pub type WithRialtoParachainMessagesInstance = pallet_bridge_messages::Instance1
 
 impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Runtime {
 	type Event = Event;
-	type WeightInfo = pallet_bridge_messages::weights::MillauWeight<Runtime>;
+	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
 	type Parameter = rialto_parachain_messages::MillauToRialtoParachainMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
@@ -541,7 +541,7 @@ pub type WithRialtoParachainsInstance = ();
 
 impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime {
 	type Event = Event;
-	type WeightInfo = pallet_bridge_parachains::weights::MillauWeight<Runtime>;
+	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
 	type ParasPalletName = RialtoParasPalletName;
 	type TrackedParachains = frame_support::traits::Everything;
@@ -553,7 +553,7 @@ pub type WithWestendParachainsInstance = pallet_bridge_parachains::Instance1;
 
 impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime {
 	type Event = Event;
-	type WeightInfo = pallet_bridge_parachains::weights::MillauWeight<Runtime>;
+	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
 	type ParasPalletName = WestendParasPalletName;
 	type TrackedParachains = frame_support::traits::Everything;
