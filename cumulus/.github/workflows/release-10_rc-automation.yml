@@ -9,6 +9,12 @@ on:
 jobs:
   tag_rc:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        channel:
+          - name: 'Cumulus Release Coordination'
+            room: '!ZrLPsivsytpkdJfVaa:matrix.parity.io'
+            pre-releases: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -67,11 +73,11 @@ jobs:
           assignees: release-engineering
           filename: .github/ISSUE_TEMPLATE/release-runtime.md
 
-      - name: Send Matrix message
+      - name: Matrix notification to ${{ matrix.channel.name }}
         uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
         if: steps.create-issue-checklist-client.outputs.url != '' && steps.create-issue-checklist-runtime.outputs.url != ''
         with:
-          room_id: ${{ secrets.INTERNAL_CUMULUS_MATRIX_ROOM_ID }}
+          room_id: ${{ matrix.channel.room }}
           access_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
           server: "matrix.parity.io"
           message: |

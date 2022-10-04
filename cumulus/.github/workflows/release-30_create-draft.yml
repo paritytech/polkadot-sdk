@@ -271,11 +271,17 @@ jobs:
     if: ${{ github.event.inputs.notification == 'true' }}
     runs-on: ubuntu-latest
     needs: publish-draft-release
+    strategy:
+      matrix:
+        channel:
+          - name: 'Cumulus Release Coordination'
+            room: '!ZrLPsivsytpkdJfVaa:matrix.parity.io'
+            pre-releases: true
     steps:
-      - name: Internal polkadot channel
-        uses: s3krit/matrix-message-action@v0.0.3
+      - name: Matrix notification to ${{ matrix.channel.name }}
+        uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
         with:
-          room_id: ${{ secrets.INTERNAL_CUMULUS_MATRIX_ROOM_ID }}
+          room_id: ${{ matrix.channel.room }}
           access_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
           message: |
             **New draft for ${{ github.repository }}**: ${{ github.event.inputs.ref2 }}<br/>
