@@ -229,9 +229,7 @@ impl messages::BridgedChainWithMessages for RialtoParachain {
 	}
 }
 
-impl TargetHeaderChain<ToRialtoParachainMessagePayload, bp_rialto_parachain::AccountId>
-	for RialtoParachain
-{
+impl TargetHeaderChain<ToRialtoParachainMessagePayload, bp_millau::AccountId> for RialtoParachain {
 	type Error = &'static str;
 	// The proof is:
 	// - hash of the header this proof has been created with;
