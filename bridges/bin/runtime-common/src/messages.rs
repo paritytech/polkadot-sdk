@@ -315,7 +315,6 @@ pub mod source {
 	impl<B>
 		LaneMessageVerifier<
 			OriginOf<ThisChain<B>>,
-			AccountIdOf<ThisChain<B>>,
 			FromThisChainMessagePayload,
 			BalanceOf<ThisChain<B>>,
 		> for FromThisChainMessageVerifier<B>
