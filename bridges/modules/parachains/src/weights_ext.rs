@@ -16,7 +16,7 @@
 
 //! Weight-related utilities.
 
-use crate::weights::{MillauWeight, WeightInfo};
+use crate::weights::{BridgeWeight, WeightInfo};
 
 use bp_runtime::Size;
 use frame_support::weights::{RuntimeDbWeight, Weight};
@@ -101,7 +101,7 @@ impl WeightInfoExt for () {
 	}
 }
 
-impl<T: frame_system::Config> WeightInfoExt for MillauWeight<T> {
+impl<T: frame_system::Config> WeightInfoExt for BridgeWeight<T> {
 	fn expected_extra_storage_proof_size() -> u32 {
 		EXTRA_STORAGE_PROOF_SIZE
 	}
