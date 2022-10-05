@@ -9,7 +9,7 @@ use frame_support::{
 };
 use pallet_contracts::{
 	weights::{SubstrateWeight, WeightInfo},
-	Config, DefaultAddressGenerator, DefaultContractAccessWeight, Frame, Schedule,
+	Config, DefaultAddressGenerator, Frame, Schedule,
 };
 pub use parachains_common::AVERAGE_ON_INITIALIZE_RATIO;
 
@@ -55,7 +55,6 @@ impl Config for Runtime {
 	type Schedule = MySchedule;
 	type CallStack = [Frame<Self>; 31];
 	type AddressGenerator = DefaultAddressGenerator;
-	type ContractAccessWeight = DefaultContractAccessWeight<RuntimeBlockWeights>;
 	type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
 }
