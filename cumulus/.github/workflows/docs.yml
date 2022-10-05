@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install tooling
+        run: |
+          apt-get install -y protobuf
+          protoc --version
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
