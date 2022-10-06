@@ -49,7 +49,6 @@ pallet-utility = { git = "https://github.com/paritytech/substrate", default-feat
 pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-contracts-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Polkadot
 kusama-runtime-constants = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -93,7 +92,6 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-contracts-primitives/std",
-	"pallet-contracts-runtime-api/std",
 	"pallet-contracts/std",
 	"pallet-multisig/std",
 	"pallet-randomness-collective-flip/std",
