@@ -71,47 +71,6 @@ pub struct InitializationData<H: HeaderT> {
 	pub operating_mode: BasicOperatingMode,
 }
 
-/// base trait for verifying transaction inclusion proofs.
-pub trait InclusionProofVerifier {
-	/// Transaction type.
-	type Transaction: Parameter;
-	/// Transaction inclusion proof type.
-	type TransactionInclusionProof: Parameter;
-
-	/// Verify that transaction is a part of given block.
-	///
-	/// Returns Some(transaction) if proof is valid and None otherwise.
-	fn verify_transaction_inclusion_proof(
-		proof: &Self::TransactionInclusionProof,
-	) -> Option<Self::Transaction>;
-}
-
-/// A trait for pallets which want to keep track of finalized headers from a bridged chain.
-pub trait HeaderChain<H, E> {
-	/// Get the best finalized header known to the header chain.
-	fn best_finalized() -> Option<H>;
-
-	/// Get the best authority set known to the header chain.
-	fn authority_set() -> AuthoritySet;
-
-	/// Write a header finalized by GRANDPA to the underlying pallet storage.
-	fn append_header(header: H) -> Result<(), E>;
-}
-
-impl<H: Default, E> HeaderChain<H, E> for () {
-	fn best_finalized() -> Option<H> {
-		None
-	}
-
-	fn authority_set() -> AuthoritySet {
-		AuthoritySet::default()
-	}
-
-	fn append_header(_header: H) -> Result<(), E> {
-		Ok(())
-	}
-}
-
 /// Abstract finality proof that is justifying block finality.
 pub trait FinalityProof<Number>: Clone + Send + Sync + Debug {
 	/// Return number of header that this proof is generated for.
