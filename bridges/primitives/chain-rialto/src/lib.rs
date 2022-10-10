@@ -100,6 +100,12 @@ pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = 700_000_000;
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = 4;
 
+/// Maximal number of GRANDPA authorities at Rialto.
+pub const MAX_AUTHORITIES_COUNT: u32 = 5;
+
+/// Maximal SCALE-encoded header size (in bytes) at Rialto.
+pub const MAX_HEADER_SIZE: u32 = 512;
+
 /// Re-export `time_units` to make usage easier.
 pub use time_units::*;
 
