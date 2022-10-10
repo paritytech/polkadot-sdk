@@ -23,13 +23,13 @@ use bp_polkadot_core::{
 	BlockNumber as RelayBlockNumber,
 };
 use bp_runtime::{StorageDoubleMapKeyProvider, StorageMapKeyProvider};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{Blake2_128Concat, RuntimeDebug, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
 
 /// Best known parachain head hash.
-#[derive(Clone, Decode, Encode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct BestParaHeadHash {
 	/// Number of relay block where this head has been read.
 	///
@@ -45,7 +45,7 @@ pub struct BestParaHeadHash {
 }
 
 /// Best known parachain head as it is stored in the runtime storage.
-#[derive(Decode, Encode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo {
 	/// Best known parachain head hash.
 	pub best_head_hash: BestParaHeadHash,
