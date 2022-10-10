@@ -2012,7 +2012,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-rpc-interface",
  "futures",
- "lru 0.8.0",
+ "lru 0.8.1",
  "polkadot-availability-distribution",
  "polkadot-core-primitives",
  "polkadot-network-bridge",
@@ -4760,9 +4760,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "936d98d2ddd79c18641c6709e7bb09981449694e402d1a0f0f657ea8d61f4a51"
+checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
 dependencies = [
  "hashbrown 0.12.3",
 ]
@@ -4900,7 +4900,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce95ae042940bad7e312857b929ee3d11b8f799a80cb7b9c7ec5125516906395"
 dependencies = [
- "lru 0.8.0",
+ "lru 0.8.1",
 ]
 
 [[package]]
@@ -7085,7 +7085,7 @@ dependencies = [
  "derive_more",
  "fatality",
  "futures",
- "lru 0.8.0",
+ "lru 0.8.1",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -7107,7 +7107,7 @@ source = "git+https://github.com/paritytech/polkadot?branch=master#f479d1ead57ec
 dependencies = [
  "fatality",
  "futures",
- "lru 0.8.0",
+ "lru 0.8.1",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -7233,7 +7233,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "indexmap",
- "lru 0.8.0",
+ "lru 0.8.1",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -7334,7 +7334,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "kvdb",
- "lru 0.8.0",
+ "lru 0.8.1",
  "merlin",
  "parity-scale-codec",
  "polkadot-node-jaeger",
@@ -7465,7 +7465,7 @@ dependencies = [
  "fatality",
  "futures",
  "kvdb",
- "lru 0.8.0",
+ "lru 0.8.1",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -7719,7 +7719,7 @@ dependencies = [
  "futures",
  "itertools",
  "kvdb",
- "lru 0.8.0",
+ "lru 0.8.1",
  "parity-db",
  "parity-scale-codec",
  "parity-util-mem",
@@ -7749,7 +7749,7 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-timer",
- "lru 0.8.0",
+ "lru 0.8.1",
  "orchestra",
  "parity-util-mem",
  "parking_lot 0.12.1",
@@ -8157,7 +8157,7 @@ dependencies = [
  "kusama-runtime",
  "kvdb",
  "kvdb-rocksdb",
- "lru 0.8.0",
+ "lru 0.8.1",
  "pallet-babe",
  "pallet-im-online",
  "pallet-staking",
