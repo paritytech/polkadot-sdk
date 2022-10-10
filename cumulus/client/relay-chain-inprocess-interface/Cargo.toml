@@ -38,3 +38,7 @@ sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master
 # Polkadot
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+metered = { package = "prioritized-metered-channel", version = "0.2.0" }
+
+# Cumulus
+cumulus-test-service = { path = "../../test/service" }

@@ -23,7 +23,8 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
-use polkadot_overseer::Handle as OverseerHandle;
+use polkadot_overseer::{prometheus::PrometheusError, Handle as OverseerHandle};
+use polkadot_service::SubstrateServiceError;
 use sc_client_api::StorageProof;
 
 use futures::Stream;
@@ -58,15 +59,31 @@ pub enum RelayChainError {
 	WorkerCommunicationError(String),
 	#[error("Scale codec deserialization error: {0}")]
 	DeserializationError(CodecError),
-	#[error("Scale codec deserialization error: {0}")]
+	#[error("Polkadot service error: {0}")]
 	ServiceError(#[from] polkadot_service::Error),
+	#[error("Substrate service error: {0}")]
+	SubServiceError(#[from] SubstrateServiceError),
+	#[error("Prometheus error: {0}")]
+	PrometheusError(#[from] PrometheusError),
 	#[error("Unspecified error occured: {0}")]
 	GenericError(String),
+}
+
+impl From<RelayChainError> for ApiError {
+	fn from(r: RelayChainError) -> Self {
+		sp_api::ApiError::Application(Box::new(r))
+	}
 }
 
 impl From<CodecError> for RelayChainError {
 	fn from(e: CodecError) -> Self {
 		RelayChainError::DeserializationError(e)
+	}
+}
+
+impl From<RelayChainError> for sp_blockchain::Error {
+	fn from(r: RelayChainError) -> Self {
+		sp_blockchain::Error::Application(Box::new(r))
 	}
 }
 
@@ -155,7 +172,7 @@ pub trait RelayChainInterface: Send + Sync {
 	async fn is_major_syncing(&self) -> RelayChainResult<bool>;
 
 	/// Get a handle to the overseer.
-	fn overseer_handle(&self) -> RelayChainResult<Option<OverseerHandle>>;
+	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle>;
 
 	/// Generate a storage read proof.
 	async fn prove_read(
@@ -233,7 +250,7 @@ where
 		(**self).is_major_syncing().await
 	}
 
-	fn overseer_handle(&self) -> RelayChainResult<Option<OverseerHandle>> {
+	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle> {
 		(**self).overseer_handle()
 	}
 

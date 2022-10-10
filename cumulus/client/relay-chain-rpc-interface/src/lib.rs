@@ -44,11 +44,12 @@ const TIMEOUT_IN_SECONDS: u64 = 6;
 #[derive(Clone)]
 pub struct RelayChainRpcInterface {
 	rpc_client: RelayChainRpcClient,
+	overseer_handle: Handle,
 }
 
 impl RelayChainRpcInterface {
-	pub fn new(rpc_client: RelayChainRpcClient) -> Self {
-		Self { rpc_client }
+	pub fn new(rpc_client: RelayChainRpcClient, overseer_handle: Handle) -> Self {
+		Self { rpc_client, overseer_handle }
 	}
 }
 
@@ -118,15 +119,15 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	}
 
 	async fn best_block_hash(&self) -> RelayChainResult<PHash> {
-		self.rpc_client.chain_get_head().await
+		self.rpc_client.chain_get_head(None).await
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		self.rpc_client.system_health().await.map(|h| h.is_syncing)
 	}
 
-	fn overseer_handle(&self) -> RelayChainResult<Option<Handle>> {
-		unimplemented!("Overseer handle is not available on relay-chain-rpc-interface");
+	fn overseer_handle(&self) -> RelayChainResult<Handle> {
+		Ok(self.overseer_handle.clone())
 	}
 
 	async fn get_storage_by_key(

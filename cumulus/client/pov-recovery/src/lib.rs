@@ -181,7 +181,7 @@ where
 			Ok(_) => return,
 			Err(e) => {
 				tracing::debug!(
-					target: "cumulus-consensus",
+					target: LOG_TARGET,
 					error = ?e,
 					block_hash = ?hash,
 					"Failed to get block status",
@@ -190,6 +190,7 @@ where
 			},
 		}
 
+		tracing::debug!(target: LOG_TARGET, ?hash, "Adding pending candidate");
 		if self
 			.pending_candidates
 			.insert(
@@ -233,6 +234,7 @@ where
 			None => return,
 		};
 
+		tracing::debug!(target: LOG_TARGET, ?block_hash, "Issuing recovery request");
 		self.active_candidate_recovery
 			.recover_candidate(block_hash, pending_candidate)
 			.await;
@@ -301,7 +303,7 @@ where
 			Ok(BlockStatus::Unknown) => {
 				if self.active_candidate_recovery.is_being_recovered(&parent) {
 					tracing::debug!(
-						target: "cumulus-consensus",
+						target: LOG_TARGET,
 						?block_hash,
 						parent_hash = ?parent,
 						"Parent is still being recovered, waiting.",
@@ -311,7 +313,7 @@ where
 					return
 				} else {
 					tracing::debug!(
-						target: "cumulus-consensus",
+						target: LOG_TARGET,
 						?block_hash,
 						parent_hash = ?parent,
 						"Parent not found while trying to import recovered block.",
@@ -324,7 +326,7 @@ where
 			},
 			Err(error) => {
 				tracing::debug!(
-					target: "cumulus-consensus",
+					target: LOG_TARGET,
 					block_hash = ?parent,
 					?error,
 					"Error while checking block status",
@@ -346,6 +348,8 @@ where
 	/// This will also recursivley drain `waiting_for_parent` and import them as well.
 	async fn import_block(&mut self, block: Block) {
 		let mut blocks = VecDeque::new();
+
+		tracing::debug!(target: LOG_TARGET, hash = ?block.hash(), "Importing block retrieved using pov_recovery");
 		blocks.push_back(block);
 
 		let mut incoming_blocks = Vec::new();

@@ -174,7 +174,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		Ok(false)
 	}
 
-	fn overseer_handle(&self) -> RelayChainResult<Option<Handle>> {
+	fn overseer_handle(&self) -> RelayChainResult<Handle> {
 		unimplemented!("Not needed for test")
 	}
 

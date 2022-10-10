@@ -50,7 +50,7 @@ pub struct RelayChainInProcessInterface<Client> {
 	full_client: Arc<Client>,
 	backend: Arc<FullBackend>,
 	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
-	overseer_handle: Option<Handle>,
+	overseer_handle: Handle,
 }
 
 impl<Client> RelayChainInProcessInterface<Client> {
@@ -59,7 +59,7 @@ impl<Client> RelayChainInProcessInterface<Client> {
 		full_client: Arc<Client>,
 		backend: Arc<FullBackend>,
 		sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
-		overseer_handle: Option<Handle>,
+		overseer_handle: Handle,
 	) -> Self {
 		Self { full_client, backend, sync_oracle, overseer_handle }
 	}
@@ -171,7 +171,7 @@ where
 		Ok(self.sync_oracle.is_major_syncing())
 	}
 
-	fn overseer_handle(&self) -> RelayChainResult<Option<Handle>> {
+	fn overseer_handle(&self) -> RelayChainResult<Handle> {
 		Ok(self.overseer_handle.clone())
 	}
 
@@ -288,7 +288,7 @@ struct RelayChainInProcessInterfaceBuilder {
 	polkadot_client: polkadot_client::Client,
 	backend: Arc<FullBackend>,
 	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
-	overseer_handle: Option<Handle>,
+	overseer_handle: Handle,
 }
 
 impl RelayChainInProcessInterfaceBuilder {
@@ -378,7 +378,9 @@ pub fn build_inprocess_relay_chain(
 		polkadot_client: full_node.client.clone(),
 		backend: full_node.backend.clone(),
 		sync_oracle,
-		overseer_handle: full_node.overseer_handle.clone(),
+		overseer_handle: full_node.overseer_handle.clone().ok_or(RelayChainError::GenericError(
+			"Overseer not running in full node.".to_string(),
+		))?,
 	};
 
 	task_manager.add_child(full_node.task_manager);
@@ -425,10 +427,12 @@ mod tests {
 		let block = block_builder.build().expect("Finalizes the block").block;
 		let dummy_network: Arc<dyn SyncOracle + Sync + Send> = Arc::new(DummyNetwork {});
 
+		let (tx, _rx) = metered::channel(30);
+		let mock_handle = Handle::new(tx);
 		(
 			client.clone(),
 			block,
-			RelayChainInProcessInterface::new(client, backend.clone(), dummy_network, None),
+			RelayChainInProcessInterface::new(client, backend.clone(), dummy_network, mock_handle),
 		)
 	}
 
