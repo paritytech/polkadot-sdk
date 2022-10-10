@@ -550,6 +550,8 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 parameter_types! {
 	pub const RialtoParasPalletName: &'static str = bp_rialto::PARAS_PALLET_NAME;
 	pub const WestendParasPalletName: &'static str = bp_westend::PARAS_PALLET_NAME;
+	pub const MaxRialtoParaHeadSize: u32 = bp_rialto::MAX_NESTED_PARACHAIN_HEAD_SIZE;
+	pub const MaxWestendParaHeadSize: u32 = bp_westend::MAX_NESTED_PARACHAIN_HEAD_SIZE;
 }
 
 /// Instance of the with-Rialto parachains pallet.
@@ -562,6 +564,7 @@ impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime 
 	type ParasPalletName = RialtoParasPalletName;
 	type TrackedParachains = frame_support::traits::Everything;
 	type HeadsToKeep = HeadersToKeep;
+	type MaxParaHeadSize = MaxRialtoParaHeadSize;
 }
 
 /// Instance of the with-Westend parachains pallet.
@@ -574,6 +577,7 @@ impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime
 	type ParasPalletName = WestendParasPalletName;
 	type TrackedParachains = frame_support::traits::Everything;
 	type HeadsToKeep = HeadersToKeep;
+	type MaxParaHeadSize = MaxWestendParaHeadSize;
 }
 
 construct_runtime!(
