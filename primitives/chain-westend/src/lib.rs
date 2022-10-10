@@ -70,6 +70,9 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 100_000;
 /// some fixed reserve for other things (digest, block hash and number, ...) as well.
 pub const MAX_HEADER_SIZE: u32 = 4096 + MAX_AUTHORITIES_COUNT * 40;
 
+/// Maximal SCALE-encoded size of parachains headers that are stored at Westend `Paras` pallet.
+pub const MAX_NESTED_PARACHAIN_HEAD_SIZE: u32 = MAX_HEADER_SIZE;
+
 /// Identifier of Westmint parachain at the Westend relay chain.
 pub const WESTMINT_PARACHAIN_ID: u32 = 2000;
 

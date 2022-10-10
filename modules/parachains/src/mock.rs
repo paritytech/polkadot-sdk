@@ -36,6 +36,7 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRunt
 
 pub const PARAS_PALLET_NAME: &str = "Paras";
 pub const UNTRACKED_PARACHAIN_ID: u32 = 10;
+pub const MAXIMAL_PARACHAIN_HEAD_SIZE: u32 = 512;
 
 construct_runtime! {
 	pub enum TestRuntime where
@@ -122,6 +123,7 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 	type ParasPalletName = ParasPalletName;
 	type TrackedParachains = IsInVec<GetTenFirstParachains>;
 	type HeadsToKeep = HeadsToKeep;
+	type MaxParaHeadSize = frame_support::traits::ConstU32<MAXIMAL_PARACHAIN_HEAD_SIZE>;
 }
 
 #[derive(Debug)]
