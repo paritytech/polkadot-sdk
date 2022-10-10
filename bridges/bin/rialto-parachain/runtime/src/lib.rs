@@ -531,6 +531,11 @@ parameter_types! {
 	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
 	/// week.
 	pub const HeadersToKeep: u32 = 7 * bp_millau::DAYS as u32;
+
+	/// Maximal number of authorities at Millau.
+	pub const MaxAuthoritiesAtMillau: u32 = bp_millau::MAX_AUTHORITIES_COUNT;
+	/// Maximal size of SCALE-encoded Millau header.
+	pub const MaxMillauHeaderSize: u32 = bp_millau::MAX_HEADER_SIZE;
 }
 
 pub type MillauGrandpaInstance = ();
@@ -538,6 +543,8 @@ impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;
+	type MaxBridgedAuthorities = MaxAuthoritiesAtMillau;
+	type MaxBridgedHeaderSize = MaxMillauHeaderSize;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
 
