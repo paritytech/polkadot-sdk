@@ -40,6 +40,7 @@ pub use storage_proof::{
 	record_all_keys as record_all_trie_keys, Error as StorageProofError,
 	ProofSize as StorageProofSize, StorageProofChecker,
 };
+pub use storage_types::BoundedStorageValue;
 
 #[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;
@@ -48,6 +49,7 @@ pub mod messages;
 
 mod chain;
 mod storage_proof;
+mod storage_types;
 
 // Re-export macro to aviod include paste dependency everywhere
 pub use sp_runtime::paste;

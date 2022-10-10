@@ -69,11 +69,15 @@ pub mod pallet {
 	use super::*;
 	use bp_parachains::{BestParaHeadHash, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider};
 	use bp_runtime::{
-		BasicOperatingMode, OwnedBridgeModule, StorageDoubleMapKeyProvider, StorageMapKeyProvider,
+		BasicOperatingMode, BoundedStorageValue, OwnedBridgeModule, StorageDoubleMapKeyProvider,
+		StorageMapKeyProvider,
 	};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	/// Stored parachain head of given parachains pallet.
+	pub type StoredParaHeadOf<T, I> =
+		BoundedStorageValue<<T as Config<I>>::MaxParaHeadSize, ParaHead>;
 	/// Weight info of the given parachains pallet.
 	pub type WeightInfoOf<T, I> = <T as Config<I>>::WeightInfo;
 
@@ -94,6 +98,12 @@ pub mod pallet {
 		},
 		/// The caller has provided obsolete parachain head, which is already known to the pallet.
 		RejectedObsoleteParachainHead { parachain: ParaId, parachain_head_hash: ParaHash },
+		/// The caller has provided parachain head that exceeds the maximal configured head size.
+		RejectedLargeParachainHead {
+			parachain: ParaId,
+			parachain_head_hash: ParaHash,
+			parachain_head_size: u32,
+		},
 		/// Parachain head has been updated.
 		UpdatedParachainHead { parachain: ParaId, parachain_head_hash: ParaHash },
 	}
@@ -156,6 +166,17 @@ pub mod pallet {
 		/// Incautious change of this constant may lead to orphan entries in the runtime storage.
 		#[pallet::constant]
 		type HeadsToKeep: Get<u32>;
+
+		/// Maximal size (in bytes) of the SCALE-encoded parachain head.
+		///
+		/// Keep in mind that the size of any tracked parachain header must not exceed this value.
+		/// So if you're going to track multiple parachains, one of which is storing large digests
+		/// in its headers, you shall choose this maximal value.
+		///
+		/// There's no mandatory headers in this pallet, so it can't stall if there's some header
+		/// that exceeds this bound.
+		#[pallet::constant]
+		type MaxParaHeadSize: Get<u32>;
 	}
 
 	/// Optional pallet owner.
@@ -196,7 +217,7 @@ pub mod pallet {
 		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key1,
 		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Hasher2,
 		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key2,
-		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Value,
+		StoredParaHeadOf<T, I>,
 	>;
 
 	/// A ring buffer of imported parachain head hashes. Ordered by the insertion time.
@@ -206,7 +227,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {
@@ -381,12 +401,12 @@ pub mod pallet {
 		/// Get best finalized header of the given parachain.
 		pub fn best_parachain_head(parachain: ParaId) -> Option<ParaHead> {
 			let best_para_head_hash = ParasInfo::<T, I>::get(parachain)?.best_head_hash.head_hash;
-			ImportedParaHeads::<T, I>::get(parachain, best_para_head_hash)
+			ImportedParaHeads::<T, I>::get(parachain, best_para_head_hash).map(|h| h.into_inner())
 		}
 
 		/// Get parachain head with given hash.
 		pub fn parachain_head(parachain: ParaId, hash: ParaHash) -> Option<ParaHead> {
-			ImportedParaHeads::<T, I>::get(parachain, hash)
+			ImportedParaHeads::<T, I>::get(parachain, hash).map(|h| h.into_inner())
 		}
 
 		/// Verify that the passed storage proof is valid, given it is crafted using
@@ -478,12 +498,13 @@ pub mod pallet {
 		) -> Result<UpdateParachainHeadArtifacts, ()> {
 			// check if head has been already updated at better relay chain block. Without this
 			// check, we may import heads in random order
+			let err_log_prefix = "The parachain head can't be updated";
 			let is_valid = Self::validate_updated_parachain_head(
 				parachain,
 				&stored_best_head,
 				updated_at_relay_block_number,
 				updated_head_hash,
-				"The parachain head can't be updated",
+				err_log_prefix,
 			);
 			if !is_valid {
 				Self::deposit_event(Event::RejectedObsoleteParachainHead {
@@ -492,6 +513,30 @@ pub mod pallet {
 				});
 				return Err(())
 			}
+
+			// verify that the parachain head size is <= `MaxParaHeadSize`
+			let updated_head = match StoredParaHeadOf::<T, I>::try_from_inner(updated_head) {
+				Ok(updated_head) => updated_head,
+				Err(e) => {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}. The parachain head size for {:?} is {}. It exceeds maximal configured size {}.",
+						err_log_prefix,
+						parachain,
+						e.value_size,
+						e.maximal_size,
+					);
+
+					Self::deposit_event(Event::RejectedLargeParachainHead {
+						parachain,
+						parachain_head_hash: updated_head_hash,
+						parachain_head_size: e.value_size as _,
+					});
+
+					return Err(())
+				},
+			};
+
 			let next_imported_hash_position = stored_best_head
 				.map_or(0, |stored_best_head| stored_best_head.next_imported_hash_position);
 
@@ -575,8 +620,8 @@ pub mod pallet {
 mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_relay_header, Event as TestEvent, Origin, TestRuntime, PARAS_PALLET_NAME,
-		UNTRACKED_PARACHAIN_ID,
+		run_test, test_relay_header, Event as TestEvent, Origin, TestRuntime,
+		MAXIMAL_PARACHAIN_HEAD_SIZE, PARAS_PALLET_NAME, UNTRACKED_PARACHAIN_ID,
 	};
 	use codec::Encode;
 
@@ -672,6 +717,12 @@ mod tests {
 
 	fn head_data(parachain: u32, head_number: u32) -> ParaHead {
 		ParaHead((parachain, head_number).encode())
+	}
+
+	fn large_head_data(parachain: u32, head_number: u32) -> ParaHead {
+		ParaHead(
+			(parachain, head_number, vec![42u8; MAXIMAL_PARACHAIN_HEAD_SIZE as usize]).encode(),
+		)
 	}
 
 	fn head_hash(parachain: u32, head_number: u32) -> ParaHash {
@@ -770,18 +821,21 @@ mod tests {
 				ImportedParaHeads::<TestRuntime>::get(
 					ParaId(1),
 					initial_best_head(1).best_head_hash.head_hash
-				),
+				)
+				.map(|h| h.into_inner()),
 				Some(head_data(1, 0))
 			);
 			assert_eq!(
 				ImportedParaHeads::<TestRuntime>::get(
 					ParaId(2),
 					initial_best_head(2).best_head_hash.head_hash
-				),
+				)
+				.map(|h| h.into_inner()),
 				None
 			);
 			assert_eq!(
-				ImportedParaHeads::<TestRuntime>::get(ParaId(3), head_hash(3, 10)),
+				ImportedParaHeads::<TestRuntime>::get(ParaId(3), head_hash(3, 10))
+					.map(|h| h.into_inner()),
 				Some(head_data(3, 10))
 			);
 
@@ -830,11 +884,13 @@ mod tests {
 				})
 			);
 			assert_eq!(
-				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 5).hash()),
+				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 5).hash())
+					.map(|h| h.into_inner()),
 				Some(head_data(1, 5))
 			);
 			assert_eq!(
-				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 10).hash()),
+				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 10).hash())
+					.map(|h| h.into_inner()),
 				None
 			);
 			assert_eq!(
@@ -863,11 +919,13 @@ mod tests {
 				})
 			);
 			assert_eq!(
-				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 5).hash()),
+				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 5).hash())
+					.map(|h| h.into_inner()),
 				Some(head_data(1, 5))
 			);
 			assert_eq!(
-				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 10).hash()),
+				ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, 10).hash())
+					.map(|h| h.into_inner()),
 				Some(head_data(1, 10))
 			);
 			assert_eq!(
@@ -1087,6 +1145,57 @@ mod tests {
 						}),
 						topics: vec![],
 					}
+				],
+			);
+		});
+	}
+
+	#[test]
+	fn does_nothing_when_parachain_head_is_too_large() {
+		let (state_root, proof, parachains) =
+			prepare_parachain_heads_proof(vec![(1, head_data(1, 5)), (2, large_head_data(1, 5))]);
+		run_test(|| {
+			// start with relay block #0 and try to import head#5 of parachain#1 and untracked
+			// parachain
+			initialize(state_root);
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				Origin::signed(1),
+				(0, test_relay_header(0, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_ok!(result);
+			assert_eq!(
+				ParasInfo::<TestRuntime>::get(ParaId(1)),
+				Some(ParaInfo {
+					best_head_hash: BestParaHeadHash {
+						at_relay_block_number: 0,
+						head_hash: head_data(1, 5).hash()
+					},
+					next_imported_hash_position: 1,
+				})
+			);
+			assert_eq!(ParasInfo::<TestRuntime>::get(ParaId(2)), None);
+			assert_eq!(
+				System::<TestRuntime>::events(),
+				vec![
+					EventRecord {
+						phase: Phase::Initialization,
+						event: TestEvent::Parachains(Event::UpdatedParachainHead {
+							parachain: ParaId(1),
+							parachain_head_hash: head_data(1, 5).hash(),
+						}),
+						topics: vec![],
+					},
+					EventRecord {
+						phase: Phase::Initialization,
+						event: TestEvent::Parachains(Event::RejectedLargeParachainHead {
+							parachain: ParaId(2),
+							parachain_head_hash: large_head_data(1, 5).hash(),
+							parachain_head_size: large_head_data(1, 5).encoded_size() as u32,
+						}),
+						topics: vec![],
+					},
 				],
 			);
 		});
