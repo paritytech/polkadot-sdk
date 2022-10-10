@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::HeaderIdProvider;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
@@ -111,6 +111,7 @@ pub trait Chain: Send + Sync + 'static {
 		+ AsPrimitive<usize>
 		+ Default
 		+ Saturating
+		+ MaxEncodedLen
 		// original `sp_runtime::traits::Header::BlockNumber` doesn't have this trait, but
 		// `sp_runtime::generic::Era` requires block number -> `u64` conversion.
 		+ Into<u64>;
@@ -130,7 +131,8 @@ pub trait Chain: Send + Sync + 'static {
 		+ SimpleBitOps
 		+ AsRef<[u8]>
 		+ AsMut<[u8]>
-		+ MaybeMallocSizeOf;
+		+ MaybeMallocSizeOf
+		+ MaxEncodedLen;
 
 	/// A type that fulfills the abstract idea of what a Substrate hasher (a type
 	/// that produces hashes) is.
@@ -148,7 +150,13 @@ pub trait Chain: Send + Sync + 'static {
 		+ MaybeSerializeDeserialize;
 
 	/// The user account identifier type for the runtime.
-	type AccountId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord;
+	type AccountId: Parameter
+		+ Member
+		+ MaybeSerializeDeserialize
+		+ Debug
+		+ MaybeDisplay
+		+ Ord
+		+ MaxEncodedLen;
 	/// Balance of an account in native tokens.
 	///
 	/// The chain may support multiple tokens, but this particular type is for token that is used
@@ -165,7 +173,8 @@ pub trait Chain: Send + Sync + 'static {
 		+ PartialOrd
 		+ SaturatingAdd
 		+ Zero
-		+ TryFrom<sp_core::U256>;
+		+ TryFrom<sp_core::U256>
+		+ MaxEncodedLen;
 	/// Index of a transaction used by the chain.
 	type Index: Parameter
 		+ Member
@@ -175,7 +184,8 @@ pub trait Chain: Send + Sync + 'static {
 		+ MaybeDisplay
 		+ MaybeSerializeDeserialize
 		+ AtLeast32Bit
-		+ Copy;
+		+ Copy
+		+ MaxEncodedLen;
 	/// Signature type, used on this chain.
 	type Signature: Parameter + Verify;
 

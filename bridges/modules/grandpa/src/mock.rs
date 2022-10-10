@@ -33,6 +33,9 @@ pub type TestNumber = crate::BridgedBlockNumber<TestRuntime, ()>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
+pub const MAX_BRIDGED_AUTHORITIES: u32 = 2048;
+pub const MAX_HEADER_SIZE: u32 = 65536;
+
 use crate as grandpa;
 
 construct_runtime! {
@@ -91,6 +94,8 @@ impl grandpa::Config for TestRuntime {
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;
+	type MaxBridgedAuthorities = frame_support::traits::ConstU32<MAX_BRIDGED_AUTHORITIES>;
+	type MaxBridgedHeaderSize = frame_support::traits::ConstU32<MAX_HEADER_SIZE>;
 	type WeightInfo = ();
 }
 

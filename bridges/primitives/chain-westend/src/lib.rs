@@ -58,6 +58,18 @@ pub const WITH_WESTEND_BRIDGE_PARAS_PALLET_NAME: &str = "BridgeWestendParachains
 /// conditions.
 pub const SESSION_LENGTH: BlockNumber = 10 * time_units::MINUTES;
 
+/// Maximal number of GRANDPA authorities at Westend.
+///
+/// Corresponds to the `MaxAuthorities` constant value from the Westend runtime configuration.
+pub const MAX_AUTHORITIES_COUNT: u32 = 100_000;
+
+/// Maximal SCALE-encoded header size (in bytes) at Westend.
+///
+/// Let's assume that the largest header is header that enacts new authorities set with
+/// `MAX_AUTHORITES_COUNT`. Every authority means 32-byte key and 8-byte weight. Let's also have
+/// some fixed reserve for other things (digest, block hash and number, ...) as well.
+pub const MAX_HEADER_SIZE: u32 = 4096 + MAX_AUTHORITIES_COUNT * 40;
+
 /// Identifier of Westmint parachain at the Westend relay chain.
 pub const WESTMINT_PARACHAIN_ID: u32 = 2000;
 
