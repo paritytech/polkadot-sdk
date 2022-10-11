@@ -22,7 +22,7 @@ use frame_system::RawOrigin;
 
 benchmarks! {
 	set_config_with_u32 {}: update_resume_threshold(RawOrigin::Root, 100)
-	set_config_with_weight {}: update_weight_restrict_decay(RawOrigin::Root, Weight::from_ref_time(3_000_000))
+	set_config_with_weight {}: update_weight_restrict_decay(RawOrigin::Root, 3_000_000)
 }
 
 impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

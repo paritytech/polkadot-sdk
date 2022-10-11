@@ -17,25 +17,30 @@
 //! A module that is responsible for migration of storage.
 
 use crate::{Config, Pallet, Store};
-use frame_support::{pallet_prelude::*, traits::StorageVersion, weights::Weight};
+use frame_support::{
+	pallet_prelude::*,
+	traits::StorageVersion,
+	weights::{constants::WEIGHT_PER_MILLIS, Weight},
+};
+use xcm::latest::Weight as XcmWeight;
 
 /// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 /// Migrates the pallet storage to the most recent version, checking and setting the
 /// `StorageVersion`.
 pub fn migrate_to_latest<T: Config>() -> Weight {
-	let mut weight = Weight::zero();
+	let mut weight = T::DbWeight::get().reads(1);
 
-	if StorageVersion::get::<Pallet<T>>() == 0 {
-		weight += migrate_to_v1::<T>();
-		StorageVersion::new(1).put::<Pallet<T>>();
+	if StorageVersion::get::<Pallet<T>>() == 1 {
+		weight += migrate_to_v2::<T>();
+		StorageVersion::new(2).put::<Pallet<T>>();
 	}
 
 	weight
 }
 
-mod v0 {
+mod v1 {
 	use super::*;
 	use codec::{Decode, Encode};
 
@@ -44,8 +49,9 @@ mod v0 {
 		pub suspend_threshold: u32,
 		pub drop_threshold: u32,
 		pub resume_threshold: u32,
-		pub threshold_weight: Weight,
-		pub weight_restrict_decay: Weight,
+		pub threshold_weight: XcmWeight,
+		pub weight_restrict_decay: XcmWeight,
+		pub xcmp_max_individual_weight: XcmWeight,
 	}
 
 	impl Default for QueueConfigData {
@@ -54,37 +60,35 @@ mod v0 {
 				suspend_threshold: 2,
 				drop_threshold: 5,
 				resume_threshold: 1,
-				threshold_weight: Weight::from_ref_time(100_000),
-				weight_restrict_decay: Weight::from_ref_time(2),
+				threshold_weight: 100_000,
+				weight_restrict_decay: 2,
+				xcmp_max_individual_weight: 20u64 * WEIGHT_PER_MILLIS.ref_time(),
 			}
 		}
 	}
 }
 
-/// Migrates `QueueConfigData` from v0 (without the `xcmp_max_individual_weight` field) to v1 (with
-/// max individual weight).
-/// Uses the `Default` implementation of `QueueConfigData` to choose a value for
-/// `xcmp_max_individual_weight`.
+/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
+/// 2D weights).
 ///
 /// NOTE: Only use this function if you know what you're doing. Default to using
 /// `migrate_to_latest`.
-pub fn migrate_to_v1<T: Config>() -> Weight {
-	let translate = |pre: v0::QueueConfigData| -> super::QueueConfigData {
+pub fn migrate_to_v2<T: Config>() -> Weight {
+	let translate = |pre: v1::QueueConfigData| -> super::QueueConfigData {
 		super::QueueConfigData {
 			suspend_threshold: pre.suspend_threshold,
 			drop_threshold: pre.drop_threshold,
 			resume_threshold: pre.resume_threshold,
-			threshold_weight: pre.threshold_weight,
-			weight_restrict_decay: pre.weight_restrict_decay,
-			xcmp_max_individual_weight: super::QueueConfigData::default()
-				.xcmp_max_individual_weight,
+			threshold_weight: Weight::from_ref_time(pre.threshold_weight),
+			weight_restrict_decay: Weight::from_ref_time(pre.weight_restrict_decay),
+			xcmp_max_individual_weight: Weight::from_ref_time(pre.xcmp_max_individual_weight),
 		}
 	};
 
 	if let Err(_) = <Pallet<T> as Store>::QueueConfig::translate(|pre| pre.map(translate)) {
 		log::error!(
 			target: super::LOG_TARGET,
-			"unexpected error when performing translation of the QueueConfig type during storage upgrade to v1"
+			"unexpected error when performing translation of the QueueConfig type during storage upgrade to v2"
 		);
 	}
 
@@ -97,32 +101,32 @@ mod tests {
 	use crate::mock::{new_test_ext, Test};
 
 	#[test]
-	fn test_migration_to_v1() {
-		let v0 = v0::QueueConfigData {
+	fn test_migration_to_v2() {
+		let v1 = v1::QueueConfigData {
 			suspend_threshold: 5,
 			drop_threshold: 12,
 			resume_threshold: 3,
-			threshold_weight: Weight::from_ref_time(333_333),
-			weight_restrict_decay: Weight::from_ref_time(1),
+			threshold_weight: 333_333,
+			weight_restrict_decay: 1,
+			xcmp_max_individual_weight: 10_000_000_000,
 		};
 
 		new_test_ext().execute_with(|| {
-			// Put the v0 version in the state
 			frame_support::storage::unhashed::put_raw(
 				&crate::QueueConfig::<Test>::hashed_key(),
-				&v0.encode(),
+				&v1.encode(),
 			);
 
-			migrate_to_v1::<Test>();
+			migrate_to_v2::<Test>();
 
-			let v1 = crate::QueueConfig::<Test>::get();
+			let v2 = crate::QueueConfig::<Test>::get();
 
-			assert_eq!(v0.suspend_threshold, v1.suspend_threshold);
-			assert_eq!(v0.drop_threshold, v1.drop_threshold);
-			assert_eq!(v0.resume_threshold, v1.resume_threshold);
-			assert_eq!(v0.threshold_weight, v1.threshold_weight);
-			assert_eq!(v0.weight_restrict_decay, v1.weight_restrict_decay);
-			assert_eq!(v1.xcmp_max_individual_weight, Weight::from_ref_time(20_000_000_000));
+			assert_eq!(v1.suspend_threshold, v2.suspend_threshold);
+			assert_eq!(v1.drop_threshold, v2.drop_threshold);
+			assert_eq!(v1.resume_threshold, v2.resume_threshold);
+			assert_eq!(v1.threshold_weight, v2.threshold_weight.ref_time());
+			assert_eq!(v1.weight_restrict_decay, v2.weight_restrict_decay.ref_time());
+			assert_eq!(v1.xcmp_max_individual_weight, v2.xcmp_max_individual_weight.ref_time());
 		});
 	}
 }

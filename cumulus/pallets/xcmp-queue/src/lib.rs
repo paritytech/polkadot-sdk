@@ -54,7 +54,10 @@ use rand_chacha::{
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Hash, RuntimeDebug};
 use sp_std::{convert::TryFrom, prelude::*};
-use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm::{
+	latest::{prelude::*, Weight as XcmWeight},
+	VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH,
+};
 use xcm_executor::traits::ConvertOrigin;
 
 pub use pallet::*;
@@ -130,11 +133,11 @@ pub mod pallet {
 		///
 		/// Events:
 		/// - `OverweightServiced`: On success.
-		#[pallet::weight((weight_limit.saturating_add(Weight::from_ref_time(1_000_000)), DispatchClass::Operational,))]
+		#[pallet::weight((Weight::from_ref_time(weight_limit.saturating_add(1_000_000)), DispatchClass::Operational,))]
 		pub fn service_overweight(
 			origin: OriginFor<T>,
 			index: OverweightIndex,
-			weight_limit: Weight,
+			weight_limit: XcmWeight,
 		) -> DispatchResultWithPostInfo {
 			T::ExecuteOverweightOrigin::ensure_origin(origin)?;
 
@@ -145,8 +148,9 @@ pub mod pallet {
 				&mut data.as_slice(),
 			)
 			.map_err(|_| Error::<T>::BadXcm)?;
-			let used = Self::handle_xcm_message(sender, sent_at, xcm, weight_limit)
-				.map_err(|_| Error::<T>::WeightOverLimit)?;
+			let used =
+				Self::handle_xcm_message(sender, sent_at, xcm, Weight::from_ref_time(weight_limit))
+					.map_err(|_| Error::<T>::WeightOverLimit)?;
 			Overweight::<T>::remove(index);
 			Self::deposit_event(Event::OverweightServiced { index, used });
 			Ok(Some(used.saturating_add(Weight::from_ref_time(1_000_000))).into())
@@ -222,9 +226,9 @@ pub mod pallet {
 		/// - `origin`: Must pass `Root`.
 		/// - `new`: Desired value for `QueueConfigData.threshold_weight`
 		#[pallet::weight((T::WeightInfo::set_config_with_weight(), DispatchClass::Operational,))]
-		pub fn update_threshold_weight(origin: OriginFor<T>, new: Weight) -> DispatchResult {
+		pub fn update_threshold_weight(origin: OriginFor<T>, new: XcmWeight) -> DispatchResult {
 			ensure_root(origin)?;
-			QueueConfig::<T>::mutate(|data| data.threshold_weight = new);
+			QueueConfig::<T>::mutate(|data| data.threshold_weight = Weight::from_ref_time(new));
 
 			Ok(())
 		}
@@ -235,9 +239,14 @@ pub mod pallet {
 		/// - `origin`: Must pass `Root`.
 		/// - `new`: Desired value for `QueueConfigData.weight_restrict_decay`.
 		#[pallet::weight((T::WeightInfo::set_config_with_weight(), DispatchClass::Operational,))]
-		pub fn update_weight_restrict_decay(origin: OriginFor<T>, new: Weight) -> DispatchResult {
+		pub fn update_weight_restrict_decay(
+			origin: OriginFor<T>,
+			new: XcmWeight,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			QueueConfig::<T>::mutate(|data| data.weight_restrict_decay = new);
+			QueueConfig::<T>::mutate(|data| {
+				data.weight_restrict_decay = Weight::from_ref_time(new)
+			});
 
 			Ok(())
 		}
@@ -250,10 +259,12 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_config_with_weight(), DispatchClass::Operational,))]
 		pub fn update_xcmp_max_individual_weight(
 			origin: OriginFor<T>,
-			new: Weight,
+			new: XcmWeight,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			QueueConfig::<T>::mutate(|data| data.xcmp_max_individual_weight = new);
+			QueueConfig::<T>::mutate(|data| {
+				data.xcmp_max_individual_weight = Weight::from_ref_time(new)
+			});
 
 			Ok(())
 		}

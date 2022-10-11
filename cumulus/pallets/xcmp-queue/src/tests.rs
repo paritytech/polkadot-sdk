@@ -96,7 +96,7 @@ fn handle_invalid_data() {
 fn service_overweight_unknown() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_ref_time(1000)),
+			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, 1000),
 			Error::<Test>::BadOverweightIndex,
 		);
 	});
@@ -109,7 +109,7 @@ fn service_overweight_bad_xcm_format() {
 		Overweight::<Test>::insert(0, (ParaId::from(1000), 0, bad_xcm));
 
 		assert_noop!(
-			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_ref_time(1000)),
+			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, 1000),
 			Error::<Test>::BadXcm
 		);
 	});
@@ -187,15 +187,9 @@ fn update_threshold_weight_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.threshold_weight, Weight::from_ref_time(100_000));
-		assert_ok!(XcmpQueue::update_threshold_weight(
-			RuntimeOrigin::root(),
-			Weight::from_ref_time(10_000)
-		));
+		assert_ok!(XcmpQueue::update_threshold_weight(RuntimeOrigin::root(), 10_000));
 		assert_noop!(
-			XcmpQueue::update_threshold_weight(
-				RuntimeOrigin::signed(5),
-				Weight::from_ref_time(10_000_000)
-			),
+			XcmpQueue::update_threshold_weight(RuntimeOrigin::signed(5), 10_000_000),
 			BadOrigin
 		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
@@ -209,15 +203,9 @@ fn update_weight_restrict_decay_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.weight_restrict_decay, Weight::from_ref_time(2));
-		assert_ok!(XcmpQueue::update_weight_restrict_decay(
-			RuntimeOrigin::root(),
-			Weight::from_ref_time(5)
-		));
+		assert_ok!(XcmpQueue::update_weight_restrict_decay(RuntimeOrigin::root(), 5));
 		assert_noop!(
-			XcmpQueue::update_weight_restrict_decay(
-				RuntimeOrigin::signed(6),
-				Weight::from_ref_time(4)
-			),
+			XcmpQueue::update_weight_restrict_decay(RuntimeOrigin::signed(6), 4),
 			BadOrigin
 		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
@@ -233,12 +221,12 @@ fn update_xcmp_max_individual_weight() {
 		assert_eq!(data.xcmp_max_individual_weight, 20u64 * WEIGHT_PER_MILLIS);
 		assert_ok!(XcmpQueue::update_xcmp_max_individual_weight(
 			RuntimeOrigin::root(),
-			30u64 * WEIGHT_PER_MILLIS
+			30u64 * WEIGHT_PER_MILLIS.ref_time()
 		));
 		assert_noop!(
 			XcmpQueue::update_xcmp_max_individual_weight(
 				RuntimeOrigin::signed(3),
-				10u64 * WEIGHT_PER_MILLIS
+				10u64 * WEIGHT_PER_MILLIS.ref_time()
 			),
 			BadOrigin
 		);
