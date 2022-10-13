@@ -255,7 +255,7 @@ impl<B: BlockT> sc_network_common::sync::ChainSync<B> for DummyChainSync {
 
 	fn block_requests(
 		&mut self,
-	) -> Box<dyn Iterator<Item = (&PeerId, sc_network_common::sync::message::BlockRequest<B>)> + '_>
+	) -> Box<dyn Iterator<Item = (PeerId, sc_network_common::sync::message::BlockRequest<B>)> + '_>
 	{
 		Box::new(std::iter::empty())
 	}
