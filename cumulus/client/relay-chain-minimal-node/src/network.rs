@@ -26,6 +26,7 @@ use sc_network_common::{
 		NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake, ProtocolId, SetConfig,
 	},
 	protocol::role::Roles,
+	service::NetworkSyncForkRequest,
 	sync::{message::BlockAnnouncesHandshake, Metrics, SyncStatus},
 };
 use sc_network_light::light_client_requests;
@@ -92,6 +93,7 @@ pub(crate) fn build_collator_network(
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
+		chain_sync_service: Box::new(DummyChainSyncService::<Block>(Default::default())),
 		block_request_protocol_config,
 		state_request_protocol_config,
 		warp_sync_protocol_config: None,
@@ -420,6 +422,14 @@ impl<B: BlockT> sc_network_common::sync::ChainSync<B> for DummyChainSync {
 	) -> Result<sc_network_common::sync::OpaqueStateResponse, String> {
 		unimplemented!("Not supported on the RPC collator")
 	}
+
+	fn poll(
+		&mut self,
+		_cx: &mut std::task::Context,
+	) -> std::task::Poll<sc_network_common::sync::PollBlockAnnounceValidation<<B as BlockT>::Header>>
+	{
+		std::task::Poll::Pending
+	}
 }
 
 struct DummyImportQueue;
@@ -447,4 +457,10 @@ impl sc_service::ImportQueue<Block> for DummyImportQueue {
 		_link: &mut dyn sc_consensus::import_queue::Link<Block>,
 	) {
 	}
+}
+
+struct DummyChainSyncService<B>(std::marker::PhantomData<B>);
+
+impl<B: BlockT> NetworkSyncForkRequest<B::Hash, NumberFor<B>> for DummyChainSyncService<B> {
+	fn set_sync_fork_request(&self, _peers: Vec<PeerId>, _hash: B::Hash, _number: NumberFor<B>) {}
 }
