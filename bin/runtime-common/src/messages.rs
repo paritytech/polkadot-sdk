@@ -532,7 +532,6 @@ pub mod source {
 		/// Runtime message sender adapter.
 		type MessageSender: bp_messages::source_chain::MessagesBridge<
 			OriginOf<ThisChain<Self::MessageBridge>>,
-			AccountIdOf<ThisChain<Self::MessageBridge>>,
 			BalanceOf<ThisChain<Self::MessageBridge>>,
 			FromThisChainMessagePayload,
 		>;

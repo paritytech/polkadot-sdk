@@ -182,7 +182,7 @@ pub struct SendMessageArtifacts {
 }
 
 /// Messages bridge API to be used from other pallets.
-pub trait MessagesBridge<SenderOrigin, AccountId, Balance, Payload> {
+pub trait MessagesBridge<SenderOrigin, Balance, Payload> {
 	/// Error type.
 	type Error: Debug;
 
@@ -201,8 +201,8 @@ pub trait MessagesBridge<SenderOrigin, AccountId, Balance, Payload> {
 #[derive(Eq, RuntimeDebug, PartialEq)]
 pub struct NoopMessagesBridge;
 
-impl<SenderOrigin, AccountId, Balance, Payload>
-	MessagesBridge<SenderOrigin, AccountId, Balance, Payload> for NoopMessagesBridge
+impl<SenderOrigin, Balance, Payload> MessagesBridge<SenderOrigin, Balance, Payload>
+	for NoopMessagesBridge
 {
 	type Error = &'static str;
 
