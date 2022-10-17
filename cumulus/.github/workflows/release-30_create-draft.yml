@@ -62,13 +62,13 @@ jobs:
             runtime: rococo-parachain
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           ref: ${{ github.event.inputs.ref2 }}
 
       - name: Cache target dir
         if: ${{ github.event.inputs.release_type != 'client' }}
-        uses: actions/cache@v3
+        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # v3.0.11
         with:
           path: "${{ github.workspace }}/runtime/${{ matrix.runtime }}/target"
           key: srtool-target-${{ matrix.runtime }}-${{ github.sha }}
@@ -79,7 +79,7 @@ jobs:
       - name: Build ${{ matrix.runtime }} runtime
         if: ${{ github.event.inputs.release_type != 'client' }}
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.5.0
+        uses: chevdor/srtool-actions@v0.6.0
         with:
           image: paritytech/srtool
           chain: ${{ matrix.runtime }}
@@ -93,14 +93,14 @@ jobs:
 
       - name: Upload ${{ matrix.runtime }} srtool json
         if: ${{ github.event.inputs.release_type != 'client' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: ${{ matrix.runtime }}-srtool-json
           path: ${{ matrix.runtime }}-srtool-digest.json
 
       - name: Upload ${{ matrix.runtime }} runtime
         if: ${{ github.event.inputs.release_type != 'client' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: ${{ matrix.runtime }}-runtime
           path: |
@@ -114,18 +114,18 @@ jobs:
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           fetch-depth: 0
           path: cumulus
           ref: ${{ github.event.inputs.ref2 }}
 
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@eae47962baca661befdfd24e4d6c34ade04858f7 # v1.118.0
         with:
           ruby-version: 3.0.0
 
       - name: Download srtool json output
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@fb598a63ae348fa914e94cd0ff38f362e927b741 # v3.0.0
 
       - name: Prepare tooling
         run: |
@@ -177,14 +177,14 @@ jobs:
 
       - name: Archive srtool json
         if: ${{ github.event.inputs.release_type != 'client' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: srtool-json
           path: |
             **/*-srtool-digest.json
 
       - name: Archive context artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: release-notes-context
           path: |
@@ -228,14 +228,14 @@ jobs:
             runtime: rococo-parachain
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           ref: ${{ github.event.inputs.ref2 }}
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@fb598a63ae348fa914e94cd0ff38f362e927b741 # v3.0.0
 
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@eae47962baca661befdfd24e4d6c34ade04858f7 # v1.118.0
         with:
           ruby-version: 3.0.0
 

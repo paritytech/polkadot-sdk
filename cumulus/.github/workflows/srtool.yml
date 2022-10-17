@@ -48,13 +48,13 @@ jobs:
           - category: testing
             runtime: rococo-parachain
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           fetch-depth: 0
 
       - name: Srtool build
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.5.0
+        uses: chevdor/srtool-actions@v0.6.0
         with:
           chain: ${{ matrix.runtime }}
           runtime_dir: parachains/runtimes/${{ matrix.category }}/${{ matrix.runtime }}
@@ -68,7 +68,7 @@ jobs:
 
       # it takes a while to build the runtime, so let's save the artifact as soon as we have it
       - name: Archive Artifacts for ${{ matrix.runtime }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: ${{ matrix.runtime }}-runtime
           path: |
@@ -106,7 +106,7 @@ jobs:
             tee ${{ matrix.runtime }}-diff.txt
 
       - name: Archive Subwasm results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: ${{ matrix.runtime }}-runtime
           path: |
