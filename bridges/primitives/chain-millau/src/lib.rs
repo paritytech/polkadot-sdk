@@ -113,7 +113,7 @@ pub const SESSION_LENGTH: BlockNumber = 5 * time_units::MINUTES;
 pub const MAX_AUTHORITIES_COUNT: u32 = 5;
 
 /// Maximal SCALE-encoded header size (in bytes) at Millau.
-pub const MAX_HEADER_SIZE: u32 = 512;
+pub const MAX_HEADER_SIZE: u32 = 1024;
 
 /// Re-export `time_units` to make usage easier.
 pub use time_units::*;
