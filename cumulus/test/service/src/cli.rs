@@ -24,30 +24,30 @@ use sc_cli::{
 use sc_service::BasePath;
 
 #[derive(Debug, clap::Parser)]
-#[clap(
+#[command(
 	version,
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true
 )]
 pub struct TestCollatorCli {
-	#[clap(subcommand)]
+	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
-	#[clap(flatten)]
+	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
-	#[clap(default_value_t = 2000u32)]
+	#[arg(default_value_t = 2000u32)]
 	pub parachain_id: u32,
 
 	/// Relay chain arguments
-	#[clap(raw = true)]
+	#[arg(raw = true)]
 	pub relaychain_args: Vec<String>,
 
-	#[clap(long)]
+	#[arg(long)]
 	pub use_null_consensus: bool,
 
-	#[clap(long)]
+	#[arg(long)]
 	pub disable_block_announcements: bool,
 }
 
@@ -64,11 +64,12 @@ pub enum Subcommand {
 }
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct ExportGenesisStateCommand {
-	#[clap(default_value_t = 2000u32)]
+	#[arg(default_value_t = 2000u32)]
 	pub parachain_id: u32,
 
-	#[clap(flatten)]
+	#[command(flatten)]
 	pub base: cumulus_client_cli::ExportGenesisStateCommand,
 }
 
@@ -80,11 +81,12 @@ impl CliConfiguration for ExportGenesisStateCommand {
 
 /// Command for exporting the genesis wasm file.
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct ExportGenesisWasmCommand {
-	#[clap(default_value_t = 2000u32)]
+	#[arg(default_value_t = 2000u32)]
 	pub parachain_id: u32,
 
-	#[clap(flatten)]
+	#[command(flatten)]
 	pub base: cumulus_client_cli::ExportGenesisWasmCommand,
 }
 
