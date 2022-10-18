@@ -517,12 +517,31 @@ pub mod pallet {
 	) -> Result<(), Error<T, I>> {
 		let super::InitializationData { header, authority_list, set_id, operating_mode } =
 			init_params;
+		let authority_set_length = authority_list.len();
 		let authority_set = StoredAuthoritySet::<T, I>::try_new(authority_list, set_id)
-			.map_err(|_| Error::TooManyAuthoritiesInSet)?;
-		let header = StoredBridgedHeader::<T, I>::try_from_inner(*header)
-			.map_err(|_| Error::<T, I>::TooLargeHeader)?;
+			.map_err(|_| {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
+					authority_set_length,
+					T::MaxBridgedAuthorities::get(),
+				);
 
+				Error::TooManyAuthoritiesInSet
+			})?;
 		let initial_hash = header.hash();
+		let header = StoredBridgedHeader::<T, I>::try_from_inner(*header).map_err(|e| {
+			log::error!(
+					target: LOG_TARGET,
+					"Failed to initialize bridge. Size of header {:?} ({}) is larger that the configured value {}",
+					initial_hash,
+					e.value_size,
+					e.maximal_size,
+				);
+
+			Error::<T, I>::TooLargeHeader
+		})?;
+
 		<InitialHash<T, I>>::put(initial_hash);
 		<ImportedHashesPointer<T, I>>::put(0);
 		insert_header::<T, I>(header, initial_hash);

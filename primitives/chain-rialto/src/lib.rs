@@ -104,7 +104,7 @@ pub const SESSION_LENGTH: BlockNumber = 4;
 pub const MAX_AUTHORITIES_COUNT: u32 = 5;
 
 /// Maximal SCALE-encoded header size (in bytes) at Rialto.
-pub const MAX_HEADER_SIZE: u32 = 512;
+pub const MAX_HEADER_SIZE: u32 = 1024;
 
 /// Maximal SCALE-encoded size of parachains headers that are stored at Rialto `Paras` pallet.
 pub const MAX_NESTED_PARACHAIN_HEAD_SIZE: u32 = MAX_HEADER_SIZE;
