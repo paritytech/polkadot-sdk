@@ -144,7 +144,7 @@ impl<
 					(self.hard_selected_begin_nonce + self.index as MessageNonce),
 				self.selected_prepaid_nonces,
 				self.selected_unpaid_weight,
-				self.selected_size as u32,
+				self.selected_size,
 			)
 			.await?;
 

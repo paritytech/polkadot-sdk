@@ -72,7 +72,7 @@ impl SyncLoopMetrics {
 
 	/// Update using-same-fork flag.
 	pub fn update_using_same_fork(&self, using_same_fork: bool) {
-		self.using_different_forks.set(if using_same_fork { 0 } else { 1 })
+		self.using_different_forks.set((!using_same_fork).into())
 	}
 }
 
