@@ -423,7 +423,7 @@ parameter_types! {
 	///
 	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
 	/// week.
-	pub const HeadersToKeep: u32 = 7 * bp_rialto::DAYS as u32;
+	pub const HeadersToKeep: u32 = 7 * bp_rialto::DAYS;
 }
 
 parameter_types! {
