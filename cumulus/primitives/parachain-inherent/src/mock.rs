@@ -20,7 +20,6 @@ use cumulus_primitives_core::{
 	relay_chain, InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 use sc_client_api::{Backend, StorageProvider};
-use sp_api::BlockId;
 use sp_core::twox_128;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::traits::Block;
@@ -116,7 +115,7 @@ impl MockXcmConfig {
 	) -> Self {
 		let starting_dmq_mqc_head = client
 			.storage(
-				&BlockId::Hash(parent_block),
+				&parent_block,
 				&sp_storage::StorageKey(
 					[twox_128(&parachain_system_name.0), twox_128(b"LastDmqMqcHead")]
 						.concat()
@@ -131,7 +130,7 @@ impl MockXcmConfig {
 
 		let starting_hrmp_mqc_heads = client
 			.storage(
-				&BlockId::Hash(parent_block),
+				&parent_block,
 				&sp_storage::StorageKey(
 					[twox_128(&parachain_system_name.0), twox_128(b"LastHrmpMqcHeads")]
 						.concat()
