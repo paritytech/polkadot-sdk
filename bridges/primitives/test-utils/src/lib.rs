@@ -112,7 +112,7 @@ pub fn make_justification_for_header<H: HeaderT>(
 		};
 
 		// Note: Adding 1 to account for the target header
-		let chain = generate_chain(i as u32, depth + 1, &header);
+		let chain = generate_chain(i, depth + 1, &header);
 
 		// We don't include our finality target header in the vote ancestries
 		for child in &chain[1..] {
