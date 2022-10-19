@@ -1,0 +1,79 @@
+# This file is part of .gitlab-ci.yml
+# Here are all jobs that are executed during "test" stage
+
+test-linux-stable:
+  stage:                           test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .pipeline-stopper-artifacts
+  before_script:
+    - !reference [.docker-env, before_script]
+    - !reference [.pipeline-stopper-vars, before_script]
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo nextest run --all --release --locked --run-ignored all
+
+test-doc:
+  stage:                           test
+  extends:
+    - .docker-env
+    - .common-refs
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo test --doc
+
+check-runtime-benchmarks:
+  stage:                           test
+  extends:
+    - .docker-env
+    - .common-refs
+  script:
+    # Check that the node will compile with `runtime-benchmarks` feature flag.
+    - time cargo check --all --features runtime-benchmarks
+    # Check that parachain-template will compile with `runtime-benchmarks` feature flag.
+    - time cargo check -p parachain-template-node --features runtime-benchmarks
+
+cargo-check-try-runtime:
+  stage:                           test
+  extends:
+    - .docker-env
+    - .common-refs
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job:                         check-runtime-benchmarks
+      artifacts:                   false
+  script:
+    # Check that the node will compile with `try-runtime` feature flag.
+    - time cargo check --all --features try-runtime
+    # Check that parachain-template will compile with `try-runtime` feature flag.
+    - time cargo check -p parachain-template-node --features try-runtime
+
+check-rustdoc:
+  stage:                           test
+  extends:
+    - .docker-env
+    - .common-refs
+  variables:
+    SKIP_WASM_BUILD:               1
+    RUSTDOCFLAGS:                  "-Dwarnings"
+  script:
+    - time cargo +nightly doc --workspace --all-features --verbose --no-deps
+
+cargo-check-benches:
+  stage:                           test
+  extends:
+    - .docker-env
+    - .common-refs
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job:                         check-rustdoc
+      artifacts:                   false
+  script:
+    - time cargo check --all --benches

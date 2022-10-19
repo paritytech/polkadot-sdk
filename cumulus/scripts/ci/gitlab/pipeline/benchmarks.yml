@@ -1,0 +1,61 @@
+# This file is part of .gitlab-ci.yml
+# Here are all jobs that are executed during "benchmarks" stage
+# Work only on release-parachains-v* branches
+
+benchmarks-build:
+  stage:                           benchmarks-build
+  extends:
+    - .docker-env
+    - .collect-artifacts
+    - .benchmarks-manual-refs
+  script:
+    - time cargo build --profile production --locked --features runtime-benchmarks
+    - mkdir -p artifacts
+    - cp target/production/polkadot-parachain ./artifacts/
+
+benchmarks-assets:
+  stage:                           benchmarks-run
+  extends:
+    - .collect-artifacts
+    - .benchmarks-refs
+  before_script:
+    - !reference [.docker-env, before_script]
+  timeout:                         1d
+  script:
+    - ./scripts/benchmarks-ci.sh assets statemine ./artifacts
+    - ./scripts/benchmarks-ci.sh assets statemint ./artifacts
+    - ./scripts/benchmarks-ci.sh assets westmint ./artifacts
+    - export CURRENT_TIME=$(date '+%s')
+    - export BRANCHNAME="weights-statemint-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
+    - !reference [.git-commit-push, script]
+    # create PR to release-parachains-v* branch
+    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
+      -d '{"title":"[benchmarks] Update weights for statemine/t","body":"This PR is generated automatically by CI. (Once merged please backport to master and node release branch.)","head":"'${BRANCHNAME}'","base":"'${CI_COMMIT_BRANCH}'"}'
+      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+  after_script:
+    - rm -rf .git/config
+  tags:
+    - weights
+
+benchmarks-collectives:
+  stage:                           benchmarks-run
+  extends:
+    - .collect-artifacts
+    - .benchmarks-refs
+  before_script:
+    - !reference [.docker-env, before_script]
+  script:
+    - ./scripts/benchmarks-ci.sh collectives collectives-polkadot ./artifacts
+    - git status
+    - export CURRENT_TIME=$(date '+%s')
+    - export BRANCHNAME="weights-collectives-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
+    - !reference [.git-commit-push, script]
+    # create PR
+    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
+      -d '{"title":"[benchmarks] Update weights for collectives","body":"This PR is generated automatically by CI.","head":"'$BRANCHNAME'","base":"'${CI_COMMIT_BRANCH}'"}'
+      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+  after_script:
+    - rm -rf .git/config
+  tags:
+    - weights
+
