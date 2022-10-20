@@ -7,7 +7,7 @@ edition = "2021"
 description = "Runs a polkadot parachain node which could be a collator."
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.58"
 clap = { version = "4.0.17", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.24"
