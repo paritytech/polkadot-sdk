@@ -552,10 +552,7 @@ fn different_forks_at_source_and_at_target_are_detected() {
 	);
 
 	let mut progress = (Instant::now(), None);
-	let mut finality_proofs_stream = RestartableFinalityProofsStream {
-		needs_restart: false,
-		stream: Box::pin(futures::stream::iter(vec![]).boxed()),
-	};
+	let mut finality_proofs_stream = futures::stream::iter(vec![]).boxed().into();
 	let mut recent_finality_proofs = Vec::new();
 	let metrics_sync = SyncLoopMetrics::new(None, "source", "target").unwrap();
 	async_std::task::block_on(run_loop_iteration::<TestFinalitySyncPipeline, _, _>(
