@@ -42,10 +42,12 @@ impl CliEncodeMessage for RialtoParachain {
 			),
 		};
 
-		Ok(rialto_parachain_runtime::Call::PolkadotXcm(rialto_parachain_runtime::XcmCall::send {
-			dest: Box::new(dest.into()),
-			message: Box::new(message),
-		})
+		Ok(rialto_parachain_runtime::RuntimeCall::PolkadotXcm(
+			rialto_parachain_runtime::XcmCall::send {
+				dest: Box::new(dest.into()),
+				message: Box::new(message),
+			},
+		)
 		.into())
 	}
 
@@ -57,7 +59,7 @@ impl CliEncodeMessage for RialtoParachain {
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
 		Ok(match bridge_instance_index {
 			bridge::RIALTO_PARACHAIN_TO_MILLAU_INDEX =>
-				rialto_parachain_runtime::Call::BridgeMillauMessages(
+				rialto_parachain_runtime::RuntimeCall::BridgeMillauMessages(
 					rialto_parachain_runtime::MessagesCall::send_message {
 						lane_id: lane,
 						payload,

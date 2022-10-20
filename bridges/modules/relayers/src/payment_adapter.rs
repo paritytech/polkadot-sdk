@@ -31,7 +31,7 @@ pub struct MessageDeliveryAndDispatchPaymentAdapter<T, MessagesInstance, GetConf
 );
 
 impl<T, MessagesInstance, GetConfirmationFee>
-	MessageDeliveryAndDispatchPayment<T::Origin, T::AccountId, T::Reward>
+	MessageDeliveryAndDispatchPayment<T::RuntimeOrigin, T::AccountId, T::Reward>
 	for MessageDeliveryAndDispatchPaymentAdapter<T, MessagesInstance, GetConfirmationFee>
 where
 	T: Config + pallet_bridge_messages::Config<MessagesInstance, OutboundMessageFee = T::Reward>,
@@ -41,7 +41,7 @@ where
 	type Error = &'static str;
 
 	fn pay_delivery_and_dispatch_fee(
-		_submitter: &T::Origin,
+		_submitter: &T::RuntimeOrigin,
 		_fee: &T::Reward,
 	) -> Result<(), Self::Error> {
 		// nothing shall happen here, because XCM deals with fee payment (planned to be burnt?

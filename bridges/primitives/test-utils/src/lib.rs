@@ -228,16 +228,16 @@ macro_rules! generate_owned_bridge_module_tests {
 				PalletOwner::<TestRuntime>::put(1);
 
 				// The root should be able to change the owner.
-				assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::root(), Some(2)));
+				assert_ok!(Pallet::<TestRuntime>::set_owner(RuntimeOrigin::root(), Some(2)));
 				assert_eq!(PalletOwner::<TestRuntime>::get(), Some(2));
 
 				// The owner should be able to change the owner.
-				assert_ok!(Pallet::<TestRuntime>::set_owner(Origin::signed(2), Some(3)));
+				assert_ok!(Pallet::<TestRuntime>::set_owner(RuntimeOrigin::signed(2), Some(3)));
 				assert_eq!(PalletOwner::<TestRuntime>::get(), Some(3));
 
 				// Other users shouldn't be able to change the owner.
 				assert_noop!(
-					Pallet::<TestRuntime>::set_owner(Origin::signed(1), Some(4)),
+					Pallet::<TestRuntime>::set_owner(RuntimeOrigin::signed(1), Some(4)),
 					DispatchError::BadOrigin
 				);
 				assert_eq!(PalletOwner::<TestRuntime>::get(), Some(3));
@@ -252,26 +252,26 @@ macro_rules! generate_owned_bridge_module_tests {
 
 				// The root should be able to halt the pallet.
 				assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-					Origin::root(),
+					RuntimeOrigin::root(),
 					$halted_operating_mode
 				));
 				assert_eq!(PalletOperatingMode::<TestRuntime>::get(), $halted_operating_mode);
 				// The root should be able to resume the pallet.
 				assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-					Origin::root(),
+					RuntimeOrigin::root(),
 					$normal_operating_mode
 				));
 				assert_eq!(PalletOperatingMode::<TestRuntime>::get(), $normal_operating_mode);
 
 				// The owner should be able to halt the pallet.
 				assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
+					RuntimeOrigin::signed(1),
 					$halted_operating_mode
 				));
 				assert_eq!(PalletOperatingMode::<TestRuntime>::get(), $halted_operating_mode);
 				// The owner should be able to resume the pallet.
 				assert_ok!(Pallet::<TestRuntime>::set_operating_mode(
-					Origin::signed(1),
+					RuntimeOrigin::signed(1),
 					$normal_operating_mode
 				));
 				assert_eq!(PalletOperatingMode::<TestRuntime>::get(), $normal_operating_mode);
@@ -279,7 +279,7 @@ macro_rules! generate_owned_bridge_module_tests {
 				// Other users shouldn't be able to halt the pallet.
 				assert_noop!(
 					Pallet::<TestRuntime>::set_operating_mode(
-						Origin::signed(2),
+						RuntimeOrigin::signed(2),
 						$halted_operating_mode
 					),
 					DispatchError::BadOrigin
@@ -289,7 +289,7 @@ macro_rules! generate_owned_bridge_module_tests {
 				PalletOperatingMode::<TestRuntime>::put($halted_operating_mode);
 				assert_noop!(
 					Pallet::<TestRuntime>::set_operating_mode(
-						Origin::signed(2),
+						RuntimeOrigin::signed(2),
 						$normal_operating_mode
 					),
 					DispatchError::BadOrigin

@@ -554,7 +554,7 @@ mod tests {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
 			let mut payload = REGULAR_PAYLOAD;
-			payload.dispatch_result.unspent_weight = 1;
+			*payload.dispatch_result.unspent_weight.ref_time_mut() = 1;
 			assert_eq!(
 				lane.receive_message::<TestMessageDispatch, _>(
 					&TEST_RELAYER_A,
