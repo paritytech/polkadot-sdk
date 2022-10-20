@@ -99,3 +99,13 @@ zombienet-0005-migrate_solo_to_para:
         --concurrency=1
         --test="0005-migrate_solo_to_para.feature"
 
+zombienet-0006-rpc_collator_builds_blocks:
+  extends:
+    - .zombienet-common
+    - .zombienet-refs
+    - .zombienet-before-script
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
+        --github-remote-dir="${GH_DIR}"
+        --concurrency=1
+        --test="0006-rpc_collator_builds_blocks.feature"
