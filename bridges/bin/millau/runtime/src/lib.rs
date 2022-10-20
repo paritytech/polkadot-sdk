@@ -69,11 +69,12 @@ pub use bridge_runtime_common;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	dispatch::DispatchClass,
+	parameter_types,
 	traits::{Currency, ExistenceRequirement, Imbalance, KeyOwnerProofSystem},
 	weights::{
-		constants::WEIGHT_PER_SECOND, ConstantMultiplier, DispatchClass, IdentityFee,
-		RuntimeDbWeight, Weight,
+		constants::WEIGHT_PER_SECOND, ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight,
 	},
 	RuntimeDebug, StorageValue,
 };
@@ -177,7 +178,7 @@ impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = IdentityLookup<AccountId>;
 	/// The index type for storing how many extrinsics an account has signed.
@@ -191,9 +192,9 @@ impl frame_system::Config for Runtime {
 	/// The header type.
 	type Header = generic::Header<BlockNumber, Hashing>;
 	/// The ubiquitous event type.
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	/// The ubiquitous origin type.
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
 	/// Version of the runtime.
@@ -241,8 +242,7 @@ impl pallet_beefy::Config for Runtime {
 }
 
 impl pallet_grandpa::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
+	type RuntimeEvent = RuntimeEvent;
 	type KeyOwnerProofSystem = ();
 	type KeyOwnerProof =
 		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
@@ -331,7 +331,7 @@ impl pallet_balances::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
 	/// The ubiquitous event type.
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -351,6 +351,7 @@ parameter_types! {
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(3, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000u128);
+	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -363,13 +364,14 @@ impl pallet_transaction_payment::Config for Runtime {
 		TargetBlockFullness,
 		AdjustmentVariable,
 		MinimumMultiplier,
+		MaximumMultiplier,
 	>;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_sudo::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 }
 
 parameter_types! {
@@ -379,7 +381,7 @@ parameter_types! {
 }
 
 impl pallet_session::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = ();
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
@@ -400,7 +402,7 @@ parameter_types! {
 }
 
 impl pallet_bridge_relayers::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
 	type PaymentProcedure = bp_relayers::MintReward<pallet_balances::Pallet<Runtime>, AccountId>;
 	type WeightInfo = ();
@@ -470,7 +472,7 @@ parameter_types! {
 		bp_rialto::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	// `IdentityFee` is used by Millau => we may use weight directly
 	pub const GetDeliveryConfirmationTransactionFee: Balance =
-		bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT as _;
+		bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT.ref_time() as _;
 	pub const RootAccountForPayments: Option<AccountId> = None;
 	pub const RialtoChainId: bp_runtime::ChainId = bp_runtime::RIALTO_CHAIN_ID;
 	pub const RialtoParachainChainId: bp_runtime::ChainId = bp_runtime::RIALTO_PARACHAIN_CHAIN_ID;
@@ -480,7 +482,7 @@ parameter_types! {
 pub type WithRialtoMessagesInstance = ();
 
 impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
 	type Parameter = rialto_messages::MillauToRialtoMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
@@ -515,7 +517,7 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 pub type WithRialtoParachainMessagesInstance = pallet_bridge_messages::Instance1;
 
 impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
 	type Parameter = rialto_parachain_messages::MillauToRialtoParachainMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
@@ -558,7 +560,7 @@ parameter_types! {
 pub type WithRialtoParachainsInstance = ();
 
 impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
 	type ParasPalletName = RialtoParasPalletName;
@@ -571,7 +573,7 @@ impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime 
 pub type WithWestendParachainsInstance = pallet_bridge_parachains::Instance1;
 
 impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
 	type ParasPalletName = WestendParasPalletName;
@@ -626,7 +628,7 @@ construct_runtime!(
 );
 
 generate_bridge_reject_obsolete_headers_and_messages! {
-	Call, AccountId,
+	RuntimeCall, AccountId,
 	// Grandpa
 	BridgeRialtoGrandpa, BridgeWestendGrandpa,
 	// Parachains
@@ -658,11 +660,12 @@ pub type SignedExtra = (
 	BridgeRejectObsoleteHeadersAndMessages,
 );
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+pub type UncheckedExtrinsic =
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
+pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -819,6 +822,23 @@ impl_runtime_apis! {
 		{
 			Mmr::generate_batch_proof(leaf_indices)
 				.map(|(leaves, proof)| (leaves.into_iter().map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf)).collect(), proof))
+		}
+
+		fn generate_historical_batch_proof(
+			leaf_indices: Vec<mmr::LeafIndex>,
+			leaves_count: mmr::LeafIndex,
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::BatchProof<mmr::Hash>), mmr::Error> {
+			Mmr::generate_historical_batch_proof(leaf_indices, leaves_count).map(
+				|(leaves, proof)| {
+					(
+						leaves
+							.into_iter()
+							.map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf))
+							.collect(),
+						proof,
+					)
+				},
+			)
 		}
 
 		fn verify_batch_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::BatchProof<mmr::Hash>)
@@ -1151,6 +1171,6 @@ mod tests {
 				BRIDGES_PALLETS_MAX_CALL_SIZE
 		);
 		const MAX_CALL_SIZE: usize = 230; // value from polkadot-runtime tests
-		assert!(core::mem::size_of::<Call>() <= MAX_CALL_SIZE);
+		assert!(core::mem::size_of::<RuntimeCall>() <= MAX_CALL_SIZE);
 	}
 }

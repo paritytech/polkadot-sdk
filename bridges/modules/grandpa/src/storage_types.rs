@@ -43,7 +43,7 @@ impl<T: Config<I>, I: 'static> StoredAuthoritySet<T, I> {
 	///
 	/// Returns error if number of authorities in the provided list is too large.
 	pub fn try_new(authorities: AuthorityList, set_id: SetId) -> Result<Self, ()> {
-		Ok(Self { authorities: TryFrom::try_from(authorities)?, set_id })
+		Ok(Self { authorities: TryFrom::try_from(authorities).map_err(drop)?, set_id })
 	}
 }
 

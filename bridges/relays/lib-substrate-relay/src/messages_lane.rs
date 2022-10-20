@@ -32,7 +32,7 @@ use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
 use codec::Encode;
-use frame_support::weights::{GetDispatchInfo, Weight};
+use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
 use messages_relay::{message_lane::MessageLane, relay_strategy::RelayStrategy};
 use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
 use relay_substrate_client::{
@@ -461,17 +461,23 @@ pub fn select_delivery_transaction_limits<W: pallet_bridge_messages::WeightInfoE
 	let delivery_tx_base_weight = W::receive_messages_proof_overhead() +
 		W::receive_messages_proof_outbound_lane_state_overhead();
 	let delivery_tx_weight_rest = weight_for_delivery_tx - delivery_tx_base_weight;
-	let max_number_of_messages = std::cmp::min(
-		delivery_tx_weight_rest / W::receive_messages_proof_messages_overhead(1),
-		max_unconfirmed_messages_at_inbound_lane,
-	);
+
+	let max_number_of_messages = if delivery_tx_weight_rest.ref_time() /
+		W::receive_messages_proof_messages_overhead(1).ref_time() <
+		max_unconfirmed_messages_at_inbound_lane
+	{
+		delivery_tx_weight_rest.ref_time() /
+			W::receive_messages_proof_messages_overhead(1).ref_time()
+	} else {
+		max_unconfirmed_messages_at_inbound_lane
+	};
 
 	assert!(
 		max_number_of_messages > 0,
 		"Relay should fit at least one message in every delivery transaction",
 	);
 	assert!(
-		weight_for_messages_dispatch >= max_extrinsic_weight / 2,
+		weight_for_messages_dispatch.ref_time() >= max_extrinsic_weight.ref_time() / 2,
 		"Relay shall be able to deliver messages with dispatch weight = max_extrinsic_weight / 2",
 	);
 
@@ -500,7 +506,9 @@ mod tests {
 			// i.e. weight reserved for messages dispatch allows dispatch of non-trivial messages.
 			//
 			// Any significant change in this values should attract additional attention.
-			(1024, 216_609_134_667),
+			//
+			// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - remove `set_proof_size`
+			(1024, Weight::from_ref_time(216_609_134_667).set_proof_size(217)),
 		);
 	}
 }
