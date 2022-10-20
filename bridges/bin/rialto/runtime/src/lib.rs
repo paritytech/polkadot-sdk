@@ -63,9 +63,11 @@ use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	dispatch::DispatchClass,
+	parameter_types,
 	traits::{Currency, ExistenceRequirement, Imbalance, KeyOwnerProofSystem},
-	weights::{constants::WEIGHT_PER_SECOND, DispatchClass, IdentityFee, RuntimeDbWeight, Weight},
+	weights::{constants::WEIGHT_PER_SECOND, IdentityFee, RuntimeDbWeight, Weight},
 	StorageValue,
 };
 
@@ -169,7 +171,7 @@ impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
@@ -183,9 +185,9 @@ impl frame_system::Config for Runtime {
 	/// The header type.
 	type Header = generic::Header<BlockNumber, Hashing>;
 	/// The ubiquitous event type.
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	/// The ubiquitous origin type.
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
 	/// Version of the runtime.
@@ -258,8 +260,7 @@ impl pallet_beefy::Config for Runtime {
 }
 
 impl pallet_grandpa::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxAuthorities = MaxAuthorities;
 	type KeyOwnerProofSystem = ();
 	type KeyOwnerProof =
@@ -340,7 +341,7 @@ impl pallet_balances::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
 	/// The ubiquitous event type.
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -360,6 +361,7 @@ parameter_types! {
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(3, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000u128);
+	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -372,17 +374,18 @@ impl pallet_transaction_payment::Config for Runtime {
 		TargetBlockFullness,
 		AdjustmentVariable,
 		MinimumMultiplier,
+		MaximumMultiplier,
 	>;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_sudo::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 }
 
 impl pallet_session::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = ();
 	type ShouldEndSession = Babe;
@@ -399,7 +402,7 @@ impl pallet_authority_discovery::Config for Runtime {
 }
 
 impl pallet_bridge_relayers::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
 	type PaymentProcedure = bp_relayers::MintReward<pallet_balances::Pallet<Runtime>, AccountId>;
 	type WeightInfo = ();
@@ -444,7 +447,7 @@ parameter_types! {
 		bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	// `IdentityFee` is used by Rialto => we may use weight directly
 	pub const GetDeliveryConfirmationTransactionFee: Balance =
-		bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT as _;
+		bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT.ref_time() as _;
 	pub const RootAccountForPayments: Option<AccountId> = None;
 	pub const BridgedChainId: bp_runtime::ChainId = bp_runtime::MILLAU_CHAIN_ID;
 }
@@ -453,7 +456,7 @@ parameter_types! {
 pub type WithMillauMessagesInstance = ();
 
 impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
 	type Parameter = millau_messages::RialtoToMillauMessagesParameter;
 	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
@@ -529,6 +532,9 @@ construct_runtime!(
 		Ump: polkadot_runtime_parachains::ump::{Pallet, Call, Storage, Event},
 		Hrmp: polkadot_runtime_parachains::hrmp::{Pallet, Call, Storage, Event<T>, Config},
 		SessionInfo: polkadot_runtime_parachains::session_info::{Pallet, Storage},
+		ParaSessionInfo: polkadot_runtime_parachains::session_info::{Pallet, Storage},
+		ParasDisputes: polkadot_runtime_parachains::disputes::{Pallet, Call, Storage, Event<T>},
+		ParasSlashing: polkadot_runtime_parachains::disputes::slashing::{Pallet, Call, Storage, ValidateUnsigned},
 
 		// Parachain Onboarding Pallets
 		Registrar: polkadot_runtime_common::paras_registrar::{Pallet, Call, Storage, Event<T>},
@@ -562,11 +568,12 @@ pub type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+pub type UncheckedExtrinsic =
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
+pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -679,6 +686,23 @@ impl_runtime_apis! {
 				.map(|(leaves, proof)| (leaves.into_iter().map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf)).collect(), proof))
 		}
 
+		fn generate_historical_batch_proof(
+			leaf_indices: Vec<mmr::LeafIndex>,
+			leaves_count: mmr::LeafIndex,
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::BatchProof<MmrHash>), mmr::Error> {
+			Mmr::generate_historical_batch_proof(leaf_indices, leaves_count).map(
+				|(leaves, proof)| {
+					(
+						leaves
+							.into_iter()
+							.map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf))
+							.collect(),
+						proof,
+					)
+				},
+			)
+		}
+
 		fn verify_batch_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::BatchProof<MmrHash>)
 			-> Result<(), mmr::Error>
 		{
@@ -725,17 +749,17 @@ impl_runtime_apis! {
 	}
 
 	impl sp_consensus_babe::BabeApi<Block> for Runtime {
-		fn configuration() -> sp_consensus_babe::BabeGenesisConfiguration {
+		fn configuration() -> sp_consensus_babe::BabeConfiguration {
 			// The choice of `c` parameter (where `1 - c` represents the
 			// probability of a slot being empty), is done in accordance to the
 			// slot duration and expected target block time, for safely
 			// resisting network delays of maximum two seconds.
 			// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
-			sp_consensus_babe::BabeGenesisConfiguration {
+			sp_consensus_babe::BabeConfiguration {
 				slot_duration: Babe::slot_duration(),
 				epoch_length: EpochDuration::get(),
 				c: BABE_GENESIS_EPOCH_CONFIG.c,
-				genesis_authorities: Babe::authorities().to_vec(),
+				authorities: Babe::authorities().to_vec(),
 				randomness: Babe::randomness(),
 				allowed_slots: BABE_GENESIS_EPOCH_CONFIG.allowed_slots,
 			}
@@ -824,7 +848,7 @@ impl_runtime_apis! {
 		fn candidate_events() -> Vec<polkadot_primitives::v2::CandidateEvent<Hash>> {
 			polkadot_runtime_parachains::runtime_api_impl::v2::candidate_events::<Runtime, _>(|ev| {
 				match ev {
-					Event::Inclusion(ev) => {
+					RuntimeEvent::Inclusion(ev) => {
 						Some(ev)
 					}
 					_ => None,
@@ -866,10 +890,6 @@ impl_runtime_apis! {
 			-> Option<polkadot_primitives::v2::ValidationCodeHash>
 		{
 			polkadot_runtime_parachains::runtime_api_impl::v2::validation_code_hash::<Runtime>(para_id, assumption)
-		}
-
-		fn staging_get_disputes() -> Vec<(polkadot_primitives::v2::SessionIndex, polkadot_primitives::v2::CandidateHash, polkadot_primitives::v2::DisputeState<BlockNumber>)> {
-			unimplemented!()
 		}
 	}
 
@@ -995,6 +1015,6 @@ mod tests {
 		// result of large `SessionKeys` struct.
 		// Total size of Rialto runtime Call is 232.
 		const MAX_CALL_SIZE: usize = 232;
-		assert!(core::mem::size_of::<Call>() <= MAX_CALL_SIZE);
+		assert!(core::mem::size_of::<RuntimeCall>() <= MAX_CALL_SIZE);
 	}
 }

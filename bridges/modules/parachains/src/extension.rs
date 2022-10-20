@@ -31,7 +31,7 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, 
 /// pallet will be used in our environment.
 impl<
 		Call: IsSubType<CallableCallFor<Pallet<T, I>, T>>,
-		T: frame_system::Config<Call = Call> + Config<I>,
+		T: frame_system::Config<RuntimeCall = Call> + Config<I>,
 		I: 'static,
 	> FilterCall<Call> for Pallet<T, I>
 where
@@ -77,7 +77,7 @@ where
 mod tests {
 	use crate::{
 		extension::FilterCall,
-		mock::{run_test, Call, TestRuntime},
+		mock::{run_test, RuntimeCall, TestRuntime},
 		ParaInfo, ParasInfo, RelayBlockNumber,
 	};
 	use bp_parachains::BestParaHeadHash;
@@ -87,13 +87,14 @@ mod tests {
 		num: RelayBlockNumber,
 		parachains: Vec<(ParaId, ParaHash)>,
 	) -> bool {
-		crate::Pallet::<TestRuntime>::validate(&Call::Parachains(
-			crate::Call::<TestRuntime, ()>::submit_parachain_heads {
-				at_relay_block: (num, Default::default()),
-				parachains,
-				parachain_heads_proof: ParaHeadsProof(Vec::new()),
-			},
-		))
+		crate::Pallet::<TestRuntime>::validate(&RuntimeCall::Parachains(crate::Call::<
+			TestRuntime,
+			(),
+		>::submit_parachain_heads {
+			at_relay_block: (num, Default::default()),
+			parachains,
+			parachain_heads_proof: ParaHeadsProof(Vec::new()),
+		}))
 		.is_ok()
 	}
 

@@ -60,7 +60,7 @@ macro_rules! assert_bridge_types(
 			// `frame_support::weights::Weight` is used here directly, because all chains we know are using this
 			// primitive (may be changed in the future)
 			use $crate::messages::{
-				AccountIdOf, BalanceOf, BridgedChain, HashOf, SignatureOf, SignerOf, ThisChain, WeightOf,
+				AccountIdOf, BalanceOf, BridgedChain, HashOf, SignatureOf, SignerOf, ThisChain,
 			};
 			use static_assertions::assert_type_eq_all;
 
@@ -68,14 +68,12 @@ macro_rules! assert_bridge_types(
 			assert_type_eq_all!(AccountIdOf<ThisChain<$bridge>>, bp_runtime::AccountIdOf<$this>);
 			assert_type_eq_all!(SignerOf<ThisChain<$bridge>>, bp_runtime::AccountPublicOf<$this>);
 			assert_type_eq_all!(SignatureOf<ThisChain<$bridge>>, bp_runtime::SignatureOf<$this>);
-			assert_type_eq_all!(WeightOf<ThisChain<$bridge>>, frame_support::weights::Weight);
 			assert_type_eq_all!(BalanceOf<ThisChain<$bridge>>, bp_runtime::BalanceOf<$this>);
 
 			assert_type_eq_all!(HashOf<BridgedChain<$bridge>>, bp_runtime::HashOf<$bridged>);
 			assert_type_eq_all!(AccountIdOf<BridgedChain<$bridge>>, bp_runtime::AccountIdOf<$bridged>);
 			assert_type_eq_all!(SignerOf<BridgedChain<$bridge>>, bp_runtime::AccountPublicOf<$bridged>);
 			assert_type_eq_all!(SignatureOf<BridgedChain<$bridge>>, bp_runtime::SignatureOf<$bridged>);
-			assert_type_eq_all!(WeightOf<BridgedChain<$bridge>>, frame_support::weights::Weight);
 			assert_type_eq_all!(BalanceOf<BridgedChain<$bridge>>, bp_runtime::BalanceOf<$bridged>);
 		}
 	}
@@ -114,7 +112,7 @@ macro_rules! assert_bridge_messages_pallet_types(
 			use $crate::messages::{
 				source::FromThisChainMessagePayload,
 				target::FromBridgedChainMessagePayload,
-				AccountIdOf, BalanceOf, BridgedChain, CallOf, ThisChain, WeightOf,
+				AccountIdOf, BalanceOf, BridgedChain, CallOf, ThisChain,
 			};
 			use pallet_bridge_messages::Config as MessagesConfig;
 			use static_assertions::assert_type_eq_all;

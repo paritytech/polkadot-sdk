@@ -50,7 +50,7 @@ impl CliEncodeMessage for Millau {
 			),
 		};
 
-		Ok(millau_runtime::Call::XcmPallet(millau_runtime::XcmCall::send {
+		Ok(millau_runtime::RuntimeCall::XcmPallet(millau_runtime::XcmCall::send {
 			dest: Box::new(dest.into()),
 			message: Box::new(message),
 		})
@@ -64,7 +64,7 @@ impl CliEncodeMessage for Millau {
 		bridge_instance_index: u8,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
 		Ok(match bridge_instance_index {
-			bridge::MILLAU_TO_RIALTO_INDEX => millau_runtime::Call::BridgeRialtoMessages(
+			bridge::MILLAU_TO_RIALTO_INDEX => millau_runtime::RuntimeCall::BridgeRialtoMessages(
 				millau_runtime::MessagesCall::send_message {
 					lane_id: lane,
 					payload,
@@ -73,7 +73,7 @@ impl CliEncodeMessage for Millau {
 			)
 			.into(),
 			bridge::MILLAU_TO_RIALTO_PARACHAIN_INDEX =>
-				millau_runtime::Call::BridgeRialtoParachainMessages(
+				millau_runtime::RuntimeCall::BridgeRialtoParachainMessages(
 					millau_runtime::MessagesCall::send_message {
 						lane_id: lane,
 						payload,

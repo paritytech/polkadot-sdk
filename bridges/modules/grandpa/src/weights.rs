@@ -59,21 +59,21 @@ pub trait WeightInfo {
 pub struct BridgeWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	fn submit_finality_proof(p: u32, v: u32) -> Weight {
-		(105_417_000 as Weight)
-			.saturating_add((40_923_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add((1_691_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+		Weight::from_ref_time(105_417_000 as u64)
+			.saturating_add(Weight::from_ref_time(40_923_000 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_ref_time(1_691_000 as u64).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(7 as u64))
+			.saturating_add(T::DbWeight::get().writes(6 as u64))
 	}
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
 	fn submit_finality_proof(p: u32, v: u32) -> Weight {
-		(105_417_000 as Weight)
-			.saturating_add((40_923_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add((1_691_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+		Weight::from_ref_time(105_417_000 as u64)
+			.saturating_add(Weight::from_ref_time(40_923_000 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_ref_time(1_691_000 as u64).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(7 as u64))
+			.saturating_add(RocksDbWeight::get().writes(6 as u64))
 	}
 }

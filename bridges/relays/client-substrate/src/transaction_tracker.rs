@@ -168,7 +168,7 @@ async fn watch_transaction_status<
 
 	loop {
 		match subscription.next().await {
-			Some(TransactionStatusOf::<C>::Finalized(block_hash)) => {
+			Some(TransactionStatusOf::<C>::Finalized((block_hash, _))) => {
 				// the only "successful" outcome of this method is when the block with transaction
 				// has been finalized
 				log::trace!(

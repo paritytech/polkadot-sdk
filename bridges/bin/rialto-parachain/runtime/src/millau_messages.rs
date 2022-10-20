@@ -19,7 +19,7 @@
 // TODO: this is almost exact copy of `millau_messages.rs` from Rialto runtime.
 // Should be extracted to a separate crate and reused here.
 
-use crate::{OriginCaller, Runtime};
+use crate::{OriginCaller, Runtime, RuntimeCall, RuntimeOrigin};
 
 use bp_messages::{
 	source_chain::{SenderOrigin, TargetHeaderChain},
@@ -31,11 +31,7 @@ use bridge_runtime_common::messages::{
 	self, BasicConfirmationTransactionEstimation, MessageBridge, MessageTransaction,
 };
 use codec::{Decode, Encode};
-use frame_support::{
-	parameter_types,
-	weights::{DispatchClass, Weight},
-	RuntimeDebug,
-};
+use frame_support::{dispatch::DispatchClass, parameter_types, weights::Weight, RuntimeDebug};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 use sp_std::convert::TryFrom;
@@ -50,13 +46,18 @@ pub const INITIAL_MILLAU_FEE_MULTIPLIER: FixedU128 = FixedU128::from_inner(Fixed
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
-pub const BASE_XCM_WEIGHT_TWICE: Weight = 2 * crate::BASE_XCM_WEIGHT;
+pub const BASE_XCM_WEIGHT_TWICE: u64 = 2 * crate::BASE_XCM_WEIGHT;
 
 parameter_types! {
 	/// Millau to RialtoParachain conversion rate. Initially we treat both tokens as equal.
 	pub storage MillauToRialtoParachainConversionRate: FixedU128 = INITIAL_MILLAU_TO_RIALTO_PARACHAIN_CONVERSION_RATE;
 	/// Fee multiplier value at Millau chain.
 	pub storage MillauFeeMultiplier: FixedU128 = INITIAL_MILLAU_FEE_MULTIPLIER;
+	/// Weight credit for our test messages.
+	///
+	/// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
+	/// (it is prepended with `UniversalOrigin` instruction).
+	pub const WeightCredit: Weight = Weight::from_ref_time(BASE_XCM_WEIGHT_TWICE);
 }
 
 /// Message payload for RialtoParachain -> Millau messages.
@@ -67,16 +68,14 @@ pub type ToMillauMessageVerifier =
 	messages::source::FromThisChainMessageVerifier<WithMillauMessageBridge>;
 
 /// Message payload for Millau -> RialtoParachain messages.
-pub type FromMillauMessagePayload = messages::target::FromBridgedChainMessagePayload<crate::Call>;
+pub type FromMillauMessagePayload = messages::target::FromBridgedChainMessagePayload<RuntimeCall>;
 
 /// Call-dispatch based message dispatch for Millau -> RialtoParachain messages.
 pub type FromMillauMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
 	WithMillauMessageBridge,
 	xcm_executor::XcmExecutor<crate::XcmConfig>,
 	crate::XcmWeigher,
-	// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
-	// (it is prepended with `UniversalOrigin` instruction)
-	frame_support::traits::ConstU64<BASE_XCM_WEIGHT_TWICE>,
+	WeightCredit,
 >;
 
 /// Messages proof for Millau -> RialtoParachain messages.
@@ -124,21 +123,20 @@ impl messages::ChainWithMessages for RialtoParachain {
 	type AccountId = bp_rialto_parachain::AccountId;
 	type Signer = bp_rialto_parachain::AccountSigner;
 	type Signature = bp_rialto_parachain::Signature;
-	type Weight = Weight;
 	type Balance = bp_rialto_parachain::Balance;
 }
 
 impl messages::ThisChainWithMessages for RialtoParachain {
-	type Call = crate::Call;
-	type Origin = crate::Origin;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeOrigin = RuntimeOrigin;
 	type ConfirmationTransactionEstimation = BasicConfirmationTransactionEstimation<
 		Self::AccountId,
-		{ bp_rialto_parachain::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT },
+		{ bp_rialto_parachain::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT.ref_time() },
 		{ bp_millau::EXTRA_STORAGE_PROOF_SIZE },
 		{ bp_rialto_parachain::TX_EXTRA_BYTES },
 	>;
 
-	fn is_message_accepted(send_origin: &Self::Origin, lane: &LaneId) -> bool {
+	fn is_message_accepted(send_origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool {
 		let here_location = xcm::v3::MultiLocation::from(crate::UniversalLocation::get());
 		match send_origin.caller {
 			OriginCaller::PolkadotXcm(pallet_xcm::Origin::Xcm(ref location))
@@ -175,7 +173,7 @@ impl messages::ThisChainWithMessages for RialtoParachain {
 				.base_extrinsic,
 			1,
 			multiplier,
-			|weight| weight as _,
+			|weight| weight.ref_time() as _,
 			transaction,
 		)
 	}
@@ -190,7 +188,6 @@ impl messages::ChainWithMessages for Millau {
 	type AccountId = bp_millau::AccountId;
 	type Signer = bp_millau::AccountSigner;
 	type Signature = bp_millau::Signature;
-	type Weight = Weight;
 	type Balance = bp_millau::Balance;
 }
 
@@ -209,15 +206,15 @@ impl messages::BridgedChainWithMessages for Millau {
 		message_dispatch_weight: Weight,
 	) -> MessageTransaction<Weight> {
 		let message_payload_len = u32::try_from(message_payload.len()).unwrap_or(u32::MAX);
-		let extra_bytes_in_payload = Weight::from(message_payload_len)
-			.saturating_sub(pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH.into());
+		let extra_bytes_in_payload = message_payload_len
+			.saturating_sub(pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH);
 
 		MessageTransaction {
-			dispatch_weight: extra_bytes_in_payload
-				.saturating_mul(bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
+			dispatch_weight: bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT
+				.saturating_mul(extra_bytes_in_payload as u64)
 				.saturating_add(bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT)
 				.saturating_sub(if include_pay_dispatch_fee_cost {
-					0
+					Weight::from_ref_time(0)
 				} else {
 					bp_millau::PAY_INBOUND_DISPATCH_FEE_WEIGHT
 				})
@@ -237,7 +234,7 @@ impl messages::BridgedChainWithMessages for Millau {
 			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
 			1,
 			multiplier,
-			|weight| weight as _,
+			|weight| weight.ref_time() as _,
 			transaction,
 		)
 	}
@@ -287,7 +284,7 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 	}
 }
 
-impl SenderOrigin<crate::AccountId> for crate::Origin {
+impl SenderOrigin<crate::AccountId> for RuntimeOrigin {
 	fn linked_account(&self) -> Option<crate::AccountId> {
 		match self.caller {
 			crate::OriginCaller::system(frame_system::RawOrigin::Signed(ref submitter)) =>

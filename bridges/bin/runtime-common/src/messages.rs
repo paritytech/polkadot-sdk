@@ -75,11 +75,6 @@ pub trait ChainWithMessages {
 	type Signer: Encode + Decode;
 	/// Signature type used on the chain.
 	type Signature: Encode + Decode;
-	/// Type of weight that is used on the chain. This would almost always be a regular
-	/// `frame_support::weight::Weight`. But since the meaning of weight on different chains
-	/// may be different, the `WeightOf<>` construct is used to avoid confusion between
-	/// different weights.
-	type Weight: From<frame_support::weights::Weight> + PartialOrd;
 	/// Type of balances that is used on the chain.
 	type Balance: Encode
 		+ Decode
@@ -110,14 +105,14 @@ pub trait ConfirmationTransactionEstimation<Weight> {
 /// Default implementation for `ConfirmationTransactionEstimation`.
 pub struct BasicConfirmationTransactionEstimation<
 	AccountId: MaxEncodedLen,
-	const MAX_CONFIRMATION_TX_WEIGHT: Weight,
+	const MAX_CONFIRMATION_TX_WEIGHT: u64,
 	const EXTRA_STORAGE_PROOF_SIZE: u32,
 	const TX_EXTRA_BYTES: u32,
 >(PhantomData<AccountId>);
 
 impl<
 		AccountId: MaxEncodedLen,
-		const MAX_CONFIRMATION_TX_WEIGHT: Weight,
+		const MAX_CONFIRMATION_TX_WEIGHT: u64,
 		const EXTRA_STORAGE_PROOF_SIZE: u32,
 		const TX_EXTRA_BYTES: u32,
 	> ConfirmationTransactionEstimation<Weight>
@@ -131,7 +126,7 @@ impl<
 	fn estimate_delivery_confirmation_transaction() -> MessageTransaction<Weight> {
 		let inbound_data_size = InboundLaneData::<AccountId>::encoded_size_hint_u32(1, 1);
 		MessageTransaction {
-			dispatch_weight: MAX_CONFIRMATION_TX_WEIGHT,
+			dispatch_weight: Weight::from_ref_time(MAX_CONFIRMATION_TX_WEIGHT),
 			size: inbound_data_size
 				.saturating_add(EXTRA_STORAGE_PROOF_SIZE)
 				.saturating_add(TX_EXTRA_BYTES),
@@ -142,15 +137,15 @@ impl<
 /// This chain that has `pallet-bridge-messages` and `dispatch` modules.
 pub trait ThisChainWithMessages: ChainWithMessages {
 	/// Call origin on the chain.
-	type Origin;
+	type RuntimeOrigin;
 	/// Call type on the chain.
-	type Call: Encode + Decode;
+	type RuntimeCall: Encode + Decode;
 	/// Helper for estimating the size and weight of a single message delivery confirmation
 	/// transaction at this chain.
-	type ConfirmationTransactionEstimation: ConfirmationTransactionEstimation<WeightOf<Self>>;
+	type ConfirmationTransactionEstimation: ConfirmationTransactionEstimation<Weight>;
 
 	/// Do we accept message sent by given origin to given lane?
-	fn is_message_accepted(origin: &Self::Origin, lane: &LaneId) -> bool;
+	fn is_message_accepted(origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool;
 
 	/// Maximal number of pending (not yet delivered) messages at This chain.
 	///
@@ -158,12 +153,12 @@ pub trait ThisChainWithMessages: ChainWithMessages {
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce;
 
 	/// Estimate size and weight of single message delivery confirmation transaction at This chain.
-	fn estimate_delivery_confirmation_transaction() -> MessageTransaction<WeightOf<Self>> {
+	fn estimate_delivery_confirmation_transaction() -> MessageTransaction<Weight> {
 		Self::ConfirmationTransactionEstimation::estimate_delivery_confirmation_transaction()
 	}
 
 	/// Returns minimal transaction fee that must be paid for given transaction at This chain.
-	fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
+	fn transaction_payment(transaction: MessageTransaction<Weight>) -> BalanceOf<Self>;
 }
 
 /// Bridged chain that has `pallet-bridge-messages` and `dispatch` modules.
@@ -179,12 +174,12 @@ pub trait BridgedChainWithMessages: ChainWithMessages {
 	fn estimate_delivery_transaction(
 		message_payload: &[u8],
 		include_pay_dispatch_fee_cost: bool,
-		message_dispatch_weight: WeightOf<Self>,
-	) -> MessageTransaction<WeightOf<Self>>;
+		message_dispatch_weight: Weight,
+	) -> MessageTransaction<Weight>;
 
 	/// Returns minimal transaction fee that must be paid for given transaction at the Bridged
 	/// chain.
-	fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self>;
+	fn transaction_payment(transaction: MessageTransaction<Weight>) -> BalanceOf<Self>;
 }
 
 /// This chain in context of message bridge.
@@ -199,14 +194,12 @@ pub type AccountIdOf<C> = <C as ChainWithMessages>::AccountId;
 pub type SignerOf<C> = <C as ChainWithMessages>::Signer;
 /// Signature type used on the chain.
 pub type SignatureOf<C> = <C as ChainWithMessages>::Signature;
-/// Type of weight that used on the chain.
-pub type WeightOf<C> = <C as ChainWithMessages>::Weight;
 /// Type of balances that is used on the chain.
 pub type BalanceOf<C> = <C as ChainWithMessages>::Balance;
 /// Type of origin that is used on the chain.
-pub type OriginOf<C> = <C as ThisChainWithMessages>::Origin;
+pub type OriginOf<C> = <C as ThisChainWithMessages>::RuntimeOrigin;
 /// Type of call that is used on this chain.
-pub type CallOf<C> = <C as ThisChainWithMessages>::Call;
+pub type CallOf<C> = <C as ThisChainWithMessages>::RuntimeCall;
 
 /// Raw storage proof type (just raw trie nodes).
 pub type RawStorageProof = Vec<Vec<u8>>;
@@ -411,8 +404,11 @@ pub mod source {
 		//
 		// if we're going to pay dispatch fee at the target chain, then we don't include weight
 		// of the message dispatch in the delivery transaction cost
-		let delivery_transaction =
-			BridgedChain::<B>::estimate_delivery_transaction(&payload.encode(), true, 0.into());
+		let delivery_transaction = BridgedChain::<B>::estimate_delivery_transaction(
+			&payload.encode(),
+			true,
+			Weight::from_ref_time(0),
+		);
 		let delivery_transaction_fee = BridgedChain::<B>::transaction_payment(delivery_transaction);
 
 		// the fee (in This tokens) of all transactions that are made on This chain
@@ -720,7 +716,7 @@ pub mod target {
 					// I have no idea why this method takes `&mut` reference and there's nothing
 					// about that in documentation. Hope it'll only mutate iff error is returned.
 					let weight = XcmWeigher::weight(&mut payload.xcm.1);
-					let weight = weight.unwrap_or_else(|e| {
+					let weight = Weight::from_ref_time(weight.unwrap_or_else(|e| {
 						log::debug!(
 							target: "runtime::bridge-dispatch",
 							"Failed to compute dispatch weight of incoming XCM message {:?}/{}: {:?}",
@@ -732,12 +728,12 @@ pub mod target {
 						// we shall return 0 and then the XCM executor will fail to execute XCM
 						// if we'll return something else (e.g. maximal value), the lane may stuck
 						0
-					});
+					}));
 
 					payload.weight = Some(weight);
 					weight
 				},
-				_ => 0,
+				_ => Weight::from_ref_time(0),
 			}
 		}
 
@@ -766,8 +762,8 @@ pub mod target {
 					location,
 					xcm,
 					hash,
-					weight_limit.unwrap_or(0),
-					weight_credit,
+					weight_limit.unwrap_or(Weight::from_ref_time(0)).ref_time(),
+					weight_credit.ref_time(),
 				);
 				Ok(xcm_outcome)
 			};
@@ -776,7 +772,7 @@ pub mod target {
 			log::trace!(target: "runtime::bridge-dispatch", "Incoming message {:?} dispatched with result: {:?}", message_id, xcm_outcome);
 			MessageDispatchResult {
 				dispatch_result: true,
-				unspent_weight: 0,
+				unspent_weight: Weight::from_ref_time(0),
 				dispatch_fee_paid_during_dispatch: false,
 			}
 		}
@@ -1093,6 +1089,7 @@ pub mod xcm_copy {
 		fn validate(
 			network: NetworkId,
 			_channel: u32,
+			_universal_source: &mut Option<InteriorMultiLocation>,
 			destination: &mut Option<InteriorMultiLocation>,
 			message: &mut Option<Xcm<()>>,
 		) -> Result<((Vec<u8>, XcmHash), MultiAssets), SendError> {
@@ -1127,10 +1124,10 @@ mod tests {
 	use frame_support::weights::Weight;
 	use std::ops::RangeInclusive;
 
-	const DELIVERY_TRANSACTION_WEIGHT: Weight = 100;
-	const DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT: Weight = 100;
-	const THIS_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 2;
-	const BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE: Weight = 4;
+	const DELIVERY_TRANSACTION_WEIGHT: Weight = Weight::from_ref_time(100);
+	const DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT: u64 = 100;
+	const THIS_CHAIN_WEIGHT_TO_BALANCE_RATE: u32 = 2;
+	const BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE: u32 = 4;
 	const BRIDGED_CHAIN_TO_THIS_CHAIN_BALANCE_RATE: u32 = 6;
 	const BRIDGED_CHAIN_MIN_EXTRINSIC_WEIGHT: usize = 5;
 	const BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT: usize = 2048;
@@ -1301,13 +1298,12 @@ mod tests {
 		type AccountId = ThisChainAccountId;
 		type Signer = ThisChainSigner;
 		type Signature = ThisChainSignature;
-		type Weight = frame_support::weights::Weight;
 		type Balance = ThisChainBalance;
 	}
 
 	impl ThisChainWithMessages for ThisChain {
-		type Origin = ThisChainOrigin;
-		type Call = ThisChainCall;
+		type RuntimeOrigin = ThisChainOrigin;
+		type RuntimeCall = ThisChainCall;
 		type ConfirmationTransactionEstimation = BasicConfirmationTransactionEstimation<
 			<ThisChain as ChainWithMessages>::AccountId,
 			{ DELIVERY_CONFIRMATION_TRANSACTION_WEIGHT },
@@ -1315,7 +1311,7 @@ mod tests {
 			0,
 		>;
 
-		fn is_message_accepted(_send_origin: &Self::Origin, lane: &LaneId) -> bool {
+		fn is_message_accepted(_send_origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool {
 			lane == TEST_LANE_ID
 		}
 
@@ -1323,9 +1319,12 @@ mod tests {
 			MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE
 		}
 
-		fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(transaction: MessageTransaction<Weight>) -> BalanceOf<Self> {
 			ThisChainBalance(
-				transaction.dispatch_weight as u32 * THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u32,
+				transaction
+					.dispatch_weight
+					.saturating_mul(THIS_CHAIN_WEIGHT_TO_BALANCE_RATE as u64)
+					.ref_time() as _,
 			)
 		}
 	}
@@ -1342,14 +1341,12 @@ mod tests {
 		fn estimate_delivery_transaction(
 			_message_payload: &[u8],
 			_include_pay_dispatch_fee_cost: bool,
-			_message_dispatch_weight: WeightOf<Self>,
-		) -> MessageTransaction<WeightOf<Self>> {
+			_message_dispatch_weight: Weight,
+		) -> MessageTransaction<Weight> {
 			unreachable!()
 		}
 
-		fn transaction_payment(
-			_transaction: MessageTransaction<WeightOf<Self>>,
-		) -> BalanceOf<Self> {
+		fn transaction_payment(_transaction: MessageTransaction<Weight>) -> BalanceOf<Self> {
 			unreachable!()
 		}
 	}
@@ -1361,13 +1358,12 @@ mod tests {
 		type AccountId = BridgedChainAccountId;
 		type Signer = BridgedChainSigner;
 		type Signature = BridgedChainSignature;
-		type Weight = frame_support::weights::Weight;
 		type Balance = BridgedChainBalance;
 	}
 
 	impl ThisChainWithMessages for BridgedChain {
-		type Origin = BridgedChainOrigin;
-		type Call = BridgedChainCall;
+		type RuntimeOrigin = BridgedChainOrigin;
+		type RuntimeCall = BridgedChainCall;
 		type ConfirmationTransactionEstimation = BasicConfirmationTransactionEstimation<
 			<BridgedChain as ChainWithMessages>::AccountId,
 			0,
@@ -1375,7 +1371,7 @@ mod tests {
 			0,
 		>;
 
-		fn is_message_accepted(_send_origin: &Self::Origin, _lane: &LaneId) -> bool {
+		fn is_message_accepted(_send_origin: &Self::RuntimeOrigin, _lane: &LaneId) -> bool {
 			unreachable!()
 		}
 
@@ -1383,9 +1379,7 @@ mod tests {
 			unreachable!()
 		}
 
-		fn transaction_payment(
-			_transaction: MessageTransaction<WeightOf<Self>>,
-		) -> BalanceOf<Self> {
+		fn transaction_payment(_transaction: MessageTransaction<Weight>) -> BalanceOf<Self> {
 			unreachable!()
 		}
 	}
@@ -1403,17 +1397,20 @@ mod tests {
 		fn estimate_delivery_transaction(
 			_message_payload: &[u8],
 			_include_pay_dispatch_fee_cost: bool,
-			message_dispatch_weight: WeightOf<Self>,
-		) -> MessageTransaction<WeightOf<Self>> {
+			message_dispatch_weight: Weight,
+		) -> MessageTransaction<Weight> {
 			MessageTransaction {
 				dispatch_weight: DELIVERY_TRANSACTION_WEIGHT + message_dispatch_weight,
 				size: 0,
 			}
 		}
 
-		fn transaction_payment(transaction: MessageTransaction<WeightOf<Self>>) -> BalanceOf<Self> {
+		fn transaction_payment(transaction: MessageTransaction<Weight>) -> BalanceOf<Self> {
 			BridgedChainBalance(
-				transaction.dispatch_weight as u32 * BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u32,
+				transaction
+					.dispatch_weight
+					.saturating_mul(BRIDGED_CHAIN_WEIGHT_TO_BALANCE_RATE as u64)
+					.ref_time() as _,
 			)
 		}
 	}
@@ -1786,11 +1783,11 @@ mod tests {
 
 		assert_eq!(
 			transaction_payment(
-				100,
+				Weight::from_ref_time(100),
 				10,
 				FixedU128::zero(),
-				|weight| weight,
-				MessageTransaction { size: 50, dispatch_weight: 777 },
+				|weight| weight.ref_time(),
+				MessageTransaction { size: 50, dispatch_weight: Weight::from_ref_time(777) },
 			),
 			100 + 50 * 10,
 		);
@@ -1801,12 +1798,12 @@ mod tests {
 		use sp_runtime::traits::One;
 
 		assert_eq!(
-			transaction_payment(
-				100,
+			transaction_payment::<u64>(
+				Weight::from_ref_time(100),
 				10,
 				FixedU128::one(),
-				|weight| weight,
-				MessageTransaction { size: 50, dispatch_weight: 777 },
+				|weight| weight.ref_time(),
+				MessageTransaction { size: 50, dispatch_weight: Weight::from_ref_time(777) },
 			),
 			100 + 50 * 10 + 777,
 		);

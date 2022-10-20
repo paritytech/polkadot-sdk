@@ -29,7 +29,7 @@ pub use weights_ext::WeightInfoExt;
 use bp_parachains::{parachain_head_storage_key_at_source, ParaInfo};
 use bp_polkadot_core::parachains::{ParaHash, ParaHasher, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::StorageProofError;
-use frame_support::{traits::Contains, weights::PostDispatchInfo};
+use frame_support::{dispatch::PostDispatchInfo, traits::Contains};
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::vec::Vec;
 
@@ -132,7 +132,8 @@ pub mod pallet {
 		pallet_bridge_grandpa::Config<Self::BridgesGrandpaPalletInstance>
 	{
 		/// The overarching event type.
-		type Event: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self, I>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Benchmarks results from runtime we're plugged into.
 		type WeightInfo: WeightInfoExt;
 
@@ -620,7 +621,7 @@ pub mod pallet {
 mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_relay_header, Event as TestEvent, Origin, TestRuntime,
+		run_test, test_relay_header, RuntimeEvent as TestEvent, RuntimeOrigin, TestRuntime,
 		MAXIMAL_PARACHAIN_HEAD_SIZE, PARAS_PALLET_NAME, UNTRACKED_PARACHAIN_ID,
 	};
 	use codec::Encode;
@@ -650,7 +651,7 @@ mod tests {
 
 	fn initialize(state_root: RelayBlockHash) {
 		pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::initialize(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			bp_header_chain::InitializationData {
 				header: Box::new(test_relay_header(0, state_root)),
 				authority_list: authority_list(),
@@ -670,7 +671,7 @@ mod tests {
 		let justification = make_default_justification(&header);
 		assert_ok!(
 			pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				Box::new(header),
 				justification,
 			)
@@ -736,7 +737,7 @@ mod tests {
 		proof: ParaHeadsProof,
 	) -> DispatchResultWithPostInfo {
 		Pallet::<TestRuntime>::submit_parachain_heads(
-			Origin::signed(1),
+			RuntimeOrigin::signed(1),
 			(relay_chain_block, test_relay_header(relay_chain_block, relay_state_root).hash()),
 			parachains,
 			proof,
@@ -747,7 +748,7 @@ mod tests {
 		let db_weight = <TestRuntime as frame_system::Config>::DbWeight::get();
 		WeightInfoOf::<TestRuntime, ()>::submit_parachain_heads_weight(db_weight, proof, 1)
 			.saturating_sub(if prune_expected {
-				0
+				Weight::from_ref_time(0)
 			} else {
 				WeightInfoOf::<TestRuntime, ()>::parachain_head_pruning_weight(db_weight)
 			})
@@ -765,7 +766,7 @@ mod tests {
 			PalletOperatingMode::<TestRuntime>::put(BasicOperatingMode::Halted);
 			assert_noop!(
 				Pallet::<TestRuntime>::submit_parachain_heads(
-					Origin::signed(1),
+					RuntimeOrigin::signed(1),
 					(0, test_relay_header(0, state_root).hash()),
 					parachains.clone(),
 					proof.clone(),
@@ -776,7 +777,7 @@ mod tests {
 			// `submit_parachain_heads()` should succeed now that the pallet is resumed.
 			PalletOperatingMode::<TestRuntime>::put(BasicOperatingMode::Normal);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -795,7 +796,7 @@ mod tests {
 			let expected_weight =
 				WeightInfo::submit_parachain_heads_weight(DbWeight::get(), &proof, 2);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -969,7 +970,7 @@ mod tests {
 					));
 			initialize(state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1159,7 +1160,7 @@ mod tests {
 			// parachain
 			initialize(state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1303,7 +1304,7 @@ mod tests {
 			// => we'll leave previous value
 			proceed(20, state_root_10_at_20);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(20, test_relay_header(20, state_root_10_at_20).hash()),
 				parachains_10_at_20,
 				proof_10_at_20,
@@ -1319,7 +1320,7 @@ mod tests {
 			// => we'll update value
 			proceed(30, state_root_10_at_30);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(30, test_relay_header(30, state_root_10_at_30).hash()),
 				parachains_10_at_30,
 				proof_10_at_30,
@@ -1360,7 +1361,7 @@ mod tests {
 		run_test(|| {
 			initialize(state_root);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1385,7 +1386,7 @@ mod tests {
 		run_test(|| {
 			initialize(state_root);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,

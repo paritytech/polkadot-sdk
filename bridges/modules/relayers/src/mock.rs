@@ -51,16 +51,16 @@ parameter_types! {
 }
 
 impl frame_system::Config for TestRuntime {
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = SubstrateHeader;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = frame_support::traits::ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -81,7 +81,7 @@ impl pallet_balances::Config for TestRuntime {
 	type MaxLocks = ();
 	type Balance = Balance;
 	type DustRemoval = ();
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = frame_support::traits::ConstU64<1>;
 	type AccountStore = frame_system::Pallet<TestRuntime>;
 	type WeightInfo = ();
@@ -95,7 +95,7 @@ parameter_types! {
 
 // we're not testing messages pallet here, so values in this config might be crazy
 impl pallet_bridge_messages::Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Parameter = ();
 	type MaxMessagesToPruneAtOnce = frame_support::traits::ConstU64<0>;
@@ -122,7 +122,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 }
 
 impl pallet_bridge_relayers::Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
 	type PaymentProcedure = TestPaymentProcedure;
 	type WeightInfo = ();

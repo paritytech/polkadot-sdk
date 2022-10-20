@@ -653,7 +653,7 @@ mod tests {
 			.into_iter()
 			.map(|nonce| bp_messages::OutboundMessageDetails {
 				nonce,
-				dispatch_weight: 0,
+				dispatch_weight: Weight::from_ref_time(0),
 				size: 0,
 				delivery_and_dispatch_fee: 0,
 				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
@@ -730,7 +730,7 @@ mod tests {
 		for (idx, _) in payload_sizes.iter().enumerate() {
 			out_msgs_details.push(OutboundMessageDetails::<BalanceOf<Rialto>> {
 				nonce: idx as MessageNonce,
-				dispatch_weight: 0,
+				dispatch_weight: Weight::from_ref_time(0),
 				size: 0,
 				delivery_and_dispatch_fee: 0,
 				dispatch_fee_payment: DispatchFeePayment::AtTargetChain,

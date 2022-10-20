@@ -347,7 +347,7 @@ where
 		// chain. This requires more knowledge of the Target chain, but seems there's no better way
 		// to solve this now.
 		let expected_refund_in_target_tokens = if total_prepaid_nonces != 0 {
-			const WEIGHT_DIFFERENCE: Weight = 100;
+			const WEIGHT_DIFFERENCE: Weight = Weight::from_ref_time(100);
 
 			let (spec_version, transaction_version) =
 				self.target_client.simple_runtime_version().await?;
@@ -533,7 +533,7 @@ mod tests {
 
 	#[test]
 	fn prepare_dummy_messages_proof_works() {
-		const DISPATCH_WEIGHT: Weight = 1_000_000;
+		const DISPATCH_WEIGHT: Weight = Weight::from_ref_time(1_000_000);
 		const SIZE: u32 = 1_000;
 		let dummy_proof = prepare_dummy_messages_proof::<Rococo>(1..=10, DISPATCH_WEIGHT, SIZE);
 		assert_eq!(dummy_proof.0, DISPATCH_WEIGHT);
@@ -563,21 +563,24 @@ mod tests {
 
 	#[test]
 	fn compute_fee_multiplier_returns_sane_results() {
-		let multiplier: FixedU128 = bp_rialto::WeightToFee::weight_to_fee(&1).into();
+		let multiplier: FixedU128 =
+			bp_rialto::WeightToFee::weight_to_fee(&Weight::from_ref_time(1)).into();
 
 		let smaller_weight = 1_000_000;
-		let smaller_adjusted_weight_fee =
-			multiplier.saturating_mul_int(WeightToFeeOf::<Rialto>::weight_to_fee(&smaller_weight));
+		let smaller_adjusted_weight_fee = multiplier.saturating_mul_int(
+			WeightToFeeOf::<Rialto>::weight_to_fee(&Weight::from_ref_time(smaller_weight)),
+		);
 
 		let larger_weight = smaller_weight + 200_000;
-		let larger_adjusted_weight_fee =
-			multiplier.saturating_mul_int(WeightToFeeOf::<Rialto>::weight_to_fee(&larger_weight));
+		let larger_adjusted_weight_fee = multiplier.saturating_mul_int(
+			WeightToFeeOf::<Rialto>::weight_to_fee(&Weight::from_ref_time(larger_weight)),
+		);
 		assert_eq!(
 			compute_fee_multiplier::<Rialto>(
 				smaller_adjusted_weight_fee,
-				smaller_weight,
+				Weight::from_ref_time(smaller_weight),
 				larger_adjusted_weight_fee,
-				larger_weight,
+				Weight::from_ref_time(larger_weight),
 			),
 			multiplier,
 		);
@@ -589,7 +592,9 @@ mod tests {
 			compute_prepaid_messages_refund::<Rialto>(
 				10,
 				FixedU128::saturating_from_rational(110, 100),
-			) > (10 * Rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN).into()
+			) > Rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN
+				.saturating_mul(10u64)
+				.ref_time() as _
 		);
 	}
 }

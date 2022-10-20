@@ -39,7 +39,7 @@ where
 				nonce,
 				// dispatch message weight is always zero at the source chain, since we're paying for
 				// dispatch at the target chain
-				dispatch_weight: 0,
+				dispatch_weight: frame_support::weights::Weight::from_ref_time(0),
 				size: message_data.payload.len() as _,
 				delivery_and_dispatch_fee: message_data.fee,
 				// we're delivering XCM messages here, so fee is always paid at the target chain
