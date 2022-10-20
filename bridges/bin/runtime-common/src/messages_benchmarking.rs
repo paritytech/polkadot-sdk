@@ -29,7 +29,7 @@ use crate::messages::{
 use bp_messages::{storage_keys, MessageData, MessageKey, MessagePayload};
 use bp_runtime::{record_all_trie_keys, StorageProofSize};
 use codec::Encode;
-use frame_support::weights::{GetDispatchInfo, Weight};
+use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
 use pallet_bridge_messages::benchmarking::{
 	MessageDeliveryProofParams, MessageParams, MessageProofParams,
 };
@@ -94,7 +94,7 @@ where
 			nonces_start: *params.message_nonces.start(),
 			nonces_end: *params.message_nonces.end(),
 		},
-		0,
+		Weight::from_ref_time(0),
 	)
 }
 

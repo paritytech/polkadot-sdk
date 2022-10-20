@@ -65,7 +65,7 @@ impl Chain for RialtoParachain {
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_rialto_parachain::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = rialto_parachain_runtime::SignedBlock;
-	type Call = rialto_parachain_runtime::Call;
+	type Call = rialto_parachain_runtime::RuntimeCall;
 }
 
 impl ChainWithBalances for RialtoParachain {

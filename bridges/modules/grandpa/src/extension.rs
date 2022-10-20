@@ -27,11 +27,11 @@ use sp_runtime::{
 /// if there are multiple relays running and submitting the same information.
 impl<
 		Call: IsSubType<CallableCallFor<Pallet<T, I>, T>>,
-		T: frame_system::Config<Call = Call> + Config<I>,
+		T: frame_system::Config<RuntimeCall = Call> + Config<I>,
 		I: 'static,
 	> FilterCall<Call> for Pallet<T, I>
 {
-	fn validate(call: &<T as frame_system::Config>::Call) -> TransactionValidity {
+	fn validate(call: &<T as frame_system::Config>::RuntimeCall) -> TransactionValidity {
 		let bundled_block_number = match call.is_sub_type() {
 			Some(crate::Call::<T, I>::submit_finality_proof { ref finality_target, .. }) =>
 				*finality_target.number(),
@@ -63,18 +63,19 @@ impl<
 mod tests {
 	use super::FilterCall;
 	use crate::{
-		mock::{run_test, test_header, Call, TestNumber, TestRuntime},
+		mock::{run_test, test_header, RuntimeCall, TestNumber, TestRuntime},
 		BestFinalized,
 	};
 	use bp_test_utils::make_default_justification;
 
 	fn validate_block_submit(num: TestNumber) -> bool {
-		crate::Pallet::<TestRuntime>::validate(&Call::Grandpa(
-			crate::Call::<TestRuntime, ()>::submit_finality_proof {
-				finality_target: Box::new(test_header(num)),
-				justification: make_default_justification(&test_header(num)),
-			},
-		))
+		crate::Pallet::<TestRuntime>::validate(&RuntimeCall::Grandpa(crate::Call::<
+			TestRuntime,
+			(),
+		>::submit_finality_proof {
+			finality_target: Box::new(test_header(num)),
+			justification: make_default_justification(&test_header(num)),
+		}))
 		.is_ok()
 	}
 
