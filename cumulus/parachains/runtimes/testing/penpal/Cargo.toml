@@ -150,7 +150,7 @@ try-runtime = [
 	"cumulus-pallet-xcmp-queue/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-system/try-runtime",
-	"frame-try-runtime",
+	"frame-try-runtime/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",

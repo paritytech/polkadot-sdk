@@ -18,8 +18,8 @@ use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{
-		new_partial, Block, CollectivesPolkadotRuntimeExecutor, ShellRuntimeExecutor,
-		StatemineRuntimeExecutor, StatemintRuntimeExecutor, WestmintRuntimeExecutor,
+		new_partial, Block, CollectivesPolkadotRuntimeExecutor, StatemineRuntimeExecutor,
+		StatemintRuntimeExecutor, WestmintRuntimeExecutor,
 	},
 };
 use codec::Encode;
@@ -32,10 +32,7 @@ use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
 };
-use sc_service::{
-	config::{BasePath, PrometheusConfig},
-	TaskManager,
-};
+use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
 use std::{net::SocketAddr, path::PathBuf};
@@ -597,41 +594,45 @@ pub fn run() -> Result<()> {
 				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
 		},
+		#[cfg(feature = "try-runtime")]
 		Some(Subcommand::TryRuntime(cmd)) => {
-			if cfg!(feature = "try-runtime") {
-				// grab the task manager.
-				let runner = cli.create_runner(cmd)?;
-				let registry = &runner.config().prometheus_config.as_ref().map(|cfg| &cfg.registry);
-				let task_manager =
-					TaskManager::new(runner.config().tokio_handle.clone(), *registry)
-						.map_err(|e| format!("Error: {:?}", e))?;
+			// grab the task manager.
+			let runner = cli.create_runner(cmd)?;
+			let registry = &runner.config().prometheus_config.as_ref().map(|cfg| &cfg.registry);
+			let task_manager =
+				sc_service::TaskManager::new(runner.config().tokio_handle.clone(), *registry)
+					.map_err(|e| format!("Error: {:?}", e))?;
 
-				match runner.config().chain_spec.runtime() {
-					Runtime::Statemine => runner.async_run(|config| {
-						Ok((cmd.run::<Block, StatemineRuntimeExecutor>(config), task_manager))
+			match runner.config().chain_spec.runtime() {
+				Runtime::Statemine => runner.async_run(|config| {
+					Ok((cmd.run::<Block, StatemineRuntimeExecutor>(config), task_manager))
+				}),
+				Runtime::Westmint => runner.async_run(|config| {
+					Ok((cmd.run::<Block, WestmintRuntimeExecutor>(config), task_manager))
+				}),
+				Runtime::Statemint => runner.async_run(|config| {
+					Ok((cmd.run::<Block, StatemintRuntimeExecutor>(config), task_manager))
+				}),
+				Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
+					runner.async_run(|config| {
+						Ok((
+							cmd.run::<Block, CollectivesPolkadotRuntimeExecutor>(config),
+							task_manager,
+						))
 					}),
-					Runtime::Westmint => runner.async_run(|config| {
-						Ok((cmd.run::<Block, WestmintRuntimeExecutor>(config), task_manager))
-					}),
-					Runtime::Statemint => runner.async_run(|config| {
-						Ok((cmd.run::<Block, StatemintRuntimeExecutor>(config), task_manager))
-					}),
-					Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
-						runner.async_run(|config| {
-							Ok((
-								cmd.run::<Block, CollectivesPolkadotRuntimeExecutor>(config),
-								task_manager,
-							))
-						}),
-					Runtime::Shell => runner.async_run(|config| {
-						Ok((cmd.run::<Block, ShellRuntimeExecutor>(config), task_manager))
-					}),
-					_ => Err("Chain doesn't support try-runtime".into()),
-				}
-			} else {
-				Err("Try-runtime must be enabled by `--features try-runtime`.".into())
+				Runtime::Shell => runner.async_run(|config| {
+					Ok((
+						cmd.run::<Block, crate::service::ShellRuntimeExecutor>(config),
+						task_manager,
+					))
+				}),
+				_ => Err("Chain doesn't support try-runtime".into()),
 			}
 		},
+		#[cfg(not(feature = "try-runtime"))]
+		Some(Subcommand::TryRuntime) => Err("Try-runtime was not enabled when building the node. \
+			You can enable it with `--features try-runtime`."
+			.into()),
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
