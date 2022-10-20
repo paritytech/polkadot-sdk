@@ -678,7 +678,7 @@ pub(crate) mod tests {
 					(
 						nonce,
 						MessageDetails {
-							dispatch_weight: 1,
+							dispatch_weight: Weight::from_ref_time(1),
 							size: 1,
 							reward: 1,
 							dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
@@ -879,9 +879,11 @@ pub(crate) mod tests {
 			total_dispatch_weight: Weight,
 			total_size: u32,
 		) -> Result<TestSourceChainBalance, TestError> {
-			Ok(BASE_MESSAGE_DELIVERY_TRANSACTION_COST * (nonces.end() - nonces.start() + 1) +
+			Ok((Weight::from_ref_time(BASE_MESSAGE_DELIVERY_TRANSACTION_COST) *
+				(nonces.end() - nonces.start() + 1) +
 				total_dispatch_weight +
-				total_size as TestSourceChainBalance)
+				Weight::from_ref_time(total_size as u64))
+			.ref_time())
 		}
 	}
 
@@ -916,7 +918,7 @@ pub(crate) mod tests {
 						max_unrewarded_relayer_entries_at_target: 4,
 						max_unconfirmed_nonces_at_target: 4,
 						max_messages_in_single_batch: 4,
-						max_messages_weight_in_single_batch: 4,
+						max_messages_weight_in_single_batch: Weight::from_ref_time(4),
 						max_messages_size_in_single_batch: 4,
 						relay_strategy: AltruisticStrategy,
 					},

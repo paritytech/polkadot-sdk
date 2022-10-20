@@ -40,7 +40,7 @@ impl<
 			MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash>,
 		>,
 		Call: IsSubType<CallableCallFor<Pallet<T, I>, T>>,
-		T: frame_system::Config<Call = Call>
+		T: frame_system::Config<RuntimeCall = Call>
 			+ Config<I, SourceHeaderChain = SourceHeaderChain, TargetHeaderChain = TargetHeaderChain>,
 		I: 'static,
 	> BridgeRuntimeFilterCall<Call> for Pallet<T, I>
@@ -106,7 +106,7 @@ mod tests {
 			},
 			BridgeRuntimeFilterCall,
 		},
-		Call, Runtime, WithRialtoMessagesInstance,
+		Runtime, RuntimeCall, WithRialtoMessagesInstance,
 	};
 
 	fn deliver_message_10() {
@@ -121,11 +121,11 @@ mod tests {
 		nonces_end: bp_messages::MessageNonce,
 	) -> bool {
 		pallet_bridge_messages::Pallet::<Runtime, WithRialtoMessagesInstance>::validate(
-			&Call::BridgeRialtoMessages(
+			&RuntimeCall::BridgeRialtoMessages(
 				pallet_bridge_messages::Call::<Runtime, ()>::receive_messages_proof {
 					relayer_id_at_bridged_chain: [0u8; 32].into(),
 					messages_count: (nonces_end - nonces_start + 1) as u32,
-					dispatch_weight: 0,
+					dispatch_weight: frame_support::weights::Weight::from_ref_time(0),
 					proof: FromBridgedChainMessagesProof {
 						bridged_header_hash: Default::default(),
 						storage_proof: vec![],
@@ -182,7 +182,7 @@ mod tests {
 
 	fn validate_message_confirmation(last_delivered_nonce: bp_messages::MessageNonce) -> bool {
 		pallet_bridge_messages::Pallet::<Runtime, WithRialtoMessagesInstance>::validate(
-			&Call::BridgeRialtoMessages(pallet_bridge_messages::Call::<
+			&RuntimeCall::BridgeRialtoMessages(pallet_bridge_messages::Call::<
 				Runtime,
 				WithRialtoMessagesInstance,
 			>::receive_messages_delivery_proof {

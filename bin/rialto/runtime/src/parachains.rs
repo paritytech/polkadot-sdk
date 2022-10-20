@@ -17,29 +17,31 @@
 //! Parachains support in Rialto runtime.
 
 use crate::{
-	AccountId, Babe, Balance, Balances, BlockNumber, Call, Event, Origin, Registrar, Runtime,
-	ShiftSessionManager, Slots, UncheckedExtrinsic,
+	AccountId, Babe, Balance, Balances, BlockNumber, Registrar, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, ShiftSessionManager, Slots, UncheckedExtrinsic,
 };
 
-use frame_support::{parameter_types, weights::Weight};
+use frame_support::{parameter_types, traits::KeyOwnerProofSystem, weights::Weight};
 use frame_system::EnsureRoot;
-use polkadot_primitives::v2::ValidatorIndex;
+use polkadot_primitives::v2::{ValidatorId, ValidatorIndex};
 use polkadot_runtime_common::{paras_registrar, paras_sudo_wrapper, slots};
 use polkadot_runtime_parachains::{
-	configuration as parachains_configuration, dmp as parachains_dmp, hrmp as parachains_hrmp,
+	configuration as parachains_configuration, disputes as parachains_disputes,
+	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
 	inclusion as parachains_inclusion, initializer as parachains_initializer,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent, scheduler as parachains_scheduler,
 	session_info as parachains_session_info, shared as parachains_shared, ump as parachains_ump,
 };
+use sp_core::crypto::KeyTypeId;
 use sp_runtime::transaction_validity::TransactionPriority;
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
-	Call: From<C>,
+	RuntimeCall: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = Call;
+	type OverarchingCall = RuntimeCall;
 }
 
 /// Special `RewardValidators` that does nothing ;)
@@ -58,14 +60,14 @@ impl parachains_configuration::Config for Runtime {
 impl parachains_dmp::Config for Runtime {}
 
 impl parachains_hrmp::Config for Runtime {
-	type Event = Event;
-	type Origin = Origin;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Currency = Balances;
 	type WeightInfo = parachains_hrmp::TestWeightInfo;
 }
 
 impl parachains_inclusion::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators = RewardValidators;
 	type DisputesHandler = ();
 }
@@ -76,6 +78,26 @@ impl parachains_initializer::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl parachains_disputes::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RewardValidators = ();
+	type SlashingHandler = ();
+	type WeightInfo = parachains_disputes::TestWeightInfo;
+}
+
+impl parachains_slashing::Config for Runtime {
+	type KeyOwnerProofSystem = ();
+	type KeyOwnerProof =
+		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, ValidatorId)>>::Proof;
+	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+		KeyTypeId,
+		ValidatorId,
+	)>>::IdentificationTuple;
+	type HandleReports = ();
+	type WeightInfo = parachains_slashing::TestWeightInfo;
+	type BenchmarkingConfig = parachains_slashing::BenchConfig<200>;
+}
+
 impl parachains_origin::Config for Runtime {}
 
 parameter_types! {
@@ -83,7 +105,7 @@ parameter_types! {
 }
 
 impl parachains_paras::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = parachains_paras::TestWeightInfo;
 	type UnsignedPriority = ParasUnsignedPriority;
 	type NextSessionRotation = Babe;
@@ -106,7 +128,7 @@ parameter_types! {
 }
 
 impl parachains_ump::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type UmpSink = ();
 	type FirstMessageFactorPercent = FirstMessageFactorPercent;
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
@@ -121,8 +143,8 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Runtime {
-	type Event = Event;
-	type Origin = Origin;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Currency = Balances;
 	type OnSwap = Slots;
 	type ParaDeposit = ParaDeposit;
@@ -135,7 +157,7 @@ parameter_types! {
 }
 
 impl slots::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
@@ -150,33 +172,33 @@ pub struct ZeroWeights;
 
 impl polkadot_runtime_common::paras_registrar::WeightInfo for ZeroWeights {
 	fn reserve() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 	fn register() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 	fn force_register() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 	fn deregister() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 	fn swap() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 }
 
 impl polkadot_runtime_common::slots::WeightInfo for ZeroWeights {
 	fn force_lease() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 	fn manage_lease_period_start(_c: u32, _t: u32) -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 	fn clear_all_leases() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 	fn trigger_onboard() -> Weight {
-		0
+		Weight::from_ref_time(0)
 	}
 }

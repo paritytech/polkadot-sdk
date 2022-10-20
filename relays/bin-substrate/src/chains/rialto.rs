@@ -42,7 +42,7 @@ impl CliEncodeMessage for Rialto {
 			),
 		};
 
-		Ok(rialto_runtime::Call::XcmPallet(rialto_runtime::XcmCall::send {
+		Ok(rialto_runtime::RuntimeCall::XcmPallet(rialto_runtime::XcmCall::send {
 			dest: Box::new(dest.into()),
 			message: Box::new(message),
 		})
@@ -56,7 +56,7 @@ impl CliEncodeMessage for Rialto {
 		bridge_instance_index: u8,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
 		Ok(match bridge_instance_index {
-			bridge::RIALTO_TO_MILLAU_INDEX => rialto_runtime::Call::BridgeMillauMessages(
+			bridge::RIALTO_TO_MILLAU_INDEX => rialto_runtime::RuntimeCall::BridgeMillauMessages(
 				rialto_runtime::MessagesCall::send_message {
 					lane_id: lane,
 					payload,

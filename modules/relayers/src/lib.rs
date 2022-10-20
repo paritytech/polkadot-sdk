@@ -46,7 +46,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Type of relayer reward.
 		type Reward: AtLeast32BitUnsigned + Copy + Parameter + MaxEncodedLen;
 		/// Pay rewards adapter.
@@ -113,7 +113,7 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use mock::{Event as TestEvent, *};
+	use mock::{RuntimeEvent as TestEvent, *};
 
 	use crate::Event::RewardPaid;
 	use frame_support::{assert_noop, assert_ok, traits::fungible::Inspect};
@@ -129,7 +129,7 @@ mod tests {
 	fn root_cant_claim_anything() {
 		run_test(|| {
 			assert_noop!(
-				Pallet::<TestRuntime>::claim_rewards(Origin::root()),
+				Pallet::<TestRuntime>::claim_rewards(RuntimeOrigin::root()),
 				DispatchError::BadOrigin,
 			);
 		});
@@ -139,7 +139,7 @@ mod tests {
 	fn relayer_cant_claim_if_no_reward_exists() {
 		run_test(|| {
 			assert_noop!(
-				Pallet::<TestRuntime>::claim_rewards(Origin::signed(REGULAR_RELAYER)),
+				Pallet::<TestRuntime>::claim_rewards(RuntimeOrigin::signed(REGULAR_RELAYER)),
 				Error::<TestRuntime>::NoRewardForRelayer,
 			);
 		});
@@ -150,7 +150,7 @@ mod tests {
 		run_test(|| {
 			RelayerRewards::<TestRuntime>::insert(FAILING_RELAYER, 100);
 			assert_noop!(
-				Pallet::<TestRuntime>::claim_rewards(Origin::signed(FAILING_RELAYER)),
+				Pallet::<TestRuntime>::claim_rewards(RuntimeOrigin::signed(FAILING_RELAYER)),
 				Error::<TestRuntime>::FailedToPayReward,
 			);
 		});
@@ -162,7 +162,9 @@ mod tests {
 			get_ready_for_events();
 
 			RelayerRewards::<TestRuntime>::insert(REGULAR_RELAYER, 100);
-			assert_ok!(Pallet::<TestRuntime>::claim_rewards(Origin::signed(REGULAR_RELAYER)));
+			assert_ok!(Pallet::<TestRuntime>::claim_rewards(RuntimeOrigin::signed(
+				REGULAR_RELAYER
+			)));
 			assert_eq!(RelayerRewards::<TestRuntime>::get(REGULAR_RELAYER), None);
 
 			//Check if the `RewardPaid` event was emitted.

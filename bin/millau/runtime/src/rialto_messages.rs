@@ -16,7 +16,7 @@
 
 //! Everything required to serve Millau <-> Rialto messages.
 
-use crate::{Call, OriginCaller, Runtime};
+use crate::{OriginCaller, Runtime, RuntimeCall, RuntimeOrigin};
 
 use bp_messages::{
 	source_chain::{SenderOrigin, TargetHeaderChain},
@@ -28,11 +28,7 @@ use bridge_runtime_common::messages::{
 	self, BasicConfirmationTransactionEstimation, MessageBridge, MessageTransaction,
 };
 use codec::{Decode, Encode};
-use frame_support::{
-	parameter_types,
-	weights::{DispatchClass, Weight},
-	RuntimeDebug,
-};
+use frame_support::{dispatch::DispatchClass, parameter_types, weights::Weight, RuntimeDebug};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 use sp_std::convert::TryFrom;
@@ -47,13 +43,18 @@ pub const INITIAL_RIALTO_FEE_MULTIPLIER: FixedU128 = FixedU128::from_inner(Fixed
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
-pub const BASE_XCM_WEIGHT_TWICE: Weight = 2 * crate::xcm_config::BASE_XCM_WEIGHT;
+pub const BASE_XCM_WEIGHT_TWICE: u64 = 2 * crate::xcm_config::BASE_XCM_WEIGHT;
 
 parameter_types! {
 	/// Rialto to Millau conversion rate. Initially we treat both tokens as equal.
 	pub storage RialtoToMillauConversionRate: FixedU128 = INITIAL_RIALTO_TO_MILLAU_CONVERSION_RATE;
 	/// Fee multiplier value at Rialto chain.
 	pub storage RialtoFeeMultiplier: FixedU128 = INITIAL_RIALTO_FEE_MULTIPLIER;
+	/// Weight credit for our test messages.
+	///
+	/// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
+	/// (it is prepended with `UniversalOrigin` instruction).
+	pub const WeightCredit: Weight = Weight::from_ref_time(BASE_XCM_WEIGHT_TWICE);
 }
 
 /// Message payload for Millau -> Rialto messages.
@@ -64,7 +65,7 @@ pub type ToRialtoMessageVerifier =
 	messages::source::FromThisChainMessageVerifier<WithRialtoMessageBridge>;
 
 /// Message payload for Rialto -> Millau messages.
-pub type FromRialtoMessagePayload = messages::target::FromBridgedChainMessagePayload<Call>;
+pub type FromRialtoMessagePayload = messages::target::FromBridgedChainMessagePayload<RuntimeCall>;
 
 /// Messages proof for Rialto -> Millau messages.
 pub type FromRialtoMessagesProof = messages::target::FromBridgedChainMessagesProof<bp_rialto::Hash>;
@@ -78,9 +79,7 @@ pub type FromRialtoMessageDispatch = messages::target::FromBridgedChainMessageDi
 	WithRialtoMessageBridge,
 	xcm_executor::XcmExecutor<crate::xcm_config::XcmConfig>,
 	crate::xcm_config::XcmWeigher,
-	// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
-	// (it is prepended with `UniversalOrigin` instruction)
-	frame_support::traits::ConstU64<BASE_XCM_WEIGHT_TWICE>,
+	WeightCredit,
 >;
 
 /// Maximal outbound payload size of Millau -> Rialto messages.
@@ -120,21 +119,20 @@ impl messages::ChainWithMessages for Millau {
 	type AccountId = bp_millau::AccountId;
 	type Signer = bp_millau::AccountSigner;
 	type Signature = bp_millau::Signature;
-	type Weight = Weight;
 	type Balance = bp_millau::Balance;
 }
 
 impl messages::ThisChainWithMessages for Millau {
-	type Origin = crate::Origin;
-	type Call = crate::Call;
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeCall = RuntimeCall;
 	type ConfirmationTransactionEstimation = BasicConfirmationTransactionEstimation<
 		Self::AccountId,
-		{ bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT },
+		{ bp_millau::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT.ref_time() },
 		{ bp_rialto::EXTRA_STORAGE_PROOF_SIZE },
 		{ bp_millau::TX_EXTRA_BYTES },
 	>;
 
-	fn is_message_accepted(send_origin: &Self::Origin, lane: &LaneId) -> bool {
+	fn is_message_accepted(send_origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool {
 		let here_location =
 			xcm::v3::MultiLocation::from(crate::xcm_config::UniversalLocation::get());
 		match send_origin.caller {
@@ -168,7 +166,7 @@ impl messages::ThisChainWithMessages for Millau {
 			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
 			1,
 			multiplier,
-			|weight| weight as _,
+			|weight| weight.ref_time() as _,
 			transaction,
 		)
 	}
@@ -183,7 +181,6 @@ impl messages::ChainWithMessages for Rialto {
 	type AccountId = bp_rialto::AccountId;
 	type Signer = bp_rialto::AccountSigner;
 	type Signature = bp_rialto::Signature;
-	type Weight = Weight;
 	type Balance = bp_rialto::Balance;
 }
 
@@ -202,15 +199,15 @@ impl messages::BridgedChainWithMessages for Rialto {
 		message_dispatch_weight: Weight,
 	) -> MessageTransaction<Weight> {
 		let message_payload_len = u32::try_from(message_payload.len()).unwrap_or(u32::MAX);
-		let extra_bytes_in_payload = Weight::from(message_payload_len)
-			.saturating_sub(pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH.into());
+		let extra_bytes_in_payload = message_payload_len
+			.saturating_sub(pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH);
 
 		MessageTransaction {
-			dispatch_weight: extra_bytes_in_payload
-				.saturating_mul(bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT)
+			dispatch_weight: bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT
+				.saturating_mul(extra_bytes_in_payload as u64)
 				.saturating_add(bp_rialto::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT)
 				.saturating_sub(if include_pay_dispatch_fee_cost {
-					0
+					Weight::from_ref_time(0)
 				} else {
 					bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT
 				})
@@ -230,7 +227,7 @@ impl messages::BridgedChainWithMessages for Rialto {
 			bp_rialto::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
 			1,
 			multiplier,
-			|weight| weight as _,
+			|weight| weight.ref_time() as _,
 			transaction,
 		)
 	}
@@ -280,7 +277,7 @@ impl SourceHeaderChain<bp_rialto::Balance> for Rialto {
 	}
 }
 
-impl SenderOrigin<crate::AccountId> for crate::Origin {
+impl SenderOrigin<crate::AccountId> for RuntimeOrigin {
 	fn linked_account(&self) -> Option<crate::AccountId> {
 		// XCM deals wit fees in our deployments
 		None

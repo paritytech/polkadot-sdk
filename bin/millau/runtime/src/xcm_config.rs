@@ -21,7 +21,7 @@ use super::{
 	rialto_parachain_messages::{
 		WithRialtoParachainMessageBridge, DEFAULT_XCM_LANE_TO_RIALTO_PARACHAIN,
 	},
-	AccountId, AllPalletsWithSystem, Balances, Call, Event, Origin, Runtime,
+	AccountId, AllPalletsWithSystem, Balances, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	WithRialtoMessagesInstance, WithRialtoParachainMessagesInstance, XcmPallet,
 };
 use bp_messages::LaneId;
@@ -34,12 +34,11 @@ use bridge_runtime_common::{
 use frame_support::{
 	parameter_types,
 	traits::{Everything, Nothing},
-	weights::Weight,
 };
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter as XcmCurrencyAdapter, IsConcrete, SignedAccountId32AsNative,
+	CurrencyAdapter as XcmCurrencyAdapter, IsConcrete, MintLocation, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
 };
 
@@ -60,7 +59,7 @@ parameter_types! {
 	/// Since Kusama is a top-level relay-chain with its own consensus, it's just our network ID.
 	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
 	/// The check account, which holds any native assets that have been teleported out and not back in (yet).
-	pub CheckAccount: AccountId = XcmPallet::check_account();
+	pub CheckAccount: (AccountId, MintLocation) = (XcmPallet::check_account(), MintLocation::Local);
 }
 
 /// The canonical means of converting a `MultiLocation` into an `AccountId`, used when we want to
@@ -90,17 +89,17 @@ pub type LocalAssetTransactor = XcmCurrencyAdapter<
 /// The means that we convert the XCM message origin location into a local dispatch origin.
 type LocalOriginConverter = (
 	// A `Signed` origin of the sovereign account that the original location controls.
-	SovereignSignedViaLocation<SovereignAccountOf, Origin>,
+	SovereignSignedViaLocation<SovereignAccountOf, RuntimeOrigin>,
 	// The AccountId32 location type can be expressed natively as a `Signed` origin.
-	SignedAccountId32AsNative<ThisNetwork, Origin>,
+	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
 );
 
 /// The amount of weight an XCM operation takes. This is a safe overestimate.
-pub const BASE_XCM_WEIGHT: Weight = 1_000_000_000;
+pub const BASE_XCM_WEIGHT: u64 = 1_000_000_000;
 
 parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
-	pub const BaseXcmWeight: Weight = BASE_XCM_WEIGHT;
+	pub const BaseXcmWeight: u64 = BASE_XCM_WEIGHT;
 	/// Maximum number of instructions in a single XCM fragment. A sanity check against weight
 	/// calculations getting too crazy.
 	pub const MaxInstructions: u32 = 100;
@@ -130,11 +129,11 @@ pub type Barrier = (
 );
 
 /// XCM weigher type.
-pub type XcmWeigher = xcm_builder::FixedWeightBounds<BaseXcmWeight, Call, MaxInstructions>;
+pub type XcmWeigher = xcm_builder::FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
@@ -156,26 +155,26 @@ impl xcm_executor::Config for XcmConfig {
 	type FeeManager = ();
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
-	type CallDispatcher = Call;
+	type CallDispatcher = RuntimeCall;
 }
 
 /// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
 	// Usual Signed origin to be used in XCM as a corresponding AccountId32
-	SignedToAccountId32<Origin, AccountId, ThisNetwork>,
+	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
 
 impl pallet_xcm::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	// We don't allow any messages to be sent via the transaction yet. This is basically safe to
 	// enable, (safe the possibility of someone spamming the parachain if they're willing to pay
 	// the DOT to send from the Relay-chain). But it's useless until we bring in XCM v3 which will
 	// make `DescendOrigin` a bit more useful.
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<Origin, LocalOriginToLocation>;
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally.
-	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<Origin, LocalOriginToLocation>;
+	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Everything;
 	type XcmExecutor = xcm_executor::XcmExecutor<XcmConfig>;
 	// Anyone is able to use teleportation regardless of who they are and what they want to
@@ -186,8 +185,8 @@ impl pallet_xcm::Config for Runtime {
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = XcmWeigher;
 	type UniversalLocation = UniversalLocation;
-	type Origin = Origin;
-	type Call = Call;
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
@@ -253,6 +252,7 @@ impl XcmBridge for ToRialtoParachainBridge {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::rialto_messages::WeightCredit;
 	use bp_messages::{
 		target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 		MessageKey,
@@ -295,13 +295,13 @@ mod tests {
 			WithRialtoMessageBridge,
 			XcmExecutor,
 			XcmWeigher,
-			frame_support::traits::ConstU64<BASE_XCM_WEIGHT>,
+			WeightCredit,
 		>;
 
 		new_test_ext().execute_with(|| {
 			let location: MultiLocation =
 				(Parent, X1(GlobalConsensus(RialtoNetwork::get()))).into();
-			let xcm: Xcm<Call> = vec![Instruction::Trap(42)].into();
+			let xcm: Xcm<RuntimeCall> = vec![Instruction::Trap(42)].into();
 
 			let mut incoming_message = DispatchMessage {
 				key: MessageKey { lane_id: [0, 0, 0, 0], nonce: 1 },
@@ -309,7 +309,10 @@ mod tests {
 			};
 
 			let dispatch_weight = MessageDispatcher::dispatch_weight(&mut incoming_message);
-			assert_eq!(dispatch_weight, 1_000_000_000);
+			assert_eq!(
+				dispatch_weight,
+				frame_support::weights::Weight::from_ref_time(1_000_000_000)
+			);
 
 			let dispatch_result =
 				MessageDispatcher::dispatch(&AccountId::from([0u8; 32]), incoming_message);
@@ -317,7 +320,7 @@ mod tests {
 				dispatch_result,
 				MessageDispatchResult {
 					dispatch_result: true,
-					unspent_weight: 0,
+					unspent_weight: frame_support::weights::Weight::from_ref_time(0),
 					dispatch_fee_paid_during_dispatch: false,
 				}
 			);

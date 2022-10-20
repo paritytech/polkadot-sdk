@@ -295,7 +295,7 @@ impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> MessageDeliveryStrategy<P,
 			.source_queue()
 			.iter()
 			.flat_map(|(_, range)| range.values().map(|details| details.dispatch_weight))
-			.fold(0, |total, weight| total.saturating_add(weight))
+			.fold(Weight::from_ref_time(0), |total, weight| total.saturating_add(weight))
 	}
 }
 
@@ -578,11 +578,11 @@ mod tests {
 
 	use super::*;
 
-	const DEFAULT_DISPATCH_WEIGHT: Weight = 1;
+	const DEFAULT_DISPATCH_WEIGHT: Weight = Weight::from_ref_time(1);
 	const DEFAULT_SIZE: u32 = 1;
 	const DEFAULT_REWARD: TestSourceChainBalance = CONFIRMATION_TRANSACTION_COST +
 		BASE_MESSAGE_DELIVERY_TRANSACTION_COST +
-		DEFAULT_DISPATCH_WEIGHT +
+		DEFAULT_DISPATCH_WEIGHT.ref_time() +
 		(DEFAULT_SIZE as TestSourceChainBalance);
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
@@ -629,7 +629,7 @@ mod tests {
 			max_unrewarded_relayer_entries_at_target: 4,
 			max_unconfirmed_nonces_at_target: 4,
 			max_messages_in_single_batch: 4,
-			max_messages_weight_in_single_batch: 4,
+			max_messages_weight_in_single_batch: Weight::from_ref_time(4),
 			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonces_at_source: vec![(header_id(1), 19)].into_iter().collect(),
 			lane_source_client: TestSourceClient::default(),
@@ -667,10 +667,10 @@ mod tests {
 		(race_state, race_strategy)
 	}
 
-	fn proof_parameters(state_required: bool, weight: Weight) -> MessageProofParameters {
+	fn proof_parameters(state_required: bool, weight: u32) -> MessageProofParameters {
 		MessageProofParameters {
 			outbound_state_proof_required: state_required,
-			dispatch_weight: weight,
+			dispatch_weight: Weight::from_ref_time(weight as u64),
 		}
 	}
 
@@ -684,7 +684,7 @@ mod tests {
 					(
 						idx,
 						MessageDetails {
-							dispatch_weight: idx,
+							dispatch_weight: Weight::from_ref_time(idx),
 							size: idx as _,
 							reward: idx as _,
 							dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
@@ -813,7 +813,7 @@ mod tests {
 		let (state, mut strategy) = prepare_strategy();
 
 		// not all queued messages may fit in the batch, because batch has max weight
-		strategy.max_messages_weight_in_single_batch = 3;
+		strategy.max_messages_weight_in_single_batch = Weight::from_ref_time(3);
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=22), proof_parameters(false, 3)))
@@ -827,7 +827,8 @@ mod tests {
 
 		// first message doesn't fit in the batch, because it has weight (10) that overflows max
 		// weight (4)
-		strategy.strategy.source_queue_mut()[0].1.get_mut(&20).unwrap().dispatch_weight = 10;
+		strategy.strategy.source_queue_mut()[0].1.get_mut(&20).unwrap().dispatch_weight =
+			Weight::from_ref_time(10);
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=20), proof_parameters(false, 10)))
@@ -1023,7 +1024,7 @@ mod tests {
 			let nonces = source_nonces(
 				24..=24,
 				19,
-				DEFAULT_REWARD - DEFAULT_DISPATCH_WEIGHT,
+				DEFAULT_REWARD - DEFAULT_DISPATCH_WEIGHT.ref_time(),
 				dispatch_fee_payment,
 			);
 			strategy.strategy.source_nonces_updated(header_id(2), nonces);
@@ -1031,7 +1032,7 @@ mod tests {
 			strategy.max_unrewarded_relayer_entries_at_target = 100;
 			strategy.max_unconfirmed_nonces_at_target = 100;
 			strategy.max_messages_in_single_batch = 100;
-			strategy.max_messages_weight_in_single_batch = 100;
+			strategy.max_messages_weight_in_single_batch = Weight::from_ref_time(100);
 			strategy.max_messages_size_in_single_batch = 100;
 			strategy.relay_strategy = MixStrategy::new(RelayerMode::Rational);
 
@@ -1070,7 +1071,7 @@ mod tests {
 		strategy.max_unrewarded_relayer_entries_at_target = 100;
 		strategy.max_unconfirmed_nonces_at_target = 100;
 		strategy.max_messages_in_single_batch = 5;
-		strategy.max_messages_weight_in_single_batch = 100;
+		strategy.max_messages_weight_in_single_batch = Weight::from_ref_time(100);
 		strategy.max_messages_size_in_single_batch = 100;
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
 

@@ -69,8 +69,9 @@ mod tests {
 	}
 	#[test]
 	fn rialto_tx_extra_bytes_constant_is_correct() {
-		let rialto_call =
-			rialto_runtime::Call::System(rialto_runtime::SystemCall::remark { remark: vec![] });
+		let rialto_call = rialto_runtime::RuntimeCall::System(rialto_runtime::SystemCall::remark {
+			remark: vec![],
+		});
 		let rialto_tx = Rialto::sign_transaction(
 			SignParam {
 				spec_version: 1,
@@ -92,8 +93,9 @@ mod tests {
 
 	#[test]
 	fn millau_tx_extra_bytes_constant_is_correct() {
-		let millau_call =
-			millau_runtime::Call::System(millau_runtime::SystemCall::remark { remark: vec![] });
+		let millau_call = millau_runtime::RuntimeCall::System(millau_runtime::SystemCall::remark {
+			remark: vec![],
+		});
 		let millau_tx = Millau::sign_transaction(
 			SignParam {
 				spec_version: 0,
