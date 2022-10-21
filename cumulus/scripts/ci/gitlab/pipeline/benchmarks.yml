@@ -28,10 +28,7 @@ benchmarks-assets:
     - export CURRENT_TIME=$(date '+%s')
     - export BRANCHNAME="weights-statemint-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
     - !reference [.git-commit-push, script]
-    # create PR to release-parachains-v* branch
-    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
-      -d '{"title":"[benchmarks] Update weights for statemine/t","body":"This PR is generated automatically by CI. (Once merged please backport to master and node release branch.)","head":"'${BRANCHNAME}'","base":"'${CI_COMMIT_BRANCH}'"}'
-      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+    - ./scripts/ci/create-benchmark-pr.sh "[benchmarks] Update weights for statemine/t" "$BRANCHNAME"
   after_script:
     - rm -rf .git/config
   tags:
@@ -50,10 +47,7 @@ benchmarks-collectives:
     - export CURRENT_TIME=$(date '+%s')
     - export BRANCHNAME="weights-collectives-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
     - !reference [.git-commit-push, script]
-    # create PR
-    - curl -u ${GITHUB_USER}:${GITHUB_TOKEN}
-      -d '{"title":"[benchmarks] Update weights for collectives","body":"This PR is generated automatically by CI.","head":"'$BRANCHNAME'","base":"'${CI_COMMIT_BRANCH}'"}'
-      -X POST https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/pulls
+    - ./scripts/ci/create-benchmark-pr.sh "[benchmarks] Update weights for collectives" "$BRANCHNAME"
   after_script:
     - rm -rf .git/config
   tags:
