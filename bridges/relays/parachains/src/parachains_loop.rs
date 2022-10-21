@@ -24,7 +24,7 @@ use bp_polkadot_core::{
 };
 use futures::{
 	future::{FutureExt, Shared},
-	poll, select,
+	poll, select_biased,
 };
 use relay_substrate_client::{BlockNumberOf, Chain, HeaderIdOf};
 use relay_utils::{
@@ -216,10 +216,12 @@ where
 	// regular errors.
 
 	loop {
-		// either wait for new block, or exit signal
-		select! {
-			_ = async_std::task::sleep(min_block_interval).fuse() => {},
+		// Either wait for new block, or exit signal.
+		// Please note that we are prioritizing the exit signal since if both events happen at once
+		// it doesn't make sense to perform one more loop iteration.
+		select_biased! {
 			_ = exit_signal => return Ok(()),
+			_ = async_std::task::sleep(min_block_interval).fuse() => {},
 		}
 
 		// if source client is not yet synced, we'll need to sleep. Otherwise we risk submitting too
