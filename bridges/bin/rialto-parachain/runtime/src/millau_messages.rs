@@ -22,7 +22,7 @@
 use crate::{OriginCaller, Runtime, RuntimeCall, RuntimeOrigin};
 
 use bp_messages::{
-	source_chain::{SenderOrigin, TargetHeaderChain},
+	source_chain::TargetHeaderChain,
 	target_chain::{ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
 };
@@ -281,16 +281,6 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 			Runtime,
 			crate::MillauGrandpaInstance,
 		>(proof, messages_count)
-	}
-}
-
-impl SenderOrigin<crate::AccountId> for RuntimeOrigin {
-	fn linked_account(&self) -> Option<crate::AccountId> {
-		match self.caller {
-			crate::OriginCaller::system(frame_system::RawOrigin::Signed(ref submitter)) =>
-				Some(submitter.clone()),
-			_ => None,
-		}
 	}
 }
 
