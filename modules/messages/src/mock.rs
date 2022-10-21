@@ -23,7 +23,7 @@ use bitvec::prelude::*;
 use bp_messages::{
 	source_chain::{
 		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, OnDeliveryConfirmed,
-		OnMessageAccepted, SenderOrigin, TargetHeaderChain,
+		OnMessageAccepted, TargetHeaderChain,
 	},
 	target_chain::{
 		DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
@@ -183,16 +183,6 @@ impl Config for TestRuntime {
 	type SourceHeaderChain = TestSourceHeaderChain;
 	type MessageDispatch = TestMessageDispatch;
 	type BridgedChainId = TestBridgedChainId;
-}
-
-impl SenderOrigin<AccountId> for RuntimeOrigin {
-	fn linked_account(&self) -> Option<AccountId> {
-		match self.caller {
-			OriginCaller::system(frame_system::RawOrigin::Signed(ref submitter)) =>
-				Some(*submitter),
-			_ => None,
-		}
-	}
 }
 
 impl Size for TestPayload {
