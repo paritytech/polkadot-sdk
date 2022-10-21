@@ -125,7 +125,7 @@ mod tests {
 				pallet_bridge_messages::Call::<Runtime, ()>::receive_messages_proof {
 					relayer_id_at_bridged_chain: [0u8; 32].into(),
 					messages_count: (nonces_end - nonces_start + 1) as u32,
-					dispatch_weight: frame_support::weights::Weight::from_ref_time(0),
+					dispatch_weight: frame_support::weights::Weight::zero(),
 					proof: FromBridgedChainMessagesProof {
 						bridged_header_hash: Default::default(),
 						storage_proof: vec![],
