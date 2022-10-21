@@ -55,7 +55,7 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 		let mut hard_selected_count = 0;
 		let mut soft_selected_count = 0;
 
-		let mut selected_weight = Weight::from_ref_time(0);
+		let mut selected_weight = Weight::zero();
 		let mut selected_count: MessageNonce = 0;
 
 		let hard_selected_begin_nonce =
@@ -77,12 +77,12 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 
 			hard_selected_begin_nonce,
 			selected_prepaid_nonces: 0,
-			selected_unpaid_weight: Weight::from_ref_time(0),
+			selected_unpaid_weight: Weight::zero(),
 
 			index: 0,
 			nonce: 0,
 			details: MessageDetails {
-				dispatch_weight: Weight::from_ref_time(0),
+				dispatch_weight: Weight::zero(),
 				size: 0,
 				reward: P::SourceChainBalance::zero(),
 				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
@@ -107,8 +107,8 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 			// limit messages in the batch by weight
 			let new_selected_weight = match selected_weight.checked_add(&details.dispatch_weight) {
 				Some(new_selected_weight)
-					if new_selected_weight.ref_time() <=
-						reference.max_messages_weight_in_single_batch.ref_time() =>
+					if new_selected_weight
+						.all_lte(reference.max_messages_weight_in_single_batch) =>
 					new_selected_weight,
 				new_selected_weight if selected_count == 0 => {
 					log::warn!(

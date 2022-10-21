@@ -167,7 +167,7 @@ impl<AccountId, Fee> MessageDispatch<AccountId, Fee> for ForbidInboundMessages {
 	) -> MessageDispatchResult {
 		MessageDispatchResult {
 			dispatch_result: false,
-			unspent_weight: Weight::from_ref_time(0),
+			unspent_weight: Weight::zero(),
 			dispatch_fee_paid_during_dispatch: false,
 		}
 	}
