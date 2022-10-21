@@ -748,7 +748,7 @@ mod tests {
 		let db_weight = <TestRuntime as frame_system::Config>::DbWeight::get();
 		WeightInfoOf::<TestRuntime, ()>::submit_parachain_heads_weight(db_weight, proof, 1)
 			.saturating_sub(if prune_expected {
-				Weight::from_ref_time(0)
+				Weight::zero()
 			} else {
 				WeightInfoOf::<TestRuntime, ()>::parachain_head_pruning_weight(db_weight)
 			})
