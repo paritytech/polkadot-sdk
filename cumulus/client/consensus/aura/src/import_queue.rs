@@ -17,6 +17,7 @@
 //! Parachain specific wrapper for the AuRa import queue.
 
 use codec::Codec;
+use cumulus_client_consensus_common::ParachainBlockImport;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
 use sc_consensus_aura::AuraVerifier;
@@ -33,10 +34,10 @@ use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, hash::Hash, sync::Arc};
 use substrate_prometheus_endpoint::Registry;
 
-/// Parameters of [`import_queue`].
+/// Parameters for [`import_queue`].
 pub struct ImportQueueParams<'a, I, C, CIDP, S> {
 	/// The block import to use.
-	pub block_import: I,
+	pub block_import: ParachainBlockImport<I>,
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
 	/// The inherent data providers, to create the inherent data.
@@ -83,7 +84,7 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	sc_consensus_aura::import_queue::<P, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {
-		block_import: cumulus_client_consensus_common::ParachainBlockImport::new(block_import),
+		block_import,
 		justification_import: None,
 		client,
 		create_inherent_data_providers,

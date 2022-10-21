@@ -30,7 +30,9 @@ use url::Url;
 
 use crate::runtime::Weight;
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::{ParachainCandidate, ParachainConsensus};
+use cumulus_client_consensus_common::{
+	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
+};
 use cumulus_client_network::BlockAnnounceValidator;
 use cumulus_client_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
@@ -117,6 +119,8 @@ pub type Client = TFullClient<
 /// Transaction pool type used by the test service
 pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
 
+type ParachainBlockImport = TParachainBlockImport<Arc<Client>>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -130,7 +134,7 @@ pub fn new_partial(
 		(),
 		sc_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
 		sc_transaction_pool::FullPool<Block, Client>,
-		(),
+		ParachainBlockImport,
 	>,
 	sc_service::Error,
 > {
@@ -145,6 +149,8 @@ pub fn new_partial(
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(config, None, executor)?;
 	let client = Arc::new(client);
 
+	let block_import = ParachainBlockImport::new(client.clone());
+
 	let registry = config.prometheus_registry();
 
 	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
@@ -157,7 +163,7 @@ pub fn new_partial(
 
 	let import_queue = cumulus_client_consensus_relay_chain::import_queue(
 		client.clone(),
-		client.clone(),
+		block_import.clone(),
 		|_, _| async { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
 		&task_manager.spawn_essential_handle(),
 		registry,
@@ -171,7 +177,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: (),
+		other: block_import,
 	};
 
 	Ok(params)
@@ -244,6 +250,8 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
+	let block_import = params.other;
+
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
 		collator_key.clone(),
@@ -275,7 +283,6 @@ where
 
 	let rpc_builder = {
 		let client = client.clone();
-
 		Box::new(move |_, _| rpc_ext_builder(client.clone()))
 	};
 
@@ -338,7 +345,7 @@ where
 							Ok((time, parachain_inherent))
 						}
 					},
-					client.clone(),
+					block_import,
 					relay_chain_interface2,
 				))
 			},

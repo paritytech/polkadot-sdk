@@ -90,16 +90,14 @@ where
 		para_id: ParaId,
 		proposer_factory: PF,
 		create_inherent_data_providers: CIDP,
-		block_import: BI,
+		block_import: ParachainBlockImport<BI>,
 		relay_chain_interface: RCInterface,
 	) -> Self {
 		Self {
 			para_id,
 			proposer_factory: Arc::new(Mutex::new(proposer_factory)),
 			create_inherent_data_providers: Arc::new(create_inherent_data_providers),
-			block_import: Arc::new(futures::lock::Mutex::new(ParachainBlockImport::new(
-				block_import,
-			))),
+			block_import: Arc::new(futures::lock::Mutex::new(block_import)),
 			relay_chain_interface,
 			_phantom: PhantomData,
 		}
@@ -222,7 +220,7 @@ pub struct BuildRelayChainConsensusParams<PF, BI, CIDP, RCInterface> {
 	pub para_id: ParaId,
 	pub proposer_factory: PF,
 	pub create_inherent_data_providers: CIDP,
-	pub block_import: BI,
+	pub block_import: ParachainBlockImport<BI>,
 	pub relay_chain_interface: RCInterface,
 }
 

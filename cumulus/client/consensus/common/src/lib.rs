@@ -83,6 +83,12 @@ impl<I> ParachainBlockImport<I> {
 	}
 }
 
+impl<I: Clone> Clone for ParachainBlockImport<I> {
+	fn clone(&self) -> Self {
+		ParachainBlockImport(self.0.clone())
+	}
+}
+
 #[async_trait::async_trait]
 impl<Block, I> BlockImport<Block> for ParachainBlockImport<I>
 where
