@@ -20,7 +20,8 @@
 
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use frame_support::{
-	log, pallet_prelude::DispatchResult, PalletError, RuntimeDebug, StorageHasher, StorageValue,
+	log, pallet_prelude::DispatchResult, weights::Weight, PalletError, RuntimeDebug, StorageHasher,
+	StorageValue,
 };
 use frame_system::RawOrigin;
 use scale_info::TypeInfo;
@@ -454,6 +455,24 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 pub trait FilterCall<Call> {
 	/// Checks if a runtime call is valid.
 	fn validate(call: &Call) -> TransactionValidity;
+}
+
+/// All extra operations with weights that we need in bridges.
+pub trait WeightExtraOps {
+	/// Checked division of individual components of two weights.
+	///
+	/// Divides components and returns minimal division result. Returns `None` if one
+	/// of `other` weight components is zero.
+	fn min_components_checked_div(&self, other: Weight) -> Option<u64>;
+}
+
+impl WeightExtraOps for Weight {
+	fn min_components_checked_div(&self, other: Weight) -> Option<u64> {
+		Some(sp_std::cmp::min(
+			self.ref_time().checked_div(other.ref_time())?,
+			self.proof_size().checked_div(other.proof_size())?,
+		))
+	}
 }
 
 #[cfg(test)]

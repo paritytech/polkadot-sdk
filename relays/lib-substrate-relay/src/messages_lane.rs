@@ -27,7 +27,7 @@ use crate::{
 
 use async_std::sync::Arc;
 use bp_messages::{LaneId, MessageNonce};
-use bp_runtime::{AccountIdOf, Chain as _};
+use bp_runtime::{AccountIdOf, Chain as _, WeightExtraOps};
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
@@ -462,15 +462,12 @@ pub fn select_delivery_transaction_limits<W: pallet_bridge_messages::WeightInfoE
 		W::receive_messages_proof_outbound_lane_state_overhead();
 	let delivery_tx_weight_rest = weight_for_delivery_tx - delivery_tx_base_weight;
 
-	let max_number_of_messages = if delivery_tx_weight_rest.ref_time() /
-		W::receive_messages_proof_messages_overhead(1).ref_time() <
-		max_unconfirmed_messages_at_inbound_lane
-	{
-		delivery_tx_weight_rest.ref_time() /
-			W::receive_messages_proof_messages_overhead(1).ref_time()
-	} else {
-		max_unconfirmed_messages_at_inbound_lane
-	};
+	let max_number_of_messages = std::cmp::min(
+		delivery_tx_weight_rest
+			.min_components_checked_div(W::receive_messages_proof_messages_overhead(1))
+			.unwrap_or(u64::MAX),
+		max_unconfirmed_messages_at_inbound_lane,
+	);
 
 	assert!(
 		max_number_of_messages > 0,

@@ -330,11 +330,8 @@ pub mod pallet {
 			});
 
 			// compute actual dispatch weight that depends on the stored message size
-			let actual_weight = sp_std::cmp::min_by(
-				T::WeightInfo::maximal_increase_message_fee(),
-				T::WeightInfo::increase_message_fee(message_size as _),
-				|w1, w2| w1.ref_time().cmp(&w2.ref_time()),
-			);
+			let actual_weight = T::WeightInfo::maximal_increase_message_fee()
+				.min(T::WeightInfo::increase_message_fee(message_size as _));
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
 		}
@@ -416,7 +413,7 @@ pub mod pallet {
 					// on this lane. We can't dispatch lane messages out-of-order, so if declared
 					// weight is not enough, let's move to next lane
 					let dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
-					if dispatch_weight.ref_time() > dispatch_weight_left.ref_time() {
+					if dispatch_weight.any_gt(dispatch_weight_left) {
 						log::trace!(
 							target: LOG_TARGET,
 							"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
@@ -454,10 +451,7 @@ pub mod pallet {
 						ReceivalResult::TooManyUnconfirmedMessages => (dispatch_weight, true),
 					};
 
-					let unspent_weight =
-						sp_std::cmp::min_by(unspent_weight, dispatch_weight, |w1, w2| {
-							w1.ref_time().cmp(&w2.ref_time())
-						});
+					let unspent_weight = unspent_weight.min(dispatch_weight);
 					dispatch_weight_left -= dispatch_weight - unspent_weight;
 					actual_weight = actual_weight.saturating_sub(unspent_weight).saturating_sub(
 						// delivery call weight formula assumes that the fee is paid at
@@ -466,7 +460,7 @@ pub mod pallet {
 						if refund_pay_dispatch_fee {
 							T::WeightInfo::pay_inbound_dispatch_fee_overhead()
 						} else {
-							Weight::from_ref_time(0)
+							Weight::zero()
 						},
 					);
 				}
@@ -585,7 +579,7 @@ pub mod pallet {
 				let actual_callback_weight =
 					T::OnDeliveryConfirmed::on_messages_delivered(&lane_id, &confirmed_messages);
 				match preliminary_callback_overhead.checked_sub(&actual_callback_weight) {
-					Some(difference) if difference.ref_time() == 0 => (),
+					Some(difference) if difference.is_zero() => (),
 					Some(difference) => {
 						log::trace!(
 							target: LOG_TARGET,
@@ -880,7 +874,7 @@ fn send_message<T: Config<I>, I: 'static>(
 		T::WeightInfo::single_message_callback_overhead(T::DbWeight::get());
 	let actual_callback_weight = T::OnMessageAccepted::on_messages_accepted(&lane_id, &nonce);
 	match single_message_callback_overhead.checked_sub(&actual_callback_weight) {
-		Some(difference) if difference.ref_time() == 0 => (),
+		Some(difference) if difference.is_zero() => (),
 		Some(difference) => {
 			log::trace!(
 				target: LOG_TARGET,

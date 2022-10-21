@@ -295,7 +295,7 @@ impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> MessageDeliveryStrategy<P,
 			.source_queue()
 			.iter()
 			.flat_map(|(_, range)| range.values().map(|details| details.dispatch_weight))
-			.fold(Weight::from_ref_time(0), |total, weight| total.saturating_add(weight))
+			.fold(Weight::zero(), |total, weight| total.saturating_add(weight))
 	}
 }
 
