@@ -29,18 +29,20 @@ use finality_grandpa::voter_set::VoterSet;
 use num_traits::{One, Zero};
 use relay_substrate_client::{
 	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error as SubstrateError, HashOf, HeaderOf,
-	Subscription,
+	Subscription, SubstrateFinalityClient, SubstrateGrandpaFinalityClient,
 };
 use sp_core::{storage::StorageKey, Bytes};
 use sp_finality_grandpa::AuthorityList as GrandpaAuthoritiesSet;
 use sp_runtime::{traits::Header, ConsensusEngineId};
 use std::marker::PhantomData;
 
-/// Finality enfine, used by the Substrate chain.
+/// Finality engine, used by the Substrate chain.
 #[async_trait]
 pub trait Engine<C: Chain>: Send {
 	/// Unique consensus engine identifier.
 	const ID: ConsensusEngineId;
+	/// Type of Finality RPC client used by this engine.
+	type FinalityClient: SubstrateFinalityClient<C>;
 	/// Type of finality proofs, used by consensus engine.
 	type FinalityProof: FinalityProof<BlockNumberOf<C>> + Decode + Encode;
 	/// Type of bridge pallet initialization data.
@@ -57,7 +59,9 @@ pub trait Engine<C: Chain>: Send {
 	/// Note that we don't care about type of the value - just if it present or not.
 	fn is_initialized_key() -> StorageKey;
 	/// A method to subscribe to encoded finality proofs, given source client.
-	async fn finality_proofs(client: Client<C>) -> Result<Subscription<Bytes>, SubstrateError>;
+	async fn finality_proofs(client: &Client<C>) -> Result<Subscription<Bytes>, SubstrateError> {
+		client.subscribe_finality_justifications::<Self::FinalityClient>().await
+	}
 	/// Prepare initialization data for the finality bridge pallet.
 	async fn prepare_initialization_data(
 		client: Client<C>,
@@ -117,6 +121,7 @@ impl<C: ChainWithGrandpa> Grandpa<C> {
 #[async_trait]
 impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	const ID: ConsensusEngineId = sp_finality_grandpa::GRANDPA_ENGINE_ID;
+	type FinalityClient = SubstrateGrandpaFinalityClient;
 	type FinalityProof = GrandpaJustification<HeaderOf<C>>;
 	type InitializationData = bp_header_chain::InitializationData<C::Header>;
 	type OperatingMode = BasicOperatingMode;
@@ -127,10 +132,6 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 
 	fn is_initialized_key() -> StorageKey {
 		bp_header_chain::storage_keys::best_finalized_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
-	}
-
-	async fn finality_proofs(client: Client<C>) -> Result<Subscription<Bytes>, SubstrateError> {
-		client.subscribe_grandpa_justifications().await
 	}
 
 	/// Prepare initialization data for the GRANDPA verifier pallet.
@@ -144,8 +145,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		// But now there are problems with this approach - `CurrentSetId` may return invalid value.
 		// So here we're waiting for the next justification, read the authorities set and then try
 		// to figure out the set id with bruteforce.
-		let justifications = source_client
-			.subscribe_grandpa_justifications()
+		let justifications = Self::finality_proofs(&source_client)
 			.await
 			.map_err(|err| Error::Subscribe(C::NAME, err))?;
 		// Read next justification - the header that it finalizes will be used as initial header.

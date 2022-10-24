@@ -16,9 +16,15 @@
 
 //! The most generic Substrate node RPC interface.
 
-use crate::{Chain, TransactionStatusOf};
+use async_trait::async_trait;
 
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use crate::{Chain, ChainWithGrandpa, TransactionStatusOf};
+
+use jsonrpsee::{
+	core::{client::Subscription, RpcResult},
+	proc_macros::rpc,
+	ws_client::WsClient,
+};
 use pallet_transaction_payment_rpc_runtime_api::FeeDetails;
 use sc_rpc_api::{state::ReadProof, system::Health};
 use sp_core::{
@@ -100,12 +106,47 @@ pub(crate) trait SubstrateState<C> {
 	) -> RpcResult<ReadProof<C::Hash>>;
 }
 
+/// RPC methods that we are using for a certain finality gadget.
+#[async_trait]
+pub trait SubstrateFinalityClient<C: Chain> {
+	/// Subscribe to finality justifications.
+	async fn subscribe_justifications(client: &WsClient) -> RpcResult<Subscription<Bytes>>;
+}
+
 /// RPC methods of Substrate `grandpa` namespace, that we are using.
-#[rpc(client, client_bounds(C: Chain), namespace = "grandpa")]
+#[rpc(client, client_bounds(C: ChainWithGrandpa), namespace = "grandpa")]
 pub(crate) trait SubstrateGrandpa<C> {
 	/// Subscribe to GRANDPA justifications.
 	#[subscription(name = "subscribeJustifications", unsubscribe = "unsubscribeJustifications", item = Bytes)]
 	fn subscribe_justifications(&self);
+}
+
+/// RPC finality methods of Substrate `grandpa` namespace, that we are using.
+pub struct SubstrateGrandpaFinalityClient;
+#[async_trait]
+impl<C: ChainWithGrandpa> SubstrateFinalityClient<C> for SubstrateGrandpaFinalityClient {
+	async fn subscribe_justifications(client: &WsClient) -> RpcResult<Subscription<Bytes>> {
+		SubstrateGrandpaClient::<C>::subscribe_justifications(client).await
+	}
+}
+
+// TODO: Use `ChainWithBeefy` instead of `Chain` after #1606 is merged
+/// RPC methods of Substrate `beefy` namespace, that we are using.
+#[rpc(client, client_bounds(C: Chain), namespace = "beefy")]
+pub(crate) trait SubstrateBeefy<C> {
+	/// Subscribe to BEEFY justifications.
+	#[subscription(name = "subscribeJustifications", unsubscribe = "unsubscribeJustifications", item = Bytes)]
+	fn subscribe_justifications(&self);
+}
+
+/// RPC finality methods of Substrate `beefy` namespace, that we are using.
+pub struct SubstrateBeefyFinalityClient;
+// TODO: Use `ChainWithBeefy` instead of `Chain` after #1606 is merged
+#[async_trait]
+impl<C: Chain> SubstrateFinalityClient<C> for SubstrateBeefyFinalityClient {
+	async fn subscribe_justifications(client: &WsClient) -> RpcResult<Subscription<Bytes>> {
+		SubstrateBeefyClient::<C>::subscribe_justifications(client).await
+	}
 }
 
 /// RPC methods of Substrate `system` frame pallet, that we are using.
