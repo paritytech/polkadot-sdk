@@ -14,18 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Config, Pallet};
+use crate::{Config, Pallet, Store};
 use frame_support::{
 	traits::{Get, StorageVersion},
 	weights::Weight,
 };
 
 /// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 /// Call this during the next runtime upgrade for this module.
 pub fn on_runtime_upgrade<T: Config>() -> Weight {
-	let mut weight: Weight = Weight::zero();
+	let mut weight: Weight = T::DbWeight::get().reads(2);
 
 	if StorageVersion::get::<Pallet<T>>() == 0 {
 		weight = weight
@@ -34,7 +34,44 @@ pub fn on_runtime_upgrade<T: Config>() -> Weight {
 		StorageVersion::new(1).put::<Pallet<T>>();
 	}
 
+	if StorageVersion::get::<Pallet<T>>() == 1 {
+		weight = weight
+			.saturating_add(v2::migrate::<T>())
+			.saturating_add(T::DbWeight::get().writes(1));
+		STORAGE_VERSION.put::<Pallet<T>>();
+	}
+
 	weight
+}
+
+/// V2: Migrate to 2D weights for ReservedXcmpWeightOverride and ReservedDmpWeightOverride.
+mod v2 {
+	use super::*;
+	const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
+
+	pub fn migrate<T: Config>() -> Weight {
+		let translate = |pre: u64| -> Weight { Weight::from_parts(pre, DEFAULT_POV_SIZE) };
+
+		if <Pallet<T> as Store>::ReservedXcmpWeightOverride::translate(|pre| pre.map(translate))
+			.is_err()
+		{
+			log::error!(
+				target: "parachain_system",
+				"unexpected error when performing translation of the ReservedXcmpWeightOverride type during storage upgrade to v2"
+			);
+		}
+
+		if <Pallet<T> as Store>::ReservedDmpWeightOverride::translate(|pre| pre.map(translate))
+			.is_err()
+		{
+			log::error!(
+				target: "parachain_system",
+				"unexpected error when performing translation of the ReservedDmpWeightOverride type during storage upgrade to v2"
+			);
+		}
+
+		T::DbWeight::get().reads_writes(2, 2)
+	}
 }
 
 /// V1: `LastUpgrade` block number is removed from the storage since the upgrade

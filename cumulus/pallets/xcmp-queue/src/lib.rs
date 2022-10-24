@@ -66,6 +66,7 @@ pub use pallet::*;
 pub type OverweightIndex = u64;
 
 const LOG_TARGET: &str = "xcmp_queue";
+const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -462,7 +463,10 @@ impl Default for QueueConfigData {
 			resume_threshold: 1,
 			threshold_weight: Weight::from_ref_time(100_000),
 			weight_restrict_decay: Weight::from_ref_time(2),
-			xcmp_max_individual_weight: 20u64 * WEIGHT_PER_MILLIS,
+			xcmp_max_individual_weight: Weight::from_parts(
+				20u64 * WEIGHT_PER_MILLIS.ref_time(),
+				DEFAULT_POV_SIZE,
+			),
 		}
 	}
 }

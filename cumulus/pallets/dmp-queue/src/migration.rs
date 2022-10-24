@@ -16,7 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, Pallet, Store};
+use crate::{Config, Pallet, Store, DEFAULT_POV_SIZE};
 use frame_support::{
 	pallet_prelude::*,
 	traits::StorageVersion,
@@ -63,7 +63,9 @@ mod v0 {
 /// `migrate_to_latest`.
 pub fn migrate_to_v1<T: Config>() -> Weight {
 	let translate = |pre: v0::ConfigData| -> super::ConfigData {
-		super::ConfigData { max_individual: Weight::from_ref_time(pre.max_individual) }
+		super::ConfigData {
+			max_individual: Weight::from_parts(pre.max_individual, DEFAULT_POV_SIZE),
+		}
 	};
 
 	if let Err(_) = <Pallet<T> as Store>::Configuration::translate(|pre| pre.map(translate)) {
@@ -96,6 +98,7 @@ mod tests {
 			let v1 = crate::Configuration::<Test>::get();
 
 			assert_eq!(v0.max_individual, v1.max_individual.ref_time());
+			assert_eq!(v1.max_individual.proof_size(), DEFAULT_POV_SIZE);
 		});
 	}
 }

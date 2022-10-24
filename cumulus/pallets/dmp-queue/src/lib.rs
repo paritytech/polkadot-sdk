@@ -38,6 +38,8 @@ use xcm::{
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
 
+const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
+
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ConfigData {
 	/// The maximum amount of weight any individual message may consume. Messages above this weight
@@ -49,7 +51,10 @@ pub struct ConfigData {
 impl Default for ConfigData {
 	fn default() -> Self {
 		Self {
-			max_individual: 10u64 * WEIGHT_PER_MILLIS, // 10 ms of execution time maximum by default
+			max_individual: Weight::from_parts(
+				10u64 * WEIGHT_PER_MILLIS.ref_time(), // 10 ms of execution time maximum by default
+				DEFAULT_POV_SIZE,                     // 64 KB of proof size by default
+			),
 		}
 	}
 }
