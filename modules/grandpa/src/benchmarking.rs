@@ -61,7 +61,7 @@ const MAX_VOTE_ANCESTRIES: u32 = 1000;
 
 // The maximum number of pre-commits to include in a justification. In practice this scales with the
 // number of validators.
-const MAX_VALIDATOR_SET_SIZE: u32 = 1024;
+pub const MAX_VALIDATOR_SET_SIZE: u32 = 1024;
 
 // `1..MAX_VALIDATOR_SET_SIZE` and `1..MAX_VOTE_ANCESTRIES` are too large && benchmarks are
 // running for almost 40m (steps=50, repeat=20) on a decent laptop, which is too much. Since
