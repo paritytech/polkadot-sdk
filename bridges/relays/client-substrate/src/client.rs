@@ -19,8 +19,8 @@
 use crate::{
 	chain::{Chain, ChainWithBalances},
 	rpc::{
-		SubstrateAuthorClient, SubstrateChainClient, SubstrateFrameSystemClient,
-		SubstrateGrandpaClient, SubstrateStateClient, SubstrateSystemClient,
+		SubstrateAuthorClient, SubstrateChainClient, SubstrateFinalityClient,
+		SubstrateFrameSystemClient, SubstrateStateClient, SubstrateSystemClient,
 		SubstrateTransactionPaymentClient,
 	},
 	transaction_stall_timeout, ConnectionParams, Error, HashOf, HeaderIdOf, Result, SignParam,
@@ -642,11 +642,13 @@ impl<C: Chain> Client<C> {
 		.await
 	}
 
-	/// Return new GRANDPA justifications stream.
-	pub async fn subscribe_grandpa_justifications(&self) -> Result<Subscription<Bytes>> {
+	/// Return new finality justifications stream.
+	pub async fn subscribe_finality_justifications<FC: SubstrateFinalityClient<C>>(
+		&self,
+	) -> Result<Subscription<Bytes>> {
 		let subscription = self
 			.jsonrpsee_execute(move |client| async move {
-				Ok(SubstrateGrandpaClient::<C>::subscribe_justifications(&*client).await?)
+				Ok(FC::subscribe_justifications(&client).await?)
 			})
 			.await?;
 		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);

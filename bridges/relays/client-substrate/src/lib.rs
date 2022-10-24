@@ -39,6 +39,7 @@ pub use crate::{
 	},
 	client::{ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription},
 	error::{Error, Result},
+	rpc::{SubstrateBeefyFinalityClient, SubstrateFinalityClient, SubstrateGrandpaFinalityClient},
 	sync_header::SyncHeader,
 	transaction_tracker::TransactionTracker,
 };
