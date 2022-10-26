@@ -28,7 +28,7 @@ pub struct RelayStateSproofBuilder {
 	/// The para id of the current parachain.
 	///
 	/// This doesn't get into the storage proof produced by the builder, however, it is used for
-	/// generation of the storage image and by auxilary methods.
+	/// generation of the storage image and by auxiliary methods.
 	///
 	/// It's recommended to change this value once in the very beginning of usage.
 	///
