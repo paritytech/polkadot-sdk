@@ -189,12 +189,12 @@ pub fn format_ids<Id: std::fmt::Debug>(mut ids: impl ExactSizeIterator<Item = Id
 		2 => {
 			let id0 = ids.next().expect(NTH_PROOF);
 			let id1 = ids.next().expect(NTH_PROOF);
-			format!("[{:?}, {:?}]", id0, id1)
+			format!("[{id0:?}, {id1:?}]")
 		},
 		len => {
 			let id0 = ids.next().expect(NTH_PROOF);
 			let id_last = ids.last().expect(NTH_PROOF);
-			format!("{}:[{:?} ... {:?}]", len, id0, id_last)
+			format!("{len}:[{id0:?} ... {id_last:?}]")
 		},
 	}
 }

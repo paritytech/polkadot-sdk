@@ -39,15 +39,15 @@ impl SyncLoopMetrics {
 	) -> Result<Self, PrometheusError> {
 		Ok(SyncLoopMetrics {
 			best_source_block_number: IntGauge::new(
-				metric_name(prefix, &format!("best_{}_block_number", at_source_chain_label)),
-				format!("Best block number at the {}", at_source_chain_label),
+				metric_name(prefix, &format!("best_{at_source_chain_label}_block_number")),
+				format!("Best block number at the {at_source_chain_label}"),
 			)?,
 			best_target_block_number: IntGauge::new(
-				metric_name(prefix, &format!("best_{}_block_number", at_target_chain_label)),
-				format!("Best block number at the {}", at_target_chain_label),
+				metric_name(prefix, &format!("best_{at_target_chain_label}_block_number")),
+				format!("Best block number at the {at_target_chain_label}"),
 			)?,
 			using_different_forks: IntGauge::new(
-				metric_name(prefix, &format!("is_{}_and_{}_using_different_forks", at_source_chain_label, at_target_chain_label)),
+				metric_name(prefix, &format!("is_{at_source_chain_label}_and_{at_target_chain_label}_using_different_forks")),
 				"Whether the best finalized source block at target node is different (value 1) from the \
 				corresponding block at the source node",
 			)?,

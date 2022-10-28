@@ -220,7 +220,7 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 				target_client
 					.best_finalized_source_block_id()
 					.await
-					.map_err(|e| format!("failed to read best block from target node: {:?}", e))
+					.map_err(|e| format!("failed to read best block from target node: {e:?}"))
 					.and_then(|best_id_at_target| {
 						if self.submitted_header_number > best_id_at_target.0 {
 							return Err(format!(
