@@ -18,13 +18,14 @@
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
+use bp_header_chain::ConsensusLogReader;
 use futures::{select, FutureExt};
 use num_traits::{One, Zero};
+use sp_runtime::traits::Header;
 
-use finality_relay::{FinalitySyncParams, SourceHeader, TargetClient as FinalityTargetClient};
+use finality_relay::{FinalitySyncParams, TargetClient as FinalityTargetClient};
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, HeaderOf, SyncHeader,
-	TransactionSignScheme,
+	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, TransactionSignScheme,
 };
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient, MaybeConnectionError,
@@ -33,6 +34,7 @@ use relay_utils::{
 
 use crate::{
 	finality::{
+		engine::Engine,
 		source::{RequiredHeaderNumberRef, SubstrateFinalitySource},
 		target::SubstrateFinalityTarget,
 		SubstrateFinalitySyncPipeline, RECENT_FINALITY_PROOFS_LIMIT,
@@ -416,9 +418,10 @@ async fn find_mandatory_header_in_range<P: SubstrateFinalitySyncPipeline>(
 ) -> Result<Option<BlockNumberOf<P::SourceChain>>, relay_substrate_client::Error> {
 	let mut current = range.0;
 	while current <= range.1 {
-		let header: SyncHeader<HeaderOf<P::SourceChain>> =
-			finality_source.client().header_by_number(current).await?.into();
-		if header.is_mandatory() {
+		let header = finality_source.client().header_by_number(current).await?;
+		if <P::FinalityEngine as Engine<P::SourceChain>>::ConsensusLogReader::schedules_authorities_change(
+			header.digest(),
+		) {
 			return Ok(Some(current))
 		}
 

@@ -30,6 +30,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use bp_header_chain::GrandpaConsensusLogReader;
 use futures::{FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use relay_utils::{
@@ -85,6 +86,7 @@ impl FinalitySyncPipeline for TestFinalitySyncPipeline {
 
 	type Hash = TestHash;
 	type Number = TestNumber;
+	type ConsensusLogReader = GrandpaConsensusLogReader<TestNumber>;
 	type Header = TestSourceHeader;
 	type FinalityProof = TestFinalityProof;
 }
@@ -92,7 +94,9 @@ impl FinalitySyncPipeline for TestFinalitySyncPipeline {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TestSourceHeader(IsMandatory, TestNumber, TestHash);
 
-impl SourceHeader<TestHash, TestNumber> for TestSourceHeader {
+impl SourceHeader<TestHash, TestNumber, GrandpaConsensusLogReader<TestNumber>>
+	for TestSourceHeader
+{
 	fn hash(&self) -> TestHash {
 		self.2
 	}
