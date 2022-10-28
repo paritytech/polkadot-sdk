@@ -87,7 +87,8 @@ impl<P: SubstrateFinalitySyncPipeline> FinalitySyncPipeline for FinalitySyncPipe
 
 	type Hash = HashOf<P::SourceChain>;
 	type Number = BlockNumberOf<P::SourceChain>;
-	type Header = relay_substrate_client::SyncHeader<HeaderOf<P::SourceChain>>;
+	type ConsensusLogReader = <P::FinalityEngine as Engine<P::SourceChain>>::ConsensusLogReader;
+	type Header = SyncHeader<HeaderOf<P::SourceChain>>;
 	type FinalityProof = SubstrateFinalityProof<P>;
 }
 
