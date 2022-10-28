@@ -70,7 +70,7 @@ pub enum Error {
 
 impl From<tokio::task::JoinError> for Error {
 	fn from(error: tokio::task::JoinError) -> Self {
-		Error::Custom(format!("Failed to wait tokio task: {}", error))
+		Error::Custom(format!("Failed to wait tokio task: {error}"))
 	}
 }
 

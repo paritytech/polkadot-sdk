@@ -79,7 +79,7 @@ impl std::str::FromStr for ConversionRateOverride {
 
 		f64::from_str(s)
 			.map(ConversionRateOverride::Explicit)
-			.map_err(|e| format!("Failed to parse '{:?}'. Expected 'metric' or explicit value", e))
+			.map_err(|e| format!("Failed to parse '{e:?}'. Expected 'metric' or explicit value"))
 	}
 }
 
@@ -105,7 +105,7 @@ where
 		.await?;
 
 		log::info!(target: "bridge", "Fee: {:?}", Balance(fee.into()));
-		println!("{}", fee);
+		println!("{fee}");
 		Ok(())
 	}
 }

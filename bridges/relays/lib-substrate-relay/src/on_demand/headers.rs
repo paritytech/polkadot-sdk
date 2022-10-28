@@ -172,9 +172,9 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 		// submit mandatory header if some headers are missing
 		let best_finalized_source_header_at_source_fmt =
-			format!("{:?}", best_finalized_source_header_at_source);
+			format!("{best_finalized_source_header_at_source:?}");
 		let best_finalized_source_header_at_target_fmt =
-			format!("{:?}", best_finalized_source_header_at_target);
+			format!("{best_finalized_source_header_at_target:?}");
 		let required_header_number_value = *required_header_number.lock().await;
 		let mandatory_scan_range = mandatory_headers_scan_range::<P::SourceChain>(
 			best_finalized_source_header_at_source.ok(),

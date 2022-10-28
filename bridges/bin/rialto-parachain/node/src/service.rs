@@ -443,7 +443,7 @@ pub async fn start_node(
 			use substrate_frame_rpc_system::{System, SystemApiServer};
 
 			let mut io = jsonrpsee::RpcModule::new(());
-			let map_err = |e| sc_service::Error::Other(format!("{}", e));
+			let map_err = |e| sc_service::Error::Other(format!("{e}"));
 			io.merge(System::new(client.clone(), pool, DenyUnsafe::No).into_rpc())
 				.map_err(map_err)?;
 			io.merge(TransactionPayment::new(client).into_rpc()).map_err(map_err)?;
