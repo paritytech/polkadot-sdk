@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use bp_header_chain::find_grandpa_authorities_scheduled_change;
+use bp_header_chain::ConsensusLogReader;
 use finality_relay::SourceHeader as FinalitySourceHeader;
 use sp_runtime::traits::Header as HeaderT;
 
@@ -44,7 +44,9 @@ impl<Header> From<Header> for SyncHeader<Header> {
 	}
 }
 
-impl<Header: HeaderT> FinalitySourceHeader<Header::Hash, Header::Number> for SyncHeader<Header> {
+impl<Header: HeaderT, R: ConsensusLogReader> FinalitySourceHeader<Header::Hash, Header::Number, R>
+	for SyncHeader<Header>
+{
 	fn hash(&self) -> Header::Hash {
 		self.0.hash()
 	}
@@ -54,6 +56,6 @@ impl<Header: HeaderT> FinalitySourceHeader<Header::Hash, Header::Number> for Syn
 	}
 
 	fn is_mandatory(&self) -> bool {
-		find_grandpa_authorities_scheduled_change(&self.0).is_some()
+		R::schedules_authorities_change(self.digest())
 	}
 }

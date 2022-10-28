@@ -27,7 +27,7 @@ use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
 	traits::{Block as BlockT, Dispatchable, Member},
-	EncodedJustification,
+	ConsensusEngineId, EncodedJustification,
 };
 use std::{fmt::Debug, time::Duration};
 
@@ -147,7 +147,7 @@ pub trait BlockWithJustification<Header> {
 	/// Return encoded block extrinsics.
 	fn extrinsics(&self) -> Vec<EncodedExtrinsic>;
 	/// Return block justification, if known.
-	fn justification(&self) -> Option<&EncodedJustification>;
+	fn justification(&self, engine_id: ConsensusEngineId) -> Option<&EncodedJustification>;
 }
 
 /// Transaction before it is signed.
@@ -237,9 +237,7 @@ impl<Block: BlockT> BlockWithJustification<Block::Header> for SignedBlock<Block>
 		self.block.extrinsics().iter().map(Encode::encode).collect()
 	}
 
-	fn justification(&self) -> Option<&EncodedJustification> {
-		self.justifications
-			.as_ref()
-			.and_then(|j| j.get(sp_finality_grandpa::GRANDPA_ENGINE_ID))
+	fn justification(&self, engine_id: ConsensusEngineId) -> Option<&EncodedJustification> {
+		self.justifications.as_ref().and_then(|j| j.get(engine_id))
 	}
 }

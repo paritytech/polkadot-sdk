@@ -26,7 +26,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
-use sp_runtime::{generic::OpaqueDigestItemId, traits::Header as HeaderT, RuntimeDebug};
+use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug};
 use sp_std::boxed::Box;
 
 pub mod justification;
@@ -77,18 +77,31 @@ pub trait FinalityProof<Number>: Clone + Send + Sync + Debug {
 	fn target_header_number(&self) -> Number;
 }
 
-/// Find header digest that schedules next GRANDPA authorities set.
-pub fn find_grandpa_authorities_scheduled_change<H: HeaderT>(
-	header: &H,
-) -> Option<sp_finality_grandpa::ScheduledChange<H::Number>> {
-	let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
+/// A trait that provides helper methods for querying the consensus log.
+pub trait ConsensusLogReader {
+	fn schedules_authorities_change(digest: &Digest) -> bool;
+}
 
-	let filter_log = |log: ConsensusLog<H::Number>| match log {
-		ConsensusLog::ScheduledChange(change) => Some(change),
-		_ => None,
-	};
+/// A struct that provides helper methods for querying the GRANDPA consensus log.
+pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>);
 
-	// find the first consensus digest with the right ID which converts to
-	// the right kind of consensus log.
-	header.digest().convert_first(|l| l.try_to(id).and_then(filter_log))
+impl<Number: Codec> GrandpaConsensusLogReader<Number> {
+	pub fn find_authorities_change(
+		digest: &Digest,
+	) -> Option<sp_finality_grandpa::ScheduledChange<Number>> {
+		// find the first consensus digest with the right ID which converts to
+		// the right kind of consensus log.
+		digest
+			.convert_first(|log| log.consensus_try_to(&GRANDPA_ENGINE_ID))
+			.and_then(|log| match log {
+				ConsensusLog::ScheduledChange(change) => Some(change),
+				_ => None,
+			})
+	}
+}
+
+impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
+	fn schedules_authorities_change(digest: &Digest) -> bool {
+		GrandpaConsensusLogReader::<Number>::find_authorities_change(digest).is_some()
+	}
 }
