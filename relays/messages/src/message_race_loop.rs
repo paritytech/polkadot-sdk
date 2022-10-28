@@ -425,7 +425,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						// nonce at the target node.
 						race_target.nonces(at_block, false)
 							.await
-							.map_err(|e| format!("failed to read nonces from target node: {:?}", e))
+							.map_err(|e| format!("failed to read nonces from target node: {e:?}"))
 							.and_then(|(_, nonces_at_target)| {
 								if nonces_at_target.latest_nonce < *nonces_submitted.end() {
 									Err(format!(

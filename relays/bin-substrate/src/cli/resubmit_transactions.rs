@@ -398,10 +398,10 @@ async fn update_transaction_tip<C: Chain, S: TransactionSignScheme<Chain = C>>(
 	tip_limit: C::Balance,
 	target_priority: TransactionPriority,
 ) -> Result<(bool, S::SignedTransaction), SubstrateError> {
-	let stx = format!("{:?}", tx);
+	let stx = format!("{tx:?}");
 	let mut current_priority = client.validate_transaction(at_block.1, tx.clone()).await??.priority;
 	let mut unsigned_tx = S::parse_transaction(tx).ok_or_else(|| {
-		SubstrateError::Custom(format!("Failed to parse {} transaction {}", C::NAME, stx,))
+		SubstrateError::Custom(format!("Failed to parse {} transaction {stx}", C::NAME,))
 	})?;
 	let old_tip = unsigned_tx.tip;
 

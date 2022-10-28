@@ -215,7 +215,7 @@ impl std::str::FromStr for HexBytes {
 
 impl std::fmt::Debug for HexBytes {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(fmt, "0x{}", self)
+		write!(fmt, "0x{self}")
 	}
 }
 
@@ -275,7 +275,7 @@ where
 
 		V::from_str(s)
 			.map(ExplicitOrMaximal::Explicit)
-			.map_err(|e| format!("Failed to parse '{:?}'. Expected 'max' or explicit value", e))
+			.map_err(|e| format!("Failed to parse '{e:?}'. Expected 'max' or explicit value"))
 	}
 }
 
@@ -298,7 +298,7 @@ mod tests {
 	fn hex_bytes_display_matches_from_str_for_clap() {
 		// given
 		let hex = HexBytes(vec![1, 2, 3, 4]);
-		let display = format!("{}", hex);
+		let display = format!("{hex}");
 
 		// when
 		let hex2: HexBytes = display.parse().unwrap();
