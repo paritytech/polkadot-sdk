@@ -24,7 +24,7 @@ pub use crate::{
 	sync_loop_metrics::SyncLoopMetrics,
 };
 
-use bp_header_chain::FinalityProof;
+use bp_header_chain::{ConsensusLogReader, FinalityProof};
 use std::fmt::Debug;
 
 mod finality_loop;
@@ -42,14 +42,16 @@ pub trait FinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 	type Hash: Eq + Clone + Copy + Send + Sync + Debug;
 	/// Headers we're syncing are identified by this number.
 	type Number: relay_utils::BlockNumberBase;
+	/// A reader that can extract the consensus log from the header digest and interpret it.
+	type ConsensusLogReader: ConsensusLogReader;
 	/// Type of header that we're syncing.
-	type Header: SourceHeader<Self::Hash, Self::Number>;
+	type Header: SourceHeader<Self::Hash, Self::Number, Self::ConsensusLogReader>;
 	/// Finality proof type.
 	type FinalityProof: FinalityProof<Self::Number>;
 }
 
 /// Header that we're receiving from source node.
-pub trait SourceHeader<Hash, Number>: Clone + Debug + PartialEq + Send + Sync {
+pub trait SourceHeader<Hash, Number, Reader>: Clone + Debug + PartialEq + Send + Sync {
 	/// Returns hash of header.
 	fn hash(&self) -> Hash;
 	/// Returns number of header.
