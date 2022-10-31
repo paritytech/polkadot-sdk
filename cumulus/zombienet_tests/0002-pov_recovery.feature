@@ -10,6 +10,8 @@ validator-3: is up
 alice: is up within 60 seconds
 bob: is up within 60 seconds
 charlie: is up within 60 seconds
+one: is up within 60 seconds
+two: is up within 60 seconds
 
 # wait 30 blocks and register parachain
 validator-3: reports block height is at least 30 within 250 seconds
@@ -20,3 +22,5 @@ validator-0: parachain 2000 is registered within 300 seconds
 bob: reports block height is at least 20 within 600 seconds
 alice: reports block height is at least 20 within 600 seconds
 charlie: reports block height is at least 20 within 600 seconds
+one: reports block height is at least 20 within 600 seconds
+two: reports block height is at least 20 within 600 seconds

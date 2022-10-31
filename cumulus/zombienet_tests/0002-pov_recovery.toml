@@ -49,3 +49,19 @@ add_to_genesis = false
   image = "{{COL_IMAGE}}"
   command = "test-parachain"
   args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}","--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
+
+  # run one as a RPC collator who does not produce blocks
+  [[parachains.collators]]
+  name = "one"
+  validator = true # collator
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug", "--use-null-consensus", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--relay-chain-rpc-url {{'ferdie'|zombie('wsUri')}}", "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
+
+  # run two as a RPC parachain full node
+  [[parachains.collators]]
+  name = "two"
+  validator = false # full node
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--relay-chain-rpc-url {{'ferdie'|zombie('wsUri')}}", "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
