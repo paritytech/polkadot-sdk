@@ -9,7 +9,7 @@ description = "Proc macros provided by the parachain-system pallet"
 proc-macro = true
 
 [dependencies]
-syn = "1.0.102"
+syn = "1.0.103"
 proc-macro2 = "1.0.47"
 quote = "1.0.21"
 proc-macro-crate = "1.2.1"
