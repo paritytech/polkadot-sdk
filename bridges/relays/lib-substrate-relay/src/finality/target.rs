@@ -28,7 +28,7 @@ use async_trait::async_trait;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SignParam,
-	SyncHeader, TransactionEra, TransactionSignScheme, TransactionTracker, UnsignedTransaction,
+	SyncHeader, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
@@ -36,14 +36,14 @@ use sp_core::Pair;
 /// Substrate client as Substrate finality target.
 pub struct SubstrateFinalityTarget<P: SubstrateFinalitySyncPipeline> {
 	client: Client<P::TargetChain>,
-	transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 }
 
 impl<P: SubstrateFinalitySyncPipeline> SubstrateFinalityTarget<P> {
 	/// Create new Substrate headers target.
 	pub fn new(
 		client: Client<P::TargetChain>,
-		transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	) -> Self {
 		SubstrateFinalityTarget { client, transaction_params }
 	}
@@ -86,8 +86,7 @@ impl<P: SubstrateFinalitySyncPipeline> RelayClient for SubstrateFinalityTarget<P
 impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<P>>
 	for SubstrateFinalityTarget<P>
 where
-	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
-	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 {
 	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
 
@@ -120,7 +119,7 @@ where
 		self.client
 			.submit_and_watch_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
-				SignParam::<P::TransactionSignScheme> {
+				SignParam::<P::TargetChain> {
 					spec_version,
 					transaction_version,
 					genesis_hash,

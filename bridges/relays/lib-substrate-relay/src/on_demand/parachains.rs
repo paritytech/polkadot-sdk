@@ -39,7 +39,6 @@ use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumbe
 use parachains_relay::parachains_loop::{AvailableHeader, ParachainSyncParams, TargetClient};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
-	TransactionSignScheme,
 };
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient, HeaderId,
@@ -68,7 +67,7 @@ impl<SourceParachain: Chain> OnDemandParachainsRelay<SourceParachain> {
 	pub fn new<P: SubstrateParachainsPipeline<SourceParachain = SourceParachain>>(
 		source_relay_client: Client<P::SourceRelayChain>,
 		target_client: Client<P::TargetChain>,
-		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 		on_demand_source_relay_to_target_headers: Arc<
 			dyn OnDemandRelay<BlockNumberOf<P::SourceRelayChain>>,
 		>,
@@ -78,8 +77,7 @@ impl<SourceParachain: Chain> OnDemandParachainsRelay<SourceParachain> {
 		P::SourceRelayChain:
 			Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
 		AccountIdOf<P::TargetChain>:
-			From<<AccountKeyPairOf<P::TransactionSignScheme> as sp_core::Pair>::Public>,
-		P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+			From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 	{
 		let (required_header_number_sender, required_header_number_receiver) = unbounded();
 		let this = OnDemandParachainsRelay {
@@ -125,7 +123,7 @@ where
 async fn background_task<P: SubstrateParachainsPipeline>(
 	source_relay_client: Client<P::SourceRelayChain>,
 	target_client: Client<P::TargetChain>,
-	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	on_demand_source_relay_to_target_headers: Arc<
 		dyn OnDemandRelay<BlockNumberOf<P::SourceRelayChain>>,
 	>,
@@ -134,9 +132,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 	P::SourceParachain: Chain<Hash = ParaHash>,
 	P::SourceRelayChain:
 		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
-	AccountIdOf<P::TargetChain>:
-		From<<AccountKeyPairOf<P::TransactionSignScheme> as sp_core::Pair>::Public>,
-	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 {
 	let relay_task_name = on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>();
 	let target_transactions_mortality = target_transaction_params.mortality;
