@@ -19,19 +19,19 @@
 use crate::TransactionParams;
 
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, ChainWithBalances, TransactionSignScheme,
+	AccountIdOf, AccountKeyPairOf, ChainWithBalances, ChainWithTransactions,
 };
 use sp_core::Pair;
 
 /// Start finality relay guards.
-pub async fn start<C: ChainWithBalances, S: TransactionSignScheme<Chain = C>>(
+pub async fn start<C: ChainWithBalances + ChainWithTransactions>(
 	target_client: &relay_substrate_client::Client<C>,
-	transaction_params: &TransactionParams<S::AccountKeyPair>,
+	transaction_params: &TransactionParams<AccountKeyPairOf<C>>,
 	enable_version_guard: bool,
 	maximal_balance_decrease_per_day: C::Balance,
 ) -> relay_substrate_client::Result<()>
 where
-	AccountIdOf<C>: From<<AccountKeyPairOf<S> as Pair>::Public>,
+	AccountIdOf<C>: From<<AccountKeyPairOf<C> as Pair>::Public>,
 {
 	if enable_version_guard {
 		relay_substrate_client::guard::abort_on_spec_version_change(
