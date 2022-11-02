@@ -40,7 +40,7 @@ mod tests {
 	use codec::Encode;
 	use relay_millau_client::Millau;
 	use relay_rialto_client::Rialto;
-	use relay_substrate_client::{SignParam, TransactionSignScheme, UnsignedTransaction};
+	use relay_substrate_client::{ChainWithTransactions, SignParam, UnsignedTransaction};
 
 	#[test]
 	fn maximal_rialto_to_millau_message_size_is_computed_correctly() {

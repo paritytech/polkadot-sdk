@@ -19,8 +19,8 @@
 use crate::{messages_lane::SubstrateMessageLane, TransactionParams};
 
 use relay_substrate_client::{
-	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, CallOf, Chain, Client, SignParam,
-	TransactionEra, TransactionSignScheme, UnsignedTransaction,
+	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, CallOf, Chain, ChainWithTransactions,
+	Client, SignParam, TransactionEra, UnsignedTransaction,
 };
 use relay_utils::metrics::F64SharedRef;
 use sp_core::Pair;
@@ -119,17 +119,17 @@ macro_rules! generate_mocked_update_conversion_rate_call_builder {
 ///
 /// The loop is maintaining the Left -> Right conversion rate, used as `RightTokens = LeftTokens *
 /// Rate`.
-pub fn run_conversion_rate_update_loop<Lane, Sign>(
+pub fn run_conversion_rate_update_loop<Lane>(
 	client: Client<Lane::SourceChain>,
-	transaction_params: TransactionParams<AccountKeyPairOf<Sign>>,
+	transaction_params: TransactionParams<AccountKeyPairOf<Lane::SourceChain>>,
 	left_to_right_stored_conversion_rate: F64SharedRef,
 	left_to_base_conversion_rate: F64SharedRef,
 	right_to_base_conversion_rate: F64SharedRef,
 	max_difference_ratio: f64,
 ) where
 	Lane: SubstrateMessageLane,
-	Sign: TransactionSignScheme<Chain = Lane::SourceChain>,
-	AccountIdOf<Lane::SourceChain>: From<<AccountKeyPairOf<Sign> as Pair>::Public>,
+	Lane::SourceChain: ChainWithTransactions,
+	AccountIdOf<Lane::SourceChain>: From<<AccountKeyPairOf<Lane::SourceChain> as Pair>::Public>,
 {
 	let stall_timeout = transaction_stall_timeout(
 		transaction_params.mortality,
@@ -169,7 +169,7 @@ pub fn run_conversion_rate_update_loop<Lane, Sign>(
 					new_conversion_rate,
 				);
 
-				let result = update_target_to_source_conversion_rate::<Lane, Sign>(
+				let result = update_target_to_source_conversion_rate::<Lane>(
 					client.clone(),
 					transaction_params.clone(),
 					new_conversion_rate,
@@ -253,15 +253,15 @@ async fn maybe_select_new_conversion_rate(
 }
 
 /// Update Target -> Source tokens conversion rate, stored in the Source runtime storage.
-pub async fn update_target_to_source_conversion_rate<Lane, Sign>(
+pub async fn update_target_to_source_conversion_rate<Lane>(
 	client: Client<Lane::SourceChain>,
-	transaction_params: TransactionParams<AccountKeyPairOf<Sign>>,
+	transaction_params: TransactionParams<AccountKeyPairOf<Lane::SourceChain>>,
 	updated_rate: f64,
 ) -> anyhow::Result<()>
 where
 	Lane: SubstrateMessageLane,
-	Sign: TransactionSignScheme<Chain = Lane::SourceChain>,
-	AccountIdOf<Lane::SourceChain>: From<<AccountKeyPairOf<Sign> as Pair>::Public>,
+	Lane::SourceChain: ChainWithTransactions,
+	AccountIdOf<Lane::SourceChain>: From<<AccountKeyPairOf<Lane::SourceChain> as Pair>::Public>,
 {
 	let genesis_hash = *client.genesis_hash();
 	let signer_id = transaction_params.signer.public().into();
@@ -273,7 +273,7 @@ where
 	client
 		.submit_signed_extrinsic(
 			signer_id,
-			SignParam::<Sign> {
+			SignParam::<Lane::SourceChain> {
 				spec_version,
 				transaction_version,
 				genesis_hash,
