@@ -18,7 +18,7 @@ use crate::cli::CliChain;
 use messages_relay::relay_strategy::MixStrategy;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use parachains_relay::ParachainsPipeline;
-use relay_substrate_client::{AccountKeyPairOf, Chain, RelayChain, TransactionSignScheme};
+use relay_substrate_client::{AccountKeyPairOf, Chain, ChainWithTransactions, RelayChain};
 use strum::{EnumString, EnumVariantNames};
 use substrate_relay_helper::{
 	finality::SubstrateFinalitySyncPipeline, messages_lane::SubstrateMessageLane,
@@ -58,9 +58,7 @@ pub trait CliBridgeBase: Sized {
 	/// The source chain.
 	type Source: Chain + CliChain;
 	/// The target chain.
-	type Target: Chain
-		+ TransactionSignScheme<Chain = Self::Target>
-		+ CliChain<KeyPair = AccountKeyPairOf<Self::Target>>;
+	type Target: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Target>>;
 }
 
 /// Bridge representation that can be used from the CLI for relaying headers
@@ -70,7 +68,6 @@ pub trait RelayToRelayHeadersCliBridge: CliBridgeBase {
 	type Finality: SubstrateFinalitySyncPipeline<
 		SourceChain = Self::Source,
 		TargetChain = Self::Target,
-		TransactionSignScheme = Self::Target,
 	>;
 }
 
@@ -87,13 +84,11 @@ pub trait ParachainToRelayHeadersCliBridge: CliBridgeBase {
 			SourceRelayChain = Self::SourceRelay,
 			SourceParachain = Self::Source,
 			TargetChain = Self::Target,
-			TransactionSignScheme = Self::Target,
 		> + ParachainsPipeline<SourceChain = Self::SourceRelay, TargetChain = Self::Target>;
 	/// Finality proofs synchronization pipeline (source relay chain -> target).
 	type RelayFinality: SubstrateFinalitySyncPipeline<
 		SourceChain = Self::SourceRelay,
 		TargetChain = Self::Target,
-		TransactionSignScheme = Self::Target,
 	>;
 }
 
@@ -106,8 +101,6 @@ pub trait MessagesCliBridge: CliBridgeBase {
 	type MessagesLane: SubstrateMessageLane<
 		SourceChain = Self::Source,
 		TargetChain = Self::Target,
-		SourceTransactionSignScheme = Self::Source,
-		TargetTransactionSignScheme = Self::Target,
 		RelayStrategy = MixStrategy,
 	>;
 }

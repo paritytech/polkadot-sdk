@@ -185,12 +185,10 @@ impl<C: Chain> UnsignedTransaction<C> {
 }
 
 /// Account key pair used by transactions signing scheme.
-pub type AccountKeyPairOf<S> = <S as TransactionSignScheme>::AccountKeyPair;
+pub type AccountKeyPairOf<S> = <S as ChainWithTransactions>::AccountKeyPair;
 
 /// Substrate-based chain transactions signing scheme.
-pub trait TransactionSignScheme: 'static {
-	/// Chain that this scheme is to be used.
-	type Chain: Chain;
+pub trait ChainWithTransactions: Chain {
 	/// Type of key pairs used to sign transactions.
 	type AccountKeyPair: Pair;
 	/// Signed transaction.
@@ -199,7 +197,7 @@ pub trait TransactionSignScheme: 'static {
 	/// Create transaction for given runtime call, signed by given account.
 	fn sign_transaction(
 		param: SignParam<Self>,
-		unsigned: UnsignedTransaction<Self::Chain>,
+		unsigned: UnsignedTransaction<Self>,
 	) -> Result<Self::SignedTransaction, crate::Error>
 	where
 		Self: Sized;
@@ -213,19 +211,19 @@ pub trait TransactionSignScheme: 'static {
 	/// Parse signed transaction into its unsigned part.
 	///
 	/// Returns `None` if signed transaction has unsupported format.
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>>;
+	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>>;
 }
 
 /// Sign transaction parameters
-pub struct SignParam<T: TransactionSignScheme> {
+pub struct SignParam<C: ChainWithTransactions> {
 	/// Version of the runtime specification.
 	pub spec_version: u32,
 	/// Transaction version
 	pub transaction_version: u32,
 	/// Hash of the genesis block.
-	pub genesis_hash: <T::Chain as ChainBase>::Hash,
+	pub genesis_hash: HashOf<C>,
 	/// Signer account
-	pub signer: T::AccountKeyPair,
+	pub signer: AccountKeyPairOf<C>,
 }
 
 impl<Block: BlockT> BlockWithJustification<Block::Header> for SignedBlock<Block> {

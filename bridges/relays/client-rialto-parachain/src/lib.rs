@@ -20,8 +20,8 @@ use bp_messages::MessageNonce;
 use codec::Encode;
 use frame_support::weights::Weight;
 use relay_substrate_client::{
-	Chain, ChainBase, ChainWithBalances, ChainWithMessages, Error as SubstrateError, SignParam,
-	TransactionSignScheme, UnsignedTransaction,
+	Chain, ChainBase, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
+	Error as SubstrateError, SignParam, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -96,14 +96,13 @@ impl ChainWithMessages for RialtoParachain {
 	type WeightInfo = ();
 }
 
-impl TransactionSignScheme for RialtoParachain {
-	type Chain = RialtoParachain;
+impl ChainWithTransactions for RialtoParachain {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction = rialto_parachain_runtime::UncheckedExtrinsic;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
-		unsigned: UnsignedTransaction<Self::Chain>,
+		unsigned: UnsignedTransaction<Self>,
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::from_raw(
 			unsigned.call,
@@ -157,7 +156,7 @@ impl TransactionSignScheme for RialtoParachain {
 			.unwrap_or(false)
 	}
 
-	fn parse_transaction(_tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>> {
+	fn parse_transaction(_tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
 		unimplemented!("TODO")
 	}
 }

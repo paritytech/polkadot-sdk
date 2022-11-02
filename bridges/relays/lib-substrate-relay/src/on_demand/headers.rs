@@ -24,9 +24,7 @@ use num_traits::{One, Zero};
 use sp_runtime::traits::Header;
 
 use finality_relay::{FinalitySyncParams, TargetClient as FinalityTargetClient};
-use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, TransactionSignScheme,
-};
+use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client};
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient, MaybeConnectionError,
 	STALL_TIMEOUT,
@@ -61,13 +59,12 @@ impl<SourceChain: Chain> OnDemandHeadersRelay<SourceChain> {
 	pub fn new<P: SubstrateFinalitySyncPipeline<SourceChain = SourceChain>>(
 		source_client: Client<P::SourceChain>,
 		target_client: Client<P::TargetChain>,
-		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 		only_mandatory_headers: bool,
 	) -> Self
 	where
 		AccountIdOf<P::TargetChain>:
-			From<<AccountKeyPairOf<P::TransactionSignScheme> as sp_core::Pair>::Public>,
-		P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+			From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 	{
 		let required_header_number = Arc::new(Mutex::new(Zero::zero()));
 		let this = OnDemandHeadersRelay {
@@ -113,13 +110,11 @@ impl<SourceChain: Chain> OnDemandRelay<BlockNumberOf<SourceChain>>
 async fn background_task<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
 	target_client: Client<P::TargetChain>,
-	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	only_mandatory_headers: bool,
 	required_header_number: RequiredHeaderNumberRef<P::SourceChain>,
 ) where
-	AccountIdOf<P::TargetChain>:
-		From<<AccountKeyPairOf<P::TransactionSignScheme> as sp_core::Pair>::Public>,
-	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 {
 	let relay_task_name = on_demand_headers_relay_name::<P::SourceChain, P::TargetChain>();
 	let target_transactions_mortality = target_transaction_params.mortality;
@@ -389,9 +384,7 @@ async fn best_finalized_source_header_at_target<P: SubstrateFinalitySyncPipeline
 	relay_task_name: &str,
 ) -> Result<BlockNumberOf<P::SourceChain>, <SubstrateFinalityTarget<P> as RelayClient>::Error>
 where
-	AccountIdOf<P::TargetChain>:
-		From<<AccountKeyPairOf<P::TransactionSignScheme> as sp_core::Pair>::Public>,
-	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 {
 	finality_target
 		.best_finalized_source_block_id()

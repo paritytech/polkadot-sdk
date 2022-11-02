@@ -37,7 +37,7 @@ use messages_relay::{message_lane::MessageLane, relay_strategy::RelayStrategy};
 use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountKeyPairOf, BalanceOf, BlockNumberOf, CallOf, Chain,
-	ChainWithMessages, Client, HashOf, TransactionSignScheme,
+	ChainWithMessages, ChainWithTransactions, Client, HashOf,
 };
 use relay_utils::{metrics::MetricsParams, STALL_TIMEOUT};
 use sp_core::Pair;
@@ -77,14 +77,9 @@ pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
 	const AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str>;
 
 	/// Messages of this chain are relayed to the `TargetChain`.
-	type SourceChain: ChainWithMessages;
+	type SourceChain: ChainWithMessages + ChainWithTransactions;
 	/// Messages from the `SourceChain` are dispatched on this chain.
-	type TargetChain: ChainWithMessages;
-
-	/// Scheme used to sign source chain transactions.
-	type SourceTransactionSignScheme: TransactionSignScheme;
-	/// Scheme used to sign target chain transactions.
-	type TargetTransactionSignScheme: TransactionSignScheme;
+	type TargetChain: ChainWithMessages + ChainWithTransactions;
 
 	/// How receive messages proof call is built?
 	type ReceiveMessagesProofCallBuilder: ReceiveMessagesProofCallBuilder<Self>;
@@ -128,13 +123,11 @@ pub struct MessagesRelayParams<P: SubstrateMessageLane> {
 	/// Messages source client.
 	pub source_client: Client<P::SourceChain>,
 	/// Source transaction params.
-	pub source_transaction_params:
-		TransactionParams<AccountKeyPairOf<P::SourceTransactionSignScheme>>,
+	pub source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	/// Messages target client.
 	pub target_client: Client<P::TargetChain>,
 	/// Target transaction params.
-	pub target_transaction_params:
-		TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
+	pub target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	/// Optional on-demand source to target headers relay.
 	pub source_to_target_headers_relay:
 		Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::SourceChain>>>>,
@@ -154,13 +147,9 @@ pub struct MessagesRelayParams<P: SubstrateMessageLane> {
 /// Run Substrate-to-Substrate messages sync loop.
 pub async fn run<P: SubstrateMessageLane>(params: MessagesRelayParams<P>) -> anyhow::Result<()>
 where
-	AccountIdOf<P::SourceChain>:
-		From<<AccountKeyPairOf<P::SourceTransactionSignScheme> as Pair>::Public>,
-	AccountIdOf<P::TargetChain>:
-		From<<AccountKeyPairOf<P::TargetTransactionSignScheme> as Pair>::Public>,
+	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
-	P::SourceTransactionSignScheme: TransactionSignScheme<Chain = P::SourceChain>,
-	P::TargetTransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
 {
 	let source_client = params.source_client;
 	let target_client = params.target_client;

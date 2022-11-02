@@ -40,7 +40,6 @@ impl SubstrateParachainsPipeline for RialtoParachainsToMillau {
 	type TargetChain = Millau;
 
 	type SubmitParachainHeadsCallBuilder = RialtoParachainsToMillauSubmitParachainHeadsCallBuilder;
-	type TransactionSignScheme = Millau;
 
 	const SOURCE_PARACHAIN_PARA_ID: u32 = bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 }

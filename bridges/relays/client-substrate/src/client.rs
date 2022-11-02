@@ -17,14 +17,14 @@
 //! Substrate node client.
 
 use crate::{
-	chain::{Chain, ChainWithBalances},
+	chain::{Chain, ChainWithBalances, ChainWithTransactions},
 	rpc::{
 		SubstrateAuthorClient, SubstrateChainClient, SubstrateFinalityClient,
 		SubstrateFrameSystemClient, SubstrateStateClient, SubstrateSystemClient,
 		SubstrateTransactionPaymentClient,
 	},
 	transaction_stall_timeout, ConnectionParams, Error, HashOf, HeaderIdOf, Result, SignParam,
-	TransactionSignScheme, TransactionTracker, UnsignedTransaction,
+	TransactionTracker, UnsignedTransaction,
 };
 
 use async_std::sync::{Arc, Mutex};
@@ -421,14 +421,17 @@ impl<C: Chain> Client<C> {
 	/// if all client instances are clones of the same initial `Client`.
 	///
 	/// Note: The given transaction needs to be SCALE encoded beforehand.
-	pub async fn submit_signed_extrinsic<S: TransactionSignScheme<Chain = C> + 'static>(
+	pub async fn submit_signed_extrinsic(
 		&self,
 		extrinsic_signer: C::AccountId,
-		signing_data: SignParam<S>,
+		signing_data: SignParam<C>,
 		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Result<UnsignedTransaction<C>>
 			+ Send
 			+ 'static,
-	) -> Result<C::Hash> {
+	) -> Result<C::Hash>
+	where
+		C: ChainWithTransactions,
+	{
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
 		let best_header = self.best_header().await?;
@@ -442,7 +445,7 @@ impl<C: Chain> Client<C> {
 
 		self.jsonrpsee_execute(move |client| async move {
 			let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
-			let signed_extrinsic = S::sign_transaction(signing_data, extrinsic)?.encode();
+			let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
 			let tx_hash =
 				SubstrateAuthorClient::<C>::submit_extrinsic(&*client, Bytes(signed_extrinsic))
 					.await
@@ -458,16 +461,17 @@ impl<C: Chain> Client<C> {
 
 	/// Does exactly the same as `submit_signed_extrinsic`, but keeps watching for extrinsic status
 	/// after submission.
-	pub async fn submit_and_watch_signed_extrinsic<
-		S: TransactionSignScheme<Chain = C> + 'static,
-	>(
+	pub async fn submit_and_watch_signed_extrinsic(
 		&self,
 		extrinsic_signer: C::AccountId,
-		signing_data: SignParam<S>,
+		signing_data: SignParam<C>,
 		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Result<UnsignedTransaction<C>>
 			+ Send
 			+ 'static,
-	) -> Result<TransactionTracker<C, Self>> {
+	) -> Result<TransactionTracker<C, Self>>
+	where
+		C: ChainWithTransactions,
+	{
 		let self_clone = self.clone();
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(extrinsic_signer).await?;
@@ -482,7 +486,7 @@ impl<C: Chain> Client<C> {
 					C::AVERAGE_BLOCK_INTERVAL,
 					STALL_TIMEOUT,
 				);
-				let signed_extrinsic = S::sign_transaction(signing_data, extrinsic)?.encode();
+				let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
 				let tx_hash = C::Hasher::hash(&signed_extrinsic);
 				let subscription = SubstrateAuthorClient::<C>::submit_and_watch_extrinsic(
 					&*client,

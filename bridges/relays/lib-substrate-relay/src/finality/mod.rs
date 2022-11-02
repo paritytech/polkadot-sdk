@@ -31,8 +31,8 @@ use bp_header_chain::justification::GrandpaJustification;
 use finality_relay::FinalitySyncPipeline;
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
-	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
-	HashOf, HeaderOf, SyncHeader, TransactionSignScheme,
+	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
+	ChainWithTransactions, Client, HashOf, HeaderOf, SyncHeader,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
@@ -56,19 +56,17 @@ pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
 	/// Headers of this chain are submitted to the `TargetChain`.
 	type SourceChain: Chain;
 	/// Headers of the `SourceChain` are submitted to this chain.
-	type TargetChain: Chain;
+	type TargetChain: ChainWithTransactions;
 
 	/// Finality engine.
 	type FinalityEngine: Engine<Self::SourceChain>;
 	/// How submit finality proof call is built?
 	type SubmitFinalityProofCallBuilder: SubmitFinalityProofCallBuilder<Self>;
-	/// Scheme used to sign target chain transactions.
-	type TransactionSignScheme: TransactionSignScheme;
 
 	/// Add relay guards if required.
 	async fn start_relay_guards(
 		_target_client: &Client<Self::TargetChain>,
-		_transaction_params: &TransactionParams<AccountKeyPairOf<Self::TransactionSignScheme>>,
+		_transaction_params: &TransactionParams<AccountKeyPairOf<Self::TargetChain>>,
 		_enable_version_guard: bool,
 	) -> relay_substrate_client::Result<()> {
 		Ok(())
@@ -169,12 +167,11 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
 	target_client: Client<P::TargetChain>,
 	only_mandatory_headers: bool,
-	transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()>
 where
-	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
-	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 {
 	log::info!(
 		target: "bridge",

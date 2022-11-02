@@ -21,7 +21,7 @@ use codec::{Compact, Decode, Encode};
 use frame_support::weights::Weight;
 use relay_substrate_client::{
 	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
-	Error as SubstrateError, IndexOf, RelayChain, SignParam, TransactionSignScheme,
+	ChainWithTransactions, Error as SubstrateError, IndexOf, RelayChain, SignParam,
 	UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
@@ -104,14 +104,13 @@ impl ChainWithBalances for Rialto {
 	}
 }
 
-impl TransactionSignScheme for Rialto {
-	type Chain = Rialto;
+impl ChainWithTransactions for Rialto {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction = rialto_runtime::UncheckedExtrinsic;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
-		unsigned: UnsignedTransaction<Self::Chain>,
+		unsigned: UnsignedTransaction<Self>,
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::from_raw(
 			unsigned.call.clone(),
@@ -159,18 +158,14 @@ impl TransactionSignScheme for Rialto {
 			.unwrap_or(false)
 	}
 
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self::Chain>> {
+	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
 		let extra = &tx.signature.as_ref()?.2;
 		Some(
 			UnsignedTransaction::new(
 				tx.function.into(),
-				Compact::<IndexOf<Self::Chain>>::decode(&mut &extra.5.encode()[..]).ok()?.into(),
+				Compact::<IndexOf<Self>>::decode(&mut &extra.5.encode()[..]).ok()?.into(),
 			)
-			.tip(
-				Compact::<BalanceOf<Self::Chain>>::decode(&mut &extra.7.encode()[..])
-					.ok()?
-					.into(),
-			),
+			.tip(Compact::<BalanceOf<Self>>::decode(&mut &extra.7.encode()[..]).ok()?.into()),
 		)
 	}
 }

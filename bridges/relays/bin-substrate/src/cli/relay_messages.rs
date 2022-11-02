@@ -26,7 +26,7 @@ use crate::chains::{
 	rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
 };
 use messages_relay::relay_strategy::MixStrategy;
-use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, BalanceOf, TransactionSignScheme};
+use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, BalanceOf, ChainWithTransactions};
 use substrate_relay_helper::{messages_lane::MessagesRelayParams, TransactionParams};
 
 use crate::cli::{bridge::*, chain_schema::*, CliChain, HexLaneId, PrometheusParams};
@@ -77,8 +77,7 @@ pub struct RelayMessages {
 #[async_trait]
 trait MessagesRelayer: MessagesCliBridge
 where
-	Self::Source: TransactionSignScheme<Chain = Self::Source>
-		+ CliChain<KeyPair = AccountKeyPairOf<Self::Source>>,
+	Self::Source: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Source>>,
 	AccountIdOf<Self::Source>: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
 	AccountIdOf<Self::Target>: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
 	BalanceOf<Self::Source>: TryFrom<BalanceOf<Self::Target>>,

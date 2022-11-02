@@ -43,9 +43,9 @@ use messages_relay::{
 };
 use num_traits::{Bounded, Zero};
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages, Client,
-	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam, TransactionEra,
-	TransactionSignScheme, TransactionTracker, UnsignedTransaction, WeightToFeeOf,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages,
+	ChainWithTransactions, Client, Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam,
+	TransactionEra, TransactionTracker, UnsignedTransaction, WeightToFeeOf,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -62,7 +62,7 @@ pub struct SubstrateMessagesTarget<P: SubstrateMessageLane> {
 	source_client: Client<P::SourceChain>,
 	lane_id: LaneId,
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
-	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
+	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metric_values: StandaloneMessagesMetrics<P::SourceChain, P::TargetChain>,
 	source_to_target_headers_relay: Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::SourceChain>>>>,
 }
@@ -74,7 +74,7 @@ impl<P: SubstrateMessageLane> SubstrateMessagesTarget<P> {
 		source_client: Client<P::SourceChain>,
 		lane_id: LaneId,
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
-		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
+		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 		metric_values: StandaloneMessagesMetrics<P::SourceChain, P::TargetChain>,
 		source_to_target_headers_relay: Option<
 			Arc<dyn OnDemandRelay<BlockNumberOf<P::SourceChain>>>,
@@ -140,9 +140,7 @@ impl<P: SubstrateMessageLane> RelayClient for SubstrateMessagesTarget<P> {
 #[async_trait]
 impl<P: SubstrateMessageLane> TargetClient<MessageLaneAdapter<P>> for SubstrateMessagesTarget<P>
 where
-	AccountIdOf<P::TargetChain>:
-		From<<AccountKeyPairOf<P::TargetTransactionSignScheme> as Pair>::Public>,
-	P::TargetTransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
 {
 	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
@@ -258,7 +256,7 @@ where
 			.target_client
 			.submit_and_watch_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
-				SignParam::<P::TargetTransactionSignScheme> {
+				SignParam::<P::TargetChain> {
 					spec_version,
 					transaction_version,
 					genesis_hash,
@@ -305,7 +303,7 @@ where
 		let (spec_version, transaction_version) =
 			self.target_client.simple_runtime_version().await?;
 		// Prepare 'dummy' delivery transaction - we only care about its length and dispatch weight.
-		let delivery_tx = P::TargetTransactionSignScheme::sign_transaction(
+		let delivery_tx = P::TargetChain::sign_transaction(
 			SignParam {
 				spec_version,
 				transaction_version,
@@ -352,7 +350,7 @@ where
 			let (spec_version, transaction_version) =
 				self.target_client.simple_runtime_version().await?;
 			let larger_dispatch_weight = total_dispatch_weight.saturating_add(WEIGHT_DIFFERENCE);
-			let dummy_tx = P::TargetTransactionSignScheme::sign_transaction(
+			let dummy_tx = P::TargetChain::sign_transaction(
 				SignParam {
 					spec_version,
 					transaction_version,
@@ -425,17 +423,14 @@ where
 
 /// Make messages delivery transaction from given proof.
 fn make_messages_delivery_transaction<P: SubstrateMessageLane>(
-	target_transaction_params: &TransactionParams<AccountKeyPairOf<P::TargetTransactionSignScheme>>,
+	target_transaction_params: &TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	target_best_block_id: HeaderIdOf<P::TargetChain>,
 	transaction_nonce: IndexOf<P::TargetChain>,
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
 	nonces: RangeInclusive<MessageNonce>,
 	proof: SubstrateMessagesProof<P::SourceChain>,
 	trace_call: bool,
-) -> Result<UnsignedTransaction<P::TargetChain>, SubstrateError>
-where
-	P::TargetTransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
-{
+) -> Result<UnsignedTransaction<P::TargetChain>, SubstrateError> {
 	let messages_count = nonces.end() - nonces.start() + 1;
 	let dispatch_weight = proof.0;
 	let call = P::ReceiveMessagesProofCallBuilder::build_receive_messages_proof_call(
