@@ -59,7 +59,7 @@ use bp_messages::LaneId;
 use bp_runtime::{BalanceOf, BlockNumberOf};
 use messages_relay::relay_strategy::MixStrategy;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, Client, TransactionSignScheme,
+	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithTransactions, Client,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
@@ -93,8 +93,8 @@ pub struct HeadersAndMessagesSharedParams {
 }
 
 pub struct Full2WayBridgeCommonParams<
-	Left: TransactionSignScheme + CliChain,
-	Right: TransactionSignScheme + CliChain,
+	Left: ChainWithTransactions + CliChain,
+	Right: ChainWithTransactions + CliChain,
 > {
 	pub shared: HeadersAndMessagesSharedParams,
 	pub left: BridgeEndCommonParams<Left>,
@@ -105,7 +105,7 @@ pub struct Full2WayBridgeCommonParams<
 	pub right_to_left_metrics: StandaloneMessagesMetrics<Right, Left>,
 }
 
-impl<Left: TransactionSignScheme + CliChain, Right: TransactionSignScheme + CliChain>
+impl<Left: ChainWithTransactions + CliChain, Right: ChainWithTransactions + CliChain>
 	Full2WayBridgeCommonParams<Left, Right>
 {
 	pub fn new<L2R: MessagesCliBridge<Source = Left, Target = Right>>(
@@ -132,7 +132,7 @@ impl<Left: TransactionSignScheme + CliChain, Right: TransactionSignScheme + CliC
 	}
 }
 
-pub struct BridgeEndCommonParams<Chain: TransactionSignScheme + CliChain> {
+pub struct BridgeEndCommonParams<Chain: ChainWithTransactions + CliChain> {
 	pub client: Client<Chain>,
 	pub sign: AccountKeyPairOf<Chain>,
 	pub transactions_mortality: Option<u32>,
@@ -142,8 +142,8 @@ pub struct BridgeEndCommonParams<Chain: TransactionSignScheme + CliChain> {
 
 struct FullBridge<
 	'a,
-	Source: TransactionSignScheme + CliChain,
-	Target: TransactionSignScheme + CliChain,
+	Source: ChainWithTransactions + CliChain,
+	Target: ChainWithTransactions + CliChain,
 	Bridge: MessagesCliBridge<Source = Source, Target = Target>,
 > {
 	shared: &'a HeadersAndMessagesSharedParams,
@@ -156,8 +156,8 @@ struct FullBridge<
 
 impl<
 		'a,
-		Source: TransactionSignScheme<Chain = Source> + CliChain,
-		Target: TransactionSignScheme<Chain = Target> + CliChain,
+		Source: ChainWithTransactions + CliChain,
+		Target: ChainWithTransactions + CliChain,
 		Bridge: MessagesCliBridge<Source = Source, Target = Target>,
 	> FullBridge<'a, Source, Target, Bridge>
 where
@@ -186,7 +186,6 @@ where
 			};
 			substrate_relay_helper::conversion_rate_update::run_conversion_rate_update_loop::<
 				Bridge::MessagesLane,
-				Source,
 			>(
 				self.source.client.clone(),
 				TransactionParams {
@@ -266,11 +265,9 @@ trait Full2WayBridgeBase: Sized + Send + Sync {
 	/// The CLI params for the bridge.
 	type Params;
 	/// The left relay chain.
-	type Left: TransactionSignScheme<Chain = Self::Left>
-		+ CliChain<KeyPair = AccountKeyPairOf<Self::Left>>;
+	type Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Left>>;
 	/// The right destination chain (it can be a relay or a parachain).
-	type Right: TransactionSignScheme<Chain = Self::Right>
-		+ CliChain<KeyPair = AccountKeyPairOf<Self::Right>>;
+	type Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Right>>;
 
 	fn common(&self) -> &Full2WayBridgeCommonParams<Self::Left, Self::Right>;
 
@@ -295,14 +292,12 @@ where
 	type Base: Full2WayBridgeBase<Left = Self::Left, Right = Self::Right>;
 
 	/// The left relay chain.
-	type Left: Chain
+	type Left: ChainWithTransactions
 		+ ChainWithBalances
-		+ TransactionSignScheme<Chain = Self::Left>
 		+ CliChain<KeyPair = AccountKeyPairOf<Self::Left>>;
 	/// The right relay chain.
-	type Right: Chain
+	type Right: ChainWithTransactions
 		+ ChainWithBalances
-		+ TransactionSignScheme<Chain = Self::Right>
 		+ CliChain<KeyPair = AccountKeyPairOf<Self::Right>>;
 
 	// Left to Right bridge

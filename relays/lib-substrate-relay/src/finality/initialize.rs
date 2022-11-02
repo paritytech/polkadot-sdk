@@ -24,7 +24,7 @@
 use crate::{error::Error, finality::engine::Engine};
 
 use relay_substrate_client::{
-	Chain, Client, Error as SubstrateError, SignParam, TransactionSignScheme, UnsignedTransaction,
+	Chain, ChainWithTransactions, Client, Error as SubstrateError, SignParam, UnsignedTransaction,
 };
 use sp_runtime::traits::Header as HeaderT;
 
@@ -32,7 +32,7 @@ use sp_runtime::traits::Header as HeaderT;
 pub async fn initialize<
 	E: Engine<SourceChain>,
 	SourceChain: Chain,
-	TargetChain: Chain + TransactionSignScheme<Chain = TargetChain>,
+	TargetChain: ChainWithTransactions,
 	F,
 >(
 	source_client: Client<SourceChain>,
@@ -80,7 +80,7 @@ pub async fn initialize<
 async fn do_initialize<
 	E: Engine<SourceChain>,
 	SourceChain: Chain,
-	TargetChain: Chain + TransactionSignScheme<Chain = TargetChain>,
+	TargetChain: ChainWithTransactions,
 	F,
 >(
 	source_client: Client<SourceChain>,

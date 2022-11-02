@@ -49,9 +49,6 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 	type SourceChain = Millau;
 	type TargetChain = Rialto;
 
-	type SourceTransactionSignScheme = Millau;
-	type TargetTransactionSignScheme = Rialto;
-
 	type ReceiveMessagesProofCallBuilder = DirectReceiveMessagesProofCallBuilder<
 		Self,
 		rialto_runtime::Runtime,

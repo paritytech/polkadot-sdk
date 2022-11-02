@@ -32,7 +32,7 @@ use crate::{
 use async_trait::async_trait;
 use codec::{Decode, Encode};
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Chain, ChainBase, SignParam, TransactionSignScheme,
+	AccountIdOf, AccountKeyPairOf, Chain, ChainBase, ChainWithTransactions, SignParam,
 	UnsignedTransaction,
 };
 use sp_core::{Bytes, Pair};
@@ -96,12 +96,12 @@ pub struct SendMessage {
 trait MessageSender: MessagesCliBridge
 where
 	Self::Source: ChainBase<Index = u32>
-		+ TransactionSignScheme<Chain = Self::Source>
+		+ ChainWithTransactions
 		+ CliChain<KeyPair = AccountKeyPairOf<Self::Source>>
 		+ CliEncodeMessage,
 	<Self::Source as ChainBase>::Balance: Display + From<u64> + Into<u128>,
 	<Self::Source as Chain>::Call: Sync,
-	<Self::Source as TransactionSignScheme>::SignedTransaction: Sync,
+	<Self::Source as ChainWithTransactions>::SignedTransaction: Sync,
 	AccountIdOf<Self::Source>: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
 	AccountId32: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
 {

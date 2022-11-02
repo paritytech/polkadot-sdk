@@ -36,7 +36,6 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 		millau_runtime::Runtime,
 		millau_runtime::WestendGrandpaInstance,
 	>;
-	type TransactionSignScheme = relay_millau_client::Millau;
 }
 
 //// `Westend` to `Millau` bridge definition.

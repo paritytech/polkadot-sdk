@@ -28,7 +28,7 @@ use crate::cli::{
 use bp_polkadot_core::parachains::ParaHash;
 use bp_runtime::BlockNumberOf;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, Chain, Client, TransactionSignScheme};
+use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, Chain, ChainWithTransactions, Client};
 use sp_core::Pair;
 use substrate_relay_helper::{
 	finality::SubstrateFinalitySyncPipeline,
@@ -95,9 +95,9 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 
 			impl [<$left_chain $right_parachain HeadersAndMessages>] {
 				async fn into_bridge<
-					Left: TransactionSignScheme + CliChain<KeyPair = AccountKeyPairOf<Left>>,
-					Right: TransactionSignScheme + CliChain<KeyPair = AccountKeyPairOf<Right>>,
-					RightRelay: TransactionSignScheme + CliChain,
+					Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
+					Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Right>>,
+					RightRelay: ChainWithTransactions + CliChain,
 					L2R: CliBridgeBase<Source = Left, Target = Right> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
 					R2L: CliBridgeBase<Source = Right, Target = Left>
 						+ MessagesCliBridge
@@ -146,12 +146,12 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 
 #[async_trait]
 impl<
-		Left: Chain + TransactionSignScheme<Chain = Left> + CliChain<KeyPair = AccountKeyPairOf<Left>>,
+		Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
 		Right: Chain<Hash = ParaHash>
-			+ TransactionSignScheme<Chain = Right>
+			+ ChainWithTransactions
 			+ CliChain<KeyPair = AccountKeyPairOf<Right>>,
 		RightRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
-			+ TransactionSignScheme
+			+ ChainWithTransactions
 			+ CliChain,
 		L2R: CliBridgeBase<Source = Left, Target = Right>
 			+ MessagesCliBridge

@@ -33,8 +33,8 @@ use parachains_relay::{
 };
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
-	HeaderIdOf, HeaderOf, RelayChain, SignParam, TransactionEra, TransactionSignScheme,
-	TransactionTracker, UnsignedTransaction,
+	HeaderIdOf, HeaderOf, RelayChain, SignParam, TransactionEra, TransactionTracker,
+	UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -43,14 +43,14 @@ use sp_runtime::traits::Header as HeaderT;
 /// Substrate client as parachain heads source.
 pub struct ParachainsTarget<P: SubstrateParachainsPipeline> {
 	client: Client<P::TargetChain>,
-	transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 }
 
 impl<P: SubstrateParachainsPipeline> ParachainsTarget<P> {
 	/// Creates new parachains target client.
 	pub fn new(
 		client: Client<P::TargetChain>,
-		transaction_params: TransactionParams<AccountKeyPairOf<P::TransactionSignScheme>>,
+		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	) -> Self {
 		ParachainsTarget { client, transaction_params }
 	}
@@ -83,8 +83,7 @@ impl<P: SubstrateParachainsPipeline> RelayClient for ParachainsTarget<P> {
 impl<P> TargetClient<ParachainsPipelineAdapter<P>> for ParachainsTarget<P>
 where
 	P: SubstrateParachainsPipeline,
-	P::TransactionSignScheme: TransactionSignScheme<Chain = P::TargetChain>,
-	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TransactionSignScheme> as Pair>::Public>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 {
 	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
 
@@ -186,7 +185,7 @@ where
 		self.client
 			.submit_and_watch_signed_extrinsic(
 				self.transaction_params.signer.public().into(),
-				SignParam::<P::TransactionSignScheme> {
+				SignParam::<P::TargetChain> {
 					spec_version,
 					transaction_version,
 					genesis_hash,

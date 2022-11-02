@@ -24,7 +24,7 @@ use pallet_bridge_parachains::{
 	RelayBlockHasher, RelayBlockNumber,
 };
 use parachains_relay::ParachainsPipeline;
-use relay_substrate_client::{CallOf, Chain, HeaderIdOf, RelayChain, TransactionSignScheme};
+use relay_substrate_client::{CallOf, Chain, ChainWithTransactions, HeaderIdOf, RelayChain};
 use std::{fmt::Debug, marker::PhantomData};
 
 pub mod source;
@@ -41,12 +41,10 @@ pub trait SubstrateParachainsPipeline: 'static + Clone + Debug + Send + Sync {
 	/// Relay chain that is storing headers of `Self::SourceParachain`.
 	type SourceRelayChain: RelayChain;
 	/// Target chain where `Self::SourceParachain` headers are submitted.
-	type TargetChain: Chain;
+	type TargetChain: ChainWithTransactions;
 
 	/// How submit parachains heads call is built?
 	type SubmitParachainHeadsCallBuilder: SubmitParachainHeadsCallBuilder<Self>;
-	/// Scheme used to sign target chain transactions.
-	type TransactionSignScheme: TransactionSignScheme;
 
 	/// Id of the `Self::SourceParachain`, used for registration in `Self::SourceRelayChain`.
 	const SOURCE_PARACHAIN_PARA_ID: u32;

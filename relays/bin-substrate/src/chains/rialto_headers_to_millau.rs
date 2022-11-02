@@ -36,7 +36,6 @@ impl SubstrateFinalitySyncPipeline for RialtoFinalityToMillau {
 		millau_runtime::Runtime,
 		millau_runtime::RialtoGrandpaInstance,
 	>;
-	type TransactionSignScheme = relay_millau_client::Millau;
 }
 
 //// `Rialto` to `Millau` bridge definition.

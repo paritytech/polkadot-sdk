@@ -39,7 +39,6 @@ impl SubstrateParachainsPipeline for WestendParachainsToMillau {
 	type TargetChain = Millau;
 
 	type SubmitParachainHeadsCallBuilder = WestendParachainsToMillauSubmitParachainHeadsCallBuilder;
-	type TransactionSignScheme = Millau;
 
 	const SOURCE_PARACHAIN_PARA_ID: u32 = bp_westend::WESTMINT_PARACHAIN_ID;
 }
