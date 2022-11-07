@@ -102,7 +102,7 @@ where
 
 		// don't finalize the same block multiple times.
 		if parachain.usage_info().chain.finalized_hash != hash {
-			if let Err(e) = parachain.finalize_block(&hash, None, true) {
+			if let Err(e) = parachain.finalize_block(hash, None, true) {
 				match e {
 					ClientError::UnknownBlock(_) => tracing::debug!(
 						target: "cumulus-consensus",

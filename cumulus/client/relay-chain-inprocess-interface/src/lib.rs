@@ -180,7 +180,7 @@ where
 		relay_parent: PHash,
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
-		let state = self.backend.state_at(&relay_parent)?;
+		let state = self.backend.state_at(relay_parent)?;
 		state.storage(key).map_err(RelayChainError::GenericError)
 	}
 
@@ -189,7 +189,7 @@ where
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
-		let state_backend = self.backend.state_at(&relay_parent)?;
+		let state_backend = self.backend.state_at(relay_parent)?;
 
 		sp_state_machine::prove_read(state_backend, relevant_keys)
 			.map_err(RelayChainError::StateMachineError)

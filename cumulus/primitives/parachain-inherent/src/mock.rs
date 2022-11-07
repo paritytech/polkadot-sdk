@@ -115,7 +115,7 @@ impl MockXcmConfig {
 	) -> Self {
 		let starting_dmq_mqc_head = client
 			.storage(
-				&parent_block,
+				parent_block,
 				&sp_storage::StorageKey(
 					[twox_128(&parachain_system_name.0), twox_128(b"LastDmqMqcHead")]
 						.concat()
@@ -130,7 +130,7 @@ impl MockXcmConfig {
 
 		let starting_hrmp_mqc_heads = client
 			.storage(
-				&parent_block,
+				parent_block,
 				&sp_storage::StorageKey(
 					[twox_128(&parachain_system_name.0), twox_128(b"LastHrmpMqcHeads")]
 						.concat()
