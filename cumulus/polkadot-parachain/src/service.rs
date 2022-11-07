@@ -560,6 +560,7 @@ where
 		let client = client.clone();
 		let transaction_pool = transaction_pool.clone();
 
+		let backend_for_rpc = backend.clone();
 		Box::new(move |deny_unsafe, _| {
 			let deps = rpc::FullDeps {
 				client: client.clone(),
@@ -567,7 +568,7 @@ where
 				deny_unsafe,
 			};
 
-			rpc::create_full(deps).map_err(Into::into)
+			rpc::create_full(deps, backend_for_rpc.clone()).map_err(Into::into)
 		})
 	};
 
