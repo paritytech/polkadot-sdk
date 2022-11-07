@@ -1,10 +1,14 @@
 [package]
-name = "polkadot-parachain"
+name = "polkadot-parachain-bin"
 version = "0.9.300"
 authors = ["Parity Technologies <admin@parity.io>"]
 build = "build.rs"
 edition = "2021"
 description = "Runs a polkadot parachain node which could be a collator."
+
+[[bin]]
+name = "polkadot-parachain"
+path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1.58"
