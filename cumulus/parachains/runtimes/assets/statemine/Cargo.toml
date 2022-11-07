@@ -7,7 +7,7 @@ description = "Kusama variant of Statemint parachain runtime"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
-hex-literal = { version = "0.3.4", optional = true }
+hex-literal = { version = "0.3.4" }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 smallvec = "1.10.0"
@@ -44,6 +44,7 @@ sp-session = { git = "https://github.com/paritytech/substrate", default-features
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-state-trie-migration = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master", optional = true }
 
 # Polkadot
 kusama-runtime-constants = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -72,7 +73,6 @@ pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch
 
 
 [dev-dependencies]
-hex-literal = "0.3.4"
 asset-test-utils = { path = "../test-utils"}
 
 [build-dependencies]
@@ -80,8 +80,15 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 
 [features]
 default = [ "std" ]
+# When enabled the `state_version` is set to `1`.
+# This means that the chain will start using the new state format. The migration is lazy, so
+# it requires to write a storage value to use the new state format. To migrate all the other
+# storage values that aren't touched the state migration pallet is added as well.
+# This pallet will migrate the entire state, controlled through some account.
+#
+# This feature should be removed when the main-net will be migrated.
+state-trie-version-1 = ["pallet-state-trie-migration"]
 runtime-benchmarks = [
-	"hex-literal",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
@@ -100,6 +107,7 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
+	"pallet-state-trie-migration/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -125,6 +133,7 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
+	"pallet-state-trie-migration/try-runtime",
 ]
 std = [
 	"codec/std",
@@ -143,6 +152,7 @@ std = [
 	"pallet-multisig/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
+	"pallet-state-trie-migration/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
