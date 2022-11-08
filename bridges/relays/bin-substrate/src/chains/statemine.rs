@@ -14,17 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-// RuntimeApi generated functions
-#![allow(clippy::too_many_arguments)]
+//! Statemine chain specification for CLI.
 
-pub use bp_polkadot_core::*;
-use bp_runtime::decl_bridge_finality_runtime_apis;
+use crate::cli::CliChain;
+use relay_statemine_client::Statemine;
+use sp_version::RuntimeVersion;
 
-/// Polkadot Chain
-pub type Polkadot = PolkadotLike;
+impl CliChain for Statemine {
+	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(bp_statemine::VERSION);
 
-/// Name of the With-Polkadot GRANDPA pallet instance that is deployed at bridged chains.
-pub const WITH_POLKADOT_GRANDPA_PALLET_NAME: &str = "BridgePolkadotGrandpa";
+	type KeyPair = sp_core::sr25519::Pair;
 
-decl_bridge_finality_runtime_apis!(polkadot);
+	fn ss58_format() -> u16 {
+		sp_core::crypto::Ss58AddressFormat::from(
+			sp_core::crypto::Ss58AddressFormatRegistry::KusamaAccount,
+		)
+		.into()
+	}
+}

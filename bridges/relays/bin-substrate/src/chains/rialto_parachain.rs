@@ -79,7 +79,6 @@ impl CliChain for RialtoParachain {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(rialto_parachain_runtime::VERSION);
 
 	type KeyPair = sp_core::sr25519::Pair;
-	type MessagePayload = Vec<u8>;
 
 	fn ss58_format() -> u16 {
 		rialto_parachain_runtime::SS58Prefix::get() as u16
