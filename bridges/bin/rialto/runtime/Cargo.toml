@@ -60,14 +60,13 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 # Polkadot (parachain) Dependencies
-
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
-polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
+pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
 [dev-dependencies]
 bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }

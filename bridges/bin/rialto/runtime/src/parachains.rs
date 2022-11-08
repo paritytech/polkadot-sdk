@@ -186,6 +186,12 @@ impl polkadot_runtime_common::paras_registrar::WeightInfo for ZeroWeights {
 	fn swap() -> Weight {
 		Weight::from_ref_time(0)
 	}
+	fn schedule_code_upgrade(_: u32) -> Weight {
+		Weight::from_ref_time(0)
+	}
+	fn set_current_head(_: u32) -> Weight {
+		Weight::from_ref_time(0)
+	}
 }
 
 impl polkadot_runtime_common::slots::WeightInfo for ZeroWeights {

@@ -159,7 +159,7 @@ where
 			.client
 			.prove_storage(vec![storage_key.clone()], at_block.1)
 			.await?
-			.iter_nodes()
+			.into_iter_nodes()
 			.collect();
 
 		// why we're reading parachain head here once again (it has already been read at the

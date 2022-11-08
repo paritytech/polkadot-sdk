@@ -51,12 +51,11 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot Dependencies
-
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3", default-features = false }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
 
 [dev-dependencies]

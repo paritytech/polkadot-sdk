@@ -17,7 +17,7 @@ default = []
 runtime-benchmarks = ['rialto-parachain-runtime/runtime-benchmarks']
 
 [dependencies]
-clap = { version = "3.1", features = ["derive"] }
+clap = { version = "4.0.9", features = ["derive"] }
 log = '0.4.17'
 codec = { package = 'parity-scale-codec', version = '3.1.5' }
 serde = { version = '1.0', features = ['derive'] }
@@ -48,6 +48,7 @@ sc-network = { git = "https://github.com/paritytech/substrate", branch = "master
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master", features = ['wasmtime'] }
+sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -66,17 +67,18 @@ sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "mast
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Cumulus dependencies
-cumulus-client-consensus-aura = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-client-consensus-common = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-client-cli = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-client-network = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-client-service = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
-cumulus-relay-chain-inprocess-interface = { git = "https://github.com/paritytech/cumulus", branch = "gav-xcm-v3" }
+cumulus-client-consensus-aura = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-client-consensus-common = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-client-cli = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-client-network = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-client-service = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-relay-chain-inprocess-interface = { git = "https://github.com/paritytech/cumulus", branch = "master" }
+cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/cumulus", branch = "master" }
 
 # Polkadot dependencies
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "gav-xcm-v3" }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
