@@ -62,7 +62,7 @@ impl<C: Chain> StorageProofOverheadMetric<C> {
 			.client
 			.prove_storage(vec![StorageKey(CODE.to_vec())], best_header_hash)
 			.await?;
-		let storage_proof_size: usize = storage_proof.clone().iter_nodes().map(|n| n.len()).sum();
+		let storage_proof_size: usize = storage_proof.iter_nodes().map(|n| n.len()).sum();
 
 		let storage_value_reader = bp_runtime::StorageProofChecker::<C::Hasher>::new(
 			*best_header.state_root(),
