@@ -230,7 +230,7 @@ where
 			.target_client
 			.prove_storage(vec![inbound_data_key], id.1)
 			.await?
-			.iter_nodes()
+			.into_iter_nodes()
 			.collect();
 		let proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: id.1,
