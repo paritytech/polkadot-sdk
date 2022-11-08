@@ -446,7 +446,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type MaxProposals = ConstU32<ALLIANCE_MAX_PROPOSALS>;
 	type MaxMembers = ConstU32<ALLIANCE_MAX_MEMBERS>;
 	type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
 }
 
 pub const MAX_FOUNDERS: u32 = 10;
@@ -485,7 +485,7 @@ impl pallet_alliance::Config for Runtime {
 	type MaxAnnouncementsCount = ConstU32<100>;
 	type MaxMembersCount = ConstU32<ALLIANCE_MAX_MEMBERS>;
 	type AllyDeposit = AllyDeposit;
-	type WeightInfo = pallet_alliance::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_alliance::WeightInfo<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
