@@ -26,6 +26,7 @@ bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
 bp-rialto-parachain = { path = "../../primitives/chain-rialto-parachain" }
 bp-runtime = { path = "../../primitives/runtime" }
+bp-statemine = { path = "../../primitives/chain-statemine" }
 bp-westend = { path = "../../primitives/chain-westend" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 messages-relay = { path = "../messages" }
@@ -36,6 +37,7 @@ parachains-relay = { path = "../parachains" }
 relay-millau-client = { path = "../client-millau" }
 relay-rialto-client = { path = "../client-rialto" }
 relay-rialto-parachain-client = { path = "../client-rialto-parachain" }
+relay-statemine-client = { path = "../client-statemine" }
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 relay-westend-client = { path = "../client-westend" }

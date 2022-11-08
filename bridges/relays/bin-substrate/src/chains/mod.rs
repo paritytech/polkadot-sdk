@@ -30,6 +30,7 @@ pub mod westend_parachains_to_millau;
 mod millau;
 mod rialto;
 mod rialto_parachain;
+mod statemine;
 mod westend;
 
 #[cfg(test)]

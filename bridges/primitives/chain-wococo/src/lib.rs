@@ -24,13 +24,6 @@ use bp_runtime::decl_bridge_finality_runtime_apis;
 /// Wococo Chain
 pub type Wococo = PolkadotLike;
 
-/// The target length of a session (how often authorities change) on Wococo measured in of number
-/// of blocks.
-///
-/// Note that since this is a target sessions may change before/after this time depending on network
-/// conditions.
-pub const SESSION_LENGTH: BlockNumber = time_units::MINUTES;
-
 /// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
 

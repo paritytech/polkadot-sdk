@@ -24,13 +24,6 @@ use bp_runtime::decl_bridge_finality_runtime_apis;
 /// Rococo Chain
 pub type Rococo = PolkadotLike;
 
-/// The target length of a session (how often authorities change) on Rococo measured in of number
-/// of blocks.
-///
-/// Note that since this is a target sessions may change before/after this time depending on network
-/// conditions.
-pub const SESSION_LENGTH: BlockNumber = time_units::HOURS;
-
 /// Name of the With-Rococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
 
