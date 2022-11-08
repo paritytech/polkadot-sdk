@@ -19,12 +19,20 @@
 #![allow(clippy::too_many_arguments)]
 
 pub use bp_polkadot_core::*;
-use bp_runtime::decl_bridge_finality_runtime_apis;
 
-/// Polkadot Chain
-pub type Polkadot = PolkadotLike;
+use sp_version::RuntimeVersion;
 
-/// Name of the With-Polkadot GRANDPA pallet instance that is deployed at bridged chains.
-pub const WITH_POLKADOT_GRANDPA_PALLET_NAME: &str = "BridgePolkadotGrandpa";
+/// Statemine Chain.
+pub type Statemine = PolkadotLike;
 
-decl_bridge_finality_runtime_apis!(polkadot);
+/// Known Statemine runtime version.
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: sp_version::create_runtime_str!("statemine"),
+	impl_name: sp_version::create_runtime_str!("statemine"),
+	authoring_version: 1,
+	spec_version: 9300,
+	impl_version: 0,
+	apis: sp_version::create_apis_vec![[]],
+	transaction_version: 8,
+	state_version: 1,
+};

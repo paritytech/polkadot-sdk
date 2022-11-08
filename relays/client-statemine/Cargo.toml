@@ -1,0 +1,24 @@
+[package]
+name = "relay-statemine-client"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.1.5" }
+relay-substrate-client = { path = "../client-substrate" }
+relay-utils = { path = "../utils" }
+scale-info = { version = "2.1.1", features = ["derive"] }
+
+# Bridge dependencies
+
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+bp-statemine = { path = "../../primitives/chain-statemine" }
+
+# Substrate Dependencies
+
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
