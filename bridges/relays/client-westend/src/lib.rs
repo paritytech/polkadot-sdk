@@ -60,7 +60,7 @@ impl Chain for Westend {
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_westend::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = bp_westend::SignedBlock;
-	type Call = bp_westend::Call;
+	type Call = ();
 }
 
 impl RelayChain for Westend {
@@ -117,5 +117,5 @@ impl Chain for Westmint {
 	const STORAGE_PROOF_OVERHEAD: u32 = bp_westend::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = bp_westend::SignedBlock;
-	type Call = bp_westend::Call;
+	type Call = ();
 }
