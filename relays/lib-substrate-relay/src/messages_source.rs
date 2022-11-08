@@ -322,7 +322,7 @@ where
 			.source_client
 			.prove_storage(storage_keys, id.1)
 			.await?
-			.iter_nodes()
+			.into_iter_nodes()
 			.collect();
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
