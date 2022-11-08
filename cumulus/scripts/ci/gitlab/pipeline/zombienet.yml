@@ -21,7 +21,7 @@
       artifacts:                   true
   variables:
     POLKADOT_IMAGE:                "docker.io/paritypr/polkadot-debug:master"
-    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet_tests"
+    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet/tests"
     COL_IMAGE:                     "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
   allow_failure:                   true
   retry: 2
