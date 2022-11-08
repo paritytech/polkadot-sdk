@@ -93,7 +93,6 @@ impl CliChain for Millau {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(millau_runtime::VERSION);
 
 	type KeyPair = sp_core::sr25519::Pair;
-	type MessagePayload = Vec<u8>;
 
 	fn ss58_format() -> u16 {
 		millau_runtime::SS58Prefix::get() as u16

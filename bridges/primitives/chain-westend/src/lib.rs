@@ -18,33 +18,11 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use scale_info::TypeInfo;
-
 pub use bp_polkadot_core::*;
 use bp_runtime::decl_bridge_finality_runtime_apis;
 
 /// Westend Chain
 pub type Westend = PolkadotLike;
-
-/// Westend Runtime `Call` enum.
-///
-/// We are not currently submitting any Westend transactions => it is empty.
-#[derive(codec::Encode, codec::Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-pub enum Call {}
-
-impl sp_runtime::traits::Dispatchable for Call {
-	type RuntimeOrigin = ();
-	type Config = ();
-	type Info = ();
-	type PostInfo = ();
-
-	fn dispatch(
-		self,
-		_origin: Self::RuntimeOrigin,
-	) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
-		unimplemented!("The Call is not expected to be dispatched.")
-	}
-}
 
 /// Name of the parachains pallet at the Westend runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";
@@ -53,13 +31,6 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 pub const WITH_WESTEND_GRANDPA_PALLET_NAME: &str = "BridgeWestendGrandpa";
 /// Name of the With-Westend parachains bridge pallet instance that is deployed at bridged chains.
 pub const WITH_WESTEND_BRIDGE_PARAS_PALLET_NAME: &str = "BridgeWestendParachains";
-
-/// The target length of a session (how often authorities change) on Westend measured in of number
-/// of blocks.
-///
-/// Note that since this is a target sessions may change before/after this time depending on network
-/// conditions.
-pub const SESSION_LENGTH: BlockNumber = 10 * time_units::MINUTES;
 
 /// Maximal number of GRANDPA authorities at Westend.
 ///
