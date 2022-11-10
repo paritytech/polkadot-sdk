@@ -32,4 +32,7 @@ This release contains the changes from `{{ env.REF1 }}` to `{{ env.REF2 }}`.
 {% endif %}
 
 {% include "changes.md.tera" -%}
+
+{% if env.RELEASE_TYPE and env.RELEASE_TYPE == "client" -%}
 {% include "docker_image.md.tera" -%}
+{% endif %}
