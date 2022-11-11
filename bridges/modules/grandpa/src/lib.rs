@@ -38,7 +38,7 @@
 
 use storage_types::StoredAuthoritySet;
 
-use bp_header_chain::{justification::GrandpaJustification, InitializationData};
+use bp_header_chain::{justification::GrandpaJustification, HeaderChain, InitializationData};
 use bp_runtime::{
 	BlockNumberOf, BoundedStorageValue, Chain, HashOf, HasherOf, HeaderOf, OwnedBridgeModule,
 };
@@ -67,6 +67,8 @@ pub use weights::WeightInfo;
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-grandpa";
 
+/// Bridged chain from the pallet configuration.
+pub type BridgedChain<T, I> = <T as Config<I>>::BridgedChain;
 /// Block number of the bridged chain.
 pub type BridgedBlockNumber<T, I> = BlockNumberOf<<T as Config<I>>::BridgedChain>;
 /// Block hash of the bridged chain.
@@ -382,8 +384,6 @@ pub mod pallet {
 		TooManyRequests,
 		/// The header being imported is older than the best finalized header known to the pallet.
 		OldHeader,
-		/// The header is unknown to the pallet.
-		UnknownHeader,
 		/// The scheduled authority set change found in the header is unsupported by the pallet.
 		///
 		/// This is the case for non-standard (e.g forced) authority set changes.
@@ -392,8 +392,6 @@ pub mod pallet {
 		NotInitialized,
 		/// The pallet has already been initialized.
 		AlreadyInitialized,
-		/// The storage proof doesn't contains storage root. So it is invalid for given header.
-		StorageRootMismatch,
 		/// Too many authorities in the set.
 		TooManyAuthoritiesInSet,
 		/// Too large header.
@@ -581,9 +579,6 @@ pub mod pallet {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Get the best finalized header the pallet knows of.
-	///
-	/// Returns a dummy header if there is no best header. This can only happen
-	/// if the pallet has not been initialized yet.
 	pub fn best_finalized() -> Option<BridgedHeader<T, I>> {
 		let (_, hash) = <BestFinalized<T, I>>::get()?;
 		<ImportedHeaders<T, I>>::get(hash).map(|h| h.into_inner())
@@ -593,21 +588,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn is_known_header(hash: BridgedBlockHash<T, I>) -> bool {
 		<ImportedHeaders<T, I>>::contains_key(hash)
 	}
+}
 
-	/// Verify that the passed storage proof is valid, given it is crafted using
-	/// known finalized header. If the proof is valid, then the `parse` callback
-	/// is called and the function returns its result.
-	pub fn parse_finalized_storage_proof<R>(
-		hash: BridgedBlockHash<T, I>,
-		storage_proof: sp_trie::StorageProof,
-		parse: impl FnOnce(bp_runtime::StorageProofChecker<BridgedBlockHasher<T, I>>) -> R,
-	) -> Result<R, sp_runtime::DispatchError> {
-		let header = <ImportedHeaders<T, I>>::get(hash).ok_or(Error::<T, I>::UnknownHeader)?;
-		let storage_proof_checker =
-			bp_runtime::StorageProofChecker::new(*header.state_root(), storage_proof)
-				.map_err(|_| Error::<T, I>::StorageRootMismatch)?;
+/// Bridge GRANDPA pallet as header chain.
+pub type GrandpaChainHeaders<T, I> = Pallet<T, I>;
 
-		Ok(parse(storage_proof_checker))
+impl<T: Config<I>, I: 'static> HeaderChain<BridgedChain<T, I>> for GrandpaChainHeaders<T, I> {
+	fn finalized_header(hash: HashOf<BridgedChain<T, I>>) -> Option<HeaderOf<BridgedChain<T, I>>> {
+		ImportedHeaders::<T, I>::get(hash).map(|h| h.into_inner())
 	}
 }
 
@@ -1119,7 +1107,7 @@ mod tests {
 					sp_trie::StorageProof::new(vec![]),
 					|_| (),
 				),
-				Error::<TestRuntime>::UnknownHeader,
+				bp_header_chain::HeaderChainError::UnknownHeader,
 			);
 		});
 	}
