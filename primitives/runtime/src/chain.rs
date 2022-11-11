@@ -195,6 +195,12 @@ pub trait Chain: Send + Sync + 'static {
 	fn max_extrinsic_weight() -> Weight;
 }
 
+/// Minimal parachain representation that may be used from no_std environment.
+pub trait Parachain: Chain {
+	/// Parachain identifier.
+	const PARACHAIN_ID: u32;
+}
+
 /// Block number used by the chain.
 pub type BlockNumberOf<C> = <C as Chain>::BlockNumber;
 
