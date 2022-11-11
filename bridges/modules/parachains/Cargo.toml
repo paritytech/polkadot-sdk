@@ -12,6 +12,7 @@ scale-info = { version = "2.1.1", default-features = false, features = ["derive"
 
 # Bridge Dependencies
 
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false }
 bp-parachains = { path = "../../primitives/parachains", default-features = false }
 bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
@@ -34,6 +35,7 @@ sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-parachains/std",
 	"bp-polkadot-core/std",
 	"bp-runtime/std",
