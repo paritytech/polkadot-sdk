@@ -26,12 +26,14 @@
 pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;
 
+use bp_header_chain::HeaderChain;
 use bp_parachains::{parachain_head_storage_key_at_source, ParaInfo};
-use bp_polkadot_core::parachains::{ParaHash, ParaHasher, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::StorageProofError;
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
+use bp_runtime::{HashOf, HeaderOf, Parachain, StorageProofError};
+use codec::Decode;
 use frame_support::{dispatch::PostDispatchInfo, traits::Contains};
 use sp_runtime::traits::Header as HeaderT;
-use sp_std::vec::Vec;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 // Re-export in crate namespace for `construct_runtime!`.
 pub use pallet::*;
@@ -410,27 +412,6 @@ pub mod pallet {
 			ImportedParaHeads::<T, I>::get(parachain, hash).map(|h| h.into_inner())
 		}
 
-		/// Verify that the passed storage proof is valid, given it is crafted using
-		/// known finalized header. If the proof is valid, then the `parse` callback
-		/// is called and the function returns its result.
-		pub fn parse_finalized_storage_proof<R>(
-			parachain: ParaId,
-			hash: ParaHash,
-			storage_proof: sp_trie::StorageProof,
-			decode_state_root: impl FnOnce(ParaHead) -> Option<ParaHash>,
-			parse: impl FnOnce(bp_runtime::StorageProofChecker<ParaHasher>) -> R,
-		) -> Result<R, sp_runtime::DispatchError> {
-			let para_head =
-				Self::parachain_head(parachain, hash).ok_or(Error::<T, I>::UnknownParaHead)?;
-			let state_root =
-				decode_state_root(para_head).ok_or(Error::<T, I>::FailedToExtractStateRoot)?;
-			let storage_proof_checker =
-				bp_runtime::StorageProofChecker::new(state_root, storage_proof)
-					.map_err(|_| Error::<T, I>::StorageRootMismatch)?;
-
-			Ok(parse(storage_proof_checker))
-		}
-
 		/// Read parachain head from storage proof.
 		fn read_parachain_head(
 			storage: &bp_runtime::StorageProofChecker<RelayBlockHasher>,
@@ -614,6 +595,18 @@ pub mod pallet {
 				PalletOwner::<T, I>::put(owner);
 			}
 		}
+	}
+}
+
+/// Single parachain header chain adapter.
+pub struct ParachainHeaders<T, I, C>(PhantomData<(T, I, C)>);
+
+impl<T: Config<I>, I: 'static, C: Parachain<Hash = ParaHash>> HeaderChain<C>
+	for ParachainHeaders<T, I, C>
+{
+	fn finalized_header(hash: HashOf<C>) -> Option<HeaderOf<C>> {
+		Pallet::<T, I>::parachain_head(ParaId(C::PARACHAIN_ID), hash)
+			.and_then(|head| Decode::decode(&mut &head.0[..]).ok())
 	}
 }
 

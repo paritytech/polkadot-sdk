@@ -21,7 +21,7 @@
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
-use bp_runtime::{decl_bridge_runtime_apis, Chain};
+use bp_runtime::{decl_bridge_runtime_apis, Chain, Parachain};
 use frame_support::{
 	dispatch::DispatchClass,
 	weights::{constants::WEIGHT_PER_SECOND, IdentityFee, Weight},
@@ -158,6 +158,10 @@ impl Chain for RialtoParachain {
 			.max_extrinsic
 			.unwrap_or(Weight::MAX)
 	}
+}
+
+impl Parachain for RialtoParachain {
+	const PARACHAIN_ID: u32 = RIALTO_PARACHAIN_ID;
 }
 
 frame_support::parameter_types! {
