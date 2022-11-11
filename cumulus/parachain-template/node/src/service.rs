@@ -210,6 +210,15 @@ async fn start_node_impl(
 			warp_sync: None,
 		})?;
 
+	if parachain_config.offchain_worker.enabled {
+		sc_service::build_offchain_workers(
+			&parachain_config,
+			task_manager.spawn_handle(),
+			client.clone(),
+			network.clone(),
+		);
+	}
+
 	let rpc_builder = {
 		let client = client.clone();
 		let transaction_pool = transaction_pool.clone();
