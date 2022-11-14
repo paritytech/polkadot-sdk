@@ -120,7 +120,7 @@ impl MessageBridge for WithMillauMessageBridge {
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct RialtoParachain;
 
-impl messages::ChainWithMessages for RialtoParachain {
+impl messages::UnderlyingChainProvider for RialtoParachain {
 	type Chain = bp_rialto_parachain::RialtoParachain;
 }
 
@@ -181,7 +181,7 @@ impl messages::ThisChainWithMessages for RialtoParachain {
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct Millau;
 
-impl messages::ChainWithMessages for Millau {
+impl messages::UnderlyingChainProvider for Millau {
 	type Chain = bp_millau::Millau;
 }
 

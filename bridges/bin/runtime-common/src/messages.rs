@@ -58,7 +58,7 @@ pub trait MessageBridge {
 	/// Bridged chain in context of message bridge.
 	type BridgedChain: BridgedChainWithMessages;
 	/// Bridged header chain.
-	type BridgedHeaderChain: HeaderChain<<Self::BridgedChain as ChainWithMessages>::Chain>;
+	type BridgedHeaderChain: HeaderChain<UnderlyingChainOf<Self::BridgedChain>>;
 
 	/// Convert Bridged chain balance into This chain balance.
 	fn bridged_balance_to_this_balance(
@@ -115,14 +115,14 @@ impl<
 	}
 }
 
-/// Chain that has `pallet-bridge-messages` module.
-pub trait ChainWithMessages {
+/// A trait that provides the type of the underlying chain.
+pub trait UnderlyingChainProvider {
 	/// Underlying chain type.
 	type Chain: Chain;
 }
 
 /// This chain that has `pallet-bridge-messages` module.
-pub trait ThisChainWithMessages: ChainWithMessages {
+pub trait ThisChainWithMessages: UnderlyingChainProvider {
 	/// Call origin on the chain.
 	type RuntimeOrigin;
 	/// Call type on the chain.
@@ -149,7 +149,7 @@ pub trait ThisChainWithMessages: ChainWithMessages {
 }
 
 /// Bridged chain that has `pallet-bridge-messages` module.
-pub trait BridgedChainWithMessages: ChainWithMessages {
+pub trait BridgedChainWithMessages: UnderlyingChainProvider {
 	/// Returns `true` if message dispatch weight is withing expected limits. `false` means
 	/// that the message is too heavy to be sent over the bridge and shall be rejected.
 	fn verify_dispatch_weight(message_payload: &[u8]) -> bool;
@@ -171,15 +171,15 @@ pub type ThisChain<B> = <B as MessageBridge>::ThisChain;
 /// Bridged chain in context of message bridge.
 pub type BridgedChain<B> = <B as MessageBridge>::BridgedChain;
 /// Underlying chain type.
-pub type UnderlyingChainOf<C> = <C as ChainWithMessages>::Chain;
+pub type UnderlyingChainOf<C> = <C as UnderlyingChainProvider>::Chain;
 /// Hash used on the chain.
-pub type HashOf<C> = bp_runtime::HashOf<<C as ChainWithMessages>::Chain>;
+pub type HashOf<C> = bp_runtime::HashOf<<C as UnderlyingChainProvider>::Chain>;
 /// Hasher used on the chain.
-pub type HasherOf<C> = bp_runtime::HasherOf<<C as ChainWithMessages>::Chain>;
+pub type HasherOf<C> = bp_runtime::HasherOf<UnderlyingChainOf<C>>;
 /// Account id used on the chain.
-pub type AccountIdOf<C> = bp_runtime::AccountIdOf<<C as ChainWithMessages>::Chain>;
+pub type AccountIdOf<C> = bp_runtime::AccountIdOf<UnderlyingChainOf<C>>;
 /// Type of balances that is used on the chain.
-pub type BalanceOf<C> = bp_runtime::BalanceOf<<C as ChainWithMessages>::Chain>;
+pub type BalanceOf<C> = bp_runtime::BalanceOf<UnderlyingChainOf<C>>;
 /// Type of origin that is used on the chain.
 pub type OriginOf<C> = <C as ThisChainWithMessages>::RuntimeOrigin;
 /// Type of call that is used on this chain.
@@ -996,7 +996,7 @@ mod tests {
 
 	struct ThisChain;
 
-	impl ChainWithMessages for ThisChain {
+	impl UnderlyingChainProvider for ThisChain {
 		type Chain = ThisUnderlyingChain;
 	}
 
@@ -1071,7 +1071,7 @@ mod tests {
 
 	struct BridgedChain;
 
-	impl ChainWithMessages for BridgedChain {
+	impl UnderlyingChainProvider for BridgedChain {
 		type Chain = BridgedUnderlyingChain;
 	}
 
