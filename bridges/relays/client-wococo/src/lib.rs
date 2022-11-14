@@ -17,7 +17,7 @@
 //! Types used to connect to the Wococo-Substrate chain.
 
 use frame_support::weights::Weight;
-use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa};
+use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, RelayChain};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -71,4 +71,9 @@ impl ChainWithBalances for Wococo {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
 		StorageKey(bp_wococo::account_info_storage_key(account_id))
 	}
+}
+
+impl RelayChain for Wococo {
+	const PARAS_PALLET_NAME: &'static str = bp_wococo::PARAS_PALLET_NAME;
+	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "bridgeWococoParachain";
 }
