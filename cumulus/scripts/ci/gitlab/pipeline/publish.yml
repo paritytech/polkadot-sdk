@@ -2,7 +2,7 @@
 # Here are all jobs that are executed during "publish" stage
 
 .build-push-image:
-  image:                           quay.io/buildah/stable
+  image:                           quay.io/buildah/stable:v1.27
   variables:
     DOCKERFILE:                    "" # docker/path-to.Dockerfile
     IMAGE_NAME:                    "" # docker.io/paritypr/image_name
