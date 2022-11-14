@@ -14,21 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-// RuntimeApi generated functions
-#![allow(clippy::too_many_arguments)]
+//! Types that are specific to the BridgeHubWococo runtime.
 
-pub use bp_polkadot_core::*;
-pub use bp_rococo::{
-	SS58Prefix, MAX_AUTHORITIES_COUNT, MAX_HEADER_SIZE, MAX_NESTED_PARACHAIN_HEAD_SIZE,
-	PARAS_PALLET_NAME,
-};
-use bp_runtime::decl_bridge_finality_runtime_apis;
+pub use bp_bridge_hub_wococo::SS58Prefix;
 
-/// Wococo Chain
-pub type Wococo = PolkadotLike;
-
-/// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
-pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
-
-decl_bridge_finality_runtime_apis!(wococo);
+// We reuse everything from rococo runtime wrapper
+pub type Call = relay_bridge_hub_rococo_client::runtime::Call;
+pub type UncheckedExtrinsic = bp_bridge_hub_wococo::UncheckedExtrinsic<Call>;
+pub type BridgeGrandpaRococoCall = relay_bridge_hub_rococo_client::runtime::BridgeRococoGrandpaCall;
+pub type BridgeParachainCall = relay_bridge_hub_rococo_client::runtime::BridgeParachainCall;
+pub type BridgeRococoMessagesCall =
+	relay_bridge_hub_rococo_client::runtime::BridgeRococoMessagesCall;
+pub type SystemCall = relay_bridge_hub_rococo_client::runtime::SystemCall;

@@ -79,6 +79,12 @@ pub const ROCOCO_CHAIN_ID: ChainId = *b"roco";
 /// Bridge-with-Wococo instance id.
 pub const WOCOCO_CHAIN_ID: ChainId = *b"woco";
 
+/// Bridge-with-BridgeHubRococo instance id.
+pub const BRIDGE_HUB_ROCOCO_CHAIN_ID: ChainId = *b"bhro";
+
+/// Bridge-with-BridgeHubWococo instance id.
+pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
+
 /// Call-dispatch module prefix.
 pub const CALL_DISPATCH_MODULE_PREFIX: &[u8] = b"pallet-bridge/dispatch";
 
