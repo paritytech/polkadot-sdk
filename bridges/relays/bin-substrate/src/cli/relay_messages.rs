@@ -20,6 +20,8 @@ use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 
 use crate::chains::{
+	bridge_hub_rococo_messages_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoMessagesCliBridge,
+	bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoMessagesCliBridge,
 	millau_headers_to_rialto::MillauToRialtoCliBridge,
 	millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
 	rialto_headers_to_millau::RialtoToMillauCliBridge,
@@ -119,6 +121,8 @@ impl MessagesRelayer for MillauToRialtoCliBridge {}
 impl MessagesRelayer for RialtoToMillauCliBridge {}
 impl MessagesRelayer for MillauToRialtoParachainCliBridge {}
 impl MessagesRelayer for RialtoParachainToMillauCliBridge {}
+impl MessagesRelayer for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {}
+impl MessagesRelayer for BridgeHubWococoToBridgeHubRococoMessagesCliBridge {}
 
 impl RelayMessages {
 	/// Run the command.
@@ -130,6 +134,10 @@ impl RelayMessages {
 				MillauToRialtoParachainCliBridge::relay_messages(self),
 			FullBridge::RialtoParachainToMillau =>
 				RialtoParachainToMillauCliBridge::relay_messages(self),
+			FullBridge::BridgeHubRococoToBridgeHubWococo =>
+				BridgeHubRococoToBridgeHubWococoMessagesCliBridge::relay_messages(self),
+			FullBridge::BridgeHubWococoToBridgeHubRococo =>
+				BridgeHubWococoToBridgeHubRococoMessagesCliBridge::relay_messages(self),
 		}
 		.await
 	}
