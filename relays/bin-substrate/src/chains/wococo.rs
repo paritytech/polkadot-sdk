@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -14,21 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-// RuntimeApi generated functions
-#![allow(clippy::too_many_arguments)]
+//! Wococo + Wococo parachains specification for CLI.
 
-pub use bp_polkadot_core::*;
-pub use bp_rococo::{
-	SS58Prefix, MAX_AUTHORITIES_COUNT, MAX_HEADER_SIZE, MAX_NESTED_PARACHAIN_HEAD_SIZE,
-	PARAS_PALLET_NAME,
-};
-use bp_runtime::decl_bridge_finality_runtime_apis;
+use crate::cli::CliChain;
+use relay_bridge_hub_wococo_client::BridgeHubWococo;
+use relay_wococo_client::Wococo;
+use sp_version::RuntimeVersion;
 
-/// Wococo Chain
-pub type Wococo = PolkadotLike;
+impl CliChain for Wococo {
+	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
 
-/// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
-pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
+	type KeyPair = sp_core::sr25519::Pair;
 
-decl_bridge_finality_runtime_apis!(wococo);
+	fn ss58_format() -> u16 {
+		bp_wococo::SS58Prefix::get() as u16
+	}
+}
+
+impl CliChain for BridgeHubWococo {
+	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
+
+	type KeyPair = sp_core::sr25519::Pair;
+
+	fn ss58_format() -> u16 {
+		relay_bridge_hub_wococo_client::runtime::SS58Prefix::get()
+	}
+}

@@ -20,11 +20,34 @@
 
 pub use bp_polkadot_core::*;
 use bp_runtime::decl_bridge_finality_runtime_apis;
+use frame_support::parameter_types;
 
 /// Rococo Chain
 pub type Rococo = PolkadotLike;
 
+parameter_types! {
+	pub const SS58Prefix: u8 = 42;
+}
+
+/// Name of the parachains pallet in the Rococo runtime.
+pub const PARAS_PALLET_NAME: &str = "Paras";
+
 /// Name of the With-Rococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
+
+/// Maximal SCALE-encoded header size (in bytes) at Rococo.
+///
+/// Let's assume that the largest header is header that enacts new authorities set with
+/// `MAX_AUTHORITES_COUNT`. Every authority means 32-byte key and 8-byte weight. Let's also have
+/// some fixed reserve for other things (digest, block hash and number, ...) as well.
+pub const MAX_HEADER_SIZE: u32 = 4096 + MAX_AUTHORITIES_COUNT * 40;
+
+/// Maximal SCALE-encoded size of parachains headers that are stored at Rococo `Paras` pallet.
+pub const MAX_NESTED_PARACHAIN_HEAD_SIZE: u32 = MAX_HEADER_SIZE;
+
+/// Maximal number of GRANDPA authorities at Rococo.
+///
+/// Corresponds to the `MaxAuthorities` constant value from the Rococo runtime configuration.
+pub const MAX_AUTHORITIES_COUNT: u32 = 100_000;
 
 decl_bridge_finality_runtime_apis!(rococo);

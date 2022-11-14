@@ -16,7 +16,9 @@
 
 use crate::chains::{
 	rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+	rococo_parachains_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoCliBridge,
 	westend_parachains_to_millau::WestmintToMillauCliBridge,
+	wococo_parachains_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoCliBridge,
 };
 use async_std::sync::Mutex;
 use async_trait::async_trait;
@@ -29,7 +31,10 @@ use std::sync::Arc;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 use substrate_relay_helper::{
-	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
+	parachains::{
+		source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter,
+		SubstrateParachainsPipeline,
+	},
 	TransactionParams,
 };
 
@@ -56,7 +61,10 @@ pub struct RelayParachains {
 #[strum(serialize_all = "kebab_case")]
 pub enum RelayParachainsBridge {
 	RialtoToMillau,
+	// TODO:check-parameter - rename to WestmintToMillau?
 	WestendToMillau,
+	BridgeHubRococoToBridgeHubWococo,
+	BridgeHubWococoToBridgeHubRococo,
 }
 
 #[async_trait]
@@ -92,7 +100,7 @@ where
 			target_client,
 			ParachainSyncParams {
 				parachains: vec![
-					ParaId(<Self::ParachainFinality as substrate_relay_helper::parachains::SubstrateParachainsPipeline>::SOURCE_PARACHAIN_PARA_ID)
+					ParaId(<Self::ParachainFinality as SubstrateParachainsPipeline>::SOURCE_PARACHAIN_PARA_ID)
 				],
 				stall_timeout: std::time::Duration::from_secs(60),
 				strategy: parachains_relay::parachains_loop::ParachainSyncStrategy::Any,
@@ -109,6 +117,10 @@ impl ParachainsRelayer for RialtoParachainToMillauCliBridge {}
 
 impl ParachainsRelayer for WestmintToMillauCliBridge {}
 
+impl ParachainsRelayer for BridgeHubRococoToBridgeHubWococoCliBridge {}
+
+impl ParachainsRelayer for BridgeHubWococoToBridgeHubRococoCliBridge {}
+
 impl RelayParachains {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
@@ -117,6 +129,10 @@ impl RelayParachains {
 				RialtoParachainToMillauCliBridge::relay_headers(self),
 			RelayParachainsBridge::WestendToMillau =>
 				WestmintToMillauCliBridge::relay_headers(self),
+			RelayParachainsBridge::BridgeHubRococoToBridgeHubWococo =>
+				BridgeHubRococoToBridgeHubWococoCliBridge::relay_headers(self),
+			RelayParachainsBridge::BridgeHubWococoToBridgeHubRococo =>
+				BridgeHubWococoToBridgeHubRococoCliBridge::relay_headers(self),
 		}
 		.await
 	}
