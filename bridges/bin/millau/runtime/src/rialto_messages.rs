@@ -116,7 +116,7 @@ impl MessageBridge for WithRialtoMessageBridge {
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct Millau;
 
-impl messages::ChainWithMessages for Millau {
+impl messages::UnderlyingChainProvider for Millau {
 	type Chain = bp_millau::Millau;
 }
 
@@ -174,7 +174,7 @@ impl messages::ThisChainWithMessages for Millau {
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct Rialto;
 
-impl messages::ChainWithMessages for Rialto {
+impl messages::UnderlyingChainProvider for Rialto {
 	type Chain = bp_rialto::Rialto;
 }
 
