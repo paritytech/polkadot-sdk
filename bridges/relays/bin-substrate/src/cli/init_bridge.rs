@@ -21,7 +21,9 @@ use crate::{
 		millau_headers_to_rialto::MillauToRialtoCliBridge,
 		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
 		rialto_headers_to_millau::RialtoToMillauCliBridge,
+		rococo_headers_to_bridge_hub_wococo::RococoToBridgeHubWococoCliBridge,
 		westend_headers_to_millau::WestendToMillauCliBridge,
+		wococo_headers_to_bridge_hub_rococo::WococoToBridgeHubRococoCliBridge,
 	},
 	cli::{bridge::CliBridgeBase, chain_schema::*},
 };
@@ -54,6 +56,8 @@ pub enum InitBridgeName {
 	RialtoToMillau,
 	WestendToMillau,
 	MillauToRialtoParachain,
+	RococoToBridgeHubWococo,
+	WococoToBridgeHubRococo,
 }
 
 #[async_trait]
@@ -163,6 +167,30 @@ impl BridgeInitializer for WestendToMillauCliBridge {
 	}
 }
 
+impl BridgeInitializer for RococoToBridgeHubWococoCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		relay_bridge_hub_wococo_client::runtime::Call::BridgeRococoGrandpa(
+			relay_bridge_hub_wococo_client::runtime::BridgeGrandpaRococoCall::initialize(init_data),
+		)
+	}
+}
+
+impl BridgeInitializer for WococoToBridgeHubRococoCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		relay_bridge_hub_rococo_client::runtime::Call::BridgeWococoGrandpa(
+			relay_bridge_hub_rococo_client::runtime::BridgeWococoGrandpaCall::initialize(init_data),
+		)
+	}
+}
+
 impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
@@ -172,6 +200,10 @@ impl InitBridge {
 			InitBridgeName::WestendToMillau => WestendToMillauCliBridge::init_bridge(self),
 			InitBridgeName::MillauToRialtoParachain =>
 				MillauToRialtoParachainCliBridge::init_bridge(self),
+			InitBridgeName::RococoToBridgeHubWococo =>
+				RococoToBridgeHubWococoCliBridge::init_bridge(self),
+			InitBridgeName::WococoToBridgeHubRococo =>
+				WococoToBridgeHubRococoCliBridge::init_bridge(self),
 		}
 		.await
 	}
