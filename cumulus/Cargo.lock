@@ -964,9 +964,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.22"
+version = "4.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91b9970d7505127a162fdaa9b96428d28a479ba78c9ec7550a63a5d9863db682"
+checksum = "389ca505fd2c00136e0d0cd34bcd8b6bd0b59d5779aab396054b716334230c1c"
 dependencies = [
  "atty",
  "bitflags",
@@ -1506,7 +1506,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.0.22",
+ "clap 4.0.25",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -2132,7 +2132,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.0.22",
+ "clap 4.0.25",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -2884,7 +2884,7 @@ dependencies = [
  "Inflector",
  "array-bytes",
  "chrono",
- "clap 4.0.22",
+ "clap 4.0.25",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -6380,7 +6380,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.0.22",
+ "clap 4.0.25",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -6970,7 +6970,7 @@ name = "polkadot-cli"
 version = "0.9.31"
 source = "git+https://github.com/paritytech/polkadot?branch=master#756ccc35e93d1a78e3c71a0e67ae4da5f1d09f69"
 dependencies = [
- "clap 4.0.22",
+ "clap 4.0.25",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -7632,7 +7632,7 @@ version = "0.9.320"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 4.0.22",
+ "clap 4.0.25",
  "collectives-polkadot-runtime",
  "contracts-rococo-runtime",
  "cumulus-client-cli",
@@ -9264,7 +9264,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#108d8eed88e7
 dependencies = [
  "array-bytes",
  "chrono",
- "clap 4.0.22",
+ "clap 4.0.25",
  "fdlimit",
  "futures",
  "libp2p",
@@ -12382,7 +12382,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#108d8eed88e71b5bb676a23fe983174fabf43c35"
 dependencies = [
- "clap 4.0.22",
+ "clap 4.0.25",
  "frame-try-runtime",
  "log",
  "parity-scale-codec",
