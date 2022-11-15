@@ -46,10 +46,10 @@ fi
 
 for pallet in ${pallets[@]}
 do
-	# a little hack for xcm benchmarks
 	output_file="${pallet//::/_}"
 	extra_args=""
-  if [[ "$pallet" == *"xcm"* ]]; then
+	# a little hack for pallet_xcm_benchmarks - we want to force custom implementation for XcmWeightInfo
+  if [[ "$pallet" == "pallet_xcm_benchmarks::generic" ]] || [[ "$pallet" == "pallet_xcm_benchmarks::fungible" ]]; then
 		output_file="xcm/$output_file"
 		extra_args="--template=./templates/xcm-bench-template.hbs"
   fi
