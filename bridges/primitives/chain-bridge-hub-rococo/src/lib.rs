@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -21,19 +21,51 @@
 
 use bp_messages::*;
 pub use bp_polkadot_core::*;
-use bp_runtime::{decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+};
 use frame_support::{
+	dispatch::DispatchClass,
 	parameter_types,
 	sp_runtime::{FixedU128, MultiAddress, MultiSigner},
 	weights::{
 		constants::ExtrinsicBaseWeight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 		WeightToFeePolynomial,
 	},
-	Parameter,
+	Parameter, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
-pub type BridgeHubRococo = PolkadotLike;
+/// BridgeHubRococo parachain.
+#[derive(RuntimeDebug)]
+pub struct BridgeHubRococo;
+
+impl Chain for BridgeHubRococo {
+	type BlockNumber = BlockNumber;
+	type Hash = Hash;
+	type Hasher = Hasher;
+	type Header = Header;
+
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Index = Index;
+	type Signature = Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		*BlockLength::get().max.get(DispatchClass::Normal)
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_extrinsic
+			.unwrap_or(Weight::MAX)
+	}
+}
+
+impl Parachain for BridgeHubRococo {
+	const PARACHAIN_ID: u32 = BRIDGE_HUB_ROCOCO_PARACHAIN_ID;
+}
 
 /// [`WeightToFee`] should reflect cumulus/bridge-hub-rococo-runtime [`WeightToFee`]
 pub struct WeightToFee;
