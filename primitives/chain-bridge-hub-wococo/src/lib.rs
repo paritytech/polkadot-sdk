@@ -25,19 +25,50 @@
 // Re-export only what is really needed
 pub use bp_bridge_hub_rococo::{
 	account_info_storage_key, AccountId, AccountPublic, AccountSigner, Address, Balance,
-	BlockNumber, Hash, Hashing, Header, Nonce, SS58Prefix, Signature, SignedBlock,
-	SignedExtensions, UncheckedExtrinsic, WeightToFee, ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT,
-	DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT, EXTRA_STORAGE_PROOF_SIZE,
-	MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
+	BlockLength, BlockNumber, BlockWeights, Hash, Hasher, Hashing, Header, Index, Nonce,
+	SS58Prefix, Signature, SignedBlock, SignedExtensions, UncheckedExtrinsic, WeightToFee,
+	ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT, DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,
+	EXTRA_STORAGE_PROOF_SIZE, MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
 	MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX, MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 	PAY_INBOUND_DISPATCH_FEE_WEIGHT, TX_EXTRA_BYTES,
 };
 use bp_messages::*;
-use bp_runtime::{decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis};
-use frame_support::{sp_runtime::FixedU128, Parameter};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+};
+use frame_support::{dispatch::DispatchClass, sp_runtime::FixedU128, Parameter, RuntimeDebug};
 use sp_std::prelude::*;
 
-pub type BridgeHubWococo = bp_bridge_hub_rococo::BridgeHubRococo;
+/// BridgeHubWococo parachain.
+#[derive(RuntimeDebug)]
+pub struct BridgeHubWococo;
+
+impl Chain for BridgeHubWococo {
+	type BlockNumber = BlockNumber;
+	type Hash = Hash;
+	type Hasher = Hasher;
+	type Header = Header;
+
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Index = Index;
+	type Signature = Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		*BlockLength::get().max.get(DispatchClass::Normal)
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_extrinsic
+			.unwrap_or(Weight::MAX)
+	}
+}
+
+impl Parachain for BridgeHubWococo {
+	const PARACHAIN_ID: u32 = BRIDGE_HUB_WOCOCO_PARACHAIN_ID;
+}
 
 /// Identifier of BridgeHubWococo in the Wococo relay chain.
 pub const BRIDGE_HUB_WOCOCO_PARACHAIN_ID: u32 = 1013;
