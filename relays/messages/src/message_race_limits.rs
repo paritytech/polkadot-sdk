@@ -17,43 +17,88 @@
 //! enforcement strategy
 
 use num_traits::Zero;
+use std::ops::Range;
 
 use bp_messages::{MessageNonce, Weight};
-use bp_runtime::messages::DispatchFeePayment;
 
 use crate::{
 	message_lane::MessageLane,
 	message_lane_loop::{
-		MessageDetails, SourceClient as MessageLaneSourceClient,
+		MessageDetails, MessageDetailsMap, SourceClient as MessageLaneSourceClient,
 		TargetClient as MessageLaneTargetClient,
 	},
 	message_race_loop::NoncesRange,
-	relay_strategy::{RelayMessagesBatchReference, RelayReference, RelayStrategy},
+	message_race_strategy::SourceRangesQueue,
+	metrics::MessageLaneLoopMetrics,
 };
 
-/// Do hard check and run soft check strategy
+/// Reference data for participating in relay
+pub struct RelayReference<
+	P: MessageLane,
+	SourceClient: MessageLaneSourceClient<P>,
+	TargetClient: MessageLaneTargetClient<P>,
+> {
+	/// The client that is connected to the message lane source node.
+	pub lane_source_client: SourceClient,
+	/// The client that is connected to the message lane target node.
+	pub lane_target_client: TargetClient,
+	/// Metrics reference.
+	pub metrics: Option<MessageLaneLoopMetrics>,
+	/// Messages size summary
+	pub selected_size: u32,
+
+	/// Hard check begin nonce
+	pub hard_selected_begin_nonce: MessageNonce,
+
+	/// Index by all ready nonces
+	pub index: usize,
+	/// Current nonce
+	pub nonce: MessageNonce,
+	/// Current nonce details
+	pub details: MessageDetails<P::SourceChainBalance>,
+}
+
+/// Relay reference data
+pub struct RelayMessagesBatchReference<
+	P: MessageLane,
+	SourceClient: MessageLaneSourceClient<P>,
+	TargetClient: MessageLaneTargetClient<P>,
+> {
+	/// Maximal number of relayed messages in single delivery transaction.
+	pub max_messages_in_this_batch: MessageNonce,
+	/// Maximal cumulative dispatch weight of relayed messages in single delivery transaction.
+	pub max_messages_weight_in_single_batch: Weight,
+	/// Maximal cumulative size of relayed messages in single delivery transaction.
+	pub max_messages_size_in_single_batch: u32,
+	/// The client that is connected to the message lane source node.
+	pub lane_source_client: SourceClient,
+	/// The client that is connected to the message lane target node.
+	pub lane_target_client: TargetClient,
+	/// Metrics reference.
+	pub metrics: Option<MessageLaneLoopMetrics>,
+	/// Source queue.
+	pub nonces_queue: SourceRangesQueue<
+		P::SourceHeaderHash,
+		P::SourceHeaderNumber,
+		MessageDetailsMap<P::SourceChainBalance>,
+	>,
+	/// Source queue range
+	pub nonces_queue_range: Range<usize>,
+}
+
+/// Limits of the message race transactions.
 #[derive(Clone)]
-pub struct EnforcementStrategy<Strategy: RelayStrategy> {
-	strategy: Strategy,
-}
+pub struct MessageRaceLimits;
 
-impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
-	pub fn new(strategy: Strategy) -> Self {
-		Self { strategy }
-	}
-}
-
-impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
+impl MessageRaceLimits {
 	pub async fn decide<
 		P: MessageLane,
 		SourceClient: MessageLaneSourceClient<P>,
 		TargetClient: MessageLaneTargetClient<P>,
 	>(
-		&mut self,
 		reference: RelayMessagesBatchReference<P, SourceClient, TargetClient>,
 	) -> Option<MessageNonce> {
 		let mut hard_selected_count = 0;
-		let mut soft_selected_count = 0;
 
 		let mut selected_weight = Weight::zero();
 		let mut selected_count: MessageNonce = 0;
@@ -67,17 +112,9 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 			lane_target_client: reference.lane_target_client.clone(),
 			metrics: reference.metrics.clone(),
 
-			selected_reward: P::SourceChainBalance::zero(),
-			selected_cost: P::SourceChainBalance::zero(),
 			selected_size: 0,
 
-			total_reward: P::SourceChainBalance::zero(),
-			total_confirmations_cost: P::SourceChainBalance::zero(),
-			total_cost: P::SourceChainBalance::zero(),
-
 			hard_selected_begin_nonce,
-			selected_prepaid_nonces: 0,
-			selected_unpaid_weight: Weight::zero(),
 
 			index: 0,
 			nonce: 0,
@@ -85,7 +122,6 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 				dispatch_weight: Weight::zero(),
 				size: 0,
 				reward: P::SourceChainBalance::zero(),
-				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 			},
 		};
 
@@ -148,74 +184,14 @@ impl<Strategy: RelayStrategy> EnforcementStrategy<Strategy> {
 			}
 			relay_reference.selected_size = new_selected_size;
 
-			// If dispatch fee has been paid at the source chain, it means that it is **relayer**
-			// who's paying for dispatch at the target chain AND reward must cover this dispatch
-			// fee.
-			//
-			// If dispatch fee is paid at the target chain, it means that it'll be withdrawn from
-			// the dispatch origin account AND reward is not covering this fee.
-			//
-			// So in the latter case we're not adding the dispatch weight to the delivery
-			// transaction weight.
-			let mut new_selected_prepaid_nonces = relay_reference.selected_prepaid_nonces;
-			let new_selected_unpaid_weight = match details.dispatch_fee_payment {
-				DispatchFeePayment::AtSourceChain => {
-					new_selected_prepaid_nonces += 1;
-					relay_reference.selected_unpaid_weight.saturating_add(details.dispatch_weight)
-				},
-				DispatchFeePayment::AtTargetChain => relay_reference.selected_unpaid_weight,
-			};
-			relay_reference.selected_prepaid_nonces = new_selected_prepaid_nonces;
-			relay_reference.selected_unpaid_weight = new_selected_unpaid_weight;
-
-			// now the message has passed all 'strong' checks, and we CAN deliver it. But do we WANT
-			// to deliver it? It depends on the relayer strategy.
-			if self.strategy.decide(&mut relay_reference).await {
-				soft_selected_count = index + 1;
-			}
-
 			hard_selected_count = index + 1;
 			selected_weight = new_selected_weight;
 			selected_count = new_selected_count;
 		}
 
-		if hard_selected_count != soft_selected_count {
-			let hard_selected_end_nonce =
-				hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
-			let soft_selected_begin_nonce = hard_selected_begin_nonce;
-			let soft_selected_end_nonce =
-				soft_selected_begin_nonce + soft_selected_count as MessageNonce - 1;
-			log::warn!(
-				target: "bridge",
-				"Relayer may deliver nonces [{:?}; {:?}], but because of its strategy it has selected \
-				nonces [{:?}; {:?}].",
-				hard_selected_begin_nonce,
-				hard_selected_end_nonce,
-				soft_selected_begin_nonce,
-				soft_selected_end_nonce,
-			);
-
-			hard_selected_count = soft_selected_count;
-		}
-
 		if hard_selected_count != 0 {
-			if relay_reference.selected_reward != P::SourceChainBalance::zero() &&
-				relay_reference.selected_cost != P::SourceChainBalance::zero()
-			{
-				log::trace!(
-					target: "bridge",
-					"Expected reward from delivering nonces [{:?}; {:?}] is: {:?} - {:?} = {:?}",
-					hard_selected_begin_nonce,
-					hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1,
-					&relay_reference.selected_reward,
-					&relay_reference.selected_cost,
-					relay_reference.selected_reward - relay_reference.selected_cost,
-				);
-			}
-
 			let selected_max_nonce =
 				hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
-			self.strategy.on_final_decision(&relay_reference);
 			Some(selected_max_nonce)
 		} else {
 			None

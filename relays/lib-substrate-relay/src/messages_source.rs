@@ -31,13 +31,11 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
-	InboundMessageDetails, LaneId, MessageData, MessageNonce, MessagePayload,
-	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails, UnrewardedRelayersState,
+	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, MessagesOperatingMode,
+	OutboundLaneData, OutboundMessageDetails,
 };
-use bp_runtime::{messages::DispatchFeePayment, BasicOperatingMode, HeaderIdProvider};
-use bridge_runtime_common::messages::{
-	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-};
+use bp_runtime::{BasicOperatingMode, HeaderIdProvider};
+use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use messages_relay::{
@@ -47,11 +45,11 @@ use messages_relay::{
 		SourceClientState,
 	},
 };
-use num_traits::{Bounded, Zero};
+use num_traits::Zero;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages,
-	ChainWithTransactions, Client, Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam,
-	TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages, Client,
+	Error as SubstrateError, HashOf, HeaderIdOf, IndexOf, SignParam, TransactionEra,
+	TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -62,7 +60,7 @@ use std::ops::RangeInclusive;
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
 /// the proof itself.
 pub type SubstrateMessagesProof<C> = (Weight, FromBridgedChainMessagesProof<HashOf<C>>);
-type MessagesToRefine<'a, Balance> = Vec<(MessagePayload, &'a mut OutboundMessageDetails<Balance>)>;
+type MessagesToRefine<'a> = Vec<(MessagePayload, &'a mut OutboundMessageDetails)>;
 
 /// Substrate client as Substrate messages source.
 pub struct SubstrateMessagesSource<P: SubstrateMessageLane> {
@@ -207,9 +205,7 @@ where
 		// prepare arguments of the inbound message details call (if we need it)
 		let mut msgs_to_refine = vec![];
 		for out_msg_details in out_msgs_details.iter_mut() {
-			if out_msg_details.dispatch_fee_payment != DispatchFeePayment::AtTargetChain {
-				continue
-			}
+			// in our current strategy all messages are supposed to be paid at the target chain
 
 			// for pay-at-target messages we may want to ask target chain for
 			// refined dispatch weight
@@ -218,7 +214,7 @@ where
 				&self.lane_id,
 				out_msg_details.nonce,
 			);
-			let msg_data: MessageData<BalanceOf<P::SourceChain>> =
+			let msg_payload: MessagePayload =
 				self.source_client.storage_value(msg_key, Some(id.1)).await?.ok_or_else(|| {
 					SubstrateError::Custom(format!(
 						"Message to {} {:?}/{} is missing from runtime the storage of {} at {:?}",
@@ -230,7 +226,7 @@ where
 					))
 				})?;
 
-			msgs_to_refine.push((msg_data.payload, out_msg_details));
+			msgs_to_refine.push((msg_payload, out_msg_details));
 		}
 
 		for mut msgs_to_refine_batch in
@@ -277,8 +273,7 @@ where
 				MessageDetails {
 					dispatch_weight: out_msg_details.dispatch_weight,
 					size: out_msg_details.size as _,
-					reward: out_msg_details.delivery_and_dispatch_fee,
-					dispatch_fee_payment: out_msg_details.dispatch_fee_payment,
+					reward: Zero::zero(),
 				},
 			);
 		}
@@ -370,39 +365,6 @@ where
 			target_to_source_headers_relay.require_more_headers(id.0).await;
 		}
 	}
-
-	async fn estimate_confirmation_transaction(
-		&self,
-	) -> <MessageLaneAdapter<P> as MessageLane>::SourceChainBalance {
-		let runtime_version = match self.source_client.runtime_version().await {
-			Ok(v) => v,
-			Err(_) => return BalanceOf::<P::SourceChain>::max_value(),
-		};
-		async {
-			let dummy_tx = P::SourceChain::sign_transaction(
-				SignParam::<P::SourceChain> {
-					spec_version: runtime_version.spec_version,
-					transaction_version: runtime_version.transaction_version,
-					genesis_hash: *self.source_client.genesis_hash(),
-					signer: self.transaction_params.signer.clone(),
-				},
-				make_messages_delivery_proof_transaction::<P>(
-					&self.transaction_params,
-					HeaderId(Default::default(), Default::default()),
-					Zero::zero(),
-					prepare_dummy_messages_delivery_proof::<P::SourceChain, P::TargetChain>(),
-					false,
-				)?,
-			)?
-			.encode();
-			self.source_client
-				.estimate_extrinsic_fee(Bytes(dummy_tx))
-				.await
-				.map(|fee| fee.inclusion_fee())
-		}
-		.await
-		.unwrap_or_else(|_| BalanceOf::<P::SourceChain>::max_value())
-	}
 }
 
 /// Ensure that the messages pallet at source chain is active.
@@ -439,30 +401,6 @@ fn make_messages_delivery_proof_transaction<P: SubstrateMessageLane>(
 		);
 	Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
 		.era(TransactionEra::new(source_best_block_id, source_transaction_params.mortality)))
-}
-
-/// Prepare 'dummy' messages delivery proof that will compose the delivery confirmation transaction.
-///
-/// We don't care about proof actually being the valid proof, because its validity doesn't
-/// affect the call weight - we only care about its size.
-fn prepare_dummy_messages_delivery_proof<SC: Chain, TC: Chain>(
-) -> SubstrateMessagesDeliveryProof<TC> {
-	let single_message_confirmation_size =
-		bp_messages::InboundLaneData::<()>::encoded_size_hint_u32(1, 1);
-	let proof_size = TC::STORAGE_PROOF_OVERHEAD.saturating_add(single_message_confirmation_size);
-	(
-		UnrewardedRelayersState {
-			unrewarded_relayer_entries: 1,
-			messages_in_oldest_entry: 1,
-			total_messages: 1,
-			last_delivered_nonce: 1,
-		},
-		FromBridgedChainMessagesDeliveryProof {
-			bridged_header_hash: Default::default(),
-			storage_proof: vec![vec![0; proof_size as usize]],
-			lane: Default::default(),
-		},
-	)
 }
 
 /// Read best blocks from given client.
@@ -552,7 +490,7 @@ where
 }
 
 fn validate_out_msgs_details<C: Chain>(
-	out_msgs_details: &[OutboundMessageDetails<C::Balance>],
+	out_msgs_details: &[OutboundMessageDetails],
 	nonces: RangeInclusive<MessageNonce>,
 ) -> Result<(), SubstrateError> {
 	let make_missing_nonce_error = |expected_nonce| {
@@ -601,8 +539,8 @@ fn validate_out_msgs_details<C: Chain>(
 
 fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain>(
 	lane_id: LaneId,
-	msgs_to_refine: MessagesToRefine<Source::Balance>,
-) -> Result<Vec<MessagesToRefine<Source::Balance>>, SubstrateError> {
+	msgs_to_refine: MessagesToRefine,
+) -> Result<Vec<MessagesToRefine>, SubstrateError> {
 	let max_batch_size = Target::max_extrinsic_size() as usize;
 	let mut batches = vec![];
 
@@ -635,23 +573,20 @@ fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_runtime::{messages::DispatchFeePayment, Chain as ChainBase};
-	use codec::MaxEncodedLen;
+	use bp_runtime::Chain as ChainBase;
 	use relay_rialto_client::Rialto;
 	use relay_rococo_client::Rococo;
 	use relay_wococo_client::Wococo;
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
-	) -> Vec<OutboundMessageDetails<bp_wococo::Balance>> {
+	) -> Vec<OutboundMessageDetails> {
 		nonces
 			.into_iter()
 			.map(|nonce| bp_messages::OutboundMessageDetails {
 				nonce,
 				dispatch_weight: Weight::zero(),
 				size: 0,
-				delivery_and_dispatch_fee: 0,
-				dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 			})
 			.collect()
 	}
@@ -704,31 +639,16 @@ mod tests {
 		));
 	}
 
-	#[test]
-	fn prepare_dummy_messages_delivery_proof_works() {
-		let expected_minimal_size =
-			bp_wococo::AccountId::max_encoded_len() as u32 + Rococo::STORAGE_PROOF_OVERHEAD;
-		let dummy_proof = prepare_dummy_messages_delivery_proof::<Wococo, Rococo>();
-		assert!(
-			dummy_proof.1.encode().len() as u32 > expected_minimal_size,
-			"Expected proof size at least {}. Got: {}",
-			expected_minimal_size,
-			dummy_proof.1.encode().len(),
-		);
-	}
-
 	fn check_split_msgs_to_refine(
 		payload_sizes: Vec<usize>,
 		expected_batches: Result<Vec<usize>, ()>,
 	) {
 		let mut out_msgs_details = vec![];
 		for (idx, _) in payload_sizes.iter().enumerate() {
-			out_msgs_details.push(OutboundMessageDetails::<BalanceOf<Rialto>> {
+			out_msgs_details.push(OutboundMessageDetails {
 				nonce: idx as MessageNonce,
 				dispatch_weight: Weight::zero(),
 				size: 0,
-				delivery_and_dispatch_fee: 0,
-				dispatch_fee_payment: DispatchFeePayment::AtTargetChain,
 			});
 		}
 

@@ -17,7 +17,5 @@
 //! Contains several Substrate-specific metrics that may be exposed by relay.
 
 pub use float_storage_value::{FixedU128OrOne, FloatStorageValue, FloatStorageValueMetric};
-pub use storage_proof_overhead::StorageProofOverheadMetric;
 
 mod float_storage_value;
-mod storage_proof_overhead;

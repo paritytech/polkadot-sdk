@@ -21,8 +21,7 @@
 
 use crate::{
 	messages::{
-		source::{FromBridgedChainMessagesDeliveryProof, FromThisChainMessagePayload},
-		target::FromBridgedChainMessagesProof,
+		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 		AccountIdOf, BalanceOf, BridgedChain, CallOf, HashOf, MessageBridge, ThisChain,
 	},
 	messages_generation::{
@@ -34,24 +33,11 @@ use bp_messages::storage_keys;
 use bp_runtime::{record_all_trie_keys, StorageProofSize};
 use codec::Encode;
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
-use pallet_bridge_messages::benchmarking::{
-	MessageDeliveryProofParams, MessageParams, MessageProofParams,
-};
+use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_core::Hasher;
 use sp_runtime::traits::{Header, MaybeSerializeDeserialize, Zero};
 use sp_std::{fmt::Debug, prelude::*};
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
-
-/// Prepare outbound message for the `send_message` call.
-pub fn prepare_outbound_message<B>(
-	params: MessageParams<AccountIdOf<ThisChain<B>>>,
-) -> FromThisChainMessagePayload
-where
-	B: MessageBridge,
-	BalanceOf<ThisChain<B>>: From<u64>,
-{
-	vec![0; params.size as usize]
-}
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///

@@ -20,19 +20,14 @@ use crate::Config;
 
 use bitvec::prelude::*;
 use bp_messages::{
-	DeliveredMessages, DispatchResultsBitVec, LaneId, MessageData, MessageNonce, OutboundLaneData,
-	UnrewardedRelayer,
+	DeliveredMessages, DispatchResultsBitVec, LaneId, MessageNonce, MessagePayload,
+	OutboundLaneData, UnrewardedRelayer,
 };
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use frame_support::{traits::Get, RuntimeDebug};
-use scale_info::{Type, TypeInfo};
+use frame_support::{BoundedVec, RuntimeDebug};
 use sp_std::collections::vec_deque::VecDeque;
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
-	/// Delivery and dispatch fee type on source chain.
-	type MessageFee;
-
 	/// Lane id.
 	fn id(&self) -> LaneId;
 	/// Get lane data from the storage.
@@ -41,64 +36,15 @@ pub trait OutboundLaneStorage {
 	fn set_data(&mut self, data: OutboundLaneData);
 	/// Returns saved outbound message payload.
 	#[cfg(test)]
-	fn message(&self, nonce: &MessageNonce) -> Option<MessageData<Self::MessageFee>>;
+	fn message(&self, nonce: &MessageNonce) -> Option<MessagePayload>;
 	/// Save outbound message in the storage.
-	fn save_message(&mut self, nonce: MessageNonce, message_data: MessageData<Self::MessageFee>);
+	fn save_message(&mut self, nonce: MessageNonce, message_payload: MessagePayload);
 	/// Remove outbound message from the storage.
 	fn remove_message(&mut self, nonce: &MessageNonce);
 }
 
 /// Outbound message data wrapper that implements `MaxEncodedLen`.
-///
-/// We have already had `MaxEncodedLen`-like functionality before, but its usage has
-/// been localized and we haven't been passing it everywhere. This wrapper allows us
-/// to avoid passing these generic bounds all over the code.
-///
-/// The encoding of this type matches encoding of the corresponding `MessageData`.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
-pub struct StoredMessageData<T: Config<I>, I: 'static>(pub MessageData<T::OutboundMessageFee>);
-
-impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredMessageData<T, I> {
-	type Target = MessageData<T::OutboundMessageFee>;
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-impl<T: Config<I>, I: 'static> sp_std::ops::DerefMut for StoredMessageData<T, I> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.0
-	}
-}
-
-impl<T: Config<I>, I: 'static> From<StoredMessageData<T, I>>
-	for MessageData<T::OutboundMessageFee>
-{
-	fn from(data: StoredMessageData<T, I>) -> Self {
-		data.0
-	}
-}
-
-impl<T: Config<I>, I: 'static> TypeInfo for StoredMessageData<T, I> {
-	type Identity = Self;
-
-	fn type_info() -> Type {
-		MessageData::<T::OutboundMessageFee>::type_info()
-	}
-}
-
-impl<T: Config<I>, I: 'static> EncodeLike<StoredMessageData<T, I>>
-	for MessageData<T::OutboundMessageFee>
-{
-}
-
-impl<T: Config<I>, I: 'static> MaxEncodedLen for StoredMessageData<T, I> {
-	fn max_encoded_len() -> usize {
-		T::OutboundMessageFee::max_encoded_len()
-			.saturating_add(T::MaximalOutboundPayloadSize::get() as usize)
-	}
-}
+pub type StoredMessagePayload<T, I> = BoundedVec<u8, <T as Config<I>>::MaximalOutboundPayloadSize>;
 
 /// Result of messages receival confirmation.
 #[derive(RuntimeDebug, PartialEq, Eq)]
@@ -143,12 +89,12 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	/// Send message over lane.
 	///
 	/// Returns new message nonce.
-	pub fn send_message(&mut self, message_data: MessageData<S::MessageFee>) -> MessageNonce {
+	pub fn send_message(&mut self, message_payload: MessagePayload) -> MessageNonce {
 		let mut data = self.storage.data();
 		let nonce = data.latest_generated_nonce + 1;
 		data.latest_generated_nonce = nonce;
 
-		self.storage.save_message(nonce, message_data);
+		self.storage.save_message(nonce, message_payload);
 		self.storage.set_data(data);
 
 		nonce
@@ -295,8 +241,8 @@ mod tests {
 	use super::*;
 	use crate::{
 		mock::{
-			message_data, run_test, unrewarded_relayer, TestRelayer, TestRuntime, REGULAR_PAYLOAD,
-			TEST_LANE_ID,
+			outbound_message_data, run_test, unrewarded_relayer, TestRelayer, TestRuntime,
+			REGULAR_PAYLOAD, TEST_LANE_ID,
 		},
 		outbound_lane,
 	};
@@ -324,9 +270,9 @@ mod tests {
 	) -> ReceivalConfirmationResult {
 		run_test(|| {
 			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			let result = lane.confirm_delivery(3, latest_received_nonce, relayers);
@@ -341,7 +287,7 @@ mod tests {
 		run_test(|| {
 			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 0);
-			assert_eq!(lane.send_message(message_data(REGULAR_PAYLOAD)), 1);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
 			assert!(lane.storage.message(&1).is_some());
 			assert_eq!(lane.storage.data().latest_generated_nonce, 1);
 		});
@@ -351,9 +297,9 @@ mod tests {
 	fn confirm_delivery_works() {
 		run_test(|| {
 			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			assert_eq!(lane.send_message(message_data(REGULAR_PAYLOAD)), 1);
-			assert_eq!(lane.send_message(message_data(REGULAR_PAYLOAD)), 2);
-			assert_eq!(lane.send_message(message_data(REGULAR_PAYLOAD)), 3);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 2);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			assert_eq!(
@@ -369,9 +315,9 @@ mod tests {
 	fn confirm_delivery_rejects_nonce_lesser_than_latest_received() {
 		run_test(|| {
 			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			assert_eq!(
@@ -470,9 +416,9 @@ mod tests {
 			assert_eq!(lane.prune_messages(100), 0);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			// when nothing is confirmed, nothing is pruned
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			assert_eq!(lane.prune_messages(100), 0);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			// after confirmation, some messages are received
@@ -496,9 +442,9 @@ mod tests {
 	fn confirm_delivery_detects_when_more_than_expected_messages_are_confirmed() {
 		run_test(|| {
 			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
-			lane.send_message(message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			assert_eq!(
 				lane.confirm_delivery(0, 3, &unrewarded_relayers(1..=3)),
 				ReceivalConfirmationResult::TryingToConfirmMoreMessagesThanExpected(3),

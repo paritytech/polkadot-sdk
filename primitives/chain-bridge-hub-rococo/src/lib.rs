@@ -27,12 +27,12 @@ use bp_runtime::{
 use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
-	sp_runtime::{FixedU128, MultiAddress, MultiSigner},
+	sp_runtime::{MultiAddress, MultiSigner},
 	weights::{
 		constants::ExtrinsicBaseWeight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 		WeightToFeePolynomial,
 	},
-	Parameter, RuntimeDebug,
+	RuntimeDebug,
 };
 use sp_std::prelude::*;
 

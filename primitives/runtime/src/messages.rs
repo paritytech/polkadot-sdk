@@ -20,20 +20,6 @@ use codec::{Decode, Encode};
 use frame_support::{weights::Weight, RuntimeDebug};
 use scale_info::TypeInfo;
 
-/// Where message dispatch fee is paid?
-#[derive(Encode, Decode, RuntimeDebug, Clone, Copy, PartialEq, Eq, TypeInfo)]
-pub enum DispatchFeePayment {
-	/// The dispatch fee is paid at the source chain.
-	AtSourceChain,
-	/// The dispatch fee is paid at the target chain.
-	///
-	/// The fee will be paid right before the message is dispatched. So in case of any other
-	/// issues (like invalid call encoding, invalid signature, ...) the dispatch module won't
-	/// do any direct transfers. Instead, it'll return fee related to this message dispatch to the
-	/// relayer.
-	AtTargetChain,
-}
-
 /// Message dispatch result.
 #[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct MessageDispatchResult {

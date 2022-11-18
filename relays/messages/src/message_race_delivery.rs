@@ -28,23 +28,23 @@ use crate::{
 		SourceClient as MessageLaneSourceClient, SourceClientState,
 		TargetClient as MessageLaneTargetClient, TargetClientState,
 	},
+	message_race_limits::{MessageRaceLimits, RelayMessagesBatchReference},
 	message_race_loop::{
 		MessageRace, NoncesRange, RaceState, RaceStrategy, SourceClient, SourceClientNonces,
 		TargetClient, TargetClientNonces,
 	},
 	message_race_strategy::BasicStrategy,
 	metrics::MessageLaneLoopMetrics,
-	relay_strategy::{EnforcementStrategy, RelayMessagesBatchReference, RelayStrategy},
 };
 
 /// Run message delivery race.
-pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
+pub async fn run<P: MessageLane>(
 	source_client: impl MessageLaneSourceClient<P>,
 	source_state_updates: impl FusedStream<Item = SourceClientState<P>>,
 	target_client: impl MessageLaneTargetClient<P>,
 	target_state_updates: impl FusedStream<Item = TargetClientState<P>>,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
-	params: MessageDeliveryParams<Strategy>,
+	params: MessageDeliveryParams,
 ) -> Result<(), FailedClient> {
 	crate::message_race_loop::run(
 		MessageDeliveryRaceSource {
@@ -59,7 +59,7 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 			_phantom: Default::default(),
 		},
 		target_state_updates,
-		MessageDeliveryStrategy::<P, Strategy, _, _> {
+		MessageDeliveryStrategy::<P, _, _> {
 			lane_source_client: source_client,
 			lane_target_client: target_client,
 			max_unrewarded_relayer_entries_at_target: params
@@ -68,7 +68,6 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 			max_messages_in_single_batch: params.max_messages_in_single_batch,
 			max_messages_weight_in_single_batch: params.max_messages_weight_in_single_batch,
 			max_messages_size_in_single_batch: params.max_messages_size_in_single_batch,
-			relay_strategy: params.relay_strategy,
 			latest_confirmed_nonces_at_source: VecDeque::new(),
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
@@ -231,7 +230,7 @@ struct DeliveryRaceTargetNoncesData {
 }
 
 /// Messages delivery strategy.
-struct MessageDeliveryStrategy<P: MessageLane, Strategy: RelayStrategy, SC, TC> {
+struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
 	/// The client that is connected to the message lane source node.
 	lane_source_client: SC,
 	/// The client that is connected to the message lane target node.
@@ -246,8 +245,6 @@ struct MessageDeliveryStrategy<P: MessageLane, Strategy: RelayStrategy, SC, TC> 
 	max_messages_weight_in_single_batch: Weight,
 	/// Maximal messages size in the single delivery transaction.
 	max_messages_size_in_single_batch: u32,
-	/// Relayer operating mode.
-	relay_strategy: Strategy,
 	/// Latest confirmed nonces at the source client + the header id where we have first met this
 	/// nonce.
 	latest_confirmed_nonces_at_source: VecDeque<(SourceHeaderIdOf<P>, MessageNonce)>,
@@ -268,9 +265,7 @@ type MessageDeliveryStrategyBase<P> = BasicStrategy<
 	<P as MessageLane>::MessagesProof,
 >;
 
-impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> std::fmt::Debug
-	for MessageDeliveryStrategy<P, Strategy, SC, TC>
-{
+impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, TC> {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		fmt.debug_struct("MessageDeliveryStrategy")
 			.field(
@@ -288,7 +283,7 @@ impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> std::fmt::Debug
 	}
 }
 
-impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> MessageDeliveryStrategy<P, Strategy, SC, TC> {
+impl<P: MessageLane, SC, TC> MessageDeliveryStrategy<P, SC, TC> {
 	/// Returns total weight of all undelivered messages.
 	fn total_queued_dispatch_weight(&self) -> Weight {
 		self.strategy
@@ -300,9 +295,8 @@ impl<P: MessageLane, Strategy: RelayStrategy, SC, TC> MessageDeliveryStrategy<P,
 }
 
 #[async_trait]
-impl<P, Strategy: RelayStrategy, SC, TC>
-	RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
-	for MessageDeliveryStrategy<P, Strategy, SC, TC>
+impl<P, SC, TC> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
+	for MessageDeliveryStrategy<P, SC, TC>
 where
 	P: MessageLane,
 	SC: MessageLaneSourceClient<P>,
@@ -524,8 +518,7 @@ where
 			metrics: self.metrics_msg.clone(),
 		};
 
-		let mut strategy = EnforcementStrategy::new(self.relay_strategy.clone());
-		let range_end = strategy.decide(reference).await?;
+		let range_end = MessageRaceLimits::decide(reference).await?;
 
 		let range_begin = source_queue[0].1.begin();
 		let selected_nonces = range_begin..=range_end;
@@ -562,38 +555,27 @@ impl<SourceChainBalance: std::fmt::Debug> NoncesRange for MessageDetailsMap<Sour
 
 #[cfg(test)]
 mod tests {
-	use bp_runtime::messages::DispatchFeePayment;
-
-	use crate::{
-		message_lane_loop::{
-			tests::{
-				header_id, TestMessageLane, TestMessagesProof, TestSourceChainBalance,
-				TestSourceClient, TestSourceHeaderId, TestTargetClient, TestTargetHeaderId,
-				BASE_MESSAGE_DELIVERY_TRANSACTION_COST, CONFIRMATION_TRANSACTION_COST,
-			},
-			MessageDetails, RelayerMode,
+	use crate::message_lane_loop::{
+		tests::{
+			header_id, TestMessageLane, TestMessagesProof, TestSourceChainBalance,
+			TestSourceClient, TestSourceHeaderId, TestTargetClient, TestTargetHeaderId,
 		},
-		relay_strategy::MixStrategy,
+		MessageDetails,
 	};
 
 	use super::*;
 
 	const DEFAULT_DISPATCH_WEIGHT: Weight = Weight::from_ref_time(1);
 	const DEFAULT_SIZE: u32 = 1;
-	const DEFAULT_REWARD: TestSourceChainBalance = CONFIRMATION_TRANSACTION_COST +
-		BASE_MESSAGE_DELIVERY_TRANSACTION_COST +
-		DEFAULT_DISPATCH_WEIGHT.ref_time() +
-		(DEFAULT_SIZE as TestSourceChainBalance);
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
 	type TestStrategy =
-		MessageDeliveryStrategy<TestMessageLane, MixStrategy, TestSourceClient, TestTargetClient>;
+		MessageDeliveryStrategy<TestMessageLane, TestSourceClient, TestTargetClient>;
 
 	fn source_nonces(
 		new_nonces: RangeInclusive<MessageNonce>,
 		confirmed_nonce: MessageNonce,
 		reward: TestSourceChainBalance,
-		dispatch_fee_payment: DispatchFeePayment,
 	) -> SourceClientNonces<MessageDetailsMap<TestSourceChainBalance>> {
 		SourceClientNonces {
 			new_nonces: new_nonces
@@ -605,7 +587,6 @@ mod tests {
 							dispatch_weight: DEFAULT_DISPATCH_WEIGHT,
 							size: DEFAULT_SIZE,
 							reward,
-							dispatch_fee_payment,
 						},
 					)
 				})
@@ -648,13 +629,11 @@ mod tests {
 				},
 			}),
 			strategy: BasicStrategy::new(),
-			relay_strategy: MixStrategy::new(RelayerMode::Altruistic),
 		};
 
-		race_strategy.strategy.source_nonces_updated(
-			header_id(1),
-			source_nonces(20..=23, 19, DEFAULT_REWARD, DispatchFeePayment::AtSourceChain),
-		);
+		race_strategy
+			.strategy
+			.source_nonces_updated(header_id(1), source_nonces(20..=23, 19, 0));
 
 		let target_nonces = TargetClientNonces { latest_nonce: 19, nonces_data: () };
 		race_strategy
@@ -687,7 +666,6 @@ mod tests {
 							dispatch_weight: Weight::from_ref_time(idx),
 							size: idx as _,
 							reward: idx as _,
-							dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 						},
 					)
 				})
@@ -979,83 +957,6 @@ mod tests {
 	}
 
 	#[async_std::test]
-	async fn rational_relayer_is_delivering_messages_if_cost_is_equal_to_reward() {
-		let (state, mut strategy) = prepare_strategy();
-		strategy.relay_strategy = MixStrategy::new(RelayerMode::Rational);
-
-		// so now we have:
-		// - 20..=23 with reward = cost
-		// => strategy shall select all 20..=23
-		assert_eq!(
-			strategy.select_nonces_to_deliver(state).await,
-			Some(((20..=23), proof_parameters(false, 4)))
-		);
-	}
-
-	#[async_std::test]
-	async fn rational_relayer_is_not_delivering_messages_if_cost_is_larger_than_reward() {
-		let (mut state, mut strategy) = prepare_strategy();
-		let nonces = source_nonces(
-			24..=25,
-			19,
-			DEFAULT_REWARD - BASE_MESSAGE_DELIVERY_TRANSACTION_COST,
-			DispatchFeePayment::AtSourceChain,
-		);
-		strategy.strategy.source_nonces_updated(header_id(2), nonces);
-		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
-		strategy.relay_strategy = MixStrategy::new(RelayerMode::Rational);
-
-		// so now we have:
-		// - 20..=23 with reward = cost
-		// - 24..=25 with reward less than cost
-		// => strategy shall only select 20..=23
-		assert_eq!(
-			strategy.select_nonces_to_deliver(state).await,
-			Some(((20..=23), proof_parameters(false, 4)))
-		);
-	}
-
-	#[async_std::test]
-	async fn rational_relayer_is_delivering_unpaid_messages() {
-		async fn test_with_dispatch_fee_payment(
-			dispatch_fee_payment: DispatchFeePayment,
-		) -> Option<(RangeInclusive<MessageNonce>, MessageProofParameters)> {
-			let (mut state, mut strategy) = prepare_strategy();
-			let nonces = source_nonces(
-				24..=24,
-				19,
-				DEFAULT_REWARD - DEFAULT_DISPATCH_WEIGHT.ref_time(),
-				dispatch_fee_payment,
-			);
-			strategy.strategy.source_nonces_updated(header_id(2), nonces);
-			state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
-			strategy.max_unrewarded_relayer_entries_at_target = 100;
-			strategy.max_unconfirmed_nonces_at_target = 100;
-			strategy.max_messages_in_single_batch = 100;
-			strategy.max_messages_weight_in_single_batch = Weight::from_ref_time(100);
-			strategy.max_messages_size_in_single_batch = 100;
-			strategy.relay_strategy = MixStrategy::new(RelayerMode::Rational);
-
-			// so now we have:
-			// - 20..=23 with reward = cost
-			// - 24..=24 with reward less than cost, but we're deducting `DEFAULT_DISPATCH_WEIGHT`
-			//   from the cost, so it should be fine;
-			// => when MSG#24 fee is paid at the target chain, strategy shall select all 20..=24
-			// => when MSG#25 fee is paid at the source chain, strategy shall only select 20..=23
-			strategy.select_nonces_to_deliver(state).await
-		}
-
-		assert_eq!(
-			test_with_dispatch_fee_payment(DispatchFeePayment::AtTargetChain).await,
-			Some(((20..=24), proof_parameters(false, 5)))
-		);
-		assert_eq!(
-			test_with_dispatch_fee_payment(DispatchFeePayment::AtSourceChain).await,
-			Some(((20..=23), proof_parameters(false, 4)))
-		);
-	}
-
-	#[async_std::test]
 	async fn relayer_uses_flattened_view_of_the_source_queue_to_select_nonces() {
 		// Real scenario that has happened on test deployments:
 		// 1) relayer witnessed M1 at block 1 => it has separate entry in the `source_queue`
@@ -1066,7 +967,7 @@ mod tests {
 		// This was happening because selector (`select_nonces_for_delivery_transaction`) has been
 		// called for every `source_queue` entry separately without preserving any context.
 		let (mut state, mut strategy) = prepare_strategy();
-		let nonces = source_nonces(24..=25, 19, DEFAULT_REWARD, DispatchFeePayment::AtSourceChain);
+		let nonces = source_nonces(24..=25, 19, 0);
 		strategy.strategy.source_nonces_updated(header_id(2), nonces);
 		strategy.max_unrewarded_relayer_entries_at_target = 100;
 		strategy.max_unconfirmed_nonces_at_target = 100;

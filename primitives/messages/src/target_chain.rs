@@ -16,7 +16,7 @@
 
 //! Primitives of messages module, that are used on the target chain.
 
-use crate::{LaneId, Message, MessageData, MessageKey, OutboundLaneData};
+use crate::{LaneId, Message, MessageKey, MessagePayload, OutboundLaneData};
 
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode, Error as CodecError};
@@ -38,20 +38,18 @@ pub struct ProvedLaneMessages<Message> {
 
 /// Message data with decoded dispatch payload.
 #[derive(RuntimeDebug)]
-pub struct DispatchMessageData<DispatchPayload, Fee> {
+pub struct DispatchMessageData<DispatchPayload> {
 	/// Result of dispatch payload decoding.
 	pub payload: Result<DispatchPayload, CodecError>,
-	/// Message delivery and dispatch fee, paid by the submitter.
-	pub fee: Fee,
 }
 
 /// Message with decoded dispatch payload.
 #[derive(RuntimeDebug)]
-pub struct DispatchMessage<DispatchPayload, Fee> {
+pub struct DispatchMessage<DispatchPayload> {
 	/// Message key.
 	pub key: MessageKey,
 	/// Message data with decoded dispatch payload.
-	pub data: DispatchMessageData<DispatchPayload, Fee>,
+	pub data: DispatchMessageData<DispatchPayload>,
 }
 
 /// Source chain API. Used by target chain, to verify source chain proofs.
@@ -59,7 +57,7 @@ pub struct DispatchMessage<DispatchPayload, Fee> {
 /// All implementations of this trait should only work with finalized data that
 /// can't change. Wrong implementation may lead to invalid lane states (i.e. lane
 /// that's stuck) and/or processing messages without paying fees.
-pub trait SourceHeaderChain<Fee> {
+pub trait SourceHeaderChain {
 	/// Error type.
 	type Error: Debug + Into<&'static str>;
 
@@ -81,11 +79,11 @@ pub trait SourceHeaderChain<Fee> {
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
 		messages_count: u32,
-	) -> Result<ProvedMessages<Message<Fee>>, Self::Error>;
+	) -> Result<ProvedMessages<Message>, Self::Error>;
 }
 
 /// Called when inbound message is received.
-pub trait MessageDispatch<AccountId, Fee> {
+pub trait MessageDispatch<AccountId> {
 	/// Decoded message payload type. Valid message may contain invalid payload. In this case
 	/// message is delivered, but dispatch fails. Therefore, two separate types of payload
 	/// (opaque `MessagePayload` used in delivery and this `DispatchPayload` used in dispatch).
@@ -96,7 +94,7 @@ pub trait MessageDispatch<AccountId, Fee> {
 	/// This function must return correct upper bound of dispatch weight. The return value
 	/// of this function is expected to match return value of the corresponding
 	/// `From<Chain>InboundLaneApi::message_details().dispatch_weight` call.
-	fn dispatch_weight(message: &mut DispatchMessage<Self::DispatchPayload, Fee>) -> Weight;
+	fn dispatch_weight(message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight;
 
 	/// Called when inbound message is received.
 	///
@@ -107,7 +105,7 @@ pub trait MessageDispatch<AccountId, Fee> {
 	/// it must be paid inside this method to the `relayer_account`.
 	fn dispatch(
 		relayer_account: &AccountId,
-		message: DispatchMessage<Self::DispatchPayload, Fee>,
+		message: DispatchMessage<Self::DispatchPayload>,
 	) -> MessageDispatchResult;
 }
 
@@ -117,20 +115,15 @@ impl<Message> Default for ProvedLaneMessages<Message> {
 	}
 }
 
-impl<DispatchPayload: Decode, Fee> From<Message<Fee>> for DispatchMessage<DispatchPayload, Fee> {
-	fn from(message: Message<Fee>) -> Self {
-		DispatchMessage { key: message.key, data: message.data.into() }
+impl<DispatchPayload: Decode> From<Message> for DispatchMessage<DispatchPayload> {
+	fn from(message: Message) -> Self {
+		DispatchMessage { key: message.key, data: message.payload.into() }
 	}
 }
 
-impl<DispatchPayload: Decode, Fee> From<MessageData<Fee>>
-	for DispatchMessageData<DispatchPayload, Fee>
-{
-	fn from(data: MessageData<Fee>) -> Self {
-		DispatchMessageData {
-			payload: DispatchPayload::decode(&mut &data.payload[..]),
-			fee: data.fee,
-		}
+impl<DispatchPayload: Decode> From<MessagePayload> for DispatchMessageData<DispatchPayload> {
+	fn from(payload: MessagePayload) -> Self {
+		DispatchMessageData { payload: DispatchPayload::decode(&mut &payload[..]) }
 	}
 }
 
@@ -142,29 +135,26 @@ pub struct ForbidInboundMessages;
 const ALL_INBOUND_MESSAGES_REJECTED: &str =
 	"This chain is configured to reject all inbound messages";
 
-impl<Fee> SourceHeaderChain<Fee> for ForbidInboundMessages {
+impl SourceHeaderChain for ForbidInboundMessages {
 	type Error = &'static str;
 	type MessagesProof = ();
 
 	fn verify_messages_proof(
 		_proof: Self::MessagesProof,
 		_messages_count: u32,
-	) -> Result<ProvedMessages<Message<Fee>>, Self::Error> {
+	) -> Result<ProvedMessages<Message>, Self::Error> {
 		Err(ALL_INBOUND_MESSAGES_REJECTED)
 	}
 }
 
-impl<AccountId, Fee> MessageDispatch<AccountId, Fee> for ForbidInboundMessages {
+impl<AccountId> MessageDispatch<AccountId> for ForbidInboundMessages {
 	type DispatchPayload = ();
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload, Fee>) -> Weight {
+	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
 		Weight::MAX
 	}
 
-	fn dispatch(
-		_: &AccountId,
-		_: DispatchMessage<Self::DispatchPayload, Fee>,
-	) -> MessageDispatchResult {
+	fn dispatch(_: &AccountId, _: DispatchMessage<Self::DispatchPayload>) -> MessageDispatchResult {
 		MessageDispatchResult {
 			dispatch_result: false,
 			unspent_weight: Weight::zero(),

@@ -24,35 +24,20 @@ use crate::{MillauGrandpaInstance, OriginCaller, Runtime, RuntimeCall, RuntimeOr
 use bp_messages::{
 	source_chain::TargetHeaderChain,
 	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
+	InboundLaneData, LaneId, Message, MessageNonce,
 };
 use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_PARACHAIN_CHAIN_ID};
-use bridge_runtime_common::messages::{
-	self, BasicConfirmationTransactionEstimation, MessageBridge, MessageTransaction,
-};
-use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchClass, parameter_types, weights::Weight, RuntimeDebug};
-use scale_info::TypeInfo;
-use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
-use sp_std::convert::TryFrom;
+use bridge_runtime_common::messages::{self, MessageBridge};
+use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 
 /// Default lane that is used to send messages to Millau.
 pub const DEFAULT_XCM_LANE_TO_MILLAU: LaneId = [0, 0, 0, 0];
-/// Initial value of `MillauToRialtoParachainConversionRate` parameter.
-pub const INITIAL_MILLAU_TO_RIALTO_PARACHAIN_CONVERSION_RATE: FixedU128 =
-	FixedU128::from_inner(FixedU128::DIV);
-/// Initial value of `MillauFeeMultiplier` parameter.
-pub const INITIAL_MILLAU_FEE_MULTIPLIER: FixedU128 = FixedU128::from_inner(FixedU128::DIV);
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
 pub const BASE_XCM_WEIGHT_TWICE: u64 = 2 * crate::BASE_XCM_WEIGHT;
 
 parameter_types! {
-	/// Millau to RialtoParachain conversion rate. Initially we treat both tokens as equal.
-	pub storage MillauToRialtoParachainConversionRate: FixedU128 = INITIAL_MILLAU_TO_RIALTO_PARACHAIN_CONVERSION_RATE;
-	/// Fee multiplier value at Millau chain.
-	pub storage MillauFeeMultiplier: FixedU128 = INITIAL_MILLAU_FEE_MULTIPLIER;
 	/// Weight credit for our test messages.
 	///
 	/// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
@@ -94,7 +79,6 @@ pub type ToMillauMaximalOutboundPayloadSize =
 pub struct WithMillauMessageBridge;
 
 impl MessageBridge for WithMillauMessageBridge {
-	const RELAYER_FEE_PERCENT: u32 = 10;
 	const THIS_CHAIN_ID: ChainId = RIALTO_PARACHAIN_CHAIN_ID;
 	const BRIDGED_CHAIN_ID: ChainId = MILLAU_CHAIN_ID;
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
@@ -104,16 +88,6 @@ impl MessageBridge for WithMillauMessageBridge {
 	type BridgedChain = Millau;
 	type BridgedHeaderChain =
 		pallet_bridge_grandpa::GrandpaChainHeaders<Runtime, MillauGrandpaInstance>;
-
-	fn bridged_balance_to_this_balance(
-		bridged_balance: bp_millau::Balance,
-		bridged_to_this_conversion_rate_override: Option<FixedU128>,
-	) -> bp_rialto_parachain::Balance {
-		let conversion_rate = bridged_to_this_conversion_rate_override
-			.unwrap_or_else(MillauToRialtoParachainConversionRate::get);
-		bp_rialto_parachain::Balance::try_from(conversion_rate.saturating_mul_int(bridged_balance))
-			.unwrap_or(bp_rialto_parachain::Balance::MAX)
-	}
 }
 
 /// RialtoParachain chain from message lane point of view.
@@ -127,12 +101,6 @@ impl messages::UnderlyingChainProvider for RialtoParachain {
 impl messages::ThisChainWithMessages for RialtoParachain {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeOrigin = RuntimeOrigin;
-	type ConfirmationTransactionEstimation = BasicConfirmationTransactionEstimation<
-		bp_rialto_parachain::AccountId,
-		{ bp_rialto_parachain::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT.ref_time() },
-		{ bp_millau::EXTRA_STORAGE_PROOF_SIZE },
-		{ bp_rialto_parachain::TX_EXTRA_BYTES },
-	>;
 
 	fn is_message_accepted(send_origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool {
 		let here_location = xcm::v3::MultiLocation::from(crate::UniversalLocation::get());
@@ -156,25 +124,6 @@ impl messages::ThisChainWithMessages for RialtoParachain {
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
 		MessageNonce::MAX
 	}
-
-	fn transaction_payment(
-		transaction: MessageTransaction<Weight>,
-	) -> bp_rialto_parachain::Balance {
-		// `transaction` may represent transaction from the future, when multiplier value will
-		// be larger, so let's use slightly increased value
-		let multiplier = FixedU128::saturating_from_rational(110, 100)
-			.saturating_mul(pallet_transaction_payment::Pallet::<Runtime>::next_fee_multiplier());
-		// in our testnets, both per-byte fee and weight-to-fee are 1:1
-		messages::transaction_payment(
-			bp_rialto_parachain::BlockWeights::get()
-				.get(DispatchClass::Normal)
-				.base_extrinsic,
-			1,
-			multiplier,
-			|weight| weight.ref_time() as _,
-			transaction,
-		)
-	}
 }
 
 /// Millau chain from message lane point of view.
@@ -188,45 +137,6 @@ impl messages::UnderlyingChainProvider for Millau {
 impl messages::BridgedChainWithMessages for Millau {
 	fn verify_dispatch_weight(_message_payload: &[u8]) -> bool {
 		true
-	}
-
-	fn estimate_delivery_transaction(
-		message_payload: &[u8],
-		include_pay_dispatch_fee_cost: bool,
-		message_dispatch_weight: Weight,
-	) -> MessageTransaction<Weight> {
-		let message_payload_len = u32::try_from(message_payload.len()).unwrap_or(u32::MAX);
-		let extra_bytes_in_payload = message_payload_len
-			.saturating_sub(pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH);
-
-		MessageTransaction {
-			dispatch_weight: bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT
-				.saturating_mul(extra_bytes_in_payload as u64)
-				.saturating_add(bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT)
-				.saturating_sub(if include_pay_dispatch_fee_cost {
-					Weight::from_ref_time(0)
-				} else {
-					bp_millau::PAY_INBOUND_DISPATCH_FEE_WEIGHT
-				})
-				.saturating_add(message_dispatch_weight),
-			size: message_payload_len
-				.saturating_add(bp_rialto_parachain::EXTRA_STORAGE_PROOF_SIZE)
-				.saturating_add(bp_millau::TX_EXTRA_BYTES),
-		}
-	}
-
-	fn transaction_payment(transaction: MessageTransaction<Weight>) -> bp_millau::Balance {
-		// we don't have a direct access to the value of multiplier at Millau chain
-		// => it is a messages module parameter
-		let multiplier = MillauFeeMultiplier::get();
-		// in our testnets, both per-byte fee and weight-to-fee are 1:1
-		messages::transaction_payment(
-			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
-			1,
-			multiplier,
-			|weight| weight.ref_time() as _,
-			transaction,
-		)
 	}
 }
 
@@ -249,7 +159,7 @@ impl TargetHeaderChain<ToMillauMessagePayload, bp_rialto_parachain::AccountId> f
 	}
 }
 
-impl SourceHeaderChain<bp_millau::Balance> for Millau {
+impl SourceHeaderChain for Millau {
 	type Error = &'static str;
 	// The proof is:
 	// - hash of the header this proof has been created with;
@@ -261,25 +171,8 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
 		messages_count: u32,
-	) -> Result<ProvedMessages<Message<bp_millau::Balance>>, Self::Error> {
+	) -> Result<ProvedMessages<Message>, Self::Error> {
 		messages::target::verify_messages_proof::<WithMillauMessageBridge>(proof, messages_count)
 			.map_err(Into::into)
-	}
-}
-
-/// RialtoParachain -> Millau message lane pallet parameters.
-#[derive(RuntimeDebug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
-pub enum RialtoParachainToMillauMessagesParameter {
-	/// The conversion formula we use is: `RialtoParachainTokens = MillauTokens * conversion_rate`.
-	MillauToRialtoParachainConversionRate(FixedU128),
-}
-
-impl MessagesParameter for RialtoParachainToMillauMessagesParameter {
-	fn save(&self) {
-		match *self {
-			RialtoParachainToMillauMessagesParameter::MillauToRialtoParachainConversionRate(
-				ref conversion_rate,
-			) => MillauToRialtoParachainConversionRate::set(conversion_rate),
-		}
 	}
 }
