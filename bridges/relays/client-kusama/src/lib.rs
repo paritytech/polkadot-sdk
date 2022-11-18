@@ -54,7 +54,6 @@ impl Chain for Kusama {
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_kusama::BEST_FINALIZED_KUSAMA_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
-	const STORAGE_PROOF_OVERHEAD: u32 = bp_kusama::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = bp_kusama::SignedBlock;
 	type Call = ();

@@ -25,13 +25,13 @@ use bp_runtime::{decl_bridge_runtime_apis, Chain, Parachain};
 use frame_support::{
 	dispatch::DispatchClass,
 	weights::{constants::WEIGHT_PER_SECOND, IdentityFee, Weight},
-	Parameter, RuntimeDebug,
+	RuntimeDebug,
 };
 use frame_system::limits;
 use sp_core::Hasher as HasherT;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	FixedU128, MultiSignature, MultiSigner, Perbill,
+	MultiSignature, MultiSigner, Perbill,
 };
 use sp_std::vec::Vec;
 
@@ -65,39 +65,6 @@ pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
 
 /// Maximal number of unconfirmed messages in Rialto confirmation transaction.
 pub const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1024;
-
-/// Weight of single regular message delivery transaction on RialtoParachain chain.
-///
-/// This value is a result of `pallet_bridge_messages::Pallet::receive_messages_proof_weight()` call
-/// for the case when single message of `pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH`
-/// bytes is delivered. The message must have dispatch weight set to zero. The result then must be
-/// rounded up to account possible future runtime upgrades.
-pub const DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT: Weight = Weight::from_ref_time(1_500_000_000);
-
-/// Increase of delivery transaction weight on RialtoParachain chain with every additional message
-/// byte.
-///
-/// This value is a result of
-/// `pallet_bridge_messages::WeightInfoExt::storage_proof_size_overhead(1)` call. The result then
-/// must be rounded up to account possible future runtime upgrades.
-pub const ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT: Weight = Weight::from_ref_time(25_000);
-
-/// Maximal weight of single message delivery confirmation transaction on RialtoParachain chain.
-///
-/// This value is a result of `pallet_bridge_messages::Pallet::receive_messages_delivery_proof`
-/// weight formula computation for the case when single message is confirmed. The result then must
-/// be rounded up to account possible future runtime upgrades.
-pub const MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT: Weight =
-	Weight::from_ref_time(2_000_000_000);
-
-/// Weight of pay-dispatch-fee operation for inbound messages at Rialto chain.
-///
-/// This value corresponds to the result of
-/// `pallet_bridge_messages::WeightInfoExt::pay_inbound_dispatch_fee_overhead()` call for your
-/// chain. Don't put too much reserve there, because it is used to **decrease**
-/// `DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT` cost. So putting large reserve would make delivery
-/// transactions cheaper.
-pub const PAY_INBOUND_DISPATCH_FEE_WEIGHT: Weight = Weight::from_ref_time(600_000_000);
 
 /// Block number type used in Rialto.
 pub type BlockNumber = u32;
@@ -175,12 +142,5 @@ frame_support::parameter_types! {
 pub const WITH_RIALTO_PARACHAIN_MESSAGES_PALLET_NAME: &str = "BridgeRialtoParachainMessages";
 /// Name of the transaction payment pallet at the Rialto parachain runtime.
 pub const TRANSACTION_PAYMENT_PALLET_NAME: &str = "TransactionPayment";
-
-/// Name of the Millau->RialtoParachain (actually KSM->DOT) conversion rate stored in the Rialto
-/// parachain runtime.
-pub const MILLAU_TO_RIALTO_PARACHAIN_CONVERSION_RATE_PARAMETER_NAME: &str =
-	"MillauToRialtoParachainConversionRate";
-/// Name of the Millau fee multiplier parameter, stored in the Rialto parachain runtime.
-pub const MILLAU_FEE_MULTIPLIER_PARAMETER_NAME: &str = "MillauFeeMultiplier";
 
 decl_bridge_runtime_apis!(rialto_parachain);

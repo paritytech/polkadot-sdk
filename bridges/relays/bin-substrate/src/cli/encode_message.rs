@@ -15,8 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::{ExplicitOrMaximal, HexBytes};
-use bp_messages::LaneId;
 use bp_runtime::EncodedOrDecodedCall;
+use codec::Encode;
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
 
@@ -47,14 +47,6 @@ pub trait CliEncodeMessage: Chain {
 		message: xcm::VersionedXcm<()>,
 		bridge_instance_index: u8,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>>;
-
-	/// Encode a send message call of the bridge-messages pallet.
-	fn encode_send_message_call(
-		lane: LaneId,
-		message: RawMessage,
-		fee: Self::Balance,
-		bridge_instance_index: u8,
-	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>>;
 }
 
 /// Encode message payload passed through CLI flags.
@@ -63,15 +55,36 @@ pub(crate) fn encode_message<Source: Chain, Target: Chain>(
 ) -> anyhow::Result<RawMessage> {
 	Ok(match message {
 		Message::Raw { ref data } => data.0.clone(),
-		Message::Sized { ref size } => match *size {
-			ExplicitOrMaximal::Explicit(size) => vec![42; size as usize],
-			ExplicitOrMaximal::Maximal => {
-				let maximal_size = compute_maximal_message_size(
+		Message::Sized { ref size } => {
+			let expected_xcm_size = match *size {
+				ExplicitOrMaximal::Explicit(size) => size,
+				ExplicitOrMaximal::Maximal => compute_maximal_message_size(
 					Source::max_extrinsic_size(),
 					Target::max_extrinsic_size(),
+				),
+			};
+
+			// there's no way to craft XCM of the given size - we'll be using `ExpectPallet`
+			// instruction, which has byte vector inside
+			let mut current_vec_size = expected_xcm_size;
+			let xcm = loop {
+				let xcm = xcm::VersionedXcm::<()>::V3(
+					vec![xcm::v3::Instruction::ExpectPallet {
+						index: 0,
+						name: vec![42; current_vec_size as usize],
+						module_name: vec![],
+						crate_major: 0,
+						min_crate_minor: 0,
+					}]
+					.into(),
 				);
-				vec![42; maximal_size as usize]
-			},
+				if xcm.encode().len() <= expected_xcm_size as usize {
+					break xcm
+				}
+
+				current_vec_size -= 1;
+			};
+			xcm.encode()
 		},
 	})
 }
@@ -93,5 +106,40 @@ pub(crate) fn compute_maximal_message_size(
 		maximal_source_extrinsic_size
 	} else {
 		maximal_message_size
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::cli::send_message::decode_xcm;
+	use bp_runtime::Chain;
+	use relay_millau_client::Millau;
+	use relay_rialto_client::Rialto;
+
+	#[test]
+	fn encode_explicit_size_message_works() {
+		let msg = encode_message::<Rialto, Millau>(&Message::Sized {
+			size: ExplicitOrMaximal::Explicit(100),
+		})
+		.unwrap();
+		assert_eq!(msg.len(), 100);
+		// check that it decodes to valid xcm
+		let _ = decode_xcm(msg).unwrap();
+	}
+
+	#[test]
+	fn encode_maximal_size_message_works() {
+		let maximal_size = compute_maximal_message_size(
+			Rialto::max_extrinsic_size(),
+			Millau::max_extrinsic_size(),
+		);
+
+		let msg =
+			encode_message::<Rialto, Millau>(&Message::Sized { size: ExplicitOrMaximal::Maximal })
+				.unwrap();
+		assert_eq!(msg.len(), maximal_size as usize);
+		// check that it decodes to valid xcm
+		let _ = decode_xcm(msg).unwrap();
 	}
 }

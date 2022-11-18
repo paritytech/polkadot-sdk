@@ -62,7 +62,6 @@ impl Chain for Rialto {
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
-	const STORAGE_PROOF_OVERHEAD: u32 = bp_rialto::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = rialto_runtime::SignedBlock;
 	type Call = rialto_runtime::RuntimeCall;
@@ -85,8 +84,6 @@ impl ChainWithMessages for Rialto {
 		bp_rialto::TO_RIALTO_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_rialto::FROM_RIALTO_MESSAGE_DETAILS_METHOD;
-	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight =
-		bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
 		bp_rialto::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
