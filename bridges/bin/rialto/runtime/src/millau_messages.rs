@@ -175,7 +175,7 @@ impl SourceHeaderChain for Millau {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{DbWeight, MillauGrandpaInstance, Runtime, WithMillauMessagesInstance};
+	use crate::{MillauGrandpaInstance, Runtime, WithMillauMessagesInstance};
 	use bp_runtime::Chain;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
@@ -214,7 +214,6 @@ mod tests {
 			max_incoming_inbound_lane_data_proof_size,
 			bp_rialto::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 			bp_rialto::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-			DbWeight::get(),
 		);
 	}
 

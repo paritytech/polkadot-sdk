@@ -467,8 +467,6 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 			Runtime,
 			WithMillauMessagesInstance,
 		>;
-	type OnMessageAccepted = ();
-	type OnDeliveryConfirmed = ();
 
 	type SourceHeaderChain = crate::millau_messages::Millau;
 	type MessageDispatch = crate::millau_messages::FromMillauMessageDispatch;
