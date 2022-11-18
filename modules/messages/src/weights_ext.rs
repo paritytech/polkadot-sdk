@@ -20,7 +20,7 @@ use crate::weights::WeightInfo;
 
 use bp_messages::{MessageNonce, UnrewardedRelayersState};
 use bp_runtime::{PreComputedSize, Size};
-use frame_support::weights::{RuntimeDbWeight, Weight};
+use frame_support::weights::Weight;
 
 /// Size of the message being delivered in benchmarks.
 pub const EXPECTED_DEFAULT_MESSAGE_LENGTH: u32 = 128;
@@ -88,7 +88,6 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 	max_inbound_lane_data_proof_size_from_peer_chain: u32,
 	max_unrewarded_relayer_entries_at_peer_inbound_lane: MessageNonce,
 	max_unconfirmed_messages_at_inbound_lane: MessageNonce,
-	db_weight: RuntimeDbWeight,
 ) {
 	// verify that we're able to receive confirmation of maximal-size
 	let max_confirmation_transaction_size =
@@ -110,7 +109,6 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 			total_messages: max_unconfirmed_messages_at_inbound_lane,
 			..Default::default()
 		},
-		db_weight,
 	);
 	assert!(
 		max_confirmation_transaction_dispatch_weight.all_lte(max_extrinsic_weight),
@@ -166,7 +164,6 @@ pub trait WeightInfoExt: WeightInfo {
 	fn receive_messages_delivery_proof_weight(
 		proof: &impl Size,
 		relayers_state: &UnrewardedRelayersState,
-		db_weight: RuntimeDbWeight,
 	) -> Weight {
 		// basic components of extrinsic weight
 		let transaction_overhead = Self::receive_messages_delivery_proof_overhead();
@@ -183,16 +180,10 @@ pub trait WeightInfoExt: WeightInfo {
 			actual_proof_size.saturating_sub(expected_proof_size),
 		);
 
-		// and cost of calling `OnDeliveryConfirmed::on_messages_delivered()` for every confirmed
-		// message
-		let callback_overhead = Self::single_message_callback_overhead(db_weight)
-			.saturating_mul(relayers_state.total_messages);
-
 		transaction_overhead
 			.saturating_add(messages_overhead)
 			.saturating_add(relayers_overhead)
 			.saturating_add(proof_size_overhead)
-			.saturating_add(callback_overhead)
 	}
 
 	// Functions that are used by extrinsics weights formulas.
@@ -282,15 +273,6 @@ pub trait WeightInfoExt: WeightInfo {
 	fn pay_inbound_dispatch_fee_overhead() -> Weight {
 		Self::receive_single_message_proof()
 			.saturating_sub(Self::receive_single_prepaid_message_proof())
-	}
-
-	/// Returns pre-dispatch weight of single callback call.
-	///
-	/// When benchmarking the weight please take into consideration both the `OnMessageAccepted` and
-	/// `OnDeliveryConfirmed` callbacks. The method should return the greater of the two, because
-	/// it's used to estimate the weight in both contexts.
-	fn single_message_callback_overhead(db_weight: RuntimeDbWeight) -> Weight {
-		db_weight.reads_writes(1, 1)
 	}
 }
 

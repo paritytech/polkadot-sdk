@@ -110,8 +110,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type TargetHeaderChain = ForbidOutboundMessages;
 	type LaneMessageVerifier = ForbidOutboundMessages;
 	type MessageDeliveryAndDispatchPayment = ();
-	type OnMessageAccepted = ();
-	type OnDeliveryConfirmed = ();
 
 	type SourceHeaderChain = ForbidInboundMessages;
 	type MessageDispatch = ForbidInboundMessages;
