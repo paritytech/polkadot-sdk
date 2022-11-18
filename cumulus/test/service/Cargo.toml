@@ -72,7 +72,7 @@ cumulus-test-runtime = { path = "../runtime" }
 cumulus-relay-chain-minimal-node = { path = "../../client/relay-chain-minimal-node" }
 
 [dev-dependencies]
-futures = "0.3.24"
+futures = "0.3.25"
 portpicker = "0.1.1"
 
 # Polkadot dependencies

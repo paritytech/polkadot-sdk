@@ -22,7 +22,7 @@ sp-storage = { git = "https://github.com/paritytech/substrate", branch = "master
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 tokio = { version = "1.21.2", features = ["sync"] }
 
-futures = "0.3.24"
+futures = "0.3.25"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.2.1"
 jsonrpsee = { version = "0.15.1", features = ["ws-client"] }

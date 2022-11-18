@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.58"
-futures = "0.3.24"
+futures = "0.3.25"
 futures-timer = "3.0.2"
 
 # Substrate
