@@ -24,7 +24,7 @@ use crate::{
 use bp_messages::MessageNonce;
 use finality_relay::SyncLoopMetrics;
 use relay_utils::metrics::{
-	metric_name, register, Counter, GaugeVec, Metric, Opts, PrometheusError, Registry, U64,
+	metric_name, register, GaugeVec, Metric, Opts, PrometheusError, Registry, U64,
 };
 
 /// Message lane relay metrics.
@@ -39,17 +39,11 @@ pub struct MessageLaneLoopMetrics {
 	/// Lane state nonces: "source_latest_generated", "source_latest_confirmed",
 	/// "target_latest_received", "target_latest_confirmed".
 	lane_state_nonces: GaugeVec<U64>,
-	/// Count of unprofitable message delivery transactions that we have submitted so far.
-	unprofitable_delivery_transactions: Counter<U64>,
 }
 
 impl MessageLaneLoopMetrics {
 	/// Create and register messages loop metrics.
-	pub fn new(
-		prefix: Option<&str>,
-		source_name: &str,
-		target_name: &str,
-	) -> Result<Self, PrometheusError> {
+	pub fn new(prefix: Option<&str>) -> Result<Self, PrometheusError> {
 		Ok(MessageLaneLoopMetrics {
 			source_to_target_finality_metrics: SyncLoopMetrics::new(
 				prefix,
@@ -64,13 +58,6 @@ impl MessageLaneLoopMetrics {
 			lane_state_nonces: GaugeVec::new(
 				Opts::new(metric_name(prefix, "lane_state_nonces"), "Nonces of the lane state"),
 				&["type"],
-			)?,
-			unprofitable_delivery_transactions: Counter::new(
-				metric_name(prefix, "unprofitable_delivery_transactions"),
-				format!(
-					"Count of unprofitable message delivery transactions from {} to {}",
-					source_name, target_name
-				),
 			)?,
 		})
 	}
@@ -140,11 +127,6 @@ impl MessageLaneLoopMetrics {
 			.with_label_values(&["target_latest_confirmed"])
 			.set(target_latest_confirmed_nonce);
 	}
-
-	/// Note unprofitable delivery transaction.
-	pub fn note_unprofitable_delivery_transactions(&self) {
-		self.unprofitable_delivery_transactions.inc()
-	}
 }
 
 impl Metric for MessageLaneLoopMetrics {
@@ -152,7 +134,6 @@ impl Metric for MessageLaneLoopMetrics {
 		self.source_to_target_finality_metrics.register(registry)?;
 		self.target_to_source_finality_metrics.register(registry)?;
 		register(self.lane_state_nonces.clone(), registry)?;
-		register(self.unprofitable_delivery_transactions.clone(), registry)?;
 		Ok(())
 	}
 }

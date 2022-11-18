@@ -21,7 +21,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use bitvec::prelude::*;
-use bp_runtime::{messages::DispatchFeePayment, BasicOperatingMode, OperatingMode};
+use bp_runtime::{BasicOperatingMode, OperatingMode};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
@@ -65,16 +65,6 @@ impl OperatingMode for MessagesOperatingMode {
 	}
 }
 
-/// Messages pallet parameter.
-pub trait Parameter: frame_support::Parameter {
-	/// Save parameter value in the runtime storage.
-	fn save(&self);
-}
-
-impl Parameter for () {
-	fn save(&self) {}
-}
-
 /// Lane identifier.
 pub type LaneId = [u8; 4];
 
@@ -96,22 +86,13 @@ pub struct MessageKey {
 	pub nonce: MessageNonce,
 }
 
-/// Message data as it is stored in the storage.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct MessageData<Fee> {
-	/// Message payload.
-	pub payload: MessagePayload,
-	/// Message delivery and dispatch fee, paid by the submitter.
-	pub fee: Fee,
-}
-
 /// Message as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct Message<Fee> {
+pub struct Message {
 	/// Message key.
 	pub key: MessageKey,
-	/// Message data.
-	pub data: MessageData<Fee>,
+	/// Message payload.
+	pub payload: MessagePayload,
 }
 
 /// Inbound lane data.
@@ -198,7 +179,7 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 
 /// Outbound message details, returned by runtime APIs.
 #[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq)]
-pub struct OutboundMessageDetails<OutboundMessageFee> {
+pub struct OutboundMessageDetails {
 	/// Nonce assigned to the message.
 	pub nonce: MessageNonce,
 	/// Message dispatch weight.
@@ -208,10 +189,6 @@ pub struct OutboundMessageDetails<OutboundMessageFee> {
 	pub dispatch_weight: Weight,
 	/// Size of the encoded message.
 	pub size: u32,
-	/// Delivery+dispatch fee paid by the message submitter at the source chain.
-	pub delivery_and_dispatch_fee: OutboundMessageFee,
-	/// Where the fee for dispatching message is paid?
-	pub dispatch_fee_payment: DispatchFeePayment,
 }
 
 /// Inbound message details, returned by runtime APIs.

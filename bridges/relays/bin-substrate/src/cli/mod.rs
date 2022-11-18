@@ -26,7 +26,6 @@ use bp_messages::LaneId;
 
 pub(crate) mod bridge;
 pub(crate) mod encode_message;
-pub(crate) mod estimate_fee;
 pub(crate) mod send_message;
 
 mod chain_schema;
@@ -74,8 +73,6 @@ pub enum Command {
 	/// The message is being sent to the source chain, delivered to the target chain and dispatched
 	/// there.
 	SendMessage(send_message::SendMessage),
-	/// Estimate Delivery and Dispatch Fee required for message submission to messages pallet.
-	EstimateFee(estimate_fee::EstimateFee),
 	/// Resubmit transactions with increased tip if they are stalled.
 	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
 	/// Register parachain.
@@ -111,7 +108,6 @@ impl Command {
 			Self::RelayHeadersAndMessages(arg) => arg.run().await?,
 			Self::InitBridge(arg) => arg.run().await?,
 			Self::SendMessage(arg) => arg.run().await?,
-			Self::EstimateFee(arg) => arg.run().await?,
 			Self::ResubmitTransactions(arg) => arg.run().await?,
 			Self::RegisterParachain(arg) => arg.run().await?,
 			Self::RelayParachains(arg) => arg.run().await?,

@@ -21,33 +21,18 @@ use crate::{MillauGrandpaInstance, OriginCaller, Runtime, RuntimeCall, RuntimeOr
 use bp_messages::{
 	source_chain::TargetHeaderChain,
 	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageNonce, Parameter as MessagesParameter,
+	InboundLaneData, LaneId, Message, MessageNonce,
 };
 use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_CHAIN_ID};
-use bridge_runtime_common::messages::{
-	self, BasicConfirmationTransactionEstimation, MessageBridge, MessageTransaction,
-};
-use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchClass, parameter_types, weights::Weight, RuntimeDebug};
-use scale_info::TypeInfo;
-use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
-use sp_std::convert::TryFrom;
+use bridge_runtime_common::messages::{self, MessageBridge};
+use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 
-/// Initial value of `MillauToRialtoConversionRate` parameter.
-pub const INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE: FixedU128 =
-	FixedU128::from_inner(FixedU128::DIV);
-/// Initial value of `MillauFeeMultiplier` parameter.
-pub const INITIAL_MILLAU_FEE_MULTIPLIER: FixedU128 = FixedU128::from_inner(FixedU128::DIV);
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
 pub const BASE_XCM_WEIGHT_TWICE: u64 = 2 * crate::xcm_config::BASE_XCM_WEIGHT;
 
 parameter_types! {
-	/// Millau to Rialto conversion rate. Initially we treat both tokens as equal.
-	pub storage MillauToRialtoConversionRate: FixedU128 = INITIAL_MILLAU_TO_RIALTO_CONVERSION_RATE;
-	/// Fee multiplier value at Millau chain.
-	pub storage MillauFeeMultiplier: FixedU128 = INITIAL_MILLAU_FEE_MULTIPLIER;
 	/// Weight credit for our test messages.
 	///
 	/// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
@@ -89,7 +74,6 @@ pub type ToMillauMaximalOutboundPayloadSize =
 pub struct WithMillauMessageBridge;
 
 impl MessageBridge for WithMillauMessageBridge {
-	const RELAYER_FEE_PERCENT: u32 = 10;
 	const THIS_CHAIN_ID: ChainId = RIALTO_CHAIN_ID;
 	const BRIDGED_CHAIN_ID: ChainId = MILLAU_CHAIN_ID;
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str = bp_rialto::WITH_RIALTO_MESSAGES_PALLET_NAME;
@@ -98,16 +82,6 @@ impl MessageBridge for WithMillauMessageBridge {
 	type BridgedChain = Millau;
 	type BridgedHeaderChain =
 		pallet_bridge_grandpa::GrandpaChainHeaders<Runtime, MillauGrandpaInstance>;
-
-	fn bridged_balance_to_this_balance(
-		bridged_balance: bp_millau::Balance,
-		bridged_to_this_conversion_rate_override: Option<FixedU128>,
-	) -> bp_rialto::Balance {
-		let conversion_rate = bridged_to_this_conversion_rate_override
-			.unwrap_or_else(MillauToRialtoConversionRate::get);
-		bp_rialto::Balance::try_from(conversion_rate.saturating_mul_int(bridged_balance))
-			.unwrap_or(bp_rialto::Balance::MAX)
-	}
 }
 
 /// Rialto chain from message lane point of view.
@@ -121,12 +95,6 @@ impl messages::UnderlyingChainProvider for Rialto {
 impl messages::ThisChainWithMessages for Rialto {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
-	type ConfirmationTransactionEstimation = BasicConfirmationTransactionEstimation<
-		bp_rialto::AccountId,
-		{ bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT.ref_time() },
-		{ bp_millau::EXTRA_STORAGE_PROOF_SIZE },
-		{ bp_rialto::TX_EXTRA_BYTES },
-	>;
 
 	fn is_message_accepted(send_origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool {
 		let here_location =
@@ -151,21 +119,6 @@ impl messages::ThisChainWithMessages for Rialto {
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
 		MessageNonce::MAX
 	}
-
-	fn transaction_payment(transaction: MessageTransaction<Weight>) -> bp_rialto::Balance {
-		// `transaction` may represent transaction from the future, when multiplier value will
-		// be larger, so let's use slightly increased value
-		let multiplier = FixedU128::saturating_from_rational(110, 100)
-			.saturating_mul(pallet_transaction_payment::Pallet::<Runtime>::next_fee_multiplier());
-		// in our testnets, both per-byte fee and weight-to-fee are 1:1
-		messages::transaction_payment(
-			bp_rialto::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
-			1,
-			multiplier,
-			|weight| weight.ref_time() as _,
-			transaction,
-		)
-	}
 }
 
 /// Millau chain from message lane point of view.
@@ -179,45 +132,6 @@ impl messages::UnderlyingChainProvider for Millau {
 impl messages::BridgedChainWithMessages for Millau {
 	fn verify_dispatch_weight(_message_payload: &[u8]) -> bool {
 		true
-	}
-
-	fn estimate_delivery_transaction(
-		message_payload: &[u8],
-		include_pay_dispatch_fee_cost: bool,
-		message_dispatch_weight: Weight,
-	) -> MessageTransaction<Weight> {
-		let message_payload_len = u32::try_from(message_payload.len()).unwrap_or(u32::MAX);
-		let extra_bytes_in_payload = message_payload_len
-			.saturating_sub(pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH);
-
-		MessageTransaction {
-			dispatch_weight: bp_millau::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT
-				.saturating_mul(extra_bytes_in_payload as u64)
-				.saturating_add(bp_millau::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT)
-				.saturating_sub(if include_pay_dispatch_fee_cost {
-					Weight::from_ref_time(0)
-				} else {
-					bp_millau::PAY_INBOUND_DISPATCH_FEE_WEIGHT
-				})
-				.saturating_add(message_dispatch_weight),
-			size: message_payload_len
-				.saturating_add(bp_rialto::EXTRA_STORAGE_PROOF_SIZE)
-				.saturating_add(bp_millau::TX_EXTRA_BYTES),
-		}
-	}
-
-	fn transaction_payment(transaction: MessageTransaction<Weight>) -> bp_millau::Balance {
-		// we don't have a direct access to the value of multiplier at Millau chain
-		// => it is a messages module parameter
-		let multiplier = MillauFeeMultiplier::get();
-		// in our testnets, both per-byte fee and weight-to-fee are 1:1
-		messages::transaction_payment(
-			bp_millau::BlockWeights::get().get(DispatchClass::Normal).base_extrinsic,
-			1,
-			multiplier,
-			|weight| weight.ref_time() as _,
-			transaction,
-		)
 	}
 }
 
@@ -240,7 +154,7 @@ impl TargetHeaderChain<ToMillauMessagePayload, bp_rialto::AccountId> for Millau 
 	}
 }
 
-impl SourceHeaderChain<bp_millau::Balance> for Millau {
+impl SourceHeaderChain for Millau {
 	type Error = &'static str;
 	// The proof is:
 	// - hash of the header this proof has been created with;
@@ -252,25 +166,9 @@ impl SourceHeaderChain<bp_millau::Balance> for Millau {
 	fn verify_messages_proof(
 		proof: Self::MessagesProof,
 		messages_count: u32,
-	) -> Result<ProvedMessages<Message<bp_millau::Balance>>, Self::Error> {
+	) -> Result<ProvedMessages<Message>, Self::Error> {
 		messages::target::verify_messages_proof::<WithMillauMessageBridge>(proof, messages_count)
 			.map_err(Into::into)
-	}
-}
-
-/// Rialto -> Millau message lane pallet parameters.
-#[derive(RuntimeDebug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
-pub enum RialtoToMillauMessagesParameter {
-	/// The conversion formula we use is: `RialtoTokens = MillauTokens * conversion_rate`.
-	MillauToRialtoConversionRate(FixedU128),
-}
-
-impl MessagesParameter for RialtoToMillauMessagesParameter {
-	fn save(&self) {
-		match *self {
-			RialtoToMillauMessagesParameter::MillauToRialtoConversionRate(ref conversion_rate) =>
-				MillauToRialtoConversionRate::set(conversion_rate),
-		}
 	}
 }
 
@@ -291,13 +189,7 @@ mod tests {
 	fn ensure_rialto_message_lane_weights_are_correct() {
 		type Weights = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
 
-		pallet_bridge_messages::ensure_weights_are_correct::<Weights>(
-			bp_rialto::DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,
-			bp_rialto::ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT,
-			bp_rialto::MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
-			bp_rialto::PAY_INBOUND_DISPATCH_FEE_WEIGHT,
-			DbWeight::get(),
-		);
+		pallet_bridge_messages::ensure_weights_are_correct::<Weights>();
 
 		let max_incoming_message_proof_size = bp_millau::EXTRA_STORAGE_PROOF_SIZE.saturating_add(
 			messages::target::maximal_incoming_message_size(bp_rialto::Rialto::max_extrinsic_size()),
@@ -362,13 +254,5 @@ mod tests {
 					bp_millau::WITH_MILLAU_MESSAGES_PALLET_NAME,
 			},
 		});
-
-		assert_eq!(
-			MillauToRialtoConversionRate::key().to_vec(),
-			bp_runtime::storage_parameter_key(
-				bp_rialto::MILLAU_TO_RIALTO_CONVERSION_RATE_PARAMETER_NAME
-			)
-			.0,
-		);
 	}
 }

@@ -16,7 +16,6 @@
 
 //! Rialto-to-Millau messages sync entrypoint.
 
-use messages_relay::relay_strategy::MixStrategy;
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
 use substrate_relay_helper::messages_lane::{
@@ -27,25 +26,8 @@ use substrate_relay_helper::messages_lane::{
 /// Description of Rialto -> Millau messages bridge.
 #[derive(Clone, Debug)]
 pub struct RialtoMessagesToMillau;
-substrate_relay_helper::generate_direct_update_conversion_rate_call_builder!(
-	Rialto,
-	RialtoMessagesToMillauUpdateConversionRateCallBuilder,
-	rialto_runtime::Runtime,
-	rialto_runtime::WithMillauMessagesInstance,
-	rialto_runtime::millau_messages::RialtoToMillauMessagesParameter::MillauToRialtoConversionRate
-);
 
 impl SubstrateMessageLane for RialtoMessagesToMillau {
-	const SOURCE_TO_TARGET_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> =
-		Some(bp_millau::RIALTO_TO_MILLAU_CONVERSION_RATE_PARAMETER_NAME);
-	const TARGET_TO_SOURCE_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> =
-		Some(bp_rialto::MILLAU_TO_RIALTO_CONVERSION_RATE_PARAMETER_NAME);
-
-	const SOURCE_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> = None;
-	const TARGET_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> = None;
-	const AT_SOURCE_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> = None;
-	const AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> = None;
-
 	type SourceChain = Rialto;
 	type TargetChain = Millau;
 
@@ -59,9 +41,4 @@ impl SubstrateMessageLane for RialtoMessagesToMillau {
 		rialto_runtime::Runtime,
 		rialto_runtime::WithMillauMessagesInstance,
 	>;
-
-	type TargetToSourceChainConversionRateUpdateBuilder =
-		RialtoMessagesToMillauUpdateConversionRateCallBuilder;
-
-	type RelayStrategy = MixStrategy;
 }

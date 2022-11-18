@@ -27,16 +27,14 @@ pub use bp_bridge_hub_rococo::{
 	account_info_storage_key, AccountId, AccountPublic, AccountSigner, Address, Balance,
 	BlockLength, BlockNumber, BlockWeights, Hash, Hasher, Hashing, Header, Index, Nonce,
 	SS58Prefix, Signature, SignedBlock, SignedExtensions, UncheckedExtrinsic, WeightToFee,
-	ADDITIONAL_MESSAGE_BYTE_DELIVERY_WEIGHT, DEFAULT_MESSAGE_DELIVERY_TX_WEIGHT,
-	EXTRA_STORAGE_PROOF_SIZE, MAX_SINGLE_MESSAGE_DELIVERY_CONFIRMATION_TX_WEIGHT,
 	MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX, MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
-	PAY_INBOUND_DISPATCH_FEE_WEIGHT, TX_EXTRA_BYTES,
+	TX_EXTRA_BYTES,
 };
 use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
 };
-use frame_support::{dispatch::DispatchClass, sp_runtime::FixedU128, Parameter, RuntimeDebug};
+use frame_support::{dispatch::DispatchClass, RuntimeDebug};
 use sp_std::prelude::*;
 
 /// BridgeHubWococo parachain.

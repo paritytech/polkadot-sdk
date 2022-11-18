@@ -18,23 +18,19 @@
 
 #![cfg(any(feature = "runtime-benchmarks", test))]
 
-use crate::messages::{BalanceOf, BridgedChain, HashOf, HasherOf, MessageBridge, RawStorageProof};
+use crate::messages::{BridgedChain, HashOf, HasherOf, MessageBridge, RawStorageProof};
 
 use bp_messages::{
-	storage_keys, LaneId, MessageData, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
+	storage_keys, LaneId, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 };
 use bp_runtime::{record_all_trie_keys, StorageProofSize};
 use codec::Encode;
 use sp_core::Hasher;
-use sp_runtime::traits::Zero;
 use sp_std::{ops::RangeInclusive, prelude::*};
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
 
 /// Simple and correct message data encode function.
-pub(crate) fn encode_all_messages<B: Encode>(
-	_: MessageNonce,
-	m: &MessageData<B>,
-) -> Option<Vec<u8>> {
+pub(crate) fn encode_all_messages(_: MessageNonce, m: &MessagePayload) -> Option<Vec<u8>> {
 	Some(m.encode())
 }
 
@@ -52,7 +48,7 @@ pub(crate) fn prepare_messages_storage_proof<B>(
 	outbound_lane_data: Option<OutboundLaneData>,
 	size: StorageProofSize,
 	message_payload: MessagePayload,
-	encode_message: impl Fn(MessageNonce, &MessageData<BalanceOf<BridgedChain<B>>>) -> Option<Vec<u8>>,
+	encode_message: impl Fn(MessageNonce, &MessagePayload) -> Option<Vec<u8>>,
 	encode_outbound_lane_data: impl Fn(&OutboundLaneData) -> Vec<u8>,
 ) -> (HashOf<BridgedChain<B>>, RawStorageProof)
 where
@@ -71,12 +67,8 @@ where
 		// insert messages
 		for nonce in message_nonces {
 			let message_key = MessageKey { lane_id: lane, nonce };
-			let message_data = MessageData {
-				fee: BalanceOf::<BridgedChain<B>>::zero(),
-				payload: message_payload.clone(),
-			};
-			let message_data = match encode_message(nonce, &message_data) {
-				Some(message_data) => message_data,
+			let message_payload = match encode_message(nonce, &message_payload) {
+				Some(message_payload) => message_payload,
 				None => continue,
 			};
 			let storage_key = storage_keys::message_key(
@@ -85,7 +77,7 @@ where
 				message_key.nonce,
 			)
 			.0;
-			trie.insert(&storage_key, &message_data)
+			trie.insert(&storage_key, &message_payload)
 				.map_err(|_| "TrieMut::insert has failed")
 				.expect("TrieMut::insert should not fail in benchmarks");
 			storage_keys.push(storage_key);

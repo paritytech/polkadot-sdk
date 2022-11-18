@@ -62,7 +62,6 @@ impl Chain for RialtoParachain {
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_rialto_parachain::BEST_FINALIZED_RIALTO_PARACHAIN_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
-	const STORAGE_PROOF_OVERHEAD: u32 = bp_rialto_parachain::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = rialto_parachain_runtime::SignedBlock;
 	type Call = rialto_parachain_runtime::RuntimeCall;
@@ -86,8 +85,6 @@ impl ChainWithMessages for RialtoParachain {
 		bp_rialto_parachain::TO_RIALTO_PARACHAIN_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_rialto_parachain::FROM_RIALTO_PARACHAIN_MESSAGE_DETAILS_METHOD;
-	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight =
-		bp_rialto_parachain::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
 		bp_rialto_parachain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
@@ -157,7 +154,7 @@ impl ChainWithTransactions for RialtoParachain {
 	}
 
 	fn parse_transaction(_tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		unimplemented!("TODO")
+		None
 	}
 }
 

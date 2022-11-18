@@ -60,7 +60,6 @@ impl Chain for BridgeHubWococo {
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_bridge_hub_wococo::BEST_FINALIZED_BRIDGE_HUB_WOCOCO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
-	const STORAGE_PROOF_OVERHEAD: u32 = bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE;
 
 	type SignedBlock = bp_bridge_hub_wococo::SignedBlock;
 	type Call = runtime::Call;
@@ -126,8 +125,6 @@ impl ChainWithMessages for BridgeHubWococo {
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_bridge_hub_wococo::FROM_BRIDGE_HUB_WOCOCO_MESSAGE_DETAILS_METHOD;
 
-	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight =
-		bp_bridge_hub_wococo::PAY_INBOUND_DISPATCH_FEE_WEIGHT;
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
 		bp_bridge_hub_wococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =

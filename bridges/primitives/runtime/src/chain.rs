@@ -300,21 +300,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					///
 					/// This API is implemented by runtimes that are receiving messages from this chain, not by this
 					/// chain's runtime itself.
-					pub trait [<To $chain:camel OutboundLaneApi>]<OutboundMessageFee: Parameter, OutboundPayload: Parameter> {
-						/// Estimate message delivery and dispatch fee that needs to be paid by the sender on
-						/// this chain.
-						///
-						/// Returns `None` if message is too expensive to be sent to this chain from the bridged chain.
-						///
-						/// Please keep in mind that this method returns the lowest message fee required for message
-						/// to be accepted to the lane. It may be a good idea to pay a bit over this price to account
-						/// for future exchange rate changes and guarantee that relayer would deliver your message
-						/// to the target chain.
-						fn estimate_message_delivery_and_dispatch_fee(
-							lane_id: LaneId,
-							payload: OutboundPayload,
-							[<$chain:lower _to_this_conversion_rate>]: Option<FixedU128>,
-						) -> Option<OutboundMessageFee>;
+					pub trait [<To $chain:camel OutboundLaneApi>] {
 						/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
 						/// messages in given inclusive range.
 						///
@@ -324,7 +310,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 							lane: LaneId,
 							begin: MessageNonce,
 							end: MessageNonce,
-						) -> Vec<OutboundMessageDetails<OutboundMessageFee>>;
+						) -> Vec<OutboundMessageDetails>;
 					}
 
 					/// Inbound message lane API for messages sent by this chain.
@@ -334,11 +320,11 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					///
 					/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
 					/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
-					pub trait [<From $chain:camel InboundLaneApi>]<InboundMessageFee: Parameter> {
+					pub trait [<From $chain:camel InboundLaneApi>] {
 						/// Return details of given inbound messages.
 						fn message_details(
 							lane: LaneId,
-							messages: Vec<(MessagePayload, OutboundMessageDetails<InboundMessageFee>)>,
+							messages: Vec<(MessagePayload, OutboundMessageDetails)>,
 						) -> Vec<InboundMessageDetails>;
 					}
 				}
@@ -346,7 +332,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 
 			pub use [<$chain _messages_api>]::*;
 		}
-	}
+	};
 }
 
 /// Convenience macro that declares bridge finality runtime apis, bridge messages runtime apis
