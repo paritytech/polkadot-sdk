@@ -16,7 +16,6 @@
 
 //! Millau-to-RialtoParachain messages sync entrypoint.
 
-use messages_relay::relay_strategy::MixStrategy;
 use relay_millau_client::Millau;
 use relay_rialto_parachain_client::RialtoParachain;
 use substrate_relay_helper::messages_lane::{
@@ -27,30 +26,8 @@ use substrate_relay_helper::messages_lane::{
 /// Description of Millau -> RialtoParachain messages bridge.
 #[derive(Clone, Debug)]
 pub struct MillauMessagesToRialtoParachain;
-substrate_relay_helper::generate_direct_update_conversion_rate_call_builder!(
-	Millau,
-	MillauMessagesToRialtoParachainUpdateConversionRateCallBuilder,
-	millau_runtime::Runtime,
-	millau_runtime::WithRialtoParachainMessagesInstance,
-	millau_runtime::rialto_parachain_messages::MillauToRialtoParachainMessagesParameter::RialtoParachainToMillauConversionRate
-);
 
 impl SubstrateMessageLane for MillauMessagesToRialtoParachain {
-	const SOURCE_TO_TARGET_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> =
-		Some(bp_rialto_parachain::MILLAU_TO_RIALTO_PARACHAIN_CONVERSION_RATE_PARAMETER_NAME);
-	const TARGET_TO_SOURCE_CONVERSION_RATE_PARAMETER_NAME: Option<&'static str> =
-		Some(bp_millau::RIALTO_PARACHAIN_TO_MILLAU_CONVERSION_RATE_PARAMETER_NAME);
-
-	const SOURCE_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> =
-		Some(bp_rialto_parachain::MILLAU_FEE_MULTIPLIER_PARAMETER_NAME);
-	const TARGET_FEE_MULTIPLIER_PARAMETER_NAME: Option<&'static str> =
-		Some(bp_millau::RIALTO_PARACHAIN_FEE_MULTIPLIER_PARAMETER_NAME);
-
-	const AT_SOURCE_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> =
-		Some(bp_millau::TRANSACTION_PAYMENT_PALLET_NAME);
-	const AT_TARGET_TRANSACTION_PAYMENT_PALLET_NAME: Option<&'static str> =
-		Some(bp_rialto_parachain::TRANSACTION_PAYMENT_PALLET_NAME);
-
 	type SourceChain = Millau;
 	type TargetChain = RialtoParachain;
 
@@ -64,9 +41,4 @@ impl SubstrateMessageLane for MillauMessagesToRialtoParachain {
 		millau_runtime::Runtime,
 		millau_runtime::WithRialtoParachainMessagesInstance,
 	>;
-
-	type TargetToSourceChainConversionRateUpdateBuilder =
-		MillauMessagesToRialtoParachainUpdateConversionRateCallBuilder;
-
-	type RelayStrategy = MixStrategy;
 }

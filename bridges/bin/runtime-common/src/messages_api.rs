@@ -26,7 +26,7 @@ pub fn outbound_message_details<Runtime, MessagesPalletInstance>(
 	lane: LaneId,
 	begin: MessageNonce,
 	end: MessageNonce,
-) -> Vec<OutboundMessageDetails<Runtime::OutboundMessageFee>>
+) -> Vec<OutboundMessageDetails>
 where
 	Runtime: pallet_bridge_messages::Config<MessagesPalletInstance>,
 	MessagesPalletInstance: 'static,
@@ -40,10 +40,7 @@ where
 				// dispatch message weight is always zero at the source chain, since we're paying for
 				// dispatch at the target chain
 				dispatch_weight: frame_support::weights::Weight::zero(),
-				size: message_data.payload.len() as _,
-				delivery_and_dispatch_fee: message_data.fee,
-				// we're delivering XCM messages here, so fee is always paid at the target chain
-				dispatch_fee_payment: bp_runtime::messages::DispatchFeePayment::AtTargetChain,
+				size: message_data.len() as _,
 			})
 		})
 		.collect()
@@ -52,7 +49,7 @@ where
 /// Implementation of the `To*InboundLaneApi::message_details`.
 pub fn inbound_message_details<Runtime, MessagesPalletInstance>(
 	lane: LaneId,
-	messages: Vec<(MessagePayload, OutboundMessageDetails<Runtime::InboundMessageFee>)>,
+	messages: Vec<(MessagePayload, OutboundMessageDetails)>,
 ) -> Vec<InboundMessageDetails>
 where
 	Runtime: pallet_bridge_messages::Config<MessagesPalletInstance>,
