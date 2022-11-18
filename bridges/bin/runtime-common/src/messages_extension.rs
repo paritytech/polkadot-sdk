@@ -31,7 +31,6 @@ use sp_runtime::transaction_validity::TransactionValidity;
 impl<
 		BridgedHeaderHash,
 		SourceHeaderChain: bp_messages::target_chain::SourceHeaderChain<
-			<T as Config<I>>::InboundMessageFee,
 			MessagesProof = FromBridgedChainMessagesProof<BridgedHeaderHash>,
 		>,
 		TargetHeaderChain: bp_messages::source_chain::TargetHeaderChain<

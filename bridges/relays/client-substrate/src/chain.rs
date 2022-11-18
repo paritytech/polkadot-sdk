@@ -19,7 +19,7 @@ use bp_runtime::{
 	Chain as ChainBase, EncodedOrDecodedCall, HashOf, TransactionEra, TransactionEraOf,
 };
 use codec::{Codec, Encode};
-use frame_support::weights::{Weight, WeightToFee};
+use frame_support::weights::WeightToFee;
 use jsonrpsee::core::{DeserializeOwned, Serialize};
 use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
@@ -52,8 +52,6 @@ pub trait Chain: ChainBase + Clone {
 	/// How often blocks are produced on that chain. It's suggested to set this value
 	/// to match the block time of the chain.
 	const AVERAGE_BLOCK_INTERVAL: Duration;
-	/// Maximal expected storage proof overhead (in bytes).
-	const STORAGE_PROOF_OVERHEAD: u32;
 
 	/// Block type.
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
@@ -105,10 +103,6 @@ pub trait ChainWithMessages: Chain {
 	/// Name of the `From<ChainWithMessages>InboundLaneApi::message_details` runtime API method.
 	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str;
-
-	/// Additional weight of the dispatch fee payment if dispatch is paid at the target chain
-	/// and this `ChainWithMessages` is the target chain.
-	const PAY_INBOUND_DISPATCH_FEE_WEIGHT_AT_CHAIN: Weight;
 
 	/// Maximal number of unrewarded relayers in a single confirmation transaction at this
 	/// `ChainWithMessages`.

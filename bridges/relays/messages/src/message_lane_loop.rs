@@ -30,7 +30,6 @@ use async_trait::async_trait;
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
 
 use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
-use bp_runtime::messages::DispatchFeePayment;
 use relay_utils::{
 	interval, metrics::MetricsParams, process_future_result, relay_loop::Client as RelayClient,
 	retry_backoff, FailedClient, TransactionTracker,
@@ -41,12 +40,11 @@ use crate::{
 	message_race_delivery::run as run_message_delivery_race,
 	message_race_receiving::run as run_message_receiving_race,
 	metrics::MessageLaneLoopMetrics,
-	relay_strategy::RelayStrategy,
 };
 
 /// Message lane loop configuration params.
 #[derive(Debug, Clone)]
-pub struct Params<Strategy: RelayStrategy> {
+pub struct Params {
 	/// Id of lane this loop is servicing.
 	pub lane: LaneId,
 	/// Interval at which we ask target node about its updates.
@@ -56,22 +54,12 @@ pub struct Params<Strategy: RelayStrategy> {
 	/// Delay between moments when connection error happens and our reconnect attempt.
 	pub reconnect_delay: Duration,
 	/// Message delivery race parameters.
-	pub delivery_params: MessageDeliveryParams<Strategy>,
-}
-
-/// Relayer operating mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RelayerMode {
-	/// The relayer doesn't care about rewards.
-	Altruistic,
-	/// The relayer will deliver all messages and confirmations as long as he's not losing any
-	/// funds.
-	Rational,
+	pub delivery_params: MessageDeliveryParams,
 }
 
 /// Message delivery race parameters.
 #[derive(Debug, Clone)]
-pub struct MessageDeliveryParams<Strategy: RelayStrategy> {
+pub struct MessageDeliveryParams {
 	/// Maximal number of unconfirmed relayer entries at the inbound lane. If there's that number
 	/// of entries in the `InboundLaneData::relayers` set, all new messages will be rejected until
 	/// reward payment will be proved (by including outbound lane state to the message delivery
@@ -87,8 +75,6 @@ pub struct MessageDeliveryParams<Strategy: RelayStrategy> {
 	pub max_messages_weight_in_single_batch: Weight,
 	/// Maximal cumulative size of relayed messages in single delivery transaction.
 	pub max_messages_size_in_single_batch: u32,
-	/// Relay strategy
-	pub relay_strategy: Strategy,
 }
 
 /// Message details.
@@ -100,8 +86,6 @@ pub struct MessageDetails<SourceChainBalance> {
 	pub size: u32,
 	/// The relayer reward paid in the source chain tokens.
 	pub reward: SourceChainBalance,
-	/// Where the fee for dispatching message is paid?
-	pub dispatch_fee_payment: DispatchFeePayment,
 }
 
 /// Messages details map.
@@ -173,9 +157,6 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 
 	/// We need given finalized target header on source to continue synchronization.
 	async fn require_target_header_on_source(&self, id: TargetHeaderIdOf<P>);
-
-	/// Estimate cost of single message confirmation transaction in source chain tokens.
-	async fn estimate_confirmation_transaction(&self) -> P::SourceChainBalance;
 }
 
 /// Target client trait.
@@ -221,18 +202,6 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 
 	/// We need given finalized source header on target to continue synchronization.
 	async fn require_source_header_on_target(&self, id: SourceHeaderIdOf<P>);
-
-	/// Estimate cost of messages delivery transaction in source chain tokens.
-	///
-	/// Please keep in mind that the returned cost must be converted to the source chain
-	/// tokens, even though the transaction fee will be paid in the target chain tokens.
-	async fn estimate_delivery_transaction_in_source_tokens(
-		&self,
-		nonces: RangeInclusive<MessageNonce>,
-		total_prepaid_nonces: MessageNonce,
-		total_dispatch_weight: Weight,
-		total_size: u32,
-	) -> Result<P::SourceChainBalance, Self::Error>;
 }
 
 /// State of the client.
@@ -272,8 +241,8 @@ pub fn metrics_prefix<P: MessageLane>(lane: &LaneId) -> String {
 }
 
 /// Run message lane service loop.
-pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
-	params: Params<Strategy>,
+pub async fn run<P: MessageLane>(
+	params: Params,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	metrics_params: MetricsParams,
@@ -283,11 +252,7 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 	relay_utils::relay_loop(source_client, target_client)
 		.reconnect_delay(params.reconnect_delay)
 		.with_metrics(metrics_params)
-		.loop_metric(MessageLaneLoopMetrics::new(
-			Some(&metrics_prefix::<P>(&params.lane)),
-			P::SOURCE_NAME,
-			P::TARGET_NAME,
-		)?)?
+		.loop_metric(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<P>(&params.lane)))?)?
 		.expose()
 		.await?
 		.run(metrics_prefix::<P>(&params.lane), move |source_client, target_client, metrics| {
@@ -304,13 +269,8 @@ pub async fn run<P: MessageLane, Strategy: RelayStrategy>(
 
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit
 /// signal is received.
-async fn run_until_connection_lost<
-	P: MessageLane,
-	Strategy: RelayStrategy,
-	SC: SourceClient<P>,
-	TC: TargetClient<P>,
->(
-	params: Params<Strategy>,
+async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: TargetClient<P>>(
+	params: Params,
 	source_client: SC,
 	target_client: TC,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
@@ -477,16 +437,11 @@ pub(crate) mod tests {
 
 	use relay_utils::{HeaderId, MaybeConnectionError, TrackedTransactionStatus};
 
-	use crate::relay_strategy::AltruisticStrategy;
-
 	use super::*;
 
 	pub fn header_id(number: TestSourceHeaderNumber) -> TestSourceHeaderId {
 		HeaderId(number, number)
 	}
-
-	pub const CONFIRMATION_TRANSACTION_COST: TestSourceChainBalance = 1;
-	pub const BASE_MESSAGE_DELIVERY_TRANSACTION_COST: TestSourceChainBalance = 1;
 
 	pub type TestSourceChainBalance = u64;
 	pub type TestSourceHeaderId = HeaderId<TestSourceHeaderNumber, TestSourceHeaderHash>;
@@ -681,7 +636,6 @@ pub(crate) mod tests {
 							dispatch_weight: Weight::from_ref_time(1),
 							size: 1,
 							reward: 1,
-							dispatch_fee_payment: DispatchFeePayment::AtSourceChain,
 						},
 					)
 				})
@@ -736,10 +690,6 @@ pub(crate) mod tests {
 			data.target_to_source_header_requirements.push(id);
 			(self.tick)(&mut data);
 			(self.post_tick)(&mut data);
-		}
-
-		async fn estimate_confirmation_transaction(&self) -> TestSourceChainBalance {
-			CONFIRMATION_TRANSACTION_COST
 		}
 	}
 
@@ -871,20 +821,6 @@ pub(crate) mod tests {
 			(self.tick)(&mut data);
 			(self.post_tick)(&mut data);
 		}
-
-		async fn estimate_delivery_transaction_in_source_tokens(
-			&self,
-			nonces: RangeInclusive<MessageNonce>,
-			_total_prepaid_nonces: MessageNonce,
-			total_dispatch_weight: Weight,
-			total_size: u32,
-		) -> Result<TestSourceChainBalance, TestError> {
-			Ok((Weight::from_ref_time(BASE_MESSAGE_DELIVERY_TRANSACTION_COST) *
-				(nonces.end() - nonces.start() + 1) +
-				total_dispatch_weight +
-				Weight::from_ref_time(total_size as u64))
-			.ref_time())
-		}
 	}
 
 	fn run_loop_test(
@@ -920,7 +856,6 @@ pub(crate) mod tests {
 						max_messages_in_single_batch: 4,
 						max_messages_weight_in_single_batch: Weight::from_ref_time(4),
 						max_messages_size_in_single_batch: 4,
-						relay_strategy: AltruisticStrategy,
 					},
 				},
 				source_client,
