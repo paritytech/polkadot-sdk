@@ -217,7 +217,7 @@ pub type SignedExtra = (
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
-	cumulus_pallet_solo_to_para::CheckSudo<Runtime>,
+	pallet_sudo::CheckOnlySudoAccount<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

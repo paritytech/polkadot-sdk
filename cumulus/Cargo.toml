@@ -19,6 +19,7 @@ members = [
 	"pallets/parachain-system",
 	"pallets/parachain-system/proc-macro",
 	"pallets/session-benchmarking",
+	"pallets/solo-to-para",
 	"pallets/xcm",
 	"pallets/xcmp-queue",
 	"parachain-template/node",
