@@ -16,7 +16,7 @@
 
 //! Everything required to serve Millau <-> Rialto messages.
 
-use crate::{MillauGrandpaInstance, OriginCaller, Runtime, RuntimeCall, RuntimeOrigin};
+use crate::{MillauGrandpaInstance, Runtime, RuntimeCall, RuntimeOrigin};
 
 use bp_messages::{
 	source_chain::TargetHeaderChain,
@@ -27,6 +27,8 @@ use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_CHAIN_ID};
 use bridge_runtime_common::messages::{self, MessageBridge};
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 
+/// Lane that is used for XCM messages exchange.
+pub const XCM_LANE: LaneId = [0, 0, 0, 0];
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
@@ -96,24 +98,8 @@ impl messages::ThisChainWithMessages for Rialto {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 
-	fn is_message_accepted(send_origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool {
-		let here_location =
-			xcm::v3::MultiLocation::from(crate::xcm_config::UniversalLocation::get());
-		match send_origin.caller {
-			OriginCaller::XcmPallet(pallet_xcm::Origin::Xcm(ref location))
-				if *location == here_location =>
-			{
-				log::trace!(target: "runtime::bridge", "Verifying message sent using XCM pallet to Millau");
-			},
-			_ => {
-				// keep in mind that in this case all messages are free (in term of fees)
-				// => it's just to keep testing bridge on our test deployments until we'll have a
-				// better option
-				log::trace!(target: "runtime::bridge", "Verifying message sent using messages pallet to Millau");
-			},
-		}
-
-		*lane == [0, 0, 0, 0] || *lane == [0, 0, 0, 1]
+	fn is_message_accepted(_send_origin: &Self::RuntimeOrigin, _lane: &LaneId) -> bool {
+		true
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {

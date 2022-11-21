@@ -26,7 +26,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use crate::millau_messages::{WithMillauMessageBridge, DEFAULT_XCM_LANE_TO_MILLAU};
+use crate::millau_messages::{WithMillauMessageBridge, XCM_LANE};
 
 use bridge_runtime_common::messages::source::{XcmBridge, XcmBridgeAdapter};
 use cumulus_pallet_parachain_system::AnyRelayNumber;
@@ -455,7 +455,7 @@ impl XcmBridge for ToMillauBridge {
 	}
 
 	fn xcm_lane() -> bp_messages::LaneId {
-		DEFAULT_XCM_LANE_TO_MILLAU
+		XCM_LANE
 	}
 }
 
@@ -554,6 +554,7 @@ parameter_types! {
 		bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const RootAccountForPayments: Option<AccountId> = None;
 	pub const BridgedChainId: bp_runtime::ChainId = bp_runtime::MILLAU_CHAIN_ID;
+	pub ActiveOutboundLanes: &'static [bp_messages::LaneId] = &[millau_messages::XCM_LANE];
 }
 
 /// Instance of the messages pallet used to relay messages to/from Millau chain.
@@ -562,7 +563,7 @@ pub type WithMillauMessagesInstance = ();
 impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
-	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
+	type ActiveOutboundLanes = ActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 

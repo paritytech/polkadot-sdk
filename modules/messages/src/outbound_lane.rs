@@ -23,7 +23,11 @@ use bp_messages::{
 	DeliveredMessages, DispatchResultsBitVec, LaneId, MessageNonce, MessagePayload,
 	OutboundLaneData, UnrewardedRelayer,
 };
-use frame_support::{BoundedVec, RuntimeDebug};
+use frame_support::{
+	weights::{RuntimeDbWeight, Weight},
+	BoundedVec, RuntimeDebug,
+};
+use num_traits::Zero;
 use sp_std::collections::vec_deque::VecDeque;
 
 /// Outbound lane storage.
@@ -147,24 +151,32 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 
 	/// Prune at most `max_messages_to_prune` already received messages.
 	///
-	/// Returns number of pruned messages.
-	pub fn prune_messages(&mut self, max_messages_to_prune: MessageNonce) -> MessageNonce {
-		let mut pruned_messages = 0;
+	/// Returns weight, consumed by messages pruning and lane state update.
+	pub fn prune_messages(
+		&mut self,
+		db_weight: RuntimeDbWeight,
+		mut remaining_weight: Weight,
+	) -> Weight {
+		let write_weight = db_weight.writes(1);
+		let two_writes_weight = write_weight + write_weight;
+		let mut spent_weight = Weight::zero();
 		let mut data = self.storage.data();
-		while pruned_messages < max_messages_to_prune &&
+		while remaining_weight.all_gte(two_writes_weight) &&
 			data.oldest_unpruned_nonce <= data.latest_received_nonce
 		{
 			self.storage.remove_message(&data.oldest_unpruned_nonce);
 
-			pruned_messages += 1;
+			spent_weight += write_weight;
+			remaining_weight -= write_weight;
 			data.oldest_unpruned_nonce += 1;
 		}
 
-		if pruned_messages > 0 {
+		if !spent_weight.is_zero() {
+			spent_weight += write_weight;
 			self.storage.set_data(data);
 		}
 
-		pruned_messages
+		spent_weight
 	}
 }
 
@@ -246,6 +258,7 @@ mod tests {
 		},
 		outbound_lane,
 	};
+	use frame_support::weights::constants::RocksDbWeight;
 	use sp_std::ops::RangeInclusive;
 
 	fn unrewarded_relayers(
@@ -413,27 +426,48 @@ mod tests {
 		run_test(|| {
 			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
 			// when lane is empty, nothing is pruned
-			assert_eq!(lane.prune_messages(100), 0);
+			assert_eq!(
+				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
+				Weight::zero()
+			);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			// when nothing is confirmed, nothing is pruned
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
-			assert_eq!(lane.prune_messages(100), 0);
+			assert!(lane.storage.message(&1).is_some());
+			assert!(lane.storage.message(&2).is_some());
+			assert!(lane.storage.message(&3).is_some());
+			assert_eq!(
+				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
+				Weight::zero()
+			);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			// after confirmation, some messages are received
 			assert_eq!(
 				lane.confirm_delivery(2, 2, &unrewarded_relayers(1..=2)),
 				ReceivalConfirmationResult::ConfirmedMessages(delivered_messages(1..=2)),
 			);
-			assert_eq!(lane.prune_messages(100), 2);
+			assert_eq!(
+				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
+				RocksDbWeight::get().writes(3),
+			);
+			assert!(lane.storage.message(&1).is_none());
+			assert!(lane.storage.message(&2).is_none());
+			assert!(lane.storage.message(&3).is_some());
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 3);
 			// after last message is confirmed, everything is pruned
 			assert_eq!(
 				lane.confirm_delivery(1, 3, &unrewarded_relayers(3..=3)),
 				ReceivalConfirmationResult::ConfirmedMessages(delivered_messages(3..=3)),
 			);
-			assert_eq!(lane.prune_messages(100), 1);
+			assert_eq!(
+				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
+				RocksDbWeight::get().writes(2),
+			);
+			assert!(lane.storage.message(&1).is_none());
+			assert!(lane.storage.message(&2).is_none());
+			assert!(lane.storage.message(&3).is_none());
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
 		});
 	}

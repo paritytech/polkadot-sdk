@@ -469,6 +469,8 @@ parameter_types! {
 	pub const RootAccountForPayments: Option<AccountId> = None;
 	pub const RialtoChainId: bp_runtime::ChainId = bp_runtime::RIALTO_CHAIN_ID;
 	pub const RialtoParachainChainId: bp_runtime::ChainId = bp_runtime::RIALTO_PARACHAIN_CHAIN_ID;
+	pub RialtoActiveOutboundLanes: &'static [bp_messages::LaneId] = &[rialto_messages::XCM_LANE];
+	pub RialtoParachainActiveOutboundLanes: &'static [bp_messages::LaneId] = &[rialto_parachain_messages::XCM_LANE];
 }
 
 /// Instance of the messages pallet used to relay messages to/from Rialto chain.
@@ -477,7 +479,7 @@ pub type WithRialtoMessagesInstance = ();
 impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
-	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
+	type ActiveOutboundLanes = RialtoActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
@@ -506,7 +508,7 @@ pub type WithRialtoParachainMessagesInstance = pallet_bridge_messages::Instance1
 impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
-	type MaxMessagesToPruneAtOnce = MaxMessagesToPruneAtOnce;
+	type ActiveOutboundLanes = RialtoParachainActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 

@@ -65,6 +65,7 @@ use bp_messages::{
 use bp_runtime::{BasicOperatingMode, ChainId, OwnedBridgeModule, Size};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get};
+use sp_runtime::traits::UniqueSaturatedFrom;
 use sp_std::{
 	cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive,
 	prelude::*,
@@ -107,10 +108,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type BridgedChainId: Get<ChainId>;
 
-		/// Maximal number of messages that may be pruned during maintenance. Maintenance occurs
-		/// whenever new message is sent. The reason is that if you want to use lane, you should
-		/// be ready to pay for its maintenance.
-		type MaxMessagesToPruneAtOnce: Get<MessageNonce>;
+		/// Get all active outbound lanes that the message pallet is serving.
+		type ActiveOutboundLanes: Get<&'static [LaneId]>;
 		/// Maximal number of unrewarded relayer entries at inbound lane. Unrewarded means that the
 		/// relayer has delivered messages, but either confirmations haven't been delivered back to
 		/// the source chain, or we haven't received reward confirmations yet.
@@ -189,6 +188,40 @@ pub mod pallet {
 		type OwnerStorage = PalletOwner<T, I>;
 		type OperatingMode = MessagesOperatingMode;
 		type OperatingModeStorage = PalletOperatingMode<T, I>;
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I>
+	where
+		u32: TryFrom<<T as frame_system::Config>::BlockNumber>,
+	{
+		fn on_idle(_block: T::BlockNumber, remaining_weight: Weight) -> Weight {
+			// we'll need at least to read outbound lane state, kill a message and update lane state
+			let db_weight = T::DbWeight::get();
+			if !remaining_weight.all_gte(db_weight.reads_writes(1, 2)) {
+				return Weight::zero()
+			}
+
+			// messages from lane with index `i` in `ActiveOutboundLanes` are pruned when
+			// `System::block_number() % lanes.len() == i`. Otherwise we need to read lane states on
+			// every block, wasting the whole `remaining_weight` for nothing and causing starvation
+			// of the last lane pruning
+			let active_lanes = T::ActiveOutboundLanes::get();
+			let active_lanes_len = (active_lanes.len() as u32).into();
+			let active_lane_index = u32::unique_saturated_from(
+				frame_system::Pallet::<T>::block_number() % active_lanes_len,
+			);
+			let active_lane_id = active_lanes[active_lane_index as usize];
+
+			// first db read - outbound lane state
+			let mut active_lane = outbound_lane::<T, I>(active_lane_id);
+			let mut used_weight = db_weight.reads(1);
+			// and here we'll have writes
+			used_weight += active_lane.prune_messages(db_weight, remaining_weight - used_weight);
+
+			// we already checked we have enough `remaining_weight` to cover this `used_weight`
+			used_weight
+		}
 	}
 
 	#[pallet::call]
@@ -469,6 +502,8 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// Pallet is not in Normal operating mode.
 		NotOperatingNormally,
+		/// The outbound lane is inactive.
+		InactiveOutboundLane,
 		/// The message is too large to be sent over the bridge.
 		MessageIsTooLarge,
 		/// Message has been treated as invalid by chain verifier.
@@ -614,8 +649,8 @@ fn send_message<T: Config<I>, I: 'static>(
 > {
 	ensure_normal_operating_mode::<T, I>()?;
 
-	// initially, actual (post-dispatch) weight is equal to pre-dispatch weight
-	let mut actual_weight = frame_support::weights::Weight::zero(); // TODO (https://github.com/paritytech/parity-bridges-common/issues/1647): remove this
+	// let's check if outbound lane is active
+	ensure!(T::ActiveOutboundLanes::get().contains(&lane_id), Error::<T, I>::InactiveOutboundLane,);
 
 	// let's first check if message can be delivered to target chain
 	T::TargetHeaderChain::verify_message(&payload).map_err(|err| {
@@ -653,15 +688,6 @@ fn send_message<T: Config<I>, I: 'static>(
 	);
 	let nonce = lane.send_message(encoded_payload);
 
-	// message sender pays for pruning at most `MaxMessagesToPruneAtOnce` messages
-	// the cost of pruning every message is roughly single db write
-	// => lets refund sender if less than `MaxMessagesToPruneAtOnce` messages pruned
-	let max_messages_to_prune = T::MaxMessagesToPruneAtOnce::get();
-	let pruned_messages = lane.prune_messages(max_messages_to_prune);
-	if let Some(extra_messages) = max_messages_to_prune.checked_sub(pruned_messages) {
-		actual_weight = actual_weight.saturating_sub(T::DbWeight::get().writes(extra_messages));
-	}
-
 	log::trace!(
 		target: LOG_TARGET,
 		"Accepted message {} to lane {:?}. Message size: {:?}",
@@ -671,6 +697,14 @@ fn send_message<T: Config<I>, I: 'static>(
 	);
 
 	Pallet::<T, I>::deposit_event(Event::MessageAccepted { lane_id, nonce });
+
+	// we may introduce benchmarks for that, but no heavy ops planned here apart from
+	// db reads and writes. There are currently 2 db reads and 2 db writes:
+	// - one db read for operation mode check (`ensure_normal_operating_mode`);
+	// - one db read for outbound lane state (`outbound_lane`);
+	// - one db write for outbound lane state (`send_message`);
+	// - one db write for the message (`send_message`);
+	let actual_weight = T::DbWeight::get().reads_writes(2, 2);
 
 	Ok(SendMessageArtifacts { nonce, weight: actual_weight })
 }
@@ -851,17 +885,18 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain, DispatchPayload: D
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, message_payload, run_test, unrewarded_relayer, RuntimeEvent as TestEvent,
-		RuntimeOrigin, TestMessageDeliveryAndDispatchPayment, TestMessagesDeliveryProof,
-		TestMessagesProof, TestRuntime, MAX_OUTBOUND_PAYLOAD_SIZE,
-		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A,
-		TEST_RELAYER_B,
+		message, message_payload, run_test, unrewarded_relayer, DbWeight,
+		RuntimeEvent as TestEvent, RuntimeOrigin, TestMessageDeliveryAndDispatchPayment,
+		TestMessagesDeliveryProof, TestMessagesProof, TestRuntime, MAX_OUTBOUND_PAYLOAD_SIZE,
+		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_LANE_ID_2,
+		TEST_LANE_ID_3, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_messages::{UnrewardedRelayer, UnrewardedRelayersState};
 	use bp_test_utils::generate_owned_bridge_module_tests;
 	use frame_support::{
 		assert_noop, assert_ok,
 		storage::generator::{StorageMap, StorageValue},
+		traits::Hooks,
 		weights::Weight,
 	};
 	use frame_system::{EventRecord, Pallet as System, Phase};
@@ -1682,6 +1717,184 @@ mod tests {
 					},
 				),
 				InboundMessageDetails { dispatch_weight: REGULAR_PAYLOAD.declared_weight },
+			);
+		});
+	}
+
+	#[test]
+	fn on_idle_callback_respects_remaining_weight() {
+		run_test(|| {
+			send_regular_message();
+			send_regular_message();
+			send_regular_message();
+			send_regular_message();
+
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
+				RuntimeOrigin::signed(1),
+				TestMessagesDeliveryProof(Ok((
+					TEST_LANE_ID,
+					InboundLaneData {
+						last_confirmed_nonce: 4,
+						relayers: vec![unrewarded_relayer(1, 4, TEST_RELAYER_A)]
+							.into_iter()
+							.collect(),
+					},
+				))),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 4,
+					total_messages: 4,
+					last_delivered_nonce: 4,
+				},
+			));
+
+			// all 4 messages may be pruned now
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().latest_received_nonce,
+				4
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				1
+			);
+			System::<TestRuntime>::set_block_number(2);
+
+			// if passed wight is too low to do anything
+			let dbw = DbWeight::get();
+			assert_eq!(
+				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 1)),
+				Weight::zero(),
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				1
+			);
+
+			// if passed wight is enough to prune single message
+			assert_eq!(
+				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 2)),
+				dbw.reads_writes(1, 2),
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				2
+			);
+
+			// if passed wight is enough to prune two more messages
+			assert_eq!(
+				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 3)),
+				dbw.reads_writes(1, 3),
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				4
+			);
+
+			// if passed wight is enough to prune many messages
+			assert_eq!(
+				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
+				dbw.reads_writes(1, 2),
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				5
+			);
+		});
+	}
+
+	#[test]
+	fn on_idle_callback_is_rotating_lanes_to_prune() {
+		run_test(|| {
+			// send + receive confirmation for lane 1
+			send_regular_message();
+			receive_messages_delivery_proof();
+			// send + receive confirmation for lane 2
+			assert_ok!(send_message::<TestRuntime, ()>(
+				RuntimeOrigin::signed(1),
+				TEST_LANE_ID_2,
+				REGULAR_PAYLOAD,
+			));
+			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
+				RuntimeOrigin::signed(1),
+				TestMessagesDeliveryProof(Ok((
+					TEST_LANE_ID_2,
+					InboundLaneData {
+						last_confirmed_nonce: 1,
+						relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)]
+							.into_iter()
+							.collect(),
+					},
+				))),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
+					total_messages: 1,
+					last_delivered_nonce: 1,
+				},
+			));
+
+			// nothing is pruned yet
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().latest_received_nonce,
+				1
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				1
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().latest_received_nonce,
+				1
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
+				1
+			);
+
+			// in block#2.on_idle lane messages of lane 1 are pruned
+			let dbw = DbWeight::get();
+			System::<TestRuntime>::set_block_number(2);
+			assert_eq!(
+				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
+				dbw.reads_writes(1, 2),
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				2
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
+				1
+			);
+
+			// in block#3.on_idle lane messages of lane 2 are pruned
+			System::<TestRuntime>::set_block_number(3);
+
+			assert_eq!(
+				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
+				dbw.reads_writes(1, 2),
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
+				2
+			);
+			assert_eq!(
+				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
+				2
+			);
+		});
+	}
+
+	#[test]
+	fn outbound_message_from_unconfigured_lane_is_rejected() {
+		run_test(|| {
+			assert_noop!(
+				send_message::<TestRuntime, ()>(
+					RuntimeOrigin::signed(1),
+					TEST_LANE_ID_3,
+					REGULAR_PAYLOAD,
+				),
+				Error::<TestRuntime, ()>::InactiveOutboundLane,
 			);
 		});
 	}

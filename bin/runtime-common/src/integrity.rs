@@ -204,9 +204,9 @@ where
 	MI: 'static,
 {
 	assert!(
-		R::MaxMessagesToPruneAtOnce::get() > 0,
-		"MaxMessagesToPruneAtOnce ({}) must be larger than zero",
-		R::MaxMessagesToPruneAtOnce::get(),
+		!R::ActiveOutboundLanes::get().is_empty(),
+		"ActiveOutboundLanes ({:?}) must not be empty",
+		R::ActiveOutboundLanes::get(),
 	);
 	assert!(
 		R::MaxUnrewardedRelayerEntriesAtInboundLane::get() <= params.max_unrewarded_relayers_in_bridged_confirmation_tx,

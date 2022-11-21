@@ -28,7 +28,7 @@ use bridge_runtime_common::messages::{self, MessageBridge};
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 
 /// Default lane that is used to send messages to Rialto parachain.
-pub const DEFAULT_XCM_LANE_TO_RIALTO_PARACHAIN: LaneId = [0, 0, 0, 0];
+pub const XCM_LANE: LaneId = [0, 0, 0, 0];
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
@@ -103,8 +103,8 @@ impl messages::ThisChainWithMessages for Millau {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeOrigin = RuntimeOrigin;
 
-	fn is_message_accepted(_send_origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool {
-		*lane == DEFAULT_XCM_LANE_TO_RIALTO_PARACHAIN || *lane == [0, 0, 0, 1]
+	fn is_message_accepted(_send_origin: &Self::RuntimeOrigin, _lane: &LaneId) -> bool {
+		true
 	}
 
 	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
