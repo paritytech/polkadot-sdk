@@ -17,10 +17,8 @@
 //! XCM configurations for the Millau runtime.
 
 use super::{
-	rialto_messages::{WithRialtoMessageBridge, DEFAULT_XCM_LANE_TO_RIALTO},
-	rialto_parachain_messages::{
-		WithRialtoParachainMessageBridge, DEFAULT_XCM_LANE_TO_RIALTO_PARACHAIN,
-	},
+	rialto_messages::{WithRialtoMessageBridge, XCM_LANE},
+	rialto_parachain_messages::{WithRialtoParachainMessageBridge, XCM_LANE as XCM_LANE_PARACHAIN},
 	AccountId, AllPalletsWithSystem, Balances, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	WithRialtoMessagesInstance, WithRialtoParachainMessagesInstance, XcmPallet,
 };
@@ -218,7 +216,7 @@ impl XcmBridge for ToRialtoBridge {
 	}
 
 	fn xcm_lane() -> LaneId {
-		DEFAULT_XCM_LANE_TO_RIALTO
+		XCM_LANE
 	}
 }
 
@@ -245,7 +243,7 @@ impl XcmBridge for ToRialtoParachainBridge {
 	}
 
 	fn xcm_lane() -> LaneId {
-		DEFAULT_XCM_LANE_TO_RIALTO_PARACHAIN
+		XCM_LANE_PARACHAIN
 	}
 }
 
