@@ -1,0 +1,54 @@
+[package]
+name = "pallet-bridge-beefy"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+log = { version = "0.4.14", default-features = false }
+scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
+serde = { version = "1.0", optional = true }
+
+# Bridge Dependencies
+
+bp-beefy = { path = "../../primitives/beefy", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false }
+
+# Substrate Dependencies
+
+beefy-merkle-tree = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+primitive-types = { version = "0.12.0", default-features = false, features = ["impl-codec"] }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+
+[dev-dependencies]
+beefy-primitives = { git = "https://github.com/paritytech/substrate", branch = "master" }
+mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.3.2" }
+pallet-beefy-mmr = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-mmr = { git = "https://github.com/paritytech/substrate", branch = "master" }
+rand = "0.8"
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+bp-test-utils = { path = "../../primitives/test-utils" }
+
+[features]
+default = ["std"]
+std = [
+	"beefy-merkle-tree/std",
+	"bp-beefy/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"primitive-types/std",
+	"scale-info/std",
+	"serde",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
