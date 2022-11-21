@@ -46,7 +46,7 @@ pub use weights_ext::{
 };
 
 use crate::{
-	inbound_lane::{InboundLane, InboundLaneStorage, ReceivalResult},
+	inbound_lane::{InboundLane, InboundLaneStorage},
 	outbound_lane::{OutboundLane, OutboundLaneStorage, ReceivalConfirmationResult},
 };
 
@@ -91,6 +91,7 @@ pub const LOG_TARGET: &str = "runtime::bridge-messages";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use bp_messages::{ReceivalResult, ReceivedMessages};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -298,6 +299,7 @@ pub mod pallet {
 			// dispatch messages and (optionally) update lane(s) state(s)
 			let mut total_messages = 0;
 			let mut valid_messages = 0;
+			let mut messages_received_status = Vec::with_capacity(messages.len());
 			let mut dispatch_weight_left = dispatch_weight;
 			for (lane_id, lane_data) in messages {
 				let mut lane = inbound_lane::<T, I>(lane_id);
@@ -314,24 +316,37 @@ pub mod pallet {
 					}
 				}
 
+				let mut lane_messages_received_status =
+					ReceivedMessages::new(lane_id, Vec::with_capacity(lane_data.messages.len()));
+				let mut is_lane_processing_stopped_no_weight_left = false;
+
 				for mut message in lane_data.messages {
 					debug_assert_eq!(message.key.lane_id, lane_id);
+					total_messages += 1;
+
+					if is_lane_processing_stopped_no_weight_left {
+						lane_messages_received_status
+							.push_skipped_for_not_enough_weight(message.key.nonce);
+						continue
+					}
 
 					// ensure that relayer has declared enough weight for dispatching next message
 					// on this lane. We can't dispatch lane messages out-of-order, so if declared
 					// weight is not enough, let's move to next lane
-					let dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
-					if dispatch_weight.any_gt(dispatch_weight_left) {
+					let message_dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
+					if message_dispatch_weight.any_gt(dispatch_weight_left) {
 						log::trace!(
 							target: LOG_TARGET,
 							"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
 							lane_id,
-							dispatch_weight,
+							message_dispatch_weight,
 							dispatch_weight_left,
 						);
-						break
+						lane_messages_received_status
+							.push_skipped_for_not_enough_weight(message.key.nonce);
+						is_lane_processing_stopped_no_weight_left = true;
+						continue
 					}
-					total_messages += 1;
 
 					let receival_result = lane.receive_message::<T::MessageDispatch, T::AccountId>(
 						&relayer_id_at_bridged_chain,
@@ -346,7 +361,7 @@ pub mod pallet {
 					// losing funds for messages dispatch. But keep in mind that relayer pays base
 					// delivery transaction cost anyway. And base cost covers everything except
 					// dispatch, so we have a balance here.
-					let (unspent_weight, refund_pay_dispatch_fee) = match receival_result {
+					let (unspent_weight, refund_pay_dispatch_fee) = match &receival_result {
 						ReceivalResult::Dispatched(dispatch_result) => {
 							valid_messages += 1;
 							(
@@ -356,11 +371,12 @@ pub mod pallet {
 						},
 						ReceivalResult::InvalidNonce |
 						ReceivalResult::TooManyUnrewardedRelayers |
-						ReceivalResult::TooManyUnconfirmedMessages => (dispatch_weight, true),
+						ReceivalResult::TooManyUnconfirmedMessages => (message_dispatch_weight, true),
 					};
+					lane_messages_received_status.push(message.key.nonce, receival_result);
 
-					let unspent_weight = unspent_weight.min(dispatch_weight);
-					dispatch_weight_left -= dispatch_weight - unspent_weight;
+					let unspent_weight = unspent_weight.min(message_dispatch_weight);
+					dispatch_weight_left -= message_dispatch_weight - unspent_weight;
 					actual_weight = actual_weight.saturating_sub(unspent_weight).saturating_sub(
 						// delivery call weight formula assumes that the fee is paid at
 						// this (target) chain. If the message is prepaid at the source
@@ -372,9 +388,11 @@ pub mod pallet {
 						},
 					);
 				}
+
+				messages_received_status.push(lane_messages_received_status);
 			}
 
-			log::trace!(
+			log::debug!(
 				target: LOG_TARGET,
 				"Received messages: total={}, valid={}. Weight used: {}/{}",
 				total_messages,
@@ -382,6 +400,8 @@ pub mod pallet {
 				actual_weight,
 				declared_weight,
 			);
+
+			Self::deposit_event(Event::MessagesReceived(messages_received_status));
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
 		}
@@ -494,6 +514,8 @@ pub mod pallet {
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// Message has been accepted and is waiting to be delivered.
 		MessageAccepted { lane_id: LaneId, nonce: MessageNonce },
+		/// Messages have been received from the bridged chain.
+		MessagesReceived(Vec<ReceivedMessages<ReceivalResult>>),
 		/// Messages in the inclusive range have been delivered to the bridged chain.
 		MessagesDelivered { lane_id: LaneId, messages: DeliveredMessages },
 	}
