@@ -32,6 +32,7 @@ pub mod storage_keys;
 pub mod target_chain;
 
 // Weight is reexported to avoid additional frame-support dependencies in related crates.
+use bp_runtime::messages::MessageDispatchResult;
 pub use frame_support::weights::Weight;
 
 /// Messages pallet operating mode.
@@ -216,6 +217,47 @@ pub struct UnrewardedRelayer<RelayerId> {
 	pub relayer: RelayerId,
 	/// Messages range, delivered by this relayer.
 	pub messages: DeliveredMessages,
+}
+
+/// Received messages with their dispatch result.
+#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+pub struct ReceivedMessages<Result> {
+	/// Id of the lane which is receiving messages.
+	pub lane: LaneId,
+	/// Result of messages which we tried to dispatch
+	pub receive_results: Vec<(MessageNonce, Result)>,
+	/// Messages which were skipped and never dispatched
+	pub skipped_for_not_enough_weight: Vec<MessageNonce>,
+}
+
+impl<Result> ReceivedMessages<Result> {
+	pub fn new(lane: LaneId, receive_results: Vec<(MessageNonce, Result)>) -> Self {
+		ReceivedMessages { lane, receive_results, skipped_for_not_enough_weight: Vec::new() }
+	}
+
+	pub fn push(&mut self, message: MessageNonce, result: Result) {
+		self.receive_results.push((message, result));
+	}
+
+	pub fn push_skipped_for_not_enough_weight(&mut self, message: MessageNonce) {
+		self.skipped_for_not_enough_weight.push(message);
+	}
+}
+
+/// Result of single message receival.
+#[derive(RuntimeDebug, Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
+pub enum ReceivalResult {
+	/// Message has been received and dispatched. Note that we don't care whether dispatch has
+	/// been successful or not - in both case message falls into this category.
+	///
+	/// The message dispatch result is also returned.
+	Dispatched(MessageDispatchResult),
+	/// Message has invalid nonce and lane has rejected to accept this message.
+	InvalidNonce,
+	/// There are too many unrewarded relayer entries at the lane.
+	TooManyUnrewardedRelayers,
+	/// There are too many unconfirmed messages at the lane.
+	TooManyUnconfirmedMessages,
 }
 
 /// Delivered messages with their dispatch result.
