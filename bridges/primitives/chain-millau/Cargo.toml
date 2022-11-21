@@ -10,6 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 # Bridge Dependencies
 
+bp-beefy = { path = "../beefy", default-features = false }
 bp-messages = { path = "../messages", default-features = false }
 bp-runtime = { path = "../runtime", default-features = false }
 fixed-hash = { version = "0.7.0", default-features = false }
@@ -34,6 +35,7 @@ sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", 
 [features]
 default = ["std"]
 std = [
+	"bp-beefy/std",
 	"bp-messages/std",
 	"bp-runtime/std",
 	"fixed-hash/std",
