@@ -276,7 +276,6 @@ mod tests {
 			assert_eq!(
 				dispatch_result,
 				MessageDispatchResult {
-					dispatch_result: true,
 					unspent_weight: frame_support::weights::Weight::from_ref_time(0),
 					dispatch_fee_paid_during_dispatch: false,
 				}
