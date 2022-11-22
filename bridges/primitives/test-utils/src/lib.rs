@@ -299,3 +299,47 @@ macro_rules! generate_owned_bridge_module_tests {
 		}
 	};
 }
+
+#[cfg(test)]
+mod tests {
+	use codec::Encode;
+	use sp_application_crypto::sp_core::{hexdisplay, hexdisplay::HexDisplay};
+	use xcm::VersionedXcm;
+
+	fn print_xcm<RuntimeCall>(xcm: &VersionedXcm<RuntimeCall>) {
+		println!("-----------------");
+		println!("xcm (plain): {:?}", xcm);
+		println!("xcm (bytes): {:?}", xcm.encode());
+		println!("xcm (hex): {:?}", hexdisplay::HexDisplay::from(&xcm.encode()));
+	}
+
+	fn as_hex<RuntimeCall>(xcm: &VersionedXcm<RuntimeCall>) -> String {
+		HexDisplay::from(&xcm.encode()).to_string()
+	}
+
+	pub type RuntimeCall = ();
+
+	#[test]
+	fn generate_versioned_xcm_message_hex_bytes() {
+		let xcm: xcm::v2::Xcm<RuntimeCall> = xcm::v2::Xcm(vec![xcm::v2::Instruction::Trap(43)]);
+		let xcm: VersionedXcm<RuntimeCall> = From::from(xcm);
+		print_xcm(&xcm);
+		assert_eq!("020419ac", format!("{}", as_hex(&xcm)));
+
+		let xcm: xcm::v3::Xcm<RuntimeCall> = vec![xcm::v3::Instruction::Trap(43)].into();
+		let xcm: VersionedXcm<RuntimeCall> = From::from(xcm);
+		print_xcm(&xcm);
+		assert_eq!("030419ac", format!("{}", as_hex(&xcm)));
+
+		let xcm: xcm::v3::Xcm<RuntimeCall> = vec![
+			xcm::v3::Instruction::ClearError,
+			xcm::v3::Instruction::ClearTopic,
+			xcm::v3::Instruction::ClearTransactStatus,
+			xcm::v3::Instruction::Trap(43),
+		]
+		.into();
+		let xcm: VersionedXcm<RuntimeCall> = From::from(xcm);
+		print_xcm(&xcm);
+		assert_eq!("0310172c2319ac", format!("{}", as_hex(&xcm)));
+	}
+}
