@@ -14,14 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+#![allow(unused_macros)] // TODO (https://github.com/paritytech/parity-bridges-common/issues/1629): remove me
+
 use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::cli::{
-	bridge::{
-		CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge,
-		RelayToRelayHeadersCliBridge,
-	},
+	bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge},
 	relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
 	CliChain,
 };
@@ -38,51 +37,59 @@ use substrate_relay_helper::{
 	TaggedAccount, TransactionParams,
 };
 
-/// A base relay between standalone (relay) chain and a parachain from another consensus system.
+/// A base relay between two parachain from different consensus systems.
 ///
-/// Such relay starts 2 messages relay. It also starts 2 on-demand header relays and 1 on-demand
+/// Such relay starts 2 messages relay. It also starts 2 on-demand header relays and 2 on-demand
 /// parachain heads relay.
-pub struct RelayToParachainBridge<
-	L2R: MessagesCliBridge + RelayToRelayHeadersCliBridge,
+pub struct ParachainToParachainBridge<
+	L2R: MessagesCliBridge + ParachainToRelayHeadersCliBridge,
 	R2L: MessagesCliBridge + ParachainToRelayHeadersCliBridge,
 > {
 	/// Parameters that are shared by all bridge types.
 	pub common:
 		Full2WayBridgeCommonParams<<R2L as CliBridgeBase>::Target, <L2R as CliBridgeBase>::Target>,
+	/// Client of the left relay chain.
+	pub left_relay: Client<<L2R as ParachainToRelayHeadersCliBridge>::SourceRelay>,
 	/// Client of the right relay chain.
 	pub right_relay: Client<<R2L as ParachainToRelayHeadersCliBridge>::SourceRelay>,
 
 	/// Override for right_relay->left headers signer.
 	pub right_headers_to_left_transaction_params:
 		TransactionParams<AccountKeyPairOf<<R2L as CliBridgeBase>::Target>>,
+	/// Override for left_relay->right headers signer.
+	pub left_headers_to_right_transaction_params:
+		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
+
 	/// Override for right->left parachains signer.
 	pub right_parachains_to_left_transaction_params:
 		TransactionParams<AccountKeyPairOf<<R2L as CliBridgeBase>::Target>>,
-	/// Override for left->right headers signer.
-	pub left_headers_to_right_transaction_params:
+	/// Override for left->right parachains signer.
+	pub left_parachains_to_right_transaction_params:
 		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
 }
 
-macro_rules! declare_relay_to_parachain_bridge_schema {
-	// chain, parachain, relay-chain-of-parachain
-	($left_chain:ident, $right_parachain:ident, $right_chain:ident) => {
+macro_rules! declare_parachain_to_parachain_bridge_schema {
+	// left-parachain, relay-chain-of-left-parachain, right-parachain, relay-chain-of-right-parachain
+	($left_parachain:ident, $left_chain:ident, $right_parachain:ident, $right_chain:ident) => {
 		bp_runtime::paste::item! {
-			#[doc = $left_chain ", " $right_parachain " and " $right_chain " headers+parachains+messages relay params."]
+			#[doc = $left_parachain ", " $left_chain ", " $right_parachain " and " $right_chain " headers+parachains+messages relay params."]
 			#[derive(Debug, PartialEq, StructOpt)]
-			pub struct [<$left_chain $right_parachain HeadersAndMessages>] {
+			pub struct [<$left_parachain $right_parachain HeadersAndMessages>] {
 				// shared parameters
 				#[structopt(flatten)]
 				shared: HeadersAndMessagesSharedParams,
 
 				#[structopt(flatten)]
-				left: [<$left_chain ConnectionParams>],
+				left: [<$left_parachain ConnectionParams>],
+				#[structopt(flatten)]
+				left_relay: [<$left_chain ConnectionParams>],
 
 				// default signer, which is always used to sign messages relay transactions on the left chain
 				#[structopt(flatten)]
-				left_sign: [<$left_chain SigningParams>],
-				// signer used to sign parameter update transactions at the left chain
+				left_sign: [<$left_parachain SigningParams>],
+				// signer used to sign parameter update transactions at the left parachain
 				#[structopt(flatten)]
-				left_messages_pallet_owner: [<$left_chain MessagesPalletOwnerSigningParams>],
+				left_messages_pallet_owner: [<$left_parachain MessagesPalletOwnerSigningParams>],
 
 				#[structopt(flatten)]
 				right: [<$right_parachain ConnectionParams>],
@@ -92,36 +99,41 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 				// default signer, which is always used to sign messages relay transactions on the right chain
 				#[structopt(flatten)]
 				right_sign: [<$right_parachain SigningParams>],
-				// signer used to sign parameter update transactions at the left chain
+				// signer used to sign parameter update transactions at the right parachain
 				#[structopt(flatten)]
 				right_messages_pallet_owner: [<$right_parachain MessagesPalletOwnerSigningParams>],
 
-
-				// override for right_relay->left headers signer
+				// override for right_relay->left-parachain headers signer
 				#[structopt(flatten)]
-				right_relay_headers_to_left_sign_override: [<$right_chain HeadersTo $left_chain SigningParams>],
-				// override for left->right headers signer
+				right_relay_headers_to_left_sign_override: [<$right_chain HeadersTo $left_parachain SigningParams>],
+				// override for left_relay->right-parachain headers signer
 				#[structopt(flatten)]
-				left_headers_to_right_sign_override: [<$left_chain HeadersTo $right_parachain SigningParams>],
+				left_relay_headers_to_right_sign_override: [<$left_chain HeadersTo $right_parachain SigningParams>],
 
 				// override for right->left parachains signer
 				#[structopt(flatten)]
-				right_parachains_to_left_sign_override: [<$right_chain ParachainsTo $left_chain SigningParams>],
+				right_parachains_to_left_sign_override: [<$right_chain ParachainsTo $left_parachain SigningParams>],
+				// override for left->right parachains signer
+				#[structopt(flatten)]
+				left_parachains_to_right_sign_override: [<$left_chain ParachainsTo $right_parachain SigningParams>],
 			}
 
 			impl [<$left_chain $right_parachain HeadersAndMessages>] {
 				async fn into_bridge<
 					Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
+					LeftRelay: CliChain,
 					Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Right>>,
 					RightRelay: CliChain,
-					L2R: CliBridgeBase<Source = Left, Target = Right> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
+					L2R: CliBridgeBase<Source = Left, Target = Right>
+						+ MessagesCliBridge
+						+ ParachainToRelayHeadersCliBridge<SourceRelay = LeftRelay>,
 					R2L: CliBridgeBase<Source = Right, Target = Left>
 						+ MessagesCliBridge
 						+ ParachainToRelayHeadersCliBridge<SourceRelay = RightRelay>,
 				>(
 					self,
 				) -> anyhow::Result<RelayToParachainBridge<L2R, R2L>> {
-					Ok(RelayToParachainBridge {
+					Ok(ParachainToParachainBridge {
 						common: Full2WayBridgeCommonParams::new::<L2R>(
 							self.shared,
 							BridgeEndCommonParams {
@@ -139,19 +151,19 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 								accounts: vec![],
 							},
 						)?,
+						left_relay: self.left_relay.into_client::<RightRelay>().await?,
 						right_relay: self.right_relay.into_client::<RightRelay>().await?,
 						right_headers_to_left_transaction_params: self
 							.right_relay_headers_to_left_sign_override
-							.transaction_params_or::<Left, _>(
-							&self.left_sign,
-						)?,
+							.transaction_params_or::<Left, _>(&self.left_sign)?,
+						left_headers_to_right_transaction_params: self
+							.left_relay_headers_to_right_sign_override
+							.transaction_params_or::<Right, _>(&self.right_sign)?,
 						right_parachains_to_left_transaction_params: self
 							.right_parachains_to_left_sign_override
-							.transaction_params_or::<Left, _>(
-							&self.left_sign,
-						)?,
-						left_headers_to_right_transaction_params: self
-							.left_headers_to_right_sign_override
+							.transaction_params_or::<Left, _>(&self.left_sign)?,
+						left_parachains_to_right_transaction_params: self
+							.left_parachains_to_right_sign_override
 							.transaction_params_or::<Right, _>(&self.right_sign)?,
 					})
 				}
@@ -162,24 +174,26 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 
 #[async_trait]
 impl<
-		Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
+		Left: Chain<Hash = ParaHash> + ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
 		Right: Chain<Hash = ParaHash>
 			+ ChainWithTransactions
 			+ CliChain<KeyPair = AccountKeyPairOf<Right>>,
+		LeftRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
+			+ CliChain,
 		RightRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
 			+ CliChain,
 		L2R: CliBridgeBase<Source = Left, Target = Right>
 			+ MessagesCliBridge
-			+ RelayToRelayHeadersCliBridge,
+			+ ParachainToRelayHeadersCliBridge<SourceRelay = LeftRelay>,
 		R2L: CliBridgeBase<Source = Right, Target = Left>
 			+ MessagesCliBridge
 			+ ParachainToRelayHeadersCliBridge<SourceRelay = RightRelay>,
-	> Full2WayBridgeBase for RelayToParachainBridge<L2R, R2L>
+	> Full2WayBridgeBase for ParachainToParachainBridge<L2R, R2L>
 where
 	AccountIdOf<Left>: From<<AccountKeyPairOf<Left> as Pair>::Public>,
 	AccountIdOf<Right>: From<<AccountKeyPairOf<Right> as Pair>::Public>,
 {
-	type Params = RelayToParachainBridge<L2R, R2L>;
+	type Params = ParachainToParachainBridge<L2R, R2L>;
 	type Left = Left;
 	type Right = Right;
 
@@ -209,8 +223,12 @@ where
 			id: self.left_headers_to_right_transaction_params.signer.public().into(),
 			bridged_chain: Left::NAME.to_string(),
 		});
+		self.common.right.accounts.push(TaggedAccount::Parachains {
+			id: self.left_parachains_to_right_transaction_params.signer.public().into(),
+			bridged_chain: LeftRelay::NAME.to_string(),
+		});
 
-		<L2R as RelayToRelayHeadersCliBridge>::Finality::start_relay_guards(
+		<L2R as ParachainToRelayHeadersCliBridge>::RelayFinality::start_relay_guards(
 			&self.common.right.client,
 			&self.left_headers_to_right_transaction_params,
 			self.common.right.client.can_start_version_guard(),
@@ -223,9 +241,9 @@ where
 		)
 		.await?;
 
-		let left_to_right_on_demand_headers =
-			OnDemandHeadersRelay::new::<<L2R as RelayToRelayHeadersCliBridge>::Finality>(
-				self.common.left.client.clone(),
+		let left_relay_to_right_on_demand_headers =
+			OnDemandHeadersRelay::new::<<L2R as ParachainToRelayHeadersCliBridge>::RelayFinality>(
+				self.left_relay.clone(),
 				self.common.right.client.clone(),
 				self.left_headers_to_right_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
@@ -237,6 +255,15 @@ where
 				self.right_headers_to_left_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
 			);
+
+		let left_to_right_on_demand_parachains = OnDemandParachainsRelay::new::<
+			<L2R as ParachainToRelayHeadersCliBridge>::ParachainFinality,
+		>(
+			self.left_relay.clone(),
+			self.common.right.client.clone(),
+			self.left_parachains_to_right_transaction_params.clone(),
+			Arc::new(left_relay_to_right_on_demand_headers),
+		);
 		let right_to_left_on_demand_parachains = OnDemandParachainsRelay::new::<
 			<R2L as ParachainToRelayHeadersCliBridge>::ParachainFinality,
 		>(
@@ -247,7 +274,7 @@ where
 		);
 
 		Ok((
-			Arc::new(left_to_right_on_demand_headers),
+			Arc::new(left_to_right_on_demand_parachains),
 			Arc::new(right_to_left_on_demand_parachains),
 		))
 	}

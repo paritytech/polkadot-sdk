@@ -31,16 +31,20 @@ use substrate_relay_helper::{
 	TaggedAccount, TransactionParams,
 };
 
+/// A base relay between two standalone (relay) chains.
+///
+/// Such relay starts 2 messages relay and 2 on-demand header relays.
 pub struct RelayToRelayBridge<
 	L2R: MessagesCliBridge + RelayToRelayHeadersCliBridge,
 	R2L: MessagesCliBridge + RelayToRelayHeadersCliBridge,
 > {
+	/// Parameters that are shared by all bridge types.
 	pub common:
 		Full2WayBridgeCommonParams<<R2L as CliBridgeBase>::Target, <L2R as CliBridgeBase>::Target>,
-	// override for right->left headers signer
+	/// Override for right->left headers signer.
 	pub right_to_left_transaction_params:
 		TransactionParams<AccountKeyPairOf<<R2L as CliBridgeBase>::Target>>,
-	// override for left->right headers signer
+	/// Override for left->right headers signer.
 	pub left_to_right_transaction_params:
 		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
 }
