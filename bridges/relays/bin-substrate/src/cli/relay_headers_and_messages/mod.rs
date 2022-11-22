@@ -24,6 +24,8 @@
 //! 3) declare a new struct for the added bridge and implement the `Full2WayBridge` trait for it.
 
 #[macro_use]
+mod parachain_to_parachain;
+#[macro_use]
 mod relay_to_relay;
 #[macro_use]
 mod relay_to_parachain;
@@ -78,20 +80,26 @@ pub struct HeadersAndMessagesSharedParams {
 	pub prometheus_params: PrometheusParams,
 }
 
+/// Bridge parameters, shared by all bridge types.
 pub struct Full2WayBridgeCommonParams<
 	Left: ChainWithTransactions + CliChain,
 	Right: ChainWithTransactions + CliChain,
 > {
+	/// Shared parameters.
 	pub shared: HeadersAndMessagesSharedParams,
+	/// Parameters of the left chain.
 	pub left: BridgeEndCommonParams<Left>,
+	/// Parameters of the right chain.
 	pub right: BridgeEndCommonParams<Right>,
 
+	/// Common metric parameters.
 	pub metrics_params: MetricsParams,
 }
 
 impl<Left: ChainWithTransactions + CliChain, Right: ChainWithTransactions + CliChain>
 	Full2WayBridgeCommonParams<Left, Right>
 {
+	/// Creates new bridge parameters from its components.
 	pub fn new<L2R: MessagesCliBridge<Source = Left, Target = Right>>(
 		shared: HeadersAndMessagesSharedParams,
 		left: BridgeEndCommonParams<Left>,
@@ -105,14 +113,21 @@ impl<Left: ChainWithTransactions + CliChain, Right: ChainWithTransactions + CliC
 	}
 }
 
+/// Parameters that are associated with one side of the bridge.
 pub struct BridgeEndCommonParams<Chain: ChainWithTransactions + CliChain> {
+	/// Chain client.
 	pub client: Client<Chain>,
+	/// Transactions signer.
 	pub sign: AccountKeyPairOf<Chain>,
+	/// Transactions mortality.
 	pub transactions_mortality: Option<u32>,
+	/// Account that "owns" messages pallet.
 	pub messages_pallet_owner: Option<AccountKeyPairOf<Chain>>,
+	/// Accounts, which balances are exposed as metrics by the relay process.
 	pub accounts: Vec<TaggedAccount<AccountIdOf<Chain>>>,
 }
 
+/// All data of the bidirectional complex relay.
 struct FullBridge<
 	'a,
 	Source: ChainWithTransactions + CliChain,
@@ -136,6 +151,7 @@ where
 	AccountIdOf<Target>: From<<AccountKeyPairOf<Target> as Pair>::Public>,
 	BalanceOf<Source>: TryFrom<BalanceOf<Target>> + Into<u128>,
 {
+	/// Construct complex relay given it components.
 	fn new(
 		source: &'a mut BridgeEndCommonParams<Source>,
 		target: &'a mut BridgeEndCommonParams<Target>,
@@ -144,6 +160,7 @@ where
 		Self { source, target, metrics_params, _phantom_data: Default::default() }
 	}
 
+	/// Returns message relay parameters.
 	fn messages_relay_params(
 		&self,
 		source_to_target_headers_relay: Arc<dyn OnDemandRelay<BlockNumberOf<Source>>>,
@@ -182,6 +199,12 @@ declare_chain_cli_schema!(RialtoParachainsToMillau, rialto_parachains_to_millau)
 declare_relay_to_relay_bridge_schema!(Millau, Rialto);
 declare_relay_to_parachain_bridge_schema!(Millau, RialtoParachain, Rialto);
 
+/// Base portion of the bidirectional complex relay.
+///
+/// This main purpose of extracting this trait is that in different relays the implementation
+/// of `start_on_demand_headers_relayers` method will be different. But the number of
+/// implementations is limited to relay <> relay, parachain <> relay and parachain <> parachain.
+/// This trait allows us to reuse these implementations in different bridges.
 #[async_trait]
 trait Full2WayBridgeBase: Sized + Send + Sync {
 	/// The CLI params for the bridge.
@@ -191,10 +214,13 @@ trait Full2WayBridgeBase: Sized + Send + Sync {
 	/// The right destination chain (it can be a relay or a parachain).
 	type Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Right>>;
 
+	/// Reference to common relay parameters.
 	fn common(&self) -> &Full2WayBridgeCommonParams<Self::Left, Self::Right>;
 
+	/// Mutable reference to common relay parameters.
 	fn mut_common(&mut self) -> &mut Full2WayBridgeCommonParams<Self::Left, Self::Right>;
 
+	/// Start on-demand headers relays.
 	async fn start_on_demand_headers_relayers(
 		&mut self,
 	) -> anyhow::Result<(
@@ -203,6 +229,7 @@ trait Full2WayBridgeBase: Sized + Send + Sync {
 	)>;
 }
 
+/// Bidirectional complex relay.
 #[async_trait]
 trait Full2WayBridge: Sized + Sync
 where
@@ -211,6 +238,7 @@ where
 	BalanceOf<Self::Left>: TryFrom<BalanceOf<Self::Right>> + Into<u128>,
 	BalanceOf<Self::Right>: TryFrom<BalanceOf<Self::Left>> + Into<u128>,
 {
+	/// Base portion of the bidirectional complex relay.
 	type Base: Full2WayBridgeBase<Left = Self::Left, Right = Self::Right>;
 
 	/// The left relay chain.
@@ -222,17 +250,21 @@ where
 		+ ChainWithBalances
 		+ CliChain<KeyPair = AccountKeyPairOf<Self::Right>>;
 
-	// Left to Right bridge
+	/// Left to Right bridge.
 	type L2R: MessagesCliBridge<Source = Self::Left, Target = Self::Right>;
-	// Right to Left bridge
+	/// Right to Left bridge
 	type R2L: MessagesCliBridge<Source = Self::Right, Target = Self::Left>;
 
+	/// Construct new bridge.
 	fn new(params: <Self::Base as Full2WayBridgeBase>::Params) -> anyhow::Result<Self>;
 
+	/// Reference to the base relay portion.
 	fn base(&self) -> &Self::Base;
 
+	/// Mutable reference to the base relay portion.
 	fn mut_base(&mut self) -> &mut Self::Base;
 
+	/// Creates and returns Left to Right complex relay.
 	fn left_to_right(&mut self) -> FullBridge<Self::Left, Self::Right, Self::L2R> {
 		let common = self.mut_base().mut_common();
 		FullBridge::<_, _, Self::L2R>::new(
@@ -242,6 +274,7 @@ where
 		)
 	}
 
+	/// Creates and returns Right to Left complex relay.
 	fn right_to_left(&mut self) -> FullBridge<Self::Right, Self::Left, Self::R2L> {
 		let common = self.mut_base().mut_common();
 		FullBridge::<_, _, Self::R2L>::new(
@@ -251,6 +284,7 @@ where
 		)
 	}
 
+	/// Start complex relay.
 	async fn run(&mut self) -> anyhow::Result<()> {
 		// Register standalone metrics.
 		{
@@ -324,6 +358,7 @@ where
 	}
 }
 
+/// Millau <> Rialto complex relay.
 pub struct MillauRialtoFull2WayBridge {
 	base: <Self as Full2WayBridge>::Base,
 }
@@ -349,6 +384,7 @@ impl Full2WayBridge for MillauRialtoFull2WayBridge {
 	}
 }
 
+/// Millau <> RialtoParachain complex relay.
 pub struct MillauRialtoParachainFull2WayBridge {
 	base: <Self as Full2WayBridge>::Base,
 }
@@ -374,10 +410,12 @@ impl Full2WayBridge for MillauRialtoParachainFull2WayBridge {
 	}
 }
 
-/// Start headers+messages relayer process.
+/// Complex headers+messages relay.
 #[derive(Debug, PartialEq, StructOpt)]
 pub enum RelayHeadersAndMessages {
+	/// Millau <> Rialto relay.
 	MillauRialto(MillauRialtoHeadersAndMessages),
+	/// Millau <> RialtoParachain relay.
 	MillauRialtoParachain(MillauRialtoParachainHeadersAndMessages),
 }
 
