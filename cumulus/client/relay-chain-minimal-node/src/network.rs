@@ -27,7 +27,10 @@ use sc_network_common::{
 	},
 	protocol::role::Roles,
 	service::NetworkSyncForkRequest,
-	sync::{message::BlockAnnouncesHandshake, Metrics, SyncStatus},
+	sync::{
+		message::{BlockAnnouncesHandshake, BlockRequest},
+		Metrics, SyncStatus,
+	},
 };
 use sc_network_light::light_client_requests;
 use sc_network_sync::{block_request_handler, state_request_handler};
@@ -94,11 +97,12 @@ pub(crate) fn build_collator_network(
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
 		chain_sync_service: Box::new(DummyChainSyncService::<Block>(Default::default())),
-		block_request_protocol_config,
-		state_request_protocol_config,
-		warp_sync_protocol_config: None,
-		light_client_request_protocol_config,
-		request_response_protocol_configs: Vec::new(),
+		request_response_protocol_configs: [
+			block_request_protocol_config,
+			state_request_protocol_config,
+			light_client_request_protocol_config,
+		]
+		.to_vec(),
 	};
 
 	let network_worker = sc_network::NetworkWorker::new(network_params)?;
@@ -248,52 +252,12 @@ impl<B: BlockT> sc_network_common::sync::ChainSync<B> for DummyChainSync {
 	) {
 	}
 
-	fn justification_requests(
-		&mut self,
-	) -> Box<dyn Iterator<Item = (PeerId, sc_network_common::sync::message::BlockRequest<B>)> + '_>
-	{
-		Box::new(std::iter::empty())
-	}
-
-	fn block_requests(
-		&mut self,
-	) -> Box<dyn Iterator<Item = (PeerId, sc_network_common::sync::message::BlockRequest<B>)> + '_>
-	{
-		Box::new(std::iter::empty())
-	}
-
-	fn state_request(&mut self) -> Option<(PeerId, sc_network_common::sync::OpaqueStateRequest)> {
-		None
-	}
-
-	fn warp_sync_request(
-		&mut self,
-	) -> Option<(PeerId, sc_network_common::sync::warp::WarpProofRequest<B>)> {
-		None
-	}
-
 	fn on_block_data(
 		&mut self,
 		_who: &PeerId,
 		_request: Option<sc_network_common::sync::message::BlockRequest<B>>,
 		_response: sc_network_common::sync::message::BlockResponse<B>,
 	) -> Result<sc_network_common::sync::OnBlockData<B>, sc_network_common::sync::BadPeer> {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
-	fn on_state_data(
-		&mut self,
-		_who: &PeerId,
-		_response: sc_network_common::sync::OpaqueStateResponse,
-	) -> Result<sc_network_common::sync::OnStateData<B>, sc_network_common::sync::BadPeer> {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
-	fn on_warp_sync_data(
-		&mut self,
-		_who: &PeerId,
-		_response: sc_network_common::sync::warp::EncodedProof,
-	) -> Result<(), sc_network_common::sync::BadPeer> {
 		unimplemented!("Not supported on the RPC collator")
 	}
 
@@ -380,27 +344,6 @@ impl<B: BlockT> sc_network_common::sync::ChainSync<B> for DummyChainSync {
 		}
 	}
 
-	fn create_opaque_block_request(
-		&self,
-		_request: &sc_network_common::sync::message::BlockRequest<B>,
-	) -> sc_network_common::sync::OpaqueBlockRequest {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
-	fn encode_block_request(
-		&self,
-		_request: &sc_network_common::sync::OpaqueBlockRequest,
-	) -> Result<Vec<u8>, String> {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
-	fn decode_block_response(
-		&self,
-		_response: &[u8],
-	) -> Result<sc_network_common::sync::OpaqueBlockResponse, String> {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
 	fn block_response_into_blocks(
 		&self,
 		_request: &sc_network_common::sync::message::BlockRequest<B>,
@@ -409,26 +352,19 @@ impl<B: BlockT> sc_network_common::sync::ChainSync<B> for DummyChainSync {
 		unimplemented!("Not supported on the RPC collator")
 	}
 
-	fn encode_state_request(
-		&self,
-		_request: &sc_network_common::sync::OpaqueStateRequest,
-	) -> Result<Vec<u8>, String> {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
-	fn decode_state_response(
-		&self,
-		_response: &[u8],
-	) -> Result<sc_network_common::sync::OpaqueStateResponse, String> {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
 	fn poll(
 		&mut self,
 		_cx: &mut std::task::Context,
-	) -> std::task::Poll<sc_network_common::sync::PollBlockAnnounceValidation<<B as BlockT>::Header>>
-	{
+	) -> std::task::Poll<sc_network_common::sync::PollResult<B>> {
 		std::task::Poll::Pending
+	}
+
+	fn send_block_request(&mut self, _who: PeerId, _request: BlockRequest<B>) {
+		unimplemented!("Not supported on the RPC collator")
+	}
+
+	fn num_active_peers(&self) -> usize {
+		0
 	}
 }
 
