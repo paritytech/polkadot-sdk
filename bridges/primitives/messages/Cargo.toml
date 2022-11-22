@@ -7,7 +7,6 @@ edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-bitvec = { version = "1", default-features = false, features = ["alloc"] }
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "bit-vec"] }
 impl-trait-for-tuples = "0.2"
 scale-info = { version = "2.1.1", default-features = false, features = ["bit-vec", "derive"] }
@@ -30,7 +29,6 @@ hex-literal = "0.3"
 [features]
 default = ["std"]
 std = [
-	"bitvec/std",
 	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
