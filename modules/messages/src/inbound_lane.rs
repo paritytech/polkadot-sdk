@@ -101,7 +101,6 @@ impl<T: Config<I>, I: 'static> MaxEncodedLen for StoredInboundLaneData<T, I> {
 	fn max_encoded_len() -> usize {
 		InboundLaneData::<T::InboundRelayer>::encoded_size_hint(
 			T::MaxUnrewardedRelayerEntriesAtInboundLane::get() as usize,
-			T::MaxUnconfirmedMessagesAtInboundLane::get() as usize,
 		)
 		.unwrap_or(usize::MAX)
 	}
@@ -150,10 +149,6 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		// overlap.
 		match data.relayers.front_mut() {
 			Some(entry) if entry.messages.begin < new_confirmed_nonce => {
-				entry.messages.dispatch_results = entry
-					.messages
-					.dispatch_results
-					.split_off((new_confirmed_nonce + 1 - entry.messages.begin) as _);
 				entry.messages.begin = new_confirmed_nonce + 1;
 			},
 			_ => {},
@@ -200,7 +195,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		// now let's update inbound lane storage
 		let push_new = match data.relayers.back_mut() {
 			Some(entry) if entry.relayer == *relayer_at_bridged_chain => {
-				entry.messages.note_dispatched_message(dispatch_result.dispatch_result);
+				entry.messages.note_dispatched_message();
 				false
 			},
 			_ => true,
@@ -208,7 +203,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		if push_new {
 			data.relayers.push_back(UnrewardedRelayer {
 				relayer: (*relayer_at_bridged_chain).clone(),
-				messages: DeliveredMessages::new(nonce, dispatch_result.dispatch_result),
+				messages: DeliveredMessages::new(nonce),
 			});
 		}
 		self.storage.set_data(data);

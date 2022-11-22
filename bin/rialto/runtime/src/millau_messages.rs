@@ -192,7 +192,6 @@ mod tests {
 		let max_incoming_inbound_lane_data_proof_size =
 			bp_messages::InboundLaneData::<()>::encoded_size_hint_u32(
 				bp_rialto::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX as _,
-				bp_rialto::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX as _,
 			);
 		pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights>(
 			bp_rialto::Rialto::max_extrinsic_size(),

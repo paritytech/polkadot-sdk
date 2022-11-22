@@ -987,7 +987,7 @@ mod tests {
 					last_confirmed_nonce: 1,
 					relayers: vec![UnrewardedRelayer {
 						relayer: 0,
-						messages: DeliveredMessages::new(1, true),
+						messages: DeliveredMessages::new(1),
 					}]
 					.into_iter()
 					.collect(),
@@ -1007,7 +1007,7 @@ mod tests {
 				phase: Phase::Initialization,
 				event: TestEvent::Messages(Event::MessagesDelivered {
 					lane_id: TEST_LANE_ID,
-					messages: DeliveredMessages::new(1, true),
+					messages: DeliveredMessages::new(1),
 				}),
 				topics: vec![],
 			}],
@@ -1622,8 +1622,8 @@ mod tests {
 
 			// messages 1+2 are confirmed in 1 tx, message 3 in a separate tx
 			// dispatch of message 2 has failed
-			let mut delivered_messages_1_and_2 = DeliveredMessages::new(1, true);
-			delivered_messages_1_and_2.note_dispatched_message(false);
+			let mut delivered_messages_1_and_2 = DeliveredMessages::new(1);
+			delivered_messages_1_and_2.note_dispatched_message();
 			let messages_1_and_2_proof = Ok((
 				TEST_LANE_ID,
 				InboundLaneData {
@@ -1636,7 +1636,7 @@ mod tests {
 					.collect(),
 				},
 			));
-			let delivered_message_3 = DeliveredMessages::new(3, true);
+			let delivered_message_3 = DeliveredMessages::new(3);
 			let messages_3_proof = Ok((
 				TEST_LANE_ID,
 				InboundLaneData {
