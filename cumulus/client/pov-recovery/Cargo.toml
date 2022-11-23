@@ -30,7 +30,7 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = {path = "../relay-chain-interface"}
 
 [dev-dependencies]
-tokio = { version = "1.21.2", features = ["macros"] }
+tokio = { version = "1.22.0", features = ["macros"] }
 portpicker = "0.1.1"
 
 # Cumulus
