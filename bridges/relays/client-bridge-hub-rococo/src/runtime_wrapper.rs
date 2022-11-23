@@ -118,7 +118,7 @@ pub enum BridgeParachainCall {
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgeWococoMessagesCall {
-	#[codec(index = 5)]
+	#[codec(index = 2)]
 	receive_messages_proof(
 		relay_substrate_client::AccountIdOf<bp_bridge_hub_wococo::BridgeHubWococo>,
 		bridge_runtime_common::messages::target::FromBridgedChainMessagesProof<
@@ -128,7 +128,7 @@ pub enum BridgeWococoMessagesCall {
 		bp_messages::Weight,
 	),
 
-	#[codec(index = 6)]
+	#[codec(index = 3)]
 	receive_messages_delivery_proof(
 		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<
 			relay_substrate_client::HashOf<bp_bridge_hub_wococo::BridgeHubWococo>,
@@ -140,7 +140,7 @@ pub enum BridgeWococoMessagesCall {
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum BridgeRococoMessagesCall {
-	#[codec(index = 5)]
+	#[codec(index = 2)]
 	receive_messages_proof(
 		relay_substrate_client::AccountIdOf<bp_bridge_hub_rococo::BridgeHubRococo>,
 		bridge_runtime_common::messages::target::FromBridgedChainMessagesProof<
@@ -150,7 +150,7 @@ pub enum BridgeRococoMessagesCall {
 		bp_messages::Weight,
 	),
 
-	#[codec(index = 6)]
+	#[codec(index = 3)]
 	receive_messages_delivery_proof(
 		bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof<
 			relay_substrate_client::HashOf<bp_bridge_hub_rococo::BridgeHubRococo>,

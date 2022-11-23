@@ -39,9 +39,6 @@ pub enum Error {
 	/// The response from the server could not be SCALE decoded.
 	#[error("Response parse failed: {0}")]
 	ResponseParseFailed(#[from] codec::Error),
-	/// The Substrate bridge pallet has not yet been initialized.
-	#[error("The Substrate bridge pallet has not been initialized yet.")]
-	UninitializedBridgePallet,
 	/// Account does not exist on the chain.
 	#[error("Account does not exist on the chain.")]
 	AccountDoesNotExist,
