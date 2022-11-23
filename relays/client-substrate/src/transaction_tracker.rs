@@ -296,7 +296,7 @@ mod tests {
 			&self,
 			_hash: HashOf<TestChain>,
 		) -> Result<HeaderIdOf<TestChain>, Error> {
-			self.0.as_ref().map_err(|_| Error::UninitializedBridgePallet).cloned()
+			self.0.as_ref().map_err(|_| Error::BridgePalletIsNotInitialized).cloned()
 		}
 	}
 
@@ -338,7 +338,7 @@ mod tests {
 	async fn returns_lost_on_finalized_and_environment_error() {
 		assert_eq!(
 			watch_transaction_status::<_, TestChain, _>(
-				TestEnvironment(Err(Error::UninitializedBridgePallet)),
+				TestEnvironment(Err(Error::BridgePalletIsNotInitialized)),
 				Default::default(),
 				futures::stream::iter([TransactionStatus::Finalized(Default::default())])
 			)
