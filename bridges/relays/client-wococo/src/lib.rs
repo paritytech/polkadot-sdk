@@ -68,7 +68,7 @@ impl ChainWithGrandpa for Wococo {
 
 impl ChainWithBalances for Wococo {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		StorageKey(bp_wococo::account_info_storage_key(account_id))
+		bp_wococo::AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 

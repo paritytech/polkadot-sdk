@@ -16,6 +16,7 @@
 
 //! Types used to connect to the Kusama chain.
 
+use bp_kusama::AccountInfoStorageMapKeyProvider;
 use frame_support::weights::Weight;
 use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa};
 use sp_core::storage::StorageKey;
@@ -65,7 +66,7 @@ impl ChainWithGrandpa for Kusama {
 
 impl ChainWithBalances for Kusama {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		StorageKey(bp_kusama::account_info_storage_key(account_id))
+		AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 

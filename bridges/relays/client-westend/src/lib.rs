@@ -75,7 +75,7 @@ impl ChainWithGrandpa for Westend {
 
 impl ChainWithBalances for Westend {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		StorageKey(bp_westend::account_info_storage_key(account_id))
+		bp_westend::AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 
