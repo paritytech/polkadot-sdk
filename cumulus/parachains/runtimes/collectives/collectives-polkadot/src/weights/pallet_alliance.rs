@@ -53,31 +53,29 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: AllianceMotion ProposalCount (r:1 w:1)
 	// Storage: AllianceMotion Voting (r:0 w:1)
 	/// The range of component `b` is `[1, 1024]`.
-	/// The range of component `x` is `[2, 10]`.
-	/// The range of component `y` is `[0, 90]`.
+	/// The range of component `m` is `[2, 100]`.
 	/// The range of component `p` is `[1, 100]`.
-	fn propose_proposed(_b: u32, _x: u32, y: u32, p: u32, ) -> Weight {
-		// Minimum execution time: 43_327 nanoseconds.
-		Weight::from_ref_time(47_831_441 as u64)
-			// Standard Error: 2_335
-			.saturating_add(Weight::from_ref_time(49_915 as u64).saturating_mul(y as u64))
-			// Standard Error: 2_131
-			.saturating_add(Weight::from_ref_time(167_914 as u64).saturating_mul(p as u64))
+	fn propose_proposed(b: u32, m: u32, p: u32, ) -> Weight {
+		// Minimum execution time: 23_000 nanoseconds.
+		Weight::from_ref_time(24_357_172 as u64)
+			// Standard Error: 428
+			.saturating_add(Weight::from_ref_time(233 as u64).saturating_mul(b as u64))
+			// Standard Error: 4_474
+			.saturating_add(Weight::from_ref_time(48_024 as u64).saturating_mul(m as u64))
+			// Standard Error: 4_418
+			.saturating_add(Weight::from_ref_time(97_604 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
-	// Storage: Alliance Members (r:2 w:0)
+	// Storage: Alliance Members (r:1 w:0)
 	// Storage: AllianceMotion Voting (r:1 w:1)
-	/// The range of component `x` is `[3, 10]`.
-	/// The range of component `y` is `[2, 90]`.
-	fn vote(x: u32, y: u32, ) -> Weight {
-		// Minimum execution time: 46_818 nanoseconds.
-		Weight::from_ref_time(48_355_703 as u64)
-			// Standard Error: 38_083
-			.saturating_add(Weight::from_ref_time(199_036 as u64).saturating_mul(x as u64))
-			// Standard Error: 3_223
-			.saturating_add(Weight::from_ref_time(54_377 as u64).saturating_mul(y as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
+	/// The range of component `m` is `[5, 100]`.
+	fn vote(m: u32, ) -> Weight {
+		// Minimum execution time: 24_000 nanoseconds.
+		Weight::from_ref_time(26_617_201 as u64)
+			// Standard Error: 4_280
+			.saturating_add(Weight::from_ref_time(43_152 as u64).saturating_mul(m as u64))
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Alliance Members (r:1 w:0)
@@ -86,10 +84,10 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: AllianceMotion Voting (r:0 w:1)
 	/// The range of component `p` is `[1, 100]`.
 	fn veto(p: u32, ) -> Weight {
-		// Minimum execution time: 33_781 nanoseconds.
-		Weight::from_ref_time(37_103_051 as u64)
-			// Standard Error: 1_592
-			.saturating_add(Weight::from_ref_time(181_767 as u64).saturating_mul(p as u64))
+		// Minimum execution time: 23_000 nanoseconds.
+		Weight::from_ref_time(26_045_752 as u64)
+			// Standard Error: 2_154
+			.saturating_add(Weight::from_ref_time(61_220 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -98,18 +96,15 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: AllianceMotion Members (r:1 w:0)
 	// Storage: AllianceMotion Proposals (r:1 w:1)
 	// Storage: AllianceMotion ProposalOf (r:0 w:1)
-	/// The range of component `x` is `[2, 10]`.
-	/// The range of component `y` is `[2, 90]`.
+	/// The range of component `m` is `[4, 100]`.
 	/// The range of component `p` is `[1, 100]`.
-	fn close_early_disapproved(x: u32, y: u32, p: u32, ) -> Weight {
-		// Minimum execution time: 48_244 nanoseconds.
-		Weight::from_ref_time(47_895_181 as u64)
-			// Standard Error: 31_033
-			.saturating_add(Weight::from_ref_time(233_652 as u64).saturating_mul(x as u64))
-			// Standard Error: 3_023
-			.saturating_add(Weight::from_ref_time(34_551 as u64).saturating_mul(y as u64))
-			// Standard Error: 2_701
-			.saturating_add(Weight::from_ref_time(124_837 as u64).saturating_mul(p as u64))
+	fn close_early_disapproved(m: u32, p: u32, ) -> Weight {
+		// Minimum execution time: 30_000 nanoseconds.
+		Weight::from_ref_time(25_697_866 as u64)
+			// Standard Error: 3_827
+			.saturating_add(Weight::from_ref_time(48_360 as u64).saturating_mul(m as u64))
+			// Standard Error: 3_731
+			.saturating_add(Weight::from_ref_time(116_922 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -119,20 +114,17 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: AllianceMotion ProposalOf (r:1 w:1)
 	// Storage: AllianceMotion Proposals (r:1 w:1)
 	/// The range of component `b` is `[1, 1024]`.
-	/// The range of component `x` is `[2, 10]`.
-	/// The range of component `y` is `[2, 90]`.
+	/// The range of component `m` is `[4, 100]`.
 	/// The range of component `p` is `[1, 100]`.
-	fn close_early_approved(b: u32, x: u32, y: u32, p: u32, ) -> Weight {
-		// Minimum execution time: 61_015 nanoseconds.
-		Weight::from_ref_time(57_149_992 as u64)
-			// Standard Error: 246
-			.saturating_add(Weight::from_ref_time(2_998 as u64).saturating_mul(b as u64))
-			// Standard Error: 29_174
-			.saturating_add(Weight::from_ref_time(14_515 as u64).saturating_mul(x as u64))
-			// Standard Error: 2_847
-			.saturating_add(Weight::from_ref_time(38_233 as u64).saturating_mul(y as u64))
-			// Standard Error: 2_543
-			.saturating_add(Weight::from_ref_time(174_542 as u64).saturating_mul(p as u64))
+	fn close_early_approved(b: u32, m: u32, p: u32, ) -> Weight {
+		// Minimum execution time: 34_000 nanoseconds.
+		Weight::from_ref_time(30_725_464 as u64)
+			// Standard Error: 370
+			.saturating_add(Weight::from_ref_time(2_367 as u64).saturating_mul(b as u64))
+			// Standard Error: 3_920
+			.saturating_add(Weight::from_ref_time(40_710 as u64).saturating_mul(m as u64))
+			// Standard Error: 3_822
+			.saturating_add(Weight::from_ref_time(111_866 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -140,21 +132,19 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: AllianceMotion Voting (r:1 w:1)
 	// Storage: AllianceMotion Members (r:1 w:0)
 	// Storage: AllianceMotion Prime (r:1 w:0)
-	// Storage: AllianceMotion ProposalOf (r:1 w:1)
 	// Storage: AllianceMotion Proposals (r:1 w:1)
-	// Storage: Alliance Rule (r:0 w:1)
-	/// The range of component `x` is `[2, 10]`.
-	/// The range of component `y` is `[2, 90]`.
+	// Storage: AllianceMotion ProposalOf (r:0 w:1)
+	/// The range of component `m` is `[2, 100]`.
 	/// The range of component `p` is `[1, 100]`.
-	fn close_disapproved(_x: u32, y: u32, p: u32, ) -> Weight {
-		// Minimum execution time: 67_605 nanoseconds.
-		Weight::from_ref_time(66_773_651 as u64)
-			// Standard Error: 3_250
-			.saturating_add(Weight::from_ref_time(58_552 as u64).saturating_mul(y as u64))
-			// Standard Error: 2_903
-			.saturating_add(Weight::from_ref_time(183_936 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(6 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+	fn close_disapproved(m: u32, p: u32, ) -> Weight {
+		// Minimum execution time: 31_000 nanoseconds.
+		Weight::from_ref_time(29_444_599 as u64)
+			// Standard Error: 4_043
+			.saturating_add(Weight::from_ref_time(48_928 as u64).saturating_mul(m as u64))
+			// Standard Error: 3_994
+			.saturating_add(Weight::from_ref_time(76_527 as u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(5 as u64))
+			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: Alliance Members (r:1 w:0)
 	// Storage: AllianceMotion Voting (r:1 w:1)
@@ -163,37 +153,33 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: AllianceMotion Proposals (r:1 w:1)
 	// Storage: AllianceMotion ProposalOf (r:0 w:1)
 	/// The range of component `b` is `[1, 1024]`.
-	/// The range of component `x` is `[2, 10]`.
-	/// The range of component `y` is `[2, 90]`.
+	/// The range of component `m` is `[5, 100]`.
 	/// The range of component `p` is `[1, 100]`.
-	fn close_approved(_b: u32, _x: u32, y: u32, p: u32, ) -> Weight {
-		// Minimum execution time: 51_748 nanoseconds.
-		Weight::from_ref_time(48_865_836 as u64)
-			// Standard Error: 2_633
-			.saturating_add(Weight::from_ref_time(75_701 as u64).saturating_mul(y as u64))
-			// Standard Error: 2_351
-			.saturating_add(Weight::from_ref_time(194_721 as u64).saturating_mul(p as u64))
+	fn close_approved(_b: u32, m: u32, p: u32, ) -> Weight {
+		// Minimum execution time: 29_000 nanoseconds.
+		Weight::from_ref_time(32_315_075 as u64)
+			// Standard Error: 4_502
+			.saturating_add(Weight::from_ref_time(43_205 as u64).saturating_mul(m as u64))
+			// Standard Error: 4_340
+			.saturating_add(Weight::from_ref_time(101_872 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
-	// Storage: Alliance Members (r:3 w:3)
+	// Storage: Alliance Members (r:2 w:2)
 	// Storage: AllianceMotion Members (r:1 w:1)
-	/// The range of component `x` is `[1, 10]`.
-	/// The range of component `y` is `[0, 90]`.
+	/// The range of component `m` is `[1, 100]`.
 	/// The range of component `z` is `[0, 100]`.
-	fn init_members(x: u32, y: u32, z: u32, ) -> Weight {
-		// Minimum execution time: 48_081 nanoseconds.
-		Weight::from_ref_time(31_894_957 as u64)
-			// Standard Error: 8_667
-			.saturating_add(Weight::from_ref_time(160_266 as u64).saturating_mul(x as u64))
-			// Standard Error: 917
-			.saturating_add(Weight::from_ref_time(186_970 as u64).saturating_mul(y as u64))
-			// Standard Error: 827
-			.saturating_add(Weight::from_ref_time(155_921 as u64).saturating_mul(z as u64))
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+	fn init_members(m: u32, z: u32, ) -> Weight {
+		// Minimum execution time: 22_000 nanoseconds.
+		Weight::from_ref_time(13_523_882 as u64)
+			// Standard Error: 1_823
+			.saturating_add(Weight::from_ref_time(91_625 as u64).saturating_mul(m as u64))
+			// Standard Error: 1_802
+			.saturating_add(Weight::from_ref_time(98_184 as u64).saturating_mul(z as u64))
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
+			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
-	// Storage: Alliance Members (r:3 w:3)
+	// Storage: Alliance Members (r:2 w:2)
 	// Storage: AllianceMotion Proposals (r:1 w:0)
 	// Storage: Alliance DepositOf (r:101 w:50)
 	// Storage: System Account (r:50 w:50)
@@ -203,67 +189,67 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	/// The range of component `y` is `[0, 100]`.
 	/// The range of component `z` is `[0, 50]`.
 	fn disband(x: u32, y: u32, z: u32, ) -> Weight {
-		// Minimum execution time: 256_705 nanoseconds.
-		Weight::from_ref_time(257_735_000 as u64)
-			// Standard Error: 20_427
-			.saturating_add(Weight::from_ref_time(442_424 as u64).saturating_mul(x as u64))
-			// Standard Error: 20_329
-			.saturating_add(Weight::from_ref_time(508_022 as u64).saturating_mul(y as u64))
-			// Standard Error: 40_620
-			.saturating_add(Weight::from_ref_time(9_490_608 as u64).saturating_mul(z as u64))
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
+		// Minimum execution time: 145_000 nanoseconds.
+		Weight::from_ref_time(147_000_000 as u64)
+			// Standard Error: 13_290
+			.saturating_add(Weight::from_ref_time(304_371 as u64).saturating_mul(x as u64))
+			// Standard Error: 13_226
+			.saturating_add(Weight::from_ref_time(330_798 as u64).saturating_mul(y as u64))
+			// Standard Error: 26_428
+			.saturating_add(Weight::from_ref_time(7_207_748 as u64).saturating_mul(z as u64))
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(x as u64)))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(y as u64)))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(z as u64)))
-			.saturating_add(T::DbWeight::get().writes(5 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
 			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(z as u64)))
 	}
 	// Storage: Alliance Rule (r:0 w:1)
 	fn set_rule() -> Weight {
-		// Minimum execution time: 19_171 nanoseconds.
-		Weight::from_ref_time(19_395_000 as u64)
+		// Minimum execution time: 11_000 nanoseconds.
+		Weight::from_ref_time(12_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Alliance Announcements (r:1 w:1)
 	fn announce() -> Weight {
-		// Minimum execution time: 21_640 nanoseconds.
-		Weight::from_ref_time(21_983_000 as u64)
+		// Minimum execution time: 13_000 nanoseconds.
+		Weight::from_ref_time(14_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Alliance Announcements (r:1 w:1)
 	fn remove_announcement() -> Weight {
-		// Minimum execution time: 23_224 nanoseconds.
-		Weight::from_ref_time(23_606_000 as u64)
+		// Minimum execution time: 14_000 nanoseconds.
+		Weight::from_ref_time(14_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
-	// Storage: Alliance Members (r:4 w:1)
+	// Storage: Alliance Members (r:3 w:1)
 	// Storage: Alliance UnscrupulousAccounts (r:1 w:0)
 	// Storage: System Account (r:1 w:1)
 	// Storage: Alliance DepositOf (r:0 w:1)
 	fn join_alliance() -> Weight {
-		// Minimum execution time: 57_718 nanoseconds.
-		Weight::from_ref_time(58_601_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(6 as u64))
+		// Minimum execution time: 39_000 nanoseconds.
+		Weight::from_ref_time(41_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
-	// Storage: Alliance Members (r:4 w:1)
+	// Storage: Alliance Members (r:3 w:1)
 	// Storage: Alliance UnscrupulousAccounts (r:1 w:0)
 	fn nominate_ally() -> Weight {
-		// Minimum execution time: 42_740 nanoseconds.
-		Weight::from_ref_time(44_169_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
+		// Minimum execution time: 29_000 nanoseconds.
+		Weight::from_ref_time(30_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
-	// Storage: Alliance Members (r:3 w:2)
+	// Storage: Alliance Members (r:2 w:2)
 	// Storage: AllianceMotion Proposals (r:1 w:0)
 	// Storage: AllianceMotion Members (r:0 w:1)
 	// Storage: AllianceMotion Prime (r:0 w:1)
 	fn elevate_ally() -> Weight {
-		// Minimum execution time: 38_511 nanoseconds.
-		Weight::from_ref_time(39_563_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
+		// Minimum execution time: 23_000 nanoseconds.
+		Weight::from_ref_time(24_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Alliance Members (r:4 w:2)
@@ -272,8 +258,8 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: AllianceMotion Prime (r:0 w:1)
 	// Storage: Alliance RetiringMembers (r:0 w:1)
 	fn give_retirement_notice() -> Weight {
-		// Minimum execution time: 41_316 nanoseconds.
-		Weight::from_ref_time(42_071_000 as u64)
+		// Minimum execution time: 31_000 nanoseconds.
+		Weight::from_ref_time(32_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
@@ -282,40 +268,34 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: Alliance DepositOf (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
 	fn retire() -> Weight {
-		// Minimum execution time: 45_235 nanoseconds.
-		Weight::from_ref_time(45_813_000 as u64)
+		// Minimum execution time: 29_000 nanoseconds.
+		Weight::from_ref_time(30_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Alliance Members (r:3 w:1)
 	// Storage: AllianceMotion Proposals (r:1 w:0)
 	// Storage: Alliance DepositOf (r:1 w:1)
-	// Storage: System Account (r:2 w:2)
-	// Storage: ParachainInfo ParachainId (r:1 w:0)
-	// Storage: PolkadotXcm SupportedVersion (r:1 w:0)
-	// Storage: PolkadotXcm VersionDiscoveryQueue (r:1 w:1)
-	// Storage: PolkadotXcm SafeXcmVersion (r:1 w:0)
-	// Storage: ParachainSystem HostConfiguration (r:1 w:0)
-	// Storage: ParachainSystem PendingUpwardMessages (r:1 w:1)
+	// Storage: System Account (r:1 w:1)
 	// Storage: AllianceMotion Members (r:0 w:1)
 	// Storage: AllianceMotion Prime (r:0 w:1)
 	fn kick_member() -> Weight {
-		// Minimum execution time: 123_722 nanoseconds.
-		Weight::from_ref_time(127_594_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(13 as u64))
-			.saturating_add(T::DbWeight::get().writes(8 as u64))
+		// Minimum execution time: 45_000 nanoseconds.
+		Weight::from_ref_time(47_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(6 as u64))
+			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
 	// Storage: Alliance UnscrupulousAccounts (r:1 w:1)
 	// Storage: Alliance UnscrupulousWebsites (r:1 w:1)
 	/// The range of component `n` is `[0, 100]`.
 	/// The range of component `l` is `[0, 255]`.
 	fn add_unscrupulous_items(n: u32, l: u32, ) -> Weight {
-		// Minimum execution time: 17_548 nanoseconds.
-		Weight::from_ref_time(17_664_000 as u64)
-			// Standard Error: 2_843
-			.saturating_add(Weight::from_ref_time(1_306_867 as u64).saturating_mul(n as u64))
-			// Standard Error: 1_113
-			.saturating_add(Weight::from_ref_time(69_708 as u64).saturating_mul(l as u64))
+		// Minimum execution time: 9_000 nanoseconds.
+		Weight::from_ref_time(9_512_816 as u64)
+			// Standard Error: 2_976
+			.saturating_add(Weight::from_ref_time(560_175 as u64).saturating_mul(n as u64))
+			// Standard Error: 1_169
+			.saturating_add(Weight::from_ref_time(24_530 as u64).saturating_mul(l as u64))
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
@@ -323,14 +303,22 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	// Storage: Alliance UnscrupulousWebsites (r:1 w:1)
 	/// The range of component `n` is `[0, 100]`.
 	/// The range of component `l` is `[0, 255]`.
-	fn remove_unscrupulous_items(n: u32, l: u32, ) -> Weight {
-		// Minimum execution time: 17_220 nanoseconds.
-		Weight::from_ref_time(17_391_000 as u64)
-			// Standard Error: 177_554
-			.saturating_add(Weight::from_ref_time(13_714_190 as u64).saturating_mul(n as u64))
-			// Standard Error: 69_538
-			.saturating_add(Weight::from_ref_time(526_760 as u64).saturating_mul(l as u64))
+	fn remove_unscrupulous_items(n: u32, _l: u32, ) -> Weight {
+		// Minimum execution time: 10_000 nanoseconds.
+		Weight::from_ref_time(10_000_000 as u64)
+			// Standard Error: 94_049
+			.saturating_add(Weight::from_ref_time(10_887_604 as u64).saturating_mul(n as u64))
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
+	}
+	// Storage: Alliance Members (r:3 w:2)
+	// Storage: AllianceMotion Proposals (r:1 w:0)
+	// Storage: AllianceMotion Members (r:0 w:1)
+	// Storage: AllianceMotion Prime (r:0 w:1)
+	fn abdicate_fellow_status() -> Weight {
+		// Minimum execution time: 29_000 nanoseconds.
+		Weight::from_ref_time(30_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(4 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 }

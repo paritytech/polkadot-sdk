@@ -449,8 +449,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
 }
 
-pub const MAX_FOUNDERS: u32 = 10;
-pub const MAX_FELLOWS: u32 = ALLIANCE_MAX_MEMBERS - MAX_FOUNDERS;
+pub const MAX_FELLOWS: u32 = ALLIANCE_MAX_MEMBERS;
 pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
@@ -477,7 +476,6 @@ impl pallet_alliance::Config for Runtime {
 	type IdentityVerifier = (); // Don't block accounts on identity criteria
 	type ProposalProvider = AllianceProposalProvider<Runtime, AllianceCollective>;
 	type MaxProposals = ConstU32<ALLIANCE_MAX_MEMBERS>;
-	type MaxFounders = ConstU32<MAX_FOUNDERS>;
 	type MaxFellows = ConstU32<MAX_FELLOWS>;
 	type MaxAllies = ConstU32<MAX_ALLIES>;
 	type MaxUnscrupulousItems = ConstU32<100>;

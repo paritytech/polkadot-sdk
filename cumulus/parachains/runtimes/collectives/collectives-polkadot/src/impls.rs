@@ -113,10 +113,6 @@ where
 		pallet_collective::Pallet::<T, I>::do_vote(who, proposal, index, approve)
 	}
 
-	fn veto_proposal(proposal_hash: HashOf<T>) -> u32 {
-		pallet_collective::Pallet::<T, I>::do_disapprove_proposal(proposal_hash)
-	}
-
 	fn close_proposal(
 		proposal_hash: HashOf<T>,
 		proposal_index: ProposalIndex,
