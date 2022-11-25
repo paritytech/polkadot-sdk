@@ -19,10 +19,10 @@
 use bp_messages::{MessageNonce, Weight};
 use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainBase, ChainWithMessages, ChainWithTransactions, Error as SubstrateError, SignParam,
-	UnsignedTransaction,
+	Chain, ChainBase, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
+	Error as SubstrateError, SignParam, UnsignedTransaction,
 };
-use sp_core::Pair;
+use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
 
@@ -63,6 +63,12 @@ impl Chain for BridgeHubWococo {
 
 	type SignedBlock = bp_bridge_hub_wococo::SignedBlock;
 	type Call = runtime::Call;
+}
+
+impl ChainWithBalances for BridgeHubWococo {
+	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
+		bp_bridge_hub_wococo::AccountInfoStorageMapKeyProvider::final_key(account_id)
+	}
 }
 
 impl ChainWithTransactions for BridgeHubWococo {

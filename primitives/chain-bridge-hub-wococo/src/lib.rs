@@ -24,7 +24,7 @@
 
 // Re-export only what is really needed
 pub use bp_bridge_hub_rococo::{
-	account_info_storage_key, AccountId, AccountPublic, AccountSigner, Address, Balance,
+	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, AccountSigner, Address, Balance,
 	BlockLength, BlockNumber, BlockWeights, Hash, Hasher, Hashing, Header, Index, Nonce,
 	SS58Prefix, Signature, SignedBlock, SignedExtensions, UncheckedExtrinsic, WeightToFee,
 	MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX, MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,

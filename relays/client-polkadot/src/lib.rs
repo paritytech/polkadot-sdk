@@ -16,6 +16,7 @@
 
 //! Types used to connect to the Polkadot chain.
 
+use bp_polkadot::AccountInfoStorageMapKeyProvider;
 use frame_support::weights::Weight;
 use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa};
 use sp_core::storage::StorageKey;
@@ -66,7 +67,7 @@ impl ChainWithGrandpa for Polkadot {
 
 impl ChainWithBalances for Polkadot {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		StorageKey(bp_polkadot::account_info_storage_key(account_id))
+		AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 

@@ -118,7 +118,7 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 				left_parachains_to_right_sign_override: [<$left_chain ParachainsTo $right_parachain SigningParams>],
 			}
 
-			impl [<$left_chain $right_parachain HeadersAndMessages>] {
+			impl [<$left_parachain $right_parachain HeadersAndMessages>] {
 				async fn into_bridge<
 					Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
 					LeftRelay: CliChain,
@@ -132,7 +132,7 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 						+ ParachainToRelayHeadersCliBridge<SourceRelay = RightRelay>,
 				>(
 					self,
-				) -> anyhow::Result<RelayToParachainBridge<L2R, R2L>> {
+				) -> anyhow::Result<ParachainToParachainBridge<L2R, R2L>> {
 					Ok(ParachainToParachainBridge {
 						common: Full2WayBridgeCommonParams::new::<L2R>(
 							self.shared,
@@ -151,7 +151,7 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 								accounts: vec![],
 							},
 						)?,
-						left_relay: self.left_relay.into_client::<RightRelay>().await?,
+						left_relay: self.left_relay.into_client::<LeftRelay>().await?,
 						right_relay: self.right_relay.into_client::<RightRelay>().await?,
 						right_headers_to_left_transaction_params: self
 							.right_relay_headers_to_left_sign_override
