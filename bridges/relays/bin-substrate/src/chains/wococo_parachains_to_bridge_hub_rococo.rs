@@ -16,7 +16,7 @@
 
 //! Rococo-to-Wococo parachains sync entrypoint.
 
-use crate::cli::bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge};
+use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use parachains_relay::ParachainsPipeline;
 use relay_substrate_client::{CallOf, HeaderIdOf};
@@ -75,4 +75,11 @@ impl ParachainToRelayHeadersCliBridge for BridgeHubWococoToBridgeHubRococoCliBri
 impl CliBridgeBase for BridgeHubWococoToBridgeHubRococoCliBridge {
 	type Source = relay_bridge_hub_wococo_client::BridgeHubWococo;
 	type Target = relay_bridge_hub_rococo_client::BridgeHubRococo;
+}
+
+impl MessagesCliBridge for BridgeHubWococoToBridgeHubRococoCliBridge {
+	const ESTIMATE_MESSAGE_FEE_METHOD: &'static str =
+		bp_bridge_hub_rococo::TO_BRIDGE_HUB_ROCOCO_ESTIMATE_MESSAGE_FEE_METHOD;
+	type MessagesLane =
+	crate::chains::bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoMessagesToBridgeHubRococoMessageLane;
 }

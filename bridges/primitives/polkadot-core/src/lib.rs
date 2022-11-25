@@ -17,7 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_messages::MessageNonce;
-use bp_runtime::{Chain, EncodedOrDecodedCall};
+use bp_runtime::{Chain, EncodedOrDecodedCall, StorageMapKeyProvider};
 use codec::Compact;
 use frame_support::{
 	dispatch::{DispatchClass, Dispatchable},
@@ -26,11 +26,11 @@ use frame_support::{
 		constants::{BlockExecutionWeight, WEIGHT_PER_SECOND},
 		Weight,
 	},
-	Blake2_128Concat, RuntimeDebug, StorageHasher, Twox128,
+	Blake2_128Concat, RuntimeDebug,
 };
 use frame_system::limits;
 use scale_info::{StaticTypeInfo, TypeInfo};
-use sp_core::Hasher as HasherT;
+use sp_core::{storage::StorageKey, Hasher as HasherT};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, DispatchInfoOf, IdentifyAccount, Verify},
@@ -346,26 +346,28 @@ impl Chain for PolkadotLike {
 	}
 }
 
-/// Return a storage key for account data.
+/// Provides a storage key for account data.
 ///
-/// This is based on FRAME storage-generation code from Substrate:
-/// [link](https://github.com/paritytech/substrate/blob/c939ceba381b6313462d47334f775e128ea4e95d/frame/support/src/storage/generator/map.rs#L74)
+/// We need to use this approach when we don't have access to the runtime.
 /// The equivalent command to invoke in case full `Runtime` is known is this:
 /// `let key = frame_system::Account::<Runtime>::storage_map_final_key(&account_id);`
-pub fn account_info_storage_key(id: &AccountId) -> Vec<u8> {
-	let module_prefix_hashed = Twox128::hash(b"System");
-	let storage_prefix_hashed = Twox128::hash(b"Account");
-	let key_hashed = codec::Encode::using_encoded(id, Blake2_128Concat::hash);
+pub struct AccountInfoStorageMapKeyProvider;
 
-	let mut final_key = Vec::with_capacity(
-		module_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.len(),
-	);
+impl StorageMapKeyProvider for AccountInfoStorageMapKeyProvider {
+	const MAP_NAME: &'static str = "Account";
+	type Hasher = Blake2_128Concat;
+	type Key = AccountId;
+	// This should actually be `AccountInfo`, but we don't use this property in order to decode the
+	// data. So we use `Vec<u8>` as if we would work with encoded data.
+	type Value = Vec<u8>;
+}
 
-	final_key.extend_from_slice(&module_prefix_hashed[..]);
-	final_key.extend_from_slice(&storage_prefix_hashed[..]);
-	final_key.extend_from_slice(&key_hashed);
+impl AccountInfoStorageMapKeyProvider {
+	const PALLET_NAME: &'static str = "System";
 
-	final_key
+	pub fn final_key(id: &AccountId) -> StorageKey {
+		<Self as StorageMapKeyProvider>::final_key(Self::PALLET_NAME, id)
+	}
 }
 
 #[cfg(test)]
@@ -379,7 +381,7 @@ mod tests {
 			25, 26, 27, 28, 29, 30, 31, 32,
 		]
 		.into();
-		let key = account_info_storage_key(&acc);
+		let key = AccountInfoStorageMapKeyProvider::final_key(&acc);
 		assert_eq!(hex::encode(key), "26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da92dccd599abfe1920a1cff8a7358231430102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20");
 	}
 }

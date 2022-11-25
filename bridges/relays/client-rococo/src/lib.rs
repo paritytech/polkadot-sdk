@@ -68,7 +68,7 @@ impl ChainWithGrandpa for Rococo {
 
 impl ChainWithBalances for Rococo {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		StorageKey(bp_rococo::account_info_storage_key(account_id))
+		bp_rococo::AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 
