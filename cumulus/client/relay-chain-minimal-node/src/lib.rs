@@ -21,8 +21,9 @@ use cumulus_relay_chain_rpc_interface::{RelayChainRpcInterface, Url};
 use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
-	request_response::{self, IncomingRequest, ReqProtocolNames},
+	request_response::{v1, IncomingRequest, IncomingRequestReceiver, Protocol, ReqProtocolNames},
 };
+
 use polkadot_node_subsystem_util::metrics::prometheus::Registry;
 use polkadot_primitives::v2::CollatorPair;
 
@@ -31,7 +32,7 @@ use sc_network::{Event, NetworkService};
 use sc_network_common::service::NetworkEventStream;
 use std::sync::Arc;
 
-use polkadot_service::{open_database, Configuration, TaskManager};
+use polkadot_service::{Configuration, TaskManager};
 
 use futures::StreamExt;
 
@@ -152,8 +153,9 @@ async fn new_minimal_relay_chain(
 		.extend(peer_sets_info(is_authority, &peer_set_protocol_names));
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
-	let (collation_req_receiver, available_data_req_receiver, pov_req_receiver, chunk_req_receiver) =
+	let (collation_req_receiver, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut config);
+
 	let (network, network_starter) =
 		network::build_collator_network(network::BuildCollatorNetworkParams {
 			config: &config,
@@ -170,8 +172,6 @@ async fn new_minimal_relay_chain(
 		prometheus_registry.clone(),
 	);
 
-	let parachains_db = open_database(&config.database)?;
-
 	let overseer_args = CollatorOverseerGenArgs {
 		runtime_client: relay_chain_rpc_client.clone(),
 		network_service: network.clone(),
@@ -183,10 +183,6 @@ async fn new_minimal_relay_chain(
 		collator_pair,
 		req_protocol_names: request_protocol_names,
 		peer_set_protocol_names,
-		parachains_db,
-		availability_config: polkadot_service::AVAILABILITY_CONFIG,
-		pov_req_receiver,
-		chunk_req_receiver,
 	};
 
 	let overseer_handle = collator_overseer::spawn_overseer(
@@ -204,10 +200,8 @@ fn build_request_response_protocol_receivers(
 	request_protocol_names: &ReqProtocolNames,
 	config: &mut Configuration,
 ) -> (
-	request_response::IncomingRequestReceiver<request_response::v1::CollationFetchingRequest>,
-	request_response::IncomingRequestReceiver<request_response::v1::AvailableDataFetchingRequest>,
-	request_response::IncomingRequestReceiver<request_response::v1::PoVFetchingRequest>,
-	request_response::IncomingRequestReceiver<request_response::v1::ChunkFetchingRequest>,
+	IncomingRequestReceiver<v1::CollationFetchingRequest>,
+	IncomingRequestReceiver<v1::AvailableDataFetchingRequest>,
 ) {
 	let (collation_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
@@ -215,9 +209,7 @@ fn build_request_response_protocol_receivers(
 	let (available_data_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
 	config.network.request_response_protocols.push(cfg);
-	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(request_protocol_names);
+	let cfg = Protocol::ChunkFetchingV1.get_outbound_only_config(request_protocol_names);
 	config.network.request_response_protocols.push(cfg);
-	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(request_protocol_names);
-	config.network.request_response_protocols.push(cfg);
-	(collation_req_receiver, available_data_req_receiver, pov_req_receiver, chunk_req_receiver)
+	(collation_req_receiver, available_data_req_receiver)
 }

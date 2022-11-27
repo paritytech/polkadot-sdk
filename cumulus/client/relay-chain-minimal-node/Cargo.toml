@@ -13,8 +13,6 @@ polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "m
 polkadot-node-subsystem-util = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-node-network-protocol = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-network-bridge = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-node-core-av-store = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-availability-distribution = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # substrate deps
 sc-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "master" }

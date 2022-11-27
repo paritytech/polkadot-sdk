@@ -16,17 +16,10 @@
 
 use cumulus_relay_chain_interface::RelayChainError;
 use lru::LruCache;
-use polkadot_availability_distribution::{
-	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
-};
-use polkadot_node_core_av_store::Config;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
-		v1::{
-			AvailableDataFetchingRequest, ChunkFetchingRequest, CollationFetchingRequest,
-			PoVFetchingRequest,
-		},
+		v1::{AvailableDataFetchingRequest, CollationFetchingRequest},
 		IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
@@ -38,14 +31,13 @@ use polkadot_overseer::{
 use polkadot_primitives::v2::CollatorPair;
 use polkadot_service::{
 	overseer::{
-		AvailabilityRecoverySubsystem, AvailabilityStoreSubsystem, ChainApiSubsystem,
-		CollationGenerationSubsystem, CollatorProtocolSubsystem, NetworkBridgeMetrics,
-		NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem, ProtocolSide, RuntimeApiSubsystem,
+		AvailabilityRecoverySubsystem, CollationGenerationSubsystem, CollatorProtocolSubsystem,
+		NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem, ProtocolSide,
+		RuntimeApiSubsystem,
 	},
 	Error, OverseerConnector,
 };
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
-use sc_keystore::LocalKeystore;
 use sc_network::NetworkStateInfo;
 
 use std::sync::Arc;
@@ -66,13 +58,9 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub network_service: Arc<sc_network::NetworkService<Block, PHash>>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
-	// Receiver for collation request protocol
+	/// Receiver for collation request protocol
 	pub collation_req_receiver: IncomingRequestReceiver<CollationFetchingRequest>,
-	// Receiver for PoV request protocol
-	pub pov_req_receiver: IncomingRequestReceiver<PoVFetchingRequest>,
-	// Receiver for chunk request protocol
-	pub chunk_req_receiver: IncomingRequestReceiver<ChunkFetchingRequest>,
-	// Receiver for availability request protocol
+	/// Receiver for availability request protocol
 	pub available_data_req_receiver: IncomingRequestReceiver<AvailableDataFetchingRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
 	pub registry: Option<&'a Registry>,
@@ -84,10 +72,6 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub req_protocol_names: ReqProtocolNames,
 	/// Peerset protocols name mapping
 	pub peer_set_protocol_names: PeerSetProtocolNames,
-	/// Config for the availability store
-	pub availability_config: Config,
-	/// The underlying key value store for the parachains.
-	pub parachains_db: Arc<dyn polkadot_node_subsystem_util::database::Database>,
 }
 
 fn build_overseer<'a>(
@@ -98,15 +82,11 @@ fn build_overseer<'a>(
 		authority_discovery_service,
 		collation_req_receiver,
 		available_data_req_receiver,
-		availability_config,
 		registry,
 		spawner,
 		collator_pair,
 		req_protocol_names,
 		peer_set_protocol_names,
-		parachains_db,
-		pov_req_receiver,
-		chunk_req_receiver,
 	}: CollatorOverseerGenArgs<'a>,
 ) -> Result<
 	(Overseer<SpawnGlue<sc_service::SpawnTaskHandle>, Arc<BlockChainRpcClient>>, OverseerHandle),
@@ -114,30 +94,21 @@ fn build_overseer<'a>(
 > {
 	let leaves = Vec::new();
 	let metrics = <OverseerMetrics as MetricsTrait>::register(registry)?;
-	let keystore = Arc::new(LocalKeystore::in_memory());
 	let spawner = SpawnGlue(spawner);
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
 	let builder = Overseer::builder()
-		.availability_distribution(AvailabilityDistributionSubsystem::new(
-			keystore.clone(),
-			IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
-			Metrics::register(registry)?,
-		))
+		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_only(
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))
-		.availability_store(AvailabilityStoreSubsystem::new(
-			parachains_db.clone(),
-			availability_config,
-			Metrics::register(registry)?,
-		))
+		.availability_store(DummySubsystem)
 		.bitfield_distribution(DummySubsystem)
 		.bitfield_signing(DummySubsystem)
 		.candidate_backing(DummySubsystem)
 		.candidate_validation(DummySubsystem)
 		.pvf_checker(DummySubsystem)
-		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
+		.chain_api(DummySubsystem)
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = ProtocolSide::Collator(
