@@ -626,6 +626,12 @@ pub fn run() -> Result<()> {
 						task_manager,
 					))
 				}),
+				Runtime::ContractsRococo => runner.async_run(|config| {
+					Ok((
+						cmd.run::<Block, crate::service::ContractsRococoRuntimeExecutor>(config),
+						task_manager,
+					))
+				}),
 				_ => Err("Chain doesn't support try-runtime".into()),
 			}
 		},
