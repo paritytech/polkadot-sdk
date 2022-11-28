@@ -64,7 +64,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 			message.0.iter().any(|inst| matches!(inst, ReserveAssetDeposited { .. }))
 		{
 			log::warn!(
-				target: "xcm::barrier",
+				target: "xcm::barriers",
 				"Unexpected ReserveAssetDeposited from the Relay Chain",
 			);
 		}

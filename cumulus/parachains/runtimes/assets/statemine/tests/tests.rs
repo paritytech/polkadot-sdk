@@ -1,16 +1,19 @@
 use asset_test_utils::{ExtBuilder, RuntimeHelper};
+use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::PalletInfo,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{AccountId, AuraId};
+use statemine_runtime::xcm_config::AssetFeeAsExistentialDepositMultiplierFeeCharger;
 pub use statemine_runtime::{
 	constants::fee::WeightToFee, xcm_config::XcmConfig, Assets, Balances, ExistentialDeposit,
 	Runtime, SessionKeys, System,
 };
 use xcm::latest::prelude::*;
 use xcm_executor::traits::WeightTrader;
+
 pub const ALICE: [u8; 32] = [1u8; 32];
 
 #[test]
@@ -25,34 +28,25 @@ fn test_asset_xcm_trader() {
 		.build()
 		.execute_with(|| {
 			// We need root origin to create a sufficient asset
-			// We set existential deposit to be identical to the one for Balances first
+			let minimum_asset_balance = 3333333_u128;
+			let local_asset_id = 1;
 			assert_ok!(Assets::force_create(
 				RuntimeHelper::<Runtime>::root_origin(),
-				1,
+				local_asset_id,
 				AccountId::from(ALICE).into(),
 				true,
-				ExistentialDeposit::get()
+				minimum_asset_balance
 			));
 
 			// We first mint enough asset for the account to exist for assets
 			assert_ok!(Assets::mint(
 				RuntimeHelper::<Runtime>::origin_of(AccountId::from(ALICE)),
-				1,
+				local_asset_id,
 				AccountId::from(ALICE).into(),
-				ExistentialDeposit::get()
+				minimum_asset_balance
 			));
 
-			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-
-			// Set Alice as block author, who will receive fees
-			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
-
-			// We are going to buy 4e9 weight
-			let bought = 4_000_000_000u64;
-
-			// lets calculate amount needed
-			let amount_needed = WeightToFee::weight_to_fee(&Weight::from_ref_time(bought));
-
+			// get asset id as multilocation
 			let asset_multilocation = MultiLocation::new(
 				0,
 				X2(
@@ -60,14 +54,40 @@ fn test_asset_xcm_trader() {
 						<Runtime as frame_system::Config>::PalletInfo::index::<Assets>().unwrap()
 							as u8,
 					),
-					GeneralIndex(1),
+					GeneralIndex(local_asset_id.into()),
 				),
 			);
 
-			let asset: MultiAsset = (asset_multilocation, amount_needed).into();
+			// Set Alice as block author, who will receive fees
+			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
-			// Make sure buy_weight does not return an error
-			assert_ok!(trader.buy_weight(bought, asset.into()));
+			// We are going to buy 4e9 weight
+			let bought = 4_000_000_000u64;
+
+			// Lets calculate amount needed
+			let asset_amount_needed =
+				AssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
+					local_asset_id,
+					Weight::from_ref_time(bought),
+				)
+				.expect("failed to compute");
+
+			// Lets pay with: asset_amount_needed + asset_amount_extra
+			let asset_amount_extra = 100_u128;
+			let asset: MultiAsset =
+				(asset_multilocation.clone(), asset_amount_needed + asset_amount_extra).into();
+
+			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
+
+			// Lets buy_weight and make sure buy_weight does not return an error
+			match trader.buy_weight(bought, asset.into()) {
+				Ok(unused_assets) => {
+					// Check whether a correct amount of unused assets is returned
+					assert_ok!(unused_assets
+						.ensure_contains(&(asset_multilocation, asset_amount_extra).into()));
+				},
+				Err(e) => assert!(false, "Expected Ok(_). Got {:#?}", e),
+			}
 
 			// Drop trader
 			drop(trader);
@@ -75,11 +95,11 @@ fn test_asset_xcm_trader() {
 			// Make sure author(Alice) has received the amount
 			assert_eq!(
 				Assets::balance(1, AccountId::from(ALICE)),
-				ExistentialDeposit::get() + amount_needed
+				minimum_asset_balance + asset_amount_needed
 			);
 
 			// We also need to ensure the total supply increased
-			assert_eq!(Assets::total_supply(1), ExistentialDeposit::get() + amount_needed);
+			assert_eq!(Assets::total_supply(1), minimum_asset_balance + asset_amount_needed);
 		});
 }
 
@@ -300,5 +320,72 @@ fn test_that_buying_ed_refund_does_not_refund() {
 
 			// We also need to ensure the total supply increased
 			assert_eq!(Assets::total_supply(1), ExistentialDeposit::get());
+		});
+}
+
+#[test]
+fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			// Create a non-sufficient asset with specific existential deposit
+			let minimum_asset_balance = 1_000_000_u128;
+			assert_ok!(Assets::force_create(
+				RuntimeHelper::<Runtime>::root_origin(),
+				1,
+				AccountId::from(ALICE).into(),
+				false,
+				minimum_asset_balance
+			));
+
+			// We first mint enough asset for the account to exist for assets
+			assert_ok!(Assets::mint(
+				RuntimeHelper::<Runtime>::origin_of(AccountId::from(ALICE)),
+				1,
+				AccountId::from(ALICE).into(),
+				minimum_asset_balance
+			));
+
+			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
+
+			// Set Alice as block author, who will receive fees
+			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
+
+			// We are going to buy 4e9 weight
+			let bought = 4_000_000_000u64;
+
+			// lets calculate amount needed
+			let asset_amount_needed = WeightToFee::weight_to_fee(&Weight::from_ref_time(bought));
+
+			let asset_multilocation = MultiLocation::new(
+				0,
+				X2(
+					PalletInstance(
+						<Runtime as frame_system::Config>::PalletInfo::index::<Assets>().unwrap()
+							as u8,
+					),
+					GeneralIndex(1),
+				),
+			);
+
+			let asset: MultiAsset = (asset_multilocation, asset_amount_needed).into();
+
+			// Make sure again buy_weight does return an error
+			assert_noop!(trader.buy_weight(bought, asset.into()), XcmError::TooExpensive);
+
+			// Drop trader
+			drop(trader);
+
+			// Make sure author(Alice) has NOT received the amount
+			assert_eq!(Assets::balance(1, AccountId::from(ALICE)), minimum_asset_balance);
+
+			// We also need to ensure the total supply NOT increased
+			assert_eq!(Assets::total_supply(1), minimum_asset_balance);
 		});
 }
