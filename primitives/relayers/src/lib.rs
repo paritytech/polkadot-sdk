@@ -19,6 +19,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use bp_messages::LaneId;
 use sp_std::{fmt::Debug, marker::PhantomData};
 
 /// Reward payment procedure.
@@ -26,8 +27,8 @@ pub trait PaymentProcedure<Relayer, Reward> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
 
-	/// Pay reward to the relayer.
-	fn pay_reward(relayer: &Relayer, reward: Reward) -> Result<(), Self::Error>;
+	/// Pay reward to the relayer for serving given message lane.
+	fn pay_reward(relayer: &Relayer, lane_id: LaneId, reward: Reward) -> Result<(), Self::Error>;
 }
 
 /// Reward payment procedure that is simply minting given amount of tokens.
@@ -39,7 +40,11 @@ where
 {
 	type Error = sp_runtime::DispatchError;
 
-	fn pay_reward(relayer: &Relayer, reward: T::Balance) -> Result<(), Self::Error> {
+	fn pay_reward(
+		relayer: &Relayer,
+		_lane_id: LaneId,
+		reward: T::Balance,
+	) -> Result<(), Self::Error> {
 		T::mint_into(relayer, reward)
 	}
 }
