@@ -29,9 +29,10 @@ const REWARD_AMOUNT: u32 = u32::MAX;
 benchmarks! {
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
+		let lane = [0, 0, 0, 0];
 		let relayer: T::AccountId = whitelisted_caller();
-		RelayerRewards::<T>::insert(&relayer, T::Reward::from(REWARD_AMOUNT));
-	}: _(RawOrigin::Signed(relayer))
+		RelayerRewards::<T>::insert(&relayer, lane, T::Reward::from(REWARD_AMOUNT));
+	}: _(RawOrigin::Signed(relayer), lane)
 	verify {
 		// we can't check anything here, because `PaymentProcedure` is responsible for
 		// payment logic, so we assume that if call has succeeded, the procedure has
