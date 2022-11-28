@@ -124,9 +124,10 @@ pub fn abort_when_account_balance_decreased<C: ChainWithBalances>(
 			let current_time = env.now();
 
 			// remember balances that are beyound 24h border
-			let time_border = current_time - DAY;
-			while balances.front().map(|(time, _)| *time < time_border).unwrap_or(false) {
-				balances.pop_front();
+			if let Some(time_border) = current_time.checked_sub(DAY) {
+				while balances.front().map(|(time, _)| *time < time_border).unwrap_or(false) {
+					balances.pop_front();
+				}
 			}
 
 			// read balance of the account
