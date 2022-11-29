@@ -131,7 +131,7 @@ where
 			.await?
 			.map(|para_info| para_info.best_head_hash);
 
-		if let (Some(metrics), &Some(ref best_para_head_hash)) = (metrics, &best_para_head_hash) {
+		if let (Some(metrics), Some(best_para_head_hash)) = (metrics, &best_para_head_hash) {
 			let imported_para_head = self
 				.client
 				.storage_double_map_value::<ImportedParaHeadsKeyProvider>(
