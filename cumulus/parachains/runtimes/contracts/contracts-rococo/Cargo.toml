@@ -47,7 +47,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, features = ["unstable-interface"], branch = "master" }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Polkadot

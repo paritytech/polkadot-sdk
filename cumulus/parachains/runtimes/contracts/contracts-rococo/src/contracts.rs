@@ -4,7 +4,7 @@ use crate::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Nothing},
+	traits::{ConstBool, ConstU32, Nothing},
 	weights::Weight,
 };
 use pallet_contracts::{
@@ -57,4 +57,5 @@ impl Config for Runtime {
 	type AddressGenerator = DefaultAddressGenerator;
 	type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
+	type UnsafeUnstableInterface = ConstBool<true>;
 }
