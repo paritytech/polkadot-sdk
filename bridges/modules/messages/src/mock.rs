@@ -60,12 +60,13 @@ pub struct TestPayload {
 	///
 	/// Note: in correct code `dispatch_result.unspent_weight` will always be <= `declared_weight`,
 	/// but for test purposes we'll be making it larger than `declared_weight` sometimes.
-	pub dispatch_result: MessageDispatchResult,
+	pub dispatch_result: MessageDispatchResult<TestDispatchLevelResult>,
 	/// Extra bytes that affect payload size.
 	pub extra: Vec<u8>,
 }
 pub type TestMessageFee = u64;
 pub type TestRelayer = u64;
+pub type TestDispatchLevelResult = ();
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -345,6 +346,7 @@ pub struct TestMessageDispatch;
 
 impl MessageDispatch<AccountId> for TestMessageDispatch {
 	type DispatchPayload = TestPayload;
+	type DispatchLevelResult = TestDispatchLevelResult;
 
 	fn dispatch_weight(message: &mut DispatchMessage<TestPayload>) -> Weight {
 		match message.data.payload.as_ref() {
@@ -356,7 +358,7 @@ impl MessageDispatch<AccountId> for TestMessageDispatch {
 	fn dispatch(
 		_relayer_account: &AccountId,
 		message: DispatchMessage<TestPayload>,
-	) -> MessageDispatchResult {
+	) -> MessageDispatchResult<TestDispatchLevelResult> {
 		match message.data.payload.as_ref() {
 			Ok(payload) => payload.dispatch_result.clone(),
 			Err(_) => dispatch_result(0),
@@ -391,10 +393,13 @@ pub const fn message_payload(id: u64, declared_weight: u64) -> TestPayload {
 }
 
 /// Returns message dispatch result with given unspent weight.
-pub const fn dispatch_result(unspent_weight: u64) -> MessageDispatchResult {
+pub const fn dispatch_result(
+	unspent_weight: u64,
+) -> MessageDispatchResult<TestDispatchLevelResult> {
 	MessageDispatchResult {
 		unspent_weight: Weight::from_ref_time(unspent_weight),
 		dispatch_fee_paid_during_dispatch: true,
+		dispatch_level_result: (),
 	}
 }
 
