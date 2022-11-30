@@ -165,7 +165,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		relayer_at_this_chain: &AccountId,
 		nonce: MessageNonce,
 		message_data: DispatchMessageData<Dispatch::DispatchPayload>,
-	) -> ReceivalResult {
+	) -> ReceivalResult<Dispatch::DispatchLevelResult> {
 		let mut data = self.storage.data();
 		let is_correct_message = nonce == data.last_delivered_nonce() + 1;
 		if !is_correct_message {

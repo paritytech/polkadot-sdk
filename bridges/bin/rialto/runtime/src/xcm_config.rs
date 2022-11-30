@@ -278,6 +278,7 @@ mod tests {
 				MessageDispatchResult {
 					unspent_weight: frame_support::weights::Weight::from_ref_time(0),
 					dispatch_fee_paid_during_dispatch: false,
+					dispatch_level_result: (),
 				}
 			);
 		})

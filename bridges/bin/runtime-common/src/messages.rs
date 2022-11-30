@@ -449,6 +449,7 @@ pub mod target {
 		WeightCredit: Get<Weight>,
 	{
 		type DispatchPayload = FromBridgedChainMessagePayload<CallOf<ThisChain<B>>>;
+		type DispatchLevelResult = ();
 
 		fn dispatch_weight(
 			message: &mut DispatchMessage<Self::DispatchPayload>,
@@ -482,7 +483,7 @@ pub mod target {
 		fn dispatch(
 			_relayer_account: &AccountIdOf<ThisChain<B>>,
 			message: DispatchMessage<Self::DispatchPayload>,
-		) -> MessageDispatchResult {
+		) -> MessageDispatchResult<Self::DispatchLevelResult> {
 			let message_id = (message.key.lane_id, message.key.nonce);
 			let do_dispatch = move || -> sp_std::result::Result<Outcome, codec::Error> {
 				let FromBridgedChainMessagePayload { xcm: (location, xcm), weight: weight_limit } =
@@ -544,6 +545,7 @@ pub mod target {
 			MessageDispatchResult {
 				unspent_weight: Weight::zero(),
 				dispatch_fee_paid_during_dispatch: false,
+				dispatch_level_result: (),
 			}
 		}
 	}
