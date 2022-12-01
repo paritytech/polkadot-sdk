@@ -32,8 +32,6 @@ use sc_network_common::{
 		Metrics, SyncStatus,
 	},
 };
-use sc_network_light::light_client_requests;
-use sc_network_sync::{block_request_handler, state_request_handler};
 use sc_service::{error::Error, Configuration, NetworkStarter, SpawnTaskHandle};
 use sp_consensus::BlockOrigin;
 use sp_runtime::Justifications;
@@ -60,16 +58,6 @@ pub(crate) fn build_collator_network(
 	let BuildCollatorNetworkParams { config, client, spawn_handle, genesis_hash } = params;
 
 	let protocol_id = config.protocol_id();
-
-	let block_request_protocol_config =
-		block_request_handler::generate_protocol_config(&protocol_id, genesis_hash, None);
-
-	let state_request_protocol_config =
-		state_request_handler::generate_protocol_config(&protocol_id, genesis_hash, None);
-
-	let light_client_request_protocol_config =
-		light_client_requests::generate_protocol_config(&protocol_id, genesis_hash, None);
-
 	let chain_sync = DummyChainSync;
 	let block_announce_config = chain_sync.get_block_announce_proto_config::<Block>(
 		protocol_id.clone(),
@@ -97,12 +85,7 @@ pub(crate) fn build_collator_network(
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
 		chain_sync_service: Box::new(DummyChainSyncService::<Block>(Default::default())),
-		request_response_protocol_configs: [
-			block_request_protocol_config,
-			state_request_protocol_config,
-			light_client_request_protocol_config,
-		]
-		.to_vec(),
+		request_response_protocol_configs: Vec::new(),
 	};
 
 	let network_worker = sc_network::NetworkWorker::new(network_params)?;

@@ -2009,8 +2009,6 @@ dependencies = [
  "sc-keystore",
  "sc-network",
  "sc-network-common",
- "sc-network-light",
- "sc-network-sync",
  "sc-service",
  "sc-telemetry",
  "sc-tracing",
