@@ -40,6 +40,7 @@ pub async fn initialize<
 	target_transactions_signer: TargetChain::AccountId,
 	target_signing_data: SignParam<TargetChain>,
 	prepare_initialize_transaction: F,
+	dry_run: bool,
 ) where
 	F: FnOnce(
 			TargetChain::Index,
@@ -54,6 +55,7 @@ pub async fn initialize<
 		target_transactions_signer,
 		target_signing_data,
 		prepare_initialize_transaction,
+		dry_run,
 	)
 	.await;
 
@@ -88,6 +90,7 @@ async fn do_initialize<
 	target_transactions_signer: TargetChain::AccountId,
 	target_signing_data: SignParam<TargetChain>,
 	prepare_initialize_transaction: F,
+	dry_run: bool,
 ) -> Result<
 	Option<TargetChain::Hash>,
 	Error<SourceChain::Hash, <SourceChain::Header as HeaderT>::Number>,
@@ -110,7 +113,9 @@ where
 			SourceChain::NAME,
 			TargetChain::NAME,
 		);
-		return Ok(None)
+		if !dry_run {
+			return Ok(None)
+		}
 	}
 
 	let initialization_data = E::prepare_initialization_data(source_client).await?;
@@ -127,7 +132,14 @@ where
 			target_transactions_signer,
 			target_signing_data,
 			move |_, transaction_nonce| {
-				prepare_initialize_transaction(transaction_nonce, initialization_data)
+				let tx = prepare_initialize_transaction(transaction_nonce, initialization_data);
+				if dry_run {
+					Err(SubstrateError::Custom(
+						"Not submitting extrinsic in `dry-run` mode!".to_string(),
+					))
+				} else {
+					tx
+				}
 			},
 		)
 		.await

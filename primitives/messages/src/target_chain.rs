@@ -90,7 +90,7 @@ pub trait MessageDispatch<AccountId> {
 	type DispatchPayload: Decode;
 
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)
-	type DispatchLevelResult: Clone + Decode + sp_std::fmt::Debug + Eq;
+	type DispatchLevelResult: Clone + sp_std::fmt::Debug + Eq;
 
 	/// Estimate dispatch weight.
 	///
