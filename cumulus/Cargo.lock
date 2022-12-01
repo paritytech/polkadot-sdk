@@ -125,6 +125,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52f63c5c1316a16a4b35eaac8b76a98248961a533f061684cb2a7cb0eafb6c6"
 
 [[package]]
+name = "array-bytes"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22f72e9d6fac4bc80778ea470b20197b88d28c292bb7d60c3fb099280003cd19"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -462,7 +468,7 @@ name = "beefy-gadget"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "async-trait",
  "beefy-primitives",
  "fnv",
@@ -1989,7 +1995,7 @@ dependencies = [
 name = "cumulus-relay-chain-minimal-node"
 version = "0.1.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.0.0",
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -2888,7 +2894,7 @@ version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
  "Inflector",
- "array-bytes",
+ "array-bytes 4.2.0",
  "chrono",
  "clap 4.0.29",
  "comfy-table",
@@ -5319,7 +5325,7 @@ name = "pallet-alliance"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5494,7 +5500,7 @@ name = "pallet-beefy-mmr"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "beefy-merkle-tree",
  "beefy-primitives",
  "frame-support",
@@ -9339,7 +9345,7 @@ name = "sc-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "chrono",
  "clap 4.0.29",
  "fdlimit",
@@ -9663,7 +9669,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
  "ahash",
- "array-bytes",
+ "array-bytes 4.2.0",
  "async-trait",
  "dyn-clone",
  "finality-grandpa",
@@ -9741,7 +9747,7 @@ name = "sc-keystore"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "async-trait",
  "parking_lot 0.12.1",
  "serde_json",
@@ -9756,7 +9762,7 @@ name = "sc-network"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "async-trait",
  "asynchronous-codec",
  "bitflags",
@@ -9867,7 +9873,7 @@ name = "sc-network-light"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "futures",
  "libp2p",
  "log",
@@ -9888,7 +9894,7 @@ name = "sc-network-sync"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "async-trait",
  "fork-tree",
  "futures",
@@ -9919,7 +9925,7 @@ name = "sc-network-transactions"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "futures",
  "hex",
  "libp2p",
@@ -9938,7 +9944,7 @@ name = "sc-offchain"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "bytes",
  "fnv",
  "futures",
@@ -11000,7 +11006,7 @@ name = "sp-core"
 version = "7.0.0"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "base58",
  "bitflags",
  "blake2",
@@ -11895,7 +11901,7 @@ name = "substrate-test-client"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate?branch=master#982f5998c59bd2bd455808345ae1bd2b1767f353"
 dependencies = [
- "array-bytes",
+ "array-bytes 4.2.0",
  "async-trait",
  "futures",
  "parity-scale-codec",
