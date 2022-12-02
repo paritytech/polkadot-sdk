@@ -157,7 +157,10 @@ mod tests {
 	use mock::{RuntimeEvent as TestEvent, *};
 
 	use crate::Event::RewardPaid;
-	use frame_support::{assert_noop, assert_ok, traits::fungible::Inspect};
+	use frame_support::{
+		assert_noop, assert_ok,
+		traits::fungible::{Inspect, Mutate},
+	};
 	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_runtime::DispatchError;
 
@@ -232,16 +235,31 @@ mod tests {
 	}
 
 	#[test]
-	fn mint_reward_payment_procedure_actually_mints_tokens() {
+	fn pay_lane_reward_from_account_actually_pays_reward() {
 		type Balances = pallet_balances::Pallet<TestRuntime>;
+		type PayLaneRewardFromAccount = bp_relayers::PayLaneRewardFromAccount<Balances, AccountId>;
 
 		run_test(|| {
+			let lane0_rewards_account =
+				PayLaneRewardFromAccount::lane_rewards_account([0, 0, 0, 0]);
+			let lane1_rewards_account =
+				PayLaneRewardFromAccount::lane_rewards_account([0, 0, 0, 1]);
+
+			Balances::mint_into(&lane0_rewards_account, 100).unwrap();
+			Balances::mint_into(&lane1_rewards_account, 100).unwrap();
+			assert_eq!(Balances::balance(&lane0_rewards_account), 100);
+			assert_eq!(Balances::balance(&lane1_rewards_account), 100);
 			assert_eq!(Balances::balance(&1), 0);
-			assert_eq!(Balances::total_issuance(), 0);
-			bp_relayers::MintReward::<Balances, AccountId>::pay_reward(&1, TEST_LANE_ID, 100)
-				.unwrap();
+
+			PayLaneRewardFromAccount::pay_reward(&1, [0, 0, 0, 0], 100).unwrap();
+			assert_eq!(Balances::balance(&lane0_rewards_account), 0);
+			assert_eq!(Balances::balance(&lane1_rewards_account), 100);
 			assert_eq!(Balances::balance(&1), 100);
-			assert_eq!(Balances::total_issuance(), 100);
+
+			PayLaneRewardFromAccount::pay_reward(&1, [0, 0, 0, 1], 100).unwrap();
+			assert_eq!(Balances::balance(&lane0_rewards_account), 0);
+			assert_eq!(Balances::balance(&lane1_rewards_account), 0);
+			assert_eq!(Balances::balance(&1), 200);
 		});
 	}
 }
