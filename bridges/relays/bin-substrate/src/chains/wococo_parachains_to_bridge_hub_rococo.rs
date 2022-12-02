@@ -78,8 +78,6 @@ impl CliBridgeBase for BridgeHubWococoToBridgeHubRococoCliBridge {
 }
 
 impl MessagesCliBridge for BridgeHubWococoToBridgeHubRococoCliBridge {
-	const ESTIMATE_MESSAGE_FEE_METHOD: &'static str =
-		bp_bridge_hub_rococo::TO_BRIDGE_HUB_ROCOCO_ESTIMATE_MESSAGE_FEE_METHOD;
 	type MessagesLane =
 	crate::chains::bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoMessagesToBridgeHubRococoMessageLane;
 }
