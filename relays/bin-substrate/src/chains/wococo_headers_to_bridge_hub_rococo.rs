@@ -17,8 +17,12 @@
 //! Wococo-to-Rococo bridge hubs headers sync entrypoint.
 
 use crate::cli::bridge::{CliBridgeBase, RelayToRelayHeadersCliBridge};
-use substrate_relay_helper::finality::{
-	engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalitySyncPipeline,
+
+use async_trait::async_trait;
+use relay_substrate_client::{AccountKeyPairOf, Client};
+use substrate_relay_helper::{
+	finality::{engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalitySyncPipeline},
+	TransactionParams,
 };
 
 /// Description of Wococo -> Rococo finalized headers bridge.
@@ -32,12 +36,27 @@ substrate_relay_helper::generate_mocked_submit_finality_proof_call_builder!(
 	relay_bridge_hub_rococo_client::runtime::BridgeWococoGrandpaCall::submit_finality_proof
 );
 
+#[async_trait]
 impl SubstrateFinalitySyncPipeline for WococoFinalityToBridgeHubRococo {
 	type SourceChain = relay_wococo_client::Wococo;
 	type TargetChain = relay_bridge_hub_rococo_client::BridgeHubRococo;
 
 	type FinalityEngine = GrandpaFinalityEngine<Self::SourceChain>;
 	type SubmitFinalityProofCallBuilder = WococoFinalityToBridgeHubRococoCallBuilder;
+
+	async fn start_relay_guards(
+		target_client: &Client<Self::TargetChain>,
+		_transaction_params: &TransactionParams<AccountKeyPairOf<Self::TargetChain>>,
+		enable_version_guard: bool,
+	) -> relay_substrate_client::Result<()> {
+		if enable_version_guard {
+			relay_substrate_client::guard::abort_on_spec_version_change(
+				target_client.clone(),
+				target_client.simple_runtime_version().await?.0,
+			);
+		}
+		Ok(())
+	}
 }
 
 /// `Wococo` to BridgeHub `Rococo` bridge definition.
