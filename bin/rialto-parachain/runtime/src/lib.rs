@@ -50,7 +50,7 @@ pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
 	match_types, parameter_types,
-	traits::{Everything, IsInVec, Nothing, Randomness},
+	traits::{ConstU32, Everything, IsInVec, Nothing, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, Weight,
@@ -249,8 +249,6 @@ parameter_types! {
 	pub const CreationFee: u128 = MILLIUNIT;
 	pub const TransactionByteFee: u128 = MICROUNIT;
 	pub const OperationalFeeMultiplier: u8 = 5;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -262,8 +260,8 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-	type MaxLocks = MaxLocks;
-	type MaxReserves = MaxReserves;
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 }
 
@@ -518,12 +516,6 @@ impl pallet_bridge_relayers::Config for Runtime {
 }
 
 parameter_types! {
-	/// This is a pretty unscientific cap.
-	///
-	/// Note that once this is hit the pallet will essentially throttle incoming requests down to one
-	/// call per block.
-	pub const MaxRequests: u32 = 50;
-
 	/// Number of headers to keep.
 	///
 	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
@@ -539,7 +531,11 @@ parameter_types! {
 pub type MillauGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
-	type MaxRequests = MaxRequests;
+	/// This is a pretty unscientific cap.
+	///
+	/// Note that once this is hit the pallet will essentially throttle incoming requests down to
+	/// one call per block.
+	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = MaxAuthoritiesAtMillau;
 	type MaxBridgedHeaderSize = MaxMillauHeaderSize;

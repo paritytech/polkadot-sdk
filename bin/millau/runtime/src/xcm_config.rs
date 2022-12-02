@@ -31,7 +31,7 @@ use bridge_runtime_common::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{Everything, Nothing},
+	traits::{ConstU32, Everything, Nothing},
 };
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -112,10 +112,6 @@ pub type XcmRouter = (
 	XcmBridgeAdapter<ToRialtoParachainBridge>,
 );
 
-parameter_types! {
-	pub const MaxAssetsIntoHolding: u32 = 64;
-}
-
 /// The barriers one of which must be passed for an XCM message to be executed.
 pub type Barrier = (
 	// Weight that is paid for may be consumed.
@@ -149,7 +145,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
-	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+	type MaxAssetsIntoHolding = ConstU32<64>;
 	type FeeManager = ();
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

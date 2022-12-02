@@ -123,14 +123,10 @@ impl parachains_session_info::Config for Runtime {
 
 impl parachains_shared::Config for Runtime {}
 
-parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
-}
-
 impl parachains_ump::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type UmpSink = ();
-	type FirstMessageFactorPercent = FirstMessageFactorPercent;
+	type FirstMessageFactorPercent = frame_support::traits::ConstU64<100>;
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = parachains_ump::TestWeightInfo;
 }

@@ -32,6 +32,7 @@ use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
+	traits::ConstU64,
 	weights::{RuntimeDbWeight, Weight},
 };
 use scale_info::TypeInfo;
@@ -104,7 +105,7 @@ impl frame_system::Config for TestRuntime {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = SubstrateHeader;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -120,16 +121,12 @@ impl frame_system::Config for TestRuntime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-	pub const ExistentialDeposit: u64 = 1;
-}
-
 impl pallet_balances::Config for TestRuntime {
 	type MaxLocks = ();
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ExistentialDeposit;
+	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = frame_system::Pallet<TestRuntime>;
 	type WeightInfo = ();
 	type MaxReserves = ();
