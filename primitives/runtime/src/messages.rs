@@ -30,10 +30,6 @@ pub struct MessageDispatchResult<DispatchLevelResult> {
 	///    the weight, declared by the message sender;
 	/// 2) if message has not been dispatched at all.
 	pub unspent_weight: Weight,
-	/// Whether the message dispatch fee has been paid during dispatch. This will be true if your
-	/// configuration supports pay-dispatch-fee-at-target-chain option and message sender has
-	/// enabled this option.
-	pub dispatch_fee_paid_during_dispatch: bool,
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)
 	pub dispatch_level_result: DispatchLevelResult,
 }

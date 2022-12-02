@@ -256,39 +256,6 @@ benchmarks_instance_pallet! {
 		assert!(T::is_message_dispatched(21));
 	}
 
-	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
-	// * proof does not include outbound lane state proof;
-	// * inbound lane already has state, so it needs to be read and decoded;
-	// * message is successfully dispatched;
-	// * message requires all heavy checks done by dispatcher;
-	// * message dispatch fee is paid at source (bridged) chain.
-	//
-	// This benchmark is used to compute extra weight spent at target chain when fee is paid there. Then we use
-	// this information in two places: (1) to reduce weight of delivery tx if sender pays fee at the source chain
-	// and (2) to refund relayer with this weight if fee has been paid at the source chain.
-	receive_single_prepaid_message_proof {
-		let relayer_id_on_source = T::bridged_relayer_id();
-		let relayer_id_on_target = account("relayer", 0, SEED);
-		T::endow_account(&relayer_id_on_target);
-
-		// mark messages 1..=20 as delivered
-		receive_messages::<T, I>(20);
-
-		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
-			lane: T::bench_lane_id(),
-			message_nonces: 21..=21,
-			outbound_lane_data: None,
-			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
-		});
-	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
-	verify {
-		assert_eq!(
-			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
-			21,
-		);
-		assert!(T::is_message_dispatched(21));
-	}
-
 	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
 	// * single relayer is rewarded for relaying single message;
 	// * relayer account does not exist (in practice it needs to exist in production environment).
