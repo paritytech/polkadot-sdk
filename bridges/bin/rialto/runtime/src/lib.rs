@@ -61,7 +61,7 @@ pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{Currency, ExistenceRequirement, Imbalance, KeyOwnerProofSystem},
+	traits::{ConstU32, ConstU8, Currency, ExistenceRequirement, Imbalance, KeyOwnerProofSystem},
 	weights::{constants::WEIGHT_PER_SECOND, IdentityFee, RuntimeDbWeight, Weight},
 	StorageValue,
 };
@@ -222,13 +222,12 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 parameter_types! {
 	pub const EpochDuration: u64 = bp_rialto::EPOCH_DURATION_IN_SLOTS as u64;
 	pub const ExpectedBlockTime: bp_rialto::Moment = bp_rialto::time_units::MILLISECS_PER_BLOCK;
-	pub const MaxAuthorities: u32 = 10;
 }
 
 impl pallet_babe::Config for Runtime {
 	type EpochDuration = EpochDuration;
 	type ExpectedBlockTime = ExpectedBlockTime;
-	type MaxAuthorities = MaxAuthorities;
+	type MaxAuthorities = ConstU32<10>;
 
 	// session module is the trigger
 	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -251,13 +250,13 @@ impl pallet_babe::Config for Runtime {
 
 impl pallet_beefy::Config for Runtime {
 	type BeefyId = BeefyId;
-	type MaxAuthorities = MaxAuthorities;
+	type MaxAuthorities = ConstU32<10>;
 	type OnNewValidatorSet = MmrLeaf;
 }
 
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxAuthorities = MaxAuthorities;
+	type MaxAuthorities = ConstU32<10>;
 	type KeyOwnerProofSystem = ();
 	type KeyOwnerProof =
 		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
@@ -327,10 +326,6 @@ impl pallet_timestamp::Config for Runtime {
 
 parameter_types! {
 	pub const ExistentialDeposit: bp_rialto::Balance = 500;
-	// For weight estimation, we assume that the most locks on an individual account will be 50.
-	// This number may need to be adjusted in the future if this assumption no longer holds true.
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -343,15 +338,16 @@ impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 	// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 	type WeightInfo = ();
-	type MaxLocks = MaxLocks;
-	type MaxReserves = MaxReserves;
+	// For weight estimation, we assume that the most locks on an individual account will be 50.
+	// This number may need to be adjusted in the future if this assumption no longer holds true.
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 }
 
 parameter_types! {
 	pub const TransactionBaseFee: Balance = 0;
 	pub const TransactionByteFee: Balance = 1;
-	pub const OperationalFeeMultiplier: u8 = 5;
 	// values for following parameters are copied from polkadot repo, but it is fine
 	// not to sync them - we're not going to make Rialto a full copy of one of Polkadot-like chains
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
@@ -362,7 +358,7 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
-	type OperationalFeeMultiplier = OperationalFeeMultiplier;
+	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = bp_rialto::WeightToFee;
 	type LengthToFee = bp_rialto::WeightToFee;
 	type FeeMultiplierUpdate = pallet_transaction_payment::TargetedFeeAdjustment<
@@ -394,7 +390,7 @@ impl pallet_session::Config for Runtime {
 }
 
 impl pallet_authority_discovery::Config for Runtime {
-	type MaxAuthorities = MaxAuthorities;
+	type MaxAuthorities = ConstU32<10>;
 }
 
 impl pallet_bridge_relayers::Config for Runtime {
@@ -405,12 +401,6 @@ impl pallet_bridge_relayers::Config for Runtime {
 }
 
 parameter_types! {
-	/// This is a pretty unscientific cap.
-	///
-	/// Note that once this is hit the pallet will essentially throttle incoming requests down to one
-	/// call per block.
-	pub const MaxRequests: u32 = 50;
-
 	/// Number of headers to keep.
 	///
 	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
@@ -426,7 +416,11 @@ parameter_types! {
 pub type MillauGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
-	type MaxRequests = MaxRequests;
+	/// This is a pretty unscientific cap.
+	///
+	/// Note that once this is hit the pallet will essentially throttle incoming requests down to
+	/// one call per block.
+	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = MaxAuthoritiesAtMillau;
 	type MaxBridgedHeaderSize = MaxMillauHeaderSize;
