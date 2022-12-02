@@ -272,8 +272,6 @@ macro_rules! decl_bridge_finality_runtime_apis {
 ///     - `To<ThisChain>OutboundLaneApi`
 ///     - `From<ThisChain>InboundLaneApi`
 /// - constants that are stringified names of runtime API methods:
-///     - `TO_<THIS_CHAIN>_ESTIMATE_MESSAGE_FEE_METHOD`
-///     - `TO_<THIS_CHAIN>_MESSAGE_DETAILS_METHOD`
 ///     - `FROM_<THIS_CHAIN>_MESSAGE_DETAILS_METHOD`,
 /// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
 #[macro_export]
@@ -283,10 +281,6 @@ macro_rules! decl_bridge_messages_runtime_apis {
 			mod [<$chain _messages_api>] {
 				use super::*;
 
-				/// Name of the `To<ThisChain>OutboundLaneApi::estimate_message_delivery_and_dispatch_fee` runtime
-				/// method.
-				pub const [<TO_ $chain:upper _ESTIMATE_MESSAGE_FEE_METHOD>]: &str =
-					stringify!([<To $chain:camel OutboundLaneApi_estimate_message_delivery_and_dispatch_fee>]);
 				/// Name of the `To<ThisChain>OutboundLaneApi::message_details` runtime method.
 				pub const [<TO_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
 					stringify!([<To $chain:camel OutboundLaneApi_message_details>]);
