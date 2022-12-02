@@ -379,7 +379,8 @@ impl pallet_session::Config for Runtime {
 impl pallet_bridge_relayers::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
-	type PaymentProcedure = bp_relayers::MintReward<pallet_balances::Pallet<Runtime>, AccountId>;
+	type PaymentProcedure =
+		bp_relayers::PayLaneRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
 	type WeightInfo = ();
 }
 
