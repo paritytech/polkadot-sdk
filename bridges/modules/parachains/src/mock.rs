@@ -16,7 +16,11 @@
 
 use bp_polkadot_core::parachains::ParaId;
 use bp_runtime::Chain;
-use frame_support::{construct_runtime, parameter_types, traits::IsInVec, weights::Weight};
+use frame_support::{
+	construct_runtime, parameter_types,
+	traits::{ConstU32, IsInVec},
+	weights::Weight,
+};
 use sp_runtime::{
 	testing::{Header, H256},
 	traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
@@ -86,15 +90,14 @@ impl frame_system::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const MaxRequests: u32 = 2;
-	pub const HeadersToKeep: u32 = 5;
 	pub const SessionLength: u64 = 5;
 	pub const NumValidators: u32 = 5;
+	pub const HeadersToKeep: u32 = 5;
 }
 
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRuntime {
 	type BridgedChain = TestBridgedChain;
-	type MaxRequests = MaxRequests;
+	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = frame_support::traits::ConstU32<5>;
 	type MaxBridgedHeaderSize = frame_support::traits::ConstU32<512>;
@@ -103,7 +106,7 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRun
 
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance2> for TestRuntime {
 	type BridgedChain = TestBridgedChain;
-	type MaxRequests = MaxRequests;
+	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = frame_support::traits::ConstU32<5>;
 	type MaxBridgedHeaderSize = frame_support::traits::ConstU32<512>;

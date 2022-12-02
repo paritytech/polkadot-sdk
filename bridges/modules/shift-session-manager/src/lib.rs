@@ -152,7 +152,6 @@ mod tests {
 	}
 
 	parameter_types! {
-		pub const BlockHashCount: u64 = 250;
 		pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
 		pub const MaximumBlockLength: u32 = 2 * 1024;
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
@@ -169,7 +168,7 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
 		type RuntimeEvent = ();
-		type BlockHashCount = BlockHashCount;
+		type BlockHashCount = frame_support::traits::ConstU64<250>;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = ();
