@@ -19,7 +19,11 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_messages::LaneId;
+use bp_messages::{LaneId, TypedLaneId};
+use sp_runtime::{
+	codec::{Decode, Encode},
+	traits::AccountIdConversion,
+};
 use sp_std::{fmt::Debug, marker::PhantomData};
 
 /// Reward payment procedure.
@@ -31,20 +35,56 @@ pub trait PaymentProcedure<Relayer, Reward> {
 	fn pay_reward(relayer: &Relayer, lane_id: LaneId, reward: Reward) -> Result<(), Self::Error>;
 }
 
-/// Reward payment procedure that is simply minting given amount of tokens.
-pub struct MintReward<T, Relayer>(PhantomData<(T, Relayer)>);
+/// Reward payment procedure that does `balances::transfer` call from the account, derived from
+/// given lane.
+pub struct PayLaneRewardFromAccount<T, Relayer>(PhantomData<(T, Relayer)>);
 
-impl<T, Relayer> PaymentProcedure<Relayer, T::Balance> for MintReward<T, Relayer>
+impl<T, Relayer> PayLaneRewardFromAccount<T, Relayer>
 where
-	T: frame_support::traits::fungible::Mutate<Relayer>,
+	Relayer: Decode + Encode,
+{
+	/// Return account that pay rewards for serving given lane.
+	pub fn lane_rewards_account(lane_id: LaneId) -> Relayer {
+		TypedLaneId(lane_id).into_sub_account_truncating(b"bridge-lane")
+	}
+}
+
+impl<T, Relayer> PaymentProcedure<Relayer, T::Balance> for PayLaneRewardFromAccount<T, Relayer>
+where
+	T: frame_support::traits::fungible::Transfer<Relayer>,
+	Relayer: Decode + Encode,
 {
 	type Error = sp_runtime::DispatchError;
 
 	fn pay_reward(
 		relayer: &Relayer,
-		_lane_id: LaneId,
+		lane_id: LaneId,
 		reward: T::Balance,
 	) -> Result<(), Self::Error> {
-		T::mint_into(relayer, reward)
+		T::transfer(&Self::lane_rewards_account(lane_id), relayer, reward, false).map(drop)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn lanes_are_using_different_accounts() {
+		assert_eq!(
+			PayLaneRewardFromAccount::<(), bp_rialto::AccountId>::lane_rewards_account([
+				0, 0, 0, 0
+			]),
+			hex_literal::hex!("626c616e000000006272696467652d6c616e6500000000000000000000000000")
+				.into(),
+		);
+
+		assert_eq!(
+			PayLaneRewardFromAccount::<(), bp_rialto::AccountId>::lane_rewards_account([
+				0, 0, 0, 1
+			]),
+			hex_literal::hex!("626c616e000000016272696467652d6c616e6500000000000000000000000000")
+				.into(),
+		);
 	}
 }

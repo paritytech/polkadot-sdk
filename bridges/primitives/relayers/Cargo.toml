@@ -19,6 +19,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [dev-dependencies]
+bp-rialto = { path = "../chain-rialto" }
 hex = "0.4"
 hex-literal = "0.3"
 
