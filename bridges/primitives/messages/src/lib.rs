@@ -24,6 +24,7 @@ use bp_runtime::{BasicOperatingMode, OperatingMode};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
+use sp_core::TypeId;
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
 pub mod source_chain;
@@ -67,6 +68,16 @@ impl OperatingMode for MessagesOperatingMode {
 
 /// Lane identifier.
 pub type LaneId = [u8; 4];
+
+/// Lane id which implements `TypeId`.
+// TODO (https://github.com/paritytech/parity-bridges-common/issues/1694):
+// `LaneId` shall be replaced with this across all codebase (codec-compatible)
+#[derive(Decode, Encode, RuntimeDebug)]
+pub struct TypedLaneId(pub [u8; 4]);
+
+impl TypeId for TypedLaneId {
+	const TYPE_ID: [u8; 4] = *b"blan";
+}
 
 /// Message nonce. Valid messages will never have 0 nonce.
 pub type MessageNonce = u64;
