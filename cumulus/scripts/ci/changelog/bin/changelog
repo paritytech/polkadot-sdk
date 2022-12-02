@@ -81,6 +81,8 @@ SHELL_DIGEST = ENV['SHELL_DIGEST'] || 'digests/shell-srtool-digest.json'
 WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json'
 STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
 STATEMINT_DIGEST = ENV['STATEMINT_DIGEST'] || 'digests/statemint-srtool-digest.json'
+BRIDGE_HUB_ROCOCO_DIGEST = ENV['BRIDGE_HUB_ROCOCO_DIGEST'] || 'digests/bridge-hub-rococo-srtool-digest.json'
+BRIDGE_HUB_KUSAMA_DIGEST = ENV['BRIDGE_HUB_KUSAMA_DIGEST'] || 'digests/bridge-hub-kusama-srtool-digest.json'
 ROCOCO_PARA_DIGEST = ENV['ROCOCO_PARA_DIGEST'] || 'digests/rococo-parachain-srtool-digest.json'
 CANVAS_KUSAMA_DIGEST = ENV['CANVAS_KUSAMA_DIGEST'] || 'digests/contracts-rococo-srtool-digest.json'
 
@@ -114,6 +116,8 @@ else
       --slurpfile srtool_rococo_parachain %s \
       --slurpfile srtool_contracts_rococo %s \
       --slurpfile srtool_polkadot_collectives %s \
+      --slurpfile srtool_bridge_hub_rococo %s \
+      --slurpfile srtool_bridge_hub_kusama %s \
       -n \'{
             cumulus: $cumulus[0],
             substrate: $substrate[0],
@@ -125,7 +129,9 @@ else
             { name: "statemint", data: $srtool_statemint[0] },
             { name: "rococo", data: $srtool_rococo_parachain[0] },
             { name: "contracts", data: $srtool_contracts_rococo[0] },
-            { name: "polkadot-collectives", data: $srtool_polkadot_collectives[0] }
+            { name: "polkadot-collectives", data: $srtool_polkadot_collectives[0] },
+            { name: "bridge-hub-rococo", data: $srtool_bridge_hub_rococo[0] },
+            { name: "bridge-hub-kusama", data: $srtool_bridge_hub_kusama[0] }
       ] }\' > context.json',
         cumulus_data,
         substrate_data,
@@ -136,7 +142,9 @@ else
         STATEMINT_DIGEST,
         ROCOCO_PARA_DIGEST,
         CANVAS_KUSAMA_DIGEST,
-        POLKADOT_COLLECTIVES_DIGEST
+        POLKADOT_COLLECTIVES_DIGEST,
+        BRIDGE_HUB_ROCOCO_DIGEST,
+        BRIDGE_HUB_KUSAMA_DIGEST
   )
 end
 system(cmd)

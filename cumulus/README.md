@@ -144,6 +144,10 @@ Refer to the [setup instructions](#local-setup) to run a local network for devel
 
 See [the `contracts-rococo` readme](parachains/runtimes/contracts/contracts-rococo/README.md) for details.
 
+## Bridge-hub 📝
+
+See [the `bridge-hubs` readme](parachains/runtimes/bridge-hubs/README.md) for details.
+
 ## Rococo 👑
 
 [Rococo](https://polkadot.js.org/apps/?rpc=wss://rococo-rpc.polkadot.io) is becoming a [Community Parachain Testbed](https://polkadot.network/blog/rococo-revamp-becoming-a-community-parachain-testbed/) for parachain teams in the Polkadot ecosystem. It supports multiple parachains with the differentiation of long-term connections and recurring short-term connections, to see which parachains are currently connected and how long they will be connected for [see here](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-rpc.polkadot.io#/parachains).

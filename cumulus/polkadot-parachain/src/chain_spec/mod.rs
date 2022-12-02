@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
+pub mod bridge_hubs;
 pub mod collectives;
 pub mod contracts;
 pub mod penpal;

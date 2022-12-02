@@ -39,6 +39,15 @@ elif [[ $runtimeName == "collectives-polkadot" ]]; then
 		cumulus_pallet_xcmp_queue
 		frame_system
 	)
+elif [[ $runtimeName == "bridge-hub-rococo" ]] || [[ $runtimeName == "bridge-hub-kusama" ]]; then
+	pallets=(
+                frame_system
+                pallet_balances
+                pallet_session
+                pallet_timestamp
+                pallet_collator_selection
+                cumulus_pallet_xcmp_queue
+	)
 else
 	echo "$runtimeName pallet list not found in benchmarks-ci.sh"
 	exit 1

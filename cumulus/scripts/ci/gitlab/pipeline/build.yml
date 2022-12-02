@@ -69,8 +69,9 @@ build-test-parachain:
         cd ..;
       done
 
+# DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-bridge-hubs
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-contracts
-# DAG: build-runtime-assets ->build-runtime-starters -> build-runtime-testing
+# DAG: build-runtime-assets -> build-runtime-starters -> build-runtime-testing
 build-runtime-assets:
   <<: *build-runtime-template
   variables:
@@ -83,6 +84,15 @@ build-runtime-collectives:
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
     - job:                         build-runtime-assets
+      artifacts:                   false
+
+build-runtime-bridge-hubs:
+  <<: *build-runtime-template
+  variables:
+    RUNTIME_PATH:                  "parachains/runtimes/bridge-hubs"
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job:                         build-runtime-collectives
       artifacts:                   false
 
 build-runtime-contracts:

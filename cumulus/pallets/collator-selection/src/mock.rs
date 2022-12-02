@@ -17,7 +17,7 @@ use super::*;
 use crate as collator_selection;
 use frame_support::{
 	ord_parameter_types, parameter_types,
-	traits::{FindAuthor, GenesisBuild, ValidatorRegistration},
+	traits::{ConstU32, ConstU64, FindAuthor, GenesisBuild, ValidatorRegistration},
 	PalletId,
 };
 use frame_system as system;
@@ -115,20 +115,16 @@ impl pallet_authorship::Config for Test {
 	type EventHandler = CollatorSelection;
 }
 
-parameter_types! {
-	pub const MinimumPeriod: u64 = 1;
-}
-
 impl pallet_timestamp::Config for Test {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
-	type MinimumPeriod = MinimumPeriod;
+	type MinimumPeriod = ConstU64<1>;
 	type WeightInfo = ();
 }
 
 impl pallet_aura::Config for Test {
 	type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
-	type MaxAuthorities = MaxAuthorities;
+	type MaxAuthorities = ConstU32<100_000>;
 	type DisabledValidators = ();
 }
 
@@ -192,7 +188,6 @@ parameter_types! {
 	pub const MaxCandidates: u32 = 20;
 	pub const MaxInvulnerables: u32 = 20;
 	pub const MinCandidates: u32 = 1;
-	pub const MaxAuthorities: u32 = 100_000;
 }
 
 pub struct IsRegistered;

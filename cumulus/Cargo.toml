@@ -38,6 +38,8 @@ members = [
 	"parachains/runtimes/assets/statemint",
 	"parachains/runtimes/assets/statemine",
 	"parachains/runtimes/assets/westmint",
+	"parachains/runtimes/bridge-hubs/bridge-hub-rococo",
+	"parachains/runtimes/bridge-hubs/bridge-hub-kusama",
 	"parachains/runtimes/collectives/collectives-polkadot",
 	"parachains/runtimes/contracts/contracts-rococo",
 	"parachains/runtimes/testing/penpal",
