@@ -51,7 +51,5 @@ impl RelayToRelayHeadersCliBridge for RialtoToMillauCliBridge {
 }
 
 impl MessagesCliBridge for RialtoToMillauCliBridge {
-	const ESTIMATE_MESSAGE_FEE_METHOD: &'static str =
-		bp_millau::TO_MILLAU_ESTIMATE_MESSAGE_FEE_METHOD;
 	type MessagesLane = crate::chains::rialto_messages_to_millau::RialtoMessagesToMillau;
 }

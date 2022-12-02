@@ -30,8 +30,6 @@ impl CliBridgeBase for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {
 }
 
 impl MessagesCliBridge for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {
-	const ESTIMATE_MESSAGE_FEE_METHOD: &'static str =
-		"TODO: not needed now, used for send_message and estimate_fee CLI";
 	type MessagesLane = BridgeHubRococoMessagesToBridgeHubWococoMessageLane;
 }
 

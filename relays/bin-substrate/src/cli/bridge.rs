@@ -97,9 +97,6 @@ pub trait ParachainToRelayHeadersCliBridge: CliBridgeBase {
 
 /// Bridge representation that can be used from the CLI for relaying messages.
 pub trait MessagesCliBridge: CliBridgeBase {
-	/// Name of the runtime method used to estimate the message dispatch and delivery fee for the
-	/// defined bridge.
-	const ESTIMATE_MESSAGE_FEE_METHOD: &'static str;
 	/// The Source -> Destination messages synchronization pipeline.
 	type MessagesLane: SubstrateMessageLane<SourceChain = Self::Source, TargetChain = Self::Target>;
 }
