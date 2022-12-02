@@ -265,15 +265,6 @@ pub trait WeightInfoExt: WeightInfo {
 			(15 * 1024);
 		proof_size_in_bytes * byte_weight
 	}
-
-	/// Returns weight of the pay-dispatch-fee operation for inbound messages.
-	///
-	/// This function may return zero if runtime doesn't support pay-dispatch-fee-at-target-chain
-	/// option.
-	fn pay_inbound_dispatch_fee_overhead() -> Weight {
-		Self::receive_single_message_proof()
-			.saturating_sub(Self::receive_single_prepaid_message_proof())
-	}
 }
 
 impl WeightInfoExt for () {
