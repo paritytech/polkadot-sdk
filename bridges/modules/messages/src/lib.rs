@@ -361,32 +361,20 @@ pub mod pallet {
 					// losing funds for messages dispatch. But keep in mind that relayer pays base
 					// delivery transaction cost anyway. And base cost covers everything except
 					// dispatch, so we have a balance here.
-					let (unspent_weight, refund_pay_dispatch_fee) = match &receival_result {
+					let unspent_weight = match &receival_result {
 						ReceivalResult::Dispatched(dispatch_result) => {
 							valid_messages += 1;
-							(
-								dispatch_result.unspent_weight,
-								!dispatch_result.dispatch_fee_paid_during_dispatch,
-							)
+							dispatch_result.unspent_weight
 						},
 						ReceivalResult::InvalidNonce |
 						ReceivalResult::TooManyUnrewardedRelayers |
-						ReceivalResult::TooManyUnconfirmedMessages => (message_dispatch_weight, true),
+						ReceivalResult::TooManyUnconfirmedMessages => message_dispatch_weight,
 					};
 					lane_messages_received_status.push(message.key.nonce, receival_result);
 
 					let unspent_weight = unspent_weight.min(message_dispatch_weight);
 					dispatch_weight_left -= message_dispatch_weight - unspent_weight;
-					actual_weight = actual_weight.saturating_sub(unspent_weight).saturating_sub(
-						// delivery call weight formula assumes that the fee is paid at
-						// this (target) chain. If the message is prepaid at the source
-						// chain, let's refund relayer with this extra cost.
-						if refund_pay_dispatch_fee {
-							T::WeightInfo::pay_inbound_dispatch_fee_overhead()
-						} else {
-							Weight::zero()
-						},
-					);
+					actual_weight = actual_weight.saturating_sub(unspent_weight);
 				}
 
 				messages_received_status.push(lane_messages_received_status);
@@ -1554,11 +1542,9 @@ mod tests {
 			fn submit_with_unspent_weight(
 				nonce: MessageNonce,
 				unspent_weight: u64,
-				is_prepaid: bool,
 			) -> (Weight, Weight) {
 				let mut payload = REGULAR_PAYLOAD;
 				*payload.dispatch_result.unspent_weight.ref_time_mut() = unspent_weight;
-				payload.dispatch_result.dispatch_fee_paid_during_dispatch = !is_prepaid;
 				let proof = Ok(vec![message(nonce, payload)]).into();
 				let messages_count = 1;
 				let pre_dispatch_weight =
@@ -1582,40 +1568,32 @@ mod tests {
 			}
 
 			// when dispatch is returning `unspent_weight < declared_weight`
-			let (pre, post) = submit_with_unspent_weight(1, 1, false);
+			let (pre, post) = submit_with_unspent_weight(1, 1);
 			assert_eq!(post.ref_time(), pre.ref_time() - 1);
 
 			// when dispatch is returning `unspent_weight = declared_weight`
 			let (pre, post) =
-				submit_with_unspent_weight(2, REGULAR_PAYLOAD.declared_weight.ref_time(), false);
+				submit_with_unspent_weight(2, REGULAR_PAYLOAD.declared_weight.ref_time());
 			assert_eq!(
 				post.ref_time(),
 				pre.ref_time() - REGULAR_PAYLOAD.declared_weight.ref_time()
 			);
 
 			// when dispatch is returning `unspent_weight > declared_weight`
-			let (pre, post) = submit_with_unspent_weight(
-				3,
-				REGULAR_PAYLOAD.declared_weight.ref_time() + 1,
-				false,
-			);
+			let (pre, post) =
+				submit_with_unspent_weight(3, REGULAR_PAYLOAD.declared_weight.ref_time() + 1);
 			assert_eq!(
 				post.ref_time(),
 				pre.ref_time() - REGULAR_PAYLOAD.declared_weight.ref_time()
 			);
 
 			// when there's no unspent weight
-			let (pre, post) = submit_with_unspent_weight(4, 0, false);
+			let (pre, post) = submit_with_unspent_weight(4, 0);
 			assert_eq!(post, pre);
 
-			// when dispatch is returning `unspent_weight < declared_weight` AND message is prepaid
-			let (pre, post) = submit_with_unspent_weight(5, 1, true);
-			assert_eq!(
-				post.ref_time(),
-				pre.ref_time() -
-					1 - <TestRuntime as Config>::WeightInfo::pay_inbound_dispatch_fee_overhead()
-					.ref_time()
-			);
+			// when dispatch is returning `unspent_weight < declared_weight`
+			let (pre, post) = submit_with_unspent_weight(5, 1);
+			assert_eq!(post.ref_time(), pre.ref_time() - 1);
 		});
 	}
 

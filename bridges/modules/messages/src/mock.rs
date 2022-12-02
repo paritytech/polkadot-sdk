@@ -395,7 +395,6 @@ pub const fn dispatch_result(
 ) -> MessageDispatchResult<TestDispatchLevelResult> {
 	MessageDispatchResult {
 		unspent_weight: Weight::from_ref_time(unspent_weight),
-		dispatch_fee_paid_during_dispatch: true,
 		dispatch_level_result: (),
 	}
 }

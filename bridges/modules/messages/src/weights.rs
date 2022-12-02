@@ -55,7 +55,6 @@ pub trait WeightInfo {
 	fn receive_single_message_proof_with_outbound_lane_state() -> Weight;
 	fn receive_single_message_proof_1_kb() -> Weight;
 	fn receive_single_message_proof_16_kb() -> Weight;
-	fn receive_single_prepaid_message_proof() -> Weight;
 	fn receive_delivery_proof_for_single_message() -> Weight;
 	fn receive_delivery_proof_for_two_messages_by_single_relayer() -> Weight;
 	fn receive_delivery_proof_for_two_messages_by_two_relayers() -> Weight;
@@ -90,11 +89,6 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 		Weight::from_ref_time(101_601_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	fn receive_single_prepaid_message_proof() -> Weight {
-		Weight::from_ref_time(49_646_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	fn receive_delivery_proof_for_single_message() -> Weight {
 		Weight::from_ref_time(55_108_000 as u64)
@@ -139,11 +133,6 @@ impl WeightInfo for () {
 		Weight::from_ref_time(101_601_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	fn receive_single_prepaid_message_proof() -> Weight {
-		Weight::from_ref_time(49_646_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	fn receive_delivery_proof_for_single_message() -> Weight {
 		Weight::from_ref_time(55_108_000 as u64)
