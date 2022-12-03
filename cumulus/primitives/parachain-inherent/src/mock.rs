@@ -151,7 +151,7 @@ impl MockXcmConfig {
 impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 	for MockValidationDataInherentDataProvider<R>
 {
-	fn provide_inherent_data(
+	async fn provide_inherent_data(
 		&self,
 		inherent_data: &mut InherentData,
 	) -> Result<(), sp_inherents::Error> {

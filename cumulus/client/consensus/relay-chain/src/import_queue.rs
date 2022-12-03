@@ -65,8 +65,10 @@ where
 				.await
 				.map_err(|e| e.to_string())?;
 
-			let inherent_data =
-				inherent_data_providers.create_inherent_data().map_err(|e| format!("{:?}", e))?;
+			let inherent_data = inherent_data_providers
+				.create_inherent_data()
+				.await
+				.map_err(|e| format!("{:?}", e))?;
 
 			let block = Block::new(block_params.header.clone(), inner_body);
 

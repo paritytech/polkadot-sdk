@@ -125,6 +125,7 @@ where
 
 		inherent_data_providers
 			.create_inherent_data()
+			.await
 			.map_err(|e| {
 				tracing::error!(
 					target: LOG_TARGET,

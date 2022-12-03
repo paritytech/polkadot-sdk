@@ -39,7 +39,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus::{EnableProofRecording, Environment, ProofRecording, Proposer, SyncOracle};
 use sp_consensus_aura::{AuraApi, SlotDuration};
 use sp_core::crypto::Pair;
-use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
+use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
 use std::{convert::TryFrom, hash::Hash, marker::PhantomData, sync::Arc};
@@ -170,9 +170,8 @@ where
 		parent: B::Hash,
 		validation_data: &PersistedValidationData,
 		relay_parent: PHash,
-	) -> Option<(InherentData, CIDP::InherentDataProviders)> {
-		let inherent_data_providers = self
-			.create_inherent_data_providers
+	) -> Option<CIDP::InherentDataProviders> {
+		self.create_inherent_data_providers
 			.create_inherent_data_providers(parent, (relay_parent, validation_data.clone()))
 			.await
 			.map_err(|e| {
@@ -182,19 +181,7 @@ where
 					"Failed to create inherent data providers.",
 				)
 			})
-			.ok()?;
-
-		inherent_data_providers
-			.create_inherent_data()
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Failed to create inherent data.",
-				)
-			})
 			.ok()
-			.map(|d| (d, inherent_data_providers))
 	}
 }
 
@@ -213,12 +200,12 @@ where
 		relay_parent: PHash,
 		validation_data: &PersistedValidationData,
 	) -> Option<ParachainCandidate<B>> {
-		let (inherent_data, inherent_data_providers) =
+		let inherent_data_providers =
 			self.inherent_data(parent.hash(), validation_data, relay_parent).await?;
 
 		let info = SlotInfo::new(
 			inherent_data_providers.slot(),
-			inherent_data,
+			Box::new(inherent_data_providers),
 			self.slot_duration.as_duration(),
 			parent.clone(),
 			// Set the block limit to 50% of the maximum PoV size.
