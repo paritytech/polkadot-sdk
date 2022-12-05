@@ -72,9 +72,9 @@ pub(crate) fn build_collator_network(
 		role: config.role.clone(),
 		executor: {
 			let spawn_handle = Clone::clone(&spawn_handle);
-			Some(Box::new(move |fut| {
+			Box::new(move |fut| {
 				spawn_handle.spawn("libp2p-node", Some("networking"), fut);
-			}))
+			})
 		},
 		fork_id: None,
 		chain_sync: Box::new(chain_sync),
