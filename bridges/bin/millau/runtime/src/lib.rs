@@ -413,13 +413,8 @@ parameter_types! {
 }
 
 parameter_types! {
-	/// Maximal size of SCALE-encoded Rialto header.
-	pub const MaxRialtoHeaderSize: u32 = bp_rialto::MAX_HEADER_SIZE;
-
 	/// Maximal number of authorities at Westend.
 	pub const MaxAuthoritiesAtWestend: u32 = bp_westend::MAX_AUTHORITIES_COUNT;
-	/// Maximal size of SCALE-encoded Westend header.
-	pub const MaxWestendHeaderSize: u32 = bp_westend::MAX_HEADER_SIZE;
 }
 
 pub type RialtoGrandpaInstance = ();
@@ -432,7 +427,6 @@ impl pallet_bridge_grandpa::Config for Runtime {
 	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = MaxAuthoritiesAtRialto;
-	type MaxBridgedHeaderSize = MaxRialtoHeaderSize;
 
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
@@ -443,7 +437,6 @@ impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
 	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = MaxAuthoritiesAtWestend;
-	type MaxBridgedHeaderSize = MaxWestendHeaderSize;
 
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
@@ -871,13 +864,13 @@ impl_runtime_apis! {
 
 	impl bp_rialto::RialtoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_rialto::Hash, bp_rialto::BlockNumber>> {
-			BridgeRialtoGrandpa::best_finalized().map(|header| header.id())
+			BridgeRialtoGrandpa::best_finalized()
 		}
 	}
 
 	impl bp_westend::WestendFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
-			BridgeWestendGrandpa::best_finalized().map(|header| header.id())
+			BridgeWestendGrandpa::best_finalized()
 		}
 	}
 
