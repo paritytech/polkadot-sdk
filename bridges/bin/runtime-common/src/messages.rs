@@ -705,7 +705,6 @@ mod tests {
 	use crate::messages_generation::{
 		encode_all_messages, encode_lane_data, prepare_messages_storage_proof,
 	};
-	use bp_runtime::HeaderOf;
 	use codec::{Decode, Encode};
 	use frame_support::weights::Weight;
 	use sp_core::H256;
@@ -881,17 +880,17 @@ mod tests {
 	struct BridgedHeaderChain;
 
 	impl HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain {
-		fn finalized_header(
+		fn finalized_header_state_root(
 			_hash: HashOf<BridgedChain>,
-		) -> Option<HeaderOf<BridgedUnderlyingChain>> {
-			TEST_BRIDGED_HEADER.with(|h| h.borrow().clone())
+		) -> Option<HashOf<BridgedChain>> {
+			TEST_BRIDGED_HEADER.with(|h| h.borrow().clone()).map(|h| *h.state_root())
 		}
 	}
 
 	struct ThisHeaderChain;
 
 	impl HeaderChain<ThisUnderlyingChain> for ThisHeaderChain {
-		fn finalized_header(_hash: HashOf<ThisChain>) -> Option<HeaderOf<ThisUnderlyingChain>> {
+		fn finalized_header_state_root(_hash: HashOf<ThisChain>) -> Option<HashOf<ThisChain>> {
 			unreachable!()
 		}
 	}
