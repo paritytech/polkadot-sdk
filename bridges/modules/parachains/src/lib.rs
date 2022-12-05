@@ -275,7 +275,7 @@ pub mod pallet {
 			>::get(relay_block_hash)
 			.ok_or(Error::<T, I>::UnknownRelayChainBlock)?;
 			ensure!(
-				*relay_block.number() == relay_block_number,
+				relay_block.number == relay_block_number,
 				Error::<T, I>::InvalidRelayChainBlockNumber,
 			);
 
@@ -604,9 +604,10 @@ pub struct ParachainHeaders<T, I, C>(PhantomData<(T, I, C)>);
 impl<T: Config<I>, I: 'static, C: Parachain<Hash = ParaHash>> HeaderChain<C>
 	for ParachainHeaders<T, I, C>
 {
-	fn finalized_header(hash: HashOf<C>) -> Option<HeaderOf<C>> {
+	fn finalized_header_state_root(hash: HashOf<C>) -> Option<HashOf<C>> {
 		Pallet::<T, I>::parachain_head(ParaId(C::PARACHAIN_ID), hash)
-			.and_then(|head| Decode::decode(&mut &head.0[..]).ok())
+			.and_then(|head| HeaderOf::<C>::decode(&mut &head.0[..]).ok())
+			.map(|h| *h.state_root())
 	}
 }
 
