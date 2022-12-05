@@ -495,8 +495,7 @@ fn validate_out_msgs_details<C: Chain>(
 ) -> Result<(), SubstrateError> {
 	let make_missing_nonce_error = |expected_nonce| {
 		Err(SubstrateError::Custom(format!(
-			"Missing nonce {} in message_details call result. Expected all nonces from {:?}",
-			expected_nonce, nonces,
+			"Missing nonce {expected_nonce} in message_details call result. Expected all nonces from {nonces:?}",
 		)))
 	};
 

@@ -408,11 +408,7 @@ mod tests {
 			let difference = (expected_size.unwrap() as f64 - actual_size as f64).abs();
 			assert!(
 				difference / (std::cmp::min(actual_size, expected_size.unwrap()) as f64) < 0.1,
-				"Too large difference between actual ({}) and expected ({:?}) inbound lane data size. Test case: {}+{}",
-				actual_size,
-				expected_size,
-				relayer_entries,
-				messages_count,
+				"Too large difference between actual ({actual_size}) and expected ({expected_size:?}) inbound lane data size. Test case: {relayer_entries}+{messages_count}",
 			);
 		}
 	}
