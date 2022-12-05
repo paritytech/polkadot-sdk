@@ -100,7 +100,6 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRun
 	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = frame_support::traits::ConstU32<5>;
-	type MaxBridgedHeaderSize = frame_support::traits::ConstU32<512>;
 	type WeightInfo = ();
 }
 
@@ -109,7 +108,6 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance2> for TestRun
 	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = frame_support::traits::ConstU32<5>;
-	type MaxBridgedHeaderSize = frame_support::traits::ConstU32<512>;
 	type WeightInfo = ();
 }
 

@@ -96,9 +96,33 @@ pub const ROOT_ACCOUNT_DERIVATION_PREFIX: &[u8] = b"pallet-bridge/account-deriva
 
 /// Generic header Id.
 #[derive(
-	RuntimeDebug, Default, Clone, Encode, Decode, Copy, Eq, Hash, PartialEq, PartialOrd, Ord,
+	RuntimeDebug,
+	Default,
+	Clone,
+	Encode,
+	Decode,
+	Copy,
+	Eq,
+	Hash,
+	MaxEncodedLen,
+	PartialEq,
+	PartialOrd,
+	Ord,
+	TypeInfo,
 )]
 pub struct HeaderId<Hash, Number>(pub Number, pub Hash);
+
+impl<Hash: Copy, Number: Copy> HeaderId<Hash, Number> {
+	/// Return header number.
+	pub fn number(&self) -> Number {
+		self.0
+	}
+
+	/// Return header hash.
+	pub fn hash(&self) -> Hash {
+		self.1
+	}
+}
 
 /// Generic header id provider.
 pub trait HeaderIdProvider<Header: HeaderT> {
