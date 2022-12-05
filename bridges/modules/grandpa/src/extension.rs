@@ -40,7 +40,7 @@ impl<
 
 		let best_finalized = crate::BestFinalized::<T, I>::get();
 		let best_finalized_number = match best_finalized {
-			Some((best_finalized_number, _)) => best_finalized_number,
+			Some(best_finalized_id) => best_finalized_id.number(),
 			None => return InvalidTransaction::Call.into(),
 		};
 
@@ -66,6 +66,7 @@ mod tests {
 		mock::{run_test, test_header, RuntimeCall, TestNumber, TestRuntime},
 		BestFinalized,
 	};
+	use bp_runtime::HeaderId;
 	use bp_test_utils::make_default_justification;
 
 	fn validate_block_submit(num: TestNumber) -> bool {
@@ -81,7 +82,7 @@ mod tests {
 
 	fn sync_to_header_10() {
 		let header10_hash = sp_core::H256::default();
-		BestFinalized::<TestRuntime, ()>::put((10, header10_hash));
+		BestFinalized::<TestRuntime, ()>::put(HeaderId(10, header10_hash));
 	}
 
 	#[test]

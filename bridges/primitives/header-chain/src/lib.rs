@@ -19,8 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_runtime::{BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, StorageProofChecker};
-use codec::{Codec, Decode, Encode, EncodeLike};
+use bp_runtime::{BasicOperatingMode, Chain, HashOf, HasherOf, StorageProofChecker};
+use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
@@ -52,20 +52,44 @@ impl From<HeaderChainError> for &'static str {
 	}
 }
 
+/// Header data that we're storing on-chain.
+///
+/// Even though we may store full header, our applications (XCM) only use couple of header
+/// fields. Extracting those values makes on-chain storage and PoV smaller, which is good.
+#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct StoredHeaderData<Number, Hash> {
+	/// Header number.
+	pub number: Number,
+	/// Header state root.
+	pub state_root: Hash,
+}
+
+/// Stored header data builder.
+pub trait StoredHeaderDataBuilder<Number, Hash> {
+	/// Build header data from self.
+	fn build(&self) -> StoredHeaderData<Number, Hash>;
+}
+
+impl<H: HeaderT> StoredHeaderDataBuilder<H::Number, H::Hash> for H {
+	fn build(&self) -> StoredHeaderData<H::Number, H::Hash> {
+		StoredHeaderData { number: *self.number(), state_root: *self.state_root() }
+	}
+}
+
 /// Substrate header chain, abstracted from the way it is stored.
 pub trait HeaderChain<C: Chain> {
-	/// Returns finalized header by its hash.
-	fn finalized_header(hash: HashOf<C>) -> Option<HeaderOf<C>>;
+	/// Returns state (storage) root of given finalized header.
+	fn finalized_header_state_root(header_hash: HashOf<C>) -> Option<HashOf<C>>;
 	/// Parse storage proof using finalized header.
 	fn parse_finalized_storage_proof<R>(
-		hash: HashOf<C>,
+		header_hash: HashOf<C>,
 		storage_proof: StorageProof,
 		parse: impl FnOnce(StorageProofChecker<HasherOf<C>>) -> R,
 	) -> Result<R, HeaderChainError> {
-		let header = Self::finalized_header(hash).ok_or(HeaderChainError::UnknownHeader)?;
-		let storage_proof_checker =
-			bp_runtime::StorageProofChecker::new(*header.state_root(), storage_proof)
-				.map_err(|_| HeaderChainError::StorageRootMismatch)?;
+		let state_root = Self::finalized_header_state_root(header_hash)
+			.ok_or(HeaderChainError::UnknownHeader)?;
+		let storage_proof_checker = bp_runtime::StorageProofChecker::new(state_root, storage_proof)
+			.map_err(|_| HeaderChainError::StorageRootMismatch)?;
 
 		Ok(parse(storage_proof_checker))
 	}

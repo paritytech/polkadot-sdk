@@ -33,7 +33,7 @@ pub mod parachains;
 pub mod xcm_config;
 
 use beefy_primitives::{crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
-use bp_runtime::{HeaderId, HeaderIdProvider};
+use bp_runtime::HeaderId;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -410,8 +410,6 @@ parameter_types! {
 
 	/// Maximal number of authorities at Millau.
 	pub const MaxAuthoritiesAtMillau: u32 = bp_millau::MAX_AUTHORITIES_COUNT;
-	/// Maximal size of SCALE-encoded Millau header.
-	pub const MaxMillauHeaderSize: u32 = bp_millau::MAX_HEADER_SIZE;
 }
 
 pub type MillauGrandpaInstance = ();
@@ -424,7 +422,6 @@ impl pallet_bridge_grandpa::Config for Runtime {
 	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = HeadersToKeep;
 	type MaxBridgedAuthorities = MaxAuthoritiesAtMillau;
-	type MaxBridgedHeaderSize = MaxMillauHeaderSize;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
 
@@ -721,7 +718,7 @@ impl_runtime_apis! {
 
 	impl bp_millau::MillauFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_millau::Hash, bp_millau::BlockNumber>> {
-			BridgeMillauGrandpa::best_finalized().map(|header| header.id())
+			BridgeMillauGrandpa::best_finalized()
 		}
 	}
 
