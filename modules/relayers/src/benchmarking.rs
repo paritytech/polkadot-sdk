@@ -26,12 +26,24 @@ use frame_system::RawOrigin;
 /// Reward amount that is (hopefully) is larger than existential deposit across all chains.
 const REWARD_AMOUNT: u32 = u32::MAX;
 
+/// Pallet we're benchmarking here.
+pub struct Pallet<T: Config>(crate::Pallet<T>);
+
+/// Trait that must be implemented by runtime.
+pub trait Config: crate::Config {
+	/// Prepare environment for paying given reward for serving given lane.
+	fn prepare_environment(lane: LaneId, reward: Self::Reward);
+}
+
 benchmarks! {
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
 		let lane = [0, 0, 0, 0];
 		let relayer: T::AccountId = whitelisted_caller();
-		RelayerRewards::<T>::insert(&relayer, lane, T::Reward::from(REWARD_AMOUNT));
+		let reward = T::Reward::from(REWARD_AMOUNT);
+
+		T::prepare_environment(lane, reward);
+		RelayerRewards::<T>::insert(&relayer, lane, reward);
 	}: _(RawOrigin::Signed(relayer), lane)
 	verify {
 		// we can't check anything here, because `PaymentProcedure` is responsible for

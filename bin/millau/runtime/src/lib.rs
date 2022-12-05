@@ -969,13 +969,14 @@ impl_runtime_apis! {
 
 			use pallet_bridge_messages::benchmarking::Pallet as MessagesBench;
 			use pallet_bridge_parachains::benchmarking::Pallet as ParachainsBench;
+			use pallet_bridge_relayers::benchmarking::Pallet as RelayersBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 
 			list_benchmark!(list, extra, pallet_bridge_messages, MessagesBench::<Runtime, WithRialtoMessagesInstance>);
 			list_benchmark!(list, extra, pallet_bridge_grandpa, BridgeRialtoGrandpa);
 			list_benchmark!(list, extra, pallet_bridge_parachains, ParachainsBench::<Runtime, WithRialtoMessagesInstance>);
-			list_benchmark!(list, extra, pallet_bridge_relayers, BridgeRelayers);
+			list_benchmark!(list, extra, pallet_bridge_relayers, RelayersBench::<Runtime>);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1013,6 +1014,10 @@ impl_runtime_apis! {
 			use pallet_bridge_parachains::benchmarking::{
 				Pallet as ParachainsBench,
 				Config as ParachainsConfig,
+			};
+			use pallet_bridge_relayers::benchmarking::{
+				Pallet as RelayersBench,
+				Config as RelayersConfig,
 			};
 			use rialto_messages::WithRialtoMessageBridge;
 
@@ -1068,6 +1073,20 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl RelayersConfig for Runtime {
+				fn prepare_environment(
+					lane: bp_messages::LaneId,
+					reward: Balance,
+				) {
+					use frame_support::traits::fungible::Mutate;
+					let lane_rewards_account = bp_relayers::PayLaneRewardFromAccount::<
+						Balances,
+						AccountId
+					>::lane_rewards_account(lane);
+					Balances::mint_into(&lane_rewards_account, reward).unwrap();
+				}
+			}
+
 			add_benchmark!(
 				params,
 				batches,
@@ -1081,7 +1100,7 @@ impl_runtime_apis! {
 				pallet_bridge_parachains,
 				ParachainsBench::<Runtime, WithRialtoParachainsInstance>
 			);
-			add_benchmark!(params, batches, pallet_bridge_relayers, BridgeRelayers);
+			add_benchmark!(params, batches, pallet_bridge_relayers, RelayersBench::<Runtime>);
 
 			Ok(batches)
 		}
