@@ -59,10 +59,7 @@ pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 		max_incoming_message_proof_size.saturating_add(SIGNED_EXTENSIONS_SIZE);
 	assert!(
 		max_delivery_transaction_size <= max_extrinsic_size,
-		"Size of maximal message delivery transaction {} + {} is larger than maximal possible transaction size {}",
-		max_incoming_message_proof_size,
-		SIGNED_EXTENSIONS_SIZE,
-		max_extrinsic_size,
+		"Size of maximal message delivery transaction {max_incoming_message_proof_size} + {SIGNED_EXTENSIONS_SIZE} is larger than maximal possible transaction size {max_extrinsic_size}",
 	);
 
 	// verify that we're able to receive proof of maximal-size message with maximal dispatch weight
@@ -75,9 +72,7 @@ pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 	);
 	assert!(
 		max_delivery_transaction_dispatch_weight.all_lte(max_extrinsic_weight),
-		"Weight of maximal message delivery transaction + {} is larger than maximal possible transaction weight {}",
-		max_delivery_transaction_dispatch_weight,
-		max_extrinsic_weight,
+		"Weight of maximal message delivery transaction + {max_delivery_transaction_dispatch_weight} is larger than maximal possible transaction weight {max_extrinsic_weight}",
 	);
 }
 
@@ -94,10 +89,7 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 		max_inbound_lane_data_proof_size_from_peer_chain.saturating_add(SIGNED_EXTENSIONS_SIZE);
 	assert!(
 		max_confirmation_transaction_size <= max_extrinsic_size,
-		"Size of maximal message delivery confirmation transaction {} + {} is larger than maximal possible transaction size {}",
-		max_inbound_lane_data_proof_size_from_peer_chain,
-		SIGNED_EXTENSIONS_SIZE,
-		max_extrinsic_size,
+		"Size of maximal message delivery confirmation transaction {max_inbound_lane_data_proof_size_from_peer_chain} + {SIGNED_EXTENSIONS_SIZE} is larger than maximal possible transaction size {max_extrinsic_size}",
 	);
 
 	// verify that we're able to reward maximal number of relayers that have delivered maximal
@@ -112,9 +104,7 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 	);
 	assert!(
 		max_confirmation_transaction_dispatch_weight.all_lte(max_extrinsic_weight),
-		"Weight of maximal confirmation transaction {} is larger than maximal possible transaction weight {}",
-		max_confirmation_transaction_dispatch_weight,
-		max_extrinsic_weight,
+		"Weight of maximal confirmation transaction {max_confirmation_transaction_dispatch_weight} is larger than maximal possible transaction weight {max_extrinsic_weight}",
 	);
 }
 

@@ -308,7 +308,7 @@ mod tests {
 
 	fn print_xcm<RuntimeCall>(xcm: &VersionedXcm<RuntimeCall>) {
 		println!("-----------------");
-		println!("xcm (plain): {:?}", xcm);
+		println!("xcm (plain): {xcm:?}");
 		println!("xcm (bytes): {:?}", xcm.encode());
 		println!("xcm (hex): {:?}", hexdisplay::HexDisplay::from(&xcm.encode()));
 	}

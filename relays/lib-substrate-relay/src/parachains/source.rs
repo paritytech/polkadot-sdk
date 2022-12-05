@@ -147,8 +147,7 @@ where
 		let parachain = ParaId(P::SOURCE_PARACHAIN_PARA_ID);
 		if parachains != [parachain] {
 			return Err(SubstrateError::Custom(format!(
-				"Trying to prove unexpected parachains {:?}. Expected {:?}",
-				parachains, parachain,
+				"Trying to prove unexpected parachains {parachains:?}. Expected {parachain:?}",
 			)))
 		}
 
@@ -177,8 +176,7 @@ where
 			.transpose()?
 			.ok_or_else(|| {
 				SubstrateError::Custom(format!(
-					"Failed to read expected parachain {:?} head at {:?}",
-					parachain, at_block
+					"Failed to read expected parachain {parachain:?} head at {at_block:?}"
 				))
 			})?;
 		let parachain_head_hash = parachain_head.hash();
