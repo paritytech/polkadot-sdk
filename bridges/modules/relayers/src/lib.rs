@@ -30,7 +30,8 @@ use weights::WeightInfo;
 pub use pallet::*;
 pub use payment_adapter::MessageDeliveryAndDispatchPaymentAdapter;
 
-mod benchmarking;
+pub mod benchmarking;
+
 mod mock;
 mod payment_adapter;
 
