@@ -52,24 +52,21 @@ use crate::{
 
 use bp_messages::{
 	source_chain::{
-		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, RelayersRewards,
-		SendMessageArtifacts, TargetHeaderChain,
+		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, SendMessageArtifacts,
+		TargetHeaderChain,
 	},
 	target_chain::{
 		DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
 	},
 	total_unrewarded_messages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
 	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
-	OutboundMessageDetails, UnrewardedRelayer, UnrewardedRelayersState,
+	OutboundMessageDetails, UnrewardedRelayersState,
 };
 use bp_runtime::{BasicOperatingMode, ChainId, OwnedBridgeModule, Size};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get};
 use sp_runtime::traits::UniqueSaturatedFrom;
-use sp_std::{
-	cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive,
-	prelude::*,
-};
+use sp_std::{cell::RefCell, marker::PhantomData, prelude::*};
 
 mod inbound_lane;
 mod outbound_lane;
@@ -723,31 +720,6 @@ fn send_message<T: Config<I>, I: 'static>(
 	let actual_weight = T::DbWeight::get().reads_writes(2, 2);
 
 	Ok(SendMessageArtifacts { nonce, weight: actual_weight })
-}
-
-/// Calculate the number of messages that the relayers have delivered.
-pub fn calc_relayers_rewards<T, I>(
-	messages_relayers: VecDeque<UnrewardedRelayer<T::AccountId>>,
-	received_range: &RangeInclusive<MessageNonce>,
-) -> RelayersRewards<T::AccountId>
-where
-	T: frame_system::Config + crate::Config<I>,
-	I: 'static,
-{
-	// remember to reward relayers that have delivered messages
-	// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
-	let mut relayers_rewards = RelayersRewards::new();
-	for entry in messages_relayers {
-		let nonce_begin = sp_std::cmp::max(entry.messages.begin, *received_range.start());
-		let nonce_end = sp_std::cmp::min(entry.messages.end, *received_range.end());
-
-		// loop won't proceed if current entry is ahead of received range (begin > end).
-		// this loop is bound by `T::MaxUnconfirmedMessagesAtInboundLane` on the bridged chain
-		if nonce_end >= nonce_begin {
-			*relayers_rewards.entry(entry.relayer).or_default() += nonce_end - nonce_begin + 1;
-		}
-	}
-	relayers_rewards
 }
 
 /// Ensure that the pallet is in normal operational mode.
