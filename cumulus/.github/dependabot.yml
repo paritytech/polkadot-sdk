@@ -21,6 +21,7 @@ updates:
       - dependency-name: "xcm*"
       - dependency-name: "kusama-*"
       - dependency-name: "westend-*"
+      - dependency-name: "rococo-*"
     schedule:
       interval: "daily"
   - package-ecosystem: github-actions
