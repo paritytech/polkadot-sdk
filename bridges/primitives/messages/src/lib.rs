@@ -25,7 +25,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
 use sp_core::TypeId;
-use sp_std::{collections::vec_deque::VecDeque, prelude::*};
+use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 
 pub mod source_chain;
 pub mod storage_keys;
@@ -358,6 +358,30 @@ pub fn total_unrewarded_messages<RelayerId>(
 		},
 		_ => Some(0),
 	}
+}
+
+/// Calculate the number of messages that the relayers have delivered.
+pub fn calc_relayers_rewards<AccountId>(
+	messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
+	received_range: &RangeInclusive<MessageNonce>,
+) -> source_chain::RelayersRewards<AccountId>
+where
+	AccountId: sp_std::cmp::Ord,
+{
+	// remember to reward relayers that have delivered messages
+	// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
+	let mut relayers_rewards = source_chain::RelayersRewards::new();
+	for entry in messages_relayers {
+		let nonce_begin = sp_std::cmp::max(entry.messages.begin, *received_range.start());
+		let nonce_end = sp_std::cmp::min(entry.messages.end, *received_range.end());
+
+		// loop won't proceed if current entry is ahead of received range (begin > end).
+		// this loop is bound by `T::MaxUnconfirmedMessagesAtInboundLane` on the bridged chain
+		if nonce_end >= nonce_begin {
+			*relayers_rewards.entry(entry.relayer).or_default() += nonce_end - nonce_begin + 1;
+		}
+	}
+	relayers_rewards
 }
 
 #[cfg(test)]

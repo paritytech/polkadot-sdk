@@ -17,9 +17,10 @@
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
-use crate::{calc_relayers_rewards, Config};
+use crate::Config;
 
 use bp_messages::{
+	calc_relayers_rewards,
 	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
 	target_chain::{
 		DispatchMessage, DispatchMessageData, MessageDispatch, ProvedLaneMessages, ProvedMessages,
@@ -311,8 +312,7 @@ impl MessageDeliveryAndDispatchPayment<RuntimeOrigin, AccountId>
 		_confirmation_relayer: &AccountId,
 		received_range: &RangeInclusive<MessageNonce>,
 	) {
-		let relayers_rewards =
-			calc_relayers_rewards::<TestRuntime, ()>(message_relayers, received_range);
+		let relayers_rewards = calc_relayers_rewards(message_relayers, received_range);
 		for (relayer, reward) in &relayers_rewards {
 			let key = (b":relayer-reward:", relayer, reward).encode();
 			frame_support::storage::unhashed::put(&key, &true);
