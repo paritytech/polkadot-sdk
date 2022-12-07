@@ -34,6 +34,7 @@ The following checks can be performed after we have forked off to the release-ca
     networks
 - [ ] Run [integration tests](https://github.com/paritytech/cumulus/blob/master/docs/release.md#integration-tests), and make sure they pass.
 - [ ] Push runtime upgrade to Westmint and verify network stability
+- [ ] Push runtime upgrade to Collectives and verify network stability
 
 
 ### Github
