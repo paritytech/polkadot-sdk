@@ -45,7 +45,7 @@ use cumulus_primitives_core::{
 };
 use frame_support::{
 	traits::EnsureOrigin,
-	weights::{constants::WEIGHT_PER_MILLIS, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -464,7 +464,7 @@ impl Default for QueueConfigData {
 			threshold_weight: Weight::from_ref_time(100_000),
 			weight_restrict_decay: Weight::from_ref_time(2),
 			xcmp_max_individual_weight: Weight::from_parts(
-				20u64 * WEIGHT_PER_MILLIS.ref_time(),
+				20u64 * WEIGHT_REF_TIME_PER_MILLIS,
 				DEFAULT_POV_SIZE,
 			),
 		}

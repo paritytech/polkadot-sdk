@@ -27,7 +27,7 @@ use codec::{Decode, DecodeLimit, Encode};
 use cumulus_primitives_core::{relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler};
 use frame_support::{
 	traits::EnsureOrigin,
-	weights::{constants::WEIGHT_PER_MILLIS, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 pub use pallet::*;
 use scale_info::TypeInfo;
@@ -52,8 +52,8 @@ impl Default for ConfigData {
 	fn default() -> Self {
 		Self {
 			max_individual: Weight::from_parts(
-				10u64 * WEIGHT_PER_MILLIS.ref_time(), // 10 ms of execution time maximum by default
-				DEFAULT_POV_SIZE,                     // 64 KB of proof size by default
+				10u64 * WEIGHT_REF_TIME_PER_MILLIS, // 10 ms of execution time maximum by default
+				DEFAULT_POV_SIZE,                   // 64 KB of proof size by default
 			),
 		}
 	}

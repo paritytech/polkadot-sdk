@@ -20,7 +20,7 @@ use crate::{Config, Pallet, Store, DEFAULT_POV_SIZE};
 use frame_support::{
 	pallet_prelude::*,
 	traits::StorageVersion,
-	weights::{constants::WEIGHT_PER_MILLIS, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 use xcm::latest::Weight as XcmWeight;
 
@@ -62,7 +62,7 @@ mod v1 {
 				resume_threshold: 1,
 				threshold_weight: 100_000,
 				weight_restrict_decay: 2,
-				xcmp_max_individual_weight: 20u64 * WEIGHT_PER_MILLIS.ref_time(),
+				xcmp_max_individual_weight: 20u64 * WEIGHT_REF_TIME_PER_MILLIS,
 			}
 		}
 	}
