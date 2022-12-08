@@ -7771,7 +7771,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "0.9.320"
+version = "0.9.330"
 dependencies = [
  "assert_cmd",
  "async-trait",
