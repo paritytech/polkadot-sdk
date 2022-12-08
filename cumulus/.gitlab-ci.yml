@@ -104,7 +104,7 @@ variables:
     - cargo +nightly --version
     - bash --version
   tags:
-    - linux-docker
+    - linux-docker-vm-c2
 
 .kubernetes-env:
   image:                           "${CI_IMAGE}"
