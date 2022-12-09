@@ -49,6 +49,7 @@ pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "maste
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -113,6 +114,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-utility/std",
 	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",

@@ -168,10 +168,10 @@ pub mod pallet {
 	}
 
 	/// Shortcut to messages proof type for Config.
-	type MessagesProofOf<T, I> =
+	pub type MessagesProofOf<T, I> =
 		<<T as Config<I>>::SourceHeaderChain as SourceHeaderChain>::MessagesProof;
 	/// Shortcut to messages delivery proof type for Config.
-	type MessagesDeliveryProofOf<T, I> =
+	pub type MessagesDeliveryProofOf<T, I> =
 		<<T as Config<I>>::TargetHeaderChain as TargetHeaderChain<
 			<T as Config<I>>::OutboundPayload,
 			<T as frame_system::Config>::AccountId,
@@ -630,6 +630,11 @@ pub mod pallet {
 			InboundMessageDetails {
 				dispatch_weight: T::MessageDispatch::dispatch_weight(&mut dispatch_message),
 			}
+		}
+
+		/// Return inbound lane data.
+		pub fn inbound_lane_data(lane: LaneId) -> InboundLaneData<T::InboundRelayer> {
+			InboundLanes::<T, I>::get(lane).0
 		}
 	}
 }

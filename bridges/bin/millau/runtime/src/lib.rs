@@ -550,6 +550,13 @@ impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime
 	type MaxParaHeadSize = MaxWestendParaHeadSize;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -558,6 +565,7 @@ construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Utility: pallet_utility,
 
 		// Must be before session.
 		Aura: pallet_aura::{Pallet, Config<T>},
