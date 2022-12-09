@@ -23,12 +23,15 @@ bp-runtime = { path = "../../primitives/runtime", default-features = false }
 pallet-bridge-grandpa = { path = "../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "../../modules/parachains", default-features = false }
+pallet-bridge-relayers = { path = "../../modules/relayers", default-features = false }
 
 # Substrate dependencies
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -43,6 +46,8 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
 [dev-dependencies]
+bp-rialto = { path = "../../primitives/chain-rialto" }
+bp-test-utils = { path = "../../primitives/test-utils" }
 millau-runtime = { path = "../millau/runtime" }
 
 [features]
@@ -61,6 +66,9 @@ std = [
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
+	"pallet-bridge-relayers/std",
+	"pallet-transaction-payment/std",
+	"pallet-utility/std",
 	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",

@@ -401,6 +401,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Get stored parachain info.
+		pub fn best_parachain_info(parachain: ParaId) -> Option<ParaInfo> {
+			ParasInfo::<T, I>::get(parachain)
+		}
+
 		/// Get best finalized header of the given parachain.
 		pub fn best_parachain_head(parachain: ParaId) -> Option<ParaHead> {
 			let best_para_head_hash = ParasInfo::<T, I>::get(parachain)?.best_head_hash.head_hash;

@@ -540,6 +540,13 @@ pub mod pallet {
 	}
 }
 
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Get the best finalized block number.
+	pub fn best_finalized_number() -> Option<BridgedBlockNumber<T, I>> {
+		BestFinalized::<T, I>::get().map(|id| id.number())
+	}
+}
+
 /// Bridge GRANDPA pallet as header chain.
 pub type GrandpaChainHeaders<T, I> = Pallet<T, I>;
 

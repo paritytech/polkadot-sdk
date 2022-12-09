@@ -109,8 +109,9 @@ pub mod pallet {
 
 				log::trace!(
 					target: crate::LOG_TARGET,
-					"Relayer {:?} can now claim reward: {:?}",
+					"Relayer {:?} can now claim reward for serving lane {:?}: {:?}",
 					relayer,
+					lane_id,
 					new_reward,
 				);
 			});
@@ -141,6 +142,7 @@ pub mod pallet {
 
 	/// Map of the relayer => accumulated reward.
 	#[pallet::storage]
+	#[pallet::getter(fn relayer_reward)]
 	pub type RelayerRewards<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
