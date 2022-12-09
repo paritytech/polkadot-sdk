@@ -52,11 +52,11 @@ use crate::{
 
 use bp_messages::{
 	source_chain::{
-		LaneMessageVerifier, MessageDeliveryAndDispatchPayment, SendMessageArtifacts,
-		TargetHeaderChain,
+		DeliveryConfirmationPayments, LaneMessageVerifier, SendMessageArtifacts, TargetHeaderChain,
 	},
 	target_chain::{
-		DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
+		DeliveryPayments, DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages,
+		SourceHeaderChain,
 	},
 	total_unrewarded_messages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
 	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
@@ -143,6 +143,8 @@ pub mod pallet {
 		/// Identifier of relayer that deliver messages to this chain. Relayer reward is paid on the
 		/// bridged chain.
 		type InboundRelayer: Parameter + MaxEncodedLen;
+		/// Delivery payments.
+		type DeliveryPayments: DeliveryPayments<Self::AccountId>;
 
 		// Types that are used by outbound_lane (on source chain).
 
@@ -150,11 +152,8 @@ pub mod pallet {
 		type TargetHeaderChain: TargetHeaderChain<Self::OutboundPayload, Self::AccountId>;
 		/// Message payload verifier.
 		type LaneMessageVerifier: LaneMessageVerifier<Self::RuntimeOrigin, Self::OutboundPayload>;
-		/// Message delivery payment.
-		type MessageDeliveryAndDispatchPayment: MessageDeliveryAndDispatchPayment<
-			Self::RuntimeOrigin,
-			Self::AccountId,
-		>;
+		/// Delivery confirmation payments.
+		type DeliveryConfirmationPayments: DeliveryConfirmationPayments<Self::AccountId>;
 
 		// Types that are used by inbound_lane (on target chain).
 
@@ -377,9 +376,17 @@ pub mod pallet {
 				messages_received_status.push(lane_messages_received_status);
 			}
 
+			// let's now deal with relayer payments
+			T::DeliveryPayments::pay_reward(
+				relayer_id_at_this_chain,
+				total_messages,
+				valid_messages,
+				actual_weight,
+			);
+
 			log::debug!(
 				target: LOG_TARGET,
-				"Received messages: total={}, valid={}. Weight used: {}/{}",
+				"Received messages: total={}, valid={}. Weight used: {}/{}.",
 				total_messages,
 				valid_messages,
 				actual_weight,
@@ -388,7 +395,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::MessagesReceived(messages_received_status));
 
-			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::No })
 		}
 
 		/// Receive messages delivery proof from bridged chain.
@@ -475,7 +482,7 @@ pub mod pallet {
 				});
 
 				// if some new messages have been confirmed, reward relayers
-				<T as Config<I>>::MessageDeliveryAndDispatchPayment::pay_relayers_rewards(
+				T::DeliveryConfirmationPayments::pay_reward(
 					lane_id,
 					lane_data.relayers,
 					&confirmation_relayer,
@@ -879,10 +886,10 @@ mod tests {
 	use super::*;
 	use crate::mock::{
 		message, message_payload, run_test, unrewarded_relayer, DbWeight,
-		RuntimeEvent as TestEvent, RuntimeOrigin, TestMessageDeliveryAndDispatchPayment,
-		TestMessagesDeliveryProof, TestMessagesProof, TestRuntime, MAX_OUTBOUND_PAYLOAD_SIZE,
-		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_LANE_ID_2,
-		TEST_LANE_ID_3, TEST_RELAYER_A, TEST_RELAYER_B,
+		RuntimeEvent as TestEvent, RuntimeOrigin, TestDeliveryConfirmationPayments,
+		TestDeliveryPayments, TestMessagesDeliveryProof, TestMessagesProof, TestRuntime,
+		MAX_OUTBOUND_PAYLOAD_SIZE, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID,
+		TEST_LANE_ID_2, TEST_LANE_ID_3, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
 	use bp_messages::{UnrewardedRelayer, UnrewardedRelayersState};
 	use bp_test_utils::generate_owned_bridge_module_tests;
@@ -1165,6 +1172,8 @@ mod tests {
 			));
 
 			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).0.last_delivered_nonce(), 1);
+
+			assert!(TestDeliveryPayments::is_reward_paid(1));
 		});
 	}
 
@@ -1326,8 +1335,8 @@ mod tests {
 					..Default::default()
 				},
 			));
-			assert!(TestMessageDeliveryAndDispatchPayment::is_reward_paid(TEST_RELAYER_A, 1));
-			assert!(!TestMessageDeliveryAndDispatchPayment::is_reward_paid(TEST_RELAYER_B, 1));
+			assert!(TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_A, 1));
+			assert!(!TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_B, 1));
 
 			// this reports delivery of both message 1 and message 2 => reward is paid only to
 			// TEST_RELAYER_B
@@ -1352,8 +1361,8 @@ mod tests {
 					..Default::default()
 				},
 			));
-			assert!(!TestMessageDeliveryAndDispatchPayment::is_reward_paid(TEST_RELAYER_A, 1));
-			assert!(TestMessageDeliveryAndDispatchPayment::is_reward_paid(TEST_RELAYER_B, 1));
+			assert!(!TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_A, 1));
+			assert!(TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_B, 1));
 		});
 	}
 
