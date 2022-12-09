@@ -471,15 +471,15 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 
 	type InboundPayload = crate::rialto_messages::FromRialtoMessagePayload;
 	type InboundRelayer = bp_rialto::AccountId;
+	type DeliveryPayments = ();
 
 	type TargetHeaderChain = crate::rialto_messages::Rialto;
 	type LaneMessageVerifier = crate::rialto_messages::ToRialtoMessageVerifier;
-	type MessageDeliveryAndDispatchPayment =
-		pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
-			Runtime,
-			frame_support::traits::ConstU64<100_000>,
-			frame_support::traits::ConstU64<100_000>,
-		>;
+	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		Runtime,
+		frame_support::traits::ConstU64<100_000>,
+		frame_support::traits::ConstU64<100_000>,
+	>;
 
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
@@ -502,15 +502,15 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 
 	type InboundPayload = crate::rialto_parachain_messages::FromRialtoParachainMessagePayload;
 	type InboundRelayer = bp_rialto_parachain::AccountId;
+	type DeliveryPayments = ();
 
 	type TargetHeaderChain = crate::rialto_parachain_messages::RialtoParachain;
 	type LaneMessageVerifier = crate::rialto_parachain_messages::ToRialtoParachainMessageVerifier;
-	type MessageDeliveryAndDispatchPayment =
-		pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
-			Runtime,
-			frame_support::traits::ConstU64<100_000>,
-			frame_support::traits::ConstU64<100_000>,
-		>;
+	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		Runtime,
+		frame_support::traits::ConstU64<100_000>,
+		frame_support::traits::ConstU64<100_000>,
+	>;
 
 	type SourceHeaderChain = crate::rialto_parachain_messages::RialtoParachain;
 	type MessageDispatch = crate::rialto_parachain_messages::FromRialtoParachainMessageDispatch;
@@ -518,6 +518,8 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 }
 
 parameter_types! {
+	pub const RialtoParachainMessagesLane: bp_messages::LaneId = rialto_parachain_messages::XCM_LANE;
+	pub const RialtoParachainId: u32 = bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 	pub const RialtoParasPalletName: &'static str = bp_rialto::PARAS_PALLET_NAME;
 	pub const WestendParasPalletName: &'static str = bp_westend::PARAS_PALLET_NAME;
 	pub const MaxRialtoParaHeadSize: u32 = bp_rialto::MAX_NESTED_PARACHAIN_HEAD_SIZE;
@@ -613,6 +615,19 @@ generate_bridge_reject_obsolete_headers_and_messages! {
 	BridgeRialtoMessages, BridgeRialtoParachainMessages
 }
 
+/// Signed extension that refunds relayers that are delivering messages from the Rialto parachain.
+pub type BridgeRefundRialtoParachainRelayers =
+	bridge_runtime_common::refund_relayer_extension::RefundRelayerForMessagesFromParachain<
+		Runtime,
+		RialtoGrandpaInstance,
+		WithRialtoParachainsInstance,
+		WithRialtoParachainMessagesInstance,
+		BridgeRejectObsoleteHeadersAndMessages,
+		RialtoParachainId,
+		RialtoParachainMessagesLane,
+		Runtime,
+	>;
+
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -634,6 +649,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
+	BridgeRefundRialtoParachainRelayers,
 );
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
