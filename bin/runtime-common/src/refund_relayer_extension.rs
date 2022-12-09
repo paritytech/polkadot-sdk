@@ -33,7 +33,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, Dispatchable, PostDispatchInfo},
 	traits::IsSubType,
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use pallet_bridge_grandpa::{
 	BridgedChain, Call as GrandpaCall, Config as GrandpaConfig, Pallet as GrandpaPallet,
@@ -95,7 +95,14 @@ where
 ///
 /// Extension does not refund transaction tip due to security reasons.
 #[derive(
-	CloneNoBound, Decode, Encode, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+	CloneNoBound,
+	Decode,
+	DefaultNoBound,
+	Encode,
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
 )]
 #[scale_info(skip_type_params(RT, GI, PI, MI, BE, PID, LID, FEE))]
 #[allow(clippy::type_complexity)] // TODO: get rid of that in https://github.com/paritytech/parity-bridges-common/issues/1666

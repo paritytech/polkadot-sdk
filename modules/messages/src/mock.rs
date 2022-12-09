@@ -21,10 +21,10 @@ use crate::Config;
 
 use bp_messages::{
 	calc_relayers_rewards,
-	source_chain::{LaneMessageVerifier, MessageDeliveryAndDispatchPayment, TargetHeaderChain},
+	source_chain::{DeliveryConfirmationPayments, LaneMessageVerifier, TargetHeaderChain},
 	target_chain::{
-		DispatchMessage, DispatchMessageData, MessageDispatch, ProvedLaneMessages, ProvedMessages,
-		SourceHeaderChain,
+		DeliveryPayments, DispatchMessage, DispatchMessageData, MessageDispatch,
+		ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
 	},
 	DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload,
 	OutboundLaneData, UnrewardedRelayer,
@@ -154,10 +154,11 @@ impl Config for TestRuntime {
 
 	type InboundPayload = TestPayload;
 	type InboundRelayer = TestRelayer;
+	type DeliveryPayments = TestDeliveryPayments;
 
 	type TargetHeaderChain = TestTargetHeaderChain;
 	type LaneMessageVerifier = TestLaneMessageVerifier;
-	type MessageDeliveryAndDispatchPayment = TestMessageDeliveryAndDispatchPayment;
+	type DeliveryConfirmationPayments = TestDeliveryConfirmationPayments;
 
 	type SourceHeaderChain = TestSourceHeaderChain;
 	type MessageDispatch = TestMessageDispatch;
@@ -288,11 +289,38 @@ impl LaneMessageVerifier<RuntimeOrigin, TestPayload> for TestLaneMessageVerifier
 	}
 }
 
-/// Message fee payment system that is used in tests.
+/// Reward payments at the target chain during delivery transaction.
 #[derive(Debug, Default)]
-pub struct TestMessageDeliveryAndDispatchPayment;
+pub struct TestDeliveryPayments;
 
-impl TestMessageDeliveryAndDispatchPayment {
+impl TestDeliveryPayments {
+	/// Returns true if given relayer has been rewarded with given balance. The reward-paid flag is
+	/// cleared after the call.
+	pub fn is_reward_paid(relayer: AccountId) -> bool {
+		let key = (b":delivery-relayer-reward:", relayer).encode();
+		frame_support::storage::unhashed::take::<bool>(&key).is_some()
+	}
+}
+
+impl DeliveryPayments<AccountId> for TestDeliveryPayments {
+	type Error = &'static str;
+
+	fn pay_reward(
+		relayer: AccountId,
+		_total_messages: MessageNonce,
+		_valid_messages: MessageNonce,
+		_actual_weight: Weight,
+	) {
+		let key = (b":delivery-relayer-reward:", relayer).encode();
+		frame_support::storage::unhashed::put(&key, &true);
+	}
+}
+
+/// Reward payments at the source chain during delivery confirmation transaction.
+#[derive(Debug, Default)]
+pub struct TestDeliveryConfirmationPayments;
+
+impl TestDeliveryConfirmationPayments {
 	/// Returns true if given relayer has been rewarded with given balance. The reward-paid flag is
 	/// cleared after the call.
 	pub fn is_reward_paid(relayer: AccountId, fee: TestMessageFee) -> bool {
@@ -301,18 +329,16 @@ impl TestMessageDeliveryAndDispatchPayment {
 	}
 }
 
-impl MessageDeliveryAndDispatchPayment<RuntimeOrigin, AccountId>
-	for TestMessageDeliveryAndDispatchPayment
-{
+impl DeliveryConfirmationPayments<AccountId> for TestDeliveryConfirmationPayments {
 	type Error = &'static str;
 
-	fn pay_relayers_rewards(
+	fn pay_reward(
 		_lane_id: LaneId,
-		message_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
+		messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
 		_confirmation_relayer: &AccountId,
 		received_range: &RangeInclusive<MessageNonce>,
 	) {
-		let relayers_rewards = calc_relayers_rewards(message_relayers, received_range);
+		let relayers_rewards = calc_relayers_rewards(messages_relayers, received_range);
 		for (relayer, reward) in &relayers_rewards {
 			let key = (b":relayer-reward:", relayer, reward).encode();
 			frame_support::storage::unhashed::put(&key, &true);

@@ -14,14 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Code that allows relayers pallet to be used as a delivery+dispatch payment mechanism
-//! for the messages pallet.
+//! Code that allows relayers pallet to be used as a payment mechanism for the messages pallet.
 
 use crate::{Config, Pallet};
 
-use bp_messages::source_chain::{
-	DeliveryConfirmationPayments, MessageDeliveryAndDispatchPayment, RelayersRewards,
-};
+use bp_messages::source_chain::{DeliveryConfirmationPayments, RelayersRewards};
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
 use sp_arithmetic::traits::{Saturating, UniqueSaturatedFrom, Zero};
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
@@ -31,34 +28,6 @@ use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeIn
 pub struct DeliveryConfirmationPaymentsAdapter<T, DeliveryReward, ConfirmationReward>(
 	PhantomData<(T, DeliveryReward, ConfirmationReward)>,
 );
-
-// TODO (https://github.com/paritytech/parity-bridges-common/pull/1652): this impl must be removed
-impl<T, DeliveryReward, ConfirmationReward>
-	MessageDeliveryAndDispatchPayment<T::RuntimeOrigin, T::AccountId>
-	for DeliveryConfirmationPaymentsAdapter<T, DeliveryReward, ConfirmationReward>
-where
-	T: Config,
-{
-	type Error = &'static str;
-
-	fn pay_relayers_rewards(
-		lane_id: bp_messages::LaneId,
-		messages_relayers: VecDeque<bp_messages::UnrewardedRelayer<T::AccountId>>,
-		confirmation_relayer: &T::AccountId,
-		received_range: &RangeInclusive<bp_messages::MessageNonce>,
-	) {
-		let relayers_rewards =
-			bp_messages::calc_relayers_rewards::<T::AccountId>(messages_relayers, received_range);
-
-		register_relayers_rewards::<T>(
-			confirmation_relayer,
-			relayers_rewards,
-			lane_id,
-			100_000_u32.into(),
-			10_000_u32.into(),
-		);
-	}
-}
 
 impl<T, DeliveryReward, ConfirmationReward> DeliveryConfirmationPayments<T::AccountId>
 	for DeliveryConfirmationPaymentsAdapter<T, DeliveryReward, ConfirmationReward>
