@@ -42,7 +42,7 @@
 //! make sure that the blocks are imported in the correct order.
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
-use sc_consensus::import_queue::{ImportQueue, IncomingBlock};
+use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::{
 	generic::BlockId,
@@ -103,7 +103,7 @@ impl RecoveryDelay {
 }
 
 /// Encapsulates the logic of the pov recovery.
-pub struct PoVRecovery<Block: BlockT, PC, IQ, RC> {
+pub struct PoVRecovery<Block: BlockT, PC, RC> {
 	/// All the pending candidates that we are waiting for to be imported or that need to be
 	/// recovered when `next_candidate_to_recover` tells us to do so.
 	pending_candidates: HashMap<Block::Hash, PendingCandidate<Block>>,
@@ -119,23 +119,22 @@ pub struct PoVRecovery<Block: BlockT, PC, IQ, RC> {
 	waiting_for_parent: HashMap<Block::Hash, Vec<Block>>,
 	recovery_delay: RecoveryDelay,
 	parachain_client: Arc<PC>,
-	parachain_import_queue: IQ,
+	parachain_import_queue: Box<dyn ImportQueueService<Block>>,
 	relay_chain_interface: RC,
 	para_id: ParaId,
 }
 
-impl<Block: BlockT, PC, IQ, RCInterface> PoVRecovery<Block, PC, IQ, RCInterface>
+impl<Block: BlockT, PC, RCInterface> PoVRecovery<Block, PC, RCInterface>
 where
 	PC: BlockBackend<Block> + BlockchainEvents<Block> + UsageProvider<Block>,
 	RCInterface: RelayChainInterface + Clone,
-	IQ: ImportQueue<Block>,
 {
 	/// Create a new instance.
 	pub fn new(
 		overseer_handle: OverseerHandle,
 		recovery_delay: RecoveryDelay,
 		parachain_client: Arc<PC>,
-		parachain_import_queue: IQ,
+		parachain_import_queue: Box<dyn ImportQueueService<Block>>,
 		relay_chain_interface: RCInterface,
 		para_id: ParaId,
 	) -> Self {

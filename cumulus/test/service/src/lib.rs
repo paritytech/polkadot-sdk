@@ -48,6 +48,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_primitives::v2::{CollatorPair, Hash as PHash, PersistedValidationData};
 use polkadot_service::ProvideRuntimeApi;
 use sc_client_api::execution_extensions::ExecutionStrategies;
+use sc_consensus::ImportQueue;
 use sc_network::{multiaddr, NetworkBlock, NetworkService};
 use sc_network_common::{config::TransportConfig, service::NetworkStateInfo};
 use sc_service::{
@@ -269,14 +270,15 @@ where
 	let block_announce_validator_builder = move |_| Box::new(block_announce_validator) as Box<_>;
 
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();
-	let import_queue = cumulus_client_service::SharedImportQueue::new(params.import_queue);
+	let import_queue_service = params.import_queue.service();
+
 	let (network, system_rpc_tx, tx_handler_controller, start_network) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &parachain_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
-			import_queue: import_queue.clone(),
+			import_queue: params.import_queue,
 			block_announce_validator_builder: Some(Box::new(block_announce_validator_builder)),
 			warp_sync: None,
 		})?;
@@ -362,7 +364,7 @@ where
 			parachain_consensus,
 			relay_chain_interface,
 			collator_key,
-			import_queue,
+			import_queue: import_queue_service,
 			relay_chain_slot_duration: Duration::from_secs(6),
 		};
 
@@ -374,7 +376,7 @@ where
 			task_manager: &mut task_manager,
 			para_id,
 			relay_chain_interface,
-			import_queue,
+			import_queue: import_queue_service,
 			// The slot duration is currently used internally only to configure
 			// the recovery delay of pov-recovery. We don't want to wait for too
 			// long on the full node to recover, so we reduce this time here.
