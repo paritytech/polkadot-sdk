@@ -33,12 +33,10 @@ use parachains_relay::{
 };
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
-	HeaderIdOf, HeaderOf, RelayChain, SignParam, TransactionEra, TransactionTracker,
-	UnsignedTransaction,
+	HeaderIdOf, RelayChain, SignParam, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
-use sp_runtime::traits::Header as HeaderT;
 
 /// Substrate client as parachain heads source.
 pub struct ParachainsTarget<P: SubstrateParachainsPipeline> {
@@ -132,7 +130,7 @@ where
 			.map(|para_info| para_info.best_head_hash);
 
 		if let (Some(metrics), Some(best_para_head_hash)) = (metrics, &best_para_head_hash) {
-			let imported_para_head = self
+			let imported_para_head_number = self
 				.client
 				.storage_double_map_value::<ImportedParaHeadsKeyProvider>(
 					P::SourceRelayChain::PARACHAINS_FINALITY_PALLET_NAME,
@@ -142,10 +140,11 @@ where
 				)
 				.await
 				.and_then(|maybe_encoded_head| match maybe_encoded_head {
-					Some(encoded_head) =>
-						HeaderOf::<P::SourceParachain>::decode(&mut &encoded_head.0[..])
-							.map(Some)
-							.map_err(Self::Error::ResponseParseFailed),
+					Some(encoded_head) => encoded_head
+						.decode_parachain_head_data::<P::SourceParachain>()
+						.map(|head| head.number)
+						.map(Some)
+						.map_err(Self::Error::ResponseParseFailed),
 					None => Ok(None),
 				})
 				.map_err(|e| {
@@ -159,9 +158,8 @@ where
 					e
 				})
 				.unwrap_or(None);
-			if let Some(imported_para_head) = imported_para_head {
-				metrics
-					.update_best_parachain_block_at_target(para_id, *imported_para_head.number());
+			if let Some(imported_para_head_number) = imported_para_head_number {
+				metrics.update_best_parachain_block_at_target(para_id, imported_para_head_number);
 			}
 		}
 

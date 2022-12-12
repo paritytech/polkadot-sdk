@@ -16,7 +16,10 @@
 
 //! Metrics for headers synchronization relay loop.
 
-use relay_utils::metrics::{metric_name, register, IntGauge, Metric, PrometheusError, Registry};
+use relay_utils::{
+	metrics::{metric_name, register, IntGauge, Metric, PrometheusError, Registry},
+	UniqueSaturatedInto,
+};
 
 /// Headers sync metrics.
 #[derive(Clone)]
@@ -61,13 +64,19 @@ impl SyncLoopMetrics {
 	}
 
 	/// Update best block number at source.
-	pub fn update_best_block_at_source<Number: Into<u64>>(&self, source_best_number: Number) {
-		self.best_source_block_number.set(source_best_number.into());
+	pub fn update_best_block_at_source<Number: UniqueSaturatedInto<u64>>(
+		&self,
+		source_best_number: Number,
+	) {
+		self.best_source_block_number.set(source_best_number.unique_saturated_into());
 	}
 
 	/// Update best block number at target.
-	pub fn update_best_block_at_target<Number: Into<u64>>(&self, target_best_number: Number) {
-		self.best_target_block_number.set(target_best_number.into());
+	pub fn update_best_block_at_target<Number: UniqueSaturatedInto<u64>>(
+		&self,
+		target_best_number: Number,
+	) {
+		self.best_target_block_number.set(target_best_number.unique_saturated_into());
 	}
 
 	/// Update using-same-fork flag.

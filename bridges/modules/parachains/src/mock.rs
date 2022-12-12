@@ -15,16 +15,12 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use bp_polkadot_core::parachains::ParaId;
-use bp_runtime::Chain;
-use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU32, IsInVec},
-	weights::Weight,
-};
+use bp_runtime::{Chain, Parachain};
+use frame_support::{construct_runtime, parameter_types, traits::ConstU32, weights::Weight};
 use sp_runtime::{
 	testing::{Header, H256},
 	traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
-	Perbill,
+	MultiSignature, Perbill,
 };
 
 use crate as pallet_bridge_parachains;
@@ -40,7 +36,109 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRunt
 
 pub const PARAS_PALLET_NAME: &str = "Paras";
 pub const UNTRACKED_PARACHAIN_ID: u32 = 10;
-pub const MAXIMAL_PARACHAIN_HEAD_SIZE: u32 = 512;
+// use exact expected encoded size: `vec_len_size + header_number_size + state_root_hash_size`
+pub const MAXIMAL_PARACHAIN_HEAD_DATA_SIZE: u32 = 1 + 8 + 32;
+
+pub type RegularParachainHeader = sp_runtime::testing::Header;
+pub type RegularParachainHasher = BlakeTwo256;
+pub type BigParachainHeader = sp_runtime::generic::Header<u128, BlakeTwo256>;
+
+pub struct Parachain1;
+
+impl Chain for Parachain1 {
+	type BlockNumber = u64;
+	type Hash = H256;
+	type Hasher = RegularParachainHasher;
+	type Header = RegularParachainHeader;
+	type AccountId = u64;
+	type Balance = u64;
+	type Index = u64;
+	type Signature = MultiSignature;
+
+	fn max_extrinsic_size() -> u32 {
+		0
+	}
+	fn max_extrinsic_weight() -> Weight {
+		Weight::zero()
+	}
+}
+
+impl Parachain for Parachain1 {
+	const PARACHAIN_ID: u32 = 1;
+}
+
+pub struct Parachain2;
+
+impl Chain for Parachain2 {
+	type BlockNumber = u64;
+	type Hash = H256;
+	type Hasher = RegularParachainHasher;
+	type Header = RegularParachainHeader;
+	type AccountId = u64;
+	type Balance = u64;
+	type Index = u64;
+	type Signature = MultiSignature;
+
+	fn max_extrinsic_size() -> u32 {
+		0
+	}
+	fn max_extrinsic_weight() -> Weight {
+		Weight::zero()
+	}
+}
+
+impl Parachain for Parachain2 {
+	const PARACHAIN_ID: u32 = 2;
+}
+
+pub struct Parachain3;
+
+impl Chain for Parachain3 {
+	type BlockNumber = u64;
+	type Hash = H256;
+	type Hasher = RegularParachainHasher;
+	type Header = RegularParachainHeader;
+	type AccountId = u64;
+	type Balance = u64;
+	type Index = u64;
+	type Signature = MultiSignature;
+
+	fn max_extrinsic_size() -> u32 {
+		0
+	}
+	fn max_extrinsic_weight() -> Weight {
+		Weight::zero()
+	}
+}
+
+impl Parachain for Parachain3 {
+	const PARACHAIN_ID: u32 = 3;
+}
+
+// this parachain is using u128 as block number and stored head data size exceeds limit
+pub struct BigParachain;
+
+impl Chain for BigParachain {
+	type BlockNumber = u128;
+	type Hash = H256;
+	type Hasher = RegularParachainHasher;
+	type Header = BigParachainHeader;
+	type AccountId = u64;
+	type Balance = u64;
+	type Index = u64;
+	type Signature = MultiSignature;
+
+	fn max_extrinsic_size() -> u32 {
+		0
+	}
+	fn max_extrinsic_weight() -> Weight {
+		Weight::zero()
+	}
+}
+
+impl Parachain for BigParachain {
+	const PARACHAIN_ID: u32 = 4;
+}
 
 construct_runtime! {
 	pub enum TestRuntime where
@@ -68,7 +166,7 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeCall = RuntimeCall;
 	type BlockNumber = TestNumber;
 	type Hash = H256;
-	type Hashing = BlakeTwo256;
+	type Hashing = RegularParachainHasher;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
@@ -122,9 +220,9 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 	type WeightInfo = ();
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
 	type ParasPalletName = ParasPalletName;
-	type TrackedParachains = IsInVec<GetTenFirstParachains>;
+	type ParaStoredHeaderDataBuilder = (Parachain1, Parachain2, Parachain3, BigParachain);
 	type HeadsToKeep = HeadsToKeep;
-	type MaxParaHeadSize = frame_support::traits::ConstU32<MAXIMAL_PARACHAIN_HEAD_SIZE>;
+	type MaxParaHeadDataSize = frame_support::traits::ConstU32<MAXIMAL_PARACHAIN_HEAD_DATA_SIZE>;
 }
 
 #[derive(Debug)]
