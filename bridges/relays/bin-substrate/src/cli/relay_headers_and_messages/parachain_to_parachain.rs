@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-#![allow(unused_macros)] // TODO (https://github.com/paritytech/parity-bridges-common/issues/1629): remove me
-
 use async_trait::async_trait;
 use std::sync::Arc;
 
