@@ -89,7 +89,6 @@ impl ChainWithMessages for RialtoParachain {
 		bp_rialto_parachain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
 		bp_rialto_parachain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	type WeightToFee = bp_rialto_parachain::WeightToFee;
 	type WeightInfo = ();
 }
 
