@@ -69,7 +69,6 @@ impl ChainWithMessages for Millau {
 		bp_millau::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
 		bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	type WeightToFee = bp_millau::WeightToFee;
 	type WeightInfo = ();
 }
 
