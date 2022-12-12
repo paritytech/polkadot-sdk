@@ -22,7 +22,6 @@ use bp_polkadot_core::PolkadotLike;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-pub use bp_bridge_hub_rococo::SS58Prefix;
 use bp_messages::UnrewardedRelayersState;
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::Chain;
