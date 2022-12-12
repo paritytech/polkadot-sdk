@@ -70,8 +70,12 @@ pub const SESSION_LENGTH: BlockNumber = 4;
 /// Maximal number of GRANDPA authorities at Rialto.
 pub const MAX_AUTHORITIES_COUNT: u32 = 5;
 
-/// Maximal SCALE-encoded size of parachains headers that are stored at Rialto `Paras` pallet.
-pub const MAX_NESTED_PARACHAIN_HEAD_SIZE: u32 = 1024;
+/// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Rialto
+/// parachains.
+///
+/// It includes the block number and state root, so it shall be near 40 bytes, but let's have some
+/// reserve.
+pub const MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE: u32 = 128;
 
 /// Re-export `time_units` to make usage easier.
 pub use time_units::*;
