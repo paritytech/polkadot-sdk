@@ -167,9 +167,6 @@ pub trait CliChain: relay_substrate_client::Chain {
 	///
 	/// In case of chains supporting multiple cryptos, pick one used by the CLI.
 	type KeyPair: sp_core::crypto::Pair;
-
-	/// Numeric value of SS58 format.
-	fn ss58_format() -> u16;
 }
 
 /// Lane id.
