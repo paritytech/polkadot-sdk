@@ -35,12 +35,12 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 /// Name of the With-Rococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
 
-/// Maximal SCALE-encoded size of parachains headers that are stored at Rococo `Paras` pallet.
+/// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Rococo
+/// parachains.
 ///
-/// Let's assume that the largest header is header that enacts new authorities set with
-/// `MAX_AUTHORITES_COUNT`. Every authority means 32-byte key and 8-byte weight. Let's also have
-/// some fixed reserve for other things (digest, block hash and number, ...) as well.
-pub const MAX_NESTED_PARACHAIN_HEAD_SIZE: u32 = 4096 + MAX_AUTHORITIES_COUNT * 40;
+/// It includes the block number and state root, so it shall be near 40 bytes, but let's have some
+/// reserve.
+pub const MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE: u32 = 128;
 
 /// Maximal number of GRANDPA authorities at Rococo.
 ///

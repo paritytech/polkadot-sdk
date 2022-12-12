@@ -15,6 +15,7 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Based Dependencies
 
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [features]
@@ -22,5 +23,6 @@ default = ["std"]
 std = [
 	"bp-polkadot-core/std",
 	"bp-runtime/std",
+	"frame-support/std",
 	"sp-api/std",
 ]
