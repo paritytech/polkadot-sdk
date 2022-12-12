@@ -608,7 +608,7 @@ mod tests {
 	}
 
 	fn run_test(test: impl FnOnce()) {
-		sp_io::TestExternalities::new(Default::default()).execute_with(|| test())
+		sp_io::TestExternalities::new(Default::default()).execute_with(test)
 	}
 
 	fn run_pre_dispatch(

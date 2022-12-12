@@ -11,7 +11,7 @@ smallvec = "1.10.0"
 
 # Bridge Dependencies
 
-bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
+bp-bridge-hub-cumulus = { path = "../chain-bridge-hub-cumulus", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
 bp-messages = { path = "../../primitives/messages", default-features = false }
 
@@ -27,7 +27,7 @@ polkadot-runtime-constants = { git = "https://github.com/paritytech/polkadot", d
 [features]
 default = ["std"]
 std = [
-	"bp-polkadot-core/std",
+	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
 	"bp-runtime/std",
 	"frame-support/std",

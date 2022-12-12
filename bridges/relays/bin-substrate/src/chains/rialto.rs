@@ -48,8 +48,4 @@ impl CliChain for Rialto {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(rialto_runtime::VERSION);
 
 	type KeyPair = sp_core::sr25519::Pair;
-
-	fn ss58_format() -> u16 {
-		rialto_runtime::SS58Prefix::get() as u16
-	}
 }
