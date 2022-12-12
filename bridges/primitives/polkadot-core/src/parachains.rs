@@ -66,9 +66,7 @@ impl From<u32> for ParaId {
 ///
 /// This is an equivalent of the `polkadot_parachain::HeadData`.
 ///
-/// The parachain head means (at least in Cumulus) a SCALE-encoded parachain header. Keep in mind
-/// that in Polkadot it is twice-encoded (so `header.encode().encode()`). We'll also do it to keep
-/// it binary-compatible (implies hash-compatibility) with other parachain pallets.
+/// The parachain head means (at least in Cumulus) a SCALE-encoded parachain header.
 #[derive(
 	PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo, Default,
 )]
