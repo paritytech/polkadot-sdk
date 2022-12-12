@@ -19,19 +19,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
-pub use bp_polkadot_core::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
 };
 use frame_support::{
 	dispatch::DispatchClass,
-	parameter_types,
 	sp_runtime::{MultiAddress, MultiSigner},
-	weights::{
-		constants::ExtrinsicBaseWeight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-		WeightToFeePolynomial,
-	},
 	RuntimeDebug,
 };
 use sp_std::prelude::*;
@@ -67,26 +62,6 @@ impl Parachain for BridgeHubRococo {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_ROCOCO_PARACHAIN_ID;
 }
 
-/// [`WeightToFee`] should reflect cumulus/bridge-hub-rococo-runtime [`WeightToFee`]
-pub struct WeightToFee;
-impl WeightToFeePolynomial for WeightToFee {
-	type Balance = Balance;
-	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		pub const CENTS: Balance = polkadot_runtime_constants::currency::CENTS;
-
-		// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-		// in BridgeHub, we map to 1/10 of that, or 1/100 CENT
-		let p = CENTS;
-		let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
-		smallvec::smallvec![WeightToFeeCoefficient {
-			degree: 1,
-			negative: false,
-			coeff_frac: Perbill::from_rational(p % q, q),
-			coeff_integer: p / q,
-		}]
-	}
-}
-
 /// Public key of the chain account that may be used to verify signatures.
 pub type AccountSigner = MultiSigner;
 
@@ -98,10 +73,6 @@ pub const BRIDGE_HUB_ROCOCO_PARACHAIN_ID: u32 = 1013;
 
 /// Name of the With-BridgeHubRococo messages pallet instance that is deployed at bridged chains.
 pub const WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
-
-parameter_types! {
-	pub const SS58Prefix: u16 = 42;
-}
 
 decl_bridge_finality_runtime_apis!(bridge_hub_rococo);
 decl_bridge_messages_runtime_apis!(bridge_hub_rococo);

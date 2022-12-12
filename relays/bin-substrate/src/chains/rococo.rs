@@ -25,18 +25,10 @@ impl CliChain for Rococo {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
 
 	type KeyPair = sp_core::sr25519::Pair;
-
-	fn ss58_format() -> u16 {
-		bp_rococo::SS58Prefix::get() as u16
-	}
 }
 
 impl CliChain for BridgeHubRococo {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
 
 	type KeyPair = sp_core::sr25519::Pair;
-
-	fn ss58_format() -> u16 {
-		relay_bridge_hub_rococo_client::runtime::SS58Prefix::get()
-	}
 }

@@ -16,8 +16,6 @@
 
 //! Types that are specific to the BridgeHubWococo runtime.
 
-pub use bp_bridge_hub_wococo::SS58Prefix;
-
 // We reuse everything from rococo runtime wrapper
 pub type Call = relay_bridge_hub_rococo_client::runtime::Call;
 pub type UncheckedExtrinsic = bp_bridge_hub_wococo::UncheckedExtrinsic<Call>;
