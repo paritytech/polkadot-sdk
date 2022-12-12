@@ -35,10 +35,10 @@ use futures::{
 use jsonrpsee::{
 	core::{
 		client::{Client as JsonRpcClient, ClientT, Subscription, SubscriptionClientT},
+		params::ArrayParams,
 		Error as JsonRpseeError,
 	},
 	rpc_params,
-	types::ParamsSer,
 	ws_client::WsClientBuilder,
 };
 use parity_scale_codec::{Decode, Encode};
@@ -264,7 +264,7 @@ impl RelayChainRpcClient {
 	async fn request<'a, R>(
 		&self,
 		method: &'a str,
-		params: Option<ParamsSer<'a>>,
+		params: ArrayParams,
 	) -> Result<R, RelayChainError>
 	where
 		R: DeserializeOwned + std::fmt::Debug,
@@ -281,7 +281,7 @@ impl RelayChainRpcClient {
 	async fn request_tracing<'a, R, OR>(
 		&self,
 		method: &'a str,
-		params: Option<ParamsSer<'a>>,
+		params: ArrayParams,
 		trace_error: OR,
 	) -> Result<R, RelayChainError>
 	where
@@ -359,12 +359,12 @@ impl RelayChainRpcClient {
 
 	/// Get local listen address of the node
 	pub async fn system_local_listen_addresses(&self) -> Result<Vec<String>, RelayChainError> {
-		self.request("system_localListenAddresses", None).await
+		self.request("system_localListenAddresses", rpc_params![]).await
 	}
 
 	/// Get system health information
 	pub async fn system_health(&self) -> Result<Health, RelayChainError> {
-		self.request("system_health", None).await
+		self.request("system_health", rpc_params![]).await
 	}
 
 	/// Get read proof for `storage_keys`
@@ -449,7 +449,7 @@ impl RelayChainRpcClient {
 
 	/// Get hash of last finalized block.
 	pub async fn chain_get_finalized_head(&self) -> Result<PHash, RelayChainError> {
-		self.request("chain_getFinalizedHead", None).await
+		self.request("chain_getFinalizedHead", rpc_params![]).await
 	}
 
 	/// Get hash of n-th block.
@@ -680,7 +680,11 @@ impl RelayChainRpcClient {
 		ws_client: &JsonRpcClient,
 	) -> Result<Subscription<PHeader>, RelayChainError> {
 		Ok(ws_client
-			.subscribe::<PHeader>("chain_subscribeAllHeads", None, "chain_unsubscribeAllHeads")
+			.subscribe::<PHeader, _>(
+				"chain_subscribeAllHeads",
+				rpc_params![],
+				"chain_unsubscribeAllHeads",
+			)
 			.await?)
 	}
 
@@ -688,9 +692,9 @@ impl RelayChainRpcClient {
 		ws_client: &JsonRpcClient,
 	) -> Result<Subscription<PHeader>, RelayChainError> {
 		Ok(ws_client
-			.subscribe::<PHeader>(
+			.subscribe::<PHeader, _>(
 				"chain_subscribeFinalizedHeads",
-				None,
+				rpc_params![],
 				"chain_unsubscribeFinalizedHeads",
 			)
 			.await?)
@@ -700,9 +704,9 @@ impl RelayChainRpcClient {
 		ws_client: &JsonRpcClient,
 	) -> Result<Subscription<PHeader>, RelayChainError> {
 		Ok(ws_client
-			.subscribe::<PHeader>(
+			.subscribe::<PHeader, _>(
 				"chain_subscribeNewHeads",
-				None,
+				rpc_params![],
 				"chain_unsubscribeFinalizedHeads",
 			)
 			.await?)

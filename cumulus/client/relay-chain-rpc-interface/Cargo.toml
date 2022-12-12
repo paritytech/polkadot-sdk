@@ -25,7 +25,7 @@ tokio = { version = "1.22.0", features = ["sync"] }
 futures = "0.3.25"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.2.1"
-jsonrpsee = { version = "0.15.1", features = ["ws-client"] }
+jsonrpsee = { version = "0.16.2", features = ["ws-client"] }
 tracing = "0.1.37"
 async-trait = "0.1.59"
 url = "2.3.1"
