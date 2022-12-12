@@ -27,7 +27,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	sp_runtime::{MultiAddress, MultiSigner},
-	weights::{constants, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+	weights::constants,
 };
 use frame_system::limits;
 
@@ -78,25 +78,6 @@ parameter_types! {
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
-}
-
-/// [`WeightToFee`] should reflect cumulus/bridge-hub-* [`WeightToFee`]
-pub struct WeightToFee;
-impl WeightToFeePolynomial for WeightToFee {
-	type Balance = Balance;
-	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		pub const CENTS: Balance = polkadot_runtime_constants::currency::CENTS;
-
-		// In BridgeHub, we map the extrinsic base weight to 1/100 CENT.
-		let p = CENTS;
-		let q = 100 * Balance::from(constants::ExtrinsicBaseWeight::get().ref_time());
-		smallvec::smallvec![WeightToFeeCoefficient {
-			degree: 1,
-			negative: false,
-			coeff_frac: Perbill::from_rational(p % q, q),
-			coeff_integer: p / q,
-		}]
-	}
 }
 
 /// Public key of the chain account that may be used to verify signatures.
