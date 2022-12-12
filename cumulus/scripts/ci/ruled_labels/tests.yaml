@@ -1,0 +1,39 @@
+name: Cumulus ruled-labels test cases
+spec_file: specs.yaml
+
+specs:
+  - name: Pass - Pass all
+    filter:
+      id: [ single_b, single_d, single_u, single_s]
+    labels: [ B1, C1, D1, X1, T4 ]
+    expected: true
+
+  - name: Fail - Require release label
+    filter:
+      id: [ single_b ]
+    labels: [ A1 ]
+    expected: false
+
+  - name: Fail - Only one audit label allowed
+    filter:
+      id: [ single_d ]
+    labels: [ D1, B1, D4 ]
+    expected: false
+
+  - name: Fail - Release need criticality
+    filter:
+      id: [ require_one_c_when_b1 ]
+    labels: [ B1, T1, D1 ]
+    expected: false
+
+  - name: Fail - Release require one T topics
+    filter:
+      id: [ require_one_t_when_b1 ]
+    labels: [ B1, D1 ]
+    expected: false
+
+  - name: Fail - Only one criticality label allowed
+    filter:
+      id: [ single_c ]
+    labels: [ B1, C1, C3 ]
+    expected: false

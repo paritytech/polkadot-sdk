@@ -1,0 +1,30 @@
+name: Check label Rules
+
+on:
+  push:
+    paths:
+      - scripts/ci/ruled_labels/**
+
+jobs:
+  check-label-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Pull image
+        env:
+          IMAGE: paritytech/ruled_labels:0.3.2
+        run: docker pull $IMAGE
+
+      - name: Check label Rules
+        env:
+          IMAGE: paritytech/ruled_labels:0.3.2
+          MOUNT: /work
+          RULES_PATH: scripts/ci/ruled_labels
+        run: |
+          docker run --rm -i -v $PWD/${RULES_PATH}/:$MOUNT $IMAGE test ${MOUNT}/tests.yaml
