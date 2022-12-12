@@ -19,10 +19,41 @@
 #![allow(clippy::too_many_arguments)]
 
 pub use bp_polkadot_core::*;
-use bp_runtime::decl_bridge_finality_runtime_apis;
+use bp_runtime::{decl_bridge_finality_runtime_apis, Chain, Parachain};
+use frame_support::weights::Weight;
 
 /// Westend Chain
 pub type Westend = PolkadotLike;
+
+/// Westmint parachain definition
+#[derive(Debug, Clone, Copy)]
+pub struct Westmint;
+
+// Westmint seems to use the same configuration as all Polkadot-like chains, so we'll use Westend
+// primitives here.
+impl Chain for Westmint {
+	type BlockNumber = BlockNumber;
+	type Hash = Hash;
+	type Hasher = Hasher;
+	type Header = Header;
+
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Index = Nonce;
+	type Signature = Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		Westend::max_extrinsic_size()
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		Westend::max_extrinsic_weight()
+	}
+}
+
+impl Parachain for Westmint {
+	const PARACHAIN_ID: u32 = WESTMINT_PARACHAIN_ID;
+}
 
 /// Name of the parachains pallet at the Westend runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";
@@ -39,10 +70,9 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 100_000;
 
 /// Maximal SCALE-encoded size of parachains headers that are stored at Westend `Paras` pallet.
 ///
-/// Let's assume that the largest header is header that enacts new authorities set with
-/// `MAX_AUTHORITES_COUNT`. Every authority means 32-byte key and 8-byte weight. Let's also have
-/// some fixed reserve for other things (digest, block hash and number, ...) as well.
-pub const MAX_NESTED_PARACHAIN_HEAD_SIZE: u32 = 4096 + MAX_AUTHORITIES_COUNT * 40;
+/// It includes the block number and state root, so it shall be near 40 bytes, but let's have some
+/// reserve.
+pub const MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE: u32 = 128;
 
 /// Identifier of Westmint parachain at the Westend relay chain.
 pub const WESTMINT_PARACHAIN_ID: u32 = 2000;

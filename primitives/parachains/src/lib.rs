@@ -18,15 +18,22 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use bp_header_chain::StoredHeaderData;
+
 use bp_polkadot_core::{
 	parachains::{ParaHash, ParaHead, ParaId},
 	BlockNumber as RelayBlockNumber,
 };
-use bp_runtime::{StorageDoubleMapKeyProvider, StorageMapKeyProvider};
+use bp_runtime::{
+	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
+	StorageMapKeyProvider,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{Blake2_128Concat, RuntimeDebug, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
+use sp_runtime::traits::Header as HeaderT;
+use sp_std::{marker::PhantomData, prelude::*};
 
 /// Best known parachain head hash.
 #[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
@@ -86,5 +93,60 @@ impl StorageDoubleMapKeyProvider for ImportedParaHeadsKeyProvider {
 	type Key1 = ParaId;
 	type Hasher2 = Blake2_128Concat;
 	type Key2 = ParaHash;
-	type Value = ParaHead;
+	type Value = ParaStoredHeaderData;
+}
+
+/// Stored data of the parachain head. It is encoded version of the
+/// `bp_runtime::StoredHeaderData` structure.
+///
+/// We do not know exact structure of the parachain head, so we always store encoded version
+/// of the `bp_runtime::StoredHeaderData`. It is only decoded when we talk about specific parachain.
+#[derive(Clone, Decode, Encode, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct ParaStoredHeaderData(pub Vec<u8>);
+
+impl ParaStoredHeaderData {
+	/// Decode stored parachain head data.
+	pub fn decode_parachain_head_data<C: Chain>(
+		&self,
+	) -> Result<StoredHeaderData<BlockNumberOf<C>, HashOf<C>>, codec::Error> {
+		StoredHeaderData::<BlockNumberOf<C>, HashOf<C>>::decode(&mut &self.0[..])
+	}
+}
+
+/// Stored parachain head data builder.
+pub trait ParaStoredHeaderDataBuilder {
+	/// Try to build head data from self.
+	fn try_build(para_id: ParaId, para_head: &ParaHead) -> Option<ParaStoredHeaderData>;
+}
+
+/// Helper for using single parachain as `ParaStoredHeaderDataBuilder`.
+pub struct SingleParaStoredHeaderDataBuilder<C: Parachain>(PhantomData<C>);
+
+impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBuilder<C> {
+	fn try_build(para_id: ParaId, para_head: &ParaHead) -> Option<ParaStoredHeaderData> {
+		if para_id == ParaId(C::PARACHAIN_ID) {
+			let header = HeaderOf::<C>::decode(&mut &para_head.0[..]).ok()?;
+			return Some(ParaStoredHeaderData(
+				StoredHeaderData { number: *header.number(), state_root: *header.state_root() }
+					.encode(),
+			))
+		}
+		None
+	}
+}
+
+// Tries to build header data from each tuple member, short-circuiting on first successful one.
+#[impl_trait_for_tuples::impl_for_tuples(1, 30)]
+#[tuple_types_custom_trait_bound(Parachain)]
+impl ParaStoredHeaderDataBuilder for C {
+	fn try_build(para_id: ParaId, para_head: &ParaHead) -> Option<ParaStoredHeaderData> {
+		for_tuples!( #(
+			let maybe_para_head = SingleParaStoredHeaderDataBuilder::<C>::try_build(para_id, para_head);
+			if let Some(maybe_para_head) = maybe_para_head {
+				return Some(maybe_para_head);
+			}
+		)* );
+
+		None
+	}
 }

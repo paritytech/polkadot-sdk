@@ -15,8 +15,9 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use bp_polkadot_core::parachains::ParaId;
-use relay_utils::metrics::{
-	metric_name, register, GaugeVec, Metric, Opts, PrometheusError, Registry, U64,
+use relay_utils::{
+	metrics::{metric_name, register, GaugeVec, Metric, Opts, PrometheusError, Registry, U64},
+	UniqueSaturatedInto,
 };
 
 /// Parachains sync metrics.
@@ -50,12 +51,12 @@ impl ParachainsLoopMetrics {
 	}
 
 	/// Update best block number at source.
-	pub fn update_best_parachain_block_at_source<Number: Into<u64>>(
+	pub fn update_best_parachain_block_at_source<Number: UniqueSaturatedInto<u64>>(
 		&self,
 		parachain: ParaId,
 		block_number: Number,
 	) {
-		let block_number = block_number.into();
+		let block_number = block_number.unique_saturated_into();
 		let label = parachain_label(&parachain);
 		log::trace!(
 			target: "bridge-metrics",
@@ -67,12 +68,12 @@ impl ParachainsLoopMetrics {
 	}
 
 	/// Update best block number at target.
-	pub fn update_best_parachain_block_at_target<Number: Into<u64>>(
+	pub fn update_best_parachain_block_at_target<Number: UniqueSaturatedInto<u64>>(
 		&self,
 		parachain: ParaId,
 		block_number: Number,
 	) {
-		let block_number = block_number.into();
+		let block_number = block_number.unique_saturated_into();
 		let label = parachain_label(&parachain);
 		log::trace!(
 			target: "bridge-metrics",

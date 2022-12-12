@@ -44,12 +44,9 @@ pub use crate::{
 	transaction_tracker::TransactionTracker,
 };
 pub use bp_runtime::{
-	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderOf,
-	IndexOf, SignatureOf, TransactionEra, TransactionEraOf,
+	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderIdOf,
+	HeaderOf, IndexOf, SignatureOf, TransactionEra, TransactionEraOf,
 };
-
-/// Header id used by the chain.
-pub type HeaderIdOf<C> = relay_utils::HeaderId<HashOf<C>, BlockNumberOf<C>>;
 
 /// Substrate-over-websocket connection params.
 #[derive(Debug, Clone)]

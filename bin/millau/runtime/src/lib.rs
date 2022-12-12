@@ -33,8 +33,8 @@ pub mod rialto_parachain_messages;
 pub mod xcm_config;
 
 use beefy_primitives::{crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
-use bp_runtime::{HeaderId, HeaderIdProvider};
-use codec::Decode;
+use bp_parachains::SingleParaStoredHeaderDataBuilder;
+use bp_runtime::HeaderId;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -522,8 +522,8 @@ parameter_types! {
 	pub const RialtoParachainId: u32 = bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 	pub const RialtoParasPalletName: &'static str = bp_rialto::PARAS_PALLET_NAME;
 	pub const WestendParasPalletName: &'static str = bp_westend::PARAS_PALLET_NAME;
-	pub const MaxRialtoParaHeadSize: u32 = bp_rialto::MAX_NESTED_PARACHAIN_HEAD_SIZE;
-	pub const MaxWestendParaHeadSize: u32 = bp_westend::MAX_NESTED_PARACHAIN_HEAD_SIZE;
+	pub const MaxRialtoParaHeadDataSize: u32 = bp_rialto::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
+	pub const MaxWestendParaHeadDataSize: u32 = bp_westend::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 }
 
 /// Instance of the with-Rialto parachains pallet.
@@ -534,9 +534,10 @@ impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime 
 	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = RialtoGrandpaInstance;
 	type ParasPalletName = RialtoParasPalletName;
-	type TrackedParachains = frame_support::traits::Everything;
+	type ParaStoredHeaderDataBuilder =
+		SingleParaStoredHeaderDataBuilder<bp_rialto_parachain::RialtoParachain>;
 	type HeadsToKeep = HeadersToKeep;
-	type MaxParaHeadSize = MaxRialtoParaHeadSize;
+	type MaxParaHeadDataSize = MaxRialtoParaHeadDataSize;
 }
 
 /// Instance of the with-Westend parachains pallet.
@@ -547,9 +548,9 @@ impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime
 	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
 	type ParasPalletName = WestendParasPalletName;
-	type TrackedParachains = frame_support::traits::Everything;
+	type ParaStoredHeaderDataBuilder = SingleParaStoredHeaderDataBuilder<bp_westend::Westmint>;
 	type HeadsToKeep = HeadersToKeep;
-	type MaxParaHeadSize = MaxWestendParaHeadSize;
+	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -902,28 +903,19 @@ impl_runtime_apis! {
 
 	impl bp_westend::WestmintFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
-			// the parachains finality pallet is never decoding parachain heads, so it is
-			// only done in the integration code
-			use bp_westend::WESTMINT_PARACHAIN_ID;
-			let encoded_head = pallet_bridge_parachains::Pallet::<
+			pallet_bridge_parachains::Pallet::<
 				Runtime,
 				WithWestendParachainsInstance,
-			>::best_parachain_head(WESTMINT_PARACHAIN_ID.into())?;
-			let head = bp_westend::Header::decode(&mut &encoded_head.0[..]).ok()?;
-			Some(head.id())
+			>::best_parachain_head_id::<bp_westend::Westmint>().unwrap_or(None)
 		}
 	}
 
 	impl bp_rialto_parachain::RialtoParachainFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_rialto::Hash, bp_rialto::BlockNumber>> {
-			// the parachains finality pallet is never decoding parachain heads, so it is
-			// only done in the integration code
-			let encoded_head = pallet_bridge_parachains::Pallet::<
+			pallet_bridge_parachains::Pallet::<
 				Runtime,
 				WithRialtoParachainsInstance,
-			>::best_parachain_head(bp_rialto_parachain::RIALTO_PARACHAIN_ID.into())?;
-			let head = bp_rialto_parachain::Header::decode(&mut &encoded_head.0[..]).ok()?;
-			Some(head.id())
+			>::best_parachain_head_id::<bp_rialto_parachain::RialtoParachain>().unwrap_or(None)
 		}
 	}
 

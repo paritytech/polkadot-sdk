@@ -30,6 +30,7 @@ sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", 
 [dev-dependencies]
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-test-utils = { path = "../../primitives/test-utils" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]
