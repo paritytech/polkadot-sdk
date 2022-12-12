@@ -19,7 +19,6 @@ use bp_runtime::{
 	Chain as ChainBase, EncodedOrDecodedCall, HashOf, TransactionEra, TransactionEraOf,
 };
 use codec::{Codec, Encode};
-use frame_support::weights::WeightToFee;
 use jsonrpsee::core::{DeserializeOwned, Serialize};
 use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
@@ -111,16 +110,12 @@ pub trait ChainWithMessages: Chain {
 	/// `ChainWithMessages`.
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
 
-	/// Type that is used by the chain, to convert from weight to fee.
-	type WeightToFee: WeightToFee<Balance = Self::Balance>;
 	/// Weights of message pallet calls.
 	type WeightInfo: pallet_bridge_messages::WeightInfoExt;
 }
 
 /// Call type used by the chain.
 pub type CallOf<C> = <C as Chain>::Call;
-/// Weight-to-Fee type used by the chain.
-pub type WeightToFeeOf<C> = <C as ChainWithMessages>::WeightToFee;
 /// Transaction status of the chain.
 pub type TransactionStatusOf<C> = TransactionStatus<HashOf<C>, HashOf<C>>;
 
