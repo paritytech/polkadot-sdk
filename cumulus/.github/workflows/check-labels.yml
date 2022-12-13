@@ -8,13 +8,6 @@ jobs:
   check-labels:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-
       - name: Pull image
         env:
           IMAGE: paritytech/ruled_labels:0.3.2
@@ -28,12 +21,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           API_BASE: https://api.github.com/repos
           REPO: ${{ github.repository }}
-          RULES_PATH: scripts/ci/ruled_labels
-          CHECK_SPECS: specs.yaml
+          RULES_PATH: labels/ruled_labels
+          CHECK_SPECS: specs_cumulus.yaml
         run: |
           echo "REPO: ${REPO}"
           echo "GITHUB_PR: ${GITHUB_PR}"
-
+          # Clone repo with labels specs
+          git clone https://github.com/paritytech/labels
           # Fetch the labels for the PR under test
           labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
 
