@@ -95,9 +95,14 @@ variables:
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
 
+.job-switcher:
+  before_script:
+    - if echo "$CI_DISABLED_JOBS" | grep -xF "$CI_JOB_NAME"; then echo "The job has been cancelled in CI settings"; exit 0; fi
+
 .docker-env:
   image:                           "${CI_IMAGE}"
   before_script:
+    - !reference [.job-switcher, before_script]
     - rustup show
     - cargo --version
     - rustup +nightly show
@@ -108,6 +113,8 @@ variables:
 
 .kubernetes-env:
   image:                           "${CI_IMAGE}"
+  before_script:
+    - !reference [.job-switcher, before_script]
   tags:
     - kubernetes-parity-build
 
