@@ -1,0 +1,126 @@
+---
+settings:
+  chains:
+    relay_chain: &relay_chain
+      wsPort: 9700
+    collectives_parachain: &collectives_parachain
+      wsPort: 9710
+      paraId: &cp_id 1001
+  variables:
+    xcm_version: &xcm_version '2'
+    weight_to_send_teleport: &weight_to_send_teleport 2,000,000,000 # must be same for both chains
+    weight_to_receive_teleport: &weight_to_receive_teleport 4,000,000,000 # must be same for both chains
+    chains:
+      accounts:
+        alice_signer: &alice_signer //Alice
+        alice_account32: &alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
+        alice_ss58: &acc_alice_ss58 '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5'
+
+tests:
+  - name: Teleport assets from Relay Chain to Collectives Parachain successful
+    its:
+      - name: Teleport assets from Relay Chain to Collectives Parachain
+        actions:
+          - extrinsics:
+            - chain: *relay_chain
+              signer: *alice_signer
+              pallet: xcmPallet
+              call: teleportAssets
+              args: [
+                { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
+                { 
+                  v1: [ 
+                    # { 
+                    #   # TODO use a separate Assets to pay a fee, to receive an exact amount of assets on beneficiary account.
+                    #   # a call with two assets fails with an error right now.
+                    #   id: { concrete: { 0, interior: { here: true }}}, 
+                    #   fun: { fungible: 1000000000000 } # 1_000_000_000_000 
+                    # },
+                    { 
+                      id: { concrete: { 0, interior: { here: true }}}, 
+                      fun: { fungible: 20000000000000 } # 20_000_000_000_000
+                    }
+                  ] 
+                }, # assets
+                0, # feeAssetItem
+              ]
+              events:
+                - name: xcmPallet.Attempted
+                  chain: *relay_chain
+                  attributes:
+                    - type: XcmV2TraitsOutcome
+                      xcmOutcome: Complete
+                      # the weight must be static
+                      value: *weight_to_send_teleport
+                - name: balances.Deposit
+                  chain: *collectives_parachain
+                  attributes:
+                    - type: u128
+                      # TODO (P2)
+                      # Flaky assert since sent assets used to pay a fee
+                      # query and assert Alice balance before and after teleport (see example in kick_member test)
+                      # drop this event assert
+                      value: 19,999,953,648,988 # amount received
+                - name: dmpQueue.ExecutedDownward
+                  chain: *collectives_parachain
+                  attributes:
+                    - type: XcmV2TraitsOutcome
+                      xcmOutcome: Complete
+                      # the weight must be static
+                      value: *weight_to_receive_teleport
+
+      - name: Teleport assets from Collectives Parachain to Relay Chain successful
+        actions:
+          - extrinsics:
+            - chain: *collectives_parachain
+              signer: *alice_signer
+              pallet: polkadotXcm
+              call: teleportAssets
+              args: [
+                { v1: { parents: 1, interior: { here: true }}}, # destination
+                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
+                { 
+                  v1: [ 
+                    { 
+                      id: { concrete: { parents: 1, interior: { here: true }}}, 
+                      fun: { fungible: 10000000000000 } # 10_000_000_000_000
+                    }
+                  ] 
+                }, # assets
+                0, # feeAssetItem
+              ]
+              events: 
+                # TODO assert balance.Deposit event on relay chain
+                # not possible now / issue - https://github.com/paritytech/parachains-integration-tests/issues/58
+                - name: balances.Withdraw
+                  attributes:
+                    - type: AccountId32
+                      key: who
+                      value: *acc_alice_ss58
+                    - type: u128
+                      key: amount
+                      value: 10000000000000
+                - name: polkadotXcm.Attempted
+                  attributes:
+                    - type: XcmV2TraitsOutcome
+                      xcmOutcome: Complete
+                      # the weight must be static
+                      value: *weight_to_send_teleport
+                - name: balances.Withdraw
+                  chain: *relay_chain
+                  attributes:
+                    - type: u128
+                      key: amount
+                      value: 10000000000000 # amount received and withdrawn from registry account
+                - name: ump.ExecutedUpward
+                  chain: *relay_chain
+                  attributes:
+                    - type: XcmV2TraitsOutcome
+                      xcmOutcome: Complete
+                      # the weight must be static
+                      value: *weight_to_receive_teleport
+
+              # TODO (P2) assert Alice balance before and after teleport (see example in kick_member test)
+
+  #TODO (P1) test: teleport of non relay chain assets fails

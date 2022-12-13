@@ -1,0 +1,84 @@
+---
+settings:
+  chains:
+    relay_chain: &relay_chain
+      wsPort: 9700
+    collectives_parachain: &collectives_parachain
+      wsPort: 9710
+      paraId: &cp_id 1001
+  variables:
+    xcm_version: &xcm_version '2'
+    weight_to_send_reserve: &weight_to_send_reserve 1,000,000,000 # must be same for both chains
+    chains:
+      accounts:
+        alice_signer: &alice_signer //Alice
+        alice_account32: &alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
+        alice_ss58: &acc_alice_ss58 '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5'
+
+tests:
+  - name: Reserve assets from Relay Chain to Collectives Parachain fails
+    its:
+      - name: Reserve assets from Relay Chain to Collectives Parachain
+        actions:
+          - extrinsics:
+            - chain: *relay_chain
+              signer: *alice_signer
+              pallet: xcmPallet
+              call: reserveTransferAssets
+              args: [
+                { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
+                { 
+                  v1: [ 
+                    { 
+                      id: { concrete: { 0, interior: { here: true }}}, 
+                      fun: { fungible: 20000000000000 } # 20_000_000_000_000
+                    }
+                  ] 
+                }, # assets
+                0, # feeAssetItem
+              ]
+              events:
+                - name: xcmPallet.Attempted
+                  chain: *relay_chain
+                  attributes:
+                    - type: XcmV2TraitsOutcome
+                      xcmOutcome: Complete
+                      # the weight must be static
+                      value: *weight_to_send_reserve
+                - name: dmpQueue.ExecutedDownward
+                  chain: *collectives_parachain
+                  attributes:
+                    - type: XcmV2TraitsOutcome
+                      xcmOutcome: Incomplete
+                      # the weight must be static
+                      value: [1000000000, UntrustedReserveLocation]
+
+      - name: Reserve assets from Collectives Parachain to Relay Chain fails
+        actions:
+          - extrinsics:
+            - chain: *collectives_parachain
+              signer: *alice_signer
+              pallet: polkadotXcm
+              call: reserveTransferAssets
+              args: [
+                { v1: { parents: 1, interior: { here: true }}}, # destination
+                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
+                { 
+                  v1: [ 
+                    { 
+                      id: { concrete: { parents: 1, interior: { here: true }}}, 
+                      fun: { fungible: 10000000000000 } # 10_000_000_000_000
+                    }
+                  ] 
+                }, # assets
+                0, # feeAssetItem
+              ]
+              events:
+                - name: system.ExtrinsicFailed
+                  attributes:
+                    - type: SpRuntimeDispatchError
+                      key: dispatchError
+                      # TODO assert variant
+                      # issue - https://github.com/paritytech/parachains-integration-tests/issues/59
+                      value: {"Module":{"index":"31","error":"0x02000000"}}

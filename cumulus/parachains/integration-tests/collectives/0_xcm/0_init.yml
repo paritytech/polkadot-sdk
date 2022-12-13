@@ -1,0 +1,95 @@
+---
+settings:
+  chains:
+    relay_chain: &relay_chain
+      wsPort: 9700
+    collectives_parachain: &collectives_parachain
+      wsPort: 9710
+      paraId: &cp_id 1001
+  variables:
+    xcm_version: &xcm_version '2'
+    chains:
+      accounts:
+        alice_signer: &alice_signer //Alice
+  decodedCalls:
+    ap_force_xcm_version:
+      chain: *collectives_parachain
+      pallet: polkadotXcm
+      call: forceXcmVersion
+      args: [
+        { # location
+          parents: 1,
+          interior: Here
+        },
+        *xcm_version
+      ]
+
+tests:
+  - name: Initialize Chains
+    its:
+      - name: XCM supported versions between chains
+        actions:
+          - extrinsics: # Relay Chain sets supported version for Collectives Parachain
+            - chain: *relay_chain
+              sudo: true
+              signer: *alice_signer
+              pallet: xcmPallet
+              call: forceXcmVersion
+              args: [
+                { # location
+                  parents: 0,
+                  interior: {
+                    X1: {
+                      Parachain: *cp_id
+                    }
+                  }
+                },
+                *xcm_version
+              ]
+              events:
+                - name: sudo.Sudid
+                  attributes:
+                    - type: Result<Null, SpRuntimeDispatchError>
+                      value: Ok
+                - name: xcmPallet.SupportedVersionChanged
+                  attributes:
+                    - type: u32
+                      value: *xcm_version
+          - extrinsics: # Collectives Parachain sets supported version for Relay Chain through it
+            - chain: *relay_chain
+              signer: *alice_signer
+              sudo: true
+              pallet: xcmPallet
+              call: send
+              args: [
+                { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                {
+                  v2: [ # message
+                    {
+                      Transact: {
+                        originType: Superuser,
+                        requireWeightAtMost: 1000000000, # 1_000_000_000
+                        call: $ap_force_xcm_version
+                      }
+                    }
+                  ]
+                }
+              ]
+              events:
+                - name: sudo.Sudid
+                  attributes:
+                    - type: Result<Null, SpRuntimeDispatchError>
+                      value: Ok
+                - name: xcmPallet.Sent
+                - name: polkadotXcm.SupportedVersionChanged
+                  chain: *collectives_parachain
+                  attributes:
+                    - type: u32
+                      value: *xcm_version
+                - name: dmpQueue.ExecutedDownward
+                  chain: *collectives_parachain
+                  attributes:
+                    - type: XcmV2TraitsOutcome
+                      xcmOutcome: Complete
+                      # the weight must be static
+                      value: 2,000,000,000

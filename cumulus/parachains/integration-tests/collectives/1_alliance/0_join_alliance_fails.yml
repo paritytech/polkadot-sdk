@@ -1,0 +1,34 @@
+---
+settings:
+  chains:
+    relay_chain: &relay_chain
+      wsPort: 9700
+    collectives_parachain: &collectives_parachain
+      wsPort: 9710
+      paraId: &cp_id 1001
+  variables:
+    accounts:
+      alice_signer: &alice_signer //Alice
+      alice_account32: &cp_alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
+
+tests:
+  - name: Alice fails to join an the Alliance, since it is not initialized yet.
+    its:
+      - name: Alice joins alliance
+        actions:
+          - extrinsics: # Relay Chain sets supported version for Asset Parachain
+            - chain: *collectives_parachain
+              signer: *alice_signer
+              pallet: alliance
+              call: joinAlliance
+              args: []
+              events:
+                - name: system.ExtrinsicFailed
+                  attributes:
+                    - type: SpRuntimeDispatchError
+                      key: dispatchError
+                      # TODO assert with Alliance Error variant - alliance.AllianceNotYetInitialized
+                      # issue - https://github.com/paritytech/parachains-integration-tests/issues/59
+                      value: {"Module":{"index":"50","error":"0x00000000"}}
+
+
