@@ -96,6 +96,12 @@ pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
+
+pub type Migrations = (
+	pallet_contracts::Migration<Runtime>,
+	pallet_balances::migration::MigrateToTrackInactive<Runtime, xcm_config::CheckingAccount>,
+);
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -103,7 +109,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	pallet_contracts::Migration<Runtime>,
+	Migrations,
 >;
 
 impl_opaque_keys! {
