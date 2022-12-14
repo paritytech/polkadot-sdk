@@ -16,8 +16,9 @@
 
 //! Types used to connect to the Rococo-Substrate chain.
 
-use frame_support::weights::Weight;
-use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, RelayChain};
+use relay_substrate_client::{
+	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
+};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -31,24 +32,8 @@ pub type SyncHeader = relay_substrate_client::SyncHeader<bp_rococo::Header>;
 #[derive(Debug, Clone, Copy)]
 pub struct Rococo;
 
-impl ChainBase for Rococo {
-	type BlockNumber = bp_rococo::BlockNumber;
-	type Hash = bp_rococo::Hash;
-	type Hasher = bp_rococo::Hashing;
-	type Header = bp_rococo::Header;
-
-	type AccountId = bp_rococo::AccountId;
-	type Balance = bp_rococo::Balance;
-	type Index = bp_rococo::Nonce;
-	type Signature = bp_rococo::Signature;
-
-	fn max_extrinsic_size() -> u32 {
-		bp_rococo::Rococo::max_extrinsic_size()
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		bp_rococo::Rococo::max_extrinsic_weight()
-	}
+impl UnderlyingChainProvider for Rococo {
+	type Chain = bp_rococo::Rococo;
 }
 
 impl Chain for Rococo {
