@@ -26,6 +26,7 @@ use bp_polkadot_core::parachains::ParaId;
 use parachains_relay::parachains_loop::{
 	AvailableHeader, ParachainSyncParams, SourceClient, TargetClient,
 };
+use relay_substrate_client::{Parachain, ParachainBase};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -38,7 +39,11 @@ use substrate_relay_helper::{
 	TransactionParams,
 };
 
-use crate::cli::{bridge::ParachainToRelayHeadersCliBridge, chain_schema::*, PrometheusParams};
+use crate::cli::{
+	bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge},
+	chain_schema::*,
+	PrometheusParams,
+};
 
 /// Start parachain heads relayer process.
 #[derive(StructOpt)]
@@ -74,6 +79,7 @@ where
 		SourceClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
 	ParachainsTarget<Self::ParachainFinality>:
 		TargetClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
+	<Self as CliBridgeBase>::Source: Parachain,
 {
 	async fn relay_headers(data: RelayParachains) -> anyhow::Result<()> {
 		let source_client = data.source.into_client::<Self::SourceRelay>().await?;
@@ -100,7 +106,7 @@ where
 			target_client,
 			ParachainSyncParams {
 				parachains: vec![
-					ParaId(<Self::ParachainFinality as SubstrateParachainsPipeline>::SOURCE_PARACHAIN_PARA_ID)
+					ParaId(<Self::ParachainFinality as SubstrateParachainsPipeline>::SourceParachain::PARACHAIN_ID)
 				],
 				stall_timeout: std::time::Duration::from_secs(60),
 				strategy: parachains_relay::parachains_loop::ParachainSyncStrategy::Any,

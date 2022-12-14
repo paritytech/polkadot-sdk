@@ -62,6 +62,7 @@ use bp_messages::LaneId;
 use bp_runtime::{BalanceOf, BlockNumberOf};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithTransactions, Client,
+	Parachain,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;

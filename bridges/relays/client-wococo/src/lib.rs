@@ -16,8 +16,9 @@
 
 //! Types used to connect to the Wococo-Substrate chain.
 
-use frame_support::weights::Weight;
-use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, RelayChain};
+use relay_substrate_client::{
+	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
+};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -31,24 +32,8 @@ pub type SyncHeader = relay_substrate_client::SyncHeader<bp_wococo::Header>;
 #[derive(Debug, Clone, Copy)]
 pub struct Wococo;
 
-impl ChainBase for Wococo {
-	type BlockNumber = bp_wococo::BlockNumber;
-	type Hash = bp_wococo::Hash;
-	type Hasher = bp_wococo::Hashing;
-	type Header = bp_wococo::Header;
-
-	type AccountId = bp_wococo::AccountId;
-	type Balance = bp_wococo::Balance;
-	type Index = bp_wococo::Nonce;
-	type Signature = bp_wococo::Signature;
-
-	fn max_extrinsic_size() -> u32 {
-		bp_wococo::Wococo::max_extrinsic_size()
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		bp_wococo::Wococo::max_extrinsic_weight()
-	}
+impl UnderlyingChainProvider for Wococo {
+	type Chain = bp_wococo::Wococo;
 }
 
 impl Chain for Wococo {

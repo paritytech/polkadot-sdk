@@ -39,8 +39,6 @@ impl SubstrateParachainsPipeline for WestendParachainsToMillau {
 	type TargetChain = Millau;
 
 	type SubmitParachainHeadsCallBuilder = WestendParachainsToMillauSubmitParachainHeadsCallBuilder;
-
-	const SOURCE_PARACHAIN_PARA_ID: u32 = bp_westend::WESTMINT_PARACHAIN_ID;
 }
 
 /// `submit_parachain_heads` call builder for Rialto-to-Millau parachains sync pipeline.
