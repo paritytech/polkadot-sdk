@@ -27,6 +27,7 @@ use bp_messages::{
 	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 };
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Size, StorageProofChecker};
+pub use bp_runtime::{UnderlyingChainOf, UnderlyingChainProvider};
 use codec::{Decode, DecodeLimit, Encode};
 use frame_support::{traits::Get, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
@@ -52,12 +53,6 @@ pub trait MessageBridge {
 	type BridgedChain: BridgedChainWithMessages;
 	/// Bridged header chain.
 	type BridgedHeaderChain: HeaderChain<UnderlyingChainOf<Self::BridgedChain>>;
-}
-
-/// A trait that provides the type of the underlying chain.
-pub trait UnderlyingChainProvider {
-	/// Underlying chain type.
-	type Chain: Chain;
 }
 
 /// This chain that has `pallet-bridge-messages` module.
@@ -87,8 +82,6 @@ pub trait BridgedChainWithMessages: UnderlyingChainProvider {
 pub type ThisChain<B> = <B as MessageBridge>::ThisChain;
 /// Bridged chain in context of message bridge.
 pub type BridgedChain<B> = <B as MessageBridge>::BridgedChain;
-/// Underlying chain type.
-pub type UnderlyingChainOf<C> = <C as UnderlyingChainProvider>::Chain;
 /// Hash used on the chain.
 pub type HashOf<C> = bp_runtime::HashOf<<C as UnderlyingChainProvider>::Chain>;
 /// Hasher used on the chain.

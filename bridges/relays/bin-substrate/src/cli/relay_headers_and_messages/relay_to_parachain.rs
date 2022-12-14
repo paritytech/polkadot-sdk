@@ -28,7 +28,9 @@ use crate::cli::{
 use bp_polkadot_core::parachains::ParaHash;
 use bp_runtime::BlockNumberOf;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, Chain, ChainWithTransactions, Client};
+use relay_substrate_client::{
+	AccountIdOf, AccountKeyPairOf, Chain, ChainWithTransactions, Client, Parachain,
+};
 use sp_core::Pair;
 use substrate_relay_helper::{
 	finality::SubstrateFinalitySyncPipeline,
@@ -45,7 +47,9 @@ use substrate_relay_helper::{
 pub struct RelayToParachainBridge<
 	L2R: MessagesCliBridge + RelayToRelayHeadersCliBridge,
 	R2L: MessagesCliBridge + ParachainToRelayHeadersCliBridge,
-> {
+> where
+	<R2L as CliBridgeBase>::Source: Parachain,
+{
 	/// Parameters that are shared by all bridge types.
 	pub common:
 		Full2WayBridgeCommonParams<<R2L as CliBridgeBase>::Target, <L2R as CliBridgeBase>::Target>,
@@ -112,7 +116,7 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 			impl [<$left_chain $right_parachain HeadersAndMessages>] {
 				async fn into_bridge<
 					Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
-					Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Right>>,
+					Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Right>> + Parachain,
 					RightRelay: CliChain,
 					L2R: CliBridgeBase<Source = Left, Target = Right> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
 					R2L: CliBridgeBase<Source = Right, Target = Left>
@@ -165,7 +169,8 @@ impl<
 		Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
 		Right: Chain<Hash = ParaHash>
 			+ ChainWithTransactions
-			+ CliChain<KeyPair = AccountKeyPairOf<Right>>,
+			+ CliChain<KeyPair = AccountKeyPairOf<Right>>
+			+ Parachain,
 		RightRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
 			+ CliChain,
 		L2R: CliBridgeBase<Source = Left, Target = Right>

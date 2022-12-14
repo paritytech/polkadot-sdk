@@ -17,8 +17,7 @@
 //! Types used to connect to the Polkadot chain.
 
 use bp_polkadot::AccountInfoStorageMapKeyProvider;
-use frame_support::weights::Weight;
-use relay_substrate_client::{Chain, ChainBase, ChainWithBalances, ChainWithGrandpa};
+use relay_substrate_client::{Chain, ChainWithBalances, ChainWithGrandpa, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -29,24 +28,8 @@ pub type HeaderId = relay_utils::HeaderId<bp_polkadot::Hash, bp_polkadot::BlockN
 #[derive(Debug, Clone, Copy)]
 pub struct Polkadot;
 
-impl ChainBase for Polkadot {
-	type BlockNumber = bp_polkadot::BlockNumber;
-	type Hash = bp_polkadot::Hash;
-	type Hasher = bp_polkadot::Hasher;
-	type Header = bp_polkadot::Header;
-
-	type AccountId = bp_polkadot::AccountId;
-	type Balance = bp_polkadot::Balance;
-	type Index = bp_polkadot::Nonce;
-	type Signature = bp_polkadot::Signature;
-
-	fn max_extrinsic_size() -> u32 {
-		bp_polkadot::Polkadot::max_extrinsic_size()
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		bp_polkadot::Polkadot::max_extrinsic_weight()
-	}
+impl UnderlyingChainProvider for Polkadot {
+	type Chain = bp_polkadot::Polkadot;
 }
 
 impl Chain for Polkadot {
