@@ -1066,6 +1066,11 @@ impl_runtime_apis! {
 			}
 
 			impl ParachainsConfig<WithRialtoParachainsInstance> for Runtime {
+				fn parachains() -> Vec<bp_polkadot_core::parachains::ParaId> {
+					use bp_runtime::Parachain;
+					vec![bp_polkadot_core::parachains::ParaId(bp_rialto_parachain::RialtoParachain::PARACHAIN_ID)]
+				}
+
 				fn prepare_parachain_heads_proof(
 					parachains: &[bp_polkadot_core::parachains::ParaId],
 					parachain_head_size: u32,
