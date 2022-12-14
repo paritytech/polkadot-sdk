@@ -32,6 +32,8 @@ pub struct Pallet<T: Config<I>, I: 'static>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime to benchmark the parachains finality pallet.
 pub trait Config<I: 'static>: crate::Config<I> {
+	/// Returns vector of supported parachains.
+	fn parachains() -> Vec<ParaId>;
 	/// Generate parachain heads proof and prepare environment for verifying this proof.
 	fn prepare_parachain_heads_proof(
 		parachains: &[ParaId],
@@ -53,10 +55,11 @@ benchmarks_instance_pallet! {
 
 	// Benchmark `submit_parachain_heads` extrinsic with different number of parachains.
 	submit_parachain_heads_with_n_parachains {
-		let p in 1..1024;
+		let p in 1..(T::parachains().len() + 1) as u32;
 
 		let sender = account("sender", 0, 0);
-		let parachains = (1..=p).map(ParaId).collect::<Vec<_>>();
+		let mut parachains = T::parachains();
+		let _ = parachains.split_off(p as usize - 1);
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
@@ -73,7 +76,7 @@ benchmarks_instance_pallet! {
 	// Benchmark `submit_parachain_heads` extrinsic with 1kb proof size.
 	submit_parachain_heads_with_1kb_proof {
 		let sender = account("sender", 0, 0);
-		let parachains = vec![ParaId(1)];
+		let parachains = vec![T::parachains()[0]];
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
@@ -90,7 +93,7 @@ benchmarks_instance_pallet! {
 	// Benchmark `submit_parachain_heads` extrinsic with 16kb proof size.
 	submit_parachain_heads_with_16kb_proof {
 		let sender = account("sender", 0, 0);
-		let parachains = vec![ParaId(1)];
+		let parachains = vec![T::parachains()[0]];
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
