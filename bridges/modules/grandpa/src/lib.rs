@@ -45,7 +45,6 @@ use bp_header_chain::{
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::{ensure, fail};
-use frame_system::ensure_signed;
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::traits::{Header as HeaderT, Zero};
 use sp_std::{boxed::Box, convert::TryInto};
@@ -156,12 +155,11 @@ pub mod pallet {
 			justification.votes_ancestries.len().try_into().unwrap_or(u32::MAX),
 		))]
 		pub fn submit_finality_proof(
-			origin: OriginFor<T>,
+			_origin: OriginFor<T>,
 			finality_target: Box<BridgedHeader<T, I>>,
 			justification: GrandpaJustification<BridgedHeader<T, I>>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
-			let _ = ensure_signed(origin)?;
 
 			ensure!(Self::request_count() < T::MaxRequests::get(), <Error<T, I>>::TooManyRequests);
 
