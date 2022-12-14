@@ -32,7 +32,8 @@ use sp_std::{convert::TryFrom, fmt::Debug, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
-	HasherOf, HeaderOf, IndexOf, Parachain, SignatureOf, TransactionEraOf,
+	HasherOf, HeaderOf, IndexOf, Parachain, SignatureOf, TransactionEraOf, UnderlyingChainOf,
+	UnderlyingChainProvider,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedSub, One};

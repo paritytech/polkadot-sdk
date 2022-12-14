@@ -17,7 +17,9 @@
 use crate::cli::CliChain;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use parachains_relay::ParachainsPipeline;
-use relay_substrate_client::{AccountKeyPairOf, Chain, ChainWithTransactions, RelayChain};
+use relay_substrate_client::{
+	AccountKeyPairOf, Chain, ChainWithTransactions, Parachain, RelayChain,
+};
 use strum::{EnumString, EnumVariantNames};
 use substrate_relay_helper::{
 	finality::SubstrateFinalitySyncPipeline, messages_lane::SubstrateMessageLane,
@@ -76,7 +78,10 @@ pub trait RelayToRelayHeadersCliBridge: CliBridgeBase {
 
 /// Bridge representation that can be used from the CLI for relaying headers
 /// from a parachain to a relay chain.
-pub trait ParachainToRelayHeadersCliBridge: CliBridgeBase {
+pub trait ParachainToRelayHeadersCliBridge: CliBridgeBase
+where
+	Self::Source: Parachain,
+{
 	// The `CliBridgeBase` type represents the parachain in this situation.
 	// We need to add an extra type for the relay chain.
 	type SourceRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>

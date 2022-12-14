@@ -39,6 +39,7 @@ use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumbe
 use parachains_relay::parachains_loop::{AvailableHeader, ParachainSyncParams, TargetClient};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
+	ParachainBase,
 };
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient, HeaderId,
@@ -278,7 +279,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					parachains_source.clone(),
 					parachains_target.clone(),
 					ParachainSyncParams {
-						parachains: vec![P::SOURCE_PARACHAIN_PARA_ID.into()],
+						parachains: vec![P::SourceParachain::PARACHAIN_ID.into()],
 						stall_timeout: std::time::Duration::from_secs(60),
 						strategy: parachains_relay::parachains_loop::ParachainSyncStrategy::Any,
 					},
@@ -386,7 +387,10 @@ where
 		source.client().best_finalized_header().await.map_err(map_source_err)?;
 	let best_finalized_relay_block_id = best_finalized_relay_header.id();
 	let para_header_at_source = source
-		.on_chain_para_head_id(best_finalized_relay_block_id, P::SOURCE_PARACHAIN_PARA_ID.into())
+		.on_chain_para_head_id(
+			best_finalized_relay_block_id,
+			P::SourceParachain::PARACHAIN_ID.into(),
+		)
 		.await
 		.map_err(map_source_err)?;
 
@@ -401,7 +405,7 @@ where
 		.map_err(map_target_err)?;
 
 	let para_header_at_relay_header_at_target = source
-		.on_chain_para_head_id(relay_header_at_target, P::SOURCE_PARACHAIN_PARA_ID.into())
+		.on_chain_para_head_id(relay_header_at_target, P::SourceParachain::PARACHAIN_ID.into())
 		.await
 		.map_err(map_source_err)?;
 

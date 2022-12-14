@@ -18,11 +18,10 @@
 
 use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
-use frame_support::weights::Weight;
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainBase, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
+	BalanceOf, Chain, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
 	ChainWithTransactions, Error as SubstrateError, IndexOf, RelayChain, SignParam,
-	UnsignedTransaction,
+	UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -35,24 +34,8 @@ pub type HeaderId = relay_utils::HeaderId<rialto_runtime::Hash, rialto_runtime::
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rialto;
 
-impl ChainBase for Rialto {
-	type BlockNumber = rialto_runtime::BlockNumber;
-	type Hash = rialto_runtime::Hash;
-	type Hasher = rialto_runtime::Hashing;
-	type Header = rialto_runtime::Header;
-
-	type AccountId = rialto_runtime::AccountId;
-	type Balance = rialto_runtime::Balance;
-	type Index = rialto_runtime::Index;
-	type Signature = rialto_runtime::Signature;
-
-	fn max_extrinsic_size() -> u32 {
-		bp_rialto::Rialto::max_extrinsic_size()
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		bp_rialto::Rialto::max_extrinsic_weight()
-	}
+impl UnderlyingChainProvider for Rialto {
+	type Chain = bp_rialto::Rialto;
 }
 
 impl Chain for Rialto {

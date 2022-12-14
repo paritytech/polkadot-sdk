@@ -29,7 +29,7 @@ use parachains_relay::{
 	parachains_loop_metrics::ParachainsLoopMetrics,
 };
 use relay_substrate_client::{
-	Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf, RelayChain,
+	Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf, ParachainBase, RelayChain,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 
@@ -107,11 +107,11 @@ where
 		para_id: ParaId,
 	) -> Result<AvailableHeader<ParaHash>, Self::Error> {
 		// we don't need to support many parachains now
-		if para_id.0 != P::SOURCE_PARACHAIN_PARA_ID {
+		if para_id.0 != P::SourceParachain::PARACHAIN_ID {
 			return Err(SubstrateError::Custom(format!(
 				"Parachain id {} is not matching expected {}",
 				para_id.0,
-				P::SOURCE_PARACHAIN_PARA_ID,
+				P::SourceParachain::PARACHAIN_ID,
 			)))
 		}
 
@@ -144,7 +144,7 @@ where
 		at_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: &[ParaId],
 	) -> Result<(ParaHeadsProof, Vec<ParaHash>), Self::Error> {
-		let parachain = ParaId(P::SOURCE_PARACHAIN_PARA_ID);
+		let parachain = ParaId(P::SourceParachain::PARACHAIN_ID);
 		if parachains != [parachain] {
 			return Err(SubstrateError::Custom(format!(
 				"Trying to prove unexpected parachains {parachains:?}. Expected {parachain:?}",

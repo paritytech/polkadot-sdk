@@ -40,8 +40,6 @@ impl SubstrateParachainsPipeline for RialtoParachainsToMillau {
 	type TargetChain = Millau;
 
 	type SubmitParachainHeadsCallBuilder = RialtoParachainsToMillauSubmitParachainHeadsCallBuilder;
-
-	const SOURCE_PARACHAIN_PARA_ID: u32 = bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 }
 
 /// `submit_parachain_heads` call builder for Rialto-to-Millau parachains sync pipeline.

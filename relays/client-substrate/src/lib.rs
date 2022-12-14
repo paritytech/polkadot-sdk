@@ -34,8 +34,8 @@ use std::time::Duration;
 pub use crate::{
 	chain::{
 		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
-		ChainWithGrandpa, ChainWithMessages, ChainWithTransactions, RelayChain, SignParam,
-		TransactionStatusOf, UnsignedTransaction,
+		ChainWithGrandpa, ChainWithMessages, ChainWithTransactions, Parachain, RelayChain,
+		SignParam, TransactionStatusOf, UnsignedTransaction,
 	},
 	client::{ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription},
 	error::{Error, Result},
@@ -45,7 +45,8 @@ pub use crate::{
 };
 pub use bp_runtime::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderIdOf,
-	HeaderOf, IndexOf, SignatureOf, TransactionEra, TransactionEraOf,
+	HeaderOf, IndexOf, Parachain as ParachainBase, SignatureOf, TransactionEra, TransactionEraOf,
+	UnderlyingChainProvider,
 };
 
 /// Substrate-over-websocket connection params.

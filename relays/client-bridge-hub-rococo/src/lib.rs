@@ -16,11 +16,11 @@
 
 //! Types used to connect to the BridgeHub-Rococo-Substrate parachain.
 
-use bp_messages::{MessageNonce, Weight};
+use bp_messages::MessageNonce;
 use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainBase, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
-	Error as SubstrateError, SignParam, UnsignedTransaction,
+	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, Error as SubstrateError,
+	SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -34,24 +34,8 @@ pub use runtime_wrapper as runtime;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BridgeHubRococo;
 
-impl ChainBase for BridgeHubRococo {
-	type BlockNumber = bp_bridge_hub_rococo::BlockNumber;
-	type Hash = bp_bridge_hub_rococo::Hash;
-	type Hasher = bp_bridge_hub_rococo::Hashing;
-	type Header = bp_bridge_hub_rococo::Header;
-
-	type AccountId = bp_bridge_hub_rococo::AccountId;
-	type Balance = bp_bridge_hub_rococo::Balance;
-	type Index = bp_bridge_hub_rococo::Nonce;
-	type Signature = bp_bridge_hub_rococo::Signature;
-
-	fn max_extrinsic_size() -> u32 {
-		bp_bridge_hub_rococo::BridgeHubRococo::max_extrinsic_size()
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		bp_bridge_hub_rococo::BridgeHubRococo::max_extrinsic_weight()
-	}
+impl UnderlyingChainProvider for BridgeHubRococo {
+	type Chain = bp_bridge_hub_rococo::BridgeHubRococo;
 }
 
 impl Chain for BridgeHubRococo {
