@@ -682,43 +682,52 @@ pub fn run() -> Result<()> {
 			let task_manager =
 				sc_service::TaskManager::new(runner.config().tokio_handle.clone(), *registry)
 					.map_err(|e| format!("Error: {:?}", e))?;
+			use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
+			type HostFunctionsOf<E> = ExtendedHostFunctions<
+				sp_io::SubstrateHostFunctions,
+				<E as NativeExecutionDispatch>::ExtendHostFunctions,
+			>;
 
 			match runner.config().chain_spec.runtime() {
-				Runtime::Statemine => runner.async_run(|config| {
-					Ok((cmd.run::<Block, StatemineRuntimeExecutor>(config), task_manager))
+				Runtime::Statemine => runner.async_run(|_| {
+					Ok((
+						cmd.run::<Block, HostFunctionsOf<StatemineRuntimeExecutor>>(),
+						task_manager,
+					))
 				}),
-				Runtime::Westmint => runner.async_run(|config| {
-					Ok((cmd.run::<Block, WestmintRuntimeExecutor>(config), task_manager))
+				Runtime::Westmint => runner.async_run(|_| {
+					Ok((cmd.run::<Block, HostFunctionsOf<WestmintRuntimeExecutor>>(), task_manager))
 				}),
-				Runtime::Statemint => runner.async_run(|config| {
-					Ok((cmd.run::<Block, StatemintRuntimeExecutor>(config), task_manager))
+				Runtime::Statemint => runner.async_run(|_| {
+					Ok((
+						cmd.run::<Block, HostFunctionsOf<StatemintRuntimeExecutor>>(),
+						task_manager,
+					))
 				}),
 				Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
-					runner.async_run(|config| {
+					runner.async_run(|_| {
 						Ok((
-							cmd.run::<Block, CollectivesPolkadotRuntimeExecutor>(config),
+							cmd.run::<Block, HostFunctionsOf<CollectivesPolkadotRuntimeExecutor>>(),
 							task_manager,
 						))
 					}),
 				Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
 					chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
 					chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaDevelopment =>
-						runner.async_run(|config| {
-							Ok((
-								cmd.run::<Block, BridgeHubKusamaRuntimeExecutor>(config),
-								task_manager,
-							))
-						}),
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaDevelopment => runner.async_run(|_| {
+						Ok((
+							cmd.run::<Block, HostFunctionsOf<BridgeHubKusamaRuntimeExecutor>>(),
+							task_manager,
+						))
+					}),
 					chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 					chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
-						runner.async_run(|config| {
-							Ok((
-								cmd.run::<Block, BridgeHubRococoRuntimeExecutor>(config),
-								task_manager,
-							))
-						}),
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment => runner.async_run(|_| {
+						Ok((
+							cmd.run::<Block, HostFunctionsOf<BridgeHubRococoRuntimeExecutor>>(),
+							task_manager,
+						))
+					}),
 					_ => Err(format!(
 						"Chain '{:?}' doesn't support try-runtime for bridge_hub_runtime_type: {:?}",
 						runner.config().chain_spec.runtime(),
@@ -726,15 +735,15 @@ pub fn run() -> Result<()> {
 					)
 					.into()),
 				},
-				Runtime::Shell => runner.async_run(|config| {
+				Runtime::Shell => runner.async_run(|_| {
 					Ok((
-						cmd.run::<Block, crate::service::ShellRuntimeExecutor>(config),
+						cmd.run::<Block, HostFunctionsOf<crate::service::ShellRuntimeExecutor>>(),
 						task_manager,
 					))
 				}),
-				Runtime::ContractsRococo => runner.async_run(|config| {
+				Runtime::ContractsRococo => runner.async_run(|_| {
 					Ok((
-						cmd.run::<Block, crate::service::ContractsRococoRuntimeExecutor>(config),
+						cmd.run::<Block, HostFunctionsOf<crate::service::ContractsRococoRuntimeExecutor>>(),
 						task_manager,
 					))
 				}),
