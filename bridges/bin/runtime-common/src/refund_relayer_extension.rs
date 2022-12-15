@@ -220,11 +220,19 @@ where
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
 	) -> TransactionValidity {
+		// reject batch transactions with obsolete headers
+		if let Some(UtilityCall::<R>::batch_all { ref calls }) = call.is_sub_type() {
+			for nested_call in calls {
+				let reject_obsolete_transactions = BE::default();
+				reject_obsolete_transactions.pre_dispatch(who, nested_call, info, len)?;
+			}
+		}
+
 		Ok(ValidTransaction::default())
 	}
 
@@ -232,16 +240,11 @@ where
 		self,
 		who: &Self::AccountId,
 		call: &Self::Call,
-		post_info: &DispatchInfoOf<Self::Call>,
+		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		// reject batch transactions with obsolete headers
-		if let Some(UtilityCall::<R>::batch_all { ref calls }) = call.is_sub_type() {
-			for nested_call in calls {
-				let reject_obsolete_transactions = BE::default();
-				reject_obsolete_transactions.pre_dispatch(who, nested_call, post_info, len)?;
-			}
-		}
+		self.validate(who, call, info, len).map(drop)?;
 
 		// now try to check if tx matches one of types we support
 		let parse_call_type = || {
@@ -611,6 +614,11 @@ mod tests {
 		sp_io::TestExternalities::new(Default::default()).execute_with(test)
 	}
 
+	fn run_validate(call: RuntimeCall) -> TransactionValidity {
+		let extension: TestExtension = RefundRelayerForMessagesFromParachain(PhantomData);
+		extension.validate(&relayer_account(), &call, &DispatchInfo::default(), 0)
+	}
+
 	fn run_pre_dispatch(
 		call: RuntimeCall,
 	) -> Result<Option<PreDispatchData<millau_runtime::AccountId>>, TransactionValidityError> {
@@ -654,7 +662,26 @@ mod tests {
 	}
 
 	#[test]
-	fn pre_dispatch_rejects_batch_with_obsolete_relay_chain_header() {
+	fn validate_allows_non_obsolete_transactions() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			assert_eq!(run_validate(message_delivery_call(200)), Ok(ValidTransaction::default()),);
+
+			assert_eq!(
+				run_validate(parachain_finality_and_delivery_batch_call(200, 200)),
+				Ok(ValidTransaction::default()),
+			);
+
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call(200, 200, 200)),
+				Ok(ValidTransaction::default()),
+			);
+		});
+	}
+
+	#[test]
+	fn ext_rejects_batch_with_obsolete_relay_chain_header() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
@@ -662,11 +689,16 @@ mod tests {
 				run_pre_dispatch(all_finality_and_delivery_batch_call(100, 200, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
+
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call(100, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
 		});
 	}
 
 	#[test]
-	fn pre_dispatch_rejects_batch_with_obsolete_parachain_head() {
+	fn ext_rejects_batch_with_obsolete_parachain_head() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
@@ -679,11 +711,21 @@ mod tests {
 				run_pre_dispatch(parachain_finality_and_delivery_batch_call(100, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
+
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call(101, 100, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+
+			assert_eq!(
+				run_validate(parachain_finality_and_delivery_batch_call(100, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
 		});
 	}
 
 	#[test]
-	fn pre_dispatch_rejects_batch_with_obsolete_messages() {
+	fn ext_rejects_batch_with_obsolete_messages() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
@@ -694,6 +736,16 @@ mod tests {
 
 			assert_eq!(
 				run_pre_dispatch(parachain_finality_and_delivery_batch_call(200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call(200, 200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+
+			assert_eq!(
+				run_validate(parachain_finality_and_delivery_batch_call(200, 100)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 		});
