@@ -18,15 +18,19 @@
 //!
 //! Provides functions for starting a collator node or a normal full node.
 
+use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
+use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
 use polkadot_primitives::v2::CollatorPair;
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, UsageProvider,
 };
 use sc_consensus::{import_queue::ImportQueueService, BlockImport};
 use sc_service::{Configuration, TaskManager};
+use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::traits::SpawnNamed;
@@ -216,4 +220,33 @@ pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration
 	parachain_config.announce_block = false;
 
 	parachain_config
+}
+
+/// Build a relay chain interface.
+/// Will return a minimal relay chain node with RPC
+/// client or an inprocess node, based on the [`CollatorOptions`] passed in.
+pub async fn build_relay_chain_interface(
+	polkadot_config: Configuration,
+	parachain_config: &Configuration,
+	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
+	task_manager: &mut TaskManager,
+	collator_options: CollatorOptions,
+	hwbench: Option<sc_sysinfo::HwBench>,
+) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+	if !collator_options.relay_chain_rpc_urls.is_empty() {
+		build_minimal_relay_chain_node(
+			polkadot_config,
+			task_manager,
+			collator_options.relay_chain_rpc_urls,
+		)
+		.await
+	} else {
+		build_inprocess_relay_chain(
+			polkadot_config,
+			parachain_config,
+			telemetry_worker_handle,
+			task_manager,
+			hwbench,
+		)
+	}
 }

@@ -11,6 +11,8 @@ parking_lot = "0.12.1"
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -27,3 +29,5 @@ cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-client-pov-recovery = { path = "../pov-recovery" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
+cumulus-relay-chain-inprocess-interface = { path = "../relay-chain-inprocess-interface" }
+cumulus-relay-chain-minimal-node = { path = "../relay-chain-minimal-node" }

@@ -85,7 +85,7 @@ fn build_authority_discovery_service<Block: BlockT>(
 pub async fn build_minimal_relay_chain_node(
 	polkadot_config: Configuration,
 	task_manager: &mut TaskManager,
-	relay_chain_url: Url,
+	relay_chain_url: Vec<Url>,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
 		relay_chain_url,

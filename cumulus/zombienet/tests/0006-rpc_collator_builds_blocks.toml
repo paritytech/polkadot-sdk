@@ -25,6 +25,10 @@ chain = "rococo-local"
   name = "two"
   validator = false
 
+  [[relaychain.nodes]]
+  name = "three"
+  validator = false
+
 [[parachains]]
 id = 2000
 cumulus_based = true
@@ -35,7 +39,7 @@ cumulus_based = true
   validator = true
   image = "{{COL_IMAGE}}"
   command = "test-parachain"
-  args = ["-lparachain=debug,blockchain-rpc-client=debug", "--relay-chain-rpc-url {{'one'|zombie('wsUri')}}", "-- --bootnodes {{'one'|zombie('multiAddress')}}"]
+  args = ["-lparachain=trace,blockchain-rpc-client=debug", "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}", "-- --bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}"]
 
   # run eve as parachain full node
   [[parachains.collators]]
@@ -43,4 +47,4 @@ cumulus_based = true
   validator = true
   image = "{{COL_IMAGE}}"
   command = "test-parachain"
-  args = ["-lparachain=debug,blockchain-rpc-client=debug", "--relay-chain-rpc-url {{'two'|zombie('wsUri')}}", "-- --bootnodes {{'two'|zombie('multiAddress')}}"]
+  args = ["-lparachain=trace,blockchain-rpc-client=debug", "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}", "-- --bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}"]

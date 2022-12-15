@@ -14,12 +14,11 @@ use cumulus_client_consensus_common::{
 };
 use cumulus_client_network::BlockAnnounceValidator;
 use cumulus_client_service::{
-	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
+	build_relay_chain_interface, prepare_node_config, start_collator, start_full_node,
+	StartCollatorParams, StartFullNodeParams,
 };
 use cumulus_primitives_core::ParaId;
-use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
 // Substrate Imports
 use sc_consensus::ImportQueue;
@@ -30,8 +29,6 @@ use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, Ta
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_keystore::SyncCryptoStorePtr;
 use substrate_prometheus_endpoint::Registry;
-
-use polkadot_service::CollatorPair;
 
 /// Native executor type.
 pub struct ParachainNativeExecutor;
@@ -134,27 +131,6 @@ pub fn new_partial(
 		select_chain: (),
 		other: (block_import, telemetry, telemetry_worker_handle),
 	})
-}
-
-async fn build_relay_chain_interface(
-	polkadot_config: Configuration,
-	parachain_config: &Configuration,
-	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
-	task_manager: &mut TaskManager,
-	collator_options: CollatorOptions,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
-	match collator_options.relay_chain_rpc_url {
-		Some(relay_chain_url) =>
-			build_minimal_relay_chain_node(polkadot_config, task_manager, relay_chain_url).await,
-		None => build_inprocess_relay_chain(
-			polkadot_config,
-			parachain_config,
-			telemetry_worker_handle,
-			task_manager,
-			hwbench,
-		),
-	}
 }
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.

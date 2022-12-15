@@ -51,11 +51,11 @@ pub enum RelayChainError {
 	BlockchainError(#[from] sp_blockchain::Error),
 	#[error("State machine error occured: {0}")]
 	StateMachineError(Box<dyn sp_state_machine::Error>),
-	#[error("Unable to call RPC method '{0}' due to error: {1}")]
-	RpcCallError(String, JsonRpcError),
+	#[error("Unable to call RPC method '{0}'")]
+	RpcCallError(String),
 	#[error("RPC Error: '{0}'")]
 	JsonRpcError(#[from] JsonRpcError),
-	#[error("Unable to reach RpcStreamWorker: {0}")]
+	#[error("Unable to communicate with RPC worker: {0}")]
 	WorkerCommunicationError(String),
 	#[error("Scale codec deserialization error: {0}")]
 	DeserializationError(CodecError),

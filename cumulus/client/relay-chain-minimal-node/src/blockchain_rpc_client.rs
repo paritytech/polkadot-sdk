@@ -363,13 +363,13 @@ impl BlockChainRpcClient {
 	pub async fn import_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = Header> + Send>>> {
-		Ok(self.rpc_client.get_imported_heads_stream().await?.boxed())
+		Ok(self.rpc_client.get_imported_heads_stream()?.boxed())
 	}
 
 	pub async fn finality_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = Header> + Send>>> {
-		Ok(self.rpc_client.get_finalized_heads_stream().await?.boxed())
+		Ok(self.rpc_client.get_finalized_heads_stream()?.boxed())
 	}
 }
 

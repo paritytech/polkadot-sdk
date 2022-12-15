@@ -13,12 +13,11 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-storage = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 tokio = { version = "1.23.0", features = ["sync"] }
 
@@ -29,4 +28,6 @@ jsonrpsee = { version = "0.16.2", features = ["ws-client"] }
 tracing = "0.1.37"
 async-trait = "0.1.59"
 url = "2.3.1"
-backoff = { version = "0.4.0", features = ["tokio"] }
+serde_json = "1.0.87"
+serde = "1.0.147"
+lru = "0.8.1"

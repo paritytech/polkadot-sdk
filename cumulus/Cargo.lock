@@ -380,20 +380,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "backoff"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
-dependencies = [
- "futures-core",
- "getrandom 0.2.3",
- "instant",
- "pin-project-lite 0.2.9",
- "rand 0.8.5",
- "tokio",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1797,12 +1783,16 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-pov-recovery",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-minimal-node",
  "parking_lot 0.12.1",
  "polkadot-primitives",
  "sc-client-api",
  "sc-consensus",
  "sc-service",
+ "sc-sysinfo",
+ "sc-telemetry",
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
@@ -2082,6 +2072,7 @@ dependencies = [
  "sp-blockchain",
  "sp-state-machine",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -2128,21 +2119,22 @@ name = "cumulus-relay-chain-rpc-interface"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "backoff",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "futures",
  "futures-timer",
  "jsonrpsee",
+ "lru",
  "parity-scale-codec",
  "polkadot-service",
  "sc-client-api",
  "sc-rpc-api",
+ "serde",
+ "serde_json",
  "sp-api",
  "sp-authority-discovery",
  "sp-consensus-babe",
  "sp-core",
- "sp-runtime",
  "sp-state-machine",
  "sp-storage",
  "tokio",
@@ -6551,10 +6543,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
- "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
- "cumulus-relay-chain-minimal-node",
- "cumulus-relay-chain-rpc-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "jsonrpsee",
@@ -7780,10 +7769,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
- "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
- "cumulus-relay-chain-minimal-node",
- "cumulus-relay-chain-rpc-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures",
@@ -10584,9 +10570,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.85"
+version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e55a28e3aaef9d5ce0506d0a14dbba8054ddc7e499ef522dd8b26859ec9d4a44"
+checksum = "020ff22c755c2ed3f8cf162dbb41a7268d934702f3ed3631656ea597e08fc3db"
 dependencies = [
  "itoa 1.0.4",
  "ryu",
@@ -12611,7 +12597,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.3",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
@@ -13724,9 +13710,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c0608f53c1dc0bad505d03a34bbd49fbf2ad7b51eb036123e896365532745a1"
+checksum = "e5d9ba232399af1783a58d8eb26f6b5006fbefe2dc9ef36bd283324792d03ea5"
 dependencies = [
  "futures",
  "log",

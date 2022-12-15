@@ -67,10 +67,7 @@ cumulus-client-network = { path = "../../client/network" }
 cumulus-client-service = { path = "../../client/service" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
-cumulus-relay-chain-inprocess-interface = { path = "../../client/relay-chain-inprocess-interface" }
 cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface" }
-cumulus-relay-chain-rpc-interface = { path = "../../client/relay-chain-rpc-interface" }
-cumulus-relay-chain-minimal-node = { path = "../../client/relay-chain-minimal-node" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }

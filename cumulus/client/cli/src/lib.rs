@@ -293,9 +293,11 @@ pub struct RunCmd {
 	/// EXPERIMENTAL: Specify an URL to a relay chain full node to communicate with.
 	#[arg(
 		long,
-		value_parser = validate_relay_chain_url
+		value_parser = validate_relay_chain_url,
+		num_args = 0..,
+		alias = "relay-chain-rpc-url"
 	)]
-	pub relay_chain_rpc_url: Option<Url>,
+	pub relay_chain_rpc_urls: Vec<Url>,
 }
 
 impl RunCmd {
@@ -310,7 +312,7 @@ impl RunCmd {
 
 	/// Create [`CollatorOptions`] representing options only relevant to parachain collator nodes
 	pub fn collator_options(&self) -> CollatorOptions {
-		CollatorOptions { relay_chain_rpc_url: self.relay_chain_rpc_url.clone() }
+		CollatorOptions { relay_chain_rpc_urls: self.relay_chain_rpc_urls.clone() }
 	}
 }
 
@@ -318,7 +320,7 @@ impl RunCmd {
 #[derive(Clone, Debug)]
 pub struct CollatorOptions {
 	/// Location of relay chain full node
-	pub relay_chain_rpc_url: Option<Url>,
+	pub relay_chain_rpc_urls: Vec<Url>,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the
