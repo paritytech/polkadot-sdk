@@ -367,7 +367,13 @@ where
 	) -> Result<Option<Self::BatchTransaction>, SubstrateError> {
 		if let Some(ref target_to_source_headers_relay) = self.target_to_source_headers_relay {
 			if P::SourceBatchCallBuilder::BATCH_CALL_SUPPORTED {
-				return BatchConfirmationTransaction::<P>::new(self.clone(), id).await.map(Some)
+				let (proved_header, prove_calls) =
+					target_to_source_headers_relay.prove_header(id.0).await?;
+				return Ok(Some(BatchConfirmationTransaction {
+					messages_source: self.clone(),
+					proved_header,
+					prove_calls,
+				}))
 			}
 
 			target_to_source_headers_relay.require_more_headers(id.0).await;
@@ -382,21 +388,6 @@ pub struct BatchConfirmationTransaction<P: SubstrateMessageLane> {
 	messages_source: SubstrateMessagesSource<P>,
 	proved_header: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	prove_calls: Vec<CallOf<P::SourceChain>>,
-}
-
-impl<P: SubstrateMessageLane> BatchConfirmationTransaction<P> {
-	async fn new(
-		messages_source: SubstrateMessagesSource<P>,
-		required_target_header_on_source: TargetHeaderIdOf<MessageLaneAdapter<P>>,
-	) -> Result<Self, SubstrateError> {
-		let (proved_header, prove_calls) = messages_source
-			.target_to_source_headers_relay
-			.as_ref()
-			.expect("BatchConfirmationTransaction is only created when target_to_source_headers_relay is Some; qed")
-			.prove_header(required_target_header_on_source.0)
-			.await?;
-		Ok(Self { messages_source, proved_header, prove_calls })
-	}
 }
 
 #[async_trait]
