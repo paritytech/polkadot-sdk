@@ -37,7 +37,10 @@ pub use crate::{
 		ChainWithGrandpa, ChainWithMessages, ChainWithTransactions, Parachain, RelayChain,
 		SignParam, TransactionStatusOf, UnsignedTransaction,
 	},
-	client::{ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription},
+	client::{
+		ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription,
+		ANCIENT_BLOCK_THRESHOLD,
+	},
 	error::{Error, Result},
 	rpc::{SubstrateBeefyFinalityClient, SubstrateFinalityClient, SubstrateGrandpaFinalityClient},
 	sync_header::SyncHeader,

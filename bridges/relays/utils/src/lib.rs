@@ -19,7 +19,7 @@
 pub use bp_runtime::HeaderId;
 pub use error::Error;
 pub use relay_loop::{relay_loop, relay_metrics};
-pub use sp_runtime::traits::UniqueSaturatedInto;
+pub use sp_runtime::traits::{UniqueSaturatedFrom, UniqueSaturatedInto};
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoff};
