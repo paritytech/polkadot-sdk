@@ -7,7 +7,7 @@ description = "AURA consensus extension pallet for parachains"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3.1", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }

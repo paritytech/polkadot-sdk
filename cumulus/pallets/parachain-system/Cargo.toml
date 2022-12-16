@@ -11,7 +11,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { version = "0.4.17", default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3.1", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
