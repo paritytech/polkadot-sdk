@@ -57,6 +57,18 @@ const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 const SUB_API_TXPOOL_VALIDATE_TRANSACTION: &str = "TaggedTransactionQueue_validate_transaction";
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
+/// The difference between best block number and number of its ancestor, that is enough
+/// for us to consider that ancestor an "ancient" block with dropped state.
+///
+/// The relay does not assume that it is connected to the archive node, so it always tries
+/// to use the best available chain state. But sometimes it still may use state of some
+/// old block. If the state of that block is already dropped, relay will see errors when
+/// e.g. it tries to prove something.
+///
+/// By default Substrate-based nodes are storing state for last 256 blocks. We'll use
+/// half of this value.
+pub const ANCIENT_BLOCK_THRESHOLD: u32 = 128;
+
 /// Opaque justifications subscription type.
 pub struct Subscription<T>(pub(crate) Mutex<futures::channel::mpsc::Receiver<Option<T>>>);
 

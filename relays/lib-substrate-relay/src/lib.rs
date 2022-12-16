@@ -18,6 +18,9 @@
 
 #![warn(missing_docs)]
 
+use relay_substrate_client::Error as SubstrateError;
+use std::marker::PhantomData;
+
 pub mod error;
 pub mod finality;
 pub mod messages_lane;
@@ -94,5 +97,54 @@ impl<AccountId> TaggedAccount<AccountId> {
 				format!("{bridged_chain}MessagesPalletOwner")
 			},
 		}
+	}
+}
+
+/// Batch call builder.
+pub trait BatchCallBuilder<Call> {
+	/// Associated error type.
+	type Error;
+	/// If `true`, then batch calls are supported at the chain.
+	const BATCH_CALL_SUPPORTED: bool;
+
+	/// Create batch call from given calls vector.
+	fn build_batch_call(_calls: Vec<Call>) -> Result<Call, Self::Error>;
+}
+
+impl<Call> BatchCallBuilder<Call> for () {
+	type Error = SubstrateError;
+	const BATCH_CALL_SUPPORTED: bool = false;
+
+	fn build_batch_call(_calls: Vec<Call>) -> Result<Call, SubstrateError> {
+		debug_assert!(
+			false,
+			"only called if `BATCH_CALL_SUPPORTED` is true;\
+			`BATCH_CALL_SUPPORTED` is false;\
+			qed"
+		);
+
+		Err(SubstrateError::Custom("<() as BatchCallBuilder>::build_batch_call() is called".into()))
+	}
+}
+
+/// Batch call builder for bundled runtimes.
+pub struct BundledBatchCallBuilder<R>(PhantomData<R>);
+
+impl<R> BatchCallBuilder<<R as frame_system::Config>::RuntimeCall> for BundledBatchCallBuilder<R>
+where
+	R: pallet_utility::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>,
+	<R as frame_system::Config>::RuntimeCall: From<pallet_utility::Call<R>>,
+{
+	type Error = SubstrateError;
+	const BATCH_CALL_SUPPORTED: bool = true;
+
+	fn build_batch_call(
+		mut calls: Vec<<R as frame_system::Config>::RuntimeCall>,
+	) -> Result<<R as frame_system::Config>::RuntimeCall, SubstrateError> {
+		Ok(if calls.len() == 1 {
+			calls.remove(0)
+		} else {
+			pallet_utility::Call::batch_all { calls }.into()
+		})
 	}
 }

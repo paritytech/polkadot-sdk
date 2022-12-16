@@ -18,18 +18,28 @@
 //! on-demand pipelines.
 
 use async_trait::async_trait;
+use relay_substrate_client::{BlockNumberOf, CallOf, Chain, Error as SubstrateError, HeaderIdOf};
 
 pub mod headers;
 pub mod parachains;
 
 /// On-demand headers relay that is relaying finalizing headers only when requested.
 #[async_trait]
-pub trait OnDemandRelay<SourceHeaderNumber>: Send + Sync {
+pub trait OnDemandRelay<SourceChain: Chain, TargetChain: Chain>: Send + Sync {
 	/// Ask relay to relay source header with given number  to the target chain.
 	///
 	/// Depending on implementation, on-demand relay may also relay `required_header` ancestors
 	/// (e.g. if they're mandatory), or its descendants. The request is considered complete if
 	/// the best avbailable header at the target chain has number that is larger than or equal
 	/// to the `required_header`.
-	async fn require_more_headers(&self, required_header: SourceHeaderNumber);
+	async fn require_more_headers(&self, required_header: BlockNumberOf<SourceChain>);
+
+	/// Ask relay to prove source `required_header` to the `TargetChain`.
+	///
+	/// Returns number of header that is proved (it may be the `required_header` or one of its
+	/// descendants) and calls for delivering the proof.
+	async fn prove_header(
+		&self,
+		required_header: BlockNumberOf<SourceChain>,
+	) -> Result<(HeaderIdOf<SourceChain>, Vec<CallOf<TargetChain>>), SubstrateError>;
 }
