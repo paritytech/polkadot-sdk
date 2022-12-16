@@ -59,4 +59,7 @@ impl SubstrateMessageLane for BridgeHubRococoMessagesToBridgeHubWococoMessageLan
 		BridgeHubRococoMessagesToBridgeHubWococoMessageLaneReceiveMessagesProofCallBuilder;
 	type ReceiveMessagesDeliveryProofCallBuilder =
 		BridgeHubRococoMessagesToBridgeHubWococoMessageLaneReceiveMessagesDeliveryProofCallBuilder;
+
+	type SourceBatchCallBuilder = ();
+	type TargetBatchCallBuilder = ();
 }

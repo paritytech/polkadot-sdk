@@ -20,7 +20,7 @@ use crate::{
 	messages_source::{SubstrateMessagesProof, SubstrateMessagesSource},
 	messages_target::{SubstrateMessagesDeliveryProof, SubstrateMessagesTarget},
 	on_demand::OnDemandRelay,
-	TransactionParams,
+	BatchCallBuilder, TransactionParams,
 };
 
 use async_std::sync::Arc;
@@ -35,7 +35,7 @@ use messages_relay::message_lane::MessageLane;
 use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountKeyPairOf, BalanceOf, BlockNumberOf, CallOf, Chain,
-	ChainWithMessages, ChainWithTransactions, Client, HashOf,
+	ChainWithMessages, ChainWithTransactions, Client, Error as SubstrateError, HashOf,
 };
 use relay_utils::{
 	metrics::{GlobalMetrics, MetricsParams, StandaloneMetric},
@@ -55,11 +55,16 @@ pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
 	type ReceiveMessagesProofCallBuilder: ReceiveMessagesProofCallBuilder<Self>;
 	/// How receive messages delivery proof call is built?
 	type ReceiveMessagesDeliveryProofCallBuilder: ReceiveMessagesDeliveryProofCallBuilder<Self>;
+
+	/// How batch calls are built at the source chain?
+	type SourceBatchCallBuilder: BatchCallBuilder<CallOf<Self::SourceChain>, Error = SubstrateError>;
+	/// How batch calls are built at the target chain?
+	type TargetBatchCallBuilder: BatchCallBuilder<CallOf<Self::TargetChain>, Error = SubstrateError>;
 }
 
 /// Adapter that allows all `SubstrateMessageLane` to act as `MessageLane`.
 #[derive(Clone, Debug)]
-pub(crate) struct MessageLaneAdapter<P: SubstrateMessageLane> {
+pub struct MessageLaneAdapter<P: SubstrateMessageLane> {
 	_phantom: PhantomData<P>,
 }
 
@@ -90,10 +95,10 @@ pub struct MessagesRelayParams<P: SubstrateMessageLane> {
 	pub target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	/// Optional on-demand source to target headers relay.
 	pub source_to_target_headers_relay:
-		Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::SourceChain>>>>,
+		Option<Arc<dyn OnDemandRelay<P::SourceChain, P::TargetChain>>>,
 	/// Optional on-demand target to source headers relay.
 	pub target_to_source_headers_relay:
-		Option<Arc<dyn OnDemandRelay<BlockNumberOf<P::TargetChain>>>>,
+		Option<Arc<dyn OnDemandRelay<P::TargetChain, P::SourceChain>>>,
 	/// Identifier of lane that needs to be served.
 	pub lane_id: LaneId,
 	/// Metrics parameters.

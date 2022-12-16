@@ -21,6 +21,7 @@ thiserror = "1.0.26"
 
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-runtime = { path = "../../primitives/runtime" }
 pallet-bridge-messages = { path = "../../modules/messages" }
 finality-relay = { path = "../finality" }

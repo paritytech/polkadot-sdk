@@ -26,7 +26,6 @@ use crate::cli::{
 	CliChain,
 };
 use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::BlockNumberOf;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithTransactions, Client, Parachain,
@@ -199,8 +198,8 @@ where
 	async fn start_on_demand_headers_relayers(
 		&mut self,
 	) -> anyhow::Result<(
-		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Left>>>,
-		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Right>>>,
+		Arc<dyn OnDemandRelay<Self::Left, Self::Right>>,
+		Arc<dyn OnDemandRelay<Self::Right, Self::Left>>,
 	)> {
 		self.common.left.accounts.push(TaggedAccount::Headers {
 			id: self.right_headers_to_left_transaction_params.signer.public().into(),
@@ -229,22 +228,22 @@ where
 		.await?;
 
 		let left_to_right_on_demand_headers =
-			OnDemandHeadersRelay::new::<<L2R as RelayToRelayHeadersCliBridge>::Finality>(
+			OnDemandHeadersRelay::<<L2R as RelayToRelayHeadersCliBridge>::Finality>::new(
 				self.common.left.client.clone(),
 				self.common.right.client.clone(),
 				self.left_headers_to_right_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
 			);
 		let right_relay_to_left_on_demand_headers =
-			OnDemandHeadersRelay::new::<<R2L as ParachainToRelayHeadersCliBridge>::RelayFinality>(
+			OnDemandHeadersRelay::<<R2L as ParachainToRelayHeadersCliBridge>::RelayFinality>::new(
 				self.right_relay.clone(),
 				self.common.left.client.clone(),
 				self.right_headers_to_left_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
 			);
-		let right_to_left_on_demand_parachains = OnDemandParachainsRelay::new::<
+		let right_to_left_on_demand_parachains = OnDemandParachainsRelay::<
 			<R2L as ParachainToRelayHeadersCliBridge>::ParachainFinality,
-		>(
+		>::new(
 			self.right_relay.clone(),
 			self.common.left.client.clone(),
 			self.right_parachains_to_left_transaction_params.clone(),
