@@ -155,9 +155,13 @@ where
 {
 	type Error = C::Error;
 	type TargetNoncesData = ();
+	type BatchTransaction = C::BatchTransaction;
 	type TransactionTracker = C::TransactionTracker;
 
-	async fn require_source_header(&self, id: TargetHeaderIdOf<P>) {
+	async fn require_source_header(
+		&self,
+		id: TargetHeaderIdOf<P>,
+	) -> Result<Option<C::BatchTransaction>, Self::Error> {
 		self.client.require_target_header_on_source(id).await
 	}
 
