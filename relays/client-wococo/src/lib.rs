@@ -59,5 +59,5 @@ impl ChainWithBalances for Wococo {
 
 impl RelayChain for Wococo {
 	const PARAS_PALLET_NAME: &'static str = bp_wococo::PARAS_PALLET_NAME;
-	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "bridgeWococoParachain";
+	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "BridgeWococoParachain";
 }
