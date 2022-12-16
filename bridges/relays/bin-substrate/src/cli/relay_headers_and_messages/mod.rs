@@ -59,7 +59,7 @@ use crate::{
 	declare_chain_cli_schema,
 };
 use bp_messages::LaneId;
-use bp_runtime::{BalanceOf, BlockNumberOf};
+use bp_runtime::BalanceOf;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithTransactions, Client,
 	Parachain,
@@ -167,8 +167,8 @@ where
 	/// Returns message relay parameters.
 	fn messages_relay_params(
 		&self,
-		source_to_target_headers_relay: Arc<dyn OnDemandRelay<BlockNumberOf<Source>>>,
-		target_to_source_headers_relay: Arc<dyn OnDemandRelay<BlockNumberOf<Target>>>,
+		source_to_target_headers_relay: Arc<dyn OnDemandRelay<Source, Target>>,
+		target_to_source_headers_relay: Arc<dyn OnDemandRelay<Target, Source>>,
 		lane_id: LaneId,
 	) -> MessagesRelayParams<Bridge::MessagesLane> {
 		MessagesRelayParams {
@@ -243,8 +243,8 @@ trait Full2WayBridgeBase: Sized + Send + Sync {
 	async fn start_on_demand_headers_relayers(
 		&mut self,
 	) -> anyhow::Result<(
-		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Left>>>,
-		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Right>>>,
+		Arc<dyn OnDemandRelay<Self::Left, Self::Right>>,
+		Arc<dyn OnDemandRelay<Self::Right, Self::Left>>,
 	)>;
 }
 

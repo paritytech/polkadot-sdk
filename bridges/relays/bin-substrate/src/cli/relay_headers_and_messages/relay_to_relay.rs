@@ -22,7 +22,6 @@ use crate::cli::{
 	relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
 	CliChain,
 };
-use bp_runtime::BlockNumberOf;
 use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, ChainWithTransactions};
 use sp_core::Pair;
 use substrate_relay_helper::{
@@ -149,8 +148,8 @@ where
 	async fn start_on_demand_headers_relayers(
 		&mut self,
 	) -> anyhow::Result<(
-		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Left>>>,
-		Arc<dyn OnDemandRelay<BlockNumberOf<Self::Right>>>,
+		Arc<dyn OnDemandRelay<Self::Left, Self::Right>>,
+		Arc<dyn OnDemandRelay<Self::Right, Self::Left>>,
 	)> {
 		self.common.right.accounts.push(TaggedAccount::Headers {
 			id: self.left_to_right_transaction_params.signer.public().into(),
@@ -175,14 +174,14 @@ where
 		.await?;
 
 		let left_to_right_on_demand_headers =
-			OnDemandHeadersRelay::new::<<L2R as RelayToRelayHeadersCliBridge>::Finality>(
+			OnDemandHeadersRelay::<<L2R as RelayToRelayHeadersCliBridge>::Finality>::new(
 				self.common.left.client.clone(),
 				self.common.right.client.clone(),
 				self.left_to_right_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
 			);
 		let right_to_left_on_demand_headers =
-			OnDemandHeadersRelay::new::<<R2L as RelayToRelayHeadersCliBridge>::Finality>(
+			OnDemandHeadersRelay::<<R2L as RelayToRelayHeadersCliBridge>::Finality>::new(
 				self.common.right.client.clone(),
 				self.common.left.client.clone(),
 				self.right_to_left_transaction_params.clone(),

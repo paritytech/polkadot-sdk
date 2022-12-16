@@ -41,4 +41,7 @@ impl SubstrateMessageLane for MillauMessagesToRialto {
 		millau_runtime::Runtime,
 		millau_runtime::WithRialtoMessagesInstance,
 	>;
+
+	type SourceBatchCallBuilder = ();
+	type TargetBatchCallBuilder = ();
 }
