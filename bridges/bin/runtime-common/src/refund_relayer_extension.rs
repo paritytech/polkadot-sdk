@@ -268,7 +268,18 @@ where
 			Some(CallType::Delivery(extract_messages_state::<R, GI, MI, LID>(call)?))
 		};
 
-		Ok(parse_call_type().map(|call_type| PreDispatchData { relayer: who.clone(), call_type }))
+		Ok(parse_call_type()
+			.map(|call_type| {
+				log::trace!(
+					target: "runtime::bridge",
+					"RefundRelayerForMessagesFromParachain from parachain {} via {:?} parsed bridge transaction in pre-dispatch: {:?}",
+					PID::get(),
+					LID::get(),
+					call_type,
+				);
+				PreDispatchData { relayer: who.clone(), call_type }
+			})
+		)
 	}
 
 	fn post_dispatch(
@@ -339,6 +350,15 @@ where
 
 		// finally - register reward in relayers pallet
 		RelayersPallet::<R>::register_relayer_reward(LID::get(), &relayer, reward);
+
+		log::trace!(
+			target: "runtime::bridge",
+			"RefundRelayerForMessagesFromParachain from parachain {} via {:?} has registered {:?} reward: {:?}",
+			PID::get(),
+			LID::get(),
+			relayer,
+			reward,
+		);
 
 		Ok(())
 	}
