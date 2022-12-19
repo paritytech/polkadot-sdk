@@ -125,8 +125,6 @@ pub struct BridgeEndCommonParams<Chain: ChainWithTransactions + CliChain> {
 	pub sign: AccountKeyPairOf<Chain>,
 	/// Transactions mortality.
 	pub transactions_mortality: Option<u32>,
-	/// Account that "owns" messages pallet.
-	pub messages_pallet_owner: Option<AccountKeyPairOf<Chain>>,
 	/// Accounts, which balances are exposed as metrics by the relay process.
 	pub accounts: Vec<TaggedAccount<AccountIdOf<Chain>>>,
 }
@@ -500,8 +498,6 @@ mod tests {
 			"9944",
 			"--millau-signer",
 			"//Charlie",
-			"--millau-messages-pallet-owner",
-			"//RialtoMessagesOwner",
 			"--millau-transactions-mortality",
 			"64",
 			"--rialto-host",
@@ -510,8 +506,6 @@ mod tests {
 			"9944",
 			"--rialto-signer",
 			"//Charlie",
-			"--rialto-messages-pallet-owner",
-			"//MillauMessagesOwner",
 			"--rialto-transactions-mortality",
 			"64",
 			"--lane",
@@ -555,10 +549,6 @@ mod tests {
 					millau_signer_password_file: None,
 					millau_transactions_mortality: Some(64),
 				},
-				left_messages_pallet_owner: MillauMessagesPalletOwnerSigningParams {
-					millau_messages_pallet_owner: Some("//RialtoMessagesOwner".into()),
-					millau_messages_pallet_owner_password: None,
-				},
 				left_headers_to_right_sign_override: MillauHeadersToRialtoSigningParams {
 					millau_headers_to_rialto_signer: None,
 					millau_headers_to_rialto_signer_password: None,
@@ -582,10 +572,6 @@ mod tests {
 					rialto_signer_file: None,
 					rialto_signer_password_file: None,
 					rialto_transactions_mortality: Some(64),
-				},
-				right_messages_pallet_owner: RialtoMessagesPalletOwnerSigningParams {
-					rialto_messages_pallet_owner: Some("//MillauMessagesOwner".into()),
-					rialto_messages_pallet_owner_password: None,
 				},
 				right_headers_to_left_sign_override: RialtoHeadersToMillauSigningParams {
 					rialto_headers_to_millau_signer: None,
@@ -612,8 +598,6 @@ mod tests {
 			"//Iden",
 			"--rialto-headers-to-millau-signer",
 			"//Ken",
-			"--millau-messages-pallet-owner",
-			"//RialtoParachainMessagesOwner",
 			"--millau-transactions-mortality",
 			"64",
 			"--rialto-parachain-host",
@@ -622,8 +606,6 @@ mod tests {
 			"9944",
 			"--rialto-parachain-signer",
 			"//George",
-			"--rialto-parachain-messages-pallet-owner",
-			"//MillauMessagesOwner",
 			"--rialto-parachain-transactions-mortality",
 			"64",
 			"--rialto-host",
@@ -667,10 +649,6 @@ mod tests {
 						millau_signer_password_file: None,
 						millau_transactions_mortality: Some(64),
 					},
-					left_messages_pallet_owner: MillauMessagesPalletOwnerSigningParams {
-						millau_messages_pallet_owner: Some("//RialtoParachainMessagesOwner".into()),
-						millau_messages_pallet_owner_password: None,
-					},
 					left_headers_to_right_sign_override:
 						MillauHeadersToRialtoParachainSigningParams {
 							millau_headers_to_rialto_parachain_signer: None,
@@ -695,12 +673,6 @@ mod tests {
 						rialto_parachain_signer_file: None,
 						rialto_parachain_signer_password_file: None,
 						rialto_parachain_transactions_mortality: Some(64),
-					},
-					right_messages_pallet_owner: RialtoParachainMessagesPalletOwnerSigningParams {
-						rialto_parachain_messages_pallet_owner: Some(
-							"//MillauMessagesOwner".into()
-						),
-						rialto_parachain_messages_pallet_owner_password: None,
 					},
 					right_relay_headers_to_left_sign_override: RialtoHeadersToMillauSigningParams {
 						rialto_headers_to_millau_signer: Some("//Ken".into()),

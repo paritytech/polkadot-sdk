@@ -15,7 +15,6 @@
 
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames};
 
@@ -259,40 +258,6 @@ macro_rules! declare_chain_signing_params_cli_schema {
 	};
 }
 
-/// Create chain-specific set of messages pallet owner signing parameters.
-#[macro_export]
-macro_rules! declare_chain_messages_pallet_owner_signing_params_cli_schema {
-	($chain:ident, $chain_prefix:ident) => {
-		bp_runtime::paste::item! {
-			#[doc = "Parameters required to sign transaction on behalf of owner of the messages pallet at " $chain "."]
-			#[derive(StructOpt, Debug, PartialEq, Eq)]
-			pub struct [<$chain MessagesPalletOwnerSigningParams>] {
-				#[doc = "The SURI of secret key to use when transactions are submitted to the " $chain " node."]
-				#[structopt(long)]
-				pub [<$chain_prefix _messages_pallet_owner>]: Option<String>,
-				#[doc = "The password for the SURI of secret key to use when transactions are submitted to the " $chain " node."]
-				#[structopt(long)]
-				pub [<$chain_prefix _messages_pallet_owner_password>]: Option<String>,
-			}
-
-			#[allow(dead_code)]
-			impl [<$chain MessagesPalletOwnerSigningParams>] {
-				/// Parse signing params into chain-specific KeyPair.
-				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Option<Chain::KeyPair>> {
-					let [<$chain_prefix _messages_pallet_owner>] = match self.[<$chain_prefix _messages_pallet_owner>] {
-						Some(ref messages_pallet_owner) => messages_pallet_owner,
-						None => return Ok(None),
-					};
-					Chain::KeyPair::from_string(
-						[<$chain_prefix _messages_pallet_owner>],
-						self.[<$chain_prefix _messages_pallet_owner_password>].as_deref()
-					).map_err(|e| anyhow::format_err!("{:?}", e)).map(Some)
-				}
-			}
-		}
-	};
-}
-
 /// Create chain-specific set of configuration objects: connection parameters,
 /// signing parameters and bridge initialization parameters.
 #[macro_export]
@@ -301,10 +266,6 @@ macro_rules! declare_chain_cli_schema {
 		$crate::declare_chain_runtime_version_params_cli_schema!($chain, $chain_prefix);
 		$crate::declare_chain_connection_params_cli_schema!($chain, $chain_prefix);
 		$crate::declare_chain_signing_params_cli_schema!($chain, $chain_prefix);
-		$crate::declare_chain_messages_pallet_owner_signing_params_cli_schema!(
-			$chain,
-			$chain_prefix
-		);
 	};
 }
 
