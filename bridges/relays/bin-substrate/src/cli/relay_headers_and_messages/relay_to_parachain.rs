@@ -83,9 +83,6 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 				// default signer, which is always used to sign messages relay transactions on the left chain
 				#[structopt(flatten)]
 				left_sign: [<$left_chain SigningParams>],
-				// signer used to sign parameter update transactions at the left chain
-				#[structopt(flatten)]
-				left_messages_pallet_owner: [<$left_chain MessagesPalletOwnerSigningParams>],
 
 				#[structopt(flatten)]
 				right: [<$right_parachain ConnectionParams>],
@@ -95,10 +92,6 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 				// default signer, which is always used to sign messages relay transactions on the right chain
 				#[structopt(flatten)]
 				right_sign: [<$right_parachain SigningParams>],
-				// signer used to sign parameter update transactions at the left chain
-				#[structopt(flatten)]
-				right_messages_pallet_owner: [<$right_parachain MessagesPalletOwnerSigningParams>],
-
 
 				// override for right_relay->left headers signer
 				#[structopt(flatten)]
@@ -131,14 +124,12 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 								client: self.left.into_client::<Left>().await?,
 								sign: self.left_sign.to_keypair::<Left>()?,
 								transactions_mortality: self.left_sign.transactions_mortality()?,
-								messages_pallet_owner: self.left_messages_pallet_owner.to_keypair::<Left>()?,
 								accounts: vec![],
 							},
 							BridgeEndCommonParams {
 								client: self.right.into_client::<Right>().await?,
 								sign: self.right_sign.to_keypair::<Right>()?,
 								transactions_mortality: self.right_sign.transactions_mortality()?,
-								messages_pallet_owner: self.right_messages_pallet_owner.to_keypair::<Right>()?,
 								accounts: vec![],
 							},
 						)?,
