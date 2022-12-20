@@ -17,7 +17,7 @@
 /// A special pallet that exposes dispatchables that are only useful for testing.
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
