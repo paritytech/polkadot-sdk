@@ -24,7 +24,7 @@ use cumulus_test_client::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::{generic::BlockId, traits::Header as HeaderT};
+use sp_runtime::traits::Header as HeaderT;
 use std::{env, process::Command};
 
 fn call_validate_block_encoded_header(
@@ -60,7 +60,7 @@ fn create_test_client() -> (Client, Header) {
 		.build();
 
 	let genesis_header = client
-		.header(&BlockId::number(0))
+		.header(client.chain_info().genesis_hash)
 		.ok()
 		.flatten()
 		.expect("Genesis header exists; qed");

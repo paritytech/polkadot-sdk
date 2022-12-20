@@ -381,20 +381,9 @@ fn block_local<T>(fut: impl Future<Output = T>) -> T {
 impl HeaderBackend<Block> for BlockChainRpcClient {
 	fn header(
 		&self,
-		id: BlockId,
+		hash: <Block as polkadot_service::BlockT>::Hash,
 	) -> sp_blockchain::Result<Option<<Block as polkadot_service::BlockT>::Header>> {
-		let fetch_header = |hash| block_local(self.rpc_client.chain_get_header(Some(hash)));
-
-		match id {
-			BlockId::Hash(hash) => Ok(fetch_header(hash)?),
-			BlockId::Number(number) => {
-				if let Some(hash) = HeaderBackend::<Block>::hash(self, number)? {
-					Ok(fetch_header(hash)?)
-				} else {
-					Ok(None)
-				}
-			},
-		}
+		Ok(block_local(self.rpc_client.chain_get_header(Some(hash)))?)
 	}
 
 	fn info(&self) -> Info<Block> {
@@ -425,7 +414,7 @@ impl HeaderBackend<Block> for BlockChainRpcClient {
 		id: sp_api::BlockId<Block>,
 	) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
 		let exists = match id {
-			BlockId::Hash(_) => self.header(id)?.is_some(),
+			BlockId::Hash(hash) => self.header(hash)?.is_some(),
 			BlockId::Number(n) => {
 				let best_header = block_local(self.rpc_client.chain_get_header(None))?;
 				if let Some(best) = best_header {

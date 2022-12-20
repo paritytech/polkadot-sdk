@@ -82,7 +82,10 @@ mod tests {
 		ValidationParams,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-	use sp_runtime::{generic::BlockId, traits::Header as HeaderT};
+	use sp_runtime::{
+		generic::BlockId,
+		traits::{Block as BlockT, Header as HeaderT},
+	};
 	use std::{env, process::Command, str::FromStr};
 
 	const SLOT_DURATION: u64 = 6000;
@@ -106,14 +109,14 @@ mod tests {
 
 	fn build_block(
 		client: &Client,
-		at: BlockId<Block>,
+		hash: <Block as BlockT>::Hash,
 		timestamp: u64,
 		relay_chain_slot: Slot,
 	) -> (ParachainBlockData, PHash) {
 		let sproof_builder =
 			RelayStateSproofBuilder { current_slot: relay_chain_slot, ..Default::default() };
 
-		let parent_header = client.header(&at).ok().flatten().expect("Genesis header exists");
+		let parent_header = client.header(hash).ok().flatten().expect("Genesis header exists");
 
 		let relay_parent_storage_root = sproof_builder.clone().into_state_root_and_proof().0;
 
@@ -125,7 +128,7 @@ mod tests {
 
 		let block = client
 			.init_block_builder_with_timestamp(
-				&at,
+				&BlockId::Hash(hash),
 				Some(validation_data),
 				sproof_builder,
 				timestamp,
@@ -146,19 +149,20 @@ mod tests {
 				.expect("TIMESTAMP is a valid `u64`");
 
 			let block =
-				build_block(&client, BlockId::number(0), SLOT_DURATION, 1.into()).0.into_block();
-			futures::executor::block_on(client.import(sp_consensus::BlockOrigin::Own, block))
-				.unwrap();
+				build_block(&client, client.chain_info().genesis_hash, SLOT_DURATION, 1.into())
+					.0
+					.into_block();
+			futures::executor::block_on(
+				client.import(sp_consensus::BlockOrigin::Own, block.clone()),
+			)
+			.unwrap();
 
+			let hashof1 = block.hash();
 			let (block, relay_chain_root) =
-				build_block(&client, BlockId::number(1), timestamp, relay_chain_slot.into());
+				build_block(&client, hashof1, timestamp, relay_chain_slot.into());
 
 			let header = call_validate_block(
-				client
-					.header(&BlockId::number(1))
-					.ok()
-					.flatten()
-					.expect("Genesis header exists"),
+				client.header(hashof1).ok().flatten().expect("Genesis header exists"),
 				block.clone(),
 				relay_chain_root,
 			)

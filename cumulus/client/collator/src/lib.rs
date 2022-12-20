@@ -422,7 +422,7 @@ mod tests {
 		let para_id = ParaId::from(100);
 		let announce_block = |_, _| ();
 		let client = Arc::new(TestClientBuilder::new().build());
-		let header = client.header(&BlockId::Number(0)).unwrap().unwrap();
+		let header = client.header(client.chain_info().genesis_hash).unwrap().unwrap();
 
 		let (sub_tx, sub_rx) = mpsc::channel(64);
 
