@@ -117,10 +117,14 @@ pub type Client = TFullClient<
 	sc_executor::NativeElseWasmExecutor<RuntimeExecutor>,
 >;
 
+/// The backend type being used by the test service.
+pub type Backend = TFullBackend<Block>;
+
+/// The block-import type being used by the test service.
+pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backend>;
+
 /// Transaction pool type used by the test service
 pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
-
-type ParachainBlockImport = TParachainBlockImport<Arc<Client>>;
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -131,7 +135,7 @@ pub fn new_partial(
 ) -> Result<
 	PartialComponents<
 		Client,
-		TFullBackend<Block>,
+		Backend,
 		(),
 		sc_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
 		sc_transaction_pool::FullPool<Block, Client>,
@@ -150,7 +154,7 @@ pub fn new_partial(
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(config, None, executor)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone());
+	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
 	let registry = config.prometheus_registry();
 
@@ -299,7 +303,7 @@ where
 		task_manager: &mut task_manager,
 		config: parachain_config,
 		keystore: params.keystore_container.sync_keystore(),
-		backend,
+		backend: backend.clone(),
 		network: network.clone(),
 		system_rpc_tx,
 		tx_handler_controller,

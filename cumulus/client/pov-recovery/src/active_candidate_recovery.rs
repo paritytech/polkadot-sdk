@@ -42,19 +42,19 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 		Self { recoveries: Default::default(), candidates: Default::default(), overseer_handle }
 	}
 
-	/// Recover the given `pending_candidate`.
+	/// Recover the given `candidate`.
 	pub async fn recover_candidate(
 		&mut self,
 		block_hash: Block::Hash,
-		pending_candidate: crate::PendingCandidate<Block>,
+		candidate: &crate::Candidate<Block>,
 	) {
 		let (tx, rx) = oneshot::channel();
 
 		self.overseer_handle
 			.send_msg(
 				AvailabilityRecoveryMessage::RecoverAvailableData(
-					pending_candidate.receipt,
-					pending_candidate.session_index,
+					candidate.receipt.clone(),
+					candidate.session_index,
 					None,
 					tx,
 				),

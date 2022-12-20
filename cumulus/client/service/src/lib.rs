@@ -20,11 +20,13 @@
 
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::ParachainConsensus;
+use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelay};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
 use polkadot_primitives::v2::CollatorPair;
+
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, UsageProvider,
 };
@@ -35,7 +37,14 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::Block as BlockT;
+
+use futures::channel::mpsc;
 use std::{sync::Arc, time::Duration};
+
+// Given the sporadic nature of the explicit recovery operation and the
+// possibility to retry infinite times this value is more than enough.
+// In practice here we expect no more than one queued messages.
+const RECOVERY_CHAN_SIZE: usize = 8;
 
 /// Parameters given to [`start_collator`].
 pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawner> {
@@ -90,11 +99,14 @@ where
 	RCInterface: RelayChainInterface + Clone + 'static,
 	Backend: BackendT<Block> + 'static,
 {
+	let (recovery_chan_tx, recovery_chan_rx) = mpsc::channel(RECOVERY_CHAN_SIZE);
+
 	let consensus = cumulus_client_consensus_common::run_parachain_consensus(
 		para_id,
 		client.clone(),
 		relay_chain_interface.clone(),
 		announce_block.clone(),
+		Some(recovery_chan_tx),
 	);
 
 	task_manager
@@ -105,15 +117,16 @@ where
 		.overseer_handle()
 		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
-	let pov_recovery = cumulus_client_pov_recovery::PoVRecovery::new(
+	let pov_recovery = PoVRecovery::new(
 		overseer_handle.clone(),
 		// We want that collators wait at maximum the relay chain slot duration before starting
 		// to recover blocks.
-		cumulus_client_pov_recovery::RecoveryDelay::WithMax { max: relay_chain_slot_duration },
+		RecoveryDelay { min: core::time::Duration::ZERO, max: relay_chain_slot_duration },
 		client.clone(),
 		import_queue,
 		relay_chain_interface.clone(),
 		para_id,
+		recovery_chan_rx,
 	);
 
 	task_manager
@@ -173,11 +186,14 @@ where
 	Backend: BackendT<Block> + 'static,
 	RCInterface: RelayChainInterface + Clone + 'static,
 {
+	let (recovery_chan_tx, recovery_chan_rx) = mpsc::channel(RECOVERY_CHAN_SIZE);
+
 	let consensus = cumulus_client_consensus_common::run_parachain_consensus(
 		para_id,
 		client.clone(),
 		relay_chain_interface.clone(),
 		announce_block,
+		Some(recovery_chan_tx),
 	);
 
 	task_manager
@@ -188,21 +204,19 @@ where
 		.overseer_handle()
 		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
-	let pov_recovery = cumulus_client_pov_recovery::PoVRecovery::new(
+	let pov_recovery = PoVRecovery::new(
 		overseer_handle,
 		// Full nodes should at least wait 2.5 minutes (assuming 6 seconds slot duration) and
 		// in maximum 5 minutes before starting to recover blocks. Collators should already start
 		// the recovery way before full nodes try to recover a certain block and then share the
 		// block with the network using "the normal way". Full nodes are just the "last resort"
 		// for block recovery.
-		cumulus_client_pov_recovery::RecoveryDelay::WithMinAndMax {
-			min: relay_chain_slot_duration * 25,
-			max: relay_chain_slot_duration * 50,
-		},
+		RecoveryDelay { min: relay_chain_slot_duration * 25, max: relay_chain_slot_duration * 50 },
 		client,
 		import_queue,
 		relay_chain_interface,
 		para_id,
+		recovery_chan_rx,
 	);
 
 	task_manager

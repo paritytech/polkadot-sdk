@@ -24,7 +24,7 @@
 
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::{
-	ParachainBlockImport, ParachainCandidate, ParachainConsensus,
+	ParachainBlockImportMarker, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_primitives_core::{relay_chain::v2::Hash as PHash, PersistedValidationData};
 
@@ -75,7 +75,7 @@ impl<B, CIDP, W> Clone for AuraConsensus<B, CIDP, W> {
 pub struct BuildAuraConsensusParams<PF, BI, CIDP, Client, BS, SO> {
 	pub proposer_factory: PF,
 	pub create_inherent_data_providers: CIDP,
-	pub block_import: ParachainBlockImport<BI>,
+	pub block_import: BI,
 	pub para_client: Arc<Client>,
 	pub backoff_authoring_blocks: Option<BS>,
 	pub sync_oracle: SO,
@@ -114,7 +114,11 @@ where
 		Client:
 			ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
 		Client::Api: AuraApi<B, P::Public>,
-		BI: BlockImport<B, Transaction = sp_api::TransactionFor<Client, B>> + Send + Sync + 'static,
+		BI: BlockImport<B, Transaction = sp_api::TransactionFor<Client, B>>
+			+ ParachainBlockImportMarker
+			+ Send
+			+ Sync
+			+ 'static,
 		SO: SyncOracle + Send + Sync + Clone + 'static,
 		BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 		PF: Environment<B, Error = Error> + Send + Sync + 'static,

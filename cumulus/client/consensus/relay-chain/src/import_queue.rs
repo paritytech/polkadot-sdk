@@ -16,7 +16,7 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use cumulus_client_consensus_common::ParachainBlockImport;
+use cumulus_client_consensus_common::ParachainBlockImportMarker;
 
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
@@ -107,13 +107,17 @@ where
 /// Start an import queue for a Cumulus collator that does not uses any special authoring logic.
 pub fn import_queue<Client, Block: BlockT, I, CIDP>(
 	client: Arc<Client>,
-	block_import: ParachainBlockImport<I>,
+	block_import: I,
 	create_inherent_data_providers: CIDP,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&substrate_prometheus_endpoint::Registry>,
 ) -> ClientResult<BasicQueue<Block, I::Transaction>>
 where
-	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
+	I: BlockImport<Block, Error = ConsensusError>
+		+ ParachainBlockImportMarker
+		+ Send
+		+ Sync
+		+ 'static,
 	I::Transaction: Send,
 	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,

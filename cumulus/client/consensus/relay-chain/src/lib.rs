@@ -34,11 +34,10 @@
 //! 5. After the parachain candidate got backed and included, all collators start at 1.
 
 use cumulus_client_consensus_common::{
-	ParachainBlockImport, ParachainCandidate, ParachainConsensus,
+	ParachainBlockImportMarker, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_primitives_core::{relay_chain::v2::Hash as PHash, ParaId, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
-use parking_lot::Mutex;
 
 use sc_consensus::{BlockImport, BlockImportParams};
 use sp_consensus::{
@@ -46,6 +45,8 @@ use sp_consensus::{
 };
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+
+use parking_lot::Mutex;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 mod import_queue;
@@ -56,11 +57,11 @@ const LOG_TARGET: &str = "cumulus-consensus-relay-chain";
 /// The implementation of the relay-chain provided consensus for parachains.
 pub struct RelayChainConsensus<B, PF, BI, RCInterface, CIDP> {
 	para_id: ParaId,
-	_phantom: PhantomData<B>,
 	proposer_factory: Arc<Mutex<PF>>,
 	create_inherent_data_providers: Arc<CIDP>,
-	block_import: Arc<futures::lock::Mutex<ParachainBlockImport<BI>>>,
+	block_import: Arc<futures::lock::Mutex<BI>>,
 	relay_chain_interface: RCInterface,
+	_phantom: PhantomData<B>,
 }
 
 impl<B, PF, BI, RCInterface, CIDP> Clone for RelayChainConsensus<B, PF, BI, RCInterface, CIDP>
@@ -70,11 +71,11 @@ where
 	fn clone(&self) -> Self {
 		Self {
 			para_id: self.para_id,
-			_phantom: PhantomData,
 			proposer_factory: self.proposer_factory.clone(),
 			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
 			block_import: self.block_import.clone(),
 			relay_chain_interface: self.relay_chain_interface.clone(),
+			_phantom: PhantomData,
 		}
 	}
 }
@@ -82,6 +83,7 @@ where
 impl<B, PF, BI, RCInterface, CIDP> RelayChainConsensus<B, PF, BI, RCInterface, CIDP>
 where
 	B: BlockT,
+	BI: ParachainBlockImportMarker,
 	RCInterface: RelayChainInterface,
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)>,
 {
@@ -90,7 +92,7 @@ where
 		para_id: ParaId,
 		proposer_factory: PF,
 		create_inherent_data_providers: CIDP,
-		block_import: ParachainBlockImport<BI>,
+		block_import: BI,
 		relay_chain_interface: RCInterface,
 	) -> Self {
 		Self {
@@ -143,7 +145,7 @@ impl<B, PF, BI, RCInterface, CIDP> ParachainConsensus<B>
 where
 	B: BlockT,
 	RCInterface: RelayChainInterface + Clone,
-	BI: BlockImport<B> + Send + Sync,
+	BI: BlockImport<B> + ParachainBlockImportMarker + Send + Sync,
 	PF: Environment<B> + Send + Sync,
 	PF::Proposer: Proposer<
 		B,
@@ -221,7 +223,7 @@ pub struct BuildRelayChainConsensusParams<PF, BI, CIDP, RCInterface> {
 	pub para_id: ParaId,
 	pub proposer_factory: PF,
 	pub create_inherent_data_providers: CIDP,
-	pub block_import: ParachainBlockImport<BI>,
+	pub block_import: BI,
 	pub relay_chain_interface: RCInterface,
 }
 
@@ -246,7 +248,7 @@ where
 		ProofRecording = EnableProofRecording,
 		Proof = <EnableProofRecording as ProofRecording>::Proof,
 	>,
-	BI: BlockImport<Block> + Send + Sync + 'static,
+	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, (PHash, PersistedValidationData)> + 'static,
 	RCInterface: RelayChainInterface + Clone + 'static,
 {
