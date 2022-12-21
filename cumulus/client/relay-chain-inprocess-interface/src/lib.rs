@@ -265,9 +265,7 @@ where
 {
 	let _lock = backend.get_import_lock().read();
 
-	let block_id = BlockId::Hash(hash);
-
-	if backend.blockchain().status(block_id)? == BlockStatus::InChain {
+	if backend.blockchain().status(hash)? == BlockStatus::InChain {
 		return Ok(BlockCheckStatus::InChain)
 	}
 

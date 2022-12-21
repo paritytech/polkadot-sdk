@@ -19,7 +19,7 @@ use std::{pin::Pin, str::FromStr};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use cumulus_relay_chain_rpc_interface::RelayChainRpcClient;
 use futures::{Future, Stream, StreamExt};
-use polkadot_core_primitives::{Block, BlockId, Hash, Header};
+use polkadot_core_primitives::{Block, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
 use polkadot_service::{AuxStore, HeaderBackend};
 use sc_authority_discovery::AuthorityDiscovery;
@@ -411,21 +411,9 @@ impl HeaderBackend<Block> for BlockChainRpcClient {
 
 	fn status(
 		&self,
-		id: sp_api::BlockId<Block>,
+		hash: <Block as polkadot_service::BlockT>::Hash,
 	) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
-		let exists = match id {
-			BlockId::Hash(hash) => self.header(hash)?.is_some(),
-			BlockId::Number(n) => {
-				let best_header = block_local(self.rpc_client.chain_get_header(None))?;
-				if let Some(best) = best_header {
-					n < best.number
-				} else {
-					false
-				}
-			},
-		};
-
-		if exists {
+		if self.header(hash)?.is_some() {
 			Ok(sc_client_api::blockchain::BlockStatus::InChain)
 		} else {
 			Ok(sc_client_api::blockchain::BlockStatus::Unknown)
