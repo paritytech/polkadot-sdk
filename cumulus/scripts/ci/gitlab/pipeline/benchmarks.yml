@@ -57,3 +57,24 @@ benchmarks-collectives:
   tags:
     - weights
 
+benchmarks-bridge-hubs:
+  stage:                           benchmarks-run
+  extends:
+    - .collect-artifacts
+    - .benchmarks-refs
+  before_script:
+    - !reference [.docker-env, before_script]
+  timeout:                         1d
+  script:
+    - ./scripts/benchmarks-ci.sh bridge-hubs bridge-hub-kusama ./artifacts
+    - ./scripts/benchmarks-ci.sh bridge-hubs bridge-hub-rococo ./artifacts
+    - export CURRENT_TIME=$(date '+%s')
+    - export BRANCHNAME="weights-bridge-hubs-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
+    - !reference [.git-commit-push, script]
+    - ./scripts/ci/create-benchmark-pr.sh "[benchmarks] Update weights for bridge-hubs" "$BRANCHNAME"
+    - rm -f ./artifacts/polkadot-parachain
+    - rm -f ./artifacts/test-parachain
+  after_script:
+    - rm -rf .git/config
+  tags:
+    - weights

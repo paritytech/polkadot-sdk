@@ -20,6 +20,7 @@ pub mod currency {
 	/// The existential deposit. Set to 1/10 of its parent Relay Chain (v9010).
 	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
 
+	pub const UNITS: Balance = constants::currency::UNITS;
 	pub const CENTS: Balance = constants::currency::CENTS;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
