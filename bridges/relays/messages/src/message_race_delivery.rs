@@ -318,16 +318,31 @@ where
 		&self,
 		current_best: &SourceHeaderIdOf<P>,
 	) -> Option<SourceHeaderIdOf<P>> {
+		let has_nonces_to_deliver = !self.strategy.is_empty();
 		let header_required_for_messages_delivery =
 			self.strategy.required_source_header_at_target(current_best);
-		let header_required_for_reward_confirmations_delivery =
-			self.latest_confirmed_nonces_at_source.back().map(|(id, _)| id.clone());
+		let header_required_for_reward_confirmations_delivery = self
+			.latest_confirmed_nonces_at_source
+			.back()
+			.filter(|(id, nonce)| *nonce != 0 && id.0 > current_best.0)
+			.map(|(id, _)| id.clone());
 		match (
+			has_nonces_to_deliver,
 			header_required_for_messages_delivery,
 			header_required_for_reward_confirmations_delivery,
 		) {
-			(Some(id1), Some(id2)) => Some(if id1.0 > id2.0 { id1 } else { id2 }),
-			(a, b) => a.or(b),
+			// if we need to delver messages and proof-of-delivery-confirmations, then we need to
+			// select the most recent header to avoid extra roundtrips
+			(true, Some(id1), Some(id2)) => Some(if id1.0 > id2.0 { id1 } else { id2 }),
+			// if we only need to deliver messages - fine, let's require some source header
+			//
+			// if we need new header for proof-of-delivery-confirmations - let's also ask for that.
+			// Even though it may require additional header, we'll be sure that we won't block the
+			// lane (sometimes we can't deliver messages without proof-of-delivery-confirmations)
+			(true, a, b) => a.or(b),
+			// we never submit delivery transaction without messages, so if `has_nonces_to_deliver`
+			// if `false`, we don't need any source headers at target
+			(false, _, _) => None,
 		}
 	}
 
@@ -926,38 +941,58 @@ mod tests {
 		// - all messages [20; 23] have been generated at source block#1;
 		let (mut state, mut strategy) = prepare_strategy();
 		//
-		// - messages [20; 21] have been delivered, but messages [11; 20] can't be delivered because
-		//   of unrewarded relayers vector capacity;
-		strategy.max_unconfirmed_nonces_at_target = 2;
+		// - messages [20; 23] have been delivered
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state.clone()).await,
-			Some(((20..=21), proof_parameters(false, 2)))
+			Some(((20..=23), proof_parameters(false, 4)))
 		);
 		strategy.finalized_target_nonces_updated(
 			TargetClientNonces {
-				latest_nonce: 21,
+				latest_nonce: 23,
 				nonces_data: DeliveryRaceTargetNoncesData {
 					confirmed_nonce: 19,
 					unrewarded_relayers: UnrewardedRelayersState {
-						unrewarded_relayer_entries: 2,
-						messages_in_oldest_entry: 2,
-						total_messages: 2,
-						last_delivered_nonce: 19,
+						unrewarded_relayer_entries: 1,
+						messages_in_oldest_entry: 4,
+						total_messages: 4,
+						last_delivered_nonce: 23,
 					},
 				},
 			},
 			&mut state,
 		);
-		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
+		// nothing needs to be delivered now and we don't need any new headers
+		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
+		assert_eq!(strategy.required_source_header_at_target(&header_id(1)), None);
+
+		// now let's generate two more nonces [24; 25] at the soruce;
+		strategy.source_nonces_updated(header_id(2), source_nonces(24..=25, 19, 0));
 		//
-		// - messages [1; 10] receiving confirmation has been delivered at source block#2;
-		strategy.source_nonces_updated(
-			header_id(2),
-			SourceClientNonces { new_nonces: MessageDetailsMap::new(), confirmed_nonce: Some(21) },
-		);
-		//
-		// - so now we'll need to relay source block#11 to be able to accept messages [11; 20].
+		// - so now we'll need to relay source block#2 to be able to accept messages [24; 25].
+		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
 		assert_eq!(strategy.required_source_header_at_target(&header_id(1)), Some(header_id(2)));
+
+		// let's relay source block#2
+		state.best_finalized_source_header_id_at_source = Some(header_id(2));
+		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
+		state.best_target_header_id = Some(header_id(2));
+		state.best_finalized_target_header_id = Some(header_id(2));
+
+		// and ask strategy again => still nothing to deliver, because parallel confirmations
+		// race need to be pushed further
+		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
+		assert_eq!(strategy.required_source_header_at_target(&header_id(2)), None);
+
+		// let's confirm messages [20; 23]
+		strategy.source_nonces_updated(header_id(2), source_nonces(24..=25, 23, 0));
+
+		// and ask strategy again => now we have everything required to deliver remaining
+		// [24; 25] nonces and proof of [20; 23] confirmation
+		assert_eq!(
+			strategy.select_nonces_to_deliver(state).await,
+			Some(((24..=25), proof_parameters(true, 2))),
+		);
+		assert_eq!(strategy.required_source_header_at_target(&header_id(2)), None);
 	}
 
 	#[async_std::test]
@@ -984,5 +1019,39 @@ mod tests {
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=24), proof_parameters(false, 5)))
 		);
+	}
+
+	#[test]
+	#[allow(clippy::reversed_empty_ranges)]
+	fn no_source_headers_required_at_target_if_lanes_are_empty() {
+		let mut strategy = TestStrategy {
+			max_unrewarded_relayer_entries_at_target: 4,
+			max_unconfirmed_nonces_at_target: 4,
+			max_messages_in_single_batch: 4,
+			max_messages_weight_in_single_batch: Weight::from_ref_time(4),
+			max_messages_size_in_single_batch: 4,
+			latest_confirmed_nonces_at_source: VecDeque::new(),
+			lane_source_client: TestSourceClient::default(),
+			lane_target_client: TestTargetClient::default(),
+			metrics_msg: None,
+			target_nonces: None,
+			strategy: BasicStrategy::new(),
+		};
+
+		let source_header_id = header_id(10);
+		strategy.source_nonces_updated(
+			source_header_id,
+			// MessageDeliveryRaceSource::nonces returns Some(0), because that's how it is
+			// represented in memory (there's no Options in OutboundLaneState)
+			source_nonces(1u64..=0u64, 0, 0),
+		);
+
+		// even though `latest_confirmed_nonces_at_source` is not empty, new headers are not
+		// requested
+		assert_eq!(
+			strategy.latest_confirmed_nonces_at_source,
+			VecDeque::from([(source_header_id, 0)])
+		);
+		assert_eq!(strategy.required_source_header_at_target(&source_header_id), None);
 	}
 }
