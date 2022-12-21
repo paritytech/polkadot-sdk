@@ -28,6 +28,6 @@ jsonrpsee = { version = "0.16.2", features = ["ws-client"] }
 tracing = "0.1.37"
 async-trait = "0.1.59"
 url = "2.3.1"
-serde_json = "1.0.87"
+serde_json = "1.0.91"
 serde = "1.0.151"
 lru = "0.8.1"
