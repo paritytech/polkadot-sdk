@@ -1045,9 +1045,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.29"
+version = "4.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d63b9e9c07271b9957ad22c173bae2a4d9a81127680962039296abcd2f8251d"
+checksum = "a7db700bc935f9e43e88d00b0850dae18a63773cfbec6d8e070fccf7fef89a39"
 dependencies = [
  "bitflags",
  "clap_derive",
@@ -1597,7 +1597,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.0.29",
+ "clap 4.0.32",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -2229,7 +2229,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.0.29",
+ "clap 4.0.32",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -2981,7 +2981,7 @@ dependencies = [
  "Inflector",
  "array-bytes 4.2.0",
  "chrono",
- "clap 4.0.29",
+ "clap 4.0.32",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -6525,7 +6525,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.0.29",
+ "clap 4.0.32",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -7086,7 +7086,7 @@ name = "polkadot-cli"
 version = "0.9.33"
 source = "git+https://github.com/paritytech/polkadot?branch=master#49552dd8a23686bbe4205eada657e7f6816da95f"
 dependencies = [
- "clap 4.0.29",
+ "clap 4.0.32",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -7750,7 +7750,7 @@ dependencies = [
  "async-trait",
  "bridge-hub-kusama-runtime",
  "bridge-hub-rococo-runtime",
- "clap 4.0.29",
+ "clap 4.0.32",
  "collectives-polkadot-runtime",
  "contracts-rococo-runtime",
  "cumulus-client-cli",
@@ -9370,7 +9370,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#91d91d167d37
 dependencies = [
  "array-bytes 4.2.0",
  "chrono",
- "clap 4.0.29",
+ "clap 4.0.32",
  "fdlimit",
  "futures",
  "libp2p",
@@ -12494,7 +12494,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#91d91d167d37630de663ddc78e2dab38aabe573d"
 dependencies = [
- "clap 4.0.29",
+ "clap 4.0.32",
  "frame-remote-externalities",
  "frame-try-runtime",
  "hex",
