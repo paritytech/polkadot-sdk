@@ -59,7 +59,12 @@ benchmarks_instance_pallet! {
 
 		let sender = account("sender", 0, 0);
 		let mut parachains = T::parachains();
-		let _ = parachains.split_off(p as usize - 1);
+		let _ = if p <= parachains.len() as u32 {
+			parachains.split_off(p as usize)
+		} else {
+			Default::default()
+		};
+		log::trace!(target: crate::LOG_TARGET, "=== {:?}", parachains.len());
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
