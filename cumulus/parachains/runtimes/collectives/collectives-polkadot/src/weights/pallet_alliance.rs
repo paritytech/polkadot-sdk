@@ -78,19 +78,6 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Alliance Members (r:1 w:0)
-	// Storage: AllianceMotion ProposalOf (r:1 w:1)
-	// Storage: AllianceMotion Proposals (r:1 w:1)
-	// Storage: AllianceMotion Voting (r:0 w:1)
-	/// The range of component `p` is `[1, 100]`.
-	fn veto(p: u32, ) -> Weight {
-		// Minimum execution time: 23_000 nanoseconds.
-		Weight::from_ref_time(26_045_752 as u64)
-			// Standard Error: 2_154
-			.saturating_add(Weight::from_ref_time(61_220 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
-	}
-	// Storage: Alliance Members (r:1 w:0)
 	// Storage: AllianceMotion Voting (r:1 w:1)
 	// Storage: AllianceMotion Members (r:1 w:0)
 	// Storage: AllianceMotion Proposals (r:1 w:1)
