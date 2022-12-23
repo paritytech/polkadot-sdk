@@ -7,28 +7,40 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
-    xcm_version: &xcm_version '2'
     weight_to_send_teleport: &weight_to_send_teleport 2,000,000,000 # must be same for both chains
     weight_to_receive_teleport: &weight_to_receive_teleport 4,000,000,000 # must be same for both chains
-    chains:
-      accounts:
-        alice_signer: &alice_signer //Alice
-        alice_account32: &alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
-        alice_ss58: &acc_alice_ss58 '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5'
+    accounts:
+      alice_signer: &acc_alice_signer //Alice
+      alice_account32: &acc_alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
+      alice_ss58: &acc_alice_ss58 '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5'
 
 tests:
-  - name: Teleport assets from Relay Chain to Collectives Parachain successful
+  - name: Teleport assets from Relay Chain to Collectives Parachain successful.
+    before:
+      - name: Get the Alice balances on Relay & Collectives Chains.
+        actions:
+          - queries:
+              balance_rc_alice_1:
+                chain: *relay_chain
+                pallet: system
+                call: account
+                args: [ *acc_alice_acc32 ]
+              balance_cp_alice_1:
+                chain: *collectives_parachain
+                pallet: system
+                call: account
+                args: [ *acc_alice_acc32 ]
     its:
       - name: Teleport assets from Relay Chain to Collectives Parachain
         actions:
           - extrinsics:
             - chain: *relay_chain
-              signer: *alice_signer
+              signer: *acc_alice_signer
               pallet: xcmPallet
               call: teleportAssets
               args: [
                 { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
-                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
+                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *acc_alice_acc32 }}}}}, # beneficiary
                 { 
                   v1: [ 
                     # { 
@@ -53,15 +65,6 @@ tests:
                       xcmOutcome: Complete
                       # the weight must be static
                       value: *weight_to_send_teleport
-                - name: balances.Deposit
-                  chain: *collectives_parachain
-                  attributes:
-                    - type: u128
-                      # TODO (P2)
-                      # Flaky assert since sent assets used to pay a fee
-                      # query and assert Alice balance before and after teleport (see example in kick_member test)
-                      # drop this event assert
-                      value: 19,999,953,648,988 # amount received
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
@@ -69,17 +72,49 @@ tests:
                       xcmOutcome: Complete
                       # the weight must be static
                       value: *weight_to_receive_teleport
+          - queries:
+              balance_rc_alice_2:
+                chain: *relay_chain
+                pallet: system
+                call: account
+                args: [ *acc_alice_acc32 ]
+              balance_cp_alice_2:
+                chain: *collectives_parachain
+                pallet: system
+                call: account
+                args: [ *acc_alice_acc32 ]
+      - name: Alice deposit check, balance decreased on Relay Chain, increased on Collectives.
+        actions:
+          - asserts:
+              balanceDecreased:
+                args: [
+                  {
+                    balances: {
+                      before: $balance_rc_alice_1,
+                      after: $balance_rc_alice_2,
+                    }
+                  }
+                ]
+              balanceIncreased:
+                args: [
+                  {
+                    balances: {
+                      before: $balance_cp_alice_1,
+                      after: $balance_cp_alice_2,
+                    }
+                  }
+                ]
 
       - name: Teleport assets from Collectives Parachain to Relay Chain successful
         actions:
           - extrinsics:
             - chain: *collectives_parachain
-              signer: *alice_signer
+              signer: *acc_alice_signer
               pallet: polkadotXcm
               call: teleportAssets
               args: [
                 { v1: { parents: 1, interior: { here: true }}}, # destination
-                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
+                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *acc_alice_acc32 }}}}}, # beneficiary
                 { 
                   v1: [ 
                     { 
@@ -90,9 +125,7 @@ tests:
                 }, # assets
                 0, # feeAssetItem
               ]
-              events: 
-                # TODO assert balance.Deposit event on relay chain
-                # not possible now / issue - https://github.com/paritytech/parachains-integration-tests/issues/58
+              events:
                 - name: balances.Withdraw
                   attributes:
                     - type: AccountId32
@@ -120,7 +153,38 @@ tests:
                       xcmOutcome: Complete
                       # the weight must be static
                       value: *weight_to_receive_teleport
+          - queries:
+              balance_rc_alice_3:
+                chain: *relay_chain
+                pallet: system
+                call: account
+                args: [ *acc_alice_acc32 ]
+              balance_cp_alice_3:
+                chain: *collectives_parachain
+                pallet: system
+                call: account
+                args: [ *acc_alice_acc32 ]
 
-              # TODO (P2) assert Alice balance before and after teleport (see example in kick_member test)
-
-  #TODO (P1) test: teleport of non relay chain assets fails
+      - name: Alice deposit check, balance decreased on Collectives, increased on Relay Chain.
+        actions:
+          - asserts:
+              balanceDecreased:
+                args: [
+                  {
+                    balances: {
+                      before: $balance_cp_alice_2,
+                      after: $balance_cp_alice_3,
+                    }
+                  }
+                ]
+              balanceIncreased:
+                args: [
+                  {
+                    balances: {
+                      before: $balance_rc_alice_2,
+                      after: $balance_rc_alice_3,
+                    }
+                  }
+                ]
+# TODO (P2) assert Alice balance before and after teleport (see example in kick_member test)
+# TODO (P1) test: teleport of non relay chain assets fails

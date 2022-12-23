@@ -33,9 +33,7 @@ settings:
         [
           *acc_liam_acc32,
           *acc_olivia_acc32,
-          *acc_noah_acc32
-        ],
-        [
+          *acc_noah_acc32,
           *acc_emma_acc32,
           *acc_james_acc32,
           *acc_ava_acc32
@@ -58,7 +56,6 @@ settings:
           *acc_ava_acc32,
           *acc_mia_acc32
         ],
-        [],
         []
       ]
     disband:
@@ -67,7 +64,7 @@ settings:
       call: disband
       args: [
         {
-          votingMembers: 6,
+          fellowMembers: 6,
           allyMembers: 1
         }
       ]
@@ -185,7 +182,7 @@ tests:
                   chain: *collectives_parachain
                   attributes:
                     - type: u32
-                      key: votingMembers
+                      key: fellowMembers
                       value: 6
                     - type: u32
                       key: allyMembers

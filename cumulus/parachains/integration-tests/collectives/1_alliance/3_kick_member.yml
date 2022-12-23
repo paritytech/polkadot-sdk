@@ -10,6 +10,7 @@ settings:
     init_teleport_amount: &init_teleport_amount 20000000000000 # 20_000_000_000_000
     weight_to_send_teleport: &weight_to_send_teleport 2,000,000,000 # must be same for both chains
     weight_to_receive_teleport: &weight_to_receive_teleport 4,000,000,000 # must be same for both chains
+    weight_to_receive_transact: &weight_to_receive_transact 3,000,000,000 # must be same for both chains
     accounts:
       alice_signer: &acc_alice_signer //Alice
       treasury_account32: &acc_treasury_acc32 '0x6d6f646c70792f74727372790000000000000000000000000000000000000000'
@@ -134,7 +135,7 @@ tests:
                     {
                       Transact: {
                         originType: Superuser,
-                        requireWeightAtMost: 1000000000,
+                        requireWeightAtMost: 2000000000,
                         call: $alliance_kick_member
                       }
                     }
@@ -159,7 +160,7 @@ tests:
                     - type: XcmV2TraitsOutcome
                       xcmOutcome: Complete
                       # must be static
-                      value: *weight_to_send_teleport
+                      value: *weight_to_receive_transact
 
           - queries:
               balance_rc_treasury_after:
