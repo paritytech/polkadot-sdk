@@ -128,12 +128,7 @@ pub trait TargetClient<P: MessageRace> {
 	/// Type of the additional data from the target client, used by the race.
 	type TargetNoncesData: std::fmt::Debug;
 	/// Type of batch transaction that submits finality and proof to the target node.
-	type BatchTransaction: BatchTransaction<
-		P::SourceHeaderId,
-		P::Proof,
-		Self::TransactionTracker,
-		Self::Error,
-	>;
+	type BatchTransaction: BatchTransaction<P::SourceHeaderId>;
 	/// Transaction tracker to track submitted transactions.
 	type TransactionTracker: TransactionTracker<HeaderId = P::TargetHeaderId>;
 
@@ -160,6 +155,7 @@ pub trait TargetClient<P: MessageRace> {
 	/// Submit proof to the target client.
 	async fn submit_proof(
 		&self,
+		maybe_batch_tx: Option<Self::BatchTransaction>,
 		generated_at_block: P::SourceHeaderId,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::Proof,
@@ -575,41 +571,30 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 			target_client_is_online = false;
 
 			if let Some((at_block, nonces_range, proof)) = race_state.nonces_to_submit.as_ref() {
-				if let Some(target_batch_transaction) = target_batch_transaction.take() {
+				log::debug!(
+					target: "bridge",
+					"Going to submit proof of messages in range {:?} to {} node",
+					nonces_range,
+					P::target_name(),
+				);
+				if let Some(ref target_batch_transaction) = target_batch_transaction {
 					log::debug!(
 						target: "bridge",
-						"Going to submit batch transaction with header {:?} and proof of messages in range {:?} to {} node",
+						"This transaction is batched with sending the proof for header {:?}.",
 						target_batch_transaction.required_header_id(),
-						nonces_range,
-						P::target_name(),
-					);
-
-					let nonces = nonces_range.clone();
-					target_submit_proof.set(
-						target_batch_transaction
-							.append_proof_and_send(proof.clone())
-							.map(|result| {
-								result
-									.map(|tx_tracker| NoncesSubmitArtifacts { nonces, tx_tracker })
-							})
-							.left_future()
-							.fuse(),
-					);
-				} else {
-					log::debug!(
-						target: "bridge",
-						"Going to submit proof of messages in range {:?} to {} node",
-						nonces_range,
-						P::target_name(),
-					);
-
-					target_submit_proof.set(
-						race_target
-							.submit_proof(at_block.clone(), nonces_range.clone(), proof.clone())
-							.right_future()
-							.fuse(),
 					);
 				}
+
+				target_submit_proof.set(
+					race_target
+						.submit_proof(
+							target_batch_transaction.take(),
+							at_block.clone(),
+							nonces_range.clone(),
+							proof.clone(),
+						)
+						.fuse(),
+				);
 			} else if let Some(source_required_header) = source_required_header.clone() {
 				log::debug!(target: "bridge", "Going to require {} header {:?} at {}", P::source_name(), source_required_header, P::target_name());
 				target_require_source_header
