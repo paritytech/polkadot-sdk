@@ -34,8 +34,9 @@ use std::time::Duration;
 pub use crate::{
 	chain::{
 		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
-		ChainWithGrandpa, ChainWithMessages, ChainWithTransactions, Parachain, RelayChain,
-		SignParam, TransactionStatusOf, UnsignedTransaction,
+		ChainWithGrandpa, ChainWithMessages, ChainWithTransactions, ChainWithUtilityPallet,
+		FullRuntimeUtilityPallet, Parachain, RelayChain, SignParam, TransactionStatusOf,
+		UnsignedTransaction, UtilityPallet,
 	},
 	client::{
 		ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, Subscription,

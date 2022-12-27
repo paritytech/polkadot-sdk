@@ -23,7 +23,7 @@ use substrate_relay_helper::{
 		DirectReceiveMessagesDeliveryProofCallBuilder, DirectReceiveMessagesProofCallBuilder,
 		SubstrateMessageLane,
 	},
-	BundledBatchCallBuilder,
+	UtilityPalletBatchCallBuilder,
 };
 
 /// Description of RialtoParachain -> Millau messages bridge.
@@ -46,5 +46,5 @@ impl SubstrateMessageLane for RialtoParachainMessagesToMillau {
 	>;
 
 	type SourceBatchCallBuilder = ();
-	type TargetBatchCallBuilder = BundledBatchCallBuilder<millau_runtime::Runtime>;
+	type TargetBatchCallBuilder = UtilityPalletBatchCallBuilder<Millau>;
 }

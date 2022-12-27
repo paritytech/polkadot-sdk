@@ -182,12 +182,15 @@ where
 
 	async fn submit_proof(
 		&self,
+		maybe_batch_tx: Option<Self::BatchTransaction>,
 		generated_at_block: TargetHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesReceivingProof,
 	) -> Result<NoncesSubmitArtifacts<Self::TransactionTracker>, Self::Error> {
-		let tx_tracker =
-			self.client.submit_messages_receiving_proof(generated_at_block, proof).await?;
+		let tx_tracker = self
+			.client
+			.submit_messages_receiving_proof(maybe_batch_tx, generated_at_block, proof)
+			.await?;
 		Ok(NoncesSubmitArtifacts { nonces, tx_tracker })
 	}
 }
