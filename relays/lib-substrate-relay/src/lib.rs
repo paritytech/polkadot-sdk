@@ -18,7 +18,8 @@
 
 #![warn(missing_docs)]
 
-use relay_substrate_client::Error as SubstrateError;
+use relay_substrate_client::{Chain, ChainWithUtilityPallet, UtilityPallet};
+
 use std::marker::PhantomData;
 
 pub mod error;
@@ -90,50 +91,41 @@ impl<AccountId> TaggedAccount<AccountId> {
 }
 
 /// Batch call builder.
-pub trait BatchCallBuilder<Call> {
-	/// Associated error type.
-	type Error;
-	/// If `true`, then batch calls are supported at the chain.
-	const BATCH_CALL_SUPPORTED: bool;
-
+pub trait BatchCallBuilder<Call>: Send {
 	/// Create batch call from given calls vector.
-	fn build_batch_call(_calls: Vec<Call>) -> Result<Call, Self::Error>;
+	fn build_batch_call(&self, _calls: Vec<Call>) -> Call;
 }
 
-impl<Call> BatchCallBuilder<Call> for () {
-	type Error = SubstrateError;
-	const BATCH_CALL_SUPPORTED: bool = false;
+/// Batch call builder constructor.
+pub trait BatchCallBuilderConstructor<Call> {
+	/// Create a new instance of a batch call builder.
+	fn new_builder() -> Option<Box<dyn BatchCallBuilder<Call>>>;
+}
 
-	fn build_batch_call(_calls: Vec<Call>) -> Result<Call, SubstrateError> {
-		debug_assert!(
-			false,
-			"only called if `BATCH_CALL_SUPPORTED` is true;\
-			`BATCH_CALL_SUPPORTED` is false;\
-			qed"
-		);
+/// Batch call builder based on `pallet-utility`.
+pub struct UtilityPalletBatchCallBuilder<C: Chain>(PhantomData<C>);
 
-		Err(SubstrateError::Custom("<() as BatchCallBuilder>::build_batch_call() is called".into()))
+impl<C: Chain> BatchCallBuilder<C::Call> for UtilityPalletBatchCallBuilder<C>
+where
+	C: ChainWithUtilityPallet,
+{
+	fn build_batch_call(&self, calls: Vec<C::Call>) -> C::Call {
+		C::UtilityPallet::build_batch_call(calls)
 	}
 }
 
-/// Batch call builder for bundled runtimes.
-pub struct BundledBatchCallBuilder<R>(PhantomData<R>);
-
-impl<R> BatchCallBuilder<<R as frame_system::Config>::RuntimeCall> for BundledBatchCallBuilder<R>
+impl<C: Chain> BatchCallBuilderConstructor<C::Call> for UtilityPalletBatchCallBuilder<C>
 where
-	R: pallet_utility::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>,
-	<R as frame_system::Config>::RuntimeCall: From<pallet_utility::Call<R>>,
+	C: ChainWithUtilityPallet,
 {
-	type Error = SubstrateError;
-	const BATCH_CALL_SUPPORTED: bool = true;
+	fn new_builder() -> Option<Box<dyn BatchCallBuilder<C::Call>>> {
+		Some(Box::new(Self(Default::default())))
+	}
+}
 
-	fn build_batch_call(
-		mut calls: Vec<<R as frame_system::Config>::RuntimeCall>,
-	) -> Result<<R as frame_system::Config>::RuntimeCall, SubstrateError> {
-		Ok(if calls.len() == 1 {
-			calls.remove(0)
-		} else {
-			pallet_utility::Call::batch_all { calls }.into()
-		})
+/// A `BatchCallBuilderConstructor` that always returns `None`.
+impl<Call> BatchCallBuilderConstructor<Call> for () {
+	fn new_builder() -> Option<Box<dyn BatchCallBuilder<Call>>> {
+		None
 	}
 }

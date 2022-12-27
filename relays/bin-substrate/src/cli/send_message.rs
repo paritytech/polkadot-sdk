@@ -31,8 +31,7 @@ use crate::{
 use async_trait::async_trait;
 use codec::{Decode, Encode};
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Chain, ChainBase, ChainWithTransactions, SignParam,
-	UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, Chain, ChainBase, ChainWithTransactions, UnsignedTransaction,
 };
 use sp_core::Pair;
 use sp_runtime::AccountId32;
@@ -80,28 +79,17 @@ where
 			data.bridge.bridge_instance_index(),
 		)?;
 
-		let source_genesis_hash = *source_client.genesis_hash();
-		let (spec_version, transaction_version) = source_client.simple_runtime_version().await?;
 		source_client
-			.submit_signed_extrinsic(
-				source_sign.public().into(),
-				SignParam::<Self::Source> {
-					spec_version,
-					transaction_version,
-					genesis_hash: source_genesis_hash,
-					signer: source_sign.clone(),
-				},
-				move |_, transaction_nonce| {
-					let unsigned = UnsignedTransaction::new(send_message_call, transaction_nonce);
-					log::info!(
-						target: "bridge",
-						"Sending message to {}. Size: {}",
-						Self::Target::NAME,
-						payload_len,
-					);
-					Ok(unsigned)
-				},
-			)
+			.submit_signed_extrinsic(&source_sign, move |_, transaction_nonce| {
+				let unsigned = UnsignedTransaction::new(send_message_call, transaction_nonce);
+				log::info!(
+					target: "bridge",
+					"Sending message to {}. Size: {}",
+					Self::Target::NAME,
+					payload_len,
+				);
+				Ok(unsigned)
+			})
 			.await?;
 
 		Ok(())

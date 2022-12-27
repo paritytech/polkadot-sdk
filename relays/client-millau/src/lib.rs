@@ -20,8 +20,8 @@ use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
 	BalanceOf, Chain, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
-	ChainWithTransactions, Error as SubstrateError, IndexOf, SignParam, UnderlyingChainProvider,
-	UnsignedTransaction,
+	ChainWithTransactions, ChainWithUtilityPallet, Error as SubstrateError,
+	FullRuntimeUtilityPallet, IndexOf, SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -147,6 +147,10 @@ impl ChainWithTransactions for Millau {
 			.tip(Compact::<BalanceOf<Self>>::decode(&mut &extra.7.encode()[..]).ok()?.into()),
 		)
 	}
+}
+
+impl ChainWithUtilityPallet for Millau {
+	type UtilityPallet = FullRuntimeUtilityPallet<millau_runtime::Runtime>;
 }
 
 /// Millau signing params.

@@ -214,11 +214,14 @@ where
 
 	async fn submit_proof(
 		&self,
+		maybe_batch_tx: Option<Self::BatchTransaction>,
 		generated_at_block: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
 	) -> Result<NoncesSubmitArtifacts<Self::TransactionTracker>, Self::Error> {
-		self.client.submit_messages_proof(generated_at_block, nonces, proof).await
+		self.client
+			.submit_messages_proof(maybe_batch_tx, generated_at_block, nonces, proof)
+			.await
 	}
 }
 
