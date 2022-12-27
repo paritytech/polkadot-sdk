@@ -234,3 +234,31 @@ impl<Block: BlockT> BlockWithJustification<Block::Header> for SignedBlock<Block>
 		self.justifications.as_ref().and_then(|j| j.get(engine_id))
 	}
 }
+
+/// Trait that provides functionality defined inside `pallet-utility`
+pub trait UtilityPallet<C: Chain> {
+	/// Create batch call from given calls vector.
+	fn build_batch_call(calls: Vec<C::Call>) -> C::Call;
+}
+
+/// Structure that implements `UtilityPalletProvider` based on a full runtime.
+pub struct FullRuntimeUtilityPallet<R> {
+	_phantom: std::marker::PhantomData<R>,
+}
+
+impl<C, R> UtilityPallet<C> for FullRuntimeUtilityPallet<R>
+where
+	C: Chain,
+	R: pallet_utility::Config<RuntimeCall = C::Call>,
+	<R as pallet_utility::Config>::RuntimeCall: From<pallet_utility::Call<R>>,
+{
+	fn build_batch_call(calls: Vec<C::Call>) -> C::Call {
+		pallet_utility::Call::batch_all { calls }.into()
+	}
+}
+
+/// Substrate-based chain that uses `pallet-utility`.
+pub trait ChainWithUtilityPallet: Chain {
+	/// The utility pallet provider.
+	type UtilityPallet: UtilityPallet<Self>;
+}

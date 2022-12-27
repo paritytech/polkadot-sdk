@@ -111,26 +111,17 @@ pub struct NoncesSubmitArtifacts<T> {
 
 /// Batch transaction that already submit some headers and needs to be extended with
 /// messages/delivery proof before sending.
-#[async_trait]
-pub trait BatchTransaction<HeaderId, Proof, TransactionTracker, Error>: Send {
+pub trait BatchTransaction<HeaderId>: Send {
 	/// Header that was required in the original call and which is bundled within this
 	/// batch transaction.
 	fn required_header_id(&self) -> HeaderId;
-
-	/// Append proof and send transaction to the connected node.
-	async fn append_proof_and_send(self, proof: Proof) -> Result<TransactionTracker, Error>;
 }
 
 /// Source client trait.
 #[async_trait]
 pub trait SourceClient<P: MessageLane>: RelayClient {
 	/// Type of batch transaction that submits finality and message receiving proof.
-	type BatchTransaction: BatchTransaction<
-		TargetHeaderIdOf<P>,
-		P::MessagesReceivingProof,
-		Self::TransactionTracker,
-		Self::Error,
-	>;
+	type BatchTransaction: BatchTransaction<TargetHeaderIdOf<P>>;
 	/// Transaction tracker to track submitted transactions.
 	type TransactionTracker: TransactionTracker<HeaderId = SourceHeaderIdOf<P>>;
 
@@ -170,6 +161,7 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 	/// Submit messages receiving proof.
 	async fn submit_messages_receiving_proof(
 		&self,
+		maybe_batch_tx: Option<Self::BatchTransaction>,
 		generated_at_block: TargetHeaderIdOf<P>,
 		proof: P::MessagesReceivingProof,
 	) -> Result<Self::TransactionTracker, Self::Error>;
@@ -194,12 +186,7 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 #[async_trait]
 pub trait TargetClient<P: MessageLane>: RelayClient {
 	/// Type of batch transaction that submits finality and messages proof.
-	type BatchTransaction: BatchTransaction<
-		SourceHeaderIdOf<P>,
-		P::MessagesProof,
-		Self::TransactionTracker,
-		Self::Error,
-	>;
+	type BatchTransaction: BatchTransaction<SourceHeaderIdOf<P>>;
 	/// Transaction tracker to track submitted transactions.
 	type TransactionTracker: TransactionTracker<HeaderId = TargetHeaderIdOf<P>>;
 
@@ -233,6 +220,7 @@ pub trait TargetClient<P: MessageLane>: RelayClient {
 	/// Submit messages proof.
 	async fn submit_messages_proof(
 		&self,
+		maybe_batch_tx: Option<Self::BatchTransaction>,
 		generated_at_header: SourceHeaderIdOf<P>,
 		nonces: RangeInclusive<MessageNonce>,
 		proof: P::MessagesProof,
@@ -533,56 +521,25 @@ pub(crate) mod tests {
 
 	#[derive(Clone, Debug)]
 	pub struct TestMessagesBatchTransaction {
-		data: Arc<Mutex<TestClientData>>,
 		required_header_id: TestSourceHeaderId,
-		tx_tracker: TestTransactionTracker,
 	}
 
 	#[async_trait]
-	impl BatchTransaction<TestSourceHeaderId, TestMessagesProof, TestTransactionTracker, TestError>
-		for TestMessagesBatchTransaction
-	{
+	impl BatchTransaction<TestSourceHeaderId> for TestMessagesBatchTransaction {
 		fn required_header_id(&self) -> TestSourceHeaderId {
 			self.required_header_id
-		}
-
-		async fn append_proof_and_send(
-			self,
-			proof: TestMessagesProof,
-		) -> Result<TestTransactionTracker, TestError> {
-			let mut data = self.data.lock();
-			data.receive_messages(proof);
-			Ok(self.tx_tracker)
 		}
 	}
 
 	#[derive(Clone, Debug)]
 	pub struct TestConfirmationBatchTransaction {
-		data: Arc<Mutex<TestClientData>>,
 		required_header_id: TestTargetHeaderId,
-		tx_tracker: TestTransactionTracker,
 	}
 
 	#[async_trait]
-	impl
-		BatchTransaction<
-			TestTargetHeaderId,
-			TestMessagesReceivingProof,
-			TestTransactionTracker,
-			TestError,
-		> for TestConfirmationBatchTransaction
-	{
+	impl BatchTransaction<TestTargetHeaderId> for TestConfirmationBatchTransaction {
 		fn required_header_id(&self) -> TestTargetHeaderId {
 			self.required_header_id
-		}
-
-		async fn append_proof_and_send(
-			self,
-			proof: TestMessagesReceivingProof,
-		) -> Result<TestTransactionTracker, TestError> {
-			let mut data = self.data.lock();
-			data.receive_messages_delivery_proof(proof);
-			Ok(self.tx_tracker)
 		}
 	}
 
@@ -800,6 +757,7 @@ pub(crate) mod tests {
 
 		async fn submit_messages_receiving_proof(
 			&self,
+			_maybe_batch_tx: Option<Self::BatchTransaction>,
 			_generated_at_block: TargetHeaderIdOf<TestMessageLane>,
 			proof: TestMessagesReceivingProof,
 		) -> Result<Self::TransactionTracker, TestError> {
@@ -924,6 +882,7 @@ pub(crate) mod tests {
 
 		async fn submit_messages_proof(
 			&self,
+			_maybe_batch_tx: Option<Self::BatchTransaction>,
 			_generated_at_header: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<MessageNonce>,
 			proof: TestMessagesProof,
@@ -1287,8 +1246,6 @@ pub(crate) mod tests {
 			target_latest_received_nonce: 0,
 			..Default::default()
 		}));
-		let target_original_data = original_data.clone();
-		let source_original_data = original_data.clone();
 		let result = run_loop_test(
 			original_data,
 			Arc::new(|_| {}),
@@ -1298,9 +1255,7 @@ pub(crate) mod tests {
 				{
 					data.target_to_source_batch_transaction =
 						Some(TestConfirmationBatchTransaction {
-							data: source_original_data.clone(),
 							required_header_id: target_to_source_header_required,
-							tx_tracker: TestTransactionTracker::default(),
 						})
 				}
 			}),
@@ -1310,9 +1265,7 @@ pub(crate) mod tests {
 					data.source_to_target_header_required.take()
 				{
 					data.source_to_target_batch_transaction = Some(TestMessagesBatchTransaction {
-						data: target_original_data.clone(),
 						required_header_id: source_to_target_header_required,
-						tx_tracker: TestTransactionTracker::default(),
 					})
 				}
 
