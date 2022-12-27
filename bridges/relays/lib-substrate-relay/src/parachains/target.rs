@@ -33,7 +33,7 @@ use parachains_relay::{
 };
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
-	HeaderIdOf, RelayChain, SignParam, TransactionEra, TransactionTracker, UnsignedTransaction,
+	HeaderIdOf, RelayChain, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -172,9 +172,7 @@ where
 		updated_parachains: Vec<(ParaId, ParaHash)>,
 		proof: ParaHeadsProof,
 	) -> Result<Self::TransactionTracker, Self::Error> {
-		let genesis_hash = *self.client.genesis_hash();
 		let transaction_params = self.transaction_params.clone();
-		let (spec_version, transaction_version) = self.client.simple_runtime_version().await?;
 		let call = P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
 			at_relay_block,
 			updated_parachains,
@@ -182,13 +180,7 @@ where
 		);
 		self.client
 			.submit_and_watch_signed_extrinsic(
-				self.transaction_params.signer.public().into(),
-				SignParam::<P::TargetChain> {
-					spec_version,
-					transaction_version,
-					genesis_hash,
-					signer: transaction_params.signer,
-				},
+				&transaction_params.signer,
 				move |best_block_id, transaction_nonce| {
 					Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))

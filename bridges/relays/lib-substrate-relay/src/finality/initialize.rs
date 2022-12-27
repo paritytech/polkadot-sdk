@@ -22,9 +22,11 @@
 //! with this header.
 
 use crate::{error::Error, finality::engine::Engine};
+use sp_core::Pair;
 
 use relay_substrate_client::{
-	Chain, ChainWithTransactions, Client, Error as SubstrateError, SignParam, UnsignedTransaction,
+	AccountKeyPairOf, Chain, ChainWithTransactions, Client, Error as SubstrateError,
+	UnsignedTransaction,
 };
 use sp_runtime::traits::Header as HeaderT;
 
@@ -37,8 +39,7 @@ pub async fn initialize<
 >(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
-	target_transactions_signer: TargetChain::AccountId,
-	target_signing_data: SignParam<TargetChain>,
+	target_signer: AccountKeyPairOf<TargetChain>,
 	prepare_initialize_transaction: F,
 	dry_run: bool,
 ) where
@@ -48,12 +49,12 @@ pub async fn initialize<
 		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
 		+ Send
 		+ 'static,
+	TargetChain::AccountId: From<<TargetChain::AccountKeyPair as Pair>::Public>,
 {
 	let result = do_initialize::<E, _, _, _>(
 		source_client,
 		target_client,
-		target_transactions_signer,
-		target_signing_data,
+		target_signer,
 		prepare_initialize_transaction,
 		dry_run,
 	)
@@ -87,8 +88,7 @@ async fn do_initialize<
 >(
 	source_client: Client<SourceChain>,
 	target_client: Client<TargetChain>,
-	target_transactions_signer: TargetChain::AccountId,
-	target_signing_data: SignParam<TargetChain>,
+	target_signer: AccountKeyPairOf<TargetChain>,
 	prepare_initialize_transaction: F,
 	dry_run: bool,
 ) -> Result<
@@ -102,6 +102,7 @@ where
 		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
 		+ Send
 		+ 'static,
+	TargetChain::AccountId: From<<TargetChain::AccountKeyPair as Pair>::Public>,
 {
 	let is_initialized = E::is_initialized(&target_client)
 		.await
@@ -128,20 +129,16 @@ where
 	);
 
 	let initialization_tx_hash = target_client
-		.submit_signed_extrinsic(
-			target_transactions_signer,
-			target_signing_data,
-			move |_, transaction_nonce| {
-				let tx = prepare_initialize_transaction(transaction_nonce, initialization_data);
-				if dry_run {
-					Err(SubstrateError::Custom(
-						"Not submitting extrinsic in `dry-run` mode!".to_string(),
-					))
-				} else {
-					tx
-				}
-			},
-		)
+		.submit_signed_extrinsic(&target_signer, move |_, transaction_nonce| {
+			let tx = prepare_initialize_transaction(transaction_nonce, initialization_data);
+			if dry_run {
+				Err(SubstrateError::Custom(
+					"Not submitting extrinsic in `dry-run` mode!".to_string(),
+				))
+			} else {
+				tx
+			}
+		})
 		.await
 		.map_err(|err| Error::SubmitTransaction(TargetChain::NAME, err))?;
 
