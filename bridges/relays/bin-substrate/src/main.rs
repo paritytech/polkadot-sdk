@@ -24,8 +24,5 @@ mod cli;
 fn main() {
 	let command = cli::parse_args();
 	let run = command.run();
-	let result = async_std::task::block_on(run);
-	if let Err(error) = result {
-		log::error!(target: "bridge", "substrate-relay: {}", error);
-	}
+	async_std::task::block_on(run);
 }
