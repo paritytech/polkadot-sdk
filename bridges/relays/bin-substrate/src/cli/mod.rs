@@ -18,7 +18,11 @@
 
 use std::convert::TryInto;
 
+use async_std::prelude::*;
 use codec::{Decode, Encode};
+use futures::{select, FutureExt};
+use signal_hook::consts::*;
+use signal_hook_async_std::Signals;
 use structopt::{clap::arg_enum, StructOpt};
 use strum::{EnumString, EnumVariantNames};
 
@@ -36,6 +40,9 @@ mod relay_headers_and_messages;
 mod relay_messages;
 mod relay_parachains;
 mod resubmit_transactions;
+
+/// The target that will be used when publishing logs related to this pallet.
+pub const LOG_TARGET: &str = "bridge";
 
 /// Parse relay CLI args.
 pub fn parse_args() -> Command {
@@ -100,8 +107,7 @@ impl Command {
 	}
 
 	/// Run the command.
-	pub async fn run(self) -> anyhow::Result<()> {
-		self.init_logger();
+	async fn do_run(self) -> anyhow::Result<()> {
 		match self {
 			Self::RelayHeaders(arg) => arg.run().await?,
 			Self::RelayMessages(arg) => arg.run().await?,
@@ -113,6 +119,32 @@ impl Command {
 			Self::RelayParachains(arg) => arg.run().await?,
 		}
 		Ok(())
+	}
+
+	/// Run the command.
+	pub async fn run(self) {
+		self.init_logger();
+
+		let exit_signals = match Signals::new([SIGINT, SIGTERM]) {
+			Ok(signals) => signals,
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Could not register exit signals: {}", e);
+				return
+			},
+		};
+		let run = self.do_run().fuse();
+		futures::pin_mut!(exit_signals, run);
+
+		select! {
+			signal = exit_signals.next().fuse() => {
+				log::info!(target: LOG_TARGET, "Received exit signal {:?}", signal);
+			},
+			result = run => {
+				if let Err(e) = result {
+					log::error!(target: LOG_TARGET, "substrate-relay: {}", e);
+				}
+			},
+		}
 	}
 }
 
