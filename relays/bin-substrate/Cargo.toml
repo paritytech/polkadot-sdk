@@ -16,6 +16,8 @@ log = "0.4.17"
 num-format = "0.4"
 num-traits = "0.2"
 structopt = "0.3"
+signal-hook = "0.3.14"
+signal-hook-async-std = "0.2.2"
 strum = { version = "0.21.0", features = ["derive"] }
 
 # Bridge dependencies
