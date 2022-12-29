@@ -64,11 +64,15 @@ pub struct OnDemandHeadersRelay<P: SubstrateFinalitySyncPipeline> {
 
 impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
 	/// Create new on-demand headers relay.
+	///
+	/// If `metrics_params` is `Some(_)`, the metrics of the finality relay are registered.
+	/// Otherwise, all required metrics must be exposed outside of this method.
 	pub fn new(
 		source_client: Client<P::SourceChain>,
 		target_client: Client<P::TargetChain>,
 		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 		only_mandatory_headers: bool,
+		metrics_params: Option<MetricsParams>,
 	) -> Self
 	where
 		AccountIdOf<P::TargetChain>:
@@ -87,6 +91,7 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
 				target_transaction_params,
 				only_mandatory_headers,
 				required_header_number,
+				metrics_params,
 			)
 			.await;
 		});
@@ -148,6 +153,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	only_mandatory_headers: bool,
 	required_header_number: RequiredHeaderNumberRef<P::SourceChain>,
+	metrics_params: Option<MetricsParams>,
 ) where
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 {
@@ -310,7 +316,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 						stall_timeout,
 						only_mandatory_headers,
 					},
-					MetricsParams::disabled(),
+					metrics_params.clone().unwrap_or_else(|| MetricsParams::disabled()),
 					futures::future::pending(),
 				)
 				.fuse(),
