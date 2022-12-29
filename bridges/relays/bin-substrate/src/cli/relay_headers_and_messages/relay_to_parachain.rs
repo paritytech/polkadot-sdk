@@ -224,6 +224,7 @@ where
 				self.common.right.client.clone(),
 				self.left_headers_to_right_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
+				None,
 			);
 		let right_relay_to_left_on_demand_headers =
 			OnDemandHeadersRelay::<<R2L as ParachainToRelayHeadersCliBridge>::RelayFinality>::new(
@@ -231,6 +232,7 @@ where
 				self.common.left.client.clone(),
 				self.right_headers_to_left_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
+				Some(self.common.metrics_params.clone()),
 			);
 		let right_to_left_on_demand_parachains = OnDemandParachainsRelay::<
 			<R2L as ParachainToRelayHeadersCliBridge>::ParachainFinality,
