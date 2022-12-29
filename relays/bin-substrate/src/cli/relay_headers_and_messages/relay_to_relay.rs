@@ -173,6 +173,7 @@ where
 				self.common.right.client.clone(),
 				self.left_to_right_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
+				None,
 			);
 		let right_to_left_on_demand_headers =
 			OnDemandHeadersRelay::<<R2L as RelayToRelayHeadersCliBridge>::Finality>::new(
@@ -180,6 +181,7 @@ where
 				self.common.left.client.clone(),
 				self.right_to_left_transaction_params.clone(),
 				self.common.shared.only_mandatory_headers,
+				None,
 			);
 
 		Ok((Arc::new(left_to_right_on_demand_headers), Arc::new(right_to_left_on_demand_headers)))
