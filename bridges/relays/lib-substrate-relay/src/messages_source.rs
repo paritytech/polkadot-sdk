@@ -36,7 +36,7 @@ use bp_messages::{
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::weights::Weight;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -47,13 +47,12 @@ use messages_relay::{
 };
 use num_traits::Zero;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain, ChainWithMessages, Client,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithMessages, Client,
 	Error as SubstrateError, HashOf, HeaderIdOf, TransactionEra, TransactionTracker,
 	UnsignedTransaction,
 };
-use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
-use sp_core::{Bytes, Pair};
-use sp_runtime::{traits::Header as HeaderT, DeserializeOwned};
+use relay_utils::relay_loop::Client as RelayClient;
+use sp_core::Pair;
 use std::ops::RangeInclusive;
 
 /// Intermediate message proof returned by the source Substrate node. Includes everything
@@ -155,12 +154,7 @@ where
 		// we can't relay confirmations if messages pallet at source chain is halted
 		self.ensure_pallet_active().await?;
 
-		read_client_state(
-			&self.source_client,
-			Some(&self.target_client),
-			P::TargetChain::BEST_FINALIZED_HEADER_ID_METHOD,
-		)
-		.await
+		read_client_state(&self.source_client, Some(&self.target_client)).await
 	}
 
 	async fn latest_generated_nonce(
@@ -408,31 +402,21 @@ where
 pub async fn read_client_state<SelfChain, PeerChain>(
 	self_client: &Client<SelfChain>,
 	peer_client: Option<&Client<PeerChain>>,
-	best_finalized_header_id_method_name: &str,
 ) -> Result<ClientState<HeaderIdOf<SelfChain>, HeaderIdOf<PeerChain>>, SubstrateError>
 where
 	SelfChain: Chain,
-	SelfChain::Header: DeserializeOwned,
-	SelfChain::Index: DeserializeOwned,
 	PeerChain: Chain,
 {
 	// let's read our state first: we need best finalized header hash on **this** chain
-	let self_best_finalized_header_hash = self_client.best_finalized_header_hash().await?;
-	let self_best_finalized_header =
-		self_client.header_by_hash(self_best_finalized_header_hash).await?;
-	let self_best_finalized_id = self_best_finalized_header.id();
-
+	let self_best_finalized_id = self_client.best_finalized_header().await?.id();
 	// now let's read our best header on **this** chain
-	let self_best_header = self_client.best_header().await?;
-	let self_best_hash = self_best_header.hash();
-	let self_best_id = self_best_header.id();
+	let self_best_id = self_client.best_header().await?.id();
 
 	// now let's read id of best finalized peer header at our best finalized block
 	let peer_on_self_best_finalized_id =
 		best_finalized_peer_header_at_self::<SelfChain, PeerChain>(
 			self_client,
-			self_best_hash,
-			best_finalized_header_id_method_name,
+			self_best_id.hash(),
 		)
 		.await?;
 
@@ -440,7 +424,7 @@ where
 	let actual_peer_on_self_best_finalized_id = match peer_client {
 		Some(peer_client) => {
 			let actual_peer_on_self_best_finalized =
-				peer_client.header_by_number(peer_on_self_best_finalized_id.0).await?;
+				peer_client.header_by_number(peer_on_self_best_finalized_id.number()).await?;
 			actual_peer_on_self_best_finalized.id()
 		},
 		None => peer_on_self_best_finalized_id,
@@ -460,27 +444,20 @@ where
 pub async fn best_finalized_peer_header_at_self<SelfChain, PeerChain>(
 	self_client: &Client<SelfChain>,
 	at_self_hash: HashOf<SelfChain>,
-	best_finalized_header_id_method_name: &str,
 ) -> Result<HeaderIdOf<PeerChain>, SubstrateError>
 where
 	SelfChain: Chain,
 	PeerChain: Chain,
 {
 	// now let's read id of best finalized peer header at our best finalized block
-	let encoded_best_finalized_peer_on_self = self_client
-		.state_call(
-			best_finalized_header_id_method_name.into(),
-			Bytes(Vec::new()),
+	self_client
+		.typed_state_call::<_, Option<_>>(
+			PeerChain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
+			(),
 			Some(at_self_hash),
 		)
-		.await?;
-
-	Option::<HeaderId<HashOf<PeerChain>, BlockNumberOf<PeerChain>>>::decode(
-		&mut &encoded_best_finalized_peer_on_self.0[..],
-	)
-	.map_err(SubstrateError::ResponseParseFailed)?
-	.map(Ok)
-	.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))
+		.await?
+		.ok_or(SubstrateError::BridgePalletIsNotInitialized)
 }
 
 fn validate_out_msgs_details<C: Chain>(

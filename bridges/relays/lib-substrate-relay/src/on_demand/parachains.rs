@@ -468,13 +468,11 @@ where
 	};
 
 	let best_target_block_hash = target.best_block().await.map_err(map_target_err)?.1;
-	let para_header_at_target =
-		best_finalized_peer_header_at_self::<P::TargetChain, P::SourceParachain>(
-			target.client(),
-			best_target_block_hash,
-			P::SourceParachain::BEST_FINALIZED_HEADER_ID_METHOD,
-		)
-		.await;
+	let para_header_at_target = best_finalized_peer_header_at_self::<
+		P::TargetChain,
+		P::SourceParachain,
+	>(target.client(), best_target_block_hash)
+	.await;
 	// if there are no parachain heads at the target (`BridgePalletIsNotInitialized`), we'll need
 	// to submit at least one. Otherwise the pallet will be treated as uninitialized and messages
 	// sync will stall.
@@ -496,14 +494,12 @@ where
 		.map_err(map_source_err)?;
 
 	let relay_header_at_source = best_finalized_relay_block_id.0;
-	let relay_header_at_target =
-		best_finalized_peer_header_at_self::<P::TargetChain, P::SourceRelayChain>(
-			target.client(),
-			best_target_block_hash,
-			P::SourceRelayChain::BEST_FINALIZED_HEADER_ID_METHOD,
-		)
-		.await
-		.map_err(map_target_err)?;
+	let relay_header_at_target = best_finalized_peer_header_at_self::<
+		P::TargetChain,
+		P::SourceRelayChain,
+	>(target.client(), best_target_block_hash)
+	.await
+	.map_err(map_target_err)?;
 
 	let para_header_at_relay_header_at_target = source
 		.on_chain_para_head_id(relay_header_at_target, P::SourceParachain::PARACHAIN_ID.into())
@@ -633,7 +629,6 @@ impl<'a, P: SubstrateParachainsPipeline>
 		Ok(crate::messages_source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
 			&self.0.target_client,
 			None,
-			P::SourceRelayChain::BEST_FINALIZED_HEADER_ID_METHOD,
 		)
 		.await?
 		.best_finalized_peer_at_best_self)
