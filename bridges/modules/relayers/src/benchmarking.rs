@@ -38,7 +38,7 @@ pub trait Config: crate::Config {
 benchmarks! {
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
-		let lane = [0, 0, 0, 0];
+		let lane = LaneId([0, 0, 0, 0]);
 		let relayer: T::AccountId = whitelisted_caller();
 		let reward = T::Reward::from(REWARD_AMOUNT);
 

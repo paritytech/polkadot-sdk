@@ -96,7 +96,7 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 }
 
 /// Message lane that we're using in tests.
-pub const TEST_LANE_ID: LaneId = [0, 0, 0, 0];
+pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
 
 /// Regular relayer that may receive rewards.
 pub const REGULAR_RELAYER: AccountId = 1;
