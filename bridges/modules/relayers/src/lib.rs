@@ -244,9 +244,9 @@ mod tests {
 
 		run_test(|| {
 			let lane0_rewards_account =
-				PayLaneRewardFromAccount::lane_rewards_account([0, 0, 0, 0]);
+				PayLaneRewardFromAccount::lane_rewards_account(LaneId([0, 0, 0, 0]));
 			let lane1_rewards_account =
-				PayLaneRewardFromAccount::lane_rewards_account([0, 0, 0, 1]);
+				PayLaneRewardFromAccount::lane_rewards_account(LaneId([0, 0, 0, 1]));
 
 			Balances::mint_into(&lane0_rewards_account, 100).unwrap();
 			Balances::mint_into(&lane1_rewards_account, 100).unwrap();
@@ -254,12 +254,12 @@ mod tests {
 			assert_eq!(Balances::balance(&lane1_rewards_account), 100);
 			assert_eq!(Balances::balance(&1), 0);
 
-			PayLaneRewardFromAccount::pay_reward(&1, [0, 0, 0, 0], 100).unwrap();
+			PayLaneRewardFromAccount::pay_reward(&1, LaneId([0, 0, 0, 0]), 100).unwrap();
 			assert_eq!(Balances::balance(&lane0_rewards_account), 0);
 			assert_eq!(Balances::balance(&lane1_rewards_account), 100);
 			assert_eq!(Balances::balance(&1), 100);
 
-			PayLaneRewardFromAccount::pay_reward(&1, [0, 0, 0, 1], 100).unwrap();
+			PayLaneRewardFromAccount::pay_reward(&1, LaneId([0, 0, 0, 1]), 100).unwrap();
 			assert_eq!(Balances::balance(&lane0_rewards_account), 0);
 			assert_eq!(Balances::balance(&lane1_rewards_account), 0);
 			assert_eq!(Balances::balance(&1), 200);
