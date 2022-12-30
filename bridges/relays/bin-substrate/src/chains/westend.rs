@@ -22,12 +22,8 @@ use sp_version::RuntimeVersion;
 
 impl CliChain for Westend {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
-
-	type KeyPair = sp_core::sr25519::Pair;
 }
 
 impl CliChain for Westmint {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
-
-	type KeyPair = sp_core::sr25519::Pair;
 }
