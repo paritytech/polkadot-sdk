@@ -110,7 +110,7 @@ mod tests {
 
 	fn deliver_message_10() {
 		pallet_bridge_messages::InboundLanes::<Runtime, WithRialtoMessagesInstance>::insert(
-			[0, 0, 0, 0],
+			bp_messages::LaneId([0, 0, 0, 0]),
 			bp_messages::InboundLaneData { relayers: Default::default(), last_confirmed_nonce: 10 },
 		);
 	}
@@ -128,7 +128,7 @@ mod tests {
 					proof: FromBridgedChainMessagesProof {
 						bridged_header_hash: Default::default(),
 						storage_proof: vec![],
-						lane: [0, 0, 0, 0],
+						lane: bp_messages::LaneId([0, 0, 0, 0]),
 						nonces_start,
 						nonces_end,
 					},
@@ -170,7 +170,7 @@ mod tests {
 
 	fn confirm_message_10() {
 		pallet_bridge_messages::OutboundLanes::<Runtime, WithRialtoMessagesInstance>::insert(
-			[0, 0, 0, 0],
+			bp_messages::LaneId([0, 0, 0, 0]),
 			bp_messages::OutboundLaneData {
 				oldest_unpruned_nonce: 0,
 				latest_received_nonce: 10,
@@ -188,7 +188,7 @@ mod tests {
 				proof: FromBridgedChainMessagesDeliveryProof {
 					bridged_header_hash: Default::default(),
 					storage_proof: Vec::new(),
-					lane: [0, 0, 0, 0],
+					lane: bp_messages::LaneId([0, 0, 0, 0]),
 				},
 				relayers_state: UnrewardedRelayersState {
 					last_delivered_nonce,
