@@ -54,6 +54,4 @@ impl CliEncodeMessage for Millau {
 
 impl CliChain for Millau {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(millau_runtime::VERSION);
-
-	type KeyPair = sp_core::sr25519::Pair;
 }
