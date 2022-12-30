@@ -23,12 +23,8 @@ use sp_version::RuntimeVersion;
 
 impl CliChain for Wococo {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
-
-	type KeyPair = sp_core::sr25519::Pair;
 }
 
 impl CliChain for BridgeHubWococo {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
-
-	type KeyPair = sp_core::sr25519::Pair;
 }

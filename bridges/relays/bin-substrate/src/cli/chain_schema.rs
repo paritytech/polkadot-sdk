@@ -15,6 +15,7 @@
 
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use relay_substrate_client::{AccountKeyPairOf, ChainWithTransactions};
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames};
 
@@ -134,16 +135,16 @@ pub trait TransactionParamsProvider {
 	/// Returns `true` if transaction parameters are defined by this provider.
 	fn is_defined(&self) -> bool;
 	/// Returns transaction parameters.
-	fn transaction_params<Chain: CliChain>(
+	fn transaction_params<Chain: ChainWithTransactions>(
 		&self,
-	) -> anyhow::Result<TransactionParams<Chain::KeyPair>>;
+	) -> anyhow::Result<TransactionParams<AccountKeyPairOf<Chain>>>;
 
 	/// Returns transaction parameters, defined by `self` provider or, if they're not defined,
 	/// defined by `other` provider.
-	fn transaction_params_or<Chain: CliChain, T: TransactionParamsProvider>(
+	fn transaction_params_or<Chain: ChainWithTransactions, T: TransactionParamsProvider>(
 		&self,
 		other: &T,
-	) -> anyhow::Result<TransactionParams<Chain::KeyPair>> {
+	) -> anyhow::Result<TransactionParams<AccountKeyPairOf<Chain>>> {
 		if self.is_defined() {
 			self.transaction_params::<Chain>()
 		} else {
@@ -201,7 +202,7 @@ macro_rules! declare_chain_signing_params_cli_schema {
 
 				/// Parse signing params into chain-specific KeyPair.
 				#[allow(dead_code)]
-				pub fn to_keypair<Chain: CliChain>(&self) -> anyhow::Result<Chain::KeyPair> {
+				pub fn to_keypair<Chain: ChainWithTransactions>(&self) -> anyhow::Result<AccountKeyPairOf<Chain>> {
 					let suri = match (self.[<$chain_prefix _signer>].as_ref(), self.[<$chain_prefix _signer_file>].as_ref()) {
 						(Some(suri), _) => suri.to_owned(),
 						(None, Some(suri_file)) => std::fs::read_to_string(suri_file)
@@ -234,7 +235,7 @@ macro_rules! declare_chain_signing_params_cli_schema {
 
 					use sp_core::crypto::Pair;
 
-					Chain::KeyPair::from_string(
+					AccountKeyPairOf::<Chain>::from_string(
 						&suri,
 						suri_password.as_deref()
 					).map_err(|e| anyhow::format_err!("{:?}", e))
@@ -247,7 +248,7 @@ macro_rules! declare_chain_signing_params_cli_schema {
 					self.[<$chain_prefix _signer>].is_some() || self.[<$chain_prefix _signer_file>].is_some()
 				}
 
-				fn transaction_params<Chain: CliChain>(&self) -> anyhow::Result<TransactionParams<Chain::KeyPair>> {
+				fn transaction_params<Chain: ChainWithTransactions>(&self) -> anyhow::Result<TransactionParams<AccountKeyPairOf<Chain>>> {
 					Ok(TransactionParams {
 						mortality: self.transactions_mortality()?,
 						signer: self.to_keypair::<Chain>()?,
