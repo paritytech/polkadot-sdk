@@ -69,20 +69,15 @@ impl OperatingMode for MessagesOperatingMode {
 
 /// Lane id which implements `TypeId`.
 #[derive(
-	Clone,
-	Copy,
-	Decode,
-	Default,
-	Encode,
-	Eq,
-	Ord,
-	PartialOrd,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Copy, Decode, Default, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo, MaxEncodedLen,
 )]
 pub struct LaneId(pub [u8; 4]);
+
+impl core::fmt::Debug for LaneId {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+		self.0.fmt(fmt)
+	}
+}
 
 impl AsRef<[u8]> for LaneId {
 	fn as_ref(&self) -> &[u8] {
@@ -457,5 +452,10 @@ mod tests {
 		assert!(delivered_messages.contains_message(100));
 		assert!(delivered_messages.contains_message(150));
 		assert!(!delivered_messages.contains_message(151));
+	}
+
+	#[test]
+	fn lane_id_debug_format_matches_inner_array_format() {
+		assert_eq!(format!("{:?}", LaneId([0, 0, 0, 0])), format!("{:?}", [0, 0, 0, 0]),);
 	}
 }
