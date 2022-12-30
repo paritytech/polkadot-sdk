@@ -254,7 +254,7 @@ impl<C: Chain> Client<C> {
 
 	/// Return number of the best finalized block.
 	pub async fn best_finalized_header_number(&self) -> Result<C::BlockNumber> {
-		Ok(*self.header_by_hash(self.best_finalized_header_hash().await?).await?.number())
+		Ok(*self.best_finalized_header().await?.number())
 	}
 
 	/// Return header of the best finalized block.

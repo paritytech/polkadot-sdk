@@ -40,7 +40,7 @@ use messages_relay::{
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Chain, ChainWithMessages, Client,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, ChainWithMessages, Client,
 	Error as SubstrateError, HashOf, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
@@ -149,12 +149,7 @@ where
 		// we can't relay messages if messages pallet at target chain is halted
 		self.ensure_pallet_active().await?;
 
-		read_client_state(
-			&self.target_client,
-			Some(&self.source_client),
-			P::SourceChain::BEST_FINALIZED_HEADER_ID_METHOD,
-		)
-		.await
+		read_client_state(&self.target_client, Some(&self.source_client)).await
 	}
 
 	async fn latest_received_nonce(
