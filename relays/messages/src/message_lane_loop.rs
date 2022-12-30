@@ -938,7 +938,7 @@ pub(crate) mod tests {
 			};
 			let _ = run(
 				Params {
-					lane: [0, 0, 0, 0],
+					lane: LaneId([0, 0, 0, 0]),
 					source_tick: Duration::from_millis(100),
 					target_tick: Duration::from_millis(100),
 					reconnect_delay: Duration::from_millis(0),

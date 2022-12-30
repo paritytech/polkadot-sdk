@@ -832,7 +832,7 @@ mod tests {
 	use crate::millau_messages::WeightCredit;
 	use bp_messages::{
 		target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-		MessageKey,
+		LaneId, MessageKey,
 	};
 	use bp_runtime::messages::MessageDispatchResult;
 	use bridge_runtime_common::messages::target::FromBridgedChainMessageDispatch;
@@ -875,7 +875,7 @@ mod tests {
 			let xcm: Xcm<RuntimeCall> = vec![Instruction::Trap(42)].into();
 
 			let mut incoming_message = DispatchMessage {
-				key: MessageKey { lane_id: [0, 0, 0, 0], nonce: 1 },
+				key: MessageKey { lane_id: LaneId([0, 0, 0, 0]), nonce: 1 },
 				data: DispatchMessageData { payload: Ok((location, xcm).into()) },
 			};
 

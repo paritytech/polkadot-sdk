@@ -203,11 +203,11 @@ pub trait CliChain: relay_substrate_client::Chain {
 
 /// Lane id.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HexLaneId(pub LaneId);
+pub struct HexLaneId(pub [u8; 4]);
 
 impl From<HexLaneId> for LaneId {
 	fn from(lane_id: HexLaneId) -> LaneId {
-		lane_id.0
+		LaneId(lane_id.0)
 	}
 }
 
@@ -215,7 +215,7 @@ impl std::str::FromStr for HexLaneId {
 	type Err = hex::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let mut lane_id = LaneId::default();
+		let mut lane_id = [0u8; 4];
 		hex::decode_to_slice(s, &mut lane_id)?;
 		Ok(HexLaneId(lane_id))
 	}

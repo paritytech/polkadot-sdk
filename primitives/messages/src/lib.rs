@@ -67,16 +67,30 @@ impl OperatingMode for MessagesOperatingMode {
 	}
 }
 
-/// Lane identifier.
-pub type LaneId = [u8; 4];
-
 /// Lane id which implements `TypeId`.
-// TODO (https://github.com/paritytech/parity-bridges-common/issues/1694):
-// `LaneId` shall be replaced with this across all codebase (codec-compatible)
-#[derive(Decode, Encode, RuntimeDebug)]
-pub struct TypedLaneId(pub [u8; 4]);
+#[derive(
+	Clone,
+	Copy,
+	Decode,
+	Default,
+	Encode,
+	Eq,
+	Ord,
+	PartialOrd,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct LaneId(pub [u8; 4]);
 
-impl TypeId for TypedLaneId {
+impl AsRef<[u8]> for LaneId {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
+impl TypeId for LaneId {
 	const TYPE_ID: [u8; 4] = *b"blan";
 }
 

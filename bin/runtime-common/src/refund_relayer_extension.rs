@@ -489,7 +489,7 @@ mod tests {
 
 	parameter_types! {
 		pub TestParachain: u32 = 1000;
-		pub TestLaneId: LaneId = [0, 0, 0, 0];
+		pub TestLaneId: LaneId = LaneId([0, 0, 0, 0]);
 	}
 
 	type TestExtension = RefundRelayerForMessagesFromParachain<

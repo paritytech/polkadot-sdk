@@ -630,7 +630,8 @@ mod tests {
 			msgs_to_refine.push((payload, out_msg_details));
 		}
 
-		let maybe_batches = split_msgs_to_refine::<Rialto, Rococo>([0, 0, 0, 0], msgs_to_refine);
+		let maybe_batches =
+			split_msgs_to_refine::<Rialto, Rococo>(LaneId([0, 0, 0, 0]), msgs_to_refine);
 		match expected_batches {
 			Ok(expected_batches) => {
 				let batches = maybe_batches.unwrap();

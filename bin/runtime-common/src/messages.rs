@@ -892,7 +892,7 @@ mod tests {
 		OutboundLaneData::default()
 	}
 
-	const TEST_LANE_ID: &LaneId = b"test";
+	const TEST_LANE_ID: &LaneId = &LaneId(*b"test");
 	const MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE: MessageNonce = 32;
 
 	fn regular_outbound_message_payload() -> source::FromThisChainMessagePayload {
@@ -904,7 +904,7 @@ mod tests {
 		assert_eq!(
 			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
 				&ThisChainOrigin(Ok(frame_system::RawOrigin::Root)),
-				b"dsbl",
+				&LaneId(*b"dsbl"),
 				&test_lane_outbound_data(),
 				&regular_outbound_message_payload(),
 			),

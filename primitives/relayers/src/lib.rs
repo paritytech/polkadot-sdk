@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_messages::{LaneId, TypedLaneId};
+use bp_messages::LaneId;
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::AccountIdConversion,
@@ -45,7 +45,7 @@ where
 {
 	/// Return account that pay rewards for serving given lane.
 	pub fn lane_rewards_account(lane_id: LaneId) -> Relayer {
-		TypedLaneId(lane_id).into_sub_account_truncating(b"bridge-lane")
+		lane_id.into_sub_account_truncating(b"bridge-lane")
 	}
 }
 
@@ -72,17 +72,17 @@ mod tests {
 	#[test]
 	fn lanes_are_using_different_accounts() {
 		assert_eq!(
-			PayLaneRewardFromAccount::<(), bp_rialto::AccountId>::lane_rewards_account([
+			PayLaneRewardFromAccount::<(), bp_rialto::AccountId>::lane_rewards_account(LaneId([
 				0, 0, 0, 0
-			]),
+			])),
 			hex_literal::hex!("626c616e000000006272696467652d6c616e6500000000000000000000000000")
 				.into(),
 		);
 
 		assert_eq!(
-			PayLaneRewardFromAccount::<(), bp_rialto::AccountId>::lane_rewards_account([
+			PayLaneRewardFromAccount::<(), bp_rialto::AccountId>::lane_rewards_account(LaneId([
 				0, 0, 0, 1
-			]),
+			])),
 			hex_literal::hex!("626c616e000000016272696467652d6c616e6500000000000000000000000000")
 				.into(),
 		);
