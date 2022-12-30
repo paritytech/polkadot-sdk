@@ -27,8 +27,8 @@ use crate::{
 use async_trait::async_trait;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SyncHeader,
-	TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
+	TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
@@ -100,7 +100,6 @@ where
 		Ok(crate::messages_source::read_client_state::<P::TargetChain, P::SourceChain>(
 			&self.client,
 			None,
-			P::SourceChain::BEST_FINALIZED_HEADER_ID_METHOD,
 		)
 		.await?
 		.best_finalized_peer_at_best_self)
