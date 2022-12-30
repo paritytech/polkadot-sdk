@@ -76,8 +76,8 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 
 			impl [<$left_chain $right_chain HeadersAndMessages>] {
 				async fn into_bridge<
-					Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
-					Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Right>>,
+					Left: ChainWithTransactions + CliChain,
+					Right: ChainWithTransactions + CliChain,
 					L2R: CliBridgeBase<Source = Left, Target = Right> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
 					R2L: CliBridgeBase<Source = Right, Target = Left> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
 				>(
@@ -114,8 +114,8 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 
 #[async_trait]
 impl<
-		Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
-		Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Right>>,
+		Left: ChainWithTransactions + CliChain,
+		Right: ChainWithTransactions + CliChain,
 		L2R: CliBridgeBase<Source = Left, Target = Right>
 			+ MessagesCliBridge
 			+ RelayToRelayHeadersCliBridge,

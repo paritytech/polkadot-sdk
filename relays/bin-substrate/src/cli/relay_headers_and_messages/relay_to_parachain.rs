@@ -107,8 +107,8 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 
 			impl [<$left_chain $right_parachain HeadersAndMessages>] {
 				async fn into_bridge<
-					Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
-					Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Right>> + Parachain,
+					Left: ChainWithTransactions + CliChain,
+					Right: ChainWithTransactions + CliChain + Parachain,
 					RightRelay: CliChain,
 					L2R: CliBridgeBase<Source = Left, Target = Right> + MessagesCliBridge + RelayToRelayHeadersCliBridge,
 					R2L: CliBridgeBase<Source = Right, Target = Left>
@@ -156,11 +156,8 @@ macro_rules! declare_relay_to_parachain_bridge_schema {
 
 #[async_trait]
 impl<
-		Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Left>>,
-		Right: Chain<Hash = ParaHash>
-			+ ChainWithTransactions
-			+ CliChain<KeyPair = AccountKeyPairOf<Right>>
-			+ Parachain,
+		Left: ChainWithTransactions + CliChain,
+		Right: Chain<Hash = ParaHash> + ChainWithTransactions + CliChain + Parachain,
 		RightRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
 			+ CliChain,
 		L2R: CliBridgeBase<Source = Left, Target = Right>

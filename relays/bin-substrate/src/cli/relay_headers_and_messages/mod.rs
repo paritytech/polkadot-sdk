@@ -227,9 +227,9 @@ trait Full2WayBridgeBase: Sized + Send + Sync {
 	/// The CLI params for the bridge.
 	type Params;
 	/// The left relay chain.
-	type Left: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Left>>;
+	type Left: ChainWithTransactions + CliChain;
 	/// The right destination chain (it can be a relay or a parachain).
-	type Right: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Right>>;
+	type Right: ChainWithTransactions + CliChain;
 
 	/// Reference to common relay parameters.
 	fn common(&self) -> &Full2WayBridgeCommonParams<Self::Left, Self::Right>;
@@ -259,13 +259,9 @@ where
 	type Base: Full2WayBridgeBase<Left = Self::Left, Right = Self::Right>;
 
 	/// The left relay chain.
-	type Left: ChainWithTransactions
-		+ ChainWithBalances
-		+ CliChain<KeyPair = AccountKeyPairOf<Self::Left>>;
+	type Left: ChainWithTransactions + ChainWithBalances + CliChain;
 	/// The right relay chain.
-	type Right: ChainWithTransactions
-		+ ChainWithBalances
-		+ CliChain<KeyPair = AccountKeyPairOf<Self::Right>>;
+	type Right: ChainWithTransactions + ChainWithBalances + CliChain;
 
 	/// Left to Right bridge.
 	type L2R: MessagesCliBridge<Source = Self::Left, Target = Self::Right>;

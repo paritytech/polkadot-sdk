@@ -46,6 +46,4 @@ impl CliEncodeMessage for Rialto {
 
 impl CliChain for Rialto {
 	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(rialto_runtime::VERSION);
-
-	type KeyPair = sp_core::sr25519::Pair;
 }

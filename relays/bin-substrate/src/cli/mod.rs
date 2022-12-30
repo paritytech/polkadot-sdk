@@ -194,11 +194,6 @@ pub trait CliChain: relay_substrate_client::Chain {
 	///
 	/// can be `None` if relay is not going to submit transactions to that chain.
 	const RUNTIME_VERSION: Option<sp_version::RuntimeVersion>;
-
-	/// Crypto KeyPair type used to send messages.
-	///
-	/// In case of chains supporting multiple cryptos, pick one used by the CLI.
-	type KeyPair: sp_core::crypto::Pair;
 }
 
 /// Lane id.

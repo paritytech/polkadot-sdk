@@ -56,7 +56,7 @@ pub struct RelayMessages {
 #[async_trait]
 trait MessagesRelayer: MessagesCliBridge
 where
-	Self::Source: ChainWithTransactions + CliChain<KeyPair = AccountKeyPairOf<Self::Source>>,
+	Self::Source: ChainWithTransactions + CliChain,
 	AccountIdOf<Self::Source>: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
 	AccountIdOf<Self::Target>: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
 	BalanceOf<Self::Source>: TryFrom<BalanceOf<Self::Target>>,

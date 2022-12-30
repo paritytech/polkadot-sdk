@@ -57,10 +57,7 @@ pub struct SendMessage {
 #[async_trait]
 trait MessageSender: MessagesCliBridge
 where
-	Self::Source: ChainBase<Index = u32>
-		+ ChainWithTransactions
-		+ CliChain<KeyPair = AccountKeyPairOf<Self::Source>>
-		+ CliEncodeMessage,
+	Self::Source: ChainBase<Index = u32> + ChainWithTransactions + CliChain + CliEncodeMessage,
 	<Self::Source as ChainBase>::Balance: Display + From<u64> + Into<u128>,
 	<Self::Source as Chain>::Call: Sync,
 	<Self::Source as ChainWithTransactions>::SignedTransaction: Sync,
