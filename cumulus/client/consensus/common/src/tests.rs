@@ -241,7 +241,7 @@ fn follow_new_best_with_dummy_recovery_works() {
 		new_best_heads_sender.unbounded_send(block.header().clone()).unwrap();
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
-			match client.block_status(&BlockId::Hash(block.hash())).unwrap() {
+			match client.block_status(block.hash()).unwrap() {
 				BlockStatus::Unknown => {},
 				status => {
 					assert_eq!(block.hash(), client.usage_info().chain.best_hash);

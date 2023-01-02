@@ -21,10 +21,7 @@ use sc_client_api::{
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::Error as ClientError;
 use sp_consensus::{BlockOrigin, BlockStatus};
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_client_pov_recovery::{RecoveryDelay, RecoveryKind, RecoveryRequest};
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
@@ -283,7 +280,7 @@ async fn handle_new_block_imported<Block, P>(
 		unset_best_header.hash()
 	};
 
-	match parachain.block_status(&BlockId::Hash(unset_hash)) {
+	match parachain.block_status(unset_hash) {
 		Ok(BlockStatus::InChainWithState) => {
 			drop(unset_best_header);
 			let unset_best_header = unset_best_header_opt
@@ -335,7 +332,7 @@ async fn handle_new_best_parachain_head<Block, P>(
 		)
 	} else {
 		// Make sure the block is already known or otherwise we skip setting new best.
-		match parachain.block_status(&BlockId::Hash(hash)) {
+		match parachain.block_status(hash) {
 			Ok(BlockStatus::InChainWithState) => {
 				unset_best_header.take();
 

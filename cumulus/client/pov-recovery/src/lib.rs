@@ -44,10 +44,7 @@
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
 use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
 use sp_consensus::{BlockOrigin, BlockStatus};
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, NumberFor},
-};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 use polkadot_node_primitives::{AvailableData, POV_BOMB_LIMIT};
 use polkadot_overseer::Handle as OverseerHandle;
@@ -303,7 +300,7 @@ where
 
 		let parent = *block.header().parent_hash();
 
-		match self.parachain_client.block_status(&BlockId::hash(parent)) {
+		match self.parachain_client.block_status(parent) {
 			Ok(BlockStatus::Unknown) => {
 				if self.active_candidate_recovery.is_being_recovered(&parent) {
 					tracing::debug!(
@@ -402,7 +399,7 @@ where
 				},
 			};
 
-			match self.parachain_client.block_status(&BlockId::Hash(hash)) {
+			match self.parachain_client.block_status(hash) {
 				Ok(BlockStatus::Unknown) if !candidate.waiting_recovery => {
 					candidate.waiting_recovery = true;
 					to_recover.push(hash);
