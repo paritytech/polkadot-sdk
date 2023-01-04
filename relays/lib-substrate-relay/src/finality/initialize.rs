@@ -24,10 +24,12 @@
 use crate::{error::Error, finality::engine::Engine};
 use sp_core::Pair;
 
+use bp_runtime::HeaderIdOf;
 use relay_substrate_client::{
 	AccountKeyPairOf, Chain, ChainWithTransactions, Client, Error as SubstrateError,
 	UnsignedTransaction,
 };
+use relay_utils::{TrackedTransactionStatus, TransactionTracker};
 use sp_runtime::traits::Header as HeaderT;
 
 /// Submit headers-bridge initialization transaction.
@@ -61,13 +63,26 @@ pub async fn initialize<
 	.await;
 
 	match result {
-		Ok(Some(tx_hash)) => log::info!(
-			target: "bridge",
-			"Successfully submitted {}-headers bridge initialization transaction to {}: {:?}",
-			SourceChain::NAME,
-			TargetChain::NAME,
-			tx_hash,
-		),
+		Ok(Some(tx_status)) => match tx_status {
+			TrackedTransactionStatus::Lost => {
+				log::error!(
+					target: "bridge",
+					"Failed to execute {}-headers bridge initialization transaction on {}: {:?}.",
+					SourceChain::NAME,
+					TargetChain::NAME,
+					tx_status
+				)
+			},
+			TrackedTransactionStatus::Finalized(_) => {
+				log::info!(
+					target: "bridge",
+					"Successfully executed {}-headers bridge initialization transaction on {}: {:?}.",
+					SourceChain::NAME,
+					TargetChain::NAME,
+					tx_status
+				)
+			},
+		},
 		Ok(None) => (),
 		Err(err) => log::error!(
 			target: "bridge",
@@ -92,7 +107,7 @@ async fn do_initialize<
 	prepare_initialize_transaction: F,
 	dry_run: bool,
 ) -> Result<
-	Option<TargetChain::Hash>,
+	Option<TrackedTransactionStatus<HeaderIdOf<TargetChain>>>,
 	Error<SourceChain::Hash, <SourceChain::Header as HeaderT>::Number>,
 >
 where
@@ -128,8 +143,8 @@ where
 		initialization_data,
 	);
 
-	let initialization_tx_hash = target_client
-		.submit_signed_extrinsic(&target_signer, move |_, transaction_nonce| {
+	let tx_status = target_client
+		.submit_and_watch_signed_extrinsic(&target_signer, move |_, transaction_nonce| {
 			let tx = prepare_initialize_transaction(transaction_nonce, initialization_data);
 			if dry_run {
 				Err(SubstrateError::Custom(
@@ -140,7 +155,9 @@ where
 			}
 		})
 		.await
-		.map_err(|err| Error::SubmitTransaction(TargetChain::NAME, err))?;
+		.map_err(|err| Error::SubmitTransaction(TargetChain::NAME, err))?
+		.wait()
+		.await;
 
-	Ok(Some(initialization_tx_hash))
+	Ok(Some(tx_status))
 }
