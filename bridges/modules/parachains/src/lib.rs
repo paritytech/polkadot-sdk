@@ -661,7 +661,9 @@ mod tests {
 	};
 	use codec::Encode;
 
-	use bp_parachains::{BestParaHeadHash, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider};
+	use bp_parachains::{
+		BestParaHeadHash, BridgeParachainCall, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider,
+	};
 	use bp_runtime::{
 		record_all_trie_keys, BasicOperatingMode, OwnedBridgeModuleError,
 		StorageDoubleMapKeyProvider, StorageMapKeyProvider,
@@ -1469,6 +1471,25 @@ mod tests {
 				}],
 			);
 		});
+	}
+
+	#[test]
+	fn test_bridge_parachain_call_is_correctly_defined() {
+		let (state_root, proof, _) = prepare_parachain_heads_proof(vec![(1, head_data(1, 0))]);
+		let parachains = vec![(ParaId(2), Default::default())];
+		let relay_header_id = (0, test_relay_header(0, state_root).hash());
+
+		let direct_submit_parachain_heads_call = Call::<TestRuntime>::submit_parachain_heads {
+			at_relay_block: relay_header_id,
+			parachains: parachains.clone(),
+			parachain_heads_proof: proof.clone(),
+		};
+		let indirect_submit_parachain_heads_call =
+			BridgeParachainCall::submit_parachain_heads(relay_header_id, parachains, proof);
+		assert_eq!(
+			direct_submit_parachain_heads_call.encode(),
+			indirect_submit_parachain_heads_call.encode()
+		);
 	}
 
 	generate_owned_bridge_module_tests!(BasicOperatingMode::Normal, BasicOperatingMode::Halted);

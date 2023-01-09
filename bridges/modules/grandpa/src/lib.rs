@@ -612,6 +612,7 @@ mod tests {
 		run_test, test_header, RuntimeOrigin, TestHeader, TestNumber, TestRuntime,
 		MAX_BRIDGED_AUTHORITIES,
 	};
+	use bp_header_chain::BridgeGrandpaCall;
 	use bp_runtime::BasicOperatingMode;
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
@@ -1157,6 +1158,34 @@ mod tests {
 		assert_eq!(
 			BestFinalized::<TestRuntime>::storage_value_final_key().to_vec(),
 			bp_header_chain::storage_keys::best_finalized_key("Grandpa").0,
+		);
+	}
+
+	#[test]
+	fn test_bridge_grandpa_call_is_correctly_defined() {
+		let header = test_header(0);
+		let init_data = InitializationData {
+			header: Box::new(header.clone()),
+			authority_list: authority_list(),
+			set_id: 1,
+			operating_mode: BasicOperatingMode::Normal,
+		};
+		let justification = make_default_justification(&header);
+
+		let direct_initialize_call =
+			Call::<TestRuntime>::initialize { init_data: init_data.clone() };
+		let indirect_initialize_call = BridgeGrandpaCall::<TestHeader>::initialize(init_data);
+		assert_eq!(direct_initialize_call.encode(), indirect_initialize_call.encode());
+
+		let direct_submit_finality_proof_call = Call::<TestRuntime>::submit_finality_proof {
+			finality_target: Box::new(header.clone()),
+			justification: justification.clone(),
+		};
+		let indirect_submit_finality_proof_call =
+			BridgeGrandpaCall::<TestHeader>::submit_finality_proof(Box::new(header), justification);
+		assert_eq!(
+			direct_submit_finality_proof_call.encode(),
+			indirect_submit_finality_proof_call.encode()
 		);
 	}
 
