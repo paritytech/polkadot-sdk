@@ -45,7 +45,6 @@ substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch
 
 # Polkadot
 polkadot-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus

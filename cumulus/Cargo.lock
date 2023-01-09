@@ -1951,7 +1951,6 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-parachain",
  "polkadot-primitives",
- "polkadot-service",
  "polkadot-test-client",
  "portpicker",
  "sc-cli",

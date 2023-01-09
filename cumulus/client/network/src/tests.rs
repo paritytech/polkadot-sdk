@@ -17,18 +17,18 @@
 use super::*;
 use async_trait::async_trait;
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
+use cumulus_relay_chain_interface::{
+	OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
+};
 use cumulus_test_service::runtime::{Block, Hash, Header};
 use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::v2::{
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CommittedCandidateReceipt,
-	Hash as PHash, HeadData, Header as PHeader, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	SigningContext, ValidationCodeHash, ValidatorId,
+	Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
 };
-use polkadot_service::Handle;
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
 	InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
@@ -174,7 +174,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		Ok(false)
 	}
 
-	fn overseer_handle(&self) -> RelayChainResult<Handle> {
+	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle> {
 		unimplemented!("Not needed for test")
 	}
 

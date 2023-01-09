@@ -16,14 +16,7 @@
 
 use std::{collections::BTreeMap, pin::Pin, sync::Arc};
 
-use cumulus_primitives_core::{
-	relay_chain::{
-		v2::{CommittedCandidateReceipt, OccupiedCoreAssumption, SessionIndex, ValidatorId},
-		Hash as PHash, Header as PHeader, InboundHrmpMessage,
-	},
-	InboundDownwardMessage, ParaId, PersistedValidationData,
-};
-use polkadot_overseer::{prometheus::PrometheusError, Handle as OverseerHandle};
+use polkadot_overseer::prometheus::PrometheusError;
 use polkadot_service::SubstrateServiceError;
 use sc_client_api::StorageProof;
 
@@ -33,7 +26,16 @@ use async_trait::async_trait;
 use jsonrpsee_core::Error as JsonRpcError;
 use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
-use sp_state_machine::StorageValue;
+
+pub use cumulus_primitives_core::{
+	relay_chain::{
+		v2::{CommittedCandidateReceipt, OccupiedCoreAssumption, SessionIndex, ValidatorId},
+		Hash as PHash, Header as PHeader, InboundHrmpMessage,
+	},
+	InboundDownwardMessage, ParaId, PersistedValidationData,
+};
+pub use polkadot_overseer::Handle as OverseerHandle;
+pub use sp_state_machine::StorageValue;
 
 pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
