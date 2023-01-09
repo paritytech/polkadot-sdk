@@ -19,7 +19,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_runtime::{BasicOperatingMode, Chain, HashOf, HasherOf, StorageProofChecker};
+use bp_runtime::{BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, StorageProofChecker};
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
 use frame_support::PalletError;
@@ -169,3 +169,18 @@ impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
 		GrandpaConsensusLogReader::<Number>::find_authorities_change(digest).is_some()
 	}
 }
+
+/// A minimized version of `pallet-bridge-grandpa::Call` that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum BridgeGrandpaCall<Header: HeaderT> {
+	/// `pallet-bridge-grandpa::Call::submit_finality_proof`
+	#[codec(index = 0)]
+	submit_finality_proof(Box<Header>, justification::GrandpaJustification<Header>),
+	/// `pallet-bridge-grandpa::Call::initialize`
+	#[codec(index = 1)]
+	initialize(InitializationData<Header>),
+}
+
+/// The `BridgeGrandpaCall` used by a chain.
+pub type BridgeGrandpaCallOf<C> = BridgeGrandpaCall<HeaderOf<C>>;

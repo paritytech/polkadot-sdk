@@ -692,6 +692,13 @@ pub mod target {
 	}
 }
 
+/// The `BridgeMessagesCall` used by a chain.
+pub type BridgeMessagesCallOf<C> = bp_messages::BridgeMessagesCall<
+	bp_runtime::AccountIdOf<C>,
+	target::FromBridgedChainMessagesProof<bp_runtime::HashOf<C>>,
+	source::FromBridgedChainMessagesDeliveryProof<bp_runtime::HashOf<C>>,
+>;
+
 #[cfg(test)]
 mod tests {
 	use super::*;

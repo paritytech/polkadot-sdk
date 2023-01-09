@@ -33,7 +33,7 @@ substrate_relay_helper::generate_mocked_submit_finality_proof_call_builder!(
 	RococoFinalityToBridgeHubWococo,
 	RococoFinalityToBridgeHubWococoCallBuilder,
 	relay_bridge_hub_wococo_client::runtime::Call::BridgeRococoGrandpa,
-	relay_bridge_hub_wococo_client::runtime::BridgeGrandpaRococoCall::submit_finality_proof
+	relay_bridge_hub_wococo_client::runtime::BridgeRococoGrandpaCall::submit_finality_proof
 );
 
 #[async_trait]
