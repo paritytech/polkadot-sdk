@@ -26,7 +26,7 @@ use sc_transaction_pool_api::TransactionStatus;
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{Block as BlockT, Dispatchable, Member},
+	traits::{Block as BlockT, Member},
 	ConsensusEngineId, EncodedJustification,
 };
 use std::{fmt::Debug, time::Duration};
@@ -56,7 +56,7 @@ pub trait Chain: ChainBase + Clone {
 	/// Block type.
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
 	/// The aggregated `Call` type.
-	type Call: Clone + Codec + Dispatchable + Debug + Send;
+	type Call: Clone + Codec + Debug + Send;
 }
 
 /// Substrate-based relay chain that supports parachains.
