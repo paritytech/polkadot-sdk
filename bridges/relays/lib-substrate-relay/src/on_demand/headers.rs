@@ -316,7 +316,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 						stall_timeout,
 						only_mandatory_headers,
 					},
-					metrics_params.clone().unwrap_or_else(|| MetricsParams::disabled()),
+					metrics_params.clone().unwrap_or_else(MetricsParams::disabled),
 					futures::future::pending(),
 				)
 				.fuse(),

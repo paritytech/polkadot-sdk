@@ -21,8 +21,8 @@
 pub use bp_header_chain::StoredHeaderData;
 
 use bp_polkadot_core::{
-	parachains::{ParaHash, ParaHead, ParaId},
-	BlockNumber as RelayBlockNumber,
+	parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId},
+	BlockNumber as RelayBlockNumber, Hash as RelayBlockHash,
 };
 use bp_runtime::{
 	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
@@ -149,4 +149,17 @@ impl ParaStoredHeaderDataBuilder for C {
 
 		None
 	}
+}
+
+/// A minimized version of `pallet-bridge-parachains::Call` that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum BridgeParachainCall {
+	/// `pallet-bridge-parachains::Call::submit_parachain_heads`
+	#[codec(index = 0)]
+	submit_parachain_heads(
+		(RelayBlockNumber, RelayBlockHash),
+		Vec<(ParaId, ParaHash)>,
+		ParaHeadsProof,
+	),
 }
