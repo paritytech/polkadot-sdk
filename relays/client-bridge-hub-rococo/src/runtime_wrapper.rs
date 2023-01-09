@@ -43,9 +43,6 @@ pub type BridgeWococoMessagesCall = BridgeMessagesCallOf<bp_bridge_hub_wococo::B
 ///
 /// All entries here (like pretty much in the entire file) must be kept in sync with
 /// `BridgeHubRococo` `construct_runtime`, so that we maintain SCALE-compatibility.
-///
-/// // TODO:check-parameter -> change bridge-hub-rococo-wococo when merged to master in cumulus
-/// See: [link](https://github.com/paritytech/cumulus/blob/bridge-hub-rococo-wococo/parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/lib.rs)
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum Call {
