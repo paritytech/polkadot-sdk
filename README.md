@@ -10,11 +10,6 @@ Substrate chains.
 
 🚧 The bridges are currently under construction - a hardhat is recommended beyond this point 🚧
 
-**IMPORTANT**: this documentation is outdated and it is mostly related to the previous version of our
-bridge. Right there's an ongoing work to make our bridge work with XCM messages. Old bridge is still
-available at [encoded-calls-messaging](https://github.com/paritytech/parity-bridges-common/releases/tag/encoded-calls-messaging)
-tag.
-
 ## Contents
 
 - [Installation](#installation)
@@ -97,7 +92,7 @@ description of the bridge interaction.
 
 ## Project Layout
 
-Here's an overview of how the project is laid out. The main bits are the `node`, which is the actual
+Here's an overview of how the project is laid out. The main bits are the `bin`, which is the actual
 "blockchain", the `modules` which are used to build the blockchain's logic (a.k.a the runtime) and
 the `relays` which are used to pass messages between chains.
 
@@ -106,16 +101,16 @@ the `relays` which are used to pass messages between chains.
 │  └── ...
 ├── deployments     // Useful tools for deploying test networks
 │  └──  ...
-├── diagrams        // Pretty pictures of the project architecture
-│  └──  ...
 ├── modules         // Substrate Runtime Modules (a.k.a Pallets)
+│  ├── beefy        // On-Chain BEEFY Light Client (in progress)
 │  ├── grandpa      // On-Chain GRANDPA Light Client
 │  ├── messages     // Cross Chain Message Passing
-│  ├── dispatch     // Target Chain Message Execution
+│  ├── parachains   // On-Chain Parachains Light Client
+│  ├── relayers     // Relayer rewards registry
 │  └──  ...
 ├── primitives      // Code shared between modules, runtimes, and relays
 │  └──  ...
-├── relays          // Application for sending headers and messages between chains
+├── relays          // Application for sending finality proofs and messages between chains
 │  └──  ...
 └── scripts         // Useful development and maintenance scripts
 ```
@@ -127,8 +122,11 @@ on each side of the bridge (source and target chain).
 
 There are 2 ways to run the bridge, described below:
 
-- building & running from source
-- running a Docker Compose setup (recommended).
+- building & running from source: with this option, you'll be able to run the bridge between two standalone
+chains that are running GRANDPA finality gadget to achieve finality;
+
+- running a Docker Compose setup: this is a recommended option, where you'll see bridges with parachains,
+complex relays and more.
 
 ### Using the Source
 
@@ -204,7 +202,33 @@ You will also see the message lane relayers listening for new messages.
 
 To send a message see the ["How to send a message" section](#how-to-send-a-message).
 
-### Full Network Docker Compose Setup
+### How to send a message
+
+In this section we'll show you how to quickly send a bridge message. The message is just an encoded XCM
+`Trap(43)` message.
+
+```bash
+# In `parity-bridges-common` folder
+./scripts/send-message-from-millau-rialto.sh
+```
+
+After sending a message you will see the following logs showing a message was successfully sent:
+
+```
+INFO bridge Sending message to Rialto. Size: 5.
+TRACE bridge Sent transaction to Millau node: 0x5e68...
+```
+
+And at the Rialto node logs you'll something like this:
+
+```
+... runtime::bridge-dispatch: Going to execute message ([0, 0, 0, 0], 1) (...), Trap(43)])    
+... runtime::bridge-dispatch: Incoming message ([0, 0, 0, 0], 1) dispatched with result: Incomplete(2000000000, Trap(43))    
+``` 
+
+It means that the message has been delivered and successfully dispatched.
+
+## Full Network Docker Compose Setup
 
 For a more sophisticated deployment which includes bidirectional header sync, message passing,
 monitoring dashboards, etc. see the [Deployments README](./deployments/README.md).
@@ -218,24 +242,6 @@ To run a Rialto node for example, you can use the following command:
 docker run -p 30333:30333 -p 9933:9933 -p 9944:9944 \
   -it paritytech/rialto-bridge-node --dev --tmp \
   --rpc-cors=all --unsafe-rpc-external --unsafe-ws-external
-```
-
-### How to send a message
-
-In this section we'll show you how to quickly send a bridge message, if you want to
-interact with and test the bridge see more details in [send message](./docs/send-message.md)
-
-```bash
-# In `parity-bridges-common` folder
-./scripts/send-message-from-millau-rialto.sh remark
-```
-
-After sending a message you will see the following logs showing a message was successfully sent:
-
-```
-INFO bridge Sending message to Rialto. Size: 286. Dispatch weight: 1038000. Fee: 275,002,568
-INFO bridge Signed Millau Call: 0x7904...
-TRACE bridge Sent transaction to Millau node: 0x5e68...
 ```
 
 ## Community
