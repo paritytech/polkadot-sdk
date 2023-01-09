@@ -20,7 +20,7 @@ use bp_messages::MessageNonce;
 use bp_runtime::{Chain, EncodedOrDecodedCall, StorageMapKeyProvider};
 use codec::Compact;
 use frame_support::{
-	dispatch::{DispatchClass, Dispatchable},
+	dispatch::DispatchClass,
 	parameter_types,
 	weights::{
 		constants::{BlockExecutionWeight, WEIGHT_PER_SECOND},
@@ -29,7 +29,7 @@ use frame_support::{
 	Blake2_128Concat, RuntimeDebug,
 };
 use frame_system::limits;
-use scale_info::{StaticTypeInfo, TypeInfo};
+use scale_info::TypeInfo;
 use sp_core::{storage::StorageKey, Hasher as HasherT};
 use sp_runtime::{
 	generic,
@@ -194,7 +194,7 @@ pub type UncheckedExtrinsic<Call> = generic::UncheckedExtrinsic<
 	AccountAddress,
 	EncodedOrDecodedCall<Call>,
 	Signature,
-	SignedExtensions<Call>,
+	SignedExtensions,
 >;
 
 /// Account address, used by the Polkadot-like chain.
@@ -210,34 +210,18 @@ pub type AdditionalSigned = ((), u32, u32, Hash, Hash, (), (), ());
 
 /// A simplified version of signed extensions meant for producing signed transactions
 /// and signed payload in the client code.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
-pub struct SignedExtensions<Call> {
+#[derive(codec::Encode, codec::Decode, PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+pub struct SignedExtensions {
 	encode_payload: SignedExtra,
 	// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
 	// (and it makes no sense to do that) => decoded version of `SignedExtensions` is only used to
 	// read fields of `encode_payload`. And when resigning transaction, we're reconstructing
 	// `SignedExtensions` from the scratch.
+	#[codec(skip)]
 	additional_signed: Option<AdditionalSigned>,
-	_data: sp_std::marker::PhantomData<Call>,
 }
 
-impl<Call> codec::Encode for SignedExtensions<Call> {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		self.encode_payload.using_encoded(f)
-	}
-}
-
-impl<Call> codec::Decode for SignedExtensions<Call> {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		SignedExtra::decode(input).map(|encode_payload| SignedExtensions {
-			encode_payload,
-			additional_signed: None,
-			_data: Default::default(),
-		})
-	}
-}
-
-impl<Call> SignedExtensions<Call> {
+impl SignedExtensions {
 	pub fn new(
 		spec_version: u32,
 		transaction_version: u32,
@@ -267,12 +251,11 @@ impl<Call> SignedExtensions<Call> {
 				(),
 				(),
 			)),
-			_data: Default::default(),
 		}
 	}
 }
 
-impl<Call> SignedExtensions<Call> {
+impl SignedExtensions {
 	/// Return signer nonce, used to craft transaction.
 	pub fn nonce(&self) -> Nonce {
 		self.encode_payload.5.into()
@@ -284,15 +267,11 @@ impl<Call> SignedExtensions<Call> {
 	}
 }
 
-impl<Call> sp_runtime::traits::SignedExtension for SignedExtensions<Call>
-where
-	Call: codec::Codec + sp_std::fmt::Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	Call: Dispatchable,
-{
+impl sp_runtime::traits::SignedExtension for SignedExtensions {
 	const IDENTIFIER: &'static str = "Not needed.";
 
 	type AccountId = AccountId;
-	type Call = Call;
+	type Call = ();
 	type AdditionalSigned = AdditionalSigned;
 	type Pre = ();
 

@@ -16,13 +16,9 @@
 
 //! Module with configuration which reflects BridgeHubWococo runtime setup
 //! (AccountId, Headers, Hashes...)
-//!
-//! but actually this is just reexported BridgeHubRococo stuff, because they are supposed to be
-//! identical, at least uses the same parachain runtime
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// Re-export only what is really needed
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
 use bp_runtime::{

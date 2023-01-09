@@ -391,6 +391,18 @@ where
 	relayers_rewards
 }
 
+/// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
+	/// `pallet-bridge-messages::Call::receive_messages_proof`
+	#[codec(index = 2)]
+	receive_messages_proof(AccountId, MessagesProof, u32, Weight),
+	/// `pallet-bridge-messages::Call::receive_messages_delivery_proof`
+	#[codec(index = 3)]
+	receive_messages_delivery_proof(MessagesDeliveryProof, UnrewardedRelayersState),
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

@@ -12,11 +12,21 @@ relay-substrate-client = { path = "../client-substrate" }
 
 # Bridge dependencies
 
+bp-bridge-hub-rococo = { path = "../../primitives/chain-bridge-hub-rococo" }
 bp-bridge-hub-wococo = { path = "../../primitives/chain-bridge-hub-wococo" }
+bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
-relay-bridge-hub-rococo-client = { path = "../client-bridge-hub-rococo" }
+bp-parachains = { path = "../../primitives/parachains" }
+bp-rococo = { path = "../../primitives/chain-rococo" }
+bp-runtime = { path = "../../primitives/runtime" }
+
+bridge-runtime-common = { path = "../../bin/runtime-common" }
 
 # Substrate Dependencies
 
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+[dev-dependencies]
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }

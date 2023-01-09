@@ -885,13 +885,13 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain, DispatchPayload: D
 mod tests {
 	use super::*;
 	use crate::mock::{
-		message, message_payload, run_test, unrewarded_relayer, DbWeight,
+		message, message_payload, run_test, unrewarded_relayer, AccountId, DbWeight,
 		RuntimeEvent as TestEvent, RuntimeOrigin, TestDeliveryConfirmationPayments,
 		TestDeliveryPayments, TestMessagesDeliveryProof, TestMessagesProof, TestRuntime,
 		MAX_OUTBOUND_PAYLOAD_SIZE, PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID,
 		TEST_LANE_ID_2, TEST_LANE_ID_3, TEST_RELAYER_A, TEST_RELAYER_B,
 	};
-	use bp_messages::{UnrewardedRelayer, UnrewardedRelayersState};
+	use bp_messages::{BridgeMessagesCall, UnrewardedRelayer, UnrewardedRelayersState};
 	use bp_test_utils::generate_owned_bridge_module_tests;
 	use frame_support::{
 		assert_noop, assert_ok,
@@ -1889,6 +1889,69 @@ mod tests {
 				Error::<TestRuntime, ()>::InactiveOutboundLane,
 			);
 		});
+	}
+
+	#[test]
+	fn test_bridge_messages_call_is_correctly_defined() {
+		let account_id = 1;
+		let message_proof: TestMessagesProof = Ok(vec![message(1, REGULAR_PAYLOAD)]).into();
+		let message_delivery_proof = TestMessagesDeliveryProof(Ok((
+			TEST_LANE_ID,
+			InboundLaneData {
+				last_confirmed_nonce: 1,
+				relayers: vec![UnrewardedRelayer {
+					relayer: 0,
+					messages: DeliveredMessages::new(1),
+				}]
+				.into_iter()
+				.collect(),
+			},
+		)));
+		let unrewarded_relayer_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			total_messages: 1,
+			last_delivered_nonce: 1,
+			..Default::default()
+		};
+
+		let direct_receive_messages_proof_call = Call::<TestRuntime>::receive_messages_proof {
+			relayer_id_at_bridged_chain: account_id,
+			proof: message_proof.clone(),
+			messages_count: 1,
+			dispatch_weight: REGULAR_PAYLOAD.declared_weight,
+		};
+		let indirect_receive_messages_proof_call = BridgeMessagesCall::<
+			AccountId,
+			TestMessagesProof,
+			TestMessagesDeliveryProof,
+		>::receive_messages_proof(
+			account_id,
+			message_proof,
+			1,
+			REGULAR_PAYLOAD.declared_weight,
+		);
+		assert_eq!(
+			direct_receive_messages_proof_call.encode(),
+			indirect_receive_messages_proof_call.encode()
+		);
+
+		let direct_receive_messages_delivery_proof_call =
+			Call::<TestRuntime>::receive_messages_delivery_proof {
+				proof: message_delivery_proof.clone(),
+				relayers_state: unrewarded_relayer_state.clone(),
+			};
+		let indirect_receive_messages_delivery_proof_call = BridgeMessagesCall::<
+			AccountId,
+			TestMessagesProof,
+			TestMessagesDeliveryProof,
+		>::receive_messages_delivery_proof(
+			message_delivery_proof,
+			unrewarded_relayer_state,
+		);
+		assert_eq!(
+			direct_receive_messages_delivery_proof_call.encode(),
+			indirect_receive_messages_delivery_proof_call.encode()
+		);
 	}
 
 	generate_owned_bridge_module_tests!(

@@ -132,8 +132,10 @@ mod tests {
 	#[test]
 	fn parse_transaction_works() {
 		let unsigned = UnsignedTransaction {
-			call: runtime::Call::System(runtime::SystemCall::remark(b"Hello world!".to_vec()))
-				.into(),
+			call: runtime::Call::System(bp_runtime::calls::SystemCall::remark(
+				b"Hello world!".to_vec(),
+			))
+			.into(),
 			nonce: 777,
 			tip: 888,
 			era: TransactionEra::immortal(),
