@@ -132,7 +132,7 @@ mod tests {
 	#[test]
 	fn parse_transaction_works() {
 		let unsigned = UnsignedTransaction {
-			call: runtime::Call::System(bp_runtime::calls::SystemCall::remark(
+			call: runtime::Call::System(relay_substrate_client::calls::SystemCall::remark(
 				b"Hello world!".to_vec(),
 			))
 			.into(),

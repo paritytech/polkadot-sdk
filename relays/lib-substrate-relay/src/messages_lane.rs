@@ -330,7 +330,7 @@ macro_rules! generate_mocked_receive_message_proof_call_builder {
 					<$pipeline as $crate::messages_lane::SubstrateMessageLane>::SourceChain
 				>,
 				messages_count: u32,
-				dispatch_weight: Weight,
+				dispatch_weight: bp_messages::Weight,
 				_trace_call: bool,
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::messages_lane::SubstrateMessageLane>::TargetChain
