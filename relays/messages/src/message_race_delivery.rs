@@ -612,7 +612,6 @@ mod tests {
 						},
 					)
 				})
-				.into_iter()
 				.collect(),
 			confirmed_nonce: Some(confirmed_nonce),
 		}
