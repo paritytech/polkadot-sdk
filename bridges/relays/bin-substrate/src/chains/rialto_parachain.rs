@@ -18,7 +18,9 @@
 
 use crate::cli::{bridge, encode_message::CliEncodeMessage, CliChain};
 use bp_runtime::EncodedOrDecodedCall;
+use bridge_runtime_common::CustomNetworkId;
 use relay_rialto_parachain_client::RialtoParachain;
+use relay_substrate_client::calls::XcmCall;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::*;
 
@@ -29,23 +31,19 @@ impl CliEncodeMessage for RialtoParachain {
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
 		let dest = match bridge_instance_index {
 			bridge::RIALTO_PARACHAIN_TO_MILLAU_INDEX =>
-				(Parent, X1(GlobalConsensus(rialto_parachain_runtime::MillauNetwork::get()))),
+				(Parent, X1(GlobalConsensus(CustomNetworkId::Millau.as_network_id()))),
 			_ => anyhow::bail!(
 				"Unsupported target bridge pallet with instance index: {}",
 				bridge_instance_index
 			),
 		};
 
-		Ok(rialto_parachain_runtime::RuntimeCall::PolkadotXcm(
-			rialto_parachain_runtime::XcmCall::send {
-				dest: Box::new(dest.into()),
-				message: Box::new(message),
-			},
-		)
-		.into())
+		let xcm_call = XcmCall::send(Box::new(dest.into()), Box::new(message));
+
+		Ok(relay_rialto_parachain_client::runtime::Call::PolkadotXcm(xcm_call).into())
 	}
 }
 
 impl CliChain for RialtoParachain {
-	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(rialto_parachain_runtime::VERSION);
+	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
 }

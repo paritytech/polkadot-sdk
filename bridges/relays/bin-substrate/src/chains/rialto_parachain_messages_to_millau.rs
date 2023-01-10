@@ -19,12 +19,16 @@
 use relay_millau_client::Millau;
 use relay_rialto_parachain_client::RialtoParachain;
 use substrate_relay_helper::{
-	messages_lane::{
-		DirectReceiveMessagesDeliveryProofCallBuilder, DirectReceiveMessagesProofCallBuilder,
-		SubstrateMessageLane,
-	},
+	messages_lane::{DirectReceiveMessagesProofCallBuilder, SubstrateMessageLane},
 	UtilityPalletBatchCallBuilder,
 };
+
+substrate_relay_helper::generate_mocked_receive_message_delivery_proof_call_builder!(
+	RialtoParachainMessagesToMillau,
+	RialtoParachainMessagesToMillauReceiveMessagesDeliveryProofCallBuilder,
+	relay_rialto_parachain_client::runtime::Call::BridgeMillauMessages,
+	relay_rialto_parachain_client::runtime::BridgeMillauMessagesCall::receive_messages_delivery_proof
+);
 
 /// Description of RialtoParachain -> Millau messages bridge.
 #[derive(Clone, Debug)]
@@ -39,11 +43,8 @@ impl SubstrateMessageLane for RialtoParachainMessagesToMillau {
 		millau_runtime::Runtime,
 		millau_runtime::WithRialtoParachainMessagesInstance,
 	>;
-	type ReceiveMessagesDeliveryProofCallBuilder = DirectReceiveMessagesDeliveryProofCallBuilder<
-		Self,
-		rialto_parachain_runtime::Runtime,
-		rialto_parachain_runtime::WithMillauMessagesInstance,
-	>;
+	type ReceiveMessagesDeliveryProofCallBuilder =
+		RialtoParachainMessagesToMillauReceiveMessagesDeliveryProofCallBuilder;
 
 	type SourceBatchCallBuilder = ();
 	type TargetBatchCallBuilder = UtilityPalletBatchCallBuilder<Millau>;
