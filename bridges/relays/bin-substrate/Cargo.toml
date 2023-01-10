@@ -51,7 +51,6 @@ relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 relay-westend-client = { path = "../client-westend" }
 relay-wococo-client = { path = "../client-wococo" }
-rialto-parachain-runtime = { path = "../../bin/rialto-parachain/runtime" }
 rialto-runtime = { path = "../../bin/rialto/runtime" }
 substrate-relay-helper = { path = "../lib-substrate-relay" }
 

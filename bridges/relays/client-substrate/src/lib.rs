@@ -25,6 +25,7 @@ mod rpc;
 mod sync_header;
 mod transaction_tracker;
 
+pub mod calls;
 pub mod guard;
 pub mod metrics;
 pub mod test_chain;

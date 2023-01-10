@@ -18,7 +18,9 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::vec::Vec;
+use sp_std::{boxed::Box, vec::Vec};
+
+use xcm::{VersionedMultiLocation, VersionedXcm};
 
 /// A minimized version of `frame-system::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -27,4 +29,22 @@ pub enum SystemCall {
 	/// `frame-system::Call::remark`
 	#[codec(index = 1)]
 	remark(Vec<u8>),
+}
+
+/// A minimized version of `pallet-sudo::Call` that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum SudoCall<Call> {
+	/// `pallet-sudo::Call::sudo`
+	#[codec(index = 0)]
+	sudo(Box<Call>),
+}
+
+/// A minimized version of `pallet-xcm::Call`, that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum XcmCall {
+	/// `pallet-xcm::Call::send`
+	#[codec(index = 0)]
+	send(Box<VersionedMultiLocation>, Box<VersionedXcm<()>>),
 }

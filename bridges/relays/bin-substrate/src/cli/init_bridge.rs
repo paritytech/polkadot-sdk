@@ -29,7 +29,7 @@ use crate::{
 	cli::{bridge::CliBridgeBase, chain_schema::*},
 };
 use bp_runtime::Chain as ChainBase;
-use relay_substrate_client::{AccountKeyPairOf, Chain, UnsignedTransaction};
+use relay_substrate_client::{calls::SudoCall, AccountKeyPairOf, Chain, UnsignedTransaction};
 use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
@@ -123,13 +123,13 @@ impl BridgeInitializer for MillauToRialtoParachainCliBridge {
 	fn encode_init_bridge(
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
-		let initialize_call = rialto_parachain_runtime::BridgeGrandpaCall::<
-			rialto_parachain_runtime::Runtime,
-			rialto_parachain_runtime::MillauGrandpaInstance,
-		>::initialize {
-			init_data,
-		};
-		rialto_parachain_runtime::SudoCall::sudo { call: Box::new(initialize_call.into()) }.into()
+		use relay_rialto_parachain_client::runtime;
+
+		let initialize_call = runtime::Call::BridgeMillauGrandpa(
+			runtime::BridgeMillauGrandpaCall::initialize(init_data),
+		);
+		let sudo_call = SudoCall::sudo(Box::new(initialize_call));
+		runtime::Call::Sudo(sudo_call)
 	}
 }
 
