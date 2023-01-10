@@ -16,18 +16,24 @@
 
 //! The actual implementation of the validate block functionality.
 
-use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
-use sp_runtime::traits::{Block as BlockT, Extrinsic, HashFor, Header as HeaderT};
+use super::MemoryOptimizedValidationParams;
+use cumulus_primitives_core::{
+	relay_chain::v2::Hash as RHash, ParachainBlockData, PersistedValidationData,
+};
+use cumulus_primitives_parachain_inherent::ParachainInherentData;
 
-use sp_io::KillStorageResult;
-use sp_std::prelude::*;
-
-use polkadot_parachain::primitives::{HeadData, ValidationParams, ValidationResult};
+use polkadot_parachain::primitives::{
+	HeadData, RelayChainBlockNumber, ValidationParams, ValidationResult,
+};
 
 use codec::{Decode, Encode};
 
+use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
+use sp_io::KillStorageResult;
+use sp_runtime::traits::{Block as BlockT, Extrinsic, HashFor, Header as HeaderT};
+use sp_std::{mem, prelude::*};
 use sp_trie::MemoryDB;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<MemoryDB<HashFor<B>>, HashFor<B>>;
@@ -38,7 +44,32 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
 
-/// Validate a given parachain block on a validator.
+/// Validate the given parachain block.
+///
+/// This function is doing roughly the following:
+///
+/// 1. We decode the [`ParachainBlockData`] from the `block_data` in `params`.
+///
+/// 2. We are doing some security checks like checking that the `parent_head` in `params`
+/// is the parent of the block we are going to check. We also ensure that the `set_validation_data`
+/// inherent is present in the block and that the validation data matches the values in `params`.
+///
+/// 3. We construct the sparse in-memory database from the storage proof inside the block data and
+/// then ensure that the storage root matches the storage root in the `parent_head`.
+///
+/// 4. We replace all the storage related host functions with functions inside the wasm blob.
+/// This means instead of calling into the host, we will stay inside the wasm execution. This is
+/// very important as the relay chain validator hasn't the state required to verify the block. But
+/// we have the in-memory database that contains all the values from the state of the parachain
+/// that we require to verify the block.
+///
+/// 5. We are going to run `check_inherents`. This is important to check stuff like the timestamp
+/// matching the real world time.
+///
+/// 6. The last step is to execute the entire block in the machinery we just have setup. Executing
+/// the blocks include running all transactions in the block against our in-memory database and
+/// ensuring that the final storage root matches the storage root in the header of the block. In the
+/// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
 pub fn validate_block<
 	B: BlockT,
@@ -46,35 +77,49 @@ pub fn validate_block<
 	PSC: crate::Config,
 	CI: crate::CheckInherents<B>,
 >(
-	params: ValidationParams,
+	MemoryOptimizedValidationParams {
+		block_data,
+		parent_head,
+		relay_parent_number,
+		relay_parent_storage_root,
+	}: MemoryOptimizedValidationParams,
 ) -> ValidationResult
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
 {
-	let block_data =
-		cumulus_primitives_core::ParachainBlockData::<B>::decode(&mut &params.block_data.0[..])
-			.expect("Invalid parachain block data");
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
+		.expect("Invalid parachain block data");
 
-	let parent_head =
-		B::Header::decode(&mut &params.parent_head.0[..]).expect("Invalid parent head");
+	let parent_header =
+		codec::decode_from_bytes::<B::Header>(parent_head.clone()).expect("Invalid parent head");
 
 	let (header, extrinsics, storage_proof) = block_data.deconstruct();
 
-	let head_data = HeadData(header.encode());
-
 	let block = B::new(header, extrinsics);
-	assert!(parent_head.hash() == *block.header().parent_hash(), "Invalid parent hash",);
+	assert!(parent_header.hash() == *block.header().parent_hash(), "Invalid parent hash");
+
+	let inherent_data = extract_parachain_inherent_data(&block);
+
+	validate_validation_data(
+		&inherent_data.validation_data,
+		relay_parent_number,
+		relay_parent_storage_root,
+		parent_head,
+	);
 
 	// Create the db
-	let db = match storage_proof.to_memory_db(Some(parent_head.state_root())) {
+	let db = match storage_proof.to_memory_db(Some(parent_header.state_root())) {
 		Ok((db, _)) => db,
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
 
 	sp_std::mem::drop(storage_proof);
 
-	let backend = sp_state_machine::TrieBackendBuilder::new(db, *parent_head.state_root()).build();
+	// We use the storage root of the `parent_head` to ensure that it is the correct root.
+	// This is already being done above while creating the in-memory db, but let's be paranoid!!
+	let backend =
+		sp_state_machine::TrieBackendBuilder::new(db, *parent_header.state_root()).build();
 
 	let _guard = (
 		// Replace storage calls with our own implementations
@@ -115,22 +160,6 @@ where
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 	);
 
-	let inherent_data = block
-		.extrinsics()
-		.iter()
-		// Inherents are at the front of the block and are unsigned.
-		//
-		// If `is_signed` is returning `None`, we keep it safe and assume that it is "signed".
-		// We are searching for unsigned transactions anyway.
-		.take_while(|e| !e.is_signed().unwrap_or(true))
-		.filter_map(|e| e.call().is_sub_type())
-		.find_map(|c| match c {
-			crate::Call::set_validation_data { data: validation_data } =>
-				Some(validation_data.clone()),
-			_ => None,
-		})
-		.expect("Could not find `set_validation_data` inherent");
-
 	run_with_externalities::<B, _, _>(&backend, || {
 		let relay_chain_proof = crate::RelayChainStateProof::new(
 			PSC::SelfParaId::get(),
@@ -153,32 +182,74 @@ where
 	});
 
 	run_with_externalities::<B, _, _>(&backend, || {
-		super::set_and_run_with_validation_params(params, || {
-			E::execute_block(block);
+		let head_data = HeadData(block.header().encode());
 
-			let new_validation_code = crate::NewValidationCode::<PSC>::get();
-			let upward_messages = crate::UpwardMessages::<PSC>::get();
-			let processed_downward_messages = crate::ProcessedDownwardMessages::<PSC>::get();
-			let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get();
-			let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+		E::execute_block(block);
 
-			let head_data =
-				if let Some(custom_head_data) = crate::CustomValidationHeadData::<PSC>::get() {
-					HeadData(custom_head_data)
-				} else {
-					head_data
-				};
+		let new_validation_code = crate::NewValidationCode::<PSC>::get();
+		let upward_messages = crate::UpwardMessages::<PSC>::get();
+		let processed_downward_messages = crate::ProcessedDownwardMessages::<PSC>::get();
+		let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get();
+		let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
-			ValidationResult {
-				head_data,
-				new_validation_code: new_validation_code.map(Into::into),
-				upward_messages,
-				processed_downward_messages,
-				horizontal_messages,
-				hrmp_watermark,
-			}
-		})
+		let head_data =
+			if let Some(custom_head_data) = crate::CustomValidationHeadData::<PSC>::get() {
+				HeadData(custom_head_data)
+			} else {
+				head_data
+			};
+
+		ValidationResult {
+			head_data,
+			new_validation_code: new_validation_code.map(Into::into),
+			upward_messages,
+			processed_downward_messages,
+			horizontal_messages,
+			hrmp_watermark,
+		}
 	})
+}
+
+/// Extract the [`ParachainInherentData`].
+fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
+	block: &B,
+) -> &ParachainInherentData
+where
+	B::Extrinsic: ExtrinsicCall,
+	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
+{
+	block
+		.extrinsics()
+		.iter()
+		// Inherents are at the front of the block and are unsigned.
+		//
+		// If `is_signed` is returning `None`, we keep it safe and assume that it is "signed".
+		// We are searching for unsigned transactions anyway.
+		.take_while(|e| !e.is_signed().unwrap_or(true))
+		.filter_map(|e| e.call().is_sub_type())
+		.find_map(|c| match c {
+			crate::Call::set_validation_data { data: validation_data } => Some(validation_data),
+			_ => None,
+		})
+		.expect("Could not find `set_validation_data` inherent")
+}
+
+/// Validate the given [`PersistedValidationData`] against the [`ValidationParams`].
+fn validate_validation_data(
+	validation_data: &PersistedValidationData,
+	relay_parent_number: RelayChainBlockNumber,
+	relay_parent_storage_root: RHash,
+	parent_head: bytes::Bytes,
+) {
+	assert_eq!(parent_head, validation_data.parent_head.0, "Parent head doesn't match");
+	assert_eq!(
+		relay_parent_number, validation_data.relay_parent_number,
+		"Relay parent number doesn't match",
+	);
+	assert_eq!(
+		relay_parent_storage_root, validation_data.relay_parent_storage_root,
+		"Relay parent storage root doesn't match",
+	);
 }
 
 /// Run the given closure with the externalities set.

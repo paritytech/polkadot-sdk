@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
 	generate_extrinsic,
@@ -26,6 +26,8 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::traits::Header as HeaderT;
 use std::{env, process::Command};
+
+use crate::validate_block::MemoryOptimizedValidationParams;
 
 fn call_validate_block_encoded_header(
 	parent_head: Header,
@@ -288,4 +290,32 @@ fn check_inherents_are_unsigned_and_before_all_other_extrinsics() {
 			.unwrap()
 			.contains("Could not find `set_validation_data` inherent"));
 	}
+}
+
+/// Test that ensures that `ValidationParams` and `MemoryOptimizedValidationParams`
+/// are encoding/decoding.
+#[test]
+fn validation_params_and_memory_optimized_validation_params_encode_and_decode() {
+	const BLOCK_DATA: &[u8] = &[1, 2, 3, 4, 5];
+	const PARENT_HEAD: &[u8] = &[1, 3, 4, 5, 6, 7, 9];
+
+	let validation_params = ValidationParams {
+		block_data: BlockData(BLOCK_DATA.encode()),
+		parent_head: HeadData(PARENT_HEAD.encode()),
+		relay_parent_number: 1,
+		relay_parent_storage_root: Hash::random(),
+	};
+
+	let encoded = validation_params.encode();
+
+	let decoded = MemoryOptimizedValidationParams::decode_all(&mut &encoded[..]).unwrap();
+	assert_eq!(decoded.relay_parent_number, validation_params.relay_parent_number);
+	assert_eq!(decoded.relay_parent_storage_root, validation_params.relay_parent_storage_root);
+	assert_eq!(decoded.block_data, validation_params.block_data.0);
+	assert_eq!(decoded.parent_head, validation_params.parent_head.0);
+
+	let encoded = decoded.encode();
+
+	let decoded = ValidationParams::decode_all(&mut &encoded[..]).unwrap();
+	assert_eq!(decoded, validation_params);
 }
