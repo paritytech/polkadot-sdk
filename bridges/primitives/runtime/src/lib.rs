@@ -47,7 +47,6 @@ pub use storage_types::BoundedStorageValue;
 #[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;
 
-pub mod calls;
 pub mod messages;
 
 mod chain;

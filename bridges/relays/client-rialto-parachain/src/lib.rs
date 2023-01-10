@@ -16,6 +16,8 @@
 
 //! Types used to connect to the Rialto-Substrate chain.
 
+pub mod runtime_wrapper;
+
 use bp_messages::MessageNonce;
 use codec::Encode;
 use relay_substrate_client::{
@@ -23,12 +25,13 @@ use relay_substrate_client::{
 	SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
-use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
+use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount, MultiAddress};
 use std::time::Duration;
 
-/// Rialto header id.
-pub type HeaderId =
-	relay_utils::HeaderId<rialto_parachain_runtime::Hash, rialto_parachain_runtime::BlockNumber>;
+pub use runtime_wrapper as runtime;
+
+/// The address format for describing accounts.
+pub type Address = MultiAddress<bp_rialto_parachain::AccountId, ()>;
 
 /// Rialto parachain definition
 #[derive(Debug, Clone, Copy)]
@@ -46,18 +49,13 @@ impl Chain for RialtoParachain {
 		bp_rialto_parachain::BEST_FINALIZED_RIALTO_PARACHAIN_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
 
-	type SignedBlock = rialto_parachain_runtime::SignedBlock;
-	type Call = rialto_parachain_runtime::RuntimeCall;
+	type SignedBlock = bp_polkadot_core::SignedBlock;
+	type Call = runtime::Call;
 }
 
 impl ChainWithBalances for RialtoParachain {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		use frame_support::storage::generator::StorageMap;
-		StorageKey(
-			frame_system::Account::<rialto_parachain_runtime::Runtime>::storage_map_final_key(
-				account_id,
-			),
-		)
+		bp_polkadot_core::AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 
@@ -77,45 +75,30 @@ impl ChainWithMessages for RialtoParachain {
 
 impl ChainWithTransactions for RialtoParachain {
 	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction = rialto_parachain_runtime::UncheckedExtrinsic;
+	type SignedTransaction = bp_polkadot_core::UncheckedExtrinsic<Self::Call>;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
 		unsigned: UnsignedTransaction<Self>,
 	) -> Result<Self::SignedTransaction, SubstrateError> {
-		let raw_payload = SignedPayload::from_raw(
+		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			(
-				frame_system::CheckNonZeroSender::<rialto_parachain_runtime::Runtime>::new(),
-				frame_system::CheckSpecVersion::<rialto_parachain_runtime::Runtime>::new(),
-				frame_system::CheckTxVersion::<rialto_parachain_runtime::Runtime>::new(),
-				frame_system::CheckGenesis::<rialto_parachain_runtime::Runtime>::new(),
-				frame_system::CheckEra::<rialto_parachain_runtime::Runtime>::from(
-					unsigned.era.frame_era(),
-				),
-				frame_system::CheckNonce::<rialto_parachain_runtime::Runtime>::from(unsigned.nonce),
-				frame_system::CheckWeight::<rialto_parachain_runtime::Runtime>::new(),
-				pallet_transaction_payment::ChargeTransactionPayment::<
-					rialto_parachain_runtime::Runtime,
-				>::from(unsigned.tip),
-			),
-			(
-				(),
+			bp_polkadot_core::SignedExtensions::new(
 				param.spec_version,
 				param.transaction_version,
+				unsigned.era,
 				param.genesis_hash,
-				unsigned.era.signed_payload(param.genesis_hash),
-				(),
-				(),
-				(),
+				unsigned.nonce,
+				unsigned.tip,
 			),
-		);
+		)?;
+
 		let signature = raw_payload.using_encoded(|payload| param.signer.sign(payload));
 		let signer: sp_runtime::MultiSigner = param.signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		Ok(rialto_parachain_runtime::UncheckedExtrinsic::new_signed(
-			call.into_decoded()?,
+		Ok(Self::SignedTransaction::new_signed(
+			call,
 			signer.into_account().into(),
 			signature.into(),
 			extra,
@@ -129,14 +112,13 @@ impl ChainWithTransactions for RialtoParachain {
 	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
 		tx.signature
 			.as_ref()
-			.map(|(address, _, _)| {
-				*address == rialto_parachain_runtime::Address::Id(signer.public().into())
-			})
+			.map(|(address, _, _)| *address == Address::Id(signer.public().into()))
 			.unwrap_or(false)
 	}
 
-	fn parse_transaction(_tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		None
+	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
+		let extra = &tx.signature.as_ref()?.2;
+		Some(UnsignedTransaction::new(tx.function, extra.nonce()).tip(extra.tip()))
 	}
 }
 
@@ -144,4 +126,4 @@ impl ChainWithTransactions for RialtoParachain {
 pub type SigningParams = sp_core::sr25519::Pair;
 
 /// RialtoParachain header type used in headers sync.
-pub type SyncHeader = relay_substrate_client::SyncHeader<rialto_parachain_runtime::Header>;
+pub type SyncHeader = relay_substrate_client::SyncHeader<bp_rialto_parachain::Header>;
