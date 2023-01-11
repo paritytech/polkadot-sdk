@@ -28,6 +28,7 @@ use structopt::{clap::arg_enum, StructOpt};
 use strum::{EnumString, EnumVariantNames};
 
 use bp_messages::LaneId;
+use relay_substrate_client::SimpleRuntimeVersion;
 
 pub(crate) mod bridge;
 pub(crate) mod encode_message;
@@ -194,7 +195,7 @@ pub trait CliChain: relay_substrate_client::Chain {
 	/// Current version of the chain runtime, known to relay.
 	///
 	/// can be `None` if relay is not going to submit transactions to that chain.
-	const RUNTIME_VERSION: Option<sp_version::RuntimeVersion>;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion>;
 }
 
 /// Lane id.

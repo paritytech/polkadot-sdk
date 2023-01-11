@@ -19,7 +19,7 @@
 use crate::cli::{bridge, encode_message::CliEncodeMessage, CliChain};
 use bp_runtime::EncodedOrDecodedCall;
 use relay_rialto_client::Rialto;
-use sp_version::RuntimeVersion;
+use relay_substrate_client::SimpleRuntimeVersion;
 use xcm::latest::prelude::*;
 
 impl CliEncodeMessage for Rialto {
@@ -45,5 +45,6 @@ impl CliEncodeMessage for Rialto {
 }
 
 impl CliChain for Rialto {
-	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(rialto_runtime::VERSION);
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion::from_runtime_version(&rialto_runtime::VERSION));
 }

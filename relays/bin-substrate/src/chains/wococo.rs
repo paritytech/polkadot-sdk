@@ -18,13 +18,14 @@
 
 use crate::cli::CliChain;
 use relay_bridge_hub_wococo_client::BridgeHubWococo;
+use relay_substrate_client::SimpleRuntimeVersion;
 use relay_wococo_client::Wococo;
-use sp_version::RuntimeVersion;
 
 impl CliChain for Wococo {
-	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
 }
 
 impl CliChain for BridgeHubWococo {
-	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 9302, transaction_version: 1 });
 }
