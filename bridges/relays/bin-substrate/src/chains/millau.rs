@@ -20,7 +20,7 @@ use crate::cli::{bridge, encode_message::CliEncodeMessage, CliChain};
 use bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 use bp_runtime::EncodedOrDecodedCall;
 use relay_millau_client::Millau;
-use sp_version::RuntimeVersion;
+use relay_substrate_client::SimpleRuntimeVersion;
 use xcm::latest::prelude::*;
 
 impl CliEncodeMessage for Millau {
@@ -53,5 +53,6 @@ impl CliEncodeMessage for Millau {
 }
 
 impl CliChain for Millau {
-	const RUNTIME_VERSION: Option<RuntimeVersion> = Some(millau_runtime::VERSION);
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion::from_runtime_version(&millau_runtime::VERSION));
 }

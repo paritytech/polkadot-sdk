@@ -52,7 +52,7 @@ impl SubstrateFinalitySyncPipeline for RococoFinalityToBridgeHubWococo {
 		if enable_version_guard {
 			relay_substrate_client::guard::abort_on_spec_version_change(
 				target_client.clone(),
-				target_client.simple_runtime_version().await?.0,
+				target_client.simple_runtime_version().await?.spec_version,
 			);
 		}
 		Ok(())

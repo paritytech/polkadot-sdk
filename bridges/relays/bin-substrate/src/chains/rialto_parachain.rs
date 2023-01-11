@@ -20,8 +20,7 @@ use crate::cli::{bridge, encode_message::CliEncodeMessage, CliChain};
 use bp_runtime::EncodedOrDecodedCall;
 use bridge_runtime_common::CustomNetworkId;
 use relay_rialto_parachain_client::RialtoParachain;
-use relay_substrate_client::calls::XcmCall;
-use sp_version::RuntimeVersion;
+use relay_substrate_client::{calls::XcmCall, SimpleRuntimeVersion};
 use xcm::latest::prelude::*;
 
 impl CliEncodeMessage for RialtoParachain {
@@ -45,5 +44,5 @@ impl CliEncodeMessage for RialtoParachain {
 }
 
 impl CliChain for RialtoParachain {
-	const RUNTIME_VERSION: Option<RuntimeVersion> = None;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
 }
