@@ -15,5 +15,4 @@ bp-polkadot = { path = "../../primitives/chain-polkadot" }
 
 # Substrate Dependencies
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
