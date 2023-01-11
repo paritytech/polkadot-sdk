@@ -75,15 +75,32 @@ pub struct Subscription<T>(pub(crate) Mutex<futures::channel::mpsc::Receiver<Opt
 /// Opaque GRANDPA authorities set.
 pub type OpaqueGrandpaAuthoritiesSet = Vec<u8>;
 
+/// A simple runtime version. It only includes the `spec_version` and `transaction_version`.
+#[derive(Copy, Clone, Debug)]
+pub struct SimpleRuntimeVersion {
+	/// Version of the runtime specification.
+	pub spec_version: u32,
+	/// All existing dispatches are fully compatible when this number doesn't change.
+	pub transaction_version: u32,
+}
+
+impl SimpleRuntimeVersion {
+	/// Create a new instance of `SimpleRuntimeVersion` from a `RuntimeVersion`.
+	pub const fn from_runtime_version(runtime_version: &RuntimeVersion) -> Self {
+		Self {
+			spec_version: runtime_version.spec_version,
+			transaction_version: runtime_version.transaction_version,
+		}
+	}
+}
+
 /// Chain runtime version in client
 #[derive(Clone, Debug)]
 pub enum ChainRuntimeVersion {
 	/// Auto query from chain.
 	Auto,
 	/// Custom runtime version, defined by user.
-	/// the first is `spec_version`
-	/// the second is `transaction_version`
-	Custom(u32, u32),
+	Custom(SimpleRuntimeVersion),
 }
 
 /// Substrate client type.
@@ -213,16 +230,14 @@ impl<C: Chain> Client<C> {
 
 impl<C: Chain> Client<C> {
 	/// Return simple runtime version, only include `spec_version` and `transaction_version`.
-	pub async fn simple_runtime_version(&self) -> Result<(u32, u32)> {
-		let (spec_version, transaction_version) = match self.chain_runtime_version {
+	pub async fn simple_runtime_version(&self) -> Result<SimpleRuntimeVersion> {
+		Ok(match &self.chain_runtime_version {
 			ChainRuntimeVersion::Auto => {
 				let runtime_version = self.runtime_version().await?;
-				(runtime_version.spec_version, runtime_version.transaction_version)
+				SimpleRuntimeVersion::from_runtime_version(&runtime_version)
 			},
-			ChainRuntimeVersion::Custom(spec_version, transaction_version) =>
-				(spec_version, transaction_version),
-		};
-		Ok((spec_version, transaction_version))
+			ChainRuntimeVersion::Custom(version) => *version,
+		})
 	}
 
 	/// Returns true if client is connected to at least one peer and is in synced state.
@@ -430,10 +445,10 @@ impl<C: Chain> Client<C> {
 	where
 		C: ChainWithTransactions,
 	{
-		let (spec_version, transaction_version) = self.simple_runtime_version().await?;
+		let runtime_version = self.simple_runtime_version().await?;
 		Ok(SignParam::<C> {
-			spec_version,
-			transaction_version,
+			spec_version: runtime_version.spec_version,
+			transaction_version: runtime_version.transaction_version,
 			genesis_hash: self.genesis_hash,
 			signer,
 		})

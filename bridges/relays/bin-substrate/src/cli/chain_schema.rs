@@ -20,7 +20,7 @@ use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames};
 
 use crate::cli::CliChain;
-pub use relay_substrate_client::ChainRuntimeVersion;
+pub use relay_substrate_client::{ChainRuntimeVersion, SimpleRuntimeVersion};
 use substrate_relay_helper::TransactionParams;
 
 #[doc = "Runtime version params."]
@@ -57,25 +57,24 @@ macro_rules! declare_chain_runtime_version_params_cli_schema {
 				/// Converts self into `ChainRuntimeVersion`.
 				pub fn into_runtime_version(
 					self,
-					bundle_runtime_version: Option<sp_version::RuntimeVersion>,
+					bundle_runtime_version: Option<SimpleRuntimeVersion>,
 				) -> anyhow::Result<ChainRuntimeVersion> {
 					Ok(match self.[<$chain_prefix _version_mode>] {
 						RuntimeVersionType::Auto => ChainRuntimeVersion::Auto,
 						RuntimeVersionType::Custom => {
-							let except_spec_version = self.[<$chain_prefix _spec_version>]
+							let custom_spec_version = self.[<$chain_prefix _spec_version>]
 								.ok_or_else(|| anyhow::Error::msg(format!("The {}-spec-version is required when choose custom mode", stringify!($chain_prefix))))?;
-							let except_transaction_version = self.[<$chain_prefix _transaction_version>]
+							let custom_transaction_version = self.[<$chain_prefix _transaction_version>]
 								.ok_or_else(|| anyhow::Error::msg(format!("The {}-transaction-version is required when choose custom mode", stringify!($chain_prefix))))?;
 							ChainRuntimeVersion::Custom(
-								except_spec_version,
-								except_transaction_version
+								SimpleRuntimeVersion {
+									spec_version: custom_spec_version,
+									transaction_version: custom_transaction_version
+								}
 							)
 						},
 						RuntimeVersionType::Bundle => match bundle_runtime_version {
-							Some(runtime_version) => ChainRuntimeVersion::Custom(
-								runtime_version.spec_version,
-								runtime_version.transaction_version
-							),
+							Some(runtime_version) => ChainRuntimeVersion::Custom(runtime_version),
 							None => ChainRuntimeVersion::Auto
 						},
 					})

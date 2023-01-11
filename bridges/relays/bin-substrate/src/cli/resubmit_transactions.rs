@@ -403,7 +403,7 @@ async fn update_transaction_tip<C: ChainWithTransactions>(
 	})?;
 	let old_tip = unsigned_tx.tip;
 
-	let (spec_version, transaction_version) = client.simple_runtime_version().await?;
+	let runtime_version = client.simple_runtime_version().await?;
 	while current_priority < target_priority {
 		let next_tip = unsigned_tx.tip + tip_step;
 		if next_tip > tip_limit {
@@ -425,8 +425,8 @@ async fn update_transaction_tip<C: ChainWithTransactions>(
 				at_block.1,
 				C::sign_transaction(
 					SignParam {
-						spec_version,
-						transaction_version,
+						spec_version: runtime_version.spec_version,
+						transaction_version: runtime_version.transaction_version,
 						genesis_hash: *client.genesis_hash(),
 						signer: transaction_params.signer.clone(),
 					},
@@ -449,8 +449,8 @@ async fn update_transaction_tip<C: ChainWithTransactions>(
 		old_tip != unsigned_tx.tip,
 		C::sign_transaction(
 			SignParam {
-				spec_version,
-				transaction_version,
+				spec_version: runtime_version.spec_version,
+				transaction_version: runtime_version.transaction_version,
 				genesis_hash: *client.genesis_hash(),
 				signer: transaction_params.signer.clone(),
 			},
