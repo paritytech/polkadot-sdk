@@ -21,6 +21,7 @@ use std::convert::TryInto;
 use async_std::prelude::*;
 use codec::{Decode, Encode};
 use futures::{select, FutureExt};
+use rbtag::BuildInfo;
 use signal_hook::consts::*;
 use signal_hook_async_std::Signals;
 use structopt::{clap::arg_enum, StructOpt};
@@ -254,17 +255,30 @@ pub struct PrometheusParams {
 	pub prometheus_port: u16,
 }
 
-impl From<PrometheusParams> for relay_utils::metrics::MetricsParams {
-	fn from(cli_params: PrometheusParams) -> relay_utils::metrics::MetricsParams {
-		if !cli_params.no_prometheus {
+/// Struct to get git commit info and build time.
+#[derive(BuildInfo)]
+struct SubstrateRelayBuildInfo;
+
+impl PrometheusParams {
+	/// Tries to convert CLI metrics params into metrics params, used by the relay.
+	pub fn into_metrics_params(self) -> anyhow::Result<relay_utils::metrics::MetricsParams> {
+		let metrics_address = if !self.no_prometheus {
 			Some(relay_utils::metrics::MetricsAddress {
-				host: cli_params.prometheus_host,
-				port: cli_params.prometheus_port,
+				host: self.prometheus_host,
+				port: self.prometheus_port,
 			})
-			.into()
 		} else {
-			None.into()
-		}
+			None
+		};
+
+		let relay_version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
+		let relay_commit = SubstrateRelayBuildInfo.get_build_commit();
+		relay_utils::metrics::MetricsParams::new(
+			metrics_address,
+			relay_version.into(),
+			relay_commit.into(),
+		)
+		.map_err(|e| anyhow::format_err!("{:?}", e))
 	}
 }
 

@@ -110,7 +110,7 @@ impl<Left: ChainWithTransactions + CliChain, Right: ChainWithTransactions + CliC
 		right: BridgeEndCommonParams<Right>,
 	) -> anyhow::Result<Self> {
 		// Create metrics registry.
-		let metrics_params = shared.prometheus_params.clone().into();
+		let metrics_params = shared.prometheus_params.clone().into_metrics_params()?;
 		let metrics_params = relay_utils::relay_metrics(metrics_params).into_params();
 
 		Ok(Self { shared, left, right, metrics_params })
