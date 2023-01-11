@@ -77,7 +77,8 @@ where
 		let target_transactions_mortality = data.target_sign.target_transactions_mortality;
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 
-		let metrics_params: relay_utils::metrics::MetricsParams = data.prometheus_params.into();
+		let metrics_params: relay_utils::metrics::MetricsParams =
+			data.prometheus_params.into_metrics_params()?;
 		GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
 
 		let target_transactions_params = substrate_relay_helper::TransactionParams {

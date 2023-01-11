@@ -83,7 +83,7 @@ where
 			source_to_target_headers_relay: None,
 			target_to_source_headers_relay: None,
 			lane_id: data.lane.into(),
-			metrics_params: data.prometheus_params.into(),
+			metrics_params: data.prometheus_params.into_metrics_params()?,
 		})
 		.await
 		.map_err(|e| anyhow::format_err!("{}", e))
