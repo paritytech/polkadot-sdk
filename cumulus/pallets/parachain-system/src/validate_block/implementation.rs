@@ -18,7 +18,7 @@
 
 use super::MemoryOptimizedValidationParams;
 use cumulus_primitives_core::{
-	relay_chain::v2::Hash as RHash, ParachainBlockData, PersistedValidationData,
+	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 

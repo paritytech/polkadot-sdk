@@ -53,6 +53,6 @@ pub use sp_std;
 pub struct MemoryOptimizedValidationParams {
 	pub parent_head: bytes::Bytes,
 	pub block_data: bytes::Bytes,
-	pub relay_parent_number: cumulus_primitives_core::relay_chain::v2::BlockNumber,
-	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::v2::Hash,
+	pub relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
+	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 }

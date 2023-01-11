@@ -20,7 +20,7 @@ use std::{io::Write, sync::Arc};
 
 use cli::{RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_client_cli::generate_genesis_block;
-use cumulus_primitives_core::{relay_chain::v2::CollatorPair, ParaId};
+use cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
 use cumulus_test_service::AnnounceBlockFn;
 use polkadot_service::runtime_traits::AccountIdConversion;
 use sc_cli::{CliConfiguration, SubstrateCli};
@@ -99,7 +99,7 @@ fn main() -> Result<(), sc_cli::Error> {
 			);
 
 			let parachain_account =
-				AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(
+				AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
 					&parachain_id,
 				);
 

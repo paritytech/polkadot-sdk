@@ -94,7 +94,7 @@ mod constants {
 	/// We allow for 0.5 seconds of compute with a 6 second average block time.
 	pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 		WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
-		polkadot_primitives::v2::MAX_POV_SIZE as u64,
+		polkadot_primitives::MAX_POV_SIZE as u64,
 	);
 }
 

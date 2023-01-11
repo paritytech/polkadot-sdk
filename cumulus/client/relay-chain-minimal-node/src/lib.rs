@@ -25,7 +25,7 @@ use polkadot_node_network_protocol::{
 };
 
 use polkadot_node_subsystem_util::metrics::prometheus::Registry;
-use polkadot_primitives::v2::CollatorPair;
+use polkadot_primitives::CollatorPair;
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::{Event, NetworkService};

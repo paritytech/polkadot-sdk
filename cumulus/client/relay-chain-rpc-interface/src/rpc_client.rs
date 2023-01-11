@@ -17,13 +17,11 @@
 use crate::reconnecting_ws_client::ReconnectingWsClient;
 use cumulus_primitives_core::{
 	relay_chain::{
-		v2::{
-			CandidateCommitments, CandidateEvent, CommittedCandidateReceipt, CoreState,
-			DisputeState, GroupRotationInfo, OccupiedCoreAssumption, OldV1SessionInfo,
-			PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-			ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
-		},
-		CandidateHash, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
+		CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
+		DisputeState, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
+		InboundHrmpMessage, OccupiedCoreAssumption, OldV1SessionInfo, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

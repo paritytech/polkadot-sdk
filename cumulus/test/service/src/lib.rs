@@ -45,7 +45,7 @@ use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
-use polkadot_primitives::v2::{CollatorPair, Hash as PHash, PersistedValidationData};
+use polkadot_primitives::{CollatorPair, Hash as PHash, PersistedValidationData};
 use polkadot_service::ProvideRuntimeApi;
 use sc_client_api::execution_extensions::ExecutionStrategies;
 use sc_consensus::ImportQueue;

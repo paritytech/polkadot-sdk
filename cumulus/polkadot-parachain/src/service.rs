@@ -26,7 +26,7 @@ use cumulus_client_service::{
 	StartCollatorParams, StartFullNodeParams,
 };
 use cumulus_primitives_core::{
-	relay_chain::v2::{Hash as PHash, PersistedValidationData},
+	relay_chain::{Hash as PHash, PersistedValidationData},
 	ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
