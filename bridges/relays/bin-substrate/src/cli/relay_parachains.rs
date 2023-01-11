@@ -98,7 +98,8 @@ where
 			target_transaction_params,
 		);
 
-		let metrics_params: relay_utils::metrics::MetricsParams = data.prometheus_params.into();
+		let metrics_params: relay_utils::metrics::MetricsParams =
+			data.prometheus_params.into_metrics_params()?;
 		GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
 
 		parachains_relay::parachains_loop::run(
