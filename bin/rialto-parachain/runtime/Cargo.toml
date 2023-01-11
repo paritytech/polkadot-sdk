@@ -12,7 +12,6 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 [dependencies]
 codec = { package = 'parity-scale-codec', version = '3.1.5', default-features = false, features = ['derive']}
 hex-literal = "0.3"
-log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
 # Bridge depedencies
@@ -95,7 +94,6 @@ std = [
 	"bp-rialto-parachain/std",
 	"bridge-runtime-common/std",
 	"codec/std",
-	"log/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-std/std",

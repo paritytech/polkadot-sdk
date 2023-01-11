@@ -14,5 +14,4 @@ relay-utils = { path = "../utils" }
 bp-wococo = { path = "../../primitives/chain-wococo" }
 
 # Substrate Dependencies
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -18,10 +18,8 @@ bp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 # Substrate Dependencies
 
-beefy-merkle-tree = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-primitive-types = { version = "0.12.0", default-features = false, features = ["impl-codec"] }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -38,14 +36,12 @@ bp-test-utils = { path = "../../primitives/test-utils" }
 [features]
 default = ["std"]
 std = [
-	"beefy-merkle-tree/std",
 	"bp-beefy/std",
 	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"primitive-types/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",
