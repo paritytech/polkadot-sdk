@@ -19,9 +19,6 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "mas
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
-# Polkadot Dependencies
-polkadot-runtime-constants = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-
 [features]
 default = ["std"]
 std = [
@@ -31,5 +28,4 @@ std = [
 	"frame-support/std",
 	"sp-api/std",
 	"sp-std/std",
-	"polkadot-runtime-constants/std",
 ]
