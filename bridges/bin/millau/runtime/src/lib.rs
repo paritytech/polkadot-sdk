@@ -478,7 +478,7 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		frame_support::traits::ConstU64<100_000>,
-		frame_support::traits::ConstU64<100_000>,
+		frame_support::traits::ConstU64<10_000>,
 	>;
 
 	type SourceHeaderChain = crate::rialto_messages::Rialto;
@@ -509,7 +509,7 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		frame_support::traits::ConstU64<100_000>,
-		frame_support::traits::ConstU64<100_000>,
+		frame_support::traits::ConstU64<10_000>,
 	>;
 
 	type SourceHeaderChain = crate::rialto_parachain_messages::RialtoParachain;
@@ -1035,6 +1035,10 @@ impl_runtime_apis! {
 			impl MessagesConfig<WithRialtoMessagesInstance> for Runtime {
 				fn bridged_relayer_id() -> Self::InboundRelayer {
 					[0u8; 32].into()
+				}
+
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(relayer, &Self::bench_lane_id()).is_some()
 				}
 
 				fn endow_account(account: &Self::AccountId) {
