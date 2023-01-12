@@ -69,6 +69,8 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	}
 	/// Return id of relayer account at the bridged chain.
 	fn bridged_relayer_id() -> Self::InboundRelayer;
+	/// Returns true if given relayer has been rewarded for some of its actions.
+	fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool;
 	/// Create given account and give it enough balance for test purposes.
 	fn endow_account(account: &Self::AccountId);
 	/// Prepare messages proof to receive by the module.
@@ -287,6 +289,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
 		assert_eq!(OutboundLanes::<T, I>::get(T::bench_lane_id()).latest_received_nonce, 1);
+		assert!(T::is_relayer_rewarded(&relayer_id));
 	}
 
 	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
@@ -325,6 +328,7 @@ benchmarks_instance_pallet! {
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer_id.clone()), proof, relayers_state)
 	verify {
 		assert_eq!(OutboundLanes::<T, I>::get(T::bench_lane_id()).latest_received_nonce, 2);
+		assert!(T::is_relayer_rewarded(&relayer_id));
 	}
 
 	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
@@ -368,6 +372,8 @@ benchmarks_instance_pallet! {
 	}: receive_messages_delivery_proof(RawOrigin::Signed(relayer1_id.clone()), proof, relayers_state)
 	verify {
 		assert_eq!(OutboundLanes::<T, I>::get(T::bench_lane_id()).latest_received_nonce, 2);
+		assert!(T::is_relayer_rewarded(&relayer1_id));
+		assert!(T::is_relayer_rewarded(&relayer2_id));
 	}
 }
 
