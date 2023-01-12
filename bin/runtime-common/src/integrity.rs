@@ -19,9 +19,9 @@
 //! Most of the tests in this module assume that the bridge is using standard (see `crate::messages`
 //! module for details) configuration.
 
-use crate::messages::MessageBridge;
+use crate::{messages, messages::MessageBridge};
 
-use bp_messages::MessageNonce;
+use bp_messages::{InboundLaneData, MessageNonce};
 use bp_runtime::{Chain, ChainId};
 use codec::Encode;
 use frame_support::{storage::generator::StorageValue, traits::Get};
@@ -288,4 +288,34 @@ where
 	assert_bridge_grandpa_pallet_constants::<R, GI>();
 	assert_bridge_messages_pallet_constants::<R, MI>(params.messages_pallet_constants);
 	assert_bridge_pallet_names::<B, R, GI, MI>(params.pallet_names);
+}
+
+/// Check that the message lane weights are correct.
+pub fn check_message_lane_weights<C: Chain, T: frame_system::Config>(
+	bridged_chain_extra_storage_proof_size: u32,
+	this_chain_max_unrewarded_relayers: MessageNonce,
+	this_chain_max_unconfirmed_messages: MessageNonce,
+) {
+	type Weights<T> = pallet_bridge_messages::weights::BridgeWeight<T>;
+
+	pallet_bridge_messages::ensure_weights_are_correct::<Weights<T>>();
+
+	let max_incoming_message_proof_size = bridged_chain_extra_storage_proof_size
+		.saturating_add(messages::target::maximal_incoming_message_size(C::max_extrinsic_size()));
+	pallet_bridge_messages::ensure_able_to_receive_message::<Weights<T>>(
+		C::max_extrinsic_size(),
+		C::max_extrinsic_weight(),
+		max_incoming_message_proof_size,
+		messages::target::maximal_incoming_message_dispatch_weight(C::max_extrinsic_weight()),
+	);
+
+	let max_incoming_inbound_lane_data_proof_size =
+		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
+	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T>>(
+		C::max_extrinsic_size(),
+		C::max_extrinsic_weight(),
+		max_incoming_inbound_lane_data_proof_size,
+		this_chain_max_unrewarded_relayers,
+		this_chain_max_unconfirmed_messages,
+	);
 }
