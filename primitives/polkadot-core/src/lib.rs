@@ -118,14 +118,6 @@ parameter_types! {
 /// Maximal number of messages in single delivery transaction.
 pub const MAX_MESSAGES_IN_DELIVERY_TRANSACTION: MessageNonce = 128;
 
-/// Maximal number of unrewarded relayer entries at inbound lane.
-pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 128;
-
-// TODO [#438] should be selected keeping in mind:
-// finality delay on both chains + reward payout cost + messages throughput.
-/// Maximal number of unconfirmed messages at inbound lane.
-pub const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 8192;
-
 /// Maximal number of bytes, included in the signed Polkadot-like transaction apart from the encoded
 /// call itself.
 ///
