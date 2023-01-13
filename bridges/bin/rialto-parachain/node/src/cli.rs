@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+#![allow(clippy::large_enum_variant)]
+
 use crate::chain_spec;
 use clap::Parser;
 use std::path::PathBuf;

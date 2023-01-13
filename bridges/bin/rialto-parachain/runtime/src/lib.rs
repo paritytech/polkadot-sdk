@@ -52,7 +52,9 @@ pub use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Everything, IsInVec, Nothing, Randomness},
 	weights::{
-		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+		constants::{
+			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
+		},
 		IdentityFee, Weight,
 	},
 	StorageValue,
@@ -370,7 +372,9 @@ pub type XcmOriginToTransactDispatchOrigin = (
 pub const BASE_XCM_WEIGHT: u64 = 1_000_000_000;
 
 parameter_types! {
-	pub UnitWeightCost: u64 = BASE_XCM_WEIGHT;
+	/// The amount of weight an XCM operation takes. This is a safe overestimate.
+	// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - check `set_proof_size` 0 or 64*1024 or 1026?
+	pub UnitWeightCost: Weight = Weight::from_parts(BASE_XCM_WEIGHT, 0);
 	// One UNIT buys 1 second of weight.
 	pub const WeightPrice: (MultiLocation, u128) = (MultiLocation::parent(), UNIT);
 	pub const MaxInstructions: u32 = 100;
@@ -419,6 +423,7 @@ impl Config for XcmConfig {
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
@@ -457,6 +462,11 @@ impl XcmBridge for ToMillauBridge {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub ReachableDest: Option<MultiLocation> = todo!("We dont use benchmarks for pallet_xcm, so if you hit this message, you need to remove this and define value instead");
+}
+
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -477,6 +487,9 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = ();
 	type MaxLockers = frame_support::traits::ConstU32<8>;
 	type UniversalLocation = UniversalLocation;
+	type WeightInfo = pallet_xcm::TestWeightInfo;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReachableDest = ReachableDest;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

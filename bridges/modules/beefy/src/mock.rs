@@ -32,7 +32,7 @@ use sp_runtime::{
 	Perbill,
 };
 
-pub use beefy_primitives::crypto::{AuthorityId as BeefyId, Pair as BeefyPair};
+pub use sp_beefy::crypto::{AuthorityId as BeefyId, Pair as BeefyPair};
 use sp_core::crypto::Wraps;
 use sp_runtime::traits::Keccak256;
 
@@ -49,7 +49,7 @@ pub type TestBridgedMmrHashing = BridgedMmrHashing<TestRuntime, ()>;
 pub type TestBridgedMmrHash = BridgedMmrHash<TestRuntime, ()>;
 pub type TestBridgedBeefyMmrLeafExtra = BridgedBeefyMmrLeafExtra<TestRuntime, ()>;
 pub type TestBridgedMmrProof = BridgedMmrProof<TestRuntime, ()>;
-pub type TestBridgedRawMmrLeaf = beefy_primitives::mmr::MmrLeaf<
+pub type TestBridgedRawMmrLeaf = sp_beefy::mmr::MmrLeaf<
 	TestBridgedBlockNumber,
 	TestBridgedBlockHash,
 	TestBridgedMmrHash,
@@ -138,7 +138,7 @@ impl ChainWithBeefy for TestBridgedChain {
 	type MmrHash = <Keccak256 as Hash>::Output;
 	type BeefyMmrLeafExtra = ();
 	type AuthorityId = BeefyId;
-	type Signature = beefy_primitives::crypto::AuthoritySignature;
+	type Signature = sp_beefy::crypto::AuthoritySignature;
 	type AuthorityIdToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 }
 

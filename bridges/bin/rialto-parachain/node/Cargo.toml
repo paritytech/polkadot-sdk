@@ -23,7 +23,7 @@ codec = { package = 'parity-scale-codec', version = '3.1.5' }
 serde = { version = '1.0', features = ['derive'] }
 
 # RPC related Dependencies
-jsonrpsee = { version = "0.15.1", features = ["server"] }
+jsonrpsee = { version = "0.16.2", features = ["server"] }
 
 # Local Dependencies
 rialto-parachain-runtime = { path = '../runtime' }
@@ -47,8 +47,7 @@ sc-executor = { git = "https://github.com/paritytech/substrate", branch = "maste
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "master", features = ['wasmtime'] }
-sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "master"}
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -74,8 +73,6 @@ cumulus-client-service = { git = "https://github.com/paritytech/cumulus", branch
 cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "master" }
 cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/cumulus", branch = "master" }
 cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus", branch = "master" }
-cumulus-relay-chain-inprocess-interface = { git = "https://github.com/paritytech/cumulus", branch = "master" }
-cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/cumulus", branch = "master" }
 
 # Polkadot dependencies
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }

@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use beefy_primitives::crypto::AuthorityId as BeefyId;
 use frame_support::weights::Weight;
 use polkadot_primitives::v2::{AssignmentId, ValidatorId};
 use rialto_runtime::{
@@ -24,6 +23,7 @@ use rialto_runtime::{
 };
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_beefy::crypto::AuthorityId as BeefyId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
