@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use beefy_primitives::crypto::AuthorityId as BeefyId;
 use millau_runtime::{
 	AccountId, AuraConfig, BalancesConfig, BeefyConfig, BridgeRialtoMessagesConfig,
 	BridgeRialtoParachainMessagesConfig, BridgeWestendGrandpaConfig, GenesisConfig, GrandpaConfig,
 	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
+use sp_beefy::crypto::AuthorityId as BeefyId;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;

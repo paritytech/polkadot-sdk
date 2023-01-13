@@ -150,6 +150,7 @@ pub mod pallet {
 		///
 		/// If successful in verification, it will write the target header to the underlying storage
 		/// pallet.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_finality_proof(
 			justification.commit.precommits.len().try_into().unwrap_or(u32::MAX),
 			justification.votes_ancestries.len().try_into().unwrap_or(u32::MAX),
@@ -221,6 +222,7 @@ pub mod pallet {
 		/// This function is only allowed to be called from a trusted origin and writes to storage
 		/// with practically no checks in terms of the validity of the data. It is important that
 		/// you ensure that valid data is being passed in.
+		#[pallet::call_index(1)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(2, 5), DispatchClass::Operational))]
 		pub fn initialize(
 			origin: OriginFor<T>,
@@ -244,6 +246,7 @@ pub mod pallet {
 		/// Change `PalletOwner`.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(2)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_owner(origin: OriginFor<T>, new_owner: Option<T::AccountId>) -> DispatchResult {
 			<Self as OwnedBridgeModule<_>>::set_owner(origin, new_owner)
@@ -252,6 +255,7 @@ pub mod pallet {
 		/// Halt or resume all pallet operations.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(3)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_operating_mode(
 			origin: OriginFor<T>,
