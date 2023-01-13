@@ -32,7 +32,6 @@ pub mod rialto_messages;
 pub mod rialto_parachain_messages;
 pub mod xcm_config;
 
-use beefy_primitives::{crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::HeaderId;
 use pallet_grandpa::{
@@ -40,9 +39,9 @@ use pallet_grandpa::{
 };
 use pallet_transaction_payment::{FeeDetails, Multiplier, RuntimeDispatchInfo};
 use sp_api::impl_runtime_apis;
+use sp_beefy::{crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_mmr_primitives::{DataOrHash, EncodableOpaqueLeaf, Error as MmrError, Proof as MmrProof};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{Block as BlockT, IdentityLookup, Keccak256, NumberFor, OpaqueKeys},
@@ -64,7 +63,8 @@ pub use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU8, Currency, ExistenceRequirement, Imbalance, KeyOwnerProofSystem},
 	weights::{
-		constants::WEIGHT_PER_SECOND, ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight,
+		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, IdentityFee, RuntimeDbWeight,
+		Weight,
 	},
 	RuntimeDebug, StorageValue,
 };
@@ -281,7 +281,7 @@ parameter_types! {
 
 pub struct BeefyDummyDataProvider;
 
-impl beefy_primitives::mmr::BeefyDataProvider<()> for BeefyDummyDataProvider {
+impl sp_beefy::mmr::BeefyDataProvider<()> for BeefyDummyDataProvider {
 	fn extra_data() {}
 }
 
@@ -766,62 +766,30 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl beefy_primitives::BeefyApi<Block> for Runtime {
+	impl sp_beefy::BeefyApi<Block> for Runtime {
 		fn validator_set() -> Option<ValidatorSet<BeefyId>> {
 			Beefy::validator_set()
 		}
 	}
 
-	impl sp_mmr_primitives::MmrApi<Block, mmr::Hash, BlockNumber> for Runtime {
-		fn generate_proof(block_number: BlockNumber)
-			-> Result<(EncodableOpaqueLeaf, MmrProof<mmr::Hash>), MmrError>
-		{
-			Mmr::generate_batch_proof(vec![block_number])
-				.and_then(|(leaves, proof)| Ok((
-					mmr::EncodableOpaqueLeaf::from_leaf(&leaves[0]),
-					mmr::BatchProof::into_single_leaf_proof(proof)?
-				)))
-		}
-
-		fn verify_proof(leaf: EncodableOpaqueLeaf, proof: MmrProof<mmr::Hash>)
-			-> Result<(), MmrError>
-		{
-			let leaf: mmr::Leaf = leaf
-				.into_opaque_leaf()
-				.try_decode()
-				.ok_or(MmrError::Verify)?;
-			Mmr::verify_leaves(vec![leaf], mmr::Proof::into_batch_proof(proof))
-		}
-
-		fn verify_proof_stateless(
-			root: mmr::Hash,
-			leaf: EncodableOpaqueLeaf,
-			proof: MmrProof<mmr::Hash>
-		) -> Result<(), MmrError> {
-			let node = DataOrHash::Data(leaf.into_opaque_leaf());
-			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(
-				root,
-				vec![node],
-				pallet_mmr::primitives::Proof::into_batch_proof(proof),
-			)
-		}
-
-		fn mmr_root() -> Result<mmr::Hash, MmrError> {
+	impl pallet_mmr::primitives::MmrApi<
+		Block,
+		mmr::Hash,
+		BlockNumber,
+	> for Runtime {
+		fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
 			Ok(Mmr::mmr_root())
 		}
 
-		fn generate_batch_proof(block_numbers: Vec<BlockNumber>)
-			-> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::BatchProof<mmr::Hash>), mmr::Error>
-		{
-			Mmr::generate_batch_proof(block_numbers)
-				.map(|(leaves, proof)| (leaves.into_iter().map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf)).collect(), proof))
+		fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
+			Ok(Mmr::mmr_leaves())
 		}
 
-		fn generate_historical_batch_proof(
+		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
-			best_known_block_number: BlockNumber
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::BatchProof<mmr::Hash>), mmr::Error> {
-			Mmr::generate_historical_batch_proof(block_numbers, best_known_block_number).map(
+			best_known_block_number: Option<BlockNumber>,
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<mmr::Hash>), mmr::Error> {
+			Mmr::generate_proof(block_numbers, best_known_block_number).map(
 				|(leaves, proof)| {
 					(
 						leaves
@@ -834,7 +802,7 @@ impl_runtime_apis! {
 			)
 		}
 
-		fn verify_batch_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::BatchProof<mmr::Hash>)
+		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
 			-> Result<(), mmr::Error>
 		{
 			let leaves = leaves.into_iter().map(|leaf|
@@ -844,10 +812,10 @@ impl_runtime_apis! {
 			Mmr::verify_leaves(leaves, proof)
 		}
 
-		fn verify_batch_proof_stateless(
+		fn verify_proof_stateless(
 			root: mmr::Hash,
 			leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			proof: mmr::BatchProof<mmr::Hash>
+			proof: mmr::Proof<mmr::Hash>
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)

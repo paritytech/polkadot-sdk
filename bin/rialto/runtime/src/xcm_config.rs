@@ -28,6 +28,7 @@ use bridge_runtime_common::{
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Everything, Nothing},
+	weights::Weight,
 };
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -91,7 +92,8 @@ pub const BASE_XCM_WEIGHT: u64 = 1_000_000_000;
 
 parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
-	pub const BaseXcmWeight: u64 = BASE_XCM_WEIGHT;
+	// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - check `set_proof_size` 0 or 64*1024 or 1026?
+	pub const BaseXcmWeight: Weight = Weight::from_parts(BASE_XCM_WEIGHT, 0);
 	/// Maximum number of instructions in a single XCM fragment. A sanity check against weight
 	/// calculations getting too crazy.
 	pub const MaxInstructions: u32 = 100;
@@ -142,6 +144,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 }
 
 /// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
@@ -150,6 +153,11 @@ pub type LocalOriginToLocation = (
 	// Usual Signed origin to be used in XCM as a corresponding AccountId32
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub ReachableDest: Option<MultiLocation> = todo!("We dont use benchmarks for pallet_xcm, so if you hit this message, you need to remove this and define value instead");
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -180,6 +188,9 @@ impl pallet_xcm::Config for Runtime {
 	type TrustedLockers = ();
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxLockers = frame_support::traits::ConstU32<8>;
+	type WeightInfo = pallet_xcm::TestWeightInfo;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReachableDest = ReachableDest;
 }
 
 /// With-Millau bridge.

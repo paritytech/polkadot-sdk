@@ -138,7 +138,6 @@ macro_rules! construct_async_run {
 		runner.async_run(|$config| {
 			let $components = new_partial::<
 				RuntimeApi,
-				ParachainRuntimeExecutor,
 				_
 			>(
 				&$config,

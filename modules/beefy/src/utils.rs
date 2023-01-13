@@ -3,7 +3,7 @@ use crate::{
 	BridgedBeefyCommitmentHasher, BridgedBeefyMmrLeaf, BridgedBeefySignedCommitment, BridgedChain,
 	BridgedMmrHash, BridgedMmrHashing, BridgedMmrProof, Config, Error, LOG_TARGET,
 };
-use bp_beefy::{merkle_root, verify_mmr_leaves_proof, BeefyVerify, MmrDataOrHash, MmrProof};
+use bp_beefy::{merkle_root, verify_mmr_leaves_proof, BeefyVerify, MmrDataOrHash};
 use codec::Encode;
 use frame_support::ensure;
 use sp_runtime::traits::{Convert, Hash};
@@ -131,7 +131,6 @@ pub(crate) fn verify_beefy_mmr_leaf<T: Config<I>, I: 'static>(
 	mmr_proof: BridgedMmrProof<T, I>,
 	mmr_root: BridgedMmrHash<T, I>,
 ) -> Result<(), Error<T, I>> {
-	let mmr_proof_leaf_index = mmr_proof.leaf_index;
 	let mmr_proof_leaf_count = mmr_proof.leaf_count;
 	let mmr_proof_length = mmr_proof.items.len();
 
@@ -140,16 +139,15 @@ pub(crate) fn verify_beefy_mmr_leaf<T: Config<I>, I: 'static>(
 	verify_mmr_leaves_proof(
 		mmr_root,
 		vec![BridgedMmrDataOrHash::<T, I>::Hash(mmr_leaf_hash)],
-		MmrProof::into_batch_proof(mmr_proof),
+		mmr_proof,
 	)
 	.map_err(|e| {
 		log::error!(
 			target: LOG_TARGET,
-			"MMR proof of leaf {:?} (root: {:?}, leaf: {}, leaf count: {}, len: {}) \
+			"MMR proof of leaf {:?} (root: {:?}, leaf count: {}, len: {}) \
 				verification has failed with error: {:?}",
 			mmr_leaf_hash,
 			mmr_root,
-			mmr_proof_leaf_index,
 			mmr_proof_leaf_count,
 			mmr_proof_length,
 			e,
@@ -163,9 +161,9 @@ pub(crate) fn verify_beefy_mmr_leaf<T: Config<I>, I: 'static>(
 mod tests {
 	use super::*;
 	use crate::{mock::*, mock_chain::*, *};
-	use beefy_primitives::ValidatorSet;
 	use bp_beefy::{BeefyPayload, MMR_ROOT_PAYLOAD_ID};
 	use frame_support::{assert_noop, assert_ok};
+	use sp_beefy::ValidatorSet;
 
 	#[test]
 	fn submit_commitment_checks_metadata() {
@@ -280,7 +278,7 @@ mod tests {
 
 			// Fails if mmr proof is incorrect.
 			let mut header = ChainBuilder::new(1).append_finalized_header().to_header();
-			header.leaf_proof.leaf_index += 1;
+			header.leaf_proof.leaf_indices[0] += 1;
 			assert_noop!(
 				import_commitment(header),
 				Error::<TestRuntime, ()>::MmrProofVerificationFailed,

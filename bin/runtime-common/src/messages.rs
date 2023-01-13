@@ -452,7 +452,7 @@ pub mod target {
 					// I have no idea why this method takes `&mut` reference and there's nothing
 					// about that in documentation. Hope it'll only mutate iff error is returned.
 					let weight = XcmWeigher::weight(&mut payload.xcm.1);
-					let weight = Weight::from_ref_time(weight.unwrap_or_else(|e| {
+					let weight = weight.unwrap_or_else(|e| {
 						log::debug!(
 							target: "runtime::bridge-dispatch",
 							"Failed to compute dispatch weight of incoming XCM message {:?}/{}: {:?}",
@@ -463,8 +463,8 @@ pub mod target {
 
 						// we shall return 0 and then the XCM executor will fail to execute XCM
 						// if we'll return something else (e.g. maximal value), the lane may stuck
-						0
-					}));
+						Weight::zero()
+					});
 
 					payload.weight = Some(weight);
 					weight
@@ -498,8 +498,8 @@ pub mod target {
 					location,
 					xcm,
 					hash,
-					weight_limit.unwrap_or_else(Weight::zero).ref_time(),
-					weight_credit.ref_time(),
+					weight_limit.unwrap_or_else(Weight::zero),
+					weight_credit,
 				);
 				Ok(xcm_outcome)
 			};

@@ -263,6 +263,7 @@ pub mod pallet {
 		/// `polkadot-runtime-parachains::paras` pallet instance, deployed at the bridged chain.
 		/// The proof is supposed to be crafted at the `relay_header_hash` that must already be
 		/// imported by corresponding GRANDPA pallet at this chain.
+		#[pallet::call_index(0)]
 		#[pallet::weight(WeightInfoOf::<T, I>::submit_parachain_heads_weight(
 			T::DbWeight::get(),
 			parachain_heads_proof,
@@ -395,6 +396,7 @@ pub mod pallet {
 		/// Change `PalletOwner`.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(1)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_owner(origin: OriginFor<T>, new_owner: Option<T::AccountId>) -> DispatchResult {
 			<Self as OwnedBridgeModule<_>>::set_owner(origin, new_owner)
@@ -403,6 +405,7 @@ pub mod pallet {
 		/// Halt or resume all pallet operations.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(2)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_operating_mode(
 			origin: OriginFor<T>,
