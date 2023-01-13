@@ -23,7 +23,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	weights::{
-		constants::{BlockExecutionWeight, WEIGHT_PER_SECOND},
+		constants::{BlockExecutionWeight, WEIGHT_REF_TIME_PER_SECOND},
 		Weight,
 	},
 	Blake2_128Concat, RuntimeDebug,
@@ -74,7 +74,9 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 ///
 /// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 // TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - remove `set_proof_size`
-pub const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND.set_proof_size(1_000).saturating_mul(2);
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_SECOND)
+	.set_proof_size(1_000)
+	.saturating_mul(2);
 
 /// All Polkadot-like chains assume that an on-initialize consumes 1 percent of the weight on
 /// average, hence a single extrinsic will not be allowed to consume more than

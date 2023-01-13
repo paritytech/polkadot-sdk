@@ -21,7 +21,7 @@ use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Ze
 use sp_runtime::{
 	traits::{
 		AtLeast32Bit, AtLeast32BitUnsigned, Hash as HashT, Header as HeaderT, MaybeDisplay,
-		MaybeMallocSizeOf, MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps, Verify,
+		MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps, Verify,
 	},
 	FixedPointOperand,
 };
@@ -107,7 +107,6 @@ pub trait Chain: Send + Sync + 'static {
 		+ MaybeDisplay
 		+ AtLeast32BitUnsigned
 		+ FromStr
-		+ MaybeMallocSizeOf
 		+ AsPrimitive<usize>
 		+ Default
 		+ Saturating
@@ -128,7 +127,6 @@ pub trait Chain: Send + Sync + 'static {
 		+ SimpleBitOps
 		+ AsRef<[u8]>
 		+ AsMut<[u8]>
-		+ MaybeMallocSizeOf
 		+ MaxEncodedLen;
 
 	/// A type that fulfills the abstract idea of what a Substrate hasher (a type
