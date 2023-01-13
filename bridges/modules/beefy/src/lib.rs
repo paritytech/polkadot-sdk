@@ -152,6 +152,7 @@ pub mod pallet {
 		BridgedMmrHashing<T, I>: 'static + Send + Sync,
 	{
 		/// Initialize pallet with BEEFY authority set and best known finalized block number.
+		#[pallet::call_index(0)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(2, 3), DispatchClass::Operational))]
 		pub fn initialize(
 			origin: OriginFor<T>,
@@ -169,6 +170,7 @@ pub mod pallet {
 		/// Change `PalletOwner`.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(1)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_owner(origin: OriginFor<T>, new_owner: Option<T::AccountId>) -> DispatchResult {
 			<Self as OwnedBridgeModule<_>>::set_owner(origin, new_owner)
@@ -177,6 +179,7 @@ pub mod pallet {
 		/// Halt or resume all pallet operations.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(2)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
 		pub fn set_operating_mode(
 			origin: OriginFor<T>,
@@ -193,6 +196,7 @@ pub mod pallet {
 		///
 		/// If successful in verification, it will update the underlying storage with the data
 		/// provided in the newly submitted commitment.
+		#[pallet::call_index(3)]
 		#[pallet::weight(0)]
 		pub fn submit_commitment(
 			origin: OriginFor<T>,
@@ -410,12 +414,12 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use beefy_primitives::mmr::BeefyAuthoritySet;
 	use bp_runtime::{BasicOperatingMode, OwnedBridgeModuleError};
 	use bp_test_utils::generate_owned_bridge_module_tests;
 	use frame_support::{assert_noop, assert_ok, traits::Get};
 	use mock::*;
 	use mock_chain::*;
+	use sp_beefy::mmr::BeefyAuthoritySet;
 	use sp_runtime::DispatchError;
 
 	fn next_block() {
