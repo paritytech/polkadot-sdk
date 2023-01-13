@@ -35,6 +35,9 @@ pub enum BridgeHubRuntimeType {
 	KusamaLocal,
 	// used by benchmarks
 	KusamaDevelopment,
+
+	// used with kusama runtime
+	Westend,
 }
 
 impl FromStr for BridgeHubRuntimeType {
@@ -45,6 +48,7 @@ impl FromStr for BridgeHubRuntimeType {
 			kusama::BRIDGE_HUB_KUSAMA => Ok(BridgeHubRuntimeType::Kusama),
 			kusama::BRIDGE_HUB_KUSAMA_LOCAL => Ok(BridgeHubRuntimeType::KusamaLocal),
 			kusama::BRIDGE_HUB_KUSAMA_DEVELOPMENT => Ok(BridgeHubRuntimeType::KusamaDevelopment),
+			westend::BRIDGE_HUB_WESTEND => Ok(BridgeHubRuntimeType::Westend),
 			rococo::BRIDGE_HUB_ROCOCO => Ok(BridgeHubRuntimeType::Rococo),
 			rococo::BRIDGE_HUB_ROCOCO_LOCAL => Ok(BridgeHubRuntimeType::RococoLocal),
 			rococo::BRIDGE_HUB_ROCOCO_DEVELOPMENT => Ok(BridgeHubRuntimeType::RococoDevelopment),
@@ -64,6 +68,8 @@ impl BridgeHubRuntimeType {
 			BridgeHubRuntimeType::KusamaLocal |
 			BridgeHubRuntimeType::KusamaDevelopment =>
 				Ok(Box::new(kusama::BridgeHubChainSpec::from_json_file(path)?)),
+			BridgeHubRuntimeType::Westend =>
+				Ok(Box::new(westend::BridgeHubChainSpec::from_json_file(path)?)),
 			BridgeHubRuntimeType::Rococo |
 			BridgeHubRuntimeType::RococoLocal |
 			BridgeHubRuntimeType::RococoDevelopment =>
@@ -91,6 +97,10 @@ impl BridgeHubRuntimeType {
 				"kusama-dev",
 				ParaId::new(1003),
 			))),
+			BridgeHubRuntimeType::Westend =>
+				Ok(Box::new(westend::BridgeHubChainSpec::from_json_bytes(
+					&include_bytes!("../../../parachains/chain-specs/bridge-hub-westend.json")[..],
+				)?)),
 			BridgeHubRuntimeType::Rococo => Ok(Box::new(rococo::live_config(
 				rococo::BRIDGE_HUB_ROCOCO,
 				"Rococo BridgeHub",
@@ -132,6 +142,7 @@ impl BridgeHubRuntimeType {
 			BridgeHubRuntimeType::Kusama |
 			BridgeHubRuntimeType::KusamaLocal |
 			BridgeHubRuntimeType::KusamaDevelopment => &bridge_hub_kusama_runtime::VERSION,
+			BridgeHubRuntimeType::Westend => &bridge_hub_kusama_runtime::VERSION,
 			BridgeHubRuntimeType::Rococo |
 			BridgeHubRuntimeType::RococoLocal |
 			BridgeHubRuntimeType::RococoDevelopment |
@@ -373,7 +384,7 @@ pub mod wococo {
 	}
 }
 
-/// Sub-module for Kusama setup (reuses stuff from Rococo)
+/// Sub-module for Kusama setup
 pub mod kusama {
 	use super::{BridgeHubBalance, ParaId};
 	use crate::chain_spec::{
@@ -494,4 +505,13 @@ pub mod kusama {
 			},
 		}
 	}
+}
+
+/// Sub-module for Westend setup (uses Kusama runtime)
+pub mod westend {
+	use crate::chain_spec::bridge_hubs::kusama;
+
+	pub(crate) const BRIDGE_HUB_WESTEND: &str = "bridge-hub-westend";
+	pub type BridgeHubChainSpec = kusama::BridgeHubChainSpec;
+	pub type RuntimeApi = bridge_hub_kusama_runtime::RuntimeApi;
 }
