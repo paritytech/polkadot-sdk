@@ -1,10 +1,11 @@
-# Messages Module
+# Bridge Messages Pallet
 
-The messages module is used to deliver messages from source chain to target chain. Message is
+The messages pallet is used to deliver messages from source chain to target chain. Message is
 (almost) opaque to the module and the final goal is to hand message to the message dispatch
 mechanism.
 
 ## Contents
+
 - [Overview](#overview)
 - [Message Workflow](#message-workflow)
 - [Integrating Message Lane Module into Runtime](#integrating-messages-module-into-runtime)
@@ -30,13 +31,22 @@ Single message lane may be seen as a transport channel for single application (o
 mixed). At the same time the module itself never dictates any lane or message rules. In the end, it
 is the runtime developer who defines what message lane and message mean for this runtime.
 
+In our [Kusama<>Polkadot bridge](../../docs/polkadot-kusama-bridge-overview.md) we are using lane
+as a channel of communication between two parachains of different relay chains. For example, lane
+`[0, 0, 0, 0]` is used for Statemint <> Statemine communications. Other lanes may be used to bridge
+another parachains.
+
 ## Message Workflow
 
-The message "appears" when its submitter calls the `send_message()` function of the module. The
-submitter specifies the lane that he's willing to use, the message itself and the fee that he's
-willing to pay for the message delivery and dispatch. If a message passes all checks, the nonce is
-assigned and the message is stored in the module storage. The message is in an "undelivered" state
-now.
+The pallet is not intended to be used by end users and provides no public calls to send the message.
+Instead, it provides runtime-internal method that allows other pallets (or other runtime code) to queue
+outbound messages.
+
+The message "appears" when some runtime code calls the `send_message()` method of the pallet.
+The submitter specifies the lane that he's willing to use and the message itself. If some fee must be
+paid for sending the message, it must be paid outside of the pallet. If a message passes all checks
+(that include, for example, message size check, disabled lane check, ...), the nonce is assigned and the
+message is stored in the module storage. The message is in an "undelivered" state now.
 
 We assume that there are external, offchain actors, called relayers, that are submitting module
 related transactions to both target and source chains. The pallet itself has no assumptions about
@@ -94,22 +104,23 @@ to change something in this scheme, get back here for detailed information.
 
 The messages module supports instances. Every module instance is supposed to bridge this chain
 and some bridged chain. To bridge with another chain, using another instance is suggested (this
-isn't forced anywhere in the code, though).
+isn't forced anywhere in the code, though). Keep in mind, that the pallet may be used to build
+virtual channels between multiple chains, as we do in our [Polkadot <> Kusama bridge](../../docs/polkadot-kusama-bridge-overview.md).
+There, the pallet actually bridges only two parachains - Kusama Bridge Hub and Polkadot
+Bridge Hub. However, other Kusama and Polkadot parachains are able to send (XCM) messages to their
+Bridge Hubs. The messages will be delivered to the other side of the bridge and routed to the proper
+destination parachain within the bridged chain consensus.
 
 Message submitters may track message progress by inspecting module events. When Message is accepted,
-the `MessageAccepted` event is emitted in the `send_message()` transaction. The event contains both
-message lane identifier and nonce that has been assigned to the message. When a message is delivered
-to the target chain, the `MessagesDelivered` event is emitted from the
-`receive_messages_delivery_proof()` transaction. The `MessagesDelivered` contains the message lane
-identifier, inclusive range of delivered message nonces and their single-bit dispatch results.
+the `MessageAccepted` event is emitted. The event contains both message lane identifier and nonce that
+has been assigned to the message. When a message is delivered to the target chain, the `MessagesDelivered`
+event is emitted from the `receive_messages_delivery_proof()` transaction. The `MessagesDelivered` contains
+the message lane identifier and inclusive range of delivered message nonces.
 
-Please note that the meaning of the 'dispatch result' is determined by the message dispatcher at
-the target chain. For example, in case of immediate call dispatcher it will be the `true` if call
-has been successfully dispatched and `false` if it has only been delivered. This simple mechanism
-built into the messages module allows building basic bridge applications, which only care whether
-their messages have been successfully dispatched or not. More sophisticated applications may use
-their own dispatch result delivery mechanism to deliver something larger than single bit.
-
+The pallet provides no means to get the result of message dispatch at the target chain. If that is
+required, it must be done outside of the pallet. For example, XCM messages, when dispatched, have
+special instructions to send some data back to the sender. Other dispatchers may use similar
+mechanism for that.
 ### How to plug-in Messages Module to Send Messages to the Bridged Chain?
 
 The `pallet_bridge_messages::Config` trait has 3 main associated types that are used to work with
@@ -138,16 +149,12 @@ messages and you may charge zero fee for such messages. You may have some rate l
 sent over the lane#3. Or you may just verify the same rules set for all outbound messages - it is
 all up to the `pallet_bridge_messages::Config::LaneMessageVerifier` implementation.
 
-The last type is the `pallet_bridge_messages::Config::MessageDeliveryAndDispatchPayment`. When all
-checks are made and we have decided to accept the message, we're calling the
-`pay_delivery_and_dispatch_fee()` callback, passing the corresponding argument of the `send_message`
-function. Later, when message delivery is confirmed, we're calling `pay_relayers_rewards()`
-callback, passing accounts of relayers and messages that they have delivered. The simplest
-implementation of this trait is in the [`instant_payments.rs`](./src/instant_payments.rs) module and
-simply calls `Currency::transfer()` when those callbacks are called. So `Currency` units are
-transferred between submitter, 'relayers fund' and relayers accounts. Other implementations may use
-more or less sophisticated techniques - the whole relayers incentivization scheme is not a part of
-the messages module.
+The last type is the `pallet_bridge_messages::Config::DeliveryConfirmationPayments`. When confirmation
+transaction is received, we call the `pay_reward()` method, passing the range of delivered messages.
+You may use the [`pallet-bridge-relayers`](../relayers/) pallet and its
+[`DeliveryConfirmationPaymentsAdapter`](../relayers/src/payment_adapter.rs) adapter as a possible
+implementation. It allows you to pay fixed reward for relaying the message and some its portion
+for confirming delivery.
 
 ### I have a Messages Module in my Runtime, but I Want to Reject all Outbound Messages. What shall I do?
 
@@ -159,7 +166,7 @@ all required traits and will simply reject all transactions, related to outbound
 
 The `pallet_bridge_messages::Config` trait has 2 main associated types that are used to work with
 inbound messages. The `pallet_bridge_messages::Config::SourceHeaderChain` defines how we see the
-bridged chain as the source or our inbound messages. When relayer sends us a delivery transaction,
+bridged chain as the source of our inbound messages. When relayer sends us a delivery transaction,
 this implementation must be able to parse and verify the proof of messages wrapped in this
 transaction. Normally, you would reuse the same (configurable) type on all chains that are sending
 messages to the same bridged chain.
@@ -168,8 +175,7 @@ The `pallet_bridge_messages::Config::MessageDispatch` defines a way on how to di
 messages. Apart from actually dispatching the message, the implementation must return the correct
 dispatch weight of the message before dispatch is called.
 
-### I have a Messages Module in my Runtime, but I Want to Reject all Inbound Messages. What
-shall I do?
+### I have a Messages Module in my Runtime, but I Want to Reject all Inbound Messages. What shall I do?
 
 You should be looking at the `bp_messages::target_chain::ForbidInboundMessages` structure from
 the [`bp_messages::target_chain`](../../primitives/messages/src/target_chain.rs) module. It
@@ -177,13 +183,10 @@ implements all required traits and will simply reject all transactions, related 
 
 ### What about other Constants in the Messages Module Configuration Trait?
 
-Message is being stored in the source chain storage until its delivery will be confirmed. After
-that, we may safely remove the message from the storage. Lane messages are removed (pruned) when
-someone sends a new message using the same lane. So the message submitter pays for that pruning. To
-avoid pruning too many messages in a single transaction, there's
-`pallet_bridge_messages::Config::MaxMessagesToPruneAtOnce` configuration parameter. We will never prune
-more than this number of messages in the single transaction. That said, the value should not be too
-big to avoid waste of resources when there are no messages to prune.
+Two setttings that are used to check messages in the `send_message()` function. The
+`pallet_bridge_messages::Config::ActiveOutboundLanes` is an array of all message lanes, that
+may be used to send messages. All messages sent using other lanes are rejected. All messages that have
+size above `pallet_bridge_messages::Config::MaximalOutboundPayloadSize` will also be rejected.
 
 To be able to reward the relayer for delivering messages, we store a map of message nonces range =>
 identifier of the relayer that has delivered this range at the target chain runtime storage. If a
@@ -219,13 +222,9 @@ large maps, at the same time keeping reserve for future source chain upgrades.
 
 ## Non-Essential Functionality
 
-Apart from the message related calls, the module exposes a set of auxiliary calls. They fall in two
-groups, described in the next two paragraphs.
-
 There may be a special account in every runtime where the messages module is deployed. This
-account, named 'module owner', is like a module-level sudo account - he's able to halt all and
-result all module operations without requiring runtime upgrade. The module may have no message
-owner, but we suggest to use it at least for initial deployment. To calls that are related to this
+account, named 'module owner', is like a module-level sudo account - he's able to halt and
+resume all module operations without requiring runtime upgrade. Calls that are related to this
 account are:
 - `fn set_owner()`: current module owner may call it to transfer "ownership" to another account;
 - `fn halt_operations()`: the module owner (or sudo account) may call this function to stop all
@@ -235,190 +234,9 @@ account are:
 - `fn resume_operations()`: module owner may call this function to resume bridge operations. The
   module will resume its regular operations after this call.
 
-Apart from halting and resuming the bridge, the module owner may also tune module configuration
-parameters without runtime upgrades. The set of parameters needs to be designed in advance, though.
-The module configuration trait has associated `Parameter` type, which may be e.g. enum and represent
-a set of parameters that may be updated by the module owner. For example, if your bridge needs to
-convert sums between different tokens, you may define a 'conversion rate' parameter and let the
-module owner update this parameter when there are significant changes in the rate. The corresponding
-module call is `fn update_pallet_parameter()`.
+If pallet owner is not defined, the governance may be used to make those calls.
 
-## Weights of Module Extrinsics
+## Messages Relay
 
-The main assumptions behind weight formulas is:
-- all possible costs are paid in advance by the message submitter;
-- whenever possible, relayer tries to minimize cost of its transactions. So e.g. even though sender
-  always pays for delivering outbound lane state proof, relayer may not include it in the delivery
-  transaction (unless messages module on target chain requires that);
-- weight formula should incentivize relayer to not to submit any redundant data in the extrinsics
-  arguments;
-- the extrinsic shall never be executing slower (i.e. has larger actual weight) than defined by the
-  formula.
-
-### Weight of `send_message` call
-
-#### Related benchmarks
-
-| Benchmark                         | Description                                         |
-|-----------------------------------|-----------------------------------------------------|
-`send_minimal_message_worst_case` | Sends 0-size message with worst possible conditions    |
-`send_1_kb_message_worst_case`    | Sends 1KB-size message with worst possible conditions  |
-`send_16_kb_message_worst_case`   | Sends 16KB-size message with worst possible conditions |
-
-#### Weight formula
-
-The weight formula is:
-```
-Weight = BaseWeight + MessageSizeInKilobytes * MessageKiloByteSendWeight
-```
-
-Where:
-
-| Component                   | How it is computed?                                                          | Description                                                                                                                                  |
-|-----------------------------|------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `SendMessageOverhead`       | `send_minimal_message_worst_case`                                            | Weight of sending minimal (0 bytes) message                    |
-| `MessageKiloByteSendWeight` | `(send_16_kb_message_worst_case - send_1_kb_message_worst_case)/15` | Weight of sending every additional kilobyte of the message |
-
-### Weight of `receive_messages_proof` call
-
-#### Related benchmarks
-
-| Benchmark                                               | Description*                                                                                                            |
-|---------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| `receive_single_message_proof`                          | Receives proof of single `EXPECTED_DEFAULT_MESSAGE_LENGTH` message                                                      |
-| `receive_two_messages_proof`                            | Receives proof of two identical `EXPECTED_DEFAULT_MESSAGE_LENGTH` messages                                              |
-| `receive_single_message_proof_with_outbound_lane_state` | Receives proof of single `EXPECTED_DEFAULT_MESSAGE_LENGTH` message and proof of outbound lane state at the source chain |
-| `receive_single_message_proof_1_kb`                     | Receives proof of single message. The proof has size of approximately 1KB**                                             |
-| `receive_single_message_proof_16_kb`                    | Receives proof of single message. The proof has size of approximately 16KB**                                            |
-
-*\* - In all benchmarks all received messages are dispatched and their dispatch cost is near to zero*
-
-*\*\* - Trie leafs are assumed to have minimal values. The proof is derived from the minimal proof
-by including more trie nodes. That's because according to our additioal benchmarks, increasing proof
-by including more nodes has slightly larger impact on performance than increasing values stored in leafs*.
-
-#### Weight formula
-
-The weight formula is:
-```
-Weight = BaseWeight + OutboundStateDeliveryWeight
-       + MessagesCount * MessageDeliveryWeight
-       + MessagesDispatchWeight
-       + Max(0, ActualProofSize - ExpectedProofSize) * ProofByteDeliveryWeight
-```
-
-Where:
-
-| Component                     | How it is computed?                                                                      | Description                                                                                                                                                                                                                                                                                                                                                                                         |
-|-------------------------------|------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `BaseWeight`                  | `2*receive_single_message_proof - receive_two_messages_proof`                            | Weight of receiving and parsing minimal proof                                                                                                                                                                                                                                                                                                                                                       |
-| `OutboundStateDeliveryWeight` | `receive_single_message_proof_with_outbound_lane_state - receive_single_message_proof`   | Additional weight when proof includes outbound lane state                                                                                                                                                                                                                                                                                                                                           |
-| `MessageDeliveryWeight`       | `receive_two_messages_proof - receive_single_message_proof`                              | Weight of of parsing and dispatching (without actual dispatch cost) of every message                                                                                                                                                                                                                                                                                                                |
-| `MessagesCount`               |                                                                                          | Provided by relayer                                                                                                                                                                                                                                                                                                                                                                                 |
-| `MessagesDispatchWeight`      |                                                                                          | Provided by relayer                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ActualProofSize`             |                                                                                          | Provided by relayer                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ExpectedProofSize`           | `EXPECTED_DEFAULT_MESSAGE_LENGTH * MessagesCount + EXTRA_STORAGE_PROOF_SIZE`             | Size of proof that we are expecting. This only includes `EXTRA_STORAGE_PROOF_SIZE` once, because we assume that intermediate nodes likely to be included in the proof only once. This may be wrong, but since weight of processing proof with many nodes is almost equal to processing proof with large leafs, additional cost will be covered because we're charging for extra proof bytes anyway  |
-| `ProofByteDeliveryWeight`     | `(receive_single_message_proof_16_kb - receive_single_message_proof_1_kb) / (15 * 1024)` | Weight of processing every additional proof byte over `ExpectedProofSize` limit                                                                                                                                                                                                                                                                                                                     |
-
-#### Why for every message sent using `send_message` we will be able to craft `receive_messages_proof` transaction?
-
-We have following checks in `send_message` transaction on the source chain:
-- message size should be less than or equal to `2/3` of maximal extrinsic size on the target chain;
-- message dispatch weight should be less than or equal to the `1/2` of maximal extrinsic dispatch
-  weight on the target chain.
-
-Delivery transaction is an encoded delivery call and signed extensions. So we have `1/3` of maximal
-extrinsic size reserved for:
-- storage proof, excluding the message itself. Currently, on our test chains, the overhead is always
-  within `EXTRA_STORAGE_PROOF_SIZE` limits (1024 bytes);
-- signed extras and other call arguments (`relayer_id: SourceChain::AccountId`, `messages_count:
-  u32`, `dispatch_weight: u64`).
-
-On Millau chain, maximal extrinsic size is `0.75 * 2MB`, so `1/3` is `512KB` (`524_288` bytes). This
-should be enough to cover these extra arguments and signed extensions.
-
-Let's exclude message dispatch cost from single message delivery transaction weight formula:
-```
-Weight = BaseWeight + OutboundStateDeliveryWeight + MessageDeliveryWeight
-       + Max(0, ActualProofSize - ExpectedProofSize) * ProofByteDeliveryWeight
-```
-
-So we have `1/2` of maximal extrinsic weight to cover these components. `BaseWeight`,
-`OutboundStateDeliveryWeight` and `MessageDeliveryWeight` are determined using benchmarks and are
-hardcoded into runtime. Adequate relayer would only include required trie nodes into the proof. So
-if message size would be maximal (`2/3` of `MaximalExtrinsicSize`), then the extra proof size would
-be `MaximalExtrinsicSize / 3 * 2 - EXPECTED_DEFAULT_MESSAGE_LENGTH`.
-
-Both conditions are verified by `pallet_bridge_messages::ensure_weights_are_correct` and
-`pallet_bridge_messages::ensure_able_to_receive_messages` functions, which must be called from every
-runtime's tests.
-
-#### Post-dispatch weight refunds of the `receive_messages_proof` call
-
-Weight formula of the `receive_messages_proof` call assumes that the dispatch fee of every message is
-paid at the target chain (where call is executed), that every message will be dispatched and that
-dispatch weight of the message will be exactly the weight that is returned from the
-`MessageDispatch::dispatch_weight` method call. This isn't true for all messages, so the call returns
-actual weight used to dispatch messages.
-
-This actual weight is the weight, returned by the weight formula, minus:
-- the weight of undispatched messages, if we have failed to dispatch because of different issues;
-- the unspent dispatch weight if the declared weight of some messages is less than their actual post-dispatch weight;
-- the pay-dispatch-fee weight for every message that had dispatch fee paid at the source chain.
-
-The last component is computed as a difference between two benchmarks results - the `receive_single_message_proof`
-benchmark (that assumes that the fee is paid during dispatch) and the `receive_single_prepaid_message_proof`
-(that assumes that the dispatch fee is already paid).
-
-### Weight of `receive_messages_delivery_proof` call
-
-#### Related benchmarks
-
-| Benchmark                                                   | Description                                                                              |
-|-------------------------------------------------------------|------------------------------------------------------------------------------------------|
-| `receive_delivery_proof_for_single_message`                 | Receives proof of single message delivery                                                |
-| `receive_delivery_proof_for_two_messages_by_single_relayer` | Receives proof of two messages delivery. Both messages are delivered by the same relayer |
-| `receive_delivery_proof_for_two_messages_by_two_relayers`   | Receives proof of two messages delivery. Messages are delivered by different relayers    |
-
-#### Weight formula
-
-The weight formula is:
-```
-Weight = BaseWeight + MessagesCount * MessageConfirmationWeight
-       + RelayersCount * RelayerRewardWeight
-       + Max(0, ActualProofSize - ExpectedProofSize) * ProofByteDeliveryWeight
-       + MessagesCount * (DbReadWeight + DbWriteWeight)
-```
-
-Where:
-
-| Component                 | How it is computed?                                                                                                   | Description                                                                                                                                                                                             |
-|---------------------------|-----------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `BaseWeight`              | `2*receive_delivery_proof_for_single_message - receive_delivery_proof_for_two_messages_by_single_relayer`             | Weight of receiving and parsing minimal delivery proof                                                                                                                                                  |
-| `MessageDeliveryWeight`   | `receive_delivery_proof_for_two_messages_by_single_relayer - receive_delivery_proof_for_single_message`               | Weight of confirming every additional message                                                                                                                                                           |
-| `MessagesCount`           |                                                                                                                       | Provided by relayer                                                                                                                                                                                     |
-| `RelayerRewardWeight`     | `receive_delivery_proof_for_two_messages_by_two_relayers - receive_delivery_proof_for_two_messages_by_single_relayer` | Weight of rewarding every additional relayer                                                                                                                                                            |
-| `RelayersCount`           |                                                                                                                       | Provided by relayer                                                                                                                                                                                     |
-| `ActualProofSize`         |                                                                                                                       | Provided by relayer                                                                                                                                                                                     |
-| `ExpectedProofSize`       | `EXTRA_STORAGE_PROOF_SIZE`                                                                                            | Size of proof that we are expecting                                                                                                                                                                     |
-| `ProofByteDeliveryWeight` | `(receive_single_message_proof_16_kb - receive_single_message_proof_1_kb) / (15 * 1024)`                              | Weight of processing every additional proof byte over `ExpectedProofSize` limit. We're using the same formula, as for message delivery, because proof mechanism is assumed to be the same in both cases |
-
-#### Post-dispatch weight refunds of the `receive_messages_delivery_proof` call
-
-Weight formula of the `receive_messages_delivery_proof` call assumes that all messages in the proof
-are actually delivered (so there are no already confirmed messages) and every messages is processed
-by the `OnDeliveryConfirmed` callback. This means that for every message, we're adding single db read
-weight and single db write weight. If, by some reason, messages are not processed by the
-`OnDeliveryConfirmed` callback, or their processing is faster than that additional weight, the
-difference is refunded to the submitter.
-
-#### Why we're always able to craft `receive_messages_delivery_proof` transaction?
-
-There can be at most `<PeerRuntime as pallet_bridge_messages::Config>::MaxUnconfirmedMessagesAtInboundLane`
-messages and at most
-`<PeerRuntime as pallet_bridge_messages::Config>::MaxUnrewardedRelayerEntriesAtInboundLane` unrewarded
-relayers in the single delivery confirmation transaction.
-
-We're checking that this transaction may be crafted in the
-`pallet_bridge_messages::ensure_able_to_receive_confirmation` function, which must be called from every
-runtime' tests.
+We have an offchain actor, who is watching for new messages and submits them to the bridged chain.
+It is the messages relay - you may look at the [crate level documentation and the code](../../relays/messages/).

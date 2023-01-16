@@ -115,7 +115,7 @@ the source chain GRANDPA justifications stream and submits every new justificati
 target chain GRANDPA light client. In addition, relay is searching for mandatory headers and
 submits their justifications - without that the pallet will be unable to move forward.
 
-More: [GRANDPA Finality Relay Sequence Diagram](./grandpa-finality-relay.html), [code](../relays/finality/).
+More: [GRANDPA Finality Relay Sequence Diagram](./grandpa-finality-relay.html), [pallet level documentation and code](../relays/finality/).
 
 ### Parachains Finality Relay
 
@@ -158,7 +158,7 @@ relay submits transactions to both source and target chains, it requires both _s
 _target-to-source_ finality relays. They can be GRANDPA finality relays or GRANDPA+parachains finality relays,
 depending on the type of connected chain.
 
-More: [Messages Relay Sequence Diagram](./messages-relay.html), [code](../relays/messages/).
+More: [Messages Relay Sequence Diagram](./messages-relay.html), [pallet level documentation and code](../relays/messages/).
 
 ### Complex Relay
 
