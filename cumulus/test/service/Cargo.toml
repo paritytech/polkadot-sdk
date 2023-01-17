@@ -82,6 +82,9 @@ polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
+[features]
+runtime-benchmarks = ["polkadot-test-service/runtime-benchmarks"]
+
 [[bench]]
 name = "transaction_throughput"
 harness = false

@@ -46,6 +46,7 @@ fn bad_message_is_handled() {
 		XcmpQueue::process_xcmp_message(
 			1000.into(),
 			(1, format),
+			&mut 0,
 			Weight::from_ref_time(10_000_000_000),
 			Weight::from_ref_time(10_000_000_000),
 		);
@@ -69,6 +70,7 @@ fn handle_blob_message() {
 		XcmpQueue::process_xcmp_message(
 			1000.into(),
 			(1, format),
+			&mut 0,
 			Weight::from_ref_time(10_000_000_000),
 			Weight::from_ref_time(10_000_000_000),
 		);
@@ -86,6 +88,7 @@ fn handle_invalid_data() {
 		XcmpQueue::process_xcmp_message(
 			1000.into(),
 			(1, format),
+			&mut 0,
 			Weight::from_ref_time(10_000_000_000),
 			Weight::from_ref_time(10_000_000_000),
 		);
@@ -96,7 +99,7 @@ fn handle_invalid_data() {
 fn service_overweight_unknown() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, 1000),
+			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_parts(1000, 1000)),
 			Error::<Test>::BadOverweightIndex,
 		);
 	});
@@ -109,7 +112,7 @@ fn service_overweight_bad_xcm_format() {
 		Overweight::<Test>::insert(0, (ParaId::from(1000), 0, bad_xcm));
 
 		assert_noop!(
-			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, 1000),
+			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_parts(1000, 1000)),
 			Error::<Test>::BadXcm
 		);
 	});
@@ -187,9 +190,15 @@ fn update_threshold_weight_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.threshold_weight, Weight::from_ref_time(100_000));
-		assert_ok!(XcmpQueue::update_threshold_weight(RuntimeOrigin::root(), 10_000));
+		assert_ok!(XcmpQueue::update_threshold_weight(
+			RuntimeOrigin::root(),
+			Weight::from_ref_time(10_000)
+		));
 		assert_noop!(
-			XcmpQueue::update_threshold_weight(RuntimeOrigin::signed(5), 10_000_000),
+			XcmpQueue::update_threshold_weight(
+				RuntimeOrigin::signed(5),
+				Weight::from_ref_time(10_000_000),
+			),
 			BadOrigin
 		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
@@ -203,9 +212,15 @@ fn update_weight_restrict_decay_works() {
 	new_test_ext().execute_with(|| {
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
 		assert_eq!(data.weight_restrict_decay, Weight::from_ref_time(2));
-		assert_ok!(XcmpQueue::update_weight_restrict_decay(RuntimeOrigin::root(), 5));
+		assert_ok!(XcmpQueue::update_weight_restrict_decay(
+			RuntimeOrigin::root(),
+			Weight::from_ref_time(5)
+		));
 		assert_noop!(
-			XcmpQueue::update_weight_restrict_decay(RuntimeOrigin::signed(6), 4),
+			XcmpQueue::update_weight_restrict_decay(
+				RuntimeOrigin::signed(6),
+				Weight::from_ref_time(4),
+			),
 			BadOrigin
 		);
 		let data: QueueConfigData = <QueueConfig<Test>>::get();
@@ -224,12 +239,12 @@ fn update_xcmp_max_individual_weight() {
 		);
 		assert_ok!(XcmpQueue::update_xcmp_max_individual_weight(
 			RuntimeOrigin::root(),
-			30u64 * WEIGHT_REF_TIME_PER_MILLIS
+			Weight::from_ref_time(30u64 * WEIGHT_REF_TIME_PER_MILLIS)
 		));
 		assert_noop!(
 			XcmpQueue::update_xcmp_max_individual_weight(
 				RuntimeOrigin::signed(3),
-				10u64 * WEIGHT_REF_TIME_PER_MILLIS
+				Weight::from_ref_time(10u64 * WEIGHT_REF_TIME_PER_MILLIS)
 			),
 			BadOrigin
 		);
@@ -238,6 +253,91 @@ fn update_xcmp_max_individual_weight() {
 		assert_eq!(
 			data.xcmp_max_individual_weight,
 			Weight::from_ref_time(30u64 * WEIGHT_REF_TIME_PER_MILLIS)
+		);
+	});
+}
+
+/// Validates [`validate`] for required Some(destination) and Some(message)
+struct OkFixedXcmHashWithAssertingRequiredInputsSender;
+impl OkFixedXcmHashWithAssertingRequiredInputsSender {
+	const FIXED_XCM_HASH: [u8; 32] = [9; 32];
+
+	fn fixed_delivery_asset() -> MultiAssets {
+		MultiAssets::new()
+	}
+
+	fn expected_delivery_result() -> Result<(XcmHash, MultiAssets), SendError> {
+		Ok((Self::FIXED_XCM_HASH, Self::fixed_delivery_asset()))
+	}
+}
+impl SendXcm for OkFixedXcmHashWithAssertingRequiredInputsSender {
+	type Ticket = ();
+
+	fn validate(
+		destination: &mut Option<MultiLocation>,
+		message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		assert!(destination.is_some());
+		assert!(message.is_some());
+		Ok(((), OkFixedXcmHashWithAssertingRequiredInputsSender::fixed_delivery_asset()))
+	}
+
+	fn deliver(_: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok(Self::FIXED_XCM_HASH)
+	}
+}
+
+#[test]
+fn xcmp_queue_does_not_consume_dest_or_msg_on_not_applicable() {
+	// dummy message
+	let message = Xcm(vec![Trap(5)]);
+
+	// XcmpQueue - check dest is really not applicable
+	let dest = (Parent, Parent, Parent);
+	let mut dest_wrapper = Some(dest.clone().into());
+	let mut msg_wrapper = Some(message.clone());
+	assert_eq!(
+		Err(SendError::NotApplicable),
+		<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper)
+	);
+
+	// check wrapper were not consumed
+	assert_eq!(Some(dest.clone().into()), dest_wrapper.take());
+	assert_eq!(Some(message.clone()), msg_wrapper.take());
+
+	// another try with router chain with asserting sender
+	assert_eq!(
+		OkFixedXcmHashWithAssertingRequiredInputsSender::expected_delivery_result(),
+		send_xcm::<(XcmpQueue, OkFixedXcmHashWithAssertingRequiredInputsSender)>(
+			dest.into(),
+			message
+		)
+	);
+}
+
+#[test]
+fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
+	// dummy message
+	let message = Xcm(vec![Trap(5)]);
+
+	// XcmpQueue - check dest/msg is valid
+	let dest = (Parent, X1(Parachain(5555)));
+	let mut dest_wrapper = Some(dest.clone().into());
+	let mut msg_wrapper = Some(message.clone());
+	assert!(<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).is_ok());
+
+	// check wrapper were consumed
+	assert_eq!(None, dest_wrapper.take());
+	assert_eq!(None, msg_wrapper.take());
+
+	new_test_ext().execute_with(|| {
+		// another try with router chain with asserting sender
+		assert_eq!(
+			Err(SendError::Transport("NoChannel")),
+			send_xcm::<(XcmpQueue, OkFixedXcmHashWithAssertingRequiredInputsSender)>(
+				dest.into(),
+				message
+			)
 		);
 	});
 }

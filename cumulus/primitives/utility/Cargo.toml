@@ -10,10 +10,12 @@ log = { version = "0.4.17", default-features = false }
 
 # Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Polkadot
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -29,6 +31,8 @@ std = [
 	"frame-support/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-io/std",
+	"polkadot-runtime-common/std",
 	"cumulus-primitives-core/std",
 	"xcm/std",
 	"xcm-builder/std",

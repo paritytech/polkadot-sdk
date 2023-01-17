@@ -21,7 +21,7 @@ use frame_support::{
 };
 use pallet_alliance::{ProposalIndex, ProposalProvider};
 use sp_std::{marker::PhantomData, prelude::*};
-use xcm::latest::{Fungibility, Junction, NetworkId, Parent};
+use xcm::latest::{Fungibility, Junction, Parent};
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -65,8 +65,8 @@ where
 			<T as frame_system::Config>::RuntimeOrigin::signed(temp_account.into()),
 			Box::new(Parent.into()),
 			Box::new(
-				Junction::AccountId32 { network: NetworkId::Any, id: treasury_acc.into() }
-					.into()
+				Junction::AccountId32 { network: None, id: treasury_acc.into() }
+					.into_location()
 					.into(),
 			),
 			Box::new((Parent, imbalance).into()),

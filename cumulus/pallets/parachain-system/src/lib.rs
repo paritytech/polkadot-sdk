@@ -53,6 +53,7 @@ use sp_runtime::{
 	},
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
+use xcm::latest::XcmHash;
 
 mod migration;
 mod relay_state_snapshot;
@@ -480,6 +481,8 @@ pub mod pallet {
 		DownwardMessagesReceived { count: u32 },
 		/// Downward messages were processed using the given weight.
 		DownwardMessagesProcessed { weight_used: Weight, dmq_head: relay_chain::Hash },
+		/// An upward message was sent to the relay chain.
+		UpwardMessageSent { message_hash: Option<XcmHash> },
 	}
 
 	#[pallet::error]
@@ -743,7 +746,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		// None then it must be that this is an edge-case where a message is attempted to be
 		// sent at the first block. It should be safe to assume that there are no channels
 		// opened at all so early. At least, relying on this assumption seems to be a better
-		// tradeoff, compared to introducing an error variant that the clients should be
+		// trade-off, compared to introducing an error variant that the clients should be
 		// prepared to handle.
 		let index = match channels.binary_search_by_key(&id, |item| item.0) {
 			Err(_) => return ChannelStatus::Closed,
@@ -1004,7 +1007,7 @@ impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn send_upward_message(message: UpwardMessage) -> Result<u32, MessageSendError> {
+	pub fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		// Check if the message fits into the relay-chain constraints.
 		//
 		// Note, that we are using `host_configuration` here which may be from the previous
@@ -1034,13 +1037,18 @@ impl<T: Config> Pallet<T> {
 				// Thus fall through here.
 			},
 		};
-		<PendingUpwardMessages<T>>::append(message);
-		Ok(0)
+		<PendingUpwardMessages<T>>::append(message.clone());
+
+		// The relay ump does not use using_encoded
+		// We apply the same this to use the same hash
+		let hash = sp_io::hashing::blake2_256(&message);
+		Self::deposit_event(Event::UpwardMessageSent { message_hash: Some(hash) });
+		Ok((0, hash))
 	}
 }
 
 impl<T: Config> UpwardMessageSender for Pallet<T> {
-	fn send_upward_message(message: UpwardMessage) -> Result<u32, MessageSendError> {
+	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
 	}
 }

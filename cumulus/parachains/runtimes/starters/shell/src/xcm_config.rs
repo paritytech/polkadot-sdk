@@ -13,18 +13,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{AccountId, ParachainInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
-use frame_support::{match_types, parameter_types};
+use super::{
+	AccountId, AllPalletsWithSystem, ParachainInfo, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin,
+};
+use frame_support::{
+	match_types, parameter_types,
+	traits::{Everything, Nothing},
+	weights::Weight,
+};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AllowUnpaidExecutionFrom, FixedWeightBounds, LocationInverter, ParentAsSuperuser,
-	ParentIsPreset, SovereignSignedViaLocation,
+	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, ParentAsSuperuser, ParentIsPreset,
+	SovereignSignedViaLocation,
 };
 
 parameter_types! {
 	pub const RococoLocation: MultiLocation = MultiLocation::parent();
-	pub const RococoNetwork: NetworkId = NetworkId::Polkadot;
-	pub Ancestry: MultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+	pub const RococoNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
+	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
 }
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -46,8 +53,9 @@ match_types! {
 
 parameter_types! {
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
-	pub UnitWeightCost: u64 = 1_000_000_000;
+	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	pub const MaxInstructions: u32 = 100;
+	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
 pub struct XcmConfig;
@@ -58,14 +66,23 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = (); // balances not supported
 	type IsTeleporter = (); // balances not supported
-	type LocationInverter = LocationInverter<Ancestry>;
-	type Barrier = AllowUnpaidExecutionFrom<JustTheParent>;
+	type UniversalLocation = UniversalLocation;
+	type Barrier = AllowExplicitUnpaidExecutionFrom<JustTheParent>;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>; // balances not supported
 	type Trader = (); // balances not supported
 	type ResponseHandler = (); // Don't handle responses for now.
 	type AssetTrap = (); // don't trap for now
 	type AssetClaims = (); // don't claim for now
 	type SubscriptionService = (); // don't handle subscriptions for now
+	type PalletInstancesInfo = AllPalletsWithSystem;
+	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+	type AssetLocker = ();
+	type AssetExchanger = ();
+	type FeeManager = ();
+	type MessageExporter = ();
+	type UniversalAliases = Nothing;
+	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

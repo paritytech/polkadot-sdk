@@ -62,13 +62,13 @@ fn test_asset_xcm_trader() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy 4e9 weight
-			let bought = 4_000_000_000u64;
+			let bought = Weight::from_ref_time(4_000_000_000u64);
 
 			// Lets calculate amount needed
 			let asset_amount_needed =
 				AssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
 					local_asset_id,
-					Weight::from_ref_time(bought),
+					bought,
 				)
 				.expect("failed to compute");
 
@@ -138,7 +138,7 @@ fn test_asset_xcm_trader_with_refund() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy 4e9 weight
-			let bought = 4_000_000_000u64;
+			let bought = Weight::from_ref_time(4_000_000_000u64);
 			let asset_multilocation = MultiLocation::new(
 				0,
 				X2(
@@ -151,7 +151,7 @@ fn test_asset_xcm_trader_with_refund() {
 			);
 
 			// lets calculate amount needed
-			let amount_bought = WeightToFee::weight_to_fee(&Weight::from_ref_time(bought));
+			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
 			let asset: MultiAsset = (asset_multilocation.clone(), amount_bought).into();
 
@@ -165,8 +165,7 @@ fn test_asset_xcm_trader_with_refund() {
 			let weight_used = bought / 2;
 
 			// Make sure refurnd works.
-			let amount_refunded =
-				WeightToFee::weight_to_fee(&Weight::from_ref_time(bought - weight_used));
+			let amount_refunded = WeightToFee::weight_to_fee(&(bought - weight_used));
 
 			assert_eq!(
 				trader.refund_weight(bought - weight_used),
@@ -177,7 +176,7 @@ fn test_asset_xcm_trader_with_refund() {
 			drop(trader);
 
 			// We only should have paid for half of the bought weight
-			let fees_paid = WeightToFee::weight_to_fee(&Weight::from_ref_time(weight_used));
+			let fees_paid = WeightToFee::weight_to_fee(&weight_used);
 
 			assert_eq!(
 				Assets::balance(1, AccountId::from(ALICE)),
@@ -216,7 +215,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy 5e9 weight
-			let bought = 500_000_000u64;
+			let bought = Weight::from_ref_time(500_000_000u64);
 
 			let asset_multilocation = MultiLocation::new(
 				0,
@@ -229,7 +228,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 				),
 			);
 
-			let amount_bought = WeightToFee::weight_to_fee(&Weight::from_ref_time(bought));
+			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
 			assert!(
 				amount_bought < ExistentialDeposit::get(),
@@ -275,7 +274,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
-			let bought = 500_000_000u64;
+			let bought = Weight::from_ref_time(500_000_000u64);
 
 			let asset_multilocation = MultiLocation::new(
 				0,
@@ -288,7 +287,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 				),
 			);
 
-			let amount_bought = WeightToFee::weight_to_fee(&Weight::from_ref_time(bought));
+			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
 			assert!(
 				amount_bought < ExistentialDeposit::get(),
@@ -356,10 +355,10 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy 4e9 weight
-			let bought = 4_000_000_000u64;
+			let bought = Weight::from_ref_time(4_000_000_000u64);
 
 			// lets calculate amount needed
-			let asset_amount_needed = WeightToFee::weight_to_fee(&Weight::from_ref_time(bought));
+			let asset_amount_needed = WeightToFee::weight_to_fee(&bought);
 
 			let asset_multilocation = MultiLocation::new(
 				0,

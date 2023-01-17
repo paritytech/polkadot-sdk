@@ -67,13 +67,13 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Downward message is invalid XCM.
 		/// \[ id \]
-		InvalidFormat([u8; 8]),
+		InvalidFormat([u8; 32]),
 		/// Downward message is unsupported version of XCM.
 		/// \[ id \]
-		UnsupportedVersion([u8; 8]),
+		UnsupportedVersion([u8; 32]),
 		/// Downward message executed with the given outcome.
 		/// \[ id, outcome \]
-		ExecutedDownward([u8; 8], Outcome),
+		ExecutedDownward([u8; 32], Outcome),
 	}
 
 	/// Origin for the parachains module.
@@ -113,7 +113,7 @@ impl<T: Config> DmpMessageHandler for UnlimitedDmpExecution<T> {
 	) -> Weight {
 		let mut used = Weight::zero();
 		for (_sent_at, data) in iter {
-			let id = sp_io::hashing::twox_64(&data[..]);
+			let id = sp_io::hashing::blake2_256(&data[..]);
 			let msg = VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut data.as_slice(),
@@ -123,8 +123,8 @@ impl<T: Config> DmpMessageHandler for UnlimitedDmpExecution<T> {
 				Err(_) => Pallet::<T>::deposit_event(Event::InvalidFormat(id)),
 				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
 				Ok(Ok(x)) => {
-					let outcome = T::XcmExecutor::execute_xcm(Parent, x, limit.ref_time());
-					used += Weight::from_ref_time(outcome.weight_used());
+					let outcome = T::XcmExecutor::execute_xcm(Parent, x, id, limit);
+					used = used.saturating_add(outcome.weight_used());
 					Pallet::<T>::deposit_event(Event::ExecutedDownward(id, outcome));
 				},
 			}
@@ -146,7 +146,7 @@ impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
 	) -> Weight {
 		let mut used = Weight::zero();
 		for (_sent_at, data) in iter {
-			let id = sp_io::hashing::twox_64(&data[..]);
+			let id = sp_io::hashing::blake2_256(&data[..]);
 			let msg = VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut data.as_slice(),
@@ -157,8 +157,8 @@ impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
 				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
 				Ok(Ok(x)) => {
 					let weight_limit = limit.saturating_sub(used);
-					let outcome = T::XcmExecutor::execute_xcm(Parent, x, weight_limit.ref_time());
-					used += Weight::from_ref_time(outcome.weight_used());
+					let outcome = T::XcmExecutor::execute_xcm(Parent, x, id, weight_limit);
+					used = used.saturating_add(outcome.weight_used());
 					Pallet::<T>::deposit_event(Event::ExecutedDownward(id, outcome));
 				},
 			}

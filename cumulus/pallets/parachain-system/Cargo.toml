@@ -28,6 +28,7 @@ sp-version = { git = "https://github.com/paritytech/substrate", default-features
 
 # Polkadot
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, features = [ "wasm-api" ], branch = "master" }
+xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
@@ -67,6 +68,7 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-trie/std",
+	"xcm/std",
 ]
 
 runtime-benchmarks = [

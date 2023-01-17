@@ -32,6 +32,8 @@ pub use polkadot_primitives::{
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
 
+pub use xcm::latest::prelude::*;
+
 /// A module that re-exports relevant relay chain definitions.
 pub mod relay_chain {
 	pub use polkadot_core_primitives::*;
@@ -94,10 +96,11 @@ pub trait GetChannelInfo {
 pub trait UpwardMessageSender {
 	/// Send the given UMP message; return the expected number of blocks before the message will
 	/// be dispatched or an error if the message cannot be sent.
-	fn send_upward_message(msg: UpwardMessage) -> Result<u32, MessageSendError>;
+	/// return the hash of the message sent
+	fn send_upward_message(msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
 }
 impl UpwardMessageSender for () {
-	fn send_upward_message(_msg: UpwardMessage) -> Result<u32, MessageSendError> {
+	fn send_upward_message(_msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Err(MessageSendError::NoChannel)
 	}
 }

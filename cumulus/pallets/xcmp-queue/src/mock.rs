@@ -18,7 +18,10 @@ use crate as xcmp_queue;
 use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{IsSystem, ParaId};
-use frame_support::{parameter_types, traits::OriginTrait};
+use frame_support::{
+	parameter_types,
+	traits::{Everything, Nothing, OriginTrait},
+};
 use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
@@ -26,9 +29,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 use xcm::prelude::*;
-use xcm_builder::{
-	CurrencyAdapter, FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, ParentIsPreset,
-};
+use xcm_builder::{CurrencyAdapter, FixedWeightBounds, IsConcrete, NativeAsset, ParentIsPreset};
 use xcm_executor::traits::ConvertOrigin;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -58,7 +59,7 @@ parameter_types! {
 type AccountId = u64;
 
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -115,9 +116,10 @@ impl cumulus_pallet_parachain_system::Config for Test {
 
 parameter_types! {
 	pub const RelayChain: MultiLocation = MultiLocation::parent();
-	pub Ancestry: MultiLocation = X1(Parachain(1u32.into())).into();
-	pub UnitWeightCost: u64 = 1_000_000;
+	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(1u32.into())).into();
+	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000, 1024);
 	pub const MaxInstructions: u32 = 100;
+	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
 /// Means for transacting assets on this chain.
@@ -145,7 +147,7 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = ();
 	type IsReserve = NativeAsset;
 	type IsTeleporter = NativeAsset;
-	type LocationInverter = LocationInverter<Ancestry>;
+	type UniversalLocation = UniversalLocation;
 	type Barrier = ();
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = ();
@@ -153,6 +155,15 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetClaims = ();
 	type SubscriptionService = ();
+	type PalletInstancesInfo = AllPalletsWithSystem;
+	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+	type AssetLocker = ();
+	type AssetExchanger = ();
+	type FeeManager = ();
+	type MessageExporter = ();
+	type UniversalAliases = Nothing;
+	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 }
 
 pub type XcmRouter = (
@@ -193,6 +204,7 @@ impl Config for Test {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();
+	type PriceForSiblingDelivery = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
