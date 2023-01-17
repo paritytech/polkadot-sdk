@@ -1,9 +1,9 @@
 use crate::{
 	BridgedBeefyAuthorityId, BridgedBeefyAuthoritySet, BridgedBeefyAuthoritySetInfo,
-	BridgedBeefyCommitmentHasher, BridgedBeefyMmrLeaf, BridgedBeefySignedCommitment, BridgedChain,
-	BridgedMmrHash, BridgedMmrHashing, BridgedMmrProof, Config, Error, LOG_TARGET,
+	BridgedBeefyMmrLeaf, BridgedBeefySignedCommitment, BridgedChain, BridgedMmrHash,
+	BridgedMmrHashing, BridgedMmrProof, Config, Error, LOG_TARGET,
 };
-use bp_beefy::{merkle_root, verify_mmr_leaves_proof, BeefyVerify, MmrDataOrHash};
+use bp_beefy::{merkle_root, verify_mmr_leaves_proof, BeefyAuthorityId, MmrDataOrHash};
 use codec::Encode;
 use frame_support::ensure;
 use sp_runtime::traits::{Convert, Hash};
@@ -72,7 +72,7 @@ fn verify_signatures<T: Config<I>, I: 'static>(
 		authority_set.validators().iter().zip(commitment.signatures.iter()).enumerate()
 	{
 		if let Some(sig) = maybe_sig {
-			if BeefyVerify::<BridgedBeefyCommitmentHasher<T, I>>::verify(sig, &msg, authority) {
+			if authority.verify(sig, &msg) {
 				missing_signatures = missing_signatures.saturating_sub(1);
 				if missing_signatures == 0 {
 					break
