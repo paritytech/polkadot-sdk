@@ -19,6 +19,7 @@
 pub mod runtime_wrapper;
 
 use bp_messages::MessageNonce;
+use bp_polkadot_core::{DefaultSignedExtension, PolkadotSignedExtension};
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, Error as SubstrateError,
@@ -75,7 +76,8 @@ impl ChainWithMessages for RialtoParachain {
 
 impl ChainWithTransactions for RialtoParachain {
 	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction = bp_polkadot_core::UncheckedExtrinsic<Self::Call>;
+	type SignedTransaction =
+		bp_polkadot_core::UncheckedExtrinsic<Self::Call, DefaultSignedExtension>;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -83,7 +85,7 @@ impl ChainWithTransactions for RialtoParachain {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_polkadot_core::SignedExtensions::new(
+			bp_polkadot_core::DefaultSignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
