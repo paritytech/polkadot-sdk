@@ -138,7 +138,6 @@ impl ChainWithBeefy for TestBridgedChain {
 	type MmrHash = <Keccak256 as Hash>::Output;
 	type BeefyMmrLeafExtra = ();
 	type AuthorityId = BeefyId;
-	type Signature = sp_beefy::crypto::AuthoritySignature;
 	type AuthorityIdToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 }
 

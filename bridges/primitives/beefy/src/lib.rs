@@ -29,8 +29,8 @@ pub use sp_beefy::{
 	crypto::{AuthorityId as EcdsaValidatorId, AuthoritySignature as EcdsaValidatorSignature},
 	known_payloads::MMR_ROOT_ID as MMR_ROOT_PAYLOAD_ID,
 	mmr::{BeefyAuthoritySet, MmrLeafVersion},
-	BeefyAuthorityId, BeefyVerify, Commitment, Payload as BeefyPayload, SignedCommitment,
-	ValidatorSet, ValidatorSetId, BEEFY_ENGINE_ID,
+	BeefyAuthorityId, Commitment, Payload as BeefyPayload, SignedCommitment, ValidatorSet,
+	ValidatorSetId, BEEFY_ENGINE_ID,
 };
 
 use bp_runtime::{BasicOperatingMode, BlockNumberOf, Chain, HashOf};
@@ -39,7 +39,7 @@ use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
-	RuntimeDebug,
+	RuntimeAppPublic, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
@@ -72,7 +72,8 @@ pub trait ChainWithBeefy: Chain {
 		+ Copy
 		+ AsRef<[u8]>
 		+ Default
-		+ MaybeSerializeDeserialize;
+		+ MaybeSerializeDeserialize
+		+ PartialOrd;
 
 	/// The type expected for the MMR leaf extra data.
 	type BeefyMmrLeafExtra: Parameter;
@@ -80,12 +81,7 @@ pub trait ChainWithBeefy: Chain {
 	/// A way to identify a BEEFY validator.
 	///
 	/// Corresponds to the `BeefyId` field of the `pallet-beefy` configuration.
-	type AuthorityId: BeefyAuthorityId + Parameter;
-
-	/// The signature type used by BEEFY.
-	///
-	/// Corresponds to the `BeefyId` field of the `pallet-beefy` configuration.
-	type Signature: BeefyVerify<Self::CommitmentHasher, Signer = Self::AuthorityId> + Parameter;
+	type AuthorityId: BeefyAuthorityId<Self::CommitmentHasher> + Parameter;
 
 	/// A way to convert validator id to its raw representation in the BEEFY merkle tree.
 	///
@@ -101,7 +97,8 @@ pub type BeefyAuthoritySetOf<C> = ValidatorSet<BeefyAuthorityIdOf<C>>;
 /// BEEFY authority set, containing both validator identifiers and the numeric set id.
 pub type BeefyAuthoritySetInfoOf<C> = sp_beefy::mmr::BeefyAuthoritySet<MmrHashOf<C>>;
 /// BEEFY validator signature used by given Substrate chain.
-pub type BeefyValidatorSignatureOf<C> = <C as ChainWithBeefy>::Signature;
+pub type BeefyValidatorSignatureOf<C> =
+	<<C as ChainWithBeefy>::AuthorityId as RuntimeAppPublic>::Signature;
 /// Signed BEEFY commitment used by given Substrate chain.
 pub type BeefySignedCommitmentOf<C> =
 	SignedCommitment<BlockNumberOf<C>, BeefyValidatorSignatureOf<C>>;
