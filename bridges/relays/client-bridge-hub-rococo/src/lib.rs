@@ -16,6 +16,7 @@
 
 //! Types used to connect to the BridgeHub-Rococo-Substrate parachain.
 
+use bp_bridge_hub_wococo::PolkadotSignedExtension;
 use bp_messages::MessageNonce;
 use codec::Encode;
 use relay_substrate_client::{
@@ -65,7 +66,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_bridge_hub_rococo::SignedExtensions::new(
+			bp_bridge_hub_rococo::BridgeSignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
