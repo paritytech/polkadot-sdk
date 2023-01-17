@@ -18,7 +18,6 @@
 
 use bp_messages::MessageNonce;
 use bp_runtime::{Chain, EncodedOrDecodedCall, StorageMapKeyProvider};
-use codec::Compact;
 use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
@@ -29,17 +28,16 @@ use frame_support::{
 	Blake2_128Concat, RuntimeDebug,
 };
 use frame_system::limits;
-use scale_info::TypeInfo;
 use sp_core::{storage::StorageKey, Hasher as HasherT};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, DispatchInfoOf, IdentifyAccount, Verify},
-	transaction_validity::TransactionValidityError,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
 	MultiAddress, MultiSignature, OpaqueExtrinsic,
 };
 use sp_std::prelude::Vec;
 
 // Re-export's to avoid extra substrate dependencies in chain-specific crates.
+use bp_runtime::extensions::*;
 pub use frame_support::{weights::constants::ExtrinsicBaseWeight, Parameter};
 pub use sp_runtime::{traits::Convert, Perbill};
 
@@ -184,113 +182,11 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type Balance = u128;
 
 /// Unchecked Extrinsic type.
-pub type UncheckedExtrinsic<Call> = generic::UncheckedExtrinsic<
-	AccountAddress,
-	EncodedOrDecodedCall<Call>,
-	Signature,
-	SignedExtensions,
->;
+pub type UncheckedExtrinsic<Call, SignedExt> =
+	generic::UncheckedExtrinsic<AccountAddress, EncodedOrDecodedCall<Call>, Signature, SignedExt>;
 
 /// Account address, used by the Polkadot-like chain.
 pub type Address = MultiAddress<AccountId, ()>;
-
-/// A type of the data encoded as part of the transaction.
-pub type SignedExtra =
-	((), (), (), (), sp_runtime::generic::Era, Compact<Nonce>, (), Compact<Balance>);
-
-/// Parameters which are part of the payload used to produce transaction signature,
-/// but don't end up in the transaction itself (i.e. inherent part of the runtime).
-pub type AdditionalSigned = ((), u32, u32, Hash, Hash, (), (), ());
-
-/// A simplified version of signed extensions meant for producing signed transactions
-/// and signed payload in the client code.
-#[derive(codec::Encode, codec::Decode, PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
-pub struct SignedExtensions {
-	encode_payload: SignedExtra,
-	// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
-	// (and it makes no sense to do that) => decoded version of `SignedExtensions` is only used to
-	// read fields of `encode_payload`. And when resigning transaction, we're reconstructing
-	// `SignedExtensions` from the scratch.
-	#[codec(skip)]
-	additional_signed: Option<AdditionalSigned>,
-}
-
-impl SignedExtensions {
-	pub fn new(
-		spec_version: u32,
-		transaction_version: u32,
-		era: bp_runtime::TransactionEraOf<PolkadotLike>,
-		genesis_hash: Hash,
-		nonce: Nonce,
-		tip: Balance,
-	) -> Self {
-		Self {
-			encode_payload: (
-				(),              // non-zero sender
-				(),              // spec version
-				(),              // tx version
-				(),              // genesis
-				era.frame_era(), // era
-				nonce.into(),    // nonce (compact encoding)
-				(),              // Check weight
-				tip.into(),      // transaction payment / tip (compact encoding)
-			),
-			additional_signed: Some((
-				(),
-				spec_version,
-				transaction_version,
-				genesis_hash,
-				era.signed_payload(genesis_hash),
-				(),
-				(),
-				(),
-			)),
-		}
-	}
-}
-
-impl SignedExtensions {
-	/// Return signer nonce, used to craft transaction.
-	pub fn nonce(&self) -> Nonce {
-		self.encode_payload.5.into()
-	}
-
-	/// Return transaction tip.
-	pub fn tip(&self) -> Balance {
-		self.encode_payload.7.into()
-	}
-}
-
-impl sp_runtime::traits::SignedExtension for SignedExtensions {
-	const IDENTIFIER: &'static str = "Not needed.";
-
-	type AccountId = AccountId;
-	type Call = ();
-	type AdditionalSigned = AdditionalSigned;
-	type Pre = ();
-
-	fn additional_signed(
-		&self,
-	) -> Result<Self::AdditionalSigned, frame_support::unsigned::TransactionValidityError> {
-		// we shall not ever see this error in relay, because we are never signing decoded
-		// transactions. Instead we're constructing and signing new transactions. So the error code
-		// is kinda random here
-		self.additional_signed
-			.ok_or(frame_support::unsigned::TransactionValidityError::Unknown(
-				frame_support::unsigned::UnknownTransaction::Custom(0xFF),
-			))
-	}
-
-	fn pre_dispatch(
-		self,
-		_who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(())
-	}
-}
 
 /// Polkadot-like chain.
 #[derive(RuntimeDebug)]
@@ -316,6 +212,142 @@ impl Chain for PolkadotLike {
 			.get(DispatchClass::Normal)
 			.max_extrinsic
 			.unwrap_or(Weight::MAX)
+	}
+}
+
+/// Some functionality associated with the default signed extension used by Polkadot and
+/// Polkadot-like chains.
+pub trait PolkadotSignedExtension {
+	fn from_params(
+		spec_version: u32,
+		transaction_version: u32,
+		era: bp_runtime::TransactionEraOf<PolkadotLike>,
+		genesis_hash: Hash,
+		nonce: Nonce,
+		tip: Balance,
+	) -> Self;
+
+	fn nonce(&self) -> Nonce;
+
+	fn tip(&self) -> Balance;
+}
+
+type DefaultSignedExtra = (
+	CheckNonZeroSender,
+	CheckSpecVersion,
+	CheckTxVersion,
+	CheckGenesis<PolkadotLike>,
+	CheckEra<PolkadotLike>,
+	CheckNonce<Nonce>,
+	CheckWeight,
+	ChargeTransactionPayment<PolkadotLike>,
+);
+
+/// The default signed extension used by Polkadot and Polkadot-like chains.
+pub type DefaultSignedExtension = GenericSignedExtension<DefaultSignedExtra>;
+
+impl PolkadotSignedExtension for DefaultSignedExtension {
+	fn from_params(
+		spec_version: u32,
+		transaction_version: u32,
+		era: bp_runtime::TransactionEraOf<PolkadotLike>,
+		genesis_hash: Hash,
+		nonce: Nonce,
+		tip: Balance,
+	) -> Self {
+		Self::new(
+			(
+				(),              // non-zero sender
+				(),              // spec version
+				(),              // tx version
+				(),              // genesis
+				era.frame_era(), // era
+				nonce.into(),    // nonce (compact encoding)
+				(),              // Check weight
+				tip.into(),      // transaction payment / tip (compact encoding)
+			),
+			(
+				(),
+				spec_version,
+				transaction_version,
+				genesis_hash,
+				era.signed_payload(genesis_hash),
+				(),
+				(),
+				(),
+			),
+		)
+	}
+
+	/// Return signer nonce, used to craft transaction.
+	fn nonce(&self) -> Nonce {
+		self.payload.5.into()
+	}
+
+	/// Return transaction tip.
+	fn tip(&self) -> Balance {
+		self.payload.7.into()
+	}
+}
+
+type BridgeSignedExtra = (
+	CheckNonZeroSender,
+	CheckSpecVersion,
+	CheckTxVersion,
+	CheckGenesis<PolkadotLike>,
+	CheckEra<PolkadotLike>,
+	CheckNonce<Nonce>,
+	CheckWeight,
+	ChargeTransactionPayment<PolkadotLike>,
+	BridgeRejectObsoleteHeadersAndMessages,
+);
+
+/// The default signed extension used by Polkadot and Polkadot-like chains with bridging.
+pub type BridgeSignedExtension = GenericSignedExtension<BridgeSignedExtra>;
+
+impl PolkadotSignedExtension for BridgeSignedExtension {
+	fn from_params(
+		spec_version: u32,
+		transaction_version: u32,
+		era: bp_runtime::TransactionEraOf<PolkadotLike>,
+		genesis_hash: Hash,
+		nonce: Nonce,
+		tip: Balance,
+	) -> Self {
+		Self::new(
+			(
+				(),              // non-zero sender
+				(),              // spec version
+				(),              // tx version
+				(),              // genesis
+				era.frame_era(), // era
+				nonce.into(),    // nonce (compact encoding)
+				(),              // Check weight
+				tip.into(),      // transaction payment / tip (compact encoding)
+				(),              // bridge reject obsolete headers and msgs
+			),
+			(
+				(),
+				spec_version,
+				transaction_version,
+				genesis_hash,
+				era.signed_payload(genesis_hash),
+				(),
+				(),
+				(),
+				(),
+			),
+		)
+	}
+
+	/// Return signer nonce, used to craft transaction.
+	fn nonce(&self) -> Nonce {
+		self.payload.5.into()
+	}
+
+	/// Return transaction tip.
+	fn tip(&self) -> Balance {
+		self.payload.7.into()
 	}
 }
 
