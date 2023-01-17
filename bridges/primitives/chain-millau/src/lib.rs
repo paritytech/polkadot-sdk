@@ -162,7 +162,6 @@ impl ChainWithBeefy for Millau {
 	type MmrHash = <Keccak256 as sp_runtime::traits::Hash>::Output;
 	type BeefyMmrLeafExtra = ();
 	type AuthorityId = bp_beefy::EcdsaValidatorId;
-	type Signature = bp_beefy::EcdsaValidatorSignature;
 	type AuthorityIdToMerkleLeaf = bp_beefy::BeefyEcdsaToEthereum;
 }
 
