@@ -133,6 +133,8 @@ impl Parachain for RialtoParachain {
 	const PARACHAIN_ID: u32 = RIALTO_PARACHAIN_ID;
 }
 
+pub use bp_polkadot_core::DefaultSignedExtension as SignedExtension;
+
 frame_support::parameter_types! {
 	pub BlockLength: limits::BlockLength =
 		limits::BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
