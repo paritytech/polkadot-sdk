@@ -266,7 +266,7 @@ impl PolkadotSignedExtension for DefaultSignedExtension {
 				(),              // Check weight
 				tip.into(),      // transaction payment / tip (compact encoding)
 			),
-			(
+			Some((
 				(),
 				spec_version,
 				transaction_version,
@@ -275,7 +275,7 @@ impl PolkadotSignedExtension for DefaultSignedExtension {
 				(),
 				(),
 				(),
-			),
+			)),
 		)
 	}
 
@@ -326,7 +326,7 @@ impl PolkadotSignedExtension for BridgeSignedExtension {
 				tip.into(),      // transaction payment / tip (compact encoding)
 				(),              // bridge reject obsolete headers and msgs
 			),
-			(
+			Some((
 				(),
 				spec_version,
 				transaction_version,
@@ -336,7 +336,7 @@ impl PolkadotSignedExtension for BridgeSignedExtension {
 				(),
 				(),
 				(),
-			),
+			)),
 		)
 	}
 
