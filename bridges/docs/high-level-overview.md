@@ -41,7 +41,7 @@ proofs are called mandatory in the pallet and relayer pays no fee for such heade
 The pallet does not require all headers to be imported or provided. The relayer itself chooses which headers
 he wants to submit (with the exception of mandatory headers).
 
-More: [code](../modules/grandpa/).
+More: [pallet level documentation and code](../modules/grandpa/).
 
 ### Bridge Parachains Finality Pallet
 
@@ -60,7 +60,7 @@ The pallet may track multiple parachains at once and those parachains may use di
 parachain header decoding never happens at the pallet level. For maintaining the headers order, the pallet
 uses relay chain header number.
 
-More: [code](../modules/parachains/).
+More: [pallet level documentation and code](../modules/parachains/).
 
 ### Bridge Messages Pallet
 
@@ -91,14 +91,14 @@ pallet, in this case, depends on one of the finality pallets. The messages are X
 XCM executor to dispatch them on receival. You may find more info in [Polkadot <> Kusama Bridge](./polkadot-kusama-bridge-overview.md)
 document.
 
-More: [code](../modules/messages/).
+More: [pallet level documentation and code](../modules/messages/).
 
 ### Bridge Relayers Pallet
 
 The pallet is quite simple. It just registers relayer rewards and has an entrypoint to collect them. When
 the rewards are registered and the reward amount is configured outside of the pallet.
 
-More: [code](../modules/relayers/).
+More: [pallet level documentation and code](../modules/relayers/).
 
 ## Offchain Components
 
