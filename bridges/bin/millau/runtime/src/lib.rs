@@ -1001,21 +1001,6 @@ impl_runtime_apis! {
 			use rialto_messages::WithRialtoMessageBridge;
 
 			impl MessagesConfig<WithRialtoMessagesInstance> for Runtime {
-				fn bridged_relayer_id() -> Self::InboundRelayer {
-					[0u8; 32].into()
-				}
-
-				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(relayer, &Self::bench_lane_id()).is_some()
-				}
-
-				fn endow_account(account: &Self::AccountId) {
-					pallet_balances::Pallet::<Runtime>::make_free_balance_be(
-						account,
-						Balance::MAX / 100,
-					);
-				}
-
 				fn prepare_message_proof(
 					params: MessageProofParams,
 				) -> (rialto_messages::FromRialtoMessagesProof, Weight) {
@@ -1032,8 +1017,8 @@ impl_runtime_apis! {
 					)
 				}
 
-				fn is_message_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
-					true
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(relayer, &Self::bench_lane_id()).is_some()
 				}
 			}
 
