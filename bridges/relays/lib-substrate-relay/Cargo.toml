@@ -12,6 +12,7 @@ async-std = "1.9.0"
 async-trait = "0.1"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
 futures = "0.3.12"
+hex = "0.4"
 num-traits = "0.2"
 log = "0.4.17"
 
@@ -20,6 +21,7 @@ log = "0.4.17"
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-parachains = { path = "../../primitives/parachains" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+bp-relayers = { path = "../../primitives/relayers" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 
 finality-grandpa = { version = "0.16.0" }
