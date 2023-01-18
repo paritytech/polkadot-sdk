@@ -21,7 +21,8 @@
 #![warn(missing_docs)]
 
 use bp_messages::LaneId;
-use bp_relayers::PaymentProcedure;
+use bp_relayers::{PaymentProcedure, RelayerRewardsKeyProvider};
+use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::sp_runtime::Saturating;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_std::marker::PhantomData;
@@ -45,6 +46,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+
+	/// `RelayerRewardsKeyProvider` for given configuration.
+	type RelayerRewardsKeyProviderOf<T> =
+		RelayerRewardsKeyProvider<<T as frame_system::Config>::AccountId, <T as Config>::Reward>;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -146,11 +151,11 @@ pub mod pallet {
 	#[pallet::getter(fn relayer_reward)]
 	pub type RelayerRewards<T: Config> = StorageDoubleMap<
 		_,
-		Blake2_128Concat,
-		T::AccountId,
-		Identity,
-		LaneId,
-		T::Reward,
+		<RelayerRewardsKeyProviderOf<T> as StorageDoubleMapKeyProvider>::Hasher1,
+		<RelayerRewardsKeyProviderOf<T> as StorageDoubleMapKeyProvider>::Key1,
+		<RelayerRewardsKeyProviderOf<T> as StorageDoubleMapKeyProvider>::Hasher2,
+		<RelayerRewardsKeyProviderOf<T> as StorageDoubleMapKeyProvider>::Key2,
+		<RelayerRewardsKeyProviderOf<T> as StorageDoubleMapKeyProvider>::Value,
 		OptionQuery,
 	>;
 }

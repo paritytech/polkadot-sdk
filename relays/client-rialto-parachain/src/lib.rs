@@ -63,6 +63,8 @@ impl ChainWithBalances for RialtoParachain {
 impl ChainWithMessages for RialtoParachain {
 	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
 		bp_rialto_parachain::WITH_RIALTO_PARACHAIN_MESSAGES_PALLET_NAME;
+	// TODO (https://github.com/paritytech/parity-bridges-common/issues/1692): change the name
+	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = Some("BridgeRelayers");
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_rialto_parachain::TO_RIALTO_PARACHAIN_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =

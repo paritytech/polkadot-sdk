@@ -101,6 +101,16 @@ pub trait ChainWithMessages: Chain {
 	/// the same name.
 	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str;
 
+	// TODO (https://github.com/paritytech/parity-bridges-common/issues/1692): check all the names
+	// after the issue is fixed - all names must be changed
+
+	/// Name of the bridge relayers pallet (used in `construct_runtime` macro call) that is deployed
+	/// at some other chain to bridge with this `ChainWithMessages`.
+	///
+	/// We assume that all chains that are bridging with this `ChainWithMessages` are using
+	/// the same name.
+	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str>;
+
 	/// Name of the `To<ChainWithMessages>OutboundLaneApi::message_details` runtime API method.
 	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str;

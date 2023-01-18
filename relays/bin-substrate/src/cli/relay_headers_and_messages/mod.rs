@@ -61,8 +61,8 @@ use crate::{
 use bp_messages::LaneId;
 use bp_runtime::BalanceOf;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithTransactions, Client,
-	Parachain,
+	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithMessages,
+	ChainWithTransactions, Client, Parachain,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
@@ -259,9 +259,9 @@ where
 	type Base: Full2WayBridgeBase<Left = Self::Left, Right = Self::Right>;
 
 	/// The left relay chain.
-	type Left: ChainWithTransactions + ChainWithBalances + CliChain;
+	type Left: ChainWithTransactions + ChainWithBalances + ChainWithMessages + CliChain;
 	/// The right relay chain.
-	type Right: ChainWithTransactions + ChainWithBalances + CliChain;
+	type Right: ChainWithTransactions + ChainWithBalances + ChainWithMessages + CliChain;
 
 	/// Left to Right bridge.
 	type L2R: MessagesCliBridge<Source = Self::Left, Target = Self::Right>;
@@ -317,28 +317,36 @@ where
 			self.mut_base().start_on_demand_headers_relayers().await?;
 
 		// add balance-related metrics
+		let lanes = self
+			.base()
+			.common()
+			.shared
+			.lane
+			.iter()
+			.cloned()
+			.map(Into::into)
+			.collect::<Vec<_>>();
 		{
 			let common = self.mut_base().mut_common();
-			substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
+			substrate_relay_helper::messages_metrics::add_relay_balances_metrics::<_, Self::Right>(
 				common.left.client.clone(),
 				&mut common.metrics_params,
 				&common.left.accounts,
+				&lanes,
 			)
 			.await?;
-			substrate_relay_helper::messages_metrics::add_relay_balances_metrics(
+			substrate_relay_helper::messages_metrics::add_relay_balances_metrics::<_, Self::Left>(
 				common.right.client.clone(),
 				&mut common.metrics_params,
 				&common.right.accounts,
+				&lanes,
 			)
 			.await?;
 		}
 
-		let lanes = self.base().common().shared.lane.clone();
 		// Need 2x capacity since we consider both directions for each lane
 		let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 		for lane in lanes {
-			let lane = lane.into();
-
 			let left_to_right_messages = substrate_relay_helper::messages_lane::run::<
 				<Self::L2R as MessagesCliBridge>::MessagesLane,
 			>(self.left_to_right().messages_relay_params(

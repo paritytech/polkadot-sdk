@@ -18,12 +18,15 @@
 
 use crate::TaggedAccount;
 
+use bp_messages::LaneId;
+use bp_runtime::StorageDoubleMapKeyProvider;
 use codec::Decode;
 use frame_system::AccountInfo;
 use pallet_balances::AccountData;
 use relay_substrate_client::{
 	metrics::{FloatStorageValue, FloatStorageValueMetric},
-	AccountIdOf, BalanceOf, Chain, ChainWithBalances, Client, Error as SubstrateError, IndexOf,
+	AccountIdOf, BalanceOf, Chain, ChainWithBalances, ChainWithMessages, Client,
+	Error as SubstrateError, IndexOf,
 };
 use relay_utils::metrics::{MetricsParams, StandaloneMetric};
 use sp_core::storage::StorageData;
@@ -31,10 +34,11 @@ use sp_runtime::{FixedPointNumber, FixedU128};
 use std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
 
 /// Add relay accounts balance metrics.
-pub async fn add_relay_balances_metrics<C: ChainWithBalances>(
+pub async fn add_relay_balances_metrics<C: ChainWithBalances, BC: ChainWithMessages>(
 	client: Client<C>,
 	metrics: &mut MetricsParams,
 	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
+	lanes: &[LaneId],
 ) -> anyhow::Result<()>
 where
 	BalanceOf<C>: Into<u128> + std::fmt::Debug,
@@ -68,13 +72,30 @@ where
 
 	for account in relay_accounts {
 		let relay_account_balance_metric = FloatStorageValueMetric::new(
-			FreeAccountBalance::<C> { token_decimals, _phantom: Default::default() },
+			AccountBalanceFromAccountInfo::<C> { token_decimals, _phantom: Default::default() },
 			client.clone(),
 			C::account_info_storage_key(account.id()),
 			format!("at_{}_relay_{}_balance", C::NAME, account.tag()),
 			format!("Balance of the {} relay account at the {}", account.tag(), C::NAME),
 		)?;
 		relay_account_balance_metric.register_and_spawn(&metrics.registry)?;
+
+		if let Some(relayers_pallet_name) = BC::WITH_CHAIN_RELAYERS_PALLET_NAME {
+			for lane in lanes {
+				let relay_account_reward_metric = FloatStorageValueMetric::new(
+					AccountBalance::<C> { token_decimals, _phantom: Default::default() },
+					client.clone(),
+					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>>::final_key(
+						relayers_pallet_name,
+						account.id(),
+						lane,
+					),
+					format!("at_{}_relay_{}_reward_for_lane_{}_with_{}", C::NAME, account.tag(), hex::encode(lane.as_ref()), BC::NAME),
+					format!("Reward of the {} relay account for serving lane {:?} with {} at the {}", account.tag(), lane, BC::NAME, C::NAME),
+				)?;
+				relay_account_reward_metric.register_and_spawn(&metrics.registry)?;
+			}
+		}
 	}
 
 	Ok(())
@@ -82,12 +103,12 @@ where
 
 /// Adapter for `FloatStorageValueMetric` to decode account free balance.
 #[derive(Clone, Debug)]
-struct FreeAccountBalance<C> {
+struct AccountBalanceFromAccountInfo<C> {
 	token_decimals: u32,
 	_phantom: PhantomData<C>,
 }
 
-impl<C> FloatStorageValue for FreeAccountBalance<C>
+impl<C> FloatStorageValue for AccountBalanceFromAccountInfo<C>
 where
 	C: Chain,
 	BalanceOf<C>: Into<u128>,
@@ -105,6 +126,34 @@ where
 					.map(|account_data| {
 						convert_to_token_balance(account_data.data.free.into(), self.token_decimals)
 					})
+			})
+			.transpose()
+	}
+}
+
+/// Adapter for `FloatStorageValueMetric` to decode account free balance.
+#[derive(Clone, Debug)]
+struct AccountBalance<C> {
+	token_decimals: u32,
+	_phantom: PhantomData<C>,
+}
+
+impl<C> FloatStorageValue for AccountBalance<C>
+where
+	C: Chain,
+	BalanceOf<C>: Into<u128>,
+{
+	type Value = FixedU128;
+
+	fn decode(
+		&self,
+		maybe_raw_value: Option<StorageData>,
+	) -> Result<Option<Self::Value>, SubstrateError> {
+		maybe_raw_value
+			.map(|raw_value| {
+				BalanceOf::<C>::decode(&mut &raw_value.0[..])
+					.map_err(SubstrateError::ResponseParseFailed)
+					.map(|balance| convert_to_token_balance(balance.into(), self.token_decimals))
 			})
 			.transpose()
 	}
