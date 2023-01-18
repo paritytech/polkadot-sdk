@@ -96,8 +96,8 @@ pub struct GenericSignedExtension<S: SignedExtensionSchema> {
 }
 
 impl<S: SignedExtensionSchema> GenericSignedExtension<S> {
-	pub fn new(payload: S::Payload, additional_signed: S::AdditionalSigned) -> Self {
-		Self { payload, additional_signed: Some(additional_signed) }
+	pub fn new(payload: S::Payload, additional_signed: Option<S::AdditionalSigned>) -> Self {
+		Self { payload, additional_signed }
 	}
 }
 
