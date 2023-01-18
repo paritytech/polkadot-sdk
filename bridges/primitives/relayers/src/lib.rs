@@ -20,8 +20,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_messages::LaneId;
+use bp_runtime::StorageDoubleMapKeyProvider;
+use frame_support::{Blake2_128Concat, Identity};
 use sp_runtime::{
-	codec::{Decode, Encode},
+	codec::{Codec, Decode, Encode, EncodeLike},
 	traits::AccountIdConversion,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
@@ -63,6 +65,24 @@ where
 	) -> Result<(), Self::Error> {
 		T::transfer(&Self::lane_rewards_account(lane_id), relayer, reward, false).map(drop)
 	}
+}
+
+/// Can be use to access the runtime storage key within the `RelayerRewards` map of the relayers
+/// pallet.
+pub struct RelayerRewardsKeyProvider<AccountId, Reward>(PhantomData<(AccountId, Reward)>);
+
+impl<AccountId, Reward> StorageDoubleMapKeyProvider for RelayerRewardsKeyProvider<AccountId, Reward>
+where
+	AccountId: Codec + EncodeLike,
+	Reward: Codec + EncodeLike,
+{
+	const MAP_NAME: &'static str = "RelayerRewards";
+
+	type Hasher1 = Blake2_128Concat;
+	type Key1 = AccountId;
+	type Hasher2 = Identity;
+	type Key2 = LaneId;
+	type Value = Reward;
 }
 
 #[cfg(test)]

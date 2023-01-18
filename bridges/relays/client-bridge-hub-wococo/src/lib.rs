@@ -110,6 +110,7 @@ impl ChainWithTransactions for BridgeHubWococo {
 impl ChainWithMessages for BridgeHubWococo {
 	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
 		bp_bridge_hub_wococo::WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME;
+	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
 
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_bridge_hub_wococo::TO_BRIDGE_HUB_WOCOCO_MESSAGE_DETAILS_METHOD;
