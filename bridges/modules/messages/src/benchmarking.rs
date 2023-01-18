@@ -27,9 +27,11 @@ use bp_messages::{
 	UnrewardedRelayersState,
 };
 use bp_runtime::StorageProofSize;
+use codec::Decode;
 use frame_benchmarking::{account, benchmarks_instance_pallet};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
+use sp_runtime::traits::TrailingZeroInput;
 use sp_std::{ops::RangeInclusive, prelude::*};
 
 const SEED: u32 = 0;
@@ -64,15 +66,26 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 /// Trait that must be implemented by runtime.
 pub trait Config<I: 'static>: crate::Config<I> {
 	/// Lane id to use in benchmarks.
+	///
+	/// By default, lane 00000000 is used.
 	fn bench_lane_id() -> LaneId {
-		Default::default()
+		LaneId([0, 0, 0, 0])
 	}
+
 	/// Return id of relayer account at the bridged chain.
-	fn bridged_relayer_id() -> Self::InboundRelayer;
-	/// Returns true if given relayer has been rewarded for some of its actions.
-	fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool;
-	/// Create given account and give it enough balance for test purposes.
-	fn endow_account(account: &Self::AccountId);
+	///
+	/// By default, zero account is returned.
+	fn bridged_relayer_id() -> Self::InboundRelayer {
+		Self::InboundRelayer::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+	}
+
+	/// Create given account and give it enough balance for test purposes. Used to create
+	/// relayer account at the target chain. Is strictly necessary when your rewards scheme
+	/// assumes that the relayer account must exist.
+	///
+	/// Does nothing by default.
+	fn endow_account(_account: &Self::AccountId) {}
+
 	/// Prepare messages proof to receive by the module.
 	fn prepare_message_proof(
 		params: MessageProofParams,
@@ -81,8 +94,20 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	fn prepare_message_delivery_proof(
 		params: MessageDeliveryProofParams<Self::AccountId>,
 	) -> <Self::TargetHeaderChain as TargetHeaderChain<Self::OutboundPayload, Self::AccountId>>::MessagesDeliveryProof;
+
 	/// Returns true if message has been dispatched (either successfully or not).
-	fn is_message_dispatched(nonce: MessageNonce) -> bool;
+	///
+	/// We assume that messages have near-zero dispatch weight, so most of times it
+	/// is hard to determine whether messages has been dispatched or not. For example,
+	/// XCM message can be a call that leaves entry in `frame_system::Events` vector,
+	/// but not all XCM messages do that and we don't want to include weight of this
+	/// action to the base weight of message delivery. Hence, the default `true` return
+	/// value.
+	fn is_message_dispatched(_nonce: MessageNonce) -> bool {
+		true
+	}
+	/// Returns true if given relayer has been rewarded for some of its actions.
+	fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool;
 }
 
 benchmarks_instance_pallet! {
