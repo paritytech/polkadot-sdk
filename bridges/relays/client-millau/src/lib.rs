@@ -45,6 +45,8 @@ impl ChainWithGrandpa for Millau {
 impl ChainWithMessages for Millau {
 	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
 		bp_millau::WITH_MILLAU_MESSAGES_PALLET_NAME;
+	// TODO (https://github.com/paritytech/parity-bridges-common/issues/1692): change the name
+	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = Some("BridgeRelayers");
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_millau::TO_MILLAU_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
