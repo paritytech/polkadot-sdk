@@ -18,9 +18,9 @@
 
 use bp_messages::*;
 pub use bp_polkadot_core::{
-	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, BlockNumber,
-	BridgeSignedExtension, Hash, Hasher, Hashing, Header, Index, Nonce, Perbill,
-	PolkadotSignedExtension, Signature, SignedBlock, UncheckedExtrinsic, TX_EXTRA_BYTES,
+	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, BlockNumber, Hash, Hasher,
+	Hashing, Header, Index, Nonce, Perbill, PolkadotSignedExtension, Signature, SignedBlock,
+	UncheckedExtrinsic, TX_EXTRA_BYTES,
 };
 use frame_support::{
 	dispatch::DispatchClass,
@@ -85,6 +85,8 @@ pub type AccountSigner = MultiSigner;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
+
+pub use bp_polkadot_core::BridgeSignedExtension as SignedExtension;
 
 // Note about selecting values of two following constants:
 //

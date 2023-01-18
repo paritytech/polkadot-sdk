@@ -75,6 +75,9 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
+[dev-dependencies]
+bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
+
 [features]
 default = ['std']
 runtime-benchmarks = [

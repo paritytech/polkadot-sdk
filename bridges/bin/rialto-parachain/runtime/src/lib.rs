@@ -848,8 +848,11 @@ mod tests {
 		LaneId, MessageKey,
 	};
 	use bp_runtime::messages::MessageDispatchResult;
-	use bridge_runtime_common::messages::target::FromBridgedChainMessageDispatch;
+	use bridge_runtime_common::{
+		integrity::check_additional_signed, messages::target::FromBridgedChainMessageDispatch,
+	};
 	use codec::Encode;
+	use sp_runtime::generic::Era;
 
 	fn new_test_ext() -> sp_io::TestExternalities {
 		sp_io::TestExternalities::new(
@@ -908,5 +911,26 @@ mod tests {
 				}
 			);
 		})
+	}
+
+	#[test]
+	fn ensure_signed_extension_definition_is_correct() {
+		let payload: SignedExtra = (
+			frame_system::CheckNonZeroSender::new(),
+			frame_system::CheckSpecVersion::new(),
+			frame_system::CheckTxVersion::new(),
+			frame_system::CheckGenesis::new(),
+			frame_system::CheckEra::from(Era::Immortal),
+			frame_system::CheckNonce::from(10),
+			frame_system::CheckWeight::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::from(10),
+		);
+		let indirect_payload = bp_rialto_parachain::SignedExtension::new(
+			((), (), (), (), Era::Immortal, 10.into(), (), 10.into()),
+			None,
+		);
+		assert_eq!(payload.encode(), indirect_payload.encode());
+
+		check_additional_signed::<SignedExtra, bp_rialto_parachain::SignedExtension>();
 	}
 }
