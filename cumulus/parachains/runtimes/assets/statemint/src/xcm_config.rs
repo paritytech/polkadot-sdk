@@ -14,9 +14,9 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, AssetId, Assets, Authorship, Balance, Balances, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee,
-	XcmpQueue,
+	AccountId, AllPalletsWithSystem, AssetIdForTrustBackedAssets, Assets, Authorship, Balance,
+	Balances, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -53,7 +53,7 @@ parameter_types! {
 	pub UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
 	pub const Local: MultiLocation = MultiLocation::here();
-	pub AssetsPalletLocation: MultiLocation =
+	pub TrustBackedAssetsPalletLocation: MultiLocation =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
@@ -90,9 +90,13 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	ConvertedConcreteId<
-		AssetId,
+		AssetIdForTrustBackedAssets,
 		Balance,
-		AsPrefixedGeneralIndex<AssetsPalletLocation, AssetId, JustTry>,
+		AsPrefixedGeneralIndex<
+			TrustBackedAssetsPalletLocation,
+			AssetIdForTrustBackedAssets,
+			JustTry,
+		>,
 		JustTry,
 	>,
 	// Convert an XCM MultiLocation into a local account id:
@@ -271,7 +275,8 @@ pub type Barrier = DenyThenTry<
 pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentialDepositMultiplier<
 	Runtime,
 	WeightToFee,
-	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, TrustBackedAssetsInstance>,
+	TrustBackedAssetsInstance,
 >;
 
 pub struct XcmConfig;
@@ -298,9 +303,13 @@ impl xcm_executor::Config for XcmConfig {
 			AccountId,
 			AssetFeeAsExistentialDepositMultiplierFeeCharger,
 			ConvertedConcreteId<
-				AssetId,
+				AssetIdForTrustBackedAssets,
 				Balance,
-				AsPrefixedGeneralIndex<AssetsPalletLocation, AssetId, JustTry>,
+				AsPrefixedGeneralIndex<
+					TrustBackedAssetsPalletLocation,
+					AssetIdForTrustBackedAssets,
+					JustTry,
+				>,
 				JustTry,
 			>,
 			Assets,

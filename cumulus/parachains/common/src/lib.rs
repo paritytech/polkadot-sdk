@@ -62,7 +62,7 @@ mod types {
 	pub type StatemintAuraId = sp_consensus_aura::ed25519::AuthorityId;
 
 	// Id used for identifying assets.
-	pub type AssetId = u32;
+	pub type AssetIdForTrustBackedAssets = u32;
 }
 
 /// Common constants of parachains.

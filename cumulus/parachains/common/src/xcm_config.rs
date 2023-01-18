@@ -76,30 +76,37 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 /// A `ChargeFeeInFungibles` implementation that converts the output of
 /// a given WeightToFee implementation an amount charged in
 /// a particular assetId from pallet-assets
-pub struct AssetFeeAsExistentialDepositMultiplier<Runtime, WeightToFee, BalanceConverter>(
-	PhantomData<(Runtime, WeightToFee, BalanceConverter)>,
-);
-impl<CurrencyBalance, Runtime, WeightToFee, BalanceConverter>
+pub struct AssetFeeAsExistentialDepositMultiplier<
+	Runtime,
+	WeightToFee,
+	BalanceConverter,
+	AssetInstance: 'static,
+>(PhantomData<(Runtime, WeightToFee, BalanceConverter, AssetInstance)>);
+impl<CurrencyBalance, Runtime, WeightToFee, BalanceConverter, AssetInstance>
 	cumulus_primitives_utility::ChargeWeightInFungibles<
 		AccountIdOf<Runtime>,
-		pallet_assets::Pallet<Runtime>,
-	> for AssetFeeAsExistentialDepositMultiplier<Runtime, WeightToFee, BalanceConverter>
+		pallet_assets::Pallet<Runtime, AssetInstance>,
+	> for AssetFeeAsExistentialDepositMultiplier<Runtime, WeightToFee, BalanceConverter, AssetInstance>
 where
-	Runtime: pallet_assets::Config,
+	Runtime: pallet_assets::Config<AssetInstance>,
 	WeightToFee: WeightToFeePolynomial<Balance = CurrencyBalance>,
 	BalanceConverter: BalanceConversion<
 		CurrencyBalance,
-		<Runtime as pallet_assets::Config>::AssetId,
-		<Runtime as pallet_assets::Config>::Balance,
+		<Runtime as pallet_assets::Config<AssetInstance>>::AssetId,
+		<Runtime as pallet_assets::Config<AssetInstance>>::Balance,
 	>,
 	AccountIdOf<Runtime>:
 		From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
 	fn charge_weight_in_fungibles(
-		asset_id: <pallet_assets::Pallet<Runtime> as Inspect<AccountIdOf<Runtime>>>::AssetId,
+		asset_id: <pallet_assets::Pallet<Runtime, AssetInstance> as Inspect<
+			AccountIdOf<Runtime>,
+		>>::AssetId,
 		weight: Weight,
-	) -> Result<<pallet_assets::Pallet<Runtime> as Inspect<AccountIdOf<Runtime>>>::Balance, XcmError>
-	{
+	) -> Result<
+		<pallet_assets::Pallet<Runtime, AssetInstance> as Inspect<AccountIdOf<Runtime>>>::Balance,
+		XcmError,
+	> {
 		let amount = WeightToFee::weight_to_fee(&weight);
 		// If the amount gotten is not at least the ED, then make it be the ED of the asset
 		// This is to avoid burning assets and decreasing the supply

@@ -68,16 +68,17 @@ where
 
 /// A `HandleCredit` implementation that naively transfers the fees to the block author.
 /// Will drop and burn the assets in case the transfer fails.
-pub struct AssetsToBlockAuthor<R>(PhantomData<R>);
-impl<R> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R>> for AssetsToBlockAuthor<R>
+pub struct AssetsToBlockAuthor<R, I>(PhantomData<(R, I)>);
+impl<R, I> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R, I>> for AssetsToBlockAuthor<R, I>
 where
-	R: pallet_authorship::Config + pallet_assets::Config,
+	I: 'static,
+	R: pallet_authorship::Config + pallet_assets::Config<I>,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
-	fn handle_credit(credit: CreditOf<AccountIdOf<R>, pallet_assets::Pallet<R>>) {
+	fn handle_credit(credit: CreditOf<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-			let _ = pallet_assets::Pallet::<R>::resolve(&author, credit);
+			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit);
 		}
 	}
 }
