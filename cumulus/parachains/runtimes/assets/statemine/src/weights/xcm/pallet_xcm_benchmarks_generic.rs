@@ -148,6 +148,9 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	pub(crate) fn expect_error() -> Weight {
 		Weight::from_ref_time(5_859_000 as u64)
 	}
+	pub(crate) fn expect_transact_status() -> Weight {
+		Weight::from_ref_time(5_859_000 as u64)
+	}
 	// Storage: ParachainInfo ParachainId (r:1 w:0)
 	// Storage: PolkadotXcm SupportedVersion (r:1 w:0)
 	// Storage: PolkadotXcm VersionDiscoveryQueue (r:1 w:1)
