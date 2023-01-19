@@ -20,7 +20,7 @@ use bp_messages::*;
 pub use bp_polkadot_core::{
 	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, BlockNumber, Hash, Hasher,
 	Hashing, Header, Index, Nonce, Perbill, PolkadotSignedExtension, Signature, SignedBlock,
-	UncheckedExtrinsic, TX_EXTRA_BYTES,
+	UncheckedExtrinsic, EXTRA_STORAGE_PROOF_SIZE, TX_EXTRA_BYTES,
 };
 use frame_support::{
 	dispatch::DispatchClass,
