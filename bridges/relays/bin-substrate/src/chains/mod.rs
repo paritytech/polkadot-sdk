@@ -52,7 +52,7 @@ mod tests {
 
 	#[test]
 	fn maximal_rialto_to_millau_message_size_is_computed_correctly() {
-		use rialto_runtime::millau_messages::Millau;
+		use rialto_runtime::millau_messages::MillauAsTargetHeaderChain;
 
 		let maximal_message_size = encode_message::compute_maximal_message_size(
 			bp_rialto::Rialto::max_extrinsic_size(),
@@ -60,10 +60,10 @@ mod tests {
 		);
 
 		let message = vec![42; maximal_message_size as _];
-		assert_eq!(Millau::verify_message(&message), Ok(()));
+		assert_eq!(MillauAsTargetHeaderChain::verify_message(&message), Ok(()));
 
 		let message = vec![42; (maximal_message_size + 1) as _];
-		assert!(Millau::verify_message(&message).is_err());
+		assert!(MillauAsTargetHeaderChain::verify_message(&message).is_err());
 	}
 
 	#[test]

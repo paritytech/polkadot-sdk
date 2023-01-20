@@ -29,7 +29,6 @@ pallet-bridge-relayers = { path = "../../modules/relayers", default-features = f
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -46,9 +45,8 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
 [dev-dependencies]
-bp-rialto = { path = "../../primitives/chain-rialto" }
 bp-test-utils = { path = "../../primitives/test-utils" }
-millau-runtime = { path = "../millau/runtime" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]
 default = ["std"]
@@ -82,7 +80,6 @@ std = [
 	"xcm-executor/std",
 ]
 runtime-benchmarks = [
-	"pallet-balances",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
