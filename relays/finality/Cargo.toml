@@ -9,7 +9,7 @@ description = "Finality proofs relay"
 [dependencies]
 async-std = "1.6.5"
 async-trait = "0.1"
-backoff = "0.2"
+backoff = "0.4"
 bp-header-chain = { path = "../../primitives/header-chain" }
 futures = "0.3.5"
 log = "0.4.17"
