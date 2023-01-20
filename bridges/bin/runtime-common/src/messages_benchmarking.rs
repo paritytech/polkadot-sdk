@@ -48,7 +48,6 @@ pub fn prepare_message_proof<R, BI, FI, B, BH, BHH>(
 ) -> (FromBridgedChainMessagesProof<HashOf<BridgedChain<B>>>, Weight)
 where
 	R: frame_system::Config<AccountId = AccountIdOf<ThisChain<B>>>
-		+ pallet_balances::Config<BI, Balance = BalanceOf<ThisChain<B>>>
 		+ pallet_bridge_grandpa::Config<FI>,
 	R::BridgedChain: bp_runtime::Chain<Hash = HashOf<BridgedChain<B>>, Header = BH>,
 	B: MessageBridge,

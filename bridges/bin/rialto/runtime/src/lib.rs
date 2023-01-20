@@ -448,7 +448,7 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 	type InboundRelayer = bp_millau::AccountId;
 	type DeliveryPayments = ();
 
-	type TargetHeaderChain = crate::millau_messages::Millau;
+	type TargetHeaderChain = crate::millau_messages::MillauAsTargetHeaderChain;
 	type LaneMessageVerifier = crate::millau_messages::ToMillauMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
@@ -456,7 +456,7 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 		frame_support::traits::ConstU128<100_000>,
 	>;
 
-	type SourceHeaderChain = crate::millau_messages::Millau;
+	type SourceHeaderChain = crate::millau_messages::MillauAsSourceHeaderChain;
 	type MessageDispatch = crate::millau_messages::FromMillauMessageDispatch;
 	type BridgedChainId = BridgedChainId;
 }
