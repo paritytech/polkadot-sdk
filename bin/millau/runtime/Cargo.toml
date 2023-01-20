@@ -71,7 +71,7 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "maste
 
 [dev-dependencies]
 bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
-env_logger = "0.8"
+env_logger = "0.10"
 static_assertions = "1.1"
 
 [build-dependencies]
