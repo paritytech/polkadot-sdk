@@ -73,7 +73,7 @@ impl StandaloneMetric for GlobalMetrics {
 	async fn update(&self) {
 		// update system-wide metrics
 		let mut system = self.system.lock().await;
-		let load = system.get_load_average();
+		let load = system.load_average();
 		self.system_average_load.with_label_values(&["1min"]).set(load.one);
 		self.system_average_load.with_label_values(&["5min"]).set(load.five);
 		self.system_average_load.with_label_values(&["15min"]).set(load.fifteen);
@@ -85,7 +85,7 @@ impl StandaloneMetric for GlobalMetrics {
 				qed",
 		);
 		let is_process_refreshed = system.refresh_process(pid);
-		match (is_process_refreshed, system.get_process(pid)) {
+		match (is_process_refreshed, system.process(pid)) {
 			(true, Some(process_info)) => {
 				let cpu_usage = process_info.cpu_usage() as f64;
 				let memory_usage = process_info.memory() * 1024;
