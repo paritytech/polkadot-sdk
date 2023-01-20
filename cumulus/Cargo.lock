@@ -1103,9 +1103,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.32"
+version = "4.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7db700bc935f9e43e88d00b0850dae18a63773cfbec6d8e070fccf7fef89a39"
+checksum = "4ec7a4128863c188deefe750ac1d1dfe66c236909f845af04beed823638dc1b2"
 dependencies = [
  "bitflags",
  "clap_derive",
@@ -1118,9 +1118,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.0.21"
+version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0177313f9f02afc995627906bbd8967e2be069f5261954222dac78290c2b9014"
+checksum = "684a277d672e91966334af371f1a7b5833f9aa00b07c84e92fbce95e00208ce8"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -1685,7 +1685,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.0.32",
+ "clap 4.1.1",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -2321,7 +2321,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.0.32",
+ "clap 4.1.1",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -3172,7 +3172,7 @@ dependencies = [
  "Inflector",
  "array-bytes 4.2.0",
  "chrono",
- "clap 4.0.32",
+ "clap 4.1.1",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -6909,7 +6909,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.0.32",
+ "clap 4.1.1",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -7489,7 +7489,7 @@ name = "polkadot-cli"
 version = "0.9.33"
 source = "git+https://github.com/paritytech/polkadot?branch=master#a5cd3dd1a26dfb78daf3d743449934cbc7cc4090"
 dependencies = [
- "clap 4.0.32",
+ "clap 4.1.1",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -8153,7 +8153,7 @@ dependencies = [
  "async-trait",
  "bridge-hub-kusama-runtime",
  "bridge-hub-rococo-runtime",
- "clap 4.0.32",
+ "clap 4.1.1",
  "collectives-polkadot-runtime",
  "contracts-rococo-runtime",
  "cumulus-client-cli",
@@ -9875,7 +9875,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#cba59778aa52
 dependencies = [
  "array-bytes 4.2.0",
  "chrono",
- "clap 4.0.32",
+ "clap 4.1.1",
  "fdlimit",
  "futures",
  "libp2p",
@@ -13073,7 +13073,7 @@ name = "try-runtime-cli"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#cba59778aa5207b11f7513e5cbb127ea47dd8924"
 dependencies = [
- "clap 4.0.32",
+ "clap 4.1.1",
  "frame-remote-externalities",
  "frame-try-runtime",
  "hex",

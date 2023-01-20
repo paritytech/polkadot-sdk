@@ -10,7 +10,7 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-clap = { version = "4.0.32", features = ["derive"] }
+clap = { version = "4.1.1", features = ["derive"] }
 log = "0.4.17"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.152", features = ["derive"] }
