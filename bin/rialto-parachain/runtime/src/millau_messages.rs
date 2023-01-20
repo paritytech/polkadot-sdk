@@ -21,13 +21,11 @@
 
 use crate::{MillauGrandpaInstance, Runtime, RuntimeCall, RuntimeOrigin};
 
-use bp_messages::{
-	source_chain::TargetHeaderChain,
-	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageNonce,
-};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_PARACHAIN_CHAIN_ID};
-use bridge_runtime_common::messages::{self, MessageBridge};
+use bridge_runtime_common::messages::{
+	self, source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter, MessageBridge,
+};
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 
 /// Default lane that is used to send messages to Millau.
@@ -114,6 +112,10 @@ impl messages::ThisChainWithMessages for RialtoParachain {
 /// Millau chain from message lane point of view.
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct Millau;
+/// Millau as source header chain.
+pub type MillauAsSourceHeaderChain = SourceHeaderChainAdapter<WithMillauMessageBridge>;
+/// Millau as target header chain.
+pub type MillauAsTargetHeaderChain = TargetHeaderChainAdapter<WithMillauMessageBridge>;
 
 impl messages::UnderlyingChainProvider for Millau {
 	type Chain = bp_millau::Millau;
@@ -122,42 +124,5 @@ impl messages::UnderlyingChainProvider for Millau {
 impl messages::BridgedChainWithMessages for Millau {
 	fn verify_dispatch_weight(_message_payload: &[u8]) -> bool {
 		true
-	}
-}
-
-impl TargetHeaderChain<ToMillauMessagePayload, bp_rialto_parachain::AccountId> for Millau {
-	type Error = &'static str;
-	// The proof is:
-	// - hash of the header this proof has been created with;
-	// - the storage proof of one or several keys;
-	// - id of the lane we prove state of.
-	type MessagesDeliveryProof = ToMillauMessagesDeliveryProof;
-
-	fn verify_message(payload: &ToMillauMessagePayload) -> Result<(), Self::Error> {
-		messages::source::verify_chain_message::<WithMillauMessageBridge>(payload)
-	}
-
-	fn verify_messages_delivery_proof(
-		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<bp_rialto_parachain::AccountId>), Self::Error> {
-		messages::source::verify_messages_delivery_proof::<WithMillauMessageBridge>(proof)
-	}
-}
-
-impl SourceHeaderChain for Millau {
-	type Error = &'static str;
-	// The proof is:
-	// - hash of the header this proof has been created with;
-	// - the storage proof of one or several keys;
-	// - id of the lane we prove messages for;
-	// - inclusive range of messages nonces that are proved.
-	type MessagesProof = FromMillauMessagesProof;
-
-	fn verify_messages_proof(
-		proof: Self::MessagesProof,
-		messages_count: u32,
-	) -> Result<ProvedMessages<Message>, Self::Error> {
-		messages::target::verify_messages_proof::<WithMillauMessageBridge>(proof, messages_count)
-			.map_err(Into::into)
 	}
 }

@@ -18,13 +18,11 @@
 
 use crate::{Runtime, RuntimeCall, RuntimeOrigin, WithRialtoParachainsInstance};
 
-use bp_messages::{
-	source_chain::TargetHeaderChain,
-	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageNonce,
-};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_PARACHAIN_CHAIN_ID};
-use bridge_runtime_common::messages::{self, MessageBridge};
+use bridge_runtime_common::messages::{
+	self, source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter, MessageBridge,
+};
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 
 /// Default lane that is used to send messages to Rialto parachain.
@@ -52,14 +50,6 @@ pub type ToRialtoParachainMessageVerifier =
 /// Message payload for RialtoParachain -> Millau messages.
 pub type FromRialtoParachainMessagePayload =
 	messages::target::FromBridgedChainMessagePayload<RuntimeCall>;
-
-/// Messages proof for RialtoParachain -> Millau messages.
-type FromRialtoParachainMessagesProof =
-	messages::target::FromBridgedChainMessagesProof<bp_rialto_parachain::Hash>;
-
-/// Messages delivery proof for Millau -> RialtoParachain messages.
-type ToRialtoParachainMessagesDeliveryProof =
-	messages::source::FromBridgedChainMessagesDeliveryProof<bp_rialto_parachain::Hash>;
 
 /// Call-dispatch based message dispatch for RialtoParachain -> Millau messages.
 pub type FromRialtoParachainMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
@@ -115,6 +105,12 @@ impl messages::ThisChainWithMessages for Millau {
 /// RialtoParachain chain from message lane point of view.
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct RialtoParachain;
+/// RialtoParachain as source header chain.
+pub type RialtoParachainAsSourceHeaderChain =
+	SourceHeaderChainAdapter<WithRialtoParachainMessageBridge>;
+/// RialtoParachain as target header chain.
+pub type RialtoParachainAsTargetHeaderChain =
+	TargetHeaderChainAdapter<WithRialtoParachainMessageBridge>;
 
 impl messages::UnderlyingChainProvider for RialtoParachain {
 	type Chain = bp_rialto_parachain::RialtoParachain;
@@ -123,45 +119,5 @@ impl messages::UnderlyingChainProvider for RialtoParachain {
 impl messages::BridgedChainWithMessages for RialtoParachain {
 	fn verify_dispatch_weight(_message_payload: &[u8]) -> bool {
 		true
-	}
-}
-
-impl TargetHeaderChain<ToRialtoParachainMessagePayload, bp_millau::AccountId> for RialtoParachain {
-	type Error = &'static str;
-	// The proof is:
-	// - hash of the header this proof has been created with;
-	// - the storage proof or one or several keys;
-	// - id of the lane we prove state of.
-	type MessagesDeliveryProof = ToRialtoParachainMessagesDeliveryProof;
-
-	fn verify_message(payload: &ToRialtoParachainMessagePayload) -> Result<(), Self::Error> {
-		messages::source::verify_chain_message::<WithRialtoParachainMessageBridge>(payload)
-	}
-
-	fn verify_messages_delivery_proof(
-		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<bp_millau::AccountId>), Self::Error> {
-		messages::source::verify_messages_delivery_proof::<WithRialtoParachainMessageBridge>(proof)
-	}
-}
-
-impl SourceHeaderChain for RialtoParachain {
-	type Error = &'static str;
-	// The proof is:
-	// - hash of the header this proof has been created with;
-	// - the storage proof or one or several keys;
-	// - id of the lane we prove messages for;
-	// - inclusive range of messages nonces that are proved.
-	type MessagesProof = FromRialtoParachainMessagesProof;
-
-	fn verify_messages_proof(
-		proof: Self::MessagesProof,
-		messages_count: u32,
-	) -> Result<ProvedMessages<Message>, Self::Error> {
-		messages::target::verify_messages_proof::<WithRialtoParachainMessageBridge>(
-			proof,
-			messages_count,
-		)
-		.map_err(Into::into)
 	}
 }

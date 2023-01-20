@@ -96,20 +96,17 @@ impl<
 
 #[cfg(test)]
 mod tests {
-	use bp_messages::UnrewardedRelayersState;
-	use millau_runtime::{
-		bridge_runtime_common::{
-			messages::{
-				source::FromBridgedChainMessagesDeliveryProof,
-				target::FromBridgedChainMessagesProof,
-			},
-			BridgeRuntimeFilterCall,
+	use crate::{
+		messages::{
+			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 		},
-		Runtime, RuntimeCall, WithRialtoMessagesInstance,
+		mock::{TestRuntime, ThisChainRuntimeCall},
+		BridgeRuntimeFilterCall,
 	};
+	use bp_messages::UnrewardedRelayersState;
 
 	fn deliver_message_10() {
-		pallet_bridge_messages::InboundLanes::<Runtime, WithRialtoMessagesInstance>::insert(
+		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
 			bp_messages::LaneId([0, 0, 0, 0]),
 			bp_messages::InboundLaneData { relayers: Default::default(), last_confirmed_nonce: 10 },
 		);
@@ -119,10 +116,10 @@ mod tests {
 		nonces_start: bp_messages::MessageNonce,
 		nonces_end: bp_messages::MessageNonce,
 	) -> bool {
-		pallet_bridge_messages::Pallet::<Runtime, WithRialtoMessagesInstance>::validate(
-			&RuntimeCall::BridgeRialtoMessages(
-				pallet_bridge_messages::Call::<Runtime, ()>::receive_messages_proof {
-					relayer_id_at_bridged_chain: [0u8; 32].into(),
+		pallet_bridge_messages::Pallet::<TestRuntime>::validate(
+			&ThisChainRuntimeCall::BridgeMessages(
+				pallet_bridge_messages::Call::<TestRuntime, ()>::receive_messages_proof {
+					relayer_id_at_bridged_chain: 42,
 					messages_count: (nonces_end - nonces_start + 1) as u32,
 					dispatch_weight: frame_support::weights::Weight::zero(),
 					proof: FromBridgedChainMessagesProof {
@@ -169,7 +166,7 @@ mod tests {
 	}
 
 	fn confirm_message_10() {
-		pallet_bridge_messages::OutboundLanes::<Runtime, WithRialtoMessagesInstance>::insert(
+		pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
 			bp_messages::LaneId([0, 0, 0, 0]),
 			bp_messages::OutboundLaneData {
 				oldest_unpruned_nonce: 0,
@@ -180,21 +177,20 @@ mod tests {
 	}
 
 	fn validate_message_confirmation(last_delivered_nonce: bp_messages::MessageNonce) -> bool {
-		pallet_bridge_messages::Pallet::<Runtime, WithRialtoMessagesInstance>::validate(
-			&RuntimeCall::BridgeRialtoMessages(pallet_bridge_messages::Call::<
-				Runtime,
-				WithRialtoMessagesInstance,
-			>::receive_messages_delivery_proof {
-				proof: FromBridgedChainMessagesDeliveryProof {
-					bridged_header_hash: Default::default(),
-					storage_proof: Vec::new(),
-					lane: bp_messages::LaneId([0, 0, 0, 0]),
+		pallet_bridge_messages::Pallet::<TestRuntime>::validate(
+			&ThisChainRuntimeCall::BridgeMessages(
+				pallet_bridge_messages::Call::<TestRuntime>::receive_messages_delivery_proof {
+					proof: FromBridgedChainMessagesDeliveryProof {
+						bridged_header_hash: Default::default(),
+						storage_proof: Vec::new(),
+						lane: bp_messages::LaneId([0, 0, 0, 0]),
+					},
+					relayers_state: UnrewardedRelayersState {
+						last_delivered_nonce,
+						..Default::default()
+					},
 				},
-				relayers_state: UnrewardedRelayersState {
-					last_delivered_nonce,
-					..Default::default()
-				},
-			}),
+			),
 		)
 		.is_ok()
 	}

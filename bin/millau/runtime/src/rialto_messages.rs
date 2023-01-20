@@ -18,13 +18,11 @@
 
 use crate::{RialtoGrandpaInstance, Runtime, RuntimeCall, RuntimeOrigin};
 
-use bp_messages::{
-	source_chain::TargetHeaderChain,
-	target_chain::{ProvedMessages, SourceHeaderChain},
-	InboundLaneData, LaneId, Message, MessageNonce,
-};
+use bp_messages::{LaneId, MessageNonce};
 use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_CHAIN_ID};
-use bridge_runtime_common::messages::{self, MessageBridge};
+use bridge_runtime_common::messages::{
+	self, source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter, MessageBridge,
+};
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 
 /// Default lane that is used to send messages to Rialto.
@@ -110,6 +108,10 @@ impl messages::ThisChainWithMessages for Millau {
 /// Rialto chain from message lane point of view.
 #[derive(RuntimeDebug, Clone, Copy)]
 pub struct Rialto;
+/// Rialto as source header chain.
+pub type RialtoAsSourceHeaderChain = SourceHeaderChainAdapter<WithRialtoMessageBridge>;
+/// Rialto as target header chain.
+pub type RialtoAsTargetHeaderChain = TargetHeaderChainAdapter<WithRialtoMessageBridge>;
 
 impl messages::UnderlyingChainProvider for Rialto {
 	type Chain = bp_rialto::Rialto;
@@ -118,43 +120,6 @@ impl messages::UnderlyingChainProvider for Rialto {
 impl messages::BridgedChainWithMessages for Rialto {
 	fn verify_dispatch_weight(_message_payload: &[u8]) -> bool {
 		true
-	}
-}
-
-impl TargetHeaderChain<ToRialtoMessagePayload, bp_millau::AccountId> for Rialto {
-	type Error = &'static str;
-	// The proof is:
-	// - hash of the header this proof has been created with;
-	// - the storage proof or one or several keys;
-	// - id of the lane we prove state of.
-	type MessagesDeliveryProof = ToRialtoMessagesDeliveryProof;
-
-	fn verify_message(payload: &ToRialtoMessagePayload) -> Result<(), Self::Error> {
-		messages::source::verify_chain_message::<WithRialtoMessageBridge>(payload)
-	}
-
-	fn verify_messages_delivery_proof(
-		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<bp_millau::AccountId>), Self::Error> {
-		messages::source::verify_messages_delivery_proof::<WithRialtoMessageBridge>(proof)
-	}
-}
-
-impl SourceHeaderChain for Rialto {
-	type Error = &'static str;
-	// The proof is:
-	// - hash of the header this proof has been created with;
-	// - the storage proof or one or several keys;
-	// - id of the lane we prove messages for;
-	// - inclusive range of messages nonces that are proved.
-	type MessagesProof = FromRialtoMessagesProof;
-
-	fn verify_messages_proof(
-		proof: Self::MessagesProof,
-		messages_count: u32,
-	) -> Result<ProvedMessages<Message>, Self::Error> {
-		messages::target::verify_messages_proof::<WithRialtoMessageBridge>(proof, messages_count)
-			.map_err(Into::into)
 	}
 }
 

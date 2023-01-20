@@ -81,8 +81,8 @@ macro_rules! assert_bridge_messages_pallet_types(
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
 			use $crate::messages::{
-				source::FromThisChainMessagePayload,
-				target::FromBridgedChainMessagePayload,
+				source::{FromThisChainMessagePayload, TargetHeaderChainAdapter},
+				target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
 				AccountIdOf, BalanceOf, BridgedChain, CallOf, ThisChain,
 			};
 			use pallet_bridge_messages::Config as MessagesConfig;
@@ -93,8 +93,8 @@ macro_rules! assert_bridge_messages_pallet_types(
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::InboundPayload, FromBridgedChainMessagePayload<CallOf<ThisChain<$bridge>>>);
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::InboundRelayer, AccountIdOf<BridgedChain<$bridge>>);
 
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::TargetHeaderChain, BridgedChain<$bridge>);
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::SourceHeaderChain, BridgedChain<$bridge>);
+			assert_type_eq_all!(<$r as MessagesConfig<$i>>::TargetHeaderChain, TargetHeaderChainAdapter<$bridge>);
+			assert_type_eq_all!(<$r as MessagesConfig<$i>>::SourceHeaderChain, SourceHeaderChainAdapter<$bridge>);
 		}
 	}
 );

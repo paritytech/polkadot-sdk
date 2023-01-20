@@ -30,6 +30,7 @@ pub mod parachains_benchmarking;
 pub mod refund_relayer_extension;
 
 mod messages_generation;
+mod mock;
 
 #[cfg(feature = "integrity-test")]
 pub mod integrity;

@@ -19,12 +19,7 @@
 //! with calls that are: delivering new messsage and all necessary underlying headers
 //! (parachain or relay chain).
 
-// hack because we have circular (test-level) dependency between `millau-runtime`
-// and `bridge-runtime-common` crates
-#[cfg(not(test))]
 use crate::messages::target::FromBridgedChainMessagesProof;
-#[cfg(test)]
-use millau_runtime::bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 
 use bp_messages::{target_chain::SourceHeaderChain, LaneId, MessageNonce};
 use bp_polkadot_core::parachains::ParaId;
@@ -475,36 +470,37 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::{messages::target::FromBridgedChainMessagesProof, mock::*};
 	use bp_messages::InboundLaneData;
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::ParaHeadsProof;
 	use bp_runtime::HeaderId;
 	use bp_test_utils::make_default_justification;
 	use frame_support::{assert_storage_noop, parameter_types, weights::Weight};
-	use millau_runtime::{
-		RialtoGrandpaInstance, Runtime, RuntimeCall, WithRialtoParachainMessagesInstance,
-		WithRialtoParachainsInstance,
-	};
 	use sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 
 	parameter_types! {
 		pub TestParachain: u32 = 1000;
-		pub TestLaneId: LaneId = LaneId([0, 0, 0, 0]);
+		pub TestLaneId: LaneId = TEST_LANE_ID;
 	}
 
 	type TestExtension = RefundRelayerForMessagesFromParachain<
-		millau_runtime::Runtime,
-		RialtoGrandpaInstance,
-		WithRialtoParachainsInstance,
-		WithRialtoParachainMessagesInstance,
-		millau_runtime::BridgeRejectObsoleteHeadersAndMessages,
+		TestRuntime,
+		(),
+		(),
+		(),
+		BridgeRejectObsoleteHeadersAndMessages,
 		TestParachain,
 		TestLaneId,
-		millau_runtime::Runtime,
+		TestRuntime,
 	>;
 
-	fn relayer_account() -> millau_runtime::AccountId {
-		[0u8; 32].into()
+	fn relayer_account_at_this_chain() -> ThisChainAccountId {
+		0
+	}
+
+	fn relayer_account_at_bridged_chain() -> BridgedChainAccountId {
+		0
 	}
 
 	fn initialize_environment(
@@ -513,9 +509,7 @@ mod tests {
 		best_delivered_message: MessageNonce,
 	) {
 		let best_relay_header = HeaderId(best_relay_header_number, RelayBlockHash::default());
-		pallet_bridge_grandpa::BestFinalized::<Runtime, RialtoGrandpaInstance>::put(
-			best_relay_header,
-		);
+		pallet_bridge_grandpa::BestFinalized::<TestRuntime>::put(best_relay_header);
 
 		let para_id = ParaId(TestParachain::get());
 		let para_info = ParaInfo {
@@ -525,18 +519,16 @@ mod tests {
 			},
 			next_imported_hash_position: 0,
 		};
-		pallet_bridge_parachains::ParasInfo::<Runtime, WithRialtoParachainsInstance>::insert(
-			para_id, para_info,
-		);
+		pallet_bridge_parachains::ParasInfo::<TestRuntime>::insert(para_id, para_info);
 
 		let lane_id = TestLaneId::get();
 		let lane_data =
 			InboundLaneData { last_confirmed_nonce: best_delivered_message, ..Default::default() };
-		pallet_bridge_messages::InboundLanes::<Runtime, WithRialtoParachainMessagesInstance>::insert(lane_id, lane_data);
+		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(lane_id, lane_data);
 	}
 
 	fn submit_relay_header_call(relay_header_number: RelayBlockNumber) -> RuntimeCall {
-		let relay_header = bp_rialto::Header::new(
+		let relay_header = BridgedChainHeader::new(
 			relay_header_number,
 			Default::default(),
 			Default::default(),
@@ -545,7 +537,7 @@ mod tests {
 		);
 		let relay_justification = make_default_justification(&relay_header);
 
-		RuntimeCall::BridgeRialtoGrandpa(GrandpaCall::submit_finality_proof {
+		RuntimeCall::BridgeGrandpa(GrandpaCall::submit_finality_proof {
 			finality_target: Box::new(relay_header),
 			justification: relay_justification,
 		})
@@ -554,7 +546,7 @@ mod tests {
 	fn submit_parachain_head_call(
 		parachain_head_at_relay_header_number: RelayBlockNumber,
 	) -> RuntimeCall {
-		RuntimeCall::BridgeRialtoParachains(ParachainsCall::submit_parachain_heads {
+		RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
 			at_relay_block: (parachain_head_at_relay_header_number, RelayBlockHash::default()),
 			parachains: vec![(ParaId(TestParachain::get()), [1u8; 32].into())],
 			parachain_heads_proof: ParaHeadsProof(vec![]),
@@ -562,9 +554,9 @@ mod tests {
 	}
 
 	fn message_delivery_call(best_message: MessageNonce) -> RuntimeCall {
-		RuntimeCall::BridgeRialtoParachainMessages(MessagesCall::receive_messages_proof {
-			relayer_id_at_bridged_chain: relayer_account(),
-			proof: millau_runtime::bridge_runtime_common::messages::target::FromBridgedChainMessagesProof {
+		RuntimeCall::BridgeMessages(MessagesCall::receive_messages_proof {
+			relayer_id_at_bridged_chain: relayer_account_at_bridged_chain(),
+			proof: FromBridgedChainMessagesProof {
 				bridged_header_hash: Default::default(),
 				storage_proof: vec![],
 				lane: TestLaneId::get(),
@@ -602,9 +594,9 @@ mod tests {
 		})
 	}
 
-	fn all_finality_pre_dispatch_data() -> PreDispatchData<millau_runtime::AccountId> {
+	fn all_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
-			relayer: relayer_account(),
+			relayer: relayer_account_at_this_chain(),
 			call_type: CallType::AllFinalityAndDelivery(
 				ExpectedRelayChainState { best_block_number: 200 },
 				ExpectedParachainState { at_relay_block_number: 200 },
@@ -613,9 +605,9 @@ mod tests {
 		}
 	}
 
-	fn parachain_finality_pre_dispatch_data() -> PreDispatchData<millau_runtime::AccountId> {
+	fn parachain_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
-			relayer: relayer_account(),
+			relayer: relayer_account_at_this_chain(),
 			call_type: CallType::ParachainFinalityAndDelivery(
 				ExpectedParachainState { at_relay_block_number: 200 },
 				MessagesState { best_nonce: 100 },
@@ -623,9 +615,9 @@ mod tests {
 		}
 	}
 
-	fn delivery_pre_dispatch_data() -> PreDispatchData<millau_runtime::AccountId> {
+	fn delivery_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
-			relayer: relayer_account(),
+			relayer: relayer_account_at_this_chain(),
 			call_type: CallType::Delivery(MessagesState { best_nonce: 100 }),
 		}
 	}
@@ -636,14 +628,14 @@ mod tests {
 
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestExtension = RefundRelayerForMessagesFromParachain(PhantomData);
-		extension.validate(&relayer_account(), &call, &DispatchInfo::default(), 0)
+		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
 	fn run_pre_dispatch(
 		call: RuntimeCall,
-	) -> Result<Option<PreDispatchData<millau_runtime::AccountId>>, TransactionValidityError> {
+	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
 		let extension: TestExtension = RefundRelayerForMessagesFromParachain(PhantomData);
-		extension.pre_dispatch(&relayer_account(), &call, &DispatchInfo::default(), 0)
+		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
 	fn dispatch_info() -> DispatchInfo {
@@ -661,7 +653,7 @@ mod tests {
 	}
 
 	fn run_post_dispatch(
-		pre_dispatch_data: Option<PreDispatchData<millau_runtime::AccountId>>,
+		pre_dispatch_data: Option<PreDispatchData<ThisChainAccountId>>,
 		dispatch_result: DispatchResult,
 	) {
 		let post_dispatch_result = TestExtension::post_dispatch(
@@ -674,8 +666,8 @@ mod tests {
 		assert_eq!(post_dispatch_result, Ok(()));
 	}
 
-	fn expected_reward() -> millau_runtime::Balance {
-		pallet_transaction_payment::Pallet::<Runtime>::compute_actual_fee(
+	fn expected_reward() -> ThisChainBalance {
+		pallet_transaction_payment::Pallet::<TestRuntime>::compute_actual_fee(
 			1024,
 			&dispatch_info(),
 			&post_dispatch_info(),
@@ -804,7 +796,7 @@ mod tests {
 
 			let call = RuntimeCall::Utility(UtilityCall::batch_all {
 				calls: vec![
-					RuntimeCall::BridgeRialtoParachains(ParachainsCall::submit_parachain_heads {
+					RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
 						at_relay_block: (100, RelayBlockHash::default()),
 						parachains: vec![
 							(ParaId(TestParachain::get()), [1u8; 32].into()),
@@ -892,7 +884,10 @@ mod tests {
 
 			run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(()));
 			assert_eq!(
-				RelayersPallet::<Runtime>::relayer_reward(relayer_account(), TestLaneId::get()),
+				RelayersPallet::<TestRuntime>::relayer_reward(
+					relayer_account_at_this_chain(),
+					TestLaneId::get()
+				),
 				Some(expected_reward()),
 			);
 		});
@@ -905,7 +900,10 @@ mod tests {
 
 			run_post_dispatch(Some(parachain_finality_pre_dispatch_data()), Ok(()));
 			assert_eq!(
-				RelayersPallet::<Runtime>::relayer_reward(relayer_account(), TestLaneId::get()),
+				RelayersPallet::<TestRuntime>::relayer_reward(
+					relayer_account_at_this_chain(),
+					TestLaneId::get()
+				),
 				Some(expected_reward()),
 			);
 		});
@@ -918,7 +916,10 @@ mod tests {
 
 			run_post_dispatch(Some(delivery_pre_dispatch_data()), Ok(()));
 			assert_eq!(
-				RelayersPallet::<Runtime>::relayer_reward(relayer_account(), TestLaneId::get()),
+				RelayersPallet::<TestRuntime>::relayer_reward(
+					relayer_account_at_this_chain(),
+					TestLaneId::get()
+				),
 				Some(expected_reward()),
 			);
 		});
