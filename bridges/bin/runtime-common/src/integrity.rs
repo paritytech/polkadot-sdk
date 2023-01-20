@@ -101,8 +101,8 @@ macro_rules! assert_bridge_messages_pallet_types(
 
 /// Macro that combines four other macro calls - `assert_chain_types`, `assert_bridge_types`,
 /// `assert_bridge_grandpa_pallet_types` and `assert_bridge_messages_pallet_types`. It may be used
-/// at the chain that is implemeting complete standard messages bridge (i.e. with bridge GRANDPA and
-/// messages pallets deployed).
+/// at the chain that is implementing complete standard messages bridge (i.e. with bridge GRANDPA
+/// and messages pallets deployed).
 #[macro_export]
 macro_rules! assert_complete_bridge_types(
 	(
