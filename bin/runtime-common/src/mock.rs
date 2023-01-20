@@ -245,8 +245,8 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type WeightInfo = ();
 }
 
-/// Bridge that is deployed on ThisChain and allows sending/receiving messages to/from
-/// BridgedChain.
+/// Bridge that is deployed on `ThisChain` and allows sending/receiving messages to/from
+/// `BridgedChain`.
 #[derive(Debug, PartialEq, Eq)]
 pub struct OnThisChainBridge;
 
@@ -260,8 +260,8 @@ impl MessageBridge for OnThisChainBridge {
 	type BridgedHeaderChain = pallet_bridge_grandpa::GrandpaChainHeaders<TestRuntime, ()>;
 }
 
-/// Bridge that is deployed on BridgedChain and allows sending/receiving messages to/from
-/// ThisChain;
+/// Bridge that is deployed on `BridgedChain` and allows sending/receiving messages to/from
+/// `ThisChain`.
 #[derive(Debug, PartialEq, Eq)]
 pub struct OnBridgedChainBridge;
 
