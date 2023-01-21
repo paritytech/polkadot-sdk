@@ -416,6 +416,9 @@ where
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
+		if validator {
+			warn_if_slow_hardware(&hwbench);
+		}
 
 		if let Some(ref mut telemetry) = telemetry {
 			let telemetry_handle = telemetry.handle();
@@ -613,6 +616,9 @@ where
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
+		if validator {
+			warn_if_slow_hardware(&hwbench);
+		}
 
 		if let Some(ref mut telemetry) = telemetry {
 			let telemetry_handle = telemetry.handle();
@@ -1383,6 +1389,9 @@ where
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
+		if validator {
+			warn_if_slow_hardware(&hwbench);
+		}
 
 		if let Some(ref mut telemetry) = telemetry {
 			let telemetry_handle = telemetry.handle();
@@ -1579,4 +1588,16 @@ pub async fn start_contracts_rococo_node(
 		hwbench,
 	)
 	.await
+}
+
+/// Checks that the hardware meets the requirements and print a warning otherwise.
+fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
+	// Polkadot para-chains should generally use these requirements to ensure that the relay-chain
+	// will not take longer than expected to import its blocks.
+	if !frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
+		log::warn!(
+			"⚠️  The hardware does not meet the minimal requirements for role 'Authority' find out more at:\n\
+			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"
+		);
+	}
 }
