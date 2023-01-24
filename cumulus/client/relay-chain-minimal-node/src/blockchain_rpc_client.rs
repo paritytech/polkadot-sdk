@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{pin::Pin, str::FromStr};
+use std::pin::Pin;
 
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use cumulus_relay_chain_rpc_interface::RelayChainRpcClient;
@@ -24,11 +24,8 @@ use polkadot_overseer::RuntimeApiSubsystemClient;
 use polkadot_service::{AuxStore, HeaderBackend};
 use sc_authority_discovery::AuthorityDiscovery;
 
-use sc_network_common::config::MultiaddrWithPeerId;
 use sp_api::{ApiError, RuntimeApiInfo};
 use sp_blockchain::Info;
-
-const LOG_TARGET: &str = "blockchain-rpc-client";
 
 #[derive(Clone)]
 pub struct BlockChainRpcClient {
@@ -338,27 +335,6 @@ impl AuthorityDiscovery<Block> for BlockChainRpcClient {
 }
 
 impl BlockChainRpcClient {
-	pub async fn local_listen_addresses(
-		&self,
-	) -> Result<Vec<MultiaddrWithPeerId>, RelayChainError> {
-		let addresses = self.rpc_client.system_local_listen_addresses().await?;
-		tracing::debug!(target: LOG_TARGET, ?addresses, "Fetched listen address from RPC node.");
-
-		let mut result_vec = Vec::new();
-		for address in addresses {
-			match MultiaddrWithPeerId::from_str(&address) {
-				Ok(addr) => result_vec.push(addr),
-				Err(err) =>
-					return Err(RelayChainError::GenericError(format!(
-						"Failed to parse a local listen addresses from the RPC node: {}",
-						err
-					))),
-			}
-		}
-
-		Ok(result_vec)
-	}
-
 	pub async fn import_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = Header> + Send>>> {

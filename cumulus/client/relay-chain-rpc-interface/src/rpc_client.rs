@@ -179,11 +179,6 @@ impl RelayChainRpcClient {
 		.await
 	}
 
-	/// Get local listen address of the node
-	pub async fn system_local_listen_addresses(&self) -> Result<Vec<String>, RelayChainError> {
-		self.request("system_localListenAddresses", rpc_params![]).await
-	}
-
 	/// Get system health information
 	pub async fn system_health(&self) -> Result<Health, RelayChainError> {
 		self.request("system_health", rpc_params![]).await
