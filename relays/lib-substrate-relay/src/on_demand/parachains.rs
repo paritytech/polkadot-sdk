@@ -674,26 +674,29 @@ where
 			required_parachain_header.unique_saturated_into(),
 		))?;
 
+	// we don't require source node to be archive, so we can't craft storage proofs using
+	// ancient headers. So if the `best_finalized_relay_block_at_target` is too ancient, we
+	// can't craft storage proofs using it
+	let may_use_state_at_best_finalized_relay_block_at_target =
+		best_finalized_relay_block_at_source
+			.number()
+			.saturating_sub(best_finalized_relay_block_at_target.number()) <=
+			RBN::from(ANCIENT_BLOCK_THRESHOLD);
+
 	// now let's check if `required_header` may be proved using
 	// `best_finalized_relay_block_at_target`
-	let selection = env
-		.best_finalized_para_block_at_source(best_finalized_relay_block_at_target)
-		.await?
-		.filter(|best_finalized_para_block_at_target| {
-			best_finalized_para_block_at_target.number() >= required_parachain_header
-		})
-		.map(|best_finalized_para_block_at_target| {
-			(false, best_finalized_relay_block_at_target, best_finalized_para_block_at_target)
-		})
-		// we don't require source node to be archive, so we can't craft storage proofs using
-		// ancient headers. So if the `best_finalized_relay_block_at_target` is too ancient, we
-		// can't craft storage proofs using it
-		.filter(|(_, selected_relay_block, _)| {
-			let difference = best_finalized_relay_block_at_source
-				.number()
-				.saturating_sub(selected_relay_block.number());
-			difference <= RBN::from(ANCIENT_BLOCK_THRESHOLD)
-		});
+	let selection = if may_use_state_at_best_finalized_relay_block_at_target {
+		env.best_finalized_para_block_at_source(best_finalized_relay_block_at_target)
+			.await?
+			.filter(|best_finalized_para_block_at_target| {
+				best_finalized_para_block_at_target.number() >= required_parachain_header
+			})
+			.map(|best_finalized_para_block_at_target| {
+				(false, best_finalized_relay_block_at_target, best_finalized_para_block_at_target)
+			})
+	} else {
+		None
+	};
 
 	Ok(selection.unwrap_or((
 		true,
