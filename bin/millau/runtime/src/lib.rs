@@ -983,7 +983,7 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 
-			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof, prepare_message_proof};
+			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof_from_grandpa_chain, prepare_message_proof_from_grandpa_chain};
 			use pallet_bridge_messages::benchmarking::{
 				Pallet as MessagesBench,
 				Config as MessagesConfig,
@@ -1004,7 +1004,7 @@ impl_runtime_apis! {
 				fn prepare_message_proof(
 					params: MessageProofParams,
 				) -> (rialto_messages::FromRialtoMessagesProof, Weight) {
-					prepare_message_proof::<Runtime, (), (), WithRialtoMessageBridge, bp_rialto::Header, bp_rialto::Hasher>(
+					prepare_message_proof_from_grandpa_chain::<Runtime, RialtoGrandpaInstance, WithRialtoMessageBridge>(
 						params,
 					)
 				}
@@ -1012,7 +1012,7 @@ impl_runtime_apis! {
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<Self::AccountId>,
 				) -> rialto_messages::ToRialtoMessagesDeliveryProof {
-					prepare_message_delivery_proof::<Runtime, (), WithRialtoMessageBridge, bp_rialto::Header, bp_rialto::Hasher>(
+					prepare_message_delivery_proof_from_grandpa_chain::<Runtime, RialtoGrandpaInstance, WithRialtoMessageBridge>(
 						params,
 					)
 				}
