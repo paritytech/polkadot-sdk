@@ -15,12 +15,13 @@ benchmarks-build:
 
 benchmarks-assets:
   stage:                           benchmarks-run
+  timeout:                         1d
   extends:
+    - .docker-env
     - .collect-artifacts
     - .benchmarks-refs
   before_script:
     - !reference [.docker-env, before_script]
-  timeout:                         1d
   script:
     - ./scripts/benchmarks-ci.sh assets statemine ./artifacts
     - ./scripts/benchmarks-ci.sh assets statemint ./artifacts
@@ -34,11 +35,13 @@ benchmarks-assets:
   after_script:
     - rm -rf .git/config
   tags:
-    - weights
+    - weights-vm
 
 benchmarks-collectives:
   stage:                           benchmarks-run
+  timeout:                         1d
   extends:
+    - .docker-env
     - .collect-artifacts
     - .benchmarks-refs
   before_script:
@@ -55,16 +58,17 @@ benchmarks-collectives:
   after_script:
     - rm -rf .git/config
   tags:
-    - weights
+    - weights-vm
 
 benchmarks-bridge-hubs:
   stage:                           benchmarks-run
+  timeout:                         1d
   extends:
+    - .docker-env
     - .collect-artifacts
     - .benchmarks-refs
   before_script:
     - !reference [.docker-env, before_script]
-  timeout:                         1d
   script:
     - ./scripts/benchmarks-ci.sh bridge-hubs bridge-hub-kusama ./artifacts
     - ./scripts/benchmarks-ci.sh bridge-hubs bridge-hub-rococo ./artifacts
@@ -77,4 +81,4 @@ benchmarks-bridge-hubs:
   after_script:
     - rm -rf .git/config
   tags:
-    - weights
+    - weights-vm
