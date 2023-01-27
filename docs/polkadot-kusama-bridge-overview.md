@@ -21,8 +21,8 @@ The runtime will have minimal set of non-bridge pallets, so there's not much you
 ## Connecting Parachains
 
 You won't be able to directly use bridge hub transactions to send XCM messages over the bridge. Instead, you'll need
-to use other parachains transactions, which will use HRMP to deliver message to the Bridge Hub. The Bridge Hub will
-just queue this messages in its outbound lane, which is dedicated to deliver messages between two parachains.
+to use other parachains transactions, which will use HRMP to deliver messages to the Bridge Hub. The Bridge Hub will
+just queue these messages in its outbound lane, which is dedicated to deliver messages between two parachains.
 
 Our first planned bridge will connect the Polkadot' Statemint and Kusama' Statemine. Bridge between those two
 parachains would allow Statemint accounts to hold wrapped KSM tokens and Statemine accounts to hold wrapped DOT
@@ -107,7 +107,7 @@ is not used to cover rewards of bridging with some other Polkadot Parachain.
 Our goal is to incentivize running honest relayers. But we have no relayers sets, so at any time anyone may submit
 message delivery transaction, hoping that the cost of this transaction will be compensated. So what if some message is
 currently queued and two relayers are submitting two identical message delivery transactions at once? Without any
-special means, the cost of first included transacton will be compensated and the cost of the other one won't. A honest,
+special means, the cost of first included transaction will be compensated and the cost of the other one won't. A honest,
 but unlucky relayer will lose some money. In addition, we'll waste some portion of block size and weight, which
 may be used by other useful transactions.
 

@@ -19,11 +19,11 @@ More: [GRANDPA Finality Relay Sequence Diagram](../../docs/grandpa-finality-rela
 ## How to Use the Finality Relay
 
 The most important trait is the [`FinalitySyncPipeline`](./src/lib.rs), which defines the basic primitives of the
-source chain (like block hash and number) and the type of finality proof (GRANDPA jusitfication or MMR proof). Once
+source chain (like block hash and number) and the type of finality proof (GRANDPA justification or MMR proof). Once
 that is defined, there are two other traits - [`SourceClient`](./src/finality_loop.rs) and
 [`TarggetClient`](./src/finality_loop.rs).
 
-The `SourceClient` represents the Substrate node client that connects to the source chain. The client need to
+The `SourceClient` represents the Substrate node client that connects to the source chain. The client needs to
 be able to return the best finalized header number, finalized header and its finality proof and the stream of
 finality proofs.
 
@@ -31,8 +31,8 @@ The `TargetClient` implementation must be able to craft finality delivery transa
 node. The transaction is then tracked by the relay until it is mined and finalized.
 
 The main entrypoint for the crate is the [`run` function](./src/finality_loop.rs), which takes source and target
-clients and [`FinalitySyncParams`](./src/finality_loop.rs) parameters. The most imporant parameter is the
-`only_mandatory_headers` - it it is set to `true`, the relay will only submit mandatory headers. Since transactions
+clients and [`FinalitySyncParams`](./src/finality_loop.rs) parameters. The most important parameter is the
+`only_mandatory_headers` - it is set to `true`, the relay will only submit mandatory headers. Since transactions
 with mandatory headers are fee-free, the cost of running such relay is zero (in terms of fees).
 
 ## Finality Relay Metrics

@@ -94,7 +94,7 @@ In our Substrate-to-Substrate bridge we're using runtime storage proofs. Other b
 transaction proofs, Substrate header digests or anything else that may be proved.
 
 **IMPORTANT NOTE**: everything below in this chapter describes details of the messages module
-configuration. But if you interested in well-probed and relatively easy integration of two
+configuration. But if you're interested in well-probed and relatively easy integration of two
 Substrate-based chains, you may want to look at the
 [bridge-runtime-common](../../bin/runtime-common/) crate. This crate is providing a lot of
 helpers for integration, which may be directly used from within your runtime. Then if you'll decide
@@ -153,7 +153,7 @@ The last type is the `pallet_bridge_messages::Config::DeliveryConfirmationPaymen
 transaction is received, we call the `pay_reward()` method, passing the range of delivered messages.
 You may use the [`pallet-bridge-relayers`](../relayers/) pallet and its
 [`DeliveryConfirmationPaymentsAdapter`](../relayers/src/payment_adapter.rs) adapter as a possible
-implementation. It allows you to pay fixed reward for relaying the message and some its portion
+implementation. It allows you to pay fixed reward for relaying the message and some of its portion
 for confirming delivery.
 
 ### I have a Messages Module in my Runtime, but I Want to Reject all Outbound Messages. What shall I do?
@@ -183,7 +183,7 @@ implements all required traits and will simply reject all transactions, related 
 
 ### What about other Constants in the Messages Module Configuration Trait?
 
-Two setttings that are used to check messages in the `send_message()` function. The
+Two settings that are used to check messages in the `send_message()` function. The
 `pallet_bridge_messages::Config::ActiveOutboundLanes` is an array of all message lanes, that
 may be used to send messages. All messages sent using other lanes are rejected. All messages that have
 size above `pallet_bridge_messages::Config::MaximalOutboundPayloadSize` will also be rejected.
