@@ -157,9 +157,9 @@ impl ParaStoredHeaderDataBuilder for C {
 pub enum BridgeParachainCall {
 	/// `pallet-bridge-parachains::Call::submit_parachain_heads`
 	#[codec(index = 0)]
-	submit_parachain_heads(
-		(RelayBlockNumber, RelayBlockHash),
-		Vec<(ParaId, ParaHash)>,
-		ParaHeadsProof,
-	),
+	submit_parachain_heads {
+		at_relay_block: (RelayBlockNumber, RelayBlockHash),
+		parachains: Vec<(ParaId, ParaHash)>,
+		parachain_heads_proof: ParaHeadsProof,
+	},
 }
