@@ -43,10 +43,10 @@ Instead, it provides runtime-internal method that allows other pallets (or other
 outbound messages.
 
 The message "appears" when some runtime code calls the `send_message()` method of the pallet.
-The submitter specifies the lane that he's willing to use and the message itself. If some fee must be
-paid for sending the message, it must be paid outside of the pallet. If a message passes all checks
-(that include, for example, message size check, disabled lane check, ...), the nonce is assigned and the
-message is stored in the module storage. The message is in an "undelivered" state now.
+The submitter specifies the lane that they're willing to use and the message itself. If some fee must
+be paid for sending the message, it must be paid outside of the pallet. If a message passes all checks
+(that include, for example, message size check, disabled lane check, ...), the nonce is assigned and
+the message is stored in the module storage. The message is in an "undelivered" state now.
 
 We assume that there are external, offchain actors, called relayers, that are submitting module
 related transactions to both target and source chains. The pallet itself has no assumptions about
@@ -57,17 +57,17 @@ for details.
 Eventually, some relayer would notice this message in the "undelivered" state and it would decide to
 deliver this message. Relayer then crafts `receive_messages_proof()` transaction (aka delivery
 transaction) for the messages module instance, deployed at the target chain. Relayer provides
-his account id at the source chain, the proof of message (or several messages), the number of
+its account id at the source chain, the proof of message (or several messages), the number of
 messages in the transaction and their cumulative dispatch weight. Once a transaction is mined, the
 message is considered "delivered".
 
 Once a message is delivered, the relayer may want to confirm delivery back to the source chain.
-There are two reasons why he would want to do that. The first is that we intentionally limit number
+There are two reasons why it would want to do that. The first is that we intentionally limit number
 of "delivered", but not yet "confirmed" messages at inbound lanes
 (see [What about other Constants in the Messages Module Configuration Trait](#What-about-other-Constants-in-the-Messages-Module-Configuration-Trait) for explanation).
 So at some point, the target chain may stop accepting new messages until relayers confirm some of
-these. The second is that if the relayer wants to be rewarded for delivery, he must prove the fact
-that he has actually delivered the message. And this proof may only be generated after the delivery
+these. The second is that if the relayer wants to be rewarded for delivery, it must prove the fact
+that it has actually delivered the message. And this proof may only be generated after the delivery
 transaction is mined. So relayer crafts the `receive_messages_delivery_proof()` transaction (aka
 confirmation transaction) for the messages module instance, deployed at the source chain. Once
 this transaction is mined, the message is considered "confirmed".
@@ -84,8 +84,8 @@ relayer sometimes includes a nonce of the latest "confirmed" message in the next
 As it has been said above, the messages module supports both outbound and inbound message lanes.
 So if we will integrate a module in some runtime, it may act as the source chain runtime for
 outbound messages and as the target chain runtime for inbound messages. In this section, we'll
-sometimes refer to the chain we're currently integrating with, as this chain and the other chain as
-bridged chain.
+sometimes refer to the chain we're currently integrating with, as "this chain" and the other
+chain as "bridged chain".
 
 Messages module doesn't simply accept transactions that are claiming that the bridged chain has
 some updated data for us. Instead of this, the module assumes that the bridged chain is able to
@@ -96,7 +96,7 @@ transaction proofs, Substrate header digests or anything else that may be proved
 **IMPORTANT NOTE**: everything below in this chapter describes details of the messages module
 configuration. But if you interested in well-probed and relatively easy integration of two
 Substrate-based chains, you may want to look at the
-[bridge-runtime-common](../../bin/runtime-common/README.md) crate. This crate is providing a lot of
+[bridge-runtime-common](../../bin/runtime-common/) crate. This crate is providing a lot of
 helpers for integration, which may be directly used from within your runtime. Then if you'll decide
 to change something in this scheme, get back here for detailed information.
 
