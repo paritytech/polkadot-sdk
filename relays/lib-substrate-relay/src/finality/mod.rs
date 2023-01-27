@@ -156,7 +156,12 @@ macro_rules! generate_mocked_submit_finality_proof_call_builder {
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::finality::SubstrateFinalitySyncPipeline>::TargetChain
 			> {
-				$bridge_grandpa($submit_finality_proof(Box::new(header.into_inner()), proof))
+				bp_runtime::paste::item! {
+					$bridge_grandpa($submit_finality_proof {
+						finality_target: Box::new(header.into_inner()),
+						justification: proof
+					})
+				}
 			}
 		}
 	};

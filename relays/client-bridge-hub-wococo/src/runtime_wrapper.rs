@@ -96,7 +96,7 @@ mod tests {
 			set_id: 6,
 			operating_mode: BasicOperatingMode::Normal,
 		};
-		let call = BridgeRococoGrandpaCall::initialize(init_data);
+		let call = BridgeRococoGrandpaCall::initialize { init_data };
 		let tx = Call::BridgeRococoGrandpa(call);
 
 		// encode call as hex string

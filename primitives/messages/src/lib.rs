@@ -397,10 +397,18 @@ where
 pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
 	/// `pallet-bridge-messages::Call::receive_messages_proof`
 	#[codec(index = 2)]
-	receive_messages_proof(AccountId, MessagesProof, u32, Weight),
+	receive_messages_proof {
+		relayer_id_at_bridged_chain: AccountId,
+		proof: MessagesProof,
+		messages_count: u32,
+		dispatch_weight: Weight,
+	},
 	/// `pallet-bridge-messages::Call::receive_messages_delivery_proof`
 	#[codec(index = 3)]
-	receive_messages_delivery_proof(MessagesDeliveryProof, UnrewardedRelayersState),
+	receive_messages_delivery_proof {
+		proof: MessagesDeliveryProof,
+		relayers_state: UnrewardedRelayersState,
+	},
 }
 
 #[cfg(test)]

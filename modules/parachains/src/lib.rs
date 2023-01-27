@@ -1513,8 +1513,11 @@ mod tests {
 			parachains: parachains.clone(),
 			parachain_heads_proof: proof.clone(),
 		};
-		let indirect_submit_parachain_heads_call =
-			BridgeParachainCall::submit_parachain_heads(relay_header_id, parachains, proof);
+		let indirect_submit_parachain_heads_call = BridgeParachainCall::submit_parachain_heads {
+			at_relay_block: relay_header_id,
+			parachains,
+			parachain_heads_proof: proof,
+		};
 		assert_eq!(
 			direct_submit_parachain_heads_call.encode(),
 			indirect_submit_parachain_heads_call.encode()
