@@ -176,10 +176,13 @@ impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
 pub enum BridgeGrandpaCall<Header: HeaderT> {
 	/// `pallet-bridge-grandpa::Call::submit_finality_proof`
 	#[codec(index = 0)]
-	submit_finality_proof(Box<Header>, justification::GrandpaJustification<Header>),
+	submit_finality_proof {
+		finality_target: Box<Header>,
+		justification: justification::GrandpaJustification<Header>,
+	},
 	/// `pallet-bridge-grandpa::Call::initialize`
 	#[codec(index = 1)]
-	initialize(InitializationData<Header>),
+	initialize { init_data: InitializationData<Header> },
 }
 
 /// The `BridgeGrandpaCall` used by a chain.
