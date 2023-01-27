@@ -1928,12 +1928,12 @@ mod tests {
 			AccountId,
 			TestMessagesProof,
 			TestMessagesDeliveryProof,
-		>::receive_messages_proof(
-			account_id,
-			message_proof,
-			1,
-			REGULAR_PAYLOAD.declared_weight,
-		);
+		>::receive_messages_proof {
+			relayer_id_at_bridged_chain: account_id,
+			proof: message_proof,
+			messages_count: 1,
+			dispatch_weight: REGULAR_PAYLOAD.declared_weight,
+		};
 		assert_eq!(
 			direct_receive_messages_proof_call.encode(),
 			indirect_receive_messages_proof_call.encode()
@@ -1948,10 +1948,10 @@ mod tests {
 			AccountId,
 			TestMessagesProof,
 			TestMessagesDeliveryProof,
-		>::receive_messages_delivery_proof(
-			message_delivery_proof,
-			unrewarded_relayer_state,
-		);
+		>::receive_messages_delivery_proof {
+			proof: message_delivery_proof,
+			relayers_state: unrewarded_relayer_state,
+		};
 		assert_eq!(
 			direct_receive_messages_delivery_proof_call.encode(),
 			indirect_receive_messages_delivery_proof_call.encode()
