@@ -125,9 +125,10 @@ impl BridgeInitializer for MillauToRialtoParachainCliBridge {
 	) -> <Self::Target as Chain>::Call {
 		use relay_rialto_parachain_client::runtime;
 
-		let initialize_call = runtime::Call::BridgeMillauGrandpa(
-			runtime::BridgeMillauGrandpaCall::initialize(init_data),
-		);
+		let initialize_call =
+			runtime::Call::BridgeMillauGrandpa(runtime::BridgeMillauGrandpaCall::initialize {
+				init_data,
+			});
 		let sudo_call = SudoCall::sudo(Box::new(initialize_call));
 		runtime::Call::Sudo(sudo_call)
 	}
@@ -176,7 +177,9 @@ impl BridgeInitializer for RococoToBridgeHubWococoCliBridge {
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
 		relay_bridge_hub_wococo_client::runtime::Call::BridgeRococoGrandpa(
-			relay_bridge_hub_wococo_client::runtime::BridgeRococoGrandpaCall::initialize(init_data),
+			relay_bridge_hub_wococo_client::runtime::BridgeRococoGrandpaCall::initialize {
+				init_data,
+			},
 		)
 	}
 }
@@ -188,7 +191,9 @@ impl BridgeInitializer for WococoToBridgeHubRococoCliBridge {
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
 		relay_bridge_hub_rococo_client::runtime::Call::BridgeWococoGrandpa(
-			relay_bridge_hub_rococo_client::runtime::BridgeWococoGrandpaCall::initialize(init_data),
+			relay_bridge_hub_rococo_client::runtime::BridgeWococoGrandpaCall::initialize {
+				init_data,
+			},
 		)
 	}
 }

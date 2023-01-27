@@ -1178,7 +1178,7 @@ mod tests {
 
 		let direct_initialize_call =
 			Call::<TestRuntime>::initialize { init_data: init_data.clone() };
-		let indirect_initialize_call = BridgeGrandpaCall::<TestHeader>::initialize(init_data);
+		let indirect_initialize_call = BridgeGrandpaCall::<TestHeader>::initialize { init_data };
 		assert_eq!(direct_initialize_call.encode(), indirect_initialize_call.encode());
 
 		let direct_submit_finality_proof_call = Call::<TestRuntime>::submit_finality_proof {
@@ -1186,7 +1186,10 @@ mod tests {
 			justification: justification.clone(),
 		};
 		let indirect_submit_finality_proof_call =
-			BridgeGrandpaCall::<TestHeader>::submit_finality_proof(Box::new(header), justification);
+			BridgeGrandpaCall::<TestHeader>::submit_finality_proof {
+				finality_target: Box::new(header),
+				justification,
+			};
 		assert_eq!(
 			direct_submit_finality_proof_call.encode(),
 			indirect_submit_finality_proof_call.encode()

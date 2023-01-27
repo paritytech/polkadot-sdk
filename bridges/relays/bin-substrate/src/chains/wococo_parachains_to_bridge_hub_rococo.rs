@@ -51,11 +51,11 @@ impl SubmitParachainHeadsCallBuilder<BridgeHubWococoToBridgeHubRococo>
 		parachain_heads_proof: ParaHeadsProof,
 	) -> CallOf<relay_bridge_hub_rococo_client::BridgeHubRococo> {
 		relay_bridge_hub_rococo_client::runtime::Call::BridgeWococoParachain(
-			bp_parachains::BridgeParachainCall::submit_parachain_heads(
-				(at_relay_block.0, at_relay_block.1),
+			bp_parachains::BridgeParachainCall::submit_parachain_heads {
+				at_relay_block: (at_relay_block.0, at_relay_block.1),
 				parachains,
 				parachain_heads_proof,
-			),
+			},
 		)
 	}
 }

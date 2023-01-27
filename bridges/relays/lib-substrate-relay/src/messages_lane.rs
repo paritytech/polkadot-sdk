@@ -335,12 +335,14 @@ macro_rules! generate_mocked_receive_message_proof_call_builder {
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::messages_lane::SubstrateMessageLane>::TargetChain
 			> {
-				$bridge_messages($receive_messages_proof(
-					relayer_id_at_source,
-					proof.1,
-					messages_count,
-					dispatch_weight,
-				))
+				bp_runtime::paste::item! {
+					$bridge_messages($receive_messages_proof {
+						relayer_id_at_bridged_chain: relayer_id_at_source,
+						proof: proof.1,
+						messages_count: messages_count,
+						dispatch_weight: dispatch_weight,
+					})
+				}
 			}
 		}
 	};
@@ -424,7 +426,12 @@ macro_rules! generate_mocked_receive_message_delivery_proof_call_builder {
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::messages_lane::SubstrateMessageLane>::SourceChain
 			> {
-				$bridge_messages($receive_messages_delivery_proof(proof.1, proof.0))
+				bp_runtime::paste::item! {
+					$bridge_messages($receive_messages_delivery_proof {
+						proof: proof.1,
+						relayers_state: proof.0
+					})
+				}
 			}
 		}
 	};
