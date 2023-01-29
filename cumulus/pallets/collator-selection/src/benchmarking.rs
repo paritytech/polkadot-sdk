@@ -19,7 +19,9 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_benchmarking::{
+	account, benchmarks, impl_benchmark_test_suite, whitelisted_caller, BenchmarkError,
+};
 use frame_support::{
 	assert_ok,
 	codec::Decode,
@@ -110,7 +112,8 @@ benchmarks! {
 	set_invulnerables {
 		let b in 1 .. T::MaxInvulnerables::get();
 		let new_invulnerables = register_validators::<T>(b);
-		let origin = T::UpdateOrigin::successful_origin();
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	}: {
 		assert_ok!(
 			<CollatorSelection<T>>::set_invulnerables(origin, new_invulnerables.clone())
@@ -122,7 +125,8 @@ benchmarks! {
 
 	set_desired_candidates {
 		let max: u32 = 999;
-		let origin = T::UpdateOrigin::successful_origin();
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	}: {
 		assert_ok!(
 			<CollatorSelection<T>>::set_desired_candidates(origin, max.clone())
@@ -134,7 +138,8 @@ benchmarks! {
 
 	set_candidacy_bond {
 		let bond_amount: BalanceOf<T> = T::Currency::minimum_balance() * 10u32.into();
-		let origin = T::UpdateOrigin::successful_origin();
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	}: {
 		assert_ok!(
 			<CollatorSelection<T>>::set_candidacy_bond(origin, bond_amount.clone())
