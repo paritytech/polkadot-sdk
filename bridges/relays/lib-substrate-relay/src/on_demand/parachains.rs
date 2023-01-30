@@ -40,8 +40,8 @@ use parachains_relay::parachains_loop::{
 	AvailableHeader, ParachainSyncParams, SourceClient, TargetClient,
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client, Error as SubstrateError,
-	HashOf, HeaderIdOf, ParachainBase, ANCIENT_BLOCK_THRESHOLD,
+	is_ancient_block, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
+	Error as SubstrateError, HashOf, HeaderIdOf, ParachainBase,
 };
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, BlockNumberBase, FailedClient,
@@ -501,10 +501,18 @@ where
 	.await
 	.map_err(map_target_err)?;
 
-	let para_header_at_relay_header_at_target = source
-		.on_chain_para_head_id(relay_header_at_target, P::SourceParachain::PARACHAIN_ID.into())
-		.await
-		.map_err(map_source_err)?;
+	// if relay header at target is too old, then its state may already be discarded at the source
+	// => just use `None` in this case
+	let is_relay_header_at_target_ancient =
+		is_ancient_block(relay_header_at_target.number(), relay_header_at_source);
+	let para_header_at_relay_header_at_target = if is_relay_header_at_target_ancient {
+		None
+	} else {
+		source
+			.on_chain_para_head_id(relay_header_at_target, P::SourceParachain::PARACHAIN_ID.into())
+			.await
+			.map_err(map_source_err)?
+	};
 
 	Ok(RelayData {
 		required_para_header: required_header_number,
@@ -677,11 +685,10 @@ where
 	// we don't require source node to be archive, so we can't craft storage proofs using
 	// ancient headers. So if the `best_finalized_relay_block_at_target` is too ancient, we
 	// can't craft storage proofs using it
-	let may_use_state_at_best_finalized_relay_block_at_target =
-		best_finalized_relay_block_at_source
-			.number()
-			.saturating_sub(best_finalized_relay_block_at_target.number()) <=
-			RBN::from(ANCIENT_BLOCK_THRESHOLD);
+	let may_use_state_at_best_finalized_relay_block_at_target = !is_ancient_block(
+		best_finalized_relay_block_at_target.number(),
+		best_finalized_relay_block_at_source.number(),
+	);
 
 	// now let's check if `required_header` may be proved using
 	// `best_finalized_relay_block_at_target`
