@@ -37,7 +37,7 @@ use jsonrpsee::{
 	core::DeserializeOwned,
 	ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBuilder},
 };
-use num_traits::{Bounded, Zero};
+use num_traits::{Bounded, Saturating, Zero};
 use pallet_balances::AccountData;
 use pallet_transaction_payment::InclusionFee;
 use relay_utils::{relay_loop::RECONNECT_DELAY, STALL_TIMEOUT};
@@ -68,6 +68,11 @@ const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 /// By default Substrate-based nodes are storing state for last 256 blocks. We'll use
 /// half of this value.
 pub const ANCIENT_BLOCK_THRESHOLD: u32 = 128;
+
+/// Returns `true` if we think that the state is already discarded for given block.
+pub fn is_ancient_block<N: From<u32> + PartialOrd + Saturating>(block: N, best: N) -> bool {
+	best.saturating_sub(block) >= N::from(ANCIENT_BLOCK_THRESHOLD)
+}
 
 /// Opaque justifications subscription type.
 pub struct Subscription<T>(pub(crate) Mutex<futures::channel::mpsc::Receiver<Option<T>>>);
