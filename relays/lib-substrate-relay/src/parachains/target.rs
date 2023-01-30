@@ -33,7 +33,7 @@ use parachains_relay::{
 };
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
-	HeaderIdOf, RelayChain, TransactionEra, TransactionTracker, UnsignedTransaction,
+	HeaderIdOf, ParachainBase, RelayChain, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
 use sp_core::{Bytes, Pair};
@@ -110,7 +110,10 @@ where
 		)
 		.map_err(SubstrateError::ResponseParseFailed)?
 		.map(Ok)
-		.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))
+		.unwrap_or(Err(SubstrateError::NoParachainHeadAtTarget(
+			P::SourceParachain::PARACHAIN_ID,
+			P::TargetChain::NAME.into(),
+		)))
 	}
 
 	async fn parachain_head(

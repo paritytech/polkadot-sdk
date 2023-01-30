@@ -473,12 +473,13 @@ where
 		P::SourceParachain,
 	>(target.client(), best_target_block_hash)
 	.await;
-	// if there are no parachain heads at the target (`BridgePalletIsNotInitialized`), we'll need
-	// to submit at least one. Otherwise the pallet will be treated as uninitialized and messages
+	// if there are no parachain heads at the target (`NoParachainHeadAtTarget`), we'll need to
+	// submit at least one. Otherwise the pallet will be treated as uninitialized and messages
 	// sync will stall.
 	let para_header_at_target = match para_header_at_target {
 		Ok(para_header_at_target) => Some(para_header_at_target.0),
-		Err(SubstrateError::BridgePalletIsNotInitialized) => None,
+		Err(SubstrateError::BridgePalletIsNotInitialized) |
+		Err(SubstrateError::NoParachainHeadAtTarget(_, _)) => None,
 		Err(e) => return Err(map_target_err(e)),
 	};
 
