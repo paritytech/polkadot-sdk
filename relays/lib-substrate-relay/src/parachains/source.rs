@@ -29,7 +29,8 @@ use parachains_relay::{
 	parachains_loop_metrics::ParachainsLoopMetrics,
 };
 use relay_substrate_client::{
-	Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf, ParachainBase, RelayChain,
+	is_ancient_block, Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf, ParachainBase,
+	RelayChain,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 
@@ -115,6 +116,14 @@ where
 			)))
 		}
 
+		// if requested relay header is ancient, then we don't even want to try to read the
+		// parachain head - we simply return `Unavailable`
+		let best_block_number = self.client.best_finalized_header_number().await?;
+		if is_ancient_block(at_block.number(), best_block_number) {
+			return Ok(AvailableHeader::Unavailable)
+		}
+
+		// else - try to read head from the source client
 		let mut para_head_id = AvailableHeader::Missing;
 		if let Some(on_chain_para_head_id) = self.on_chain_para_head_id(at_block, para_id).await? {
 			// Never return head that is larger than requested. This way we'll never sync

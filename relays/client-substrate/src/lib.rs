@@ -40,8 +40,8 @@ pub use crate::{
 		UnsignedTransaction, UtilityPallet,
 	},
 	client::{
-		ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet, SimpleRuntimeVersion,
-		Subscription, ANCIENT_BLOCK_THRESHOLD,
+		is_ancient_block, ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet,
+		SimpleRuntimeVersion, Subscription, ANCIENT_BLOCK_THRESHOLD,
 	},
 	error::{Error, Result},
 	rpc::{SubstrateBeefyFinalityClient, SubstrateFinalityClient, SubstrateGrandpaFinalityClient},
