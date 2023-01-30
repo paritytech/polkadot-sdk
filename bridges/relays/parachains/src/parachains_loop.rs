@@ -243,7 +243,7 @@ where
 					P::SourceChain::NAME,
 					e,
 				);
-				return Err(FailedClient::Target)
+				return Err(FailedClient::Source)
 			},
 		}
 
@@ -844,7 +844,7 @@ mod tests {
 				None,
 				futures::future::pending(),
 			)),
-			Err(FailedClient::Target),
+			Err(FailedClient::Source),
 		);
 	}
 
