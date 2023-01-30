@@ -61,6 +61,9 @@ pub enum Error {
 	/// The bridge pallet is not yet initialized and all transactions will be rejected.
 	#[error("Bridge pallet is not initialized.")]
 	BridgePalletIsNotInitialized,
+	/// There's no best head of the parachain at the `pallet-bridge-parachains` at the target side.
+	#[error("No head of the ParaId({0}) at the bridge parachains pallet at {1}.")]
+	NoParachainHeadAtTarget(u32, String),
 	/// An error has happened when we have tried to parse storage proof.
 	#[error("Error when parsing storage proof: {0:?}.")]
 	StorageProofError(bp_runtime::StorageProofError),
