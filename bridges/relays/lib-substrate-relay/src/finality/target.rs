@@ -102,7 +102,8 @@ where
 			None,
 		)
 		.await?
-		.best_finalized_peer_at_best_self)
+		.best_finalized_peer_at_best_self
+		.ok_or(Error::BridgePalletIsNotInitialized)?)
 	}
 
 	async fn submit_finality_proof(
