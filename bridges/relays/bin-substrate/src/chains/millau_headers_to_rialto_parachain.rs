@@ -39,7 +39,7 @@ use substrate_relay_helper::finality::{
 	engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalitySyncPipeline,
 };
 
-substrate_relay_helper::generate_mocked_submit_finality_proof_call_builder!(
+substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	MillauFinalityToRialtoParachain,
 	MillauFinalityToRialtoParachainCallBuilder,
 	relay_rialto_parachain_client::runtime::Call::BridgeMillauGrandpa,
