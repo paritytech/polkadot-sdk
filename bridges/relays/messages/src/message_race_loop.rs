@@ -308,7 +308,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						target_best_nonces_required = true;
 						race_state.best_target_header_id = Some(target_state.best_self);
 						race_state.best_finalized_source_header_id_at_best_target
-							= Some(target_state.best_finalized_peer_at_best_self);
+							= target_state.best_finalized_peer_at_best_self;
 					}
 
 					let is_target_finalized_state_updated = race_state.best_finalized_target_header_id.as_ref()
