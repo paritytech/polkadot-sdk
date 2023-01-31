@@ -16,7 +16,7 @@
 
 //! Types used to connect to the BridgeHub-Wococo-Substrate parachain.
 
-use bp_bridge_hub_wococo::PolkadotSignedExtension;
+use bp_bridge_hub_wococo::{PolkadotSignedExtension, AVERAGE_BLOCK_INTERVAL};
 use bp_messages::MessageNonce;
 use codec::Encode;
 use relay_substrate_client::{
@@ -44,7 +44,7 @@ impl Chain for BridgeHubWococo {
 	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_bridge_hub_wococo::BEST_FINALIZED_BRIDGE_HUB_WOCOCO_HEADER_METHOD;
-	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
+	const AVERAGE_BLOCK_INTERVAL: Duration = AVERAGE_BLOCK_INTERVAL;
 
 	type SignedBlock = bp_bridge_hub_wococo::SignedBlock;
 	type Call = runtime::Call;
