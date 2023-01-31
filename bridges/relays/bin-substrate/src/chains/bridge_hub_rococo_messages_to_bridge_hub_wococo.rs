@@ -32,14 +32,14 @@ impl MessagesCliBridge for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {
 	type MessagesLane = BridgeHubRococoMessagesToBridgeHubWococoMessageLane;
 }
 
-substrate_relay_helper::generate_mocked_receive_message_proof_call_builder!(
+substrate_relay_helper::generate_receive_message_proof_call_builder!(
 	BridgeHubRococoMessagesToBridgeHubWococoMessageLane,
 	BridgeHubRococoMessagesToBridgeHubWococoMessageLaneReceiveMessagesProofCallBuilder,
 	relay_bridge_hub_wococo_client::runtime::Call::BridgeRococoMessages,
 	relay_bridge_hub_wococo_client::runtime::BridgeRococoMessagesCall::receive_messages_proof
 );
 
-substrate_relay_helper::generate_mocked_receive_message_delivery_proof_call_builder!(
+substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(
 	BridgeHubRococoMessagesToBridgeHubWococoMessageLane,
 	BridgeHubRococoMessagesToBridgeHubWococoMessageLaneReceiveMessagesDeliveryProofCallBuilder,
 	relay_bridge_hub_rococo_client::runtime::Call::BridgeWococoMessages,
