@@ -315,7 +315,7 @@ where
 /// the variant for the `receive_messages_proof` call within that first option.
 #[rustfmt::skip]
 #[macro_export]
-macro_rules! generate_mocked_receive_message_proof_call_builder {
+macro_rules! generate_receive_message_proof_call_builder {
 	($pipeline:ident, $mocked_builder:ident, $bridge_messages:path, $receive_messages_proof:path) => {
 		pub struct $mocked_builder;
 
@@ -411,7 +411,7 @@ where
 /// the variant for the `receive_messages_delivery_proof` call within that first option.
 #[rustfmt::skip]
 #[macro_export]
-macro_rules! generate_mocked_receive_message_delivery_proof_call_builder {
+macro_rules! generate_receive_message_delivery_proof_call_builder {
 	($pipeline:ident, $mocked_builder:ident, $bridge_messages:path, $receive_messages_delivery_proof:path) => {
 		pub struct $mocked_builder;
 

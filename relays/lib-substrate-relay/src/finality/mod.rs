@@ -135,7 +135,7 @@ where
 /// the variant for the `submit_finality_proof` call within that first option.
 #[rustfmt::skip]
 #[macro_export]
-macro_rules! generate_mocked_submit_finality_proof_call_builder {
+macro_rules! generate_submit_finality_proof_call_builder {
 	($pipeline:ident, $mocked_builder:ident, $bridge_grandpa:path, $submit_finality_proof:path) => {
 		pub struct $mocked_builder;
 
