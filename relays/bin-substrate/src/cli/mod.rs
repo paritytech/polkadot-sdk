@@ -260,6 +260,22 @@ pub struct PrometheusParams {
 #[derive(BuildInfo)]
 struct SubstrateRelayBuildInfo;
 
+impl SubstrateRelayBuildInfo {
+	/// Get git commit in form `<short-sha-(clean|dirty)>`.
+	pub fn get_git_commit() -> String {
+		// on gitlab we use images without git installed, so we can't use `rbtag` there
+		// locally we don't have `CI_*` env variables, so we can't rely on them
+		// => we are using `CI_*` env variables or else `rbtag`
+		let maybe_sha_from_ci = option_env!("CI_COMMIT_SHORT_SHA");
+		maybe_sha_from_ci
+			.map(|short_sha| {
+				// we assume that on CI the copy is always clean
+				format!("{short_sha}-clean")
+			})
+			.unwrap_or_else(|| SubstrateRelayBuildInfo.get_build_commit().into())
+	}
+}
+
 impl PrometheusParams {
 	/// Tries to convert CLI metrics params into metrics params, used by the relay.
 	pub fn into_metrics_params(self) -> anyhow::Result<relay_utils::metrics::MetricsParams> {
@@ -273,11 +289,11 @@ impl PrometheusParams {
 		};
 
 		let relay_version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
-		let relay_commit = SubstrateRelayBuildInfo.get_build_commit();
+		let relay_commit = SubstrateRelayBuildInfo::get_git_commit();
 		relay_utils::metrics::MetricsParams::new(
 			metrics_address,
 			relay_version.into(),
-			relay_commit.into(),
+			relay_commit,
 		)
 		.map_err(|e| anyhow::format_err!("{:?}", e))
 	}
