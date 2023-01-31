@@ -29,7 +29,7 @@ use substrate_relay_helper::{
 #[derive(Clone, Debug)]
 pub struct RococoFinalityToBridgeHubWococo;
 
-substrate_relay_helper::generate_mocked_submit_finality_proof_call_builder!(
+substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	RococoFinalityToBridgeHubWococo,
 	RococoFinalityToBridgeHubWococoCallBuilder,
 	relay_bridge_hub_wococo_client::runtime::Call::BridgeRococoGrandpa,
