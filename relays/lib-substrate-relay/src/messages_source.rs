@@ -421,14 +421,15 @@ where
 		.await?;
 
 	// read actual header, matching the `peer_on_self_best_finalized_id` from the peer chain
-	let actual_peer_on_self_best_finalized_id = match peer_client {
-		Some(peer_client) => {
-			let actual_peer_on_self_best_finalized =
-				peer_client.header_by_number(peer_on_self_best_finalized_id.number()).await?;
-			actual_peer_on_self_best_finalized.id()
-		},
-		None => peer_on_self_best_finalized_id,
-	};
+	let actual_peer_on_self_best_finalized_id =
+		match (peer_client, peer_on_self_best_finalized_id.as_ref()) {
+			(Some(peer_client), Some(peer_on_self_best_finalized_id)) => {
+				let actual_peer_on_self_best_finalized =
+					peer_client.header_by_number(peer_on_self_best_finalized_id.number()).await?;
+				Some(actual_peer_on_self_best_finalized.id())
+			},
+			_ => peer_on_self_best_finalized_id,
+		};
 
 	Ok(ClientState {
 		best_self: self_best_id,
@@ -444,7 +445,7 @@ where
 pub async fn best_finalized_peer_header_at_self<SelfChain, PeerChain>(
 	self_client: &Client<SelfChain>,
 	at_self_hash: HashOf<SelfChain>,
-) -> Result<HeaderIdOf<PeerChain>, SubstrateError>
+) -> Result<Option<HeaderIdOf<PeerChain>>, SubstrateError>
 where
 	SelfChain: Chain,
 	PeerChain: Chain,
@@ -456,8 +457,7 @@ where
 			(),
 			Some(at_self_hash),
 		)
-		.await?
-		.ok_or(SubstrateError::BridgePalletIsNotInitialized)
+		.await
 }
 
 fn validate_out_msgs_details<C: Chain>(

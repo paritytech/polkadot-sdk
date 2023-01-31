@@ -249,10 +249,13 @@ pub struct ClientState<SelfHeaderId, PeerHeaderId> {
 	pub best_finalized_self: SelfHeaderId,
 	/// Best finalized header id of the peer chain read at the best block of this chain (at
 	/// `best_finalized_self`).
-	pub best_finalized_peer_at_best_self: PeerHeaderId,
+	///
+	/// It may be `None` e,g. if peer is a parachain and we haven't yet relayed any parachain
+	/// heads.
+	pub best_finalized_peer_at_best_self: Option<PeerHeaderId>,
 	/// Header id of the peer chain with the number, matching the
 	/// `best_finalized_peer_at_best_self`.
-	pub actual_best_finalized_peer_at_best_self: PeerHeaderId,
+	pub actual_best_finalized_peer_at_best_self: Option<PeerHeaderId>,
 }
 
 /// State of source client in one-way message lane.
@@ -973,15 +976,15 @@ pub(crate) mod tests {
 				source_state: ClientState {
 					best_self: HeaderId(0, 0),
 					best_finalized_self: HeaderId(0, 0),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				source_latest_generated_nonce: 1,
 				target_state: ClientState {
 					best_self: HeaderId(0, 0),
 					best_finalized_self: HeaderId(0, 0),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				target_latest_received_nonce: 0,
 				..Default::default()
@@ -997,11 +1000,11 @@ pub(crate) mod tests {
 				if data.is_target_reconnected {
 					data.is_target_fails = false;
 				}
-				if data.target_state.best_finalized_peer_at_best_self.0 < 10 {
-					data.target_state.best_finalized_peer_at_best_self = HeaderId(
-						data.target_state.best_finalized_peer_at_best_self.0 + 1,
-						data.target_state.best_finalized_peer_at_best_self.0 + 1,
-					);
+				if data.target_state.best_finalized_peer_at_best_self.unwrap().0 < 10 {
+					data.target_state.best_finalized_peer_at_best_self = Some(HeaderId(
+						data.target_state.best_finalized_peer_at_best_self.unwrap().0 + 1,
+						data.target_state.best_finalized_peer_at_best_self.unwrap().0 + 1,
+					));
 				}
 				if !data.submitted_messages_proofs.is_empty() {
 					exit_sender.unbounded_send(()).unwrap();
@@ -1025,16 +1028,16 @@ pub(crate) mod tests {
 				source_state: ClientState {
 					best_self: HeaderId(0, 0),
 					best_finalized_self: HeaderId(0, 0),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				source_latest_generated_nonce: 1,
 				source_tracked_transaction_status: TrackedTransactionStatus::Lost,
 				target_state: ClientState {
 					best_self: HeaderId(0, 0),
 					best_finalized_self: HeaderId(0, 0),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				target_latest_received_nonce: 0,
 				target_tracked_transaction_status: TrackedTransactionStatus::Lost,
@@ -1076,15 +1079,15 @@ pub(crate) mod tests {
 				source_state: ClientState {
 					best_self: HeaderId(0, 0),
 					best_finalized_self: HeaderId(0, 0),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				source_latest_generated_nonce: 1,
 				target_state: ClientState {
 					best_self: HeaderId(0, 0),
 					best_finalized_self: HeaderId(0, 0),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				target_latest_received_nonce: 0,
 				..Default::default()
@@ -1096,8 +1099,11 @@ pub(crate) mod tests {
 				data.source_state.best_finalized_self = data.source_state.best_self;
 				// syncing target headers -> source chain
 				if let Some(last_requirement) = data.target_to_source_header_requirements.last() {
-					if *last_requirement != data.source_state.best_finalized_peer_at_best_self {
-						data.source_state.best_finalized_peer_at_best_self = *last_requirement;
+					if *last_requirement !=
+						data.source_state.best_finalized_peer_at_best_self.unwrap()
+					{
+						data.source_state.best_finalized_peer_at_best_self =
+							Some(*last_requirement);
 					}
 				}
 			}),
@@ -1116,8 +1122,11 @@ pub(crate) mod tests {
 				data.target_state.best_finalized_self = data.target_state.best_self;
 				// syncing source headers -> target chain
 				if let Some(last_requirement) = data.source_to_target_header_requirements.last() {
-					if *last_requirement != data.target_state.best_finalized_peer_at_best_self {
-						data.target_state.best_finalized_peer_at_best_self = *last_requirement;
+					if *last_requirement !=
+						data.target_state.best_finalized_peer_at_best_self.unwrap()
+					{
+						data.target_state.best_finalized_peer_at_best_self =
+							Some(*last_requirement);
 					}
 				}
 				// if source has received all messages receiving confirmations => stop
@@ -1150,15 +1159,15 @@ pub(crate) mod tests {
 				source_state: ClientState {
 					best_self: HeaderId(10, 10),
 					best_finalized_self: HeaderId(10, 10),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				source_latest_generated_nonce: 10,
 				target_state: ClientState {
 					best_self: HeaderId(0, 0),
 					best_finalized_self: HeaderId(0, 0),
-					best_finalized_peer_at_best_self: HeaderId(0, 0),
-					actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+					best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+					actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 				},
 				target_latest_received_nonce: 0,
 				..Default::default()
@@ -1171,15 +1180,18 @@ pub(crate) mod tests {
 				// headers relay must only be started when we need new target headers at source node
 				if data.target_to_source_header_required.is_some() {
 					assert!(
-						data.source_state.best_finalized_peer_at_best_self.0 <
+						data.source_state.best_finalized_peer_at_best_self.unwrap().0 <
 							data.target_state.best_self.0
 					);
 					data.target_to_source_header_required = None;
 				}
 				// syncing target headers -> source chain
 				if let Some(last_requirement) = data.target_to_source_header_requirements.last() {
-					if *last_requirement != data.source_state.best_finalized_peer_at_best_self {
-						data.source_state.best_finalized_peer_at_best_self = *last_requirement;
+					if *last_requirement !=
+						data.source_state.best_finalized_peer_at_best_self.unwrap()
+					{
+						data.source_state.best_finalized_peer_at_best_self =
+							Some(*last_requirement);
 					}
 				}
 			}),
@@ -1192,15 +1204,18 @@ pub(crate) mod tests {
 				// headers relay must only be started when we need new source headers at target node
 				if data.source_to_target_header_required.is_some() {
 					assert!(
-						data.target_state.best_finalized_peer_at_best_self.0 <
+						data.target_state.best_finalized_peer_at_best_self.unwrap().0 <
 							data.source_state.best_self.0
 					);
 					data.source_to_target_header_required = None;
 				}
 				// syncing source headers -> target chain
 				if let Some(last_requirement) = data.source_to_target_header_requirements.last() {
-					if *last_requirement != data.target_state.best_finalized_peer_at_best_self {
-						data.target_state.best_finalized_peer_at_best_self = *last_requirement;
+					if *last_requirement !=
+						data.target_state.best_finalized_peer_at_best_self.unwrap()
+					{
+						data.target_state.best_finalized_peer_at_best_self =
+							Some(*last_requirement);
 					}
 				}
 				// if source has received all messages receiving confirmations => stop
@@ -1233,15 +1248,15 @@ pub(crate) mod tests {
 			source_state: ClientState {
 				best_self: HeaderId(10, 10),
 				best_finalized_self: HeaderId(10, 10),
-				best_finalized_peer_at_best_self: HeaderId(0, 0),
-				actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+				best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+				actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 			},
 			source_latest_generated_nonce: 10,
 			target_state: ClientState {
 				best_self: HeaderId(0, 0),
 				best_finalized_self: HeaderId(0, 0),
-				best_finalized_peer_at_best_self: HeaderId(0, 0),
-				actual_best_finalized_peer_at_best_self: HeaderId(0, 0),
+				best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
+				actual_best_finalized_peer_at_best_self: Some(HeaderId(0, 0)),
 			},
 			target_latest_received_nonce: 0,
 			..Default::default()
