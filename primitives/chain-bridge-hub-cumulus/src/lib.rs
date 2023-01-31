@@ -29,6 +29,12 @@ use frame_support::{
 	weights::constants,
 };
 use frame_system::limits;
+use sp_std::time::Duration;
+
+/// Average block interval in Cumulus-based parachains.
+///
+/// Corresponds to the `MILLISECS_PER_BLOCK` from `parachains_common` crate.
+pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(12);
 
 /// All cumulus bridge hubs allow normal extrinsics to fill block up to 75 percent.
 ///

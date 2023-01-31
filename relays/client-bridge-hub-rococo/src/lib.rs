@@ -16,6 +16,7 @@
 
 //! Types used to connect to the BridgeHub-Rococo-Substrate parachain.
 
+use bp_bridge_hub_rococo::AVERAGE_BLOCK_INTERVAL;
 use bp_bridge_hub_wococo::PolkadotSignedExtension;
 use bp_messages::MessageNonce;
 use codec::Encode;
@@ -44,7 +45,7 @@ impl Chain for BridgeHubRococo {
 	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_bridge_hub_rococo::BEST_FINALIZED_BRIDGE_HUB_ROCOCO_HEADER_METHOD;
-	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
+	const AVERAGE_BLOCK_INTERVAL: Duration = AVERAGE_BLOCK_INTERVAL;
 
 	type SignedBlock = bp_bridge_hub_rococo::SignedBlock;
 	type Call = runtime::Call;

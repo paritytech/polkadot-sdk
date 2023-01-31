@@ -17,6 +17,7 @@ bp-messages = { path = "../../primitives/messages", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 # Polkadot Dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
@@ -29,5 +30,6 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"sp-api/std",
+	"sp-std/std",
 	"polkadot-primitives/std",
 ]
