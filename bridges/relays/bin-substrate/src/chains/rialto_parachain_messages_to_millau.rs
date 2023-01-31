@@ -23,7 +23,7 @@ use substrate_relay_helper::{
 	UtilityPalletBatchCallBuilder,
 };
 
-substrate_relay_helper::generate_mocked_receive_message_delivery_proof_call_builder!(
+substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(
 	RialtoParachainMessagesToMillau,
 	RialtoParachainMessagesToMillauReceiveMessagesDeliveryProofCallBuilder,
 	relay_rialto_parachain_client::runtime::Call::BridgeMillauMessages,

@@ -22,7 +22,7 @@ use substrate_relay_helper::messages_lane::{
 	DirectReceiveMessagesDeliveryProofCallBuilder, SubstrateMessageLane,
 };
 
-substrate_relay_helper::generate_mocked_receive_message_proof_call_builder!(
+substrate_relay_helper::generate_receive_message_proof_call_builder!(
 	MillauMessagesToRialtoParachain,
 	MillauMessagesToRialtoParachainReceiveMessagesProofCallBuilder,
 	relay_rialto_parachain_client::runtime::Call::BridgeMillauMessages,
