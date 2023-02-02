@@ -20,7 +20,7 @@ cd <base-cumulus-repo-directory>
 cargo build --release -p polkadot-parachain@0.9.320
 
 # script expect to have pre-built polkadot binary on the path: ../polkadot/target/release/polkadot
-# if using kusama-local, build polkadot with `--features fast-runtime`
+# if using `kusama-local` / `polkadot-local`, build polkadot with `--features fast-runtime`
 
 # BridgeHubRococo
 zombienet-linux --provider native spawn ./zombienet/examples/bridge_hub_rococo_local_network.toml
@@ -29,4 +29,9 @@ zombienet-linux --provider native spawn ./zombienet/examples/bridge_hub_rococo_l
 
 # BridgeHubKusama
 zombienet-linux --provider native spawn ./zombienet/examples/bridge_hub_kusama_local_network.toml
+
+or
+
+# BridgeHubPolkadot
+zombienet-linux --provider native spawn ./zombienet/examples/bridge_hub_polkadot_local_network.toml
 ```

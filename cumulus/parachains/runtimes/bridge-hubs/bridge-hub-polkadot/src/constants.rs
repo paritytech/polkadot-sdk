@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,6 @@ pub mod currency {
 	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
 
 	pub const UNITS: Balance = constants::currency::UNITS;
-	pub const DOLLARS: Balance = constants::currency::DOLLARS;
 	pub const CENTS: Balance = constants::currency::CENTS;
 	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
 
@@ -41,9 +40,6 @@ pub mod fee {
 	use smallvec::smallvec;
 	pub use sp_runtime::Perbill;
 
-	/// The block saturation level. Fees will be updates based on this value.
-	pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
-
 	/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 	/// node's balance type.
 	///
@@ -59,7 +55,7 @@ pub mod fee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 			// in Polkadot, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-			// in Statemint, we map to 1/10 of that, or 1/100 CENT
+			// in BridgeHub, we map to 1/10 of that, or 1/100 CENT
 			let p = super::currency::CENTS;
 			let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
 			smallvec![WeightToFeeCoefficient {

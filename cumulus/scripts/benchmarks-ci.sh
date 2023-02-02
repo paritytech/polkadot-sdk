@@ -39,7 +39,20 @@ elif [[ $runtimeName == "collectives-polkadot" ]]; then
 		cumulus_pallet_xcmp_queue
 		frame_system
 	)
-elif [[ $runtimeName == "bridge-hub-rococo" ]] || [[ $runtimeName == "bridge-hub-kusama" ]]; then
+elif [[ $runtimeName == "bridge-hub-kusama" ]] || [[ $runtimeName == "bridge-hub-polkadot" ]]; then
+	pallets=(
+                frame_system
+                pallet_balances
+                pallet_collator_selection
+                pallet_multisig
+                pallet_session
+                pallet_timestamp
+                pallet_utility
+                cumulus_pallet_xcmp_queue
+                pallet_xcm_benchmarks::generic
+                pallet_xcm_benchmarks::fungible
+	)
+elif [[ $runtimeName == "bridge-hub-rococo" ]]; then
 	pallets=(
                 frame_system
                 pallet_balances

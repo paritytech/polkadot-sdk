@@ -51,6 +51,8 @@ jobs:
           - category: assets
             runtime: westmint
           - category: bridge-hubs
+            runtime: bridge-hub-polkadot
+          - category: bridge-hubs
             runtime: bridge-hub-kusama
           - category: bridge-hubs
             runtime: bridge-hub-rococo
@@ -156,6 +158,7 @@ jobs:
           STATEMINT_DIGEST: ${{ github.workspace}}/statemint-srtool-json/statemint-srtool-digest.json
           BRIDGE_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/bridge-hub-rococo-srtool-json/bridge-hub-rococo-srtool-digest.json
           BRIDGE_HUB_KUSAMA_DIGEST: ${{ github.workspace}}/bridge-hub-kusama-srtool-json/bridge-hub-kusama-srtool-digest.json
+          BRIDGE_HUB_POLKADOT_DIGEST: ${{ github.workspace}}/bridge-hub-polkadot-srtool-json/bridge-hub-polkadot-srtool-digest.json
           COLLECTIVES_POLKADOT_DIGEST: ${{ github.workspace}}/collectives-polkadot-srtool-json/collectives-polkadot-srtool-digest.json
           ROCOCO_PARA_DIGEST: ${{ github.workspace}}/rococo-parachain-srtool-json/rococo-parachain-srtool-digest.json
           CANVAS_KUSAMA_DIGEST: ${{ github.workspace}}/contracts-rococo-srtool-json/contracts-rococo-srtool-digest.json
@@ -173,6 +176,7 @@ jobs:
             ls -al $STATEMINT_DIGEST || true
             ls -al $BRIDGE_HUB_ROCOCO_DIGEST || true
             ls -al $BRIDGE_HUB_KUSAMA_DIGEST || true
+            ls -al $BRIDGE_HUB_POLKADOT_DIGEST || true
             ls -al $COLLECTIVES_POLKADOT_DIGEST || true
             ls -al $ROCOCO_PARA_DIGEST || true
             ls -al $CANVAS_KUSAMA_DIGEST || true
@@ -224,6 +228,8 @@ jobs:
             runtime: statemint
           - category: assets
             runtime: westmint
+          - category: bridge-hubs
+            runtime: bridge-hub-polkadot
           - category: bridge-hubs
             runtime: bridge-hub-kusama
           - category: bridge-hubs

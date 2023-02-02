@@ -149,6 +149,21 @@ impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor
 	}
 }
 
+// Native BridgeHubPolkadot executor instance.
+pub struct BridgeHubPolkadotRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for BridgeHubPolkadotRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		bridge_hub_polkadot_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		bridge_hub_polkadot_runtime::native_version()
+	}
+}
+
 // Native BridgeHubKusama executor instance.
 pub struct BridgeHubKusamaRuntimeExecutor;
 

@@ -8,5 +8,6 @@ ${__dir}/benchmarks-ci.sh assets statemine target/production
 ${__dir}/benchmarks-ci.sh assets statemint target/production
 ${__dir}/benchmarks-ci.sh assets westmint target/production
 
+${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-polkadot target/production
 ${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-kusama target/production
 ${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-rococo target/production

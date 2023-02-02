@@ -83,6 +83,7 @@ STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.j
 STATEMINT_DIGEST = ENV['STATEMINT_DIGEST'] || 'digests/statemint-srtool-digest.json'
 BRIDGE_HUB_ROCOCO_DIGEST = ENV['BRIDGE_HUB_ROCOCO_DIGEST'] || 'digests/bridge-hub-rococo-srtool-digest.json'
 BRIDGE_HUB_KUSAMA_DIGEST = ENV['BRIDGE_HUB_KUSAMA_DIGEST'] || 'digests/bridge-hub-kusama-srtool-digest.json'
+BRIDGE_HUB_POLKADOT_DIGEST = ENV['BRIDGE_HUB_POLKADOT_DIGEST'] || 'digests/bridge-hub-polkadot-srtool-digest.json'
 ROCOCO_PARA_DIGEST = ENV['ROCOCO_PARA_DIGEST'] || 'digests/rococo-parachain-srtool-digest.json'
 CANVAS_KUSAMA_DIGEST = ENV['CANVAS_KUSAMA_DIGEST'] || 'digests/contracts-rococo-srtool-digest.json'
 
@@ -131,7 +132,8 @@ else
             { name: "contracts", data: $srtool_contracts_rococo[0] },
             { name: "polkadot-collectives", data: $srtool_polkadot_collectives[0] },
             { name: "bridge-hub-rococo", data: $srtool_bridge_hub_rococo[0] },
-            { name: "bridge-hub-kusama", data: $srtool_bridge_hub_kusama[0] }
+            { name: "bridge-hub-kusama", data: $srtool_bridge_hub_kusama[0] },
+            { name: "bridge-hub-polkadot", data: $srtool_bridge_hub_polkadot[0] }
       ] }\' > context.json',
         cumulus_data,
         substrate_data,
@@ -144,7 +146,8 @@ else
         CANVAS_KUSAMA_DIGEST,
         POLKADOT_COLLECTIVES_DIGEST,
         BRIDGE_HUB_ROCOCO_DIGEST,
-        BRIDGE_HUB_KUSAMA_DIGEST
+        BRIDGE_HUB_KUSAMA_DIGEST,
+        BRIDGE_HUB_POLKADOT_DIGEST
   )
 end
 system(cmd)
