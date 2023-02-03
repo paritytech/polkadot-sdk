@@ -20,7 +20,7 @@ use crate::cli::{bridge, encode_message::CliEncodeMessage, CliChain};
 use bp_runtime::EncodedOrDecodedCall;
 use bridge_runtime_common::CustomNetworkId;
 use relay_rialto_parachain_client::RialtoParachain;
-use relay_substrate_client::{calls::XcmCall, SimpleRuntimeVersion};
+use relay_substrate_client::SimpleRuntimeVersion;
 use xcm::latest::prelude::*;
 
 impl CliEncodeMessage for RialtoParachain {
@@ -28,6 +28,9 @@ impl CliEncodeMessage for RialtoParachain {
 		message: xcm::VersionedXcm<()>,
 		bridge_instance_index: u8,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
+		type RuntimeCall = relay_rialto_parachain_client::RuntimeCall;
+		type XcmCall = relay_rialto_parachain_client::runtime_types::pallet_xcm::pallet::Call;
+
 		let dest = match bridge_instance_index {
 			bridge::RIALTO_PARACHAIN_TO_MILLAU_INDEX =>
 				(Parent, X1(GlobalConsensus(CustomNetworkId::Millau.as_network_id()))),
@@ -37,9 +40,12 @@ impl CliEncodeMessage for RialtoParachain {
 			),
 		};
 
-		let xcm_call = XcmCall::send(Box::new(dest.into()), Box::new(message));
+		let xcm_call = XcmCall::send {
+			dest: Box::new(unsafe { std::mem::transmute(xcm::VersionedMultiLocation::from(dest)) }),
+			message: Box::new(unsafe { std::mem::transmute(message) }),
+		};
 
-		Ok(relay_rialto_parachain_client::runtime::Call::PolkadotXcm(xcm_call).into())
+		Ok(RuntimeCall::PolkadotXcm(xcm_call).into())
 	}
 }
 

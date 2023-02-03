@@ -16,7 +16,7 @@
 
 //! Types used to connect to the Rialto-Substrate chain.
 
-pub mod runtime_wrapper;
+pub mod codegen_runtime;
 
 use bp_messages::MessageNonce;
 use bp_polkadot_core::PolkadotSignedExtension;
@@ -29,7 +29,12 @@ use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount, MultiAddress};
 use std::time::Duration;
 
-pub use runtime_wrapper as runtime;
+pub use codegen_runtime::api::runtime_types;
+
+pub type RuntimeCall = runtime_types::rialto_parachain_runtime::RuntimeCall;
+pub type SudoCall = runtime_types::pallet_sudo::pallet::Call;
+pub type BridgeGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
+pub type BridgeMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<bp_rialto_parachain::AccountId, ()>;
@@ -51,12 +56,13 @@ impl Chain for RialtoParachain {
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
 
 	type SignedBlock = bp_polkadot_core::SignedBlock;
-	type Call = runtime::Call;
+	type Call = runtime_types::rialto_parachain_runtime::RuntimeCall;
 }
 
 impl ChainWithBalances for RialtoParachain {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		bp_polkadot_core::AccountInfoStorageMapKeyProvider::final_key(account_id)
+		let key = codegen_runtime::api::storage().system().account(account_id);
+		StorageKey(key.to_bytes())
 	}
 }
 

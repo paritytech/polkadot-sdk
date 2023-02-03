@@ -26,8 +26,8 @@ use substrate_relay_helper::{
 substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(
 	RialtoParachainMessagesToMillau,
 	RialtoParachainMessagesToMillauReceiveMessagesDeliveryProofCallBuilder,
-	relay_rialto_parachain_client::runtime::Call::BridgeMillauMessages,
-	relay_rialto_parachain_client::runtime::BridgeMillauMessagesCall::receive_messages_delivery_proof
+	relay_rialto_parachain_client::RuntimeCall::BridgeMillauMessages,
+	relay_rialto_parachain_client::BridgeMessagesCall::receive_messages_delivery_proof
 );
 
 /// Description of RialtoParachain -> Millau messages bridge.

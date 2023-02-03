@@ -42,8 +42,8 @@ use substrate_relay_helper::finality::{
 substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	MillauFinalityToRialtoParachain,
 	MillauFinalityToRialtoParachainCallBuilder,
-	relay_rialto_parachain_client::runtime::Call::BridgeMillauGrandpa,
-	relay_rialto_parachain_client::runtime::BridgeMillauGrandpaCall::submit_finality_proof
+	relay_rialto_parachain_client::RuntimeCall::BridgeMillauGrandpa,
+	relay_rialto_parachain_client::BridgeGrandpaCall::submit_finality_proof
 );
 
 /// Description of Millau -> Rialto finalized headers bridge.
