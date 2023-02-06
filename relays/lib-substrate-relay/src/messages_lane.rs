@@ -501,8 +501,12 @@ mod tests {
 			//
 			// Any significant change in this values should attract additional attention.
 			//
-			// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - remove `set_proof_size`
-			(1024, Weight::from_ref_time(216_600_684_000).set_proof_size(217)),
+			// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - the `proof_size`
+			// component is too large here!
+			(
+				1024,
+				Weight::from_ref_time(216_600_106_667).set_proof_size(7_993_589_098_607_472_367)
+			),
 		);
 	}
 }

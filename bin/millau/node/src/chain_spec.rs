@@ -202,7 +202,7 @@ fn testnet_genesis(
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
 		},
 		aura: AuraConfig { authorities: Vec::new() },
-		beefy: BeefyConfig { authorities: Vec::new() },
+		beefy: BeefyConfig { authorities: Vec::new(), genesis_block: Some(0) },
 		grandpa: GrandpaConfig { authorities: Vec::new() },
 		sudo: SudoConfig { key: Some(root_key) },
 		session: SessionConfig {

@@ -59,10 +59,10 @@ pub const TX_EXTRA_BYTES: u32 = 103;
 /// Maximum weight of single Millau block.
 ///
 /// This represents 0.5 seconds of compute assuming a target block time of six seconds.
-// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - remove `set_proof_size`
-pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_SECOND)
-	.set_proof_size(1_000)
-	.saturating_div(2);
+///
+/// Max PoV size is set to max value, since it isn't important for relay/standalone chains.
+pub const MAXIMUM_BLOCK_WEIGHT: Weight =
+	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(2), u64::MAX);
 
 /// Represents the portion of a block that will be used by Normal extrinsics.
 pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);

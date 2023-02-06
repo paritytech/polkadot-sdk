@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
-pub use beefy_merkle_tree::{merkle_root, Keccak256 as BeefyKeccak256};
+pub use binary_merkle_tree::merkle_root;
 pub use pallet_beefy_mmr::BeefyEcdsaToEthereum;
 pub use pallet_mmr::{
 	primitives::{DataOrHash as MmrDataOrHash, Proof as MmrProof},
