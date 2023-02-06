@@ -3,10 +3,10 @@
   "id": "statemine-rococo",
   "chainType": "Live",
   "bootNodes": [
-    "/dns/rococo-statemint-collator-0.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWRrZMndHAopzao34uGsN7srjS3gh9nAjTGKLSyJeU31Lg",
-    "/dns/rococo-statemint-collator-1.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWAewimoNJqMaiiV5pYiowA5hLuh5JS5QiRJCCyWVrrSTS",
-    "/dns/rococo-statemint-collator-2.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWA3cVSDJFrN5HEYbt11cK2W7zJbiPHxR2joJXcgqzVt8K",
-    "/dns/rococo-statemint-collator-3.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWPf3MtBZKJ3G6wYyvCTxFCi9vgzxDdHbjJJRCrFu3FgJb"
+    "/dns/rococo-rockmine-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWRrZMndHAopzao34uGsN7srjS3gh9nAjTGKLSyJeU31Lg",
+    "/dns/rococo-rockmine-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWAewimoNJqMaiiV5pYiowA5hLuh5JS5QiRJCCyWVrrSTS",
+    "/dns/rococo-rockmine-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWA3cVSDJFrN5HEYbt11cK2W7zJbiPHxR2joJXcgqzVt8K",
+    "/dns/rococo-rockmine-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWPf3MtBZKJ3G6wYyvCTxFCi9vgzxDdHbjJJRCrFu3FgJb"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
