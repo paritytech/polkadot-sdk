@@ -28,6 +28,7 @@ pub struct Cli {
 
 /// Possible subcommands of the main binary.
 #[derive(Debug, Parser)]
+#[allow(clippy::large_enum_variant)]
 pub enum Subcommand {
 	/// Key management CLI utilities
 	#[clap(subcommand)]
