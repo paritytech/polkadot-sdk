@@ -75,8 +75,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	///
 	/// Storage: BridgeRialtoGrandpa CurrentAuthoritySet (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(40970),
-	/// added: 41465, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
+	/// added: 704, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRialtoGrandpa ImportedHashesPointer (r:1 w:1)
 	///
@@ -93,19 +93,19 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: None, max_size: Some(68), added:
 	/// 2543, mode: MaxEncodedLen)
 	///
-	/// The range of component `p` is `[51, 102]`.
+	/// The range of component `p` is `[1, 5]`.
 	///
 	/// The range of component `v` is `[50, 100]`.
 	fn submit_finality_proof(p: u32, v: u32) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2524 + p * (40 ±0)`
-		//  Estimated: `46001`
-		// Minimum execution time: 2_282_140 nanoseconds.
-		Weight::from_parts(142_496_714, 46001)
-			// Standard Error: 32_796
-			.saturating_add(Weight::from_ref_time(40_232_935).saturating_mul(p.into()))
-			// Standard Error: 33_574
-			.saturating_add(Weight::from_ref_time(1_185_407).saturating_mul(v.into()))
+		//  Measured:  `459 + p * (40 ±0)`
+		//  Estimated: `5240`
+		// Minimum execution time: 368_734 nanoseconds.
+		Weight::from_parts(64_214_587, 5240)
+			// Standard Error: 226_504
+			.saturating_add(Weight::from_ref_time(41_231_918).saturating_mul(p.into()))
+			// Standard Error: 20_667
+			.saturating_add(Weight::from_ref_time(2_770_962).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
@@ -130,8 +130,8 @@ impl WeightInfo for () {
 	///
 	/// Storage: BridgeRialtoGrandpa CurrentAuthoritySet (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(40970),
-	/// added: 41465, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
+	/// added: 704, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRialtoGrandpa ImportedHashesPointer (r:1 w:1)
 	///
@@ -148,19 +148,19 @@ impl WeightInfo for () {
 	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: None, max_size: Some(68), added:
 	/// 2543, mode: MaxEncodedLen)
 	///
-	/// The range of component `p` is `[51, 102]`.
+	/// The range of component `p` is `[1, 5]`.
 	///
 	/// The range of component `v` is `[50, 100]`.
 	fn submit_finality_proof(p: u32, v: u32) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2524 + p * (40 ±0)`
-		//  Estimated: `46001`
-		// Minimum execution time: 2_282_140 nanoseconds.
-		Weight::from_parts(142_496_714, 46001)
-			// Standard Error: 32_796
-			.saturating_add(Weight::from_ref_time(40_232_935).saturating_mul(p.into()))
-			// Standard Error: 33_574
-			.saturating_add(Weight::from_ref_time(1_185_407).saturating_mul(v.into()))
+		//  Measured:  `459 + p * (40 ±0)`
+		//  Estimated: `5240`
+		// Minimum execution time: 368_734 nanoseconds.
+		Weight::from_parts(64_214_587, 5240)
+			// Standard Error: 226_504
+			.saturating_add(Weight::from_ref_time(41_231_918).saturating_mul(p.into()))
+			// Standard Error: 20_667
+			.saturating_add(Weight::from_ref_time(2_770_962).saturating_mul(v.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}

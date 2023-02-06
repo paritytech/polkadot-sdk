@@ -387,30 +387,12 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type WeightInfo = ();
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	/// Number of headers to keep in benchmarks.
-	///
-	/// In benchmarks we always populate with full number of `HeadersToKeep` to make sure that
-	/// pruning is taken into account.
-	///
-	/// Note: This is lower than regular value, to speed up benchmarking setup.
-	pub const HeadersToKeep: u32 = 1024;
-	/// Maximal number of authorities at Rialto.
-	///
-	/// In benchmarks we're using sets of up to `1024` authorities to prepare for possible
-	/// upgrades in the future and see if performance degrades when number of authorities
-	/// grow.
-	pub const MaxAuthoritiesAtRialto: u32 = pallet_bridge_grandpa::benchmarking::MAX_VALIDATOR_SET_SIZE;
-}
-
-#[cfg(not(feature = "runtime-benchmarks"))]
 parameter_types! {
 	/// Number of headers to keep.
 	///
 	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
-	/// week.
-	pub const HeadersToKeep: u32 = 7 * bp_rialto::DAYS;
+	/// day.
+	pub const HeadersToKeep: u32 = bp_rialto::DAYS;
 	/// Maximal number of authorities at Rialto.
 	pub const MaxAuthoritiesAtRialto: u32 = bp_rialto::MAX_AUTHORITIES_COUNT;
 }

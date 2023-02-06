@@ -53,25 +53,28 @@ use sp_finality_grandpa::AuthorityId;
 use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
 
-// The maximum number of vote ancestries to include in a justification.
-//
-// In practice this would be limited by the session length (number of blocks a single authority set
-// can produce) of a given chain.
+/// The maximum number of vote ancestries to include in a justification.
+///
+/// In practice this would be limited by the session length (number of blocks a single authority set
+/// can produce) of a given chain.
 const MAX_VOTE_ANCESTRIES: u32 = 1000;
 
-// The maximum number of pre-commits to include in a justification. In practice this scales with the
-// number of validators.
-pub const MAX_VALIDATOR_SET_SIZE: u32 = 1024;
-
-// `1..MAX_VALIDATOR_SET_SIZE` and `1..MAX_VOTE_ANCESTRIES` are too large && benchmarks are
-// running for almost 40m (steps=50, repeat=20) on a decent laptop, which is too much. Since
-// we're building linear function here, let's just select some limited subrange for benchmarking.
-const VALIDATOR_SET_SIZE_RANGE_BEGIN: u32 = MAX_VALIDATOR_SET_SIZE / 20;
-const VALIDATOR_SET_SIZE_RANGE_END: u32 =
-	VALIDATOR_SET_SIZE_RANGE_BEGIN + VALIDATOR_SET_SIZE_RANGE_BEGIN;
+// `1..MAX_VOTE_ANCESTRIES` is too large && benchmarks are running for almost 40m (steps=50,
+// repeat=20) on a decent laptop, which is too much. Since we're building linear function here,
+// let's just select some limited subrange for benchmarking.
 const MAX_VOTE_ANCESTRIES_RANGE_BEGIN: u32 = MAX_VOTE_ANCESTRIES / 20;
 const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
 	MAX_VOTE_ANCESTRIES_RANGE_BEGIN + MAX_VOTE_ANCESTRIES_RANGE_BEGIN;
+
+// the same with validators - if there are too much validators, let's run benchmarks on subrange
+fn validator_set_range_end<T: Config<I>, I: 'static>() -> u32 {
+	let max_bridged_authorities = T::MaxBridgedAuthorities::get();
+	if max_bridged_authorities > 128 {
+		sp_std::cmp::max(128, max_bridged_authorities / 5)
+	} else {
+		max_bridged_authorities
+	}
+}
 
 /// Returns number of first header to be imported.
 ///
@@ -117,7 +120,7 @@ benchmarks_instance_pallet! {
 	// This is the "gold standard" benchmark for this extrinsic, and it's what should be used to
 	// annotate the weight in the pallet.
 	submit_finality_proof {
-		let p in VALIDATOR_SET_SIZE_RANGE_BEGIN..VALIDATOR_SET_SIZE_RANGE_END;
+		let p in 1 .. validator_set_range_end::<T, I>();
 		let v in MAX_VOTE_ANCESTRIES_RANGE_BEGIN..MAX_VOTE_ANCESTRIES_RANGE_END;
 		let caller: T::AccountId = whitelisted_caller();
 		let (header, justification) = prepare_benchmark_data::<T, I>(p, v);
