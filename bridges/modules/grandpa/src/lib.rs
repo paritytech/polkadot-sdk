@@ -104,6 +104,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxRequests: Get<u32>;
 
+		// Avoid using `HeadersToKeep` directly in the pallet code. Use `headers_to_keep` function
+		// instead.
+
 		/// Maximal number of finalized headers to keep in the storage.
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
@@ -464,6 +467,20 @@ pub mod pallet {
 		})?)
 	}
 
+	/// Return number of headers to keep in the runtime storage.
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	pub(crate) fn headers_to_keep<T: Config<I>, I: 'static>() -> u32 {
+		T::HeadersToKeep::get()
+	}
+
+	/// Return number of headers to keep in the runtime storage.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub(crate) fn headers_to_keep<T: Config<I>, I: 'static>() -> u32 {
+		// every db operation (significantly) slows down benchmarks, so let's keep as min as
+		// possible
+		2
+	}
+
 	/// Import a previously verified header to the storage.
 	///
 	/// Note this function solely takes care of updating the storage and pruning old entries,
@@ -479,7 +496,7 @@ pub mod pallet {
 		<ImportedHashes<T, I>>::insert(index, hash);
 
 		// Update ring buffer pointer and remove old header.
-		<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
+		<ImportedHashesPointer<T, I>>::put((index + 1) % headers_to_keep::<T, I>());
 		if let Ok(hash) = pruning {
 			log::debug!(target: LOG_TARGET, "Pruning old header: {:?}.", hash);
 			<ImportedHeaders<T, I>>::remove(hash);
@@ -523,7 +540,7 @@ pub mod pallet {
 		init_params: super::InitializationData<BridgedHeader<T, I>>,
 	) {
 		let start_number = *init_params.header.number();
-		let end_number = start_number + T::HeadersToKeep::get().into();
+		let end_number = start_number + headers_to_keep::<T, I>().into();
 		initialize_bridge::<T, I>(init_params).expect("benchmarks are correct");
 
 		let mut number = start_number;
