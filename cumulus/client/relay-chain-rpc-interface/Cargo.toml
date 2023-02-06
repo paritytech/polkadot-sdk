@@ -21,7 +21,7 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "mas
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 tokio = { version = "1.24.2", features = ["sync"] }
 
-futures = "0.3.25"
+futures = "0.3.26"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.2.1"
 jsonrpsee = { version = "0.16.2", features = ["ws-client"] }

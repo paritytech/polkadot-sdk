@@ -16,7 +16,7 @@ sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 tokio = { version = "1.24.2", features = ["sync"] }
-futures = "0.3.25"
+futures = "0.3.26"
 async-trait = "0.1.63"
 thiserror = "1.0.38"
 jsonrpsee-core = "0.16.2"

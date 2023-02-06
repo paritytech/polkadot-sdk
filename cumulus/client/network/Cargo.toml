@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.63"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
-futures = "0.3.25"
+futures = "0.3.26"
 futures-timer = "3.0.2"
 parking_lot = "0.12.1"
 tracing = "0.1.37"
