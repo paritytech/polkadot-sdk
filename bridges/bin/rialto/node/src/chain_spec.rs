@@ -213,7 +213,7 @@ fn testnet_genesis(
 			authorities: Vec::new(),
 			epoch_config: Some(rialto_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		beefy: BeefyConfig { authorities: Vec::new() },
+		beefy: BeefyConfig { authorities: Vec::new(), genesis_block: Some(0) },
 		grandpa: GrandpaConfig { authorities: Vec::new() },
 		sudo: SudoConfig { key: Some(root_key) },
 		session: SessionConfig {
