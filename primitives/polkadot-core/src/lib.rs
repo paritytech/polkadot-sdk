@@ -43,6 +43,16 @@ pub use sp_runtime::{traits::Convert, Perbill};
 
 pub mod parachains;
 
+/// Maximal number of GRANDPA authorities at Polkadot-like chains.
+///
+/// Ideally, we would set it to the value of `MaxAuthorities` constant from bridged runtime
+/// configurations. But right now it is set to the `100_000`, which makes PoV size for
+/// our bridge hub parachains huge. So let's stick to the real-world value here.
+///
+/// Right now both Kusama and Polkadot aim to have around 1000 validators. Let's be safe here and
+/// take twice as much here.
+pub const MAX_AUTHORITIES_COUNT: u32 = 2_048;
+
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
 /// Polkadot-like chain. This mostly depends on number of entries in the storage trie.
 /// Some reserve is reserved to account future chain growth.

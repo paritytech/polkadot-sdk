@@ -42,9 +42,4 @@ pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
 /// reserve.
 pub const MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE: u32 = 128;
 
-/// Maximal number of GRANDPA authorities at Rococo.
-///
-/// Corresponds to the `MaxAuthorities` constant value from the Rococo runtime configuration.
-pub const MAX_AUTHORITIES_COUNT: u32 = 100_000;
-
 decl_bridge_finality_runtime_apis!(rococo);
