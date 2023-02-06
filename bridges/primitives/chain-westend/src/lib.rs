@@ -63,11 +63,6 @@ pub const WITH_WESTEND_GRANDPA_PALLET_NAME: &str = "BridgeWestendGrandpa";
 /// Name of the With-Westend parachains bridge pallet instance that is deployed at bridged chains.
 pub const WITH_WESTEND_BRIDGE_PARAS_PALLET_NAME: &str = "BridgeWestendParachains";
 
-/// Maximal number of GRANDPA authorities at Westend.
-///
-/// Corresponds to the `MaxAuthorities` constant value from the Westend runtime configuration.
-pub const MAX_AUTHORITIES_COUNT: u32 = 100_000;
-
 /// Maximal SCALE-encoded size of parachains headers that are stored at Westend `Paras` pallet.
 ///
 /// It includes the block number and state root, so it shall be near 40 bytes, but let's have some
