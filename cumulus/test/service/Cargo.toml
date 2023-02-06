@@ -16,7 +16,7 @@ criterion = { version = "0.4.0", features = [ "async_tokio" ] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 rand = "0.8.5"
 serde = { version = "1.0.152", features = ["derive"] }
-tokio = { version = "1.24.2", features = ["macros"] }
+tokio = { version = "1.25.0", features = ["macros"] }
 tracing = "0.1.37"
 url = "2.3.1"
 
