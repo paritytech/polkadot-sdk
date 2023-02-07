@@ -45,6 +45,20 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 	// verify `receive_messages_delivery_proof` weight components
 	assert_ne!(W::receive_messages_delivery_proof_overhead(), Weight::zero());
 	assert_ne!(W::storage_proof_size_overhead(1), Weight::zero());
+
+	// verify `receive_message_proof` weight
+	let receive_messages_proof_weight =
+		W::receive_messages_proof_weight(&PreComputedSize(1), 10, Weight::from_ref_time(0));
+	assert_ne!(receive_messages_proof_weight.ref_time(), 0);
+	assert_ne!(receive_messages_proof_weight.proof_size(), 0);
+
+	// verify `receive_message_proof` weight
+	let receive_messages_delivery_proof_weight = W::receive_messages_delivery_proof_weight(
+		&PreComputedSize(1),
+		&UnrewardedRelayersState::default(),
+	);
+	assert_ne!(receive_messages_delivery_proof_weight.ref_time(), 0);
+	assert_ne!(receive_messages_delivery_proof_weight.proof_size(), 0);
 }
 
 /// Ensure that we're able to receive maximal (by-size and by-weight) message from other chain.
