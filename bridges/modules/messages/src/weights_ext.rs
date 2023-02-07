@@ -48,7 +48,7 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 
 	// verify `receive_message_proof` weight
 	let receive_messages_proof_weight =
-		W::receive_messages_proof_weight(&PreComputedSize(1), 10, Weight::from_ref_time(0));
+		W::receive_messages_proof_weight(&PreComputedSize(1), 10, Weight::zero());
 	assert_ne!(receive_messages_proof_weight.ref_time(), 0);
 	assert_ne!(receive_messages_proof_weight.proof_size(), 0);
 
