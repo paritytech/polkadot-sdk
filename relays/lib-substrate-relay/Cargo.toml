@@ -48,8 +48,8 @@ sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch 
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [dev-dependencies]
-bp-millau = { path = "../../primitives/chain-millau" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
+bp-rialto-parachain = { path = "../../primitives/chain-rialto-parachain" }
 bp-rococo = { path = "../../primitives/chain-rococo" }
 bp-wococo = { path = "../../primitives/chain-wococo" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }

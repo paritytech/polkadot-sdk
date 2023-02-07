@@ -487,10 +487,14 @@ mod tests {
 		pallet_bridge_messages::weights::BridgeWeight<rialto_runtime::Runtime>;
 
 	#[test]
-	fn select_delivery_transaction_limits_works() {
+	fn select_delivery_transaction_limits_is_sane() {
+		// we want to check the `proof_size` component here too. But for Rialto and Millau
+		// it is set to `u64::MAX` (as for Polkadot and other relay/standalone chains).
+		// So let's use RialtoParachain limits here - it has `proof_size` limit as all
+		// Cumulus-based parachains do.
 		let (max_count, max_weight) =
 			select_delivery_transaction_limits::<RialtoToMillauMessagesWeights>(
-				bp_millau::Millau::max_extrinsic_weight(),
+				bp_rialto_parachain::RialtoParachain::max_extrinsic_weight(),
 				bp_rialto::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 			);
 		assert_eq!(
@@ -500,13 +504,7 @@ mod tests {
 			// i.e. weight reserved for messages dispatch allows dispatch of non-trivial messages.
 			//
 			// Any significant change in this values should attract additional attention.
-			//
-			// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - the `proof_size`
-			// component is too large here!
-			(
-				1024,
-				Weight::from_ref_time(216_600_106_667).set_proof_size(7_993_589_098_607_472_367)
-			),
+			(1024, Weight::from_parts(866_600_106_667, 2_271_915)),
 		);
 	}
 }
