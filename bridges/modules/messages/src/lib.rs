@@ -398,7 +398,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::MessagesReceived(messages_received_status));
 
-			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::No })
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
 		}
 
 		/// Receive messages delivery proof from bridged chain.
@@ -899,6 +899,7 @@ mod tests {
 	use bp_test_utils::generate_owned_bridge_module_tests;
 	use frame_support::{
 		assert_noop, assert_ok,
+		dispatch::Pays,
 		storage::generator::{StorageMap, StorageValue},
 		traits::Hooks,
 		weights::Weight,
@@ -1543,16 +1544,19 @@ mod tests {
 						messages_count,
 						REGULAR_PAYLOAD.declared_weight,
 					);
-				let post_dispatch_weight = Pallet::<TestRuntime>::receive_messages_proof(
+				let result = Pallet::<TestRuntime>::receive_messages_proof(
 					RuntimeOrigin::signed(1),
 					TEST_RELAYER_A,
 					proof,
 					messages_count,
 					REGULAR_PAYLOAD.declared_weight,
 				)
-				.expect("delivery has failed")
-				.actual_weight
-				.expect("receive_messages_proof always returns Some");
+				.expect("delivery has failed");
+				let post_dispatch_weight =
+					result.actual_weight.expect("receive_messages_proof always returns Some");
+
+				// message delivery transactions are never free
+				assert_eq!(result.pays_fee, Pays::Yes);
 
 				(pre_dispatch_weight, post_dispatch_weight)
 			}
