@@ -93,13 +93,9 @@ type LocalOriginConverter = (
 	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
 );
 
-/// The amount of weight an XCM operation takes. This is a safe overestimate.
-pub const BASE_XCM_WEIGHT: u64 = 1_000_000_000;
-
 parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
-	// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - check `set_proof_size` 0 or 64*1024 or 1026?
-	pub const BaseXcmWeight: Weight = Weight::from_parts(BASE_XCM_WEIGHT, 0);
+	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	/// Maximum number of instructions in a single XCM fragment. A sanity check against weight
 	/// calculations getting too crazy.
 	pub const MaxInstructions: u32 = 100;
@@ -314,17 +310,14 @@ mod tests {
 			};
 
 			let dispatch_weight = MessageDispatcher::dispatch_weight(&mut incoming_message);
-			assert_eq!(
-				dispatch_weight,
-				frame_support::weights::Weight::from_ref_time(1_000_000_000)
-			);
+			assert_eq!(dispatch_weight, BaseXcmWeight::get());
 
 			let dispatch_result =
 				MessageDispatcher::dispatch(&AccountId::from([0u8; 32]), incoming_message);
 			assert_eq!(
 				dispatch_result,
 				MessageDispatchResult {
-					unspent_weight: frame_support::weights::Weight::from_ref_time(0),
+					unspent_weight: frame_support::weights::Weight::zero(),
 					dispatch_level_result: (),
 				}
 			);
