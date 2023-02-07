@@ -30,14 +30,14 @@ pub const XCM_LANE: LaneId = LaneId([0, 0, 0, 0]);
 /// Weight of 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 /// (it is prepended with `UniversalOrigin` instruction). It is used just for simplest manual
 /// tests, confirming that we don't break encoding somewhere between.
-pub const BASE_XCM_WEIGHT_TWICE: u64 = 2 * crate::xcm_config::BASE_XCM_WEIGHT;
+pub const BASE_XCM_WEIGHT_TWICE: Weight = crate::xcm_config::BaseXcmWeight::get().saturating_mul(2);
 
 parameter_types! {
 	/// Weight credit for our test messages.
 	///
 	/// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 	/// (it is prepended with `UniversalOrigin` instruction).
-	pub const WeightCredit: Weight = Weight::from_ref_time(BASE_XCM_WEIGHT_TWICE);
+	pub const WeightCredit: Weight = BASE_XCM_WEIGHT_TWICE;
 }
 
 /// Message payload for Millau -> Rialto messages.

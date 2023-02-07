@@ -374,7 +374,7 @@ impl MessageDispatch<AccountId> for TestMessageDispatch {
 	fn dispatch_weight(message: &mut DispatchMessage<TestPayload>) -> Weight {
 		match message.data.payload.as_ref() {
 			Ok(payload) => payload.declared_weight,
-			Err(_) => Weight::from_ref_time(0),
+			Err(_) => Weight::zero(),
 		}
 	}
 

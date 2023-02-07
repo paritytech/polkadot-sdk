@@ -1271,7 +1271,7 @@ mod tests {
 					TEST_RELAYER_A,
 					Err(()).into(),
 					1,
-					Weight::from_ref_time(0),
+					Weight::zero(),
 				),
 				Error::<TestRuntime, ()>::InvalidMessagesProof,
 			);
@@ -1287,7 +1287,7 @@ mod tests {
 					TEST_RELAYER_A,
 					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
 					u32::MAX,
-					Weight::from_ref_time(0),
+					Weight::zero(),
 				),
 				Error::<TestRuntime, ()>::TooManyMessagesInTheProof,
 			);
@@ -1479,8 +1479,8 @@ mod tests {
 				TEST_RELAYER_A,
 				Ok(vec![invalid_message]).into(),
 				1,
-				Weight::from_ref_time(0), /* weight may be zero in this case (all messages are
-				                           * improperly encoded) */
+				Weight::zero(), /* weight may be zero in this case (all messages are
+				                 * improperly encoded) */
 			),);
 
 			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 1,);
@@ -1710,11 +1710,7 @@ mod tests {
 				Pallet::<TestRuntime>::inbound_message_data(
 					TEST_LANE_ID,
 					REGULAR_PAYLOAD.encode(),
-					OutboundMessageDetails {
-						nonce: 0,
-						dispatch_weight: Weight::from_ref_time(0),
-						size: 0,
-					},
+					OutboundMessageDetails { nonce: 0, dispatch_weight: Weight::zero(), size: 0 },
 				),
 				InboundMessageDetails { dispatch_weight: REGULAR_PAYLOAD.declared_weight },
 			);

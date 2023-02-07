@@ -368,13 +368,9 @@ pub type XcmOriginToTransactDispatchOrigin = (
 // TODO: until https://github.com/paritytech/parity-bridges-common/issues/1417 is fixed (in either way),
 // the following constant must match the similar constant in the Millau runtime.
 
-/// One XCM operation is `1_000_000_000` weight - almost certainly a conservative estimate.
-pub const BASE_XCM_WEIGHT: u64 = 1_000_000_000;
-
 parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
-	// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - check `set_proof_size` 0 or 64*1024 or 1026?
-	pub UnitWeightCost: Weight = Weight::from_parts(BASE_XCM_WEIGHT, 0);
+	pub const UnitWeightCost: Weight = Weight::from_parts(1_000_000, 64 * 1024);
 	// One UNIT buys 1 second of weight.
 	pub const WeightPrice: (MultiLocation, u128) = (MultiLocation::parent(), UNIT);
 	pub const MaxInstructions: u32 = 100;
@@ -902,17 +898,14 @@ mod tests {
 			};
 
 			let dispatch_weight = MessageDispatcher::dispatch_weight(&mut incoming_message);
-			assert_eq!(
-				dispatch_weight,
-				frame_support::weights::Weight::from_ref_time(1_000_000_000)
-			);
+			assert_eq!(dispatch_weight, UnitWeightCost::get());
 
 			let dispatch_result =
 				MessageDispatcher::dispatch(&AccountId::from([0u8; 32]), incoming_message);
 			assert_eq!(
 				dispatch_result,
 				MessageDispatchResult {
-					unspent_weight: frame_support::weights::Weight::from_ref_time(0),
+					unspent_weight: frame_support::weights::Weight::zero(),
 					dispatch_level_result: (),
 				}
 			);

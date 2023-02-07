@@ -45,7 +45,6 @@ pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// time.
 ///
 /// This is a copy-paste from the cumulus repo's `parachains-common` crate.
-// TODO: https://github.com/paritytech/parity-bridges-common/issues/1543 - remove `set_proof_size`
 const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_ref_time(constants::WEIGHT_REF_TIME_PER_SECOND)
 	.saturating_div(2)
 	.set_proof_size(polkadot_primitives::v2::MAX_POV_SIZE as u64);
@@ -62,9 +61,12 @@ parameter_types! {
 		NORMAL_DISPATCH_RATIO,
 	);
 
-	pub const BlockExecutionWeight: Weight = Weight::from_ref_time(constants::WEIGHT_REF_TIME_PER_NANOS).saturating_mul(5_000_000);
-
-	pub const ExtrinsicBaseWeight: Weight = Weight::from_ref_time(constants::WEIGHT_REF_TIME_PER_NANOS).saturating_mul(125_000);
+	/// Importing a block with 0 Extrinsics.
+	pub const BlockExecutionWeight: Weight = Weight::from_ref_time(constants::WEIGHT_REF_TIME_PER_NANOS)
+		.saturating_mul(5_000_000);
+	/// Executing a NO-OP `System::remarks` Extrinsic.
+	pub const ExtrinsicBaseWeight: Weight = Weight::from_ref_time(constants::WEIGHT_REF_TIME_PER_NANOS)
+		.saturating_mul(125_000);
 
 	pub BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
