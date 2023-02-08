@@ -32,9 +32,6 @@ $binary build-spec --chain bridge-hub-polkadot-dev > chain-spec-plain.json
 cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
 
 # replace the runtime in the spec with the given runtime and set some values to production
-# TODO: missing .bootNodes
-# TODO: missing .genesis.runtime.collatorSelection.invulnerables
-# TODO: missing .genesis.runtime.session.keys
 cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.system.code = ("0x" + $code)' \
     | jq '.name = "Polkadot BridgeHub"' \
     | jq '.id = "bridge-hub-polkadot"' \
@@ -55,36 +52,36 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.syste
     | jq --argjson para_id $para_id '.genesis.runtime.parachainInfo.parachainId = $para_id' \
     | jq '.genesis.runtime.balances.balances = []' \
     | jq '.genesis.runtime.collatorSelection.invulnerables = [
-                                                                "TODO:ACC1",
-                                                                "TODO:ACC2",
-                                                                "TODO:ACC3",
-                                                                "TODO:ACC4"
+                                                                "134AK3RiMA97Fx9dLj1CvuLJUa8Yo93EeLA1TkP6CCGnWMSd",
+                                                                "15dU8Tt7kde2diuHzijGbKGPU5K8BPzrFJfYFozvrS1DdE21",
+                                                                "1vXMKM8SctM28AQw1wSpd7p9yCUWn1uhbbKSVTuznsw8Q2x",
+                                                                "15mCQcaj3QP1UdxBF82JRd9v3riZJcVNVEmx8xkFp7DSYR4Y"
                                                              ]' \
     | jq '.genesis.runtime.session.keys = [
                                               [
-                                                "TODO:ACC1",
-                                                "TODO:ACC1",
+                                                "134AK3RiMA97Fx9dLj1CvuLJUa8Yo93EeLA1TkP6CCGnWMSd",
+                                                "134AK3RiMA97Fx9dLj1CvuLJUa8Yo93EeLA1TkP6CCGnWMSd",
                                                 {
                                                   "aura": "5EX6AnyuSPEFQ7HAPjRgzqk1sxgh8cyacGimwJ16y1nJ2w7g"
                                                 }
                                               ],
                                               [
-                                                "TODO:ACC2",
-                                                "TODO:ACC2",
+                                                "15dU8Tt7kde2diuHzijGbKGPU5K8BPzrFJfYFozvrS1DdE21",
+                                                "15dU8Tt7kde2diuHzijGbKGPU5K8BPzrFJfYFozvrS1DdE21",
                                                 {
                                                   "aura": "5DZN8UhaJftvKhMMARmJBwrwzuEDpoUzzBvvWMbFXYsJ4CmK"
                                                 }
                                               ],
                                               [
-                                                "TODO:ACC3",
-                                                "TODO:ACC3",
+                                                "1vXMKM8SctM28AQw1wSpd7p9yCUWn1uhbbKSVTuznsw8Q2x",
+                                                "1vXMKM8SctM28AQw1wSpd7p9yCUWn1uhbbKSVTuznsw8Q2x",
                                                 {
                                                   "aura": "5FKsn83rXQQiw7HwoeYoLMoYS5GP9YVNHZiCHwA4DSwDcPVa"
                                                 }
                                               ],
                                               [
-                                                "TODO:ACC4",
-                                                "TODO:ACC4",
+                                                "15mCQcaj3QP1UdxBF82JRd9v3riZJcVNVEmx8xkFp7DSYR4Y",
+                                                "15mCQcaj3QP1UdxBF82JRd9v3riZJcVNVEmx8xkFp7DSYR4Y",
                                                 {
                                                   "aura": "5DCg19ckcJz4m52Th4o1LcSRK3H7NsUcQsRbu7pTDM3mZ26v"
                                                 }
