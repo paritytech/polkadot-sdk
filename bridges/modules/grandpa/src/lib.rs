@@ -104,9 +104,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxRequests: Get<u32>;
 
-		// Avoid using `HeadersToKeep` directly in the pallet code. Use `headers_to_keep` function
-		// instead.
-
 		/// Maximal number of finalized headers to keep in the storage.
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
@@ -292,8 +289,14 @@ pub mod pallet {
 
 	/// A ring buffer of imported hashes. Ordered by the insertion time.
 	#[pallet::storage]
-	pub(super) type ImportedHashes<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, u32, BridgedBlockHash<T, I>>;
+	pub(super) type ImportedHashes<T: Config<I>, I: 'static = ()> = StorageMap<
+		Hasher = Identity,
+		Key = u32,
+		Value = BridgedBlockHash<T, I>,
+		QueryKind = OptionQuery,
+		OnEmpty = GetDefault,
+		MaxValues = MaybeHeadersToKeep<T, I>,
+	>;
 
 	/// Current ring buffer position.
 	#[pallet::storage]
@@ -302,8 +305,14 @@ pub mod pallet {
 
 	/// Relevant fields of imported headers.
 	#[pallet::storage]
-	pub type ImportedHeaders<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, BridgedBlockHash<T, I>, BridgedStoredHeaderData<T, I>>;
+	pub type ImportedHeaders<T: Config<I>, I: 'static = ()> = StorageMap<
+		Hasher = Identity,
+		Key = BridgedBlockHash<T, I>,
+		Value = BridgedStoredHeaderData<T, I>,
+		QueryKind = OptionQuery,
+		OnEmpty = GetDefault,
+		MaxValues = MaybeHeadersToKeep<T, I>,
+	>;
 
 	/// The current GRANDPA Authority set.
 	#[pallet::storage]
@@ -467,20 +476,6 @@ pub mod pallet {
 		})?)
 	}
 
-	/// Return number of headers to keep in the runtime storage.
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	pub(crate) fn headers_to_keep<T: Config<I>, I: 'static>() -> u32 {
-		T::HeadersToKeep::get()
-	}
-
-	/// Return number of headers to keep in the runtime storage.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn headers_to_keep<T: Config<I>, I: 'static>() -> u32 {
-		// every db operation (significantly) slows down benchmarks, so let's keep as min as
-		// possible
-		2
-	}
-
 	/// Import a previously verified header to the storage.
 	///
 	/// Note this function solely takes care of updating the storage and pruning old entries,
@@ -496,7 +491,7 @@ pub mod pallet {
 		<ImportedHashes<T, I>>::insert(index, hash);
 
 		// Update ring buffer pointer and remove old header.
-		<ImportedHashesPointer<T, I>>::put((index + 1) % headers_to_keep::<T, I>());
+		<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
 		if let Ok(hash) = pruning {
 			log::debug!(target: LOG_TARGET, "Pruning old header: {:?}.", hash);
 			<ImportedHeaders<T, I>>::remove(hash);
@@ -535,27 +530,35 @@ pub mod pallet {
 		Ok(())
 	}
 
+	/// Adapter for using `Config::HeadersToKeep` as `MaxValues` bound in our storage maps.
+	pub struct MaybeHeadersToKeep<T, I>(PhantomData<(T, I)>);
+
+	// this implementation is required to use the struct as `MaxValues`
+	impl<T: Config<I>, I: 'static> Get<Option<u32>> for MaybeHeadersToKeep<T, I> {
+		fn get() -> Option<u32> {
+			Some(T::HeadersToKeep::get())
+		}
+	}
+
+	/// Initialize pallet so that it is ready for inserting new header.
+	///
+	/// The function makes sure that the new insertion will cause the pruning of some old header.
+	///
+	/// Returns parent header for the new header.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn bootstrap_bridge<T: Config<I>, I: 'static>(
 		init_params: super::InitializationData<BridgedHeader<T, I>>,
-	) {
-		let start_number = *init_params.header.number();
-		let end_number = start_number + headers_to_keep::<T, I>().into();
+	) -> BridgedHeader<T, I> {
+		let start_header = init_params.header.clone();
 		initialize_bridge::<T, I>(init_params).expect("benchmarks are correct");
 
-		let mut number = start_number;
-		while number < end_number {
-			number = number + sp_runtime::traits::One::one();
-			let header = <BridgedHeader<T, I>>::new(
-				number,
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-			);
-			let hash = header.hash();
-			insert_header::<T, I>(header, hash);
-		}
+		// the most obvious way to cause pruning during next insertion would be to insert
+		// `HeadersToKeep` headers. But it'll make our benchmarks slow. So we will just play with
+		// our pruning ring-buffer.
+		assert_eq!(ImportedHashesPointer::<T, I>::get(), 1);
+		ImportedHashesPointer::<T, I>::put(0);
+
+		*start_header
 	}
 }
 
@@ -816,13 +819,9 @@ mod tests {
 	fn succesfully_imports_header_with_valid_finality() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(
-				submit_finality_proof(1),
-				PostDispatchInfo {
-					actual_weight: None,
-					pays_fee: frame_support::dispatch::Pays::Yes,
-				},
-			);
+			let result = submit_finality_proof(1);
+			assert_ok!(result);
+			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
 
 			let header = test_header(1);
 			assert_eq!(<BestFinalized<TestRuntime>>::get().unwrap().1, header.hash());
@@ -929,17 +928,13 @@ mod tests {
 			let justification = make_default_justification(&header);
 
 			// Let's import our test header
-			assert_ok!(
-				Pallet::<TestRuntime>::submit_finality_proof(
-					RuntimeOrigin::signed(1),
-					Box::new(header.clone()),
-					justification
-				),
-				PostDispatchInfo {
-					actual_weight: None,
-					pays_fee: frame_support::dispatch::Pays::No,
-				},
+			let result = Pallet::<TestRuntime>::submit_finality_proof(
+				RuntimeOrigin::signed(1),
+				Box::new(header.clone()),
+				justification,
 			);
+			assert_ok!(result);
+			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::No);
 
 			// Make sure that our header is the best finalized
 			assert_eq!(<BestFinalized<TestRuntime>>::get().unwrap().1, header.hash());
