@@ -34,6 +34,7 @@ use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_client_network::BlockAnnounceValidator;
+use cumulus_client_pov_recovery::RecoveryHandle;
 use cumulus_client_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
@@ -45,6 +46,8 @@ use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
+use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
+use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Hash as PHash, PersistedValidationData};
 use polkadot_service::ProvideRuntimeApi;
 use sc_client_api::execution_extensions::ExecutionStrategies;
@@ -75,6 +78,8 @@ pub use chain_spec::*;
 pub use cumulus_test_runtime as runtime;
 pub use genesis::*;
 pub use sp_keyring::Sr25519Keyring as Keyring;
+
+const LOG_TARGET: &str = "cumulus-test-service";
 
 /// A consensus that will never produce any block.
 #[derive(Clone)]
@@ -125,6 +130,41 @@ pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backen
 
 /// Transaction pool type used by the test service
 pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
+
+/// Recovery handle that fails regularly to simulate unavailable povs.
+pub struct FailingRecoveryHandle {
+	overseer_handle: OverseerHandle,
+	counter: u32,
+}
+
+impl FailingRecoveryHandle {
+	/// Create a new FailingRecoveryHandle
+	pub fn new(overseer_handle: OverseerHandle) -> Self {
+		Self { overseer_handle, counter: 0 }
+	}
+}
+
+#[async_trait::async_trait]
+impl RecoveryHandle for FailingRecoveryHandle {
+	async fn send_recovery_msg(
+		&mut self,
+		message: AvailabilityRecoveryMessage,
+		origin: &'static str,
+	) {
+		// For every 5th block we immediately signal unavailability to trigger
+		// a retry.
+		if self.counter % 5 == 0 {
+			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, back_sender) = message;
+			tracing::info!(target: LOG_TARGET, "Failing pov recovery.");
+			back_sender
+				.send(Err(RecoveryError::Unavailable))
+				.expect("Return channel should work here.");
+		} else {
+			self.overseer_handle.send_msg(message, origin).await;
+		}
+		self.counter += 1;
+	}
+}
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -236,6 +276,7 @@ pub async fn start_node_impl<RB>(
 	relay_chain_config: Configuration,
 	para_id: ParaId,
 	wrap_announce_block: Option<Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn>>,
+	fail_pov_recovery: bool,
 	rpc_ext_builder: RB,
 	consensus: Consensus,
 	collator_options: CollatorOptions,
@@ -320,6 +361,17 @@ where
 		.unwrap_or_else(|| announce_block);
 
 	let relay_chain_interface_for_closure = relay_chain_interface.clone();
+
+	let overseer_handle = relay_chain_interface
+		.overseer_handle()
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+	let recovery_handle: Box<dyn RecoveryHandle> = if fail_pov_recovery {
+		Box::new(FailingRecoveryHandle::new(overseer_handle))
+	} else {
+		Box::new(overseer_handle)
+	};
+
 	if let Some(collator_key) = collator_key {
 		let parachain_consensus: Box<dyn ParachainConsensus<Block>> = match consensus {
 			Consensus::RelayChain => {
@@ -374,6 +426,7 @@ where
 			collator_key,
 			import_queue: import_queue_service,
 			relay_chain_slot_duration: Duration::from_secs(6),
+			recovery_handle,
 		};
 
 		start_collator(params).await?;
@@ -385,10 +438,8 @@ where
 			para_id,
 			relay_chain_interface,
 			import_queue: import_queue_service,
-			// The slot duration is currently used internally only to configure
-			// the recovery delay of pov-recovery. We don't want to wait for too
-			// long on the full node to recover, so we reduce this time here.
-			relay_chain_slot_duration: Duration::from_millis(6),
+			relay_chain_slot_duration: Duration::from_secs(6),
+			recovery_handle,
 		};
 
 		start_full_node(params)?;
@@ -600,6 +651,7 @@ impl TestNodeBuilder {
 			relay_chain_config,
 			self.para_id,
 			self.wrap_announce_block,
+			false,
 			|_| Ok(jsonrpsee::RpcModule::new(())),
 			self.consensus,
 			collator_options,

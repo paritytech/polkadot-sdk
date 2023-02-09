@@ -18,11 +18,12 @@ use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, Finalizer, UsageProvider,
 };
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
+use schnellru::{ByLength, LruMap};
 use sp_blockchain::Error as ClientError;
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
-use cumulus_client_pov_recovery::{RecoveryDelay, RecoveryKind, RecoveryRequest};
+use cumulus_client_pov_recovery::{RecoveryKind, RecoveryRequest};
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 
 use polkadot_primitives::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
@@ -30,16 +31,60 @@ use polkadot_primitives::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
 use codec::Decode;
 use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, Stream, StreamExt};
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 const LOG_TARGET: &str = "cumulus-consensus";
+const FINALIZATION_CACHE_SIZE: u32 = 40;
 
-// Delay range to trigger explicit requests.
-// The chosen value doesn't have any special meaning, a random delay within the order of
-// seconds in practice should be a good enough to allow a quick recovery without DOSing
-// the relay chain.
-const RECOVERY_DELAY: RecoveryDelay =
-	RecoveryDelay { min: Duration::ZERO, max: Duration::from_secs(30) };
+fn handle_new_finalized_head<P, Block, B>(
+	parachain: &Arc<P>,
+	finalized_head: Vec<u8>,
+	last_seen_finalized_hashes: &mut LruMap<Block::Hash, ()>,
+) where
+	Block: BlockT,
+	B: Backend<Block>,
+	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
+{
+	let header = match Block::Header::decode(&mut &finalized_head[..]) {
+		Ok(header) => header,
+		Err(err) => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				error = ?err,
+				"Could not decode parachain header while following finalized heads.",
+			);
+			return
+		},
+	};
+
+	let hash = header.hash();
+
+	last_seen_finalized_hashes.insert(hash, ());
+
+	// Only finalize if we are below the incoming finalized parachain head
+	if parachain.usage_info().chain.finalized_number < *header.number() {
+		tracing::debug!(
+			target: LOG_TARGET,
+			block_hash = ?hash,
+			"Attempting to finalize header.",
+		);
+		if let Err(e) = parachain.finalize_block(hash, None, true) {
+			match e {
+				ClientError::UnknownBlock(_) => tracing::debug!(
+					target: LOG_TARGET,
+					block_hash = ?hash,
+					"Could not finalize block because it is unknown.",
+				),
+				_ => tracing::warn!(
+					target: LOG_TARGET,
+					error = ?e,
+					block_hash = ?hash,
+					"Failed to finalize block",
+				),
+			}
+		}
+	}
+}
 
 /// Follow the finalized head of the given parachain.
 ///
@@ -48,57 +93,75 @@ const RECOVERY_DELAY: RecoveryDelay =
 async fn follow_finalized_head<P, Block, B, R>(para_id: ParaId, parachain: Arc<P>, relay_chain: R)
 where
 	Block: BlockT,
-	P: Finalizer<Block, B> + UsageProvider<Block>,
+	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
 	R: RelayChainInterface + Clone,
 	B: Backend<Block>,
 {
 	let finalized_heads = match finalized_heads(relay_chain, para_id).await {
-		Ok(finalized_heads_stream) => finalized_heads_stream,
+		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
 		Err(err) => {
 			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve finalized heads stream.");
 			return
 		},
 	};
 
+	let mut imported_blocks = parachain.import_notification_stream().fuse();
+
 	pin_mut!(finalized_heads);
 
+	// We use this cache to finalize blocks that are imported late.
+	// For example, a block that has been recovered via PoV-Recovery
+	// on a full node can have several minutes delay. With this cache
+	// we have some "memory" of recently finalized blocks.
+	let mut last_seen_finalized_hashes = LruMap::new(ByLength::new(FINALIZATION_CACHE_SIZE));
+
 	loop {
-		let finalized_head = if let Some(h) = finalized_heads.next().await {
-			h
-		} else {
-			tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");
-			return
-		};
-
-		let header = match Block::Header::decode(&mut &finalized_head[..]) {
-			Ok(header) => header,
-			Err(err) => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					error = ?err,
-					"Could not decode parachain header while following finalized heads.",
-				);
-				continue
+		select! {
+			fin = finalized_heads.next() => {
+				match fin {
+					Some(finalized_head) =>
+						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes),
+					None => {
+						tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");
+						return
+					}
+				}
 			},
-		};
+			imported = imported_blocks.next() => {
+				match imported {
+					Some(imported_block) => {
+						// When we see a block import that is already finalized, we immediately finalize it.
+						if last_seen_finalized_hashes.peek(&imported_block.hash).is_some() {
+							tracing::debug!(
+								target: LOG_TARGET,
+								block_hash = ?imported_block.hash,
+								"Setting newly imported block as finalized.",
+							);
 
-		let hash = header.hash();
-
-		// don't finalize the same block multiple times.
-		if parachain.usage_info().chain.finalized_hash != hash {
-			if let Err(e) = parachain.finalize_block(hash, None, true) {
-				match e {
-					ClientError::UnknownBlock(_) => tracing::debug!(
-						target: LOG_TARGET,
-						block_hash = ?hash,
-						"Could not finalize block because it is unknown.",
-					),
-					_ => tracing::warn!(
-						target: LOG_TARGET,
-						error = ?e,
-						block_hash = ?hash,
-						"Failed to finalize block",
-					),
+							if let Err(e) = parachain.finalize_block(imported_block.hash, None, true) {
+								match e {
+									ClientError::UnknownBlock(_) => tracing::debug!(
+										target: LOG_TARGET,
+										block_hash = ?imported_block.hash,
+										"Could not finalize block because it is unknown.",
+									),
+									_ => tracing::warn!(
+										target: LOG_TARGET,
+										error = ?e,
+										block_hash = ?imported_block.hash,
+										"Failed to finalize block",
+									),
+								}
+							}
+						}
+					},
+					None => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							"Stopping following imported blocks.",
+						);
+						return
+					}
 				}
 			}
 		}
@@ -266,7 +329,11 @@ async fn handle_new_block_imported<Block, P>(
 			let unset_best_header = unset_best_header_opt
 				.take()
 				.expect("We checked above that the value is set; qed");
-
+			tracing::debug!(
+				target: LOG_TARGET,
+				?unset_hash,
+				"Importing block as new best for parachain.",
+			);
 			import_block_as_new_best(unset_hash, unset_best_header, parachain).await;
 		},
 		state => tracing::debug!(
@@ -315,7 +382,11 @@ async fn handle_new_best_parachain_head<Block, P>(
 		match parachain.block_status(hash) {
 			Ok(BlockStatus::InChainWithState) => {
 				unset_best_header.take();
-
+				tracing::debug!(
+					target: LOG_TARGET,
+					?hash,
+					"Importing block as new best for parachain.",
+				);
 				import_block_as_new_best(hash, parachain_head, parachain).await;
 			},
 			Ok(BlockStatus::InChainPruned) => {
@@ -338,8 +409,7 @@ async fn handle_new_best_parachain_head<Block, P>(
 					// Best effort channel to actively encourage block recovery.
 					// An error here is not fatal; the relay chain continuously re-announces
 					// the best block, thus we will have other opportunities to retry.
-					let req =
-						RecoveryRequest { hash, delay: RECOVERY_DELAY, kind: RecoveryKind::Full };
+					let req = RecoveryRequest { hash, kind: RecoveryKind::Full };
 					if let Err(err) = recovery_chan_tx.try_send(req) {
 						tracing::warn!(
 							target: LOG_TARGET,

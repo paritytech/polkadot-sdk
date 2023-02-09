@@ -28,6 +28,7 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 cumulus-primitives-core = { path = "../../../primitives/core" }
 cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
 cumulus-client-pov-recovery = { path = "../../pov-recovery" }
+schnellru = "0.2.1"
 
 [dev-dependencies]
 futures-timer = "3.0.2"

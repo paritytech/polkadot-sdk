@@ -49,6 +49,9 @@ pub struct TestCollatorCli {
 
 	#[arg(long)]
 	pub disable_block_announcements: bool,
+
+	#[arg(long)]
+	pub fail_pov_recovery: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
