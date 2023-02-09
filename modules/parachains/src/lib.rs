@@ -221,27 +221,39 @@ pub mod pallet {
 	/// - the head of the `ImportedParaHashes` ring buffer
 	#[pallet::storage]
 	pub type ParasInfo<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		<ParasInfoKeyProvider as StorageMapKeyProvider>::Hasher,
-		<ParasInfoKeyProvider as StorageMapKeyProvider>::Key,
-		<ParasInfoKeyProvider as StorageMapKeyProvider>::Value,
+		Hasher = <ParasInfoKeyProvider as StorageMapKeyProvider>::Hasher,
+		Key = <ParasInfoKeyProvider as StorageMapKeyProvider>::Key,
+		Value = <ParasInfoKeyProvider as StorageMapKeyProvider>::Value,
+		QueryKind = OptionQuery,
+		OnEmpty = GetDefault,
+		MaxValues = MaybeMaxParachains<T, I>,
 	>;
 
 	/// State roots of parachain heads which have been imported into the pallet.
 	#[pallet::storage]
 	pub type ImportedParaHeads<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-		_,
-		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Hasher1,
-		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key1,
-		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Hasher2,
-		<ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key2,
-		StoredParaHeadDataOf<T, I>,
+		Hasher1 = <ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Hasher1,
+		Key1 = <ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key1,
+		Hasher2 = <ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Hasher2,
+		Key2 = <ImportedParaHeadsKeyProvider as StorageDoubleMapKeyProvider>::Key2,
+		Value = StoredParaHeadDataOf<T, I>,
+		QueryKind = OptionQuery,
+		OnEmpty = GetDefault,
+		MaxValues = MaybeMaxTotalParachainHashes<T, I>,
 	>;
 
 	/// A ring buffer of imported parachain head hashes. Ordered by the insertion time.
 	#[pallet::storage]
-	pub(super) type ImportedParaHashes<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Blake2_128Concat, ParaId, Twox64Concat, u32, ParaHash>;
+	pub(super) type ImportedParaHashes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		Hasher1 = Blake2_128Concat,
+		Key1 = ParaId,
+		Hasher2 = Twox64Concat,
+		Key2 = u32,
+		Value = ParaHash,
+		QueryKind = OptionQuery,
+		OnEmpty = GetDefault,
+		MaxValues = MaybeMaxTotalParachainHashes<T, I>,
+	>;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -644,6 +656,27 @@ pub mod pallet {
 			if let Some(ref owner) = self.owner {
 				PalletOwner::<T, I>::put(owner);
 			}
+		}
+	}
+
+	/// Returns maximal number of parachains, supported by the pallet.
+	pub struct MaybeMaxParachains<T, I>(PhantomData<(T, I)>);
+
+	impl<T: Config<I>, I: 'static> Get<Option<u32>> for MaybeMaxParachains<T, I> {
+		fn get() -> Option<u32> {
+			Some(T::ParaStoredHeaderDataBuilder::supported_parachains())
+		}
+	}
+
+	/// Returns total number of all parachains hashes/heads, stored by the pallet.
+	pub struct MaybeMaxTotalParachainHashes<T, I>(PhantomData<(T, I)>);
+
+	impl<T: Config<I>, I: 'static> Get<Option<u32>> for MaybeMaxTotalParachainHashes<T, I> {
+		fn get() -> Option<u32> {
+			Some(
+				T::ParaStoredHeaderDataBuilder::supported_parachains()
+					.saturating_mul(T::HeadsToKeep::get()),
+			)
 		}
 	}
 }
@@ -1525,4 +1558,17 @@ mod tests {
 	}
 
 	generate_owned_bridge_module_tests!(BasicOperatingMode::Normal, BasicOperatingMode::Halted);
+
+	#[test]
+	fn maybe_max_parachains_returns_correct_value() {
+		assert_eq!(MaybeMaxParachains::<TestRuntime, ()>::get(), Some(mock::TOTAL_PARACHAINS));
+	}
+
+	#[test]
+	fn maybe_max_total_parachain_hashes_returns_correct_value() {
+		assert_eq!(
+			MaybeMaxTotalParachainHashes::<TestRuntime, ()>::get(),
+			Some(mock::TOTAL_PARACHAINS * mock::HeadsToKeep::get()),
+		);
+	}
 }

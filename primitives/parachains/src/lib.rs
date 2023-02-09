@@ -115,7 +115,10 @@ impl ParaStoredHeaderData {
 
 /// Stored parachain head data builder.
 pub trait ParaStoredHeaderDataBuilder {
-	/// Try to build head data from self.
+	/// Return number of parachains that are supported by this builder.
+	fn supported_parachains() -> u32;
+
+	/// Try to build head data from encoded head of parachain with given id.
 	fn try_build(para_id: ParaId, para_head: &ParaHead) -> Option<ParaStoredHeaderData>;
 }
 
@@ -123,6 +126,10 @@ pub trait ParaStoredHeaderDataBuilder {
 pub struct SingleParaStoredHeaderDataBuilder<C: Parachain>(PhantomData<C>);
 
 impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBuilder<C> {
+	fn supported_parachains() -> u32 {
+		1
+	}
+
 	fn try_build(para_id: ParaId, para_head: &ParaHead) -> Option<ParaStoredHeaderData> {
 		if para_id == ParaId(C::PARACHAIN_ID) {
 			let header = HeaderOf::<C>::decode(&mut &para_head.0[..]).ok()?;
@@ -139,6 +146,14 @@ impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBui
 #[impl_trait_for_tuples::impl_for_tuples(1, 30)]
 #[tuple_types_custom_trait_bound(Parachain)]
 impl ParaStoredHeaderDataBuilder for C {
+	fn supported_parachains() -> u32 {
+		let mut result = 0;
+		for_tuples!( #(
+			result += SingleParaStoredHeaderDataBuilder::<C>::supported_parachains();
+		)* );
+		result
+	}
+
 	fn try_build(para_id: ParaId, para_head: &ParaHead) -> Option<ParaStoredHeaderData> {
 		for_tuples!( #(
 			let maybe_para_head = SingleParaStoredHeaderDataBuilder::<C>::try_build(para_id, para_head);

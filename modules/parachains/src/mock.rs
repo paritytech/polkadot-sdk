@@ -38,6 +38,8 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 pub const UNTRACKED_PARACHAIN_ID: u32 = 10;
 // use exact expected encoded size: `vec_len_size + header_number_size + state_root_hash_size`
 pub const MAXIMAL_PARACHAIN_HEAD_DATA_SIZE: u32 = 1 + 8 + 32;
+// total parachains that we use in tests
+pub const TOTAL_PARACHAINS: u32 = 4;
 
 pub type RegularParachainHeader = sp_runtime::testing::Header;
 pub type RegularParachainHasher = BlakeTwo256;
