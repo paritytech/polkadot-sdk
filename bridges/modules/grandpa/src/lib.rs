@@ -662,6 +662,7 @@ mod tests {
 		assert_err, assert_noop, assert_ok, dispatch::PostDispatchInfo,
 		storage::generator::StorageValue,
 	};
+	use sp_core::Get;
 	use sp_runtime::{Digest, DigestItem, DispatchError};
 
 	fn initialize_substrate_bridge() {
@@ -1242,4 +1243,9 @@ mod tests {
 	}
 
 	generate_owned_bridge_module_tests!(BasicOperatingMode::Normal, BasicOperatingMode::Halted);
+
+	#[test]
+	fn maybe_headers_to_keep_returns_correct_value() {
+		assert_eq!(MaybeHeadersToKeep::<TestRuntime, ()>::get(), Some(mock::HeadersToKeep::get()));
+	}
 }
