@@ -33,7 +33,7 @@ pub type TestNumber = crate::BridgedBlockNumber<TestRuntime, ()>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
-pub const MAX_BRIDGED_AUTHORITIES: u32 = 2048;
+pub const MAX_BRIDGED_AUTHORITIES: u32 = 5;
 
 use crate as grandpa;
 
