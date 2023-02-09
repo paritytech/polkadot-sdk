@@ -17,7 +17,7 @@
 mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
-use crate::Runtime;
+use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
 use frame_support::weights::Weight;
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
@@ -35,7 +35,18 @@ impl WeighMultiAssets for MultiAssetFilter {
 		match self {
 			Self::Definite(assets) =>
 				weight.saturating_mul(assets.inner().into_iter().count() as u64),
-			Self::Wild(_) => weight.saturating_mul(MAX_ASSETS as u64),
+			Self::Wild(asset) => match asset {
+				All => weight.saturating_mul(MAX_ASSETS as u64),
+				AllOf { fun, .. } => match fun {
+					WildFungibility::Fungible => weight,
+					// Magic number 2 has to do with the fact that we could have up to 2 times
+					// MaxAssetsIntoHolding in the worst-case scenario.
+					WildFungibility::NonFungible =>
+						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64),
+				},
+				AllCounted(count) => weight.saturating_mul(*count as u64),
+				AllOfCounted { count, .. } => weight.saturating_mul(*count as u64),
+			},
 		}
 	}
 }
