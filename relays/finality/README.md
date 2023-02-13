@@ -21,7 +21,7 @@ More: [GRANDPA Finality Relay Sequence Diagram](../../docs/grandpa-finality-rela
 The most important trait is the [`FinalitySyncPipeline`](./src/lib.rs), which defines the basic primitives of the
 source chain (like block hash and number) and the type of finality proof (GRANDPA justification or MMR proof). Once
 that is defined, there are two other traits - [`SourceClient`](./src/finality_loop.rs) and
-[`TarggetClient`](./src/finality_loop.rs).
+[`TargetClient`](./src/finality_loop.rs).
 
 The `SourceClient` represents the Substrate node client that connects to the source chain. The client needs to
 be able to return the best finalized header number, finalized header and its finality proof and the stream of
