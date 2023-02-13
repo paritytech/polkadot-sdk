@@ -15,7 +15,7 @@ More: [Parachains Finality Relay Sequence Diagram](../../docs/parachains-finalit
 
 There are only two traits that need to be implemented. The [`SourceChain`](./src/parachains_loop.rs) implementation
 is supposed to connect to the source chain node. It must be able to read parachain heads from the `Heads` map of
-the [`paras` pallet](https://github.com/paritytech/polkadot/tree/master/runtime/parachains/src/paras) pallet.
+the [`paras` pallet](https://github.com/paritytech/polkadot/tree/master/runtime/parachains/src/paras).
 It also must create storage proofs of `Heads` map entries, when required.
 
 The [`TargetChain`](./src/parachains_loop.rs) implementation connects to the target chain node. It must be able
