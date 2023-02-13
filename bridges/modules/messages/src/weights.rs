@@ -88,8 +88,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `693`
 		//  Estimated: `54703`
-		// Minimum execution time: 76_449 nanoseconds.
-		Weight::from_parts(127_110_000, 54703)
+		// Minimum execution time: 50_655 nanoseconds.
+		Weight::from_parts(60_502_000, 54703)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -116,8 +116,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `693`
 		//  Estimated: `54703`
-		// Minimum execution time: 102_297 nanoseconds.
-		Weight::from_parts(108_619_000, 54703)
+		// Minimum execution time: 58_861 nanoseconds.
+		Weight::from_parts(60_288_000, 54703)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -144,8 +144,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `693`
 		//  Estimated: `54703`
-		// Minimum execution time: 84_911 nanoseconds.
-		Weight::from_parts(87_518_000, 54703)
+		// Minimum execution time: 53_459 nanoseconds.
+		Weight::from_parts(54_577_000, 54703)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -167,8 +167,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `618`
 		//  Estimated: `54200`
-		// Minimum execution time: 79_805 nanoseconds.
-		Weight::from_parts(84_148_000, 54200)
+		// Minimum execution time: 54_011 nanoseconds.
+		Weight::from_parts(55_573_000, 54200)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -190,8 +190,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `618`
 		//  Estimated: `54200`
-		// Minimum execution time: 141_515 nanoseconds.
-		Weight::from_parts(150_421_000, 54200)
+		// Minimum execution time: 105_856 nanoseconds.
+		Weight::from_parts(109_112_000, 54200)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -207,8 +207,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	///
 	/// Storage: BridgeRialtoMessages OutboundLanes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: None, max_size: Some(44), added:
-	/// 2519, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: Some(1), max_size: Some(44), added:
+	/// 539, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRelayers RelayerRewards (r:1 w:1)
 	///
@@ -217,9 +217,9 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	fn receive_delivery_proof_for_single_message() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `579`
-		//  Estimated: `7599`
-		// Minimum execution time: 54_740 nanoseconds.
-		Weight::from_parts(56_637_000, 7599)
+		//  Estimated: `5619`
+		// Minimum execution time: 40_894 nanoseconds.
+		Weight::from_parts(41_766_000, 5619)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -235,8 +235,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	///
 	/// Storage: BridgeRialtoMessages OutboundLanes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: None, max_size: Some(44), added:
-	/// 2519, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: Some(1), max_size: Some(44), added:
+	/// 539, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRelayers RelayerRewards (r:1 w:1)
 	///
@@ -245,9 +245,9 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	fn receive_delivery_proof_for_two_messages_by_single_relayer() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `596`
-		//  Estimated: `7599`
-		// Minimum execution time: 54_583 nanoseconds.
-		Weight::from_parts(56_205_000, 7599)
+		//  Estimated: `5619`
+		// Minimum execution time: 39_996 nanoseconds.
+		Weight::from_parts(41_452_000, 5619)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -263,8 +263,8 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	///
 	/// Storage: BridgeRialtoMessages OutboundLanes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: None, max_size: Some(44), added:
-	/// 2519, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: Some(1), max_size: Some(44), added:
+	/// 539, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRelayers RelayerRewards (r:2 w:2)
 	///
@@ -273,9 +273,9 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	fn receive_delivery_proof_for_two_messages_by_two_relayers() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `596`
-		//  Estimated: `10134`
-		// Minimum execution time: 59_426 nanoseconds.
-		Weight::from_parts(61_911_000, 10134)
+		//  Estimated: `8154`
+		// Minimum execution time: 42_281 nanoseconds.
+		Weight::from_parts(43_593_000, 8154)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -306,8 +306,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `693`
 		//  Estimated: `54703`
-		// Minimum execution time: 76_449 nanoseconds.
-		Weight::from_parts(127_110_000, 54703)
+		// Minimum execution time: 50_655 nanoseconds.
+		Weight::from_parts(60_502_000, 54703)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -334,8 +334,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `693`
 		//  Estimated: `54703`
-		// Minimum execution time: 102_297 nanoseconds.
-		Weight::from_parts(108_619_000, 54703)
+		// Minimum execution time: 58_861 nanoseconds.
+		Weight::from_parts(60_288_000, 54703)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -362,8 +362,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `693`
 		//  Estimated: `54703`
-		// Minimum execution time: 84_911 nanoseconds.
-		Weight::from_parts(87_518_000, 54703)
+		// Minimum execution time: 53_459 nanoseconds.
+		Weight::from_parts(54_577_000, 54703)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -385,8 +385,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `618`
 		//  Estimated: `54200`
-		// Minimum execution time: 79_805 nanoseconds.
-		Weight::from_parts(84_148_000, 54200)
+		// Minimum execution time: 54_011 nanoseconds.
+		Weight::from_parts(55_573_000, 54200)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -408,8 +408,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `618`
 		//  Estimated: `54200`
-		// Minimum execution time: 141_515 nanoseconds.
-		Weight::from_parts(150_421_000, 54200)
+		// Minimum execution time: 105_856 nanoseconds.
+		Weight::from_parts(109_112_000, 54200)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -425,8 +425,8 @@ impl WeightInfo for () {
 	///
 	/// Storage: BridgeRialtoMessages OutboundLanes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: None, max_size: Some(44), added:
-	/// 2519, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: Some(1), max_size: Some(44), added:
+	/// 539, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRelayers RelayerRewards (r:1 w:1)
 	///
@@ -435,9 +435,9 @@ impl WeightInfo for () {
 	fn receive_delivery_proof_for_single_message() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `579`
-		//  Estimated: `7599`
-		// Minimum execution time: 54_740 nanoseconds.
-		Weight::from_parts(56_637_000, 7599)
+		//  Estimated: `5619`
+		// Minimum execution time: 40_894 nanoseconds.
+		Weight::from_parts(41_766_000, 5619)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -453,8 +453,8 @@ impl WeightInfo for () {
 	///
 	/// Storage: BridgeRialtoMessages OutboundLanes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: None, max_size: Some(44), added:
-	/// 2519, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: Some(1), max_size: Some(44), added:
+	/// 539, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRelayers RelayerRewards (r:1 w:1)
 	///
@@ -463,9 +463,9 @@ impl WeightInfo for () {
 	fn receive_delivery_proof_for_two_messages_by_single_relayer() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `596`
-		//  Estimated: `7599`
-		// Minimum execution time: 54_583 nanoseconds.
-		Weight::from_parts(56_205_000, 7599)
+		//  Estimated: `5619`
+		// Minimum execution time: 39_996 nanoseconds.
+		Weight::from_parts(41_452_000, 5619)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -481,8 +481,8 @@ impl WeightInfo for () {
 	///
 	/// Storage: BridgeRialtoMessages OutboundLanes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: None, max_size: Some(44), added:
-	/// 2519, mode: MaxEncodedLen)
+	/// Proof: BridgeRialtoMessages OutboundLanes (max_values: Some(1), max_size: Some(44), added:
+	/// 539, mode: MaxEncodedLen)
 	///
 	/// Storage: BridgeRelayers RelayerRewards (r:2 w:2)
 	///
@@ -491,9 +491,9 @@ impl WeightInfo for () {
 	fn receive_delivery_proof_for_two_messages_by_two_relayers() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `596`
-		//  Estimated: `10134`
-		// Minimum execution time: 59_426 nanoseconds.
-		Weight::from_parts(61_911_000, 10134)
+		//  Estimated: `8154`
+		// Minimum execution time: 42_281 nanoseconds.
+		Weight::from_parts(43_593_000, 8154)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
