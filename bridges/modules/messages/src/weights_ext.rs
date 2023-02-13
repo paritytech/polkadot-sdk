@@ -36,21 +36,43 @@ pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
 
 /// Ensure that weights from `WeightInfoExt` implementation are looking correct.
 pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
+	// all components of weight formulae must have zero `proof_size`, because the `proof_size` is
+	// benchmarked using `MaxEncodedLen` approach and there are no components that cause additional
+	// db reads
+
 	// verify `receive_messages_proof` weight components
-	assert_ne!(W::receive_messages_proof_overhead(), Weight::zero());
-	assert_ne!(W::receive_messages_proof_messages_overhead(1), Weight::zero());
-	assert_ne!(W::receive_messages_proof_outbound_lane_state_overhead(), Weight::zero());
-	assert_ne!(W::storage_proof_size_overhead(1), Weight::zero());
+	assert_ne!(W::receive_messages_proof_overhead().ref_time(), 0);
+	assert_ne!(W::receive_messages_proof_overhead().proof_size(), 0);
+	// W::receive_messages_proof_messages_overhead(1).ref_time() may be zero because:
+	// the message processing code (`InboundLane::receive_message`) is minimal and may not be
+	// accounted by our benchmarks
+	assert_eq!(W::receive_messages_proof_messages_overhead(1).proof_size(), 0);
+	// W::receive_messages_proof_outbound_lane_state_overhead().ref_time() may be zero because:
+	// the outbound lane state processing code (`InboundLane::receive_state_update`) is minimal and
+	// may not be accounted by our benchmarks
+	assert_eq!(W::receive_messages_proof_outbound_lane_state_overhead().proof_size(), 0);
+	assert_ne!(W::storage_proof_size_overhead(1).ref_time(), 0);
+	assert_eq!(W::storage_proof_size_overhead(1).proof_size(), 0);
 
 	// verify `receive_messages_delivery_proof` weight components
-	assert_ne!(W::receive_messages_delivery_proof_overhead(), Weight::zero());
-	assert_ne!(W::storage_proof_size_overhead(1), Weight::zero());
+	assert_ne!(W::receive_messages_delivery_proof_overhead().ref_time(), 0);
+	assert_ne!(W::receive_messages_delivery_proof_overhead().proof_size(), 0);
+	// W::receive_messages_delivery_proof_messages_overhead(1).ref_time() may be zero because:
+	// there's no code that iterates over confirmed messages in confirmation transaction
+	assert_eq!(W::receive_messages_delivery_proof_messages_overhead(1).proof_size(), 0);
+	assert_ne!(W::receive_messages_delivery_proof_relayers_overhead(1).ref_time(), 0);
+	// W::receive_messages_delivery_proof_relayers_overhead(1).proof_size() is an exception
+	// it may or may not cause additional db reads, so proof size may vary
+	assert_ne!(W::storage_proof_size_overhead(1).ref_time(), 0);
+	assert_eq!(W::storage_proof_size_overhead(1).proof_size(), 0);
 
 	// verify `receive_message_proof` weight
 	let receive_messages_proof_weight =
 		W::receive_messages_proof_weight(&PreComputedSize(1), 10, Weight::zero());
 	assert_ne!(receive_messages_proof_weight.ref_time(), 0);
 	assert_ne!(receive_messages_proof_weight.proof_size(), 0);
+	messages_proof_size_does_not_affect_proof_size::<W>();
+	messages_count_does_not_affect_proof_size::<W>();
 
 	// verify `receive_message_proof` weight
 	let receive_messages_delivery_proof_weight = W::receive_messages_delivery_proof_weight(
@@ -59,6 +81,8 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 	);
 	assert_ne!(receive_messages_delivery_proof_weight.ref_time(), 0);
 	assert_ne!(receive_messages_delivery_proof_weight.proof_size(), 0);
+	messages_delivery_proof_size_does_not_affect_proof_size::<W>();
+	total_messages_in_delivery_proof_does_not_affect_proof_size::<W>();
 }
 
 /// Ensure that we're able to receive maximal (by-size and by-weight) message from other chain.
@@ -119,6 +143,116 @@ pub fn ensure_able_to_receive_confirmation<W: WeightInfoExt>(
 	assert!(
 		max_confirmation_transaction_dispatch_weight.all_lte(max_extrinsic_weight),
 		"Weight of maximal confirmation transaction {max_confirmation_transaction_dispatch_weight} is larger than maximal possible transaction weight {max_extrinsic_weight}",
+	);
+}
+
+/// Panics if `proof_size` of message delivery call depends on the message proof size.
+fn messages_proof_size_does_not_affect_proof_size<W: WeightInfoExt>() {
+	let dispatch_weight = Weight::zero();
+	let weight_when_proof_size_is_8k =
+		W::receive_messages_proof_weight(&PreComputedSize(8 * 1024), 1, dispatch_weight);
+	let weight_when_proof_size_is_16k =
+		W::receive_messages_proof_weight(&PreComputedSize(16 * 1024), 1, dispatch_weight);
+
+	ensure_weight_components_are_not_zero(weight_when_proof_size_is_8k);
+	ensure_weight_components_are_not_zero(weight_when_proof_size_is_16k);
+	ensure_proof_size_is_the_same(
+		weight_when_proof_size_is_8k,
+		weight_when_proof_size_is_16k,
+		"Messages proof size does not affect values that we read from our storage",
+	);
+}
+
+/// Panics if `proof_size` of message delivery call depends on the messages count.
+///
+/// In practice, it will depend on the messages count, because most probably every
+/// message will read something from db during dispatch. But this must be accounted
+/// by the `dispatch_weight`.
+fn messages_count_does_not_affect_proof_size<W: WeightInfoExt>() {
+	let messages_proof_size = PreComputedSize(8 * 1024);
+	let dispatch_weight = Weight::zero();
+	let weight_of_one_incoming_message =
+		W::receive_messages_proof_weight(&messages_proof_size, 1, dispatch_weight);
+	let weight_of_two_incoming_messages =
+		W::receive_messages_proof_weight(&messages_proof_size, 2, dispatch_weight);
+
+	ensure_weight_components_are_not_zero(weight_of_one_incoming_message);
+	ensure_weight_components_are_not_zero(weight_of_two_incoming_messages);
+	ensure_proof_size_is_the_same(
+		weight_of_one_incoming_message,
+		weight_of_two_incoming_messages,
+		"Number of same-lane incoming messages does not affect values that we read from our storage",
+	);
+}
+
+/// Panics if `proof_size` of delivery confirmation call depends on the delivery proof size.
+fn messages_delivery_proof_size_does_not_affect_proof_size<W: WeightInfoExt>() {
+	let relayers_state = UnrewardedRelayersState {
+		unrewarded_relayer_entries: 1,
+		messages_in_oldest_entry: 1,
+		total_messages: 1,
+		last_delivered_nonce: 1,
+	};
+	let weight_when_proof_size_is_8k =
+		W::receive_messages_delivery_proof_weight(&PreComputedSize(8 * 1024), &relayers_state);
+	let weight_when_proof_size_is_16k =
+		W::receive_messages_delivery_proof_weight(&PreComputedSize(16 * 1024), &relayers_state);
+
+	ensure_weight_components_are_not_zero(weight_when_proof_size_is_8k);
+	ensure_weight_components_are_not_zero(weight_when_proof_size_is_16k);
+	ensure_proof_size_is_the_same(
+		weight_when_proof_size_is_8k,
+		weight_when_proof_size_is_16k,
+		"Messages delivery proof size does not affect values that we read from our storage",
+	);
+}
+
+/// Panics if `proof_size` of delivery confirmation call depends on the number of confirmed
+/// messages.
+fn total_messages_in_delivery_proof_does_not_affect_proof_size<W: WeightInfoExt>() {
+	let proof_size = PreComputedSize(8 * 1024);
+	let weight_when_1k_messages_confirmed = W::receive_messages_delivery_proof_weight(
+		&proof_size,
+		&UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			messages_in_oldest_entry: 1,
+			total_messages: 1024,
+			last_delivered_nonce: 1,
+		},
+	);
+	let weight_when_2k_messages_confirmed = W::receive_messages_delivery_proof_weight(
+		&proof_size,
+		&UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			messages_in_oldest_entry: 1,
+			total_messages: 2048,
+			last_delivered_nonce: 1,
+		},
+	);
+
+	ensure_weight_components_are_not_zero(weight_when_1k_messages_confirmed);
+	ensure_weight_components_are_not_zero(weight_when_2k_messages_confirmed);
+	ensure_proof_size_is_the_same(
+		weight_when_1k_messages_confirmed,
+		weight_when_2k_messages_confirmed,
+		"More messages in delivery proof does not affect values that we read from our storage",
+	);
+}
+
+/// Panics if either Weight' `proof_size` or `ref_time` are zero.
+fn ensure_weight_components_are_not_zero(weight: Weight) {
+	assert_ne!(weight.ref_time(), 0);
+	assert_ne!(weight.proof_size(), 0);
+}
+
+/// Panics if `proof_size` of `weight1` is not equal to `proof_size` of `weight2`.
+fn ensure_proof_size_is_the_same(weight1: Weight, weight2: Weight, msg: &str) {
+	assert_eq!(
+		weight1.proof_size(),
+		weight2.proof_size(),
+		"{msg}: {} must be equal to {}",
+		weight1.proof_size(),
+		weight2.proof_size(),
 	);
 }
 
@@ -280,5 +414,16 @@ impl WeightInfoExt for () {
 impl<T: frame_system::Config> WeightInfoExt for crate::weights::BridgeWeight<T> {
 	fn expected_extra_storage_proof_size() -> u32 {
 		EXTRA_STORAGE_PROOF_SIZE
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{mock::TestRuntime, weights::BridgeWeight};
+
+	#[test]
+	fn ensure_default_weights_are_correct() {
+		ensure_weights_are_correct::<BridgeWeight<TestRuntime>>();
 	}
 }
