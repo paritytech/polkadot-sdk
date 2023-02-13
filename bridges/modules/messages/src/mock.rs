@@ -34,7 +34,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
 	traits::ConstU64,
-	weights::{RuntimeDbWeight, Weight},
+	weights::{constants::RocksDbWeight, Weight},
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -92,8 +92,9 @@ parameter_types! {
 	pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
 	pub const MaximumBlockLength: u32 = 2 * 1024;
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
 }
+
+pub type DbWeight = RocksDbWeight;
 
 impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
