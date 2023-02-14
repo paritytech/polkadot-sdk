@@ -127,3 +127,15 @@ zombienet-0006-rpc_collator_builds_blocks:
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
         --test="0006-rpc_collator_builds_blocks.feature"
+
+zombienet-0007-full_node_warp_sync:
+  extends:
+    - .zombienet-common
+    - .zombienet-refs
+    - .zombienet-before-script
+    - .zombienet-after-script
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
+        --github-remote-dir="${GH_DIR}"
+        --concurrency=1
+        --test="0007-full_node_warp_sync.feature"

@@ -123,6 +123,10 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		self.rpc_client.chain_get_head(None).await
 	}
 
+	async fn finalized_block_hash(&self) -> RelayChainResult<RelayHash> {
+		self.rpc_client.chain_get_finalized_head().await
+	}
+
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		self.rpc_client.system_health().await.map(|h| h.is_syncing)
 	}

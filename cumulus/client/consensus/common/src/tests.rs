@@ -85,6 +85,10 @@ impl RelayChainInterface for Relaychain {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn finalized_block_hash(&self) -> RelayChainResult<PHash> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn retrieve_dmq_contents(
 		&self,
 		_: ParaId,

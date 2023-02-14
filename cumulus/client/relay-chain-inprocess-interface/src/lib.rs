@@ -167,6 +167,10 @@ where
 		Ok(self.backend.blockchain().info().best_hash)
 	}
 
+	async fn finalized_block_hash(&self) -> RelayChainResult<PHash> {
+		Ok(self.backend.blockchain().info().finalized_hash)
+	}
+
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		Ok(self.sync_oracle.is_major_syncing())
 	}

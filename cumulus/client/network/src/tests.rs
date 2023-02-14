@@ -84,6 +84,9 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	async fn best_block_hash(&self) -> RelayChainResult<PHash> {
 		Ok(self.relay_backend.blockchain().info().best_hash)
 	}
+	async fn finalized_block_hash(&self) -> RelayChainResult<PHash> {
+		Ok(self.relay_backend.blockchain().info().finalized_hash)
+	}
 
 	async fn retrieve_dmq_contents(
 		&self,
