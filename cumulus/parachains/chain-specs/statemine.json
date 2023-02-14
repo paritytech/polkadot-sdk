@@ -12,7 +12,9 @@
     "/dns/statemine-connect-ue4-0.parity-kusama-parachains.parity.io/tcp/30334/p2p/12D3KooWLm6iHcmA3YD4xn2zfbm4KLF5KSUqJJAnmt2UGr9o2PgB",
     "/dns/statemine-connect-ue4-0.parity-kusama-parachains.parity.io/tcp/443/wss/p2p/12D3KooWLm6iHcmA3YD4xn2zfbm4KLF5KSUqJJAnmt2UGr9o2PgB",
     "/dns/statemine-connect-ue4-1.parity-kusama-parachains.parity.io/tcp/30334/p2p/12D3KooWD8Bma5qPbq7N5qdED3Xy6GXHfvfk86TL8aVTQKxmWkHG",
-    "/dns/statemine-connect-ue4-1.parity-kusama-parachains.parity.io/tcp/443/wss/p2p/12D3KooWD8Bma5qPbq7N5qdED3Xy6GXHfvfk86TL8aVTQKxmWkHG"
+    "/dns/statemine-connect-ue4-1.parity-kusama-parachains.parity.io/tcp/443/wss/p2p/12D3KooWD8Bma5qPbq7N5qdED3Xy6GXHfvfk86TL8aVTQKxmWkHG",
+    "/dns/boot.stake.plus/tcp/34333/p2p/12D3KooWAzSSZ7jLqMw1WPomYEKCYANQaKemXQ8BKoFvNEvfmdqR",
+    "/dns/boot.stake.plus/tcp/34334/wss/p2p/12D3KooWAzSSZ7jLqMw1WPomYEKCYANQaKemXQ8BKoFvNEvfmdqR"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
