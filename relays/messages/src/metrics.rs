@@ -101,7 +101,7 @@ impl MessageLaneLoopMetrics {
 	}
 
 	/// Update latest generated nonce at source.
-	pub fn update_source_latest_generated_nonce<P: MessageLane>(
+	pub fn update_source_latest_generated_nonce(
 		&self,
 		source_latest_generated_nonce: MessageNonce,
 	) {
@@ -111,7 +111,7 @@ impl MessageLaneLoopMetrics {
 	}
 
 	/// Update the latest confirmed nonce at source.
-	pub fn update_source_latest_confirmed_nonce<P: MessageLane>(
+	pub fn update_source_latest_confirmed_nonce(
 		&self,
 		source_latest_confirmed_nonce: MessageNonce,
 	) {
@@ -121,17 +121,14 @@ impl MessageLaneLoopMetrics {
 	}
 
 	/// Update the latest received nonce at target.
-	pub fn update_target_latest_received_nonce<P: MessageLane>(
-		&self,
-		target_latest_generated_nonce: MessageNonce,
-	) {
+	pub fn update_target_latest_received_nonce(&self, target_latest_generated_nonce: MessageNonce) {
 		self.lane_state_nonces
 			.with_label_values(&["target_latest_received"])
 			.set(target_latest_generated_nonce);
 	}
 
 	/// Update the latest confirmed nonce at target.
-	pub fn update_target_latest_confirmed_nonce<P: MessageLane>(
+	pub fn update_target_latest_confirmed_nonce(
 		&self,
 		target_latest_confirmed_nonce: MessageNonce,
 	) {

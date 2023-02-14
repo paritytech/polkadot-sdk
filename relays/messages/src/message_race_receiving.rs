@@ -112,7 +112,7 @@ where
 	) -> Result<(TargetHeaderIdOf<P>, SourceClientNonces<Self::NoncesRange>), Self::Error> {
 		let (at_block, latest_received_nonce) = self.client.latest_received_nonce(at_block).await?;
 		if let Some(metrics_msg) = self.metrics_msg.as_ref() {
-			metrics_msg.update_target_latest_received_nonce::<P>(latest_received_nonce);
+			metrics_msg.update_target_latest_received_nonce(latest_received_nonce);
 		}
 		Ok((
 			at_block,
@@ -174,7 +174,7 @@ where
 			self.client.latest_confirmed_received_nonce(at_block).await?;
 		if update_metrics {
 			if let Some(metrics_msg) = self.metrics_msg.as_ref() {
-				metrics_msg.update_source_latest_confirmed_nonce::<P>(latest_confirmed_nonce);
+				metrics_msg.update_source_latest_confirmed_nonce(latest_confirmed_nonce);
 			}
 		}
 		Ok((at_block, TargetClientNonces { latest_nonce: latest_confirmed_nonce, nonces_data: () }))
