@@ -608,7 +608,6 @@ pub type BridgeRefundRialtoParachainRelayers =
 		RialtoGrandpaInstance,
 		WithRialtoParachainsInstance,
 		WithRialtoParachainMessagesInstance,
-		BridgeRejectObsoleteHeadersAndMessages,
 		RialtoParachainId,
 		RialtoParachainMessagesLane,
 		Runtime,

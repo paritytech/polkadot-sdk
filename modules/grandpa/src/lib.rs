@@ -44,7 +44,7 @@ use bp_header_chain::{
 };
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use finality_grandpa::voter_set::VoterSet;
-use frame_support::{dispatch::PostDispatchInfo, ensure, fail};
+use frame_support::{dispatch::PostDispatchInfo, ensure};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
@@ -52,7 +52,7 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, convert::TryInto};
 
-mod extension;
+mod call_ext;
 #[cfg(test)]
 mod mock;
 mod storage_types;
@@ -64,6 +64,7 @@ pub mod weights;
 pub mod benchmarking;
 
 // Re-export in crate namespace for `construct_runtime!`
+pub use call_ext::*;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -154,7 +155,7 @@ pub mod pallet {
 		/// If successful in verification, it will write the target header to the underlying storage
 		/// pallet.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit_finality_proof(
+		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		))]
@@ -174,22 +175,7 @@ pub mod pallet {
 				finality_target
 			);
 
-			let best_finalized_number = match BestFinalized::<T, I>::get() {
-				Some(best_finalized_id) => best_finalized_id.number(),
-				None => {
-					log::error!(
-						target: LOG_TARGET,
-						"Cannot finalize header {:?} because pallet is not yet initialized",
-						finality_target,
-					);
-					fail!(<Error<T, I>>::NotInitialized);
-				},
-			};
-
-			// We do a quick check here to ensure that our header chain is making progress and isn't
-			// "travelling back in time" (which could be indicative of something bad, e.g a
-			// hard-fork).
-			ensure!(best_finalized_number < *number, <Error<T, I>>::OldHeader);
+			SubmitFinalityProofHelper::<T, I>::check_obsolete(*number)?;
 
 			let authority_set = <CurrentAuthoritySet<T, I>>::get();
 			let unused_proof_size = authority_set.unused_proof_size();
