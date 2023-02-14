@@ -423,4 +423,35 @@ impl<T: frame_system::Config> pallet_nfts::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(11))
 	}
+	/// Storage: Nfts Collection (r:1 w:1)
+	/// Proof: Nfts Collection (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+	/// Storage: Nfts CollectionConfigOf (r:1 w:0)
+	/// Proof: Nfts CollectionConfigOf (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+	/// Storage: Nfts Item (r:1 w:1)
+	/// Proof: Nfts Item (max_values: None, max_size: Some(861), added: 3336, mode: MaxEncodedLen)
+	/// Storage: Nfts ItemConfigOf (r:1 w:1)
+	/// Proof: Nfts ItemConfigOf (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
+	/// Storage: System Account (r:1 w:1)
+	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+	/// Storage: Nfts Attribute (r:10 w:10)
+	/// Proof: Nfts Attribute (max_values: None, max_size: Some(446), added: 2921, mode: MaxEncodedLen)
+	/// Storage: Nfts ItemMetadataOf (r:1 w:1)
+	/// Proof: Nfts ItemMetadataOf (max_values: None, max_size: Some(140), added: 2615, mode: MaxEncodedLen)
+	/// Storage: Nfts Account (r:0 w:1)
+	/// Proof: Nfts Account (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
+	/// The range of component `n` is `[0, 10]`.
+	fn mint_pre_signed(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `596`
+		//  Estimated: `16180 + n * (2921 ±0)`
+		// Minimum execution time: 124_354 nanoseconds.
+		Weight::from_parts(133_779_491, 16180)
+			// Standard Error: 38_452
+			.saturating_add(Weight::from_ref_time(25_110_697).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_proof_size(2921).saturating_mul(n.into()))
+	}
 }

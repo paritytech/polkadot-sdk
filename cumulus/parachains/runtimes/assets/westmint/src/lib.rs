@@ -33,7 +33,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -594,7 +594,10 @@ impl pallet_nfts::Config for Runtime {
 	type ItemAttributesApprovalsLimit = ConstU32<30>;
 	type MaxTips = ConstU32<10>;
 	type MaxDeadlineDuration = NftsMaxDeadlineDuration;
+	type MaxAttributesPerCall = ConstU32<10>;
 	type Features = NftsPalletFeatures;
+	type OffchainSignature = Signature;
+	type OffchainPublic = <Signature as Verify>::Signer;
 	type WeightInfo = weights::pallet_nfts::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
