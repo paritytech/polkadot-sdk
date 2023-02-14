@@ -18,14 +18,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_runtime::FilterCall;
+use crate::messages_call_ext::MessagesCallSubType;
+use pallet_bridge_grandpa::CallSubType as GrandpaCallSubType;
+use pallet_bridge_parachains::CallSubType as ParachainsCallSubtype;
 use sp_runtime::transaction_validity::TransactionValidity;
 use xcm::v3::NetworkId;
 
 pub mod messages;
 pub mod messages_api;
 pub mod messages_benchmarking;
-pub mod messages_extension;
+pub mod messages_call_ext;
 pub mod parachains_benchmarking;
 pub mod refund_relayer_extension;
 
@@ -44,21 +46,39 @@ pub trait BridgeRuntimeFilterCall<Call> {
 	fn validate(call: &Call) -> TransactionValidity;
 }
 
-impl<Call, T, I> BridgeRuntimeFilterCall<Call> for pallet_bridge_grandpa::Pallet<T, I>
+impl<T, I: 'static> BridgeRuntimeFilterCall<T::RuntimeCall> for pallet_bridge_grandpa::Pallet<T, I>
 where
-	pallet_bridge_grandpa::Pallet<T, I>: FilterCall<Call>,
+	T: pallet_bridge_grandpa::Config<I>,
+	T::RuntimeCall: GrandpaCallSubType<T, I>,
 {
-	fn validate(call: &Call) -> TransactionValidity {
-		<pallet_bridge_grandpa::Pallet<T, I> as FilterCall<Call>>::validate(call)
+	fn validate(call: &T::RuntimeCall) -> TransactionValidity {
+		GrandpaCallSubType::<T, I>::check_obsolete_submit_finality_proof(call)
 	}
 }
 
-impl<Call, T, I> BridgeRuntimeFilterCall<Call> for pallet_bridge_parachains::Pallet<T, I>
+impl<T, I: 'static> BridgeRuntimeFilterCall<T::RuntimeCall>
+	for pallet_bridge_parachains::Pallet<T, I>
 where
-	pallet_bridge_parachains::Pallet<T, I>: FilterCall<Call>,
+	T: pallet_bridge_parachains::Config<I>,
+	T::RuntimeCall: ParachainsCallSubtype<T, I>,
 {
-	fn validate(call: &Call) -> TransactionValidity {
-		<pallet_bridge_parachains::Pallet<T, I> as FilterCall<Call>>::validate(call)
+	fn validate(call: &T::RuntimeCall) -> TransactionValidity {
+		ParachainsCallSubtype::<T, I>::check_obsolete_submit_parachain_heads(call)
+	}
+}
+
+impl<T: pallet_bridge_messages::Config<I>, I: 'static> BridgeRuntimeFilterCall<T::RuntimeCall>
+	for pallet_bridge_messages::Pallet<T, I>
+where
+	T::RuntimeCall: MessagesCallSubType<T, I>,
+{
+	/// Validate messages in order to avoid "mining" messages delivery and delivery confirmation
+	/// transactions, that are delivering outdated messages/confirmations. Without this validation,
+	/// even honest relayers may lose their funds if there are multiple relays running and
+	/// submitting the same messages/confirmations.
+	fn validate(call: &T::RuntimeCall) -> TransactionValidity {
+		call.check_obsolete_receive_messages_proof()?;
+		call.check_obsolete_receive_messages_delivery_proof()
 	}
 }
 
