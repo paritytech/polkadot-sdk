@@ -22,7 +22,7 @@
 use crate::{
 	messages::{
 		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, RawStorageProof, ThisChain,
+		AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain,
 	},
 	messages_generation::{
 		encode_all_messages, encode_lane_data, grow_trie, prepare_messages_storage_proof,
@@ -31,13 +31,15 @@ use crate::{
 
 use bp_messages::storage_keys;
 use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::{record_all_trie_keys, Chain, Parachain, StorageProofSize, UnderlyingChainOf};
+use bp_runtime::{
+	record_all_trie_keys, Chain, Parachain, RawStorageProof, StorageProofSize, UnderlyingChainOf,
+};
 use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
@@ -209,15 +211,9 @@ where
 	root = grow_trie(root, &mut mdb, params.size);
 
 	// generate storage proof to be delivered to This chain
-	let mut proof_recorder = Recorder::<LayoutV1<HasherOf<BridgedChain<B>>>>::new();
-	record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(
-		&mdb,
-		&root,
-		&mut proof_recorder,
-	)
-	.map_err(|_| "record_all_trie_keys has failed")
-	.expect("record_all_trie_keys should not fail in benchmarks");
-	let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
+	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
+		.map_err(|_| "record_all_trie_keys has failed")
+		.expect("record_all_trie_keys should not fail in benchmarks");
 
 	(root, storage_proof)
 }
