@@ -117,6 +117,11 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		InboundLane { storage }
 	}
 
+	/// Returns storage reference.
+	pub fn storage(&self) -> &S {
+		&self.storage
+	}
+
 	/// Receive state of the corresponding outbound lane.
 	pub fn receive_state_update(
 		&mut self,
