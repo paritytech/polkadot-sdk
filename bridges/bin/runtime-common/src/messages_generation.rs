@@ -18,16 +18,16 @@
 
 #![cfg(any(feature = "runtime-benchmarks", test))]
 
-use crate::messages::{BridgedChain, HashOf, HasherOf, MessageBridge, RawStorageProof};
+use crate::messages::{BridgedChain, HashOf, HasherOf, MessageBridge};
 
 use bp_messages::{
 	storage_keys, LaneId, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 };
-use bp_runtime::{record_all_trie_keys, StorageProofSize};
+use bp_runtime::{record_all_trie_keys, RawStorageProof, StorageProofSize};
 use codec::Encode;
 use sp_core::Hasher;
 use sp_std::{ops::RangeInclusive, prelude::*};
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Simple and correct message data encode function.
 pub(crate) fn encode_all_messages(_: MessageNonce, m: &MessagePayload) -> Option<Vec<u8>> {
@@ -97,15 +97,9 @@ where
 	root = grow_trie(root, &mut mdb, size);
 
 	// generate storage proof to be delivered to This chain
-	let mut proof_recorder = Recorder::<LayoutV1<HasherOf<BridgedChain<B>>>>::new();
-	record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(
-		&mdb,
-		&root,
-		&mut proof_recorder,
-	)
-	.map_err(|_| "record_all_trie_keys has failed")
-	.expect("record_all_trie_keys should not fail in benchmarks");
-	let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
+	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
+		.map_err(|_| "record_all_trie_keys has failed")
+		.expect("record_all_trie_keys should not fail in benchmarks");
 
 	(root, storage_proof)
 }
@@ -125,11 +119,10 @@ pub fn grow_trie<H: Hasher>(
 	let mut key_index = 0;
 	loop {
 		// generate storage proof to be delivered to This chain
-		let mut proof_recorder = Recorder::<LayoutV1<H>>::new();
-		record_all_trie_keys::<LayoutV1<H>, _>(mdb, &root, &mut proof_recorder)
+		let storage_proof = record_all_trie_keys::<LayoutV1<H>, _>(mdb, &root)
 			.map_err(|_| "record_all_trie_keys has failed")
 			.expect("record_all_trie_keys should not fail in benchmarks");
-		let size: usize = proof_recorder.drain().into_iter().map(|n| n.data.len()).sum();
+		let size: usize = storage_proof.iter().map(|n| n.len()).sum();
 		if size > minimal_trie_size as _ {
 			return root
 		}

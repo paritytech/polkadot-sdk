@@ -16,14 +16,17 @@
 
 //! Logic for checking Substrate storage proofs.
 
-use codec::Decode;
+use codec::{Decode, Encode};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_runtime::RuntimeDebug;
-use sp_std::{boxed::Box, vec::Vec};
+use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use sp_trie::{
 	read_trie_value, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieConfiguration,
 	TrieDBBuilder, TrieError, TrieHash,
 };
+
+/// Raw storage proof type (just raw trie nodes).
+pub type RawStorageProof = Vec<Vec<u8>>;
 
 /// Storage proof size requirements.
 ///
@@ -48,8 +51,10 @@ pub struct StorageProofChecker<H>
 where
 	H: Hasher,
 {
+	proof_nodes_count: usize,
 	root: H::Out,
 	db: MemoryDB<H>,
+	recorder: Recorder<LayoutV1<H>>,
 }
 
 impl<H> StorageProofChecker<H>
@@ -59,28 +64,59 @@ where
 	/// Constructs a new storage proof checker.
 	///
 	/// This returns an error if the given proof is invalid with respect to the given root.
-	pub fn new(root: H::Out, proof: StorageProof) -> Result<Self, Error> {
+	pub fn new(root: H::Out, proof: RawStorageProof) -> Result<Self, Error> {
+		// 1. we don't want extra items in the storage proof
+		// 2. `StorageProof` is storing all trie nodes in the `BTreeSet`
+		//
+		// => someone could simply add duplicate items to the proof and we won't be
+		// able to detect that by just using `StorageProof`
+		//
+		// => let's check it when we are converting our "raw proof" into `StorageProof`
+		let proof_nodes_count = proof.len();
+		let proof = StorageProof::new(proof);
+		if proof_nodes_count != proof.iter_nodes().count() {
+			return Err(Error::DuplicateNodesInProof)
+		}
+
 		let db = proof.into_memory_db();
 		if !db.contains(&root, EMPTY_PREFIX) {
 			return Err(Error::StorageRootMismatch)
 		}
 
-		let checker = StorageProofChecker { root, db };
+		let recorder = Recorder::default();
+		let checker = StorageProofChecker { proof_nodes_count, root, db, recorder };
 		Ok(checker)
+	}
+
+	/// Returns error if the proof has some nodes that are left intact by previous `read_value`
+	/// calls.
+	pub fn ensure_no_unused_nodes(mut self) -> Result<(), Error> {
+		let visited_nodes = self
+			.recorder
+			.drain()
+			.into_iter()
+			.map(|record| record.data)
+			.collect::<BTreeSet<_>>();
+		let visited_nodes_count = visited_nodes.len();
+		if self.proof_nodes_count == visited_nodes_count {
+			Ok(())
+		} else {
+			Err(Error::UnusedNodesInTheProof)
+		}
 	}
 
 	/// Reads a value from the available subset of storage. If the value cannot be read due to an
 	/// incomplete or otherwise invalid proof, this function returns an error.
-	pub fn read_value(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+	pub fn read_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
-		read_trie_value::<LayoutV1<H>, _>(&self.db, &self.root, key, None, None)
+		read_trie_value::<LayoutV1<H>, _>(&self.db, &self.root, key, Some(&mut self.recorder), None)
 			.map_err(|_| Error::StorageValueUnavailable)
 	}
 
 	/// Reads and decodes a value from the available subset of storage. If the value cannot be read
 	/// due to an incomplete or otherwise invalid proof, this function returns an error. If value is
 	/// read, but decoding fails, this function returns an error.
-	pub fn read_and_decode_value<T: Decode>(&self, key: &[u8]) -> Result<Option<T>, Error> {
+	pub fn read_and_decode_value<T: Decode>(&mut self, key: &[u8]) -> Result<Option<T>, Error> {
 		self.read_value(key).and_then(|v| {
 			v.map(|v| T::decode(&mut &v[..]).map_err(Error::StorageValueDecodeFailed))
 				.transpose()
@@ -88,19 +124,39 @@ where
 	}
 }
 
-#[derive(Eq, RuntimeDebug, PartialEq)]
+/// Storage proof related errors.
+#[derive(Clone, Eq, PartialEq, RuntimeDebug)]
 pub enum Error {
+	/// Duplicate trie nodes are found in the proof.
+	DuplicateNodesInProof,
+	/// Unused trie nodes are found in the proof.
+	UnusedNodesInTheProof,
+	/// Expected storage root is missing from the proof.
 	StorageRootMismatch,
+	/// Unable to reach expected storage value using provided trie nodes.
 	StorageValueUnavailable,
+	/// Failed to decode storage value.
 	StorageValueDecodeFailed(codec::Error),
+}
+
+impl From<Error> for &'static str {
+	fn from(err: Error) -> &'static str {
+		match err {
+			Error::DuplicateNodesInProof => "Storage proof contains duplicate nodes",
+			Error::UnusedNodesInTheProof => "Storage proof contains unused nodes",
+			Error::StorageRootMismatch => "Storage root is missing from the storage proof",
+			Error::StorageValueUnavailable => "Storage value is missing from the storage proof",
+			Error::StorageValueDecodeFailed(_) =>
+				"Failed to decode storage value from the storage proof",
+		}
+	}
 }
 
 /// Return valid storage proof and state root.
 ///
 /// NOTE: This should only be used for **testing**.
 #[cfg(feature = "std")]
-pub fn craft_valid_storage_proof() -> (sp_core::H256, StorageProof) {
-	use codec::Encode;
+pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
 	let state_version = sp_runtime::StateVersion::default();
@@ -121,25 +177,33 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, StorageProof) {
 	let proof =
 		prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key4"[..], &b"key22"[..]]).unwrap();
 
-	(root, proof)
+	(root, proof.into_nodes().into_iter().collect())
 }
 
 /// Record all keys for a given root.
 pub fn record_all_keys<L: TrieConfiguration, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
-	recorder: &mut Recorder<L>,
-) -> Result<(), Box<TrieError<L>>>
+) -> Result<RawStorageProof, Box<TrieError<L>>>
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	let trie = TrieDBBuilder::<L>::new(db, root).with_recorder(recorder).build();
+	let mut recorder = Recorder::<L>::new();
+	let trie = TrieDBBuilder::<L>::new(db, root).with_recorder(&mut recorder).build();
 	for x in trie.iter()? {
 		let (key, _) = x?;
 		trie.get(&key)?;
 	}
 
-	Ok(())
+	// recorder may record the same trie node multiple times and we don't want duplicate nodes
+	// in our proofs => let's deduplicate it by collecting to the BTreeSet first
+	Ok(recorder
+		.drain()
+		.into_iter()
+		.map(|n| n.data.to_vec())
+		.collect::<BTreeSet<_>>()
+		.into_iter()
+		.collect())
 }
 
 #[cfg(test)]
@@ -152,7 +216,7 @@ pub mod tests {
 		let (root, proof) = craft_valid_storage_proof();
 
 		// check proof in runtime
-		let checker =
+		let mut checker =
 			<StorageProofChecker<sp_core::Blake2Hasher>>::new(root, proof.clone()).unwrap();
 		assert_eq!(checker.read_value(b"key1"), Ok(Some(b"value1".to_vec())));
 		assert_eq!(checker.read_value(b"key2"), Ok(Some(b"value2".to_vec())));
@@ -170,5 +234,32 @@ pub mod tests {
 			<StorageProofChecker<sp_core::Blake2Hasher>>::new(sp_core::H256::random(), proof).err(),
 			Some(Error::StorageRootMismatch)
 		);
+	}
+
+	#[test]
+	fn proof_with_duplicate_items_is_rejected() {
+		let (root, mut proof) = craft_valid_storage_proof();
+		proof.push(proof.first().unwrap().clone());
+
+		assert_eq!(
+			StorageProofChecker::<sp_core::Blake2Hasher>::new(root, proof).map(drop),
+			Err(Error::DuplicateNodesInProof),
+		);
+	}
+
+	#[test]
+	fn proof_with_unused_items_is_rejected() {
+		let (root, proof) = craft_valid_storage_proof();
+
+		let mut checker =
+			StorageProofChecker::<sp_core::Blake2Hasher>::new(root, proof.clone()).unwrap();
+		checker.read_value(b"key1").unwrap();
+		checker.read_value(b"key2").unwrap();
+		checker.read_value(b"key4").unwrap();
+		checker.read_value(b"key22").unwrap();
+		assert_eq!(checker.ensure_no_unused_nodes(), Ok(()));
+
+		let checker = StorageProofChecker::<sp_core::Blake2Hasher>::new(root, proof).unwrap();
+		assert_eq!(checker.ensure_no_unused_nodes(), Err(Error::UnusedNodesInTheProof));
 	}
 }

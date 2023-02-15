@@ -29,7 +29,7 @@ use codec::Encode;
 use frame_support::traits::Get;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
@@ -72,11 +72,9 @@ where
 	state_root = grow_trie(state_root, &mut mdb, size);
 
 	// generate heads storage proof
-	let mut proof_recorder = Recorder::<LayoutV1<RelayBlockHasher>>::new();
-	record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &state_root, &mut proof_recorder)
+	let proof = record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &state_root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
-	let proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
 
 	let (relay_block_number, relay_block_hash) =
 		insert_header_to_grandpa_pallet::<R, R::BridgesGrandpaPalletInstance>(state_root);
