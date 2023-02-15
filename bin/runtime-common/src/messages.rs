@@ -20,6 +20,8 @@
 //! pallet is used to dispatch incoming messages. Message identified by a tuple
 //! of to elements - message lane id and message nonce.
 
+pub use bp_runtime::{UnderlyingChainOf, UnderlyingChainProvider};
+
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_messages::{
 	source_chain::{LaneMessageVerifier, TargetHeaderChain},
@@ -28,14 +30,15 @@ use bp_messages::{
 	},
 	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 };
-use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Size, StorageProofChecker};
-pub use bp_runtime::{UnderlyingChainOf, UnderlyingChainProvider};
+use bp_runtime::{
+	messages::MessageDispatchResult, Chain, ChainId, RawStorageProof, Size, StorageProofChecker,
+	StorageProofError,
+};
 use codec::{Decode, DecodeLimit, Encode};
 use frame_support::{traits::Get, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
 use scale_info::TypeInfo;
 use sp_std::{convert::TryFrom, fmt::Debug, marker::PhantomData, vec::Vec};
-use sp_trie::StorageProof;
 use xcm::latest::prelude::*;
 
 /// Bidirectional message bridge.
@@ -96,9 +99,6 @@ pub type BalanceOf<C> = bp_runtime::BalanceOf<UnderlyingChainOf<C>>;
 pub type OriginOf<C> = <C as ThisChainWithMessages>::RuntimeOrigin;
 /// Type of call that is used on this chain.
 pub type CallOf<C> = <C as ThisChainWithMessages>::RuntimeCall;
-
-/// Raw storage proof type (just raw trie nodes).
-pub type RawStorageProof = Vec<Vec<u8>>;
 
 /// Sub-module that is declaring types required for processing This -> Bridged chain messages.
 pub mod source {
@@ -274,8 +274,8 @@ pub mod source {
 			proof;
 		B::BridgedHeaderChain::parse_finalized_storage_proof(
 			bridged_header_hash,
-			StorageProof::new(storage_proof),
-			|storage| {
+			storage_proof,
+			|mut storage| {
 				// Messages delivery proof is just proof of single storage key read => any error
 				// is fatal.
 				let storage_inbound_lane_data_key =
@@ -289,6 +289,11 @@ pub mod source {
 					.ok_or("Inbound lane state is missing from the messages proof")?;
 				let inbound_lane_data = InboundLaneData::decode(&mut &raw_inbound_lane_data[..])
 					.map_err(|_| "Failed to decode inbound lane state from the proof")?;
+
+				// check that the storage proof doesn't have any untouched trie nodes
+				storage
+					.ensure_no_unused_nodes()
+					.map_err(|_| "Messages delivery proof has unused trie nodes")?;
 
 				Ok((lane, inbound_lane_data))
 			},
@@ -608,9 +613,9 @@ pub mod target {
 
 		B::BridgedHeaderChain::parse_finalized_storage_proof(
 			bridged_header_hash,
-			StorageProof::new(storage_proof),
+			storage_proof,
 			|storage| {
-				let parser =
+				let mut parser =
 					StorageProofCheckerAdapter::<_, B> { storage, _dummy: Default::default() };
 
 				// receiving proofs where end < begin is ok (if proof includes outbound lane state)
@@ -661,6 +666,12 @@ pub mod target {
 					return Err(MessageProofError::Empty)
 				}
 
+				// check that the storage proof doesn't have any untouched trie nodes
+				parser
+					.storage
+					.ensure_no_unused_nodes()
+					.map_err(MessageProofError::StorageProof)?;
+
 				// We only support single lane messages in this generated_schema
 				let mut proved_messages = ProvedMessages::new();
 				proved_messages.insert(lane, proved_lane_messages);
@@ -686,6 +697,8 @@ pub mod target {
 		FailedToDecodeMessage,
 		/// Failed to decode outbound lane data from the proof.
 		FailedToDecodeOutboundLaneState,
+		/// Storage proof related error.
+		StorageProof(StorageProofError),
 	}
 
 	impl From<MessageProofError> for &'static str {
@@ -700,6 +713,7 @@ pub mod target {
 					"Failed to decode message from the proof",
 				MessageProofError::FailedToDecodeOutboundLaneState =>
 					"Failed to decode outbound lane data from the proof",
+				MessageProofError::StorageProof(_) => "Invalid storage proof",
 			}
 		}
 	}
@@ -710,7 +724,7 @@ pub mod target {
 	}
 
 	impl<H: Hasher, B: MessageBridge> StorageProofCheckerAdapter<H, B> {
-		fn read_raw_outbound_lane_data(&self, lane_id: &LaneId) -> Option<Vec<u8>> {
+		fn read_raw_outbound_lane_data(&mut self, lane_id: &LaneId) -> Option<Vec<u8>> {
 			let storage_outbound_lane_data_key = bp_messages::storage_keys::outbound_lane_data_key(
 				B::BRIDGED_MESSAGES_PALLET_NAME,
 				lane_id,
@@ -718,7 +732,7 @@ pub mod target {
 			self.storage.read_value(storage_outbound_lane_data_key.0.as_ref()).ok()?
 		}
 
-		fn read_raw_message(&self, message_key: &MessageKey) -> Option<Vec<u8>> {
+		fn read_raw_message(&mut self, message_key: &MessageKey) -> Option<Vec<u8>> {
 			let storage_message_key = bp_messages::storage_keys::message_key(
 				B::BRIDGED_MESSAGES_PALLET_NAME,
 				&message_key.lane_id,
@@ -928,7 +942,35 @@ mod tests {
 				);
 				target::verify_messages_proof::<OnThisChainBridge>(proof, 10)
 			}),
-			Err(target::MessageProofError::HeaderChain(HeaderChainError::StorageRootMismatch)),
+			Err(target::MessageProofError::HeaderChain(HeaderChainError::StorageProof(
+				StorageProofError::StorageRootMismatch
+			))),
+		);
+	}
+
+	#[test]
+	fn message_proof_is_rejected_if_it_has_duplicate_trie_nodes() {
+		assert_eq!(
+			using_messages_proof(10, None, encode_all_messages, encode_lane_data, |mut proof| {
+				let node = proof.storage_proof.pop().unwrap();
+				proof.storage_proof.push(node.clone());
+				proof.storage_proof.push(node);
+				target::verify_messages_proof::<OnThisChainBridge>(proof, 10)
+			},),
+			Err(target::MessageProofError::HeaderChain(HeaderChainError::StorageProof(
+				StorageProofError::DuplicateNodesInProof
+			))),
+		);
+	}
+
+	#[test]
+	fn message_proof_is_rejected_if_it_has_unused_trie_nodes() {
+		assert_eq!(
+			using_messages_proof(10, None, encode_all_messages, encode_lane_data, |mut proof| {
+				proof.storage_proof.push(vec![42]);
+				target::verify_messages_proof::<OnThisChainBridge>(proof, 10)
+			},),
+			Err(target::MessageProofError::StorageProof(StorageProofError::UnusedNodesInTheProof)),
 		);
 	}
 

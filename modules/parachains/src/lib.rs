@@ -330,10 +330,10 @@ pub mod pallet {
 
 			pallet_bridge_grandpa::Pallet::<T, T::BridgesGrandpaPalletInstance>::parse_finalized_storage_proof(
 				relay_block_hash,
-				sp_trie::StorageProof::new(parachain_heads_proof.0),
-				move |storage| {
+				parachain_heads_proof.0,
+				move |mut storage| {
 					for (parachain, parachain_head_hash) in parachains {
-						let parachain_head = match Pallet::<T, I>::read_parachain_head(&storage, parachain) {
+						let parachain_head = match Pallet::<T, I>::read_parachain_head(&mut storage, parachain) {
 							Ok(Some(parachain_head)) => parachain_head,
 							Ok(None) => {
 								log::trace!(
@@ -381,7 +381,10 @@ pub mod pallet {
 						}
 
 						// convert from parachain head into stored parachain head data
-						let parachain_head_data = match T::ParaStoredHeaderDataBuilder::try_build(parachain, &parachain_head) {
+						let parachain_head_data = match T::ParaStoredHeaderDataBuilder::try_build(
+							parachain,
+							&parachain_head,
+						) {
 							Some(parachain_head_data) => parachain_head_data,
 							None => {
 								log::trace!(
@@ -418,9 +421,20 @@ pub mod pallet {
 								.saturating_sub(WeightInfoOf::<T, I>::parachain_head_pruning_weight(T::DbWeight::get()));
 						}
 					}
+
+					// even though we may have accepted some parachain heads, we can't allow relayers to submit
+					// proof with unused trie nodes
+					// => treat this as an error
+					//
+					// (we can throw error here, because now all our calls are transactional)
+					storage.ensure_no_unused_nodes()
 				},
 			)
-			.map_err(|_| Error::<T, I>::InvalidStorageProof)?;
+			.and_then(|r| r.map_err(bp_header_chain::HeaderChainError::StorageProof))
+			.map_err(|e| {
+				log::trace!(target: LOG_TARGET, "Parachain heads storage proof is invalid: {:?}", e);
+				Error::<T, I>::InvalidStorageProof
+			})?;
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
 		}
@@ -488,7 +502,7 @@ pub mod pallet {
 
 		/// Read parachain head from storage proof.
 		fn read_parachain_head(
-			storage: &bp_runtime::StorageProofChecker<RelayBlockHasher>,
+			storage: &mut bp_runtime::StorageProofChecker<RelayBlockHasher>,
 			parachain: ParaId,
 		) -> Result<Option<ParaHead>, StorageProofError> {
 			let parachain_head_key =
@@ -705,7 +719,7 @@ mod tests {
 	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_core::Hasher;
 	use sp_runtime::{traits::Header as HeaderT, DispatchError};
-	use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, Recorder, TrieMut};
+	use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
 	type WeightInfo = <TestRuntime as Config>::WeightInfo;
@@ -759,11 +773,9 @@ mod tests {
 		}
 
 		// generate storage proof to be delivered to This chain
-		let mut proof_recorder = Recorder::<LayoutV1<RelayBlockHasher>>::new();
-		record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &root, &mut proof_recorder)
+		let storage_proof = record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &root)
 			.map_err(|_| "record_all_trie_keys has failed")
 			.expect("record_all_trie_keys should not fail in benchmarks");
-		let storage_proof = proof_recorder.drain().into_iter().map(|n| n.data.to_vec()).collect();
 
 		(root, ParaHeadsProof(storage_proof), parachains)
 	}
@@ -1447,7 +1459,7 @@ mod tests {
 
 	#[test]
 	fn ignores_parachain_head_if_it_is_missing_from_storage_proof() {
-		let (state_root, proof, _) = prepare_parachain_heads_proof(vec![(1, head_data(1, 0))]);
+		let (state_root, proof, _) = prepare_parachain_heads_proof(vec![]);
 		let parachains = vec![(ParaId(2), Default::default())];
 		run_test(|| {
 			initialize(state_root);
