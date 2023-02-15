@@ -17,11 +17,11 @@
 use crate::reconnecting_ws_client::ReconnectingWsClient;
 use cumulus_primitives_core::{
 	relay_chain::{
-		CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
-		DisputeState, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
-		InboundHrmpMessage, OccupiedCoreAssumption, OldV1SessionInfo, PvfCheckStatement,
-		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-		ValidatorId, ValidatorIndex, ValidatorSignature,
+		vstaging::ExecutorParams, CandidateCommitments, CandidateEvent, CandidateHash,
+		CommittedCandidateReceipt, CoreState, DisputeState, GroupRotationInfo, Hash as RelayHash,
+		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, OldV1SessionInfo,
+		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -386,6 +386,20 @@ impl RelayChainRpcClient {
 	) -> Result<Option<SessionInfo>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_session_info", at, Some(index))
 			.await
+	}
+
+	/// Get the executor parameters for the given session, if stored
+	pub async fn parachain_host_session_executor_params(
+		&self,
+		at: RelayHash,
+		session_index: SessionIndex,
+	) -> Result<Option<ExecutorParams>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_session_executor_params",
+			at,
+			Some(session_index),
+		)
+		.await
 	}
 
 	/// Get header at specified hash

@@ -261,6 +261,17 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Ok(self.rpc_client.parachain_host_session_info_before_version_2(at, index).await?)
 	}
 
+	async fn session_executor_params(
+		&self,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+	) -> Result<Option<polkadot_primitives::vstaging::ExecutorParams>, sp_api::ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_session_executor_params(at, session_index)
+			.await?)
+	}
+
 	async fn submit_pvf_check_statement(
 		&self,
 		at: Hash,
