@@ -52,7 +52,7 @@ fn verify_authority_set<T: Config<I>, I: 'static>(
 ///
 /// We're using 'conservative' approach here, where signatures of `2/3+1` validators are
 /// required..
-pub(crate) fn signatures_required<T: Config<I>, I: 'static>(validators_len: usize) -> usize {
+pub(crate) fn signatures_required(validators_len: usize) -> usize {
 	validators_len - validators_len.saturating_sub(1) / 3
 }
 
@@ -67,7 +67,7 @@ fn verify_signatures<T: Config<I>, I: 'static>(
 
 	// Ensure that the commitment was signed by enough authorities.
 	let msg = commitment.commitment.encode();
-	let mut missing_signatures = signatures_required::<T, I>(authority_set.len());
+	let mut missing_signatures = signatures_required(authority_set.len());
 	for (idx, (authority, maybe_sig)) in
 		authority_set.validators().iter().zip(commitment.signatures.iter()).enumerate()
 	{
