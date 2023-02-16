@@ -17,8 +17,13 @@
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
+use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::Chain;
-use frame_support::{construct_runtime, parameter_types, traits::ConstU64, weights::Weight};
+use frame_support::{
+	construct_runtime, parameter_types,
+	traits::{ConstU32, ConstU64},
+	weights::Weight,
+};
 use sp_core::sr25519::Signature;
 use sp_runtime::{
 	testing::{Header, H256},
@@ -78,7 +83,7 @@ impl frame_system::Config for TestRuntime {
 	type BlockLength = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -92,7 +97,6 @@ impl grandpa::Config for TestRuntime {
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;
-	type MaxBridgedAuthorities = frame_support::traits::ConstU32<MAX_BRIDGED_AUTHORITIES>;
 	type WeightInfo = ();
 }
 
@@ -116,6 +120,14 @@ impl Chain for TestBridgedChain {
 	fn max_extrinsic_weight() -> Weight {
 		unreachable!()
 	}
+}
+
+impl ChainWithGrandpa for TestBridgedChain {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
+	const MAX_AUTHORITIES_COUNT: u32 = MAX_BRIDGED_AUTHORITIES;
+	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const MAX_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
 }
 
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
