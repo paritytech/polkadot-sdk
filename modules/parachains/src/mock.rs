@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use bp_header_chain::ChainWithGrandpa;
 use bp_polkadot_core::parachains::ParaId;
 use bp_runtime::{Chain, Parachain};
 use frame_support::{construct_runtime, parameter_types, traits::ConstU32, weights::Weight};
@@ -199,7 +200,6 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRun
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
-	type MaxBridgedAuthorities = frame_support::traits::ConstU32<5>;
 	type WeightInfo = ();
 }
 
@@ -207,7 +207,6 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance2> for TestRun
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
-	type MaxBridgedAuthorities = frame_support::traits::ConstU32<5>;
 	type WeightInfo = ();
 }
 
@@ -250,6 +249,14 @@ impl Chain for TestBridgedChain {
 	}
 }
 
+impl ChainWithGrandpa for TestBridgedChain {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
+	const MAX_AUTHORITIES_COUNT: u32 = 16;
+	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const MAX_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+}
+
 #[derive(Debug)]
 pub struct OtherBridgedChain;
 
@@ -271,6 +278,14 @@ impl Chain for OtherBridgedChain {
 	fn max_extrinsic_weight() -> Weight {
 		unreachable!()
 	}
+}
+
+impl ChainWithGrandpa for OtherBridgedChain {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
+	const MAX_AUTHORITIES_COUNT: u32 = 16;
+	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const MAX_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
 }
 
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {

@@ -525,17 +525,6 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	/// Number of headers to keep.
-	///
-	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
-	/// day.
-	pub const HeadersToKeep: u32 = bp_millau::DAYS as u32;
-
-	/// Maximal number of authorities at Millau.
-	pub const MaxAuthoritiesAtMillau: u32 = bp_millau::MAX_AUTHORITIES_COUNT;
-}
-
 pub type MillauGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_millau::Millau;
@@ -544,8 +533,7 @@ impl pallet_bridge_grandpa::Config for Runtime {
 	/// Note that once this is hit the pallet will essentially throttle incoming requests down to
 	/// one call per block.
 	type MaxRequests = ConstU32<50>;
-	type HeadersToKeep = HeadersToKeep;
-	type MaxBridgedAuthorities = MaxAuthoritiesAtMillau;
+	type HeadersToKeep = ConstU32<{ bp_millau::DAYS as u32 }>;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
 

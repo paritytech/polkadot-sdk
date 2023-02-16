@@ -18,22 +18,32 @@
 
 use crate::Config;
 
-use bp_header_chain::AuthoritySet;
+use bp_header_chain::{AuthoritySet, ChainWithGrandpa};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_finality_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
+use sp_std::marker::PhantomData;
 
 /// A bounded list of Grandpa authorities with associated weights.
 pub type StoredAuthorityList<MaxBridgedAuthorities> =
 	BoundedVec<(AuthorityId, AuthorityWeight), MaxBridgedAuthorities>;
+
+/// Adapter for using `T::BridgedChain::MAX_BRIDGED_AUTHORITIES` in `BoundedVec`.
+pub struct StoredAuthorityListLimit<T, I>(PhantomData<(T, I)>);
+
+impl<T: Config<I>, I: 'static> Get<u32> for StoredAuthorityListLimit<T, I> {
+	fn get() -> u32 {
+		T::BridgedChain::MAX_AUTHORITIES_COUNT
+	}
+}
 
 /// A bounded GRANDPA Authority List and ID.
 #[derive(Clone, Decode, Encode, Eq, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound)]
 #[scale_info(skip_type_params(T, I))]
 pub struct StoredAuthoritySet<T: Config<I>, I: 'static> {
 	/// List of GRANDPA authorities for the current round.
-	pub authorities: StoredAuthorityList<<T as Config<I>>::MaxBridgedAuthorities>,
+	pub authorities: StoredAuthorityList<StoredAuthorityListLimit<T, I>>,
 	/// Monotonic identifier of the current GRANDPA authority set.
 	pub set_id: SetId,
 }
@@ -60,7 +70,7 @@ impl<T: Config<I>, I: 'static> StoredAuthoritySet<T, I> {
 		let single_authority_max_encoded_len =
 			<(AuthorityId, AuthorityWeight)>::max_encoded_len() as u64;
 		let extra_authorities =
-			T::MaxBridgedAuthorities::get().saturating_sub(self.authorities.len() as _);
+			T::BridgedChain::MAX_AUTHORITIES_COUNT.saturating_sub(self.authorities.len() as _);
 		single_authority_max_encoded_len.saturating_mul(extra_authorities as u64)
 	}
 }

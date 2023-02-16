@@ -21,6 +21,7 @@
 mod millau_hash;
 
 use bp_beefy::ChainWithBeefy;
+use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
@@ -82,6 +83,27 @@ pub const SESSION_LENGTH: BlockNumber = 5 * time_units::MINUTES;
 
 /// Maximal number of GRANDPA authorities at Millau.
 pub const MAX_AUTHORITIES_COUNT: u32 = 5;
+
+/// Reasonable number of headers in the `votes_ancestries` on Millau chain.
+///
+/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+
+/// Approximate average header size in `votes_ancestries` field of justification on Millau chain.
+///
+/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 256;
+
+/// Approximate maximal header size on Millau chain.
+///
+/// We expect maximal header to have digest item with the new authorities set for every consensus
+/// engine (GRANDPA, Babe, BEEFY, ...) - so we multiply it by 3. And also
+/// `AVERAGE_HEADER_SIZE_IN_JUSTIFICATION` bytes for other stuff.
+///
+/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+pub const MAX_HEADER_SIZE: u32 = MAX_AUTHORITIES_COUNT
+	.saturating_mul(3)
+	.saturating_add(AVERAGE_HEADER_SIZE_IN_JUSTIFICATION);
 
 /// Re-export `time_units` to make usage easier.
 pub use time_units::*;
@@ -154,6 +176,15 @@ impl Chain for Millau {
 			.max_extrinsic
 			.unwrap_or(Weight::MAX)
 	}
+}
+
+impl ChainWithGrandpa for Millau {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = WITH_MILLAU_GRANDPA_PALLET_NAME;
+	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
+	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
+		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const MAX_HEADER_SIZE: u32 = MAX_HEADER_SIZE;
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
 }
 
 impl ChainWithBeefy for Millau {

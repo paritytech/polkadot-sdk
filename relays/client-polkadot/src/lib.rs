@@ -17,7 +17,7 @@
 //! Types used to connect to the Polkadot chain.
 
 use bp_polkadot::AccountInfoStorageMapKeyProvider;
-use relay_substrate_client::{Chain, ChainWithBalances, ChainWithGrandpa, UnderlyingChainProvider};
+use relay_substrate_client::{Chain, ChainWithBalances, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -41,11 +41,6 @@ impl Chain for Polkadot {
 
 	type SignedBlock = bp_polkadot::SignedBlock;
 	type Call = ();
-}
-
-impl ChainWithGrandpa for Polkadot {
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
-		bp_polkadot::WITH_POLKADOT_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithBalances for Polkadot {

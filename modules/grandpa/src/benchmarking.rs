@@ -47,7 +47,6 @@ use bp_test_utils::{
 	TEST_GRANDPA_SET_ID,
 };
 use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller};
-use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use sp_finality_grandpa::AuthorityId;
 use sp_runtime::traits::{One, Zero};
@@ -68,7 +67,7 @@ const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
 
 // the same with validators - if there are too much validators, let's run benchmarks on subrange
 fn validator_set_range_end<T: Config<I>, I: 'static>() -> u32 {
-	let max_bridged_authorities = T::MaxBridgedAuthorities::get();
+	let max_bridged_authorities = T::BridgedChain::MAX_AUTHORITIES_COUNT;
 	if max_bridged_authorities > 128 {
 		sp_std::cmp::max(128, max_bridged_authorities / 5)
 	} else {

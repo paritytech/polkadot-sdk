@@ -19,9 +19,9 @@
 use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
-	ChainWithTransactions, ChainWithUtilityPallet, Error as SubstrateError,
-	FullRuntimeUtilityPallet, IndexOf, SignParam, UnderlyingChainProvider, UnsignedTransaction,
+	BalanceOf, Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
+	ChainWithUtilityPallet, Error as SubstrateError, FullRuntimeUtilityPallet, IndexOf, SignParam,
+	UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -36,10 +36,6 @@ pub struct Millau;
 
 impl UnderlyingChainProvider for Millau {
 	type Chain = bp_millau::Millau;
-}
-
-impl ChainWithGrandpa for Millau {
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = bp_millau::WITH_MILLAU_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithMessages for Millau {

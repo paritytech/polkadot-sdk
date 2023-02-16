@@ -16,9 +16,7 @@
 
 //! Types used to connect to the Westend chain.
 
-use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
-};
+use relay_substrate_client::{Chain, ChainWithBalances, RelayChain, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -51,11 +49,6 @@ impl RelayChain for Westend {
 	const PARAS_PALLET_NAME: &'static str = bp_westend::PARAS_PALLET_NAME;
 	const PARACHAINS_FINALITY_PALLET_NAME: &'static str =
 		bp_westend::WITH_WESTEND_BRIDGE_PARAS_PALLET_NAME;
-}
-
-impl ChainWithGrandpa for Westend {
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
-		bp_westend::WITH_WESTEND_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithBalances for Westend {

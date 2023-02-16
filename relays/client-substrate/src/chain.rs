@@ -73,11 +73,6 @@ pub trait RelayChain: Chain {
 	const PARACHAINS_FINALITY_PALLET_NAME: &'static str;
 }
 
-/// Substrate-based parachain from minimal relay-client point of view.
-pub trait Parachain: Chain + ParachainBase {}
-
-impl<T> Parachain for T where T: UnderlyingChainProvider + Chain + ParachainBase {}
-
 /// Substrate-based chain that is using direct GRANDPA finality from minimal relay-client point of
 /// view.
 ///
@@ -91,6 +86,20 @@ pub trait ChainWithGrandpa: Chain {
 	/// the same name.
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str;
 }
+
+impl<T> ChainWithGrandpa for T
+where
+	T: Chain + UnderlyingChainProvider,
+	T::Chain: bp_header_chain::ChainWithGrandpa,
+{
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
+		<T::Chain as bp_header_chain::ChainWithGrandpa>::WITH_CHAIN_GRANDPA_PALLET_NAME;
+}
+
+/// Substrate-based parachain from minimal relay-client point of view.
+pub trait Parachain: Chain + ParachainBase {}
+
+impl<T> Parachain for T where T: UnderlyingChainProvider + Chain + ParachainBase {}
 
 /// Substrate-based chain with messaging support from minimal relay-client point of view.
 pub trait ChainWithMessages: Chain {

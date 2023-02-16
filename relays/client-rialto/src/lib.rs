@@ -19,9 +19,9 @@
 use bp_messages::MessageNonce;
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
-	ChainWithTransactions, Error as SubstrateError, IndexOf, RelayChain, SignParam,
-	UnderlyingChainProvider, UnsignedTransaction,
+	BalanceOf, Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
+	Error as SubstrateError, IndexOf, RelayChain, SignParam, UnderlyingChainProvider,
+	UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -54,10 +54,6 @@ impl RelayChain for Rialto {
 	const PARAS_PALLET_NAME: &'static str = bp_rialto::PARAS_PALLET_NAME;
 	const PARACHAINS_FINALITY_PALLET_NAME: &'static str =
 		bp_rialto::WITH_RIALTO_BRIDGE_PARAS_PALLET_NAME;
-}
-
-impl ChainWithGrandpa for Rialto {
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = bp_rialto::WITH_RIALTO_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithMessages for Rialto {

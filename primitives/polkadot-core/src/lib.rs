@@ -53,6 +53,28 @@ pub mod parachains;
 /// take twice as much here.
 pub const MAX_AUTHORITIES_COUNT: u32 = 2_048;
 
+/// Reasonable number of headers in the `votes_ancestries` on Polkadot-like chains.
+///
+/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+
+/// Approximate average header size in `votes_ancestries` field of justification on Polkadot-like
+/// chains.
+///
+/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 256;
+
+/// Approximate maximal header size on Polkadot-like chains.
+///
+/// We expect maximal header to have digest item with the new authorities set for every consensus
+/// engine (GRANDPA, Babe, BEEFY, ...) - so we multiply it by 3. And also
+/// `AVERAGE_HEADER_SIZE_IN_JUSTIFICATION` bytes for other stuff.
+///
+/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+pub const MAX_HEADER_SIZE: u32 = MAX_AUTHORITIES_COUNT
+	.saturating_mul(3)
+	.saturating_add(AVERAGE_HEADER_SIZE_IN_JUSTIFICATION);
+
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
 /// Polkadot-like chain. This mostly depends on number of entries in the storage trie.
 /// Some reserve is reserved to account future chain growth.

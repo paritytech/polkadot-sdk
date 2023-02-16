@@ -32,7 +32,7 @@ use crate::messages::{
 	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
 };
 
-use bp_header_chain::HeaderChain;
+use bp_header_chain::{ChainWithGrandpa, HeaderChain};
 use bp_messages::{target_chain::ForbidInboundMessages, LaneId, MessageNonce};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::{Chain, ChainId, Parachain, UnderlyingChainProvider};
@@ -195,7 +195,6 @@ impl pallet_bridge_grandpa::Config for TestRuntime {
 	type BridgedChain = BridgedUnderlyingChain;
 	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = ConstU32<8>;
-	type MaxBridgedAuthorities = ConstU32<1024>;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<TestRuntime>;
 }
 
@@ -370,6 +369,14 @@ impl Chain for BridgedUnderlyingChain {
 	fn max_extrinsic_weight() -> Weight {
 		Weight::zero()
 	}
+}
+
+impl ChainWithGrandpa for BridgedUnderlyingChain {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
+	const MAX_AUTHORITIES_COUNT: u32 = 16;
+	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const MAX_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
 }
 
 impl Chain for BridgedUnderlyingParachain {
