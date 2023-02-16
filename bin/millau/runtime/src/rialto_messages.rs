@@ -162,7 +162,6 @@ mod tests {
 			RialtoGrandpaInstance,
 			WithRialtoMessagesInstance,
 			WithRialtoMessageBridge,
-			bp_millau::Millau,
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_millau::BlockLength::get(),
