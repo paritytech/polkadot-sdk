@@ -17,7 +17,7 @@
 //! Types used to connect to the Kusama chain.
 
 use bp_kusama::AccountInfoStorageMapKeyProvider;
-use relay_substrate_client::{Chain, ChainWithBalances, ChainWithGrandpa, UnderlyingChainProvider};
+use relay_substrate_client::{Chain, ChainWithBalances, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -41,10 +41,6 @@ impl Chain for Kusama {
 
 	type SignedBlock = bp_kusama::SignedBlock;
 	type Call = ();
-}
-
-impl ChainWithGrandpa for Kusama {
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = bp_kusama::WITH_KUSAMA_GRANDPA_PALLET_NAME;
 }
 
 impl ChainWithBalances for Kusama {

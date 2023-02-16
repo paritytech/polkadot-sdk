@@ -39,10 +39,10 @@
 use storage_types::StoredAuthoritySet;
 
 use bp_header_chain::{
-	justification::GrandpaJustification, HeaderChain, InitializationData, StoredHeaderData,
-	StoredHeaderDataBuilder,
+	justification::GrandpaJustification, ChainWithGrandpa, HeaderChain, InitializationData,
+	StoredHeaderData, StoredHeaderDataBuilder,
 };
-use bp_runtime::{BlockNumberOf, Chain, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
+use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::{dispatch::PostDispatchInfo, ensure};
 use sp_finality_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
@@ -97,7 +97,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The chain we are bridging to here.
-		type BridgedChain: Chain;
+		type BridgedChain: ChainWithGrandpa;
 
 		/// The upper bound on the number of requests allowed by the pallet.
 		///
@@ -117,10 +117,6 @@ pub mod pallet {
 		/// Incautious change of this constant may lead to orphan entries in the runtime storage.
 		#[pallet::constant]
 		type HeadersToKeep: Get<u32>;
-
-		/// Max number of authorities at the bridged chain.
-		#[pallet::constant]
-		type MaxBridgedAuthorities: Get<u32>;
 
 		/// Weights gathered through benchmarking.
 		type WeightInfo: WeightInfo;
@@ -513,7 +509,7 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
 					authority_set_length,
-					T::MaxBridgedAuthorities::get(),
+					T::BridgedChain::MAX_AUTHORITIES_COUNT,
 				);
 
 				Error::TooManyAuthoritiesInSet
