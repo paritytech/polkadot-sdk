@@ -26,10 +26,10 @@ use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::sp_runtime::Saturating;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_std::marker::PhantomData;
-use weights::WeightInfo;
 
 pub use pallet::*;
 pub use payment_adapter::DeliveryConfirmationPaymentsAdapter;
+pub use weights::WeightInfo;
 
 pub mod benchmarking;
 
