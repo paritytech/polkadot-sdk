@@ -19,11 +19,42 @@
 #![allow(clippy::too_many_arguments)]
 
 pub use bp_polkadot_core::*;
-use bp_runtime::decl_bridge_finality_runtime_apis;
-use frame_support::parameter_types;
+
+use bp_header_chain::ChainWithGrandpa;
+use bp_runtime::{decl_bridge_finality_runtime_apis, Chain};
+use frame_support::{parameter_types, weights::Weight};
 
 /// Rococo Chain
-pub type Rococo = PolkadotLike;
+pub struct Rococo;
+
+impl Chain for Rococo {
+	type BlockNumber = <PolkadotLike as Chain>::BlockNumber;
+	type Hash = <PolkadotLike as Chain>::Hash;
+	type Hasher = <PolkadotLike as Chain>::Hasher;
+	type Header = <PolkadotLike as Chain>::Header;
+
+	type AccountId = <PolkadotLike as Chain>::AccountId;
+	type Balance = <PolkadotLike as Chain>::Balance;
+	type Index = <PolkadotLike as Chain>::Index;
+	type Signature = <PolkadotLike as Chain>::Signature;
+
+	fn max_extrinsic_size() -> u32 {
+		PolkadotLike::max_extrinsic_size()
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		PolkadotLike::max_extrinsic_weight()
+	}
+}
+
+impl ChainWithGrandpa for Rococo {
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = WITH_ROCOCO_GRANDPA_PALLET_NAME;
+	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
+	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
+		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const MAX_HEADER_SIZE: u32 = MAX_HEADER_SIZE;
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
+}
 
 parameter_types! {
 	pub const SS58Prefix: u8 = 42;

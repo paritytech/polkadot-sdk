@@ -387,21 +387,6 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	/// Number of headers to keep.
-	///
-	/// Assuming the worst case of every header being finalized, we will keep headers at least for a
-	/// day.
-	pub const HeadersToKeep: u32 = bp_rialto::DAYS;
-	/// Maximal number of authorities at Rialto.
-	pub const MaxAuthoritiesAtRialto: u32 = bp_rialto::MAX_AUTHORITIES_COUNT;
-}
-
-parameter_types! {
-	/// Maximal number of authorities at Westend.
-	pub const MaxAuthoritiesAtWestend: u32 = bp_westend::MAX_AUTHORITIES_COUNT;
-}
-
 pub type RialtoGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
 	type BridgedChain = bp_rialto::Rialto;
@@ -410,9 +395,7 @@ impl pallet_bridge_grandpa::Config for Runtime {
 	// Note that once this is hit the pallet will essentially throttle incoming requests down to one
 	// call per block.
 	type MaxRequests = ConstU32<50>;
-	type HeadersToKeep = HeadersToKeep;
-	type MaxBridgedAuthorities = MaxAuthoritiesAtRialto;
-
+	type HeadersToKeep = ConstU32<{ bp_rialto::DAYS }>;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
 
@@ -420,9 +403,7 @@ pub type WestendGrandpaInstance = pallet_bridge_grandpa::Instance1;
 impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
 	type BridgedChain = bp_westend::Westend;
 	type MaxRequests = ConstU32<50>;
-	type HeadersToKeep = HeadersToKeep;
-	type MaxBridgedAuthorities = MaxAuthoritiesAtWestend;
-
+	type HeadersToKeep = ConstU32<{ bp_westend::DAYS }>;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<Runtime>;
 }
 
@@ -521,7 +502,7 @@ impl pallet_bridge_parachains::Config<WithRialtoParachainsInstance> for Runtime 
 	type ParasPalletName = RialtoParasPalletName;
 	type ParaStoredHeaderDataBuilder =
 		SingleParaStoredHeaderDataBuilder<bp_rialto_parachain::RialtoParachain>;
-	type HeadsToKeep = HeadersToKeep;
+	type HeadsToKeep = ConstU32<1024>;
 	type MaxParaHeadDataSize = MaxRialtoParaHeadDataSize;
 }
 
@@ -534,7 +515,7 @@ impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime
 	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
 	type ParasPalletName = WestendParasPalletName;
 	type ParaStoredHeaderDataBuilder = SingleParaStoredHeaderDataBuilder<bp_westend::Westmint>;
-	type HeadsToKeep = HeadersToKeep;
+	type HeadsToKeep = ConstU32<1024>;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
 
