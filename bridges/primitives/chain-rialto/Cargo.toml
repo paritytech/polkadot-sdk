@@ -10,6 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 # Bridge Dependencies
 
+bp-header-chain = { path = "../header-chain", default-features = false }
 bp-messages = { path = "../messages", default-features = false }
 bp-runtime = { path = "../runtime", default-features = false }
 
@@ -25,6 +26,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
 	"frame-support/std",
