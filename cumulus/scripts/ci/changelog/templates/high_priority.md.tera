@@ -10,10 +10,10 @@
 
 {# We loop first to count the number of host functions but we do not display anything yet #}
 {%- for pr in changes -%}
-{%- if pr.meta.B and pr.meta.B.value == 0 -%}
+{%- if pr.meta.B and pr.meta.B.B0 -%}
 {#- We skip silent ones -#}
 {%- else -%}
-    {%- if pr.meta.E and pr.meta.E.value == 4 -%}
+    {%- if pr.meta.E and pr.meta.E.E4 -%}
         {%- set_global host_fn_count = host_fn_count + 1 -%}
     {%- endif -%}
 {%- endif -%}
@@ -31,8 +31,7 @@
 {%- endif -%}
 
 <!-- detected max prio is: {{p}} -->
-
-{%- if prio -%}
+{% if prio -%}
 {{prio}}: {{text}}
 {%- else -%}
 <!-- No relevant Priority label as been detected -->
@@ -43,9 +42,9 @@
 The changes motivating this priority level are:
 {% for pr in changes | sort(attribute="merged_at") -%}
     {%- if pr.meta.C -%}
-        {%- if pr.meta.C.value == p %}
+        {%- if pr.meta.C.agg.max >= p %}
 - {{ m_c::change(c=pr) }}
-{%- if pr.meta.B and pr.meta.X and pr.meta.B.value == 1 and pr.meta.X.value == 1 %}
+{%- if pr.meta.B and pr.meta.B.B1 and pr.meta.T and pr.meta.T.T1 %}
 (RUNTIME)
 {% endif %}
 

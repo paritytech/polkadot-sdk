@@ -16,4 +16,6 @@
 
 {% endif %}
 
+{% include "changes_api.md.tera" %}
+
 {% include "changes_misc.md.tera" %}

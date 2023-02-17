@@ -15,6 +15,9 @@ logger = Logger.new($stdout)
 logger.level = Logger::DEBUG
 logger.debug('Starting')
 
+changelogerator_version = `changelogerator --version`
+logger.debug(changelogerator_version)
+
 owner = 'paritytech'
 repo = 'cumulus'
 ref1 = ARGV[0]
@@ -31,6 +34,9 @@ polkadot_ref2 = gh_cumulus.get_dependency_reference(ref2, 'polkadot-client')
 
 substrate_ref1 = gh_cumulus.get_dependency_reference(ref1, 'sp-io')
 substrate_ref2 = gh_cumulus.get_dependency_reference(ref2, 'sp-io')
+
+logger.debug("Cumulus from:    #{ref1}")
+logger.debug("Cumulus to:      #{ref2}")
 
 logger.debug("Polkadot from:   #{polkadot_ref1}")
 logger.debug("Polkadot to:     #{polkadot_ref2}")
@@ -76,7 +82,7 @@ else
   logger.debug("Re-using:#{substrate_data}")
 end
 
-POLKADOT_COLLECTIVES_DIGEST = ENV['COLLECTIVES_POLKADOT_DIGEST'] || 'digests/polkadot-collectives-srtool-digest.json'
+POLKADOT_COLLECTIVES_DIGEST = ENV['COLLECTIVES_POLKADOT_DIGEST'] || 'digests/collectives-polkadot-srtool-digest.json'
 SHELL_DIGEST = ENV['SHELL_DIGEST'] || 'digests/shell-srtool-digest.json'
 WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json'
 STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
@@ -90,7 +96,7 @@ CANVAS_KUSAMA_DIGEST = ENV['CANVAS_KUSAMA_DIGEST'] || 'digests/contracts-rococo-
 logger.debug("Release type: #{ENV['RELEASE_TYPE']}")
 
 if ENV['RELEASE_TYPE'] && ENV['RELEASE_TYPE'] == 'client'
-  logger.debug("Building changelog without runtimes")
+  logger.debug('Building changelog without runtimes')
   cmd = format('jq \
     --slurpfile cumulus %s \
     --slurpfile substrate %s \
@@ -102,7 +108,7 @@ if ENV['RELEASE_TYPE'] && ENV['RELEASE_TYPE'] == 'client'
           }\' > context.json', cumulus_data, substrate_data, polkadot_data,
   )
 else
-  logger.debug("Building changelog with runtimes")
+  logger.debug('Building changelog with runtimes')
 
   # Here we compose all the pieces together into one
   # single big json file.
@@ -119,6 +125,7 @@ else
       --slurpfile srtool_polkadot_collectives %s \
       --slurpfile srtool_bridge_hub_rococo %s \
       --slurpfile srtool_bridge_hub_kusama %s \
+      --slurpfile srtool_bridge_hub_polkadot %s \
       -n \'{
             cumulus: $cumulus[0],
             substrate: $substrate[0],

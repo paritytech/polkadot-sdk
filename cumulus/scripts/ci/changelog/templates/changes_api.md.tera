@@ -1,6 +1,6 @@
 {%- import "change.md.tera" as m_c -%}
 
-### Runtime
+### API
 
 {#- The changes are sorted by merge date -#}
 {% for pr in changes | sort(attribute="merged_at") -%}
@@ -10,7 +10,7 @@
 {#- We skip silent ones -#}
 {%- else -%}
 
-{%- if pr.meta.B.B1 and pr.meta.T.T1 and not pr.title is containing("ompanion") %}
+{%- if pr.meta.B.B1 and pr.meta.T.T2 and not pr.title is containing("ompanion") %}
 - {{ m_c::change(c=pr) }}
 {%- endif -%}
 {%- endif -%}
