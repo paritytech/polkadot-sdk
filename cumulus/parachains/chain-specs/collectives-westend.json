@@ -18,7 +18,9 @@
     "/dns/westend-collectives-collator-4.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWCui467sJqUd7GzxB9HWpxrvXQfHWuYGN14KoSQwJQ9Sk",
     "/dns/westend-collectives-collator-5.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWLGeRp67Y4LTpDYW15ophkcn8VAbNf4mhw9MXwPUamCss",
     "/dns/westend-collectives-collator-6.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDVdnw4fU8KsvVmXYwC7ifqsXssQgQ5rzPpBNEJPZewEB",
-    "/dns/westend-collectives-collator-7.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWCYmG2HhYQTSs7PHcrBcsdfte7SJhctW6PeTYLLDyN4Yb"
+    "/dns/westend-collectives-collator-7.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWCYmG2HhYQTSs7PHcrBcsdfte7SJhctW6PeTYLLDyN4Yb",
+    "/dns/boot.stake.plus/tcp/38333/p2p/12D3KooWQoVsFCfgu21iu6kdtQsU9T6dPn1wsyLn1U34yPerR6zQ",
+    "/dns/boot.stake.plus/tcp/38334/wss/p2p/12D3KooWQoVsFCfgu21iu6kdtQsU9T6dPn1wsyLn1U34yPerR6zQ"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

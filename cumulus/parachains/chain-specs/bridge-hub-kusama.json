@@ -14,7 +14,9 @@
     "/dns/kusama-bridge-hub-connect-ew1-0.polkadot.io/tcp/443/wss/p2p/12D3KooWPQQPivrqQ51kRTDc2R1mtqwKT4GGtk2rapkY4FrwHrEp",
     "/dns/kusama-bridge-hub-connect-ew1-1.polkadot.io/tcp/443/wss/p2p/12D3KooWPcF9Yk4gYrMju9CyWCV69hAFXbYsnxCLogwLGu9QFTRn",
     "/dns/kusama-bridge-hub-connect-ue4-0.polkadot.io/tcp/443/wss/p2p/12D3KooWMf1sVnJDTkKWtaThqvrgcSPLbfGXttSqbwhM2DJp9BUG",
-    "/dns/kusama-bridge-hub-connect-ue4-1.polkadot.io/tcp/443/wss/p2p/12D3KooWQaV7wMfNVKy2aMz4Lds3TTxgSDyZAUEnbAZMfD8rW3ow"
+    "/dns/kusama-bridge-hub-connect-ue4-1.polkadot.io/tcp/443/wss/p2p/12D3KooWQaV7wMfNVKy2aMz4Lds3TTxgSDyZAUEnbAZMfD8rW3ow",
+    "/dns/boot.stake.plus/tcp/41333/p2p/12D3KooWBzbs2jsXjG5dipktGPKaUm9XWvkmeJFsEAGkVt946Aa7",
+    "/dns/boot.stake.plus/tcp/41334/wss/p2p/12D3KooWBzbs2jsXjG5dipktGPKaUm9XWvkmeJFsEAGkVt946Aa7"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
