@@ -21,8 +21,9 @@ use bp_bridge_hub_wococo::PolkadotSignedExtension;
 use bp_messages::MessageNonce;
 use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, Error as SubstrateError,
-	SignParam, UnderlyingChainProvider, UnsignedTransaction,
+	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, ChainWithUtilityPallet,
+	Error as SubstrateError, MockedRuntimeUtilityPallet, SignParam, UnderlyingChainProvider,
+	UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -55,6 +56,10 @@ impl ChainWithBalances for BridgeHubRococo {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
 		bp_bridge_hub_rococo::AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
+}
+
+impl ChainWithUtilityPallet for BridgeHubRococo {
+	type UtilityPallet = MockedRuntimeUtilityPallet<runtime::Call>;
 }
 
 impl ChainWithTransactions for BridgeHubRococo {

@@ -36,8 +36,8 @@ pub use crate::{
 	chain::{
 		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
 		ChainWithGrandpa, ChainWithMessages, ChainWithTransactions, ChainWithUtilityPallet,
-		FullRuntimeUtilityPallet, Parachain, RelayChain, SignParam, TransactionStatusOf,
-		UnsignedTransaction, UtilityPallet,
+		FullRuntimeUtilityPallet, MockedRuntimeUtilityPallet, Parachain, RelayChain, SignParam,
+		TransactionStatusOf, UnsignedTransaction, UtilityPallet,
 	},
 	client::{
 		is_ancient_block, ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet,

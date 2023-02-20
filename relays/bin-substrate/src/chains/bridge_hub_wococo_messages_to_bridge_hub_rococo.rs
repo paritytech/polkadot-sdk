@@ -19,7 +19,7 @@
 use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge};
 use relay_bridge_hub_rococo_client::BridgeHubRococo;
 use relay_bridge_hub_wococo_client::BridgeHubWococo;
-use substrate_relay_helper::messages_lane::SubstrateMessageLane;
+use substrate_relay_helper::{messages_lane::SubstrateMessageLane, UtilityPalletBatchCallBuilder};
 
 pub struct BridgeHubWococoToBridgeHubRococoMessagesCliBridge {}
 
@@ -59,6 +59,6 @@ impl SubstrateMessageLane for BridgeHubWococoMessagesToBridgeHubRococoMessageLan
 	type ReceiveMessagesDeliveryProofCallBuilder =
 		BridgeHubWococoMessagesToBridgeHubRococoMessageLaneReceiveMessagesDeliveryProofCallBuilder;
 
-	type SourceBatchCallBuilder = ();
-	type TargetBatchCallBuilder = ();
+	type SourceBatchCallBuilder = UtilityPalletBatchCallBuilder<BridgeHubWococo>;
+	type TargetBatchCallBuilder = UtilityPalletBatchCallBuilder<BridgeHubRococo>;
 }

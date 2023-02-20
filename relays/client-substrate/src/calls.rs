@@ -31,6 +31,15 @@ pub enum SystemCall {
 	remark(Vec<u8>),
 }
 
+/// A minimized version of `pallet-utility::Call` that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum UtilityCall<Call> {
+	/// `pallet-utility::Call::batch_all`
+	#[codec(index = 2)]
+	batch_all(Vec<Call>),
+}
+
 /// A minimized version of `pallet-sudo::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]

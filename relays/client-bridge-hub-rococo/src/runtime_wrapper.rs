@@ -25,7 +25,7 @@ use bp_bridge_hub_rococo::SignedExtension;
 pub use bp_header_chain::BridgeGrandpaCallOf;
 pub use bp_parachains::BridgeParachainCall;
 pub use bridge_runtime_common::messages::BridgeMessagesCallOf;
-pub use relay_substrate_client::calls::SystemCall;
+pub use relay_substrate_client::calls::{SystemCall, UtilityCall};
 
 /// Unchecked BridgeHubRococo extrinsic.
 pub type UncheckedExtrinsic = bp_bridge_hub_rococo::UncheckedExtrinsic<Call, SignedExtension>;
@@ -49,6 +49,9 @@ pub enum Call {
 	#[cfg(test)]
 	#[codec(index = 0)]
 	System(SystemCall),
+	/// Utility pallet.
+	#[codec(index = 40)]
+	Utility(UtilityCall<Call>),
 
 	/// Wococo bridge pallet.
 	#[codec(index = 41)]
@@ -59,4 +62,10 @@ pub enum Call {
 	/// Wococo messages bridge pallet.
 	#[codec(index = 46)]
 	BridgeWococoMessages(BridgeWococoMessagesCall),
+}
+
+impl From<UtilityCall<Call>> for Call {
+	fn from(call: UtilityCall<Call>) -> Call {
+		Call::Utility(call)
+	}
 }

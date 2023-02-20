@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::calls::UtilityCall;
+
 use bp_messages::MessageNonce;
 use bp_runtime::{
 	Chain as ChainBase, EncodedOrDecodedCall, HashOf, Parachain as ParachainBase, TransactionEra,
@@ -273,6 +275,21 @@ where
 {
 	fn build_batch_call(calls: Vec<C::Call>) -> C::Call {
 		pallet_utility::Call::batch_all { calls }.into()
+	}
+}
+
+/// Structure that implements `UtilityPalletProvider` based on a call conversion.
+pub struct MockedRuntimeUtilityPallet<Call> {
+	_phantom: std::marker::PhantomData<Call>,
+}
+
+impl<C, Call> UtilityPallet<C> for MockedRuntimeUtilityPallet<Call>
+where
+	C: Chain,
+	C::Call: From<UtilityCall<C::Call>>,
+{
+	fn build_batch_call(calls: Vec<C::Call>) -> C::Call {
+		UtilityCall::batch_all(calls).into()
 	}
 }
 
