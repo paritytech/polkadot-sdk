@@ -23,6 +23,7 @@ use crate::messages_call_ext::{
 	MessagesCallSubType, ReceiveMessagesProofHelper, ReceiveMessagesProofInfo,
 };
 use bp_messages::LaneId;
+use bp_runtime::StaticStrProvider;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, Dispatchable, PostDispatchInfo},
@@ -46,28 +47,77 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
-// TODO (https://github.com/paritytech/parity-bridges-common/issues/1667):
-// support multiple bridges in this extension
+// without this typedef rustfmt fails with internal err
+type BalanceOf<R> =
+	<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance;
+type CallOf<R> = <R as frame_system::Config>::RuntimeCall;
 
-/// Transaction fee calculation.
-pub trait TransactionFeeCalculation<Balance> {
-	/// Compute fee that is paid for given transaction. The fee is later refunded to relayer.
-	fn compute_fee(
+/// Trait identifying a bridged parachain. A relayer might be refunded for delivering messages
+/// coming from this parachain.
+trait RefundableParachainId {
+	/// The instance of the bridge parachains pallet.
+	type Instance;
+	/// The parachain Id.
+	type Id: Get<u32>;
+}
+
+/// Default implementation of `RefundableParachainId`.
+pub struct RefundableParachain<Instance, Id>(PhantomData<(Instance, Id)>);
+
+impl<Instance, Id> RefundableParachainId for RefundableParachain<Instance, Id>
+where
+	Id: Get<u32>,
+{
+	type Instance = Instance;
+	type Id = Id;
+}
+
+/// Trait identifying a bridged messages lane. A relayer might be refunded for delivering messages
+/// coming from this lane.
+trait RefundableMessagesLaneId {
+	/// The instance of the bridge messages pallet.
+	type Instance;
+	/// The messages lane id.
+	type Id: Get<LaneId>;
+}
+
+/// Default implementation of `RefundableMessagesLaneId`.
+pub struct RefundableMessagesLane<Instance, Id>(PhantomData<(Instance, Id)>);
+
+impl<Instance, Id> RefundableMessagesLaneId for RefundableMessagesLane<Instance, Id>
+where
+	Id: Get<LaneId>,
+{
+	type Instance = Instance;
+	type Id = Id;
+}
+
+/// Refund calculator.
+pub trait RefundCalculator {
+	// The underlying integer type in which the refund is calculated.
+	type Balance;
+
+	/// Compute refund for given transaction.
+	fn compute_refund(
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
-		tip: Balance,
-	) -> Balance;
+		tip: Self::Balance,
+	) -> Self::Balance;
 }
 
-impl<R> TransactionFeeCalculation<BalanceOf<R>> for R
+/// `RefundCalculator` implementation which refunds the actual transaction fee.
+pub struct ActualFeeRefund<R>(PhantomData<R>);
+
+impl<R> RefundCalculator for ActualFeeRefund<R>
 where
 	R: TransactionPaymentConfig,
-	<R as frame_system::Config>::RuntimeCall:
-		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	CallOf<R>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<R>: FixedPointOperand,
 {
-	fn compute_fee(
+	type Balance = BalanceOf<R>;
+
+	fn compute_refund(
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
@@ -77,7 +127,55 @@ where
 	}
 }
 
-/// Signed extension that refunds relayer for new messages coming from the parachain.
+/// Data that is crafted in `pre_dispatch` method and used at `post_dispatch`.
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct PreDispatchData<AccountId> {
+	/// Transaction submitter (relayer) account.
+	relayer: AccountId,
+	/// Type of the call.
+	call_info: CallInfo,
+}
+
+/// Type of the call that the extension recognizes.
+#[derive(RuntimeDebugNoBound, PartialEq)]
+pub enum CallInfo {
+	/// Relay chain finality + parachain finality + message delivery calls.
+	AllFinalityAndDelivery(RelayBlockNumber, SubmitParachainHeadsInfo, ReceiveMessagesProofInfo),
+	/// Parachain finality + message delivery calls.
+	ParachainFinalityAndDelivery(SubmitParachainHeadsInfo, ReceiveMessagesProofInfo),
+	/// Standalone message delivery call.
+	Delivery(ReceiveMessagesProofInfo),
+}
+
+impl CallInfo {
+	/// Returns the pre-dispatch `finality_target` sent to the `SubmitFinalityProof` call.
+	fn submit_finality_proof_info(&self) -> Option<RelayBlockNumber> {
+		match *self {
+			Self::AllFinalityAndDelivery(info, _, _) => Some(info),
+			_ => None,
+		}
+	}
+
+	/// Returns the pre-dispatch `SubmitParachainHeadsInfo`.
+	fn submit_parachain_heads_info(&self) -> Option<&SubmitParachainHeadsInfo> {
+		match self {
+			Self::AllFinalityAndDelivery(_, info, _) => Some(info),
+			Self::ParachainFinalityAndDelivery(info, _) => Some(info),
+			_ => None,
+		}
+	}
+
+	/// Returns the pre-dispatch `ReceiveMessagesProofInfo`.
+	fn receive_messages_proof_info(&self) -> &ReceiveMessagesProofInfo {
+		match self {
+			Self::AllFinalityAndDelivery(_, _, info) => info,
+			Self::ParachainFinalityAndDelivery(_, info) => info,
+			Self::Delivery(info) => info,
+		}
+	}
+}
+
+/// Signed extension that refunds a relayer for new messages coming from a parachain.
 ///
 /// Also refunds relayer for successful finality delivery if it comes in batch (`utility.batchAll`)
 /// with message delivery transaction. Batch may deliver either both relay chain header and
@@ -86,29 +184,29 @@ where
 ///
 /// Extension does not refund transaction tip due to security reasons.
 #[derive(
+	DefaultNoBound,
 	CloneNoBound,
 	Decode,
-	DefaultNoBound,
 	Encode,
 	EqNoBound,
 	PartialEqNoBound,
 	RuntimeDebugNoBound,
 	TypeInfo,
 )]
-#[scale_info(skip_type_params(RT, GI, PI, MI, PID, LID, FEE))]
-pub struct RefundRelayerForMessagesFromParachain<RT, GI, PI, MI, PID, LID, FEE>(
-	PhantomData<(RT, GI, PI, MI, PID, LID, FEE)>,
+#[scale_info(skip_type_params(Runtime, Para, Msgs, Refund, Id))]
+pub struct RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Id>(
+	PhantomData<(Runtime, Para, Msgs, Refund, Id)>,
 );
 
-impl<R, GI, PI, MI, PID, LID, FEE>
-	RefundRelayerForMessagesFromParachain<R, GI, PI, MI, PID, LID, FEE>
+impl<Runtime, Para, Msgs, Refund, Id>
+	RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Id>
 where
-	R: UtilityConfig<RuntimeCall = CallOf<R>>,
-	CallOf<R>: IsSubType<CallableCallFor<UtilityPallet<R>, R>>,
+	Runtime: UtilityConfig<RuntimeCall = CallOf<Runtime>>,
+	CallOf<Runtime>: IsSubType<CallableCallFor<UtilityPallet<Runtime>, Runtime>>,
 {
-	fn expand_call<'a>(&self, call: &'a CallOf<R>) -> Option<Vec<&'a CallOf<R>>> {
+	fn expand_call<'a>(&self, call: &'a CallOf<Runtime>) -> Option<Vec<&'a CallOf<Runtime>>> {
 		let calls = match call.is_sub_type() {
-			Some(UtilityCall::<R>::batch_all { ref calls }) => {
+			Some(UtilityCall::<Runtime>::batch_all { ref calls }) => {
 				if calls.len() > 3 {
 					return None
 				}
@@ -123,71 +221,30 @@ where
 	}
 }
 
-/// Data that is crafted in `pre_dispatch` method and used at `post_dispatch`.
-#[derive(PartialEq)]
-#[cfg_attr(test, derive(Debug))]
-pub struct PreDispatchData<AccountId> {
-	/// Transaction submitter (relayer) account.
-	relayer: AccountId,
-	/// Type of the call.
-	pub call_type: CallType,
-}
-
-/// Type of the call that the extension recognizes.
-#[derive(Clone, Copy, PartialEq, RuntimeDebugNoBound)]
-pub enum CallType {
-	/// Relay chain finality + parachain finality + message delivery calls.
-	AllFinalityAndDelivery(RelayBlockNumber, SubmitParachainHeadsInfo, ReceiveMessagesProofInfo),
-	/// Parachain finality + message delivery calls.
-	ParachainFinalityAndDelivery(SubmitParachainHeadsInfo, ReceiveMessagesProofInfo),
-	/// Standalone message delivery call.
-	Delivery(ReceiveMessagesProofInfo),
-}
-
-impl CallType {
-	/// Returns the pre-dispatch messages pallet state.
-	fn receive_messages_proof_info(&self) -> ReceiveMessagesProofInfo {
-		match *self {
-			Self::AllFinalityAndDelivery(_, _, info) => info,
-			Self::ParachainFinalityAndDelivery(_, info) => info,
-			Self::Delivery(info) => info,
-		}
-	}
-}
-
-// without this typedef rustfmt fails with internal err
-type BalanceOf<R> =
-	<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance;
-type CallOf<R> = <R as frame_system::Config>::RuntimeCall;
-
-impl<R, GI, PI, MI, PID, LID, FEE> SignedExtension
-	for RefundRelayerForMessagesFromParachain<R, GI, PI, MI, PID, LID, FEE>
+impl<Runtime, Para, Msgs, Refund, Id> SignedExtension
+	for RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Id>
 where
-	R: 'static
-		+ Send
-		+ Sync
-		+ UtilityConfig<RuntimeCall = CallOf<R>>
-		+ BoundedBridgeGrandpaConfig<GI>
-		+ ParachainsConfig<PI, BridgesGrandpaPalletInstance = GI>
-		+ MessagesConfig<MI>
+	Self: 'static + Send + Sync,
+	Runtime: UtilityConfig<RuntimeCall = CallOf<Runtime>>
+		+ BoundedBridgeGrandpaConfig<Runtime::BridgesGrandpaPalletInstance>
+		+ ParachainsConfig<Para::Instance>
+		+ MessagesConfig<Msgs::Instance>
 		+ RelayersConfig,
-	GI: 'static + Send + Sync,
-	PI: 'static + Send + Sync,
-	MI: 'static + Send + Sync,
-	PID: 'static + Send + Sync + Get<u32>,
-	LID: 'static + Send + Sync + Get<LaneId>,
-	FEE: 'static + Send + Sync + TransactionFeeCalculation<<R as RelayersConfig>::Reward>,
-	CallOf<R>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
-		+ IsSubType<CallableCallFor<UtilityPallet<R>, R>>
-		+ GrandpaCallSubType<R, GI>
-		+ ParachainsCallSubType<R, PI>
-		+ MessagesCallSubType<R, MI>,
+	Para: RefundableParachainId,
+	Msgs: RefundableMessagesLaneId,
+	Refund: RefundCalculator<Balance = Runtime::Reward>,
+	Id: StaticStrProvider,
+	CallOf<Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		+ IsSubType<CallableCallFor<UtilityPallet<Runtime>, Runtime>>
+		+ GrandpaCallSubType<Runtime, Runtime::BridgesGrandpaPalletInstance>
+		+ ParachainsCallSubType<Runtime, Para::Instance>
+		+ MessagesCallSubType<Runtime, Msgs::Instance>,
 {
-	const IDENTIFIER: &'static str = "RefundRelayerForMessagesFromParachain";
-	type AccountId = R::AccountId;
-	type Call = CallOf<R>;
+	const IDENTIFIER: &'static str = Id::STR;
+	type AccountId = Runtime::AccountId;
+	type Call = CallOf<Runtime>;
 	type AdditionalSigned = ();
-	type Pre = Option<PreDispatchData<R::AccountId>>;
+	type Pre = Option<PreDispatchData<Runtime::AccountId>>;
 
 	fn additional_signed(&self) -> Result<(), TransactionValidityError> {
 		Ok(())
@@ -200,15 +257,12 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		let calls = match self.expand_call(call) {
-			Some(calls) => calls,
-			None => return Ok(ValidTransaction::default()),
-		};
-
-		for call in calls {
-			call.check_obsolete_submit_finality_proof()?;
-			call.check_obsolete_submit_parachain_heads()?;
-			call.check_obsolete_receive_messages_proof()?;
+		if let Some(calls) = self.expand_call(call) {
+			for nested_call in calls {
+				nested_call.check_obsolete_submit_finality_proof()?;
+				nested_call.check_obsolete_submit_parachain_heads()?;
+				nested_call.check_obsolete_receive_messages_proof()?;
+			}
 		}
 
 		Ok(ValidTransaction::default())
@@ -225,35 +279,35 @@ where
 		self.validate(who, call, info, len).map(drop)?;
 
 		// Try to check if the tx matches one of types we support.
-		let parse_call_type = || {
+		let parse_call = || {
 			let mut calls = self.expand_call(call)?.into_iter();
 			match calls.len() {
-				3 => Some(CallType::AllFinalityAndDelivery(
+				3 => Some(CallInfo::AllFinalityAndDelivery(
 					calls.next()?.submit_finality_proof_info()?,
-					calls.next()?.submit_parachain_heads_info_for(PID::get())?,
-					calls.next()?.receive_messages_proof_info_for(LID::get())?,
+					calls.next()?.submit_parachain_heads_info_for(Para::Id::get())?,
+					calls.next()?.receive_messages_proof_info_for(Msgs::Id::get())?,
 				)),
-				2 => Some(CallType::ParachainFinalityAndDelivery(
-					calls.next()?.submit_parachain_heads_info_for(PID::get())?,
-					calls.next()?.receive_messages_proof_info_for(LID::get())?,
+				2 => Some(CallInfo::ParachainFinalityAndDelivery(
+					calls.next()?.submit_parachain_heads_info_for(Para::Id::get())?,
+					calls.next()?.receive_messages_proof_info_for(Msgs::Id::get())?,
 				)),
-				1 => Some(CallType::Delivery(
-					calls.next()?.receive_messages_proof_info_for(LID::get())?,
+				1 => Some(CallInfo::Delivery(
+					calls.next()?.receive_messages_proof_info_for(Msgs::Id::get())?,
 				)),
 				_ => None,
 			}
 		};
 
-		Ok(parse_call_type().map(|call_type| {
+		Ok(parse_call().map(|call_info| {
 			log::trace!(
 				target: "runtime::bridge",
-				"RefundRelayerForMessagesFromParachain from parachain {} via {:?} \
-				parsed bridge transaction in pre-dispatch: {:?}",
-				PID::get(),
-				LID::get(),
-				call_type,
+				"{} from parachain {} via {:?} parsed bridge transaction in pre-dispatch: {:?}",
+				Self::IDENTIFIER,
+				Para::Id::get(),
+				Msgs::Id::get(),
+				call_info,
 			);
-			PreDispatchData { relayer: who.clone(), call_type }
+			PreDispatchData { relayer: who.clone(), call_info }
 		}))
 	}
 
@@ -270,14 +324,14 @@ where
 		}
 
 		// We don't refund anything for transactions that we don't support.
-		let (relayer, call_type) = match pre {
-			Some(Some(pre)) => (pre.relayer, pre.call_type),
+		let (relayer, call_info) = match pre {
+			Some(Some(pre)) => (pre.relayer, pre.call_info),
 			_ => return Ok(()),
 		};
 
 		// check if relay chain state has been updated
-		if let CallType::AllFinalityAndDelivery(relay_block_number, _, _) = call_type {
-			if !SubmitFinalityProofHelper::<R, GI>::was_successful(relay_block_number) {
+		if let Some(relay_block_number) = call_info.submit_finality_proof_info() {
+			if !SubmitFinalityProofHelper::<Runtime, Runtime::BridgesGrandpaPalletInstance>::was_successful(relay_block_number) {
 				// we only refund relayer if all calls have updated chain state
 				return Ok(())
 			}
@@ -291,44 +345,44 @@ where
 		}
 
 		// check if parachain state has been updated
-		match call_type {
-			CallType::AllFinalityAndDelivery(_, parachain_heads_info, _) |
-			CallType::ParachainFinalityAndDelivery(parachain_heads_info, _) => {
-				if !SubmitParachainHeadsHelper::<R, PI>::was_successful(&parachain_heads_info) {
-					// we only refund relayer if all calls have updated chain state
-					return Ok(())
-				}
-			},
-			_ => (),
+		if let Some(para_proof_info) = call_info.submit_parachain_heads_info() {
+			if !SubmitParachainHeadsHelper::<Runtime, Para::Instance>::was_successful(
+				para_proof_info,
+			) {
+				// we only refund relayer if all calls have updated chain state
+				return Ok(())
+			}
 		}
 
 		// Check if the `ReceiveMessagesProof` call delivered at least some of the messages that
 		// it contained. If this happens, we consider the transaction "helpful" and refund it.
-		let messages_proof_info = call_type.receive_messages_proof_info();
-		if !ReceiveMessagesProofHelper::<R, MI>::was_partially_successful(&messages_proof_info) {
+		let msgs_proof_info = call_info.receive_messages_proof_info();
+		if !ReceiveMessagesProofHelper::<Runtime, Msgs::Instance>::was_partially_successful(
+			msgs_proof_info,
+		) {
 			return Ok(())
 		}
 
 		// regarding the tip - refund that happens here (at this side of the bridge) isn't the whole
 		// relayer compensation. He'll receive some amount at the other side of the bridge. It shall
-		// (in theory) cover the tip here. Otherwise, if we'll be compensating tip here, some
+		// (in theory) cover the tip there. Otherwise, if we'll be compensating tip here, some
 		// malicious relayer may use huge tips, effectively depleting account that pay rewards. The
 		// cost of this attack is nothing. Hence we use zero as tip here.
 		let tip = Zero::zero();
 
-		// compute the relayer reward
-		let reward = FEE::compute_fee(info, post_info, len, tip);
-
-		// finally - register reward in relayers pallet
-		RelayersPallet::<R>::register_relayer_reward(LID::get(), &relayer, reward);
+		// compute the relayer refund
+		let refund = Refund::compute_refund(info, post_info, len, tip);
+		// finally - register refund in relayers pallet
+		RelayersPallet::<Runtime>::register_relayer_reward(Msgs::Id::get(), &relayer, refund);
 
 		log::trace!(
 			target: "runtime::bridge",
-			"RefundRelayerForMessagesFromParachain from parachain {} via {:?} has registered {:?} reward: {:?}",
-			PID::get(),
-			LID::get(),
+			"{} from parachain {} via {:?} has registered reward: {:?} for {:?}",
+			Self::IDENTIFIER,
+			Para::Id::get(),
+			Msgs::Id::get(),
+			refund,
 			relayer,
-			reward,
 		);
 
 		Ok(())
@@ -353,18 +407,17 @@ mod tests {
 	};
 
 	parameter_types! {
-		pub TestParachain: u32 = 1000;
+		TestParachain: u32 = 1000;
 		pub TestLaneId: LaneId = TEST_LANE_ID;
 	}
 
-	type TestExtension = RefundRelayerForMessagesFromParachain<
+	bp_runtime::generate_static_str_provider!(TestExtension);
+	type TestExtension = RefundBridgedParachainMessages<
 		TestRuntime,
-		(),
-		(),
-		(),
-		TestParachain,
-		TestLaneId,
-		TestRuntime,
+		RefundableParachain<(), TestParachain>,
+		RefundableMessagesLane<(), TestLaneId>,
+		ActualFeeRefund<TestRuntime>,
+		StrTestExtension,
 	>;
 
 	fn relayer_account_at_this_chain() -> ThisChainAccountId {
@@ -470,7 +523,7 @@ mod tests {
 	fn all_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
-			call_type: CallType::AllFinalityAndDelivery(
+			call_info: CallInfo::AllFinalityAndDelivery(
 				200,
 				SubmitParachainHeadsInfo {
 					at_relay_block_number: 200,
@@ -489,7 +542,7 @@ mod tests {
 	fn parachain_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
-			call_type: CallType::ParachainFinalityAndDelivery(
+			call_info: CallInfo::ParachainFinalityAndDelivery(
 				SubmitParachainHeadsInfo {
 					at_relay_block_number: 200,
 					para_id: ParaId(TestParachain::get()),
@@ -507,7 +560,7 @@ mod tests {
 	fn delivery_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
-			call_type: CallType::Delivery(ReceiveMessagesProofInfo {
+			call_info: CallInfo::Delivery(ReceiveMessagesProofInfo {
 				lane_id: TEST_LANE_ID,
 				best_proof_nonce: 200,
 				best_stored_nonce: 100,
@@ -520,14 +573,14 @@ mod tests {
 	}
 
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
-		let extension: TestExtension = RefundRelayerForMessagesFromParachain(PhantomData);
+		let extension: TestExtension = RefundBridgedParachainMessages(PhantomData);
 		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
 	fn run_pre_dispatch(
 		call: RuntimeCall,
 	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
-		let extension: TestExtension = RefundRelayerForMessagesFromParachain(PhantomData);
+		let extension: TestExtension = RefundBridgedParachainMessages(PhantomData);
 		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
