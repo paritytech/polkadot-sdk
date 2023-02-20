@@ -18,12 +18,12 @@ use crate::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
 use bp_messages::{LaneId, MessageNonce};
-use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
+use frame_support::{dispatch::CallableCallFor, traits::IsSubType, RuntimeDebug};
 use pallet_bridge_messages::{Config, Pallet};
-use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
+use sp_runtime::transaction_validity::TransactionValidity;
 
 /// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
+#[derive(PartialEq, RuntimeDebug)]
 pub struct ReceiveMessagesProofInfo {
 	pub lane_id: LaneId,
 	pub best_proof_nonce: MessageNonce,
