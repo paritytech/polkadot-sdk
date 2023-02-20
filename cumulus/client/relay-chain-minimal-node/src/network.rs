@@ -108,7 +108,7 @@ pub(crate) fn build_collator_network(
 			return
 		}
 
-		network_worker.await
+		network_worker.run().await;
 	});
 
 	let network_starter = NetworkStarter::new(network_start_tx);

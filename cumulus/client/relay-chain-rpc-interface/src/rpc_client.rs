@@ -19,9 +19,9 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		vstaging::ExecutorParams, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, GroupRotationInfo, Hash as RelayHash,
-		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, OldV1SessionInfo,
-		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -133,17 +133,6 @@ impl RelayChainRpcClient {
 	/// Returns information regarding the current epoch.
 	pub async fn babe_api_current_epoch(&self, at: RelayHash) -> Result<Epoch, RelayChainError> {
 		self.call_remote_runtime_function("BabeApi_current_epoch", at, None::<()>).await
-	}
-
-	/// Old method to fetch v1 session info.
-	pub async fn parachain_host_session_info_before_version_2(
-		&self,
-		at: RelayHash,
-		index: SessionIndex,
-	) -> Result<Option<OldV1SessionInfo>, RelayChainError> {
-		// The function in wasm never changes/gets augmented with a version
-		self.call_remote_runtime_function("ParachainHost_session_info", at, Some(index))
-			.await
 	}
 
 	/// Scrape dispute relevant from on-chain, backing votes and resolved disputes.
