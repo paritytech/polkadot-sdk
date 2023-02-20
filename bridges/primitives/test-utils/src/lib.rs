@@ -18,7 +18,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_header_chain::justification::GrandpaJustification;
+use bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
 use codec::Encode;
 use sp_finality_grandpa::{AuthorityId, AuthoritySignature, AuthorityWeight, SetId};
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
@@ -57,11 +57,12 @@ pub struct JustificationGeneratorParams<H> {
 
 impl<H: HeaderT> Default for JustificationGeneratorParams<H> {
 	fn default() -> Self {
+		let required_signatures = required_justification_precommits(test_keyring().len() as _);
 		Self {
 			header: test_header(One::one()),
 			round: TEST_GRANDPA_ROUND,
 			set_id: TEST_GRANDPA_SET_ID,
-			authorities: test_keyring(),
+			authorities: test_keyring().into_iter().take(required_signatures as _).collect(),
 			ancestors: 2,
 			forks: 1,
 		}

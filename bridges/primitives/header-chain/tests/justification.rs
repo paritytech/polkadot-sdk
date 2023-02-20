@@ -16,7 +16,7 @@
 
 //! Tests for Grandpa Justification code.
 
-use bp_header_chain::justification::{verify_justification, Error};
+use bp_header_chain::justification::{optimize_justification, verify_justification, Error};
 use bp_test_utils::*;
 
 type TestHeader = sp_runtime::testing::Header;
@@ -189,4 +189,88 @@ fn justification_is_invalid_if_we_dont_meet_threshold() {
 		),
 		Err(Error::TooLowCumulativeWeight),
 	);
+}
+
+#[test]
+fn optimizer_does_noting_with_minimal_justification() {
+	let justification = make_default_justification::<TestHeader>(&test_header(1));
+
+	let num_precommits_before = justification.commit.precommits.len();
+	let justification = optimize_justification::<TestHeader>(
+		header_id::<TestHeader>(1),
+		TEST_GRANDPA_SET_ID,
+		&voter_set(),
+		justification,
+	)
+	.unwrap();
+	let num_precommits_after = justification.commit.precommits.len();
+
+	assert_eq!(num_precommits_before, num_precommits_after);
+}
+
+#[test]
+fn unknown_authority_votes_are_removed_by_optimizer() {
+	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
+	justification.commit.precommits.push(signed_precommit::<TestHeader>(
+		&bp_test_utils::Account(42),
+		header_id::<TestHeader>(1),
+		justification.round,
+		TEST_GRANDPA_SET_ID,
+	));
+
+	let num_precommits_before = justification.commit.precommits.len();
+	let justification = optimize_justification::<TestHeader>(
+		header_id::<TestHeader>(1),
+		TEST_GRANDPA_SET_ID,
+		&voter_set(),
+		justification,
+	)
+	.unwrap();
+	let num_precommits_after = justification.commit.precommits.len();
+
+	assert_eq!(num_precommits_before - 1, num_precommits_after);
+}
+
+#[test]
+fn duplicate_authority_votes_are_removed_by_optimizer() {
+	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
+	justification
+		.commit
+		.precommits
+		.push(justification.commit.precommits.first().cloned().unwrap());
+
+	let num_precommits_before = justification.commit.precommits.len();
+	let justification = optimize_justification::<TestHeader>(
+		header_id::<TestHeader>(1),
+		TEST_GRANDPA_SET_ID,
+		&voter_set(),
+		justification,
+	)
+	.unwrap();
+	let num_precommits_after = justification.commit.precommits.len();
+
+	assert_eq!(num_precommits_before - 1, num_precommits_after);
+}
+
+#[test]
+fn redundant_authority_votes_are_removed_by_optimizer() {
+	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
+	justification.commit.precommits.push(signed_precommit::<TestHeader>(
+		&EVE,
+		header_id::<TestHeader>(1),
+		justification.round,
+		TEST_GRANDPA_SET_ID,
+	));
+
+	let num_precommits_before = justification.commit.precommits.len();
+	let justification = optimize_justification::<TestHeader>(
+		header_id::<TestHeader>(1),
+		TEST_GRANDPA_SET_ID,
+		&voter_set(),
+		justification,
+	)
+	.unwrap();
+	let num_precommits_after = justification.commit.precommits.len();
+
+	assert_eq!(num_precommits_before - 1, num_precommits_after);
 }

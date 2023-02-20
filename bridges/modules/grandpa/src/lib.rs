@@ -1188,6 +1188,11 @@ mod tests {
 		);
 
 		assert_eq!(
+			CurrentAuthoritySet::<TestRuntime>::storage_value_final_key().to_vec(),
+			bp_header_chain::storage_keys::current_authority_set_key("Grandpa").0,
+		);
+
+		assert_eq!(
 			BestFinalized::<TestRuntime>::storage_value_final_key().to_vec(),
 			bp_header_chain::storage_keys::best_finalized_key("Grandpa").0,
 		);
