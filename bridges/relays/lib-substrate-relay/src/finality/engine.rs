@@ -22,7 +22,7 @@ use bp_header_chain::{
 	justification::{verify_justification, GrandpaJustification},
 	ConsensusLogReader, FinalityProof, GrandpaConsensusLogReader,
 };
-use bp_runtime::{BasicOperatingMode, OperatingMode};
+use bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
 use codec::{Decode, Encode};
 use finality_grandpa::voter_set::VoterSet;
 use num_traits::{One, Zero};
@@ -87,6 +87,13 @@ pub trait Engine<C: Chain>: Send {
 		client.subscribe_finality_justifications::<Self::FinalityClient>().await
 	}
 
+	/// Optimize finality proof before sending it to the target node.
+	async fn optimize_proof<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+		header: &C::Header,
+		proof: Self::FinalityProof,
+	) -> Result<Self::FinalityProof, SubstrateError>;
+
 	/// Prepare initialization data for the finality bridge pallet.
 	async fn prepare_initialization_data(
 		client: Client<C>,
@@ -137,6 +144,48 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 
 	fn pallet_operating_mode_key() -> StorageKey {
 		bp_header_chain::storage_keys::pallet_operating_mode_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
+	}
+
+	async fn optimize_proof<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+		header: &C::Header,
+		proof: Self::FinalityProof,
+	) -> Result<Self::FinalityProof, SubstrateError> {
+		let current_authority_set_key = bp_header_chain::storage_keys::current_authority_set_key(
+			C::WITH_CHAIN_GRANDPA_PALLET_NAME,
+		);
+		let (authority_set, authority_set_id): (
+			sp_finality_grandpa::AuthorityList,
+			sp_finality_grandpa::SetId,
+		) = target_client
+			.storage_value(current_authority_set_key, None)
+			.await?
+			.map(Ok)
+			.unwrap_or(Err(SubstrateError::Custom(format!(
+				"{} `CurrentAuthoritySet` is missing from the {} storage",
+				C::NAME,
+				TargetChain::NAME,
+			))))?;
+		let authority_set =
+			finality_grandpa::voter_set::VoterSet::new(authority_set).expect("TODO");
+		// we're risking with race here - we have decided to submit justification some time ago and
+		// actual authorities set (which we have read now) may have changed, so this
+		// `optimize_justification` may fail. But if target chain is configured properly, it'll fail
+		// anyway, after we submit transaction and failing earlier is better. So - it is fine
+		bp_header_chain::justification::optimize_justification(
+			(header.hash(), *header.number()),
+			authority_set_id,
+			&authority_set,
+			proof,
+		)
+		.map_err(|e| {
+			SubstrateError::Custom(format!(
+				"Failed to optimize {} GRANDPA jutification for header {:?}: {:?}",
+				C::NAME,
+				header.id(),
+				e,
+			))
+		})
 	}
 
 	/// Prepare initialization data for the GRANDPA verifier pallet.
