@@ -50,7 +50,7 @@ zombienet-0001-sync_blocks_from_tip_without_connected_collator:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
-        --test="0001-sync_blocks_from_tip_without_connected_collator.feature"
+        --test="0001-sync_blocks_from_tip_without_connected_collator.zndsl"
 
 zombienet-0002-pov_recovery:
   extends:
@@ -62,7 +62,7 @@ zombienet-0002-pov_recovery:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
-        --test="0002-pov_recovery.feature"
+        --test="0002-pov_recovery.zndsl"
 
 zombienet-0003-full_node_catching_up:
   extends:
@@ -74,7 +74,7 @@ zombienet-0003-full_node_catching_up:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
-        --test="0003-full_node_catching_up.feature"
+        --test="0003-full_node_catching_up.zndsl"
 
 zombienet-0004-runtime_upgrade:
   extends:
@@ -95,7 +95,7 @@ zombienet-0004-runtime_upgrade:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
-        --test="0004-runtime_upgrade.feature"
+        --test="0004-runtime_upgrade.zndsl"
 
 zombienet-0005-migrate_solo_to_para:
   extends:
@@ -114,7 +114,7 @@ zombienet-0005-migrate_solo_to_para:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
-        --test="0005-migrate_solo_to_para.feature"
+        --test="0005-migrate_solo_to_para.zndsl"
 
 zombienet-0006-rpc_collator_builds_blocks:
   extends:
@@ -126,7 +126,7 @@ zombienet-0006-rpc_collator_builds_blocks:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
-        --test="0006-rpc_collator_builds_blocks.feature"
+        --test="0006-rpc_collator_builds_blocks.zndsl"
 
 zombienet-0007-full_node_warp_sync:
   extends:
@@ -138,4 +138,4 @@ zombienet-0007-full_node_warp_sync:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
         --github-remote-dir="${GH_DIR}"
         --concurrency=1
-        --test="0007-full_node_warp_sync.feature"
+        --test="0007-full_node_warp_sync.zndsl"
