@@ -111,6 +111,10 @@ where
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: SubstrateFinalityProof<P>,
 	) -> Result<Self::TransactionTracker, Error> {
+		// runtime module at target chain may require optimized finality proof
+		let proof = P::FinalityEngine::optimize_proof(&self.client, &header, proof).await?;
+
+		// now we may submit optimized finality proof
 		let transaction_params = self.transaction_params.clone();
 		let call =
 			P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
