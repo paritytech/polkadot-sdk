@@ -95,7 +95,7 @@ impl ChainWithTransactions for Millau {
 				frame_system::CheckWeight::<millau_runtime::Runtime>::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::<millau_runtime::Runtime>::from(unsigned.tip),
 				millau_runtime::BridgeRejectObsoleteHeadersAndMessages,
-				millau_runtime::BridgeRefundRialtoParachainRelayers::default(),
+				millau_runtime::BridgeRefundRialtoParachainMessages::default(),
 			),
 			(
 				(),

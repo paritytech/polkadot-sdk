@@ -507,6 +507,24 @@ impl WeightExtraOps for Weight {
 	}
 }
 
+/// Trait that provides a static `str`.
+pub trait StaticStrProvider {
+	const STR: &'static str;
+}
+
+#[macro_export]
+macro_rules! generate_static_str_provider {
+	($str:expr) => {
+		$crate::paste::item! {
+			pub struct [<Str $str>];
+
+			impl $crate::StaticStrProvider for [<Str $str>] {
+				const STR: &'static str = stringify!($str);
+			}
+		}
+	};
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -530,5 +548,11 @@ mod tests {
 				.to_vec()
 			),
 		);
+	}
+
+	#[test]
+	fn generate_static_str_provider_works() {
+		generate_static_str_provider!(Test);
+		assert_eq!(StrTest::STR, "Test");
 	}
 }

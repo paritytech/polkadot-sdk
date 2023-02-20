@@ -80,7 +80,13 @@ pub use pallet_sudo::Call as SudoCall;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use pallet_xcm::Call as XcmCall;
 
-use bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages;
+use bridge_runtime_common::{
+	generate_bridge_reject_obsolete_headers_and_messages,
+	refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundableMessagesLane,
+		RefundableParachain,
+	},
+};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -582,17 +588,15 @@ generate_bridge_reject_obsolete_headers_and_messages! {
 	BridgeRialtoMessages, BridgeRialtoParachainMessages
 }
 
+bp_runtime::generate_static_str_provider!(BridgeRefundRialtoPara2000Lane0Msgs);
 /// Signed extension that refunds relayers that are delivering messages from the Rialto parachain.
-pub type BridgeRefundRialtoParachainRelayers =
-	bridge_runtime_common::refund_relayer_extension::RefundRelayerForMessagesFromParachain<
-		Runtime,
-		RialtoGrandpaInstance,
-		WithRialtoParachainsInstance,
-		WithRialtoParachainMessagesInstance,
-		RialtoParachainId,
-		RialtoParachainMessagesLane,
-		Runtime,
-	>;
+pub type BridgeRefundRialtoParachainMessages = RefundBridgedParachainMessages<
+	Runtime,
+	RefundableParachain<WithRialtoParachainsInstance, RialtoParachainId>,
+	RefundableMessagesLane<WithRialtoParachainMessagesInstance, RialtoParachainMessagesLane>,
+	ActualFeeRefund<Runtime>,
+	StrBridgeRefundRialtoPara2000Lane0Msgs,
+>;
 
 /// The address format for describing accounts.
 pub type Address = AccountId;
@@ -615,7 +619,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
-	BridgeRefundRialtoParachainRelayers,
+	BridgeRefundRialtoParachainMessages,
 );
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
