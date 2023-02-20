@@ -20,6 +20,8 @@
 pub const PALLET_OPERATING_MODE_VALUE_NAME: &str = "PalletOperatingMode";
 /// Name of the `BestFinalized` storage value.
 pub const BEST_FINALIZED_VALUE_NAME: &str = "BestFinalized";
+/// Name of the `CurrentAuthoritySet` storage value.
+pub const CURRENT_AUTHORITY_SET_VALUE_NAME: &str = "CurrentAuthoritySet";
 
 use sp_core::storage::StorageKey;
 
@@ -29,6 +31,17 @@ pub fn pallet_operating_mode_key(pallet_prefix: &str) -> StorageKey {
 		bp_runtime::storage_value_final_key(
 			pallet_prefix.as_bytes(),
 			PALLET_OPERATING_MODE_VALUE_NAME.as_bytes(),
+		)
+		.to_vec(),
+	)
+}
+
+/// Storage key of the `CurrentAuthoritySet` variable in the runtime storage.
+pub fn current_authority_set_key(pallet_prefix: &str) -> StorageKey {
+	StorageKey(
+		bp_runtime::storage_value_final_key(
+			pallet_prefix.as_bytes(),
+			CURRENT_AUTHORITY_SET_VALUE_NAME.as_bytes(),
 		)
 		.to_vec(),
 	)
@@ -58,6 +71,19 @@ mod tests {
 		assert_eq!(
 			storage_key,
 			hex!("0b06f475eddb98cf933a12262e0388de0f4cf0917788d791142ff6c1f216e7b3").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
+		);
+	}
+
+	#[test]
+	fn current_authority_set_key_computed_properly() {
+		// If this test fails, then something has been changed in module storage that is breaking
+		// compatibility with previous pallet.
+		let storage_key = current_authority_set_key("BridgeGrandpa").0;
+		assert_eq!(
+			storage_key,
+			hex!("0b06f475eddb98cf933a12262e0388de24a7b8b5717ea33346fa595a66ccbcb0").to_vec(),
 			"Unexpected storage key: {}",
 			hex::encode(&storage_key),
 		);
