@@ -22,10 +22,7 @@ use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
 use sp_api::ProvideRuntimeApi;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 /// An extension for the Cumulus test client to init a block builder.
 pub trait InitBlockBuilder {
@@ -45,7 +42,7 @@ pub trait InitBlockBuilder {
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
 	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes a
-	/// [`BlockId`] to say which should be the parent block of the block that is being build.
+	/// [`type@Hash`] to say which should be the parent block of the block that is being build.
 	fn init_block_builder_at(
 		&self,
 		at: Hash,
@@ -56,7 +53,7 @@ pub trait InitBlockBuilder {
 	/// Init a specific block builder that works for the test runtime.
 	///
 	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes a
-	/// [`BlockId`] to say which should be the parent block of the block that is being build and
+	/// [`type@Hash`] to say which should be the parent block of the block that is being build and
 	/// it will use the given `timestamp` as input for the timestamp inherent.
 	fn init_block_builder_with_timestamp(
 		&self,
@@ -75,7 +72,7 @@ fn init_block_builder<'a>(
 	timestamp: u64,
 ) -> BlockBuilder<'a, Block, Client, Backend> {
 	let mut block_builder = client
-		.new_block_at(&BlockId::Hash(at), Default::default(), true)
+		.new_block_at(at, Default::default(), true)
 		.expect("Creates new block builder for test runtime");
 
 	let mut inherent_data = sp_inherents::InherentData::new();
