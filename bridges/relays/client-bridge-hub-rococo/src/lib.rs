@@ -17,7 +17,6 @@
 //! Types used to connect to the BridgeHub-Rococo-Substrate parachain.
 
 use bp_bridge_hub_rococo::AVERAGE_BLOCK_INTERVAL;
-use bp_bridge_hub_wococo::PolkadotSignedExtension;
 use bp_messages::MessageNonce;
 use codec::Encode;
 use relay_substrate_client::{
@@ -72,7 +71,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_bridge_hub_rococo::SignedExtension::from_params(
+			runtime::rewarding_bridge_signed_extension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
@@ -86,7 +85,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 		let signer: sp_runtime::MultiSigner = param.signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		Ok(bp_bridge_hub_rococo::UncheckedExtrinsic::new_signed(
+		Ok(runtime::UncheckedExtrinsic::new_signed(
 			call,
 			signer.into_account().into(),
 			signature.into(),
@@ -109,7 +108,13 @@ impl ChainWithTransactions for BridgeHubRococo {
 
 	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
 		let extra = &tx.signature.as_ref()?.2;
-		Some(UnsignedTransaction::new(tx.function, extra.nonce()).tip(extra.tip()))
+		Some(
+			UnsignedTransaction::new(
+				tx.function,
+				runtime::rewarding_bridge_signed_extension::nonce(extra),
+			)
+			.tip(runtime::rewarding_bridge_signed_extension::tip(extra)),
+		)
 	}
 }
 
