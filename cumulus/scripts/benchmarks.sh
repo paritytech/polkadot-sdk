@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 
+target=${1:-production}
+steps=${2:-50}
+repeat=${3:-20}
+
 __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-${__dir}/benchmarks-ci.sh collectives collectives-polkadot target/production
+${__dir}/benchmarks-ci.sh collectives collectives-polkadot target/$target $steps $repeat
 
-${__dir}/benchmarks-ci.sh assets statemine target/production
-${__dir}/benchmarks-ci.sh assets statemint target/production
-${__dir}/benchmarks-ci.sh assets westmint target/production
+${__dir}/benchmarks-ci.sh assets statemine target/$target $steps $repeat
+${__dir}/benchmarks-ci.sh assets statemint target/$target $steps $repeat
+${__dir}/benchmarks-ci.sh assets westmint target/$target $steps $repeat
 
-${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-polkadot target/production
-${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-kusama target/production
-${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-rococo target/production
+${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-polkadot target/$target $steps $repeat
+${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-kusama target/$target $steps $repeat
+${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-rococo target/$target $steps $repeat
