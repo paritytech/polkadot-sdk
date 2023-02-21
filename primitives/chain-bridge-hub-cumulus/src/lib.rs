@@ -19,8 +19,8 @@
 use bp_messages::*;
 pub use bp_polkadot_core::{
 	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, BlockNumber, Hash, Hasher,
-	Hashing, Header, Index, Nonce, Perbill, PolkadotSignedExtension, Signature, SignedBlock,
-	UncheckedExtrinsic, EXTRA_STORAGE_PROOF_SIZE, TX_EXTRA_BYTES,
+	Hashing, Header, Index, Nonce, Perbill, Signature, SignedBlock, UncheckedExtrinsic,
+	EXTRA_STORAGE_PROOF_SIZE, TX_EXTRA_BYTES,
 };
 use frame_support::{
 	dispatch::DispatchClass,
@@ -124,3 +124,72 @@ pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
 
 /// Maximal number of unconfirmed messages at inbound lane for Cumulus-based parachains.
 pub const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 4096;
+
+/// Module with rewarding bridge signed extension support
+pub mod rewarding_bridge_signed_extension {
+	use super::*;
+	use bp_polkadot_core::PolkadotLike;
+	use bp_runtime::extensions::*;
+
+	type RewardingBridgeSignedExtra = (
+		CheckNonZeroSender,
+		CheckSpecVersion,
+		CheckTxVersion,
+		CheckGenesis<PolkadotLike>,
+		CheckEra<PolkadotLike>,
+		CheckNonce<Nonce>,
+		CheckWeight,
+		ChargeTransactionPayment<PolkadotLike>,
+		BridgeRejectObsoleteHeadersAndMessages,
+		RefundBridgedParachainMessagesSchema,
+	);
+
+	/// The signed extension used by Cumulus and Cumulus-like parachain with bridging and rewarding.
+	pub type RewardingBridgeSignedExtension = GenericSignedExtension<RewardingBridgeSignedExtra>;
+
+	pub fn from_params(
+		spec_version: u32,
+		transaction_version: u32,
+		era: bp_runtime::TransactionEraOf<PolkadotLike>,
+		genesis_hash: Hash,
+		nonce: Nonce,
+		tip: Balance,
+	) -> RewardingBridgeSignedExtension {
+		GenericSignedExtension::<RewardingBridgeSignedExtra>::new(
+			(
+				(),              // non-zero sender
+				(),              // spec version
+				(),              // tx version
+				(),              // genesis
+				era.frame_era(), // era
+				nonce.into(),    // nonce (compact encoding)
+				(),              // Check weight
+				tip.into(),      // transaction payment / tip (compact encoding)
+				(),              // bridge reject obsolete headers and msgs
+				(),              // bridge register reward to relayer for message passing
+			),
+			Some((
+				(),
+				spec_version,
+				transaction_version,
+				genesis_hash,
+				era.signed_payload(genesis_hash),
+				(),
+				(),
+				(),
+				(),
+				(),
+			)),
+		)
+	}
+
+	/// Return signer nonce, used to craft transaction.
+	pub fn nonce(sign_ext: &RewardingBridgeSignedExtension) -> Nonce {
+		sign_ext.payload.5.into()
+	}
+
+	/// Return transaction tip.
+	pub fn tip(sign_ext: &RewardingBridgeSignedExtension) -> Balance {
+		sign_ext.payload.7.into()
+	}
+}
