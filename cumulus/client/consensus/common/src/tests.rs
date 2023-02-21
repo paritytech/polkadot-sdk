@@ -25,7 +25,7 @@ use cumulus_relay_chain_interface::{
 	RelayChainInterface, RelayChainResult, SessionIndex, StorageValue, ValidatorId,
 };
 use cumulus_test_client::{
-	runtime::{Block, Header},
+	runtime::{Block, Hash, Header},
 	Backend, Client, InitBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
 use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
@@ -33,7 +33,6 @@ use futures_timer::Delay;
 use sc_client_api::{blockchain::Backend as _, Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_consensus::{BlockOrigin, BlockStatus};
-use sp_runtime::generic::BlockId;
 use std::{
 	collections::{BTreeMap, HashMap},
 	pin::Pin,
@@ -212,14 +211,13 @@ impl RelayChainInterface for Relaychain {
 
 fn build_block<B: InitBlockBuilder>(
 	builder: &B,
-	at: Option<BlockId<Block>>,
+	at: Option<Hash>,
 	timestamp: Option<u64>,
 ) -> Block {
 	let builder = match at {
 		Some(at) => match timestamp {
-			Some(ts) =>
-				builder.init_block_builder_with_timestamp(&at, None, Default::default(), ts),
-			None => builder.init_block_builder_at(&at, None, Default::default()),
+			Some(ts) => builder.init_block_builder_with_timestamp(at, None, Default::default(), ts),
+			None => builder.init_block_builder_at(at, None, Default::default()),
 		},
 		None => builder.init_block_builder(None, Default::default()),
 	};
@@ -267,7 +265,7 @@ fn build_and_import_block_ext<B: InitBlockBuilder, I: BlockImport<Block>>(
 	origin: BlockOrigin,
 	import_as_best: bool,
 	importer: &mut I,
-	at: Option<BlockId<Block>>,
+	at: Option<Hash>,
 	timestamp: Option<u64>,
 ) -> Block {
 	let block = build_block(builder, at, timestamp);
@@ -425,8 +423,7 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 	let block = build_and_import_block(client.clone(), false);
 
 	let unknown_block = {
-		let block_builder =
-			client.init_block_builder_at(&BlockId::Hash(block.hash()), None, Default::default());
+		let block_builder = client.init_block_builder_at(block.hash(), None, Default::default());
 		block_builder.build().unwrap().block
 	};
 
@@ -475,8 +472,7 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 	let block = build_and_import_block(client.clone(), false);
 
 	let unknown_block = {
-		let block_builder =
-			client.init_block_builder_at(&BlockId::Hash(block.hash()), None, Default::default());
+		let block_builder = client.init_block_builder_at(block.hash(), None, Default::default());
 		block_builder.build().unwrap().block
 	};
 
@@ -608,7 +604,7 @@ fn prune_blocks_on_level_overflow() {
 		None,
 		None,
 	);
-	let id0 = BlockId::Hash(block0.header.hash());
+	let id0 = block0.header.hash();
 
 	let blocks1 = (0..LEVEL_LIMIT)
 		.into_iter()
@@ -623,7 +619,7 @@ fn prune_blocks_on_level_overflow() {
 			)
 		})
 		.collect::<Vec<_>>();
-	let id10 = BlockId::Hash(blocks1[0].header.hash());
+	let id10 = blocks1[0].header.hash();
 
 	let blocks2 = (0..2)
 		.into_iter()
@@ -721,7 +717,7 @@ fn restore_limit_monitor() {
 		None,
 		None,
 	);
-	let id00 = BlockId::Hash(block00.header.hash());
+	let id00 = block00.header.hash();
 
 	let blocks1 = (0..LEVEL_LIMIT + 1)
 		.into_iter()
@@ -736,7 +732,7 @@ fn restore_limit_monitor() {
 			)
 		})
 		.collect::<Vec<_>>();
-	let id10 = BlockId::Hash(blocks1[0].header.hash());
+	let id10 = blocks1[0].header.hash();
 
 	let _ = (0..LEVEL_LIMIT)
 		.into_iter()

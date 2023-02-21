@@ -48,7 +48,7 @@ pub trait InitBlockBuilder {
 	/// [`BlockId`] to say which should be the parent block of the block that is being build.
 	fn init_block_builder_at(
 		&self,
-		at: &BlockId<Block>,
+		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
@@ -60,7 +60,7 @@ pub trait InitBlockBuilder {
 	/// it will use the given `timestamp` as input for the timestamp inherent.
 	fn init_block_builder_with_timestamp(
 		&self,
-		at: &BlockId<Block>,
+		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
@@ -69,13 +69,13 @@ pub trait InitBlockBuilder {
 
 fn init_block_builder<'a>(
 	client: &'a Client,
-	at: &BlockId<Block>,
+	at: Hash,
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
 ) -> BlockBuilder<'a, Block, Client, Backend> {
 	let mut block_builder = client
-		.new_block_at(at, Default::default(), true)
+		.new_block_at(&BlockId::Hash(at), Default::default(), true)
 		.expect("Creates new block builder for test runtime");
 
 	let mut inherent_data = sp_inherents::InherentData::new();
@@ -123,16 +123,12 @@ impl InitBlockBuilder for Client {
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
 		let chain_info = self.chain_info();
-		self.init_block_builder_at(
-			&BlockId::Hash(chain_info.best_hash),
-			validation_data,
-			relay_sproof_builder,
-		)
+		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
 
 	fn init_block_builder_at(
 		&self,
-		at: &BlockId<Block>,
+		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, Client, Backend> {
@@ -145,7 +141,7 @@ impl InitBlockBuilder for Client {
 
 	fn init_block_builder_with_timestamp(
 		&self,
-		at: &BlockId<Block>,
+		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,

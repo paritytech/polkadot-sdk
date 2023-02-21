@@ -82,10 +82,7 @@ mod tests {
 		ValidationParams,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-	use sp_runtime::{
-		generic::BlockId,
-		traits::{Block as BlockT, Header as HeaderT},
-	};
+	use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 	use std::{env, process::Command, str::FromStr};
 
 	const SLOT_DURATION: u64 = 6000;
@@ -128,7 +125,7 @@ mod tests {
 
 		let block = client
 			.init_block_builder_with_timestamp(
-				&BlockId::Hash(hash),
+				hash,
 				Some(validation_data),
 				sproof_builder,
 				timestamp,

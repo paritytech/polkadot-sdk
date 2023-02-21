@@ -27,10 +27,7 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::Result as ClientResult;
 use sp_consensus::{error::Error as ConsensusError, CacheKeyId};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 /// A verifier that just checks the inherents.
 pub struct Verifier<Client, Block, CIDP> {
@@ -83,11 +80,7 @@ where
 			let inherent_res = self
 				.client
 				.runtime_api()
-				.check_inherents(
-					&BlockId::Hash(*block.header().parent_hash()),
-					block.clone(),
-					inherent_data,
-				)
+				.check_inherents(*block.header().parent_hash(), block.clone(), inherent_data)
 				.map_err(|e| format!("{:?}", e))?;
 
 			if !inherent_res.ok() {

@@ -26,10 +26,7 @@ use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::BlockStatus;
 use sp_core::traits::SpawnNamed;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, HashFor, Header as HeaderT, Zero},
-};
+use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT, Zero};
 
 use cumulus_client_consensus_common::ParachainConsensus;
 use polkadot_node_primitives::{
@@ -154,10 +151,9 @@ where
 		header: &Block::Header,
 	) -> Result<Option<CollationInfo>, sp_api::ApiError> {
 		let runtime_api = self.runtime_api.runtime_api();
-		let block_id = BlockId::Hash(block_hash);
 
 		let api_version =
-			match runtime_api.api_version::<dyn CollectCollationInfo<Block>>(&block_id)? {
+			match runtime_api.api_version::<dyn CollectCollationInfo<Block>>(block_hash)? {
 				Some(version) => version,
 				None => {
 					tracing::error!(
@@ -171,10 +167,10 @@ where
 		let collation_info = if api_version < 2 {
 			#[allow(deprecated)]
 			runtime_api
-				.collect_collation_info_before_version_2(&block_id)?
+				.collect_collation_info_before_version_2(block_hash)?
 				.into_latest(header.encode().into())
 		} else {
-			runtime_api.collect_collation_info(&block_id, header)?
+			runtime_api.collect_collation_info(block_hash, header)?
 		};
 
 		Ok(Some(collation_info))
@@ -419,9 +415,8 @@ mod tests {
 			_: PHash,
 			validation_data: &PersistedValidationData,
 		) -> Option<ParachainCandidate<Block>> {
-			let block_id = BlockId::Hash(parent.hash());
 			let builder = self.client.init_block_builder_at(
-				&block_id,
+				parent.hash(),
 				Some(validation_data.clone()),
 				Default::default(),
 			);

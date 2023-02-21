@@ -19,9 +19,8 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, BlockId, CommittedCandidateReceipt,
-		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidatorId,
+		runtime_api::ParachainHost, Block as PBlock, CommittedCandidateReceipt, Hash as PHash,
+		Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -93,7 +92,7 @@ where
 		relay_parent: PHash,
 	) -> RelayChainResult<Vec<InboundDownwardMessage>> {
 		Ok(self.full_client.runtime_api().dmq_contents_with_context(
-			&BlockId::hash(relay_parent),
+			relay_parent,
 			sp_core::ExecutionContext::Importing,
 			para_id,
 		)?)
@@ -105,7 +104,7 @@ where
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
 		Ok(self.full_client.runtime_api().inbound_hrmp_channels_contents_with_context(
-			&BlockId::hash(relay_parent),
+			relay_parent,
 			sp_core::ExecutionContext::Importing,
 			para_id,
 		)?)
@@ -118,7 +117,7 @@ where
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		Ok(self.full_client.runtime_api().persisted_validation_data(
-			&BlockId::Hash(hash),
+			hash,
 			para_id,
 			occupied_core_assumption,
 		)?)
@@ -129,18 +128,15 @@ where
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		Ok(self
-			.full_client
-			.runtime_api()
-			.candidate_pending_availability(&BlockId::Hash(hash), para_id)?)
+		Ok(self.full_client.runtime_api().candidate_pending_availability(hash, para_id)?)
 	}
 
 	async fn session_index_for_child(&self, hash: PHash) -> RelayChainResult<SessionIndex> {
-		Ok(self.full_client.runtime_api().session_index_for_child(&BlockId::Hash(hash))?)
+		Ok(self.full_client.runtime_api().session_index_for_child(hash)?)
 	}
 
 	async fn validators(&self, hash: PHash) -> RelayChainResult<Vec<ValidatorId>> {
-		Ok(self.full_client.runtime_api().validators(&BlockId::Hash(hash))?)
+		Ok(self.full_client.runtime_api().validators(hash)?)
 	}
 
 	async fn import_notification_stream(
