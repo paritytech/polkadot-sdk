@@ -50,30 +50,37 @@ pub mod parachains;
 /// our bridge hub parachains huge. So let's stick to the real-world value here.
 ///
 /// Right now both Kusama and Polkadot aim to have around 1000 validators. Let's be safe here and
-/// take twice as much here.
-pub const MAX_AUTHORITIES_COUNT: u32 = 2_048;
+/// take a bit more here.
+pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 
 /// Reasonable number of headers in the `votes_ancestries` on Polkadot-like chains.
 ///
 /// See [`bp_header_chain::ChainWithGrandpa`] for more details.
-pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+///
+/// This value comes from recent (February, 2023) Kusama and Polkadot headers. There are no
+/// justifications with any additional headers in votes ancestry, so reasonable headers may
+/// be set to zero. But we assume that there may be small GRANDPA lags, so we're leaving some
+/// reserve here.
+pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
 
 /// Approximate average header size in `votes_ancestries` field of justification on Polkadot-like
 /// chains.
 ///
 /// See [`bp_header_chain::ChainWithGrandpa`] for more details.
-pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 256;
+///
+/// This value comes from recent (February, 2023) Kusama headers. Average is `336` there, but some
+/// non-mandatory headers has size `40kb` (they contain the BABE epoch descriptor with all
+/// authorities - just like our mandatory header). Since we assume `2` headers in justification
+/// votes ancestry, let's set average header to `40kb / 2`.
+pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 20 * 1024;
 
 /// Approximate maximal header size on Polkadot-like chains.
 ///
-/// We expect maximal header to have digest item with the new authorities set for every consensus
-/// engine (GRANDPA, Babe, BEEFY, ...) - so we multiply it by 3. And also
-/// `AVERAGE_HEADER_SIZE_IN_JUSTIFICATION` bytes for other stuff.
-///
 /// See [`bp_header_chain::ChainWithGrandpa`] for more details.
-pub const MAX_HEADER_SIZE: u32 = MAX_AUTHORITIES_COUNT
-	.saturating_mul(3)
-	.saturating_add(AVERAGE_HEADER_SIZE_IN_JUSTIFICATION);
+///
+/// This value comes from recent (February, 2023) Kusama headers. Maximal header is a mandatory
+/// header. In its SCALE-encoded form it is `80348` bytes. Let's have some reserve here.
+pub const MAX_HEADER_SIZE: u32 = 90_000;
 
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
 /// Polkadot-like chain. This mostly depends on number of entries in the storage trie.

@@ -16,7 +16,7 @@
 
 //! Wrappers for public types that are implementing `MaxEncodedLen`
 
-use crate::Config;
+use crate::{Config, Error};
 
 use bp_header_chain::{AuthoritySet, ChainWithGrandpa};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -52,8 +52,12 @@ impl<T: Config<I>, I: 'static> StoredAuthoritySet<T, I> {
 	/// Try to create a new bounded GRANDPA Authority Set from unbounded list.
 	///
 	/// Returns error if number of authorities in the provided list is too large.
-	pub fn try_new(authorities: AuthorityList, set_id: SetId) -> Result<Self, ()> {
-		Ok(Self { authorities: TryFrom::try_from(authorities).map_err(drop)?, set_id })
+	pub fn try_new(authorities: AuthorityList, set_id: SetId) -> Result<Self, Error<T, I>> {
+		Ok(Self {
+			authorities: TryFrom::try_from(authorities)
+				.map_err(|_| Error::TooManyAuthoritiesInSet)?,
+			set_id,
+		})
 	}
 
 	/// Returns number of bytes that may be subtracted from the PoV component of

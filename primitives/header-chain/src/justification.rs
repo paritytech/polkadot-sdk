@@ -19,12 +19,15 @@
 //! Adapted copy of substrate/client/finality-grandpa/src/justification.rs. If origin
 //! will ever be moved to the sp_finality_grandpa, we should reuse that implementation.
 
-use codec::{Decode, Encode};
+use crate::ChainWithGrandpa;
+
+use bp_runtime::{BlockNumberOf, Chain, HashOf};
+use codec::{Decode, Encode, MaxEncodedLen};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
 use sp_finality_grandpa::{AuthorityId, AuthoritySignature, SetId};
-use sp_runtime::traits::Header as HeaderT;
+use sp_runtime::{traits::Header as HeaderT, SaturatedConversion};
 use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	prelude::*,
@@ -46,6 +49,43 @@ pub struct GrandpaJustification<Header: HeaderT> {
 	pub votes_ancestries: Vec<Header>,
 }
 
+impl<H: HeaderT> GrandpaJustification<H> {
+	/// Returns reasonable size of justification using constants from the provided chain.
+	///
+	/// An imprecise analogue of `MaxEncodedLen` implementation. We don't use it for
+	/// any precise calculations - that's just an estimation.
+	pub fn max_reasonable_size<C>(required_precommits: u32) -> u32
+	where
+		C: Chain<Header = H> + ChainWithGrandpa,
+	{
+		// we don't need precise results here - just estimations, so some details
+		// are removed from computations (e.g. bytes required to encode vector length)
+
+		// structures in `finality_grandpa` crate are not implementing `MaxEncodedLength`, so
+		// here's our estimation for the `finality_grandpa::Commit` struct size
+		//
+		// precommit is: hash + number
+		// signed precommit is: precommit + signature (64b) + authority id
+		// commit is: hash + number + vec of signed precommits
+		let signed_precommit_size: u32 = BlockNumberOf::<C>::max_encoded_len()
+			.saturating_add(HashOf::<C>::max_encoded_len().saturated_into())
+			.saturating_add(64)
+			.saturating_add(AuthorityId::max_encoded_len().saturated_into())
+			.saturated_into();
+		let max_expected_signed_commit_size = signed_precommit_size
+			.saturating_mul(required_precommits)
+			.saturating_add(BlockNumberOf::<C>::max_encoded_len().saturated_into())
+			.saturating_add(HashOf::<C>::max_encoded_len().saturated_into());
+
+		// justification is a signed GRANDPA commit, `votes_ancestries` vector and round number
+		let max_expected_votes_ancestries_size = C::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY
+			.saturating_mul(C::AVERAGE_HEADER_SIZE_IN_JUSTIFICATION);
+
+		8u32.saturating_add(max_expected_signed_commit_size)
+			.saturating_add(max_expected_votes_ancestries_size)
+	}
+}
+
 impl<H: HeaderT> crate::FinalityProof<H::Number> for GrandpaJustification<H> {
 	fn target_header_number(&self) -> H::Number {
 		self.commit.target_number
@@ -59,6 +99,12 @@ pub enum Error {
 	JustificationDecode,
 	/// Justification is finalizing unexpected header.
 	InvalidJustificationTarget,
+	/// Justification contains redundant votes.
+	RedundantVotesInJustification,
+	/// Justification contains unknown authority precommit.
+	UnknownAuthorityVote,
+	/// Justification contains duplicate authority precommit.
+	DuplicateAuthorityVote,
 	/// The authority has provided an invalid signature.
 	InvalidAuthoritySignature,
 	/// The justification contains precommit for header that is not a descendant of the commit
@@ -124,7 +170,7 @@ where
 		authorities_set_id,
 		authorities_set,
 		justification,
-		&mut (),
+		&mut StrictVerificationCallbacks,
 	)
 }
 
@@ -136,6 +182,23 @@ trait VerificationCallbacks {
 	fn on_duplicate_authority_vote(&mut self, precommit_idx: usize) -> Result<(), Error>;
 	/// Called when we see a precommit after we've collected enough votes from authorities.
 	fn on_redundant_authority_vote(&mut self, precommit_idx: usize) -> Result<(), Error>;
+}
+
+/// Verification callbacks that reject all unknown, duplicate or redundant votes.
+struct StrictVerificationCallbacks;
+
+impl VerificationCallbacks for StrictVerificationCallbacks {
+	fn on_unkown_authority(&mut self, _precommit_idx: usize) -> Result<(), Error> {
+		Err(Error::UnknownAuthorityVote)
+	}
+
+	fn on_duplicate_authority_vote(&mut self, _precommit_idx: usize) -> Result<(), Error> {
+		Err(Error::DuplicateAuthorityVote)
+	}
+
+	fn on_redundant_authority_vote(&mut self, _precommit_idx: usize) -> Result<(), Error> {
+		Err(Error::RedundantVotesInJustification)
+	}
 }
 
 /// Verification callbacks for justification optimization.
@@ -170,21 +233,6 @@ impl VerificationCallbacks for OptimizationCallbacks {
 	}
 }
 
-// this implementation will be removed in https://github.com/paritytech/parity-bridges-common/pull/1882
-impl VerificationCallbacks for () {
-	fn on_unkown_authority(&mut self, _precommit_idx: usize) -> Result<(), Error> {
-		Ok(())
-	}
-
-	fn on_duplicate_authority_vote(&mut self, _precommit_idx: usize) -> Result<(), Error> {
-		Ok(())
-	}
-
-	fn on_redundant_authority_vote(&mut self, _precommit_idx: usize) -> Result<(), Error> {
-		Ok(())
-	}
-}
-
 /// Verify that justification, that is generated by given authority set, finalizes given header.
 fn verify_justification_with_callbacks<Header: HeaderT, C: VerificationCallbacks>(
 	finalized_target: (Header::Hash, Header::Number),
@@ -206,11 +254,13 @@ where
 	let mut signature_buffer = Vec::new();
 	let mut votes = BTreeSet::new();
 	let mut cumulative_weight = 0u64;
+
 	for (precommit_idx, signed) in justification.commit.precommits.iter().enumerate() {
 		// if we have collected enough precommits, we probabably want to fail/remove extra
 		// precommits
-		if cumulative_weight > threshold {
+		if cumulative_weight >= threshold {
 			callbacks.on_redundant_authority_vote(precommit_idx)?;
+			continue
 		}
 
 		// authority must be in the set

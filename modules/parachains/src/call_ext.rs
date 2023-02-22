@@ -23,14 +23,17 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, 
 /// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
 #[derive(PartialEq, RuntimeDebug)]
 pub struct SubmitParachainHeadsInfo {
+	/// Number of the finalized relay block that has been used to prove parachain finality.
 	pub at_relay_block_number: RelayBlockNumber,
+	/// Parachain identifier.
 	pub para_id: ParaId,
+	/// Hash of the bundled parachain head.
 	pub para_head_hash: ParaHash,
 }
 
 /// Helper struct that provides methods for working with the `SubmitParachainHeads` call.
 pub struct SubmitParachainHeadsHelper<T: Config<I>, I: 'static> {
-	pub _phantom_data: sp_std::marker::PhantomData<(T, I)>,
+	_phantom_data: sp_std::marker::PhantomData<(T, I)>,
 }
 
 impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {

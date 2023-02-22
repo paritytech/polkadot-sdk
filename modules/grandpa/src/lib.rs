@@ -36,7 +36,7 @@
 // Runtime-generated enums
 #![allow(clippy::large_enum_variant)]
 
-use storage_types::StoredAuthoritySet;
+pub use storage_types::StoredAuthoritySet;
 
 use bp_header_chain::{
 	justification::GrandpaJustification, ChainWithGrandpa, HeaderChain, InitializationData,
@@ -180,6 +180,9 @@ pub mod pallet {
 
 			let is_authorities_change_enacted =
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
+			let may_refund_call_fee = is_authorities_change_enacted &&
+				submit_finality_proof_info_from_args::<T, I>(&*finality_target, &justification)
+					.fits_limits();
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
 			insert_header::<T, I>(*finality_target, hash);
 			log::info!(
@@ -193,8 +196,10 @@ pub mod pallet {
 			//
 			// We don't want to charge extra costs for mandatory operations. So relayer is not
 			// paying fee for mandatory headers import transactions.
-			let is_mandatory_header = is_authorities_change_enacted;
-			let pays_fee = if is_mandatory_header { Pays::No } else { Pays::Yes };
+			//
+			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
+			// to pay for the transaction.
+			let pays_fee = if may_refund_call_fee { Pays::No } else { Pays::Yes };
 
 			// the proof size component of the call weight assumes that there are
 			// `MaxBridgedAuthorities` in the `CurrentAuthoritySet` (we use `MaxEncodedLen`
@@ -313,7 +318,7 @@ pub mod pallet {
 
 	/// The current GRANDPA Authority set.
 	#[pallet::storage]
-	pub(super) type CurrentAuthoritySet<T: Config<I>, I: 'static = ()> =
+	pub type CurrentAuthoritySet<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, StoredAuthoritySet<T, I>, ValueQuery>;
 
 	/// Optional pallet owner.
@@ -504,7 +509,7 @@ pub mod pallet {
 			init_params;
 		let authority_set_length = authority_list.len();
 		let authority_set = StoredAuthoritySet::<T, I>::try_new(authority_list, set_id)
-			.map_err(|_| {
+			.map_err(|e| {
 				log::error!(
 					target: LOG_TARGET,
 					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
@@ -512,7 +517,7 @@ pub mod pallet {
 					T::BridgedChain::MAX_AUTHORITIES_COUNT,
 				);
 
-				Error::TooManyAuthoritiesInSet
+				e
 			})?;
 		let initial_hash = header.hash();
 
@@ -630,8 +635,8 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_header, RuntimeOrigin, TestHeader, TestNumber, TestRuntime,
-		MAX_BRIDGED_AUTHORITIES,
+		run_test, test_header, RuntimeOrigin, TestBridgedChain, TestHeader, TestNumber,
+		TestRuntime, MAX_BRIDGED_AUTHORITIES,
 	};
 	use bp_header_chain::BridgeGrandpaCall;
 	use bp_runtime::BasicOperatingMode;
@@ -962,6 +967,64 @@ mod tests {
 				StoredAuthoritySet::<TestRuntime, ()>::try_new(next_authorities, next_set_id)
 					.unwrap(),
 			);
+		})
+	}
+
+	#[test]
+	fn relayer_pays_tx_fee_when_submitting_huge_mandatory_header() {
+		run_test(|| {
+			initialize_substrate_bridge();
+
+			// let's prepare a huge authorities change header, which is definitely above size limits
+			let mut header = test_header(2);
+			header.digest = change_log(0);
+			header.digest.push(DigestItem::Other(vec![42u8; 1024 * 1024]));
+			let justification = make_default_justification(&header);
+
+			// without large digest item ^^^ the relayer would have paid zero transaction fee
+			// (`Pays::No`)
+			let result = Pallet::<TestRuntime>::submit_finality_proof(
+				RuntimeOrigin::signed(1),
+				Box::new(header.clone()),
+				justification,
+			);
+			assert_ok!(result);
+			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
+
+			// Make sure that our header is the best finalized
+			assert_eq!(<BestFinalized<TestRuntime>>::get().unwrap().1, header.hash());
+			assert!(<ImportedHeaders<TestRuntime>>::contains_key(header.hash()));
+		})
+	}
+
+	#[test]
+	fn relayer_pays_tx_fee_when_submitting_justification_with_long_ancestry_votes() {
+		run_test(|| {
+			initialize_substrate_bridge();
+
+			// let's prepare a huge authorities change header, which is definitely above weight
+			// limits
+			let mut header = test_header(2);
+			header.digest = change_log(0);
+			let justification = make_justification_for_header(JustificationGeneratorParams {
+				header: header.clone(),
+				ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY + 1,
+				..Default::default()
+			});
+
+			// without many headers in votes ancestries ^^^ the relayer would have paid zero
+			// transaction fee (`Pays::No`)
+			let result = Pallet::<TestRuntime>::submit_finality_proof(
+				RuntimeOrigin::signed(1),
+				Box::new(header.clone()),
+				justification,
+			);
+			assert_ok!(result);
+			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
+
+			// Make sure that our header is the best finalized
+			assert_eq!(<BestFinalized<TestRuntime>>::get().unwrap().1, header.hash());
+			assert!(<ImportedHeaders<TestRuntime>>::contains_key(header.hash()));
 		})
 	}
 
