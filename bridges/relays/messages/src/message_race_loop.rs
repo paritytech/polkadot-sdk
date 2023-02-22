@@ -573,17 +573,14 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 			if let Some((at_block, nonces_range, proof)) = race_state.nonces_to_submit.as_ref() {
 				log::debug!(
 					target: "bridge",
-					"Going to submit proof of messages in range {:?} to {} node",
+					"Going to submit proof of messages in range {:?} to {} node{}",
 					nonces_range,
 					P::target_name(),
+					target_batch_transaction.as_ref().map(|tx| format!(
+						". This transaction is batched with sending the proof for header {:?}.",
+						tx.required_header_id())
+					).unwrap_or_default(),
 				);
-				if let Some(ref target_batch_transaction) = target_batch_transaction {
-					log::debug!(
-						target: "bridge",
-						"This transaction is batched with sending the proof for header {:?}.",
-						target_batch_transaction.required_header_id(),
-					);
-				}
 
 				target_submit_proof.set(
 					race_target
