@@ -187,7 +187,7 @@ impl frame_system::Config for TestRuntime {
 	type BlockLength = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -223,7 +223,7 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 	type ParasPalletName = ParasPalletName;
 	type ParaStoredHeaderDataBuilder = (Parachain1, Parachain2, Parachain3, BigParachain);
 	type HeadsToKeep = HeadsToKeep;
-	type MaxParaHeadDataSize = frame_support::traits::ConstU32<MAXIMAL_PARACHAIN_HEAD_DATA_SIZE>;
+	type MaxParaHeadDataSize = ConstU32<MAXIMAL_PARACHAIN_HEAD_DATA_SIZE>;
 }
 
 #[derive(Debug)]
