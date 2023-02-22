@@ -15,7 +15,8 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Tests inside this module are made to ensure that our custom justification verification
-//! implementation works exactly as `fn finality_grandpa::validate_commit`.
+//! implementation works similar to the [`finality_grandpa::validate_commit`] and explicitly
+//! show where we behave different.
 //!
 //! Some of tests in this module may partially duplicate tests from `justification.rs`,
 //! but their purpose is different.
@@ -23,7 +24,7 @@
 use bp_header_chain::justification::{verify_justification, Error, GrandpaJustification};
 use bp_test_utils::{
 	header_id, make_justification_for_header, signed_precommit, test_header, Account,
-	JustificationGeneratorParams, ALICE, BOB, CHARLIE, DAVE, EVE, TEST_GRANDPA_SET_ID,
+	JustificationGeneratorParams, ALICE, BOB, CHARLIE, DAVE, EVE, FERDIE, TEST_GRANDPA_SET_ID,
 };
 use finality_grandpa::voter_set::VoterSet;
 use sp_finality_grandpa::{AuthorityId, AuthorityWeight};
@@ -172,129 +173,6 @@ fn same_result_when_precommit_target_is_not_descendant_of_commit_target() {
 }
 
 #[test]
-fn same_result_when_justification_contains_duplicate_vote() {
-	let mut justification = make_justification_for_header(JustificationGeneratorParams {
-		header: test_header(1),
-		authorities: minimal_accounts_set(),
-		ancestors: 0,
-		..Default::default()
-	});
-	// the justification may contain exactly the same vote (i.e. same precommit and same signature)
-	// multiple times && it isn't treated as an error by original implementation
-	justification.commit.precommits.push(justification.commit.precommits[0].clone());
-	justification.commit.precommits.push(justification.commit.precommits[0].clone());
-
-	// our implementation succeeds
-	assert_eq!(
-		verify_justification::<TestHeader>(
-			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
-			&justification,
-		),
-		Ok(()),
-	);
-	// original implementation returns `Ok(validation_result)`
-	// with `validation_result.is_valid() == true`.
-	let result = finality_grandpa::validate_commit(
-		&justification.commit,
-		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
-	)
-	.unwrap();
-
-	assert!(result.is_valid());
-}
-
-#[test]
-fn same_result_when_authority_equivocates_once_in_a_round() {
-	let mut justification = make_justification_for_header(JustificationGeneratorParams {
-		header: test_header(1),
-		authorities: minimal_accounts_set(),
-		ancestors: 0,
-		..Default::default()
-	});
-	// the justification original implementation allows authority to submit two different
-	// votes in a single round, of which only first is 'accepted'
-	justification.commit.precommits.push(signed_precommit::<TestHeader>(
-		&ALICE,
-		header_id::<TestHeader>(1),
-		justification.round,
-		TEST_GRANDPA_SET_ID,
-	));
-
-	// our implementation succeeds
-	assert_eq!(
-		verify_justification::<TestHeader>(
-			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
-			&justification,
-		),
-		Ok(()),
-	);
-	// original implementation returns `Ok(validation_result)`
-	// with `validation_result.is_valid() == true`.
-	let result = finality_grandpa::validate_commit(
-		&justification.commit,
-		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
-	)
-	.unwrap();
-
-	assert!(result.is_valid());
-}
-
-#[test]
-fn same_result_when_authority_equivocates_twice_in_a_round() {
-	let mut justification = make_justification_for_header(JustificationGeneratorParams {
-		header: test_header(1),
-		authorities: minimal_accounts_set(),
-		ancestors: 0,
-		..Default::default()
-	});
-	// there's some code in the original implementation that should return an error when
-	// same authority submits more than two different votes in a single round:
-	// https://github.com/paritytech/finality-grandpa/blob/6aeea2d1159d0f418f0b86e70739f2130629ca09/src/lib.rs#L473
-	// but there's also a code that prevents this from happening:
-	// https://github.com/paritytech/finality-grandpa/blob/6aeea2d1159d0f418f0b86e70739f2130629ca09/src/round.rs#L287
-	// => so now we are also just ignoring all votes from the same authority, except the first one
-	justification.commit.precommits.push(signed_precommit::<TestHeader>(
-		&ALICE,
-		header_id::<TestHeader>(1),
-		justification.round,
-		TEST_GRANDPA_SET_ID,
-	));
-	justification.commit.precommits.push(signed_precommit::<TestHeader>(
-		&ALICE,
-		header_id::<TestHeader>(1),
-		justification.round,
-		TEST_GRANDPA_SET_ID,
-	));
-
-	// our implementation succeeds
-	assert_eq!(
-		verify_justification::<TestHeader>(
-			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
-			&justification,
-		),
-		Ok(()),
-	);
-	// original implementation returns `Ok(validation_result)`
-	// with `validation_result.is_valid() == true`.
-	let result = finality_grandpa::validate_commit(
-		&justification.commit,
-		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
-	)
-	.unwrap();
-
-	assert!(result.is_valid());
-}
-
-#[test]
 fn same_result_when_there_are_not_enough_cumulative_weight_to_finalize_commit_target() {
 	// just remove one authority from the minimal set and we shall not reach the threshold
 	let mut authorities_set = minimal_accounts_set();
@@ -325,4 +203,216 @@ fn same_result_when_there_are_not_enough_cumulative_weight_to_finalize_commit_ta
 	.unwrap();
 
 	assert!(!result.is_valid());
+}
+
+// tests below are our differences with the original implementation
+
+#[test]
+fn different_result_when_justification_contains_duplicate_vote() {
+	let mut justification = make_justification_for_header(JustificationGeneratorParams {
+		header: test_header(1),
+		authorities: minimal_accounts_set(),
+		ancestors: 0,
+		..Default::default()
+	});
+	// the justification may contain exactly the same vote (i.e. same precommit and same signature)
+	// multiple times && it isn't treated as an error by original implementation
+	let last_precommit = justification.commit.precommits.pop().unwrap();
+	justification.commit.precommits.push(justification.commit.precommits[0].clone());
+	justification.commit.precommits.push(last_precommit);
+
+	// our implementation fails
+	assert_eq!(
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			TEST_GRANDPA_SET_ID,
+			&full_voter_set(),
+			&justification,
+		),
+		Err(Error::DuplicateAuthorityVote),
+	);
+	// original implementation returns `Ok(validation_result)`
+	// with `validation_result.is_valid() == true`.
+	let result = finality_grandpa::validate_commit(
+		&justification.commit,
+		&full_voter_set(),
+		&AncestryChain::new(&justification.votes_ancestries),
+	)
+	.unwrap();
+
+	assert!(result.is_valid());
+}
+
+#[test]
+fn different_results_when_authority_equivocates_once_in_a_round() {
+	let mut justification = make_justification_for_header(JustificationGeneratorParams {
+		header: test_header(1),
+		authorities: minimal_accounts_set(),
+		ancestors: 0,
+		..Default::default()
+	});
+	// the justification original implementation allows authority to submit two different
+	// votes in a single round, of which only first is 'accepted'
+	let last_precommit = justification.commit.precommits.pop().unwrap();
+	justification.commit.precommits.push(signed_precommit::<TestHeader>(
+		&ALICE,
+		header_id::<TestHeader>(1),
+		justification.round,
+		TEST_GRANDPA_SET_ID,
+	));
+	justification.commit.precommits.push(last_precommit);
+
+	// our implementation fails
+	assert_eq!(
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			TEST_GRANDPA_SET_ID,
+			&full_voter_set(),
+			&justification,
+		),
+		Err(Error::DuplicateAuthorityVote),
+	);
+	// original implementation returns `Ok(validation_result)`
+	// with `validation_result.is_valid() == true`.
+	let result = finality_grandpa::validate_commit(
+		&justification.commit,
+		&full_voter_set(),
+		&AncestryChain::new(&justification.votes_ancestries),
+	)
+	.unwrap();
+
+	assert!(result.is_valid());
+}
+
+#[test]
+fn different_results_when_authority_equivocates_twice_in_a_round() {
+	let mut justification = make_justification_for_header(JustificationGeneratorParams {
+		header: test_header(1),
+		authorities: minimal_accounts_set(),
+		ancestors: 0,
+		..Default::default()
+	});
+	// there's some code in the original implementation that should return an error when
+	// same authority submits more than two different votes in a single round:
+	// https://github.com/paritytech/finality-grandpa/blob/6aeea2d1159d0f418f0b86e70739f2130629ca09/src/lib.rs#L473
+	// but there's also a code that prevents this from happening:
+	// https://github.com/paritytech/finality-grandpa/blob/6aeea2d1159d0f418f0b86e70739f2130629ca09/src/round.rs#L287
+	// => so now we are also just ignoring all votes from the same authority, except the first one
+	let last_precommit = justification.commit.precommits.pop().unwrap();
+	let prev_last_precommit = justification.commit.precommits.pop().unwrap();
+	justification.commit.precommits.push(signed_precommit::<TestHeader>(
+		&ALICE,
+		header_id::<TestHeader>(1),
+		justification.round,
+		TEST_GRANDPA_SET_ID,
+	));
+	justification.commit.precommits.push(signed_precommit::<TestHeader>(
+		&ALICE,
+		header_id::<TestHeader>(1),
+		justification.round,
+		TEST_GRANDPA_SET_ID,
+	));
+	justification.commit.precommits.push(last_precommit);
+	justification.commit.precommits.push(prev_last_precommit);
+
+	// our implementation fails
+	assert_eq!(
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			TEST_GRANDPA_SET_ID,
+			&full_voter_set(),
+			&justification,
+		),
+		Err(Error::DuplicateAuthorityVote),
+	);
+	// original implementation returns `Ok(validation_result)`
+	// with `validation_result.is_valid() == true`.
+	let result = finality_grandpa::validate_commit(
+		&justification.commit,
+		&full_voter_set(),
+		&AncestryChain::new(&justification.votes_ancestries),
+	)
+	.unwrap();
+
+	assert!(result.is_valid());
+}
+
+#[test]
+fn different_results_when_there_are_more_than_enough_votes() {
+	let mut justification = make_justification_for_header(JustificationGeneratorParams {
+		header: test_header(1),
+		authorities: minimal_accounts_set(),
+		ancestors: 0,
+		..Default::default()
+	});
+	// the reference implementation just keep verifying signatures even if we have
+	// collected enough votes. We are not
+	justification.commit.precommits.push(signed_precommit::<TestHeader>(
+		&EVE,
+		header_id::<TestHeader>(1),
+		justification.round,
+		TEST_GRANDPA_SET_ID,
+	));
+
+	// our implementation fails
+	assert_eq!(
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			TEST_GRANDPA_SET_ID,
+			&full_voter_set(),
+			&justification,
+		),
+		Err(Error::RedundantVotesInJustification),
+	);
+	// original implementation returns `Ok(validation_result)`
+	// with `validation_result.is_valid() == true`.
+	let result = finality_grandpa::validate_commit(
+		&justification.commit,
+		&full_voter_set(),
+		&AncestryChain::new(&justification.votes_ancestries),
+	)
+	.unwrap();
+
+	assert!(result.is_valid());
+}
+
+#[test]
+fn different_results_when_there_is_a_vote_of_unknown_authority() {
+	let mut justification = make_justification_for_header(JustificationGeneratorParams {
+		header: test_header(1),
+		authorities: minimal_accounts_set(),
+		ancestors: 0,
+		..Default::default()
+	});
+	// the reference implementation just keep verifying signatures even if we have
+	// collected enough votes. We are not
+	let last_precommit = justification.commit.precommits.pop().unwrap();
+	justification.commit.precommits.push(signed_precommit::<TestHeader>(
+		&FERDIE,
+		header_id::<TestHeader>(1),
+		justification.round,
+		TEST_GRANDPA_SET_ID,
+	));
+	justification.commit.precommits.push(last_precommit);
+
+	// our implementation fails
+	assert_eq!(
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			TEST_GRANDPA_SET_ID,
+			&full_voter_set(),
+			&justification,
+		),
+		Err(Error::UnknownAuthorityVote),
+	);
+	// original implementation returns `Ok(validation_result)`
+	// with `validation_result.is_valid() == true`.
+	let result = finality_grandpa::validate_commit(
+		&justification.commit,
+		&full_voter_set(),
+		&AncestryChain::new(&justification.votes_ancestries),
+	)
+	.unwrap();
+
+	assert!(result.is_valid());
 }
