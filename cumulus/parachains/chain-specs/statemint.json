@@ -14,7 +14,9 @@
     "/dns/statemint-connect-uw1-1.parity-polkadot-parachains.parity.io/tcp/30334/p2p/12D3KooWRsVeHqRs2iKmjLiguxp8myL4G2mDAWhtX2jHwyWujseV",
     "/dns/statemint-connect-uw1-1.parity-polkadot-parachains.parity.io/tcp/443/wss/p2p/12D3KooWRsVeHqRs2iKmjLiguxp8myL4G2mDAWhtX2jHwyWujseV",
     "/dns/boot.stake.plus/tcp/35333/p2p/12D3KooWFrQjYaPZSSLLxEVmoaHFcrF6VoY4awG4KRSLaqy3JCdQ",
-    "/dns/boot.stake.plus/tcp/35334/wss/p2p/12D3KooWFrQjYaPZSSLLxEVmoaHFcrF6VoY4awG4KRSLaqy3JCdQ"
+    "/dns/boot.stake.plus/tcp/35334/wss/p2p/12D3KooWFrQjYaPZSSLLxEVmoaHFcrF6VoY4awG4KRSLaqy3JCdQ",
+    "/dns/boot.metaspan.io/tcp/16052/p2p/12D3KooWLwiJuvqQUB4kYaSjLenFKH9dWZhGZ4qi7pSb3sUYU651",
+    "/dns/boot.metaspan.io/tcp/16056/wss/p2p/12D3KooWLwiJuvqQUB4kYaSjLenFKH9dWZhGZ4qi7pSb3sUYU651"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

@@ -16,7 +16,9 @@
     "/dns/polkadot-collectives-connect-uw1-0.polkadot.io/tcp/443/wss/p2p/12D3KooWPrJ9VTn3GEs2e7GQs4zoEFiTFcjXFNbQ2iDxFDQAbstQ",
     "/dns/polkadot-collectives-connect-uw1-1.polkadot.io/tcp/443/wss/p2p/12D3KooWGFYW6hJYn3pkpJawyMk6souXh7sznK8yvPmVQ7ktfHbV",
     "/dns/boot.stake.plus/tcp/37333/p2p/12D3KooWRgFfEtwPo3xorKGYALRHRteKNgF37iN9q8xTLPYc34LA",
-    "/dns/boot.stake.plus/tcp/37334/wss/p2p/12D3KooWRgFfEtwPo3xorKGYALRHRteKNgF37iN9q8xTLPYc34LA"
+    "/dns/boot.stake.plus/tcp/37334/wss/p2p/12D3KooWRgFfEtwPo3xorKGYALRHRteKNgF37iN9q8xTLPYc34LA",
+    "/dns/boot.metaspan.io/tcp/16072/p2p/12D3KooWJWTTu2t2yg5bFRH6tjEpfzKwZir5R9JRRjQpgFPXdDfp",
+    "/dns/boot.metaspan.io/tcp/16076/wss/p2p/12D3KooWJWTTu2t2yg5bFRH6tjEpfzKwZir5R9JRRjQpgFPXdDfp"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

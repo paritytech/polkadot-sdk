@@ -8,7 +8,9 @@
       "/ip4/34.141.221.252/tcp/30334/p2p/12D3KooWC9YYdjQLwxTNVda6t4nmjAZG37gaRZLNi4Zuhr9xUveW",
       "/ip4/34.90.92.174/tcp/30334/p2p/12D3KooWQcXpUyVqwC2zJkwECCC7ttLCUCLTjnbGxTVfhSgmH2sD",
       "/dns/boot.stake.plus/tcp/33333/p2p/12D3KooWNiB27rpXX7EYongoWWUeRKzLQxWGms6MQU2B9LX7Ztzo",
-      "/dns/boot.stake.plus/tcp/33334/wss/p2p/12D3KooWNiB27rpXX7EYongoWWUeRKzLQxWGms6MQU2B9LX7Ztzo"
+      "/dns/boot.stake.plus/tcp/33334/wss/p2p/12D3KooWNiB27rpXX7EYongoWWUeRKzLQxWGms6MQU2B9LX7Ztzo",
+      "/dns/boot.metaspan.io/tcp/36052/p2p/12D3KooWBCqfNb6Y39DXTr4UBWXyjuS3hcZM1qTbHhDXxF6HkAJJ",
+      "/dns/boot.metaspan.io/tcp/36056/wss/p2p/12D3KooWBCqfNb6Y39DXTr4UBWXyjuS3hcZM1qTbHhDXxF6HkAJJ"
    ],
   "telemetryEndpoints": null,
   "protocolId": null,
