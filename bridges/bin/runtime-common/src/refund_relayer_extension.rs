@@ -28,9 +28,12 @@ use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, Dispatchable, PostDispatchInfo},
 	traits::IsSubType,
+	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use pallet_bridge_grandpa::{CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper};
+use pallet_bridge_grandpa::{
+	CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper, SubmitFinalityProofInfo,
+};
 use pallet_bridge_messages::Config as MessagesConfig;
 use pallet_bridge_parachains::{
 	BoundedBridgeGrandpaConfig, CallSubType as ParachainsCallSubType, Config as ParachainsConfig,
@@ -140,7 +143,11 @@ pub struct PreDispatchData<AccountId> {
 #[derive(RuntimeDebugNoBound, PartialEq)]
 pub enum CallInfo {
 	/// Relay chain finality + parachain finality + message delivery calls.
-	AllFinalityAndDelivery(RelayBlockNumber, SubmitParachainHeadsInfo, ReceiveMessagesProofInfo),
+	AllFinalityAndDelivery(
+		SubmitFinalityProofInfo<RelayBlockNumber>,
+		SubmitParachainHeadsInfo,
+		ReceiveMessagesProofInfo,
+	),
 	/// Parachain finality + message delivery calls.
 	ParachainFinalityAndDelivery(SubmitParachainHeadsInfo, ReceiveMessagesProofInfo),
 	/// Standalone message delivery call.
@@ -149,7 +156,7 @@ pub enum CallInfo {
 
 impl CallInfo {
 	/// Returns the pre-dispatch `finality_target` sent to the `SubmitFinalityProof` call.
-	fn submit_finality_proof_info(&self) -> Option<RelayBlockNumber> {
+	fn submit_finality_proof_info(&self) -> Option<SubmitFinalityProofInfo<RelayBlockNumber>> {
 		match *self {
 			Self::AllFinalityAndDelivery(info, _, _) => Some(info),
 			_ => None,
@@ -318,6 +325,9 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
+		let mut extra_weight = Weight::zero();
+		let mut extra_size = 0;
+
 		// We don't refund anything if the transaction has failed.
 		if result.is_err() {
 			return Ok(())
@@ -330,8 +340,10 @@ where
 		};
 
 		// check if relay chain state has been updated
-		if let Some(relay_block_number) = call_info.submit_finality_proof_info() {
-			if !SubmitFinalityProofHelper::<Runtime, Runtime::BridgesGrandpaPalletInstance>::was_successful(relay_block_number) {
+		if let Some(finality_proof_info) = call_info.submit_finality_proof_info() {
+			if !SubmitFinalityProofHelper::<Runtime, Runtime::BridgesGrandpaPalletInstance>::was_successful(
+				finality_proof_info.block_number,
+			) {
 				// we only refund relayer if all calls have updated chain state
 				return Ok(())
 			}
@@ -342,6 +354,11 @@ where
 			// `utility.batchAll` transaction always requires payment. But in both cases we'll
 			// refund relayer - either explicitly here, or using `Pays::No` if he's choosing
 			// to submit dedicated transaction.
+
+			// submitter has means to include extra weight/bytes in the `submit_finality_proof`
+			// call, so let's subtract extra weight/size to avoid refunding for this extra stuff
+			extra_weight = finality_proof_info.extra_weight;
+			extra_size = finality_proof_info.extra_size;
 		}
 
 		// check if parachain state has been updated
@@ -370,8 +387,15 @@ where
 		// cost of this attack is nothing. Hence we use zero as tip here.
 		let tip = Zero::zero();
 
+		// decrease post-dispatch weight/size using extra weight/size that we know now
+		let post_info_len = len.saturating_sub(extra_size as usize);
+		let mut post_info = *post_info;
+		post_info.actual_weight =
+			Some(post_info.actual_weight.unwrap_or(info.weight).saturating_sub(extra_weight));
+
 		// compute the relayer refund
-		let refund = Refund::compute_refund(info, post_info, len, tip);
+		let refund = Refund::compute_refund(info, &post_info, post_info_len, tip);
+
 		// finally - register refund in relayers pallet
 		RelayersPallet::<Runtime>::register_relayer_reward(Msgs::Id::get(), &relayer, refund);
 
@@ -397,9 +421,9 @@ mod tests {
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 	use bp_runtime::HeaderId;
-	use bp_test_utils::make_default_justification;
+	use bp_test_utils::{make_default_justification, test_keyring};
 	use frame_support::{assert_storage_noop, parameter_types, weights::Weight};
-	use pallet_bridge_grandpa::Call as GrandpaCall;
+	use pallet_bridge_grandpa::{Call as GrandpaCall, StoredAuthoritySet};
 	use pallet_bridge_messages::Call as MessagesCall;
 	use pallet_bridge_parachains::{Call as ParachainsCall, RelayBlockHash};
 	use sp_runtime::{
@@ -434,7 +458,11 @@ mod tests {
 		parachain_head_hash: ParaHash,
 		best_delivered_message: MessageNonce,
 	) {
+		let authorities = test_keyring().into_iter().map(|(a, w)| (a.into(), w)).collect();
 		let best_relay_header = HeaderId(best_relay_header_number, RelayBlockHash::default());
+		pallet_bridge_grandpa::CurrentAuthoritySet::<TestRuntime>::put(
+			StoredAuthoritySet::try_new(authorities, 0).unwrap(),
+		);
 		pallet_bridge_grandpa::BestFinalized::<TestRuntime>::put(best_relay_header);
 
 		let para_id = ParaId(TestParachain::get());
@@ -524,7 +552,11 @@ mod tests {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::AllFinalityAndDelivery(
-				200,
+				SubmitFinalityProofInfo {
+					block_number: 200,
+					extra_weight: Weight::zero(),
+					extra_size: 0,
+				},
 				SubmitParachainHeadsInfo {
 					at_relay_block_number: 200,
 					para_id: ParaId(TestParachain::get()),
@@ -820,6 +852,54 @@ mod tests {
 				Ok(())
 			));
 			assert_storage_noop!(run_post_dispatch(Some(delivery_pre_dispatch_data()), Ok(())));
+		});
+	}
+
+	#[test]
+	fn post_dispatch_refunds_relayer_in_all_finality_batch_with_extra_weight() {
+		run_test(|| {
+			initialize_environment(200, 200, [1u8; 32].into(), 200);
+
+			let mut dispatch_info = dispatch_info();
+			dispatch_info.weight = Weight::from_ref_time(
+				frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2,
+			);
+
+			// without any size/weight refund: we expect regular reward
+			let pre_dispatch_data = all_finality_pre_dispatch_data();
+			let regular_reward = expected_reward();
+			run_post_dispatch(Some(pre_dispatch_data), Ok(()));
+			assert_eq!(
+				RelayersPallet::<TestRuntime>::relayer_reward(
+					relayer_account_at_this_chain(),
+					TestLaneId::get()
+				),
+				Some(regular_reward),
+			);
+
+			// now repeat the same with size+weight refund: we expect smaller reward
+			let mut pre_dispatch_data = all_finality_pre_dispatch_data();
+			match pre_dispatch_data.call_info {
+				CallInfo::AllFinalityAndDelivery(ref mut info, ..) => {
+					info.extra_weight.set_ref_time(
+						frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+					);
+					info.extra_size = 32;
+				},
+				_ => unreachable!(),
+			}
+			run_post_dispatch(Some(pre_dispatch_data), Ok(()));
+			let reward_after_two_calls = RelayersPallet::<TestRuntime>::relayer_reward(
+				relayer_account_at_this_chain(),
+				TestLaneId::get(),
+			)
+			.unwrap();
+			assert!(
+				reward_after_two_calls < 2 * regular_reward,
+				"{}  must be < 2 * {}",
+				reward_after_two_calls,
+				2 * regular_reward,
+			);
 		});
 	}
 
