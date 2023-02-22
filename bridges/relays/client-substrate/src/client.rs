@@ -21,7 +21,6 @@ use crate::{
 	rpc::{
 		SubstrateAuthorClient, SubstrateChainClient, SubstrateFinalityClient,
 		SubstrateFrameSystemClient, SubstrateStateClient, SubstrateSystemClient,
-		SubstrateTransactionPaymentClient,
 	},
 	transaction_stall_timeout, AccountKeyPairOf, ConnectionParams, Error, HashOf, HeaderIdOf,
 	Result, SignParam, TransactionTracker, UnsignedTransaction,
@@ -31,15 +30,16 @@ use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_runtime::{HeaderIdProvider, StorageDoubleMapKeyProvider, StorageMapKeyProvider};
 use codec::{Decode, Encode};
+use frame_support::weights::Weight;
 use frame_system::AccountInfo;
 use futures::{SinkExt, StreamExt};
 use jsonrpsee::{
 	core::DeserializeOwned,
 	ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBuilder},
 };
-use num_traits::{Bounded, Saturating, Zero};
+use num_traits::{Saturating, Zero};
 use pallet_balances::AccountData;
-use pallet_transaction_payment::InclusionFee;
+use pallet_transaction_payment::RuntimeDispatchInfo;
 use relay_utils::{relay_loop::RECONNECT_DELAY, STALL_TIMEOUT};
 use sp_core::{
 	storage::{StorageData, StorageKey},
@@ -51,10 +51,11 @@ use sp_runtime::{
 };
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
-use std::{convert::TryFrom, future::Future};
+use std::future::Future;
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 const SUB_API_TXPOOL_VALIDATE_TRANSACTION: &str = "TaggedTransactionQueue_validate_transaction";
+const SUB_API_TX_PAYMENT_QUERY_INFO: &str = "TransactionPaymentApi_query_info";
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
 /// The difference between best block number and number of its ancestor, that is enough
@@ -591,33 +592,24 @@ impl<C: Chain> Client<C> {
 		.await
 	}
 
-	/// Estimate fee that will be spent on given extrinsic.
-	pub async fn estimate_extrinsic_fee(
+	/// Returns weight of the given transaction.
+	pub async fn extimate_extrinsic_weight<SignedTransaction: Encode + Send + 'static>(
 		&self,
-		transaction: Bytes,
-	) -> Result<InclusionFee<C::Balance>> {
+		transaction: SignedTransaction,
+	) -> Result<Weight> {
 		self.jsonrpsee_execute(move |client| async move {
-			let fee_details =
-				SubstrateTransactionPaymentClient::<C>::fee_details(&*client, transaction, None)
-					.await?;
-			let inclusion_fee = fee_details
-				.inclusion_fee
-				.map(|inclusion_fee| InclusionFee {
-					base_fee: C::Balance::try_from(inclusion_fee.base_fee.into_u256())
-						.unwrap_or_else(|_| C::Balance::max_value()),
-					len_fee: C::Balance::try_from(inclusion_fee.len_fee.into_u256())
-						.unwrap_or_else(|_| C::Balance::max_value()),
-					adjusted_weight_fee: C::Balance::try_from(
-						inclusion_fee.adjusted_weight_fee.into_u256(),
-					)
-					.unwrap_or_else(|_| C::Balance::max_value()),
-				})
-				.unwrap_or_else(|| InclusionFee {
-					base_fee: Zero::zero(),
-					len_fee: Zero::zero(),
-					adjusted_weight_fee: Zero::zero(),
-				});
-			Ok(inclusion_fee)
+			let transaction_len = transaction.encoded_size() as u32;
+
+			let call = SUB_API_TX_PAYMENT_QUERY_INFO.to_string();
+			let data = Bytes((transaction, transaction_len).encode());
+
+			let encoded_response =
+				SubstrateStateClient::<C>::call(&*client, call, data, None).await?;
+			let dispatch_info =
+				RuntimeDispatchInfo::<C::Balance>::decode(&mut &encoded_response.0[..])
+					.map_err(Error::ResponseParseFailed)?;
+
+			Ok(dispatch_info.weight)
 		})
 		.await
 	}

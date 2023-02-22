@@ -136,9 +136,6 @@ pub trait ChainWithMessages: Chain {
 	/// Maximal number of unconfirmed messages in a single confirmation transaction at this
 	/// `ChainWithMessages`.
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
-
-	/// Weights of message pallet calls.
-	type WeightInfo: pallet_bridge_messages::WeightInfoExt;
 }
 
 /// Call type used by the chain.
