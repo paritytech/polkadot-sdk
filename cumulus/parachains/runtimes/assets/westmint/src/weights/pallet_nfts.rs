@@ -454,4 +454,32 @@ impl<T: frame_system::Config> pallet_nfts::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_proof_size(2921).saturating_mul(n.into()))
 	}
+	/// Storage: Nfts Item (r:1 w:0)
+	/// Proof: Nfts Item (max_values: None, max_size: Some(861), added: 3336, mode: MaxEncodedLen)
+	/// Storage: Nfts ItemAttributesApprovalsOf (r:1 w:1)
+	/// Proof: Nfts ItemAttributesApprovalsOf (max_values: None, max_size: Some(681), added: 3156, mode: MaxEncodedLen)
+	/// Storage: Nfts Collection (r:1 w:1)
+	/// Proof: Nfts Collection (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+	/// Storage: Nfts CollectionConfigOf (r:1 w:0)
+	/// Proof: Nfts CollectionConfigOf (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+	/// Storage: Nfts Attribute (r:10 w:10)
+	/// Proof: Nfts Attribute (max_values: None, max_size: Some(446), added: 2921, mode: MaxEncodedLen)
+	/// Storage: System Account (r:1 w:1)
+	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+	/// The range of component `n` is `[0, 10]`.
+	fn set_attributes_pre_signed(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `716`
+		//  Estimated: `14198 + n * (2921 ±0)`
+		// Minimum execution time: 84_153 nanoseconds.
+		Weight::from_ref_time(96_401_623)
+			.saturating_add(Weight::from_proof_size(14198))
+			// Standard Error: 70_244
+			.saturating_add(Weight::from_ref_time(26_866_222).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_proof_size(2921).saturating_mul(n.into()))
+	}
 }
