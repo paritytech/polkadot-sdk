@@ -135,7 +135,7 @@ pub fn decode_justification_target<Header: HeaderT>(
 }
 
 /// Verify and optimize given justification by removing unknown and duplicate votes.
-pub fn optimize_justification<Header: HeaderT>(
+pub fn verify_and_optimize_justification<Header: HeaderT>(
 	finalized_target: (Header::Hash, Header::Number),
 	authorities_set_id: SetId,
 	authorities_set: &VoterSet<AuthorityId>,
