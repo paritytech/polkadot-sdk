@@ -19,7 +19,7 @@
 use crate::error::Error;
 use async_trait::async_trait;
 use bp_header_chain::{
-	justification::{verify_justification, GrandpaJustification},
+	justification::{verify_and_optimize_justification, GrandpaJustification},
 	ConsensusLogReader, FinalityProof, GrandpaConsensusLogReader,
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
@@ -172,7 +172,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		// actual authorities set (which we have read now) may have changed, so this
 		// `optimize_justification` may fail. But if target chain is configured properly, it'll fail
 		// anyway, after we submit transaction and failing earlier is better. So - it is fine
-		bp_header_chain::justification::optimize_justification(
+		verify_and_optimize_justification(
 			(header.hash(), *header.number()),
 			authority_set_id,
 			&authority_set,
@@ -272,11 +272,11 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 				initial_authorities_set_id,
 			);
 
-			let is_valid_set_id = verify_justification::<C::Header>(
+			let is_valid_set_id = verify_and_optimize_justification(
 				(initial_header_hash, initial_header_number),
 				initial_authorities_set_id,
 				&authorities_for_verification,
-				&justification,
+				justification.clone(),
 			)
 			.is_ok();
 
