@@ -17,7 +17,6 @@ benchmarks-assets:
   stage:                           benchmarks-run
   timeout:                         1d
   extends:
-    - .docker-env
     - .collect-artifacts
     - .benchmarks-refs
   before_script:
@@ -35,20 +34,18 @@ benchmarks-assets:
   after_script:
     - rm -rf .git/config
   tags:
-    - weights-vm
+    - weights
 
 benchmarks-collectives:
   stage:                           benchmarks-run
   timeout:                         1d
   extends:
-    - .docker-env
     - .collect-artifacts
     - .benchmarks-refs
   before_script:
     - !reference [.docker-env, before_script]
   script:
     - ./scripts/benchmarks-ci.sh collectives collectives-polkadot ./artifacts
-    - git status
     - export CURRENT_TIME=$(date '+%s')
     - export BRANCHNAME="weights-collectives-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
     - !reference [.git-commit-push, script]
@@ -58,13 +55,12 @@ benchmarks-collectives:
   after_script:
     - rm -rf .git/config
   tags:
-    - weights-vm
+    - weights
 
 benchmarks-bridge-hubs:
   stage:                           benchmarks-run
   timeout:                         1d
   extends:
-    - .docker-env
     - .collect-artifacts
     - .benchmarks-refs
   before_script:
@@ -82,4 +78,4 @@ benchmarks-bridge-hubs:
   after_script:
     - rm -rf .git/config
   tags:
-    - weights-vm
+    - weights
