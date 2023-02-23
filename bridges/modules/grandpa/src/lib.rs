@@ -181,7 +181,7 @@ pub mod pallet {
 			let is_authorities_change_enacted =
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			let may_refund_call_fee = is_authorities_change_enacted &&
-				submit_finality_proof_info_from_args::<T, I>(&*finality_target, &justification)
+				submit_finality_proof_info_from_args::<T, I>(&finality_target, &justification)
 					.fits_limits();
 			<RequestCount<T, I>>::mutate(|count| *count += 1);
 			insert_header::<T, I>(*finality_target, hash);
