@@ -211,7 +211,7 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 	/// data) from source to target node.
 	/// Additionally, parameters required to generate proof are returned.
 	async fn select_nonces_to_deliver(
-		&mut self,
+		&self,
 		race_state: RaceState<SourceHeaderId, TargetHeaderId, Proof>,
 	) -> Option<(RangeInclusive<MessageNonce>, Self::ProofParameters)>;
 }
@@ -232,6 +232,13 @@ pub struct RaceState<SourceHeaderId, TargetHeaderId, Proof> {
 	pub nonces_to_submit: Option<(SourceHeaderId, RangeInclusive<MessageNonce>, Proof)>,
 	/// Range of nonces that is currently submitted.
 	pub nonces_submitted: Option<RangeInclusive<MessageNonce>>,
+}
+
+impl<SourceHeaderId, TargetHeaderId, Proof> RaceState<SourceHeaderId, TargetHeaderId, Proof> {
+	/// Reset `nonces_submitted` to `None`.
+	fn reset_submitted(&mut self) {
+		self.nonces_submitted = None;
+	}
 }
 
 /// Run race loop until connection with target or source node is lost.
@@ -460,7 +467,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					(TrackedTransactionStatus::Finalized(at_block), Some(nonces_submitted)) => {
 						// our transaction has been mined, but was it successful or not? let's check the best
 						// nonce at the target node.
-						race_target.nonces(at_block, false)
+						let _ = race_target.nonces(at_block, false)
 							.await
 							.map_err(|e| format!("failed to read nonces from target node: {e:?}"))
 							.and_then(|(_, nonces_at_target)| {
@@ -477,26 +484,26 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 							.map_err(|e| {
 								log::error!(
 									target: "bridge",
-									"{} -> {} race has stalled. Transaction failed: {}. Going to restart",
+									"{} -> {} race transaction failed: {}",
 									P::source_name(),
 									P::target_name(),
 									e,
 								);
 
-								FailedClient::Both
-							})?;
+								race_state.reset_submitted();
+							});
 					},
 					(TrackedTransactionStatus::Lost, _) => {
 						log::warn!(
 							target: "bridge",
-							"{} -> {} race has stalled. State: {:?}. Strategy: {:?}",
+							"{} -> {} race transaction has been lost. State: {:?}. Strategy: {:?}",
 							P::source_name(),
 							P::target_name(),
 							race_state,
 							strategy,
 						);
 
-						return Err(FailedClient::Both);
+						race_state.reset_submitted();
 					},
 					_ => (),
 				}
@@ -531,8 +538,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					race_state.clone()
 				};
 
-			let nonces_to_deliver =
-				select_nonces_to_deliver(expected_race_state, &mut strategy).await;
+			let nonces_to_deliver = select_nonces_to_deliver(expected_race_state, &strategy).await;
 			let best_at_source = strategy.best_at_source();
 
 			if let Some((at_block, nonces_range, proof_parameters)) = nonces_to_deliver {
@@ -665,7 +671,7 @@ where
 
 async fn select_nonces_to_deliver<SourceHeaderId, TargetHeaderId, Proof, Strategy>(
 	race_state: RaceState<SourceHeaderId, TargetHeaderId, Proof>,
-	strategy: &mut Strategy,
+	strategy: &Strategy,
 ) -> Option<(SourceHeaderId, RangeInclusive<MessageNonce>, Strategy::ProofParameters)>
 where
 	SourceHeaderId: Clone,
@@ -723,7 +729,7 @@ mod tests {
 
 		// the proof will be generated on source, but using BEST_AT_TARGET block
 		assert_eq!(
-			select_nonces_to_deliver(race_state, &mut strategy).await,
+			select_nonces_to_deliver(race_state, &strategy).await,
 			Some((HeaderId(BEST_AT_TARGET, BEST_AT_TARGET), 6..=10, (),))
 		);
 	}
