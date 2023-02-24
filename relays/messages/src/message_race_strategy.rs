@@ -136,7 +136,7 @@ impl<
 	}
 
 	/// Remove all nonces that are less than or equal to given nonce from the source queue.
-	pub fn remove_le_nonces_from_source_queue(&mut self, nonce: MessageNonce) {
+	fn remove_le_nonces_from_source_queue(&mut self, nonce: MessageNonce) {
 		while let Some((queued_at, queued_range)) = self.source_queue.pop_front() {
 			if let Some(range_to_requeue) = queued_range.greater_than(nonce) {
 				self.source_queue.push_front((queued_at, range_to_requeue));
@@ -168,12 +168,12 @@ impl<
 		SourceNoncesRange,
 		Proof,
 	> where
-	SourceHeaderHash: Clone + Debug + Send,
-	SourceHeaderNumber: Clone + Ord + Debug + Send,
-	SourceNoncesRange: NoncesRange + Debug + Send,
-	TargetHeaderHash: Debug + Send,
-	TargetHeaderNumber: Debug + Send,
-	Proof: Debug + Send,
+	SourceHeaderHash: Clone + Debug + Send + Sync,
+	SourceHeaderNumber: Clone + Ord + Debug + Send + Sync,
+	SourceNoncesRange: NoncesRange + Debug + Send + Sync,
+	TargetHeaderHash: Debug + Send + Sync,
+	TargetHeaderNumber: Debug + Send + Sync,
+	Proof: Debug + Send + Sync,
 {
 	type SourceNoncesRange = SourceNoncesRange;
 	type ProofParameters = ();
@@ -284,6 +284,7 @@ impl<
 			Proof,
 		>,
 	) {
+		self.remove_le_nonces_from_source_queue(nonces.latest_nonce); // TODO: does it means that we'll try to submit old nonces in next tx???
 		self.best_target_nonce = Some(std::cmp::max(
 			self.best_target_nonce.unwrap_or(nonces.latest_nonce),
 			nonces.latest_nonce,
@@ -291,7 +292,7 @@ impl<
 	}
 
 	async fn select_nonces_to_deliver(
-		&mut self,
+		&self,
 		race_state: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
@@ -301,7 +302,6 @@ impl<
 		let maximal_source_queue_index = self.maximal_available_source_queue_index(race_state)?;
 		let range_begin = self.source_queue[0].1.begin();
 		let range_end = self.source_queue[maximal_source_queue_index].1.end();
-		self.remove_le_nonces_from_source_queue(range_end);
 		Some((range_begin..=range_end, ()))
 	}
 }

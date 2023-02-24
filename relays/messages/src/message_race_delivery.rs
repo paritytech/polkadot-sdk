@@ -292,11 +292,16 @@ impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, 
 
 impl<P: MessageLane, SC, TC> MessageDeliveryStrategy<P, SC, TC> {
 	/// Returns total weight of all undelivered messages.
-	fn total_queued_dispatch_weight(&self) -> Weight {
+	fn dispatch_weight_for_range(&self, range: &RangeInclusive<MessageNonce>) -> Weight {
 		self.strategy
 			.source_queue()
 			.iter()
-			.flat_map(|(_, range)| range.values().map(|details| details.dispatch_weight))
+			.flat_map(|(_, subrange)| {
+				subrange
+					.iter()
+					.filter(|(nonce, _)| range.contains(nonce))
+					.map(|(_, details)| details.dispatch_weight)
+			})
 			.fold(Weight::zero(), |total, weight| total.saturating_add(weight))
 	}
 }
@@ -424,7 +429,7 @@ where
 	}
 
 	async fn select_nonces_to_deliver(
-		&mut self,
+		&self,
 		race_state: RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>,
 	) -> Option<(RangeInclusive<MessageNonce>, Self::ProofParameters)> {
 		let best_finalized_source_header_id_at_best_target =
@@ -526,7 +531,6 @@ where
 
 		let maximal_source_queue_index =
 			self.strategy.maximal_available_source_queue_index(race_state)?;
-		let previous_total_dispatch_weight = self.total_queued_dispatch_weight();
 		let source_queue = self.strategy.source_queue();
 
 		let reference = RelayMessagesBatchReference {
@@ -544,10 +548,7 @@ where
 
 		let range_begin = source_queue[0].1.begin();
 		let selected_nonces = range_begin..=range_end;
-		self.strategy.remove_le_nonces_from_source_queue(range_end);
-
-		let new_total_dispatch_weight = self.total_queued_dispatch_weight();
-		let dispatch_weight = previous_total_dispatch_weight - new_total_dispatch_weight;
+		let dispatch_weight = self.dispatch_weight_for_range(&selected_nonces);
 
 		Some((
 			selected_nonces,
@@ -707,7 +708,7 @@ mod tests {
 
 	#[async_std::test]
 	async fn message_delivery_strategy_selects_messages_to_deliver() {
-		let (state, mut strategy) = prepare_strategy();
+		let (state, strategy) = prepare_strategy();
 
 		// both sides are ready to relay new messages
 		assert_eq!(
