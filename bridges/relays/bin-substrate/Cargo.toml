@@ -65,5 +65,5 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", defau
 bp-test-utils = { path = "../../primitives/test-utils" }
 hex-literal = "0.3"
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-tempfile = "3.2"
+tempfile = "3.4"
 finality-grandpa = { version = "0.16.0" }
