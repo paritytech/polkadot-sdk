@@ -19,23 +19,23 @@
 
 # common settings for all zombienet jobs
 .zombienet-common:
-  stage:                           zombienet
-  image:                           "${ZOMBIENET_IMAGE}"
+  stage: zombienet
+  image: "${ZOMBIENET_IMAGE}"
   needs:
-    - job:                         build-push-image-test-parachain
-      artifacts:                   true
+    - job: build-push-image-test-parachain
+      artifacts: true
   variables:
-    POLKADOT_IMAGE:                "docker.io/paritypr/polkadot-debug:master"
-    GH_DIR:                        "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet/tests"
-    COL_IMAGE:                     "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+    POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master"
+    GH_DIR: "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet/tests"
+    COL_IMAGE: "docker.io/paritypr/test-parachain:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
     FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   artifacts:
-    name:                          "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
-    when:                          always
-    expire_in:                     2 days
+    name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
+    when: always
+    expire_in: 2 days
     paths:
       - ./zombienet-logs
-  allow_failure:                   true
+  allow_failure: true
   retry: 2
   tags:
     - zombienet-polkadot-integration-test
@@ -48,9 +48,9 @@ zombienet-0001-sync_blocks_from_tip_without_connected_collator:
     - .zombienet-after-script
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
-        --github-remote-dir="${GH_DIR}"
-        --concurrency=1
-        --test="0001-sync_blocks_from_tip_without_connected_collator.zndsl"
+      --github-remote-dir="${GH_DIR}"
+      --concurrency=1
+      --test="0001-sync_blocks_from_tip_without_connected_collator.zndsl"
 
 zombienet-0002-pov_recovery:
   extends:
@@ -60,9 +60,9 @@ zombienet-0002-pov_recovery:
     - .zombienet-after-script
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
-        --github-remote-dir="${GH_DIR}"
-        --concurrency=1
-        --test="0002-pov_recovery.zndsl"
+      --github-remote-dir="${GH_DIR}"
+      --concurrency=1
+      --test="0002-pov_recovery.zndsl"
 
 zombienet-0003-full_node_catching_up:
   extends:
@@ -72,9 +72,9 @@ zombienet-0003-full_node_catching_up:
     - .zombienet-after-script
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
-        --github-remote-dir="${GH_DIR}"
-        --concurrency=1
-        --test="0003-full_node_catching_up.zndsl"
+      --github-remote-dir="${GH_DIR}"
+      --concurrency=1
+      --test="0003-full_node_catching_up.zndsl"
 
 zombienet-0004-runtime_upgrade:
   extends:
@@ -84,8 +84,8 @@ zombienet-0004-runtime_upgrade:
     - .zombienet-after-script
   needs:
     - !reference [.zombienet-common, needs]
-    - job:                         build-test-parachain
-      artifacts:                   true
+    - job: build-test-parachain
+      artifacts: true
   before_script:
     - ls -ltr *
     - cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
@@ -93,9 +93,9 @@ zombienet-0004-runtime_upgrade:
     - !reference [.zombienet-before-script, before_script]
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
-        --github-remote-dir="${GH_DIR}"
-        --concurrency=1
-        --test="0004-runtime_upgrade.zndsl"
+      --github-remote-dir="${GH_DIR}"
+      --concurrency=1
+      --test="0004-runtime_upgrade.zndsl"
 
 zombienet-0005-migrate_solo_to_para:
   extends:
@@ -105,16 +105,16 @@ zombienet-0005-migrate_solo_to_para:
     - .zombienet-after-script
   needs:
     - !reference [.zombienet-common, needs]
-    - job:                         build-test-parachain
-      artifacts:                   true
+    - job: build-test-parachain
+      artifacts: true
   before_script:
     - ls -ltr *
     - !reference [.zombienet-before-script, before_script]
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
-        --github-remote-dir="${GH_DIR}"
-        --concurrency=1
-        --test="0005-migrate_solo_to_para.zndsl"
+      --github-remote-dir="${GH_DIR}"
+      --concurrency=1
+      --test="0005-migrate_solo_to_para.zndsl"
 
 zombienet-0006-rpc_collator_builds_blocks:
   extends:
@@ -124,9 +124,9 @@ zombienet-0006-rpc_collator_builds_blocks:
     - .zombienet-after-script
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
-        --github-remote-dir="${GH_DIR}"
-        --concurrency=1
-        --test="0006-rpc_collator_builds_blocks.zndsl"
+      --github-remote-dir="${GH_DIR}"
+      --concurrency=1
+      --test="0006-rpc_collator_builds_blocks.zndsl"
 
 zombienet-0007-full_node_warp_sync:
   extends:
@@ -136,6 +136,6 @@ zombienet-0007-full_node_warp_sync:
     - .zombienet-after-script
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-env-manager.sh
-        --github-remote-dir="${GH_DIR}"
-        --concurrency=1
-        --test="0007-full_node_warp_sync.zndsl"
+      --github-remote-dir="${GH_DIR}"
+      --concurrency=1
+      --test="0007-full_node_warp_sync.zndsl"

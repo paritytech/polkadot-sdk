@@ -2,7 +2,7 @@
 # Here are all jobs that are executed during "build" stage
 
 build-linux-stable:
-  stage:                           build
+  stage: build
   extends:
     - .docker-env
     - .common-refs
@@ -13,8 +13,8 @@ build-linux-stable:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         check-rustdoc
-      artifacts:                   false
+    - job: check-rustdoc
+      artifacts: false
   script:
     - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
     - time cargo build --release --locked --bin polkadot-parachain
@@ -25,7 +25,7 @@ build-linux-stable:
     - echo ${CI_COMMIT_REF_NAME} | tee ./artifacts/VERSION
 
 build-test-parachain:
-  stage:                           build
+  stage: build
   extends:
     - .docker-env
     - .common-refs
@@ -33,11 +33,11 @@ build-test-parachain:
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         check-rustdoc
-      artifacts:                   false
+    - job: check-rustdoc
+      artifacts: false
   script:
     - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
     - time cargo +nightly build --release --locked --bin test-parachain
@@ -48,25 +48,25 @@ build-test-parachain:
     - mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
 
 # build runtime only if files in $RUNTIME_PATH/$RUNTIME_NAME were changed
-.build-runtime-template:           &build-runtime-template
-  stage:                           build
+.build-runtime-template: &build-runtime-template
+  stage: build
   extends:
     - .docker-env
     - .pr-refs
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         check-rustdoc
-      artifacts:                   false
+    - job: check-rustdoc
+      artifacts: false
   variables:
-    RUNTIME_PATH:                  "parachains/runtimes/assets"
+    RUNTIME_PATH: "parachains/runtimes/assets"
   script:
     - cd ${RUNTIME_PATH}
     - for directory in $(echo */); do
-        echo "_____Running cargo check for ${directory} ______";
-        cd ${directory};
-        pwd;
-        SKIP_WASM_BUILD=1 cargo check;
-        cd ..;
+      echo "_____Running cargo check for ${directory} ______";
+      cd ${directory};
+      pwd;
+      SKIP_WASM_BUILD=1 cargo check;
+      cd ..;
       done
 
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-bridge-hubs
@@ -75,49 +75,49 @@ build-test-parachain:
 build-runtime-assets:
   <<: *build-runtime-template
   variables:
-    RUNTIME_PATH:                  "parachains/runtimes/assets"
+    RUNTIME_PATH: "parachains/runtimes/assets"
 
 build-runtime-collectives:
   <<: *build-runtime-template
   variables:
-    RUNTIME_PATH:                  "parachains/runtimes/collectives"
+    RUNTIME_PATH: "parachains/runtimes/collectives"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         build-runtime-assets
-      artifacts:                   false
+    - job: build-runtime-assets
+      artifacts: false
 
 build-runtime-bridge-hubs:
   <<: *build-runtime-template
   variables:
-    RUNTIME_PATH:                  "parachains/runtimes/bridge-hubs"
+    RUNTIME_PATH: "parachains/runtimes/bridge-hubs"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         build-runtime-collectives
-      artifacts:                   false
+    - job: build-runtime-collectives
+      artifacts: false
 
 build-runtime-contracts:
   <<: *build-runtime-template
   variables:
-    RUNTIME_PATH:                  "parachains/runtimes/contracts"
+    RUNTIME_PATH: "parachains/runtimes/contracts"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         build-runtime-collectives
-      artifacts:                   false
+    - job: build-runtime-collectives
+      artifacts: false
 
 build-runtime-starters:
   <<: *build-runtime-template
   variables:
-    RUNTIME_PATH:                  "parachains/runtimes/starters"
+    RUNTIME_PATH: "parachains/runtimes/starters"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         build-runtime-assets
-      artifacts:                   false
+    - job: build-runtime-assets
+      artifacts: false
 
 build-runtime-testing:
   <<: *build-runtime-template
   variables:
-    RUNTIME_PATH:                  "parachains/runtimes/testing"
+    RUNTIME_PATH: "parachains/runtimes/testing"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job:                         build-runtime-starters
-      artifacts:                   false
+    - job: build-runtime-starters
+      artifacts: false

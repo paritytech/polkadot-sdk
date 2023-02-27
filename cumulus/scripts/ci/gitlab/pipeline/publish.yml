@@ -2,69 +2,69 @@
 # Here are all jobs that are executed during "publish" stage
 
 .build-push-image:
-  image:                           quay.io/buildah/stable:v1.27
+  image: quay.io/buildah/stable:v1.27
   variables:
-    DOCKERFILE:                    "" # docker/path-to.Dockerfile
-    IMAGE_NAME:                    "" # docker.io/paritypr/image_name
-    VERSION:                       "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+    DOCKERFILE: "" # docker/path-to.Dockerfile
+    IMAGE_NAME: "" # docker.io/paritypr/image_name
+    VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
   script:
     - test "$PARITYPR_USER" -a "$PARITYPR_PASS" ||
-        ( echo "no docker credentials provided"; exit 1 )
+      ( echo "no docker credentials provided"; exit 1 )
     - buildah bud
-        --format=docker
-        --build-arg VCS_REF="${CI_COMMIT_SHA}"
-        --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-        --build-arg IMAGE_NAME="${IMAGE_NAME}"
-        --tag "$IMAGE_NAME:$VERSION"
-        --file ${DOCKERFILE} .
+      --format=docker
+      --build-arg VCS_REF="${CI_COMMIT_SHA}"
+      --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+      --build-arg IMAGE_NAME="${IMAGE_NAME}"
+      --tag "$IMAGE_NAME:$VERSION"
+      --file ${DOCKERFILE} .
     - echo "$PARITYPR_PASS" |
-        buildah login --username "$PARITYPR_USER" --password-stdin docker.io
+      buildah login --username "$PARITYPR_USER" --password-stdin docker.io
     - buildah info
     - buildah push --format=v2s2 "$IMAGE_NAME:$VERSION"
   after_script:
     - buildah logout --all
 
 build-push-image-polkadot-parachain-debug:
-  stage:                           publish
+  stage: publish
   extends:
     - .kubernetes-env
     - .common-refs
     - .build-push-image
   needs:
-    - job:                         build-linux-stable
-      artifacts:                   true
+    - job: build-linux-stable
+      artifacts: true
   variables:
-    DOCKERFILE:                    "docker/polkadot-parachain-debug_unsigned_injected.Dockerfile"
-    IMAGE_NAME:                    "docker.io/paritypr/polkadot-parachain-debug"
-    VERSION:                       "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+    DOCKERFILE: "docker/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/polkadot-parachain-debug"
+    VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 build-push-image-test-parachain:
-  stage:                           publish
+  stage: publish
   extends:
     - .kubernetes-env
     - .common-refs
     - .build-push-image
   needs:
-    - job:                         build-test-parachain
-      artifacts:                   true
+    - job: build-test-parachain
+      artifacts: true
   variables:
-    DOCKERFILE:                    "docker/test-parachain_injected.Dockerfile"
-    IMAGE_NAME:                    "docker.io/paritypr/test-parachain"
-    VERSION:                       "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+    DOCKERFILE: "docker/test-parachain_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/test-parachain"
+    VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 publish-s3:
-  stage:                           publish
+  stage: publish
   extends:
     - .kubernetes-env
     - .publish-refs
-  image:                           paritytech/awscli:latest
+  image: paritytech/awscli:latest
   needs:
-    - job:                         build-linux-stable
-      artifacts:                   true
+    - job: build-linux-stable
+      artifacts: true
   variables:
-    GIT_STRATEGY:                  none
-    BUCKET:                        "releases.parity.io"
-    PREFIX:                        "cumulus/${ARCH}-${DOCKER_OS}"
+    GIT_STRATEGY: none
+    BUCKET: "releases.parity.io"
+    PREFIX: "cumulus/${ARCH}-${DOCKER_OS}"
   script:
     - echo "___Publishing a binary with debug assertions!___"
     - echo "___VERSION = $(cat ./artifacts/VERSION) ___"
@@ -73,21 +73,21 @@ publish-s3:
     - aws s3 sync s3://${BUCKET}/${PREFIX}/$(cat ./artifacts/VERSION)/ s3://${BUCKET}/${PREFIX}/latest/
   after_script:
     - aws s3 ls s3://${BUCKET}/${PREFIX}/latest/
-        --recursive --human-readable --summarize
+      --recursive --human-readable --summarize
 
-publish-benchmarks-assets-s3:      &publish-benchmarks
-  stage:                           publish
+publish-benchmarks-assets-s3: &publish-benchmarks
+  stage: publish
   extends:
     - .kubernetes-env
     - .benchmarks-refs
-  image:                           paritytech/awscli:latest
+  image: paritytech/awscli:latest
   needs:
-    - job:                         benchmarks-assets
-      artifacts:                   true
+    - job: benchmarks-assets
+      artifacts: true
   variables:
-    GIT_STRATEGY:                  none
-    BUCKET:                        "releases.parity.io"
-    PREFIX:                        "cumulus/$CI_COMMIT_REF_NAME/benchmarks-assets"
+    GIT_STRATEGY: none
+    BUCKET: "releases.parity.io"
+    PREFIX: "cumulus/$CI_COMMIT_REF_NAME/benchmarks-assets"
   script:
     - echo "___Publishing benchmark results___"
     - aws s3 sync ./artifacts/ s3://${BUCKET}/${PREFIX}/
@@ -95,11 +95,11 @@ publish-benchmarks-assets-s3:      &publish-benchmarks
     - aws s3 ls s3://${BUCKET}/${PREFIX}/ --recursive --human-readable --summarize
 
 publish-benchmarks-collectives-s3:
-  <<:                              *publish-benchmarks
+  <<: *publish-benchmarks
   variables:
-    GIT_STRATEGY:                  none
-    BUCKET:                        "releases.parity.io"
-    PREFIX:                        "cumulus/$CI_COMMIT_REF_NAME/benchmarks-collectives"
+    GIT_STRATEGY: none
+    BUCKET: "releases.parity.io"
+    PREFIX: "cumulus/$CI_COMMIT_REF_NAME/benchmarks-collectives"
   needs:
-    - job:                         benchmarks-collectives
-      artifacts:                   true
+    - job: benchmarks-collectives
+      artifacts: true

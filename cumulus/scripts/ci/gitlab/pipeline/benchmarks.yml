@@ -3,7 +3,7 @@
 # Work only on release-parachains-v* branches
 
 benchmarks-build:
-  stage:                           benchmarks-build
+  stage: benchmarks-build
   extends:
     - .docker-env
     - .collect-artifacts
@@ -14,8 +14,8 @@ benchmarks-build:
     - cp target/production/polkadot-parachain ./artifacts/
 
 benchmarks-assets:
-  stage:                           benchmarks-run
-  timeout:                         1d
+  stage: benchmarks-run
+  timeout: 1d
   extends:
     - .collect-artifacts
     - .benchmarks-refs
@@ -37,8 +37,8 @@ benchmarks-assets:
     - weights
 
 benchmarks-collectives:
-  stage:                           benchmarks-run
-  timeout:                         1d
+  stage: benchmarks-run
+  timeout: 1d
   extends:
     - .collect-artifacts
     - .benchmarks-refs
@@ -58,8 +58,8 @@ benchmarks-collectives:
     - weights
 
 benchmarks-bridge-hubs:
-  stage:                           benchmarks-run
-  timeout:                         1d
+  stage: benchmarks-run
+  timeout: 1d
   extends:
     - .collect-artifacts
     - .benchmarks-refs
