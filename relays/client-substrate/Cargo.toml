@@ -13,7 +13,7 @@ futures = "0.3.26"
 jsonrpsee = { version = "0.15", features = ["macros", "ws-client"] }
 log = "0.4.17"
 num-traits = "0.2"
-rand = "0.7"
+rand = "0.8"
 scale-info = { version = "2.1.1", features = ["derive"] }
 tokio = { version = "1.25", features = ["rt-multi-thread"] }
 thiserror = "1.0.26"
