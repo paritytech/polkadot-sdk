@@ -1,18 +1,19 @@
 use asset_test_utils::{ExtBuilder, RuntimeHelper};
+use codec::{DecodeLimit, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, sp_io,
 	traits::PalletInfo,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{AccountId, AuraId};
-use westmint_runtime::xcm_config::AssetFeeAsExistentialDepositMultiplierFeeCharger;
 pub use westmint_runtime::{
 	constants::fee::WeightToFee, xcm_config::XcmConfig, Assets, Balances, ExistentialDeposit,
-	Runtime, SessionKeys, System,
+	ReservedDmpWeight, Runtime, SessionKeys, System,
 };
-use xcm::latest::prelude::*;
-use xcm_executor::traits::WeightTrader;
+use westmint_runtime::{xcm_config::AssetFeeAsExistentialDepositMultiplierFeeCharger, RuntimeCall};
+use xcm::{latest::prelude::*, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+use xcm_executor::{traits::WeightTrader, XcmExecutor};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 
@@ -385,4 +386,80 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			// We also need to ensure the total supply NOT increased
 			assert_eq!(Assets::total_supply(1), minimum_asset_balance);
 		});
+}
+
+#[test]
+fn receive_teleported_asset_works() {
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let xcm = Xcm(vec![
+				ReceiveTeleportedAsset(MultiAssets::from(vec![MultiAsset {
+					id: Concrete(MultiLocation { parents: 1, interior: Here }),
+					fun: Fungible(10000000000000),
+				}])),
+				ClearOrigin,
+				BuyExecution {
+					fees: MultiAsset {
+						id: Concrete(MultiLocation { parents: 1, interior: Here }),
+						fun: Fungible(10000000000000),
+					},
+					weight_limit: Limited(Weight::from_parts(303531000, 65536)),
+				},
+				DepositAsset {
+					assets: Wild(AllCounted(1)),
+					beneficiary: MultiLocation {
+						parents: 0,
+						interior: X1(AccountId32 {
+							network: None,
+							id: [
+								18, 153, 85, 112, 1, 245, 88, 21, 211, 252, 181, 60, 116, 70, 58,
+								203, 12, 246, 209, 77, 70, 57, 179, 64, 152, 44, 96, 135, 127, 56,
+								70, 9,
+							],
+						}),
+					},
+				},
+			]);
+			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+
+			let weight_limit = ReservedDmpWeight::get();
+
+			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(Parent, xcm, hash, weight_limit);
+			assert_eq!(outcome.ensure_complete(), Ok(()));
+		})
+}
+
+#[test]
+fn plain_receive_teleported_asset_works() {
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let data = hex_literal::hex!("02100204000100000b00a0724e18090a13000100000b00a0724e180901e20f5e480d010004000101001299557001f55815d3fcb53c74463acb0cf6d14d4639b340982c60877f384609").to_vec();
+			let message_id = sp_io::hashing::blake2_256(&data);
+
+			let maybe_msg = VersionedXcm::<RuntimeCall>::decode_all_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut data.as_ref(),
+			)
+				.map(xcm::v3::Xcm::<RuntimeCall>::try_from).expect("failed").expect("failed");
+
+			let weight_limit = ReservedDmpWeight::get();
+
+			let outcome =
+				XcmExecutor::<XcmConfig>::execute_xcm(Parent, maybe_msg, message_id, weight_limit);
+			assert_eq!(outcome.ensure_complete(), Ok(()));
+		})
 }
