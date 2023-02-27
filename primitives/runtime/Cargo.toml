@@ -24,7 +24,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-trie-db = { version = "0.25.1", default-features = false }
+trie-db = { version = "0.26.0", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.3"
