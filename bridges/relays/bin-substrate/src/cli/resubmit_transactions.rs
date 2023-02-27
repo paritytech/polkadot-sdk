@@ -90,7 +90,6 @@ macro_rules! select_bridge {
 		match $bridge {
 			RelayChain::Millau => {
 				type Target = relay_millau_client::Millau;
-				type TargetSign = relay_millau_client::Millau;
 
 				$generic
 			},
