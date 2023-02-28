@@ -20,6 +20,8 @@
 
 use crate::*;
 
+use bp_messages::LaneId;
+use bp_relayers::RewardsAccountOwner;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 
@@ -32,19 +34,21 @@ pub struct Pallet<T: Config>(crate::Pallet<T>);
 /// Trait that must be implemented by runtime.
 pub trait Config: crate::Config {
 	/// Prepare environment for paying given reward for serving given lane.
-	fn prepare_environment(lane: LaneId, reward: Self::Reward);
+	fn prepare_environment(account_params: RewardsAccountParams, reward: Self::Reward);
 }
 
 benchmarks! {
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
 		let lane = LaneId([0, 0, 0, 0]);
+		let account_params =
+			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
 		let relayer: T::AccountId = whitelisted_caller();
 		let reward = T::Reward::from(REWARD_AMOUNT);
 
-		T::prepare_environment(lane, reward);
-		RelayerRewards::<T>::insert(&relayer, lane, reward);
-	}: _(RawOrigin::Signed(relayer), lane)
+		T::prepare_environment(account_params, reward);
+		RelayerRewards::<T>::insert(&relayer, account_params, reward);
+	}: _(RawOrigin::Signed(relayer), account_params)
 	verify {
 		// we can't check anything here, because `PaymentProcedure` is responsible for
 		// payment logic, so we assume that if call has succeeded, the procedure has

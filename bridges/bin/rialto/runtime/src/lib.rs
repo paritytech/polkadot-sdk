@@ -393,7 +393,7 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
 	type PaymentProcedure =
-		bp_relayers::PayLaneRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
 	type WeightInfo = ();
 }
 
@@ -443,6 +443,7 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 	type LaneMessageVerifier = crate::millau_messages::ToMillauMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
+		WithMillauMessagesInstance,
 		frame_support::traits::ConstU128<100_000>,
 		frame_support::traits::ConstU128<100_000>,
 	>;

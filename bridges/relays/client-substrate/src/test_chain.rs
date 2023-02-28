@@ -22,6 +22,7 @@
 #![cfg(any(feature = "test-helpers", test))]
 
 use crate::{Chain, ChainWithBalances};
+use bp_runtime::ChainId;
 use frame_support::weights::Weight;
 use std::time::Duration;
 
@@ -50,6 +51,7 @@ impl bp_runtime::Chain for TestChain {
 }
 
 impl Chain for TestChain {
+	const ID: ChainId = *b"test";
 	const NAME: &'static str = "Test";
 	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestMethod";
