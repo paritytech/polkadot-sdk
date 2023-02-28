@@ -18,8 +18,8 @@ use crate::calls::UtilityCall;
 
 use bp_messages::MessageNonce;
 use bp_runtime::{
-	Chain as ChainBase, EncodedOrDecodedCall, HashOf, Parachain as ParachainBase, TransactionEra,
-	TransactionEraOf, UnderlyingChainProvider,
+	Chain as ChainBase, ChainId, EncodedOrDecodedCall, HashOf, Parachain as ParachainBase,
+	TransactionEra, TransactionEraOf, UnderlyingChainProvider,
 };
 use codec::{Codec, Encode};
 use jsonrpsee::core::{DeserializeOwned, Serialize};
@@ -35,6 +35,8 @@ use std::{fmt::Debug, time::Duration};
 
 /// Substrate-based chain from minimal relay-client point of view.
 pub trait Chain: ChainBase + Clone {
+	/// Chain id.
+	const ID: ChainId;
 	/// Chain name.
 	const NAME: &'static str;
 	/// Identifier of the basic token of the chain (if applicable).
