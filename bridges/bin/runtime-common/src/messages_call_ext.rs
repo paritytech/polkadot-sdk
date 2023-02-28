@@ -22,25 +22,57 @@ use frame_support::{dispatch::CallableCallFor, traits::IsSubType, RuntimeDebug};
 use pallet_bridge_messages::{Config, Pallet};
 use sp_runtime::transaction_validity::TransactionValidity;
 
-/// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
+/// Generic info about a messages delivery/confirmation proof.
 #[derive(PartialEq, RuntimeDebug)]
-pub struct ReceiveMessagesProofInfo {
+pub struct BaseMessagesProofInfo {
 	pub lane_id: LaneId,
-	pub best_proof_nonce: MessageNonce,
+	pub best_bundled_nonce: MessageNonce,
 	pub best_stored_nonce: MessageNonce,
 }
 
-/// Helper struct that provides methods for working with the `ReceiveMessagesProof` call.
-pub struct ReceiveMessagesProofHelper<T: Config<I>, I: 'static> {
+impl BaseMessagesProofInfo {
+	fn is_obsolete(&self) -> bool {
+		self.best_bundled_nonce <= self.best_stored_nonce
+	}
+}
+
+/// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
+#[derive(PartialEq, RuntimeDebug)]
+pub struct ReceiveMessagesProofInfo(pub BaseMessagesProofInfo);
+
+/// Info about a `ReceiveMessagesDeliveryProof` call which tries to update a single lane.
+#[derive(PartialEq, RuntimeDebug)]
+pub struct ReceiveMessagesDeliveryProofInfo(pub BaseMessagesProofInfo);
+
+/// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
+/// which tries to update a single lane.
+#[derive(PartialEq, RuntimeDebug)]
+pub enum CallInfo {
+	ReceiveMessagesProof(ReceiveMessagesProofInfo),
+	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo),
+}
+
+/// Helper struct that provides methods for working with a call supported by `CallInfo`.
+pub struct CallHelper<T: Config<I>, I: 'static> {
 	pub _phantom_data: sp_std::marker::PhantomData<(T, I)>,
 }
 
-impl<T: Config<I>, I: 'static> ReceiveMessagesProofHelper<T, I> {
-	/// Check if the `ReceiveMessagesProof` call delivered at least some of the messages that
-	/// it contained.
-	pub fn was_partially_successful(info: &ReceiveMessagesProofInfo) -> bool {
-		let inbound_lane_data = pallet_bridge_messages::InboundLanes::<T, I>::get(info.lane_id);
-		inbound_lane_data.last_delivered_nonce() > info.best_stored_nonce
+impl<T: Config<I>, I: 'static> CallHelper<T, I> {
+	/// Check if a call delivered proof/confirmation for at least some of the messages that it
+	/// contained.
+	pub fn was_partially_successful(info: &CallInfo) -> bool {
+		match info {
+			CallInfo::ReceiveMessagesProof(info) => {
+				let inbound_lane_data =
+					pallet_bridge_messages::InboundLanes::<T, I>::get(info.0.lane_id);
+				inbound_lane_data.last_delivered_nonce() > info.0.best_stored_nonce
+			},
+			CallInfo::ReceiveMessagesDeliveryProof(info) => {
+				let outbound_lane_data =
+					pallet_bridge_messages::OutboundLanes::<T, I>::get(info.0.lane_id);
+				outbound_lane_data.latest_received_nonce > info.0.best_stored_nonce
+			},
+		}
 	}
 }
 
@@ -51,17 +83,21 @@ pub trait MessagesCallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	/// Create a new instance of `ReceiveMessagesProofInfo` from a `ReceiveMessagesProof` call.
 	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo>;
 
-	/// Create a new instance of `ReceiveMessagesProofInfo` from a `ReceiveMessagesProof` call,
-	/// if the call is for the provided lane.
-	fn receive_messages_proof_info_for(&self, lane_id: LaneId) -> Option<ReceiveMessagesProofInfo>;
+	/// Create a new instance of `ReceiveMessagesDeliveryProofInfo` from
+	/// a `ReceiveMessagesDeliveryProof` call.
+	fn receive_messages_delivery_proof_info(&self) -> Option<ReceiveMessagesDeliveryProofInfo>;
 
-	/// Check that a `ReceiveMessagesProof` call is trying to deliver at least some messages that
-	/// are better than the ones we know of.
-	fn check_obsolete_receive_messages_proof(&self) -> TransactionValidity;
+	/// Create a new instance of `CallInfo` from a `ReceiveMessagesProof`
+	/// or a `ReceiveMessagesDeliveryProof` call.
+	fn call_info(&self) -> Option<CallInfo>;
 
-	/// Check that a `ReceiveMessagesDeliveryProof` call is trying to deliver at least some message
-	/// confirmations that are better than the ones we know of.
-	fn check_obsolete_receive_messages_delivery_proof(&self) -> TransactionValidity;
+	/// Create a new instance of `CallInfo` from a `ReceiveMessagesProof`
+	/// or a `ReceiveMessagesDeliveryProof` call, if the call is for the provided lane.
+	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo>;
+
+	/// Check that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call is trying
+	/// to deliver/confirm at least some messages that are better than the ones we know of.
+	fn check_obsolete_call(&self) -> TransactionValidity;
 }
 
 impl<
@@ -88,40 +124,17 @@ impl<
 		{
 			let inbound_lane_data = pallet_bridge_messages::InboundLanes::<T, I>::get(proof.lane);
 
-			return Some(ReceiveMessagesProofInfo {
+			return Some(ReceiveMessagesProofInfo(BaseMessagesProofInfo {
 				lane_id: proof.lane,
-				best_proof_nonce: proof.nonces_end,
+				best_bundled_nonce: proof.nonces_end,
 				best_stored_nonce: inbound_lane_data.last_delivered_nonce(),
-			})
+			}))
 		}
 
 		None
 	}
 
-	fn receive_messages_proof_info_for(&self, lane_id: LaneId) -> Option<ReceiveMessagesProofInfo> {
-		self.receive_messages_proof_info().filter(|info| info.lane_id == lane_id)
-	}
-
-	fn check_obsolete_receive_messages_proof(&self) -> TransactionValidity {
-		if let Some(proof_info) = self.receive_messages_proof_info() {
-			if proof_info.best_proof_nonce <= proof_info.best_stored_nonce {
-				log::trace!(
-					target: pallet_bridge_messages::LOG_TARGET,
-					"Rejecting obsolete messages delivery transaction: \
-                            lane {:?}, bundled {:?}, best {:?}",
-					proof_info.lane_id,
-					proof_info.best_proof_nonce,
-					proof_info.best_stored_nonce,
-				);
-
-				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
-			}
-		}
-
-		Ok(sp_runtime::transaction_validity::ValidTransaction::default())
-	}
-
-	fn check_obsolete_receive_messages_delivery_proof(&self) -> TransactionValidity {
+	fn receive_messages_delivery_proof_info(&self) -> Option<ReceiveMessagesDeliveryProofInfo> {
 		if let Some(pallet_bridge_messages::Call::<T, I>::receive_messages_delivery_proof {
 			ref proof,
 			ref relayers_state,
@@ -129,18 +142,62 @@ impl<
 		}) = self.is_sub_type()
 		{
 			let outbound_lane_data = pallet_bridge_messages::OutboundLanes::<T, I>::get(proof.lane);
-			if relayers_state.last_delivered_nonce <= outbound_lane_data.latest_received_nonce {
+
+			return Some(ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
+				lane_id: proof.lane,
+				best_bundled_nonce: relayers_state.last_delivered_nonce,
+				best_stored_nonce: outbound_lane_data.latest_received_nonce,
+			}))
+		}
+
+		None
+	}
+
+	fn call_info(&self) -> Option<CallInfo> {
+		if let Some(info) = self.receive_messages_proof_info() {
+			return Some(CallInfo::ReceiveMessagesProof(info))
+		}
+
+		if let Some(info) = self.receive_messages_delivery_proof_info() {
+			return Some(CallInfo::ReceiveMessagesDeliveryProof(info))
+		}
+
+		None
+	}
+
+	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo> {
+		self.call_info().filter(|info| {
+			let actual_lane_id = match info {
+				CallInfo::ReceiveMessagesProof(info) => info.0.lane_id,
+				CallInfo::ReceiveMessagesDeliveryProof(info) => info.0.lane_id,
+			};
+			actual_lane_id == lane_id
+		})
+	}
+
+	fn check_obsolete_call(&self) -> TransactionValidity {
+		match self.call_info() {
+			Some(CallInfo::ReceiveMessagesProof(proof_info)) if proof_info.0.is_obsolete() => {
 				log::trace!(
 					target: pallet_bridge_messages::LOG_TARGET,
-					"Rejecting obsolete messages confirmation transaction: \
-                            lane {:?}, bundled {:?}, best {:?}",
-					proof.lane,
-					relayers_state.last_delivered_nonce,
-					outbound_lane_data.latest_received_nonce,
+					"Rejecting obsolete messages delivery transaction: {:?}",
+					proof_info
 				);
 
 				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
-			}
+			},
+			Some(CallInfo::ReceiveMessagesDeliveryProof(proof_info))
+				if proof_info.0.is_obsolete() =>
+			{
+				log::trace!(
+					target: pallet_bridge_messages::LOG_TARGET,
+					"Rejecting obsolete messages confirmation transaction: {:?}",
+					proof_info,
+				);
+
+				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
+			},
+			_ => {},
 		}
 
 		Ok(sp_runtime::transaction_validity::ValidTransaction::default())
@@ -153,8 +210,8 @@ mod tests {
 		messages::{
 			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 		},
+		messages_call_ext::MessagesCallSubType,
 		mock::{TestRuntime, ThisChainRuntimeCall},
-		BridgeRuntimeFilterCall,
 	};
 	use bp_messages::UnrewardedRelayersState;
 
@@ -169,22 +226,21 @@ mod tests {
 		nonces_start: bp_messages::MessageNonce,
 		nonces_end: bp_messages::MessageNonce,
 	) -> bool {
-		pallet_bridge_messages::Pallet::<TestRuntime>::validate(
-			&ThisChainRuntimeCall::BridgeMessages(
-				pallet_bridge_messages::Call::<TestRuntime, ()>::receive_messages_proof {
-					relayer_id_at_bridged_chain: 42,
-					messages_count: (nonces_end - nonces_start + 1) as u32,
-					dispatch_weight: frame_support::weights::Weight::zero(),
-					proof: FromBridgedChainMessagesProof {
-						bridged_header_hash: Default::default(),
-						storage_proof: vec![],
-						lane: bp_messages::LaneId([0, 0, 0, 0]),
-						nonces_start,
-						nonces_end,
-					},
+		ThisChainRuntimeCall::BridgeMessages(
+			pallet_bridge_messages::Call::<TestRuntime, ()>::receive_messages_proof {
+				relayer_id_at_bridged_chain: 42,
+				messages_count: (nonces_end - nonces_start + 1) as u32,
+				dispatch_weight: frame_support::weights::Weight::zero(),
+				proof: FromBridgedChainMessagesProof {
+					bridged_header_hash: Default::default(),
+					storage_proof: vec![],
+					lane: bp_messages::LaneId([0, 0, 0, 0]),
+					nonces_start,
+					nonces_end,
 				},
-			),
+			},
 		)
+		.check_obsolete_call()
 		.is_ok()
 	}
 
@@ -230,21 +286,20 @@ mod tests {
 	}
 
 	fn validate_message_confirmation(last_delivered_nonce: bp_messages::MessageNonce) -> bool {
-		pallet_bridge_messages::Pallet::<TestRuntime>::validate(
-			&ThisChainRuntimeCall::BridgeMessages(
-				pallet_bridge_messages::Call::<TestRuntime>::receive_messages_delivery_proof {
-					proof: FromBridgedChainMessagesDeliveryProof {
-						bridged_header_hash: Default::default(),
-						storage_proof: Vec::new(),
-						lane: bp_messages::LaneId([0, 0, 0, 0]),
-					},
-					relayers_state: UnrewardedRelayersState {
-						last_delivered_nonce,
-						..Default::default()
-					},
+		ThisChainRuntimeCall::BridgeMessages(
+			pallet_bridge_messages::Call::<TestRuntime>::receive_messages_delivery_proof {
+				proof: FromBridgedChainMessagesDeliveryProof {
+					bridged_header_hash: Default::default(),
+					storage_proof: Vec::new(),
+					lane: bp_messages::LaneId([0, 0, 0, 0]),
 				},
-			),
+				relayers_state: UnrewardedRelayersState {
+					last_delivered_nonce,
+					..Default::default()
+				},
+			},
 		)
+		.check_obsolete_call()
 		.is_ok()
 	}
 
