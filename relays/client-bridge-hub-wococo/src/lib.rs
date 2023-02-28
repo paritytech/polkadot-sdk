@@ -18,6 +18,7 @@
 
 use bp_bridge_hub_wococo::AVERAGE_BLOCK_INTERVAL;
 use bp_messages::MessageNonce;
+use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, ChainWithUtilityPallet,
@@ -41,6 +42,7 @@ impl UnderlyingChainProvider for BridgeHubWococo {
 }
 
 impl Chain for BridgeHubWococo {
+	const ID: ChainId = bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID;
 	const NAME: &'static str = "BridgeHubWococo";
 	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =

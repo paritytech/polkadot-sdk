@@ -33,6 +33,8 @@ pub mod rialto_parachain_messages;
 pub mod xcm_config;
 
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
+#[cfg(feature = "runtime-benchmarks")]
+use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::HeaderId;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -389,7 +391,7 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
 	type PaymentProcedure =
-		bp_relayers::PayLaneRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
 	type WeightInfo = ();
 }
 
@@ -449,6 +451,7 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type LaneMessageVerifier = crate::rialto_messages::ToRialtoMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
+		WithRialtoMessagesInstance,
 		frame_support::traits::ConstU64<100_000>,
 		frame_support::traits::ConstU64<10_000>,
 	>;
@@ -480,6 +483,7 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 	type LaneMessageVerifier = crate::rialto_parachain_messages::ToRialtoParachainMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
+		WithRialtoParachainMessagesInstance,
 		frame_support::traits::ConstU64<100_000>,
 		frame_support::traits::ConstU64<10_000>,
 	>;
@@ -997,7 +1001,14 @@ impl_runtime_apis! {
 				}
 
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(relayer, &Self::bench_lane_id()).is_some()
+					use bridge_runtime_common::messages::MessageBridge;
+
+					let lane = Self::bench_lane_id();
+					let bridged_chain_id = WithRialtoMessageBridge::BRIDGED_CHAIN_ID;
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+						relayer,
+						RewardsAccountParams::new(lane, bridged_chain_id, RewardsAccountOwner::BridgedChain)
+					).is_some()
 				}
 			}
 
@@ -1027,15 +1038,15 @@ impl_runtime_apis! {
 
 			impl RelayersConfig for Runtime {
 				fn prepare_environment(
-					lane: bp_messages::LaneId,
+					account_params: RewardsAccountParams,
 					reward: Balance,
 				) {
 					use frame_support::traits::fungible::Mutate;
-					let lane_rewards_account = bp_relayers::PayLaneRewardFromAccount::<
+					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId
-					>::lane_rewards_account(lane);
-					Balances::mint_into(&lane_rewards_account, reward).unwrap();
+					>::rewards_account(account_params);
+					Balances::mint_into(&rewards_account, reward).unwrap();
 				}
 			}
 

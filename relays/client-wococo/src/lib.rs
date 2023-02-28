@@ -16,6 +16,7 @@
 
 //! Types used to connect to the Wococo-Substrate chain.
 
+use bp_runtime::ChainId;
 use relay_substrate_client::{Chain, ChainWithBalances, RelayChain, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
@@ -35,6 +36,7 @@ impl UnderlyingChainProvider for Wococo {
 }
 
 impl Chain for Wococo {
+	const ID: ChainId = bp_runtime::WOCOCO_CHAIN_ID;
 	const NAME: &'static str = "Wococo";
 	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =

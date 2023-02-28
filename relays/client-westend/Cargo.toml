@@ -11,6 +11,7 @@ relay-utils = { path = "../utils" }
 
 # Bridge dependencies
 
+bp-runtime = { path = "../../primitives/runtime" }
 bp-westend = { path = "../../primitives/chain-westend" }
 
 # Substrate Dependencies

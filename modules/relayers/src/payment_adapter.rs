@@ -18,28 +18,33 @@
 
 use crate::{Config, Pallet};
 
-use bp_messages::source_chain::{DeliveryConfirmationPayments, RelayersRewards};
+use bp_messages::{
+	source_chain::{DeliveryConfirmationPayments, RelayersRewards},
+	LaneId,
+};
+use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
 use sp_arithmetic::traits::{Saturating, UniqueSaturatedFrom, Zero};
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 /// Adapter that allows relayers pallet to be used as a delivery+dispatch payment mechanism
 /// for the messages pallet.
-pub struct DeliveryConfirmationPaymentsAdapter<T, DeliveryReward, ConfirmationReward>(
-	PhantomData<(T, DeliveryReward, ConfirmationReward)>,
+pub struct DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward, ConfirmationReward>(
+	PhantomData<(T, MI, DeliveryReward, ConfirmationReward)>,
 );
 
-impl<T, DeliveryReward, ConfirmationReward> DeliveryConfirmationPayments<T::AccountId>
-	for DeliveryConfirmationPaymentsAdapter<T, DeliveryReward, ConfirmationReward>
+impl<T, MI, DeliveryReward, ConfirmationReward> DeliveryConfirmationPayments<T::AccountId>
+	for DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward, ConfirmationReward>
 where
-	T: Config,
+	T: Config + pallet_bridge_messages::Config<MI>,
+	MI: 'static,
 	DeliveryReward: Get<T::Reward>,
 	ConfirmationReward: Get<T::Reward>,
 {
 	type Error = &'static str;
 
 	fn pay_reward(
-		lane_id: bp_messages::LaneId,
+		lane_id: LaneId,
 		messages_relayers: VecDeque<bp_messages::UnrewardedRelayer<T::AccountId>>,
 		confirmation_relayer: &T::AccountId,
 		received_range: &RangeInclusive<bp_messages::MessageNonce>,
@@ -50,7 +55,11 @@ where
 		register_relayers_rewards::<T>(
 			confirmation_relayer,
 			relayers_rewards,
-			lane_id,
+			RewardsAccountParams::new(
+				lane_id,
+				T::BridgedChainId::get(),
+				RewardsAccountOwner::BridgedChain,
+			),
 			DeliveryReward::get(),
 			ConfirmationReward::get(),
 		);
@@ -61,7 +70,7 @@ where
 fn register_relayers_rewards<T: Config>(
 	confirmation_relayer: &T::AccountId,
 	relayers_rewards: RelayersRewards<T::AccountId>,
-	lane_id: bp_messages::LaneId,
+	lane_id: RewardsAccountParams,
 	delivery_fee: T::Reward,
 	confirmation_fee: T::Reward,
 ) {
@@ -121,13 +130,19 @@ mod tests {
 			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_2,
 				relayers_rewards(),
-				TEST_LANE_ID,
+				TEST_REWARDS_ACCOUNT_PARAMS,
 				50,
 				10,
 			);
 
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_LANE_ID), Some(80));
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_LANE_ID), Some(170));
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
+				Some(80)
+			);
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
+				Some(170)
+			);
 		});
 	}
 
@@ -137,14 +152,23 @@ mod tests {
 			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_3,
 				relayers_rewards(),
-				TEST_LANE_ID,
+				TEST_REWARDS_ACCOUNT_PARAMS,
 				50,
 				10,
 			);
 
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_LANE_ID), Some(80));
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_LANE_ID), Some(120));
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_LANE_ID), Some(50));
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
+				Some(80)
+			);
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
+				Some(120)
+			);
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_REWARDS_ACCOUNT_PARAMS),
+				Some(50)
+			);
 		});
 	}
 
@@ -154,14 +178,23 @@ mod tests {
 			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_3,
 				relayers_rewards(),
-				TEST_LANE_ID,
+				TEST_REWARDS_ACCOUNT_PARAMS,
 				50,
 				1000,
 			);
 
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_LANE_ID), None);
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_LANE_ID), None);
-			assert_eq!(RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_LANE_ID), Some(250));
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
+				None
+			);
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
+				None
+			);
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_REWARDS_ACCOUNT_PARAMS),
+				Some(250)
+			);
 		});
 	}
 }

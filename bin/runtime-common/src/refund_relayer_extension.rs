@@ -23,6 +23,7 @@ use crate::messages_call_ext::{
 	MessagesCallSubType, ReceiveMessagesProofHelper, ReceiveMessagesProofInfo,
 };
 use bp_messages::LaneId;
+use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StaticStrProvider;
 use codec::{Decode, Encode};
 use frame_support::{
@@ -397,7 +398,15 @@ where
 		let refund = Refund::compute_refund(info, &post_info, post_info_len, tip);
 
 		// finally - register refund in relayers pallet
-		RelayersPallet::<Runtime>::register_relayer_reward(Msgs::Id::get(), &relayer, refund);
+		RelayersPallet::<Runtime>::register_relayer_reward(
+			RewardsAccountParams::new(
+				Msgs::Id::get(),
+				Runtime::BridgedChainId::get(),
+				RewardsAccountOwner::ThisChain,
+			),
+			&relayer,
+			refund,
+		);
 
 		log::trace!(
 			target: "runtime::bridge",
@@ -433,6 +442,7 @@ mod tests {
 	parameter_types! {
 		TestParachain: u32 = 1000;
 		pub TestLaneId: LaneId = TEST_LANE_ID;
+		pub DirectedTestLaneId: RewardsAccountParams = RewardsAccountParams::new(TEST_LANE_ID, TEST_BRIDGED_CHAIN_ID, RewardsAccountOwner::ThisChain);
 	}
 
 	bp_runtime::generate_static_str_provider!(TestExtension);
@@ -872,7 +882,7 @@ mod tests {
 			assert_eq!(
 				RelayersPallet::<TestRuntime>::relayer_reward(
 					relayer_account_at_this_chain(),
-					TestLaneId::get()
+					DirectedTestLaneId::get()
 				),
 				Some(regular_reward),
 			);
@@ -891,7 +901,7 @@ mod tests {
 			run_post_dispatch(Some(pre_dispatch_data), Ok(()));
 			let reward_after_two_calls = RelayersPallet::<TestRuntime>::relayer_reward(
 				relayer_account_at_this_chain(),
-				TestLaneId::get(),
+				DirectedTestLaneId::get(),
 			)
 			.unwrap();
 			assert!(
@@ -912,7 +922,7 @@ mod tests {
 			assert_eq!(
 				RelayersPallet::<TestRuntime>::relayer_reward(
 					relayer_account_at_this_chain(),
-					TestLaneId::get()
+					DirectedTestLaneId::get()
 				),
 				Some(expected_reward()),
 			);
@@ -928,7 +938,7 @@ mod tests {
 			assert_eq!(
 				RelayersPallet::<TestRuntime>::relayer_reward(
 					relayer_account_at_this_chain(),
-					TestLaneId::get()
+					DirectedTestLaneId::get()
 				),
 				Some(expected_reward()),
 			);
@@ -944,7 +954,7 @@ mod tests {
 			assert_eq!(
 				RelayersPallet::<TestRuntime>::relayer_reward(
 					relayer_account_at_this_chain(),
-					TestLaneId::get()
+					DirectedTestLaneId::get()
 				),
 				Some(expected_reward()),
 			);

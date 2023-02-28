@@ -17,6 +17,7 @@
 //! Types used to connect to the Polkadot chain.
 
 use bp_polkadot::AccountInfoStorageMapKeyProvider;
+use bp_runtime::ChainId;
 use relay_substrate_client::{Chain, ChainWithBalances, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
@@ -33,6 +34,7 @@ impl UnderlyingChainProvider for Polkadot {
 }
 
 impl Chain for Polkadot {
+	const ID: ChainId = bp_runtime::POLKADOT_CHAIN_ID;
 	const NAME: &'static str = "Polkadot";
 	const TOKEN_ID: Option<&'static str> = Some("polkadot");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =

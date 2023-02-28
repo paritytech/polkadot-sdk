@@ -74,6 +74,12 @@ pub const POLKADOT_CHAIN_ID: ChainId = *b"pdot";
 /// Bridge-with-Kusama instance id.
 pub const KUSAMA_CHAIN_ID: ChainId = *b"ksma";
 
+/// Bridge-with-Westend instance id.
+pub const WESTEND_CHAIN_ID: ChainId = *b"wend";
+
+/// Bridge-with-Westend instance id.
+pub const WESTMINT_CHAIN_ID: ChainId = *b"wmnt";
+
 /// Bridge-with-Rococo instance id.
 pub const ROCOCO_CHAIN_ID: ChainId = *b"roco";
 
