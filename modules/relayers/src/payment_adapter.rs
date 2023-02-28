@@ -24,22 +24,21 @@ use bp_messages::{
 };
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
-use sp_arithmetic::traits::{Saturating, UniqueSaturatedFrom, Zero};
+use sp_arithmetic::traits::{Saturating, Zero};
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 /// Adapter that allows relayers pallet to be used as a delivery+dispatch payment mechanism
 /// for the messages pallet.
-pub struct DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward, ConfirmationReward>(
-	PhantomData<(T, MI, DeliveryReward, ConfirmationReward)>,
+pub struct DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>(
+	PhantomData<(T, MI, DeliveryReward)>,
 );
 
-impl<T, MI, DeliveryReward, ConfirmationReward> DeliveryConfirmationPayments<T::AccountId>
-	for DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward, ConfirmationReward>
+impl<T, MI, DeliveryReward> DeliveryConfirmationPayments<T::AccountId>
+	for DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>
 where
 	T: Config + pallet_bridge_messages::Config<MI>,
 	MI: 'static,
 	DeliveryReward: Get<T::Reward>,
-	ConfirmationReward: Get<T::Reward>,
 {
 	type Error = &'static str;
 
@@ -61,7 +60,6 @@ where
 				RewardsAccountOwner::BridgedChain,
 			),
 			DeliveryReward::get(),
-			ConfirmationReward::get(),
 		);
 	}
 }
@@ -72,32 +70,17 @@ fn register_relayers_rewards<T: Config>(
 	relayers_rewards: RelayersRewards<T::AccountId>,
 	lane_id: RewardsAccountParams,
 	delivery_fee: T::Reward,
-	confirmation_fee: T::Reward,
 ) {
 	// reward every relayer except `confirmation_relayer`
 	let mut confirmation_relayer_reward = T::Reward::zero();
 	for (relayer, messages) in relayers_rewards {
 		// sane runtime configurations guarantee that the number of messages will be below
 		// `u32::MAX`
-		let mut relayer_reward =
-			T::Reward::unique_saturated_from(messages).saturating_mul(delivery_fee);
+		let relayer_reward = T::Reward::saturated_from(messages).saturating_mul(delivery_fee);
 
 		if relayer != *confirmation_relayer {
-			// If delivery confirmation is submitted by other relayer, let's deduct confirmation fee
-			// from relayer reward.
-			//
-			// If confirmation fee has been increased (or if it was the only component of message
-			// fee), then messages relayer may receive zero reward.
-			let mut confirmation_reward =
-				T::Reward::saturated_from(messages).saturating_mul(confirmation_fee);
-			confirmation_reward = sp_std::cmp::min(confirmation_reward, relayer_reward);
-			relayer_reward = relayer_reward.saturating_sub(confirmation_reward);
-			confirmation_relayer_reward =
-				confirmation_relayer_reward.saturating_add(confirmation_reward);
 			Pallet::<T>::register_relayer_reward(lane_id, &relayer, relayer_reward);
 		} else {
-			// If delivery confirmation is submitted by this relayer, let's add confirmation fee
-			// from other relayers to this relayer reward.
 			confirmation_relayer_reward =
 				confirmation_relayer_reward.saturating_add(relayer_reward);
 		}
@@ -132,68 +115,40 @@ mod tests {
 				relayers_rewards(),
 				TEST_REWARDS_ACCOUNT_PARAMS,
 				50,
-				10,
 			);
 
 			assert_eq!(
 				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
-				Some(80)
+				Some(100)
 			);
 			assert_eq!(
 				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
-				Some(170)
+				Some(150)
 			);
 		});
 	}
 
 	#[test]
-	fn confirmation_relayer_is_rewarded_if_it_has_not_delivered_any_delivered_messages() {
+	fn confirmation_relayer_is_not_rewarded_if_it_has_not_delivered_any_messages() {
 		run_test(|| {
 			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_3,
 				relayers_rewards(),
 				TEST_REWARDS_ACCOUNT_PARAMS,
 				50,
-				10,
 			);
 
 			assert_eq!(
 				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
-				Some(80)
+				Some(100)
 			);
 			assert_eq!(
 				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
-				Some(120)
+				Some(150)
 			);
 			assert_eq!(
 				RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_REWARDS_ACCOUNT_PARAMS),
-				Some(50)
-			);
-		});
-	}
-
-	#[test]
-	fn only_confirmation_relayer_is_rewarded_if_confirmation_fee_has_significantly_increased() {
-		run_test(|| {
-			register_relayers_rewards::<TestRuntime>(
-				&RELAYER_3,
-				relayers_rewards(),
-				TEST_REWARDS_ACCOUNT_PARAMS,
-				50,
-				1000,
-			);
-
-			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
 				None
-			);
-			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
-				None
-			);
-			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_REWARDS_ACCOUNT_PARAMS),
-				Some(250)
 			);
 		});
 	}

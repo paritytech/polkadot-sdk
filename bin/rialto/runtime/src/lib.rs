@@ -445,7 +445,6 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 		Runtime,
 		WithMillauMessagesInstance,
 		frame_support::traits::ConstU128<100_000>,
-		frame_support::traits::ConstU128<100_000>,
 	>;
 
 	type SourceHeaderChain = crate::millau_messages::MillauAsSourceHeaderChain;
