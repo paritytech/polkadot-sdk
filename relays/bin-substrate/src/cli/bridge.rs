@@ -16,7 +16,6 @@
 
 use crate::cli::CliChain;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use parachains_relay::ParachainsPipeline;
 use relay_substrate_client::{Chain, ChainWithTransactions, Parachain, RelayChain};
 use strum::{EnumString, EnumVariantNames};
 use substrate_relay_helper::{
@@ -87,10 +86,10 @@ where
 		+ RelayChain;
 	/// Finality proofs synchronization pipeline (source parachain -> target).
 	type ParachainFinality: SubstrateParachainsPipeline<
-			SourceRelayChain = Self::SourceRelay,
-			SourceParachain = Self::Source,
-			TargetChain = Self::Target,
-		> + ParachainsPipeline<SourceChain = Self::SourceRelay, TargetChain = Self::Target>;
+		SourceRelayChain = Self::SourceRelay,
+		SourceParachain = Self::Source,
+		TargetChain = Self::Target,
+	>;
 	/// Finality proofs synchronization pipeline (source relay chain -> target).
 	type RelayFinality: SubstrateFinalitySyncPipeline<
 		SourceChain = Self::SourceRelay,

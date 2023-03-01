@@ -101,7 +101,7 @@ pub const WITH_WESTEND_BRIDGE_PARAS_PALLET_NAME: &str = "BridgeWestendParachains
 pub const MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE: u32 = 128;
 
 /// Identifier of Westmint parachain at the Westend relay chain.
-pub const WESTMINT_PARACHAIN_ID: u32 = 2000;
+pub const WESTMINT_PARACHAIN_ID: u32 = 1000;
 
 decl_bridge_finality_runtime_apis!(westend);
 

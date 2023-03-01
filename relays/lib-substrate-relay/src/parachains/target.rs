@@ -24,18 +24,15 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use bp_parachains::{BestParaHeadHash, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::HeaderIdProvider;
 use codec::Decode;
-use parachains_relay::{
-	parachains_loop::TargetClient, parachains_loop_metrics::ParachainsLoopMetrics,
-};
+use parachains_relay::parachains_loop::TargetClient;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error as SubstrateError, HashOf,
-	HeaderIdOf, ParachainBase, RelayChain, TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, Chain, Client, Error as SubstrateError, HeaderIdOf,
+	ParachainBase, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
-use relay_utils::{relay_loop::Client as RelayClient, HeaderId};
+use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::{Bytes, Pair};
 
 /// Substrate client as parachain heads source.
@@ -92,93 +89,50 @@ where
 		Ok(best_id)
 	}
 
-	async fn best_finalized_source_block(
+	async fn best_finalized_source_relay_chain_block(
 		&self,
 		at_block: &HeaderIdOf<P::TargetChain>,
 	) -> Result<HeaderIdOf<P::SourceRelayChain>, Self::Error> {
-		let encoded_best_finalized_source_block = self
-			.client
-			.state_call(
+		self.client
+			.typed_state_call::<_, Option<HeaderIdOf<P::SourceRelayChain>>>(
 				P::SourceRelayChain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
-				Bytes(Vec::new()),
+				(),
 				Some(at_block.1),
 			)
-			.await?;
-
-		Option::<HeaderId<HashOf<P::SourceRelayChain>, BlockNumberOf<P::SourceRelayChain>>>::decode(
-			&mut &encoded_best_finalized_source_block.0[..],
-		)
-		.map_err(SubstrateError::ResponseParseFailed)?
-		.map(Ok)
-		.unwrap_or(Err(SubstrateError::NoParachainHeadAtTarget(
-			P::SourceParachain::PARACHAIN_ID,
-			P::TargetChain::NAME.into(),
-		)))
+			.await?
+			.map(Ok)
+			.unwrap_or(Err(SubstrateError::BridgePalletIsNotInitialized))
 	}
 
 	async fn parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::TargetChain>,
-		metrics: Option<&ParachainsLoopMetrics>,
-		para_id: ParaId,
-	) -> Result<Option<BestParaHeadHash>, Self::Error> {
-		let best_para_head_hash: Option<BestParaHeadHash> = self
+	) -> Result<Option<HeaderIdOf<P::SourceParachain>>, Self::Error> {
+		let encoded_best_finalized_source_para_block = self
 			.client
-			.storage_map_value::<ParasInfoKeyProvider>(
-				P::SourceRelayChain::PARACHAINS_FINALITY_PALLET_NAME,
-				&para_id,
+			.state_call(
+				P::SourceParachain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
+				Bytes(Vec::new()),
 				Some(at_block.1),
 			)
-			.await?
-			.map(|para_info| para_info.best_head_hash);
+			.await?;
 
-		if let (Some(metrics), Some(best_para_head_hash)) = (metrics, &best_para_head_hash) {
-			let imported_para_head_number = self
-				.client
-				.storage_double_map_value::<ImportedParaHeadsKeyProvider>(
-					P::SourceRelayChain::PARACHAINS_FINALITY_PALLET_NAME,
-					&para_id,
-					&best_para_head_hash.head_hash,
-					Some(at_block.1),
-				)
-				.await
-				.and_then(|maybe_encoded_head| match maybe_encoded_head {
-					Some(encoded_head) => encoded_head
-						.decode_parachain_head_data::<P::SourceParachain>()
-						.map(|head| head.number)
-						.map(Some)
-						.map_err(Self::Error::ResponseParseFailed),
-					None => Ok(None),
-				})
-				.map_err(|e| {
-					log::error!(
-						target: "bridge-metrics",
-						"Failed to read or decode {} parachain header at {}: {:?}. Metric will have obsolete value",
-						P::SourceParachain::NAME,
-						P::TargetChain::NAME,
-						e,
-					);
-					e
-				})
-				.unwrap_or(None);
-			if let Some(imported_para_head_number) = imported_para_head_number {
-				metrics.update_best_parachain_block_at_target(para_id, imported_para_head_number);
-			}
-		}
-
-		Ok(best_para_head_hash)
+		Ok(Option::<HeaderIdOf<P::SourceParachain>>::decode(
+			&mut &encoded_best_finalized_source_para_block.0[..],
+		)
+		.map_err(SubstrateError::ResponseParseFailed)?)
 	}
 
-	async fn submit_parachain_heads_proof(
+	async fn submit_parachain_head_proof(
 		&self,
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
-		updated_parachains: Vec<(ParaId, ParaHash)>,
+		updated_head_hash: ParaHash,
 		proof: ParaHeadsProof,
 	) -> Result<Self::TransactionTracker, Self::Error> {
 		let transaction_params = self.transaction_params.clone();
 		let call = P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
 			at_relay_block,
-			updated_parachains,
+			vec![(ParaId(P::SourceParachain::PARACHAIN_ID), updated_head_hash)],
 			proof,
 		);
 		self.client

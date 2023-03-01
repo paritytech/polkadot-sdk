@@ -36,9 +36,7 @@ use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
 use num_traits::Zero;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use parachains_relay::parachains_loop::{
-	AvailableHeader, ParachainSyncParams, SourceClient, TargetClient,
-};
+use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
 use relay_substrate_client::{
 	is_ancient_block, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
 	Error as SubstrateError, HashOf, HeaderIdOf, ParachainBase,
@@ -183,7 +181,7 @@ where
 		let mut proved_parachain_block = selected_parachain_block;
 		if proved_relay_block != selected_relay_block {
 			proved_parachain_block = parachains_source
-				.on_chain_para_head_id(proved_relay_block, para_id)
+				.on_chain_para_head_id(proved_relay_block)
 				.await?
 				// this could happen e.g. if parachain has been offboarded?
 				.ok_or_else(|| {
@@ -209,11 +207,11 @@ where
 		}
 
 		// and finally - prove parachain head
-		let (para_proof, para_hashes) =
-			parachains_source.prove_parachain_heads(proved_relay_block, &[para_id]).await?;
+		let (para_proof, para_hash) =
+			parachains_source.prove_parachain_head(proved_relay_block).await?;
 		calls.push(P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
 			proved_relay_block,
-			para_hashes.into_iter().map(|h| (para_id, h)).collect(),
+			vec![(para_id, para_hash)],
 			para_proof,
 		));
 
@@ -241,16 +239,14 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 
 	let mut relay_state = RelayState::Idle;
 	let mut required_parachain_header_number = Zero::zero();
-	let required_para_header_number_ref = Arc::new(Mutex::new(AvailableHeader::Unavailable));
+	let required_para_header_ref = Arc::new(Mutex::new(AvailableHeader::Unavailable));
 
 	let mut restart_relay = true;
 	let parachains_relay_task = futures::future::Fuse::terminated();
 	futures::pin_mut!(parachains_relay_task);
 
-	let mut parachains_source = ParachainsSource::<P>::new(
-		source_relay_client.clone(),
-		required_para_header_number_ref.clone(),
-	);
+	let mut parachains_source =
+		ParachainsSource::<P>::new(source_relay_client.clone(), required_para_header_ref.clone());
 	let mut parachains_target =
 		ParachainsTarget::<P>::new(target_client.clone(), target_transaction_params.clone());
 
@@ -271,13 +267,20 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					},
 				};
 
-				// keep in mind that we are not updating `required_para_header_number_ref` here, because
+				// keep in mind that we are not updating `required_para_header_ref` here, because
 				// then we'll be submitting all previous headers as well (while required relay headers are
 				// delivered) and we want to avoid that (to reduce cost)
-				required_parachain_header_number = std::cmp::max(
-					required_parachain_header_number,
-					new_required_parachain_header_number,
-				);
+				if new_required_parachain_header_number > required_parachain_header_number {
+					log::trace!(
+						target: "bridge",
+						"[{}] More {} headers required. Going to sync up to the {}",
+						relay_task_name,
+						P::SourceParachain::NAME,
+						new_required_parachain_header_number,
+					);
+
+					required_parachain_header_number = new_required_parachain_header_number;
+				}
 			},
 			_ = async_std::task::sleep(P::TargetChain::AVERAGE_BLOCK_INTERVAL).fuse() => {},
 			_ = parachains_relay_task => {
@@ -351,7 +354,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					.await;
 			},
 			RelayState::RelayingParaHeader(required_para_header) => {
-				*required_para_header_number_ref.lock().await =
+				*required_para_header_ref.lock().await =
 					AvailableHeader::Available(required_para_header);
 			},
 		}
@@ -379,11 +382,6 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				parachains_relay::parachains_loop::run(
 					parachains_source.clone(),
 					parachains_target.clone(),
-					ParachainSyncParams {
-						parachains: vec![P::SourceParachain::PARACHAIN_ID.into()],
-						stall_timeout: std::time::Duration::from_secs(60),
-						strategy: parachains_relay::parachains_loop::ParachainSyncStrategy::Any,
-					},
 					MetricsParams::disabled(),
 					futures::future::pending(),
 				)
@@ -489,10 +487,7 @@ where
 		source.client().best_finalized_header().await.map_err(map_source_err)?;
 	let best_finalized_relay_block_id = best_finalized_relay_header.id();
 	let para_header_at_source = source
-		.on_chain_para_head_id(
-			best_finalized_relay_block_id,
-			P::SourceParachain::PARACHAIN_ID.into(),
-		)
+		.on_chain_para_head_id(best_finalized_relay_block_id)
 		.await
 		.map_err(map_source_err)?;
 
@@ -515,10 +510,7 @@ where
 	let para_header_at_relay_header_at_target =
 		if let Some(available_relay_header_at_target) = available_relay_header_at_target {
 			source
-				.on_chain_para_head_id(
-					available_relay_header_at_target,
-					P::SourceParachain::PARACHAIN_ID.into(),
-				)
+				.on_chain_para_head_id(available_relay_header_at_target)
 				.await
 				.map_err(map_source_err)?
 		} else {
@@ -669,7 +661,7 @@ impl<'a, P: SubstrateParachainsPipeline>
 		&self,
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 	) -> Result<Option<HeaderIdOf<P::SourceParachain>>, SubstrateError> {
-		self.1.on_chain_para_head_id(at_relay_block, self.parachain_id()).await
+		self.1.on_chain_para_head_id(at_relay_block).await
 	}
 }
 
