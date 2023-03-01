@@ -106,6 +106,7 @@ impl bp_runtime::UnderlyingChainProvider for TestParachain {
 }
 
 impl Chain for TestParachain {
+	const ID: ChainId = *b"test";
 	const NAME: &'static str = "TestParachain";
 	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestParachainMethod";
