@@ -16,7 +16,7 @@
 
 use std::fmt::Debug;
 
-use relay_substrate_client::Chain;
+use relay_substrate_client::{Chain, Parachain};
 
 pub mod parachains_loop;
 pub mod parachains_loop_metrics;
@@ -24,7 +24,9 @@ pub mod parachains_loop_metrics;
 /// Finality proofs synchronization pipeline.
 pub trait ParachainsPipeline: 'static + Clone + Debug + Send + Sync {
 	/// Relay chain which is storing parachain heads in its `paras` module.
-	type SourceChain: Chain;
+	type SourceRelayChain: Chain;
+	/// Parachain which headers we are syncing here.
+	type SourceParachain: Parachain;
 	/// Target chain (either relay or para) which wants to know about new parachain heads.
 	type TargetChain: Chain;
 }

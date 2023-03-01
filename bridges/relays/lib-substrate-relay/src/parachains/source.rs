@@ -24,10 +24,7 @@ use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::HeaderIdProvider;
 use codec::Decode;
-use parachains_relay::{
-	parachains_loop::{AvailableHeader, SourceClient},
-	parachains_loop_metrics::ParachainsLoopMetrics,
-};
+use parachains_relay::parachains_loop::{AvailableHeader, SourceClient};
 use relay_substrate_client::{
 	is_ancient_block, Chain, Client, Error as SubstrateError, HeaderIdOf, HeaderOf, ParachainBase,
 	RelayChain,
@@ -63,8 +60,8 @@ impl<P: SubstrateParachainsPipeline> ParachainsSource<P> {
 	pub async fn on_chain_para_head_id(
 		&self,
 		at_block: HeaderIdOf<P::SourceRelayChain>,
-		para_id: ParaId,
 	) -> Result<Option<HeaderIdOf<P::SourceParachain>>, SubstrateError> {
+		let para_id = ParaId(P::SourceParachain::PARACHAIN_ID);
 		let storage_key =
 			parachain_head_storage_key_at_source(P::SourceRelayChain::PARAS_PALLET_NAME, para_id);
 		let para_head = self.client.raw_storage_value(storage_key, Some(at_block.1)).await?;
@@ -104,18 +101,7 @@ where
 	async fn parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::SourceRelayChain>,
-		metrics: Option<&ParachainsLoopMetrics>,
-		para_id: ParaId,
-	) -> Result<AvailableHeader<ParaHash>, Self::Error> {
-		// we don't need to support many parachains now
-		if para_id.0 != P::SourceParachain::PARACHAIN_ID {
-			return Err(SubstrateError::Custom(format!(
-				"Parachain id {} is not matching expected {}",
-				para_id.0,
-				P::SourceParachain::PARACHAIN_ID,
-			)))
-		}
-
+	) -> Result<AvailableHeader<HeaderIdOf<P::SourceParachain>>, Self::Error> {
 		// if requested relay header is ancient, then we don't even want to try to read the
 		// parachain head - we simply return `Unavailable`
 		let best_block_number = self.client.best_finalized_header_number().await?;
@@ -125,7 +111,7 @@ where
 
 		// else - try to read head from the source client
 		let mut para_head_id = AvailableHeader::Missing;
-		if let Some(on_chain_para_head_id) = self.on_chain_para_head_id(at_block, para_id).await? {
+		if let Some(on_chain_para_head_id) = self.on_chain_para_head_id(at_block).await? {
 			// Never return head that is larger than requested. This way we'll never sync
 			// headers past `max_header_id`.
 			para_head_id = match *self.max_head_id.lock().await {
@@ -141,26 +127,14 @@ where
 			}
 		}
 
-		if let (Some(metrics), AvailableHeader::Available(para_head_id)) = (metrics, para_head_id) {
-			metrics.update_best_parachain_block_at_source(para_id, para_head_id.0);
-		}
-
-		Ok(para_head_id.map(|para_head_id| para_head_id.1))
+		Ok(para_head_id)
 	}
 
-	async fn prove_parachain_heads(
+	async fn prove_parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::SourceRelayChain>,
-		parachains: &[ParaId],
-	) -> Result<(ParaHeadsProof, Vec<ParaHash>), Self::Error> {
+	) -> Result<(ParaHeadsProof, ParaHash), Self::Error> {
 		let parachain = ParaId(P::SourceParachain::PARACHAIN_ID);
-		if parachains != [parachain] {
-			return Err(SubstrateError::Custom(format!(
-				"Trying to prove unexpected parachains {parachains:?}. Expected {parachain:?}",
-			)))
-		}
-
-		let parachain = parachains[0];
 		let storage_key =
 			parachain_head_storage_key_at_source(P::SourceRelayChain::PARAS_PALLET_NAME, parachain);
 		let parachain_heads_proof = self
@@ -190,6 +164,6 @@ where
 			})?;
 		let parachain_head_hash = parachain_head.hash();
 
-		Ok((ParaHeadsProof(parachain_heads_proof), vec![parachain_head_hash]))
+		Ok((ParaHeadsProof(parachain_heads_proof), parachain_head_hash))
 	}
 }
