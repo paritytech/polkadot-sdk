@@ -72,7 +72,7 @@ pub trait RelayChain: Chain {
 	/// Name of the bridge parachains pallet (used in `construct_runtime` macro call) that is
 	/// deployed at the **bridged** chain.
 	///
-	/// We assume that all chains that are bridging with this `ChainWithGrandpa` are using
+	/// We assume that all chains that are bridging with this `RelayChain` are using
 	/// the same name.
 	const PARACHAINS_FINALITY_PALLET_NAME: &'static str;
 }

@@ -14,7 +14,6 @@ relay-utils = { path = "../utils" }
 
 # Bridge dependencies
 
-bp-parachains = { path = "../../primitives/parachains" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 relay-substrate-client = { path = "../client-substrate" }
 
