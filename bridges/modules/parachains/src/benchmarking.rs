@@ -85,7 +85,7 @@ benchmarks_instance_pallet! {
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::HasExtraNodes(1024),
+			StorageProofSize::HasLargeLeaf(1024),
 		);
 		let at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)
@@ -102,7 +102,7 @@ benchmarks_instance_pallet! {
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::HasExtraNodes(16 * 1024),
+			StorageProofSize::HasLargeLeaf(16 * 1024),
 		);
 		let at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)
