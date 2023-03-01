@@ -23,7 +23,9 @@
     "/dns/boot-dot-collectives-cr.gatotech.network/tcp/31416/ws/p2p/12D3KooWGZsa9tSeLQ1VeC996e1YsCPuyRYMipHQuXikPjcKcpVQ",
     "/dns/boot-dot-collectives-cr.gatotech.network/tcp/31516/wss/p2p/12D3KooWGZsa9tSeLQ1VeC996e1YsCPuyRYMipHQuXikPjcKcpVQ",
     "/dns/collectives-polkadot-bootnode.turboflakes.io/tcp/30605/p2p/12D3KooWPyzM7eX64J4aG8uRfSARakDVtiEtthEM8FUjrLWAg2sC",
-    "/dns/collectives-polkadot-bootnode.turboflakes.io/tcp/30705/wss/p2p/12D3KooWPyzM7eX64J4aG8uRfSARakDVtiEtthEM8FUjrLWAg2sC"
+    "/dns/collectives-polkadot-bootnode.turboflakes.io/tcp/30705/wss/p2p/12D3KooWPyzM7eX64J4aG8uRfSARakDVtiEtthEM8FUjrLWAg2sC",
+    "/dns/boot-node.helikon.io/tcp/10230/p2p/12D3KooWS8CBz4P5CBny9aBy2EQUvAExFo9PUVT57X8r3zWMFkXT",
+    "/dns/boot-node.helikon.io/tcp/10232/wss/p2p/12D3KooWS8CBz4P5CBny9aBy2EQUvAExFo9PUVT57X8r3zWMFkXT"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

@@ -21,7 +21,9 @@
     "/dns/boot-dot-statemint-cr.gatotech.network/tcp/31415/ws/p2p/12D3KooWKgwQfAeDoJARdtxFNNWfbYmcu6s4yUuSifnNoDgzHZgm",
     "/dns/boot-dot-statemint-cr.gatotech.network/tcp/31515/wss/p2p/12D3KooWKgwQfAeDoJARdtxFNNWfbYmcu6s4yUuSifnNoDgzHZgm",
     "/dns/statemint-bootnode.turboflakes.io/tcp/30315/p2p/12D3KooWL8CyLww3m3pRySQGGYGNJhWDMqko3j5xi67ckP7hDUvo",
-    "/dns/statemint-bootnode.turboflakes.io/tcp/30415/wss/p2p/12D3KooWL8CyLww3m3pRySQGGYGNJhWDMqko3j5xi67ckP7hDUvo"
+    "/dns/statemint-bootnode.turboflakes.io/tcp/30415/wss/p2p/12D3KooWL8CyLww3m3pRySQGGYGNJhWDMqko3j5xi67ckP7hDUvo",
+    "/dns/boot-node.helikon.io/tcp/10220/p2p/12D3KooW9uybhguhDjVJc3U3kgZC3i8rWmAnSpbnJkmuR7C6ZsRW",
+    "/dns/boot-node.helikon.io/tcp/10222/wss/p2p/12D3KooW9uybhguhDjVJc3U3kgZC3i8rWmAnSpbnJkmuR7C6ZsRW"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

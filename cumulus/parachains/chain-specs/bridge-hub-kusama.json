@@ -23,7 +23,9 @@
     "/dns/boot-ksm-bridgehub-cr.gatotech.network/tcp/31427/ws/p2p/12D3KooWFQFmg8UqAYLDNc2onySB6o5LLvpbx3eXZVqz9YFxAmXs",
     "/dns/boot-ksm-bridgehub-cr.gatotech.network/tcp/31527/wss/p2p/12D3KooWFQFmg8UqAYLDNc2onySB6o5LLvpbx3eXZVqz9YFxAmXs",
     "/dns/bridge-hub-kusama-bootnode.turboflakes.io/tcp/30615/p2p/12D3KooWE3dJXbwA5SQqbDNxHfj7BXJRcy2KiXWjJY4VUMKoa7S2",
-    "/dns/bridge-hub-kusama-bootnode.turboflakes.io/tcp/30715/wss/p2p/12D3KooWE3dJXbwA5SQqbDNxHfj7BXJRcy2KiXWjJY4VUMKoa7S2"
+    "/dns/bridge-hub-kusama-bootnode.turboflakes.io/tcp/30715/wss/p2p/12D3KooWE3dJXbwA5SQqbDNxHfj7BXJRcy2KiXWjJY4VUMKoa7S2",
+    "/dns/boot-node.helikon.io/tcp/10250/p2p/12D3KooWDJLkhqQdXcVKWX7CqJHnpAY6PzrPc4ZG2CUWnARbmguy",
+    "/dns/boot-node.helikon.io/tcp/10252/wss/p2p/12D3KooWDJLkhqQdXcVKWX7CqJHnpAY6PzrPc4ZG2CUWnARbmguy"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
