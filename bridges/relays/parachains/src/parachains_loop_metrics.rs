@@ -16,7 +16,7 @@
 
 use bp_polkadot_core::parachains::ParaId;
 use relay_utils::{
-	metrics::{metric_name, register, GaugeVec, Metric, Opts, PrometheusError, Registry, U64},
+	metrics::{metric_name, register, Gauge, Metric, PrometheusError, Registry, U64},
 	UniqueSaturatedInto,
 };
 
@@ -24,28 +24,22 @@ use relay_utils::{
 #[derive(Clone)]
 pub struct ParachainsLoopMetrics {
 	/// Best parachains header numbers at the source.
-	best_source_block_numbers: GaugeVec<U64>,
+	best_source_block_numbers: Gauge<U64>,
 	/// Best parachains header numbers at the target.
-	best_target_block_numbers: GaugeVec<U64>,
+	best_target_block_numbers: Gauge<U64>,
 }
 
 impl ParachainsLoopMetrics {
 	/// Create and register parachains loop metrics.
 	pub fn new(prefix: Option<&str>) -> Result<Self, PrometheusError> {
 		Ok(ParachainsLoopMetrics {
-			best_source_block_numbers: GaugeVec::new(
-				Opts::new(
-					metric_name(prefix, "best_parachain_block_number_at_source"),
-					"Best parachain block numbers at the source relay chain".to_string(),
-				),
-				&["parachain"],
+			best_source_block_numbers: Gauge::new(
+				metric_name(prefix, "best_parachain_block_number_at_source"),
+				"Best parachain block numbers at the source relay chain".to_string(),
 			)?,
-			best_target_block_numbers: GaugeVec::new(
-				Opts::new(
-					metric_name(prefix, "best_parachain_block_number_at_target"),
-					"Best parachain block numbers at the target chain".to_string(),
-				),
-				&["parachain"],
+			best_target_block_numbers: Gauge::new(
+				metric_name(prefix, "best_parachain_block_number_at_target"),
+				"Best parachain block numbers at the target chain".to_string(),
 			)?,
 		})
 	}
@@ -57,14 +51,13 @@ impl ParachainsLoopMetrics {
 		block_number: Number,
 	) {
 		let block_number = block_number.unique_saturated_into();
-		let label = parachain_label(&parachain);
 		log::trace!(
 			target: "bridge-metrics",
-			"Updated value of metric 'best_parachain_block_number_at_source[{}]': {:?}",
-			label,
+			"Updated value of metric 'best_parachain_block_number_at_source[{:?}]': {:?}",
+			parachain,
 			block_number,
 		);
-		self.best_source_block_numbers.with_label_values(&[&label]).set(block_number);
+		self.best_source_block_numbers.set(block_number);
 	}
 
 	/// Update best block number at target.
@@ -74,14 +67,13 @@ impl ParachainsLoopMetrics {
 		block_number: Number,
 	) {
 		let block_number = block_number.unique_saturated_into();
-		let label = parachain_label(&parachain);
 		log::trace!(
 			target: "bridge-metrics",
-			"Updated value of metric 'best_parachain_block_number_at_target[{}]': {:?}",
-			label,
+			"Updated value of metric 'best_parachain_block_number_at_target[{:?}]': {:?}",
+			parachain,
 			block_number,
 		);
-		self.best_target_block_numbers.with_label_values(&[&label]).set(block_number);
+		self.best_target_block_numbers.set(block_number);
 	}
 }
 
@@ -91,9 +83,4 @@ impl Metric for ParachainsLoopMetrics {
 		register(self.best_target_block_numbers.clone(), registry)?;
 		Ok(())
 	}
-}
-
-/// Return metric label for the parachain.
-fn parachain_label(parachain: &ParaId) -> String {
-	format!("para_{}", parachain.0)
 }
